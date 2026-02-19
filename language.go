@@ -137,4 +137,9 @@ type Language struct {
 
 	// External scanner (nil if not needed)
 	ExternalScanner ExternalScanner
+
+	// InitialState is the parser's start state. In tree-sitter grammars
+	// this is always 1 (state 0 is reserved for error recovery). For
+	// hand-built grammars it defaults to 0.
+	InitialState StateID
 }

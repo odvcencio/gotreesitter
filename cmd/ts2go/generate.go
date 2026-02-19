@@ -32,6 +32,9 @@ func GenerateGo(g *ExtractedGrammar, pkg string) string {
 	fmt.Fprintf(&buf, "\t\tFieldCount:         %d,\n", g.FieldCount)
 	fmt.Fprintf(&buf, "\t\tProductionIDCount:  %d,\n", g.ProductionIDCount)
 
+	// Tree-sitter grammars always start at state 1 (state 0 is error recovery).
+	buf.WriteString("\t\tInitialState:       1,\n")
+
 	// Symbol names
 	writeStringSlice(&buf, "SymbolNames", g.SymbolNames)
 
@@ -135,11 +138,36 @@ func writeUint32Slice(buf *strings.Builder, name string, vals []uint32) {
 }
 
 func writeParseActions(buf *strings.Builder, groups []ActionGroup) {
-	buf.WriteString("\t\tParseActions: []gotreesitter.ParseActionEntry{\n")
+	// The parse table and small parse table reference entries by their C array
+	// index. In C, each header entry is followed by N action entries inline.
+	// We need to pad the Go slice so that Go index == C index for each header.
+	//
+	// Find the max C index to determine the slice size.
+	maxIdx := 0
 	for _, ag := range groups {
+		if ag.Index > maxIdx {
+			maxIdx = ag.Index
+		}
+	}
+
+	buf.WriteString("\t\tParseActions: []gotreesitter.ParseActionEntry{\n")
+
+	// Build a map from C index to group.
+	groupMap := make(map[int]*ActionGroup, len(groups))
+	for i := range groups {
+		groupMap[groups[i].Index] = &groups[i]
+	}
+
+	for i := 0; i <= maxIdx; i++ {
+		ag, ok := groupMap[i]
+		if !ok {
+			// Padding entry — this C index is an action slot or unused.
+			buf.WriteString("\t\t\t{},\n")
+			continue
+		}
 		fmt.Fprintf(buf, "\t\t\t{Reusable: %t, Actions: []gotreesitter.ParseAction{", ag.Reusable)
-		for i, a := range ag.Actions {
-			if i > 0 {
+		for j, a := range ag.Actions {
+			if j > 0 {
 				buf.WriteString(", ")
 			}
 			switch a.Type {

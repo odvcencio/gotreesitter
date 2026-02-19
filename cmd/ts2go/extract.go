@@ -44,6 +44,7 @@ type SymbolMeta struct {
 
 // ActionGroup is a contiguous group of parse actions in the actions table.
 type ActionGroup struct {
+	Index    int // C array index of the header entry
 	Count    int
 	Reusable bool
 	Actions  []ExtractedAction
@@ -388,10 +389,10 @@ func extractParseTable(source string, g *ExtractedGrammar) error {
 		table[i] = make([]uint16, g.SymbolCount)
 	}
 
-	// Find each state block: [N] = { ... }
+	// Find each state block: [N] = { ... } or [STATE(N)] = { ... }
 	// We need to handle nested braces properly since each state contains
 	// inner assignments.
-	stateStartRe := regexp.MustCompile(`\[(\w+)\]\s*=\s*\{`)
+	stateStartRe := regexp.MustCompile(`\[(?:STATE\()?(\w+)\)?\]\s*=\s*\{`)
 	locs := stateStartRe.FindAllStringSubmatchIndex(body, -1)
 
 	// Parse inner assignments: [sym_name] = ACTIONS(N) or [sym_name] = N
@@ -460,15 +461,27 @@ func extractParseTable(source string, g *ExtractedGrammar) error {
 
 // extractSmallParseTable parses the ts_small_parse_table[] and
 // ts_small_parse_table_map[] arrays (compressed sparse table).
+//
+// The C source uses macros and symbolic names:
+//   [0] = 33,
+//     ACTIONS(3), 1,
+//       sym_comment,
+//     ACTIONS(23), 1,
+//       anon_sym_LBRACK,
+//     STATE(542), 1,
+//       sym__expression,
+//
+// After macro expansion (ACTIONS(N)=N, STATE(N)=N), this becomes a flat
+// array of uint16 values: [group_count, section_value, sym_count, sym1, ...]
+// We need to resolve all symbolic names to their enum integer values.
 func extractSmallParseTable(source string, g *ExtractedGrammar) error {
 	// We need to find ts_small_parse_table but NOT ts_small_parse_table_map.
-	// Use a more specific search to avoid ambiguity.
 	body, err := findExactArrayBody(source, "ts_small_parse_table")
 	if err != nil {
 		return err
 	}
 
-	g.SmallParseTable = parseUint16List(body)
+	g.SmallParseTable = parseSmallParseTableValues(body, g.enumValues)
 
 	// Map from state to offset.
 	mapBody, err := findArrayBody(source, "ts_small_parse_table_map")
@@ -476,8 +489,115 @@ func extractSmallParseTable(source string, g *ExtractedGrammar) error {
 		return err
 	}
 
-	g.SmallParseTableMap = parseUint32List(mapBody)
+	g.SmallParseTableMap = parseSmallParseTableMap(mapBody, g.LargeStateCount)
 	return nil
+}
+
+// parseSmallParseTableValues extracts all uint16 values from the small parse
+// table body, resolving ACTIONS(N), STATE(N) macros and symbolic enum names.
+// The result is a flat uint16 array matching the compiled C format.
+func parseSmallParseTableValues(body string, enums map[string]int) []uint16 {
+	// Match tokens: numbers, ACTIONS(N), STATE(N), or symbolic names.
+	// We need to extract them in order, skipping array indices like [0] =.
+	tokenRe := regexp.MustCompile(
+		`\[(\d+)\]\s*=` + // array index assignment (capture group 1)
+			`|` + `(?:ACTIONS|STATE)\((\d+)\)` + // macro with number (capture group 2)
+			`|` + `\b([a-zA-Z_]\w*)\b` + // symbolic name (capture group 3)
+			`|` + `\b(\d+)\b`, // plain number (capture group 4)
+	)
+
+	// Keywords to skip (not enum values)
+	skipWords := map[string]bool{
+		"ACTIONS": true, "STATE": true, "SMALL_STATE": true,
+		"static": true, "const": true, "uint16_t": true,
+	}
+
+	matches := tokenRe.FindAllStringSubmatch(body, -1)
+	var result []uint16
+	for _, m := range matches {
+		if m[1] != "" {
+			// Array index like [0] = ... — skip entirely.
+			// The index is NOT part of the flat data.
+			continue
+		}
+		if m[2] != "" {
+			// ACTIONS(N) or STATE(N) — the macro is identity, so just use N.
+			n, err := strconv.Atoi(m[2])
+			if err == nil {
+				result = append(result, uint16(n))
+			}
+			continue
+		}
+		if m[3] != "" {
+			// Symbolic name — resolve via enum lookup.
+			name := m[3]
+			if skipWords[name] {
+				continue
+			}
+			if enums != nil {
+				if v, ok := enums[name]; ok {
+					result = append(result, uint16(v))
+				}
+				// If not found in enums, skip (it's a C keyword or type name)
+			}
+			continue
+		}
+		if m[4] != "" {
+			// Plain number.
+			n, err := strconv.Atoi(m[4])
+			if err == nil {
+				result = append(result, uint16(n))
+			}
+		}
+	}
+	return result
+}
+
+// parseSmallParseTableMap extracts the small parse table map which maps
+// (state - LARGE_STATE_COUNT) to offsets in the small parse table.
+// The C format is: [SMALL_STATE(N)] = offset
+// where SMALL_STATE(N) = N - LARGE_STATE_COUNT.
+func parseSmallParseTableMap(body string, largeStateCount int) []uint32 {
+	// Match entries: [SMALL_STATE(N)] = M or [N] = M
+	entryRe := regexp.MustCompile(`\[(?:SMALL_STATE\()?(\d+)\)?\]\s*=\s*(\d+)`)
+	matches := entryRe.FindAllStringSubmatch(body, -1)
+
+	// Find the max index to size the array.
+	maxIdx := 0
+	type mapEntry struct {
+		idx int
+		val uint32
+	}
+	var entries []mapEntry
+	for _, m := range matches {
+		rawIdx, err1 := strconv.Atoi(m[1])
+		val, err2 := strconv.Atoi(m[2])
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		// SMALL_STATE(N) = N - LARGE_STATE_COUNT, so the array index is
+		// (N - LARGE_STATE_COUNT) if using SMALL_STATE, or N if raw.
+		// Since the regex captures the inner number, for SMALL_STATE(29)
+		// we get 29. The compiled index would be 29-29=0.
+		// We need to figure out if it's SMALL_STATE or raw.
+		idx := rawIdx
+		if rawIdx >= largeStateCount {
+			// It's SMALL_STATE(N) which evaluates to N - LARGE_STATE_COUNT
+			idx = rawIdx - largeStateCount
+		}
+		entries = append(entries, mapEntry{idx: idx, val: uint32(val)})
+		if idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+
+	result := make([]uint32, maxIdx+1)
+	for _, e := range entries {
+		if e.idx < len(result) {
+			result[e.idx] = e.val
+		}
+	}
+	return result
 }
 
 // extractParseActions parses the ts_parse_actions[] array.
@@ -502,14 +622,19 @@ func extractParseActions(source string, g *ExtractedGrammar) error {
 	var groups []ActionGroup
 	var currentGroup *ActionGroup
 
-	headerRe := regexp.MustCompile(`\{\.entry\s*=\s*\{\.count\s*=\s*(\d+),\s*\.reusable\s*=\s*(true|false)\s*\}\}`)
+	// Match header with optional C array index: [N] = {.entry = ...}
+	headerRe := regexp.MustCompile(`(?:\[(\d+)\]\s*=\s*)?\{\.entry\s*=\s*\{\.count\s*=\s*(\d+),\s*\.reusable\s*=\s*(true|false)\s*\}\}`)
 	shiftRe := regexp.MustCompile(`(?:^|,\s*)\bSHIFT\((\d+)\)`)
 	shiftExtraRe := regexp.MustCompile(`\bSHIFT_EXTRA\(\)`)
 	shiftRepeatRe := regexp.MustCompile(`\bSHIFT_REPEAT\((\d+)\)`)
 	// REDUCE can have 3 or 4 args: REDUCE(sym, count, prec) or REDUCE(sym, count, prec, prod_id)
-	reduceRe := regexp.MustCompile(`\bREDUCE\((\w+),\s*(\d+),\s*(\d+)(?:,\s*(\d+))?\)`)
+	// The precedence can be negative (e.g., -1 for type aliases in Go grammar).
+	reduceRe := regexp.MustCompile(`\bREDUCE\((\w+),\s*(\d+),\s*(-?\d+)(?:,\s*(\d+))?\)`)
 	acceptRe := regexp.MustCompile(`\bACCEPT_INPUT\(\)`)
 	recoverRe := regexp.MustCompile(`\bRECOVER\(\)`)
+
+	// Track the next expected C index for groups without explicit indices.
+	nextCIndex := 0
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -523,11 +648,19 @@ func extractParseActions(source string, g *ExtractedGrammar) error {
 			if currentGroup != nil {
 				groups = append(groups, *currentGroup)
 			}
-			count, _ := strconv.Atoi(hm[1])
-			currentGroup = &ActionGroup{
-				Count:    count,
-				Reusable: hm[2] == "true",
+			// Capture the C array index if present.
+			cIndex := nextCIndex
+			if hm[1] != "" {
+				cIndex, _ = strconv.Atoi(hm[1])
 			}
+			count, _ := strconv.Atoi(hm[2])
+			currentGroup = &ActionGroup{
+				Index:    cIndex,
+				Count:    count,
+				Reusable: hm[3] == "true",
+			}
+			// Next C index = current + 1 (header) + count (actions)
+			nextCIndex = cIndex + 1 + count
 		}
 
 		if currentGroup == nil {
