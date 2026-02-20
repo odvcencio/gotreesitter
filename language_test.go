@@ -18,6 +18,36 @@ func TestParseActionTypeConstants(t *testing.T) {
 	}
 }
 
+func TestLanguageVersionCompatibility(t *testing.T) {
+	lang := &Language{}
+	if got := lang.Version(); got != 0 {
+		t.Fatalf("Version: got %d, want 0", got)
+	}
+	if !lang.CompatibleWithRuntime() {
+		t.Fatal("expected unspecified language version to be compatible")
+	}
+
+	lang.LanguageVersion = RuntimeLanguageVersion
+	if !lang.CompatibleWithRuntime() {
+		t.Fatalf("expected runtime version %d to be compatible", RuntimeLanguageVersion)
+	}
+
+	lang.LanguageVersion = MinCompatibleLanguageVersion
+	if !lang.CompatibleWithRuntime() {
+		t.Fatalf("expected min compatible version %d to be compatible", MinCompatibleLanguageVersion)
+	}
+
+	lang.LanguageVersion = MinCompatibleLanguageVersion - 1
+	if lang.CompatibleWithRuntime() {
+		t.Fatal("expected version below minimum to be incompatible")
+	}
+
+	lang.LanguageVersion = RuntimeLanguageVersion + 1
+	if lang.CompatibleWithRuntime() {
+		t.Fatal("expected version above runtime maximum to be incompatible")
+	}
+}
+
 // TestMinimalLanguage constructs a minimal 3-symbol, 2-state grammar
 // and verifies that all fields are correctly defined and accessible.
 func TestMinimalLanguage(t *testing.T) {

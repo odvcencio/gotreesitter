@@ -18,6 +18,8 @@ const (
 // ParseSupport summarizes parser support status for one registered language.
 type ParseSupport struct {
 	Name                    string
+	LanguageVersion         uint32
+	VersionCompatible       bool
 	Backend                 ParseBackend
 	Reason                  string
 	HasTokenSourceFactory   bool
@@ -31,11 +33,18 @@ type ParseSupport struct {
 func EvaluateParseSupport(entry LangEntry, lang *gotreesitter.Language) ParseSupport {
 	report := ParseSupport{
 		Name:                    entry.Name,
+		LanguageVersion:         lang.Version(),
+		VersionCompatible:       lang.CompatibleWithRuntime(),
 		HasTokenSourceFactory:   entry.TokenSourceFactory != nil,
 		HasDFALexer:             len(lang.LexStates) > 0,
 		RequiresExternalScanner: lang.ExternalTokenCount > 0,
 		HasExternalScanner:      lang.ExternalScanner != nil,
 		Backend:                 ParseBackendUnsupported,
+	}
+
+	if !report.VersionCompatible {
+		report.Reason = "language version is incompatible with runtime"
+		return report
 	}
 
 	if report.HasTokenSourceFactory {
@@ -75,9 +84,25 @@ func AuditParseSupport() []ParseSupport {
 
 func defaultTokenSourceFactory(name string) func(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
 	switch name {
+	case "c":
+		return func(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
+			return NewCTokenSourceOrEOF(src, lang)
+		}
 	case "go":
 		return func(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
-			return NewGoTokenSource(src, lang)
+			return NewGoTokenSourceOrEOF(src, lang)
+		}
+	case "java":
+		return func(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
+			return NewJavaTokenSourceOrEOF(src, lang)
+		}
+	case "json":
+		return func(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
+			return NewJSONTokenSourceOrEOF(src, lang)
+		}
+	case "lua":
+		return func(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
+			return NewLuaTokenSourceOrEOF(src, lang)
 		}
 	default:
 		return nil

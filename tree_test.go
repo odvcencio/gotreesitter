@@ -157,6 +157,44 @@ func TestNamedChild(t *testing.T) {
 	}
 }
 
+func TestSiblingNavigation(t *testing.T) {
+	first := NewLeafNode(Symbol(1), true, 0, 1, Point{}, Point{Row: 0, Column: 1})
+	second := NewLeafNode(Symbol(2), true, 2, 3, Point{Row: 0, Column: 2}, Point{Row: 0, Column: 3})
+	third := NewLeafNode(Symbol(1), true, 4, 5, Point{Row: 0, Column: 4}, Point{Row: 0, Column: 5})
+	parent := NewParentNode(Symbol(3), true, []*Node{first, second, third}, nil, 0)
+
+	if first.PrevSibling() != nil {
+		t.Fatal("first.PrevSibling should be nil")
+	}
+	if first.NextSibling() != second {
+		t.Fatal("first.NextSibling should return second")
+	}
+	if second.PrevSibling() != first {
+		t.Fatal("second.PrevSibling should return first")
+	}
+	if second.NextSibling() != third {
+		t.Fatal("second.NextSibling should return third")
+	}
+	if third.NextSibling() != nil {
+		t.Fatal("third.NextSibling should be nil")
+	}
+	if third.PrevSibling() != second {
+		t.Fatal("third.PrevSibling should return second")
+	}
+
+	leafWithoutParent := NewLeafNode(Symbol(1), true, 6, 7, Point{Row: 0, Column: 6}, Point{Row: 0, Column: 7})
+	if leafWithoutParent.NextSibling() != nil {
+		t.Fatal("leaf without parent should have nil NextSibling")
+	}
+	if leafWithoutParent.PrevSibling() != nil {
+		t.Fatal("leaf without parent should have nil PrevSibling")
+	}
+
+	if parent.NextSibling() != nil {
+		t.Fatal("root parent node should have nil NextSibling")
+	}
+}
+
 func TestChildByFieldName(t *testing.T) {
 	lang := testLanguage()
 

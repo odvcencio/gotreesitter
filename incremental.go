@@ -1,5 +1,7 @@
 package gotreesitter
 
+import "bytes"
+
 // reuseIndex groups clean subtrees from a previous tree by start byte.
 type reuseIndex struct {
 	byStart   map[uint32][]*Node
@@ -35,8 +37,9 @@ func (idx *reuseIndex) candidates(start uint32) []*Node {
 }
 
 // buildReuseIndex returns an index of reusable nodes from oldTree.
-// Nodes marked with hasError are excluded because that flag is also used
-// as the "dirty" marker by Tree.Edit.
+// Nodes containing parse errors are excluded. Nodes touched by edits are
+// normally excluded too, unless their byte ranges are unchanged in the new
+// source (e.g. an edit followed by undo before reparse).
 func buildReuseIndex(oldTree *Tree, source []byte, scratch *reuseScratch) *reuseIndex {
 	if oldTree == nil || oldTree.RootNode() == nil {
 		return nil
@@ -47,9 +50,9 @@ func buildReuseIndex(oldTree *Tree, source []byte, scratch *reuseScratch) *reuse
 	// If no edits were recorded and the source is unchanged, the whole root
 	// can be reused directly without building a full index.
 	if len(oldTree.edits) == 0 && oldTree.root != nil &&
-			!oldTree.root.hasError &&
-			oldTree.root.startByte == 0 &&
-			oldTree.root.endByte == sourceLen {
+		!oldTree.root.hasError &&
+		oldTree.root.startByte == 0 &&
+		oldTree.root.endByte == sourceLen {
 		return &reuseIndex{
 			byStart:   map[uint32][]*Node{0: {oldTree.root}},
 			sourceLen: sourceLen,
@@ -68,7 +71,7 @@ func buildReuseIndex(oldTree *Tree, source []byte, scratch *reuseScratch) *reuse
 	}
 
 	root := oldTree.RootNode()
-	gathered, starts := gatherReusableNodes(root, sourceLen, scratch)
+	gathered, starts := gatherReusableNodes(root, sourceLen, oldTree.source, source, scratch)
 	total := len(gathered)
 	if total == 0 {
 		return nil
@@ -125,7 +128,7 @@ func buildReuseIndex(oldTree *Tree, source []byte, scratch *reuseScratch) *reuse
 	}
 }
 
-func gatherReusableNodes(n *Node, sourceLen uint32, scratch *reuseScratch) ([]*Node, []uint32) {
+func gatherReusableNodes(n *Node, sourceLen uint32, oldSource, newSource []byte, scratch *reuseScratch) ([]*Node, []uint32) {
 	if n == nil {
 		return nil, nil
 	}
@@ -143,10 +146,19 @@ func gatherReusableNodes(n *Node, sourceLen uint32, scratch *reuseScratch) ([]*N
 		stack = stack[:len(stack)-1]
 
 		if !cur.hasError && cur.endByte > cur.startByte && cur.endByte <= sourceLen {
+			if cur.dirty {
+				if !nodeBytesEqual(cur.startByte, cur.endByte, oldSource, newSource) {
+					// Dirty nodes with changed bytes should not be reused.
+					goto pushChildren
+				}
+				// Undo edit path: unchanged bytes can be reused safely.
+				cur.dirty = false
+			}
 			gathered = append(gathered, cur)
 			starts = append(starts, cur.startByte)
 		}
 
+	pushChildren:
 		children := cur.children
 		if len(children) == 0 {
 			continue
@@ -160,6 +172,16 @@ func gatherReusableNodes(n *Node, sourceLen uint32, scratch *reuseScratch) ([]*N
 	scratch.starts = starts
 	scratch.stack = stack
 	return gathered, starts
+}
+
+func nodeBytesEqual(start, end uint32, oldSource, newSource []byte) bool {
+	if end < start {
+		return false
+	}
+	if end > uint32(len(oldSource)) || end > uint32(len(newSource)) {
+		return false
+	}
+	return bytes.Equal(oldSource[start:end], newSource[start:end])
 }
 
 func ensureUint32Len(buf []uint32, n int) []uint32 {

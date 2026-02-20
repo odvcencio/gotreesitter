@@ -243,6 +243,30 @@ func TestParseStringMatch(t *testing.T) {
 	}
 }
 
+func TestParseQuantifiers(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`(program (identifier)? @maybe (number)* @nums (true)+ @truthy)`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if q.PatternCount() != 1 {
+		t.Fatalf("PatternCount: got %d, want 1", q.PatternCount())
+	}
+	steps := q.patterns[0].steps
+	if len(steps) != 4 {
+		t.Fatalf("steps: got %d, want 4", len(steps))
+	}
+	if steps[1].quantifier != queryQuantifierZeroOrOne {
+		t.Fatalf("step[1] quantifier: got %d, want %d", steps[1].quantifier, queryQuantifierZeroOrOne)
+	}
+	if steps[2].quantifier != queryQuantifierZeroOrMore {
+		t.Fatalf("step[2] quantifier: got %d, want %d", steps[2].quantifier, queryQuantifierZeroOrMore)
+	}
+	if steps[3].quantifier != queryQuantifierOneOrMore {
+		t.Fatalf("step[3] quantifier: got %d, want %d", steps[3].quantifier, queryQuantifierOneOrMore)
+	}
+}
+
 func TestParseStringAlternation(t *testing.T) {
 	lang := queryTestLanguage()
 	q, err := NewQuery(`["func" "return" "if"] @keyword`, lang)
@@ -928,6 +952,96 @@ func TestMatchPatternWithParentCapture(t *testing.T) {
 	}
 	if capMap["name"].Text(tree.Source()) != "main" {
 		t.Errorf("@name text: got %q, want %q", capMap["name"].Text(tree.Source()), "main")
+	}
+}
+
+func buildProgramTreeWithIdentifiers(lang *Language) *Tree {
+	source := []byte("a b 1")
+	id0 := leaf(Symbol(1), true, 0, 1)
+	id1 := leaf(Symbol(1), true, 2, 3)
+	num := leaf(Symbol(2), true, 4, 5)
+	program := parent(Symbol(7), true, []*Node{id0, id1, num}, []FieldID{0, 0, 0})
+	return NewTree(program, source, lang)
+}
+
+func TestMatchQuantifierOptionalAllowsMissingChild(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildProgramTreeWithIdentifiers(lang)
+
+	q, err := NewQuery(`(program (string)? @str)`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 1 {
+		t.Fatalf("matches: got %d, want 1", len(matches))
+	}
+	if len(matches[0].Captures) != 0 {
+		t.Fatalf("captures: got %d, want 0", len(matches[0].Captures))
+	}
+}
+
+func TestMatchQuantifierStarCapturesAllMatches(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildProgramTreeWithIdentifiers(lang)
+
+	q, err := NewQuery(`(program (identifier)* @id)`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 1 {
+		t.Fatalf("matches: got %d, want 1", len(matches))
+	}
+	if len(matches[0].Captures) != 2 {
+		t.Fatalf("captures: got %d, want 2", len(matches[0].Captures))
+	}
+	if got := matches[0].Captures[0].Node.Text(tree.Source()); got != "a" {
+		t.Fatalf("capture[0]: got %q, want %q", got, "a")
+	}
+	if got := matches[0].Captures[1].Node.Text(tree.Source()); got != "b" {
+		t.Fatalf("capture[1]: got %q, want %q", got, "b")
+	}
+}
+
+func TestMatchQuantifierPlusRequiresAtLeastOne(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildProgramTreeWithIdentifiers(lang)
+
+	q, err := NewQuery(`(program (string)+ @str)`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 0 {
+		t.Fatalf("matches: got %d, want 0", len(matches))
+	}
+}
+
+func TestMatchQuantifierFailedBranchRollsBackCaptures(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildProgramTreeWithIdentifiers(lang)
+
+	q, err := NewQuery(`(program (identifier @bad (number))? (number) @num)`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 1 {
+		t.Fatalf("matches: got %d, want 1", len(matches))
+	}
+	if len(matches[0].Captures) != 1 {
+		t.Fatalf("captures: got %d, want 1", len(matches[0].Captures))
+	}
+	if matches[0].Captures[0].Name != "num" {
+		t.Fatalf("capture name: got %q, want %q", matches[0].Captures[0].Name, "num")
+	}
+	if got := matches[0].Captures[0].Node.Text(tree.Source()); got != "1" {
+		t.Fatalf("capture text: got %q, want %q", got, "1")
 	}
 }
 

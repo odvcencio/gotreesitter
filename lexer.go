@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "unicode/utf8"
+import (
+	"unicode/utf8"
+	"unsafe"
+)
 
 // Point is a row/column position in source text.
 type Point struct {
@@ -16,6 +19,13 @@ type Token struct {
 	EndByte    uint32
 	StartPoint Point
 	EndPoint   Point
+}
+
+func bytesToStringNoCopy(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 // Lexer tokenizes source text using a table-driven DFA.
@@ -161,7 +171,7 @@ func (l *Lexer) scan(startState uint16, startPos int, startRow, startCol uint32)
 
 	return Token{
 		Symbol:     acceptSymbol,
-		Text:       string(l.source[startPos:acceptPos]),
+		Text:       bytesToStringNoCopy(l.source[startPos:acceptPos]),
 		StartByte:  uint32(startPos),
 		EndByte:    uint32(acceptPos),
 		StartPoint: Point{Row: startRow, Column: startCol},

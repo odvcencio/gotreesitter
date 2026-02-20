@@ -47,6 +47,15 @@ func benchmarkFuncCount(b *testing.B) int {
 	return 500
 }
 
+func mustGoTokenSource(tb testing.TB, src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
+	tb.Helper()
+	ts, err := grammars.NewGoTokenSource(src, lang)
+	if err != nil {
+		tb.Fatalf("NewGoTokenSource failed: %v", err)
+	}
+	return ts
+}
+
 func BenchmarkGoParseFull(b *testing.B) {
 	lang := grammars.GoLanguage()
 	parser := gotreesitter.NewParser(lang)
@@ -57,11 +66,12 @@ func BenchmarkGoParseFull(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		ts := grammars.NewGoTokenSource(src, lang)
+		ts := mustGoTokenSource(b, src, lang)
 		tree := parser.ParseWithTokenSource(src, ts)
 		if tree.RootNode() == nil {
 			b.Fatal("parse returned nil root")
 		}
+		tree.Release()
 	}
 }
 
@@ -78,7 +88,7 @@ func BenchmarkGoParseIncrementalSingleByteEdit(b *testing.B) {
 	start := pointAtOffset(src, editAt)
 	end := pointAtOffset(src, editAt+1)
 
-	tree := parser.ParseWithTokenSource(src, grammars.NewGoTokenSource(src, lang))
+	tree := parser.ParseWithTokenSource(src, mustGoTokenSource(b, src, lang))
 	if tree.RootNode() == nil {
 		b.Fatal("initial parse returned nil root")
 	}
@@ -105,12 +115,17 @@ func BenchmarkGoParseIncrementalSingleByteEdit(b *testing.B) {
 		}
 
 		tree.Edit(edit)
-		ts := grammars.NewGoTokenSource(src, lang)
+		ts := mustGoTokenSource(b, src, lang)
+		old := tree
 		tree = parser.ParseIncrementalWithTokenSource(src, tree, ts)
 		if tree.RootNode() == nil {
 			b.Fatal("incremental parse returned nil root")
 		}
+		if old != tree {
+			old.Release()
+		}
 	}
+	tree.Release()
 }
 
 func BenchmarkGoParseIncrementalNoEdit(b *testing.B) {
@@ -118,7 +133,7 @@ func BenchmarkGoParseIncrementalNoEdit(b *testing.B) {
 	parser := gotreesitter.NewParser(lang)
 	src := makeGoBenchmarkSource(benchmarkFuncCount(b))
 
-	tree := parser.ParseWithTokenSource(src, grammars.NewGoTokenSource(src, lang))
+	tree := parser.ParseWithTokenSource(src, mustGoTokenSource(b, src, lang))
 	if tree.RootNode() == nil {
 		b.Fatal("initial parse returned nil root")
 	}
@@ -128,10 +143,15 @@ func BenchmarkGoParseIncrementalNoEdit(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		ts := grammars.NewGoTokenSource(src, lang)
+		ts := mustGoTokenSource(b, src, lang)
+		old := tree
 		tree = parser.ParseIncrementalWithTokenSource(src, tree, ts)
 		if tree.RootNode() == nil {
 			b.Fatal("incremental parse returned nil root")
 		}
+		if old != tree {
+			old.Release()
+		}
 	}
+	tree.Release()
 }

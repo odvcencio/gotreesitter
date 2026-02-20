@@ -26,6 +26,14 @@ const (
 	ParseActionRecover
 )
 
+const (
+	// RuntimeLanguageVersion is the maximum tree-sitter language version this
+	// runtime is known to support.
+	RuntimeLanguageVersion uint32 = 14
+	// MinCompatibleLanguageVersion is the minimum accepted language version.
+	MinCompatibleLanguageVersion uint32 = 13
+)
+
 // ParseAction is a single parser action from the parse table.
 type ParseAction struct {
 	Type              ParseActionType
@@ -97,6 +105,10 @@ type ExternalScanner interface {
 type Language struct {
 	Name string
 
+	// LanguageVersion is the tree-sitter language ABI version.
+	// A value of 0 means "unknown/unspecified" and is treated as compatible.
+	LanguageVersion uint32
+
 	// Counts
 	SymbolCount        uint32
 	TokenCount         uint32
@@ -149,6 +161,24 @@ type Language struct {
 
 	symbolMapOnce sync.Once
 	fieldMapOnce  sync.Once
+}
+
+// Version returns the tree-sitter language ABI version.
+func (l *Language) Version() uint32 {
+	if l == nil {
+		return 0
+	}
+	return l.LanguageVersion
+}
+
+// CompatibleWithRuntime reports whether this language can be parsed by the
+// current runtime version. Unspecified versions (0) are treated as compatible.
+func (l *Language) CompatibleWithRuntime() bool {
+	v := l.Version()
+	if v == 0 {
+		return true
+	}
+	return v >= MinCompatibleLanguageVersion && v <= RuntimeLanguageVersion
 }
 
 // SymbolByName returns the symbol ID for a given name, or (0, false) if not found.

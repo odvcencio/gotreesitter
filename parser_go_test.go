@@ -50,7 +50,7 @@ func parseGo(t *testing.T, src string) (*gotreesitter.Tree, *gotreesitter.Langua
 	lang := grammars.GoLanguage()
 	parser := gotreesitter.NewParser(lang)
 	srcBytes := []byte(src)
-	ts := grammars.NewGoTokenSource(srcBytes, lang)
+	ts := mustGoTokenSource(t, srcBytes, lang)
 	tree := parser.ParseWithTokenSource(srcBytes, ts)
 	if tree.RootNode() == nil {
 		t.Fatal("parse returned nil root")
@@ -220,7 +220,7 @@ func TestParseGoTokenSource(t *testing.T) {
 	// Verify the token source produces the expected token sequence.
 	lang := grammars.GoLanguage()
 	src := []byte("package main\n")
-	ts := grammars.NewGoTokenSource(src, lang)
+	ts := mustGoTokenSource(t, src, lang)
 
 	expected := []struct {
 		sym  gotreesitter.Symbol
@@ -368,7 +368,7 @@ func main() {
 		NewEndPoint: end,
 	}
 
-	tree := parser.ParseWithTokenSource(src, grammars.NewGoTokenSource(src, lang))
+	tree := parser.ParseWithTokenSource(src, mustGoTokenSource(t, src, lang))
 	if tree.RootNode() == nil {
 		t.Fatal("initial parse returned nil root")
 	}
@@ -381,7 +381,7 @@ func main() {
 		}
 
 		tree.Edit(edit)
-		tree = parser.ParseIncrementalWithTokenSource(src, tree, grammars.NewGoTokenSource(src, lang))
+		tree = parser.ParseIncrementalWithTokenSource(src, tree, mustGoTokenSource(t, src, lang))
 		if tree.RootNode() == nil {
 			t.Fatalf("iteration %d: incremental parse returned nil root", i)
 		}

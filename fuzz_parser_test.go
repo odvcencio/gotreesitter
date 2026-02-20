@@ -41,7 +41,7 @@ func FuzzGoParseDoesNotPanic(f *testing.F) {
 			}
 		}()
 
-		tree := parser.ParseWithTokenSource(src, grammars.NewGoTokenSource(src, lang))
+		tree := parser.ParseWithTokenSource(src, mustGoTokenSource(t, src, lang))
 		if tree == nil {
 			t.Fatal("parse returned nil tree")
 		}
@@ -66,13 +66,13 @@ func FuzzGoParseIncrementalDoesNotPanic(f *testing.F) {
 			}
 		}()
 
-		oldTree := parser.ParseWithTokenSource(oldSrc, grammars.NewGoTokenSource(oldSrc, lang))
+		oldTree := parser.ParseWithTokenSource(oldSrc, mustGoTokenSource(t, oldSrc, lang))
 		if oldTree == nil {
 			t.Fatal("initial parse returned nil tree")
 		}
 
 		oldTree.Edit(fullReplaceEdit(oldSrc, newSrc))
-		newTree := parser.ParseIncrementalWithTokenSource(newSrc, oldTree, grammars.NewGoTokenSource(newSrc, lang))
+		newTree := parser.ParseIncrementalWithTokenSource(newSrc, oldTree, mustGoTokenSource(t, newSrc, lang))
 		if newTree == nil {
 			t.Fatal("incremental parse returned nil tree")
 		}

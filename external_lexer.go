@@ -93,7 +93,7 @@ func (l *ExternalLexer) token() (Token, bool) {
 
 	return Token{
 		Symbol:     l.resultSymbol,
-		Text:       string(l.source[l.startPos:l.endPos]),
+		Text:       bytesToStringNoCopy(l.source[l.startPos:l.endPos]),
 		StartByte:  uint32(l.startPos),
 		EndByte:    uint32(l.endPos),
 		StartPoint: l.startPoint,

@@ -20,8 +20,10 @@ type Node struct {
 	isNamed      bool
 	isMissing    bool
 	hasError     bool
+	dirty        bool // set by Tree.Edit for nodes touched by edits
 	productionID uint16
 	parent       *Node
+	ownerArena   *nodeArena
 }
 
 // Symbol returns the node's grammar symbol.
@@ -70,6 +72,44 @@ func (n *Node) Child(i int) *Node {
 		return nil
 	}
 	return n.children[i]
+}
+
+// NextSibling returns the next sibling node, or nil when this is the last child
+// or has no parent.
+func (n *Node) NextSibling() *Node {
+	if n == nil || n.parent == nil {
+		return nil
+	}
+	siblings := n.parent.children
+	for i := range siblings {
+		if siblings[i] != n {
+			continue
+		}
+		if i+1 < len(siblings) {
+			return siblings[i+1]
+		}
+		return nil
+	}
+	return nil
+}
+
+// PrevSibling returns the previous sibling node, or nil when this is the first
+// child or has no parent.
+func (n *Node) PrevSibling() *Node {
+	if n == nil || n.parent == nil {
+		return nil
+	}
+	siblings := n.parent.children
+	for i := range siblings {
+		if siblings[i] != n {
+			continue
+		}
+		if i > 0 {
+			return siblings[i-1]
+		}
+		return nil
+	}
+	return nil
 }
 
 // NamedChildCount returns the number of named children.
@@ -175,12 +215,61 @@ func NewParentNode(sym Symbol, named bool, children []*Node, fieldIDs []FieldID,
 	return n
 }
 
+func newLeafNodeInArena(arena *nodeArena, sym Symbol, named bool, startByte, endByte uint32, startPoint, endPoint Point) *Node {
+	if arena == nil {
+		return NewLeafNode(sym, named, startByte, endByte, startPoint, endPoint)
+	}
+	n := arena.allocNode()
+	n.symbol = sym
+	n.isNamed = named
+	n.startByte = startByte
+	n.endByte = endByte
+	n.startPoint = startPoint
+	n.endPoint = endPoint
+	n.ownerArena = arena
+	return n
+}
+
+func newParentNodeInArena(arena *nodeArena, sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {
+	if arena == nil {
+		return NewParentNode(sym, named, children, fieldIDs, productionID)
+	}
+	n := arena.allocNode()
+	n.symbol = sym
+	n.isNamed = named
+	n.children = children
+	n.fieldIDs = fieldIDs
+	n.productionID = productionID
+	n.ownerArena = arena
+
+	if len(children) > 0 {
+		first := children[0]
+		last := children[len(children)-1]
+		n.startByte = first.startByte
+		n.endByte = last.endByte
+		n.startPoint = first.startPoint
+		n.endPoint = last.endPoint
+
+		for _, c := range children {
+			c.parent = n
+			if c.hasError {
+				n.hasError = true
+			}
+		}
+	}
+
+	return n
+}
+
 // Tree holds a complete syntax tree along with its source text and language.
 type Tree struct {
-	root     *Node
-	source   []byte
-	language *Language
-	edits    []InputEdit // pending edits applied to this tree
+	root          *Node
+	source        []byte
+	language      *Language
+	edits         []InputEdit  // pending edits applied to this tree
+	arena         *nodeArena   // primary arena that owns newly-built nodes
+	borrowedArena []*nodeArena // arenas borrowed via subtree reuse
+	released      bool
 }
 
 // NewTree creates a new Tree.
@@ -189,6 +278,70 @@ func NewTree(root *Node, source []byte, lang *Language) *Tree {
 		root:     root,
 		source:   source,
 		language: lang,
+	}
+}
+
+func newTreeWithArenas(root *Node, source []byte, lang *Language, arena *nodeArena, borrowed []*nodeArena) *Tree {
+	return &Tree{
+		root:          root,
+		source:        source,
+		language:      lang,
+		arena:         arena,
+		borrowedArena: uniqueArenas(borrowed, arena),
+	}
+}
+
+func uniqueArenas(arenas []*nodeArena, exclude *nodeArena) []*nodeArena {
+	if len(arenas) == 0 {
+		return nil
+	}
+	seen := make(map[*nodeArena]struct{}, len(arenas))
+	out := make([]*nodeArena, 0, len(arenas))
+	if exclude != nil {
+		seen[exclude] = struct{}{}
+	}
+	for _, a := range arenas {
+		if a == nil {
+			continue
+		}
+		if _, ok := seen[a]; ok {
+			continue
+		}
+		seen[a] = struct{}{}
+		out = append(out, a)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func (t *Tree) referencedArenas() []*nodeArena {
+	if t == nil {
+		return nil
+	}
+	refs := make([]*nodeArena, 0, 1+len(t.borrowedArena))
+	if t.arena != nil {
+		refs = append(refs, t.arena)
+	}
+	refs = append(refs, t.borrowedArena...)
+	return uniqueArenas(refs, nil)
+}
+
+// Release decrements arena references held by this tree.
+// After Release, the tree should be treated as invalid and not reused.
+func (t *Tree) Release() {
+	if t == nil || t.released {
+		return
+	}
+	t.released = true
+	for _, a := range t.borrowedArena {
+		a.Release()
+	}
+	t.borrowedArena = nil
+	if t.arena != nil {
+		t.arena.Release()
+		t.arena = nil
 	}
 }
 
@@ -281,7 +434,7 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta int64, hasTailShift bo
 	}
 
 	// The node overlaps the edit — mark it dirty and adjust its end.
-	n.hasError = true // reuse hasError as dirty flag for incremental
+	n.dirty = true
 	if n.endByte <= edit.OldEndByte {
 		// Node is fully within the edited region.
 		n.endByte = edit.NewEndByte

@@ -19,10 +19,11 @@ import (
 //   - Comments are emitted as explicit tokens
 //   - Newline-based automatic semicolons are mapped to ";"
 type GoTokenSource struct {
-	src     []byte
-	scanner scanner.Scanner
-	fset    *token.FileSet
-	lang    *gotreesitter.Language
+	src      []byte
+	scanner  scanner.Scanner
+	fset     *token.FileSet
+	lang     *gotreesitter.Language
+	scanBase int
 
 	// Pending tokens from splitting strings/raw strings.
 	pending []gotreesitter.Token
@@ -59,18 +60,63 @@ type GoTokenSource struct {
 
 // NewGoTokenSource creates a token source that lexes Go source code and
 // produces tree-sitter tokens compatible with the Go grammar.
-func NewGoTokenSource(src []byte, lang *gotreesitter.Language) *GoTokenSource {
+func NewGoTokenSource(src []byte, lang *gotreesitter.Language) (*GoTokenSource, error) {
 	ts := &GoTokenSource{
 		src:  src,
 		lang: lang,
 		fset: token.NewFileSet(),
 	}
-	ts.buildMaps()
-	file := ts.fset.AddFile("", ts.fset.Base(), len(src))
-	ts.scanner.Init(file, src, func(_ token.Position, _ string) {
-		// Ignore errors — produce error tokens instead.
-	}, scanner.ScanComments)
+	if err := ts.buildMaps(); err != nil {
+		return nil, err
+	}
+	ts.initScanner(0)
+	return ts, nil
+}
+
+type tokenSourceInitError struct {
+	sourceLen uint32
+}
+
+func (e tokenSourceInitError) Next() gotreesitter.Token {
+	return gotreesitter.Token{
+		StartByte: e.sourceLen,
+		EndByte:   e.sourceLen,
+	}
+}
+
+func (e tokenSourceInitError) SkipToByte(offset uint32) gotreesitter.Token {
+	if offset > e.sourceLen {
+		offset = e.sourceLen
+	}
+	return gotreesitter.Token{
+		StartByte: offset,
+		EndByte:   offset,
+	}
+}
+
+// NewGoTokenSourceOrEOF returns a token source for callers that cannot surface
+// constructor errors through their own API.
+func NewGoTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
+	ts, err := NewGoTokenSource(src, lang)
+	if err != nil {
+		return tokenSourceInitError{sourceLen: uint32(len(src))}
+	}
 	return ts
+}
+
+func (ts *GoTokenSource) initScanner(base int) {
+	if base < 0 {
+		base = 0
+	}
+	if base > len(ts.src) {
+		base = len(ts.src)
+	}
+	ts.scanBase = base
+	ts.fset = token.NewFileSet()
+	file := ts.fset.AddFile("", ts.fset.Base(), len(ts.src)-base)
+	ts.scanner.Init(file, ts.src[base:], func(_ token.Position, _ string) {
+		// Ignore scanner diagnostics — parser performs error recovery.
+	}, scanner.ScanComments)
 }
 
 // Next returns the next token. Returns a zero-Symbol token at EOF.
@@ -93,7 +139,7 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 			return ts.eofToken()
 		}
 
-		offset := ts.fset.Position(pos).Offset
+		offset := ts.scanBase + ts.fset.Position(pos).Offset
 		startPoint := ts.offsetToPoint(offset)
 
 		switch {
@@ -186,6 +232,20 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 
 // SkipToByte advances until it reaches the first token at or after offset.
 func (ts *GoTokenSource) SkipToByte(offset uint32) gotreesitter.Token {
+	// Large forward jumps during incremental reuse are common. Re-seeding the
+	// scanner near the target byte avoids token-by-token traversal of skipped
+	// regions.
+	const reseekThreshold = 4 * 1024
+	target := int(offset)
+	if target > ts.scanBase && len(ts.pending) == 0 && target-ts.scanBase >= reseekThreshold {
+		pt := ts.offsetToPoint(target)
+		ts.lastOffset = target
+		ts.lastRow = pt.Row
+		ts.lastCol = pt.Column
+		ts.done = false
+		ts.initScanner(target)
+	}
+
 	for {
 		tok := ts.Next()
 		if tok.Symbol == 0 || tok.StartByte >= offset {
@@ -377,18 +437,29 @@ func (ts *GoTokenSource) offsetToPoint(offset int) gotreesitter.Point {
 }
 
 // buildMaps creates the go/token to tree-sitter symbol mapping tables.
-func (ts *GoTokenSource) buildMaps() {
+func (ts *GoTokenSource) buildMaps() error {
+	if ts.lang == nil {
+		return fmt.Errorf("go lexer: language is nil")
+	}
+
+	var firstErr error
 	tokenSym := func(name string) gotreesitter.Symbol {
 		syms := ts.lang.TokenSymbolsByName(name)
 		if len(syms) == 0 {
-			panic(fmt.Sprintf("go lexer: token symbol %q not found", name))
+			if firstErr == nil {
+				firstErr = fmt.Errorf("go lexer: token symbol %q not found", name)
+			}
+			return 0
 		}
 		return syms[0]
 	}
 	tokenSymAt := func(name string, idx int) gotreesitter.Symbol {
 		syms := ts.lang.TokenSymbolsByName(name)
 		if idx < 0 || idx >= len(syms) {
-			panic(fmt.Sprintf("go lexer: token symbol %q missing index %d", name, idx))
+			if firstErr == nil {
+				firstErr = fmt.Errorf("go lexer: token symbol %q missing index %d", name, idx)
+			}
+			return 0
 		}
 		return syms[idx]
 	}
@@ -400,7 +471,7 @@ func (ts *GoTokenSource) buildMaps() {
 
 	identifierSyms := ts.lang.TokenSymbolsByName("identifier")
 	if len(identifierSyms) == 0 {
-		panic("go lexer: identifier token symbol not found")
+		return fmt.Errorf("go lexer: identifier token symbol not found")
 	}
 	ts.identifierSymbol = identifierSyms[0]
 	ts.blankIdentifierSymbol = tokenSym("blank_identifier")
@@ -516,4 +587,9 @@ func (ts *GoTokenSource) buildMaps() {
 		"false": tokenSym("false"),
 		"iota":  tokenSym("iota"),
 	}
+
+	if firstErr != nil {
+		return firstErr
+	}
+	return nil
 }

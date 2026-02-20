@@ -63,21 +63,50 @@ func (h *Highlighter) HighlightIncremental(source []byte, oldTree *Tree) ([]High
 		return nil, NewTree(nil, source, h.lang)
 	}
 
-	var tree *Tree
-	if h.tokenSourceFactory != nil {
-		ts := h.tokenSourceFactory(source)
-		tree = h.parser.ParseIncrementalWithTokenSource(source, oldTree, ts)
-	} else {
-		tree = h.parser.ParseIncremental(source, oldTree)
-	}
+	tree := h.parse(source, oldTree)
 
 	if tree.RootNode() == nil {
 		return nil, tree
 	}
 
+	return h.highlightTree(tree), tree
+}
+
+// Highlight parses the source code and executes the highlight query, returning
+// a slice of HighlightRange sorted by StartByte. When ranges overlap, inner
+// (more specific) captures take priority over outer ones.
+func (h *Highlighter) Highlight(source []byte) []HighlightRange {
+	if len(source) == 0 {
+		return nil
+	}
+
+	tree := h.parse(source, nil)
+
+	if tree.RootNode() == nil {
+		return nil
+	}
+
+	return h.highlightTree(tree)
+}
+
+func (h *Highlighter) parse(source []byte, oldTree *Tree) *Tree {
+	if h.tokenSourceFactory != nil {
+		ts := h.tokenSourceFactory(source)
+		if oldTree != nil {
+			return h.parser.ParseIncrementalWithTokenSource(source, oldTree, ts)
+		}
+		return h.parser.ParseWithTokenSource(source, ts)
+	}
+	if oldTree != nil {
+		return h.parser.ParseIncremental(source, oldTree)
+	}
+	return h.parser.Parse(source)
+}
+
+func (h *Highlighter) highlightTree(tree *Tree) []HighlightRange {
 	matches := h.query.Execute(tree)
 	if len(matches) == 0 {
-		return nil, tree
+		return nil
 	}
 
 	var ranges []HighlightRange
@@ -96,7 +125,7 @@ func (h *Highlighter) HighlightIncremental(source []byte, oldTree *Tree) ([]High
 	}
 
 	if len(ranges) == 0 {
-		return nil, tree
+		return nil
 	}
 
 	sort.Slice(ranges, func(i, j int) bool {
@@ -108,71 +137,6 @@ func (h *Highlighter) HighlightIncremental(source []byte, oldTree *Tree) ([]High
 		return wi > wj
 	})
 
-	return resolveOverlaps(ranges), tree
-}
-
-// Highlight parses the source code and executes the highlight query, returning
-// a slice of HighlightRange sorted by StartByte. When ranges overlap, inner
-// (more specific) captures take priority over outer ones.
-func (h *Highlighter) Highlight(source []byte) []HighlightRange {
-	if len(source) == 0 {
-		return nil
-	}
-
-	// Parse the source.
-	var tree *Tree
-	if h.tokenSourceFactory != nil {
-		ts := h.tokenSourceFactory(source)
-		tree = h.parser.ParseWithTokenSource(source, ts)
-	} else {
-		tree = h.parser.Parse(source)
-	}
-
-	if tree.RootNode() == nil {
-		return nil
-	}
-
-	// Execute the query to get matches.
-	matches := h.query.Execute(tree)
-	if len(matches) == 0 {
-		return nil
-	}
-
-	// Collect all captures as HighlightRanges.
-	var ranges []HighlightRange
-	for _, m := range matches {
-		for _, c := range m.Captures {
-			node := c.Node
-			if node.StartByte() == node.EndByte() {
-				continue // skip zero-width ranges
-			}
-			ranges = append(ranges, HighlightRange{
-				StartByte: node.StartByte(),
-				EndByte:   node.EndByte(),
-				Capture:   c.Name,
-			})
-		}
-	}
-
-	if len(ranges) == 0 {
-		return nil
-	}
-
-	// Sort by StartByte ascending, then by span width descending (wider first).
-	// This puts outer (wider) ranges before inner (narrower) ones at the same
-	// start position, which is needed for the overlap resolution below.
-	sort.Slice(ranges, func(i, j int) bool {
-		if ranges[i].StartByte != ranges[j].StartByte {
-			return ranges[i].StartByte < ranges[j].StartByte
-		}
-		wi := ranges[i].EndByte - ranges[i].StartByte
-		wj := ranges[j].EndByte - ranges[j].StartByte
-		return wi > wj
-	})
-
-	// Resolve overlapping ranges: inner captures take priority.
-	// We split outer ranges around inner ones so that each byte position
-	// is covered by at most one capture, and the most specific one wins.
 	return resolveOverlaps(ranges)
 }
 

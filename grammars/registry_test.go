@@ -68,3 +68,87 @@ func TestAuditParseSupportIncludesGoCustomTokenSource(t *testing.T) {
 		t.Fatalf("expected go backend %q, got %q", ParseBackendTokenSource, goReport.Backend)
 	}
 }
+
+func TestAuditParseSupportIncludesCCustomTokenSource(t *testing.T) {
+	reports := AuditParseSupport()
+	if len(reports) == 0 {
+		t.Fatal("expected parse support reports")
+	}
+
+	var cReport *ParseSupport
+	for i := range reports {
+		if reports[i].Name == "c" {
+			cReport = &reports[i]
+			break
+		}
+	}
+	if cReport == nil {
+		t.Fatal("expected c parse support report")
+	}
+	if cReport.Backend != ParseBackendTokenSource {
+		t.Fatalf("expected c backend %q, got %q", ParseBackendTokenSource, cReport.Backend)
+	}
+}
+
+func TestAuditParseSupportIncludesJSONCustomTokenSource(t *testing.T) {
+	reports := AuditParseSupport()
+	if len(reports) == 0 {
+		t.Fatal("expected parse support reports")
+	}
+
+	var jsonReport *ParseSupport
+	for i := range reports {
+		if reports[i].Name == "json" {
+			jsonReport = &reports[i]
+			break
+		}
+	}
+	if jsonReport == nil {
+		t.Fatal("expected json parse support report")
+	}
+	if jsonReport.Backend != ParseBackendTokenSource {
+		t.Fatalf("expected json backend %q, got %q", ParseBackendTokenSource, jsonReport.Backend)
+	}
+}
+
+func TestAuditParseSupportIncludesJavaCustomTokenSource(t *testing.T) {
+	reports := AuditParseSupport()
+	if len(reports) == 0 {
+		t.Fatal("expected parse support reports")
+	}
+
+	var javaReport *ParseSupport
+	for i := range reports {
+		if reports[i].Name == "java" {
+			javaReport = &reports[i]
+			break
+		}
+	}
+	if javaReport == nil {
+		t.Fatal("expected java parse support report")
+	}
+	if javaReport.Backend != ParseBackendTokenSource {
+		t.Fatalf("expected java backend %q, got %q", ParseBackendTokenSource, javaReport.Backend)
+	}
+}
+
+func TestAuditParseSupportIncludesLuaCustomTokenSource(t *testing.T) {
+	reports := AuditParseSupport()
+	if len(reports) == 0 {
+		t.Fatal("expected parse support reports")
+	}
+
+	var luaReport *ParseSupport
+	for i := range reports {
+		if reports[i].Name == "lua" {
+			luaReport = &reports[i]
+			break
+		}
+	}
+	if luaReport == nil {
+		t.Fatal("expected lua parse support report")
+	}
+	if luaReport.Backend != ParseBackendTokenSource {
+		t.Fatalf("expected lua backend %q, got %q", ParseBackendTokenSource, luaReport.Backend)
+	}
+}

@@ -53,6 +53,9 @@ const errorSymbol = Symbol(65535)
 // For real grammars that need a custom lexer, use ParseWithTokenSource.
 // If the input is empty, it returns a tree with a nil root.
 func (p *Parser) Parse(source []byte) *Tree {
+	if !p.languageCompatible() {
+		return NewTree(nil, source, p.language)
+	}
 	if !p.canUseDFALexer() {
 		return NewTree(nil, source, p.language)
 	}
@@ -65,20 +68,26 @@ func (p *Parser) Parse(source []byte) *Tree {
 	if p.language.ExternalScanner != nil {
 		ts.externalPayload = p.language.ExternalScanner.Create()
 	}
-	return p.parseInternal(source, ts, nil)
+	return p.parseInternal(source, ts, nil, nil, arenaClassFull)
 }
 
 // ParseWithTokenSource parses source using a custom token source.
 // This is used for real grammars where the lexer DFA isn't available
 // as data tables (e.g., Go grammar using go/scanner as a bridge).
 func (p *Parser) ParseWithTokenSource(source []byte, ts TokenSource) *Tree {
-	return p.parseInternal(source, ts, nil)
+	if !p.languageCompatible() {
+		return NewTree(nil, source, p.language)
+	}
+	return p.parseInternal(source, ts, nil, nil, arenaClassFull)
 }
 
 // ParseIncremental re-parses source after edits were applied to oldTree.
 // It reuses unchanged subtrees from the old tree for better performance.
 // Call oldTree.Edit() for each edit before calling this method.
 func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) *Tree {
+	if !p.languageCompatible() {
+		return NewTree(nil, source, p.language)
+	}
 	if !p.canUseDFALexer() {
 		return NewTree(nil, source, p.language)
 	}
@@ -97,11 +106,18 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) *Tree {
 // ParseIncrementalWithTokenSource is like ParseIncremental but uses a custom
 // token source.
 func (p *Parser) ParseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource) *Tree {
+	if !p.languageCompatible() {
+		return NewTree(nil, source, p.language)
+	}
 	return p.parseIncrementalInternal(source, oldTree, ts)
 }
 
 func (p *Parser) canUseDFALexer() bool {
 	return p.language != nil && len(p.language.LexStates) > 0
+}
+
+func (p *Parser) languageCompatible() bool {
+	return p.language != nil && p.language.CompatibleWithRuntime()
 }
 
 func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts TokenSource) *Tree {
@@ -117,7 +133,7 @@ func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts Token
 	defer p.reuseMu.Unlock()
 
 	reuse := buildReuseIndex(oldTree, source, &p.reuseScratch)
-	return p.parseInternal(source, ts, reuse)
+	return p.parseInternal(source, ts, reuse, oldTree, arenaClassIncremental)
 }
 
 // dfaTokenSource wraps the built-in DFA Lexer as a TokenSource.
@@ -235,9 +251,16 @@ func parseNodeLimit(sourceLen int) int {
 // (state, symbol) pair, the parser forks: one stack per alternative.
 // Stacks that error out are dropped. Stacks that converge to the same
 // top state are merged, keeping the highest dynamic-precedence version.
-func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex) *Tree {
+func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex, oldTree *Tree, arenaClass arenaClass) *Tree {
 	if closer, ok := ts.(interface{ Close() }); ok {
 		defer closer.Close()
+	}
+
+	arena := acquireNodeArena(arenaClass)
+	reusedAny := false
+
+	finalize := func(stacks []glrStack) *Tree {
+		return p.buildResultFromGLR(stacks, source, arena, oldTree, reusedAny)
 	}
 
 	stacks := []glrStack{newGLRStack(p.language.InitialState)}
@@ -258,6 +281,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex)
 		// Prune dead stacks and merge stacks with identical top states.
 		stacks = mergeStacks(stacks)
 		if len(stacks) == 0 {
+			arena.Release()
 			return NewTree(nil, source, p.language)
 		}
 
@@ -270,7 +294,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex)
 		// Safety: if the primary stack has grown beyond the depth cap,
 		// or we've allocated too many nodes, return what we have.
 		if len(stacks[0].entries) > maxDepth || nodeCount > maxNodes {
-			return p.buildResultFromGLR(stacks, source)
+			return finalize(stacks)
 		}
 
 		// Use the primary (first) stack's state for DFA lex mode selection.
@@ -286,6 +310,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex)
 		// try to reuse an unchanged subtree starting at the current token.
 		if reuse != nil && len(stacks) == 1 && !stacks[0].dead && tok.Symbol != 0 {
 			if nextTok, ok := p.tryReuseSubtree(&stacks[0], tok, ts, reuse); ok {
+				reusedAny = true
 				tok = nextTok
 				needToken = false
 				consecutiveReduces = 0
@@ -311,7 +336,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex)
 			if action != nil && len(action.Actions) > 0 &&
 				action.Actions[0].Type == ParseActionShift && action.Actions[0].Extra {
 				named := p.isNamedSymbol(tok.Symbol)
-				leaf := NewLeafNode(tok.Symbol, named,
+				leaf := newLeafNodeInArena(arena, tok.Symbol, named,
 					tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 				s.entries = append(s.entries, stackEntry{state: currentState, node: leaf})
 				nodeCount++
@@ -325,7 +350,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex)
 					if tok.StartByte == tok.EndByte {
 						// True EOF. If this is the only stack, return result.
 						if len(stacks) == 1 {
-							return p.buildResultFromGLR(stacks, source)
+							return finalize(stacks)
 						}
 						// Multiple stacks at EOF: this one is done.
 						// Mark dead so merge picks the best remaining.
@@ -333,6 +358,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex)
 						continue
 					}
 					// Zero-symbol width token: skip.
+					needToken = true
+					continue
+				}
+
+				// Try grammar-directed recovery by searching the stack for
+				// the nearest state that can recover on this lookahead.
+				if depth, recoverAct, ok := p.findRecoverActionOnStack(s, tok.Symbol); ok {
+					s.entries = s.entries[:depth+1]
+					p.applyAction(s, recoverAct, tok, &anyReduced, &nodeCount, arena)
 					needToken = true
 					continue
 				}
@@ -345,9 +379,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex)
 
 				// Only stack: error recovery — wrap token in error node.
 				if len(s.entries) == 0 {
-					return p.buildResultFromGLR(stacks, source)
+					return finalize(stacks)
 				}
-				errNode := NewLeafNode(errorSymbol, false,
+				errNode := newLeafNodeInArena(arena, errorSymbol, false,
 					tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 				errNode.hasError = true
 				s.entries = append(s.entries, stackEntry{state: currentState, node: errNode})
@@ -364,15 +398,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex)
 				// Save state before applying any action.
 				saved := s.clone()
 				// Apply first action to the original stack.
-				p.applyAction(s, actions[0], tok, &anyReduced, &nodeCount)
+				p.applyAction(s, actions[0], tok, &anyReduced, &nodeCount, arena)
 				// Clone for each additional action.
 				for ai := 1; ai < len(actions); ai++ {
 					fork := saved.clone()
-					p.applyAction(&fork, actions[ai], tok, &anyReduced, &nodeCount)
+					p.applyAction(&fork, actions[ai], tok, &anyReduced, &nodeCount, arena)
 					stacks = append(stacks, fork)
 				}
 			} else {
-				p.applyAction(s, actions[0], tok, &anyReduced, &nodeCount)
+				p.applyAction(s, actions[0], tok, &anyReduced, &nodeCount, arena)
 			}
 		}
 
@@ -405,21 +439,21 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex)
 		// Check for accept on any stack.
 		for si := range stacks {
 			if stacks[si].accepted {
-				return p.buildResultFromGLR(stacks[si:si+1], source)
+				return finalize(stacks[si : si+1])
 			}
 		}
 	}
 
 	// Iteration limit reached.
-	return p.buildResultFromGLR(stacks, source)
+	return finalize(stacks)
 }
 
 // applyAction applies a single parse action to a GLR stack.
-func (p *Parser) applyAction(s *glrStack, act ParseAction, tok Token, anyReduced *bool, nodeCount *int) {
+func (p *Parser) applyAction(s *glrStack, act ParseAction, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena) {
 	switch act.Type {
 	case ParseActionShift:
 		named := p.isNamedSymbol(tok.Symbol)
-		leaf := NewLeafNode(tok.Symbol, named,
+		leaf := newLeafNodeInArena(arena, tok.Symbol, named,
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		s.entries = append(s.entries, stackEntry{state: act.State, node: leaf})
 		*nodeCount++
@@ -440,7 +474,7 @@ func (p *Parser) applyAction(s *glrStack, act ParseAction, tok Token, anyReduced
 
 		named := p.isNamedSymbol(act.Symbol)
 		fieldIDs := p.buildFieldIDs(childCount, act.ProductionID)
-		parent := NewParentNode(act.Symbol, named, children, fieldIDs, act.ProductionID)
+		parent := newParentNodeInArena(arena, act.Symbol, named, children, fieldIDs, act.ProductionID)
 		*nodeCount++
 
 		topState := s.entries[len(s.entries)-1].state
@@ -463,7 +497,7 @@ func (p *Parser) applyAction(s *glrStack, act ParseAction, tok Token, anyReduced
 			s.accepted = true
 			return
 		}
-		errNode := NewLeafNode(errorSymbol, false,
+		errNode := newLeafNodeInArena(arena, errorSymbol, false,
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		errNode.hasError = true
 		recoverState := s.top().state
@@ -471,7 +505,34 @@ func (p *Parser) applyAction(s *glrStack, act ParseAction, tok Token, anyReduced
 			recoverState = act.State
 		}
 		s.entries = append(s.entries, stackEntry{state: recoverState, node: errNode})
+		*nodeCount++
 	}
+}
+
+func recoverAction(entry *ParseActionEntry) (ParseAction, bool) {
+	if entry == nil {
+		return ParseAction{}, false
+	}
+	for _, act := range entry.Actions {
+		if act.Type == ParseActionRecover {
+			return act, true
+		}
+	}
+	return ParseAction{}, false
+}
+
+func (p *Parser) findRecoverActionOnStack(s *glrStack, sym Symbol) (int, ParseAction, bool) {
+	if s == nil || len(s.entries) == 0 {
+		return 0, ParseAction{}, false
+	}
+	for depth := len(s.entries) - 1; depth >= 0; depth-- {
+		state := s.entries[depth].state
+		action := p.lookupAction(state, sym)
+		if act, ok := recoverAction(action); ok {
+			return depth, act, true
+		}
+	}
+	return 0, ParseAction{}, false
 }
 
 // buildFieldIDs creates the field ID slice for a reduce action.
@@ -514,8 +575,9 @@ func (p *Parser) buildFieldIDs(childCount int, productionID uint16) []FieldID {
 
 // buildResultFromGLR picks the best stack and constructs the final tree.
 // Prefers accepted stacks, then highest score, then most entries.
-func (p *Parser) buildResultFromGLR(stacks []glrStack, source []byte) *Tree {
+func (p *Parser) buildResultFromGLR(stacks []glrStack, source []byte, arena *nodeArena, oldTree *Tree, reusedAny bool) *Tree {
 	if len(stacks) == 0 {
+		arena.Release()
 		return NewTree(nil, source, p.language)
 	}
 
@@ -541,7 +603,7 @@ func (p *Parser) buildResultFromGLR(stacks []glrStack, source []byte) *Tree {
 		}
 	}
 
-	return p.buildResult(stacks[best].entries, source)
+	return p.buildResult(stacks[best].entries, source, arena, oldTree, reusedAny)
 }
 
 // lookupAction looks up the parse action for the given state and symbol.
@@ -644,7 +706,7 @@ func (p *Parser) isNamedSymbol(sym Symbol) bool {
 }
 
 // buildResult constructs the final Tree from a stack of entries.
-func (p *Parser) buildResult(stack []stackEntry, source []byte) *Tree {
+func (p *Parser) buildResult(stack []stackEntry, source []byte, arena *nodeArena, oldTree *Tree, reusedAny bool) *Tree {
 	var nodes []*Node
 	for _, entry := range stack {
 		if entry.node != nil {
@@ -653,14 +715,36 @@ func (p *Parser) buildResult(stack []stackEntry, source []byte) *Tree {
 	}
 
 	if len(nodes) == 0 {
+		arena.Release()
 		return NewTree(nil, source, p.language)
 	}
 
-	if len(nodes) == 1 {
-		return NewTree(nodes[0], source, p.language)
+	if arena != nil && arena.used == 0 {
+		arena.Release()
+		arena = nil
 	}
 
-	root := NewParentNode(nodes[len(nodes)-1].symbol, true, nodes, nil, 0)
+	borrowed := retainBorrowedArenas(oldTree, reusedAny)
+
+	if len(nodes) == 1 {
+		return newTreeWithArenas(nodes[0], source, p.language, arena, borrowed)
+	}
+
+	root := newParentNodeInArena(arena, nodes[len(nodes)-1].symbol, true, nodes, nil, 0)
 	root.hasError = true
-	return NewTree(root, source, p.language)
+	return newTreeWithArenas(root, source, p.language, arena, borrowed)
+}
+
+func retainBorrowedArenas(oldTree *Tree, reusedAny bool) []*nodeArena {
+	if !reusedAny || oldTree == nil {
+		return nil
+	}
+	refs := oldTree.referencedArenas()
+	if len(refs) == 0 {
+		return nil
+	}
+	for _, a := range refs {
+		a.Retain()
+	}
+	return refs
 }

@@ -26,11 +26,12 @@ type Pattern struct {
 
 // QueryStep is one matching instruction within a pattern.
 type QueryStep struct {
-	symbol    Symbol  // node type to match, or 0 for wildcard
-	field     FieldID // required field on parent, or 0
-	captureID int     // index into Query.captures, or -1 if no capture
-	isNamed   bool    // whether we expect a named node
-	depth     int     // nesting depth (0 = top-level node in pattern)
+	symbol     Symbol          // node type to match, or 0 for wildcard
+	field      FieldID         // required field on parent, or 0
+	captureID  int             // index into Query.captures, or -1 if no capture
+	isNamed    bool            // whether we expect a named node
+	depth      int             // nesting depth (0 = top-level node in pattern)
+	quantifier queryQuantifier // ?, *, + (default: exactly one)
 	// For alternation steps, alternatives lists the alternative symbols
 	// that can match at this position. If non-nil, symbol is ignored.
 	alternatives []alternativeSymbol
@@ -38,6 +39,15 @@ type QueryStep struct {
 	// When non-empty, we match anonymous nodes whose symbol name equals this.
 	textMatch string
 }
+
+type queryQuantifier uint8
+
+const (
+	queryQuantifierOne queryQuantifier = iota
+	queryQuantifierZeroOrOne
+	queryQuantifierZeroOrMore
+	queryQuantifierOneOrMore
+)
 
 type queryPredicateType uint8
 
@@ -243,13 +253,13 @@ func (q *Query) walkAndMatch(node *Node, lang *Language, source []byte, matches 
 		n := worklist[len(worklist)-1]
 		worklist = worklist[:len(worklist)-1]
 
-			// Try matching only patterns whose root step can match this symbol.
-			for _, pi := range q.rootPatternCandidates(n.Symbol()) {
-				pat := q.patterns[pi]
-				if caps, ok := q.matchPattern(&pat, n, lang, source); ok {
-					*matches = append(*matches, QueryMatch{
-						PatternIndex: pi,
-						Captures:     caps,
+		// Try matching only patterns whose root step can match this symbol.
+		for _, pi := range q.rootPatternCandidates(n.Symbol()) {
+			pat := q.patterns[pi]
+			if caps, ok := q.matchPattern(&pat, n, lang, source); ok {
+				*matches = append(*matches, QueryMatch{
+					PatternIndex: pi,
+					Captures:     caps,
 				})
 			}
 		}
@@ -279,6 +289,15 @@ func (q *Query) matchPattern(pat *Pattern, node *Node, lang *Language, source []
 		return nil, false
 	}
 	return captures, true
+}
+
+func (q *Query) matchStepWithRollback(steps []QueryStep, stepIdx int, node *Node, lang *Language, captures *[]QueryCapture) bool {
+	checkpoint := len(*captures)
+	if q.matchSteps(steps, stepIdx, node, lang, captures) {
+		return true
+	}
+	*captures = (*captures)[:checkpoint]
+	return false
 }
 
 func (q *Query) matchesPredicates(predicates []QueryPredicate, captures []QueryCapture, source []byte) bool {
@@ -387,8 +406,9 @@ func (q *Query) matchSteps(steps []QueryStep, stepIdx int, node *Node, lang *Lan
 
 	// Try to match each child step against the node's children.
 	for _, cs := range childSteps {
-		matched := false
 		childStep := &steps[cs.stepIdx]
+		quantifier := childStep.quantifier
+		matchCount := 0
 
 		if cs.field != 0 {
 			// Field-constrained: find child by field.
@@ -400,25 +420,38 @@ func (q *Query) matchSteps(steps []QueryStep, stepIdx int, node *Node, lang *Lan
 				return false
 			}
 			fieldChild := node.ChildByFieldName(fieldName, lang)
-			if fieldChild == nil {
-				return false
-			}
-			if q.matchSteps(steps, cs.stepIdx, fieldChild, lang, captures) {
-				matched = true
+			if fieldChild != nil && q.nodeMatchesStep(childStep, fieldChild, lang) {
+				if q.matchStepWithRollback(steps, cs.stepIdx, fieldChild, lang, captures) {
+					matchCount++
+				}
 			}
 		} else {
-			// No field constraint: search all children for a match.
+			// No field constraint: search all children for matches.
 			for _, child := range node.Children() {
-				if q.nodeMatchesStep(childStep, child, lang) {
-					if q.matchSteps(steps, cs.stepIdx, child, lang, captures) {
-						matched = true
+				if !q.nodeMatchesStep(childStep, child, lang) {
+					continue
+				}
+				if q.matchStepWithRollback(steps, cs.stepIdx, child, lang, captures) {
+					matchCount++
+					if quantifier == queryQuantifierOne || quantifier == queryQuantifierZeroOrOne {
 						break
 					}
 				}
 			}
 		}
 
-		if !matched {
+		switch quantifier {
+		case queryQuantifierOne:
+			if matchCount == 0 {
+				return false
+			}
+		case queryQuantifierOneOrMore:
+			if matchCount == 0 {
+				return false
+			}
+		case queryQuantifierZeroOrOne, queryQuantifierZeroOrMore:
+			// Optional quantifiers allow zero matches.
+		default:
 			return false
 		}
 	}
@@ -713,6 +746,10 @@ func (p *queryParser) parsePattern(depth int) (*Pattern, error) {
 
 	// Check for capture after the closing paren.
 	p.skipWhitespaceAndComments()
+	if quantifier, ok := p.readStepQuantifier(); ok {
+		pat.steps[rootIdx].quantifier = quantifier
+		p.skipWhitespaceAndComments()
+	}
 	if p.pos < len(p.input) && p.input[p.pos] == '@' {
 		capName, err := p.readCapture()
 		if err != nil {
@@ -793,6 +830,10 @@ func (p *queryParser) parseAlternationPattern(depth int) (*Pattern, error) {
 
 	// Check for capture after ']'.
 	p.skipWhitespaceAndComments()
+	if quantifier, ok := p.readStepQuantifier(); ok {
+		step.quantifier = quantifier
+		p.skipWhitespaceAndComments()
+	}
 	if p.pos < len(p.input) && p.input[p.pos] == '@' {
 		capName, err := p.readCapture()
 		if err != nil {
@@ -819,6 +860,10 @@ func (p *queryParser) parseStringPattern(depth int) (*Pattern, error) {
 
 	// Check for capture after the string.
 	p.skipWhitespaceAndComments()
+	if quantifier, ok := p.readStepQuantifier(); ok {
+		step.quantifier = quantifier
+		p.skipWhitespaceAndComments()
+	}
 	if p.pos < len(p.input) && p.input[p.pos] == '@' {
 		capName, err := p.readCapture()
 		if err != nil {
@@ -939,6 +984,25 @@ func (p *queryParser) readPredicateName() (string, error) {
 		return "", fmt.Errorf("query: expected predicate name at position %d", start)
 	}
 	return p.input[start:p.pos], nil
+}
+
+func (p *queryParser) readStepQuantifier() (queryQuantifier, bool) {
+	if p.pos >= len(p.input) {
+		return queryQuantifierOne, false
+	}
+	switch p.input[p.pos] {
+	case '?':
+		p.pos++
+		return queryQuantifierZeroOrOne, true
+	case '*':
+		p.pos++
+		return queryQuantifierZeroOrMore, true
+	case '+':
+		p.pos++
+		return queryQuantifierOneOrMore, true
+	default:
+		return queryQuantifierOne, false
+	}
 }
 
 func (p *queryParser) readPredicateArg() (arg string, isCapture bool, err error) {

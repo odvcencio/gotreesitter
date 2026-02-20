@@ -184,6 +184,41 @@ func TestParseIncrementalReusesRootWhenUnchanged(t *testing.T) {
 	}
 }
 
+func TestParseIncrementalReusesRootAfterUndo(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	parser := NewParser(lang)
+
+	source := []byte("1+2+3")
+	tree := parser.Parse(source)
+	oldRoot := tree.RootNode()
+	if oldRoot == nil {
+		t.Fatal("initial parse returned nil root")
+	}
+
+	// Edit and undo before reparsing: "1+2+3" -> "1+4+3" -> "1+2+3".
+	edit := InputEdit{
+		StartByte:   2,
+		OldEndByte:  3,
+		NewEndByte:  3,
+		StartPoint:  Point{0, 2},
+		OldEndPoint: Point{0, 3},
+		NewEndPoint: Point{0, 3},
+	}
+	tree.Edit(edit)
+	tree.Edit(edit)
+
+	newTree := parser.ParseIncremental(source, tree)
+	if newTree.RootNode() == nil {
+		t.Fatal("incremental parse returned nil root")
+	}
+	if newTree.RootNode() != oldRoot {
+		t.Fatal("expected root node to be reused after undo")
+	}
+	if newTree.RootNode().dirty {
+		t.Fatal("expected reused root to have dirty flag cleared after undo reuse")
+	}
+}
+
 func TestTreeEditNodesAfterEdit(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	parser := NewParser(lang)
@@ -211,4 +246,58 @@ func TestTreeEditNodesAfterEdit(t *testing.T) {
 	if root.EndByte() != 3 {
 		t.Errorf("root EndByte after deletion = %d, want 3 (was %d)", root.EndByte(), origEnd)
 	}
+}
+
+func TestParseIncrementalReleaseKeepsBorrowedNodesAlive(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	parser := NewParser(lang)
+
+	oldSrc := []byte("1+2+3")
+	oldTree := parser.Parse(oldSrc)
+	oldRoot := oldTree.RootNode()
+	if oldRoot == nil {
+		t.Fatal("initial parse returned nil root")
+	}
+	oldRight := oldRoot.Child(2)
+	if oldRight == nil {
+		t.Fatal("missing right leaf in initial tree")
+	}
+
+	oldTree.Edit(InputEdit{
+		StartByte:   2,
+		OldEndByte:  3,
+		NewEndByte:  3,
+		StartPoint:  Point{0, 2},
+		OldEndPoint: Point{0, 3},
+		NewEndPoint: Point{0, 3},
+	})
+
+	newSrc := []byte("1+4+3")
+	newTree := parser.ParseIncremental(newSrc, oldTree)
+	newRight := newTree.RootNode().Child(2)
+	if newRight == nil {
+		t.Fatal("missing right leaf in incremental tree")
+	}
+	if newRight != oldRight {
+		t.Fatal("expected right leaf to be reused")
+	}
+
+	oldTree.Release()
+	oldTree.Release() // idempotent
+
+	// Force arena churn to validate that borrowed nodes are retained correctly.
+	for i := 0; i < 2000; i++ {
+		tmp := parser.Parse([]byte("7+8"))
+		if tmp.RootNode() == nil {
+			t.Fatalf("tmp parse %d returned nil root", i)
+		}
+		tmp.Release()
+	}
+
+	if got := newRight.Text(newTree.Source()); got != "3" {
+		t.Fatalf("reused right leaf text after old release = %q, want %q", got, "3")
+	}
+
+	newTree.Release()
+	newTree.Release() // idempotent
 }

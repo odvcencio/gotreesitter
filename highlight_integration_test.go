@@ -7,6 +7,13 @@ import (
 	"github.com/odvcencio/mane/grammars"
 )
 
+func goTokenSourceFactoryForTest(t *testing.T, lang *gotreesitter.Language) func([]byte) gotreesitter.TokenSource {
+	t.Helper()
+	return func(source []byte) gotreesitter.TokenSource {
+		return mustGoTokenSource(t, source, lang)
+	}
+}
+
 func TestHighlightGoIntegration(t *testing.T) {
 	lang := grammars.GoLanguage()
 
@@ -33,9 +40,7 @@ func TestHighlightGoIntegration(t *testing.T) {
 (identifier) @variable
 `
 
-	factory := func(source []byte) gotreesitter.TokenSource {
-		return grammars.NewGoTokenSource(source, lang)
-	}
+	factory := goTokenSourceFactoryForTest(t, lang)
 
 	h, err := gotreesitter.NewHighlighter(lang, highlightQuery,
 		gotreesitter.WithTokenSourceFactory(factory))
@@ -125,9 +130,7 @@ func TestHighlightGoWithComments(t *testing.T) {
 (comment) @comment
 (identifier) @variable
 `
-	factory := func(source []byte) gotreesitter.TokenSource {
-		return grammars.NewGoTokenSource(source, lang)
-	}
+	factory := goTokenSourceFactoryForTest(t, lang)
 
 	h, err := gotreesitter.NewHighlighter(lang, highlightQuery,
 		gotreesitter.WithTokenSourceFactory(factory))
@@ -163,9 +166,7 @@ func TestHighlightGoWithComments(t *testing.T) {
 func TestHighlightGoEmpty(t *testing.T) {
 	lang := grammars.GoLanguage()
 
-	factory := func(source []byte) gotreesitter.TokenSource {
-		return grammars.NewGoTokenSource(source, lang)
-	}
+	factory := goTokenSourceFactoryForTest(t, lang)
 
 	h, err := gotreesitter.NewHighlighter(lang, `(identifier) @variable`,
 		gotreesitter.WithTokenSourceFactory(factory))
@@ -189,9 +190,7 @@ func TestHighlightGoNoMatches(t *testing.T) {
 	lang := grammars.GoLanguage()
 
 	// Query for a node type that won't appear in a simple package declaration.
-	factory := func(source []byte) gotreesitter.TokenSource {
-		return grammars.NewGoTokenSource(source, lang)
-	}
+	factory := goTokenSourceFactoryForTest(t, lang)
 
 	h, err := gotreesitter.NewHighlighter(lang, `(for_statement) @loop`,
 		gotreesitter.WithTokenSourceFactory(factory))
@@ -217,9 +216,7 @@ func TestHighlightGoOverlappingInnerWins(t *testing.T) {
   name: (identifier) @function.name)
 (identifier) @variable
 `
-	factory := func(source []byte) gotreesitter.TokenSource {
-		return grammars.NewGoTokenSource(source, lang)
-	}
+	factory := goTokenSourceFactoryForTest(t, lang)
 
 	h, err := gotreesitter.NewHighlighter(lang, highlightQuery,
 		gotreesitter.WithTokenSourceFactory(factory))
@@ -265,9 +262,7 @@ func TestHighlightGoNumbers(t *testing.T) {
 (int_literal) @number
 (identifier) @variable
 `
-	factory := func(source []byte) gotreesitter.TokenSource {
-		return grammars.NewGoTokenSource(source, lang)
-	}
+	factory := goTokenSourceFactoryForTest(t, lang)
 
 	h, err := gotreesitter.NewHighlighter(lang, highlightQuery,
 		gotreesitter.WithTokenSourceFactory(factory))

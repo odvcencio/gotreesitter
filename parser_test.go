@@ -152,6 +152,112 @@ func buildArithmeticLanguage() *Language {
 	}
 }
 
+// buildArithmeticRecoverLanguage is like buildArithmeticLanguage but adds a
+// STAR token and a recover action in state 2. This lets tests verify that
+// recovery can pop to an ancestor state and apply ParseActionRecover there.
+func buildArithmeticRecoverLanguage() *Language {
+	return &Language{
+		Name:               "arithmetic_recover",
+		SymbolCount:        5,
+		TokenCount:         4,
+		ExternalTokenCount: 0,
+		StateCount:         5,
+		LargeStateCount:    0,
+		FieldCount:         0,
+		ProductionIDCount:  2,
+
+		SymbolNames: []string{"EOF", "NUMBER", "+", "*", "expression"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "NUMBER", Visible: true, Named: true},
+			{Name: "+", Visible: true, Named: false},
+			{Name: "*", Visible: true, Named: false},
+			{Name: "expression", Visible: true, Named: true},
+		},
+		FieldNames: []string{""},
+
+		ParseActions: []ParseActionEntry{
+			{Actions: nil}, // 0
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}},                                   // 1
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 1, ProductionID: 0}}}, // 2
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},                                   // 3 (goto)
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},                                   // 4
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},                                            // 5
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 4}}},                                   // 6
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 3, ProductionID: 1}}}, // 7
+			{Actions: []ParseAction{{Type: ParseActionRecover, State: 3}}},                                 // 8
+		},
+
+		// Columns: EOF(0), NUMBER(1), PLUS(2), STAR(3), expression(4)
+		ParseTable: [][]uint16{
+			{0, 1, 0, 0, 3}, // state 0
+			{2, 2, 2, 2, 0}, // state 1
+			{5, 0, 4, 8, 0}, // state 2
+			{0, 6, 0, 0, 0}, // state 3
+			{7, 7, 7, 7, 0}, // state 4
+		},
+
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 0},
+			{LexState: 0},
+			{LexState: 0},
+			{LexState: 0},
+		},
+
+		LexStates: []LexState{
+			{
+				AcceptToken: 0,
+				Skip:        false,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{
+					{Lo: '0', Hi: '9', NextState: 1},
+					{Lo: '+', Hi: '+', NextState: 2},
+					{Lo: '*', Hi: '*', NextState: 4},
+					{Lo: ' ', Hi: ' ', NextState: 3},
+					{Lo: '\t', Hi: '\t', NextState: 3},
+					{Lo: '\n', Hi: '\n', NextState: 3},
+				},
+			},
+			{
+				AcceptToken: 1,
+				Skip:        false,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{
+					{Lo: '0', Hi: '9', NextState: 1},
+				},
+			},
+			{
+				AcceptToken: 2,
+				Skip:        false,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: nil,
+			},
+			{
+				AcceptToken: 0,
+				Skip:        true,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{
+					{Lo: ' ', Hi: ' ', NextState: 3},
+					{Lo: '\t', Hi: '\t', NextState: 3},
+					{Lo: '\n', Hi: '\n', NextState: 3},
+				},
+			},
+			{
+				AcceptToken: 3,
+				Skip:        false,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: nil,
+			},
+		},
+	}
+}
+
 func TestNewParser(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	parser := NewParser(lang)
@@ -421,6 +527,59 @@ func TestParserRecoverAction(t *testing.T) {
 	}
 	if !root.HasError() {
 		t.Error("expected recovered parse root to have HasError=true")
+	}
+}
+
+func TestFindRecoverActionOnStackUsesNearestAncestor(t *testing.T) {
+	lang := buildArithmeticRecoverLanguage()
+	parser := NewParser(lang)
+	s := newGLRStack(lang.InitialState)
+	s.entries = append(s.entries, stackEntry{state: 2, node: nil})
+	s.entries = append(s.entries, stackEntry{state: 3, node: nil})
+
+	depth, act, ok := parser.findRecoverActionOnStack(&s, Symbol(3)) // STAR
+	if !ok {
+		t.Fatal("expected recover action on stack for STAR")
+	}
+	if depth != 1 {
+		t.Fatalf("recover depth = %d, want 1 (state 2)", depth)
+	}
+	if act.Type != ParseActionRecover {
+		t.Fatalf("recover action type = %d, want %d", act.Type, ParseActionRecover)
+	}
+	if act.State != 3 {
+		t.Fatalf("recover state = %d, want 3", act.State)
+	}
+}
+
+func TestParserAncestorRecoverActionPreservesLeftExpression(t *testing.T) {
+	lang := buildArithmeticRecoverLanguage()
+	parser := NewParser(lang)
+
+	tree := parser.Parse([]byte("1+*2"))
+	if tree == nil || tree.RootNode() == nil {
+		t.Fatal("parse returned nil root")
+	}
+	root := tree.RootNode()
+
+	if root.Symbol() != 4 {
+		t.Fatalf("root symbol = %d, want 4 (expression)", root.Symbol())
+	}
+	if !root.HasError() {
+		t.Fatal("expected recovered tree to have HasError=true")
+	}
+	if root.ChildCount() != 3 {
+		t.Fatalf("root child count = %d, want 3", root.ChildCount())
+	}
+
+	if got := root.Child(0).Symbol(); got != 4 {
+		t.Fatalf("child[0] symbol = %d, want 4 (left expression preserved)", got)
+	}
+	if got := root.Child(1).Symbol(); got != errorSymbol {
+		t.Fatalf("child[1] symbol = %d, want %d (error node)", got, errorSymbol)
+	}
+	if got := root.Child(2).Symbol(); got != 1 {
+		t.Fatalf("child[2] symbol = %d, want 1 (NUMBER)", got)
 	}
 }
 
