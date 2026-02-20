@@ -194,7 +194,8 @@ func (d *dfaTokenSource) Next() Token {
 	if int(d.state) < len(d.language.LexModes) {
 		lexState = d.language.LexModes[d.state].LexState
 	}
-	return d.lexer.Next(lexState)
+	tok := d.lexer.Next(lexState)
+	return d.promoteKeyword(tok)
 }
 
 func (d *dfaTokenSource) SkipToByte(offset uint32) Token {
@@ -249,6 +250,45 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	d.lexer.row = tok.EndPoint.Row
 	d.lexer.col = tok.EndPoint.Column
 	return tok, true
+}
+
+func (d *dfaTokenSource) promoteKeyword(tok Token) Token {
+	if d.language == nil {
+		return tok
+	}
+	if tok.Symbol == 0 {
+		return tok
+	}
+	if len(d.language.KeywordLexStates) == 0 {
+		return tok
+	}
+	if d.language.KeywordCaptureToken == 0 {
+		return tok
+	}
+	if tok.Symbol != d.language.KeywordCaptureToken {
+		return tok
+	}
+	if tok.EndByte <= tok.StartByte {
+		return tok
+	}
+
+	start := int(tok.StartByte)
+	end := int(tok.EndByte)
+	if start < 0 || end < start || end > len(d.lexer.source) {
+		return tok
+	}
+
+	kw := NewLexer(d.language.KeywordLexStates, d.lexer.source[start:end])
+	kwTok := kw.Next(0)
+	if kwTok.Symbol == 0 {
+		return tok
+	}
+	if kwTok.EndByte != uint32(end-start) {
+		return tok
+	}
+
+	tok.Symbol = kwTok.Symbol
+	return tok
 }
 
 // parseIterations returns the iteration limit scaled to input size.

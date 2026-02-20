@@ -72,6 +72,15 @@ func GenerateGo(g *ExtractedGrammar, pkg string) string {
 
 	// Lex modes
 	writeLexModes(&buf, g.LexModes)
+	if len(g.LexStates) > 0 {
+		writeLexStates(&buf, "LexStates", g.LexStates)
+	}
+	if len(g.KeywordLexStates) > 0 {
+		writeLexStates(&buf, "KeywordLexStates", g.KeywordLexStates)
+	}
+	if g.KeywordCaptureToken > 0 {
+		fmt.Fprintf(&buf, "\t\tKeywordCaptureToken: gotreesitter.Symbol(%d),\n", g.KeywordCaptureToken)
+	}
 
 	if len(g.ExternalSymbols) > 0 {
 		writeExternalSymbols(&buf, g.ExternalSymbols)
@@ -246,6 +255,22 @@ func writeLexModes(buf *strings.Builder, modes []LexModeEntry) {
 	buf.WriteString("\t\tLexModes: []gotreesitter.LexMode{\n")
 	for _, m := range modes {
 		fmt.Fprintf(buf, "\t\t\t{LexState: %d, ExternalLexState: %d},\n", m.LexState, m.ExternalLexState)
+	}
+	buf.WriteString("\t\t},\n")
+}
+
+func writeLexStates(buf *strings.Builder, name string, states []LexStateEntry) {
+	fmt.Fprintf(buf, "\t\t%s: []gotreesitter.LexState{\n", name)
+	for _, st := range states {
+		accept := 0
+		if st.HasAccept {
+			accept = int(st.Accept)
+		}
+		fmt.Fprintf(buf, "\t\t\t{AcceptToken: gotreesitter.Symbol(%d), Skip: false, Default: -1, EOF: %d, Transitions: []gotreesitter.LexTransition{", accept, st.EOF)
+		for _, tr := range st.Transitions {
+			fmt.Fprintf(buf, "{Lo: rune(%d), Hi: rune(%d), NextState: %d, Skip: %t}, ", tr.Lo, tr.Hi, tr.Next, tr.Skip)
+		}
+		buf.WriteString("}},\n")
 	}
 	buf.WriteString("\t\t},\n")
 }

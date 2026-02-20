@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".js", ".mjs", ".cjs"},
 		Language:       JavascriptLanguage,
 		HighlightQuery: javascriptHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("javascript"),
 	})
 }
 

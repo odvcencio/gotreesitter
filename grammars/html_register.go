@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".html", ".htm"},
 		Language:       HtmlLanguage,
 		HighlightQuery: htmlHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("html"),
 	})
 }
 

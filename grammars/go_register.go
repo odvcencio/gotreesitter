@@ -4,10 +4,10 @@ package grammars
 
 func init() {
 	Register(LangEntry{
-		Name:               "go",
-		Extensions:         []string{".go"},
-		Language:           GoLanguage,
-		HighlightQuery:     goHighlightQuery,
+		Name:           "go",
+		Extensions:     []string{".go"},
+		Language:       GoLanguage,
+		HighlightQuery: goHighlightQuery,
 		TokenSourceFactory: defaultTokenSourceFactory("go"),
 	})
 }

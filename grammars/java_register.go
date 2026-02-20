@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".java"},
 		Language:       JavaLanguage,
 		HighlightQuery: javaHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("java"),
 	})
 }
 

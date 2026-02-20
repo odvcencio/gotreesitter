@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".tsx"},
 		Language:       TsxLanguage,
 		HighlightQuery: tsxHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("tsx"),
 	})
 }
 

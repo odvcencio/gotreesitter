@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".kt", ".kts"},
 		Language:       KotlinLanguage,
 		HighlightQuery: kotlinHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("kotlin"),
 	})
 }
 

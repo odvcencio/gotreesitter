@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".json"},
 		Language:       JsonLanguage,
 		HighlightQuery: jsonHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("json"),
 	})
 }
 

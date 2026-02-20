@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".py"},
 		Language:       PythonLanguage,
 		HighlightQuery: pythonHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("python"),
 	})
 }
 

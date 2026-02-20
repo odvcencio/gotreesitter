@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".lua"},
 		Language:       LuaLanguage,
 		HighlightQuery: luaHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("lua"),
 	})
 }
 

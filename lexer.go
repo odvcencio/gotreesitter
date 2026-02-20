@@ -89,48 +89,77 @@ func (l *Lexer) Next(startState uint16) Token {
 // On a skip (whitespace) match, it returns a zero-Symbol token and true.
 func (l *Lexer) scan(startState uint16, startPos int, startRow, startCol uint32) (Token, bool) {
 	curState := int(startState)
+	if curState < 0 || curState >= len(l.states) {
+		return Token{}, false
+	}
+
 	scanPos := startPos
 	scanRow := startRow
 	scanCol := startCol
+	tokenStartPos := startPos
+	tokenStartRow := startRow
+	tokenStartCol := startCol
 
 	// Track the last accepting state.
 	acceptPos := -1
-	acceptRow := startRow
-	acceptCol := startCol
+	acceptRow := uint32(0)
+	acceptCol := uint32(0)
+	acceptStartPos := 0
+	acceptStartRow := uint32(0)
+	acceptStartCol := uint32(0)
 	acceptSymbol := Symbol(0)
 	acceptSkip := false
 
-	// Check if the start state itself is accepting.
-	st := &l.states[curState]
-	if st.AcceptToken > 0 || st.Skip {
-		acceptPos = scanPos
-		acceptRow = scanRow
-		acceptCol = scanCol
-		acceptSymbol = st.AcceptToken
-		acceptSkip = st.Skip
-	}
+	eofHops := 0
+	// Walk the DFA in the same style as tree-sitter START_LEXER/ADVANCE/SKIP.
+	for {
+		if curState < 0 || curState >= len(l.states) {
+			break
+		}
+		st := &l.states[curState]
 
-	// Walk the DFA.
-	for scanPos < len(l.source) {
+		if st.AcceptToken > 0 || st.Skip {
+			acceptPos = scanPos
+			acceptRow = scanRow
+			acceptCol = scanCol
+			acceptStartPos = tokenStartPos
+			acceptStartRow = tokenStartRow
+			acceptStartCol = tokenStartCol
+			acceptSymbol = st.AcceptToken
+			acceptSkip = st.Skip
+		}
+
+		if scanPos >= len(l.source) {
+			if st.EOF >= 0 && eofHops <= len(l.states) {
+				curState = st.EOF
+				eofHops++
+				continue
+			}
+			break
+		}
+		eofHops = 0
+
 		r, size := utf8.DecodeRune(l.source[scanPos:])
-
 		nextState := -1
-		st = &l.states[curState]
+		skipTransition := false
 		for i := range st.Transitions {
 			tr := &st.Transitions[i]
 			if r >= tr.Lo && r <= tr.Hi {
 				nextState = tr.NextState
+				skipTransition = tr.Skip
 				break
 			}
 		}
+		// Default transitions are treated as non-skipping.
+		skipTransition = skipTransition && nextState >= 0
 		if nextState < 0 && st.Default >= 0 {
 			nextState = st.Default
+			skipTransition = false
 		}
 		if nextState < 0 {
 			break
 		}
 
-		// Advance scan position and track row/column.
 		scanPos += size
 		if r == '\n' {
 			scanRow++
@@ -139,15 +168,17 @@ func (l *Lexer) scan(startState uint16, startPos int, startRow, startCol uint32)
 			scanCol++
 		}
 
-		curState = nextState
-		ns := &l.states[curState]
-		if ns.AcceptToken > 0 || ns.Skip {
-			acceptPos = scanPos
-			acceptRow = scanRow
-			acceptCol = scanCol
-			acceptSymbol = ns.AcceptToken
-			acceptSkip = ns.Skip
+		if skipTransition {
+			// tree-sitter SKIP(state) consumes and resets token start.
+			tokenStartPos = scanPos
+			tokenStartRow = scanRow
+			tokenStartCol = scanCol
+			acceptPos = -1
+			acceptSymbol = 0
+			acceptSkip = false
 		}
+
+		curState = nextState
 	}
 
 	if acceptPos < 0 {
@@ -162,19 +193,19 @@ func (l *Lexer) scan(startState uint16, startPos int, startRow, startCol uint32)
 	if acceptSkip {
 		// Return a zero-Symbol token to signal "skip".
 		return Token{
-			StartByte:  uint32(startPos),
+			StartByte:  uint32(acceptStartPos),
 			EndByte:    uint32(acceptPos),
-			StartPoint: Point{Row: startRow, Column: startCol},
+			StartPoint: Point{Row: acceptStartRow, Column: acceptStartCol},
 			EndPoint:   Point{Row: acceptRow, Column: acceptCol},
 		}, true
 	}
 
 	return Token{
 		Symbol:     acceptSymbol,
-		Text:       bytesToStringNoCopy(l.source[startPos:acceptPos]),
-		StartByte:  uint32(startPos),
+		Text:       bytesToStringNoCopy(l.source[acceptStartPos:acceptPos]),
+		StartByte:  uint32(acceptStartPos),
 		EndByte:    uint32(acceptPos),
-		StartPoint: Point{Row: startRow, Column: startCol},
+		StartPoint: Point{Row: acceptStartRow, Column: acceptStartCol},
 		EndPoint:   Point{Row: acceptRow, Column: acceptCol},
 	}, true
 }

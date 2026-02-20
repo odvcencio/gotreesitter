@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".rb"},
 		Language:       RubyLanguage,
 		HighlightQuery: rubyHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("ruby"),
 	})
 }
 

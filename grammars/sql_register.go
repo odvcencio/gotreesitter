@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".sql"},
 		Language:       SqlLanguage,
 		HighlightQuery: sqlHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("sql"),
 	})
 }
 

@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".css"},
 		Language:       CssLanguage,
 		HighlightQuery: cssHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("css"),
 	})
 }
 

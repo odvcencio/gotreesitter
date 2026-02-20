@@ -65,6 +65,9 @@ type LexState struct {
 type LexTransition struct {
 	Lo, Hi    rune // inclusive character range
 	NextState int
+	// Skip mirrors tree-sitter's SKIP(state): consume the matched rune
+	// and continue lexing while resetting token start.
+	Skip bool
 }
 
 // LexMode maps a parser state to its lexer configuration.

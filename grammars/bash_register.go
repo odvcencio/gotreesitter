@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".sh"},
 		Language:       BashLanguage,
 		HighlightQuery: bashHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("bash"),
 	})
 }
 

@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".toml"},
 		Language:       TomlLanguage,
 		HighlightQuery: tomlHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("toml"),
 	})
 }
 

@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".c", ".h"},
 		Language:       CLanguage,
 		HighlightQuery: cHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("c"),
 	})
 }
 

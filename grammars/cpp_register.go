@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".cc", ".cpp", ".cxx", ".hpp", ".hh", ".hxx", ".h"},
 		Language:       CppLanguage,
 		HighlightQuery: cppHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("cpp"),
 	})
 }
 

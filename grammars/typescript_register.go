@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".ts"},
 		Language:       TypescriptLanguage,
 		HighlightQuery: typescriptHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("typescript"),
 	})
 }
 

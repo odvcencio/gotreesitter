@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".yaml", ".yml"},
 		Language:       YamlLanguage,
 		HighlightQuery: yamlHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("yaml"),
 	})
 }
 

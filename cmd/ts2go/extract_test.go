@@ -112,8 +112,22 @@ static const TSLexMode ts_lex_modes[STATE_COUNT] = {
 };
 
 static bool ts_lex(TSLexer *lexer, TSStateId state) {
-  // ... complex lex function we skip ...
-  return false;
+  START_LEXER();
+  eof = lexer->eof(lexer);
+  switch (state) {
+    case 0:
+      if (eof) ADVANCE(1);
+      if (lookahead == ' ') SKIP(0);
+      if (('0' <= lookahead && lookahead <= '9')) ADVANCE(2);
+      END_STATE();
+    case 1:
+      ACCEPT_TOKEN(ts_builtin_sym_end);
+      END_STATE();
+    case 2:
+      ACCEPT_TOKEN(sym_number);
+      if (('0' <= lookahead && lookahead <= '9')) ADVANCE(2);
+      END_STATE();
+  }
 }
 
 const TSLanguage *tree_sitter_test_lang(void) {
@@ -176,6 +190,22 @@ func TestExtractEnum(t *testing.T) {
 	}
 	if v, ok := vals["sym_object"]; !ok || v != 5 {
 		t.Errorf("sym_object = %d, ok=%v, want 5", v, ok)
+	}
+}
+
+func TestExtractEnumAnonymous(t *testing.T) {
+	src := `
+enum {
+  anon_sym_EQ = 1,
+  sym_value = 2,
+};
+`
+	vals := extractEnum(src)
+	if v, ok := vals["anon_sym_EQ"]; !ok || v != 1 {
+		t.Errorf("anon_sym_EQ = %d, ok=%v, want 1", v, ok)
+	}
+	if v, ok := vals["sym_value"]; !ok || v != 2 {
+		t.Errorf("sym_value = %d, ok=%v, want 2", v, ok)
 	}
 }
 

@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".rs"},
 		Language:       RustLanguage,
 		HighlightQuery: rustHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("rust"),
 	})
 }
 

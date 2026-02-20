@@ -8,6 +8,7 @@ func init() {
 		Extensions:     []string{".php"},
 		Language:       PhpLanguage,
 		HighlightQuery: phpHighlightQuery,
+		TokenSourceFactory: defaultTokenSourceFactory("php"),
 	})
 }
 

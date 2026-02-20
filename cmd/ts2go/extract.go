@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -26,6 +27,11 @@ type ExtractedGrammar struct {
 	ParseTable   [][]uint16
 	ParseActions []ActionGroup
 	LexModes     []LexModeEntry
+	LexStates    []LexStateEntry
+
+	// Optional keyword lexer DFA (from ts_lex_keywords).
+	KeywordLexStates    []LexStateEntry
+	KeywordCaptureToken int
 
 	// Field mapping metadata for ChildByFieldName support.
 	FieldMapSlices  [][2]uint16
@@ -82,6 +88,24 @@ type LexModeEntry struct {
 	ExternalLexState int
 }
 
+// LexStateEntry is a normalized lexer state extracted from ts_lex/ts_lex_keywords.
+type LexStateEntry struct {
+	ID          int
+	Transitions []LexTransitionEntry
+	Accept      SymbolID
+	HasAccept   bool
+	EOF         int
+	IsKeyword   bool
+}
+
+// LexTransitionEntry is one transition in a lexer DFA state.
+type LexTransitionEntry struct {
+	Lo   rune
+	Hi   rune
+	Skip bool
+	Next int
+}
+
 // ExtractGrammar parses a tree-sitter parser.c source and extracts all
 // structured data tables from it.
 func ExtractGrammar(source string) (*ExtractedGrammar, error) {
@@ -132,6 +156,12 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 
 	if err := extractLexModes(source, g); err != nil {
 		return nil, fmt.Errorf("lex modes: %w", err)
+	}
+
+	// Lex state extraction is intentionally staged:
+	// first lock helper/parsing interfaces, then emit full DFA tables.
+	if err := extractLexStates(source, g); err != nil {
+		return nil, fmt.Errorf("lex states: %w", err)
 	}
 
 	if g.ExternalTokenCount > 0 {
@@ -220,8 +250,11 @@ func extractEnum(source string) map[string]int {
 		"ts_builtin_sym_error": 65535,
 	}
 
-	// Find all enum blocks.
-	enumRe := regexp.MustCompile(`(?s)enum\s+\w+\s*\{([^}]*)\}`)
+	// Find all enum blocks. Tree-sitter grammars use both named enums:
+	//   enum ts_symbol_identifiers { ... };
+	// and anonymous enums:
+	//   enum { ... };
+	enumRe := regexp.MustCompile(`(?s)enum\s*(?:\w+\s*)?\{([^}]*)\}`)
 	enumMatches := enumRe.FindAllStringSubmatch(source, -1)
 
 	entryRe := regexp.MustCompile(`(\w+)\s*=\s*(\d+)`)
@@ -1114,6 +1147,68 @@ func extractLexModes(source string, g *ExtractedGrammar) error {
 	return nil
 }
 
+// extractLexStates normalizes the ts_lex and ts_lex_keywords function bodies.
+// TODO: implement full DFA lowering from generated control-flow to tables.
+func extractLexStates(source string, g *ExtractedGrammar) error {
+	dfa, err := ExtractLexDFA(source)
+	if err != nil {
+		if errors.Is(err, ErrNoLexFunction) {
+			return nil
+		}
+		return err
+	}
+
+	g.LexStates = make([]LexStateEntry, len(dfa.States))
+	for i, st := range dfa.States {
+		entry := LexStateEntry{
+			ID:        i,
+			Accept:    st.Accept,
+			HasAccept: st.HasAccept,
+			EOF:       st.EOF,
+			IsKeyword: st.IsKeyword,
+		}
+		if len(st.Transitions) > 0 {
+			entry.Transitions = make([]LexTransitionEntry, 0, len(st.Transitions))
+			for _, tr := range st.Transitions {
+				entry.Transitions = append(entry.Transitions, LexTransitionEntry{
+					Lo:   tr.Lo,
+					Hi:   tr.Hi,
+					Skip: tr.Skip,
+					Next: tr.Next,
+				})
+			}
+		}
+		g.LexStates[i] = entry
+	}
+
+	g.KeywordLexStates = make([]LexStateEntry, len(dfa.KeywordStates))
+	for i, st := range dfa.KeywordStates {
+		entry := LexStateEntry{
+			ID:        i,
+			Accept:    st.Accept,
+			HasAccept: st.HasAccept,
+			EOF:       st.EOF,
+			IsKeyword: st.IsKeyword,
+		}
+		if len(st.Transitions) > 0 {
+			entry.Transitions = make([]LexTransitionEntry, 0, len(st.Transitions))
+			for _, tr := range st.Transitions {
+				entry.Transitions = append(entry.Transitions, LexTransitionEntry{
+					Lo:   tr.Lo,
+					Hi:   tr.Hi,
+					Skip: tr.Skip,
+					Next: tr.Next,
+				})
+			}
+		}
+		g.KeywordLexStates[i] = entry
+	}
+	if dfa.HasKeywordCapture {
+		g.KeywordCaptureToken = int(dfa.KeywordCapture)
+	}
+	return nil
+}
+
 // --- Helper functions ---
 
 // actionMatch holds a parsed action and its position in the line
@@ -1195,6 +1290,50 @@ func findExactArrayBody(source, name string) (string, error) {
 	}
 
 	return "", fmt.Errorf("array %q not found (exact)", name)
+}
+
+// findFunctionBody finds a C function definition by name and returns the text
+// inside the outermost braces, plus the absolute index of the opening brace.
+func findFunctionBody(source, funcName string) (string, int, bool) {
+	if funcName == "" {
+		return "", 0, false
+	}
+
+	sigRe := regexp.MustCompile(`(?m)\b` + regexp.QuoteMeta(funcName) + `\s*\(`)
+	locs := sigRe.FindAllStringIndex(source, -1)
+	for _, loc := range locs {
+		openParen := -1
+		for i := loc[0]; i < len(source); i++ {
+			if source[i] == '(' {
+				openParen = i
+				break
+			}
+		}
+		if openParen < 0 {
+			continue
+		}
+
+		closeParen, ok := findMatchingParen(source, openParen)
+		if !ok {
+			continue
+		}
+
+		i := closeParen + 1
+		for i < len(source) && (source[i] == ' ' || source[i] == '\t' || source[i] == '\n' || source[i] == '\r') {
+			i++
+		}
+		if i >= len(source) || source[i] != '{' {
+			continue
+		}
+
+		end, err := findMatchingBrace(source, i)
+		if err != nil {
+			return "", 0, false
+		}
+		return source[i+1 : end], i, true
+	}
+
+	return "", 0, false
 }
 
 // findMatchingBrace returns the index of the closing brace that matches the
@@ -1289,6 +1428,280 @@ func findMatchingBrace(source string, start int) (int, error) {
 	}
 
 	return 0, fmt.Errorf("no matching closing brace")
+}
+
+// findMatchingParen returns the index of the matching ')' for source[start]=='('.
+// Parentheses inside strings/chars/comments are ignored.
+func findMatchingParen(source string, start int) (int, bool) {
+	if start < 0 || start >= len(source) || source[start] != '(' {
+		return 0, false
+	}
+
+	depth := 0
+	inString := false
+	inChar := false
+	inLineComment := false
+	inBlockComment := false
+	escaped := false
+
+	for i := start; i < len(source); i++ {
+		c := source[i]
+
+		if inLineComment {
+			if c == '\n' {
+				inLineComment = false
+			}
+			continue
+		}
+		if inBlockComment {
+			if c == '*' && i+1 < len(source) && source[i+1] == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		}
+		if inString {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if c == '\\' {
+				escaped = true
+				continue
+			}
+			if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		if inChar {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if c == '\\' {
+				escaped = true
+				continue
+			}
+			if c == '\'' {
+				inChar = false
+			}
+			continue
+		}
+
+		if c == '/' && i+1 < len(source) {
+			next := source[i+1]
+			if next == '/' {
+				inLineComment = true
+				i++
+				continue
+			}
+			if next == '*' {
+				inBlockComment = true
+				i++
+				continue
+			}
+		}
+
+		switch c {
+		case '"':
+			inString = true
+		case '\'':
+			inChar = true
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return i, true
+			}
+			if depth < 0 {
+				return 0, false
+			}
+		}
+	}
+
+	return 0, false
+}
+
+// stripCComments removes // and /* */ comments while preserving line breaks.
+func stripCComments(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+
+	inString := false
+	inChar := false
+	inLineComment := false
+	inBlockComment := false
+	escaped := false
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		if inLineComment {
+			if c == '\n' {
+				inLineComment = false
+				b.WriteByte(c)
+			}
+			continue
+		}
+		if inBlockComment {
+			if c == '\n' {
+				b.WriteByte('\n')
+			}
+			if c == '*' && i+1 < len(s) && s[i+1] == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		}
+
+		if inString {
+			b.WriteByte(c)
+			if escaped {
+				escaped = false
+				continue
+			}
+			if c == '\\' {
+				escaped = true
+				continue
+			}
+			if c == '"' {
+				inString = false
+			}
+			continue
+		}
+
+		if inChar {
+			b.WriteByte(c)
+			if escaped {
+				escaped = false
+				continue
+			}
+			if c == '\\' {
+				escaped = true
+				continue
+			}
+			if c == '\'' {
+				inChar = false
+			}
+			continue
+		}
+
+		if c == '/' && i+1 < len(s) {
+			next := s[i+1]
+			if next == '/' {
+				inLineComment = true
+				i++
+				continue
+			}
+			if next == '*' {
+				inBlockComment = true
+				i++
+				continue
+			}
+		}
+
+		b.WriteByte(c)
+		if c == '"' {
+			inString = true
+		} else if c == '\'' {
+			inChar = true
+		}
+	}
+
+	return b.String()
+}
+
+// parseCChar decodes a C character-literal payload (e.g. "a", "\n", "\u00e9").
+// The input should not include surrounding single quotes.
+func parseCChar(s string) (rune, bool) {
+	if s == "" {
+		return 0, false
+	}
+
+	if len(s) == 1 {
+		return rune(s[0]), true
+	}
+
+	if s[0] != '\\' {
+		runes := []rune(s)
+		if len(runes) == 1 {
+			return runes[0], true
+		}
+		return 0, false
+	}
+
+	switch s {
+	case `\n`:
+		return '\n', true
+	case `\t`:
+		return '\t', true
+	case `\r`:
+		return '\r', true
+	case `\f`:
+		return '\f', true
+	case `\v`:
+		return '\v', true
+	case `\a`:
+		return '\a', true
+	case `\b`:
+		return '\b', true
+	case `\\`:
+		return '\\', true
+	case `\'`:
+		return '\'', true
+	case `\"`:
+		return '"', true
+	case `\0`:
+		return 0, true
+	}
+
+	if strings.HasPrefix(s, `\u`) {
+		if len(s) != 6 {
+			return 0, false
+		}
+		v, err := strconv.ParseInt(s[2:], 16, 32)
+		if err != nil {
+			return 0, false
+		}
+		return rune(v), true
+	}
+	if strings.HasPrefix(s, `\U`) {
+		if len(s) != 10 {
+			return 0, false
+		}
+		v, err := strconv.ParseInt(s[2:], 16, 32)
+		if err != nil {
+			return 0, false
+		}
+		return rune(v), true
+	}
+	if strings.HasPrefix(s, `\x`) {
+		if len(s) < 3 {
+			return 0, false
+		}
+		v, err := strconv.ParseInt(s[2:], 16, 32)
+		if err != nil {
+			return 0, false
+		}
+		return rune(v), true
+	}
+
+	// Octal escape: \NNN (1-3 octal digits)
+	if len(s) >= 2 && s[0] == '\\' && s[1] >= '0' && s[1] <= '7' {
+		end := 2
+		for end < len(s) && end < 4 && s[end] >= '0' && s[end] <= '7' {
+			end++
+		}
+		v, err := strconv.ParseInt(s[1:end], 8, 32)
+		if err != nil {
+			return 0, false
+		}
+		return rune(v), true
+	}
+
+	return 0, false
 }
 
 // parseIndexedStringArray parses a C array of the form:
