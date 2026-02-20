@@ -53,20 +53,26 @@ type queryPredicateType uint8
 
 const (
 	predicateEq queryPredicateType = iota
+	predicateNotEq
 	predicateMatch
+	predicateAnyOf
 )
 
 // QueryPredicate is a post-match constraint attached to a pattern.
 // Supported forms:
 //   - (#eq? @a @b)
 //   - (#eq? @a "literal")
+//   - (#not-eq? @a @b)
+//   - (#not-eq? @a "literal")
 //   - (#match? @a "regex")
+//   - (#any-of? @a "v1" "v2" ...)
 type QueryPredicate struct {
 	kind queryPredicateType
 
 	leftCapture  string
-	rightCapture string // optional for #eq?
+	rightCapture string // optional for #eq? / #not-eq?
 	literal      string // literal or regex source
+	values       []string
 	regex        *regexp.Regexp
 }
 
@@ -420,8 +426,33 @@ func (q *Query) matchesPredicates(predicates []QueryPredicate, captures []QueryC
 				return false
 			}
 
+		case predicateNotEq:
+			right := pred.literal
+			if pred.rightCapture != "" {
+				var okRight bool
+				right, okRight = captureText(pred.rightCapture, captures, source)
+				if !okRight {
+					return false
+				}
+			}
+			if left == right {
+				return false
+			}
+
 		case predicateMatch:
 			if pred.regex == nil || !pred.regex.MatchString(left) {
+				return false
+			}
+
+		case predicateAnyOf:
+			matched := false
+			for _, v := range pred.values {
+				if left == v {
+					matched = true
+					break
+				}
+			}
+			if !matched {
 				return false
 			}
 		}
@@ -991,20 +1022,19 @@ func (p *queryParser) parsePredicate() (QueryPredicate, error) {
 		return QueryPredicate{}, fmt.Errorf("query: first predicate argument must be a capture in %s", name)
 	}
 
-	p.skipWhitespaceAndComments()
-	right, rightIsCapture, err := p.readPredicateArg()
-	if err != nil {
-		return QueryPredicate{}, err
-	}
-
-	p.skipWhitespaceAndComments()
-	if p.pos >= len(p.input) || p.input[p.pos] != ')' {
-		return QueryPredicate{}, fmt.Errorf("query: expected ')' to close predicate at position %d", p.pos)
-	}
-	p.pos++ // consume ')'
-
 	switch name {
 	case "#eq?":
+		p.skipWhitespaceAndComments()
+		right, rightIsCapture, err := p.readPredicateArg()
+		if err != nil {
+			return QueryPredicate{}, err
+		}
+		p.skipWhitespaceAndComments()
+		if p.pos >= len(p.input) || p.input[p.pos] != ')' {
+			return QueryPredicate{}, fmt.Errorf("query: expected ')' to close predicate at position %d", p.pos)
+		}
+		p.pos++ // consume ')'
+
 		pred := QueryPredicate{
 			kind:        predicateEq,
 			leftCapture: left,
@@ -1016,7 +1046,41 @@ func (p *queryParser) parsePredicate() (QueryPredicate, error) {
 		}
 		return pred, nil
 
+	case "#not-eq?":
+		p.skipWhitespaceAndComments()
+		right, rightIsCapture, err := p.readPredicateArg()
+		if err != nil {
+			return QueryPredicate{}, err
+		}
+		p.skipWhitespaceAndComments()
+		if p.pos >= len(p.input) || p.input[p.pos] != ')' {
+			return QueryPredicate{}, fmt.Errorf("query: expected ')' to close predicate at position %d", p.pos)
+		}
+		p.pos++ // consume ')'
+
+		pred := QueryPredicate{
+			kind:        predicateNotEq,
+			leftCapture: left,
+		}
+		if rightIsCapture {
+			pred.rightCapture = right
+		} else {
+			pred.literal = right
+		}
+		return pred, nil
+
 	case "#match?":
+		p.skipWhitespaceAndComments()
+		right, rightIsCapture, err := p.readPredicateArg()
+		if err != nil {
+			return QueryPredicate{}, err
+		}
+		p.skipWhitespaceAndComments()
+		if p.pos >= len(p.input) || p.input[p.pos] != ')' {
+			return QueryPredicate{}, fmt.Errorf("query: expected ')' to close predicate at position %d", p.pos)
+		}
+		p.pos++ // consume ')'
+
 		if rightIsCapture {
 			return QueryPredicate{}, fmt.Errorf("query: #match? second argument must be a string literal")
 		}
@@ -1029,6 +1093,35 @@ func (p *queryParser) parsePredicate() (QueryPredicate, error) {
 			leftCapture: left,
 			literal:     right,
 			regex:       rx,
+		}, nil
+
+	case "#any-of?":
+		var values []string
+		for {
+			p.skipWhitespaceAndComments()
+			if p.pos >= len(p.input) {
+				return QueryPredicate{}, fmt.Errorf("query: expected ')' to close predicate at position %d", p.pos)
+			}
+			if p.input[p.pos] == ')' {
+				p.pos++ // consume ')'
+				break
+			}
+			v, isCapture, err := p.readPredicateArg()
+			if err != nil {
+				return QueryPredicate{}, err
+			}
+			if isCapture {
+				return QueryPredicate{}, fmt.Errorf("query: #any-of? arguments after first must be string literals")
+			}
+			values = append(values, v)
+		}
+		if len(values) == 0 {
+			return QueryPredicate{}, fmt.Errorf("query: #any-of? requires at least one string literal")
+		}
+		return QueryPredicate{
+			kind:        predicateAnyOf,
+			leftCapture: left,
+			values:      values,
 		}, nil
 	default:
 		return QueryPredicate{}, fmt.Errorf("query: unsupported predicate %q", name)

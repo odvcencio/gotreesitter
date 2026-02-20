@@ -465,6 +465,48 @@ func TestParsePredicateMatch(t *testing.T) {
 	}
 }
 
+func TestParsePredicateNotEq(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`(identifier) @name (#not-eq? @name "main")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if len(q.patterns[0].predicates) != 1 {
+		t.Fatalf("predicates: got %d, want 1", len(q.patterns[0].predicates))
+	}
+	pred := q.patterns[0].predicates[0]
+	if pred.kind != predicateNotEq {
+		t.Fatalf("predicate kind: got %d, want %d", pred.kind, predicateNotEq)
+	}
+	if pred.leftCapture != "name" {
+		t.Fatalf("left capture: got %q, want %q", pred.leftCapture, "name")
+	}
+	if pred.literal != "main" {
+		t.Fatalf("literal: got %q, want %q", pred.literal, "main")
+	}
+}
+
+func TestParsePredicateAnyOf(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`(identifier) @name (#any-of? @name "main" "root")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if len(q.patterns[0].predicates) != 1 {
+		t.Fatalf("predicates: got %d, want 1", len(q.patterns[0].predicates))
+	}
+	pred := q.patterns[0].predicates[0]
+	if pred.kind != predicateAnyOf {
+		t.Fatalf("predicate kind: got %d, want %d", pred.kind, predicateAnyOf)
+	}
+	if pred.leftCapture != "name" {
+		t.Fatalf("left capture: got %q, want %q", pred.leftCapture, "name")
+	}
+	if len(pred.values) != 2 || pred.values[0] != "main" || pred.values[1] != "root" {
+		t.Fatalf("values: got %#v, want [main root]", pred.values)
+	}
+}
+
 func TestParsePredicateUnknownCapture(t *testing.T) {
 	lang := queryTestLanguage()
 	_, err := NewQuery(`(identifier) @name (#eq? @missing "main")`, lang)
@@ -478,6 +520,14 @@ func TestParsePredicateInvalidRegex(t *testing.T) {
 	_, err := NewQuery(`(identifier) @name (#match? @name "[")`, lang)
 	if err == nil {
 		t.Fatal("expected error for invalid regex")
+	}
+}
+
+func TestParsePredicateAnyOfRejectsCaptureArg(t *testing.T) {
+	lang := queryTestLanguage()
+	_, err := NewQuery(`(identifier) @a (identifier) @b (#any-of? @a @b)`, lang)
+	if err == nil {
+		t.Fatal("expected error for capture argument in #any-of?")
 	}
 }
 
@@ -697,6 +747,72 @@ func TestMatchPredicateMatch(t *testing.T) {
 	matches := q.Execute(tree)
 	if len(matches) != 1 {
 		t.Fatalf("matches: got %d, want 1", len(matches))
+	}
+}
+
+func TestMatchPredicateNotEq(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`(identifier) @name (#not-eq? @name "other")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 1 {
+		t.Fatalf("matches: got %d, want 1", len(matches))
+	}
+	if got := matches[0].Captures[0].Node.Text(tree.Source()); got != "main" {
+		t.Fatalf("capture text: got %q, want %q", got, "main")
+	}
+}
+
+func TestMatchPredicateNotEqNoMatch(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`(identifier) @name (#not-eq? @name "main")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 0 {
+		t.Fatalf("matches: got %d, want 0", len(matches))
+	}
+}
+
+func TestMatchPredicateAnyOf(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`(identifier) @name (#any-of? @name "root" "main" "entry")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 1 {
+		t.Fatalf("matches: got %d, want 1", len(matches))
+	}
+	if got := matches[0].Captures[0].Node.Text(tree.Source()); got != "main" {
+		t.Fatalf("capture text: got %q, want %q", got, "main")
+	}
+}
+
+func TestMatchPredicateAnyOfNoMatch(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`(identifier) @name (#any-of? @name "root" "entry")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 0 {
+		t.Fatalf("matches: got %d, want 0", len(matches))
 	}
 }
 
@@ -1294,7 +1410,7 @@ func TestQueryCursorNextCaptureThenNextMatchDropsRemainingCaptureBuffer(t *testi
 	lang := queryTestLanguage()
 	tree := buildSimpleTree(lang)
 
-	q, err := NewQuery(`(function_declaration (identifier) @id (number) @num)`, lang)
+	q, err := NewQuery(`(function_declaration (identifier) @id (block (number) @num))`, lang)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}

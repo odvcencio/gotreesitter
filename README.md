@@ -12,6 +12,12 @@ Pure-Go tree-sitter runtime and grammar pipeline.
 
 ## Supported Grammars (Current)
 
+Backend notes:
+
+- `token_source`: parser uses a hand-written pure-Go lexer bridge for that grammar.
+- `dfa`: parser uses fully generated lexer tables from `parser.c`.
+- `dfa-partial`: generated DFA path where external-scanner-dependent tokens are synthesized when possible; status may be `ok` or `degraded`.
+
 - `bash` (`dfa-partial`, `ok`)
 - `c` (`token_source`, `ok`)
 - `cpp` (`token_source`, `ok`)
@@ -69,7 +75,7 @@ Implemented:
 
 - query compile + execute (`NewQuery`, `Execute`, `ExecuteNode`)
 - cursor-style streaming (`Exec`, `NextMatch`, `NextCapture`)
-- predicates: `#eq?`, `#match?`
+- predicates: `#eq?`, `#not-eq?`, `#match?`, `#any-of?`
 - structural quantifiers: `?`, `*`, `+`
 
 Important API note:
