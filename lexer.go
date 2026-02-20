@@ -58,8 +58,12 @@ func (l *Lexer) Next(startState uint16) Token {
 		tok, ok := l.scan(startState, tokenStartPos, tokenStartRow, tokenStartCol)
 		if ok {
 			if tok.Symbol == 0 {
-				// Skip token (whitespace). The lexer position has already
-				// been advanced past the skipped content. Restart.
+				// Skip token (whitespace). Verify the lexer actually
+				// advanced past the skipped content to prevent an
+				// infinite loop on zero-width skip matches.
+				if l.pos <= tokenStartPos {
+					l.skipOneRune()
+				}
 				continue
 			}
 			return tok

@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -12,11 +13,15 @@ import (
 type Query struct {
 	patterns []Pattern
 	captures []string // capture name by index
+
+	rootCandidatesBySymbol map[Symbol][]int
+	rootFallbackCandidates []int
 }
 
 // Pattern is a single top-level S-expression pattern in a query.
 type Pattern struct {
-	steps []QueryStep
+	steps      []QueryStep
+	predicates []QueryPredicate
 }
 
 // QueryStep is one matching instruction within a pattern.
@@ -32,6 +37,27 @@ type QueryStep struct {
 	// textMatch is for string literal matching ("func", "return", etc.).
 	// When non-empty, we match anonymous nodes whose symbol name equals this.
 	textMatch string
+}
+
+type queryPredicateType uint8
+
+const (
+	predicateEq queryPredicateType = iota
+	predicateMatch
+)
+
+// QueryPredicate is a post-match constraint attached to a pattern.
+// Supported forms:
+//   - (#eq? @a @b)
+//   - (#eq? @a "literal")
+//   - (#match? @a "regex")
+type QueryPredicate struct {
+	kind queryPredicateType
+
+	leftCapture  string
+	rightCapture string // optional for #eq?
+	literal      string // literal or regex source
+	regex        *regexp.Regexp
 }
 
 // alternativeSymbol is one branch of an alternation like [(true) (false)].
@@ -68,59 +94,238 @@ func NewQuery(source string, lang *Language) (*Query, error) {
 	if err := p.parse(); err != nil {
 		return nil, err
 	}
+	p.q.buildRootPatternIndex()
 	return p.q, nil
 }
 
 // Execute runs the query against a syntax tree and returns all matches.
 func (q *Query) Execute(tree *Tree) []QueryMatch {
-	return q.executeNode(tree.RootNode(), tree.Language())
+	return q.executeNode(tree.RootNode(), tree.Language(), tree.Source())
 }
 
 // ExecuteNode runs the query starting from a specific node.
 func (q *Query) ExecuteNode(node *Node, lang *Language) []QueryMatch {
-	return q.executeNode(node, lang)
+	return q.executeNode(node, lang, nil)
 }
 
-func (q *Query) executeNode(root *Node, lang *Language) []QueryMatch {
+func (q *Query) executeNode(root *Node, lang *Language, source []byte) []QueryMatch {
 	if root == nil {
 		return nil
 	}
+	if q.rootCandidatesBySymbol == nil && q.rootFallbackCandidates == nil {
+		q.buildRootPatternIndex()
+	}
 	var matches []QueryMatch
-	q.walkAndMatch(root, lang, &matches)
+	q.walkAndMatch(root, lang, source, &matches)
 	return matches
 }
 
-// walkAndMatch does a depth-first walk of the tree, trying to match each
-// pattern at each node.
-func (q *Query) walkAndMatch(node *Node, lang *Language, matches *[]QueryMatch) {
-	// Try matching each pattern starting at this node.
-	for pi, pat := range q.patterns {
-		if caps, ok := q.matchPattern(&pat, node, lang); ok {
-			m := QueryMatch{
-				PatternIndex: pi,
-				Captures:     caps,
-			}
-			*matches = append(*matches, m)
-		}
+func (q *Query) rootPatternCandidates(sym Symbol) []int {
+	if cands, ok := q.rootCandidatesBySymbol[sym]; ok {
+		return cands
+	}
+	return q.rootFallbackCandidates
+}
+
+func mergePatternIndexLists(a, b []int) []int {
+	if len(a) == 0 {
+		out := make([]int, len(b))
+		copy(out, b)
+		return out
+	}
+	if len(b) == 0 {
+		out := make([]int, len(a))
+		copy(out, a)
+		return out
 	}
 
-	// Recurse into children.
-	for _, child := range node.Children() {
-		q.walkAndMatch(child, lang, matches)
+	out := make([]int, 0, len(a)+len(b))
+	i, j := 0, 0
+	last := -1
+	hasLast := false
+
+	appendUnique := func(v int) {
+		if hasLast && v == last {
+			return
+		}
+		out = append(out, v)
+		last = v
+		hasLast = true
+	}
+
+	for i < len(a) && j < len(b) {
+		if a[i] < b[j] {
+			appendUnique(a[i])
+			i++
+			continue
+		}
+		if b[j] < a[i] {
+			appendUnique(b[j])
+			j++
+			continue
+		}
+		appendUnique(a[i])
+		i++
+		j++
+	}
+	for ; i < len(a); i++ {
+		appendUnique(a[i])
+	}
+	for ; j < len(b); j++ {
+		appendUnique(b[j])
+	}
+	return out
+}
+
+func (q *Query) buildRootPatternIndex() {
+	bySymbolExact := make(map[Symbol][]int)
+	var wildcard []int
+	var complex []int
+
+	for pi, pat := range q.patterns {
+		if len(pat.steps) == 0 {
+			continue
+		}
+		step := pat.steps[0]
+
+		if len(step.alternatives) > 0 {
+			complexAlt := false
+			for _, alt := range step.alternatives {
+				if alt.textMatch != "" || alt.symbol == 0 {
+					complexAlt = true
+					break
+				}
+			}
+			if complexAlt {
+				complex = append(complex, pi)
+				continue
+			}
+
+			seen := make(map[Symbol]struct{}, len(step.alternatives))
+			for _, alt := range step.alternatives {
+				if _, ok := seen[alt.symbol]; ok {
+					continue
+				}
+				seen[alt.symbol] = struct{}{}
+				bySymbolExact[alt.symbol] = append(bySymbolExact[alt.symbol], pi)
+			}
+			continue
+		}
+
+		if step.textMatch != "" {
+			complex = append(complex, pi)
+			continue
+		}
+		if step.symbol == 0 {
+			wildcard = append(wildcard, pi)
+			continue
+		}
+
+		bySymbolExact[step.symbol] = append(bySymbolExact[step.symbol], pi)
+	}
+
+	fallback := mergePatternIndexLists(wildcard, complex)
+	q.rootFallbackCandidates = fallback
+	q.rootCandidatesBySymbol = make(map[Symbol][]int, len(bySymbolExact))
+	for sym, exact := range bySymbolExact {
+		q.rootCandidatesBySymbol[sym] = mergePatternIndexLists(exact, fallback)
+	}
+}
+
+// walkAndMatch does an iterative depth-first walk of the tree, trying to
+// match each pattern at each node. Uses an explicit worklist to avoid
+// stack overflow on deep trees (e.g., from parser error recovery).
+func (q *Query) walkAndMatch(node *Node, lang *Language, source []byte, matches *[]QueryMatch) {
+	// Iterative DFS using an explicit stack.
+	worklist := []*Node{node}
+	for len(worklist) > 0 {
+		// Pop.
+		n := worklist[len(worklist)-1]
+		worklist = worklist[:len(worklist)-1]
+
+			// Try matching only patterns whose root step can match this symbol.
+			for _, pi := range q.rootPatternCandidates(n.Symbol()) {
+				pat := q.patterns[pi]
+				if caps, ok := q.matchPattern(&pat, n, lang, source); ok {
+					*matches = append(*matches, QueryMatch{
+						PatternIndex: pi,
+						Captures:     caps,
+				})
+			}
+		}
+
+		// Push children in reverse order so leftmost is processed first.
+		children := n.Children()
+		for i := len(children) - 1; i >= 0; i-- {
+			worklist = append(worklist, children[i])
+		}
 	}
 }
 
 // matchPattern tries to match a pattern against the given node.
 // The pattern's steps describe a nested structure; step depth 0 matches
 // the given node, depth 1 matches its children, etc.
-func (q *Query) matchPattern(pat *Pattern, node *Node, lang *Language) ([]QueryCapture, bool) {
+func (q *Query) matchPattern(pat *Pattern, node *Node, lang *Language, source []byte) ([]QueryCapture, bool) {
 	if len(pat.steps) == 0 {
 		return nil, false
 	}
 
 	var captures []QueryCapture
 	ok := q.matchSteps(pat.steps, 0, node, lang, &captures)
-	return captures, ok
+	if !ok {
+		return nil, false
+	}
+	if !q.matchesPredicates(pat.predicates, captures, source) {
+		return nil, false
+	}
+	return captures, true
+}
+
+func (q *Query) matchesPredicates(predicates []QueryPredicate, captures []QueryCapture, source []byte) bool {
+	if len(predicates) == 0 {
+		return true
+	}
+
+	for _, pred := range predicates {
+		left, ok := captureText(pred.leftCapture, captures, source)
+		if !ok {
+			return false
+		}
+
+		switch pred.kind {
+		case predicateEq:
+			right := pred.literal
+			if pred.rightCapture != "" {
+				var okRight bool
+				right, okRight = captureText(pred.rightCapture, captures, source)
+				if !okRight {
+					return false
+				}
+			}
+			if left != right {
+				return false
+			}
+
+		case predicateMatch:
+			if pred.regex == nil || !pred.regex.MatchString(left) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func captureText(name string, captures []QueryCapture, source []byte) (string, bool) {
+	for _, c := range captures {
+		if c.Name == name {
+			if source == nil {
+				return "", false
+			}
+			return c.Node.Text(source), true
+		}
+	}
+	return "", false
 }
 
 // matchSteps matches a contiguous slice of steps starting at stepIdx
@@ -226,6 +431,11 @@ func (q *Query) nodeMatchesStep(step *QueryStep, node *Node, lang *Language) boo
 	// Alternation matching.
 	if len(step.alternatives) > 0 {
 		for _, alt := range step.alternatives {
+			// Wildcard in alternation `( _ )` should match any node.
+			if alt.symbol == 0 && alt.textMatch == "" {
+				return true
+			}
+
 			if alt.textMatch != "" {
 				// String match for anonymous nodes.
 				if !node.IsNamed() && node.Type(lang) == alt.textMatch {
@@ -291,6 +501,22 @@ func (p *queryParser) parse() error {
 		}
 
 		ch := p.input[p.pos]
+
+		if ch == '(' && p.pos+1 < len(p.input) && p.input[p.pos+1] == '#' {
+			if len(p.q.patterns) == 0 {
+				return fmt.Errorf("query: predicate must follow a pattern at position %d", p.pos)
+			}
+			pred, err := p.parsePredicate()
+			if err != nil {
+				return err
+			}
+			last := &p.q.patterns[len(p.q.patterns)-1]
+			last.predicates = append(last.predicates, pred)
+			if err := p.validatePatternPredicates(last); err != nil {
+				return err
+			}
+			continue
+		}
 
 		switch {
 		case ch == '(':
@@ -382,6 +608,16 @@ func (p *queryParser) parsePattern(depth int) (*Pattern, error) {
 		}
 
 		if ch == '(' {
+			// Predicate expression.
+			if p.pos+1 < len(p.input) && p.input[p.pos+1] == '#' {
+				pred, err := p.parsePredicate()
+				if err != nil {
+					return nil, err
+				}
+				pat.predicates = append(pat.predicates, pred)
+				continue
+			}
+
 			// Nested pattern (child constraint).
 			childPat, err := p.parsePattern(depth + 1)
 			if err != nil {
@@ -484,6 +720,10 @@ func (p *queryParser) parsePattern(depth int) (*Pattern, error) {
 		}
 		capID := p.ensureCapture(capName)
 		pat.steps[rootIdx].captureID = capID
+	}
+
+	if err := p.validatePatternPredicates(pat); err != nil {
+		return nil, err
 	}
 
 	return pat, nil
@@ -590,8 +830,140 @@ func (p *queryParser) parseStringPattern(depth int) (*Pattern, error) {
 	return &Pattern{steps: []QueryStep{step}}, nil
 }
 
+func (p *queryParser) parsePredicate() (QueryPredicate, error) {
+	if p.pos >= len(p.input) || p.input[p.pos] != '(' {
+		return QueryPredicate{}, fmt.Errorf("query: expected '(' at position %d", p.pos)
+	}
+	p.pos++ // consume '('
+	p.skipWhitespaceAndComments()
+
+	name, err := p.readPredicateName()
+	if err != nil {
+		return QueryPredicate{}, err
+	}
+
+	p.skipWhitespaceAndComments()
+	left, leftIsCapture, err := p.readPredicateArg()
+	if err != nil {
+		return QueryPredicate{}, err
+	}
+	if !leftIsCapture {
+		return QueryPredicate{}, fmt.Errorf("query: first predicate argument must be a capture in %s", name)
+	}
+
+	p.skipWhitespaceAndComments()
+	right, rightIsCapture, err := p.readPredicateArg()
+	if err != nil {
+		return QueryPredicate{}, err
+	}
+
+	p.skipWhitespaceAndComments()
+	if p.pos >= len(p.input) || p.input[p.pos] != ')' {
+		return QueryPredicate{}, fmt.Errorf("query: expected ')' to close predicate at position %d", p.pos)
+	}
+	p.pos++ // consume ')'
+
+	switch name {
+	case "#eq?":
+		pred := QueryPredicate{
+			kind:        predicateEq,
+			leftCapture: left,
+		}
+		if rightIsCapture {
+			pred.rightCapture = right
+		} else {
+			pred.literal = right
+		}
+		return pred, nil
+
+	case "#match?":
+		if rightIsCapture {
+			return QueryPredicate{}, fmt.Errorf("query: #match? second argument must be a string literal")
+		}
+		rx, err := regexp.Compile(right)
+		if err != nil {
+			return QueryPredicate{}, fmt.Errorf("query: invalid regex in #match?: %w", err)
+		}
+		return QueryPredicate{
+			kind:        predicateMatch,
+			leftCapture: left,
+			literal:     right,
+			regex:       rx,
+		}, nil
+	default:
+		return QueryPredicate{}, fmt.Errorf("query: unsupported predicate %q", name)
+	}
+}
+
+func (p *queryParser) validatePatternPredicates(pat *Pattern) error {
+	if len(pat.predicates) == 0 {
+		return nil
+	}
+
+	captureSet := make(map[string]struct{})
+	for _, s := range pat.steps {
+		if s.captureID >= 0 && s.captureID < len(p.q.captures) {
+			captureSet[p.q.captures[s.captureID]] = struct{}{}
+		}
+	}
+
+	for _, pred := range pat.predicates {
+		if _, ok := captureSet[pred.leftCapture]; !ok {
+			return fmt.Errorf("query: predicate references unknown capture @%s", pred.leftCapture)
+		}
+		if pred.rightCapture != "" {
+			if _, ok := captureSet[pred.rightCapture]; !ok {
+				return fmt.Errorf("query: predicate references unknown capture @%s", pred.rightCapture)
+			}
+		}
+	}
+
+	return nil
+}
+
 // readIdentifier reads an identifier (node type name, field name).
 // Identifiers can contain letters, digits, underscores, dots, and hyphens.
+func (p *queryParser) readPredicateName() (string, error) {
+	if p.pos >= len(p.input) || p.input[p.pos] != '#' {
+		return "", fmt.Errorf("query: expected predicate name at position %d", p.pos)
+	}
+	start := p.pos
+	for p.pos < len(p.input) {
+		ch := p.input[p.pos]
+		if ch == ')' || ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+			break
+		}
+		p.pos++
+	}
+	if p.pos == start {
+		return "", fmt.Errorf("query: expected predicate name at position %d", start)
+	}
+	return p.input[start:p.pos], nil
+}
+
+func (p *queryParser) readPredicateArg() (arg string, isCapture bool, err error) {
+	if p.pos >= len(p.input) {
+		return "", false, fmt.Errorf("query: expected predicate argument at end of input")
+	}
+
+	switch p.input[p.pos] {
+	case '@':
+		name, err := p.readCapture()
+		if err != nil {
+			return "", false, err
+		}
+		return name, true, nil
+	case '"':
+		text, err := p.readString()
+		if err != nil {
+			return "", false, err
+		}
+		return text, false, nil
+	default:
+		return "", false, fmt.Errorf("query: expected capture or string literal in predicate at position %d", p.pos)
+	}
+}
+
 func (p *queryParser) readIdentifier() (string, error) {
 	start := p.pos
 	for p.pos < len(p.input) {
@@ -666,29 +1038,32 @@ func (p *queryParser) skipWhitespaceAndComments() {
 }
 
 // resolveSymbol looks up a node type name in the language, returning the
-// symbol ID and whether it's a named symbol.
+// symbol ID and whether it's a named symbol. Uses Language.SymbolByName
+// for O(1) lookup.
 func (p *queryParser) resolveSymbol(name string) (Symbol, bool, error) {
-	// First try to find a named symbol.
-	for i, sn := range p.lang.SymbolNames {
-		if sn == name {
-			isNamed := false
-			if i < len(p.lang.SymbolMetadata) {
-				isNamed = p.lang.SymbolMetadata[i].Named
-			}
-			return Symbol(i), isNamed, nil
-		}
+	if name == "_" {
+		return 0, false, nil
 	}
-	return 0, false, fmt.Errorf("query: unknown node type %q", name)
+
+	sym, ok := p.lang.SymbolByName(name)
+	if !ok {
+		return 0, false, fmt.Errorf("query: unknown node type %q", name)
+	}
+	isNamed := false
+	if int(sym) < len(p.lang.SymbolMetadata) {
+		isNamed = p.lang.SymbolMetadata[sym].Named
+	}
+	return sym, isNamed, nil
 }
 
-// resolveField looks up a field name in the language.
+// resolveField looks up a field name in the language. Uses Language.FieldByName
+// for O(1) lookup.
 func (p *queryParser) resolveField(name string) (FieldID, error) {
-	for i, fn := range p.lang.FieldNames {
-		if fn == name {
-			return FieldID(i), nil
-		}
+	fid, ok := p.lang.FieldByName(name)
+	if !ok {
+		return 0, fmt.Errorf("query: unknown field name %q", name)
 	}
-	return 0, fmt.Errorf("query: unknown field name %q", name)
+	return fid, nil
 }
 
 // ensureCapture returns the index for a capture name, adding it if new.

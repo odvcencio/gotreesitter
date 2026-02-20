@@ -1,0 +1,25 @@
+# name repo_url [subdir] [ext1,ext2,...]
+# Use with:
+#   go run ./cmd/ts2go -manifest grammars/languages.manifest -outdir ./grammars -package grammars
+
+bash https://github.com/tree-sitter/tree-sitter-bash src .sh
+c https://github.com/tree-sitter/tree-sitter-c src .c,.h
+cpp https://github.com/tree-sitter/tree-sitter-cpp src .cc,.cpp,.cxx,.hpp,.hh,.hxx,.h
+css https://github.com/tree-sitter/tree-sitter-css src .css
+go https://github.com/tree-sitter/tree-sitter-go src .go
+html https://github.com/tree-sitter/tree-sitter-html src .html,.htm
+java https://github.com/tree-sitter/tree-sitter-java src .java
+javascript https://github.com/tree-sitter/tree-sitter-javascript src .js,.mjs,.cjs
+json https://github.com/tree-sitter/tree-sitter-json src .json
+kotlin https://github.com/fwcd/tree-sitter-kotlin src .kt,.kts
+lua https://github.com/tree-sitter-grammars/tree-sitter-lua src .lua
+php https://github.com/tree-sitter/tree-sitter-php php/src .php
+python https://github.com/tree-sitter/tree-sitter-python src .py
+ruby https://github.com/tree-sitter/tree-sitter-ruby src .rb
+rust https://github.com/tree-sitter/tree-sitter-rust src .rs
+sql https://github.com/m-novikov/tree-sitter-sql src .sql
+swift https://github.com/tree-sitter/tree-sitter-swift src .swift
+toml https://github.com/tree-sitter/tree-sitter-toml src .toml
+tsx https://github.com/tree-sitter/tree-sitter-typescript tsx/src .tsx
+typescript https://github.com/tree-sitter/tree-sitter-typescript typescript/src .ts
+yaml https://github.com/tree-sitter-grammars/tree-sitter-yaml src .yaml,.yml

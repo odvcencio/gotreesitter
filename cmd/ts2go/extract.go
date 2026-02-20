@@ -27,12 +27,26 @@ type ExtractedGrammar struct {
 	ParseActions []ActionGroup
 	LexModes     []LexModeEntry
 
+	// Field mapping metadata for ChildByFieldName support.
+	FieldMapSlices  [][2]uint16
+	FieldMapEntries []FieldMapEntry
+
 	// Small parse table (compressed sparse format for non-large states).
 	SmallParseTable    []uint16
 	SmallParseTableMap []uint32
 
 	// Enum values extracted from the C source for resolving symbolic names.
 	enumValues map[string]int
+
+	// External token index -> grammar symbol ID.
+	ExternalSymbols []uint16
+}
+
+// FieldMapEntry mirrors gotreesitter.FieldMapEntry for code generation.
+type FieldMapEntry struct {
+	FieldID    uint16
+	ChildIndex uint16
+	Inherited  bool
 }
 
 // SymbolMeta holds visibility and naming info for a symbol.
@@ -98,6 +112,12 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 		g.FieldNames = nil
 	}
 
+	if strings.Contains(source, "ts_field_map_slices") || strings.Contains(source, "ts_field_map") {
+		if err := extractFieldMaps(source, g); err != nil {
+			// Some parser generators omit or rename field-map data.
+		}
+	}
+
 	if err := extractParseTable(source, g); err != nil {
 		return nil, fmt.Errorf("parse table: %w", err)
 	}
@@ -114,7 +134,34 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 		return nil, fmt.Errorf("lex modes: %w", err)
 	}
 
+	if g.ExternalTokenCount > 0 {
+		if err := extractExternalSymbols(source, g); err != nil {
+			// Not fatal: grammars without external scanners will omit this.
+		}
+	}
+
 	return g, nil
+}
+
+// extractFieldMaps parses ts_field_map_slices[] and ts_field_map[] arrays.
+func extractFieldMaps(source string, g *ExtractedGrammar) error {
+	if g.ProductionIDCount == 0 {
+		return nil
+	}
+
+	// Slice metadata.
+	slices, err := extractFieldMapSlices(source, g)
+	if err == nil {
+		g.FieldMapSlices = slices
+	}
+
+	// Entry metadata.
+	entries, err := extractFieldMapEntries(source, g)
+	if err == nil {
+		g.FieldMapEntries = entries
+	}
+
+	return nil
 }
 
 // extractConstants finds #define constants in the parser.c source.
@@ -463,13 +510,14 @@ func extractParseTable(source string, g *ExtractedGrammar) error {
 // ts_small_parse_table_map[] arrays (compressed sparse table).
 //
 // The C source uses macros and symbolic names:
-//   [0] = 33,
-//     ACTIONS(3), 1,
-//       sym_comment,
-//     ACTIONS(23), 1,
-//       anon_sym_LBRACK,
-//     STATE(542), 1,
-//       sym__expression,
+//
+//	[0] = 33,
+//	  ACTIONS(3), 1,
+//	    sym_comment,
+//	  ACTIONS(23), 1,
+//	    anon_sym_LBRACK,
+//	  STATE(542), 1,
+//	    sym__expression,
 //
 // After macro expansion (ACTIONS(N)=N, STATE(N)=N), this becomes a flat
 // array of uint16 values: [group_count, section_value, sym_count, sym1, ...]
@@ -551,6 +599,277 @@ func parseSmallParseTableValues(body string, enums map[string]int) []uint16 {
 		}
 	}
 	return result
+}
+
+// extractFieldMapSlices parses ts_field_map_slices[].
+func extractFieldMapSlices(source string, g *ExtractedGrammar) ([][2]uint16, error) {
+	body, err := findArrayBody(source, "ts_field_map_slices")
+	if err != nil {
+		return nil, err
+	}
+
+	slices := make([][2]uint16, g.ProductionIDCount)
+
+	// Try indexed form: [N] = {start, length}
+	indexedRe := regexp.MustCompile(`\[(\w+)\]\s*=\s*\{([^}]*)\}`)
+	matches := indexedRe.FindAllStringSubmatch(body, -1)
+
+	if len(matches) > 0 {
+		for _, m := range matches {
+			idx, ok := parseFieldMapIndex(g, m[1])
+			if !ok || idx >= len(slices) {
+				continue
+			}
+			values := parseFieldIntPairs(m[2])
+			if len(values) >= 2 {
+				slices[idx] = [2]uint16{values[0], values[1]}
+			}
+		}
+		return slices, nil
+	}
+
+	// Fallback: parse sequential {{a,b},{c,d},...} entries.
+	pairRe := regexp.MustCompile(`\{([^{}]+)\}`)
+	pairs := pairRe.FindAllStringSubmatch(body, -1)
+	for i := 0; i < len(slices) && i < len(pairs); i++ {
+		values := parseFieldIntPairs(pairs[i][1])
+		if len(values) >= 2 {
+			slices[i] = [2]uint16{values[0], values[1]}
+		}
+	}
+
+	return slices, nil
+}
+
+// extractFieldMapEntries parses ts_field_map[].
+func extractFieldMapEntries(source string, g *ExtractedGrammar) ([]FieldMapEntry, error) {
+	body, err := findArrayBody(source, "ts_field_map")
+	if err != nil {
+		return nil, err
+	}
+
+	// Map entries by their array index first.
+	type idxEntry struct {
+		idx   int
+		entry FieldMapEntry
+	}
+
+	var parsed []idxEntry
+	maxIdx := -1
+
+	// Explicit indexed entries: [N] = {...}
+	indexedRe := regexp.MustCompile(`\[(\w+)\]\s*=\s*\{([^}]*)\}`)
+	indexedMatches := indexedRe.FindAllStringSubmatch(body, -1)
+
+	for _, m := range indexedMatches {
+		idx, ok := parseFieldMapIndex(g, m[1])
+		if !ok {
+			continue
+		}
+		entry, ok := parseFieldMapEntry(g, m[2])
+		if !ok {
+			continue
+		}
+		parsed = append(parsed, idxEntry{idx: idx, entry: entry})
+		if idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+
+	// Sequential fallback if no indexed initializer entries.
+	if len(parsed) == 0 {
+		entryRe := regexp.MustCompile(`\{([^{}]+)\}`)
+		for i, m := range entryRe.FindAllStringSubmatch(body, -1) {
+			entry, ok := parseFieldMapEntry(g, m[1])
+			if !ok {
+				continue
+			}
+			parsed = append(parsed, idxEntry{idx: i, entry: entry})
+			if i > maxIdx {
+				maxIdx = i
+			}
+		}
+	}
+
+	if maxIdx < 0 {
+		return nil, nil
+	}
+
+	entries := make([]FieldMapEntry, maxIdx+1)
+	for _, it := range parsed {
+		if it.idx >= 0 && it.idx < len(entries) {
+			entries[it.idx] = it.entry
+		}
+	}
+	return entries, nil
+}
+
+func parseFieldMapIndex(g *ExtractedGrammar, token string) (int, bool) {
+	// Numeric index.
+	if v, err := strconv.ParseInt(token, 0, 32); err == nil {
+		return int(v), true
+	}
+	// Symbolic index.
+	if g != nil && g.enumValues != nil {
+		if v, ok := g.enumValues[token]; ok {
+			return v, true
+		}
+	}
+	return 0, false
+}
+
+func parseFieldMapEntry(g *ExtractedGrammar, body string) (FieldMapEntry, bool) {
+	entry := FieldMapEntry{}
+	found := false
+
+	// Named fields: .field_id = X, .child_index = N, .inherited = bool
+	if fieldID, ok := extractFieldMapTokenField(g, body, `\.field_id\s*=\s*([^,}]+)`); ok {
+		entry.FieldID = fieldID
+		found = true
+	}
+	if childIndex, ok := extractFieldMapNumericField(body, `\.child_index\s*=\s*([+-]?(?:0x[0-9a-fA-F]+|\d+))`); ok {
+		entry.ChildIndex = childIndex
+		found = true
+	}
+	if inherited, ok := extractFieldMapBoolField(body, `\.inherited\s*=\s*(true|false)`); ok {
+		entry.Inherited = inherited
+		found = true
+	}
+
+	// Some generator versions use .field = ... and .index = ...
+	if entry.FieldID == 0 {
+		if fieldID, ok := extractFieldMapTokenField(g, body, `\.field\s*=\s*([^,}]+)`); ok {
+			entry.FieldID = fieldID
+			found = true
+		}
+	}
+	if entry.ChildIndex == 0 {
+		if childIndex, ok := extractFieldMapNumericField(body, `\.index\s*=\s*([+-]?(?:0x[0-9a-fA-F]+|\d+))`); ok {
+			entry.ChildIndex = childIndex
+			found = true
+		}
+	}
+
+	// Fallback for positional entries: field_id, child_index, inherited
+	if !found {
+		tokens := parseIdentifierLikeTokens(body)
+		if len(tokens) == 0 {
+			return entry, false
+		}
+
+		if len(tokens) >= 1 {
+			if v, ok := parseFieldMapToken(g, tokens[0]); ok {
+				entry.FieldID = v
+				found = true
+			}
+		}
+		if len(tokens) >= 2 {
+			if v, ok := parseFieldMapUnsignedInt(tokens[1]); ok {
+				entry.ChildIndex = v
+				found = true
+			}
+		}
+		if len(tokens) >= 3 {
+			if v, ok := parseFieldMapBool(tokens[2]); ok {
+				entry.Inherited = v
+				found = true
+			}
+		}
+	}
+
+	if !found {
+		return entry, false
+	}
+	return entry, true
+}
+
+func extractFieldMapTokenField(g *ExtractedGrammar, body, pattern string) (uint16, bool) {
+	re := regexp.MustCompile(pattern)
+	m := re.FindStringSubmatch(body)
+	if m == nil || len(m) < 2 {
+		return 0, false
+	}
+	val, ok := parseFieldMapToken(g, strings.TrimSpace(m[1]))
+	return val, ok
+}
+
+func extractFieldMapNumericField(body, pattern string) (uint16, bool) {
+	re := regexp.MustCompile(pattern)
+	m := re.FindStringSubmatch(body)
+	if m == nil || len(m) < 2 {
+		return 0, false
+	}
+	return parseFieldMapUnsignedInt(m[1])
+}
+
+func extractFieldMapBoolField(body, pattern string) (bool, bool) {
+	re := regexp.MustCompile(pattern)
+	m := re.FindStringSubmatch(body)
+	if m == nil || len(m) < 2 {
+		return false, false
+	}
+	return parseFieldMapBool(m[1])
+}
+
+func parseFieldMapToken(g *ExtractedGrammar, token string) (uint16, bool) {
+	if v, ok := parseFieldMapUnsignedInt(token); ok {
+		return v, true
+	}
+	if token == "NULL" || token == "0" {
+		return 0, true
+	}
+	if g != nil && g.enumValues != nil {
+		if v, ok := g.enumValues[token]; ok {
+			return uint16(v), true
+		}
+	}
+	return 0, false
+}
+
+func parseFieldMapUnsignedInt(raw string) (uint16, bool) {
+	token := strings.TrimSpace(raw)
+	if token == "" {
+		return 0, false
+	}
+	v, err := strconv.ParseInt(token, 0, 0)
+	if err != nil {
+		return 0, false
+	}
+	if v < 0 {
+		return 0, false
+	}
+	if v > int64(^uint16(0)) {
+		return 0, false
+	}
+	return uint16(v), true
+}
+
+func parseFieldMapBool(raw string) (bool, bool) {
+	switch strings.TrimSpace(raw) {
+	case "true":
+		return true, true
+	case "false":
+		return false, true
+	}
+	return false, false
+}
+
+func parseFieldIntPairs(raw string) []uint16 {
+	re := regexp.MustCompile(`([+-]?(?:0x[0-9a-fA-F]+|\d+))`)
+	matches := re.FindAllString(raw, -1)
+	vals := make([]uint16, 0, len(matches))
+	for _, tok := range matches {
+		if v, ok := parseFieldMapUnsignedInt(tok); ok {
+			vals = append(vals, v)
+		}
+	}
+	return vals
+}
+
+func parseIdentifierLikeTokens(raw string) []string {
+	re := regexp.MustCompile(`\b([A-Za-z_][A-Za-z0-9_]*|[+-]?(?:0x[0-9a-fA-F]+|\d+)|true|false)\b`)
+	matches := re.FindAllString(raw, -1)
+	return matches
 }
 
 // parseSmallParseTableMap extracts the small parse table map which maps
@@ -828,21 +1147,11 @@ func findArrayBody(source, name string) (string, error) {
 	}
 	start += loc[0]
 
-	// Walk forward counting braces to find the matching close.
-	depth := 0
-	for i := start; i < len(source); i++ {
-		switch source[i] {
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				return source[start+1 : i], nil
-			}
-		}
+	end, err := findMatchingBrace(source, start)
+	if err != nil {
+		return "", fmt.Errorf("unmatched brace for %q: %w", name, err)
 	}
-
-	return "", fmt.Errorf("unmatched brace for %q", name)
+	return source[start+1 : end], nil
 }
 
 // findExactArrayBody is like findArrayBody but ensures the name is not a
@@ -879,22 +1188,107 @@ func findExactArrayBody(source, name string) (string, error) {
 		}
 		start := loc[0] + bm[0] + bracePos
 
-		// Walk forward counting braces.
-		depth := 0
-		for i := start; i < len(source); i++ {
-			switch source[i] {
-			case '{':
-				depth++
-			case '}':
-				depth--
-				if depth == 0 {
-					return source[start+1 : i], nil
-				}
-			}
+		end, err := findMatchingBrace(source, start)
+		if err == nil {
+			return source[start+1 : end], nil
 		}
 	}
 
 	return "", fmt.Errorf("array %q not found (exact)", name)
+}
+
+// findMatchingBrace returns the index of the closing brace that matches the
+// opening brace at start. Braces inside C strings, chars, and comments are ignored.
+func findMatchingBrace(source string, start int) (int, error) {
+	if start < 0 || start >= len(source) || source[start] != '{' {
+		return 0, fmt.Errorf("invalid opening brace index")
+	}
+
+	depth := 0
+	inString := false
+	inChar := false
+	inLineComment := false
+	inBlockComment := false
+	escaped := false
+
+	for i := start; i < len(source); i++ {
+		c := source[i]
+
+		if inLineComment {
+			if c == '\n' {
+				inLineComment = false
+			}
+			continue
+		}
+		if inBlockComment {
+			if c == '*' && i+1 < len(source) && source[i+1] == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		}
+		if inString {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if c == '\\' {
+				escaped = true
+				continue
+			}
+			if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		if inChar {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if c == '\\' {
+				escaped = true
+				continue
+			}
+			if c == '\'' {
+				inChar = false
+			}
+			continue
+		}
+
+		if c == '/' && i+1 < len(source) {
+			next := source[i+1]
+			if next == '/' {
+				inLineComment = true
+				i++
+				continue
+			}
+			if next == '*' {
+				inBlockComment = true
+				i++
+				continue
+			}
+		}
+
+		switch c {
+		case '"':
+			inString = true
+		case '\'':
+			inChar = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return i, nil
+			}
+			if depth < 0 {
+				return 0, fmt.Errorf("negative brace depth")
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("no matching closing brace")
 }
 
 // parseIndexedStringArray parses a C array of the form:
@@ -981,4 +1375,75 @@ func parseUint32List(body string) []uint32 {
 		result = append(result, uint32(n))
 	}
 	return result
+}
+
+// extractExternalSymbols parses ts_external_scanner_symbol_map[].
+func extractExternalSymbols(source string, g *ExtractedGrammar) error {
+	body, err := findArrayBody(source, "ts_external_scanner_symbol_map")
+	if err != nil {
+		return err
+	}
+	g.ExternalSymbols = parseIndexedSymbolArray(body, g.ExternalTokenCount, g.enumValues)
+	return nil
+}
+
+// parseIndexedSymbolArray parses a C symbol array in either indexed form:
+//
+//	[ext_tok_foo] = sym_bar,
+//
+// or sequential form:
+//
+//	sym_bar, sym_baz,
+func parseIndexedSymbolArray(body string, count int, enums map[string]int) []uint16 {
+	result := make([]uint16, count)
+	if count == 0 {
+		return result
+	}
+
+	// Indexed form.
+	indexedRe := regexp.MustCompile(`\[(\w+)\]\s*=\s*(\w+)`)
+	indexed := indexedRe.FindAllStringSubmatch(body, -1)
+	if len(indexed) > 0 {
+		for i, m := range indexed {
+			idx := i
+			if v, ok := resolveIndexedName(m[1], enums); ok {
+				idx = v
+			}
+			sym, ok := resolveIndexedName(m[2], enums)
+			if !ok || idx < 0 || idx >= count {
+				continue
+			}
+			result[idx] = uint16(sym)
+		}
+		return result
+	}
+
+	// Sequential form.
+	tokenRe := regexp.MustCompile(`\b([A-Za-z_]\w*|\d+)\b`)
+	toks := tokenRe.FindAllStringSubmatch(body, -1)
+	out := 0
+	for _, t := range toks {
+		if out >= count {
+			break
+		}
+		sym, ok := resolveIndexedName(t[1], enums)
+		if !ok {
+			continue
+		}
+		result[out] = uint16(sym)
+		out++
+	}
+	return result
+}
+
+func resolveIndexedName(name string, enums map[string]int) (int, bool) {
+	if n, err := strconv.Atoi(name); err == nil {
+		return n, true
+	}
+	if enums != nil {
+		if v, ok := enums[name]; ok {
+			return v, true
+		}
+	}
+	return 0, false
 }

@@ -1,13 +1,19 @@
 package gotreesitter
 
-// Parser is an LR(1) parser that reads parse tables from a Language and
-// produces a syntax tree. This is the core of the tree-sitter runtime.
-//
-// The current implementation supports a single parse stack (SLR/LALR/LR(1)).
-// GLR support (multiple stack versions) and incremental reparsing will be
-// added in later tasks.
+import (
+	"bytes"
+	"sync"
+)
+
+// Parser reads parse tables from a Language and produces a syntax tree.
+// It supports GLR parsing: when a (state, symbol) pair maps to multiple
+// actions, the parser forks the stack and explores all alternatives in
+// parallel, merging stacks that converge on the same state and picking
+// the highest dynamic-precedence winner for ambiguities.
 type Parser struct {
-	language *Language
+	language     *Language
+	reuseScratch reuseScratch
+	reuseMu      sync.Mutex
 }
 
 // NewParser creates a new Parser for the given language.
@@ -25,6 +31,13 @@ type TokenSource interface {
 	Next() Token
 }
 
+// ByteSkippableTokenSource can jump to a byte offset and return the first
+// token at or after that position.
+type ByteSkippableTokenSource interface {
+	TokenSource
+	SkipToByte(offset uint32) Token
+}
+
 // stackEntry is a single entry on the parser's LR stack, pairing a parser
 // state with the syntax tree node that was shifted or reduced into that state.
 type stackEntry struct {
@@ -40,16 +53,71 @@ const errorSymbol = Symbol(65535)
 // For real grammars that need a custom lexer, use ParseWithTokenSource.
 // If the input is empty, it returns a tree with a nil root.
 func (p *Parser) Parse(source []byte) *Tree {
+	if !p.canUseDFALexer() {
+		return NewTree(nil, source, p.language)
+	}
 	lexer := NewLexer(p.language.LexStates, source)
-	ts := &dfaTokenSource{lexer: lexer, language: p.language}
-	return p.parseInternal(source, ts)
+	ts := &dfaTokenSource{
+		lexer:             lexer,
+		language:          p.language,
+		lookupActionIndex: p.lookupActionIndex,
+	}
+	if p.language.ExternalScanner != nil {
+		ts.externalPayload = p.language.ExternalScanner.Create()
+	}
+	return p.parseInternal(source, ts, nil)
 }
 
 // ParseWithTokenSource parses source using a custom token source.
 // This is used for real grammars where the lexer DFA isn't available
 // as data tables (e.g., Go grammar using go/scanner as a bridge).
 func (p *Parser) ParseWithTokenSource(source []byte, ts TokenSource) *Tree {
-	return p.parseInternal(source, ts)
+	return p.parseInternal(source, ts, nil)
+}
+
+// ParseIncremental re-parses source after edits were applied to oldTree.
+// It reuses unchanged subtrees from the old tree for better performance.
+// Call oldTree.Edit() for each edit before calling this method.
+func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) *Tree {
+	if !p.canUseDFALexer() {
+		return NewTree(nil, source, p.language)
+	}
+	lexer := NewLexer(p.language.LexStates, source)
+	ts := &dfaTokenSource{
+		lexer:             lexer,
+		language:          p.language,
+		lookupActionIndex: p.lookupActionIndex,
+	}
+	if p.language.ExternalScanner != nil {
+		ts.externalPayload = p.language.ExternalScanner.Create()
+	}
+	return p.parseIncrementalInternal(source, oldTree, ts)
+}
+
+// ParseIncrementalWithTokenSource is like ParseIncremental but uses a custom
+// token source.
+func (p *Parser) ParseIncrementalWithTokenSource(source []byte, oldTree *Tree, ts TokenSource) *Tree {
+	return p.parseIncrementalInternal(source, oldTree, ts)
+}
+
+func (p *Parser) canUseDFALexer() bool {
+	return p.language != nil && len(p.language.LexStates) > 0
+}
+
+func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts TokenSource) *Tree {
+	// Fast path: unchanged source and no recorded edits.
+	if oldTree != nil &&
+		oldTree.language == p.language &&
+		len(oldTree.edits) == 0 &&
+		bytes.Equal(oldTree.source, source) {
+		return oldTree
+	}
+
+	p.reuseMu.Lock()
+	defer p.reuseMu.Unlock()
+
+	reuse := buildReuseIndex(oldTree, source, &p.reuseScratch)
+	return p.parseInternal(source, ts, reuse)
 }
 
 // dfaTokenSource wraps the built-in DFA Lexer as a TokenSource.
@@ -58,9 +126,25 @@ type dfaTokenSource struct {
 	lexer    *Lexer
 	language *Language
 	state    StateID
+
+	lookupActionIndex func(state StateID, sym Symbol) uint16
+	externalPayload   any
+	externalValid     []bool
+}
+
+func (d *dfaTokenSource) Close() {
+	if d.language == nil || d.language.ExternalScanner == nil || d.externalPayload == nil {
+		return
+	}
+	d.language.ExternalScanner.Destroy(d.externalPayload)
+	d.externalPayload = nil
 }
 
 func (d *dfaTokenSource) Next() Token {
+	if tok, ok := d.nextExternalToken(); ok {
+		return tok
+	}
+
 	lexState := uint16(0)
 	if int(d.state) < len(d.language.LexModes) {
 		lexState = d.language.LexModes[d.state].LexState
@@ -68,128 +152,399 @@ func (d *dfaTokenSource) Next() Token {
 	return d.lexer.Next(lexState)
 }
 
-// parseInternal is the core LR parsing loop shared by Parse and
-// ParseWithTokenSource.
-func (p *Parser) parseInternal(source []byte, ts TokenSource) *Tree {
-	stack := []stackEntry{{state: p.language.InitialState, node: nil}}
+func (d *dfaTokenSource) SkipToByte(offset uint32) Token {
+	target := int(offset)
+	if target < d.lexer.pos {
+		// Rewind isn't supported for DFA token sources during parse.
+		return d.Next()
+	}
+	for d.lexer.pos < target {
+		d.lexer.skipOneRune()
+	}
+	return d.Next()
+}
 
-	// needToken tracks whether we need to lex the next token.
-	// After a reduce, we reuse the current lookahead.
+func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
+	if d.language == nil || d.language.ExternalScanner == nil || d.lookupActionIndex == nil {
+		return Token{}, false
+	}
+	if len(d.language.ExternalSymbols) == 0 {
+		return Token{}, false
+	}
+
+	if cap(d.externalValid) < len(d.language.ExternalSymbols) {
+		d.externalValid = make([]bool, len(d.language.ExternalSymbols))
+	}
+	valid := d.externalValid[:len(d.language.ExternalSymbols)]
+	for i := range valid {
+		valid[i] = false
+	}
+
+	anyValid := false
+	for i, sym := range d.language.ExternalSymbols {
+		if d.lookupActionIndex(d.state, sym) != 0 {
+			valid[i] = true
+			anyValid = true
+		}
+	}
+	if !anyValid {
+		return Token{}, false
+	}
+
+	el := newExternalLexer(d.lexer.source, d.lexer.pos, d.lexer.row, d.lexer.col)
+	if !RunExternalScanner(d.language, d.externalPayload, el, valid) {
+		return Token{}, false
+	}
+	tok, ok := el.token()
+	if !ok {
+		return Token{}, false
+	}
+
+	d.lexer.pos = int(tok.EndByte)
+	d.lexer.row = tok.EndPoint.Row
+	d.lexer.col = tok.EndPoint.Column
+	return tok, true
+}
+
+// parseIterations returns the iteration limit scaled to input size.
+// A correctly-parsed file needs roughly (tokens * grammar_depth) iterations.
+// For typical source (~5 bytes/token, ~10 reduce depth), that's sourceLen*2.
+// We use sourceLen*20 as a generous upper bound that still prevents runaway
+// parsing from OOMing the machine.
+func parseIterations(sourceLen int) int {
+	return max(10_000, sourceLen*20)
+}
+
+// parseStackDepth returns the stack depth limit scaled to input size.
+func parseStackDepth(sourceLen int) int {
+	return max(1_000, sourceLen*2)
+}
+
+// parseNodeLimit returns the maximum number of Node allocations allowed.
+// This is the hard ceiling that prevents OOM regardless of iteration count.
+func parseNodeLimit(sourceLen int) int {
+	return max(50_000, sourceLen*10)
+}
+
+// parseInternal is the core GLR parsing loop shared by Parse and
+// ParseWithTokenSource.
+//
+// It maintains a set of parse stacks. For unambiguous grammars (single
+// action per table entry), there is exactly one stack and the algorithm
+// reduces to standard LR parsing. When multiple actions exist for a
+// (state, symbol) pair, the parser forks: one stack per alternative.
+// Stacks that error out are dropped. Stacks that converge to the same
+// top state are merged, keeping the highest dynamic-precedence version.
+func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseIndex) *Tree {
+	if closer, ok := ts.(interface{ Close() }); ok {
+		defer closer.Close()
+	}
+
+	stacks := []glrStack{newGLRStack(p.language.InitialState)}
+
+	maxIter := parseIterations(len(source))
+	maxDepth := parseStackDepth(len(source))
+	maxNodes := parseNodeLimit(len(source))
+	nodeCount := 0
+
 	needToken := true
 	var tok Token
 
-	for {
-		currentState := stack[len(stack)-1].state
+	// Per-primary-stack infinite-reduce detection.
+	var lastReduceState StateID
+	var consecutiveReduces int
 
-		// Update the DFA token source's state if applicable.
-		if dts, ok := ts.(*dfaTokenSource); ok {
-			dts.state = currentState
+	for iter := 0; iter < maxIter; iter++ {
+		// Prune dead stacks and merge stacks with identical top states.
+		stacks = mergeStacks(stacks)
+		if len(stacks) == 0 {
+			return NewTree(nil, source, p.language)
 		}
 
-		// Lex the next token if needed.
+		// Cap the number of parallel stacks to prevent combinatorial explosion.
+		const maxStacks = 64
+		if len(stacks) > maxStacks {
+			stacks = stacks[:maxStacks]
+		}
+
+		// Safety: if the primary stack has grown beyond the depth cap,
+		// or we've allocated too many nodes, return what we have.
+		if len(stacks[0].entries) > maxDepth || nodeCount > maxNodes {
+			return p.buildResultFromGLR(stacks, source)
+		}
+
+		// Use the primary (first) stack's state for DFA lex mode selection.
+		if dts, ok := ts.(*dfaTokenSource); ok {
+			dts.state = stacks[0].top().state
+		}
+
 		if needToken {
 			tok = ts.Next()
-			needToken = true // default: consume after processing
 		}
 
-		action := p.lookupAction(currentState, tok.Symbol)
-
-		// Handle extra tokens (like comments). If the action says this is
-		// an extra/shift-extra, we consume it but don't change state.
-		if action != nil && len(action.Actions) > 0 && action.Actions[0].Type == ParseActionShift && action.Actions[0].Extra {
-			// Create a leaf for the extra token and attach it but keep parsing.
-			named := p.isNamedSymbol(tok.Symbol)
-			leaf := NewLeafNode(
-				tok.Symbol,
-				named,
-				tok.StartByte, tok.EndByte,
-				tok.StartPoint, tok.EndPoint,
-			)
-			stack = append(stack, stackEntry{state: currentState, node: leaf})
-			needToken = true
-			continue
-		}
-
-		if action == nil || len(action.Actions) == 0 {
-			// Error recovery: wrap the current token in an error node and skip it.
-			if tok.Symbol == 0 {
-				// EOF with no valid action — we're done. Return whatever we have.
-				return p.buildResult(stack, source)
+		// Incremental parsing fast-path: when there is a single active stack,
+		// try to reuse an unchanged subtree starting at the current token.
+		if reuse != nil && len(stacks) == 1 && !stacks[0].dead && tok.Symbol != 0 {
+			if nextTok, ok := p.tryReuseSubtree(&stacks[0], tok, ts, reuse); ok {
+				tok = nextTok
+				needToken = false
+				consecutiveReduces = 0
+				continue
 			}
-			errNode := NewLeafNode(
-				errorSymbol,
-				false,
-				tok.StartByte, tok.EndByte,
-				tok.StartPoint, tok.EndPoint,
-			)
-			errNode.hasError = true
-			// Push the error node in the current state (don't change state).
-			stack = append(stack, stackEntry{state: currentState, node: errNode})
-			needToken = true
-			continue
 		}
 
-		// Take the first action (GLR would fork here).
-		act := action.Actions[0]
+		// Process all alive stacks for this token.
+		// We iterate by index because forks may append to `stacks`.
+		numStacks := len(stacks)
+		anyReduced := false
 
-		switch act.Type {
-		case ParseActionShift:
-			// Create a leaf node from the token.
-			named := p.isNamedSymbol(tok.Symbol)
-			leaf := NewLeafNode(
-				tok.Symbol,
-				named,
-				tok.StartByte, tok.EndByte,
-				tok.StartPoint, tok.EndPoint,
-			)
-			stack = append(stack, stackEntry{state: act.State, node: leaf})
-			needToken = true
-
-		case ParseActionReduce:
-			childCount := int(act.ChildCount)
-			children := make([]*Node, childCount)
-
-			// Pop childCount entries from the stack.
-			for i := childCount - 1; i >= 0; i-- {
-				children[i] = stack[len(stack)-1].node
-				stack = stack[:len(stack)-1]
+		for si := 0; si < numStacks; si++ {
+			s := &stacks[si]
+			if s.dead {
+				continue
 			}
 
-			// Create a parent node for the reduced symbol.
-			named := p.isNamedSymbol(act.Symbol)
-			parent := NewParentNode(act.Symbol, named, children, nil, act.ProductionID)
+			currentState := s.top().state
+			action := p.lookupAction(currentState, tok.Symbol)
 
-			// Look up the GOTO for (new top state, reduced symbol).
-			// For nonterminal symbols (>= TokenCount), the parse table value
-			// is the target state directly (not an action index).
-			// For terminal symbols, it's an index into ParseActions.
-			topState := stack[len(stack)-1].state
-			gotoState := p.lookupGoto(topState, act.Symbol)
-			if gotoState != 0 {
-				stack = append(stack, stackEntry{state: gotoState, node: parent})
+			// --- Extra token handling (comments, whitespace) ---
+			if action != nil && len(action.Actions) > 0 &&
+				action.Actions[0].Type == ParseActionShift && action.Actions[0].Extra {
+				named := p.isNamedSymbol(tok.Symbol)
+				leaf := NewLeafNode(tok.Symbol, named,
+					tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
+				s.entries = append(s.entries, stackEntry{state: currentState, node: leaf})
+				nodeCount++
+				needToken = true
+				continue
+			}
+
+			// --- No action: error handling ---
+			if action == nil || len(action.Actions) == 0 {
+				if tok.Symbol == 0 {
+					if tok.StartByte == tok.EndByte {
+						// True EOF. If this is the only stack, return result.
+						if len(stacks) == 1 {
+							return p.buildResultFromGLR(stacks, source)
+						}
+						// Multiple stacks at EOF: this one is done.
+						// Mark dead so merge picks the best remaining.
+						s.dead = true
+						continue
+					}
+					// Zero-symbol width token: skip.
+					needToken = true
+					continue
+				}
+
+				// If other stacks have valid actions, kill this one.
+				if len(stacks) > 1 {
+					s.dead = true
+					continue
+				}
+
+				// Only stack: error recovery — wrap token in error node.
+				if len(s.entries) == 0 {
+					return p.buildResultFromGLR(stacks, source)
+				}
+				errNode := NewLeafNode(errorSymbol, false,
+					tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
+				errNode.hasError = true
+				s.entries = append(s.entries, stackEntry{state: currentState, node: errNode})
+				nodeCount++
+				needToken = true
+				continue
+			}
+
+			// --- GLR: fork for multiple actions ---
+			// For single-action entries (the common case), no fork occurs.
+			// For multi-action entries, clone the stack for each alternative.
+			actions := action.Actions
+			if len(actions) > 1 {
+				// Save state before applying any action.
+				saved := s.clone()
+				// Apply first action to the original stack.
+				p.applyAction(s, actions[0], tok, &anyReduced, &nodeCount)
+				// Clone for each additional action.
+				for ai := 1; ai < len(actions); ai++ {
+					fork := saved.clone()
+					p.applyAction(&fork, actions[ai], tok, &anyReduced, &nodeCount)
+					stacks = append(stacks, fork)
+				}
 			} else {
-				// No GOTO found — push with current top state as fallback.
-				stack = append(stack, stackEntry{state: topState, node: parent})
+				p.applyAction(s, actions[0], tok, &anyReduced, &nodeCount)
 			}
+		}
 
-			// After a reduce, reuse the same lookahead token.
+		// After processing all stacks: determine whether to advance the
+		// token. If any stack reduced, reuse the same token (the reducing
+		// stacks have new top states and need to re-check the action for
+		// the current lookahead). Otherwise, advance to next token.
+		if anyReduced {
 			needToken = false
 
-		case ParseActionAccept:
-			// The top of stack should contain the root node.
-			return p.buildResult(stack, source)
-
-		default:
-			// Unknown action type — skip token as error recovery.
+			// Infinite-reduce detection (for the primary stack).
+			if len(stacks) > 0 && !stacks[0].dead {
+				topState := stacks[0].top().state
+				if topState == lastReduceState {
+					consecutiveReduces++
+				} else {
+					lastReduceState = topState
+					consecutiveReduces = 1
+				}
+				if consecutiveReduces > 10 {
+					needToken = true
+					consecutiveReduces = 0
+				}
+			}
+		} else {
 			needToken = true
+			consecutiveReduces = 0
 		}
+
+		// Check for accept on any stack.
+		for si := range stacks {
+			if stacks[si].accepted {
+				return p.buildResultFromGLR(stacks[si:si+1], source)
+			}
+		}
+	}
+
+	// Iteration limit reached.
+	return p.buildResultFromGLR(stacks, source)
+}
+
+// applyAction applies a single parse action to a GLR stack.
+func (p *Parser) applyAction(s *glrStack, act ParseAction, tok Token, anyReduced *bool, nodeCount *int) {
+	switch act.Type {
+	case ParseActionShift:
+		named := p.isNamedSymbol(tok.Symbol)
+		leaf := NewLeafNode(tok.Symbol, named,
+			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
+		s.entries = append(s.entries, stackEntry{state: act.State, node: leaf})
+		*nodeCount++
+
+	case ParseActionReduce:
+		childCount := int(act.ChildCount)
+		if childCount > len(s.entries)-1 {
+			// Not enough stack entries — kill this stack version.
+			s.dead = true
+			return
+		}
+
+		children := make([]*Node, childCount)
+		for i := childCount - 1; i >= 0; i-- {
+			children[i] = s.entries[len(s.entries)-1].node
+			s.entries = s.entries[:len(s.entries)-1]
+		}
+
+		named := p.isNamedSymbol(act.Symbol)
+		fieldIDs := p.buildFieldIDs(childCount, act.ProductionID)
+		parent := NewParentNode(act.Symbol, named, children, fieldIDs, act.ProductionID)
+		*nodeCount++
+
+		topState := s.entries[len(s.entries)-1].state
+		gotoState := p.lookupGoto(topState, act.Symbol)
+
+		if gotoState != 0 {
+			s.entries = append(s.entries, stackEntry{state: gotoState, node: parent})
+		} else {
+			s.entries = append(s.entries, stackEntry{state: topState, node: parent})
+		}
+
+		s.score += int(act.DynamicPrecedence)
+		*anyReduced = true
+
+	case ParseActionAccept:
+		s.accepted = true
+
+	case ParseActionRecover:
+		if tok.Symbol == 0 && tok.StartByte == tok.EndByte {
+			s.accepted = true
+			return
+		}
+		errNode := NewLeafNode(errorSymbol, false,
+			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
+		errNode.hasError = true
+		recoverState := s.top().state
+		if act.State != 0 {
+			recoverState = act.State
+		}
+		s.entries = append(s.entries, stackEntry{state: recoverState, node: errNode})
 	}
 }
 
+// buildFieldIDs creates the field ID slice for a reduce action.
+func (p *Parser) buildFieldIDs(childCount int, productionID uint16) []FieldID {
+	if childCount <= 0 || len(p.language.FieldMapEntries) == 0 {
+		return nil
+	}
+
+	pid := int(productionID)
+	if pid >= len(p.language.FieldMapSlices) {
+		return nil
+	}
+
+	fm := p.language.FieldMapSlices[pid]
+	count := int(fm[1])
+	if count == 0 {
+		return nil
+	}
+
+	fieldIDs := make([]FieldID, childCount)
+	start := int(fm[0])
+	assigned := false
+	for i := 0; i < count; i++ {
+		entryIdx := start + i
+		if entryIdx >= len(p.language.FieldMapEntries) {
+			break
+		}
+		entry := p.language.FieldMapEntries[entryIdx]
+		if int(entry.ChildIndex) < len(fieldIDs) {
+			fieldIDs[entry.ChildIndex] = entry.FieldID
+			assigned = true
+		}
+	}
+
+	if !assigned {
+		return nil
+	}
+	return fieldIDs
+}
+
+// buildResultFromGLR picks the best stack and constructs the final tree.
+// Prefers accepted stacks, then highest score, then most entries.
+func (p *Parser) buildResultFromGLR(stacks []glrStack, source []byte) *Tree {
+	if len(stacks) == 0 {
+		return NewTree(nil, source, p.language)
+	}
+
+	best := 0
+	for i := 1; i < len(stacks); i++ {
+		if stacks[i].dead && !stacks[best].dead {
+			continue
+		}
+		if !stacks[i].dead && stacks[best].dead {
+			best = i
+			continue
+		}
+		if stacks[i].accepted && !stacks[best].accepted {
+			best = i
+			continue
+		}
+		if stacks[i].score > stacks[best].score {
+			best = i
+			continue
+		}
+		if stacks[i].score == stacks[best].score && len(stacks[i].entries) > len(stacks[best].entries) {
+			best = i
+		}
+	}
+
+	return p.buildResult(stacks[best].entries, source)
+}
+
 // lookupAction looks up the parse action for the given state and symbol.
-// For states < LargeStateCount, it uses the dense ParseTable.
-// For states >= LargeStateCount, it uses the compressed SmallParseTable.
-// Both return an index into ParseActions.
 func (p *Parser) lookupAction(state StateID, sym Symbol) *ParseActionEntry {
 	idx := p.lookupActionIndex(state, sym)
 	if idx == 0 {
@@ -204,9 +559,6 @@ func (p *Parser) lookupAction(state StateID, sym Symbol) *ParseActionEntry {
 // lookupActionIndex returns the parse action index for (state, symbol).
 // Returns 0 (the error/no-action entry) if not found.
 func (p *Parser) lookupActionIndex(state StateID, sym Symbol) uint16 {
-	// Use dense table for states in the dense table range.
-	// When LargeStateCount is 0 and ParseTable is non-empty, that means
-	// the grammar uses a dense table for all states (hand-built grammars).
 	useDense := false
 	if p.language.LargeStateCount > 0 {
 		useDense = uint32(state) < p.language.LargeStateCount
@@ -258,21 +610,18 @@ func (p *Parser) lookupActionIndex(state StateID, sym Symbol) uint16 {
 }
 
 // lookupGoto returns the GOTO target state for a nonterminal symbol.
-//
-// In real tree-sitter grammars (InitialState > 0), nonterminal symbols
-// (>= TokenCount) store the target state directly in the parse table,
-// not an action index. Terminal symbols use action indices.
-//
-// In hand-built grammars (InitialState == 0), ALL parse table values are
-// action indices regardless of symbol type.
 func (p *Parser) lookupGoto(state StateID, sym Symbol) StateID {
 	raw := p.lookupActionIndex(state, sym)
 	if raw == 0 {
 		return 0
 	}
 
-	// Real tree-sitter grammars: nonterminal GOTO values are state IDs.
-	if p.language.InitialState > 0 && p.language.TokenCount > 0 && uint32(sym) >= p.language.TokenCount {
+	// ts2go-generated grammars encode nonterminal GOTO values directly as
+	// parser state IDs. Hand-built grammars encode parse-action indices.
+	if p.language.TokenCount > 0 &&
+		uint32(sym) >= p.language.TokenCount &&
+		p.language.StateCount > 0 &&
+		(p.language.LargeStateCount > 0 || len(p.language.SmallParseTableMap) > 0) {
 		return StateID(raw)
 	}
 
@@ -286,8 +635,7 @@ func (p *Parser) lookupGoto(state StateID, sym Symbol) StateID {
 	return 0
 }
 
-// isNamedSymbol checks whether a symbol is a named symbol using the
-// language's symbol metadata.
+// isNamedSymbol checks whether a symbol is a named symbol.
 func (p *Parser) isNamedSymbol(sym Symbol) bool {
 	if int(sym) < len(p.language.SymbolMetadata) {
 		return p.language.SymbolMetadata[sym].Named
@@ -295,12 +643,8 @@ func (p *Parser) isNamedSymbol(sym Symbol) bool {
 	return false
 }
 
-// buildResult constructs the final Tree from the parser stack.
-// It finds the topmost non-nil node on the stack and uses it as root.
-// If multiple nodes remain (due to error recovery or incomplete parse),
-// they are gathered under a synthetic root.
+// buildResult constructs the final Tree from a stack of entries.
 func (p *Parser) buildResult(stack []stackEntry, source []byte) *Tree {
-	// Collect all non-nil nodes from the stack.
 	var nodes []*Node
 	for _, entry := range stack {
 		if entry.node != nil {
@@ -316,8 +660,6 @@ func (p *Parser) buildResult(stack []stackEntry, source []byte) *Tree {
 		return NewTree(nodes[0], source, p.language)
 	}
 
-	// Multiple nodes on stack — wrap them in a parent.
-	// Use the symbol of the last node (most likely the intended root symbol).
 	root := NewParentNode(nodes[len(nodes)-1].symbol, true, nodes, nil, 0)
 	root.hasError = true
 	return NewTree(root, source, p.language)

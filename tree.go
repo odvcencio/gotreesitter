@@ -100,21 +100,13 @@ func (n *Node) NamedChild(i int) *Node {
 
 // ChildByFieldName returns the first child assigned to the given field name,
 // or nil if no child has that field. The Language is needed to resolve field
-// names to IDs.
+// names to IDs. Uses Language.FieldByName for O(1) lookup.
 func (n *Node) ChildByFieldName(name string, lang *Language) *Node {
-	// Find the field ID for this name.
-	fid := FieldID(0)
-	for i, fn := range lang.FieldNames {
-		if fn == name {
-			fid = FieldID(i)
-			break
-		}
-	}
-	if fid == 0 {
+	fid, ok := lang.FieldByName(name)
+	if !ok || fid == 0 {
 		return nil
 	}
 
-	// Search children for the first one with this field ID.
 	for i, id := range n.fieldIDs {
 		if id == fid && i < len(n.children) {
 			return n.children[i]
@@ -188,6 +180,7 @@ type Tree struct {
 	root     *Node
 	source   []byte
 	language *Language
+	edits    []InputEdit // pending edits applied to this tree
 }
 
 // NewTree creates a new Tree.
@@ -207,3 +200,146 @@ func (t *Tree) Source() []byte { return t.source }
 
 // Language returns the language used to parse this tree.
 func (t *Tree) Language() *Language { return t.language }
+
+// InputEdit describes a single edit to the source text. It tells the parser
+// what byte range was replaced and what the new range looks like, so the
+// incremental parser can skip unchanged subtrees.
+type InputEdit struct {
+	StartByte   uint32
+	OldEndByte  uint32
+	NewEndByte  uint32
+	StartPoint  Point
+	OldEndPoint Point
+	NewEndPoint Point
+}
+
+// Edit records an edit on this tree. Call this before ParseIncremental to
+// inform the parser which regions changed. The edit adjusts byte offsets
+// and marks overlapping nodes as dirty so the incremental parser knows
+// what to re-parse.
+func (t *Tree) Edit(edit InputEdit) {
+	t.edits = append(t.edits, edit)
+	if t.root != nil {
+		editNode(t.root, edit)
+	}
+}
+
+// Edits returns the pending edits recorded on this tree.
+func (t *Tree) Edits() []InputEdit { return t.edits }
+
+// editNode recursively adjusts a node's byte/point spans for an edit and
+// marks nodes that overlap the edited region as dirty.
+func editNode(n *Node, edit InputEdit) {
+	byteDelta := int64(edit.NewEndByte) - int64(edit.OldEndByte)
+	hasTailShift := byteDelta != 0 || edit.NewEndPoint != edit.OldEndPoint
+	editNodeWithDelta(n, edit, byteDelta, hasTailShift)
+}
+
+func addUint32Delta(value uint32, delta int64) uint32 {
+	next := int64(value) + delta
+	if next < 0 {
+		return 0
+	}
+	if next > int64(^uint32(0)) {
+		return ^uint32(0)
+	}
+	return uint32(next)
+}
+
+func editNodeWithDelta(n *Node, edit InputEdit, byteDelta int64, hasTailShift bool) {
+	// If the node ends before the edit starts, it's completely unaffected.
+	if n.endByte <= edit.StartByte {
+		return
+	}
+
+	// If the node starts after the old edit end, shift its offsets.
+	if n.startByte >= edit.OldEndByte {
+		if !hasTailShift {
+			return
+		}
+		n.startByte = addUint32Delta(n.startByte, byteDelta)
+		n.endByte = addUint32Delta(n.endByte, byteDelta)
+		// Shift points approximately (row stays, col shifts if same row).
+		if n.startPoint.Row == edit.OldEndPoint.Row {
+			rowDelta := int64(edit.NewEndPoint.Row) - int64(edit.OldEndPoint.Row)
+			n.startPoint.Row = addUint32Delta(n.startPoint.Row, rowDelta)
+			if rowDelta == 0 {
+				colDelta := int64(edit.NewEndPoint.Column) - int64(edit.OldEndPoint.Column)
+				n.startPoint.Column = addUint32Delta(n.startPoint.Column, colDelta)
+			}
+		}
+		if n.endPoint.Row == edit.OldEndPoint.Row {
+			rowDelta := int64(edit.NewEndPoint.Row) - int64(edit.OldEndPoint.Row)
+			n.endPoint.Row = addUint32Delta(n.endPoint.Row, rowDelta)
+			if rowDelta == 0 {
+				colDelta := int64(edit.NewEndPoint.Column) - int64(edit.OldEndPoint.Column)
+				n.endPoint.Column = addUint32Delta(n.endPoint.Column, colDelta)
+			}
+		}
+		shiftSubtreeAfterEdit(n.children, edit, byteDelta)
+		return
+	}
+
+	// The node overlaps the edit — mark it dirty and adjust its end.
+	n.hasError = true // reuse hasError as dirty flag for incremental
+	if n.endByte <= edit.OldEndByte {
+		// Node is fully within the edited region.
+		n.endByte = edit.NewEndByte
+		n.endPoint = edit.NewEndPoint
+	} else {
+		// Node extends past the edit — adjust end.
+		n.endByte = addUint32Delta(n.endByte, byteDelta)
+	}
+
+	// Recurse only into children that can be affected.
+	for _, c := range n.children {
+		if c.endByte <= edit.StartByte {
+			continue
+		}
+		if c.startByte >= edit.OldEndByte {
+			if !hasTailShift {
+				continue
+			}
+			shiftSubtreeAfterEdit([]*Node{c}, edit, byteDelta)
+			continue
+		}
+		editNodeWithDelta(c, edit, byteDelta, hasTailShift)
+	}
+}
+
+func shiftSubtreeAfterEdit(roots []*Node, edit InputEdit, byteDelta int64) {
+	if len(roots) == 0 {
+		return
+	}
+
+	stack := make([]*Node, 0, len(roots)*2)
+	stack = append(stack, roots...)
+	for len(stack) > 0 {
+		n := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		n.startByte = addUint32Delta(n.startByte, byteDelta)
+		n.endByte = addUint32Delta(n.endByte, byteDelta)
+
+		if n.startPoint.Row == edit.OldEndPoint.Row {
+			rowDelta := int64(edit.NewEndPoint.Row) - int64(edit.OldEndPoint.Row)
+			n.startPoint.Row = addUint32Delta(n.startPoint.Row, rowDelta)
+			if rowDelta == 0 {
+				colDelta := int64(edit.NewEndPoint.Column) - int64(edit.OldEndPoint.Column)
+				n.startPoint.Column = addUint32Delta(n.startPoint.Column, colDelta)
+			}
+		}
+		if n.endPoint.Row == edit.OldEndPoint.Row {
+			rowDelta := int64(edit.NewEndPoint.Row) - int64(edit.OldEndPoint.Row)
+			n.endPoint.Row = addUint32Delta(n.endPoint.Row, rowDelta)
+			if rowDelta == 0 {
+				colDelta := int64(edit.NewEndPoint.Column) - int64(edit.OldEndPoint.Column)
+				n.endPoint.Column = addUint32Delta(n.endPoint.Column, colDelta)
+			}
+		}
+
+		for _, c := range n.children {
+			stack = append(stack, c)
+		}
+	}
+}

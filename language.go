@@ -5,6 +5,8 @@
 // which the lexer, parser, query engine, and syntax tree are built.
 package gotreesitter
 
+import "sync"
+
 // Symbol is a grammar symbol ID (terminal or nonterminal).
 type Symbol uint16
 
@@ -18,7 +20,7 @@ type FieldID uint16
 type ParseActionType uint8
 
 const (
-	ParseActionShift  ParseActionType = iota
+	ParseActionShift ParseActionType = iota
 	ParseActionReduce
 	ParseActionAccept
 	ParseActionRecover
@@ -27,13 +29,13 @@ const (
 // ParseAction is a single parser action from the parse table.
 type ParseAction struct {
 	Type              ParseActionType
-	State             StateID  // target state (shift/recover)
-	Symbol            Symbol   // reduced symbol (reduce)
-	ChildCount        uint8    // children consumed (reduce)
-	DynamicPrecedence int16    // precedence (reduce)
-	ProductionID      uint16   // which production (reduce)
-	Extra             bool     // is this an extra token (shift)
-	Repetition        bool     // is this a repetition (shift)
+	State             StateID // target state (shift/recover)
+	Symbol            Symbol  // reduced symbol (reduce)
+	ChildCount        uint8   // children consumed (reduce)
+	DynamicPrecedence int16   // precedence (reduce)
+	ProductionID      uint16  // which production (reduce)
+	Extra             bool    // is this an extra token (shift)
+	Repetition        bool    // is this a repetition (shift)
 }
 
 // ParseActionEntry is a group of actions for a (state, symbol) pair.
@@ -81,16 +83,12 @@ type FieldMapEntry struct {
 // ExternalScanner is the interface for language-specific external scanners.
 // Languages like Python and JavaScript need these for indent tracking,
 // template literals, regex vs division, etc.
-//
-// The Scan method accepts an interface{} for the lexer parameter because
-// the concrete Lexer type is defined in a later task. It will be replaced
-// with *Lexer once that type exists.
 type ExternalScanner interface {
-	Create() interface{}
-	Destroy(payload interface{})
-	Serialize(payload interface{}, buf []byte) int
-	Deserialize(payload interface{}, buf []byte)
-	Scan(payload interface{}, lexer interface{}, validSymbols []bool) bool
+	Create() any
+	Destroy(payload any)
+	Serialize(payload any, buf []byte) int
+	Deserialize(payload any, buf []byte)
+	Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool
 }
 
 // Language holds all data needed to parse a specific language.
@@ -114,9 +112,9 @@ type Language struct {
 	FieldNames     []string // index 0 is ""
 
 	// Parse tables
-	ParseTable         [][]uint16         // dense: [state][symbol] -> action index
-	SmallParseTable    []uint16           // compressed sparse table
-	SmallParseTableMap []uint32           // state -> offset into SmallParseTable
+	ParseTable         [][]uint16 // dense: [state][symbol] -> action index
+	SmallParseTable    []uint16   // compressed sparse table
+	SmallParseTableMap []uint32   // state -> offset into SmallParseTable
 	ParseActions       []ParseActionEntry
 
 	// Lex tables
@@ -126,7 +124,7 @@ type Language struct {
 	KeywordCaptureToken Symbol
 
 	// Field mapping
-	FieldMapSlices  [][2]uint16   // [production_id] -> (index, length)
+	FieldMapSlices  [][2]uint16 // [production_id] -> (index, length)
 	FieldMapEntries []FieldMapEntry
 
 	// Alias sequences
@@ -137,9 +135,81 @@ type Language struct {
 
 	// External scanner (nil if not needed)
 	ExternalScanner ExternalScanner
+	ExternalSymbols []Symbol // external token index -> symbol
 
 	// InitialState is the parser's start state. In tree-sitter grammars
 	// this is always 1 (state 0 is reserved for error recovery). For
 	// hand-built grammars it defaults to 0.
 	InitialState StateID
+
+	// Lazily-built lookup maps for O(1) name resolution.
+	symbolNameMap      map[string]Symbol
+	tokenSymbolNameMap map[string][]Symbol
+	fieldNameMap       map[string]FieldID
+
+	symbolMapOnce sync.Once
+	fieldMapOnce  sync.Once
+}
+
+// SymbolByName returns the symbol ID for a given name, or (0, false) if not found.
+// The "_" wildcard returns (0, true) as a special case.
+// Builds an internal map on first call for O(1) subsequent lookups.
+func (l *Language) SymbolByName(name string) (Symbol, bool) {
+	if name == "_" {
+		return 0, true
+	}
+	l.buildSymbolMaps()
+	sym, ok := l.symbolNameMap[name]
+	return sym, ok
+}
+
+// TokenSymbolsByName returns all terminal token symbols whose display name
+// matches name. The returned symbols are in grammar order.
+func (l *Language) TokenSymbolsByName(name string) []Symbol {
+	if name == "_" {
+		return []Symbol{0}
+	}
+	l.buildSymbolMaps()
+	return l.tokenSymbolNameMap[name]
+}
+
+func (l *Language) buildSymbolMaps() {
+	l.symbolMapOnce.Do(func() {
+		l.symbolNameMap = make(map[string]Symbol, len(l.SymbolNames))
+		l.tokenSymbolNameMap = make(map[string][]Symbol)
+
+		tokenCount := int(l.TokenCount)
+		if tokenCount > len(l.SymbolNames) {
+			tokenCount = len(l.SymbolNames)
+		}
+
+		for i, sn := range l.SymbolNames {
+			if sn == "" {
+				continue
+			}
+			sym := Symbol(i)
+			// Keep the first match so duplicate names remain deterministic.
+			if _, exists := l.symbolNameMap[sn]; !exists {
+				l.symbolNameMap[sn] = sym
+			}
+			if i < tokenCount {
+				l.tokenSymbolNameMap[sn] = append(l.tokenSymbolNameMap[sn], sym)
+			}
+		}
+	})
+}
+
+// FieldByName returns the field ID for a given name, or (0, false) if not found.
+// Builds an internal map on first call for O(1) subsequent lookups.
+func (l *Language) FieldByName(name string) (FieldID, bool) {
+	l.fieldMapOnce.Do(func() {
+		l.fieldNameMap = make(map[string]FieldID, len(l.FieldNames))
+		for i, fn := range l.FieldNames {
+			if fn != "" {
+				l.fieldNameMap[fn] = FieldID(i)
+			}
+		}
+	})
+	fid, ok := l.fieldNameMap[name]
+	return fid, ok
 }

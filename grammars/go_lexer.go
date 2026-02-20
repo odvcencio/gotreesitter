@@ -1,6 +1,7 @@
 package grammars
 
 import (
+	"fmt"
 	"go/scanner"
 	"go/token"
 	"unicode/utf8"
@@ -15,7 +16,7 @@ import (
 // go/scanner provides. In particular:
 //   - String literals are split into open-quote, content, close-quote
 //   - Raw string literals similarly split with backtick delimiters
-//   - Comments are emitted as tokens (symbol 94)
+//   - Comments are emitted as explicit tokens
 //   - Newline-based automatic semicolons are mapped to ";"
 type GoTokenSource struct {
 	src     []byte
@@ -32,6 +33,28 @@ type GoTokenSource struct {
 
 	// keywordMap maps keyword strings to their tree-sitter symbol IDs.
 	keywordMap map[string]gotreesitter.Symbol
+
+	// Common symbols used in fast paths.
+	eofSymbol                         gotreesitter.Symbol
+	commentSymbol                     gotreesitter.Symbol
+	runeLiteralSymbol                 gotreesitter.Symbol
+	intLiteralSymbol                  gotreesitter.Symbol
+	floatLiteralSymbol                gotreesitter.Symbol
+	imaginaryLiteralSymbol            gotreesitter.Symbol
+	identifierSymbol                  gotreesitter.Symbol
+	blankIdentifierSymbol             gotreesitter.Symbol
+	interpretedStringOpenQuoteSymbol  gotreesitter.Symbol
+	interpretedStringCloseQuoteSymbol gotreesitter.Symbol
+	interpretedStringContentSymbol    gotreesitter.Symbol
+	rawStringQuoteSymbol              gotreesitter.Symbol
+	rawStringContentSymbol            gotreesitter.Symbol
+
+	// Incremental position tracking for offsetToPoint.
+	// Instead of scanning from byte 0 every call (O(n²) over a file),
+	// we track the last converted offset and scan forward from there.
+	lastOffset int
+	lastRow    uint32
+	lastCol    uint32
 }
 
 // NewGoTokenSource creates a token source that lexes Go source code and
@@ -75,11 +98,10 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 
 		switch {
 		case tok == token.COMMENT:
-			// Comments are token symbol 94 in the Go grammar.
 			endOffset := offset + len(lit)
 			endPoint := ts.offsetToPoint(endOffset)
 			return gotreesitter.Token{
-				Symbol:     94, // sym_comment
+				Symbol:     ts.commentSymbol,
 				Text:       lit,
 				StartByte:  uint32(offset),
 				EndByte:    uint32(endOffset),
@@ -92,10 +114,9 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 			return ts.splitString(offset, lit)
 
 		case tok == token.CHAR:
-			// Rune literal (symbol 89).
 			endOffset := offset + len(lit)
 			return gotreesitter.Token{
-				Symbol:     89, // sym_rune_literal
+				Symbol:     ts.runeLiteralSymbol,
 				Text:       lit,
 				StartByte:  uint32(offset),
 				EndByte:    uint32(endOffset),
@@ -106,7 +127,7 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 		case tok == token.INT:
 			endOffset := offset + len(lit)
 			return gotreesitter.Token{
-				Symbol:     86, // sym_int_literal
+				Symbol:     ts.intLiteralSymbol,
 				Text:       lit,
 				StartByte:  uint32(offset),
 				EndByte:    uint32(endOffset),
@@ -117,7 +138,7 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 		case tok == token.FLOAT:
 			endOffset := offset + len(lit)
 			return gotreesitter.Token{
-				Symbol:     87, // sym_float_literal
+				Symbol:     ts.floatLiteralSymbol,
 				Text:       lit,
 				StartByte:  uint32(offset),
 				EndByte:    uint32(endOffset),
@@ -128,7 +149,7 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 		case tok == token.IMAG:
 			endOffset := offset + len(lit)
 			return gotreesitter.Token{
-				Symbol:     88, // sym_imaginary_literal
+				Symbol:     ts.imaginaryLiteralSymbol,
 				Text:       lit,
 				StartByte:  uint32(offset),
 				EndByte:    uint32(endOffset),
@@ -163,6 +184,16 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 	}
 }
 
+// SkipToByte advances until it reaches the first token at or after offset.
+func (ts *GoTokenSource) SkipToByte(offset uint32) gotreesitter.Token {
+	for {
+		tok := ts.Next()
+		if tok.Symbol == 0 || tok.StartByte >= offset {
+			return tok
+		}
+	}
+}
+
 // identToken handles identifiers, keywords, and special names.
 func (ts *GoTokenSource) identToken(offset int, lit string) gotreesitter.Token {
 	endOffset := offset + len(lit)
@@ -184,7 +215,7 @@ func (ts *GoTokenSource) identToken(offset int, lit string) gotreesitter.Token {
 	// Check for blank identifier.
 	if lit == "_" {
 		return gotreesitter.Token{
-			Symbol:     8, // sym_blank_identifier
+			Symbol:     ts.blankIdentifierSymbol,
 			Text:       lit,
 			StartByte:  uint32(offset),
 			EndByte:    uint32(endOffset),
@@ -195,7 +226,7 @@ func (ts *GoTokenSource) identToken(offset int, lit string) gotreesitter.Token {
 
 	// Regular identifier.
 	return gotreesitter.Token{
-		Symbol:     1, // sym_identifier
+		Symbol:     ts.identifierSymbol,
 		Text:       lit,
 		StartByte:  uint32(offset),
 		EndByte:    uint32(endOffset),
@@ -221,7 +252,7 @@ func (ts *GoTokenSource) splitString(offset int, lit string) gotreesitter.Token 
 	// Open quote
 	openEnd := offset + 1
 	openTok := gotreesitter.Token{
-		Symbol:     82, // anon_sym_DQUOTE (open)
+		Symbol:     ts.interpretedStringOpenQuoteSymbol,
 		Text:       "\"",
 		StartByte:  uint32(offset),
 		EndByte:    uint32(openEnd),
@@ -235,7 +266,7 @@ func (ts *GoTokenSource) splitString(offset int, lit string) gotreesitter.Token 
 	if contentEnd > contentStart {
 		content := lit[1 : len(lit)-1]
 		ts.pending = append(ts.pending, gotreesitter.Token{
-			Symbol:     83, // aux_sym_interpreted_string_literal_token1
+			Symbol:     ts.interpretedStringContentSymbol,
 			Text:       content,
 			StartByte:  uint32(contentStart),
 			EndByte:    uint32(contentEnd),
@@ -248,7 +279,7 @@ func (ts *GoTokenSource) splitString(offset int, lit string) gotreesitter.Token 
 	closeStart := offset + len(lit) - 1
 	closeEnd := offset + len(lit)
 	ts.pending = append(ts.pending, gotreesitter.Token{
-		Symbol:     84, // anon_sym_DQUOTE2 (close)
+		Symbol:     ts.interpretedStringCloseQuoteSymbol,
 		Text:       "\"",
 		StartByte:  uint32(closeStart),
 		EndByte:    uint32(closeEnd),
@@ -264,7 +295,7 @@ func (ts *GoTokenSource) splitRawString(offset int, lit string) gotreesitter.Tok
 	// Open backtick
 	openEnd := offset + 1
 	openTok := gotreesitter.Token{
-		Symbol:     80, // anon_sym_BQUOTE
+		Symbol:     ts.rawStringQuoteSymbol,
 		Text:       "`",
 		StartByte:  uint32(offset),
 		EndByte:    uint32(openEnd),
@@ -278,7 +309,7 @@ func (ts *GoTokenSource) splitRawString(offset int, lit string) gotreesitter.Tok
 	if contentEnd > contentStart {
 		content := lit[1 : len(lit)-1]
 		ts.pending = append(ts.pending, gotreesitter.Token{
-			Symbol:     81, // aux_sym_raw_string_literal_token1
+			Symbol:     ts.rawStringContentSymbol,
 			Text:       content,
 			StartByte:  uint32(contentStart),
 			EndByte:    uint32(contentEnd),
@@ -291,7 +322,7 @@ func (ts *GoTokenSource) splitRawString(offset int, lit string) gotreesitter.Tok
 	closeStart := offset + len(lit) - 1
 	closeEnd := offset + len(lit)
 	ts.pending = append(ts.pending, gotreesitter.Token{
-		Symbol:     80, // anon_sym_BQUOTE (same symbol for close)
+		Symbol:     ts.rawStringQuoteSymbol,
 		Text:       "`",
 		StartByte:  uint32(closeStart),
 		EndByte:    uint32(closeEnd),
@@ -307,7 +338,7 @@ func (ts *GoTokenSource) eofToken() gotreesitter.Token {
 	n := uint32(len(ts.src))
 	pt := ts.offsetToPoint(int(n))
 	return gotreesitter.Token{
-		Symbol:     0, // ts_builtin_sym_end
+		Symbol:     ts.eofSymbol,
 		StartByte:  n,
 		EndByte:    n,
 		StartPoint: pt,
@@ -316,10 +347,20 @@ func (ts *GoTokenSource) eofToken() gotreesitter.Token {
 }
 
 // offsetToPoint converts a byte offset to a row/column Point.
+// Uses incremental tracking — scans forward from the last queried offset
+// instead of from byte 0, turning amortized cost from O(n²) to O(n).
 func (ts *GoTokenSource) offsetToPoint(offset int) gotreesitter.Point {
-	row := uint32(0)
-	col := uint32(0)
-	for i := 0; i < offset && i < len(ts.src); {
+	if offset < ts.lastOffset {
+		// Backward seek — reset to start (rare in sequential scanning).
+		ts.lastOffset = 0
+		ts.lastRow = 0
+		ts.lastCol = 0
+	}
+
+	i := ts.lastOffset
+	row := ts.lastRow
+	col := ts.lastCol
+	for i < offset && i < len(ts.src) {
 		r, size := utf8.DecodeRune(ts.src[i:])
 		if r == '\n' {
 			row++
@@ -329,96 +370,150 @@ func (ts *GoTokenSource) offsetToPoint(offset int) gotreesitter.Point {
 		}
 		i += size
 	}
+	ts.lastOffset = i
+	ts.lastRow = row
+	ts.lastCol = col
 	return gotreesitter.Point{Row: row, Column: col}
 }
 
 // buildMaps creates the go/token to tree-sitter symbol mapping tables.
 func (ts *GoTokenSource) buildMaps() {
+	tokenSym := func(name string) gotreesitter.Symbol {
+		syms := ts.lang.TokenSymbolsByName(name)
+		if len(syms) == 0 {
+			panic(fmt.Sprintf("go lexer: token symbol %q not found", name))
+		}
+		return syms[0]
+	}
+	tokenSymAt := func(name string, idx int) gotreesitter.Symbol {
+		syms := ts.lang.TokenSymbolsByName(name)
+		if idx < 0 || idx >= len(syms) {
+			panic(fmt.Sprintf("go lexer: token symbol %q missing index %d", name, idx))
+		}
+		return syms[idx]
+	}
+
+	ts.eofSymbol = 0
+	if eof, ok := ts.lang.SymbolByName("end"); ok {
+		ts.eofSymbol = eof
+	}
+
+	identifierSyms := ts.lang.TokenSymbolsByName("identifier")
+	if len(identifierSyms) == 0 {
+		panic("go lexer: identifier token symbol not found")
+	}
+	ts.identifierSymbol = identifierSyms[0]
+	ts.blankIdentifierSymbol = tokenSym("blank_identifier")
+
+	// Go's grammar aliases "new" and "make" to additional identifier token IDs.
+	// If aliases are absent, fall back to the base identifier symbol.
+	newSym := ts.identifierSymbol
+	makeSym := ts.identifierSymbol
+	if len(identifierSyms) >= 2 {
+		newSym = identifierSyms[1]
+		makeSym = identifierSyms[1]
+	}
+	if len(identifierSyms) >= 3 {
+		makeSym = identifierSyms[2]
+	}
+
+	ts.commentSymbol = tokenSym("comment")
+	ts.runeLiteralSymbol = tokenSym("rune_literal")
+	ts.intLiteralSymbol = tokenSym("int_literal")
+	ts.floatLiteralSymbol = tokenSym("float_literal")
+	ts.imaginaryLiteralSymbol = tokenSym("imaginary_literal")
+
+	ts.rawStringQuoteSymbol = tokenSym("`")
+	ts.rawStringContentSymbol = tokenSym("raw_string_literal_content")
+	ts.interpretedStringOpenQuoteSymbol = tokenSymAt("\"", 0)
+	ts.interpretedStringCloseQuoteSymbol = tokenSymAt("\"", 1)
+	ts.interpretedStringContentSymbol = tokenSym("interpreted_string_literal_content")
+
 	ts.symbolMap = map[token.Token]gotreesitter.Symbol{
-		token.SEMICOLON: 3,  // anon_sym_SEMI
-		token.PERIOD:    7,  // anon_sym_DOT
-		token.LPAREN:    9,  // anon_sym_LPAREN
-		token.RPAREN:    10, // anon_sym_RPAREN
-		token.COMMA:     12, // anon_sym_COMMA
-		token.ASSIGN:    13, // anon_sym_EQ
-		token.LBRACK:    16, // anon_sym_LBRACK
-		token.RBRACK:    17, // anon_sym_RBRACK
-		token.ELLIPSIS:  18, // anon_sym_DOT_DOT_DOT
-		token.MUL:       20, // anon_sym_STAR
-		token.TILDE:     22, // anon_sym_TILDE
-		token.LBRACE:    23, // anon_sym_LBRACE
-		token.RBRACE:    24, // anon_sym_RBRACE
-		token.OR:        26, // anon_sym_PIPE
-		token.ARROW:     29, // anon_sym_LT_DASH
-		token.DEFINE:    30, // anon_sym_COLON_EQ
-		token.INC:       31, // anon_sym_PLUS_PLUS
-		token.DEC:       32, // anon_sym_DASH_DASH
-		token.MUL_ASSIGN: 33, // anon_sym_STAR_EQ
-		token.QUO_ASSIGN: 34, // anon_sym_SLASH_EQ
-		token.REM_ASSIGN: 35, // anon_sym_PERCENT_EQ
-		token.SHL_ASSIGN: 36, // anon_sym_LT_LT_EQ
-		token.SHR_ASSIGN: 37, // anon_sym_GT_GT_EQ
-		token.AND_ASSIGN: 38, // anon_sym_AMP_EQ
-		token.AND_NOT_ASSIGN: 39, // anon_sym_AMP_CARET_EQ
-		token.ADD_ASSIGN: 40, // anon_sym_PLUS_EQ
-		token.SUB_ASSIGN: 41, // anon_sym_DASH_EQ
-		token.OR_ASSIGN:  42, // anon_sym_PIPE_EQ
-		token.XOR_ASSIGN: 43, // anon_sym_CARET_EQ
-		token.COLON:     44,  // anon_sym_COLON
-		token.ADD:       62,  // anon_sym_PLUS
-		token.SUB:       63,  // anon_sym_DASH
-		token.NOT:       64,  // anon_sym_BANG
-		token.XOR:       65,  // anon_sym_CARET
-		token.AND:       66,  // anon_sym_AMP
-		token.QUO:       67,  // anon_sym_SLASH
-		token.REM:       68,  // anon_sym_PERCENT
-		token.SHL:       69,  // anon_sym_LT_LT
-		token.SHR:       70,  // anon_sym_GT_GT
-		token.AND_NOT:   71,  // anon_sym_AMP_CARET
-		token.EQL:       72,  // anon_sym_EQ_EQ
-		token.NEQ:       73,  // anon_sym_BANG_EQ
-		token.LSS:       74,  // anon_sym_LT
-		token.LEQ:       75,  // anon_sym_LT_EQ
-		token.GTR:       76,  // anon_sym_GT
-		token.GEQ:       77,  // anon_sym_GT_EQ
-		token.LAND:      78,  // anon_sym_AMP_AMP
-		token.LOR:       79,  // anon_sym_PIPE_PIPE
+		token.SEMICOLON:      tokenSym(";"),
+		token.PERIOD:         tokenSym("."),
+		token.LPAREN:         tokenSym("("),
+		token.RPAREN:         tokenSym(")"),
+		token.COMMA:          tokenSym(","),
+		token.ASSIGN:         tokenSym("="),
+		token.LBRACK:         tokenSym("["),
+		token.RBRACK:         tokenSym("]"),
+		token.ELLIPSIS:       tokenSym("..."),
+		token.MUL:            tokenSym("*"),
+		token.TILDE:          tokenSym("~"),
+		token.LBRACE:         tokenSym("{"),
+		token.RBRACE:         tokenSym("}"),
+		token.OR:             tokenSym("|"),
+		token.ARROW:          tokenSym("<-"),
+		token.DEFINE:         tokenSym(":="),
+		token.INC:            tokenSym("++"),
+		token.DEC:            tokenSym("--"),
+		token.MUL_ASSIGN:     tokenSym("*="),
+		token.QUO_ASSIGN:     tokenSym("/="),
+		token.REM_ASSIGN:     tokenSym("%="),
+		token.SHL_ASSIGN:     tokenSym("<<="),
+		token.SHR_ASSIGN:     tokenSym(">>="),
+		token.AND_ASSIGN:     tokenSym("&="),
+		token.AND_NOT_ASSIGN: tokenSym("&^="),
+		token.ADD_ASSIGN:     tokenSym("+="),
+		token.SUB_ASSIGN:     tokenSym("-="),
+		token.OR_ASSIGN:      tokenSym("|="),
+		token.XOR_ASSIGN:     tokenSym("^="),
+		token.COLON:          tokenSym(":"),
+		token.ADD:            tokenSym("+"),
+		token.SUB:            tokenSym("-"),
+		token.NOT:            tokenSym("!"),
+		token.XOR:            tokenSym("^"),
+		token.AND:            tokenSym("&"),
+		token.QUO:            tokenSym("/"),
+		token.REM:            tokenSym("%"),
+		token.SHL:            tokenSym("<<"),
+		token.SHR:            tokenSym(">>"),
+		token.AND_NOT:        tokenSym("&^"),
+		token.EQL:            tokenSym("=="),
+		token.NEQ:            tokenSym("!="),
+		token.LSS:            tokenSym("<"),
+		token.LEQ:            tokenSym("<="),
+		token.GTR:            tokenSym(">"),
+		token.GEQ:            tokenSym(">="),
+		token.LAND:           tokenSym("&&"),
+		token.LOR:            tokenSym("||"),
 
 		// Keywords mapped from go/token
-		token.PACKAGE:     5,  // anon_sym_package
-		token.IMPORT:      6,  // anon_sym_import
-		token.CONST:       11, // anon_sym_const
-		token.VAR:         14, // anon_sym_var
-		token.FUNC:        15, // anon_sym_func
-		token.TYPE:        19, // anon_sym_type
-		token.STRUCT:      21, // anon_sym_struct
-		token.INTERFACE:   25, // anon_sym_interface
-		token.MAP:         27, // anon_sym_map
-		token.CHAN:        28, // anon_sym_chan
-		token.FALLTHROUGH: 45, // anon_sym_fallthrough
-		token.BREAK:       46, // anon_sym_break
-		token.CONTINUE:    47, // anon_sym_continue
-		token.GOTO:        48, // anon_sym_goto
-		token.RETURN:      49, // anon_sym_return
-		token.GO:          50, // anon_sym_go
-		token.DEFER:       51, // anon_sym_defer
-		token.IF:          52, // anon_sym_if
-		token.ELSE:        53, // anon_sym_else
-		token.FOR:         54, // anon_sym_for
-		token.RANGE:       55, // anon_sym_range
-		token.SWITCH:      56, // anon_sym_switch
-		token.CASE:        57, // anon_sym_case
-		token.DEFAULT:     58, // anon_sym_default
-		token.SELECT:      59, // anon_sym_select
+		token.PACKAGE:     tokenSym("package"),
+		token.IMPORT:      tokenSym("import"),
+		token.CONST:       tokenSym("const"),
+		token.VAR:         tokenSym("var"),
+		token.FUNC:        tokenSym("func"),
+		token.TYPE:        tokenSym("type"),
+		token.STRUCT:      tokenSym("struct"),
+		token.INTERFACE:   tokenSym("interface"),
+		token.MAP:         tokenSym("map"),
+		token.CHAN:        tokenSym("chan"),
+		token.FALLTHROUGH: tokenSym("fallthrough"),
+		token.BREAK:       tokenSym("break"),
+		token.CONTINUE:    tokenSym("continue"),
+		token.GOTO:        tokenSym("goto"),
+		token.RETURN:      tokenSym("return"),
+		token.GO:          tokenSym("go"),
+		token.DEFER:       tokenSym("defer"),
+		token.IF:          tokenSym("if"),
+		token.ELSE:        tokenSym("else"),
+		token.FOR:         tokenSym("for"),
+		token.RANGE:       tokenSym("range"),
+		token.SWITCH:      tokenSym("switch"),
+		token.CASE:        tokenSym("case"),
+		token.DEFAULT:     tokenSym("default"),
+		token.SELECT:      tokenSym("select"),
 	}
 
 	// Keywords that go/scanner returns as IDENT but tree-sitter has special symbols for.
 	ts.keywordMap = map[string]gotreesitter.Symbol{
-		"new":   60, // anon_sym_new
-		"make":  61, // anon_sym_make
-		"nil":   90, // sym_nil
-		"true":  91, // sym_true
-		"false": 92, // sym_false
-		"iota":  93, // sym_iota
+		"new":   newSym,
+		"make":  makeSym,
+		"nil":   tokenSym("nil"),
+		"true":  tokenSym("true"),
+		"false": tokenSym("false"),
+		"iota":  tokenSym("iota"),
 	}
 }

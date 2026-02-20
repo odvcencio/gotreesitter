@@ -31,14 +31,14 @@ import "testing"
 //	State 3: whitespace (skip)
 func buildArithmeticLanguage() *Language {
 	return &Language{
-		Name:              "arithmetic",
-		SymbolCount:       4,
-		TokenCount:        3,
+		Name:               "arithmetic",
+		SymbolCount:        4,
+		TokenCount:         3,
 		ExternalTokenCount: 0,
-		StateCount:        5,
-		LargeStateCount:   0,
-		FieldCount:        0,
-		ProductionIDCount: 2,
+		StateCount:         5,
+		LargeStateCount:    0,
+		FieldCount:         0,
+		ProductionIDCount:  2,
 
 		SymbolNames: []string{"EOF", "NUMBER", "+", "expression"},
 		SymbolMetadata: []SymbolMetadata{
@@ -396,6 +396,73 @@ func TestParserErrorRecovery(t *testing.T) {
 	}
 }
 
+func TestParserRecoverAction(t *testing.T) {
+	lang := buildArithmeticLanguage()
+
+	// In this custom grammar, NUMBER should trigger ParseActionRecover.
+	lang.ParseTable = [][]uint16{
+		{0, 1}, // EOF has no action, NUMBER -> recover action.
+		{0, 0},
+	}
+	lang.ParseActions = []ParseActionEntry{
+		{}, // index 0 is unused / error
+		{Actions: []ParseAction{{Type: ParseActionRecover}}},
+	}
+
+	parser := NewParser(lang)
+	tree := parser.Parse([]byte("1"))
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("tree root is nil after recover action")
+	}
+
+	if root.Symbol() != errorSymbol {
+		t.Errorf("root symbol = %d, want %d (error symbol)", root.Symbol(), errorSymbol)
+	}
+	if !root.HasError() {
+		t.Error("expected recovered parse root to have HasError=true")
+	}
+}
+
+func TestParserFieldMapFieldNames(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	lang.FieldCount = 1
+	lang.FieldNames = []string{"", "value"}
+
+	// Production 0 (expr -> NUMBER) has one child; map it to field ID 1.
+	lang.FieldMapSlices = [][2]uint16{
+		{0, 1},
+	}
+	lang.FieldMapEntries = []FieldMapEntry{
+		{FieldID: 1, ChildIndex: 0, Inherited: false},
+	}
+
+	lang.ParseActions[2].Actions[0].ProductionID = 0
+	lang.ParseActions[7].Actions[0].ProductionID = 1
+	lang.ProductionIDCount = 2
+
+	parser := NewParser(lang)
+	tree := parser.Parse([]byte("42"))
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("tree has nil root")
+	}
+	if root.Symbol() != 3 {
+		t.Errorf("root symbol = %d, want 3 (expression)", root.Symbol())
+	}
+
+	fieldChild := root.ChildByFieldName("value", lang)
+	if fieldChild == nil {
+		t.Fatal("expected field-mapped child by name \"value\"")
+	}
+	if fieldChild.Symbol() != 1 {
+		t.Errorf("field child symbol = %d, want 1 (NUMBER)", fieldChild.Symbol())
+	}
+	if fieldChild.Text(tree.Source()) != "42" {
+		t.Errorf("field child text = %q, want %q", fieldChild.Text(tree.Source()), "42")
+	}
+}
+
 func TestParserMultiDigitNumbers(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	parser := NewParser(lang)
@@ -647,5 +714,46 @@ func TestParserOnlyWhitespace(t *testing.T) {
 	root := tree.RootNode()
 	if root != nil {
 		t.Errorf("expected nil root for whitespace-only input, got symbol %d", root.Symbol())
+	}
+}
+
+type hashPlusExternalScanner struct{}
+
+func (s *hashPlusExternalScanner) Create() any                           { return nil }
+func (s *hashPlusExternalScanner) Destroy(payload any)                   {}
+func (s *hashPlusExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
+func (s *hashPlusExternalScanner) Deserialize(payload any, buf []byte)   {}
+func (s *hashPlusExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	if len(valid) == 0 || !valid[0] {
+		return false
+	}
+	if lexer.Lookahead() != '#' {
+		return false
+	}
+	lexer.Advance(false)
+	lexer.MarkEnd()
+	lexer.SetResultSymbol(Symbol(2)) // PLUS
+	return true
+}
+
+func TestParserExternalScannerToken(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	lang.ExternalScanner = &hashPlusExternalScanner{}
+	lang.ExternalSymbols = []Symbol{2} // PLUS token comes from external scanner
+
+	parser := NewParser(lang)
+	tree := parser.Parse([]byte("1#2"))
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("tree has nil root")
+	}
+	if root.HasError() {
+		t.Fatal("external scanner token path produced error tree")
+	}
+	if root.ChildCount() != 3 {
+		t.Fatalf("root child count = %d, want 3", root.ChildCount())
+	}
+	if got := root.Child(1).Text(tree.Source()); got != "#" {
+		t.Fatalf("operator text = %q, want %q", got, "#")
 	}
 }

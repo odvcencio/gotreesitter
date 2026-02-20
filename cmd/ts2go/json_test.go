@@ -70,6 +70,14 @@ func TestExtractJsonGrammar(t *testing.T) {
 		t.Errorf("FieldNames[2] = %q, want %q", g.FieldNames[2], "value")
 	}
 
+	// Verify field maps.
+	if len(g.FieldMapSlices) == 0 {
+		t.Error("FieldMapSlices is empty")
+	}
+	if len(g.FieldMapEntries) == 0 {
+		t.Error("FieldMapEntries is empty")
+	}
+
 	// Verify parse table.
 	if len(g.ParseTable) != 7 {
 		t.Errorf("len(ParseTable) = %d, want 7", len(g.ParseTable))

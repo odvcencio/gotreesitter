@@ -28,6 +28,11 @@ enum ts_symbol_identifiers {
   sym_object = 5,
 };
 
+enum ts_field_identifiers {
+  field_key = 1,
+  field_value = 2,
+};
+
 static const char * const ts_symbol_names[] = {
   [ts_builtin_sym_end] = "end",
   [anon_sym_LBRACE] = "{",
@@ -68,6 +73,16 @@ static const char * const ts_field_names[] = {
   [0] = NULL,
   [1] = "key",
   [2] = "value",
+};
+
+static const TSFieldMapSlice ts_field_map_slices[PRODUCTION_ID_COUNT] = {
+  [0] = {.index = 0, .length = 1},
+  [1] = {1, 1},
+};
+
+static const TSFieldMapEntry ts_field_map[] = {
+  [0] = {.field_id = field_key, .child_index = 0, .inherited = false},
+  [1] = {field_value, 1, true},
 };
 
 static const uint16_t ts_parse_table[LARGE_STATE_COUNT][SYMBOL_COUNT] = {
@@ -247,6 +262,50 @@ func TestExtractFieldNames(t *testing.T) {
 	}
 	if g.FieldNames[2] != "value" {
 		t.Errorf("FieldNames[2] = %q, want %q", g.FieldNames[2], "value")
+	}
+}
+
+func TestExtractFieldMaps(t *testing.T) {
+	g := miniGrammar()
+	g.ProductionIDCount = 2
+	g.FieldCount = 2
+
+	if err := extractFieldMaps(miniParserC, g); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(g.FieldMapSlices) != 2 {
+		t.Fatalf("len(FieldMapSlices) = %d, want 2", len(g.FieldMapSlices))
+	}
+	if g.FieldMapSlices[0] != [2]uint16{0, 1} {
+		t.Errorf("FieldMapSlices[0] = %v, want [0 1]", g.FieldMapSlices[0])
+	}
+	if g.FieldMapSlices[1] != [2]uint16{1, 1} {
+		t.Errorf("FieldMapSlices[1] = %v, want [1 1]", g.FieldMapSlices[1])
+	}
+
+	if len(g.FieldMapEntries) != 2 {
+		t.Fatalf("len(FieldMapEntries) = %d, want 2", len(g.FieldMapEntries))
+	}
+
+	if g.FieldMapEntries[0].FieldID != 1 {
+		t.Errorf("FieldMapEntries[0].FieldID = %d, want 1", g.FieldMapEntries[0].FieldID)
+	}
+	if g.FieldMapEntries[0].ChildIndex != 0 {
+		t.Errorf("FieldMapEntries[0].ChildIndex = %d, want 0", g.FieldMapEntries[0].ChildIndex)
+	}
+	if g.FieldMapEntries[0].Inherited {
+		t.Error("FieldMapEntries[0].Inherited = true, want false")
+	}
+
+	if g.FieldMapEntries[1].FieldID != 2 {
+		t.Errorf("FieldMapEntries[1].FieldID = %d, want 2", g.FieldMapEntries[1].FieldID)
+	}
+	if g.FieldMapEntries[1].ChildIndex != 1 {
+		t.Errorf("FieldMapEntries[1].ChildIndex = %d, want 1", g.FieldMapEntries[1].ChildIndex)
+	}
+	if !g.FieldMapEntries[1].Inherited {
+		t.Error("FieldMapEntries[1].Inherited = false, want true")
 	}
 }
 
@@ -436,6 +495,39 @@ func TestExtractLexModes(t *testing.T) {
 	}
 }
 
+func TestExtractExternalSymbols(t *testing.T) {
+	src := `
+enum ts_symbol_identifiers {
+  sym_a = 1,
+  sym_ext = 2,
+};
+enum ts_external_token_identifiers {
+  ext_tok_one = 0,
+  ext_tok_two = 1,
+};
+static const TSSymbol ts_external_scanner_symbol_map[2] = {
+  [ext_tok_one] = sym_ext,
+  [ext_tok_two] = sym_a,
+};
+`
+	g := &ExtractedGrammar{
+		ExternalTokenCount: 2,
+		enumValues:         extractEnum(src),
+	}
+	if err := extractExternalSymbols(src, g); err != nil {
+		t.Fatal(err)
+	}
+	if len(g.ExternalSymbols) != 2 {
+		t.Fatalf("len(ExternalSymbols) = %d, want 2", len(g.ExternalSymbols))
+	}
+	if g.ExternalSymbols[0] != 2 {
+		t.Errorf("ExternalSymbols[0] = %d, want 2", g.ExternalSymbols[0])
+	}
+	if g.ExternalSymbols[1] != 1 {
+		t.Errorf("ExternalSymbols[1] = %d, want 1", g.ExternalSymbols[1])
+	}
+}
+
 func TestExtractGrammarFull(t *testing.T) {
 	g, err := ExtractGrammar(miniParserC)
 	if err != nil {
@@ -454,6 +546,12 @@ func TestExtractGrammarFull(t *testing.T) {
 	if len(g.SymbolNames) != 6 {
 		t.Errorf("len(SymbolNames) = %d, want 6", len(g.SymbolNames))
 	}
+	if len(g.FieldMapSlices) != 2 {
+		t.Errorf("len(FieldMapSlices) = %d, want 2", len(g.FieldMapSlices))
+	}
+	if len(g.FieldMapEntries) != 2 {
+		t.Errorf("len(FieldMapEntries) = %d, want 2", len(g.FieldMapEntries))
+	}
 	if len(g.ParseActions) < 4 {
 		t.Errorf("len(ParseActions) = %d, want >= 4", len(g.ParseActions))
 	}
@@ -465,13 +563,14 @@ func TestGenerateGo(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	g.ExternalSymbols = []uint16{5}
 	code := GenerateGo(g, "testpkg")
 
 	// Verify the generated code contains expected strings.
 	checks := []string{
 		"package testpkg",
 		`import "github.com/odvcencio/mane/gotreesitter"`,
-		"func Test_langLanguage()",
+		"func TestLangLanguage()",
 		"*gotreesitter.Language",
 		`Name: "test_lang"`,
 		"SymbolCount:        6",
@@ -479,6 +578,9 @@ func TestGenerateGo(t *testing.T) {
 		"ParseActionShift",
 		"ParseActionAccept",
 		"ParseActionReduce",
+		"FieldMapSlices",
+		"FieldMapEntries",
+		"ExternalSymbols",
 		`"number"`,
 		`"end"`,
 	}

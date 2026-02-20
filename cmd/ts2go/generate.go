@@ -15,7 +15,7 @@ func GenerateGo(g *ExtractedGrammar, pkg string) string {
 	fmt.Fprintf(&buf, "package %s\n\n", pkg)
 	buf.WriteString("import \"github.com/odvcencio/mane/gotreesitter\"\n\n")
 
-	funcName := capitalize(g.Name) + "Language"
+	funcName := languageFuncName(g.Name)
 	fmt.Fprintf(&buf, "// %s returns the %s language definition.\n", funcName, g.Name)
 	fmt.Fprintf(&buf, "func %s() *gotreesitter.Language {\n", funcName)
 	buf.WriteString("\treturn &gotreesitter.Language{\n")
@@ -46,6 +46,14 @@ func GenerateGo(g *ExtractedGrammar, pkg string) string {
 		writeStringSlice(&buf, "FieldNames", g.FieldNames)
 	}
 
+	// Field maps
+	if len(g.FieldMapSlices) > 0 {
+		writeFieldMapSlices(&buf, g.FieldMapSlices)
+	}
+	if len(g.FieldMapEntries) > 0 {
+		writeFieldMapEntries(&buf, g.FieldMapEntries)
+	}
+
 	// Parse table (dense, for large states)
 	if len(g.ParseTable) > 0 {
 		writeParseTable(&buf, g.ParseTable)
@@ -65,24 +73,70 @@ func GenerateGo(g *ExtractedGrammar, pkg string) string {
 	// Lex modes
 	writeLexModes(&buf, g.LexModes)
 
+	if len(g.ExternalSymbols) > 0 {
+		writeExternalSymbols(&buf, g.ExternalSymbols)
+	}
+
 	buf.WriteString("\t}\n}\n")
 	return buf.String()
 }
 
-// capitalize returns s with the first rune uppercased.
-func capitalize(s string) string {
-	if s == "" {
-		return s
+func languageFuncName(name string) string {
+	id := toExportedIdentifier(name)
+	if id == "" {
+		id = "Lang"
 	}
-	runes := []rune(s)
-	runes[0] = unicode.ToUpper(runes[0])
-	return string(runes)
+	if unicode.IsDigit([]rune(id)[0]) {
+		id = "Lang" + id
+	}
+	return id + "Language"
+}
+
+func toExportedIdentifier(s string) string {
+	var parts []string
+	var cur []rune
+	flush := func() {
+		if len(cur) == 0 {
+			return
+		}
+		r := cur
+		r[0] = unicode.ToUpper(r[0])
+		parts = append(parts, string(r))
+		cur = nil
+	}
+
+	for _, ch := range s {
+		if unicode.IsLetter(ch) || unicode.IsDigit(ch) {
+			cur = append(cur, ch)
+			continue
+		}
+		flush()
+	}
+	flush()
+	return strings.Join(parts, "")
 }
 
 func writeStringSlice(buf *strings.Builder, name string, vals []string) {
 	fmt.Fprintf(buf, "\t\t%s: []string{\n", name)
 	for _, v := range vals {
 		fmt.Fprintf(buf, "\t\t\t%q,\n", v)
+	}
+	buf.WriteString("\t\t},\n")
+}
+
+func writeFieldMapSlices(buf *strings.Builder, slices [][2]uint16) {
+	buf.WriteString("\t\tFieldMapSlices: [][2]uint16{\n")
+	for _, s := range slices {
+		fmt.Fprintf(buf, "\t\t\t{%d, %d},\n", s[0], s[1])
+	}
+	buf.WriteString("\t\t},\n")
+}
+
+func writeFieldMapEntries(buf *strings.Builder, entries []FieldMapEntry) {
+	buf.WriteString("\t\tFieldMapEntries: []gotreesitter.FieldMapEntry{\n")
+	for _, e := range entries {
+		fmt.Fprintf(buf, "\t\t\t{FieldID: gotreesitter.FieldID(%d), ChildIndex: uint8(%d), Inherited: %t},\n",
+			e.FieldID, e.ChildIndex, e.Inherited)
 	}
 	buf.WriteString("\t\t},\n")
 }
@@ -192,6 +246,14 @@ func writeLexModes(buf *strings.Builder, modes []LexModeEntry) {
 	buf.WriteString("\t\tLexModes: []gotreesitter.LexMode{\n")
 	for _, m := range modes {
 		fmt.Fprintf(buf, "\t\t\t{LexState: %d, ExternalLexState: %d},\n", m.LexState, m.ExternalLexState)
+	}
+	buf.WriteString("\t\t},\n")
+}
+
+func writeExternalSymbols(buf *strings.Builder, symbols []uint16) {
+	buf.WriteString("\t\tExternalSymbols: []gotreesitter.Symbol{\n")
+	for _, s := range symbols {
+		fmt.Fprintf(buf, "\t\t\tgotreesitter.Symbol(%d),\n", s)
 	}
 	buf.WriteString("\t\t},\n")
 }

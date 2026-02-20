@@ -23,14 +23,14 @@ func TestParseActionTypeConstants(t *testing.T) {
 func TestMinimalLanguage(t *testing.T) {
 	// Symbols: 0=ERROR, 1=identifier (terminal), 2=expression (nonterminal)
 	lang := Language{
-		Name:              "test",
-		SymbolCount:       3,
-		TokenCount:        2,
+		Name:               "test",
+		SymbolCount:        3,
+		TokenCount:         2,
 		ExternalTokenCount: 0,
-		StateCount:        2,
-		LargeStateCount:   0,
-		FieldCount:        1,
-		ProductionIDCount: 1,
+		StateCount:         2,
+		LargeStateCount:    0,
+		FieldCount:         1,
+		ProductionIDCount:  1,
 
 		SymbolNames: []string{"ERROR", "identifier", "expression"},
 		SymbolMetadata: []SymbolMetadata{
@@ -257,16 +257,16 @@ type mockExternalScanner struct {
 	scanned   bool
 }
 
-func (m *mockExternalScanner) Create() interface{} {
+func (m *mockExternalScanner) Create() any {
 	m.created = true
 	return &struct{ state int }{state: 0}
 }
 
-func (m *mockExternalScanner) Destroy(payload interface{}) {
+func (m *mockExternalScanner) Destroy(payload any) {
 	m.destroyed = true
 }
 
-func (m *mockExternalScanner) Serialize(payload interface{}, buf []byte) int {
+func (m *mockExternalScanner) Serialize(payload any, buf []byte) int {
 	if len(buf) > 0 {
 		buf[0] = 42
 		return 1
@@ -274,11 +274,11 @@ func (m *mockExternalScanner) Serialize(payload interface{}, buf []byte) int {
 	return 0
 }
 
-func (m *mockExternalScanner) Deserialize(payload interface{}, buf []byte) {
+func (m *mockExternalScanner) Deserialize(payload any, buf []byte) {
 	// no-op for test
 }
 
-func (m *mockExternalScanner) Scan(payload interface{}, lexer interface{}, validSymbols []bool) bool {
+func (m *mockExternalScanner) Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool {
 	m.scanned = true
 	return false
 }

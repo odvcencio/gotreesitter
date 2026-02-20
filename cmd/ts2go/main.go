@@ -14,10 +14,25 @@ func main() {
 	output := flag.String("output", "", "output Go file path")
 	pkg := flag.String("package", "grammars", "Go package name")
 	name := flag.String("name", "", "language name (auto-detected from parser.c if empty)")
+	manifest := flag.String("manifest", "", "batch mode: path to manifest file")
+	outdir := flag.String("outdir", "", "batch mode: output directory for generated files")
 	flag.Parse()
+
+	if *manifest != "" {
+		if *outdir == "" {
+			fmt.Fprintln(os.Stderr, "batch mode requires -outdir")
+			os.Exit(1)
+		}
+		if err := RunBatchManifest(*manifest, *outdir, *pkg); err != nil {
+			fmt.Fprintf(os.Stderr, "batch: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if *input == "" || *output == "" {
 		fmt.Fprintln(os.Stderr, "usage: ts2go -input parser.c -output grammar.go [-package grammars] [-name go]")
+		fmt.Fprintln(os.Stderr, "   or: ts2go -manifest languages.txt -outdir ./grammars [-package grammars]")
 		os.Exit(1)
 	}
 

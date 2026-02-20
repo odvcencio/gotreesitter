@@ -1,6 +1,7 @@
 package gotreesitter_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/odvcencio/mane/gotreesitter"
@@ -225,10 +226,10 @@ func TestParseGoTokenSource(t *testing.T) {
 		sym  gotreesitter.Symbol
 		text string
 	}{
-		{5, "package"},   // anon_sym_package
-		{1, "main"},      // sym_identifier
-		{3, "\n"},        // anon_sym_SEMI (auto-inserted)
-		{0, ""},          // EOF
+		{5, "package"}, // anon_sym_package
+		{1, "main"},    // sym_identifier
+		{3, "\n"},      // anon_sym_SEMI (auto-inserted)
+		{0, ""},        // EOF
 	}
 
 	for i, want := range expected {
@@ -337,5 +338,52 @@ func hello() {
 	}
 	if got := strLit.Text(tree.Source()); got != `"world"` {
 		t.Errorf("expected string literal %q, got %q", `"world"`, got)
+	}
+}
+
+func TestParseGoIncrementalRepeatedSingleByteEdit(t *testing.T) {
+	lang := grammars.GoLanguage()
+	parser := gotreesitter.NewParser(lang)
+
+	src := []byte(`package main
+
+func main() {
+	x := 0
+	_ = x
+}
+`)
+
+	editAt := bytes.Index(src, []byte("0"))
+	if editAt < 0 {
+		t.Fatal("could not find edit byte")
+	}
+	start := pointAtOffset(src, editAt)
+	end := pointAtOffset(src, editAt+1)
+	edit := gotreesitter.InputEdit{
+		StartByte:   uint32(editAt),
+		OldEndByte:  uint32(editAt + 1),
+		NewEndByte:  uint32(editAt + 1),
+		StartPoint:  start,
+		OldEndPoint: end,
+		NewEndPoint: end,
+	}
+
+	tree := parser.ParseWithTokenSource(src, grammars.NewGoTokenSource(src, lang))
+	if tree.RootNode() == nil {
+		t.Fatal("initial parse returned nil root")
+	}
+
+	for i := 0; i < 25; i++ {
+		if src[editAt] == '0' {
+			src[editAt] = '1'
+		} else {
+			src[editAt] = '0'
+		}
+
+		tree.Edit(edit)
+		tree = parser.ParseIncrementalWithTokenSource(src, tree, grammars.NewGoTokenSource(src, lang))
+		if tree.RootNode() == nil {
+			t.Fatalf("iteration %d: incremental parse returned nil root", i)
+		}
 	}
 }

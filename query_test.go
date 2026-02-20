@@ -38,40 +38,40 @@ func queryTestLanguage() *Language {
 	return &Language{
 		Name: "test_query",
 		SymbolNames: []string{
-			"",                      // 0
-			"identifier",            // 1
-			"number",                // 2
-			"true",                  // 3
-			"false",                 // 4
-			"function_declaration",  // 5
-			"call_expression",       // 6
-			"program",               // 7
-			"func",                  // 8
-			"return",                // 9
-			"if",                    // 10
-			"(",                     // 11
-			")",                     // 12
-			"parameter_list",        // 13
-			"block",                 // 14
-			"string",                // 15
+			"",                     // 0
+			"identifier",           // 1
+			"number",               // 2
+			"true",                 // 3
+			"false",                // 4
+			"function_declaration", // 5
+			"call_expression",      // 6
+			"program",              // 7
+			"func",                 // 8
+			"return",               // 9
+			"if",                   // 10
+			"(",                    // 11
+			")",                    // 12
+			"parameter_list",       // 13
+			"block",                // 14
+			"string",               // 15
 		},
 		SymbolMetadata: []SymbolMetadata{
-			{Name: "", Visible: false, Named: false},         // 0
-			{Name: "identifier", Visible: true, Named: true}, // 1
-			{Name: "number", Visible: true, Named: true},     // 2
-			{Name: "true", Visible: true, Named: true},       // 3
-			{Name: "false", Visible: true, Named: true},      // 4
+			{Name: "", Visible: false, Named: false},                   // 0
+			{Name: "identifier", Visible: true, Named: true},           // 1
+			{Name: "number", Visible: true, Named: true},               // 2
+			{Name: "true", Visible: true, Named: true},                 // 3
+			{Name: "false", Visible: true, Named: true},                // 4
 			{Name: "function_declaration", Visible: true, Named: true}, // 5
-			{Name: "call_expression", Visible: true, Named: true},     // 6
-			{Name: "program", Visible: true, Named: true},             // 7
-			{Name: "func", Visible: true, Named: false},               // 8 - keyword
-			{Name: "return", Visible: true, Named: false},             // 9 - keyword
-			{Name: "if", Visible: true, Named: false},                 // 10 - keyword
-			{Name: "(", Visible: true, Named: false},                  // 11
-			{Name: ")", Visible: true, Named: false},                  // 12
-			{Name: "parameter_list", Visible: true, Named: true},      // 13
-			{Name: "block", Visible: true, Named: true},               // 14
-			{Name: "string", Visible: true, Named: true},              // 15
+			{Name: "call_expression", Visible: true, Named: true},      // 6
+			{Name: "program", Visible: true, Named: true},              // 7
+			{Name: "func", Visible: true, Named: false},                // 8 - keyword
+			{Name: "return", Visible: true, Named: false},              // 9 - keyword
+			{Name: "if", Visible: true, Named: false},                  // 10 - keyword
+			{Name: "(", Visible: true, Named: false},                   // 11
+			{Name: ")", Visible: true, Named: false},                   // 12
+			{Name: "parameter_list", Visible: true, Named: true},       // 13
+			{Name: "block", Visible: true, Named: true},                // 14
+			{Name: "string", Visible: true, Named: true},               // 15
 		},
 		FieldNames: []string{
 			"",           // 0
@@ -124,6 +124,27 @@ func TestParseSimpleNodeType(t *testing.T) {
 	}
 	if q.captures[step.captureID] != "ident" {
 		t.Errorf("capture name: got %q, want %q", q.captures[step.captureID], "ident")
+	}
+}
+
+func TestParseWildcard(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`( _ ) @any`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if q.PatternCount() != 1 {
+		t.Fatalf("PatternCount: got %d, want 1", q.PatternCount())
+	}
+	step := q.patterns[0].steps[0]
+	if step.symbol != 0 {
+		t.Fatalf("symbol: got %d, want 0 for wildcard", step.symbol)
+	}
+	if step.captureID < 0 {
+		t.Fatal("captureID: expected >= 0")
+	}
+	if q.captures[step.captureID] != "any" {
+		t.Errorf("capture name: got %q, want %q", q.captures[step.captureID], "any")
 	}
 }
 
@@ -264,6 +285,24 @@ func TestParseMixedAlternation(t *testing.T) {
 	}
 }
 
+func TestParseAlternationWildcard(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`[(true) ( _ )] @mixed`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	step := q.patterns[0].steps[0]
+	if len(step.alternatives) != 2 {
+		t.Fatalf("alternatives: got %d, want 2", len(step.alternatives))
+	}
+	if step.alternatives[0].symbol != Symbol(3) {
+		t.Errorf("alt[0] symbol: got %d, want 3", step.alternatives[0].symbol)
+	}
+	if step.alternatives[1].symbol != 0 {
+		t.Errorf("alt[1] symbol: got %d, want 0 (wildcard)", step.alternatives[1].symbol)
+	}
+}
+
 func TestParseMultiplePatterns(t *testing.T) {
 	lang := queryTestLanguage()
 	q, err := NewQuery(`
@@ -357,6 +396,64 @@ func TestParsePatternWithCaptureInsideParen(t *testing.T) {
 	}
 	if q.captures[step.captureID] != "ident" {
 		t.Errorf("capture: got %q, want %q", q.captures[step.captureID], "ident")
+	}
+}
+
+func TestParsePredicateEq(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`(identifier) @name (#eq? @name "main")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if q.PatternCount() != 1 {
+		t.Fatalf("PatternCount: got %d, want 1", q.PatternCount())
+	}
+	if len(q.patterns[0].predicates) != 1 {
+		t.Fatalf("predicates: got %d, want 1", len(q.patterns[0].predicates))
+	}
+	pred := q.patterns[0].predicates[0]
+	if pred.kind != predicateEq {
+		t.Fatalf("predicate kind: got %d, want %d", pred.kind, predicateEq)
+	}
+	if pred.leftCapture != "name" {
+		t.Fatalf("left capture: got %q, want %q", pred.leftCapture, "name")
+	}
+	if pred.literal != "main" {
+		t.Fatalf("literal: got %q, want %q", pred.literal, "main")
+	}
+}
+
+func TestParsePredicateMatch(t *testing.T) {
+	lang := queryTestLanguage()
+	q, err := NewQuery(`(identifier) @name (#match? @name "^ma")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if len(q.patterns[0].predicates) != 1 {
+		t.Fatalf("predicates: got %d, want 1", len(q.patterns[0].predicates))
+	}
+	pred := q.patterns[0].predicates[0]
+	if pred.kind != predicateMatch {
+		t.Fatalf("predicate kind: got %d, want %d", pred.kind, predicateMatch)
+	}
+	if pred.regex == nil {
+		t.Fatal("expected compiled regex")
+	}
+}
+
+func TestParsePredicateUnknownCapture(t *testing.T) {
+	lang := queryTestLanguage()
+	_, err := NewQuery(`(identifier) @name (#eq? @missing "main")`, lang)
+	if err == nil {
+		t.Fatal("expected error for unknown predicate capture")
+	}
+}
+
+func TestParsePredicateInvalidRegex(t *testing.T) {
+	lang := queryTestLanguage()
+	_, err := NewQuery(`(identifier) @name (#match? @name "[")`, lang)
+	if err == nil {
+		t.Fatal("expected error for invalid regex")
 	}
 }
 
@@ -464,9 +561,9 @@ func TestCaptureDeduplicated(t *testing.T) {
 func buildSimpleTree(lang *Language) *Tree {
 	source := []byte("func main() { 42 }")
 
-	funcKw := leaf(Symbol(8), false, 0, 4)   // "func"
-	ident := leaf(Symbol(1), true, 5, 9)     // "main"
-	lparen := leaf(Symbol(11), false, 9, 10) // "("
+	funcKw := leaf(Symbol(8), false, 0, 4)    // "func"
+	ident := leaf(Symbol(1), true, 5, 9)      // "main"
+	lparen := leaf(Symbol(11), false, 9, 10)  // "("
 	rparen := leaf(Symbol(12), false, 10, 11) // ")"
 	paramList := parent(Symbol(13), true,
 		[]*Node{lparen, rparen},
@@ -531,6 +628,54 @@ func TestMatchNumber(t *testing.T) {
 	}
 }
 
+func TestMatchPredicateEq(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`(identifier) @name (#eq? @name "main")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 1 {
+		t.Fatalf("matches: got %d, want 1", len(matches))
+	}
+	if got := matches[0].Captures[0].Node.Text(tree.Source()); got != "main" {
+		t.Fatalf("capture text: got %q, want %q", got, "main")
+	}
+}
+
+func TestMatchPredicateEqNoMatch(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`(identifier) @name (#eq? @name "other")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 0 {
+		t.Fatalf("matches: got %d, want 0", len(matches))
+	}
+}
+
+func TestMatchPredicateMatch(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`(identifier) @name (#match? @name "^ma")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) != 1 {
+		t.Fatalf("matches: got %d, want 1", len(matches))
+	}
+}
+
 func TestMatchFieldConstrained(t *testing.T) {
 	lang := queryTestLanguage()
 	tree := buildSimpleTree(lang)
@@ -583,8 +728,8 @@ func TestMatchAlternation(t *testing.T) {
 
 	// Build a tree with both true and false nodes.
 	trueNode := leaf(Symbol(3), true, 0, 4)   // true
-	falseNode := leaf(Symbol(4), true, 5, 10)  // false
-	numNode := leaf(Symbol(2), true, 11, 13)   // 42
+	falseNode := leaf(Symbol(4), true, 5, 10) // false
+	numNode := leaf(Symbol(2), true, 11, 13)  // 42
 	program := parent(Symbol(7), true,
 		[]*Node{trueNode, falseNode, numNode},
 		[]FieldID{0, 0, 0})
@@ -619,9 +764,9 @@ func TestMatchStringAlternation(t *testing.T) {
 	lang := queryTestLanguage()
 
 	// Build a tree with keyword nodes.
-	funcKw := leaf(Symbol(8), false, 0, 4)     // "func"
-	returnKw := leaf(Symbol(9), false, 5, 11)   // "return"
-	ident := leaf(Symbol(1), true, 12, 15)      // "foo"
+	funcKw := leaf(Symbol(8), false, 0, 4)    // "func"
+	returnKw := leaf(Symbol(9), false, 5, 11) // "return"
+	ident := leaf(Symbol(1), true, 12, 15)    // "foo"
 	program := parent(Symbol(7), true,
 		[]*Node{funcKw, returnKw, ident},
 		[]FieldID{0, 0, 0})
@@ -681,6 +826,34 @@ func TestMatchNoMatchField(t *testing.T) {
 	matches := q.Execute(tree)
 	if len(matches) != 0 {
 		t.Fatalf("matches: got %d, want 0 (field doesn't match)", len(matches))
+	}
+}
+
+func TestMatchWildcard(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`( _ ) @any`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	matches := q.Execute(tree)
+	if len(matches) == 0 {
+		t.Fatal("matches: got 0, want >0")
+	}
+
+	// The wildcard should match the top-level program node at minimum.
+	foundProgram := false
+	for _, m := range matches {
+		for _, c := range m.Captures {
+			if c.Node.Type(lang) == "program" {
+				foundProgram = true
+			}
+		}
+	}
+	if !foundProgram {
+		t.Fatal("expected a match for program node using wildcard")
 	}
 }
 
