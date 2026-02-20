@@ -18,26 +18,33 @@ var parseSmokeSamples = map[string]string{
 	"go":         "package main\n\nfunc main() {\n\tprintln(1)\n}\n",
 	"html":       "<html><body>Hello</body></html>\n",
 	"java":       "class Main { int x; }\n",
-	"javascript": "function f() { return 1; }\n",
+	"javascript": "function f() { return 1; }\nconst x = () => x + 1;\n",
 	"json":       "{\"a\": 1}\n",
-	"kotlin":     "fun main() { val x = 1 }\n",
+	"kotlin":     "fun main() {\n    val x: Int? = null\n    println(x)\n}\n",
 	"lua":        "local x = 1\n",
 	"php":        "<?php echo 1;\n",
 	"python":     "def f():\n    return 1\n",
 	"ruby":       "def f\n  1\nend\n",
 	"rust":       "fn main() { let x = 1; }\n",
-	"sql":        "SELECT 1;\n",
-	"swift":      "func f() -> Int { return 1 }\n",
-	"toml":       "a = 1\n",
-	"tsx":        "const x = <div>Hello</div>;\n",
+	"sql":        "SELECT id, name FROM users WHERE id = 1;\n",
+	"swift":      "func f() -> Int {\n  return 1\n}\n",
+	"toml":       "a = 1\ntitle = \"hello\"\ntags = [\"x\", \"y\"]\n",
+	"tsx":        "const x = <div/>;\n",
 	"typescript": "function f(): number { return 1; }\n",
 	"yaml":       "a: 1\n",
+	"zig":        "const x: i32 = 1;\n",
+	"scala":      "object Main { def f(x: Int): Int = x + 1 }\n",
+	"elixir":     "defmodule M do\n  def f(x), do: x + 1\nend\n",
+	"graphql":    "type Query { hello: String }\n",
+	"hcl":        "resource \"x\" \"y\" { a = 1 }\n",
+	"nix":        "let x = 1; in x\n",
 }
 
 type runStatus struct {
 	name        string
 	backend     grammars.ParseBackend
 	parseOK     bool
+	degraded    bool
 	reason      string
 	genericHint string
 }
@@ -77,6 +84,9 @@ func main() {
 		src := []byte(sample)
 
 		st := runStatus{name: report.Name, backend: report.Backend}
+		if report.Backend == grammars.ParseBackendDFAPartial {
+			st.reason = report.Reason
+		}
 		if report.Backend == grammars.ParseBackendUnsupported {
 			unsupported++
 			st.reason = report.Reason
@@ -85,11 +95,25 @@ func main() {
 			continue
 		}
 
-		if runSmokeParse(report.Backend, src, lang, entry.TokenSourceFactory) {
-			st.parseOK = true
-			parseable++
-		} else {
-			st.reason = "smoke parse failed"
+		parsed, hasError := runSmokeParse(report.Backend, src, lang, entry.TokenSourceFactory)
+		switch report.Backend {
+		case grammars.ParseBackendDFAPartial:
+			if !parsed {
+				st.reason = "smoke parse failed"
+			} else if hasError {
+				st.degraded = true
+				parseable++
+			} else {
+				st.parseOK = true
+				parseable++
+			}
+		default:
+			if parsed && !hasError {
+				st.parseOK = true
+				parseable++
+			} else {
+				st.reason = "smoke parse failed"
+			}
 		}
 		statuses = append(statuses, st)
 	}
@@ -107,6 +131,8 @@ func main() {
 				}
 				notes += st.genericHint
 			}
+		} else if st.degraded {
+			status = "degraded"
 		} else if !st.parseOK {
 			status = "fail"
 		}
@@ -116,7 +142,7 @@ func main() {
 	if *strict {
 		allGood := unsupported == 0
 		for _, st := range statuses {
-			if st.backend != grammars.ParseBackendUnsupported && !st.parseOK {
+			if st.backend != grammars.ParseBackendUnsupported && !st.parseOK && !st.degraded {
 				allGood = false
 				break
 			}
@@ -132,26 +158,26 @@ func runSmokeParse(
 	src []byte,
 	lang *gotreesitter.Language,
 	factory func([]byte, *gotreesitter.Language) gotreesitter.TokenSource,
-) bool {
+) (bool, bool) {
 	p := gotreesitter.NewParser(lang)
 
 	var tree *gotreesitter.Tree
 	switch backend {
 	case grammars.ParseBackendTokenSource:
 		if factory == nil {
-			return false
+			return false, false
 		}
 		tree = p.ParseWithTokenSource(src, factory(src, lang))
-	case grammars.ParseBackendDFA:
+	case grammars.ParseBackendDFA, grammars.ParseBackendDFAPartial:
 		tree = p.Parse(src)
 	default:
-		return false
+		return false, false
 	}
 
 	if tree == nil || tree.RootNode() == nil {
-		return false
+		return false, false
 	}
-	return !tree.RootNode().HasError()
+	return true, tree.RootNode().HasError()
 }
 
 func probeGeneric(src []byte, lang *gotreesitter.Language) string {

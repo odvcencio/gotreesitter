@@ -454,19 +454,15 @@ func parseSequentialFieldNames(body string, count int) []string {
 //
 // ACTIONS(N) and STATE(N) are macros that expand to numbers.
 func extractParseTable(source string, g *ExtractedGrammar) error {
-	if g.LargeStateCount == 0 {
-		g.ParseTable = nil
-		return nil
-	}
-
 	body, err := findArrayBody(source, "ts_parse_table")
 	if err != nil {
+		// Some grammars rely entirely on the small/compact parse table and may
+		// omit a dense ts_parse_table.
+		if strings.Contains(err.Error(), "not found") {
+			g.ParseTable = nil
+			return nil
+		}
 		return err
-	}
-
-	table := make([][]uint16, g.LargeStateCount)
-	for i := range table {
-		table[i] = make([]uint16, g.SymbolCount)
 	}
 
 	// Find each state block: [N] = { ... } or [STATE(N)] = { ... }
@@ -474,6 +470,46 @@ func extractParseTable(source string, g *ExtractedGrammar) error {
 	// inner assignments.
 	stateStartRe := regexp.MustCompile(`\[(?:STATE\()?(\w+)\)?\]\s*=\s*\{`)
 	locs := stateStartRe.FindAllStringSubmatchIndex(body, -1)
+
+	// Row count for dense parse table:
+	// 1) Prefer LARGE_STATE_COUNT when present.
+	// 2) Otherwise, if parser reports STATE_COUNT, use that (Swift-style full
+	//    dense table without LARGE_STATE_COUNT).
+	// 3) Last resort: infer from the max state index seen in table initializers.
+	denseStateCount := g.LargeStateCount
+	if denseStateCount == 0 {
+		if g.StateCount > 0 {
+			denseStateCount = g.StateCount
+		} else {
+			maxState := -1
+			for _, loc := range locs {
+				name := body[loc[2]:loc[3]]
+				if n, err := strconv.Atoi(name); err == nil {
+					if n > maxState {
+						maxState = n
+					}
+					continue
+				}
+				if g.enumValues != nil {
+					if v, ok := g.enumValues[name]; ok && v > maxState {
+						maxState = v
+					}
+				}
+			}
+			if maxState >= 0 {
+				denseStateCount = maxState + 1
+			}
+		}
+	}
+	if denseStateCount == 0 || g.SymbolCount == 0 {
+		g.ParseTable = nil
+		return nil
+	}
+
+	table := make([][]uint16, denseStateCount)
+	for i := range table {
+		table[i] = make([]uint16, g.SymbolCount)
+	}
 
 	// Parse inner assignments: [sym_name] = ACTIONS(N) or [sym_name] = N
 	// The values can be ACTIONS(N), STATE(N), or plain numbers.
@@ -491,7 +527,7 @@ func extractParseTable(source string, g *ExtractedGrammar) error {
 			}
 		}
 
-		if stateIdx >= g.LargeStateCount {
+		if stateIdx >= denseStateCount {
 			continue
 		}
 
@@ -974,14 +1010,20 @@ func extractParseActions(source string, g *ExtractedGrammar) error {
 	var groups []ActionGroup
 	var currentGroup *ActionGroup
 
-	// Match header with optional C array index: [N] = {.entry = ...}
-	headerRe := regexp.MustCompile(`(?:\[(\d+)\]\s*=\s*)?\{\.entry\s*=\s*\{\.count\s*=\s*(\d+),\s*\.reusable\s*=\s*(true|false)\s*\}\}`)
+	// Match action-group header with optional C array index.
+	// Supports both tree-sitter formats:
+	//   [N] = {.entry = {.count = C, .reusable = true}}, ...
+	//   [N] = {.count = C, .reusable = true}, ...
+	headerRe := regexp.MustCompile(`(?:\[(\d+)\]\s*=\s*)?\{\s*(?:\.entry\s*=\s*)?(?:\{\s*)?\.count\s*=\s*(\d+),\s*\.reusable\s*=\s*(true|false)\s*(?:\}\s*)?\}`)
 	shiftRe := regexp.MustCompile(`(?:^|,\s*)\bSHIFT\((\d+)\)`)
 	shiftExtraRe := regexp.MustCompile(`\bSHIFT_EXTRA\(\)`)
 	shiftRepeatRe := regexp.MustCompile(`\bSHIFT_REPEAT\((\d+)\)`)
-	// REDUCE can have 3 or 4 args: REDUCE(sym, count, prec) or REDUCE(sym, count, prec, prod_id)
-	// The precedence can be negative (e.g., -1 for type aliases in Go grammar).
-	reduceRe := regexp.MustCompile(`\bREDUCE\((\w+),\s*(\d+),\s*(-?\d+)(?:,\s*(\d+))?\)`)
+	// REDUCE appears in multiple forms across tree-sitter versions, including:
+	//   REDUCE(sym, count)
+	//   REDUCE(sym, count, prec)
+	//   REDUCE(sym, count, prec, prod_id)
+	//   REDUCE(sym, count, .dynamic_precedence = -1, .production_id = 42)
+	reduceRe := regexp.MustCompile(`\bREDUCE\(([^)]*)\)`)
 	acceptRe := regexp.MustCompile(`\bACCEPT_INPUT\(\)`)
 	recoverRe := regexp.MustCompile(`\bRECOVER\(\)`)
 
@@ -1061,23 +1103,14 @@ func extractParseActions(source string, g *ExtractedGrammar) error {
 
 		// REDUCE
 		for _, idx := range reduceRe.FindAllStringSubmatchIndex(line, -1) {
-			symStr := line[idx[2]:idx[3]]
-			sym, _ := g.resolveSymbol(symStr)
-			childCount, _ := strconv.Atoi(line[idx[4]:idx[5]])
-			prec, _ := strconv.Atoi(line[idx[6]:idx[7]])
-			prodID := 0
-			if idx[8] >= 0 && idx[9] >= 0 {
-				prodID, _ = strconv.Atoi(line[idx[8]:idx[9]])
+			reduceArgs := line[idx[2]:idx[3]]
+			action, err := parseReduceActionArgs(reduceArgs, g)
+			if err != nil {
+				continue
 			}
 			matches = append(matches, actionMatch{
-				pos: idx[0],
-				action: ExtractedAction{
-					Type:         "reduce",
-					Symbol:       sym,
-					ChildCount:   childCount,
-					Precedence:   prec,
-					ProductionID: prodID,
-				},
+				pos:    idx[0],
+				action: action,
 			})
 		}
 
@@ -1111,6 +1144,91 @@ func extractParseActions(source string, g *ExtractedGrammar) error {
 
 	g.ParseActions = groups
 	return nil
+}
+
+func parseReduceActionArgs(args string, g *ExtractedGrammar) (ExtractedAction, error) {
+	fields := splitTopLevelCSV(args)
+	if len(fields) < 2 {
+		return ExtractedAction{}, fmt.Errorf("reduce expects at least symbol and child count")
+	}
+
+	symStr := strings.TrimSpace(fields[0])
+	sym, _ := g.resolveSymbol(symStr)
+	childCount, err := strconv.Atoi(strings.TrimSpace(fields[1]))
+	if err != nil {
+		return ExtractedAction{}, fmt.Errorf("reduce child count: %w", err)
+	}
+
+	action := ExtractedAction{
+		Type:       "reduce",
+		Symbol:     sym,
+		ChildCount: childCount,
+	}
+
+	var numericExtras []int
+	for _, extra := range fields[2:] {
+		extra = strings.TrimSpace(extra)
+		if extra == "" {
+			continue
+		}
+
+		if key, value, ok := strings.Cut(extra, "="); ok {
+			key = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(key), "."))
+			value = strings.TrimSpace(value)
+			n, err := strconv.Atoi(value)
+			if err != nil {
+				continue
+			}
+			switch key {
+			case "dynamic_precedence", "precedence", "prec":
+				action.Precedence = n
+			case "production_id":
+				action.ProductionID = n
+			}
+			continue
+		}
+
+		if n, err := strconv.Atoi(extra); err == nil {
+			numericExtras = append(numericExtras, n)
+		}
+	}
+
+	// Legacy positional form: REDUCE(sym, count, prec[, prod_id]).
+	if len(numericExtras) > 0 {
+		action.Precedence = numericExtras[0]
+	}
+	if len(numericExtras) > 1 {
+		action.ProductionID = numericExtras[1]
+	}
+
+	return action, nil
+}
+
+func splitTopLevelCSV(s string) []string {
+	parts := make([]string, 0, 4)
+	start := 0
+	depth := 0
+
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '(', '[', '{':
+			depth++
+		case ')', ']', '}':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				parts = append(parts, strings.TrimSpace(s[start:i]))
+				start = i + 1
+			}
+		}
+	}
+
+	if start <= len(s) {
+		parts = append(parts, strings.TrimSpace(s[start:]))
+	}
+	return parts
 }
 
 // extractLexModes parses the ts_lex_modes[] array.

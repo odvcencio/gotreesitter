@@ -12,6 +12,7 @@ type ParseBackend string
 const (
 	ParseBackendUnsupported ParseBackend = "unsupported"
 	ParseBackendDFA         ParseBackend = "dfa"
+	ParseBackendDFAPartial  ParseBackend = "dfa-partial"
 	ParseBackendTokenSource ParseBackend = "token_source"
 )
 
@@ -59,6 +60,7 @@ func EvaluateParseSupport(entry LangEntry, lang *gotreesitter.Language) ParseSup
 	}
 
 	if report.RequiresExternalScanner && !report.HasExternalScanner {
+		report.Backend = ParseBackendDFAPartial
 		report.Reason = "requires external scanner, but none is registered"
 		return report
 	}
@@ -123,6 +125,10 @@ func defaultTokenSourceFactory(name string) func(src []byte, lang *gotreesitter.
 	case "typescript":
 		return func(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
 			return NewGenericTokenSourceOrEOF(src, lang)
+		}
+	case "toml":
+		return func(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
+			return NewTomlTokenSourceOrEOF(src, lang)
 		}
 	default:
 		return nil

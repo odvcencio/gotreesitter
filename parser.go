@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"sync"
+	"unicode/utf8"
 )
 
 // Parser reads parse tables from a Language and produces a syntax tree.
@@ -211,7 +212,7 @@ func (d *dfaTokenSource) SkipToByte(offset uint32) Token {
 }
 
 func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
-	if d.language == nil || d.language.ExternalScanner == nil || d.lookupActionIndex == nil {
+	if d.language == nil || d.lookupActionIndex == nil {
 		return Token{}, false
 	}
 	if len(d.language.ExternalSymbols) == 0 {
@@ -237,6 +238,10 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 		return Token{}, false
 	}
 
+	if d.language.ExternalScanner == nil {
+		return d.syntheticExternalToken(valid)
+	}
+
 	el := newExternalLexer(d.lexer.source, d.lexer.pos, d.lexer.row, d.lexer.col)
 	if !RunExternalScanner(d.language, d.externalPayload, el, valid) {
 		return Token{}, false
@@ -250,6 +255,299 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	d.lexer.row = tok.EndPoint.Row
 	d.lexer.col = tok.EndPoint.Column
 	return tok, true
+}
+
+func (d *dfaTokenSource) syntheticExternalToken(valid []bool) (Token, bool) {
+	// Conservative fallback when no external scanner is registered:
+	// synthesize automatic-semicolon style external tokens only when the
+	// grammar explicitly allows them in the current state.
+	if d.language == nil || d.lexer == nil {
+		return Token{}, false
+	}
+
+	for i, sym := range d.language.ExternalSymbols {
+		if i >= len(valid) || !valid[i] {
+			continue
+		}
+		nameIdx := int(sym)
+		if nameIdx < 0 || nameIdx >= len(d.language.SymbolNames) {
+			continue
+		}
+		switch d.language.SymbolNames[nameIdx] {
+		case "_automatic_semicolon", "_function_signature_automatic_semicolon", "_implicit_semicolon":
+			return d.syntheticAutomaticSemicolon(sym)
+		case "_line_break", "_newline":
+			return d.syntheticLineBreak(sym)
+		case "_line_ending_or_eof":
+			return d.syntheticLineEndingOrEOF(sym)
+		case "jsx_text":
+			return d.syntheticJSXText(sym)
+		}
+	}
+
+	return Token{}, false
+}
+
+func (d *dfaTokenSource) syntheticAutomaticSemicolon(sym Symbol) (Token, bool) {
+	if d.lexer == nil {
+		return Token{}, false
+	}
+	source := d.lexer.source
+	startPos := d.lexer.pos
+	startPoint := Point{Row: d.lexer.row, Column: d.lexer.col}
+
+	// EOF insertion is always allowed when the grammar requests it.
+	if startPos >= len(source) {
+		return Token{
+			Symbol:     sym,
+			StartByte:  uint32(startPos),
+			EndByte:    uint32(startPos),
+			StartPoint: startPoint,
+			EndPoint:   startPoint,
+		}, true
+	}
+
+	pos := startPos
+	endRow := d.lexer.row
+	endCol := d.lexer.col
+	sawLineBreak := false
+
+	// Consume horizontal space, then allow insertion on line break or EOF.
+	for pos < len(source) {
+		switch source[pos] {
+		case ' ', '\t', '\f':
+			pos++
+			endCol++
+		case '\r':
+			pos++
+			if pos < len(source) && source[pos] == '\n' {
+				pos++
+			}
+			endRow++
+			endCol = 0
+			sawLineBreak = true
+			goto done
+		case '\n':
+			pos++
+			endRow++
+			endCol = 0
+			sawLineBreak = true
+			goto done
+		default:
+			return Token{}, false
+		}
+	}
+
+	// Reached EOF after horizontal space.
+	return Token{
+		Symbol:     sym,
+		StartByte:  uint32(startPos),
+		EndByte:    uint32(pos),
+		StartPoint: startPoint,
+		EndPoint:   Point{Row: endRow, Column: endCol},
+	}, true
+
+done:
+	if !sawLineBreak {
+		return Token{}, false
+	}
+
+	// Consume indentation after newline so lexing resumes at next token.
+	for pos < len(source) {
+		switch source[pos] {
+		case ' ', '\t', '\f':
+			pos++
+			endCol++
+		default:
+			return Token{
+				Symbol:     sym,
+				StartByte:  uint32(startPos),
+				EndByte:    uint32(pos),
+				StartPoint: startPoint,
+				EndPoint:   Point{Row: endRow, Column: endCol},
+			}, true
+		}
+	}
+
+	return Token{
+		Symbol:     sym,
+		StartByte:  uint32(startPos),
+		EndByte:    uint32(pos),
+		StartPoint: startPoint,
+		EndPoint:   Point{Row: endRow, Column: endCol},
+	}, true
+}
+
+func (d *dfaTokenSource) syntheticLineBreak(sym Symbol) (Token, bool) {
+	if d.lexer == nil {
+		return Token{}, false
+	}
+	source := d.lexer.source
+	startPos := d.lexer.pos
+	startPoint := Point{Row: d.lexer.row, Column: d.lexer.col}
+
+	pos := startPos
+	endRow := d.lexer.row
+	endCol := d.lexer.col
+
+	for pos < len(source) {
+		switch source[pos] {
+		case ' ', '\t', '\f':
+			pos++
+			endCol++
+		case '\r':
+			pos++
+			if pos < len(source) && source[pos] == '\n' {
+				pos++
+			}
+			endRow++
+			endCol = 0
+			goto consumeIndent
+		case '\n':
+			pos++
+			endRow++
+			endCol = 0
+			goto consumeIndent
+		default:
+			return Token{}, false
+		}
+	}
+
+	return Token{}, false
+
+consumeIndent:
+	for pos < len(source) {
+		switch source[pos] {
+		case ' ', '\t', '\f':
+			pos++
+			endCol++
+		default:
+			return Token{
+				Symbol:     sym,
+				StartByte:  uint32(startPos),
+				EndByte:    uint32(pos),
+				StartPoint: startPoint,
+				EndPoint:   Point{Row: endRow, Column: endCol},
+			}, true
+		}
+	}
+
+	return Token{
+		Symbol:     sym,
+		StartByte:  uint32(startPos),
+		EndByte:    uint32(pos),
+		StartPoint: startPoint,
+		EndPoint:   Point{Row: endRow, Column: endCol},
+	}, true
+}
+
+func (d *dfaTokenSource) syntheticLineEndingOrEOF(sym Symbol) (Token, bool) {
+	if d.lexer == nil {
+		return Token{}, false
+	}
+	if tok, ok := d.syntheticLineBreak(sym); ok {
+		return tok, true
+	}
+
+	source := d.lexer.source
+	startPos := d.lexer.pos
+	startPoint := Point{Row: d.lexer.row, Column: d.lexer.col}
+	if startPos >= len(source) {
+		return Token{
+			Symbol:     sym,
+			StartByte:  uint32(startPos),
+			EndByte:    uint32(startPos),
+			StartPoint: startPoint,
+			EndPoint:   startPoint,
+		}, true
+	}
+
+	pos := startPos
+	endCol := d.lexer.col
+	for pos < len(source) {
+		switch source[pos] {
+		case ' ', '\t', '\f':
+			pos++
+			endCol++
+		default:
+			return Token{}, false
+		}
+	}
+
+	return Token{
+		Symbol:     sym,
+		StartByte:  uint32(startPos),
+		EndByte:    uint32(pos),
+		StartPoint: startPoint,
+		EndPoint:   Point{Row: d.lexer.row, Column: endCol},
+	}, true
+}
+
+func (d *dfaTokenSource) syntheticJSXText(sym Symbol) (Token, bool) {
+	if d.lexer == nil {
+		return Token{}, false
+	}
+	source := d.lexer.source
+	startPos := d.lexer.pos
+	if startPos >= len(source) {
+		return Token{}, false
+	}
+
+	switch source[startPos] {
+	case '<', '{', '}':
+		return Token{}, false
+	}
+
+	pos := startPos
+	endRow := d.lexer.row
+	endCol := d.lexer.col
+
+	for pos < len(source) {
+		switch source[pos] {
+		case '<', '{', '}':
+			if pos == startPos {
+				return Token{}, false
+			}
+			startPoint := Point{Row: d.lexer.row, Column: d.lexer.col}
+			return Token{
+				Symbol:     sym,
+				StartByte:  uint32(startPos),
+				EndByte:    uint32(pos),
+				StartPoint: startPoint,
+				EndPoint:   Point{Row: endRow, Column: endCol},
+			}, true
+		case '\r':
+			pos++
+			if pos < len(source) && source[pos] == '\n' {
+				pos++
+			}
+			endRow++
+			endCol = 0
+		case '\n':
+			pos++
+			endRow++
+			endCol = 0
+		default:
+			_, size := utf8.DecodeRune(source[pos:])
+			if size <= 0 {
+				size = 1
+			}
+			pos += size
+			endCol++
+		}
+	}
+
+	if pos == startPos {
+		return Token{}, false
+	}
+	startPoint := Point{Row: d.lexer.row, Column: d.lexer.col}
+	return Token{
+		Symbol:     sym,
+		StartByte:  uint32(startPos),
+		EndByte:    uint32(pos),
+		StartPoint: startPoint,
+		EndPoint:   Point{Row: endRow, Column: endCol},
+	}, true
 }
 
 func (d *dfaTokenSource) promoteKeyword(tok Token) Token {
@@ -283,6 +581,9 @@ func (d *dfaTokenSource) promoteKeyword(tok Token) Token {
 	if kwTok.Symbol == 0 {
 		return tok
 	}
+	if kwTok.StartByte != 0 {
+		return tok
+	}
 	if kwTok.EndByte != uint32(end-start) {
 		return tok
 	}
@@ -309,6 +610,39 @@ func parseStackDepth(sourceLen int) int {
 // This is the hard ceiling that prevents OOM regardless of iteration count.
 func parseNodeLimit(sourceLen int) int {
 	return max(50_000, sourceLen*10)
+}
+
+func parseErrorTree(source []byte, lang *Language) *Tree {
+	end := Point{}
+	for i := 0; i < len(source); {
+		if source[i] == '\n' {
+			end.Row++
+			end.Column = 0
+			i++
+			continue
+		}
+		_, size := utf8.DecodeRune(source[i:])
+		if size <= 0 {
+			size = 1
+		}
+		i += size
+		end.Column++
+	}
+
+	root := NewLeafNode(errorSymbol, false, 0, uint32(len(source)), Point{}, end)
+	root.hasError = true
+	return NewTree(root, source, lang)
+}
+
+func isWhitespaceOnlySource(source []byte) bool {
+	for i := 0; i < len(source); i++ {
+		switch source[i] {
+		case ' ', '\t', '\n', '\r', '\f':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // parseInternal is the core GLR parsing loop shared by Parse and
@@ -353,7 +687,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		stacks = mergeStacksWithScratch(stacks, &scratch.merge)
 		if len(stacks) == 0 {
 			arena.Release()
-			return NewTree(nil, source, p.language)
+			return parseErrorTree(source, p.language)
 		}
 
 		// Cap the number of parallel stacks to prevent combinatorial explosion.
@@ -649,7 +983,7 @@ func (p *Parser) buildFieldIDs(childCount int, productionID uint16, arena *nodeA
 func (p *Parser) buildResultFromGLR(stacks []glrStack, source []byte, arena *nodeArena, oldTree *Tree, reusedAny bool) *Tree {
 	if len(stacks) == 0 {
 		arena.Release()
-		return NewTree(nil, source, p.language)
+		return parseErrorTree(source, p.language)
 	}
 
 	best := 0
@@ -754,7 +1088,7 @@ func (p *Parser) lookupGoto(state StateID, sym Symbol) StateID {
 	if p.language.TokenCount > 0 &&
 		uint32(sym) >= p.language.TokenCount &&
 		p.language.StateCount > 0 &&
-		(p.language.LargeStateCount > 0 || len(p.language.SmallParseTableMap) > 0) {
+		(p.language.LargeStateCount > 0 || len(p.language.SmallParseTableMap) > 0 || len(p.language.ParseTable) > 0) {
 		return StateID(raw)
 	}
 
@@ -787,7 +1121,10 @@ func (p *Parser) buildResult(stack []stackEntry, source []byte, arena *nodeArena
 
 	if len(nodes) == 0 {
 		arena.Release()
-		return NewTree(nil, source, p.language)
+		if isWhitespaceOnlySource(source) {
+			return NewTree(nil, source, p.language)
+		}
+		return parseErrorTree(source, p.language)
 	}
 
 	if arena != nil && arena.used == 0 {

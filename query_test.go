@@ -1198,12 +1198,120 @@ func TestExecuteNode(t *testing.T) {
 
 	// Execute starting from the function_declaration node (skip program).
 	funcDecl := tree.RootNode().Child(0)
-	matches := q.ExecuteNode(funcDecl, lang)
+	matches := q.ExecuteNode(funcDecl, lang, tree.Source())
 	if len(matches) != 1 {
 		t.Fatalf("matches: got %d, want 1", len(matches))
 	}
 	if matches[0].Captures[0].Node.Text(tree.Source()) != "42" {
 		t.Errorf("text: got %q, want %q", matches[0].Captures[0].Node.Text(tree.Source()), "42")
+	}
+}
+
+func TestExecuteNodePredicateUsesSource(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`(identifier) @name (#eq? @name "main")`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	funcDecl := tree.RootNode().Child(0)
+
+	matches := q.ExecuteNode(funcDecl, lang, tree.Source())
+	if len(matches) != 1 {
+		t.Fatalf("source-backed matches: got %d, want 1", len(matches))
+	}
+	if got := matches[0].Captures[0].Node.Text(tree.Source()); got != "main" {
+		t.Fatalf("capture text: got %q, want %q", got, "main")
+	}
+
+	// Explicitly passing nil source opts out of text predicates.
+	noSource := q.ExecuteNode(funcDecl, lang, nil)
+	if len(noSource) != 0 {
+		t.Fatalf("nil-source matches: got %d, want 0", len(noSource))
+	}
+}
+
+func TestQueryCursorNextMatch(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`[(identifier) (number)] @x`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	cursor := q.Exec(tree.RootNode(), tree.Language(), tree.Source())
+	var got []string
+	for {
+		m, ok := cursor.NextMatch()
+		if !ok {
+			break
+		}
+		if len(m.Captures) != 1 {
+			t.Fatalf("captures: got %d, want 1", len(m.Captures))
+		}
+		got = append(got, m.Captures[0].Node.Text(tree.Source()))
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("cursor matches: got %d, want 2", len(got))
+	}
+	if got[0] != "main" || got[1] != "42" {
+		t.Fatalf("cursor capture texts: got %v, want [main 42]", got)
+	}
+}
+
+func TestQueryCursorNextCapture(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`[(identifier) (number)] @x`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	cursor := q.Exec(tree.RootNode(), tree.Language(), tree.Source())
+	var got []string
+	for {
+		cap, ok := cursor.NextCapture()
+		if !ok {
+			break
+		}
+		got = append(got, cap.Node.Text(tree.Source()))
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("cursor captures: got %d, want 2", len(got))
+	}
+	if got[0] != "main" || got[1] != "42" {
+		t.Fatalf("cursor capture texts: got %v, want [main 42]", got)
+	}
+}
+
+func TestQueryCursorNextCaptureThenNextMatchDropsRemainingCaptureBuffer(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	q, err := NewQuery(`(function_declaration (identifier) @id (number) @num)`, lang)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	cursor := q.Exec(tree.RootNode(), tree.Language(), tree.Source())
+
+	firstCap, ok := cursor.NextCapture()
+	if !ok {
+		t.Fatal("expected first capture")
+	}
+	if got := firstCap.Node.Text(tree.Source()); got != "main" {
+		t.Fatalf("first capture text: got %q, want %q", got, "main")
+	}
+
+	// NextMatch advances at match granularity and discards unconsumed captures.
+	if _, ok := cursor.NextMatch(); ok {
+		t.Fatal("expected no next match after mixed NextCapture/NextMatch on single-match query")
 	}
 }
 

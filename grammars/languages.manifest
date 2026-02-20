@@ -23,3 +23,9 @@ toml https://github.com/tree-sitter/tree-sitter-toml src .toml
 tsx https://github.com/tree-sitter/tree-sitter-typescript tsx/src .tsx
 typescript https://github.com/tree-sitter/tree-sitter-typescript typescript/src .ts
 yaml https://github.com/tree-sitter-grammars/tree-sitter-yaml src .yaml,.yml
+zig https://github.com/maxxnino/tree-sitter-zig src .zig
+scala https://github.com/tree-sitter/tree-sitter-scala src .scala
+elixir https://github.com/elixir-lang/tree-sitter-elixir src .ex,.exs
+graphql https://github.com/bkegley/tree-sitter-graphql src .graphql,.gql
+hcl https://github.com/tree-sitter-grammars/tree-sitter-hcl src .hcl,.tf,.tfvars
+nix https://github.com/nix-community/tree-sitter-nix src .nix

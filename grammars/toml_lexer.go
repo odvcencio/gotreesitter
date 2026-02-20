@@ -13,6 +13,7 @@ type TomlTokenSource struct {
 	src  []byte
 	lang *gotreesitter.Language
 	cur  sourceCursor
+	pending []gotreesitter.Token
 
 	done bool
 
@@ -37,7 +38,12 @@ type TomlTokenSource struct {
 	rbraceSym  gotreesitter.Symbol
 
 	basicStringSym   gotreesitter.Symbol
+	basicQuoteOpen   gotreesitter.Symbol
+	basicQuoteClose  gotreesitter.Symbol
+	basicEscapeSym   gotreesitter.Symbol
 	literalStringSym gotreesitter.Symbol
+	literalQuoteOpen gotreesitter.Symbol
+	literalQuoteClose gotreesitter.Symbol
 
 	emittedEOFLineEnd bool
 	emittedDocStart   bool
@@ -77,7 +83,24 @@ func NewTomlTokenSource(src []byte, lang *gotreesitter.Language) (*TomlTokenSour
 	ts.rbraceSym = lookup.optional("}")
 
 	ts.basicStringSym = lookup.optional("_basic_string_token1")
+	if quoteSyms := lang.TokenSymbolsByName("\""); len(quoteSyms) > 0 {
+		ts.basicQuoteOpen = quoteSyms[0]
+		ts.basicQuoteClose = quoteSyms[0]
+		if len(quoteSyms) > 1 {
+			ts.basicQuoteClose = quoteSyms[1]
+		}
+	}
+	if escapeSyms := lang.TokenSymbolsByName("escape_sequence"); len(escapeSyms) > 0 {
+		ts.basicEscapeSym = escapeSyms[0]
+	}
 	ts.literalStringSym = lookup.optional("_literal_string_token1")
+	if quoteSyms := lang.TokenSymbolsByName("'"); len(quoteSyms) > 0 {
+		ts.literalQuoteOpen = quoteSyms[0]
+		ts.literalQuoteClose = quoteSyms[0]
+		if len(quoteSyms) > 1 {
+			ts.literalQuoteClose = quoteSyms[1]
+		}
+	}
 
 	if err := lookup.err(); err != nil {
 		return nil, err
@@ -102,6 +125,11 @@ func NewTomlTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitt
 func (ts *TomlTokenSource) Next() gotreesitter.Token {
 	if ts.done {
 		return ts.eofToken()
+	}
+	if len(ts.pending) > 0 {
+		tok := ts.pending[0]
+		ts.pending = ts.pending[1:]
+		return tok
 	}
 
 	for {
@@ -169,15 +197,15 @@ func (ts *TomlTokenSource) Next() gotreesitter.Token {
 			return tok
 		}
 
-		if ch == '"' {
-			if tok, ok := ts.scanQuotedString('"', ts.basicStringSym); ok {
-				return tok
-			}
+		if ch == '"' && ts.scanQuotedString('"', ts.basicQuoteOpen, ts.basicStringSym, ts.basicQuoteClose, ts.basicEscapeSym, true) {
+			tok := ts.pending[0]
+			ts.pending = ts.pending[1:]
+			return tok
 		}
-		if ch == '\'' {
-			if tok, ok := ts.scanQuotedString('\'', ts.literalStringSym); ok {
-				return tok
-			}
+		if ch == '\'' && ts.scanQuotedString('\'', ts.literalQuoteOpen, ts.literalStringSym, ts.literalQuoteClose, 0, false) {
+			tok := ts.pending[0]
+			ts.pending = ts.pending[1:]
+			return tok
 		}
 
 		if isASCIIDigit(ch) || ch == '+' || ch == '-' {
@@ -270,29 +298,56 @@ func (ts *TomlTokenSource) makeLiteralToken(sym gotreesitter.Symbol, n int) gotr
 	return makeToken(sym, ts.src, start, ts.cur.offset, startPt, ts.cur.point())
 }
 
-func (ts *TomlTokenSource) scanQuotedString(quote byte, sym gotreesitter.Symbol) (gotreesitter.Token, bool) {
-	if sym == 0 || ts.cur.peekByte() != quote {
-		return gotreesitter.Token{}, false
+func (ts *TomlTokenSource) scanQuotedString(quote byte, openSym, contentSym, closeSym, escapeSym gotreesitter.Symbol, allowEscape bool) bool {
+	if openSym == 0 || ts.cur.peekByte() != quote {
+		return false
 	}
 	start := ts.cur.offset
 	startPt := ts.cur.point()
 	ts.cur.advanceByte()
+	ts.pending = append(ts.pending, makeToken(openSym, ts.src, start, ts.cur.offset, startPt, ts.cur.point()))
+
+	contentStart := ts.cur.offset
+	contentPt := ts.cur.point()
 	for !ts.cur.eof() {
 		ch := ts.cur.peekByte()
-		if quote == '"' && ch == '\\' {
+		if allowEscape && ch == '\\' {
+			if contentSym != 0 && ts.cur.offset > contentStart {
+				ts.pending = append(ts.pending, makeToken(contentSym, ts.src, contentStart, ts.cur.offset, contentPt, ts.cur.point()))
+			}
+
+			escStart := ts.cur.offset
+			escPt := ts.cur.point()
 			ts.cur.advanceByte()
 			if !ts.cur.eof() {
 				ts.cur.advanceRune()
 			}
+			if escapeSym != 0 {
+				ts.pending = append(ts.pending, makeToken(escapeSym, ts.src, escStart, ts.cur.offset, escPt, ts.cur.point()))
+			}
+			contentStart = ts.cur.offset
+			contentPt = ts.cur.point()
 			continue
 		}
 		if ch == quote {
+			if contentSym != 0 && ts.cur.offset > contentStart {
+				ts.pending = append(ts.pending, makeToken(contentSym, ts.src, contentStart, ts.cur.offset, contentPt, ts.cur.point()))
+			}
+			closeStart := ts.cur.offset
+			closePt := ts.cur.point()
 			ts.cur.advanceByte()
-			break
+			if closeSym != 0 {
+				ts.pending = append(ts.pending, makeToken(closeSym, ts.src, closeStart, ts.cur.offset, closePt, ts.cur.point()))
+			}
+			return len(ts.pending) > 0
 		}
 		ts.cur.advanceRune()
 	}
-	return makeToken(sym, ts.src, start, ts.cur.offset, startPt, ts.cur.point()), true
+
+	if contentSym != 0 && ts.cur.offset > contentStart {
+		ts.pending = append(ts.pending, makeToken(contentSym, ts.src, contentStart, ts.cur.offset, contentPt, ts.cur.point()))
+	}
+	return len(ts.pending) > 0
 }
 
 func (ts *TomlTokenSource) bareKeyOrBooleanToken() gotreesitter.Token {

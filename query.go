@@ -90,6 +90,27 @@ type QueryCapture struct {
 	Node *Node
 }
 
+// QueryCursor incrementally walks a node subtree and yields matches one by one.
+// It is the streaming counterpart to Query.Execute and avoids materializing all
+// matches up front.
+type QueryCursor struct {
+	query  *Query
+	lang   *Language
+	source []byte
+
+	worklist []*Node
+
+	currentNode       *Node
+	currentCandidates []int
+	candidateIdx      int
+
+	// Pending captures from the last match returned by NextMatch.
+	pendingCaptures   []QueryCapture
+	pendingCaptureIdx int
+
+	done bool
+}
+
 // NewQuery compiles query source (tree-sitter .scm format) against a language.
 // It returns an error if the query syntax is invalid or references unknown
 // node types or field names.
@@ -110,23 +131,47 @@ func NewQuery(source string, lang *Language) (*Query, error) {
 
 // Execute runs the query against a syntax tree and returns all matches.
 func (q *Query) Execute(tree *Tree) []QueryMatch {
+	if tree == nil {
+		return nil
+	}
 	return q.executeNode(tree.RootNode(), tree.Language(), tree.Source())
 }
 
 // ExecuteNode runs the query starting from a specific node.
-func (q *Query) ExecuteNode(node *Node, lang *Language) []QueryMatch {
-	return q.executeNode(node, lang, nil)
+//
+// source is required for text predicates (like #eq? / #match?); pass the
+// originating source bytes for correct predicate evaluation.
+func (q *Query) ExecuteNode(node *Node, lang *Language, source []byte) []QueryMatch {
+	return q.executeNode(node, lang, source)
+}
+
+// Exec creates a streaming cursor over matches rooted at node.
+func (q *Query) Exec(node *Node, lang *Language, source []byte) *QueryCursor {
+	c := &QueryCursor{
+		query:  q,
+		lang:   lang,
+		source: source,
+	}
+	if node != nil {
+		c.worklist = append(c.worklist, node)
+	}
+	return c
 }
 
 func (q *Query) executeNode(root *Node, lang *Language, source []byte) []QueryMatch {
-	if root == nil {
+	if root == nil || lang == nil {
 		return nil
 	}
-	if q.rootCandidatesBySymbol == nil && q.rootFallbackCandidates == nil {
-		q.buildRootPatternIndex()
-	}
+
+	cursor := q.Exec(root, lang, source)
 	var matches []QueryMatch
-	q.walkAndMatch(root, lang, source, &matches)
+	for {
+		m, ok := cursor.NextMatch()
+		if !ok {
+			break
+		}
+		matches = append(matches, m)
+	}
 	return matches
 }
 
@@ -242,33 +287,83 @@ func (q *Query) buildRootPatternIndex() {
 	}
 }
 
-// walkAndMatch does an iterative depth-first walk of the tree, trying to
-// match each pattern at each node. Uses an explicit worklist to avoid
-// stack overflow on deep trees (e.g., from parser error recovery).
-func (q *Query) walkAndMatch(node *Node, lang *Language, source []byte, matches *[]QueryMatch) {
-	// Iterative DFS using an explicit stack.
-	worklist := []*Node{node}
-	for len(worklist) > 0 {
-		// Pop.
-		n := worklist[len(worklist)-1]
-		worklist = worklist[:len(worklist)-1]
+// NextMatch yields the next query match from the cursor.
+func (c *QueryCursor) NextMatch() (QueryMatch, bool) {
+	if c == nil || c.done || c.query == nil || c.lang == nil {
+		return QueryMatch{}, false
+	}
+	q := c.query
+	if q.rootCandidatesBySymbol == nil && q.rootFallbackCandidates == nil {
+		q.buildRootPatternIndex()
+	}
 
-		// Try matching only patterns whose root step can match this symbol.
-		for _, pi := range q.rootPatternCandidates(n.Symbol()) {
+	// If callers mix NextCapture and NextMatch, NextMatch advances at match
+	// granularity and discards any partially-consumed capture buffer.
+	c.pendingCaptures = nil
+	c.pendingCaptureIdx = 0
+
+	for {
+		if c.currentNode == nil {
+			if len(c.worklist) == 0 {
+				c.done = true
+				return QueryMatch{}, false
+			}
+
+			// Pop next node in DFS order.
+			n := c.worklist[len(c.worklist)-1]
+			c.worklist = c.worklist[:len(c.worklist)-1]
+
+			// Push children in reverse order so leftmost is visited first.
+			children := n.Children()
+			for i := len(children) - 1; i >= 0; i-- {
+				c.worklist = append(c.worklist, children[i])
+			}
+
+			c.currentNode = n
+			c.currentCandidates = q.rootPatternCandidates(n.Symbol())
+			c.candidateIdx = 0
+		}
+
+		for c.candidateIdx < len(c.currentCandidates) {
+			pi := c.currentCandidates[c.candidateIdx]
+			c.candidateIdx++
 			pat := q.patterns[pi]
-			if caps, ok := q.matchPattern(&pat, n, lang, source); ok {
-				*matches = append(*matches, QueryMatch{
+			if caps, ok := q.matchPattern(&pat, c.currentNode, c.lang, c.source); ok {
+				return QueryMatch{
 					PatternIndex: pi,
 					Captures:     caps,
-				})
+				}, true
 			}
 		}
 
-		// Push children in reverse order so leftmost is processed first.
-		children := n.Children()
-		for i := len(children) - 1; i >= 0; i-- {
-			worklist = append(worklist, children[i])
+		// Exhausted candidates for this node; advance to the next node.
+		c.currentNode = nil
+		c.currentCandidates = nil
+		c.candidateIdx = 0
+	}
+}
+
+// NextCapture yields captures in match order by draining NextMatch results.
+// This is a practical first-pass ordering: captures are returned in each
+// match's capture order, then by subsequent matches in DFS match order.
+func (c *QueryCursor) NextCapture() (QueryCapture, bool) {
+	if c == nil || c.done || c.query == nil || c.lang == nil {
+		return QueryCapture{}, false
+	}
+
+	for {
+		if c.pendingCaptureIdx < len(c.pendingCaptures) {
+			cap := c.pendingCaptures[c.pendingCaptureIdx]
+			c.pendingCaptureIdx++
+			return cap, true
 		}
+
+		m, ok := c.NextMatch()
+		if !ok {
+			return QueryCapture{}, false
+		}
+		c.pendingCaptures = m.Captures
+		c.pendingCaptureIdx = 0
 	}
 }
 
