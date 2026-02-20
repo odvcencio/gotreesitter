@@ -47,7 +47,7 @@ func benchmarkFuncCount(b *testing.B) int {
 	return 500
 }
 
-func mustGoTokenSource(tb testing.TB, src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
+func mustGoTokenSource(tb testing.TB, src []byte, lang *gotreesitter.Language) *grammars.GoTokenSource {
 	tb.Helper()
 	ts, err := grammars.NewGoTokenSource(src, lang)
 	if err != nil {
@@ -60,13 +60,14 @@ func BenchmarkGoParseFull(b *testing.B) {
 	lang := grammars.GoLanguage()
 	parser := gotreesitter.NewParser(lang)
 	src := makeGoBenchmarkSource(benchmarkFuncCount(b))
+	ts := mustGoTokenSource(b, src, lang)
 
 	b.ReportAllocs()
 	b.SetBytes(int64(len(src)))
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		ts := mustGoTokenSource(b, src, lang)
+		ts.Reset(src)
 		tree := parser.ParseWithTokenSource(src, ts)
 		if tree.RootNode() == nil {
 			b.Fatal("parse returned nil root")
@@ -88,7 +89,8 @@ func BenchmarkGoParseIncrementalSingleByteEdit(b *testing.B) {
 	start := pointAtOffset(src, editAt)
 	end := pointAtOffset(src, editAt+1)
 
-	tree := parser.ParseWithTokenSource(src, mustGoTokenSource(b, src, lang))
+	ts := mustGoTokenSource(b, src, lang)
+	tree := parser.ParseWithTokenSource(src, ts)
 	if tree.RootNode() == nil {
 		b.Fatal("initial parse returned nil root")
 	}
@@ -115,7 +117,7 @@ func BenchmarkGoParseIncrementalSingleByteEdit(b *testing.B) {
 		}
 
 		tree.Edit(edit)
-		ts := mustGoTokenSource(b, src, lang)
+		ts.Reset(src)
 		old := tree
 		tree = parser.ParseIncrementalWithTokenSource(src, tree, ts)
 		if tree.RootNode() == nil {
@@ -132,8 +134,9 @@ func BenchmarkGoParseIncrementalNoEdit(b *testing.B) {
 	lang := grammars.GoLanguage()
 	parser := gotreesitter.NewParser(lang)
 	src := makeGoBenchmarkSource(benchmarkFuncCount(b))
+	ts := mustGoTokenSource(b, src, lang)
 
-	tree := parser.ParseWithTokenSource(src, mustGoTokenSource(b, src, lang))
+	tree := parser.ParseWithTokenSource(src, ts)
 	if tree.RootNode() == nil {
 		b.Fatal("initial parse returned nil root")
 	}
@@ -143,7 +146,7 @@ func BenchmarkGoParseIncrementalNoEdit(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		ts := mustGoTokenSource(b, src, lang)
+		ts.Reset(src)
 		old := tree
 		tree = parser.ParseIncrementalWithTokenSource(src, tree, ts)
 		if tree.RootNode() == nil {

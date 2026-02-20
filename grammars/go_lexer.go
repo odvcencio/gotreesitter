@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/scanner"
 	"go/token"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/odvcencio/gotreesitter"
@@ -22,6 +23,8 @@ type GoTokenSource struct {
 	src      []byte
 	scanner  scanner.Scanner
 	fset     *token.FileSet
+	file     *token.File
+	baseFile *token.File
 	lang     *gotreesitter.Language
 	scanBase int
 
@@ -58,18 +61,38 @@ type GoTokenSource struct {
 	lastCol    uint32
 }
 
+type goLexerTables struct {
+	symbolMap  map[token.Token]gotreesitter.Symbol
+	keywordMap map[string]gotreesitter.Symbol
+
+	eofSymbol                         gotreesitter.Symbol
+	commentSymbol                     gotreesitter.Symbol
+	runeLiteralSymbol                 gotreesitter.Symbol
+	intLiteralSymbol                  gotreesitter.Symbol
+	floatLiteralSymbol                gotreesitter.Symbol
+	imaginaryLiteralSymbol            gotreesitter.Symbol
+	identifierSymbol                  gotreesitter.Symbol
+	blankIdentifierSymbol             gotreesitter.Symbol
+	interpretedStringOpenQuoteSymbol  gotreesitter.Symbol
+	interpretedStringCloseQuoteSymbol gotreesitter.Symbol
+	interpretedStringContentSymbol    gotreesitter.Symbol
+	rawStringQuoteSymbol              gotreesitter.Symbol
+	rawStringContentSymbol            gotreesitter.Symbol
+}
+
+var goLexerTablesCache sync.Map // map[*gotreesitter.Language]*goLexerTables
+
 // NewGoTokenSource creates a token source that lexes Go source code and
 // produces tree-sitter tokens compatible with the Go grammar.
 func NewGoTokenSource(src []byte, lang *gotreesitter.Language) (*GoTokenSource, error) {
 	ts := &GoTokenSource{
-		src:  src,
 		lang: lang,
 		fset: token.NewFileSet(),
 	}
 	if err := ts.buildMaps(); err != nil {
 		return nil, err
 	}
-	ts.initScanner(0)
+	ts.Reset(src)
 	return ts, nil
 }
 
@@ -104,6 +127,17 @@ func NewGoTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitter
 	return ts
 }
 
+// Reset reinitializes this token source for a new source buffer.
+func (ts *GoTokenSource) Reset(src []byte) {
+	ts.src = src
+	ts.pending = ts.pending[:0]
+	ts.done = false
+	ts.lastOffset = 0
+	ts.lastRow = 0
+	ts.lastCol = 0
+	ts.initScanner(0)
+}
+
 func (ts *GoTokenSource) initScanner(base int) {
 	if base < 0 {
 		base = 0
@@ -112,9 +146,20 @@ func (ts *GoTokenSource) initScanner(base int) {
 		base = len(ts.src)
 	}
 	ts.scanBase = base
-	ts.fset = token.NewFileSet()
-	file := ts.fset.AddFile("", ts.fset.Base(), len(ts.src)-base)
-	ts.scanner.Init(file, ts.src[base:], func(_ token.Position, _ string) {
+	if ts.fset == nil {
+		ts.fset = token.NewFileSet()
+	}
+	size := len(ts.src) - base
+	if base == 0 && ts.baseFile != nil && ts.baseFile.Size() == size {
+		ts.file = ts.baseFile
+	} else {
+		ts.file = ts.fset.AddFile("", ts.fset.Base(), size)
+		seedScannerLines(ts.file, size)
+		if base == 0 {
+			ts.baseFile = ts.file
+		}
+	}
+	ts.scanner.Init(ts.file, ts.src[base:], func(_ token.Position, _ string) {
 		// Ignore scanner diagnostics — parser performs error recovery.
 	}, scanner.ScanComments)
 }
@@ -139,7 +184,7 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 			return ts.eofToken()
 		}
 
-		offset := ts.scanBase + ts.fset.Position(pos).Offset
+		offset := ts.scanBase + ts.tokenOffset(pos)
 		startPoint := ts.offsetToPoint(offset)
 
 		switch {
@@ -228,6 +273,25 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 			}
 		}
 	}
+}
+
+func (ts *GoTokenSource) tokenOffset(pos token.Pos) int {
+	if ts.file != nil {
+		return ts.file.Offset(pos)
+	}
+	if ts.fset != nil {
+		return ts.fset.Position(pos).Offset
+	}
+	return 0
+}
+
+func seedScannerLines(file *token.File, size int) {
+	if file == nil || size <= 1 {
+		return
+	}
+	// We only read byte offsets from token.Pos; forcing a fixed, high watermark
+	// line table prevents scanner AddLine growth churn on large inputs.
+	_ = file.SetLines([]int{0, size - 1})
 }
 
 // SkipToByte advances until it reaches the first token at or after offset.
@@ -441,6 +505,10 @@ func (ts *GoTokenSource) buildMaps() error {
 	if ts.lang == nil {
 		return fmt.Errorf("go lexer: language is nil")
 	}
+	if cached, ok := goLexerTablesCache.Load(ts.lang); ok {
+		ts.applyLexerTables(cached.(*goLexerTables))
+		return nil
+	}
 
 	var firstErr error
 	tokenSym := func(name string) gotreesitter.Symbol {
@@ -591,5 +659,48 @@ func (ts *GoTokenSource) buildMaps() error {
 	if firstErr != nil {
 		return firstErr
 	}
+
+	tables := &goLexerTables{
+		symbolMap:                         ts.symbolMap,
+		keywordMap:                        ts.keywordMap,
+		eofSymbol:                         ts.eofSymbol,
+		commentSymbol:                     ts.commentSymbol,
+		runeLiteralSymbol:                 ts.runeLiteralSymbol,
+		intLiteralSymbol:                  ts.intLiteralSymbol,
+		floatLiteralSymbol:                ts.floatLiteralSymbol,
+		imaginaryLiteralSymbol:            ts.imaginaryLiteralSymbol,
+		identifierSymbol:                  ts.identifierSymbol,
+		blankIdentifierSymbol:             ts.blankIdentifierSymbol,
+		interpretedStringOpenQuoteSymbol:  ts.interpretedStringOpenQuoteSymbol,
+		interpretedStringCloseQuoteSymbol: ts.interpretedStringCloseQuoteSymbol,
+		interpretedStringContentSymbol:    ts.interpretedStringContentSymbol,
+		rawStringQuoteSymbol:              ts.rawStringQuoteSymbol,
+		rawStringContentSymbol:            ts.rawStringContentSymbol,
+	}
+
+	if actual, loaded := goLexerTablesCache.LoadOrStore(ts.lang, tables); loaded {
+		ts.applyLexerTables(actual.(*goLexerTables))
+	}
 	return nil
+}
+
+func (ts *GoTokenSource) applyLexerTables(tables *goLexerTables) {
+	if tables == nil {
+		return
+	}
+	ts.symbolMap = tables.symbolMap
+	ts.keywordMap = tables.keywordMap
+	ts.eofSymbol = tables.eofSymbol
+	ts.commentSymbol = tables.commentSymbol
+	ts.runeLiteralSymbol = tables.runeLiteralSymbol
+	ts.intLiteralSymbol = tables.intLiteralSymbol
+	ts.floatLiteralSymbol = tables.floatLiteralSymbol
+	ts.imaginaryLiteralSymbol = tables.imaginaryLiteralSymbol
+	ts.identifierSymbol = tables.identifierSymbol
+	ts.blankIdentifierSymbol = tables.blankIdentifierSymbol
+	ts.interpretedStringOpenQuoteSymbol = tables.interpretedStringOpenQuoteSymbol
+	ts.interpretedStringCloseQuoteSymbol = tables.interpretedStringCloseQuoteSymbol
+	ts.interpretedStringContentSymbol = tables.interpretedStringContentSymbol
+	ts.rawStringQuoteSymbol = tables.rawStringQuoteSymbol
+	ts.rawStringContentSymbol = tables.rawStringContentSymbol
 }

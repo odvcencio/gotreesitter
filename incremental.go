@@ -2,176 +2,135 @@ package gotreesitter
 
 import "bytes"
 
-// reuseIndex groups clean subtrees from a previous tree by start byte.
-type reuseIndex struct {
-	byStart   map[uint32][]*Node
-	offsets   []uint32
-	nodes     []*Node
+// reuseCursor incrementally walks reusable nodes from an old tree in
+// pre-order, caching candidates for the current token start byte.
+type reuseCursor struct {
 	sourceLen uint32
+	oldSource []byte
+	newSource []byte
+
+	stack []*Node
+	next  *Node
+
+	cachedStart      uint32
+	cachedStartValid bool
+	cached           []*Node
 }
 
-// reuseScratch holds reusable buffers for incremental-index construction.
+// reuseScratch holds reusable buffers for incremental reuse traversal.
 type reuseScratch struct {
-	counts   []uint32
-	offsets  []uint32
-	nodes    []*Node
-	starts   []uint32
-	gathered []*Node
-	stack    []*Node
+	stack []*Node
+	cache []*Node
 }
 
-func (idx *reuseIndex) candidates(start uint32) []*Node {
-	if idx == nil {
-		return nil
-	}
-	if idx.offsets != nil {
-		i := int(start)
-		if i < 0 || i+1 >= len(idx.offsets) {
-			return nil
-		}
-		lo := idx.offsets[i]
-		hi := idx.offsets[i+1]
-		return idx.nodes[lo:hi]
-	}
-	return idx.byStart[start]
-}
-
-// buildReuseIndex returns an index of reusable nodes from oldTree.
-// Nodes containing parse errors are excluded. Nodes touched by edits are
-// normally excluded too, unless their byte ranges are unchanged in the new
-// source (e.g. an edit followed by undo before reparse).
-func buildReuseIndex(oldTree *Tree, source []byte, scratch *reuseScratch) *reuseIndex {
+func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch) *reuseCursor {
 	if oldTree == nil || oldTree.RootNode() == nil {
 		return nil
 	}
-
-	sourceLen := uint32(len(source))
-
-	// If no edits were recorded and the source is unchanged, the whole root
-	// can be reused directly without building a full index.
-	if len(oldTree.edits) == 0 && oldTree.root != nil &&
-		!oldTree.root.hasError &&
-		oldTree.root.startByte == 0 &&
-		oldTree.root.endByte == sourceLen {
-		return &reuseIndex{
-			byStart:   map[uint32][]*Node{0: {oldTree.root}},
-			sourceLen: sourceLen,
-		}
-	}
-
 	if scratch == nil {
 		scratch = &reuseScratch{}
 	}
 
-	// Most token starts are a few bytes apart, so a coarse hint reduces map
-	// growth without over-allocating on large files.
-	capHint := int(sourceLen / 4)
-	if capHint < 64 {
-		capHint = 64
-	}
+	c.sourceLen = uint32(len(source))
+	c.oldSource = oldTree.source
+	c.newSource = source
+	c.stack = scratch.stack[:0]
+	c.next = nil
+	c.cachedStart = 0
+	c.cachedStartValid = false
+	c.cached = scratch.cache[:0]
 
-	root := oldTree.RootNode()
-	gathered, starts := gatherReusableNodes(root, sourceLen, oldTree.source, source, scratch)
-	total := len(gathered)
-	if total == 0 {
+	c.stack = append(c.stack, oldTree.RootNode())
+	return c
+}
+
+func (c *reuseCursor) commitScratch(scratch *reuseScratch) {
+	if scratch == nil {
+		return
+	}
+	scratch.stack = c.stack[:0]
+	scratch.cache = c.cached[:0]
+}
+
+func (c *reuseCursor) candidates(start uint32) []*Node {
+	if c == nil {
 		return nil
 	}
-
-	// Dense packed buckets avoid map hashing for common editor-size files.
-	// 256 KiB source => ~2-3 MiB temporary indexing buffers.
-	const denseThreshold = 256 * 1024
-	if sourceLen <= denseThreshold {
-		bucketCount := int(sourceLen) + 1
-		counts := ensureUint32Len(scratch.counts, bucketCount)
-		for i := 0; i < bucketCount; i++ {
-			counts[i] = 0
+	if c.cachedStartValid {
+		if start == c.cachedStart {
+			return c.cached
 		}
-		for _, start := range starts {
-			counts[start]++
-		}
-
-		offsets := ensureUint32Len(scratch.offsets, bucketCount+1)
-		offsets[0] = 0
-		for i := 0; i < bucketCount; i++ {
-			offsets[i+1] = offsets[i] + counts[i]
-		}
-
-		nodes := ensureNodeLen(scratch.nodes, total)
-		// Reuse `counts` as the mutable cursor array to avoid an extra allocation.
-		copy(counts, offsets[:bucketCount])
-		for i, n := range gathered {
-			start := starts[i]
-			pos := counts[start]
-			nodes[pos] = n
-			counts[start] = pos + 1
-		}
-
-		scratch.counts = counts
-		scratch.offsets = offsets
-		scratch.nodes = nodes
-
-		return &reuseIndex{
-			offsets:   offsets[:bucketCount+1],
-			nodes:     nodes[:total],
-			sourceLen: sourceLen,
+		if start < c.cachedStart {
+			return nil
 		}
 	}
 
-	byStart := make(map[uint32][]*Node, capHint)
-	for i, n := range gathered {
-		start := starts[i]
-		byStart[start] = append(byStart[start], n)
-	}
-	return &reuseIndex{
-		byStart:   byStart,
-		sourceLen: sourceLen,
+	c.cached = c.cached[:0]
+	c.cachedStart = start
+	c.cachedStartValid = true
+
+	for {
+		n := c.peek()
+		if n == nil {
+			return c.cached
+		}
+
+		if n.startByte < start {
+			c.pop()
+			continue
+		}
+		if n.startByte > start {
+			return c.cached
+		}
+
+		for {
+			n = c.peek()
+			if n == nil || n.startByte != start {
+				return c.cached
+			}
+			c.cached = append(c.cached, c.pop())
+		}
 	}
 }
 
-func gatherReusableNodes(n *Node, sourceLen uint32, oldSource, newSource []byte, scratch *reuseScratch) ([]*Node, []uint32) {
-	if n == nil {
-		return nil, nil
+func (c *reuseCursor) peek() *Node {
+	if c.next != nil {
+		return c.next
 	}
+	c.next = c.advance()
+	return c.next
+}
 
-	gathered := scratch.gathered[:0]
-	starts := scratch.starts[:0]
+func (c *reuseCursor) pop() *Node {
+	n := c.peek()
+	c.next = nil
+	return n
+}
 
-	// Explicit stack preserves pre-order traversal (parent before children),
-	// which means candidates at the same start byte are already in widest-first
-	// order and do not require an extra sort pass.
-	stack := scratch.stack[:0]
-	stack = append(stack, n)
-	for len(stack) > 0 {
-		cur := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
+func (c *reuseCursor) advance() *Node {
+	for len(c.stack) > 0 {
+		last := len(c.stack) - 1
+		cur := c.stack[last]
+		c.stack = c.stack[:last]
 
-		if !cur.hasError && cur.endByte > cur.startByte && cur.endByte <= sourceLen {
-			if cur.dirty {
-				if !nodeBytesEqual(cur.startByte, cur.endByte, oldSource, newSource) {
-					// Dirty nodes with changed bytes should not be reused.
-					goto pushChildren
-				}
-				// Undo edit path: unchanged bytes can be reused safely.
-				cur.dirty = false
-			}
-			gathered = append(gathered, cur)
-			starts = append(starts, cur.startByte)
+		children := cur.children
+		for i := len(children) - 1; i >= 0; i-- {
+			c.stack = append(c.stack, children[i])
 		}
 
-	pushChildren:
-		children := cur.children
-		if len(children) == 0 {
+		if cur.hasError || cur.endByte <= cur.startByte || cur.endByte > c.sourceLen {
 			continue
 		}
-		for i := len(children) - 1; i >= 0; i-- {
-			stack = append(stack, children[i])
+		if cur.dirty {
+			if !nodeBytesEqual(cur.startByte, cur.endByte, c.oldSource, c.newSource) {
+				continue
+			}
+			// Undo edit path: unchanged bytes can be reused safely.
+			cur.dirty = false
 		}
+		return cur
 	}
-
-	scratch.gathered = gathered
-	scratch.starts = starts
-	scratch.stack = stack
-	return gathered, starts
+	return nil
 }
 
 func nodeBytesEqual(start, end uint32, oldSource, newSource []byte) bool {
@@ -184,24 +143,10 @@ func nodeBytesEqual(start, end uint32, oldSource, newSource []byte) bool {
 	return bytes.Equal(oldSource[start:end], newSource[start:end])
 }
 
-func ensureUint32Len(buf []uint32, n int) []uint32 {
-	if cap(buf) < n {
-		return make([]uint32, n)
-	}
-	return buf[:n]
-}
-
-func ensureNodeLen(buf []*Node, n int) []*Node {
-	if cap(buf) < n {
-		return make([]*Node, n)
-	}
-	return buf[:n]
-}
-
 // tryReuseSubtree attempts to reuse an old subtree at the current lookahead.
 // On success it appends the reused node to the stack and returns the first
 // lookahead token that begins at or after the node's end byte.
-func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, idx *reuseIndex) (Token, bool) {
+func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, idx *reuseCursor, entryScratch *glrEntryScratch) (Token, bool) {
 	candidates := idx.candidates(lookahead.StartByte)
 	if len(candidates) == 0 {
 		return lookahead, false
@@ -214,7 +159,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 			continue
 		}
 
-		s.entries = append(s.entries, stackEntry{state: nextState, node: n})
+		s.push(nextState, n, entryScratch)
 
 		// If the reused node reaches EOF, we can synthesize EOF directly
 		// instead of consuming every trailing token.
