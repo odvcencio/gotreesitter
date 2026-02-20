@@ -3,8 +3,8 @@ package gotreesitter_test
 import (
 	"testing"
 
-	"github.com/odvcencio/mane/gotreesitter"
-	"github.com/odvcencio/mane/grammars"
+	"github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 func fullReplaceEdit(oldSrc, newSrc []byte) gotreesitter.InputEdit {

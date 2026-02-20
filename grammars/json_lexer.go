@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"github.com/odvcencio/mane/gotreesitter"
+	"github.com/odvcencio/gotreesitter"
 )
 
 // JSONTokenSource bridges raw JSON source to tree-sitter token symbols.

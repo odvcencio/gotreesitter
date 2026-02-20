@@ -3,7 +3,7 @@ package grammars
 import (
 	"fmt"
 
-	"github.com/odvcencio/mane/gotreesitter"
+	"github.com/odvcencio/gotreesitter"
 )
 
 // CTokenSource is a lightweight lexer bridge for tree-sitter-c.

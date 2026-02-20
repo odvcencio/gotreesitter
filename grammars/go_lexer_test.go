@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/odvcencio/mane/gotreesitter"
+	"github.com/odvcencio/gotreesitter"
 )
 
 func TestNewGoTokenSourceReturnsErrorOnMissingSymbols(t *testing.T) {

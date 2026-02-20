@@ -569,7 +569,7 @@ func TestGenerateGo(t *testing.T) {
 	// Verify the generated code contains expected strings.
 	checks := []string{
 		"package testpkg",
-		`import "github.com/odvcencio/mane/gotreesitter"`,
+		`import "github.com/odvcencio/gotreesitter"`,
 		"func TestLangLanguage()",
 		"*gotreesitter.Language",
 		`Name: "test_lang"`,

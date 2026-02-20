@@ -3,7 +3,7 @@ package grammars
 import (
 	"testing"
 
-	"github.com/odvcencio/mane/gotreesitter"
+	"github.com/odvcencio/gotreesitter"
 )
 
 var parseSmokeSamples = map[string]string{

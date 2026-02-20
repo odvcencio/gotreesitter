@@ -3,7 +3,7 @@ package grammars
 import (
 	"strings"
 
-	"github.com/odvcencio/mane/gotreesitter"
+	"github.com/odvcencio/gotreesitter"
 )
 
 // LangEntry holds a registered language with its grammar, extensions, and highlight query.

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/odvcencio/mane/gotreesitter"
-	"github.com/odvcencio/mane/grammars"
+	"github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 // Run C baseline comparisons with:

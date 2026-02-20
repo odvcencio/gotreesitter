@@ -8,10 +8,11 @@ import "testing"
 //   - whitespace:  ' ' | '\n'  (Skip)
 //
 // States:
-//   0: start state (dispatches to ident, number, or whitespace)
-//   1: in identifier (accept Symbol 1)
-//   2: in number (accept Symbol 2)
-//   3: in whitespace (skip, accept)
+//
+//	0: start state (dispatches to ident, number, or whitespace)
+//	1: in identifier (accept Symbol 1)
+//	2: in number (accept Symbol 2)
+//	3: in whitespace (skip, accept)
 func buildIdentNumberWSDFA() []LexState {
 	return []LexState{
 		// State 0: start — no accept
@@ -235,10 +236,11 @@ func TestErrorRecovery(t *testing.T) {
 // not "if" as keyword.
 //
 // States:
-//   0: start
-//   1: seen 'i' (no accept yet — could become "if" or longer ident)
-//   2: seen 'if' — accept keyword Symbol 1, but continue on [a-z]
-//   3: general identifier — accept Symbol 2
+//
+//	0: start
+//	1: seen 'i' (no accept yet — could become "if" or longer ident)
+//	2: seen 'if' — accept keyword Symbol 1, but continue on [a-z]
+//	3: general identifier — accept Symbol 2
 func buildKeywordIdentDFA() []LexState {
 	return []LexState{
 		// State 0: start

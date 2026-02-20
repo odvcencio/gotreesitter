@@ -2,12 +2,12 @@
 
 package grammars
 
-import "github.com/odvcencio/mane/gotreesitter"
+import "github.com/odvcencio/gotreesitter"
 
 // SwiftLanguage returns the swift language definition.
 func SwiftLanguage() *gotreesitter.Language {
 	return &gotreesitter.Language{
-		Name: "swift",
+		Name:               "swift",
 		SymbolCount:        243,
 		TokenCount:         123,
 		ExternalTokenCount: 0,

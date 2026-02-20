@@ -90,6 +90,27 @@ func TestAuditParseSupportIncludesCCustomTokenSource(t *testing.T) {
 	}
 }
 
+func TestAuditParseSupportIncludesCppGenericTokenSource(t *testing.T) {
+	reports := AuditParseSupport()
+	if len(reports) == 0 {
+		t.Fatal("expected parse support reports")
+	}
+
+	var cppReport *ParseSupport
+	for i := range reports {
+		if reports[i].Name == "cpp" {
+			cppReport = &reports[i]
+			break
+		}
+	}
+	if cppReport == nil {
+		t.Fatal("expected cpp parse support report")
+	}
+	if cppReport.Backend != ParseBackendTokenSource {
+		t.Fatalf("expected cpp backend %q, got %q", ParseBackendTokenSource, cppReport.Backend)
+	}
+}
+
 func TestAuditParseSupportIncludesJSONCustomTokenSource(t *testing.T) {
 	reports := AuditParseSupport()
 	if len(reports) == 0 {
@@ -150,5 +171,68 @@ func TestAuditParseSupportIncludesLuaCustomTokenSource(t *testing.T) {
 	}
 	if luaReport.Backend != ParseBackendTokenSource {
 		t.Fatalf("expected lua backend %q, got %q", ParseBackendTokenSource, luaReport.Backend)
+	}
+}
+
+func TestAuditParseSupportIncludesJavaScriptGenericTokenSource(t *testing.T) {
+	reports := AuditParseSupport()
+	if len(reports) == 0 {
+		t.Fatal("expected parse support reports")
+	}
+
+	var jsReport *ParseSupport
+	for i := range reports {
+		if reports[i].Name == "javascript" {
+			jsReport = &reports[i]
+			break
+		}
+	}
+	if jsReport == nil {
+		t.Fatal("expected javascript parse support report")
+	}
+	if jsReport.Backend != ParseBackendTokenSource {
+		t.Fatalf("expected javascript backend %q, got %q", ParseBackendTokenSource, jsReport.Backend)
+	}
+}
+
+func TestAuditParseSupportIncludesTypeScriptGenericTokenSource(t *testing.T) {
+	reports := AuditParseSupport()
+	if len(reports) == 0 {
+		t.Fatal("expected parse support reports")
+	}
+
+	var tsReport *ParseSupport
+	for i := range reports {
+		if reports[i].Name == "typescript" {
+			tsReport = &reports[i]
+			break
+		}
+	}
+	if tsReport == nil {
+		t.Fatal("expected typescript parse support report")
+	}
+	if tsReport.Backend != ParseBackendTokenSource {
+		t.Fatalf("expected typescript backend %q, got %q", ParseBackendTokenSource, tsReport.Backend)
+	}
+}
+
+func TestAuditParseSupportIncludesRustGenericTokenSource(t *testing.T) {
+	reports := AuditParseSupport()
+	if len(reports) == 0 {
+		t.Fatal("expected parse support reports")
+	}
+
+	var rustReport *ParseSupport
+	for i := range reports {
+		if reports[i].Name == "rust" {
+			rustReport = &reports[i]
+			break
+		}
+	}
+	if rustReport == nil {
+		t.Fatal("expected rust parse support report")
+	}
+	if rustReport.Backend != ParseBackendTokenSource {
+		t.Fatalf("expected rust backend %q, got %q", ParseBackendTokenSource, rustReport.Backend)
 	}
 }

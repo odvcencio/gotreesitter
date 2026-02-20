@@ -72,14 +72,14 @@ func TestGLRStackClone(t *testing.T) {
 //	3: EOF -> accept (same as state 2 for S)
 func buildAmbiguousLanguage() *Language {
 	return &Language{
-		Name:              "ambiguous",
-		SymbolCount:       5,
-		TokenCount:        2,
+		Name:               "ambiguous",
+		SymbolCount:        5,
+		TokenCount:         2,
 		ExternalTokenCount: 0,
-		StateCount:        4,
-		LargeStateCount:   0,
-		FieldCount:        0,
-		ProductionIDCount: 2,
+		StateCount:         4,
+		LargeStateCount:    0,
+		FieldCount:         0,
+		ProductionIDCount:  2,
 
 		SymbolNames: []string{"EOF", "x", "A", "B", "S"},
 		SymbolMetadata: []SymbolMetadata{

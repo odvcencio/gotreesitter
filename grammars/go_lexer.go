@@ -6,7 +6,7 @@ import (
 	"go/token"
 	"unicode/utf8"
 
-	"github.com/odvcencio/mane/gotreesitter"
+	"github.com/odvcencio/gotreesitter"
 )
 
 // GoTokenSource bridges Go's standard library scanner to tree-sitter's

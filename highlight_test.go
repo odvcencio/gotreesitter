@@ -11,9 +11,9 @@ import (
 func TestHighlightBasic(t *testing.T) {
 	lang := queryTestLanguage()
 	// Tree: program > [func(kw), identifier("main"), number("42")]
-	funcKw := leaf(Symbol(8), false, 0, 4)  // "func"
-	ident := leaf(Symbol(1), true, 5, 9)    // "main"
-	num := leaf(Symbol(2), true, 10, 12)    // "42"
+	funcKw := leaf(Symbol(8), false, 0, 4) // "func"
+	ident := leaf(Symbol(1), true, 5, 9)   // "main"
+	num := leaf(Symbol(2), true, 10, 12)   // "42"
 	program := parent(Symbol(7), true,
 		[]*Node{funcKw, ident, num},
 		[]FieldID{0, 0, 0})

@@ -3,7 +3,7 @@ package grammars
 import (
 	"fmt"
 
-	"github.com/odvcencio/mane/gotreesitter"
+	"github.com/odvcencio/gotreesitter"
 )
 
 // JavaTokenSource is a lexer bridge for tree-sitter-java.
