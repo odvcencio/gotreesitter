@@ -2,14 +2,21 @@ package gotreesitter
 
 import "bytes"
 
+type reuseFrame struct {
+	node       *Node
+	underDirty bool
+}
+
 // reuseCursor incrementally walks reusable nodes from an old tree in
 // pre-order, caching candidates for the current token start byte.
 type reuseCursor struct {
 	sourceLen uint32
 	oldSource []byte
 	newSource []byte
+	minEditAt uint32
+	hasEdits  bool
 
-	stack []*Node
+	stack []reuseFrame
 	next  *Node
 
 	cachedStart      uint32
@@ -19,7 +26,7 @@ type reuseCursor struct {
 
 // reuseScratch holds reusable buffers for incremental reuse traversal.
 type reuseScratch struct {
-	stack []*Node
+	stack []reuseFrame
 	cache []*Node
 }
 
@@ -34,13 +41,23 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.sourceLen = uint32(len(source))
 	c.oldSource = oldTree.source
 	c.newSource = source
+	c.minEditAt = 0
+	c.hasEdits = len(oldTree.edits) > 0
+	if c.hasEdits {
+		c.minEditAt = oldTree.edits[0].StartByte
+		for i := 1; i < len(oldTree.edits); i++ {
+			if oldTree.edits[i].StartByte < c.minEditAt {
+				c.minEditAt = oldTree.edits[i].StartByte
+			}
+		}
+	}
 	c.stack = scratch.stack[:0]
 	c.next = nil
 	c.cachedStart = 0
 	c.cachedStartValid = false
 	c.cached = scratch.cache[:0]
 
-	c.stack = append(c.stack, oldTree.RootNode())
+	c.stack = append(c.stack, reuseFrame{node: oldTree.RootNode()})
 	return c
 }
 
@@ -110,23 +127,40 @@ func (c *reuseCursor) pop() *Node {
 func (c *reuseCursor) advance() *Node {
 	for len(c.stack) > 0 {
 		last := len(c.stack) - 1
-		cur := c.stack[last]
+		frame := c.stack[last]
 		c.stack = c.stack[:last]
+		cur := frame.node
+		if cur == nil {
+			continue
+		}
+
+		dirtyHere := cur.dirty
+		if dirtyHere {
+			if nodeBytesEqual(cur.startByte, cur.endByte, c.oldSource, c.newSource) {
+				// Undo edit path: unchanged bytes can be reused safely.
+				cur.dirty = false
+				dirtyHere = false
+			}
+		}
+
+		childUnderDirty := frame.underDirty || dirtyHere
 
 		children := cur.children
 		for i := len(children) - 1; i >= 0; i-- {
-			c.stack = append(c.stack, children[i])
+			c.stack = append(c.stack, reuseFrame{
+				node:       children[i],
+				underDirty: childUnderDirty,
+			})
 		}
 
+		if frame.underDirty && c.hasEdits && cur.endByte <= c.minEditAt {
+			continue
+		}
 		if cur.hasError || cur.endByte <= cur.startByte || cur.endByte > c.sourceLen {
 			continue
 		}
-		if cur.dirty {
-			if !nodeBytesEqual(cur.startByte, cur.endByte, c.oldSource, c.newSource) {
-				continue
-			}
-			// Undo edit path: unchanged bytes can be reused safely.
-			cur.dirty = false
+		if dirtyHere {
+			continue
 		}
 		return cur
 	}
@@ -215,6 +249,9 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 
 	gotoState := p.lookupGoto(state, n.Symbol())
 	if gotoState == 0 {
+		return 0, false
+	}
+	if gotoState != n.parseState {
 		return 0, false
 	}
 	return gotoState, true

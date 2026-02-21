@@ -39,8 +39,10 @@ type nodeArena struct {
 	used  int
 	refs  atomic.Int32
 
-	childSlabs []childSliceSlab
-	fieldSlabs []fieldSliceSlab
+	childSlabs      []childSliceSlab
+	fieldSlabs      []fieldSliceSlab
+	childSlabCursor int
+	fieldSlabCursor int
 }
 
 type childSliceSlab struct {
@@ -144,6 +146,8 @@ func (a *nodeArena) reset() {
 	for i := range a.fieldSlabs {
 		a.fieldSlabs[i].used = 0
 	}
+	a.childSlabCursor = 0
+	a.fieldSlabCursor = 0
 }
 
 func (a *nodeArena) allocNode() *Node {
@@ -170,21 +174,30 @@ func (a *nodeArena) allocNodeSlice(n int) []*Node {
 
 	if len(a.childSlabs) == 0 {
 		a.childSlabs = append(a.childSlabs, childSliceSlab{data: make([]*Node, defaultChildSliceCap(a.class))})
+		a.childSlabCursor = 0
+	}
+	if a.childSlabCursor < 0 || a.childSlabCursor >= len(a.childSlabs) {
+		a.childSlabCursor = 0
 	}
 
-	last := &a.childSlabs[len(a.childSlabs)-1]
-	if len(last.data)-last.used < n {
-		capacity := defaultChildSliceCap(a.class)
-		if n > capacity {
-			capacity = n
+	for i := a.childSlabCursor; ; i++ {
+		if i >= len(a.childSlabs) {
+			capacity := defaultChildSliceCap(a.class)
+			if n > capacity {
+				capacity = n
+			}
+			a.childSlabs = append(a.childSlabs, childSliceSlab{data: make([]*Node, capacity)})
 		}
-		a.childSlabs = append(a.childSlabs, childSliceSlab{data: make([]*Node, capacity)})
-		last = &a.childSlabs[len(a.childSlabs)-1]
-	}
 
-	start := last.used
-	last.used += n
-	return last.data[start:last.used]
+		slab := &a.childSlabs[i]
+		if len(slab.data)-slab.used < n {
+			continue
+		}
+		start := slab.used
+		slab.used += n
+		a.childSlabCursor = i
+		return slab.data[start:slab.used]
+	}
 }
 
 func (a *nodeArena) allocFieldIDSlice(n int) []FieldID {
@@ -197,23 +210,32 @@ func (a *nodeArena) allocFieldIDSlice(n int) []FieldID {
 
 	if len(a.fieldSlabs) == 0 {
 		a.fieldSlabs = append(a.fieldSlabs, fieldSliceSlab{data: make([]FieldID, defaultFieldSliceCap(a.class))})
+		a.fieldSlabCursor = 0
+	}
+	if a.fieldSlabCursor < 0 || a.fieldSlabCursor >= len(a.fieldSlabs) {
+		a.fieldSlabCursor = 0
 	}
 
-	last := &a.fieldSlabs[len(a.fieldSlabs)-1]
-	if len(last.data)-last.used < n {
-		capacity := defaultFieldSliceCap(a.class)
-		if n > capacity {
-			capacity = n
+	for i := a.fieldSlabCursor; ; i++ {
+		if i >= len(a.fieldSlabs) {
+			capacity := defaultFieldSliceCap(a.class)
+			if n > capacity {
+				capacity = n
+			}
+			a.fieldSlabs = append(a.fieldSlabs, fieldSliceSlab{data: make([]FieldID, capacity)})
 		}
-		a.fieldSlabs = append(a.fieldSlabs, fieldSliceSlab{data: make([]FieldID, capacity)})
-		last = &a.fieldSlabs[len(a.fieldSlabs)-1]
-	}
 
-	start := last.used
-	last.used += n
-	out := last.data[start:last.used]
-	clear(out)
-	return out
+		slab := &a.fieldSlabs[i]
+		if len(slab.data)-slab.used < n {
+			continue
+		}
+		start := slab.used
+		slab.used += n
+		a.fieldSlabCursor = i
+		out := slab.data[start:slab.used]
+		clear(out)
+		return out
+	}
 }
 
 func defaultChildSliceCap(class arenaClass) int {

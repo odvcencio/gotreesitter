@@ -15,10 +15,12 @@ type ExtractedGrammar struct {
 	StateCount         int
 	LargeStateCount    int
 	SymbolCount        int
+	AliasCount         int
 	TokenCount         int
 	FieldCount         int
 	ProductionIDCount  int
 	ExternalTokenCount int
+	MaxAliasSeqLength  int
 
 	SymbolNames    []string
 	SymbolMetadata []SymbolMeta
@@ -40,6 +42,9 @@ type ExtractedGrammar struct {
 	// Small parse table (compressed sparse format for non-large states).
 	SmallParseTable    []uint16
 	SmallParseTableMap []uint32
+
+	// Per-production alias symbol sequence.
+	AliasSequences [][]uint16
 
 	// Enum values extracted from the C source for resolving symbolic names.
 	enumValues map[string]int
@@ -154,6 +159,10 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 		return nil, fmt.Errorf("parse actions: %w", err)
 	}
 
+	if err := extractAliasSequences(source, g); err != nil {
+		return nil, fmt.Errorf("alias sequences: %w", err)
+	}
+
 	if err := extractLexModes(source, g); err != nil {
 		return nil, fmt.Errorf("lex modes: %w", err)
 	}
@@ -200,10 +209,12 @@ func extractConstants(source string, g *ExtractedGrammar) error {
 		"STATE_COUNT":          &g.StateCount,
 		"LARGE_STATE_COUNT":    &g.LargeStateCount,
 		"SYMBOL_COUNT":         &g.SymbolCount,
+		"ALIAS_COUNT":          &g.AliasCount,
 		"TOKEN_COUNT":          &g.TokenCount,
 		"FIELD_COUNT":          &g.FieldCount,
 		"PRODUCTION_ID_COUNT":  &g.ProductionIDCount,
 		"EXTERNAL_TOKEN_COUNT": &g.ExternalTokenCount,
+		"MAX_ALIAS_SEQUENCE_LENGTH": &g.MaxAliasSeqLength,
 	}
 
 	re := regexp.MustCompile(`#define\s+(\w+)\s+(\d+)`)
@@ -311,6 +322,11 @@ func extractSymbolNames(source string, g *ExtractedGrammar) error {
 	if err != nil {
 		return err
 	}
+	if len(names) < g.SymbolCount {
+		padded := make([]string, g.SymbolCount)
+		copy(padded, names)
+		names = padded
+	}
 	g.SymbolNames = names
 	return nil
 }
@@ -322,8 +338,6 @@ func extractSymbolMetadata(source string, g *ExtractedGrammar) error {
 		return err
 	}
 
-	meta := make([]SymbolMeta, g.SymbolCount)
-
 	// Split the body into individual entries by matching each [...] = { ... }
 	// block. The metadata can span multiple lines, so we use a multiline
 	// approach: find each entry start, then scan for the closing brace.
@@ -333,6 +347,7 @@ func extractSymbolMetadata(source string, g *ExtractedGrammar) error {
 	}
 
 	var entries []metaEntry
+	maxIdx := -1
 	idxRe := regexp.MustCompile(`\[(\w+)\]\s*=\s*\{`)
 	locs := idxRe.FindAllStringSubmatchIndex(body, -1)
 
@@ -355,13 +370,12 @@ func extractSymbolMetadata(source string, g *ExtractedGrammar) error {
 			}
 		}
 
-		idx := 0
-		if n, err := strconv.Atoi(name); err == nil {
-			idx = n
-		} else if g.enumValues != nil {
-			if v, ok := g.enumValues[name]; ok {
-				idx = v
-			}
+		idx, ok := resolveIndexedName(name, g.enumValues)
+		if !ok || idx < 0 {
+			continue
+		}
+		if idx > maxIdx {
+			maxIdx = idx
 		}
 
 		entries = append(entries, metaEntry{
@@ -370,8 +384,20 @@ func extractSymbolMetadata(source string, g *ExtractedGrammar) error {
 		})
 	}
 
+	size := g.SymbolCount
+	if len(g.SymbolNames) > size {
+		size = len(g.SymbolNames)
+	}
+	if maxIdx+1 > size {
+		size = maxIdx + 1
+	}
+	if size < 0 {
+		size = 0
+	}
+	meta := make([]SymbolMeta, size)
+
 	for _, e := range entries {
-		if e.idx >= g.SymbolCount {
+		if e.idx >= len(meta) {
 			continue
 		}
 		meta[e.idx] = SymbolMeta{
@@ -1146,6 +1172,84 @@ func extractParseActions(source string, g *ExtractedGrammar) error {
 	return nil
 }
 
+// extractAliasSequences parses ts_alias_sequences[PRODUCTION_ID_COUNT][MAX_ALIAS_SEQUENCE_LENGTH].
+func extractAliasSequences(source string, g *ExtractedGrammar) error {
+	if g.ProductionIDCount == 0 || g.MaxAliasSeqLength == 0 {
+		return nil
+	}
+
+	body, err := findArrayBody(source, "ts_alias_sequences")
+	if err != nil {
+		// Grammars without aliases omit this table.
+		if strings.Contains(err.Error(), "not found") {
+			return nil
+		}
+		return err
+	}
+
+	seqs := make([][]uint16, g.ProductionIDCount)
+	for i := range seqs {
+		seqs[i] = make([]uint16, g.MaxAliasSeqLength)
+	}
+
+	type seqEntry struct {
+		production int
+		fields     string
+	}
+	var entries []seqEntry
+	idxRe := regexp.MustCompile(`\[(\w+)\]\s*=\s*\{`)
+	locs := idxRe.FindAllStringSubmatchIndex(body, -1)
+	for _, loc := range locs {
+		name := body[loc[2]:loc[3]]
+		production, ok := resolveIndexedName(name, g.enumValues)
+		if !ok || production < 0 || production >= g.ProductionIDCount {
+			continue
+		}
+
+		braceStart := loc[1] - 1
+		depth := 0
+		end := braceStart
+		for i := braceStart; i < len(body); i++ {
+			if body[i] == '{' {
+				depth++
+			} else if body[i] == '}' {
+				depth--
+				if depth == 0 {
+					end = i
+					break
+				}
+			}
+		}
+		entries = append(entries, seqEntry{
+			production: production,
+			fields:     body[braceStart+1 : end],
+		})
+	}
+
+	anyAlias := false
+	fieldRe := regexp.MustCompile(`\[(\w+)\]\s*=\s*(\w+)`)
+	for _, entry := range entries {
+		matches := fieldRe.FindAllStringSubmatch(entry.fields, -1)
+		for _, m := range matches {
+			childIdx, ok := resolveIndexedName(m[1], g.enumValues)
+			if !ok || childIdx < 0 || childIdx >= g.MaxAliasSeqLength {
+				continue
+			}
+			aliasSym, ok := resolveIndexedName(m[2], g.enumValues)
+			if !ok || aliasSym <= 0 {
+				continue
+			}
+			seqs[entry.production][childIdx] = uint16(aliasSym)
+			anyAlias = true
+		}
+	}
+
+	if anyAlias {
+		g.AliasSequences = seqs
+	}
+	return nil
+}
+
 func parseReduceActionArgs(args string, g *ExtractedGrammar) (ExtractedAction, error) {
 	fields := splitTopLevelCSV(args)
 	if len(fields) < 2 {
@@ -1829,25 +1933,39 @@ func parseCChar(s string) (rune, bool) {
 //
 // or sequential: "foo", "bar", ...
 func parseIndexedStringArray(body string, count int, enums map[string]int) ([]string, error) {
-	result := make([]string, count)
-
 	// Try indexed form first: [name] = "string"
 	indexedRe := regexp.MustCompile(`\[(\w+)\]\s*=\s*"((?:[^"\\]|\\.)*)"`)
 	matches := indexedRe.FindAllStringSubmatch(body, -1)
 
 	if len(matches) > 0 {
+		type pair struct {
+			idx int
+			val string
+		}
+		parsed := make([]pair, 0, len(matches))
+		maxIdx := count - 1
 		for i, m := range matches {
 			idx := i
-			if n, err := strconv.Atoi(m[1]); err == nil {
-				idx = n
-			} else if enums != nil {
-				if v, ok := enums[m[1]]; ok {
-					idx = v
-				}
+			if resolved, ok := resolveIndexedName(m[1], enums); ok {
+				idx = resolved
 			}
-			if idx < count {
-				result[idx] = unescapeCString(m[2])
+			if idx < 0 {
+				continue
 			}
+			if idx > maxIdx {
+				maxIdx = idx
+			}
+			parsed = append(parsed, pair{idx: idx, val: unescapeCString(m[2])})
+		}
+		if maxIdx < 0 {
+			return nil, nil
+		}
+		result := make([]string, maxIdx+1)
+		for _, p := range parsed {
+			if p.idx >= len(result) {
+				continue
+			}
+			result[p.idx] = p.val
 		}
 		return result, nil
 	}
@@ -1855,6 +1973,10 @@ func parseIndexedStringArray(body string, count int, enums map[string]int) ([]st
 	// Fall back to sequential form: "string1", "string2"
 	seqRe := regexp.MustCompile(`"((?:[^"\\]|\\.)*)"`)
 	seqMatches := seqRe.FindAllStringSubmatch(body, -1)
+	if count <= 0 {
+		count = len(seqMatches)
+	}
+	result := make([]string, count)
 	for i, m := range seqMatches {
 		if i >= count {
 			break

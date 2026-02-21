@@ -152,6 +152,10 @@ func TomlLanguage() *gotreesitter.Language {
 			{Name: "array_repeat2", Visible: false, Named: false, Supertype: false},
 			{Name: "inline_table_repeat1", Visible: false, Named: false, Supertype: false},
 		},
+		AliasSequences: [][]gotreesitter.Symbol{
+			{gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0)},
+			{gotreesitter.Symbol(0), gotreesitter.Symbol(43), gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0), gotreesitter.Symbol(0)},
+		},
 		ParseTable: [][]uint16{
 			{1, 1, 3, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			{5, 7, 3, 9, 0, 11, 0, 0, 0, 13, 15, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 145, 52, 52, 27, 144, 121, 121, 121, 0, 0, 100, 0, 100, 0, 0, 0, 0, 0, 27, 52, 0, 0, 0, 0, 0, 0},

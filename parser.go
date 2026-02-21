@@ -743,6 +743,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				named := p.isNamedSymbol(tok.Symbol)
 				leaf := newLeafNodeInArena(arena, tok.Symbol, named,
 					tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
+				leaf.isExtra = true
+				leaf.parseState = currentState
 				s.push(currentState, leaf, &scratch.entries)
 				nodeCount++
 				needToken = true
@@ -789,6 +791,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				errNode := newLeafNodeInArena(arena, errorSymbol, false,
 					tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 				errNode.hasError = true
+				errNode.parseState = currentState
 				s.push(currentState, errNode, &scratch.entries)
 				nodeCount++
 				needToken = true
@@ -860,6 +863,8 @@ func (p *Parser) applyAction(s *glrStack, act ParseAction, tok Token, anyReduced
 		named := p.isNamedSymbol(tok.Symbol)
 		leaf := newLeafNodeInArena(arena, tok.Symbol, named,
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
+		leaf.isExtra = act.Extra
+		leaf.parseState = act.State
 		s.push(act.State, leaf, entryScratch)
 		*nodeCount++
 
@@ -871,25 +876,127 @@ func (p *Parser) applyAction(s *glrStack, act ParseAction, tok Token, anyReduced
 			return
 		}
 
-		children := arena.allocNodeSlice(childCount)
-		for i := childCount - 1; i >= 0; i-- {
-			children[i] = s.entries[len(s.entries)-1].node
-			s.entries = s.entries[:len(s.entries)-1]
+		start := len(s.entries) - childCount
+		topState := s.entries[start-1].state
+
+		// Preserve raw span from reduced children while excluding pure extra
+		// padding, so parent ranges match the C runtime.
+		rawStartByte := uint32(0)
+		rawEndByte := uint32(0)
+		var rawStartPoint, rawEndPoint Point
+		rawHasStart := false
+		rawHasEnd := false
+		if childCount > 0 {
+			for i := 0; i < childCount; i++ {
+				if b, pt, ok := spanStartExcludingExtra(s.entries[start+i].node); ok {
+					rawStartByte = b
+					rawStartPoint = pt
+					rawHasStart = true
+					break
+				}
+			}
+			for i := childCount - 1; i >= 0; i-- {
+				if b, pt, ok := spanEndExcludingExtra(s.entries[start+i].node); ok {
+					rawEndByte = b
+					rawEndPoint = pt
+					rawHasEnd = true
+					break
+				}
+			}
+			firstRaw := s.entries[start].node
+			lastRaw := s.entries[start+childCount-1].node
+			if !rawHasStart && firstRaw != nil {
+				rawStartByte = firstRaw.startByte
+				rawStartPoint = firstRaw.startPoint
+			}
+			if !rawHasEnd && lastRaw != nil {
+				rawEndByte = lastRaw.endByte
+				rawEndPoint = lastRaw.endPoint
+			}
 		}
+
+		// Inline child normalization to keep normalized child slices in arena
+		// storage and avoid per-reduce heap allocations.
+		normalizedCount := 0
+		for i := 0; i < childCount; i++ {
+			n := s.entries[start+i].node
+			if symbolVisible(p.language, n.symbol) {
+				normalizedCount++
+			} else {
+				normalizedCount += len(n.children)
+			}
+		}
+
+		rawFieldIDs := p.buildFieldIDs(childCount, act.ProductionID, arena)
+		hasFields := false
+		for _, fid := range rawFieldIDs {
+			if fid != 0 {
+				hasFields = true
+				break
+			}
+		}
+
+		children := arena.allocNodeSlice(normalizedCount)
+		var fieldIDs []FieldID
+		if hasFields {
+			fieldIDs = arena.allocFieldIDSlice(normalizedCount)
+		}
+
+		out := 0
+		for i := 0; i < childCount; i++ {
+			n := s.entries[start+i].node
+			var fid FieldID
+			if i < len(rawFieldIDs) {
+				fid = rawFieldIDs[i]
+			}
+			if alias := p.aliasSymbolForChild(act.ProductionID, i); alias != 0 {
+				n.symbol = alias
+				if int(alias) < len(p.language.SymbolMetadata) {
+					n.isNamed = p.language.SymbolMetadata[alias].Named
+				}
+			}
+			if symbolVisible(p.language, n.symbol) {
+				children[out] = n
+				if fieldIDs != nil {
+					fieldIDs[out] = fid
+				}
+				out++
+				continue
+			}
+
+			for j, child := range n.children {
+				children[out] = child
+				if fieldIDs != nil {
+					if j == 0 {
+						fieldIDs[out] = fid
+					} else {
+						fieldIDs[out] = 0
+					}
+				}
+				out++
+			}
+		}
+
+		// Pop all reduced entries in one step after collection.
+		s.entries = s.entries[:start]
 
 		named := p.isNamedSymbol(act.Symbol)
-		fieldIDs := p.buildFieldIDs(childCount, act.ProductionID, arena)
 		parent := newParentNodeInArena(arena, act.Symbol, named, children, fieldIDs, act.ProductionID)
+		if childCount > 0 {
+			parent.startByte = rawStartByte
+			parent.endByte = rawEndByte
+			parent.startPoint = rawStartPoint
+			parent.endPoint = rawEndPoint
+		}
 		*nodeCount++
 
-		topState := s.entries[len(s.entries)-1].state
 		gotoState := p.lookupGoto(topState, act.Symbol)
-
+		targetState := topState
 		if gotoState != 0 {
-			s.push(gotoState, parent, entryScratch)
-		} else {
-			s.push(topState, parent, entryScratch)
+			targetState = gotoState
 		}
+		parent.parseState = targetState
+		s.push(targetState, parent, entryScratch)
 
 		s.score += int(act.DynamicPrecedence)
 		*anyReduced = true
@@ -909,6 +1016,7 @@ func (p *Parser) applyAction(s *glrStack, act ParseAction, tok Token, anyReduced
 		if act.State != 0 {
 			recoverState = act.State
 		}
+		errNode.parseState = recoverState
 		s.push(recoverState, errNode, entryScratch)
 		*nodeCount++
 	}
@@ -938,6 +1046,63 @@ func (p *Parser) findRecoverActionOnStack(s *glrStack, sym Symbol) (int, ParseAc
 		}
 	}
 	return 0, ParseAction{}, false
+}
+
+func (p *Parser) aliasSymbolForChild(productionID uint16, childIndex int) Symbol {
+	if p == nil || p.language == nil || childIndex < 0 {
+		return 0
+	}
+	pid := int(productionID)
+	if pid < 0 || pid >= len(p.language.AliasSequences) {
+		return 0
+	}
+	seq := p.language.AliasSequences[pid]
+	if childIndex >= len(seq) {
+		return 0
+	}
+	return seq[childIndex]
+}
+
+func spanStartExcludingExtra(n *Node) (uint32, Point, bool) {
+	if n == nil {
+		return 0, Point{}, false
+	}
+	if len(n.children) == 0 {
+		if n.isExtra {
+			return 0, Point{}, false
+		}
+		return n.startByte, n.startPoint, true
+	}
+	for i := 0; i < len(n.children); i++ {
+		if b, pt, ok := spanStartExcludingExtra(n.children[i]); ok {
+			return b, pt, true
+		}
+	}
+	if n.isExtra {
+		return 0, Point{}, false
+	}
+	return n.startByte, n.startPoint, true
+}
+
+func spanEndExcludingExtra(n *Node) (uint32, Point, bool) {
+	if n == nil {
+		return 0, Point{}, false
+	}
+	if len(n.children) == 0 {
+		if n.isExtra {
+			return 0, Point{}, false
+		}
+		return n.endByte, n.endPoint, true
+	}
+	for i := len(n.children) - 1; i >= 0; i-- {
+		if b, pt, ok := spanEndExcludingExtra(n.children[i]); ok {
+			return b, pt, true
+		}
+	}
+	if n.isExtra {
+		return 0, Point{}, false
+	}
+	return n.endByte, n.endPoint, true
 }
 
 // buildFieldIDs creates the field ID slice for a reduce action.
@@ -1088,7 +1253,7 @@ func (p *Parser) lookupGoto(state StateID, sym Symbol) StateID {
 	if p.language.TokenCount > 0 &&
 		uint32(sym) >= p.language.TokenCount &&
 		p.language.StateCount > 0 &&
-		(p.language.LargeStateCount > 0 || len(p.language.SmallParseTableMap) > 0 || len(p.language.ParseTable) > 0) {
+		(p.language.LargeStateCount > 0 || len(p.language.SmallParseTableMap) > 0) {
 		return StateID(raw)
 	}
 
@@ -1133,12 +1298,38 @@ func (p *Parser) buildResult(stack []stackEntry, source []byte, arena *nodeArena
 	}
 
 	borrowed := retainBorrowedArenas(oldTree, reusedAny)
-
-	if len(nodes) == 1 {
-		return newTreeWithArenas(nodes[0], source, p.language, arena, borrowed)
+	expectedRootSymbol := Symbol(0)
+	hasExpectedRoot := false
+	if oldTree != nil && oldTree.RootNode() != nil {
+		expectedRootSymbol = oldTree.RootNode().symbol
+		hasExpectedRoot = true
 	}
 
-	root := newParentNodeInArena(arena, nodes[len(nodes)-1].symbol, true, nodes, nil, 0)
+	if len(nodes) == 1 {
+		candidate := nodes[0]
+		if !hasExpectedRoot || candidate.symbol == expectedRootSymbol {
+			return newTreeWithArenas(candidate, source, p.language, arena, borrowed)
+		}
+
+		// Incremental reuse guard: if the only stacked node doesn't match the
+		// previous root symbol, synthesize an expected root wrapper instead of
+		// returning a reused child as the new tree root.
+		rootChildren := make([]*Node, 1)
+		rootChildren[0] = candidate
+		if arena != nil {
+			rootChildren = arena.allocNodeSlice(1)
+			rootChildren[0] = candidate
+		}
+		root := newParentNodeInArena(arena, expectedRootSymbol, true, rootChildren, nil, 0)
+		return newTreeWithArenas(root, source, p.language, arena, borrowed)
+	}
+
+	rootChildren := nodes
+	rootSymbol := nodes[len(nodes)-1].symbol
+	if hasExpectedRoot {
+		rootSymbol = expectedRootSymbol
+	}
+	root := newParentNodeInArena(arena, rootSymbol, true, rootChildren, nil, 0)
 	root.hasError = true
 	return newTreeWithArenas(root, source, p.language, arena, borrowed)
 }

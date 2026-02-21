@@ -11,6 +11,7 @@ type Range struct {
 // Node is a syntax tree node.
 type Node struct {
 	symbol       Symbol
+	parseState   StateID // parser state after this node was pushed
 	startByte    uint32
 	endByte      uint32
 	startPoint   Point
@@ -18,6 +19,7 @@ type Node struct {
 	children     []*Node
 	fieldIDs     []FieldID // parallel to children, 0 = no field
 	isNamed      bool
+	isExtra      bool
 	isMissing    bool
 	hasError     bool
 	dirty        bool // set by Tree.Edit for nodes touched by edits
@@ -213,6 +215,13 @@ func NewParentNode(sym Symbol, named bool, children []*Node, fieldIDs []FieldID,
 	}
 
 	return n
+}
+
+func symbolVisible(lang *Language, sym Symbol) bool {
+	if lang == nil || int(sym) >= len(lang.SymbolMetadata) {
+		return true
+	}
+	return lang.SymbolMetadata[sym].Visible
 }
 
 func newLeafNodeInArena(arena *nodeArena, sym Symbol, named bool, startByte, endByte uint32, startPoint, endPoint Point) *Node {

@@ -260,6 +260,11 @@ func SwiftLanguage() *gotreesitter.Language {
 			"_tuple_declaration_repeat1",
 			"_array_declaration_repeat1",
 			"_dictionary_declaration_repeat1",
+			"boolean",
+			"parameter_declaration",
+			"string",
+			"tuple",
+			"type_identifier",
 		},
 		SymbolMetadata: []gotreesitter.SymbolMetadata{
 			{Name: "end", Visible: false, Named: true, Supertype: false},
@@ -505,6 +510,11 @@ func SwiftLanguage() *gotreesitter.Language {
 			{Name: "_tuple_declaration_repeat1", Visible: false, Named: false, Supertype: false},
 			{Name: "_array_declaration_repeat1", Visible: false, Named: false, Supertype: false},
 			{Name: "_dictionary_declaration_repeat1", Visible: false, Named: false, Supertype: false},
+			{Name: "boolean", Visible: true, Named: true, Supertype: false},
+			{Name: "parameter_declaration", Visible: true, Named: true, Supertype: false},
+			{Name: "string", Visible: true, Named: true, Supertype: false},
+			{Name: "tuple", Visible: true, Named: true, Supertype: false},
+			{Name: "type_identifier", Visible: true, Named: true, Supertype: false},
 		},
 		FieldNames: []string{
 			"",

@@ -47,6 +47,7 @@ type GoTokenSource struct {
 	imaginaryLiteralSymbol            gotreesitter.Symbol
 	identifierSymbol                  gotreesitter.Symbol
 	blankIdentifierSymbol             gotreesitter.Symbol
+	autoSemicolonSymbol               gotreesitter.Symbol
 	interpretedStringOpenQuoteSymbol  gotreesitter.Symbol
 	interpretedStringCloseQuoteSymbol gotreesitter.Symbol
 	interpretedStringContentSymbol    gotreesitter.Symbol
@@ -73,6 +74,7 @@ type goLexerTables struct {
 	imaginaryLiteralSymbol            gotreesitter.Symbol
 	identifierSymbol                  gotreesitter.Symbol
 	blankIdentifierSymbol             gotreesitter.Symbol
+	autoSemicolonSymbol               gotreesitter.Symbol
 	interpretedStringOpenQuoteSymbol  gotreesitter.Symbol
 	interpretedStringCloseQuoteSymbol gotreesitter.Symbol
 	interpretedStringContentSymbol    gotreesitter.Symbol
@@ -251,6 +253,48 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 		case tok == token.IDENT:
 			return ts.identToken(offset, lit)
 
+		case tok == token.SEMICOLON:
+			sym, ok := ts.symbolMap[tok]
+			if !ok {
+				continue
+			}
+			if lit == "\n" {
+				// Auto-inserted semicolon: consume the newline byte when present
+				// and stay zero-width at EOF insertion.
+				if offset < 0 || offset > len(ts.src) {
+					continue
+				}
+				if ts.autoSemicolonSymbol != 0 {
+					sym = ts.autoSemicolonSymbol
+				}
+				endOffset := offset
+				endPoint := startPoint
+				if offset < len(ts.src) {
+					endOffset = offset + 1
+					endPoint = ts.offsetToPoint(endOffset)
+				}
+				return gotreesitter.Token{
+					Symbol:     sym,
+					Text:       lit,
+					StartByte:  uint32(offset),
+					EndByte:    uint32(endOffset),
+					StartPoint: startPoint,
+					EndPoint:   endPoint,
+				}
+			}
+			endOffset := offset + 1 // explicit ';'
+			if endOffset > len(ts.src) {
+				continue
+			}
+			return gotreesitter.Token{
+				Symbol:     sym,
+				Text:       ";",
+				StartByte:  uint32(offset),
+				EndByte:    uint32(endOffset),
+				StartPoint: startPoint,
+				EndPoint:   ts.offsetToPoint(endOffset),
+			}
+
 		default:
 			// Map go/token to tree-sitter symbol.
 			sym, ok := ts.symbolMap[tok]
@@ -263,6 +307,9 @@ func (ts *GoTokenSource) Next() gotreesitter.Token {
 				text = tok.String()
 			}
 			endOffset := offset + len(text)
+			if endOffset > len(ts.src) {
+				continue
+			}
 			return gotreesitter.Token{
 				Symbol:     sym,
 				Text:       text,
@@ -543,6 +590,9 @@ func (ts *GoTokenSource) buildMaps() error {
 	}
 	ts.identifierSymbol = identifierSyms[0]
 	ts.blankIdentifierSymbol = tokenSym("blank_identifier")
+	if autoSemiSyms := ts.lang.TokenSymbolsByName("source_file_token1"); len(autoSemiSyms) > 0 {
+		ts.autoSemicolonSymbol = autoSemiSyms[0]
+	}
 
 	// Go's grammar aliases "new" and "make" to additional identifier token IDs.
 	// If aliases are absent, fall back to the base identifier symbol.
@@ -671,6 +721,7 @@ func (ts *GoTokenSource) buildMaps() error {
 		imaginaryLiteralSymbol:            ts.imaginaryLiteralSymbol,
 		identifierSymbol:                  ts.identifierSymbol,
 		blankIdentifierSymbol:             ts.blankIdentifierSymbol,
+		autoSemicolonSymbol:               ts.autoSemicolonSymbol,
 		interpretedStringOpenQuoteSymbol:  ts.interpretedStringOpenQuoteSymbol,
 		interpretedStringCloseQuoteSymbol: ts.interpretedStringCloseQuoteSymbol,
 		interpretedStringContentSymbol:    ts.interpretedStringContentSymbol,
@@ -698,6 +749,7 @@ func (ts *GoTokenSource) applyLexerTables(tables *goLexerTables) {
 	ts.imaginaryLiteralSymbol = tables.imaginaryLiteralSymbol
 	ts.identifierSymbol = tables.identifierSymbol
 	ts.blankIdentifierSymbol = tables.blankIdentifierSymbol
+	ts.autoSemicolonSymbol = tables.autoSemicolonSymbol
 	ts.interpretedStringOpenQuoteSymbol = tables.interpretedStringOpenQuoteSymbol
 	ts.interpretedStringCloseQuoteSymbol = tables.interpretedStringCloseQuoteSymbol
 	ts.interpretedStringContentSymbol = tables.interpretedStringContentSymbol

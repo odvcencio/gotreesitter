@@ -53,6 +53,9 @@ func GenerateGo(g *ExtractedGrammar, pkg string) string {
 	if len(g.FieldMapEntries) > 0 {
 		writeFieldMapEntries(&buf, g.FieldMapEntries)
 	}
+	if len(g.AliasSequences) > 0 {
+		writeAliasSequences(&buf, g.AliasSequences)
+	}
 
 	// Parse table (dense, for large states)
 	if len(g.ParseTable) > 0 {
@@ -146,6 +149,21 @@ func writeFieldMapEntries(buf *strings.Builder, entries []FieldMapEntry) {
 	for _, e := range entries {
 		fmt.Fprintf(buf, "\t\t\t{FieldID: gotreesitter.FieldID(%d), ChildIndex: uint8(%d), Inherited: %t},\n",
 			e.FieldID, e.ChildIndex, e.Inherited)
+	}
+	buf.WriteString("\t\t},\n")
+}
+
+func writeAliasSequences(buf *strings.Builder, sequences [][]uint16) {
+	buf.WriteString("\t\tAliasSequences: [][]gotreesitter.Symbol{\n")
+	for _, row := range sequences {
+		buf.WriteString("\t\t\t{")
+		for i, sym := range row {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			fmt.Fprintf(buf, "gotreesitter.Symbol(%d)", sym)
+		}
+		buf.WriteString("},\n")
 	}
 	buf.WriteString("\t\t},\n")
 }

@@ -69,14 +69,18 @@ func TestParseGoPackageOnly(t *testing.T) {
 		t.Error("root has error flag set")
 	}
 
-	// Should contain a package_clause with an identifier.
+	// Should contain a package_clause with a package name node.
 	pkg := findNamedChild(lang, root, "package_clause")
 	if pkg == nil {
 		t.Fatal("no package_clause found in tree")
 	}
-	ident := findNamedChild(lang, pkg, "identifier")
+	ident := findNamedChild(lang, pkg, "package_identifier")
 	if ident == nil {
-		t.Fatal("no identifier found in package_clause")
+		// Older grammar snapshots used "identifier" here.
+		ident = findNamedChild(lang, pkg, "identifier")
+	}
+	if ident == nil {
+		t.Fatal("no package identifier found in package_clause")
 	}
 	if got := ident.Text(tree.Source()); got != "main" {
 		t.Errorf("expected identifier text %q, got %q", "main", got)
@@ -221,15 +225,19 @@ func TestParseGoTokenSource(t *testing.T) {
 	lang := grammars.GoLanguage()
 	src := []byte("package main\n")
 	ts := mustGoTokenSource(t, src, lang)
+	autoSemiSyms := lang.TokenSymbolsByName("source_file_token1")
+	if len(autoSemiSyms) == 0 {
+		t.Fatal("go language missing source_file_token1 symbol")
+	}
 
 	expected := []struct {
 		sym  gotreesitter.Symbol
 		text string
 	}{
-		{5, "package"}, // anon_sym_package
-		{1, "main"},    // sym_identifier
-		{3, "\n"},      // anon_sym_SEMI (auto-inserted)
-		{0, ""},        // EOF
+		{5, "package"},          // anon_sym_package
+		{1, "main"},             // sym_identifier
+		{autoSemiSyms[0], "\n"}, // source_file_token1 (auto-inserted semicolon)
+		{0, ""},                 // EOF
 	}
 
 	for i, want := range expected {

@@ -56,22 +56,22 @@ go test -run '^$' -tags treesitter_c_bench -bench 'Benchmark(GoParse|CTreeSitter
 
 | Benchmark | ns/op | B/op | allocs/op |
 |---|---:|---:|---:|
-| `BenchmarkCTreeSitterGoParseFull` | 1,960,803 | 600 | 6 |
-| `BenchmarkCTreeSitterGoParseIncrementalSingleByteEdit` | 116,598 | 648 | 7 |
-| `BenchmarkCTreeSitterGoParseIncrementalNoEdit` | 114,872 | 600 | 6 |
-| `BenchmarkGoParseFull` | 813,371 | 12,698 | 2,495 |
-| `BenchmarkGoParseIncrementalSingleByteEdit` | 6,360 | 193 | 6 |
-| `BenchmarkGoParseIncrementalNoEdit` | 8 | 0 | 0 |
+| `BenchmarkCTreeSitterGoParseFull` | 1,872,647 | 600 | 6 |
+| `BenchmarkCTreeSitterGoParseIncrementalSingleByteEdit` | 116,099 | 648 | 7 |
+| `BenchmarkCTreeSitterGoParseIncrementalNoEdit` | 112,446 | 600 | 6 |
+| `BenchmarkGoParseFull` | 1,316,467 | 11,047 | 2,495 |
+| `BenchmarkGoParseIncrementalSingleByteEdit` | 1,638 | 192 | 6 |
+| `BenchmarkGoParseIncrementalNoEdit` | 8.318 | 0 | 0 |
 
 **Summary:**
 
 | Workload | gotreesitter | CGo binding | Ratio |
 |---|---:|---:|---|
-| Full parse | 813 µs | 1,961 µs | **2.4× faster** |
-| Incremental (single-byte edit) | 6.4 µs | 117 µs | **18× faster** |
-| Incremental (no-op reparse) | 8 ns | 115 µs | **~14,000× faster** |
+| Full parse | 1,316 µs | 1,873 µs | **~1.42× faster** |
+| Incremental (single-byte edit) | 1.64 µs | 116 µs | **~71× faster** |
+| Incremental (no-op reparse) | 8.32 ns | 112 µs | **~13,500× faster** |
 
-The no-edit path exits in a single nil-check: zero allocations, ~8 ns. The CGo binding pays CGo call overhead unconditionally.
+The no-edit path exits in a single nil-check: zero allocations, single-digit nanoseconds. The CGo binding pays CGo call overhead unconditionally.
 
 ---
 

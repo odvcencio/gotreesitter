@@ -11,6 +11,7 @@ import (
 type ManifestEntry struct {
 	Name    string // language name (e.g. "python")
 	RepoURL string // git URL for tree-sitter grammar
+	Commit  string // optional pinned commit hash from lock files
 	Subdir  string // subdirectory containing parser.c (e.g. "src")
 	// Optional comma-separated file extensions from manifest column 4.
 	Extensions []string
@@ -18,7 +19,7 @@ type ManifestEntry struct {
 
 // ParseManifest reads a manifest file with lines of format:
 //
-//	name repo_url [subdir] [ext1,ext2,...]
+//	name repo_url [commit] [subdir] [ext1,ext2,...]
 //
 // Lines starting with # are comments. Empty lines are skipped.
 func ParseManifest(path string) ([]ManifestEntry, error) {
@@ -44,11 +45,19 @@ func ParseManifest(path string) ([]ManifestEntry, error) {
 			RepoURL: fields[1],
 			Subdir:  "src",
 		}
-		if len(fields) >= 3 {
-			entry.Subdir = fields[2]
+
+		nextField := 2
+		if len(fields) > nextField && looksLikeCommitHash(fields[nextField]) {
+			entry.Commit = fields[nextField]
+			nextField++
 		}
-		if len(fields) >= 4 && strings.TrimSpace(fields[3]) != "" {
-			for _, ext := range strings.Split(fields[3], ",") {
+
+		if len(fields) > nextField {
+			entry.Subdir = fields[nextField]
+			nextField++
+		}
+		if len(fields) > nextField && strings.TrimSpace(fields[nextField]) != "" {
+			for _, ext := range strings.Split(fields[nextField], ",") {
 				ext = strings.TrimSpace(ext)
 				if ext != "" {
 					entry.Extensions = append(entry.Extensions, ext)
@@ -58,4 +67,18 @@ func ParseManifest(path string) ([]ManifestEntry, error) {
 		entries = append(entries, entry)
 	}
 	return entries, scanner.Err()
+}
+
+func looksLikeCommitHash(s string) bool {
+	if len(s) < 7 || len(s) > 40 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
+			continue
+		}
+		return false
+	}
+	return true
 }

@@ -35,6 +35,35 @@ go https://github.com/tree-sitter/tree-sitter-go src .go
 	}
 }
 
+func TestParseManifestWithCommit(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "manifest.txt")
+	content := `
+# name repo commit subdir extensions
+html https://github.com/tree-sitter/tree-sitter-html 73a3947324f6efddf9e17c0ea58d454843590cc0 src .html,.htm
+`
+	if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := ParseManifest(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	if entries[0].Commit != "73a3947324f6efddf9e17c0ea58d454843590cc0" {
+		t.Fatalf("commit = %q", entries[0].Commit)
+	}
+	if entries[0].Subdir != "src" {
+		t.Fatalf("subdir = %q", entries[0].Subdir)
+	}
+	if len(entries[0].Extensions) != 2 {
+		t.Fatalf("extensions = %d, want 2", len(entries[0].Extensions))
+	}
+}
+
 func TestSafeFileBase(t *testing.T) {
 	if got := safeFileBase("tree-sitter-c-sharp"); got != "tree_sitter_c_sharp" {
 		t.Fatalf("safeFileBase got %q", got)

@@ -31,7 +31,7 @@ func RunBatchManifest(manifestPath, outDir, pkg string) error {
 
 	for _, entry := range entries {
 		repoDir := filepath.Join(tmpRoot, safeFileBase(entry.Name))
-		if err := cloneRepo(entry.RepoURL, repoDir); err != nil {
+		if err := cloneRepo(entry.RepoURL, entry.Commit, repoDir); err != nil {
 			return fmt.Errorf("%s: clone: %w", entry.Name, err)
 		}
 
@@ -72,11 +72,33 @@ func RunBatchManifest(manifestPath, outDir, pkg string) error {
 	return nil
 }
 
-func cloneRepo(repoURL, dest string) error {
+func cloneRepo(repoURL, commit, dest string) error {
 	cmd := exec.Command("git", "clone", "--depth=1", repoURL, dest)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+	}
+	if commit == "" {
+		return nil
+	}
+
+	// Fast path: pinned commit is already available in shallow clone.
+	cmd = exec.Command("git", "-C", dest, "checkout", "--detach", commit)
+	out, err = cmd.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+
+	// Fallback: fetch the exact pinned commit, then detach at FETCH_HEAD.
+	cmd = exec.Command("git", "-C", dest, "fetch", "--depth=1", "origin", commit)
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("fetch commit %s: %v: %s", commit, err, strings.TrimSpace(string(out)))
+	}
+	cmd = exec.Command("git", "-C", dest, "checkout", "--detach", "FETCH_HEAD")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("checkout commit %s: %v: %s", commit, err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
