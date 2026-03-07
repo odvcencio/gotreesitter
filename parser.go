@@ -2341,30 +2341,22 @@ func (p *Parser) buildReduceChildren(entries []stackEntry, start, end, childCoun
 			}
 
 			if fid != 0 {
-				target := 0
-				found := false
-				if len(n.fieldIDs) == len(kids) {
-					for i, kidFieldID := range n.fieldIDs {
-						if kidFieldID == fid {
-							target = i
-							found = true
-							break
+				findTarget := func() int {
+					if len(n.fieldIDs) == len(kids) {
+						for i, kidFieldID := range n.fieldIDs {
+							if kidFieldID == fid {
+								return i
+							}
 						}
 					}
-				}
-				if !found {
 					for i, kid := range kids {
 						if kid != nil && kid.isNamed {
-							target = i
-							found = true
-							break
+							return i
 						}
 					}
+					return 0
 				}
-				if !found {
-					target = 0
-				}
-				fieldIDs[out+target] = fid
+				fieldIDs[out+findTarget()] = fid
 			}
 		}
 		out += len(kids)

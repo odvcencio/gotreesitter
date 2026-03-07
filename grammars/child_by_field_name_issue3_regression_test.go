@@ -36,17 +36,11 @@ func TestChildByFieldNameRegressionPythonFunctionDefinition(t *testing.T) {
 		t.Fatal("expected function_definition node in Python sample")
 	}
 
-	name := fn.ChildByFieldName("name", lang)
-	if name == nil || !name.IsNamed() {
-		t.Fatal("function_definition name field should resolve to a named node")
-	}
-	params := fn.ChildByFieldName("parameters", lang)
-	if params == nil || !params.IsNamed() {
-		t.Fatal("function_definition parameters field should resolve to a named node")
-	}
-	body := fn.ChildByFieldName("body", lang)
-	if body == nil || !body.IsNamed() {
-		t.Fatal("function_definition body field should resolve to a named node")
+	for _, fieldName := range []string{"name", "parameters", "body"} {
+		node := fn.ChildByFieldName(fieldName, lang)
+		if node == nil || !node.IsNamed() {
+			t.Fatalf("function_definition %s field should resolve to a named node", fieldName)
+		}
 	}
 }
 
