@@ -1,0 +1,621 @@
+{
+  "generated_at": "2026-03-09T06:38:30Z",
+  "lock_path": "grammars/languages.lock",
+  "write_applied": true,
+  "sync_manifest": false,
+  "filter_allow_list": "grammars/update_tier1_top50.txt",
+  "max_updates": 10,
+  "total_entries": 50,
+  "checked_entries": 50,
+  "applied_count": 5,
+  "available_count": 0,
+  "unchanged_count": 45,
+  "skipped_count": 0,
+  "error_count": 0,
+  "added_from_manifest": 0,
+  "results": [
+    {
+      "name": "awk",
+      "repo_url": "https://github.com/Beaglefoot/tree-sitter-awk",
+      "old_ref": "34bbdc7cce8e803096f47b625979e34c1be38127",
+      "new_ref": "34bbdc7cce8e803096f47b625979e34c1be38127",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "bash",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-bash",
+      "old_ref": "a06c2e4415e9bc0346c6b86d401879ffb44058f7",
+      "new_ref": "a06c2e4415e9bc0346c6b86d401879ffb44058f7",
+      "subdir": "src",
+      "extensions": [
+        ".sh"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "c",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-c",
+      "old_ref": "ae19b676b13bdcc13b7665397e6d9b14975473dd",
+      "new_ref": "ae19b676b13bdcc13b7665397e6d9b14975473dd",
+      "subdir": "src",
+      "extensions": [
+        ".c",
+        ".h"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "c_sharp",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-c-sharp",
+      "old_ref": "88366631d598ce6595ec655ce1591b315cffb14c",
+      "new_ref": "88366631d598ce6595ec655ce1591b315cffb14c",
+      "subdir": "src",
+      "extensions": [
+        ".cs"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "clojure",
+      "repo_url": "https://github.com/sogaiu/tree-sitter-clojure",
+      "old_ref": "e43eff80d17cf34852dcd92ca5e6986d23a7040f",
+      "new_ref": "e43eff80d17cf34852dcd92ca5e6986d23a7040f",
+      "subdir": "src",
+      "extensions": [
+        ".clj",
+        ".cljs",
+        ".cljc",
+        ".edn"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cmake",
+      "repo_url": "https://github.com/uyha/tree-sitter-cmake",
+      "old_ref": "c7b2a71e7f8ecb167fad4c97227c838439280175",
+      "new_ref": "c7b2a71e7f8ecb167fad4c97227c838439280175",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cpp",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-cpp",
+      "old_ref": "12bd6f7e96080d2e70ec51d4068f2f66120dde35",
+      "new_ref": "8b5b49eb196bec7040441bee33b2c9a4838d6967",
+      "subdir": "src",
+      "extensions": [
+        ".cc",
+        ".cpp",
+        ".cxx",
+        ".hpp",
+        ".hh",
+        ".hxx",
+        ".h"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "css",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-css",
+      "old_ref": "dda5cfc5722c429eaba1c910ca32c2c0c5bb1a3f",
+      "new_ref": "dda5cfc5722c429eaba1c910ca32c2c0c5bb1a3f",
+      "subdir": "src",
+      "extensions": [
+        ".css"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "d",
+      "repo_url": "https://github.com/gdamore/tree-sitter-d",
+      "old_ref": "fb028c8f14f4188286c2eef143f105def6fbf24f",
+      "new_ref": "fb028c8f14f4188286c2eef143f105def6fbf24f",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "dart",
+      "repo_url": "https://github.com/UserNobody14/tree-sitter-dart",
+      "old_ref": "81638dbbdb76a0e88ea8c31b95ec76b9625ddb84",
+      "new_ref": "81638dbbdb76a0e88ea8c31b95ec76b9625ddb84",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "elixir",
+      "repo_url": "https://github.com/elixir-lang/tree-sitter-elixir",
+      "old_ref": "d24cecee673c4c770f797bac6f87ae4b6d7ddec5",
+      "new_ref": "5c22791c9836d436ce31de5e454fbad0e706ea96",
+      "subdir": "src",
+      "extensions": [
+        ".ex",
+        ".exs"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "elm",
+      "repo_url": "https://github.com/elm-tooling/tree-sitter-elm",
+      "old_ref": "6d9511c28181db66daee4e883f811f6251220943",
+      "new_ref": "6d9511c28181db66daee4e883f811f6251220943",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "erlang",
+      "repo_url": "https://github.com/WhatsApp/tree-sitter-erlang",
+      "old_ref": "f21023bbd6cd30cadbc793d80ae4d990d9be86fc",
+      "new_ref": "f21023bbd6cd30cadbc793d80ae4d990d9be86fc",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "go",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-go",
+      "old_ref": "2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+      "new_ref": "2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+      "subdir": "src",
+      "extensions": [
+        ".go"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "gomod",
+      "repo_url": "https://github.com/camdencheek/tree-sitter-go-mod",
+      "old_ref": "2e886870578eeba1927a2dc4bd2e2b3f598c5f9a",
+      "new_ref": "2e886870578eeba1927a2dc4bd2e2b3f598c5f9a",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "graphql",
+      "repo_url": "https://github.com/bkegley/tree-sitter-graphql",
+      "old_ref": "5e66e961eee421786bdda8495ed1db045e06b5fe",
+      "new_ref": "5e66e961eee421786bdda8495ed1db045e06b5fe",
+      "subdir": "src",
+      "extensions": [
+        ".graphql",
+        ".gql"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "haskell",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-haskell",
+      "old_ref": "0975ef72fc3c47b530309ca93937d7d143523628",
+      "new_ref": "0975ef72fc3c47b530309ca93937d7d143523628",
+      "subdir": "src",
+      "extensions": [
+        ".hs",
+        ".lhs"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "hcl",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-hcl",
+      "old_ref": "64ad62785d442eb4d45df3a1764962dafd5bc98b",
+      "new_ref": "64ad62785d442eb4d45df3a1764962dafd5bc98b",
+      "subdir": "src",
+      "extensions": [
+        ".hcl",
+        ".tf",
+        ".tfvars"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "html",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-html",
+      "old_ref": "73a3947324f6efddf9e17c0ea58d454843590cc0",
+      "new_ref": "73a3947324f6efddf9e17c0ea58d454843590cc0",
+      "subdir": "src",
+      "extensions": [
+        ".html",
+        ".htm"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "ini",
+      "repo_url": "https://github.com/justinmk/tree-sitter-ini",
+      "old_ref": "e4018b5176132b4f3c5d6e61cea383f42288d0f5",
+      "new_ref": "e4018b5176132b4f3c5d6e61cea383f42288d0f5",
+      "subdir": "src",
+      "extensions": [
+        ".ini",
+        ".cfg",
+        ".conf"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "java",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-java",
+      "old_ref": "e10607b45ff745f5f876bfa3e94fbcc6b44bdc11",
+      "new_ref": "e10607b45ff745f5f876bfa3e94fbcc6b44bdc11",
+      "subdir": "src",
+      "extensions": [
+        ".java"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "javascript",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-javascript",
+      "old_ref": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
+      "new_ref": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
+      "subdir": "src",
+      "extensions": [
+        ".js",
+        ".mjs",
+        ".cjs"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "json",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-json",
+      "old_ref": "001c28d7a29832b06b0e831ec77845553c89b56d",
+      "new_ref": "001c28d7a29832b06b0e831ec77845553c89b56d",
+      "subdir": "src",
+      "extensions": [
+        ".json"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "json5",
+      "repo_url": "https://github.com/Joakker/tree-sitter-json5",
+      "old_ref": "aa630ef48903ab99e406a8acd2e2933077cc34e1",
+      "new_ref": "aa630ef48903ab99e406a8acd2e2933077cc34e1",
+      "subdir": "src",
+      "extensions": [
+        ".json5"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "julia",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-julia",
+      "old_ref": "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3",
+      "new_ref": "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3",
+      "subdir": "src",
+      "extensions": [
+        ".jl"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "kotlin",
+      "repo_url": "https://github.com/fwcd/tree-sitter-kotlin",
+      "old_ref": "c1010e00c77d15f1bc80691d507d001944f50d3a",
+      "new_ref": "f3a1ea74304adad67164a0a6ffe729428748a7a7",
+      "subdir": "src",
+      "extensions": [
+        ".kt",
+        ".kts"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "lua",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-lua",
+      "old_ref": "e40f5b6e6df9c2d1d6d664ff5d346a75d71ee6b2",
+      "new_ref": "10fe0054734eec83049514ea2e718b2a56acd0c9",
+      "subdir": "src",
+      "extensions": [
+        ".lua"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "make",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-make",
+      "old_ref": "70613f3d812cbabbd7f38d104d60a409c4008b43",
+      "new_ref": "70613f3d812cbabbd7f38d104d60a409c4008b43",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "markdown",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-markdown",
+      "old_ref": "f969cd3ae3f9fbd4e43205431d0ae286014c05b5",
+      "new_ref": "f969cd3ae3f9fbd4e43205431d0ae286014c05b5",
+      "subdir": "tree-sitter-markdown/src",
+      "extensions": [
+        ".md"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "nix",
+      "repo_url": "https://github.com/nix-community/tree-sitter-nix",
+      "old_ref": "eabf96807ea4ab6d6c7f09b671a88cd483542840",
+      "new_ref": "eabf96807ea4ab6d6c7f09b671a88cd483542840",
+      "subdir": "src",
+      "extensions": [
+        ".nix"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "objc",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-objc",
+      "old_ref": "181a81b8f23a2d593e7ab4259981f50122909fda",
+      "new_ref": "181a81b8f23a2d593e7ab4259981f50122909fda",
+      "subdir": "src",
+      "extensions": [
+        ".m"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "ocaml",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-ocaml",
+      "old_ref": "3ef7c00b29e41e3a0c1d18e82ea37c64d72b93fc",
+      "new_ref": "3ef7c00b29e41e3a0c1d18e82ea37c64d72b93fc",
+      "subdir": "grammars/ocaml/src",
+      "extensions": [
+        ".ml",
+        ".mli"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "perl",
+      "repo_url": "https://github.com/tree-sitter-perl/tree-sitter-perl",
+      "old_ref": "0c24d001dd1921e418fb933d208a7bd7dd3f923a",
+      "new_ref": "ad74e6db234c35d537de9358799a8e0cc4f5dee0",
+      "subdir": "src",
+      "extensions": [
+        ".pl",
+        ".pm"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "php",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-php",
+      "old_ref": "015ce839db5ae9ceda763bf12e071867fbe8cc89",
+      "new_ref": "015ce839db5ae9ceda763bf12e071867fbe8cc89",
+      "subdir": "php/src",
+      "extensions": [
+        ".php"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "powershell",
+      "repo_url": "https://github.com/airbus-cert/tree-sitter-powershell",
+      "old_ref": "da65ba3acc93777255781b447f5e7448245df4bf",
+      "new_ref": "da65ba3acc93777255781b447f5e7448245df4bf",
+      "subdir": "src",
+      "extensions": [
+        ".ps1",
+        ".psm1",
+        ".psd1"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "python",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-python",
+      "old_ref": "26855eabccb19c6abf499fbc5b8dc7cc9ab8bc64",
+      "new_ref": "26855eabccb19c6abf499fbc5b8dc7cc9ab8bc64",
+      "subdir": "src",
+      "extensions": [
+        ".py"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "r",
+      "repo_url": "https://github.com/r-lib/tree-sitter-r",
+      "old_ref": "0e6ef7741712c09dc3ee6e81c42e919820cc65ef",
+      "new_ref": "0e6ef7741712c09dc3ee6e81c42e919820cc65ef",
+      "subdir": "src",
+      "extensions": [
+        ".r",
+        ".R"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "ruby",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-ruby",
+      "old_ref": "ab6dca77a8184abc94af6e3e82538741b5078d63",
+      "new_ref": "ab6dca77a8184abc94af6e3e82538741b5078d63",
+      "subdir": "src",
+      "extensions": [
+        ".rb"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "rust",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-rust",
+      "old_ref": "261b20226c04ef601adbdf185a800512a5f66291",
+      "new_ref": "261b20226c04ef601adbdf185a800512a5f66291",
+      "subdir": "src",
+      "extensions": [
+        ".rs"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "scala",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-scala",
+      "old_ref": "97aead18d97708190a51d4f551ea9b05b60641c9",
+      "new_ref": "97aead18d97708190a51d4f551ea9b05b60641c9",
+      "subdir": "src",
+      "extensions": [
+        ".scala"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "scss",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-scss",
+      "old_ref": "bca847c1410f7dd97e13fbe7838b3c2c203fb473",
+      "new_ref": "bca847c1410f7dd97e13fbe7838b3c2c203fb473",
+      "subdir": "src",
+      "extensions": [
+        ".scss"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "sql",
+      "repo_url": "https://github.com/m-novikov/tree-sitter-sql",
+      "old_ref": "587f30d184b058450be2a2330878210c5f33b3f9",
+      "new_ref": "587f30d184b058450be2a2330878210c5f33b3f9",
+      "subdir": "src",
+      "extensions": [
+        ".sql"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "svelte",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-svelte",
+      "old_ref": "ae5199db47757f785e43a14b332118a5474de1a2",
+      "new_ref": "ae5199db47757f785e43a14b332118a5474de1a2",
+      "subdir": "src",
+      "extensions": [
+        ".svelte"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "swift",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-swift",
+      "old_ref": "db675450dcc1478ee128c96ecc61c13272431aab",
+      "new_ref": "db675450dcc1478ee128c96ecc61c13272431aab",
+      "subdir": "src",
+      "extensions": [
+        ".swift"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "toml",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-toml",
+      "old_ref": "342d9be207c2dba869b9967124c679b5e6fd0ebe",
+      "new_ref": "342d9be207c2dba869b9967124c679b5e6fd0ebe",
+      "subdir": "src",
+      "extensions": [
+        ".toml"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "tsx",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-typescript",
+      "old_ref": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+      "new_ref": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+      "subdir": "tsx/src",
+      "extensions": [
+        ".tsx"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "typescript",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-typescript",
+      "old_ref": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+      "new_ref": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+      "subdir": "typescript/src",
+      "extensions": [
+        ".ts"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "xml",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-xml",
+      "old_ref": "5000ae8f22d11fbe93939b05c1e37cf21117162d",
+      "new_ref": "5000ae8f22d11fbe93939b05c1e37cf21117162d",
+      "subdir": "xml/src",
+      "extensions": [
+        ".xml"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "yaml",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-yaml",
+      "old_ref": "4463985dfccc640f3d6991e3396a2047610cf5f8",
+      "new_ref": "4463985dfccc640f3d6991e3396a2047610cf5f8",
+      "subdir": "src",
+      "extensions": [
+        ".yaml",
+        ".yml"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "zig",
+      "repo_url": "https://github.com/maxxnino/tree-sitter-zig",
+      "old_ref": "a80a6e9be81b33b182ce6305ae4ea28e29211bd5",
+      "new_ref": "a80a6e9be81b33b182ce6305ae4ea28e29211bd5",
+      "subdir": "src",
+      "extensions": [
+        ".zig"
+      ],
+      "status": "unchanged",
+      "applied": false
+    }
+  ]
+}
