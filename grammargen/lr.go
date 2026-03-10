@@ -668,8 +668,27 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 	// Deduplicate only the incoming kernel up front. Newly discovered closure
 	// entries are dot=0 items and are tracked by dot0Index during closure; the
 	// final packed index can be built once at exact size after closure finishes.
+	//
+	// Seed the initial core slice capacity with the kernel plus the first-layer
+	// production fanout of unique nonterminals visible in that kernel. This is a
+	// cheap approximation of closure growth that reduces repeated backing-array
+	// expansion at the hot dot-0 append site.
+	capHint := len(kernel) * 2
+	seenKernelNTs := make(map[int]bool, len(kernel))
+	for _, ke := range kernel {
+		prod := &ng.Productions[ke.prodIdx]
+		if ke.dot >= len(prod.RHS) {
+			continue
+		}
+		nextSym := prod.RHS[ke.dot]
+		if nextSym < tokenCount || seenKernelNTs[nextSym] {
+			continue
+		}
+		seenKernelNTs[nextSym] = true
+		capHint += len(ctx.prodsByLHS[nextSym])
+	}
 	kernelIdx := make(map[uint64]int, len(kernel)*2)
-	cores := make([]coreEntry, 0, len(kernel)*2)
+	cores := make([]coreEntry, 0, capHint)
 	for _, ke := range kernel {
 		key := packCoreItemKey(ke.prodIdx, ke.dot)
 		if idx, ok := kernelIdx[key]; ok {
