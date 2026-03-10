@@ -293,6 +293,10 @@ type lrContext struct {
 	// large external-scanner grammars from losing critical boundary distinctions
 	// under aggressive state merging.
 	boundaryLookaheads bitset
+
+	// needReduceLAHash is true only when buildItemSets is using extended merging.
+	// Boundary-only and pure-core paths do not read reduceLAHash.
+	needReduceLAHash bool
 }
 
 func (ctx *lrContext) ensureProvenance() {
@@ -528,16 +532,17 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 	}
 	ctx.dot0Dirty = ctx.dot0Dirty[:0]
 
-	// Build initial core index from kernel.
-	coreIdx := make(map[coreItem]int, len(kernel)*2)
+	// Build initial core index from kernel using packed keys to keep the hot
+	// full-LR closure path on 64-bit map hashing instead of struct hashing.
+	coreIdx := make(map[uint64]int, len(kernel)*2)
 	cores := make([]coreEntry, 0, len(kernel)*2)
 	for _, ke := range kernel {
-		c := coreItem{ke.prodIdx, ke.dot}
-		if idx, ok := coreIdx[c]; ok {
+		key := packCoreItemKey(ke.prodIdx, ke.dot)
+		if idx, ok := coreIdx[key]; ok {
 			cores[idx].lookaheads.unionWith(&ke.lookaheads)
 		} else {
 			idx := len(cores)
-			coreIdx[c] = idx
+			coreIdx[key] = idx
 			cores = append(cores, coreEntry{
 				prodIdx:    ke.prodIdx,
 				dot:        ke.dot,
@@ -588,7 +593,7 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 				tidx = len(cores)
 				ctx.dot0Index[prodIdx] = tidx
 				ctx.dot0Dirty = append(ctx.dot0Dirty, prodIdx)
-				coreIdx[coreItem{prodIdx, 0}] = tidx
+				coreIdx[packCoreItemKey(prodIdx, 0)] = tidx
 				cores = append(cores, coreEntry{
 					prodIdx:    prodIdx,
 					dot:        0,
@@ -627,10 +632,10 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 	}
 
 	set := lrItemSet{
-		cores:     cores,
-		coreIndex: coreIdx,
+		cores:           cores,
+		packedCoreIndex: coreIdx,
 	}
-	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads)
+	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads, ctx.needReduceLAHash)
 	return set
 }
 
@@ -726,7 +731,7 @@ func (ctx *lrContext) closureIncremental(set *lrItemSet, newEntries []coreEntry)
 		}
 	}
 
-	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads)
+	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads, ctx.needReduceLAHash)
 }
 
 // betaResult caches the FIRST set and nullability of a production suffix.
@@ -819,7 +824,7 @@ func maskedBitsetEqual(a, b, mask *bitset) bool {
 // computeHashes computes coreHash, fullHash, and reduceLAHash for the item set.
 // Uses commutative (additive) hashing so order of cores doesn't matter,
 // avoiding the need to sort.
-func (set *lrItemSet) computeHashes(prods []Production, boundaryMask *bitset) {
+func (set *lrItemSet) computeHashes(prods []Production, boundaryMask *bitset, includeReduceHash bool) {
 	var ch, fh, rh, brh uint64
 	for _, c := range set.cores {
 		m := mixCoreItem(c.prodIdx, c.dot)
@@ -828,14 +833,18 @@ func (set *lrItemSet) computeHashes(prods []Production, boundaryMask *bitset) {
 		if boundaryMask != nil {
 			brh += maskedBitsetHash(&c.lookaheads, boundaryMask)
 		}
-		if c.dot >= len(prods[c.prodIdx].RHS) {
+		if includeReduceHash && c.dot >= len(prods[c.prodIdx].RHS) {
 			laHash := c.lookaheads.hash()
 			rh += laHash
 		}
 	}
 	set.coreHash = ch
 	set.fullHash = fh
-	set.reduceLAHash = ch + rh
+	if includeReduceHash {
+		set.reduceLAHash = ch + rh
+	} else {
+		set.reduceLAHash = ch
+	}
 	set.boundaryLAHash = ch + brh
 }
 
@@ -947,6 +956,7 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 	const maxExtendedStates = 8000
 	useExtendedMerging := len(ctx.ng.Productions) <= 800
 	useBoundaryMerging := len(ctx.ng.ExternalSymbols) > 0 && len(ctx.ng.Productions) > 800
+	ctx.needReduceLAHash = useExtendedMerging
 
 	// Initial item set: closure of [S' → .S, $end]
 	initialLA := newBitset(tokenCount)
@@ -958,9 +968,15 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 	}})
 	ctx.itemSets = []lrItemSet{initialSet}
 	addToHashMap(fullMap, initialSet.fullHash, 0)
-	addToHashMap(coreMap, initialSet.coreHash, 0)
-	addToHashMap(extMap, initialSet.reduceLAHash, 0)
-	addToHashMap(boundaryMap, initialSet.boundaryLAHash, 0)
+	if !useExtendedMerging && !useBoundaryMerging {
+		addToHashMap(coreMap, initialSet.coreHash, 0)
+	}
+	if useExtendedMerging {
+		addToHashMap(extMap, initialSet.reduceLAHash, 0)
+	}
+	if useBoundaryMerging {
+		addToHashMap(boundaryMap, initialSet.boundaryLAHash, 0)
+	}
 	ctx.recordFreshState(0)
 
 	worklist := []int{0}
@@ -1059,7 +1075,6 @@ func (ctx *lrContext) findOrCreateState(
 		for entry := boundaryMap[closedSet.boundaryLAHash]; entry != nil; entry = entry.next {
 			existing := &ctx.itemSets[entry.stateIdx]
 			if existing.coreHash == closedSet.coreHash &&
-				sameCores(existing, closedSet) &&
 				sameBoundaryLookaheads(existing, closedSet, &ctx.boundaryLookaheads) {
 				return ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
 			}
@@ -1078,9 +1093,15 @@ func (ctx *lrContext) findOrCreateState(
 	newIdx := len(ctx.itemSets)
 	ctx.itemSets = append(ctx.itemSets, *closedSet)
 	addToHashMap(fullMap, closedSet.fullHash, newIdx)
-	addToHashMap(coreMap, closedSet.coreHash, newIdx)
-	addToHashMap(extMap, closedSet.reduceLAHash, newIdx)
-	addToHashMap(boundaryMap, closedSet.boundaryLAHash, newIdx)
+	if coreMap != nil {
+		addToHashMap(coreMap, closedSet.coreHash, newIdx)
+	}
+	if extMap != nil {
+		addToHashMap(extMap, closedSet.reduceLAHash, newIdx)
+	}
+	if boundaryMap != nil {
+		addToHashMap(boundaryMap, closedSet.boundaryLAHash, newIdx)
+	}
 	ctx.recordFreshState(newIdx)
 	*worklist = append(*worklist, newIdx)
 	(*inWorklist)[newIdx] = true
@@ -1119,6 +1140,8 @@ func (ctx *lrContext) mergeInto(
 	}
 
 	if len(newEntries) > 0 {
+		oldReduceHash := existing.reduceLAHash
+		oldBoundaryHash := existing.boundaryLAHash
 		ctx.closureIncremental(existing, newEntries)
 		ctx.recordMergedState(idx, mergeOrigin{
 			kernelHash:  closedSet.coreHash,
@@ -1126,8 +1149,12 @@ func (ctx *lrContext) mergeInto(
 		})
 		// Update hash maps with new hashes.
 		addToHashMap(fullMap, existing.fullHash, idx)
-		addToHashMap(extMap, existing.reduceLAHash, idx)
-		addToHashMap(boundaryMap, existing.boundaryLAHash, idx)
+		if extMap != nil && existing.reduceLAHash != oldReduceHash {
+			addToHashMap(extMap, existing.reduceLAHash, idx)
+		}
+		if boundaryMap != nil && existing.boundaryLAHash != oldBoundaryHash {
+			addToHashMap(boundaryMap, existing.boundaryLAHash, idx)
+		}
 		if !(*inWorklist)[idx] {
 			*worklist = append(*worklist, idx)
 			(*inWorklist)[idx] = true

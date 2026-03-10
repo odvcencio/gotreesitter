@@ -420,7 +420,7 @@ func (ctx *lrContext) computeLALRLookaheads() {
 
 	// Recompute hashes now that lookaheads are populated.
 	for i := range ctx.itemSets {
-		ctx.itemSets[i].computeHashes(ng.Productions, &ctx.boundaryLookaheads)
+		ctx.itemSets[i].computeHashes(ng.Productions, &ctx.boundaryLookaheads, false)
 	}
 }
 
