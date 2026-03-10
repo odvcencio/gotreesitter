@@ -297,6 +297,12 @@ type lrContext struct {
 	// needReduceLAHash is true only when buildItemSets is using extended merging.
 	// Boundary-only and pure-core paths do not read reduceLAHash.
 	needReduceLAHash bool
+
+	// Reusable closure queue scratch keeps closureToSet/closureIncremental from
+	// reallocating worklists and in-queue tracking on every item-set build.
+	closureWorklist  []int
+	closureQueuedGen []uint32
+	closureQueueGen  uint32
 }
 
 // conflictResolutionCache stores grammar-wide declared-conflict metadata that
@@ -345,6 +351,24 @@ func getConflictResolutionCache(ng *NormalizedGrammar) *conflictResolutionCache 
 
 	ng.conflictCache = cache
 	return cache
+}
+
+func (ctx *lrContext) nextClosureQueueGen() uint32 {
+	ctx.closureQueueGen++
+	if ctx.closureQueueGen == 0 {
+		for i := range ctx.closureQueuedGen {
+			ctx.closureQueuedGen[i] = 0
+		}
+		ctx.closureQueueGen = 1
+	}
+	return ctx.closureQueueGen
+}
+
+func (ctx *lrContext) ensureClosureQueueCapacity(size int) {
+	if size <= len(ctx.closureQueuedGen) {
+		return
+	}
+	ctx.closureQueuedGen = append(ctx.closureQueuedGen, make([]uint32, size-len(ctx.closureQueuedGen))...)
 }
 
 func (ctx *lrContext) ensureProvenance() {
@@ -605,19 +629,19 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 	}
 
 	// Worklist of core indices that need (re-)processing.
-	worklist := make([]int, 0, len(cores))
-	inWorklist := make([]bool, 0, len(cores)*2)
+	ctx.ensureClosureQueueCapacity(len(cores))
+	queueGen := ctx.nextClosureQueueGen()
+	worklist := ctx.closureWorklist[:0]
 	for i := range cores {
 		worklist = append(worklist, i)
-		inWorklist = append(inWorklist, true)
+		ctx.closureQueuedGen[i] = queueGen
 	}
+	head := 0
 
-	for len(worklist) > 0 {
-		ci := worklist[0]
-		worklist = worklist[1:]
-		if ci < len(inWorklist) {
-			inWorklist[ci] = false
-		}
+	for head < len(worklist) {
+		ci := worklist[head]
+		head++
+		ctx.closureQueuedGen[ci] = 0
 
 		ce := &cores[ci]
 		prod := &ng.Productions[ce.prodIdx]
@@ -647,10 +671,7 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 					dot:        0,
 					lookaheads: newBitset(tokenCount),
 				})
-				// Grow inWorklist if needed.
-				for len(inWorklist) <= tidx {
-					inWorklist = append(inWorklist, false)
-				}
+				ctx.ensureClosureQueueCapacity(tidx + 1)
 			}
 
 			addedNew := false
@@ -665,19 +686,13 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 				}
 			}
 			// Re-process target if it gained new lookaheads.
-			if addedNew && tidx < len(inWorklist) && !inWorklist[tidx] {
+			if addedNew && ctx.closureQueuedGen[tidx] != queueGen {
 				worklist = append(worklist, tidx)
-				inWorklist[tidx] = true
-			}
-			if addedNew && tidx >= len(inWorklist) {
-				for len(inWorklist) <= tidx {
-					inWorklist = append(inWorklist, false)
-				}
-				worklist = append(worklist, tidx)
-				inWorklist[tidx] = true
+				ctx.closureQueuedGen[tidx] = queueGen
 			}
 		}
 	}
+	ctx.closureWorklist = worklist[:0]
 
 	set := lrItemSet{
 		cores:           cores,
@@ -693,15 +708,16 @@ func (ctx *lrContext) closureIncremental(set *lrItemSet, newEntries []coreEntry)
 	tokenCount := ctx.tokenCount
 
 	// Merge new entries into existing set and track which cores changed.
-	var worklist []int
-	inWorklist := make([]bool, len(set.cores)+len(newEntries))
+	ctx.ensureClosureQueueCapacity(len(set.cores) + len(newEntries))
+	queueGen := ctx.nextClosureQueueGen()
+	worklist := ctx.closureWorklist[:0]
 
 	for _, ne := range newEntries {
 		if idx, ok := set.coreLookup(ne.prodIdx, ne.dot); ok {
 			if set.cores[idx].lookaheads.unionWith(&ne.lookaheads) {
-				if !inWorklist[idx] {
+				if ctx.closureQueuedGen[idx] != queueGen {
 					worklist = append(worklist, idx)
-					inWorklist[idx] = true
+					ctx.closureQueuedGen[idx] = queueGen
 				}
 			}
 		} else {
@@ -712,20 +728,17 @@ func (ctx *lrContext) closureIncremental(set *lrItemSet, newEntries []coreEntry)
 				dot:        ne.dot,
 				lookaheads: ne.lookaheads.clone(),
 			})
-			for len(inWorklist) <= idx {
-				inWorklist = append(inWorklist, false)
-			}
+			ctx.ensureClosureQueueCapacity(idx + 1)
 			worklist = append(worklist, idx)
-			inWorklist[idx] = true
+			ctx.closureQueuedGen[idx] = queueGen
 		}
 	}
+	head := 0
 
-	for len(worklist) > 0 {
-		ci := worklist[0]
-		worklist = worklist[1:]
-		if ci < len(inWorklist) {
-			inWorklist[ci] = false
-		}
+	for head < len(worklist) {
+		ci := worklist[head]
+		head++
+		ctx.closureQueuedGen[ci] = 0
 
 		ce := &set.cores[ci]
 		prod := &ng.Productions[ce.prodIdx]
@@ -751,9 +764,7 @@ func (ctx *lrContext) closureIncremental(set *lrItemSet, newEntries []coreEntry)
 					dot:        0,
 					lookaheads: newBitset(tokenCount),
 				})
-				for len(inWorklist) <= tidx {
-					inWorklist = append(inWorklist, false)
-				}
+				ctx.ensureClosureQueueCapacity(tidx + 1)
 			}
 
 			addedNew := false
@@ -766,18 +777,14 @@ func (ctx *lrContext) closureIncremental(set *lrItemSet, newEntries []coreEntry)
 				}
 			}
 			if addedNew {
-				if tidx >= len(inWorklist) {
-					for len(inWorklist) <= tidx {
-						inWorklist = append(inWorklist, false)
-					}
-				}
-				if !inWorklist[tidx] {
+				if ctx.closureQueuedGen[tidx] != queueGen {
 					worklist = append(worklist, tidx)
-					inWorklist[tidx] = true
+					ctx.closureQueuedGen[tidx] = queueGen
 				}
 			}
 		}
 	}
+	ctx.closureWorklist = worklist[:0]
 
 	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads, ctx.needReduceLAHash)
 }
