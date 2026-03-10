@@ -2,6 +2,7 @@ package grammargen
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -33,6 +34,9 @@ type lrItemSet struct {
 	// all items. This helps preserve boundary-sensitive contexts in very large
 	// external-scanner grammars.
 	boundaryLAHash uint64
+	// annotationArgTag preserves predecessor-sensitive context only inside the
+	// local annotation-argument expression subgraph for large Scala-like grammars.
+	annotationArgTag uint32
 }
 
 func (set *lrItemSet) coreLookup(prodIdx, dot int) (int, bool) {
@@ -131,7 +135,81 @@ func buildLRTablesInternal(ng *NormalizedGrammar, trackProvenance bool) (*LRTabl
 			ctx.boundaryLookaheads.add(sym)
 		}
 	}
-
+	// Preserve large-grammar declaration boundaries that otherwise disappear
+	// under early core merging. This is especially important for annotation-
+	// heavy Scala states where the same LR(0) core can legitimately continue
+	// into different declaration forms (def/val/var/enum/class/trait/...).
+	definitionBoundary := map[string]bool{
+		"@":         true,
+		"class":     true,
+		"trait":     true,
+		"object":    true,
+		"enum":      true,
+		"given":     true,
+		"def":       true,
+		"val":       true,
+		"var":       true,
+		"type":      true,
+		"extension": true,
+		"case":      true,
+		"opaque":    true,
+		"import":    true,
+		"package":   true,
+	}
+	for sym := 0; sym < tokenCount; sym++ {
+		if definitionBoundary[ng.Symbols[sym].Name] {
+			ctx.boundaryLookaheads.add(sym)
+		}
+	}
+	ctx.annotationAtSym = -1
+	ctx.annotationDefSym = -1
+	ctx.annotationOpenParenSym = -1
+	ctx.annotationCloseParenSym = -1
+	ctx.annotationArgCarrierLHS = make([]bool, len(ng.Symbols))
+	annotationArgCarrierNames := map[string]bool{
+		"arguments":                true,
+		"_exprs_in_parens":         true,
+		"expression":               true,
+		"assignment_expression":    true,
+		"lambda_expression":        true,
+		"postfix_expression":       true,
+		"ascription_expression":    true,
+		"infix_expression":         true,
+		"prefix_expression":        true,
+		"return_expression":        true,
+		"throw_expression":         true,
+		"while_expression":         true,
+		"do_while_expression":      true,
+		"for_expression":           true,
+		"macro_body":               true,
+		"_simple_expression":       true,
+		"identifier":               true,
+		"_non_null_literal":        true,
+		"string":                   true,
+		"unit":                     true,
+		"tuple_expression":         true,
+		"parenthesized_expression": true,
+		"field_expression":         true,
+		"generic_function":         true,
+		"call_expression":          true,
+		"bindings":                 true,
+		"type_parameters":          true,
+	}
+	for i, sym := range ng.Symbols {
+		switch sym.Name {
+		case "@":
+			ctx.annotationAtSym = i
+		case "def":
+			ctx.annotationDefSym = i
+		case "(":
+			ctx.annotationOpenParenSym = i
+		case ")":
+			ctx.annotationCloseParenSym = i
+		}
+		if annotationArgCarrierNames[sym.Name] {
+			ctx.annotationArgCarrierLHS[i] = true
+		}
+	}
 	// Build production-by-LHS index for fast closure lookups.
 	for i := range ng.Productions {
 		lhs := ng.Productions[i].LHS
@@ -313,10 +391,17 @@ type lrContext struct {
 	// large external-scanner grammars from losing critical boundary distinctions
 	// under aggressive state merging.
 	boundaryLookaheads bitset
-
 	// needReduceLAHash is true only when buildItemSets is using extended merging.
 	// Boundary-only and pure-core paths do not read reduceLAHash.
 	needReduceLAHash bool
+	// Narrow annotation-argument tagging metadata. These are precomputed once so
+	// buildItemSets can cheaply preserve declaration-family context only while a
+	// state remains inside annotation arguments.
+	annotationAtSym         int
+	annotationDefSym        int
+	annotationOpenParenSym  int
+	annotationCloseParenSym int
+	annotationArgCarrierLHS []bool
 
 	// Reusable closure queue scratch keeps closureToSet/closureIncremental from
 	// reallocating worklists and in-queue tracking on every item-set build.
@@ -485,9 +570,247 @@ func (ctx *lrContext) recycleItemSetLookaheads(set *lrItemSet) {
 	set.packedCoreIndex = nil
 }
 
+type extraChainBuilder struct {
+	tables          *LRTables
+	ng              *NormalizedGrammar
+	ctx             *lrContext
+	tokenCount      int
+	syntheticStart  int
+	terminalExtras  []int
+	chainStateCache map[string]int
+	entryStateCache map[string]int
+	entrySeen       map[string]bool
+	unionStateCache map[string]int
+}
+
+func newExtraChainBuilder(tables *LRTables, ng *NormalizedGrammar, ctx *lrContext, terminalExtras []int) *extraChainBuilder {
+	return &extraChainBuilder{
+		tables:          tables,
+		ng:              ng,
+		ctx:             ctx,
+		tokenCount:      ng.TokenCount(),
+		syntheticStart:  tables.StateCount,
+		terminalExtras:  terminalExtras,
+		chainStateCache: make(map[string]int),
+		entryStateCache: make(map[string]int),
+		entrySeen:       make(map[string]bool),
+		unionStateCache: make(map[string]int),
+	}
+}
+
+func (b *extraChainBuilder) newState() int {
+	stateIdx := b.tables.StateCount
+	b.tables.StateCount++
+	b.tables.ActionTable[stateIdx] = make(map[int][]lrAction)
+	b.tables.GotoTable[stateIdx] = make(map[int]int)
+	return stateIdx
+}
+
+func (b *extraChainBuilder) finalizeState(stateIdx int) {
+	for _, extraSym := range b.terminalExtras {
+		if _, ok := b.tables.ActionTable[stateIdx][extraSym]; ok {
+			continue
+		}
+		b.tables.ActionTable[stateIdx][extraSym] = []lrAction{{
+			kind:    lrShift,
+			state:   stateIdx,
+			isExtra: true,
+		}}
+	}
+}
+
+func extraChainStateKey(a, b int, lookaheads *bitset) string {
+	var sb strings.Builder
+	sb.Grow(32 + len(lookaheads.words)*17)
+	fmt.Fprintf(&sb, "%d:%d", a, b)
+	for _, w := range lookaheads.words {
+		fmt.Fprintf(&sb, ":%x", w)
+	}
+	return sb.String()
+}
+
+func (b *extraChainBuilder) buildProdChain(prodIdx, pos int, follow bitset) int {
+	key := extraChainStateKey(prodIdx, pos, &follow)
+	if stateIdx, ok := b.chainStateCache[key]; ok {
+		return stateIdx
+	}
+
+	stateIdx := b.newState()
+	b.chainStateCache[key] = stateIdx
+	b.addProdContinuation(stateIdx, prodIdx, pos, follow)
+	b.finalizeState(stateIdx)
+	return stateIdx
+}
+
+func (b *extraChainBuilder) buildEntryState(firstSym int, prodIdxs []int, follow bitset) int {
+	key := extraChainStateKey(-(firstSym + 1), 0, &follow)
+	if stateIdx, ok := b.entryStateCache[key]; ok {
+		return stateIdx
+	}
+
+	stateIdx := b.newState()
+	b.entryStateCache[key] = stateIdx
+	for _, prodIdx := range prodIdxs {
+		b.addProdContinuation(stateIdx, prodIdx, 1, follow)
+	}
+	b.finalizeState(stateIdx)
+	return stateIdx
+}
+
+func (b *extraChainBuilder) unionSyntheticStates(a, c int) int {
+	if a == c || a < b.syntheticStart || c < b.syntheticStart {
+		return a
+	}
+	if a > c {
+		a, c = c, a
+	}
+	key := fmt.Sprintf("%d:%d", a, c)
+	if stateIdx, ok := b.unionStateCache[key]; ok {
+		return stateIdx
+	}
+
+	stateIdx := b.newState()
+	b.unionStateCache[key] = stateIdx
+	for _, src := range []int{a, c} {
+		if srcActions, ok := b.tables.ActionTable[src]; ok {
+			for sym, acts := range srcActions {
+				for _, act := range acts {
+					b.tables.addAction(stateIdx, sym, act)
+				}
+			}
+		}
+		if srcGotos, ok := b.tables.GotoTable[src]; ok {
+			for sym, target := range srcGotos {
+				existing, ok := b.tables.GotoTable[stateIdx][sym]
+				if !ok || existing == target {
+					b.tables.GotoTable[stateIdx][sym] = target
+					continue
+				}
+				if existing >= b.syntheticStart && target >= b.syntheticStart {
+					b.tables.GotoTable[stateIdx][sym] = b.unionSyntheticStates(existing, target)
+					continue
+				}
+				if os.Getenv("GTS_TMP_EXTRA_CHAIN_GOTO_CONFLICTS") == "1" {
+					fmt.Printf("[extra-goto-conflict] union state=%d sym=%s existing=%d new=%d\n",
+						stateIdx, b.ng.Symbols[sym].Name, existing, target)
+				}
+			}
+		}
+	}
+	b.finalizeState(stateIdx)
+	return stateIdx
+}
+
+func (b *extraChainBuilder) addProdContinuation(stateIdx, prodIdx, pos int, follow bitset) {
+	prod := &b.ng.Productions[prodIdx]
+	if pos >= len(prod.RHS) {
+		follow.forEach(func(la int) {
+			b.tables.addAction(stateIdx, la, lrAction{
+				kind:    lrReduce,
+				prodIdx: prodIdx,
+				lhsSym:  prod.LHS,
+				isExtra: prod.IsExtra,
+			})
+		})
+		return
+	}
+
+	nextSym := prod.RHS[pos]
+	if nextSym < b.tokenCount {
+		targetState := b.buildProdChain(prodIdx, pos+1, follow)
+		b.tables.addAction(stateIdx, nextSym, lrAction{
+			kind:    lrShift,
+			state:   targetState,
+			prec:    prod.Prec,
+			assoc:   prod.Assoc,
+			lhsSym:  prod.LHS,
+			isExtra: prod.IsExtra,
+		})
+		return
+	}
+
+	targetState := b.buildProdChain(prodIdx, pos+1, follow)
+	existing, ok := b.tables.GotoTable[stateIdx][nextSym]
+	if !ok || existing == targetState {
+		b.tables.GotoTable[stateIdx][nextSym] = targetState
+	} else if existing >= b.syntheticStart && targetState >= b.syntheticStart {
+		b.tables.GotoTable[stateIdx][nextSym] = b.unionSyntheticStates(existing, targetState)
+	} else if os.Getenv("GTS_TMP_EXTRA_CHAIN_GOTO_CONFLICTS") == "1" {
+		fmt.Printf("[extra-goto-conflict] prod-cont state=%d sym=%s existing=%d new=%d follow=%s\n",
+			stateIdx, b.ng.Symbols[nextSym].Name, existing, targetState, dumpExtraChainBitset(b.ng, &follow))
+	}
+	nextFollow := b.ctx.firstOfSequenceWithFallback(prod.RHS[pos+1:], &follow)
+	b.addNonterminalEntries(stateIdx, nextSym, nextFollow)
+}
+
+func (b *extraChainBuilder) addNonterminalEntries(stateIdx, sym int, follow bitset) {
+	key := extraChainStateKey(stateIdx, sym, &follow)
+	if b.entrySeen[key] {
+		return
+	}
+	b.entrySeen[key] = true
+
+	for _, prodIdx := range b.ctx.prodsByLHS[sym] {
+		prod := &b.ng.Productions[prodIdx]
+		if len(prod.RHS) == 0 {
+			follow.forEach(func(la int) {
+				b.tables.addAction(stateIdx, la, lrAction{
+					kind:    lrReduce,
+					prodIdx: prodIdx,
+					lhsSym:  prod.LHS,
+					isExtra: prod.IsExtra,
+				})
+			})
+			continue
+		}
+
+		firstSym := prod.RHS[0]
+		if firstSym < b.tokenCount {
+			targetState := b.buildProdChain(prodIdx, 1, follow)
+			b.tables.addAction(stateIdx, firstSym, lrAction{
+				kind:    lrShift,
+				state:   targetState,
+				prec:    prod.Prec,
+				assoc:   prod.Assoc,
+				lhsSym:  prod.LHS,
+				isExtra: prod.IsExtra,
+			})
+			continue
+		}
+
+		targetState := b.buildProdChain(prodIdx, 1, follow)
+		existing, ok := b.tables.GotoTable[stateIdx][firstSym]
+		if !ok || existing == targetState {
+			b.tables.GotoTable[stateIdx][firstSym] = targetState
+		} else if existing >= b.syntheticStart && targetState >= b.syntheticStart {
+			b.tables.GotoTable[stateIdx][firstSym] = b.unionSyntheticStates(existing, targetState)
+		} else if os.Getenv("GTS_TMP_EXTRA_CHAIN_GOTO_CONFLICTS") == "1" {
+			fmt.Printf("[extra-goto-conflict] nt-entry state=%d sym=%s existing=%d new=%d follow=%s\n",
+				stateIdx, b.ng.Symbols[firstSym].Name, existing, targetState, dumpExtraChainBitset(b.ng, &follow))
+		}
+		nextFollow := b.ctx.firstOfSequenceWithFallback(prod.RHS[1:], &follow)
+		b.addNonterminalEntries(stateIdx, firstSym, nextFollow)
+	}
+}
+
+func dumpExtraChainBitset(ng *NormalizedGrammar, bs *bitset) string {
+	if bs == nil {
+		return "<nil>"
+	}
+	names := make([]string, 0)
+	bs.forEach(func(sym int) {
+		if sym >= 0 && sym < len(ng.Symbols) {
+			names = append(names, ng.Symbols[sym].Name)
+		} else {
+			names = append(names, fmt.Sprintf("%d", sym))
+		}
+	})
+	return strings.Join(names, ",")
+}
+
 // addNonterminalExtraChains creates dedicated parse state chains for nonterminal
 // extra productions and adds shift actions from every main state.
-func addNonterminalExtraChains(tables *LRTables, ng *NormalizedGrammar) {
+func addNonterminalExtraChains(tables *LRTables, ng *NormalizedGrammar, ctx *lrContext) {
 	tokenCount := ng.TokenCount()
 	if len(ng.ExtraSymbols) == 0 {
 		return
@@ -505,87 +828,57 @@ func addNonterminalExtraChains(tables *LRTables, ng *NormalizedGrammar) {
 
 	mainStateCount := tables.StateCount
 
-	mainValidTerminals := make(map[int]bool)
-	for state := 0; state < mainStateCount; state++ {
-		for sym := range tables.ActionTable[state] {
-			if sym < tokenCount {
-				mainValidTerminals[sym] = true
-			}
-		}
-	}
+	var terminalExtras []int
 	for _, e := range ng.ExtraSymbols {
 		if e > 0 && e < tokenCount {
-			mainValidTerminals[e] = true
+			terminalExtras = append(terminalExtras, e)
 		}
 	}
-	mainValidTerminals[0] = true
-	// Include the first terminal of each nonterminal extra production.
-	// Without this, consecutive nonterminal extras (e.g., two comments in a
-	// row) fail because the chain's reduce state has no action for the start
-	// token of the next extra, preventing the reduce from firing.
+
+	extraStartsByFirstSym := make(map[int][]int)
+	var extraFirstSyms []int
 	for _, prodIdx := range extraProds {
 		prod := &ng.Productions[prodIdx]
 		if len(prod.RHS) > 0 && prod.RHS[0] < tokenCount {
-			mainValidTerminals[prod.RHS[0]] = true
+			firstSym := prod.RHS[0]
+			if _, ok := extraStartsByFirstSym[firstSym]; !ok {
+				extraFirstSyms = append(extraFirstSyms, firstSym)
+			}
+			extraStartsByFirstSym[firstSym] = append(extraStartsByFirstSym[firstSym], prodIdx)
 		}
 	}
 
-	for _, prodIdx := range extraProds {
-		prod := &ng.Productions[prodIdx]
-		rhsLen := len(prod.RHS)
-
-		chainStart := tables.StateCount
-		for i := 0; i < rhsLen; i++ {
-			stateIdx := chainStart + i
-			tables.ActionTable[stateIdx] = make(map[int][]lrAction)
-			tables.GotoTable[stateIdx] = make(map[int]int)
-
-			if i < rhsLen-1 {
-				nextSym := prod.RHS[i+1]
-				if nextSym < tokenCount {
-					tables.ActionTable[stateIdx][nextSym] = []lrAction{{
-						kind:    lrShift,
-						state:   stateIdx + 1,
-						isExtra: true,
-					}}
-				}
-			} else {
-				for t := range mainValidTerminals {
-					tables.ActionTable[stateIdx][t] = []lrAction{{
-						kind:    lrReduce,
-						prodIdx: prodIdx,
-						lhsSym:  prod.LHS,
-						isExtra: true,
-					}}
-				}
-			}
-
-			for _, extraSym := range ng.ExtraSymbols {
-				if extraSym < tokenCount {
-					if _, ok := tables.ActionTable[stateIdx][extraSym]; !ok {
-						tables.ActionTable[stateIdx][extraSym] = []lrAction{{
-							kind:    lrShift,
-							state:   stateIdx,
-							isExtra: true,
-						}}
-					}
+	stateFollowSets := make([]bitset, mainStateCount)
+	for state := 0; state < mainStateCount; state++ {
+		follow := newBitset(tokenCount)
+		if acts, ok := tables.ActionTable[state]; ok {
+			for sym, actionList := range acts {
+				if sym < tokenCount && len(actionList) > 0 {
+					follow.add(sym)
 				}
 			}
 		}
-		tables.StateCount += rhsLen
-
-		firstSym := prod.RHS[0]
-		if firstSym >= tokenCount {
-			continue
+		for _, extraSym := range terminalExtras {
+			follow.add(extraSym)
 		}
-		for state := 0; state < mainStateCount; state++ {
-			if _, ok := tables.ActionTable[state][firstSym]; !ok {
-				tables.ActionTable[state][firstSym] = []lrAction{{
-					kind:    lrShift,
-					state:   chainStart,
-					isExtra: true,
-				}}
-			}
+		for _, firstSym := range extraFirstSyms {
+			follow.add(firstSym)
+		}
+		stateFollowSets[state] = follow
+	}
+
+	builder := newExtraChainBuilder(tables, ng, ctx, terminalExtras)
+
+	for state := 0; state < mainStateCount; state++ {
+		follow := stateFollowSets[state]
+		for firstSym, prodIdxs := range extraStartsByFirstSym {
+			entryState := builder.buildEntryState(firstSym, prodIdxs, follow)
+			tables.addAction(state, firstSym, lrAction{
+				kind:    lrShift,
+				state:   entryState,
+				lhsSym:  0,
+				isExtra: true,
+			})
 		}
 	}
 }
@@ -651,6 +944,21 @@ func (ctx *lrContext) firstOfSequence(syms []int) bitset {
 		if sym < ctx.tokenCount || !ctx.nullables[sym] {
 			return result
 		}
+	}
+	return result
+}
+
+// firstOfSequenceWithFallback computes FIRST(β) for a sequence and unions the
+// fallback lookaheads when the full sequence is nullable.
+func (ctx *lrContext) firstOfSequenceWithFallback(syms []int, fallback *bitset) bitset {
+	result := ctx.firstOfSequence(syms)
+	for _, sym := range syms {
+		if sym < ctx.tokenCount || !ctx.nullables[sym] {
+			return result
+		}
+	}
+	if fallback != nil {
+		result.unionWith(fallback)
 	}
 	return result
 }
@@ -962,6 +1270,61 @@ func maskedBitsetEqual(a, b, mask *bitset) bool {
 	return true
 }
 
+func sameAnnotationArgTag(a, b *lrItemSet) bool {
+	return a.annotationArgTag == b.annotationArgTag
+}
+
+func (ctx *lrContext) isAnnotationArgumentEntrySet(set *lrItemSet) bool {
+	if ctx.annotationAtSym < 0 || ctx.annotationDefSym < 0 || ctx.annotationOpenParenSym < 0 {
+		return false
+	}
+	for _, ce := range set.cores {
+		prod := ctx.ng.Productions[ce.prodIdx]
+		if ctx.ng.Symbols[prod.LHS].Name != "arguments" {
+			continue
+		}
+		if ce.dot != 1 || len(prod.RHS) == 0 || prod.RHS[0] != ctx.annotationOpenParenSym {
+			continue
+		}
+		if ce.lookaheads.contains(ctx.annotationAtSym) && ce.lookaheads.contains(ctx.annotationDefSym) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctx *lrContext) isAnnotationArgumentCarrierSet(set *lrItemSet) bool {
+	if ctx.annotationCloseParenSym < 0 {
+		return false
+	}
+	for _, ce := range set.cores {
+		prod := ctx.ng.Productions[ce.prodIdx]
+		if prod.LHS < 0 || prod.LHS >= len(ctx.annotationArgCarrierLHS) || !ctx.annotationArgCarrierLHS[prod.LHS] {
+			continue
+		}
+		if ce.lookaheads.contains(ctx.annotationCloseParenSym) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctx *lrContext) annotationArgTagForTransition(sourceState int, closedSet *lrItemSet) uint32 {
+	if len(ctx.ng.Productions) < 2000 || sourceState < 0 || sourceState >= len(ctx.itemSets) {
+		return 0
+	}
+	if srcTag := ctx.itemSets[sourceState].annotationArgTag; srcTag != 0 {
+		if ctx.isAnnotationArgumentCarrierSet(closedSet) {
+			return srcTag
+		}
+		return 0
+	}
+	if ctx.isAnnotationArgumentEntrySet(closedSet) {
+		return 1
+	}
+	return 0
+}
+
 // computeHashes computes coreHash, fullHash, and reduceLAHash for the item set.
 // Uses commutative (additive) hashing so order of cores doesn't matter,
 // avoiding the need to sort.
@@ -1153,6 +1516,7 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 			}
 
 			closedSet := ctx.closureToSet(advanced)
+			closedSet.annotationArgTag = ctx.annotationArgTagForTransition(stateIdx, &closedSet)
 			ctx.gotoAdvancedScratch = advanced[:0]
 
 			targetIdx := ctx.findOrCreateState(
@@ -1190,7 +1554,8 @@ func (ctx *lrContext) findOrCreateState(
 ) int {
 	// 1. Check exact LR(1) match via fullHash.
 	for entry := fullMap[closedSet.fullHash]; entry != nil; entry = entry.next {
-		if sameFullItemsUsingIndexed(&ctx.itemSets[entry.stateIdx], closedSet) {
+		if sameAnnotationArgTag(&ctx.itemSets[entry.stateIdx], closedSet) &&
+			sameFullItemsUsingIndexed(&ctx.itemSets[entry.stateIdx], closedSet) {
 			ctx.recycleItemSetLookaheads(closedSet)
 			return entry.stateIdx
 		}
@@ -1200,7 +1565,8 @@ func (ctx *lrContext) findOrCreateState(
 		// 2a. Extended merging: find state with same core AND same reduce lookaheads.
 		for entry := extMap[closedSet.reduceLAHash]; entry != nil; entry = entry.next {
 			existing := &ctx.itemSets[entry.stateIdx]
-			if existing.coreHash == closedSet.coreHash &&
+			if sameAnnotationArgTag(existing, closedSet) &&
+				existing.coreHash == closedSet.coreHash &&
 				sameCoresUsingIndexed(existing, closedSet) &&
 				sameReduceLookaheadsUsingIndexed(existing, closedSet, ctx.ng.Productions) {
 				// Merge lookaheads into existing state.
@@ -1212,7 +1578,8 @@ func (ctx *lrContext) findOrCreateState(
 	} else if useBoundary {
 		for entry := boundaryMap[closedSet.boundaryLAHash]; entry != nil; entry = entry.next {
 			existing := &ctx.itemSets[entry.stateIdx]
-			if existing.coreHash == closedSet.coreHash &&
+			if sameAnnotationArgTag(existing, closedSet) &&
+				existing.coreHash == closedSet.coreHash &&
 				sameCoresUsingIndexed(existing, closedSet) &&
 				sameBoundaryLookaheadsUsingIndexed(existing, closedSet, &ctx.boundaryLookaheads) {
 				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
@@ -1224,7 +1591,8 @@ func (ctx *lrContext) findOrCreateState(
 		// 2b. LALR fallback: find state with same core.
 		for entry := coreMap[closedSet.coreHash]; entry != nil; entry = entry.next {
 			existing := &ctx.itemSets[entry.stateIdx]
-			if sameCoresUsingIndexed(existing, closedSet) {
+			if sameAnnotationArgTag(existing, closedSet) &&
+				sameCoresUsingIndexed(existing, closedSet) {
 				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
 				ctx.recycleItemSetLookaheads(closedSet)
 				return targetIdx
@@ -1315,7 +1683,7 @@ func resolveConflicts(tables *LRTables, ng *NormalizedGrammar) error {
 				continue
 			}
 
-			resolved, err := resolveActionConflict(acts, ng)
+			resolved, err := resolveActionConflict(sym, acts, ng)
 			if err != nil {
 				return fmt.Errorf("state %d, symbol %d: %w", state, sym, err)
 			}
@@ -1326,7 +1694,7 @@ func resolveConflicts(tables *LRTables, ng *NormalizedGrammar) error {
 }
 
 // resolveActionConflict resolves a conflict between multiple actions.
-func resolveActionConflict(actions []lrAction, ng *NormalizedGrammar) ([]lrAction, error) {
+func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedGrammar) ([]lrAction, error) {
 	if len(actions) <= 1 {
 		return actions, nil
 	}
@@ -1379,9 +1747,6 @@ func resolveActionConflict(actions []lrAction, ng *NormalizedGrammar) ([]lrActio
 		if reduceLHSInConflictGroup(reduce.prodIdx, ng, cache) {
 			return actions, nil
 		}
-		if isTransitiveConflict(shift, reduce, ng, cache) {
-			return actions, nil
-		}
 
 		shiftPrec := shift.prec
 		reducePrec := prod.Prec
@@ -1405,6 +1770,9 @@ func resolveActionConflict(actions []lrAction, ng *NormalizedGrammar) ([]lrActio
 			case AssocNone:
 				return nil, nil
 			}
+		}
+		if isTransitiveConflict(shift, reduce, ng, cache) {
+			return actions, nil
 		}
 
 		// Targeted eex ambiguity.
@@ -1437,14 +1805,17 @@ func resolveActionConflict(actions []lrAction, ng *NormalizedGrammar) ([]lrActio
 	// epsilon R/R conflicts, leaving non-epsilon R/R as ambiguous table
 	// entries which caused type="" parse failures.
 	if len(reduces) > 1 {
-		return resolveReduceReduceLegacy(reduces, ng, cache)
+		return resolveReduceReduceLegacy(lookaheadSym, reduces, ng, cache)
 	}
 
 	return actions, nil
 }
 
-func resolveReduceReduceLegacy(reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) ([]lrAction, error) {
+func resolveReduceReduceLegacy(lookaheadSym int, reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) ([]lrAction, error) {
 	if allInDeclaredConflict(reduces, ng, cache) {
+		return reduces, nil
+	}
+	if shouldKeepRepeatedAnnotationReduces(lookaheadSym, reduces, ng) {
 		return reduces, nil
 	}
 
@@ -1468,6 +1839,38 @@ func resolveReduceReduceLegacy(reduces []lrAction, ng *NormalizedGrammar, cache 
 		}
 	}
 	return []lrAction{best}, nil
+}
+
+func shouldKeepRepeatedAnnotationReduces(lookaheadSym int, reduces []lrAction, ng *NormalizedGrammar) bool {
+	if len(reduces) < 2 || lookaheadSym < 0 || lookaheadSym >= len(ng.Symbols) {
+		return false
+	}
+	if ng.Symbols[lookaheadSym].Name != "@" {
+		return false
+	}
+
+	for _, r := range reduces {
+		prod := &ng.Productions[r.prodIdx]
+		if prod.Prec != 0 || prod.DynPrec != 0 || prod.Assoc != AssocNone {
+			return false
+		}
+		if len(prod.RHS) != 1 {
+			return false
+		}
+		rhs := prod.RHS[0]
+		if rhs < 0 || rhs >= len(ng.Symbols) || ng.Symbols[rhs].Name != "annotation" {
+			return false
+		}
+		lhs := prod.LHS
+		if lhs < 0 || lhs >= len(ng.Symbols) {
+			return false
+		}
+		lhsName := ng.Symbols[lhs].Name
+		if !strings.Contains(lhsName, "repeat") {
+			return false
+		}
+	}
+	return true
 }
 
 func shiftMatchesConflictGroup(shift lrAction, reduceLHS int, cache *conflictResolutionCache) bool {
