@@ -1,0 +1,310 @@
+{
+  "version": 14,
+  "generated_at": "2026-03-08T08:15:00Z",
+  "commit_sha": "279f617",
+  "corpus_root": "/tmp/grammar_parity",
+  "profile": "aggressive",
+  "max_cases": 25,
+  "max_sample_bytes": 524288,
+  "grammar_count": 49,
+  "total_eligible": 915,
+  "total_no_error": 915,
+  "total_sexpr_parity": 685,
+  "total_deep_parity": 682,
+  "metrics": {
+    "bash": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 19,
+      "deep_parity": 19
+    },
+    "c_lang": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 12,
+      "deep_parity": 12
+    },
+    "comment": {
+      "eligible": 3,
+      "no_error": 3,
+      "sexpr_parity": 2,
+      "deep_parity": 2
+    },
+    "cpon": {
+      "eligible": 12,
+      "no_error": 12,
+      "sexpr_parity": 11,
+      "deep_parity": 11
+    },
+    "css": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 25,
+      "deep_parity": 25
+    },
+    "csv": {
+      "eligible": 7,
+      "no_error": 7,
+      "sexpr_parity": 7,
+      "deep_parity": 7
+    },
+    "diff": {
+      "eligible": 14,
+      "no_error": 14,
+      "sexpr_parity": 12,
+      "deep_parity": 12
+    },
+    "dockerfile": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 22,
+      "deep_parity": 22
+    },
+    "dot": {
+      "eligible": 11,
+      "no_error": 11,
+      "sexpr_parity": 10,
+      "deep_parity": 10
+    },
+    "eds": {
+      "eligible": 2,
+      "no_error": 2,
+      "sexpr_parity": 2,
+      "deep_parity": 2
+    },
+    "eex": {
+      "eligible": 15,
+      "no_error": 15,
+      "sexpr_parity": 10,
+      "deep_parity": 10
+    },
+    "elixir": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 13,
+      "deep_parity": 13
+    },
+    "forth": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 25,
+      "deep_parity": 25
+    },
+    "git_config": {
+      "eligible": 13,
+      "no_error": 13,
+      "sexpr_parity": 12,
+      "deep_parity": 12
+    },
+    "git_rebase": {
+      "eligible": 14,
+      "no_error": 14,
+      "sexpr_parity": 14,
+      "deep_parity": 14
+    },
+    "gitattributes": {
+      "eligible": 11,
+      "no_error": 11,
+      "sexpr_parity": 8,
+      "deep_parity": 8
+    },
+    "gitcommit": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 22,
+      "deep_parity": 21
+    },
+    "go_lang": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 18,
+      "deep_parity": 18
+    },
+    "gomod": {
+      "eligible": 20,
+      "no_error": 20,
+      "sexpr_parity": 19,
+      "deep_parity": 19
+    },
+    "graphql": {
+      "eligible": 6,
+      "no_error": 6,
+      "sexpr_parity": 6,
+      "deep_parity": 6
+    },
+    "haskell": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 3,
+      "deep_parity": 2
+    },
+    "hcl": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 24,
+      "deep_parity": 24
+    },
+    "html": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 20,
+      "deep_parity": 20
+    },
+    "ini": {
+      "eligible": 11,
+      "no_error": 11,
+      "sexpr_parity": 9,
+      "deep_parity": 9
+    },
+    "javascript": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 8,
+      "deep_parity": 8
+    },
+    "jsdoc": {
+      "eligible": 16,
+      "no_error": 16,
+      "sexpr_parity": 13,
+      "deep_parity": 13
+    },
+    "json": {
+      "eligible": 6,
+      "no_error": 6,
+      "sexpr_parity": 6,
+      "deep_parity": 6
+    },
+    "json5": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 25,
+      "deep_parity": 25
+    },
+    "lua": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 24,
+      "deep_parity": 24
+    },
+    "make": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 20,
+      "deep_parity": 20
+    },
+    "nix": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 23,
+      "deep_parity": 23
+    },
+    "ocaml": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 16,
+      "deep_parity": 16
+    },
+    "pem": {
+      "eligible": 5,
+      "no_error": 5,
+      "sexpr_parity": 5,
+      "deep_parity": 5
+    },
+    "php": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 9,
+      "deep_parity": 9
+    },
+    "promql": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 24,
+      "deep_parity": 24
+    },
+    "properties": {
+      "eligible": 5,
+      "no_error": 5,
+      "sexpr_parity": 5,
+      "deep_parity": 5
+    },
+    "proto": {
+      "eligible": 14,
+      "no_error": 14,
+      "sexpr_parity": 14,
+      "deep_parity": 14
+    },
+    "python": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 9,
+      "deep_parity": 9
+    },
+    "regex": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 23,
+      "deep_parity": 23
+    },
+    "requirements": {
+      "eligible": 10,
+      "no_error": 10,
+      "sexpr_parity": 7,
+      "deep_parity": 7
+    },
+    "ron": {
+      "eligible": 16,
+      "no_error": 16,
+      "sexpr_parity": 16,
+      "deep_parity": 16
+    },
+    "scala": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 0,
+      "deep_parity": 0
+    },
+    "scheme": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 25,
+      "deep_parity": 25
+    },
+    "sql": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 12,
+      "deep_parity": 12
+    },
+    "ssh_config": {
+      "eligible": 10,
+      "no_error": 10,
+      "sexpr_parity": 10,
+      "deep_parity": 10
+    },
+    "swift": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 21,
+      "deep_parity": 16
+    },
+    "todotxt": {
+      "eligible": 19,
+      "no_error": 19,
+      "sexpr_parity": 19,
+      "deep_parity": 19
+    },
+    "toml": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 25,
+      "deep_parity": 25
+    },
+    "yaml": {
+      "eligible": 25,
+      "no_error": 25,
+      "sexpr_parity": 2,
+      "deep_parity": 2
+    }
+  }
+}

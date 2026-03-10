@@ -1,0 +1,52 @@
+{
+  "parser_lock_point": {
+    "commit": "ff0bf8d",
+    "branch": "fix/top50-parity-burndown",
+    "description": "Parser correctness/perf checkpoint. grammargen-next must not regress against this baseline.",
+    "locked_at": "2026-03-08"
+  },
+  "reduced_frontier": {
+    "description": "7-language breaker set: small enough to run constantly, ugly enough to catch regressions.",
+    "languages": ["bash", "c", "c_sharp", "cpp", "dart", "python", "scala"]
+  },
+  "gate0_compiler_health": {
+    "description": "The compiler still works: import, generate, emit, no panics/OOM.",
+    "tests": [
+      "TestMultiGrammarImportPipeline",
+      "TestParityBuiltinNoErrors",
+      "TestParityGenerationDeterministic",
+      "TestParityJSONRegressionGate",
+      "TestParityJSONCorrectnessGolden"
+    ]
+  },
+  "gate1_parser_correctness": {
+    "description": "Hard stop. No new fails, no pass→drift, no timeout/killed, no highlight init breakage.",
+    "unit_tests": "go test ./...",
+    "top50_smoke": "TestTop50ParseSmokeNoErrors",
+    "cgo_canaries": [
+      "TestParityFreshParse",
+      "TestParityHasNoErrors",
+      "TestParityIssue3Repros",
+      "TestParityGLRCanaryGo"
+    ]
+  },
+  "gate2_promotion": {
+    "description": "Grammargen earns promotion into parser-locked lane only after Gate 1.",
+    "reduced_frontier_test": "TestMultiGrammarImportRealCorpusParity",
+    "top50_smoke": "TestTop50ParseSmokeNoErrors",
+    "full_parity": [
+      "TestParityFreshParse",
+      "TestParityHasNoErrors",
+      "TestParityIssue3Repros",
+      "TestParityGLRCanaryGo",
+      "TestParityGLRCanarySet",
+      "TestParityGLRCapPressureTopLanguages",
+      "TestParityHighlight"
+    ],
+    "perf_trio": {
+      "benchmarks": ["BenchmarkParseFull", "BenchmarkParseIncrementalSingleByteEdit", "BenchmarkParseIncrementalNoEdit"],
+      "settings": "GOMAXPROCS=1 -count=10 -benchtime=750ms"
+    }
+  },
+  "promotion_rule": "Grammargen may merge forward within grammargen-next if it passes Gate 0 and does not regress the locked reduced frontier. It may merge into the parser-locked lane only if it is non-regressing on the reduced frontier, non-regressing on parser canaries (Gate 1), and neutral-or-better on the by-language real-corpus board (Gate 2)."
+}

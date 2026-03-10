@@ -61,7 +61,7 @@ func TestCollectCandidatesWithoutExtsSkipsLockfiles(t *testing.T) {
 	mustWriteSizedText(t, filepath.Join(tmp, "package-lock.json"), 512)
 	mustWriteSizedText(t, filepath.Join(tmp, "test", "corpus", "valid.chatito"), 512)
 
-	candidates, err := collectCandidates(tmp, nil, defaultMaxBytes, true)
+	candidates, err := collectCandidates(tmp, nil, defaultMaxBytes)
 	if err != nil {
 		t.Fatalf("collectCandidates: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestCollectCandidatesWithoutExtsRequiresCorpusLikePaths(t *testing.T) {
 	mustWriteSizedText(t, filepath.Join(tmp, "examples", "hello.chatito"), 600)
 	mustWriteSizedText(t, filepath.Join(tmp, ".github", "workflow.yml"), 600)
 
-	candidates, err := collectCandidates(tmp, nil, defaultMaxBytes, false)
+	candidates, err := collectCandidates(tmp, nil, defaultMaxBytes)
 	if err != nil {
 		t.Fatalf("collectCandidates: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestCollectCandidatesWithExtsKeepsCorpusTextFixtures(t *testing.T) {
 	mustWriteSizedText(t, filepath.Join(tmp, "examples", "demo.swift"), 1200)
 	mustWriteSizedText(t, filepath.Join(tmp, "examples", "README.txt"), 1200)
 
-	candidates, err := collectCandidates(tmp, []string{".swift"}, defaultMaxBytes, true)
+	candidates, err := collectCandidates(tmp, []string{".swift"}, defaultMaxBytes)
 	if err != nil {
 		t.Fatalf("collectCandidates: %v", err)
 	}
@@ -129,77 +129,6 @@ func TestCollectCandidatesWithExtsKeepsCorpusTextFixtures(t *testing.T) {
 	}
 	if seen["examples/README.txt"] {
 		t.Fatalf("example docs with mismatched ext should be excluded: %#v", candidates)
-	}
-}
-
-func TestCollectCandidatesWithoutFixturesExcludesCorpusTests(t *testing.T) {
-	tmp := t.TempDir()
-	mustWriteSizedText(t, filepath.Join(tmp, "test", "corpus", "valid.chatito"), 512)
-	mustWriteSizedText(t, filepath.Join(tmp, "examples", "hello.chatito"), 512)
-
-	candidates, err := collectCandidates(tmp, nil, defaultMaxBytes, false)
-	if err != nil {
-		t.Fatalf("collectCandidates: %v", err)
-	}
-
-	seen := map[string]bool{}
-	for _, c := range candidates {
-		seen[filepath.ToSlash(c.RelPath)] = true
-	}
-	if seen["test/corpus/valid.chatito"] {
-		t.Fatalf("fixture corpus file should be excluded in real-world mode: %#v", candidates)
-	}
-	if !seen["examples/hello.chatito"] {
-		t.Fatalf("expected example candidate missing: %#v", candidates)
-	}
-}
-
-func TestSplitTreeSitterCorpusSources(t *testing.T) {
-	content := []byte(`================================================================================
-First case
-================================================================================
-
-class A {}
-
---------------------------------------------------------------------------------
-
-(compilation_unit)
-
-================================================================================
-Second case
-================================================================================
-
-class B {}
-
---------------------------------------------------------------------------------
-
-(compilation_unit)
-`)
-
-	cases, ok := splitTreeSitterCorpusSources(content)
-	if !ok {
-		t.Fatal("expected tree-sitter corpus fixture to split")
-	}
-	if len(cases) != 2 {
-		t.Fatalf("len(cases) = %d, want 2", len(cases))
-	}
-	if got, want := cases[0].Title, "First case"; got != want {
-		t.Fatalf("cases[0].Title = %q, want %q", got, want)
-	}
-	if got, want := string(cases[0].Source), "class A {}\n\n"; got != want {
-		t.Fatalf("cases[0].Source = %q, want %q", got, want)
-	}
-	if got, want := cases[1].Title, "Second case"; got != want {
-		t.Fatalf("cases[1].Title = %q, want %q", got, want)
-	}
-	if got, want := string(cases[1].Source), "class B {}\n\n"; got != want {
-		t.Fatalf("cases[1].Source = %q, want %q", got, want)
-	}
-}
-
-func TestSplitTreeSitterCorpusSourcesRejectsPlainFixtureText(t *testing.T) {
-	if cases, ok := splitTreeSitterCorpusSources([]byte("aaaa\nbbbb\n")); ok || len(cases) != 0 {
-		t.Fatalf("plain fixture text must not be treated as tree-sitter corpus: ok=%v cases=%d", ok, len(cases))
 	}
 }
 

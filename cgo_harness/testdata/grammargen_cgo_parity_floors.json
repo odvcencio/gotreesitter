@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "generated_at": "2026-03-10T00:34:20Z",
+  "corpus_root": "/tmp/grammar_parity",
+  "max_cases": 10,
+  "max_bytes": 262144,
+  "grammar_count": 2,
+  "total_eligible": 20,
+  "total_no_error": 15,
+  "total_tree_parity": 10,
+  "metrics": {
+    "c": {
+      "eligible": 10,
+      "no_error": 7,
+      "tree_parity": 7,
+      "divergences": 3
+    },
+    "scala": {
+      "eligible": 10,
+      "no_error": 8,
+      "tree_parity": 3,
+      "divergences": 10
+    }
+  }
+}

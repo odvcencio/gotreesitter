@@ -50,7 +50,6 @@ type corpusManifest struct {
 	ProfilePath       string                `json:"profile_path,omitempty"`
 	WorkDir           string                `json:"work_dir"`
 	Languages         []string              `json:"languages"`
-	IncludeFixtures   bool                  `json:"include_fixtures"`
 	MinSmallBytes     int                   `json:"min_small_bytes"`
 	MinMediumBytes    int                   `json:"min_medium_bytes"`
 	MinLargeBytes     int                   `json:"min_large_bytes"`
@@ -79,7 +78,6 @@ func main() {
 		outDir            string
 		workDir           string
 		keepWorkDir       bool
-		includeFixtures   bool
 		maxFilesPerBucket int
 		minSmallBytes     int
 		minMediumBytes    int
@@ -93,7 +91,6 @@ func main() {
 	flag.StringVar(&outDir, "out", "cgo_harness/corpus_real", "output corpus directory")
 	flag.StringVar(&workDir, "work-dir", "", "temporary clone work directory (default: temp dir)")
 	flag.BoolVar(&keepWorkDir, "keep-work-dir", false, "keep work directory after command exits")
-	flag.BoolVar(&includeFixtures, "include-fixtures", false, "include upstream grammar corpus/tests/fixtures instead of restricting selection to real-world/example-style files")
 	flag.IntVar(&maxFilesPerBucket, "max-files-per-bucket", 1, "max files selected per bucket per language")
 	flag.IntVar(&minSmallBytes, "min-small-bytes", defaultSmallMin, "minimum bytes for small bucket")
 	flag.IntVar(&minMediumBytes, "min-medium-bytes", defaultMediumMin, "minimum bytes for medium bucket")
@@ -150,7 +147,6 @@ func main() {
 		ProfilePath:       resolvedProfilePath,
 		WorkDir:           workDir,
 		Languages:         append([]string(nil), languages...),
-		IncludeFixtures:   includeFixtures,
 		MinSmallBytes:     minSmallBytes,
 		MinMediumBytes:    minMediumBytes,
 		MinLargeBytes:     minLargeBytes,
@@ -179,7 +175,7 @@ func main() {
 			continue
 		}
 
-		candidates, err := collectCandidates(repoDir, entry.Exts, maxBytes, includeFixtures)
+		candidates, err := collectCandidates(repoDir, entry.Exts, maxBytes)
 		if err != nil {
 			manifest.Missing = append(manifest.Missing, lang)
 			fmt.Fprintf(os.Stderr, "[warn] collect candidates failed for %q: %v\n", lang, err)
@@ -207,24 +203,22 @@ func main() {
 			if err != nil {
 				fatalf("read selected file %q: %v", sf.AbsPath, err)
 			}
-			outputs := materializeCorpusOutputs(sf, content)
-			for _, out := range outputs {
-				sum := sha256.Sum256(out.Content)
-				outputPath := filepath.Join(langOutDir, out.Name)
-				if err := os.WriteFile(outputPath, out.Content, 0o644); err != nil {
-					fatalf("write %s: %v", outputPath, err)
-				}
-				manifest.Entries = append(manifest.Entries, corpusManifestEntry{
-					Language:     lang,
-					Bucket:       sf.Bucket,
-					Bytes:        int64(len(out.Content)),
-					SHA256:       hex.EncodeToString(sum[:]),
-					SourceRepo:   entry.RepoURL,
-					SourceCommit: entry.Commit,
-					SourcePath:   sf.RelPath,
-					OutputPath:   outputPath,
-				})
+			sum := sha256.Sum256(content)
+			outputName := fmt.Sprintf("%s__%s", sf.Bucket, safeName(filepath.Base(sf.RelPath)))
+			outputPath := filepath.Join(langOutDir, outputName)
+			if err := os.WriteFile(outputPath, content, 0o644); err != nil {
+				fatalf("write %s: %v", outputPath, err)
 			}
+			manifest.Entries = append(manifest.Entries, corpusManifestEntry{
+				Language:     lang,
+				Bucket:       sf.Bucket,
+				Bytes:        sf.Size,
+				SHA256:       hex.EncodeToString(sum[:]),
+				SourceRepo:   entry.RepoURL,
+				SourceCommit: entry.Commit,
+				SourcePath:   sf.RelPath,
+				OutputPath:   outputPath,
+			})
 		}
 		fmt.Printf("[ok] %s: selected=%d candidates=%d\n", lang, len(selected), len(candidates))
 	}
@@ -470,7 +464,7 @@ func checkoutRepoAtCommit(repoURL, commit, dstDir string) error {
 	return nil
 }
 
-func collectCandidates(repoDir string, exts []string, maxBytes int, includeFixtures bool) ([]corpusFile, error) {
+func collectCandidates(repoDir string, exts []string, maxBytes int) ([]corpusFile, error) {
 	seen := map[string]struct{}{}
 	out := make([]corpusFile, 0, 256)
 	extSet := map[string]struct{}{}
@@ -492,7 +486,7 @@ func collectCandidates(repoDir string, exts []string, maxBytes int, includeFixtu
 		if err != nil {
 			return
 		}
-		if !looksCorpusCandidatePath(rel, includeFixtures) {
+		if !looksCorpusCandidatePath(rel) {
 			return
 		}
 		if _, ok := seen[rel]; ok {
@@ -522,20 +516,16 @@ func collectCandidates(repoDir string, exts []string, maxBytes int, includeFixtu
 		requireKnownExt bool
 	}
 	priorityDirs := []priorityDir{
+		{path: "test/corpus", requireKnownExt: false},
+		{path: "tests/corpus", requireKnownExt: false},
+		{path: "corpus", requireKnownExt: false},
+		{path: "test/fixtures", requireKnownExt: false},
+		{path: "tests/fixtures", requireKnownExt: false},
+		{path: "fixtures", requireKnownExt: false},
 		{path: "examples", requireKnownExt: true},
 		{path: "example", requireKnownExt: true},
 		{path: "samples", requireKnownExt: true},
 		{path: "spec", requireKnownExt: false},
-	}
-	if includeFixtures {
-		priorityDirs = append([]priorityDir{
-			{path: "test/corpus", requireKnownExt: false},
-			{path: "tests/corpus", requireKnownExt: false},
-			{path: "corpus", requireKnownExt: false},
-			{path: "test/fixtures", requireKnownExt: false},
-			{path: "tests/fixtures", requireKnownExt: false},
-			{path: "fixtures", requireKnownExt: false},
-		}, priorityDirs...)
 	}
 	for _, dir := range priorityDirs {
 		root := filepath.Join(repoDir, filepath.FromSlash(dir.path))
@@ -576,7 +566,7 @@ func collectCandidates(repoDir string, exts []string, maxBytes int, includeFixtu
 			if err != nil {
 				return nil
 			}
-			if !looksGenericSourcePath(rel, includeFixtures) {
+			if !looksGenericSourcePath(rel) {
 				return nil
 			}
 		}
@@ -593,93 +583,7 @@ func collectCandidates(repoDir string, exts []string, maxBytes int, includeFixtu
 	return out, nil
 }
 
-type materializedCorpusOutput struct {
-	Name    string
-	Content []byte
-}
-
-type treeSitterCorpusCase struct {
-	Title  string
-	Source []byte
-}
-
-func materializeCorpusOutputs(sf selectedCorpusFile, content []byte) []materializedCorpusOutput {
-	baseName := fmt.Sprintf("%s__%s", sf.Bucket, safeName(filepath.Base(sf.RelPath)))
-	cases, ok := splitTreeSitterCorpusSources(content)
-	if !ok {
-		return []materializedCorpusOutput{{Name: baseName, Content: content}}
-	}
-
-	out := make([]materializedCorpusOutput, 0, len(cases))
-	for i, c := range cases {
-		name := fmt.Sprintf("%s__case%d", baseName, i+1)
-		if title := safeName(c.Title); title != "" {
-			name += "__" + title
-		}
-		out = append(out, materializedCorpusOutput{
-			Name:    name,
-			Content: c.Source,
-		})
-	}
-	return out
-}
-
-func splitTreeSitterCorpusSources(content []byte) ([]treeSitterCorpusCase, bool) {
-	text := strings.ReplaceAll(string(content), "\r\n", "\n")
-	lines := strings.SplitAfter(text, "\n")
-	cases := make([]treeSitterCorpusCase, 0, 4)
-
-	for i := 0; i < len(lines); {
-		if !isRepeatedLine(lines[i], '=') {
-			i++
-			continue
-		}
-		if i+2 >= len(lines) || !isRepeatedLine(lines[i+2], '=') {
-			return nil, false
-		}
-		title := strings.TrimSpace(lines[i+1])
-		i += 3
-		if i < len(lines) && strings.TrimSpace(lines[i]) == "" {
-			i++
-		}
-		start := i
-		for i < len(lines) && !isRepeatedLine(lines[i], '-') {
-			i++
-		}
-		if i >= len(lines) {
-			return nil, false
-		}
-		source := strings.Join(lines[start:i], "")
-		if strings.TrimSpace(source) == "" {
-			return nil, false
-		}
-		cases = append(cases, treeSitterCorpusCase{
-			Title:  title,
-			Source: []byte(source),
-		})
-		i++
-		for i < len(lines) && !isRepeatedLine(lines[i], '=') {
-			i++
-		}
-	}
-
-	return cases, len(cases) > 0
-}
-
-func isRepeatedLine(line string, want rune) bool {
-	s := strings.TrimSpace(line)
-	if len(s) < 3 {
-		return false
-	}
-	for _, r := range s {
-		if r != want {
-			return false
-		}
-	}
-	return true
-}
-
-func looksCorpusCandidatePath(relPath string, includeFixtures bool) bool {
+func looksCorpusCandidatePath(relPath string) bool {
 	rel := strings.ToLower(filepath.ToSlash(relPath))
 	base := strings.ToLower(filepath.Base(rel))
 	if strings.HasPrefix(base, ".") {
@@ -705,36 +609,19 @@ func looksCorpusCandidatePath(relPath string, includeFixtures bool) bool {
 		strings.Contains(rel, "/build/") {
 		return false
 	}
-	if !includeFixtures {
-		if strings.HasPrefix(rel, "test/") ||
-			strings.HasPrefix(rel, "tests/") ||
-			strings.Contains(rel, "/test/") ||
-			strings.Contains(rel, "/tests/") ||
-			strings.Contains(rel, "/corpus/") ||
-			strings.Contains(rel, "/fixture") {
-			return false
-		}
-	}
 	return true
 }
 
-func looksGenericSourcePath(relPath string, includeFixtures bool) bool {
-	if !looksCorpusCandidatePath(relPath, includeFixtures) {
+func looksGenericSourcePath(relPath string) bool {
+	if !looksCorpusCandidatePath(relPath) {
 		return false
 	}
 	rel := strings.ToLower(filepath.ToSlash(relPath))
-	if includeFixtures {
-		if strings.Contains(rel, "/test/") ||
-			strings.Contains(rel, "/tests/") ||
-			strings.Contains(rel, "/corpus/") ||
-			strings.Contains(rel, "/fixture") ||
-			strings.Contains(rel, "/example") ||
-			strings.Contains(rel, "/sample") {
-			return true
-		}
-		return false
-	}
-	if strings.Contains(rel, "/example") ||
+	if strings.Contains(rel, "/test/") ||
+		strings.Contains(rel, "/tests/") ||
+		strings.Contains(rel, "/corpus/") ||
+		strings.Contains(rel, "/fixture") ||
+		strings.Contains(rel, "/example") ||
 		strings.Contains(rel, "/sample") {
 		return true
 	}

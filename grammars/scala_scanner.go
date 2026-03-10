@@ -170,6 +170,10 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			s.indents = s.indents[:len(s.indents)-1]
 		}
 		lexer.SetResultSymbol(scaSymOutdent)
+		lexer.MarkEnd()
+		if scaDetectCommentStart(lexer) {
+			return false
+		}
 		s.lastIndentationSize = indentSize
 		s.lastNewlineCount = newlineCount
 		if lexer.Lookahead() == 0 {

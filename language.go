@@ -57,11 +57,12 @@ type ParseActionEntry struct {
 
 // LexState is one state in the table-driven lexer DFA.
 type LexState struct {
-	AcceptToken Symbol // 0 if this state doesn't accept
-	Skip        bool   // true if accepted chars are whitespace
-	Transitions []LexTransition
-	Default     int // default next state (-1 if none)
-	EOF         int // state on EOF (-1 if none)
+	AcceptToken    Symbol // 0 if this state doesn't accept
+	AcceptPriority int16  // lower = higher priority (0 for ts2go blobs = longest-match)
+	Skip           bool   // true if accepted chars are whitespace
+	Transitions    []LexTransition
+	Default        int // default next state (-1 if none)
+	EOF            int // state on EOF (-1 if none)
 }
 
 // LexTransition maps a character range to a next state.
@@ -179,6 +180,12 @@ type Language struct {
 	// External scanner (nil if not needed)
 	ExternalScanner ExternalScanner
 	ExternalSymbols []Symbol // external token index -> symbol
+
+	// ImmediateTokens is a bitmask of symbol IDs that are token.immediate() tokens.
+	// When the lexer matches one of these after consuming whitespace, the match
+	// should be rejected — immediate tokens must match at the original position.
+	// nil means no immediate tokens (common for ts2go grammars).
+	ImmediateTokens []bool
 
 	// ExternalLexStates maps external lex state IDs (from LexMode.ExternalLexState)
 	// to a boolean slice indicating which external tokens are valid. Row 0 is

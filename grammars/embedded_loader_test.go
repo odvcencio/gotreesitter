@@ -38,3 +38,27 @@ func TestRepairNoLookaheadLexModes(t *testing.T) {
 		})
 	}
 }
+
+func TestEmbeddedLanguagesCarryRegistryName(t *testing.T) {
+	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+
+	tests := []struct {
+		name string
+		load func() *gotreesitter.Language
+	}{
+		{name: "caddy", load: CaddyLanguage},
+		{name: "pug", load: PugLanguage},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := tc.load()
+			if lang == nil {
+				t.Fatalf("%s language is nil", tc.name)
+			}
+			if got := lang.Name; got != tc.name {
+				t.Fatalf("%s language name = %q, want %q", tc.name, got, tc.name)
+			}
+		})
+	}
+}

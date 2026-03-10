@@ -173,26 +173,6 @@ func TestExtractConstants(t *testing.T) {
 	}
 }
 
-func TestExtractGrammarInfersProductionIDCountFromArraySizes(t *testing.T) {
-	source := strings.Replace(miniParserC, "#define PRODUCTION_ID_COUNT 2\n", "", 1)
-	source = strings.Replace(source, "ts_field_map_slices[PRODUCTION_ID_COUNT]", "ts_field_map_slices[2]", 1)
-
-	g, err := ExtractGrammar(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if g.ProductionIDCount != 2 {
-		t.Fatalf("ProductionIDCount = %d, want 2", g.ProductionIDCount)
-	}
-	if len(g.FieldMapSlices) != 2 {
-		t.Fatalf("len(FieldMapSlices) = %d, want 2", len(g.FieldMapSlices))
-	}
-	if len(g.FieldMapEntries) != 2 {
-		t.Fatalf("len(FieldMapEntries) = %d, want 2", len(g.FieldMapEntries))
-	}
-}
-
 func TestExtractEnum(t *testing.T) {
 	vals := extractEnum(miniParserC)
 
@@ -409,6 +389,41 @@ func TestExtractFieldMapsMixedInherited(t *testing.T) {
 	}
 	if !e.Inherited {
 		t.Error("FieldMapEntries[1].Inherited = false, want true")
+	}
+}
+
+func TestExtractGrammarInfersLegacyProductionIDCount(t *testing.T) {
+	legacySource := strings.Replace(miniParserC, "#define PRODUCTION_ID_COUNT 2\n", "", 1)
+	legacySource = strings.Replace(legacySource, "ts_field_map_slices[PRODUCTION_ID_COUNT]", "ts_field_map_slices[2]", 1)
+	legacySource = strings.Replace(legacySource, "static const uint16_t ts_parse_table", `static TSSymbol ts_alias_sequences[2][MAX_ALIAS_SEQUENCE_LENGTH] = {
+  [0] = {[0] = sym_number},
+  [1] = {[1] = sym_object},
+};
+
+static const uint16_t ts_parse_table`, 1)
+
+	g, err := ExtractGrammar(legacySource)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if g.ProductionIDCount != 2 {
+		t.Fatalf("ProductionIDCount = %d, want 2", g.ProductionIDCount)
+	}
+	if len(g.FieldMapSlices) != 2 {
+		t.Fatalf("len(FieldMapSlices) = %d, want 2", len(g.FieldMapSlices))
+	}
+	if len(g.FieldMapEntries) != 2 {
+		t.Fatalf("len(FieldMapEntries) = %d, want 2", len(g.FieldMapEntries))
+	}
+	if len(g.AliasSequences) != 2 {
+		t.Fatalf("len(AliasSequences) = %d, want 2", len(g.AliasSequences))
+	}
+	if got := g.AliasSequences[0][0]; got != 3 {
+		t.Errorf("AliasSequences[0][0] = %d, want 3 (sym_number)", got)
+	}
+	if got := g.AliasSequences[1][1]; got != 5 {
+		t.Errorf("AliasSequences[1][1] = %d, want 5 (sym_object)", got)
 	}
 }
 

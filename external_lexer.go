@@ -8,18 +8,19 @@ import "unicode/utf8"
 type ExternalLexer struct {
 	source []byte
 
-	startPos int
-	pos      int
-	endPos   int
+	startPos  int
+	pos       int
+	endPos    int
+	endMarked bool
 
 	startPoint Point
 	point      Point
 	endPoint   Point
-	endMarked  bool
 
 	// advancedContent is set when Advance(false) is called at least once.
-	// It is only used to preserve an explicit MarkEnd position when later
-	// Advance(true) calls move startPos past that mark.
+	// This distinguishes skip-only scans (where endPos should stay at the
+	// scan start per C semantics) from content-consuming scans (where
+	// endPos should track consumed content).
 	advancedContent bool
 
 	resultSymbol Symbol
@@ -33,6 +34,7 @@ func newExternalLexer(source []byte, pos int, row, col uint32) *ExternalLexer {
 		startPos:   pos,
 		pos:        pos,
 		endPos:     pos,
+		endMarked:  false,
 		startPoint: pt,
 		point:      pt,
 		endPoint:   pt,
@@ -61,7 +63,7 @@ func (l *ExternalLexer) Advance(skip bool) {
 		l.point.Row++
 		l.point.Column = 0
 	} else {
-		l.point.Column += uint32(size)
+		l.point.Column++
 	}
 
 	if skip {
@@ -110,12 +112,18 @@ func (l *ExternalLexer) token() (Token, bool) {
 	endPos := l.endPos
 	endPoint := l.endPoint
 	if !l.endMarked {
-		// C tree-sitter calls mark_end(current_position) during lexer_finish
-		// when a successful external scan never marked an end explicitly.
-		// That means skip-only scans default to the cursor after skipped
-		// whitespace, not back at the scan start.
-		endPos = l.pos
-		endPoint = l.point
+		if l.advancedContent {
+			// Scanner consumed content via Advance(false) but never called
+			// MarkEnd. Default to current cursor (includes all consumed chars).
+			// This is slightly more permissive than C (which would stop one
+			// byte short of the last advance), but avoids penalizing scanners
+			// that omit a trailing MarkEnd.
+			endPos = l.pos
+			endPoint = l.point
+		}
+		// Skip-only scans (no Advance(false)): keep endPos at its
+		// initialized value (scan start position), matching C tree-sitter
+		// behavior where skip() does not update token_end_position.
 	}
 	// When endPos < startPos the scanner marked a position before skip
 	// advanced startPos past it.  This yields a zero-width token at the

@@ -98,17 +98,18 @@ func assertGLRCapPressureRuntime(t *testing.T, tc parityCase, src []byte, minWid
 // These cases are intentionally shaped to drive MaxStacksSeen well above the
 // grammar's conflict-width floor while still requiring exact C parity.
 func TestParityGLRCapPressureTopLanguages(t *testing.T) {
-	// Go keeps basic GLR coverage in TestParityGLRCanaryGo. The historical
-	// makeGoBenchmarkSource(500) input no longer produces sustained
-	// width-above-floor pressure (it now peaks at maxStacks=2 with a single
-	// conflict), so cap-pressure coverage lives in languages that still
-	// exercise concurrent ambiguity here.
 	cases := []struct {
 		lang      string
 		name      string
 		source    []byte
 		widthMult int
 	}{
+		{
+			lang:      "go",
+			name:      "bench500",
+			source:    normalizedSource("go", string(makeGoBenchmarkSource(500))),
+			widthMult: 2,
+		},
 		{
 			lang:      "java",
 			name:      "obj-method-100",

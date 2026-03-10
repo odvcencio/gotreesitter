@@ -66,6 +66,7 @@ const (
 	parityMinLanguageVersion = 13
 	parityMaxLanguageVersion = 15
 	parityGenerateABI        = 15
+	parityRepoRootEnv        = "GTS_PARITY_REPO_ROOT"
 )
 
 var languageVersionPattern = regexp.MustCompile(`(?m)^#define\s+LANGUAGE_VERSION\s+(\d+)`)
@@ -140,14 +141,13 @@ func findParityLockPath() (string, error) {
 }
 
 func buildParityCRef(rootDir string, entry parityLockEntry) (*parityCRef, error) {
-	commitShort := entry.Commit
-	if len(commitShort) > 12 {
-		commitShort = commitShort[:12]
-	}
-	repoDir := filepath.Join(rootDir, "repos", paritySafeName(entry.Name+"-"+commitShort))
-	if _, err := os.Stat(repoDir); err != nil {
-		if err := os.MkdirAll(filepath.Dir(repoDir), 0o755); err != nil {
-			return nil, fmt.Errorf("%s: mkdir repo parent: %w", entry.Name, err)
+	repoDir, ok := parityLocalRepoDir(entry)
+	if !ok {
+		// Compute a temp clone destination under rootDir.
+		repoDir = filepath.Join(rootDir, "repos", paritySafeName(entry.Name))
+		commitShort := entry.Commit
+		if len(commitShort) > 12 {
+			commitShort = commitShort[:12]
 		}
 		if cacheDir := parityRepoCacheDir(); cacheDir != "" {
 			cachedRepo, cacheErr := findCachedParityRepo(cacheDir, entry.Name, commitShort)
@@ -180,6 +180,67 @@ func buildParityCRef(rootDir string, entry parityLockEntry) (*parityCRef, error)
 		loadErrs = append(loadErrs, fmt.Sprintf("%s: %v", symbol, err))
 	}
 	return nil, fmt.Errorf("%s: load language symbol failed: %s", entry.Name, strings.Join(loadErrs, "; "))
+}
+
+func parityLocalRepoDir(entry parityLockEntry) (string, bool) {
+	root := strings.TrimSpace(os.Getenv(parityRepoRootEnv))
+	if root == "" {
+		return "", false
+	}
+
+	var candidates []string
+	add := func(path string) {
+		if path == "" {
+			return
+		}
+		for _, existing := range candidates {
+			if existing == path {
+				return
+			}
+		}
+		candidates = append(candidates, path)
+	}
+
+	add(filepath.Join(root, entry.Name))
+
+	repo := strings.TrimSuffix(strings.TrimSpace(entry.RepoURL), "/")
+	repo = strings.TrimSuffix(repo, ".git")
+	if idx := strings.LastIndex(repo, "/"); idx >= 0 && idx+1 < len(repo) {
+		base := repo[idx+1:]
+		add(filepath.Join(root, parityRepoBaseDir(base)))
+	}
+
+	switch entry.Name {
+	case "gitcommit":
+		add(filepath.Join(root, "gitcommit_gbprod"))
+	case "tsx", "typescript":
+		add(filepath.Join(root, "typescript"))
+	case "xml", "dtd":
+		add(filepath.Join(root, "xml"))
+	case "markdown", "markdown_inline":
+		add(filepath.Join(root, "markdown"))
+	case "php":
+		add(filepath.Join(root, "php"))
+	case "ocaml":
+		add(filepath.Join(root, "ocaml"))
+	case "csv":
+		add(filepath.Join(root, "csv"))
+	}
+
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+func parityRepoBaseDir(base string) string {
+	base = strings.TrimSpace(base)
+	base = strings.TrimSuffix(base, ".git")
+	base = strings.TrimPrefix(base, "tree-sitter-")
+	base = strings.TrimPrefix(base, "tree_sitter_")
+	return paritySafeName(base)
 }
 
 func parityLanguageSymbols(entry parityLockEntry) []string {
