@@ -52,6 +52,18 @@ func (set *lrItemSet) setCoreIndex(prodIdx, dot, idx int) {
 	set.coreIndex[coreItem{prodIdx: prodIdx, dot: dot}] = idx
 }
 
+func (set *lrItemSet) ensurePackedCoreIndex() {
+	if set.packedCoreIndex != nil {
+		return
+	}
+	packedCoreIndex := make(map[uint64]int, len(set.cores))
+	for idx, ce := range set.cores {
+		packedCoreIndex[packCoreItemKey(ce.prodIdx, ce.dot)] = idx
+	}
+	set.packedCoreIndex = packedCoreIndex
+	set.coreIndex = nil
+}
+
 // lrAction is a parse table action.
 type lrAction struct {
 	kind    lrActionKind
@@ -743,14 +755,8 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 	}
 	ctx.closureWorklist = worklist[:0]
 
-	packedCoreIndex := make(map[uint64]int, len(cores))
-	for idx, ce := range cores {
-		packedCoreIndex[packCoreItemKey(ce.prodIdx, ce.dot)] = idx
-	}
-
 	set := lrItemSet{
-		cores:           cores,
-		packedCoreIndex: packedCoreIndex,
+		cores: cores,
 	}
 	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads, ctx.needReduceLAHash)
 	return set
@@ -958,76 +964,64 @@ func (set *lrItemSet) computeHashes(prods []Production, boundaryMask *bitset, in
 }
 
 // sameCores returns true if two item sets have identical core items.
-func sameCores(a, b *lrItemSet) bool {
-	if len(a.cores) != len(b.cores) {
+func sameCoresUsingIndexed(indexed, other *lrItemSet) bool {
+	if len(indexed.cores) != len(other.cores) {
 		return false
 	}
-	for _, ac := range a.cores {
-		if _, ok := b.coreLookup(ac.prodIdx, ac.dot); !ok {
+	for _, oc := range other.cores {
+		if _, ok := indexed.coreLookup(oc.prodIdx, oc.dot); !ok {
 			return false
 		}
 	}
 	return true
 }
 
-// sameFullItems returns true if two item sets are identical (cores + lookaheads).
-func sameFullItems(a, b *lrItemSet) bool {
-	if len(a.cores) != len(b.cores) {
+// sameFullItemsUsingIndexed returns true if two item sets are identical
+// (cores + lookaheads), using the indexed set for core lookups.
+func sameFullItemsUsingIndexed(indexed, other *lrItemSet) bool {
+	if len(indexed.cores) != len(other.cores) {
 		return false
 	}
-	for _, ac := range a.cores {
-		bidx, ok := b.coreLookup(ac.prodIdx, ac.dot)
+	for _, oc := range other.cores {
+		idx, ok := indexed.coreLookup(oc.prodIdx, oc.dot)
 		if !ok {
 			return false
 		}
-		if !ac.lookaheads.equal(&b.cores[bidx].lookaheads) {
+		if !indexed.cores[idx].lookaheads.equal(&oc.lookaheads) {
 			return false
 		}
 	}
 	return true
 }
 
-// sameReduceLookaheads returns true if two item sets have the same lookaheads
-// on all reduce items (dot at end).
-func sameReduceLookaheads(a, b *lrItemSet, prods []Production) bool {
-	for _, ac := range a.cores {
-		if ac.dot < len(prods[ac.prodIdx].RHS) {
+// sameReduceLookaheadsUsingIndexed returns true if two item sets have the same
+// lookaheads on all reduce items, assuming their cores already match.
+func sameReduceLookaheadsUsingIndexed(indexed, other *lrItemSet, prods []Production) bool {
+	for _, oc := range other.cores {
+		if oc.dot < len(prods[oc.prodIdx].RHS) {
 			continue // not a reduce item
 		}
-		bidx, ok := b.coreLookup(ac.prodIdx, ac.dot)
+		idx, ok := indexed.coreLookup(oc.prodIdx, oc.dot)
 		if !ok {
 			return false
 		}
-		if !ac.lookaheads.equal(&b.cores[bidx].lookaheads) {
-			return false
-		}
-	}
-	// Also check the reverse direction.
-	for _, bc := range b.cores {
-		if bc.dot < len(prods[bc.prodIdx].RHS) {
-			continue
-		}
-		if _, ok := a.coreLookup(bc.prodIdx, bc.dot); !ok {
+		if !indexed.cores[idx].lookaheads.equal(&oc.lookaheads) {
 			return false
 		}
 	}
 	return true
 }
 
-// sameBoundaryLookaheads returns true if two item sets have the same EOF and
-// external-token lookaheads on all items.
-func sameBoundaryLookaheads(a, b *lrItemSet, boundaryMask *bitset) bool {
-	for _, ac := range a.cores {
-		bidx, ok := b.coreLookup(ac.prodIdx, ac.dot)
+// sameBoundaryLookaheadsUsingIndexed returns true if two item sets have the
+// same EOF and external-token lookaheads on all items, assuming their cores
+// already match.
+func sameBoundaryLookaheadsUsingIndexed(indexed, other *lrItemSet, boundaryMask *bitset) bool {
+	for _, oc := range other.cores {
+		idx, ok := indexed.coreLookup(oc.prodIdx, oc.dot)
 		if !ok {
 			return false
 		}
-		if !maskedBitsetEqual(&ac.lookaheads, &b.cores[bidx].lookaheads, boundaryMask) {
-			return false
-		}
-	}
-	for _, bc := range b.cores {
-		if _, ok := a.coreLookup(bc.prodIdx, bc.dot); !ok {
+		if !maskedBitsetEqual(&indexed.cores[idx].lookaheads, &oc.lookaheads, boundaryMask) {
 			return false
 		}
 	}
@@ -1075,6 +1069,7 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 		dot:        0,
 		lookaheads: initialLA,
 	}})
+	initialSet.ensurePackedCoreIndex()
 	ctx.itemSets = []lrItemSet{initialSet}
 	addToHashMap(fullMap, initialSet.fullHash, 0)
 	if !useExtendedMerging && !useBoundaryMerging {
@@ -1164,7 +1159,7 @@ func (ctx *lrContext) findOrCreateState(
 ) int {
 	// 1. Check exact LR(1) match via fullHash.
 	for entry := fullMap[closedSet.fullHash]; entry != nil; entry = entry.next {
-		if sameFullItems(&ctx.itemSets[entry.stateIdx], closedSet) {
+		if sameFullItemsUsingIndexed(&ctx.itemSets[entry.stateIdx], closedSet) {
 			ctx.recycleItemSetLookaheads(closedSet)
 			return entry.stateIdx
 		}
@@ -1175,8 +1170,8 @@ func (ctx *lrContext) findOrCreateState(
 		for entry := extMap[closedSet.reduceLAHash]; entry != nil; entry = entry.next {
 			existing := &ctx.itemSets[entry.stateIdx]
 			if existing.coreHash == closedSet.coreHash &&
-				sameCores(existing, closedSet) &&
-				sameReduceLookaheads(existing, closedSet, ctx.ng.Productions) {
+				sameCoresUsingIndexed(existing, closedSet) &&
+				sameReduceLookaheadsUsingIndexed(existing, closedSet, ctx.ng.Productions) {
 				// Merge lookaheads into existing state.
 				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
 				ctx.recycleItemSetLookaheads(closedSet)
@@ -1187,7 +1182,8 @@ func (ctx *lrContext) findOrCreateState(
 		for entry := boundaryMap[closedSet.boundaryLAHash]; entry != nil; entry = entry.next {
 			existing := &ctx.itemSets[entry.stateIdx]
 			if existing.coreHash == closedSet.coreHash &&
-				sameBoundaryLookaheads(existing, closedSet, &ctx.boundaryLookaheads) {
+				sameCoresUsingIndexed(existing, closedSet) &&
+				sameBoundaryLookaheadsUsingIndexed(existing, closedSet, &ctx.boundaryLookaheads) {
 				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
 				ctx.recycleItemSetLookaheads(closedSet)
 				return targetIdx
@@ -1197,7 +1193,7 @@ func (ctx *lrContext) findOrCreateState(
 		// 2b. LALR fallback: find state with same core.
 		for entry := coreMap[closedSet.coreHash]; entry != nil; entry = entry.next {
 			existing := &ctx.itemSets[entry.stateIdx]
-			if sameCores(existing, closedSet) {
+			if sameCoresUsingIndexed(existing, closedSet) {
 				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
 				ctx.recycleItemSetLookaheads(closedSet)
 				return targetIdx
@@ -1206,6 +1202,7 @@ func (ctx *lrContext) findOrCreateState(
 	}
 
 	// 3. No match — create new state.
+	closedSet.ensurePackedCoreIndex()
 	newIdx := len(ctx.itemSets)
 	ctx.itemSets = append(ctx.itemSets, *closedSet)
 	addToHashMap(fullMap, closedSet.fullHash, newIdx)

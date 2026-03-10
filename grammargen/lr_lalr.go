@@ -86,7 +86,7 @@ func (ctx *lrContext) buildLR0() {
 			// Find existing state with same core, or create new.
 			targetIdx := -1
 			for entry := coreMap[closedSet.coreHash]; entry != nil; entry = entry.next {
-				if sameCores(&ctx.itemSets[entry.stateIdx], &closedSet) {
+				if sameCoresUsingIndexed(&ctx.itemSets[entry.stateIdx], &closedSet) {
 					targetIdx = entry.stateIdx
 					ctx.recordMergedState(targetIdx, mergeOrigin{
 						kernelHash:  closedSet.coreHash,
