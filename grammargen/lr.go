@@ -324,6 +324,11 @@ type lrContext struct {
 	closureQueuedGen []uint32
 	closureQueueGen  uint32
 
+	// GOTO scratch reuses transient symbol and advanced-kernel slices while
+	// building successor states.
+	gotoSymbolsScratch  []int
+	gotoAdvancedScratch []coreEntry
+
 	// Lookahead bitset scratch reuses word buffers for temporary closed sets that
 	// are discarded after exact-match or merge lookups.
 	lookaheadWordCount int
@@ -441,6 +446,8 @@ func (ctx *lrContext) releaseScratch() {
 	ctx.extraProdIndices = nil
 	ctx.allTerminals = bitset{}
 	ctx.boundaryLookaheads = bitset{}
+	ctx.gotoSymbolsScratch = nil
+	ctx.gotoAdvancedScratch = nil
 	ctx.lookaheadWordPool = nil
 }
 
@@ -1116,7 +1123,7 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 
 		// Collect all symbols after the dot.
 		symsSeen := make(map[int]bool)
-		var syms []int
+		syms := ctx.gotoSymbolsScratch[:0]
 		for _, ce := range itemSet.cores {
 			prod := &ctx.ng.Productions[ce.prodIdx]
 			if ce.dot < len(prod.RHS) {
@@ -1130,7 +1137,7 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 
 		for _, sym := range syms {
 			// Compute GOTO(itemSet, sym): advance dot past sym.
-			var advanced []coreEntry
+			advanced := ctx.gotoAdvancedScratch[:0]
 			for _, ce := range itemSet.cores {
 				prod := &ctx.ng.Productions[ce.prodIdx]
 				if ce.dot < len(prod.RHS) && prod.RHS[ce.dot] == sym {
@@ -1146,6 +1153,7 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 			}
 
 			closedSet := ctx.closureToSet(advanced)
+			ctx.gotoAdvancedScratch = advanced[:0]
 
 			targetIdx := ctx.findOrCreateState(
 				&closedSet,
@@ -1161,6 +1169,7 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 			}
 			ctx.transitions[stateIdx][sym] = targetIdx
 		}
+		ctx.gotoSymbolsScratch = syms[:0]
 	}
 
 	return ctx.itemSets
