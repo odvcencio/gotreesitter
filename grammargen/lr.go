@@ -965,6 +965,7 @@ func (set *lrItemSet) computeHashes(prods []Production, boundaryMask *bitset, in
 
 // sameCores returns true if two item sets have identical core items.
 func sameCoresUsingIndexed(indexed, other *lrItemSet) bool {
+	indexed.ensurePackedCoreIndex()
 	if len(indexed.cores) != len(other.cores) {
 		return false
 	}
@@ -979,6 +980,7 @@ func sameCoresUsingIndexed(indexed, other *lrItemSet) bool {
 // sameFullItemsUsingIndexed returns true if two item sets are identical
 // (cores + lookaheads), using the indexed set for core lookups.
 func sameFullItemsUsingIndexed(indexed, other *lrItemSet) bool {
+	indexed.ensurePackedCoreIndex()
 	if len(indexed.cores) != len(other.cores) {
 		return false
 	}
@@ -997,6 +999,7 @@ func sameFullItemsUsingIndexed(indexed, other *lrItemSet) bool {
 // sameReduceLookaheadsUsingIndexed returns true if two item sets have the same
 // lookaheads on all reduce items, assuming their cores already match.
 func sameReduceLookaheadsUsingIndexed(indexed, other *lrItemSet, prods []Production) bool {
+	indexed.ensurePackedCoreIndex()
 	for _, oc := range other.cores {
 		if oc.dot < len(prods[oc.prodIdx].RHS) {
 			continue // not a reduce item
@@ -1016,6 +1019,7 @@ func sameReduceLookaheadsUsingIndexed(indexed, other *lrItemSet, prods []Product
 // same EOF and external-token lookaheads on all items, assuming their cores
 // already match.
 func sameBoundaryLookaheadsUsingIndexed(indexed, other *lrItemSet, boundaryMask *bitset) bool {
+	indexed.ensurePackedCoreIndex()
 	for _, oc := range other.cores {
 		idx, ok := indexed.coreLookup(oc.prodIdx, oc.dot)
 		if !ok {
@@ -1069,7 +1073,6 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 		dot:        0,
 		lookaheads: initialLA,
 	}})
-	initialSet.ensurePackedCoreIndex()
 	ctx.itemSets = []lrItemSet{initialSet}
 	addToHashMap(fullMap, initialSet.fullHash, 0)
 	if !useExtendedMerging && !useBoundaryMerging {
@@ -1202,7 +1205,6 @@ func (ctx *lrContext) findOrCreateState(
 	}
 
 	// 3. No match — create new state.
-	closedSet.ensurePackedCoreIndex()
 	newIdx := len(ctx.itemSets)
 	ctx.itemSets = append(ctx.itemSets, *closedSet)
 	addToHashMap(fullMap, closedSet.fullHash, newIdx)
