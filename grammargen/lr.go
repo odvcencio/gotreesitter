@@ -1138,7 +1138,7 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 
 			// Record transition for table construction.
 			if ctx.transitions[stateIdx] == nil {
-				ctx.transitions[stateIdx] = make(map[int]int)
+				ctx.transitions[stateIdx] = make(map[int]int, len(syms))
 			}
 			ctx.transitions[stateIdx][sym] = targetIdx
 		}
