@@ -299,6 +299,54 @@ type lrContext struct {
 	needReduceLAHash bool
 }
 
+// conflictResolutionCache stores grammar-wide declared-conflict metadata that
+// would otherwise be rebuilt for every single resolveActionConflict call.
+type conflictResolutionCache struct {
+	symbolInConflict []bool
+	reverseIdx       [][]int
+	groups           [][]int
+	groupsBySymbol   [][]int
+}
+
+func getConflictResolutionCache(ng *NormalizedGrammar) *conflictResolutionCache {
+	if len(ng.Conflicts) == 0 {
+		return nil
+	}
+	if ng.conflictCache != nil {
+		return ng.conflictCache
+	}
+
+	cache := &conflictResolutionCache{
+		symbolInConflict: make([]bool, len(ng.Symbols)),
+		reverseIdx:       make([][]int, len(ng.Symbols)),
+		groups:           make([][]int, len(ng.Conflicts)),
+		groupsBySymbol:   make([][]int, len(ng.Symbols)),
+	}
+
+	for groupIdx, group := range ng.Conflicts {
+		cache.groups[groupIdx] = append([]int(nil), group...)
+		for _, sym := range group {
+			if sym < 0 || sym >= len(cache.symbolInConflict) {
+				continue
+			}
+			cache.symbolInConflict[sym] = true
+			cache.groupsBySymbol[sym] = append(cache.groupsBySymbol[sym], groupIdx)
+		}
+	}
+
+	for prodIdx, prod := range ng.Productions {
+		for _, sym := range prod.RHS {
+			if sym < 0 || sym >= len(cache.reverseIdx) {
+				continue
+			}
+			cache.reverseIdx[sym] = append(cache.reverseIdx[sym], prodIdx)
+		}
+	}
+
+	ng.conflictCache = cache
+	return cache
+}
+
 func (ctx *lrContext) ensureProvenance() {
 	if !ctx.trackProvenance || ctx.provenance != nil {
 		return
@@ -1187,6 +1235,7 @@ func resolveActionConflict(actions []lrAction, ng *NormalizedGrammar) ([]lrActio
 	if len(actions) <= 1 {
 		return actions, nil
 	}
+	cache := getConflictResolutionCache(ng)
 
 	// Priority: non-extra actions always win over extra actions.
 	hasExtra, hasNonExtra := false, false
@@ -1229,13 +1278,13 @@ func resolveActionConflict(actions []lrAction, ng *NormalizedGrammar) ([]lrActio
 		reduce := reduces[0]
 		prod := &ng.Productions[reduce.prodIdx]
 
-		if shiftMatchesConflictGroup(shift, reduce.lhsSym, ng) {
+		if shiftMatchesConflictGroup(shift, reduce.lhsSym, cache) {
 			return actions, nil
 		}
-		if reduceLHSInConflictGroup(reduce.prodIdx, ng) {
+		if reduceLHSInConflictGroup(reduce.prodIdx, ng, cache) {
 			return actions, nil
 		}
-		if isTransitiveConflict(shift, reduce, ng) {
+		if isTransitiveConflict(shift, reduce, ng, cache) {
 			return actions, nil
 		}
 
@@ -1293,14 +1342,14 @@ func resolveActionConflict(actions []lrAction, ng *NormalizedGrammar) ([]lrActio
 	// epsilon R/R conflicts, leaving non-epsilon R/R as ambiguous table
 	// entries which caused type="" parse failures.
 	if len(reduces) > 1 {
-		return resolveReduceReduceLegacy(reduces, ng)
+		return resolveReduceReduceLegacy(reduces, ng, cache)
 	}
 
 	return actions, nil
 }
 
-func resolveReduceReduceLegacy(reduces []lrAction, ng *NormalizedGrammar) ([]lrAction, error) {
-	if allInDeclaredConflict(reduces, ng) {
+func resolveReduceReduceLegacy(reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) ([]lrAction, error) {
+	if allInDeclaredConflict(reduces, ng, cache) {
 		return reduces, nil
 	}
 
@@ -1326,8 +1375,8 @@ func resolveReduceReduceLegacy(reduces []lrAction, ng *NormalizedGrammar) ([]lrA
 	return []lrAction{best}, nil
 }
 
-func shiftMatchesConflictGroup(shift lrAction, reduceLHS int, ng *NormalizedGrammar) bool {
-	if len(ng.Conflicts) == 0 {
+func shiftMatchesConflictGroup(shift lrAction, reduceLHS int, cache *conflictResolutionCache) bool {
+	if cache == nil || reduceLHS < 0 || reduceLHS >= len(cache.groupsBySymbol) {
 		return false
 	}
 	allShiftLHS := make([]int, 0, 1+len(shift.lhsSyms))
@@ -1336,18 +1385,8 @@ func shiftMatchesConflictGroup(shift lrAction, reduceLHS int, ng *NormalizedGram
 	}
 	allShiftLHS = append(allShiftLHS, shift.lhsSyms...)
 
-	for _, cgroup := range ng.Conflicts {
-		hasReduce := false
-		for _, sym := range cgroup {
-			if sym == reduceLHS {
-				hasReduce = true
-				break
-			}
-		}
-		if !hasReduce {
-			continue
-		}
-		for _, sym := range cgroup {
+	for _, groupIdx := range cache.groupsBySymbol[reduceLHS] {
+		for _, sym := range cache.groups[groupIdx] {
 			for _, shiftLHS := range allShiftLHS {
 				if sym == shiftLHS && shiftLHS != reduceLHS {
 					return true
@@ -1362,40 +1401,28 @@ func shiftMatchesConflictGroup(shift lrAction, reduceLHS int, ng *NormalizedGram
 // appears in any declared conflict group. This is used as a fallback in S/R
 // conflict resolution: if the reduce's LHS is in a conflict group, the conflict
 // is kept as GLR even if the shift's LHS is not in the same group.
-func reduceLHSInConflictGroup(prodIdx int, ng *NormalizedGrammar) bool {
-	prod := &ng.Productions[prodIdx]
-	for _, cgroup := range ng.Conflicts {
-		for _, sym := range cgroup {
-			if sym == prod.LHS {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func isTransitiveConflict(shift lrAction, reduce lrAction, ng *NormalizedGrammar) bool {
-	if len(ng.Conflicts) == 0 {
+func reduceLHSInConflictGroup(prodIdx int, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
+	if cache == nil {
 		return false
 	}
+	prod := &ng.Productions[prodIdx]
+	if prod.LHS < 0 || prod.LHS >= len(cache.symbolInConflict) {
+		return false
+	}
+	return cache.symbolInConflict[prod.LHS]
+}
 
-	conflictSyms := make(map[int]bool)
-	for _, cg := range ng.Conflicts {
-		for _, s := range cg {
-			conflictSyms[s] = true
-		}
+func isTransitiveConflict(shift lrAction, reduce lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
+	if cache == nil {
+		return false
 	}
 
 	reduceLHS := ng.Productions[reduce.prodIdx].LHS
-	if conflictSyms[reduceLHS] {
+	if reduceLHS < 0 || reduceLHS >= len(cache.symbolInConflict) {
 		return false
 	}
-
-	reverseIdx := make(map[int][]int)
-	for i, prod := range ng.Productions {
-		for _, s := range prod.RHS {
-			reverseIdx[s] = append(reverseIdx[s], i)
-		}
+	if cache.symbolInConflict[reduceLHS] {
+		return false
 	}
 
 	allShiftLHS := make(map[int]bool)
@@ -1406,29 +1433,34 @@ func isTransitiveConflict(shift lrAction, reduce lrAction, ng *NormalizedGrammar
 		allShiftLHS[s] = true
 	}
 
-	shiftConflictSyms := make(map[int]bool)
-	for s := range allShiftLHS {
-		if conflictSyms[s] {
-			shiftConflictSyms[s] = true
+	shiftConflictSyms := make([]bool, len(cache.symbolInConflict))
+	shiftConflictCount := 0
+	markShiftConflict := func(sym int) {
+		if sym < 0 || sym >= len(shiftConflictSyms) || !cache.symbolInConflict[sym] || shiftConflictSyms[sym] {
+			return
 		}
-		for _, pi := range reverseIdx[s] {
+		shiftConflictSyms[sym] = true
+		shiftConflictCount++
+	}
+	for s := range allShiftLHS {
+		markShiftConflict(s)
+		if s < 0 || s >= len(cache.reverseIdx) {
+			continue
+		}
+		for _, pi := range cache.reverseIdx[s] {
 			prod := &ng.Productions[pi]
-			if conflictSyms[prod.LHS] {
-				shiftConflictSyms[prod.LHS] = true
-			}
+			markShiftConflict(prod.LHS)
 			for _, rs := range prod.RHS {
-				if conflictSyms[rs] {
-					shiftConflictSyms[rs] = true
-				}
+				markShiftConflict(rs)
 			}
 		}
 	}
 
-	if len(shiftConflictSyms) == 0 {
+	if shiftConflictCount == 0 {
 		return false
 	}
 
-	visited := make(map[int]bool)
+	visited := make([]bool, len(cache.symbolInConflict))
 	visited[reduceLHS] = true
 	queue := []int{reduceLHS}
 	maxDepth := 4
@@ -1436,35 +1468,21 @@ func isTransitiveConflict(shift lrAction, reduce lrAction, ng *NormalizedGrammar
 	for depth := 0; depth < maxDepth && len(queue) > 0; depth++ {
 		var next []int
 		for _, sym := range queue {
-			for _, pi := range reverseIdx[sym] {
+			if sym < 0 || sym >= len(cache.reverseIdx) {
+				continue
+			}
+			for _, pi := range cache.reverseIdx[sym] {
 				prod := &ng.Productions[pi]
-				var foundReduceSide []int
-				if conflictSyms[prod.LHS] {
-					foundReduceSide = append(foundReduceSide, prod.LHS)
+				if anyMarkedConflictGroup(prod.LHS, shiftConflictSyms, cache) {
+					return true
 				}
 				for _, rs := range prod.RHS {
-					if conflictSyms[rs] && rs != sym {
-						foundReduceSide = append(foundReduceSide, rs)
-					}
-				}
-				for _, rcs := range foundReduceSide {
-					for _, cg := range ng.Conflicts {
-						hasReduce, hasShift := false, false
-						for _, cs := range cg {
-							if cs == rcs {
-								hasReduce = true
-							}
-							if shiftConflictSyms[cs] {
-								hasShift = true
-							}
-						}
-						if hasReduce && hasShift {
-							return true
-						}
+					if rs != sym && anyMarkedConflictGroup(rs, shiftConflictSyms, cache) {
+						return true
 					}
 				}
 
-				if !visited[prod.LHS] {
+				if prod.LHS >= 0 && prod.LHS < len(visited) && !visited[prod.LHS] {
 					visited[prod.LHS] = true
 					next = append(next, prod.LHS)
 				}
@@ -1475,19 +1493,36 @@ func isTransitiveConflict(shift lrAction, reduce lrAction, ng *NormalizedGrammar
 	return false
 }
 
-func allInDeclaredConflict(reduces []lrAction, ng *NormalizedGrammar) bool {
-	if len(reduces) < 2 || len(ng.Conflicts) == 0 {
+func anyMarkedConflictGroup(sym int, marked []bool, cache *conflictResolutionCache) bool {
+	if cache == nil || sym < 0 || sym >= len(cache.groupsBySymbol) {
 		return false
 	}
-	for _, cgroup := range ng.Conflicts {
-		cgroupSet := make(map[int]bool, len(cgroup))
-		for _, sym := range cgroup {
-			cgroupSet[sym] = true
+	for _, groupIdx := range cache.groupsBySymbol[sym] {
+		for _, member := range cache.groups[groupIdx] {
+			if member >= 0 && member < len(marked) && marked[member] {
+				return true
+			}
 		}
+	}
+	return false
+}
+
+func allInDeclaredConflict(reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
+	if len(reduces) < 2 || cache == nil {
+		return false
+	}
+	for _, cgroup := range cache.groups {
 		allFound := true
 		for _, r := range reduces {
 			lhs := ng.Productions[r.prodIdx].LHS
-			if !cgroupSet[lhs] {
+			found := false
+			for _, sym := range cgroup {
+				if sym == lhs {
+					found = true
+					break
+				}
+			}
+			if !found {
 				allFound = false
 				break
 			}

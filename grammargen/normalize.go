@@ -90,6 +90,10 @@ type NormalizedGrammar struct {
 
 	// External scanner support (populated when Grammar.Externals is set).
 	ExternalSymbols []int // external token index → symbol ID
+
+	// conflictCache is built lazily by LR conflict resolution so repeated
+	// resolveActionConflict calls can reuse the same reverse indexes.
+	conflictCache *conflictResolutionCache
 }
 
 // symbolTable is used during normalization.
@@ -602,12 +606,12 @@ func collectInlinePatterns(g *Grammar) []string {
 
 // classifyRules separates rule names into named tokens (terminal rules)
 // and nonterminals. A rule is a "named token" if its definition is:
-// - wrapped in token() or token.immediate()
-// - a pattern
-// - a string literal ONLY when no other rule shares the same string value
-//   (if multiple named rules define the same STRING, or the STRING is used
-//   inline in nonterminal rules, the named rule becomes a nonterminal
-//   wrapping the shared anonymous terminal — matching tree-sitter C behavior).
+//   - wrapped in token() or token.immediate()
+//   - a pattern
+//   - a string literal ONLY when no other rule shares the same string value
+//     (if multiple named rules define the same STRING, or the STRING is used
+//     inline in nonterminal rules, the named rule becomes a nonterminal
+//     wrapping the shared anonymous terminal — matching tree-sitter C behavior).
 func classifyRules(g *Grammar) (tokens, nonterms []string) {
 	// Count how many distinct sources each STRING value has.
 	// Sources: named bare-STRING rules + inline STRING usage in nonterminal rules.
@@ -740,8 +744,8 @@ type inlineTokenEntry struct {
 // and the parser can't find an action for it after a reduce chain.
 func liftInlineTokens(g *Grammar, st *symbolTable) []inlineTokenEntry {
 	var entries []inlineTokenEntry
-	counter := make(map[string]int)    // per-parent-rule counters
-	dedup := make(map[string]string)   // canonical pattern key → symbol name
+	counter := make(map[string]int)  // per-parent-rule counters
+	dedup := make(map[string]string) // canonical pattern key → symbol name
 
 	for _, name := range g.RuleOrder {
 		rule := g.Rules[name]
