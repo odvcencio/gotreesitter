@@ -104,6 +104,14 @@ func buildLRTablesInternal(ng *NormalizedGrammar, trackProvenance bool) (*LRTabl
 
 	tokenCount := ng.TokenCount()
 	ctx.tokenCount = tokenCount
+	ctx.lookaheadWordCount = (tokenCount + 63) / 64
+	if ctx.lookaheadWordCount == 0 {
+		ctx.lookaheadWordCount = 1
+	}
+	ctx.maxLookaheadPool = len(ng.Productions)
+	if ctx.maxLookaheadPool < 64 {
+		ctx.maxLookaheadPool = 64
+	}
 	ctx.boundaryLookaheads = newBitset(tokenCount)
 	ctx.boundaryLookaheads.add(0) // EOF
 	for _, sym := range ng.ExternalSymbols {
@@ -303,6 +311,12 @@ type lrContext struct {
 	closureWorklist  []int
 	closureQueuedGen []uint32
 	closureQueueGen  uint32
+
+	// Lookahead bitset scratch reuses word buffers for temporary closed sets that
+	// are discarded after exact-match or merge lookups.
+	lookaheadWordCount int
+	lookaheadWordPool  [][]uint64
+	maxLookaheadPool   int
 }
 
 // conflictResolutionCache stores grammar-wide declared-conflict metadata that
@@ -415,6 +429,41 @@ func (ctx *lrContext) releaseScratch() {
 	ctx.extraProdIndices = nil
 	ctx.allTerminals = bitset{}
 	ctx.boundaryLookaheads = bitset{}
+	ctx.lookaheadWordPool = nil
+}
+
+func (ctx *lrContext) allocLookaheadBitset() bitset {
+	if n := len(ctx.lookaheadWordPool); n > 0 {
+		words := ctx.lookaheadWordPool[n-1]
+		ctx.lookaheadWordPool = ctx.lookaheadWordPool[:n-1]
+		clear(words)
+		return bitset{words: words}
+	}
+	return bitset{words: make([]uint64, ctx.lookaheadWordCount)}
+}
+
+func (ctx *lrContext) cloneLookaheadBitset(src *bitset) bitset {
+	clone := ctx.allocLookaheadBitset()
+	copy(clone.words, src.words)
+	return clone
+}
+
+func (ctx *lrContext) recycleLookaheadBitset(b *bitset) {
+	if len(b.words) != ctx.lookaheadWordCount || len(ctx.lookaheadWordPool) >= ctx.maxLookaheadPool {
+		b.words = nil
+		return
+	}
+	ctx.lookaheadWordPool = append(ctx.lookaheadWordPool, b.words)
+	b.words = nil
+}
+
+func (ctx *lrContext) recycleItemSetLookaheads(set *lrItemSet) {
+	for i := range set.cores {
+		ctx.recycleLookaheadBitset(&set.cores[i].lookaheads)
+	}
+	set.cores = nil
+	set.coreIndex = nil
+	set.packedCoreIndex = nil
 }
 
 // addNonterminalExtraChains creates dedicated parse state chains for nonterminal
@@ -619,7 +668,7 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 			cores = append(cores, coreEntry{
 				prodIdx:    ke.prodIdx,
 				dot:        ke.dot,
-				lookaheads: ke.lookaheads.clone(),
+				lookaheads: ctx.cloneLookaheadBitset(&ke.lookaheads),
 			})
 			// Populate dot0Index for kernel items at dot=0.
 			if ke.dot == 0 {
@@ -669,7 +718,7 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 				cores = append(cores, coreEntry{
 					prodIdx:    prodIdx,
 					dot:        0,
-					lookaheads: newBitset(tokenCount),
+					lookaheads: ctx.allocLookaheadBitset(),
 				})
 				ctx.ensureClosureQueueCapacity(tidx + 1)
 			}
@@ -731,7 +780,7 @@ func (ctx *lrContext) closureIncremental(set *lrItemSet, newEntries []coreEntry)
 			set.cores = append(set.cores, coreEntry{
 				prodIdx:    ne.prodIdx,
 				dot:        ne.dot,
-				lookaheads: ne.lookaheads.clone(),
+				lookaheads: ctx.cloneLookaheadBitset(&ne.lookaheads),
 			})
 			ctx.ensureClosureQueueCapacity(idx + 1)
 			worklist = append(worklist, idx)
@@ -767,7 +816,7 @@ func (ctx *lrContext) closureIncremental(set *lrItemSet, newEntries []coreEntry)
 				set.cores = append(set.cores, coreEntry{
 					prodIdx:    prodIdx,
 					dot:        0,
-					lookaheads: newBitset(tokenCount),
+					lookaheads: ctx.allocLookaheadBitset(),
 				})
 				ctx.ensureClosureQueueCapacity(tidx + 1)
 			}
@@ -1116,6 +1165,7 @@ func (ctx *lrContext) findOrCreateState(
 	// 1. Check exact LR(1) match via fullHash.
 	for entry := fullMap[closedSet.fullHash]; entry != nil; entry = entry.next {
 		if sameFullItems(&ctx.itemSets[entry.stateIdx], closedSet) {
+			ctx.recycleItemSetLookaheads(closedSet)
 			return entry.stateIdx
 		}
 	}
@@ -1128,7 +1178,9 @@ func (ctx *lrContext) findOrCreateState(
 				sameCores(existing, closedSet) &&
 				sameReduceLookaheads(existing, closedSet, ctx.ng.Productions) {
 				// Merge lookaheads into existing state.
-				return ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
+				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
+				ctx.recycleItemSetLookaheads(closedSet)
+				return targetIdx
 			}
 		}
 	} else if useBoundary {
@@ -1136,7 +1188,9 @@ func (ctx *lrContext) findOrCreateState(
 			existing := &ctx.itemSets[entry.stateIdx]
 			if existing.coreHash == closedSet.coreHash &&
 				sameBoundaryLookaheads(existing, closedSet, &ctx.boundaryLookaheads) {
-				return ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
+				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
+				ctx.recycleItemSetLookaheads(closedSet)
+				return targetIdx
 			}
 		}
 	} else {
@@ -1144,7 +1198,9 @@ func (ctx *lrContext) findOrCreateState(
 		for entry := coreMap[closedSet.coreHash]; entry != nil; entry = entry.next {
 			existing := &ctx.itemSets[entry.stateIdx]
 			if sameCores(existing, closedSet) {
-				return ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
+				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
+				ctx.recycleItemSetLookaheads(closedSet)
+				return targetIdx
 			}
 		}
 	}
