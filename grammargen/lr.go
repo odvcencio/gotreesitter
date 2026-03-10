@@ -604,17 +604,18 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 	}
 	ctx.dot0Dirty = ctx.dot0Dirty[:0]
 
-	// Build initial core index from kernel using packed keys to keep the hot
-	// full-LR closure path on 64-bit map hashing instead of struct hashing.
-	coreIdx := make(map[uint64]int, len(kernel)*2)
+	// Deduplicate only the incoming kernel up front. Newly discovered closure
+	// entries are dot=0 items and are tracked by dot0Index during closure; the
+	// final packed index can be built once at exact size after closure finishes.
+	kernelIdx := make(map[uint64]int, len(kernel)*2)
 	cores := make([]coreEntry, 0, len(kernel)*2)
 	for _, ke := range kernel {
 		key := packCoreItemKey(ke.prodIdx, ke.dot)
-		if idx, ok := coreIdx[key]; ok {
+		if idx, ok := kernelIdx[key]; ok {
 			cores[idx].lookaheads.unionWith(&ke.lookaheads)
 		} else {
 			idx := len(cores)
-			coreIdx[key] = idx
+			kernelIdx[key] = idx
 			cores = append(cores, coreEntry{
 				prodIdx:    ke.prodIdx,
 				dot:        ke.dot,
@@ -665,7 +666,6 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 				tidx = len(cores)
 				ctx.dot0Index[prodIdx] = tidx
 				ctx.dot0Dirty = append(ctx.dot0Dirty, prodIdx)
-				coreIdx[packCoreItemKey(prodIdx, 0)] = tidx
 				cores = append(cores, coreEntry{
 					prodIdx:    prodIdx,
 					dot:        0,
@@ -694,9 +694,14 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 	}
 	ctx.closureWorklist = worklist[:0]
 
+	packedCoreIndex := make(map[uint64]int, len(cores))
+	for idx, ce := range cores {
+		packedCoreIndex[packCoreItemKey(ce.prodIdx, ce.dot)] = idx
+	}
+
 	set := lrItemSet{
 		cores:           cores,
-		packedCoreIndex: coreIdx,
+		packedCoreIndex: packedCoreIndex,
 	}
 	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads, ctx.needReduceLAHash)
 	return set
