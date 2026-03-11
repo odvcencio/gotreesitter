@@ -1,5 +1,7 @@
 package grammargen
 
+import "sort"
+
 // DeRemer/Pennello LALR(1) lookahead computation.
 //
 // Instead of building full LR(1) item sets with lookaheads (which is O(n²) for
@@ -214,18 +216,29 @@ func (ctx *lrContext) computeLALRLookaheads() {
 	var ntTrans []ntTransition
 	ntTransIndex := make(map[[2]int]int) // (state, nonterm) → index in ntTrans
 
+	type stateSymPair struct{ state, sym, target int }
+	var ntPairs []stateSymPair
 	for state, trans := range ctx.transitions {
 		for sym, target := range trans {
 			if sym >= tokenCount {
-				idx := len(ntTrans)
-				ntTransIndex[[2]int{state, sym}] = idx
-				ntTrans = append(ntTrans, ntTransition{
-					state:   state,
-					nonterm: sym,
-					target:  target,
-				})
+				ntPairs = append(ntPairs, stateSymPair{state, sym, target})
 			}
 		}
+	}
+	sort.Slice(ntPairs, func(i, j int) bool {
+		if ntPairs[i].state != ntPairs[j].state {
+			return ntPairs[i].state < ntPairs[j].state
+		}
+		return ntPairs[i].sym < ntPairs[j].sym
+	})
+	for _, p := range ntPairs {
+		idx := len(ntTrans)
+		ntTransIndex[[2]int{p.state, p.sym}] = idx
+		ntTrans = append(ntTrans, ntTransition{
+			state:   p.state,
+			nonterm: p.sym,
+			target:  p.target,
+		})
 	}
 
 	numTrans := len(ntTrans)
@@ -265,11 +278,16 @@ func (ctx *lrContext) computeLALRLookaheads() {
 	for i, nt := range ntTrans {
 		q := nt.target
 		if trans, ok := ctx.transitions[q]; ok {
+			var nullableSyms []int
 			for sym := range trans {
 				if sym >= tokenCount && ctx.nullables[sym] {
-					if j, ok := ntTransIndex[[2]int{q, sym}]; ok {
-						reads[i] = append(reads[i], j)
-					}
+					nullableSyms = append(nullableSyms, sym)
+				}
+			}
+			sort.Ints(nullableSyms)
+			for _, sym := range nullableSyms {
+				if j, ok := ntTransIndex[[2]int{q, sym}]; ok {
+					reads[i] = append(reads[i], j)
 				}
 			}
 		}

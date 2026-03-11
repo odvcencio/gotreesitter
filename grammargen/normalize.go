@@ -976,9 +976,22 @@ func liftTokensInRule(r *Rule, parentName string, st *symbolTable, entries *[]in
 		return r
 	}
 
-	// Recurse into children.
+	// Recurse into children — copy-on-write to avoid mutating the original rule tree.
+	var newChildren []*Rule
 	for i, c := range r.Children {
-		r.Children[i] = liftTokensInRule(c, parentName, st, entries, counter, dedup)
+		nc := liftTokensInRule(c, parentName, st, entries, counter, dedup)
+		if nc != c && newChildren == nil {
+			newChildren = make([]*Rule, len(r.Children))
+			copy(newChildren, r.Children)
+		}
+		if newChildren != nil {
+			newChildren[i] = nc
+		}
+	}
+	if newChildren != nil {
+		out := *r
+		out.Children = newChildren
+		return &out
 	}
 	return r
 }

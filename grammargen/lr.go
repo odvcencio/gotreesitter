@@ -3,6 +3,7 @@ package grammargen
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -697,8 +698,13 @@ func (b *extraChainBuilder) unionSyntheticStates(a, c int) int {
 	b.unionStateCache[key] = stateIdx
 	for _, src := range []int{a, c} {
 		if srcActions, ok := b.tables.ActionTable[src]; ok {
-			for sym, acts := range srcActions {
-				for _, act := range acts {
+			syms := make([]int, 0, len(srcActions))
+			for sym := range srcActions {
+				syms = append(syms, sym)
+			}
+			sort.Ints(syms)
+			for _, sym := range syms {
+				for _, act := range srcActions[sym] {
 					b.tables.addAction(stateIdx, sym, act)
 				}
 			}
@@ -895,7 +901,8 @@ func addNonterminalExtraChains(tables *LRTables, ng *NormalizedGrammar, ctx *lrC
 
 	for state := 0; state < mainStateCount; state++ {
 		follow := stateFollowSets[state]
-		for firstSym, prodIdxs := range extraStartsByFirstSym {
+		for _, firstSym := range extraFirstSyms {
+			prodIdxs := extraStartsByFirstSym[firstSym]
 			entryState := builder.buildEntryState(firstSym, prodIdxs, follow)
 			tables.addAction(state, firstSym, lrAction{
 				kind:    lrShift,
@@ -1750,8 +1757,24 @@ func (ctx *lrContext) mergeInto(
 // resolveConflicts resolves shift/reduce and reduce/reduce conflicts
 // using precedence and associativity.
 func resolveConflicts(tables *LRTables, ng *NormalizedGrammar) error {
-	for state, actions := range tables.ActionTable {
-		for sym, acts := range actions {
+	states := make([]int, 0, len(tables.ActionTable))
+	for state := range tables.ActionTable {
+		states = append(states, state)
+	}
+	// Sort in reverse so earlier states (lower index) are resolved last and
+	// any error message points to the earliest conflicting state.
+	// Actually sort ascending: report errors in state order and allow
+	// deterministic resolution regardless of map iteration order.
+	sort.Ints(states)
+	for _, state := range states {
+		actions := tables.ActionTable[state]
+		syms := make([]int, 0, len(actions))
+		for sym := range actions {
+			syms = append(syms, sym)
+		}
+		sort.Ints(syms)
+		for _, sym := range syms {
+			acts := actions[sym]
 			if len(acts) <= 1 {
 				continue
 			}
