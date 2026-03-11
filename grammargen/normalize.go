@@ -1387,12 +1387,21 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		}
 		adjustedPriority := priority - prec*1000
 		if entry.immediate {
-			// Immediate inline tokens must outrank overlapping non-immediate
-			// patterns in the same lex mode (e.g. dockerfile env_pair "=" value).
-			// But do not force a shorter immediate string literal ahead of a
-			// longer non-immediate string terminal that shares its prefix (e.g.
-			// "#" vs "#)"). Tree-sitter still needs the longer literal to win.
-			if !(expanded.Kind == RuleString && hasLongerStringPrefixPattern(patterns, expanded.Value)) {
+			if expanded.Kind == RuleString {
+				if hasLongerStringPrefixPattern(patterns, expanded.Value) {
+					// A longer non-immediate string has this as a prefix (e.g.
+					// "#" vs "#)"). Don't apply the -10000 bonus so the longer
+					// non-immediate literal can win via normal priority ordering.
+				} else {
+					// No non-immediate prefix conflict. Apply -10000 uniformly
+					// (fixed, not sequential) so sibling immediate string literals
+					// at the same prec tier all get the same AcceptPriority. This
+					// lets the runtime's greedy tiebreaker (longer match wins)
+					// decide among them — e.g. IMMTOKEN("+") vs IMMTOKEN("++").
+					adjustedPriority = -10000 - prec*1000
+				}
+			} else {
+				// Non-string immediate tokens: sequential priority with -10000.
 				adjustedPriority -= 10000
 			}
 		}

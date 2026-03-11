@@ -2,6 +2,7 @@ package grammargen
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/odvcencio/gotreesitter"
@@ -94,8 +95,23 @@ type GenerateReport struct {
 // resolveConflictsWithDiag is like resolveConflicts but collects diagnostics.
 func resolveConflictsWithDiag(tables *LRTables, ng *NormalizedGrammar, prov *mergeProvenance) ([]ConflictDiag, error) {
 	var diags []ConflictDiag
-	for state, actions := range tables.ActionTable {
-		for sym, acts := range actions {
+
+	// Sort states and syms for deterministic conflict resolution order.
+	states := make([]int, 0, len(tables.ActionTable))
+	for state := range tables.ActionTable {
+		states = append(states, state)
+	}
+	sort.Ints(states)
+
+	for _, state := range states {
+		actions := tables.ActionTable[state]
+		syms := make([]int, 0, len(actions))
+		for sym := range actions {
+			syms = append(syms, sym)
+		}
+		sort.Ints(syms)
+		for _, sym := range syms {
+			acts := actions[sym]
 			if len(acts) <= 1 {
 				continue
 			}

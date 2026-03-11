@@ -113,6 +113,7 @@ func (l *Lexer) scan(startState uint16, startPos int, startRow, startCol uint32)
 	acceptStartCol := uint32(0)
 	acceptSymbol := Symbol(0)
 	acceptSkip := false
+	acceptPriorityBest := int16(32767) // max int16; any real priority beats this
 
 	eofHops := 0
 	// Walk the DFA in the same style as tree-sitter START_LEXER/ADVANCE/SKIP.
@@ -123,14 +124,18 @@ func (l *Lexer) scan(startState uint16, startPos int, startRow, startCol uint32)
 		st := &l.states[curState]
 
 		if st.AcceptToken > 0 || st.Skip {
-			acceptPos = scanPos
-			acceptRow = scanRow
-			acceptCol = scanCol
-			acceptStartPos = tokenStartPos
-			acceptStartRow = tokenStartRow
-			acceptStartCol = tokenStartCol
-			acceptSymbol = st.AcceptToken
-			acceptSkip = st.Skip
+			newPrio := st.AcceptPriority
+			if acceptPos < 0 || newPrio < acceptPriorityBest || (newPrio == acceptPriorityBest && scanPos > acceptPos) {
+				acceptPos = scanPos
+				acceptRow = scanRow
+				acceptCol = scanCol
+				acceptStartPos = tokenStartPos
+				acceptStartRow = tokenStartRow
+				acceptStartCol = tokenStartCol
+				acceptSymbol = st.AcceptToken
+				acceptSkip = st.Skip
+				acceptPriorityBest = newPrio
+			}
 		}
 
 		if scanPos >= len(l.source) {
