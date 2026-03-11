@@ -167,6 +167,12 @@ func buildReduceFieldPresence(lang *Language) []bool {
 	return out
 }
 
+// InferredRootSymbol returns the root symbol inferred during parser
+// construction, and whether inference succeeded.
+func (p *Parser) InferredRootSymbol() (Symbol, bool) {
+	return p.rootSymbol, p.hasRootSymbol
+}
+
 // computeMaxConflictWidth scans the parse action table and returns the
 // widest N-way conflict (largest len(entry.Actions)). This determines the
 // minimum GLR stack cap needed to keep all fork paths alive.

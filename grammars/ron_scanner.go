@@ -45,7 +45,6 @@ func (RonExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			hasContent = true
 			lexer.Advance(false)
 		}
-		lexer.MarkEnd()
 		lexer.SetResultSymbol(ronSymStringContent)
 		return hasContent
 	}

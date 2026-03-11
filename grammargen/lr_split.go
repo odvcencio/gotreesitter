@@ -251,9 +251,9 @@ func localLR1Rebuild(
 		// via precedence/associativity and don't become GLR entries.
 		countGLR := func(actionTable map[int][]lrAction) int {
 			glr := 0
-			for _, acts := range actionTable {
+			for sym, acts := range actionTable {
 				if len(acts) > 1 {
-					resolved, err := resolveActionConflict(acts, ng)
+					resolved, err := resolveActionConflict(sym, acts, ng)
 					if err == nil && len(resolved) > 1 {
 						glr++
 					}

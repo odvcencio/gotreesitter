@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"unicode/utf8"
@@ -220,13 +221,17 @@ func (d *dfaTokenSource) nextDFAToken() Token {
 	if d == nil || d.lexer == nil || d.language == nil {
 		return Token{}
 	}
-	lexState := uint16(0)
-	if int(d.state) < len(d.language.LexModes) {
-		lexState = d.language.LexModes[d.state].LexState
+	startPos := d.lexer.pos
+	startRow := d.lexer.row
+	startCol := d.lexer.col
+	lexState := d.lexStateForState(d.state)
+	tok, endPos, endRow, endCol := d.scanDFAToken(lexState, startPos, startRow, startCol)
+	if altTok, altEndPos, altEndRow, altEndCol, ok := d.tryFallbackDFAToken(lexState, tok, startPos, startRow, startCol); ok {
+		tok = altTok
+		endPos = altEndPos
+		endRow = altEndRow
+		endCol = altEndCol
 	}
-	tok := d.lexer.Next(lexState)
-	tok = d.promoteKeyword(tok)
-	tok, endPos, endRow, endCol := d.normalizeDFAToken(tok, d.lexer.pos, d.lexer.row, d.lexer.col)
 	d.lexer.pos = endPos
 	d.lexer.row = endRow
 	d.lexer.col = endCol
@@ -270,16 +275,10 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 	}
 
 	// Check if all GLR states share the same lex mode — if so, no union needed.
-	primaryLexState := uint16(0)
-	if int(d.state) < len(d.language.LexModes) {
-		primaryLexState = d.language.LexModes[d.state].LexState
-	}
+	primaryLexState := d.lexStateForState(d.state)
 	allSame := true
 	for _, st := range d.glrStates {
-		ls := uint16(0)
-		if int(st) < len(d.language.LexModes) {
-			ls = d.language.LexModes[st].LexState
-		}
+		ls := d.lexStateForState(st)
 		if ls != primaryLexState {
 			allSame = false
 			break
@@ -304,10 +303,7 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 	// Deduplicate lex states to avoid redundant scans.
 	seen := make(map[uint16]struct{}, len(d.glrStates))
 	for _, st := range d.glrStates {
-		lexState := uint16(0)
-		if int(st) < len(d.language.LexModes) {
-			lexState = d.language.LexModes[st].LexState
-		}
+		lexState := d.lexStateForState(st)
 		if _, ok := seen[lexState]; ok {
 			continue
 		}
@@ -367,6 +363,100 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 	d.lexer.row = bestEndRow
 	d.lexer.col = bestEndCol
 	return bestTok, true
+}
+
+func (d *dfaTokenSource) lexStateForState(st StateID) uint16 {
+	if d == nil || d.language == nil {
+		return 0
+	}
+	if int(st) < len(d.language.LexModes) && d.language.LexModes[st].LexState == noLookaheadLexState {
+		return noLookaheadLexState
+	}
+	if d.useLayoutFallbackLexState(st) {
+		return d.language.LayoutFallbackLexState
+	}
+	if int(st) < len(d.language.LexModes) {
+		return d.language.LexModes[st].LexState
+	}
+	return 0
+}
+
+func (d *dfaTokenSource) scanDFAToken(lexState uint16, startPos int, startRow, startCol uint32) (Token, int, uint32, uint32) {
+	if d == nil || d.lexer == nil {
+		return Token{}, startPos, startRow, startCol
+	}
+	d.lexer.pos = startPos
+	d.lexer.row = startRow
+	d.lexer.col = startCol
+	tok := d.lexer.Next(lexState)
+	tok = d.promoteKeyword(tok)
+	return d.normalizeDFAToken(tok, d.lexer.pos, d.lexer.row, d.lexer.col)
+}
+
+func (d *dfaTokenSource) tryFallbackDFAToken(primaryLexState uint16, primaryTok Token, startPos int, startRow, startCol uint32) (Token, int, uint32, uint32, bool) {
+	if d == nil || d.language == nil || d.lookupActionIndex == nil {
+		return Token{}, 0, 0, 0, false
+	}
+	if !d.shouldCompareFallbackLexState(d.state) {
+		return Token{}, 0, 0, 0, false
+	}
+	fallbackLexState := d.language.LayoutFallbackLexState
+	if fallbackLexState == primaryLexState || fallbackLexState == noLookaheadLexState {
+		return Token{}, 0, 0, 0, false
+	}
+	fallbackTok, fallbackEndPos, fallbackEndRow, fallbackEndCol := d.scanDFAToken(fallbackLexState, startPos, startRow, startCol)
+	if d.lookupActionIndex(d.state, fallbackTok.Symbol) == 0 {
+		return Token{}, 0, 0, 0, false
+	}
+	if primaryTok.Symbol == 0 ||
+		d.lookupActionIndex(d.state, primaryTok.Symbol) == 0 ||
+		fallbackTok.StartByte < primaryTok.StartByte ||
+		(fallbackTok.StartByte == primaryTok.StartByte && fallbackTok.EndByte > primaryTok.EndByte) {
+		return fallbackTok, fallbackEndPos, fallbackEndRow, fallbackEndCol, true
+	}
+	return Token{}, 0, 0, 0, false
+}
+
+func (d *dfaTokenSource) shouldCompareFallbackLexState(st StateID) bool {
+	if d == nil || d.language == nil || !d.language.HasLayoutFallbackLexState {
+		return false
+	}
+	if int(st) < 0 || int(st) >= len(d.language.LexModes) {
+		return false
+	}
+	return d.language.LexModes[st].ExternalLexState > 0
+}
+
+func (d *dfaTokenSource) useLayoutFallbackLexState(st StateID) bool {
+	if d == nil || d.language == nil || !d.language.HasLayoutFallbackLexState {
+		return false
+	}
+	if len(d.language.ExternalLexStates) == 0 || int(st) >= len(d.language.LexModes) {
+		return false
+	}
+	elsID := int(d.language.LexModes[st].ExternalLexState)
+	if elsID <= 0 || elsID >= len(d.language.ExternalLexStates) {
+		return false
+	}
+	row := d.language.ExternalLexStates[elsID]
+	for i, ok := range row {
+		if !ok || i >= len(d.language.ExternalSymbols) {
+			continue
+		}
+		sym := d.language.ExternalSymbols[i]
+		if d.isLayoutEntryExternalSymbol(sym) {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *dfaTokenSource) isLayoutEntryExternalSymbol(sym Symbol) bool {
+	if d == nil || d.language == nil || int(sym) >= len(d.language.SymbolNames) {
+		return false
+	}
+	name := d.language.SymbolNames[sym]
+	return name == "{" || strings.HasPrefix(name, "_cmd_layout_start")
 }
 
 func (d *dfaTokenSource) normalizeDFAToken(tok Token, endPos int, endRow, endCol uint32) (Token, int, uint32, uint32) {

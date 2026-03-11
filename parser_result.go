@@ -1,5 +1,26 @@
 package gotreesitter
 
+import (
+	"fmt"
+	"os"
+)
+
+func debugFinalResultNodes(lang *Language, nodes []*Node) {
+	if os.Getenv("GTS_TMP_DEBUG_FINAL_NODES") != "1" || lang == nil {
+		return
+	}
+	fmt.Printf("[final-nodes] lang=%s count=%d\n", lang.Name, len(nodes))
+	for i, n := range nodes {
+		if n == nil {
+			fmt.Printf("  [%d] <nil>\n", i)
+			continue
+		}
+		fmt.Printf("  [%d] sym=%d type=%s extra=%v named=%v error=%v missing=%v children=%d span=%d-%d pre=%d parse=%d\n",
+			i, n.symbol, n.Type(lang), n.isExtra, n.isNamed, n.hasError, n.isMissing,
+			len(n.children), n.startByte, n.endByte, n.preGotoState, n.parseState)
+	}
+}
+
 // buildResultFromGLR picks the best stack and constructs the final tree.
 // Prefers accepted stacks, then highest score, then most entries.
 func (p *Parser) buildResultFromGLR(stacks []glrStack, source []byte, arena *nodeArena, oldTree *Tree, reuseState *parseReuseState, linkScratch *[]*Node) *Tree {
@@ -80,6 +101,10 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 	if arena != nil && arena.used == 0 {
 		arena.Release()
 		arena = nil
+	}
+
+	if p != nil {
+		debugFinalResultNodes(p.language, nodes)
 	}
 
 	expectedRootSymbol := Symbol(0)

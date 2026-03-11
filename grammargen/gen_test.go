@@ -687,6 +687,143 @@ func TestExtNormalize(t *testing.T) {
 	}
 }
 
+func TestNormalizeCanonicalizesConsistentlyAliasedExternalSymbol(t *testing.T) {
+	g := NewGrammar("ext_alias")
+	g.SetExternals(Sym("_layout_start_explicit"))
+	g.Define("source_file", Seq(
+		Alias(Sym("_layout_start_explicit"), "{", false),
+		Str("x"),
+	))
+
+	ng, err := Normalize(g)
+	if err != nil {
+		t.Fatalf("Normalize failed: %v", err)
+	}
+	if len(ng.ExternalSymbols) != 1 {
+		t.Fatalf("len(ExternalSymbols) = %d, want 1", len(ng.ExternalSymbols))
+	}
+
+	sym := ng.Symbols[ng.ExternalSymbols[0]]
+	if got, want := sym.Name, "{"; got != want {
+		t.Fatalf("external symbol name = %q, want %q", got, want)
+	}
+	if !sym.Visible {
+		t.Fatal("external symbol should be visible after canonical aliasing")
+	}
+	if sym.Named {
+		t.Fatal("external symbol should be anonymous after canonical aliasing")
+	}
+}
+
+func TestNormalizeImmediateInlinePrefixDoesNotBeatLongerStringToken(t *testing.T) {
+	g := NewGrammar("immediate_prefix")
+	g.Define("source_file", Choice(
+		Sym("close"),
+		Seq(ImmToken(Str("#")), Sym("rest")),
+	))
+	g.Define("close", Token(Str("#)")))
+	g.Define("rest", Token(Str("x")))
+
+	ng, err := Normalize(g)
+	if err != nil {
+		t.Fatalf("Normalize failed: %v", err)
+	}
+
+	hashPriority := 0
+	closePriority := 0
+	foundHash := false
+	foundClose := false
+	for _, term := range ng.Terminals {
+		if term.Rule == nil || term.Rule.Kind != RuleString {
+			continue
+		}
+		switch term.Rule.Value {
+		case "#":
+			if term.Immediate {
+				hashPriority = term.Priority
+				foundHash = true
+			}
+		case "#)":
+			closePriority = term.Priority
+			foundClose = true
+		}
+	}
+	if !foundHash || !foundClose {
+		t.Fatalf("missing expected terminals: foundHash=%v foundClose=%v", foundHash, foundClose)
+	}
+	if closePriority >= hashPriority {
+		t.Fatalf("\"#)\" priority = %d, want lower than immediate \"#\" priority %d", closePriority, hashPriority)
+	}
+}
+
+func TestNormalizeKeepsMatchingExternalPatternAsExtra(t *testing.T) {
+	g := NewGrammar("ext_pattern_extra")
+	g.Externals = []*Rule{Pat("\n")}
+	g.Extras = []*Rule{Pat("\n")}
+	g.Define("source_file", Repeat(Str("x")))
+
+	ng, err := Normalize(g)
+	if err != nil {
+		t.Fatalf("Normalize failed: %v", err)
+	}
+
+	seenWhitespace := false
+	seenExternalPattern := false
+	for _, symID := range ng.ExtraSymbols {
+		if symID < 0 || symID >= len(ng.Symbols) {
+			continue
+		}
+		switch ng.Symbols[symID].Name {
+		case "_whitespace":
+			seenWhitespace = true
+		case "_token1":
+			seenExternalPattern = true
+		}
+	}
+	if !seenWhitespace {
+		t.Fatal("expected _whitespace in ExtraSymbols")
+	}
+	if !seenExternalPattern {
+		t.Fatal("expected matching external pattern _token1 in ExtraSymbols")
+	}
+}
+
+func TestComputeLexModesIncludesLongerLiteralPrefixTokens(t *testing.T) {
+	prefixes := computeStringPrefixExtensions([]TerminalPattern{
+		{SymbolID: 1, Rule: Str("-")},
+		{SymbolID: 2, Rule: Str("->")},
+		{SymbolID: 3, Rule: Str("=")},
+	})
+
+	lexModes, stateToMode := computeLexModes(
+		1,
+		4,
+		func(state, sym int) bool {
+			return sym == 1
+		},
+		prefixes,
+		nil,
+		nil,
+		nil,
+		0,
+		nil,
+	)
+
+	if got, want := len(stateToMode), 1; got != want {
+		t.Fatalf("len(stateToMode) = %d, want %d", got, want)
+	}
+	mode := lexModes[stateToMode[0]]
+	if !mode.validSymbols[1] {
+		t.Fatal("expected short literal token to remain valid")
+	}
+	if !mode.validSymbols[2] {
+		t.Fatal("expected longer literal prefix token to be added")
+	}
+	if mode.validSymbols[3] {
+		t.Fatal("unexpected unrelated literal token in mode")
+	}
+}
+
 func TestExtExternalLexStates(t *testing.T) {
 	g := ExtScannerGrammar()
 	lang, err := GenerateLanguage(g)
@@ -798,7 +935,7 @@ type testIndentScanner struct {
 }
 
 type indentPayload struct {
-	indentStack []int
+	indentStack    []int
 	pendingDedents int
 	atNewline      bool
 }
@@ -846,15 +983,18 @@ func (s *testIndentScanner) Deserialize(payload any, buf []byte) {
 		return
 	}
 	n := 0
-	stackLen := int(buf[n]); n++
+	stackLen := int(buf[n])
+	n++
 	p.indentStack = make([]int, stackLen)
 	for i := range p.indentStack {
 		if n < len(buf) {
-			p.indentStack[i] = int(buf[n]); n++
+			p.indentStack[i] = int(buf[n])
+			n++
 		}
 	}
 	if n < len(buf) {
-		p.pendingDedents = int(buf[n]); n++
+		p.pendingDedents = int(buf[n])
+		n++
 	}
 	if n < len(buf) {
 		p.atNewline = buf[n] == 1
@@ -1212,10 +1352,10 @@ func TestRegexParser(t *testing.T) {
 		{`[\"\\\/bfnrt]`, false},
 		{`\s`, false},
 		// Patterns that previously failed (regex feature gaps)
-		{`u{[0-9a-fA-F]+}`, false},                                  // wat: u{hex} literal braces
-		{`[\pL\p{Mn}\pN_']*`, false},                                // haskell: \pL shorthand
-		{`\p{White_Space}|\\\\\\r?\n`, false},                       // perl: White_Space property
-		{`[\p{L}\p{M}\p{N}\p{Emoji}]`, false},                      // kdl: Emoji property
+		{`u{[0-9a-fA-F]+}`, false},            // wat: u{hex} literal braces
+		{`[\pL\p{Mn}\pN_']*`, false},          // haskell: \pL shorthand
+		{`\p{White_Space}|\\\\\\r?\n`, false}, // perl: White_Space property
+		{`[\p{L}\p{M}\p{N}\p{Emoji}]`, false}, // kdl: Emoji property
 	}
 
 	for _, tt := range tests {

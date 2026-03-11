@@ -19,7 +19,7 @@ func Generate(g *Grammar) ([]byte, error) {
 	}
 
 	// Phase 2: Build LR(1) parse tables.
-	tables, err := buildLRTables(ng)
+	tables, ctx, err := buildLRTablesInternal(ng, false)
 	if err != nil {
 		return nil, fmt.Errorf("build LR tables: %w", err)
 	}
@@ -30,7 +30,8 @@ func Generate(g *Grammar) ([]byte, error) {
 	}
 
 	// Phase 3b: Add nonterminal extra parse chains.
-	addNonterminalExtraChains(tables, ng)
+	addNonterminalExtraChains(tables, ng, ctx)
+	ctx.releaseScratch()
 
 	// Phase 4: Compute lex modes based on parse table.
 	tokenCount := ng.TokenCount()
@@ -45,6 +46,7 @@ func Generate(g *Grammar) ([]byte, error) {
 	for _, ks := range ng.KeywordSymbols {
 		keywordSet[ks] = true
 	}
+	stringPrefixExtensions := computeStringPrefixExtensions(ng.Terminals)
 
 	lexModes, stateToMode := computeLexModes(
 		tables.StateCount,
@@ -57,6 +59,7 @@ func Generate(g *Grammar) ([]byte, error) {
 			}
 			return false
 		},
+		stringPrefixExtensions,
 		ng.ExtraSymbols,
 		immediateTokens,
 		ng.ExternalSymbols,
@@ -124,7 +127,7 @@ func GenerateLanguage(g *Grammar) (*gotreesitter.Language, error) {
 		return nil, fmt.Errorf("normalize: %w", err)
 	}
 
-	tables, err := buildLRTables(ng)
+	tables, ctx, err := buildLRTablesInternal(ng, false)
 	if err != nil {
 		return nil, fmt.Errorf("build LR tables: %w", err)
 	}
@@ -133,7 +136,8 @@ func GenerateLanguage(g *Grammar) (*gotreesitter.Language, error) {
 		return nil, fmt.Errorf("resolve conflicts: %w", err)
 	}
 
-	addNonterminalExtraChains(tables, ng)
+	addNonterminalExtraChains(tables, ng, ctx)
+	ctx.releaseScratch()
 
 	tokenCount := ng.TokenCount()
 	immediateTokens := make(map[int]bool)
@@ -147,6 +151,7 @@ func GenerateLanguage(g *Grammar) (*gotreesitter.Language, error) {
 	for _, ks := range ng.KeywordSymbols {
 		keywordSet[ks] = true
 	}
+	stringPrefixExtensions := computeStringPrefixExtensions(ng.Terminals)
 
 	lexModes, stateToMode := computeLexModes(
 		tables.StateCount,
@@ -159,6 +164,7 @@ func GenerateLanguage(g *Grammar) (*gotreesitter.Language, error) {
 			}
 			return false
 		},
+		stringPrefixExtensions,
 		ng.ExtraSymbols,
 		immediateTokens,
 		ng.ExternalSymbols,

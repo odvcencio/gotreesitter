@@ -32,10 +32,11 @@ func ImportGrammarJS(source []byte) (*Grammar, error) {
 type jsImporter struct {
 	source         []byte
 	lang           *gotreesitter.Language
-	helperFuncs    map[string]*gotreesitter.Node    // top-level function declarations (commaSep, etc.)
-	paramSubst     map[string]*Rule                 // active parameter substitutions for helper inlining
-	localConsts    map[string]*gotreesitter.Node     // local const declarations in current rule body
-	topLevelConsts map[string]map[string]int         // top-level const objects: PREC.control → int
+	helperFuncs    map[string]*gotreesitter.Node // top-level function declarations (commaSep, etc.)
+	paramSubst     map[string]*Rule              // active parameter substitutions for helper inlining
+	localConsts    map[string]*gotreesitter.Node // local const declarations in current rule body
+	topLevelConsts map[string]map[string]int     // top-level const objects: PREC.control → int
+	namedPrecs     map[string]int                // grammar precedences: "end" → numeric value
 }
 
 // nodeText returns the source text of a node.
@@ -60,6 +61,7 @@ func (imp *jsImporter) extract(root *gotreesitter.Node) (*Grammar, error) {
 	if err != nil {
 		return nil, err
 	}
+	imp.namedPrecs = imp.extractNamedPrecs(grammarObj)
 
 	g := NewGrammar("")
 
@@ -114,6 +116,68 @@ func (imp *jsImporter) extract(root *gotreesitter.Node) (*Grammar, error) {
 	}
 
 	return g, nil
+}
+
+// extractNamedPrecs extracts grammar-level named precedence groups from
+// precedences: $ => [["name1", "name2"], ...].
+func (imp *jsImporter) extractNamedPrecs(grammarObj *gotreesitter.Node) map[string]int {
+	if grammarObj == nil || imp.nodeType(grammarObj) != "object" {
+		return nil
+	}
+
+	var levels [][]string
+	for i := 0; i < int(grammarObj.NamedChildCount()); i++ {
+		child := grammarObj.NamedChild(i)
+		if imp.nodeType(child) != "pair" || imp.getPairKey(child) != "precedences" {
+			continue
+		}
+		value := imp.getPairValue(child)
+		body := imp.extractArrowBody(value)
+		if body == nil {
+			body = value
+		}
+		if body == nil || imp.nodeType(body) != "array" {
+			return nil
+		}
+		for j := 0; j < int(body.NamedChildCount()); j++ {
+			group := body.NamedChild(j)
+			if imp.nodeType(group) != "array" {
+				continue
+			}
+			var level []string
+			for k := 0; k < int(group.NamedChildCount()); k++ {
+				entry := group.NamedChild(k)
+				switch imp.nodeType(entry) {
+				case "string":
+					level = append(level, imp.extractStringValue(entry))
+				case "member_expression":
+					level = append(level, imp.extractMemberProp(entry))
+				}
+			}
+			if len(level) > 0 {
+				levels = append(levels, level)
+			}
+		}
+		break
+	}
+	if len(levels) == 0 {
+		return nil
+	}
+
+	var ordered []string
+	for _, level := range levels {
+		ordered = append(ordered, level...)
+	}
+
+	m := make(map[string]int, len(ordered))
+	total := len(ordered)
+	for idx, name := range ordered {
+		val := total - 1 - idx
+		if existing, ok := m[name]; !ok || val > existing {
+			m[name] = val
+		}
+	}
+	return m
 }
 
 // findGrammarCall locates the grammar({...}) call expression and returns
@@ -674,8 +738,20 @@ func (imp *jsImporter) extractIntValue(n *gotreesitter.Node) (int, error) {
 		}
 	}
 
-	// String precedence values (e.g., prec.left("end", ...)) — treat as 0.
+	// String precedence values (e.g., prec.left("end", ...)) — resolve via the
+	// grammar's precedences array when available, otherwise treat as 0.
 	if imp.nodeType(n) == "string" || imp.nodeType(n) == "template_string" {
+		name := imp.nodeText(n)
+		if imp.nodeType(n) == "string" {
+			name = imp.extractStringValue(n)
+		} else if len(name) >= 2 {
+			name = name[1 : len(name)-1]
+		}
+		if imp.namedPrecs != nil {
+			if v, ok := imp.namedPrecs[name]; ok {
+				return v, nil
+			}
+		}
 		return 0, nil
 	}
 

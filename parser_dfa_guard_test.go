@@ -203,3 +203,209 @@ func TestNextGLRUnionDFATokenPrefersVisibleTokenOnExactTie(t *testing.T) {
 		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
 	}
 }
+
+func TestLexStateForStateUsesLayoutFallbackOnlyForLayoutEntryExternals(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"end", "_cmd_layout_start", "_cmd_texp_start"},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 5, ExternalLexState: 1},
+			{LexState: 7, ExternalLexState: 2},
+		},
+		ExternalSymbols: []Symbol{1, 2},
+		ExternalLexStates: [][]bool{
+			{false, false},
+			{true, false},
+			{false, true},
+		},
+		LayoutFallbackLexState:    11,
+		HasLayoutFallbackLexState: true,
+	}
+	d := &dfaTokenSource{language: lang}
+
+	if got, want := d.lexStateForState(1), uint16(11); got != want {
+		t.Fatalf("lexStateForState(1) = %d, want %d", got, want)
+	}
+	if got, want := d.lexStateForState(2), uint16(7); got != want {
+		t.Fatalf("lexStateForState(2) = %d, want %d", got, want)
+	}
+}
+
+func TestNextDFATokenUsesFallbackForEarlierActionableTokenInExternalState(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"end", "(", ",", "_cond_context"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end"},
+			{Name: "(", Visible: true},
+			{Name: ",", Visible: true},
+			{Name: "_cond_context"},
+		},
+		SymbolCount:               4,
+		TokenCount:                4,
+		StateCount:                3,
+		LargeStateCount:           3,
+		InitialState:              1,
+		LayoutFallbackLexState:    2,
+		HasLayoutFallbackLexState: true,
+		LexStates: []LexState{
+			{Default: -1, EOF: -1},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: ',', Hi: ',', NextState: 3}}},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '(', Hi: '(', NextState: 4}, {Lo: ',', Hi: ',', NextState: 3}}},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 1, ExternalLexState: 1},
+			{LexState: 1},
+		},
+		ExternalSymbols: []Symbol{3},
+		ExternalLexStates: [][]bool{
+			{false},
+			{true},
+		},
+		ParseTable: [][]uint16{
+			{0, 0, 0, 0},
+			{0, 1, 1, 0},
+			{0, 1, 1, 0},
+		},
+		ParseActions: []ParseActionEntry{
+			{Actions: nil},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}},
+		},
+	}
+	parser := NewParser(lang)
+	d := &dfaTokenSource{
+		lexer:             NewLexer(lang.LexStates, []byte("(x,")),
+		language:          lang,
+		state:             1,
+		lookupActionIndex: parser.lookupActionIndex,
+	}
+
+	tok := d.nextDFAToken()
+	if got, want := tok.Symbol, Symbol(1); got != want {
+		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
+	}
+	if got, want := tok.StartByte, uint32(0); got != want {
+		t.Fatalf("token start = %d, want %d", got, want)
+	}
+}
+
+func TestNextDFATokenKeepsPrimaryTokenOutsideExternalState(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"end", "(", ",", "_cond_context"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end"},
+			{Name: "(", Visible: true},
+			{Name: ",", Visible: true},
+			{Name: "_cond_context"},
+		},
+		SymbolCount:               4,
+		TokenCount:                4,
+		StateCount:                3,
+		LargeStateCount:           3,
+		InitialState:              1,
+		LayoutFallbackLexState:    2,
+		HasLayoutFallbackLexState: true,
+		LexStates: []LexState{
+			{Default: -1, EOF: -1},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: ',', Hi: ',', NextState: 3}}},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '(', Hi: '(', NextState: 4}, {Lo: ',', Hi: ',', NextState: 3}}},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 1},
+			{LexState: 1},
+		},
+		ExternalSymbols: []Symbol{3},
+		ExternalLexStates: [][]bool{
+			{false},
+			{true},
+		},
+		ParseTable: [][]uint16{
+			{0, 0, 0, 0},
+			{0, 1, 1, 0},
+			{0, 1, 1, 0},
+		},
+		ParseActions: []ParseActionEntry{
+			{Actions: nil},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}},
+		},
+	}
+	parser := NewParser(lang)
+	d := &dfaTokenSource{
+		lexer:             NewLexer(lang.LexStates, []byte("(x,")),
+		language:          lang,
+		state:             1,
+		lookupActionIndex: parser.lookupActionIndex,
+	}
+
+	tok := d.nextDFAToken()
+	if got, want := tok.Symbol, Symbol(2); got != want {
+		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
+	}
+	if got, want := tok.StartByte, uint32(2); got != want {
+		t.Fatalf("token start = %d, want %d", got, want)
+	}
+}
+
+func TestNextDFATokenUsesFallbackForLongerSameStartTokenInExternalState(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"end", "#", "#)", "_cond_context"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end"},
+			{Name: "#", Visible: true},
+			{Name: "#)", Visible: true},
+			{Name: "_cond_context"},
+		},
+		SymbolCount:               4,
+		TokenCount:                4,
+		StateCount:                2,
+		LargeStateCount:           2,
+		InitialState:              1,
+		LayoutFallbackLexState:    2,
+		HasLayoutFallbackLexState: true,
+		LexStates: []LexState{
+			{Default: -1, EOF: -1},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 3}}},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '#', Hi: '#', NextState: 4}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+			{AcceptToken: 1, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: ')', Hi: ')', NextState: 5}}},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 1, ExternalLexState: 1},
+		},
+		ExternalSymbols: []Symbol{3},
+		ExternalLexStates: [][]bool{
+			{false},
+			{true},
+		},
+		ParseTable: [][]uint16{
+			{0, 0, 0, 0},
+			{0, 1, 1, 0},
+		},
+		ParseActions: []ParseActionEntry{
+			{Actions: nil},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}},
+		},
+	}
+	parser := NewParser(lang)
+	d := &dfaTokenSource{
+		lexer:             NewLexer(lang.LexStates, []byte("#)")),
+		language:          lang,
+		state:             1,
+		lookupActionIndex: parser.lookupActionIndex,
+	}
+
+	tok := d.nextDFAToken()
+	if got, want := tok.Symbol, Symbol(2); got != want {
+		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
+	}
+	if got, want := tok.EndByte, uint32(2); got != want {
+		t.Fatalf("token end = %d, want %d", got, want)
+	}
+}

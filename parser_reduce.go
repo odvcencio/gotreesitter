@@ -286,7 +286,7 @@ func (p *Parser) applyReduceActionFromGSS(s *glrStack, act ParseAction, tok Toke
 	if gotoState != 0 {
 		targetState = gotoState
 	}
-	if tok.NoLookahead && targetState == topState {
+	if act.Extra || (tok.NoLookahead && targetState == topState) {
 		parent.isExtra = true
 	}
 	parent.preGotoState = topState
@@ -460,10 +460,10 @@ func extendParentSpanToWindow(parent *Node, entries []stackEntry, start, reduced
 		if isNonSpanExtendingInvisibleSymbol(n.symbol, symbolNames) {
 			continue
 		}
-	// Invisible entries (with or without children) may have span that
-	// extends beyond their inlined children due to nested invisible leaf
-	// extensions. Apply contiguity check below.
-	if n.endByte >= parent.startByte && n.startByte < parent.startByte {
+		// Invisible entries (with or without children) may have span that
+		// extends beyond their inlined children due to nested invisible leaf
+		// extensions. Apply contiguity check below.
+		if n.endByte >= parent.startByte && n.startByte < parent.startByte {
 			parent.startByte = n.startByte
 			parent.startPoint = n.startPoint
 		}
@@ -1136,7 +1136,7 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 	if gotoState != 0 {
 		targetState = gotoState
 	}
-	if tok.NoLookahead && targetState == window.topState {
+	if act.Extra || (tok.NoLookahead && targetState == window.topState) {
 		parent.isExtra = true
 	}
 	parent.preGotoState = window.topState
@@ -1336,31 +1336,22 @@ func materializeHiddenNodeForAlias(arena *nodeArena, lang *Language, n *Node) *N
 
 	cloned := cloneNodeInArena(arena, n)
 	children := arena.allocNodeSlice(normalizedCount)
-	var fieldIDs []FieldID
-	var fieldSources []uint8
-	if hiddenTreeHasFieldIDs(n) {
-		fieldIDs = arena.allocFieldIDSlice(normalizedCount)
-		fieldSources = make([]uint8, normalizedCount)
-	}
+	fieldIDs := arena.allocFieldIDSlice(normalizedCount)
+	fieldSources := make([]uint8, normalizedCount)
 	out := appendFlattenedHiddenChildrenWithFields(children, fieldIDs, fieldSources, 0, n, symbolMeta)
 	cloned.children = children[:out]
-	if len(fieldIDs) > 0 {
-		fieldIDs = fieldIDs[:out]
-		fieldSources = fieldSources[:out]
-		hasField := false
-		for _, fid := range fieldIDs {
-			if fid != 0 {
-				hasField = true
-				break
-			}
+	fieldIDs = fieldIDs[:out]
+	fieldSources = fieldSources[:out]
+	hasField := false
+	for _, fid := range fieldIDs {
+		if fid != 0 {
+			hasField = true
+			break
 		}
-		if hasField {
-			cloned.fieldIDs = fieldIDs
-			cloned.fieldSources = fieldSources
-		} else {
-			cloned.fieldIDs = nil
-			cloned.fieldSources = nil
-		}
+	}
+	if hasField {
+		cloned.fieldIDs = fieldIDs
+		cloned.fieldSources = fieldSources
 	} else {
 		cloned.fieldIDs = nil
 		cloned.fieldSources = nil
@@ -1372,14 +1363,22 @@ func hiddenTreeHasFieldIDs(n *Node) bool {
 	if n == nil {
 		return false
 	}
-	for _, fid := range n.fieldIDs {
-		if fid != 0 {
-			return true
+	stack := []*Node{n}
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if cur == nil {
+			continue
 		}
-	}
-	for _, child := range n.children {
-		if hiddenTreeHasFieldIDs(child) {
-			return true
+		for _, fid := range cur.fieldIDs {
+			if fid != 0 {
+				return true
+			}
+		}
+		for i := len(cur.children) - 1; i >= 0; i-- {
+			if child := cur.children[i]; child != nil {
+				stack = append(stack, child)
+			}
 		}
 	}
 	return false

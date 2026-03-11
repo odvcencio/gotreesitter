@@ -127,7 +127,7 @@ func resolveConflictsWithDiag(tables *LRTables, ng *NormalizedGrammar, prov *mer
 				diag.Kind = ReduceReduce
 			}
 
-			resolved, err := resolveActionConflict(acts, ng)
+			resolved, err := resolveActionConflict(sym, acts, ng)
 			if err != nil {
 				return diags, fmt.Errorf("state %d, symbol %d: %w", state, sym, err)
 			}
@@ -423,17 +423,17 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 		report.SplitResult = sr
 	}
 
-	// The LR construction context is only needed through conflict diagnostics
-	// and optional split evaluation. Drop its scratch data before building lex
-	// tables and encoding so those phases do not overlap with the full LR build
-	// heap for large grammars.
+	// Add nonterminal extra parse chains (must be after conflict resolution
+	// and optional splitting, since both modify the tables).
+	addNonterminalExtraChains(tables, ng, ctx)
+
+	// The LR construction context is only needed through conflict diagnostics,
+	// optional split evaluation, and extra-chain synthesis. Drop its scratch
+	// data before building lex tables and encoding so those phases do not
+	// overlap with the full LR build heap for large grammars.
 	ctx.releaseScratch()
 	prov = nil
 	ctx = nil
-
-	// Add nonterminal extra parse chains (must be after conflict resolution
-	// and optional splitting, since both modify the tables).
-	addNonterminalExtraChains(tables, ng)
 
 	report.SymbolCount = len(ng.Symbols)
 	report.StateCount = tables.StateCount + 1 // buildParseTables inserts error state 0
@@ -456,6 +456,7 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 	for _, ks := range ng.KeywordSymbols {
 		keywordSet[ks] = true
 	}
+	stringPrefixExtensions := computeStringPrefixExtensions(ng.Terminals)
 
 	lexModes, stateToMode := computeLexModes(
 		tables.StateCount,
@@ -468,6 +469,7 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 			}
 			return false
 		},
+		stringPrefixExtensions,
 		ng.ExtraSymbols,
 		immediateTokens,
 		ng.ExternalSymbols,

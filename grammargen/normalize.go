@@ -489,6 +489,8 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		}
 	}
 
+	canonicalizeAliasedExternalSymbols(st.symbols, productions, externalSymbols)
+
 	ng.Symbols = st.symbols
 	ng.Productions = productions
 	ng.Terminals = terminals
@@ -507,6 +509,69 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	_ = tokenCount
 
 	return ng, nil
+}
+
+func canonicalizeAliasedExternalSymbols(symbols []SymbolInfo, productions []Production, externalSymbols []int) {
+	if len(externalSymbols) == 0 {
+		return
+	}
+
+	type aliasShape struct {
+		name  string
+		named bool
+	}
+
+	for _, symID := range externalSymbols {
+		if symID < 0 || symID >= len(symbols) || symbols[symID].Kind != SymbolExternal {
+			continue
+		}
+
+		var canonical aliasShape
+		hasCanonical := false
+		seenUse := false
+		ok := true
+
+		for _, prod := range productions {
+			for childIdx, rhsSym := range prod.RHS {
+				if rhsSym != symID {
+					continue
+				}
+				seenUse = true
+				var alias *AliasInfo
+				for i := range prod.Aliases {
+					if prod.Aliases[i].ChildIndex == childIdx {
+						alias = &prod.Aliases[i]
+						break
+					}
+				}
+				if alias == nil {
+					ok = false
+					break
+				}
+				cur := aliasShape{name: alias.Name, named: alias.Named}
+				if !hasCanonical {
+					canonical = cur
+					hasCanonical = true
+					continue
+				}
+				if canonical != cur {
+					ok = false
+					break
+				}
+			}
+			if !ok {
+				break
+			}
+		}
+
+		if !ok || !seenUse || !hasCanonical || canonical.name == "" {
+			continue
+		}
+
+		symbols[symID].Name = canonical.name
+		symbols[symID].Named = canonical.named
+		symbols[symID].Visible = !strings.HasPrefix(canonical.name, "_")
+	}
 }
 
 // TokenCount returns the number of terminal symbols (including symbol 0 = end).
@@ -1108,6 +1173,7 @@ func registerExtraTerminals(g *Grammar, st *symbolTable) {
 // Returns the mapping: external token index → symbol ID.
 func registerExternalSymbols(g *Grammar, st *symbolTable) []int {
 	var extSyms []int
+	anonPatternCount := 0
 	for _, ext := range g.Externals {
 		if ext == nil {
 			continue
@@ -1123,6 +1189,13 @@ func registerExternalSymbols(g *Grammar, st *symbolTable) []int {
 			// be Named=false so the parser treats them as anonymous tokens
 			// that don't count as named children.
 			name = ext.Value
+			named = false
+		case RulePattern:
+			// Anonymous external patterns are emitted by tree-sitter with
+			// synthetic names like _token1. Keep them in the external-symbol
+			// table so scanner adaptation can preserve external token order.
+			anonPatternCount++
+			name = fmt.Sprintf("_token%d", anonPatternCount)
 			named = false
 		default:
 			continue
@@ -1142,6 +1215,30 @@ func registerExternalSymbols(g *Grammar, st *symbolTable) []int {
 // resolveExtras returns symbol IDs for the extra rules.
 func resolveExtras(g *Grammar, st *symbolTable) []int {
 	var extras []int
+	addExtra := func(id int) {
+		for _, cur := range extras {
+			if cur == id {
+				return
+			}
+		}
+		extras = append(extras, id)
+	}
+	appendMatchingExternalPatternExtras := func(pattern string) {
+		anonPatternCount := 0
+		for _, ext := range g.Externals {
+			if ext == nil || ext.Kind != RulePattern {
+				continue
+			}
+			anonPatternCount++
+			if ext.Value != pattern {
+				continue
+			}
+			name := fmt.Sprintf("_token%d", anonPatternCount)
+			if id, ok := st.lookup(name); ok {
+				addExtra(id)
+			}
+		}
+	}
 	for _, e := range g.Extras {
 		if e == nil {
 			continue
@@ -1149,15 +1246,16 @@ func resolveExtras(g *Grammar, st *symbolTable) []int {
 		switch e.Kind {
 		case RulePattern:
 			if id, ok := st.lookup("_whitespace"); ok {
-				extras = append(extras, id)
+				addExtra(id)
 			}
+			appendMatchingExternalPatternExtras(e.Value)
 		case RuleSymbol:
 			if id, ok := st.lookupNonterm(e.Value); ok {
-				extras = append(extras, id)
+				addExtra(id)
 			}
 		case RuleString:
 			if id, ok := st.lookup(e.Value); ok {
-				extras = append(extras, id)
+				addExtra(id)
 			}
 		}
 	}
@@ -1278,7 +1376,12 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		if entry.immediate {
 			// Immediate inline tokens must outrank overlapping non-immediate
 			// patterns in the same lex mode (e.g. dockerfile env_pair "=" value).
-			adjustedPriority -= 10000
+			// But do not force a shorter immediate string literal ahead of a
+			// longer non-immediate string terminal that shares its prefix (e.g.
+			// "#" vs "#)"). Tree-sitter still needs the longer literal to win.
+			if !(expanded.Kind == RuleString && hasLongerStringPrefixPattern(patterns, expanded.Value)) {
+				adjustedPriority -= 10000
+			}
 		}
 		patterns = append(patterns, TerminalPattern{
 			SymbolID:  id,
@@ -1309,6 +1412,21 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 	}
 
 	return patterns, nil
+}
+
+func hasLongerStringPrefixPattern(patterns []TerminalPattern, prefix string) bool {
+	for _, pat := range patterns {
+		if pat.Immediate || pat.Rule == nil || pat.Rule.Kind != RuleString {
+			continue
+		}
+		if len(pat.Rule.Value) <= len(prefix) {
+			continue
+		}
+		if strings.HasPrefix(pat.Rule.Value, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // identifyKeywords determines which string terminals are keywords.

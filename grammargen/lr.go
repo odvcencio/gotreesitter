@@ -165,6 +165,12 @@ func buildLRTablesInternal(ng *NormalizedGrammar, trackProvenance bool) (*LRTabl
 	ctx.annotationDefSym = -1
 	ctx.annotationOpenParenSym = -1
 	ctx.annotationCloseParenSym = -1
+	ctx.bracedTemplateBodySym = -1
+	ctx.bracedTemplateBody1Sym = -1
+	ctx.bracedTemplateBody2Sym = -1
+	ctx.operatorIdentSym = -1
+	ctx.operatorStarSym = -1
+	ctx.nonNullLiteralSym = -1
 	ctx.annotationArgCarrierLHS = make([]bool, len(ng.Symbols))
 	annotationArgCarrierNames := map[string]bool{
 		"arguments":                true,
@@ -205,6 +211,18 @@ func buildLRTablesInternal(ng *NormalizedGrammar, trackProvenance bool) (*LRTabl
 			ctx.annotationOpenParenSym = i
 		case ")":
 			ctx.annotationCloseParenSym = i
+		case "_braced_template_body":
+			ctx.bracedTemplateBodySym = i
+		case "_braced_template_body1":
+			ctx.bracedTemplateBody1Sym = i
+		case "_braced_template_body2":
+			ctx.bracedTemplateBody2Sym = i
+		case "operator_identifier":
+			ctx.operatorIdentSym = i
+		case "*":
+			ctx.operatorStarSym = i
+		case "_non_null_literal":
+			ctx.nonNullLiteralSym = i
 		}
 		if annotationArgCarrierNames[sym.Name] {
 			ctx.annotationArgCarrierLHS[i] = true
@@ -401,7 +419,13 @@ type lrContext struct {
 	annotationDefSym        int
 	annotationOpenParenSym  int
 	annotationCloseParenSym int
+	bracedTemplateBodySym   int
+	bracedTemplateBody1Sym  int
+	bracedTemplateBody2Sym  int
 	annotationArgCarrierLHS []bool
+	operatorIdentSym        int
+	operatorStarSym         int
+	nonNullLiteralSym       int
 
 	// Reusable closure queue scratch keeps closureToSet/closureIncremental from
 	// reallocating worklists and in-queue tracking on every item-set build.
@@ -1325,6 +1349,51 @@ func (ctx *lrContext) annotationArgTagForTransition(sourceState int, closedSet *
 	return 0
 }
 
+func (ctx *lrContext) isBracedTemplateFamilySet(set *lrItemSet) bool {
+	if ctx.bracedTemplateBodySym < 0 {
+		return false
+	}
+	for _, ce := range set.cores {
+		switch ctx.ng.Productions[ce.prodIdx].LHS {
+		case ctx.bracedTemplateBodySym, ctx.bracedTemplateBody1Sym, ctx.bracedTemplateBody2Sym:
+			return true
+		}
+	}
+	return false
+}
+
+func (ctx *lrContext) operatorLiteralMergeTag(set *lrItemSet) uint32 {
+	if len(ctx.ng.Productions) < 2000 || ctx.operatorIdentSym < 0 || ctx.operatorStarSym < 0 || ctx.nonNullLiteralSym < 0 {
+		return 0
+	}
+	const (
+		operatorLiteralHasIdent uint32 = 1 << 8
+		operatorLiteralHasStar  uint32 = 1 << 9
+	)
+	var hasOpIdent bool
+	var hasStar bool
+	for _, ce := range set.cores {
+		prod := ctx.ng.Productions[ce.prodIdx]
+		if prod.LHS != ctx.nonNullLiteralSym || ce.dot < len(prod.RHS) {
+			continue
+		}
+		if ce.lookaheads.contains(ctx.operatorIdentSym) {
+			hasOpIdent = true
+		}
+		if ce.lookaheads.contains(ctx.operatorStarSym) {
+			hasStar = true
+		}
+	}
+	if !hasOpIdent {
+		return 0
+	}
+	tag := operatorLiteralHasIdent
+	if hasStar {
+		tag |= operatorLiteralHasStar
+	}
+	return tag
+}
+
 // computeHashes computes coreHash, fullHash, and reduceLAHash for the item set.
 // Uses commutative (additive) hashing so order of cores doesn't matter,
 // avoiding the need to sort.
@@ -1517,10 +1586,12 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 
 			closedSet := ctx.closureToSet(advanced)
 			closedSet.annotationArgTag = ctx.annotationArgTagForTransition(stateIdx, &closedSet)
+			closedSet.annotationArgTag |= ctx.operatorLiteralMergeTag(&closedSet)
 			ctx.gotoAdvancedScratch = advanced[:0]
 
 			targetIdx := ctx.findOrCreateState(
 				&closedSet,
+				stateIdx,
 				fullMap, coreMap, extMap, boundaryMap,
 				useExtendedMerging && len(ctx.itemSets) < maxExtendedStates,
 				useBoundaryMerging,
@@ -1546,6 +1617,7 @@ func addToHashMap(m map[uint64]*stateHashEntry, hash uint64, idx int) {
 // findOrCreateState looks up or creates a state for the given item set.
 func (ctx *lrContext) findOrCreateState(
 	closedSet *lrItemSet,
+	sourceState int,
 	fullMap, coreMap, extMap, boundaryMap map[uint64]*stateHashEntry,
 	useExtended bool,
 	useBoundary bool,
@@ -1570,7 +1642,7 @@ func (ctx *lrContext) findOrCreateState(
 				sameCoresUsingIndexed(existing, closedSet) &&
 				sameReduceLookaheadsUsingIndexed(existing, closedSet, ctx.ng.Productions) {
 				// Merge lookaheads into existing state.
-				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
+				targetIdx := ctx.mergeInto(entry.stateIdx, sourceState, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
 				ctx.recycleItemSetLookaheads(closedSet)
 				return targetIdx
 			}
@@ -1582,7 +1654,7 @@ func (ctx *lrContext) findOrCreateState(
 				existing.coreHash == closedSet.coreHash &&
 				sameCoresUsingIndexed(existing, closedSet) &&
 				sameBoundaryLookaheadsUsingIndexed(existing, closedSet, &ctx.boundaryLookaheads) {
-				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
+				targetIdx := ctx.mergeInto(entry.stateIdx, sourceState, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
 				ctx.recycleItemSetLookaheads(closedSet)
 				return targetIdx
 			}
@@ -1593,7 +1665,7 @@ func (ctx *lrContext) findOrCreateState(
 			existing := &ctx.itemSets[entry.stateIdx]
 			if sameAnnotationArgTag(existing, closedSet) &&
 				sameCoresUsingIndexed(existing, closedSet) {
-				targetIdx := ctx.mergeInto(entry.stateIdx, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
+				targetIdx := ctx.mergeInto(entry.stateIdx, sourceState, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
 				ctx.recycleItemSetLookaheads(closedSet)
 				return targetIdx
 			}
@@ -1622,6 +1694,7 @@ func (ctx *lrContext) findOrCreateState(
 // mergeInto merges lookaheads from closedSet into the existing state at idx.
 func (ctx *lrContext) mergeInto(
 	idx int,
+	sourceState int,
 	closedSet *lrItemSet,
 	fullMap, extMap, boundaryMap map[uint64]*stateHashEntry,
 	worklist *[]int,
@@ -1656,7 +1729,7 @@ func (ctx *lrContext) mergeInto(
 		ctx.closureIncremental(existing, newEntries)
 		ctx.recordMergedState(idx, mergeOrigin{
 			kernelHash:  closedSet.coreHash,
-			sourceState: -1,
+			sourceState: sourceState,
 		})
 		// Update hash maps with new hashes.
 		addToHashMap(fullMap, existing.fullHash, idx)

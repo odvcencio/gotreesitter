@@ -76,9 +76,9 @@ type LexTransition struct {
 
 // LexMode maps a parser state to its lexer configuration.
 type LexMode struct {
-	LexState           uint16
-	ExternalLexState   uint16
-	ReservedWordSetID  uint16
+	LexState          uint16
+	ExternalLexState  uint16
+	ReservedWordSetID uint16
 }
 
 // LanguageMetadata holds the grammar's semantic version (ABI 15+).
@@ -153,6 +153,11 @@ type Language struct {
 	LexStates           []LexState // main lexer DFA
 	KeywordLexStates    []LexState // keyword lexer DFA (optional)
 	KeywordCaptureToken Symbol
+	// LayoutFallbackLexState is an optional broad DFA start state used only in
+	// layout-entry parser states. It lets the runtime avoid skipping over
+	// zero-width external layout markers before the layout scanner fires.
+	LayoutFallbackLexState    uint16
+	HasLayoutFallbackLexState bool
 
 	// Field mapping
 	FieldMapSlices  [][2]uint16 // [production_id] -> (index, length)

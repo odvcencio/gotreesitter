@@ -1300,6 +1300,21 @@ func TestParserMultiDigitNumbers(t *testing.T) {
 	}
 }
 
+func TestHiddenTreeHasFieldIDsDeepChain(t *testing.T) {
+	arena := newNodeArena(arenaClassFull)
+	leaf := newLeafNodeInArena(arena, 1, true, 0, 1, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 1})
+	leaf.fieldIDs = []FieldID{1}
+
+	root := leaf
+	for i := 0; i < 4096; i++ {
+		root = newParentNodeInArena(arena, 2, false, []*Node{root}, nil, 0)
+	}
+
+	if !hiddenTreeHasFieldIDs(root) {
+		t.Fatal("hiddenTreeHasFieldIDs returned false, want true")
+	}
+}
+
 func TestNodesFromGSSFiltersNilAndPreservesOrder(t *testing.T) {
 	var scratch gssScratch
 	n1 := NewLeafNode(1, true, 0, 1, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 1})

@@ -85,7 +85,6 @@ func loadEmbeddedLanguage(blobName string) *gotreesitter.Language {
 		if entry.err == nil {
 			// Attach external scanner and lex states if registered.
 			name := strings.TrimSuffix(blobName, ".bin")
-			entry.lang.Name = name
 			if s, ok := externalScannerRegistry[name]; ok {
 				entry.lang.ExternalScanner = s
 			}
@@ -330,21 +329,16 @@ func LookupExternalLexStates(name string) [][]bool {
 // grammargen). It loads the ts2go reference Language to get the scanner's
 // native Symbol IDs, then builds an adapter that remaps them to the target
 // Language's Symbol IDs.
-//
-// Returns false if no scanner is registered, no ts2go reference blob exists,
-// or adaptation is not possible (mismatched external token counts).
 func AdaptScannerForLanguage(name string, targetLang *gotreesitter.Language) bool {
 	if targetLang == nil || len(targetLang.ExternalSymbols) == 0 {
 		return false
 	}
 
-	// Load the ts2go reference Language (which has the scanner already attached).
 	refLang := loadEmbeddedLanguage(name + ".bin")
 	if refLang == nil || refLang.ExternalScanner == nil {
 		return false
 	}
 
-	// If external symbols are identical, attach the scanner directly.
 	if len(refLang.ExternalSymbols) == len(targetLang.ExternalSymbols) {
 		same := true
 		for i := range refLang.ExternalSymbols {
@@ -367,11 +361,9 @@ func AdaptScannerForLanguage(name string, targetLang *gotreesitter.Language) boo
 		return false
 	}
 	targetLang.ExternalScanner = adapted
-
 	if els := externalLexStatesRegistry[name]; els != nil {
 		targetLang.ExternalLexStates = els
 	}
-
 	return true
 }
 

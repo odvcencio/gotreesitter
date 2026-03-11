@@ -28,6 +28,10 @@ func assemble(
 		LexStates:          lexStates,
 		LanguageVersion:    14,
 	}
+	if len(lexModeOffsets) > 0 {
+		lang.LayoutFallbackLexState = uint16(lexModeOffsets[0])
+		lang.HasLayoutFallbackLexState = true
+	}
 
 	// Symbol names and metadata.
 	lang.SymbolNames = make([]string, symbolCount)
@@ -132,9 +136,9 @@ func buildParseTables(
 
 	// First, collect all unique action entries and assign indices.
 	type actionKey struct {
-		kind     lrActionKind
-		state    int
-		prodIdx  int
+		kind    lrActionKind
+		state   int
+		prodIdx int
 	}
 
 	// Build parse action entries.
@@ -145,9 +149,14 @@ func buildParseTables(
 	actionGroupMap := make(map[string]int) // serialized action → index
 
 	serializeActions := func(acts []lrAction) string {
-		buf := make([]byte, 0, len(acts)*8)
+		buf := make([]byte, 0, len(acts)*9)
 		for _, a := range acts {
 			buf = append(buf, byte(a.kind))
+			if a.isExtra {
+				buf = append(buf, 1)
+			} else {
+				buf = append(buf, 0)
+			}
 			buf = append(buf, byte(a.state>>8), byte(a.state))
 			buf = append(buf, byte(a.prodIdx>>8), byte(a.prodIdx))
 		}
@@ -242,8 +251,8 @@ func buildParseTables(
 	// Determine which states should be dense vs sparse.
 	// Heuristic: states with many non-zero entries go dense.
 	type stateInfo struct {
-		idx      int
-		nonZero  int
+		idx     int
+		nonZero int
 	}
 	var infos []stateInfo
 	for i, row := range rawTable {
@@ -527,7 +536,7 @@ func buildExternalLexStates(lang *gotreesitter.Language, tables *LRTables, ng *N
 		if lrState >= 0 {
 			if acts, ok := tables.ActionTable[lrState]; ok {
 				for symID, extIdx := range extSymSet {
-					if _, ok := acts[symID]; ok {
+					if actionList, ok := acts[symID]; ok && len(actionList) > 0 {
 						row[extIdx] = true
 						anyValid = true
 					}
