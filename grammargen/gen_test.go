@@ -751,8 +751,12 @@ func TestNormalizeImmediateInlinePrefixDoesNotBeatLongerStringToken(t *testing.T
 	if !foundHash || !foundClose {
 		t.Fatalf("missing expected terminals: foundHash=%v foundClose=%v", foundHash, foundClose)
 	}
-	if closePriority >= hashPriority {
-		t.Fatalf("\"#)\" priority = %d, want lower than immediate \"#\" priority %d", closePriority, hashPriority)
+	// With prec-based priority, equal priority is acceptable: the runtime's
+	// greedy tiebreaker ensures "#)" (2 chars) beats "#" (1 char) at the same
+	// priority. Strict less-than is not required; ">=" would mean IMMTOKEN beats
+	// the longer string, which is wrong.
+	if closePriority > hashPriority {
+		t.Fatalf("\"#)\" priority = %d, want <= immediate \"#\" priority %d (greedy handles equal-priority)", closePriority, hashPriority)
 	}
 }
 
