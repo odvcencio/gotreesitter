@@ -1283,6 +1283,10 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 	priority := 0
 
 	// String literals become simple string-match patterns.
+	// All non-immediate string literals share a flat priority (0, adjusted by
+	// prec). Greedy longest-match decides among equal-priority strings at
+	// runtime. This matches tree-sitter C where string terminals at the same
+	// precedence level all get the same lexer priority.
 	for _, s := range stringLits {
 		id, ok := st.lookup(s)
 		if !ok {
@@ -1290,21 +1294,19 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		}
 		// Skip keywords — they're recognized via the word token + keyword DFA.
 		if keywordSet != nil && keywordSet[id] {
-			priority++
-			continue
+			continue // no priority++ for strings
 		}
 		patterns = append(patterns, TerminalPattern{
 			SymbolID: id,
 			Rule:     Str(s),
-			Priority: priority,
+			Priority: 0, // flat: greedy decides among same-prec strings
 		})
-		priority++
+		// no priority++: strings don't consume sequence slots
 	}
 
 	// Named tokens: split into string-only and non-string groups.
-	// String-only named tokens get string-tier priority (right after inline
-	// string literals), matching tree-sitter C where string terminals always
-	// have lower symbol IDs and thus higher lexer priority than patterns.
+	// String-only named tokens get flat priority like inline string literals.
+	// Pattern tokens get sequential priority (always worse than strings).
 	var stringNamedTokens, patternNamedTokens []string
 	for _, name := range namedTokens {
 		rule := g.Rules[name]
@@ -1315,7 +1317,7 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		}
 	}
 
-	// String-only named tokens (string-tier priority, right after inline strings).
+	// String-only named tokens: flat priority, same tier as inline string literals.
 	for _, name := range stringNamedTokens {
 		id, ok := st.lookup(name)
 		if !ok {
@@ -1326,15 +1328,21 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		if err != nil {
 			return nil, fmt.Errorf("expand token %q: %w", name, err)
 		}
-		adjustedPriority := priority - prec*1000
+		adjustedPriority := -prec * 1000 // flat within prec tier; greedy decides
 		patterns = append(patterns, TerminalPattern{
 			SymbolID:  id,
 			Rule:      expanded,
 			Priority:  adjustedPriority,
 			Immediate: imm,
 		})
-		priority++
+		// no priority++: strings don't consume sequence slots
 	}
+
+	// Pattern tokens start at priority 1 so they are always worse than
+	// non-immediate strings at priority 0. Within patterns, sequential ordering
+	// determines which wins when two patterns could both accept at the same
+	// position (earlier-listed = lower number = higher priority).
+	priority = 1
 
 	// Inline patterns (regex appearing directly in non-terminal rules, not in token()).
 	for _, pat := range inlinePatterns {
@@ -1385,13 +1393,16 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		if err != nil {
 			return nil, fmt.Errorf("expand inline token %q: %w", entry.name, err)
 		}
-		adjustedPriority := priority - prec*1000
+		var adjustedPriority int
+		useSeq := false // whether this token consumes a sequence slot
 		if entry.immediate {
 			if expanded.Kind == RuleString {
 				if hasLongerStringPrefixPattern(patterns, expanded.Value) {
 					// A longer non-immediate string has this as a prefix (e.g.
-					// "#" vs "#)"). Don't apply the -10000 bonus so the longer
-					// non-immediate literal can win via normal priority ordering.
+					// "#" vs "#)"). Use sequential so the non-immediate string
+					// (at priority 0) can beat this IMMTOKEN (at priority 1+).
+					adjustedPriority = priority - prec*1000
+					useSeq = true
 				} else {
 					// No non-immediate prefix conflict. Apply -10000 uniformly
 					// (fixed, not sequential) so sibling immediate string literals
@@ -1399,10 +1410,22 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 					// lets the runtime's greedy tiebreaker (longer match wins)
 					// decide among them — e.g. IMMTOKEN("+") vs IMMTOKEN("++").
 					adjustedPriority = -10000 - prec*1000
+					// no sequence slot for uniform IMMTOKEN strings
 				}
 			} else {
 				// Non-string immediate tokens: sequential priority with -10000.
-				adjustedPriority -= 10000
+				adjustedPriority = priority - prec*1000 - 10000
+				useSeq = true
+			}
+		} else {
+			if expanded.Kind == RuleString {
+				// Non-immediate string: flat priority, same tier as string literals.
+				adjustedPriority = -prec * 1000
+				// no sequence slot
+			} else {
+				// Non-immediate pattern: sequential.
+				adjustedPriority = priority - prec*1000
+				useSeq = true
 			}
 		}
 		patterns = append(patterns, TerminalPattern{
@@ -1411,7 +1434,9 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 			Priority:  adjustedPriority,
 			Immediate: entry.immediate,
 		})
-		priority++
+		if useSeq {
+			priority++
+		}
 	}
 
 	// Extra patterns (like /\s/).
