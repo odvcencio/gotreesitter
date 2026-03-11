@@ -298,7 +298,7 @@ cd /workspace
   GTS_GRAMMARGEN_REAL_CORPUS_MAX_GRAMMARS=$MAX_GRAMMARS \
   GTS_GRAMMARGEN_REAL_CORPUS_ALLOW_PARTIAL=1 \
   GTS_GRAMMARGEN_REAL_CORPUS_FLOORS_PATH=/tmp/real_corpus_parity_floors.json \
-  GTS_GRAMMARGEN_REAL_CORPUS_SKIP=rust,c_sharp,java,ruby,cpp,kotlin,css,scala,go_lang,c_lang,python,javascript,dockerfile,nix \
+  GTS_GRAMMARGEN_REAL_CORPUS_SKIP=rust,c_sharp,java,ruby,cpp,kotlin,css,scala,go_lang,c_lang,python,javascript \
   go test ./grammargen -run '^TestMultiGrammarImportRealCorpusParity$' -count=1 -v
 EOF2
 

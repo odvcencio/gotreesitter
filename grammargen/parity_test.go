@@ -55,17 +55,23 @@ func compareTreesDeep(
 	path string, maxDivergences int,
 ) []parityDivergence {
 	var divs []parityDivergence
-	compareTreesDeepRec(genNode, genLang, refNode, refLang, path, maxDivergences, &divs)
+	compareTreesDeepRec(genNode, genLang, refNode, refLang, path, maxDivergences, 0, &divs)
 	return divs
 }
+
+// maxCompareDepth caps recursion to prevent stack overflow on pathologically deep trees.
+const maxCompareDepth = 400
 
 func compareTreesDeepRec(
 	genNode *gotreesitter.Node, genLang *gotreesitter.Language,
 	refNode *gotreesitter.Node, refLang *gotreesitter.Language,
-	path string, maxDivergences int,
+	path string, maxDivergences int, depth int,
 	divs *[]parityDivergence,
 ) {
 	if len(*divs) >= maxDivergences {
+		return
+	}
+	if depth > maxCompareDepth {
 		return
 	}
 
@@ -208,7 +214,7 @@ func compareTreesDeepRec(
 				if sameTypeBefore > 0 {
 					childPath = fmt.Sprintf("%s/%s[%d]", path, childType, sameTypeBefore)
 				}
-				compareTreesDeepRec(gn, genLang, rn, refLang, childPath, maxDivergences, divs)
+				compareTreesDeepRec(gn, genLang, rn, refLang, childPath, maxDivergences, depth+1, divs)
 			}
 			return
 		}
@@ -251,7 +257,7 @@ func compareTreesDeepRec(
 					if sameTypeBefore > 0 {
 						childPath = fmt.Sprintf("%s/%s[%d]", path, childType, sameTypeBefore)
 					}
-					compareTreesDeepRec(gn, genLang, rn, refLang, childPath, maxDivergences, divs)
+					compareTreesDeepRec(gn, genLang, rn, refLang, childPath, maxDivergences, depth+1, divs)
 				}
 				return
 			}
@@ -286,7 +292,7 @@ func compareTreesDeepRec(
 				}
 			}
 		}
-		compareTreesDeepRec(genChild, genLang, refChild, refLang, childPath, maxDivergences, divs)
+		compareTreesDeepRec(genChild, genLang, refChild, refLang, childPath, maxDivergences, depth+1, divs)
 	}
 }
 
