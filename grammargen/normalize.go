@@ -743,8 +743,15 @@ func classifyRules(g *Grammar) (tokens, nonterms []string) {
 	for _, name := range g.RuleOrder {
 		rule := g.Rules[name]
 		if isTerminalRule(rule) {
-			// Check if this is a bare STRING rule whose value is shared.
-			if sv := terminalStringValue(rule); sv != "" && sharedStrings[sv] {
+			// Visible (non-underscore) bare-STRING rules become nonterminals,
+			// matching tree-sitter C behavior: the string becomes an anonymous
+			// terminal, and the visible rule wraps it with a production
+			// (e.g. pass_statement → "pass"). Without this, the keyword promotion
+			// system produces the anonymous terminal which has no parse table action,
+			// because actions are on the named token symbol that the DFA never emits.
+			isVisible := !strings.HasPrefix(name, "_")
+			isBareString := terminalStringValue(rule) != ""
+			if (isVisible && isBareString) || (isBareString && sharedStrings[terminalStringValue(rule)]) {
 				nonterms = append(nonterms, name)
 			} else {
 				tokens = append(tokens, name)
