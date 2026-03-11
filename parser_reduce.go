@@ -693,7 +693,7 @@ func (p *Parser) buildReduceChildren(entries []stackEntry, start, end, childCoun
 			continue
 		}
 		spanStart := out
-		out = appendFlattenedHiddenChildrenWithFields(children, fieldIDs, fieldSources, out, n, symbolMeta)
+		out = appendFlattenedHiddenChildrenWithFields(children, fieldIDs, fieldSources, out, n, symbolMeta, 0)
 		if fieldIDs != nil {
 			fieldEnd := out
 			if fieldEnd > len(fieldIDs) {
@@ -791,7 +791,15 @@ func buildReduceChildrenNoAliasNoFields(entries []stackEntry, start, end int, pa
 	return children
 }
 
+// maxFlattenDepth limits recursion in hidden-node flattening to prevent
+// stack overflow on pathologically deep hidden chains (e.g. grammargen Scala).
+const maxFlattenDepth = 500
+
 func countFlattenedHiddenChildren(n *Node, symbolMeta []SymbolMetadata) int {
+	return countFlattenedHiddenChildrenDepth(n, symbolMeta, 0)
+}
+
+func countFlattenedHiddenChildrenDepth(n *Node, symbolMeta []SymbolMetadata, depth int) int {
 	if n == nil {
 		return 0
 	}
@@ -799,21 +807,21 @@ func countFlattenedHiddenChildren(n *Node, symbolMeta []SymbolMetadata) int {
 	if idx := int(n.symbol); idx < len(symbolMeta) {
 		visible = symbolMeta[n.symbol].Visible
 	}
-	if visible {
+	if visible || depth >= maxFlattenDepth {
 		return 1
 	}
 	count := 0
 	for _, child := range n.children {
-		count += countFlattenedHiddenChildren(child, symbolMeta)
+		count += countFlattenedHiddenChildrenDepth(child, symbolMeta, depth+1)
 	}
 	return count
 }
 
 func appendFlattenedHiddenChildren(dst []*Node, out int, n *Node, symbolMeta []SymbolMetadata) int {
-	return appendFlattenedHiddenChildrenWithFields(dst, nil, nil, out, n, symbolMeta)
+	return appendFlattenedHiddenChildrenWithFields(dst, nil, nil, out, n, symbolMeta, 0)
 }
 
-func appendFlattenedHiddenChildrenWithFields(dst []*Node, fieldDst []FieldID, fieldSrcDst []uint8, out int, n *Node, symbolMeta []SymbolMetadata) int {
+func appendFlattenedHiddenChildrenWithFields(dst []*Node, fieldDst []FieldID, fieldSrcDst []uint8, out int, n *Node, symbolMeta []SymbolMetadata, depth int) int {
 	if n == nil {
 		return out
 	}
@@ -821,7 +829,7 @@ func appendFlattenedHiddenChildrenWithFields(dst []*Node, fieldDst []FieldID, fi
 	if idx := int(n.symbol); idx < len(symbolMeta) {
 		visible = symbolMeta[n.symbol].Visible
 	}
-	if visible {
+	if visible || depth >= maxFlattenDepth {
 		dst[out] = n
 		return out + 1
 	}
@@ -833,7 +841,7 @@ func appendFlattenedHiddenChildrenWithFields(dst []*Node, fieldDst []FieldID, fi
 	var repeated map[FieldID]hiddenFieldSpan
 	for i, child := range n.children {
 		spanStart := out
-		out = appendFlattenedHiddenChildrenWithFields(dst, fieldDst, fieldSrcDst, out, child, symbolMeta)
+		out = appendFlattenedHiddenChildrenWithFields(dst, fieldDst, fieldSrcDst, out, child, symbolMeta, depth+1)
 		if fieldDst != nil && i < len(n.fieldIDs) && n.fieldIDs[i] != 0 {
 			source := fieldSourceAt(n.fieldSources, i)
 			if source == fieldSourceNone {
@@ -1338,7 +1346,7 @@ func materializeHiddenNodeForAlias(arena *nodeArena, lang *Language, n *Node) *N
 	children := arena.allocNodeSlice(normalizedCount)
 	fieldIDs := arena.allocFieldIDSlice(normalizedCount)
 	fieldSources := make([]uint8, normalizedCount)
-	out := appendFlattenedHiddenChildrenWithFields(children, fieldIDs, fieldSources, 0, n, symbolMeta)
+	out := appendFlattenedHiddenChildrenWithFields(children, fieldIDs, fieldSources, 0, n, symbolMeta, 0)
 	cloned.children = children[:out]
 	fieldIDs = fieldIDs[:out]
 	fieldSources = fieldSources[:out]

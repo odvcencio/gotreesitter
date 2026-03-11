@@ -1182,7 +1182,7 @@ func TestBuildReduceChildrenInheritedFieldYieldsToDirectTargetOnHiddenSpan(t *te
 	children := arena.allocNodeSlice(5)
 	fieldIDs := arena.allocFieldIDSlice(5)
 	fieldSources := make([]uint8, 5)
-	if got, want := appendFlattenedHiddenChildrenWithFields(children, fieldIDs, fieldSources, 0, hidden, lang.SymbolMetadata), 5; got != want {
+	if got, want := appendFlattenedHiddenChildrenWithFields(children, fieldIDs, fieldSources, 0, hidden, lang.SymbolMetadata, 0), 5; got != want {
 		t.Fatalf("appendFlattenedHiddenChildrenWithFields() = %d, want %d", got, want)
 	}
 	if got := fieldIDs[0]; got != 0 {
