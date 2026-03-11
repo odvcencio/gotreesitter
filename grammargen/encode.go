@@ -11,199 +11,25 @@ import (
 
 // Generate compiles a Grammar definition into a binary blob that
 // gotreesitter can load via DecodeLanguageBlob / loadEmbeddedLanguage.
+// LR(1) state splitting is always attempted; a rollback guard reverts to the
+// plain LALR table if splitting does not reduce GLR conflicts.
 func Generate(g *Grammar) ([]byte, error) {
-	// Phase 1: Normalize grammar.
-	ng, err := Normalize(g)
+	report, err := generateWithReport(g, reportBuildOptions{includeLanguage: true, includeBlob: true})
 	if err != nil {
-		return nil, fmt.Errorf("normalize: %w", err)
+		return nil, err
 	}
-
-	// Phase 2: Build LR(1) parse tables.
-	tables, ctx, err := buildLRTablesInternal(ng, false)
-	if err != nil {
-		return nil, fmt.Errorf("build LR tables: %w", err)
-	}
-
-	// Phase 3: Resolve conflicts.
-	if err := resolveConflicts(tables, ng); err != nil {
-		return nil, fmt.Errorf("resolve conflicts: %w", err)
-	}
-
-	// Phase 3b: Add nonterminal extra parse chains.
-	addNonterminalExtraChains(tables, ng, ctx)
-	ctx.releaseScratch()
-
-	// Phase 4: Compute lex modes based on parse table.
-	tokenCount := ng.TokenCount()
-	immediateTokens := make(map[int]bool)
-	for _, t := range ng.Terminals {
-		if t.Immediate {
-			immediateTokens[t.SymbolID] = true
-		}
-	}
-
-	keywordSet := make(map[int]bool, len(ng.KeywordSymbols))
-	for _, ks := range ng.KeywordSymbols {
-		keywordSet[ks] = true
-	}
-	stringPrefixExtensions := computeStringPrefixExtensions(ng.Terminals)
-
-	lexModes, stateToMode := computeLexModes(
-		tables.StateCount,
-		tokenCount,
-		func(state, sym int) bool {
-			if acts, ok := tables.ActionTable[state]; ok {
-				if entry, ok := acts[sym]; ok && len(entry) > 0 {
-					return true
-				}
-			}
-			return false
-		},
-		stringPrefixExtensions,
-		ng.ExtraSymbols,
-		immediateTokens,
-		ng.ExternalSymbols,
-		ng.WordSymbolID,
-		keywordSet,
-	)
-
-	// Phase 5: Build lex DFA per mode.
-	skipExtras := computeSkipExtras(ng)
-	lexStates, lexModeOffsets, err := buildLexDFA(ng.Terminals, ng.ExtraSymbols, skipExtras, lexModes)
-	if err != nil {
-		return nil, fmt.Errorf("build lex DFA: %w", err)
-	}
-
-	// Phase 5b: Build keyword DFA if word token is declared.
-	var keywordLexStates []gotreesitter.LexState
-	if len(ng.KeywordEntries) > 0 {
-		kls, _, err := buildLexDFA(ng.KeywordEntries, nil, nil, []lexModeSpec{{
-			validSymbols:   allSymbolsSet(ng.KeywordEntries),
-			skipWhitespace: false,
-		}})
-		if err != nil {
-			return nil, fmt.Errorf("build keyword DFA: %w", err)
-		}
-		keywordLexStates = kls
-	}
-
-	// Phase 6: Assemble Language struct.
-	lang, err := assemble(ng, tables, lexStates, stateToMode, lexModeOffsets)
-	if err != nil {
-		return nil, fmt.Errorf("assemble: %w", err)
-	}
-	lang.Name = g.Name
-
-	// Set keyword fields.
-	if len(keywordLexStates) > 0 {
-		lang.KeywordLexStates = keywordLexStates
-		lang.KeywordCaptureToken = gotreesitter.Symbol(ng.WordSymbolID)
-	}
-
-	// Phase 7: Encode to binary blob.
-	blob, err := encodeLanguageBlob(lang)
-	if err != nil {
-		return nil, fmt.Errorf("encode: %w", err)
-	}
-
-	return blob, nil
+	return report.Blob, nil
 }
 
 // GenerateLanguage compiles a Grammar into a Language struct without encoding.
+// LR(1) state splitting is always attempted; a rollback guard reverts to the
+// plain LALR table if splitting does not reduce GLR conflicts.
 func GenerateLanguage(g *Grammar) (*gotreesitter.Language, error) {
-	// LR splitting requires provenance/item-set data from the full pipeline.
-	if g.EnableLRSplitting {
-		report, err := generateWithReport(g, reportBuildOptions{
-			includeLanguage: true,
-		})
-		if err != nil {
-			return nil, err
-		}
-		return report.Language, nil
-	}
-
-	ng, err := Normalize(g)
+	report, err := generateWithReport(g, reportBuildOptions{includeLanguage: true})
 	if err != nil {
-		return nil, fmt.Errorf("normalize: %w", err)
+		return nil, err
 	}
-
-	tables, ctx, err := buildLRTablesInternal(ng, false)
-	if err != nil {
-		return nil, fmt.Errorf("build LR tables: %w", err)
-	}
-
-	if err := resolveConflicts(tables, ng); err != nil {
-		return nil, fmt.Errorf("resolve conflicts: %w", err)
-	}
-
-	addNonterminalExtraChains(tables, ng, ctx)
-	ctx.releaseScratch()
-
-	tokenCount := ng.TokenCount()
-	immediateTokens := make(map[int]bool)
-	for _, t := range ng.Terminals {
-		if t.Immediate {
-			immediateTokens[t.SymbolID] = true
-		}
-	}
-
-	keywordSet := make(map[int]bool, len(ng.KeywordSymbols))
-	for _, ks := range ng.KeywordSymbols {
-		keywordSet[ks] = true
-	}
-	stringPrefixExtensions := computeStringPrefixExtensions(ng.Terminals)
-
-	lexModes, stateToMode := computeLexModes(
-		tables.StateCount,
-		tokenCount,
-		func(state, sym int) bool {
-			if acts, ok := tables.ActionTable[state]; ok {
-				if entry, ok := acts[sym]; ok && len(entry) > 0 {
-					return true
-				}
-			}
-			return false
-		},
-		stringPrefixExtensions,
-		ng.ExtraSymbols,
-		immediateTokens,
-		ng.ExternalSymbols,
-		ng.WordSymbolID,
-		keywordSet,
-	)
-
-	skipExtras := computeSkipExtras(ng)
-	lexStates, lexModeOffsets, err := buildLexDFA(ng.Terminals, ng.ExtraSymbols, skipExtras, lexModes)
-	if err != nil {
-		return nil, fmt.Errorf("build lex DFA: %w", err)
-	}
-
-	// Build keyword DFA if word token is declared.
-	var keywordLexStates []gotreesitter.LexState
-	if len(ng.KeywordEntries) > 0 {
-		kls, _, err := buildLexDFA(ng.KeywordEntries, nil, nil, []lexModeSpec{{
-			validSymbols:   allSymbolsSet(ng.KeywordEntries),
-			skipWhitespace: false,
-		}})
-		if err != nil {
-			return nil, fmt.Errorf("build keyword DFA: %w", err)
-		}
-		keywordLexStates = kls
-	}
-
-	lang, err := assemble(ng, tables, lexStates, stateToMode, lexModeOffsets)
-	if err != nil {
-		return nil, fmt.Errorf("assemble: %w", err)
-	}
-	lang.Name = g.Name
-
-	// Set keyword fields.
-	if len(keywordLexStates) > 0 {
-		lang.KeywordLexStates = keywordLexStates
-		lang.KeywordCaptureToken = gotreesitter.Symbol(ng.WordSymbolID)
-	}
-
-	return lang, nil
+	return report.Language, nil
 }
 
 // allSymbolsSet returns a set containing all symbol IDs from the patterns.

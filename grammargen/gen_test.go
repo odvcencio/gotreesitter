@@ -788,41 +788,6 @@ func TestNormalizeKeepsMatchingExternalPatternAsExtra(t *testing.T) {
 	}
 }
 
-func TestComputeLexModesIncludesLongerLiteralPrefixTokens(t *testing.T) {
-	prefixes := computeStringPrefixExtensions([]TerminalPattern{
-		{SymbolID: 1, Rule: Str("-")},
-		{SymbolID: 2, Rule: Str("->")},
-		{SymbolID: 3, Rule: Str("=")},
-	})
-
-	lexModes, stateToMode := computeLexModes(
-		1,
-		4,
-		func(state, sym int) bool {
-			return sym == 1
-		},
-		prefixes,
-		nil,
-		nil,
-		nil,
-		0,
-		nil,
-	)
-
-	if got, want := len(stateToMode), 1; got != want {
-		t.Fatalf("len(stateToMode) = %d, want %d", got, want)
-	}
-	mode := lexModes[stateToMode[0]]
-	if !mode.validSymbols[1] {
-		t.Fatal("expected short literal token to remain valid")
-	}
-	if !mode.validSymbols[2] {
-		t.Fatal("expected longer literal prefix token to be added")
-	}
-	if mode.validSymbols[3] {
-		t.Fatal("unexpected unrelated literal token in mode")
-	}
-}
 
 func TestExtExternalLexStates(t *testing.T) {
 	g := ExtScannerGrammar()

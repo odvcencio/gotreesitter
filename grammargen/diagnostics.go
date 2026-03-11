@@ -367,8 +367,11 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 	oracle := newSplitOracle(diags, prov)
 	report.SplitCandidates = oracle.candidates()
 
-	// Apply local LR(1) rebuild if enabled and candidates exist.
-	if g.EnableLRSplitting && len(report.SplitCandidates) > 0 {
+	// Apply local LR(1) rebuild only for grammars with declared conflict groups.
+	// Grammars without declared conflicts are supposed to be unambiguous under
+	// LALR; splitting them toward LR(1) diverges from tree-sitter's LALR tables.
+	// The rollback guard further reverts if splitting does not reduce GLR conflicts.
+	if len(report.SplitCandidates) > 0 && (len(ng.Conflicts) > 0 || g.EnableLRSplitting) {
 		// Count pre-split GLR conflicts.
 		glrBefore := 0
 		for _, d := range diags {
@@ -456,8 +459,6 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 	for _, ks := range ng.KeywordSymbols {
 		keywordSet[ks] = true
 	}
-	stringPrefixExtensions := computeStringPrefixExtensions(ng.Terminals)
-
 	lexModes, stateToMode := computeLexModes(
 		tables.StateCount,
 		tokenCount,
@@ -469,7 +470,6 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 			}
 			return false
 		},
-		stringPrefixExtensions,
 		ng.ExtraSymbols,
 		immediateTokens,
 		ng.ExternalSymbols,
