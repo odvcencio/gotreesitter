@@ -113,11 +113,11 @@ func newSymbolTable() *symbolTable {
 		fieldMap:      make(map[string]int),
 		fields:        []string{""}, // index 0 is always ""
 	}
-	// Symbol 0 = "end" (EOF)
+	// Symbol 0 = "end" (EOF). Tree-sitter C marks this Named=true.
 	st.addSymbol("end", SymbolInfo{
 		Name:    "end",
 		Visible: false,
-		Named:   false,
+		Named:   true,
 		Kind:    SymbolTerminal,
 	})
 	return st
@@ -252,15 +252,30 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	// invisible child tokens. The parent nonterminal thus has 0 visible children,
 	// matching the reference parser's child count.
 	inlinePatterns := collectInlinePatterns(g)
+	// Collect which patterns are aliased, and to what name/named status.
+	// Tree-sitter C bakes aliases into symbol names/metadata (e.g., pattern
+	// [^\[\]]+ in ALIAS(..., "text") becomes a symbol named "text" with
+	// visible=true, named=true). Grammargen must match this so the parser
+	// creates properly typed nodes even when reductions don't follow the
+	// expected path.
+	aliasedPatterns := collectAliasedPatterns(g)
 	for _, pat := range inlinePatterns {
 		name := pat // use pattern value as key for lookup
 		if _, ok := st.lookup(name); ok {
 			continue // already registered
 		}
+		displayName := name
+		visible := false
+		named := false
+		if ai, ok := aliasedPatterns[pat]; ok {
+			displayName = ai.name
+			visible = true
+			named = ai.named
+		}
 		st.addSymbol(name, SymbolInfo{
-			Name:    name,
-			Visible: false,
-			Named:   false,
+			Name:    displayName,
+			Visible: visible,
+			Named:   named,
 			Kind:    SymbolTerminal,
 		})
 	}
@@ -669,6 +684,49 @@ func collectInlinePatterns(g *Grammar) []string {
 	return result
 }
 
+// aliasInfo records the alias target for a pattern.
+type aliasInfo struct {
+	name  string
+	named bool
+}
+
+// collectAliasedPatterns scans the grammar for ALIAS nodes wrapping PATTERN
+// leaves. Returns a map from pattern value to its alias info. When a pattern
+// is aliased to different names in different places, the first alias wins
+// (tree-sitter C uses the first occurrence).
+func collectAliasedPatterns(g *Grammar) map[string]aliasInfo {
+	result := make(map[string]aliasInfo)
+
+	var walk func(r *Rule)
+	walk = func(r *Rule) {
+		if r == nil {
+			return
+		}
+		if r.Kind == RuleAlias && len(r.Children) > 0 {
+			child := r.Children[0]
+			if child != nil && child.Kind == RulePattern {
+				if _, exists := result[child.Value]; !exists {
+					result[child.Value] = aliasInfo{
+						name:  r.Value,
+						named: r.Named,
+					}
+				}
+			}
+		}
+		for _, c := range r.Children {
+			walk(c)
+		}
+	}
+
+	for _, name := range g.RuleOrder {
+		rule := g.Rules[name]
+		if !isTerminalRule(rule) {
+			walk(rule)
+		}
+	}
+	return result
+}
+
 // classifyRules separates rule names into named tokens (terminal rules)
 // and nonterminals. A rule is a "named token" if its definition is:
 //   - wrapped in token() or token.immediate()
@@ -1067,7 +1125,7 @@ func prepareRule(r *Rule, parentName string, st *symbolTable, auxRules map[strin
 		// then wraps the reference in choice(aux, blank()) so the parent
 		// gets both "with repeat" and "without repeat" production variants.
 		*counter++
-		auxName := fmt.Sprintf("_%s_repeat%d", parentName, *counter)
+		auxName := fmt.Sprintf("%s_repeat%d", parentName, *counter)
 		if _, exists := st.lookupNonterm(auxName); !exists {
 			st.addSymbol(auxName, SymbolInfo{
 				Name: auxName, Visible: false, Named: false, Kind: SymbolNonterminal,
@@ -1083,7 +1141,7 @@ func prepareRule(r *Rule, parentName string, st *symbolTable, auxRules map[strin
 
 	case RuleRepeat1:
 		*counter++
-		auxName := fmt.Sprintf("_%s_repeat1_%d", parentName, *counter)
+		auxName := fmt.Sprintf("%s_repeat1_%d", parentName, *counter)
 		if _, exists := st.lookupNonterm(auxName); !exists {
 			st.addSymbol(auxName, SymbolInfo{
 				Name: auxName, Visible: false, Named: false, Kind: SymbolNonterminal,
