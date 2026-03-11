@@ -1827,10 +1827,16 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 		reduce := reduces[0]
 		prod := &ng.Productions[reduce.prodIdx]
 
-		// Tree-sitter keeps S/R as GLR only when the reduce LHS and a shift
-		// LHS are both in the same declared conflict group. Check all reduces
-		// against all shifts (multiple reduces possible in the action set).
+		// Tree-sitter keeps S/R as GLR when the reduce LHS and a shift LHS
+		// are both in the same declared conflict group.
 		if shiftReduceInConflictGroup(shifts, reduces, ng, cache) {
+			return actions, nil
+		}
+		// Fallback: if the reduce LHS is in ANY conflict group, keep GLR.
+		// This is broader than tree-sitter C but necessary because grammargen's
+		// LALR merging can create S/R conflicts where the shift LHS doesn't
+		// appear directly in the conflict group but the ambiguity is real.
+		if reduceLHSInAnyConflictGroup(reduces, ng, cache) {
 			return actions, nil
 		}
 
@@ -1972,6 +1978,20 @@ func shiftReduceInConflictGroup(shifts, reduces []lrAction, ng *NormalizedGramma
 		}
 	}
 	return false
+}
+
+// reduceLHSInAnyConflictGroup checks whether the primary reduce's LHS symbol
+// appears in any declared conflict group. This is a broader check than
+// shiftReduceInConflictGroup — it keeps GLR whenever the grammar author
+// declared the reduce symbol as conflicting, regardless of what the shift is.
+// Only the first reduce is checked to avoid creating excessive GLR forks
+// from S/R/R conflicts where secondary reduces happen to have conflict-group LHS.
+func reduceLHSInAnyConflictGroup(reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
+	if cache == nil || len(reduces) == 0 {
+		return false
+	}
+	lhs := ng.Productions[reduces[0].prodIdx].LHS
+	return lhs >= 0 && lhs < len(cache.groupsBySymbol) && len(cache.groupsBySymbol[lhs]) > 0
 }
 
 func allInDeclaredConflict(reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
