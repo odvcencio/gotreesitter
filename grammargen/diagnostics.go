@@ -475,6 +475,7 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 	for _, ks := range ng.KeywordSymbols {
 		keywordSet[ks] = true
 	}
+	stringPrefixExtensions := computeStringPrefixExtensions(ng.Terminals)
 	lexModes, stateToMode := computeLexModes(
 		tables.StateCount,
 		tokenCount,
@@ -486,6 +487,7 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 			}
 			return false
 		},
+		stringPrefixExtensions,
 		ng.ExtraSymbols,
 		immediateTokens,
 		ng.ExternalSymbols,

@@ -2,6 +2,7 @@ package grammargen
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/odvcencio/gotreesitter"
 )
@@ -112,6 +113,42 @@ type lexModeSpec struct {
 	skipWhitespace bool         // whether to add skip transitions for whitespace
 }
 
+// computeStringPrefixExtensions returns, for each string literal symbol that
+// is a strict prefix of another string literal, the set of longer-literal
+// symbols. When a shorter literal is valid in a lex mode, the lexer must also
+// consider the longer literals so it can produce the longest possible match
+// (e.g., "---" is valid → "----" must also be in the lex mode).
+func computeStringPrefixExtensions(patterns []TerminalPattern) map[int][]int {
+	bySymbol := make(map[int]string)
+	for _, pat := range patterns {
+		if pat.Rule == nil || pat.Rule.Kind != RuleString {
+			continue
+		}
+		if _, ok := bySymbol[pat.SymbolID]; !ok {
+			bySymbol[pat.SymbolID] = pat.Rule.Value
+		}
+	}
+	if len(bySymbol) == 0 {
+		return nil
+	}
+
+	out := make(map[int][]int)
+	for shortSym, shortLit := range bySymbol {
+		for longSym, longLit := range bySymbol {
+			if shortSym == longSym || len(longLit) <= len(shortLit) {
+				continue
+			}
+			if strings.HasPrefix(longLit, shortLit) {
+				out[shortSym] = append(out[shortSym], longSym)
+			}
+		}
+		sort.Ints(out[shortSym])
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
 
 type dfaStateWorkItem struct {
 	id     int
@@ -665,6 +702,7 @@ func computeLexModes(
 	stateCount int,
 	tokenCount int,
 	actionLookup func(state, sym int) bool,
+	stringPrefixExtensions map[int][]int,
 	extraSymbols []int,
 	immediateTokens map[int]bool,
 	externalSymbols []int,
@@ -703,6 +741,11 @@ func computeLexModes(
 			}
 			if actionLookup(state, sym) {
 				validSyms[sym] = true
+				for _, longerSym := range stringPrefixExtensions[sym] {
+					if !extSet[longerSym] {
+						validSyms[longerSym] = true
+					}
+				}
 				if immediateTokens[sym] {
 					hasImmediate = true
 				}

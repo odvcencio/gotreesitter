@@ -238,18 +238,18 @@ func TestMultiGrammarImportRealCorpusParity(t *testing.T) {
 				genRoot := genTree.RootNode()
 				refRoot := refTree.RootNode()
 
-				// Safety: skip samples that produce pathologically large
-				// parse trees (e.g. HCL's 189K-deep recursive tree) to
-				// prevent OOM during SExpr serialization.
-				const maxSafeChildren = 100000
-				if genRoot.ChildCount() > maxSafeChildren || refRoot.ChildCount() > maxSafeChildren {
-					t.Logf("real-corpus: skipping sample %d (%s:%s) — tree too large (gen=%d, ref=%d children)",
-						i, cand.Source, cand.Path, genRoot.ChildCount(), refRoot.ChildCount())
+				// Safety: skip samples with pathologically deep parse trees
+				// (e.g. HCL's 189K-deep recursive tree) to prevent goroutine
+				// stack overflow during SExpr serialization. Use safeSExpr
+				// which limits recursion depth; an empty return signals truncation.
+				const maxSafeDepth = 2000
+				genSexp := safeSExpr(genRoot, genLang, maxSafeDepth)
+				refSexp := safeSExpr(refRoot, refLang, maxSafeDepth)
+				if genSexp == "" && refSexp == "" {
+					t.Logf("real-corpus: skipping sample %d (%s:%s) — tree too deep to serialize",
+						i, cand.Source, cand.Path)
 					continue
 				}
-
-				genSexp := genRoot.SExpr(genLang)
-				refSexp := refRoot.SExpr(refLang)
 
 				refHasError := strings.Contains(refSexp, "ERROR") || strings.Contains(refSexp, "MISSING")
 				if refHasError {
@@ -943,6 +943,49 @@ func getenvInt(key string, def int) int {
 		return def
 	}
 	return n
+}
+
+// safeSExpr calls n.SExpr with a recursion depth guard. If the tree is deeper
+// than maxDepth named nodes, it returns "" to signal "too deep to serialize".
+// This prevents goroutine stack overflow on pathologically deep trees (e.g.
+// HCL's 189K-deep recursive parse tree).
+func safeSExpr(n *gotreesitter.Node, lang *gotreesitter.Language, maxDepth int) string {
+	if n == nil || lang == nil {
+		return ""
+	}
+	var rec func(node *gotreesitter.Node, depth int) string
+	rec = func(node *gotreesitter.Node, depth int) string {
+		if node == nil || !node.IsNamed() {
+			return ""
+		}
+		if depth > maxDepth {
+			return "\x00" // sentinel: truncated
+		}
+		name := node.Type(lang)
+		cc := node.ChildCount()
+		if cc == 0 {
+			return "(" + name + ")"
+		}
+		parts := make([]string, 0, cc)
+		for i := 0; i < cc; i++ {
+			s := rec(node.Child(i), depth+1)
+			if s == "\x00" {
+				return "\x00"
+			}
+			if s != "" {
+				parts = append(parts, s)
+			}
+		}
+		if len(parts) == 0 {
+			return "(" + name + ")"
+		}
+		return "(" + name + " " + strings.Join(parts, " ") + ")"
+	}
+	result := rec(n, 0)
+	if result == "\x00" {
+		return "" // signal: too deep
+	}
+	return result
 }
 
 // stripSExprRoot removes the outermost S-expression wrapper, returning only

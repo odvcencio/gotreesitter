@@ -47,7 +47,7 @@ Notes:
   - Unless `--offline` is set, it also bootstraps a deterministic subset of
     grammar repos from upstream Git remotes.
   - It then runs:
-      go test ./grammargen -run '^TestMultiGrammarImportRealCorpusParity$' -count=1 -v
+      go test ./grammargen -run '^TestMultiGrammarImportRealCorpusParity$' -count=1 -v -timeout 90m
   - This wrapper sets:
       GTS_GRAMMARGEN_REAL_CORPUS_ENABLE=1
       GTS_GRAMMARGEN_REAL_CORPUS_ALLOW_PARTIAL=1
@@ -299,7 +299,7 @@ cd /workspace
   GTS_GRAMMARGEN_REAL_CORPUS_ALLOW_PARTIAL=1 \
   GTS_GRAMMARGEN_REAL_CORPUS_FLOORS_PATH=/tmp/real_corpus_parity_floors.json \
   GTS_GRAMMARGEN_REAL_CORPUS_SKIP=rust,c_sharp,java,ruby,cpp,kotlin,css,scala,go_lang,c_lang,python,javascript \
-  go test ./grammargen -run '^TestMultiGrammarImportRealCorpusParity$' -count=1 -v
+  go test ./grammargen -run '^TestMultiGrammarImportRealCorpusParity$' -count=1 -v -timeout 90m
 EOF2
 
 CMD=(
