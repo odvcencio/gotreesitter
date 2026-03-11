@@ -23,6 +23,7 @@ parity_out/
 
 # Generated real-corpus artifacts
 cgo_harness/corpus_real/
+cgo_harness/grammar_seed/
 
 # IDE
 .idea/

@@ -137,29 +137,34 @@ func buildLRTablesInternal(ng *NormalizedGrammar, trackProvenance bool) (*LRTabl
 		}
 	}
 	// Preserve large-grammar declaration boundaries that otherwise disappear
-	// under early core merging. This is especially important for annotation-
-	// heavy Scala states where the same LR(0) core can legitimately continue
-	// into different declaration forms (def/val/var/enum/class/trait/...).
-	definitionBoundary := map[string]bool{
-		"@":         true,
-		"class":     true,
-		"trait":     true,
-		"object":    true,
-		"enum":      true,
-		"given":     true,
-		"def":       true,
-		"val":       true,
-		"var":       true,
-		"type":      true,
-		"extension": true,
-		"case":      true,
-		"opaque":    true,
-		"import":    true,
-		"package":   true,
-	}
+	// under early core merging. Only activate for Scala-like grammars that
+	// have annotation syntax (@) and trait/object keywords — applying these
+	// boundary keywords universally causes state explosion in other grammars.
+	hasAnnotationSyntax := false
 	for sym := 0; sym < tokenCount; sym++ {
-		if definitionBoundary[ng.Symbols[sym].Name] {
-			ctx.boundaryLookaheads.add(sym)
+		if ng.Symbols[sym].Name == "@" {
+			hasAnnotationSyntax = true
+			break
+		}
+	}
+	hasTraitKeyword := false
+	for sym := 0; sym < tokenCount; sym++ {
+		if ng.Symbols[sym].Name == "trait" {
+			hasTraitKeyword = true
+			break
+		}
+	}
+	if hasAnnotationSyntax && hasTraitKeyword {
+		definitionBoundary := map[string]bool{
+			"@": true, "class": true, "trait": true, "object": true,
+			"enum": true, "given": true, "def": true, "val": true,
+			"var": true, "type": true, "extension": true, "case": true,
+			"opaque": true, "import": true, "package": true,
+		}
+		for sym := 0; sym < tokenCount; sym++ {
+			if definitionBoundary[ng.Symbols[sym].Name] {
+				ctx.boundaryLookaheads.add(sym)
+			}
 		}
 	}
 	ctx.annotationAtSym = -1

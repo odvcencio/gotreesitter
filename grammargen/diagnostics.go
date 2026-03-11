@@ -383,11 +383,10 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 	oracle := newSplitOracle(diags, prov)
 	report.SplitCandidates = oracle.candidates()
 
-	// Apply local LR(1) rebuild only for grammars with declared conflict groups.
-	// Grammars without declared conflicts are supposed to be unambiguous under
-	// LALR; splitting them toward LR(1) diverges from tree-sitter's LALR tables.
-	// The rollback guard further reverts if splitting does not reduce GLR conflicts.
-	if len(report.SplitCandidates) > 0 && (len(ng.Conflicts) > 0 || g.EnableLRSplitting) {
+	// Apply local LR(1) rebuild only when explicitly opted in. Splitting
+	// grammars that have declared conflicts but don't opt in can produce tables
+	// that parse incorrectly (fewer GLR conflicts ≠ correct parse trees).
+	if len(report.SplitCandidates) > 0 && g.EnableLRSplitting {
 		// Count pre-split GLR conflicts.
 		glrBefore := 0
 		for _, d := range diags {
