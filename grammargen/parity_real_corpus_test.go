@@ -33,6 +33,7 @@ const (
 	realCorpusFloorsPathEnv     = "GTS_GRAMMARGEN_REAL_CORPUS_FLOORS_PATH"
 	realCorpusAllowPartialEnv   = "GTS_GRAMMARGEN_REAL_CORPUS_ALLOW_PARTIAL"
 	realCorpusSkipEnv           = "GTS_GRAMMARGEN_REAL_CORPUS_SKIP"
+	realCorpusOnlyEnv           = "GTS_GRAMMARGEN_REAL_CORPUS_ONLY"
 	realCorpusFloorsFileVersion = 3
 	maxRealCorpusWalkFiles      = 6000
 )
@@ -154,6 +155,14 @@ func TestMultiGrammarImportRealCorpusParity(t *testing.T) {
 			}
 		}
 	}
+	onlySet := map[string]bool{}
+	if raw := strings.TrimSpace(os.Getenv(realCorpusOnlyEnv)); raw != "" {
+		for _, s := range strings.Split(raw, ",") {
+			if s = strings.TrimSpace(s); s != "" {
+				onlySet[s] = true
+			}
+		}
+	}
 
 	testedGrammars := 0
 	totalEligible := 0
@@ -164,6 +173,9 @@ func TestMultiGrammarImportRealCorpusParity(t *testing.T) {
 
 	for _, g := range importParityGrammars {
 		if skipSet[g.name] {
+			continue
+		}
+		if len(onlySet) > 0 && !onlySet[g.name] {
 			continue
 		}
 		if maxGrammars > 0 && testedGrammars >= maxGrammars {
