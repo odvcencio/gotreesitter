@@ -454,10 +454,8 @@ type lrContext struct {
 // conflictResolutionCache stores grammar-wide declared-conflict metadata that
 // would otherwise be rebuilt for every single resolveActionConflict call.
 type conflictResolutionCache struct {
-	symbolInConflict []bool
-	reverseIdx       [][]int
-	groups           [][]int
-	groupsBySymbol   [][]int
+	groups         [][]int
+	groupsBySymbol [][]int
 }
 
 func getConflictResolutionCache(ng *NormalizedGrammar) *conflictResolutionCache {
@@ -469,29 +467,16 @@ func getConflictResolutionCache(ng *NormalizedGrammar) *conflictResolutionCache 
 	}
 
 	cache := &conflictResolutionCache{
-		symbolInConflict: make([]bool, len(ng.Symbols)),
-		reverseIdx:       make([][]int, len(ng.Symbols)),
-		groups:           make([][]int, len(ng.Conflicts)),
-		groupsBySymbol:   make([][]int, len(ng.Symbols)),
+		groups:         make([][]int, len(ng.Conflicts)),
+		groupsBySymbol: make([][]int, len(ng.Symbols)),
 	}
 
 	for groupIdx, group := range ng.Conflicts {
 		cache.groups[groupIdx] = append([]int(nil), group...)
 		for _, sym := range group {
-			if sym < 0 || sym >= len(cache.symbolInConflict) {
-				continue
+			if sym >= 0 && sym < len(cache.groupsBySymbol) {
+				cache.groupsBySymbol[sym] = append(cache.groupsBySymbol[sym], groupIdx)
 			}
-			cache.symbolInConflict[sym] = true
-			cache.groupsBySymbol[sym] = append(cache.groupsBySymbol[sym], groupIdx)
-		}
-	}
-
-	for prodIdx, prod := range ng.Productions {
-		for _, sym := range prod.RHS {
-			if sym < 0 || sym >= len(cache.reverseIdx) {
-				continue
-			}
-			cache.reverseIdx[sym] = append(cache.reverseIdx[sym], prodIdx)
 		}
 	}
 
@@ -1842,10 +1827,10 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 		reduce := reduces[0]
 		prod := &ng.Productions[reduce.prodIdx]
 
-		if shiftMatchesConflictGroup(shift, reduce.lhsSym, cache) {
-			return actions, nil
-		}
-		if reduceLHSInConflictGroup(reduce.prodIdx, ng, cache) {
+		// Tree-sitter keeps S/R as GLR only when the reduce LHS and a shift
+		// LHS are both in the same declared conflict group. Check all reduces
+		// against all shifts (multiple reduces possible in the action set).
+		if shiftReduceInConflictGroup(shifts, reduces, ng, cache) {
 			return actions, nil
 		}
 
@@ -1870,28 +1855,6 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 				return []lrAction{shift}, nil
 			case AssocNone:
 				return nil, nil
-			}
-		}
-		if isTransitiveConflict(shift, reduce, ng, cache) {
-			return actions, nil
-		}
-
-		// Targeted eex ambiguity.
-		if len(prod.RHS) == 0 && len(ng.Symbols) > prod.LHS {
-			reduceName := ng.Symbols[prod.LHS].Name
-			if strings.HasPrefix(reduceName, "_partial_expression_repeat") {
-				for _, s := range shifts {
-					if s.lhsSym > 0 && s.lhsSym < len(ng.Symbols) &&
-						strings.HasPrefix(ng.Symbols[s.lhsSym].Name, "_expression_repeat1_") {
-						return actions, nil
-					}
-					for _, lhs := range s.lhsSyms {
-						if lhs > 0 && lhs < len(ng.Symbols) &&
-							strings.HasPrefix(ng.Symbols[lhs].Name, "_expression_repeat1_") {
-							return actions, nil
-						}
-					}
-				}
 			}
 		}
 
@@ -1974,132 +1937,37 @@ func shouldKeepRepeatedAnnotationReduces(lookaheadSym int, reduces []lrAction, n
 	return true
 }
 
-func shiftMatchesConflictGroup(shift lrAction, reduceLHS int, cache *conflictResolutionCache) bool {
-	if cache == nil || reduceLHS < 0 || reduceLHS >= len(cache.groupsBySymbol) {
-		return false
-	}
-	allShiftLHS := make([]int, 0, 1+len(shift.lhsSyms))
-	if shift.lhsSym != 0 {
-		allShiftLHS = append(allShiftLHS, shift.lhsSym)
-	}
-	allShiftLHS = append(allShiftLHS, shift.lhsSyms...)
-
-	for _, groupIdx := range cache.groupsBySymbol[reduceLHS] {
-		for _, sym := range cache.groups[groupIdx] {
-			for _, shiftLHS := range allShiftLHS {
-				if sym == shiftLHS && shiftLHS != reduceLHS {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-// reduceLHSInConflictGroup checks whether the reduce production's LHS symbol
-// appears in any declared conflict group. This is used as a fallback in S/R
-// conflict resolution: if the reduce's LHS is in a conflict group, the conflict
-// is kept as GLR even if the shift's LHS is not in the same group.
-func reduceLHSInConflictGroup(prodIdx int, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
-	if cache == nil {
-		return false
-	}
-	prod := &ng.Productions[prodIdx]
-	if prod.LHS < 0 || prod.LHS >= len(cache.symbolInConflict) {
-		return false
-	}
-	return cache.symbolInConflict[prod.LHS]
-}
-
-func isTransitiveConflict(shift lrAction, reduce lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
+// shiftReduceInConflictGroup checks whether any (reduce LHS, shift LHS) pair
+// appears together in a declared conflict group. This matches tree-sitter C's
+// conflict resolution: keep S/R as GLR only when the symbols producing the
+// shift and reduce are in the same declared conflict group.
+func shiftReduceInConflictGroup(shifts, reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
 	if cache == nil {
 		return false
 	}
 
-	reduceLHS := ng.Productions[reduce.prodIdx].LHS
-	if reduceLHS < 0 || reduceLHS >= len(cache.symbolInConflict) {
-		return false
-	}
-	if cache.symbolInConflict[reduceLHS] {
-		return false
-	}
-
-	allShiftLHS := make(map[int]bool)
-	if shift.lhsSym != 0 {
-		allShiftLHS[shift.lhsSym] = true
-	}
-	for _, s := range shift.lhsSyms {
-		allShiftLHS[s] = true
-	}
-
-	shiftConflictSyms := make([]bool, len(cache.symbolInConflict))
-	shiftConflictCount := 0
-	markShiftConflict := func(sym int) {
-		if sym < 0 || sym >= len(shiftConflictSyms) || !cache.symbolInConflict[sym] || shiftConflictSyms[sym] {
-			return
+	// Collect all shift LHS symbols.
+	shiftLHSSet := make(map[int]bool)
+	for _, s := range shifts {
+		if s.lhsSym != 0 {
+			shiftLHSSet[s.lhsSym] = true
 		}
-		shiftConflictSyms[sym] = true
-		shiftConflictCount++
+		for _, lhs := range s.lhsSyms {
+			shiftLHSSet[lhs] = true
+		}
 	}
-	for s := range allShiftLHS {
-		markShiftConflict(s)
-		if s < 0 || s >= len(cache.reverseIdx) {
+
+	// For each reduce, check if its LHS and any shift LHS are in the same group.
+	for _, r := range reduces {
+		reduceLHS := ng.Productions[r.prodIdx].LHS
+		if reduceLHS < 0 || reduceLHS >= len(cache.groupsBySymbol) {
 			continue
 		}
-		for _, pi := range cache.reverseIdx[s] {
-			prod := &ng.Productions[pi]
-			markShiftConflict(prod.LHS)
-			for _, rs := range prod.RHS {
-				markShiftConflict(rs)
-			}
-		}
-	}
-
-	if shiftConflictCount == 0 {
-		return false
-	}
-
-	visited := make([]bool, len(cache.symbolInConflict))
-	visited[reduceLHS] = true
-	queue := []int{reduceLHS}
-	maxDepth := 4
-
-	for depth := 0; depth < maxDepth && len(queue) > 0; depth++ {
-		var next []int
-		for _, sym := range queue {
-			if sym < 0 || sym >= len(cache.reverseIdx) {
-				continue
-			}
-			for _, pi := range cache.reverseIdx[sym] {
-				prod := &ng.Productions[pi]
-				if anyMarkedConflictGroup(prod.LHS, shiftConflictSyms, cache) {
+		for _, groupIdx := range cache.groupsBySymbol[reduceLHS] {
+			for _, sym := range cache.groups[groupIdx] {
+				if shiftLHSSet[sym] {
 					return true
 				}
-				for _, rs := range prod.RHS {
-					if rs != sym && anyMarkedConflictGroup(rs, shiftConflictSyms, cache) {
-						return true
-					}
-				}
-
-				if prod.LHS >= 0 && prod.LHS < len(visited) && !visited[prod.LHS] {
-					visited[prod.LHS] = true
-					next = append(next, prod.LHS)
-				}
-			}
-		}
-		queue = next
-	}
-	return false
-}
-
-func anyMarkedConflictGroup(sym int, marked []bool, cache *conflictResolutionCache) bool {
-	if cache == nil || sym < 0 || sym >= len(cache.groupsBySymbol) {
-		return false
-	}
-	for _, groupIdx := range cache.groupsBySymbol[sym] {
-		for _, member := range cache.groups[groupIdx] {
-			if member >= 0 && member < len(marked) && marked[member] {
-				return true
 			}
 		}
 	}
