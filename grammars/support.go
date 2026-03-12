@@ -15,18 +15,6 @@ const (
 	ParseQualityNone    ParseQuality = "none"    // cannot parse
 )
 
-// qualityFromBackend maps a ParseBackend to a ParseQuality.
-func qualityFromBackend(b ParseBackend) ParseQuality {
-	switch b {
-	case ParseBackendTokenSource, ParseBackendDFA:
-		return ParseQualityFull
-	case ParseBackendDFAPartial:
-		return ParseQualityPartial
-	default:
-		return ParseQualityNone
-	}
-}
-
 // ParseBackend describes how a language can be parsed in this runtime.
 type ParseBackend string
 
