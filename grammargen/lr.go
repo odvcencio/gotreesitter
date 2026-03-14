@@ -283,15 +283,21 @@ func buildLRTablesInternal(ng *NormalizedGrammar, trackProvenance bool) (*LRTabl
 	// through the more precise core-based builder so we can preserve a canonical
 	// LR(1) prefix before any compaction starts.
 	usePreciseExternalBuilder := len(ng.ExternalSymbols) > 0
+	if len(ng.ExternalSymbols) >= 24 {
+		usePreciseExternalBuilder = false
+	}
 	if os.Getenv("GOT_LR_FORCE_EXTERNAL_LALR") == "1" {
 		usePreciseExternalBuilder = false
+	}
+	if os.Getenv("GOT_LR_FORCE_PRECISE_EXTERNAL") == "1" {
+		usePreciseExternalBuilder = len(ng.ExternalSymbols) > 0
 	}
 	if len(ng.Productions) > 400 && !usePreciseExternalBuilder {
 		itemSets = ctx.buildItemSetsLALR()
 	} else {
 		itemSets = ctx.buildItemSets()
 		const maxRuntimeStateID = int(^uint16(0))
-		if usePreciseExternalBuilder && len(itemSets) > maxRuntimeStateID {
+		if usePreciseExternalBuilder && (ctx.preciseStateBudgetExceeded || len(itemSets) > maxRuntimeStateID) {
 			ctx = newCtx()
 			itemSets = ctx.buildItemSetsLALR()
 		}
@@ -473,6 +479,11 @@ type lrContext struct {
 	lookaheadWordCount int
 	lookaheadWordPool  [][]uint64
 	maxLookaheadPool   int
+
+	// preciseStateBudgetExceeded marks that the precise external-grammar LR(1)
+	// builder crossed its configured state budget and should be retried via the
+	// cheaper LALR path.
+	preciseStateBudgetExceeded bool
 }
 
 // conflictResolutionCache stores grammar-wide declared-conflict metadata that
@@ -1652,6 +1663,19 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 			}
 		}
 	}
+	preciseStateBudget := 0
+	if len(ctx.ng.ExternalSymbols) > 0 {
+		// Preserve the precise external path where it converges quickly, but
+		// stop before it grows far beyond the runtime-sized automata we can
+		// actually use. Large scanner-heavy grammars can then fall back to LALR
+		// instead of burning the full generation timeout.
+		preciseStateBudget = 20000
+		if v := os.Getenv("GOT_LR_PRECISE_EXTERNAL_STATE_BUDGET"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				preciseStateBudget = n
+			}
+		}
+	}
 	activateMergeMaps := func() {
 		if disableStateMerging || len(ctx.itemSets) < exactPrefixStates {
 			return
@@ -1761,6 +1785,10 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 				ctx.transitions[stateIdx] = make(map[int]int, len(syms))
 			}
 			ctx.transitions[stateIdx][sym] = targetIdx
+			if preciseStateBudget > 0 && len(ctx.itemSets) > preciseStateBudget {
+				ctx.preciseStateBudgetExceeded = true
+				return ctx.itemSets
+			}
 		}
 		ctx.gotoSymbolsScratch = syms[:0]
 	}

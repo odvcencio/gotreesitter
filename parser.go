@@ -302,6 +302,12 @@ func (p *Parser) acceptNoActionEOF(s *glrStack, tok Token) bool {
 	if tok.Symbol != 0 || tok.StartByte != tok.EndByte {
 		return false
 	}
+	if s == nil || s.dead {
+		return false
+	}
+	if s.top().node == nil && s.byteOffset != tok.EndByte {
+		return false
+	}
 	if !p.canFinalizeNoActionEOF(s) {
 		return false
 	}
@@ -644,7 +650,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	}
 	finalizeErrorTree := func(stopReason ParseStopReason) *Tree {
 		arena.Release()
-		return finalizeTree(parseErrorTree(source, p.language), stopReason)
+		return finalizeTree(parseErrorTreeWithExpectedRoot(source, p.language, p.rootSymbol, p.hasRootSymbol), stopReason)
 	}
 
 	var stacksBuf [4]glrStack

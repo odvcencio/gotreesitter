@@ -587,6 +587,33 @@ func TestCanFinalizeNoActionEOFAcceptsSingleNonterminalWithExtras(t *testing.T) 
 	}
 }
 
+func TestAcceptNoActionEOFRejectsEmptyStackBeforeConsumedEOF(t *testing.T) {
+	parser := NewParser(buildArithmeticLanguage())
+	s := newGLRStack(0)
+	if parser.acceptNoActionEOF(&s, Token{Symbol: 0, StartByte: 5, EndByte: 5}) {
+		t.Fatal("acceptNoActionEOF() = true, want false when empty stack has not consumed input")
+	}
+}
+
+func TestParseErrorTreeWithExpectedRootWrapsErrorNode(t *testing.T) {
+	lang := buildEOFNullableRootCycleLanguage()
+	tree := parseErrorTreeWithExpectedRoot([]byte("a"), lang, 2, true)
+	if tree == nil || tree.RootNode() == nil {
+		t.Fatal("parseErrorTreeWithExpectedRoot returned nil tree/root")
+	}
+	root := tree.RootNode()
+	if got, want := root.Symbol(), Symbol(2); got != want {
+		t.Fatalf("root symbol = %d, want %d", got, want)
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root child count = %d, want %d", got, want)
+	}
+	child := root.Child(0)
+	if child == nil || !child.IsError() {
+		t.Fatalf("root child error = %v, want true", child != nil && child.IsError())
+	}
+}
+
 func buildMultiStackNoActionEOFLanguage() *Language {
 	return &Language{
 		Name:               "multi_stack_no_action_eof",

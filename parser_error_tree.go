@@ -24,6 +24,20 @@ func parseErrorTree(source []byte, lang *Language) *Tree {
 	return NewTree(root, source, lang)
 }
 
+func parseErrorTreeWithExpectedRoot(source []byte, lang *Language, rootSymbol Symbol, hasRoot bool) *Tree {
+	tree := parseErrorTree(source, lang)
+	if !hasRoot || lang == nil || tree == nil || tree.RootNode() == nil || rootSymbol == errorSymbol {
+		return tree
+	}
+	named := true
+	if int(rootSymbol) < len(lang.SymbolMetadata) {
+		named = lang.SymbolMetadata[rootSymbol].Named
+	}
+	root := NewParentNode(rootSymbol, named, []*Node{tree.RootNode()}, nil, 0)
+	extendNodeToTrailingWhitespace(root, source)
+	return NewTree(root, source, lang)
+}
+
 func isWhitespaceOnlySource(source []byte) bool {
 	for i := 0; i < len(source); i++ {
 		switch source[i] {

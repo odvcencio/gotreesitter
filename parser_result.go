@@ -90,23 +90,6 @@ func (p *Parser) buildResult(stack []stackEntry, source []byte, arena *nodeArena
 }
 
 func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeArena, oldTree *Tree, reuseState *parseReuseState, linkScratch *[]*Node) *Tree {
-	if len(nodes) == 0 {
-		arena.Release()
-		if isWhitespaceOnlySource(source) {
-			return NewTree(nil, source, p.language)
-		}
-		return parseErrorTree(source, p.language)
-	}
-
-	if arena != nil && arena.used == 0 {
-		arena.Release()
-		arena = nil
-	}
-
-	if p != nil {
-		debugFinalResultNodes(p.language, nodes)
-	}
-
 	expectedRootSymbol := Symbol(0)
 	hasExpectedRoot := false
 	shouldWireParentLinks := oldTree == nil
@@ -117,6 +100,22 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 	if oldTree != nil && oldTree.RootNode() != nil {
 		expectedRootSymbol = oldTree.RootNode().symbol
 		hasExpectedRoot = true
+	}
+	if len(nodes) == 0 {
+		arena.Release()
+		if isWhitespaceOnlySource(source) {
+			return NewTree(nil, source, p.language)
+		}
+		return parseErrorTreeWithExpectedRoot(source, p.language, expectedRootSymbol, hasExpectedRoot)
+	}
+
+	if arena != nil && arena.used == 0 {
+		arena.Release()
+		arena = nil
+	}
+
+	if p != nil {
+		debugFinalResultNodes(p.language, nodes)
 	}
 	if p != nil && p.language != nil && p.language.Name == "python" {
 		nodes = collapsePythonRootFragments(nodes, arena, p.language)
@@ -129,8 +128,9 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 			expectedEnd = p.expectedRootEndByte(source)
 		}
 		if trimmed, changed := trimExpectedRootEOFSuffixNodes(nodes, expectedRootSymbol, expectedStart, expectedEnd); changed {
-			nodes = unwrapInvisibleRootFragments(trimmed, p.language)
+			nodes = trimmed
 		}
+		nodes = flattenInvisibleRootFragments(nodes, arena, p.language)
 	}
 	borrowedResolved := false
 	var borrowed []*nodeArena
@@ -278,7 +278,8 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 		rootSymbol = expectedRootSymbol
 	}
 	root := newParentNodeInArena(arena, rootSymbol, true, rootChildren, nil, 0)
-	if !(p != nil && p.language != nil && p.language.Name == "python" && hasExpectedRoot && pythonModuleChildrenLookComplete(nodes, p.language)) {
+	if !(hasExpectedRoot && expectedRootChildrenLookComplete(nodes, p, source)) &&
+		!(p != nil && p.language != nil && p.language.Name == "python" && hasExpectedRoot && pythonModuleChildrenLookComplete(nodes, p.language)) {
 		root.hasError = true
 	}
 	root = repairPythonRootNode(root, arena, p.language)
@@ -291,37 +292,90 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 	return newTreeWithArenas(root, source, p.language, arena, getBorrowed())
 }
 
-func unwrapInvisibleRootFragments(nodes []*Node, lang *Language) []*Node {
+func flattenInvisibleRootFragments(nodes []*Node, arena *nodeArena, lang *Language) []*Node {
 	if len(nodes) == 0 || lang == nil {
 		return nodes
 	}
-	for i := range nodes {
-		nodes[i] = unwrapInvisibleSingleChildChain(nodes[i], lang)
+	out := make([]*Node, 0, len(nodes))
+	var appendNode func(*Node)
+	appendNode = func(n *Node) {
+		if n == nil {
+			return
+		}
+		if n.isExtra {
+			out = append(out, n)
+			return
+		}
+		if int(n.symbol) < len(lang.SymbolMetadata) && !lang.SymbolMetadata[n.symbol].Visible {
+			for _, child := range n.children {
+				appendNode(child)
+			}
+			return
+		}
+		out = append(out, n)
 	}
-	return nodes
+	for _, n := range nodes {
+		appendNode(n)
+	}
+	if len(out) == len(nodes) {
+		same := true
+		for i := range nodes {
+			if nodes[i] != out[i] {
+				same = false
+				break
+			}
+		}
+		if same {
+			return nodes
+		}
+	}
+	if arena != nil {
+		buf := arena.allocNodeSlice(len(out))
+		copy(buf, out)
+		return buf
+	}
+	return out
 }
 
-func unwrapInvisibleSingleChildChain(n *Node, lang *Language) *Node {
-	for n != nil && lang != nil {
-		if int(n.symbol) >= len(lang.SymbolMetadata) || lang.SymbolMetadata[n.symbol].Visible {
-			return n
-		}
-		if len(n.children) != 1 {
-			return n
-		}
-		child := n.children[0]
-		if child == nil || child.isExtra {
-			return n
-		}
-		if child.startByte != n.startByte || child.endByte != n.endByte {
-			return n
-		}
-		if n.hasError != child.hasError {
-			return n
-		}
-		n = child
+func expectedRootChildrenLookComplete(nodes []*Node, p *Parser, source []byte) bool {
+	if len(nodes) == 0 {
+		return false
 	}
-	return n
+	expectedStart := uint32(0)
+	expectedEnd := uint32(len(source))
+	if p != nil {
+		expectedStart = p.expectedRootStartByte()
+		expectedEnd = p.expectedRootEndByte(source)
+	}
+	firstSet := false
+	firstStart := uint32(0)
+	lastEnd := uint32(0)
+	for _, n := range nodes {
+		if n == nil || n.isExtra {
+			continue
+		}
+		if n.hasError {
+			return false
+		}
+		if !firstSet {
+			firstStart = n.startByte
+			firstSet = true
+		}
+		lastEnd = n.endByte
+	}
+	if !firstSet {
+		return false
+	}
+	if firstStart < expectedStart || lastEnd > expectedEnd {
+		return false
+	}
+	if firstStart > expectedStart && !bytesAreTrivia(source[expectedStart:firstStart]) {
+		return false
+	}
+	if lastEnd < expectedEnd && !bytesAreTrivia(source[lastEnd:expectedEnd]) {
+		return false
+	}
+	return true
 }
 
 func (p *Parser) normalizeRootSourceStart(root *Node, source []byte) {
