@@ -145,7 +145,7 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 
 	if len(nodes) == 1 {
 		candidate := nodes[0]
-		candidate = repairPythonRootNode(candidate, arena, p.language)
+		candidate = normalizeFinalRootNode(candidate, arena, p.language)
 		extendNodeToTrailingWhitespace(candidate, source)
 		p.normalizeRootSourceStart(candidate, source)
 		normalizeKnownSpanAttribution(candidate, source, p.language)
@@ -260,7 +260,7 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 				realRoot.endPoint = e.endPoint
 			}
 		}
-		realRoot = repairPythonRootNode(realRoot, arena, p.language)
+		realRoot = normalizeFinalRootNode(realRoot, arena, p.language)
 		extendNodeToTrailingWhitespace(realRoot, source)
 		p.normalizeRootSourceStart(realRoot, source)
 		normalizeKnownSpanAttribution(realRoot, source, p.language)
@@ -282,7 +282,7 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 		!(p != nil && p.language != nil && p.language.Name == "python" && hasExpectedRoot && pythonModuleChildrenLookComplete(nodes, p.language)) {
 		root.hasError = true
 	}
-	root = repairPythonRootNode(root, arena, p.language)
+	root = normalizeFinalRootNode(root, arena, p.language)
 	extendNodeToTrailingWhitespace(root, source)
 	p.normalizeRootSourceStart(root, source)
 	normalizeKnownSpanAttribution(root, source, p.language)
@@ -335,6 +335,114 @@ func flattenInvisibleRootFragments(nodes []*Node, arena *nodeArena, lang *Langua
 		return buf
 	}
 	return out
+}
+
+func normalizeFinalRootNode(root *Node, arena *nodeArena, lang *Language) *Node {
+	root = flattenInvisibleRootChildren(root, arena, lang)
+	return repairPythonRootNode(root, arena, lang)
+}
+
+func flattenInvisibleRootChildren(root *Node, arena *nodeArena, lang *Language) *Node {
+	if root == nil || lang == nil || len(root.children) == 0 {
+		return root
+	}
+	symbolMeta := lang.SymbolMetadata
+	normalizedCount := len(root.children)
+	changed := false
+	for _, child := range root.children {
+		if child == nil || child.isExtra {
+			continue
+		}
+		if idx := int(child.symbol); idx >= 0 && idx < len(symbolMeta) && !symbolMeta[child.symbol].Visible {
+			flatCount := countFlattenedHiddenChildren(child, symbolMeta)
+			if flatCount <= 0 {
+				continue
+			}
+			normalizedCount += flatCount - 1
+			changed = true
+		}
+	}
+	if !changed {
+		return root
+	}
+
+	cloned := cloneNodeInArena(arena, root)
+	children := make([]*Node, normalizedCount)
+	if arena != nil {
+		children = arena.allocNodeSlice(normalizedCount)
+	}
+	var fieldIDs []FieldID
+	var fieldSources []uint8
+	if len(root.fieldIDs) > 0 {
+		if arena != nil {
+			fieldIDs = arena.allocFieldIDSlice(normalizedCount)
+		} else {
+			fieldIDs = make([]FieldID, normalizedCount)
+		}
+		fieldSources = make([]uint8, normalizedCount)
+	}
+
+	out := 0
+	for i, child := range root.children {
+		if child == nil {
+			continue
+		}
+		spanStart := out
+		parentFieldID := FieldID(0)
+		if i < len(root.fieldIDs) {
+			parentFieldID = root.fieldIDs[i]
+		}
+		parentFieldSource := fieldSourceAt(root.fieldSources, i)
+		if parentFieldID != 0 && parentFieldSource == fieldSourceNone {
+			parentFieldSource = fieldSourceDirect
+		}
+
+		flatten := false
+		if !child.isExtra {
+			if idx := int(child.symbol); idx >= 0 && idx < len(symbolMeta) && !symbolMeta[child.symbol].Visible {
+				flatten = countFlattenedHiddenChildren(child, symbolMeta) > 0
+			}
+		}
+		if flatten {
+			out = appendFlattenedHiddenChildren(children, out, child, symbolMeta)
+			if fieldIDs != nil && parentFieldID != 0 && spanStart < out {
+				applyFieldToFlattenedSpan(children, fieldIDs, fieldSources, spanStart, out, parentFieldID, parentFieldSource, false)
+				normalizeMixedSourceFieldSpan(fieldIDs, fieldSources, spanStart, out)
+			}
+			continue
+		}
+
+		children[out] = child
+		if fieldIDs != nil && parentFieldID != 0 {
+			fieldIDs[out] = parentFieldID
+			fieldSources[out] = parentFieldSource
+		}
+		out++
+	}
+
+	cloned.children = children[:out]
+	if len(fieldIDs) > 0 {
+		fieldIDs = fieldIDs[:out]
+		fieldSources = fieldSources[:out]
+		hasField := false
+		for _, fid := range fieldIDs {
+			if fid != 0 {
+				hasField = true
+				break
+			}
+		}
+		if hasField {
+			cloned.fieldIDs = fieldIDs
+			cloned.fieldSources = fieldSources
+		} else {
+			cloned.fieldIDs = nil
+			cloned.fieldSources = nil
+		}
+	} else {
+		cloned.fieldIDs = nil
+		cloned.fieldSources = nil
+	}
+	return cloned
 }
 
 func expectedRootChildrenLookComplete(nodes []*Node, p *Parser, source []byte) bool {
