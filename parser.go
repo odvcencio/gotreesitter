@@ -730,6 +730,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 
 	needToken := true
 	var tok Token
+	var nextBranchOrder uint64 = 1
 
 	// Per-primary-stack infinite-reduce detection.
 	var lastReduceState StateID
@@ -1091,6 +1092,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				}
 				for ai := 1; ai < len(actions); ai++ {
 					fork := base.cloneWithScratch(&scratch.gss)
+					fork.branchOrder = nextBranchOrder
+					nextBranchOrder++
 					act := actions[ai]
 					p.applyAction(&fork, act, tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, &trackChildErrors)
 					if p.glrTrace {

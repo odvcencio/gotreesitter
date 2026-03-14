@@ -121,6 +121,20 @@ func TestMergeStacksSmallPathKeepsDistinctDeepStructures(t *testing.T) {
 	}
 }
 
+func TestStackComparePtrPrefersEarlierBranchOrderOnExactTie(t *testing.T) {
+	a := newGLRStack(StateID(5))
+	b := newGLRStack(StateID(5))
+	a.branchOrder = 1
+	b.branchOrder = 2
+
+	if got := stackComparePtr(&a, &b); got <= 0 {
+		t.Fatalf("stackComparePtr(a,b) = %d, want > 0", got)
+	}
+	if got := stackComparePtr(&b, &a); got >= 0 {
+		t.Fatalf("stackComparePtr(b,a) = %d, want < 0", got)
+	}
+}
+
 func TestGLRStackClone(t *testing.T) {
 	s := newGLRStack(StateID(1))
 	s.push(2, nil, nil, nil)

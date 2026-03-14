@@ -505,7 +505,6 @@ func (d *dfaTokenSource) probeAlternativeLexToken(startPos int, startRow, startC
 	bestEndRow := startRow
 	bestEndCol := startCol
 	bestCoverage := 0
-	bestVisible := false
 
 	for _, ls := range d.fallbackLexStates {
 		if ls == skipState || ls == noLookaheadLexState {
@@ -519,11 +518,9 @@ func (d *dfaTokenSource) probeAlternativeLexToken(startPos int, startRow, startC
 		if coverage == 0 {
 			continue
 		}
-		visible := int(tok.Symbol) < len(d.language.SymbolMetadata) && d.language.SymbolMetadata[tok.Symbol].Visible
 		better := !bestFound ||
 			coverage > bestCoverage ||
-			(coverage == bestCoverage && tok.StartByte == bestTok.StartByte && tok.EndByte > bestTok.EndByte) ||
-			(coverage == bestCoverage && tok.StartByte == bestTok.StartByte && tok.EndByte == bestTok.EndByte && visible && !bestVisible)
+			(coverage == bestCoverage && tok.StartByte == bestTok.StartByte && tok.EndByte > bestTok.EndByte)
 		if better {
 			bestFound = true
 			bestTok = tok
@@ -531,7 +528,6 @@ func (d *dfaTokenSource) probeAlternativeLexToken(startPos int, startRow, startC
 			bestEndRow = endRow
 			bestEndCol = endCol
 			bestCoverage = coverage
-			bestVisible = visible
 		}
 	}
 	if !bestFound {
@@ -550,13 +546,10 @@ func (d *dfaTokenSource) tryAlternativeLexToken(primaryLexState uint16, primaryT
 	}
 	primaryCoverage := d.actionCoverage(primaryTok.Symbol)
 	altCoverage := d.actionCoverage(altTok.Symbol)
-	primaryVisible := int(primaryTok.Symbol) < len(d.language.SymbolMetadata) && d.language.SymbolMetadata[primaryTok.Symbol].Visible
-	altVisible := int(altTok.Symbol) < len(d.language.SymbolMetadata) && d.language.SymbolMetadata[altTok.Symbol].Visible
 	better := primaryTok.Symbol == 0 ||
 		primaryCoverage == 0 ||
 		altCoverage > primaryCoverage ||
-		(altCoverage == primaryCoverage && altTok.StartByte == primaryTok.StartByte && altTok.EndByte > primaryTok.EndByte) ||
-		(altCoverage == primaryCoverage && altTok.StartByte == primaryTok.StartByte && altTok.EndByte == primaryTok.EndByte && altVisible && !primaryVisible)
+		(altCoverage == primaryCoverage && altTok.StartByte == primaryTok.StartByte && altTok.EndByte > primaryTok.EndByte)
 	if !better {
 		return Token{}, 0, 0, 0, false
 	}
