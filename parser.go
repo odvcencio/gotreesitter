@@ -833,20 +833,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			}
 
 			// --- Extra token handling (comments, whitespace) ---
-			if len(actions) > 0 &&
+			if len(actions) == 1 &&
 				actions[0].Type == ParseActionShift && actions[0].Extra {
-				named := p.isNamedSymbol(tok.Symbol)
-				leaf := newLeafNodeInArena(arena, tok.Symbol, named,
-					tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
-				if tok.Missing {
-					leaf.isMissing = true
-					leaf.hasError = true
-				}
-				leaf.isExtra = true
-				leaf.preGotoState = currentState
-				leaf.parseState = currentState
-				p.pushStackNode(s, currentState, leaf, &scratch.entries, &scratch.gss)
-				nodeCount++
+				p.applyAction(s, actions[0], tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, nil, false, nil)
 				needToken = true
 				continue
 			}

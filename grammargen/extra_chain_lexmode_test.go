@@ -1,6 +1,10 @@
 package grammargen
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/odvcencio/gotreesitter"
+)
 
 func TestNonterminalExtraChainLexModesDoNotInheritTerminalExtras(t *testing.T) {
 	g := NewGrammar("extra_chain_lexmode")
@@ -82,5 +86,45 @@ func TestNonterminalExtraChainLexModesDoNotInheritTerminalExtras(t *testing.T) {
 	}
 	if !chainMode.validSymbols[closeCommentSyms[0]] {
 		t.Fatal("synthetic extra-chain state should still accept the explicit comment terminator token")
+	}
+}
+
+func TestNonterminalExtraChainRuntimeProducesReducedExtraNode(t *testing.T) {
+	g := NewGrammar("extra_chain_runtime")
+	g.Define("source_file", Repeat1(Sym("item")))
+	g.Define("item", Pat(`[a-z]+`))
+	g.Define("block_comment", Seq(
+		Token(Str("/*")),
+		Token(Str("*/")),
+	))
+	g.SetExtras(Pat(`\s`), Sym("block_comment"))
+
+	report, err := GenerateWithReport(g)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+
+	tree, err := gotreesitter.NewParser(report.Language).Parse([]byte("/**/foo"))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("nil root")
+	}
+	if root.HasError() {
+		t.Fatalf("root has error: %s", safeSExpr(root, report.Language, 16))
+	}
+	if root.EndByte() != 7 {
+		t.Fatalf("root end byte = %d, want 7", root.EndByte())
+	}
+	if root.ChildCount() < 2 {
+		t.Fatalf("root child count = %d, want at least 2", root.ChildCount())
+	}
+	if got := root.Child(0).Type(report.Language); got != "block_comment" {
+		t.Fatalf("child[0] type = %q, want block_comment; sexpr=%s", got, safeSExpr(root, report.Language, 16))
+	}
+	if got := root.Child(1).Type(report.Language); got != "item" {
+		t.Fatalf("child[1] type = %q, want item; sexpr=%s", got, safeSExpr(root, report.Language, 16))
 	}
 }

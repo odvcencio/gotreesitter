@@ -337,7 +337,7 @@ func buildParseTables(
 	for i := range parseActions {
 		for j := range parseActions[i].Actions {
 			a := &parseActions[i].Actions[j]
-			if a.Type == gotreesitter.ParseActionShift && !a.Extra {
+			if a.Type == gotreesitter.ParseActionShift && (!a.Extra || a.State != 0) {
 				if int(a.State) < len(stateRemap) {
 					a.State = gotreesitter.StateID(stateRemap[int(a.State)])
 				}

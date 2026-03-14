@@ -314,10 +314,9 @@ func (p *Parser) reuseTargetState(state StateID, n *Node, lookahead Token) (Stat
 				continue
 			}
 			targetState := act.State
-			// Extra-token shifts keep the parser state unchanged.
-			if act.Extra {
-				targetState = state
-			}
+			// Terminal extras stay in the current state; synthetic nonterminal
+			// extra chains carry a real target state through the extra shift.
+			targetState = extraShiftTargetState(state, act)
 			if targetState == n.parseState {
 				return targetState, true
 			}
