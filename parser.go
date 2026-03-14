@@ -292,7 +292,7 @@ func (p *Parser) canFinalizeNoActionEOF(s *glrStack) bool {
 	if nonExtraCount == 0 {
 		return true
 	}
-	if onlyNonExtra == nil || onlyNonExtra.symbol == errorSymbol {
+	if nonExtraCount != 1 || onlyNonExtra == nil || onlyNonExtra.symbol == errorSymbol {
 		return false
 	}
 	return uint32(onlyNonExtra.symbol) >= tokenCount

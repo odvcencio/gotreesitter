@@ -587,6 +587,21 @@ func TestCanFinalizeNoActionEOFAcceptsSingleNonterminalWithExtras(t *testing.T) 
 	}
 }
 
+func TestCanFinalizeNoActionEOFRejectsMultipleNonExtraNodesWithExpectedRoot(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	parser := NewParser(lang)
+	parser.rootSymbol = 3
+	parser.hasRootSymbol = true
+
+	s := newGLRStack(lang.InitialState)
+	s.push(1, NewLeafNode(1, true, 0, 1, Point{}, Point{Column: 1}), nil, nil)
+	s.push(2, NewLeafNode(3, true, 0, 1, Point{}, Point{Column: 1}), nil, nil)
+
+	if parser.canFinalizeNoActionEOF(&s) {
+		t.Fatal("canFinalizeNoActionEOF() = true, want false for multiple non-extra nodes")
+	}
+}
+
 func TestAcceptNoActionEOFRejectsEmptyStackBeforeConsumedEOF(t *testing.T) {
 	parser := NewParser(buildArithmeticLanguage())
 	s := newGLRStack(0)
