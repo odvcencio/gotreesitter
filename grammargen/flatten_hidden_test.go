@@ -104,3 +104,120 @@ func TestFlattenHiddenPassthrough(t *testing.T) {
 		t.Logf("  prod[%d]: %s → %v (cc=%d)", p.ProductionID, lhsName, rhsNames, len(p.RHS))
 	}
 }
+
+func TestFlattenHiddenTopLevelRepeat1Passthrough(t *testing.T) {
+	g := &Grammar{
+		Name: "test_flatten_hidden_repeat1",
+		Rules: map[string]*Rule{
+			"document": Seq(Sym("_items")),
+			"_items":   Repeat1(Sym("item")),
+			"item":     Pat(`[a-z]+`),
+		},
+		RuleOrder: []string{"document", "_items", "item"},
+	}
+
+	ng, err := Normalize(g)
+	if err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+
+	symNameToID := make(map[string]int)
+	for i, info := range ng.Symbols {
+		symNameToID[info.Name] = i
+	}
+
+	itemsID := symNameToID["_items"]
+	documentID := symNameToID["document"]
+	itemID := symNameToID["item"]
+
+	var itemCCs []int
+	for _, p := range ng.Productions {
+		if p.LHS == itemsID {
+			itemCCs = append(itemCCs, len(p.RHS))
+		}
+	}
+	if len(itemCCs) == 0 {
+		t.Fatal("_items has no productions")
+	}
+	for _, cc := range itemCCs {
+		if cc == 1 {
+			t.Fatalf("_items still has cc=1 production after repeat flattening: %v", itemCCs)
+		}
+	}
+
+	hasDirectItem := false
+	hasItemsRef := false
+	for _, p := range ng.Productions {
+		if p.LHS != documentID {
+			continue
+		}
+		for _, sym := range p.RHS {
+			if sym == itemID {
+				hasDirectItem = true
+			}
+			if sym == itemsID {
+				hasItemsRef = true
+			}
+		}
+	}
+	if !hasDirectItem {
+		t.Fatal("document does not have direct reference to item after repeat flattening")
+	}
+	if !hasItemsRef {
+		t.Fatal("document should still reference _items for recursive alternatives")
+	}
+}
+
+func TestInlineHiddenAllPassthroughChoice(t *testing.T) {
+	g := &Grammar{
+		Name: "test_inline_hidden_passthrough_only",
+		Rules: map[string]*Rule{
+			"document": Seq(Sym("_value")),
+			"_value":   Choice(Sym("string"), Sym("number")),
+			"string":   Pat(`"[^\"]*"`),
+			"number":   Pat(`[0-9]+`),
+		},
+		RuleOrder: []string{"document", "_value", "string", "number"},
+	}
+
+	ng, err := Normalize(g)
+	if err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+
+	symNameToID := make(map[string]int)
+	for i, info := range ng.Symbols {
+		symNameToID[info.Name] = i
+	}
+
+	documentID := symNameToID["document"]
+	stringID := symNameToID["string"]
+	numberID := symNameToID["number"]
+	valueID := symNameToID["_value"]
+
+	hasString := false
+	hasNumber := false
+	hasValue := false
+	for _, p := range ng.Productions {
+		if p.LHS != documentID {
+			continue
+		}
+		for _, sym := range p.RHS {
+			if sym == stringID {
+				hasString = true
+			}
+			if sym == numberID {
+				hasNumber = true
+			}
+			if sym == valueID {
+				hasValue = true
+			}
+		}
+	}
+	if !hasString || !hasNumber {
+		t.Fatalf("document missing direct passthrough refs after flattening: string=%v number=%v", hasString, hasNumber)
+	}
+	if !hasValue {
+		t.Fatal("document should retain original hidden reference alongside direct passthrough refs")
+	}
+}

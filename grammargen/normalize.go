@@ -221,14 +221,6 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		g = expandInlineRules(g)
 	}
 
-	// Phase 0b: Flatten hidden rule pass-through alternatives.
-	// Tree-sitter C's flatten_grammar.cc auto-inlines single-symbol alternatives
-	// of hidden nonterminals into parent rules' choice contexts. This removes
-	// cc=1 productions from hidden rules and distributes them as direct children
-	// in parent rules. Without this, grammargen generates extra cc=1 reduce
-	// actions that tree-sitter C doesn't have (~10 grammars affected).
-	g = flattenHiddenChoiceAlts(g)
-
 	st := newSymbolTable()
 	ng := &NormalizedGrammar{}
 
@@ -363,10 +355,9 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		if rule == nil {
 			continue
 		}
-		// When a hidden rule's entire body is repeat/repeat1, expand to a
-		// self-referencing choice BEFORE prepareRule, matching tree-sitter's
-		// behavior (tree-sitter makes the rule self-recursive rather than
-		// creating a separate aux rule).
+		// When a hidden rule's entire body is repeat1, tree-sitter converts
+		// the rule itself into the repetition binary tree instead of
+		// introducing another auxiliary rule.
 		rule = expandTopLevelRepeat(cloneRule(rule), name)
 		prevAuxCount := len(auxRules)
 		processed := prepareRule(rule, name, st, auxRules, &auxCounter)
@@ -380,6 +371,12 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 			}
 		}
 	}
+
+	// Tree-sitter expands repeats before flattening hidden pass-through
+	// alternatives. Running this after prepareRule lets us flatten the cc=1
+	// branches introduced by repeat lowering, especially for hidden repeat
+	// helpers and top-level hidden repeat1 rules.
+	processedRules, auxRules = flattenPreparedRules(g.Name, nonterminals, processedRules, auxRules, g.Supertypes)
 
 	// Phase 5: Mark extra symbols.
 	extraSymbols := resolveExtras(g, st)
@@ -504,6 +501,7 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		}
 	}
 
+	promoteDefaultAliases(st.symbols, productions, extraSymbols)
 	canonicalizeAliasedExternalSymbols(st.symbols, productions, externalSymbols)
 
 	ng.Symbols = st.symbols
@@ -524,6 +522,115 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	_ = tokenCount
 
 	return ng, nil
+}
+
+func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extraSymbols []int) {
+	type aliasKey struct {
+		name  string
+		named bool
+	}
+	type aliasCount struct {
+		key       aliasKey
+		count     int
+		firstSeen int
+	}
+	type symbolStatus struct {
+		aliases          map[aliasKey]*aliasCount
+		appearsUnaliased bool
+	}
+
+	if len(symbols) == 0 || len(productions) == 0 {
+		return
+	}
+
+	statuses := make([]symbolStatus, len(symbols))
+	seenOrder := 0
+
+	for _, prod := range productions {
+		if len(prod.RHS) == 0 {
+			continue
+		}
+		aliasByChild := make(map[int]AliasInfo, len(prod.Aliases))
+		for _, ai := range prod.Aliases {
+			aliasByChild[ai.ChildIndex] = ai
+		}
+		for childIdx, symID := range prod.RHS {
+			if symID < 0 || symID >= len(statuses) {
+				continue
+			}
+			ai, ok := aliasByChild[childIdx]
+			if !ok || ai.Name == "" {
+				statuses[symID].appearsUnaliased = true
+				continue
+			}
+			ak := aliasKey{name: ai.Name, named: ai.Named}
+			if statuses[symID].aliases == nil {
+				statuses[symID].aliases = make(map[aliasKey]*aliasCount)
+			}
+			entry, ok := statuses[symID].aliases[ak]
+			if !ok {
+				entry = &aliasCount{key: ak, firstSeen: seenOrder}
+				statuses[symID].aliases[ak] = entry
+			}
+			entry.count++
+			seenOrder++
+		}
+	}
+
+	for _, symID := range extraSymbols {
+		if symID >= 0 && symID < len(statuses) {
+			statuses[symID].appearsUnaliased = true
+		}
+	}
+
+	defaultAliases := make(map[int]aliasKey)
+	for symID, status := range statuses {
+		if status.appearsUnaliased || len(status.aliases) == 0 {
+			continue
+		}
+		var best *aliasCount
+		for _, entry := range status.aliases {
+			if best == nil ||
+				entry.count > best.count ||
+				(entry.count == best.count && entry.firstSeen < best.firstSeen) {
+				best = entry
+			}
+		}
+		if best == nil {
+			continue
+		}
+		defaultAliases[symID] = best.key
+		symbols[symID].Name = best.key.name
+		symbols[symID].Visible = true
+		symbols[symID].Named = best.key.named
+	}
+
+	if len(defaultAliases) == 0 {
+		return
+	}
+
+	for i := range productions {
+		if len(productions[i].Aliases) == 0 {
+			continue
+		}
+		filtered := productions[i].Aliases[:0]
+		for _, ai := range productions[i].Aliases {
+			if ai.ChildIndex < 0 || ai.ChildIndex >= len(productions[i].RHS) {
+				filtered = append(filtered, ai)
+				continue
+			}
+			symID := productions[i].RHS[ai.ChildIndex]
+			if def, ok := defaultAliases[symID]; ok && def.name == ai.Name && def.named == ai.Named {
+				continue
+			}
+			filtered = append(filtered, ai)
+		}
+		if len(filtered) == 0 {
+			productions[i].Aliases = nil
+			continue
+		}
+		productions[i].Aliases = append([]AliasInfo(nil), filtered...)
+	}
 }
 
 func canonicalizeAliasedExternalSymbols(symbols []SymbolInfo, productions []Production, externalSymbols []int) {
@@ -1127,39 +1234,16 @@ func prepareRule(r *Rule, parentName string, st *symbolTable, auxRules map[strin
 	// Handle the current node.
 	switch r.Kind {
 	case RuleRepeat:
-		// repeat(x) = optional(repeat1(x)) — matches tree-sitter's lowering.
-		// Creates a repeat1-style aux rule (always matches at least one x),
-		// then wraps the reference in choice(aux, blank()) so the parent
-		// gets both "with repeat" and "without repeat" production variants.
-		*counter++
-		auxName := fmt.Sprintf("%s_repeat%d", parentName, *counter)
-		if _, exists := st.lookupNonterm(auxName); !exists {
-			st.addSymbol(auxName, SymbolInfo{
-				Name: auxName, Visible: false, Named: false, Kind: SymbolNonterminal,
-			})
-			inner := r.Children[0]
-			preparedInner := prepareRule(cloneRule(inner), parentName, st, auxRules, counter)
-			auxRules[auxName] = Choice(
-				Seq(Sym(auxName), cloneRule(preparedInner)),
-				cloneRule(preparedInner),
-			)
-		}
+		// Tree-sitter parses zero-or-more as choice(repeat(inner), blank).
+		// The repeat helper itself uses a binary-tree shape:
+		//   aux -> seq(aux, aux) | inner
+		// This shape is important for parity because the runtime treats
+		// repetition auxiliaries specially.
+		auxName := ensureRepeatAux(parentName, r.Children[0], st, auxRules, counter)
 		return Choice(Sym(auxName), Blank())
 
 	case RuleRepeat1:
-		*counter++
-		auxName := fmt.Sprintf("%s_repeat1_%d", parentName, *counter)
-		if _, exists := st.lookupNonterm(auxName); !exists {
-			st.addSymbol(auxName, SymbolInfo{
-				Name: auxName, Visible: false, Named: false, Kind: SymbolNonterminal,
-			})
-			inner := r.Children[0]
-			preparedInner := prepareRule(cloneRule(inner), parentName, st, auxRules, counter)
-			auxRules[auxName] = Choice(
-				Seq(Sym(auxName), cloneRule(preparedInner)),
-				cloneRule(preparedInner),
-			)
-		}
+		auxName := ensureRepeatAux(parentName, r.Children[0], st, auxRules, counter)
 		return Sym(auxName)
 
 	case RuleOptional:
@@ -1176,13 +1260,30 @@ func prepareRule(r *Rule, parentName string, st *symbolTable, auxRules map[strin
 	return r
 }
 
-// expandTopLevelRepeat expands repeat/repeat1 at the top level of a hidden
-// rule into a self-referencing choice. This matches tree-sitter's behavior:
-// when a hidden rule IS a repeat, tree-sitter makes the rule self-recursive
-// (e.g., _a_list → _a_list item | item) rather than creating a separate aux.
+func ensureRepeatAux(parentName string, inner *Rule, st *symbolTable, auxRules map[string]*Rule, counter *int) string {
+	*counter++
+	auxName := fmt.Sprintf("%s_repeat%d", parentName, *counter)
+	if _, exists := st.lookupNonterm(auxName); !exists {
+		st.addSymbol(auxName, SymbolInfo{
+			Name: auxName, Visible: false, Named: false, Kind: SymbolNonterminal,
+		})
+		preparedInner := prepareRule(cloneRule(inner), parentName, st, auxRules, counter)
+		auxRules[auxName] = Choice(
+			Seq(Sym(auxName), Sym(auxName)),
+			cloneRule(preparedInner),
+		)
+	}
+	return auxName
+}
+
+// expandTopLevelRepeat expands repeat1 at the top level of a hidden rule into
+// the same binary-tree shape tree-sitter uses for repetition auxiliaries.
+// This avoids introducing another auxiliary symbol for a rule that is itself
+// just a hidden repeat1.
 //
-// Only applies when the ENTIRE rule body is a repeat/repeat1 (possibly
-// wrapped in precedence). Nested repeats inside seq/choice are handled
+// Only applies when the ENTIRE rule body is a repeat1 (possibly wrapped in
+// precedence). Zero-or-more is handled as choice(repeat1, blank), matching
+// tree-sitter's grammar.json lowering. Nested repeats inside seq/choice are handled
 // normally by prepareRule (which creates aux rules).
 func expandTopLevelRepeat(r *Rule, ruleName string) *Rule {
 	if r == nil {
@@ -1206,22 +1307,11 @@ func expandTopLevelRepeat(r *Rule, ruleName string) *Rule {
 		inner = inner.Children[0]
 	}
 
-	var expanded *Rule
-	switch inner.Kind {
-	case RuleRepeat1:
-		// repeat1(x) → choice(seq(self, x), x)
-		x := inner.Children[0]
-		expanded = Choice(Seq(Sym(ruleName), cloneRule(x)), cloneRule(x))
-	case RuleRepeat:
-		// repeat(x) → choice(blank(), seq(self, x))
-		// Matches tree-sitter's expansion. The standalone x alternative is
-		// redundant (seq(self,x) with self→blank already covers it) and
-		// causes spurious R/R conflicts.
-		x := inner.Children[0]
-		expanded = Choice(Blank(), Seq(Sym(ruleName), cloneRule(x)))
-	default:
+	if inner.Kind != RuleRepeat1 {
 		return r
 	}
+	x := inner.Children[0]
+	expanded := Choice(Seq(Sym(ruleName), Sym(ruleName)), cloneRule(x))
 
 	// Re-wrap with precedence if there were any wrappers.
 	for i := len(precWrappers) - 1; i >= 0; i-- {
@@ -1229,6 +1319,45 @@ func expandTopLevelRepeat(r *Rule, ruleName string) *Rule {
 		expanded = &Rule{Kind: w.Kind, Prec: w.Prec, Children: []*Rule{expanded}}
 	}
 	return expanded
+}
+
+func flattenPreparedRules(grammarName string, nonterminals []string, processedRules, auxRules map[string]*Rule, supertypes []string) (map[string]*Rule, map[string]*Rule) {
+	tmp := NewGrammar(grammarName)
+	tmp.Supertypes = append(tmp.Supertypes, supertypes...)
+
+	for _, name := range nonterminals {
+		if rule := processedRules[name]; rule != nil {
+			tmp.Define(name, rule)
+		}
+	}
+
+	auxNames := make([]string, 0, len(auxRules))
+	for name := range auxRules {
+		auxNames = append(auxNames, name)
+	}
+	sort.Strings(auxNames)
+	for _, name := range auxNames {
+		if rule := auxRules[name]; rule != nil {
+			tmp.Define(name, rule)
+		}
+	}
+
+	flattened := flattenHiddenChoiceAlts(tmp)
+	if flattened == nil {
+		return processedRules, auxRules
+	}
+
+	nextProcessed := make(map[string]*Rule, len(processedRules))
+	for _, name := range nonterminals {
+		nextProcessed[name] = flattened.Rules[name]
+	}
+
+	nextAux := make(map[string]*Rule, len(auxRules))
+	for _, name := range auxNames {
+		nextAux[name] = flattened.Rules[name]
+	}
+
+	return nextProcessed, nextAux
 }
 
 // registerExtraTerminals pre-registers terminal symbols from extras
@@ -2134,8 +2263,8 @@ func flattenHiddenChoiceAlts(g *Grammar) *Grammar {
 			}
 		}
 
-		if len(pt) == 0 || len(compound) == 0 {
-			continue // nothing to split, or all pass-through
+		if len(pt) == 0 {
+			continue
 		}
 
 		// Cap pass-through count to avoid Cartesian product explosion.
@@ -2145,21 +2274,48 @@ func flattenHiddenChoiceAlts(g *Grammar) *Grammar {
 			continue
 		}
 
-		// Skip if the hidden rule is directly self-referencing in compound alts.
-		selfRef := false
+		// For all-pass-through hidden rules, don't rewrite the rule itself;
+		// just inline its direct alternatives at reference sites. This
+		// approximates tree-sitter's transitive single-symbol closure.
+		if len(compound) == 0 {
+			selfRef := false
+			for _, alt := range pt {
+				if ruleReferencesSym(alt, name) {
+					selfRef = true
+					break
+				}
+			}
+			if selfRef {
+				continue
+			}
+			flattenMap[name] = &flattenInfo{
+				passThrough: pt,
+				replaceRule: false,
+			}
+			continue
+		}
+
+		// Skip arbitrary self-recursive flattening, but allow the exact
+		// repetition binary-tree shape introduced by repeat lowering:
+		//   choice(seq(self, self), passthrough...)
+		// Tree-sitter flattens those generated pass-through branches after
+		// repeat expansion, and doing the same removes the extra cc=1
+		// reductions from hidden repeat helpers.
+		unsafeSelfRef := false
 		for _, c := range compound {
-			if ruleReferencesSym(c, name) {
-				selfRef = true
+			if ruleReferencesSym(c, name) && !isBinaryRepeatSelfRef(c, name) {
+				unsafeSelfRef = true
 				break
 			}
 		}
-		if selfRef {
+		if unsafeSelfRef {
 			continue
 		}
 
 		flattenMap[name] = &flattenInfo{
 			passThrough: pt,
 			compound:    compound,
+			replaceRule: true,
 		}
 	}
 
@@ -2176,7 +2332,7 @@ func flattenHiddenChoiceAlts(g *Grammar) *Grammar {
 		}
 
 		// If this IS a flattened hidden rule, replace with compound-only CHOICE.
-		if fi, ok := flattenMap[name]; ok {
+		if fi, ok := flattenMap[name]; ok && fi.replaceRule {
 			var newRule *Rule
 			if len(fi.compound) == 1 {
 				newRule = fi.compound[0]
@@ -2207,23 +2363,44 @@ func flattenHiddenChoiceAlts(g *Grammar) *Grammar {
 	return out
 }
 
-// getTopLevelChoiceAlts unwraps precedence and returns the top-level CHOICE
-// alternatives. If the rule is not a choice, returns nil.
+// getTopLevelChoiceAlts returns the rule's top-level choice alternatives,
+// recursively flattening nested Choice nodes and re-wrapping alternatives
+// through metadata wrappers like precedence, alias, and field.
+// If the rule is not a choice, returns nil.
 func getTopLevelChoiceAlts(r *Rule) []*Rule {
 	if r == nil {
 		return nil
 	}
-	// Unwrap precedence wrappers.
-	for r.Kind == RulePrec || r.Kind == RulePrecLeft || r.Kind == RulePrecRight || r.Kind == RulePrecDynamic {
-		if len(r.Children) > 0 {
-			r = r.Children[0]
-		} else {
+
+	switch r.Kind {
+	case RuleChoice:
+		var alts []*Rule
+		for _, child := range r.Children {
+			if childAlts := getTopLevelChoiceAlts(child); childAlts != nil {
+				alts = append(alts, childAlts...)
+			} else {
+				alts = append(alts, child)
+			}
+		}
+		return alts
+
+	case RulePrec, RulePrecLeft, RulePrecRight, RulePrecDynamic, RuleAlias, RuleField:
+		if len(r.Children) == 0 {
 			return nil
 		}
+		childAlts := getTopLevelChoiceAlts(r.Children[0])
+		if childAlts == nil {
+			return nil
+		}
+		alts := make([]*Rule, 0, len(childAlts))
+		for _, alt := range childAlts {
+			out := *r
+			out.Children = []*Rule{alt}
+			alts = append(alts, &out)
+		}
+		return alts
 	}
-	if r.Kind == RuleChoice {
-		return r.Children
-	}
+
 	return nil
 }
 
@@ -2250,6 +2427,45 @@ func isSingleSymRef(r *Rule) bool {
 	return r.Kind == RuleSymbol || r.Kind == RulePattern || r.Kind == RuleString
 }
 
+func isBinaryRepeatSelfRef(r *Rule, name string) bool {
+	if r == nil {
+		return false
+	}
+	for {
+		switch r.Kind {
+		case RulePrec, RulePrecLeft, RulePrecRight, RulePrecDynamic:
+			if len(r.Children) == 0 {
+				return false
+			}
+			r = r.Children[0]
+			continue
+		}
+		break
+	}
+	if r.Kind != RuleSeq || len(r.Children) != 2 {
+		return false
+	}
+	return isDirectSelfRef(r.Children[0], name) && isDirectSelfRef(r.Children[1], name)
+}
+
+func isDirectSelfRef(r *Rule, name string) bool {
+	if r == nil {
+		return false
+	}
+	for {
+		switch r.Kind {
+		case RulePrec, RulePrecLeft, RulePrecRight, RulePrecDynamic:
+			if len(r.Children) == 0 {
+				return false
+			}
+			r = r.Children[0]
+			continue
+		}
+		break
+	}
+	return r.Kind == RuleSymbol && r.Value == name
+}
+
 // ruleReferencesSym returns true if the rule tree contains a Sym reference
 // to the named symbol.
 func ruleReferencesSym(r *Rule, name string) bool {
@@ -2272,6 +2488,15 @@ func ruleReferencesSym(r *Rule, name string) bool {
 // alternatives alongside the original reference. This preserves the original
 // reference for compound alternatives while adding direct paths for cc=1 targets.
 func inlinePassthroughRefs(r *Rule, flattenMap map[string]*flattenInfo) *Rule {
+	return inlinePassthroughRefsCtx(r, flattenMap, false)
+}
+
+// inlinePassthroughRefsCtx is inlinePassthroughRefs with ALIAS context tracking.
+// When insideAlias is true, pass-through alternatives that carry their own ALIAS
+// have the inner ALIAS stripped so the outer alias can correctly tag the result.
+// Without this, enumerateAlternatives would let the inner alias shadow the outer
+// one (e.g., YAML's plain_scalar blocking flow_node).
+func inlinePassthroughRefsCtx(r *Rule, flattenMap map[string]*flattenInfo, insideAlias bool) *Rule {
 	if r == nil {
 		return nil
 	}
@@ -2282,14 +2507,28 @@ func inlinePassthroughRefs(r *Rule, flattenMap map[string]*flattenInfo) *Rule {
 		if !ok {
 			return r
 		}
+		if insideAlias && !fi.replaceRule {
+			return r
+		}
 		// Create Choice(original_ref, passthrough_alt1, passthrough_alt2, ...)
 		alts := make([]*Rule, 0, len(fi.passThrough)+1)
 		alts = append(alts, r) // keep original ref for compound alts
 		for _, pt := range fi.passThrough {
-			alts = append(alts, cloneRule(pt))
+			c := cloneRule(pt)
+			// When expanding inside an outer ALIAS context, strip inner
+			// ALIAS wrappers so the outer alias can tag the result. Without
+			// this, the inner alias shadows the outer in enumerateAlternatives
+			// (which checks cp.aliasName == "" before applying outer alias).
+			if insideAlias {
+				c = stripTopAlias(c)
+			}
+			alts = append(alts, c)
 		}
 		return Choice(alts...)
 	}
+
+	// Track ALIAS context for children.
+	inAlias := insideAlias || r.Kind == RuleAlias
 
 	// Recurse into children.
 	if len(r.Children) == 0 {
@@ -2298,7 +2537,7 @@ func inlinePassthroughRefs(r *Rule, flattenMap map[string]*flattenInfo) *Rule {
 	changed := false
 	newChildren := make([]*Rule, len(r.Children))
 	for i, c := range r.Children {
-		nc := inlinePassthroughRefs(c, flattenMap)
+		nc := inlinePassthroughRefsCtx(c, flattenMap, inAlias)
 		if nc != c {
 			changed = true
 		}
@@ -2312,9 +2551,34 @@ func inlinePassthroughRefs(r *Rule, flattenMap map[string]*flattenInfo) *Rule {
 	return &out
 }
 
+// stripTopAlias removes a top-level ALIAS wrapper, unwrapping through
+// precedence wrappers to find it. Returns the inner rule without the alias.
+func stripTopAlias(r *Rule) *Rule {
+	if r == nil {
+		return nil
+	}
+	if r.Kind == RuleAlias && len(r.Children) > 0 {
+		return r.Children[0]
+	}
+	// Unwrap precedence wrappers.
+	switch r.Kind {
+	case RulePrec, RulePrecLeft, RulePrecRight, RulePrecDynamic:
+		if len(r.Children) > 0 {
+			inner := stripTopAlias(r.Children[0])
+			if inner != r.Children[0] {
+				out := *r
+				out.Children = []*Rule{inner}
+				return &out
+			}
+		}
+	}
+	return r
+}
+
 type flattenInfo struct {
 	passThrough []*Rule
 	compound    []*Rule
+	replaceRule bool
 }
 
 // expandInlineRules returns a copy of the grammar with all inline rule

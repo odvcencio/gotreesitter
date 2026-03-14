@@ -704,6 +704,7 @@ func computeLexModes(
 	actionLookup func(state, sym int) bool,
 	stringPrefixExtensions map[int][]int,
 	extraSymbols []int,
+	extraChainStateStart int,
 	immediateTokens map[int]bool,
 	externalSymbols []int,
 	wordSymbolID int,
@@ -731,6 +732,7 @@ func computeLexModes(
 	stateToMode := make([]int, stateCount)
 
 	for state := 0; state < stateCount; state++ {
+		isExtraChainState := extraChainStateStart >= 0 && state >= extraChainStateStart
 		// Collect valid terminal symbols for this state.
 		validSyms := make(map[int]bool)
 		hasImmediate := false
@@ -761,8 +763,9 @@ func computeLexModes(
 		// by the parser, not the lexer. But also include the first-set
 		// terminals of nonterminal extras so the lexer can recognize the
 		// start of nonterminal extra rules (like comment → [;#]...).
+		stateHasTerminalExtras := hasTerminalExtras && !isExtraChainState
 		for _, e := range extraSymbols {
-			if e > 0 && e < tokenCount {
+			if stateHasTerminalExtras && e > 0 && e < tokenCount {
 				validSyms[e] = true
 			}
 		}
@@ -785,7 +788,7 @@ func computeLexModes(
 		// When the grammar has no terminal extras (extras=[]), whitespace
 		// must never be skipped — the grammar handles all whitespace explicitly.
 		// Otherwise, skip whitespace unless ALL valid tokens are immediate.
-		skipWS := hasTerminalExtras && (!hasImmediate || len(validSyms) > countImmediate(validSyms, immediateTokens))
+		skipWS := stateHasTerminalExtras && (!hasImmediate || len(validSyms) > countImmediate(validSyms, immediateTokens))
 
 		key := buildModeKey(validSyms, skipWS)
 

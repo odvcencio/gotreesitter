@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -29,8 +30,11 @@ type lrItemSet struct {
 	coreHash uint64
 	// fullHash is a hash of core items + all lookaheads.
 	fullHash uint64
-	// reduceLAHash is a hash of only the reduce-item lookaheads (for extended merging).
-	reduceLAHash uint64
+	// completionLAHash is a hash of lookaheads on the completion frontier:
+	// completed items plus items with exactly one symbol remaining. Extended
+	// merging preserves these contexts because they become effective reduce
+	// lookaheads after at most one transition.
+	completionLAHash uint64
 	// boundaryLAHash is a hash of only the EOF/external-token lookaheads across
 	// all items. This helps preserve boundary-sensitive contexts in very large
 	// external-scanner grammars.
@@ -92,9 +96,10 @@ const (
 // LRTables holds the generated parse tables.
 type LRTables struct {
 	// ActionTable[state][symbol] = list of actions (multiple = conflict/GLR)
-	ActionTable map[int]map[int][]lrAction
-	GotoTable   map[int]map[int]int // [state][nonterminal] → target state
-	StateCount  int
+	ActionTable          map[int]map[int][]lrAction
+	GotoTable            map[int]map[int]int // [state][nonterminal] → target state
+	StateCount           int
+	ExtraChainStateStart int // first synthetic nonterminal-extra state, or -1 if none
 }
 
 // buildLRTables constructs LR(1) parse tables from a normalized grammar.
@@ -110,157 +115,162 @@ func buildLRTablesWithProvenance(ng *NormalizedGrammar) (*LRTables, *lrContext, 
 }
 
 func buildLRTablesInternal(ng *NormalizedGrammar, trackProvenance bool) (*LRTables, *lrContext, error) {
-	ctx := &lrContext{
-		ng:              ng,
-		firstSets:       make([]bitset, len(ng.Symbols)),
-		nullables:       make([]bool, len(ng.Symbols)),
-		prodsByLHS:      make(map[int][]int),
-		betaCache:       make(map[uint32]*betaResult),
-		trackProvenance: trackProvenance,
-	}
+	newCtx := func() *lrContext {
+		ctx := &lrContext{
+			ng:              ng,
+			firstSets:       make([]bitset, len(ng.Symbols)),
+			nullables:       make([]bool, len(ng.Symbols)),
+			prodsByLHS:      make(map[int][]int),
+			betaCache:       make(map[uint32]*betaResult),
+			trackProvenance: trackProvenance,
+		}
 
-	tokenCount := ng.TokenCount()
-	ctx.tokenCount = tokenCount
-	ctx.lookaheadWordCount = (tokenCount + 63) / 64
-	if ctx.lookaheadWordCount == 0 {
-		ctx.lookaheadWordCount = 1
-	}
-	ctx.maxLookaheadPool = len(ng.Productions)
-	if ctx.maxLookaheadPool < 64 {
-		ctx.maxLookaheadPool = 64
-	}
-	ctx.boundaryLookaheads = newBitset(tokenCount)
-	ctx.boundaryLookaheads.add(0) // EOF
-	for _, sym := range ng.ExternalSymbols {
-		if sym >= 0 && sym < tokenCount {
-			ctx.boundaryLookaheads.add(sym)
+		tokenCount := ng.TokenCount()
+		ctx.tokenCount = tokenCount
+		ctx.lookaheadWordCount = (tokenCount + 63) / 64
+		if ctx.lookaheadWordCount == 0 {
+			ctx.lookaheadWordCount = 1
 		}
-	}
-	// Preserve large-grammar declaration boundaries that otherwise disappear
-	// under early core merging. Only activate for Scala-like grammars that
-	// have annotation syntax (@) and trait/object keywords — applying these
-	// boundary keywords universally causes state explosion in other grammars.
-	hasAnnotationSyntax := false
-	for sym := 0; sym < tokenCount; sym++ {
-		if ng.Symbols[sym].Name == "@" {
-			hasAnnotationSyntax = true
-			break
+		ctx.maxLookaheadPool = len(ng.Productions)
+		if ctx.maxLookaheadPool < 64 {
+			ctx.maxLookaheadPool = 64
 		}
-	}
-	hasTraitKeyword := false
-	for sym := 0; sym < tokenCount; sym++ {
-		if ng.Symbols[sym].Name == "trait" {
-			hasTraitKeyword = true
-			break
-		}
-	}
-	if hasAnnotationSyntax && hasTraitKeyword {
-		definitionBoundary := map[string]bool{
-			"@": true, "class": true, "trait": true, "object": true,
-			"enum": true, "given": true, "def": true, "val": true,
-			"var": true, "type": true, "extension": true, "case": true,
-			"opaque": true, "import": true, "package": true,
-		}
-		for sym := 0; sym < tokenCount; sym++ {
-			if definitionBoundary[ng.Symbols[sym].Name] {
+		ctx.boundaryLookaheads = newBitset(tokenCount)
+		ctx.boundaryLookaheads.add(0) // EOF
+		for _, sym := range ng.ExternalSymbols {
+			if sym >= 0 && sym < tokenCount {
 				ctx.boundaryLookaheads.add(sym)
 			}
 		}
-	}
-	ctx.annotationAtSym = -1
-	ctx.annotationDefSym = -1
-	ctx.annotationOpenParenSym = -1
-	ctx.annotationCloseParenSym = -1
-	ctx.bracedTemplateBodySym = -1
-	ctx.bracedTemplateBody1Sym = -1
-	ctx.bracedTemplateBody2Sym = -1
-	ctx.operatorIdentSym = -1
-	ctx.operatorStarSym = -1
-	ctx.nonNullLiteralSym = -1
-	ctx.annotationArgCarrierLHS = make([]bool, len(ng.Symbols))
-	annotationArgCarrierNames := map[string]bool{
-		"arguments":                true,
-		"_exprs_in_parens":         true,
-		"expression":               true,
-		"assignment_expression":    true,
-		"lambda_expression":        true,
-		"postfix_expression":       true,
-		"ascription_expression":    true,
-		"infix_expression":         true,
-		"prefix_expression":        true,
-		"return_expression":        true,
-		"throw_expression":         true,
-		"while_expression":         true,
-		"do_while_expression":      true,
-		"for_expression":           true,
-		"macro_body":               true,
-		"_simple_expression":       true,
-		"identifier":               true,
-		"_non_null_literal":        true,
-		"string":                   true,
-		"unit":                     true,
-		"tuple_expression":         true,
-		"parenthesized_expression": true,
-		"field_expression":         true,
-		"generic_function":         true,
-		"call_expression":          true,
-		"bindings":                 true,
-		"type_parameters":          true,
-	}
-	for i, sym := range ng.Symbols {
-		switch sym.Name {
-		case "@":
-			ctx.annotationAtSym = i
-		case "def":
-			ctx.annotationDefSym = i
-		case "(":
-			ctx.annotationOpenParenSym = i
-		case ")":
-			ctx.annotationCloseParenSym = i
-		case "_braced_template_body":
-			ctx.bracedTemplateBodySym = i
-		case "_braced_template_body1":
-			ctx.bracedTemplateBody1Sym = i
-		case "_braced_template_body2":
-			ctx.bracedTemplateBody2Sym = i
-		case "operator_identifier":
-			ctx.operatorIdentSym = i
-		case "*":
-			ctx.operatorStarSym = i
-		case "_non_null_literal":
-			ctx.nonNullLiteralSym = i
+		// Preserve large-grammar declaration boundaries that otherwise disappear
+		// under early core merging. Only activate for Scala-like grammars that
+		// have annotation syntax (@) and trait/object keywords — applying these
+		// boundary keywords universally causes state explosion in other grammars.
+		hasAnnotationSyntax := false
+		for sym := 0; sym < tokenCount; sym++ {
+			if ng.Symbols[sym].Name == "@" {
+				hasAnnotationSyntax = true
+				break
+			}
 		}
-		if annotationArgCarrierNames[sym.Name] {
-			ctx.annotationArgCarrierLHS[i] = true
+		hasTraitKeyword := false
+		for sym := 0; sym < tokenCount; sym++ {
+			if ng.Symbols[sym].Name == "trait" {
+				hasTraitKeyword = true
+				break
+			}
 		}
-	}
-	// Build production-by-LHS index for fast closure lookups.
-	for i := range ng.Productions {
-		lhs := ng.Productions[i].LHS
-		ctx.prodsByLHS[lhs] = append(ctx.prodsByLHS[lhs], i)
-	}
+		if hasAnnotationSyntax && hasTraitKeyword {
+			definitionBoundary := map[string]bool{
+				"@": true, "class": true, "trait": true, "object": true,
+				"enum": true, "given": true, "def": true, "val": true,
+				"var": true, "type": true, "extension": true, "case": true,
+				"opaque": true, "import": true, "package": true,
+			}
+			for sym := 0; sym < tokenCount; sym++ {
+				if definitionBoundary[ng.Symbols[sym].Name] {
+					ctx.boundaryLookaheads.add(sym)
+				}
+			}
+		}
+		ctx.annotationAtSym = -1
+		ctx.annotationDefSym = -1
+		ctx.annotationOpenParenSym = -1
+		ctx.annotationCloseParenSym = -1
+		ctx.bracedTemplateBodySym = -1
+		ctx.bracedTemplateBody1Sym = -1
+		ctx.bracedTemplateBody2Sym = -1
+		ctx.operatorIdentSym = -1
+		ctx.operatorStarSym = -1
+		ctx.nonNullLiteralSym = -1
+		ctx.annotationArgCarrierLHS = make([]bool, len(ng.Symbols))
+		annotationArgCarrierNames := map[string]bool{
+			"arguments":                true,
+			"_exprs_in_parens":         true,
+			"expression":               true,
+			"assignment_expression":    true,
+			"lambda_expression":        true,
+			"postfix_expression":       true,
+			"ascription_expression":    true,
+			"infix_expression":         true,
+			"prefix_expression":        true,
+			"return_expression":        true,
+			"throw_expression":         true,
+			"while_expression":         true,
+			"do_while_expression":      true,
+			"for_expression":           true,
+			"macro_body":               true,
+			"_simple_expression":       true,
+			"identifier":               true,
+			"_non_null_literal":        true,
+			"string":                   true,
+			"unit":                     true,
+			"tuple_expression":         true,
+			"parenthesized_expression": true,
+			"field_expression":         true,
+			"generic_function":         true,
+			"call_expression":          true,
+			"bindings":                 true,
+			"type_parameters":          true,
+		}
+		for i, sym := range ng.Symbols {
+			switch sym.Name {
+			case "@":
+				ctx.annotationAtSym = i
+			case "def":
+				ctx.annotationDefSym = i
+			case "(":
+				ctx.annotationOpenParenSym = i
+			case ")":
+				ctx.annotationCloseParenSym = i
+			case "_braced_template_body":
+				ctx.bracedTemplateBodySym = i
+			case "_braced_template_body1":
+				ctx.bracedTemplateBody1Sym = i
+			case "_braced_template_body2":
+				ctx.bracedTemplateBody2Sym = i
+			case "operator_identifier":
+				ctx.operatorIdentSym = i
+			case "*":
+				ctx.operatorStarSym = i
+			case "_non_null_literal":
+				ctx.nonNullLiteralSym = i
+			}
+			if annotationArgCarrierNames[sym.Name] {
+				ctx.annotationArgCarrierLHS[i] = true
+			}
+		}
+		// Build production-by-LHS index for fast closure lookups.
+		for i := range ng.Productions {
+			lhs := ng.Productions[i].LHS
+			ctx.prodsByLHS[lhs] = append(ctx.prodsByLHS[lhs], i)
+		}
 
-	// Identify nonterminal extra productions and all terminals for injection.
-	for i := range ng.Productions {
-		if ng.Productions[i].IsExtra {
-			ctx.extraProdIndices = append(ctx.extraProdIndices, i)
+		// Identify nonterminal extra productions and all terminals for injection.
+		for i := range ng.Productions {
+			if ng.Productions[i].IsExtra {
+				ctx.extraProdIndices = append(ctx.extraProdIndices, i)
+			}
 		}
-	}
-	if len(ctx.extraProdIndices) > 0 {
-		ctx.allTerminals = newBitset(tokenCount)
-		for i := 0; i < tokenCount; i++ {
-			ctx.allTerminals.add(i)
+		if len(ctx.extraProdIndices) > 0 {
+			ctx.allTerminals = newBitset(tokenCount)
+			for i := 0; i < tokenCount; i++ {
+				ctx.allTerminals.add(i)
+			}
 		}
-	}
 
-	// Pre-allocate dot-0 index for fast closure lookups.
-	ctx.dot0Index = make([]int, len(ng.Productions))
-	for i := range ctx.dot0Index {
-		ctx.dot0Index[i] = -1
-	}
+		// Pre-allocate dot-0 index for fast closure lookups.
+		ctx.dot0Index = make([]int, len(ng.Productions))
+		for i := range ctx.dot0Index {
+			ctx.dot0Index[i] = -1
+		}
 
-	// Compute FIRST and nullable sets.
-	ctx.computeFirstSets()
+		// Compute FIRST and nullable sets.
+		ctx.computeFirstSets()
+		return ctx
+	}
+	ctx := newCtx()
+	tokenCount := ctx.tokenCount
 
 	// Build item sets. Use DeRemer/Pennello LALR for large grammars (>400 productions)
 	// which would otherwise be slow with the iterative LR(1) construction.
@@ -268,21 +278,35 @@ func buildLRTablesInternal(ng *NormalizedGrammar, trackProvenance bool) (*LRTabl
 	// productions) and is kept for those since some grammars (e.g. HCL) regress
 	// significantly with LALR merging.
 	var itemSets []lrItemSet
-	// Very large grammars with external scanners can lose critical boundary-token
-	// distinctions under pure LALR merging. Route those through the more precise
-	// core-based builder with boundary-sensitive merging instead.
-	useBoundaryLargeLR := len(ng.Productions) > 2000 && len(ng.ExternalSymbols) > 0
-	if len(ng.Productions) > 400 && !useBoundaryLargeLR {
+	// External-scanner grammars are much more sensitive to predecessor context
+	// than the pure LR(0)+lookahead-propagation path captures. Route all of them
+	// through the more precise core-based builder so we can preserve a canonical
+	// LR(1) prefix before any compaction starts.
+	usePreciseExternalBuilder := len(ng.ExternalSymbols) > 0
+	if os.Getenv("GOT_LR_FORCE_EXTERNAL_LALR") == "1" {
+		usePreciseExternalBuilder = false
+	}
+	if len(ng.Productions) > 400 && !usePreciseExternalBuilder {
 		itemSets = ctx.buildItemSetsLALR()
 	} else {
 		itemSets = ctx.buildItemSets()
+		const maxRuntimeStateID = int(^uint16(0))
+		if usePreciseExternalBuilder && len(itemSets) > maxRuntimeStateID {
+			ctx = newCtx()
+			itemSets = ctx.buildItemSetsLALR()
+		}
+	}
+	const maxRuntimeStateID = int(^uint16(0))
+	if len(itemSets) > maxRuntimeStateID {
+		return nil, ctx, fmt.Errorf("parser state count %d exceeds max representable state id %d", len(itemSets), maxRuntimeStateID)
 	}
 
 	// Build action and goto tables.
 	tables := &LRTables{
-		ActionTable: make(map[int]map[int][]lrAction),
-		GotoTable:   make(map[int]map[int]int),
-		StateCount:  len(itemSets),
+		ActionTable:          make(map[int]map[int][]lrAction),
+		GotoTable:            make(map[int]map[int]int),
+		StateCount:           len(itemSets),
+		ExtraChainStateStart: -1,
 	}
 
 	for stateIdx, itemSet := range itemSets {
@@ -415,9 +439,9 @@ type lrContext struct {
 	// large external-scanner grammars from losing critical boundary distinctions
 	// under aggressive state merging.
 	boundaryLookaheads bitset
-	// needReduceLAHash is true only when buildItemSets is using extended merging.
-	// Boundary-only and pure-core paths do not read reduceLAHash.
-	needReduceLAHash bool
+	// needCompletionLAHash is true only when buildItemSets is using extended
+	// merging. Boundary-only and pure-core paths do not read completionLAHash.
+	needCompletionLAHash bool
 	// Narrow annotation-argument tagging metadata. These are precomputed once so
 	// buildItemSets can cheaply preserve declaration-family context only while a
 	// state remains inside annotation arguments.
@@ -622,16 +646,11 @@ func (b *extraChainBuilder) newState() int {
 }
 
 func (b *extraChainBuilder) finalizeState(stateIdx int) {
-	for _, extraSym := range b.terminalExtras {
-		if _, ok := b.tables.ActionTable[stateIdx][extraSym]; ok {
-			continue
-		}
-		b.tables.ActionTable[stateIdx][extraSym] = []lrAction{{
-			kind:    lrShift,
-			state:   stateIdx,
-			isExtra: true,
-		}}
-	}
+	// Synthetic states for nonterminal extras model the interior of that extra
+	// production. Do not inject the grammar's terminal extras here: allowing
+	// unrelated extras mid-chain lets zero-width/layout extras interrupt
+	// constructs like block comments immediately after their opener.
+	_ = stateIdx
 }
 
 func extraChainStateKey(a, b int, lookaheads *bitset) string {
@@ -847,6 +866,9 @@ func addNonterminalExtraChains(tables *LRTables, ng *NormalizedGrammar, ctx *lrC
 	}
 
 	mainStateCount := tables.StateCount
+	if tables.ExtraChainStateStart < 0 {
+		tables.ExtraChainStateStart = mainStateCount
+	}
 
 	var terminalExtras []int
 	for _, e := range ng.ExtraSymbols {
@@ -1113,7 +1135,7 @@ func (ctx *lrContext) closureToSet(kernel []coreEntry) lrItemSet {
 	set := lrItemSet{
 		cores: cores,
 	}
-	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads, ctx.needReduceLAHash)
+	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads, ctx.needCompletionLAHash)
 	return set
 }
 
@@ -1201,7 +1223,7 @@ func (ctx *lrContext) closureIncremental(set *lrItemSet, newEntries []coreEntry)
 	}
 	ctx.closureWorklist = worklist[:0]
 
-	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads, ctx.needReduceLAHash)
+	set.computeHashes(ng.Productions, &ctx.boundaryLookaheads, ctx.needCompletionLAHash)
 }
 
 // betaResult caches the FIRST set and nullability of a production suffix.
@@ -1331,6 +1353,9 @@ func (ctx *lrContext) isAnnotationArgumentCarrierSet(set *lrItemSet) bool {
 }
 
 func (ctx *lrContext) annotationArgTagForTransition(sourceState int, closedSet *lrItemSet) uint32 {
+	if os.Getenv("GOT_LR_DISABLE_CONTEXT_TAGS") == "1" {
+		return 0
+	}
 	if len(ctx.ng.Productions) < 2000 || sourceState < 0 || sourceState >= len(ctx.itemSets) {
 		return 0
 	}
@@ -1360,6 +1385,9 @@ func (ctx *lrContext) isBracedTemplateFamilySet(set *lrItemSet) bool {
 }
 
 func (ctx *lrContext) operatorLiteralMergeTag(set *lrItemSet) uint32 {
+	if os.Getenv("GOT_LR_DISABLE_CONTEXT_TAGS") == "1" {
+		return 0
+	}
 	if len(ctx.ng.Productions) < 2000 || ctx.operatorIdentSym < 0 || ctx.operatorStarSym < 0 || ctx.nonNullLiteralSym < 0 {
 		return 0
 	}
@@ -1391,11 +1419,17 @@ func (ctx *lrContext) operatorLiteralMergeTag(set *lrItemSet) uint32 {
 	return tag
 }
 
-// computeHashes computes coreHash, fullHash, and reduceLAHash for the item set.
+func completionFrontierItem(prods []Production, prodIdx, dot int) bool {
+	rhsLen := len(prods[prodIdx].RHS)
+	remaining := rhsLen - dot
+	return remaining >= 0 && remaining <= 1
+}
+
+// computeHashes computes coreHash, fullHash, and completionLAHash for the item set.
 // Uses commutative (additive) hashing so order of cores doesn't matter,
 // avoiding the need to sort.
-func (set *lrItemSet) computeHashes(prods []Production, boundaryMask *bitset, includeReduceHash bool) {
-	var ch, fh, rh, brh uint64
+func (set *lrItemSet) computeHashes(prods []Production, boundaryMask *bitset, includeCompletionHash bool) {
+	var ch, fh, completionHash, brh uint64
 	for _, c := range set.cores {
 		m := mixCoreItem(c.prodIdx, c.dot)
 		ch += m
@@ -1403,17 +1437,16 @@ func (set *lrItemSet) computeHashes(prods []Production, boundaryMask *bitset, in
 		if boundaryMask != nil {
 			brh += maskedBitsetHash(&c.lookaheads, boundaryMask)
 		}
-		if includeReduceHash && c.dot >= len(prods[c.prodIdx].RHS) {
-			laHash := c.lookaheads.hash()
-			rh += laHash
+		if includeCompletionHash && completionFrontierItem(prods, c.prodIdx, c.dot) {
+			completionHash += c.lookaheads.hash()
 		}
 	}
 	set.coreHash = ch
 	set.fullHash = fh
-	if includeReduceHash {
-		set.reduceLAHash = ch + rh
+	if includeCompletionHash {
+		set.completionLAHash = ch + completionHash
 	} else {
-		set.reduceLAHash = ch
+		set.completionLAHash = ch
 	}
 	set.boundaryLAHash = ch + brh
 }
@@ -1451,13 +1484,14 @@ func sameFullItemsUsingIndexed(indexed, other *lrItemSet) bool {
 	return true
 }
 
-// sameReduceLookaheadsUsingIndexed returns true if two item sets have the same
-// lookaheads on all reduce items, assuming their cores already match.
-func sameReduceLookaheadsUsingIndexed(indexed, other *lrItemSet, prods []Production) bool {
+// sameCompletionLookaheadsUsingIndexed returns true if two item sets have the
+// same lookaheads on the completion frontier (completed items plus items with
+// exactly one symbol remaining), assuming their cores already match.
+func sameCompletionLookaheadsUsingIndexed(indexed, other *lrItemSet, prods []Production) bool {
 	indexed.ensurePackedCoreIndex()
 	for _, oc := range other.cores {
-		if oc.dot < len(prods[oc.prodIdx].RHS) {
-			continue // not a reduce item
+		if !completionFrontierItem(prods, oc.prodIdx, oc.dot) {
+			continue
 		}
 		idx, ok := indexed.coreLookup(oc.prodIdx, oc.dot)
 		if !ok {
@@ -1502,23 +1536,62 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 	ctx.ensureProvenance()
 
 	tokenCount := ctx.tokenCount
+	disableStateMerging := os.Getenv("GOT_LR_DISABLE_STATE_MERGE") == "1"
 
 	// Hash tables for state lookup.
 	// fullMap: fullHash → chain of states with that hash (exact LR(1) match)
 	fullMap := make(map[uint64]*stateHashEntry)
 	// coreMap: coreHash → chain of states (for LALR merge)
-	coreMap := make(map[uint64]*stateHashEntry)
-	// extMap: reduceLAHash → chain of states (for extended merge)
-	extMap := make(map[uint64]*stateHashEntry)
+	var coreMap map[uint64]*stateHashEntry
+	// extMap: completionLAHash → chain of states (for extended merge)
+	var extMap map[uint64]*stateHashEntry
 	// boundaryMap: boundaryLAHash → chain of states for large-grammar
 	// external-token-sensitive merges.
-	boundaryMap := make(map[uint64]*stateHashEntry)
+	var boundaryMap map[uint64]*stateHashEntry
 
-	// For large grammars, use LALR merging from the start to avoid state explosion.
+	// For larger grammars, prefer reduced-lookahead merging when it is still
+	// tractable. Medium-sized external-scanner grammars like YAML need more than
+	// boundary-token lookaheads in order to preserve key/value distinctions.
 	const maxExtendedStates = 8000
-	useExtendedMerging := len(ctx.ng.Productions) <= 800
-	useBoundaryMerging := len(ctx.ng.ExternalSymbols) > 0 && len(ctx.ng.Productions) > 800
-	ctx.needReduceLAHash = useExtendedMerging
+	useExtendedMerging := len(ctx.ng.Productions) <= 800 ||
+		(len(ctx.ng.ExternalSymbols) > 0 && len(ctx.ng.Productions) <= 2000)
+	useBoundaryMerging := len(ctx.ng.ExternalSymbols) > 0 && len(ctx.ng.Productions) > 2000
+	exactPrefixStates := 0
+	if len(ctx.ng.ExternalSymbols) > 0 {
+		exactPrefixStates = 1024
+		if v := os.Getenv("GOT_LR_EXACT_PREFIX_STATES"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				exactPrefixStates = n
+			}
+		}
+	}
+	activateMergeMaps := func() {
+		if disableStateMerging || len(ctx.itemSets) < exactPrefixStates {
+			return
+		}
+		// Intentionally do not backfill the canonical prefix into the merge maps.
+		// Those early states stay exact and can only be reused via full LR(1)
+		// matches, while later states become eligible for compaction.
+		if useExtendedMerging {
+			if extMap == nil {
+				extMap = make(map[uint64]*stateHashEntry)
+			}
+			return
+		}
+		if useBoundaryMerging {
+			if boundaryMap == nil {
+				boundaryMap = make(map[uint64]*stateHashEntry)
+			}
+			return
+		}
+		if coreMap == nil {
+			coreMap = make(map[uint64]*stateHashEntry)
+		}
+	}
+	if !disableStateMerging {
+		activateMergeMaps()
+	}
+	ctx.needCompletionLAHash = useExtendedMerging
 
 	// Initial item set: closure of [S' → .S, $end]
 	initialLA := newBitset(tokenCount)
@@ -1530,13 +1603,13 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 	}})
 	ctx.itemSets = []lrItemSet{initialSet}
 	addToHashMap(fullMap, initialSet.fullHash, 0)
-	if !useExtendedMerging && !useBoundaryMerging {
+	if coreMap != nil {
 		addToHashMap(coreMap, initialSet.coreHash, 0)
 	}
-	if useExtendedMerging {
-		addToHashMap(extMap, initialSet.reduceLAHash, 0)
+	if extMap != nil {
+		addToHashMap(extMap, initialSet.completionLAHash, 0)
 	}
-	if useBoundaryMerging {
+	if boundaryMap != nil {
 		addToHashMap(boundaryMap, initialSet.boundaryLAHash, 0)
 	}
 	ctx.recordFreshState(0)
@@ -1549,6 +1622,7 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 		worklist = worklist[1:]
 		inWorklist[stateIdx] = false
 		itemSet := &ctx.itemSets[stateIdx]
+		activateMergeMaps()
 
 		// Collect all symbols after the dot.
 		symsSeen := make(map[int]bool)
@@ -1590,8 +1664,8 @@ func (ctx *lrContext) buildItemSets() []lrItemSet {
 				&closedSet,
 				stateIdx,
 				fullMap, coreMap, extMap, boundaryMap,
-				useExtendedMerging && len(ctx.itemSets) < maxExtendedStates,
-				useBoundaryMerging,
+				extMap != nil && len(ctx.itemSets) < maxExtendedStates,
+				boundaryMap != nil,
 				&worklist, &inWorklist,
 			)
 
@@ -1631,13 +1705,13 @@ func (ctx *lrContext) findOrCreateState(
 	}
 
 	if useExtended {
-		// 2a. Extended merging: find state with same core AND same reduce lookaheads.
-		for entry := extMap[closedSet.reduceLAHash]; entry != nil; entry = entry.next {
+		// 2a. Extended merging: find state with same core AND same completion-frontier lookaheads.
+		for entry := extMap[closedSet.completionLAHash]; entry != nil; entry = entry.next {
 			existing := &ctx.itemSets[entry.stateIdx]
 			if sameAnnotationArgTag(existing, closedSet) &&
 				existing.coreHash == closedSet.coreHash &&
 				sameCoresUsingIndexed(existing, closedSet) &&
-				sameReduceLookaheadsUsingIndexed(existing, closedSet, ctx.ng.Productions) {
+				sameCompletionLookaheadsUsingIndexed(existing, closedSet, ctx.ng.Productions) {
 				// Merge lookaheads into existing state.
 				targetIdx := ctx.mergeInto(entry.stateIdx, sourceState, closedSet, fullMap, extMap, boundaryMap, worklist, inWorklist)
 				ctx.recycleItemSetLookaheads(closedSet)
@@ -1677,7 +1751,7 @@ func (ctx *lrContext) findOrCreateState(
 		addToHashMap(coreMap, closedSet.coreHash, newIdx)
 	}
 	if extMap != nil {
-		addToHashMap(extMap, closedSet.reduceLAHash, newIdx)
+		addToHashMap(extMap, closedSet.completionLAHash, newIdx)
 	}
 	if boundaryMap != nil {
 		addToHashMap(boundaryMap, closedSet.boundaryLAHash, newIdx)
@@ -1721,7 +1795,7 @@ func (ctx *lrContext) mergeInto(
 	}
 
 	if len(newEntries) > 0 {
-		oldReduceHash := existing.reduceLAHash
+		oldCompletionHash := existing.completionLAHash
 		oldBoundaryHash := existing.boundaryLAHash
 		ctx.closureIncremental(existing, newEntries)
 		ctx.recordMergedState(idx, mergeOrigin{
@@ -1730,8 +1804,8 @@ func (ctx *lrContext) mergeInto(
 		})
 		// Update hash maps with new hashes.
 		addToHashMap(fullMap, existing.fullHash, idx)
-		if extMap != nil && existing.reduceLAHash != oldReduceHash {
-			addToHashMap(extMap, existing.reduceLAHash, idx)
+		if extMap != nil && existing.completionLAHash != oldCompletionHash {
+			addToHashMap(extMap, existing.completionLAHash, idx)
 		}
 		if boundaryMap != nil && existing.boundaryLAHash != oldBoundaryHash {
 			addToHashMap(boundaryMap, existing.boundaryLAHash, idx)

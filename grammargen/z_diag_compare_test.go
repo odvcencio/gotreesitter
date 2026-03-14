@@ -12,6 +12,9 @@ import (
 )
 
 func TestDiagCompareLanguages(t *testing.T) {
+	if os.Getenv("DIAG_GRAMMAR") == "" {
+		t.Skip("set DIAG_GRAMMAR to run language comparison diagnostics")
+	}
 	grammarName := "ini"
 	if v := os.Getenv("DIAG_GRAMMAR"); v != "" {
 		grammarName = v

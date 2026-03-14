@@ -190,14 +190,14 @@ func (ctx *lrContext) lr0Closure(kernel []coreItem) lrItemSet {
 		cores:           cores,
 		packedCoreIndex: packedCoreIndex,
 	}
-	// Compute only coreHash (fullHash and reduceLAHash will be set after lookaheads).
+	// Compute only coreHash (fullHash and completionLAHash will be set after lookaheads).
 	var ch uint64
 	for _, c := range cores {
 		ch += mixCoreItem(c.prodIdx, c.dot)
 	}
 	set.coreHash = ch
 	set.fullHash = ch // temporary, will be recomputed
-	set.reduceLAHash = ch
+	set.completionLAHash = ch
 
 	return set
 }
