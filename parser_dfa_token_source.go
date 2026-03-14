@@ -522,7 +522,6 @@ func (d *dfaTokenSource) probeAlternativeLexToken(startPos int, startRow, startC
 		visible := int(tok.Symbol) < len(d.language.SymbolMetadata) && d.language.SymbolMetadata[tok.Symbol].Visible
 		better := !bestFound ||
 			coverage > bestCoverage ||
-			(coverage == bestCoverage && tok.StartByte < bestTok.StartByte) ||
 			(coverage == bestCoverage && tok.StartByte == bestTok.StartByte && tok.EndByte > bestTok.EndByte) ||
 			(coverage == bestCoverage && tok.StartByte == bestTok.StartByte && tok.EndByte == bestTok.EndByte && visible && !bestVisible)
 		if better {
@@ -556,7 +555,6 @@ func (d *dfaTokenSource) tryAlternativeLexToken(primaryLexState uint16, primaryT
 	better := primaryTok.Symbol == 0 ||
 		primaryCoverage == 0 ||
 		altCoverage > primaryCoverage ||
-		(altCoverage == primaryCoverage && altTok.StartByte < primaryTok.StartByte) ||
 		(altCoverage == primaryCoverage && altTok.StartByte == primaryTok.StartByte && altTok.EndByte > primaryTok.EndByte) ||
 		(altCoverage == primaryCoverage && altTok.StartByte == primaryTok.StartByte && altTok.EndByte == primaryTok.EndByte && altVisible && !primaryVisible)
 	if !better {

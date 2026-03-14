@@ -312,6 +312,60 @@ func TestNextDFATokenProbesAlternativeLexStateForLongerValidToken(t *testing.T) 
 	}
 }
 
+func TestNextDFATokenKeepsPrimaryTokenWhenAlternativeStartsEarlier(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"end", "_byte", "_pair"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end", Visible: false, Named: false},
+			{Name: "_byte", Visible: false, Named: false},
+			{Name: "_pair", Visible: false, Named: false},
+		},
+		SymbolCount:     3,
+		TokenCount:      3,
+		StateCount:      3,
+		LargeStateCount: 3,
+		InitialState:    1,
+		LexStates: []LexState{
+			{Default: -1, EOF: -1},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: ' ', Hi: ' ', NextState: 2, Skip: true}, {Lo: 'a', Hi: 'a', NextState: 3}}},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: ' ', Hi: ' ', NextState: 2, Skip: true}, {Lo: 'a', Hi: 'a', NextState: 3}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: ' ', Hi: ' ', NextState: 5}, {Lo: 'a', Hi: 'a', NextState: 6}}},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 6}}},
+			{AcceptToken: 2, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 1},
+			{LexState: 4},
+		},
+		ParseTable: [][]uint16{
+			{0, 0, 0},
+			{0, 1, 1},
+			{0, 0, 0},
+		},
+		ParseActions: []ParseActionEntry{
+			{Actions: nil},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},
+		},
+	}
+	parser := NewParser(lang)
+	d := acquireDFATokenSource(NewLexer(lang.LexStates, []byte(" a")), lang, parser.lookupActionIndex, parser.hasKeywordState)
+	defer d.Close()
+	d.SetParserState(1)
+
+	tok := d.nextDFAToken()
+	if got, want := tok.Symbol, Symbol(1); got != want {
+		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
+	}
+	if got, want := tok.StartByte, uint32(1); got != want {
+		t.Fatalf("token start = %d, want %d", got, want)
+	}
+	if got, want := tok.EndByte, uint32(2); got != want {
+		t.Fatalf("token end = %d, want %d", got, want)
+	}
+}
+
 func TestLexStateForStateUsesLayoutFallbackOnlyForLayoutEntryExternals(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"end", "_cmd_layout_start", "_cmd_texp_start"},
