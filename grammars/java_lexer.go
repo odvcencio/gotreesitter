@@ -104,6 +104,14 @@ func NewJavaTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitt
 	return ts
 }
 
+// Reset reinitializes this token source for a new source buffer.
+func (ts *JavaTokenSource) Reset(src []byte) {
+	ts.src = src
+	ts.cur = newSourceCursor(src)
+	ts.done = false
+	ts.pending = ts.pending[:0]
+}
+
 // SupportsIncrementalReuse reports that JavaTokenSource preserves stable token
 // boundaries across edits and supports deterministic SkipToByte behavior.
 func (ts *JavaTokenSource) SupportsIncrementalReuse() bool {

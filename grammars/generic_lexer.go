@@ -84,9 +84,9 @@ func NewGenericTokenSource(src []byte, lang *gotreesitter.Language) (*GenericTok
 	}
 
 	ts := &GenericTokenSource{
-		src:            src,
-		lang:           lang,
-		cur:            newSourceCursor(src),
+		src:  src,
+		lang: lang,
+		cur:  newSourceCursor(src),
 	}
 
 	ts.buildSymbolTables()
@@ -109,6 +109,14 @@ func NewGenericTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotrees
 		return tokenSourceInitError{sourceLen: uint32(len(src))}
 	}
 	return ts
+}
+
+// Reset reinitializes this token source for a new source buffer.
+func (ts *GenericTokenSource) Reset(src []byte) {
+	ts.src = src
+	ts.cur = newSourceCursor(src)
+	ts.done = false
+	ts.pending = ts.pending[:0]
 }
 
 func (ts *GenericTokenSource) Next() gotreesitter.Token {

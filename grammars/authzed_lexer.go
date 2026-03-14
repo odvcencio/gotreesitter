@@ -259,6 +259,14 @@ func NewAuthzedTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotrees
 	return ts
 }
 
+// Reset reinitializes this token source for a new source buffer.
+func (ts *AuthzedTokenSource) Reset(src []byte) {
+	ts.src = src
+	ts.cur = newSourceCursor(src)
+	ts.done = false
+	ts.pending = ts.pending[:0]
+}
+
 // SupportsIncrementalReuse reports that AuthzedTokenSource preserves stable
 // token boundaries across edits and supports deterministic SkipToByte behavior.
 func (ts *AuthzedTokenSource) SupportsIncrementalReuse() bool {

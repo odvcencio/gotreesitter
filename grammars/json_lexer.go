@@ -101,6 +101,16 @@ func NewJSONTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitt
 	return ts
 }
 
+// Reset reinitializes this token source for a new source buffer.
+func (ts *JSONTokenSource) Reset(src []byte) {
+	ts.src = src
+	ts.offset = 0
+	ts.row = 0
+	ts.col = 0
+	ts.done = false
+	ts.pending = ts.pending[:0]
+}
+
 // SupportsIncrementalReuse reports that JSONTokenSource preserves stable token
 // boundaries across edits and supports deterministic SkipToByte behavior.
 func (ts *JSONTokenSource) SupportsIncrementalReuse() bool {

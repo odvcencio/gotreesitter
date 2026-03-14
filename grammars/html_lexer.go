@@ -103,6 +103,17 @@ func NewHTMLTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitt
 	return ts
 }
 
+// Reset reinitializes this token source for a new source buffer.
+func (ts *HTMLTokenSource) Reset(src []byte) {
+	ts.src = src
+	ts.cur = newSourceCursor(src)
+	ts.done = false
+	ts.inTag = false
+	ts.inEndTag = false
+	ts.expectTagName = false
+	ts.inDoctype = false
+}
+
 // SupportsIncrementalReuse reports that HTMLTokenSource preserves stable token
 // boundaries across edits and supports deterministic SkipToByte behavior.
 func (ts *HTMLTokenSource) SupportsIncrementalReuse() bool {
