@@ -52,6 +52,9 @@ func (p *Parser) chainSingleReduceActions(s *glrStack, tok Token, anyReduced *bo
 	if s == nil || s.dead || s.accepted || s.shifted {
 		return
 	}
+	if p.acceptExpectedRootEOF(s, tok) {
+		return
+	}
 	const maxInlineReduceChain = 256
 	parseActions := p.language.ParseActions
 	chainLen := 0
@@ -78,6 +81,9 @@ func (p *Parser) chainSingleReduceActions(s *glrStack, tok Token, anyReduced *bo
 				perfRecordReduceChainStep(chainLen)
 			}
 			p.applyAction(s, next, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+			if p.acceptExpectedRootEOF(s, tok) {
+				return
+			}
 			if s.dead || s.accepted || s.shifted {
 				return
 			}

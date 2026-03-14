@@ -288,6 +288,131 @@ func (p *Parser) canFinalizeNoActionEOF(s *glrStack) bool {
 		return p != nil && p.language != nil && uint32(top.node.symbol) >= tokenCount
 	}
 
+	nonExtraCount, onlyNonExtra := countNonExtraStackNodes(s)
+	if nonExtraCount == 0 {
+		return true
+	}
+	if onlyNonExtra == nil || onlyNonExtra.symbol == errorSymbol {
+		return false
+	}
+	return uint32(onlyNonExtra.symbol) >= tokenCount
+}
+
+func (p *Parser) acceptNoActionEOF(s *glrStack, tok Token) bool {
+	if tok.Symbol != 0 || tok.StartByte != tok.EndByte {
+		return false
+	}
+	if !p.canFinalizeNoActionEOF(s) {
+		return false
+	}
+	s.accepted = true
+	return true
+}
+
+func (p *Parser) acceptExpectedRootEOF(s *glrStack, tok Token) bool {
+	if tok.Symbol != 0 || tok.StartByte != tok.EndByte || p == nil || !p.hasRootSymbol || s == nil || s.dead {
+		return false
+	}
+	expectedStart := p.expectedRootStartByte()
+	top := s.top()
+	if top.node != nil &&
+		top.node.symbol == p.rootSymbol &&
+		top.node.symbol != errorSymbol &&
+		top.node.startByte == expectedStart &&
+		top.node.endByte == tok.EndByte &&
+		s.byteOffset == tok.EndByte {
+		s.accepted = true
+		return true
+	}
+	if s.byteOffset != tok.EndByte {
+		return false
+	}
+	if stackHasExpectedRootEOFSuffix(s, p.rootSymbol, expectedStart, tok.EndByte) {
+		s.accepted = true
+		return true
+	}
+	return false
+}
+
+func (p *Parser) expectedRootStartByte() uint32 {
+	if p == nil || len(p.included) == 0 {
+		return 0
+	}
+	return p.included[0].StartByte
+}
+
+func (p *Parser) expectedRootEndByte(source []byte) uint32 {
+	if p != nil && len(p.included) > 0 {
+		return p.included[len(p.included)-1].EndByte
+	}
+	return uint32(len(source))
+}
+
+func trimExpectedRootEOFSuffixNodes(nodes []*Node, expectedRoot Symbol, expectedStart, eofByte uint32) ([]*Node, bool) {
+	if len(nodes) < 2 {
+		return nodes, false
+	}
+
+	suffixStart := len(nodes)
+	for suffixStart > 0 {
+		n := nodes[suffixStart-1]
+		if n == nil || n.isExtra {
+			break
+		}
+		if n.symbol != expectedRoot || n.startByte != eofByte || n.endByte != eofByte {
+			break
+		}
+		suffixStart--
+	}
+	if suffixStart == len(nodes) || suffixStart == 0 {
+		return nodes, false
+	}
+
+	prefixCount := 0
+	firstStart := uint32(0)
+	lastEnd := uint32(0)
+	for i := 0; i < suffixStart; i++ {
+		n := nodes[i]
+		if n == nil || n.isExtra {
+			continue
+		}
+		if prefixCount == 0 {
+			firstStart = n.startByte
+		}
+		lastEnd = n.endByte
+		if n.hasError {
+			return nodes, false
+		}
+		prefixCount++
+	}
+	if prefixCount == 0 || firstStart != expectedStart || lastEnd != eofByte {
+		return nodes, false
+	}
+	return nodes[:suffixStart], true
+}
+
+func stackHasExpectedRootEOFSuffix(s *glrStack, expectedRoot Symbol, expectedStart, eofByte uint32) bool {
+	if s == nil {
+		return false
+	}
+	if len(s.entries) > 0 {
+		nodes := make([]*Node, 0, len(s.entries)-1)
+		for i := range s.entries {
+			if s.entries[i].node != nil {
+				nodes = append(nodes, s.entries[i].node)
+			}
+		}
+		_, ok := trimExpectedRootEOFSuffixNodes(nodes, expectedRoot, expectedStart, eofByte)
+		return ok
+	}
+	_, ok := trimExpectedRootEOFSuffixNodes(nodesFromGSS(s.gss), expectedRoot, expectedStart, eofByte)
+	return ok
+}
+
+func countNonExtraStackNodes(s *glrStack) (int, *Node) {
+	if s == nil {
+		return 0, nil
+	}
 	nonExtraCount := 0
 	onlyNonExtra := (*Node)(nil)
 	countNode := func(n *Node) bool {
@@ -302,24 +427,17 @@ func (p *Parser) canFinalizeNoActionEOF(s *glrStack) bool {
 	if len(s.entries) > 0 {
 		for i := range s.entries {
 			if countNode(s.entries[i].node) {
-				return false
+				return nonExtraCount, onlyNonExtra
 			}
 		}
-	} else {
-		for n := s.gss.head; n != nil; n = n.prev {
-			if countNode(n.entry.node) {
-				return false
-			}
+		return nonExtraCount, onlyNonExtra
+	}
+	for n := s.gss.head; n != nil; n = n.prev {
+		if countNode(n.entry.node) {
+			break
 		}
 	}
-
-	if nonExtraCount == 0 {
-		return true
-	}
-	if onlyNonExtra == nil || onlyNonExtra.symbol == errorSymbol {
-		return false
-	}
-	return uint32(onlyNonExtra.symbol) >= tokenCount
+	return nonExtraCount, onlyNonExtra
 }
 
 func (p *Parser) parseIncrementalInternal(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming) *Tree {
@@ -832,6 +950,13 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				}
 			}
 
+			if p.acceptExpectedRootEOF(s, tok) {
+				if len(stacks) == 1 {
+					return finalize(stacks, ParseStopAccepted)
+				}
+				continue
+			}
+
 			// --- Extra token handling (comments, whitespace) ---
 			if len(actions) == 1 &&
 				actions[0].Type == ParseActionShift && actions[0].Extra {
@@ -844,17 +969,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if len(actions) == 0 {
 				if tok.Symbol == 0 {
 					if tok.StartByte == tok.EndByte {
-						// True EOF. If this is the only stack, return result when
-						// the stack is in a state that can represent a complete root.
-						if len(stacks) == 1 {
-							if p.canFinalizeNoActionEOF(s) {
+						// True EOF. A stack that already represents a complete root
+						// should survive even if sibling GLR branches are incomplete.
+						if p.acceptNoActionEOF(s, tok) {
+							if len(stacks) == 1 {
 								return finalize(stacks, ParseStopAccepted)
 							}
-							s.dead = true
 							continue
 						}
-						// Multiple stacks at EOF: this one is done.
-						// Mark dead so merge picks the best remaining.
 						s.dead = true
 						continue
 					}
@@ -1325,6 +1447,12 @@ func compareStackCullKeys(lang *Language, a, b stackCullKey) int {
 			return -1
 		}
 	}
+	if a.byteOffset != b.byteOffset {
+		if a.byteOffset > b.byteOffset {
+			return 1
+		}
+		return -1
+	}
 	if a.depth != b.depth {
 		if lang != nil && lang.Name == "bash" {
 			if a.depth < b.depth {
@@ -1333,12 +1461,6 @@ func compareStackCullKeys(lang *Language, a, b stackCullKey) int {
 			return -1
 		}
 		if a.depth > b.depth {
-			return 1
-		}
-		return -1
-	}
-	if a.byteOffset != b.byteOffset {
-		if a.byteOffset > b.byteOffset {
 			return 1
 		}
 		return -1

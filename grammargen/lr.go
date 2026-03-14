@@ -653,6 +653,32 @@ func (b *extraChainBuilder) finalizeState(stateIdx int) {
 	_ = stateIdx
 }
 
+func (b *extraChainBuilder) mergeSyntheticTerminalShift(stateIdx, sym int, action lrAction) {
+	acts := b.tables.ActionTable[stateIdx][sym]
+	mergedTarget := action.state
+	mergeIdx := -1
+	for i, act := range acts {
+		if act.kind != lrShift || !act.isExtra || act.lhsSym != action.lhsSym {
+			continue
+		}
+		if act.state == action.state {
+			return
+		}
+		if act.state >= b.syntheticStart && action.state >= b.syntheticStart {
+			mergedTarget = b.unionSyntheticStates(act.state, mergedTarget)
+			if mergeIdx < 0 {
+				mergeIdx = i
+			}
+		}
+	}
+	if mergeIdx >= 0 {
+		acts[mergeIdx].state = mergedTarget
+		b.tables.ActionTable[stateIdx][sym] = acts
+		return
+	}
+	b.tables.addAction(stateIdx, sym, action)
+}
+
 func extraChainStateKey(a, b int, lookaheads *bitset) string {
 	var sb strings.Builder
 	sb.Grow(32 + len(lookaheads.words)*17)
@@ -714,6 +740,10 @@ func (b *extraChainBuilder) unionSyntheticStates(a, c int) int {
 			sort.Ints(syms)
 			for _, sym := range syms {
 				for _, act := range srcActions[sym] {
+					if act.kind == lrShift && act.isExtra && sym < b.tokenCount {
+						b.mergeSyntheticTerminalShift(stateIdx, sym, act)
+						continue
+					}
 					b.tables.addAction(stateIdx, sym, act)
 				}
 			}
@@ -757,7 +787,7 @@ func (b *extraChainBuilder) addProdContinuation(stateIdx, prodIdx, pos int, foll
 	nextSym := prod.RHS[pos]
 	if nextSym < b.tokenCount {
 		targetState := b.buildProdChain(prodIdx, pos+1, follow)
-		b.tables.addAction(stateIdx, nextSym, lrAction{
+		b.mergeSyntheticTerminalShift(stateIdx, nextSym, lrAction{
 			kind:    lrShift,
 			state:   targetState,
 			prec:    prod.Prec,
@@ -806,7 +836,7 @@ func (b *extraChainBuilder) addNonterminalEntries(stateIdx, sym int, follow bits
 		firstSym := prod.RHS[0]
 		if firstSym < b.tokenCount {
 			targetState := b.buildProdChain(prodIdx, 1, follow)
-			b.tables.addAction(stateIdx, firstSym, lrAction{
+			b.mergeSyntheticTerminalShift(stateIdx, firstSym, lrAction{
 				kind:    lrShift,
 				state:   targetState,
 				prec:    prod.Prec,
@@ -890,9 +920,10 @@ func addNonterminalExtraChains(tables *LRTables, ng *NormalizedGrammar, ctx *lrC
 		}
 	}
 
-	stateFollowSets := make([]bitset, mainStateCount)
-	for state := 0; state < mainStateCount; state++ {
+	builder := newExtraChainBuilder(tables, ng, ctx, terminalExtras)
+	stateFollowSet := func(state int) bitset {
 		follow := newBitset(tokenCount)
+		follow.add(0)
 		if acts, ok := tables.ActionTable[state]; ok {
 			for sym, actionList := range acts {
 				if sym < tokenCount && len(actionList) > 0 {
@@ -906,14 +937,70 @@ func addNonterminalExtraChains(tables *LRTables, ng *NormalizedGrammar, ctx *lrC
 		for _, firstSym := range extraFirstSyms {
 			follow.add(firstSym)
 		}
-		stateFollowSets[state] = follow
+		return follow
+	}
+	stateHasContinuation := func(state int) bool {
+		if acts, ok := tables.ActionTable[state]; ok {
+			for _, actionList := range acts {
+				for _, act := range actionList {
+					if act.kind == lrShift {
+						return true
+					}
+				}
+			}
+		}
+		return len(tables.GotoTable[state]) > 0
+	}
+	extraSymbolSet := make(map[int]struct{}, len(ng.ExtraSymbols))
+	for _, sym := range ng.ExtraSymbols {
+		extraSymbolSet[sym] = struct{}{}
+	}
+	stateOnlyReducesCompletedExtra := func(state int) bool {
+		if stateHasContinuation(state) {
+			return false
+		}
+		acts, ok := tables.ActionTable[state]
+		if !ok {
+			return false
+		}
+		hasReduce := false
+		for _, actionList := range acts {
+			for _, act := range actionList {
+				if act.kind != lrReduce || !act.isExtra {
+					return false
+				}
+				if act.prodIdx < 0 || act.prodIdx >= len(ng.Productions) {
+					return false
+				}
+				if _, ok := extraSymbolSet[ng.Productions[act.prodIdx].LHS]; !ok {
+					return false
+				}
+				hasReduce = true
+			}
+		}
+		return hasReduce
 	}
 
-	builder := newExtraChainBuilder(tables, ng, ctx, terminalExtras)
-
-	for state := 0; state < mainStateCount; state++ {
-		follow := stateFollowSets[state]
+	// Iterate over the growing state space so synthetic extra-chain states also
+	// gain extra entry shifts. This closes the construction under nesting:
+	// once block comments (or other nonterminal extras) can start in a
+	// synthetic state, newly created states are revisited later in this loop.
+	for state := 0; state < tables.StateCount; state++ {
+		if state >= mainStateCount && stateOnlyReducesCompletedExtra(state) {
+			continue
+		}
+		follow := stateFollowSet(state)
 		for _, firstSym := range extraFirstSyms {
+			hasNonExtraAction := false
+			for _, act := range tables.ActionTable[state][firstSym] {
+				if !act.isExtra {
+					hasNonExtraAction = true
+					break
+				}
+			}
+			if hasNonExtraAction {
+				continue
+			}
 			prodIdxs := extraStartsByFirstSym[firstSym]
 			entryState := builder.buildEntryState(firstSym, prodIdxs, follow)
 			tables.addAction(state, firstSym, lrAction{

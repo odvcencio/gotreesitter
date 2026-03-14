@@ -17,6 +17,7 @@ type dfaTokenSource struct {
 	hasKeywordState   []bool
 	externalPayload   any
 	externalValid     []bool
+	fallbackLexStates []uint16
 	glrStates         []StateID // all active GLR stack states
 
 	// Zero-width external token loop prevention.
@@ -60,6 +61,9 @@ func acquireDFATokenSource(lexer *Lexer, language *Language, lookupActionIndex f
 	ts.hasKeywordState = hasKeywordState
 	ts.externalPayload = nil
 	ts.glrStates = nil
+	if len(ts.fallbackLexStates) > 0 {
+		ts.fallbackLexStates = ts.fallbackLexStates[:0]
+	}
 	if len(ts.externalValid) > 0 {
 		ts.externalValid = ts.externalValid[:0]
 	}
@@ -73,6 +77,16 @@ func acquireDFATokenSource(lexer *Lexer, language *Language, lookupActionIndex f
 	if language != nil && language.ExternalScanner != nil {
 		ts.externalPayload = language.ExternalScanner.Create()
 	}
+	if language != nil {
+		seen := make(map[uint16]struct{}, len(language.LexModes))
+		for _, lm := range language.LexModes {
+			if _, ok := seen[lm.LexState]; ok {
+				continue
+			}
+			seen[lm.LexState] = struct{}{}
+			ts.fallbackLexStates = append(ts.fallbackLexStates, lm.LexState)
+		}
+	}
 	return ts
 }
 
@@ -84,6 +98,9 @@ func (d *dfaTokenSource) Close() {
 		d.lookupActionIndex = nil
 		d.hasKeywordState = nil
 		d.glrStates = nil
+		if len(d.fallbackLexStates) > 0 {
+			d.fallbackLexStates = d.fallbackLexStates[:0]
+		}
 		d.extZeroPos = -1
 		d.extZeroState = 0
 		d.zeroWidthPos = -1
@@ -98,6 +115,9 @@ func (d *dfaTokenSource) Close() {
 	d.lookupActionIndex = nil
 	d.hasKeywordState = nil
 	d.glrStates = nil
+	if len(d.fallbackLexStates) > 0 {
+		d.fallbackLexStates = d.fallbackLexStates[:0]
+	}
 	d.extZeroPos = -1
 	d.extZeroState = 0
 	d.zeroWidthPos = -1
@@ -232,6 +252,12 @@ func (d *dfaTokenSource) nextDFAToken() Token {
 		endRow = altEndRow
 		endCol = altEndCol
 	}
+	if altTok, altEndPos, altEndRow, altEndCol, ok := d.tryAlternativeLexToken(lexState, tok, startPos, startRow, startCol); ok {
+		tok = altTok
+		endPos = altEndPos
+		endRow = altEndRow
+		endCol = altEndCol
+	}
 	d.lexer.pos = endPos
 	d.lexer.row = endRow
 	d.lexer.col = endCol
@@ -337,10 +363,10 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 		candVisible := int(candTok.Symbol) < len(d.language.SymbolMetadata) && d.language.SymbolMetadata[candTok.Symbol].Visible
 		better := !bestFound ||
 			candTok.StartByte < bestTok.StartByte ||
-			(candTok.StartByte == bestTok.StartByte && score > bestScore) ||
-			(candTok.StartByte == bestTok.StartByte && score == bestScore && candTok.EndByte > bestTok.EndByte) ||
-			(candTok.StartByte == bestTok.StartByte && score == bestScore && candTok.EndByte == bestTok.EndByte && candEndPos > bestEndPos) ||
-			(candTok.StartByte == bestTok.StartByte && score == bestScore && candTok.EndByte == bestTok.EndByte && candEndPos == bestEndPos && candVisible && !bestVisible)
+			(candTok.StartByte == bestTok.StartByte && candTok.EndByte > bestTok.EndByte) ||
+			(candTok.StartByte == bestTok.StartByte && candTok.EndByte == bestTok.EndByte && candEndPos > bestEndPos) ||
+			(candTok.StartByte == bestTok.StartByte && candTok.EndByte == bestTok.EndByte && candEndPos == bestEndPos && score > bestScore) ||
+			(candTok.StartByte == bestTok.StartByte && candTok.EndByte == bestTok.EndByte && candEndPos == bestEndPos && score == bestScore && candVisible && !bestVisible)
 		if better {
 			bestFound = true
 			bestScore = score
@@ -425,6 +451,118 @@ func (d *dfaTokenSource) shouldCompareFallbackLexState(st StateID) bool {
 		return false
 	}
 	return d.language.LexModes[st].ExternalLexState > 0
+}
+
+func (d *dfaTokenSource) shouldProbeAlternativeLexToken(primaryTok Token, startPos int) bool {
+	if d == nil || d.language == nil || d.lookupActionIndex == nil || startPos >= len(d.lexer.source) {
+		return false
+	}
+	if len(d.fallbackLexStates) <= 1 {
+		return false
+	}
+	if primaryTok.Symbol == 0 {
+		return !d.hasAnyActionForSymbol(0)
+	}
+	if primaryTok.EndByte <= primaryTok.StartByte {
+		return true
+	}
+	if primaryTok.EndByte-primaryTok.StartByte != 1 {
+		return false
+	}
+	if int(primaryTok.Symbol) < len(d.language.SymbolMetadata) {
+		meta := d.language.SymbolMetadata[primaryTok.Symbol]
+		return !meta.Visible && !meta.Named
+	}
+	return false
+}
+
+func (d *dfaTokenSource) actionCoverage(sym Symbol) int {
+	if d == nil || d.lookupActionIndex == nil {
+		return 0
+	}
+	if len(d.glrStates) == 0 {
+		if d.lookupActionIndex(d.state, sym) != 0 {
+			return 1
+		}
+		return 0
+	}
+	n := 0
+	for _, st := range d.glrStates {
+		if d.lookupActionIndex(st, sym) != 0 {
+			n++
+		}
+	}
+	return n
+}
+
+func (d *dfaTokenSource) probeAlternativeLexToken(startPos int, startRow, startCol uint32, skipState uint16) (Token, int, uint32, uint32, bool) {
+	if d == nil || d.lexer == nil {
+		return Token{}, 0, 0, 0, false
+	}
+	bestFound := false
+	bestTok := Token{}
+	bestEndPos := startPos
+	bestEndRow := startRow
+	bestEndCol := startCol
+	bestCoverage := 0
+	bestVisible := false
+
+	for _, ls := range d.fallbackLexStates {
+		if ls == skipState || ls == noLookaheadLexState {
+			continue
+		}
+		tok, endPos, endRow, endCol := d.scanDFAToken(ls, startPos, startRow, startCol)
+		if tok.Symbol == 0 || tok.EndByte <= tok.StartByte {
+			continue
+		}
+		coverage := d.actionCoverage(tok.Symbol)
+		if coverage == 0 {
+			continue
+		}
+		visible := int(tok.Symbol) < len(d.language.SymbolMetadata) && d.language.SymbolMetadata[tok.Symbol].Visible
+		better := !bestFound ||
+			coverage > bestCoverage ||
+			(coverage == bestCoverage && tok.StartByte < bestTok.StartByte) ||
+			(coverage == bestCoverage && tok.StartByte == bestTok.StartByte && tok.EndByte > bestTok.EndByte) ||
+			(coverage == bestCoverage && tok.StartByte == bestTok.StartByte && tok.EndByte == bestTok.EndByte && visible && !bestVisible)
+		if better {
+			bestFound = true
+			bestTok = tok
+			bestEndPos = endPos
+			bestEndRow = endRow
+			bestEndCol = endCol
+			bestCoverage = coverage
+			bestVisible = visible
+		}
+	}
+	if !bestFound {
+		return Token{}, 0, 0, 0, false
+	}
+	return bestTok, bestEndPos, bestEndRow, bestEndCol, true
+}
+
+func (d *dfaTokenSource) tryAlternativeLexToken(primaryLexState uint16, primaryTok Token, startPos int, startRow, startCol uint32) (Token, int, uint32, uint32, bool) {
+	if !d.shouldProbeAlternativeLexToken(primaryTok, startPos) {
+		return Token{}, 0, 0, 0, false
+	}
+	altTok, altEndPos, altEndRow, altEndCol, ok := d.probeAlternativeLexToken(startPos, startRow, startCol, primaryLexState)
+	if !ok {
+		return Token{}, 0, 0, 0, false
+	}
+	primaryCoverage := d.actionCoverage(primaryTok.Symbol)
+	altCoverage := d.actionCoverage(altTok.Symbol)
+	primaryVisible := int(primaryTok.Symbol) < len(d.language.SymbolMetadata) && d.language.SymbolMetadata[primaryTok.Symbol].Visible
+	altVisible := int(altTok.Symbol) < len(d.language.SymbolMetadata) && d.language.SymbolMetadata[altTok.Symbol].Visible
+	better := primaryTok.Symbol == 0 ||
+		primaryCoverage == 0 ||
+		altCoverage > primaryCoverage ||
+		(altCoverage == primaryCoverage && altTok.StartByte < primaryTok.StartByte) ||
+		(altCoverage == primaryCoverage && altTok.StartByte == primaryTok.StartByte && altTok.EndByte > primaryTok.EndByte) ||
+		(altCoverage == primaryCoverage && altTok.StartByte == primaryTok.StartByte && altTok.EndByte == primaryTok.EndByte && altVisible && !primaryVisible)
+	if !better {
+		return Token{}, 0, 0, 0, false
+	}
+	return altTok, altEndPos, altEndRow, altEndCol, true
 }
 
 func (d *dfaTokenSource) useLayoutFallbackLexState(st StateID) bool {

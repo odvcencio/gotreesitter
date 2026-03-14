@@ -436,7 +436,10 @@ func gssStackEntriesEqualForLanguage(lang *Language, gss gssStack, entries []sta
 	return i == -1
 }
 
-const stackEquivalentFrontierDepthLimit = 8
+const (
+	stackEquivalentFrontierDepthLimit        = 8
+	stackEquivalentGenericFrontierDepthLimit = 4
+)
 
 func stackEntryNodesEquivalent(a, b *Node) bool {
 	if a == b {
@@ -462,6 +465,9 @@ func stackEntryNodesEquivalent(a, b *Node) bool {
 	if a.hasError && b.hasError {
 		return true
 	}
+	if stackNodeNeedsDeepEquivalent(a) || stackNodeNeedsDeepEquivalent(b) {
+		return stackEntryNodesEquivalentFrontier(a, b, stackEquivalentGenericFrontierDepthLimit)
+	}
 	for i := range a.children {
 		ca := a.children[i]
 		cb := b.children[i]
@@ -482,6 +488,25 @@ func stackEntryNodesEquivalent(a, b *Node) bool {
 		}
 	}
 	return true
+}
+
+func stackNodeNeedsDeepEquivalent(n *Node) bool {
+	if n == nil {
+		return false
+	}
+	if n.isExtra || n.preGotoState != 0 || len(n.fieldIDs) != 0 {
+		return true
+	}
+	for i := range n.children {
+		child := n.children[i]
+		if child == nil {
+			continue
+		}
+		if child.isExtra || child.preGotoState != 0 || len(child.fieldIDs) != 0 || len(child.children) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func stackEntryNodesEquivalentForLanguage(lang *Language, a, b *Node) bool {

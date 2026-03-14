@@ -587,6 +587,263 @@ func TestCanFinalizeNoActionEOFAcceptsSingleNonterminalWithExtras(t *testing.T) 
 	}
 }
 
+func buildMultiStackNoActionEOFLanguage() *Language {
+	return &Language{
+		Name:               "multi_stack_no_action_eof",
+		SymbolCount:        5,
+		TokenCount:         2,
+		ExternalTokenCount: 0,
+		StateCount:         6,
+		LargeStateCount:    0,
+		FieldCount:         0,
+		ProductionIDCount:  2,
+		InitialState:       1,
+		SymbolNames:        []string{"EOF", "x", "A", "B", "S"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "x", Visible: true, Named: true},
+			{Name: "A", Visible: true, Named: true},
+			{Name: "B", Visible: true, Named: true},
+			{Name: "S", Visible: true, Named: true},
+		},
+		FieldNames: []string{""},
+		ParseActions: []ParseActionEntry{
+			{Actions: nil},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},
+			{Actions: []ParseAction{
+				{Type: ParseActionReduce, Symbol: 2, ChildCount: 1, ProductionID: 0},
+				{Type: ParseActionReduce, Symbol: 3, ChildCount: 0, ProductionID: 1},
+			}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 4}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 5}}},
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},
+		},
+		ParseTable: [][]uint16{
+			{0, 0, 0, 0, 0},
+			{0, 1, 3, 0, 5},
+			{2, 0, 0, 4, 0},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0},
+			{6, 0, 0, 0, 0},
+		},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 0},
+			{LexState: 0},
+			{LexState: 0},
+			{LexState: 0},
+			{LexState: 0},
+		},
+		LexStates: []LexState{
+			{
+				AcceptToken: 0,
+				Skip:        false,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{
+					{Lo: 'x', Hi: 'x', NextState: 1},
+				},
+			},
+			{
+				AcceptToken: 1,
+				Skip:        false,
+				Default:     -1,
+				EOF:         -1,
+			},
+		},
+	}
+}
+
+func TestParseAcceptsFinalizableNoActionEOFBranchAmongMultipleStacks(t *testing.T) {
+	lang := buildMultiStackNoActionEOFLanguage()
+	parser := NewParser(lang)
+
+	tree := mustParse(t, parser, []byte("x"))
+	if tree == nil || tree.RootNode() == nil {
+		t.Fatal("parse returned nil tree/root")
+	}
+	if got := tree.ParseStopReason(); got != ParseStopAccepted {
+		t.Fatalf("ParseStopReason = %q, want %q", got, ParseStopAccepted)
+	}
+	root := tree.RootNode()
+	if got, want := root.Symbol(), Symbol(4); got != want {
+		t.Fatalf("root symbol = %d, want %d", got, want)
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root child count = %d, want %d", got, want)
+	}
+	child := root.Child(0)
+	if child == nil {
+		t.Fatal("root child is nil")
+	}
+	if got, want := child.Symbol(), Symbol(2); got != want {
+		t.Fatalf("root child symbol = %d, want %d", got, want)
+	}
+	if got, want := child.Text(tree.Source()), "x"; got != want {
+		t.Fatalf("root child text = %q, want %q", got, want)
+	}
+}
+
+func buildEOFNullableRootCycleLanguage() *Language {
+	return &Language{
+		Name:               "eof_nullable_root_cycle",
+		SymbolCount:        3,
+		TokenCount:         2,
+		ExternalTokenCount: 0,
+		StateCount:         3,
+		LargeStateCount:    0,
+		FieldCount:         0,
+		ProductionIDCount:  2,
+		InitialState:       0,
+		SymbolNames:        []string{"EOF", "a", "S"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "a", Visible: true, Named: false},
+			{Name: "S", Visible: true, Named: true},
+		},
+		FieldNames: []string{""},
+		ParseActions: []ParseActionEntry{
+			{Actions: nil},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 2, ChildCount: 1, ProductionID: 0}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 2, ChildCount: 0, ProductionID: 1}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},
+		},
+		ParseTable: [][]uint16{
+			{0, 1, 3},
+			{2, 0, 0},
+			{4, 0, 5},
+		},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 0},
+			{LexState: 0},
+		},
+		LexStates: []LexState{
+			{
+				AcceptToken: 0,
+				Skip:        false,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{
+					{Lo: 'a', Hi: 'a', NextState: 1},
+				},
+			},
+			{
+				AcceptToken: 1,
+				Skip:        false,
+				Default:     -1,
+				EOF:         -1,
+			},
+		},
+	}
+}
+
+func TestParseAcceptsExpectedRootBeforeNullableEOFReduceCycle(t *testing.T) {
+	lang := buildEOFNullableRootCycleLanguage()
+	parser := NewParser(lang)
+	parser.rootSymbol = 2
+	parser.hasRootSymbol = true
+
+	source := []byte("a")
+	ts := acquireDFATokenSource(NewLexer(lang.LexStates, source), lang, parser.lookupActionIndex, parser.hasKeywordState)
+	defer ts.Close()
+
+	tree := parser.parseInternal(source, ts, nil, nil, incrementalArenaClassForSource(source), nil, 0, 16, 0, false)
+	if tree == nil || tree.RootNode() == nil {
+		t.Fatal("parse returned nil tree/root")
+	}
+	if got := tree.ParseStopReason(); got != ParseStopAccepted {
+		t.Fatalf("ParseStopReason = %q, want %q", got, ParseStopAccepted)
+	}
+	root := tree.RootNode()
+	if got, want := root.Symbol(), Symbol(2); got != want {
+		t.Fatalf("root symbol = %d, want %d", got, want)
+	}
+	if root.HasError() {
+		t.Fatalf("root has error: %s", root.SExpr(lang))
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root child count = %d, want %d", got, want)
+	}
+	if got, want := root.Child(0).Text(tree.Source()), "a"; got != want {
+		t.Fatalf("root child text = %q, want %q", got, want)
+	}
+}
+
+func TestAcceptExpectedRootSuffixAndUnwrapInvisibleFragment(t *testing.T) {
+	lang := &Language{
+		Name:        "expected_root_suffix_manual",
+		SymbolCount: 4,
+		TokenCount:  2,
+		SymbolNames: []string{"EOF", "item", "_fragment", "root"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "item", Visible: true, Named: true},
+			{Name: "_fragment", Visible: false, Named: true},
+			{Name: "root", Visible: true, Named: true},
+		},
+	}
+	parser := NewParser(lang)
+	parser.rootSymbol = 3
+	parser.hasRootSymbol = true
+
+	source := []byte("x")
+	arena := acquireNodeArena(arenaClassFull)
+
+	item := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	fragment := newParentNodeInArena(arena, 2, true, []*Node{item}, nil, 0)
+	fragment.parseState = 5
+	fragment.preGotoState = 1
+
+	emptyChild := newLeafNodeInArena(arena, 2, true, 1, 1, Point{Column: 1}, Point{Column: 1})
+	emptyChild.isNamed = false
+	tail := newParentNodeInArena(arena, 3, true, []*Node{emptyChild}, nil, 0)
+	tail.hasError = true
+	tail.parseState = 5
+	tail.preGotoState = 5
+
+	s := glrStack{
+		entries: []stackEntry{
+			{state: 0},
+			{state: 5, node: fragment},
+			{state: 5, node: tail},
+		},
+		cacheEntries: true,
+		byteOffset:   1,
+	}
+	if !parser.acceptExpectedRootEOF(&s, Token{Symbol: 0, StartByte: 1, EndByte: 1}) {
+		t.Fatal("acceptExpectedRootEOF() = false, want true for nullable expected-root suffix")
+	}
+	if !s.accepted {
+		t.Fatal("stack not marked accepted")
+	}
+
+	tree := parser.buildResultFromGLR([]glrStack{s}, source, arena, nil, nil, nil)
+	root := tree.RootNode()
+	if got, want := root.Symbol(), Symbol(3); got != want {
+		t.Fatalf("root symbol = %d, want %d", got, want)
+	}
+	if root.HasError() {
+		t.Fatalf("root has error: %s", root.SExpr(lang))
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root child count = %d, want %d", got, want)
+	}
+	child := root.Child(0)
+	if child == nil {
+		t.Fatal("root child is nil")
+	}
+	if got, want := child.Symbol(), Symbol(1); got != want {
+		t.Fatalf("root child symbol = %d, want %d", got, want)
+	}
+	if got, want := child.Text(tree.Source()), "x"; got != want {
+		t.Fatalf("root child text = %q, want %q", got, want)
+	}
+}
+
 func TestPushOrExtendErrorNodeCoalescesConsecutiveTokens(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	parser := NewParser(lang)

@@ -101,6 +101,26 @@ func TestMergeStacksSmallPathKeepsBestDuplicateAndDistinctKeys(t *testing.T) {
 	}
 }
 
+func TestMergeStacksSmallPathKeepsDistinctDeepStructures(t *testing.T) {
+	makeTop := func(grandchild Symbol) *Node {
+		left := NewLeafNode(grandchild, true, 0, 2, Point{}, Point{Column: 2})
+		right := NewLeafNode(13, true, 2, 5, Point{Column: 2}, Point{Column: 5})
+		mid := NewParentNode(11, true, []*Node{left, right}, nil, 0)
+		return NewParentNode(10, true, []*Node{mid}, nil, 0)
+	}
+
+	s1 := newGLRStack(StateID(5))
+	s1.push(5, makeTop(12), nil, nil)
+
+	s2 := newGLRStack(StateID(5))
+	s2.push(5, makeTop(14), nil, nil)
+
+	result := mergeStacks([]glrStack{s1, s2})
+	if len(result) != 2 {
+		t.Fatalf("expected 2 stacks for distinct deep structures, got %d", len(result))
+	}
+}
+
 func TestGLRStackClone(t *testing.T) {
 	s := newGLRStack(StateID(1))
 	s.push(2, nil, nil, nil)

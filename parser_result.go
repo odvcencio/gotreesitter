@@ -121,6 +121,17 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 	if p != nil && p.language != nil && p.language.Name == "python" {
 		nodes = collapsePythonRootFragments(nodes, arena, p.language)
 	}
+	if hasExpectedRoot {
+		expectedStart := uint32(0)
+		expectedEnd := uint32(len(source))
+		if p != nil {
+			expectedStart = p.expectedRootStartByte()
+			expectedEnd = p.expectedRootEndByte(source)
+		}
+		if trimmed, changed := trimExpectedRootEOFSuffixNodes(nodes, expectedRootSymbol, expectedStart, expectedEnd); changed {
+			nodes = unwrapInvisibleRootFragments(trimmed, p.language)
+		}
+	}
 	borrowedResolved := false
 	var borrowed []*nodeArena
 	getBorrowed := func() []*nodeArena {
@@ -278,6 +289,39 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 		wireParentLinksWithScratch(root, linkScratch)
 	}
 	return newTreeWithArenas(root, source, p.language, arena, getBorrowed())
+}
+
+func unwrapInvisibleRootFragments(nodes []*Node, lang *Language) []*Node {
+	if len(nodes) == 0 || lang == nil {
+		return nodes
+	}
+	for i := range nodes {
+		nodes[i] = unwrapInvisibleSingleChildChain(nodes[i], lang)
+	}
+	return nodes
+}
+
+func unwrapInvisibleSingleChildChain(n *Node, lang *Language) *Node {
+	for n != nil && lang != nil {
+		if int(n.symbol) >= len(lang.SymbolMetadata) || lang.SymbolMetadata[n.symbol].Visible {
+			return n
+		}
+		if len(n.children) != 1 {
+			return n
+		}
+		child := n.children[0]
+		if child == nil || child.isExtra {
+			return n
+		}
+		if child.startByte != n.startByte || child.endByte != n.endByte {
+			return n
+		}
+		if n.hasError != child.hasError {
+			return n
+		}
+		n = child
+	}
+	return n
 }
 
 func (p *Parser) normalizeRootSourceStart(root *Node, source []byte) {
