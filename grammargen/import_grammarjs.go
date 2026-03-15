@@ -551,8 +551,121 @@ func (imp *jsImporter) convertCallExpr(n *gotreesitter.Node) (*Rule, error) {
 		if _, ok := imp.helperFuncs[fnText]; ok {
 			return imp.inlineHelperCall(fnText, argNodes)
 		}
+		if rule, ok, err := imp.convertBuiltinHelperCall(fnText, argNodes); ok {
+			return rule, err
+		}
 		return nil, fmt.Errorf("unsupported function call %q", fnText)
 	}
+}
+
+func (imp *jsImporter) convertBuiltinHelperCall(fnText string, argNodes []*gotreesitter.Node) (*Rule, bool, error) {
+	switch fnText {
+	case "sep1":
+		sep, rule, err := imp.extractBuiltinSeparatorAndRule(argNodes)
+		if err != nil {
+			return nil, true, err
+		}
+		return Seq(rule, Repeat(Seq(sep, rule))), true, nil
+	case "sep":
+		sep, rule, err := imp.extractBuiltinSeparatorAndRule(argNodes)
+		if err != nil {
+			return nil, true, err
+		}
+		return Optional(Seq(rule, Repeat(Seq(sep, rule)))), true, nil
+	case "commaSep1":
+		rule, err := imp.convertBuiltinSingleRuleArg(fnText, argNodes)
+		if err != nil {
+			return nil, true, err
+		}
+		return Seq(rule, Repeat(Seq(Str(","), rule))), true, nil
+	case "commaSep":
+		rule, err := imp.convertBuiltinSingleRuleArg(fnText, argNodes)
+		if err != nil {
+			return nil, true, err
+		}
+		return Optional(Seq(rule, Repeat(Seq(Str(","), rule)))), true, nil
+	case "trailingSep1":
+		sep, rule, err := imp.extractBuiltinSeparatorAndRule(argNodes)
+		if err != nil {
+			return nil, true, err
+		}
+		return Seq(Seq(rule, Repeat(Seq(sep, rule))), Optional(sep)), true, nil
+	case "trailingCommaSep1":
+		rule, err := imp.convertBuiltinSingleRuleArg(fnText, argNodes)
+		if err != nil {
+			return nil, true, err
+		}
+		return Seq(Seq(rule, Repeat(Seq(Str(","), rule))), Optional(Str(","))), true, nil
+	case "trailingCommaSep":
+		rule, err := imp.convertBuiltinSingleRuleArg(fnText, argNodes)
+		if err != nil {
+			return nil, true, err
+		}
+		return Optional(Seq(Seq(rule, Repeat(Seq(Str(","), rule))), Optional(Str(",")))), true, nil
+	default:
+		return nil, false, nil
+	}
+}
+
+func (imp *jsImporter) convertBuiltinSingleRuleArg(fnText string, argNodes []*gotreesitter.Node) (*Rule, error) {
+	if len(argNodes) != 1 {
+		return nil, fmt.Errorf("%s expects 1 arg, got %d", fnText, len(argNodes))
+	}
+	rule, err := imp.convertRuleExpr(argNodes[0])
+	if err != nil {
+		return nil, err
+	}
+	return rule, nil
+}
+
+func (imp *jsImporter) extractBuiltinSeparatorAndRule(argNodes []*gotreesitter.Node) (*Rule, *Rule, error) {
+	if len(argNodes) != 2 {
+		return nil, nil, fmt.Errorf("expected 2 args, got %d", len(argNodes))
+	}
+	first, err := imp.convertRuleExpr(argNodes[0])
+	if err != nil {
+		return nil, nil, err
+	}
+	second, err := imp.convertRuleExpr(argNodes[1])
+	if err != nil {
+		return nil, nil, err
+	}
+	if imp.helperArgLooksLikeSeparator(argNodes[0]) && !imp.helperArgLooksLikeSeparator(argNodes[1]) {
+		return first, second, nil
+	}
+	if !imp.helperArgLooksLikeSeparator(argNodes[0]) && imp.helperArgLooksLikeSeparator(argNodes[1]) {
+		return second, first, nil
+	}
+	// Default to the delimiter-first convention used by Scala and many
+	// tree-sitter grammars when the argument shapes are ambiguous.
+	return first, second, nil
+}
+
+func (imp *jsImporter) helperArgLooksLikeSeparator(n *gotreesitter.Node) bool {
+	if n == nil {
+		return false
+	}
+	switch imp.nodeType(n) {
+	case "string", "regex":
+		return true
+	case "identifier":
+		text := imp.nodeText(n)
+		if text == strings.ToUpper(text) {
+			return true
+		}
+		return false
+	case "member_expression":
+		prop := imp.extractMemberProp(n)
+		switch {
+		case prop == "":
+			return false
+		case prop == "_semicolon" || prop == "semicolon" || prop == "comma" || prop == "dot" || prop == "newline":
+			return true
+		case strings.HasSuffix(prop, "_separator") || strings.HasSuffix(prop, "_delimiter"):
+			return true
+		}
+	}
+	return false
 }
 
 // convertPrecCall converts prec/prec.left/prec.right/prec.dynamic calls.

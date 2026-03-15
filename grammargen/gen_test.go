@@ -792,7 +792,6 @@ func TestNormalizeKeepsMatchingExternalPatternAsExtra(t *testing.T) {
 	}
 }
 
-
 func TestExtExternalLexStates(t *testing.T) {
 	g := ExtScannerGrammar()
 	lang, err := GenerateLanguage(g)
@@ -1698,6 +1697,45 @@ module.exports = grammar({
 });
 `
 
+const testGrammarJSWithBuiltinSepHelpers = `
+module.exports = grammar({
+  name: 'helper_sep_builtin',
+
+  extras: $ => [/\s/],
+
+  rules: {
+    source_file: $ => sep1(',', $.item),
+    item: $ => /[a-z]+/,
+  }
+});
+`
+
+const testGrammarJSWithBuiltinSepHelpersRuleFirst = `
+module.exports = grammar({
+  name: 'helper_sep_builtin_rule_first',
+
+  extras: $ => [/\s/],
+
+  rules: {
+    source_file: $ => sep1($.item, ','),
+    item: $ => /[a-z]+/,
+  }
+});
+`
+
+const testGrammarJSWithBuiltinTrailingHelpers = `
+module.exports = grammar({
+  name: 'helper_trailing_builtin',
+
+  extras: $ => [/\s/],
+
+  rules: {
+    source_file: $ => trailingCommaSep1($.item),
+    item: $ => /[a-z]+/,
+  }
+});
+`
+
 func TestImportGrammarJSPrec(t *testing.T) {
 	g, err := ImportGrammarJS([]byte(testGrammarJSWithPrec))
 	if err != nil {
@@ -1725,6 +1763,69 @@ func TestImportGrammarJSPrec(t *testing.T) {
 
 	if strings.Contains(sexp, "ERROR") {
 		t.Errorf("unexpected ERROR: %s", sexp)
+	}
+}
+
+func TestImportGrammarJSBuiltinSepHelpers(t *testing.T) {
+	g, err := ImportGrammarJS([]byte(testGrammarJSWithBuiltinSepHelpers))
+	if err != nil {
+		t.Fatalf("ImportGrammarJS failed: %v", err)
+	}
+
+	lang, err := GenerateLanguage(g)
+	if err != nil {
+		t.Fatalf("GenerateLanguage failed: %v", err)
+	}
+
+	tree, err := gotreesitter.NewParser(lang).Parse([]byte("a,b,c"))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	sexp := tree.RootNode().SExpr(lang)
+	if strings.Contains(sexp, "ERROR") {
+		t.Fatalf("unexpected ERROR in tree: %s", sexp)
+	}
+}
+
+func TestImportGrammarJSBuiltinSepHelpersRuleFirst(t *testing.T) {
+	g, err := ImportGrammarJS([]byte(testGrammarJSWithBuiltinSepHelpersRuleFirst))
+	if err != nil {
+		t.Fatalf("ImportGrammarJS failed: %v", err)
+	}
+
+	lang, err := GenerateLanguage(g)
+	if err != nil {
+		t.Fatalf("GenerateLanguage failed: %v", err)
+	}
+
+	tree, err := gotreesitter.NewParser(lang).Parse([]byte("a,b,c"))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	sexp := tree.RootNode().SExpr(lang)
+	if strings.Contains(sexp, "ERROR") {
+		t.Fatalf("unexpected ERROR in tree: %s", sexp)
+	}
+}
+
+func TestImportGrammarJSBuiltinTrailingHelpers(t *testing.T) {
+	g, err := ImportGrammarJS([]byte(testGrammarJSWithBuiltinTrailingHelpers))
+	if err != nil {
+		t.Fatalf("ImportGrammarJS failed: %v", err)
+	}
+
+	lang, err := GenerateLanguage(g)
+	if err != nil {
+		t.Fatalf("GenerateLanguage failed: %v", err)
+	}
+
+	tree, err := gotreesitter.NewParser(lang).Parse([]byte("a,b,"))
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	sexp := tree.RootNode().SExpr(lang)
+	if strings.Contains(sexp, "ERROR") {
+		t.Fatalf("unexpected ERROR in tree: %s", sexp)
 	}
 }
 
