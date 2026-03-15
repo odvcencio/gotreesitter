@@ -2470,6 +2470,20 @@ func (eofAtZeroTokenSource) Next() Token {
 	}
 }
 
+type fixedTokenSource struct {
+	tokens []Token
+	idx    int
+}
+
+func (f *fixedTokenSource) Next() Token {
+	if f.idx >= len(f.tokens) {
+		return Token{Symbol: 0}
+	}
+	tok := f.tokens[f.idx]
+	f.idx++
+	return tok
+}
+
 type slowArithmeticTokenSource struct {
 	delay  time.Duration
 	tokens []Token
@@ -2508,6 +2522,38 @@ func TestParseRuntimeReportsTokenSourceEOFEarly(t *testing.T) {
 	}
 	if !tree.ParseStoppedEarly() {
 		t.Fatal("ParseStoppedEarly() = false, want true")
+	}
+}
+
+func TestParseWithTokenSourceSkipsUnexpectedZeroWidthToken(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	parser := NewParser(lang)
+	src := []byte("1")
+
+	ts := &fixedTokenSource{
+		tokens: []Token{
+			{Symbol: 2, StartByte: 0, EndByte: 0},
+			{Symbol: 1, StartByte: 0, EndByte: 1},
+			{Symbol: 0, StartByte: 1, EndByte: 1},
+		},
+	}
+
+	tree, err := parser.ParseWithTokenSource(src, ts)
+	if err != nil {
+		t.Fatalf("ParseWithTokenSource() error = %v", err)
+	}
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("ParseWithTokenSource() returned nil root")
+	}
+	if root.Symbol() != 3 {
+		t.Fatalf("root symbol = %d, want 3", root.Symbol())
+	}
+	if root.HasError() {
+		t.Fatalf("root has error, want clean parse")
+	}
+	if root.StartByte() != 0 || root.EndByte() != 1 {
+		t.Fatalf("root range = [%d:%d], want [0:1]", root.StartByte(), root.EndByte())
 	}
 }
 

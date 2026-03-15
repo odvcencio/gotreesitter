@@ -1218,6 +1218,15 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					needToken = true
 					continue
 				}
+				if tok.StartByte == tok.EndByte {
+					// Layout and recovery helpers can emit zero-width internal
+					// tokens (for example indentation markers). If the current
+					// state cannot act on one, skipping it matches tree-sitter
+					// better than materializing a zero-width error node that can
+					// later corrupt reduce-child counting.
+					needToken = true
+					continue
+				}
 
 				// When multiple alternatives exist, drop no-action stacks
 				// immediately instead of running deep recovery scans.
