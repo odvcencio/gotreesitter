@@ -2,6 +2,146 @@ package gotreesitter
 
 import "testing"
 
+type sameLineOutdentExternalScanner struct{}
+
+func (sameLineOutdentExternalScanner) Create() any                           { return nil }
+func (sameLineOutdentExternalScanner) Destroy(payload any)                   {}
+func (sameLineOutdentExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
+func (sameLineOutdentExternalScanner) Deserialize(payload any, buf []byte)   {}
+func (sameLineOutdentExternalScanner) Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool {
+	if len(validSymbols) == 0 || !validSymbols[0] || lexer.Lookahead() != ')' {
+		return false
+	}
+	lexer.SetResultSymbol(2)
+	return true
+}
+
+type newlineOutdentExternalScanner struct{}
+
+func (newlineOutdentExternalScanner) Create() any                           { return nil }
+func (newlineOutdentExternalScanner) Destroy(payload any)                   {}
+func (newlineOutdentExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
+func (newlineOutdentExternalScanner) Deserialize(payload any, buf []byte)   {}
+func (newlineOutdentExternalScanner) Scan(payload any, lexer *ExternalLexer, validSymbols []bool) bool {
+	for lexer.Lookahead() == ' ' || lexer.Lookahead() == '\n' {
+		lexer.Advance(true)
+	}
+	if len(validSymbols) == 0 || !validSymbols[0] || lexer.Lookahead() != ')' {
+		return false
+	}
+	lexer.SetResultSymbol(2)
+	return true
+}
+
+func buildLayoutExternalCompetitionLanguage(scanner ExternalScanner) *Language {
+	return &Language{
+		Name:        "layout_compete",
+		SymbolNames: []string{"end", ")", "_outdent"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end", Visible: false, Named: false},
+			{Name: ")", Visible: true, Named: false},
+			{Name: "_outdent", Visible: false, Named: false},
+		},
+		SymbolCount:     3,
+		TokenCount:      3,
+		StateCount:      2,
+		LargeStateCount: 2,
+		InitialState:    1,
+		LexStates: []LexState{
+			{Default: -1, EOF: -1},
+			{
+				AcceptToken: 0,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{
+					{Lo: ' ', Hi: ' ', NextState: 1, Skip: true},
+					{Lo: '\n', Hi: '\n', NextState: 1, Skip: true},
+					{Lo: ')', Hi: ')', NextState: 2},
+				},
+			},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+		},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 1},
+		},
+		ParseTable: [][]uint16{
+			{0, 0, 0},
+			{0, 1, 2},
+		},
+		ParseActions: []ParseActionEntry{
+			{Actions: nil},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}},
+		},
+		ExternalScanner: scanner,
+		ExternalSymbols: []Symbol{2},
+	}
+}
+
+func buildSingleIdentifierLanguage() *Language {
+	return &Language{
+		Name:              "single_ident",
+		SymbolCount:       3,
+		TokenCount:        2,
+		ProductionIDCount: 1,
+		StateCount:        3,
+		LargeStateCount:   3,
+		InitialState:      0,
+		SymbolNames:       []string{"end", "identifier", "source_file"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end", Visible: false, Named: false},
+			{Name: "identifier", Visible: true, Named: true},
+			{Name: "source_file", Visible: true, Named: true},
+		},
+		ParseActions: []ParseActionEntry{
+			{Actions: nil},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 2, ChildCount: 1, ProductionID: 0}}},
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},
+		},
+		ParseTable: [][]uint16{
+			{0, 1, 2},
+			{3, 0, 0},
+			{4, 0, 0},
+		},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 0},
+			{LexState: 0},
+		},
+		LexStates: []LexState{
+			{
+				AcceptToken: 0,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{
+					{Lo: 'a', Hi: 'z', NextState: 1},
+					{Lo: ' ', Hi: ' ', NextState: 2},
+					{Lo: '\n', Hi: '\n', NextState: 2},
+				},
+			},
+			{
+				AcceptToken: 1,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{{Lo: 'a', Hi: 'z', NextState: 1}},
+			},
+			{
+				AcceptToken: 0,
+				Skip:        true,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{
+					{Lo: ' ', Hi: ' ', NextState: 2},
+					{Lo: '\n', Hi: '\n', NextState: 2},
+				},
+			},
+		},
+	}
+}
+
 func TestParseWithoutDFALexerReturnsError(t *testing.T) {
 	lang := &Language{Name: "no_dfa", InitialState: 1}
 	parser := NewParser(lang)
@@ -148,6 +288,55 @@ func TestTrackZeroWidthExternalRepeatableSymbolClearsLoopGuard(t *testing.T) {
 	}
 	if got := len(d.extZeroTried); got != 0 {
 		t.Fatalf("len(extZeroTried) = %d, want 0", got)
+	}
+}
+
+func TestNextTokenPrefersConsumingDFATokenOverSameLineZeroWidthLayoutExternal(t *testing.T) {
+	lang := buildLayoutExternalCompetitionLanguage(sameLineOutdentExternalScanner{})
+	parser := NewParser(lang)
+	d := acquireDFATokenSource(NewLexer(lang.LexStates, []byte(")")), lang, parser.lookupActionIndex, parser.hasKeywordState)
+	defer d.Close()
+	d.SetParserState(1)
+
+	tok := d.Next()
+	if got, want := tok.Symbol, Symbol(1); got != want {
+		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
+	}
+	if got, want := tok.StartByte, uint32(0); got != want {
+		t.Fatalf("token start = %d, want %d", got, want)
+	}
+	if got, want := tok.EndByte, uint32(1); got != want {
+		t.Fatalf("token end = %d, want %d", got, want)
+	}
+}
+
+func TestNextTokenKeepsZeroWidthLayoutExternalAfterSkippedNewline(t *testing.T) {
+	lang := buildLayoutExternalCompetitionLanguage(newlineOutdentExternalScanner{})
+	parser := NewParser(lang)
+	d := acquireDFATokenSource(NewLexer(lang.LexStates, []byte("\n)")), lang, parser.lookupActionIndex, parser.hasKeywordState)
+	defer d.Close()
+	d.SetParserState(1)
+
+	tok := d.Next()
+	if got, want := tok.Symbol, Symbol(2); got != want {
+		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
+	}
+	if got, want := tok.StartByte, uint32(1); got != want {
+		t.Fatalf("token start = %d, want %d", got, want)
+	}
+	if got, want := tok.EndByte, uint32(1); got != want {
+		t.Fatalf("token end = %d, want %d", got, want)
+	}
+
+	tok = d.Next()
+	if got, want := tok.Symbol, Symbol(1); got != want {
+		t.Fatalf("second token symbol = %d, want %d", got, want)
+	}
+	if got, want := tok.StartByte, uint32(1); got != want {
+		t.Fatalf("second token start = %d, want %d", got, want)
+	}
+	if got, want := tok.EndByte, uint32(2); got != want {
+		t.Fatalf("second token end = %d, want %d", got, want)
 	}
 }
 
@@ -366,6 +555,77 @@ func TestNextDFATokenKeepsPrimaryTokenWhenAlternativeStartsEarlier(t *testing.T)
 	}
 }
 
+func TestNextDFATokenKeepsPrimaryTokenWhenAlternativeStartsLater(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"end", ":", "_identifier"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end", Visible: false, Named: false},
+			{Name: ":", Visible: false, Named: false},
+			{Name: "_identifier", Visible: false, Named: false},
+		},
+		SymbolCount:     3,
+		TokenCount:      3,
+		StateCount:      3,
+		LargeStateCount: 3,
+		InitialState:    1,
+		LexStates: []LexState{
+			{Default: -1, EOF: -1},
+			{AcceptToken: 0, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: ':', Hi: ':', NextState: 2}}},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+			{
+				AcceptToken: 0,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{
+					{Lo: ':', Hi: ':', NextState: 4, Skip: true},
+					{Lo: 'a', Hi: 'z', NextState: 5},
+				},
+			},
+			{
+				AcceptToken: 0,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{{Lo: 'a', Hi: 'z', NextState: 5}},
+			},
+			{
+				AcceptToken: 2,
+				Default:     -1,
+				EOF:         -1,
+				Transitions: []LexTransition{{Lo: 'a', Hi: 'z', NextState: 5}},
+			},
+		},
+		LexModes: []LexMode{
+			{LexState: 0},
+			{LexState: 1},
+			{LexState: 3},
+		},
+		ParseTable: [][]uint16{
+			{0, 0, 0},
+			{0, 0, 1},
+			{0, 0, 0},
+		},
+		ParseActions: []ParseActionEntry{
+			{Actions: nil},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},
+		},
+	}
+	parser := NewParser(lang)
+	d := acquireDFATokenSource(NewLexer(lang.LexStates, []byte(":ab")), lang, parser.lookupActionIndex, parser.hasKeywordState)
+	defer d.Close()
+	d.SetParserState(1)
+
+	tok := d.nextDFAToken()
+	if got, want := tok.Symbol, Symbol(1); got != want {
+		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
+	}
+	if got, want := tok.StartByte, uint32(0); got != want {
+		t.Fatalf("token start = %d, want %d", got, want)
+	}
+	if got, want := tok.EndByte, uint32(1); got != want {
+		t.Fatalf("token end = %d, want %d", got, want)
+	}
+}
+
 func TestNextDFATokenKeepsPrimaryInvisibleTokenOnExactTie(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"end", "_narrow", "visible"},
@@ -409,6 +669,53 @@ func TestNextDFATokenKeepsPrimaryInvisibleTokenOnExactTie(t *testing.T) {
 	tok := d.nextDFAToken()
 	if got, want := tok.Symbol, Symbol(1); got != want {
 		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
+	}
+}
+
+func TestNextDFATokenDoesNotRecoverPastInvalidByte(t *testing.T) {
+	lang := buildSingleIdentifierLanguage()
+	parser := NewParser(lang)
+	d := acquireDFATokenSource(NewLexer(lang.LexStates, []byte(":ab")), lang, parser.lookupActionIndex, parser.hasKeywordState)
+	defer d.Close()
+	d.SetParserState(lang.InitialState)
+
+	tok := d.Next()
+	if got, want := tok.Symbol, errorSymbol; got != want {
+		t.Fatalf("token symbol = %d, want errorSymbol=%d", got, want)
+	}
+	if got, want := tok.StartByte, uint32(0); got != want {
+		t.Fatalf("token start = %d, want %d", got, want)
+	}
+	if got, want := tok.EndByte, uint32(1); got != want {
+		t.Fatalf("token end = %d, want %d", got, want)
+	}
+
+	tok = d.Next()
+	if got, want := tok.Symbol, Symbol(1); got != want {
+		t.Fatalf("second token symbol = %d, want %d", got, want)
+	}
+	if got, want := tok.StartByte, uint32(1); got != want {
+		t.Fatalf("second token start = %d, want %d", got, want)
+	}
+	if got, want := tok.EndByte, uint32(3); got != want {
+		t.Fatalf("second token end = %d, want %d", got, want)
+	}
+}
+
+func TestParseDoesNotAcceptCleanlyAfterDFASkipsInvalidByte(t *testing.T) {
+	lang := buildSingleIdentifierLanguage()
+	parser := NewParser(lang)
+
+	tree, err := parser.Parse([]byte(":ab"))
+	if err != nil {
+		t.Fatalf("parse returned error: %v", err)
+	}
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("root = nil, want error tree")
+	}
+	if !root.HasError() {
+		t.Fatalf("root.HasError() = false, want true; sexpr=%s", root.SExpr(lang))
 	}
 }
 
@@ -551,11 +858,14 @@ func TestNextDFATokenKeepsPrimaryTokenOutsideExternalState(t *testing.T) {
 	}
 
 	tok := d.nextDFAToken()
-	if got, want := tok.Symbol, Symbol(2); got != want {
-		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
+	if got, want := tok.Symbol, errorSymbol; got != want {
+		t.Fatalf("token symbol = %d, want errorSymbol=%d", got, want)
 	}
-	if got, want := tok.StartByte, uint32(2); got != want {
+	if got, want := tok.StartByte, uint32(0); got != want {
 		t.Fatalf("token start = %d, want %d", got, want)
+	}
+	if got, want := tok.EndByte, uint32(1); got != want {
+		t.Fatalf("token end = %d, want %d", got, want)
 	}
 }
 
