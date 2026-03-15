@@ -629,7 +629,8 @@ func TestProductionRepeatInSeq(t *testing.T) {
 		t.Error("MISSING: cc=2 (string → '\"' '\"')")
 	}
 
-	// Verify repeat aux has cc=2 and cc=1 (not cc=2 and cc=0).
+	// Verify repeat aux has only cc=2 productions, matching tree-sitter's
+	// helper shape where the parent handles the 0- and 1-item cases directly.
 	for i, info := range ng.Symbols {
 		if strings.HasPrefix(info.Name, "_string_repeat") {
 			var auxCCs []int
@@ -639,14 +640,16 @@ func TestProductionRepeatInSeq(t *testing.T) {
 				}
 			}
 			t.Logf("  aux %q: cc values = %v", info.Name, auxCCs)
-			hasZero := false
+			hasTwo := false
 			for _, cc := range auxCCs {
-				if cc == 0 {
-					hasZero = true
+				if cc == 2 {
+					hasTwo = true
+					continue
 				}
+				t.Errorf("repeat aux %q has non-tree-sitter child count %d (ccs=%v)", info.Name, cc, auxCCs)
 			}
-			if hasZero {
-				t.Errorf("repeat aux %q has epsilon production (cc=0) — should use repeat1 style", info.Name)
+			if !hasTwo {
+				t.Errorf("repeat aux %q missing cc=2 production", info.Name)
 			}
 		}
 	}
@@ -714,4 +717,3 @@ func TestProductionChoiceWithBlank(t *testing.T) {
 		t.Error("MISSING: cc=2 (string → '\"' '\"')")
 	}
 }
-
