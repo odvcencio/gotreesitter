@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -315,7 +316,7 @@ func (p *Parser) acceptNoActionEOF(s *glrStack, tok Token) bool {
 	return true
 }
 
-func (p *Parser) acceptExpectedRootEOF(s *glrStack, tok Token) bool {
+func (p *Parser) acceptExpectedRootEOF(s *glrStack, tok Token, source []byte) bool {
 	if tok.Symbol != 0 || tok.StartByte != tok.EndByte || p == nil || !p.hasRootSymbol || s == nil || s.dead {
 		return false
 	}
@@ -324,16 +325,14 @@ func (p *Parser) acceptExpectedRootEOF(s *glrStack, tok Token) bool {
 	if top.node != nil &&
 		top.node.symbol == p.rootSymbol &&
 		top.node.symbol != errorSymbol &&
-		top.node.startByte == expectedStart &&
-		top.node.endByte == tok.EndByte &&
-		s.byteOffset == tok.EndByte {
+		expectedRootSpanLooksComplete(top.node.startByte, top.node.endByte, expectedStart, tok.EndByte, source) {
 		s.accepted = true
 		return true
 	}
 	if s.byteOffset != tok.EndByte {
 		return false
 	}
-	if stackHasExpectedRootEOFSuffix(s, p.rootSymbol, expectedStart, tok.EndByte) {
+	if p.stackCanFinalizeExpectedRootEOF(s, expectedStart, tok.EndByte, source) {
 		s.accepted = true
 		return true
 	}
@@ -354,7 +353,7 @@ func (p *Parser) expectedRootEndByte(source []byte) uint32 {
 	return uint32(len(source))
 }
 
-func trimExpectedRootEOFSuffixNodes(nodes []*Node, expectedRoot Symbol, expectedStart, eofByte uint32) ([]*Node, bool) {
+func trimExpectedRootEOFSuffixNodes(nodes []*Node, lang *Language, expectedRoot Symbol, expectedStart, eofByte uint32, source []byte) ([]*Node, bool) {
 	if len(nodes) < 2 {
 		return nodes, false
 	}
@@ -362,10 +361,7 @@ func trimExpectedRootEOFSuffixNodes(nodes []*Node, expectedRoot Symbol, expected
 	suffixStart := len(nodes)
 	for suffixStart > 0 {
 		n := nodes[suffixStart-1]
-		if n == nil || n.isExtra {
-			break
-		}
-		if n.symbol != expectedRoot || n.startByte != eofByte || n.endByte != eofByte {
+		if !ignorableExpectedRootEOFSuffixNode(n, lang, expectedRoot, eofByte) {
 			break
 		}
 		suffixStart--
@@ -391,28 +387,259 @@ func trimExpectedRootEOFSuffixNodes(nodes []*Node, expectedRoot Symbol, expected
 		}
 		prefixCount++
 	}
-	if prefixCount == 0 || firstStart != expectedStart || lastEnd != eofByte {
+	if prefixCount == 0 || !expectedRootSpanLooksComplete(firstStart, lastEnd, expectedStart, eofByte, source) {
 		return nodes, false
 	}
 	return nodes[:suffixStart], true
 }
 
-func stackHasExpectedRootEOFSuffix(s *glrStack, expectedRoot Symbol, expectedStart, eofByte uint32) bool {
+func expectedRootSpanLooksComplete(start, end, expectedStart, expectedEnd uint32, source []byte) bool {
+	if start < expectedStart || end > expectedEnd {
+		return false
+	}
+	if start > expectedStart {
+		if int(start) > len(source) || int(expectedStart) > len(source) || !bytesAreTrivia(source[expectedStart:start]) {
+			return false
+		}
+	}
+	if end < expectedEnd {
+		if int(end) > len(source) || int(expectedEnd) > len(source) || !bytesAreTrivia(source[end:expectedEnd]) {
+			return false
+		}
+	}
+	return true
+}
+
+func ignorableExpectedRootEOFSuffixNode(n *Node, lang *Language, expectedRoot Symbol, eofByte uint32) bool {
+	if n == nil || n.symbol == errorSymbol {
+		return false
+	}
+	if n.startByte != eofByte || n.endByte != eofByte {
+		return false
+	}
+	if n.symbol == expectedRoot {
+		return true
+	}
+	if lang != nil {
+		name := ""
+		if idx := int(n.symbol); idx >= 0 && idx < len(lang.SymbolMetadata) {
+			name = lang.SymbolMetadata[n.symbol].Name
+		}
+		if name == "" {
+			if idx := int(n.symbol); idx >= 0 && idx < len(lang.SymbolNames) {
+				name = lang.SymbolNames[n.symbol]
+			}
+		}
+		lowerName := strings.ToLower(name)
+		if strings.Contains(lowerName, "eof") || strings.Contains(lowerName, "newline") {
+			return false
+		}
+	}
+	if lang != nil && int(n.symbol) >= 0 && int(n.symbol) < len(lang.SymbolMetadata) && !lang.SymbolMetadata[n.symbol].Visible {
+		return true
+	}
+	if n.hasError {
+		return false
+	}
+	if len(n.children) == 0 && !n.isMissing {
+		return true
+	}
+	if n.isExtra {
+		return true
+	}
+	return !n.isNamed && len(n.children) == 0
+}
+
+func (p *Parser) stackCanFinalizeExpectedRootEOF(s *glrStack, expectedStart, eofByte uint32, source []byte) bool {
 	if s == nil {
 		return false
 	}
+	lang := (*Language)(nil)
+	expectedRoot := Symbol(0)
+	if p != nil {
+		lang = p.language
+		expectedRoot = p.rootSymbol
+	}
+	var nodes []*Node
 	if len(s.entries) > 0 {
-		nodes := make([]*Node, 0, len(s.entries)-1)
+		nodes = make([]*Node, 0, len(s.entries)-1)
 		for i := range s.entries {
 			if s.entries[i].node != nil {
 				nodes = append(nodes, s.entries[i].node)
 			}
 		}
-		_, ok := trimExpectedRootEOFSuffixNodes(nodes, expectedRoot, expectedStart, eofByte)
-		return ok
+	} else {
+		nodes = nodesFromGSS(s.gss)
 	}
-	_, ok := trimExpectedRootEOFSuffixNodes(nodesFromGSS(s.gss), expectedRoot, expectedStart, eofByte)
-	return ok
+	trimmed, ok := trimExpectedRootEOFSuffixNodes(nodes, lang, expectedRoot, expectedStart, eofByte, source)
+	if !ok {
+		return false
+	}
+	if p.stackNeedsVisibleEOFFinalization(s, eofByte) {
+		return false
+	}
+	trimmed = flattenInvisibleRootFragments(trimmed, nil, lang)
+	if len(trimmed) == 0 {
+		return false
+	}
+	tokenCount := uint32(0)
+	if lang != nil {
+		tokenCount = lang.TokenCount
+	}
+	nonExtraCount := 0
+	onlyNonExtra := (*Node)(nil)
+	for _, n := range trimmed {
+		if n == nil || n.isExtra {
+			continue
+		}
+		if n.hasError {
+			return false
+		}
+		nonExtraCount++
+		onlyNonExtra = n
+	}
+	if nonExtraCount == 0 {
+		return false
+	}
+	if nonExtraCount > 1 {
+		for _, n := range trimmed {
+			if n == nil || n.isExtra {
+				continue
+			}
+			if uint32(n.symbol) < tokenCount {
+				return false
+			}
+		}
+	} else if onlyNonExtra != nil && onlyNonExtra.hasError {
+		return false
+	}
+	return expectedRootChildrenLookComplete(trimmed, p, source)
+}
+
+func (p *Parser) stackNeedsVisibleEOFFinalization(s *glrStack, eofByte uint32) bool {
+	if p == nil || p.language == nil || s == nil || s.dead {
+		return false
+	}
+	entries, _ := s.entriesForRead(nil)
+	if len(entries) == 0 {
+		return false
+	}
+	virtual := make([]stackEntry, len(entries))
+	copy(virtual, entries)
+
+	if p.simulatedEOFFinalizationNeedsVisibleNode(virtual, eofByte) {
+		return true
+	}
+
+	trimmed := virtual
+	for len(trimmed) > 1 {
+		last := trimmed[len(trimmed)-1].node
+		if !ignorableExpectedRootEOFSuffixNode(last, p.language, p.rootSymbol, eofByte) {
+			break
+		}
+		trimmed = trimmed[:len(trimmed)-1]
+	}
+	if len(trimmed) == len(virtual) {
+		return false
+	}
+	return p.simulatedEOFFinalizationNeedsVisibleNode(trimmed, eofByte)
+}
+
+func (p *Parser) simulatedEOFFinalizationNeedsVisibleNode(virtual []stackEntry, eofByte uint32) bool {
+	if len(virtual) <= 1 {
+		return false
+	}
+	visited := make(map[[2]uint16]struct{}, 8)
+	for steps := 0; steps < 256; steps++ {
+		currentState := virtual[len(virtual)-1].state
+		key := [2]uint16{uint16(currentState), uint16(len(virtual))}
+		if _, seen := visited[key]; seen {
+			return true
+		}
+		visited[key] = struct{}{}
+
+		actionIdx := p.lookupActionIndex(currentState, 0)
+		if actionIdx == 0 || int(actionIdx) >= len(p.language.ParseActions) {
+			return false
+		}
+		actions := p.language.ParseActions[actionIdx].Actions
+		if len(actions) != 1 {
+			return true
+		}
+		act := actions[0]
+		switch act.Type {
+		case ParseActionAccept:
+			return false
+		case ParseActionReduce:
+			next, safe := p.simulateSafeEOFFinalizationReduce(virtual, act, eofByte)
+			if !safe {
+				return true
+			}
+			virtual = next
+		default:
+			return true
+		}
+	}
+	return true
+}
+
+func (p *Parser) simulateSafeEOFFinalizationReduce(entries []stackEntry, act ParseAction, eofByte uint32) ([]stackEntry, bool) {
+	rng, ok := computeReduceRange(entries, int(act.ChildCount))
+	if !ok {
+		return nil, false
+	}
+	topState := rng.topState
+	targetState := topState
+	if gotoState := p.lookupGoto(topState, act.Symbol); gotoState != 0 {
+		targetState = gotoState
+	}
+	parent := &Node{
+		symbol:       act.Symbol,
+		isNamed:      p.isNamedSymbol(act.Symbol),
+		preGotoState: topState,
+		parseState:   targetState,
+	}
+	span := computeReduceRawSpan(entries, rng.start, rng.reducedEnd)
+	parent.startByte = span.startByte
+	parent.endByte = span.endByte
+	if act.Extra {
+		parent.isExtra = true
+	}
+	if !p.eofFinalizationReductionIsSkippable(parent, eofByte) {
+		return nil, false
+	}
+
+	next := make([]stackEntry, 0, rng.start+1+(rng.actualEnd-rng.reducedEnd))
+	next = append(next, entries[:rng.start]...)
+	next = append(next, stackEntry{state: targetState, node: parent})
+	for i := rng.reducedEnd; i < rng.actualEnd; i++ {
+		extra := entries[i]
+		if extra.node != nil {
+			extra = stackEntry{
+				state: targetState,
+				node:  extra.node,
+			}
+		} else {
+			extra.state = targetState
+		}
+		next = append(next, extra)
+	}
+	return next, true
+}
+
+func (p *Parser) eofFinalizationReductionIsSkippable(n *Node, eofByte uint32) bool {
+	if n == nil {
+		return false
+	}
+	if n.symbol == p.rootSymbol {
+		return true
+	}
+	if p.language != nil {
+		if idx := int(n.symbol); idx >= 0 && idx < len(p.language.SymbolMetadata) && !p.language.SymbolMetadata[n.symbol].Visible {
+			return true
+		}
+	}
+	return ignorableExpectedRootEOFSuffixNode(n, p.language, p.rootSymbol, eofByte)
 }
 
 func countNonExtraStackNodes(s *glrStack) (int, *Node) {
@@ -957,7 +1184,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				}
 			}
 
-			if p.acceptExpectedRootEOF(s, tok) {
+			if p.acceptExpectedRootEOF(s, tok, source) {
 				if len(stacks) == 1 {
 					return finalize(stacks, ParseStopAccepted)
 				}
@@ -1114,7 +1341,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				act := actions[0]
 				disableBashReduceChain := p.language != nil && p.language.Name == "bash" && s.gss.head != nil
 				if act.Type == ParseActionReduce && !disableBashReduceChain {
-					p.applyActionWithReduceChain(s, act, tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, &trackChildErrors)
+					p.applyActionWithReduceChain(s, act, tok, source, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, &trackChildErrors)
 				} else {
 					p.applyAction(s, act, tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, &trackChildErrors)
 				}

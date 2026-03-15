@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 func debugFinalResultNodes(lang *Language, nodes []*Node) {
@@ -127,7 +128,7 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 			expectedStart = p.expectedRootStartByte()
 			expectedEnd = p.expectedRootEndByte(source)
 		}
-		if trimmed, changed := trimExpectedRootEOFSuffixNodes(nodes, expectedRootSymbol, expectedStart, expectedEnd); changed {
+		if trimmed, changed := trimExpectedRootEOFSuffixNodes(nodes, p.language, expectedRootSymbol, expectedStart, expectedEnd, source); changed {
 			nodes = trimmed
 		}
 		nodes = flattenInvisibleRootFragments(nodes, arena, p.language)
@@ -146,10 +147,10 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 	if len(nodes) == 1 {
 		candidate := nodes[0]
 		candidate = normalizeFinalRootNode(candidate, arena, p.language)
-		extendNodeToTrailingWhitespace(candidate, source)
-		p.normalizeRootSourceStart(candidate, source)
-		normalizeKnownSpanAttribution(candidate, source, p.language)
 		if !hasExpectedRoot || candidate.symbol == expectedRootSymbol {
+			extendNodeToTrailingWhitespace(candidate, source)
+			p.normalizeRootSourceStart(candidate, source)
+			normalizeKnownSpanAttribution(candidate, source, p.language)
 			if shouldWireParentLinks {
 				wireParentLinksWithScratch(candidate, linkScratch)
 			}
@@ -273,6 +274,9 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 	}
 
 	rootChildren := nodes
+	if filtered := filterSyntheticRootChildren(nodes, arena, p.language); len(filtered) != 0 {
+		rootChildren = filtered
+	}
 	rootSymbol := nodes[len(nodes)-1].symbol
 	if hasExpectedRoot {
 		rootSymbol = expectedRootSymbol
@@ -306,7 +310,7 @@ func flattenInvisibleRootFragments(nodes []*Node, arena *nodeArena, lang *Langua
 			out = append(out, n)
 			return
 		}
-		if int(n.symbol) < len(lang.SymbolMetadata) && !lang.SymbolMetadata[n.symbol].Visible {
+		if shouldFlattenInvisibleRootNode(n, lang) {
 			for _, child := range n.children {
 				appendNode(child)
 			}
@@ -346,15 +350,14 @@ func flattenInvisibleRootChildren(root *Node, arena *nodeArena, lang *Language) 
 	if root == nil || lang == nil || len(root.children) == 0 {
 		return root
 	}
-	symbolMeta := lang.SymbolMetadata
 	normalizedCount := len(root.children)
 	changed := false
 	for _, child := range root.children {
 		if child == nil || child.isExtra {
 			continue
 		}
-		if idx := int(child.symbol); idx >= 0 && idx < len(symbolMeta) && !symbolMeta[child.symbol].Visible {
-			flatCount := countFlattenedHiddenChildren(child, symbolMeta)
+		if shouldFlattenInvisibleRootNode(child, lang) {
+			flatCount := countFlattenedInvisibleRootChildren(child, lang)
 			if flatCount <= 0 {
 				continue
 			}
@@ -399,12 +402,10 @@ func flattenInvisibleRootChildren(root *Node, arena *nodeArena, lang *Language) 
 
 		flatten := false
 		if !child.isExtra {
-			if idx := int(child.symbol); idx >= 0 && idx < len(symbolMeta) && !symbolMeta[child.symbol].Visible {
-				flatten = countFlattenedHiddenChildren(child, symbolMeta) > 0
-			}
+			flatten = shouldFlattenInvisibleRootNode(child, lang) && countFlattenedInvisibleRootChildren(child, lang) > 0
 		}
 		if flatten {
-			out = appendFlattenedHiddenChildren(children, out, child, symbolMeta)
+			out = appendFlattenedInvisibleRootChildrenWithFields(children, fieldIDs, fieldSources, out, child, lang)
 			if fieldIDs != nil && parentFieldID != 0 && spanStart < out {
 				applyFieldToFlattenedSpan(children, fieldIDs, fieldSources, spanStart, out, parentFieldID, parentFieldSource, false)
 				normalizeMixedSourceFieldSpan(fieldIDs, fieldSources, spanStart, out)
@@ -443,6 +444,167 @@ func flattenInvisibleRootChildren(root *Node, arena *nodeArena, lang *Language) 
 		cloned.fieldSources = nil
 	}
 	return cloned
+}
+
+func shouldFlattenInvisibleRootNode(n *Node, lang *Language) bool {
+	if n == nil || lang == nil {
+		return false
+	}
+	idx := int(n.symbol)
+	if idx < 0 || idx >= len(lang.SymbolMetadata) {
+		return false
+	}
+	meta := lang.SymbolMetadata[n.symbol]
+	if meta.Visible {
+		return false
+	}
+	name := meta.Name
+	if name == "" && idx < len(lang.SymbolNames) {
+		name = lang.SymbolNames[n.symbol]
+	}
+	switch strings.ToLower(name) {
+	case "document", "paragraph":
+		return false
+	}
+	return true
+}
+
+func countFlattenedInvisibleRootChildren(n *Node, lang *Language) int {
+	if n == nil {
+		return 0
+	}
+	count := 0
+	stack := []*Node{n}
+	for len(stack) > 0 {
+		cur := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if cur == nil {
+			continue
+		}
+		if !shouldFlattenInvisibleRootNode(cur, lang) {
+			count++
+			continue
+		}
+		for i := len(cur.children) - 1; i >= 0; i-- {
+			if child := cur.children[i]; child != nil {
+				stack = append(stack, child)
+			}
+		}
+	}
+	return count
+}
+
+func appendFlattenedInvisibleRootChildrenWithFields(dst []*Node, fieldDst []FieldID, fieldSrcDst []uint8, out int, n *Node, lang *Language) int {
+	if n == nil {
+		return out
+	}
+
+	type hiddenFieldSpan struct {
+		count  int
+		source uint8
+	}
+
+	type flattenFrame struct {
+		node           *Node
+		childIndex     int
+		nodeStart      int
+		awaitingChild  bool
+		childSpanStart int
+		childFieldIdx  int
+		repeated       map[FieldID]hiddenFieldSpan
+		entered        bool
+	}
+
+	stack := []flattenFrame{{node: n}}
+	for len(stack) > 0 {
+		top := &stack[len(stack)-1]
+		if top.node == nil {
+			stack = stack[:len(stack)-1]
+			continue
+		}
+
+		if !shouldFlattenInvisibleRootNode(top.node, lang) {
+			dst[out] = top.node
+			out++
+			stack = stack[:len(stack)-1]
+			continue
+		}
+
+		if !top.entered {
+			top.entered = true
+			top.nodeStart = out
+		}
+		if top.awaitingChild {
+			top.awaitingChild = false
+			if fieldDst != nil && top.childFieldIdx < len(top.node.fieldIDs) && top.node.fieldIDs[top.childFieldIdx] != 0 {
+				fid := top.node.fieldIDs[top.childFieldIdx]
+				source := fieldSourceAt(top.node.fieldSources, top.childFieldIdx)
+				if source == fieldSourceNone {
+					source = fieldSourceDirect
+				}
+				applyFieldToFlattenedSpan(dst, fieldDst, fieldSrcDst, top.childSpanStart, out, fid, source, false)
+				if source == fieldSourceDirect && top.childSpanStart < out {
+					if top.repeated == nil {
+						top.repeated = make(map[FieldID]hiddenFieldSpan)
+					}
+					span := top.repeated[fid]
+					span.count++
+					span.source = source
+					top.repeated[fid] = span
+				}
+			}
+		}
+		if top.childIndex < len(top.node.children) {
+			childIdx := top.childIndex
+			child := top.node.children[childIdx]
+			top.childIndex++
+			if child != nil {
+				top.awaitingChild = true
+				top.childSpanStart = out
+				top.childFieldIdx = childIdx
+				stack = append(stack, flattenFrame{node: child})
+			}
+			continue
+		}
+		if fieldDst != nil && top.repeated != nil {
+			for fid, span := range top.repeated {
+				if span.count > 1 {
+					applyFieldToFlattenedSpan(dst, fieldDst, fieldSrcDst, top.nodeStart, out, fid, span.source, true)
+				}
+			}
+		}
+		stack = stack[:len(stack)-1]
+	}
+
+	return out
+}
+
+func filterSyntheticRootChildren(nodes []*Node, arena *nodeArena, lang *Language) []*Node {
+	if len(nodes) == 0 || lang == nil {
+		return nodes
+	}
+	filtered := make([]*Node, 0, len(nodes))
+	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
+		if n.isExtra {
+			idx := int(n.symbol)
+			if idx >= 0 && idx < len(lang.SymbolMetadata) && !lang.SymbolMetadata[n.symbol].Visible {
+				continue
+			}
+		}
+		filtered = append(filtered, n)
+	}
+	if len(filtered) == 0 || len(filtered) == len(nodes) {
+		return nodes
+	}
+	if arena != nil {
+		out := arena.allocNodeSlice(len(filtered))
+		copy(out, filtered)
+		return out
+	}
+	return filtered
 }
 
 func expectedRootChildrenLookComplete(nodes []*Node, p *Parser, source []byte) bool {

@@ -856,7 +856,7 @@ func TestAcceptExpectedRootSuffixAndUnwrapInvisibleFragment(t *testing.T) {
 		cacheEntries: true,
 		byteOffset:   1,
 	}
-	if !parser.acceptExpectedRootEOF(&s, Token{Symbol: 0, StartByte: 1, EndByte: 1}) {
+	if !parser.acceptExpectedRootEOF(&s, Token{Symbol: 0, StartByte: 1, EndByte: 1}, source) {
 		t.Fatal("acceptExpectedRootEOF() = false, want true for nullable expected-root suffix")
 	}
 	if !s.accepted {
@@ -883,6 +883,341 @@ func TestAcceptExpectedRootSuffixAndUnwrapInvisibleFragment(t *testing.T) {
 	}
 	if got, want := child.Text(tree.Source()), "x"; got != want {
 		t.Fatalf("root child text = %q, want %q", got, want)
+	}
+}
+
+func TestAcceptExpectedRootSuffixAllowsTrailingTrivia(t *testing.T) {
+	lang := &Language{
+		Name:        "expected_root_suffix_trivia",
+		SymbolCount: 4,
+		TokenCount:  2,
+		SymbolNames: []string{"EOF", "item", "_fragment", "root"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "item", Visible: true, Named: true},
+			{Name: "_fragment", Visible: false, Named: true},
+			{Name: "root", Visible: true, Named: true},
+		},
+	}
+	parser := NewParser(lang)
+	parser.rootSymbol = 3
+	parser.hasRootSymbol = true
+
+	source := []byte("x\n")
+	arena := acquireNodeArena(arenaClassFull)
+
+	item := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	fragment := newParentNodeInArena(arena, 2, true, []*Node{item}, nil, 0)
+	fragment.parseState = 5
+	fragment.preGotoState = 1
+
+	emptyChild := newLeafNodeInArena(arena, 2, true, 2, 2, Point{Row: 1}, Point{Row: 1})
+	emptyChild.isNamed = false
+	tail := newParentNodeInArena(arena, 3, true, []*Node{emptyChild}, nil, 0)
+	tail.hasError = true
+	tail.parseState = 5
+	tail.preGotoState = 5
+
+	s := glrStack{
+		entries: []stackEntry{
+			{state: 0},
+			{state: 5, node: fragment},
+			{state: 5, node: tail},
+		},
+		cacheEntries: true,
+		byteOffset:   2,
+	}
+	if !parser.acceptExpectedRootEOF(&s, Token{Symbol: 0, StartByte: 2, EndByte: 2}, source) {
+		t.Fatal("acceptExpectedRootEOF() = false, want true when only trailing trivia precedes EOF suffix")
+	}
+	if !s.accepted {
+		t.Fatal("stack not marked accepted")
+	}
+
+	tree := parser.buildResultFromGLR([]glrStack{s}, source, arena, nil, nil, nil)
+	root := tree.RootNode()
+	if got, want := root.Symbol(), Symbol(3); got != want {
+		t.Fatalf("root symbol = %d, want %d", got, want)
+	}
+	if root.HasError() {
+		t.Fatalf("root has error: %s", root.SExpr(lang))
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root child count = %d, want %d", got, want)
+	}
+	child := root.Child(0)
+	if child == nil {
+		t.Fatal("root child is nil")
+	}
+	if got, want := child.Symbol(), Symbol(1); got != want {
+		t.Fatalf("root child symbol = %d, want %d", got, want)
+	}
+	if got, want := child.Text(tree.Source()), "x"; got != want {
+		t.Fatalf("root child text = %q, want %q", got, want)
+	}
+	if got, want := root.EndByte(), uint32(len(source)); got != want {
+		t.Fatalf("root end = %d, want %d", got, want)
+	}
+}
+
+func TestAcceptExpectedRootSuffixIgnoresAnonymousZeroWidthLayoutTail(t *testing.T) {
+	lang := &Language{
+		Name:        "expected_root_suffix_layout_tail",
+		SymbolCount: 5,
+		TokenCount:  2,
+		SymbolNames: []string{"EOF", "item", "_fragment", "", "root"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "item", Visible: true, Named: true},
+			{Name: "_fragment", Visible: false, Named: true},
+			{Name: "", Visible: false, Named: false},
+			{Name: "root", Visible: true, Named: true},
+		},
+	}
+	parser := NewParser(lang)
+	parser.rootSymbol = 4
+	parser.hasRootSymbol = true
+
+	source := []byte("x\n")
+	arena := acquireNodeArena(arenaClassFull)
+
+	item := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	fragment := newParentNodeInArena(arena, 2, true, []*Node{item}, nil, 0)
+	fragment.parseState = 5
+	fragment.preGotoState = 1
+
+	layoutTail := newLeafNodeInArena(arena, 3, false, 2, 2, Point{Row: 1}, Point{Row: 1})
+	layoutTail.parseState = 5
+	layoutTail.preGotoState = 5
+
+	s := glrStack{
+		entries: []stackEntry{
+			{state: 0},
+			{state: 5, node: fragment},
+			{state: 5, node: layoutTail},
+		},
+		cacheEntries: true,
+		byteOffset:   2,
+	}
+	if !parser.acceptExpectedRootEOF(&s, Token{Symbol: 0, StartByte: 2, EndByte: 2}, source) {
+		t.Fatal("acceptExpectedRootEOF() = false, want true for anonymous zero-width layout tail")
+	}
+	if !s.accepted {
+		t.Fatal("stack not marked accepted")
+	}
+
+	tree := parser.buildResultFromGLR([]glrStack{s}, source, arena, nil, nil, nil)
+	root := tree.RootNode()
+	if got, want := root.Symbol(), Symbol(4); got != want {
+		t.Fatalf("root symbol = %d, want %d", got, want)
+	}
+	if root.HasError() {
+		t.Fatalf("root has error: %s", root.SExpr(lang))
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root child count = %d, want %d", got, want)
+	}
+	child := root.Child(0)
+	if child == nil {
+		t.Fatal("root child is nil")
+	}
+	if got, want := child.Symbol(), Symbol(1); got != want {
+		t.Fatalf("root child symbol = %d, want %d", got, want)
+	}
+	if got, want := child.Text(tree.Source()), "x"; got != want {
+		t.Fatalf("root child text = %q, want %q", got, want)
+	}
+}
+
+func TestAcceptExpectedRootSuffixIgnoresNamedZeroWidthLayoutTail(t *testing.T) {
+	lang := &Language{
+		Name:        "expected_root_suffix_named_layout_tail",
+		SymbolCount: 5,
+		TokenCount:  2,
+		SymbolNames: []string{"EOF", "item", "_fragment", "_automatic_semicolon", "root"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "item", Visible: true, Named: true},
+			{Name: "_fragment", Visible: false, Named: true},
+			{Name: "_automatic_semicolon", Visible: true, Named: true},
+			{Name: "root", Visible: true, Named: true},
+		},
+	}
+	parser := NewParser(lang)
+	parser.rootSymbol = 4
+	parser.hasRootSymbol = true
+
+	source := []byte("x\n")
+	arena := acquireNodeArena(arenaClassFull)
+
+	item := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	fragment := newParentNodeInArena(arena, 2, true, []*Node{item}, nil, 0)
+	fragment.parseState = 5
+	fragment.preGotoState = 1
+
+	layoutTail := newLeafNodeInArena(arena, 3, true, 2, 2, Point{Row: 1}, Point{Row: 1})
+	layoutTail.parseState = 5
+	layoutTail.preGotoState = 5
+
+	s := glrStack{
+		entries: []stackEntry{
+			{state: 0},
+			{state: 5, node: fragment},
+			{state: 5, node: layoutTail},
+		},
+		cacheEntries: true,
+		byteOffset:   2,
+	}
+	if !parser.acceptExpectedRootEOF(&s, Token{Symbol: 0, StartByte: 2, EndByte: 2}, source) {
+		t.Fatal("acceptExpectedRootEOF() = false, want true for named zero-width layout tail")
+	}
+	if !s.accepted {
+		t.Fatal("stack not marked accepted")
+	}
+
+	tree := parser.buildResultFromGLR([]glrStack{s}, source, arena, nil, nil, nil)
+	root := tree.RootNode()
+	if got, want := root.Symbol(), Symbol(4); got != want {
+		t.Fatalf("root symbol = %d, want %d", got, want)
+	}
+	if root.HasError() {
+		t.Fatalf("root has error: %s", root.SExpr(lang))
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root child count = %d, want %d", got, want)
+	}
+	child := root.Child(0)
+	if child == nil {
+		t.Fatal("root child is nil")
+	}
+	if got, want := child.Symbol(), Symbol(1); got != want {
+		t.Fatalf("root child symbol = %d, want %d", got, want)
+	}
+	if got, want := child.Text(tree.Source()), "x"; got != want {
+		t.Fatalf("root child text = %q, want %q", got, want)
+	}
+}
+
+func TestAcceptExpectedRootSuffixIgnoresHiddenZeroWidthErrorTail(t *testing.T) {
+	lang := &Language{
+		Name:        "expected_root_suffix_hidden_error_tail",
+		SymbolCount: 5,
+		TokenCount:  2,
+		SymbolNames: []string{"EOF", "item", "_fragment", "_tail_fragment", "root"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "item", Visible: true, Named: true},
+			{Name: "_fragment", Visible: false, Named: true},
+			{Name: "_tail_fragment", Visible: false, Named: true},
+			{Name: "root", Visible: true, Named: true},
+		},
+	}
+	parser := NewParser(lang)
+	parser.rootSymbol = 4
+	parser.hasRootSymbol = true
+
+	source := []byte("x\n")
+	arena := acquireNodeArena(arenaClassFull)
+
+	item := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	fragment := newParentNodeInArena(arena, 2, true, []*Node{item}, nil, 0)
+	fragment.parseState = 5
+	fragment.preGotoState = 1
+
+	emptyChild := newLeafNodeInArena(arena, 2, false, 2, 2, Point{Row: 1}, Point{Row: 1})
+	hiddenTail := newParentNodeInArena(arena, 3, true, []*Node{emptyChild}, nil, 0)
+	hiddenTail.hasError = true
+	hiddenTail.parseState = 5
+	hiddenTail.preGotoState = 5
+
+	s := glrStack{
+		entries: []stackEntry{
+			{state: 0},
+			{state: 5, node: fragment},
+			{state: 5, node: hiddenTail},
+		},
+		cacheEntries: true,
+		byteOffset:   2,
+	}
+	if !parser.acceptExpectedRootEOF(&s, Token{Symbol: 0, StartByte: 2, EndByte: 2}, source) {
+		t.Fatal("acceptExpectedRootEOF() = false, want true for hidden zero-width error tail")
+	}
+	if !s.accepted {
+		t.Fatal("stack not marked accepted")
+	}
+
+	tree := parser.buildResultFromGLR([]glrStack{s}, source, arena, nil, nil, nil)
+	root := tree.RootNode()
+	if got, want := root.Symbol(), Symbol(4); got != want {
+		t.Fatalf("root symbol = %d, want %d", got, want)
+	}
+	if root.HasError() {
+		t.Fatalf("root has error: %s", root.SExpr(lang))
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root child count = %d, want %d", got, want)
+	}
+	child := root.Child(0)
+	if child == nil {
+		t.Fatal("root child is nil")
+	}
+	if got, want := child.Symbol(), Symbol(1); got != want {
+		t.Fatalf("root child symbol = %d, want %d", got, want)
+	}
+	if got, want := child.Text(tree.Source()), "x"; got != want {
+		t.Fatalf("root child text = %q, want %q", got, want)
+	}
+}
+
+func TestAcceptExpectedRootSuffixRejectsPendingVisibleEOFFinalization(t *testing.T) {
+	lang := &Language{
+		Name:        "expected_root_suffix_pending_visible_reduce",
+		SymbolCount: 4,
+		TokenCount:  2,
+		SymbolNames: []string{"EOF", "item", "document", "root"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "item", Visible: true, Named: true},
+			{Name: "document", Visible: true, Named: true},
+			{Name: "root", Visible: true, Named: true},
+		},
+		ParseTable: [][]uint16{
+			{},
+			{},
+			{},
+			{},
+			{},
+			{1},
+		},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 2, ChildCount: 1}}},
+		},
+	}
+	parser := NewParser(lang)
+	parser.rootSymbol = 3
+	parser.hasRootSymbol = true
+
+	source := []byte("x\n")
+	arena := acquireNodeArena(arenaClassFull)
+
+	item := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	tail := newLeafNodeInArena(arena, 3, true, 2, 2, Point{Row: 1}, Point{Row: 1})
+
+	s := glrStack{
+		entries: []stackEntry{
+			{state: 0},
+			{state: 5, node: item},
+			{state: 5, node: tail},
+		},
+		cacheEntries: true,
+		byteOffset:   2,
+	}
+	if parser.acceptExpectedRootEOF(&s, Token{Symbol: 0, StartByte: 2, EndByte: 2}, source) {
+		t.Fatal("acceptExpectedRootEOF() = true, want false while a visible non-root EOF reduction is still pending")
+	}
+	if s.accepted {
+		t.Fatal("stack marked accepted despite pending visible EOF reduction")
 	}
 }
 

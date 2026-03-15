@@ -70,3 +70,50 @@ func TestBuildResultFromNodesFlattensInvisibleRootChildren(t *testing.T) {
 		t.Fatalf("root end = %d, want %d", got, want)
 	}
 }
+
+func TestBuildResultFromNodesKeepsWrappedSingleChildSpan(t *testing.T) {
+	lang := &Language{
+		Name:        "expected_root_wrapper",
+		SymbolNames: []string{"", "item", "root"},
+		SymbolMetadata: []SymbolMetadata{
+			{},
+			{Visible: true, Named: true},
+			{Visible: true, Named: true},
+		},
+	}
+	parser := &Parser{
+		language:      lang,
+		rootSymbol:    2,
+		hasRootSymbol: true,
+	}
+	arena := acquireNodeArena(arenaClassFull)
+	source := []byte("x\n")
+
+	item := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	tree := parser.buildResultFromNodes([]*Node{item}, source, arena, nil, nil, nil)
+	t.Cleanup(tree.Release)
+
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("buildResultFromNodes returned nil root")
+	}
+	if got, want := root.Symbol(), Symbol(2); got != want {
+		t.Fatalf("root symbol = %d, want %d", got, want)
+	}
+	if got, want := root.EndByte(), uint32(len(source)); got != want {
+		t.Fatalf("root end = %d, want %d", got, want)
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root child count = %d, want %d", got, want)
+	}
+	child := root.Child(0)
+	if child == nil {
+		t.Fatal("root child is nil")
+	}
+	if got, want := child.EndByte(), uint32(1); got != want {
+		t.Fatalf("wrapped child end = %d, want %d", got, want)
+	}
+	if got, want := child.Text(tree.Source()), "x"; got != want {
+		t.Fatalf("wrapped child text = %q, want %q", got, want)
+	}
+}
