@@ -95,6 +95,8 @@ func assemble(
 		buildExternalLexStates(lang, tables, ng)
 	}
 
+	gotreesitter.RepairNoLookaheadLexModes(lang)
+
 	// Immediate tokens — populate bitmask so the runtime lexer can reject
 	// immediate token matches when whitespace was consumed before them.
 	{
@@ -181,6 +183,13 @@ func buildParseTables(
 			case lrShift:
 				pa.Type = gotreesitter.ParseActionShift
 				pa.State = gotreesitter.StateID(a.state)
+				if a.isExtra {
+					if a.state == 0 {
+						pa.Extra = true
+					} else {
+						pa.ExtraChain = true
+					}
+				}
 			case lrReduce:
 				prod := &ng.Productions[a.prodIdx]
 				pa.Type = gotreesitter.ParseActionReduce

@@ -46,6 +46,7 @@ type ParseAction struct {
 	DynamicPrecedence int16   // precedence (reduce)
 	ProductionID      uint16  // which production (reduce)
 	Extra             bool    // is this an extra token (shift)
+	ExtraChain        bool    // does this shift enter a nonterminal extra chain
 	Repetition        bool    // is this a repetition (shift)
 }
 

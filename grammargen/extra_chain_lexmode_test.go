@@ -334,6 +334,103 @@ func TestNonterminalExtraChainSyntheticStatesPreferStructuralTokensOverExtraInje
 	}
 }
 
+func TestNonterminalExtraChainShiftExtraChainFlagSurvivesAssembly(t *testing.T) {
+	g := NewGrammar("extra_chain_shift_extra_flag")
+	g.Define("source_file", Repeat1(Sym("item")))
+	g.Define("item", Pat(`[a-z]+`))
+	g.Define("block_comment", Seq(
+		Token(Str("/*")),
+		Repeat(Token(Pat(`.`))),
+		Token(Str("*/")),
+	))
+	g.SetExtras(Pat(`\s`), Sym("block_comment"))
+
+	report, err := GenerateWithReport(g)
+	if err != nil {
+		t.Fatalf("GenerateWithReport: %v", err)
+	}
+	lang := report.Language
+
+	var (
+		slashStarSym gotreesitter.Symbol
+		foundSlash   bool
+	)
+	for i, name := range lang.SymbolNames {
+		if name == "/*" {
+			slashStarSym = gotreesitter.Symbol(i)
+			foundSlash = true
+			break
+		}
+	}
+	if !foundSlash {
+		t.Fatal("missing /* symbol")
+	}
+
+	actionIdx := lookupActionIndexForTest(lang, 1, slashStarSym)
+	if actionIdx == 0 || int(actionIdx) >= len(lang.ParseActions) {
+		t.Fatalf("missing parse action for /* in root state: %d", actionIdx)
+	}
+	actions := lang.ParseActions[actionIdx].Actions
+	if len(actions) != 1 || actions[0].Type != gotreesitter.ParseActionShift {
+		t.Fatalf("unexpected actions for /* in root state: %+v", actions)
+	}
+	if !actions[0].ExtraChain {
+		t.Fatalf("root extra-chain shift for /* lost ExtraChain flag: %+v", actions[0])
+	}
+	if actions[0].Extra {
+		t.Fatalf("root extra-chain shift for /* should not be treated as a terminal extra: %+v", actions[0])
+	}
+}
+
+func lookupActionIndexForTest(lang *gotreesitter.Language, state gotreesitter.StateID, sym gotreesitter.Symbol) uint16 {
+	if lang == nil {
+		return 0
+	}
+	denseLimit := int(lang.LargeStateCount)
+	if denseLimit == 0 {
+		denseLimit = len(lang.ParseTable)
+	}
+	if int(state) < denseLimit {
+		if int(state) >= len(lang.ParseTable) {
+			return 0
+		}
+		row := lang.ParseTable[state]
+		if int(sym) >= len(row) {
+			return 0
+		}
+		return row[sym]
+	}
+	smallIdx := int(state) - int(lang.LargeStateCount)
+	if smallIdx < 0 || smallIdx >= len(lang.SmallParseTableMap) {
+		return 0
+	}
+	table := lang.SmallParseTable
+	offset := lang.SmallParseTableMap[smallIdx]
+	if int(offset) >= len(table) {
+		return 0
+	}
+	groupCount := table[offset]
+	pos := int(offset) + 1
+	for i := uint16(0); i < groupCount; i++ {
+		if pos+1 >= len(table) {
+			break
+		}
+		sectionValue := table[pos]
+		symbolCount := table[pos+1]
+		pos += 2
+		for j := uint16(0); j < symbolCount; j++ {
+			if pos >= len(table) {
+				break
+			}
+			if gotreesitter.Symbol(table[pos]) == sym {
+				return sectionValue
+			}
+			pos++
+		}
+	}
+	return 0
+}
+
 func TestNonterminalExtraChainSyntheticReduceStatesDoNotInjectNestedExtraStarts(t *testing.T) {
 	g := NewGrammar("extra_chain_reduce_state")
 	g.Define("source_file", Repeat1(Sym("item")))

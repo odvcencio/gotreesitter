@@ -1193,7 +1193,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 
 			// --- Extra token handling (comments, whitespace) ---
 			if len(actions) == 1 &&
-				actions[0].Type == ParseActionShift && actions[0].Extra {
+				actions[0].Type == ParseActionShift &&
+				actions[0].Extra &&
+				actions[0].State == 0 {
 				p.applyAction(s, actions[0], tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, nil, false, nil)
 				needToken = true
 				continue
