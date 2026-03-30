@@ -164,6 +164,9 @@ func (d *dfaTokenSource) Close() {
 var DebugDFA atomic.Bool
 
 func (d *dfaTokenSource) Next() Token {
+	if d == nil || d.lexer == nil || d.lexer.source == nil {
+		return Token{}
+	}
 	startPos := 0
 	if perfCountersEnabled {
 		startPos = d.lexer.pos
@@ -292,7 +295,7 @@ func (d *dfaTokenSource) SetGLRStates(states []StateID) {
 }
 
 func (d *dfaTokenSource) nextDFAToken() Token {
-	if d == nil || d.lexer == nil || d.language == nil {
+	if d == nil || d.lexer == nil || d.lexer.source == nil || d.language == nil {
 		return Token{}
 	}
 	tok, endPos, endRow, endCol := d.scanPreferredTokenForState(d.state)
@@ -314,7 +317,7 @@ func (d *dfaTokenSource) syntheticEOFLookaheadToken() Token {
 }
 
 func (d *dfaTokenSource) nextTokenForLexState(lexState uint16) Token {
-	if d == nil || d.lexer == nil {
+	if d == nil || d.lexer == nil || d.lexer.source == nil {
 		return Token{}
 	}
 	if lexState == ^uint16(0) {
@@ -330,7 +333,7 @@ func (d *dfaTokenSource) nextTokenForLexState(lexState uint16) Token {
 // This prevents the primary stack's lex mode from producing a token that's
 // wrong for other stacks, which would cause them to be killed prematurely.
 func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
-	if d == nil || d.lexer == nil || d.language == nil || d.lookupActionIndex == nil {
+	if d == nil || d.lexer == nil || d.lexer.source == nil || d.language == nil || d.lookupActionIndex == nil {
 		return Token{}, false
 	}
 	if len(d.glrStates) <= 1 {
@@ -993,6 +996,9 @@ func (d *dfaTokenSource) eofTokenAtLexerPos() Token {
 }
 
 func (d *dfaTokenSource) SkipToByte(offset uint32) Token {
+	if d == nil || d.lexer == nil || d.lexer.source == nil {
+		return Token{}
+	}
 	target := int(offset)
 	if target < d.lexer.pos {
 		// Rewind isn't supported for DFA token sources during parse.
@@ -1016,6 +1022,9 @@ func (d *dfaTokenSource) SkipToByte(offset uint32) Token {
 }
 
 func (d *dfaTokenSource) SkipToByteWithPoint(offset uint32, pt Point) Token {
+	if d == nil || d.lexer == nil || d.lexer.source == nil {
+		return Token{}
+	}
 	target := int(offset)
 	if target > len(d.lexer.source) {
 		target = len(d.lexer.source)
@@ -1029,7 +1038,7 @@ func (d *dfaTokenSource) SkipToByteWithPoint(offset uint32, pt Point) Token {
 }
 
 func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
-	if d.language == nil || d.lookupActionIndex == nil {
+	if d == nil || d.language == nil || d.lexer == nil || d.lexer.source == nil || d.lookupActionIndex == nil {
 		return Token{}, false
 	}
 	if len(d.language.ExternalSymbols) == 0 {
