@@ -105,6 +105,43 @@ func (c *reuseCursor) commitScratch(scratch *reuseScratch) {
 	scratch.cache = c.cached[:0]
 }
 
+// releaseNodeRefs nils all *Node pointers so the GC can collect the arenas
+// they reference. Call before returning a Parser to a pool to prevent arena
+// retention via reuseCursor holding nodes from the last incremental parse.
+// Backing arrays (stack, cached) are kept to avoid re-allocation next parse.
+func (c *reuseCursor) releaseNodeRefs() {
+	c.next = nil
+	c.topLevel = nil
+	c.oldSource = nil
+	c.newSource = nil
+	if cap(c.stack) > 0 {
+		s := c.stack[:cap(c.stack)]
+		for i := range s {
+			s[i].node = nil
+		}
+		c.stack = c.stack[:0]
+	}
+	if cap(c.cached) > 0 {
+		clear(c.cached[:cap(c.cached)])
+		c.cached = c.cached[:0]
+	}
+}
+
+// releaseNodeRefs nils *Node pointers in the scratch buffers.
+func (s *reuseScratch) releaseNodeRefs() {
+	if cap(s.stack) > 0 {
+		sl := s.stack[:cap(s.stack)]
+		for i := range sl {
+			sl[i].node = nil
+		}
+		s.stack = s.stack[:0]
+	}
+	if cap(s.cache) > 0 {
+		clear(s.cache[:cap(s.cache)])
+		s.cache = s.cache[:0]
+	}
+}
+
 func (c *reuseCursor) candidates(start uint32) []*Node {
 	if c == nil {
 		return nil

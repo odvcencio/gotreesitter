@@ -311,6 +311,11 @@ func resetSnippetParser(parser *Parser) {
 	parser.glrTrace = false
 	parser.timeoutMicros = 0
 	parser.cancellationFlag = nil
+	// Release *Node refs so the arenas from the last incremental parse can be
+	// collected by the GC. Without this, a Parser sitting in a sync.Pool keeps
+	// its reuseCursor.topLevel/*Node alive, preventing arena reclamation.
+	parser.reuseCursor.releaseNodeRefs()
+	parser.reuseScratch.releaseNodeRefs()
 }
 
 // InferredRootSymbol returns the root symbol inferred during parser
