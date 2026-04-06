@@ -195,7 +195,7 @@ func (p *nodeArenaPool) release(a *nodeArena) {
 
 func (p *nodeArenaPool) drain() {
 	p.mu.Lock()
-	clear(p.free) // nil all pointers so GC can collect the arenas
+	clear(p.free[:cap(p.free)]) // nil all pointers so GC can collect the arenas
 	p.free = p.free[:0]
 	p.mu.Unlock()
 }

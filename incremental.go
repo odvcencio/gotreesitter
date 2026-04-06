@@ -115,10 +115,7 @@ func (c *reuseCursor) releaseNodeRefs() {
 	c.oldSource = nil
 	c.newSource = nil
 	if cap(c.stack) > 0 {
-		s := c.stack[:cap(c.stack)]
-		for i := range s {
-			s[i].node = nil
-		}
+		clear(c.stack[:cap(c.stack)])
 		c.stack = c.stack[:0]
 	}
 	if cap(c.cached) > 0 {
@@ -130,10 +127,7 @@ func (c *reuseCursor) releaseNodeRefs() {
 // releaseNodeRefs nils *Node pointers in the scratch buffers.
 func (s *reuseScratch) releaseNodeRefs() {
 	if cap(s.stack) > 0 {
-		sl := s.stack[:cap(s.stack)]
-		for i := range sl {
-			sl[i].node = nil
-		}
+		clear(s.stack[:cap(s.stack)])
 		s.stack = s.stack[:0]
 	}
 	if cap(s.cache) > 0 {
