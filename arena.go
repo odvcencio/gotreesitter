@@ -193,6 +193,23 @@ func (p *nodeArenaPool) release(a *nodeArena) {
 	p.mu.Unlock()
 }
 
+func (p *nodeArenaPool) drain() {
+	p.mu.Lock()
+	p.free = p.free[:0]
+	p.mu.Unlock()
+}
+
+// DrainArenaPools releases all cached arenas from both incremental and full-parse
+// pools. Arenas held in the pool are strong Go references and are not collected
+// by the GC until explicitly drained or the process exits.
+//
+// Call this after a large batch scan (e.g. after WalkAndParse returns) to allow
+// the GC to reclaim the arena memory. The next parse will allocate a fresh arena.
+func DrainArenaPools() {
+	incrementalArenaPool.drain()
+	fullArenaPool.drain()
+}
+
 func nodeCapacityForBytes(slabBytes int) int {
 	nodeSize := int(unsafe.Sizeof(Node{}))
 	if nodeSize <= 0 {
