@@ -289,16 +289,6 @@ func (s *glrStack) truncate(depth int) bool {
 	return true
 }
 
-func (s *glrStack) recomputeByteOffset() {
-	if s.entries != nil {
-		s.byteOffset = stackByteOffset(s.entries)
-		return
-	}
-	if s.gss.head != nil {
-		s.byteOffset = s.gss.byteOffset()
-	}
-}
-
 // mergeStacks removes dead stacks and collapses only truly duplicate
 // active stacks. Two stacks are considered merge-compatible only when
 // they share the same top parser state and byte position (matching the
@@ -415,14 +405,6 @@ func nodeEquivCacheIndex(a, b *Node, depth int) int {
 	return int(h & uint64(glrNodeEquivCacheSize-1))
 }
 
-func stackEntriesEqual(a, b []stackEntry) bool {
-	return stackEntriesEqualForLanguage(nil, a, b)
-}
-
-func stackEntriesEqualForLanguage(lang *Language, a, b []stackEntry) bool {
-	return stackEntriesEqualForLanguageWithScratch(nil, lang, a, b)
-}
-
 func stackEntriesEqualForLanguageWithScratch(scratch *glrMergeScratch, lang *Language, a, b []stackEntry) bool {
 	if len(a) != len(b) {
 		return false
@@ -508,14 +490,6 @@ func stackEquivalentForLanguageWithScratch(scratch *glrMergeScratch, lang *Langu
 		perfRecordStackEquivalentTrue()
 	}
 	return eq
-}
-
-func gssStackEntriesEqual(gss gssStack, entries []stackEntry) bool {
-	return gssStackEntriesEqualForLanguage(nil, gss, entries)
-}
-
-func gssStackEntriesEqualForLanguage(lang *Language, gss gssStack, entries []stackEntry) bool {
-	return gssStackEntriesEqualForLanguageWithScratch(nil, lang, gss, entries)
 }
 
 func gssStackEntriesEqualForLanguageWithScratch(scratch *glrMergeScratch, lang *Language, gss gssStack, entries []stackEntry) bool {
@@ -612,10 +586,6 @@ func stackNodeNeedsDeepEquivalent(n *Node) bool {
 	return false
 }
 
-func stackEntryNodesEquivalentForLanguage(lang *Language, a, b *Node) bool {
-	return stackEntryNodesEquivalentForLanguageWithScratch(nil, lang, a, b)
-}
-
 func stackEntryNodesEquivalentForLanguageWithScratch(scratch *glrMergeScratch, lang *Language, a, b *Node) bool {
 	if lang != nil && (lang.Name == "c_sharp" || lang.Name == "bash" || len(lang.AliasSequences) > 0) {
 		depthLimit := stackEquivalentFrontierDepthLimit
@@ -664,10 +634,6 @@ func stackEntryNodesEquivalentForLanguageWithScratch(scratch *glrMergeScratch, l
 		return true
 	}
 	return stackEntryNodesEquivalent(a, b)
-}
-
-func stackEntryNodesEquivalentFrontier(a, b *Node, depth int) bool {
-	return stackEntryNodesEquivalentFrontierWithScratch(nil, a, b, depth)
 }
 
 func stackEntryNodesEquivalentFrontierWithScratch(scratch *glrMergeScratch, a, b *Node, depth int) bool {
@@ -1244,16 +1210,6 @@ func (s *glrEntryScratch) allocWithCap(length, capacity int) []stackEntry {
 		end := start + length
 		return slab.data[start : end : start+capacity]
 	}
-}
-
-func (s *glrEntryScratch) clone(entries []stackEntry) []stackEntry {
-	if len(entries) == 0 {
-		return nil
-	}
-	// Keep clone capacity tight to minimize per-fork copied bytes.
-	out := s.allocWithCap(len(entries), len(entries)+1)
-	copy(out, entries)
-	return out
 }
 
 func (s *glrEntryScratch) grow(entries []stackEntry, minCap int) []stackEntry {
