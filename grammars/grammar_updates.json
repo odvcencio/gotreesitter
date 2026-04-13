@@ -1,0 +1,2254 @@
+{
+  "generated_at": "2026-04-13T07:03:17Z",
+  "lock_path": "grammars/languages.lock",
+  "write_applied": true,
+  "sync_manifest": false,
+  "filter_allow_list": "grammars/update_tier1_core100.txt",
+  "max_updates": 10,
+  "total_entries": 206,
+  "checked_entries": 100,
+  "applied_count": 10,
+  "available_count": 10,
+  "unchanged_count": 80,
+  "skipped_count": 106,
+  "error_count": 0,
+  "added_from_manifest": 0,
+  "results": [
+    {
+      "name": "ada",
+      "repo_url": "https://github.com/briot/tree-sitter-ada",
+      "old_ref": "6b58259a08b1a22ba0247a7ce30be384db618da6",
+      "new_ref": "6b58259a08b1a22ba0247a7ce30be384db618da6",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "agda",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-agda",
+      "old_ref": "e8d47a6987effe34d5595baf321d82d3519a8527",
+      "new_ref": "e8d47a6987effe34d5595baf321d82d3519a8527",
+      "subdir": "src",
+      "extensions": [
+        ".agda"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "angular",
+      "repo_url": "https://github.com/dlvandenberg/tree-sitter-angular",
+      "old_ref": "f0d0685701b70883fa2dfe94ee7dc27965cab841",
+      "new_ref": "f0d0685701b70883fa2dfe94ee7dc27965cab841",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "apex",
+      "repo_url": "https://github.com/aheber/tree-sitter-sfapex",
+      "old_ref": "3597575a429766dd7ecce9f5bb97f6fec4419d5d",
+      "new_ref": "3597575a429766dd7ecce9f5bb97f6fec4419d5d",
+      "subdir": "apex/src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "arduino",
+      "repo_url": "https://github.com/ObserverOfTime/tree-sitter-arduino",
+      "old_ref": "53eb391da4c6c5857f8defa2c583c46c2594f565",
+      "new_ref": "11dd46c9ae25135c473c0003a133bb06a484af0c",
+      "subdir": "src",
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "asm",
+      "repo_url": "https://github.com/RubixDev/tree-sitter-asm",
+      "old_ref": "839741fef4dab5128952334624905c82b40c7133",
+      "new_ref": "839741fef4dab5128952334624905c82b40c7133",
+      "subdir": "src",
+      "extensions": [
+        ".s",
+        ".asm"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "astro",
+      "repo_url": "https://github.com/virchau13/tree-sitter-astro",
+      "old_ref": "213f6e6973d9b456c6e50e86f19f66877e7ef0ee",
+      "new_ref": "213f6e6973d9b456c6e50e86f19f66877e7ef0ee",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "authzed",
+      "repo_url": "https://github.com/mleonidas/tree-sitter-authzed",
+      "old_ref": "83e5c26a8687eb4688fe91d690c735cc3d21ad81",
+      "new_ref": "83e5c26a8687eb4688fe91d690c735cc3d21ad81",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "awk",
+      "repo_url": "https://github.com/Beaglefoot/tree-sitter-awk",
+      "old_ref": "34bbdc7cce8e803096f47b625979e34c1be38127",
+      "new_ref": "34bbdc7cce8e803096f47b625979e34c1be38127",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "bash",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-bash",
+      "old_ref": "a06c2e4415e9bc0346c6b86d401879ffb44058f7",
+      "new_ref": "a06c2e4415e9bc0346c6b86d401879ffb44058f7",
+      "subdir": "src",
+      "extensions": [
+        ".sh"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "bass",
+      "repo_url": "https://github.com/vito/tree-sitter-bass",
+      "old_ref": "28dc7059722be090d04cd751aed915b2fee2f89a",
+      "new_ref": "28dc7059722be090d04cd751aed915b2fee2f89a",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "beancount",
+      "repo_url": "https://github.com/polarmutex/tree-sitter-beancount",
+      "old_ref": "d7a03a7506fbbbc4b16a9a2054ff7c2b337744b8",
+      "new_ref": "9db1ad0d5047e5e7f12db50741aba1c32716779a",
+      "subdir": "src",
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "bibtex",
+      "repo_url": "https://github.com/latex-lsp/tree-sitter-bibtex",
+      "old_ref": "8d04ed27b3bc7929f14b7df9236797dab9f3fa66",
+      "new_ref": "8d04ed27b3bc7929f14b7df9236797dab9f3fa66",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "bicep",
+      "repo_url": "https://github.com/amaanq/tree-sitter-bicep",
+      "old_ref": "bff59884307c0ab009bd5e81afd9324b46a6c0f9",
+      "new_ref": "bff59884307c0ab009bd5e81afd9324b46a6c0f9",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "bitbake",
+      "repo_url": "https://github.com/amaanq/tree-sitter-bitbake",
+      "old_ref": "a5d04fdb5a69a02b8fa8eb5525a60dfb5309b73b",
+      "new_ref": "a5d04fdb5a69a02b8fa8eb5525a60dfb5309b73b",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "blade",
+      "repo_url": "https://github.com/EmranMR/tree-sitter-blade",
+      "old_ref": "42b3c5a06bc29fbd2c2cbd52b96113365fbed646",
+      "new_ref": "b9436b7b936907aff730de0dac1b99d7c632cc86",
+      "subdir": "src",
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "brightscript",
+      "repo_url": "https://github.com/ajdelcimmuto/tree-sitter-brightscript",
+      "old_ref": "253fdfaa23814cb46c2d5fc19049fa0f2f62c6da",
+      "new_ref": "253fdfaa23814cb46c2d5fc19049fa0f2f62c6da",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "c",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-c",
+      "old_ref": "ae19b676b13bdcc13b7665397e6d9b14975473dd",
+      "new_ref": "ae19b676b13bdcc13b7665397e6d9b14975473dd",
+      "subdir": "src",
+      "extensions": [
+        ".c",
+        ".h"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "c_sharp",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-c-sharp",
+      "old_ref": "88366631d598ce6595ec655ce1591b315cffb14c",
+      "new_ref": "88366631d598ce6595ec655ce1591b315cffb14c",
+      "subdir": "src",
+      "extensions": [
+        ".cs"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "caddy",
+      "repo_url": "https://github.com/opa-oz/tree-sitter-caddy",
+      "old_ref": "9b3fde99d3d74345b85b655a6d8065e004fbe26f",
+      "new_ref": "9b3fde99d3d74345b85b655a6d8065e004fbe26f",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cairo",
+      "repo_url": "https://github.com/amaanq/tree-sitter-cairo",
+      "old_ref": "6238f609bea233040fe927858156dee5515a0745",
+      "new_ref": "6238f609bea233040fe927858156dee5515a0745",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "capnp",
+      "repo_url": "https://github.com/amaanq/tree-sitter-capnp",
+      "old_ref": "7b0883c03e5edd34ef7bcf703194204299d7099f",
+      "new_ref": "7b0883c03e5edd34ef7bcf703194204299d7099f",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "chatito",
+      "repo_url": "https://github.com/ObserverOfTime/tree-sitter-chatito",
+      "old_ref": "c0ed82c665b732395073f635c74c300f09530a7f",
+      "new_ref": "c0ed82c665b732395073f635c74c300f09530a7f",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "circom",
+      "repo_url": "https://github.com/Decurity/tree-sitter-circom",
+      "old_ref": "02150524228b1e6afef96949f2d6b7cc0aaf999e",
+      "new_ref": "02150524228b1e6afef96949f2d6b7cc0aaf999e",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "clojure",
+      "repo_url": "https://github.com/sogaiu/tree-sitter-clojure",
+      "old_ref": "e43eff80d17cf34852dcd92ca5e6986d23a7040f",
+      "new_ref": "e43eff80d17cf34852dcd92ca5e6986d23a7040f",
+      "subdir": "src",
+      "extensions": [
+        ".clj",
+        ".cljs",
+        ".cljc",
+        ".edn"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cmake",
+      "repo_url": "https://github.com/uyha/tree-sitter-cmake",
+      "old_ref": "c7b2a71e7f8ecb167fad4c97227c838439280175",
+      "new_ref": "c7b2a71e7f8ecb167fad4c97227c838439280175",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cobol",
+      "repo_url": "https://github.com/yutaro-sakamoto/tree-sitter-cobol",
+      "old_ref": "e99dbdc3d800d5fa2796476efd60af91f6b43d93",
+      "subdir": "src",
+      "extensions": [
+        ".cob",
+        ".cbl",
+        ".cpy"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "comment",
+      "repo_url": "https://github.com/stsewd/tree-sitter-comment",
+      "old_ref": "66272d2b6c73fb61157541b69dd0a7ce7b42a5ad",
+      "new_ref": "66272d2b6c73fb61157541b69dd0a7ce7b42a5ad",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "commonlisp",
+      "repo_url": "https://github.com/theHamsta/tree-sitter-commonlisp",
+      "old_ref": "32323509b3d9fe96607d151c2da2c9009eb13a2f",
+      "new_ref": "32323509b3d9fe96607d151c2da2c9009eb13a2f",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cooklang",
+      "repo_url": "https://github.com/addcninblue/tree-sitter-cooklang",
+      "old_ref": "4ebe237c1cf64cf3826fc249e9ec0988fe07e58e",
+      "new_ref": "4ebe237c1cf64cf3826fc249e9ec0988fe07e58e",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "corn",
+      "repo_url": "https://github.com/jakestanger/tree-sitter-corn",
+      "old_ref": "464654742cbfd3a3de560aba120998f1d5dfa844",
+      "new_ref": "464654742cbfd3a3de560aba120998f1d5dfa844",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cpon",
+      "repo_url": "https://github.com/amaanq/tree-sitter-cpon",
+      "old_ref": "594289eadfec719198e560f9d7fd243c4db678d5",
+      "new_ref": "594289eadfec719198e560f9d7fd243c4db678d5",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cpp",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-cpp",
+      "old_ref": "8b5b49eb196bec7040441bee33b2c9a4838d6967",
+      "new_ref": "8b5b49eb196bec7040441bee33b2c9a4838d6967",
+      "subdir": "src",
+      "extensions": [
+        ".cc",
+        ".cpp",
+        ".cxx",
+        ".hpp",
+        ".hh",
+        ".hxx",
+        ".h"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "crystal",
+      "repo_url": "https://github.com/keidax/tree-sitter-crystal",
+      "old_ref": "51ad1411de9414b4600227553bb70953c352a627",
+      "subdir": "src",
+      "extensions": [
+        ".cr"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "css",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-css",
+      "old_ref": "dda5cfc5722c429eaba1c910ca32c2c0c5bb1a3f",
+      "new_ref": "dda5cfc5722c429eaba1c910ca32c2c0c5bb1a3f",
+      "subdir": "src",
+      "extensions": [
+        ".css"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "csv",
+      "repo_url": "https://github.com/amaanq/tree-sitter-csv",
+      "old_ref": "f6bf6e35eb0b95fbadea4bb39cb9709507fcb181",
+      "new_ref": "f6bf6e35eb0b95fbadea4bb39cb9709507fcb181",
+      "subdir": "csv/src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cuda",
+      "repo_url": "https://github.com/theHamsta/tree-sitter-cuda",
+      "old_ref": "48b066f334f4cf2174e05a50218ce2ed98b6fd01",
+      "new_ref": "48b066f334f4cf2174e05a50218ce2ed98b6fd01",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "cue",
+      "repo_url": "https://github.com/eonpatapon/tree-sitter-cue",
+      "old_ref": "be0f609c73cc2929811a9bce0ed90ca71ea87604",
+      "new_ref": "a9e713c2fa2da69de03ceb799807043420ca7c4b",
+      "subdir": "src",
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "cylc",
+      "repo_url": "https://github.com/elliotfontaine/tree-sitter-cylc",
+      "old_ref": "6d1d81137112299324b526477ce1db989ab58fb8",
+      "new_ref": "6d1d81137112299324b526477ce1db989ab58fb8",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "d",
+      "repo_url": "https://github.com/gdamore/tree-sitter-d",
+      "old_ref": "fb028c8f14f4188286c2eef143f105def6fbf24f",
+      "new_ref": "fb028c8f14f4188286c2eef143f105def6fbf24f",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "dart",
+      "repo_url": "https://github.com/UserNobody14/tree-sitter-dart",
+      "old_ref": "81638dbbdb76a0e88ea8c31b95ec76b9625ddb84",
+      "new_ref": "0fc19c3a57b1109802af41d2b8f60d8835c5da3a",
+      "subdir": "src",
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "desktop",
+      "repo_url": "https://github.com/ValdezFOmar/tree-sitter-desktop",
+      "old_ref": "58e2ae16828d20889a36e657d728d901b4de47ec",
+      "new_ref": "954da7259e0f6c3bb4f811fddce11eb5ac94d9f6",
+      "subdir": "src",
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "devicetree",
+      "repo_url": "https://github.com/joelspadin/tree-sitter-devicetree",
+      "old_ref": "e685f1f6ac1702b046415efb476444167d63e41a",
+      "new_ref": "e685f1f6ac1702b046415efb476444167d63e41a",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "dhall",
+      "repo_url": "https://github.com/jbellerb/tree-sitter-dhall",
+      "old_ref": "62013259b26ac210d5de1abf64cf1b047ef88000",
+      "subdir": "src",
+      "extensions": [
+        ".dhall"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "diff",
+      "repo_url": "https://github.com/the-mikedavis/tree-sitter-diff",
+      "old_ref": "2520c3f934b3179bb540d23e0ef45f75304b5fed",
+      "new_ref": "2520c3f934b3179bb540d23e0ef45f75304b5fed",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "disassembly",
+      "repo_url": "https://github.com/ColinKennedy/tree-sitter-disassembly",
+      "old_ref": "0229c0211dba909c5d45129ac784a3f4d49c243a",
+      "new_ref": "0229c0211dba909c5d45129ac784a3f4d49c243a",
+      "subdir": "src",
+      "extensions": [
+        ".dis",
+        ".dump"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "djot",
+      "repo_url": "https://github.com/treeman/tree-sitter-djot",
+      "old_ref": "74fac1f53c6d52aeac104b6874e5506be6d0cfe6",
+      "new_ref": "74fac1f53c6d52aeac104b6874e5506be6d0cfe6",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "dockerfile",
+      "repo_url": "https://github.com/camdencheek/tree-sitter-dockerfile",
+      "old_ref": "971acdd908568b4531b0ba28a445bf0bb720aba5",
+      "new_ref": "971acdd908568b4531b0ba28a445bf0bb720aba5",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "dot",
+      "repo_url": "https://github.com/rydesun/tree-sitter-dot",
+      "old_ref": "80327abbba6f47530edeb0df9f11bd5d5c93c14d",
+      "subdir": "src",
+      "extensions": [
+        ".dot",
+        ".gv"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "doxygen",
+      "repo_url": "https://github.com/amaanq/tree-sitter-doxygen",
+      "old_ref": "ccd998f378c3f9345ea4eeb223f56d7b84d16687",
+      "new_ref": "ccd998f378c3f9345ea4eeb223f56d7b84d16687",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "dtd",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-xml",
+      "old_ref": "5000ae8f22d11fbe93939b05c1e37cf21117162d",
+      "new_ref": "5000ae8f22d11fbe93939b05c1e37cf21117162d",
+      "subdir": "dtd/src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "earthfile",
+      "repo_url": "https://github.com/glehmann/tree-sitter-earthfile",
+      "old_ref": "5baef88717ad0156fd29a8b12d0d8245bb1096a8",
+      "new_ref": "5baef88717ad0156fd29a8b12d0d8245bb1096a8",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "ebnf",
+      "repo_url": "https://github.com/RubixDev/ebnf",
+      "old_ref": "8e635b0b723c620774dfb8abf382a7f531894b40",
+      "new_ref": "8e635b0b723c620774dfb8abf382a7f531894b40",
+      "subdir": "crates/tree-sitter-ebnf/src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "editorconfig",
+      "repo_url": "https://github.com/ValdezFOmar/tree-sitter-editorconfig",
+      "old_ref": "63f104dab268a25237f773323c172a4a380a00e1",
+      "new_ref": "bfd74395e393f56ba58db953458b346f02d6f7b2",
+      "subdir": "src",
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "eds",
+      "repo_url": "https://github.com/uyha/tree-sitter-eds",
+      "old_ref": "26d529e6cfecde391a03c21d1474eb51e0285805",
+      "new_ref": "26d529e6cfecde391a03c21d1474eb51e0285805",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "eex",
+      "repo_url": "https://github.com/connorlay/tree-sitter-eex",
+      "old_ref": "f742f2fe327463335e8671a87c0b9b396905d1d1",
+      "new_ref": "f742f2fe327463335e8671a87c0b9b396905d1d1",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "elisp",
+      "repo_url": "https://github.com/Wilfred/tree-sitter-elisp",
+      "old_ref": "29b4e49275f4a947ce17c8533bc20a1f97768c70",
+      "subdir": "src",
+      "extensions": [
+        ".el"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "elixir",
+      "repo_url": "https://github.com/elixir-lang/tree-sitter-elixir",
+      "old_ref": "d24cecee673c4c770f797bac6f87ae4b6d7ddec5",
+      "new_ref": "7937d3b4d65fa574163cfa59394515d3c1cf16f4",
+      "subdir": "src",
+      "extensions": [
+        ".ex",
+        ".exs"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "elm",
+      "repo_url": "https://github.com/elm-tooling/tree-sitter-elm",
+      "old_ref": "6d9511c28181db66daee4e883f811f6251220943",
+      "new_ref": "6d9511c28181db66daee4e883f811f6251220943",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "elsa",
+      "repo_url": "https://github.com/glapa-grossklag/tree-sitter-elsa",
+      "old_ref": "0a66b2b3f3c1915e67ad2ef9f7dbd2a84820d9d7",
+      "new_ref": "0a66b2b3f3c1915e67ad2ef9f7dbd2a84820d9d7",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "embedded_template",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-embedded-template",
+      "old_ref": "3499d85f0a0d937c507a4a65368f2f63772786e1",
+      "new_ref": "3499d85f0a0d937c507a4a65368f2f63772786e1",
+      "subdir": "src",
+      "extensions": [
+        ".erb",
+        ".ejs"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "enforce",
+      "repo_url": "https://github.com/simonvic/tree-sitter-enforce",
+      "old_ref": "eb2796871d966264cdb041b797416ef1757c8b4f",
+      "new_ref": "eb2796871d966264cdb041b797416ef1757c8b4f",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "erlang",
+      "repo_url": "https://github.com/WhatsApp/tree-sitter-erlang",
+      "old_ref": "f21023bbd6cd30cadbc793d80ae4d990d9be86fc",
+      "new_ref": "1d78195c4fbb1fc027eb3e4220427f1eb8bfc89e",
+      "subdir": "src",
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "facility",
+      "repo_url": "https://github.com/FacilityApi/tree-sitter-facility",
+      "old_ref": "e4bfd3e960de9f4b4648acb1c92e9b95b47d8cfb",
+      "new_ref": "e4bfd3e960de9f4b4648acb1c92e9b95b47d8cfb",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "faust",
+      "repo_url": "https://github.com/khiner/tree-sitter-faust",
+      "old_ref": "122dd101919289ea809bad643712fcb483a1bed0",
+      "new_ref": "2bd027f18927d13afdfdfc3f1e7088aaa515691f",
+      "subdir": "src",
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "fennel",
+      "repo_url": "https://github.com/alexmozaidze/tree-sitter-fennel",
+      "old_ref": "3f0f6b24d599e92460b969aabc4f4c5a914d15a0",
+      "new_ref": "3f0f6b24d599e92460b969aabc4f4c5a914d15a0",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "fidl",
+      "repo_url": "https://github.com/google/tree-sitter-fidl",
+      "old_ref": "0a8910f293268e27ff554357c229ba172b0eaed2",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "firrtl",
+      "repo_url": "https://github.com/amaanq/tree-sitter-firrtl",
+      "old_ref": "8503d3a0fe0f9e427863cb0055699ff2d29ae5f5",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "fish",
+      "repo_url": "https://github.com/ram02z/tree-sitter-fish",
+      "old_ref": "fa2143f5d66a9eb6c007ba9173525ea7aaafe788",
+      "subdir": "src",
+      "extensions": [
+        ".fish"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "foam",
+      "repo_url": "https://github.com/FoamScience/tree-sitter-foam",
+      "old_ref": "472c24f11a547820327fb1be565bcfff98ea96a4",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "forth",
+      "repo_url": "https://github.com/AlexanderBrevig/tree-sitter-forth",
+      "old_ref": "360ef13f8c609ec6d2e80782af69958b84e36cd0",
+      "subdir": "src",
+      "extensions": [
+        ".fs",
+        ".fth",
+        ".4th"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "fortran",
+      "repo_url": "https://github.com/stadelmanma/tree-sitter-fortran",
+      "old_ref": "2880b7aab4fb7cc618de1ef3d4c6d93b2396c031",
+      "subdir": "src",
+      "extensions": [
+        ".f",
+        ".f90",
+        ".f95",
+        ".f03",
+        ".f08"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "fsharp",
+      "repo_url": "https://github.com/ionide/tree-sitter-fsharp",
+      "old_ref": "5141851c278a99958469eb1736c7afc4ec738e47",
+      "subdir": "fsharp/src",
+      "extensions": [
+        ".fs",
+        ".fsi",
+        ".fsx"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "gdscript",
+      "repo_url": "https://github.com/PrestonKnopp/tree-sitter-gdscript",
+      "old_ref": "89e66b6bdc002ab976283f277cbb48b780c5d0e9",
+      "subdir": "src",
+      "extensions": [
+        ".gd"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "git_config",
+      "repo_url": "https://github.com/the-mikedavis/tree-sitter-git-config",
+      "old_ref": "0fbc9f99d5a28865f9de8427fb0672d66f9d83a5",
+      "subdir": "src",
+      "extensions": [
+        ".gitconfig"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "git_rebase",
+      "repo_url": "https://github.com/the-mikedavis/tree-sitter-git-rebase",
+      "old_ref": "bff4b66b44b020d918d67e2828eada1974a966aa",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "gitattributes",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-gitattributes",
+      "old_ref": "1b7af09d45b579f9f288453b95ad555f1f431645",
+      "subdir": "src",
+      "extensions": [
+        ".gitattributes"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "gitcommit",
+      "repo_url": "https://github.com/gbprod/tree-sitter-gitcommit",
+      "old_ref": "a716678c0f00645fed1e6f1d0eb221481dbd6f6d",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "gitignore",
+      "repo_url": "https://github.com/shunsambongi/tree-sitter-gitignore",
+      "old_ref": "f4685bf11ac466dd278449bcfe5fd014e94aa504",
+      "subdir": "src",
+      "extensions": [
+        ".gitignore"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "gleam",
+      "repo_url": "https://github.com/gleam-lang/tree-sitter-gleam",
+      "old_ref": "6ea757f7eb8d391dbf24dbb9461990757946dd5e",
+      "subdir": "src",
+      "extensions": [
+        ".gleam"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "glsl",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-glsl",
+      "old_ref": "24a6c8ef698e4480fecf8340d771fbcb5de8fbb4",
+      "subdir": "src",
+      "extensions": [
+        ".glsl",
+        ".vert",
+        ".frag"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "gn",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-gn",
+      "old_ref": "bc06955bc1e3c9ff8e9b2b2a55b38b94da923c05",
+      "subdir": "src",
+      "extensions": [
+        ".gn",
+        ".gni"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "go",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-go",
+      "old_ref": "2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+      "new_ref": "2346a3ab1bb3857b48b29d779a1ef9799a248cd7",
+      "subdir": "src",
+      "extensions": [
+        ".go"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "godot_resource",
+      "repo_url": "https://github.com/PrestonKnopp/tree-sitter-godot-resource",
+      "old_ref": "302c1895f54bf74d53a08572f7b26a6614209adc",
+      "subdir": "src",
+      "extensions": [
+        ".tres",
+        ".tscn"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "gomod",
+      "repo_url": "https://github.com/camdencheek/tree-sitter-go-mod",
+      "old_ref": "2e886870578eeba1927a2dc4bd2e2b3f598c5f9a",
+      "new_ref": "2e886870578eeba1927a2dc4bd2e2b3f598c5f9a",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "graphql",
+      "repo_url": "https://github.com/bkegley/tree-sitter-graphql",
+      "old_ref": "5e66e961eee421786bdda8495ed1db045e06b5fe",
+      "new_ref": "5e66e961eee421786bdda8495ed1db045e06b5fe",
+      "subdir": "src",
+      "extensions": [
+        ".graphql",
+        ".gql"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "groovy",
+      "repo_url": "https://github.com/murtaza64/tree-sitter-groovy",
+      "old_ref": "a88865a3301a538e2060af5b401f4f431f71406e",
+      "subdir": "src",
+      "extensions": [
+        ".groovy",
+        ".gvy"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "hack",
+      "repo_url": "https://github.com/slackhq/tree-sitter-hack",
+      "old_ref": "1a7ded90288189746c54861ac144ede97df95081",
+      "subdir": "src",
+      "extensions": [
+        ".hack",
+        ".hh"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "hare",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-hare",
+      "old_ref": "eed7ddf6a66b596906aa8ca3d40521b8278adc6f",
+      "subdir": "src",
+      "extensions": [
+        ".ha"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "haskell",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-haskell",
+      "old_ref": "0975ef72fc3c47b530309ca93937d7d143523628",
+      "new_ref": "0975ef72fc3c47b530309ca93937d7d143523628",
+      "subdir": "src",
+      "extensions": [
+        ".hs",
+        ".lhs"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "haxe",
+      "repo_url": "https://github.com/vantreeseba/tree-sitter-haxe",
+      "old_ref": "a55f3e2cf1e4449200fd089a80d3af642bcf5f94",
+      "subdir": "src",
+      "extensions": [
+        ".hx"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "hcl",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-hcl",
+      "old_ref": "64ad62785d442eb4d45df3a1764962dafd5bc98b",
+      "new_ref": "64ad62785d442eb4d45df3a1764962dafd5bc98b",
+      "subdir": "src",
+      "extensions": [
+        ".hcl",
+        ".tf",
+        ".tfvars"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "heex",
+      "repo_url": "https://github.com/phoenixframework/tree-sitter-heex",
+      "old_ref": "b5a7cb5f74dc695a9ff5f04919f872ebc7a895e9",
+      "subdir": "src",
+      "extensions": [
+        ".heex"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "hlsl",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-hlsl",
+      "old_ref": "bab9111922d53d43668fabb61869bec51bbcb915",
+      "subdir": "src",
+      "extensions": [
+        ".hlsl",
+        ".fx"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "html",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-html",
+      "old_ref": "73a3947324f6efddf9e17c0ea58d454843590cc0",
+      "new_ref": "73a3947324f6efddf9e17c0ea58d454843590cc0",
+      "subdir": "src",
+      "extensions": [
+        ".html",
+        ".htm"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "http",
+      "repo_url": "https://github.com/rest-nvim/tree-sitter-http",
+      "old_ref": "db8b4398de90b6d0b6c780aba96aaa2cd8e9202c",
+      "subdir": "src",
+      "extensions": [
+        ".http"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "hurl",
+      "repo_url": "https://github.com/pfeiferj/tree-sitter-hurl",
+      "old_ref": "597efbd7ce9a814bb058f48eabd055b1d1e12145",
+      "subdir": "src",
+      "extensions": [
+        ".hurl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "hyprlang",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-hyprlang",
+      "old_ref": "22723f25f3faf329863d952c9601b492afd971c9",
+      "subdir": "src",
+      "extensions": [
+        ".conf"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "ini",
+      "repo_url": "https://github.com/justinmk/tree-sitter-ini",
+      "old_ref": "e4018b5176132b4f3c5d6e61cea383f42288d0f5",
+      "new_ref": "e4018b5176132b4f3c5d6e61cea383f42288d0f5",
+      "subdir": "src",
+      "extensions": [
+        ".ini",
+        ".cfg",
+        ".conf"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "janet",
+      "repo_url": "https://github.com/sogaiu/tree-sitter-janet-simple",
+      "old_ref": "d183186995204314700be3e9e0a48053ea16b350",
+      "subdir": "src",
+      "extensions": [
+        ".janet"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "java",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-java",
+      "old_ref": "e10607b45ff745f5f876bfa3e94fbcc6b44bdc11",
+      "new_ref": "e10607b45ff745f5f876bfa3e94fbcc6b44bdc11",
+      "subdir": "src",
+      "extensions": [
+        ".java"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "javascript",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-javascript",
+      "old_ref": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
+      "new_ref": "58404d8cf191d69f2674a8fd507bd5776f46cb11",
+      "subdir": "src",
+      "extensions": [
+        ".js",
+        ".mjs",
+        ".cjs"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "jinja2",
+      "repo_url": "https://github.com/dbt-labs/tree-sitter-jinja2",
+      "old_ref": "a82ed374f4cb58a1358dd6b26a7157bde1bca3b7",
+      "subdir": "src",
+      "extensions": [
+        ".j2",
+        ".jinja2",
+        ".jinja"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "jq",
+      "repo_url": "https://github.com/nverno/tree-sitter-jq",
+      "old_ref": "1e139eba1fd3a9c34a36f0f0f47ed8b73c9b4636",
+      "subdir": "src",
+      "extensions": [
+        ".jq"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "jsdoc",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-jsdoc",
+      "old_ref": "658d18dcdddb75c760363faa4963427a7c6b52db",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "json",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-json",
+      "old_ref": "001c28d7a29832b06b0e831ec77845553c89b56d",
+      "new_ref": "001c28d7a29832b06b0e831ec77845553c89b56d",
+      "subdir": "src",
+      "extensions": [
+        ".json"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "json5",
+      "repo_url": "https://github.com/Joakker/tree-sitter-json5",
+      "old_ref": "aa630ef48903ab99e406a8acd2e2933077cc34e1",
+      "new_ref": "aa630ef48903ab99e406a8acd2e2933077cc34e1",
+      "subdir": "src",
+      "extensions": [
+        ".json5"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "jsonnet",
+      "repo_url": "https://github.com/sourcegraph/tree-sitter-jsonnet",
+      "old_ref": "ddd075f1939aed8147b7aa67f042eda3fce22790",
+      "subdir": "src",
+      "extensions": [
+        ".jsonnet",
+        ".libsonnet"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "julia",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-julia",
+      "old_ref": "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3",
+      "new_ref": "e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3",
+      "subdir": "src",
+      "extensions": [
+        ".jl"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "just",
+      "repo_url": "https://github.com/IndianBoy42/tree-sitter-just",
+      "old_ref": "60df3d5b3fda2a22fdb3621226cafab50b763663",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "kconfig",
+      "repo_url": "https://github.com/amaanq/tree-sitter-kconfig",
+      "old_ref": "9ac99fe4c0c27a35dc6f757cef534c646e944881",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "kdl",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-kdl",
+      "old_ref": "b37e3d58e5c5cf8d739b315d6114e02d42e66664",
+      "subdir": "src",
+      "extensions": [
+        ".kdl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "kotlin",
+      "repo_url": "https://github.com/fwcd/tree-sitter-kotlin",
+      "old_ref": "cbed96ab13dbc082eeeb2e8333c342a62829c29d",
+      "new_ref": "55622a49bd59ca42cec5c01ba5251bb4da9b8930",
+      "subdir": "src",
+      "extensions": [
+        ".kt",
+        ".kts"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "ledger",
+      "repo_url": "https://github.com/cbarrete/tree-sitter-ledger",
+      "old_ref": "96c92d4908a836bf8f661166721c98439f8afb80",
+      "subdir": "src",
+      "extensions": [
+        ".ledger",
+        ".journal"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "less",
+      "repo_url": "https://github.com/rhino1998/tree-sitter-less",
+      "old_ref": "2bd739e106a3485bca210cf7b6d25ba09fd10dff",
+      "subdir": "src",
+      "extensions": [
+        ".less"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "linkerscript",
+      "repo_url": "https://github.com/amaanq/tree-sitter-linkerscript",
+      "old_ref": "f99011a3554213b654985a4b0a65b3b032ec4621",
+      "subdir": "src",
+      "extensions": [
+        ".ld",
+        ".lds"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "liquid",
+      "repo_url": "https://github.com/hankthetank27/tree-sitter-liquid",
+      "old_ref": "fa11c7ba45038b61e03a8a00ad667fb5f3d72088",
+      "subdir": "src",
+      "extensions": [
+        ".liquid"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "llvm",
+      "repo_url": "https://github.com/benwilliamgraham/tree-sitter-llvm",
+      "old_ref": "2914786ae6774d4c4e25a230f4afe16aa68fe1c1",
+      "subdir": "src",
+      "extensions": [
+        ".ll"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "lua",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-lua",
+      "old_ref": "10fe0054734eec83049514ea2e718b2a56acd0c9",
+      "new_ref": "10fe0054734eec83049514ea2e718b2a56acd0c9",
+      "subdir": "src",
+      "extensions": [
+        ".lua"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "luau",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-luau",
+      "old_ref": "a8914d6c1fc5131f8e1c13f769fa704c9f5eb02f",
+      "subdir": "src",
+      "extensions": [
+        ".luau"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "make",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-make",
+      "old_ref": "70613f3d812cbabbd7f38d104d60a409c4008b43",
+      "new_ref": "70613f3d812cbabbd7f38d104d60a409c4008b43",
+      "subdir": "src",
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "markdown",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-markdown",
+      "old_ref": "f969cd3ae3f9fbd4e43205431d0ae286014c05b5",
+      "new_ref": "f969cd3ae3f9fbd4e43205431d0ae286014c05b5",
+      "subdir": "tree-sitter-markdown/src",
+      "extensions": [
+        ".md"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "markdown_inline",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-markdown",
+      "old_ref": "f969cd3ae3f9fbd4e43205431d0ae286014c05b5",
+      "subdir": "tree-sitter-markdown-inline/src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "matlab",
+      "repo_url": "https://github.com/acristoffers/tree-sitter-matlab",
+      "old_ref": "574dde565caddf8cf44eec7df3cb89eb96053ed7",
+      "subdir": "src",
+      "extensions": [
+        ".m",
+        ".mat"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "mermaid",
+      "repo_url": "https://github.com/monaqa/tree-sitter-mermaid",
+      "old_ref": "90ae195b31933ceb9d079abfa8a3ad0a36fee4cc",
+      "subdir": "src",
+      "extensions": [
+        ".mmd",
+        ".mermaid"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "meson",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-meson",
+      "old_ref": "c84f3540624b81fc44067030afce2ff78d6ede05",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "mojo",
+      "repo_url": "https://github.com/HerringtonDarkholme/tree-sitter-mojo",
+      "old_ref": "99fe918e69f087f910ef3b11eba31eb0d7e54edf",
+      "subdir": "src",
+      "extensions": [
+        ".mojo",
+        ".🔥"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "move",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-move",
+      "old_ref": "b8ca25518749be10562455fd081a3dab30b93b8b",
+      "subdir": "src",
+      "extensions": [
+        ".move"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "nginx",
+      "repo_url": "https://github.com/opa-oz/tree-sitter-nginx",
+      "old_ref": "47ade644d754cce57974aac44d2c9450e823d4f4",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "nickel",
+      "repo_url": "https://github.com/nickel-lang/tree-sitter-nickel",
+      "old_ref": "b5b6cc3bc7b9ea19f78fed264190685419cd17a8",
+      "subdir": "src",
+      "extensions": [
+        ".ncl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "nim",
+      "repo_url": "https://github.com/alaviss/tree-sitter-nim",
+      "old_ref": "9b4ede21a6ca866d29263f6b66c070961bc622b4",
+      "subdir": "src",
+      "extensions": [
+        ".nim",
+        ".nims"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "ninja",
+      "repo_url": "https://github.com/alemuller/tree-sitter-ninja",
+      "old_ref": "0a95cfdc0745b6ae82f60d3a339b37f19b7b9267",
+      "subdir": "src",
+      "extensions": [
+        ".ninja"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "nix",
+      "repo_url": "https://github.com/nix-community/tree-sitter-nix",
+      "old_ref": "eabf96807ea4ab6d6c7f09b671a88cd483542840",
+      "new_ref": "eabf96807ea4ab6d6c7f09b671a88cd483542840",
+      "subdir": "src",
+      "extensions": [
+        ".nix"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "norg",
+      "repo_url": "https://github.com/nvim-neorg/tree-sitter-norg",
+      "old_ref": "d89d95af13d409f30a6c7676387bde311ec4a2c8",
+      "subdir": "src",
+      "extensions": [
+        ".norg"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "nushell",
+      "repo_url": "https://github.com/nushell/tree-sitter-nu",
+      "old_ref": "bb3f533e5792260291945e1f329e1f0a779def6e",
+      "subdir": "src",
+      "extensions": [
+        ".nu"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "objc",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-objc",
+      "old_ref": "181a81b8f23a2d593e7ab4259981f50122909fda",
+      "new_ref": "181a81b8f23a2d593e7ab4259981f50122909fda",
+      "subdir": "src",
+      "extensions": [
+        ".m"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "ocaml",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-ocaml",
+      "old_ref": "3ef7c00b29e41e3a0c1d18e82ea37c64d72b93fc",
+      "new_ref": "5a979b3ec7f1fe990b8e8c4412294a0cf7228e45",
+      "subdir": "grammars/ocaml/src",
+      "extensions": [
+        ".ml",
+        ".mli"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "odin",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-odin",
+      "old_ref": "d2ca8efb4487e156a60d5bd6db2598b872629403",
+      "subdir": "src",
+      "extensions": [
+        ".odin"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "org",
+      "repo_url": "https://github.com/emiasims/tree-sitter-org",
+      "old_ref": "64cfbc213f5a83da17632c95382a5a0a2f3357c1",
+      "subdir": "src",
+      "extensions": [
+        ".org"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "pascal",
+      "repo_url": "https://github.com/Isopod/tree-sitter-pascal",
+      "old_ref": "042119eca2e18a60e56317fb06ee3ba5c32cb447",
+      "subdir": "src",
+      "extensions": [
+        ".pas",
+        ".pp",
+        ".inc"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "pem",
+      "repo_url": "https://github.com/ObserverOfTime/tree-sitter-pem",
+      "old_ref": "e525b177a229b1154fd81bc0691f943028d9e685",
+      "subdir": "src",
+      "extensions": [
+        ".pem"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "perl",
+      "repo_url": "https://github.com/tree-sitter-perl/tree-sitter-perl",
+      "old_ref": "ad74e6db234c35d537de9358799a8e0cc4f5dee0",
+      "new_ref": "8917c6e94b30f30670f008979309e2cbfc54400f",
+      "subdir": "src",
+      "extensions": [
+        ".pl",
+        ".pm"
+      ],
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "php",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-php",
+      "old_ref": "015ce839db5ae9ceda763bf12e071867fbe8cc89",
+      "new_ref": "3f2465c217d0a966d41e584b42d75522f2a3149e",
+      "subdir": "php/src",
+      "extensions": [
+        ".php"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "pkl",
+      "repo_url": "https://github.com/apple/tree-sitter-pkl",
+      "old_ref": "a02fc36f6001a22e7fdf35eaabbadb7b39c74ba5",
+      "subdir": "src",
+      "extensions": [
+        ".pkl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "powershell",
+      "repo_url": "https://github.com/airbus-cert/tree-sitter-powershell",
+      "old_ref": "da65ba3acc93777255781b447f5e7448245df4bf",
+      "new_ref": "73800ecc8bddeee8f1079a5a2e0c13c3d00269bb",
+      "subdir": "src",
+      "extensions": [
+        ".ps1",
+        ".psm1",
+        ".psd1"
+      ],
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "prisma",
+      "repo_url": "https://github.com/victorhqc/tree-sitter-prisma",
+      "old_ref": "3556b2c1f20ec9ac91e92d32c43d9d2a0ca3cc49",
+      "subdir": "src",
+      "extensions": [
+        ".prisma"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "prolog",
+      "repo_url": "https://github.com/Rukiza/tree-sitter-prolog",
+      "old_ref": "c246cf2bf36590a3cb4de380205376d3c46208e8",
+      "subdir": "src",
+      "extensions": [
+        ".pl",
+        ".pro"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "promql",
+      "repo_url": "https://github.com/MichaHoffmann/tree-sitter-promql",
+      "old_ref": "77625d78eebc3ffc44d114a07b2f348dff3061b0",
+      "subdir": "src",
+      "extensions": [
+        ".promql"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "properties",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-properties",
+      "old_ref": "6310671b24d4e04b803577b1c675d765cbd5773b",
+      "subdir": "src",
+      "extensions": [
+        ".properties"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "proto",
+      "repo_url": "https://github.com/treywood/tree-sitter-proto",
+      "old_ref": "e9f6b43f6844bd2189b50a422d4e2094313f6aa3",
+      "subdir": "src",
+      "extensions": [
+        ".proto"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "pug",
+      "repo_url": "https://github.com/zealot128/tree-sitter-pug",
+      "old_ref": "13e9195370172c86a8b88184cc358b23b677cc46",
+      "subdir": "src",
+      "extensions": [
+        ".pug",
+        ".jade"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "puppet",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-puppet",
+      "old_ref": "15f192929b7d317f5914de2b4accd37b349182a6",
+      "subdir": "src",
+      "extensions": [
+        ".pp"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "purescript",
+      "repo_url": "https://github.com/postsolar/tree-sitter-purescript",
+      "old_ref": "f541f95ffd6852fbbe88636317c613285bc105af",
+      "subdir": "src",
+      "extensions": [
+        ".purs"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "python",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-python",
+      "old_ref": "26855eabccb19c6abf499fbc5b8dc7cc9ab8bc64",
+      "new_ref": "26855eabccb19c6abf499fbc5b8dc7cc9ab8bc64",
+      "subdir": "src",
+      "extensions": [
+        ".py"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "ql",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-ql",
+      "old_ref": "1fd627a4e8bff8c24c11987474bd33112bead857",
+      "subdir": "src",
+      "extensions": [
+        ".ql"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "r",
+      "repo_url": "https://github.com/r-lib/tree-sitter-r",
+      "old_ref": "0e6ef7741712c09dc3ee6e81c42e919820cc65ef",
+      "new_ref": "0e6ef7741712c09dc3ee6e81c42e919820cc65ef",
+      "subdir": "src",
+      "extensions": [
+        ".r",
+        ".R"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "racket",
+      "repo_url": "https://github.com/6cdh/tree-sitter-racket",
+      "old_ref": "56b57807f86aa4ddb14892572b318edd4bc90ebe",
+      "subdir": "src",
+      "extensions": [
+        ".rkt"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "regex",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-regex",
+      "old_ref": "b2ac15e27fce703d2f37a79ccd94a5c0cbe9720b",
+      "new_ref": "b2ac15e27fce703d2f37a79ccd94a5c0cbe9720b",
+      "subdir": "src",
+      "extensions": [
+        ".regex"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "rego",
+      "repo_url": "https://github.com/FallenAngel97/tree-sitter-rego",
+      "old_ref": "ddd39af81fe8b0288102a7cb97959dfce723e0f3",
+      "subdir": "src",
+      "extensions": [
+        ".rego"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "requirements",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-requirements",
+      "old_ref": "caeb2ba854dea55931f76034978de1fd79362939",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "rescript",
+      "repo_url": "https://github.com/rescript-lang/tree-sitter-rescript",
+      "old_ref": "43c2f1f35024918d415dc933d4cc534d6419fedf",
+      "subdir": "src",
+      "extensions": [
+        ".res",
+        ".resi"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "robot",
+      "repo_url": "https://github.com/Hubro/tree-sitter-robot",
+      "old_ref": "278958ff2fc44732833f717ee864c9fe4dae6e11",
+      "subdir": "src",
+      "extensions": [
+        ".robot"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "ron",
+      "repo_url": "https://github.com/amaanq/tree-sitter-ron",
+      "old_ref": "78938553b93075e638035f624973083451b29055",
+      "subdir": "src",
+      "extensions": [
+        ".ron"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "rst",
+      "repo_url": "https://github.com/stsewd/tree-sitter-rst",
+      "old_ref": "4e562e1598b95b93db4f3f64fe40ddefbc677a15",
+      "subdir": "src",
+      "extensions": [
+        ".rst"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "ruby",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-ruby",
+      "old_ref": "ab6dca77a8184abc94af6e3e82538741b5078d63",
+      "new_ref": "ad907a69da0c8a4f7a943a7fe012712208da6dee",
+      "subdir": "src",
+      "extensions": [
+        ".rb"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "rust",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-rust",
+      "old_ref": "261b20226c04ef601adbdf185a800512a5f66291",
+      "new_ref": "77a3747266f4d621d0757825e6b11edcbf991ca5",
+      "subdir": "src",
+      "extensions": [
+        ".rs"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "scala",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-scala",
+      "old_ref": "97aead18d97708190a51d4f551ea9b05b60641c9",
+      "new_ref": "d71328b913037efe2e695e9aeb5065839dce335f",
+      "subdir": "src",
+      "extensions": [
+        ".scala"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "scheme",
+      "repo_url": "https://github.com/6cdh/tree-sitter-scheme",
+      "old_ref": "b5c701148501fa056302827442b5b4956f1edc03",
+      "subdir": "src",
+      "extensions": [
+        ".scm",
+        ".ss"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "scss",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-scss",
+      "old_ref": "bca847c1410f7dd97e13fbe7838b3c2c203fb473",
+      "new_ref": "2ef6d42e3ad7a8208900f9346f4529806ae0f9f9",
+      "subdir": "src",
+      "extensions": [
+        ".scss"
+      ],
+      "status": "available",
+      "applied": false
+    },
+    {
+      "name": "smithy",
+      "repo_url": "https://github.com/indoorvivants/tree-sitter-smithy",
+      "old_ref": "ec4fe14586f2b0a1bc65d6db17f8d8acd8a90433",
+      "subdir": "src",
+      "extensions": [
+        ".smithy"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "solidity",
+      "repo_url": "https://github.com/JoranHonig/tree-sitter-solidity",
+      "old_ref": "048fe686cb1fde267243739b8bdbec8fc3a55272",
+      "subdir": "src",
+      "extensions": [
+        ".sol"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "sparql",
+      "repo_url": "https://github.com/GordianDziwis/tree-sitter-sparql",
+      "old_ref": "1ef52d35a73a2a5f2e433ecfd1c751c1360a923b",
+      "subdir": "src",
+      "extensions": [
+        ".rq",
+        ".sparql"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "sql",
+      "repo_url": "https://github.com/m-novikov/tree-sitter-sql",
+      "old_ref": "587f30d184b058450be2a2330878210c5f33b3f9",
+      "new_ref": "587f30d184b058450be2a2330878210c5f33b3f9",
+      "subdir": "src",
+      "extensions": [
+        ".sql"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "squirrel",
+      "repo_url": "https://github.com/amaanq/tree-sitter-squirrel",
+      "old_ref": "072c969749e66f000dba35a33c387650e203e96e",
+      "subdir": "src",
+      "extensions": [
+        ".nut"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "ssh_config",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-ssh-config",
+      "old_ref": "71d2693deadaca8cdc09e38ba41d2f6042da1616",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "starlark",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-starlark",
+      "old_ref": "a453dbf3ba433db0e5ec621a38a7e59d72e4dc69",
+      "subdir": "src",
+      "extensions": [
+        ".star",
+        ".bzl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "svelte",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-svelte",
+      "old_ref": "ae5199db47757f785e43a14b332118a5474de1a2",
+      "new_ref": "ae5199db47757f785e43a14b332118a5474de1a2",
+      "subdir": "src",
+      "extensions": [
+        ".svelte"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "swift",
+      "repo_url": "https://github.com/alex-pinkus/tree-sitter-swift",
+      "old_ref": "277b583bbb024f20ba88b95c48bf5a6a0b4f2287",
+      "new_ref": "64f26c3a6e9e6cf4f77165c8283e35a26b7825a7",
+      "subdir": "src",
+      "extensions": [
+        ".swift"
+      ],
+      "status": "applied",
+      "applied": true
+    },
+    {
+      "name": "tablegen",
+      "repo_url": "https://github.com/amaanq/tree-sitter-tablegen",
+      "old_ref": "b1170880c61355aaf38fc06f4af7d3c55abdabc4",
+      "subdir": "src",
+      "extensions": [
+        ".td"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "tcl",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-tcl",
+      "old_ref": "8f11ac7206a54ed11210491cee1e0657e2962c47",
+      "subdir": "src",
+      "extensions": [
+        ".tcl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "teal",
+      "repo_url": "https://github.com/euclidianAce/tree-sitter-teal",
+      "old_ref": "05d276e737055e6f77a21335b7573c9d3c091e2f",
+      "subdir": "src",
+      "extensions": [
+        ".tl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "templ",
+      "repo_url": "https://github.com/vrischmann/tree-sitter-templ",
+      "old_ref": "1c6db04effbcd7773c826bded9783cbc3061bd55",
+      "subdir": "src",
+      "extensions": [
+        ".templ"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "textproto",
+      "repo_url": "https://github.com/PorterAtGoogle/tree-sitter-textproto",
+      "old_ref": "568471b80fd8793d37ed01865d8c2208a9fefd1b",
+      "subdir": "src",
+      "extensions": [
+        ".textproto",
+        ".txtpb",
+        ".pbtxt"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "thrift",
+      "repo_url": "https://github.com/duskmoon314/tree-sitter-thrift",
+      "old_ref": "68fd0d80943a828d9e6f49c58a74be1e9ca142cf",
+      "subdir": "src",
+      "extensions": [
+        ".thrift"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "tlaplus",
+      "repo_url": "https://github.com/tlaplus-community/tree-sitter-tlaplus",
+      "old_ref": "add40814fda369f6efd989977b2c498aaddde984",
+      "subdir": "src",
+      "extensions": [
+        ".tla"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "tmux",
+      "repo_url": "https://github.com/Freed-Wu/tree-sitter-tmux",
+      "old_ref": "75d1b995b0c23400ac8e49db757a2e0386f9fa8f",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "todotxt",
+      "repo_url": "https://github.com/arnarg/tree-sitter-todotxt",
+      "old_ref": "3937c5cd105ec4127448651a21aef45f52d19609",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "toml",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-toml",
+      "old_ref": "342d9be207c2dba869b9967124c679b5e6fd0ebe",
+      "new_ref": "342d9be207c2dba869b9967124c679b5e6fd0ebe",
+      "subdir": "src",
+      "extensions": [
+        ".toml"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "tsx",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-typescript",
+      "old_ref": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+      "new_ref": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+      "subdir": "tsx/src",
+      "extensions": [
+        ".tsx"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "turtle",
+      "repo_url": "https://github.com/GordianDziwis/tree-sitter-turtle",
+      "old_ref": "7f789ea7ef765080f71a298fc96b7c957fa24422",
+      "subdir": "src",
+      "extensions": [
+        ".ttl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "twig",
+      "repo_url": "https://github.com/gbprod/tree-sitter-twig",
+      "old_ref": "7195ee573ab5c3b3bb0e91b042e6f83ac1b11104",
+      "subdir": "src",
+      "extensions": [
+        ".twig"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "typescript",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-typescript",
+      "old_ref": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+      "new_ref": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+      "subdir": "typescript/src",
+      "extensions": [
+        ".ts"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "typst",
+      "repo_url": "https://github.com/uben0/tree-sitter-typst",
+      "old_ref": "46cf4ded12ee974a70bf8457263b67ad7ee0379d",
+      "subdir": "src",
+      "extensions": [
+        ".typ"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "uxntal",
+      "repo_url": "https://github.com/amaanq/tree-sitter-uxntal",
+      "old_ref": "ad9b638b914095320de85d59c49ab271603af048",
+      "subdir": "src",
+      "extensions": [
+        ".tal"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "v",
+      "repo_url": "https://github.com/vlang/v-analyzer",
+      "old_ref": "9cf6a37689f06b17d170dec644ace81eb8eab280",
+      "subdir": "tree_sitter_v/src",
+      "extensions": [
+        ".v",
+        ".vsh"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "verilog",
+      "repo_url": "https://github.com/tree-sitter/tree-sitter-verilog",
+      "old_ref": "227d277b6a1a5e2bf818d6206935722a7503de08",
+      "new_ref": "227d277b6a1a5e2bf818d6206935722a7503de08",
+      "subdir": "src",
+      "extensions": [
+        ".v",
+        ".sv",
+        ".svh"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "vhdl",
+      "repo_url": "https://github.com/jpt13653903/tree-sitter-vhdl",
+      "old_ref": "a09b8dc58b59abf959e798849f12bc473b07bbb2",
+      "subdir": "src",
+      "extensions": [
+        ".vhd",
+        ".vhdl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "vimdoc",
+      "repo_url": "https://github.com/neovim/tree-sitter-vimdoc",
+      "old_ref": "f061895a0eff1d5b90e4fb60d21d87be3267031a",
+      "subdir": "src",
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "vue",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-vue",
+      "old_ref": "ce8011a414fdf8091f4e4071752efc376f4afb08",
+      "subdir": "src",
+      "extensions": [
+        ".vue"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "wat",
+      "repo_url": "https://github.com/wasm-lsp/tree-sitter-wasm",
+      "old_ref": "2ca28a9f9d709847bf7a3de0942a84e912f59088",
+      "subdir": "wat/src",
+      "extensions": [
+        ".wat",
+        ".wast"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "wgsl",
+      "repo_url": "https://github.com/szebniok/tree-sitter-wgsl",
+      "old_ref": "40259f3c77ea856841a4e0c4c807705f3e4a2b65",
+      "subdir": "src",
+      "extensions": [
+        ".wgsl"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "wolfram",
+      "repo_url": "https://github.com/bostick/tree-sitter-wolfram",
+      "old_ref": "63ebdac6f040d9082d3d8fa88be96ce24549adc5",
+      "subdir": "src",
+      "extensions": [
+        ".wl",
+        ".m",
+        ".nb"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "xml",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-xml",
+      "old_ref": "5000ae8f22d11fbe93939b05c1e37cf21117162d",
+      "new_ref": "5000ae8f22d11fbe93939b05c1e37cf21117162d",
+      "subdir": "xml/src",
+      "extensions": [
+        ".xml"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "yaml",
+      "repo_url": "https://github.com/tree-sitter-grammars/tree-sitter-yaml",
+      "old_ref": "4463985dfccc640f3d6991e3396a2047610cf5f8",
+      "new_ref": "4463985dfccc640f3d6991e3396a2047610cf5f8",
+      "subdir": "src",
+      "extensions": [
+        ".yaml",
+        ".yml"
+      ],
+      "status": "unchanged",
+      "applied": false
+    },
+    {
+      "name": "yuck",
+      "repo_url": "https://github.com/Philipp-M/tree-sitter-yuck",
+      "old_ref": "e877f6ade4b77d5ef8787075141053631ba12318",
+      "subdir": "src",
+      "extensions": [
+        ".yuck"
+      ],
+      "status": "skipped",
+      "applied": false
+    },
+    {
+      "name": "zig",
+      "repo_url": "https://github.com/maxxnino/tree-sitter-zig",
+      "old_ref": "a80a6e9be81b33b182ce6305ae4ea28e29211bd5",
+      "new_ref": "a80a6e9be81b33b182ce6305ae4ea28e29211bd5",
+      "subdir": "src",
+      "extensions": [
+        ".zig"
+      ],
+      "status": "unchanged",
+      "applied": false
+    }
+  ]
+}
