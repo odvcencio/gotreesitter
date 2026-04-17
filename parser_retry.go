@@ -493,7 +493,7 @@ func (p *Parser) retryFullParse(source []byte, initialMaxStacks int, tree *Tree,
 }
 
 func (p *Parser) retryFullParseWithDFA(source []byte, initialMaxStacks int, deterministicExternalConflicts bool, tree *Tree) *Tree {
-	return p.retryFullParse(source, initialMaxStacks, tree, func(maxStacks int, maxMergePerKeyOverride int, maxNodes int) *Tree {
+	result := p.retryFullParse(source, initialMaxStacks, tree, func(maxStacks int, maxMergePerKeyOverride int, maxNodes int) *Tree {
 		retryLexer := NewLexer(p.language.LexStates, source)
 		retryTS := acquireDFATokenSource(retryLexer, p.language, p.lookupActionIndex, p.hasKeywordState)
 		defer retryTS.Close()
@@ -510,6 +510,13 @@ func (p *Parser) retryFullParseWithDFA(source []byte, initialMaxStacks int, dete
 			deterministicExternalConflicts,
 		)
 	})
+	// retryFullParse releases losing retry trees internally (#34), but when a
+	// retry winner replaces the original tree, the original's arena is orphaned.
+	// Release it here since the caller will overwrite its tree reference.
+	if result != tree {
+		tree.Release()
+	}
+	return result
 }
 
 func (p *Parser) retryFullParseWithTokenSource(source []byte, ts TokenSource, initialMaxStacks int, deterministicExternalConflicts bool, tree *Tree) *Tree {
@@ -517,7 +524,7 @@ func (p *Parser) retryFullParseWithTokenSource(source []byte, ts TokenSource, in
 	if !ok {
 		return tree
 	}
-	return p.retryFullParse(source, initialMaxStacks, tree, func(maxStacks int, maxMergePerKeyOverride int, maxNodes int) *Tree {
+	result := p.retryFullParse(source, initialMaxStacks, tree, func(maxStacks int, maxMergePerKeyOverride int, maxNodes int) *Tree {
 		resettable.Reset(source)
 		return p.parseInternal(
 			source,
@@ -532,4 +539,9 @@ func (p *Parser) retryFullParseWithTokenSource(source []byte, ts TokenSource, in
 			deterministicExternalConflicts,
 		)
 	})
+	// Same as retryFullParseWithDFA: release the original tree if a retry won.
+	if result != tree {
+		tree.Release()
+	}
+	return result
 }
