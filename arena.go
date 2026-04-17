@@ -23,17 +23,28 @@ const (
 	fullFieldSliceCap        = 64 * 1024
 
 	maxRetainedArenaFactor = 4
-	// Full-parse node slabs are much larger; keep more headroom so capacity
-	// growth does not thrash between parses.
-	maxRetainedFullNodeArenaFactor  = 16
-	maxRetainedFullSliceArenaFactor = 16
+	// Full-parse node slabs use a lower factor to reduce peak RSS when many
+	// parsers run concurrently. Each pooled arena can retain up to
+	// factor * defaultNodeCap nodes; at factor=4 this caps warm retention at
+	// ~100 KB per arena vs ~1.6 MB at factor=16.
+	maxRetainedFullNodeArenaFactor  = 4
+	maxRetainedFullSliceArenaFactor = 4
 
-	// Absolute node-cap retention ceilings to avoid repeated large reallocation
-	// on warm edit/full-parse workloads.
-	maxRetainedIncrementalNodeCap  = 1 * 1024 * 1024
-	maxRetainedFullNodeCap         = 2 * 1024 * 1024
+	// Absolute node-cap retention ceilings. Lower values mean a parser that
+	// parsed a large file does not hold a multi-MB arena warm indefinitely.
+	// Trade-off: very large files will re-grow on the next parse instead of
+	// reusing the retained capacity; the cost is one extra allocation per
+	// large-file parse, which is negligible compared to the parse itself.
+	maxRetainedIncrementalNodeCap  = 256 * 1024
+	maxRetainedFullNodeCap         = 100 * 1024
 	maxRetainedIncrementalSliceCap = 32 * 1024
-	maxRetainedFullSliceCap        = 1 * 1024 * 1024
+	maxRetainedFullSliceCap        = 128 * 1024
+
+	// Pool eviction ceiling: arenas that grew beyond this byte budget are not
+	// returned to the pool. Without this guard a single large parse can leave
+	// a 100+ MB arena in the pool indefinitely, consumed by every subsequent
+	// parse on that goroutine.
+	maxRetainedFullArenaBytes = 128 * 1024 * 1024
 )
 
 type arenaClass uint8
@@ -184,6 +195,14 @@ func (p *nodeArenaPool) acquire() *nodeArena {
 
 func (p *nodeArenaPool) release(a *nodeArena) {
 	if a == nil {
+		return
+	}
+	// Do not return oversized arenas to the pool. An arena that grew past the
+	// eviction ceiling during a large parse would occupy that memory for the
+	// lifetime of the pool. Dropping it here lets the GC reclaim the backing
+	// arrays without affecting correctness: the pool simply allocates a fresh
+	// arena the next time one is needed.
+	if a.class == arenaClassFull && a.allocatedBytes > maxRetainedFullArenaBytes {
 		return
 	}
 	p.mu.Lock()
