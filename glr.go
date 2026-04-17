@@ -1254,10 +1254,11 @@ func (s *glrEntryScratch) reset() {
 			copy(s.slabs, s.slabs[keepFrom:])
 			s.slabs = s.slabs[:len(s.slabs)-keepFrom]
 		}
+		// Clear the full backing array: stackEntry contains *Node, partial clear
+		// leaves stale GC-visible pointers in the unused tail.
 		for i := range s.slabs {
-			slab := &s.slabs[i]
-			clear(slab.data[:slab.used])
-			slab.used = 0
+			clear(s.slabs[i].data)
+			s.slabs[i].used = 0
 		}
 		s.slabCursor = 0
 		s.usedTotal = 0
@@ -1266,10 +1267,11 @@ func (s *glrEntryScratch) reset() {
 		return
 	}
 
+	// Clear the full backing array: stackEntry contains *Node, partial clear
+	// leaves stale GC-visible pointers in the unused tail.
 	for i := range s.slabs {
-		slab := &s.slabs[i]
-		clear(slab.data[:slab.used])
-		slab.used = 0
+		clear(s.slabs[i].data)
+		s.slabs[i].used = 0
 	}
 	s.slabCursor = 0
 	s.usedTotal = 0

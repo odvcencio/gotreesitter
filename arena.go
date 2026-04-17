@@ -281,24 +281,23 @@ func (a *nodeArena) Release() {
 }
 
 func (a *nodeArena) reset() {
-	primaryUsed := min(a.used, len(a.nodes))
-	clear(a.nodes[:primaryUsed])
+	// Clear the full backing arrays, not just [:used], so Go's GC can collect
+	// Node structs that contain pointer fields (children, parent, etc.).
+	// Partial clear leaves stale *Node pointers in the unused tail which the
+	// GC traces, preventing arena memory from being reclaimed.
+	if len(a.nodes) > 0 {
+		clear(a.nodes)
+	}
 	a.used = 0
-	if len(a.externalScannerNodeCheckpoints) > 0 && primaryUsed > 0 {
-		clear(a.externalScannerNodeCheckpoints[:min(primaryUsed, len(a.externalScannerNodeCheckpoints))])
+	if len(a.externalScannerNodeCheckpoints) > 0 {
+		clear(a.externalScannerNodeCheckpoints)
 	}
 	for i := range a.externalScannerNodeCheckpointSlabs {
-		used := 0
-		if i < len(a.nodeSlabs) {
-			used = min(a.nodeSlabs[i].used, len(a.externalScannerNodeCheckpointSlabs[i].data))
-		}
-		if used > 0 {
-			clear(a.externalScannerNodeCheckpointSlabs[i].data[:used])
-		}
+		clear(a.externalScannerNodeCheckpointSlabs[i].data)
 	}
 	for i := range a.nodeSlabs {
 		slab := &a.nodeSlabs[i]
-		clear(slab.data[:slab.used])
+		clear(slab.data)
 		slab.used = 0
 	}
 	if len(a.nodeSlabs) > 0 {
@@ -418,11 +417,10 @@ func (a *nodeArena) reset() {
 	a.fieldSourceSlabCursor = 0
 
 	if limit := maxRetainedNodeCapacityForClass(a.class); len(a.nodes) > limit {
-		// Trim down to the retention ceiling rather than all the way back to
-		// the default slab size. This preserves the adaptive capacity reached
-		// during the previous parse so warm-reuse workloads don't reallocate
-		// the primary slab every parse when the adaptive hint is stable.
-		a.nodes = make([]Node, limit)
+		// Drop the oversized primary array entirely. Setting to nil lets the GC
+		// collect it and the next parse will allocate a fresh slab of default
+		// size via allocNodeSlow -> ensureNodeCapacity.
+		a.nodes = nil
 		a.externalScannerNodeCheckpoints = nil
 	}
 	if len(a.childSlabs) == 0 {

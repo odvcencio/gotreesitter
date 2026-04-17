@@ -87,6 +87,9 @@ func releaseParserScratch(s *parserScratch, skipGSSClear bool) {
 	if cap(s.nodeLinks) > maxRetainedNodeLinkStack {
 		s.nodeLinks = nil
 	} else if len(s.nodeLinks) > 0 {
+		// Clear before reslice: nodeLinks holds *Node pointers; leaving stale
+		// pointers in the backing array prevents GC from collecting those nodes.
+		clear(s.nodeLinks)
 		s.nodeLinks = s.nodeLinks[:0]
 	}
 	const maxRetainedStackCullScratch = 256

@@ -334,24 +334,12 @@ func (s *gssScratch) reset() {
 			s.slabs = s.slabs[:len(s.slabs)-keepFrom]
 		}
 	}
-	if s.skipClear {
-		for i := range s.slabs {
-			s.slabs[i].used = 0
-		}
-		s.slabCursor = 0
-		s.skipClear = false
-		s.usedTotal = 0
-		s.singleStackMode = false
-		s.singleStackAllocs = 0
-		s.multiStackAllocs = 0
-		s.audit = nil
-		s.recomputeAllocatedBytes()
-		return
-	}
+	// Always clear the full backing array, not just [:used]. stackEntry contains
+	// a *Node pointer field; partial clear leaves stale pointers in the unused
+	// tail which the GC traces, preventing arena memory from being collected.
 	for i := range s.slabs {
-		slab := &s.slabs[i]
-		clear(slab.data[:slab.used])
-		slab.used = 0
+		clear(s.slabs[i].data)
+		s.slabs[i].used = 0
 	}
 	s.slabCursor = 0
 	s.skipClear = false

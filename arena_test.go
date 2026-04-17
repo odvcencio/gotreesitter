@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "testing"
+import (
+	"testing"
+	"unsafe" //nolint:depguard
+)
 
 func TestEnsureNodeCapacityPanicsAfterAllocationStarted(t *testing.T) {
 	arena := acquireNodeArena(arenaClassFull)
@@ -145,5 +148,59 @@ func TestArenaResetRetainsFieldSlabsWithinBudget(t *testing.T) {
 	limit := maxRetainedFieldSliceCapacityForClass(arena.class)
 	if retained > limit {
 		t.Fatalf("retained field slab capacity = %d, limit = %d", retained, limit)
+	}
+}
+
+// TestArenaNodeSlabFullClearOnReset verifies that reset() zeros the full backing
+// array of each node slab, not just [:used]. This is required so that Go's GC
+// can collect Node structs: Node contains pointer fields (children, parent, etc.)
+// and stale pointers in the unused tail of the backing array prevent GC collection.
+func TestArenaNodeSlabFullClearOnReset(t *testing.T) {
+	arena := newNodeArena(arenaClassFull)
+
+	// Fill primary array and spill into at least one overflow slab.
+	primaryCap := len(arena.nodes)
+	if primaryCap <= 0 {
+		t.Fatal("expected positive primary node capacity")
+	}
+	target := primaryCap + 64
+	for i := 0; i < target; i++ {
+		n := arena.allocNode()
+		if n == nil {
+			t.Fatalf("allocNode returned nil at i=%d", i)
+		}
+		// Write a non-zero pointer into the node to make stale data detectable.
+		n.parent = n
+	}
+	if len(arena.nodeSlabs) == 0 {
+		t.Fatal("expected at least one overflow slab after allocating past primary capacity")
+	}
+
+	// Capture a raw pointer to the first element of the first overflow slab.
+	// We will check after reset() that the slot is fully zeroed.
+	firstSlab := &arena.nodeSlabs[0]
+	if firstSlab.used == 0 {
+		t.Fatal("expected overflow slab to have used > 0")
+	}
+	firstSlabDataPtr := unsafe.Pointer(&firstSlab.data[0])
+
+	arena.reset()
+
+	// After reset(), the slab's used counter must be 0.
+	if firstSlab.used != 0 {
+		t.Fatalf("slab.used after reset = %d, want 0", firstSlab.used)
+	}
+	// After reset(), the first element of the slab must be zero.
+	// If only [:used] was cleared, a Node that was at index 0 before reset
+	// would have its parent pointer still set, keeping the Node alive for GC.
+	// Check that the parent pointer field is zeroed. Before the fix,
+	// clear(slab.data[:used]) left stale pointers in the unused tail
+	// after the first reset when primaryCap < len(slab.data).
+	got := (*Node)(firstSlabDataPtr)
+	if got.parent != nil {
+		t.Fatalf("slab.data[0].parent after reset is %p, want nil; full clear not applied", got.parent)
+	}
+	if got.ownerArena != nil {
+		t.Fatalf("slab.data[0].ownerArena after reset is %p, want nil; full clear not applied", got.ownerArena)
 	}
 }
