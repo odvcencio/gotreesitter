@@ -285,13 +285,13 @@ func (a *nodeArena) reset() {
 	// Node structs that contain pointer fields (children, parent, etc.).
 	// Partial clear leaves stale *Node pointers in the unused tail which the
 	// GC traces, preventing arena memory from being reclaimed.
-	if len(a.nodes) > 0 {
-		clear(a.nodes)
-	}
+	// clear() is a no-op on nil/empty slices, no guard needed.
+	clear(a.nodes)
 	a.used = 0
-	if len(a.externalScannerNodeCheckpoints) > 0 {
-		clear(a.externalScannerNodeCheckpoints)
-	}
+	// externalScannerCheckpointRef contains only integer fields (no pointers),
+	// so clearing it is not required for GC correctness. We clear it anyway for
+	// consistency and to avoid leaking stale slab+offset values.
+	clear(a.externalScannerNodeCheckpoints)
 	for i := range a.externalScannerNodeCheckpointSlabs {
 		clear(a.externalScannerNodeCheckpointSlabs[i].data)
 	}

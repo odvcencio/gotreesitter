@@ -151,6 +151,52 @@ func TestArenaResetRetainsFieldSlabsWithinBudget(t *testing.T) {
 	}
 }
 
+// TestChildSlabStalePointersAfterReset checks whether child slabs (which hold
+// []*Node) can retain stale pointers in the region [used:cap] after reset().
+// allocNodeSlice calls clear(out) on each allocation, zeroing [start:used].
+// The region [used:cap] within a slab is never written, so it stays nil from
+// the original make(). This test verifies that assumption holds: after two
+// parse cycles, child slab positions beyond the last used index are nil.
+func TestChildSlabStalePointersAfterReset(t *testing.T) {
+	arena := newNodeArena(arenaClassFull)
+
+	// Cycle 1: allocate several child slices, then reset.
+	dummy := arena.allocNode()
+	s1 := arena.allocNodeSlice(8)
+	for i := range s1 {
+		s1[i] = dummy
+	}
+	s2 := arena.allocNodeSlice(8)
+	for i := range s2 {
+		s2[i] = dummy
+	}
+	if len(arena.childSlabs) == 0 {
+		t.Fatal("expected child slabs after allocation")
+	}
+	usedAfterCycle1 := arena.childSlabs[0].used
+
+	arena.reset()
+
+	// Cycle 2: allocate a smaller child slice from the same slab.
+	_ = arena.allocNodeSlice(4)
+	usedAfterCycle2 := arena.childSlabs[0].used
+
+	// Positions [usedAfterCycle2 : usedAfterCycle1] were written in cycle 1
+	// and cleared by reset(). Verify they are nil now.
+	slab := arena.childSlabs[0]
+	for i := usedAfterCycle2; i < usedAfterCycle1; i++ {
+		if slab.data[i] != nil {
+			t.Fatalf("child slab data[%d] = %p after reset, expected nil (stale pointer not cleared)", i, slab.data[i])
+		}
+	}
+	// Positions [usedAfterCycle1 : cap] were never written (make zeroes them).
+	for i := usedAfterCycle1; i < len(slab.data); i++ {
+		if slab.data[i] != nil {
+			t.Fatalf("child slab data[%d] = %p, expected nil (was never written)", i, slab.data[i])
+		}
+	}
+}
+
 // TestArenaNodeSlabFullClearOnReset verifies that reset() zeros the full backing
 // array of each node slab, not just [:used]. This is required so that Go's GC
 // can collect Node structs: Node contains pointer fields (children, parent, etc.)
