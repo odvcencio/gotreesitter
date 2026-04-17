@@ -22,23 +22,21 @@ const (
 	incrementalFieldSliceCap = 2 * 1024
 	fullFieldSliceCap        = 64 * 1024
 
-	maxRetainedArenaFactor = 4
-	// Full-parse node slabs use a lower factor to reduce peak RSS when many
-	// parsers run concurrently. Each pooled arena can retain up to
-	// factor * defaultNodeCap nodes; at factor=4 this caps warm retention at
-	// ~100 KB per arena vs ~1.6 MB at factor=16.
-	maxRetainedFullNodeArenaFactor  = 4
+	maxRetainedArenaFactor          = 4
 	maxRetainedFullSliceArenaFactor = 4
 
-	// Absolute node-cap retention ceilings. Lower values mean a parser that
-	// parsed a large file does not hold a multi-MB arena warm indefinitely.
-	// Trade-off: very large files will re-grow on the next parse instead of
-	// reusing the retained capacity; the cost is one extra allocation per
-	// large-file parse, which is negligible compared to the parse itself.
-	maxRetainedIncrementalNodeCap  = 256 * 1024
-	maxRetainedFullNodeCap         = 100 * 1024
-	maxRetainedIncrementalSliceCap = 32 * 1024
-	maxRetainedFullSliceCap        = 128 * 1024
+	// Node retention ceilings expressed in bytes. maxRetainedNodeCapacityForClass
+	// converts these to node counts at runtime using sizeof(Node). This ensures
+	// the actual retained memory matches the named byte limit regardless of how
+	// Node's size changes over time.
+	// Trade-off: a parser that handled a large file will reallocate on the next
+	// large parse; one extra allocation is negligible compared to the parse itself.
+	maxRetainedIncrementalNodeBytes = 256 * 1024 // 256 KB per incremental arena
+	maxRetainedFullNodeBytes        = 100 * 1024 // 100 KB per full-parse arena
+
+	// Slice retention ceilings in element counts (not bytes).
+	maxRetainedIncrementalSliceCap = 32 * 1024  // 32 K elements
+	maxRetainedFullSliceCap        = 128 * 1024 // 128 K elements
 
 	// Pool eviction ceiling: arenas that grew beyond this byte budget are not
 	// returned to the pool. Without this guard a single large parse can leave
@@ -197,14 +195,6 @@ func (p *nodeArenaPool) release(a *nodeArena) {
 	if a == nil {
 		return
 	}
-	// Do not return oversized arenas to the pool. An arena that grew past the
-	// eviction ceiling during a large parse would occupy that memory for the
-	// lifetime of the pool. Dropping it here lets the GC reclaim the backing
-	// arrays without affecting correctness: the pool simply allocates a fresh
-	// arena the next time one is needed.
-	if a.class == arenaClassFull && a.allocatedBytes > maxRetainedFullArenaBytes {
-		return
-	}
 	p.mu.Lock()
 	if len(p.free) < p.maxSize {
 		p.free = append(p.free, a)
@@ -289,6 +279,13 @@ func (a *nodeArena) Release() {
 	}
 	if a.refs.Add(-1) != 0 {
 		return
+	}
+	// Eviction guard must fire BEFORE reset(). reset() calls recomputeAllocatedBytes()
+	// which overwrites allocatedBytes with the post-trim retained value (~1-15 MB).
+	// Checking after reset() means an arena that grew to hundreds of MB during a
+	// large parse would report a small retained size and slip back into the pool.
+	if a.class == arenaClassFull && a.allocatedBytes > maxRetainedFullArenaBytes {
+		return // drop; GC collects the backing arrays without reset overhead
 	}
 	a.reset()
 	switch a.class {
@@ -794,13 +791,22 @@ func (a *nodeArena) budgetExhausted() bool {
 }
 
 func maxRetainedNodeCapacityForClass(class arenaClass) int {
-	factor := maxRetainedArenaFactor
-	floor := maxRetainedIncrementalNodeCap
-	if class == arenaClassFull {
-		factor = maxRetainedFullNodeArenaFactor
-		floor = maxRetainedFullNodeCap
+	nodeSize := int(unsafe.Sizeof(Node{}))
+	if nodeSize <= 0 {
+		nodeSize = 1
 	}
-	return max(nodeCapacityForClass(class)*factor, floor)
+	// Full-parse arenas: hard ceiling in bytes. The factor-based path
+	// (2 MB slab * factor) would dwarf the byte limit, so we ignore it and
+	// always return the ceiling. This caps warm retention at ~100 KB per
+	// full-parse arena regardless of how large the slab is.
+	if class == arenaClassFull {
+		return maxRetainedFullNodeBytes / nodeSize
+	}
+	// Incremental arenas: retain at least the byte floor, but also allow the
+	// factor-based path if it is larger (handles workloads that repeatedly
+	// parse files that need more than the floor).
+	floor := maxRetainedIncrementalNodeBytes / nodeSize
+	return max(nodeCapacityForClass(class)*maxRetainedArenaFactor, floor)
 }
 
 func maxRetainedOverflowNodeCapacityForClass(class arenaClass) int {

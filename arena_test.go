@@ -197,6 +197,45 @@ func TestChildSlabStalePointersAfterReset(t *testing.T) {
 	}
 }
 
+// TestNodeRetentionCapRespectsByteLimit checks that the maximum node storage
+// an arena may retain after reset() does not exceed maxRetainedFullNodeBytes.
+// Regression: the old constant was interpreted as node count (102400 nodes =
+// ~15 MB), not bytes (100 KB). The fix stores the ceiling in bytes and converts
+// to node count via sizeof(Node).
+func TestNodeRetentionCapRespectsByteLimit(t *testing.T) {
+	nodeSize := int(unsafe.Sizeof(Node{}))
+	maxNodes := maxRetainedNodeCapacityForClass(arenaClassFull)
+	actualBytes := maxNodes * nodeSize
+	if actualBytes > maxRetainedFullNodeBytes {
+		t.Fatalf("maxRetainedNodeCapacityForClass(full) = %d nodes = %d bytes; "+
+			"exceeds intended ceiling %d bytes (%d KB)",
+			maxNodes, actualBytes, maxRetainedFullNodeBytes, maxRetainedFullNodeBytes/1024)
+	}
+}
+
+// TestEvictionGuardPreventsOversizedArenaReuse checks that a full-parse arena
+// whose allocatedBytes exceed maxRetainedFullArenaBytes at Release() time is
+// dropped instead of returned to the pool.
+// Regression: the guard was evaluated inside pool.release() AFTER reset() had
+// already called recomputeAllocatedBytes(), overwriting the peak value with the
+// much smaller post-trim value. The guard never fired.
+func TestEvictionGuardPreventsOversizedArenaReuse(t *testing.T) {
+	fullArenaPool.drain()
+
+	a := fullArenaPool.acquire()
+	// Simulate an arena that grew very large during a parse.
+	a.allocatedBytes = maxRetainedFullArenaBytes + 1
+	a.Release()
+
+	fullArenaPool.mu.Lock()
+	poolSize := len(fullArenaPool.free)
+	fullArenaPool.mu.Unlock()
+
+	if poolSize != 0 {
+		t.Fatalf("oversized arena returned to pool (size=%d); eviction guard did not fire", poolSize)
+	}
+}
+
 // TestArenaNodeSlabFullClearOnReset verifies that reset() zeros the full backing
 // array of each node slab, not just [:used]. This is required so that Go's GC
 // can collect Node structs: Node contains pointer fields (children, parent, etc.)
