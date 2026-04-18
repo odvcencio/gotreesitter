@@ -23,20 +23,22 @@ const (
 	fullFieldSliceCap        = 64 * 1024
 
 	maxRetainedArenaFactor          = 4
-	maxRetainedFullSliceArenaFactor = 4
+	maxRetainedFullSliceArenaFactor = 8
 
 	// Node retention ceilings expressed in bytes. maxRetainedNodeCapacityForClass
 	// converts these to node counts at runtime using sizeof(Node). This ensures
 	// the actual retained memory matches the named byte limit regardless of how
 	// Node's size changes over time.
-	// Trade-off: a parser that handled a large file will reallocate on the next
-	// large parse; one extra allocation is negligible compared to the parse itself.
-	maxRetainedIncrementalNodeBytes = 256 * 1024 // 256 KB per incremental arena
-	maxRetainedFullNodeBytes        = 100 * 1024 // 100 KB per full-parse arena
+	// Full-parse retention keeps enough warm node storage for the standard full
+	// parse benchmark while still capping pathological large-file retention well
+	// below the old multi-hundred-MB node-count ceiling.
+	maxRetainedIncrementalNodeBytes  = 256 * 1024       // 256 KB per incremental arena
+	maxRetainedFullNodeBytes         = 64 * 1024 * 1024 // 64 MB primary node slab
+	maxRetainedFullOverflowNodeBytes = 64 * 1024 * 1024 // 64 MB overflow node slabs
 
 	// Slice retention ceilings in element counts (not bytes).
 	maxRetainedIncrementalSliceCap = 32 * 1024  // 32 K elements
-	maxRetainedFullSliceCap        = 128 * 1024 // 128 K elements
+	maxRetainedFullSliceCap        = 512 * 1024 // 512 K elements
 
 	// Pool eviction ceiling: arenas that grew beyond this byte budget are not
 	// returned to the pool. Without this guard a single large parse can leave
@@ -795,10 +797,9 @@ func maxRetainedNodeCapacityForClass(class arenaClass) int {
 	if nodeSize <= 0 {
 		nodeSize = 1
 	}
-	// Full-parse arenas: hard ceiling in bytes. The factor-based path
-	// (2 MB slab * factor) would dwarf the byte limit, so we ignore it and
-	// always return the ceiling. This caps warm retention at ~100 KB per
-	// full-parse arena regardless of how large the slab is.
+	// Full-parse arenas: hard ceiling in bytes. The factor-based path from the
+	// previous node-count cap could retain hundreds of MB, so use the byte ceiling
+	// directly while keeping enough warm capacity for normal full-parse reuse.
 	if class == arenaClassFull {
 		return maxRetainedFullNodeBytes / nodeSize
 	}
@@ -810,6 +811,9 @@ func maxRetainedNodeCapacityForClass(class arenaClass) int {
 }
 
 func maxRetainedOverflowNodeCapacityForClass(class arenaClass) int {
+	if class == arenaClassFull {
+		return max(nodeCapacityForBytes(maxRetainedFullOverflowNodeBytes), nodeCapacityForClass(class))
+	}
 	return max(maxRetainedNodeCapacityForClass(class)/2, nodeCapacityForClass(class))
 }
 

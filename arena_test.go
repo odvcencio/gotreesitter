@@ -198,10 +198,10 @@ func TestChildSlabStalePointersAfterReset(t *testing.T) {
 }
 
 // TestNodeRetentionCapRespectsByteLimit checks that the maximum node storage
-// an arena may retain after reset() does not exceed maxRetainedFullNodeBytes.
-// Regression: the old constant was interpreted as node count (102400 nodes =
-// ~15 MB), not bytes (100 KB). The fix stores the ceiling in bytes and converts
-// to node count via sizeof(Node).
+// an arena may retain after reset() does not exceed maxRetainedFullNodeBytes,
+// while still retaining the default full-parse slab for warm reuse.
+// Regression: an earlier PR revision interpreted a byte limit as a node count.
+// The fix stores ceilings in bytes and converts to node counts via sizeof(Node).
 func TestNodeRetentionCapRespectsByteLimit(t *testing.T) {
 	nodeSize := int(unsafe.Sizeof(Node{}))
 	maxNodes := maxRetainedNodeCapacityForClass(arenaClassFull)
@@ -210,6 +210,24 @@ func TestNodeRetentionCapRespectsByteLimit(t *testing.T) {
 		t.Fatalf("maxRetainedNodeCapacityForClass(full) = %d nodes = %d bytes; "+
 			"exceeds intended ceiling %d bytes (%d KB)",
 			maxNodes, actualBytes, maxRetainedFullNodeBytes, maxRetainedFullNodeBytes/1024)
+	}
+	if maxNodes < nodeCapacityForClass(arenaClassFull) {
+		t.Fatalf("maxRetainedNodeCapacityForClass(full) = %d nodes; "+
+			"below default full-parse slab capacity %d nodes",
+			maxNodes, nodeCapacityForClass(arenaClassFull))
+	}
+
+	maxOverflowNodes := maxRetainedOverflowNodeCapacityForClass(arenaClassFull)
+	actualOverflowBytes := maxOverflowNodes * nodeSize
+	if actualOverflowBytes > maxRetainedFullOverflowNodeBytes {
+		t.Fatalf("maxRetainedOverflowNodeCapacityForClass(full) = %d nodes = %d bytes; "+
+			"exceeds intended overflow ceiling %d bytes (%d MB)",
+			maxOverflowNodes, actualOverflowBytes, maxRetainedFullOverflowNodeBytes, maxRetainedFullOverflowNodeBytes/(1024*1024))
+	}
+	if maxOverflowNodes < nodeCapacityForClass(arenaClassFull) {
+		t.Fatalf("maxRetainedOverflowNodeCapacityForClass(full) = %d nodes; "+
+			"below default full-parse slab capacity %d nodes",
+			maxOverflowNodes, nodeCapacityForClass(arenaClassFull))
 	}
 }
 
