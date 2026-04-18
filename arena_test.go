@@ -197,6 +197,63 @@ func TestChildSlabStalePointersAfterReset(t *testing.T) {
 	}
 }
 
+// TestNodeRetentionCapRespectsByteLimit checks that the maximum node storage
+// an arena may retain after reset() does not exceed maxRetainedFullNodeBytes,
+// while still retaining the default full-parse slab for warm reuse.
+// Regression: an earlier PR revision interpreted a byte limit as a node count.
+// The fix stores ceilings in bytes and converts to node counts via sizeof(Node).
+func TestNodeRetentionCapRespectsByteLimit(t *testing.T) {
+	nodeSize := int(unsafe.Sizeof(Node{}))
+	maxNodes := maxRetainedNodeCapacityForClass(arenaClassFull)
+	actualBytes := maxNodes * nodeSize
+	if actualBytes > maxRetainedFullNodeBytes {
+		t.Fatalf("maxRetainedNodeCapacityForClass(full) = %d nodes = %d bytes; "+
+			"exceeds intended ceiling %d bytes (%d KB)",
+			maxNodes, actualBytes, maxRetainedFullNodeBytes, maxRetainedFullNodeBytes/1024)
+	}
+	if maxNodes < nodeCapacityForClass(arenaClassFull) {
+		t.Fatalf("maxRetainedNodeCapacityForClass(full) = %d nodes; "+
+			"below default full-parse slab capacity %d nodes",
+			maxNodes, nodeCapacityForClass(arenaClassFull))
+	}
+
+	maxOverflowNodes := maxRetainedOverflowNodeCapacityForClass(arenaClassFull)
+	actualOverflowBytes := maxOverflowNodes * nodeSize
+	if actualOverflowBytes > maxRetainedFullOverflowNodeBytes {
+		t.Fatalf("maxRetainedOverflowNodeCapacityForClass(full) = %d nodes = %d bytes; "+
+			"exceeds intended overflow ceiling %d bytes (%d MB)",
+			maxOverflowNodes, actualOverflowBytes, maxRetainedFullOverflowNodeBytes, maxRetainedFullOverflowNodeBytes/(1024*1024))
+	}
+	if maxOverflowNodes < nodeCapacityForClass(arenaClassFull) {
+		t.Fatalf("maxRetainedOverflowNodeCapacityForClass(full) = %d nodes; "+
+			"below default full-parse slab capacity %d nodes",
+			maxOverflowNodes, nodeCapacityForClass(arenaClassFull))
+	}
+}
+
+// TestEvictionGuardPreventsOversizedArenaReuse checks that a full-parse arena
+// whose allocatedBytes exceed maxRetainedFullArenaBytes at Release() time is
+// dropped instead of returned to the pool.
+// Regression: the guard was evaluated inside pool.release() AFTER reset() had
+// already called recomputeAllocatedBytes(), overwriting the peak value with the
+// much smaller post-trim value. The guard never fired.
+func TestEvictionGuardPreventsOversizedArenaReuse(t *testing.T) {
+	fullArenaPool.drain()
+
+	a := fullArenaPool.acquire()
+	// Simulate an arena that grew very large during a parse.
+	a.allocatedBytes = maxRetainedFullArenaBytes + 1
+	a.Release()
+
+	fullArenaPool.mu.Lock()
+	poolSize := len(fullArenaPool.free)
+	fullArenaPool.mu.Unlock()
+
+	if poolSize != 0 {
+		t.Fatalf("oversized arena returned to pool (size=%d); eviction guard did not fire", poolSize)
+	}
+}
+
 // TestArenaNodeSlabFullClearOnReset verifies that reset() zeros the full backing
 // array of each node slab, not just [:used]. This is required so that Go's GC
 // can collect Node structs: Node contains pointer fields (children, parent, etc.)

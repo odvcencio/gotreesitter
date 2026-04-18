@@ -461,3 +461,32 @@ func TestIncrementalReuseUnavailableReason(t *testing.T) {
 		t.Fatalf("incrementalReuseUnavailableReason(safe external scanner) = %q, want empty", got)
 	}
 }
+
+func TestParseFullArenaNodeCapacityCapsStaleLargeHintBySourceSize(t *testing.T) {
+	sourceLen := 32 * 1024
+	staleLargeHint := parseNodeLimit(2 * 1024 * 1024)
+
+	got := parseFullArenaNodeCapacity(sourceLen, staleLargeHint)
+	limit := parseFullArenaHintLimit(sourceLen)
+	if got != limit {
+		t.Fatalf("parseFullArenaNodeCapacity(%d, stale large hint) = %d, want source-sized limit %d", sourceLen, got, limit)
+	}
+	if got >= staleLargeHint {
+		t.Fatalf("parseFullArenaNodeCapacity kept stale large hint: got %d, stale hint %d", got, staleLargeHint)
+	}
+}
+
+func TestParseFullArenaNodeCapacityKeepsUsefulSameSizeHint(t *testing.T) {
+	sourceLen := 128 * 1024
+	initial := parseFullArenaInitialNodeCapacity(sourceLen)
+	limit := parseFullArenaHintLimit(sourceLen)
+	if initial >= limit {
+		t.Fatalf("test setup invalid: initial=%d limit=%d", initial, limit)
+	}
+	hint := initial + (limit-initial)/2
+
+	got := parseFullArenaNodeCapacity(sourceLen, hint)
+	if got != hint {
+		t.Fatalf("parseFullArenaNodeCapacity(%d, useful hint %d) = %d, want hint", sourceLen, hint, got)
+	}
+}
