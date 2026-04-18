@@ -7,16 +7,6 @@ type queryChildStepInfo struct {
 	field   FieldID
 }
 
-// matchSteps matches a contiguous slice of steps starting at stepIdx
-// against the given node at the expected depth.
-func (q *Query) matchSteps(steps []QueryStep, stepIdx int, node *Node, lang *Language, source []byte, captures *[]QueryCapture) bool {
-	return q.matchStepsWithPredicates(steps, stepIdx, node, lang, source, nil, captures)
-}
-
-func (q *Query) matchStepsWithParent(steps []QueryStep, stepIdx int, node *Node, parent *Node, childIdx int, lang *Language, source []byte, captures *[]QueryCapture) bool {
-	return q.matchStepsWithParentPredicates(steps, stepIdx, node, parent, childIdx, lang, source, nil, captures)
-}
-
 func (q *Query) matchStepsWithPredicates(steps []QueryStep, stepIdx int, node *Node, lang *Language, source []byte, predicates []QueryPredicate, captures *[]QueryCapture) bool {
 	return q.matchStepsWithParentPredicates(steps, stepIdx, node, nil, -1, lang, source, predicates, captures)
 }
@@ -535,7 +525,7 @@ func (q *Query) matchAlternationBranch(
 ) bool {
 	if len(alt.steps) > 0 {
 		// Fast path: no alternation-level captures and no branch predicates.
-		// matchStepWithRollback already protects captures from failed branches.
+		// The predicate-aware rollback path protects captures from failed branches.
 		if !hasStepCaptures && len(alt.predicates) == 0 {
 			return q.matchStepWithRollbackPredicates(alt.steps, 0, node, lang, source, predicates, captures)
 		}

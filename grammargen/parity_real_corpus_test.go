@@ -1226,11 +1226,6 @@ func walkToPath(root *gotreesitter.Node, lang *gotreesitter.Language, path strin
 func logReduceActionDiff(t *testing.T, grammarName string, genLang, refLang *gotreesitter.Language, maxLog int) {
 	t.Helper()
 
-	type reduceKey struct {
-		symName string
-		cc      uint8
-	}
-
 	// Collect gen reduce actions by symbol name.
 	genReduces := map[string][]uint8{} // symName → list of ChildCounts
 	for _, pa := range genLang.ParseActions {

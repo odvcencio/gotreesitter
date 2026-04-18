@@ -117,7 +117,6 @@ type symbolTable struct {
 	nontermByName       map[string]int // nonterminal name → symbol ID
 	namedTokenByName    map[string]int // named token name → symbol ID (when distinct from anonymous)
 	symbols             []SymbolInfo
-	nextID              int
 	fieldMap            map[string]int
 	fields              []string
 	binaryRepeatMode    bool // use tree-sitter binary repeat helper shape

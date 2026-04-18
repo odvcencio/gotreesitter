@@ -79,7 +79,7 @@ run_one() {
     "$BUILD_DIR"/core_*.o \
     -o "$lang_build/bench"
 
-  "$lang_build/bench" "$label" "$SCRIPT_DIR/samples/$sample" "$iters"
+  "$lang_build/bench" "$label" "$SCRIPT_DIR/testdata/samples/$sample" "$iters"
 }
 
 echo "pure-c full-parse matrix (tree-sitter C runtime, no cgo):"

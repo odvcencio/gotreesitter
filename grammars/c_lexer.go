@@ -956,21 +956,6 @@ func (ts *CTokenSource) nextLineStartsWithBraceThenDirective(want string) bool {
 	return ok && canonical == want
 }
 
-func (ts *CTokenSource) preprocDirectiveState(text string) int {
-	switch text {
-	case "#define":
-		return cPreprocAfterDefine
-	case "#include":
-		return cPreprocAfterInclude
-	case "#if", "#elif":
-		return cPreprocConditionalExpr
-	case "#pragma", "#undef", "#error", "#warning":
-		return cPreprocAfterName
-	default:
-		return cPreprocNormal
-	}
-}
-
 func (ts *CTokenSource) matchLiteral() (gotreesitter.Symbol, int) {
 	if ts.cur.eof() {
 		return 0, 0
@@ -1029,11 +1014,6 @@ func (ts *CTokenSource) eofToken() gotreesitter.Token {
 	}
 }
 
-// preprocEndToken emits a preprocessor line terminator token for \n.
-// The C grammar uses preproc_include_token2 as the directive delimiter.
-func (ts *CTokenSource) preprocEndToken() gotreesitter.Token {
-	return ts.lineEndToken(ts.preprocEndSymbol)
-}
 func (ts *CTokenSource) lineEndToken(sym gotreesitter.Symbol) gotreesitter.Token {
 	start := ts.cur.offset
 	startPt := ts.cur.point()

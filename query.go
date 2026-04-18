@@ -769,16 +769,8 @@ func (q *Query) matchPatternIntoBuffer(pat *Pattern, node *Node, lang *Language,
 	return captures[:start+len(matchCaptures)], true
 }
 
-func (q *Query) matchStepWithRollback(steps []QueryStep, stepIdx int, node *Node, lang *Language, source []byte, captures *[]QueryCapture) bool {
-	return q.matchStepWithRollbackPredicates(steps, stepIdx, node, lang, source, nil, captures)
-}
-
 func (q *Query) matchStepWithRollbackPredicates(steps []QueryStep, stepIdx int, node *Node, lang *Language, source []byte, predicates []QueryPredicate, captures *[]QueryCapture) bool {
 	return q.matchStepWithRollbackAtParentPredicates(steps, stepIdx, node, nil, -1, lang, source, predicates, captures)
-}
-
-func (q *Query) matchStepWithRollbackAtParent(steps []QueryStep, stepIdx int, node *Node, parent *Node, childIdx int, lang *Language, source []byte, captures *[]QueryCapture) bool {
-	return q.matchStepWithRollbackAtParentPredicates(steps, stepIdx, node, parent, childIdx, lang, source, nil, captures)
 }
 
 func (q *Query) matchStepWithRollbackAtParentPredicates(steps []QueryStep, stepIdx int, node *Node, parent *Node, childIdx int, lang *Language, source []byte, predicates []QueryPredicate, captures *[]QueryCapture) bool {

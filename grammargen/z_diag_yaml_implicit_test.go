@@ -1,10 +1,10 @@
+//go:build diagnostic
+
 package grammargen
 
 import (
-	"fmt"
 	"os"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
@@ -177,88 +177,4 @@ func TestDiagYAMLImplicitMapping(t *testing.T) {
 		t.Logf("conflict state=%d kind=%v resolution=%s actions=%s",
 			d.State, d.Kind, d.Resolution, diagFormatActions(ng, d.Actions))
 	}
-}
-
-func diagFindAllSymbols(ng *NormalizedGrammar, name string) []int {
-	var ids []int
-	for i, sym := range ng.Symbols {
-		if sym.Name == name {
-			ids = append(ids, i)
-		}
-	}
-	return ids
-}
-
-func diagProductionMentionsNames(ng *NormalizedGrammar, prod *Production, names []string) bool {
-	nameSet := make(map[string]bool, len(names))
-	for _, name := range names {
-		nameSet[name] = true
-	}
-	if prod.LHS >= 0 && prod.LHS < len(ng.Symbols) && nameSet[ng.Symbols[prod.LHS].Name] {
-		return true
-	}
-	for _, sym := range prod.RHS {
-		if sym >= 0 && sym < len(ng.Symbols) && nameSet[ng.Symbols[sym].Name] {
-			return true
-		}
-	}
-	return false
-}
-
-func diagStateMentionsNames(ng *NormalizedGrammar, set *lrItemSet, names []string) bool {
-	for _, ce := range set.cores {
-		if diagProductionMentionsNames(ng, &ng.Productions[ce.prodIdx], names) {
-			return true
-		}
-	}
-	return false
-}
-
-func diagFormatProd(ng *NormalizedGrammar, prodIdx, dot int) string {
-	prod := &ng.Productions[prodIdx]
-	var rhs []string
-	for i, sym := range prod.RHS {
-		if i == dot {
-			rhs = append(rhs, "•")
-		}
-		rhs = append(rhs, diagSymbolName(ng, sym))
-	}
-	if dot == len(prod.RHS) {
-		rhs = append(rhs, "•")
-	}
-	return fmt.Sprintf("%s -> %s", diagSymbolName(ng, prod.LHS), strings.Join(rhs, " "))
-}
-
-func diagFormatActions(ng *NormalizedGrammar, acts []lrAction) string {
-	if len(acts) == 0 {
-		return "[]"
-	}
-	parts := make([]string, 0, len(acts))
-	for _, act := range acts {
-		switch act.kind {
-		case lrShift:
-			parts = append(parts, fmt.Sprintf("shift(state=%d,lhs=%s)", act.state, diagSymbolName(ng, act.lhsSym)))
-		case lrReduce:
-			parts = append(parts, fmt.Sprintf("reduce(prod=%d,%s)", act.prodIdx, diagFormatProd(ng, act.prodIdx, len(ng.Productions[act.prodIdx].RHS))))
-		case lrAccept:
-			parts = append(parts, "accept")
-		default:
-			parts = append(parts, fmt.Sprintf("kind=%d", act.kind))
-		}
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
-}
-
-func diagSymbolName(ng *NormalizedGrammar, sym int) string {
-	if sym < 0 || sym >= len(ng.Symbols) {
-		return fmt.Sprintf("sym%d", sym)
-	}
-	return fmt.Sprintf("%s(%d)", ng.Symbols[sym].Name, sym)
-}
-
-func diagMergeCount(ctx *lrContext, state int) int {
-	if ctx == nil || ctx.provenance == nil {
-		return 0
-	}
-	return len(ctx.provenance.origins(state))
 }

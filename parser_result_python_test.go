@@ -30,7 +30,7 @@ func TestBuildResultFromNodesCollapsesPythonTerminalIfSuffix(t *testing.T) {
 	}
 	arena := acquireNodeArena(arenaClassFull)
 
-	source := []byte("class A:\n    pass\n\nif __name__ == '__main__':\n    unittest.main()\n")
+	source := mustReadParserResultFixture(t, "python/terminal_if_suffix.py")
 
 	classNode := newLeafNodeInArena(arena, 2, true, 0, 17, Point{}, Point{Row: 1, Column: 8})
 	ifNode := newLeafNodeInArena(arena, 3, false, 18, 20, Point{Row: 3, Column: 0}, Point{Row: 3, Column: 2})
@@ -104,7 +104,7 @@ func TestBuildResultFromNodesCollapsesPythonTerminalClassAndIfSuffix(t *testing.
 	}
 	arena := acquireNodeArena(arenaClassFull)
 
-	source := []byte("class GrammarTests(unittest.TestCase):\n    def test_ok(self):\n        pass\n\nif __name__ == '__main__':\n    unittest.main()\n")
+	source := mustReadParserResultFixture(t, "python/terminal_class_and_if_suffix.py")
 
 	classKw := newLeafNodeInArena(arena, 2, false, 0, 5, Point{}, Point{Column: 5})
 	className := newLeafNodeInArena(arena, 3, true, 6, 18, Point{Column: 6}, Point{Column: 18})
@@ -409,7 +409,7 @@ func TestNormalizePythonTrailingSelfCallsFoldsIntoNestedFunctionBlock(t *testing
 		},
 	}
 	arena := acquireNodeArena(arenaClassFull)
-	source := []byte("    def foo():\n        x = 1;\n    foo()\n")
+	source := mustReadParserResultFixture(t, "python/trailing_self_call.py")
 
 	fnName := newLeafNodeInArena(arena, 4, true, 8, 11, Point{Column: 8}, Point{Column: 11})
 	body := newParentNodeInArena(arena, 2, true, []*Node{
@@ -472,7 +472,7 @@ func TestBuildResultFromNodesUnwrapsPythonModuleSimpleStatements(t *testing.T) {
 	}
 	arena := acquireNodeArena(arenaClassFull)
 
-	source := []byte("# hdr\nfrom x import y\n")
+	source := mustReadParserResultFixture(t, "python/module_import_from.py")
 	comment := newLeafNodeInArena(arena, 4, true, 0, 5, Point{}, Point{Column: 5})
 	stmt := newLeafNodeInArena(arena, 3, true, 6, 21, Point{Row: 1, Column: 0}, Point{Row: 1, Column: 15})
 	wrapped := newParentNodeInArena(arena, 2, true, []*Node{stmt}, nil, 0)
@@ -514,7 +514,7 @@ func TestBuildResultFromNodesUnwrapsPythonModuleAssignmentStatements(t *testing.
 	}
 	arena := acquireNodeArena(arenaClassFull)
 
-	source := []byte("# hdr\nx = 1\n")
+	source := mustReadParserResultFixture(t, "python/module_assignment.py")
 	comment := newLeafNodeInArena(arena, 5, true, 0, 5, Point{}, Point{Column: 5})
 	assign := newLeafNodeInArena(arena, 4, true, 6, 11, Point{Row: 1, Column: 0}, Point{Row: 1, Column: 5})
 	expr := newParentNodeInArena(arena, 3, true, []*Node{assign}, nil, 0)

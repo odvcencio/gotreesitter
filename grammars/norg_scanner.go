@@ -241,10 +241,6 @@ func (NorgExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 	return norgScan(s, lexer, validSymbols)
 }
 
-func norgIsValid(valid []bool, tok int) bool {
-	return tok < len(valid) && valid[tok]
-}
-
 func norgIsNewline(ch rune) bool { return ch == 0 || ch == '\n' || ch == '\r' }
 func norgIsBlank(ch rune) bool   { return ch != 0 && (ch == ' ' || ch == '\t' || ch == '\v') }
 

@@ -13,7 +13,6 @@ import (
 type regexNode struct {
 	kind     regexKind
 	children []*regexNode
-	lo, hi   rune        // for charRange
 	runes    []runeRange // for charClass
 	negate   bool        // for charClass
 	value    rune        // for literal

@@ -7,7 +7,30 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-- Nothing yet.
+### Changed
+- Moved cgo harness sample/profile fixtures under `testdata` directories and
+  updated the harness docs and scripts to use the new paths.
+- GLR stack culling now shares the keyed retention path across full and
+  incremental parses while preserving the previous incremental tie-breaks.
+- Parser-result compatibility dispatch is now separated from core tree
+  assembly, with mixed compatibility shims split into language-owned files and
+  shared node helpers moved out of language-specific modules.
+- Parser tests are split by responsibility, public parser-result regression
+  tests live under `parser_result_test`, and larger parser-result Python source
+  fixtures now live under `testdata/parser_result`.
+
+### Removed
+- Dropped unused query matcher rollback compatibility wrappers now that
+  predicate-aware matching is the only call path.
+- Removed unused internal parser, reduce, incremental, and parser-result helpers
+  left behind by recent recovery and normalization rewrites.
+- Removed stale internal planning/spec docs from the OSS tree.
+- Removed unused private grammar and grammargen helper code found by the
+  maintenance sweep.
+- Moved ad-hoc grammargen diagnostic tests behind an explicit build tag and
+  removed the print-only disassembly lexer probe from the normal test suite.
+- Removed the duplicate legacy GLR stack-retention selector from parser
+  internals.
 
 ## [0.15.1] - 2026-04-18
 

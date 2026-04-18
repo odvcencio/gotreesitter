@@ -279,13 +279,6 @@ func buildParseTables(
 ) error {
 	symbolCount := len(ng.Symbols)
 
-	// First, collect all unique action entries and assign indices.
-	type actionKey struct {
-		kind    lrActionKind
-		state   int
-		prodIdx int
-	}
-
 	// Build parse action entries.
 	// Index 0 is always the error/no-action entry.
 	var parseActions []gotreesitter.ParseActionEntry
@@ -779,105 +772,6 @@ func serializeBoolRow(row []bool) string {
 		}
 	}
 	return string(buf)
-}
-
-// stripHiddenExternalsFromPureReduceStates removes hidden external symbol
-// entries from the LR action table in states where every terminal triggers
-// the same reduce. These states arise from LALR merging and the external
-// symbol adds no value—it just causes the external scanner to produce a
-// spurious zero-width token that the parser uses as a lookahead but never
-// shifts. By removing the entry, the external scanner is no longer called
-// and the parser reduces on whichever real token follows instead.
-func stripHiddenExternalsFromPureReduceStates(tables *LRTables, ng *NormalizedGrammar) {
-	if len(ng.ExternalSymbols) == 0 {
-		return
-	}
-
-	extSymSet := make(map[int]bool, len(ng.ExternalSymbols))
-	for _, symID := range ng.ExternalSymbols {
-		extSymSet[symID] = true
-	}
-
-	// Find hidden external symbols (name starts with "_") that have
-	// production-based counterparts.
-	tokenCount := ng.TokenCount()
-	type cpInfo struct {
-		extSym int
-		cpSyms []int
-	}
-	var candidates []cpInfo
-	for _, symID := range ng.ExternalSymbols {
-		name := ng.Symbols[symID].Name
-		if name == "" || name[0] != '_' {
-			continue
-		}
-		alts := findProductionAlternativeCounterparts(ng, symID, func() map[int]int {
-			m := make(map[int]int)
-			for i, s := range ng.ExternalSymbols {
-				m[s] = i
-			}
-			return m
-		}(), tokenCount)
-		if len(alts) > 0 {
-			candidates = append(candidates, cpInfo{extSym: symID, cpSyms: alts})
-		}
-	}
-	if len(candidates) == 0 {
-		return
-	}
-
-	for state := 0; state < tables.StateCount; state++ {
-		acts, ok := tables.ActionTable[state]
-		if !ok {
-			continue
-		}
-
-		for _, cand := range candidates {
-			extActs, ok := acts[cand.extSym]
-			if !ok || len(extActs) == 0 {
-				continue
-			}
-			if !actionsAreReduceOnly(extActs) {
-				continue
-			}
-
-			// Check if counterpart has the same reduce-only action.
-			hasSameCp := false
-			for _, cpSym := range cand.cpSyms {
-				cpActs, cpOk := acts[cpSym]
-				if cpOk && len(cpActs) > 0 && actionsAreReduceOnly(cpActs) &&
-					actListsEqual(extActs, cpActs) {
-					hasSameCp = true
-					break
-				}
-			}
-			if !hasSameCp {
-				continue
-			}
-
-			// Verify this is a pure-reduce state: every terminal in the
-			// action table has the same reduce action as the external symbol.
-			isPureReduce := true
-			for sym, symActs := range acts {
-				if sym >= tokenCount {
-					continue // skip nonterminal goto entries
-				}
-				if len(symActs) == 0 {
-					continue
-				}
-				if !actListsEqual(symActs, extActs) {
-					isPureReduce = false
-					break
-				}
-			}
-			if !isPureReduce {
-				continue
-			}
-
-			// Strip the hidden external from this state's action table.
-			delete(acts, cand.extSym)
-		}
-	}
 }
 
 // actionsAreReduceOnly returns true if all actions in the list are reduce

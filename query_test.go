@@ -2667,25 +2667,6 @@ func buildRepeatedFieldTree(lang *Language) *Tree {
 // Quantified query predicates: #any-eq?, #any-not-eq?, #any-match?, #any-not-match?
 // ---------------------------------------------------------------------------
 
-// buildMultiIdentTree creates a tree with three identifier children under a block:
-//
-//	program > block > [ identifier("foo"), identifier("bar"), identifier("baz") ]
-//
-// source: "foo bar baz"
-func buildMultiIdentTree(lang *Language) *Tree {
-	source := []byte("foo bar baz")
-	id1 := leaf(Symbol(1), true, 0, 3)  // "foo"
-	id2 := leaf(Symbol(1), true, 4, 7)  // "bar"
-	id3 := leaf(Symbol(1), true, 8, 11) // "baz"
-	block := parent(Symbol(14), true,
-		[]*Node{id1, id2, id3},
-		[]FieldID{0, 0, 0})
-	program := parent(Symbol(7), true,
-		[]*Node{block},
-		[]FieldID{0})
-	return NewTree(program, source, lang)
-}
-
 // --- Parse tests ---
 
 func TestParsePredicateAnyEq(t *testing.T) {

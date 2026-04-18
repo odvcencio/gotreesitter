@@ -345,7 +345,6 @@ type dfaSubsetScratch struct {
 	seenGen uint32
 	seen    []uint32
 	stack   []int
-	move    []int
 	closure []int
 }
 
@@ -362,23 +361,6 @@ func (s *dfaSubsetScratch) nextSeenGen() uint32 {
 		s.seenGen = 1
 	}
 	return s.seenGen
-}
-
-func (s *dfaSubsetScratch) collectMoveTargets(n *nfa, states []int, lo, hi rune) []int {
-	gen := s.nextSeenGen()
-	targets := s.move[:0]
-	for _, state := range states {
-		for _, t := range n.states[state].transitions {
-			if t.epsilon || t.lo > lo || t.hi < hi || s.seen[t.nextState] == gen {
-				continue
-			}
-			s.seen[t.nextState] = gen
-			targets = append(targets, t.nextState)
-		}
-	}
-	sort.Ints(targets)
-	s.move = targets
-	return targets
 }
 
 func (s *dfaSubsetScratch) epsilonClosure(n *nfa, seeds []int) []int {
@@ -725,38 +707,6 @@ func collectTransitionMoves(n *nfa, states []int) []nfaRangeMove {
 	return moves
 }
 
-// mergeAdjacentRanges merges adjacent ranges that lead to the same target state set.
-func mergeAdjacentRanges(ranges []runeRange, n *nfa, states []int) []runeRange {
-	if len(ranges) <= 1 {
-		return ranges
-	}
-	merged := make([]runeRange, 0, len(ranges))
-	cur := ranges[0]
-	curTarget := moveTargets(n, states, cur.lo, cur.hi)
-
-	for i := 1; i < len(ranges); i++ {
-		next := ranges[i]
-		nextTarget := moveTargets(n, states, next.lo, next.hi)
-		canMerge := next.lo == cur.hi+1 && sameIntSlice(curTarget, nextTarget)
-		if canMerge {
-			// Merge only when one or more direct NFA transitions cover the
-			// entire combined range. Otherwise subsetConstruction(moveAndClose)
-			// can later drop the merged range as unreachable.
-			combinedTarget := moveTargets(n, states, cur.lo, next.hi)
-			canMerge = sameIntSlice(curTarget, combinedTarget)
-		}
-		if canMerge {
-			cur.hi = next.hi
-			continue
-		}
-		merged = append(merged, cur)
-		cur = next
-		curTarget = nextTarget
-	}
-	merged = append(merged, cur)
-	return merged
-}
-
 func moveTargets(n *nfa, states []int, lo, hi rune) []int {
 	var targets []int
 	seen := make(map[int]bool)
@@ -782,24 +732,6 @@ func sameIntSlice(a, b []int) bool {
 		}
 	}
 	return true
-}
-
-// moveAndClose computes move(states, [lo,hi]) followed by epsilon closure.
-func moveAndClose(n *nfa, states []int, lo, hi rune) []int {
-	var targets []int
-	seen := make(map[int]bool)
-	for _, s := range states {
-		for _, t := range n.states[s].transitions {
-			if !t.epsilon && t.lo <= lo && t.hi >= hi && !seen[t.nextState] {
-				seen[t.nextState] = true
-				targets = append(targets, t.nextState)
-			}
-		}
-	}
-	if len(targets) == 0 {
-		return nil
-	}
-	return epsilonClosure(n, targets)
 }
 
 // convertDFAToLexStates converts internal DFA states to gotreesitter LexState format.

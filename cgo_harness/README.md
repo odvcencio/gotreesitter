@@ -262,7 +262,7 @@ Use the corpus builder to materialize production-grade real corpus fixtures from
 
 ```sh
 go run ./cgo_harness/cmd/build_real_corpus \
-  -profile cgo_harness/cmd/build_real_corpus/top50_manifest.json \
+  -profile cgo_harness/testdata/top50_manifest.json \
   -out cgo_harness/corpus_real
 ```
 

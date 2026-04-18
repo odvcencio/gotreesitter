@@ -59,10 +59,6 @@ func nodeBumpEquivVersion(n *Node) {
 	}
 }
 
-func defaultFieldSources(fieldIDs []FieldID) []uint8 {
-	return defaultFieldSourcesInArena(nil, fieldIDs)
-}
-
 func defaultFieldSourcesInArena(arena *nodeArena, fieldIDs []FieldID) []uint8 {
 	if len(fieldIDs) == 0 {
 		return nil
@@ -749,10 +745,6 @@ func newParentNodeInArenaWithFieldSources(arena *nodeArena, sym Symbol, named bo
 		arena.audit.recordNodeAlloc(n, runtimeAuditNodeKindParent)
 	}
 	return n
-}
-
-func newParentNodeInArenaNoLinks(arena *nodeArena, sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16, trackChildErrors bool) *Node {
-	return newParentNodeInArenaNoLinksWithFieldSources(arena, sym, named, children, fieldIDs, nil, productionID, trackChildErrors)
 }
 
 func newParentNodeInArenaNoLinksWithFieldSources(arena *nodeArena, sym Symbol, named bool, children []*Node, fieldIDs []FieldID, fieldSources []uint8, productionID uint16, trackChildErrors bool) *Node {

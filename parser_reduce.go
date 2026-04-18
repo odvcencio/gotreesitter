@@ -926,11 +926,6 @@ func flattenedSpanSingleDescendantFieldTarget(children []*Node, start, end int, 
 	return target, target >= 0
 }
 
-type hiddenFieldSpan struct {
-	count  int
-	source uint8
-}
-
 type reduceBuildScratch struct {
 	nodes         []*Node
 	fieldIDs      []FieldID
@@ -1498,103 +1493,6 @@ func (p *Parser) suppressReducedChildFields(children []*Node, fieldIDs []FieldID
 			fieldSources[i] = fieldSourceNone
 		}
 	}
-}
-
-func buildReduceChildrenNoAliasNoFields(entries []stackEntry, start, end int, parentSymbol Symbol, symbolMeta []SymbolMetadata, arena *nodeArena) []*Node {
-	visibleCount := 0
-	allVisible := true
-	for i := start; i < end; i++ {
-		n := entries[i].node
-		if n == nil {
-			continue
-		}
-		visible := true
-		if idx := int(n.symbol); idx < len(symbolMeta) {
-			visible = symbolMeta[n.symbol].Visible
-		}
-		if !visible {
-			allVisible = false
-			break
-		}
-		visibleCount++
-	}
-	if allVisible {
-		if visibleCount == 0 {
-			return nil
-		}
-		children := arena.allocNodeSlice(visibleCount)
-		out := 0
-		for i := start; i < end; i++ {
-			n := entries[i].node
-			if n == nil {
-				continue
-			}
-			children[out] = n
-			out++
-		}
-		return children
-	}
-
-	parentVisible := true
-	if idx := int(parentSymbol); idx < len(symbolMeta) {
-		parentVisible = symbolMeta[parentSymbol].Visible
-	}
-	normalizedCount := 0
-	for i := start; i < end; i++ {
-		n := entries[i].node
-		if n == nil {
-			continue
-		}
-		visible := true
-		if idx := int(n.symbol); idx < len(symbolMeta) {
-			visible = symbolMeta[n.symbol].Visible
-		}
-		if visible {
-			normalizedCount++
-			continue
-		}
-		if parentVisible {
-			normalizedCount += countFlattenedHiddenChildren(n, symbolMeta)
-			continue
-		}
-		if len(n.children) > 0 {
-			normalizedCount++
-		}
-	}
-	if normalizedCount == 0 {
-		return nil
-	}
-
-	children := arena.allocNodeSlice(normalizedCount)
-	out := 0
-	for i := start; i < end; i++ {
-		n := entries[i].node
-		if n == nil {
-			continue
-		}
-		visible := true
-		if idx := int(n.symbol); idx < len(symbolMeta) {
-			visible = symbolMeta[n.symbol].Visible
-		}
-		if visible {
-			children[out] = n
-			out++
-			continue
-		}
-		if parentVisible {
-			out = appendFlattenedHiddenChildren(children, out, n, symbolMeta)
-			continue
-		}
-		if len(n.children) == 0 {
-			continue
-		}
-		children[out] = n
-		out++
-	}
-	if out != len(children) {
-		return children[:out]
-	}
-	return children
 }
 
 func countFlattenedHiddenChildren(n *Node, symbolMeta []SymbolMetadata) int {
@@ -2186,17 +2084,6 @@ func (p *Parser) findRecoverActionOnStack(s *glrStack, sym Symbol, timing *incre
 		depth--
 	}
 	return 0, ParseAction{}, false
-}
-
-func (p *Parser) aliasSymbolForChild(productionID uint16, childIndex int) Symbol {
-	if p == nil || p.language == nil || childIndex < 0 {
-		return 0
-	}
-	seq := p.reduceAliasSequence(productionID)
-	if childIndex >= len(seq) {
-		return 0
-	}
-	return seq[childIndex]
 }
 
 func (p *Parser) reduceAliasSequence(productionID uint16) []Symbol {

@@ -64,3 +64,18 @@ func TestRetainTopStacksKeepsDistinctTopStateRepresentative(t *testing.T) {
 		}
 	}
 }
+
+func TestRetainTopStacksUsesBranchOrderTieBreak(t *testing.T) {
+	first := makeRetentionTestStack(3, 3, false, 2)
+	first.branchOrder = 1
+	later := makeRetentionTestStack(3, 3, false, 2)
+	later.branchOrder = 2
+
+	kept := retainTopStacks([]glrStack{later, first}, 1)
+	if len(kept) != 1 {
+		t.Fatalf("len(kept) = %d, want 1", len(kept))
+	}
+	if got := kept[0].branchOrder; got != first.branchOrder {
+		t.Fatalf("kept branchOrder = %d, want %d", got, first.branchOrder)
+	}
+}

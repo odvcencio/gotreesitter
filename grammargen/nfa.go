@@ -2,7 +2,6 @@ package grammargen
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -299,20 +298,6 @@ func (b *nfaBuilder) buildFromRegexNode(node *regexNode) (nfaFragment, error) {
 	}
 }
 
-// buildCharClass handles a pre-formatted character class pattern like [a-z] or [^...].
-func (b *nfaBuilder) buildCharClass(pattern string) (nfaFragment, error) {
-	ranges, err := parseCharClassPattern(pattern)
-	if err != nil {
-		return nfaFragment{}, err
-	}
-	start := b.addState()
-	end := b.addState()
-	for _, rr := range ranges {
-		b.addCharRange(start, rr.lo, rr.hi, end)
-	}
-	return nfaFragment{start, end}, nil
-}
-
 func (b *nfaBuilder) buildSeq(children []*Rule) (nfaFragment, error) {
 	if len(children) == 0 {
 		return b.buildEpsilon(), nil
@@ -493,75 +478,6 @@ func buildCombinedNFA(patterns []TerminalPattern) (*nfa, error) {
 	}
 
 	return &nfa{states: b.states, start: start}, nil
-}
-
-// parseCharClassPattern parses a character class like [a-z] or [^...] into
-// a list of inclusive rune ranges. Handles negation by computing complement.
-func parseCharClassPattern(pattern string) ([]runeRange, error) {
-	if len(pattern) < 2 || pattern[0] != '[' || pattern[len(pattern)-1] != ']' {
-		return nil, fmt.Errorf("invalid char class pattern: %q", pattern)
-	}
-	inner := pattern[1 : len(pattern)-1]
-	negate := false
-	if len(inner) > 0 && inner[0] == '^' {
-		negate = true
-		inner = inner[1:]
-	}
-
-	var ranges []runeRange
-	i := 0
-	for i < len(inner) {
-		ch, size := decodeCharClassRune(inner, i)
-		i += size
-
-		// Check for range: ch-hi
-		if i < len(inner) && inner[i] == '-' && i+1 < len(inner) {
-			i++ // skip '-'
-			hi, size2 := decodeCharClassRune(inner, i)
-			i += size2
-			ranges = append(ranges, runeRange{ch, hi})
-		} else {
-			ranges = append(ranges, runeRange{ch, ch})
-		}
-	}
-
-	if negate {
-		ranges = complementRanges(ranges)
-	}
-	return ranges, nil
-}
-
-// decodeCharClassRune decodes a single character from a char class pattern,
-// handling escape sequences.
-func decodeCharClassRune(s string, pos int) (rune, int) {
-	if pos >= len(s) {
-		return 0, 0
-	}
-	if s[pos] == '\\' && pos+1 < len(s) {
-		next, size := utf8.DecodeRuneInString(s[pos+1:])
-		switch next {
-		case 'n':
-			return '\n', 1 + size
-		case 'r':
-			return '\r', 1 + size
-		case 't':
-			return '\t', 1 + size
-		case 'x':
-			// \xNN — two hex digits
-			hexStart := pos + 1 + size
-			if hexStart+2 <= len(s) {
-				n, err := strconv.ParseUint(s[hexStart:hexStart+2], 16, 8)
-				if err == nil {
-					return rune(n), 1 + size + 2
-				}
-			}
-			return next, 1 + size
-		default:
-			return next, 1 + size
-		}
-	}
-	r, size := utf8.DecodeRuneInString(s[pos:])
-	return r, size
 }
 
 // complementRanges computes the complement of a set of rune ranges

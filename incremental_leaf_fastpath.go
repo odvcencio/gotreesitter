@@ -227,20 +227,3 @@ func clearDirtyPathToRoot(n *Node) {
 		n = n.parent
 	}
 }
-
-func clearDirtyFlags(root *Node) {
-	if root == nil {
-		return
-	}
-	stack := []*Node{root}
-	for len(stack) > 0 {
-		n := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		n.dirty = false
-		for i := len(n.children) - 1; i >= 0; i-- {
-			if child := n.children[i]; child != nil {
-				stack = append(stack, child)
-			}
-		}
-	}
-}

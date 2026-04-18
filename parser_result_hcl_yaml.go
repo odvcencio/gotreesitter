@@ -617,22 +617,6 @@ func yamlExtendExplicitDocumentRangesToLeadingComments(root *Node, lang *Languag
 	}
 }
 
-func yamlDocumentHasExplicitStart(node *Node, lang *Language) bool {
-	if node == nil || lang == nil || node.Type(lang) != "document" {
-		return false
-	}
-	for _, child := range node.children {
-		if child == nil {
-			continue
-		}
-		switch child.Type(lang) {
-		case "tag_directive", "yaml_directive", "reserved_directive", "---":
-			return true
-		}
-	}
-	return false
-}
-
 func yamlSliceContainsType(nodes []*Node, want string, lang *Language) bool {
 	for _, node := range nodes {
 		if node != nil && node.Type(lang) == want {

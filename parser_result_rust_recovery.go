@@ -151,26 +151,6 @@ func normalizeRustRecoveredPatternStatementsRoot(root *Node, source []byte, p *P
 	}
 }
 
-func rustLooksLikePatternStatementRoot(root *Node, lang *Language) bool {
-	if root == nil || lang == nil || len(root.children) == 0 {
-		return false
-	}
-	sawError := false
-	for _, child := range root.children {
-		if child == nil {
-			continue
-		}
-		switch child.Type(lang) {
-		case "expression_statement", "let_declaration":
-		case "ERROR":
-			sawError = true
-		default:
-			return false
-		}
-	}
-	return sawError
-}
-
 func normalizeRustRecoveredFunctionItems(root *Node, source []byte, lang *Language) {
 	if root == nil || lang == nil || lang.Name != "rust" || len(source) == 0 || len(root.children) == 0 {
 		return

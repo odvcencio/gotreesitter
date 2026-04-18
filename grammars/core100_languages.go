@@ -111,11 +111,3 @@ func Core100LanguageNames() []string {
 	copy(out, core100LanguageNames)
 	return out
 }
-
-func languageSetFromNames(names []string) map[string]struct{} {
-	set := make(map[string]struct{}, len(names))
-	for _, name := range names {
-		set[name] = struct{}{}
-	}
-	return set
-}

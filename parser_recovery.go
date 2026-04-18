@@ -268,18 +268,6 @@ func buildRecoverActionsByState(lang *Language) ([][]recoverSymbolAction, []bool
 	return recoverByState, hasRecoverState, hasRecoverSymbol
 }
 
-func parseActionEntryHasRecover(entry *ParseActionEntry) bool {
-	if entry == nil {
-		return false
-	}
-	for _, act := range entry.Actions {
-		if act.Type == ParseActionRecover {
-			return true
-		}
-	}
-	return false
-}
-
 func (p *Parser) stateCanRecover(state StateID) bool {
 	if len(p.hasRecoverState) == 0 {
 		return true

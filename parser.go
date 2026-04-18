@@ -39,7 +39,7 @@ type Parser struct {
 	forceRawSpanTable                   []bool
 	included                            []Range
 	logger                              ParserLogger
-	glrTrace                            bool // temporary: verbose GLR stack tracing
+	glrTrace                            bool // verbose GLR stack tracing
 	maxConflictWidth                    int  // widest N-way conflict in the parse table
 	timeoutMicros                       uint64
 	cancellationFlag                    *uint32
@@ -1570,11 +1570,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				perfRecordGlobalCapCull(len(stacks), maxStacks)
 			}
 			cullIn := len(stacks)
-			if arenaClass == arenaClassFull {
-				stacks = retainTopStacksForLanguageWithScratch(stacks, maxStacks, p.language, &scratch.stackPick, &scratch.stackKeep, &scratch.stackCull, &scratch.stateKeep)
-			} else {
-				stacks = retainTopStacksForLanguageWithScratch(stacks, maxStacks, p.language, &scratch.stackPick, &scratch.stackKeep, nil, nil)
-			}
+			cullLang := stackCullLanguageForArena(p.language, arenaClass)
+			stacks = retainTopStacksForLanguageWithScratch(stacks, maxStacks, cullLang, &scratch.stackPick, &scratch.stackKeep, &scratch.stackCull, &scratch.stateKeep)
 			scratch.audit.recordGlobalCull(cullIn, len(stacks))
 			if p.glrTrace {
 				fmt.Printf("[GLR] after cull:\n")
@@ -2148,6 +2145,15 @@ func compactAcceptedStacks(stacks []glrStack) []glrStack {
 	return stacks[:acceptedCount]
 }
 
+func stackCullLanguageForArena(lang *Language, class arenaClass) *Language {
+	if class != arenaClassFull && lang != nil && lang.Name == "bash" {
+		// Incremental culling historically used the generic stack comparator
+		// for Bash. Keep that tie-break order while still reusing scratch.
+		return nil
+	}
+	return lang
+}
+
 func glrStackCullTrigger(maxStacks int, class arenaClass, langName string) int {
 	if maxStacks <= 0 {
 		return maxStacks
@@ -2177,71 +2183,13 @@ func (p *Parser) promotePrimaryStack(stacks []glrStack) {
 	}
 }
 
-func stackCompareForCull(lang *Language, a, b *glrStack) int {
-	if lang == nil || lang.Name != "c_sharp" {
-		return stackComparePtr(a, b)
-	}
-	if a.dead != b.dead {
-		if a.dead {
-			return -1
-		}
-		return 1
-	}
-	if a.accepted != b.accepted {
-		if a.accepted {
-			return 1
-		}
-		return -1
-	}
-	if aErr, bErr := stackErrorRank(a), stackErrorRank(b); aErr != bErr {
-		if aErr < bErr {
-			return 1
-		}
-		return -1
-	}
-	if a.score != b.score {
-		if a.score > b.score {
-			return 1
-		}
-		return -1
-	}
-	aDepth := a.depth()
-	bDepth := b.depth()
-	if aDepth != bDepth {
-		if aDepth > bDepth {
-			return 1
-		}
-		return -1
-	}
-	if a.byteOffset != b.byteOffset {
-		if a.byteOffset > b.byteOffset {
-			return 1
-		}
-		return -1
-	}
-	if a.shifted != b.shifted {
-		if !a.shifted {
-			return 1
-		}
-		return -1
-	}
-	aHash := stackHash(*a)
-	bHash := stackHash(*b)
-	if aHash > bHash {
-		return 1
-	}
-	if aHash < bHash {
-		return -1
-	}
-	return 0
-}
-
 type stackCullKey struct {
 	state      StateID
 	byteOffset uint32
 	score      int
 	hash       uint64
 	depth      int
+	branch     uint64
 	errorRank  uint8
 	flags      uint8
 }
@@ -2291,6 +2239,7 @@ func buildStackCullKeys(stacks []glrStack, lang *Language, buf *[]stackCullKey) 
 			byteOffset: s.byteOffset,
 			score:      s.score,
 			depth:      s.depth(),
+			branch:     s.branchOrder,
 			errorRank:  errorRank,
 			flags:      flags,
 		}
@@ -2375,8 +2324,15 @@ func compareStackCullKeys(lang *Language, a, b stackCullKey) int {
 			return -1
 		}
 	}
+	if a.branch != b.branch {
+		if a.branch < b.branch {
+			return 1
+		}
+		return -1
+	}
 	return 0
 }
+
 func retainTopStacks(stacks []glrStack, keep int) []glrStack {
 	return retainTopStacksForLanguage(stacks, keep, nil)
 }
@@ -2392,11 +2348,21 @@ func retainTopStacksForLanguageWithScratch(stacks []glrStack, keep int, lang *La
 	if len(stacks) <= keep {
 		return stacks
 	}
+	compareLang := lang
 	if keyBuf == nil || stateBuf == nil {
-		return retainTopStacksForLanguageWithScratchLegacy(stacks, keep, lang, selectedBuf, chosenBuf)
+		// Preserve the former no-key fallback semantics. That path used the
+		// C#-specific comparator, but all other languages followed the generic
+		// stack comparator even if the keyed full-parse path has language
+		// tie-breakers.
+		if compareLang == nil || compareLang.Name != "c_sharp" {
+			compareLang = nil
+		}
 	}
-	keys := buildStackCullKeys(stacks, lang, keyBuf)
+	keys := buildStackCullKeys(stacks, compareLang, keyBuf)
+	return retainTopStacksByKeys(stacks, keep, compareLang, keys, selectedBuf, chosenBuf, stateBuf)
+}
 
+func retainTopStacksByKeys(stacks []glrStack, keep int, lang *Language, keys []stackCullKey, selectedBuf *[]int, chosenBuf *[]bool, stateBuf *[]StateID) []glrStack {
 	// Preserve one strong representative per top state before filling the
 	// remaining cap. Otherwise a burst of near-duplicate stacks from one state
 	// can crowd out a shallower but semantically distinct branch.
@@ -2489,106 +2455,6 @@ func retainTopStacksForLanguageWithScratch(stacks []glrStack, keep int, lang *La
 		}
 		stacks[i], stacks[idx] = stacks[idx], stacks[i]
 		keys[i], keys[idx] = keys[idx], keys[i]
-		for j := i + 1; j < len(selected); j++ {
-			if selected[j] == i {
-				selected[j] = idx
-				break
-			}
-		}
-	}
-	return stacks[:len(selected)]
-}
-
-func retainTopStacksForLanguageWithScratchLegacy(stacks []glrStack, keep int, lang *Language, selectedBuf *[]int, chosenBuf *[]bool) []glrStack {
-	if keep <= 0 {
-		return stacks[:0]
-	}
-	if len(stacks) <= keep {
-		return stacks
-	}
-
-	var selected []int
-	if selectedBuf != nil {
-		if cap(*selectedBuf) < len(stacks) {
-			*selectedBuf = make([]int, 0, len(stacks))
-		}
-		selected = (*selectedBuf)[:0]
-	} else {
-		selected = make([]int, 0, len(stacks))
-	}
-	for i := range stacks {
-		state := stacks[i].top().state
-		seen := false
-		for j := 0; j < i; j++ {
-			if stacks[j].top().state == state {
-				seen = true
-				break
-			}
-		}
-		if seen {
-			continue
-		}
-		best := i
-		for j := i + 1; j < len(stacks); j++ {
-			if stacks[j].top().state != state {
-				continue
-			}
-			if stackCompareForCull(lang, &stacks[j], &stacks[best]) > 0 {
-				best = j
-			}
-		}
-		selected = append(selected, best)
-	}
-	for i := 0; i < len(selected); i++ {
-		best := i
-		for j := i + 1; j < len(selected); j++ {
-			if stackCompareForCull(lang, &stacks[selected[j]], &stacks[selected[best]]) > 0 {
-				best = j
-			}
-		}
-		if best != i {
-			selected[i], selected[best] = selected[best], selected[i]
-		}
-	}
-	if len(selected) > keep {
-		selected = selected[:keep]
-	}
-
-	var chosen []bool
-	if chosenBuf != nil {
-		if cap(*chosenBuf) < len(stacks) {
-			*chosenBuf = make([]bool, len(stacks))
-		}
-		chosen = (*chosenBuf)[:len(stacks)]
-		clear(chosen)
-	} else {
-		chosen = make([]bool, len(stacks))
-	}
-	for _, idx := range selected {
-		chosen[idx] = true
-	}
-	for len(selected) < keep {
-		best := -1
-		for i := range stacks {
-			if chosen[i] {
-				continue
-			}
-			if best < 0 || stackCompareForCull(lang, &stacks[i], &stacks[best]) > 0 {
-				best = i
-			}
-		}
-		if best < 0 {
-			break
-		}
-		chosen[best] = true
-		selected = append(selected, best)
-	}
-	for i := 0; i < len(selected); i++ {
-		idx := selected[i]
-		if idx == i {
-			continue
-		}
-		stacks[i], stacks[idx] = stacks[idx], stacks[i]
 		for j := i + 1; j < len(selected); j++ {
 			if selected[j] == i {
 				selected[j] = idx

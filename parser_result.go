@@ -1,5 +1,11 @@
 package gotreesitter
 
+// Parser-result assembly owns the private handoff from GLR/parse-stack nodes to
+// the returned Tree. Runtime files named parser_result_*.go stay in this package
+// because many compatibility normalizers rewrite private Node, Language, Symbol,
+// and nodeArena state directly. Public-API parser-result regressions live in
+// parser_result_test, while source fixtures belong under testdata.
+
 // buildResultFromGLR picks the best stack and constructs the final tree.
 // Prefers accepted stacks, then highest score, then most entries. When
 // accepted stacks are otherwise tied, prefer the tree that retains an
@@ -329,12 +335,7 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 		candidate = repairPythonKeywordErrorNode(candidate, source, arena, p.language)
 		candidate = repairPythonRootNode(candidate, arena, p.language)
 		if !hasExpectedRoot || candidate.symbol == expectedRootSymbol {
-			extendNodeToTrailingWhitespace(candidate, source)
-			p.normalizeRootSourceStart(candidate, source)
-			normalizeKnownSpanAttribution(candidate, source, p)
-			if shouldWireParentLinks {
-				wireParentLinksWithScratch(candidate, linkScratch)
-			}
+			p.finalizeResultRoot(candidate, source, linkScratch, shouldWireParentLinks, true)
 			return newTreeWithArenas(candidate, source, p.language, arena, getBorrowed())
 		}
 
@@ -348,12 +349,7 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 			rootChildren[0] = candidate
 		}
 		root := newParentNodeInArena(arena, expectedRootSymbol, true, rootChildren, nil, 0)
-		extendNodeToTrailingWhitespace(root, source)
-		p.normalizeRootSourceStart(root, source)
-		normalizeKnownSpanAttribution(root, source, p)
-		if shouldWireParentLinks {
-			wireParentLinksWithScratch(root, linkScratch)
-		}
+		p.finalizeResultRoot(root, source, linkScratch, shouldWireParentLinks, true)
 		return newTreeWithArenas(root, source, p.language, arena, getBorrowed())
 	}
 
@@ -459,15 +455,9 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 			}
 		}
 		realRoot = repairPythonRootNode(realRoot, arena, p.language)
-		if returnRealRoot || !realRoot.hasError {
-			extendNodeToTrailingWhitespace(realRoot, source)
-		}
-		p.normalizeRootSourceStart(realRoot, source)
-		normalizeKnownSpanAttribution(realRoot, source, p)
+		extendTrailing := returnRealRoot || !realRoot.hasError
+		p.finalizeResultRoot(realRoot, source, linkScratch, shouldWireParentLinks && returnRealRoot, extendTrailing)
 		if returnRealRoot {
-			if shouldWireParentLinks {
-				wireParentLinksWithScratch(realRoot, linkScratch)
-			}
 			return newTreeWithArenas(realRoot, source, p.language, arena, getBorrowed())
 		}
 	}
@@ -498,13 +488,22 @@ func (p *Parser) buildResultFromNodes(nodes []*Node, source []byte, arena *nodeA
 		root.hasError = true
 	}
 	root = repairPythonRootNode(root, arena, p.language)
-	extendNodeToTrailingWhitespace(root, source)
+	p.finalizeResultRoot(root, source, linkScratch, shouldWireParentLinks, true)
+	return newTreeWithArenas(root, source, p.language, arena, getBorrowed())
+}
+
+func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*Node, wireParentLinks, extendTrailing bool) {
+	if root == nil {
+		return
+	}
+	if extendTrailing {
+		extendNodeToTrailingWhitespace(root, source)
+	}
 	p.normalizeRootSourceStart(root, source)
-	normalizeKnownSpanAttribution(root, source, p)
-	if shouldWireParentLinks {
+	normalizeResultCompatibility(root, source, p)
+	if wireParentLinks {
 		wireParentLinksWithScratch(root, linkScratch)
 	}
-	return newTreeWithArenas(root, source, p.language, arena, getBorrowed())
 }
 
 func (p *Parser) normalizeRootSourceStart(root *Node, source []byte) {
@@ -523,96 +522,3 @@ func (p *Parser) normalizeRootSourceStart(root *Node, source []byte) {
 // parsing with grammargen-produced grammars that can create pathologically deep
 // hidden-node chains (e.g. Scala with >1M levels).
 const maxTreeWalkDepth = 5000
-
-// normalizeKnownSpanAttribution applies narrow compatibility fixes where
-// C tree-sitter attributes trailing trivia to a grouped node but this runtime
-// currently drops it during child normalization.
-func normalizeKnownSpanAttribution(root *Node, source []byte, p *Parser) {
-	var lang *Language
-	if p != nil {
-		lang = p.language
-	}
-	if root == nil || lang == nil {
-		return
-	}
-
-	switch lang.Name {
-	case "bash":
-		normalizeBashProgramVariableAssignments(root, lang)
-	case "c":
-		normalizeCCompatibility(root, source, lang)
-	case "c_sharp":
-		normalizeCSharpCompatibility(root, source, p, lang)
-	case "caddy":
-		normalizeTopLevelTrailingLineBreakSpan(root, source, lang)
-	case "cobol", "COBOL":
-		normalizeCobolCompatibility(root, source, lang)
-	case "comment":
-		normalizeCommentTrailingExtraTrivia(root, source, lang)
-	case "cooklang":
-		normalizeCooklangTrailingStepTail(root, source, lang)
-	case "d":
-		normalizeDCompatibility(root, source, lang)
-	case "dart":
-		normalizeDartCompatibility(root, source, lang)
-	case "elixir":
-		normalizeElixirNestedCallTargetFields(root, lang)
-	case "erlang":
-		normalizeErlangSourceFileForms(root, lang)
-	case "fortran":
-		normalizeFortranStatementLineBreaks(root, source, lang)
-		normalizeTopLevelTrailingLineBreakSpan(root, source, lang)
-	case "go":
-		normalizeGoReturnedTreeCompatibility(root, source, p, lang)
-	case "haskell":
-		normalizeHaskellCompatibility(root, source, lang)
-	case "hcl":
-		normalizeHCLConfigFileRoot(root, lang)
-	case "html":
-		normalizeHTMLCompatibility(root, source, lang)
-	case "ini":
-		normalizeIniSectionStarts(root, lang)
-	case "javascript":
-		normalizeJavaScriptCompatibility(root, source, lang)
-	case "lua":
-		normalizeLuaChunkLocalDeclarationFields(root, source, lang)
-	case "make":
-		normalizeMakeConditionalConsequenceFields(root, lang)
-	case "nginx":
-		normalizeNginxAttributeLineBreaks(root, source, lang)
-	case "nim":
-		normalizeNimTopLevelCallEnd(root, source, lang)
-	case "pascal":
-		normalizePascalTopLevelProgramEnd(root, source, lang)
-		normalizePascalTrailingExtraTrivia(root, source, lang)
-	case "perl":
-		normalizePerlCompatibility(root, source, lang)
-	case "php":
-		normalizePHPCompatibility(root, source, lang)
-	case "powershell":
-		normalizePowerShellProgramShape(root, source, lang)
-	case "pug":
-		normalizeTopLevelTrailingLineBreakSpan(root, source, lang)
-	case "python":
-		normalizePythonCompatibility(root, source, lang)
-	case "rst":
-		normalizeRSTTopLevelSectionEnd(root, source, lang)
-	case "rust":
-		normalizeRustCompatibility(root, source, p, lang)
-	case "ruby":
-		normalizeRubyThenStarts(root, lang)
-		normalizeRubyTopLevelModuleBounds(root, source, lang)
-	case "scala":
-		normalizeScalaCompatibility(root, source, lang)
-	case "sql":
-		normalizeSQLRecoveredSelectRoot(root, lang)
-	case "svelte":
-		normalizeSvelteTrailingExtraTrivia(root, source, lang)
-	case "tsx", "typescript":
-		normalizeTypeScriptTreeCompatibility(root, source, lang)
-	case "yaml":
-		normalizeYAMLRecoveredRoot(root, source, lang)
-	case "zig":
-		normalizeZigEmptyInitListFields(root, lang)
-	}
-}

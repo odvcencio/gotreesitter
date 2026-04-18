@@ -98,7 +98,7 @@ func main() {
 	)
 
 	flag.StringVar(&lockPath, "lock", "", "path to grammars/languages.lock (auto-detected when empty)")
-	flag.StringVar(&profilePath, "profile", "", "optional profile JSON path (e.g. cmd/build_real_corpus/top50_manifest.json)")
+	flag.StringVar(&profilePath, "profile", "", "optional profile JSON path (e.g. cgo_harness/testdata/top50_manifest.json)")
 	flag.StringVar(&langsRaw, "langs", "top50", "language list: top50 or comma-separated names")
 	flag.StringVar(&outDir, "out", "cgo_harness/corpus_real", "output corpus directory")
 	flag.StringVar(&workDir, "work-dir", "", "temporary clone work directory (default: temp dir)")

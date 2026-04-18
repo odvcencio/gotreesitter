@@ -147,7 +147,7 @@ const (
 	vhdlDELIMITER_GRAVE_ACCENT
 	vhdlDELIMITER_BOX
 
-	vhdlDELIMITER_END_MARKER // internal use only
+	_ // delimiter end marker; preserves mirrored token numbering
 
 	vhdlTOKEN_DECIMAL_INTEGER
 	vhdlTOKEN_DECIMAL_FLOAT

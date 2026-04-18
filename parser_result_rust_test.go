@@ -147,7 +147,7 @@ func TestNormalizeRustRecoveredFunctionItems(t *testing.T) {
 	root.endPoint = advancePointByBytes(Point{}, source[:35])
 	populateParentNode(root, root.children)
 
-	normalizeKnownSpanAttribution(root, source, parser)
+	normalizeResultCompatibility(root, source, parser)
 
 	if got, want := root.Type(lang), "source_file"; got != want {
 		t.Fatalf("root type = %q, want %q", got, want)

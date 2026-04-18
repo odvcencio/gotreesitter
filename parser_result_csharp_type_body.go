@@ -61,13 +61,6 @@ func csharpRecoverNonEmptyTypeDeclarationFromChildSlice(children []*Node, startI
 	return nil, false
 }
 
-func csharpBuildRecoveredTypeDeclarationWithBody(errNode, initNode *Node, source []byte, lang *Language, arena *nodeArena, declName string) (*Node, bool) {
-	if errNode == nil {
-		return nil, false
-	}
-	return csharpBuildRecoveredTypeDeclarationWithBodyFromChildren(errNode.children, initNode, source, lang, arena, declName)
-}
-
 func csharpBuildRecoveredTypeDeclarationWithBodyFromChildren(children []*Node, initNode *Node, source []byte, lang *Language, arena *nodeArena, declName string) (*Node, bool) {
 	if initNode == nil || lang == nil || arena == nil || int(initNode.endByte) > len(source) {
 		return nil, false
