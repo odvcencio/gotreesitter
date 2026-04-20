@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // RunBatchManifest clones each grammar repo in the manifest, extracts parser
@@ -37,58 +42,71 @@ func RunBatchManifest(manifestPath, outDir, pkg string, compact bool) error {
 	compactor := NewLanguageCompactor()
 	loaderSpecs := make([]embeddedLoaderSpec, 0, len(entries))
 
+	grp, _ := errgroup.WithContext(context.Background())
+	grp.SetLimit(runtime.GOMAXPROCS(-1))
+	var mu sync.Mutex
 	for _, entry := range entries {
-		repoDir := filepath.Join(tmpRoot, safeFileBase(entry.Name))
-		if err := cloneRepo(entry.RepoURL, entry.Commit, repoDir); err != nil {
-			return fmt.Errorf("%s: clone: %w", entry.Name, err)
-		}
-
-		parserPath := filepath.Join(repoDir, entry.Subdir, "parser.c")
-		if _, err := os.Stat(parserPath); err != nil {
-			detected, derr := findParserC(repoDir)
-			if derr != nil {
-				return fmt.Errorf("%s: parser.c not found under %s", entry.Name, repoDir)
+		grp.Go(func() error {
+			repoDir := filepath.Join(tmpRoot, safeFileBase(entry.Name))
+			if err := cloneRepo(entry.RepoURL, entry.Commit, repoDir); err != nil {
+				return fmt.Errorf("%s: clone: %w", entry.Name, err)
 			}
-			parserPath = detected
-		}
-		source, err := os.ReadFile(parserPath)
-		if err != nil {
-			return fmt.Errorf("%s: read %s: %w", entry.Name, parserPath, err)
-		}
 
-		grammar, err := ExtractGrammar(string(source))
-		if err != nil {
-			return fmt.Errorf("%s: extract: %w", entry.Name, err)
-		}
-		grammar.Name = entry.Name
+			parserPath := filepath.Join(repoDir, entry.Subdir, "parser.c")
+			if _, err := os.Stat(parserPath); err != nil {
+				detected, derr := findParserC(repoDir)
+				if derr != nil {
+					return fmt.Errorf("%s: parser.c not found under %s", entry.Name, repoDir)
+				}
+				parserPath = detected
+			}
+			source, err := os.ReadFile(parserPath)
+			if err != nil {
+				return fmt.Errorf("%s: read %s: %w", entry.Name, parserPath, err)
+			}
 
-		fileBase := safeFileBase(entry.Name)
-		blobName := fileBase + ".bin"
-		blobPath := filepath.Join(blobDir, blobName)
+			grammar, err := ExtractGrammar(string(source))
+			if err != nil {
+				return fmt.Errorf("%s: extract: %w", entry.Name, err)
+			}
+			grammar.Name = entry.Name
 
-		lang := BuildLanguage(grammar)
-		if compact {
-			compactor.CompactLanguage(lang)
-		}
-		blob, err := EncodeLanguageBlob(lang)
-		if err != nil {
-			return fmt.Errorf("%s: encode blob: %w", entry.Name, err)
-		}
-		if err := os.WriteFile(blobPath, blob, 0644); err != nil {
-			return fmt.Errorf("%s: write %s: %w", entry.Name, blobPath, err)
-		}
+			fileBase := safeFileBase(entry.Name)
+			blobName := fileBase + ".bin"
+			blobPath := filepath.Join(blobDir, blobName)
 
-		loaderSpecs = append(loaderSpecs, embeddedLoaderSpec{
-			Name:     grammar.Name,
-			BlobName: blobName,
+			lang := BuildLanguage(grammar)
+			mu.Lock()
+			if compact {
+				compactor.CompactLanguage(lang)
+			}
+			mu.Unlock()
+			blob, err := EncodeLanguageBlob(lang)
+			if err != nil {
+				return fmt.Errorf("%s: encode blob: %w", entry.Name, err)
+			}
+			if err := os.WriteFile(blobPath, blob, 0644); err != nil {
+				return fmt.Errorf("%s: write %s: %w", entry.Name, blobPath, err)
+			}
+
+			mu.Lock()
+			loaderSpecs = append(loaderSpecs, embeddedLoaderSpec{
+				Name:     grammar.Name,
+				BlobName: blobName,
+			})
+			mu.Unlock()
+
+			highlightQuery, _ := loadHighlightQuery(repoDir)
+			if err := writeRegisterStub(outDir, entry, highlightQuery); err != nil {
+				return fmt.Errorf("%s: write register stub: %w", entry.Name, err)
+			}
+
+			fmt.Printf("generated %s (%d states, %d symbols)\n", blobPath, grammar.StateCount, grammar.SymbolCount)
+			return nil
 		})
-
-		highlightQuery, _ := loadHighlightQuery(repoDir)
-		if err := writeRegisterStub(outDir, entry, highlightQuery); err != nil {
-			return fmt.Errorf("%s: write register stub: %w", entry.Name, err)
-		}
-
-		fmt.Printf("generated %s (%d states, %d symbols)\n", blobPath, grammar.StateCount, grammar.SymbolCount)
+	}
+	if err := grp.Wait(); err != nil {
+		return err
 	}
 
 	if err := removeLegacyLoaderFiles(outDir); err != nil {
