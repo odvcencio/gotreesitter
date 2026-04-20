@@ -724,6 +724,11 @@ func PklLanguage() *gotreesitter.Language {
 	return loadEmbeddedLanguage("pkl.bin")
 }
 
+// PlsqlLanguage returns the plsql language definition.
+func PlsqlLanguage() *gotreesitter.Language {
+	return loadEmbeddedLanguage("plsql.bin")
+}
+
 // PowershellLanguage returns the powershell language definition.
 func PowershellLanguage() *gotreesitter.Language {
 	return loadEmbeddedLanguage("powershell.bin")
