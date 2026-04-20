@@ -5,7 +5,7 @@ package grammars
 func init() {
 	Register(LangEntry{
 		Name:           "plsql",
-		Extensions:     []string{".spc", ".prc", ".fnc", ".bdy", ".sql"},
+		Extensions:     []string{".spc", ".prc", ".fnc", ".bdy"},
 		Language:       PlsqlLanguage,
 		HighlightQuery: plsqlHighlightQuery,
 		TokenSourceFactory: defaultTokenSourceFactory("plsql"),
