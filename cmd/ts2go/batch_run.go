@@ -76,11 +76,11 @@ func RunBatchManifest(manifestPath, outDir, pkg string, compact bool) error {
 			blobPath := filepath.Join(blobDir, blobName)
 
 			lang := BuildLanguage(grammar)
-			mu.Lock()
 			if compact {
+				mu.Lock()
 				compactor.CompactLanguage(lang)
+				mu.Unlock()
 			}
-			mu.Unlock()
 			blob, err := EncodeLanguageBlob(lang)
 			if err != nil {
 				return fmt.Errorf("%s: encode blob: %w", entry.Name, err)
