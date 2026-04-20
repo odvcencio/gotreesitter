@@ -42,11 +42,17 @@ func RunBatchManifest(manifestPath, outDir, pkg string, compact bool) error {
 	compactor := NewLanguageCompactor()
 	loaderSpecs := make([]embeddedLoaderSpec, 0, len(entries))
 
-	grp, _ := errgroup.WithContext(context.Background())
+	grp, grpCtx := errgroup.WithContext(context.Background())
 	grp.SetLimit(runtime.GOMAXPROCS(-1))
 	var mu sync.Mutex
 	for _, entry := range entries {
+		if err := grpCtx.Err(); err != nil {
+			break
+		}
 		grp.Go(func() error {
+			if err := grpCtx.Err(); err != nil {
+				return err
+			}
 			repoDir := filepath.Join(tmpRoot, safeFileBase(entry.Name))
 			if err := cloneRepo(entry.RepoURL, entry.Commit, repoDir); err != nil {
 				return fmt.Errorf("%s: clone: %w", entry.Name, err)
