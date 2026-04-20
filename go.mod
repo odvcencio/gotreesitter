@@ -1,6 +1,6 @@
 module github.com/odvcencio/gotreesitter
 
-go 1.25.0
+go 1.24.0
 
 require (
 	github.com/segmentio/asm v1.1.3 // indirect
