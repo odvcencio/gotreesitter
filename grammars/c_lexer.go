@@ -38,11 +38,13 @@ type CTokenSource struct {
 	rBraceSymbol           gotreesitter.Symbol
 
 	// Preprocessor state tracking
-	preprocState         int
-	parserState          gotreesitter.StateID
-	glrStates            []gotreesitter.StateID
-	lastSyntheticOffset  int
-	preprocDefineNameEnd int
+	preprocState            int
+	parserState             gotreesitter.StateID
+	glrStates               []gotreesitter.StateID
+	lastSyntheticOffset     int
+	preprocDefineNameEnd    int
+	preprocOpaqueArgPending bool
+	preprocOpaqueArgActive  bool
 
 	keywordSymbols    map[string]gotreesitter.Symbol
 	literalSymbols    map[string]gotreesitter.Symbol
@@ -173,6 +175,8 @@ func (ts *CTokenSource) Reset(src []byte) {
 	ts.glrStates = ts.glrStates[:0]
 	ts.lastSyntheticOffset = -1
 	ts.preprocDefineNameEnd = -1
+	ts.preprocOpaqueArgPending = false
+	ts.preprocOpaqueArgActive = false
 }
 
 // Close clears parser-owned state and returns this token source to the pool.
@@ -208,6 +212,8 @@ func (ts *CTokenSource) Close() {
 	ts.glrStates = ts.glrStates[:0]
 	ts.lastSyntheticOffset = -1
 	ts.preprocDefineNameEnd = -1
+	ts.preprocOpaqueArgPending = false
+	ts.preprocOpaqueArgActive = false
 	ts.keywordSymbols = nil
 	ts.literalSymbols = nil
 	ts.literalAlternates = nil
@@ -260,6 +266,8 @@ func (ts *CTokenSource) Next() gotreesitter.Token {
 
 		// Newline handling: in preprocessor context, emit as directive terminator
 		if b == '\n' {
+			ts.preprocOpaqueArgPending = false
+			ts.preprocOpaqueArgActive = false
 			if ts.preprocState == cPreprocConditionalExpr && ts.newlineSymbol != 0 {
 				ts.preprocState = cPreprocNormal
 				return ts.lineEndToken(ts.newlineSymbol)
@@ -297,6 +305,11 @@ func (ts *CTokenSource) Next() gotreesitter.Token {
 		}
 		if ts.preprocState == cPreprocAfterName && ts.preprocArgSymbol != 0 {
 			if tok, ok := ts.preprocArgToken(); ok {
+				return tok
+			}
+		}
+		if ts.preprocOpaqueArgActive {
+			if tok, ok := ts.opaquePreprocArgToken(); ok {
 				return tok
 			}
 		}
@@ -361,6 +374,8 @@ func (ts *CTokenSource) SkipToByte(offset uint32) gotreesitter.Token {
 	ts.glrStates = ts.glrStates[:0]
 	ts.lastSyntheticOffset = -1
 	ts.preprocDefineNameEnd = -1
+	ts.preprocOpaqueArgPending = false
+	ts.preprocOpaqueArgActive = false
 
 	if target < ts.cur.offset {
 		ts.cur = newSourceCursor(ts.src)
@@ -724,6 +739,13 @@ func (ts *CTokenSource) identifierOrKeywordToken() gotreesitter.Token {
 	} else if ts.primitiveTypeSymbol != 0 && isCPrimitiveType(text) {
 		sym = ts.primitiveTypeSymbol
 	}
+	if ts.preprocState == cPreprocConditionalExpr {
+		if isPreprocOpaqueBuiltin(text) {
+			ts.preprocOpaqueArgPending = true
+		} else {
+			ts.preprocOpaqueArgPending = false
+		}
+	}
 	return makeToken(sym, ts.src, start, ts.cur.offset, startPt, ts.cur.point())
 }
 
@@ -825,9 +847,14 @@ func (ts *CTokenSource) directiveToken() (gotreesitter.Token, bool) {
 	ts.cur.advanceBytes(end - start)
 	ts.preprocState = cPreprocNormal
 	ts.lastSyntheticOffset = -1
+	ts.preprocOpaqueArgPending = false
+	ts.preprocOpaqueArgActive = false
 
 	tok := makeToken(specificSym, ts.src, start, ts.cur.offset, startPt, ts.cur.point())
 	ts.updatePreprocStateForLiteral(canonical)
+	if specificSym == ts.preprocDirectiveSymbol && canonical != "#if" && canonical != "#elif" {
+		ts.preprocState = cPreprocAfterName
+	}
 	return tok, true
 }
 
@@ -912,6 +939,8 @@ func (ts *CTokenSource) emitGenericDirectiveLine(directiveEnd int) gotreesitter.
 	ts.cur = argProbe
 	ts.preprocState = cPreprocNormal
 	ts.lastSyntheticOffset = -1
+	ts.preprocOpaqueArgPending = false
+	ts.preprocOpaqueArgActive = false
 	return dirTok
 }
 
@@ -954,21 +983,6 @@ func (ts *CTokenSource) nextLineStartsWithBraceThenDirective(want string) bool {
 	i = skipCSpacesAndTabs(ts.src, i)
 	_, canonical, _, ok := ts.scanDirective(i)
 	return ok && canonical == want
-}
-
-func (ts *CTokenSource) preprocDirectiveState(text string) int {
-	switch text {
-	case "#define":
-		return cPreprocAfterDefine
-	case "#include":
-		return cPreprocAfterInclude
-	case "#if", "#elif":
-		return cPreprocConditionalExpr
-	case "#pragma", "#undef", "#error", "#warning":
-		return cPreprocAfterName
-	default:
-		return cPreprocNormal
-	}
 }
 
 func (ts *CTokenSource) matchLiteral() (gotreesitter.Symbol, int) {
@@ -1029,11 +1043,6 @@ func (ts *CTokenSource) eofToken() gotreesitter.Token {
 	}
 }
 
-// preprocEndToken emits a preprocessor line terminator token for \n.
-// The C grammar uses preproc_include_token2 as the directive delimiter.
-func (ts *CTokenSource) preprocEndToken() gotreesitter.Token {
-	return ts.lineEndToken(ts.preprocEndSymbol)
-}
 func (ts *CTokenSource) lineEndToken(sym gotreesitter.Symbol) gotreesitter.Token {
 	start := ts.cur.offset
 	startPt := ts.cur.point()
@@ -1081,8 +1090,19 @@ func (ts *CTokenSource) preprocArgToken() (gotreesitter.Token, bool) {
 		}
 		if b == '/' && ts.cur.offset+1 < len(ts.src) {
 			next := ts.src[ts.cur.offset+1]
-			if next == '/' || next == '*' {
+			if next == '/' {
 				break
+			}
+			if next == '*' {
+				commentStart := ts.cur
+				ts.consumeBlockComment()
+				afterComment := ts.cur
+				afterComment.skipSpacesAndTabs()
+				if afterComment.eof() || afterComment.peekByte() == '\n' {
+					ts.cur = commentStart
+					break
+				}
+				continue
 			}
 		}
 		if b == '\\' && ts.cur.offset+1 < len(ts.src) && ts.src[ts.cur.offset+1] == '\n' {
@@ -1099,6 +1119,22 @@ func (ts *CTokenSource) preprocArgToken() (gotreesitter.Token, bool) {
 
 	// Leave preprocState > 0 so the following \n is emitted as a token
 	return makeToken(ts.preprocArgSymbol, ts.src, start, ts.cur.offset, startPt, ts.cur.point()), true
+}
+
+func (ts *CTokenSource) consumeBlockComment() {
+	if ts.cur.offset+1 >= len(ts.src) || ts.src[ts.cur.offset] != '/' || ts.src[ts.cur.offset+1] != '*' {
+		return
+	}
+	ts.cur.advanceByte()
+	ts.cur.advanceByte()
+	for !ts.cur.eof() {
+		if ts.cur.peekByte() == '*' && ts.cur.offset+1 < len(ts.src) && ts.src[ts.cur.offset+1] == '/' {
+			ts.cur.advanceByte()
+			ts.cur.advanceByte()
+			return
+		}
+		ts.cur.advanceRune()
+	}
 }
 
 func (ts *CTokenSource) systemLibStringToken() (gotreesitter.Token, bool) {
@@ -1126,6 +1162,14 @@ func (ts *CTokenSource) systemLibStringToken() (gotreesitter.Token, bool) {
 // preproc_include_token2, while #if/#elif condition lines tokenize their
 // expression normally and terminate with the literal newline token.
 func (ts *CTokenSource) updatePreprocStateForLiteral(text string) {
+	if ts.preprocState == cPreprocConditionalExpr && ts.preprocOpaqueArgPending {
+		if text == "(" {
+			ts.preprocOpaqueArgPending = false
+			ts.preprocOpaqueArgActive = true
+		} else if text != "" {
+			ts.preprocOpaqueArgPending = false
+		}
+	}
 	if ts.preprocState == cPreprocAfterDefineParams {
 		if text == ")" {
 			ts.preprocState = cPreprocAfterName
@@ -1139,8 +1183,118 @@ func (ts *CTokenSource) updatePreprocStateForLiteral(text string) {
 		ts.preprocState = cPreprocAfterInclude
 	case "#if", "#elif":
 		ts.preprocState = cPreprocConditionalExpr
-	case "#pragma", "#undef", "#error", "#warning":
+	case "#pragma", "#undef", "#error", "#warning", "#line", "#embed":
 		ts.preprocState = cPreprocAfterName
+	}
+}
+
+// opaquePreprocArgToken collapses feature-test arguments like __has_include(...)
+// and __has_embed(...) into one identifier token so legacy C/C++ grammars can
+// accept modern preprocessor argument forms.
+func (ts *CTokenSource) opaquePreprocArgToken() (gotreesitter.Token, bool) {
+	if !ts.preprocOpaqueArgActive || ts.identifierSymbol == 0 {
+		ts.preprocOpaqueArgActive = false
+		return gotreesitter.Token{}, false
+	}
+
+	ts.cur.skipSpacesAndTabs()
+	if ts.cur.eof() || ts.cur.peekByte() == '\n' || ts.cur.peekByte() == ')' {
+		ts.preprocOpaqueArgActive = false
+		return gotreesitter.Token{}, false
+	}
+
+	start := ts.cur.offset
+	startPt := ts.cur.point()
+	depth := 0
+	for !ts.cur.eof() {
+		b := ts.cur.peekByte()
+		if b == '\n' {
+			break
+		}
+		if b == '/' && ts.cur.offset+1 < len(ts.src) {
+			next := ts.src[ts.cur.offset+1]
+			if next == '/' {
+				break
+			}
+			if next == '*' {
+				ts.consumeBlockComment()
+				continue
+			}
+		}
+		if b == '"' || b == '\'' {
+			ts.scanOpaqueQuoted(b)
+			continue
+		}
+		if b == '\\' && ts.cur.offset+1 < len(ts.src) {
+			next := ts.src[ts.cur.offset+1]
+			if next == '\n' {
+				ts.cur.advanceByte()
+				ts.cur.advanceByte()
+				continue
+			}
+			if next == '\r' {
+				ts.cur.advanceByte()
+				ts.cur.advanceByte()
+				if !ts.cur.eof() && ts.cur.peekByte() == '\n' {
+					ts.cur.advanceByte()
+				}
+				continue
+			}
+		}
+		if b == '(' {
+			depth++
+			ts.cur.advanceByte()
+			continue
+		}
+		if b == ')' {
+			if depth == 0 {
+				ts.preprocOpaqueArgActive = false
+				if ts.cur.offset <= start {
+					return gotreesitter.Token{}, false
+				}
+				return makeToken(ts.identifierSymbol, ts.src, start, ts.cur.offset, startPt, ts.cur.point()), true
+			}
+			depth--
+			ts.cur.advanceByte()
+			continue
+		}
+		ts.cur.advanceRune()
+	}
+
+	ts.preprocOpaqueArgActive = false
+	if ts.cur.offset <= start {
+		return gotreesitter.Token{}, false
+	}
+	return makeToken(ts.identifierSymbol, ts.src, start, ts.cur.offset, startPt, ts.cur.point()), true
+}
+
+func (ts *CTokenSource) scanOpaqueQuoted(delim byte) {
+	ts.cur.advanceByte()
+	for !ts.cur.eof() {
+		b := ts.cur.peekByte()
+		if b == '\n' {
+			return
+		}
+		if b == '\\' {
+			ts.cur.advanceByte()
+			if !ts.cur.eof() {
+				ts.cur.advanceRune()
+			}
+			continue
+		}
+		ts.cur.advanceRune()
+		if b == delim {
+			return
+		}
+	}
+}
+
+func isPreprocOpaqueBuiltin(text string) bool {
+	switch text {
+	case "__has_include", "__has_include_next", "__has_embed":
+		return true
+	default:
+		return false
 	}
 }
 

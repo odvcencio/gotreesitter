@@ -252,6 +252,211 @@ func TestParseCMultilineFunctionLikeMacro(t *testing.T) {
 	}
 }
 
+func TestCTokenSourceEmbedDirectiveTokenSequence(t *testing.T) {
+	lang := CLanguage()
+	src := []byte(`#embed "payload.bin" limit(4) prefix(0x) suffix(,) if_empty(0)
+`)
+	ts, err := NewCTokenSource(src, lang)
+	if err != nil {
+		t.Fatalf("NewCTokenSource failed: %v", err)
+	}
+
+	var got []string
+	for {
+		tok := ts.Next()
+		if tok.Symbol == 0 {
+			break
+		}
+		got = append(got, lang.SymbolNames[tok.Symbol])
+	}
+
+	want := []string{"preproc_directive", "preproc_arg", "preproc_include_token2"}
+	if len(got) != len(want) {
+		t.Fatalf("token count = %d, want %d; got=%v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("token %d = %q, want %q; got=%v", i, got[i], want[i], got)
+		}
+	}
+}
+
+func TestCTokenSourceEmbedDirectiveWithBlockCommentTokenSequence(t *testing.T) {
+	lang := CLanguage()
+	src := []byte(`#embed "payload.bin" /* keep */ limit(4)
+`)
+	ts, err := NewCTokenSource(src, lang)
+	if err != nil {
+		t.Fatalf("NewCTokenSource failed: %v", err)
+	}
+
+	var got []string
+	for {
+		tok := ts.Next()
+		if tok.Symbol == 0 {
+			break
+		}
+		got = append(got, lang.SymbolNames[tok.Symbol])
+	}
+
+	want := []string{"preproc_directive", "preproc_arg", "preproc_include_token2"}
+	if len(got) != len(want) {
+		t.Fatalf("token count = %d, want %d; got=%v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("token %d = %q, want %q; got=%v", i, got[i], want[i], got)
+		}
+	}
+}
+
+func TestParseCAndCppEmbedDirectiveParsesAsPreprocCall(t *testing.T) {
+	src := []byte(`#embed "payload.bin" limit(4) prefix(0x) suffix(,) if_empty(0)
+`)
+	testParseCAndCppNoError(t, src)
+}
+
+func TestParseCAndCppEmbedDirectiveAngleHeaderParsesAsPreprocCall(t *testing.T) {
+	src := []byte(`#embed <payload.bin> limit(16) suffix(,)
+`)
+	testParseCAndCppNoError(t, src)
+}
+
+func TestParseCAndCppHasEmbedFeatureTestParsesAsConditional(t *testing.T) {
+	src := []byte(`#if __has_embed("payload.bin" limit(4) prefix(0x) if_empty(0))
+int payload_enabled = 1;
+#endif
+`)
+	testParseCAndCppNoError(t, src)
+}
+
+func TestParseCAndCppHasEmbedFeatureTestAngleHeaderParsesAsConditional(t *testing.T) {
+	src := []byte(`#if __has_embed(<payload.bin> suffix(,))
+int payload_enabled = 1;
+#endif
+`)
+	testParseCAndCppNoError(t, src)
+}
+
+func TestParseCAndCppHasIncludeFeatureTestParsesAsConditional(t *testing.T) {
+	src := []byte(`#if __has_include("payload.h")
+int include_available = 1;
+#endif
+`)
+	testParseCAndCppNoError(t, src)
+}
+
+func TestParseCAndCppHasEmbedFeatureTestWithBlockCommentsParsesAsConditional(t *testing.T) {
+	src := []byte(`#if __has_embed(/* lead */ "payload.bin" /* middle */ limit(4) /* tail */)
+int payload_enabled = 1;
+#endif
+`)
+	testParseCAndCppNoError(t, src)
+}
+
+func TestParseCAndCppHasIncludeFeatureTestWithBlockCommentParsesAsConditional(t *testing.T) {
+	src := []byte(`#if __has_include(/* lead */ "payload.h")
+int include_available = 1;
+#endif
+`)
+	testParseCAndCppNoError(t, src)
+}
+
+func TestParseCAndCppEmbedDirectiveParameterVariants(t *testing.T) {
+	cases := []struct {
+		name string
+		src  []byte
+	}{
+		{
+			name: "c23 alternate parameter spellings",
+			src: []byte(`#embed "payload.bin" __limit__(4) __prefix__(0x,) __suffix__(,) __if_empty__(0)
+`),
+		},
+		{
+			name: "cpp26 non-standard namespaced parameters",
+			src: []byte(`#embed "payload.bin" vendor::x vendor::y(1, 2)
+`),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testParseCAndCppNoError(t, tc.src)
+		})
+	}
+}
+
+func TestParseCAndCppHasEmbedAndHasIncludeVariants(t *testing.T) {
+	cases := []struct {
+		name string
+		src  []byte
+	}{
+		{
+			name: "has_embed with alternate parameter spellings",
+			src: []byte(`#if __has_embed(<payload.bin> __limit__(4) __prefix__(0x,) __suffix__(,) __if_empty__(0))
+int payload_enabled = 1;
+#endif
+`),
+		},
+		{
+			name: "has_embed with namespaced parameters",
+			src: []byte(`#if __has_embed("payload.bin" vendor::x vendor::y(1, 2))
+int payload_enabled = 1;
+#endif
+`),
+		},
+		{
+			name: "has_include_next",
+			src: []byte(`#if __has_include_next(<payload.h>)
+int include_next_available = 1;
+#endif
+`),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testParseCAndCppNoError(t, tc.src)
+		})
+	}
+}
+
+func TestParseCAndCppLineDirectiveParsesAsPreprocCall(t *testing.T) {
+	src := []byte(`#line 123 "source.c"
+int line_adjusted = 0;
+`)
+	testParseCAndCppNoError(t, src)
+}
+
+func testParseCAndCppNoError(t *testing.T, src []byte) {
+	t.Helper()
+	tests := []struct {
+		name string
+		lang *gotreesitter.Language
+	}{
+		{name: "c", lang: CLanguage()},
+		{name: "cpp", lang: CppLanguage()},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := gotreesitter.NewParser(tc.lang)
+			ts, err := NewCTokenSource(src, tc.lang)
+			if err != nil {
+				t.Fatalf("NewCTokenSource failed: %v", err)
+			}
+			tree, err := parser.ParseWithTokenSource(src, ts)
+			if err != nil {
+				t.Fatalf("parse failed: %v", err)
+			}
+			root := tree.RootNode()
+			if root == nil {
+				t.Fatal("nil root")
+			}
+			if root.HasError() {
+				t.Fatalf("parse has errors: %s", root.SExpr(tc.lang))
+			}
+		})
+	}
+}
+
 func TestParseCppUsingDeclarationKeepsScopeFieldOffSeparator(t *testing.T) {
 	lang := CppLanguage()
 	parser := gotreesitter.NewParser(lang)

@@ -7,7 +7,10 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-- Nothing yet.
+### Added
+- C/C++ lexer bridge now accepts `#embed` directive lines and
+  `__has_embed(...)` conditional feature-test forms (including parameter
+  variants) without parse errors.
 
 ## [0.15.2] - 2026-04-21
 
