@@ -3,7 +3,7 @@
 This file defines how agents should work in this repo.
 
 ### 1) Non-negotiables
-- `canopy` (successor to `gts-suite`) is the structural-analysis tool of choice for inspection, review, dead-code, impact, and hotspot runs. Full-tree scopes should go through the Docker-scoped wrapper with memory/cpu caps and per-package excludes — do not point host-side `canopy` at the whole repo.
+- `canopy` (successor to `gts-suite`) is the structural-analysis tool of choice for inspection, review, dead-code, impact, and hotspot runs. The earlier memory-pressure caveats no longer apply — run it freely on host.
 - Do not run repo-wide `go test ./...` or `go test ./... -race` on the host. Broad host sweeps can OOM developer machines and make attribution harder.
 - For heavy correctness, parity, or race coverage, use Docker isolation only and keep runs to one language/grammar at a time.
 - Keep correctness gating separate from performance gating.
