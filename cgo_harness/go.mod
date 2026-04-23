@@ -1,6 +1,6 @@
 module github.com/odvcencio/gotreesitter/cgo_harness
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/odvcencio/gotreesitter v0.1.0
