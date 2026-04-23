@@ -411,6 +411,20 @@ int include_next_available = 1;
 #endif
 `),
 		},
+		{
+			name: "has_cpp_attribute with namespaced name",
+			src: []byte(`#if __has_cpp_attribute(vendor::likely)
+int vendor_likely_available = 1;
+#endif
+`),
+		},
+		{
+			name: "has_c_attribute with namespaced name",
+			src: []byte(`#if __has_c_attribute(clang::musttail)
+int clang_musttail_available = 1;
+#endif
+`),
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

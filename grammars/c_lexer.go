@@ -1291,7 +1291,8 @@ func (ts *CTokenSource) scanOpaqueQuoted(delim byte) {
 
 func isPreprocOpaqueBuiltin(text string) bool {
 	switch text {
-	case "__has_include", "__has_include_next", "__has_embed":
+	case "__has_include", "__has_include_next", "__has_embed",
+		"__has_cpp_attribute", "__has_c_attribute":
 		return true
 	default:
 		return false
