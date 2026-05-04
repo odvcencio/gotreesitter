@@ -476,7 +476,7 @@ func matScanCommand(scanner *matlabState, lexer *gotreesitter.ExternalLexer, val
 				return false
 			}
 			// Check for line continuation
-			if matConsumeChar('.', lexer) && matConsumeChar('.', lexer) && matConsumeChar('.', lexer) {
+			if matConsumeChar('.', lexer) {
 				// If it is a keyword, yield to the internal scanner
 				for _, kw := range matKeywords {
 					if kw == buffer {
@@ -993,7 +993,7 @@ func matScanMultioutputVarStart(lexer *gotreesitter.ExternalLexer) bool {
 	var sbCount uint32
 
 	for lexer.Lookahead() != 0 {
-		if matConsumeChar('.', lexer) && matConsumeChar('.', lexer) && matConsumeChar('.', lexer) {
+		if matConsumeChar('.', lexer) {
 			matConsumeCommentLine(lexer)
 			lexer.Advance(false)
 		}
@@ -1020,7 +1020,7 @@ func matScanMultioutputVarStart(lexer *gotreesitter.ExternalLexer) bool {
 	lexer.Advance(false)
 
 	for lexer.Lookahead() != 0 {
-		if matConsumeChar('.', lexer) && matConsumeChar('.', lexer) && matConsumeChar('.', lexer) {
+		if matConsumeChar('.', lexer) {
 			matConsumeCommentLine(lexer)
 			lexer.Advance(false)
 		} else if matIsWspaceMatlab(lexer.Lookahead()) {
