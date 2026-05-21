@@ -71,6 +71,11 @@ type cliConfig struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && isSubcommand(os.Args[1]) {
+		runSubcommand(os.Args[1], os.Args[2:])
+		return
+	}
+
 	cfg := parseCLIConfig()
 	if cfg.list {
 		runListMode()
@@ -96,6 +101,10 @@ func main() {
 
 func parseCLIConfig() cliConfig {
 	var cfg cliConfig
+	flag.Usage = func() {
+		printUsageError()
+		flag.PrintDefaults()
+	}
 	flag.StringVar(&cfg.binOut, "bin", "", "output path for gotreesitter .bin blob")
 	flag.StringVar(&cfg.cOut, "c", "", "output path for tree-sitter parser.c")
 	flag.StringVar(&cfg.goOut, "go", "", "output path for grammargen Go DSL source")
@@ -290,6 +299,9 @@ func printUsageError() {
 	fmt.Fprintln(os.Stderr, "       grammargen -js <grammar.js> [flags]")
 	fmt.Fprintln(os.Stderr, "       grammargen -json <grammar.json> [flags]")
 	fmt.Fprintln(os.Stderr, "       grammargen -grammar <file.grammar> [flags]")
+	fmt.Fprintln(os.Stderr, "       grammargen emit [flags] <grammar-name>")
+	fmt.Fprintln(os.Stderr, "       grammargen parse [flags] <grammar-name>")
+	fmt.Fprintln(os.Stderr, "       grammargen doctor [flags] <grammar-name>")
 	fmt.Fprintln(os.Stderr, "run with -list to see available built-in grammars")
 }
 
