@@ -6,15 +6,22 @@
 //
 // Input sources:
 //
-//	<name>        Built-in grammar (json, calc, glr, go, js, ts, tsx, fortran, etc.)
-//	-js <path>    Import a tree-sitter grammar.js file
-//	-json <path>  Import a resolved tree-sitter grammar.json file
+//	<name>          Built-in grammar (json, calc, glr, go, js, ts, tsx, fortran, etc.)
+//	-js <path>      Import a tree-sitter grammar.js file
+//	-json <path>    Import a resolved tree-sitter grammar.json file
+//	-grammar <path> Parse a portable .grammar file
 //
 // Output formats:
 //
-//	-bin <path>    Write gotreesitter .bin blob
-//	-c <path>      Write tree-sitter parser.c
-//	-go <path>     Write grammargen Go DSL source
+//	-bin <path>      Write gotreesitter .bin blob
+//	-c <path>        Write tree-sitter parser.c
+//	-go <path>       Write grammargen Go DSL source
+//	-json-out <path> Write resolved grammar.json (emit subcommand)
+//
+// Authoring helpers:
+//
+//	parse      Parse a sample and print text, S-expression, or JSON output
+//	doctor     Validate, generate, test, parse samples, and report next steps
 //
 // Other flags:
 //

@@ -27,6 +27,8 @@ next command.
 go run ./cmd/grammargen doctor calc -text '1+2*3'
 go run ./cmd/grammargen doctor -json /tmp/grammar_parity/go/src/grammar.json -sample sample.go
 go run ./cmd/grammargen doctor -grammar ./mini.grammar -text '123'
+go run ./cmd/grammargen doctor calc -text '1+2*3' -conflicts 3
+go run ./cmd/grammargen doctor calc -text '1+2*3' -format json
 ```
 
 Use `parse` when you want quick sample-to-tree feedback:
@@ -34,6 +36,8 @@ Use `parse` when you want quick sample-to-tree feedback:
 ```sh
 go run ./cmd/grammargen parse calc -text '1+2*3'
 go run ./cmd/grammargen parse -grammar ./mini.grammar -stdin
+go run ./cmd/grammargen parse calc -text '1+2*3' -format sexpr
+go run ./cmd/grammargen parse calc -text '1+2*3' -format json
 ```
 
 Use `emit` to write artifacts from any supported input:
@@ -52,12 +56,27 @@ go run ./cmd/grammargen emit \
 # Go DSL source from a .grammar file
 go run ./cmd/grammargen emit -grammar ./mini.grammar -go ./mini_grammar.go -pkg grammargen
 
+# Resolved grammar.json from any supported input
+go run ./cmd/grammargen emit -grammar ./mini.grammar -json-out ./mini.grammar.json
+
 # tree-sitter parser.c
 go run ./cmd/grammargen emit calc -c /tmp/parser.c
 
 # inferred highlight query
 go run ./cmd/grammargen emit calc -highlight
 ```
+
+For golden parse snapshots, write the current tree once, then compare future
+runs against it:
+
+```sh
+go run ./cmd/grammargen parse calc -text '1+2*3' -write-expect ./calc.sexpr
+go run ./cmd/grammargen parse calc -text '1+2*3' -expect ./calc.sexpr
+```
+
+`parse -strict` exits non-zero when parsing finishes with `ERROR` nodes or an
+early stop condition. `doctor` treats sample parse errors as gate failures by
+default.
 
 The legacy flag surface still works:
 
@@ -147,6 +166,7 @@ Run it through the same command surface:
 go run ./cmd/grammargen doctor -grammar ./mini.grammar -text '123'
 go run ./cmd/grammargen parse -grammar ./mini.grammar -text '123'
 go run ./cmd/grammargen emit -grammar ./mini.grammar -go ./mini_grammar.go -pkg grammargen
+go run ./cmd/grammargen emit -grammar ./mini.grammar -json-out ./mini.grammar.json
 go run ./cmd/grammargen emit -grammar ./mini.grammar -bin /tmp/mini.bin
 ```
 
@@ -240,11 +260,14 @@ or CI, scoped to one language or one regression at a time.
 ## Troubleshooting
 
 Start with `doctor`. It reports validation warnings, generation failures, table
-sizes, conflict count, embedded test status, and sample parse status.
+sizes, conflict count, embedded test status, and sample parse status. Add
+`-conflicts N` when precedence or GLR behavior needs inspection, or
+`-format json` when another tool should consume the report.
 
 Use `parse` when a grammar generates but the tree shape looks wrong. It prints
 the root type, byte range, error flag, stop reason, and named-node
-S-expression.
+S-expression. Use `-format sexpr` or `-expect`/`-write-expect` for golden tree
+snapshots.
 
 For upstream imports, prefer `src/grammar.json` from a generated tree-sitter
 repository. If import fails on `grammar.js`, regenerate or locate the resolved
