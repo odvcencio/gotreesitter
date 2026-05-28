@@ -2512,6 +2512,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						if next, ok := javascriptRepetitionShiftConflictChoice(p.language, tok, currentState, actions); ok {
 							chosen, choice = next, true
 						}
+					case "kotlin":
+						if next, ok := kotlinObjectLiteralConflictChoice(p.language, actions); ok {
+							chosen, choice = next, true
+						}
 					}
 				}
 				if !choice && deterministicExternalConflicts && p.language != nil && p.language.Name == "yaml" && p.language.ExternalScanner != nil {
@@ -3499,6 +3503,59 @@ func typescriptRepetitionShiftConflictChoice(lang *Language, tok Token, state St
 		return ParseAction{}, false
 	}
 	return repetitionShiftConflictChoice(actions)
+}
+
+// kotlinObjectLiteralConflictChoice resolves issue #93: the bundled Kotlin
+// table admits a spurious bodiless `object_literal -> object` reduction
+// (ChildCount==1, no class_body) that canonical tree-sitter-kotlin does not
+// have. Completing it lets a top-level `object Foo { ... }` parse as
+// infix_expression(object_literal, simple_identifier, lambda_literal) — the
+// bare `object` becomes an anonymous-object expression, `Foo` an infix
+// operator, and the body a trailing lambda — instead of object_declaration.
+//
+// At a shift/reduce conflict that offers that bodiless object_literal reduce
+// alongside a shift, prefer the shift. Shifting keeps the parser on the
+// declaration path (`object Foo { ... }` -> object_declaration) or, in value
+// position, on the object_literal-plus-class_body path (`val x = object { }`
+// -> object_literal(class_body)). It never completes a bodiless object_literal,
+// so the infix misparse can't form. The anonymous-with-supertype and named
+// forms already parse correctly and are unaffected, because this only fires
+// when a ChildCount==1 object_literal reduce competes with a shift.
+func kotlinObjectLiteralConflictChoice(lang *Language, actions []ParseAction) (ParseAction, bool) {
+	if lang == nil {
+		return ParseAction{}, false
+	}
+	// Cheap pre-filter (no symbol lookup): need both a ChildCount==1 reduce and
+	// a shift in this conflict before it's worth resolving object_literal.
+	var shift ParseAction
+	haveShift := false
+	haveBodilessReduce := false
+	for _, a := range actions {
+		switch a.Type {
+		case ParseActionShift:
+			if !haveShift {
+				shift = a
+				haveShift = true
+			}
+		case ParseActionReduce:
+			if a.ChildCount == 1 {
+				haveBodilessReduce = true
+			}
+		}
+	}
+	if !haveShift || !haveBodilessReduce {
+		return ParseAction{}, false
+	}
+	olSym, ok := symbolByName(lang, "object_literal")
+	if !ok {
+		return ParseAction{}, false
+	}
+	for _, a := range actions {
+		if a.Type == ParseActionReduce && a.ChildCount == 1 && a.Symbol == olSym {
+			return shift, true
+		}
+	}
+	return ParseAction{}, false
 }
 
 // javascriptRepetitionShiftConflictChoice resolves the statement/member-list
