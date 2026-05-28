@@ -3540,6 +3540,18 @@ func javascriptRepetitionShiftConflictChoice(lang *Language, tok Token, state St
 		default:
 			return ParseAction{}, false
 		}
+	case 1335:
+		// variable_declaration_repeat1 boundary: `var a, b, c` — the `,`
+		// separator continues the declarator list (repetition shift).
+		if !symbolHasName(lang, tok.Symbol, ",") {
+			return ParseAction{}, false
+		}
+	case 1417:
+		// object_repeat1 boundary: `{a, b, c}` — the `,` separator
+		// continues the object-member list (repetition shift).
+		if !symbolHasName(lang, tok.Symbol, ",") {
+			return ParseAction{}, false
+		}
 	default:
 		return ParseAction{}, false
 	}
