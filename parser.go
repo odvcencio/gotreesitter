@@ -3501,20 +3501,28 @@ func typescriptRepetitionShiftConflictChoice(lang *Language, tok Token, state St
 	return repetitionShiftConflictChoice(actions)
 }
 
-// javascriptRepetitionShiftConflictChoice resolves the program-level
-// reduce/shift conflict at state 9 where the grammar accepts both
-// "reduce program_repeat1" and "shift the next statement-starter". The
-// repetition shift always continues the program list, matching how the
-// C runtime walks ambiguous tops without forking. Top-level
-// statement-starter tokens are listed explicitly to stay conservative.
+// javascriptRepetitionShiftConflictChoice resolves the statement/member-list
+// reduce/shift conflicts where the grammar accepts both "reduce <list>_repeat1"
+// and "shift the next list-element starter". The repetition shift always
+// continues the list, matching how the C runtime walks these boundaries
+// without forking — tree-sitter resolves the equivalent states with a
+// single-action (count=1) shift, gating the repeat reduce onto the separate
+// _automatic_semicolon lookahead. Profiling text-editor-component.js showed
+// these two states alone account for ~95% of all JS GLR forks (state 9 on
+// `this`, state 985 on class-member starters), so collapsing them to the
+// C-equivalent shift removes the dominant source of fork pressure. Tokens
+// are listed explicitly to stay conservative; each is a token C deterministic-
+// shifts on at the corresponding state.
 func javascriptRepetitionShiftConflictChoice(lang *Language, tok Token, state StateID, actions []ParseAction) (ParseAction, bool) {
 	if lang == nil {
 		return ParseAction{}, false
 	}
 	switch state {
 	case 9:
+		// Top-level program_repeat1 boundary: statement-starter tokens.
 		switch {
 		case symbolHasName(lang, tok.Symbol, "identifier"):
+		case symbolHasName(lang, tok.Symbol, "this"):
 		case symbolHasName(lang, tok.Symbol, "function"):
 		case symbolHasName(lang, tok.Symbol, "var"):
 		case symbolHasName(lang, tok.Symbol, "const"):
@@ -3522,6 +3530,13 @@ func javascriptRepetitionShiftConflictChoice(lang *Language, tok Token, state St
 		case symbolHasName(lang, tok.Symbol, "return"):
 		case symbolHasName(lang, tok.Symbol, "if"):
 		case symbolHasName(lang, tok.Symbol, "export"):
+		default:
+			return ParseAction{}, false
+		}
+	case 985:
+		// class_body_repeat1 boundary: class-member-name starter tokens.
+		switch {
+		case symbolHasName(lang, tok.Symbol, "identifier"):
 		default:
 			return ParseAction{}, false
 		}
