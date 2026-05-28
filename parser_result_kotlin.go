@@ -60,10 +60,14 @@ func normalizeKotlinTopLevelFunctionFragments(root *Node, source []byte, lang *L
 	if len(children) < 3 {
 		return
 	}
-	var rebuilt []*Node
+	arena := root.ownerArena
+	if arena == nil {
+		return
+	}
+	rebuilt := make([]*Node, 0, len(children))
 	changed := false
 	for i := 0; i < len(children); i++ {
-		if fn, ok := kotlinRecoveredTopLevelFunction(children, i, source, lang, fnSym, funSym); ok {
+		if fn, ok := kotlinRecoveredTopLevelFunction(arena, children, i, source, lang, fnSym, funSym); ok {
 			rebuilt = append(rebuilt, fn)
 			i += 2
 			changed = true
@@ -74,10 +78,10 @@ func normalizeKotlinTopLevelFunctionFragments(root *Node, source []byte, lang *L
 	if !changed {
 		return
 	}
-	replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(root.ownerArena, rebuilt))
+	replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(arena, rebuilt))
 }
 
-func kotlinRecoveredTopLevelFunction(children []*Node, idx int, source []byte, lang *Language, fnSym, funSym Symbol) (*Node, bool) {
+func kotlinRecoveredTopLevelFunction(arena *nodeArena, children []*Node, idx int, source []byte, lang *Language, fnSym, funSym Symbol) (*Node, bool) {
 	if idx+2 >= len(children) {
 		return nil, false
 	}
