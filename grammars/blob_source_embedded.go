@@ -1,4 +1,4 @@
-//go:build !grammar_blobs_external && !grammar_set_core
+//go:build !grammar_blobs_external && !grammar_set_core && !grammar_subset
 
 package grammars
 

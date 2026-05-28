@@ -451,6 +451,27 @@ go build -tags grammar_set_core  # curated Core100 embedded grammar set
 GOTREESITTER_GRAMMAR_SET=go,json,python  # runtime restriction
 ```
 
+**Selective embedded grammars** (smallest self-contained binary — pick exactly the languages you ship):
+
+```sh
+# Embeds ONLY go.bin + java.bin into the binary (everything else is dropped at
+# link time). No GOTREESITTER_GRAMMAR_BLOB_DIR needed — still a single static binary.
+go build -tags 'grammar_subset grammar_subset_go grammar_subset_java'
+```
+
+Add one `grammar_subset_<lang>` tag per grammar you need (names match the blob
+file: `grammar_subset_c_sharp`, `grammar_subset_python`, …). A single-language
+build drops from ~24MB to a few MB. This is finer-grained than `grammar_set_core`
+(a fixed set) and, unlike `grammar_blobs_external`, keeps the blobs embedded.
+Pairing `grammar_subset` with `grammar_blobs_external` instead loads the selected
+blobs from `GOTREESITTER_GRAMMAR_BLOB_DIR` at runtime (no embedded blobs at all).
+
+> The four embedding modes are mutually exclusive at the build-tag level:
+> default (all embedded) · `grammar_set_core` (Core100 embedded) ·
+> `grammar_subset` + `grammar_subset_<lang>` (selected embedded) ·
+> `grammar_blobs_external` (none embedded). Regenerate the per-language embed
+> files after adding a grammar with `go run ./cmd/gen_subset_blob_embeds`.
+
 **Grammar cache tuning** (long-lived processes):
 
 ```go
