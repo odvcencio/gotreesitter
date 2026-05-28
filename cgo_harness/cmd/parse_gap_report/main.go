@@ -130,196 +130,294 @@ type paritySummary struct {
 }
 
 type runtimeStats struct {
-	Tokens                          uint64        `json:"tokens,omitempty"`
-	Iterations                      int           `json:"iterations,omitempty"`
-	NodesAllocated                  int           `json:"nodes_allocated,omitempty"`
-	FinalNodes                      uint64        `json:"final_nodes,omitempty"`
-	GSSNodes                        uint64        `json:"gss_nodes,omitempty"`
-	MaxStacksSeen                   int           `json:"max_stacks_seen,omitempty"`
-	SingleStackIterations           int           `json:"single_stack_iterations,omitempty"`
-	MultiStackIterations            int           `json:"multi_stack_iterations,omitempty"`
-	SingleStackTokens               uint64        `json:"single_stack_tokens,omitempty"`
-	MultiStackTokens                uint64        `json:"multi_stack_tokens,omitempty"`
-	MergeStacksIn                   uint64        `json:"merge_stacks_in,omitempty"`
-	MergeStacksOut                  uint64        `json:"merge_stacks_out,omitempty"`
-	MergeSlotsUsed                  uint64        `json:"merge_slots_used,omitempty"`
-	GlobalCullStacksIn              uint64        `json:"global_cull_stacks_in,omitempty"`
-	GlobalCullStacksOut             uint64        `json:"global_cull_stacks_out,omitempty"`
-	ArenaLiveB                      int64         `json:"arena_live_b,omitempty"`
-	ArenaCapacityB                  int64         `json:"arena_capacity_b,omitempty"`
-	ArenaCapacityWaste              uint64        `json:"arena_capacity_waste,omitempty"`
-	FinalChildRangeDrains           uint64        `json:"final_child_range_drains,omitempty"`
-	PublicNodesMaterialized         uint64        `json:"public_nodes_materialized,omitempty"`
-	DenseFallbacks                  uint64        `json:"dense_fallbacks,omitempty"`
-	ResultSelectionNS               int64         `json:"result_selection_ns,omitempty"`
-	ResultBuildNS                   int64         `json:"result_build_ns,omitempty"`
-	ResultCompatibilityNS           int64         `json:"result_compatibility_ns,omitempty"`
-	ResultParentLinkNS              int64         `json:"result_parent_link_ns,omitempty"`
-	ResultFinalizeRootNS            int64         `json:"result_finalize_root_ns,omitempty"`
-	ResultExtendTrailingNS          int64         `json:"result_extend_trailing_ns,omitempty"`
-	ResultNormalizeRootNS           int64         `json:"result_normalize_root_start_ns,omitempty"`
-	TransientParentMatNS            int64         `json:"transient_parent_materialize_ns,omitempty"`
-	TransientChildMatNS             int64         `json:"transient_child_materialize_ns,omitempty"`
-	NormalizationNS                 int64         `json:"normalization_ns,omitempty"`
-	NormalizationPassesRun          uint64        `json:"normalization_passes_run,omitempty"`
-	NormalizationNodes              uint64        `json:"normalization_nodes_visited,omitempty"`
-	NormalizationRewrites           uint64        `json:"normalization_nodes_rewritten,omitempty"`
-	ParseWallNS                     int64         `json:"parse_wall_ns,omitempty"`
-	ParserLoopNS                    int64         `json:"parser_loop_ns,omitempty"`
-	TokenNextNS                     int64         `json:"token_next_ns,omitempty"`
-	ActionDispatchNS                int64         `json:"action_dispatch_ns,omitempty"`
-	ActionLookupNS                  int64         `json:"action_lookup_ns,omitempty"`
-	GLRMergeNS                      int64         `json:"glr_merge_ns,omitempty"`
-	GLRCullNS                       int64         `json:"glr_cull_ns,omitempty"`
-	ReduceRangeNS                   int64         `json:"reduce_range_ns,omitempty"`
-	ReducePendingParentNS           int64         `json:"reduce_pending_parent_ns,omitempty"`
-	ReduceChildBuildNS              int64         `json:"reduce_child_build_ns,omitempty"`
-	ReduceParentBuildNS             int64         `json:"reduce_parent_build_ns,omitempty"`
-	ReduceSpanNS                    int64         `json:"reduce_span_ns,omitempty"`
-	ReduceStackPushNS               int64         `json:"reduce_stack_push_ns,omitempty"`
-	ReduceNoTreeBuildNS             int64         `json:"reduce_notree_build_ns,omitempty"`
-	ActionExtraShiftNS              int64         `json:"action_extra_shift_ns,omitempty"`
-	ActionNoActionNS                int64         `json:"action_no_action_ns,omitempty"`
-	ActionNoActionRelexNS           int64         `json:"action_no_action_relex_ns,omitempty"`
-	ActionNoActionMissingNS         int64         `json:"action_no_action_missing_ns,omitempty"`
-	ActionNoActionRecoverNS         int64         `json:"action_no_action_recover_ns,omitempty"`
-	ActionNoActionErrorNS           int64         `json:"action_no_action_error_ns,omitempty"`
-	ActionConflictChoiceNS          int64         `json:"action_conflict_choice_ns,omitempty"`
-	ActionConflictForkNS            int64         `json:"action_conflict_fork_ns,omitempty"`
-	ActionSingleShiftNS             int64         `json:"action_single_shift_ns,omitempty"`
-	ActionSingleReduceNS            int64         `json:"action_single_reduce_ns,omitempty"`
-	ActionSingleAcceptNS            int64         `json:"action_single_accept_ns,omitempty"`
-	ActionSingleRecoverNS           int64         `json:"action_single_recover_ns,omitempty"`
-	ActionSingleOtherNS             int64         `json:"action_single_other_ns,omitempty"`
-	QueryCaptures                   uint64        `json:"query_captures,omitempty"`
-	CursorNodes                     uint64        `json:"cursor_nodes,omitempty"`
-	MergeCalls                      uint64        `json:"merge_calls,omitempty"`
-	MergeDeadPruned                 uint64        `json:"merge_dead_pruned,omitempty"`
-	MergeReplacements               uint64        `json:"merge_replacements,omitempty"`
-	StackEquivalentCalls            uint64        `json:"stack_equivalent_calls,omitempty"`
-	StackEquivalentTrue             uint64        `json:"stack_equivalent_true,omitempty"`
-	EquivCacheLookups               uint64        `json:"equiv_cache_lookups,omitempty"`
-	EquivCacheHits                  uint64        `json:"equiv_cache_hits,omitempty"`
-	EquivCacheStores                uint64        `json:"equiv_cache_stores,omitempty"`
-	EquivCacheMisses                uint64        `json:"equiv_cache_misses,omitempty"`
-	EquivCacheEpochMisses           uint64        `json:"equiv_cache_epoch_misses,omitempty"`
-	EquivCacheKeyMisses             uint64        `json:"equiv_cache_key_misses,omitempty"`
-	EquivCacheVersionMisses         uint64        `json:"equiv_cache_version_misses,omitempty"`
-	EquivSkipError                  uint64        `json:"equiv_skip_error,omitempty"`
-	EquivSkipLeaf                   uint64        `json:"equiv_skip_leaf,omitempty"`
-	EquivSkipFieldMismatch          uint64        `json:"equiv_skip_field_mismatch,omitempty"`
-	EquivExactCalls                 uint64        `json:"equiv_exact_calls,omitempty"`
-	EquivExactTrue                  uint64        `json:"equiv_exact_true,omitempty"`
-	EquivFrontierCalls              uint64        `json:"equiv_frontier_calls,omitempty"`
-	EquivFrontierTrue               uint64        `json:"equiv_frontier_true,omitempty"`
-	EquivExactChildCompares         uint64        `json:"equiv_exact_child_compares,omitempty"`
-	EquivFrontierChildScans         uint64        `json:"equiv_frontier_child_scans,omitempty"`
-	EquivFrontierCandidateCompares  uint64        `json:"equiv_frontier_candidate_compares,omitempty"`
-	StackCompareCalls               uint64        `json:"stack_compare_calls,omitempty"`
-	ForkCount                       uint64        `json:"fork_count,omitempty"`
-	ConflictRR                      uint64        `json:"conflict_rr,omitempty"`
-	ConflictRS                      uint64        `json:"conflict_rs,omitempty"`
-	ConflictOther                   uint64        `json:"conflict_other,omitempty"`
-	LexBytes                        uint64        `json:"lex_bytes,omitempty"`
-	LexTokens                       uint64        `json:"lex_tokens,omitempty"`
-	ReduceChainSteps                uint64        `json:"reduce_chain_steps,omitempty"`
-	ReduceChainMaxLen               uint64        `json:"reduce_chain_max_len,omitempty"`
-	ReduceChainClassHits            uint64        `json:"reduce_chain_class_hits,omitempty"`
-	ReduceChainStopNoAction         uint64        `json:"reduce_chain_stop_no_action,omitempty"`
-	ReduceChainStopMulti            uint64        `json:"reduce_chain_stop_multi,omitempty"`
-	ReduceChainStopShift            uint64        `json:"reduce_chain_stop_shift,omitempty"`
-	ReduceChainStopAccept           uint64        `json:"reduce_chain_stop_accept,omitempty"`
-	ReduceChainStopDead             uint64        `json:"reduce_chain_stop_dead,omitempty"`
-	ReduceChainStopCycle            uint64        `json:"reduce_chain_stop_cycle,omitempty"`
-	ReduceChainStopLimit            uint64        `json:"reduce_chain_stop_limit,omitempty"`
-	ReduceChainHintCandidates       uint64        `json:"reduce_chain_hint_candidates,omitempty"`
-	ReduceChainHintTaken            uint64        `json:"reduce_chain_hint_taken,omitempty"`
-	ReduceChainHintSteps            uint64        `json:"reduce_chain_hint_steps,omitempty"`
-	ReduceChainHintTerminalOK       uint64        `json:"reduce_chain_hint_terminal_ok,omitempty"`
-	ReduceChainHintTerminalMismatch uint64        `json:"reduce_chain_hint_terminal_mismatch,omitempty"`
-	ReduceChainHintLimit            uint64        `json:"reduce_chain_hint_limit,omitempty"`
-	ReduceChainHintDead             uint64        `json:"reduce_chain_hint_dead,omitempty"`
-	ReduceChainHintUnexpected       uint64        `json:"reduce_chain_hint_unexpected_action,omitempty"`
-	ParentChildPointers             uint64        `json:"parent_child_pointers,omitempty"`
-	NoTreeReduceNodes               uint64        `json:"notree_reduce_nodes,omitempty"`
-	NoTreeLeafNodes                 uint64        `json:"notree_leaf_nodes,omitempty"`
-	CloneTreePublicNodes            uint64        `json:"clone_tree_public_nodes,omitempty"`
-	CloneOffsetPublicNodes          uint64        `json:"clone_offset_public_nodes,omitempty"`
-	NodeEditCompactRefs             uint64        `json:"node_edit_compact_refs,omitempty"`
-	NodeEditPublicFallbacks         uint64        `json:"node_edit_public_fallbacks,omitempty"`
-	MutationChildRefCOW             uint64        `json:"mutation_child_ref_cow,omitempty"`
-	HotAmbiguities                  []hotGLRState `json:"hot_ambiguities,omitempty"`
-	HotReduceChains                 []hotGLRState `json:"hot_reduce_chains,omitempty"`
-	HotReduceChainRuns              []hotGLRState `json:"hot_reduce_chain_runs,omitempty"`
-	HotMergeStates                  []hotGLRState `json:"hot_merge_states,omitempty"`
-	HotEquivStates                  []hotGLRState `json:"hot_equiv_states,omitempty"`
+	Tokens                                uint64        `json:"tokens,omitempty"`
+	Iterations                            int           `json:"iterations,omitempty"`
+	NodesAllocated                        int           `json:"nodes_allocated,omitempty"`
+	FinalNodes                            uint64        `json:"final_nodes,omitempty"`
+	GSSNodes                              uint64        `json:"gss_nodes,omitempty"`
+	MaxStacksSeen                         int           `json:"max_stacks_seen,omitempty"`
+	SingleStackIterations                 int           `json:"single_stack_iterations,omitempty"`
+	MultiStackIterations                  int           `json:"multi_stack_iterations,omitempty"`
+	SingleStackTokens                     uint64        `json:"single_stack_tokens,omitempty"`
+	MultiStackTokens                      uint64        `json:"multi_stack_tokens,omitempty"`
+	MergeStacksIn                         uint64        `json:"merge_stacks_in,omitempty"`
+	MergeStacksOut                        uint64        `json:"merge_stacks_out,omitempty"`
+	MergeSlotsUsed                        uint64        `json:"merge_slots_used,omitempty"`
+	GlobalCullStacksIn                    uint64        `json:"global_cull_stacks_in,omitempty"`
+	GlobalCullStacksOut                   uint64        `json:"global_cull_stacks_out,omitempty"`
+	ArenaLiveB                            int64         `json:"arena_live_b,omitempty"`
+	ArenaCapacityB                        int64         `json:"arena_capacity_b,omitempty"`
+	ArenaCapacityWaste                    uint64        `json:"arena_capacity_waste,omitempty"`
+	FinalChildRangeDrains                 uint64        `json:"final_child_range_drains,omitempty"`
+	PublicNodesMaterialized               uint64        `json:"public_nodes_materialized,omitempty"`
+	DenseFallbacks                        uint64        `json:"dense_fallbacks,omitempty"`
+	ResultSelectionNS                     int64         `json:"result_selection_ns,omitempty"`
+	ResultBuildNS                         int64         `json:"result_build_ns,omitempty"`
+	ResultCompatibilityNS                 int64         `json:"result_compatibility_ns,omitempty"`
+	ResultParentLinkNS                    int64         `json:"result_parent_link_ns,omitempty"`
+	ResultFinalizeRootNS                  int64         `json:"result_finalize_root_ns,omitempty"`
+	ResultExtendTrailingNS                int64         `json:"result_extend_trailing_ns,omitempty"`
+	ResultNormalizeRootNS                 int64         `json:"result_normalize_root_start_ns,omitempty"`
+	TransientParentMatNS                  int64         `json:"transient_parent_materialize_ns,omitempty"`
+	TransientChildMatNS                   int64         `json:"transient_child_materialize_ns,omitempty"`
+	NormalizationNS                       int64         `json:"normalization_ns,omitempty"`
+	NormalizationPassesRun                uint64        `json:"normalization_passes_run,omitempty"`
+	NormalizationNodes                    uint64        `json:"normalization_nodes_visited,omitempty"`
+	NormalizationRewrites                 uint64        `json:"normalization_nodes_rewritten,omitempty"`
+	NormalizationPasses                   *[]passStats  `json:"normalization_passes,omitempty"`
+	ParseWallNS                           int64         `json:"parse_wall_ns,omitempty"`
+	ParserLoopNS                          int64         `json:"parser_loop_ns,omitempty"`
+	TokenNextNS                           int64         `json:"token_next_ns,omitempty"`
+	ActionDispatchNS                      int64         `json:"action_dispatch_ns,omitempty"`
+	ActionLookupNS                        int64         `json:"action_lookup_ns,omitempty"`
+	GLRMergeNS                            int64         `json:"glr_merge_ns,omitempty"`
+	GLRCullNS                             int64         `json:"glr_cull_ns,omitempty"`
+	ReduceRangeNS                         int64         `json:"reduce_range_ns,omitempty"`
+	ReducePendingParentNS                 int64         `json:"reduce_pending_parent_ns,omitempty"`
+	ReduceChildBuildNS                    int64         `json:"reduce_child_build_ns,omitempty"`
+	ReduceParentBuildNS                   int64         `json:"reduce_parent_build_ns,omitempty"`
+	ReduceSpanNS                          int64         `json:"reduce_span_ns,omitempty"`
+	ReduceStackPushNS                     int64         `json:"reduce_stack_push_ns,omitempty"`
+	ReduceNoTreeBuildNS                   int64         `json:"reduce_notree_build_ns,omitempty"`
+	ActionExtraShiftNS                    int64         `json:"action_extra_shift_ns,omitempty"`
+	ActionNoActionNS                      int64         `json:"action_no_action_ns,omitempty"`
+	ActionNoActionRelexNS                 int64         `json:"action_no_action_relex_ns,omitempty"`
+	ActionNoActionMissingNS               int64         `json:"action_no_action_missing_ns,omitempty"`
+	ActionNoActionRecoverNS               int64         `json:"action_no_action_recover_ns,omitempty"`
+	ActionNoActionErrorNS                 int64         `json:"action_no_action_error_ns,omitempty"`
+	ActionConflictChoiceNS                int64         `json:"action_conflict_choice_ns,omitempty"`
+	ActionConflictForkNS                  int64         `json:"action_conflict_fork_ns,omitempty"`
+	ActionSingleShiftNS                   int64         `json:"action_single_shift_ns,omitempty"`
+	ActionSingleReduceNS                  int64         `json:"action_single_reduce_ns,omitempty"`
+	ActionSingleAcceptNS                  int64         `json:"action_single_accept_ns,omitempty"`
+	ActionSingleRecoverNS                 int64         `json:"action_single_recover_ns,omitempty"`
+	ActionSingleOtherNS                   int64         `json:"action_single_other_ns,omitempty"`
+	QueryCaptures                         uint64        `json:"query_captures,omitempty"`
+	QueryCompileNS                        int64         `json:"query_compile_ns,omitempty"`
+	QueryExecNS                           int64         `json:"query_exec_ns,omitempty"`
+	QueryRootNS                           int64         `json:"query_root_ns,omitempty"`
+	QueryCursorNS                         int64         `json:"query_cursor_ns,omitempty"`
+	CursorNodes                           uint64        `json:"cursor_nodes,omitempty"`
+	MergeCalls                            uint64        `json:"merge_calls,omitempty"`
+	MergeDeadPruned                       uint64        `json:"merge_dead_pruned,omitempty"`
+	MergeReplacements                     uint64        `json:"merge_replacements,omitempty"`
+	StackEquivalentCalls                  uint64        `json:"stack_equivalent_calls,omitempty"`
+	StackEquivalentTrue                   uint64        `json:"stack_equivalent_true,omitempty"`
+	StackEquivDepthMismatch               uint64        `json:"stack_equiv_depth_mismatch,omitempty"`
+	StackEquivHashMismatch                uint64        `json:"stack_equiv_hash_mismatch,omitempty"`
+	StackEquivStateMismatch               uint64        `json:"stack_equiv_state_mismatch,omitempty"`
+	StackEquivPayloadMismatch             uint64        `json:"stack_equiv_payload_mismatch,omitempty"`
+	StackEquivEntryCompares               uint64        `json:"stack_equiv_entry_compares,omitempty"`
+	StackEquivStateMismatchDepthSum       uint64        `json:"stack_equiv_state_mismatch_depth_sum,omitempty"`
+	StackEquivStateMismatchMaxDepth       uint32        `json:"stack_equiv_state_mismatch_max_depth,omitempty"`
+	StackEquivStateMismatchDepthBuckets   []uint64      `json:"stack_equiv_state_mismatch_depth_buckets,omitempty"`
+	StackEquivPayloadMismatchDepthSum     uint64        `json:"stack_equiv_payload_mismatch_depth_sum,omitempty"`
+	StackEquivPayloadMismatchMaxDepth     uint32        `json:"stack_equiv_payload_mismatch_max_depth,omitempty"`
+	StackEquivPayloadMismatchDepthBuckets []uint64      `json:"stack_equiv_payload_mismatch_depth_buckets,omitempty"`
+	StackEquivPayloadHeaderSigDiff        uint64        `json:"stack_equiv_payload_header_sig_diff,omitempty"`
+	StackEquivPayloadHeaderSigSame        uint64        `json:"stack_equiv_payload_header_sig_same,omitempty"`
+	StackEquivPayloadShallowSigDiff       uint64        `json:"stack_equiv_payload_shallow_sig_diff,omitempty"`
+	StackEquivPayloadShallowSigSame       uint64        `json:"stack_equiv_payload_shallow_sig_same,omitempty"`
+	StackEquivPairKeyed                   uint64        `json:"stack_equiv_pair_keyed,omitempty"`
+	StackEquivPairUnkeyed                 uint64        `json:"stack_equiv_pair_unkeyed,omitempty"`
+	StackEquivPairRepeats                 uint64        `json:"stack_equiv_pair_repeats,omitempty"`
+	StackEquivPairRepeatTrue              uint64        `json:"stack_equiv_pair_repeat_true,omitempty"`
+	StackEquivPairRepeatFalse             uint64        `json:"stack_equiv_pair_repeat_false,omitempty"`
+	StackEquivPairRepeatMismatch          uint64        `json:"stack_equiv_pair_repeat_mismatch,omitempty"`
+	StackEquivPairStores                  uint64        `json:"stack_equiv_pair_stores,omitempty"`
+	EquivCacheLookups                     uint64        `json:"equiv_cache_lookups,omitempty"`
+	EquivCacheHits                        uint64        `json:"equiv_cache_hits,omitempty"`
+	EquivCacheStores                      uint64        `json:"equiv_cache_stores,omitempty"`
+	EquivCacheMisses                      uint64        `json:"equiv_cache_misses,omitempty"`
+	EquivCacheTrueHits                    uint64        `json:"equiv_cache_true_hits,omitempty"`
+	EquivCacheFalseHits                   uint64        `json:"equiv_cache_false_hits,omitempty"`
+	EquivCacheEpochMisses                 uint64        `json:"equiv_cache_epoch_misses,omitempty"`
+	EquivCacheKeyMisses                   uint64        `json:"equiv_cache_key_misses,omitempty"`
+	EquivCacheVersionMisses               uint64        `json:"equiv_cache_version_misses,omitempty"`
+	EquivSkipError                        uint64        `json:"equiv_skip_error,omitempty"`
+	EquivSkipLeaf                         uint64        `json:"equiv_skip_leaf,omitempty"`
+	EquivSkipFieldMismatch                uint64        `json:"equiv_skip_field_mismatch,omitempty"`
+	EquivExactCalls                       uint64        `json:"equiv_exact_calls,omitempty"`
+	EquivExactTrue                        uint64        `json:"equiv_exact_true,omitempty"`
+	EquivExactPointerTrue                 uint64        `json:"equiv_exact_pointer_true,omitempty"`
+	EquivExactNilMismatch                 uint64        `json:"equiv_exact_nil_mismatch,omitempty"`
+	EquivExactHeaderMismatch              uint64        `json:"equiv_exact_header_mismatch,omitempty"`
+	EquivExactChildMismatch               uint64        `json:"equiv_exact_child_mismatch,omitempty"`
+	EquivExactTerminalCalls               uint64        `json:"equiv_exact_terminal_calls,omitempty"`
+	EquivExactTerminalTrue                uint64        `json:"equiv_exact_terminal_true,omitempty"`
+	EquivExactTerminalFalse               uint64        `json:"equiv_exact_terminal_false,omitempty"`
+	EquivFrontierCalls                    uint64        `json:"equiv_frontier_calls,omitempty"`
+	EquivFrontierTrue                     uint64        `json:"equiv_frontier_true,omitempty"`
+	EquivExactChildCompares               uint64        `json:"equiv_exact_child_compares,omitempty"`
+	EquivFrontierChildScans               uint64        `json:"equiv_frontier_child_scans,omitempty"`
+	EquivFrontierCandidateCompares        uint64        `json:"equiv_frontier_candidate_compares,omitempty"`
+	StackCompareCalls                     uint64        `json:"stack_compare_calls,omitempty"`
+	ForkCount                             uint64        `json:"fork_count,omitempty"`
+	ConflictRR                            uint64        `json:"conflict_rr,omitempty"`
+	ConflictRS                            uint64        `json:"conflict_rs,omitempty"`
+	ConflictOther                         uint64        `json:"conflict_other,omitempty"`
+	LexBytes                              uint64        `json:"lex_bytes,omitempty"`
+	LexTokens                             uint64        `json:"lex_tokens,omitempty"`
+	ReduceChainSteps                      uint64        `json:"reduce_chain_steps,omitempty"`
+	ReduceChainMaxLen                     uint64        `json:"reduce_chain_max_len,omitempty"`
+	ReduceChainClassHits                  uint64        `json:"reduce_chain_class_hits,omitempty"`
+	ReduceChainStopNoAction               uint64        `json:"reduce_chain_stop_no_action,omitempty"`
+	ReduceChainStopMulti                  uint64        `json:"reduce_chain_stop_multi,omitempty"`
+	ReduceChainStopShift                  uint64        `json:"reduce_chain_stop_shift,omitempty"`
+	ReduceChainStopAccept                 uint64        `json:"reduce_chain_stop_accept,omitempty"`
+	ReduceChainStopDead                   uint64        `json:"reduce_chain_stop_dead,omitempty"`
+	ReduceChainStopCycle                  uint64        `json:"reduce_chain_stop_cycle,omitempty"`
+	ReduceChainStopLimit                  uint64        `json:"reduce_chain_stop_limit,omitempty"`
+	ReduceChainHintCandidates             uint64        `json:"reduce_chain_hint_candidates,omitempty"`
+	ReduceChainHintTaken                  uint64        `json:"reduce_chain_hint_taken,omitempty"`
+	ReduceChainHintSteps                  uint64        `json:"reduce_chain_hint_steps,omitempty"`
+	ReduceChainHintTerminalOK             uint64        `json:"reduce_chain_hint_terminal_ok,omitempty"`
+	ReduceChainHintTerminalMismatch       uint64        `json:"reduce_chain_hint_terminal_mismatch,omitempty"`
+	ReduceChainHintLimit                  uint64        `json:"reduce_chain_hint_limit,omitempty"`
+	ReduceChainHintDead                   uint64        `json:"reduce_chain_hint_dead,omitempty"`
+	ReduceChainHintUnexpected             uint64        `json:"reduce_chain_hint_unexpected_action,omitempty"`
+	ParentChildPointers                   uint64        `json:"parent_child_pointers,omitempty"`
+	ReduceChildrenFastGSS                 uint64        `json:"reduce_children_fast_gss,omitempty"`
+	ReduceChildrenAllVisible              uint64        `json:"reduce_children_all_visible,omitempty"`
+	ReduceChildrenNoAlias                 uint64        `json:"reduce_children_no_alias,omitempty"`
+	ReduceChildrenScratch                 uint64        `json:"reduce_children_scratch,omitempty"`
+	ReduceScratchNoAlias                  uint64        `json:"reduce_scratch_no_alias,omitempty"`
+	ReduceScratchGeneral                  uint64        `json:"reduce_scratch_general,omitempty"`
+	ReduceChildFastGSS                    *pathStats    `json:"reduce_child_fast_gss,omitempty"`
+	ReduceChildAllVisible                 *pathStats    `json:"reduce_child_all_visible,omitempty"`
+	ReduceChildNoAlias                    *pathStats    `json:"reduce_child_no_alias,omitempty"`
+	ReduceChildScratchGeneral             *pathStats    `json:"reduce_child_scratch_general,omitempty"`
+	ReduceChildScratchNoAlias             *pathStats    `json:"reduce_child_scratch_no_alias,omitempty"`
+	NoTreeReduceNodes                     uint64        `json:"notree_reduce_nodes,omitempty"`
+	NoTreeLeafNodes                       uint64        `json:"notree_leaf_nodes,omitempty"`
+	CloneTreePublicNodes                  uint64        `json:"clone_tree_public_nodes,omitempty"`
+	CloneOffsetPublicNodes                uint64        `json:"clone_offset_public_nodes,omitempty"`
+	NodeEditCompactRefs                   uint64        `json:"node_edit_compact_refs,omitempty"`
+	NodeEditPublicFallbacks               uint64        `json:"node_edit_public_fallbacks,omitempty"`
+	MutationChildRefCOW                   uint64        `json:"mutation_child_ref_cow,omitempty"`
+	HotAmbiguities                        []hotGLRState `json:"hot_ambiguities,omitempty"`
+	HotReduceChains                       []hotGLRState `json:"hot_reduce_chains,omitempty"`
+	HotReduceChainRuns                    []hotGLRState `json:"hot_reduce_chain_runs,omitempty"`
+	HotMergeStates                        []hotGLRState `json:"hot_merge_states,omitempty"`
+	HotEquivStates                        []hotGLRState `json:"hot_equiv_states,omitempty"`
+}
+
+type pathStats struct {
+	SlicesAllocated   uint64 `json:"slices_allocated,omitempty"`
+	SlicesRetained    uint64 `json:"slices_retained,omitempty"`
+	SlicesDropped     uint64 `json:"slices_dropped,omitempty"`
+	PointersAllocated uint64 `json:"pointers_allocated,omitempty"`
+	PointersRetained  uint64 `json:"pointers_retained,omitempty"`
+	PointersDropped   uint64 `json:"pointers_dropped,omitempty"`
 }
 
 type hotGLRState struct {
-	State                          uint32         `json:"state"`
-	Lookahead                      uint16         `json:"lookahead,omitempty"`
-	LookaheadName                  string         `json:"lookahead_name,omitempty"`
-	ActionCount                    uint8          `json:"action_count,omitempty"`
-	ShiftCount                     uint8          `json:"shift_count,omitempty"`
-	ReduceCount                    uint8          `json:"reduce_count,omitempty"`
-	ReduceSymbol                   uint16         `json:"reduce_symbol,omitempty"`
-	ReduceSymbolName               string         `json:"reduce_symbol_name,omitempty"`
-	ChildCount                     uint8          `json:"child_count,omitempty"`
-	ProductionID                   uint16         `json:"production_id,omitempty"`
-	Hits                           uint64         `json:"hits,omitempty"`
-	Forks                          uint64         `json:"forks,omitempty"`
-	MultiStackHits                 uint64         `json:"multi_stack_hits,omitempty"`
-	StackInTotal                   uint64         `json:"stack_in_total,omitempty"`
-	StackInMax                     int            `json:"stack_in_max,omitempty"`
-	ReduceChainHits                uint64         `json:"reduce_chain_hits,omitempty"`
-	ReduceChainSteps               uint64         `json:"reduce_chain_steps,omitempty"`
-	ReduceChainMaxLen              int            `json:"reduce_chain_max_len,omitempty"`
-	ReduceChainNS                  int64          `json:"reduce_chain_ns,omitempty"`
-	ReduceChainRuns                uint64         `json:"reduce_chain_runs,omitempty"`
-	ReduceChainClassHits           uint64         `json:"reduce_chain_class_hits,omitempty"`
-	ReduceChainStopNoAction        uint64         `json:"reduce_chain_stop_no_action,omitempty"`
-	ReduceChainStopMulti           uint64         `json:"reduce_chain_stop_multi,omitempty"`
-	ReduceChainStopShift           uint64         `json:"reduce_chain_stop_shift,omitempty"`
-	ReduceChainStopAccept          uint64         `json:"reduce_chain_stop_accept,omitempty"`
-	ReduceChainStopDead            uint64         `json:"reduce_chain_stop_dead,omitempty"`
-	ReduceChainStopCycle           uint64         `json:"reduce_chain_stop_cycle,omitempty"`
-	ReduceChainStopLimit           uint64         `json:"reduce_chain_stop_limit,omitempty"`
-	ReduceChainTerminalState       uint32         `json:"reduce_chain_terminal_state,omitempty"`
-	ReduceChainTerminalActionClass uint8          `json:"reduce_chain_terminal_action_class,omitempty"`
-	ReduceChainTerminalActionName  string         `json:"reduce_chain_terminal_action_name,omitempty"`
-	ActionNS                       int64          `json:"action_ns,omitempty"`
-	ExtraShiftNS                   int64          `json:"extra_shift_ns,omitempty"`
-	NoActionNS                     int64          `json:"no_action_ns,omitempty"`
-	ConflictChoiceNS               int64          `json:"conflict_choice_ns,omitempty"`
-	ConflictForkNS                 int64          `json:"conflict_fork_ns,omitempty"`
-	SingleShiftNS                  int64          `json:"single_shift_ns,omitempty"`
-	SingleReduceNS                 int64          `json:"single_reduce_ns,omitempty"`
-	SingleAcceptNS                 int64          `json:"single_accept_ns,omitempty"`
-	SingleRecoverNS                int64          `json:"single_recover_ns,omitempty"`
-	SingleOtherNS                  int64          `json:"single_other_ns,omitempty"`
-	MergeCalls                     uint64         `json:"merge_calls,omitempty"`
-	MergeStacksIn                  uint64         `json:"merge_stacks_in,omitempty"`
-	MergeStacksOut                 uint64         `json:"merge_stacks_out,omitempty"`
-	MergeStacksInMax               int            `json:"merge_stacks_in_max,omitempty"`
-	MergeStacksOutMax              int            `json:"merge_stacks_out_max,omitempty"`
-	EquivCacheLookups              uint64         `json:"equiv_cache_lookups,omitempty"`
-	EquivCacheHits                 uint64         `json:"equiv_cache_hits,omitempty"`
-	EquivCacheStores               uint64         `json:"equiv_cache_stores,omitempty"`
-	EquivCacheMisses               uint64         `json:"equiv_cache_misses,omitempty"`
-	EquivCacheKeyMisses            uint64         `json:"equiv_cache_key_misses,omitempty"`
-	EquivCacheEpochMisses          uint64         `json:"equiv_cache_epoch_misses,omitempty"`
-	EquivCacheVersionMisses        uint64         `json:"equiv_cache_version_misses,omitempty"`
-	EquivSkipError                 uint64         `json:"equiv_skip_error,omitempty"`
-	EquivSkipLeaf                  uint64         `json:"equiv_skip_leaf,omitempty"`
-	EquivSkipFieldMismatch         uint64         `json:"equiv_skip_field_mismatch,omitempty"`
-	EquivExactCalls                uint64         `json:"equiv_exact_calls,omitempty"`
-	EquivExactTrue                 uint64         `json:"equiv_exact_true,omitempty"`
-	EquivFrontierCalls             uint64         `json:"equiv_frontier_calls,omitempty"`
-	EquivFrontierTrue              uint64         `json:"equiv_frontier_true,omitempty"`
-	EquivExactChildCompares        uint64         `json:"equiv_exact_child_compares,omitempty"`
-	EquivFrontierChildScans        uint64         `json:"equiv_frontier_child_scans,omitempty"`
-	EquivFrontierCandidateCompares uint64         `json:"equiv_frontier_candidate_compares,omitempty"`
-	Actions                        []hotGLRAction `json:"actions,omitempty"`
+	State                                 uint32         `json:"state"`
+	Lookahead                             uint16         `json:"lookahead,omitempty"`
+	LookaheadName                         string         `json:"lookahead_name,omitempty"`
+	ActionCount                           uint8          `json:"action_count,omitempty"`
+	ShiftCount                            uint8          `json:"shift_count,omitempty"`
+	ReduceCount                           uint8          `json:"reduce_count,omitempty"`
+	ReduceSymbol                          uint16         `json:"reduce_symbol,omitempty"`
+	ReduceSymbolName                      string         `json:"reduce_symbol_name,omitempty"`
+	ChildCount                            uint8          `json:"child_count,omitempty"`
+	ProductionID                          uint16         `json:"production_id,omitempty"`
+	Hits                                  uint64         `json:"hits,omitempty"`
+	Forks                                 uint64         `json:"forks,omitempty"`
+	MultiStackHits                        uint64         `json:"multi_stack_hits,omitempty"`
+	StackInTotal                          uint64         `json:"stack_in_total,omitempty"`
+	StackInMax                            int            `json:"stack_in_max,omitempty"`
+	ReduceChainHits                       uint64         `json:"reduce_chain_hits,omitempty"`
+	ReduceChainSteps                      uint64         `json:"reduce_chain_steps,omitempty"`
+	ReduceChainMaxLen                     int            `json:"reduce_chain_max_len,omitempty"`
+	ReduceChainNS                         int64          `json:"reduce_chain_ns,omitempty"`
+	ReduceChainRuns                       uint64         `json:"reduce_chain_runs,omitempty"`
+	ReduceChainClassHits                  uint64         `json:"reduce_chain_class_hits,omitempty"`
+	ReduceChainStopNoAction               uint64         `json:"reduce_chain_stop_no_action,omitempty"`
+	ReduceChainStopMulti                  uint64         `json:"reduce_chain_stop_multi,omitempty"`
+	ReduceChainStopShift                  uint64         `json:"reduce_chain_stop_shift,omitempty"`
+	ReduceChainStopAccept                 uint64         `json:"reduce_chain_stop_accept,omitempty"`
+	ReduceChainStopDead                   uint64         `json:"reduce_chain_stop_dead,omitempty"`
+	ReduceChainStopCycle                  uint64         `json:"reduce_chain_stop_cycle,omitempty"`
+	ReduceChainStopLimit                  uint64         `json:"reduce_chain_stop_limit,omitempty"`
+	ReduceChainTerminalState              uint32         `json:"reduce_chain_terminal_state,omitempty"`
+	ReduceChainTerminalActionClass        uint8          `json:"reduce_chain_terminal_action_class,omitempty"`
+	ReduceChainTerminalActionName         string         `json:"reduce_chain_terminal_action_name,omitempty"`
+	ActionNS                              int64          `json:"action_ns,omitempty"`
+	ExtraShiftNS                          int64          `json:"extra_shift_ns,omitempty"`
+	NoActionNS                            int64          `json:"no_action_ns,omitempty"`
+	ConflictChoiceNS                      int64          `json:"conflict_choice_ns,omitempty"`
+	ConflictForkNS                        int64          `json:"conflict_fork_ns,omitempty"`
+	SingleShiftNS                         int64          `json:"single_shift_ns,omitempty"`
+	SingleReduceNS                        int64          `json:"single_reduce_ns,omitempty"`
+	SingleAcceptNS                        int64          `json:"single_accept_ns,omitempty"`
+	SingleRecoverNS                       int64          `json:"single_recover_ns,omitempty"`
+	SingleOtherNS                         int64          `json:"single_other_ns,omitempty"`
+	MergeCalls                            uint64         `json:"merge_calls,omitempty"`
+	MergeStacksIn                         uint64         `json:"merge_stacks_in,omitempty"`
+	MergeStacksOut                        uint64         `json:"merge_stacks_out,omitempty"`
+	MergeStacksInMax                      int            `json:"merge_stacks_in_max,omitempty"`
+	MergeStacksOutMax                     int            `json:"merge_stacks_out_max,omitempty"`
+	EquivCacheLookups                     uint64         `json:"equiv_cache_lookups,omitempty"`
+	EquivCacheHits                        uint64         `json:"equiv_cache_hits,omitempty"`
+	EquivCacheStores                      uint64         `json:"equiv_cache_stores,omitempty"`
+	EquivCacheMisses                      uint64         `json:"equiv_cache_misses,omitempty"`
+	EquivCacheTrueHits                    uint64         `json:"equiv_cache_true_hits,omitempty"`
+	EquivCacheFalseHits                   uint64         `json:"equiv_cache_false_hits,omitempty"`
+	EquivCacheKeyMisses                   uint64         `json:"equiv_cache_key_misses,omitempty"`
+	EquivCacheEpochMisses                 uint64         `json:"equiv_cache_epoch_misses,omitempty"`
+	EquivCacheVersionMisses               uint64         `json:"equiv_cache_version_misses,omitempty"`
+	StackEquivCalls                       uint64         `json:"stack_equiv_calls,omitempty"`
+	StackEquivTrue                        uint64         `json:"stack_equiv_true,omitempty"`
+	StackEquivDepthMismatch               uint64         `json:"stack_equiv_depth_mismatch,omitempty"`
+	StackEquivHashMismatch                uint64         `json:"stack_equiv_hash_mismatch,omitempty"`
+	StackEquivStateMismatch               uint64         `json:"stack_equiv_state_mismatch,omitempty"`
+	StackEquivPayloadMismatch             uint64         `json:"stack_equiv_payload_mismatch,omitempty"`
+	StackEquivEntryCompares               uint64         `json:"stack_equiv_entry_compares,omitempty"`
+	StackEquivStateMismatchDepthSum       uint64         `json:"stack_equiv_state_mismatch_depth_sum,omitempty"`
+	StackEquivStateMismatchMaxDepth       uint32         `json:"stack_equiv_state_mismatch_max_depth,omitempty"`
+	StackEquivStateMismatchDepthBuckets   []uint64       `json:"stack_equiv_state_mismatch_depth_buckets,omitempty"`
+	StackEquivPayloadMismatchDepthSum     uint64         `json:"stack_equiv_payload_mismatch_depth_sum,omitempty"`
+	StackEquivPayloadMismatchMaxDepth     uint32         `json:"stack_equiv_payload_mismatch_max_depth,omitempty"`
+	StackEquivPayloadMismatchDepthBuckets []uint64       `json:"stack_equiv_payload_mismatch_depth_buckets,omitempty"`
+	StackEquivPayloadHeaderSigDiff        uint64         `json:"stack_equiv_payload_header_sig_diff,omitempty"`
+	StackEquivPayloadHeaderSigSame        uint64         `json:"stack_equiv_payload_header_sig_same,omitempty"`
+	StackEquivPayloadShallowSigDiff       uint64         `json:"stack_equiv_payload_shallow_sig_diff,omitempty"`
+	StackEquivPayloadShallowSigSame       uint64         `json:"stack_equiv_payload_shallow_sig_same,omitempty"`
+	StackEquivPairKeyed                   uint64         `json:"stack_equiv_pair_keyed,omitempty"`
+	StackEquivPairUnkeyed                 uint64         `json:"stack_equiv_pair_unkeyed,omitempty"`
+	StackEquivPairRepeats                 uint64         `json:"stack_equiv_pair_repeats,omitempty"`
+	StackEquivPairRepeatTrue              uint64         `json:"stack_equiv_pair_repeat_true,omitempty"`
+	StackEquivPairRepeatFalse             uint64         `json:"stack_equiv_pair_repeat_false,omitempty"`
+	StackEquivPairRepeatMismatch          uint64         `json:"stack_equiv_pair_repeat_mismatch,omitempty"`
+	StackEquivPairStores                  uint64         `json:"stack_equiv_pair_stores,omitempty"`
+	EquivSkipError                        uint64         `json:"equiv_skip_error,omitempty"`
+	EquivSkipLeaf                         uint64         `json:"equiv_skip_leaf,omitempty"`
+	EquivSkipFieldMismatch                uint64         `json:"equiv_skip_field_mismatch,omitempty"`
+	EquivExactCalls                       uint64         `json:"equiv_exact_calls,omitempty"`
+	EquivExactTrue                        uint64         `json:"equiv_exact_true,omitempty"`
+	EquivExactPointerTrue                 uint64         `json:"equiv_exact_pointer_true,omitempty"`
+	EquivExactNilMismatch                 uint64         `json:"equiv_exact_nil_mismatch,omitempty"`
+	EquivExactHeaderMismatch              uint64         `json:"equiv_exact_header_mismatch,omitempty"`
+	EquivExactChildMismatch               uint64         `json:"equiv_exact_child_mismatch,omitempty"`
+	EquivExactTerminalCalls               uint64         `json:"equiv_exact_terminal_calls,omitempty"`
+	EquivExactTerminalTrue                uint64         `json:"equiv_exact_terminal_true,omitempty"`
+	EquivExactTerminalFalse               uint64         `json:"equiv_exact_terminal_false,omitempty"`
+	EquivFrontierCalls                    uint64         `json:"equiv_frontier_calls,omitempty"`
+	EquivFrontierTrue                     uint64         `json:"equiv_frontier_true,omitempty"`
+	EquivExactChildCompares               uint64         `json:"equiv_exact_child_compares,omitempty"`
+	EquivFrontierChildScans               uint64         `json:"equiv_frontier_child_scans,omitempty"`
+	EquivFrontierCandidateCompares        uint64         `json:"equiv_frontier_candidate_compares,omitempty"`
+	Actions                               []hotGLRAction `json:"actions,omitempty"`
+}
+
+type passStats struct {
+	Name     string `json:"name,omitempty"`
+	Checked  uint64 `json:"checked,omitempty"`
+	Run      uint64 `json:"run,omitempty"`
+	NS       int64  `json:"ns,omitempty"`
+	Nodes    uint64 `json:"nodes_visited,omitempty"`
+	Rewrites uint64 `json:"nodes_rewritten,omitempty"`
 }
 
 type hotGLRAction struct {
@@ -358,57 +456,63 @@ type queryMatch struct {
 }
 
 type metadata struct {
-	Schema             string            `json:"schema"`
-	Repo               string            `json:"repo,omitempty"`
-	Commit             string            `json:"commit,omitempty"`
-	Branch             string            `json:"branch,omitempty"`
-	Dirty              string            `json:"dirty,omitempty"`
-	GoVersion          string            `json:"go_version"`
-	DockerImage        string            `json:"docker_image,omitempty"`
-	CPULimit           string            `json:"cpu_limit,omitempty"`
-	MemoryLimit        string            `json:"memory_limit,omitempty"`
-	Modes              []string          `json:"modes"`
-	Languages          []string          `json:"languages"`
-	Count              int               `json:"count"`
-	GateOnly           bool              `json:"gate_only"`
-	HotShapeLimit      int               `json:"hot_shape_limit,omitempty"`
-	EquivCounters      bool              `json:"equiv_counters,omitempty"`
-	ReduceTiming       bool              `json:"reduce_timing,omitempty"`
-	ActionTiming       bool              `json:"action_timing,omitempty"`
-	CorpusManifest     string            `json:"corpus_manifest,omitempty"`
-	CorpusManifestSHA  string            `json:"corpus_manifest_sha256,omitempty"`
-	QueryManifest      string            `json:"query_manifest,omitempty"`
-	QueryManifestSHA   string            `json:"query_manifest_sha256,omitempty"`
-	EditManifest       string            `json:"edit_manifest,omitempty"`
-	EditManifestSHA    string            `json:"edit_manifest_sha256,omitempty"`
-	Environment        map[string]string `json:"environment,omitempty"`
-	GeneratedAtUTC     string            `json:"generated_at_utc"`
-	TotalSamples       int               `json:"total_samples"`
-	TotalRows          int               `json:"total_rows"`
-	ParityFailures     int               `json:"parity_failures"`
-	ModeFailures       int               `json:"mode_failures"`
-	UnsupportedSamples int               `json:"unsupported_samples"`
+	Schema              string            `json:"schema"`
+	Repo                string            `json:"repo,omitempty"`
+	Commit              string            `json:"commit,omitempty"`
+	Branch              string            `json:"branch,omitempty"`
+	Dirty               string            `json:"dirty,omitempty"`
+	GoVersion           string            `json:"go_version"`
+	DockerImage         string            `json:"docker_image,omitempty"`
+	CPULimit            string            `json:"cpu_limit,omitempty"`
+	MemoryLimit         string            `json:"memory_limit,omitempty"`
+	Modes               []string          `json:"modes"`
+	Languages           []string          `json:"languages"`
+	Count               int               `json:"count"`
+	GateOnly            bool              `json:"gate_only"`
+	ArenaBreakdown      bool              `json:"arena_breakdown,omitempty"`
+	HotShapeLimit       int               `json:"hot_shape_limit,omitempty"`
+	EquivCounters       bool              `json:"equiv_counters,omitempty"`
+	RuntimeAudit        bool              `json:"runtime_audit,omitempty"`
+	ReduceTiming        bool              `json:"reduce_timing,omitempty"`
+	ActionTiming        bool              `json:"action_timing,omitempty"`
+	CorpusManifest      string            `json:"corpus_manifest,omitempty"`
+	CorpusManifestSHA   string            `json:"corpus_manifest_sha256,omitempty"`
+	QueryManifest       string            `json:"query_manifest,omitempty"`
+	QueryManifestSHA    string            `json:"query_manifest_sha256,omitempty"`
+	EditManifest        string            `json:"edit_manifest,omitempty"`
+	EditManifestSHA     string            `json:"edit_manifest_sha256,omitempty"`
+	Environment         map[string]string `json:"environment,omitempty"`
+	GeneratedAtUTC      string            `json:"generated_at_utc"`
+	TotalSamples        int               `json:"total_samples"`
+	TotalRows           int               `json:"total_rows"`
+	ParityFailures      int               `json:"parity_failures"`
+	RequiredParityLangs []string          `json:"required_parity_languages,omitempty"`
+	RequiredParityFails int               `json:"required_parity_failures,omitempty"`
+	ModeFailures        int               `json:"mode_failures"`
+	UnsupportedSamples  int               `json:"unsupported_samples"`
 }
 
 func main() {
 	var (
-		langsFlag       string
-		modesFlag       string
-		corpusFlag      string
-		queryFlag       string
-		editFlag        string
-		outFlag         string
-		repoRootFlag    string
-		countFlag       int
-		allowParityFail bool
-		timeParityFails bool
-		gateOnly        bool
-		arenaBreakdown  bool
-		phaseTiming     bool
-		hotShapeLimit   int
-		equivCounters   bool
-		reduceTiming    bool
-		actionTiming    bool
+		langsFlag         string
+		modesFlag         string
+		corpusFlag        string
+		queryFlag         string
+		editFlag          string
+		outFlag           string
+		repoRootFlag      string
+		requireParityFlag string
+		countFlag         int
+		allowParityFail   bool
+		timeParityFails   bool
+		gateOnly          bool
+		arenaBreakdown    bool
+		phaseTiming       bool
+		hotShapeLimit     int
+		equivCounters     bool
+		runtimeAudit      bool
+		reduceTiming      bool
+		actionTiming      bool
 	)
 	flag.StringVar(&langsFlag, "langs", "go,python,rust,java,c", "comma-separated languages to include")
 	flag.StringVar(&modesFlag, "modes", "cgo_full,go_full,go_no_tree", "comma-separated modes")
@@ -417,14 +521,16 @@ func main() {
 	flag.StringVar(&editFlag, "edits", "cgo_harness/edit_fixtures.json", "edit fixture manifest path")
 	flag.StringVar(&outFlag, "out", "harness_out/parse_gap/latest", "output directory")
 	flag.StringVar(&repoRootFlag, "repo-root", "", "repository root; autodetected when empty")
+	flag.StringVar(&requireParityFlag, "require-parity-langs", "", "comma-separated languages that must pass parse/highlight/query parity even when --allow-parity-fail is set")
 	flag.IntVar(&countFlag, "count", 10, "iterations per sample/mode")
 	flag.BoolVar(&allowParityFail, "allow-parity-fail", false, "write parity failures but exit zero")
 	flag.BoolVar(&timeParityFails, "time-parity-failures", false, "run timing modes even when correctness gates fail")
 	flag.BoolVar(&gateOnly, "gate-only", false, "run only parse/highlight/query correctness gates and skip timing modes")
-	flag.BoolVar(&arenaBreakdown, "arena-breakdown", true, "enable detailed gotreesitter arena breakdown while measuring")
+	flag.BoolVar(&arenaBreakdown, "arena-breakdown", false, "enable detailed gotreesitter arena breakdown while measuring")
 	flag.BoolVar(&phaseTiming, "phase-timing", false, "enable gotreesitter parser phase timing while measuring")
 	flag.IntVar(&hotShapeLimit, "hot-shapes", 0, "include top-N GLR fork/reduce/merge hot-shape rows in runtime JSON")
 	flag.BoolVar(&equivCounters, "equiv-counters", false, "enable lightweight GLR equivalence attribution counters")
+	flag.BoolVar(&runtimeAudit, "runtime-audit", false, "enable heavyweight survivor/runtime audit counters while measuring")
 	flag.BoolVar(&reduceTiming, "reduce-timing", false, "enable reduce subphase timing while measuring; implies --phase-timing")
 	flag.BoolVar(&actionTiming, "action-timing", false, "enable action-dispatch subphase timing while measuring; implies --phase-timing")
 	flag.Parse()
@@ -439,6 +545,11 @@ func main() {
 	langs := splitCSV(langsFlag)
 	if len(langs) == 0 {
 		fatalf("no languages selected")
+	}
+	requiredParityLangs := splitCSV(requireParityFlag)
+	requiredParity := make(map[string]struct{}, len(requiredParityLangs))
+	for _, lang := range requiredParityLangs {
+		requiredParity[lang] = struct{}{}
 	}
 	modes := splitCSV(modesFlag)
 	if len(modes) == 0 && !gateOnly {
@@ -489,6 +600,8 @@ func main() {
 
 	gotreesitter.EnableArenaBreakdown(arenaBreakdown)
 	defer gotreesitter.EnableArenaBreakdown(false)
+	gotreesitter.EnableRuntimeAudit(runtimeAudit)
+	defer gotreesitter.EnableRuntimeAudit(false)
 	gotreesitter.EnableGLREquivAudit(equivCounters)
 	defer gotreesitter.EnableGLREquivAudit(false)
 	if reduceTiming || actionTiming {
@@ -524,6 +637,7 @@ func main() {
 
 	var rows []reportRow
 	parityFailures := 0
+	requiredParityFailures := 0
 	modeFailures := 0
 	unsupportedSamples := 0
 
@@ -540,6 +654,9 @@ func main() {
 		if gateOnly {
 			if parity.Error != "" {
 				parityFailures++
+				if _, ok := requiredParity[s.Language]; ok {
+					requiredParityFailures++
+				}
 			}
 			row := gateRow(common, s, countFlag, parity)
 			rows = append(rows, row)
@@ -550,6 +667,9 @@ func main() {
 		}
 		if parity.Error != "" {
 			parityFailures++
+			if _, ok := requiredParity[s.Language]; ok {
+				requiredParityFailures++
+			}
 			row := gateRow(common, s, countFlag, parity)
 			rows = append(rows, row)
 			if err := enc.Encode(row); err != nil {
@@ -580,36 +700,40 @@ func main() {
 	}
 
 	meta := metadata{
-		Schema:             "parse-gap-metadata-v1",
-		Repo:               common.Repo,
-		Commit:             common.Commit,
-		Branch:             common.Branch,
-		Dirty:              gitOutput(repoRoot, "status", "--short"),
-		GoVersion:          runtime.Version(),
-		DockerImage:        common.DockerImage,
-		CPULimit:           common.CPULimit,
-		MemoryLimit:        common.MemoryLimit,
-		Modes:              modes,
-		Languages:          langs,
-		Count:              countFlag,
-		GateOnly:           gateOnly,
-		HotShapeLimit:      hotShapeLimit,
-		EquivCounters:      equivCounters,
-		ReduceTiming:       reduceTiming,
-		ActionTiming:       actionTiming,
-		CorpusManifest:     relOrAbs(repoRoot, corpusPath),
-		CorpusManifestSHA:  sha256File(corpusPath),
-		QueryManifest:      relOrAbs(repoRoot, queryPath),
-		QueryManifestSHA:   sha256File(queryPath),
-		EditManifest:       relOrAbs(repoRoot, editPath),
-		EditManifestSHA:    sha256File(editPath),
-		Environment:        captureEnvironment(),
-		GeneratedAtUTC:     time.Now().UTC().Format(time.RFC3339),
-		TotalSamples:       len(samples),
-		TotalRows:          len(rows),
-		ParityFailures:     parityFailures,
-		ModeFailures:       modeFailures,
-		UnsupportedSamples: unsupportedSamples,
+		Schema:              "parse-gap-metadata-v1",
+		Repo:                common.Repo,
+		Commit:              common.Commit,
+		Branch:              common.Branch,
+		Dirty:               gitOutput(repoRoot, "status", "--short"),
+		GoVersion:           runtime.Version(),
+		DockerImage:         common.DockerImage,
+		CPULimit:            common.CPULimit,
+		MemoryLimit:         common.MemoryLimit,
+		Modes:               modes,
+		Languages:           langs,
+		Count:               countFlag,
+		GateOnly:            gateOnly,
+		ArenaBreakdown:      arenaBreakdown,
+		HotShapeLimit:       hotShapeLimit,
+		EquivCounters:       equivCounters,
+		RuntimeAudit:        runtimeAudit,
+		ReduceTiming:        reduceTiming,
+		ActionTiming:        actionTiming,
+		CorpusManifest:      relOrAbs(repoRoot, corpusPath),
+		CorpusManifestSHA:   sha256File(corpusPath),
+		QueryManifest:       relOrAbs(repoRoot, queryPath),
+		QueryManifestSHA:    sha256File(queryPath),
+		EditManifest:        relOrAbs(repoRoot, editPath),
+		EditManifestSHA:     sha256File(editPath),
+		Environment:         captureEnvironment(),
+		GeneratedAtUTC:      time.Now().UTC().Format(time.RFC3339),
+		TotalSamples:        len(samples),
+		TotalRows:           len(rows),
+		ParityFailures:      parityFailures,
+		RequiredParityLangs: requiredParityLangs,
+		RequiredParityFails: requiredParityFailures,
+		ModeFailures:        modeFailures,
+		UnsupportedSamples:  unsupportedSamples,
 	}
 	if err := writeJSON(filepath.Join(outDir, "metadata.json"), meta); err != nil {
 		fatalf("write metadata: %v", err)
@@ -621,6 +745,9 @@ func main() {
 	fmt.Print(summary)
 	fmt.Printf("\nresults: %s\n", resultsPath)
 
+	if requiredParityFailures > 0 {
+		fatalf("%d required parity failure(s) for language(s): %s", requiredParityFailures, strings.Join(requiredParityLangs, ","))
+	}
 	if parityFailures > 0 && !allowParityFail {
 		fatalf("%d parity failure(s); rerun with --allow-parity-fail to keep exit zero", parityFailures)
 	}
@@ -879,8 +1006,8 @@ func runModeOnce(r *runner, mode string, source []byte, queries []querySpec, edi
 			releaseTree(tree, nil)
 			return runtimeStats{}, err
 		}
-		captures, qErr := runGoQuery(r, tree, source, queries[0].Query)
-		stats := statsFromGoTree(r, tree, captures, 0)
+		captures, qTiming, qErr := runGoQuery(r, tree, source, queries[0].Query)
+		stats := statsFromGoTree(r, tree, captures, 0, qTiming)
 		return stats, releaseTree(tree, qErr)
 	case "go_cursor_walk":
 		tree, err := parseGo(r, source)
@@ -922,13 +1049,26 @@ func releaseTree(tree *gotreesitter.Tree, err error) error {
 	return err
 }
 
-func statsFromGoTree(r *runner, tree *gotreesitter.Tree, queryCaptures, cursorNodes uint64) runtimeStats {
+type queryTimingStats struct {
+	compileNS int64
+	execNS    int64
+	rootNS    int64
+	cursorNS  int64
+}
+
+func statsFromGoTree(r *runner, tree *gotreesitter.Tree, queryCaptures, cursorNodes uint64, queryTiming ...queryTimingStats) runtimeStats {
 	if tree == nil {
 		return runtimeStats{}
 	}
 	rt := tree.ParseRuntime()
 	stats := statsFromRuntime(rt)
 	stats.QueryCaptures = queryCaptures
+	if len(queryTiming) > 0 {
+		stats.QueryCompileNS = queryTiming[0].compileNS
+		stats.QueryExecNS = queryTiming[0].execNS
+		stats.QueryRootNS = queryTiming[0].rootNS
+		stats.QueryCursorNS = queryTiming[0].cursorNS
+	}
 	stats.CursorNodes = cursorNodes
 	if breakdown, ok := tree.ArenaBreakdown(); ok {
 		stats.ArenaLiveB = breakdown.NodeStructBytesAllocated +
@@ -972,6 +1112,12 @@ func statsFromGoTree(r *runner, tree *gotreesitter.Tree, queryCaptures, cursorNo
 	stats.ReduceChainHintDead = perf.ReduceChainHintDead
 	stats.ReduceChainHintUnexpected = perf.ReduceChainHintUnexpected
 	stats.ParentChildPointers = perf.ParentChildPointers
+	stats.ReduceChildrenFastGSS = perf.ReduceChildrenFastGSS
+	stats.ReduceChildrenAllVisible = perf.ReduceChildrenAllVis
+	stats.ReduceChildrenNoAlias = perf.ReduceChildrenNoAlias
+	stats.ReduceChildrenScratch = perf.ReduceChildrenScratch
+	stats.ReduceScratchNoAlias = perf.ReduceScratchNoAlias
+	stats.ReduceScratchGeneral = perf.ReduceScratchGeneral
 	if r != nil && r.profile != nil && r.hotShapeLimit > 0 {
 		chainTotals := r.profile.SnapshotReduceChainTotals()
 		stats.ReduceChainClassHits = chainTotals.ReduceChainClassHits
@@ -1121,8 +1267,8 @@ func hotEquivStatesFromRuntime(stats []gotreesitter.ParseEquivStateRuntime, limi
 		return nil
 	}
 	sort.Slice(stats, func(i, j int) bool {
-		di := stats[i].EquivCacheLookups + stats[i].EquivExactCalls + stats[i].EquivFrontierCalls
-		dj := stats[j].EquivCacheLookups + stats[j].EquivExactCalls + stats[j].EquivFrontierCalls
+		di := stats[i].StackEquivCalls + stats[i].StackEquivEntryCompares + stats[i].StackEquivPairRepeats + stats[i].EquivCacheLookups + stats[i].EquivExactCalls + stats[i].EquivFrontierCalls
+		dj := stats[j].StackEquivCalls + stats[j].StackEquivEntryCompares + stats[j].StackEquivPairRepeats + stats[j].EquivCacheLookups + stats[j].EquivExactCalls + stats[j].EquivFrontierCalls
 		if di == dj {
 			return stats[i].State < stats[j].State
 		}
@@ -1134,24 +1280,57 @@ func hotEquivStatesFromRuntime(stats []gotreesitter.ParseEquivStateRuntime, limi
 	out := make([]hotGLRState, 0, len(stats))
 	for _, stat := range stats {
 		out = append(out, hotGLRState{
-			State:                          uint32(stat.State),
-			EquivCacheLookups:              stat.EquivCacheLookups,
-			EquivCacheHits:                 stat.EquivCacheHits,
-			EquivCacheStores:               stat.EquivCacheStores,
-			EquivCacheMisses:               stat.EquivCacheMisses,
-			EquivCacheEpochMisses:          stat.EquivCacheEpochMisses,
-			EquivCacheKeyMisses:            stat.EquivCacheKeyMisses,
-			EquivCacheVersionMisses:        stat.EquivCacheVersionMisses,
-			EquivSkipError:                 stat.EquivSkipError,
-			EquivSkipLeaf:                  stat.EquivSkipLeaf,
-			EquivSkipFieldMismatch:         stat.EquivSkipFieldMismatch,
-			EquivExactCalls:                stat.EquivExactCalls,
-			EquivExactTrue:                 stat.EquivExactTrue,
-			EquivFrontierCalls:             stat.EquivFrontierCalls,
-			EquivFrontierTrue:              stat.EquivFrontierTrue,
-			EquivExactChildCompares:        stat.EquivExactChildCompares,
-			EquivFrontierChildScans:        stat.EquivFrontierChildScans,
-			EquivFrontierCandidateCompares: stat.EquivFrontierCandidateCompares,
+			State:                                 uint32(stat.State),
+			StackEquivCalls:                       stat.StackEquivCalls,
+			StackEquivTrue:                        stat.StackEquivTrue,
+			StackEquivDepthMismatch:               stat.StackEquivDepthMismatch,
+			StackEquivHashMismatch:                stat.StackEquivHashMismatch,
+			StackEquivStateMismatch:               stat.StackEquivStateMismatch,
+			StackEquivPayloadMismatch:             stat.StackEquivPayloadMismatch,
+			StackEquivEntryCompares:               stat.StackEquivEntryCompares,
+			StackEquivStateMismatchDepthSum:       stat.StackEquivStateMismatchDepthSum,
+			StackEquivStateMismatchMaxDepth:       stat.StackEquivStateMismatchMaxDepth,
+			StackEquivStateMismatchDepthBuckets:   nonzeroBuckets(stat.StackEquivStateMismatchDepthBuckets),
+			StackEquivPayloadMismatchDepthSum:     stat.StackEquivPayloadMismatchDepthSum,
+			StackEquivPayloadMismatchMaxDepth:     stat.StackEquivPayloadMismatchMaxDepth,
+			StackEquivPayloadMismatchDepthBuckets: nonzeroBuckets(stat.StackEquivPayloadMismatchDepthBuckets),
+			StackEquivPayloadHeaderSigDiff:        stat.StackEquivPayloadHeaderSigDiff,
+			StackEquivPayloadHeaderSigSame:        stat.StackEquivPayloadHeaderSigSame,
+			StackEquivPayloadShallowSigDiff:       stat.StackEquivPayloadShallowSigDiff,
+			StackEquivPayloadShallowSigSame:       stat.StackEquivPayloadShallowSigSame,
+			StackEquivPairKeyed:                   stat.StackEquivPairKeyed,
+			StackEquivPairUnkeyed:                 stat.StackEquivPairUnkeyed,
+			StackEquivPairRepeats:                 stat.StackEquivPairRepeats,
+			StackEquivPairRepeatTrue:              stat.StackEquivPairRepeatTrue,
+			StackEquivPairRepeatFalse:             stat.StackEquivPairRepeatFalse,
+			StackEquivPairRepeatMismatch:          stat.StackEquivPairRepeatMismatch,
+			StackEquivPairStores:                  stat.StackEquivPairStores,
+			EquivCacheLookups:                     stat.EquivCacheLookups,
+			EquivCacheHits:                        stat.EquivCacheHits,
+			EquivCacheStores:                      stat.EquivCacheStores,
+			EquivCacheMisses:                      stat.EquivCacheMisses,
+			EquivCacheTrueHits:                    stat.EquivCacheTrueHits,
+			EquivCacheFalseHits:                   stat.EquivCacheFalseHits,
+			EquivCacheEpochMisses:                 stat.EquivCacheEpochMisses,
+			EquivCacheKeyMisses:                   stat.EquivCacheKeyMisses,
+			EquivCacheVersionMisses:               stat.EquivCacheVersionMisses,
+			EquivSkipError:                        stat.EquivSkipError,
+			EquivSkipLeaf:                         stat.EquivSkipLeaf,
+			EquivSkipFieldMismatch:                stat.EquivSkipFieldMismatch,
+			EquivExactCalls:                       stat.EquivExactCalls,
+			EquivExactTrue:                        stat.EquivExactTrue,
+			EquivExactPointerTrue:                 stat.EquivExactPointerTrue,
+			EquivExactNilMismatch:                 stat.EquivExactNilMismatch,
+			EquivExactHeaderMismatch:              stat.EquivExactHeaderMismatch,
+			EquivExactChildMismatch:               stat.EquivExactChildMismatch,
+			EquivExactTerminalCalls:               stat.EquivExactTerminalCalls,
+			EquivExactTerminalTrue:                stat.EquivExactTerminalTrue,
+			EquivExactTerminalFalse:               stat.EquivExactTerminalFalse,
+			EquivFrontierCalls:                    stat.EquivFrontierCalls,
+			EquivFrontierTrue:                     stat.EquivFrontierTrue,
+			EquivExactChildCompares:               stat.EquivExactChildCompares,
+			EquivFrontierChildScans:               stat.EquivFrontierChildScans,
+			EquivFrontierCandidateCompares:        stat.EquivFrontierCandidateCompares,
 		})
 	}
 	return out
@@ -1164,66 +1343,117 @@ func subUint64(a, b uint64) uint64 {
 	return a - b
 }
 
+func nonzeroBuckets(buckets [8]uint64) []uint64 {
+	last := -1
+	for i, bucket := range buckets {
+		if bucket != 0 {
+			last = i
+		}
+	}
+	if last < 0 {
+		return nil
+	}
+	out := make([]uint64, last+1)
+	copy(out, buckets[:last+1])
+	return out
+}
+
 func statsFromRuntime(rt gotreesitter.ParseRuntime) runtimeStats {
 	publicMaterialized := rt.CompactFullLeafMaterialized + rt.PendingParentMaterialized + rt.FinalChildRefSingleChildMaterializedChildren
 	stats := runtimeStats{
-		Tokens:                         rt.TokensConsumed,
-		Iterations:                     rt.Iterations,
-		NodesAllocated:                 rt.NodesAllocated,
-		FinalNodes:                     rt.FinalNodes,
-		GSSNodes:                       rt.GSSNodesAllocated,
-		MaxStacksSeen:                  rt.MaxStacksSeen,
-		SingleStackIterations:          rt.SingleStackIterations,
-		MultiStackIterations:           rt.MultiStackIterations,
-		SingleStackTokens:              rt.SingleStackTokens,
-		MultiStackTokens:               rt.MultiStackTokens,
-		MergeStacksIn:                  rt.MergeStacksIn,
-		MergeStacksOut:                 rt.MergeStacksOut,
-		MergeSlotsUsed:                 rt.MergeSlotsUsed,
-		GlobalCullStacksIn:             rt.GlobalCullStacksIn,
-		GlobalCullStacksOut:            rt.GlobalCullStacksOut,
-		ArenaCapacityB:                 rt.ArenaBytesAllocated,
-		FinalChildRangeDrains:          rt.FinalChildRefMaterializedChildren,
-		PublicNodesMaterialized:        publicMaterialized,
-		ResultSelectionNS:              rt.ResultSelectionNanos,
-		ResultBuildNS:                  rt.ResultTreeBuildNanos,
-		ResultCompatibilityNS:          rt.ResultCompatibilityNanos,
-		ResultParentLinkNS:             rt.ResultParentLinkNanos,
-		ResultFinalizeRootNS:           rt.ResultFinalizeRootNanos,
-		ResultExtendTrailingNS:         rt.ResultExtendTrailingNanos,
-		ResultNormalizeRootNS:          rt.ResultNormalizeRootStartNanos,
-		TransientParentMatNS:           rt.TransientParentMaterializationNanos,
-		TransientChildMatNS:            rt.TransientChildMaterializationNanos,
-		NormalizationNS:                rt.NormalizationNanos,
-		NormalizationPassesRun:         rt.NormalizationPassesRun,
-		NormalizationNodes:             rt.NormalizationNodesVisited,
-		NormalizationRewrites:          rt.NormalizationNodesRewritten,
-		ParseWallNS:                    rt.ParseWallNanos,
-		ParserLoopNS:                   rt.ParserLoopNanos,
-		TokenNextNS:                    rt.TokenNextNanos,
-		ActionDispatchNS:               rt.ActionDispatchNanos,
-		ActionLookupNS:                 rt.ActionLookupNanos,
-		GLRMergeNS:                     rt.GLRMergeNanos,
-		GLRCullNS:                      rt.GLRCullNanos,
-		EquivCacheLookups:              rt.EquivCacheLookups,
-		EquivCacheHits:                 rt.EquivCacheHits,
-		EquivCacheStores:               rt.EquivCacheStores,
-		EquivCacheMisses:               rt.EquivCacheMisses,
-		EquivCacheEpochMisses:          rt.EquivCacheEpochMisses,
-		EquivCacheKeyMisses:            rt.EquivCacheKeyMisses,
-		EquivCacheVersionMisses:        rt.EquivCacheVersionMisses,
-		EquivSkipError:                 rt.EquivSkipError,
-		EquivSkipLeaf:                  rt.EquivSkipLeaf,
-		EquivSkipFieldMismatch:         rt.EquivSkipFieldMismatch,
-		EquivExactCalls:                rt.EquivExactCalls,
-		EquivExactTrue:                 rt.EquivExactTrue,
-		EquivFrontierCalls:             rt.EquivFrontierCalls,
-		EquivFrontierTrue:              rt.EquivFrontierTrue,
-		EquivExactChildCompares:        rt.EquivExactChildCompares,
-		EquivFrontierChildScans:        rt.EquivFrontierChildScans,
-		EquivFrontierCandidateCompares: rt.EquivFrontierCandidateCompares,
-		NoTreeReduceNodes:              rt.NoTreeReduceNodesConstructed,
-		NoTreeLeafNodes:                rt.NoTreeLeafNodesConstructed,
+		Tokens:                                rt.TokensConsumed,
+		Iterations:                            rt.Iterations,
+		NodesAllocated:                        rt.NodesAllocated,
+		FinalNodes:                            rt.FinalNodes,
+		GSSNodes:                              rt.GSSNodesAllocated,
+		MaxStacksSeen:                         rt.MaxStacksSeen,
+		SingleStackIterations:                 rt.SingleStackIterations,
+		MultiStackIterations:                  rt.MultiStackIterations,
+		SingleStackTokens:                     rt.SingleStackTokens,
+		MultiStackTokens:                      rt.MultiStackTokens,
+		MergeStacksIn:                         rt.MergeStacksIn,
+		MergeStacksOut:                        rt.MergeStacksOut,
+		MergeSlotsUsed:                        rt.MergeSlotsUsed,
+		GlobalCullStacksIn:                    rt.GlobalCullStacksIn,
+		GlobalCullStacksOut:                   rt.GlobalCullStacksOut,
+		ArenaCapacityB:                        rt.ArenaBytesAllocated,
+		FinalChildRangeDrains:                 rt.FinalChildRefMaterializedChildren,
+		PublicNodesMaterialized:               publicMaterialized,
+		ResultSelectionNS:                     rt.ResultSelectionNanos,
+		ResultBuildNS:                         rt.ResultTreeBuildNanos,
+		ResultCompatibilityNS:                 rt.ResultCompatibilityNanos,
+		ResultParentLinkNS:                    rt.ResultParentLinkNanos,
+		ResultFinalizeRootNS:                  rt.ResultFinalizeRootNanos,
+		ResultExtendTrailingNS:                rt.ResultExtendTrailingNanos,
+		ResultNormalizeRootNS:                 rt.ResultNormalizeRootStartNanos,
+		TransientParentMatNS:                  rt.TransientParentMaterializationNanos,
+		TransientChildMatNS:                   rt.TransientChildMaterializationNanos,
+		NormalizationNS:                       rt.NormalizationNanos,
+		NormalizationPassesRun:                rt.NormalizationPassesRun,
+		NormalizationNodes:                    rt.NormalizationNodesVisited,
+		NormalizationRewrites:                 rt.NormalizationNodesRewritten,
+		ParseWallNS:                           rt.ParseWallNanos,
+		ParserLoopNS:                          rt.ParserLoopNanos,
+		TokenNextNS:                           rt.TokenNextNanos,
+		ActionDispatchNS:                      rt.ActionDispatchNanos,
+		ActionLookupNS:                        rt.ActionLookupNanos,
+		GLRMergeNS:                            rt.GLRMergeNanos,
+		GLRCullNS:                             rt.GLRCullNanos,
+		StackEquivDepthMismatch:               rt.StackEquivDepthMismatch,
+		StackEquivHashMismatch:                rt.StackEquivHashMismatch,
+		StackEquivStateMismatch:               rt.StackEquivStateMismatch,
+		StackEquivPayloadMismatch:             rt.StackEquivPayloadMismatch,
+		StackEquivEntryCompares:               rt.StackEquivEntryCompares,
+		StackEquivStateMismatchDepthSum:       rt.StackEquivStateMismatchDepthSum,
+		StackEquivStateMismatchMaxDepth:       rt.StackEquivStateMismatchMaxDepth,
+		StackEquivStateMismatchDepthBuckets:   nonzeroBuckets(rt.StackEquivStateMismatchDepthBuckets),
+		StackEquivPayloadMismatchDepthSum:     rt.StackEquivPayloadMismatchDepthSum,
+		StackEquivPayloadMismatchMaxDepth:     rt.StackEquivPayloadMismatchMaxDepth,
+		StackEquivPayloadMismatchDepthBuckets: nonzeroBuckets(rt.StackEquivPayloadMismatchDepthBuckets),
+		StackEquivPayloadHeaderSigDiff:        rt.StackEquivPayloadHeaderSigDiff,
+		StackEquivPayloadHeaderSigSame:        rt.StackEquivPayloadHeaderSigSame,
+		StackEquivPayloadShallowSigDiff:       rt.StackEquivPayloadShallowSigDiff,
+		StackEquivPayloadShallowSigSame:       rt.StackEquivPayloadShallowSigSame,
+		StackEquivPairKeyed:                   rt.StackEquivPairKeyed,
+		StackEquivPairUnkeyed:                 rt.StackEquivPairUnkeyed,
+		StackEquivPairRepeats:                 rt.StackEquivPairRepeats,
+		StackEquivPairRepeatTrue:              rt.StackEquivPairRepeatTrue,
+		StackEquivPairRepeatFalse:             rt.StackEquivPairRepeatFalse,
+		StackEquivPairRepeatMismatch:          rt.StackEquivPairRepeatMismatch,
+		StackEquivPairStores:                  rt.StackEquivPairStores,
+		EquivCacheLookups:                     rt.EquivCacheLookups,
+		EquivCacheHits:                        rt.EquivCacheHits,
+		EquivCacheStores:                      rt.EquivCacheStores,
+		EquivCacheMisses:                      rt.EquivCacheMisses,
+		EquivCacheTrueHits:                    rt.EquivCacheTrueHits,
+		EquivCacheFalseHits:                   rt.EquivCacheFalseHits,
+		EquivCacheEpochMisses:                 rt.EquivCacheEpochMisses,
+		EquivCacheKeyMisses:                   rt.EquivCacheKeyMisses,
+		EquivCacheVersionMisses:               rt.EquivCacheVersionMisses,
+		EquivSkipError:                        rt.EquivSkipError,
+		EquivSkipLeaf:                         rt.EquivSkipLeaf,
+		EquivSkipFieldMismatch:                rt.EquivSkipFieldMismatch,
+		EquivExactCalls:                       rt.EquivExactCalls,
+		EquivExactTrue:                        rt.EquivExactTrue,
+		EquivExactPointerTrue:                 rt.EquivExactPointerTrue,
+		EquivExactNilMismatch:                 rt.EquivExactNilMismatch,
+		EquivExactHeaderMismatch:              rt.EquivExactHeaderMismatch,
+		EquivExactChildMismatch:               rt.EquivExactChildMismatch,
+		EquivExactTerminalCalls:               rt.EquivExactTerminalCalls,
+		EquivExactTerminalTrue:                rt.EquivExactTerminalTrue,
+		EquivExactTerminalFalse:               rt.EquivExactTerminalFalse,
+		EquivFrontierCalls:                    rt.EquivFrontierCalls,
+		EquivFrontierTrue:                     rt.EquivFrontierTrue,
+		EquivExactChildCompares:               rt.EquivExactChildCompares,
+		EquivFrontierChildScans:               rt.EquivFrontierChildScans,
+		EquivFrontierCandidateCompares:        rt.EquivFrontierCandidateCompares,
+		NoTreeReduceNodes:                     rt.NoTreeReduceNodesConstructed,
+		NoTreeLeafNodes:                       rt.NoTreeLeafNodesConstructed,
+		ReduceChildFastGSS:                    pathStatsFromRuntime(rt.ReduceChildFastGSS),
+		ReduceChildAllVisible:                 pathStatsFromRuntime(rt.ReduceChildAllVisible),
+		ReduceChildNoAlias:                    pathStatsFromRuntime(rt.ReduceChildNoAlias),
+		ReduceChildScratchGeneral:             pathStatsFromRuntime(rt.ReduceChildScratchGeneral),
+		ReduceChildScratchNoAlias:             pathStatsFromRuntime(rt.ReduceChildScratchNoAlias),
 	}
 	if reduceTiming := rt.ReduceTiming; reduceTiming != nil {
 		stats.ReduceRangeNS = reduceTiming.RangeNanos
@@ -1249,7 +1479,40 @@ func statsFromRuntime(rt gotreesitter.ParseRuntime) runtimeStats {
 		stats.ActionSingleRecoverNS = actionTiming.SingleRecoverNanos
 		stats.ActionSingleOtherNS = actionTiming.SingleOtherNanos
 	}
+	if rt.NormalizationPasses != nil && len(*rt.NormalizationPasses) > 0 {
+		passes := make([]passStats, len(*rt.NormalizationPasses))
+		for i, pass := range *rt.NormalizationPasses {
+			passes[i] = passStats{
+				Name:     pass.Name,
+				Checked:  pass.Checked,
+				Run:      pass.Run,
+				NS:       pass.Nanos,
+				Nodes:    pass.NodesVisited,
+				Rewrites: pass.NodesRewritten,
+			}
+		}
+		stats.NormalizationPasses = &passes
+	}
 	return stats
+}
+
+func pathStatsFromRuntime(rt gotreesitter.ReduceChildPathRuntime) *pathStats {
+	if rt.SlicesAllocated == 0 &&
+		rt.SlicesRetained == 0 &&
+		rt.SlicesDropped == 0 &&
+		rt.PointersAllocated == 0 &&
+		rt.PointersRetained == 0 &&
+		rt.PointersDropped == 0 {
+		return nil
+	}
+	return &pathStats{
+		SlicesAllocated:   rt.SlicesAllocated,
+		SlicesRetained:    rt.SlicesRetained,
+		SlicesDropped:     rt.SlicesDropped,
+		PointersAllocated: rt.PointersAllocated,
+		PointersRetained:  rt.PointersRetained,
+		PointersDropped:   rt.PointersDropped,
+	}
 }
 
 func runGoEdit(r *runner, source []byte, noop bool) (runtimeStats, error) {
@@ -1388,12 +1651,37 @@ func pointAtByte(source []byte, offset int) gotreesitter.Point {
 	return gotreesitter.Point{Row: row, Column: col}
 }
 
-func runGoQuery(r *runner, tree *gotreesitter.Tree, source []byte, queryText string) (uint64, error) {
+func runGoQuery(r *runner, tree *gotreesitter.Tree, source []byte, queryText string) (uint64, queryTimingStats, error) {
+	timingEnabled := strings.TrimSpace(os.Getenv("GOT_PARSE_PHASE_TIMING")) != ""
+	timing := queryTimingStats{}
+	compileStart := time.Time{}
+	if timingEnabled {
+		compileStart = time.Now()
+	}
 	q, err := gotreesitter.NewQuery(queryText, r.goLang)
 	if err != nil {
-		return 0, err
+		return 0, timing, err
 	}
-	cursor := q.Exec(tree.RootNode(), r.goLang, source)
+	if timingEnabled {
+		timing.compileNS = time.Since(compileStart).Nanoseconds()
+	}
+	execStart := time.Time{}
+	if timingEnabled {
+		execStart = time.Now()
+	}
+	rootStart := time.Time{}
+	if timingEnabled {
+		rootStart = time.Now()
+	}
+	root := tree.RootNode()
+	if timingEnabled {
+		timing.rootNS = time.Since(rootStart).Nanoseconds()
+	}
+	cursorStart := time.Time{}
+	if timingEnabled {
+		cursorStart = time.Now()
+	}
+	cursor := q.Exec(root, r.goLang, source)
 	var captures uint64
 	for {
 		match, ok := cursor.NextMatch()
@@ -1402,7 +1690,11 @@ func runGoQuery(r *runner, tree *gotreesitter.Tree, source []byte, queryText str
 		}
 		captures += uint64(len(match.Captures))
 	}
-	return captures, nil
+	if timingEnabled {
+		timing.cursorNS = time.Since(cursorStart).Nanoseconds()
+		timing.execNS = time.Since(execStart).Nanoseconds()
+	}
+	return captures, timing, nil
 }
 
 func queryParity(r *runner, goTree *gotreesitter.Tree, cTree *sitter.Tree, source []byte, queryText string) (bool, error) {

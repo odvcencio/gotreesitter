@@ -156,7 +156,11 @@ func (b *resultRootBuild) singleChildSlice(child *Node) []*Node {
 
 func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing bool) *Tree {
 	b.finalizeRoot(root, wireParentLinks, extendTrailing)
-	return newTreeWithArenas(root, b.source, b.lang, b.arena, b.borrowedArenas())
+	tree := newTreeWithArenas(root, b.source, b.lang, b.arena, b.borrowedArenas())
+	if b.parser.shouldDeferResultCompatibility(root) {
+		tree.deferResultCompatibility()
+	}
+	return tree
 }
 
 func (b *resultRootBuild) finalizeRoot(root *Node, wireParentLinks, extendTrailing bool) {
@@ -330,7 +334,7 @@ func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*N
 	start := materializationTimingStart(timing)
 	p.normalizeRootSourceStart(root, source)
 	timing.addResultNormalizeRootStart(start)
-	if p == nil || !p.noResultCompatibilityBenchmarkOnly {
+	if p == nil || (!p.noResultCompatibilityBenchmarkOnly && !p.shouldDeferResultCompatibility(root)) {
 		start = materializationTimingStart(timing)
 		normalizeResultCompatibility(root, source, p)
 		timing.addResultCompatibility(start)
@@ -346,6 +350,21 @@ func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*N
 	}
 }
 
+func (p *Parser) shouldDeferResultCompatibility(root *Node) bool {
+	if p == nil || p.language == nil || root == nil || p.noResultCompatibilityBenchmarkOnly || p.noTreeBenchmarkOnly {
+		return false
+	}
+	if !parseTypeScriptLazyResultCompatibilityEnabled() {
+		return false
+	}
+	switch p.language.Name {
+	case "typescript", "tsx":
+		return true
+	default:
+		return false
+	}
+}
+
 func (p *Parser) shouldDeferResultParentLinks(root *Node) bool {
 	if p == nil || p.language == nil || root == nil || root.ownerArena == nil {
 		return false
@@ -353,7 +372,15 @@ func (p *Parser) shouldDeferResultParentLinks(root *Node) bool {
 	if p.noResultCompatibilityBenchmarkOnly && !p.noTreeBenchmarkOnly {
 		return true
 	}
-	return (p.language.Name == "java" || p.language.Name == "python") && !p.noTreeBenchmarkOnly
+	if p.noTreeBenchmarkOnly {
+		return false
+	}
+	switch p.language.Name {
+	case "java", "python", "typescript", "tsx":
+		return true
+	default:
+		return false
+	}
 }
 
 func (p *Parser) normalizeRootSourceStart(root *Node, source []byte) {

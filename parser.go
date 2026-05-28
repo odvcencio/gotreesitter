@@ -38,6 +38,11 @@ type Parser struct {
 	hasRecoverSymbol                    []bool
 	recoverByState                      [][]recoverSymbolAction
 	hasKeywordState                     []bool
+	typeScriptPropertyIdentifierSymbol  Symbol
+	typeScriptIdentifierSymbol          Symbol
+	typeScriptHasPropertyIdentifier     bool
+	typeScriptHasIdentifier             bool
+	typeScriptContextualPropertyKeyword map[string]Symbol
 	forceRawSpanAll                     bool
 	forceRawSpanTable                   []bool
 	included                            []Range
@@ -51,6 +56,7 @@ type Parser struct {
 	smallBase                           int
 	smallLookup                         [][]smallActionPair
 	smallTokenLookup                    [][]uint16
+	externalValidByState                [][]uint16
 	classifiedActions                   []classifiedParseAction
 	reduceChainHints                    []reduceChainHint
 	reduceChainHintByState              []int
@@ -342,6 +348,7 @@ func NewParser(lang *Language) *Parser {
 			p.smallTokenLookup = buildSmallTokenLookup(lang)
 			p.smallLookup = buildSmallLookup(lang, p.smallTokenLookup)
 		}
+		p.externalValidByState = p.buildExternalValidByState()
 		p.classifiedActions = buildClassifiedParseActions(lang)
 		p.reduceChainHints = buildReduceChainHints(lang)
 		p.reduceChainHintByState = buildReduceChainHintIndex(p.reduceChainHints)
@@ -351,6 +358,7 @@ func NewParser(lang *Language) *Parser {
 		p.reduceHasFields = buildReduceFieldPresence(lang)
 		p.recoverByState, p.hasRecoverState, p.hasRecoverSymbol = buildRecoverActionsByState(lang)
 		p.hasKeywordState = buildKeywordStates(lang)
+		p.initTypeScriptContextualKeywordSymbols(lang)
 		p.rootSymbol, p.hasRootSymbol = p.inferRootSymbol()
 		p.maxConflictWidth = computeMaxConflictWidth(lang)
 	}
@@ -1624,10 +1632,40 @@ func recordParseRuntimeLoopStats(parseRuntime *ParseRuntime, scratch *parserScra
 	parseRuntime.MergeSlotsUsed = scratch.audit.mergeSlotsUsed
 	parseRuntime.GlobalCullStacksIn = scratch.audit.globalCullStacksIn
 	parseRuntime.GlobalCullStacksOut = scratch.audit.globalCullStacksOut
+	parseRuntime.StackEquivCalls = scratch.audit.stackEquivCalls
+	parseRuntime.StackEquivTrue = scratch.audit.stackEquivTrue
+	parseRuntime.StackEquivDepthMismatch = scratch.audit.stackEquivDepthMismatch
+	parseRuntime.StackEquivHashMismatch = scratch.audit.stackEquivHashMismatch
+	parseRuntime.StackEquivStateMismatch = scratch.audit.stackEquivStateMismatch
+	parseRuntime.StackEquivPayloadMismatch = scratch.audit.stackEquivPayloadMismatch
+	parseRuntime.StackEquivEntryCompares = scratch.audit.stackEquivEntryCompares
+	parseRuntime.StackEquivStateMismatchDepthSum = scratch.audit.stackEquivStateMismatchDepthSum
+	parseRuntime.StackEquivStateMismatchMaxDepth = scratch.audit.stackEquivStateMismatchMaxDepth
+	parseRuntime.StackEquivStateMismatchDepthBuckets = scratch.audit.stackEquivStateMismatchDepthBuckets
+	parseRuntime.StackEquivPayloadMismatchDepthSum = scratch.audit.stackEquivPayloadMismatchDepthSum
+	parseRuntime.StackEquivPayloadMismatchMaxDepth = scratch.audit.stackEquivPayloadMismatchMaxDepth
+	parseRuntime.StackEquivPayloadMismatchDepthBuckets = scratch.audit.stackEquivPayloadMismatchDepthBuckets
+	parseRuntime.StackEquivPayloadHeaderSigDiff = scratch.audit.stackEquivPayloadHeaderSigDiff
+	parseRuntime.StackEquivPayloadHeaderSigSame = scratch.audit.stackEquivPayloadHeaderSigSame
+	parseRuntime.StackEquivPayloadShallowSigDiff = scratch.audit.stackEquivPayloadShallowSigDiff
+	parseRuntime.StackEquivPayloadShallowSigSame = scratch.audit.stackEquivPayloadShallowSigSame
+	parseRuntime.StackEquivPairKeyed = scratch.audit.stackEquivPairKeyed
+	parseRuntime.StackEquivPairUnkeyed = scratch.audit.stackEquivPairUnkeyed
+	parseRuntime.StackEquivPairRepeats = scratch.audit.stackEquivPairRepeats
+	parseRuntime.StackEquivPairRepeatTrue = scratch.audit.stackEquivPairRepeatTrue
+	parseRuntime.StackEquivPairRepeatFalse = scratch.audit.stackEquivPairRepeatFalse
+	parseRuntime.StackEquivPairRepeatMismatch = scratch.audit.stackEquivPairRepeatMismatch
+	parseRuntime.StackEquivPairStores = scratch.audit.stackEquivPairStores
+	parseRuntime.MergeHeaderEqTotal = scratch.audit.mergeHeaderEqTotal
+	parseRuntime.MergeDeepTrue = scratch.audit.mergeDeepTrue
+	parseRuntime.MergeDeepFalse = scratch.audit.mergeDeepFalse
+	parseRuntime.MergeHeaderDeepDivergent = scratch.audit.mergeHeaderDeepDivergent
 	parseRuntime.EquivCacheLookups = scratch.audit.equivCacheLookups
 	parseRuntime.EquivCacheHits = scratch.audit.equivCacheHits
 	parseRuntime.EquivCacheStores = scratch.audit.equivCacheStores
 	parseRuntime.EquivCacheMisses = scratch.audit.equivCacheMisses
+	parseRuntime.EquivCacheTrueHits = scratch.audit.equivCacheTrueHits
+	parseRuntime.EquivCacheFalseHits = scratch.audit.equivCacheFalseHits
 	parseRuntime.EquivCacheEpochMisses = scratch.audit.equivCacheEpochMisses
 	parseRuntime.EquivCacheKeyMisses = scratch.audit.equivCacheKeyMisses
 	parseRuntime.EquivCacheVersionMisses = scratch.audit.equivCacheVersionMisses
@@ -1636,6 +1674,13 @@ func recordParseRuntimeLoopStats(parseRuntime *ParseRuntime, scratch *parserScra
 	parseRuntime.EquivSkipFieldMismatch = scratch.audit.equivSkipFieldMismatch
 	parseRuntime.EquivExactCalls = scratch.audit.equivExactCalls
 	parseRuntime.EquivExactTrue = scratch.audit.equivExactTrue
+	parseRuntime.EquivExactPointerTrue = scratch.audit.equivExactPointerTrue
+	parseRuntime.EquivExactNilMismatch = scratch.audit.equivExactNilMismatch
+	parseRuntime.EquivExactHeaderMismatch = scratch.audit.equivExactHeaderMismatch
+	parseRuntime.EquivExactChildMismatch = scratch.audit.equivExactChildMismatch
+	parseRuntime.EquivExactTerminalCalls = scratch.audit.equivExactTerminalCalls
+	parseRuntime.EquivExactTerminalTrue = scratch.audit.equivExactTerminalTrue
+	parseRuntime.EquivExactTerminalFalse = scratch.audit.equivExactTerminalFalse
 	parseRuntime.EquivFrontierCalls = scratch.audit.equivFrontierCalls
 	parseRuntime.EquivFrontierTrue = scratch.audit.equivFrontierTrue
 	parseRuntime.EquivExactChildCompares = scratch.audit.equivExactChildCompares
@@ -1737,13 +1782,17 @@ func recordParseRuntimeRootStats(parseRuntime *ParseRuntime, tree *Tree, expecte
 	}
 	parseRuntime.RootEndByte = 0
 	parseRuntime.Truncated = false
-	if tree == nil || tree.RootNode() == nil {
+	root := rawRootOrNil(tree)
+	if root == nil {
 		return
 	}
-	root := tree.RootNode()
 	parseRuntime.RootEndByte = root.EndByte()
 	parseRuntime.Truncated = parseRuntime.RootEndByte < expectedEOFByte
 	if !collectFinalStats {
+		return
+	}
+	root = tree.RootNode()
+	if root == nil {
 		return
 	}
 	finalStats := collectFinalTreeMaterializationStats(root, lang)
@@ -2250,6 +2299,13 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if phaseTiming {
 				actionLookupNanos += time.Since(actionStart).Nanoseconds()
 			}
+			if keywordSym, ok := p.typeScriptContextualPropertyKeywordSymbol(tok, source); ok && parseStacksShareState(stacks[:numStacks], currentState) {
+				if p.typeScriptContextualPropertyKeywordHasAction(keywordSym, currentState) {
+					tok.Symbol = keywordSym
+					needToken = false
+					goto retryAction
+				}
+			}
 			p.traceStackActions(si, currentState, tok.Symbol, actions)
 			if p.ambiguityProfile != nil {
 				p.ambiguityProfile.record(currentState, tok.Symbol, actions, numStacks)
@@ -2446,6 +2502,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						}
 					case "typescript":
 						if next, ok := typescriptRepetitionShiftConflictChoice(p.language, tok, currentState, actions); ok {
+							chosen, choice = next, true
+						}
+					case "tsx":
+						if next, ok := tsxRepetitionReduceConflictChoice(p.language, tok, currentState, actions); ok {
+							chosen, choice = next, true
+						}
+					case "javascript":
+						if next, ok := javascriptRepetitionShiftConflictChoice(p.language, tok, currentState, actions); ok {
 							chosen, choice = next, true
 						}
 					}
@@ -2793,6 +2857,9 @@ type parseCaps struct {
 func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClass arenaClass, scratch *parserScratch, maxStacksOverride, maxNodesOverride, maxMergePerKeyOverride int) parseCaps {
 	maxStacks, retryPass := resolveParseMaxStacks(parseMaxGLRStacksValue(), maxStacksOverride, p.maxConflictWidth)
 	mergePerKeyCap := effectiveParseMergePerKeyCap(p.language, parseMaxMergePerKeyValue(), reuse != nil, len(source))
+	if tsxFullParseNeedsTypedArrowMergeWidth(p.language, source, reuse) && mergePerKeyCap < 2 {
+		mergePerKeyCap = 2
+	}
 	if javaFullParseNeedsAnnotationDeclarationMergeWidth(p.language, source, reuse) && mergePerKeyCap < maxStacksPerMergeKey {
 		mergePerKeyCap = maxStacksPerMergeKey
 	}
@@ -2880,6 +2947,7 @@ func (p *Parser) prepareParseStacksForIteration(stacks []glrStack, scratch *pars
 		return result
 	}
 	scratch.merge.language = p.language
+	scratch.merge.deferExactDedupe = !p.noTreeBenchmarkOnly && p.language != nil && (p.language.Name == "typescript" || p.language.Name == "tsx")
 	if p.ambiguityProfile != nil {
 		p.ambiguityProfile.recordMergeBefore(stacks)
 	}
@@ -3431,6 +3499,185 @@ func typescriptRepetitionShiftConflictChoice(lang *Language, tok Token, state St
 		return ParseAction{}, false
 	}
 	return repetitionShiftConflictChoice(actions)
+}
+
+// javascriptRepetitionShiftConflictChoice resolves the program-level
+// reduce/shift conflict at state 9 where the grammar accepts both
+// "reduce program_repeat1" and "shift the next statement-starter". The
+// repetition shift always continues the program list, matching how the
+// C runtime walks ambiguous tops without forking. Top-level
+// statement-starter tokens are listed explicitly to stay conservative.
+func javascriptRepetitionShiftConflictChoice(lang *Language, tok Token, state StateID, actions []ParseAction) (ParseAction, bool) {
+	if lang == nil {
+		return ParseAction{}, false
+	}
+	switch state {
+	case 9:
+		switch {
+		case symbolHasName(lang, tok.Symbol, "identifier"):
+		case symbolHasName(lang, tok.Symbol, "function"):
+		case symbolHasName(lang, tok.Symbol, "var"):
+		case symbolHasName(lang, tok.Symbol, "const"):
+		case symbolHasName(lang, tok.Symbol, "let"):
+		case symbolHasName(lang, tok.Symbol, "return"):
+		case symbolHasName(lang, tok.Symbol, "if"):
+		case symbolHasName(lang, tok.Symbol, "export"):
+		default:
+			return ParseAction{}, false
+		}
+	default:
+		return ParseAction{}, false
+	}
+	return repetitionShiftConflictChoice(actions)
+}
+
+func singleReduceAgainstRepetitionShiftConflictChoice(actions []ParseAction) (ParseAction, bool) {
+	if len(actions) < 2 {
+		return ParseAction{}, false
+	}
+	var reduce ParseAction
+	reduceFound := false
+	shiftFound := false
+	for _, act := range actions {
+		switch act.Type {
+		case ParseActionReduce:
+			if reduceFound {
+				return ParseAction{}, false
+			}
+			reduce = act
+			reduceFound = true
+		case ParseActionShift:
+			if !act.Repetition || shiftFound {
+				return ParseAction{}, false
+			}
+			shiftFound = true
+		default:
+			return ParseAction{}, false
+		}
+	}
+	if !reduceFound || !shiftFound {
+		return ParseAction{}, false
+	}
+	return reduce, true
+}
+
+func tsxRepetitionReduceConflictChoice(lang *Language, tok Token, state StateID, actions []ParseAction) (ParseAction, bool) {
+	if lang == nil {
+		return ParseAction{}, false
+	}
+	reduceSymbol := ""
+	switch state {
+	case 9:
+		switch {
+		case symbolHasName(lang, tok.Symbol, "function"):
+		case symbolHasName(lang, tok.Symbol, "identifier"):
+		case symbolHasName(lang, tok.Symbol, "const"):
+		case symbolHasName(lang, tok.Symbol, "return"):
+		case symbolHasName(lang, tok.Symbol, "if"):
+		case symbolHasName(lang, tok.Symbol, "export"):
+		case symbolHasName(lang, tok.Symbol, "let"):
+		default:
+			return ParseAction{}, false
+		}
+		reduceSymbol = "program_repeat1"
+	case 3468:
+		if !symbolHasName(lang, tok.Symbol, "identifier") {
+			return ParseAction{}, false
+		}
+		reduceSymbol = "_jsx_start_opening_element_repeat1"
+	case 3885:
+		if !symbolHasName(lang, tok.Symbol, ";") {
+			return ParseAction{}, false
+		}
+		reduceSymbol = "object_type_repeat1"
+	default:
+		return ParseAction{}, false
+	}
+	reduce, ok := singleReduceAgainstRepetitionShiftConflictChoice(actions)
+	if !ok || !symbolHasName(lang, reduce.Symbol, reduceSymbol) {
+		return ParseAction{}, false
+	}
+	return reduce, true
+}
+
+func (p *Parser) initTypeScriptContextualKeywordSymbols(lang *Language) {
+	if p == nil || lang == nil {
+		return
+	}
+	switch lang.Name {
+	case "typescript", "tsx":
+	default:
+		return
+	}
+	p.typeScriptPropertyIdentifierSymbol, p.typeScriptHasPropertyIdentifier = lang.SymbolByName("property_identifier")
+	p.typeScriptIdentifierSymbol, p.typeScriptHasIdentifier = lang.SymbolByName("identifier")
+	keywords := make(map[string]Symbol, len(typeScriptContextualPropertyKeywordNames))
+	for _, name := range typeScriptContextualPropertyKeywordNames {
+		if sym, ok := lang.SymbolByName(name); ok {
+			keywords[name] = sym
+		}
+	}
+	if len(keywords) != 0 {
+		p.typeScriptContextualPropertyKeyword = keywords
+	}
+}
+
+func (p *Parser) typeScriptContextualPropertyKeywordSymbol(tok Token, source []byte) (Symbol, bool) {
+	if p == nil || len(p.typeScriptContextualPropertyKeyword) == 0 || tok.Text == "" {
+		return 0, false
+	}
+	if !(p.typeScriptHasPropertyIdentifier && tok.Symbol == p.typeScriptPropertyIdentifierSymbol) &&
+		!(tok.Text == "readonly" && p.typeScriptHasIdentifier && tok.Symbol == p.typeScriptIdentifierSymbol) {
+		return 0, false
+	}
+	keywordSym, ok := p.typeScriptContextualPropertyKeyword[tok.Text]
+	if !ok || keywordSym == tok.Symbol {
+		return 0, false
+	}
+	if !typeScriptContextualKeywordHasFollowingOperand(tok, source) {
+		return 0, false
+	}
+	return keywordSym, true
+}
+
+func (p *Parser) typeScriptContextualPropertyKeywordHasAction(keywordSym Symbol, state StateID) bool {
+	if p == nil || p.language == nil {
+		return false
+	}
+	actionIdx := p.lookupActionIndex(state, keywordSym)
+	if actionIdx == 0 || int(actionIdx) >= len(p.language.ParseActions) || len(p.language.ParseActions[actionIdx].Actions) == 0 {
+		return false
+	}
+	return true
+}
+
+var typeScriptContextualPropertyKeywordNames = [...]string{
+	"abstract", "accessor", "any", "as", "bigint", "boolean", "class", "const",
+	"declare", "enum", "export", "extends", "function", "import", "in", "infer",
+	"interface", "keyof", "let", "module", "namespace", "never", "new", "number",
+	"object", "override", "private", "protected", "public", "readonly", "static",
+	"string", "symbol", "type", "typeof", "undefined", "unknown", "void",
+}
+
+func typeScriptContextualKeywordHasFollowingOperand(tok Token, source []byte) bool {
+	pos := int(tok.EndByte)
+	for pos < len(source) {
+		switch source[pos] {
+		case ' ', '\t', '\n', '\r':
+			pos++
+			continue
+		}
+		break
+	}
+	if pos >= len(source) {
+		return false
+	}
+	switch source[pos] {
+	case '(', ')', '{', '}', ';', ',', ':':
+		return false
+	default:
+		return true
+	}
 }
 
 func rustRepetitionShiftConflictChoice(lang *Language, tok Token, state StateID, actions []ParseAction) (ParseAction, bool) {

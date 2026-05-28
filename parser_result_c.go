@@ -7,18 +7,164 @@ func normalizeCCompatibility(root *Node, source []byte, lang *Language) {
 }
 
 func normalizeCCompatibilityWithParser(root *Node, source []byte, p *Parser, lang *Language) {
+	recordPasses := p != nil && p.currentMaterializationTiming() != nil
+	if recordPasses {
+		run := func(name string, fn func()) {
+			p.runNamedNormalizationPass(name, func() bool { return true }, func() normalizationPassCounters {
+				fn()
+				return normalizationPassCounters{}
+			})
+		}
+		run("c_translation_unit_root", func() {
+			normalizeCTranslationUnitRoot(root, lang)
+		})
+		run("c_recovered_top_level_chunks", func() {
+			normalizeCRecoveredTopLevelChunks(root, source, p, lang)
+		})
+		run("c_preprocessor_directive_shapes", func() {
+			normalizeCPreprocessorDirectiveShapes(root, source, lang)
+		})
+		// Fused walk replaces four preorder passes (declaration bounds + builtin
+		// primitive identifiers + variadic ellipsis + preproc newline spans).
+		// PreprocNewlineSpans only extends `\n` token endByte, which downstream
+		// passes don't read — safe to move earlier in the chain.
+		run("c_declaration_bounds", func() {
+			normalizeCFusedDeclVariadicWalk(root, source, lang)
+		})
+		run("c_sizeof_unknown_type_identifiers", func() {
+			normalizeCSizeofUnknownTypeIdentifiers(root, source, lang)
+		})
+		run("c_cast_unknown_type_identifiers", func() {
+			normalizeCCastUnknownTypeIdentifiers(root, source, lang)
+		})
+		run("c_bare_type_identifier_expression_statements", func() {
+			normalizeCBareTypeIdentifierExpressionStatements(root, source, lang)
+		})
+		run("c_pointer_assignment_precedence", func() {
+			normalizeCPointerAssignmentPrecedence(root, lang)
+		})
+		run("c_collapsed_keyword_children", func() {
+			normalizeCCollapsedKeywordChildren(root, source, lang)
+		})
+		return
+	}
 	normalizeCTranslationUnitRoot(root, lang)
 	normalizeCRecoveredTopLevelChunks(root, source, p, lang)
 	normalizeCPreprocessorDirectiveShapes(root, source, lang)
-	normalizeCDeclarationBounds(root, source, lang)
-	normalizeCBuiltinPrimitiveTypeIdentifiers(root, source, lang)
-	normalizeCVariadicParameterEllipsis(root, lang)
+	normalizeCFusedDeclVariadicWalk(root, source, lang)
 	normalizeCSizeofUnknownTypeIdentifiers(root, source, lang)
 	normalizeCCastUnknownTypeIdentifiers(root, source, lang)
 	normalizeCBareTypeIdentifierExpressionStatements(root, source, lang)
-	normalizeCPreprocNewlineSpans(root, source, lang)
 	normalizeCPointerAssignmentPrecedence(root, lang)
 	normalizeCCollapsedKeywordChildren(root, source, lang)
+}
+
+// normalizeCFusedDeclVariadicWalk performs the work of four previously
+// separate preorder walks in a single pass: declaration-bounds extension,
+// builtin primitive type identifier promotion, variadic-parameter ellipsis
+// materialization, and preprocessor newline-span extension. The handlers
+// either gate on disjoint node symbols (decl/builtin/variadic) or operate on
+// the child layer (newline spans), so a single visit can apply all four
+// without ordering concerns.
+func normalizeCFusedDeclVariadicWalk(root *Node, source []byte, lang *Language) {
+	if root == nil || lang == nil {
+		return
+	}
+	isC := lang.Name == "c"
+	isCpp := lang.Name == "cpp"
+	if !isC && !isCpp {
+		return
+	}
+	srcLen := uint32(len(source))
+
+	// declaration bounds applies to c and cpp.
+	declarationSym, hasDecl := symbolByName(lang, "declaration")
+
+	// builtin primitive promotion is c only.
+	var primitiveTypeSym Symbol
+	var typeIdentifierSym Symbol
+	var primitiveTypeNamed bool
+	hasBuiltin := false
+	if isC {
+		ps, ok := lang.SymbolByName("primitive_type")
+		if ok {
+			ts, ok2 := lang.SymbolByName("type_identifier")
+			if ok2 {
+				primitiveTypeSym = ps
+				typeIdentifierSym = ts
+				primitiveTypeNamed = symbolIsNamed(lang, primitiveTypeSym)
+				hasBuiltin = true
+			}
+		}
+	}
+
+	// variadic ellipsis is c only.
+	var variadicSym Symbol
+	var ellipsisSym Symbol
+	var ellipsisNamed bool
+	hasVariadic := false
+	if isC {
+		vs, ok := lang.SymbolByName("variadic_parameter")
+		if ok {
+			es, ok2 := lang.SymbolByName("...")
+			if ok2 {
+				variadicSym = vs
+				ellipsisSym = es
+				ellipsisNamed = symbolIsNamed(lang, ellipsisSym)
+				hasVariadic = true
+			}
+		}
+	}
+
+	// preproc newline spans applies to c and cpp.
+	nlSym, hasNl := symbolByName(lang, "\n")
+	hasNewlineSpan := hasNl && srcLen > 0
+
+	if !hasDecl && !hasBuiltin && !hasVariadic && !hasNewlineSpan {
+		return
+	}
+
+	walkResultTree(root, func(n *Node) {
+		if hasDecl && n.symbol == declarationSym {
+			first, last := firstAndLastNonNilChild(n.children)
+			if first != nil && n.startByte < first.startByte &&
+				first.startByte <= srcLen &&
+				cBytesAreCommentOrTrivia(source[n.startByte:first.startByte]) {
+				n.startByte = first.startByte
+				n.startPoint = first.startPoint
+			}
+			if last != nil && n.endByte > last.endByte &&
+				n.endByte <= srcLen &&
+				bytesAreTrivia(source[last.endByte:n.endByte]) {
+				setNodeEndTo(n, last.endByte, source)
+			}
+		}
+		if hasBuiltin && n.symbol == typeIdentifierSym {
+			if isCBuiltinPrimitiveTypeName(canonicalCTypeName(n.Text(source))) {
+				n.symbol = primitiveTypeSym
+				n.setNamed(primitiveTypeNamed)
+			}
+		}
+		if hasVariadic && n.symbol == variadicSym && len(n.children) == 0 {
+			child := newLeafNodeInArena(n.ownerArena, ellipsisSym, ellipsisNamed, n.startByte, n.endByte, n.startPoint, n.endPoint)
+			n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{child})
+			populateParentNode(n, n.children)
+		}
+		if hasNewlineSpan {
+			for _, child := range n.children {
+				if child != nil && child.symbol == nlSym && child.endByte < srcLen {
+					end := child.endByte
+					for end < srcLen && (source[end] == '\n' || source[end] == '\r') {
+						end++
+					}
+					if end > child.endByte {
+						child.endByte = end
+						child.endPoint = advancePointByBytes(Point{}, source[:end])
+					}
+				}
+			}
+		}
+	})
 }
 
 func normalizeCRecoveredTopLevelChunks(root *Node, source []byte, p *Parser, lang *Language) {
@@ -79,25 +225,54 @@ func cRecoverTopLevelChunkNodesFromRange(source []byte, start, end uint32, p *Pa
 	}
 	defer tree.Release()
 
-	startPoint := advancePointByBytes(Point{}, source[:start])
-	offsetRoot := tree.RootNodeWithOffset(start, startPoint)
-	if offsetRoot == nil || offsetRoot.Type(p.language) != "translation_unit" {
-		if offsetRoot != nil && offsetRoot.Type(p.language) == "ERROR" {
-			if node, ok := cRecoverTypedefStructDefinitionFromErrorRoot(offsetRoot, source, start, end, p.language, arena); ok {
+	parsedRoot := tree.RootNode()
+	if parsedRoot == nil {
+		return nil, false
+	}
+	if parsedRoot.Type(p.language) != "translation_unit" {
+		errorRoot := parsedRoot
+		if start != 0 {
+			startPoint := advancePointByBytes(Point{}, source[:start])
+			errorRoot = tree.RootNodeWithOffset(start, startPoint)
+		}
+		if errorRoot != nil && errorRoot.Type(p.language) == "ERROR" {
+			if node, ok := cRecoverTypedefStructDefinitionFromErrorRoot(errorRoot, source, start, end, p.language, arena); ok {
 				return []*Node{node}, true
 			}
 		}
 		return nil, false
 	}
-	out := make([]*Node, 0, offsetRoot.ChildCount())
-	for i := 0; i < offsetRoot.ChildCount(); i++ {
-		child := offsetRoot.Child(i)
+	childCount := parsedRoot.ChildCount()
+	out := make([]*Node, 0, childCount)
+	var offset *cloneOffset
+	if start != 0 {
+		offset = &cloneOffset{
+			byteDelta: start,
+			point:     advancePointByBytes(Point{}, source[:start]),
+			baseRow:   parsedRoot.startPoint.Row,
+		}
+	}
+	offsetRoot := parsedRoot
+	if arena == nil && offset != nil {
+		offsetRoot = tree.RootNodeWithOffset(start, offset.point)
+		if offsetRoot == nil {
+			return nil, false
+		}
+	}
+	for i := 0; i < childCount; i++ {
+		child := parsedRoot.Child(i)
 		if child == nil {
 			continue
 		}
 		if arena != nil {
-			out = append(out, cloneTreeNodesIntoArena(child, arena))
+			out = append(out, cloneTreeNodesIntoArenaWithOffset(child, arena, offset))
 		} else {
+			if offset != nil {
+				if i >= offsetRoot.ChildCount() {
+					continue
+				}
+				child = offsetRoot.Child(i)
+			}
 			out = append(out, child)
 		}
 	}
@@ -439,11 +614,14 @@ func normalizeCCollapsedKeywordChildren(root *Node, source []byte, lang *Languag
 	if lang.Name != "c" && lang.Name != "cpp" {
 		return
 	}
-	normalizeCollapsedNamedLeafChildrenBySource(root, source, lang, "null", "NULL")
-	normalizeCollapsedNamedLeafChildrenBySource(root, source, lang, "type_qualifier", "const", "restrict", "volatile", "_Atomic")
-	normalizeCollapsedNamedLeafChildrenBySource(
-		root,
-		source,
+	rules := make([]cCollapsedKeywordRule, 0, 3)
+	if rule, ok := newCCollapsedKeywordRule(lang, "null", "NULL"); ok {
+		rules = append(rules, rule)
+	}
+	if rule, ok := newCCollapsedKeywordRule(lang, "type_qualifier", "const", "restrict", "volatile", "_Atomic"); ok {
+		rules = append(rules, rule)
+	}
+	if rule, ok := newCCollapsedKeywordRule(
 		lang,
 		"storage_class_specifier",
 		"auto",
@@ -452,7 +630,139 @@ func normalizeCCollapsedKeywordChildren(root *Node, source []byte, lang *Languag
 		"register",
 		"static",
 		"_Thread_local",
-	)
+	); ok {
+		rules = append(rules, rule)
+	}
+	if len(rules) == 0 {
+		return
+	}
+	var walk func(*Node)
+	walk = func(n *Node) {
+		if n == nil {
+			return
+		}
+		childCount := resultChildCount(n)
+		if childCount == 0 {
+			if rule, ok := cCollapsedKeywordRuleForParent(rules, n.symbol); ok {
+				normalizeCCollapsedKeywordLeaf(n, source, rule)
+			}
+			return
+		}
+		if n.ownerArena == nil || n.childIndex > finalChildSidecarIndexBase {
+			for _, child := range n.children {
+				walk(child)
+			}
+			return
+		}
+		view := resultMutableChildrenForMutation(n)
+		if !view.hasFinalChildRefs() {
+			for i := 0; i < childCount; i++ {
+				walk(resultChildAt(n, i))
+			}
+			return
+		}
+		for i := 0; i < view.Len(); i++ {
+			entry, ok := view.Entry(i)
+			if !ok {
+				continue
+			}
+			sym := stackEntryNodeSymbol(entry)
+			if !cCollapsedKeywordRulesContainParent(rules, sym) && stackEntryNodeChildCount(entry) == 0 {
+				continue
+			}
+			walk(resultChildAt(n, i))
+		}
+	}
+	walk(root)
+}
+
+type cCollapsedKeywordRule struct {
+	parentSym Symbol
+	children  []cCollapsedKeywordChild
+}
+
+type cCollapsedKeywordChild struct {
+	text  string
+	sym   Symbol
+	named bool
+}
+
+func newCCollapsedKeywordRule(lang *Language, parentName string, childNames ...string) (cCollapsedKeywordRule, bool) {
+	var rule cCollapsedKeywordRule
+	if lang == nil || parentName == "" || len(childNames) == 0 {
+		return rule, false
+	}
+	parentSym, ok := lang.symbolByNameAndNamed(parentName, true)
+	if !ok {
+		parentSym, ok = symbolByName(lang, parentName)
+	}
+	if !ok {
+		return rule, false
+	}
+	rule.parentSym = parentSym
+	rule.children = make([]cCollapsedKeywordChild, 0, len(childNames))
+	for _, childName := range childNames {
+		childSym, ok := lang.symbolByNameAndNamed(childName, false)
+		if !ok {
+			childSym, ok = symbolByName(lang, childName)
+			if !ok {
+				continue
+			}
+		}
+		rule.children = append(rule.children, cCollapsedKeywordChild{
+			text:  childName,
+			sym:   childSym,
+			named: symbolIsNamed(lang, childSym),
+		})
+	}
+	return rule, len(rule.children) > 0
+}
+
+func cCollapsedKeywordRuleForParent(rules []cCollapsedKeywordRule, sym Symbol) (cCollapsedKeywordRule, bool) {
+	for _, rule := range rules {
+		if rule.parentSym == sym {
+			return rule, true
+		}
+	}
+	return cCollapsedKeywordRule{}, false
+}
+
+func cCollapsedKeywordRulesContainParent(rules []cCollapsedKeywordRule, sym Symbol) bool {
+	for _, rule := range rules {
+		if rule.parentSym == sym {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeCCollapsedKeywordLeaf(n *Node, source []byte, rule cCollapsedKeywordRule) {
+	if n == nil || int(n.startByte) > len(source) || int(n.endByte) > len(source) || n.startByte > n.endByte {
+		return
+	}
+	for _, child := range rule.children {
+		if !cSourceRangeEquals(source, n.startByte, n.endByte, child.text) {
+			continue
+		}
+		leaf := newLeafNodeInArena(n.ownerArena, child.sym, child.named, n.startByte, n.endByte, n.startPoint, n.endPoint)
+		leaf.parent = n
+		leaf.childIndex = 0
+		n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{leaf})
+		return
+	}
+}
+
+func cSourceRangeEquals(source []byte, start, end uint32, text string) bool {
+	if start > end || int(end) > len(source) || int(end-start) != len(text) {
+		return false
+	}
+	offset := int(start)
+	for i := 0; i < len(text); i++ {
+		if source[offset+i] != text[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeCTranslationUnitRoot(root *Node, lang *Language) {
@@ -502,31 +812,6 @@ func rootLooksLikeCTopLevel(root *Node, lang *Language) bool {
 		}
 	}
 	return sawTopLevel
-}
-
-func normalizeCDeclarationBounds(root *Node, source []byte, lang *Language) {
-	if root == nil || lang == nil {
-		return
-	}
-	if lang.Name != "c" && lang.Name != "cpp" {
-		return
-	}
-	walkResultTree(root, func(n *Node) {
-		if n.Type(lang) == "declaration" {
-			first, last := firstAndLastNonNilChild(n.children)
-			if first != nil && n.startByte < first.startByte &&
-				first.startByte <= uint32(len(source)) &&
-				cBytesAreCommentOrTrivia(source[n.startByte:first.startByte]) {
-				n.startByte = first.startByte
-				n.startPoint = first.startPoint
-			}
-			if last != nil && n.endByte > last.endByte &&
-				n.endByte <= uint32(len(source)) &&
-				bytesAreTrivia(source[last.endByte:n.endByte]) {
-				setNodeEndTo(n, last.endByte, source)
-			}
-		}
-	})
 }
 
 func normalizeCPreprocessorDirectiveShapes(root *Node, source []byte, lang *Language) {
@@ -803,10 +1088,20 @@ func normalizeCSizeofUnknownTypeIdentifiers(root *Node, source []byte, lang *Lan
 	identifierNamed := symbolIsNamed(lang, identifierSym)
 	parenthesizedNamed := symbolIsNamed(lang, parenthesizedSym)
 	valueFieldID, hasValueField := lang.FieldByName("value")
-	localTypes := collectCLocalTypeNames(root, source, lang)
+	sizeofSym, ok := lang.SymbolByName("sizeof_expression")
+	if !ok {
+		return
+	}
+	localTypes := make(map[string]struct{})
+	var sizeofNodes []*Node
+	collectCLocalTypeNamesAndCandidates(root, source, lang, localTypes, func(n *Node) {
+		if cResultSymbolMatches(lang, n, sizeofSym) {
+			sizeofNodes = append(sizeofNodes, n)
+		}
+	})
 
-	walkResultTree(root, func(n *Node) {
-		if n.Type(lang) == "sizeof_expression" && len(n.children) == 4 {
+	for _, n := range sizeofNodes {
+		if len(n.children) == 4 {
 			typeDescriptor := n.children[2]
 			if typeDescriptor != nil && typeDescriptor.symbol == typeDescriptorSym && len(typeDescriptor.children) == 1 {
 				typeIdent := typeDescriptor.children[0]
@@ -825,71 +1120,7 @@ func normalizeCSizeofUnknownTypeIdentifiers(root *Node, source []byte, lang *Lan
 				}
 			}
 		}
-	})
-}
-
-func normalizeCBuiltinPrimitiveTypeIdentifiers(root *Node, source []byte, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "c" {
-		return
 	}
-	primitiveTypeSym, ok := lang.SymbolByName("primitive_type")
-	if !ok {
-		return
-	}
-	primitiveTypeNamed := symbolIsNamed(lang, primitiveTypeSym)
-	walkResultTree(root, func(n *Node) {
-		if n.Type(lang) == "type_identifier" && isCBuiltinPrimitiveTypeName(canonicalCTypeName(n.Text(source))) {
-			n.symbol = primitiveTypeSym
-			n.setNamed(primitiveTypeNamed)
-		}
-	})
-}
-
-func normalizeCVariadicParameterEllipsis(root *Node, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "c" {
-		return
-	}
-	variadicSym, ok := lang.SymbolByName("variadic_parameter")
-	if !ok {
-		return
-	}
-	ellipsisSym, ok := lang.SymbolByName("...")
-	if !ok {
-		return
-	}
-	ellipsisNamed := symbolIsNamed(lang, ellipsisSym)
-	walkResultTree(root, func(n *Node) {
-		if n.symbol == variadicSym && len(n.children) == 0 {
-			child := newLeafNodeInArena(n.ownerArena, ellipsisSym, ellipsisNamed, n.startByte, n.endByte, n.startPoint, n.endPoint)
-			n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{child})
-			populateParentNode(n, n.children)
-		}
-	})
-}
-
-func normalizeCPreprocNewlineSpans(root *Node, source []byte, lang *Language) {
-	if root == nil || lang == nil || (lang.Name != "c" && lang.Name != "cpp") || len(source) == 0 {
-		return
-	}
-	nlSym, ok := symbolByName(lang, "\n")
-	if !ok {
-		return
-	}
-	walkResultTree(root, func(n *Node) {
-		for _, child := range n.children {
-			if child != nil && child.symbol == nlSym && child.endByte < uint32(len(source)) {
-				// Extend newline tokens to include consecutive newlines/whitespace
-				end := child.endByte
-				for end < uint32(len(source)) && (source[end] == '\n' || source[end] == '\r') {
-					end++
-				}
-				if end > child.endByte {
-					child.endByte = end
-					child.endPoint = advancePointByBytes(Point{}, source[:end])
-				}
-			}
-		}
-	})
 }
 
 func normalizeCBareTypeIdentifierExpressionStatements(root *Node, source []byte, lang *Language) {
@@ -941,15 +1172,25 @@ func normalizeCCastUnknownTypeIdentifiers(root *Node, source []byte, lang *Langu
 	if !ok {
 		return
 	}
-	localTypes := collectCLocalTypeNames(root, source, lang)
+	localTypes := make(map[string]struct{})
+	var castNodes []*Node
+	var callNodes []*Node
+	collectCLocalTypeNamesAndCandidates(root, source, lang, localTypes, func(n *Node) {
+		switch {
+		case cResultSymbolMatches(lang, n, syms.cast):
+			castNodes = append(castNodes, n)
+		case cResultSymbolMatches(lang, n, syms.call):
+			callNodes = append(callNodes, n)
+		}
+	})
 
-	walkResultTree(root, func(n *Node) {
+	for _, n := range castNodes {
 		rewriteUnknownCCastAsCall(n, source, lang, syms, localTypes)
-	})
+	}
 
-	walkResultTree(root, func(n *Node) {
+	for _, n := range callNodes {
 		rewriteKnownCCallAsCast(n, source, lang, syms, localTypes)
-	})
+	}
 }
 
 type cCastRewriteSymbols struct {
@@ -1218,23 +1459,33 @@ func isCTypeNameChar(b byte) bool {
 		(b >= '0' && b <= '9')
 }
 
-func collectCLocalTypeNames(root *Node, source []byte, lang *Language) map[string]struct{} {
-	localTypes := make(map[string]struct{})
+func collectCLocalTypeNamesAndCandidates(root *Node, source []byte, lang *Language, localTypes map[string]struct{}, visit func(*Node)) {
 	if root == nil || lang == nil || lang.Name != "c" {
-		return localTypes
+		return
 	}
+	typeDefinitionSym, hasTypeDefinition := lang.symbolByNamePreferNamed("type_definition")
+	typeIdentifierSym, hasTypeIdentifier := lang.symbolByNamePreferNamed("type_identifier")
 	walkResultTree(root, func(n *Node) {
-		if n.Type(lang) == "type_definition" {
-			for i := 0; i < resultChildCount(n); i++ {
-				child := resultChildAt(n, i)
-				if child == nil || child.Type(lang) != "type_identifier" {
-					continue
-				}
-				if name := canonicalCTypeName(child.Text(source)); name != "" {
-					localTypes[name] = struct{}{}
-				}
-			}
+		if hasTypeDefinition && hasTypeIdentifier && cResultSymbolMatches(lang, n, typeDefinitionSym) {
+			collectCLocalTypeNamesFromDefinition(n, source, lang, typeIdentifierSym, localTypes)
+		}
+		if visit != nil {
+			visit(n)
 		}
 	})
-	return localTypes
+}
+
+func collectCLocalTypeNamesFromDefinition(n *Node, source []byte, lang *Language, typeIdentifierSym Symbol, localTypes map[string]struct{}) {
+	if n == nil || localTypes == nil {
+		return
+	}
+	for i := 0; i < resultChildCount(n); i++ {
+		child := resultChildAt(n, i)
+		if child == nil || !cResultSymbolMatches(lang, child, typeIdentifierSym) {
+			continue
+		}
+		if name := canonicalCTypeName(child.Text(source)); name != "" {
+			localTypes[name] = struct{}{}
+		}
+	}
 }

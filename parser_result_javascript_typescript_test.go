@@ -277,7 +277,7 @@ func TestNormalizeJavaScriptTrailingContinueCommentSiblingsDirectContinue(t *tes
 	}
 }
 
-func TestNormalizeJavaScriptTypeScriptOptionalChainLeaves(t *testing.T) {
+func TestNormalizeJavaScriptTypeScriptOptionalChainKeepsTokenChild(t *testing.T) {
 	lang := &Language{
 		Name:        "javascript",
 		SymbolNames: []string{"EOF", "program", "expression_statement", "call_expression", "identifier", "optional_chain", "?.", "arguments"},
@@ -308,7 +308,7 @@ func TestNormalizeJavaScriptTypeScriptOptionalChainLeaves(t *testing.T) {
 
 	normalizeJavaScriptTypeScriptOptionalChainLeaves(root, []byte("?."), lang)
 
-	if got, want := chain.ChildCount(), 0; got != want {
+	if got, want := chain.ChildCount(), 1; got != want {
 		t.Fatalf("optional_chain child count = %d, want %d", got, want)
 	}
 	if got, want := chain.StartByte(), uint32(1); got != want {
@@ -316,5 +316,18 @@ func TestNormalizeJavaScriptTypeScriptOptionalChainLeaves(t *testing.T) {
 	}
 	if got, want := chain.EndByte(), uint32(3); got != want {
 		t.Fatalf("optional_chain end = %d, want %d", got, want)
+	}
+
+	collapsed := newLeafNodeInArena(arena, 5, true, 0, 2, Point{}, Point{Column: 2})
+	root = newParentNodeInArena(arena, 1, true, []*Node{collapsed}, nil, 0)
+	normalizeJavaScriptTypeScriptOptionalChainLeaves(root, []byte("?."), lang)
+	if got, want := collapsed.ChildCount(), 1; got != want {
+		t.Fatalf("collapsed optional_chain child count = %d, want %d", got, want)
+	}
+	if child := collapsed.Child(0); child == nil || child.Type(lang) != "?." {
+		if child == nil {
+			t.Fatal("collapsed optional_chain child is nil")
+		}
+		t.Fatalf("collapsed optional_chain child type = %q, want ?.", child.Type(lang))
 	}
 }

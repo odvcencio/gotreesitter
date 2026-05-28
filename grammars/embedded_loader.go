@@ -452,9 +452,37 @@ func decodeLanguageBlobData(blobName string, data []byte) (*gotreesitter.Languag
 
 	compactDecodedLanguage(&lang)
 	repairNoLookaheadLexModes(&lang)
+	repairJavaScriptTypeScriptOptionalChainTokenSymbol(blobName, &lang)
 	attachReduceChainHints(blobName, &lang)
 
 	return &lang, nil
+}
+
+func repairJavaScriptTypeScriptOptionalChainTokenSymbol(blobName string, lang *gotreesitter.Language) {
+	if lang == nil {
+		return
+	}
+	name := strings.TrimSuffix(blobName, ".bin")
+	if slash := strings.LastIndexAny(name, "/\\"); slash >= 0 {
+		name = name[slash+1:]
+	}
+	switch name {
+	case "javascript", "typescript", "tsx":
+	default:
+		return
+	}
+	if !embeddedLanguageHasSymbolName(lang, "optional_chain") || embeddedLanguageHasSymbolName(lang, "?.") {
+		return
+	}
+	for len(lang.SymbolMetadata) < len(lang.SymbolNames) {
+		lang.SymbolMetadata = append(lang.SymbolMetadata, gotreesitter.SymbolMetadata{})
+	}
+	lang.SymbolNames = append(lang.SymbolNames, "?.")
+	lang.SymbolMetadata = append(lang.SymbolMetadata, gotreesitter.SymbolMetadata{
+		Name:    "?.",
+		Visible: true,
+		Named:   false,
+	})
 }
 
 func attachReduceChainHints(blobName string, lang *gotreesitter.Language) {
@@ -494,6 +522,18 @@ func attachReduceChainHints(blobName string, lang *gotreesitter.Language) {
 func embeddedLanguageSymbolNameMatches(lang *gotreesitter.Language, sym gotreesitter.Symbol, name string) bool {
 	idx := int(sym)
 	return idx >= 0 && idx < len(lang.SymbolNames) && lang.SymbolNames[idx] == name
+}
+
+func embeddedLanguageHasSymbolName(lang *gotreesitter.Language, name string) bool {
+	if lang == nil {
+		return false
+	}
+	for _, symbolName := range lang.SymbolNames {
+		if symbolName == name {
+			return true
+		}
+	}
+	return false
 }
 
 func decodeLanguageBlobFromPath(path string) (*gotreesitter.Language, error) {

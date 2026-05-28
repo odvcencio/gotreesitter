@@ -1009,6 +1009,29 @@ func TestBuildReduceChildrenNoAliasNoFieldsInlinesHiddenChildren(t *testing.T) {
 	}
 }
 
+func TestPendingNoFieldChildCountRejectsHiddenFields(t *testing.T) {
+	lang := &Language{
+		SymbolNames: []string{"EOF", "_hidden", "identifier"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "_hidden", Visible: false, Named: false},
+			{Name: "identifier", Visible: true, Named: true},
+		},
+	}
+
+	arena := newNodeArena(arenaClassFull)
+	child := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	hidden := newParentNodeInArena(arena, 1, false, []*Node{child}, []FieldID{1}, 0)
+	entry := newStackEntryNode(0, hidden)
+
+	if _, _, _, ok := pendingNoFieldChildCount(entry, arena, true, lang.SymbolMetadata); ok {
+		t.Fatal("pendingNoFieldChildCount accepted hidden field-bearing child; want reject")
+	}
+	if count, _, _, ok := pendingNoFieldChildCount(entry, arena, false, lang.SymbolMetadata); !ok || count != 1 {
+		t.Fatalf("hidden child under hidden parent count/ok = %d/%t, want 1/true", count, ok)
+	}
+}
+
 func TestBuildReduceChildrenHiddenParentDefersFlattenUntilVisibleBoundary(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "_hidden_a", "_hidden_b", "identifier", "operator", "visible_parent"},

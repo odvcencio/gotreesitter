@@ -130,6 +130,57 @@ func TestTypeScriptRepetitionShiftConflictChoiceRejectsOtherState(t *testing.T) 
 	}
 }
 
+func TestTSXRepetitionReduceConflictChoiceAllowsHotRepeats(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "identifier", ";", "_jsx_start_opening_element_repeat1", "object_type_repeat1", "const", "let", "program_repeat1"}}
+	for _, tc := range []struct {
+		name      string
+		state     StateID
+		lookahead Symbol
+		reduceSym Symbol
+	}{
+		{name: "jsx opening element", state: 3468, lookahead: 1, reduceSym: 3},
+		{name: "object type semicolon", state: 3885, lookahead: 2, reduceSym: 4},
+		{name: "program const", state: 9, lookahead: 5, reduceSym: 7},
+		{name: "program let", state: 9, lookahead: 6, reduceSym: 7},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			actions := []ParseAction{
+				{Type: ParseActionReduce, Symbol: tc.reduceSym, ChildCount: 2},
+				{Type: ParseActionShift, State: 3552, Repetition: true},
+			}
+			chosen, ok := tsxRepetitionReduceConflictChoice(lang, Token{Symbol: tc.lookahead}, tc.state, actions)
+			if !ok {
+				t.Fatal("tsxRepetitionReduceConflictChoice = false, want true")
+			}
+			if chosen.Type != ParseActionReduce || chosen.Symbol != tc.reduceSym {
+				t.Fatalf("tsxRepetitionReduceConflictChoice picked %+v, want reduce", chosen)
+			}
+		})
+	}
+}
+
+func TestTSXRepetitionReduceConflictChoiceRejectsOtherState(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "identifier", "_jsx_start_opening_element_repeat1"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 2, ChildCount: 2},
+		{Type: ParseActionShift, State: 3552, Repetition: true},
+	}
+	if _, ok := tsxRepetitionReduceConflictChoice(lang, Token{Symbol: 1}, 3469, actions); ok {
+		t.Fatal("tsxRepetitionReduceConflictChoice = true, want false")
+	}
+}
+
+func TestTSXRepetitionReduceConflictChoiceRejectsWrongReduce(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "identifier", "_jsx_start_opening_element_repeat1", "wrong_repeat"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 3, ChildCount: 2},
+		{Type: ParseActionShift, State: 3552, Repetition: true},
+	}
+	if _, ok := tsxRepetitionReduceConflictChoice(lang, Token{Symbol: 1}, 3468, actions); ok {
+		t.Fatal("tsxRepetitionReduceConflictChoice = true, want false")
+	}
+}
+
 func TestRustRepetitionShiftConflictChoiceAllowsTopLevelItemStarts(t *testing.T) {
 	lang := &Language{SymbolNames: []string{"end", "pub", "#", "impl", "fn", "mod", "use", "source_file_repeat1"}}
 	actions := []ParseAction{
@@ -657,8 +708,8 @@ func TestEffectiveParseMergePerKeyCap(t *testing.T) {
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "javascript"}, maxStacksPerMergeKey, false); got != 4 {
 		t.Fatalf("effectiveParseMergePerKeyCap(javascript, default, full) = %d, want 4", got)
 	}
-	if got := effectiveParseMergePerKeyCap(&Language{Name: "go"}, maxStacksPerMergeKey, false); got != 5 {
-		t.Fatalf("effectiveParseMergePerKeyCap(go, default, full) = %d, want 5", got)
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "go"}, maxStacksPerMergeKey, false); got != 3 {
+		t.Fatalf("effectiveParseMergePerKeyCap(go, default, full) = %d, want 3", got)
 	}
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "starlark"}, maxStacksPerMergeKey, false); got != 1 {
 		t.Fatalf("effectiveParseMergePerKeyCap(starlark, default, full) = %d, want 1", got)

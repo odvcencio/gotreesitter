@@ -64,6 +64,66 @@ func TestNormalizeCCollapsedKeywordChildrenRestoresNull(t *testing.T) {
 	}
 }
 
+func TestNormalizeCCollapsedKeywordChildrenUsesFinalRefsSelectively(t *testing.T) {
+	lang := &Language{
+		Name:        "c",
+		SymbolNames: []string{"EOF", "translation_unit", "null", "NULL", "identifier"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "translation_unit", Visible: true, Named: true},
+			{Name: "null", Visible: true, Named: true},
+			{Name: "NULL", Visible: true, Named: false},
+			{Name: "identifier", Visible: true, Named: true},
+		},
+	}
+	arena := newNodeArena(arenaClassFull)
+	arena.finalChildRefs = true
+	source := []byte("NULL name")
+	nullNode := newCompactFullLeafInArena(arena, 2, true, 0, 4, Point{}, Point{Column: 4})
+	nullNode.parseState = 11
+	identifier := newCompactFullLeafInArena(arena, 4, true, 5, 9, Point{Column: 5}, Point{Column: 9})
+	identifier.parseState = 12
+	parent := newPendingParentInArena(arena, 1, true, 0, []stackEntry{
+		newStackEntryCompactFullLeaf(nullNode.parseState, nullNode),
+		newStackEntryCompactFullLeaf(identifier.parseState, identifier),
+	}, 0, 9, Point{}, Point{Column: 9}, false)
+	parent.parseState = 13
+	entry := newStackEntryPendingParent(parent.parseState, parent)
+	root := materializeStackEntryPendingParent(arena, &entry, pendingParentMaterializeForFinalTree)
+
+	normalizeCCollapsedKeywordChildren(root, source, lang)
+
+	if got := arena.finalChildRefsMaterializedParents; got != 0 {
+		t.Fatalf("final child ref range materialized parents = %d, want 0", got)
+	}
+	if got := arena.finalChildRefsSingleChildMaterializedChildren; got != 1 {
+		t.Fatalf("single final child materializations = %d, want 1", got)
+	}
+	if !nodeHasFinalChildRefs(root) {
+		t.Fatal("root lost final-child refs")
+	}
+	restored := root.Child(0)
+	if restored == nil {
+		t.Fatal("root child 0 = nil")
+	}
+	if got, want := restored.ChildCount(), 1; got != want {
+		t.Fatalf("null child count = %d, want %d", got, want)
+	}
+	child := restored.Child(0)
+	if child == nil {
+		t.Fatal("null child = nil")
+	}
+	if got, want := child.Type(lang), "NULL"; got != want {
+		t.Fatalf("null child type = %q, want %q", got, want)
+	}
+	if child.IsNamed() {
+		t.Fatal("restored NULL child should be anonymous")
+	}
+	if got := arena.finalChildRefsMaterializedParents; got != 0 {
+		t.Fatalf("final child ref range materialized parents after access = %d, want 0", got)
+	}
+}
+
 func TestNormalizeCCollapsedKeywordChildrenRestoresStorageClassSpecifier(t *testing.T) {
 	lang := &Language{
 		Name:        "c",

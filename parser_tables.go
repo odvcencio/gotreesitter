@@ -4,6 +4,7 @@ import "sort"
 
 const smallTokenDenseThreshold = 8
 const cobolSmallTokenDenseThreshold = 12
+const typeScriptSmallTokenDenseThreshold = 4
 
 func buildSmallLookup(lang *Language, smallTokenLookup [][]uint16) [][]smallActionPair {
 	out := make([][]smallActionPair, len(lang.SmallParseTableMap))
@@ -76,7 +77,11 @@ func buildSmallTokenLookup(lang *Language) [][]uint16 {
 		return nil
 	}
 	if !compactSmallTokenRows(lang) {
-		return buildSmallTokenLookupFullRows(lang, smallTokenDenseThreshold)
+		threshold := smallTokenDenseThreshold
+		if lang.Name == "typescript" {
+			threshold = typeScriptSmallTokenDenseThreshold
+		}
+		return buildSmallTokenLookupFullRows(lang, threshold)
 	}
 	out := make([][]uint16, len(lang.SmallParseTableMap))
 	table := lang.SmallParseTable
@@ -204,9 +209,50 @@ func (p *Parser) lookupAction(state StateID, sym Symbol) *ParseActionEntry {
 // Returns 0 (the error/no-action entry) if not found.
 func (p *Parser) lookupActionIndex(state StateID, sym Symbol) uint16 {
 	if int(state) < p.denseLimit {
-		return p.lookupActionIndexDense(state, sym)
+		if int(state) >= len(p.language.ParseTable) {
+			return 0
+		}
+		row := p.language.ParseTable[state]
+		if int(sym) >= len(row) {
+			return 0
+		}
+		return row[sym]
 	}
 	return p.lookupActionIndexSmall(state, sym)
+}
+
+func (p *Parser) buildExternalValidByState() [][]uint16 {
+	if p == nil || p.language == nil || len(p.language.ExternalSymbols) == 0 || len(p.language.ExternalLexStates) > 0 {
+		return nil
+	}
+	if len(p.language.ExternalSymbols) > int(^uint16(0)) {
+		return nil
+	}
+	stateCount := int(p.language.StateCount)
+	if stateCount == 0 {
+		stateCount = len(p.language.ParseTable)
+		if smallStates := p.smallBase + len(p.language.SmallParseTableMap); smallStates > stateCount {
+			stateCount = smallStates
+		}
+		if len(p.language.LexModes) > stateCount {
+			stateCount = len(p.language.LexModes)
+		}
+	}
+	if stateCount <= 0 {
+		return nil
+	}
+	rows := make([][]uint16, stateCount)
+	for state := 0; state < stateCount; state++ {
+		var row []uint16
+		for i, sym := range p.language.ExternalSymbols {
+			if p.lookupActionIndex(StateID(state), sym) == 0 {
+				continue
+			}
+			row = append(row, uint16(i))
+		}
+		rows[state] = row
+	}
+	return rows
 }
 
 func (p *Parser) forEachActionIndexInState(state StateID, visit func(sym Symbol, idx uint16) bool) {

@@ -22,6 +22,7 @@ type Query struct {
 	postFallbackCandidates     []int
 	rootZeroOrMorePatterns     []int
 	rootRepetitionPostPatterns []int
+	canSkipExactRootLeaves     bool
 
 	disabledPatternIdx  map[int]struct{}
 	disabledCaptureName map[string]struct{}
@@ -712,6 +713,10 @@ func (q *Query) buildRootPatternIndex() {
 	for sym, candidates := range q.postCandidatesBySymbol {
 		q.postCandidatesDense[sym] = candidates
 	}
+	q.canSkipExactRootLeaves = len(q.rootFallbackCandidates) == 0 &&
+		len(q.rootRepetitionPostPatterns) == 0 &&
+		len(q.postFallbackCandidates) == 0 &&
+		len(q.postCandidatesBySymbol) == 0
 }
 
 func addRootPatternCandidate(pi int, step QueryStep, bySymbolExact map[Symbol][]int, wildcard *[]int, complex *[]int) {
@@ -830,7 +835,7 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 			c.worklist = c.worklist[:len(c.worklist)-1]
 			n := item.node
 			depth := item.depth
-			if !c.nodeIntersectsRanges(n) {
+			if (c.hasByteRange || c.hasPointRange) && !c.nodeIntersectsRanges(n) {
 				continue
 			}
 			if item.post {
@@ -861,6 +866,11 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 				continue
 			}
 			pat := q.patterns[pi]
+			if !c.currentNodePost {
+				if match, ok := q.singleStepQueryMatch(&pat, pi, c.currentNode, c.lang); ok {
+					return match, true
+				}
+			}
 			var captureSets [][]QueryCapture
 			if c.currentNodePost {
 				if pat.steps[0].quantifier == queryQuantifierZeroOrMore || pat.steps[0].quantifier == queryQuantifierOneOrMore {
@@ -900,6 +910,42 @@ func (c *QueryCursor) nextMatchRaw() (QueryMatch, bool) {
 	}
 }
 
+func (q *Query) singleStepQueryMatch(pat *Pattern, patternIndex int, node *Node, lang *Language) (QueryMatch, bool) {
+	if q == nil || pat == nil || node == nil || len(pat.predicates) != 0 || len(pat.steps) != 1 {
+		return QueryMatch{}, false
+	}
+	step := &pat.steps[0]
+	if step.field != 0 ||
+		len(step.absentFields) != 0 ||
+		len(step.alternatives) != 0 ||
+		step.textMatch != "" ||
+		step.depth != 0 ||
+		step.quantifier != queryQuantifierOne ||
+		step.anchorBefore ||
+		step.anchorAfter ||
+		!q.nodeMatchesStep(step, node, lang) {
+		return QueryMatch{}, false
+	}
+	var captures []QueryCapture
+	q.appendCaptureIDs(step.captureIDs, node, &captures)
+	return QueryMatch{
+		PatternIndex: patternIndex,
+		Captures:     captures,
+	}, true
+}
+
+func (q *Query) canSkipQueryLeafEntry(entry stackEntry, lang *Language) bool {
+	if q == nil || lang == nil || !q.canSkipExactRootLeaves {
+		return false
+	}
+	if stackEntryNodeChildCount(entry) != 0 {
+		return false
+	}
+	nodeNamed := stackEntryNodeIsNamed(entry)
+	sym := lang.PublicSymbolForNamedness(stackEntryNodeSymbol(entry), nodeNamed)
+	return len(q.rootPatternCandidates(sym)) == 0
+}
+
 func (c *QueryCursor) pushCurrentNodeChildren() {
 	n := c.currentNode
 	if n == nil {
@@ -919,16 +965,20 @@ func (c *QueryCursor) pushCurrentNodeChildren() {
 		return
 	}
 	nextDepth := c.currentNodeDepth + 1
+	rangeLimited := c.hasByteRange || c.hasPointRange
 	// Push children in reverse order so leftmost is visited first.
 	for i := nodeChildCountNoMaterialize(n) - 1; i >= 0; i-- {
-		if c.hasByteRange || c.hasPointRange {
-			entry, ok := nodeChildEntryAtNoMaterialize(n, i)
-			if !ok || !c.stackEntryIntersectsRanges(entry) {
+		entry, ok := nodeChildEntryAtNoMaterialize(n, i)
+		if ok {
+			if rangeLimited && !c.stackEntryIntersectsRanges(entry) {
+				continue
+			}
+			if c.query.canSkipQueryLeafEntry(entry, c.lang) {
 				continue
 			}
 		}
 		child := nodeChildAtForReason(n, i, materializeForQuery)
-		if child != nil && c.nodeIntersectsRanges(child) {
+		if child != nil && (!rangeLimited || c.nodeIntersectsRanges(child)) {
 			c.worklist = append(c.worklist, queryCursorWorkItem{
 				node:  child,
 				depth: nextDepth,

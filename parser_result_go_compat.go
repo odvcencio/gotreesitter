@@ -32,7 +32,7 @@ func normalizeGoCompatibilityInRanges(root *Node, source []byte, lang *Language,
 	}
 	flags := goCompatibilitySourceFlagsFor(source)
 	if flags.dot {
-		normalizeCollapsedNamedLeafChildrenBySource(root, source, lang, "dot", ".")
+		normalizeGoDotLeafChildren(root, source, lang)
 	}
 	syms, ok := goCompatibilitySymbolsForLanguage(lang)
 	if !ok {
@@ -61,6 +61,75 @@ func goSourceMayNeedSiblingBoundaryCompatibility(source []byte) bool {
 func goSourceMayNeedTrailingBoundaryCompatibility(source []byte) bool {
 	return bytes.Contains(source, []byte("//")) ||
 		bytes.Contains(source, []byte("/*"))
+}
+
+func normalizeGoDotLeafChildren(root *Node, source []byte, lang *Language) {
+	if root == nil || lang == nil || len(source) == 0 {
+		return
+	}
+	parentSym, ok := lang.symbolByNameAndNamed("dot", true)
+	if !ok {
+		parentSym, ok = symbolByName(lang, "dot")
+	}
+	if !ok {
+		return
+	}
+	childSym, ok := lang.symbolByNameAndNamed(".", false)
+	if !ok {
+		childSym, ok = symbolByName(lang, ".")
+	}
+	if !ok {
+		return
+	}
+	childNamed := symbolIsNamed(lang, childSym)
+	var walk func(*Node)
+	walk = func(n *Node) {
+		if n == nil {
+			return
+		}
+		childCount := resultChildCount(n)
+		if n.symbol == parentSym && childCount == 0 {
+			normalizeGoDotLeafNode(n, source, childSym, childNamed)
+			return
+		}
+		if n.ownerArena == nil || n.childIndex > finalChildSidecarIndexBase {
+			for _, child := range n.children {
+				walk(child)
+			}
+			return
+		}
+		view := resultMutableChildrenForMutation(n)
+		if !view.hasFinalChildRefs() {
+			for i := 0; i < childCount; i++ {
+				walk(resultChildAt(n, i))
+			}
+			return
+		}
+		for i := 0; i < view.Len(); i++ {
+			entry, ok := view.Entry(i)
+			if !ok {
+				continue
+			}
+			if stackEntryNodeSymbol(entry) != parentSym && stackEntryNodeChildCount(entry) == 0 {
+				continue
+			}
+			walk(resultChildAt(n, i))
+		}
+	}
+	walk(root)
+}
+
+func normalizeGoDotLeafNode(n *Node, source []byte, childSym Symbol, childNamed bool) {
+	if n == nil || int(n.startByte) > len(source) || int(n.endByte) > len(source) || n.startByte > n.endByte {
+		return
+	}
+	if !bytes.Equal(source[n.startByte:n.endByte], []byte(".")) {
+		return
+	}
+	child := newLeafNodeInArena(n.ownerArena, childSym, childNamed, n.startByte, n.endByte, n.startPoint, n.endPoint)
+	child.parent = n
+	child.childIndex = 0
+	n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{child})
 }
 
 func goCompatibilitySymbolsForLanguage(lang *Language) (goCompatibilitySymbols, bool) {
@@ -136,8 +205,19 @@ func normalizeGoCompatibilitySubtree(n *Node, source []byte, syms goCompatibilit
 			normalizeGoCompatibilitySubtree(child, source, syms, flags, incrementalRanges)
 		}
 	} else {
-		for i := 0; i < childCount; i++ {
-			normalizeGoCompatibilitySubtree(resultChildAt(n, i), source, syms, flags, incrementalRanges)
+		view := resultMutableChildrenForMutation(n)
+		if view.hasFinalChildRefs() {
+			for i := 0; i < view.Len(); i++ {
+				entry, ok := view.Entry(i)
+				if !ok || stackEntryNodeChildCount(entry) == 0 {
+					continue
+				}
+				normalizeGoCompatibilitySubtree(resultChildAt(n, i), source, syms, flags, incrementalRanges)
+			}
+		} else {
+			for i := 0; i < childCount; i++ {
+				normalizeGoCompatibilitySubtree(resultChildAt(n, i), source, syms, flags, incrementalRanges)
+			}
 		}
 	}
 	if flags.trailingBoundary {
@@ -250,6 +330,31 @@ func normalizeGoAdjacentSiblingBoundaries(n *Node, source []byte, syms goCompati
 		}
 		return
 	}
+	view := resultMutableChildrenForMutation(n)
+	if view.hasFinalChildRefs() {
+		for i := 0; i+1 < view.Len(); i++ {
+			currEntry, ok := view.Entry(i)
+			if !ok {
+				continue
+			}
+			currSym := stackEntryNodeSymbol(currEntry)
+			if !syms.isStatementList(currSym) && !syms.isCase(currSym) {
+				continue
+			}
+			nextEntry, ok := view.Entry(i + 1)
+			if !ok {
+				continue
+			}
+			curr := resultChildAt(n, i)
+			if curr == nil {
+				continue
+			}
+			nextStart := stackEntryNodeStartByte(nextEntry)
+			normalizeGoStatementListBoundaryBefore(curr, nextStart, source, syms)
+			normalizeGoCaseSiblingBoundaryBefore(curr, nextStart, source, syms)
+		}
+		return
+	}
 	childCount := resultChildCount(n)
 	for i := 0; i+1 < childCount; i++ {
 		curr := resultChildAt(n, i)
@@ -263,14 +368,21 @@ func normalizeGoAdjacentSiblingBoundaries(n *Node, source []byte, syms goCompati
 }
 
 func normalizeGoStatementListBoundary(curr, next *Node, source []byte, syms goCompatibilitySymbols) {
-	if !syms.isStatementList(curr.symbol) || curr.endByte >= next.startByte || int(next.startByte) > len(source) {
+	if next == nil {
 		return
 	}
-	gap := source[curr.endByte:next.startByte]
+	normalizeGoStatementListBoundaryBefore(curr, next.startByte, source, syms)
+}
+
+func normalizeGoStatementListBoundaryBefore(curr *Node, nextStart uint32, source []byte, syms goCompatibilitySymbols) {
+	if curr == nil || !syms.isStatementList(curr.symbol) || curr.endByte >= nextStart || int(nextStart) > len(source) {
+		return
+	}
+	gap := source[curr.endByte:nextStart]
 	if !bytesAreTrivia(gap) {
 		return
 	}
-	target := goTrailingNewlineBoundary(curr.endByte, next.startByte, source)
+	target := goTrailingNewlineBoundary(curr.endByte, nextStart, source)
 	if target > curr.endByte {
 		extendNodeEndTo(curr, target, source)
 	}
@@ -317,23 +429,30 @@ func goTrailingTriviaBeforeExtra(start, end uint32, source []byte) uint32 {
 }
 
 func normalizeGoCaseSiblingBoundary(curr, next *Node, source []byte, syms goCompatibilitySymbols) {
-	if !syms.isCase(curr.symbol) || int(next.startByte) > len(source) {
+	if next == nil {
+		return
+	}
+	normalizeGoCaseSiblingBoundaryBefore(curr, next.startByte, source, syms)
+}
+
+func normalizeGoCaseSiblingBoundaryBefore(curr *Node, nextStart uint32, source []byte, syms goCompatibilitySymbols) {
+	if curr == nil || !syms.isCase(curr.symbol) || int(nextStart) > len(source) {
 		return
 	}
 	tail := goTrailingCaseStatementList(curr, syms)
 	if tail == nil {
 		return
 	}
-	target, hasNewline := goTrailingTriviaBoundaryBefore(next.startByte, source)
+	target, hasNewline := goTrailingTriviaBoundaryBefore(nextStart, source)
 	if hasNewline {
 		normalizeGoCaseBoundaryToTrivia(curr, tail, target, source)
 		return
 	}
-	if curr.endByte > next.startByte {
-		setNodeEndTo(curr, next.startByte, source)
+	if curr.endByte > nextStart {
+		setNodeEndTo(curr, nextStart, source)
 	}
-	if tail.endByte > next.startByte {
-		setNodeEndTo(tail, next.startByte, source)
+	if tail.endByte > nextStart {
+		setNodeEndTo(tail, nextStart, source)
 	}
 }
 

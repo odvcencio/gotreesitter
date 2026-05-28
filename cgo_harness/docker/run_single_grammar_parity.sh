@@ -49,6 +49,7 @@ GOFLAGS_VALUE="$DEFAULT_GOFLAGS_VALUE"
 LR0_CORE_BUDGET=""
 GENERATE_TIMEOUT=""
 FORTRAN_SAFE_DEFAULTS=1
+REQUIRE_PARITY=0
 
 MEMORY_SET=0
 CPUS_SET=0
@@ -118,6 +119,9 @@ Options:
                        Export GTS_GRAMMARGEN_REAL_CORPUS_GENERATE_TIMEOUT.
                        If unset, fortran defaults to 15m so the memory-safe
                        LALR path can finish in Docker.
+  --require-parity     Require every eligible sample to have no generated
+                       errors and exact S-expression/deep parity. TypeScript
+                       enables this automatically.
   --unsafe-fortran-defaults
                        Disable the default bounded Fortran preset. By default,
                        Fortran runs that do not set explicit resource controls
@@ -212,6 +216,10 @@ while [[ $# -gt 0 ]]; do
       GENERATE_TIMEOUT="$2"
       GENERATE_TIMEOUT_SET=1
       shift 2
+      ;;
+    --require-parity)
+      REQUIRE_PARITY=1
+      shift
       ;;
     --unsafe-fortran-defaults)
       FORTRAN_SAFE_DEFAULTS=0
@@ -475,6 +483,7 @@ run_grammar() {
   local effective_lr0_core_budget
   local effective_generate_timeout
   local effective_gomemlimit=""
+  local require_parity="$REQUIRE_PARITY"
 
   effective_memory_limit="$(resolve_fortran_setting "$grammar" "$MEMORY_LIMIT" "$MEMORY_SET" "$FORTRAN_SAFE_MEMORY_LIMIT")"
   effective_cpus_limit="$(resolve_fortran_setting "$grammar" "$CPUS_LIMIT" "$CPUS_SET" "$FORTRAN_SAFE_CPUS_LIMIT")"
@@ -484,8 +493,13 @@ run_grammar() {
   effective_lr0_core_budget="$(resolve_fortran_setting "$grammar" "$LR0_CORE_BUDGET" "$LR0_CORE_BUDGET_SET" "$FORTRAN_SAFE_LR0_CORE_BUDGET")"
   effective_generate_timeout="$(resolve_fortran_setting "$grammar" "$GENERATE_TIMEOUT" "$GENERATE_TIMEOUT_SET" "$FORTRAN_SAFE_GENERATE_TIMEOUT")"
   effective_gomemlimit="$(docker_memory_limit_to_gomemlimit "$effective_memory_limit" || true)"
+  case "$grammar" in
+    typescript)
+      require_parity=1
+      ;;
+  esac
 
-  echo "=== Testing: $grammar (memory=$effective_memory_limit cpus=$effective_cpus_limit pids=$effective_pids_limit timeout=$TIMEOUT_PER_GRAMMAR generate_timeout=${effective_generate_timeout:-inherit} gomaxprocs=${effective_gomaxprocs_value:-inherit} goflags=${effective_goflags_value:-inherit} lr0_core_budget=${effective_lr0_core_budget:-inherit} gomemlimit=${effective_gomemlimit:-inherit}) ==="
+  echo "=== Testing: $grammar (memory=$effective_memory_limit cpus=$effective_cpus_limit pids=$effective_pids_limit timeout=$TIMEOUT_PER_GRAMMAR generate_timeout=${effective_generate_timeout:-inherit} gomaxprocs=${effective_gomaxprocs_value:-inherit} goflags=${effective_goflags_value:-inherit} lr0_core_budget=${effective_lr0_core_budget:-inherit} gomemlimit=${effective_gomemlimit:-inherit} require_parity=$require_parity) ==="
 
   # Build inner command for Docker.
   local lr_split_env=""
@@ -515,6 +529,12 @@ fi"
   if [[ -n "$effective_lr0_core_budget" ]]; then
     lr0_core_budget_env="GOT_LALR_LR0_CORE_BUDGET=$effective_lr0_core_budget"
   fi
+  local parser_stack_env=""
+  case "$grammar" in
+    typescript|tsx)
+      parser_stack_env="GOT_GLR_MAX_STACKS=64"
+      ;;
+  esac
   local generate_timeout_env=""
   if [[ -n "$effective_generate_timeout" ]]; then
     generate_timeout_env="GTS_GRAMMARGEN_REAL_CORPUS_GENERATE_TIMEOUT=$effective_generate_timeout"
@@ -544,10 +564,12 @@ cd /workspace
   GTS_GRAMMARGEN_REAL_CORPUS_ROOT=/tmp/grammar_parity \
   GTS_GRAMMARGEN_REAL_CORPUS_PROFILE=$PROFILE \
   GTS_GRAMMARGEN_REAL_CORPUS_MAX_CASES=$MAX_CASES \
+  GTS_GRAMMARGEN_REAL_CORPUS_REQUIRE_PARITY=$require_parity \
   GTS_GRAMMARGEN_REAL_CORPUS_ALLOW_PARTIAL=1 \
   GTS_GRAMMARGEN_REAL_CORPUS_FLOORS_PATH=/tmp/real_corpus_parity_floors.json \
   GTS_GRAMMARGEN_REAL_CORPUS_ONLY=$grammar \
   $lr0_core_budget_env \
+  $parser_stack_env \
   $generate_timeout_env \
   $lr_split_env \
   go test ./grammargen -run '^TestMultiGrammarImportRealCorpusParity\$' -count=1 -v -timeout $TIMEOUT_PER_GRAMMAR
@@ -597,6 +619,7 @@ INNER_EOF
 total=${#GRAMMARS[@]}
 echo "Running $total grammar(s) with per-grammar Docker isolation"
 echo "Memory: $MEMORY_LIMIT | Timeout: $TIMEOUT_PER_GRAMMAR | Profile: $PROFILE | Cases: $MAX_CASES"
+echo "Require parity: $REQUIRE_PARITY (typescript is always strict)"
 echo "Fortran bounded preset: $FORTRAN_SAFE_DEFAULTS"
 echo "Reports: $REPORT_DIR"
 echo ""
@@ -621,3 +644,7 @@ done
 echo "========================================="
 echo "SUMMARY: $passed passed, $failed failed, $oom OOM out of $total grammars"
 echo "Reports saved to: $REPORT_DIR"
+
+if (( failed > 0 || oom > 0 )); then
+  exit 1
+fi

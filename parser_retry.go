@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "time"
+import (
+	"bytes"
+	"time"
+)
 
 const (
 	// Retry no-stacks-alive full parses with a wider GLR cap. Large real-world
@@ -55,7 +58,7 @@ func shouldRetryAcceptedErrorParse(tree *Tree, sourceLen int, initialMaxStacks i
 	if sourceLen <= 0 || sourceLen > fullParseRetryMaxSourceBytes {
 		return false
 	}
-	root := tree.RootNode()
+	root := rawRootOrNil(tree)
 	if root == nil || !root.HasError() {
 		return false
 	}
@@ -83,7 +86,7 @@ func treeParseClean(tree *Tree) bool {
 	if tree == nil {
 		return false
 	}
-	root := tree.RootNode()
+	root := rawRootOrNil(tree)
 	if root == nil || root.HasError() {
 		return false
 	}
@@ -98,11 +101,18 @@ func rootOrNil(tree *Tree) *Node {
 	return tree.RootNode()
 }
 
+func rawRootOrNil(tree *Tree) *Node {
+	if tree == nil {
+		return nil
+	}
+	return tree.root
+}
+
 func retryTreeEndByte(tree *Tree) uint32 {
 	if tree == nil {
 		return 0
 	}
-	if root := tree.RootNode(); root != nil {
+	if root := rawRootOrNil(tree); root != nil {
 		return root.EndByte()
 	}
 	return tree.ParseRuntime().RootEndByte
@@ -112,7 +122,7 @@ func retryTreeChildCount(tree *Tree) int {
 	if tree == nil {
 		return 0
 	}
-	if root := tree.RootNode(); root != nil {
+	if root := rawRootOrNil(tree); root != nil {
 		return root.ChildCount()
 	}
 	return 0
@@ -122,7 +132,7 @@ func retryTreeHasError(tree *Tree) bool {
 	if tree == nil {
 		return true
 	}
-	root := tree.RootNode()
+	root := rawRootOrNil(tree)
 	if root == nil {
 		return true
 	}
@@ -323,12 +333,11 @@ func effectiveParseMergePerKeyCap(lang *Language, mergePerKeyCap int, incrementa
 	}
 	switch lang.Name {
 	case "go":
-		// Go keeps a few semantically distinct alternatives alive on real
-		// corpus files, but the sixth per-key survivor only added merge churn
-		// in the Aspect-shaped workload. Keep this conservative so fallthrough
-		// and type-conversion parity cases are not pruned.
-		if !parseMaxMergePerKeyEnvConfigured() && mergePerKeyCap > 5 {
-			return 5
+		// Go's full-tree path is false-equivalence heavy around expression/type
+		// ambiguity. Three same-key survivors preserve the current parse,
+		// highlight, and query gates, while cap=2 prunes a required branch.
+		if !parseMaxMergePerKeyEnvConfigured() && mergePerKeyCap > 3 {
+			return 3
 		}
 	case "c":
 		// C's declaration/expression recovery can keep many redundant
@@ -396,6 +405,54 @@ func effectiveParseMergePerKeyCap(lang *Language, mergePerKeyCap int, incrementa
 
 func typescriptFullParseCanUseTightMergeCap(sourceLen ...int) bool {
 	return len(sourceLen) == 0 || sourceLen[0] <= 64*1024
+}
+
+func tsxFullParseNeedsTypedArrowMergeWidth(lang *Language, source []byte, reuse *reuseCursor) bool {
+	return lang != nil &&
+		reuse == nil &&
+		!parseMaxMergePerKeyEnvConfigured() &&
+		lang.Name == "tsx" &&
+		typeScriptSourceHasTypedArrowParameters(source)
+}
+
+func typeScriptSourceHasTypedArrowParameters(source []byte) bool {
+	if len(source) == 0 || !bytes.Contains(source, []byte(":")) {
+		return false
+	}
+	offset := 0
+	for {
+		rel := bytes.Index(source[offset:], []byte("=>"))
+		if rel < 0 {
+			return false
+		}
+		arrow := offset + rel
+		i := arrow - 1
+		for i >= 0 {
+			switch source[i] {
+			case ' ', '\t', '\n', '\r':
+				i--
+				continue
+			}
+			break
+		}
+		if i < 0 || source[i] != ')' {
+			offset = arrow + len("=>")
+			continue
+		}
+		depth := 0
+		for j := i; j >= 0 && i-j <= 2048; j-- {
+			switch source[j] {
+			case ')':
+				depth++
+			case '(':
+				depth--
+				if depth == 0 {
+					return bytes.Contains(source[j:i], []byte(":"))
+				}
+			}
+		}
+		offset = arrow + len("=>")
+	}
 }
 
 func fullParseUsesDeterministicExternalConflicts(lang *Language) bool {
@@ -634,7 +691,7 @@ func (p *Parser) retryFullParse(source []byte, initialMaxStacks int, tree *Tree,
 func (p *Parser) retryFullParseWithDFA(source []byte, initialMaxStacks int, deterministicExternalConflicts bool, tree *Tree) *Tree {
 	result := p.retryFullParse(source, initialMaxStacks, tree, func(maxStacks int, maxMergePerKeyOverride int, maxNodes int) *Tree {
 		retryLexer := NewLexer(p.language.LexStates, source)
-		retryTS := acquireDFATokenSource(retryLexer, p.language, p.lookupActionIndex, p.hasKeywordState)
+		retryTS := acquireDFATokenSource(retryLexer, p.language, p.lookupActionIndex, p.hasKeywordState, p.externalValidByState)
 		defer retryTS.Close()
 		return p.parseInternal(
 			source,

@@ -128,6 +128,101 @@ func TestGSSNodeHashComputedLazilyForSingleStackNodes(t *testing.T) {
 	}
 }
 
+func TestGSSEntryHashMatchesAccessorSemantics(t *testing.T) {
+	node := &Node{
+		children:     []*Node{{symbol: 20}},
+		symbol:       10,
+		startByte:    1,
+		endByte:      3,
+		parseState:   4,
+		productionID: 5,
+		flags:        nodeFlagNamed | nodeFlagHasError,
+	}
+	noTree := &noTreeNode{
+		symbol:       11,
+		startByte:    2,
+		endByte:      5,
+		parseState:   6,
+		productionID: 7,
+		flags:        nodeFlagExtra,
+	}
+	compactLeaf := &compactFullLeaf{
+		noTreeNode: noTreeNode{
+			symbol:       12,
+			startByte:    8,
+			endByte:      13,
+			parseState:   9,
+			productionID: 10,
+			flags:        nodeFlagNamed | nodeFlagMissing,
+		},
+	}
+	pending := &pendingParent{
+		noTreeNode: noTreeNode{
+			symbol:       13,
+			startByte:    21,
+			endByte:      34,
+			parseState:   11,
+			productionID: 12,
+			flags:        nodeFlagNamed | nodeFlagExtra,
+		},
+		childRange: newPendingChildRange(0, 0, 3),
+	}
+
+	entries := []stackEntry{
+		{state: 1},
+		newStackEntryNode(2, node),
+		newStackEntryNoTreeNode(3, noTree),
+		newStackEntryCompactFullLeaf(4, compactLeaf),
+		newStackEntryPendingParent(5, pending),
+	}
+	for _, entry := range entries {
+		got := gssEntryHash(gssHashSeed, entry)
+		want := gssEntryHashViaAccessors(gssHashSeed, entry)
+		if got != want {
+			t.Fatalf("gssEntryHash(%+v) = %d, want %d", entry, got, want)
+		}
+	}
+}
+
+func gssEntryHashViaAccessors(prev uint64, entry stackEntry) uint64 {
+	h := prev ^ uint64(entry.state)
+	h *= gssHashPrime
+
+	if !stackEntryHasNode(entry) {
+		h ^= gssNilNodeSentinel
+		h *= gssHashPrime
+		return h
+	}
+
+	h ^= uint64(stackEntryNodeSymbol(entry))
+	h *= gssHashPrime
+	h ^= (uint64(stackEntryNodeStartByte(entry)) << 32) | uint64(stackEntryNodeEndByte(entry))
+	h *= gssHashPrime
+	h ^= uint64(stackEntryNodeParseState(entry))
+	h *= gssHashPrime
+	h ^= uint64(stackEntryNodeProductionID(entry))
+	h *= gssHashPrime
+	h ^= uint64(stackEntryNodeChildCount(entry))
+	h *= gssHashPrime
+
+	var flags uint64
+	if stackEntryNodeIsExtra(entry) {
+		flags |= 1
+	}
+	if stackEntryNodeIsNamed(entry) {
+		flags |= 1 << 1
+	}
+	if stackEntryNodeHasError(entry) {
+		flags |= 1 << 2
+	}
+	if stackEntryNodeIsMissing(entry) {
+		flags |= 1 << 3
+	}
+	h ^= flags
+	h *= gssHashPrime
+	return h
+}
+
 func TestGSSStacksEqualWithLazyHashes(t *testing.T) {
 	var scratch gssScratch
 	scratch.singleStackMode = true

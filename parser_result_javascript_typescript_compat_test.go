@@ -124,6 +124,318 @@ func TestNormalizeJavaScriptEmptyStatementRestoresSemicolonChild(t *testing.T) {
 	}
 }
 
+func TestNormalizeTypeScriptSyntaxPassRestoresEmptyStatementSemicolonChild(t *testing.T) {
+	lang := &Language{
+		Name:        "typescript",
+		SymbolNames: []string{"EOF", "program", "empty_statement", ";", "call_expression", "unary_expression", "binary_expression"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "program", Visible: true, Named: true},
+			{Name: "empty_statement", Visible: true, Named: true},
+			{Name: ";", Visible: true, Named: false},
+			{Name: "call_expression", Visible: true, Named: true},
+			{Name: "unary_expression", Visible: true, Named: true},
+			{Name: "binary_expression", Visible: true, Named: true},
+		},
+	}
+
+	arena := newNodeArena(arenaClassFull)
+	stmt := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	root := newParentNodeInArena(arena, 1, true, []*Node{stmt}, nil, 0)
+
+	normalizeJavaScriptTypeScriptStatementKeywordsAndPrecedence(root, []byte(";"), lang)
+
+	if got, want := resultChildCount(stmt), 1; got != want {
+		t.Fatalf("empty_statement child count = %d, want %d", got, want)
+	}
+	child := resultChildAt(stmt, 0)
+	if child == nil {
+		t.Fatal("empty_statement child is nil")
+	}
+	if got, want := child.Type(lang), ";"; got != want {
+		t.Fatalf("empty_statement child type = %q, want %q", got, want)
+	}
+}
+
+func TestTreeRootNodeAppliesDeferredTypeScriptCompatibility(t *testing.T) {
+	lang := &Language{
+		Name:        "typescript",
+		SymbolNames: []string{"EOF", "program", "empty_statement", ";", "call_expression", "unary_expression", "binary_expression"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "program", Visible: true, Named: true},
+			{Name: "empty_statement", Visible: true, Named: true},
+			{Name: ";", Visible: true, Named: false},
+			{Name: "call_expression", Visible: true, Named: true},
+			{Name: "unary_expression", Visible: true, Named: true},
+			{Name: "binary_expression", Visible: true, Named: true},
+		},
+	}
+
+	arena := newNodeArena(arenaClassFull)
+	stmt := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	root := newParentNodeInArena(arena, 1, true, []*Node{stmt}, nil, 0)
+	tree := newTreeWithArenas(root, []byte(";"), lang, arena, nil)
+	tree.deferResultCompatibility()
+
+	if got := resultChildCount(stmt); got != 0 {
+		t.Fatalf("empty_statement child count before RootNode = %d, want 0", got)
+	}
+	if tree.RootNode() != root {
+		t.Fatal("RootNode returned a different root")
+	}
+	if got, want := resultChildCount(stmt), 1; got != want {
+		t.Fatalf("empty_statement child count after RootNode = %d, want %d", got, want)
+	}
+	child := resultChildAt(stmt, 0)
+	if child == nil {
+		t.Fatal("empty_statement child is nil")
+	}
+	if got, want := child.Type(lang), ";"; got != want {
+		t.Fatalf("empty_statement child type = %q, want %q", got, want)
+	}
+}
+
+func TestTreeRootNodeRecordsDeferredTypeScriptCompatibilityTiming(t *testing.T) {
+	t.Setenv("GOT_PARSE_PHASE_TIMING", "1")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	lang := &Language{
+		Name:        "typescript",
+		SymbolNames: []string{"EOF", "program", "empty_statement", ";", "call_expression", "unary_expression", "binary_expression"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "program", Visible: true, Named: true},
+			{Name: "empty_statement", Visible: true, Named: true},
+			{Name: ";", Visible: true, Named: false},
+			{Name: "call_expression", Visible: true, Named: true},
+			{Name: "unary_expression", Visible: true, Named: true},
+			{Name: "binary_expression", Visible: true, Named: true},
+		},
+	}
+
+	arena := newNodeArena(arenaClassFull)
+	stmt := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	root := newParentNodeInArena(arena, 1, true, []*Node{stmt}, nil, 0)
+	tree := newTreeWithArenas(root, []byte(";"), lang, arena, nil)
+	tree.deferResultCompatibility()
+
+	_ = tree.RootNode()
+	if tree.resultCompatibilityPending {
+		t.Fatal("resultCompatibilityPending = true after deferred compatibility ran")
+	}
+	rt := tree.ParseRuntime()
+	if rt.NormalizationPassesRun == 0 {
+		t.Fatal("NormalizationPassesRun = 0, want deferred compatibility pass attribution")
+	}
+	if rt.NormalizationPasses == nil || len(*rt.NormalizationPasses) == 0 {
+		t.Fatal("NormalizationPasses is empty, want deferred compatibility named pass attribution")
+	}
+	before := rt.NormalizationPassesRun
+	_ = tree.RootNode()
+	if got := tree.ParseRuntime().NormalizationPassesRun; got != before {
+		t.Fatalf("NormalizationPassesRun after second RootNode = %d, want %d", got, before)
+	}
+}
+
+func TestReturnedTreeNormalizationUsesRawRootForDeferredTypeScriptCompatibility(t *testing.T) {
+	lang := &Language{
+		Name:        "typescript",
+		SymbolNames: []string{"EOF", "program", "empty_statement", ";", "call_expression", "unary_expression", "binary_expression"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "program", Visible: true, Named: true},
+			{Name: "empty_statement", Visible: true, Named: true},
+			{Name: ";", Visible: true, Named: false},
+			{Name: "call_expression", Visible: true, Named: true},
+			{Name: "unary_expression", Visible: true, Named: true},
+			{Name: "binary_expression", Visible: true, Named: true},
+		},
+	}
+
+	arena := newNodeArena(arenaClassFull)
+	stmt := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	root := newParentNodeInArena(arena, 1, true, []*Node{stmt}, nil, 0)
+	tree := newTreeWithArenas(root, []byte(";"), lang, arena, nil)
+	tree.deferResultCompatibility()
+
+	normalizeReturnedTree(rawRootOrNil(tree), []byte(";"), lang)
+	if got := resultChildCount(stmt); got != 0 {
+		t.Fatalf("empty_statement child count after returned-tree normalization = %d, want deferred", got)
+	}
+	_ = tree.RootNode()
+	if got, want := resultChildCount(stmt), 1; got != want {
+		t.Fatalf("empty_statement child count after RootNode = %d, want %d", got, want)
+	}
+}
+
+func TestParseRuntimeRootStatsUsesRawRootForDeferredTypeScriptCompatibility(t *testing.T) {
+	lang := &Language{
+		Name:        "typescript",
+		SymbolNames: []string{"EOF", "program", "empty_statement", ";", "call_expression", "unary_expression", "binary_expression"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "program", Visible: true, Named: true},
+			{Name: "empty_statement", Visible: true, Named: true},
+			{Name: ";", Visible: true, Named: false},
+			{Name: "call_expression", Visible: true, Named: true},
+			{Name: "unary_expression", Visible: true, Named: true},
+			{Name: "binary_expression", Visible: true, Named: true},
+		},
+	}
+
+	arena := newNodeArena(arenaClassFull)
+	stmt := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	root := newParentNodeInArena(arena, 1, true, []*Node{stmt}, nil, 0)
+	tree := newTreeWithArenas(root, []byte(";"), lang, arena, nil)
+	tree.deferResultCompatibility()
+
+	var rt ParseRuntime
+	recordParseRuntimeRootStats(&rt, tree, 1, false, lang)
+	if got, want := rt.RootEndByte, uint32(1); got != want {
+		t.Fatalf("RootEndByte = %d, want %d", got, want)
+	}
+	if rt.Truncated {
+		t.Fatal("Truncated = true, want false")
+	}
+	if got := resultChildCount(stmt); got != 0 {
+		t.Fatalf("empty_statement child count after ParseRuntime stats = %d, want deferred", got)
+	}
+	_ = tree.RootNode()
+	if got, want := resultChildCount(stmt), 1; got != want {
+		t.Fatalf("empty_statement child count after RootNode = %d, want %d", got, want)
+	}
+}
+
+func TestNormalizeTypeScriptSyntaxPassRestoresExistentialTypeStarChild(t *testing.T) {
+	lang := &Language{
+		Name:        "typescript",
+		SymbolNames: []string{"EOF", "program", "existential_type", "*", "call_expression", "unary_expression", "binary_expression"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "program", Visible: true, Named: true},
+			{Name: "existential_type", Visible: true, Named: true},
+			{Name: "*", Visible: true, Named: false},
+			{Name: "call_expression", Visible: true, Named: true},
+			{Name: "unary_expression", Visible: true, Named: true},
+			{Name: "binary_expression", Visible: true, Named: true},
+		},
+	}
+
+	arena := newNodeArena(arenaClassFull)
+	existentialType := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	root := newParentNodeInArena(arena, 1, true, []*Node{existentialType}, nil, 0)
+
+	normalizeTypeScriptTreeCompatibility(root, []byte("*"), lang)
+
+	if got, want := resultChildCount(existentialType), 1; got != want {
+		t.Fatalf("existential_type child count = %d, want %d", got, want)
+	}
+	child := resultChildAt(existentialType, 0)
+	if child == nil {
+		t.Fatal("existential_type child is nil")
+	}
+	if got, want := child.Type(lang), "*"; got != want {
+		t.Fatalf("existential_type child type = %q, want %q", got, want)
+	}
+}
+
+func TestTypeScriptBinaryOperatorCompatibilityGate(t *testing.T) {
+	ctx := typeScriptNormalizationContext{
+		binaryExpressionSym: 1,
+		greaterThanSym:      2,
+		pipeSym:             3,
+		ampersandSym:        4,
+		hasPipeSym:          true,
+		hasAmpersandSym:     true,
+	}
+	arena := newNodeArena(arenaClassFull)
+	left := newLeafNodeInArena(arena, 6, true, 0, 1, Point{}, Point{Column: 1})
+	op := newLeafNodeInArena(arena, 5, false, 1, 2, Point{Column: 1}, Point{Column: 2})
+	right := newLeafNodeInArena(arena, 6, true, 2, 3, Point{Column: 2}, Point{Column: 3})
+	binary := newParentNodeInArena(arena, ctx.binaryExpressionSym, true, []*Node{left, op, right}, nil, 0)
+
+	if typeScriptBinaryOperatorCouldBeGenericCall(binary, &ctx) {
+		t.Fatal("plus operator should not be a generic-call candidate")
+	}
+	if typeScriptBinaryOperatorCouldBeAsTypeChain(binary, &ctx) {
+		t.Fatal("plus operator should not be an as-type-chain candidate")
+	}
+
+	op.symbol = ctx.greaterThanSym
+	if !typeScriptBinaryOperatorCouldBeGenericCall(binary, &ctx) {
+		t.Fatal("greater-than operator should be a generic-call candidate")
+	}
+	if typeScriptBinaryOperatorCouldBeAsTypeChain(binary, &ctx) {
+		t.Fatal("greater-than operator should not be an as-type-chain candidate")
+	}
+
+	op.symbol = ctx.pipeSym
+	if typeScriptBinaryOperatorCouldBeGenericCall(binary, &ctx) {
+		t.Fatal("pipe operator should not be a generic-call candidate")
+	}
+	if !typeScriptBinaryOperatorCouldBeAsTypeChain(binary, &ctx) {
+		t.Fatal("pipe operator should be an as-type-chain candidate")
+	}
+}
+
+func TestTypeScriptGenericCallCandidateCheckDoesNotRetargetParents(t *testing.T) {
+	ctx := typeScriptNormalizationContext{
+		binaryExpressionSym:  1,
+		greaterThanSym:       2,
+		pipeSym:              3,
+		lessThanSym:          4,
+		parenthesizedExprSym: 5,
+		hasPipeSym:           true,
+	}
+	arena := newNodeArena(arenaClassFull)
+	callee := newLeafNodeInArena(arena, 6, true, 0, 8, Point{}, Point{Column: 8})
+	lt := newLeafNodeInArena(arena, ctx.lessThanSym, false, 8, 9, Point{Column: 8}, Point{Column: 9})
+	stringType := newLeafNodeInArena(arena, 7, true, 9, 15, Point{Column: 9}, Point{Column: 15})
+	open := newParentNodeInArena(arena, ctx.binaryExpressionSym, true, []*Node{callee, lt, stringType}, nil, 0)
+	pipe := newLeafNodeInArena(arena, ctx.pipeSym, false, 16, 17, Point{Column: 16}, Point{Column: 17})
+	nullType := newLeafNodeInArena(arena, 8, true, 18, 22, Point{Column: 18}, Point{Column: 22})
+	union := newParentNodeInArena(arena, ctx.binaryExpressionSym, true, []*Node{open, pipe, nullType}, nil, 0)
+	gt := newLeafNodeInArena(arena, ctx.greaterThanSym, false, 22, 23, Point{Column: 22}, Point{Column: 23})
+	args := newParentNodeInArena(arena, ctx.parenthesizedExprSym, true, nil, nil, 0)
+	callShape := newParentNodeInArena(arena, ctx.binaryExpressionSym, true, []*Node{union, gt, args}, nil, 0)
+
+	if !typeScriptBinaryExpressionHasGenericCallClose(callShape, &ctx) {
+		t.Fatal("union generic call shape was not detected")
+	}
+	if nullType.parent != union {
+		t.Fatal("candidate check retargeted union child parent link")
+	}
+	if pipe.parent != union {
+		t.Fatal("candidate check retargeted union operator parent link")
+	}
+	if stringType.parent != open {
+		t.Fatal("candidate check retargeted open generic child parent link")
+	}
+}
+
+func TestTypeScriptCallInstantiatedCompatibilityGate(t *testing.T) {
+	ctx := typeScriptNormalizationContext{
+		callSym:              1,
+		instantiationExprSym: 2,
+		argsSym:              3,
+	}
+	arena := newNodeArena(arenaClassFull)
+	callee := newLeafNodeInArena(arena, 4, true, 0, 1, Point{}, Point{Column: 1})
+	args := newLeafNodeInArena(arena, ctx.argsSym, true, 1, 3, Point{Column: 1}, Point{Column: 3})
+	call := newParentNodeInArena(arena, ctx.callSym, true, []*Node{callee, args}, nil, 0)
+
+	if typeScriptCallCouldBeInstantiated(call, &ctx) {
+		t.Fatal("plain callee should not be an instantiated-call candidate")
+	}
+
+	callee.symbol = ctx.instantiationExprSym
+	if !typeScriptCallCouldBeInstantiated(call, &ctx) {
+		t.Fatal("instantiation_expression callee should be an instantiated-call candidate")
+	}
+}
+
 func TestNormalizeJavaScriptStatementKeywordRestoresWhileLeaf(t *testing.T) {
 	lang := &Language{
 		Name:        "javascript",

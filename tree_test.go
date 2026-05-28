@@ -318,29 +318,33 @@ func TestDeferredParentLinksWireOnAccess(t *testing.T) {
 	}
 }
 
-func TestFinalizeResultRootDefersJavaParentLinks(t *testing.T) {
-	arena := acquireNodeArena(arenaClassFull)
-	defer arena.Release()
+func TestFinalizeResultRootDefersSelectedLanguageParentLinks(t *testing.T) {
+	for _, name := range []string{"java", "python", "typescript", "tsx"} {
+		t.Run(name, func(t *testing.T) {
+			arena := acquireNodeArena(arenaClassFull)
+			defer arena.Release()
 
-	child := newLeafNodeInArena(arena, Symbol(1), true, 0, 1, Point{}, Point{Row: 0, Column: 1})
-	children := arena.allocNodeSliceNoClear(1)
-	children[0] = child
-	root := newParentNodeInArenaNoLinksWithFieldSources(arena, Symbol(2), true, children, nil, nil, 0, false)
-	parser := NewParser(&Language{Name: "java"})
+			child := newLeafNodeInArena(arena, Symbol(1), true, 0, 1, Point{}, Point{Row: 0, Column: 1})
+			children := arena.allocNodeSliceNoClear(1)
+			children[0] = child
+			root := newParentNodeInArenaNoLinksWithFieldSources(arena, Symbol(2), true, children, nil, nil, 0, false)
+			parser := NewParser(&Language{Name: name})
 
-	parser.finalizeResultRoot(root, []byte("x"), nil, true, false)
+			parser.finalizeResultRoot(root, []byte("x"), nil, true, false)
 
-	if !arena.parentLinksDeferred {
-		t.Fatal("expected Java finalization to defer parent links")
-	}
-	if child.parent != nil {
-		t.Fatal("expected child parent link to stay unwired until access")
-	}
-	if got := child.Parent(); got != root {
-		t.Fatalf("child.Parent() = %p, want %p", got, root)
-	}
-	if !arena.parentLinksDeferred {
-		t.Fatal("expected targeted parent access to keep deferred flag")
+			if !arena.parentLinksDeferred {
+				t.Fatalf("expected %s finalization to defer parent links", name)
+			}
+			if child.parent != nil {
+				t.Fatal("expected child parent link to stay unwired until access")
+			}
+			if got := child.Parent(); got != root {
+				t.Fatalf("child.Parent() = %p, want %p", got, root)
+			}
+			if !arena.parentLinksDeferred {
+				t.Fatal("expected targeted parent access to keep deferred flag")
+			}
+		})
 	}
 }
 

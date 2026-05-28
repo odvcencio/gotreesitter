@@ -26,6 +26,8 @@ var (
 	parseActionTiming          bool
 	parseReduceChainHintsOnce  sync.Once
 	parseReduceChainHints      bool
+	parseTSLazyCompatOnce      sync.Once
+	parseTSLazyCompat          bool
 )
 
 // ResetParseEnvConfigCacheForTests clears memoized parser env config.
@@ -51,6 +53,8 @@ func ResetParseEnvConfigCacheForTests() {
 	parseActionTiming = false
 	parseReduceChainHintsOnce = sync.Once{}
 	parseReduceChainHints = false
+	parseTSLazyCompatOnce = sync.Once{}
+	parseTSLazyCompat = false
 }
 
 func parseNodeLimitScaleFactor() int {
@@ -177,6 +181,14 @@ func parseReduceChainHintsEnabled() bool {
 		parseReduceChainHints = raw != "" && raw != "0" && !strings.EqualFold(raw, "false")
 	})
 	return parseReduceChainHints
+}
+
+func parseTypeScriptLazyResultCompatibilityEnabled() bool {
+	parseTSLazyCompatOnce.Do(func() {
+		raw := strings.TrimSpace(os.Getenv("GOT_TS_LAZY_COMPAT"))
+		parseTSLazyCompat = raw == "" || (raw != "0" && !strings.EqualFold(raw, "false"))
+	})
+	return parseTSLazyCompat
 }
 
 func parseTransientReduceEnabled(envName string) bool {

@@ -325,11 +325,20 @@ type Language struct {
 	keywordLexAsciiOnce  sync.Once
 	lexModeStarts        []lexModeStart
 	lexModeStartOnce     sync.Once
+	keywordPrefilter     keywordLexPrefilter
+	keywordPrefilterOnce sync.Once
 }
 
 type symbolNameNamedKey struct {
 	name  string
 	named bool
+}
+
+type keywordLexPrefilter struct {
+	allowAll bool
+	hasAny   bool
+	first    [4]uint64
+	lengths  [4]uint64
 }
 
 type lexModeStart struct {
@@ -364,6 +373,70 @@ func (l *Language) KeywordLexAsciiTable() [][128]int32 {
 		l.keywordLexAsciiTable = buildLexAsciiTable(l.KeywordLexStates)
 	})
 	return l.keywordLexAsciiTable
+}
+
+func (l *Language) keywordLexCouldMatch(source []byte, start, end int) bool {
+	if l == nil || len(l.KeywordLexStates) == 0 {
+		return true
+	}
+	l.keywordPrefilterOnce.Do(func() {
+		l.keywordPrefilter = l.buildKeywordLexPrefilter()
+	})
+	filter := l.keywordPrefilter
+	if filter.allowAll {
+		return true
+	}
+	if !filter.hasAny || start < 0 || end <= start || end > len(source) {
+		return false
+	}
+	n := end - start
+	if n >= 256 {
+		return false
+	}
+	if filter.lengths[n/64]&(uint64(1)<<uint(n%64)) == 0 {
+		return false
+	}
+	first := source[start]
+	return filter.first[first/64]&(uint64(1)<<uint(first%64)) != 0
+}
+
+func (l *Language) buildKeywordLexPrefilter() keywordLexPrefilter {
+	if l == nil || len(l.KeywordLexStates) == 0 {
+		return keywordLexPrefilter{allowAll: true}
+	}
+	var filter keywordLexPrefilter
+	for _, state := range l.KeywordLexStates {
+		sym := state.AcceptToken
+		if sym == 0 {
+			continue
+		}
+		idx := int(sym)
+		if idx < 0 || idx >= len(l.SymbolNames) {
+			return keywordLexPrefilter{allowAll: true}
+		}
+		name := l.SymbolNames[idx]
+		if name == "" || len(name) >= 256 {
+			return keywordLexPrefilter{allowAll: true}
+		}
+		if !isPlainKeywordSymbolName(name) {
+			return keywordLexPrefilter{allowAll: true}
+		}
+		filter.hasAny = true
+		filter.first[name[0]/64] |= uint64(1) << uint(name[0]%64)
+		filter.lengths[len(name)/64] |= uint64(1) << uint(len(name)%64)
+	}
+	return filter
+}
+
+func isPlainKeywordSymbolName(name string) bool {
+	for i := 0; i < len(name); i++ {
+		ch := name[i]
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func (l *Language) LexModeStarts() []lexModeStart {

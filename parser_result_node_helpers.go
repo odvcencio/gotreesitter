@@ -184,6 +184,34 @@ func rewriteResultTreeChildrenPostorder(root *Node, rewrite func(*Node) *Node) {
 	})
 }
 
+func rewriteResultTreeChildrenPostorderWithStats(root *Node, rewrite func(*Node) *Node) normalizationPassCounters {
+	var counters normalizationPassCounters
+	if rewrite == nil {
+		return counters
+	}
+	walkResultTreePostorder(root, func(n *Node) {
+		counters.nodesVisited++
+		children := n.children
+		if n != nil && n.ownerArena != nil && n.childIndex <= finalChildSidecarIndexBase {
+			children = resultDenseChildrenFallbackForMutation(n)
+		}
+		for i, child := range children {
+			for {
+				rewritten := rewrite(child)
+				if rewritten == nil {
+					break
+				}
+				counters.nodesRewritten++
+				children[i] = rewritten
+				rewritten.parent = n
+				rewritten.childIndex = int32(i)
+				child = rewritten
+			}
+		}
+	})
+	return counters
+}
+
 func replaceChildRangeWithSingleNode(parent *Node, start, end int, replacement *Node) {
 	if parent == nil || replacement == nil {
 		return

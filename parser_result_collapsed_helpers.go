@@ -22,8 +22,6 @@ var resultCollapsedNamedLeafRules = []collapsedNamedLeafRule{
 	{languageName: "c_sharp", parentName: "implicit_type", childName: "var"},
 	{languageName: "cobol", parentName: "period", childName: "."},
 	{languageName: "COBOL", parentName: "period", childName: "."},
-	{languageName: "tsx", parentName: "existential_type", childName: "*"},
-	{languageName: "typescript", parentName: "existential_type", childName: "*"},
 }
 
 func normalizeResultCollapsedNamedLeafChildren(root *Node, lang *Language) {

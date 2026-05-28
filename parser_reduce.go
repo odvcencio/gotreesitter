@@ -1046,9 +1046,59 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		leaf.parseState = targetState
 		p.pushStackCompactFullLeaf(s, targetState, leaf, entryScratch, gssScratch)
 	} else {
+		// Phase 3: pre-allocation interning. Compute the candidate key
+		// from primitives (token + act + state) so we can skip the arena
+		// allocation entirely on hit. The previous post-allocation
+		// variant paid hash+lookup overhead per shift without saving
+		// the allocation, which net-regressed wall time on JS.
+		isMissing := p.shiftTokenIsMissingError(tok)
+		var flags nodeFlags
+		if named {
+			flags |= nodeFlagNamed
+		}
+		if act.Extra {
+			flags |= nodeFlagExtra
+		}
+		if isMissing {
+			flags |= nodeFlagMissing | nodeFlagHasError
+		}
+		if internLeavesSubstituteEnabled {
+			key := internKey{
+				symbol:       uint32(tok.Symbol),
+				flags:        uint8(flags),
+				startByte:    tok.StartByte,
+				endByte:      tok.EndByte,
+				parseState:   targetState,
+				preGotoState: currentState,
+			}
+			if canonical := lookupCanonicalLeafKey(arena, key); canonical != nil {
+				if internLeavesObserveEnabled {
+					arena.internShiftLeafObserved++
+				}
+				if isMissing && trackChildErrors != nil {
+					*trackChildErrors = true
+				}
+				if act.Extra && perfCountersEnabled {
+					perfRecordExtraNode()
+				}
+				// External-scanner checkpoint: the canonical leaf was
+				// the first one to hit this exact (sym, span, state)
+				// tuple, so its checkpoint snapshot is by construction
+				// the right one to apply here too. Skip the re-record.
+				p.pushStackNode(s, targetState, canonical, entryScratch, gssScratch)
+				s.shifted = true
+				*nodeCount++
+				if p != nil && p.glrTrace {
+					fmt.Printf("      -> SHIFT[intern-hit] new_state=%d depth=%d\n", targetState, s.depth())
+				}
+				return
+			}
+			// Miss: fall through to the regular allocation path; store
+			// the resulting leaf below before pushing.
+		}
 		leaf := newLeafNodeInArena(arena, tok.Symbol, named,
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
-		if p.shiftTokenIsMissingError(tok) {
+		if isMissing {
 			leaf.setMissing(true)
 			leaf.setHasError(true)
 			if trackChildErrors != nil {
@@ -1062,6 +1112,15 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		leaf.preGotoState = currentState
 		leaf.parseState = targetState
 		p.recordCurrentExternalLeafCheckpoint(leaf, tok)
+		if internLeavesObserveEnabled {
+			arena.internShiftLeafObserved++
+			if !internLeavesSubstituteEnabled {
+				observeLeafInternFull(arena, leaf)
+			}
+		}
+		if internLeavesSubstituteEnabled {
+			storeCanonicalLeaf(arena, leaf)
+		}
 		p.pushStackNode(s, targetState, leaf, entryScratch, gssScratch)
 	}
 	s.shifted = true
@@ -1222,7 +1281,7 @@ func releaseReduceWindowEntries(tmpEntries *[]stackEntry, entries []stackEntry) 
 }
 
 func truncateStackForReduce(s *glrStack, targetDepth int) bool {
-	if targetDepth < 0 || !s.truncate(targetDepth) {
+	if targetDepth < 0 || !s.truncateBeforePush(targetDepth) {
 		s.dead = true
 		return false
 	}
@@ -1331,7 +1390,7 @@ func (p *Parser) tryFastVisibleReduceActionFromGSS(s *glrStack, act ParseAction,
 	}
 	parent.preGotoState = topState
 	parent.parseState = targetState
-	if !s.truncate(targetDepth) {
+	if !s.truncateBeforePush(targetDepth) {
 		s.dead = true
 		if tmpEntries != nil {
 			*tmpEntries = (*tmpEntries)[:0]
@@ -1637,7 +1696,7 @@ func (p *Parser) tryFastVisibleReduceActionFromGSSTransientParents(s *glrStack, 
 	}
 	parent.preGotoState = topState
 	parent.parseState = targetState
-	if !s.truncate(targetDepth) {
+	if !s.truncateBeforePush(targetDepth) {
 		s.dead = true
 		if tmpEntries != nil {
 			*tmpEntries = (*tmpEntries)[:0]
@@ -1696,7 +1755,7 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 				timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
 			}
 			targetDepth := s.depth() - actualEnd
-			if targetDepth < 0 || !s.truncate(targetDepth) {
+			if targetDepth < 0 || !s.truncateBeforePush(targetDepth) {
 				s.dead = true
 				if tmpEntries != nil {
 					*tmpEntries = windowEntries[:0]
@@ -1734,7 +1793,7 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 
 	if child := p.collapsibleRawUnarySelfReduction(act, tok, arena, windowEntries, 0, reducedEnd); child != nil {
 		targetDepth := s.depth() - actualEnd
-		if targetDepth < 0 || !s.truncate(targetDepth) {
+		if targetDepth < 0 || !s.truncateBeforePush(targetDepth) {
 			s.dead = true
 			if tmpEntries != nil {
 				*tmpEntries = windowEntries[:0]
@@ -1760,7 +1819,7 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 	}
 
 	targetDepth := s.depth() - actualEnd
-	if targetDepth < 0 || !s.truncate(targetDepth) {
+	if targetDepth < 0 || !s.truncateBeforePush(targetDepth) {
 		s.dead = true
 		if tmpEntries != nil {
 			*tmpEntries = windowEntries[:0]
@@ -2169,7 +2228,7 @@ func (p *Parser) tryPushPendingNoFieldParent(s *glrStack, act ParseAction, tok T
 	}
 	parent.preGotoState = topState
 	parent.parseState = targetState
-	if !s.truncate(truncateDepth) {
+	if !s.truncateBeforePush(truncateDepth) {
 		s.dead = true
 		return true
 	}
@@ -2270,7 +2329,7 @@ func (p *Parser) tryPushPendingDirectFieldParent(s *glrStack, act ParseAction, t
 	}
 	parent.preGotoState = topState
 	parent.parseState = targetState
-	if !s.truncate(truncateDepth) {
+	if !s.truncateBeforePush(truncateDepth) {
 		s.dead = true
 		return true
 	}
@@ -2594,6 +2653,9 @@ func pendingNoFieldChildCount(entry stackEntry, arena *nodeArena, parentVisible 
 		return 1, hasPayload, hasError, true
 	}
 	if parentVisible {
+		if stackEntryTreeHasFieldIDs(entry, arena) {
+			return 0, false, false, false
+		}
 		if parent := stackEntryPendingParent(entry); parent != nil {
 			for i := 0; i < parent.childEntryCount(); i++ {
 				child := parent.childEntry(arena, i)
@@ -3421,14 +3483,9 @@ func (p *Parser) buildReduceChildrenWithPath(entries []stackEntry, start, end, c
 	aliasSeq := p.reduceAliasSequence(productionID)
 	productionHasFields := p.reduceProductionHasEffectiveFields(childCount, productionID, arena)
 	if len(aliasSeq) == 0 && !productionHasFields {
-		if children, _, _, ok := p.buildReduceChildrenAllVisible(entries, start, end, childCount, nil, nil, nil, symbolMeta, arena); ok {
-			return children, nil, nil, reduceChildPathForLen(len(children), reduceChildPathAllVisible)
+		if children, fieldIDs, fieldSources, path, ok := p.buildReduceChildrenNoAliasNoFieldsPlanned(entries, start, end, parentSymbol, symbolMeta, arena); ok {
+			return children, fieldIDs, fieldSources, path
 		}
-	}
-	parentVisible := symbolVisibleForPending(parentSymbol, symbolMeta)
-	preserveHiddenFields := parentVisible && reduceEntriesContainHiddenFieldIDs(entries, start, end, symbolMeta)
-	if len(aliasSeq) == 0 && !productionHasFields && !preserveHiddenFields {
-		return p.buildReduceChildrenNoAliasNoFieldsStreaming(entries, start, end, parentSymbol, symbolMeta, arena)
 	}
 
 	rawFieldIDs, rawInherited := p.buildFieldIDs(childCount, productionID, arena)
@@ -3476,6 +3533,95 @@ func reduceEntriesContainHiddenFieldIDs(entries []stackEntry, start, end int, sy
 		}
 	}
 	return false
+}
+
+func (p *Parser) buildReduceChildrenNoAliasNoFieldsPlanned(entries []stackEntry, start, end int, parentSymbol Symbol, symbolMeta []SymbolMetadata, arena *nodeArena) ([]*Node, []FieldID, []uint8, reduceChildPath, bool) {
+	visibleCount := 0
+	allVisible := true
+	preserveHiddenFields := false
+	parentVisible := symbolVisibleForPending(parentSymbol, symbolMeta)
+	for i := start; i < end; i++ {
+		n := stackEntryNode(entries[i])
+		if n == nil {
+			continue
+		}
+		visible := true
+		if idx := int(n.symbol); idx < len(symbolMeta) {
+			visible = symbolMeta[n.symbol].Visible
+		}
+		if visible {
+			visibleCount++
+			continue
+		}
+		allVisible = false
+		if parentVisible && hiddenTreeHasFieldIDs(n) {
+			preserveHiddenFields = true
+		}
+	}
+	if allVisible {
+		if visibleCount == 0 {
+			return nil, nil, nil, reduceChildPathNone, true
+		}
+		children := p.allocAllVisibleReduceChildren(arena, visibleCount, nil, nil, nil)
+		arena.recordReduceChildSliceAllVisible(visibleCount)
+		if perfCountersEnabled {
+			perfRecordReduceChildrenAllVisible(visibleCount)
+		}
+		out := 0
+		for i := start; i < end; i++ {
+			n := stackEntryNode(entries[i])
+			if n == nil {
+				continue
+			}
+			children[out] = n
+			out++
+		}
+		return children, nil, nil, reduceChildPathAllVisible, true
+	}
+	if preserveHiddenFields {
+		return nil, nil, nil, reduceChildPathNone, false
+	}
+
+	var scratch *reduceBuildScratch
+	if p != nil && p.reduceScratch != nil {
+		scratch = p.reduceScratch
+	} else {
+		scratch = &reduceBuildScratch{}
+	}
+	scratch.reset()
+
+	for i := start; i < end; i++ {
+		n := stackEntryNode(entries[i])
+		if n == nil {
+			continue
+		}
+		visible := true
+		if idx := int(n.symbol); idx < len(symbolMeta) {
+			visible = symbolMeta[n.symbol].Visible
+		}
+		if visible {
+			scratch.appendNode(n)
+			continue
+		}
+		if parentVisible {
+			appendFlattenedHiddenChildrenToScratch(scratch, n, symbolMeta)
+			continue
+		}
+		if len(n.children) == 0 {
+			continue
+		}
+		scratch.appendNode(n)
+	}
+	if perfCountersEnabled {
+		perfRecordReduceScratchNoAlias(len(scratch.nodes))
+	}
+	arena.recordReduceChildSliceScratchNoAlias(len(scratch.nodes))
+	children := p.materializeNoFieldReduceChildrenFromScratch(scratch, arena)
+	path := reduceChildPathNone
+	if len(children) > 0 {
+		path = reduceChildPathScratchNoAlias
+	}
+	return children, nil, nil, path, true
 }
 
 func (p *Parser) newReduceBuildScratch(rawFieldIDs []FieldID) *reduceBuildScratch {
@@ -3629,91 +3775,6 @@ func shouldSkipInheritedParentFieldForFlattenedSpan(scratch *reduceBuildScratch,
 	return child == nil || !nodeHasDirectFieldID(child, fid)
 }
 
-func (p *Parser) buildReduceChildrenNoAliasNoFieldsStreaming(entries []stackEntry, start, end int, parentSymbol Symbol, symbolMeta []SymbolMetadata, arena *nodeArena) ([]*Node, []FieldID, []uint8, reduceChildPath) {
-	visibleCount := 0
-	allVisible := true
-	for i := start; i < end; i++ {
-		n := stackEntryNode(entries[i])
-		if n == nil {
-			continue
-		}
-		visible := true
-		if idx := int(n.symbol); idx < len(symbolMeta) {
-			visible = symbolMeta[n.symbol].Visible
-		}
-		if !visible {
-			allVisible = false
-			break
-		}
-		visibleCount++
-	}
-	if allVisible {
-		if visibleCount == 0 {
-			return nil, nil, nil, reduceChildPathNone
-		}
-		children := arena.allocNodeSliceNoClear(visibleCount)
-		arena.recordReduceChildSliceNoAlias(visibleCount)
-		if perfCountersEnabled {
-			perfRecordReduceChildrenNoAlias(visibleCount)
-		}
-		out := 0
-		for i := start; i < end; i++ {
-			n := stackEntryNode(entries[i])
-			if n == nil {
-				continue
-			}
-			children[out] = n
-			out++
-		}
-		return children, nil, nil, reduceChildPathNoAlias
-	}
-
-	var scratch *reduceBuildScratch
-	if p != nil && p.reduceScratch != nil {
-		scratch = p.reduceScratch
-	} else {
-		scratch = &reduceBuildScratch{}
-	}
-	scratch.reset()
-
-	parentVisible := true
-	if idx := int(parentSymbol); idx < len(symbolMeta) {
-		parentVisible = symbolMeta[parentSymbol].Visible
-	}
-	for i := start; i < end; i++ {
-		n := stackEntryNode(entries[i])
-		if n == nil {
-			continue
-		}
-		visible := true
-		if idx := int(n.symbol); idx < len(symbolMeta) {
-			visible = symbolMeta[n.symbol].Visible
-		}
-		if visible {
-			scratch.appendNode(n)
-			continue
-		}
-		if parentVisible {
-			appendFlattenedHiddenChildrenToScratch(scratch, n, symbolMeta)
-			continue
-		}
-		if len(n.children) == 0 {
-			continue
-		}
-		scratch.appendNode(n)
-	}
-	if perfCountersEnabled {
-		perfRecordReduceScratchNoAlias(len(scratch.nodes))
-	}
-	arena.recordReduceChildSliceScratchNoAlias(len(scratch.nodes))
-	children := p.materializeNoFieldReduceChildrenFromScratch(scratch, arena)
-	path := reduceChildPathNone
-	if len(children) > 0 {
-		path = reduceChildPathScratchNoAlias
-	}
-	return children, nil, nil, path
-}
-
 func (p *Parser) shouldSuppressVisibleDirectField(n *Node, fid FieldID) bool {
 	if p == nil || p.language == nil || n == nil || fid == 0 {
 		return false
@@ -3734,6 +3795,9 @@ func (p *Parser) shouldSuppressVisibleDirectField(n *Node, fid FieldID) bool {
 
 func (p *Parser) suppressReducedChildFields(children []*Node, fieldIDs []FieldID, fieldSources []uint8) {
 	if p == nil || len(children) == 0 || len(fieldIDs) == 0 {
+		return
+	}
+	if p.language == nil || p.language.Name != "dart" {
 		return
 	}
 	limit := len(children)
@@ -4146,7 +4210,7 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 		if timing != nil {
 			noTreeStart = time.Now()
 		}
-		if !s.truncate(window.start) {
+		if !s.truncateBeforePush(window.start) {
 			if timing != nil {
 				timing.reduceNoTreeBuildNanos += time.Since(noTreeStart).Nanoseconds()
 			}
@@ -4163,7 +4227,7 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 	}
 	if p.usePendingFullParents() {
 		if child, ok := p.collapsibleRawUnarySelfReductionEntry(act, tok, arena, entries, window.start, window.reducedEnd); ok {
-			if !s.truncate(window.start) {
+			if !s.truncateBeforePush(window.start) {
 				s.dead = true
 				return
 			}
@@ -4191,7 +4255,7 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 	}
 
 	if child := p.collapsibleRawUnarySelfReduction(act, tok, arena, entries, window.start, window.reducedEnd); child != nil {
-		if !s.truncate(window.start) {
+		if !s.truncateBeforePush(window.start) {
 			s.dead = true
 			return
 		}
@@ -4214,7 +4278,7 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 	trailingEnd := window.actualEnd
 
 	// Pop all reduced entries in one step after collection.
-	if !s.truncate(window.start) {
+	if !s.truncateBeforePush(window.start) {
 		s.dead = true
 		return
 	}
@@ -4326,7 +4390,7 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 		if timing != nil {
 			noTreeStart = time.Now()
 		}
-		if !s.truncate(window.start) {
+		if !s.truncateBeforePush(window.start) {
 			if timing != nil {
 				timing.reduceNoTreeBuildNanos += time.Since(noTreeStart).Nanoseconds()
 			}
@@ -4343,7 +4407,7 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 	}
 	if p.usePendingFullParents() {
 		if child, ok := p.collapsibleRawUnarySelfReductionEntry(act, tok, arena, entries, window.start, window.reducedEnd); ok {
-			if !s.truncate(window.start) {
+			if !s.truncateBeforePush(window.start) {
 				s.dead = true
 				return
 			}
@@ -4371,7 +4435,7 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 	}
 
 	if child := p.collapsibleRawUnarySelfReduction(act, tok, arena, entries, window.start, window.reducedEnd); child != nil {
-		if !s.truncate(window.start) {
+		if !s.truncateBeforePush(window.start) {
 			s.dead = true
 			return
 		}
@@ -4393,7 +4457,7 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 	trailingStart := window.reducedEnd
 	trailingEnd := window.actualEnd
 
-	if !s.truncate(window.start) {
+	if !s.truncateBeforePush(window.start) {
 		s.dead = true
 		return
 	}

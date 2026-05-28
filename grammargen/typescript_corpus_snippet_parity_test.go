@@ -34,6 +34,10 @@ func TestTypeScriptCorpusSnippetParity(t *testing.T) {
 			src:  "a.b<[C]>();\na<C.D[]>();\n",
 		},
 		{
+			name: "generic_call_statement_no_arguments",
+			src:  "function f() {\n  identifiers = createMap<string>();\n}\n",
+		},
+		{
 			name: "import_alias_assignment",
 			src:  "import r = X.N;\n",
 		},
@@ -132,6 +136,10 @@ func TestTypeScriptCorpusSnippetParity(t *testing.T) {
 		{
 			name: "template_literal_types_corpus_block_exact",
 			src:  "type A<B, C> = `${B}${C}`;\ntype A = `${B[0]}-foo-${C}-bar-${D<U, D>}`\ntype A = `[${'a'}${0}]`\ntype A<B, C> = B extends C\n  ? C extends string\n    ? `${C}${\"\" extends C ? \"\" : \".\"}${B}`\n    : never\n  : never\ntype Trim<S extends string> = S extends `${infer R}` ? Trim<R>  : S;\ntype A = `${true & ('foo' | false)}`;\ntype StringToNumber<S extends string> = S extends `${infer N extends number}` ? N : never;\n",
+		},
+		{
+			name: "object_types_mapped_index_corpus_block_exact",
+			src:  "let person: {name: string, age: number};\nlet thing: { [type: string]: string };\ntype T = { [K in keyof T]-?: any }\ntype T = { [K in keyof T]?: any }\ntype T = { -readonly [K in keyof T]: any }\n",
 		},
 		{
 			name: "enum_declarations_corpus_block_exact",
@@ -253,6 +261,7 @@ func TestTypeScriptDirectCRegressionDeepParity(t *testing.T) {
 		{name: "decorated_class_declaration", src: "@baz @bam class Foo {\n    @foo static 2: string;\n    @bar.buzz(grue) public static 2: string = 'string';\n    @readonly readonly 'hello'?: int = 'string';\n    @readonly fooBar(@required param: any, @optional param2?: any) {\n    }\n}\n"},
 		{name: "decorator_call_type_arguments_in_class", src: "class Foo {\n  @bar<T>()\n  method() {\n  }\n}\n"},
 		{name: "namespace_constructor_type_variable", src: "namespace ts {\n    const enum SignatureFlags {\n        None = 0,\n    }\n    let NodeConstructor: new (kind: SyntaxKind, pos: number, end: number) => Node;\n}\n"},
+		{name: "commented_namespace_constructor_type_variable", src: "/// <reference path=\"utilities.ts\"/>\n/// <reference path=\"scanner.ts\"/>\n\nnamespace ts {\n    const enum SignatureFlags {\n        None = 0,\n    }\n    let NodeConstructor: new (kind: SyntaxKind, pos: number, end: number) => Node;\n}\n"},
 		{name: "namespace_export_function_default_optional_parameter", src: "namespace ts {\n    export function createSourceFile(fileName: string, sourceText: string, languageVersion: ScriptTarget, setParentNodes = false, scriptKind?: ScriptKind): SourceFile {\n        return result;\n    }\n}\n"},
 		{name: "function_default_optional_parameter", src: "function createSourceFile(fileName: string, sourceText: string, languageVersion: ScriptTarget, setParentNodes = false, scriptKind?: ScriptKind): SourceFile {\n    return result;\n}\n"},
 		{name: "logical_and_unary_call_chain", src: "if (!noConditionalTypes && !scanner.hasPrecedingLineBreak() && parseOptional(SyntaxKind.ExtendsKeyword)) {\n}\n"},

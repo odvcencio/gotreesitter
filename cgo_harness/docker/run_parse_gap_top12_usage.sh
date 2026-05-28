@@ -14,5 +14,6 @@ LABEL="top12-usage-ring"
   --modes "$MODES" \
   --corpus "$CORPUS" \
   --queries "$QUERIES" \
+  --require-parity-langs "typescript" \
   --label "$LABEL" \
   "$@"

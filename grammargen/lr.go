@@ -3374,7 +3374,13 @@ func preferredArithmeticExpressionContinuation(lookaheadSym int, shifts, reduces
 		case "binary_expression", "unary_expression", "ternary_expression", "postfix_expression", "parenthesized_expression":
 			expressionReduces = append(expressionReduces, reduce)
 		default:
-			return lrAction{}, false
+			// Skip unrelated reduces — they're chain-reductions through
+			// supertypes/wrappers (e.g. `_query → binary_expression`) that
+			// shouldn't override the operator-precedence-driven choice. The
+			// LR state machine will still chain-reduce them via GOTO after
+			// the expression reduce wins. Bailing out here let an unrelated
+			// prec=0 reduce dominate the shift comparison.
+			continue
 		}
 	}
 	if len(expressionReduces) == 0 {
