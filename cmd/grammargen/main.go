@@ -6,15 +6,22 @@
 //
 // Input sources:
 //
-//	<name>        Built-in grammar (json, calc, glr, go, js, ts, tsx, fortran, etc.)
-//	-js <path>    Import a tree-sitter grammar.js file
-//	-json <path>  Import a resolved tree-sitter grammar.json file
+//	<name>          Built-in grammar (json, calc, glr, go, js, ts, tsx, fortran, etc.)
+//	-js <path>      Import a tree-sitter grammar.js file
+//	-json <path>    Import a resolved tree-sitter grammar.json file
+//	-grammar <path> Parse a portable .grammar file
 //
 // Output formats:
 //
-//	-bin <path>    Write gotreesitter .bin blob
-//	-c <path>      Write tree-sitter parser.c
-//	-go <path>     Write grammargen Go DSL source
+//	-bin <path>      Write gotreesitter .bin blob
+//	-c <path>        Write tree-sitter parser.c
+//	-go <path>       Write grammargen Go DSL source
+//	-json-out <path> Write resolved grammar.json (emit subcommand)
+//
+// Authoring helpers:
+//
+//	parse      Parse a sample and print text, S-expression, or JSON output
+//	doctor     Validate, generate, test, parse samples, and report next steps
 //
 // Other flags:
 //
@@ -71,6 +78,11 @@ type cliConfig struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && isSubcommand(os.Args[1]) {
+		runSubcommand(os.Args[1], os.Args[2:])
+		return
+	}
+
 	cfg := parseCLIConfig()
 	if cfg.list {
 		runListMode()
@@ -96,6 +108,10 @@ func main() {
 
 func parseCLIConfig() cliConfig {
 	var cfg cliConfig
+	flag.Usage = func() {
+		printUsageError()
+		flag.PrintDefaults()
+	}
 	flag.StringVar(&cfg.binOut, "bin", "", "output path for gotreesitter .bin blob")
 	flag.StringVar(&cfg.cOut, "c", "", "output path for tree-sitter parser.c")
 	flag.StringVar(&cfg.goOut, "go", "", "output path for grammargen Go DSL source")
@@ -290,6 +306,9 @@ func printUsageError() {
 	fmt.Fprintln(os.Stderr, "       grammargen -js <grammar.js> [flags]")
 	fmt.Fprintln(os.Stderr, "       grammargen -json <grammar.json> [flags]")
 	fmt.Fprintln(os.Stderr, "       grammargen -grammar <file.grammar> [flags]")
+	fmt.Fprintln(os.Stderr, "       grammargen emit [flags] <grammar-name>")
+	fmt.Fprintln(os.Stderr, "       grammargen parse [flags] <grammar-name>")
+	fmt.Fprintln(os.Stderr, "       grammargen doctor [flags] <grammar-name>")
 	fmt.Fprintln(os.Stderr, "run with -list to see available built-in grammars")
 }
 

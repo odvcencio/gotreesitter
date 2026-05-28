@@ -906,7 +906,7 @@ func MarkdownGrammar() *Grammar {
 					Sym("link_title"))),
 				Blank()),
 			Choice(
-				Sym("_newline"),
+				Sym("_link_reference_definition_newline"),
 				Sym("_soft_line_break"),
 				Sym("_eof")))))
 
@@ -987,7 +987,7 @@ func MarkdownGrammar() *Grammar {
 		Seq(
 			Sym("_blank_line_start"),
 			Choice(
-				Sym("_newline"),
+				Sym("_blank_line_newline"),
 				Sym("_eof"))))
 
 	// block-quote introduced by > marker
@@ -1275,6 +1275,38 @@ func MarkdownGrammar() *Grammar {
 	// identical to _newline; only the name differs (same pattern as
 	// _indented_chunk_newline and _html_block_newline introduced by fbc52a58).
 	g.Define("_fenced_code_block_newline",
+		Seq(
+			Sym("_line_ending"),
+			Choice(
+				Sym("block_continuation"),
+				Blank())))
+
+	// newline terminating a link_reference_definition — structurally identical
+	// to _newline but with a distinct rule name so its LR items stay separate
+	// from the fenced_code_block-body _newline/_close_block context. Without
+	// this split, the link-ref-def boundary state and the fence-body close
+	// state merge into a single LALR state whose valid_symbols include both
+	// block_continuation (shift) and _close_block; the bundled scanner's eager
+	// _close_block then either collapses consecutive link-ref-defs into a
+	// paragraph (if _close_block is offered) or eats the fence body (if it is
+	// suppressed). Splitting the terminator gives each context its own state,
+	// so the choice is unambiguous and no scanner-state suppression is needed.
+	// Same de-merge pattern as _paragraph_newline / _fenced_code_block_newline.
+	g.Define("_link_reference_definition_newline",
+		Seq(
+			Sym("_line_ending"),
+			Choice(
+				Sym("block_continuation"),
+				Blank())))
+
+	// newline closing a _blank_line — structurally identical to _newline but
+	// distinct so the blank-line-after-a-block state (e.g. paragraph then blank
+	// then link_reference_definition) does not merge with the fenced_code_block
+	// body-close state. Both otherwise reduce the shared _newline with a
+	// block_continuation shift and collapse into one LALR state where the
+	// bundled scanner's eager _close_block can't be cleanly suppressed for one
+	// without breaking the other. Same de-merge pattern as _paragraph_newline.
+	g.Define("_blank_line_newline",
 		Seq(
 			Sym("_line_ending"),
 			Choice(

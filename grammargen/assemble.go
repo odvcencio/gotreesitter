@@ -760,20 +760,18 @@ func buildExternalLexStates(lang *gotreesitter.Language, tables *LRTables, ng *N
 	pipeTableLineEndingSymID := -1
 	lineEndingSymID := -1
 	pipeTableContentSymIDs := make([]int, 0, 4) // _word, _whitespace
-	// Markdown-specific: track `_close_block` and the fence end-delimiter
-	// externals. The markdown scanner emits `_close_block` eagerly whenever
-	// it is in valid_symbols (see markdown_scanner.go: `if
-	// isValid(mdTokCloseBlock) { lexer.SetResultSymbol(mdSymCloseBlock) }`
-	// near the top of `mdScan`). LALR merging puts `_close_block` in
-	// valid_symbols for states where the parser is still inside a fence
-	// body and a fence end delimiter could still come — when that happens
-	// the scanner's eager branch fires `_close_block`, completing the fence
-	// rule prematurely so the body becomes a `paragraph` and the closing
-	// ``` becomes a fresh fence wrapper. To suppress this, we treat
-	// `_close_block` as invalid in any state that also offers a fence end
-	// delimiter as a SHIFT action.
+	// Markdown-specific: track `_close_block` and `block_continuation`. The
+	// bundled markdown scanner emits `_close_block` eagerly whenever it is in
+	// valid_symbols (markdown_scanner.go, near `mdScan`:
+	// `if isValid(mdTokCloseBlock) { lexer.SetResultSymbol(mdSymCloseBlock) }`).
+	// In the fenced_code_block-body state, LALR puts `_close_block` into the
+	// `_newline`-reduce lookahead, so the scanner fires it prematurely — the
+	// body becomes a `paragraph` and the closing ``` a fresh fence wrapper. We
+	// suppress `_close_block` in exactly that state; the discriminator is a
+	// `block_continuation` SHIFT (only the fence/container-body state can
+	// consume a continuation marker). See the suppression site below.
 	closeBlockSymID := -1
-	fencedCodeEndSymIDs := make([]int, 0, 2)
+	blockContinuationSymID := -1
 	for sym := 0; sym < tokenCount; sym++ {
 		if _, isExt := extSymSet[sym]; isExt {
 			switch ng.Symbols[sym].Name {
@@ -783,25 +781,14 @@ func buildExternalLexStates(lang *gotreesitter.Language, tables *LRTables, ng *N
 				lineEndingSymID = sym
 			case "_close_block":
 				closeBlockSymID = sym
+			case "block_continuation":
+				blockContinuationSymID = sym
 			}
 			continue
 		}
 		switch ng.Symbols[sym].Name {
 		case "_word", "_whitespace":
 			pipeTableContentSymIDs = append(pipeTableContentSymIDs, sym)
-		}
-	}
-	// Fence end delimiters are aliased to `fenced_code_block_delimiter` at
-	// every use site, so their symbol names are canonicalized away during
-	// normalization. Look them up by their declared name (preserved on
-	// ng.OriginalExternalNames) via the external token index.
-	for i, name := range ng.OriginalExternalNames {
-		if i >= len(ng.ExternalSymbols) {
-			break
-		}
-		switch name {
-		case "_fenced_code_block_end_backtick", "_fenced_code_block_end_tilde":
-			fencedCodeEndSymIDs = append(fencedCodeEndSymIDs, ng.ExternalSymbols[i])
 		}
 	}
 
@@ -904,27 +891,39 @@ func buildExternalLexStates(lang *gotreesitter.Language, tables *LRTables, ng *N
 							}
 						}
 					}
-					// Suppress `_close_block` when LALR has lifted it into
-					// the reduce-lookahead set of a `_newline` reduction.
-					// In those states the parser would reduce `_newline`
-					// (consumed by some surrounding context) on `_close_block`
-					// lookahead — but inside a fenced_code_block body, the
-					// scanner's eager `isValid(mdTokCloseBlock)` branch (see
-					// markdown_scanner.go near `mdScan`) fires `_close_block`
-					// the moment it appears in valid_symbols, short-circuiting
-					// the fence body parse so the closing ``` becomes a fresh
-					// fence wrapper and the body becomes a `paragraph`.
-					// Marking `_close_block` invalid in these reduce-only
-					// merged states forces the scanner to fall through to
-					// content parsing instead. This is a markdown-specific
-					// LALR merge artifact, analogous to the
-					// `_pipe_table_line_ending` suppression above.
-					if !suppressed && symID == closeBlockSymID && actionsAreReduceOnly(actionList) {
-						for _, a := range actionList {
-							lhs := a.lhsSym
-							if lhs >= 0 && lhs < len(ng.Symbols) && ng.Symbols[lhs].Name == "_newline" {
-								suppressed = true
-								break
+					// Suppress `_close_block` in the fenced_code_block-body state.
+					// After the `_link_reference_definition_newline` grammar split,
+					// link-reference-definition boundaries no longer reduce the
+					// shared `_newline` with `_close_block` in lookahead, so the
+					// only reduce-only `_newline` state that also offers a
+					// `block_continuation` SHIFT is the fence/container body. The
+					// bundled scanner's eager `_close_block` (see the collection
+					// comment above) would otherwise fire there and truncate the
+					// fence body into a paragraph. A `block_continuation` SHIFT is
+					// the discriminator: genuine block boundaries (e.g. between
+					// consecutive link reference definitions) reduce on
+					// `block_continuation` instead and must keep `_close_block`.
+					if !suppressed && symID == closeBlockSymID &&
+						blockContinuationSymID >= 0 && actionsAreReduceOnly(actionList) {
+						// A reduce-only `_close_block` state that also offers a
+						// `block_continuation` SHIFT is a fenced_code_block /
+						// container body: the parser can consume a continuation
+						// marker to keep reading the body, and the bundled
+						// scanner's eager `_close_block` would otherwise truncate
+						// it. Genuine block boundaries (e.g. between consecutive
+						// link reference definitions, or a blank line closing a
+						// block) either SHIFT `_close_block` or have no
+						// `block_continuation` shift, so they keep it. After the
+						// `_link_reference_definition_newline` / `_blank_line_newline`
+						// grammar splits, the fence-body state is the ONLY
+						// reduce-only `_close_block` state with a
+						// `block_continuation` shift, so this is exact.
+						if bcActs, ok := acts[blockContinuationSymID]; ok {
+							for _, a := range bcActs {
+								if a.kind == lrShift {
+									suppressed = true
+									break
+								}
 							}
 						}
 					}

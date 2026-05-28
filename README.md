@@ -272,13 +272,13 @@ cpu: Intel(R) Core(TM) Ultra 9 285
 |---|---:|---:|---:|
 | Native C (pure C runtime) | 1.76 ms | 102.3 μs | 101.7 μs |
 | CGo binding (C runtime via cgo) | ~2.0 ms | ~130 μs | — |
-| gotreesitter (pure Go) | 1.98 ms | 666 ns | 2.84 ns |
+| gotreesitter (pure Go) | 1.54 ms | 649 ns | 2.43 ns |
 
 On this workload:
 
-- Full parse is roughly at CGo binding speed and ~1.1x slower than native C.
-- Incremental single-byte edits are ~154x faster than native C (~195x faster than CGo).
-- No-edit reparses are ~35,900x faster than native C, zero allocations.
+- Full parse is faster than both listed C baselines: ~1.15x faster than native C and ~1.29x faster than the CGo binding.
+- Incremental single-byte edits are ~158x faster than native C (~200x faster than CGo).
+- No-edit reparses are ~41,800x faster than native C, zero allocations.
 
 <details>
 <summary>Raw benchmark output</summary>
@@ -306,9 +306,9 @@ GOMAXPROCS=1 go test . -run '^$' -tags treesitter_c_bench \
 | Native C incremental (no edit) | 101,740 | — | — |
 | `CTreeSitterGoParseFull` | ~1,990,000 | 600 | 6 |
 | `CTreeSitterGoParseIncrementalSingleByteEdit` | ~130,000 | 648 | 7 |
-| `GoParseFullDFA` | 1,975,154 | 4,281 | 5 |
-| `GoParseIncrementalSingleByteEditDFA` | 666.5 | 176 | 3 |
-| `GoParseIncrementalNoEditDFA` | 2.837 | 0 | 0 |
+| `GoParseFullDFA` | 1,538,089 | 728 | 7 |
+| `GoParseIncrementalSingleByteEditDFA` | 648.9 | 176 | 3 |
+| `GoParseIncrementalNoEditDFA` | 2.432 | 0 | 0 |
 
 </details>
 
@@ -364,7 +364,7 @@ Each `LangEntry` carries a `Quality` field:
 | `#any-of?` / `#not-any-of?` | supported |
 | `#lua-match?` | supported |
 | `#has-ancestor?` / `#not-has-ancestor?` | supported |
-| `#not-has-parent?` | supported |
+| `#has-parent?` / `#not-has-parent?` | supported |
 | `#is?` / `#is-not?` | supported |
 | `#any-eq?` / `#any-not-eq?` | supported |
 | `#any-match?` / `#any-not-match?` | supported |
@@ -377,7 +377,7 @@ All shipped highlight and tags queries compile (`156/156` highlight, `69/69` tag
 
 ## Known limitations
 
-- **Full-parse throughput**: ~2.4x slower than the C runtime on cold full parses (the 500-function Go benchmark). Incremental reparsing — the dominant operation in editor workloads — is 69x faster.
+- **Full-parse throughput**: the 500-function Go benchmark is now faster than the listed C baselines, but full-parse throughput still varies by grammar and corpus shape. Highly ambiguous languages and very large generated files remain the main parity/performance frontier.
 - **GLR safety caps**: The parser enforces iteration, stack depth, and node count limits proportional to input size. These prevent pathological blowup on grammars with high ambiguity but impose a ceiling on the maximum input complexity that parses without error. The caps are tunable but not removable without risking unbounded resource consumption.
 
 ## Adding a language
@@ -551,6 +551,24 @@ Test suite covers: smoke tests (206 grammars), golden S-expression snapshots, hi
 
 ## Roadmap
 
+v0.19.x — GLR materialization, query parity, and parser hot-path release.
+Compact/lazy final child refs now survive parser result assembly and public tree
+operations, so queries, cursors, edits, descendant lookup, and traversal can
+avoid broad eager materialization. Nested repeated query patterns now preserve
+tree-sitter-compatible match rows, including downstream Kotlin Orion queries
+such as `source_file -> import_list -> import_header`. The release also adds
+reduce-chain hints, GLR/action/result timing attribution, parse-gap reporting,
+and full-parse scratch tuning while restoring compatibility shapes for Go,
+JavaScript/TypeScript, Python, Rust, C, and Java edge cases.
+
+v0.18.x — Cold dependency extraction and parser materialization diagnostics
+release. Adds language-neutral import extraction APIs, source-vs-tree import
+parity fixtures, `cgo_harness/cmd/import_replay`, Python materialization
+benchmarks, and parser runtime attribution for arena usage, checkpoint storage,
+reduction/transient storage, final tree materialization, normalization timing,
+and GLR collapse behavior. Hybrid source extraction now gives downstream
+dependency scanners a fast path with structured fallback reporting.
+
 v0.17.x — Java corpus parity and parser-performance release. Java now has
 bounded Docker corpus lanes for Apache Lucene, including largest-file, random,
 timeout-sweep, cgo comparison, no-tree diagnostic, UAX generated-file,
@@ -578,8 +596,6 @@ v0.14.x — Go grammar now shipped as a grammargen-compiled blob (our own pure-G
 v0.12.x — 206 grammars (all OK), 116 external scanners, pure-Go runtime plus `grammargen`, ABI 15 support including reserved-word sets, GLR parser, incremental reparsing with external scanner checkpoints, query engine, tree cursor, highlighting, tagging, injection parser, typed query codegen, CST rewriter, parser pool, arena memory budgets, and structural parity against 100+ curated C reference grammars.
 
 Next:
-- Compact/lazy internal tree materialization so Java full parses keep more of
-  the no-tree diagnostic win without moving excessive cost into query/traversal
 - Retire parser-result struts by moving C#, Rust, Scala, TypeScript, and Python recovery into runtime or grammar generation paths
 - Grammar refresh automation that moves from lock-only PRs to regenerated artifacts and focused parity for allow-listed `grammargen`-backed languages
 - Table-size and codegen compaction work for Unicode-heavy grammars

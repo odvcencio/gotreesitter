@@ -99,12 +99,6 @@ type NormalizedGrammar struct {
 
 	// External scanner support (populated when Grammar.Externals is set).
 	ExternalSymbols []int // external token index → symbol ID
-	// OriginalExternalNames preserves the declared names of external tokens
-	// before any alias-driven canonicalization. Used by
-	// buildExternalLexStates to look up specific externals (e.g. markdown
-	// fence end delimiters) that get renamed when every use site aliases
-	// them to a common name (see canonicalizeAliasedExternalSymbols).
-	OriginalExternalNames []string // external token index → declared name
 
 	ExactPrefixStates int
 
@@ -427,10 +421,8 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 
 	// Phase 2c: Register external scanner symbols.
 	var externalSymbols []int
-	var originalExternalNames []string
 	if len(g.Externals) > 0 {
 		externalSymbols = registerExternalSymbols(g, st)
-		originalExternalNames = collectOriginalExternalNames(g)
 	}
 
 	// Record token count (terminals end here, before nonterminals).
@@ -670,7 +662,6 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	ng.KeywordEntries = keywordEntries
 	ng.ReservedWordSets = reservedWordSets
 	ng.ExternalSymbols = externalSymbols
-	ng.OriginalExternalNames = originalExternalNames
 	ng.ExactPrefixStates = g.ExactPrefixStates
 	// promoteDefaultAliases may have renamed hidden symbols (e.g.
 	// `_setext_heading1` → `setext_heading`). g.Precedences is keyed by the
@@ -2184,26 +2175,6 @@ func registerExtraTerminals(g *Grammar, st *symbolTable) {
 			})
 		}
 	}
-}
-
-// collectOriginalExternalNames captures the declared names of external
-// tokens before any alias-driven canonicalization renames them. The result
-// is aligned with the ExternalSymbols index so external token index `i`
-// maps to its declared name.
-func collectOriginalExternalNames(g *Grammar) []string {
-	names := make([]string, 0, len(g.Externals))
-	for _, ext := range g.Externals {
-		if ext == nil {
-			continue
-		}
-		switch ext.Kind {
-		case RuleSymbol, RuleString:
-			names = append(names, ext.Value)
-		default:
-			names = append(names, "")
-		}
-	}
-	return names
 }
 
 // registerExternalSymbols registers external scanner symbols from g.Externals.
