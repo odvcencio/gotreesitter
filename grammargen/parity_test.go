@@ -2507,7 +2507,12 @@ func init() {
 		{name: "less", blobFunc: grammars.LessLanguage, expectNoErrors: 1},
 		{name: "liquid", blobFunc: grammars.LiquidLanguage, expectNoErrors: 1, expectParity: 1},
 		{name: "luau", blobFunc: grammars.LuauLanguage, timeout: 60 * time.Second, expectNoErrors: 1},
-		{name: "markdown_inline", blobFunc: grammars.MarkdownInlineLanguage, timeout: 60 * time.Second, expectNoErrors: 1, expectParity: 1,
+		// markdown_inline is a cost outlier: grammargen builds ~123k LR states and
+		// peaks ~3.2GB RSS for it. Generation is correct (1/1 parity) and takes
+		// ~20s in isolation on a fast host, but under full-suite CI memory pressure
+		// it can exceed a tight deadline. 300s matches the hlsl outlier budget and
+		// leaves CI margin. Do NOT lower back to 60s without re-measuring on CI.
+		{name: "markdown_inline", blobFunc: grammars.MarkdownInlineLanguage, timeout: 300 * time.Second, expectNoErrors: 1, expectParity: 1,
 			jsonPath: "/tmp/grammar_parity/markdown/tree-sitter-markdown-inline/src/grammar.json"},
 		{name: "matlab", blobFunc: grammars.MatlabLanguage, timeout: 60 * time.Second, expectNoErrors: 1, expectParity: 1},
 		{name: "mojo", blobFunc: grammars.MojoLanguage, timeout: 60 * time.Second, expectNoErrors: 1},
