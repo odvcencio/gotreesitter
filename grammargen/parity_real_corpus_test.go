@@ -407,10 +407,7 @@ func TestMultiGrammarImportRealCorpusParity(t *testing.T) {
 						metrics.SExprParity++
 					}
 					if len(divs) > 0 {
-						if !sexprMatch && requireParity {
-							t.Fatalf("sample %d (%s:%s) deep parity mismatch: %s\nGEN: %s\nREF: %s",
-								i, cand.Source, cand.Path, divs[0].String(), genSexp, refSexp)
-						} else if mismatchLogs < 25 {
+						if mismatchLogs < 25 {
 							mismatchLogs++
 							t.Logf("sample %d (%s:%s) deep mismatch: %s", i, cand.Source, cand.Path, divs[0].String())
 							if divs[0].Category == "type" && (divs[0].GenValue == "" || divs[0].RefValue == "") {
@@ -505,6 +502,17 @@ func TestMultiGrammarImportRealCorpusParity(t *testing.T) {
 				metrics.DeepParity, metrics.Eligible,
 				divSummary,
 				requireParity, seen, len(candidates))
+			if requireParity &&
+				(metrics.NoError != metrics.Eligible ||
+					metrics.SExprParity != metrics.Eligible ||
+					metrics.DeepParity != metrics.Eligible) {
+				t.Errorf("real-corpus[%s] required parity failed: no-error %d/%d, sexpr parity %d/%d, deep parity %d/%d%s",
+					profile,
+					metrics.NoError, metrics.Eligible,
+					metrics.SExprParity, metrics.Eligible,
+					metrics.DeepParity, metrics.Eligible,
+					divSummary)
+			}
 		})
 		// Force GC between grammars to release large LR/DFA tables.
 		runtime.GC()

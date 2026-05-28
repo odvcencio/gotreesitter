@@ -2,6 +2,74 @@ package gotreesitter
 
 import "testing"
 
+func TestBuildReduceChainHintsUsesLanguageMetadata(t *testing.T) {
+	t.Setenv("GOT_GLR_REDUCE_CHAIN_HINTS", "1")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	lang := &Language{
+		Name:        "python",
+		StateCount:  10,
+		SymbolCount: 10,
+		SymbolNames: []string{
+			"", "", "", "", "", "", "", "", "", "",
+		},
+		ReduceChainHints: []ReduceChainHint{{
+			StartState:     StateID(3),
+			Lookahead:      Symbol(2),
+			TerminalStates: []StateID{StateID(4), StateID(5)},
+			TerminalAction: ReduceChainTerminalSingleShift,
+			MaxSteps:       7,
+		}},
+	}
+
+	got := buildReduceChainHints(lang)
+	if len(got) != 1 {
+		t.Fatalf("hint count = %d, want 1", len(got))
+	}
+	hint := got[0]
+	if hint.startState != StateID(3) || hint.lookahead != Symbol(2) || hint.maxSteps != 7 {
+		t.Fatalf("hint = %+v, want state=3 lookahead=2 maxSteps=7", hint)
+	}
+	if hint.terminalAction != classifiedParseActionSingleShift {
+		t.Fatalf("terminal action = %d, want single shift", hint.terminalAction)
+	}
+	if len(hint.terminalStates) != 2 || hint.terminalStates[0] != StateID(4) || hint.terminalStates[1] != StateID(5) {
+		t.Fatalf("terminal states = %v, want [4 5]", hint.terminalStates)
+	}
+
+	lang.ReduceChainHints[0].TerminalStates[0] = StateID(9)
+	if hint.terminalStates[0] != StateID(4) {
+		t.Fatalf("internal hint terminal states alias language metadata: got %v", hint.terminalStates)
+	}
+}
+
+func TestReduceChainHintForUsesStateIndex(t *testing.T) {
+	p := &Parser{
+		reduceChainHints: []reduceChainHint{
+			{startState: StateID(8), lookahead: Symbol(3), maxSteps: 4},
+			{startState: StateID(10), lookahead: Symbol(4), maxSteps: 5},
+			{startState: StateID(10), lookahead: Symbol(5), maxSteps: 6},
+		},
+	}
+	p.reduceChainHintByState = buildReduceChainHintIndex(p.reduceChainHints)
+
+	hint, ok := p.reduceChainHintFor(StateID(8), Symbol(3))
+	if !ok || hint.maxSteps != 4 {
+		t.Fatalf("hint for state=8 lookahead=3 = %+v, %v; want maxSteps=4, true", hint, ok)
+	}
+	hint, ok = p.reduceChainHintFor(StateID(10), Symbol(5))
+	if !ok || hint.maxSteps != 6 {
+		t.Fatalf("hint for duplicate state=10 lookahead=5 = %+v, %v; want maxSteps=6, true", hint, ok)
+	}
+	if _, ok := p.reduceChainHintFor(StateID(9), Symbol(3)); ok {
+		t.Fatal("unexpected hint for state without entry")
+	}
+	if _, ok := p.reduceChainHintFor(StateID(10), Symbol(6)); ok {
+		t.Fatal("unexpected hint for duplicate state with unmatched lookahead")
+	}
+}
+
 func TestBuildSingleTokenWrapperSymbols(t *testing.T) {
 	lang := &Language{
 		SymbolMetadata: []SymbolMetadata{

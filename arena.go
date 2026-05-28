@@ -76,6 +76,20 @@ type nodeArena struct {
 	// a parse did not borrow any external nodes (full parse without reuse).
 	skipChildClear bool
 	audit          *runtimeAudit
+	// internLeaves observes potential leaf-interning hit rates during the
+	// parse loop, parseState-BLIND (hooked from newLeafNodeInArena before
+	// per-fork state is set). Allocated lazily, reset between parses.
+	// Phase 2 measurement; Phase 3 added the state-aware counterpart.
+	internLeaves *internTable
+	// internLeavesFull is the parseState-AWARE measurement. Hooked at
+	// the shift call sites AFTER parseState/preGotoState are set, so the
+	// hit rate against this table represents truly dedup-safe duplicates.
+	internLeavesFull *internTable
+	// internShiftLeafObserved counts leaves allocated by the shift path.
+	// Those leaves get parseState set per-fork, so they can't be
+	// canonically substituted; the counter is needed to compute the
+	// "safe to dedup" leaf population (total leaves minus shift leaves).
+	internShiftLeafObserved uint64
 
 	nodeSlabs                       []nodeSlab
 	nodeSlabCursor                  int
@@ -480,6 +494,11 @@ func (a *nodeArena) reset() {
 	a.trimPrimaryNodeCapacity()
 	a.ensureDefaultSliceSlabs()
 	a.clearBudget()
+	// Reset the intern observation tables between parses. Both are
+	// allocated lazily on first observation hit when observation is on.
+	a.internLeaves.reset()
+	a.internLeavesFull.reset()
+	a.internShiftLeafObserved = 0
 }
 
 func (a *nodeArena) resetPrimaryNodes() {
@@ -1257,7 +1276,13 @@ func (a *nodeArena) allocNodeSliceInternal(n int, clearOut bool) []*Node {
 		start := slab.used
 		slab.used += n
 		a.childSlabCursor = i
-		out := slab.data[start:slab.used]
+		// Cap the slice at its length: callers may `append` to a node's
+		// children, and the slab is shared across many parents. Without
+		// the 3-index expression the spare capacity reaches into the next
+		// parent's children — an in-place append then silently overwrites
+		// downstream nodes (e.g. JS while_statement.Child(0) becoming the
+		// closing `}` of its own body).
+		out := slab.data[start:slab.used:slab.used]
 		// Full-parse arena reset can skip bulk child-slab clearing to avoid
 		// large memclr work on release. Zero the slice on allocation so reused
 		// child slabs never leak stale child pointers into later parses.
@@ -1298,7 +1323,11 @@ func (a *nodeArena) allocFieldIDSlice(n int) []FieldID {
 		start := slab.used
 		slab.used += n
 		a.fieldSlabCursor = i
-		out := slab.data[start:slab.used]
+		// Cap at len: callers (e.g. parser_result_scala_compilation.go) reslice
+		// then append on parent.fieldIDs. Without the 3-index expression the
+		// spare slab capacity would let those appends silently overwrite the
+		// next parent's fieldIDs. Same defect class as allocNodeSlice.
+		out := slab.data[start:slab.used:slab.used]
 		clear(out)
 		return out
 	}
@@ -1335,7 +1364,8 @@ func (a *nodeArena) allocFieldSourceSlice(n int) []uint8 {
 		start := slab.used
 		slab.used += n
 		a.fieldSourceSlabCursor = i
-		out := slab.data[start:slab.used]
+		// Cap at len for the same reason as allocFieldIDSlice — see comment above.
+		out := slab.data[start:slab.used:slab.used]
 		clear(out)
 		return out
 	}

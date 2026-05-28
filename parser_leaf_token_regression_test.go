@@ -310,6 +310,86 @@ func TestParseTSXJSXSelfClosingAttributeExpression(t *testing.T) {
 	}
 }
 
+func TestParseTSXGenericCallUnionTypeArgument(t *testing.T) {
+	for _, src := range []string{
+		"const [error, setError] = useState<string | null>(null);\n",
+		"const [value, setValue] = useState<string | undefined>(() => undefined);\n",
+	} {
+		t.Run(src, func(t *testing.T) {
+			tree, lang := parseLanguageSample(t, "tsx", src)
+			t.Cleanup(tree.Release)
+
+			root := tree.RootNode()
+			pos := strings.Index(src, "useState")
+			if pos < 0 {
+				t.Fatal("useState not found in sample")
+			}
+			node := root.NamedDescendantForByteRange(uint32(pos), uint32(pos+len("useState")))
+			if node == nil {
+				t.Fatal("missing useState descendant")
+			}
+			var call *gotreesitter.Node
+			for cur := node; cur != nil; cur = cur.Parent() {
+				if cur.Type(lang) == "call_expression" {
+					call = cur
+					break
+				}
+			}
+			if call == nil {
+				t.Fatalf("missing call_expression around useState: %s", root.SExpr(lang))
+			}
+			sexpr := call.SExpr(lang)
+			if !strings.Contains(sexpr, "type_arguments") || !strings.Contains(sexpr, "union_type") || !strings.Contains(sexpr, "literal_type") {
+				t.Fatalf("useState call did not preserve union type arguments: %s", sexpr)
+			}
+		})
+	}
+}
+
+func TestParseTSXOptionalChainKeepsTokenChild(t *testing.T) {
+	src := "const value = elements?.concat(wildcards);\n"
+	tree, lang := parseLanguageSample(t, "tsx", src)
+	t.Cleanup(tree.Release)
+
+	pos := strings.Index(src, "?.")
+	if pos < 0 {
+		t.Fatal("optional chain token not found in sample")
+	}
+	node := tree.RootNode().NamedDescendantForByteRange(uint32(pos), uint32(pos+2))
+	if node == nil {
+		t.Fatal("missing optional_chain descendant")
+	}
+	for node != nil && node.Type(lang) != "optional_chain" {
+		node = node.Parent()
+	}
+	if node == nil {
+		t.Fatalf("missing optional_chain node: %s", tree.RootNode().SExpr(lang))
+	}
+	if got, want := node.ChildCount(), 1; got != want {
+		t.Fatalf("optional_chain child count = %d, want %d; root=%s", got, want, tree.RootNode().SExpr(lang))
+	}
+	if child := node.Child(0); child == nil || child.Type(lang) != "?." {
+		if child == nil {
+			t.Fatal("optional_chain token child is nil")
+		}
+		t.Fatalf("optional_chain token child type = %q, want ?.", child.Type(lang))
+	}
+}
+
+func TestParseTSXTypedArrowParameters(t *testing.T) {
+	src := "export const renderTrack = (values: number[], domain: number[], colors: string[]) => { return null; };\n"
+	tree, lang := parseLanguageSample(t, "tsx", src)
+	t.Cleanup(tree.Release)
+
+	root := tree.RootNode()
+	if root.Type(lang) != "program" || root.HasError() {
+		t.Fatalf("typed TSX arrow root = %s hasError=%v; tree=%s", root.Type(lang), root.HasError(), root.SExpr(lang))
+	}
+	if sexpr := root.SExpr(lang); !strings.Contains(sexpr, "arrow_function") || !strings.Contains(sexpr, "formal_parameters") {
+		t.Fatalf("typed TSX arrow did not preserve formal parameters: %s", sexpr)
+	}
+}
+
 func TestParseJavaScriptJSXMultipleAttributesAfterExpression(t *testing.T) {
 	src := "const el = <Foo bar=\"string\" baz={2} data-i8n=\"dialogs.welcome.heading\" bam />\n"
 	tree, lang := parseLanguageSample(t, "javascript", src)

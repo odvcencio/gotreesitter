@@ -572,6 +572,60 @@ type PendingParentFieldRejectPayloadStats struct {
 	HiddenWithFields     uint64
 }
 
+type ParseEquivStateRuntime struct {
+	State                                 StateID
+	StackEquivCalls                       uint64
+	StackEquivTrue                        uint64
+	StackEquivDepthMismatch               uint64
+	StackEquivHashMismatch                uint64
+	StackEquivStateMismatch               uint64
+	StackEquivPayloadMismatch             uint64
+	StackEquivEntryCompares               uint64
+	StackEquivStateMismatchDepthSum       uint64
+	StackEquivStateMismatchMaxDepth       uint32
+	StackEquivStateMismatchDepthBuckets   [stackEquivMismatchDepthBucketCount]uint64
+	StackEquivPayloadMismatchDepthSum     uint64
+	StackEquivPayloadMismatchMaxDepth     uint32
+	StackEquivPayloadMismatchDepthBuckets [stackEquivMismatchDepthBucketCount]uint64
+	StackEquivPayloadHeaderSigDiff        uint64
+	StackEquivPayloadHeaderSigSame        uint64
+	StackEquivPayloadShallowSigDiff       uint64
+	StackEquivPayloadShallowSigSame       uint64
+	StackEquivPairKeyed                   uint64
+	StackEquivPairUnkeyed                 uint64
+	StackEquivPairRepeats                 uint64
+	StackEquivPairRepeatTrue              uint64
+	StackEquivPairRepeatFalse             uint64
+	StackEquivPairRepeatMismatch          uint64
+	StackEquivPairStores                  uint64
+	EquivCacheLookups                     uint64
+	EquivCacheHits                        uint64
+	EquivCacheStores                      uint64
+	EquivCacheMisses                      uint64
+	EquivCacheTrueHits                    uint64
+	EquivCacheFalseHits                   uint64
+	EquivCacheEpochMisses                 uint64
+	EquivCacheKeyMisses                   uint64
+	EquivCacheVersionMisses               uint64
+	EquivSkipError                        uint64
+	EquivSkipLeaf                         uint64
+	EquivSkipFieldMismatch                uint64
+	EquivExactCalls                       uint64
+	EquivExactTrue                        uint64
+	EquivExactPointerTrue                 uint64
+	EquivExactNilMismatch                 uint64
+	EquivExactHeaderMismatch              uint64
+	EquivExactChildMismatch               uint64
+	EquivExactTerminalCalls               uint64
+	EquivExactTerminalTrue                uint64
+	EquivExactTerminalFalse               uint64
+	EquivFrontierCalls                    uint64
+	EquivFrontierTrue                     uint64
+	EquivExactChildCompares               uint64
+	EquivFrontierChildScans               uint64
+	EquivFrontierCandidateCompares        uint64
+}
+
 // ParseRuntime captures parser-loop diagnostics for a completed tree.
 type ParseRuntime struct {
 	StopReason                                   ParseStopReason
@@ -651,6 +705,61 @@ type ParseRuntime struct {
 	MergeSlotsUsed                               uint64
 	GlobalCullStacksIn                           uint64
 	GlobalCullStacksOut                          uint64
+	StackEquivCalls                              uint64
+	StackEquivTrue                               uint64
+	StackEquivDepthMismatch                      uint64
+	StackEquivHashMismatch                       uint64
+	StackEquivStateMismatch                      uint64
+	StackEquivPayloadMismatch                    uint64
+	StackEquivEntryCompares                      uint64
+	StackEquivStateMismatchDepthSum              uint64
+	StackEquivStateMismatchMaxDepth              uint32
+	StackEquivStateMismatchDepthBuckets          [stackEquivMismatchDepthBucketCount]uint64
+	StackEquivPayloadMismatchDepthSum            uint64
+	StackEquivPayloadMismatchMaxDepth            uint32
+	StackEquivPayloadMismatchDepthBuckets        [stackEquivMismatchDepthBucketCount]uint64
+	StackEquivPayloadHeaderSigDiff               uint64
+	StackEquivPayloadHeaderSigSame               uint64
+	StackEquivPayloadShallowSigDiff              uint64
+	StackEquivPayloadShallowSigSame              uint64
+	StackEquivPairKeyed                          uint64
+	StackEquivPairUnkeyed                        uint64
+	StackEquivPairRepeats                        uint64
+	StackEquivPairRepeatTrue                     uint64
+	StackEquivPairRepeatFalse                    uint64
+	StackEquivPairRepeatMismatch                 uint64
+	StackEquivPairStores                         uint64
+	MergeHeaderEqTotal                           uint64
+	MergeDeepTrue                                uint64
+	MergeDeepFalse                               uint64
+	MergeHeaderDeepDivergent                     uint64
+	EquivCacheLookups                            uint64
+	EquivCacheHits                               uint64
+	EquivCacheStores                             uint64
+	EquivCacheMisses                             uint64
+	EquivCacheTrueHits                           uint64
+	EquivCacheFalseHits                          uint64
+	EquivCacheEpochMisses                        uint64
+	EquivCacheKeyMisses                          uint64
+	EquivCacheVersionMisses                      uint64
+	EquivSkipError                               uint64
+	EquivSkipLeaf                                uint64
+	EquivSkipFieldMismatch                       uint64
+	EquivExactCalls                              uint64
+	EquivExactTrue                               uint64
+	EquivExactPointerTrue                        uint64
+	EquivExactNilMismatch                        uint64
+	EquivExactHeaderMismatch                     uint64
+	EquivExactChildMismatch                      uint64
+	EquivExactTerminalCalls                      uint64
+	EquivExactTerminalTrue                       uint64
+	EquivExactTerminalFalse                      uint64
+	EquivFrontierCalls                           uint64
+	EquivFrontierTrue                            uint64
+	EquivExactChildCompares                      uint64
+	EquivFrontierChildScans                      uint64
+	EquivFrontierCandidateCompares               uint64
+	EquivStateStats                              []ParseEquivStateRuntime
 	ParseWallNanos                               int64
 	ParserLoopNanos                              int64
 	TokenNextNanos                               int64
@@ -658,6 +767,8 @@ type ParseRuntime struct {
 	ActionLookupNanos                            int64
 	GLRMergeNanos                                int64
 	GLRCullNanos                                 int64
+	ReduceTiming                                 *ParseReduceTiming
+	ActionTiming                                 *ParseActionTiming
 
 	ExternalScannerCheckpointRecords                 uint64
 	ExternalScannerCheckpointSlotsAllocated          uint64
@@ -743,6 +854,42 @@ type ParseRuntime struct {
 	NormalizationNodesVisited           uint64
 	NormalizationNodesRewritten         uint64
 	NormalizationNanos                  int64
+	NormalizationPasses                 *[]NormalizationPassRuntime
+}
+
+type NormalizationPassRuntime struct {
+	Name           string
+	Checked        uint64
+	Run            uint64
+	NodesVisited   uint64
+	NodesRewritten uint64
+	Nanos          int64
+}
+
+type ParseReduceTiming struct {
+	RangeNanos         int64
+	PendingParentNanos int64
+	ChildBuildNanos    int64
+	ParentBuildNanos   int64
+	SpanNanos          int64
+	StackPushNanos     int64
+	NoTreeBuildNanos   int64
+}
+
+type ParseActionTiming struct {
+	ExtraShiftNanos      int64
+	NoActionNanos        int64
+	NoActionRelexNanos   int64
+	NoActionMissingNanos int64
+	NoActionRecoverNanos int64
+	NoActionErrorNanos   int64
+	ConflictChoiceNanos  int64
+	ConflictForkNanos    int64
+	SingleShiftNanos     int64
+	SingleReduceNanos    int64
+	SingleAcceptNanos    int64
+	SingleRecoverNanos   int64
+	SingleOtherNanos     int64
 }
 
 type ReduceChildPathRuntime struct {
@@ -1687,6 +1834,41 @@ func (t *Tree) ensureExternalScannerCheckpoints() {
 	rebuildExternalScannerCheckpoints(t.root, t.language)
 }
 
+func (t *Tree) deferResultCompatibility() {
+	if t == nil || t.root == nil || t.language == nil {
+		return
+	}
+	t.resultCompatibilityPending = true
+}
+
+func (t *Tree) ensureResultCompatibility() {
+	if t == nil || !t.resultCompatibilityPending {
+		return
+	}
+	t.resultCompatibilityOnce.Do(func() {
+		defer func() {
+			t.resultCompatibilityPending = false
+		}()
+		if t.root == nil || t.language == nil {
+			return
+		}
+		if !parsePhaseTimingEnabled() {
+			normalizeResultCompatibility(t.root, t.source, &Parser{language: t.language})
+			return
+		}
+		timing := &parseMaterializationTiming{}
+		parser := &Parser{
+			language:              t.language,
+			materializationTiming: timing,
+		}
+		start := materializationTimingStart(timing)
+		normalizeResultCompatibility(t.root, t.source, parser)
+		timing.addResultCompatibility(start)
+		t.parseRuntime.ResultCompatibilityNanos += timing.resultCompatibilityNanos
+		parser.copyNormalizationStats(&t.parseRuntime)
+	})
+}
+
 func newParentNode(arena *nodeArena, sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {
 	var n *Node
 	if arena == nil {
@@ -1741,7 +1923,25 @@ func newLeafNodeInArena(arena *nodeArena, sym Symbol, named bool, startByte, end
 	if arena.audit != nil {
 		arena.audit.recordNodeAlloc(n, runtimeAuditNodeKindLeaf)
 	}
+	if internLeavesObserveEnabled {
+		observeLeafIntern(arena, n)
+	}
 	return n
+}
+
+// observeLeafIntern records whether the just-allocated leaf node would
+// have hit an interning table. This is Phase 2 of the node-interning
+// initiative — measurement only, no behavior change. Called from the
+// hot path only when GOT_PARSE_INTERN_LEAVES_OBSERVE=1 is set, so the
+// default build pays nothing.
+func observeLeafIntern(arena *nodeArena, n *Node) {
+	if arena.internLeaves == nil {
+		arena.internLeaves = newInternTable()
+	}
+	key := buildKey(n.symbol, n.productionID, n.flags, n.startByte, n.endByte, nil)
+	if hit := arena.internLeaves.lookup(key, nil); hit == nil {
+		arena.internLeaves.store(key, n)
+	}
 }
 
 func newParentNodeInArena(arena *nodeArena, sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {
@@ -1768,7 +1968,10 @@ func newParentNodeInArenaWithFieldSources(arena *nodeArena, sym Symbol, named bo
 	}
 	n.productionID = productionID
 	n.childIndex = -1
-	arena.recordParentNodeConstructed(len(children), fieldIDs, n.fieldSources, fieldSources != nil, false, false)
+	arena.parentNodesConstructed++
+	if arena.breakdownEnabled {
+		arena.recordParentNodeConstructedBreakdown(len(children), fieldIDs, n.fieldSources, fieldSources != nil, false, false)
+	}
 	populateParentNode(n, children)
 	nodeInitEquivVersion(n)
 	if arena.audit != nil {
@@ -1797,7 +2000,10 @@ func newParentNodeInArenaNoLinksWithFieldSources(arena *nodeArena, sym Symbol, n
 	}
 	n.productionID = productionID
 	n.childIndex = -1
-	arena.recordParentNodeConstructed(len(children), fieldIDs, n.fieldSources, fieldSources != nil, true, trackChildErrors)
+	arena.parentNodesConstructed++
+	if arena.breakdownEnabled {
+		arena.recordParentNodeConstructedBreakdown(len(children), fieldIDs, n.fieldSources, fieldSources != nil, true, trackChildErrors)
+	}
 	populateParentNodeNoLinks(n, children, trackChildErrors)
 	nodeInitEquivVersion(n)
 	if arena.audit != nil {
@@ -1820,7 +2026,10 @@ func newParentNodeInArenaWithFinalChildRefs(arena *nodeArena, sym Symbol, named 
 	n.setNamed(named)
 	n.productionID = productionID
 	n.childIndex = -1
-	arena.recordParentNodeConstructed(childCount, nil, nil, false, true, trackChildErrors)
+	arena.parentNodesConstructed++
+	if arena.breakdownEnabled {
+		arena.recordParentNodeConstructedBreakdown(childCount, nil, nil, false, true, trackChildErrors)
+	}
 	arena.attachFinalChildRefs(n, childRange)
 	nodeInitEquivVersion(n)
 	if arena.audit != nil {
@@ -1837,6 +2046,10 @@ func (a *nodeArena) recordParentNodeConstructed(childCount int, fieldIDs []Field
 	if !a.breakdownEnabled {
 		return
 	}
+	a.recordParentNodeConstructedBreakdown(childCount, fieldIDs, fieldSources, fieldSourcesProvided, noLinks, trackChildErrors)
+}
+
+func (a *nodeArena) recordParentNodeConstructedBreakdown(childCount int, fieldIDs []FieldID, fieldSources []uint8, fieldSourcesProvided bool, noLinks bool, trackChildErrors bool) {
 	switch childCount {
 	case 0:
 		a.parentConstructedChildLen0++
@@ -1986,6 +2199,8 @@ type Tree struct {
 	parseRuntime                       ParseRuntime
 	arenaBreakdown                     *ArenaBreakdown
 	externalScannerCheckpointsDeferred bool
+	resultCompatibilityPending         bool
+	resultCompatibilityOnce            sync.Once
 	released                           bool
 }
 
@@ -2101,7 +2316,10 @@ func (t *Tree) Release() {
 }
 
 // RootNode returns the tree's root node.
-func (t *Tree) RootNode() *Node { return t.root }
+func (t *Tree) RootNode() *Node {
+	t.ensureResultCompatibility()
+	return t.root
+}
 
 // RootNodeWithOffset returns a copy of the root node with all spans shifted by
 // the provided byte and point offsets.
@@ -2112,6 +2330,7 @@ func (t *Tree) RootNodeWithOffset(offsetBytes uint32, offsetExtent Point) *Node 
 	if t == nil || t.root == nil {
 		return nil
 	}
+	t.ensureResultCompatibility()
 	if offsetBytes == 0 && offsetExtent == (Point{}) {
 		return t.root
 	}
@@ -2246,6 +2465,7 @@ func (t *Tree) WriteDOT(w io.Writer, lang *Language) error {
 		_, err := io.WriteString(w, "digraph gotreesitter {\n}\n")
 		return err
 	}
+	t.ensureResultCompatibility()
 
 	type dotItem struct {
 		node *Node
@@ -2307,6 +2527,7 @@ func (t *Tree) Copy() *Tree {
 	if t == nil {
 		return nil
 	}
+	t.ensureResultCompatibility()
 
 	out := &Tree{
 		source:         t.source,
@@ -2928,6 +3149,7 @@ func inputEditIsNoop(edit InputEdit) bool {
 // and marks overlapping nodes as dirty so the incremental parser knows
 // what to re-parse.
 func (t *Tree) Edit(edit InputEdit) {
+	t.ensureResultCompatibility()
 	if perfCountersEnabled {
 		perfRecordNodeEditCall()
 		if inputEditIsNoop(edit) {

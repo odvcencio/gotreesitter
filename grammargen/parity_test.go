@@ -25,6 +25,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
@@ -33,6 +34,25 @@ import (
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
+
+// TestMain ensures the out-of-tree tree-sitter-markdown corpus required by the
+// markdown / markdown_inline parity entries is present before any tests run.
+// If the pinned corpus is missing, it invokes testdata/grammar_parity_setup.sh
+// to clone and check out the pinned upstream SHA. Failures here are warnings,
+// not fatal — individual tests that need the corpus can skip themselves.
+func TestMain(m *testing.M) {
+	const corpusMarker = "/tmp/grammar_parity/markdown/tree-sitter-markdown-inline/src/grammar.json"
+	if _, err := os.Stat(corpusMarker); os.IsNotExist(err) {
+		cmd := exec.Command("bash", "testdata/grammar_parity_setup.sh")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: grammar parity corpus setup failed: %v\n", err)
+			// Don't fail TestMain — let individual tests skip if they need the corpus.
+		}
+	}
+	os.Exit(m.Run())
+}
 
 // ── Node-by-node tree comparison infrastructure ─────────────────────────────
 
@@ -2487,7 +2507,12 @@ func init() {
 		{name: "less", blobFunc: grammars.LessLanguage, expectNoErrors: 1},
 		{name: "liquid", blobFunc: grammars.LiquidLanguage, expectNoErrors: 1, expectParity: 1},
 		{name: "luau", blobFunc: grammars.LuauLanguage, timeout: 60 * time.Second, expectNoErrors: 1},
-		{name: "markdown_inline", blobFunc: grammars.MarkdownInlineLanguage, timeout: 60 * time.Second, expectNoErrors: 1, expectParity: 1,
+		// markdown_inline is a cost outlier: grammargen builds ~123k LR states and
+		// peaks ~3.2GB RSS for it. Generation is correct (1/1 parity) and takes
+		// ~20s in isolation on a fast host, but under full-suite CI memory pressure
+		// it can exceed a tight deadline. 300s matches the hlsl outlier budget and
+		// leaves CI margin. Do NOT lower back to 60s without re-measuring on CI.
+		{name: "markdown_inline", blobFunc: grammars.MarkdownInlineLanguage, timeout: 300 * time.Second, expectNoErrors: 1, expectParity: 1,
 			jsonPath: "/tmp/grammar_parity/markdown/tree-sitter-markdown-inline/src/grammar.json"},
 		{name: "matlab", blobFunc: grammars.MatlabLanguage, timeout: 60 * time.Second, expectNoErrors: 1, expectParity: 1},
 		{name: "mojo", blobFunc: grammars.MojoLanguage, timeout: 60 * time.Second, expectNoErrors: 1},

@@ -50,38 +50,89 @@ func gssEntryHash(prev uint64, entry stackEntry) uint64 {
 	h := prev ^ uint64(entry.state)
 	h *= gssHashPrime
 
-	if !stackEntryHasNode(entry) {
+	if entry.node == nil {
 		h ^= gssNilNodeSentinel
 		h *= gssHashPrime
 		return h
 	}
 
-	h ^= uint64(stackEntryNodeSymbol(entry))
-	h *= gssHashPrime
-	h ^= (uint64(stackEntryNodeStartByte(entry)) << 32) | uint64(stackEntryNodeEndByte(entry))
-	h *= gssHashPrime
-	h ^= uint64(stackEntryNodeParseState(entry))
-	h *= gssHashPrime
-	h ^= uint64(stackEntryNodeProductionID(entry))
-	h *= gssHashPrime
-	h ^= uint64(stackEntryNodeChildCount(entry))
-	h *= gssHashPrime
+	var symbol Symbol
+	var startByte, endByte uint32
+	var parseState StateID
+	var productionID uint16
+	var childCount int
+	var flags nodeFlags
 
-	var flags uint64
-	if stackEntryNodeIsExtra(entry) {
-		flags |= 1
+	switch entry.kind {
+	case stackEntryKindNode:
+		n := (*Node)(entry.node)
+		symbol = n.symbol
+		startByte = n.startByte
+		endByte = n.endByte
+		parseState = n.parseState
+		productionID = n.productionID
+		childCount = nodeChildCountNoMaterialize(n)
+		flags = n.flags
+	case stackEntryKindNoTreeNode:
+		n := (*noTreeNode)(entry.node)
+		symbol = n.symbol
+		startByte = n.startByte
+		endByte = n.endByte
+		parseState = n.parseState
+		productionID = n.productionID
+		flags = n.flags
+	case stackEntryKindCompactFullLeaf:
+		n := (*compactFullLeaf)(entry.node)
+		symbol = n.symbol
+		startByte = n.startByte
+		endByte = n.endByte
+		parseState = n.parseState
+		productionID = n.productionID
+		flags = n.flags
+	case stackEntryKindPendingParent:
+		n := (*pendingParent)(entry.node)
+		symbol = n.symbol
+		startByte = n.startByte
+		endByte = n.endByte
+		parseState = n.parseState
+		productionID = n.productionID
+		childCount = n.childEntryCount()
+		flags = n.flags
+	default:
+		h ^= gssNilNodeSentinel
+		h *= gssHashPrime
+		return h
 	}
-	if stackEntryNodeIsNamed(entry) {
-		flags |= 1 << 1
-	}
-	if stackEntryNodeHasError(entry) {
-		flags |= 1 << 2
-	}
-	if stackEntryNodeIsMissing(entry) {
-		flags |= 1 << 3
-	}
-	h ^= flags
+
+	h ^= uint64(symbol)
 	h *= gssHashPrime
+	h ^= (uint64(startByte) << 32) | uint64(endByte)
+	h *= gssHashPrime
+	h ^= uint64(parseState)
+	h *= gssHashPrime
+	h ^= uint64(productionID)
+	h *= gssHashPrime
+	h ^= uint64(childCount)
+	h *= gssHashPrime
+	h ^= gssEntryFlagHash(flags)
+	h *= gssHashPrime
+	return h
+}
+
+func gssEntryFlagHash(flags nodeFlags) uint64 {
+	var h uint64
+	if flags&nodeFlagExtra != 0 {
+		h |= 1
+	}
+	if flags&nodeFlagNamed != 0 {
+		h |= 1 << 1
+	}
+	if flags&nodeFlagHasError != 0 {
+		h |= 1 << 2
+	}
+	if flags&nodeFlagMissing != 0 {
+		h |= 1 << 3
+	}
 	return h
 }
 

@@ -110,8 +110,10 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) {
 		normalizeSQLRecoveredSelectRoot(ctx.root, ctx.lang)
 	case "svelte":
 		normalizeSvelteTrailingExtraTrivia(ctx.root, ctx.source, ctx.lang)
+	case "swift":
+		normalizeSwiftCompatibility(ctx.root, ctx.source, ctx.lang)
 	case "tsx", "typescript":
-		normalizeTypeScriptTreeCompatibility(ctx.root, ctx.source, ctx.lang)
+		normalizeTypeScriptTreeCompatibilityWithParser(ctx.root, ctx.source, ctx.parser, ctx.lang)
 	case "yaml":
 		normalizeYAMLRecoveredRoot(ctx.root, ctx.source, ctx.lang)
 	case "zig":

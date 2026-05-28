@@ -38,6 +38,36 @@ type precOrderTable struct {
 	namedPrecPositions map[int]int
 }
 
+// applyAliasRenamesToPrecedences returns a copy of the given Precedences
+// levels with every SYMBOL entry's Name rewritten via the rename map.
+// Called after promoteDefaultAliases so the precedence table built from
+// the result lines up with the symbols' post-promotion identity.
+//
+// When renames is empty/nil the input is returned as-is (no allocation).
+func applyAliasRenamesToPrecedences(levels [][]PrecEntry, renames map[string]string) [][]PrecEntry {
+	if len(renames) == 0 || len(levels) == 0 {
+		return levels
+	}
+	out := make([][]PrecEntry, len(levels))
+	for i, level := range levels {
+		if len(level) == 0 {
+			out[i] = level
+			continue
+		}
+		copied := make([]PrecEntry, len(level))
+		for j, e := range level {
+			copied[j] = e
+			if e.IsSymbol {
+				if newName, ok := renames[e.Name]; ok {
+					copied[j].Name = newName
+				}
+			}
+		}
+		out[i] = copied
+	}
+	return out
+}
+
 // buildPrecOrderTable builds a precedence ordering table from the Grammar's
 // Precedences field and a namedPrecs map (STRING-only prec values as
 // assigned by buildNamedPrecMap). All entries (STRING and SYMBOL) across

@@ -17,6 +17,8 @@ func normalizePythonCompatibilityWithParser(root *Node, source []byte, parser *P
 		}()
 	}
 	sourceFlags := pythonCompatibilitySourceFlagsFor(source)
+	// Postorder passes: trailingSelfCalls + printChevron. Run separately
+	// because they require a different walk order.
 	parser.runNormalizationPass(func() bool {
 		return sourceFlags.trailingSelfCalls
 	}, func() normalizationPassCounters {
@@ -32,46 +34,13 @@ func normalizePythonCompatibilityWithParser(root *Node, source []byte, parser *P
 	}, func() normalizationPassCounters {
 		return normalizePythonInterpolationPatterns(root, lang)
 	})
-	parser.runNormalizationPass(func() bool {
-		return sourceFlags.passWord
-	}, func() normalizationPassCounters {
-		return normalizePythonCollapsedKeywordStatementWithStats(root, source, lang, "pass_statement", "pass")
-	})
-	parser.runNormalizationPass(func() bool {
-		return sourceFlags.continueWord
-	}, func() normalizationPassCounters {
-		return normalizePythonCollapsedKeywordStatementWithStats(root, source, lang, "continue_statement", "continue")
-	})
-	parser.runNormalizationPass(func() bool {
-		return sourceFlags.breakWord
-	}, func() normalizationPassCounters {
-		return normalizePythonCollapsedKeywordStatementWithStats(root, source, lang, "break_statement", "break")
-	})
-	parser.runNormalizationPass(func() bool {
-		return sourceFlags.returnWord
-	}, func() normalizationPassCounters {
-		return normalizePythonInlineReturnBlocksWithStats(root, source, lang)
-	})
-	parser.runNormalizationPass(func() bool {
-		return sourceFlags.raiseWord
-	}, func() normalizationPassCounters {
-		return normalizePythonInlineRaiseBlocksWithStats(root, lang)
-	})
-	parser.runNormalizationPass(func() bool {
-		return sourceFlags.assignmentList
-	}, func() normalizationPassCounters {
-		return normalizePythonAssignmentRightExpressionListsWithStats(root, lang)
-	})
-	parser.runNormalizationPass(func() bool {
-		return sourceFlags.yieldWord
-	}, func() normalizationPassCounters {
-		return normalizePythonInlineYieldBlocksWithStats(root, lang)
-	})
-	parser.runNormalizationPass(func() bool {
-		return sourceFlags.comma
-	}, func() normalizationPassCounters {
-		return normalizePythonInlineTupleExpressionBlocksWithStats(root, lang)
-	})
+	// Fused preorder block: collapsed-keyword (pass/continue/break),
+	// inline-return/raise/yield blocks, inline-tuple-expression blocks, and
+	// assignment-right expression lists all share a preorder walk. Doing them
+	// together in ONE walkResultTree call eliminates ~7× walk overhead on
+	// large Python files. Each logical pass still increments passesChecked/
+	// passesRun so observability is preserved.
+	normalizePythonFusedPreorder(root, source, parser, lang, sourceFlags)
 	parser.runNormalizationPass(func() bool {
 		return sourceFlags.wildcardImport
 	}, func() normalizationPassCounters {
@@ -87,6 +56,331 @@ func normalizePythonCompatibilityWithParser(root *Node, source []byte, parser *P
 	}, func() normalizationPassCounters {
 		return normalizePythonStringContinuationEscapes(root, source, lang)
 	})
+}
+
+// pythonCollapsedKeywordSetup holds the resolved symbols for one collapsed-
+// keyword preorder pass (e.g. pass_statement/"pass"). Used inside the fused
+// dispatcher to avoid re-resolving symbols per node.
+type pythonCollapsedKeywordSetup struct {
+	active       bool
+	statementSym Symbol
+	keywordSym   Symbol
+	keywordNamed bool
+	keyword      string
+}
+
+func newPythonCollapsedKeywordSetup(lang *Language, statementName, keywordName string) pythonCollapsedKeywordSetup {
+	statementSym, statementOK := lang.symbolByNameAndNamed(statementName, true)
+	if !statementOK {
+		statementSym, statementOK = symbolByName(lang, statementName)
+	}
+	keywordSym, keywordOK := lang.symbolByNameAndNamed(keywordName, false)
+	if !keywordOK {
+		keywordSym, keywordOK = symbolByName(lang, keywordName)
+	}
+	if !statementOK || !keywordOK {
+		return pythonCollapsedKeywordSetup{}
+	}
+	return pythonCollapsedKeywordSetup{
+		active:       true,
+		statementSym: statementSym,
+		keywordSym:   keywordSym,
+		keywordNamed: symbolIsNamed(lang, keywordSym),
+		keyword:      keywordName,
+	}
+}
+
+// normalizePythonFusedPreorder runs eight Python preorder normalization passes
+// in a SINGLE walkResultTree. The original per-pass functions remain available
+// (and individually tested) — this is a perf-only fusion. Per-pass counters
+// (passesChecked/passesRun) are emulated to preserve observability.
+//
+// Fused passes: collapsed-keyword × 3 (pass/continue/break), inline-return-
+// blocks, inline-raise-blocks, assignment-right-expression-lists, inline-yield-
+// blocks, inline-tuple-expression-blocks. All operate on the same preorder
+// traversal and target mutually-distinguishable node shapes, so per-node
+// dispatch is cheap.
+func normalizePythonFusedPreorder(root *Node, source []byte, parser *Parser, lang *Language, flags pythonCompatibilitySourceFlags) {
+	if root == nil || lang == nil {
+		// Still account for the 8 pass checks so passesChecked stays stable.
+		if parser != nil {
+			parser.normalizationStats.passesChecked += 8
+		}
+		return
+	}
+
+	// Resolve symbols and setup per active flag. Inactive flags leave their
+	// setups zero-valued (active=false), so the per-node dispatch skips them.
+	passCK := pythonCollapsedKeywordSetup{}
+	continueCK := pythonCollapsedKeywordSetup{}
+	breakCK := pythonCollapsedKeywordSetup{}
+	if flags.passWord {
+		passCK = newPythonCollapsedKeywordSetup(lang, "pass_statement", "pass")
+	}
+	if flags.continueWord {
+		continueCK = newPythonCollapsedKeywordSetup(lang, "continue_statement", "continue")
+	}
+	if flags.breakWord {
+		breakCK = newPythonCollapsedKeywordSetup(lang, "break_statement", "break")
+	}
+
+	var returnStmtSym Symbol
+	hasReturn := false
+	if flags.returnWord {
+		var ok bool
+		returnStmtSym, ok = lang.symbolByNameAndNamed("return_statement", true)
+		if !ok {
+			returnStmtSym, ok = symbolByName(lang, "return_statement")
+		}
+		hasReturn = ok
+	}
+
+	var raiseStmtSym Symbol
+	hasRaise := false
+	if flags.raiseWord {
+		var ok bool
+		raiseStmtSym, ok = lang.symbolByNameAndNamed("raise_statement", true)
+		if !ok {
+			raiseStmtSym, ok = symbolByName(lang, "raise_statement")
+		}
+		hasRaise = ok
+	}
+
+	var patternListSym, expressionListSym Symbol
+	var expressionListNamed bool
+	hasAssignment := false
+	if flags.assignmentList {
+		var ok1, ok2 bool
+		patternListSym, ok1 = symbolByName(lang, "pattern_list")
+		expressionListSym, ok2 = symbolByName(lang, "expression_list")
+		if ok1 && ok2 {
+			hasAssignment = true
+			expressionListNamed = symbolIsNamed(lang, expressionListSym)
+		}
+	}
+
+	var yieldSym Symbol
+	hasYield := false
+	if flags.yieldWord {
+		var ok bool
+		yieldSym, ok = lang.symbolByNameAndNamed("yield", true)
+		hasYield = ok
+	}
+
+	var tupleExprSym Symbol
+	var tupleExprNamed bool
+	hasTuple := false
+	if flags.comma {
+		var ok bool
+		tupleExprSym, ok = symbolByName(lang, "tuple_expression")
+		if ok {
+			hasTuple = true
+			tupleExprNamed = symbolIsNamed(lang, tupleExprSym)
+		}
+	}
+
+	// Always count 8 passes as checked. Count each as "run" only when its
+	// flag is set and its symbol resolution succeeded — mirroring the gating
+	// in the original runNormalizationPass(flag, fn) call sites.
+	if parser != nil {
+		parser.normalizationStats.passesChecked += 8
+		ranCount := uint64(0)
+		if passCK.active {
+			ranCount++
+		}
+		if continueCK.active {
+			ranCount++
+		}
+		if breakCK.active {
+			ranCount++
+		}
+		if hasReturn && flags.returnWord {
+			ranCount++
+		}
+		if hasRaise && flags.raiseWord {
+			ranCount++
+		}
+		if hasAssignment {
+			ranCount++
+		}
+		if hasYield && flags.yieldWord {
+			ranCount++
+		}
+		if hasTuple && flags.comma {
+			ranCount++
+		}
+		parser.normalizationStats.passesRun += ranCount
+	}
+
+	// Short-circuit if no pass is actually active.
+	if !(passCK.active || continueCK.active || breakCK.active || hasReturn || hasRaise || hasAssignment || hasYield || hasTuple) {
+		return
+	}
+
+	var visited, rewritten uint64
+	walkResultTree(root, func(n *Node) {
+		visited++
+		childCount := resultChildCount(n)
+
+		// Collapsed-keyword passes fire on leaf nodes whose source bytes
+		// exactly match a keyword. Check this before reading n.Type to avoid
+		// the lookup for the (common) leaf case.
+		if childCount == 0 && len(source) > 0 && n.startByte < n.endByte && int(n.endByte) <= len(source) {
+			srcRange := source[n.startByte:n.endByte]
+			if passCK.active && string(srcRange) == "pass" {
+				if applyCollapsedKeywordRewrite(n, lang, passCK) {
+					rewritten++
+				}
+				return
+			}
+			if continueCK.active && string(srcRange) == "continue" {
+				if applyCollapsedKeywordRewrite(n, lang, continueCK) {
+					rewritten++
+				}
+				return
+			}
+			if breakCK.active && string(srcRange) == "break" {
+				if applyCollapsedKeywordRewrite(n, lang, breakCK) {
+					rewritten++
+				}
+				return
+			}
+			return
+		}
+
+		nodeType := n.Type(lang)
+
+		// Assignment rewrite — exclusive of block rewrites (different shape).
+		if hasAssignment && nodeType == "assignment" {
+			sawEquals := false
+			for i := 0; i < childCount; i++ {
+				child := resultChildAt(n, i)
+				if child == nil {
+					continue
+				}
+				if child.Type(lang) == "=" {
+					sawEquals = true
+					continue
+				}
+				if sawEquals && child.symbol == patternListSym {
+					child.symbol = expressionListSym
+					child.setNamed(expressionListNamed)
+					rewritten++
+					return
+				}
+			}
+			return
+		}
+
+		// Block-targeted single-line rewrites: raise, yield, return, tuple.
+		// They are mutually exclusive on first-child Type, so a single switch
+		// covers all four cases.
+		if nodeType != "block" || n.startPoint.Row != n.endPoint.Row || childCount < 1 {
+			return
+		}
+		first := resultChildAt(n, 0)
+		if first == nil {
+			return
+		}
+		last := resultChildAt(n, childCount-1)
+		if last == nil {
+			return
+		}
+		firstType := first.Type(lang)
+
+		switch {
+		case hasRaise && firstType == "raise":
+			children := resultChildSliceForMutation(n)
+			stmtChildren := cloneNodeSliceInArena(n.ownerArena, children)
+			stmt := newParentNodeInArena(n.ownerArena, raiseStmtSym, true, stmtChildren, nil, 0)
+			stmt.startByte = first.startByte
+			stmt.endByte = last.endByte
+			stmt.startPoint = first.startPoint
+			stmt.endPoint = last.endPoint
+			stmt.parent = n
+			stmt.childIndex = 0
+			n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
+			rewritten++
+		case hasYield && firstType == "yield" && !first.IsNamed():
+			children := resultChildSliceForMutation(n)
+			stmtChildren := cloneNodeSliceInArena(n.ownerArena, children)
+			stmt := newParentNodeInArena(n.ownerArena, yieldSym, true, stmtChildren, nil, 0)
+			stmt.startByte = first.startByte
+			stmt.endByte = last.endByte
+			stmt.startPoint = first.startPoint
+			stmt.endPoint = last.endPoint
+			stmt.parent = n
+			stmt.childIndex = 0
+			n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
+			rewritten++
+		case hasReturn && firstType == "return":
+			children := resultChildSliceForMutation(n)
+			stmtChildren := cloneNodeSliceInArena(n.ownerArena, children)
+			stmt := newParentNodeInArena(n.ownerArena, returnStmtSym, true, stmtChildren, nil, 0)
+			stmt.startByte = first.startByte
+			stmt.endByte = last.endByte
+			stmt.startPoint = first.startPoint
+			stmt.endPoint = last.endPoint
+			stmt.parent = n
+			stmt.childIndex = 0
+			n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
+			rewritten++
+		case hasTuple && childCount >= 3:
+			hasComma := false
+			for i := 0; i < childCount; i++ {
+				child := resultChildAt(n, i)
+				if child != nil && child.Type(lang) == "," {
+					hasComma = true
+					break
+				}
+			}
+			if !hasComma {
+				return
+			}
+			children := resultChildSliceForMutation(n)
+			stmtChildren := cloneNodeSliceInArena(n.ownerArena, children)
+			stmt := newParentNodeInArena(n.ownerArena, tupleExprSym, tupleExprNamed, stmtChildren, nil, 0)
+			stmt.startByte = children[0].startByte
+			stmt.endByte = children[len(children)-1].endByte
+			stmt.startPoint = children[0].startPoint
+			stmt.endPoint = children[len(children)-1].endPoint
+			stmt.parent = n
+			stmt.childIndex = 0
+			n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
+			rewritten++
+		}
+	})
+
+	if parser != nil {
+		parser.normalizationStats.nodesVisited += visited
+		parser.normalizationStats.nodesRewritten += rewritten
+	}
+}
+
+// applyCollapsedKeywordRewrite mirrors the inner switch of
+// normalizePythonCollapsedKeywordStatementWithStats for use inside the fused
+// dispatcher. Returns true on rewrite.
+func applyCollapsedKeywordRewrite(n *Node, lang *Language, ck pythonCollapsedKeywordSetup) bool {
+	switch {
+	case n.symbol == ck.statementSym:
+		child := newLeafNodeInArena(n.ownerArena, ck.keywordSym, ck.keywordNamed, n.startByte, n.endByte, n.startPoint, n.endPoint)
+		child.parent = n
+		child.childIndex = 0
+		n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{child})
+		return true
+	case n.Type(lang) == "block":
+		child := newLeafNodeInArena(n.ownerArena, ck.keywordSym, ck.keywordNamed, n.startByte, n.endByte, n.startPoint, n.endPoint)
+		stmt := newParentNodeInArena(n.ownerArena, ck.statementSym, true, []*Node{child}, nil, 0)
+		stmt.startByte = n.startByte
+		stmt.endByte = n.endByte
+		stmt.startPoint = n.startPoint
+		stmt.endPoint = n.endPoint
+		stmt.parent = n
+		stmt.childIndex = 0
+		n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
+		return true
+	}
+	return false
 }
 
 type pythonCompatibilitySourceFlags struct {

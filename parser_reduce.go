@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type reduceChainSignature struct {
 	state        StateID
@@ -11,6 +14,190 @@ type reduceChainSignature struct {
 }
 
 const maxRepeatedReduceChainSignature = 32
+
+type classifiedParseActionClass uint8
+
+const (
+	classifiedParseActionNoAction classifiedParseActionClass = iota
+	classifiedParseActionSingleReduce
+	classifiedParseActionSingleShift
+	classifiedParseActionSingleAccept
+	classifiedParseActionSingleOther
+	classifiedParseActionMulti
+)
+
+type classifiedParseAction struct {
+	class  classifiedParseActionClass
+	action ParseAction
+}
+
+type reduceChainHint struct {
+	startState     StateID
+	lookahead      Symbol
+	terminalStates []StateID
+	terminalAction classifiedParseActionClass
+	maxSteps       uint16
+}
+
+func buildReduceChainHintIndex(hints []reduceChainHint) []int {
+	if len(hints) == 0 {
+		return nil
+	}
+	maxState := StateID(0)
+	for _, hint := range hints {
+		if hint.startState > maxState {
+			maxState = hint.startState
+		}
+	}
+	index := make([]int, int(maxState)+1)
+	for i := range index {
+		index[i] = -1
+	}
+	for i, hint := range hints {
+		slot := int(hint.startState)
+		if index[slot] == -1 {
+			index[slot] = i
+		} else {
+			index[slot] = -2
+		}
+	}
+	return index
+}
+
+func buildClassifiedParseActions(lang *Language) []classifiedParseAction {
+	if lang == nil || len(lang.ParseActions) == 0 {
+		return nil
+	}
+	out := make([]classifiedParseAction, len(lang.ParseActions))
+	for i := range lang.ParseActions {
+		out[i] = classifyParseActionEntry(lang.ParseActions[i])
+	}
+	return out
+}
+
+func classifyParseActionEntry(entry ParseActionEntry) classifiedParseAction {
+	if len(entry.Actions) == 0 {
+		return classifiedParseAction{class: classifiedParseActionNoAction}
+	}
+	if len(entry.Actions) != 1 {
+		return classifiedParseAction{class: classifiedParseActionMulti}
+	}
+	action := entry.Actions[0]
+	switch action.Type {
+	case ParseActionReduce:
+		return classifiedParseAction{class: classifiedParseActionSingleReduce, action: action}
+	case ParseActionShift:
+		return classifiedParseAction{class: classifiedParseActionSingleShift, action: action}
+	case ParseActionAccept:
+		return classifiedParseAction{class: classifiedParseActionSingleAccept, action: action}
+	default:
+		return classifiedParseAction{class: classifiedParseActionSingleOther, action: action}
+	}
+}
+
+func buildReduceChainHints(lang *Language) []reduceChainHint {
+	if lang == nil || !parseReduceChainHintsEnabled() {
+		return nil
+	}
+	if len(lang.ReduceChainHints) != 0 {
+		return buildReduceChainHintsFromMetadata(lang, lang.ReduceChainHints)
+	}
+	return buildReduceChainHintsFromMetadata(lang, defaultReduceChainHintMetadata(lang))
+}
+
+func buildReduceChainHintsFromMetadata(lang *Language, hints []ReduceChainHint) []reduceChainHint {
+	out := make([]reduceChainHint, 0, len(hints))
+	for i := range hints {
+		hint := hints[i]
+		terminalAction, ok := reduceChainTerminalActionClass(hint.TerminalAction)
+		if !ok || hint.MaxSteps == 0 || !reduceChainHintInRange(lang, hint) {
+			continue
+		}
+		out = append(out, reduceChainHint{
+			startState:     hint.StartState,
+			lookahead:      hint.Lookahead,
+			terminalStates: append([]StateID(nil), hint.TerminalStates...),
+			terminalAction: terminalAction,
+			maxSteps:       hint.MaxSteps,
+		})
+	}
+	return out
+}
+
+func reduceChainTerminalActionClass(action ReduceChainTerminalAction) (classifiedParseActionClass, bool) {
+	switch action {
+	case ReduceChainTerminalNoAction:
+		return classifiedParseActionNoAction, true
+	case ReduceChainTerminalSingleReduce:
+		return classifiedParseActionSingleReduce, true
+	case ReduceChainTerminalSingleShift:
+		return classifiedParseActionSingleShift, true
+	case ReduceChainTerminalSingleAccept:
+		return classifiedParseActionSingleAccept, true
+	case ReduceChainTerminalSingleOther:
+		return classifiedParseActionSingleOther, true
+	case ReduceChainTerminalMulti:
+		return classifiedParseActionMulti, true
+	default:
+		return classifiedParseActionNoAction, false
+	}
+}
+
+func reduceChainHintInRange(lang *Language, hint ReduceChainHint) bool {
+	if lang == nil || uint32(hint.StartState) >= lang.StateCount || uint32(hint.Lookahead) >= lang.SymbolCount || len(hint.TerminalStates) == 0 {
+		return false
+	}
+	for _, state := range hint.TerminalStates {
+		if uint32(state) >= lang.StateCount {
+			return false
+		}
+	}
+	return true
+}
+
+func defaultReduceChainHintMetadata(lang *Language) []ReduceChainHint {
+	switch lang.Name {
+	case "python":
+		if !languageSymbolNameMatches(lang, Symbol(101), "_newline") {
+			return nil
+		}
+		return []ReduceChainHint{{
+			StartState:     StateID(1101),
+			Lookahead:      Symbol(101),
+			TerminalStates: []StateID{StateID(2336), StateID(2361), StateID(2098), StateID(2460)},
+			TerminalAction: ReduceChainTerminalSingleShift,
+			MaxSteps:       10,
+		}}
+	case "rust":
+		if !languageSymbolNameMatches(lang, Symbol(5), ")") {
+			return nil
+		}
+		return []ReduceChainHint{{
+			StartState:     StateID(205),
+			Lookahead:      Symbol(5),
+			TerminalStates: []StateID{StateID(98), StateID(132), StateID(133)},
+			TerminalAction: ReduceChainTerminalSingleShift,
+			MaxSteps:       32,
+		}}
+	default:
+		return nil
+	}
+}
+
+func languageSymbolNameMatches(lang *Language, sym Symbol, name string) bool {
+	if lang == nil {
+		return false
+	}
+	idx := int(sym)
+	return idx >= 0 && idx < len(lang.SymbolNames) && lang.SymbolNames[idx] == name
+}
+
+func reduceChainTerminalState(s *glrStack, fallback StateID) StateID {
+	if s == nil || s.dead {
+		return fallback
+	}
+	return s.top().state
+}
 
 func buildReduceAliasSequences(lang *Language) [][]Symbol {
 	if lang == nil || len(lang.AliasSequences) == 0 {
@@ -183,8 +370,12 @@ func buildSingleTokenWrapperSymbols(lang *Language) []bool {
 }
 
 func (p *Parser) applyActionWithReduceChain(s *glrStack, act ParseAction, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) bool {
-	p.applyAction(s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
-	if act.Type != ParseActionReduce || tok.NoLookahead || s == nil || s.dead || s.accepted || s.shifted {
+	if act.Type != ParseActionReduce {
+		p.applyAction(s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+		return false
+	}
+	p.applyReduceActionDispatch(s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+	if tok.NoLookahead || s == nil || s.dead || s.accepted || s.shifted {
 		return false
 	}
 	return p.chainSingleReduceActions(s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
@@ -249,6 +440,24 @@ func noteRepeatedReduceChainSignature(prev reduceChainSignature, prevCount int, 
 	return prev, prevCount, prevCount > maxRepeatedReduceChainSignature
 }
 
+func noteRepeatedReduceChainAction(prev *reduceChainSignature, prevCount int, state StateID, depth int, act ParseAction) (int, bool) {
+	if prev.state == state &&
+		prev.depth == depth &&
+		prev.symbol == act.Symbol &&
+		prev.childCount == act.ChildCount &&
+		prev.productionID == act.ProductionID {
+		prevCount++
+	} else {
+		prev.state = state
+		prev.depth = depth
+		prev.symbol = act.Symbol
+		prev.childCount = act.ChildCount
+		prev.productionID = act.ProductionID
+		prevCount = 1
+	}
+	return prevCount, prevCount > maxRepeatedReduceChainSignature
+}
+
 func (p *Parser) useCompactNoTreeShiftLeaf() bool {
 	return p != nil && p.noTreeBenchmarkOnly && p.compactNoTreeShiftLeaves
 }
@@ -281,6 +490,12 @@ func (p *Parser) chainSingleReduceActions(s *glrStack, tok Token, anyReduced *bo
 	if s == nil || s.dead || s.accepted || s.shifted {
 		return false
 	}
+	if p.ambiguityProfile != nil {
+		return p.chainSingleReduceActionsProfiled(s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+	}
+	if len(p.classifiedActions) == len(p.language.ParseActions) {
+		return p.chainSingleReduceActionsClassified(s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+	}
 	const maxInlineReduceChain = 256
 	parseActions := p.language.ParseActions
 	chainLen := 0
@@ -306,7 +521,7 @@ func (p *Parser) chainSingleReduceActions(s *glrStack, tok Token, anyReduced *bo
 		switch next.Type {
 		case ParseActionReduce:
 			var repeated bool
-			lastSig, repeatedSigCount, repeated = noteRepeatedReduceChainSignature(lastSig, repeatedSigCount, reduceChainSignatureFor(currentState, currentDepth, next))
+			repeatedSigCount, repeated = noteRepeatedReduceChainAction(&lastSig, repeatedSigCount, currentState, currentDepth, next)
 			if repeated {
 				if p != nil && p.glrTrace {
 					fmt.Printf("      -> REDUCE-CHAIN CYCLE state=%d depth=%d sym=%d prod=%d count=%d\n",
@@ -318,7 +533,7 @@ func (p *Parser) chainSingleReduceActions(s *glrStack, tok Token, anyReduced *bo
 			if perfCountersEnabled {
 				perfRecordReduceChainStep(chainLen)
 			}
-			p.applyAction(s, next, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+			p.applyReduceActionDispatch(s, next, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
 			if s.dead || s.accepted || s.shifted {
 				return false
 			}
@@ -339,6 +554,440 @@ func (p *Parser) chainSingleReduceActions(s *glrStack, tok Token, anyReduced *bo
 			return false
 		}
 	}
+	return false
+}
+
+func (p *Parser) chainSingleReduceActionsClassified(s *glrStack, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) bool {
+	if len(p.reduceChainHints) != 0 {
+		if hint, ok := p.reduceChainHintFor(s.top().state, tok.Symbol); ok {
+			return p.chainSingleReduceActionsClassifiedHinted(s, tok, hint, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+		}
+	}
+	return p.chainSingleReduceActionsClassifiedDefault(s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+}
+
+func (p *Parser) reduceChainHintFor(state StateID, lookahead Symbol) (reduceChainHint, bool) {
+	if int(state) >= len(p.reduceChainHintByState) {
+		return reduceChainHint{}, false
+	}
+	hintIndex := p.reduceChainHintByState[int(state)]
+	if hintIndex == -2 {
+		for _, hint := range p.reduceChainHints {
+			if hint.startState == state && hint.lookahead == lookahead {
+				return hint, true
+			}
+		}
+		return reduceChainHint{}, false
+	}
+	if hintIndex < 0 || hintIndex >= len(p.reduceChainHints) {
+		return reduceChainHint{}, false
+	}
+	hint := p.reduceChainHints[hintIndex]
+	if hint.lookahead != lookahead {
+		return reduceChainHint{}, false
+	}
+	return hint, true
+}
+
+func reduceChainHintTerminalMatches(hint reduceChainHint, state StateID, class classifiedParseActionClass) bool {
+	if class != hint.terminalAction {
+		return false
+	}
+	return reduceChainHintTerminalStateAllowed(hint, state)
+}
+
+func reduceChainHintTerminalStateAllowed(hint reduceChainHint, state StateID) bool {
+	for _, terminalState := range hint.terminalStates {
+		if state == terminalState {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Parser) chainSingleReduceActionsClassifiedHinted(s *glrStack, tok Token, hint reduceChainHint, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) bool {
+	if perfCountersEnabled {
+		perfRecordReduceChainHintCandidate()
+		perfRecordReduceChainHintTaken()
+	}
+	actions := p.classifiedActions
+	steps := 0
+	for steps < int(hint.maxSteps) {
+		currentState := s.top().state
+		actionIdx := p.lookupActionIndex(currentState, tok.Symbol)
+		if actionIdx == 0 || int(actionIdx) >= len(actions) {
+			if reduceChainHintTerminalMatches(hint, currentState, classifiedParseActionNoAction) {
+				if perfCountersEnabled {
+					perfRecordReduceChainHintTerminalOK()
+				}
+				return false
+			}
+			if perfCountersEnabled {
+				perfRecordReduceChainHintTerminalMismatch()
+			}
+			return false
+		}
+		classified := &actions[actionIdx]
+		if classified.class != classifiedParseActionSingleReduce {
+			if reduceChainHintTerminalMatches(hint, currentState, classified.class) {
+				if perfCountersEnabled {
+					perfRecordReduceChainHintTerminalOK()
+				}
+			} else if reduceChainHintTerminalStateAllowed(hint, currentState) {
+				if perfCountersEnabled {
+					perfRecordReduceChainHintUnexpected()
+				}
+			} else if perfCountersEnabled {
+				perfRecordReduceChainHintTerminalMismatch()
+			}
+			switch classified.class {
+			case classifiedParseActionSingleShift:
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakShift()
+				}
+			case classifiedParseActionSingleAccept:
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakAccept()
+				}
+			default:
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakMulti()
+				}
+			}
+			return false
+		}
+
+		steps++
+		if perfCountersEnabled {
+			perfRecordReduceChainStep(steps)
+			perfRecordReduceChainHintSteps(1)
+		}
+		p.applyReduceActionDispatch(s, classified.action, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+		if s.dead || s.accepted || s.shifted {
+			if perfCountersEnabled {
+				perfRecordReduceChainHintDead()
+			}
+			return false
+		}
+	}
+	if perfCountersEnabled {
+		perfRecordReduceChainHintLimit()
+	}
+	return p.chainSingleReduceActionsClassifiedDefault(s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+}
+
+func (p *Parser) chainSingleReduceActionsClassifiedDefault(s *glrStack, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) bool {
+	const maxInlineReduceChain = 256
+	actions := p.classifiedActions
+	chainLen := 0
+	var lastSig reduceChainSignature
+	repeatedSigCount := 0
+	for chainLen < maxInlineReduceChain {
+		currentState := s.top().state
+		currentDepth := s.depth()
+		actionIdx := p.lookupActionIndex(currentState, tok.Symbol)
+		if actionIdx == 0 || int(actionIdx) >= len(actions) {
+			return false
+		}
+
+		classified := &actions[actionIdx]
+		switch classified.class {
+		case classifiedParseActionSingleReduce:
+			next := classified.action
+			var repeated bool
+			repeatedSigCount, repeated = noteRepeatedReduceChainAction(&lastSig, repeatedSigCount, currentState, currentDepth, next)
+			if repeated {
+				if p != nil && p.glrTrace {
+					fmt.Printf("      -> REDUCE-CHAIN CYCLE state=%d depth=%d sym=%d prod=%d count=%d\n",
+						currentState, currentDepth, next.Symbol, next.ProductionID, repeatedSigCount)
+				}
+				return true
+			}
+			chainLen++
+			if perfCountersEnabled {
+				perfRecordReduceChainStep(chainLen)
+			}
+			p.applyReduceActionDispatch(s, next, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+			if s.dead || s.accepted || s.shifted {
+				return false
+			}
+		case classifiedParseActionSingleShift:
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakShift()
+			}
+			return false
+		case classifiedParseActionSingleAccept:
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakAccept()
+			}
+			return false
+		default:
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakMulti()
+			}
+			return false
+		}
+	}
+	return false
+}
+
+func (p *Parser) chainSingleReduceActionsProfiled(s *glrStack, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) bool {
+	if len(p.classifiedActions) == len(p.language.ParseActions) {
+		return p.chainSingleReduceActionsClassifiedProfiled(s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+	}
+	const maxInlineReduceChain = 256
+	parseActions := p.language.ParseActions
+	chainLen := 0
+	classHits := 0
+	chainStartState := s.top().state
+	chainStart := time.Now()
+	var lastSig reduceChainSignature
+	repeatedSigCount := 0
+	for chainLen < maxInlineReduceChain {
+		currentState := s.top().state
+		currentDepth := s.depth()
+		actionIdx := p.lookupActionIndex(currentState, tok.Symbol)
+		if actionIdx == 0 || int(actionIdx) >= len(parseActions) {
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classifiedParseActionNoAction, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopNoAction)
+			return false
+		}
+		classHits++
+
+		actions := parseActions[actionIdx].Actions
+		if len(actions) != 1 {
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakMulti()
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classifiedParseActionMulti, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopMulti)
+			return false
+		}
+
+		next := actions[0]
+		switch next.Type {
+		case ParseActionReduce:
+			var repeated bool
+			repeatedSigCount, repeated = noteRepeatedReduceChainAction(&lastSig, repeatedSigCount, currentState, currentDepth, next)
+			if repeated {
+				if p != nil && p.glrTrace {
+					fmt.Printf("      -> REDUCE-CHAIN CYCLE state=%d depth=%d sym=%d prod=%d count=%d\n",
+						currentState, currentDepth, next.Symbol, next.ProductionID, repeatedSigCount)
+				}
+				p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopCycle)
+				return true
+			}
+			chainLen++
+			if perfCountersEnabled {
+				perfRecordReduceChainStep(chainLen)
+			}
+			reduceStart := time.Now()
+			p.applyReduceActionDispatch(s, next, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+			p.ambiguityProfile.recordReduceChainStep(currentState, tok.Symbol, next, chainLen, time.Since(reduceStart).Nanoseconds())
+			if s.dead || s.accepted || s.shifted {
+				switch {
+				case s.accepted:
+					p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopAccept)
+				case s.shifted:
+					p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopShift)
+				default:
+					p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopDead)
+				}
+				return false
+			}
+		case ParseActionShift:
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakShift()
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classifiedParseActionSingleShift, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopShift)
+			return false
+		case ParseActionAccept:
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakAccept()
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classifiedParseActionSingleAccept, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopAccept)
+			return false
+		default:
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakMulti()
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classifiedParseActionSingleOther, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopMulti)
+			return false
+		}
+	}
+	p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, chainStartState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopLimit)
+	return false
+}
+
+func (p *Parser) chainSingleReduceActionsClassifiedProfiled(s *glrStack, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) bool {
+	if len(p.reduceChainHints) != 0 {
+		if hint, ok := p.reduceChainHintFor(s.top().state, tok.Symbol); ok {
+			return p.chainSingleReduceActionsClassifiedHintedProfiled(s, tok, hint, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+		}
+	}
+	return p.chainSingleReduceActionsClassifiedProfiledDefault(s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+}
+
+func (p *Parser) chainSingleReduceActionsClassifiedHintedProfiled(s *glrStack, tok Token, hint reduceChainHint, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) bool {
+	if perfCountersEnabled {
+		perfRecordReduceChainHintCandidate()
+		perfRecordReduceChainHintTaken()
+	}
+	actions := p.classifiedActions
+	chainLen := 0
+	classHits := 0
+	chainStartState := s.top().state
+	chainStart := time.Now()
+	for chainLen < int(hint.maxSteps) {
+		currentState := s.top().state
+		actionIdx := p.lookupActionIndex(currentState, tok.Symbol)
+		if actionIdx == 0 || int(actionIdx) >= len(actions) {
+			if reduceChainHintTerminalMatches(hint, currentState, classifiedParseActionNoAction) {
+				if perfCountersEnabled {
+					perfRecordReduceChainHintTerminalOK()
+				}
+			} else if perfCountersEnabled {
+				perfRecordReduceChainHintTerminalMismatch()
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classifiedParseActionNoAction, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopNoAction)
+			return false
+		}
+		classHits++
+
+		classified := &actions[actionIdx]
+		if classified.class != classifiedParseActionSingleReduce {
+			if reduceChainHintTerminalMatches(hint, currentState, classified.class) {
+				if perfCountersEnabled {
+					perfRecordReduceChainHintTerminalOK()
+				}
+			} else if reduceChainHintTerminalStateAllowed(hint, currentState) {
+				if perfCountersEnabled {
+					perfRecordReduceChainHintUnexpected()
+				}
+			} else if perfCountersEnabled {
+				perfRecordReduceChainHintTerminalMismatch()
+			}
+			stop := reduceChainStopMulti
+			switch classified.class {
+			case classifiedParseActionSingleShift:
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakShift()
+				}
+				stop = reduceChainStopShift
+			case classifiedParseActionSingleAccept:
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakAccept()
+				}
+				stop = reduceChainStopAccept
+			default:
+				if perfCountersEnabled {
+					perfRecordReduceChainBreakMulti()
+				}
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classified.class, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), stop)
+			return false
+		}
+
+		next := classified.action
+		chainLen++
+		if perfCountersEnabled {
+			perfRecordReduceChainStep(chainLen)
+			perfRecordReduceChainHintSteps(1)
+		}
+		reduceStart := time.Now()
+		p.applyReduceActionDispatch(s, next, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+		p.ambiguityProfile.recordReduceChainStep(currentState, tok.Symbol, next, chainLen, time.Since(reduceStart).Nanoseconds())
+		if s.dead || s.accepted || s.shifted {
+			if perfCountersEnabled {
+				perfRecordReduceChainHintDead()
+			}
+			switch {
+			case s.accepted:
+				p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopAccept)
+			case s.shifted:
+				p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopShift)
+			default:
+				p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopDead)
+			}
+			return false
+		}
+	}
+	if perfCountersEnabled {
+		perfRecordReduceChainHintLimit()
+	}
+	return p.chainSingleReduceActionsClassifiedProfiledDefault(s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+}
+
+func (p *Parser) chainSingleReduceActionsClassifiedProfiledDefault(s *glrStack, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, deferParentLinks bool, trackChildErrors *bool) bool {
+	const maxInlineReduceChain = 256
+	actions := p.classifiedActions
+	chainLen := 0
+	classHits := 0
+	chainStartState := s.top().state
+	chainStart := time.Now()
+	var lastSig reduceChainSignature
+	repeatedSigCount := 0
+	for chainLen < maxInlineReduceChain {
+		currentState := s.top().state
+		currentDepth := s.depth()
+		actionIdx := p.lookupActionIndex(currentState, tok.Symbol)
+		if actionIdx == 0 || int(actionIdx) >= len(actions) {
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classifiedParseActionNoAction, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopNoAction)
+			return false
+		}
+		classHits++
+
+		classified := &actions[actionIdx]
+		switch classified.class {
+		case classifiedParseActionSingleReduce:
+			next := classified.action
+			var repeated bool
+			repeatedSigCount, repeated = noteRepeatedReduceChainAction(&lastSig, repeatedSigCount, currentState, currentDepth, next)
+			if repeated {
+				if p != nil && p.glrTrace {
+					fmt.Printf("      -> REDUCE-CHAIN CYCLE state=%d depth=%d sym=%d prod=%d count=%d\n",
+						currentState, currentDepth, next.Symbol, next.ProductionID, repeatedSigCount)
+				}
+				p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopCycle)
+				return true
+			}
+			chainLen++
+			if perfCountersEnabled {
+				perfRecordReduceChainStep(chainLen)
+			}
+			reduceStart := time.Now()
+			p.applyReduceActionDispatch(s, next, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+			p.ambiguityProfile.recordReduceChainStep(currentState, tok.Symbol, next, chainLen, time.Since(reduceStart).Nanoseconds())
+			if s.dead || s.accepted || s.shifted {
+				switch {
+				case s.accepted:
+					p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopAccept)
+				case s.shifted:
+					p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopShift)
+				default:
+					p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, currentState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopDead)
+				}
+				return false
+			}
+		case classifiedParseActionSingleShift:
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakShift()
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classified.class, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopShift)
+			return false
+		case classifiedParseActionSingleAccept:
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakAccept()
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classified.class, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopAccept)
+			return false
+		default:
+			if perfCountersEnabled {
+				perfRecordReduceChainBreakMulti()
+			}
+			p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, currentState, classified.class, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopMulti)
+			return false
+		}
+	}
+	p.ambiguityProfile.recordReduceChainRun(chainStartState, tok.Symbol, reduceChainTerminalState(s, chainStartState), classifiedParseActionSingleReduce, chainLen, chainLen, classHits, time.Since(chainStart).Nanoseconds(), reduceChainStopLimit)
 	return false
 }
 
@@ -397,9 +1046,59 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		leaf.parseState = targetState
 		p.pushStackCompactFullLeaf(s, targetState, leaf, entryScratch, gssScratch)
 	} else {
+		// Phase 3: pre-allocation interning. Compute the candidate key
+		// from primitives (token + act + state) so we can skip the arena
+		// allocation entirely on hit. The previous post-allocation
+		// variant paid hash+lookup overhead per shift without saving
+		// the allocation, which net-regressed wall time on JS.
+		isMissing := p.shiftTokenIsMissingError(tok)
+		var flags nodeFlags
+		if named {
+			flags |= nodeFlagNamed
+		}
+		if act.Extra {
+			flags |= nodeFlagExtra
+		}
+		if isMissing {
+			flags |= nodeFlagMissing | nodeFlagHasError
+		}
+		if internLeavesSubstituteEnabled {
+			key := internKey{
+				symbol:       uint32(tok.Symbol),
+				flags:        uint8(flags),
+				startByte:    tok.StartByte,
+				endByte:      tok.EndByte,
+				parseState:   targetState,
+				preGotoState: currentState,
+			}
+			if canonical := lookupCanonicalLeafKey(arena, key); canonical != nil {
+				if internLeavesObserveEnabled {
+					arena.internShiftLeafObserved++
+				}
+				if isMissing && trackChildErrors != nil {
+					*trackChildErrors = true
+				}
+				if act.Extra && perfCountersEnabled {
+					perfRecordExtraNode()
+				}
+				// External-scanner checkpoint: the canonical leaf was
+				// the first one to hit this exact (sym, span, state)
+				// tuple, so its checkpoint snapshot is by construction
+				// the right one to apply here too. Skip the re-record.
+				p.pushStackNode(s, targetState, canonical, entryScratch, gssScratch)
+				s.shifted = true
+				*nodeCount++
+				if p != nil && p.glrTrace {
+					fmt.Printf("      -> SHIFT[intern-hit] new_state=%d depth=%d\n", targetState, s.depth())
+				}
+				return
+			}
+			// Miss: fall through to the regular allocation path; store
+			// the resulting leaf below before pushing.
+		}
 		leaf := newLeafNodeInArena(arena, tok.Symbol, named,
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
-		if p.shiftTokenIsMissingError(tok) {
+		if isMissing {
 			leaf.setMissing(true)
 			leaf.setHasError(true)
 			if trackChildErrors != nil {
@@ -413,6 +1112,15 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		leaf.preGotoState = currentState
 		leaf.parseState = targetState
 		p.recordCurrentExternalLeafCheckpoint(leaf, tok)
+		if internLeavesObserveEnabled {
+			arena.internShiftLeafObserved++
+			if !internLeavesSubstituteEnabled {
+				observeLeafInternFull(arena, leaf)
+			}
+		}
+		if internLeavesSubstituteEnabled {
+			storeCanonicalLeaf(arena, leaf)
+		}
 		p.pushStackNode(s, targetState, leaf, entryScratch, gssScratch)
 	}
 	s.shifted = true
@@ -573,7 +1281,7 @@ func releaseReduceWindowEntries(tmpEntries *[]stackEntry, entries []stackEntry) 
 }
 
 func truncateStackForReduce(s *glrStack, targetDepth int) bool {
-	if targetDepth < 0 || !s.truncate(targetDepth) {
+	if targetDepth < 0 || !s.truncateBeforePush(targetDepth) {
 		s.dead = true
 		return false
 	}
@@ -607,6 +1315,11 @@ func (p *Parser) tryFastVisibleReduceActionFromGSS(s *glrStack, act ParseAction,
 		return false
 	}
 
+	timing := p.reduceTiming
+	childStart := time.Time{}
+	if timing != nil {
+		childStart = time.Now()
+	}
 	var childBuf [8]*Node
 	symbolMeta := p.language.SymbolMetadata
 	n := s.gss.head
@@ -643,16 +1356,30 @@ func (p *Parser) tryFastVisibleReduceActionFromGSS(s *glrStack, act ParseAction,
 		perfRecordReduceChildrenFastGSS(childCount)
 	}
 	copy(children, childBuf[:childCount])
+	if timing != nil {
+		timing.reduceChildBuildNanos += time.Since(childStart).Nanoseconds()
+	}
 	named := p.isNamedSymbol(act.Symbol)
 	var parent *Node
+	parentStart := time.Time{}
+	if timing != nil {
+		parentStart = time.Now()
+	}
 	if deferParentLinks {
 		parent = newParentNodeInArenaNoLinksWithFieldSources(arena, act.Symbol, named, children, nil, nil, act.ProductionID, trackChildErrors)
 	} else {
 		parent = newParentNodeInArenaWithFieldSources(arena, act.Symbol, named, children, nil, nil, act.ProductionID)
 	}
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), nil, nil, reduceChildPathFastGSS)
+	if timing != nil {
+		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
+	}
 	*nodeCount++
 
+	pushStart := time.Time{}
+	if timing != nil {
+		pushStart = time.Now()
+	}
 	gotoState := p.lookupGoto(topState, act.Symbol)
 	targetState := topState
 	if gotoState != 0 {
@@ -663,7 +1390,7 @@ func (p *Parser) tryFastVisibleReduceActionFromGSS(s *glrStack, act ParseAction,
 	}
 	parent.preGotoState = topState
 	parent.parseState = targetState
-	if !s.truncate(targetDepth) {
+	if !s.truncateBeforePush(targetDepth) {
 		s.dead = true
 		if tmpEntries != nil {
 			*tmpEntries = (*tmpEntries)[:0]
@@ -671,6 +1398,9 @@ func (p *Parser) tryFastVisibleReduceActionFromGSS(s *glrStack, act ParseAction,
 		return true
 	}
 	p.pushStackNode(s, targetState, parent, entryScratch, gssScratch)
+	if timing != nil {
+		timing.reduceStackPushNanos += time.Since(pushStart).Nanoseconds()
+	}
 	s.score += int(act.DynamicPrecedence)
 	*anyReduced = true
 	if tmpEntries != nil {
@@ -680,19 +1410,37 @@ func (p *Parser) tryFastVisibleReduceActionFromGSS(s *glrStack, act ParseAction,
 }
 
 func (p *Parser) applyNoTreeReduceActionFromGSS(s *glrStack, act ParseAction, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, tmp []stackEntry, trackChildErrors bool) {
+	timing := p.reduceTiming
+	rangeStart := time.Time{}
+	if timing != nil {
+		rangeStart = time.Now()
+	}
 	windowEntries, window, ok := reduceWindowRangeFromGSS(s, int(act.ChildCount), tmp)
+	if timing != nil {
+		timing.reduceRangeNanos += time.Since(rangeStart).Nanoseconds()
+	}
 	if !ok {
 		s.dead = true
 		releaseReduceWindowEntries(tmpEntries, windowEntries)
 		return
 	}
 
+	noTreeStart := time.Time{}
+	if timing != nil {
+		noTreeStart = time.Now()
+	}
 	targetDepth := s.depth() - window.actualEnd
 	if !truncateStackForReduce(s, targetDepth) {
+		if timing != nil {
+			timing.reduceNoTreeBuildNanos += time.Since(noTreeStart).Nanoseconds()
+		}
 		releaseReduceWindowEntries(tmpEntries, windowEntries)
 		return
 	}
 	p.pushNoTreeReduceNode(s, act, tok, arena, entryScratch, gssScratch, windowEntries, window.start, window.reducedEnd, window.reducedEnd, window.actualEnd, window.topState, nodeCount, trackChildErrors)
+	if timing != nil {
+		timing.reduceNoTreeBuildNanos += time.Since(noTreeStart).Nanoseconds()
+	}
 	markReduceApplied(s, act, anyReduced)
 	releaseReduceWindowEntries(tmpEntries, windowEntries)
 }
@@ -705,8 +1453,16 @@ func (p *Parser) applyReduceActionFromGSS(s *glrStack, act ParseAction, tok Toke
 	if p.tryFastVisibleReduceActionFromGSS(s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors) {
 		return
 	}
+	timing := p.reduceTiming
 	childCount := int(act.ChildCount)
+	rangeStart := time.Time{}
+	if timing != nil {
+		rangeStart = time.Now()
+	}
 	windowEntries, window, ok := reduceWindowRangeFromGSS(s, childCount, tmp)
+	if timing != nil {
+		timing.reduceRangeNanos += time.Since(rangeStart).Nanoseconds()
+	}
 	if !ok {
 		s.dead = true
 		releaseReduceWindowEntries(tmpEntries, windowEntries)
@@ -715,7 +1471,14 @@ func (p *Parser) applyReduceActionFromGSS(s *glrStack, act ParseAction, tok Toke
 
 	targetDepth := s.depth() - window.actualEnd
 	if pendingFullParents := p.usePendingFullParents(); pendingFullParents {
+		pendingStart := time.Time{}
+		if timing != nil {
+			pendingStart = time.Now()
+		}
 		if child, ok := p.collapsibleRawUnarySelfReductionEntry(act, tok, arena, windowEntries, window.start, window.reducedEnd); ok {
+			if timing != nil {
+				timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+			}
 			if !truncateStackForReduce(s, targetDepth) {
 				releaseReduceWindowEntries(tmpEntries, windowEntries)
 				return
@@ -726,10 +1489,16 @@ func (p *Parser) applyReduceActionFromGSS(s *glrStack, act ParseAction, tok Toke
 			return
 		}
 		if p.tryPushPendingNoFieldParent(s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, windowEntries, window.start, window.reducedEnd, window.actualEnd, window.topState, targetDepth) {
+			if timing != nil {
+				timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+			}
 			releaseReduceWindowEntries(tmpEntries, windowEntries)
 			return
 		}
 		materializePendingPayloadEntries(p, windowEntries, window.start, window.actualEnd, arena)
+		if timing != nil {
+			timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+		}
 	}
 
 	if child := p.collapsibleRawUnarySelfReduction(act, tok, arena, windowEntries, window.start, window.reducedEnd); child != nil {
@@ -743,7 +1512,14 @@ func (p *Parser) applyReduceActionFromGSS(s *glrStack, act ParseAction, tok Toke
 		return
 	}
 
+	childStart := time.Time{}
+	if timing != nil {
+		childStart = time.Now()
+	}
 	children, fieldIDs, fieldSources, childPath := p.buildReduceChildrenWithPath(windowEntries, window.start, window.reducedEnd, childCount, act.Symbol, act.ProductionID, arena)
+	if timing != nil {
+		timing.reduceChildBuildNanos += time.Since(childStart).Nanoseconds()
+	}
 
 	if !truncateStackForReduce(s, targetDepth) {
 		releaseReduceWindowEntries(tmpEntries, windowEntries)
@@ -759,12 +1535,23 @@ func (p *Parser) applyReduceActionFromGSS(s *glrStack, act ParseAction, tok Toke
 
 	named := p.isNamedSymbol(act.Symbol)
 	var parent *Node
+	parentStart := time.Time{}
+	if timing != nil {
+		parentStart = time.Now()
+	}
 	if deferParentLinks {
 		parent = newParentNodeInArenaNoLinksWithFieldSources(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID, trackChildErrors)
 	} else {
 		parent = newParentNodeInArenaWithFieldSources(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID)
 	}
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), fieldIDs, fieldSources, childPath)
+	if timing != nil {
+		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
+	}
+	spanStart := time.Time{}
+	if timing != nil {
+		spanStart = time.Now()
+	}
 	shouldUseRawSpan := shouldUseRawSpanForReduction(act.Symbol, children, p.language.SymbolMetadata, p.forceRawSpanAll, p.forceRawSpanTable)
 	if shouldUseRawSpan && window.reducedEnd > window.start {
 		span := computeReduceRawSpan(windowEntries, window.start, window.reducedEnd)
@@ -777,9 +1564,18 @@ func (p *Parser) applyReduceActionFromGSS(s *glrStack, act ParseAction, tok Toke
 		parent.endPoint = span.endPoint
 	}
 	// Extend parent span to cover invisible children dropped by buildReduceChildren.
-	extendParentSpanToWindow(parent, windowEntries, window.start, window.reducedEnd, p.language.SymbolMetadata, p.language.SymbolNames)
+	if reduceChildPathMayDropSpan(childPath) {
+		extendParentSpanToWindow(parent, windowEntries, window.start, window.reducedEnd, p.language.SymbolMetadata, p.language.SymbolNames)
+	}
+	if timing != nil {
+		timing.reduceSpanNanos += time.Since(spanStart).Nanoseconds()
+	}
 	*nodeCount++
 
+	pushStart := time.Time{}
+	if timing != nil {
+		pushStart = time.Now()
+	}
 	gotoState := p.lookupGoto(window.topState, act.Symbol)
 	targetState := window.topState
 	if gotoState != 0 {
@@ -799,6 +1595,9 @@ func (p *Parser) applyReduceActionFromGSS(s *glrStack, act ParseAction, tok Toke
 		extra.parseState = targetState
 		nodeBumpEquivVersion(extra)
 		p.pushStackNode(s, targetState, extra, entryScratch, gssScratch)
+	}
+	if timing != nil {
+		timing.reduceStackPushNanos += time.Since(pushStart).Nanoseconds()
 	}
 
 	markReduceApplied(s, act, anyReduced)
@@ -827,6 +1626,11 @@ func (p *Parser) tryFastVisibleReduceActionFromGSSTransientParents(s *glrStack, 
 		return false
 	}
 
+	timing := p.reduceTiming
+	childStart := time.Time{}
+	if timing != nil {
+		childStart = time.Now()
+	}
 	var childBuf [8]*Node
 	symbolMeta := p.language.SymbolMetadata
 	n := s.gss.head
@@ -863,11 +1667,25 @@ func (p *Parser) tryFastVisibleReduceActionFromGSSTransientParents(s *glrStack, 
 		perfRecordReduceChildrenFastGSS(childCount)
 	}
 	copy(children, childBuf[:childCount])
+	if timing != nil {
+		timing.reduceChildBuildNanos += time.Since(childStart).Nanoseconds()
+	}
 	named := p.isNamedSymbol(act.Symbol)
+	parentStart := time.Time{}
+	if timing != nil {
+		parentStart = time.Now()
+	}
 	parent := p.newReduceParentNode(arena, act.Symbol, named, children, nil, nil, act.ProductionID, deferParentLinks, trackChildErrors)
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), nil, nil, reduceChildPathFastGSS)
+	if timing != nil {
+		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
+	}
 	*nodeCount++
 
+	pushStart := time.Time{}
+	if timing != nil {
+		pushStart = time.Now()
+	}
 	gotoState := p.lookupGoto(topState, act.Symbol)
 	targetState := topState
 	if gotoState != 0 {
@@ -878,7 +1696,7 @@ func (p *Parser) tryFastVisibleReduceActionFromGSSTransientParents(s *glrStack, 
 	}
 	parent.preGotoState = topState
 	parent.parseState = targetState
-	if !s.truncate(targetDepth) {
+	if !s.truncateBeforePush(targetDepth) {
 		s.dead = true
 		if tmpEntries != nil {
 			*tmpEntries = (*tmpEntries)[:0]
@@ -886,6 +1704,9 @@ func (p *Parser) tryFastVisibleReduceActionFromGSSTransientParents(s *glrStack, 
 		return true
 	}
 	p.pushStackNode(s, targetState, parent, entryScratch, gssScratch)
+	if timing != nil {
+		timing.reduceStackPushNanos += time.Since(pushStart).Nanoseconds()
+	}
 	s.score += int(act.DynamicPrecedence)
 	*anyReduced = true
 	if tmpEntries != nil {
@@ -898,8 +1719,16 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 	if p.tryFastVisibleReduceActionFromGSSTransientParents(s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors) {
 		return
 	}
+	timing := p.reduceTiming
 	childCount := int(act.ChildCount)
+	rangeStart := time.Time{}
+	if timing != nil {
+		rangeStart = time.Now()
+	}
 	windowEntries, topState, ok := reduceWindowFromGSS(s, childCount, tmp)
+	if timing != nil {
+		timing.reduceRangeNanos += time.Since(rangeStart).Nanoseconds()
+	}
 	if !ok {
 		s.dead = true
 		if tmpEntries != nil {
@@ -917,9 +1746,16 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 		reducedEnd--
 	}
 	if p.usePendingFullParents() {
+		pendingStart := time.Time{}
+		if timing != nil {
+			pendingStart = time.Now()
+		}
 		if child, ok := p.collapsibleRawUnarySelfReductionEntry(act, tok, arena, windowEntries, 0, reducedEnd); ok {
+			if timing != nil {
+				timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+			}
 			targetDepth := s.depth() - actualEnd
-			if targetDepth < 0 || !s.truncate(targetDepth) {
+			if targetDepth < 0 || !s.truncateBeforePush(targetDepth) {
 				s.dead = true
 				if tmpEntries != nil {
 					*tmpEntries = windowEntries[:0]
@@ -936,18 +1772,28 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 		}
 	}
 	if p.usePendingFullParents() {
+		pendingStart := time.Time{}
+		if timing != nil {
+			pendingStart = time.Now()
+		}
 		if p.tryPushPendingNoFieldParent(s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, windowEntries, 0, reducedEnd, actualEnd, topState, s.depth()-actualEnd) {
+			if timing != nil {
+				timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+			}
 			if tmpEntries != nil {
 				*tmpEntries = windowEntries[:0]
 			}
 			return
 		}
 		materializePendingPayloadEntries(p, windowEntries, 0, actualEnd, arena)
+		if timing != nil {
+			timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+		}
 	}
 
 	if child := p.collapsibleRawUnarySelfReduction(act, tok, arena, windowEntries, 0, reducedEnd); child != nil {
 		targetDepth := s.depth() - actualEnd
-		if targetDepth < 0 || !s.truncate(targetDepth) {
+		if targetDepth < 0 || !s.truncateBeforePush(targetDepth) {
 			s.dead = true
 			if tmpEntries != nil {
 				*tmpEntries = windowEntries[:0]
@@ -963,10 +1809,17 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 		return
 	}
 
+	childStart := time.Time{}
+	if timing != nil {
+		childStart = time.Now()
+	}
 	children, fieldIDs, fieldSources, childPath := p.buildReduceChildrenWithPath(windowEntries, 0, reducedEnd, childCount, act.Symbol, act.ProductionID, arena)
+	if timing != nil {
+		timing.reduceChildBuildNanos += time.Since(childStart).Nanoseconds()
+	}
 
 	targetDepth := s.depth() - actualEnd
-	if targetDepth < 0 || !s.truncate(targetDepth) {
+	if targetDepth < 0 || !s.truncateBeforePush(targetDepth) {
 		s.dead = true
 		if tmpEntries != nil {
 			*tmpEntries = windowEntries[:0]
@@ -985,8 +1838,19 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 	}
 
 	named := p.isNamedSymbol(act.Symbol)
+	parentStart := time.Time{}
+	if timing != nil {
+		parentStart = time.Now()
+	}
 	parent := p.newReduceParentNode(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID, deferParentLinks, trackChildErrors)
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), fieldIDs, fieldSources, childPath)
+	if timing != nil {
+		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
+	}
+	spanStart := time.Time{}
+	if timing != nil {
+		spanStart = time.Now()
+	}
 	shouldUseRawSpan := shouldUseRawSpanForReduction(act.Symbol, children, p.language.SymbolMetadata, p.forceRawSpanAll, p.forceRawSpanTable)
 	if shouldUseRawSpan && reducedEnd > 0 {
 		span := computeReduceRawSpan(windowEntries, 0, reducedEnd)
@@ -998,9 +1862,18 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 		parent.startPoint = span.startPoint
 		parent.endPoint = span.endPoint
 	}
-	extendParentSpanToWindow(parent, windowEntries, 0, reducedEnd, p.language.SymbolMetadata, p.language.SymbolNames)
+	if reduceChildPathMayDropSpan(childPath) {
+		extendParentSpanToWindow(parent, windowEntries, 0, reducedEnd, p.language.SymbolMetadata, p.language.SymbolNames)
+	}
+	if timing != nil {
+		timing.reduceSpanNanos += time.Since(spanStart).Nanoseconds()
+	}
 	*nodeCount++
 
+	pushStart := time.Time{}
+	if timing != nil {
+		pushStart = time.Now()
+	}
 	gotoState := p.lookupGoto(topState, act.Symbol)
 	targetState := topState
 	if gotoState != 0 {
@@ -1020,6 +1893,9 @@ func (p *Parser) applyReduceActionFromGSSTransientParents(s *glrStack, act Parse
 		extra.parseState = targetState
 		nodeBumpEquivVersion(extra)
 		p.pushStackNode(s, targetState, extra, entryScratch, gssScratch)
+	}
+	if timing != nil {
+		timing.reduceStackPushNanos += time.Since(pushStart).Nanoseconds()
 	}
 
 	s.score += int(act.DynamicPrecedence)
@@ -1352,7 +2228,7 @@ func (p *Parser) tryPushPendingNoFieldParent(s *glrStack, act ParseAction, tok T
 	}
 	parent.preGotoState = topState
 	parent.parseState = targetState
-	if !s.truncate(truncateDepth) {
+	if !s.truncateBeforePush(truncateDepth) {
 		s.dead = true
 		return true
 	}
@@ -1453,7 +2329,7 @@ func (p *Parser) tryPushPendingDirectFieldParent(s *glrStack, act ParseAction, t
 	}
 	parent.preGotoState = topState
 	parent.parseState = targetState
-	if !s.truncate(truncateDepth) {
+	if !s.truncateBeforePush(truncateDepth) {
 		s.dead = true
 		return true
 	}
@@ -1777,6 +2653,9 @@ func pendingNoFieldChildCount(entry stackEntry, arena *nodeArena, parentVisible 
 		return 1, hasPayload, hasError, true
 	}
 	if parentVisible {
+		if stackEntryTreeHasFieldIDs(entry, arena) {
+			return 0, false, false, false
+		}
 		if parent := stackEntryPendingParent(entry); parent != nil {
 			for i := 0; i < parent.childEntryCount(); i++ {
 				child := parent.childEntry(arena, i)
@@ -2604,14 +3483,9 @@ func (p *Parser) buildReduceChildrenWithPath(entries []stackEntry, start, end, c
 	aliasSeq := p.reduceAliasSequence(productionID)
 	productionHasFields := p.reduceProductionHasEffectiveFields(childCount, productionID, arena)
 	if len(aliasSeq) == 0 && !productionHasFields {
-		if children, _, _, ok := p.buildReduceChildrenAllVisible(entries, start, end, childCount, nil, nil, nil, symbolMeta, arena); ok {
-			return children, nil, nil, reduceChildPathForLen(len(children), reduceChildPathAllVisible)
+		if children, fieldIDs, fieldSources, path, ok := p.buildReduceChildrenNoAliasNoFieldsPlanned(entries, start, end, parentSymbol, symbolMeta, arena); ok {
+			return children, fieldIDs, fieldSources, path
 		}
-	}
-	parentVisible := symbolVisibleForPending(parentSymbol, symbolMeta)
-	preserveHiddenFields := parentVisible && reduceEntriesContainHiddenFieldIDs(entries, start, end, symbolMeta)
-	if len(aliasSeq) == 0 && !productionHasFields && !preserveHiddenFields {
-		return p.buildReduceChildrenNoAliasNoFieldsStreaming(entries, start, end, parentSymbol, symbolMeta, arena)
 	}
 
 	rawFieldIDs, rawInherited := p.buildFieldIDs(childCount, productionID, arena)
@@ -2639,6 +3513,15 @@ func reduceChildPathForLen(n int, nonEmptyPath reduceChildPath) reduceChildPath 
 	return nonEmptyPath
 }
 
+func reduceChildPathMayDropSpan(path reduceChildPath) bool {
+	switch path {
+	case reduceChildPathAllVisible, reduceChildPathNoAlias, reduceChildPathFastGSS:
+		return false
+	default:
+		return true
+	}
+}
+
 func reduceEntriesContainHiddenFieldIDs(entries []stackEntry, start, end int, symbolMeta []SymbolMetadata) bool {
 	for i := start; i < end; i++ {
 		n := stackEntryNode(entries[i])
@@ -2650,6 +3533,95 @@ func reduceEntriesContainHiddenFieldIDs(entries []stackEntry, start, end int, sy
 		}
 	}
 	return false
+}
+
+func (p *Parser) buildReduceChildrenNoAliasNoFieldsPlanned(entries []stackEntry, start, end int, parentSymbol Symbol, symbolMeta []SymbolMetadata, arena *nodeArena) ([]*Node, []FieldID, []uint8, reduceChildPath, bool) {
+	visibleCount := 0
+	allVisible := true
+	preserveHiddenFields := false
+	parentVisible := symbolVisibleForPending(parentSymbol, symbolMeta)
+	for i := start; i < end; i++ {
+		n := stackEntryNode(entries[i])
+		if n == nil {
+			continue
+		}
+		visible := true
+		if idx := int(n.symbol); idx < len(symbolMeta) {
+			visible = symbolMeta[n.symbol].Visible
+		}
+		if visible {
+			visibleCount++
+			continue
+		}
+		allVisible = false
+		if parentVisible && hiddenTreeHasFieldIDs(n) {
+			preserveHiddenFields = true
+		}
+	}
+	if allVisible {
+		if visibleCount == 0 {
+			return nil, nil, nil, reduceChildPathNone, true
+		}
+		children := p.allocAllVisibleReduceChildren(arena, visibleCount, nil, nil, nil)
+		arena.recordReduceChildSliceAllVisible(visibleCount)
+		if perfCountersEnabled {
+			perfRecordReduceChildrenAllVisible(visibleCount)
+		}
+		out := 0
+		for i := start; i < end; i++ {
+			n := stackEntryNode(entries[i])
+			if n == nil {
+				continue
+			}
+			children[out] = n
+			out++
+		}
+		return children, nil, nil, reduceChildPathAllVisible, true
+	}
+	if preserveHiddenFields {
+		return nil, nil, nil, reduceChildPathNone, false
+	}
+
+	var scratch *reduceBuildScratch
+	if p != nil && p.reduceScratch != nil {
+		scratch = p.reduceScratch
+	} else {
+		scratch = &reduceBuildScratch{}
+	}
+	scratch.reset()
+
+	for i := start; i < end; i++ {
+		n := stackEntryNode(entries[i])
+		if n == nil {
+			continue
+		}
+		visible := true
+		if idx := int(n.symbol); idx < len(symbolMeta) {
+			visible = symbolMeta[n.symbol].Visible
+		}
+		if visible {
+			scratch.appendNode(n)
+			continue
+		}
+		if parentVisible {
+			appendFlattenedHiddenChildrenToScratch(scratch, n, symbolMeta)
+			continue
+		}
+		if len(n.children) == 0 {
+			continue
+		}
+		scratch.appendNode(n)
+	}
+	if perfCountersEnabled {
+		perfRecordReduceScratchNoAlias(len(scratch.nodes))
+	}
+	arena.recordReduceChildSliceScratchNoAlias(len(scratch.nodes))
+	children := p.materializeNoFieldReduceChildrenFromScratch(scratch, arena)
+	path := reduceChildPathNone
+	if len(children) > 0 {
+		path = reduceChildPathScratchNoAlias
+	}
+	return children, nil, nil, path, true
 }
 
 func (p *Parser) newReduceBuildScratch(rawFieldIDs []FieldID) *reduceBuildScratch {
@@ -2803,91 +3775,6 @@ func shouldSkipInheritedParentFieldForFlattenedSpan(scratch *reduceBuildScratch,
 	return child == nil || !nodeHasDirectFieldID(child, fid)
 }
 
-func (p *Parser) buildReduceChildrenNoAliasNoFieldsStreaming(entries []stackEntry, start, end int, parentSymbol Symbol, symbolMeta []SymbolMetadata, arena *nodeArena) ([]*Node, []FieldID, []uint8, reduceChildPath) {
-	visibleCount := 0
-	allVisible := true
-	for i := start; i < end; i++ {
-		n := stackEntryNode(entries[i])
-		if n == nil {
-			continue
-		}
-		visible := true
-		if idx := int(n.symbol); idx < len(symbolMeta) {
-			visible = symbolMeta[n.symbol].Visible
-		}
-		if !visible {
-			allVisible = false
-			break
-		}
-		visibleCount++
-	}
-	if allVisible {
-		if visibleCount == 0 {
-			return nil, nil, nil, reduceChildPathNone
-		}
-		children := arena.allocNodeSliceNoClear(visibleCount)
-		arena.recordReduceChildSliceNoAlias(visibleCount)
-		if perfCountersEnabled {
-			perfRecordReduceChildrenNoAlias(visibleCount)
-		}
-		out := 0
-		for i := start; i < end; i++ {
-			n := stackEntryNode(entries[i])
-			if n == nil {
-				continue
-			}
-			children[out] = n
-			out++
-		}
-		return children, nil, nil, reduceChildPathNoAlias
-	}
-
-	var scratch *reduceBuildScratch
-	if p != nil && p.reduceScratch != nil {
-		scratch = p.reduceScratch
-	} else {
-		scratch = &reduceBuildScratch{}
-	}
-	scratch.reset()
-
-	parentVisible := true
-	if idx := int(parentSymbol); idx < len(symbolMeta) {
-		parentVisible = symbolMeta[parentSymbol].Visible
-	}
-	for i := start; i < end; i++ {
-		n := stackEntryNode(entries[i])
-		if n == nil {
-			continue
-		}
-		visible := true
-		if idx := int(n.symbol); idx < len(symbolMeta) {
-			visible = symbolMeta[n.symbol].Visible
-		}
-		if visible {
-			scratch.appendNode(n)
-			continue
-		}
-		if parentVisible {
-			appendFlattenedHiddenChildrenToScratch(scratch, n, symbolMeta)
-			continue
-		}
-		if len(n.children) == 0 {
-			continue
-		}
-		scratch.appendNode(n)
-	}
-	if perfCountersEnabled {
-		perfRecordReduceScratchNoAlias(len(scratch.nodes))
-	}
-	arena.recordReduceChildSliceScratchNoAlias(len(scratch.nodes))
-	children := p.materializeNoFieldReduceChildrenFromScratch(scratch, arena)
-	path := reduceChildPathNone
-	if len(children) > 0 {
-		path = reduceChildPathScratchNoAlias
-	}
-	return children, nil, nil, path
-}
-
 func (p *Parser) shouldSuppressVisibleDirectField(n *Node, fid FieldID) bool {
 	if p == nil || p.language == nil || n == nil || fid == 0 {
 		return false
@@ -2908,6 +3795,9 @@ func (p *Parser) shouldSuppressVisibleDirectField(n *Node, fid FieldID) bool {
 
 func (p *Parser) suppressReducedChildFields(children []*Node, fieldIDs []FieldID, fieldSources []uint8) {
 	if p == nil || len(children) == 0 || len(fieldIDs) == 0 {
+		return
+	}
+	if p.language == nil || p.language.Name != "dart" {
 		return
 	}
 	limit := len(children)
@@ -3291,15 +4181,23 @@ func recordCollapseRule(arena *nodeArena, rule collapseUnaryRule) {
 }
 
 func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, entries []stackEntry, deferParentLinks bool, trackChildErrors bool) {
+	timing := p.reduceTiming
 	childCount := int(act.ChildCount)
 	var (
 		window reduceRange
 		ok     bool
 	)
+	rangeStart := time.Time{}
+	if timing != nil {
+		rangeStart = time.Now()
+	}
 	if p != nil && p.noTreeBenchmarkOnly {
 		window, ok = computeReduceRangePayload(entries, childCount)
 	} else {
 		window, ok = computeReduceRangeForFullPayloads(entries, childCount, p.usePendingFullParents())
+	}
+	if timing != nil {
+		timing.reduceRangeNanos += time.Since(rangeStart).Nanoseconds()
 	}
 	if !ok {
 		// Not enough stack entries — kill this stack version.
@@ -3308,18 +4206,28 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 	}
 
 	if p != nil && p.noTreeBenchmarkOnly {
-		if !s.truncate(window.start) {
+		noTreeStart := time.Time{}
+		if timing != nil {
+			noTreeStart = time.Now()
+		}
+		if !s.truncateBeforePush(window.start) {
+			if timing != nil {
+				timing.reduceNoTreeBuildNanos += time.Since(noTreeStart).Nanoseconds()
+			}
 			s.dead = true
 			return
 		}
 		p.pushNoTreeReduceNode(s, act, tok, arena, entryScratch, gssScratch, entries, window.start, window.reducedEnd, window.reducedEnd, window.actualEnd, window.topState, nodeCount, trackChildErrors)
+		if timing != nil {
+			timing.reduceNoTreeBuildNanos += time.Since(noTreeStart).Nanoseconds()
+		}
 		s.score += int(act.DynamicPrecedence)
 		*anyReduced = true
 		return
 	}
 	if p.usePendingFullParents() {
 		if child, ok := p.collapsibleRawUnarySelfReductionEntry(act, tok, arena, entries, window.start, window.reducedEnd); ok {
-			if !s.truncate(window.start) {
+			if !s.truncateBeforePush(window.start) {
 				s.dead = true
 				return
 			}
@@ -3330,14 +4238,24 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 		}
 	}
 	if p.usePendingFullParents() {
+		pendingStart := time.Time{}
+		if timing != nil {
+			pendingStart = time.Now()
+		}
 		if p.tryPushPendingNoFieldParent(s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, entries, window.start, window.reducedEnd, window.actualEnd, window.topState, window.start) {
+			if timing != nil {
+				timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+			}
 			return
 		}
 		materializePendingPayloadEntries(p, entries, window.start, window.actualEnd, arena)
+		if timing != nil {
+			timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+		}
 	}
 
 	if child := p.collapsibleRawUnarySelfReduction(act, tok, arena, entries, window.start, window.reducedEnd); child != nil {
-		if !s.truncate(window.start) {
+		if !s.truncateBeforePush(window.start) {
 			s.dead = true
 			return
 		}
@@ -3347,13 +4265,20 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 		return
 	}
 
+	childStart := time.Time{}
+	if timing != nil {
+		childStart = time.Now()
+	}
 	children, fieldIDs, fieldSources, childPath := p.buildReduceChildrenWithPath(entries, window.start, window.reducedEnd, childCount, act.Symbol, act.ProductionID, arena)
+	if timing != nil {
+		timing.reduceChildBuildNanos += time.Since(childStart).Nanoseconds()
+	}
 
 	trailingStart := window.reducedEnd
 	trailingEnd := window.actualEnd
 
 	// Pop all reduced entries in one step after collection.
-	if !s.truncate(window.start) {
+	if !s.truncateBeforePush(window.start) {
 		s.dead = true
 		return
 	}
@@ -3367,12 +4292,23 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 
 	named := p.isNamedSymbol(act.Symbol)
 	var parent *Node
+	parentStart := time.Time{}
+	if timing != nil {
+		parentStart = time.Now()
+	}
 	if deferParentLinks {
 		parent = newParentNodeInArenaNoLinksWithFieldSources(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID, trackChildErrors)
 	} else {
 		parent = newParentNodeInArenaWithFieldSources(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID)
 	}
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), fieldIDs, fieldSources, childPath)
+	if timing != nil {
+		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
+	}
+	spanStart := time.Time{}
+	if timing != nil {
+		spanStart = time.Now()
+	}
 	shouldUseRawSpan := shouldUseRawSpanForReduction(act.Symbol, children, p.language.SymbolMetadata, p.forceRawSpanAll, p.forceRawSpanTable)
 	if shouldUseRawSpan && window.reducedEnd > window.start {
 		span := computeReduceRawSpan(entries, window.start, window.reducedEnd)
@@ -3385,9 +4321,18 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 		parent.endPoint = span.endPoint
 	}
 	// Extend parent span to cover invisible children dropped by buildReduceChildren.
-	extendParentSpanToWindow(parent, entries, window.start, window.reducedEnd, p.language.SymbolMetadata, p.language.SymbolNames)
+	if reduceChildPathMayDropSpan(childPath) {
+		extendParentSpanToWindow(parent, entries, window.start, window.reducedEnd, p.language.SymbolMetadata, p.language.SymbolNames)
+	}
+	if timing != nil {
+		timing.reduceSpanNanos += time.Since(spanStart).Nanoseconds()
+	}
 	*nodeCount++
 
+	pushStart := time.Time{}
+	if timing != nil {
+		pushStart = time.Now()
+	}
 	gotoState := p.lookupGoto(window.topState, act.Symbol)
 	targetState := window.topState
 	if gotoState != 0 {
@@ -3408,21 +4353,32 @@ func (p *Parser) applyReduceAction(s *glrStack, act ParseAction, tok Token, anyR
 		nodeBumpEquivVersion(extra)
 		p.pushStackNode(s, targetState, extra, entryScratch, gssScratch)
 	}
+	if timing != nil {
+		timing.reduceStackPushNanos += time.Since(pushStart).Nanoseconds()
+	}
 
 	s.score += int(act.DynamicPrecedence)
 	*anyReduced = true
 }
 
 func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, entries []stackEntry, deferParentLinks bool, trackChildErrors bool) {
+	timing := p.reduceTiming
 	childCount := int(act.ChildCount)
 	var (
 		window reduceRange
 		ok     bool
 	)
+	rangeStart := time.Time{}
+	if timing != nil {
+		rangeStart = time.Now()
+	}
 	if p != nil && p.noTreeBenchmarkOnly {
 		window, ok = computeReduceRangePayload(entries, childCount)
 	} else {
 		window, ok = computeReduceRangeForFullPayloads(entries, childCount, p.usePendingFullParents())
+	}
+	if timing != nil {
+		timing.reduceRangeNanos += time.Since(rangeStart).Nanoseconds()
 	}
 	if !ok {
 		s.dead = true
@@ -3430,18 +4386,28 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 	}
 
 	if p != nil && p.noTreeBenchmarkOnly {
-		if !s.truncate(window.start) {
+		noTreeStart := time.Time{}
+		if timing != nil {
+			noTreeStart = time.Now()
+		}
+		if !s.truncateBeforePush(window.start) {
+			if timing != nil {
+				timing.reduceNoTreeBuildNanos += time.Since(noTreeStart).Nanoseconds()
+			}
 			s.dead = true
 			return
 		}
 		p.pushNoTreeReduceNode(s, act, tok, arena, entryScratch, gssScratch, entries, window.start, window.reducedEnd, window.reducedEnd, window.actualEnd, window.topState, nodeCount, trackChildErrors)
+		if timing != nil {
+			timing.reduceNoTreeBuildNanos += time.Since(noTreeStart).Nanoseconds()
+		}
 		s.score += int(act.DynamicPrecedence)
 		*anyReduced = true
 		return
 	}
 	if p.usePendingFullParents() {
 		if child, ok := p.collapsibleRawUnarySelfReductionEntry(act, tok, arena, entries, window.start, window.reducedEnd); ok {
-			if !s.truncate(window.start) {
+			if !s.truncateBeforePush(window.start) {
 				s.dead = true
 				return
 			}
@@ -3452,14 +4418,24 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 		}
 	}
 	if p.usePendingFullParents() {
+		pendingStart := time.Time{}
+		if timing != nil {
+			pendingStart = time.Now()
+		}
 		if p.tryPushPendingNoFieldParent(s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, entries, window.start, window.reducedEnd, window.actualEnd, window.topState, window.start) {
+			if timing != nil {
+				timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+			}
 			return
 		}
 		materializePendingPayloadEntries(p, entries, window.start, window.actualEnd, arena)
+		if timing != nil {
+			timing.reducePendingParentNanos += time.Since(pendingStart).Nanoseconds()
+		}
 	}
 
 	if child := p.collapsibleRawUnarySelfReduction(act, tok, arena, entries, window.start, window.reducedEnd); child != nil {
-		if !s.truncate(window.start) {
+		if !s.truncateBeforePush(window.start) {
 			s.dead = true
 			return
 		}
@@ -3469,12 +4445,19 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 		return
 	}
 
+	childStart := time.Time{}
+	if timing != nil {
+		childStart = time.Now()
+	}
 	children, fieldIDs, fieldSources, childPath := p.buildReduceChildrenWithPath(entries, window.start, window.reducedEnd, childCount, act.Symbol, act.ProductionID, arena)
+	if timing != nil {
+		timing.reduceChildBuildNanos += time.Since(childStart).Nanoseconds()
+	}
 
 	trailingStart := window.reducedEnd
 	trailingEnd := window.actualEnd
 
-	if !s.truncate(window.start) {
+	if !s.truncateBeforePush(window.start) {
 		s.dead = true
 		return
 	}
@@ -3487,8 +4470,19 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 	}
 
 	named := p.isNamedSymbol(act.Symbol)
+	parentStart := time.Time{}
+	if timing != nil {
+		parentStart = time.Now()
+	}
 	parent := p.newReduceParentNode(arena, act.Symbol, named, children, fieldIDs, fieldSources, act.ProductionID, deferParentLinks, trackChildErrors)
 	p.recordReductionParentConstructed(arena, parent, act.Symbol, len(children), fieldIDs, fieldSources, childPath)
+	if timing != nil {
+		timing.reduceParentBuildNanos += time.Since(parentStart).Nanoseconds()
+	}
+	spanStart := time.Time{}
+	if timing != nil {
+		spanStart = time.Now()
+	}
 	shouldUseRawSpan := shouldUseRawSpanForReduction(act.Symbol, children, p.language.SymbolMetadata, p.forceRawSpanAll, p.forceRawSpanTable)
 	if shouldUseRawSpan && window.reducedEnd > window.start {
 		span := computeReduceRawSpan(entries, window.start, window.reducedEnd)
@@ -3500,9 +4494,18 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 		parent.startPoint = span.startPoint
 		parent.endPoint = span.endPoint
 	}
-	extendParentSpanToWindow(parent, entries, window.start, window.reducedEnd, p.language.SymbolMetadata, p.language.SymbolNames)
+	if reduceChildPathMayDropSpan(childPath) {
+		extendParentSpanToWindow(parent, entries, window.start, window.reducedEnd, p.language.SymbolMetadata, p.language.SymbolNames)
+	}
+	if timing != nil {
+		timing.reduceSpanNanos += time.Since(spanStart).Nanoseconds()
+	}
 	*nodeCount++
 
+	pushStart := time.Time{}
+	if timing != nil {
+		pushStart = time.Now()
+	}
 	gotoState := p.lookupGoto(window.topState, act.Symbol)
 	targetState := window.topState
 	if gotoState != 0 {
@@ -3522,6 +4525,9 @@ func (p *Parser) applyReduceActionTransientParents(s *glrStack, act ParseAction,
 		extra.parseState = targetState
 		nodeBumpEquivVersion(extra)
 		p.pushStackNode(s, targetState, extra, entryScratch, gssScratch)
+	}
+	if timing != nil {
+		timing.reduceStackPushNanos += time.Since(pushStart).Nanoseconds()
 	}
 
 	s.score += int(act.DynamicPrecedence)

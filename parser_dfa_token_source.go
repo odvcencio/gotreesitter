@@ -16,7 +16,9 @@ type dfaTokenSource struct {
 	state    StateID
 
 	lookupActionIndex          func(state StateID, sym Symbol) uint16
+	lexModeStarts              []lexModeStart
 	hasKeywordState            []bool
+	externalValidByState       [][]uint16
 	externalPayload            any
 	externalValid              []bool
 	externalSnapshot           []byte
@@ -29,6 +31,7 @@ type dfaTokenSource struct {
 	lastExternalTokenStartByte uint32
 	lastExternalTokenEndByte   uint32
 	lastExternalTokenValid     bool
+	singleState                [1]StateID
 	glrStates                  []StateID // all active GLR stack states
 	hasExternalScanner         bool
 	hasExternalSymbols         bool
@@ -91,17 +94,20 @@ var dfaTokenSourcePool = sync.Pool{
 	},
 }
 
-func initDFATokenSource(ts *dfaTokenSource, lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool) {
+func initDFATokenSource(ts *dfaTokenSource, lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16) {
 	ts.lexer = lexer
 	ts.language = language
 	ts.state = 0
 	ts.lookupActionIndex = lookupActionIndex
+	ts.lexModeStarts = nil
 	ts.hasKeywordState = hasKeywordState
+	ts.externalValidByState = externalValidByState
 	if lexer != nil && language != nil {
 		ts.lexer.states = language.LexStates
 		ts.lexer.immediateTokens = language.ImmediateTokens
 		ts.lexer.zeroWidthTokens = language.ZeroWidthTokens
 		ts.lexer.asciiTable = language.LexAsciiTable()
+		ts.lexModeStarts = language.LexModeStarts()
 	}
 	if language != nil {
 		ts.hasExternalScanner = language.ExternalScanner != nil
@@ -119,10 +125,10 @@ func initDFATokenSource(ts *dfaTokenSource, lexer *Lexer, language *Language, lo
 	}
 }
 
-func acquireDFATokenSource(lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool) *dfaTokenSource {
+func acquireDFATokenSource(lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16) *dfaTokenSource {
 	ts := dfaTokenSourcePool.Get().(*dfaTokenSource)
 	resetPooledDFATokenSource(ts)
-	initDFATokenSource(ts, lexer, language, lookupActionIndex, hasKeywordState)
+	initDFATokenSource(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState)
 	return ts
 }
 
@@ -155,14 +161,14 @@ func resetPooledDFATokenSource(ts *dfaTokenSource) {
 	ts.extZeroTried = savedExtZeroTried
 }
 
-func newDFATokenSourceDirect(lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool) *dfaTokenSource {
+func newDFATokenSourceDirect(lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16) *dfaTokenSource {
 	ts := &dfaTokenSource{
 		extZeroPos:             -1,
 		zeroWidthPos:           -1,
 		bashArithmeticCachePos: -1,
 		noPool:                 true,
 	}
-	initDFATokenSource(ts, lexer, language, lookupActionIndex, hasKeywordState)
+	initDFATokenSource(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState)
 	return ts
 }
 
@@ -245,6 +251,7 @@ func (d *dfaTokenSource) Close() {
 	d.language = nil
 	d.lookupActionIndex = nil
 	d.hasKeywordState = nil
+	d.externalValidByState = nil
 	d.glrStates = nil
 	d.extZeroPos = -1
 	d.extZeroState = 0
@@ -485,6 +492,16 @@ func (d *dfaTokenSource) nextTokenForLexState(lexState uint32) Token {
 	return d.lexer.Next(lexState)
 }
 
+func (d *dfaTokenSource) lexModeStartRows() []lexModeStart {
+	if d == nil {
+		return nil
+	}
+	if len(d.lexModeStarts) == 0 && d.language != nil {
+		d.lexModeStarts = d.language.LexModeStarts()
+	}
+	return d.lexModeStarts
+}
+
 // nextGLRUnionDFAToken tries each unique GLR stack state's lex mode and
 // picks the DFA token that has valid parse actions in the most stacks.
 // This prevents the primary stack's lex mode from producing a token that's
@@ -498,15 +515,19 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 	}
 
 	// Check if all GLR states share the same lex mode pair — if so, no union needed.
-	primaryMode := d.language.LexModes[d.state]
+	lexModes := d.lexModeStartRows()
+	if int(d.state) >= len(lexModes) {
+		return Token{}, false
+	}
+	primaryMode := lexModes[d.state]
 	allSame := true
 	for _, st := range d.glrStates {
-		if int(st) >= len(d.language.LexModes) {
+		if int(st) >= len(lexModes) {
 			allSame = false
 			break
 		}
-		mode := d.language.LexModes[st]
-		if mode.LexState != primaryMode.LexState || mode.AfterWhitespaceLexState != primaryMode.AfterWhitespaceLexState {
+		mode := lexModes[st]
+		if mode != primaryMode {
 			allSame = false
 			break
 		}
@@ -537,13 +558,13 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 	var seenBuf [32]lexModeKey
 	seen := seenBuf[:0]
 	for _, st := range d.glrStates {
-		if int(st) >= len(d.language.LexModes) {
+		if int(st) >= len(lexModes) {
 			continue
 		}
-		mode := d.language.LexModes[st]
+		mode := lexModes[st]
 		key := lexModeKey{
-			lexState:                mode.LexStateIndex(),
-			afterWhitespaceLexState: mode.AfterWhitespaceLexStateIndex(),
+			lexState:                mode.lexState,
+			afterWhitespaceLexState: mode.afterWhitespaceLexState,
 		}
 		alreadySeen := false
 		for _, existing := range seen {
@@ -614,30 +635,35 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 }
 
 func (d *dfaTokenSource) lexStateForState(state StateID) uint32 {
-	if d == nil || d.language == nil || int(state) >= len(d.language.LexModes) {
+	lexModes := d.lexModeStartRows()
+	if int(state) >= len(lexModes) {
 		return 0
 	}
-	mode := d.language.LexModes[state]
-	if after := mode.AfterWhitespaceLexStateIndex(); after != 0 && d.isAfterWhitespacePosition() {
+	mode := lexModes[state]
+	if after := mode.afterWhitespaceLexState; after != 0 && d.isAfterWhitespacePosition() {
 		return after
 	}
-	return mode.LexStateIndex()
+	return mode.lexState
 }
 
 func (d *dfaTokenSource) scanPreferredTokenForState(state StateID) (Token, int, uint32, uint32) {
-	if d == nil || d.lexer == nil || d.language == nil || int(state) >= len(d.language.LexModes) {
+	if d == nil || d.lexer == nil {
+		return Token{}, 0, 0, 0
+	}
+	lexModes := d.lexModeStartRows()
+	if int(state) >= len(lexModes) {
 		return Token{}, d.lexer.pos, d.lexer.row, d.lexer.col
 	}
-	mode := d.language.LexModes[state]
-	if mode.AfterWhitespaceLexStateIndex() == 0 {
-		return d.scanDFATokenForState(state, mode.LexStateIndex())
+	mode := lexModes[state]
+	if mode.afterWhitespaceLexState == 0 {
+		return d.scanDFATokenForState(state, mode.lexState)
 	}
 	if !d.isAtWhitespacePosition() && !d.isAfterWhitespacePosition() {
-		return d.scanDFATokenForState(state, mode.LexStateIndex())
+		return d.scanDFATokenForState(state, mode.lexState)
 	}
 
-	baseTok, baseEndPos, baseEndRow, baseEndCol := d.scanDFATokenForState(state, mode.LexStateIndex())
-	afterTok, afterEndPos, afterEndRow, afterEndCol := d.scanDFATokenForState(state, mode.AfterWhitespaceLexStateIndex())
+	baseTok, baseEndPos, baseEndRow, baseEndCol := d.scanDFATokenForState(state, mode.lexState)
+	afterTok, afterEndPos, afterEndRow, afterEndCol := d.scanDFATokenForState(state, mode.afterWhitespaceLexState)
 	if d.shouldPreferBaseLexStateToken(baseTok, afterTok) {
 		return baseTok, baseEndPos, baseEndRow, baseEndCol
 	}
@@ -1628,9 +1654,8 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	anyValid := false
 	states := d.glrStates
 	if len(states) == 0 {
-		var single [1]StateID
-		single[0] = d.state
-		states = single[:]
+		d.singleState[0] = d.state
+		states = d.singleState[:]
 	}
 	if tok, ok := d.nextGLRScoredExternalToken(states); ok {
 		return tok, true
@@ -1652,6 +1677,20 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 			row := d.language.ExternalLexStates[elsID]
 			for i := range valid {
 				if i < len(row) && row[i] && !valid[i] {
+					valid[i] = true
+					anyValid = true
+				}
+			}
+		}
+	} else if len(d.externalValidByState) > 0 {
+		for _, st := range states {
+			if int(st) >= len(d.externalValidByState) {
+				continue
+			}
+			row := d.externalValidByState[int(st)]
+			for _, extIdx := range row {
+				i := int(extIdx)
+				if i < len(valid) && !valid[i] {
 					valid[i] = true
 					anyValid = true
 				}
@@ -2672,6 +2711,9 @@ func (d *dfaTokenSource) promoteKeyword(tok Token) Token {
 	start := int(tok.StartByte)
 	end := int(tok.EndByte)
 	if start < 0 || end < start || end > len(d.lexer.source) {
+		return tok
+	}
+	if !d.language.keywordLexCouldMatch(d.lexer.source, start, end) {
 		return tok
 	}
 

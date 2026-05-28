@@ -182,6 +182,31 @@ type IncrementalReuseExternalScanner interface {
 	SupportsIncrementalReuse() bool
 }
 
+// ReduceChainTerminalAction describes the action class expected after a
+// generated reduce-chain hint finishes applying deterministic reductions.
+type ReduceChainTerminalAction uint8
+
+const (
+	ReduceChainTerminalNoAction ReduceChainTerminalAction = iota
+	ReduceChainTerminalSingleReduce
+	ReduceChainTerminalSingleShift
+	ReduceChainTerminalSingleAccept
+	ReduceChainTerminalSingleOther
+	ReduceChainTerminalMulti
+)
+
+// ReduceChainHint describes a terminal-verified parser hot path for a
+// deterministic reduce chain. The runtime still applies normal reduce
+// semantics and stops before the terminal action; this metadata only lets it
+// avoid repeated generic action dispatch for approved state/lookahead pairs.
+type ReduceChainHint struct {
+	StartState     StateID
+	Lookahead      Symbol
+	TerminalStates []StateID
+	TerminalAction ReduceChainTerminalAction
+	MaxSteps       uint16
+}
+
 // Language holds all data needed to parse a specific language.
 // It mirrors tree-sitter's TSLanguage C struct, translated into
 // idiomatic Go types with slice-based tables instead of raw pointers.
@@ -214,6 +239,10 @@ type Language struct {
 	SmallParseTable    []uint16   // compressed sparse table
 	SmallParseTableMap []uint32   // state -> offset into SmallParseTable
 	ParseActions       []ParseActionEntry
+
+	// ReduceChainHints are optional generated hot-path hints for deterministic
+	// reduce runs. They are only consumed when reduce-chain hints are enabled.
+	ReduceChainHints []ReduceChainHint
 
 	// Lex tables
 	LexModes            []LexMode
@@ -277,6 +306,7 @@ type Language struct {
 	// Lazily-built lookup maps for O(1) name resolution.
 	symbolNameMap            map[string]Symbol
 	symbolNameNamedMap       map[symbolNameNamedKey]Symbol
+	visibleSymbolNameMap     map[symbolNameNamedKey]Symbol
 	tokenSymbolNameMap       map[string][]Symbol
 	publicSymbolMap          []Symbol // internal symbol → canonical public symbol
 	publicNamedSymbolMap     []Symbol // internal symbol -> canonical public named symbol
@@ -293,11 +323,27 @@ type Language struct {
 	lexAsciiOnce         sync.Once
 	keywordLexAsciiTable [][128]int32
 	keywordLexAsciiOnce  sync.Once
+	lexModeStarts        []lexModeStart
+	lexModeStartOnce     sync.Once
+	keywordPrefilter     keywordLexPrefilter
+	keywordPrefilterOnce sync.Once
 }
 
 type symbolNameNamedKey struct {
 	name  string
 	named bool
+}
+
+type keywordLexPrefilter struct {
+	allowAll bool
+	hasAny   bool
+	first    [4]uint64
+	lengths  [4]uint64
+}
+
+type lexModeStart struct {
+	lexState                uint32
+	afterWhitespaceLexState uint32
 }
 
 const lexAsciiNoMatch = int32(0x7FFF_FFFF)
@@ -327,6 +373,87 @@ func (l *Language) KeywordLexAsciiTable() [][128]int32 {
 		l.keywordLexAsciiTable = buildLexAsciiTable(l.KeywordLexStates)
 	})
 	return l.keywordLexAsciiTable
+}
+
+func (l *Language) keywordLexCouldMatch(source []byte, start, end int) bool {
+	if l == nil || len(l.KeywordLexStates) == 0 {
+		return true
+	}
+	l.keywordPrefilterOnce.Do(func() {
+		l.keywordPrefilter = l.buildKeywordLexPrefilter()
+	})
+	filter := l.keywordPrefilter
+	if filter.allowAll {
+		return true
+	}
+	if !filter.hasAny || start < 0 || end <= start || end > len(source) {
+		return false
+	}
+	n := end - start
+	if n >= 256 {
+		return false
+	}
+	if filter.lengths[n/64]&(uint64(1)<<uint(n%64)) == 0 {
+		return false
+	}
+	first := source[start]
+	return filter.first[first/64]&(uint64(1)<<uint(first%64)) != 0
+}
+
+func (l *Language) buildKeywordLexPrefilter() keywordLexPrefilter {
+	if l == nil || len(l.KeywordLexStates) == 0 {
+		return keywordLexPrefilter{allowAll: true}
+	}
+	var filter keywordLexPrefilter
+	for _, state := range l.KeywordLexStates {
+		sym := state.AcceptToken
+		if sym == 0 {
+			continue
+		}
+		idx := int(sym)
+		if idx < 0 || idx >= len(l.SymbolNames) {
+			return keywordLexPrefilter{allowAll: true}
+		}
+		name := l.SymbolNames[idx]
+		if name == "" || len(name) >= 256 {
+			return keywordLexPrefilter{allowAll: true}
+		}
+		if !isPlainKeywordSymbolName(name) {
+			return keywordLexPrefilter{allowAll: true}
+		}
+		filter.hasAny = true
+		filter.first[name[0]/64] |= uint64(1) << uint(name[0]%64)
+		filter.lengths[len(name)/64] |= uint64(1) << uint(len(name)%64)
+	}
+	return filter
+}
+
+func isPlainKeywordSymbolName(name string) bool {
+	for i := 0; i < len(name); i++ {
+		ch := name[i]
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func (l *Language) LexModeStarts() []lexModeStart {
+	if l == nil || len(l.LexModes) == 0 {
+		return nil
+	}
+	l.lexModeStartOnce.Do(func() {
+		starts := make([]lexModeStart, len(l.LexModes))
+		for i, mode := range l.LexModes {
+			starts[i] = lexModeStart{
+				lexState:                mode.LexStateIndex(),
+				afterWhitespaceLexState: mode.AfterWhitespaceLexStateIndex(),
+			}
+		}
+		l.lexModeStarts = starts
+	})
+	return l.lexModeStarts
 }
 
 func buildLexAsciiTable(states []LexState) [][128]int32 {
@@ -407,6 +534,15 @@ func (l *Language) symbolByNameAndNamed(name string, named bool) (Symbol, bool) 
 	return sym, ok
 }
 
+func (l *Language) visibleSymbolByNameAndNamed(name string, named bool) (Symbol, bool) {
+	if name == "_" {
+		return 0, true
+	}
+	l.buildSymbolMaps()
+	sym, ok := l.visibleSymbolNameMap[symbolNameNamedKey{name: name, named: named}]
+	return sym, ok
+}
+
 func (l *Language) symbolByNamePreferNamed(name string) (Symbol, bool) {
 	if sym, ok := l.symbolByNameAndNamed(name, true); ok {
 		return sym, true
@@ -466,6 +602,7 @@ func (l *Language) buildSymbolMaps() {
 	l.symbolMapOnce.Do(func() {
 		l.symbolNameMap = make(map[string]Symbol, len(l.SymbolNames))
 		l.symbolNameNamedMap = make(map[symbolNameNamedKey]Symbol, len(l.SymbolNames))
+		l.visibleSymbolNameMap = make(map[symbolNameNamedKey]Symbol, len(l.SymbolNames))
 		l.tokenSymbolNameMap = make(map[string][]Symbol)
 		l.publicSymbolMap = make([]Symbol, len(l.SymbolNames))
 		l.publicNamedSymbolMap = make([]Symbol, len(l.SymbolNames))
@@ -495,6 +632,11 @@ func (l *Language) buildSymbolMaps() {
 			key := symbolNameNamedKey{name: sn, named: named}
 			if _, exists := l.symbolNameNamedMap[key]; !exists {
 				l.symbolNameNamedMap[key] = sym
+			}
+			if i < len(l.SymbolMetadata) && l.SymbolMetadata[i].Visible {
+				if _, exists := l.visibleSymbolNameMap[key]; !exists {
+					l.visibleSymbolNameMap[key] = sym
+				}
 			}
 			if i < tokenCount {
 				l.tokenSymbolNameMap[sn] = append(l.tokenSymbolNameMap[sn], sym)

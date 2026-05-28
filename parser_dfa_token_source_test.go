@@ -53,7 +53,7 @@ func TestNextExternalTokenPrefersCandidateUsableByPrimaryState(t *testing.T) {
 		}
 	}
 
-	ts := acquireDFATokenSource(NewLexer(nil, []byte("x")), lang, lookup, nil)
+	ts := acquireDFATokenSource(NewLexer(nil, []byte("x")), lang, lookup, nil, nil)
 	defer ts.Close()
 	ts.SetParserState(2)
 	ts.SetGLRStates([]StateID{2, 1})
@@ -235,7 +235,7 @@ func TestCaptureExternalScannerStateUsesIndependentReusableBuffers(t *testing.T)
 		Name:            "test",
 		ExternalScanner: byteStateExternalScanner{},
 	}
-	ts := acquireDFATokenSource(NewLexer(nil, nil), lang, nil, nil)
+	ts := acquireDFATokenSource(NewLexer(nil, nil), lang, nil, nil, nil)
 	defer ts.Close()
 
 	state := ts.externalPayload.(*byte)
@@ -330,7 +330,7 @@ func TestDFATokenSourceResetClearsScannerAndLexerState(t *testing.T) {
 		Name:            "test",
 		ExternalScanner: byteStateExternalScanner{},
 	}
-	ts := acquireDFATokenSource(NewLexer(nil, []byte("abc")), lang, nil, nil)
+	ts := acquireDFATokenSource(NewLexer(nil, []byte("abc")), lang, nil, nil, nil)
 	defer ts.Close()
 
 	state := ts.externalPayload.(*byte)

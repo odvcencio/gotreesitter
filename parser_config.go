@@ -20,6 +20,14 @@ var (
 	preMaterializationDiag     bool
 	parsePhaseTimingOnce       sync.Once
 	parsePhaseTiming           bool
+	parseReduceTimingOnce      sync.Once
+	parseReduceTiming          bool
+	parseActionTimingOnce      sync.Once
+	parseActionTiming          bool
+	parseReduceChainHintsOnce  sync.Once
+	parseReduceChainHints      bool
+	parseTSLazyCompatOnce      sync.Once
+	parseTSLazyCompat          bool
 )
 
 // ResetParseEnvConfigCacheForTests clears memoized parser env config.
@@ -39,6 +47,14 @@ func ResetParseEnvConfigCacheForTests() {
 	preMaterializationDiag = false
 	parsePhaseTimingOnce = sync.Once{}
 	parsePhaseTiming = false
+	parseReduceTimingOnce = sync.Once{}
+	parseReduceTiming = false
+	parseActionTimingOnce = sync.Once{}
+	parseActionTiming = false
+	parseReduceChainHintsOnce = sync.Once{}
+	parseReduceChainHints = false
+	parseTSLazyCompatOnce = sync.Once{}
+	parseTSLazyCompat = false
 }
 
 func parseNodeLimitScaleFactor() int {
@@ -141,6 +157,38 @@ func parsePhaseTimingEnabled() bool {
 		parsePhaseTiming = raw != "" && raw != "0" && !strings.EqualFold(raw, "false")
 	})
 	return parsePhaseTiming
+}
+
+func parseReduceTimingEnabled() bool {
+	parseReduceTimingOnce.Do(func() {
+		raw := strings.TrimSpace(os.Getenv("GOT_PARSE_REDUCE_TIMING"))
+		parseReduceTiming = raw != "" && raw != "0" && !strings.EqualFold(raw, "false")
+	})
+	return parseReduceTiming
+}
+
+func parseActionTimingEnabled() bool {
+	parseActionTimingOnce.Do(func() {
+		raw := strings.TrimSpace(os.Getenv("GOT_PARSE_ACTION_TIMING"))
+		parseActionTiming = raw != "" && raw != "0" && !strings.EqualFold(raw, "false")
+	})
+	return parseActionTiming
+}
+
+func parseReduceChainHintsEnabled() bool {
+	parseReduceChainHintsOnce.Do(func() {
+		raw := strings.TrimSpace(os.Getenv("GOT_GLR_REDUCE_CHAIN_HINTS"))
+		parseReduceChainHints = raw != "" && raw != "0" && !strings.EqualFold(raw, "false")
+	})
+	return parseReduceChainHints
+}
+
+func parseTypeScriptLazyResultCompatibilityEnabled() bool {
+	parseTSLazyCompatOnce.Do(func() {
+		raw := strings.TrimSpace(os.Getenv("GOT_TS_LAZY_COMPAT"))
+		parseTSLazyCompat = raw == "" || (raw != "0" && !strings.EqualFold(raw, "false"))
+	})
+	return parseTSLazyCompat
 }
 
 func parseTransientReduceEnabled(envName string) bool {

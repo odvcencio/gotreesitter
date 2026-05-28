@@ -7,6 +7,76 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+- Nothing yet.
+
+## [0.19.1] - 2026-05-23
+
+Kotlin source-file query compatibility patch.
+
+### Fixed
+- Kotlin recovered parse roots that contain top-level package/import/class
+  nodes are now returned as `source_file` roots instead of `ERROR` roots, while
+  preserving child error state for diagnostics.
+- Fragmented top-level Kotlin `fun` declarations recovered under an error root
+  now expose `function_declaration` shape with the `fun` keyword, name, and
+  parameter list, while retaining error state. This preserves downstream
+  Aspect/Gazelle Orion queries without AXL rewrites on files with recoverable
+  syntax errors.
+
+## [0.19.0] - 2026-05-23
+
+GLR materialization, query parity, and parser hot-path release.
+
+### Added
+- Reduce-chain hint metadata is now attached to embedded grammars and used by
+  the parser to classify hot reduction chains without re-deriving them at run
+  time. Rust carries a targeted reduce-chain hint in this release.
+- Parser and harness attribution now expose reduce-chain timing, action
+  dispatch/apply/lookup timing, GLR merge and cull timing, result-tree
+  materialization timing, lazy-child materialization cost, and GLR equivalence
+  hot-spot counters.
+- Real-corpus benchmark and parse-gap reporting tools now surface top parse
+  gaps, parser phase timing, result attribution, symbol names, active
+  reduce-chain hints, and compiled-test-binary RSS lanes for CI.
+
+### Changed
+- Final tree construction now keeps compact/lazy final child references deeper
+  into parser result assembly, tree traversal, cursor movement, query matching,
+  descendant lookup, sibling scans, and edit paths. Public nodes are
+  materialized on demand instead of eagerly for every reduction result.
+- Parser hot paths cache action classes, lex-mode rows, visible symbol lookups,
+  JS/TS normalization traits, reduce-chain signatures, and language metadata
+  needed for full parses.
+- Full-parse scratch allocation is capped and tuned for medium sources so large
+  files do not preallocate excessive entry storage.
+- JavaScript, TypeScript, TSX, Python, Rust, Go, C, and Java compatibility
+  normalization now routes more work through dense/lazy child accessors and
+  source-gated fast paths.
+- The default reduce-chain hint path is enabled while the explicit reduce-chain
+  experiment knob was removed.
+
+### Fixed
+- Query matching now preserves tree-sitter-compatible behavior for nested
+  repeated children, namedness-sensitive candidates, field matching through
+  parent links, and lazy final child refs. This fixes downstream public queries
+  such as nested Kotlin `source_file -> import_list -> import_header` patterns
+  without requiring query rewrites.
+- `#lua-match?` predicate parity and query predicate stack storage now match
+  expected tree-sitter semantics more closely.
+- GLR materialization preserves pending direct fields, hidden-child field
+  metadata, compact leaf parents, lazy final child refs through edits, and
+  sidecar child counts across tree operations.
+- Incremental reuse handles lazy child refs, no-op edits, top-level reuse, and
+  external-scanner checkpoint rebuilds without forcing broad materialization.
+- Parser compatibility repairs restore or preserve tree shapes for Go,
+  JavaScript/TypeScript optional chains, Python collapsed keyword leaves, Rust
+  recovery/doc comments/repetition conflicts, C parity recovery, Java unary
+  wrappers and annotation parses, and TypeScript repetition conflicts.
+- Large GLR merge caps, terminal-node stack equivalence, zero-width sidecar
+  traversal, and C merge survivor caps now fail boundedly instead of corrupting
+  branch selection or retaining excessive alternatives.
+
+### Removed
 - Removed legacy generated grammar register stubs that were hidden behind the
   obsolete `legacy_generated_register_stubs` build tag; the generated registry
   is now the single checked-in grammar registration surface.
@@ -21,6 +91,26 @@ for tags and release notes while still in `0.x`.
   dependencies from the root module.
 - Collapsed stale internal aliases/helpers around token-source reparsing,
   snippet parsing, COBOL dispatch, and perf counter structs.
+
+### Performance
+- Standard Go/editor benchmark median on the release cut:
+  full DFA parse `~1.54 ms`, incremental single-byte edit `~649 ns`, no-edit
+  incremental reparse `~2.43 ns`. Full parse now reports `728 B/op` and
+  `7 allocs/op` on this workload.
+- Lazy final-child refs and deferred parent-link materialization reduce full
+  parse result-tree construction work while preserving query, cursor, edit, and
+  traversal behavior.
+- GLR stack equivalence checks short-circuit earlier, cache more relevant
+  frontier state, and expose true-share metrics for remaining ambiguity hot
+  spots.
+
+### Testing
+- Focused release benchmark command:
+  `GOMAXPROCS=1 go test . -run '^$' -bench 'BenchmarkGoParseFullDFA|BenchmarkGoParseIncrementalSingleByteEditDFA|BenchmarkGoParseIncrementalNoEditDFA' -benchmem -count=10 -benchtime=750ms`.
+- Query parity was checked against the original nested Kotlin queries used by
+  downstream Aspect/Gazelle Orion plugins.
+- CI and harness work now prefer compiled test binaries for RSS benchmarks and
+  keep heavy parity/perf runs language-scoped.
 
 ## [0.18.0] - 2026-05-19
 
@@ -654,7 +744,11 @@ Warm-reuse throughput ~10 % higher. 206-grammar parity green under `GTS_PARITY_M
 - Initial standalone pure-Go runtime module.
 - External scanner VM foundation and base parser/lexer/tree infrastructure.
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.17.3...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.19.1...HEAD
+[0.19.1]: https://github.com/odvcencio/gotreesitter/compare/v0.19.0...v0.19.1
+[0.19.0]: https://github.com/odvcencio/gotreesitter/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/odvcencio/gotreesitter/compare/v0.17.4...v0.18.0
+[0.17.4]: https://github.com/odvcencio/gotreesitter/compare/v0.17.3...v0.17.4
 [0.17.3]: https://github.com/odvcencio/gotreesitter/compare/v0.17.2...v0.17.3
 [0.17.2]: https://github.com/odvcencio/gotreesitter/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/odvcencio/gotreesitter/compare/v0.17.0...v0.17.1

@@ -1,0 +1,65 @@
+{
+  "schema": "query-manifest-v1",
+  "queries": [
+    {
+      "language": "go",
+      "name": "imports-functions-types",
+      "query": "[(import_declaration) (function_declaration) (type_declaration)] @node"
+    },
+    {
+      "language": "typescript",
+      "name": "imports-functions-types",
+      "query": "[(import_statement) (function_declaration) (class_declaration) (interface_declaration) (type_alias_declaration)] @node"
+    },
+    {
+      "language": "tsx",
+      "name": "imports-components-jsx",
+      "query": "[(import_statement) (function_declaration) (class_declaration) (interface_declaration) (type_alias_declaration) (jsx_element)] @node"
+    },
+    {
+      "language": "javascript",
+      "name": "imports-functions-classes",
+      "query": "[(import_statement) (function_declaration) (class_declaration) (lexical_declaration)] @node"
+    },
+    {
+      "language": "java",
+      "name": "imports-types-methods",
+      "query": "[(import_declaration) (class_declaration) (interface_declaration) (method_declaration)] @node"
+    },
+    {
+      "language": "python",
+      "name": "imports-functions-classes",
+      "query": "[(import_statement) (import_from_statement) (function_definition) (class_definition)] @node"
+    },
+    {
+      "language": "rust",
+      "name": "uses-functions-macros",
+      "query": "[(use_declaration) (function_item) (macro_invocation)] @node"
+    },
+    {
+      "language": "c",
+      "name": "includes-functions-types",
+      "query": "[(preproc_include) (function_definition) (type_definition)] @node"
+    },
+    {
+      "language": "cpp",
+      "name": "includes-functions-types",
+      "query": "[(preproc_include) (function_definition) (class_specifier) (namespace_definition) (type_definition)] @node"
+    },
+    {
+      "language": "c_sharp",
+      "name": "using-types-methods",
+      "query": "[(using_directive) (class_declaration) (interface_declaration) (method_declaration)] @node"
+    },
+    {
+      "language": "json",
+      "name": "objects-arrays-pairs",
+      "query": "[(object) (array) (pair)] @node"
+    },
+    {
+      "language": "css",
+      "name": "rules-selectors",
+      "query": "[(rule_set) (class_selector) (id_selector)] @node"
+    }
+  ]
+}

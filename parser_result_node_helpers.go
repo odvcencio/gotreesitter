@@ -83,6 +83,12 @@ func walkResultTree(root *Node, visit func(*Node)) {
 			return
 		}
 		visit(n)
+		if n.ownerArena == nil || n.childIndex > finalChildSidecarIndexBase {
+			for _, child := range n.children {
+				walk(child)
+			}
+			return
+		}
 		for i := 0; i < resultChildCount(n); i++ {
 			walk(resultChildAt(n, i))
 		}
@@ -122,6 +128,13 @@ func walkResultTreePostorder(root *Node, visit func(*Node)) {
 		if n == nil {
 			return
 		}
+		if n.ownerArena == nil || n.childIndex > finalChildSidecarIndexBase {
+			for _, child := range n.children {
+				walk(child)
+			}
+			visit(n)
+			return
+		}
 		for i := 0; i < resultChildCount(n); i++ {
 			walk(resultChildAt(n, i))
 		}
@@ -152,7 +165,10 @@ func rewriteResultTreeChildrenPostorder(root *Node, rewrite func(*Node) *Node) {
 		return
 	}
 	walkResultTreePostorder(root, func(n *Node) {
-		children := resultDenseChildrenFallbackForMutation(n)
+		children := n.children
+		if n != nil && n.ownerArena != nil && n.childIndex <= finalChildSidecarIndexBase {
+			children = resultDenseChildrenFallbackForMutation(n)
+		}
 		for i, child := range children {
 			for {
 				rewritten := rewrite(child)
@@ -166,6 +182,34 @@ func rewriteResultTreeChildrenPostorder(root *Node, rewrite func(*Node) *Node) {
 			}
 		}
 	})
+}
+
+func rewriteResultTreeChildrenPostorderWithStats(root *Node, rewrite func(*Node) *Node) normalizationPassCounters {
+	var counters normalizationPassCounters
+	if rewrite == nil {
+		return counters
+	}
+	walkResultTreePostorder(root, func(n *Node) {
+		counters.nodesVisited++
+		children := n.children
+		if n != nil && n.ownerArena != nil && n.childIndex <= finalChildSidecarIndexBase {
+			children = resultDenseChildrenFallbackForMutation(n)
+		}
+		for i, child := range children {
+			for {
+				rewritten := rewrite(child)
+				if rewritten == nil {
+					break
+				}
+				counters.nodesRewritten++
+				children[i] = rewritten
+				rewritten.parent = n
+				rewritten.childIndex = int32(i)
+				child = rewritten
+			}
+		}
+	})
+	return counters
 }
 
 func replaceChildRangeWithSingleNode(parent *Node, start, end int, replacement *Node) {

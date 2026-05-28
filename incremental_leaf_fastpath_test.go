@@ -165,7 +165,7 @@ func TestScanLeafTokenWithoutMutatingDFATokenSource(t *testing.T) {
 		t.Fatal("expected edited leaf to be tracked")
 	}
 
-	ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, newSource), lang, parser.lookupActionIndex, parser.hasKeywordState)
+	ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, newSource), lang, parser.lookupActionIndex, parser.hasKeywordState, parser.externalValidByState)
 	ts.state = 88
 	ts.glrStates = []StateID{1, 3, 5}
 	ts.zeroWidthPos = 7
@@ -213,7 +213,7 @@ func TestScanLeafTokenWithoutMutatingIncludedRangeTokenSource(t *testing.T) {
 		t.Fatal("expected edited leaf to be tracked")
 	}
 
-	base := newDFATokenSourceDirect(NewLexer(lang.LexStates, newSource), lang, parser.lookupActionIndex, parser.hasKeywordState)
+	base := newDFATokenSourceDirect(NewLexer(lang.LexStates, newSource), lang, parser.lookupActionIndex, parser.hasKeywordState, parser.externalValidByState)
 	wrapped := &includedRangeTokenSource{
 		base: base,
 		ranges: []Range{
@@ -258,7 +258,7 @@ func TestScanLeafTokenWithoutMutatingRejectsExternalScanner(t *testing.T) {
 		t.Fatal("expected edited leaf to be tracked")
 	}
 
-	ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, newSource), &lang, parser.lookupActionIndex, parser.hasKeywordState)
+	ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, newSource), &lang, parser.lookupActionIndex, parser.hasKeywordState, parser.externalValidByState)
 	if tok, ok := scanLeafTokenWithoutMutatingSource(ts, leaf); ok {
 		t.Fatalf("scanLeafTokenWithoutMutatingSource succeeded for external-scanner language: %+v", tok)
 	}
@@ -284,7 +284,7 @@ func TestScanLeafTokenWithoutMutatingRejectsSyntheticExternalSymbols(t *testing.
 		t.Fatal("expected edited leaf to be tracked")
 	}
 
-	ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, newSource), &lang, parser.lookupActionIndex, parser.hasKeywordState)
+	ts := newDFATokenSourceDirect(NewLexer(lang.LexStates, newSource), &lang, parser.lookupActionIndex, parser.hasKeywordState, parser.externalValidByState)
 	if tok, ok := scanLeafTokenWithoutMutatingSource(ts, leaf); ok {
 		t.Fatalf("scanLeafTokenWithoutMutatingSource succeeded for synthetic-external language: %+v", tok)
 	}

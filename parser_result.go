@@ -20,6 +20,26 @@ type parseMaterializationTiming struct {
 	resultNormalizeRootStartNanos      int64
 	resultCompatibilityNanos           int64
 	resultParentLinkNanos              int64
+	reduceRangeNanos                   int64
+	reducePendingParentNanos           int64
+	reduceChildBuildNanos              int64
+	reduceParentBuildNanos             int64
+	reduceSpanNanos                    int64
+	reduceStackPushNanos               int64
+	reduceNoTreeBuildNanos             int64
+	actionExtraShiftNanos              int64
+	actionNoActionNanos                int64
+	actionNoActionRelexNanos           int64
+	actionNoActionMissingNanos         int64
+	actionNoActionRecoverNanos         int64
+	actionNoActionErrorNanos           int64
+	actionConflictChoiceNanos          int64
+	actionConflictForkNanos            int64
+	actionSingleShiftNanos             int64
+	actionSingleReduceNanos            int64
+	actionSingleAcceptNanos            int64
+	actionSingleRecoverNanos           int64
+	actionSingleOtherNanos             int64
 }
 
 func materializationTimingStart(t *parseMaterializationTiming) time.Time {

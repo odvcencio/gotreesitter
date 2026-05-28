@@ -9,6 +9,13 @@ LABEL=""
 IMAGE_TAG="gotreesitter/cgo-harness:go1.25-local"
 MEMORY_LIMIT="8g"
 CPUS_LIMIT="4"
+# CPUSET_CPUS pins the container to a specific set of physical CPUs via
+# docker's --cpuset-cpus. Pinning matters more than CFS quota for benchmark
+# stability — without it, the kernel scheduler can move the container
+# between cores, blowing cache state and producing 20-30% wall-time
+# variance between otherwise identical runs. Empty = no pinning (legacy
+# CFS-quota-only behavior).
+CPUSET_CPUS=""
 PIDS_LIMIT="4096"
 PARITY_RUN='^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityHighlight$'
 STRICT_SCALA=0
@@ -25,6 +32,10 @@ Options:
   --label <name>         Optional run label (used in container/artifact naming)
   --memory <limit>       Container memory limit (default: 8g)
   --cpus <count>         CPU limit passed to Docker (default: 4)
+  --cpuset-cpus <list>   Pin container to specific CPUs via --cpuset-cpus
+                         (e.g. "18" or "16-19"). Empty = no pinning, but
+                         benchmark stability suffers — use this for any
+                         perf-comparison run.
   --pids <count>         PID limit passed to Docker (default: 4096)
   --run <regex>          go test -run regex for default parity command
   --strict-scala         Also run strict Scala real-world parity probe
@@ -73,6 +84,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --cpus)
       CPUS_LIMIT="$2"
+      shift 2
+      ;;
+    --cpuset-cpus)
+      CPUSET_CPUS="$2"
       shift 2
       ;;
     --pids)
@@ -173,12 +188,18 @@ cleanup() {
 }
 trap cleanup EXIT
 
+CPUSET_ARGS=()
+if [[ -n "$CPUSET_CPUS" ]]; then
+  CPUSET_ARGS+=(--cpuset-cpus "$CPUSET_CPUS")
+fi
+
 CID="$(docker create \
   --name "$CONTAINER_NAME" \
   --init \
   --memory "$MEMORY_LIMIT" \
   --memory-swap "$MEMORY_LIMIT" \
   --cpus "$CPUS_LIMIT" \
+  "${CPUSET_ARGS[@]}" \
   --pids-limit "$PIDS_LIMIT" \
   --mount "type=bind,src=$REPO_ROOT,dst=/workspace" \
   --mount "type=volume,src=gotreesitter-go-mod-cache,dst=/go/pkg/mod" \
@@ -201,6 +222,7 @@ STATE_ERROR="$(docker inspect -f '{{.State.Error}}' "$CID")"
   echo "image=$IMAGE_TAG"
   echo "memory=$MEMORY_LIMIT"
   echo "cpus=$CPUS_LIMIT"
+  echo "cpuset_cpus=$CPUSET_CPUS"
   echo "pids=$PIDS_LIMIT"
   echo "strict_scala=$STRICT_SCALA"
   echo "exit_code=$EXIT_CODE"

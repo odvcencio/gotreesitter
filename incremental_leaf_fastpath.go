@@ -3,25 +3,64 @@ package gotreesitter
 import "time"
 
 func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming) (*Tree, bool) {
-	root, edit, ok := p.tokenInvariantLeafEditCandidate(source, oldTree)
-	if !ok {
+	if p == nil || oldTree == nil || oldTree.RootNode() == nil || oldTree.language != p.language {
 		return nil, false
 	}
-	leaf := tokenInvariantEditedLeaf(root, oldTree, edit)
-	if leaf == nil {
+	if len(oldTree.edits) != 1 {
 		return nil, false
 	}
-	start := tokenInvariantReuseStart(timing)
+	edit := oldTree.edits[0]
+	if edit.NewEndByte-edit.StartByte != edit.OldEndByte-edit.StartByte {
+		return nil, false
+	}
+	if edit.NewEndPoint != edit.OldEndPoint || edit.OldEndByte <= edit.StartByte {
+		return nil, false
+	}
+	if len(source) != len(oldTree.source) {
+		return nil, false
+	}
+	root := oldTree.RootNode()
+	leaf := oldTree.lastEditedLeaf
+	if leaf == nil || !leaf.containsByteRange(edit.StartByte, edit.OldEndByte) {
+		leaf = root.DescendantForByteRange(edit.StartByte, edit.OldEndByte)
+	}
+	if leaf == nil || leaf.ChildCount() != 0 || leaf.hasError() || leaf.isMissing() {
+		return nil, false
+	}
+	start := time.Time{}
+	if timing != nil {
+		start = time.Now()
+	}
 	tok, ok := p.scanTokenInvariantEditedLeaf(source, ts, leaf)
-	if !ok || !tokenMatchesLeaf(tok, leaf) {
+	if !ok || tok.Symbol != leaf.symbol || tok.StartByte != leaf.startByte || tok.EndByte != leaf.endByte {
 		return nil, false
 	}
 	tree := reuseTreeWithNewSource(oldTree, source, leaf)
 	if tree == nil || tree.root == nil {
 		return nil, false
 	}
-	setTokenInvariantReuseRuntime(tree, source, tok)
-	recordTokenInvariantReuseTiming(timing, source, tok, start)
+	tree.setParseRuntime(ParseRuntime{
+		StopReason:       ParseStopAccepted,
+		SourceLen:        uint32(len(source)),
+		TokensConsumed:   1,
+		LastTokenEndByte: tok.EndByte,
+		LastTokenSymbol:  tok.Symbol,
+		ExpectedEOFByte:  uint32(len(source)),
+		RootEndByte:      tree.root.EndByte(),
+		MaxStacksSeen:    1,
+	})
+	if timing != nil {
+		timing.reuseNanos += time.Since(start).Nanoseconds()
+		timing.reusedSubtrees++
+		timing.reusedBytes += uint64(len(source))
+		timing.maxStacksSeen = 1
+		timing.stopReason = ParseStopAccepted
+		timing.tokensConsumed = 1
+		timing.lastTokenEndByte = tok.EndByte
+		timing.expectedEOFByte = uint32(len(source))
+		timing.singleStackIterations = 1
+		timing.singleStackTokens = 1
+	}
 	return tree, true
 }
 
@@ -64,7 +103,7 @@ func tokenInvariantEditedLeaf(root *Node, oldTree *Tree, edit InputEdit) *Node {
 }
 
 func tokenInvariantLeafReusable(leaf *Node) bool {
-	return leaf != nil && leaf.ChildCount() == 0 && !leaf.hasError() && !leaf.isMissing() && !leaf.isExtra()
+	return leaf != nil && leaf.ChildCount() == 0 && !leaf.hasError() && !leaf.isMissing()
 }
 
 func tokenInvariantReuseStart(timing *incrementalParseTiming) time.Time {

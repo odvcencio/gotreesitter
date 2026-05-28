@@ -32,16 +32,23 @@ func normalizeReturnedTree(root *Node, source []byte, lang *Language) {
 	if root == nil || lang == nil {
 		return
 	}
-	normalizeGoCompatibility(root, source, lang)
-	normalizeScalaTemplateBodyObjectFragments(root, source, lang)
-	normalizeScalaRecoveredObjectTemplateBodies(root, source, lang)
-	normalizeScalaDefinitionFields(root, source, lang)
-	normalizeScalaTemplateBodyFunctionAnnotations(root, source, lang)
-	normalizeScalaTemplateBodyFunctionEnds(root, source, lang)
-	normalizeScalaCaseClauseEnds(root, source, lang)
-	normalizeHTMLRecoveredNestedCustomTagRanges(root, source, lang)
-	normalizeRootEOFNewlineSpan(root, source, lang)
-	normalizeJavaScriptProgramEnd(root, source, lang)
+	switch lang.Name {
+	case "go":
+		normalizeGoCompatibility(root, source, lang)
+		normalizeRootEOFNewlineSpan(root, source, lang)
+	case "scala":
+		normalizeScalaTemplateBodyObjectFragments(root, source, lang)
+		normalizeScalaRecoveredObjectTemplateBodies(root, source, lang)
+		normalizeScalaDefinitionFields(root, source, lang)
+		normalizeScalaTemplateBodyFunctionAnnotations(root, source, lang)
+		normalizeScalaTemplateBodyFunctionEnds(root, source, lang)
+		normalizeScalaCaseClauseEnds(root, source, lang)
+		normalizeRootEOFNewlineSpan(root, source, lang)
+	case "html":
+		normalizeHTMLRecoveredNestedCustomTagRanges(root, source, lang)
+	case "javascript":
+		normalizeJavaScriptProgramEnd(root, source, lang)
+	}
 }
 
 func shouldNormalizeIncrementalReturnedTree(tree, oldTree *Tree) bool {
@@ -51,14 +58,21 @@ func shouldNormalizeIncrementalReturnedTree(tree, oldTree *Tree) bool {
 	if oldTree == nil {
 		return true
 	}
-	return rootOrNil(tree) != rootOrNil(oldTree)
+	return rawRootOrNil(tree) != rawRootOrNil(oldTree)
 }
 
 func normalizeReturnedIncrementalTree(tree, oldTree *Tree, source []byte, lang *Language) {
 	if !shouldNormalizeIncrementalReturnedTree(tree, oldTree) {
 		return
 	}
-	normalizeReturnedTree(rootOrNil(tree), source, lang)
+	normalizeReturnedTree(rawRootOrNil(tree), source, lang)
+}
+
+func (p *Parser) normalizeReturnedTree(root *Node, source []byte) {
+	if p != nil && p.noResultCompatibilityBenchmarkOnly {
+		return
+	}
+	normalizeReturnedTree(root, source, p.language)
 }
 
 func (p *Parser) dfaReparseFactory() TokenSourceFactory {
@@ -67,7 +81,7 @@ func (p *Parser) dfaReparseFactory() TokenSourceFactory {
 	}
 	return func(source []byte) (TokenSource, error) {
 		lexer := NewLexer(p.language.LexStates, source)
-		return newDFATokenSourceDirect(lexer, p.language, p.lookupActionIndex, p.hasKeywordState), nil
+		return newDFATokenSourceDirect(lexer, p.language, p.lookupActionIndex, p.hasKeywordState, p.externalValidByState), nil
 	}
 }
 
@@ -151,7 +165,7 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 	if shouldRepeatExternalScannerFullParse(p.language, tree) {
 		tree = p.retryFullParseWithTokenSource(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
 	}
-	normalizeReturnedTree(rootOrNil(tree), source, p.language)
+	p.normalizeReturnedTree(rawRootOrNil(tree), source)
 	return tree, nil
 }
 
@@ -420,7 +434,7 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 		p.reparseFactory = prevFactory
 	}()
 	lexer := NewLexer(p.language.LexStates, source)
-	ts := acquireDFATokenSource(lexer, p.language, p.lookupActionIndex, p.hasKeywordState)
+	ts := acquireDFATokenSource(lexer, p.language, p.lookupActionIndex, p.hasKeywordState, p.externalValidByState)
 	if p.noTreeBenchmarkOnly && !p.noTreeCheckpointBenchmarkOnly {
 		ts.usesExternalCheckpoints = false
 	}
@@ -432,7 +446,7 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 	if shouldRepeatExternalScannerFullParse(p.language, tree) {
 		tree = p.retryFullParseWithDFA(source, initialMaxStacks, deterministicExternalConflicts, tree)
 	}
-	normalizeReturnedTree(rootOrNil(tree), source, p.language)
+	p.normalizeReturnedTree(rawRootOrNil(tree), source)
 	return tree, nil
 }
 
@@ -574,7 +588,7 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 		p.reparseFactory = prevFactory
 	}()
 	lexer := NewLexer(p.language.LexStates, source)
-	ts := acquireDFATokenSource(lexer, p.language, p.lookupActionIndex, p.hasKeywordState)
+	ts := acquireDFATokenSource(lexer, p.language, p.lookupActionIndex, p.hasKeywordState, p.externalValidByState)
 	defer ts.Close()
 	tree := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), nil)
 	normalizeReturnedIncrementalTree(tree, oldTree, source, p.language)
@@ -672,7 +686,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 		p.reparseFactory = prevFactory
 	}()
 	lexer := NewLexer(p.language.LexStates, source)
-	ts := acquireDFATokenSource(lexer, p.language, p.lookupActionIndex, p.hasKeywordState)
+	ts := acquireDFATokenSource(lexer, p.language, p.lookupActionIndex, p.hasKeywordState, p.externalValidByState)
 	defer ts.Close()
 	timing := &incrementalParseTiming{}
 	tree := p.parseIncrementalInternal(source, oldTree, p.wrapIncludedRanges(ts), timing)

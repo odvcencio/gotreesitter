@@ -125,8 +125,11 @@ func parseFullArenaInitialNodeCapacity(sourceLen int) int {
 	estimate := sourceLen / 4
 	if sourceLen >= 1024*1024 {
 		estimate = sourceLen
-	} else if sourceLen >= 256*1024 {
-		estimate = sourceLen / 2
+	} else if sourceLen >= 128*1024 {
+		// Medium synthetic/full-parse workloads can need well over sourceLen/4
+		// nodes. Preallocating closer to the steady-state footprint avoids
+		// geometric overflow slabs that raise peak RSS during the first parse.
+		estimate = sourceLen * 2 / 3
 	}
 	const maxPreallocNodes = 1_500_000
 	if estimate > maxPreallocNodes {
@@ -546,7 +549,7 @@ func parseFullArenaHintHeadroom(used int) int {
 		return 0
 	}
 	if used < 256*1024 {
-		return used / 4
+		return used / 16
 	}
 	headroom := used / 16
 	const maxLargeFullArenaHintHeadroom = 64 * 1024
@@ -705,7 +708,7 @@ func parseFullEntryScratchCapacity(sourceLen int) int {
 	}
 	// Keep initial scratch growth bounded; larger capacities are still
 	// reached on demand and retained up to maxRetainedStackEntryCap.
-	const maxPreallocEntries = 768 * 1024
+	const maxPreallocEntries = 64 * 1024
 	if estimate > maxPreallocEntries {
 		estimate = maxPreallocEntries
 	}

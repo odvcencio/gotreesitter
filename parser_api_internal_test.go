@@ -100,6 +100,135 @@ func TestCSharpRepetitionShiftConflictChoiceRejectsOtherRepeats(t *testing.T) {
 	}
 }
 
+func TestTypeScriptRepetitionShiftConflictChoiceAllowsHotProgramRepeat(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "function", "identifier", "const", "return", "if", "export", "program_repeat1"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 7, ChildCount: 2},
+		{Type: ParseActionShift, State: 3693, Repetition: true},
+	}
+
+	for _, sym := range []Symbol{1, 2, 3, 4, 5, 6} {
+		chosen, ok := typescriptRepetitionShiftConflictChoice(lang, Token{Symbol: sym}, 9, actions)
+		if !ok {
+			t.Fatalf("typescriptRepetitionShiftConflictChoice(%q) = false, want true", lang.SymbolNames[sym])
+		}
+		if chosen.Type != ParseActionShift || chosen.State != 3693 || !chosen.Repetition {
+			t.Fatalf("typescriptRepetitionShiftConflictChoice(%q) picked %+v, want repetition shift", lang.SymbolNames[sym], chosen)
+		}
+	}
+}
+
+func TestTypeScriptRepetitionShiftConflictChoiceRejectsOtherState(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "function", "program_repeat1"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 2, ChildCount: 2},
+		{Type: ParseActionShift, State: 3693, Repetition: true},
+	}
+
+	if _, ok := typescriptRepetitionShiftConflictChoice(lang, Token{Symbol: 1}, 10, actions); ok {
+		t.Fatal("typescriptRepetitionShiftConflictChoice = true, want false")
+	}
+}
+
+func TestTSXRepetitionReduceConflictChoiceAllowsHotRepeats(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "identifier", ";", "_jsx_start_opening_element_repeat1", "object_type_repeat1", "const", "let", "program_repeat1"}}
+	for _, tc := range []struct {
+		name      string
+		state     StateID
+		lookahead Symbol
+		reduceSym Symbol
+	}{
+		{name: "jsx opening element", state: 3468, lookahead: 1, reduceSym: 3},
+		{name: "object type semicolon", state: 3885, lookahead: 2, reduceSym: 4},
+		{name: "program const", state: 9, lookahead: 5, reduceSym: 7},
+		{name: "program let", state: 9, lookahead: 6, reduceSym: 7},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			actions := []ParseAction{
+				{Type: ParseActionReduce, Symbol: tc.reduceSym, ChildCount: 2},
+				{Type: ParseActionShift, State: 3552, Repetition: true},
+			}
+			chosen, ok := tsxRepetitionReduceConflictChoice(lang, Token{Symbol: tc.lookahead}, tc.state, actions)
+			if !ok {
+				t.Fatal("tsxRepetitionReduceConflictChoice = false, want true")
+			}
+			if chosen.Type != ParseActionReduce || chosen.Symbol != tc.reduceSym {
+				t.Fatalf("tsxRepetitionReduceConflictChoice picked %+v, want reduce", chosen)
+			}
+		})
+	}
+}
+
+func TestTSXRepetitionReduceConflictChoiceRejectsOtherState(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "identifier", "_jsx_start_opening_element_repeat1"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 2, ChildCount: 2},
+		{Type: ParseActionShift, State: 3552, Repetition: true},
+	}
+	if _, ok := tsxRepetitionReduceConflictChoice(lang, Token{Symbol: 1}, 3469, actions); ok {
+		t.Fatal("tsxRepetitionReduceConflictChoice = true, want false")
+	}
+}
+
+func TestTSXRepetitionReduceConflictChoiceRejectsWrongReduce(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "identifier", "_jsx_start_opening_element_repeat1", "wrong_repeat"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 3, ChildCount: 2},
+		{Type: ParseActionShift, State: 3552, Repetition: true},
+	}
+	if _, ok := tsxRepetitionReduceConflictChoice(lang, Token{Symbol: 1}, 3468, actions); ok {
+		t.Fatal("tsxRepetitionReduceConflictChoice = true, want false")
+	}
+}
+
+func TestRustRepetitionShiftConflictChoiceAllowsTopLevelItemStarts(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "pub", "#", "impl", "fn", "mod", "use", "source_file_repeat1"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 7, ChildCount: 2},
+		{Type: ParseActionShift, State: 2039, Repetition: true},
+	}
+
+	for _, sym := range []Symbol{1, 2, 3, 4, 5, 6} {
+		chosen, ok := rustRepetitionShiftConflictChoice(lang, Token{Symbol: sym}, 7, actions)
+		if !ok {
+			t.Fatalf("rustRepetitionShiftConflictChoice(%q) = false, want true", lang.SymbolNames[sym])
+		}
+		if chosen.Type != ParseActionShift || chosen.State != 2039 || !chosen.Repetition {
+			t.Fatalf("rustRepetitionShiftConflictChoice(%q) picked %+v, want repetition shift", lang.SymbolNames[sym], chosen)
+		}
+	}
+}
+
+func TestRustRepetitionShiftConflictChoiceRejectsOtherState(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "pub", "source_file_repeat1"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 2, ChildCount: 2},
+		{Type: ParseActionShift, State: 2039, Repetition: true},
+	}
+
+	if _, ok := rustRepetitionShiftConflictChoice(lang, Token{Symbol: 1}, 8, actions); ok {
+		t.Fatal("rustRepetitionShiftConflictChoice = true, want false")
+	}
+}
+
+func TestRustRepetitionShiftConflictChoiceAllowsTokenTreeRepeat(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "identifier", ",", "(", "primitive_type", "::", ".", ";", "delim_token_tree_repeat1"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 8, ChildCount: 2},
+		{Type: ParseActionShift, State: 246, Repetition: true},
+	}
+
+	for _, sym := range []Symbol{1, 2, 3, 4, 5, 6, 7} {
+		chosen, ok := rustRepetitionShiftConflictChoice(lang, Token{Symbol: sym}, 83, actions)
+		if !ok {
+			t.Fatalf("rustRepetitionShiftConflictChoice(%q) = false, want true", lang.SymbolNames[sym])
+		}
+		if chosen.Type != ParseActionShift || chosen.State != 246 || !chosen.Repetition {
+			t.Fatalf("rustRepetitionShiftConflictChoice(%q) picked %+v, want repetition shift", lang.SymbolNames[sym], chosen)
+		}
+	}
+}
+
 func TestJavaRepetitionShiftConflictChoiceAllowsStringLiteralContinuation(t *testing.T) {
 	lang := &Language{SymbolNames: []string{"end", "escape_sequence", "string_fragment", "_string_literal_repeat1"}}
 	actions := []ParseAction{
@@ -579,6 +708,24 @@ func TestEffectiveParseMergePerKeyCap(t *testing.T) {
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "javascript"}, maxStacksPerMergeKey, false); got != 4 {
 		t.Fatalf("effectiveParseMergePerKeyCap(javascript, default, full) = %d, want 4", got)
 	}
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "go"}, maxStacksPerMergeKey, false); got != 3 {
+		t.Fatalf("effectiveParseMergePerKeyCap(go, default, full) = %d, want 3", got)
+	}
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "starlark"}, maxStacksPerMergeKey, false); got != 1 {
+		t.Fatalf("effectiveParseMergePerKeyCap(starlark, default, full) = %d, want 1", got)
+	}
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "typescript"}, maxStacksPerMergeKey, false); got != 1 {
+		t.Fatalf("effectiveParseMergePerKeyCap(typescript, default, full) = %d, want 1", got)
+	}
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "typescript"}, maxStacksPerMergeKey, false, 128*1024); got != maxStacksPerMergeKey {
+		t.Fatalf("effectiveParseMergePerKeyCap(typescript, large default, full) = %d, want %d", got, maxStacksPerMergeKey)
+	}
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "tsx"}, maxStacksPerMergeKey, false); got != 1 {
+		t.Fatalf("effectiveParseMergePerKeyCap(tsx, default, full) = %d, want 1", got)
+	}
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "tsx"}, maxStacksPerMergeKey, false, 128*1024); got != maxStacksPerMergeKey {
+		t.Fatalf("effectiveParseMergePerKeyCap(tsx, large default, full) = %d, want %d", got, maxStacksPerMergeKey)
+	}
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "java"}, maxStacksPerMergeKey, false); got != 1 {
 		t.Fatalf("effectiveParseMergePerKeyCap(java, default, full) = %d, want 1", got)
 	}
@@ -593,9 +740,6 @@ func TestEffectiveParseMergePerKeyCap(t *testing.T) {
 	}
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "kotlin"}, maxStacksPerMergeKey, false); got != 1 {
 		t.Fatalf("effectiveParseMergePerKeyCap(kotlin, default, full) = %d, want 1", got)
-	}
-	if got := effectiveParseMergePerKeyCap(&Language{Name: "typescript"}, maxStacksPerMergeKey, false); got != maxStacksPerMergeKey {
-		t.Fatalf("effectiveParseMergePerKeyCap(typescript, default, full) = %d, want %d", got, maxStacksPerMergeKey)
 	}
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "json"}, 1, false); got != 1 {
 		t.Fatalf("effectiveParseMergePerKeyCap(json, 1, full) = %d, want 1", got)
@@ -615,14 +759,20 @@ func TestEffectiveParseMergePerKeyCap(t *testing.T) {
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "javascript"}, maxStacksPerMergeKey, true); got != maxStacksPerMergeKey {
 		t.Fatalf("effectiveParseMergePerKeyCap(javascript, default, incremental) = %d, want %d", got, maxStacksPerMergeKey)
 	}
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "starlark"}, maxStacksPerMergeKey, true); got != maxStacksPerMergeKey {
+		t.Fatalf("effectiveParseMergePerKeyCap(starlark, default, incremental) = %d, want %d", got, maxStacksPerMergeKey)
+	}
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "typescript"}, maxStacksPerMergeKey, true); got != maxStacksPerMergeKey {
+		t.Fatalf("effectiveParseMergePerKeyCap(typescript, default, incremental) = %d, want %d", got, maxStacksPerMergeKey)
+	}
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "java"}, maxStacksPerMergeKey, true); got != maxStacksPerMergeKey {
 		t.Fatalf("effectiveParseMergePerKeyCap(java, default, incremental) = %d, want %d", got, maxStacksPerMergeKey)
 	}
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "c"}, maxStacksPerMergeKey, true); got != maxStacksPerMergeKey {
 		t.Fatalf("effectiveParseMergePerKeyCap(c, default, incremental) = %d, want %d", got, maxStacksPerMergeKey)
 	}
-	if got := effectiveParseMergePerKeyCap(&Language{Name: "tsx"}, maxStacksPerMergeKey, false); got != maxStacksPerMergeKey {
-		t.Fatalf("effectiveParseMergePerKeyCap(tsx, default, full) = %d, want %d", got, maxStacksPerMergeKey)
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "tsx"}, maxStacksPerMergeKey, true); got != maxStacksPerMergeKey {
+		t.Fatalf("effectiveParseMergePerKeyCap(tsx, default, incremental) = %d, want %d", got, maxStacksPerMergeKey)
 	}
 }
 
@@ -636,6 +786,22 @@ func TestEffectiveParseMergePerKeyCapJavaExplicitOverride(t *testing.T) {
 	}
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "c"}, 4, false); got != 4 {
 		t.Fatalf("effectiveParseMergePerKeyCap(c, explicit, full) = %d, want 4", got)
+	}
+}
+
+func TestJavaAnnotationInterfaceSourceUsesWideMergeCap(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	ResetParseEnvConfigCacheForTests()
+	defer ResetParseEnvConfigCacheForTests()
+
+	if !javaFullParseNeedsAnnotationDeclarationMergeWidth(&Language{Name: "java"}, []byte("@interface Demo {}"), nil) {
+		t.Fatal("javaFullParseNeedsAnnotationDeclarationMergeWidth = false, want true")
+	}
+	if javaFullParseNeedsAnnotationDeclarationMergeWidth(&Language{Name: "java"}, []byte("class Demo {}"), nil) {
+		t.Fatal("javaFullParseNeedsAnnotationDeclarationMergeWidth(class) = true, want false")
+	}
+	if javaFullParseNeedsAnnotationDeclarationMergeWidth(&Language{Name: "java"}, []byte("@interface Demo {}"), &reuseCursor{}) {
+		t.Fatal("javaFullParseNeedsAnnotationDeclarationMergeWidth(incremental) = true, want false")
 	}
 }
 
@@ -764,6 +930,15 @@ func TestParseFullArenaInitialNodeCapacityScalesForLargeSources(t *testing.T) {
 	sourceLen := 2 * 1024 * 1024
 	got := parseFullArenaInitialNodeCapacity(sourceLen)
 	want := 1_500_000
+	if got != want {
+		t.Fatalf("parseFullArenaInitialNodeCapacity(%d) = %d, want %d", sourceLen, got, want)
+	}
+}
+
+func TestParseFullArenaInitialNodeCapacityPreallocatesMediumSources(t *testing.T) {
+	sourceLen := 192 * 1024
+	got := parseFullArenaInitialNodeCapacity(sourceLen)
+	want := sourceLen * 2 / 3
 	if got != want {
 		t.Fatalf("parseFullArenaInitialNodeCapacity(%d) = %d, want %d", sourceLen, got, want)
 	}
@@ -963,10 +1138,57 @@ func TestParseShouldUseFinalChildRefsDefaultsForLargePythonNoCompat(t *testing.T
 	}
 }
 
+func TestParserShouldDeferResultParentLinksForNoCompatBenchmark(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	root := newLeafNodeInArena(arena, Symbol(1), true, 0, 1, Point{}, Point{Column: 1})
+	parser := &Parser{
+		language:                           &Language{Name: "go"},
+		noResultCompatibilityBenchmarkOnly: true,
+	}
+	if !parser.shouldDeferResultParentLinks(root) {
+		t.Fatal("shouldDeferResultParentLinks = false, want true for no-compat benchmark parse")
+	}
+
+	parser.noTreeBenchmarkOnly = true
+	if parser.shouldDeferResultParentLinks(root) {
+		t.Fatal("shouldDeferResultParentLinks = true, want false for no-tree benchmark parse")
+	}
+
+	parser.noTreeBenchmarkOnly = false
+	parser.noResultCompatibilityBenchmarkOnly = false
+	if parser.shouldDeferResultParentLinks(root) {
+		t.Fatal("shouldDeferResultParentLinks = true, want false for normal Go parse")
+	}
+
+	parser.language = &Language{Name: "java"}
+	if !parser.shouldDeferResultParentLinks(root) {
+		t.Fatal("shouldDeferResultParentLinks = false, want true for normal Java parse")
+	}
+}
+
+func TestParseFullEntryScratchCapacityCapsLargePrealloc(t *testing.T) {
+	got := parseFullEntryScratchCapacity(2 * 1024 * 1024)
+	want := 64 * 1024
+	if got != want {
+		t.Fatalf("parseFullEntryScratchCapacity large source = %d, want %d", got, want)
+	}
+}
+
 func TestParseFullArenaHintHeadroomIsBoundedForLargeSources(t *testing.T) {
 	used := 1_500_000
 	got := parseFullArenaHintHeadroom(used)
 	want := 64 * 1024
+	if got != want {
+		t.Fatalf("parseFullArenaHintHeadroom(%d) = %d, want %d", used, got, want)
+	}
+}
+
+func TestParseFullArenaHintHeadroomIsTighterForMediumSources(t *testing.T) {
+	used := 128 * 1024
+	got := parseFullArenaHintHeadroom(used)
+	want := used / 16
 	if got != want {
 		t.Fatalf("parseFullArenaHintHeadroom(%d) = %d, want %d", used, got, want)
 	}

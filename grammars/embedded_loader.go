@@ -452,8 +452,88 @@ func decodeLanguageBlobData(blobName string, data []byte) (*gotreesitter.Languag
 
 	compactDecodedLanguage(&lang)
 	repairNoLookaheadLexModes(&lang)
+	repairJavaScriptTypeScriptOptionalChainTokenSymbol(blobName, &lang)
+	attachReduceChainHints(blobName, &lang)
 
 	return &lang, nil
+}
+
+func repairJavaScriptTypeScriptOptionalChainTokenSymbol(blobName string, lang *gotreesitter.Language) {
+	if lang == nil {
+		return
+	}
+	name := strings.TrimSuffix(blobName, ".bin")
+	if slash := strings.LastIndexAny(name, "/\\"); slash >= 0 {
+		name = name[slash+1:]
+	}
+	switch name {
+	case "javascript", "typescript", "tsx":
+	default:
+		return
+	}
+	if !embeddedLanguageHasSymbolName(lang, "optional_chain") || embeddedLanguageHasSymbolName(lang, "?.") {
+		return
+	}
+	for len(lang.SymbolMetadata) < len(lang.SymbolNames) {
+		lang.SymbolMetadata = append(lang.SymbolMetadata, gotreesitter.SymbolMetadata{})
+	}
+	lang.SymbolNames = append(lang.SymbolNames, "?.")
+	lang.SymbolMetadata = append(lang.SymbolMetadata, gotreesitter.SymbolMetadata{
+		Name:    "?.",
+		Visible: true,
+		Named:   false,
+	})
+}
+
+func attachReduceChainHints(blobName string, lang *gotreesitter.Language) {
+	if lang == nil || len(lang.ReduceChainHints) != 0 {
+		return
+	}
+	name := strings.TrimSuffix(blobName, ".bin")
+	if slash := strings.LastIndexAny(name, "/\\"); slash >= 0 {
+		name = name[slash+1:]
+	}
+	switch name {
+	case "python":
+		if !embeddedLanguageSymbolNameMatches(lang, gotreesitter.Symbol(101), "_newline") {
+			return
+		}
+		lang.ReduceChainHints = []gotreesitter.ReduceChainHint{{
+			StartState:     gotreesitter.StateID(1101),
+			Lookahead:      gotreesitter.Symbol(101),
+			TerminalStates: []gotreesitter.StateID{gotreesitter.StateID(2336), gotreesitter.StateID(2361), gotreesitter.StateID(2098), gotreesitter.StateID(2460)},
+			TerminalAction: gotreesitter.ReduceChainTerminalSingleShift,
+			MaxSteps:       10,
+		}}
+	case "rust":
+		if !embeddedLanguageSymbolNameMatches(lang, gotreesitter.Symbol(5), ")") {
+			return
+		}
+		lang.ReduceChainHints = []gotreesitter.ReduceChainHint{{
+			StartState:     gotreesitter.StateID(205),
+			Lookahead:      gotreesitter.Symbol(5),
+			TerminalStates: []gotreesitter.StateID{gotreesitter.StateID(98), gotreesitter.StateID(132), gotreesitter.StateID(133)},
+			TerminalAction: gotreesitter.ReduceChainTerminalSingleShift,
+			MaxSteps:       32,
+		}}
+	}
+}
+
+func embeddedLanguageSymbolNameMatches(lang *gotreesitter.Language, sym gotreesitter.Symbol, name string) bool {
+	idx := int(sym)
+	return idx >= 0 && idx < len(lang.SymbolNames) && lang.SymbolNames[idx] == name
+}
+
+func embeddedLanguageHasSymbolName(lang *gotreesitter.Language, name string) bool {
+	if lang == nil {
+		return false
+	}
+	for _, symbolName := range lang.SymbolNames {
+		if symbolName == name {
+			return true
+		}
+	}
+	return false
 }
 
 func decodeLanguageBlobFromPath(path string) (*gotreesitter.Language, error) {

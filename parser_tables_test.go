@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestLookupActionIndexSmallUsesDenseTokenRows(t *testing.T) {
 	lang := &Language{
@@ -84,5 +87,33 @@ func TestLookupActionIndexSmallUsesFullTokenRowsForOtherLanguages(t *testing.T) 
 	}
 	if len(p.smallLookup) != 1 || len(p.smallLookup[0]) != 1 {
 		t.Fatalf("smallLookup should retain only nonterminals for dense token rows: %+v", p.smallLookup)
+	}
+}
+
+func TestBuildExternalValidByStateUsesCompactExternalIndexes(t *testing.T) {
+	lang := &Language{
+		TokenCount:      5,
+		StateCount:      3,
+		ExternalSymbols: []Symbol{2, 4},
+		ParseTable: [][]uint16{
+			{0, 0, 7, 0, 8},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 9},
+		},
+	}
+	p := &Parser{
+		language:   lang,
+		denseLimit: len(lang.ParseTable),
+	}
+
+	got := p.buildExternalValidByState()
+	want := [][]uint16{{0, 1}, nil, {1}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("buildExternalValidByState() = %#v, want %#v", got, want)
+	}
+
+	lang.ExternalLexStates = [][]bool{{false, false}}
+	if got := p.buildExternalValidByState(); got != nil {
+		t.Fatalf("buildExternalValidByState() with external lex states = %#v, want nil", got)
 	}
 }

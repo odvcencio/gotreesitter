@@ -495,12 +495,7 @@ func symbolByName(lang *Language, name string) (Symbol, bool) {
 	if lang == nil {
 		return 0, false
 	}
-	for i, symName := range lang.SymbolNames {
-		if symName == name {
-			return Symbol(i), true
-		}
-	}
-	return 0, false
+	return lang.SymbolByName(name)
 }
 
 func symbolIsNamed(lang *Language, sym Symbol) bool {

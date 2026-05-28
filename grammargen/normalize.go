@@ -133,6 +133,7 @@ type symbolTable struct {
 	flattenRepeatAux    bool
 	choiceLiftThreshold int // if >0, lift inline CHOICE nodes exceeding this width
 	stringTokenPrecs    map[string]int
+	gRules              map[string]*Rule // raw grammar rules — used by prepareRule for transitive analysis
 }
 
 const inlinePatternSymbolPrefix = "\x00inline_pattern:"
@@ -302,6 +303,7 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		}
 	}
 	st.choiceLiftThreshold = g.ChoiceLiftThreshold
+	st.gRules = g.Rules
 	ng := &NormalizedGrammar{}
 
 	// Phase 1: Collect all string literals and register terminal symbols.
@@ -643,7 +645,7 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 		}
 	}
 
-	promoteDefaultAliases(st.symbols, productions, extraSymbols)
+	aliasRenames := promoteDefaultAliases(st.symbols, productions, extraSymbols)
 	canonicalizeAliasedExternalSymbols(st.symbols, productions, externalSymbols)
 
 	ng.Symbols = st.symbols
@@ -661,7 +663,14 @@ func Normalize(g *Grammar) (*NormalizedGrammar, error) {
 	ng.ReservedWordSets = reservedWordSets
 	ng.ExternalSymbols = externalSymbols
 	ng.ExactPrefixStates = g.ExactPrefixStates
-	ng.PrecedenceOrder = buildPrecOrderTable(g.Precedences, buildNamedPrecMapFromLevels(g.Precedences))
+	// promoteDefaultAliases may have renamed hidden symbols (e.g.
+	// `_setext_heading1` → `setext_heading`). g.Precedences is keyed by the
+	// original symbol names, but downstream LR conflict-resolution looks up
+	// `ng.Symbols[idx].Name`, which now carries the alias-promoted name.
+	// Rewrite Precedences in lockstep so symbol-level precedence ordering
+	// survives the rename.
+	effectivePrecedences := applyAliasRenamesToPrecedences(g.Precedences, aliasRenames)
+	ng.PrecedenceOrder = buildPrecOrderTable(effectivePrecedences, buildNamedPrecMapFromLevels(effectivePrecedences))
 	ng.PreserveKeywordIdentifierConflicts = g.PreserveKeywordIdentifierConflicts
 	ng.SuppressEquivalentExternalReduceLookaheads = g.SuppressEquivalentExternalReduceLookaheads
 	ng.ExternalReduceFollowLookaheads = stringSetFromSlice(g.ExternalReduceFollowLookaheads)
@@ -780,7 +789,11 @@ func firstRuleChild(rule *Rule) *Rule {
 	return rule.Children[0]
 }
 
-func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extraSymbols []int) {
+// promoteDefaultAliases promotes hidden symbols that always appear with the
+// same alias to be visible under the alias name. Returns a map from the
+// original symbol name to the new (alias) name, so callers can rewrite
+// downstream name-keyed tables (e.g. g.Precedences) to track the rename.
+func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extraSymbols []int) map[string]string {
 	type aliasKey struct {
 		name  string
 		named bool
@@ -796,7 +809,7 @@ func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extra
 	}
 
 	if len(symbols) == 0 || len(productions) == 0 {
-		return
+		return nil
 	}
 
 	statuses := make([]symbolStatus, len(symbols))
@@ -844,7 +857,36 @@ func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extra
 		}
 	}
 
-	defaultAliases := make(map[int]aliasKey)
+	// Detect rename collisions BEFORE applying any renames. Two situations
+	// would corrupt the symbol table if we naïvely rename in iteration order:
+	//
+	//   1. A target name already belongs to a different VISIBLE nonterminal
+	//      (e.g. an aux `document_alias_repeat1` wants "section" but there's
+	//      already a visible `section` rule). The runtime cannot tell two
+	//      same-named visible symbols apart and the LR generator sees two
+	//      paths to the same surface node — the ε reduction of the aux
+	//      contaminates many states with the visible-name lookahead set.
+	//
+	//   2. Two distinct hidden symbols want the SAME target name (e.g.
+	//      `_setext_heading1` and `_setext_heading2` both alias to
+	//      "setext_heading"). Renaming one promotes it; renaming the other
+	//      then either collides or — worse — gets silently dropped depending
+	//      on iteration order, leaving an asymmetric grammar where the
+	//      runtime path through the promoted symbol skips the alias wrapper
+	//      while the un-promoted path materializes it. Stable behavior:
+	//      leave BOTH hidden so the runtime materializes the wrapper via the
+	//      per-position AliasInfo on every production.
+	//
+	// Pre-pass: tally how many hidden symbols want each target name, plus
+	// which targets already belong to a visible nonterminal.
+	existingVisibleNames := make(map[string]bool)
+	for i := range symbols {
+		if symbols[i].Visible && symbols[i].Name != "" {
+			existingVisibleNames[symbols[i].Name] = true
+		}
+	}
+	wantCount := make(map[string]int)
+	bestPerSym := make(map[int]*aliasCount, len(statuses))
 	for symID, status := range statuses {
 		if status.appearsUnaliased || len(status.aliases) == 0 {
 			continue
@@ -860,14 +902,47 @@ func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extra
 		if best == nil {
 			continue
 		}
+		bestPerSym[symID] = best
+		if symbols[symID].Name != best.key.name {
+			wantCount[best.key.name]++
+		}
+	}
+
+	defaultAliases := make(map[int]aliasKey)
+	var renamed map[string]string
+	for symID, best := range bestPerSym {
+		newName := best.key.name
+		// Skip the rename when the alias target either (a) already names a
+		// different visible nonterminal, or (b) is wanted by another hidden
+		// symbol that we'd promote in this same pass. Either case would
+		// produce two visible symbols with the same external name.
+		if symbols[symID].Name != newName {
+			if existingVisibleNames[newName] || wantCount[newName] > 1 {
+				// Leave this symbol hidden; the per-position alias info on
+				// each production stays in place and the runtime's
+				// materializeHiddenNodeForAlias still emits the correct
+				// wrapper at parse time.
+				continue
+			}
+			existingVisibleNames[newName] = true
+		}
 		defaultAliases[symID] = best.key
-		symbols[symID].Name = best.key.name
+		// Record old → new name mapping before renaming so downstream tables
+		// keyed by the original symbol name (g.Precedences in particular) can
+		// be rewritten in sync with the symbol's new identity.
+		if symbols[symID].Name != newName {
+			if renamed == nil {
+				renamed = make(map[string]string)
+			}
+			renamed[symbols[symID].Name] = newName
+		}
+		symbols[symID].Name = newName
 		symbols[symID].Visible = true
 		symbols[symID].Named = best.key.named
 	}
 
 	if len(defaultAliases) == 0 {
-		return
+		return renamed
 	}
 
 	for i := range productions {
@@ -892,6 +967,7 @@ func promoteDefaultAliases(symbols []SymbolInfo, productions []Production, extra
 		}
 		productions[i].Aliases = append([]AliasInfo(nil), filtered...)
 	}
+	return renamed
 }
 
 func canonicalizeAliasedExternalSymbols(symbols []SymbolInfo, productions []Production, externalSymbols []int) {
@@ -1539,9 +1615,82 @@ func escapeAnonymousName(s string) string {
 	return strings.ReplaceAll(s, "?", `\?`)
 }
 
+// aliasWrapsRepeatishContent reports whether the inner of an Alias is a
+// Repeat or Repeat1 (possibly through Prec/PrecLeft/PrecRight/PrecDynamic
+// wrappers). Used to decide whether prepareRule needs to hoist the alias
+// content into an aux nonterminal before Repeat expansion spreads the alias.
+func aliasWrapsRepeatishContent(inner *Rule) bool {
+	for inner != nil {
+		switch inner.Kind {
+		case RulePrec, RulePrecLeft, RulePrecRight, RulePrecDynamic:
+			if len(inner.Children) == 0 {
+				return false
+			}
+			inner = inner.Children[0]
+		case RuleRepeat, RuleRepeat1:
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+// repeatBodyMayContainAlias reports whether the body of a Repeat/Repeat1
+// (possibly inside Prec wrappers) can transitively reach a RuleAlias when
+// expanded. We follow Sym references through gRules. The check is the
+// gate for the alias-over-repeat HOIST in prepareRule: hoisting is needed
+// only when the inner content contains an Alias whose surface name could
+// be shadowed by the outer alias spreading across enumerated alternatives.
+//
+// Conservatively returns true if any uncertainty (unknown symbol, deep
+// recursion, etc.) — preferring an unnecessary hoist over a missed one.
+func repeatBodyMayContainAlias(r *Rule, gRules map[string]*Rule) bool {
+	seen := make(map[string]bool)
+	return ruleReachesAlias(r, gRules, seen, 0)
+}
+
+func ruleReachesAlias(r *Rule, gRules map[string]*Rule, seen map[string]bool, depth int) bool {
+	if r == nil {
+		return false
+	}
+	// Bound the walk so a pathological grammar can't OOM us.
+	if depth > 64 {
+		return true
+	}
+	switch r.Kind {
+	case RuleAlias:
+		return true
+	case RuleToken, RuleImmToken, RuleString, RulePattern, RuleBlank:
+		return false
+	case RuleSymbol:
+		name := r.Value
+		if seen[name] {
+			return false
+		}
+		body, ok := gRules[name]
+		if !ok {
+			// Unknown / external — treat as opaque (no alias inside).
+			return false
+		}
+		seen[name] = true
+		defer delete(seen, name)
+		return ruleReachesAlias(body, gRules, seen, depth+1)
+	}
+	for _, c := range r.Children {
+		if ruleReachesAlias(c, gRules, seen, depth+1) {
+			return true
+		}
+	}
+	return false
+}
+
+
 // prepareRule normalizes a rule tree for production extraction:
 // - Expands Optional(x) → Choice(x, Blank())
 // - Replaces Repeat(x) and Repeat1(x) with auxiliary nonterminal symbols
+// - Hoists Alias(Repeat/Repeat1(X), name) into an aux nonterminal so the
+//   alias attaches to a single child slot
 // This handles repeat/repeat1 at ALL levels including the root.
 func prepareRule(r *Rule, parentName string, st *symbolTable, auxRules map[string]*Rule, auxOrigins map[string]map[string]bool, counter *int) *Rule {
 	if r == nil {
@@ -1585,6 +1734,82 @@ func prepareRule(r *Rule, parentName string, st *symbolTable, auxRules map[strin
 		// optional(x) → choice(x, blank)
 		inner := prepareRule(r.Children[0], parentName, st, auxRules, auxOrigins, counter)
 		return Choice(inner, Blank())
+
+	case RuleAlias:
+		// alias(repeat(X), name) and alias(repeat1(X), name) — possibly through
+		// Prec wrappers — need the alias to target a single concrete child slot,
+		// not the multi-alternative Choice that Repeat lowers to. Otherwise the
+		// alias spreads across each alternative; the runtime's aliasedNodeInArena
+		// then walks down hidden ancestors and renames the first visible
+		// descendant — clobbering visible NTs like markdown's setext_heading
+		// (`alias($._setext_heading1, $.setext_heading)` lives under
+		// `alias(repeat($._block_not_section), $.section)` in document).
+		//
+		// Hoist the alias content into an auxiliary nonterminal so the alias
+		// attaches to a single Sym(aux) child. The aux symbol is hidden and
+		// holds multiple visible children, so the runtime falls through to
+		// materializeHiddenNodeForAlias and constructs the alias wrapper
+		// correctly without overwriting any descendant's symbol.
+		if len(r.Children) > 0 && aliasWrapsRepeatishContent(r.Children[0]) &&
+			repeatBodyMayContainAlias(r.Children[0], st.gRules) {
+			// Strip leading Prec wrappers from the inner so we can look at the Repeat.
+			repeatNode := r.Children[0]
+			var precWrap *Rule // preserve outer Prec if any
+			for repeatNode != nil && (repeatNode.Kind == RulePrec || repeatNode.Kind == RulePrecLeft ||
+				repeatNode.Kind == RulePrecRight || repeatNode.Kind == RulePrecDynamic) {
+				if precWrap == nil {
+					precWrap = &Rule{Kind: repeatNode.Kind, Prec: repeatNode.Prec}
+				}
+				repeatNode = repeatNode.Children[0]
+			}
+
+			*counter++
+			auxName := fmt.Sprintf("%s_alias_repeat%d", parentName, *counter)
+			if _, exists := st.lookupNonterm(auxName); !exists {
+				st.addSymbol(auxName, SymbolInfo{
+					Name: auxName, Visible: false, Named: false, Kind: SymbolNonterminal,
+				})
+			}
+
+			// Place a Repeat1 body inside the aux (no ε), so when aux reduces
+			// it always wraps at least one inner element. The alias then
+			// materializes only when there's actual content — matching upstream
+			// tree-sitter's behavior for alias(repeat(X), Y), where an empty
+			// repeat produces no wrapper node at all (e.g. atx-only documents
+			// must not gain an empty leading `(section)` from the document's
+			// `alias(repeat(_block_not_section), section)`).
+			//
+			// For the empty case we expose `Choice(Alias(Sym(aux), name), Blank())`
+			// at the call site, which is equivalent to upstream's
+			// `optional(alias(repeat1(X), Y))` lowering.
+			var auxBody *Rule
+			if repeatNode != nil && repeatNode.Kind == RuleRepeat {
+				auxBody = Repeat1(cloneRule(repeatNode.Children[0]))
+			} else if repeatNode != nil && repeatNode.Kind == RuleRepeat1 {
+				auxBody = Repeat1(cloneRule(repeatNode.Children[0]))
+			} else {
+				auxBody = cloneRule(r.Children[0])
+			}
+			if precWrap != nil {
+				precWrap.Children = []*Rule{auxBody}
+				auxBody = precWrap
+			}
+			preparedInner := prepareRule(auxBody, auxName, st, auxRules, auxOrigins, counter)
+			auxRules[auxName] = preparedInner
+			recordAuxOrigin(auxOrigins, auxName, parentName)
+
+			aliased := &Rule{
+				Kind:     RuleAlias,
+				Value:    r.Value,
+				Named:    r.Named,
+				Children: []*Rule{Sym(auxName)},
+			}
+			// If the original was Repeat (not Repeat1), the result is optional.
+			if repeatNode != nil && repeatNode.Kind == RuleRepeat {
+				return Choice(aliased, Blank())
+			}
+			return aliased
+		}
 
 	}
 
@@ -2083,22 +2308,64 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		})
 	}
 
-	// Named tokens: split into string-only and non-string groups for ordering,
-	// but both use the same prec-based priority scheme.
-	var stringNamedTokens, patternNamedTokens []string
+	// Named tokens: split into three groups for extraction ordering.
+	//
+	// stringNamedTokens: bare-STRING-bodied tokens (e.g. `null_lit = "null"`).
+	// stringChoiceNamedTokens: tokens whose expanded body is a CHOICE/SEQ of
+	//   pure STRINGs (e.g. HCL's `bool_lit = "true" | "false"`,
+	//   graphql's `operation_type = "query" | "mutation" | "subscription"`).
+	//   Extracted BEFORE patternNamedTokens so they get a lower tieOrder than
+	//   broad regex-based tokens like `identifier` — otherwise identifier
+	//   wins the DFA tie-break for inputs like "true" and the string-choice
+	//   token's accept is silently discarded from every state.
+	// patternNamedTokens: PATTERN- or TOKEN()-wrapped tokens including
+	//   regex bodies.
+	var stringNamedTokens, stringChoiceNamedTokens, patternNamedTokens []string
 	for _, name := range namedTokens {
 		rule := g.Rules[name]
 		if isStringOnlyToken(rule) {
 			stringNamedTokens = append(stringNamedTokens, name)
-		} else {
-			patternNamedTokens = append(patternNamedTokens, name)
+			continue
 		}
+		if expanded, _, _, err := expandTokenRule(rule); err == nil && isStringOnlyRule(expanded) {
+			stringChoiceNamedTokens = append(stringChoiceNamedTokens, name)
+			continue
+		}
+		patternNamedTokens = append(patternNamedTokens, name)
 	}
 
 	// String-only named tokens: prec-based priority, greedy decides ties.
 	for _, name := range stringNamedTokens {
 		id, ok := st.lookupNamedToken(name)
 		if !ok {
+			continue
+		}
+		rule := g.Rules[name]
+		expanded, imm, prec, err := expandTokenRule(rule)
+		if err != nil {
+			return nil, fmt.Errorf("expand token %q: %w", name, err)
+		}
+		adjustedPriority := -prec * 1000
+		if imm {
+			adjustedPriority -= 10000
+		}
+		patterns = append(patterns, TerminalPattern{
+			SymbolID:  id,
+			Rule:      expanded,
+			Priority:  adjustedPriority,
+			Immediate: imm,
+		})
+	}
+
+	// String-choice named tokens: same prec-based priority as patternNamedTokens
+	// but emitted FIRST so their lower tieOrder beats broader pattern tokens
+	// on equal-length DFA accept ties.
+	for _, name := range stringChoiceNamedTokens {
+		id, ok := st.lookupNamedToken(name)
+		if !ok {
+			continue
+		}
+		if keywordSet != nil && keywordSet[id] {
 			continue
 		}
 		rule := g.Rules[name]
@@ -3347,7 +3614,10 @@ func flattenHiddenChoiceAlts(g *Grammar, generatedHiddenRules map[string]bool) *
 		var pt, compound []*Rule
 		for _, alt := range alts {
 			if isSingleSymRef(alt) {
-				pt = append(pt, alt)
+				// PREC belongs to the hidden rule's own productions, not to
+				// consumer rules that inline its alternatives — leaking it
+				// breaks shift/reduce resolution at the call site.
+				pt = append(pt, stripTopPrec(alt))
 			} else {
 				compound = append(compound, alt)
 			}
@@ -3759,6 +4029,25 @@ func inlinePassthroughRefsCtxSeen(r *Rule, flattenMap map[string]*flattenInfo, i
 	out := *r
 	out.Children = newChildren
 	return &out
+}
+
+// stripTopPrec unwraps PREC/PREC_LEFT/PREC_RIGHT/PREC_DYNAMIC wrappers from
+// the top of a rule. ALIAS and FIELD wrappers are preserved.
+func stripTopPrec(r *Rule) *Rule {
+	if r == nil {
+		return nil
+	}
+	for {
+		switch r.Kind {
+		case RulePrec, RulePrecLeft, RulePrecRight, RulePrecDynamic:
+			if len(r.Children) == 0 {
+				return r
+			}
+			r = r.Children[0]
+		default:
+			return r
+		}
+	}
 }
 
 // stripTopAlias removes a top-level ALIAS wrapper, unwrapping through

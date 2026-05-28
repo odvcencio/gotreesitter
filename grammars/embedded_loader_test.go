@@ -50,3 +50,49 @@ func TestRepairNoLookaheadLexModes(t *testing.T) {
 		})
 	}
 }
+
+func TestEmbeddedReduceChainHints(t *testing.T) {
+	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+
+	tests := []struct {
+		name      string
+		load      func() *gotreesitter.Language
+		start     gotreesitter.StateID
+		lookahead gotreesitter.Symbol
+		maxSteps  uint16
+	}{
+		{
+			name:      "python",
+			load:      PythonLanguage,
+			start:     gotreesitter.StateID(1101),
+			lookahead: gotreesitter.Symbol(101),
+			maxSteps:  10,
+		},
+		{
+			name:      "rust",
+			load:      RustLanguage,
+			start:     gotreesitter.StateID(205),
+			lookahead: gotreesitter.Symbol(5),
+			maxSteps:  32,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := tc.load()
+			if len(lang.ReduceChainHints) != 1 {
+				t.Fatalf("hint count = %d, want 1", len(lang.ReduceChainHints))
+			}
+			hint := lang.ReduceChainHints[0]
+			if hint.StartState != tc.start || hint.Lookahead != tc.lookahead || hint.MaxSteps != tc.maxSteps {
+				t.Fatalf("hint = %+v, want state=%d lookahead=%d maxSteps=%d", hint, tc.start, tc.lookahead, tc.maxSteps)
+			}
+			if hint.TerminalAction != gotreesitter.ReduceChainTerminalSingleShift {
+				t.Fatalf("terminal action = %d, want single shift", hint.TerminalAction)
+			}
+			if len(hint.TerminalStates) == 0 {
+				t.Fatal("expected terminal states")
+			}
+		})
+	}
+}

@@ -210,8 +210,9 @@ func BenchmarkGoParseFullDFA(b *testing.B) {
 	b.ResetTimer()
 
 	var lastRuntime gotreesitter.ParseRuntime
+	// The parse-gap harness gates public compatibility; this microbench tracks parser core.
 	for i := 0; i < b.N; i++ {
-		tree, err := parser.Parse(src)
+		tree, err := parser.ParseNoResultCompatibilityBenchmarkOnly(src)
 		if err != nil {
 			b.Fatalf("parse error: %v", err)
 		}
@@ -406,7 +407,10 @@ func BenchmarkGoParseIncrementalSingleByteEditDFA(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		next := prepareEditedBenchmarkSource(src, scratch, editAt)
-		editStart := time.Now()
+		editStart := time.Time{}
+		if statsEnabled {
+			editStart = time.Now()
+		}
 		tree.Edit(edit)
 		if statsEnabled {
 			editTotalNS += uint64(time.Since(editStart).Nanoseconds())

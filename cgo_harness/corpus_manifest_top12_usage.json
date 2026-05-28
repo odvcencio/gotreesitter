@@ -1,0 +1,113 @@
+{
+  "schema": "corpus-manifest-v1",
+  "sets": [
+    {
+      "name": "usage_top12_go",
+      "language": "go",
+      "root": "cgo_harness/corpus_real/go",
+      "include": ["*.go"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_typescript",
+      "language": "typescript",
+      "root": "cgo_harness/corpus_real/typescript",
+      "include": ["*.ts"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_tsx",
+      "language": "tsx",
+      "root": "cgo_harness/corpus_real/tsx",
+      "include": ["*.tsx"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_javascript",
+      "language": "javascript",
+      "root": "cgo_harness/corpus_real/javascript",
+      "include": ["*.js"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_java",
+      "language": "java",
+      "root": "cgo_harness/corpus_real/java",
+      "include": ["*.java"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 300000
+    },
+    {
+      "name": "usage_top12_python",
+      "language": "python",
+      "root": "cgo_harness/corpus_real/python",
+      "include": ["*.py"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_rust",
+      "language": "rust",
+      "root": "cgo_harness/corpus_real/rust",
+      "include": ["*.rs"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_c",
+      "language": "c",
+      "root": "cgo_harness/corpus_real/c",
+      "include": ["*.c", "*.h"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_cpp",
+      "language": "cpp",
+      "root": "cgo_harness/corpus_real/cpp",
+      "include": ["*.cc", "*.cpp", "*.cxx", "*.h", "*.hh", "*.hpp", "*.hxx"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_c_sharp",
+      "language": "c_sharp",
+      "root": "cgo_harness/corpus_real/c_sharp",
+      "include": ["*.cs"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_json",
+      "language": "json",
+      "root": "cgo_harness/corpus_real/json",
+      "include": ["*.json"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    },
+    {
+      "name": "usage_top12_css",
+      "language": "css",
+      "root": "cgo_harness/corpus_real/css",
+      "include": ["*.css"],
+      "order": "largest",
+      "max_files": 50,
+      "max_file_bytes": 500000
+    }
+  ]
+}

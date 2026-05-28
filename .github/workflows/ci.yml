@@ -271,25 +271,30 @@ jobs:
             fi
           fi
 
+          BASE_RSS_BIN="${OUT_DIR}/base_rss.test"
+          HEAD_RSS_BIN="${OUT_DIR}/head_rss.test"
+          (cd "${BASE_TREE}" && go test -c -o "${BASE_RSS_BIN}" .)
+          go test -c -o "${HEAD_RSS_BIN}" .
+
           if [ -n "${BENCH_NODE_SCALE}" ]; then
             (
               cd "${BASE_TREE}" && \
               GOT_BENCH_FUNC_COUNT=5000 GOT_PARSE_NODE_LIMIT_SCALE="${BENCH_NODE_SCALE}" /usr/bin/time -v \
-              go test -run '^$' -bench '^BenchmarkGoParseFullDFA$' -benchmem -count=1 -benchtime=3x . \
+              "${BASE_RSS_BIN}" -test.run '^$' -test.bench '^BenchmarkGoParseFullDFA$' -test.benchmem -test.count=1 -test.benchtime=3x \
               > "${OUT_DIR}/base_rss_bench.txt" 2> "${OUT_DIR}/base_rss_time.txt"
             )
             GOT_BENCH_FUNC_COUNT=5000 GOT_PARSE_NODE_LIMIT_SCALE="${BENCH_NODE_SCALE}" /usr/bin/time -v \
-              go test -run '^$' -bench '^BenchmarkGoParseFullDFA$' -benchmem -count=1 -benchtime=3x . \
+              "${HEAD_RSS_BIN}" -test.run '^$' -test.bench '^BenchmarkGoParseFullDFA$' -test.benchmem -test.count=1 -test.benchtime=3x \
               > "${OUT_DIR}/head_rss_bench.txt" 2> "${OUT_DIR}/head_rss_time.txt"
           else
             (
               cd "${BASE_TREE}" && \
               GOT_BENCH_FUNC_COUNT=5000 /usr/bin/time -v \
-              go test -run '^$' -bench '^BenchmarkGoParseFullDFA$' -benchmem -count=1 -benchtime=3x . \
+              "${BASE_RSS_BIN}" -test.run '^$' -test.bench '^BenchmarkGoParseFullDFA$' -test.benchmem -test.count=1 -test.benchtime=3x \
               > "${OUT_DIR}/base_rss_bench.txt" 2> "${OUT_DIR}/base_rss_time.txt"
             )
             GOT_BENCH_FUNC_COUNT=5000 /usr/bin/time -v \
-              go test -run '^$' -bench '^BenchmarkGoParseFullDFA$' -benchmem -count=1 -benchtime=3x . \
+              "${HEAD_RSS_BIN}" -test.run '^$' -test.bench '^BenchmarkGoParseFullDFA$' -test.benchmem -test.count=1 -test.benchtime=3x \
               > "${OUT_DIR}/head_rss_bench.txt" 2> "${OUT_DIR}/head_rss_time.txt"
           fi
 

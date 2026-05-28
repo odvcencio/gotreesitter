@@ -65,6 +65,14 @@ func assemble(
 		lang.LexModes[i].SetLexStateIndex(uint32(offset))
 	}
 
+	// Compact production IDs: assign ProductionID=0 to all productions without
+	// aliases, and assign shared IDs to productions with identical alias patterns.
+	// This reduces AliasSequences from O(total_productions) to O(unique_alias_patterns),
+	// which is critical for large grammars: Markdown has 50k+ productions but only
+	// ~14 unique alias patterns. Without compaction, the parse action group map
+	// grows beyond uint16 capacity (65535), corrupting the parse table.
+	compactProductionIDs(ng)
+
 	// Build parse actions array, parse table, and small parse table.
 	// This remaps state IDs (adding error recovery state 0) and
 	// also remaps LexModes to match the new state numbering.
@@ -297,22 +305,60 @@ func buildParseTables(
 
 	actionGroupMap := make(map[string]int) // serialized action → index
 
+	// serializeActions produces a canonical key based on the *semantic content*
+	// of the resulting ParseAction entries, not the raw lrAction fields.
+	// This ensures that two different prodIdx values that reduce to the same
+	// (LHS, childCount, dynPrec, productionID, isExtra) produce the same key
+	// and therefore share a single ParseActionEntry. Without this deduplication
+	// the action group count exceeds uint16 capacity for large grammars like
+	// Markdown (50k+ productions → 78k+ raw groups vs the limit of 65535).
 	serializeActions := func(acts []lrAction) string {
-		buf := make([]byte, 0, len(acts)*7)
+		buf := make([]byte, 0, len(acts)*9)
 		for _, a := range acts {
-			buf = append(buf, byte(a.kind))
-			if a.isExtra {
-				buf = append(buf, 1)
-			} else {
-				buf = append(buf, 0)
+			switch a.kind {
+			case lrShift:
+				// SHIFT: key = kind(1) + isExtra(1) + repeat(1) + state(2) = 5 bytes
+				buf = append(buf, byte(a.kind))
+				if a.isExtra {
+					buf = append(buf, 1)
+				} else {
+					buf = append(buf, 0)
+				}
+				if a.repeat {
+					buf = append(buf, 1)
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = append(buf, byte(a.state>>8), byte(a.state))
+			case lrReduce:
+				// REDUCE: key = kind(1) + isExtra(1) + repeat(1) + lhs(2) + childCount(1) + dynPrec(2) + prodID(2) + extra(1) = 11 bytes
+				// Use semantic content (prod fields) rather than raw prodIdx.
+				prod := &ng.Productions[a.prodIdx]
+				childCount := len(prod.RHS)
+				buf = append(buf, byte(a.kind))
+				if a.isExtra {
+					buf = append(buf, 1)
+				} else {
+					buf = append(buf, 0)
+				}
+				if a.repeat {
+					buf = append(buf, 1)
+				} else {
+					buf = append(buf, 0)
+				}
+				buf = append(buf, byte(prod.LHS>>8), byte(prod.LHS))
+				buf = append(buf, byte(childCount))
+				buf = append(buf, byte(prod.DynPrec>>8), byte(prod.DynPrec))
+				buf = append(buf, byte(prod.ProductionID>>8), byte(prod.ProductionID))
+				if prod.IsExtra {
+					buf = append(buf, 1)
+				} else {
+					buf = append(buf, 0)
+				}
+			default:
+				// ACCEPT and others: kind only
+				buf = append(buf, byte(a.kind))
 			}
-			if a.repeat {
-				buf = append(buf, 1)
-			} else {
-				buf = append(buf, 0)
-			}
-			buf = append(buf, byte(a.state>>8), byte(a.state))
-			buf = append(buf, byte(a.prodIdx>>8), byte(a.prodIdx))
 		}
 		return string(buf)
 	}
@@ -704,6 +750,48 @@ func buildExternalLexStates(lang *gotreesitter.Language, tables *LRTables, ng *N
 		}
 	}
 
+	// Find _pipe_table_line_ending, _line_ending, and content-token IDs.
+	// LALR merging can put _pipe_table_line_ending in states where only
+	// _line_ending should be valid (e.g., after the header row). We suppress
+	// _pipe_table_line_ending from any state where:
+	// 1. _line_ending has the SAME reduce-only action (degenerate merge), OR
+	// 2. _pipe_table_line_ending has a SHIFT action alongside content tokens
+	//    (_word/_whitespace) that also SHIFT (cell-content merge artifact).
+	pipeTableLineEndingSymID := -1
+	lineEndingSymID := -1
+	pipeTableContentSymIDs := make([]int, 0, 4) // _word, _whitespace
+	// Markdown-specific: track `_close_block` and `block_continuation`. The
+	// bundled markdown scanner emits `_close_block` eagerly whenever it is in
+	// valid_symbols (markdown_scanner.go, near `mdScan`:
+	// `if isValid(mdTokCloseBlock) { lexer.SetResultSymbol(mdSymCloseBlock) }`).
+	// In the fenced_code_block-body state, LALR puts `_close_block` into the
+	// `_newline`-reduce lookahead, so the scanner fires it prematurely — the
+	// body becomes a `paragraph` and the closing ``` a fresh fence wrapper. We
+	// suppress `_close_block` in exactly that state; the discriminator is a
+	// `block_continuation` SHIFT (only the fence/container-body state can
+	// consume a continuation marker). See the suppression site below.
+	closeBlockSymID := -1
+	blockContinuationSymID := -1
+	for sym := 0; sym < tokenCount; sym++ {
+		if _, isExt := extSymSet[sym]; isExt {
+			switch ng.Symbols[sym].Name {
+			case "_pipe_table_line_ending":
+				pipeTableLineEndingSymID = sym
+			case "_line_ending":
+				lineEndingSymID = sym
+			case "_close_block":
+				closeBlockSymID = sym
+			case "block_continuation":
+				blockContinuationSymID = sym
+			}
+			continue
+		}
+		switch ng.Symbols[sym].Name {
+		case "_word", "_whitespace":
+			pipeTableContentSymIDs = append(pipeTableContentSymIDs, sym)
+		}
+	}
+
 	// Row 0: all-false (no external tokens valid).
 	rows := [][]bool{make([]bool, extCount)}
 	rowMap := make(map[string]int) // serialized row → row index
@@ -771,6 +859,72 @@ func buildExternalLexStates(lang *gotreesitter.Language, tables *LRTables, ng *N
 						if actionsAreReduceOnly(actionList) &&
 							hasEquivalentNonExternalReduceAction(acts, actionList, extSymSet, tokenCount) {
 							suppressed = true
+						}
+					}
+					// Suppress _pipe_table_line_ending in two LALR merge artifact cases:
+					// 1. SHIFT-alongside-content: _pipe_table_line_ending appears as a SHIFT
+					//    in the same state where content tokens (_word, _whitespace) also SHIFT.
+					//    This means LALR merged cell-content states, and _pipe_table_line_ending
+					//    must not be offered (it would be consumed as cell content).
+					// 2. Same-action-as-_line_ending: _pipe_table_line_ending has the exact
+					//    same action as _line_ending. LALR merged the _newline context (uses
+					//    _line_ending) with a _pipe_table_newline context. In _newline context
+					//    only _line_ending is correct; offering _pipe_table_line_ending here
+					//    causes the scanner to consume the row-end newline as a table token,
+					//    leaving the parser unable to recognise the continuation rows.
+					if !suppressed && symID == pipeTableLineEndingSymID {
+						if len(pipeTableContentSymIDs) > 0 && !actionsAreReduceOnly(actionList) {
+							// Case 1: SHIFT artifact in cell-content state.
+							for _, cSym := range pipeTableContentSymIDs {
+								if cActs, ok := acts[cSym]; ok && len(cActs) > 0 && !actionsAreReduceOnly(cActs) {
+									suppressed = true
+									break
+								}
+							}
+						}
+						if !suppressed && lineEndingSymID >= 0 && actionsAreReduceOnly(actionList) {
+							// Case 2: Same reduce action as _line_ending — suppress the
+							// more specific token so the parser uses _line_ending instead.
+							if leActs, ok := acts[lineEndingSymID]; ok && len(leActs) > 0 &&
+								actListsEqual(actionList, leActs) {
+								suppressed = true
+							}
+						}
+					}
+					// Suppress `_close_block` in the fenced_code_block-body state.
+					// After the `_link_reference_definition_newline` grammar split,
+					// link-reference-definition boundaries no longer reduce the
+					// shared `_newline` with `_close_block` in lookahead, so the
+					// only reduce-only `_newline` state that also offers a
+					// `block_continuation` SHIFT is the fence/container body. The
+					// bundled scanner's eager `_close_block` (see the collection
+					// comment above) would otherwise fire there and truncate the
+					// fence body into a paragraph. A `block_continuation` SHIFT is
+					// the discriminator: genuine block boundaries (e.g. between
+					// consecutive link reference definitions) reduce on
+					// `block_continuation` instead and must keep `_close_block`.
+					if !suppressed && symID == closeBlockSymID &&
+						blockContinuationSymID >= 0 && actionsAreReduceOnly(actionList) {
+						// A reduce-only `_close_block` state that also offers a
+						// `block_continuation` SHIFT is a fenced_code_block /
+						// container body: the parser can consume a continuation
+						// marker to keep reading the body, and the bundled
+						// scanner's eager `_close_block` would otherwise truncate
+						// it. Genuine block boundaries (e.g. between consecutive
+						// link reference definitions, or a blank line closing a
+						// block) either SHIFT `_close_block` or have no
+						// `block_continuation` shift, so they keep it. After the
+						// `_link_reference_definition_newline` / `_blank_line_newline`
+						// grammar splits, the fence-body state is the ONLY
+						// reduce-only `_close_block` state with a
+						// `block_continuation` shift, so this is exact.
+						if bcActs, ok := acts[blockContinuationSymID]; ok {
+							for _, a := range bcActs {
+								if a.kind == lrShift {
+									suppressed = true
+									break
+								}
+							}
 						}
 					}
 					if !suppressed {
@@ -1012,6 +1166,80 @@ func (ng *NormalizedGrammar) fieldID(name string) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+// compactProductionIDs reassigns ProductionID on every production so that only
+// distinct alias patterns get distinct IDs, with ID=0 meaning "no aliases".
+// This is a prerequisite for keeping the parse action group count within
+// uint16 range: without compaction a grammar like Markdown (50k+ productions,
+// ~14 unique alias patterns) would generate 50k+ unique action group keys.
+func compactProductionIDs(ng *NormalizedGrammar) {
+	// Fingerprint an alias + field list into a canonical string key.
+	// Productions must share the same ProductionID only when they have
+	// identical alias sequences AND identical field assignments. Two
+	// productions that differ in either aliases or fields must receive
+	// distinct IDs; otherwise buildAliasSequences or buildFieldMaps will
+	// write incorrect data to the shared slot.
+	productionFingerprint := func(prod *Production) string {
+		if len(prod.Aliases) == 0 && len(prod.Fields) == 0 {
+			return "" // ID=0 bucket: no aliases, no named fields
+		}
+		var buf []byte
+		// Aliases section: sorted by child index.
+		sortedAliases := make([]AliasInfo, len(prod.Aliases))
+		copy(sortedAliases, prod.Aliases)
+		for i := 1; i < len(sortedAliases); i++ {
+			for j := i; j > 0 && sortedAliases[j].ChildIndex < sortedAliases[j-1].ChildIndex; j-- {
+				sortedAliases[j], sortedAliases[j-1] = sortedAliases[j-1], sortedAliases[j]
+			}
+		}
+		buf = append(buf, 'A') // section marker
+		for _, ai := range sortedAliases {
+			buf = append(buf, byte(ai.ChildIndex>>8), byte(ai.ChildIndex))
+			if ai.Named {
+				buf = append(buf, 1)
+			} else {
+				buf = append(buf, 0)
+			}
+			buf = append(buf, []byte(ai.Name)...)
+			buf = append(buf, 0) // null separator
+		}
+		// Fields section: sorted by child index.
+		sortedFields := make([]FieldAssign, len(prod.Fields))
+		copy(sortedFields, prod.Fields)
+		for i := 1; i < len(sortedFields); i++ {
+			for j := i; j > 0 && sortedFields[j].ChildIndex < sortedFields[j-1].ChildIndex; j-- {
+				sortedFields[j], sortedFields[j-1] = sortedFields[j-1], sortedFields[j]
+			}
+		}
+		if len(sortedFields) > 0 {
+			buf = append(buf, 'F') // section marker
+			for _, fa := range sortedFields {
+				buf = append(buf, byte(fa.ChildIndex>>8), byte(fa.ChildIndex))
+				buf = append(buf, []byte(fa.FieldName)...)
+				buf = append(buf, 0) // null separator
+			}
+		}
+		return string(buf)
+	}
+
+	fingerprintToID := make(map[string]int)
+	nextID := 1 // 0 is reserved for "no aliases, no fields"
+
+	for i := range ng.Productions {
+		fp := productionFingerprint(&ng.Productions[i])
+		if fp == "" {
+			ng.Productions[i].ProductionID = 0
+			continue
+		}
+		if id, ok := fingerprintToID[fp]; ok {
+			ng.Productions[i].ProductionID = id
+		} else {
+			fingerprintToID[fp] = nextID
+			ng.Productions[i].ProductionID = nextID
+			nextID++
+		}
+	}
 }
 
 // buildAliasSequences constructs the AliasSequences table from production alias info.
