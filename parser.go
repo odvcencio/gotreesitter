@@ -3781,21 +3781,40 @@ func rustRepetitionShiftConflictChoice(lang *Language, tok Token, state StateID,
 			return ParseAction{}, false
 		}
 	case 83:
-		switch {
-		case symbolHasName(lang, tok.Symbol, "identifier"):
-		case symbolHasName(lang, tok.Symbol, ","):
-		case symbolHasName(lang, tok.Symbol, "("):
-		case symbolHasName(lang, tok.Symbol, "primitive_type"):
-		case symbolHasName(lang, tok.Symbol, "::"):
-		case symbolHasName(lang, tok.Symbol, "."):
-		case symbolHasName(lang, tok.Symbol, ";"):
-		default:
+		// delim_token_tree_repeat1 — macro token-tree contents (`foo!( … )`).
+		// Every continuation token continues the tree (repetition shift); the
+		// reduce closes it one token early, a zero-progress dead-end. The close
+		// delimiters )/]/} carry no continuation shift at this state and are
+		// excluded by repetitionShiftConflictChoice, so gating on the reduce
+		// symbol keeps this scoped to token-trees while covering every operator,
+		// bracket, `$`, `=>`, `:` etc. (this previously listed only 7 tokens,
+		// leaving the operator/bracket forks live). tree-sitter C continues the
+		// tree on these tokens; held to byte-for-byte parity by
+		// TestRustTokenTreeParity + the Docker ring matrix.
+		if !rustAllReducesAreDelimTokenTree(lang, actions) {
 			return ParseAction{}, false
 		}
 	default:
 		return ParseAction{}, false
 	}
 	return repetitionShiftConflictChoice(actions)
+}
+
+// rustAllReducesAreDelimTokenTree reports whether every reduce action in the
+// conflict reduces delim_token_tree_repeat1 (and at least one reduce exists).
+// It scopes the state-83 fork collapse to the macro token-tree repetition.
+func rustAllReducesAreDelimTokenTree(lang *Language, actions []ParseAction) bool {
+	found := false
+	for _, act := range actions {
+		if act.Type != ParseActionReduce {
+			continue
+		}
+		if !symbolHasName(lang, act.Symbol, "delim_token_tree_repeat1") {
+			return false
+		}
+		found = true
+	}
+	return found
 }
 
 func javaArrayInitializerCommaHasFollowingElement(source []byte, offset uint32) bool {

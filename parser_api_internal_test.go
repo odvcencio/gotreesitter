@@ -212,13 +212,17 @@ func TestRustRepetitionShiftConflictChoiceRejectsOtherState(t *testing.T) {
 }
 
 func TestRustRepetitionShiftConflictChoiceAllowsTokenTreeRepeat(t *testing.T) {
-	lang := &Language{SymbolNames: []string{"end", "identifier", ",", "(", "primitive_type", "::", ".", ";", "delim_token_tree_repeat1"}}
+	// state 83 = delim_token_tree_repeat1 (macro token-tree contents). The
+	// collapse is gated on the reduce symbol, not the lookahead, so it covers
+	// every continuation token — identifiers, the old listed punctuation, AND
+	// previously-uncovered operators ("+", "<<") — that continue the tree.
+	lang := &Language{SymbolNames: []string{"end", "identifier", ",", "(", "primitive_type", "::", ".", ";", "delim_token_tree_repeat1", "+", "<<", "block_repeat1"}}
 	actions := []ParseAction{
 		{Type: ParseActionReduce, Symbol: 8, ChildCount: 2},
 		{Type: ParseActionShift, State: 246, Repetition: true},
 	}
 
-	for _, sym := range []Symbol{1, 2, 3, 4, 5, 6, 7} {
+	for _, sym := range []Symbol{1, 2, 3, 4, 5, 6, 7, 9, 10} {
 		chosen, ok := rustRepetitionShiftConflictChoice(lang, Token{Symbol: sym}, 83, actions)
 		if !ok {
 			t.Fatalf("rustRepetitionShiftConflictChoice(%q) = false, want true", lang.SymbolNames[sym])
@@ -226,6 +230,20 @@ func TestRustRepetitionShiftConflictChoiceAllowsTokenTreeRepeat(t *testing.T) {
 		if chosen.Type != ParseActionShift || chosen.State != 246 || !chosen.Repetition {
 			t.Fatalf("rustRepetitionShiftConflictChoice(%q) picked %+v, want repetition shift", lang.SymbolNames[sym], chosen)
 		}
+	}
+}
+
+// TestRustRepetitionShiftConflictChoiceRejectsNonTokenTreeReduceAtState83 proves
+// the state-83 collapse is scoped to delim_token_tree_repeat1: a conflict at the
+// same state whose reduce closes a different repeat must NOT be collapsed.
+func TestRustRepetitionShiftConflictChoiceRejectsNonTokenTreeReduceAtState83(t *testing.T) {
+	lang := &Language{SymbolNames: []string{"end", "identifier", ",", "(", "primitive_type", "::", ".", ";", "delim_token_tree_repeat1", "+", "<<", "block_repeat1"}}
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 11, ChildCount: 2}, // block_repeat1, not delim_token_tree_repeat1
+		{Type: ParseActionShift, State: 246, Repetition: true},
+	}
+	if _, ok := rustRepetitionShiftConflictChoice(lang, Token{Symbol: 1}, 83, actions); ok {
+		t.Fatal("rustRepetitionShiftConflictChoice collapsed a non-token-tree reduce at state 83, want false")
 	}
 }
 
