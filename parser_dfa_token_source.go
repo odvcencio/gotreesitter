@@ -1638,19 +1638,6 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 		return Token{}, false
 	}
 
-	if cap(d.externalValid) < len(d.language.ExternalSymbols) {
-		d.externalValid = make([]bool, len(d.language.ExternalSymbols))
-	}
-	valid := d.externalValid[:len(d.language.ExternalSymbols)]
-	for i := range valid {
-		valid[i] = false
-	}
-
-	// Compute valid external symbols as the union across all active GLR
-	// stacks. Different stacks may be in different parser states with
-	// different valid external tokens. The scanner needs to see the union
-	// so it can produce tokens that any stack might need. Stacks that
-	// can't use the resulting token will be pruned by the action phase.
 	anyValid := false
 	states := d.glrStates
 	if len(states) == 0 {
@@ -1661,56 +1648,102 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 		return tok, true
 	}
 
-	if len(d.language.ExternalLexStates) > 0 {
-		// Use the precise external lex states table (matches C tree-sitter's
-		// ts_external_scanner_states). Each parser state maps to an external
-		// lex state ID via LexModes, and each external lex state ID maps to
-		// a boolean row indicating which external tokens are valid.
-		for _, st := range states {
-			if int(st) >= len(d.language.LexModes) {
-				continue
-			}
+	// Fast path (C-equivalent O(1)): a single active parser state indexes its
+	// external-lex-state row directly, exactly as tree-sitter C derives
+	// valid_external_tokens from external_lex_state. This avoids zeroing and
+	// rebuilding d.externalValid on every token (the per-token cost the CPU
+	// profile attributed to nextExternalToken). The row is read-only on this
+	// path — the only writer below is the zero-width-retry block, whose guard
+	// we exclude here — so referencing the shared table row is safe (the
+	// GLR-scored path already passes raw rows straight to the scanner).
+	var valid []bool
+	inZeroWidthRetry := d.language.Name != "yaml" &&
+		d.lexer.pos == d.extZeroPos && d.state == d.extZeroState && len(d.extZeroTried) > 0
+	if len(states) == 1 && len(d.language.ExternalLexStates) > 0 && !inZeroWidthRetry {
+		st := states[0]
+		if int(st) < len(d.language.LexModes) {
 			elsID := int(d.language.LexModes[st].ExternalLexState)
-			if elsID >= len(d.language.ExternalLexStates) {
-				continue
-			}
-			row := d.language.ExternalLexStates[elsID]
-			for i := range valid {
-				if i < len(row) && row[i] && !valid[i] {
-					valid[i] = true
-					anyValid = true
+			if elsID < len(d.language.ExternalLexStates) {
+				row := d.language.ExternalLexStates[elsID]
+				for i := 0; i < len(row); i++ {
+					if row[i] {
+						anyValid = true
+						break
+					}
 				}
-			}
-		}
-	} else if len(d.externalValidByState) > 0 {
-		for _, st := range states {
-			if int(st) >= len(d.externalValidByState) {
-				continue
-			}
-			row := d.externalValidByState[int(st)]
-			for _, extIdx := range row {
-				i := int(extIdx)
-				if i < len(valid) && !valid[i] {
-					valid[i] = true
-					anyValid = true
+				if !anyValid {
+					return Token{}, false
 				}
-			}
-		}
-	} else {
-		// Fallback: probe the parse action table for each external symbol.
-		// This is less precise than ExternalLexStates (may include error
-		// recovery actions) but works for grammars without the table.
-		for _, st := range states {
-			for i, sym := range d.language.ExternalSymbols {
-				if !valid[i] && d.lookupActionIndex(st, sym) != 0 {
-					valid[i] = true
-					anyValid = true
-				}
+				valid = row
 			}
 		}
 	}
-	if !anyValid {
-		return Token{}, false
+
+	if valid == nil {
+		if cap(d.externalValid) < len(d.language.ExternalSymbols) {
+			d.externalValid = make([]bool, len(d.language.ExternalSymbols))
+		}
+		valid = d.externalValid[:len(d.language.ExternalSymbols)]
+		for i := range valid {
+			valid[i] = false
+		}
+
+		// Compute valid external symbols as the union across all active GLR
+		// stacks. Different stacks may be in different parser states with
+		// different valid external tokens. The scanner needs to see the union
+		// so it can produce tokens that any stack might need. Stacks that
+		// can't use the resulting token will be pruned by the action phase.
+		if len(d.language.ExternalLexStates) > 0 {
+			// Use the precise external lex states table (matches C tree-sitter's
+			// ts_external_scanner_states). Each parser state maps to an external
+			// lex state ID via LexModes, and each external lex state ID maps to
+			// a boolean row indicating which external tokens are valid.
+			for _, st := range states {
+				if int(st) >= len(d.language.LexModes) {
+					continue
+				}
+				elsID := int(d.language.LexModes[st].ExternalLexState)
+				if elsID >= len(d.language.ExternalLexStates) {
+					continue
+				}
+				row := d.language.ExternalLexStates[elsID]
+				for i := range valid {
+					if i < len(row) && row[i] && !valid[i] {
+						valid[i] = true
+						anyValid = true
+					}
+				}
+			}
+		} else if len(d.externalValidByState) > 0 {
+			for _, st := range states {
+				if int(st) >= len(d.externalValidByState) {
+					continue
+				}
+				row := d.externalValidByState[int(st)]
+				for _, extIdx := range row {
+					i := int(extIdx)
+					if i < len(valid) && !valid[i] {
+						valid[i] = true
+						anyValid = true
+					}
+				}
+			}
+		} else {
+			// Fallback: probe the parse action table for each external symbol.
+			// This is less precise than ExternalLexStates (may include error
+			// recovery actions) but works for grammars without the table.
+			for _, st := range states {
+				for i, sym := range d.language.ExternalSymbols {
+					if !valid[i] && d.lookupActionIndex(st, sym) != 0 {
+						valid[i] = true
+						anyValid = true
+					}
+				}
+			}
+		}
+		if !anyValid {
+			return Token{}, false
+		}
 	}
 	// Zero-width external token loop prevention: exclude external token
 	// indices that were already produced as zero-width tokens at this same
