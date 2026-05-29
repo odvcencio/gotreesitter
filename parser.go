@@ -2495,7 +2495,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 							}
 						}
 					case "c":
-						if next, ok := cRepetitionShiftConflictChoice(p.language, tok, currentState, actions); ok {
+						if next, ok := cRepetitionShiftConflictChoice(p.language, actions); ok {
 							chosen, choice = next, true
 						}
 					case "rust":
@@ -3821,42 +3821,48 @@ func rustAllReducesAreDelimTokenTree(lang *Language, actions []ParseAction) bool
 	return found
 }
 
-// cRepetitionShiftConflictChoice collapses the translation_unit_repeat1
-// reduce/shift fork at the top-level item-list boundary (state 43). On every
-// declaration-starter token the list continues (repetition shift); the reduce
-// only closes the translation unit at EOF, so reducing on a non-EOF starter is
-// a zero-progress dead-end. C declares a top-level declaration/expression-
-// statement ambiguity in its conflicts: block, but that ambiguity resolves
-// deeper than this list boundary — collapsing the continuation fork preserves
-// it. Gated strictly to the translation_unit_repeat1 reduce and held to byte-
-// for-byte C parity by the treesitter_c_parity suite, including the adversarial
-// declaration/expression cases in TestParityCTopLevelDeclAmbiguity. On
-// cluster.c this cuts ~11.9k GLR forks (−57%) and ~20% parse wall (xC 1.30→1.03).
-func cRepetitionShiftConflictChoice(lang *Language, tok Token, state StateID, actions []ParseAction) (ParseAction, bool) {
+// cRepetitionShiftConflictChoice collapses the reduce/shift fork at the
+// top-level item list (translation_unit_repeat1) and the preprocessor
+// conditional body (preproc_if_repeat1). Both lists close only on terminators
+// that carry no continuation shift — EOF for translation_unit; #endif/#elif/
+// #else for preproc_if — so on any token that DOES have a continuation shift,
+// continuing the list is correct and the reduce is a zero-progress dead-end.
+// repetitionShiftConflictChoice enforces the single-repetition-shift shape, so
+// the no-continuation-shift terminators are excluded automatically.
+//
+// case_statement_repeat1 is deliberately NOT collapsible: a switch body's
+// `case`/`default` terminators are themselves shiftable, so reducing the inner
+// statement list on them is load-bearing, not a dead-end.
+//
+// C declares a top-level declaration/expression-statement ambiguity in its
+// conflicts: block, but that ambiguity resolves deeper than these list
+// boundaries — collapsing the continuation fork preserves it. Held to
+// byte-for-byte C parity by the treesitter_c_parity suite, including the
+// adversarial declaration/expression and preprocessor cases in
+// TestParityCTopLevelDeclAmbiguity / TestParityCPreprocConditional. On cluster.c
+// the translation_unit collapse alone cuts ~11.9k GLR forks (−57%, xC 1.30→1.03).
+func cRepetitionShiftConflictChoice(lang *Language, actions []ParseAction) (ParseAction, bool) {
 	if lang == nil {
 		return ParseAction{}, false
 	}
-	switch state {
-	case 43:
-		if !allReducesAreSymbol(lang, actions, "translation_unit_repeat1") {
-			return ParseAction{}, false
-		}
-	default:
+	if !cReduceIsCollapsibleListRepeat(lang, actions) {
 		return ParseAction{}, false
 	}
 	return repetitionShiftConflictChoice(actions)
 }
 
-// allReducesAreSymbol reports whether every reduce action reduces the named
-// symbol (and at least one reduce exists). Scopes a fork collapse to a single
-// repeat construct.
-func allReducesAreSymbol(lang *Language, actions []ParseAction, name string) bool {
+// cReduceIsCollapsibleListRepeat reports whether every reduce in the conflict
+// reduces a list repeat whose only terminators carry no continuation shift
+// (translation_unit_repeat1, preproc_if_repeat1), and at least one reduce
+// exists. Any other reduce symbol (e.g. case_statement_repeat1) disqualifies.
+func cReduceIsCollapsibleListRepeat(lang *Language, actions []ParseAction) bool {
 	found := false
 	for _, act := range actions {
 		if act.Type != ParseActionReduce {
 			continue
 		}
-		if !symbolHasName(lang, act.Symbol, name) {
+		if !symbolHasName(lang, act.Symbol, "translation_unit_repeat1") &&
+			!symbolHasName(lang, act.Symbol, "preproc_if_repeat1") {
 			return false
 		}
 		found = true

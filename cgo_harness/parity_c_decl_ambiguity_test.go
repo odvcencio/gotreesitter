@@ -68,3 +68,48 @@ func TestParityCTopLevelDeclAmbiguity(t *testing.T) {
 		})
 	}
 }
+
+// TestParityCPreprocConditional is the adversarial safety gate for collapsing
+// the preproc_if_repeat1 fork (parser.go cRepetitionShiftConflictChoice). A
+// preprocessor conditional body continues on every content token and closes
+// only on #endif/#elif/#else (which carry no continuation shift), so collapsing
+// the body's list-continuation fork must not change the parse. Each snippet is
+// compared node-by-node against the C reference.
+func TestParityCPreprocConditional(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "if_endif_decls",
+			src:  "#if FOO\nint a;\nint b;\nvoid f(void) { return; }\n#endif\nint after;\n",
+		},
+		{
+			name: "if_elif_else",
+			src:  "#if X\nint p;\n#elif Y\nint q;\nlong q2;\n#else\nint r;\n#endif\n",
+		},
+		{
+			name: "ifdef_else",
+			src:  "#ifdef BAR\nvoid f(void) {}\n#else\nvoid g(void) {}\n#endif\n",
+		},
+		{
+			name: "header_guard",
+			src:  "#ifndef GUARD_H\n#define GUARD_H\nstruct S { int m; };\ntypedef int T;\n#endif\n",
+		},
+		{
+			name: "nested_if",
+			src:  "#if A\nint outer;\n#if B\nint inner;\nvoid h(void) {}\n#endif\nint outer2;\n#endif\n",
+		},
+		{
+			name: "if_in_struct",
+			src:  "struct S {\n  int x;\n#if FIELD\n  int y;\n  long z;\n#endif\n  int w;\n};\n",
+		},
+	}
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			tc := parityCase{name: "c", source: c.src}
+			runParityCase(t, tc, "fresh", normalizedSource("c", c.src))
+		})
+	}
+}
