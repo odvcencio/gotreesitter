@@ -301,14 +301,17 @@ func TestDeferredParentLinksWireOnAccess(t *testing.T) {
 	if got := first.Parent(); got != parent {
 		t.Fatalf("first.Parent() = %p, want %p", got, parent)
 	}
-	if second.parent != nil {
-		t.Fatal("first.Parent should not wire untouched sibling")
+	// First parent access now wires ALL deferred links once, under parentLinkMu
+	// (so the sibling is wired too). This replaced the previous per-path lazy
+	// wiring, which wrote parent pointers outside the lock and raced with
+	// concurrent Parent()/sibling reads on a freshly parsed java/python/ts/tsx
+	// tree (issue #93 parser-core sweep). The defer-until-first-access property
+	// is preserved (links stay unwired until the first access above).
+	if second.parent != parent {
+		t.Fatalf("expected first access to wire all links once; second.parent = %p, want %p", second.parent, parent)
 	}
 	if got := first.NextSibling(); got != second {
 		t.Fatalf("first.NextSibling() = %p, want %p", got, second)
-	}
-	if second.parent != nil {
-		t.Fatal("first.NextSibling should not wire returned sibling")
 	}
 	if got := second.PrevSibling(); got != first {
 		t.Fatalf("second.PrevSibling() = %p, want %p", got, first)
@@ -332,7 +335,7 @@ func TestFinalizeResultRootDefersSelectedLanguageParentLinks(t *testing.T) {
 
 			parser.finalizeResultRoot(root, []byte("x"), nil, true, false)
 
-			if !arena.parentLinksDeferred {
+			if !arena.parentLinksDeferred.Load() {
 				t.Fatalf("expected %s finalization to defer parent links", name)
 			}
 			if child.parent != nil {
@@ -341,8 +344,15 @@ func TestFinalizeResultRootDefersSelectedLanguageParentLinks(t *testing.T) {
 			if got := child.Parent(); got != root {
 				t.Fatalf("child.Parent() = %p, want %p", got, root)
 			}
-			if !arena.parentLinksDeferred {
-				t.Fatal("expected targeted parent access to keep deferred flag")
+			// First parent access wires ALL deferred links once (under
+			// parentLinkMu) and clears the flag — this replaced the previous
+			// lazy per-path wiring, which wrote parent pointers outside the lock
+			// and raced with concurrent Parent()/sibling reads (issue #93 sweep).
+			if arena.parentLinksDeferred.Load() {
+				t.Fatal("expected first parent access to wire all links once and clear the deferred flag")
+			}
+			if child.parent != root {
+				t.Fatalf("expected child parent link wired to root after access; got %p", child.parent)
 			}
 		})
 	}

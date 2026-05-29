@@ -70,7 +70,7 @@ type nodeArena struct {
 	allocatedBytes      int64
 	parentLinkMu        sync.Mutex
 	deferredParentRoot  *Node
-	parentLinksDeferred bool
+	parentLinksDeferred atomic.Bool
 	finalChildRefs      bool
 	// skipChildClear allows reset() to skip child-slab pointer clearing when
 	// a parse did not borrow any external nodes (full parse without reuse).
@@ -513,7 +513,7 @@ func (a *nodeArena) resetPrimaryNodes() {
 func (a *nodeArena) resetParentLinks() {
 	a.parentLinkMu.Lock()
 	a.deferredParentRoot = nil
-	a.parentLinksDeferred = false
+	a.parentLinksDeferred.Store(false)
 	a.parentLinkMu.Unlock()
 }
 

@@ -248,6 +248,12 @@ func nodeMaterializedChildAtNoMaterialize(n *Node, i int) *Node {
 	return stackEntryNode(entry)
 }
 
+// wireParentPathToNodeNoMaterialize wires the parent links along the single path
+// from root to target (and leaves untouched subtrees unwired). It is used only by
+// the single-threaded incremental-edit path (nodeEditRoot) to keep edit-time
+// finalChildRefs materialization lazy. It must NOT be used from the concurrent
+// public read paths (Parent/NextSibling/PrevSibling) — those write parent links
+// under parentLinkMu via ensureParentLinks instead (issue #93 race fix).
 func wireParentPathToNodeNoMaterialize(root, target *Node) bool {
 	if root == nil || target == nil {
 		return false
@@ -299,7 +305,7 @@ func nodeDeferredParentRoot(n *Node) (*Node, bool) {
 	arena := n.ownerArena
 	arena.parentLinkMu.Lock()
 	deferredRoot := arena.deferredParentRoot
-	parentLinksDeferred := arena.parentLinksDeferred
+	parentLinksDeferred := arena.parentLinksDeferred.Load()
 	arena.parentLinkMu.Unlock()
 	if !parentLinksDeferred || deferredRoot == nil {
 		return nil, false
@@ -307,6 +313,9 @@ func nodeDeferredParentRoot(n *Node) (*Node, bool) {
 	return deferredRoot, true
 }
 
+// wireDeferredParentPathToNode performs single-path parent wiring for the
+// incremental-edit path only (single-threaded). Concurrent read traversal goes
+// through ensureParentLinks (wire-all-once under parentLinkMu).
 func wireDeferredParentPathToNode(n *Node) (*Node, bool) {
 	deferredRoot, ok := nodeDeferredParentRoot(n)
 	if !ok {
@@ -1101,13 +1110,6 @@ func (n *Node) Parent() *Node {
 	if n == nil {
 		return nil
 	}
-	if parent, _, ok := nodeParentLink(n); ok || parent != nil {
-		return parent
-	}
-	if _, ok := wireDeferredParentPathToNode(n); ok {
-		parent, _, _ := nodeParentLink(n)
-		return parent
-	}
 	n.ensureParentLinks()
 	parent, _, _ := nodeParentLink(n)
 	return parent
@@ -1127,15 +1129,10 @@ func (n *Node) NextSibling() *Node {
 	if n == nil {
 		return nil
 	}
+	n.ensureParentLinks()
 	parent, index, ok := nodeParentLink(n)
 	if parent == nil {
-		if _, wired := wireDeferredParentPathToNode(n); !wired {
-			n.ensureParentLinks()
-		}
-		parent, index, ok = nodeParentLink(n)
-		if parent == nil {
-			return nil
-		}
+		return nil
 	}
 	childCount := nodeChildCountNoMaterialize(parent)
 	if ok && index >= 0 && index < childCount && nodeChildAtForReason(parent, index, materializeForParentAPI) == n {
@@ -1162,15 +1159,10 @@ func (n *Node) PrevSibling() *Node {
 	if n == nil {
 		return nil
 	}
+	n.ensureParentLinks()
 	parent, index, ok := nodeParentLink(n)
 	if parent == nil {
-		if _, wired := wireDeferredParentPathToNode(n); !wired {
-			n.ensureParentLinks()
-		}
-		parent, index, ok = nodeParentLink(n)
-		if parent == nil {
-			return nil
-		}
+		return nil
 	}
 	childCount := nodeChildCountNoMaterialize(parent)
 	if ok && index >= 0 && index < childCount && nodeChildAtForReason(parent, index, materializeForParentAPI) == n {
@@ -1793,21 +1785,33 @@ func (a *nodeArena) deferParentLinks(root *Node) {
 	}
 	a.parentLinkMu.Lock()
 	a.deferredParentRoot = root
-	a.parentLinksDeferred = true
+	a.parentLinksDeferred.Store(true)
 	setNodeRootLink(root)
 	a.parentLinkMu.Unlock()
 }
 
+// ensureParentLinks wires the arena's deferred parent links exactly once, under
+// parentLinkMu, and is safe for concurrent callers. The atomic parentLinksDeferred
+// flag pairs a release store (after wiring) with the lock-free Load fast path:
+// once a caller observes the flag false, every parent-link field written during
+// wiring is visible to it without holding the lock, so subsequent reads via
+// nodeParentLink are race-free. This replaces the previous lazy per-path wiring
+// (wireDeferredParentPathToNode), which wrote parent pointers outside the lock and
+// raced with concurrent Parent()/sibling reads on a freshly parsed tree (the
+// java/python/typescript/tsx deferred path).
 func (a *nodeArena) ensureParentLinks() {
 	if a == nil {
 		return
 	}
+	if !a.parentLinksDeferred.Load() {
+		return
+	}
 	a.parentLinkMu.Lock()
 	root := a.deferredParentRoot
-	if a.parentLinksDeferred && root != nil {
+	if a.parentLinksDeferred.Load() && root != nil {
 		wireParentLinksWithScratch(root, nil)
-		a.parentLinksDeferred = false
 		a.deferredParentRoot = nil
+		a.parentLinksDeferred.Store(false)
 	}
 	a.parentLinkMu.Unlock()
 }
