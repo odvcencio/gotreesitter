@@ -2494,6 +2494,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 								chosen, choice = next, true
 							}
 						}
+					case "c":
+						if next, ok := cRepetitionShiftConflictChoice(p.language, tok, currentState, actions); ok {
+							chosen, choice = next, true
+						}
 					case "rust":
 						if !p.noTreeBenchmarkOnly {
 							if next, ok := rustRepetitionShiftConflictChoice(p.language, tok, currentState, actions); ok {
@@ -3810,6 +3814,49 @@ func rustAllReducesAreDelimTokenTree(lang *Language, actions []ParseAction) bool
 			continue
 		}
 		if !symbolHasName(lang, act.Symbol, "delim_token_tree_repeat1") {
+			return false
+		}
+		found = true
+	}
+	return found
+}
+
+// cRepetitionShiftConflictChoice collapses the translation_unit_repeat1
+// reduce/shift fork at the top-level item-list boundary (state 43). On every
+// declaration-starter token the list continues (repetition shift); the reduce
+// only closes the translation unit at EOF, so reducing on a non-EOF starter is
+// a zero-progress dead-end. C declares a top-level declaration/expression-
+// statement ambiguity in its conflicts: block, but that ambiguity resolves
+// deeper than this list boundary — collapsing the continuation fork preserves
+// it. Gated strictly to the translation_unit_repeat1 reduce and held to byte-
+// for-byte C parity by the treesitter_c_parity suite, including the adversarial
+// declaration/expression cases in TestParityCTopLevelDeclAmbiguity. On
+// cluster.c this cuts ~11.9k GLR forks (−57%) and ~20% parse wall (xC 1.30→1.03).
+func cRepetitionShiftConflictChoice(lang *Language, tok Token, state StateID, actions []ParseAction) (ParseAction, bool) {
+	if lang == nil {
+		return ParseAction{}, false
+	}
+	switch state {
+	case 43:
+		if !allReducesAreSymbol(lang, actions, "translation_unit_repeat1") {
+			return ParseAction{}, false
+		}
+	default:
+		return ParseAction{}, false
+	}
+	return repetitionShiftConflictChoice(actions)
+}
+
+// allReducesAreSymbol reports whether every reduce action reduces the named
+// symbol (and at least one reduce exists). Scopes a fork collapse to a single
+// repeat construct.
+func allReducesAreSymbol(lang *Language, actions []ParseAction, name string) bool {
+	found := false
+	for _, act := range actions {
+		if act.Type != ParseActionReduce {
+			continue
+		}
+		if !symbolHasName(lang, act.Symbol, name) {
 			return false
 		}
 		found = true
