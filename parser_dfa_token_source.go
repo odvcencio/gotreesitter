@@ -1657,9 +1657,11 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	// we exclude here — so referencing the shared table row is safe (the
 	// GLR-scored path already passes raw rows straight to the scanner).
 	var valid []bool
-	inZeroWidthRetry := d.language.Name != "yaml" &&
-		d.lexer.pos == d.extZeroPos && d.state == d.extZeroState && len(d.extZeroTried) > 0
-	if len(states) == 1 && len(d.language.ExternalLexStates) > 0 && !inZeroWidthRetry {
+	// Check the cheap single-state gate first; only then compute the
+	// zero-width-retry guard. GLR-heavy languages (multi-state) skip the guard
+	// entirely instead of paying it on every external-token lookup.
+	if len(states) == 1 && len(d.language.ExternalLexStates) > 0 &&
+		!(d.language.Name != "yaml" && d.lexer.pos == d.extZeroPos && d.state == d.extZeroState && len(d.extZeroTried) > 0) {
 		st := states[0]
 		if int(st) < len(d.language.LexModes) {
 			elsID := int(d.language.LexModes[st].ExternalLexState)
