@@ -314,17 +314,6 @@ func (p *Parser) forEachActionIndexInState(state StateID, visit func(sym Symbol,
 	}
 }
 
-func (p *Parser) lookupActionIndexDense(state StateID, sym Symbol) uint16 {
-	if int(state) >= len(p.language.ParseTable) {
-		return 0
-	}
-	row := p.language.ParseTable[state]
-	if int(sym) >= len(row) {
-		return 0
-	}
-	return row[sym]
-}
-
 func (p *Parser) lookupActionIndexSmall(state StateID, sym Symbol) uint16 {
 	// Small (compressed sparse) table lookup.
 	smallIdx := int(state) - p.smallBase

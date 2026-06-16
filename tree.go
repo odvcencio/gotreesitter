@@ -2148,14 +2148,6 @@ func (a *nodeArena) recordReduceChildSliceAllVisible(n int) {
 	a.reduceChildPointersAllVisible += uint64(n)
 }
 
-func (a *nodeArena) recordReduceChildSliceNoAlias(n int) {
-	if a == nil || !a.breakdownEnabled || n <= 0 {
-		return
-	}
-	a.reduceChildSlicesNoAlias++
-	a.reduceChildPointersNoAlias += uint64(n)
-}
-
 func (a *nodeArena) recordReduceChildSliceScratchGeneral(n int) {
 	if a == nil || !a.breakdownEnabled || n <= 0 {
 		return

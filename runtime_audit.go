@@ -42,10 +42,6 @@ type runtimeAuditEquivStateInfo struct {
 	stackEquivPairRepeatFalse             uint64
 	stackEquivPairRepeatMismatch          uint64
 	stackEquivPairStores                  uint64
-	mergeHeaderEqTotal                    uint64
-	mergeDeepTrue                         uint64
-	mergeDeepFalse                        uint64
-	mergeHeaderDeepDivergent              uint64
 	equivCacheLookups                     uint64
 	equivCacheHits                        uint64
 	equivCacheStores                      uint64
@@ -651,10 +647,6 @@ func (a *runtimeAudit) recordStackEquivHashMismatch() {
 	}
 }
 
-func (a *runtimeAudit) recordStackEquivStateMismatch() {
-	a.recordStackEquivStateMismatchAt(-1)
-}
-
 func (a *runtimeAudit) recordStackEquivStateMismatchAt(depthFromTop int) {
 	if a == nil || !a.equivEnabled {
 		return
@@ -665,10 +657,6 @@ func (a *runtimeAudit) recordStackEquivStateMismatchAt(depthFromTop int) {
 		state.stackEquivStateMismatch++
 		recordStackEquivMismatchDepth(&state.stackEquivStateMismatchDepthSum, &state.stackEquivStateMismatchMaxDepth, &state.stackEquivStateMismatchDepthBuckets, depthFromTop)
 	}
-}
-
-func (a *runtimeAudit) recordStackEquivPayloadMismatch() {
-	a.recordStackEquivPayloadMismatchAt(-1)
 }
 
 func (a *runtimeAudit) recordStackEquivPayloadMismatchAt(depthFromTop int) {

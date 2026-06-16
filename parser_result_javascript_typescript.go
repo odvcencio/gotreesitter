@@ -376,35 +376,6 @@ func typeScriptCompatCandidateSymbolsFor(lang *Language) typeScriptCompatCandida
 	return syms
 }
 
-func normalizeJavaScriptTypeScriptStatementKeywordLeaves(root *Node, source []byte, lang *Language) {
-	if root == nil || lang == nil || len(source) == 0 {
-		return
-	}
-	switch lang.Name {
-	case "javascript", "typescript", "tsx":
-	default:
-		return
-	}
-	ifStmtSym, hasIfStmt := symbolByName(lang, "if_statement")
-	whileStmtSym, hasWhileStmt := symbolByName(lang, "while_statement")
-	ifSym, ifNamed, hasIf := symbolMeta(lang, "if")
-	whileSym, whileNamed, hasWhile := symbolMeta(lang, "while")
-	closeBraceSym, hasCloseBrace := symbolByName(lang, "}")
-	if (!hasIfStmt || !hasIf) && (!hasWhileStmt || !hasWhile) {
-		return
-	}
-
-	walkResultTreeDenseFirst(root, func(n *Node) {
-		if hasIfStmt && hasIf && n.symbol == ifStmtSym {
-			normalizeJavaScriptTypeScriptStatementKeywordLeafWithSymbol(n, source, "if", ifSym, ifNamed, closeBraceSym, hasCloseBrace)
-			return
-		}
-		if hasWhileStmt && hasWhile && n.symbol == whileStmtSym {
-			normalizeJavaScriptTypeScriptStatementKeywordLeafWithSymbol(n, source, "while", whileSym, whileNamed, closeBraceSym, hasCloseBrace)
-		}
-	})
-}
-
 func normalizeJavaScriptTypeScriptStatementKeywordLeavesWithStats(root *Node, source []byte, lang *Language) normalizationPassCounters {
 	var counters normalizationPassCounters
 	if root == nil || lang == nil || len(source) == 0 {
@@ -439,18 +410,6 @@ func normalizeJavaScriptTypeScriptStatementKeywordLeavesWithStats(root *Node, so
 		}
 	})
 	return counters
-}
-
-func normalizeJavaScriptTypeScriptStatementKeywordLeaf(n *Node, source []byte, lang *Language, keyword string) {
-	keywordSym, ok := symbolByName(lang, keyword)
-	if !ok {
-		return
-	}
-	normalizeJavaScriptTypeScriptStatementKeywordLeafWithSymbol(n, source, keyword, keywordSym, symbolIsNamed(lang, keywordSym), 0, false)
-}
-
-func normalizeJavaScriptTypeScriptStatementKeywordLeafWithSymbol(n *Node, source []byte, keyword string, keywordSym Symbol, keywordNamed bool, closeBraceSym Symbol, hasCloseBrace bool) {
-	_ = normalizeJavaScriptTypeScriptStatementKeywordLeafWithSymbolChanged(n, source, keyword, keywordSym, keywordNamed, closeBraceSym, hasCloseBrace)
 }
 
 func normalizeJavaScriptTypeScriptStatementKeywordLeafWithSymbolChanged(n *Node, source []byte, keyword string, keywordSym Symbol, keywordNamed bool, closeBraceSym Symbol, hasCloseBrace bool) bool {
@@ -878,28 +837,6 @@ func normalizeJavaScriptTypeScriptOptionalChainLeaves(root *Node, source []byte,
 	})
 }
 
-func normalizeJavaScriptTypeScriptCallPrecedence(root *Node, lang *Language) {
-	if root == nil || lang == nil {
-		return
-	}
-	switch lang.Name {
-	case "javascript", "typescript", "tsx":
-	default:
-		return
-	}
-	callSym, ok := symbolByName(lang, "call_expression")
-	if !ok {
-		return
-	}
-	if lang.Name == "javascript" {
-		_ = normalizeJavaScriptTypeScriptCallPrecedenceFullWalk(root, lang, callSym)
-		return
-	}
-
-	index := buildJavaScriptTypeScriptCallPrecedenceIndex(root, callSym)
-	rewriteJavaScriptTypeScriptCallPrecedenceCandidates(index.candidates, lang, callSym)
-}
-
 func normalizeJavaScriptTypeScriptCallPrecedenceWithStats(root *Node, lang *Language) normalizationPassCounters {
 	return normalizeJavaScriptTypeScriptCallPrecedenceWithDetailedStats(root, lang).normalizationPassCounters
 }
@@ -952,19 +889,6 @@ func normalizeJavaScriptTypeScriptCallPrecedenceFullWalk(root *Node, lang *Langu
 		}
 	})
 	return counters
-}
-
-func normalizeJavaScriptTypeScriptPrecedence(root *Node, lang *Language) {
-	if root == nil || lang == nil {
-		return
-	}
-	if lang.Name == "javascript" {
-		normalizeJavaScriptTypeScriptCallPrecedence(root, lang)
-		normalizeJavaScriptTypeScriptUnaryPrecedence(root, lang)
-		normalizeJavaScriptTypeScriptBinaryPrecedence(root, lang)
-		return
-	}
-	_ = normalizeJavaScriptTypeScriptPrecedenceWithDetailedStats(root, lang)
 }
 
 type javaScriptTypeScriptPrecedenceStats struct {
@@ -1464,14 +1388,6 @@ func replaceJavaScriptTypeScriptPrecedenceCandidate(candidate javaScriptTypeScri
 	return true
 }
 
-func rewriteJavaScriptTypeScriptCallPrecedence(node *Node, lang *Language) *Node {
-	callSym, ok := symbolByName(lang, "call_expression")
-	if !ok {
-		return nil
-	}
-	return rewriteJavaScriptTypeScriptCallPrecedenceWithSymbol(node, lang, callSym)
-}
-
 func rewriteJavaScriptTypeScriptCallPrecedenceWithSymbol(node *Node, lang *Language, callSym Symbol) *Node {
 	if node == nil || lang == nil || node.symbol != callSym || len(node.children) != 2 {
 		return nil
@@ -1587,25 +1503,6 @@ func isJavaScriptTypeScriptCallableShape(node *Node, lang *Language) bool {
 	}
 }
 
-func normalizeJavaScriptTypeScriptUnaryPrecedence(root *Node, lang *Language) {
-	if root == nil || lang == nil {
-		return
-	}
-	switch lang.Name {
-	case "javascript", "typescript", "tsx":
-	default:
-		return
-	}
-	unarySym, ok := symbolByName(lang, "unary_expression")
-	if !ok {
-		return
-	}
-
-	rewriteResultTreeChildrenPostorder(root, func(n *Node) *Node {
-		return rewriteJavaScriptTypeScriptUnaryPrecedenceWithSymbol(n, lang, unarySym)
-	})
-}
-
 func normalizeJavaScriptTypeScriptUnaryPrecedenceWithStats(root *Node, lang *Language) normalizationPassCounters {
 	var counters normalizationPassCounters
 	if root == nil || lang == nil {
@@ -1624,53 +1521,6 @@ func normalizeJavaScriptTypeScriptUnaryPrecedenceWithStats(root *Node, lang *Lan
 	return rewriteResultTreeChildrenPostorderWithStats(root, func(n *Node) *Node {
 		return rewriteJavaScriptTypeScriptUnaryPrecedenceWithSymbol(n, lang, unarySym)
 	})
-}
-
-func normalizeJavaScriptTypeScriptUnaryBinaryPrecedence(root *Node, lang *Language) {
-	_ = normalizeJavaScriptTypeScriptUnaryBinaryPrecedenceWithDetailedStats(root, lang)
-}
-
-type javaScriptTypeScriptUnaryBinaryPrecedenceStats struct {
-	unary             normalizationPassCounters
-	binary            normalizationPassCounters
-	indexBuilds       uint64
-	indexNodesVisited uint64
-}
-
-func normalizeJavaScriptTypeScriptUnaryBinaryPrecedenceWithDetailedStats(root *Node, lang *Language) javaScriptTypeScriptUnaryBinaryPrecedenceStats {
-	var stats javaScriptTypeScriptUnaryBinaryPrecedenceStats
-	if root == nil || lang == nil {
-		return stats
-	}
-	switch lang.Name {
-	case "javascript", "typescript", "tsx":
-	default:
-		return stats
-	}
-	unarySym, ok := symbolByName(lang, "unary_expression")
-	if !ok {
-		return stats
-	}
-	binarySym, ok := symbolByName(lang, "binary_expression")
-	if !ok {
-		return stats
-	}
-
-	index := buildJavaScriptTypeScriptUnaryBinaryPrecedenceIndex(root, unarySym, binarySym)
-	stats.indexBuilds += index.builds
-	stats.indexNodesVisited += index.nodesVisited
-	stats.unary = rewriteJavaScriptTypeScriptPrecedenceCandidates(index.unaryCandidates, func(n *Node) *Node {
-		return rewriteJavaScriptTypeScriptUnaryPrecedenceWithSymbol(n, lang, unarySym)
-	})
-	if stats.unary.nodesRewritten != 0 {
-		index = buildJavaScriptTypeScriptUnaryBinaryPrecedenceIndex(root, unarySym, binarySym)
-		stats.indexBuilds += index.builds
-		stats.indexNodesVisited += index.nodesVisited
-	}
-	stats.binary = rewriteJavaScriptTypeScriptPrecedenceCandidates(index.binaryCandidates, func(n *Node) *Node {
-		return rewriteJavaScriptTypeScriptBinaryPrecedenceWithSymbol(n, lang, binarySym)
-	})
-	return stats
 }
 
 type javaScriptTypeScriptUnaryBinaryPrecedenceIndex struct {
@@ -1742,14 +1592,6 @@ func rewriteJavaScriptTypeScriptPrecedenceCandidates(candidates []javaScriptType
 	return counters
 }
 
-func rewriteJavaScriptTypeScriptUnaryPrecedence(node *Node, lang *Language) *Node {
-	unarySym, ok := symbolByName(lang, "unary_expression")
-	if !ok {
-		return nil
-	}
-	return rewriteJavaScriptTypeScriptUnaryPrecedenceWithSymbol(node, lang, unarySym)
-}
-
 func rewriteJavaScriptTypeScriptUnaryPrecedenceWithSymbol(node *Node, lang *Language, unarySym Symbol) *Node {
 	if node == nil || lang == nil || node.symbol != unarySym || len(node.children) < 2 {
 		return nil
@@ -1777,25 +1619,6 @@ func rewriteJavaScriptTypeScriptUnaryPrecedenceWithSymbol(node *Node, lang *Lang
 	return rewrittenBinary
 }
 
-func normalizeJavaScriptTypeScriptBinaryPrecedence(root *Node, lang *Language) {
-	if root == nil || lang == nil {
-		return
-	}
-	switch lang.Name {
-	case "javascript", "typescript", "tsx":
-	default:
-		return
-	}
-	binarySym, ok := symbolByName(lang, "binary_expression")
-	if !ok {
-		return
-	}
-
-	rewriteResultTreeChildrenPostorder(root, func(n *Node) *Node {
-		return rewriteJavaScriptTypeScriptBinaryPrecedenceWithSymbol(n, lang, binarySym)
-	})
-}
-
 func normalizeJavaScriptTypeScriptBinaryPrecedenceWithStats(root *Node, lang *Language) normalizationPassCounters {
 	var counters normalizationPassCounters
 	if root == nil || lang == nil {
@@ -1814,14 +1637,6 @@ func normalizeJavaScriptTypeScriptBinaryPrecedenceWithStats(root *Node, lang *La
 	return rewriteResultTreeChildrenPostorderWithStats(root, func(n *Node) *Node {
 		return rewriteJavaScriptTypeScriptBinaryPrecedenceWithSymbol(n, lang, binarySym)
 	})
-}
-
-func rewriteJavaScriptTypeScriptBinaryPrecedence(node *Node, lang *Language) *Node {
-	binarySym, ok := symbolByName(lang, "binary_expression")
-	if !ok {
-		return nil
-	}
-	return rewriteJavaScriptTypeScriptBinaryPrecedenceWithSymbol(node, lang, binarySym)
 }
 
 func rewriteJavaScriptTypeScriptBinaryPrecedenceWithSymbol(node *Node, lang *Language, binarySym Symbol) *Node {

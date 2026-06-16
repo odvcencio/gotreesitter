@@ -1234,46 +1234,6 @@ func typeScriptAssignMemberFields(node *Node, ctx *typeScriptNormalizationContex
 	node.fieldSources = defaultFieldSourcesInArena(node.ownerArena, fieldIDs)
 }
 
-func scanTypeScriptIdentifierAfter(source []byte, after uint32) (uint32, uint32, bool) {
-	pos := int(after)
-	for pos < len(source) {
-		switch source[pos] {
-		case ' ', '\t', '\n', '\r':
-			pos++
-			continue
-		}
-		break
-	}
-	if pos >= len(source) || !isTypeScriptIdentifierStartByte(source[pos]) {
-		return 0, 0, false
-	}
-	start := pos
-	pos++
-	for pos < len(source) {
-		ch := source[pos]
-		if ch == '_' || ch == '$' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') {
-			pos++
-			continue
-		}
-		break
-	}
-	return uint32(start), uint32(pos), true
-}
-
-func typeScriptNextNonspaceByte(source []byte, after uint32) byte {
-	pos := int(after)
-	for pos < len(source) {
-		switch source[pos] {
-		case ' ', '\t', '\n', '\r':
-			pos++
-			continue
-		default:
-			return source[pos]
-		}
-	}
-	return 0
-}
-
 func scanTypeScriptMemberPrefixTokens(source []byte, startByte, endByte uint32, startPoint Point) ([]typeScriptMemberToken, bool) {
 	if int(startByte) >= len(source) || startByte >= endByte || int(endByte) > len(source) {
 		return nil, false
@@ -1733,16 +1693,6 @@ func rewriteTypeScriptInstantiatedCall(node *Node, ctx *typeScriptNormalizationC
 	call := newParentNodeInArena(node.ownerArena, ctx.callSym, ctx.callNamed, children, fieldIDs, node.productionID)
 	call.fieldSources = defaultFieldSourcesInArena(node.ownerArena, fieldIDs)
 	return call
-}
-
-func rewriteTypeScriptAsExpressionCompatibility(node *Node, ctx *typeScriptNormalizationContext) *Node {
-	if node == nil || ctx == nil || ctx.lang == nil {
-		return nil
-	}
-	if rewritten := rewriteTypeScriptAsAssignmentOrTernary(node, ctx); rewritten != nil {
-		return rewritten
-	}
-	return rewriteTypeScriptAsTypeChain(node, ctx)
 }
 
 func rewriteTypeScriptAsAssignmentOrTernary(node *Node, ctx *typeScriptNormalizationContext) *Node {

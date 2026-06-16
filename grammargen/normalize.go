@@ -768,35 +768,6 @@ func unwrapReservedWordRule(rule *Rule) *Rule {
 	return nil
 }
 
-func describeRule(rule *Rule) string {
-	if rule == nil {
-		return "<nil>"
-	}
-	switch rule.Kind {
-	case RuleString:
-		return fmt.Sprintf("STRING(%q)", rule.Value)
-	case RulePattern:
-		return fmt.Sprintf("PATTERN(%q)", rule.Value)
-	case RuleSymbol:
-		return fmt.Sprintf("SYMBOL(%q)", rule.Value)
-	case RuleToken:
-		return fmt.Sprintf("TOKEN(%s)", describeRule(firstRuleChild(rule)))
-	case RuleImmToken:
-		return fmt.Sprintf("IMMEDIATE_TOKEN(%s)", describeRule(firstRuleChild(rule)))
-	case RuleAlias:
-		return fmt.Sprintf("ALIAS(%s, %q)", describeRule(firstRuleChild(rule)), rule.Value)
-	default:
-		return fmt.Sprintf("kind=%d", rule.Kind)
-	}
-}
-
-func firstRuleChild(rule *Rule) *Rule {
-	if rule == nil || len(rule.Children) == 0 {
-		return nil
-	}
-	return rule.Children[0]
-}
-
 // promoteDefaultAliases promotes hidden symbols that always appear with the
 // same alias to be visible under the alias name. Returns a map from the
 // original symbol name to the new (alias) name, so callers can rewrite

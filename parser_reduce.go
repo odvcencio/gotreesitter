@@ -423,16 +423,6 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 	}
 }
 
-func reduceChainSignatureFor(state StateID, depth int, act ParseAction) reduceChainSignature {
-	return reduceChainSignature{
-		state:        state,
-		depth:        depth,
-		symbol:       act.Symbol,
-		childCount:   act.ChildCount,
-		productionID: act.ProductionID,
-	}
-}
-
 func noteRepeatedReduceChainSignature(prev reduceChainSignature, prevCount int, next reduceChainSignature) (reduceChainSignature, int, bool) {
 	if prev == next {
 		prevCount++
@@ -3518,19 +3508,6 @@ func reduceChildPathMayDropSpan(path reduceChildPath) bool {
 	default:
 		return true
 	}
-}
-
-func reduceEntriesContainHiddenFieldIDs(entries []stackEntry, start, end int, symbolMeta []SymbolMetadata) bool {
-	for i := start; i < end; i++ {
-		n := stackEntryNode(entries[i])
-		if n == nil || symbolVisibleForPending(n.symbol, symbolMeta) {
-			continue
-		}
-		if hiddenTreeHasFieldIDs(n) {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *Parser) buildReduceChildrenNoAliasNoFieldsPlanned(entries []stackEntry, start, end int, parentSymbol Symbol, symbolMeta []SymbolMetadata, arena *nodeArena) ([]*Node, []FieldID, []uint8, reduceChildPath, bool) {

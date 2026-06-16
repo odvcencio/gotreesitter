@@ -368,9 +368,8 @@ func normalizePythonFusedPreorder(root *Node, source []byte, parser *Parser, lan
 	}
 }
 
-// applyCollapsedKeywordRewrite mirrors the inner switch of
-// normalizePythonCollapsedKeywordStatementWithStats for use inside the fused
-// dispatcher. Returns true on rewrite.
+// applyCollapsedKeywordRewrite performs the collapsed-keyword statement rewrite
+// for use inside the fused dispatcher. Returns true on rewrite.
 func applyCollapsedKeywordRewrite(n *Node, lang *Language, ck pythonCollapsedKeywordSetup) bool {
 	switch {
 	case n.symbol == ck.statementSym:
@@ -563,44 +562,6 @@ func normalizePythonStarCollapsedChildrenWithStats(root *Node, source []byte, la
 	return counters
 }
 
-func normalizePythonInlineRaiseBlocksWithStats(root *Node, lang *Language) normalizationPassCounters {
-	var counters normalizationPassCounters
-	if root == nil || lang == nil {
-		return counters
-	}
-	raiseStmtSym, ok := lang.symbolByNameAndNamed("raise_statement", true)
-	if !ok {
-		raiseStmtSym, ok = symbolByName(lang, "raise_statement")
-	}
-	if !ok {
-		return counters
-	}
-	walkResultTree(root, func(n *Node) {
-		counters.nodesVisited++
-		childCount := resultChildCount(n)
-		if childCount < 1 || n.Type(lang) != "block" || n.startPoint.Row != n.endPoint.Row {
-			return
-		}
-		first := resultChildAt(n, 0)
-		last := resultChildAt(n, childCount-1)
-		if first == nil || last == nil || first.Type(lang) != "raise" {
-			return
-		}
-		children := resultChildSliceForMutation(n)
-		stmtChildren := cloneNodeSliceInArena(n.ownerArena, children)
-		stmt := newParentNodeInArena(n.ownerArena, raiseStmtSym, true, stmtChildren, nil, 0)
-		stmt.startByte = first.startByte
-		stmt.endByte = last.endByte
-		stmt.startPoint = first.startPoint
-		stmt.endPoint = last.endPoint
-		stmt.parent = n
-		stmt.childIndex = 0
-		n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
-		counters.nodesRewritten++
-	})
-	return counters
-}
-
 func normalizePythonAssignmentRightExpressionListsWithStats(root *Node, lang *Language) normalizationPassCounters {
 	var counters normalizationPassCounters
 	if root == nil || lang == nil {
@@ -634,166 +595,6 @@ func normalizePythonAssignmentRightExpressionListsWithStats(root *Node, lang *La
 				counters.nodesRewritten++
 				return
 			}
-		}
-	})
-	return counters
-}
-
-func normalizePythonInlineTupleExpressionBlocksWithStats(root *Node, lang *Language) normalizationPassCounters {
-	var counters normalizationPassCounters
-	if root == nil || lang == nil {
-		return counters
-	}
-	tupleSym, ok := symbolByName(lang, "tuple_expression")
-	if !ok {
-		return counters
-	}
-	tupleNamed := symbolIsNamed(lang, tupleSym)
-	walkResultTree(root, func(n *Node) {
-		counters.nodesVisited++
-		childCount := resultChildCount(n)
-		if childCount < 3 || n.Type(lang) != "block" || n.startPoint.Row != n.endPoint.Row {
-			return
-		}
-		hasComma := false
-		for i := 0; i < childCount; i++ {
-			child := resultChildAt(n, i)
-			if child != nil && child.Type(lang) == "," {
-				hasComma = true
-				break
-			}
-		}
-		if !hasComma {
-			return
-		}
-		children := resultChildSliceForMutation(n)
-		stmtChildren := cloneNodeSliceInArena(n.ownerArena, children)
-		stmt := newParentNodeInArena(n.ownerArena, tupleSym, tupleNamed, stmtChildren, nil, 0)
-		stmt.startByte = children[0].startByte
-		stmt.endByte = children[len(children)-1].endByte
-		stmt.startPoint = children[0].startPoint
-		stmt.endPoint = children[len(children)-1].endPoint
-		stmt.parent = n
-		stmt.childIndex = 0
-		n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
-		counters.nodesRewritten++
-	})
-	return counters
-}
-
-func normalizePythonInlineYieldBlocksWithStats(root *Node, lang *Language) normalizationPassCounters {
-	var counters normalizationPassCounters
-	if root == nil || lang == nil {
-		return counters
-	}
-	yieldSym, ok := lang.symbolByNameAndNamed("yield", true)
-	if !ok {
-		return counters
-	}
-	walkResultTree(root, func(n *Node) {
-		counters.nodesVisited++
-		childCount := resultChildCount(n)
-		if childCount < 1 || n.Type(lang) != "block" || n.startPoint.Row != n.endPoint.Row {
-			return
-		}
-		first := resultChildAt(n, 0)
-		last := resultChildAt(n, childCount-1)
-		if first == nil || last == nil || first.Type(lang) != "yield" || first.IsNamed() {
-			return
-		}
-		children := resultChildSliceForMutation(n)
-		stmtChildren := cloneNodeSliceInArena(n.ownerArena, children)
-		stmt := newParentNodeInArena(n.ownerArena, yieldSym, true, stmtChildren, nil, 0)
-		stmt.startByte = first.startByte
-		stmt.endByte = last.endByte
-		stmt.startPoint = first.startPoint
-		stmt.endPoint = last.endPoint
-		stmt.parent = n
-		stmt.childIndex = 0
-		n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
-		counters.nodesRewritten++
-	})
-	return counters
-}
-
-func normalizePythonInlineReturnBlocksWithStats(root *Node, source []byte, lang *Language) normalizationPassCounters {
-	var counters normalizationPassCounters
-	if root == nil || lang == nil || len(source) == 0 {
-		return counters
-	}
-	returnStmtSym, ok := lang.symbolByNameAndNamed("return_statement", true)
-	if !ok {
-		returnStmtSym, ok = symbolByName(lang, "return_statement")
-	}
-	if !ok {
-		return counters
-	}
-	walkResultTree(root, func(n *Node) {
-		counters.nodesVisited++
-		childCount := resultChildCount(n)
-		if childCount < 1 || n.Type(lang) != "block" || n.startPoint.Row != n.endPoint.Row {
-			return
-		}
-		first := resultChildAt(n, 0)
-		last := resultChildAt(n, childCount-1)
-		if first == nil || last == nil || first.Type(lang) != "return" {
-			return
-		}
-		children := resultChildSliceForMutation(n)
-		stmtChildren := cloneNodeSliceInArena(n.ownerArena, children)
-		stmt := newParentNodeInArena(n.ownerArena, returnStmtSym, true, stmtChildren, nil, 0)
-		stmt.startByte = first.startByte
-		stmt.endByte = last.endByte
-		stmt.startPoint = first.startPoint
-		stmt.endPoint = last.endPoint
-		stmt.parent = n
-		stmt.childIndex = 0
-		n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
-		counters.nodesRewritten++
-	})
-	return counters
-}
-
-func normalizePythonCollapsedKeywordStatementWithStats(root *Node, source []byte, lang *Language, statementName, keywordName string) normalizationPassCounters {
-	var counters normalizationPassCounters
-	if root == nil || lang == nil || len(source) == 0 {
-		return counters
-	}
-	statementSym, statementOK := lang.symbolByNameAndNamed(statementName, true)
-	if !statementOK {
-		statementSym, statementOK = symbolByName(lang, statementName)
-	}
-	keywordSym, keywordOK := lang.symbolByNameAndNamed(keywordName, false)
-	if !keywordOK {
-		keywordSym, keywordOK = symbolByName(lang, keywordName)
-	}
-	if !statementOK || !keywordOK {
-		return counters
-	}
-	keywordNamed := symbolIsNamed(lang, keywordSym)
-	walkResultTree(root, func(n *Node) {
-		counters.nodesVisited++
-		if resultChildCount(n) != 0 || int(n.endByte) > len(source) || n.startByte >= n.endByte || string(source[n.startByte:n.endByte]) != keywordName {
-			return
-		}
-		switch {
-		case n.symbol == statementSym:
-			child := newLeafNodeInArena(n.ownerArena, keywordSym, keywordNamed, n.startByte, n.endByte, n.startPoint, n.endPoint)
-			child.parent = n
-			child.childIndex = 0
-			n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{child})
-			counters.nodesRewritten++
-		case n.Type(lang) == "block":
-			child := newLeafNodeInArena(n.ownerArena, keywordSym, keywordNamed, n.startByte, n.endByte, n.startPoint, n.endPoint)
-			stmt := newParentNodeInArena(n.ownerArena, statementSym, true, []*Node{child}, nil, 0)
-			stmt.startByte = n.startByte
-			stmt.endByte = n.endByte
-			stmt.startPoint = n.startPoint
-			stmt.endPoint = n.endPoint
-			stmt.parent = n
-			stmt.childIndex = 0
-			n.children = cloneNodeSliceInArena(n.ownerArena, []*Node{stmt})
-			counters.nodesRewritten++
 		}
 	})
 	return counters
@@ -947,7 +748,6 @@ func normalizePythonPatternTargetIdentifiers(root *Node, source []byte, lang *La
 	walk(root)
 	return counters
 }
-
 
 func pythonAsPatternTargetLooksLikeTuple(n *Node, lang *Language, childCount int) bool {
 	if n == nil || childCount < 3 {

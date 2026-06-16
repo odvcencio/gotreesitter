@@ -97,13 +97,6 @@ func treeParseClean(tree *Tree) bool {
 	return rt.StopReason == ParseStopAccepted && !rt.Truncated && !rt.TokenSourceEOFEarly
 }
 
-func rootOrNil(tree *Tree) *Node {
-	if tree == nil {
-		return nil
-	}
-	return tree.RootNode()
-}
-
 func rawRootOrNil(tree *Tree) *Node {
 	if tree == nil {
 		return nil
