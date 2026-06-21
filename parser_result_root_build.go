@@ -128,6 +128,9 @@ func (b *resultRootBuild) syntheticRootSymbol(originalNodes, rootChildren []*Nod
 	if b.isLanguage("swift") {
 		return b.expectedRootSymbol
 	}
+	if b.isLanguage("go") {
+		return b.expectedRootSymbol
+	}
 	return errorSymbol
 }
 
@@ -353,6 +356,9 @@ func extendResultRootRangeToExtras(root *Node, extras []*Node) {
 func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*Node, wireParentLinks, extendTrailing bool) {
 	if root == nil {
 		return
+	}
+	if root.hasError() {
+		stripResultTreeSelfCycles(root)
 	}
 	timing := p.currentMaterializationTiming()
 	finalizeStart := materializationTimingStart(timing)
