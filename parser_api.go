@@ -467,6 +467,10 @@ func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 	if canReuseUnchangedTree(source, oldTree, p.language) {
 		return oldTree, nil
 	}
+	return p.parseIncrementalWithTokenSourceChanged(source, oldTree, ts, reparseFactory)
+}
+
+func (p *Parser) parseIncrementalWithTokenSourceChanged(source []byte, oldTree *Tree, ts TokenSource, reparseFactory TokenSourceFactory) (*Tree, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
 	prevFactory := p.reparseFactory
@@ -901,6 +905,10 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if canReuseUnchangedTree(source, oldTree, p.language) {
 		return oldTree, nil
 	}
+	return p.parseIncrementalChanged(source, oldTree)
+}
+
+func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
 	if oldTreeDisablesIncrementalReuse(oldTree) {
@@ -1026,6 +1034,10 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	if canReuseUnchangedTree(source, oldTree, p.language) {
 		return oldTree, IncrementalParseProfile{}, nil
 	}
+	return p.parseIncrementalChangedProfiled(source, oldTree)
+}
+
+func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
 	if oldTreeDisablesIncrementalReuse(oldTree) {
@@ -1065,6 +1077,10 @@ func (p *Parser) ParseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	if canReuseUnchangedTree(source, oldTree, p.language) {
 		return oldTree, IncrementalParseProfile{}, nil
 	}
+	return p.parseIncrementalWithTokenSourceChangedProfiled(source, oldTree, ts)
+}
+
+func (p *Parser) parseIncrementalWithTokenSourceChangedProfiled(source []byte, oldTree *Tree, ts TokenSource) (*Tree, IncrementalParseProfile, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
 	prevFactory := p.reparseFactory
