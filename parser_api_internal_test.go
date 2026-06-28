@@ -1166,6 +1166,9 @@ func TestResetSnippetParserClearsTransientState(t *testing.T) {
 	parser.timeoutMicros = 99
 	flag := uint32(1)
 	parser.cancellationFlag = &flag
+	parser.parseBudgetDepth = 1
+	parser.parseDeadline = time.Now()
+	parser.parseStoppedReason = ParseStopTimeout
 
 	resetSnippetParser(parser)
 
@@ -1198,6 +1201,15 @@ func TestResetSnippetParserClearsTransientState(t *testing.T) {
 	}
 	if parser.cancellationFlag != nil {
 		t.Fatal("resetSnippetParser did not clear cancellationFlag")
+	}
+	if parser.parseBudgetDepth != 0 {
+		t.Fatal("resetSnippetParser did not clear parseBudgetDepth")
+	}
+	if !parser.parseDeadline.IsZero() {
+		t.Fatal("resetSnippetParser did not clear parseDeadline")
+	}
+	if parser.parseStoppedReason != ParseStopNone {
+		t.Fatal("resetSnippetParser did not clear parseStoppedReason")
 	}
 }
 

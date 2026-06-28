@@ -200,7 +200,9 @@ func (b *resultRootBuild) finalizeRoot(root *Node, wireParentLinks, extendTraili
 func (b *resultRootBuild) finalizeWrappedSubtree(root *Node) {
 	p := b.parser
 	if p == nil || (!p.noResultCompatibilityBenchmarkOnly && !p.shouldDeferResultCompatibility(root)) {
-		normalizeResultCompatibility(root, b.source, p)
+		if reason := normalizeResultCompatibility(root, b.source, p); parseStopReasonIsActive(reason) && p != nil {
+			p.markActiveParseStopped(reason)
+		}
 	}
 }
 
@@ -373,7 +375,9 @@ func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*N
 	timing.addResultNormalizeRootStart(start)
 	if p == nil || (!p.noResultCompatibilityBenchmarkOnly && !p.shouldDeferResultCompatibility(root)) {
 		start = materializationTimingStart(timing)
-		normalizeResultCompatibility(root, source, p)
+		if reason := normalizeResultCompatibility(root, source, p); parseStopReasonIsActive(reason) && p != nil {
+			p.markActiveParseStopped(reason)
+		}
 		timing.addResultCompatibility(start)
 		// Per-language compatibility passes can filter trailing trivia children
 		// (e.g. HCL drops _whitespace from config_file), which may shrink the root
@@ -383,6 +387,9 @@ func (p *Parser) finalizeResultRoot(root *Node, source []byte, linkScratch *[]*N
 		if extendTrailing {
 			extendNodeToTrailingWhitespace(root, source)
 		}
+	}
+	if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
+		return
 	}
 	if wireParentLinks {
 		start = materializationTimingStart(timing)

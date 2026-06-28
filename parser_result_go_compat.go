@@ -23,22 +23,39 @@ type goCompatibilitySourceFlags struct {
 }
 
 func normalizeGoCompatibility(root *Node, source []byte, lang *Language) {
-	normalizeGoCompatibilityInRanges(root, source, lang, nil)
+	_ = normalizeGoCompatibilityInRanges(root, source, lang, nil)
 }
 
-func normalizeGoCompatibilityInRanges(root *Node, source []byte, lang *Language, incrementalRanges []Range) {
+func normalizeGoCompatibilityInRanges(root *Node, source []byte, lang *Language, incrementalRanges []Range) ParseStopReason {
+	return normalizeGoCompatibilityInRangesWithStop(root, source, lang, incrementalRanges, nil)
+}
+
+func normalizeGoCompatibilityWithStop(root *Node, source []byte, lang *Language, stopCheck parseStopCheck) ParseStopReason {
+	return normalizeGoCompatibilityInRangesWithStop(root, source, lang, nil, stopCheck)
+}
+
+func normalizeGoCompatibilityInRangesWithStop(root *Node, source []byte, lang *Language, incrementalRanges []Range, stopCheck parseStopCheck) ParseStopReason {
 	if root == nil || lang == nil || lang.Name != "go" || len(source) == 0 {
-		return
+		return ParseStopNone
+	}
+	poller := parseStopPoller{check: stopCheck}
+	if reason := poller.pollNow(); parseStopReasonIsActive(reason) {
+		return reason
 	}
 	flags := goCompatibilitySourceFlagsFor(source)
 	if flags.dot {
-		normalizeGoDotLeafChildren(root, source, lang)
+		if reason := normalizeGoDotLeafChildrenWithStop(root, source, lang, &poller); parseStopReasonIsActive(reason) {
+			return reason
+		}
 	}
 	syms, ok := goCompatibilitySymbolsForLanguage(lang)
 	if !ok {
-		return
+		return poller.pollNow()
 	}
-	normalizeGoCompatibilitySubtree(root, source, syms, flags, incrementalRanges)
+	if reason := normalizeGoCompatibilitySubtreeWithStop(root, source, syms, flags, incrementalRanges, &poller); parseStopReasonIsActive(reason) {
+		return reason
+	}
+	return poller.pollNow()
 }
 
 func goCompatibilitySourceFlagsFor(source []byte) goCompatibilitySourceFlags {
@@ -64,22 +81,29 @@ func goSourceMayNeedTrailingBoundaryCompatibility(source []byte) bool {
 }
 
 func normalizeGoDotLeafChildren(root *Node, source []byte, lang *Language) {
+	_ = normalizeGoDotLeafChildrenWithStop(root, source, lang, nil)
+}
+
+func normalizeGoDotLeafChildrenWithStop(root *Node, source []byte, lang *Language, poller *parseStopPoller) ParseStopReason {
 	if root == nil || lang == nil || len(source) == 0 {
-		return
+		return ParseStopNone
+	}
+	if reason := poller.pollNow(); parseStopReasonIsActive(reason) {
+		return reason
 	}
 	parentSym, ok := lang.symbolByNameAndNamed("dot", true)
 	if !ok {
 		parentSym, ok = symbolByName(lang, "dot")
 	}
 	if !ok {
-		return
+		return ParseStopNone
 	}
 	childSym, ok := lang.symbolByNameAndNamed(".", false)
 	if !ok {
 		childSym, ok = symbolByName(lang, ".")
 	}
 	if !ok {
-		return
+		return ParseStopNone
 	}
 	childNamed := symbolIsNamed(lang, childSym)
 	// Iterative DFS with an explicit stack: source trees can nest or chain
@@ -92,6 +116,9 @@ func normalizeGoDotLeafChildren(root *Node, source []byte, lang *Language) {
 		}
 	}
 	for len(stack) > 0 {
+		if reason := poller.poll(); parseStopReasonIsActive(reason) {
+			return reason
+		}
 		n := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 		childCount := resultChildCount(n)
@@ -123,6 +150,7 @@ func normalizeGoDotLeafChildren(root *Node, source []byte, lang *Language) {
 			push(resultChildAt(n, i))
 		}
 	}
+	return poller.pollNow()
 }
 
 func normalizeGoDotLeafNode(n *Node, source []byte, childSym Symbol, childNamed bool) {
@@ -196,8 +224,15 @@ func (s goCompatibilitySymbols) isStatementList(sym Symbol) bool {
 }
 
 func normalizeGoCompatibilitySubtree(n *Node, source []byte, syms goCompatibilitySymbols, flags goCompatibilitySourceFlags, incrementalRanges []Range) {
+	_ = normalizeGoCompatibilitySubtreeWithStop(n, source, syms, flags, incrementalRanges, nil)
+}
+
+func normalizeGoCompatibilitySubtreeWithStop(n *Node, source []byte, syms goCompatibilitySymbols, flags goCompatibilitySourceFlags, incrementalRanges []Range, poller *parseStopPoller) ParseStopReason {
+	if reason := poller.poll(); parseStopReasonIsActive(reason) {
+		return reason
+	}
 	if n == nil || !goNodeOverlapsAnyRange(n, incrementalRanges) {
-		return
+		return ParseStopNone
 	}
 	childCount := resultChildCount(n)
 	if childCount > 0 {
@@ -208,7 +243,9 @@ func normalizeGoCompatibilitySubtree(n *Node, source []byte, syms goCompatibilit
 	}
 	if n.ownerArena == nil || n.childIndex > finalChildSidecarIndexBase {
 		for _, child := range n.children {
-			normalizeGoCompatibilitySubtree(child, source, syms, flags, incrementalRanges)
+			if reason := normalizeGoCompatibilitySubtreeWithStop(child, source, syms, flags, incrementalRanges, poller); parseStopReasonIsActive(reason) {
+				return reason
+			}
 		}
 	} else {
 		view := resultMutableChildrenForMutation(n)
@@ -218,17 +255,22 @@ func normalizeGoCompatibilitySubtree(n *Node, source []byte, syms goCompatibilit
 				if !ok || stackEntryNodeChildCount(entry) == 0 {
 					continue
 				}
-				normalizeGoCompatibilitySubtree(resultChildAt(n, i), source, syms, flags, incrementalRanges)
+				if reason := normalizeGoCompatibilitySubtreeWithStop(resultChildAt(n, i), source, syms, flags, incrementalRanges, poller); parseStopReasonIsActive(reason) {
+					return reason
+				}
 			}
 		} else {
 			for i := 0; i < childCount; i++ {
-				normalizeGoCompatibilitySubtree(resultChildAt(n, i), source, syms, flags, incrementalRanges)
+				if reason := normalizeGoCompatibilitySubtreeWithStop(resultChildAt(n, i), source, syms, flags, incrementalRanges, poller); parseStopReasonIsActive(reason) {
+					return reason
+				}
 			}
 		}
 	}
 	if flags.trailingBoundary {
 		normalizeGoStatementListTrailingExtras(n, source, syms)
 	}
+	return ParseStopNone
 }
 
 func goNodeOverlapsAnyRange(n *Node, ranges []Range) bool {

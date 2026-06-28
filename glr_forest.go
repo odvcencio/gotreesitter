@@ -214,7 +214,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	if !allowIncremental {
 		tree.incrementalReuseDisabled = true
 	}
-	p.normalizeReturnedTree(rawRootOrNil(tree), source)
+	p.normalizeReturnedParseTree(tree, source)
 	return tree
 }
 

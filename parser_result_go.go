@@ -2,10 +2,22 @@ package gotreesitter
 
 import "bytes"
 
-func normalizeGoReturnedTreeCompatibility(root *Node, source []byte, p *Parser, lang *Language) {
+func normalizeGoReturnedTreeCompatibility(root *Node, source []byte, p *Parser, lang *Language) ParseStopReason {
+	if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
+		return reason
+	}
 	normalizeGoSourceFileRoot(root, source, p)
-	normalizeGoCompatibility(root, source, lang)
+	if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
+		return reason
+	}
+	if reason := normalizeGoCompatibilityWithStop(root, source, lang, p.activeParseStopCheck()); parseStopReasonIsActive(reason) {
+		return reason
+	}
+	if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
+		return reason
+	}
 	normalizeRootEOFNewlineSpan(root, source, lang)
+	return p.activeParseStopReason()
 }
 
 func normalizeGoSourceFileRoot(root *Node, source []byte, p *Parser) {

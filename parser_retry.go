@@ -794,6 +794,12 @@ func (p *Parser) retryFullParse(source []byte, initialMaxStacks int, tree *Tree,
 		if p == nil || p.timeoutMicros == 0 {
 			return false
 		}
+		if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
+			return true
+		}
+		if p.parseBudgetDepth > 0 {
+			return false
+		}
 		return time.Since(retryStart) > time.Duration(p.timeoutMicros)*time.Microsecond
 	}
 

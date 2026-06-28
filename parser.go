@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -72,6 +71,9 @@ type Parser struct {
 	maxConflictWidth                    int // widest N-way conflict in the parse table
 	timeoutMicros                       uint64
 	cancellationFlag                    *uint32
+	parseBudgetDepth                    int
+	parseDeadline                       time.Time
+	parseStoppedReason                  ParseStopReason
 	denseLimit                          int
 	smallBase                           int
 	smallLookup                         [][]smallActionPair
@@ -475,6 +477,9 @@ func resetSnippetParser(parser *Parser) {
 	parser.noResultCompatibilityBenchmarkOnly = false
 	parser.timeoutMicros = 0
 	parser.cancellationFlag = nil
+	parser.parseBudgetDepth = 0
+	parser.parseDeadline = time.Time{}
+	parser.parseStoppedReason = ParseStopNone
 	// Release *Node refs so the arenas from the last incremental parse can be
 	// collected by the GC. Without this, a Parser sitting in a sync.Pool keeps
 	// its reuseCursor.topLevel/*Node alive, preventing arena reclamation.
@@ -2043,6 +2048,8 @@ func copyParseRuntimeToTiming(timing *incrementalParseTiming, parseRuntime Parse
 // merged; distinct alternatives are preserved.
 func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor, oldTree *Tree, arenaClass arenaClass, timing *incrementalParseTiming, maxStacksOverride int, maxNodesOverride int, maxMergePerKeyOverride int, deterministicExternalConflicts bool) *Tree {
 	parseStart := time.Now()
+	endParseBudget := p.enterParseBudgetAt(parseStart)
+	defer endParseBudget()
 	parseFlags := p.applyParseModeFlags(source, reuse, oldTree, arenaClass)
 	defer p.restoreParseModeFlags(parseFlags)
 	p.clearCurrentExternalTokenCheckpoint()
@@ -2182,6 +2189,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if phaseTiming && parserLoopNanos == 0 {
 			parserLoopNanos = time.Since(parseStart).Nanoseconds()
 		}
+		if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) && (stopReason == ParseStopAccepted || stopReason == ParseStopNone) {
+			stopReason = reason
+		}
 		if p.transientReduceChildren && tree != nil {
 			materializeStart := time.Time{}
 			if materializationTimingRef != nil {
@@ -2314,15 +2324,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	}
 
 	for iter := 0; iter < maxIter; iter++ {
-		if p.timeoutMicros > 0 {
-			// Timeout is checked inside the parse loop so long-running parses
-			// can terminate predictably under caller-configured limits.
-			if time.Since(parseStart) > time.Duration(p.timeoutMicros)*time.Microsecond {
-				return finalize(stacks, ParseStopTimeout)
-			}
-		}
-		if flag := p.cancellationFlag; flag != nil && atomic.LoadUint32(flag) != 0 {
-			return finalize(stacks, ParseStopCancelled)
+		if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
+			return finalize(stacks, reason)
 		}
 		iterationsUsed = iter + 1
 		if perfCountersEnabled {

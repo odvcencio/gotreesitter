@@ -1,36 +1,59 @@
 package gotreesitter
 
 type resultCompatibilityContext struct {
-	root   *Node
-	source []byte
-	parser *Parser
-	lang   *Language
+	root      *Node
+	source    []byte
+	parser    *Parser
+	lang      *Language
+	stopCheck parseStopCheck
 }
 
 // normalizeResultCompatibility applies narrow post-build tree rewrites that
 // keep gotreesitter output aligned with C tree-sitter and existing recovery
 // expectations for grammars with known normalization gaps.
-func normalizeResultCompatibility(root *Node, source []byte, p *Parser) {
+func normalizeResultCompatibility(root *Node, source []byte, p *Parser) ParseStopReason {
 	var lang *Language
 	if p != nil {
 		lang = p.language
 	}
 	if root == nil || lang == nil {
-		return
+		return ParseStopNone
 	}
-	runLanguageResultCompatibility(resultCompatibilityContext{
-		root:   root,
-		source: source,
-		parser: p,
-		lang:   lang,
-	})
+	ctx := resultCompatibilityContext{
+		root:      root,
+		source:    source,
+		parser:    p,
+		lang:      lang,
+		stopCheck: p.activeParseStopCheck(),
+	}
+	if reason := ctx.stopReason(); parseStopReasonIsActive(reason) {
+		return reason
+	}
+	if reason := runLanguageResultCompatibility(ctx); parseStopReasonIsActive(reason) {
+		return reason
+	}
+	if reason := ctx.stopReason(); parseStopReasonIsActive(reason) {
+		return reason
+	}
 	normalizeResultCollapsedNamedLeafChildren(root, lang)
+	return ctx.stopReason()
 }
 
-func runLanguageResultCompatibility(ctx resultCompatibilityContext) {
+func (ctx resultCompatibilityContext) stopReason() ParseStopReason {
+	if ctx.stopCheck == nil {
+		return ParseStopNone
+	}
+	reason := ctx.stopCheck()
+	if reason == "" {
+		return ParseStopNone
+	}
+	return reason
+}
+
+func runLanguageResultCompatibility(ctx resultCompatibilityContext) ParseStopReason {
 	if isCobolLanguage(ctx.lang) {
 		normalizeCobolCompatibility(ctx.root, ctx.source, ctx.lang)
-		return
+		return ctx.stopReason()
 	}
 
 	switch ctx.lang.Name {
@@ -60,7 +83,7 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) {
 		normalizeFortranStatementLineBreaks(ctx.root, ctx.source, ctx.lang)
 		normalizeTopLevelTrailingLineBreakSpan(ctx.root, ctx.source, ctx.lang)
 	case "go":
-		normalizeGoReturnedTreeCompatibility(ctx.root, ctx.source, ctx.parser, ctx.lang)
+		return normalizeGoReturnedTreeCompatibility(ctx.root, ctx.source, ctx.parser, ctx.lang)
 	case "graphql":
 		normalizeGraphQLCompatibility(ctx.root, ctx.source, ctx.lang)
 	case "haskell":
@@ -131,4 +154,5 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) {
 	case "zig":
 		normalizeZigEmptyInitListFields(ctx.root, ctx.lang)
 	}
+	return ctx.stopReason()
 }
