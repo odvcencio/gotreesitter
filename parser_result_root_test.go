@@ -207,3 +207,49 @@ func TestBuildResultFromNodesKeepsSwiftSourceFileRootWhenChildrenHaveErrors(t *t
 		t.Fatalf("root end = %d, want %d", got, want)
 	}
 }
+
+func TestBuildResultFromNodesKeepsGoSourceFileRootWhenChildrenHaveErrors(t *testing.T) {
+	lang := &Language{
+		Name: "go",
+		SymbolNames: []string{
+			"EOF",
+			"ERROR",
+			"source_file",
+			"package_clause",
+		},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "ERROR", Visible: true, Named: true},
+			{Name: "source_file", Visible: true, Named: true},
+			{Name: "package_clause", Visible: true, Named: true},
+		},
+	}
+	parser := &Parser{
+		language:      lang,
+		rootSymbol:    2,
+		hasRootSymbol: true,
+	}
+	arena := acquireNodeArena(arenaClassFull)
+	source := []byte("package main\nfunc broken")
+
+	pkg := newLeafNodeInArena(arena, 3, true, 0, 12, Point{}, Point{Column: 12})
+	errNode := newLeafNodeInArena(arena, errorSymbol, true, 13, 24, Point{Row: 1}, Point{Row: 1, Column: 11})
+	errNode.setHasError(true)
+
+	tree := parser.buildResultFromNodes([]*Node{pkg, errNode}, source, arena, nil, nil, nil)
+	t.Cleanup(tree.Release)
+
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("buildResultFromNodes returned nil root")
+	}
+	if got, want := root.Type(lang), "source_file"; got != want {
+		t.Fatalf("root type = %q, want %q", got, want)
+	}
+	if !root.HasError() {
+		t.Fatal("expected source_file root to retain HasError=true")
+	}
+	if got, want := root.EndByte(), uint32(len(source)); got != want {
+		t.Fatalf("root end = %d, want %d", got, want)
+	}
+}
