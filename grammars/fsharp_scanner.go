@@ -57,6 +57,15 @@ type fsState struct {
 	preprocessorIndents []uint16
 }
 
+func fsEmitDedent(s *fsState, lexer *gotreesitter.ExternalLexer) bool {
+	if len(s.indents) <= 1 {
+		return false
+	}
+	s.indents = s.indents[:len(s.indents)-1]
+	lexer.SetResultSymbol(fsSymDedent)
+	return true
+}
+
 // FsharpExternalScanner handles indent/dedent, keywords, preprocessor directives, and comments for F#.
 type FsharpExternalScanner struct{}
 
@@ -405,9 +414,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 						lexer.SetResultSymbol(fsSymThen)
 						return true
 					}
-					s.indents = s.indents[:len(s.indents)-1]
-					lexer.SetResultSymbol(fsSymDedent)
-					return true
+					return fsEmitDedent(s, lexer)
 				}
 			}
 		}
@@ -423,9 +430,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 						lexer.SetResultSymbol(fsSymAnd)
 						return true
 					}
-					s.indents = s.indents[:len(s.indents)-1]
-					lexer.SetResultSymbol(fsSymDedent)
-					return true
+					return fsEmitDedent(s, lexer)
 				}
 			}
 		}
@@ -443,9 +448,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 							lexer.SetResultSymbol(fsSymWith)
 							return true
 						}
-						s.indents = s.indents[:len(s.indents)-1]
-						lexer.SetResultSymbol(fsSymDedent)
-						return true
+						return fsEmitDedent(s, lexer)
 					}
 				}
 			}
@@ -486,9 +489,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 						lexer.SetResultSymbol(fsSymElse)
 						return true
 					}
-					s.indents = s.indents[:len(s.indents)-1]
-					lexer.SetResultSymbol(fsSymDedent)
-					return true
+					return fsEmitDedent(s, lexer)
 				}
 			} else if lexer.Lookahead() == 'i' && (isValid(fsTokElif) || isValid(fsTokDedent)) {
 				lexer.Advance(false)
@@ -504,9 +505,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 						lexer.SetResultSymbol(fsSymElif)
 						return true
 					}
-					s.indents = s.indents[:len(s.indents)-1]
-					lexer.SetResultSymbol(fsSymDedent)
-					return true
+					return fsEmitDedent(s, lexer)
 				}
 			}
 		} else if lexer.Lookahead() == 'n' && (isValid(fsTokEnd) || isValid(fsTokDedent)) {
