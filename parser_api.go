@@ -719,8 +719,6 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 	if err := p.checkDFALexer(); err != nil {
 		return nil, err
 	}
-	endParseBudget := p.enterParseBudget()
-	defer endParseBudget()
 	// GSS-forest fast path for languages whose production GLR parse blows up on
 	// deep stack-equivalence (e.g. bash). Returns nil to fall back to the
 	// production parser on any failure, error, or truncation. Off unless
@@ -728,6 +726,8 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 	if tree := p.tryForestFastPath(source); tree != nil {
 		return tree, nil
 	}
+	endParseBudget := p.enterParseBudget()
+	defer endParseBudget()
 	p.releaseCompatibilityBorrowedArenas()
 	p.clearRecoveryParser()
 	defer p.clearRecoveryParser()
