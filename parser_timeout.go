@@ -46,11 +46,17 @@ func parseStopReasonIsActive(reason ParseStopReason) bool {
 }
 
 func (p *Parser) enterParseBudget() func() {
+	if !p.needsParseBudget() {
+		return func() {}
+	}
 	return p.enterParseBudgetAt(time.Now())
 }
 
 func (p *Parser) enterParseBudgetAt(start time.Time) func() {
 	if p == nil {
+		return func() {}
+	}
+	if !p.needsParseBudget() {
 		return func() {}
 	}
 	prevDepth := p.parseBudgetDepth
@@ -74,6 +80,10 @@ func (p *Parser) enterParseBudgetAt(start time.Time) func() {
 	}
 }
 
+func (p *Parser) needsParseBudget() bool {
+	return p != nil && (p.parseBudgetDepth > 0 || p.timeoutMicros > 0 || p.cancellationFlag != nil)
+}
+
 func (p *Parser) activeParseStopCheck() parseStopCheck {
 	if p == nil {
 		return nil
@@ -83,6 +93,9 @@ func (p *Parser) activeParseStopCheck() parseStopCheck {
 
 func (p *Parser) activeParseStopReason() ParseStopReason {
 	if p == nil {
+		return ParseStopNone
+	}
+	if !p.needsParseBudget() {
 		return ParseStopNone
 	}
 	if parseStopReasonIsActive(p.parseStoppedReason) {

@@ -2324,8 +2324,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	}
 
 	for iter := 0; iter < maxIter; iter++ {
-		if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
-			return finalize(stacks, reason)
+		if p.parseBudgetDepth > 0 {
+			if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
+				return finalize(stacks, reason)
+			}
 		}
 		iterationsUsed = iter + 1
 		if perfCountersEnabled {
