@@ -2130,6 +2130,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			parserLoopNanos = time.Since(parseStart).Nanoseconds()
 		}
 		materializeTransientParentNodes(nodes, arena, scratch.reduce.transientParents, scratch.reduce.transientChildren)
+		for _, n := range nodes {
+			stripResultTreeSelfCycles(n)
+		}
 		tree := p.buildResultFromNodes(nodes, source, arena, oldTree, &reuseState, &scratch.nodeLinks)
 		if root := tree.RootNode(); root != nil {
 			normalizeSQLRecoveredMissingNull(root, arena, p.language)
