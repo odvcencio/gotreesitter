@@ -517,11 +517,8 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 						lexer.MarkEnd()
 						lexer.SetResultSymbol(fsSymEnd)
 						return true
-					} else if isValid(fsTokDedent) && len(s.indents) > 0 {
-						s.indents = s.indents[:len(s.indents)-1]
-						lexer.SetResultSymbol(fsSymDedent)
-						return true
 					}
+					return fsEmitDedent(s, lexer)
 				}
 			}
 		}

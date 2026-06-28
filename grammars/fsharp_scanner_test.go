@@ -20,6 +20,7 @@ func TestFsharpKeywordDedentFallbackIgnoresEmptyIndentStack(t *testing.T) {
 		{name: "with", src: "with "},
 		{name: "else", src: "else"},
 		{name: "elif", src: "elif"},
+		{name: "end", src: "end"},
 	}
 
 	scanner := FsharpExternalScanner{}
