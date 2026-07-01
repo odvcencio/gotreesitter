@@ -34,10 +34,11 @@ import (
 //	         dynamic_precedence-then-first-match selection for byte-identical out.
 
 // glrForestEnabled is the master switch for the GSS-forest fast path. ON by
-// default: the byte-range-verified languages in languageWantsForest dispatch to
-// the forest automatically (with production fallback). Set GOT_GLR_FOREST=0 to
-// disable globally; tests/benchmarks toggle via SetGLRForestEnabled. Languages
-// NOT in the allowlist always use production regardless of this switch.
+// default: the byte-range-verified languages in builtinForestDefaults (plus any
+// Language with WantsForest set, see parserWantsForest) dispatch to the forest
+// automatically (with production fallback). Set GOT_GLR_FOREST=0 to disable
+// globally; tests/benchmarks toggle via SetGLRForestEnabled. Languages that
+// want neither always use production regardless of this switch.
 var glrForestEnabled = os.Getenv("GOT_GLR_FOREST") != "0"
 
 // SetGLRForestEnabled toggles the GSS-forest path at runtime (tests/benchmarks).
@@ -117,20 +118,20 @@ func (p *Parser) recordForestDecline(reason string, tok Token, states []StateID)
 	p.forestDeclineStates = append(p.forestDeclineStates[:0], states...)
 }
 
-// languageWantsForest reports whether a language dispatches to the GSS-forest
-// GLR fast path by default. Restricted to languages whose production GLR parse
-// suffers the super-linear deep-stack-equivalence blowup AND that are verified
-// byte-identical to production on their real corpus by TestForestCorpusParity
-// (which compares full node BYTE RANGES, not just s-expressions — an s-expr-only
-// gate hid systematic span bugs). Measured byte-range-clean production-vs-forest
-// speedups on the real corpus: bash 803x, erlang 664x, cmake 166x, awk 202x,
-// javascript 36x, css 5x, scss 3x, c_sharp 3x. GraphQL is clean against
-// production here too, but stays out until the production tree is C-oracle-clean
-// on the ring matrix. The forest has no error recovery, so tryForestFastPath
-// falls back to production on any decline (failure / error / truncation); that
-// fallback means a language can never regress the cases it declines, but does
-// NOT catch a clean-but-different tree — so a language joins this list only
-// once its byte-range gate is green.
+// builtinForestDefaults is the curated set of built-in languages that dispatch
+// to the GSS-forest GLR fast path by default. Restricted to languages whose
+// production GLR parse suffers the super-linear deep-stack-equivalence blowup
+// AND that are verified byte-identical to production on their real corpus by
+// TestForestCorpusParity (which compares full node BYTE RANGES, not just
+// s-expressions — an s-expr-only gate hid systematic span bugs). Measured
+// byte-range-clean production-vs-forest speedups on the real corpus: bash
+// 803x, erlang 664x, cmake 166x, awk 202x, javascript 36x, css 5x, scss 3x,
+// c_sharp 3x. GraphQL is clean against production here too, but stays out
+// until the production tree is C-oracle-clean on the ring matrix. The forest
+// has no error recovery, so tryForestFastPath falls back to production on any
+// decline (failure / error / truncation); that fallback means a language can
+// never regress the cases it declines, but does NOT catch a clean-but-different
+// tree — so a language joins this list only once its byte-range gate is green.
 //
 // Verified NOT forest-amenable (2026-06-02 sweep — do NOT re-add as "divergent",
 // the older note was stale): python is forest byte-CLEAN (diverged=0) but ~0.8x
@@ -164,13 +165,33 @@ func (p *Parser) recordForestDecline(reason string, tok Token, states []StateID)
 //
 // One pre-existing gotreesitter-vs-C span quirk (off-by-3 on a few files) is
 // SHARED with production (not a forest regression), so it does not block.
-func languageWantsForest(name string) bool {
-	switch name {
-	case "bash", "erlang", "cmake", "css", "scss", "awk", "javascript", "c_sharp", "go":
-		return true
-	default:
-		return false
-	}
+//
+// Non-built-in languages opt in per-Language via Language.WantsForest (see
+// parserWantsForest) instead of joining this map — e.g. a grammargen consumer
+// generating its own grammar (a Pawn grammar, say) sets WantsForest directly
+// (or grammargen.Grammar.WantsForest, plumbed through assemble) without
+// forking this file. That path bypasses the byte-range parity certification
+// this curated set underwent; the decline->production fallback still prevents
+// hard failures, but a clean-but-different tree is the consumer's
+// responsibility.
+var builtinForestDefaults = map[string]bool{
+	"bash":       true,
+	"erlang":     true,
+	"cmake":      true,
+	"css":        true,
+	"scss":       true,
+	"awk":        true,
+	"javascript": true,
+	"c_sharp":    true,
+	"go":         true,
+}
+
+// parserWantsForest reports whether p's language dispatches to the GSS-forest
+// GLR fast path: either the Language opted in directly (WantsForest, set by a
+// grammargen consumer) or it is one of the curated built-ins in
+// builtinForestDefaults.
+func parserWantsForest(p *Parser) bool {
+	return p != nil && p.language != nil && (p.language.WantsForest || builtinForestDefaults[p.language.Name])
 }
 
 // tryForestFastPath attempts a full parse via the GSS-forest path and returns a
@@ -181,7 +202,7 @@ func languageWantsForest(name string) bool {
 // off by default so the production path is unchanged until per-language corpus
 // parity is verified and the gate is lifted.
 func (p *Parser) tryForestFastPath(source []byte) *Tree {
-	if !glrForestEnabled || p == nil || p.language == nil || !languageWantsForest(p.language.Name) {
+	if !glrForestEnabled || !parserWantsForest(p) {
 		return nil
 	}
 	arena := acquireNodeArena(arenaClassFull)

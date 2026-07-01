@@ -85,7 +85,7 @@ func TestForestIncrementalCorrectness(t *testing.T) {
 		file string
 		lang func() *gts.Language
 	}{
-		// These are forest-default languages (languageWantsForest). erlang +
+		// These are forest-default languages (builtinForestDefaults). erlang +
 		// javascript do real forest-incremental reuse (must match fresh); scss,
 		// css, cmake and go are forest for full parses but demoted from the
 		// incremental path, so they reach the same assertion via fresh-parse

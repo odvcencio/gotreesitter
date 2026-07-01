@@ -225,6 +225,15 @@ type Language struct {
 	// runtime rather than decoded from a checked-in ts2go blob.
 	GeneratedByGrammargen bool
 
+	// WantsForest opts this language into the GSS-forest GLR fast path. Built-in
+	// languages are enabled via the curated builtinForestDefaults map instead;
+	// consumers generating a Language via grammargen set this (directly or via
+	// grammargen.Grammar.WantsForest) to enable forest for their own grammar. This
+	// bypasses the byte-range parity certification built-ins undergo — the
+	// decline->production fallback still prevents hard failures on declined inputs,
+	// but a clean-but-different tree is the consumer's responsibility.
+	WantsForest bool
+
 	// LanguageVersion is the tree-sitter language ABI version.
 	// A value of 0 means "unknown/unspecified" and is treated as compatible.
 	LanguageVersion uint32

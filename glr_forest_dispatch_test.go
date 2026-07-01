@@ -9,7 +9,7 @@ import (
 )
 
 // TestForestDispatchParity verifies the (default-on) forest fast path is
-// invisible: for a dispatched language (css ∈ languageWantsForest) the forest
+// invisible: for a dispatched language (css ∈ builtinForestDefaults) the forest
 // tree must be byte-identical to production — same s-expr AND same root byte
 // span — and anything the forest declines (malformed input, non-dispatched
 // languages) must match production because we fall back to it.

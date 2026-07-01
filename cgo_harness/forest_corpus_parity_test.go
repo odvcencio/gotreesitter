@@ -14,7 +14,7 @@ import (
 )
 
 // TestForestCorpusParity is the correctness gate for promoting a language onto
-// the GSS-forest fast path (Parser.tryForestFastPath / languageWantsForest).
+// the GSS-forest fast path (Parser.tryForestFastPath / builtinForestDefaults).
 //
 // The runtime dispatch falls back to the production parser whenever the forest
 // declines (failure / error node / truncation), so it can never regress those
