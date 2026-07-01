@@ -167,3 +167,23 @@ func TestGrammarWantsForestDefaultFalse(t *testing.T) {
 		t.Errorf("blob round-trip of unset WantsForest should default to false, got true")
 	}
 }
+
+// TestExtendGrammarPreservesWantsForest verifies ExtendGrammar inherits the base
+// grammar's WantsForest opt-in, the same way it carries every other Grammar-level
+// config flag. Without this, extending a forest-enabled base grammar would
+// silently drop the opt-in to false.
+func TestExtendGrammarPreservesWantsForest(t *testing.T) {
+	base := CalcGrammar()
+	base.WantsForest = true
+
+	ext := ExtendGrammar("calc_ext", base, func(g *Grammar) {})
+	if !ext.WantsForest {
+		t.Errorf("ExtendGrammar dropped base.WantsForest; extended grammar should inherit it")
+	}
+
+	// A base without the opt-in stays false.
+	ext2 := ExtendGrammar("calc_ext2", CalcGrammar(), func(g *Grammar) {})
+	if ext2.WantsForest {
+		t.Errorf("ExtendGrammar set WantsForest when base had none")
+	}
+}

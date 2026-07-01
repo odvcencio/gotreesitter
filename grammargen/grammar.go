@@ -337,6 +337,7 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 		SuppressEquivalentExternalReduceLookaheads: base.SuppressEquivalentExternalReduceLookaheads,
 		ExternalReduceFollowLookaheads:             append([]string(nil), base.ExternalReduceFollowLookaheads...),
 		PriorityInlinePatterns:                     append([]string(nil), base.PriorityInlinePatterns...),
+		WantsForest:                                base.WantsForest,
 	}
 
 	// Deep copy rules.
