@@ -68,6 +68,10 @@ func ExportGrammarJSON(g *Grammar) ([]byte, error) {
 		out.Supertypes = []string{}
 	}
 
+	if g.WantsForest {
+		out.Gotreesitter = &grammarJSONExtensions{WantsForest: g.WantsForest}
+	}
+
 	data, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshal grammar.json: %w", err)
@@ -79,14 +83,15 @@ func ExportGrammarJSON(g *Grammar) ([]byte, error) {
 
 // exportGrammar is the JSON structure for grammar.json output.
 type exportGrammar struct {
-	Name       string        `json:"name"`
-	Word       string        `json:"word,omitempty"`
-	Rules      *orderedRules `json:"rules"`
-	Extras     []interface{} `json:"extras"`
-	Conflicts  [][]string    `json:"conflicts"`
-	Externals  []interface{} `json:"externals"`
-	Inline     []string      `json:"inline"`
-	Supertypes []string      `json:"supertypes"`
+	Name         string                 `json:"name"`
+	Word         string                 `json:"word,omitempty"`
+	Rules        *orderedRules          `json:"rules"`
+	Extras       []interface{}          `json:"extras"`
+	Conflicts    [][]string             `json:"conflicts"`
+	Externals    []interface{}          `json:"externals"`
+	Inline       []string               `json:"inline"`
+	Supertypes   []string               `json:"supertypes"`
+	Gotreesitter *grammarJSONExtensions `json:"gotreesitter,omitempty"`
 }
 
 // orderedRules preserves rule order when marshaling to JSON.

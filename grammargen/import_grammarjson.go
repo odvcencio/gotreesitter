@@ -102,6 +102,10 @@ func ImportGrammarJSON(data []byte) (*Grammar, error) {
 	g := NewGrammar(raw.Name)
 	applyImportGrammarShapeHints(g)
 
+	if raw.Gotreesitter != nil {
+		g.WantsForest = raw.Gotreesitter.WantsForest
+	}
+
 	// Build named precedence → numeric value mapping from the precedences array.
 	// Each level is an ordered list from highest to lowest precedence.
 	// STRING entries define named precedence values.
@@ -268,6 +272,17 @@ func importPrecedenceLevels(rawLevels []json.RawMessage) [][]PrecEntry {
 	return levels
 }
 
+// grammarJSONExtensions holds gotreesitter-specific settings that extend the
+// standard tree-sitter grammar.json under a "gotreesitter" object. tree-sitter's
+// own tooling ignores this key; gotreesitter reads it during ImportGrammarJSON
+// and writes it back during ExportGrammarJSON (only when set).
+type grammarJSONExtensions struct {
+	// WantsForest opts the assembled Language into the GSS-forest GLR fast path
+	// (see gotreesitter.Language.WantsForest). Lets an existing grammar enable
+	// forest declaratively via grammar.json — no code change, no fork.
+	WantsForest bool `json:"wantsForest,omitempty"`
+}
+
 // jsonGrammar is the top-level structure of a grammar.json file.
 type jsonGrammar struct {
 	Name          string                       `json:"name"`
@@ -280,6 +295,7 @@ type jsonGrammar struct {
 	Word          string                       `json:"word"`
 	Reserved      map[string][]json.RawMessage `json:"reserved"`
 	Precedences   []json.RawMessage            `json:"precedences"`
+	Gotreesitter  *grammarJSONExtensions       `json:"gotreesitter,omitempty"`
 	ruleOrder     []string                     // populated during UnmarshalJSON
 	reservedOrder []string                     // populated during UnmarshalJSON
 }
