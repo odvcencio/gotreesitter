@@ -14,6 +14,7 @@ func normalizeSwiftCompatibility(root *Node, source []byte, p *Parser, lang *Lan
 		return
 	}
 	normalizeSwiftRecoveredTrailingClosureConditions(root, source, p, lang)
+	normalizeSwiftRecoveredTernaryExpressions(root, source, p, lang)
 	normalizeSwiftRecoveredTopLevelDeclarations(root, source, p, lang)
 	// Bare keyword case (childCount=0, span covers exactly the keyword).
 	normalizeCollapsedNamedLeafChildrenBySource(

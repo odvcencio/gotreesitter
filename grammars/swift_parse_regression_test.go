@@ -380,3 +380,102 @@ func TestSwiftElseIfChainRecoversFunction(t *testing.T) {
 		})
 	}
 }
+
+// TestSwiftTernaryExpressionRecovers is the regression test for issue #135: the
+// conditional operator `cond ? a : b` never fired the ternary_expression
+// reduction on the runtime blob, dropping `? a : b` into an ERROR node in every
+// position and collapsing any enclosing function. The recovery normalizer now
+// reconstructs the ternary_expression in place.
+func TestSwiftTernaryExpressionRecovers(t *testing.T) {
+	lang := SwiftLanguage()
+	cases := []struct {
+		name string
+		src  string
+	}{
+		{"top-level-let", "let y = 3 > 0 ? 1 : 2\n"},
+		{"return-no-param", "func f() -> Int { return true ? 1 : 2 }\n"},
+		{"return-with-param", "func f(x: Int) -> Int { return x > 0 ? 1 : 2 }\n"},
+		{"call-argument", "func f(x: Int) { print(x > 0 ? 1 : 2) }\n"},
+		{"string-operands", "let a = cond ? \"x\" : \"y\"\n"},
+		{"nested-in-parens", "let z = a + (cond ? 1 : 2) + b\n"},
+		{"parenthesised-condition", "let availableRules = (context == nil) ? [.noContextRule] : []\n"},
+		{"enum-dot-operands", "let result: MyEnumType = condition ? .someEnumCase : .someOtherEnum\n"},
+		{"multi-argument", "let m = foo(a, b > 0 ? 1 : 2)\n"},
+		{"as-if-condition", "if a ? b : c == d {\n}\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := []byte(tc.src)
+			parser := gotreesitter.NewParser(lang)
+			tree, err := parser.Parse(src)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			if root.HasError() {
+				t.Fatalf("recovered tree still reports error: %s", root.SExpr(lang))
+			}
+			if got, want := root.EndByte(), uint32(len(src)); got != want {
+				t.Fatalf("root end = %d, want %d (span not byte-faithful): %s", got, want, root.SExpr(lang))
+			}
+			if got := countSwiftNodeType(lang, root, "ternary_expression"); got < 1 {
+				t.Fatalf("ternary_expression count = %d, want >= 1: %s", got, root.SExpr(lang))
+			}
+			if got := countSwiftNodeType(lang, root, "ERROR"); got != 0 {
+				t.Fatalf("ERROR node present after recovery: %s", root.SExpr(lang))
+			}
+			if got := countSwiftNodeType(lang, root, "_modifierless_function_declaration_no_body"); got != 0 {
+				t.Fatalf("function collapsed to _modifierless_function_declaration_no_body: %s", root.SExpr(lang))
+			}
+		})
+	}
+}
+
+// TestSwiftTernaryFieldsAndShape checks the reconstructed ternary_expression has
+// the exact upstream child layout: condition/if_true/if_false fields around the
+// `?` and `:` tokens.
+func TestSwiftTernaryFieldsAndShape(t *testing.T) {
+	lang := SwiftLanguage()
+	src := []byte("let y = a ? b : c\n")
+	parser := gotreesitter.NewParser(lang)
+	tree, err := parser.Parse(src)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if root.HasError() {
+		t.Fatalf("ternary tree reports error: %s", root.SExpr(lang))
+	}
+	var tern *gotreesitter.Node
+	var find func(n *gotreesitter.Node)
+	find = func(n *gotreesitter.Node) {
+		if n == nil || tern != nil {
+			return
+		}
+		if n.Type(lang) == "ternary_expression" {
+			tern = n
+			return
+		}
+		for i := 0; i < n.ChildCount(); i++ {
+			find(n.Child(i))
+		}
+	}
+	find(root)
+	if tern == nil {
+		t.Fatalf("no ternary_expression: %s", root.SExpr(lang))
+	}
+	for _, field := range []string{"condition", "if_true", "if_false"} {
+		c := tern.ChildByFieldName(field, lang)
+		if c == nil {
+			t.Fatalf("ternary_expression missing %q field: %s", field, root.SExpr(lang))
+		}
+	}
+	if got, want := tern.StartByte(), uint32(8); got != want {
+		t.Fatalf("ternary start = %d, want %d", got, want)
+	}
+	if got, want := tern.EndByte(), uint32(17); got != want {
+		t.Fatalf("ternary end = %d, want %d", got, want)
+	}
+}
