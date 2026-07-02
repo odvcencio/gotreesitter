@@ -263,7 +263,7 @@ func (b *swiftTernaryBuilder) buildTernary(condNode *Node, s *swiftTernarySite) 
 // coordinates. Returns nil unless the operand parses cleanly to exactly one
 // full-span named node (nested/chained ternaries therefore bail safely).
 func (b *swiftTernaryBuilder) buildOperand(start, end uint32) *Node {
-	if start >= end || int(end) > len(b.source) {
+	if start >= end || end > uint32(len(b.source)) {
 		return nil
 	}
 	sub := b.source[start:end]
@@ -640,7 +640,7 @@ func swiftBlankRanges(source []byte, ranges [][2]uint32) []byte {
 	out := make([]byte, len(source))
 	copy(out, source)
 	for _, r := range ranges {
-		for i := r[0]; i < r[1] && int(i) < len(out); i++ {
+		for i := r[0]; i < r[1] && i < uint32(len(out)); i++ {
 			if out[i] != '\n' && out[i] != '\r' {
 				out[i] = ' '
 			}
