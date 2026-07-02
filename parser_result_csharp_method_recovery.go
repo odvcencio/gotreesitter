@@ -26,7 +26,7 @@ package gotreesitter
 // record/interface with per-member reparse), or — for small chunks such as enums
 // — a whole-chunk reparse. Unrecoverable chunks are skipped.
 func csharpRecoverNamespaceBodyMembersFromSource(source []byte, openBrace, closeBrace uint32, p *Parser, arena *nodeArena) ([]*Node, bool) {
-	if p == nil || p.language == nil || arena == nil || openBrace >= closeBrace || int(closeBrace) > len(source) {
+	if p == nil || p.language == nil || arena == nil || openBrace >= closeBrace || closeBrace > uint32(len(source)) {
 		return nil, false
 	}
 	bodyStart := openBrace + 1
@@ -89,7 +89,7 @@ func csharpRecoverNamespaceTypeMemberFromSource(source []byte, start, end uint32
 // recovered members. Returns ok=false for other keywords so the caller can fall
 // back to a whole-chunk reparse.
 func csharpRecoverSourceTypeDeclarationLenient(source []byte, start, end uint32, p *Parser, arena *nodeArena) (*Node, bool) {
-	if p == nil || p.language == nil || arena == nil || start >= end || int(end) > len(source) {
+	if p == nil || p.language == nil || arena == nil || start >= end || end > uint32(len(source)) {
 		return nil, false
 	}
 	lang := p.language
@@ -135,7 +135,7 @@ func csharpRecoverSourceTypeDeclarationLenient(source []byte, start, end uint32,
 // returns the recovered type-declaration node (with an empty declaration_list),
 // shifted to original coordinates. The synthetic body is replaced by the caller.
 func csharpRecoverTypeDeclarationShell(source []byte, start, openBrace uint32, p *Parser, arena *nodeArena) *Node {
-	if start >= openBrace || int(openBrace) > len(source) {
+	if start >= openBrace || openBrace > uint32(len(source)) {
 		return nil
 	}
 	header := source[start:openBrace]
@@ -174,6 +174,9 @@ func csharpRecoverTypeDeclarationShell(source []byte, start, openBrace uint32, p
 // csharpReplaceDeclarationList swaps the (synthetic, empty) declaration_list
 // child of a type declaration for the supplied one.
 func csharpReplaceDeclarationList(decl *Node, lang *Language, declList *Node) bool {
+	if decl == nil || declList == nil {
+		return false
+	}
 	for i, c := range decl.children {
 		if c != nil && c.Type(lang) == "declaration_list" {
 			decl.children[i] = declList
