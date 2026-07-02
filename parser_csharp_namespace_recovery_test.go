@@ -1,6 +1,7 @@
 package gotreesitter_test
 
 import (
+	"os"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -171,5 +172,47 @@ func TestCSharpCleanNamespaceUnaffected(t *testing.T) {
 	}
 	if methods != 3 {
 		t.Fatalf("methods = %d, want 3", methods)
+	}
+}
+
+// TestCSharpLargeShreddedNamespaceRecoversMethods is the regression test for
+// issue #136. A large real-world file (a trimmed Newtonsoft.Json JsonTextReader
+// excerpt) whose class body is shredded by a cumulative GLR failure used to
+// recover the namespace/class shell but zero method_declaration nodes, because
+// the source-based method reconstruction was gated off above 4096 bytes. The
+// per-member bounded source recovery should now surface the methods.
+func TestCSharpLargeShreddedNamespaceRecoversMethods(t *testing.T) {
+	lang := grammars.CSharpLanguage()
+	src, err := os.ReadFile("testdata/parser_result/csharp/jsontextreader_excerpt.cs")
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	if len(src) <= 4096 {
+		t.Fatalf("fixture must exceed the 4096-byte gate to exercise #136, got %d bytes", len(src))
+	}
+
+	parser := gotreesitter.NewParser(lang)
+	// Generous budget: the recovery is bounded per member and must finish well
+	// within this, so the parse must not stop early.
+	parser.SetTimeoutMicros(5_000_000)
+	tree, err := parser.Parse(src)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	defer tree.Release()
+
+	if tree.ParseStoppedEarly() {
+		t.Fatalf("parse stopped early: %s", tree.ParseRuntime().Summary())
+	}
+	root := tree.RootNode()
+	if got, want := root.EndByte(), uint32(len(src)); got != want {
+		t.Fatalf("root end = %d, want %d (span not byte-faithful)", got, want)
+	}
+	classes, methods := countCSharpDecls(t, lang, root)
+	if classes < 1 {
+		t.Fatalf("class_declaration count = %d, want >= 1", classes)
+	}
+	if methods < 8 {
+		t.Fatalf("method_declaration count = %d, want >= 8 (was 0 before #136)", methods)
 	}
 }

@@ -16,6 +16,16 @@ const (
 	// or many nested partial classes) the recovery loop can be triggered
 	// dozens of times per file, multiplying parse time/memory.
 	csharpMaxNamespaceRecoveries = 32
+
+	// Bounds for the lenient source-based type/member recovery (#136). Unlike the
+	// whole-file gate above, these are PER declaration: a large real file is
+	// recovered as many small, independently-bounded member reparses rather than
+	// one giant reparse, so the anti-OOM guarantees from #64/#98/#106 still hold.
+	// csharpMaxMemberRecoverySourceBytes caps the size of a single member snippet
+	// that will be reparsed; csharpMaxTypeMemberRecoveries caps how many members
+	// one type recovery will reparse.
+	csharpMaxMemberRecoverySourceBytes = 32768
+	csharpMaxTypeMemberRecoveries      = 4096
 )
 
 func normalizeCSharpCompatibility(root *Node, source []byte, p *Parser, lang *Language) {
