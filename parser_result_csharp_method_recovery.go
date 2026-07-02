@@ -177,6 +177,11 @@ func csharpReplaceDeclarationList(decl *Node, lang *Language, declList *Node) bo
 	for i, c := range decl.children {
 		if c != nil && c.Type(lang) == "declaration_list" {
 			decl.children[i] = declList
+			declList.parent = decl
+			declList.childIndex = int32(i)
+			// Re-wire parent pointers and child indices so upward navigation
+			// (method → class) stays consistent, matching csharpReplaceMethodBlock.
+			populateParentNode(decl, decl.children)
 			return true
 		}
 	}
