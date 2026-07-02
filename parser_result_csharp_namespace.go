@@ -41,6 +41,20 @@ func csharpBuildRecoveredNamespaceDeclarationFromErrorRoot(errRoot *Node, source
 		return nil, false
 	}
 	members, ok := csharpRecoverNamespaceBodyMembersFromErrorRoot(errRoot, source, openBrace, uint32(closeBrace), p, lang, arena)
+	// The child-based pass recovers a type shell but, on the shredded bodies of
+	// large files (issue #136), none of its methods — and sometimes not even the
+	// class. When it yields no recoverable method, reconstruct the body's type
+	// declarations and their members directly from source (bounded per member).
+	// Keep the source-based pass only when it surfaces strictly more methods (or
+	// the child-based pass failed outright): if neither finds a method, the
+	// child-based members are structurally more accurate for non-method members.
+	if !ok || csharpCountMethodDeclarations(members, lang) == 0 {
+		if sourceMembers, sok := csharpRecoverNamespaceBodyMembersFromSource(source, openBrace, uint32(closeBrace), p, arena); sok {
+			if !ok || csharpCountMethodDeclarations(sourceMembers, lang) > csharpCountMethodDeclarations(members, lang) {
+				members, ok = sourceMembers, true
+			}
+		}
+	}
 	if !ok || len(members) == 0 {
 		return nil, false
 	}

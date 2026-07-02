@@ -9,6 +9,20 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Large C# files whose class body is shredded by a cumulative GLR failure (e.g.
+  Newtonsoft.Json's `JsonTextReader.cs` / `JsonReader.cs`) now recover their
+  `method_declaration` nodes instead of yielding only a comment-filled namespace
+  shell. Follow-up to #115/#116: the source-based type/method reconstruction was
+  gated off above 4096 bytes, so nothing rebuilt the members of a large collapsed
+  class. Namespace recovery now falls back, when the child-based pass surfaces no
+  method, to a **per-member bounded** source reconstruction — the type shell's
+  header is reparsed for its modifiers/name/base list, and each member is
+  recovered on its own (a method via signature-shell + lenient block, other
+  members by a single small wrapped reparse), skipping any that still won't parse.
+  Each reparse is a single small snippet capped by size and count and honors the
+  parser timeout, so the anti-OOM guarantees from #64/#98/#106 are preserved and
+  the whole-file 4096-byte gate is unchanged. `JsonTextReader.cs` now recovers 68
+  methods (was 0) and `JsonReader.cs` 41 (was 0) (#136).
 - Swift ternary/conditional operator (`cond ? a : b`) now recovers instead of
   dropping `? a : b` into an `ERROR` node in every position. The runtime Swift
   blob never fired the `ternary_expression` reduction, so any function containing
