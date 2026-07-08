@@ -51,6 +51,52 @@ func TestCRecoveryCostCompetitionDisabledInNoTreeModes(t *testing.T) {
 	}
 }
 
+func TestCRecoverDispatchInErrorAdvancesZeroWidthSkippedToken(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	group := &cRecGroup{}
+	openErr := newParentNodeInArena(arena, errorSymbol, true, nil, nil, 0)
+	cSetNodeSpan(openErr, 10, 10, Point{Column: 10}, Point{Column: 10})
+	openErr.setHasError(true)
+	openErr.parseState = cErrorState
+	stack := newGLRStack(1)
+	stack.pushEntry(newStackEntryNode(cErrorState, openErr), nil, nil)
+	stack.byteOffset = 10
+	stack.cRec = &cRecoverState{group: group, openErr: openErr}
+	stacks := []glrStack{stack}
+	nodeCount := 0
+
+	outcome, forked := parser.cRecoverDispatchInError(
+		&stacks,
+		0,
+		[]byte("012345678901234567890"),
+		Token{Symbol: 2, StartByte: 18, EndByte: 18, StartPoint: Point{Column: 18}, EndPoint: Point{Column: 18}},
+		&nodeCount,
+		arena,
+		nil,
+		nil,
+		nil,
+	)
+
+	if outcome != cRecConsumed || forked {
+		t.Fatalf("outcome/forked = %v/%t, want %v/false", outcome, forked, cRecConsumed)
+	}
+	if !stacks[0].shifted {
+		t.Fatal("zero-width skipped token did not mark stack shifted")
+	}
+	if got, want := stacks[0].byteOffset, uint32(18); got != want {
+		t.Fatalf("stack byteOffset = %d, want %d", got, want)
+	}
+	if got, want := openErr.EndByte(), uint32(18); got != want {
+		t.Fatalf("open error end = %d, want %d", got, want)
+	}
+	if nodeCount == 0 {
+		t.Fatal("zero-width skipped token did not update recovery node count")
+	}
+}
+
 func TestCRecoverSkipTailBetterVersionUsesErrorStatus(t *testing.T) {
 	parser := cRecoveryElectionTestParser()
 	arena := acquireNodeArena(arenaClassFull)
@@ -217,6 +263,7 @@ func TestCAppendVisibleSpliceRecoveryPreservesExtraErrorCarrier(t *testing.T) {
 		t.Fatal("reduced ERROR carrier hasError was cleared")
 	}
 }
+
 // TestCRecoverStrategy1ElectionDedupesDuplicateEntryAcrossMembers pins the C
 // semantics of the merged-version summary: ts_stack_record_summary dedupes
 // (depth, state) pairs across the merged paths at RECORD time, and

@@ -6,14 +6,25 @@ func normalizeCobolCompatibility(root *Node, source []byte, lang *Language) {
 	normalizeCobolRecoveredRootProgramDefinition(root, source, lang)
 	normalizeCobolAcceptedRootProgramDefinition(root, source, lang)
 	normalizeCobolZLiteralDataRootRecovery(root, source, lang)
-	normalizeCobolProcedureRootRecovery(root, source, lang)
+	recoveredProcedureRoot := normalizeCobolProcedureRootRecovery(root, source, lang)
 	normalizeCobolRootErrorLeadingComments(root, source, lang)
+	normalizeCobolRootProcedureEvaluateError(root, source, lang)
+	if !recoveredProcedureRoot {
+		normalizeCobolRootProcedurePrefixError(root, source, lang)
+	}
+	normalizeCobolProcedureLooseIfHeaders(root, source, lang)
 	normalizeCobolLeadingAreaStart(root, source, lang)
 	normalizeCobolTopLevelDefinitionEnd(root, source, lang)
+	normalizeCobolRootProgramDefinitionSiblingEnds(root, source, lang)
 	normalizeCobolDivisionSiblingEnds(root, source, lang)
 	normalizeCobolSectionSiblingEnds(root, source, lang)
+	normalizeCobolRecoveredErrorCommentEntries(root, source, lang)
+	normalizeCobolRootCommentsCoveredByError(root, lang)
 	normalizeCobolTrailingTriviaSpans(root, source, lang)
 	normalizeCobolRecoveredParagraphHeader(root, source, lang)
+	normalizeCobolProcedureTrailingParagraphCommentEntry(root, source, lang)
+	normalizeCobolProcedureTrailingExecCICSSpans(root, source, lang)
+	normalizeCobolRootExecCICSErrorMarkers(root, source, lang)
 }
 func normalizeCobolLeadingAreaStart(root *Node, source []byte, lang *Language) {
 	if root == nil || !isCobolLanguage(lang) || len(source) == 0 {
@@ -488,9 +499,9 @@ func cobolAppendRecoveryLineMarkers(out []*Node, arena *nodeArena, source []byte
 	return cobolDeduplicateAdjacentZeroWidthMarkers(out, lang)
 }
 
-func normalizeCobolProcedureRootRecovery(root *Node, source []byte, lang *Language) {
-	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" || !root.hasError() {
-		return
+func normalizeCobolProcedureRootRecovery(root *Node, source []byte, lang *Language) bool {
+	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" {
+		return false
 	}
 	children := resultChildSliceForMutation(root)
 	for i := 0; i+1 < len(children); i++ {
@@ -546,8 +557,9 @@ func normalizeCobolProcedureRootRecovery(root *Node, source []byte, lang *Langua
 		rootChildren = append(rootChildren, children[i+2:]...)
 		replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(root.ownerArena, rootChildren))
 		cobolRefreshHasErrorFromChildren(root)
-		return
+		return true
 	}
+	return false
 }
 
 func cobolProcedureRecoveryTailIsHeaderAdjacent(children []*Node, errorStart uint32, lang *Language) bool {
@@ -604,6 +616,583 @@ func normalizeCobolRootErrorLeadingComments(root *Node, source []byte, lang *Lan
 		rootChildren = append(rootChildren, err)
 		rootChildren = append(rootChildren, children[i+1:]...)
 		replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(root.ownerArena, rootChildren))
+		cobolRefreshHasErrorFromChildren(root)
+		return
+	}
+}
+
+func normalizeCobolRootProcedureEvaluateError(root *Node, source []byte, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" || len(source) == 0 {
+		return
+	}
+	children := resultChildSliceForMutation(root)
+	for i := 0; i < len(children); i++ {
+		def := children[i]
+		if def == nil || def.IsExtra() || def.IsError() || def.IsMissing() || def.Type(lang) != "program_definition" {
+			continue
+		}
+		proc := cobolLastChildOfType(def, lang, "procedure_division")
+		_, headerEnd, ok := cobolProcedureDivisionHeaderEnd(proc, lang)
+		if !ok || proc.endByte > headerEnd {
+			continue
+		}
+		errIdx, ok := cobolRootProcedureErrorIndex(children, i+1, lang)
+		if !ok {
+			continue
+		}
+		err := children[errIdx]
+		if err == nil || err.symbol != errorSymbol || resultChildCount(err) == 0 || int(err.endByte) > len(source) {
+			continue
+		}
+		errChildren := resultChildSliceForMutation(err)
+		firstCode := cobolFirstNonCommentChildType(errChildren, lang)
+		if firstCode != "evaluate_header" || cobolIndexFoldASCII(source, int(err.startByte), int(err.endByte), "exec cics") >= 0 {
+			continue
+		}
+
+		prefix := make([]*Node, 0, errIdx-i-1+len(errChildren))
+		prefix = append(prefix, children[i+1:errIdx]...)
+		prefix = append(prefix, errChildren...)
+		procStart, procStartPoint := proc.startByte, proc.startPoint
+		if headerStart, ok := cobolProcedureDivisionHeaderStart(source, headerEnd); ok {
+			procStart = headerStart
+			procStartPoint = advancePointByBytes(Point{}, source[:headerStart])
+		}
+		procChildren := append(resultChildSliceForMutation(proc), prefix...)
+		replaceNodeChildrenUnfielded(proc, cloneNodeSliceInArena(proc.ownerArena, procChildren))
+		proc.startByte = procStart
+		proc.startPoint = procStartPoint
+		setCobolNodeEnd(proc, source, err.endByte)
+		setCobolNodeEnd(def, source, err.endByte)
+		cobolRefreshHasErrorFromChildren(proc)
+		cobolRefreshHasErrorFromChildren(def)
+
+		rootChildren := make([]*Node, 0, len(children)-(errIdx-i))
+		rootChildren = append(rootChildren, children[:i+1]...)
+		rootChildren = append(rootChildren, children[errIdx+1:]...)
+		replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(root.ownerArena, rootChildren))
+		cobolRefreshHasErrorFromChildren(root)
+		return
+	}
+}
+
+func normalizeCobolRootProcedurePrefixError(root *Node, source []byte, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" || !root.hasError() || len(source) == 0 {
+		return
+	}
+	children := resultChildSliceForMutation(root)
+	for i := 0; i < len(children); i++ {
+		def := children[i]
+		if def == nil || def.IsExtra() || def.IsError() || def.IsMissing() || def.Type(lang) != "program_definition" {
+			continue
+		}
+		proc := cobolLastChildOfType(def, lang, "procedure_division")
+		_, headerEnd, ok := cobolProcedureDivisionHeaderEnd(proc, lang)
+		if !ok || proc.endByte > headerEnd {
+			continue
+		}
+		errIdx, ok := cobolRootProcedurePrefixErrorIndex(children, i+1, lang)
+		if !ok || errIdx <= i+1 {
+			continue
+		}
+		err := children[errIdx]
+		if err == nil || err.symbol != errorSymbol || resultChildCount(err) == 0 {
+			continue
+		}
+		splitEnd, tailStart, ok := cobolFirstExecCICSTailSplit(source, err.startByte, err.endByte)
+		if !ok || splitEnd <= proc.endByte || tailStart <= splitEnd || tailStart >= err.endByte {
+			continue
+		}
+		errChildren := resultChildSliceForMutation(err)
+		prefixEnd := cobolRecoveredProcedurePrefixEnd(errChildren, splitEnd, tailStart)
+		if prefixEnd <= 0 {
+			continue
+		}
+		prefix := make([]*Node, 0, errIdx-i-1+prefixEnd)
+		prefix = append(prefix, children[i+1:errIdx]...)
+		for j := 0; j < prefixEnd; j++ {
+			child := errChildren[j]
+			if child == nil {
+				continue
+			}
+			if child.endByte > splitEnd {
+				cobolTrimNodeEndForRecovery(child, source, splitEnd)
+			}
+			normalizeCobolRecoveredProcedurePrefixNode(child, source, lang)
+			prefix = append(prefix, child)
+		}
+		if len(prefix) == 0 || !cobolProcedurePrefixCanMove(prefix, lang) {
+			continue
+		}
+
+		procStart, procStartPoint := proc.startByte, proc.startPoint
+		procChildren := append(resultChildSliceForMutation(proc), prefix...)
+		replaceNodeChildrenUnfielded(proc, cloneNodeSliceInArena(proc.ownerArena, procChildren))
+		proc.startByte = procStart
+		proc.startPoint = procStartPoint
+		setCobolNodeEnd(proc, source, splitEnd)
+		setCobolNodeEnd(def, source, splitEnd)
+		cobolRefreshHasErrorFromChildren(proc)
+		cobolRefreshHasErrorFromChildren(def)
+
+		replaceNodeChildrenUnfielded(err, cloneNodeSliceInArena(err.ownerArena, errChildren[prefixEnd:]))
+		err.startByte = tailStart
+		err.startPoint = advancePointByBytes(Point{}, source[:tailStart])
+		err.setExtra(true)
+		err.setHasError(true)
+		normalizeCobolRecoveredTailErrorChildren(err, source, lang)
+
+		rootChildren := make([]*Node, 0, len(children)-(errIdx-i-1))
+		rootChildren = append(rootChildren, children[:i+1]...)
+		rootChildren = append(rootChildren, err)
+		rootChildren = append(rootChildren, children[errIdx+1:]...)
+		replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(root.ownerArena, rootChildren))
+		cobolRefreshHasErrorFromChildren(root)
+		return
+	}
+}
+
+func cobolProcedurePrefixCanMove(children []*Node, lang *Language) bool {
+	firstCodeType := ""
+	for _, child := range children {
+		if child == nil || child.IsMissing() {
+			continue
+		}
+		typ := child.Type(lang)
+		if typ == "copy_statement" {
+			return true
+		}
+		if firstCodeType == "" && typ != "comment" && typ != "comment_entry" {
+			firstCodeType = typ
+		}
+	}
+	return firstCodeType == "if_header"
+}
+
+func cobolRootProcedureErrorIndex(children []*Node, start int, lang *Language) (int, bool) {
+	if start < 0 {
+		start = 0
+	}
+	for i := start; i < len(children); i++ {
+		child := children[i]
+		if child == nil || child.IsMissing() {
+			continue
+		}
+		if child.symbol == errorSymbol {
+			return i, true
+		}
+		if child.IsExtra() || child.IsError() || child.Type(lang) != "comment" {
+			return -1, false
+		}
+	}
+	return -1, false
+}
+
+func cobolFirstNonCommentChildType(children []*Node, lang *Language) string {
+	for _, child := range children {
+		if child == nil || child.IsMissing() {
+			continue
+		}
+		typ := child.Type(lang)
+		if typ != "comment" && typ != "comment_entry" {
+			return typ
+		}
+	}
+	return ""
+}
+
+func cobolProcedureDivisionHeaderStart(source []byte, headerEnd uint32) (uint32, bool) {
+	if int(headerEnd) > len(source) {
+		return 0, false
+	}
+	pos := int(headerEnd)
+	if pos > 0 {
+		pos--
+	}
+	lineStart := cobolLineStart(source, pos)
+	idx := cobolIndexFoldASCII(source, lineStart, int(headerEnd), "procedure division")
+	if idx < 0 {
+		return 0, false
+	}
+	return uint32(idx), true
+}
+
+func cobolRootProcedurePrefixErrorIndex(children []*Node, start int, lang *Language) (int, bool) {
+	if start < 0 {
+		start = 0
+	}
+	sawComment := false
+	for i := start; i < len(children); i++ {
+		child := children[i]
+		if child == nil || child.IsMissing() {
+			continue
+		}
+		if child.symbol == errorSymbol {
+			return i, sawComment
+		}
+		if child.IsExtra() || child.IsError() || child.Type(lang) != "comment" {
+			return -1, false
+		}
+		sawComment = true
+	}
+	return -1, false
+}
+
+func cobolFirstExecCICSTailSplit(source []byte, start, end uint32) (uint32, uint32, bool) {
+	if start >= end || int(end) > len(source) {
+		return 0, 0, false
+	}
+	for lineStart := cobolLineStart(source, int(start)); lineStart < int(end); {
+		lineEnd := lineStart
+		for lineEnd < len(source) && source[lineEnd] != '\n' && source[lineEnd] != '\r' {
+			lineEnd++
+		}
+		if lineEnd > int(end) {
+			lineEnd = int(end)
+		}
+		scanStart := int(start)
+		if scanStart < lineStart {
+			scanStart = lineStart
+		}
+		if scanStart < lineEnd && !cobolLineLooksFixedFormatComment(source, lineStart) {
+			idx := cobolIndexFoldASCII(source, scanStart, lineEnd, "exec cics")
+			if idx >= 0 {
+				cicsStart := idx + len("exec ")
+				splitEnd := lastNonTriviaByteEnd(source[:cicsStart])
+				tailStart, ok := firstNonWhitespaceByteInRange(source, int(splitEnd), lineEnd)
+				if ok && splitEnd > start && tailStart >= uint32(cicsStart) && splitEnd < tailStart {
+					return splitEnd, tailStart, true
+				}
+			}
+		}
+		next := cobolNextLineStart(source, lineEnd)
+		if next <= lineStart {
+			break
+		}
+		lineStart = next
+	}
+	return 0, 0, false
+}
+
+func cobolRecoveredProcedurePrefixEnd(children []*Node, splitEnd, tailStart uint32) int {
+	for i, child := range children {
+		if child == nil {
+			continue
+		}
+		if child.startByte >= tailStart {
+			return i
+		}
+		if child.endByte > splitEnd {
+			if child.startByte < splitEnd {
+				return i + 1
+			}
+			return i
+		}
+	}
+	return len(children)
+}
+
+func normalizeCobolRecoveredProcedurePrefixNode(n *Node, source []byte, lang *Language) {
+	if n == nil || int(n.endByte) > len(source) {
+		return
+	}
+	for i := 0; i < resultChildCount(n); i++ {
+		normalizeCobolRecoveredProcedurePrefixNode(resultChildAt(n, i), source, lang)
+	}
+	if n.Type(lang) == "expr" && resultChildCount(n) == 1 {
+		child := resultChildAt(n, 0)
+		if child != nil && !child.IsExtra() && !child.IsMissing() && child.Type(lang) == "expr" &&
+			child.startByte == n.startByte && child.endByte == n.endByte {
+			replaceNodeChildrenUnfielded(n, cloneNodeSliceInArena(n.ownerArena, resultChildSliceForMutation(child)))
+		}
+	}
+	if !cobolTrailingTriviaLeafCanTrim(n.Type(lang)) {
+		cobolRefreshHasErrorFromChildren(n)
+		return
+	}
+	last := (*Node)(nil)
+	for i := resultChildCount(n) - 1; i >= 0; i-- {
+		child := resultChildAt(n, i)
+		if child == nil || child.IsMissing() {
+			continue
+		}
+		last = child
+		break
+	}
+	if last != nil && last.endByte > n.startByte && last.endByte < n.endByte {
+		setCobolNodeEnd(n, source, last.endByte)
+	}
+	cobolRefreshHasErrorFromChildren(n)
+}
+
+func normalizeCobolProcedureLooseIfHeaders(root *Node, source []byte, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" || !root.hasError() || len(source) == 0 {
+		return
+	}
+	program := cobolFirstProgramDefinition(root, lang)
+	if program == nil {
+		return
+	}
+	changed := false
+	for i := 0; i < resultChildCount(program); i++ {
+		child := resultChildAt(program, i)
+		if child == nil || child.IsExtra() || child.IsError() || child.IsMissing() || child.Type(lang) != "procedure_division" {
+			continue
+		}
+		if normalizeCobolProcedureLooseIfHeaderChildren(child, source, lang) {
+			changed = true
+		}
+	}
+	if !changed {
+		return
+	}
+	if last := cobolLastChildOfType(program, lang, "procedure_division"); last != nil && last.endByte < program.endByte {
+		setCobolNodeEnd(program, source, last.endByte)
+	}
+	cobolRefreshHasErrorFromChildren(program)
+}
+
+func normalizeCobolProcedureLooseIfHeaderChildren(proc *Node, source []byte, lang *Language) bool {
+	children := resultChildSliceForMutation(proc)
+	if len(children) < 3 {
+		return false
+	}
+	ifHeaderSym, ok := symbolByName(lang, "if_header")
+	if !ok {
+		return false
+	}
+	exprSym, ok := symbolByName(lang, "expr")
+	if !ok {
+		return false
+	}
+	changed := false
+	for i := 0; i+2 < len(children); i++ {
+		left, op, right := children[i], children[i+1], children[i+2]
+		if !cobolLooseIfHeaderParts(left, op, right, lang) {
+			continue
+		}
+		ifStart, ok := cobolIfKeywordStartBefore(source, left.startByte)
+		if !ok {
+			continue
+		}
+		lineEnd := cobolLineEnd(source, int(left.startByte))
+		conditionEnd := lastNonTriviaByteEnd(source[:lineEnd])
+		if conditionEnd <= right.startByte || conditionEnd > right.endByte {
+			continue
+		}
+		if right.endByte > conditionEnd {
+			cobolTrimNodeEndForRecovery(right, source, conditionEnd)
+		}
+		wasLast := i+3 == len(children)
+		procStart, procStartPoint := proc.startByte, proc.startPoint
+		expr := newParentNodeInArena(proc.ownerArena, exprSym, symbolIsNamed(lang, exprSym), cloneNodeSliceInArena(proc.ownerArena, []*Node{left, op, right}), nil, 0)
+		expr.startByte = left.startByte
+		expr.startPoint = left.startPoint
+		expr.endByte = conditionEnd
+		expr.endPoint = advancePointByBytes(Point{}, source[:conditionEnd])
+		cobolRefreshHasErrorFromChildren(expr)
+		header := newParentNodeInArena(proc.ownerArena, ifHeaderSym, symbolIsNamed(lang, ifHeaderSym), []*Node{expr}, nil, 0)
+		header.startByte = ifStart
+		header.startPoint = advancePointByBytes(Point{}, source[:ifStart])
+		header.endByte = conditionEnd
+		header.endPoint = expr.endPoint
+		cobolRefreshHasErrorFromChildren(header)
+
+		out := make([]*Node, 0, len(children)-2)
+		out = append(out, children[:i]...)
+		out = append(out, header)
+		out = append(out, children[i+3:]...)
+		children = cloneNodeSliceInArena(proc.ownerArena, out)
+		replaceNodeChildrenUnfielded(proc, children)
+		proc.startByte = procStart
+		proc.startPoint = procStartPoint
+		if wasLast {
+			setCobolNodeEnd(proc, source, conditionEnd)
+		}
+		cobolRefreshHasErrorFromChildren(proc)
+		changed = true
+	}
+	if changed {
+		for i := resultChildCount(proc) - 1; i >= 0; i-- {
+			last := resultChildAt(proc, i)
+			if last == nil || last.IsMissing() {
+				continue
+			}
+			if last.endByte < proc.endByte {
+				setCobolNodeEnd(proc, source, last.endByte)
+			}
+			break
+		}
+	}
+	return changed
+}
+
+func cobolLooseIfHeaderParts(left, op, right *Node, lang *Language) bool {
+	if left == nil || op == nil || right == nil {
+		return false
+	}
+	if left.IsExtra() || op.IsExtra() || right.IsExtra() || left.IsMissing() || op.IsMissing() || right.IsMissing() {
+		return false
+	}
+	if left.Type(lang) != "qualified_word" || right.Type(lang) != "qualified_word" {
+		return false
+	}
+	switch op.Type(lang) {
+	case "eq", "ne":
+		return true
+	default:
+		return false
+	}
+}
+
+func cobolIfKeywordStartBefore(source []byte, operandStart uint32) (uint32, bool) {
+	if int(operandStart) > len(source) {
+		return 0, false
+	}
+	lineStart := cobolLineStart(source, int(operandStart))
+	kwStart, ok := firstNonWhitespaceByteInRange(source, lineStart, int(operandStart))
+	if !ok || int(kwStart)+2 > int(operandStart) {
+		return 0, false
+	}
+	if !cobolEqualFoldASCII(source[kwStart:kwStart+2], "if") {
+		return 0, false
+	}
+	for i := int(kwStart) + 2; i < int(operandStart); i++ {
+		if source[i] != ' ' && source[i] != '\t' {
+			return 0, false
+		}
+	}
+	return kwStart, true
+}
+
+func cobolLineEnd(source []byte, pos int) int {
+	if pos > len(source) {
+		pos = len(source)
+	}
+	for pos < len(source) && source[pos] != '\n' && source[pos] != '\r' {
+		pos++
+	}
+	return pos
+}
+
+func normalizeCobolProcedureTrailingExecCICSSpans(root *Node, source []byte, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" || !root.hasError() || len(source) == 0 {
+		return
+	}
+	program := cobolFirstProgramDefinition(root, lang)
+	if program == nil {
+		return
+	}
+	changed := false
+	for i := 0; i < resultChildCount(program); i++ {
+		proc := resultChildAt(program, i)
+		if proc == nil || proc.IsExtra() || proc.IsError() || proc.IsMissing() || proc.Type(lang) != "procedure_division" {
+			continue
+		}
+		last := cobolLastNonMissingChild(proc)
+		if last == nil || last.Type(lang) != "if_header" || last.endByte >= proc.endByte {
+			continue
+		}
+		if !cobolNextCodeStartsExecCICS(source, last.endByte) {
+			continue
+		}
+		setCobolNodeEnd(proc, source, last.endByte)
+		changed = true
+	}
+	if !changed {
+		return
+	}
+	if last := cobolLastChildOfType(program, lang, "procedure_division"); last != nil && last.endByte < program.endByte {
+		setCobolNodeEnd(program, source, last.endByte)
+	}
+	cobolRefreshHasErrorFromChildren(program)
+}
+
+func cobolLastNonMissingChild(parent *Node) *Node {
+	if parent == nil {
+		return nil
+	}
+	for i := resultChildCount(parent) - 1; i >= 0; i-- {
+		child := resultChildAt(parent, i)
+		if child != nil && !child.IsMissing() {
+			return child
+		}
+	}
+	return nil
+}
+
+func cobolNextCodeStartsExecCICS(source []byte, start uint32) bool {
+	pos, ok := firstNonWhitespaceByteFrom(source, int(start))
+	if !ok || int(pos) >= len(source) {
+		return false
+	}
+	lineEnd := cobolLineEnd(source, int(pos))
+	return cobolIndexFoldASCII(source, int(pos), lineEnd, "exec cics") == int(pos)
+}
+
+func normalizeCobolRootExecCICSErrorMarkers(root *Node, source []byte, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" || !root.hasError() || len(source) == 0 {
+		return
+	}
+	commentSym, ok := symbolByName(lang, "comment")
+	if !ok {
+		return
+	}
+	commentEntrySym, ok := symbolByName(lang, "comment_entry")
+	if !ok {
+		return
+	}
+	programIdx := -1
+	program := (*Node)(nil)
+	for i := 0; i < resultChildCount(root); i++ {
+		child := resultChildAt(root, i)
+		if child != nil && !child.IsExtra() && child.Type(lang) == "program_definition" {
+			programIdx = i
+			program = child
+			break
+		}
+	}
+	if program == nil {
+		return
+	}
+	proc := cobolLastChildOfType(program, lang, "procedure_division")
+	if proc == nil {
+		return
+	}
+	execStart, ok := firstNonWhitespaceByteFrom(source, int(proc.endByte))
+	if !ok || !cobolNextCodeStartsExecCICS(source, proc.endByte) {
+		return
+	}
+	for i := programIdx + 1; i < resultChildCount(root); i++ {
+		err := resultChildAt(root, i)
+		if err == nil || err.symbol != errorSymbol || err.endByte <= execStart || int(err.endByte) > len(source) {
+			continue
+		}
+		if err.startByte <= execStart {
+			return
+		}
+		out := cobolAppendRecoveryLineMarkers(
+			nil,
+			err.ownerArena,
+			source,
+			execStart,
+			err.endByte,
+			lang,
+			commentSym,
+			symbolIsNamed(lang, commentSym),
+			commentEntrySym,
+			symbolIsNamed(lang, commentEntrySym),
+		)
+		if len(out) == 0 {
+			return
+		}
+		replaceNodeChildrenUnfielded(err, cloneNodeSliceInArena(err.ownerArena, out))
+		err.startByte = execStart
+		err.startPoint = advancePointByBytes(Point{}, source[:execStart])
+		err.endByte = out[len(out)-1].endByte
+		err.endPoint = out[len(out)-1].endPoint
+		err.setExtra(true)
+		err.setHasError(true)
 		cobolRefreshHasErrorFromChildren(root)
 		return
 	}
@@ -855,6 +1444,64 @@ func normalizeCobolRecoveredTailErrorChildren(tail *Node, source []byte, lang *L
 	tail.setHasError(true)
 }
 
+func normalizeCobolRecoveredErrorCommentEntries(root *Node, source []byte, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || len(source) == 0 {
+		return
+	}
+	walkResultTreePostorder(root, func(n *Node) {
+		if n == nil || n.symbol != errorSymbol || resultChildCount(n) == 0 || !cobolErrorHasCommentEntryChild(n, lang) {
+			return
+		}
+		normalizeCobolRecoveredTailErrorChildren(n, source, lang)
+	})
+}
+
+func normalizeCobolRootCommentsCoveredByError(root *Node, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" {
+		return
+	}
+	children := resultChildSliceForMutation(root)
+	out := make([]*Node, 0, len(children))
+	changed := false
+	for _, child := range children {
+		if child != nil && child.Type(lang) == "comment" && cobolRootCommentCoveredByError(child, children) {
+			changed = true
+			continue
+		}
+		out = append(out, child)
+	}
+	if !changed {
+		return
+	}
+	replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(root.ownerArena, out))
+	cobolRefreshHasErrorFromChildren(root)
+}
+
+func cobolRootCommentCoveredByError(comment *Node, siblings []*Node) bool {
+	if comment == nil {
+		return false
+	}
+	for _, sibling := range siblings {
+		if sibling == nil || sibling == comment || sibling.symbol != errorSymbol {
+			continue
+		}
+		if comment.startByte >= sibling.startByte && comment.endByte <= sibling.endByte {
+			return true
+		}
+	}
+	return false
+}
+
+func cobolErrorHasCommentEntryChild(n *Node, lang *Language) bool {
+	for i := 0; i < resultChildCount(n); i++ {
+		child := resultChildAt(n, i)
+		if child != nil && child.Type(lang) == "comment_entry" {
+			return true
+		}
+	}
+	return false
+}
+
 func cobolDeduplicateAdjacentZeroWidthMarkers(nodes []*Node, lang *Language) []*Node {
 	if len(nodes) < 2 {
 		return nodes
@@ -889,7 +1536,20 @@ func cobolAppendCommentEntryMarkers(out []*Node, arena *nodeArena, source []byte
 		for lineEnd < len(source) && source[lineEnd] != '\n' && source[lineEnd] != '\r' {
 			lineEnd++
 		}
-		if uint32(lineEnd) > start && uint32(lineEnd) <= end && cobolLineShouldEmitCommentEntry(source, lineStart, lineEnd) {
+		if cobolLineLooksFixedFormatComment(source, lineStart) {
+			next := cobolNextLineStart(source, lineEnd)
+			if next <= lineStart {
+				break
+			}
+			lineStart = next
+			continue
+		}
+		markerEnd := cobolCommentEntryMarkerEnd(lineStart, lineEnd)
+		if uint32(markerEnd) > start && uint32(markerEnd) <= end && cobolLineHasContent(source, lineStart, markerEnd) {
+			point := advancePointByBytes(Point{}, source[:markerEnd])
+			out = append(out, newLeafNodeInArena(arena, sym, named, uint32(markerEnd), uint32(markerEnd), point, point))
+		}
+		if lineEnd > markerEnd && uint32(lineEnd) > start && uint32(lineEnd) <= end && cobolLineHasContent(source, markerEnd, lineEnd) {
 			point := advancePointByBytes(Point{}, source[:lineEnd])
 			out = append(out, newLeafNodeInArena(arena, sym, named, uint32(lineEnd), uint32(lineEnd), point, point))
 		}
@@ -900,6 +1560,17 @@ func cobolAppendCommentEntryMarkers(out []*Node, arena *nodeArena, source []byte
 		lineStart = next
 	}
 	return out
+}
+
+func cobolCommentEntryMarkerEnd(lineStart, lineEnd int) int {
+	if lineEnd <= lineStart {
+		return lineEnd
+	}
+	fixedFormatEnd := lineStart + 71
+	if lineEnd > fixedFormatEnd {
+		return fixedFormatEnd
+	}
+	return lineEnd
 }
 
 func cobolLineShouldEmitCommentEntry(source []byte, lineStart, lineEnd int) bool {
@@ -1033,6 +1704,58 @@ func setCobolNodeEnd(n *Node, source []byte, end uint32) {
 	}
 	n.endByte = end
 	n.endPoint = advancePointByBytes(Point{}, source[:end])
+}
+
+func normalizeCobolRootProgramDefinitionSiblingEnds(root *Node, source []byte, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" || resultChildCount(root) == 0 {
+		return
+	}
+	childCount := resultChildCount(root)
+	for i := 0; i+1 < childCount; i++ {
+		def := resultChildAt(root, i)
+		if def == nil || def.IsExtra() || def.IsError() || def.IsMissing() || def.Type(lang) != "program_definition" {
+			continue
+		}
+		next := cobolNextDefinitionRootSibling(root, i+1)
+		if next == nil {
+			continue
+		}
+		end := cobolNodeEndBeforeSibling(next, source, lang)
+		if end == 0 || end <= def.startByte || end >= def.endByte {
+			continue
+		}
+		setCobolNodeEnd(def, source, end)
+		normalizeCobolLastDivisionEndToParent(def, source, lang)
+	}
+}
+
+func cobolNextDefinitionRootSibling(root *Node, start int) *Node {
+	for i := start; i < resultChildCount(root); i++ {
+		child := resultChildAt(root, i)
+		if child != nil && !child.IsMissing() {
+			return child
+		}
+	}
+	return nil
+}
+
+func normalizeCobolLastDivisionEndToParent(parent *Node, source []byte, lang *Language) {
+	if parent == nil {
+		return
+	}
+	for i := resultChildCount(parent) - 1; i >= 0; i-- {
+		child := resultChildAt(parent, i)
+		if child == nil || child.IsExtra() || child.IsError() || child.IsMissing() {
+			continue
+		}
+		if !strings.HasSuffix(child.Type(lang), "_division") {
+			return
+		}
+		if parent.endByte > child.startByte && parent.endByte < child.endByte {
+			setCobolNodeEnd(child, source, parent.endByte)
+		}
+		return
+	}
 }
 
 func normalizeCobolDivisionSiblingEnds(root *Node, source []byte, lang *Language) {
@@ -1281,6 +2004,65 @@ func normalizeCobolRecoveredParagraphHeader(root *Node, source []byte, lang *Lan
 	root.endByte = rootEnd
 	root.endPoint = rootEndPoint
 	cobolRefreshHasErrorFromChildren(root)
+}
+
+func normalizeCobolProcedureTrailingParagraphCommentEntry(root *Node, source []byte, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || root.Type(lang) != "start" || len(source) == 0 {
+		return
+	}
+	paragraphSym, ok := symbolByName(lang, "paragraph_header")
+	if !ok {
+		return
+	}
+	dotSym, ok := symbolByName(lang, ".")
+	if !ok {
+		return
+	}
+	program := cobolFirstProgramDefinition(root, lang)
+	if program == nil {
+		return
+	}
+	changed := false
+	walkResultTreePostorder(program, func(n *Node) {
+		if n == nil || n.Type(lang) != "procedure_division" || resultChildCount(n) == 0 {
+			return
+		}
+		last := resultChildAt(n, resultChildCount(n)-1)
+		if last == nil || last.Type(lang) != "comment_entry" || last.startByte != last.endByte || int(last.startByte) > len(source) {
+			return
+		}
+		lineStart := cobolLineStart(source, int(last.startByte))
+		labelStart, ok := firstNonWhitespaceByteInRange(source, lineStart, int(last.startByte))
+		if !ok {
+			return
+		}
+		labelEnd := lastNonTriviaByteEnd(source[:last.startByte])
+		if labelEnd == 0 || labelEnd <= labelStart || source[labelEnd-1] != '.' {
+			return
+		}
+		dotStart := labelEnd - 1
+		if !cobolBytesAreParagraphLabel(source[labelStart:dotStart]) {
+			return
+		}
+		dot := newLeafNodeInArena(n.ownerArena, dotSym, symbolIsNamed(lang, dotSym), dotStart, labelEnd, advancePointByBytes(Point{}, source[:dotStart]), advancePointByBytes(Point{}, source[:labelEnd]))
+		header := newParentNodeInArena(n.ownerArena, paragraphSym, symbolIsNamed(lang, paragraphSym), []*Node{dot}, nil, 0)
+		header.startByte = labelStart
+		header.startPoint = advancePointByBytes(Point{}, source[:labelStart])
+		header.endByte = labelEnd
+		header.endPoint = advancePointByBytes(Point{}, source[:labelEnd])
+		children := resultChildSliceForMutation(n)
+		children[len(children)-1] = header
+		procStart, procStartPoint := n.startByte, n.startPoint
+		replaceNodeChildrenUnfielded(n, cloneNodeSliceInArena(n.ownerArena, children))
+		n.startByte = procStart
+		n.startPoint = procStartPoint
+		setCobolNodeEnd(n, source, labelEnd)
+		changed = true
+	})
+	if changed {
+		cobolRefreshHasErrorFromChildren(program)
+		cobolRefreshHasErrorFromChildren(root)
+	}
 }
 
 func cobolFirstProgramDefinition(root *Node, lang *Language) *Node {
