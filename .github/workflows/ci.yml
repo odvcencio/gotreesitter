@@ -81,6 +81,9 @@ jobs:
           - name: grammars-q-z
             package_filter: '/grammars$'
             test_filter: '^(Test[Q-Z].*)$'
+          - name: grammars-other
+            package_filter: '/grammars$'
+            test_filter: '^(Test($|[^A-Z].*))$'
           - name: grammargen-support
             package_filter: '/grammargen/'
             test_filter: ''
