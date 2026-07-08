@@ -3177,9 +3177,11 @@ func (p *Parser) cRecoverDispatchInError(stacks *[]glrStack, si int, source []by
 			}
 		}
 		// Zero-width non-EOF tokens are skipped (C's error-mode lexer never
-		// returns empty internal tokens; the Go DFA source can).
+		// returns empty internal tokens; the Go DFA source can). Record them
+		// in the open ERROR when possible; the token source owns cursor
+		// progress for true zero-width tokens.
 		if tok.StartByte == tok.EndByte {
-			if s.byteOffset < tok.EndByte && s.cRec != nil && s.cRec.openErr != nil && arena != nil {
+			if s.cRec != nil && s.cRec.openErr != nil && arena != nil {
 				p.cAbsorbTokenIntoError(s, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
 			} else if s.byteOffset < tok.EndByte {
 				s.byteOffset = tok.EndByte

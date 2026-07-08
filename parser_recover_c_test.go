@@ -97,6 +97,55 @@ func TestCRecoverDispatchInErrorAdvancesZeroWidthSkippedToken(t *testing.T) {
 	}
 }
 
+func TestCRecoverDispatchInErrorAbsorbsZeroWidthSkippedTokenAtCurrentOffset(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	group := &cRecGroup{}
+	openErr := newParentNodeInArena(arena, errorSymbol, true, nil, nil, 0)
+	cSetNodeSpan(openErr, 18, 18, Point{Column: 18}, Point{Column: 18})
+	openErr.setHasError(true)
+	openErr.parseState = cErrorState
+	stack := newGLRStack(1)
+	stack.pushEntry(newStackEntryNode(cErrorState, openErr), nil, nil)
+	stack.byteOffset = 18
+	stack.cRec = &cRecoverState{group: group, openErr: openErr}
+	stacks := []glrStack{stack}
+	nodeCount := 0
+
+	outcome, forked := parser.cRecoverDispatchInError(
+		&stacks,
+		0,
+		[]byte("012345678901234567890"),
+		Token{Symbol: 2, StartByte: 18, EndByte: 18, StartPoint: Point{Column: 18}, EndPoint: Point{Column: 18}},
+		&nodeCount,
+		arena,
+		nil,
+		nil,
+		nil,
+	)
+
+	if outcome != cRecConsumed || forked {
+		t.Fatalf("outcome/forked = %v/%t, want %v/false", outcome, forked, cRecConsumed)
+	}
+	if !stacks[0].shifted {
+		t.Fatal("zero-width skipped token did not mark stack shifted")
+	}
+	if got, want := stacks[0].byteOffset, uint32(18); got != want {
+		t.Fatalf("stack byteOffset = %d, want %d", got, want)
+	}
+	if got, want := openErr.ChildCount(), 1; got != want {
+		t.Fatalf("open error ChildCount = %d, want %d", got, want)
+	}
+	if got, want := openErr.Child(0).StartByte(), uint32(18); got != want {
+		t.Fatalf("zero-width child StartByte = %d, want %d", got, want)
+	}
+	if nodeCount == 0 {
+		t.Fatal("zero-width skipped token did not update recovery node count")
+	}
+}
+
 func TestCRecoverSkipTailBetterVersionUsesErrorStatus(t *testing.T) {
 	parser := cRecoveryElectionTestParser()
 	arena := acquireNodeArena(arenaClassFull)
