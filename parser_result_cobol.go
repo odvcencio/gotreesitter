@@ -946,9 +946,7 @@ func normalizeCobolProcedureLooseIfHeaders(root *Node, source []byte, lang *Lang
 	if !changed {
 		return
 	}
-	if last := cobolLastChildOfType(program, lang, "procedure_division"); last != nil && last.endByte < program.endByte {
-		setCobolNodeEnd(program, source, last.endByte)
-	}
+	cobolTrimProgramEndToLastProcedure(program, source, lang)
 	cobolRefreshHasErrorFromChildren(program)
 }
 
@@ -1102,9 +1100,7 @@ func normalizeCobolProcedureTrailingExecCICSSpans(root *Node, source []byte, lan
 	if !changed {
 		return
 	}
-	if last := cobolLastChildOfType(program, lang, "procedure_division"); last != nil && last.endByte < program.endByte {
-		setCobolNodeEnd(program, source, last.endByte)
-	}
+	cobolTrimProgramEndToLastProcedure(program, source, lang)
 	cobolRefreshHasErrorFromChildren(program)
 }
 
@@ -1142,16 +1138,7 @@ func normalizeCobolRootExecCICSErrorMarkers(root *Node, source []byte, lang *Lan
 	if !ok {
 		return
 	}
-	programIdx := -1
-	program := (*Node)(nil)
-	for i := 0; i < resultChildCount(root); i++ {
-		child := resultChildAt(root, i)
-		if child != nil && !child.IsExtra() && child.Type(lang) == "program_definition" {
-			programIdx = i
-			program = child
-			break
-		}
-	}
+	programIdx, program := cobolFirstProgramDefinitionIndex(root, lang)
 	if program == nil {
 		return
 	}
@@ -1241,6 +1228,13 @@ func cobolLastChildOfType(parent *Node, lang *Language, typ string) *Node {
 		}
 	}
 	return nil
+}
+
+func cobolTrimProgramEndToLastProcedure(program *Node, source []byte, lang *Language) {
+	last := cobolLastChildOfType(program, lang, "procedure_division")
+	if last != nil && last.endByte < program.endByte {
+		setCobolNodeEnd(program, source, last.endByte)
+	}
 }
 
 func cobolProcedureDivisionHeaderEnd(proc *Node, lang *Language) (int, uint32, bool) {
@@ -1571,16 +1565,6 @@ func cobolCommentEntryMarkerEnd(lineStart, lineEnd int) int {
 		return fixedFormatEnd
 	}
 	return lineEnd
-}
-
-func cobolLineShouldEmitCommentEntry(source []byte, lineStart, lineEnd int) bool {
-	if !cobolLineHasContent(source, lineStart, lineEnd) {
-		return false
-	}
-	if cobolLineLooksFixedFormatComment(source, lineStart) {
-		return false
-	}
-	return true
 }
 
 func firstNonWhitespaceByteFrom(source []byte, start int) (uint32, bool) {
@@ -2066,13 +2050,18 @@ func normalizeCobolProcedureTrailingParagraphCommentEntry(root *Node, source []b
 }
 
 func cobolFirstProgramDefinition(root *Node, lang *Language) *Node {
+	_, child := cobolFirstProgramDefinitionIndex(root, lang)
+	return child
+}
+
+func cobolFirstProgramDefinitionIndex(root *Node, lang *Language) (int, *Node) {
 	for i := 0; i < resultChildCount(root); i++ {
 		child := resultChildAt(root, i)
 		if child != nil && !child.IsExtra() && child.Type(lang) == "program_definition" {
-			return child
+			return i, child
 		}
 	}
-	return nil
+	return -1, nil
 }
 
 func cobolFirstChildOfType(parent *Node, lang *Language, typ string) *Node {
