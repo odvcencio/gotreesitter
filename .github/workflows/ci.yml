@@ -21,11 +21,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  compile:
     runs-on: ubuntu-latest
-    # 60m: the full -race suite (non-draft PRs) needs ~30-40m on 2-core
-    # runners with -p 1; see the Test step's comment.
-    timeout-minutes: 60
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -42,38 +40,95 @@ jobs:
       - name: Test Compile
         run: go test ./... -run '^$' -count=1
 
-      - name: Test
-        if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+  race_root:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Root Package Race Tests
         # -timeout 35m: the root package alone needs ~11m under -race on a
         # fast box and more on 2-core runners; Go's default 10m per-package
         # timeout panics the test binary mid-run (dumping in-flight tests as
-        # spurious FAILs). -p 1: package binaries otherwise run concurrently,
-        # and on 2 cores under ~10x race instrumentation that contention
-        # flips wall-clock-sensitive tests; sequential packages keep timing
-        # honest at the cost of wall time (covered by the 60m job budget).
-        #
-        # ./grammargen is excluded from the BLOCKING run (next step covers it
-        # non-blocking): this step never executed before 2026-07-06 (the
-        # branch lived in draft), and its first run surfaced a pre-existing
-        # grammargen backlog — a stale bundled markdown blob vs a since-fixed
-        # generator (~40 CommonMark parity subtests; regen tracked), two Dart
-        # generated-grammar parity gaps, and lrd_basic. Same ratchet strategy
-        # as draft-correctness: enumerate → burn down → then fold grammargen
-        # back into this blocking step.
-        run: go test $(go list ./... | grep -v '/grammargen$') -race -count=1 -timeout 35m -p 1
+        # spurious FAILs).
+        run: go test . -race -count=1 -timeout 35m
+
+  race_packages:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Non-root Race Tests
+        # Keep non-root packages serialized under -race so timing-sensitive
+        # tests do not contend with each other on 2-core hosted runners.
+        # ./grammargen stays visibility-only until its enumerated backlog is
+        # burned down and folded back into the blocking suite.
+        run: |
+          set -euo pipefail
+          root="$(go list -m)"
+          pkgs="$(
+            go list ./... |
+              awk -v root="$root" '$0 != root && $0 !~ /\/grammargen$/ { print }'
+          )"
+          if [ -z "$pkgs" ]; then
+            echo "No non-root packages to test"
+            exit 0
+          fi
+          go test $pkgs -race -count=1 -timeout 35m -p 1
+
+  grammargen_visibility:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
 
       - name: Test grammargen (non-blocking visibility)
-        if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-        continue-on-error: true
-        # Visibility-only until the enumerated pre-existing backlog above is
-        # zeroed; failures here are SEEN but do not block. Heavy generation
-        # tests get the same -p 1/-timeout discipline.
+        # Visibility-only until the enumerated pre-existing backlog is zeroed;
+        # failures here are SEEN but do not block. Heavy generation tests keep
+        # the same timeout discipline.
         run: go test ./grammargen -race -count=1 -timeout 35m
 
+  draft_focused_tests:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: Draft PR Focused Tests
-        if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
         run: |
           go test . -run '^(TestLookupActionIndexSmallUsesDenseTokenRows|TestLookupActionIndexSmallUsesFullTokenRowsForOtherLanguages|TestLookupActionIndexSmallUsesFullSymbolRowsForGo|TestRawShapePropagatesThroughNoTreeAndCollapsedUnary|TestParseRuntimeReportsNoTreeNodeVolume|TestParseRuntimeReportsNoTreeCheckpointLeavesRemainNodes|TestParseNoTreeBenchmarkDropsRetainedExternalCheckpointCapacity|TestSetLexerErrorRunLexStateUsesCRecoveryGate|TestErrorCostCompetitionLanguageRequiresCapabilityByDefault)$' -count=1
+
+  parity_report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
 
       - name: Run Parity Report (External Blob Mode)
         run: |
@@ -86,12 +141,60 @@ jobs:
           name: parity-log
           path: parity.log
 
+  build:
+    needs:
+      - compile
+      - race_root
+      - race_packages
+      - draft_focused_tests
+      - parity_report
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Required Build Gate
+        env:
+          IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true }}
+          COMPILE_RESULT: ${{ needs.compile.result }}
+          RACE_ROOT_RESULT: ${{ needs.race_root.result }}
+          RACE_PACKAGES_RESULT: ${{ needs.race_packages.result }}
+          DRAFT_FOCUSED_RESULT: ${{ needs.draft_focused_tests.result }}
+          PARITY_REPORT_RESULT: ${{ needs.parity_report.result }}
+        run: |
+          set -euo pipefail
+          failed=0
+
+          require_success() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "success" ]; then
+              echo "::error::${name} finished with result=${result}"
+              failed=1
+            fi
+          }
+
+          require_success "compile" "$COMPILE_RESULT"
+          require_success "parity_report" "$PARITY_REPORT_RESULT"
+
+          if [ "$IS_DRAFT" = "true" ]; then
+            require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"
+          else
+            require_success "race_root" "$RACE_ROOT_RESULT"
+            require_success "race_packages" "$RACE_PACKAGES_RESULT"
+          fi
+
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "Required build gate passed"
+
   # Draft PR correctness visibility (NOT a required check).
   #
-  # Background: the `build` job's full-suite step ("Test", above) is
-  # intentionally skipped while a PR is a draft (see that step's `if:`), so
-  # draft PRs only ever ran a small hand-picked focused test list ("Draft PR
-  # Focused Tests", above) instead of the real suite.
+  # Background: the blocking `race_root` / `race_packages` jobs are
+  # intentionally skipped while a PR is a draft, so draft PRs only run the
+  # small hand-picked `draft_focused_tests` required-check input instead of
+  # the real race suite.
   #
   # That blind spot let a real regression go unseen for weeks: on the
   # codex/glr-parity-buckets campaign PR (#133), root-package RealParser
@@ -113,8 +216,8 @@ jobs:
   # pre-existing failure count is driven to zero, promote this job to
   # required to turn it into a ratchet.
   draft-correctness:
-    # Only meaningful for draft PRs: non-draft PRs already get the full
-    # `go test ./... -race` suite from the build job's "Test" step above.
+    # Only meaningful for draft PRs: non-draft PRs already get the blocking
+    # race suite through `race_root` and `race_packages`.
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -130,16 +233,15 @@ jobs:
         run: |
           # No -race: trades race detection for speed so this is cheap
           # enough to run on every draft push. The full -race suite still
-          # runs once the PR leaves draft (build job's "Test" step, above).
+          # runs once the PR leaves draft (`race_root` / `race_packages`).
           #
           # -timeout 25m: the root package alone contains two known
           # C#-boundedness tests (TestCSharpDesignerStyleBlockStaysBounded,
           # TestCSharpCJKPartialClassesStayBounded) that currently run
           # ~130-150s each before hitting their internal parser-level
-          # timeout and failing. The build job has no existing skip/-short
-          # handling for them (they just run to their failure inside its
-          # 20-minute job budget), so we mirror that by not special-casing
-          # them either — just give the whole run a generous budget.
+          # timeout and failing. The non-draft race suite does not
+          # special-case them either, so mirror that behavior here and give
+          # the whole draft visibility run a generous budget.
           go test . ./grammars -count=1 -timeout 25m
 
   freshness:
