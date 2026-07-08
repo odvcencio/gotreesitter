@@ -332,10 +332,6 @@ type Language struct {
 
 	// Alias sequences
 	AliasSequences [][]Symbol // [production_id][child_index] -> alias symbol
-	// NonTerminalAliasMap mirrors tree-sitter C's ts_non_terminal_alias_map.
-	// Rows are indexed by nonterminal symbol and contain aliases that require
-	// preserving the wrapper during alias-bearing reductions.
-	NonTerminalAliasMap [][]Symbol
 
 	// ProductionSignatures records LHS/RHS shape for grammargen productions.
 	// It is separate from ProductionID because ProductionID is deliberately
@@ -434,6 +430,13 @@ type Language struct {
 	// post-load mutations (external scanner / ExternalLexStates attach)
 	// invalidate it. See cRecoveryGateCacheKeyFor.
 	cRecoveryGateCache atomic.Pointer[cRecoveryGateCacheEntry]
+
+	// NonTerminalAliasMap mirrors tree-sitter C's ts_non_terminal_alias_map.
+	// Rows are indexed by nonterminal symbol and contain aliases that require
+	// preserving the wrapper during alias-bearing reductions. This is cold
+	// metadata and intentionally lives at the end of the struct so existing
+	// parser hot-field offsets stay stable.
+	NonTerminalAliasMap [][]Symbol
 }
 
 type symbolNameNamedKey struct {
