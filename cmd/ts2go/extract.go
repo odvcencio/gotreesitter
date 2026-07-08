@@ -1508,7 +1508,7 @@ func extractNonTerminalAliasMap(source string, g *ExtractedGrammar) error {
 	if g.SymbolCount == 0 {
 		return nil
 	}
-	body, err := findArrayBody(source, "ts_non_terminal_alias_map")
+	body, err := findExactArrayBody(source, "ts_non_terminal_alias_map")
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil
