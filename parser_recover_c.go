@@ -1449,11 +1449,6 @@ func init() {
 	gssPrefixAggGen.Store(1)
 }
 
-// DebugGSSPrefixAggGen returns the current global GSS prefix-aggregate
-// generation. Monotonic (only Add(1)); the delta across a parse equals the
-// number of choke-point invalidations. Measurement helper (wave-2b).
-func DebugGSSPrefixAggGen() uint64 { return gssPrefixAggGen.Load() }
-
 // cStackPrefixAgg returns the cumulative (error cost, visible subtree count)
 // of head's prev chain, filling the on-node aggregates bottom-up from the
 // deepest still-valid node — O(new or invalidated suffix), O(1) steady-state.

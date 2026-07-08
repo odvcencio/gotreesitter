@@ -1092,38 +1092,13 @@ func storeGSSStackEquivCache(scratch *glrMergeScratch, a, b *gssNode, result boo
 // when unset.
 var debugMergeEquiv = os.Getenv("GOT_DEBUG_MERGE_EQUIV") == "1"
 
-// debugMergeEquivStats, when set (GOT_DEBUG_MERGE_EQUIV_STATS=1), accumulates
-// spine-memo lookup/hit/store counters (single-threaded parse; plain adds).
-var debugMergeEquivStats = os.Getenv("GOT_DEBUG_MERGE_EQUIV_STATS") == "1"
-
 // mergeEquivMemoEnabled gates the spine-equality memo. Default on; set
 // GOT_DISABLE_MERGE_EQUIV_MEMO=1 to fall back to the original memo-free walk
 // (A/B measurement only — the memo is answer-exact, verified by
 // GOT_DEBUG_MERGE_EQUIV).
 var mergeEquivMemoEnabled = os.Getenv("GOT_DISABLE_MERGE_EQUIV_MEMO") != "1"
 
-var (
-	debugSpineMemoLookups    uint64
-	debugSpineMemoHits       uint64
-	debugSpineMemoStores     uint64
-	debugMergeEquivChecks    uint64
-	debugMergeEquivDiverge   uint64
-	debugMergeEquivReportsLt = 20
-)
-
-// DebugSpineMemoStats returns (lookups, hits, stores) for the spine-equality
-// memo since process start. Measurement helper (wave-2b); only populated when
-// GOT_DEBUG_MERGE_EQUIV_STATS=1.
-func DebugSpineMemoStats() (uint64, uint64, uint64) {
-	return debugSpineMemoLookups, debugSpineMemoHits, debugSpineMemoStores
-}
-
-// DebugMergeEquivAssertStats returns (checks, divergences) for the spine-memo
-// correctness assertion. Nonzero divergences mean the memo answer differed from
-// the full walk (a bug). Only populated when GOT_DEBUG_MERGE_EQUIV=1.
-func DebugMergeEquivAssertStats() (uint64, uint64) {
-	return debugMergeEquivChecks, debugMergeEquivDiverge
-}
+var debugMergeEquivReportsLt = 20
 
 func spineEquivCacheIndex(ap, bp uintptr) int {
 	x := uint64(ap)
@@ -1155,25 +1130,16 @@ func lookupSpineEquivCache(scratch *glrMergeScratch, a, b *gssNode) (bool, bool)
 		// orderedGSSNodePair swapped: keep fingerprints paired with pointers.
 		aHash, bHash = b.hash, a.hash
 	}
-	if debugMergeEquivStats {
-		debugSpineMemoLookups++
-	}
 	idx := spineEquivCacheIndex(ap, bp)
 	primary := &scratch.spineEquivCache[idx]
 	if primary.epoch == scratch.equivEpoch && primary.a == ap && primary.b == bp &&
 		primary.aHash == aHash && primary.bHash == bHash {
-		if debugMergeEquivStats {
-			debugSpineMemoHits++
-		}
 		return primary.result, true
 	}
 	victim := &scratch.spineEquivCache[idx+1]
 	if victim.epoch == scratch.equivEpoch && victim.a == ap && victim.b == bp &&
 		victim.aHash == aHash && victim.bHash == bHash {
 		*primary, *victim = *victim, *primary
-		if debugMergeEquivStats {
-			debugSpineMemoHits++
-		}
 		return primary.result, true
 	}
 	return false, false
@@ -1196,9 +1162,6 @@ func storeSpineEquivCache(scratch *glrMergeScratch, a, b *gssNode, result bool) 
 	aHash, bHash := a.hash, b.hash
 	if ap != uintptr(unsafe.Pointer(a)) {
 		aHash, bHash = b.hash, a.hash
-	}
-	if debugMergeEquivStats {
-		debugSpineMemoStores++
 	}
 	idx := spineEquivCacheIndex(ap, bp)
 	scratch.spineEquivCache[idx+1] = scratch.spineEquivCache[idx]
@@ -1667,12 +1630,10 @@ func gssSpineEqualRaw(scratch *glrMergeScratch, lang *Language, headA, headB *gs
 }
 
 func debugCheckSpineEquiv(scratch *glrMergeScratch, lang *Language, headA, headB *gssNode, got bool) {
-	debugMergeEquivChecks++
 	want := gssSpineEqualRaw(scratch, lang, headA, headB)
 	if want == got {
 		return
 	}
-	debugMergeEquivDiverge++
 	if debugMergeEquivReportsLt > 0 {
 		debugMergeEquivReportsLt--
 		fmt.Fprintf(os.Stderr,

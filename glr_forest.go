@@ -144,9 +144,6 @@ const forestRecoverCap = 1 << 20
 // not thread-safe; for single-threaded prototyping/measurement).
 var forestLastDeclineReason string
 
-// ForestLastDeclineReason returns the reason parseForest last declined.
-func ForestLastDeclineReason() string { return forestLastDeclineReason }
-
 const forestDeclineEOFRecoveryConflict = "eof-recovery-conflict"
 
 func forestProgressExtra(frontier, work, nextFrontier []*gssForestNode, curIndex, nextIndex gssForestIndex, processEpoch int32, recoverCount int, reducer *forestReducer, accepted *gssForestNode, more string) string {
