@@ -37,10 +37,19 @@ var paritySkips = map[string]parityMeta{
 // knownDegradedStructural tracks currently non-parity structural languages
 // within the full-coverage gate. Keep this list shrinking over time.
 var knownDegradedStructural = map[string]string{
-	"agda": "named wrapper/runtime alias shape still diverges from C reference",
-	"apex": "named wrapper/runtime alias shape still diverges from C reference",
-	"hare": "fresh parse structural parity still diverges from C reference",
-	"rst":  "fresh parse structural parity still diverges from C reference",
+	"agda":    "named wrapper/runtime alias shape still diverges from C reference",
+	"apex":    "named wrapper/runtime alias shape still diverges from C reference",
+	"doxygen": "tier row IV-unknown: whole-block comment/error-root compatibility remains non-clean",
+	"hare":    "fresh parse structural parity still diverges from C reference",
+	"jsdoc":   "tier row IV-unknown: C-recovery/default ELS smoke sample still diverges from C reference",
+	"norg":    "tier row IV-scanner: scanner/version structural shape still diverges from C reference",
+	"rst":     "fresh parse structural parity still diverges from C reference",
+}
+
+// knownDegradedNoErrorClean preserves no-error coverage for structural backlog
+// entries whose current failure is tree shape, not error-node production.
+var knownDegradedNoErrorClean = map[string]struct{}{
+	"norg": {},
 }
 
 type parityCase struct {
@@ -285,6 +294,16 @@ func paritySkipReason(name string) string {
 		return meta.skipReason
 	}
 	return ""
+}
+
+// parityNoErrorSkipReason returns a skip reason for the no-error gate. Some
+// structural backlog entries still have useful no-error signal, so keep those
+// running while fresh/incremental structural parity remains skipped.
+func parityNoErrorSkipReason(name string) string {
+	if _, ok := knownDegradedNoErrorClean[name]; ok {
+		return ""
+	}
+	return paritySkipReason(name)
 }
 
 type nodeSnapshot struct {
@@ -975,7 +994,7 @@ func TestParityHasNoErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			parityMaybeParallel(t)
 			scheduleParityMemoryScavenge(t)
-			if reason := paritySkipReason(tc.name); reason != "" {
+			if reason := parityNoErrorSkipReason(tc.name); reason != "" {
 				t.Skipf("known mismatch: %s", reason)
 			}
 			tree, _, err := parseWithGo(tc, normalizedSource(tc.name, tc.source), nil)

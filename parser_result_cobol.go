@@ -280,7 +280,7 @@ func normalizeCobolRecoveredParagraphHeader(root *Node, source []byte, lang *Lan
 	procedure.startPoint = procStartPoint
 	procedure.endByte = rootEnd
 	procedure.endPoint = rootEndPoint
-	procedure.setHasError(false)
+	cobolRefreshHasErrorFromChildren(procedure)
 
 	keptRootChildren := cloneNodeSliceInArena(root.ownerArena, rootChildren[:len(rootChildren)-1])
 	replaceNodeChildrenUnfielded(root, keptRootChildren)
@@ -288,7 +288,7 @@ func normalizeCobolRecoveredParagraphHeader(root *Node, source []byte, lang *Lan
 	root.startPoint = rootStartPoint
 	root.endByte = rootEnd
 	root.endPoint = rootEndPoint
-	root.setHasError(false)
+	cobolRefreshHasErrorFromChildren(root)
 }
 
 func cobolFirstProgramDefinition(root *Node, lang *Language) *Node {
@@ -351,5 +351,19 @@ func cobolClearErrorFlags(n *Node) {
 	n.setHasError(false)
 	for i := 0; i < resultChildCount(n); i++ {
 		cobolClearErrorFlags(resultChildAt(n, i))
+	}
+}
+
+func cobolRefreshHasErrorFromChildren(n *Node) {
+	if n == nil {
+		return
+	}
+	n.setHasError(false)
+	for i := 0; i < resultChildCount(n); i++ {
+		child := resultChildAt(n, i)
+		if child != nil && (child.IsError() || child.HasError()) {
+			n.setHasError(true)
+			return
+		}
 	}
 }
