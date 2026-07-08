@@ -655,8 +655,10 @@ Test suite covers: smoke tests (206 grammars), golden S-expression snapshots, hi
 v0.22.x — Roadmap checkpoint release after the v0.21 engine cut. Lands the
 runtime/recovery foundation, external lex-state election ledger, broad precise
 ExternalLexStates coverage, perf-scan scaffolding, and Cobol large-table
-recovery cleanup. Cobol's focused release gates are clean; the broader tier-IV
-ledger remains explicit and drives the next parity waves.
+recovery cleanup, including the mixed-error `HasError` preservation fix.
+Cobol's focused release gates are clean; the broader tier-IV ledger remains
+explicit, and universal near-C performance stays a follow-up ratchet rather
+than a v0.22.0 claim.
 
 v0.21.x — Engine release. The generalized GLR parser core replaces the
 v0.20.x per-language recovery approximations as the default runtime, with

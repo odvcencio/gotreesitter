@@ -14,7 +14,10 @@ first four campaign buckets after v0.21.0: the runtime/recovery foundation,
 the external lex-state election ledger, broad precise ExternalLexStates
 coverage, and the Cobol large-table/recovery cleanup. It does not claim that
 all grammar tiers are parity-clean yet; the remaining tier-IV rows stay visible
-and classified for the next campaign waves.
+and classified for the next campaign waves. It also does not claim universal
+near-C parser performance across the registry yet; v0.22.0 publishes the
+perf-scan scaffold and targeted wins while the broader wave-3 ratchet remains
+tracked for the next release line.
 
 ### Added
 
@@ -55,6 +58,9 @@ and classified for the next campaign waves.
   paragraph structure across large-table parses. Focused Docker gates measured
   Cobol at 25/25 real-corpus parity and 20/20 direct C-oracle parity for this
   release line.
+- Cobol recovered paragraph-header normalization now preserves unrelated parent
+  `HasError` state, so a clean recovered header no longer masks a separate
+  retained error in the same `procedure_division` subtree.
 - C recovery table validation now checks both action and GOTO bounds before
   accepting the recovery path, preventing large-table grammars from taking a
   silently invalid C-recovery route.
@@ -69,6 +75,8 @@ and classified for the next campaign waves.
   gates separate from benchmark gates.
 - Bash retry overhead, C# namespace recovery retries, and TypeScript
   fourslash arena pressure are reduced by targeted fast-path and cap fixes.
+- The perf harness is present for nightly scoring and follow-up CI wiring, but
+  this release does not enable a universal near-C performance gate.
 
 ## [0.21.0] - 2026-07-06
 
