@@ -838,7 +838,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 
 	// COMMENT via '/' prefix
 	if lexer.Lookahead() == '/' {
-		column := lexer.GetColumn()
+		column := lexer.Column()
 
 		// COMMENT
 		if typstParseComment(s, lexer) {
@@ -1044,7 +1044,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	// ITEM (- or + or 1.)
 	if s.lineStart && typstValid(validSymbols, typstTokItem) {
 		if lexer.Lookahead() == '-' || lexer.Lookahead() == '+' {
-			column := lexer.GetColumn()
+			column := lexer.Column()
 			lexer.Advance(false)
 			if typstIsSP(lexer.Lookahead()) || typstIsLB(lexer.Lookahead()) || lexer.Lookahead() == 0 {
 				s.lineStart = false
@@ -1056,7 +1056,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			return false
 		}
 		if lexer.Lookahead() >= '0' && lexer.Lookahead() <= '9' {
-			column := lexer.GetColumn()
+			column := lexer.Column()
 			lexer.Advance(false)
 			for lexer.Lookahead() >= '0' && lexer.Lookahead() <= '9' {
 				lexer.Advance(false)
@@ -1254,7 +1254,7 @@ func (TypstExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			return false
 		}
 
-		column := lexer.GetColumn()
+		column := lexer.Column()
 		if len(s.indentation) == 0 {
 			return false
 		}

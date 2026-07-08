@@ -459,7 +459,7 @@ func (PerlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 			var line plTSPString
 			for lexer.Lookahead() != 0 {
 				line.reset()
-				isValidStartPos := st.heredocState == plHeredocEnd || lexer.GetColumn() == 0
+				isValidStartPos := st.heredocState == plHeredocEnd || lexer.Column() == 0
 				sawEscape := false
 				if isValidStartPos && st.heredocIndents {
 					plSkipWhitespace(lexer)
@@ -538,7 +538,7 @@ func (PerlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 	// Heredoc start: heredocs override everything
 	if valid(plTokHeredocStart) {
-		if st.heredocState == plHeredocStart && lexer.GetColumn() == 0 {
+		if st.heredocState == plHeredocStart && lexer.Column() == 0 {
 			st.heredocState = plHeredocUnknown
 			return token(plTokHeredocStart)
 		}
@@ -557,7 +557,6 @@ func (PerlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		for lexer.Lookahead() != 0 {
 			if c == '\\' {
 				lexer.Advance(false)
-				c = lexer.Lookahead()
 				// ignore the next char
 			} else if c == '(' {
 				delimcount++
@@ -687,7 +686,7 @@ func (PerlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 	// POD
 	if valid(plTokPod) {
-		column := lexer.GetColumn()
+		column := lexer.Column()
 		if column == 0 && c == '=' {
 			cutMarker := "=cut"
 			stage := -1
@@ -812,7 +811,6 @@ func (PerlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		}
 		lexer.MarkEnd()
 		lexer.Advance(false)
-		c = lexer.Lookahead()
 
 		// Guard against brace end in autoquote context
 		if valid(plTokBraceEndZW) && delim == '}' {
@@ -989,7 +987,7 @@ func (PerlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 			if c == '#' {
 				lexer.Advance(false)
 				c = lexer.Lookahead()
-				for lexer.GetColumn() != 0 {
+				for lexer.Column() != 0 {
 					lexer.Advance(false)
 					c = lexer.Lookahead()
 				}

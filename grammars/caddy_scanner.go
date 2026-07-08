@@ -64,7 +64,7 @@ func (CaddyExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		return false
 	}
 
-	if lexer.Lookahead() != 0 && lexer.GetColumn() == 0 {
+	if lexer.Lookahead() != 0 && lexer.Column() == 0 {
 		var indentLen uint16
 
 		lexer.MarkEnd()

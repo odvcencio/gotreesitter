@@ -823,10 +823,7 @@ func djotTryCloseDifferentTypedList(s *djotScannerState, lexer *gotreesitter.Ext
 		return true
 	}
 	otherListMarker := djotScanUnorderedListMarkerToken(s, lexer)
-	if djotCloseDifferentListIfNeeded(s, lexer, list, otherListMarker) {
-		return true
-	}
-	return false
+	return djotCloseDifferentListIfNeeded(s, lexer, list, otherListMarker)
 }
 
 // ---------------------------------------------------------------------------
@@ -2347,7 +2344,7 @@ func djotParseNewline(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs
 	if djotDisallowNewline(top) {
 		return false
 	}
-	newlineColumn := lexer.GetColumn()
+	newlineColumn := lexer.Column()
 	if lexer.Lookahead() == '\n' {
 		djotAdvance(s, lexer)
 	}
@@ -2707,7 +2704,7 @@ func djotScan(s *djotScannerState, lexer *gotreesitter.ExternalLexer, vs []bool)
 	}
 
 	// At column 0, consume leading whitespace and track indentation.
-	if lexer.GetColumn() == 0 {
+	if lexer.Column() == 0 {
 		s.indent = djotConsumeWhitespace(s, lexer)
 	}
 	isNewline := lexer.Lookahead() == '\n'

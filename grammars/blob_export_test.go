@@ -4,7 +4,7 @@ import "testing"
 
 func TestBlobByName_Go(t *testing.T) {
 	blob := BlobByName("go")
-	if blob == nil || len(blob) == 0 {
+	if len(blob) == 0 {
 		t.Fatal("expected non-empty blob for go")
 	}
 }
@@ -18,14 +18,14 @@ func TestBlobByName_Unknown(t *testing.T) {
 
 func TestBlobByName_Alias(t *testing.T) {
 	blob := BlobByName("golang")
-	if blob == nil || len(blob) == 0 {
+	if len(blob) == 0 {
 		t.Fatal("expected non-empty blob for golang alias")
 	}
 }
 
 func TestBlobByName_CaseInsensitive(t *testing.T) {
 	blob := BlobByName("Go")
-	if blob == nil || len(blob) == 0 {
+	if len(blob) == 0 {
 		t.Fatal("expected non-empty blob for Go (capitalized)")
 	}
 }

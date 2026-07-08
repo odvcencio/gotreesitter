@@ -77,7 +77,7 @@ func (EarthfileExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLe
 			return earthfileHandleEof(lexer, s, validSymbols)
 		}
 
-		indent := lexer.GetColumn()
+		indent := lexer.Column()
 		if indent > s.prevIndent && earthfileValid(validSymbols, earthfileTokIndent) && s.prevIndent == 0 {
 			lexer.SetResultSymbol(earthfileSymIndent)
 			s.prevIndent = indent

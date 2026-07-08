@@ -177,7 +177,7 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if lexer.Lookahead() == 0 {
 			s.lastColumn = -1
 		} else {
-			s.lastColumn = int16(lexer.GetColumn())
+			s.lastColumn = int16(lexer.Column())
 		}
 		return true
 	}
@@ -185,7 +185,7 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	// Recover newline_count from outdent reset
 	isEOF := lexer.Lookahead() == 0
 	if (s.lastNewlineCount > 0 && isEOF && s.lastColumn == -1) ||
-		(!isEOF && int16(lexer.GetColumn()) == s.lastColumn) {
+		(!isEOF && int16(lexer.Column()) == s.lastColumn) {
 		newlineCount += s.lastNewlineCount
 	}
 	s.lastNewlineCount = 0

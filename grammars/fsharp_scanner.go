@@ -182,7 +182,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	foundPreprocessorEnd := false
 	foundPreprocIf := false
 	foundCommentStart := false
-	indentLength := uint16(lexer.GetColumn())
+	indentLength := uint16(lexer.Column())
 
 	// Whitespace / preprocessor scanning loop
 	for {
@@ -311,7 +311,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	// Keyword: class
 	if isValid(fsTokClass) && lexer.Lookahead() == 'c' {
 		lexer.MarkEnd()
-		indentLength = uint16(lexer.GetColumn())
+		indentLength = uint16(lexer.Column())
 		lexer.Advance(false)
 		if lexer.Lookahead() == 'l' {
 			lexer.Advance(false)
@@ -330,7 +330,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 		}
 	} else if isValid(fsTokStruct) && lexer.Lookahead() == 's' {
 		lexer.MarkEnd()
-		indentLength = uint16(lexer.GetColumn())
+		indentLength = uint16(lexer.Column())
 		lexer.Advance(false)
 		if lexer.Lookahead() == 't' {
 			lexer.Advance(false)
@@ -352,7 +352,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 		}
 	} else if isValid(fsTokInterface) && lexer.Lookahead() == 'i' {
 		lexer.MarkEnd()
-		indentLength = uint16(lexer.GetColumn())
+		indentLength = uint16(lexer.Column())
 		lexer.Advance(false)
 		if lexer.Lookahead() == 'n' {
 			lexer.Advance(false)
@@ -456,7 +456,7 @@ func (FsharpExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer
 	} else if lexer.Lookahead() == 'e' &&
 		(isValid(fsTokElse) || isValid(fsTokElif) || isValid(fsTokEnd) || isValid(fsTokDedent)) {
 		lexer.Advance(false)
-		tokenIndentLevel := int16(lexer.GetColumn())
+		tokenIndentLevel := int16(lexer.Column())
 		if lexer.Lookahead() == 'l' {
 			lexer.Advance(false)
 			if lexer.Lookahead() == 's' && (isValid(fsTokElse) || isValid(fsTokDedent)) {

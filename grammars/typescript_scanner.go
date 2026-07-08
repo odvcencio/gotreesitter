@@ -273,10 +273,7 @@ func tsScanTernaryQmark(lexer *gotreesitter.ExternalLexer) bool {
 
 	if lexer.Lookahead() == '.' {
 		lexer.Advance(false)
-		if unicode.IsDigit(lexer.Lookahead()) {
-			return true
-		}
-		return false
+		return unicode.IsDigit(lexer.Lookahead())
 	}
 	return true
 }

@@ -477,7 +477,7 @@ func bshScanHeredocContent(
 				}
 				continue
 			}
-			if middleTok == bshTokHeredocBodyBeginning && lexer.GetColumn() == 0 {
+			if middleTok == bshTokHeredocBodyBeginning && lexer.Column() == 0 {
 				lexer.SetResultSymbol(middleSym)
 				heredoc.started = true
 				return true
@@ -518,7 +518,7 @@ func bshScanHeredocContent(
 			}
 
 		default:
-			if lexer.GetColumn() == 0 {
+			if lexer.Column() == 0 {
 				for bshIsSpace(lexer.Lookahead()) {
 					if didAdvance {
 						bshAdvance(lexer)
@@ -1135,10 +1135,7 @@ func bshScan(s *bshState, lexer *gotreesitter.ExternalLexer, validSymbols []bool
 			for bshIsSpace(lexer.Lookahead()) {
 				bshSkip(lexer)
 			}
-			if lexer.Lookahead() == '}' {
-				return true
-			}
-			return false
+			return lexer.Lookahead() == '}'
 		}
 	}
 

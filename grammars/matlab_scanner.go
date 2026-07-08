@@ -216,6 +216,15 @@ func matConsumeChar(chr rune, lexer *gotreesitter.ExternalLexer) bool {
 	return true
 }
 
+func matConsumeLineContinuation(lexer *gotreesitter.ExternalLexer) bool {
+	for i := 0; i < 3; i++ {
+		if !matConsumeChar('.', lexer) {
+			return false
+		}
+	}
+	return true
+}
+
 func matConsumeIdentifier(lexer *gotreesitter.ExternalLexer) string {
 	var buf []byte
 	if matIsIdentifierChar(lexer.Lookahead(), true) {
@@ -305,8 +314,7 @@ func matScanComment(
 	lexer.MarkEnd()
 
 	percent := lexer.Lookahead() == '%'
-	lineContinuation := lexer.Lookahead() == '.' && matConsumeChar('.', lexer) &&
-		matConsumeChar('.', lexer) && matConsumeChar('.', lexer)
+	lineContinuation := matConsumeLineContinuation(lexer)
 	block := percent && matConsumeChar('%', lexer) && matConsumeChar('{', lexer)
 
 	// Handle the case where '.' is followed by a digit inside matrices/cells.
@@ -476,7 +484,7 @@ func matScanCommand(scanner *matlabState, lexer *gotreesitter.ExternalLexer, val
 				return false
 			}
 			// Check for line continuation
-			if matConsumeChar('.', lexer) && matConsumeChar('.', lexer) && matConsumeChar('.', lexer) {
+			if matConsumeLineContinuation(lexer) {
 				// If it is a keyword, yield to the internal scanner
 				for _, kw := range matKeywords {
 					if kw == buffer {
@@ -557,8 +565,7 @@ skipCommandCheck:
 		lexer.SetResultSymbol(matSymCommandName)
 		return true
 	}
-	if lexer.Lookahead() == '.' && matConsumeChar('.', lexer) && matConsumeChar('.', lexer) &&
-		matConsumeChar('.', lexer) {
+	if matConsumeLineContinuation(lexer) {
 		lexer.SetResultSymbol(matSymIdentifier)
 		return true
 	}
@@ -993,7 +1000,7 @@ func matScanMultioutputVarStart(lexer *gotreesitter.ExternalLexer) bool {
 	var sbCount uint32
 
 	for lexer.Lookahead() != 0 {
-		if matConsumeChar('.', lexer) && matConsumeChar('.', lexer) && matConsumeChar('.', lexer) {
+		if matConsumeLineContinuation(lexer) {
 			matConsumeCommentLine(lexer)
 			lexer.Advance(false)
 		}
@@ -1020,7 +1027,7 @@ func matScanMultioutputVarStart(lexer *gotreesitter.ExternalLexer) bool {
 	lexer.Advance(false)
 
 	for lexer.Lookahead() != 0 {
-		if matConsumeChar('.', lexer) && matConsumeChar('.', lexer) && matConsumeChar('.', lexer) {
+		if matConsumeLineContinuation(lexer) {
 			matConsumeCommentLine(lexer)
 			lexer.Advance(false)
 		} else if matIsWspaceMatlab(lexer.Lookahead()) {

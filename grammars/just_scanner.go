@@ -136,7 +136,7 @@ func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 			return justHandleEof(lexer, s, validSymbols)
 		}
 
-		indent := lexer.GetColumn()
+		indent := lexer.Column()
 
 		if indent > s.prevIndent && justValid(validSymbols, justTokIndent) && s.prevIndent == 0 {
 			lexer.MarkEnd()
@@ -155,7 +155,7 @@ func (JustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 	// TEXT
 	if justValid(validSymbols, justTokText) {
 		// Don't start text at column == prevIndent for certain chars
-		if lexer.GetColumn() == s.prevIndent &&
+		if lexer.Column() == s.prevIndent &&
 			(lexer.Lookahead() == '\n' || lexer.Lookahead() == '@' || lexer.Lookahead() == '-') {
 			return false
 		}

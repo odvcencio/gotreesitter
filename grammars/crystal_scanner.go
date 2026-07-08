@@ -581,7 +581,7 @@ func cryCheckForHeredocStart(s *cryScannerState, lexer *gotreesitter.ExternalLex
 		cryHasUnstartedHeredoc(s) &&
 		!s.previousLineContinued &&
 		!cryIsEOF(lexer) &&
-		lexer.GetColumn() == 0 {
+		lexer.Column() == 0 {
 
 		s.heredocs[0].started = true
 		crySetResult(lexer, cryTokHeredocBodyStart)
@@ -801,7 +801,7 @@ func cryScanHeredocContents(s *cryScannerState, lexer *gotreesitter.ExternalLexe
 			return true
 		}
 
-		if cryIsValid(validSymbols, cryTokHeredocEnd) && !cryIsEOF(lexer) && lexer.GetColumn() == 0 {
+		if cryIsValid(validSymbols, cryTokHeredocEnd) && !cryIsEOF(lexer) && lexer.Column() == 0 {
 			if foundContent {
 				lexer.MarkEnd()
 				for lexer.Lookahead() == '\t' || lexer.Lookahead() == ' ' {

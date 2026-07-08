@@ -409,7 +409,7 @@ func (env *hsEnv) column() uint32 {
 	if env.isEof() {
 		return 0
 	}
-	return env.lexer.GetColumn()
+	return env.lexer.Column()
 }
 
 func (env *hsEnv) advance() {

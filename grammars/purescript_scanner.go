@@ -159,7 +159,7 @@ func (st *psState) markEnd() {
 }
 
 func (st *psState) column() uint32 {
-	return st.lexer.GetColumn()
+	return st.lexer.Column()
 }
 
 func (st *psState) isEOF() bool {

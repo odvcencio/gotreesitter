@@ -312,7 +312,7 @@ func rbyIsIdenChar(c rune) bool {
 	if c == 0 {
 		return false
 	}
-	return strings.IndexRune(rbyNonIdentifierChars, c) < 0
+	return !strings.ContainsRune(rbyNonIdentifierChars, c)
 }
 
 func rbySetResult(lexer *gotreesitter.ExternalLexer, tok int) {

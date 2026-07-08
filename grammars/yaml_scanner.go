@@ -1388,8 +1388,6 @@ func (e *yamlEnv) scnBlkStrCnt(resultSymbol int) bool {
 }
 
 func (e *yamlEnv) scnPlnCnt(isPlainSafe func(int32) bool) int8 {
-	isCurWsp := yIsWsp(e.curChr)
-	_ = isCurWsp
 	isCurSaf := isPlainSafe(e.curChr)
 	isLkaWsp := yIsWsp(e.lka())
 	isLkaSaf := isPlainSafe(e.lka())
@@ -1412,7 +1410,6 @@ func (e *yamlEnv) scnPlnCnt(isPlainSafe func(int32) bool) int8 {
 				break
 			}
 
-			isCurWsp = isLkaWsp
 			isCurSaf = isLkaSaf
 			isLkaWsp = yIsWsp(e.lka())
 			isLkaSaf = isPlainSafe(e.lka())

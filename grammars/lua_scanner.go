@@ -97,6 +97,15 @@ func luaConsumeChar(c rune, lexer *gotreesitter.ExternalLexer) bool {
 	return true
 }
 
+func luaConsumeString(s string, lexer *gotreesitter.ExternalLexer) bool {
+	for _, c := range s {
+		if !luaConsumeChar(c, lexer) {
+			return false
+		}
+	}
+	return true
+}
+
 func luaConsumeAndCountChar(c rune, lexer *gotreesitter.ExternalLexer) uint8 {
 	var count uint8
 	for lexer.Lookahead() == c {
@@ -142,7 +151,7 @@ func luaScanBlockContent(s *luaScannerState, lexer *gotreesitter.ExternalLexer) 
 }
 
 func luaScanCommentStart(s *luaScannerState, lexer *gotreesitter.ExternalLexer) bool {
-	if luaConsumeChar('-', lexer) && luaConsumeChar('-', lexer) {
+	if luaConsumeString("--", lexer) {
 		lexer.MarkEnd()
 		if luaScanBlockStart(s, lexer) {
 			lexer.MarkEnd()

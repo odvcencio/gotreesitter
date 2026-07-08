@@ -702,7 +702,7 @@ func tlaLexLookahead(
 				state = lsConsumeLeadingSpace
 				continue
 			}
-			col = int16(lexer.GetColumn())
+			col = int16(lexer.Column())
 			lexer.MarkEnd()
 			if !tlaHasNext(lexer) {
 				tlaAdvance(lexer)

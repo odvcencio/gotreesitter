@@ -83,8 +83,8 @@ func (CobolExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	}
 
 	// LINE_PREFIX_COMMENT: columns 1-6 (0-5)
-	if cobolValid(validSymbols, cobolTokLinePrefixComment) && lexer.GetColumn() <= 5 {
-		for lexer.GetColumn() <= 5 && lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' {
+	if cobolValid(validSymbols, cobolTokLinePrefixComment) && lexer.Column() <= 5 {
+		for lexer.Column() <= 5 && lexer.Lookahead() != 0 && lexer.Lookahead() != '\n' {
 			lexer.Advance(true)
 		}
 		lexer.MarkEnd()
@@ -94,7 +94,7 @@ func (CobolExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 
 	// LINE_COMMENT: column 7 (index 6) with * or /
 	if cobolValid(validSymbols, cobolTokLineComment) {
-		if lexer.GetColumn() == 6 {
+		if lexer.Column() == 6 {
 			if lexer.Lookahead() == '*' || lexer.Lookahead() == '/' {
 				for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
 					lexer.Advance(true)
@@ -111,7 +111,7 @@ func (CobolExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 
 	// LINE_SUFFIX_COMMENT: column 73+ (index 72+)
 	if cobolValid(validSymbols, cobolTokLineSuffixComment) {
-		if lexer.GetColumn() >= 72 {
+		if lexer.Column() >= 72 {
 			for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
 				lexer.Advance(true)
 			}
@@ -129,7 +129,7 @@ func (CobolExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			if lexer.Lookahead() == 0 || lexer.Lookahead() == '\n' {
 				return false
 			}
-			for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 && lexer.GetColumn() < 72 {
+			for lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 && lexer.Column() < 72 {
 				lexer.Advance(true)
 			}
 			lexer.MarkEnd()
@@ -146,7 +146,7 @@ func (CobolExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				return false
 			}
 			lexer.Advance(false)
-			for lexer.Lookahead() != '"' && lexer.Lookahead() != 0 && lexer.GetColumn() < 72 {
+			for lexer.Lookahead() != '"' && lexer.Lookahead() != 0 && lexer.Column() < 72 {
 				lexer.Advance(false)
 			}
 			if lexer.Lookahead() == '"' {
@@ -176,7 +176,7 @@ func (CobolExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			}
 			lexer.Advance(true)
 			// Skip spaces to the continuation quote
-			for lexer.Lookahead() == ' ' && lexer.GetColumn() < 72 {
+			for lexer.Lookahead() == ' ' && lexer.Column() < 72 {
 				lexer.Advance(true)
 			}
 		}
@@ -208,7 +208,7 @@ func cobolStartsWithKeyword(lexer *gotreesitter.ExternalLexer) bool {
 	}
 
 	for {
-		if lexer.GetColumn() > 71 || lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 {
+		if lexer.Column() > 71 || lexer.Lookahead() == '\n' || lexer.Lookahead() == 0 {
 			return false
 		}
 
@@ -221,7 +221,7 @@ func cobolStartsWithKeyword(lexer *gotreesitter.ExternalLexer) bool {
 		}
 		if !anyActive {
 			// Skip rest of line
-			for lexer.GetColumn() < 71 && lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
+			for lexer.Column() < 71 && lexer.Lookahead() != '\n' && lexer.Lookahead() != 0 {
 				lexer.Advance(true)
 			}
 			return false

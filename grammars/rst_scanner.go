@@ -992,10 +992,7 @@ func (r *rstCtx) parseExplicitMarkupStart() bool {
 		return false
 	}
 	r.advance()
-	if r.parseInnerListElement(2, rstTokExplicitMarkup) {
-		return true
-	}
-	return false
+	return r.parseInnerListElement(2, rstTokExplicitMarkup)
 }
 
 func (r *rstCtx) parseInnerListElement(consumedChars int, tokenType int) bool {

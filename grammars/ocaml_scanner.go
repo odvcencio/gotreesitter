@@ -146,7 +146,7 @@ func (OcamlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 
 	// Line number directive: # <digits> "filename"
 	if !s.inString && ocamlValid(validSymbols, ocamlTokLineNumberDirective) &&
-		lexer.Lookahead() == '#' && lexer.GetColumn() == 0 {
+		lexer.Lookahead() == '#' && lexer.Column() == 0 {
 		return ocamlScanLineNumberDirective(lexer)
 	}
 

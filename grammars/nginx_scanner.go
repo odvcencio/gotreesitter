@@ -82,7 +82,7 @@ func (NginxExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	}
 
 	// At column 0, measure indentation and emit INDENT/DEDENT.
-	if lexer.Lookahead() != 0 && lexer.GetColumn() == 0 {
+	if lexer.Lookahead() != 0 && lexer.Column() == 0 {
 		var indentLen uint16
 
 		// Indent tokens are zero width.

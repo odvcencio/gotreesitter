@@ -190,7 +190,7 @@ func (ElmExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			for lexer.Lookahead() == ' ' {
 				lexer.Advance(true)
 			}
-			s.indentLength = lexer.GetColumn()
+			s.indentLength = lexer.Column()
 		} else if !isValid(elmTokBlockCommentBody) && ch == '-' {
 			lexer.Advance(false)
 			la := lexer.Lookahead()
@@ -268,7 +268,7 @@ func (ElmExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 		if len(s.indents) >= 256 {
 			return false
 		}
-		s.indents = append(s.indents, uint8(lexer.GetColumn()))
+		s.indents = append(s.indents, uint8(lexer.Column()))
 		lexer.SetResultSymbol(elmSymVirtualOpenSect)
 		return true
 	}
@@ -473,7 +473,7 @@ func elmSkipWhitespaceAndRemeasure(lexer *gotreesitter.ExternalLexer, s *elmStat
 			for lexer.Lookahead() == ' ' {
 				lexer.Advance(false)
 			}
-			s.indentLength = lexer.GetColumn()
+			s.indentLength = lexer.Column()
 		} else {
 			lexer.Advance(false)
 		}

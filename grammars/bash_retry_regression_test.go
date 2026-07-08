@@ -8,7 +8,7 @@ import (
 )
 
 func TestBashRetryFullParseOnChainedIfs(t *testing.T) {
-	src := []byte(`a=1
+	src := []byte(strings.ReplaceAll(`a=1
 if foo; then
   :
 fi
@@ -19,17 +19,12 @@ if [ -z "$tar" ]; then
   tar=x
 fi
 if [ -z "$tar" ]; then
-  tar=foo
+  tar=\x06foo\x06
 fi
 if [ 1 -eq 0 ] && [ -x "$tar" ]; then
   :
 fi
-`)
-	for i := range src {
-		if src[i] == 0x06 {
-			src[i] = '`'
-		}
-	}
+	`, `\x06`, "`"))
 	p := ts.NewParser(BashLanguage())
 	tree, err := p.Parse(src)
 	if err != nil {
