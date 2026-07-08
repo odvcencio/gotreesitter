@@ -136,7 +136,7 @@ jobs:
             {
               echo "### Grammargen Visibility"
               echo
-              echo "\`go test ./grammargen -race -count=1 -timeout 10m\` exited with status \`${status}\`."
+              echo "\`go test ./grammargen -race -count=1 -timeout 6m\` exited with status \`${status}\`."
               echo
               echo "This job is informational until the known grammargen backlog is zeroed."
             } >> "$GITHUB_STEP_SUMMARY"
