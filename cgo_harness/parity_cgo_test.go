@@ -46,6 +46,12 @@ var knownDegradedStructural = map[string]string{
 	"rst":     "fresh parse structural parity still diverges from C reference",
 }
 
+// knownDegradedNoErrorClean preserves no-error coverage for structural backlog
+// entries whose current failure is tree shape, not error-node production.
+var knownDegradedNoErrorClean = map[string]struct{}{
+	"norg": {},
+}
+
 type parityCase struct {
 	name   string
 	source string
@@ -288,6 +294,13 @@ func paritySkipReason(name string) string {
 		return meta.skipReason
 	}
 	return ""
+}
+
+func parityNoErrorSkipReason(name string) string {
+	if _, ok := knownDegradedNoErrorClean[name]; ok {
+		return ""
+	}
+	return paritySkipReason(name)
 }
 
 type nodeSnapshot struct {
@@ -978,7 +991,7 @@ func TestParityHasNoErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			parityMaybeParallel(t)
 			scheduleParityMemoryScavenge(t)
-			if reason := paritySkipReason(tc.name); reason != "" {
+			if reason := parityNoErrorSkipReason(tc.name); reason != "" {
 				t.Skipf("known mismatch: %s", reason)
 			}
 			tree, _, err := parseWithGo(tc, normalizedSource(tc.name, tc.source), nil)
