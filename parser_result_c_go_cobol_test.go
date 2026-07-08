@@ -467,3 +467,95 @@ func TestNormalizeCobolRecoveredParagraphHeader(t *testing.T) {
 		t.Fatalf("paragraph_header.HasError = true, want false")
 	}
 }
+
+func TestNormalizeCobolRecoveredParagraphHeaderPreservesOtherErrors(t *testing.T) {
+	lang := &Language{
+		Name:                  "COBOL",
+		GeneratedByGrammargen: true,
+		SymbolNames:           []string{"EOF", ".", "start", "program_definition", "identification_division", "procedure_division", "END_EVALUATE", "period", "paragraph_header"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: ".", Visible: true, Named: false},
+			{Name: "start", Visible: true, Named: true},
+			{Name: "program_definition", Visible: true, Named: true},
+			{Name: "identification_division", Visible: true, Named: true},
+			{Name: "procedure_division", Visible: true, Named: true},
+			{Name: "END_EVALUATE", Visible: true, Named: true},
+			{Name: "period", Visible: true, Named: true},
+			{Name: "paragraph_header", Visible: true, Named: true},
+		},
+	}
+	source := []byte("       identification division.\n" +
+		"       program-id. a.\n" +
+		"       procedure division.\n" +
+		"       evaluate 1\n" +
+		"       when 1\n" +
+		"         go to aa\n" +
+		"       when 2\n" +
+		"         go to aa\n" +
+		"       when other\n" +
+		"         go to aa\n" +
+		"       end-evaluate.\n" +
+		"       aa.\n")
+
+	arena := newNodeArena(arenaClassFull)
+	id := newLeafNodeInArena(arena, 4, true, 7, 53, advancePointByBytes(Point{}, source[:7]), advancePointByBytes(Point{}, source[:53]))
+	retainedErrDot := newLeafNodeInArena(arena, 1, false, 140, 141, advancePointByBytes(Point{}, source[:140]), advancePointByBytes(Point{}, source[:141]))
+	retainedErrDot.setHasError(true)
+	retainedErr := newParentNodeInArena(arena, errorSymbol, true, []*Node{retainedErrDot}, nil, 0)
+	retainedErr.setExtra(true)
+	retainedErr.setHasError(true)
+	retainedErr.startByte = 138
+	retainedErr.startPoint = advancePointByBytes(Point{}, source[:138])
+	retainedErr.endByte = 141
+	retainedErr.endPoint = advancePointByBytes(Point{}, source[:141])
+	endEvaluate := newLeafNodeInArena(arena, 6, true, 206, 218, advancePointByBytes(Point{}, source[:206]), advancePointByBytes(Point{}, source[:218]))
+	period := newLeafNodeInArena(arena, 7, true, 218, 219, advancePointByBytes(Point{}, source[:218]), advancePointByBytes(Point{}, source[:219]))
+	proc := newParentNodeInArena(arena, 5, true, []*Node{retainedErr, endEvaluate, period}, nil, 0)
+	proc.setHasError(true)
+	proc.startByte = 61
+	proc.startPoint = advancePointByBytes(Point{}, source[:61])
+	proc.endByte = 230
+	proc.endPoint = advancePointByBytes(Point{}, source[:230])
+	def := newParentNodeInArena(arena, 3, true, []*Node{id, proc}, nil, 0)
+	def.setHasError(true)
+	def.startByte = 7
+	def.startPoint = advancePointByBytes(Point{}, source[:7])
+	def.endByte = 230
+	def.endPoint = advancePointByBytes(Point{}, source[:230])
+	errDot := newLeafNodeInArena(arena, 1, false, 229, 230, advancePointByBytes(Point{}, source[:229]), advancePointByBytes(Point{}, source[:230]))
+	errDot.setHasError(true)
+	err := newParentNodeInArena(arena, errorSymbol, true, []*Node{errDot}, nil, 0)
+	err.setExtra(true)
+	err.setHasError(true)
+	err.startByte = 227
+	err.startPoint = advancePointByBytes(Point{}, source[:227])
+	err.endByte = 230
+	err.endPoint = advancePointByBytes(Point{}, source[:230])
+	root := newParentNodeInArena(arena, 2, true, []*Node{def, err}, nil, 0)
+	root.setHasError(true)
+	root.startByte = 7
+	root.startPoint = advancePointByBytes(Point{}, source[:7])
+	root.endByte = uint32(len(source))
+	root.endPoint = advancePointByBytes(Point{}, source)
+
+	normalizeResultCompatibility(root, source, &Parser{language: lang})
+
+	if !root.HasError() {
+		t.Fatalf("root.HasError = false, want true for retained non-header error")
+	}
+	procedure := root.Child(0).Child(1)
+	if !procedure.HasError() {
+		t.Fatalf("procedure_division.HasError = false, want true for retained non-header error")
+	}
+	if got, want := root.ChildCount(), 1; got != want {
+		t.Fatalf("root.ChildCount = %d, want %d", got, want)
+	}
+	header := procedure.Child(procedure.ChildCount() - 1)
+	if got, want := header.Type(lang), "paragraph_header"; got != want {
+		t.Fatalf("last procedure child type = %q, want %q", got, want)
+	}
+	if header.HasError() {
+		t.Fatalf("paragraph_header.HasError = true, want false")
+	}
+}
