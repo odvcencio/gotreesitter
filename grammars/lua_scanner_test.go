@@ -101,3 +101,23 @@ func TestLuaBlockScannerMatchesC(t *testing.T) {
 		})
 	}
 }
+
+func TestLuaStringEscapesMatchCShape(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+	}{
+		{name: "decimal_escape", src: "a = '\\027'\n"},
+		{name: "backslash_escape", src: "a = '\\\\'\n"},
+		{name: "newline_escape", src: "a = '\\n'\n"},
+	}
+	want := `(chunk (assignment_statement (variable_list (identifier)) (expression_list (string (string_content (escape_sequence))))))`
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := luaParse(t, tc.src)
+			if got != want {
+				t.Fatalf("SExpr mismatch for %q:\n got  %s\n want %s", tc.src, got, want)
+			}
+		})
+	}
+}
