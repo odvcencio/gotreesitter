@@ -16,8 +16,8 @@
     "that isn't green today is worse than useless."
   ],
   "schema": "gts-perf-ratio-budgets/v1",
-  "generated_at": "2026-07-08T22:07:30Z",
-  "generated_by": "wave-3 fleet perf sweep ratchet pass, branch wave3/fleet-perf-batch4, extending the wave-2b budget with batch-1 through batch-4 measurements through HEAD 60098b81",
+  "generated_at": "2026-07-08T22:31:00Z",
+  "generated_by": "wave-3 fleet perf sweep ratchet pass, branch wave3/fleet-perf-batch5, extending the wave-2b budget with batch-1 through batch-5 measurements through HEAD 2f5c82f2",
   "measurement_basis": {
     "harness": "cgo_harness/perf_scan (TestPerfScanSweep / TestPerfScanLanguage, tags treesitter_c_parity treesitter_c_perfscan)",
     "corpus_root": "/home/draco/work/gotreesitter-corpora/corpus_sources (real upstream per-language checkouts, largest-8-files sampling -- deliberately adversarial, hunts cliffs, NOT representative of typical file size)",
@@ -42,7 +42,8 @@
     "wave3_batch1_20260708T202820Z": "first Wave-3 fleet batch on HEAD edf04d84, Docker-isolated with the ratchet basis (largest-8, reps=5, warmup=1, file_budget=10000ms, axes full/noedit), languages c/css/html/sql/toml/yaml/zig/elixir/graphql/hcl. SQL is intentionally NOT budgeted from this run because its child exited early with signal:killed after 4/8 files and the Docker wrapper reported oom_killed=true; keep it as a measured ledger item until a complete row or an explicit language-status budget policy exists.",
     "wave3_batch2_20260708T211248Z": "second Wave-3 fleet batch on HEAD 3426d5f9, Docker-isolated with the ratchet basis (largest-8, reps=5, warmup=1, file_budget=10000ms, axes full/noedit), languages nix/dart/elm/erlang/gomod/ini/json5/julia/make/markdown. All ten language subprocesses completed; dart and julia retain explicit timeout budgets, julia also retains flagged truncation/error budgets, and json5/ini are thin-corpus rows rather than broad coverage claims.",
     "wave3_batch3_20260708T213644Z": "third Wave-3 fleet batch on HEAD 06e2b8e9, Docker-isolated with the ratchet basis (largest-8, reps=5, warmup=1, file_budget=10000ms, axes full/noedit), languages ada/agda/angular/apex/arduino/asm/astro/authzed/awk/cobol. All ten language subprocesses completed; angular and asm retain explicit timeout budgets, ada/angular/asm/awk are measured cliff backlog rows, and cobol is now cleanly budgeted at <=2x.",
-    "wave3_batch4_20260708T215550Z": "fourth Wave-3 fleet batch on HEAD 60098b81, Docker-isolated with the ratchet basis (largest-8, reps=5, warmup=1, file_budget=10000ms, axes full/noedit), languages bass/beancount/bibtex/bicep/bitbake/blade/brightscript/caddy/cairo/capnp, plus supplemental chatito run wave3_batch4_chatito_20260708T220456Z. All subprocesses completed; bicep is intentionally not budgeted because one selected file hit a C reference timeout, bass retains one flagged truncation/error budget, bitbake retains explicit timeout budgets, and chatito is a thin-corpus one-file row."
+    "wave3_batch4_20260708T215550Z": "fourth Wave-3 fleet batch on HEAD 60098b81, Docker-isolated with the ratchet basis (largest-8, reps=5, warmup=1, file_budget=10000ms, axes full/noedit), languages bass/beancount/bibtex/bicep/bitbake/blade/brightscript/caddy/cairo/capnp, plus supplemental chatito run wave3_batch4_chatito_20260708T220456Z. All subprocesses completed; bicep is intentionally not budgeted because one selected file hit a C reference timeout, bass retains one flagged truncation/error budget, bitbake retains explicit timeout budgets, and chatito is a thin-corpus one-file row.",
+    "wave3_batch5_20260708T222227Z": "fifth Wave-3 fleet batch on HEAD 2f5c82f2, Docker-isolated with the ratchet basis (largest-8, reps=5, warmup=1, file_budget=10000ms, axes full/noedit), languages circom/clojure/comment/commonlisp/cooklang/corn/cpon/csv/cuda/cue. All ten language subprocesses completed with no C-reference failures; circom/commonlisp/cooklang retain explicit timeout budgets, cooklang is an all-timeout/node-limit row, comment is clean <=2x, and the remaining rows are measured >2x or cliff throughput backlog rows."
   },
   "languages": {
     "php": {
@@ -1177,6 +1178,206 @@
         "max_errors": 0,
         "max_ratio_by_total": 1.0,
         "observed_ratio_by_total": 0.0107
+      }
+    },
+    "circom": {
+      "status": "green_with_caveat",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): 8 files selected; 6 full-axis files produced ratio aggregates at 4.66x, and poseidon_constants.circom plus poseidon_constants_old.circom hit 10s go_timeouts on full and noedit base parse. This is a measured throughput and timeout backlog row.",
+      "full_axis": {
+        "max_timeouts": 2,
+        "max_errors": 0,
+        "max_ratio_by_total": 6.0,
+        "max_ratio_median_of_files": 6.0,
+        "observed_ratio_by_total": 4.656,
+        "observed_ratio_median_of_files": 4.697
+      },
+      "noedit_axis": {
+        "max_timeouts": 2,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.00568
+      }
+    },
+    "clojure": {
+      "status": "green_with_caveat",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): 8/8 files measured, 0 timeouts, 0 truncations, aggregate full parse 2.01x. This is a measured just-over-2x backlog row.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 2.6,
+        "max_ratio_median_of_files": 2.6,
+        "observed_ratio_by_total": 2.006,
+        "observed_ratio_median_of_files": 2.017
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.000165
+      }
+    },
+    "comment": {
+      "status": "green",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): 8/8 files measured, 0 timeouts, 0 truncations, full parse within <=2x.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.9,
+        "max_ratio_median_of_files": 1.9,
+        "observed_ratio_by_total": 1.445,
+        "observed_ratio_median_of_files": 1.481
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.0000584
+      }
+    },
+    "commonlisp": {
+      "status": "green_with_caveat",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): 8 files selected; 5 full-axis files completed, all 8 selected files are cliff-class, and uiop.lisp, src/code/type.lisp, and tests/compiler.pure.lisp hit go_timeouts or memory_budget on full and noedit base parse. This is a severe measured throughput and memory-budget backlog row.",
+      "full_axis": {
+        "max_timeouts": 3,
+        "max_errors": 0,
+        "max_ratio_by_total": 32,
+        "max_ratio_median_of_files": 29,
+        "observed_ratio_by_total": 24.766,
+        "observed_ratio_median_of_files": 22.162
+      },
+      "noedit_axis": {
+        "max_timeouts": 3,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.0000215
+      }
+    },
+    "cooklang": {
+      "status": "green_with_caveat",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): only 3 files selected by the corpus lock and all three hit node_limit go_timeouts on full and noedit base parse, leaving no completing ratio aggregate. This is an all-timeout/node-limit backlog row, not a throughput-green row.",
+      "full_axis": {
+        "max_timeouts": 3,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "max_ratio_median_of_files": 0,
+        "observed_ratio_by_total": 0,
+        "observed_ratio_median_of_files": 0
+      },
+      "noedit_axis": {
+        "max_timeouts": 3,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0
+      }
+    },
+    "corn": {
+      "status": "green_with_caveat",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): 8/8 files measured, 0 timeouts, 0 truncations, only 917 bytes total, aggregate full parse 2.17x. This is a thin-corpus measured >2x ratchet row.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 2.8,
+        "max_ratio_median_of_files": 2.8,
+        "observed_ratio_by_total": 2.168,
+        "observed_ratio_median_of_files": 2.193
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.0144
+      }
+    },
+    "cpon": {
+      "status": "green_with_caveat",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): 8/8 files measured, 0 timeouts, 0 truncations, aggregate full parse 2.77x. This is a measured >2x backlog row.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 3.6,
+        "max_ratio_median_of_files": 3.4,
+        "observed_ratio_by_total": 2.770,
+        "observed_ratio_median_of_files": 2.640
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.00179
+      }
+    },
+    "csv": {
+      "status": "green_with_caveat",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): 8/8 files measured, 0 timeouts, 0 truncations, and all eight full-parse files are >10x cliffs across large CSV data files. This is a severe measured throughput backlog row.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 30,
+        "max_ratio_median_of_files": 36,
+        "observed_ratio_by_total": 22.793,
+        "observed_ratio_median_of_files": 27.733
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.00000289
+      }
+    },
+    "cuda": {
+      "status": "green_with_caveat",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): 8/8 files measured, 0 timeouts, 0 truncations, aggregate full parse 65.02x dominated by three CUDA sample cliffs. This is a measured throughput backlog row.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 85,
+        "max_ratio_median_of_files": 9.0,
+        "observed_ratio_by_total": 65.022,
+        "observed_ratio_median_of_files": 6.825
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.000518
+      }
+    },
+    "cue": {
+      "status": "green_with_caveat",
+      "wave3_batch5": true,
+      "measured_today": true,
+      "note": "Wave-3 batch-5 authoritative sweep (wave3_batch5_20260708T222227Z): 8/8 files measured, 0 timeouts, 0 truncations, aggregate full parse 20.93x dominated by internal/ci/base/github.cue at 101.9x while the median file remains 1.57x. This is a measured single-cliff throughput backlog row.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 27,
+        "max_ratio_median_of_files": 2.0,
+        "observed_ratio_by_total": 20.932,
+        "observed_ratio_median_of_files": 1.571
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.000247
       }
     }
   },
