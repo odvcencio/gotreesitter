@@ -309,7 +309,7 @@ func cobolBytesAreTrailingTrivia(source []byte, start, end uint32) bool {
 				column++
 				continue
 			}
-			if column >= 72 {
+			if column >= 72 && cobolLineLooksFixedFormat(source, lineStart) {
 				column++
 				continue
 			}

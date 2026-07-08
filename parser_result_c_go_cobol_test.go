@@ -548,6 +548,13 @@ func TestCobolTrailingTriviaRejectsFreeFormatCode(t *testing.T) {
 	if cobolBytesAreTrailingTrivia(inline, inlineEnd, uint32(len(inline))) {
 		t.Fatalf("inline content before the identification area must not be trailing trivia")
 	}
+
+	longFree := append([]byte("display 1."), bytes.Repeat([]byte(" "), 72-len("display 1."))...)
+	longFree = append(longFree, []byte("real-code")...)
+	longFreeEnd := uint32(bytes.Index(longFree, []byte("display 1.")) + len("display 1."))
+	if cobolBytesAreTrailingTrivia(longFree, longFreeEnd, uint32(len(longFree))) {
+		t.Fatalf("column-73 content on a non-fixed-format line must not be trailing trivia")
+	}
 }
 
 func cobolTrailingTriviaTestLanguage() *Language {
