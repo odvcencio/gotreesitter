@@ -9,6 +9,7 @@ const (
 	minCuratedStructuralLanguages = 206
 	minCuratedHighlightLanguages  = 200
 	maxKnownDegradedStructural    = 14
+	maxKnownDegradedNoErrorClean  = 1
 	maxKnownDegradedHighlight     = 49
 	maxParitySkips                = 0
 )
@@ -24,6 +25,14 @@ func TestParityGateCoverageRatchet(t *testing.T) {
 	}
 	if got := len(knownDegradedStructural); got > maxKnownDegradedStructural {
 		t.Fatalf("knownDegradedStructural grew: got=%d max=%d", got, maxKnownDegradedStructural)
+	}
+	if got := len(knownDegradedNoErrorClean); got > maxKnownDegradedNoErrorClean {
+		t.Fatalf("knownDegradedNoErrorClean grew: got=%d max=%d", got, maxKnownDegradedNoErrorClean)
+	}
+	for name := range knownDegradedNoErrorClean {
+		if _, ok := knownDegradedStructural[name]; !ok {
+			t.Fatalf("knownDegradedNoErrorClean[%q] is not in knownDegradedStructural", name)
+		}
 	}
 	if got := len(knownDegradedHighlight); got > maxKnownDegradedHighlight {
 		t.Fatalf("knownDegradedHighlight grew: got=%d max=%d", got, maxKnownDegradedHighlight)

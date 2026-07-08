@@ -296,6 +296,9 @@ func paritySkipReason(name string) string {
 	return ""
 }
 
+// parityNoErrorSkipReason returns a skip reason for the no-error gate. Some
+// structural backlog entries still have useful no-error signal, so keep those
+// running while fresh/incremental structural parity remains skipped.
 func parityNoErrorSkipReason(name string) string {
 	if _, ok := knownDegradedNoErrorClean[name]; ok {
 		return ""
