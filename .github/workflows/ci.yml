@@ -180,7 +180,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: cgo_harness/go.mod
 
       - name: Validate perf scan budget ratchet
         working-directory: cgo_harness

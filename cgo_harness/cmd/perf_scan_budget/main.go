@@ -294,8 +294,8 @@ func compareAxis(lang, axis string, budget budgetAxis, row scoreboardLang) []eva
 	if !ok {
 		return append(out, evalFinding{Language: lang, Axis: axis, Metric: "axis", Got: "missing", Want: "measured"})
 	}
-	if actual.FilesOK == 0 && actual.RatioByTotal <= 0 {
-		out = append(out, evalFinding{Language: lang, Axis: axis, Metric: "files_ok", Got: "0", Want: ">0"})
+	if len(row.Files) == 0 {
+		out = append(out, evalFinding{Language: lang, Axis: axis, Metric: "files", Got: "0", Want: ">0"})
 	}
 	if actual.GoTimeouts > budget.MaxTimeouts {
 		out = append(out, evalFinding{Language: lang, Axis: axis, Metric: "go_timeouts", Got: fmt.Sprint(actual.GoTimeouts), Want: fmt.Sprintf("<=%d", budget.MaxTimeouts)})
@@ -324,11 +324,22 @@ func countGoErrors(row scoreboardLang, axis string) int {
 		if !ok {
 			continue
 		}
-		if fa.Status == "go_error" || fa.Status == "go_panic" {
+		if isGoErrorStatus(fa.Status) {
 			n++
 		}
 	}
 	return n
+}
+
+func isGoErrorStatus(status string) bool {
+	switch status {
+	case "go_error", "go_panic", "go_truncated", "go_partial":
+		return true
+	case "go_timeout", statusOK, "":
+		return false
+	default:
+		return strings.HasPrefix(status, "go_") && strings.Contains(status, "trunc")
+	}
 }
 
 func countCProblems(row scoreboardLang, axis string) int {

@@ -50,6 +50,96 @@ func TestCompareScoreboardReportsRegressions(t *testing.T) {
 	}
 }
 
+func TestCompareScoreboardReportsMedianRatioRegression(t *testing.T) {
+	b := testBudget()
+	lang := b.Languages["go"]
+	lang.FullAxis.MaxRatioMedianOfFiles = 2
+	b.Languages["go"] = lang
+	s := testScoreboard(1.5, 0, 0)
+	s.Languages[0].Axes[axisFull] = scoreboardAxis{
+		FilesOK:            1,
+		RatioByTotal:       1.5,
+		RatioMedianOfFiles: 2.5,
+	}
+
+	findings := compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	got := renderFindingKeys(findings)
+	if !strings.Contains(got, "go:full:ratio_median_of_files") {
+		t.Fatalf("findings %q missing median ratio failure (%#v)", got, findings)
+	}
+}
+
+func TestCompareScoreboardReportsStrictConfigMismatch(t *testing.T) {
+	b := testBudget()
+	s := testScoreboard(2.5, 0, 0)
+	s.Config.Reps = 7
+
+	findings := compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	got := renderFindingKeys(findings)
+	if !strings.Contains(got, "::config.reps") {
+		t.Fatalf("findings %q missing config reps failure (%#v)", got, findings)
+	}
+}
+
+func TestCompareScoreboardReportsCReferenceFailure(t *testing.T) {
+	b := testBudget()
+	s := testScoreboard(2.5, 0, 0)
+	s.Languages[0].Files[0].Axes[axisFull] = scoreboardFileAxis{Status: "c_timeout"}
+
+	findings := compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	got := renderFindingKeys(findings)
+	if !strings.Contains(got, "go:full:c_reference_failures") {
+		t.Fatalf("findings %q missing C reference failure (%#v)", got, findings)
+	}
+}
+
+func TestCompareScoreboardCountsDefensiveTruncationStatus(t *testing.T) {
+	b := testBudget()
+	s := testScoreboard(2.5, 0, 0)
+	s.Languages[0].Files[0].Axes[axisFull] = scoreboardFileAxis{Status: "go_truncated"}
+
+	findings := compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	if len(findings) != 0 {
+		t.Fatalf("one truncation should be within the explicit full-axis budget: %#v", findings)
+	}
+
+	lang := b.Languages["go"]
+	lang.FullAxis.MaxErrors = intPtr(0)
+	b.Languages["go"] = lang
+	findings = compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	got := renderFindingKeys(findings)
+	if !strings.Contains(got, "go:full:go_errors") {
+		t.Fatalf("findings %q missing go_truncated error accounting (%#v)", got, findings)
+	}
+}
+
+func TestCompareScoreboardAllowsAllTimeoutsWithinBudget(t *testing.T) {
+	b := testBudget()
+	lang := b.Languages["go"]
+	lang.FullAxis.MaxTimeouts = 2
+	lang.NoEditAxis.MaxTimeouts = 2
+	b.Languages["go"] = lang
+
+	s := testScoreboard(0, 2, 0)
+	s.Languages[0].Axes[axisFull] = scoreboardAxis{GoTimeouts: 2}
+	s.Languages[0].Axes[axisNoEdit] = scoreboardAxis{GoTimeouts: 2}
+	s.Languages[0].Files = []scoreboardFileRow{
+		{Path: "timeout-a.go", Axes: map[string]scoreboardFileAxis{
+			axisFull:   {Status: "go_timeout"},
+			axisNoEdit: {Status: "go_timeout"},
+		}},
+		{Path: "timeout-b.go", Axes: map[string]scoreboardFileAxis{
+			axisFull:   {Status: "go_timeout"},
+			axisNoEdit: {Status: "go_timeout"},
+		}},
+	}
+
+	findings := compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	if len(findings) != 0 {
+		t.Fatalf("all-timeout budget should pass when timeouts stay within budget: %#v", findings)
+	}
+}
+
 func TestCompareScoreboardRequiresConfiguredLanguage(t *testing.T) {
 	b := testBudget()
 	s := testScoreboard(2.5, 0, 0)
@@ -63,6 +153,29 @@ func TestCompareScoreboardRequiresConfiguredLanguage(t *testing.T) {
 	got := renderFindingKeys(findings)
 	if !strings.Contains(got, "go::scoreboard") {
 		t.Fatalf("findings %q missing missing-language failure", got)
+	}
+}
+
+func TestCompareScoreboardReportsUnknownBudgetLanguage(t *testing.T) {
+	b := testBudget()
+	s := testScoreboard(2.5, 0, 0)
+	s.Languages = append(s.Languages, scoreboardLang{
+		Language: "unknown",
+		Status:   statusOK,
+		Axes: map[string]scoreboardAxis{
+			axisFull:   {FilesOK: 1, RatioByTotal: 1},
+			axisNoEdit: {FilesOK: 1, RatioByTotal: 1},
+		},
+		Files: []scoreboardFileRow{{Path: "x", Axes: map[string]scoreboardFileAxis{
+			axisFull:   {Status: statusOK},
+			axisNoEdit: {Status: statusOK},
+		}}},
+	})
+
+	findings := compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	got := renderFindingKeys(findings)
+	if !strings.Contains(got, "unknown::budget") {
+		t.Fatalf("findings %q missing unknown budget language failure (%#v)", got, findings)
 	}
 }
 
