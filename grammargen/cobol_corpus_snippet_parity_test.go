@@ -132,6 +132,21 @@ func TestCobolCorpusSnippetDeepParity(t *testing.T) {
 				"       end-perform.",
 		},
 		{
+			name: "evaluate_when_other_corpus_block_exact",
+			src: "       identification division.\n" +
+				"       program-id. a.\n" +
+				"       procedure division.\n" +
+				"       evaluate 1\n" +
+				"       when 1\n" +
+				"         go to aa\n" +
+				"       when 2\n" +
+				"         go to aa\n" +
+				"       when other\n" +
+				"         go to aa\n" +
+				"       end-evaluate.\n" +
+				"       aa.\n",
+		},
+		{
 			name: "fixed_format_comment_corpus_block_exact",
 			src: "aaaaaa identification division.\n" +
 				"aaaaaa program-id. a.  ,,, ;;;                                          aaaaa\n" +

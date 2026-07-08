@@ -230,6 +230,8 @@ type cRecoveryGateCacheKey struct {
 	parseTableLen         int
 	smallParseTableLen    int
 	smallParseTableMapLen int
+	largeStateGotosLen    int
+	largeStateGotosHash   uint64
 
 	hasExternalScanner     bool
 	externalSymbolsLen     int
@@ -266,6 +268,8 @@ func cRecoveryGateCacheKeyFor(lang *Language) cRecoveryGateCacheKey {
 		parseTableLen:         len(lang.ParseTable),
 		smallParseTableLen:    len(lang.SmallParseTable),
 		smallParseTableMapLen: len(lang.SmallParseTableMap),
+		largeStateGotosLen:    len(lang.LargeStateGotos),
+		largeStateGotosHash:   largeStateGotosFingerprint(lang.LargeStateGotos),
 
 		hasExternalScanner:     lang.ExternalScanner != nil,
 		externalSymbolsLen:     len(lang.ExternalSymbols),
@@ -294,6 +298,16 @@ func cRecoveryGateCacheKeyFor(lang *Language) cRecoveryGateCacheKey {
 		key.externalLexStatesPtr = &lang.ExternalLexStates[0]
 	}
 	return key
+}
+
+func largeStateGotosFingerprint(gotos map[uint64]StateID) uint64 {
+	var h uint64
+	for key, target := range gotos {
+		v := uint64(target)
+		h ^= key + 0x9e3779b97f4a7c15 + (v << 6) + (v >> 2)
+		h ^= (key << 17) | (key >> 47)
+	}
+	return h
 }
 
 // DiagnoseCRecoveryGate validates the runtime table surface required by the
@@ -531,6 +545,22 @@ func parseTablesCRecoveryFailure(lang *Language) string {
 			if reason := validateValue(sym, val); reason != "" {
 				return reason
 			}
+		}
+	}
+	for key, target := range lang.LargeStateGotos {
+		state := int(key >> 32)
+		sym := int(uint32(key))
+		if state < 0 || state >= stateCount {
+			return "large-state goto source state is outside StateCount"
+		}
+		if sym < 0 || sym >= symbolCount {
+			return "large-state goto symbol is outside SymbolCount"
+		}
+		if sym < tokenCount {
+			return "large-state goto symbol is terminal"
+		}
+		if target == 0 || target >= StateID(stateCount) {
+			return "large-state goto target state is outside StateCount"
 		}
 	}
 	if len(lang.SmallParseTableMap) == 0 {

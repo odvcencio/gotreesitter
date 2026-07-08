@@ -302,6 +302,10 @@ type Language struct {
 	SmallParseTable    []uint16   // compressed sparse table
 	SmallParseTableMap []uint32   // state -> offset into SmallParseTable
 	ParseActions       []ParseActionEntry
+	// LargeStateGotos stores nonterminal GOTO targets that do not fit in the
+	// uint16 parse-table cells used by tree-sitter C tables. Keys are
+	// uint64(state)<<32 | uint64(symbol). Terminal actions must never live here.
+	LargeStateGotos map[uint64]StateID
 
 	// ReduceChainHints are optional generated hot-path hints for deterministic
 	// reduce runs. They are only consumed when reduce-chain hints are enabled.
@@ -671,6 +675,7 @@ func (l *Language) Size() int64 {
 	size += languageSliceSize(l.SmallParseTable)
 	size += languageSliceSize(l.SmallParseTableMap)
 	size += languageParseActionsSize(l.ParseActions)
+	size += languageStateIDMapSize(l.LargeStateGotos)
 	size += languageReduceChainHintsSize(l.ReduceChainHints)
 	size += languageLexStatesSize(l.LexStates)
 	size += languageLexStatesSize(l.KeywordLexStates)
@@ -748,6 +753,10 @@ func languageParseActionsSize(actions []ParseActionEntry) int64 {
 		size += languageSliceSize(entry.Actions)
 	}
 	return size
+}
+
+func languageStateIDMapSize(m map[uint64]StateID) int64 {
+	return int64(len(m)) * int64(unsafe.Sizeof(uint64(0))+unsafe.Sizeof(StateID(0)))
 }
 
 func languageReduceChainHintsSize(hints []ReduceChainHint) int64 {

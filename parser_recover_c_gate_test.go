@@ -203,6 +203,37 @@ func TestCRecoveryGateValidatesParseTableActionAndGotoBounds(t *testing.T) {
 	}
 }
 
+func TestCRecoveryGateAcceptsLargeStateGotos(t *testing.T) {
+	t.Setenv("GOT_C_RECOVERY", "")
+	lang := cRecoveryGateLanguage()
+	lang.StateCount = 70002
+	lang.LexModes = make([]LexMode, lang.StateCount)
+	for i := range lang.LexModes {
+		lang.LexModes[i].LexState = 0
+	}
+	lang.LargeStateGotos = map[uint64]StateID{
+		largeStateGotoKey(1, 2): 70001,
+	}
+	validHash := largeStateGotosFingerprint(lang.LargeStateGotos)
+	if !errorCostCompetitionLanguage(lang) {
+		t.Fatalf("large-state nonterminal goto rejected: %+v", DiagnoseCRecoveryGate(lang))
+	}
+
+	lang.LargeStateGotos = map[uint64]StateID{
+		largeStateGotoKey(1, 1): 70001,
+	}
+	if invalidHash := largeStateGotosFingerprint(lang.LargeStateGotos); invalidHash == validHash {
+		t.Fatal("large-state goto fingerprint did not change after map contents changed")
+	}
+	diag := DiagnoseCRecoveryGate(lang)
+	if errorCostCompetitionLanguage(lang) {
+		t.Fatalf("terminal symbol accepted in large-state goto table: %+v", diag)
+	}
+	if !strings.Contains(diag.Reason, "large-state goto symbol is terminal") {
+		t.Fatalf("diagnostic reason = %q, want terminal large-state goto reason", diag.Reason)
+	}
+}
+
 func TestCRecoveryGateGrammargenRequiresExplicitCertification(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
 	lang := cRecoveryGateLanguage()

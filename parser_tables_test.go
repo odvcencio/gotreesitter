@@ -138,6 +138,35 @@ func TestLookupActionIndexSmallUsesFullSymbolRowsForGo(t *testing.T) {
 	}
 }
 
+func TestLookupGotoUsesLargeStateGotos(t *testing.T) {
+	const (
+		sourceState = StateID(1)
+		rootSymbol  = Symbol(3)
+		targetState = StateID(70001)
+	)
+	lang := &Language{
+		TokenCount:      2,
+		SymbolCount:     4,
+		StateCount:      70002,
+		InitialState:    1,
+		LargeStateCount: 2,
+		ParseTable: [][]uint16{
+			make([]uint16, 4),
+			make([]uint16, 4),
+		},
+		ParseActions:    []ParseActionEntry{{}},
+		LargeStateGotos: map[uint64]StateID{largeStateGotoKey(sourceState, rootSymbol): targetState},
+	}
+	p := NewParser(lang)
+
+	if got := p.lookupActionIndex(sourceState, rootSymbol); got != 0 {
+		t.Fatalf("lookupActionIndex large goto cell = %d, want 0 legacy-table spill marker", got)
+	}
+	if got := p.lookupGoto(sourceState, rootSymbol); got != targetState {
+		t.Fatalf("lookupGoto large target = %d, want %d", got, targetState)
+	}
+}
+
 func TestBuildExternalValidByStateUsesCompactExternalIndexes(t *testing.T) {
 	lang := &Language{
 		TokenCount:      5,

@@ -12,10 +12,11 @@ import (
 // maxUint16Index is the largest value that fits in the uint16 index/ID fields
 // grammargen writes into a Language: parse-action group indices (ParseTable /
 // SmallParseTable values), field-map and supertype-map offsets, reserved-word
-// set IDs, external-lex-state row indices, and parse-table state IDs. A naive
-// uint16(n) conversion of a larger value silently wraps and produces a
-// valid-looking but WRONG table — generation "succeeds" and the corruption only
-// surfaces later as mysterious downstream parse failures. checkUint16Index
+// set IDs, and external-lex-state row indices. Nonterminal GOTO state IDs can
+// exceed this and spill into Language.LargeStateGotos. A naive uint16(n)
+// conversion of a larger value silently wraps and produces a valid-looking but
+// WRONG table — generation "succeeds" and the corruption only surfaces later
+// as mysterious downstream parse failures. checkUint16Index
 // turns that worst-case silent wrap into a hard generation error instead.
 const maxUint16Index = math.MaxUint16 // 65535
 
@@ -576,10 +577,14 @@ func buildParseTables(
 		parseActions = append(parseActions, extraEntry)
 	}
 
-	// Build the raw action table: [state][symbol] → action index.
-	rawTable := make([][]uint16, tables.StateCount)
+	// Build the raw action table: [state][symbol] -> action index or GOTO state.
+	// Keep this intermediate wide: terminal action indices must still fit in
+	// uint16, but large generated grammars can have nonterminal GOTO targets
+	// above 65535. Those spill into Language.LargeStateGotos when the final
+	// runtime tables are emitted.
+	rawTable := make([][]uint32, tables.StateCount)
 	for state := 0; state < tables.StateCount; state++ {
-		row := make([]uint16, symbolCount)
+		row := make([]uint32, symbolCount)
 		rawTable[state] = row
 
 		// Terminal actions.
@@ -592,7 +597,7 @@ func buildParseTables(
 			}
 			sort.Ints(syms)
 			for _, sym := range syms {
-				row[sym] = getOrAddActionGroup(acts[sym])
+				row[sym] = uint32(getOrAddActionGroup(acts[sym]))
 			}
 		}
 
@@ -603,7 +608,7 @@ func buildParseTables(
 				continue // nonterminal extra — handled by LR items/reduce
 			}
 			if row[extraSym] == 0 {
-				row[extraSym] = extraShiftIdx
+				row[extraSym] = uint32(extraShiftIdx)
 			}
 		}
 
@@ -617,7 +622,7 @@ func buildParseTables(
 			}
 			sort.Ints(syms)
 			for _, sym := range syms {
-				row[sym] = uint16(gotos[sym])
+				row[sym] = uint32(gotos[sym])
 			}
 		}
 	}
@@ -686,23 +691,16 @@ func buildParseTables(
 	// Remap: state 0 in our LR construction = initial state = should be state 1.
 	// We need to insert an empty state 0 for error recovery.
 	newStateCount := tables.StateCount + 1 // +1 for error recovery state 0
-	// Gotos and remapped shift targets are stored as uint16 in ParseTable /
-	// SmallParseTable, so the highest state ID (newStateCount-1) must fit.
-	// lr.go bounds states against uint32 for the general builder, which leaves
-	// this narrower table encoding unguarded — close that gap here.
-	if err := checkUint16Index(ng.GrammarName, "parse table state", newStateCount-1); err != nil {
-		return err
-	}
 	stateRemap := make([]int, tables.StateCount)
 	for i := range stateRemap {
 		stateRemap[i] = i + 1 // shift everything up by 1
 	}
 
 	// Rebuild rawTable with remapped states.
-	newRawTable := make([][]uint16, newStateCount)
-	newRawTable[0] = make([]uint16, symbolCount) // state 0 = error recovery (empty)
+	newRawTable := make([][]uint32, newStateCount)
+	newRawTable[0] = make([]uint32, symbolCount) // state 0 = error recovery (empty)
 	for oldState, newState := range stateRemap {
-		row := make([]uint16, symbolCount)
+		row := make([]uint32, symbolCount)
 		for sym, val := range rawTable[oldState] {
 			if val == 0 {
 				continue
@@ -713,7 +711,7 @@ func buildParseTables(
 			// For nonterminals: the value IS a state ID that needs remapping.
 			if sym >= tokenCount {
 				// GOTO: value is a state ID.
-				row[sym] = uint16(stateRemap[int(val)])
+				row[sym] = uint32(stateRemap[int(val)])
 			} else {
 				row[sym] = val
 			}
@@ -756,10 +754,40 @@ func buildParseTables(
 		largeStateCount = newStateCount
 	}
 
+	recordLargeGoto := func(state int, sym int, target uint32) {
+		if lang.LargeStateGotos == nil {
+			lang.LargeStateGotos = make(map[uint64]gotreesitter.StateID)
+		}
+		key := uint64(gotreesitter.StateID(state))<<32 | uint64(gotreesitter.Symbol(sym))
+		lang.LargeStateGotos[key] = gotreesitter.StateID(target)
+	}
+
+	downcastCell := func(state int, sym int, val uint32) (uint16, error) {
+		if val == 0 {
+			return 0, nil
+		}
+		if sym >= tokenCount && val > maxUint16Index {
+			recordLargeGoto(state, sym, val)
+			return 0, nil
+		}
+		if val > maxUint16Index {
+			return 0, checkUint16Index(ng.GrammarName, "parse table action/goto", int(val))
+		}
+		return uint16(val), nil
+	}
+
 	// Build dense parse table (first largeStateCount states).
 	lang.ParseTable = make([][]uint16, largeStateCount)
 	for i := 0; i < largeStateCount; i++ {
-		lang.ParseTable[i] = newRawTable[i]
+		row := make([]uint16, symbolCount)
+		for sym, val := range newRawTable[i] {
+			downcast, err := downcastCell(i, sym, val)
+			if err != nil {
+				return err
+			}
+			row[sym] = downcast
+		}
+		lang.ParseTable[i] = row
 	}
 
 	// Build sparse parse table for remaining states.
@@ -774,7 +802,14 @@ func buildParseTables(
 			groups := make(map[uint16][]uint16)
 			for sym, val := range newRawTable[state] {
 				if val != 0 {
-					groups[val] = append(groups[val], uint16(sym))
+					downcast, err := downcastCell(state, sym, val)
+					if err != nil {
+						return err
+					}
+					if downcast == 0 {
+						continue
+					}
+					groups[downcast] = append(groups[downcast], uint16(sym))
 				}
 			}
 

@@ -440,8 +440,28 @@ func (p *Parser) lookupActionIndexSmall(state StateID, sym Symbol) uint16 {
 	return 0
 }
 
+func largeStateGotoKey(state StateID, sym Symbol) uint64 {
+	return uint64(state)<<32 | uint64(sym)
+}
+
+func (l *Language) lookupLargeStateGoto(state StateID, sym Symbol) StateID {
+	if l == nil || len(l.LargeStateGotos) == 0 {
+		return 0
+	}
+	return l.LargeStateGotos[largeStateGotoKey(state, sym)]
+}
+
 // lookupGoto returns the GOTO target state for a nonterminal symbol.
 func (p *Parser) lookupGoto(state StateID, sym Symbol) StateID {
+	if p == nil || p.language == nil {
+		return 0
+	}
+	if p.language.TokenCount > 0 && uint32(sym) >= p.language.TokenCount {
+		if target := p.language.lookupLargeStateGoto(state, sym); target != 0 {
+			return target
+		}
+	}
+
 	raw := p.lookupActionIndex(state, sym)
 	if raw == 0 {
 		return 0

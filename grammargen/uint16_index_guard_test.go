@@ -8,7 +8,7 @@ import (
 // TestCheckUint16IndexBoundary pins the exact overflow boundary of the guard
 // that protects every uint16-indexed table grammargen writes (parse-action
 // group indices, field/supertype-map offsets, reserved-word-set IDs,
-// external-lex-state rows, parse-table state IDs). Constructing a real
+// external-lex-state rows). Constructing a real
 // >65535-entry grammar is impractical for a unit test, so the bounds check is
 // factored into checkUint16Index and its failure path is exercised directly.
 func TestCheckUint16IndexBoundary(t *testing.T) {
