@@ -69,7 +69,11 @@ jobs:
           - name: cmd
             package_filter: '/cmd/'
           - name: grammars
-            package_filter: '/grammars$|/grammargen/|/parser_result_test$'
+            package_filter: '/grammars$'
+          - name: grammargen-support
+            package_filter: '/grammargen/'
+          - name: parser-result
+            package_filter: '/parser_result_test$'
           - name: support
             package_filter: '/grep$|/taproot($|/)'
     steps:
@@ -83,7 +87,9 @@ jobs:
         # Keep each lane serialized under -race so timing-sensitive tests do
         # not contend with each other on 2-core hosted runners, but split the
         # former all-non-root sweep into package groups so the wall clock stays
-        # near the target 10-minute envelope.
+        # near the target 10-minute envelope. Keep parser-result and grammargen
+        # support out of the grammar registry lane; together they made the
+        # aggregate race shard sit near the timeout cap even for data-only PRs.
         # ./grammargen stays visibility-only until its enumerated backlog is
         # burned down and folded back into the blocking suite.
         run: |
@@ -106,7 +112,7 @@ jobs:
   grammargen_visibility:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
 
@@ -121,7 +127,7 @@ jobs:
         # check rollup while the blocking build gate has already passed.
         run: |
           set +e
-          go test ./grammargen -race -count=1 -timeout 10m
+          go test ./grammargen -race -count=1 -timeout 6m
           status=$?
           set -e
 
