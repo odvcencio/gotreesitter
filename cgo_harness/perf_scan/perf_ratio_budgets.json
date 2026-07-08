@@ -1,0 +1,424 @@
+{
+  "_ratchet_policy": [
+    "These budgets are RATCHETS, not targets: they may only ever be TIGHTENED.",
+    "A PR that loosens (regresses) any value in this file must carry a mechanism",
+    "RCA in its description -- i.e. a root-cause explanation of the perf/behavior",
+    "change that made the old (tighter) budget unreachable, not just 'CI is flaky'",
+    "or 'the new number is fine'. See cgo_harness/perf_scan/CI_PROPOSAL.md for the",
+    "non-blocking visibility job this file is meant to back, and cgo_harness/",
+    "perf_scan/README.md for the measurement protocol (verdict buckets, cliff",
+    "containment, ratio_by_total vs ratio_median_of_files) these numbers assume.",
+    "Every budget below was seeded from a REAL measurement (see _seed_sources)",
+    "with roughly +25% headroom over the best currently-reproducible number, so",
+    "budgets are comfortably green today while still tight enough to catch a",
+    "cliff regression. Where a language's real, fresh measurement contradicts an",
+    "optimistic prior assumption (bash), the real measurement wins -- a ratchet",
+    "that isn't green today is worse than useless."
+  ],
+  "schema": "gts-perf-ratio-budgets/v1",
+  "generated_at": "2026-07-07T07:05:47Z",
+  "generated_by": "wave-2b ratchet-drafting pass, branch wave2/integration, HEAD 009c55b9 (includes 7c04440c optimize(arena): Bound overflow slab growth -- wave-2a arena fix, -27% arena bytes on the js asm-class witness)",
+  "measurement_basis": {
+    "harness": "cgo_harness/perf_scan (TestPerfScanSweep / TestPerfScanLanguage, tags treesitter_c_parity treesitter_c_perfscan)",
+    "corpus_root": "/home/draco/work/gotreesitter-corpora/corpus_sources (real upstream per-language checkouts, largest-8-files sampling -- deliberately adversarial, hunts cliffs, NOT representative of typical file size)",
+    "selection": "order=largest max_files=8 min_file_bytes=0 max_file_bytes=4194304",
+    "order": "largest",
+    "max_files": 8,
+    "min_file_bytes": 0,
+    "max_file_bytes": 4194304,
+    "reps": 5,
+    "warmup": 1,
+    "file_budget_ms": 10000,
+    "axes": ["full", "noedit"],
+    "ratio_definition": "ratio = Go median ns / C median ns, per file; ratio_by_total = sum(Go medians)/sum(C medians) across completing files; ratio_median_of_files = median of per-file ratios. A file that hits the 10s per-attempt budget (wall-clock timeout or memory_budget stop) is excluded from both aggregates and counted in max_timeouts. A file whose Go tree completes but does not cover the full byte range (root.EndByte != len(source), status go_error/truncated) is counted in max_errors -- this is a DISTINCT failure mode from timeouts (silent-truncation-shaped correctness bugs, e.g. haskell/cpp/scala/crystal/typescript below) and is not caught by max_timeouts alone."
+  },
+  "_seed_sources": {
+    "authoritative_20260706T145520Z": "pre-campaign baseline (cgo_harness/perf_scan/out/authoritative_20260706T145520Z)",
+    "after_cliffs_20260706T210143Z": "post-wave-1 snapshot (cgo_harness/perf_scan/out/after_cliffs_20260706T210143Z); generated 2026-07-06T21:01:49Z, which is BEFORE commit 7c04440c (wave-2a arena fix, 2026-07-07T06:17:33Z) and before several wave-2a per-language fixes (php-cliff, java-ratio, kotlin-ratio) landed -- treat its numbers for php/c_sharp/java/kotlin/javascript/typescript as STALE lower bounds on today's real state, not current",
+    "wave2b_green_20260707T0100Z": "fresh re-sweep this pass, HEAD 009c55b9, languages bash/python/ruby/tsx/json/go/cpp/haskell/php, same corpus/order/reps/budget as authoritative -- CONTENDED run (loadavg1=5.10, auto-flagged by the harness), so treat ratios as slightly pessimistic vs a quiet box",
+    "wave2b_js_20260707T0000Z": "fresh re-sweep this pass, HEAD 009c55b9, javascript only, same corpus/order/reps/budget -- clean/uncontended run",
+    "webworker_oracle_spotcheck": "fresh cgo_harness oracle check this pass (BenchmarkParityRealCorpusParseFull/typescript + grammars.TestZZWave2Shape), single file src/lib/webworker.generated.d.ts (786262 bytes), sweeping GOT_PARSE_MEMORY_BUDGET_MB -- not part of the perf_scan sweep, see typescript.notes and known_budget_class_gaps below",
+    "pr142_evidence_and_wave2a_closeout_spore": "prior-agent scratch docs from this same campaign (/tmp .../scratchpad/pr142-evidence.md, spore-wave2a.md) documenting per-file wave-2a wins (php 0/8->8/8 @1.66x, c_sharp DeclaredTypeManager 25.08s->3.10s @8.1x 2/8->5/8 ok, kotlin JobSupport 5036ms->74ms, java DLBF 5.19s->521ms) that are NOT yet reflected in a full re-swept aggregate -- cited in notes where relevant, not used to fabricate an aggregate I did not measure"
+  },
+  "languages": {
+    "php": {
+      "status": "green",
+      "wave2b_pending": false,
+      "measured_today": true,
+      "note": "Wave-2a's 'repetition-shift fork cascade' fix (choose-reduce, C-faithful) resolved php's all-timeout class entirely. Fresh re-sweep today: 8/8 ok, 0 timeouts, 0 truncations. Matches pr142-evidence.md's reported 8/8 @1.66x (this run measured 1.91x/1.90x median on a contended box -- same <=2x bucket).",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 2.5,
+        "observed_ratio_by_total": 1.91,
+        "observed_ratio_median_of_files": 1.90
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.0116
+      }
+    },
+    "bash": {
+      "status": "green_with_caveat",
+      "wave2b_pending": true,
+      "measured_today": true,
+      "note": "DEVIATION FROM TASK EXAMPLE, evidence-based: the ~12x/<=1 timeout target is NOT reachable today. Fresh re-sweep: git-gui/git-gui.sh (101KB) still hits the 10s budget every run (go_timeout, iteration_limit or memory_budget depending on run) -- this is the named 'install.sh/eof_no_root residuals' wave-2b backlog item (still in flight per spore-wave2a.md: 'Wave 2b (live at close): ... bash eof_no_root + t1300'). Of the 7 completing files, ratio_by_total=110.1x is dominated by two legitimately-slow-but-completing outliers (t9300-fast-import.sh 1.31s/426x, t6423-merge-rename-directories.sh 1.69s/131x); ratio_median_of_files=39.3x is the more robust number. Budget seeded from median*1.25, NOT from the task's illustrative ~12x, because that number is not comfortably green today. Re-tighten toward the aspirational ~12x once git-gui.sh completes.",
+      "full_axis": {
+        "max_timeouts": 1,
+        "max_errors": 0,
+        "max_ratio_by_total": 140,
+        "max_ratio_median_of_files": 50,
+        "observed_ratio_by_total": 110.11,
+        "observed_ratio_median_of_files": 39.30
+      },
+      "noedit_axis": {
+        "max_timeouts": 1,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.0000412
+      }
+    },
+    "python": {
+      "status": "green",
+      "wave2b_pending": false,
+      "measured_today": true,
+      "note": "Fresh re-sweep: 8/8 ok, 0 timeouts, 0 truncations, comfortably under the task's ~25x example.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 25,
+        "observed_ratio_by_total": 17.77,
+        "observed_ratio_median_of_files": 10.65
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.0000216
+      }
+    },
+    "ruby": {
+      "status": "green",
+      "wave2b_pending": false,
+      "measured_today": true,
+      "note": "Fresh re-sweep: 8/8 ok, 0 timeouts, 0 truncations.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 5,
+        "observed_ratio_by_total": 3.60,
+        "observed_ratio_median_of_files": 2.21
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.00038
+      }
+    },
+    "tsx": {
+      "status": "green",
+      "wave2b_pending": false,
+      "measured_today": true,
+      "note": "Fresh re-sweep: 8/8 ok, 0 timeouts, 0 truncations. Healthiest language in the sweep by completion rate across every snapshot measured this campaign.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 4,
+        "observed_ratio_by_total": 2.59,
+        "observed_ratio_median_of_files": 2.15
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.00656
+      }
+    },
+    "json": {
+      "status": "green",
+      "wave2b_pending": false,
+      "measured_today": true,
+      "note": "Fresh re-sweep: 8/8 ok, 0 timeouts, 0 truncations.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 8,
+        "observed_ratio_by_total": 6.91,
+        "observed_ratio_median_of_files": 4.32
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.160
+      }
+    },
+    "go": {
+      "status": "green_with_caveat",
+      "wave2b_pending": true,
+      "measured_today": true,
+      "note": "Ratio comfortably under the task's ~8x example, but 2 real timeouts remain (src/cmd/compile/internal/ssa/opGen.go, rewriteAMD64.go -- both memory_budget stops on generated-code giants), unchanged in kind since wave-1 (was 4 pre-campaign, 3 post-wave-1, 2 today). max_timeouts added explicitly since the task's example gave a ratio-only target; without it this budget would implicitly demand 0 timeouts and be red today.",
+      "full_axis": {
+        "max_timeouts": 2,
+        "max_errors": 0,
+        "max_ratio_by_total": 8,
+        "observed_ratio_by_total": 5.84,
+        "observed_ratio_median_of_files": 2.99
+      },
+      "noedit_axis": {
+        "max_timeouts": 2,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.00001
+      }
+    },
+    "cpp": {
+      "status": "green_with_caveat",
+      "wave2b_pending": true,
+      "measured_today": true,
+      "note": "Ratio comfortably under the task's ~3x example. 1 timeout (include/fmt/format.h, memory_budget, unchanged since wave-1) AND 1 silent-truncation error (test/format-test.cc completes 'successfully' -- err==nil, ParseStoppedEarly()==false -- but root.EndByte=36806 of 101572, ~36% span). The truncation is a NEW distinct finding from this pass: max_errors added so a regression that turns more files into silent partial-tree accepts (rather than honest timeouts) is caught.",
+      "full_axis": {
+        "max_timeouts": 1,
+        "max_errors": 1,
+        "max_ratio_by_total": 3,
+        "observed_ratio_by_total": 2.02,
+        "observed_ratio_median_of_files": 1.55
+      },
+      "noedit_axis": {
+        "max_timeouts": 1,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.0000739
+      }
+    },
+    "haskell": {
+      "status": "green_with_caveat",
+      "wave2b_pending": true,
+      "measured_today": true,
+      "note": "CAUTION: the ~3x ratio is real but only reflects 1 of 8 giant files -- the completion rate, not the ratio, is haskell's actual health signal. 2 files hit go_timeout (memory_budget), and 5 of 8 (!) hit the SAME silent-truncation shape as cpp's format-test.cc: err==nil, ParseStoppedEarly()==false, but root.EndByte stops at 15-30% of the true span (e.g. Cabal/.../Configure.hs: 23548/118011 bytes). This is a distinct, probably-shared-mechanism correctness bug across at least cpp/haskell/scala/crystal/typescript (see max_errors on each) and is a stronger wave-2b candidate than the ratio number suggests.",
+      "full_axis": {
+        "max_timeouts": 2,
+        "max_errors": 5,
+        "max_ratio_by_total": 3,
+        "observed_ratio_by_total": 1.73,
+        "observed_ratio_median_of_files": 1.73,
+        "observed_files_ok": "1/8 -- ratio is not representative, see note"
+      },
+      "noedit_axis": {
+        "max_timeouts": 2,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.00787
+      }
+    },
+    "scala": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": false,
+      "note": "Documented from after_cliffs (post-wave-1, pre-wave-2a; STALE, not re-swept this pass). 1/8 ok; the completing file's 1.24x is not representative (survivorship of a single easy file). 5 go_timeout + 2 go_error/truncated (RefChecks.scala 115487/115488 -- 1 byte short, likely a boundary/trailing-token bug rather than a budget cliff; bridges.scala 11744/701402 -- severe, ~1.7% span). Known pre-existing gap per wave-1 notes: 'scala PathResolver recovery gap (machine-local gitignored fixture; byte-identical failure on main)'. Prime candidate for wave-2b's proposed 'global repetition-skip rule' (repetition-shift fork cascade, same mechanism class as the php fix, called out in spore-wave2a.md as 'wave-2b #0').",
+      "full_axis": {
+        "max_timeouts": 5,
+        "max_errors": 2,
+        "max_ratio_by_total": 2.0,
+        "observed_ratio_by_total": 1.236,
+        "observed_ratio_median_of_files": 1.236
+      },
+      "noedit_axis": {
+        "max_timeouts": 4,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.00313
+      }
+    },
+    "kotlin": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": false,
+      "note": "Documented from after_cliffs (post-wave-1, pre-wave-2a; STALE). 7/8 ok, 1 go_timeout (BufferedChannel.kt). Wave-2a fixed the safe-navigation ('?.') external-scanner mislex (display-name vs rule-name binding bug -> spurious ERROR -> O(n^2)) fleet-generally via positional-primary binding; per pr142-evidence.md this took JobSupport.kt from 5,036ms to 74ms (node-for-node C parity) -- but that is a single-file data point, not a re-swept aggregate, so the budget below is seeded from the stale after_cliffs aggregate (109.3x by-total / 51.0x median) rather than fabricating a post-fix aggregate. Expect this to tighten substantially at the next full re-sweep.",
+      "full_axis": {
+        "max_timeouts": 1,
+        "max_errors": 0,
+        "max_ratio_by_total": 140,
+        "observed_ratio_by_total": 109.275,
+        "observed_ratio_median_of_files": 51.019
+      },
+      "noedit_axis": {
+        "max_timeouts": 1,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.0000928
+      }
+    },
+    "java": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": false,
+      "note": "Documented from after_cliffs (post-wave-1, pre-wave-2a; STALE). 8/8 ok, 0 timeouts already (best completion rate among the 'pending' set). Wave-2a's java-ratio lane took DefaultListableBeanFactory.java from 5.19s to 521ms (14.8x) per pr142-evidence.md, a single-file data point not yet folded into a re-swept aggregate -- budget below seeded from the stale 46.4x by-total / 32.6x median aggregate. Expect substantial tightening at re-sweep given 0 timeouts today.",
+      "full_axis": {
+        "max_timeouts": 0,
+        "max_errors": 0,
+        "max_ratio_by_total": 60,
+        "observed_ratio_by_total": 46.370,
+        "observed_ratio_median_of_files": 32.613
+      },
+      "noedit_axis": {
+        "max_timeouts": 0,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.0147
+      }
+    },
+    "c_sharp": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": false,
+      "note": "Documented from after_cliffs (post-wave-1, pre-wave-2a; STALE and KNOWN OUT OF DATE). after_cliffs shows 1/8 ok, 7 go_timeout (all Bicep.* open-region-quadratic files). Wave-2a's c_sharp lane (C-faithful GSS prefix aggregates + incremental open-region deltas + gate-scan memo) is reported in pr142-evidence.md as already reaching 5/8 ok (DeclaredTypeManager.cs 25.08s->3.10s, 8.1x; truncation witness 41.7s->1.55s) -- i.e. today's real timeout count is very likely ~3, not 7. Budget below intentionally kept at the stale, looser 7-timeout ceiling because I have not personally re-measured the full 8-file aggregate this pass (no fabricated ratio_by_total for the 4 newly-completing files); tighten to the re-swept number at the next full pass rather than trusting this note's arithmetic.",
+      "full_axis": {
+        "max_timeouts": 7,
+        "max_errors": 0,
+        "max_ratio_by_total": 5,
+        "observed_ratio_by_total": 3.656,
+        "observed_ratio_median_of_files": 3.656
+      },
+      "noedit_axis": {
+        "max_timeouts": 7,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.00688
+      }
+    },
+    "typescript": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": "partial (webworker.generated.d.ts oracle spot-check only; full 8-file sweep documented from after_cliffs, STALE)",
+      "note": "SEE known_budget_class_gaps.webworker_generated_d_ts BELOW -- this is the headline wave-2b-pending finding of this pass. after_cliffs (pre-arena-fix) full-axis aggregate: 5/8 ok, 1 go_timeout (typescript.d.ts, memory_budget), 2 go_error/truncated (checker.ts 53017/3151774 bytes ~1.7% span; dom.generated.d.ts 101054/2348669 ~4.3% span -- both severe silent truncations). ratio_by_total=25.79x is a 'survivorship optics' artifact per pr141-scoreboard.md: it got numerically WORSE than wave-1's baseline (1.5x) purely because a previously-excluded (timed-out) giant, webworker.generated.d.ts, now finishes (slowly, and per this pass's fresh oracle check, INCORRECTLY at the default budget) and drags the sum up; ratio_median_of_files=1.72x is far less distorted and is the more honest per-file signal. Named wave-1/wave-2 backlog item: 'GOT_FAITHFUL_CONDENSE for the webworker 512MB-budget divergence' -- confirmed still open by this pass's direct oracle re-check.",
+      "full_axis": {
+        "max_timeouts": 1,
+        "max_errors": 2,
+        "max_ratio_by_total": 35,
+        "max_ratio_median_of_files": 3,
+        "observed_ratio_by_total": 25.791,
+        "observed_ratio_median_of_files": 1.720
+      },
+      "noedit_axis": {
+        "max_timeouts": 1,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.000001
+      }
+    },
+    "cmake": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": false,
+      "note": "Documented from after_cliffs (post-wave-1; not touched by any named wave-2a lane, so likely still current, but not re-swept this pass). 4/8 ok, 4 go_timeout, 0 truncation.",
+      "full_axis": {
+        "max_timeouts": 4,
+        "max_errors": 0,
+        "max_ratio_by_total": 90,
+        "observed_ratio_by_total": 71.709,
+        "observed_ratio_median_of_files": 29.652
+      },
+      "noedit_axis": {
+        "max_timeouts": 4,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.000217
+      }
+    },
+    "lua": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": false,
+      "note": "Documented from after_cliffs (post-wave-1; not re-swept this pass). 1/8 ok, 7 go_timeout, 0 truncation. Named wave-2b candidate: 'global repetition-skip rule' (spore-wave2a.md flags lua/crystal/scala/swift/cmake as prime suspects for the same repetition-shift fork cascade mechanism the php fix resolved).",
+      "full_axis": {
+        "max_timeouts": 7,
+        "max_errors": 0,
+        "max_ratio_by_total": 70,
+        "observed_ratio_by_total": 55.765,
+        "observed_ratio_median_of_files": 55.765
+      },
+      "noedit_axis": {
+        "max_timeouts": 7,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.000002
+      }
+    },
+    "crystal": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": false,
+      "note": "Documented from after_cliffs (post-wave-1; not re-swept this pass). 1/8 ok, 3 go_timeout, 3 go_error/truncated -- and the truncations here are severe and suspicious (src/string.cr 49/180451 bytes; src/winerror.cr 19/174453 bytes; src/float/printer/ryu_printf_table.cr 53/345473 bytes -- all stop within the first ~50 bytes). Same silent-truncation shape as cpp/haskell/typescript above; likely a shared root cause worth a dedicated wave-2b investigation rather than five separate ones.",
+      "full_axis": {
+        "max_timeouts": 3,
+        "max_errors": 3,
+        "max_ratio_by_total": 20,
+        "observed_ratio_by_total": 15.875,
+        "observed_ratio_median_of_files": 15.875
+      },
+      "noedit_axis": {
+        "max_timeouts": 3,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.01059
+      }
+    },
+    "swift": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": false,
+      "note": "Documented from after_cliffs (post-wave-1; not re-swept this pass). 1/8 ok, 7 go_timeout (all SwiftSyntax 'generated' giants), 0 truncation. Wave-2a's kotlin '?.' binding fix is reported (pr142-evidence.md) to have 'defused swift's latent 18-token landmine (->, ??, as?, && bound only via an incidental provenance flag)' as a side effect of the fleet-wide positional-primary rebind -- a single corroborated mechanism claim, not a re-swept aggregate, so not applied to the budget below.",
+      "full_axis": {
+        "max_timeouts": 7,
+        "max_errors": 0,
+        "max_ratio_by_total": 10,
+        "observed_ratio_by_total": 7.409,
+        "observed_ratio_median_of_files": 7.409
+      },
+      "noedit_axis": {
+        "max_timeouts": 7,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.000464
+      }
+    },
+    "rust": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": false,
+      "note": "Documented from after_cliffs (post-wave-1; not re-swept this pass). 3/8 ok, 5 go_timeout (all library/stdarch/.../generated.rs SIMD-intrinsic giants), 0 truncation. Was 0/8 (all-timeout) pre-campaign; wave-1 already resurrected 3 completions (avx512fp16.rs, lints.rs among them).",
+      "full_axis": {
+        "max_timeouts": 5,
+        "max_errors": 0,
+        "max_ratio_by_total": 20,
+        "observed_ratio_by_total": 9.932,
+        "observed_ratio_median_of_files": 16.343
+      },
+      "noedit_axis": {
+        "max_timeouts": 5,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.000002
+      }
+    },
+    "javascript": {
+      "status": "wave2b_pending",
+      "wave2b_pending": true,
+      "measured_today": true,
+      "note": "FRESH re-sweep this pass (clean/uncontended box, post-arena-fix): 3/8 ok, 5 go_timeout, 0 truncation. deps/undici/undici.js (774KB) now reliably completes (18.0x this run) -- a genuine, reproducible transition, unchanged from the wave-1 snapshot. deps/v8/test/mjsunit/{asm,wasm}/embenchen/box2d.js and lua_binarytrees.js STILL hit go_timeout with reason=memory_budget on every rep despite the wave-2a arena fix (-27% arena bytes); deps/v8/test/mjsunit/asm/poppler/poppler.js still hits a raw wall-clock timeout (reason=timeout, not memory) -- C itself takes ~2s on this file, so it is a genuine throughput cliff, not a budget cliff. The wave-2a arena fix's own validation (pr142-evidence.md: 'javascript asm.js memory_budget ... 120k-stmt witness completes at default budget') was against a synthetic stress witness plus jquery, not these specific real-corpus giants -- this pass's finding is that the real-corpus worst files are NOT yet resolved by that fix and remain a distinct wave-2b item.",
+      "full_axis": {
+        "max_timeouts": 5,
+        "max_errors": 0,
+        "max_ratio_by_total": 18,
+        "observed_ratio_by_total": 14.402,
+        "observed_ratio_median_of_files": 12.521
+      },
+      "noedit_axis": {
+        "max_timeouts": 5,
+        "max_ratio_by_total": 1.0,
+        "observed_ratio_by_total": 0.000034
+      }
+    }
+  },
+  "known_budget_class_gaps": {
+    "webworker_generated_d_ts": {
+      "file": "typescript/src/lib/webworker.generated.d.ts (786262 bytes, largest .d.ts in the corpus sample)",
+      "backlog_ref": "named wave-1/wave-2 backlog item 'GOT_FAITHFUL_CONDENSE for the webworker 512MB-budget divergence' (pr141-scoreboard.md) -- CONFIRMED STILL OPEN by this pass",
+      "pre_arena_fix": "reported to pass the cgo_harness byte-shape oracle (root-type + child-count structural match against the C reference) at GOT_PARSE_MEMORY_BUDGET_MB=1024, per the task brief for this pass",
+      "post_arena_fix_today": {
+        "default_512mb": "FAILS the byte-shape oracle: BenchmarkParityRealCorpusParseFull/typescript verify step reports 'structural parity mismatch ... first=/ERROR type go=ERROR c=program, root: ChildCount go=330 c=1484'. Independently reproduced via grammars.TestZZWave2Shape (Go-only, no C compare): root=ERROR, hasErr=true, span=[0,786262) (full byte range covered -- NOT a truncation), dur=24.164s wall time with no timeout set, i.e. this is a genuine memory-budget-exhaustion degradation, not a hang.",
+        "576mb": "FAILS, same root=ERROR shape",
+        "640mb": "PASSES cleanly (root types match, byte-shape oracle green); Go full parse 8.68-9.19s vs C 90-101ms in this pass's runs (~86-102x, single-sample benchtime=1x, not a scoreboard median)",
+        "1024mb": "PASSES cleanly (same as 640MB; arena_B/op metric reports ~695.8MB for a successful parse at this pass's HEAD, down from an implied ~950MB-1GB pre-arena-fix, consistent with wave-2a's claimed -27% arena reduction)",
+        "threshold_bound": "minimum sufficient budget is in (576, 640] MB today, versus needing ~1024MB pre-fix -- real, substantial improvement, but the file remains BROKEN at the shipped 512MB default"
+      },
+      "perf_scan_sweep_caveat": "perf_scan's own scoreboards report 'status=ok' for this file (e.g. after_cliffs: go_median=10.47s, ratio=165.5x, verdict=cliff>10x) at whatever ambient GOT_PARSE_MEMORY_BUDGET_MB was in effect for that run. This is TIMING-GRADE ONLY per the harness's own README ('the scan is timing-grade, not correctness-grade'): perf_scan's status=ok means 'produced a tree spanning the full input inside the wall-clock file budget', not 'structurally correct'. Do not read a perf_scan 'ok' verdict on this file (or its siblings dom.generated.d.ts/checker.ts, which show the identical silent-truncation shape) as a correctness signal -- always cross-check the byte-shape oracle (BenchmarkParityRealCorpusParseFull's pre-benchmark verify step, or forest_oracle_parity_test.go) for giants in this class.",
+      "action": "typescript's full_axis budget above is intentionally NOT tightened to reflect a 'fixed' webworker.generated.d.ts; GOT_FAITHFUL_CONDENSE (or an equivalent default-budget-aware condense path) remains a real wave-2b item."
+    }
+  }
+}

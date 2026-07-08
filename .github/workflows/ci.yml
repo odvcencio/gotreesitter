@@ -172,6 +172,24 @@ jobs:
           name: parity-log
           path: parity.log
 
+  perf_scan_budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Validate perf scan budget ratchet
+        working-directory: cgo_harness
+        run: |
+          set -euo pipefail
+          GOWORK=off go test ./cmd/perf_scan_budget -count=1
+          GOWORK=off go run ./cmd/perf_scan_budget \
+            -budget perf_scan/perf_ratio_budgets.json
+
   build:
     needs:
       - compile
@@ -179,6 +197,7 @@ jobs:
       - race_packages
       - draft_focused_tests
       - parity_report
+      - perf_scan_budget
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -191,6 +210,7 @@ jobs:
           RACE_PACKAGES_RESULT: ${{ needs.race_packages.result }}
           DRAFT_FOCUSED_RESULT: ${{ needs.draft_focused_tests.result }}
           PARITY_REPORT_RESULT: ${{ needs.parity_report.result }}
+          PERF_SCAN_BUDGET_RESULT: ${{ needs.perf_scan_budget.result }}
         run: |
           set -euo pipefail
           failed=0
@@ -206,6 +226,7 @@ jobs:
 
           require_success "compile" "$COMPILE_RESULT"
           require_success "parity_report" "$PARITY_REPORT_RESULT"
+          require_success "perf_scan_budget" "$PERF_SCAN_BUDGET_RESULT"
 
           if [ "$IS_DRAFT" = "true" ]; then
             require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"

@@ -1,8 +1,10 @@
 # CI proposal: nightly Go-vs-C perf scoreboard (non-blocking)
 
-Status: PROPOSAL ONLY. Nothing in `.github/workflows` is changed by this
-directory. The job below is written as a comment block for the coordinator to
-adopt (or adapt) once the corpus-provisioning question is settled.
+Status: PROPOSAL ONLY for the expensive nightly sweep. The fast PR lane only
+validates the checked-in budget schema and the checker unit tests; it does not
+run real-corpus timing. The job below is written as a comment block for the
+coordinator to adopt (or adapt) once the corpus-provisioning question is
+settled.
 
 ## Job shape
 
@@ -52,15 +54,24 @@ adopt (or adapt) once the corpus-provisioning question is settled.
 #           GTS_PERF_SCAN: "1"
 #           GTS_PERF_SCAN_CORPUS_ROOT: /corpus/corpus_sources
 #           GTS_REAL_CORPUS_BENCH_LOCK: /corpus/corpus_sources.lock
-#           GTS_PERF_SCAN_MAX_FILES: "16"
+#           GTS_PERF_SCAN_MAX_FILES: "8"
 #           GTS_PERF_SCAN_ORDER: largest
-#           GTS_PERF_SCAN_REPS: "7"
+#           GTS_PERF_SCAN_REPS: "5"
 #           GTS_PERF_SCAN_FILE_BUDGET_MS: "10000"
 #           GTS_PERF_SCAN_LANG_TIMEOUT_MS: "900000"
 #           GTS_PERF_SCAN_OUT: perf_scan/out/nightly
 #         run: |
 #           go test -tags "treesitter_c_parity treesitter_c_perfscan" \
 #             -run '^TestPerfScanSweep$' -v -count=1 -timeout 0 -p 1 .
+#
+#       - name: Check perf ratio budget
+#         working-directory: cgo_harness
+#         run: |
+#           GOWORK=off go run ./cmd/perf_scan_budget \
+#             -budget perf_scan/perf_ratio_budgets.json \
+#             -scoreboard perf_scan/out/nightly/scoreboard.json \
+#             -require-all-budget-langs \
+#             -out-md perf_scan/out/nightly/budget.md
 #
 #       - name: Upload scoreboard
 #         if: always()
@@ -70,7 +81,7 @@ adopt (or adapt) once the corpus-provisioning question is settled.
 #           path: cgo_harness/perf_scan/out/nightly
 #           retention-days: 90
 #
-#       # Optional phase 2: diff scoreboard.json against the previous run's
+#       # Optional trend step: diff scoreboard.json against the previous run's
 #       # artifact and open/update a tracking issue when a language's verdict
 #       # bucket regresses (<=1.2x -> <=2x etc.) or a new cliff appears.
 # --- END PROPOSAL ---
@@ -112,11 +123,12 @@ quiet box (fastest path to nightly trend data, identical to today's manual
 runs), and graduate to the artifact bucket when a second runner or team
 consumers appear. Keep B only if a hosted-runner smoke tier is wanted on PRs.
 
-## Non-blocking regression visibility (phase 2)
+## Non-blocking regression visibility
 
-Once two nightly artifacts exist, a small diff step can compare
-`scoreboard.json` runs: flag any language whose verdict bucket worsened, any
-new `cliff>10x`, and any language that flipped to
-`lang_timeout`/`error`. Publish as a job-summary table and (optionally) a
-pinned tracking issue. Still non-blocking; the ratchet decision (if ever)
-belongs to the tier_scan gates, not this job.
+The implemented `cmd/perf_scan_budget` step compares each nightly
+`scoreboard.json` against the checked-in ratio budget and fails the step for
+new ratio, timeout, truncation, or C-reference failures. The nightly job should
+remain `continue-on-error: true`, so regressions are visible in the job summary
+and uploaded artifact without blocking unrelated PRs. A later trend step can
+still diff consecutive artifacts to flag verdict-bucket movement or open/update
+a pinned tracking issue.

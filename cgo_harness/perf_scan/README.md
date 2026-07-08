@@ -133,6 +133,73 @@ Also honored: `GTS_PARITY_ALLOW_HOST`, `GTS_PARITY_SKIP_LANGS`,
 config, a `contended` flag, per-language per-axis aggregates, and per-file
 medians/ratios/statuses.
 
+## Ratio budget ratchet
+
+Wave 3 seeds a checked-in ratio budget at
+`cgo_harness/perf_scan/perf_ratio_budgets.json`. The file is intentionally a
+ratchet, not an aspirational target list: values may be tightened after better
+measurements or engine fixes, but loosening a budget needs a root-cause note in
+the PR that explains why the old bound is no longer reachable.
+
+Validate the budget file itself:
+
+```sh
+cd cgo_harness
+GOWORK=off go run ./cmd/perf_scan_budget \
+  -budget perf_scan/perf_ratio_budgets.json
+```
+
+Compare an authoritative scoreboard against the ratchet:
+
+```sh
+cd cgo_harness
+GOWORK=off go run ./cmd/perf_scan_budget \
+  -budget perf_scan/perf_ratio_budgets.json \
+  -scoreboard perf_scan/out/authoritative_YYYYMMDDTHHMMSSZ/scoreboard.json \
+  -require-all-budget-langs \
+  -out-md perf_scan/out/authoritative_YYYYMMDDTHHMMSSZ/budget.md
+```
+
+The checked-in budget was seeded with `order=largest`, `max_files=8`,
+`reps=5`, `warmup=1`, `file_budget_ms=10000`, and axes `full,noedit`. Generate
+a strict ratchet scoreboard with those same knobs inside the parity container:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh \
+  --label perf-scan-ratchet \
+  --memory 8g \
+  --cpus 2 \
+  --pids 4096 \
+  --gomemlimit 6GiB \
+  --goflags -p=1 \
+  --mount /home/draco/work/gotreesitter-corpora:/corpus:ro \
+  -- "cd /workspace/cgo_harness && \
+      GOWORK=off GTS_PERF_SCAN=1 \
+      GTS_PERF_SCAN_CORPUS_ROOT=/corpus/corpus_sources \
+      GTS_REAL_CORPUS_BENCH_LOCK=/corpus/corpus_sources.lock \
+      GTS_PERF_SCAN_MAX_FILES=8 GTS_PERF_SCAN_ORDER=largest \
+      GTS_PERF_SCAN_REPS=5 GTS_PERF_SCAN_FILE_BUDGET_MS=10000 \
+      GTS_PERF_SCAN_OUT=perf_scan/out/ratchet_\$(date -u +%Y%m%dT%H%M%SZ) \
+      go test -tags 'treesitter_c_parity treesitter_c_perfscan' \
+      -run '^TestPerfScanSweep$' -v -count=1 -timeout 0 ."
+```
+
+For a targeted language refresh, scope the comparison:
+
+```sh
+cd cgo_harness
+GOWORK=off go run ./cmd/perf_scan_budget \
+  -budget perf_scan/perf_ratio_budgets.json \
+  -scoreboard perf_scan/out/go_refresh/scoreboard.json \
+  -langs go
+```
+
+The checker gates `ratio_by_total`, optional `ratio_median_of_files`,
+`go_timeout` counts, and Go-side error/truncation counts. It also rejects C
+reference failures and, by default, requires the scoreboard's structured
+measurement knobs (`reps`, `warmup`, `file_budget_ms`, `max_files`, `order`,
+and axes) to match the budget metadata.
+
 ## Phase 2 (documented, not built)
 
 - Correctness-verified `edit` axis: verify structural parity of the
@@ -142,5 +209,5 @@ medians/ratios/statuses.
 - Multi-site edit sampling (median over K edit sites per file instead of the
   first verified site).
 - Allocation / RSS axes (Go `ReportAllocs` analogue vs C arena growth).
-- Trend storage + ratchet (compare scoreboards across runs, alert on bucket
-  regressions) — see CI_PROPOSAL.md.
+- Trend storage across nightly artifacts and issue updates when a language
+  worsens after budget comparison — see CI_PROPOSAL.md.
