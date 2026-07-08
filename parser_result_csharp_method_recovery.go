@@ -445,28 +445,6 @@ func csharpExtractSingleWrappedClassMember(root *Node, lang *Language, arena *no
 	return member
 }
 
-// csharpCountMethodDeclarations counts method_declaration nodes anywhere within
-// the given members (a type body's members are nested under its declaration_list).
-func csharpCountMethodDeclarations(members []*Node, lang *Language) int {
-	total := 0
-	var walk func(n *Node)
-	walk = func(n *Node) {
-		if n == nil {
-			return
-		}
-		if n.Type(lang) == "method_declaration" {
-			total++
-		}
-		for _, c := range n.children {
-			walk(c)
-		}
-	}
-	for _, m := range members {
-		walk(m)
-	}
-	return total
-}
-
 // csharpIsRecoverableMemberType reports whether typ is a C# member/type
 // declaration this recovery is willing to surface.
 func csharpIsRecoverableMemberType(typ string) bool {

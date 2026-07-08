@@ -39,7 +39,6 @@ var debugRecoveryCycleChecks = os.Getenv("GOT_DEBUG_RECOVERY_CYCLES") == "1"
 // debugRecoveryCyclesFound keeps counting past the cap.
 var debugRecoveryCycleReportsLeft = 8
 var debugRecoveryCyclesFound uint64
-var debugRecoveryCheckCalls uint64
 var debugRecoveryCheckSitesSeen = map[string]bool{}
 
 // debugRecoveryTraceSite prints one line per static site the first time it is
@@ -149,7 +148,6 @@ func debugRecoveryCheckAcyclicShared(p *Parser, arena *nodeArena, site string, r
 	if root.node == nil {
 		return true
 	}
-	debugRecoveryCheckCalls++
 	debugRecoveryTraceSite(site)
 	const (
 		colorGray  = 1

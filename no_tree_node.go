@@ -151,17 +151,14 @@ func (n *noTreeNode) setFlag(flag nodeFlags, enabled bool) {
 	n.flags &^= flag
 }
 
-func (n *noTreeNode) isNamed() bool      { return n.hasFlag(nodeFlagNamed) }
-func (n *noTreeNode) setNamed(v bool)    { n.setFlag(nodeFlagNamed, v) }
-func (n *noTreeNode) isExtra() bool      { return n.hasFlag(nodeFlagExtra) }
-func (n *noTreeNode) setExtra(v bool)    { n.setFlag(nodeFlagExtra, v) }
-func (n *noTreeNode) isMissing() bool    { return n.hasFlag(nodeFlagMissing) }
-func (n *noTreeNode) setMissing(v bool)  { n.setFlag(nodeFlagMissing, v) }
-func (n *noTreeNode) hasError() bool     { return n.hasFlag(nodeFlagHasError) }
-func (n *noTreeNode) setHasError(v bool) { n.setFlag(nodeFlagHasError, v) }
-func (n *noTreeNode) isExternalScannerToken() bool {
-	return n != nil && n.hasFlag(nodeFlagExternalScannerToken)
-}
+func (n *noTreeNode) isNamed() bool                  { return n.hasFlag(nodeFlagNamed) }
+func (n *noTreeNode) setNamed(v bool)                { n.setFlag(nodeFlagNamed, v) }
+func (n *noTreeNode) isExtra() bool                  { return n.hasFlag(nodeFlagExtra) }
+func (n *noTreeNode) setExtra(v bool)                { n.setFlag(nodeFlagExtra, v) }
+func (n *noTreeNode) isMissing() bool                { return n.hasFlag(nodeFlagMissing) }
+func (n *noTreeNode) setMissing(v bool)              { n.setFlag(nodeFlagMissing, v) }
+func (n *noTreeNode) hasError() bool                 { return n.hasFlag(nodeFlagHasError) }
+func (n *noTreeNode) setHasError(v bool)             { n.setFlag(nodeFlagHasError, v) }
 func (n *noTreeNode) setExternalScannerToken(v bool) { n.setFlag(nodeFlagExternalScannerToken, v) }
 func (n *noTreeNode) dirty() bool                    { return n.hasFlag(nodeFlagDirty) }
 func (n *noTreeNode) setDirty(v bool)                { n.setFlag(nodeFlagDirty, v) }

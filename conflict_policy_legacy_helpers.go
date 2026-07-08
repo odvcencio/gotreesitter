@@ -1,21 +1,5 @@
 package gotreesitter
 
-// pythonRepetitionShiftConflictChoice resolves module_repeat1 statement-boundary forks.
-func pythonRepetitionShiftConflictChoice(lang *Language, tok Token, state StateID, actions []ParseAction) (ParseAction, bool) {
-	if lang == nil {
-		return ParseAction{}, false
-	}
-	switch state {
-	case 71, 72:
-		if !symbolHasName(lang, tok.Symbol, "identifier") && !symbolHasName(lang, tok.Symbol, "def") {
-			return ParseAction{}, false
-		}
-	default:
-		return ParseAction{}, false
-	}
-	return repetitionShiftConflictChoice(actions)
-}
-
 // dartRepetitionShiftConflictChoice resolves known Dart repeat-boundary forks.
 func dartRepetitionShiftConflictChoice(lang *Language, state StateID, actions []ParseAction) (ParseAction, bool) {
 	if lang == nil {

@@ -279,29 +279,6 @@ const elixirDoEndStabClauseBodyCorpusBlock = "fun do\n" +
 	"    1\n" +
 	"end\n"
 
-func assertGeneratedAndReferenceNoError(t *testing.T, genLang, refLang *gotreesitter.Language, src string) {
-	t.Helper()
-
-	data := []byte(src)
-	genTree, err := gotreesitter.NewParser(genLang).Parse(data)
-	if err != nil {
-		t.Fatalf("generated parse: %v", err)
-	}
-	refTree, err := gotreesitter.NewParser(refLang).Parse(data)
-	if err != nil {
-		t.Fatalf("reference parse: %v", err)
-	}
-
-	genRoot := genTree.RootNode()
-	refRoot := refTree.RootNode()
-	if refRoot.HasError() {
-		t.Fatalf("reference tree has ERROR: %s", safeSExpr(refRoot, refLang, 256))
-	}
-	if genRoot.HasError() {
-		t.Fatalf("generated tree has ERROR while reference is clean\nGEN: %s\nREF: %s", safeSExpr(genRoot, genLang, 256), safeSExpr(refRoot, refLang, 256))
-	}
-}
-
 func loadImportedElixirLRSplitParityLanguages(t *testing.T) (*gotreesitter.Language, *gotreesitter.Language) {
 	t.Helper()
 

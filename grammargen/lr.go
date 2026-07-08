@@ -1054,7 +1054,6 @@ type lrContext struct {
 	lookaheadWordPool  [][]uint64
 	maxLookaheadPool   int
 
-	repeatWrapperStateSymCache     map[uint64]int
 	repeatWrapperStateSymSymsCache map[uint64][]int
 
 	// preciseStateBudgetExceeded marks that the precise external-grammar LR(1)
@@ -1253,7 +1252,6 @@ func (ctx *lrContext) releaseScratch() {
 	ctx.lr0RepeatSourceGen = nil
 	ctx.lr0RepeatSourceEpoch = 0
 	ctx.lookaheadWordPool = nil
-	ctx.repeatWrapperStateSymCache = nil
 	ctx.repeatWrapperStateSymSymsCache = nil
 	ctx.lalrNTTransitions = nil
 }
@@ -2697,14 +2695,6 @@ func (ctx *lrContext) completedRepeatWrapperLHS(set *lrItemSet, sym int) int {
 	return lhs[0]
 }
 
-func (ctx *lrContext) completedRepeatWrapperLHSAcrossTransitions(set *lrItemSet, sym int, allowTerminal bool) int {
-	lhs := ctx.completedRepeatWrapperLHSSymsAcrossTransitions(set, sym, allowTerminal)
-	if len(lhs) == 0 {
-		return -1
-	}
-	return lhs[0]
-}
-
 func (ctx *lrContext) completedRepeatWrapperLHSSymsAcrossTransitions(set *lrItemSet, sym int, allowTerminal bool) []int {
 	ctx.ensureRepeatWrapperLHS()
 	if sym < ctx.tokenCount {
@@ -2737,22 +2727,6 @@ func (ctx *lrContext) completedRepeatWrapperLHSSymsAcrossTransitions(set *lrItem
 	return lhsSyms
 }
 
-func (ctx *lrContext) completedRepeatWrapperStateLHS(state, sym int) int {
-	if ctx == nil || state < 0 || state >= len(ctx.itemSets) {
-		return -1
-	}
-	if ctx.repeatWrapperStateSymCache == nil {
-		ctx.repeatWrapperStateSymCache = make(map[uint64]int)
-	}
-	key := packCoreItemKey(state, sym)
-	if cached := ctx.repeatWrapperStateSymCache[key]; cached != 0 {
-		return cached - 2
-	}
-	lhs := ctx.completedRepeatWrapperLHSAcrossTransitions(&ctx.itemSets[state], sym, true)
-	ctx.repeatWrapperStateSymCache[key] = lhs + 2
-	return lhs
-}
-
 func (ctx *lrContext) completedRepeatWrapperStateLHSSyms(state, sym int) []int {
 	if ctx == nil || state < 0 || state >= len(ctx.itemSets) {
 		return nil
@@ -2767,18 +2741,6 @@ func (ctx *lrContext) completedRepeatWrapperStateLHSSyms(state, sym int) []int {
 	lhsSyms := ctx.completedRepeatWrapperLHSSymsAcrossTransitions(&ctx.itemSets[state], sym, true)
 	ctx.repeatWrapperStateSymSymsCache[key] = lhsSyms
 	return lhsSyms
-}
-
-func (ctx *lrContext) isRepetitionShift(sourceState, sym, targetState int) bool {
-	return ctx.repetitionShiftHelperLHS(sourceState, sym, targetState) > 0
-}
-
-func (ctx *lrContext) repetitionShiftHelperLHS(sourceState, sym, targetState int) int {
-	lhsSyms := ctx.repetitionShiftHelperLHSSyms(sourceState, sym, targetState)
-	if len(lhsSyms) == 0 {
-		return 0
-	}
-	return lhsSyms[0]
 }
 
 func (ctx *lrContext) repetitionShiftHelperLHSSyms(sourceState, sym, targetState int) []int {

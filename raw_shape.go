@@ -11,7 +11,6 @@ type rawShape struct {
 	productionID uint16
 	childRange   rawShapeChildRange
 	childCount   uint16
-	flags        nodeFlags
 	// contentHash is a bottom-up structural fingerprint over (symbol,
 	// productionID, childCount) plus every child's (symbol, span, and — when
 	// the child itself has a captured raw shape — the child's own
@@ -121,10 +120,6 @@ func defaultRawShapeChildSlabCap(class arenaClass) int {
 
 func makeRawShapeChildRange(slab, start, count int) rawShapeChildRange {
 	return rawShapeChildRange((uint64(slab+1) << 48) | (uint64(start) << 16) | uint64(count))
-}
-
-func (r rawShapeChildRange) count() int {
-	return int(uint64(r) & 0xffff)
 }
 
 func (r rawShapeChildRange) slabIndex() int {
@@ -291,13 +286,6 @@ func setStackEntryRawShapeRef(entry *stackEntry, ref rawShapeRef) {
 	if n := stackEntryPendingParent(*entry); n != nil {
 		n.rawShape = ref
 	}
-}
-
-func rawShapeRefForNode(n *Node) rawShapeRef {
-	if n == nil {
-		return 0
-	}
-	return n.rawShape
 }
 
 func compareAcceptedStackRawShapePreference(p *Parser, arena *nodeArena, a, b glrStack) int {

@@ -805,10 +805,6 @@ func stackNodeGenericFrontierChildSignature(n *Node) uint64 {
 	return h
 }
 
-func stackMaterializingShapeHash(s glrStack) (uint64, bool) {
-	return stackMaterializingShapeHashWithScratch(nil, s)
-}
-
 func stackMaterializingShapeHashWithScratch(scratch *glrMergeScratch, s glrStack) (uint64, bool) {
 	if len(s.entries) == 0 {
 		if s.gss.head == nil {
@@ -876,10 +872,6 @@ func gssMaterializingShapePrefix(scratch *glrMergeScratch, n *gssNode) glrMateri
 		storeShapePrefixCache(scratch, cur, prefix)
 	}
 	return prefix
-}
-
-func gssStacksHaveDistinctMaterializingShapes(a, b *glrStack) bool {
-	return gssStacksHaveDistinctMaterializingShapesWithScratch(nil, a, b)
 }
 
 func gssStacksHaveDistinctMaterializingShapesWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
@@ -3123,10 +3115,6 @@ func gssLinkByteOffset(prev *gssNode, entry stackEntry, seen map[*gssNode]bool) 
 	return gssNodeUniformByteOffset(prev, seen)
 }
 
-func gssNodeCleanZeroErrorAllLinks(n *gssNode) bool {
-	return gssNodeCleanZeroErrorAllLinksWithScratch(nil, n)
-}
-
 func gssNodeCleanZeroErrorAllLinksWithScratch(scratch *glrMergeScratch, n *gssNode) bool {
 	if n == nil {
 		return true
@@ -3204,18 +3192,6 @@ func gssNodeCleanZeroErrorAllLinksWithScratch(scratch *glrMergeScratch, n *gssNo
 	storeCleanZeroFrontCache(scratch, n, true)
 	scratch.cleanZeroStack = stack[:0]
 	scratch.cleanZeroVisited = visited[:0]
-	return true
-}
-
-func gssNodeCleanZeroErrorPath(n *gssNode) bool {
-	for cur := n; cur != nil; cur = cur.prev {
-		if !stackEntryHasNode(cur.entry) {
-			continue
-		}
-		if stackEntryNodeHasError(cur.entry) || stackEntryNodeIsMissing(cur.entry) || stackEntryNodeSymbol(cur.entry) == errorSymbol {
-			return false
-		}
-	}
 	return true
 }
 

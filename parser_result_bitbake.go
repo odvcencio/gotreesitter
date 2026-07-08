@@ -64,8 +64,6 @@ type bitbakeCompatSymbols struct {
 	identifier         Symbol
 	flag               Symbol
 	override           Symbol
-	concatenation      Symbol
-	variableExpansion  Symbol
 	shellContent       Symbol
 	stringStart        Symbol
 	quote              Symbol
@@ -81,7 +79,6 @@ type bitbakeCompatSymbols struct {
 	dollarOpen         Symbol
 	dollarClose        Symbol
 	minus              Symbol
-	plus               Symbol
 	slash              Symbol
 }
 

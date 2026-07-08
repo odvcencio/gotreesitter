@@ -148,10 +148,6 @@ func (s *transientParentScratch) materializeEntriesUntil(entries []stackEntry, a
 	return ParseStopNone
 }
 
-func (s *transientParentScratch) materializeNodeSlice(nodes []*Node, arena *nodeArena, childScratch *transientChildScratch) {
-	s.materializeNodeSliceUntil(nodes, arena, childScratch, nil)
-}
-
 func (s *transientParentScratch) materializeNodeSliceUntil(nodes []*Node, arena *nodeArena, childScratch *transientChildScratch, p *Parser) ParseStopReason {
 	if s == nil || len(nodes) == 0 || arena == nil {
 		return ParseStopNone
@@ -175,10 +171,6 @@ func (s *transientParentScratch) materializeNodeSliceUntil(nodes []*Node, arena 
 		}
 	}
 	return ParseStopNone
-}
-
-func (s *transientParentScratch) materializeNodes(nodes []*Node, arena *nodeArena, childScratch *transientChildScratch) {
-	s.materializeNodesUntil(nodes, arena, childScratch, nil)
 }
 
 func (s *transientParentScratch) materializeNodesUntil(nodes []*Node, arena *nodeArena, childScratch *transientChildScratch, p *Parser) ParseStopReason {
@@ -245,10 +237,6 @@ func (s *transientParentScratch) materializeNodesUntil(nodes []*Node, arena *nod
 		}
 	}
 	return ParseStopNone
-}
-
-func (s *transientParentScratch) materializeVisitedNode(n *Node, arena *nodeArena, childScratch *transientChildScratch) {
-	s.materializeVisitedNodeUntil(n, arena, childScratch, nil)
 }
 
 func (s *transientParentScratch) materializeVisitedNodeUntil(n *Node, arena *nodeArena, childScratch *transientChildScratch, p *Parser) ParseStopReason {

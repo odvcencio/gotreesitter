@@ -52,7 +52,6 @@ func perfRecordReduceChainHintUnexpected()           {}
 func perfRecordParentChildren(int)                   {}
 func perfRecordReduceChildrenFastGSS(int)            {}
 func perfRecordReduceChildrenAllVisible(int)         {}
-func perfRecordReduceChildrenNoAlias(int)            {}
 func perfRecordReduceChildrenScratch(int)            {}
 func perfRecordReduceScratchNoAlias(int)             {}
 func perfRecordReduceScratchGeneral(int)             {}

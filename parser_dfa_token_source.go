@@ -106,11 +106,6 @@ const maxConsecutiveZeroWidthTokensRepeatableExternal = 4096
 const noLookaheadLexState = ^uint32(0)
 const externalScannerSerializationBufferSize = 4096
 
-type tokenFrontierSource interface {
-	PeekTokenFrontier(states []StateID, dst []tokenCandidate) (tokenFrontier, bool)
-	SeekTokenFrontier(pos uint32, pt Point)
-}
-
 type tokenCandidate struct {
 	Tok                Token
 	Origin             StateID
@@ -169,10 +164,6 @@ func setLexerErrorRunLexStateEnabled(l *Lexer, language *Language, cRecoveryEnab
 	l.errorRunLexState = ls
 	l.hasErrorRunLexState = true
 	l.errorModeRetry = true
-}
-
-func initDFATokenSource(ts *dfaTokenSource, lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64) {
-	initDFATokenSourceWithCRecovery(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, errorCostCompetitionLanguage(language))
 }
 
 func initDFATokenSourceWithCRecovery(ts *dfaTokenSource, lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool) {
@@ -292,28 +283,6 @@ func newDFATokenSourceDirectWithCRecovery(lexer *Lexer, language *Language, look
 	}
 	initDFATokenSourceWithCRecovery(ts, lexer, language, lookupActionIndex, hasKeywordState, externalValidByState, externalValidMaskByState, cRecoveryEnabled)
 	return ts
-}
-
-func languageHasZeroWidthTokens(lang *Language) bool {
-	if lang == nil {
-		return false
-	}
-	return languageZeroWidthInfoFor(lang).hasTokens
-}
-
-func languageHasZeroWidthStartAccept(lang *Language) bool {
-	if lang == nil {
-		return false
-	}
-	return languageZeroWidthInfoFor(lang).hasStartAccept
-}
-
-func languageGeneratedZeroWidthSentinel(lang *Language) (Symbol, bool) {
-	if lang == nil {
-		return 0, false
-	}
-	info := languageZeroWidthInfoFor(lang)
-	return info.sentinelSymbol, info.hasZeroWidthSentinel
 }
 
 func languageZeroWidthInfoFor(lang *Language) languageZeroWidthInfo {
@@ -1671,19 +1640,6 @@ func (d *dfaTokenSource) atGeneratedZeroWidthSentinelBoundary(startPos int) bool
 		}
 	}
 	return true
-}
-
-func (d *dfaTokenSource) hasShiftActionForStateSymbol(state StateID, sym Symbol) bool {
-	if !d.hasActionForStateSymbol(state, sym) {
-		return false
-	}
-	idx := d.lookupActionIndex(state, sym)
-	for _, act := range d.language.ParseActions[idx].Actions {
-		if act.Type == ParseActionShift {
-			return true
-		}
-	}
-	return false
 }
 
 func (d *dfaTokenSource) hasActionForStateSymbol(state StateID, sym Symbol) bool {

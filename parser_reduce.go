@@ -1752,16 +1752,6 @@ func (p *Parser) shiftTargetForStateSymbol(state StateID, sym Symbol) (StateID, 
 	return 0, false
 }
 
-func reduceChainSignatureFor(state StateID, depth int, act ParseAction) reduceChainSignature {
-	return reduceChainSignature{
-		state:        state,
-		depth:        depth,
-		symbol:       act.Symbol,
-		childCount:   act.ChildCount,
-		productionID: act.ProductionID,
-	}
-}
-
 func noteRepeatedReduceChainSignature(prev reduceChainSignature, prevCount int, next reduceChainSignature) (reduceChainSignature, int, bool) {
 	if prev == next {
 		prevCount++
@@ -2712,26 +2702,6 @@ type reduceFork struct {
 
 func reduceForksSameChildSelectionGroup(a, b reduceFork) bool {
 	return a.popTo == b.popTo && a.topState == b.topState
-}
-
-func stackEntryRawShallowEqual(a, b stackEntry) bool {
-	if a.state != b.state || a.kind != b.kind {
-		return false
-	}
-	if stackEntryHasNode(a) != stackEntryHasNode(b) {
-		return false
-	}
-	if !stackEntryHasNode(a) {
-		return true
-	}
-	return stackEntryNodeSymbol(a) == stackEntryNodeSymbol(b) &&
-		stackEntryNodeStartByte(a) == stackEntryNodeStartByte(b) &&
-		stackEntryNodeEndByte(a) == stackEntryNodeEndByte(b) &&
-		stackEntryNodeChildCount(a) == stackEntryNodeChildCount(b) &&
-		stackEntryNodeIsExtra(a) == stackEntryNodeIsExtra(b) &&
-		stackEntryNodeIsNamed(a) == stackEntryNodeIsNamed(b) &&
-		stackEntryNodeIsMissing(a) == stackEntryNodeIsMissing(b) &&
-		stackEntryNodeHasError(a) == stackEntryNodeHasError(b)
 }
 
 func (p *Parser) selectReduceForkChildren(arena *nodeArena, act ParseAction, forks []reduceFork) []reduceFork {

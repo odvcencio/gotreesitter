@@ -457,10 +457,6 @@ func cRecoveryDefaultOptOut(name string) bool {
 	}
 }
 
-func languageParseTablesValidForCRecovery(lang *Language) bool {
-	return parseTablesCRecoveryFailure(lang) == ""
-}
-
 func langHasExternalRecoverySurface(lang *Language) bool {
 	return lang != nil && (lang.ExternalScanner != nil || len(lang.ExternalSymbols) > 0 || lang.ExternalTokenCount > 0)
 }
@@ -622,10 +618,6 @@ func parseActionsCRecoveryFailure(lang *Language) string {
 		}
 	}
 	return ""
-}
-
-func languageHasPreciseExternalLexStates(lang *Language) bool {
-	return externalLexStatesCRecoveryFailure(lang) == ""
 }
 
 func (p *Parser) errorCostCompetitionEnabled() bool {

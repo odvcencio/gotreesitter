@@ -2,10 +2,6 @@ package gotreesitter
 
 import "unicode/utf8"
 
-func parseErrorTree(source []byte, lang *Language) *Tree {
-	return parseErrorTreeWithArena(source, lang, nil)
-}
-
 func parseErrorTreeWithArena(source []byte, lang *Language, arena *nodeArena) *Tree {
 	end := Point{}
 	for i := 0; i < len(source); {

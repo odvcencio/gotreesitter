@@ -158,8 +158,8 @@ var cRepetitionSkipOptOut = map[string]bool{
 // semantics are a deterministic fold; with 2+ REDUCEs C itself forks the
 // reduce versions, which our GLR fork approximates). Gated per-stack to
 // error-free lineages by the sticky !cEverErrored discipline established by
-// the php comma-list fold (see phpCommaListRepeatConflictChoice's doc for
-// the recovery-wreckage counterexamples): inside recovery wreckage the
+// the recovery-wreckage counterexamples from the original php comma-list fold:
+// inside recovery wreckage the
 // repetition-shift arm can be the branch the recovery cost competition
 // keeps, so wreckage-descended lineages keep the ordinary GLR fork.
 func (p *Parser) cRepetitionSkipConflictChoice(s *glrStack, actions []ParseAction) (ParseAction, bool) {
