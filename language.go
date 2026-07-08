@@ -332,6 +332,10 @@ type Language struct {
 
 	// Alias sequences
 	AliasSequences [][]Symbol // [production_id][child_index] -> alias symbol
+	// NonTerminalAliasMap mirrors tree-sitter C's ts_non_terminal_alias_map.
+	// Rows are indexed by nonterminal symbol and contain aliases that require
+	// preserving the wrapper during alias-bearing reductions.
+	NonTerminalAliasMap [][]Symbol
 
 	// ProductionSignatures records LHS/RHS shape for grammargen productions.
 	// It is separate from ProductionID because ProductionID is deliberately
@@ -683,6 +687,7 @@ func (l *Language) Size() int64 {
 	size += languageSliceSize(l.FieldMapSlices)
 	size += languageSliceSize(l.FieldMapEntries)
 	size += languageSymbolTable2DSize(l.AliasSequences)
+	size += languageSymbolTable2DSize(l.NonTerminalAliasMap)
 	size += languageSliceSize(l.PrimaryStateIDs)
 	size += languageSliceSize(l.ReservedWords)
 	size += languageSliceSize(l.SupertypeSymbols)

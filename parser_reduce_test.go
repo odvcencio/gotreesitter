@@ -1512,6 +1512,48 @@ func TestCollapsibleRawUnarySelfReductionCollapsesGeneratedHiddenChoicePassthrou
 	}
 }
 
+func TestNonTerminalAliasMapPreservesInvisibleUnaryWrappers(t *testing.T) {
+	lang := &Language{
+		Name:        "synthetic",
+		SymbolNames: []string{"EOF", "literal", "_aliased_wrapper", "alias_target", "_plain_wrapper"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF"},
+			{Name: "literal", Visible: true, Named: true},
+			{Name: "_aliased_wrapper", Visible: false, Named: false},
+			{Name: "alias_target", Visible: true, Named: true},
+			{Name: "_plain_wrapper", Visible: false, Named: false},
+		},
+		HiddenChoicePassthroughSymbols: []bool{false, false, true, false, true},
+		NonTerminalAliasMap: [][]Symbol{
+			nil,
+			nil,
+			{2, 3},
+		},
+	}
+
+	marked := buildAliasPreservedWrapperSymbols(lang)
+	if !symbolMarked(marked, 2) {
+		t.Fatalf("alias map did not preserve wrapper symbol 2")
+	}
+	if symbolMarked(marked, 4) {
+		t.Fatalf("alias map unexpectedly preserved plain wrapper symbol 4")
+	}
+
+	p := NewParser(lang)
+	if p.canCollapseInvisibleUnaryWrapperSymbol(2) {
+		t.Fatalf("aliased wrapper should not collapse as an invisible unary wrapper")
+	}
+	if p.canCollapseHiddenChoicePassthroughSymbol(2) {
+		t.Fatalf("aliased wrapper should not collapse as hidden choice passthrough")
+	}
+	if !p.canCollapseInvisibleUnaryWrapperSymbol(4) {
+		t.Fatalf("plain invisible wrapper should remain collapsible")
+	}
+	if !p.canCollapseHiddenChoicePassthroughSymbol(4) {
+		t.Fatalf("plain hidden choice passthrough should remain collapsible")
+	}
+}
+
 func TestReduceProductionHasEffectiveFieldsIgnoresConflictedZeroFields(t *testing.T) {
 	lang := &Language{
 		SymbolMetadata: []SymbolMetadata{

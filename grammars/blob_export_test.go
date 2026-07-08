@@ -1,6 +1,10 @@
 package grammars
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/odvcencio/gotreesitter"
+)
 
 func TestBlobByName_Go(t *testing.T) {
 	blob := BlobByName("go")
@@ -72,5 +76,32 @@ func TestLoadLanguageAcceptsAliases(t *testing.T) {
 	}
 	if lang.Name != "go" {
 		t.Fatalf("LoadLanguage(golang).Name = %q, want %q", lang.Name, "go")
+	}
+}
+
+func TestLuaBlobCarriesNonTerminalAliasMap(t *testing.T) {
+	blob := BlobByName("lua")
+	if len(blob) == 0 {
+		t.Fatal("expected lua blob")
+	}
+	lang, err := gotreesitter.LoadLanguage(blob)
+	if err != nil {
+		t.Fatalf("LoadLanguage(lua) error = %v", err)
+	}
+
+	for _, name := range []string{"_doublequote_string_content", "_singlequote_string_content"} {
+		sym := -1
+		for i, got := range lang.SymbolNames {
+			if got == name {
+				sym = i
+				break
+			}
+		}
+		if sym < 0 {
+			t.Fatalf("lua symbol %q not found", name)
+		}
+		if sym >= len(lang.NonTerminalAliasMap) || len(lang.NonTerminalAliasMap[sym]) == 0 {
+			t.Fatalf("lua alias map row for %q is missing or empty", name)
+		}
 	}
 }

@@ -7464,21 +7464,42 @@ func (p *Parser) canCollapseHiddenChoicePassthroughSymbol(parentSym Symbol) bool
 // child) makes the later alias relabel the child instead of nesting it, e.g.
 // lua's `'\027'` produced (string_content) instead of C's
 // (string_content (escape_sequence)).
-//
-// The compiled blobs do not carry ts_non_terminal_alias_map, so the affected
-// symbols are listed per language here. Extend this table whenever a grammar's
-// alias map names an aux wrapper that an enclosing rule aliases.
 func buildAliasPreservedWrapperSymbols(lang *Language) []bool {
 	if lang == nil {
 		return nil
 	}
+	if len(lang.NonTerminalAliasMap) > 0 {
+		outLen := len(lang.SymbolNames)
+		if len(lang.SymbolMetadata) > outLen {
+			outLen = len(lang.SymbolMetadata)
+		}
+		if int(lang.SymbolCount) > outLen {
+			outLen = int(lang.SymbolCount)
+		}
+		if len(lang.NonTerminalAliasMap) > outLen {
+			outLen = len(lang.NonTerminalAliasMap)
+		}
+		out := make([]bool, outLen)
+		any := false
+		for sym, aliases := range lang.NonTerminalAliasMap {
+			if len(aliases) == 0 || sym >= len(out) {
+				continue
+			}
+			out[sym] = true
+			any = true
+		}
+		if any {
+			return out
+		}
+	}
+
+	// Legacy Lua blobs decoded from releases before Language.NonTerminalAliasMap
+	// do not carry ts_non_terminal_alias_map, so keep the known table-fidelity
+	// guard for stale/custom blobs even though the checked-in Lua blob now carries
+	// the extracted metadata.
 	var names []string
 	switch lang.Name {
 	case "lua":
-		// ts_non_terminal_alias_map (tree-sitter-lua @ 10fe0054):
-		// aux_sym__doublequote_string_content and
-		// aux_sym__singlequote_string_content are aliased to string_content
-		// by the _quote_string productions.
 		names = []string{"_doublequote_string_content", "_singlequote_string_content"}
 	default:
 		return nil

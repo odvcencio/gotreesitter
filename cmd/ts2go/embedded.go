@@ -75,6 +75,19 @@ func BuildLanguage(g *ExtractedGrammar) *gotreesitter.Language {
 			lang.AliasSequences[i] = row
 		}
 	}
+	if len(g.NonTerminalAliasMap) > 0 {
+		lang.NonTerminalAliasMap = make([][]gotreesitter.Symbol, len(g.NonTerminalAliasMap))
+		for i, seq := range g.NonTerminalAliasMap {
+			if len(seq) == 0 {
+				continue
+			}
+			row := make([]gotreesitter.Symbol, len(seq))
+			for j, sym := range seq {
+				row[j] = gotreesitter.Symbol(sym)
+			}
+			lang.NonTerminalAliasMap[i] = row
+		}
+	}
 
 	if len(g.ParseTable) > 0 {
 		lang.ParseTable = make([][]uint16, len(g.ParseTable))

@@ -49,6 +49,8 @@ type ExtractedGrammar struct {
 
 	// Per-production alias symbol sequence.
 	AliasSequences [][]uint16
+	// Per-nonterminal alias map from tree-sitter C's ts_non_terminal_alias_map.
+	NonTerminalAliasMap [][]uint16
 
 	// Enum values extracted from the C source for resolving symbolic names.
 	enumValues map[string]int
@@ -203,6 +205,9 @@ func ExtractGrammar(source string) (*ExtractedGrammar, error) {
 
 	if err := extractAliasSequences(source, g); err != nil {
 		return nil, fmt.Errorf("alias sequences: %w", err)
+	}
+	if err := extractNonTerminalAliasMap(source, g); err != nil {
+		return nil, fmt.Errorf("non-terminal alias map: %w", err)
 	}
 
 	if err := extractLexModes(source, g); err != nil {
@@ -1487,6 +1492,81 @@ func extractAliasSequences(source string, g *ExtractedGrammar) error {
 
 	if anyAlias {
 		g.AliasSequences = seqs
+	}
+	return nil
+}
+
+// extractNonTerminalAliasMap parses tree-sitter C's compact
+// ts_non_terminal_alias_map array:
+//
+//	symbol, count, alias..., symbol, count, alias..., 0
+//
+// The runtime currently uses the key set to preserve wrappers during
+// alias-bearing reductions, but retaining the full alias list keeps the blob
+// faithful to the C table for future audits.
+func extractNonTerminalAliasMap(source string, g *ExtractedGrammar) error {
+	if g.SymbolCount == 0 {
+		return nil
+	}
+	body, err := findArrayBody(source, "ts_non_terminal_alias_map")
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil
+		}
+		return err
+	}
+	tokens := regexp.MustCompile(`\b[A-Za-z_]\w*|[0-9]+`).FindAllString(stripCComments(body), -1)
+	if len(tokens) == 0 {
+		return nil
+	}
+
+	rows := make([][]uint16, g.SymbolCount)
+	any := false
+	for i := 0; i < len(tokens); {
+		sym, ok := resolveIndexedName(tokens[i], g.enumValues)
+		if !ok {
+			return fmt.Errorf("resolve symbol %q", tokens[i])
+		}
+		i++
+		if sym == 0 {
+			break
+		}
+		if sym < 0 || sym >= g.SymbolCount {
+			return fmt.Errorf("symbol %d outside symbol count %d", sym, g.SymbolCount)
+		}
+		if i >= len(tokens) {
+			return fmt.Errorf("missing alias count for symbol %d", sym)
+		}
+		count, ok := resolveIndexedName(tokens[i], g.enumValues)
+		if !ok {
+			return fmt.Errorf("resolve alias count %q for symbol %d", tokens[i], sym)
+		}
+		i++
+		if count < 0 {
+			return fmt.Errorf("negative alias count %d for symbol %d", count, sym)
+		}
+		aliases := make([]uint16, 0, count)
+		for j := 0; j < count; j++ {
+			if i >= len(tokens) {
+				return fmt.Errorf("missing alias %d/%d for symbol %d", j+1, count, sym)
+			}
+			aliasSym, ok := resolveIndexedName(tokens[i], g.enumValues)
+			if !ok {
+				return fmt.Errorf("resolve alias %q for symbol %d", tokens[i], sym)
+			}
+			i++
+			if aliasSym < 0 || aliasSym >= g.SymbolCount {
+				return fmt.Errorf("alias symbol %d outside symbol count %d", aliasSym, g.SymbolCount)
+			}
+			aliases = append(aliases, uint16(aliasSym))
+		}
+		if len(aliases) > 0 {
+			rows[sym] = aliases
+			any = true
+		}
+	}
+	if any {
+		g.NonTerminalAliasMap = rows
 	}
 	return nil
 }

@@ -1310,6 +1310,74 @@ func TestParseUint16List(t *testing.T) {
 	}
 }
 
+func TestExtractNonTerminalAliasMap(t *testing.T) {
+	src := `
+#define SYMBOL_COUNT 6
+enum ts_symbol_identifiers {
+  sym_source_file = 1,
+  aux_sym__wrapper = 3,
+  aux_sym__string_content = 4,
+  sym_block_string_content = 5,
+};
+
+static const uint16_t ts_non_terminal_alias_map[] = {
+  aux_sym__wrapper, 1,
+    sym_block_string_content,
+  aux_sym__string_content, 2,
+    aux_sym__string_content,
+    sym_block_string_content,
+  0,
+};
+`
+	g := &ExtractedGrammar{
+		SymbolCount: 6,
+		enumValues:  extractEnum(src),
+	}
+	if err := extractNonTerminalAliasMap(src, g); err != nil {
+		t.Fatal(err)
+	}
+	if len(g.NonTerminalAliasMap) != 6 {
+		t.Fatalf("alias map rows = %d, want 6", len(g.NonTerminalAliasMap))
+	}
+	if got := g.NonTerminalAliasMap[3]; len(got) != 1 || got[0] != 5 {
+		t.Fatalf("alias map[3] = %v, want [5]", got)
+	}
+	if got := g.NonTerminalAliasMap[4]; len(got) != 2 || got[0] != 4 || got[1] != 5 {
+		t.Fatalf("alias map[4] = %v, want [4 5]", got)
+	}
+}
+
+func TestBuildLanguageCarriesNonTerminalAliasMap(t *testing.T) {
+	g := &ExtractedGrammar{
+		Name:        "aliasmap",
+		SymbolCount: 6,
+		TokenCount:  2,
+		SymbolNames: []string{"end", "word", "source_file", "_wrapper", "_string_content", "string_content"},
+		SymbolMetadata: []SymbolMeta{
+			{Named: true},
+			{Visible: true, Named: true},
+			{Visible: true, Named: true},
+			{},
+			{},
+			{Visible: true, Named: true},
+		},
+		NonTerminalAliasMap: [][]uint16{
+			nil,
+			nil,
+			nil,
+			{5},
+			{4, 5},
+		},
+	}
+	lang := BuildLanguage(g)
+	if len(lang.NonTerminalAliasMap) != len(g.NonTerminalAliasMap) {
+		t.Fatalf("language alias map rows = %d, want %d", len(lang.NonTerminalAliasMap), len(g.NonTerminalAliasMap))
+	}
+	if got := lang.NonTerminalAliasMap[4]; len(got) != 2 || got[0] != 4 || got[1] != 5 {
+		t.Fatalf("language alias map[4] = %v, want [4 5]", got)
+	}
+}
+
 func TestResolveSymbol(t *testing.T) {
 	g := miniGrammar()
 
