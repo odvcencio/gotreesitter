@@ -6685,7 +6685,10 @@ func recordCollapseRule(arena *nodeArena, rule collapseUnaryRule) {
 }
 
 func (p *Parser) applyReduceAction(source []byte, s *glrStack, act ParseAction, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, entries []stackEntry, deferParentLinks bool, trackChildErrors bool) {
-	timing := p.reduceTiming
+	var timing *parseMaterializationTiming
+	if p != nil {
+		timing = p.reduceTiming
+	}
 	childCount := int(act.ChildCount)
 	var (
 		window reduceRange
@@ -6698,7 +6701,7 @@ func (p *Parser) applyReduceAction(source []byte, s *glrStack, act ParseAction, 
 	if p != nil && p.noTreeBenchmarkOnly {
 		window, ok = computeReduceRangePayload(entries, childCount)
 	} else {
-		window, ok = computeReduceRangeForFullPayloads(entries, childCount, p.usePendingFullParents())
+		window, ok = computeReduceRangeForFullPayloads(entries, childCount, p != nil && p.usePendingFullParents())
 	}
 	if timing != nil {
 		timing.reduceRangeNanos += time.Since(rangeStart).Nanoseconds()
@@ -6869,7 +6872,10 @@ func (p *Parser) applyReduceAction(source []byte, s *glrStack, act ParseAction, 
 }
 
 func (p *Parser) applyReduceActionTransientParents(source []byte, s *glrStack, act ParseAction, tok Token, anyReduced *bool, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, entries []stackEntry, deferParentLinks bool, trackChildErrors bool) {
-	timing := p.reduceTiming
+	var timing *parseMaterializationTiming
+	if p != nil {
+		timing = p.reduceTiming
+	}
 	childCount := int(act.ChildCount)
 	var (
 		window reduceRange
@@ -6882,7 +6888,7 @@ func (p *Parser) applyReduceActionTransientParents(source []byte, s *glrStack, a
 	if p != nil && p.noTreeBenchmarkOnly {
 		window, ok = computeReduceRangePayload(entries, childCount)
 	} else {
-		window, ok = computeReduceRangeForFullPayloads(entries, childCount, p.usePendingFullParents())
+		window, ok = computeReduceRangeForFullPayloads(entries, childCount, p != nil && p.usePendingFullParents())
 	}
 	if timing != nil {
 		timing.reduceRangeNanos += time.Since(rangeStart).Nanoseconds()

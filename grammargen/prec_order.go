@@ -220,8 +220,8 @@ func (t *precOrderTable) resolveSymbolVsSymbol(symbolA, symbolB string) int {
 	}
 
 	// Only compare symbols in the same precedence level.
-	levelA, _ := t.symbolLevels[symbolA]
-	levelB, _ := t.symbolLevels[symbolB]
+	levelA := t.symbolLevels[symbolA]
+	levelB := t.symbolLevels[symbolB]
 	if levelA != levelB {
 		return 0
 	}

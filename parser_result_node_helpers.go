@@ -212,8 +212,11 @@ func rewriteResultTreeChildrenPostorder(root *Node, rewrite func(*Node) *Node) {
 		return
 	}
 	walkResultTreePostorder(root, func(n *Node) {
+		if n == nil {
+			return
+		}
 		children := n.children
-		if n != nil && n.ownerArena != nil && n.childIndex <= finalChildSidecarIndexBase {
+		if n.ownerArena != nil && n.childIndex <= finalChildSidecarIndexBase {
 			children = resultDenseChildrenFallbackForMutation(n)
 		}
 		for i, child := range children {
@@ -237,9 +240,12 @@ func rewriteResultTreeChildrenPostorderWithStats(root *Node, rewrite func(*Node)
 		return counters
 	}
 	walkResultTreePostorder(root, func(n *Node) {
+		if n == nil {
+			return
+		}
 		counters.nodesVisited++
 		children := n.children
-		if n != nil && n.ownerArena != nil && n.childIndex <= finalChildSidecarIndexBase {
+		if n.ownerArena != nil && n.childIndex <= finalChildSidecarIndexBase {
 			children = resultDenseChildrenFallbackForMutation(n)
 		}
 		for i, child := range children {

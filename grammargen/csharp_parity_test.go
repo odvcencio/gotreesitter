@@ -913,7 +913,7 @@ func TestCSharpUnicodeIdentifierParity(t *testing.T) {
 	refLang := grammars.CSharpLanguage()
 	adaptExternalScanner(refLang, genLang)
 
-	sample := "int ග්‍රහලෝකය = 0;\n"
+	sample := "int ග්\u200dරහලෝකය = 0;\n"
 	assertGeneratedAndReferenceDeepParity(t, genLang, refLang, sample)
 }
 

@@ -176,9 +176,7 @@ func ImportGrammarJSON(data []byte) (*Grammar, error) {
 	// Import conflicts.
 	for _, group := range raw.Conflicts {
 		var names []string
-		for _, sym := range group {
-			names = append(names, sym)
-		}
+		names = append(names, group...)
 		if len(names) > 0 {
 			g.Conflicts = append(g.Conflicts, names)
 		}

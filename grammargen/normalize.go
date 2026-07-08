@@ -4247,12 +4247,8 @@ func flattenHiddenChoiceAlts(g *Grammar, generatedHiddenRules map[string]bool) *
 	for _, extra := range g.Extras {
 		out.Extras = append(out.Extras, inlinePassthroughRefs(extra, flattenMap))
 	}
-	for _, group := range g.Conflicts {
-		out.Conflicts = append(out.Conflicts, group)
-	}
-	for _, ext := range g.Externals {
-		out.Externals = append(out.Externals, ext)
-	}
+	out.Conflicts = append(out.Conflicts, g.Conflicts...)
+	out.Externals = append(out.Externals, g.Externals...)
 	out.Word = g.Word
 	out.ReservedWordSets = cloneReservedWordSets(g.ReservedWordSets)
 	out.Supertypes = g.Supertypes

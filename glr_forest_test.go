@@ -356,14 +356,13 @@ func TestCoalesceForestCapPreservesRawDistinctCandidateOverDuplicateBucket(t *te
 		return newStackEntryNode(100, parent)
 	}
 
-	node := (*gssForestNode)(nil)
 	for i := 0; i < forestMaxLinksPerNode-1; i++ {
 		prev := &gssForestNode{state: StateID(i + 1)}
-		node = coalesceForestWithRaw(p, arena, &idx, slab, 5, 4, prev, makeEntry(Symbol(10+i), uint16(i+1)), 10, 0)
+		coalesceForestWithRaw(p, arena, &idx, slab, 5, 4, prev, makeEntry(Symbol(10+i), uint16(i+1)), 10, 0)
 	}
 	duplicatePrev := &gssForestNode{state: 99}
 	duplicate := makeEntry(10, 1)
-	node = coalesceForestWithRaw(p, arena, &idx, slab, 5, 4, duplicatePrev, duplicate, 9, 0)
+	node := coalesceForestWithRaw(p, arena, &idx, slab, 5, 4, duplicatePrev, duplicate, 9, 0)
 	if len(node.links) != forestMaxLinksPerNode {
 		t.Fatalf("setup links = %d, want %d", len(node.links), forestMaxLinksPerNode)
 	}
@@ -429,14 +428,13 @@ func TestCoalesceForestCapDoesNotLetLowerRankSameRawBucketEvictDistinctBucket(t 
 		return newStackEntryNode(100, parent)
 	}
 
-	node := (*gssForestNode)(nil)
 	for i := 0; i < forestMaxLinksPerNode; i++ {
 		prev := &gssForestNode{state: StateID(i + 1)}
-		node = coalesceForestWithRaw(p, arena, &idx, slab, 5, 4, prev, makeEntry(Symbol(10+i), uint16(i+1)), 10, 0)
+		coalesceForestWithRaw(p, arena, &idx, slab, 5, 4, prev, makeEntry(Symbol(10+i), uint16(i+1)), 10, 0)
 	}
 	candidatePrev := &gssForestNode{state: 100}
 	candidate := makeEntry(10, 1)
-	node = coalesceForestWithRaw(p, arena, &idx, slab, 5, 4, candidatePrev, candidate, 0, 0)
+	node := coalesceForestWithRaw(p, arena, &idx, slab, 5, 4, candidatePrev, candidate, 0, 0)
 
 	count := 0
 	for i := range node.links {

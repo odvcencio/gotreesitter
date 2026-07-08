@@ -668,18 +668,6 @@ func buildParseTables(
 		}
 	}
 
-	// Build state mapping: original state → new position.
-	// Dense states come first (state 0..largeStateCount-1),
-	// sparse states after.
-	var denseStates, sparseStates []int
-	for _, info := range infos {
-		if info.nonZero >= threshold {
-			denseStates = append(denseStates, info.idx)
-		} else {
-			sparseStates = append(sparseStates, info.idx)
-		}
-	}
-
 	// We need a remapping from old state IDs to new state IDs.
 	// State 0 must remain state 0 (error recovery state).
 	// State with initial items should be state 1 (InitialState).

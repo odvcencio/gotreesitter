@@ -1003,7 +1003,7 @@ func parseFieldMapEntry(g *ExtractedGrammar, body string) (FieldMapEntry, bool) 
 func extractFieldMapTokenField(g *ExtractedGrammar, body, pattern string) (uint16, bool) {
 	re := regexp.MustCompile(pattern)
 	m := re.FindStringSubmatch(body)
-	if m == nil || len(m) < 2 {
+	if len(m) < 2 {
 		return 0, false
 	}
 	val, ok := parseFieldMapToken(g, strings.TrimSpace(m[1]))
@@ -1013,7 +1013,7 @@ func extractFieldMapTokenField(g *ExtractedGrammar, body, pattern string) (uint1
 func extractFieldMapNumericField(body, pattern string) (uint16, bool) {
 	re := regexp.MustCompile(pattern)
 	m := re.FindStringSubmatch(body)
-	if m == nil || len(m) < 2 {
+	if len(m) < 2 {
 		return 0, false
 	}
 	return parseFieldMapUnsignedInt(m[1])
@@ -1022,7 +1022,7 @@ func extractFieldMapNumericField(body, pattern string) (uint16, bool) {
 func extractFieldMapBoolField(body, pattern string) (bool, bool) {
 	re := regexp.MustCompile(pattern)
 	m := re.FindStringSubmatch(body)
-	if m == nil || len(m) < 2 {
+	if len(m) < 2 {
 		return false, false
 	}
 	return parseFieldMapBool(m[1])

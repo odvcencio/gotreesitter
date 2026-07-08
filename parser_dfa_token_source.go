@@ -984,10 +984,7 @@ func (d *dfaTokenSource) PeekTokenFrontier(states []StateID, dst []tokenCandidat
 			continue
 		}
 		mode := lexModes[st]
-		key := lexModeKey{
-			lexState:                mode.lexState,
-			afterWhitespaceLexState: mode.afterWhitespaceLexState,
-		}
+		key := lexModeKey(mode)
 		alreadySeen := false
 		for _, existing := range seen {
 			if existing == key {
@@ -1119,10 +1116,7 @@ func (d *dfaTokenSource) nextGLRUnionDFAToken() (Token, bool) {
 			continue
 		}
 		mode := lexModes[st]
-		key := lexModeKey{
-			lexState:                mode.lexState,
-			afterWhitespaceLexState: mode.afterWhitespaceLexState,
-		}
+		key := lexModeKey(mode)
 		alreadySeen := false
 		for _, existing := range seen {
 			if existing == key {

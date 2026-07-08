@@ -454,17 +454,18 @@ func (p *Parser) parseForRecovery(source []byte) (*Tree, error) {
 	parser.skipRecoveryReparse = true
 	parser.timeoutMicros = p.remainingTimeoutMicros()
 	parser.cancellationFlag = p.cancellationFlag
-	var tree *Tree
-	var err error
 	if p.reparseFactory != nil {
 		ts, err := p.reparseFactory(source)
 		if err != nil {
 			return nil, err
 		}
-		tree, err = parser.ParseWithTokenSource(source, ts)
-	} else {
-		tree, err = parser.Parse(source)
+		tree, err := parser.ParseWithTokenSource(source, ts)
+		if tree != nil && parseStopReasonIsActive(tree.ParseStopReason()) {
+			p.markActiveParseStopped(tree.ParseStopReason())
+		}
+		return tree, err
 	}
+	tree, err := parser.Parse(source)
 	if tree != nil && parseStopReasonIsActive(tree.ParseStopReason()) {
 		p.markActiveParseStopped(tree.ParseStopReason())
 	}

@@ -213,10 +213,7 @@ func (p *Parser) canApplyExternalNoActionDefaultReduce(tok Token, stacks []glrSt
 			return false
 		}
 	}
-	if eligible == 0 {
-		return false
-	}
-	return true
+	return eligible != 0
 }
 
 func (p *Parser) externalNoActionDefaultReducesStable(tok Token, stacks []glrStack) bool {

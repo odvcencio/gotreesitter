@@ -201,8 +201,7 @@ func cloneRepo(repoURL, commit, dest string) error {
 
 	// Fast path: pinned commit is already available in shallow clone.
 	cmd = exec.Command("git", "-C", dest, "checkout", "--detach", commit)
-	out, err = cmd.CombinedOutput()
-	if err == nil {
+	if _, err := cmd.CombinedOutput(); err == nil {
 		return nil
 	}
 

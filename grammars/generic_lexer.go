@@ -677,7 +677,7 @@ func (ts *GenericTokenSource) numberToken() gotreesitter.Token {
 		}
 	}
 
-	sym := ts.numberSym
+	var sym gotreesitter.Symbol
 	if isFloat {
 		sym = firstNonZeroSymbol(ts.floatSym, ts.numberSym, ts.intSym)
 	} else {
