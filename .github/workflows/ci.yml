@@ -68,14 +68,28 @@ jobs:
         include:
           - name: cmd
             package_filter: '/cmd/'
-          - name: grammars
+            test_filter: ''
+          - name: grammars-a-c
             package_filter: '/grammars$'
+            test_filter: '^(Test[A-C].*)$'
+          - name: grammars-d-j
+            package_filter: '/grammars$'
+            test_filter: '^(Test[D-J].*)$'
+          - name: grammars-k-p
+            package_filter: '/grammars$'
+            test_filter: '^(Test[K-P].*)$'
+          - name: grammars-q-z
+            package_filter: '/grammars$'
+            test_filter: '^(Test[Q-Z].*)$'
           - name: grammargen-support
             package_filter: '/grammargen/'
+            test_filter: ''
           - name: parser-result
             package_filter: '/parser_result_test$'
+            test_filter: ''
           - name: support
             package_filter: '/grep$|/taproot($|/)'
+            test_filter: ''
     steps:
       - uses: actions/checkout@v4
 
@@ -87,9 +101,12 @@ jobs:
         # Keep each lane serialized under -race so timing-sensitive tests do
         # not contend with each other on 2-core hosted runners, but split the
         # former all-non-root sweep into package groups so the wall clock stays
-        # near the target 10-minute envelope. Keep parser-result and grammargen
-        # support out of the grammar registry lane; together they made the
-        # aggregate race shard sit near the timeout cap even for data-only PRs.
+        # near the target 10-minute envelope. The grammars package is split by
+        # top-level test name ranges because it is one package with enough
+        # parser-regression coverage to dominate the blocking matrix by itself.
+        # Keep parser-result and grammargen support out of the grammar registry
+        # lane; together they made the aggregate race shard sit near the timeout
+        # cap even for data-only PRs.
         # ./grammargen stays visibility-only until its enumerated backlog is
         # burned down and folded back into the blocking suite.
         run: |
@@ -107,7 +124,12 @@ jobs:
             echo "No non-root packages to test for lane ${{ matrix.name }}"
             exit 0
           fi
-          go test $pkgs -race -count=1 -timeout 12m -p 1
+          test_filter="${{ matrix.test_filter }}"
+          if [ -n "$test_filter" ]; then
+            go test $pkgs -race -count=1 -timeout 12m -p 1 -run "$test_filter"
+          else
+            go test $pkgs -race -count=1 -timeout 12m -p 1
+          fi
 
   grammargen_visibility:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
