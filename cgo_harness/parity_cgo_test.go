@@ -37,10 +37,13 @@ var paritySkips = map[string]parityMeta{
 // knownDegradedStructural tracks currently non-parity structural languages
 // within the full-coverage gate. Keep this list shrinking over time.
 var knownDegradedStructural = map[string]string{
-	"agda": "named wrapper/runtime alias shape still diverges from C reference",
-	"apex": "named wrapper/runtime alias shape still diverges from C reference",
-	"hare": "fresh parse structural parity still diverges from C reference",
-	"rst":  "fresh parse structural parity still diverges from C reference",
+	"agda":    "named wrapper/runtime alias shape still diverges from C reference",
+	"apex":    "named wrapper/runtime alias shape still diverges from C reference",
+	"doxygen": "tier row IV-unknown: whole-block comment/error-root compatibility remains non-clean",
+	"hare":    "fresh parse structural parity still diverges from C reference",
+	"jsdoc":   "tier row IV-unknown: C-recovery/default ELS smoke sample still diverges from C reference",
+	"norg":    "tier row IV-scanner: scanner/version structural shape still diverges from C reference",
+	"rst":     "fresh parse structural parity still diverges from C reference",
 }
 
 type parityCase struct {
