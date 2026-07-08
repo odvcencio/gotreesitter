@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func TestNormalizeCTranslationUnitRootRetagsRecoveredTopLevelChildren(t *testing.T) {
 	lang := &Language{
@@ -380,6 +383,217 @@ func TestNormalizeCobolFixedFormatProgramIDStopsBeforeTrailingJunk(t *testing.T)
 	if got, want := idDiv.EndByte(), uint32(53); got != want {
 		t.Fatalf("identification_division.EndByte = %d, want %d", got, want)
 	}
+}
+
+func TestNormalizeCobolTrimsStatementTrailingTriviaSpans(t *testing.T) {
+	lang := cobolTrailingTriviaTestLanguage()
+	source := []byte("       identification division.\n" +
+		"       program-id. a.\n" +
+		"       procedure division.\n" +
+		"       perform forever\n" +
+		"         continue\n" +
+		"       end-perform.\n")
+
+	arena := newNodeArena(arenaClassFull)
+	id := cobolTestLeaf(arena, 3, true, source, 7, uint32(bytes.Index(source, []byte("procedure division."))))
+	performStart := uint32(bytes.Index(source, []byte("perform forever")))
+	performEnd := performStart + uint32(len("perform forever"))
+	continueStart := uint32(bytes.Index(source, []byte("continue")))
+	continueEnd := continueStart + uint32(len("continue"))
+	endPerformStart := uint32(bytes.Index(source, []byte("end-perform")))
+	periodStart := uint32(bytes.LastIndexByte(source, '.'))
+	periodEnd := periodStart + 1
+
+	performText := cobolTestLeaf(arena, 8, false, source, performStart, performEnd)
+	perform := newParentNodeInArena(arena, 5, true, []*Node{performText}, nil, 0)
+	perform.startByte = performStart
+	perform.startPoint = advancePointByBytes(Point{}, source[:performStart])
+	perform.endByte = continueStart
+	perform.endPoint = advancePointByBytes(Point{}, source[:continueStart])
+	continueStmt := cobolTestLeaf(arena, 6, true, source, continueStart, endPerformStart)
+	continueStmt.startByte = continueStart
+	continueStmt.startPoint = advancePointByBytes(Point{}, source[:continueStart])
+	continueStmt.endByte = endPerformStart
+	continueStmt.endPoint = advancePointByBytes(Point{}, source[:endPerformStart])
+	period := cobolTestLeaf(arena, 7, true, source, periodStart, periodEnd)
+	procedureStart := uint32(bytes.Index(source, []byte("procedure division.")))
+	proc := newParentNodeInArena(arena, 4, true, []*Node{perform, continueStmt, period}, nil, 0)
+	proc.startByte = procedureStart
+	proc.startPoint = advancePointByBytes(Point{}, source[:procedureStart])
+	proc.endByte = uint32(len(source))
+	proc.endPoint = advancePointByBytes(Point{}, source)
+	def := newParentNodeInArena(arena, 2, true, []*Node{id, proc}, nil, 0)
+	def.startByte = 7
+	def.startPoint = advancePointByBytes(Point{}, source[:7])
+	def.endByte = uint32(len(source))
+	def.endPoint = advancePointByBytes(Point{}, source)
+	root := newParentNodeInArena(arena, 1, true, []*Node{def}, nil, 0)
+	root.startByte = 7
+	root.startPoint = advancePointByBytes(Point{}, source[:7])
+	root.endByte = uint32(len(source))
+	root.endPoint = advancePointByBytes(Point{}, source)
+
+	normalizeResultCompatibility(root, source, &Parser{language: lang})
+
+	if got, want := perform.EndByte(), performEnd; got != want {
+		t.Fatalf("perform_statement_loop.EndByte = %d, want %d", got, want)
+	}
+	if got, want := continueStmt.EndByte(), continueEnd; got != want {
+		t.Fatalf("continue_statement.EndByte = %d, want %d", got, want)
+	}
+	if got, want := proc.EndByte(), periodEnd; got != want {
+		t.Fatalf("procedure_division.EndByte = %d, want %d", got, want)
+	}
+	if got, want := def.EndByte(), periodEnd; got != want {
+		t.Fatalf("program_definition.EndByte = %d, want %d", got, want)
+	}
+	if got, want := root.EndByte(), uint32(len(source)); got != want {
+		t.Fatalf("start.EndByte = %d, want unchanged %d", got, want)
+	}
+}
+
+func TestNormalizeCobolTrimsGotoTrailingTriviaSpan(t *testing.T) {
+	lang := cobolTrailingTriviaTestLanguage()
+	source := []byte("       identification division.\n" +
+		"       program-id. a.\n" +
+		"       procedure division.\n" +
+		"       evaluate 1\n" +
+		"       when 1\n" +
+		"         go to aa\n" +
+		"       end-evaluate.\n" +
+		"       aa.\n")
+
+	arena := newNodeArena(arenaClassFull)
+	id := cobolTestLeaf(arena, 3, true, source, 7, uint32(bytes.Index(source, []byte("procedure division."))))
+	gotoStart := uint32(bytes.Index(source, []byte("go to aa")))
+	gotoEnd := gotoStart + uint32(len("go to aa"))
+	endEvaluateStart := uint32(bytes.Index(source, []byte("end-evaluate")))
+	periodStart := uint32(bytes.LastIndexByte(source, '.'))
+	periodEnd := periodStart + 1
+
+	gotoText := cobolTestLeaf(arena, 10, false, source, gotoStart, gotoEnd)
+	gotoStmt := newParentNodeInArena(arena, 11, true, []*Node{gotoText}, nil, 0)
+	gotoStmt.startByte = gotoStart
+	gotoStmt.startPoint = advancePointByBytes(Point{}, source[:gotoStart])
+	gotoStmt.endByte = endEvaluateStart
+	gotoStmt.endPoint = advancePointByBytes(Point{}, source[:endEvaluateStart])
+	period := cobolTestLeaf(arena, 7, true, source, periodStart, periodEnd)
+	procedureStart := uint32(bytes.Index(source, []byte("procedure division.")))
+	proc := newParentNodeInArena(arena, 4, true, []*Node{gotoStmt, period}, nil, 0)
+	proc.startByte = procedureStart
+	proc.startPoint = advancePointByBytes(Point{}, source[:procedureStart])
+	proc.endByte = uint32(len(source))
+	proc.endPoint = advancePointByBytes(Point{}, source)
+	def := newParentNodeInArena(arena, 2, true, []*Node{id, proc}, nil, 0)
+	def.startByte = 7
+	def.startPoint = advancePointByBytes(Point{}, source[:7])
+	def.endByte = uint32(len(source))
+	def.endPoint = advancePointByBytes(Point{}, source)
+	root := newParentNodeInArena(arena, 1, true, []*Node{def}, nil, 0)
+	root.startByte = 7
+	root.startPoint = advancePointByBytes(Point{}, source[:7])
+	root.endByte = uint32(len(source))
+	root.endPoint = advancePointByBytes(Point{}, source)
+
+	normalizeResultCompatibility(root, source, &Parser{language: lang})
+
+	if got, want := gotoStmt.EndByte(), gotoEnd; got != want {
+		t.Fatalf("goto_statement.EndByte = %d, want %d", got, want)
+	}
+	if got, want := proc.EndByte(), periodEnd; got != want {
+		t.Fatalf("procedure_division.EndByte = %d, want %d", got, want)
+	}
+	if got, want := root.EndByte(), uint32(len(source)); got != want {
+		t.Fatalf("start.EndByte = %d, want unchanged %d", got, want)
+	}
+}
+
+func TestCobolTrailingTriviaAcceptsFixedFormatLineTails(t *testing.T) {
+	source := []byte("       identification division.\n" +
+		"       program-id. a.\n" +
+		"003300 ENVIRONMENT DIVISION.                                            NC1014.2\n" +
+		"004200     \"report.log\".                                                NC1014.2\n" +
+		"004300 DATA DIVISION.                                                   NC1014.2\n" +
+		"004900 77  WRK-DS-18V00                PICTURE S9(18).                  NC1014.2\n" +
+		"       PROCEDURE DIVISION.")
+
+	programIDEnd := uint32(bytes.Index(source, []byte("program-id. a.")) + len("program-id. a."))
+	envSequenceEnd := uint32(bytes.Index(source, []byte("003300")) + len("003300"))
+	if !cobolBytesAreTrailingTrivia(source, programIDEnd, envSequenceEnd) {
+		t.Fatalf("expected fixed-format sequence prefix to be trailing trivia")
+	}
+
+	reportEnd := uint32(bytes.Index(source, []byte("\"report.log\".")) + len("\"report.log\"."))
+	dataStart := uint32(bytes.Index(source, []byte("DATA DIVISION.")))
+	if !cobolBytesAreTrailingTrivia(source, reportEnd, dataStart) {
+		t.Fatalf("expected fixed-format identification area and next prefix to be trailing trivia")
+	}
+
+	pictureEnd := uint32(bytes.Index(source, []byte("PICTURE S9(18).")) + len("PICTURE S9(18)."))
+	procedureStart := uint32(bytes.Index(source, []byte("PROCEDURE DIVISION.")))
+	if !cobolBytesAreTrailingTrivia(source, pictureEnd, procedureStart) {
+		t.Fatalf("expected trailing identification area before procedure division to be trivia")
+	}
+}
+
+func TestCobolTrailingTriviaRejectsFreeFormatCode(t *testing.T) {
+	source := []byte("display 1.\nmove a to b.")
+	displayEnd := uint32(bytes.Index(source, []byte("display 1.")) + len("display 1."))
+	if cobolBytesAreTrailingTrivia(source, displayEnd, uint32(len(source))) {
+		t.Fatalf("free-format code on the next line must not be trimmed as fixed-format trivia")
+	}
+
+	inline := []byte("       display 1. real-code")
+	inlineEnd := uint32(bytes.Index(inline, []byte("display 1.")) + len("display 1."))
+	if cobolBytesAreTrailingTrivia(inline, inlineEnd, uint32(len(inline))) {
+		t.Fatalf("inline content before the identification area must not be trailing trivia")
+	}
+}
+
+func cobolTrailingTriviaTestLanguage() *Language {
+	return &Language{
+		Name: "cobol",
+		SymbolNames: []string{
+			"EOF",
+			"start",
+			"program_definition",
+			"identification_division",
+			"procedure_division",
+			"perform_statement_loop",
+			"continue_statement",
+			"period",
+			"perform forever",
+			"continue",
+			"go to aa",
+			"goto_statement",
+		},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "EOF", Visible: false, Named: false},
+			{Name: "start", Visible: true, Named: true},
+			{Name: "program_definition", Visible: true, Named: true},
+			{Name: "identification_division", Visible: true, Named: true},
+			{Name: "procedure_division", Visible: true, Named: true},
+			{Name: "perform_statement_loop", Visible: true, Named: true},
+			{Name: "continue_statement", Visible: true, Named: true},
+			{Name: "period", Visible: true, Named: true},
+			{Name: "perform forever", Visible: true, Named: false},
+			{Name: "continue", Visible: true, Named: false},
+			{Name: "go to aa", Visible: true, Named: false},
+			{Name: "goto_statement", Visible: true, Named: true},
+		},
+	}
+}
+
+func cobolTestLeaf(arena *nodeArena, sym Symbol, named bool, source []byte, start, end uint32) *Node {
+	return newLeafNodeInArena(
+		arena,
+		sym,
+		named,
+		start,
+		end,
+		advancePointByBytes(Point{}, source[:start]),
+		advancePointByBytes(Point{}, source[:end]),
+	)
 }
 
 func TestNormalizeCobolRecoveredParagraphHeader(t *testing.T) {

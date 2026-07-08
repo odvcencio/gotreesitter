@@ -6,6 +6,7 @@ func normalizeCobolCompatibility(root *Node, source []byte, lang *Language) {
 	normalizeCobolLeadingAreaStart(root, source, lang)
 	normalizeCobolTopLevelDefinitionEnd(root, source, lang)
 	normalizeCobolDivisionSiblingEnds(root, source, lang)
+	normalizeCobolTrailingTriviaSpans(root, source, lang)
 	normalizeCobolRecoveredParagraphHeader(root, source, lang)
 }
 func normalizeCobolLeadingAreaStart(root *Node, source []byte, lang *Language) {
@@ -227,6 +228,107 @@ func normalizeCobolDivisionSiblingEnds(root *Node, source []byte, lang *Language
 		}
 		cur.endByte = end
 		cur.endPoint = advancePointByBytes(Point{}, source[:end])
+	}
+}
+
+func normalizeCobolTrailingTriviaSpans(root *Node, source []byte, lang *Language) {
+	if root == nil || !isCobolLanguage(lang) || len(source) == 0 {
+		return
+	}
+	walkResultTreePostorder(root, func(n *Node) {
+		if n == nil || n.Type(lang) == "start" || n.IsExtra() || n.IsMissing() || n.IsError() || n.HasError() {
+			return
+		}
+		childCount := resultChildCount(n)
+		if childCount == 0 {
+			normalizeCobolTrailingTriviaLeafSpan(n, source, lang)
+			return
+		}
+		if int(n.endByte) > len(source) {
+			return
+		}
+		last := (*Node)(nil)
+		for i := childCount - 1; i >= 0; i-- {
+			child := resultChildAt(n, i)
+			if child == nil || child.IsMissing() {
+				continue
+			}
+			last = child
+			break
+		}
+		if last == nil || last.endByte >= n.endByte || last.endByte < n.startByte {
+			return
+		}
+		if !cobolBytesAreTrailingTrivia(source, last.endByte, n.endByte) {
+			return
+		}
+		setCobolNodeEnd(n, source, last.endByte)
+	})
+}
+
+func normalizeCobolTrailingTriviaLeafSpan(n *Node, source []byte, lang *Language) {
+	if n == nil || int(n.endByte) > len(source) || !cobolTrailingTriviaLeafCanTrim(n.Type(lang)) {
+		return
+	}
+	end := lastNonTriviaByteEnd(source[n.startByte:n.endByte])
+	if end == 0 {
+		return
+	}
+	absoluteEnd := n.startByte + end
+	if absoluteEnd <= n.startByte || absoluteEnd >= n.endByte {
+		return
+	}
+	setCobolNodeEnd(n, source, absoluteEnd)
+}
+
+func cobolTrailingTriviaLeafCanTrim(typ string) bool {
+	return strings.HasSuffix(typ, "_statement") || strings.HasSuffix(typ, "_statement_loop")
+}
+
+func cobolBytesAreTrailingTrivia(source []byte, start, end uint32) bool {
+	if start >= end || int(end) > len(source) {
+		return false
+	}
+	lineStart := int(start)
+	for lineStart > 0 && source[lineStart-1] != '\n' && source[lineStart-1] != '\r' {
+		lineStart--
+	}
+	column := int(start) - lineStart
+	for i := int(start); i < int(end); i++ {
+		switch source[i] {
+		case ' ', '\t', '\f':
+			column++
+		case '\n':
+			lineStart = i + 1
+			column = 0
+		case '\r':
+			lineStart = i + 1
+			column = 0
+		default:
+			if column < 6 && cobolLineLooksFixedFormat(source, lineStart) {
+				column++
+				continue
+			}
+			if column >= 72 {
+				column++
+				continue
+			}
+			return false
+		}
+	}
+	return true
+}
+
+func cobolLineLooksFixedFormat(source []byte, lineStart int) bool {
+	indicator := lineStart + 6
+	if lineStart < 0 || indicator >= len(source) {
+		return false
+	}
+	switch source[indicator] {
+	case ' ', '*', '-', '/':
+		return true
+	default:
+		return false
 	}
 }
 
