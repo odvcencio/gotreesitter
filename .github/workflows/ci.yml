@@ -91,7 +91,6 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -101,9 +100,24 @@ jobs:
 
       - name: Test grammargen (non-blocking visibility)
         # Visibility-only until the enumerated pre-existing backlog is zeroed;
-        # failures here are SEEN but do not block. Heavy generation tests keep
-        # the same timeout discipline.
-        run: go test ./grammargen -race -count=1 -timeout 35m
+        # known test failures here are SEEN but do not make the PR red. Heavy
+        # generation tests keep the same timeout discipline.
+        run: |
+          set +e
+          go test ./grammargen -race -count=1 -timeout 35m
+          status=$?
+          set -e
+
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::grammargen visibility suite exited with status ${status}; this is informational until the known backlog is burned down."
+            {
+              echo "### Grammargen Visibility"
+              echo
+              echo "\`go test ./grammargen -race -count=1 -timeout 35m\` exited with status \`${status}\`."
+              echo
+              echo "This job is informational until the known grammargen backlog is zeroed."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   draft_focused_tests:
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == true
