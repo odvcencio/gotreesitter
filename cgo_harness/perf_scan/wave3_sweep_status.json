@@ -1,6 +1,6 @@
 {
   "schema": "gts-wave3-perf-sweep-status/v1",
-  "generated_at": "2026-07-09T07:57:40Z",
+  "generated_at": "2026-07-09T08:38:22Z",
   "budget_path": "perf_scan/perf_ratio_budgets.json",
   "fleet_path": "tier_scan/exts.tsv",
   "budget_generated_at": "2026-07-09T01:17:47Z",
@@ -52,6 +52,7 @@
     "wave3_batch6_dot_20260708T225933Z",
     "wave3_batch6_doxygen_20260708T230104Z",
     "wave3_batch7_20260708T232544Z",
+    "d_expressionsem_default_20260709T083649Z",
     "webworker_oracle_spotcheck"
   ],
   "known_budget_class_gaps": [
@@ -59,7 +60,7 @@
       "key": "d_expressionsem_go_rss_blowup",
       "file": "d/compiler/src/dmd/expressionsem.d (685384 bytes; largest D corpus file, first selected file under largest-order probes)",
       "backlog_ref": "wave3_batch6_20260708T224850Z seed note; intentionally not added to languages because both the batch run and one-language rerun ended with Docker oom_killed=true before #185 added the parent-side RSS watchdog",
-      "action": "reduce or contain the expressionsem.d Go full-parse memory blowup before adding D to the ratchet; D remains held out until full/noedit can complete or an explicit budget row is deliberately scoped around this RSS cliff"
+      "action": "D remains held out of the ratchet. The prior Go timeout/OOM class is contained under default settings, but a ratchetable row needs either a smaller scoped D corpus selection or an explicit budget decision that treats expressionsem.d as a C-reference high-RSS witness instead of a normal Go-vs-C ratio sample."
     },
     {
       "key": "fsharp_providedtypes_c_reference_memory_blowup",
@@ -82,7 +83,7 @@
   ],
   "caveats": [
     "The perf ratio budget is a ratchet and evidence ledger, not a universal near-C claim; \u003e2x and cliff rows remain explicit backlog.",
-    "d, fsharp, groovy are intentionally held out of the language ratchet until their memory/C-reference RCA rows are resolved.",
+    "d, fsharp, groovy are intentionally held out of the language ratchet until their memory/C-reference RCA rows are resolved. D's Go-side expressionsem.d cliff is contained, but the standard exact-file row is still blocked by C-reference timeout/high-RSS.",
     "The TypeScript webworker generated-file entry remains a correctness cross-check caveat even though TypeScript has a timing budget row."
   ]
 }

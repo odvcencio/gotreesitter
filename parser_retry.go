@@ -493,6 +493,16 @@ func effectiveFullParseInitialMaxStacks(lang *Language, initialMaxStacks int) in
 		if initialMaxStacks == maxGLRStacks {
 			initialMaxStacks = 2
 		}
+	case "d":
+		// D's large dmd expressionsem.d witness can grow past the 1536MiB RSS
+		// watchdog before the first full-parse checkpoint at the global default.
+		// Starting tight keeps the Go parse bounded on that file (the grammar's
+		// conflict floor raises the effective parse cap to 3) while explicit
+		// overrides remain available for diagnosis. The exact witness is still a
+		// scoped perf-ledger row because the C oracle itself is high-RSS there.
+		if initialMaxStacks == maxGLRStacks {
+			initialMaxStacks = 2
+		}
 	case "javascript":
 		// Large JavaScript UMD/runtime bundles need enough survivors to keep the
 		// outer call-expression branch alive through long function arguments.
@@ -1153,6 +1163,12 @@ func fullParseRetryUsesInitialStackCeiling(tree *Tree, sourceLen int, initialMax
 		// overrides are handled above as diagnostic ceilings. This contains the
 		// timeout/OOM class only; the exact witness remains a tracked C-shape gap.
 		return sourceLen >= 64*1024 && initialMaxStacks <= 2
+	case "d":
+		// D's expressionsem.d accepts under the tuned cap (raised to 3 by the
+		// grammar conflict floor) and stays below the prior Go-side RSS cliff.
+		// Widening accepted-error retry stacks reintroduces the survivor
+		// population blowup, so keep large D retries at the initial ceiling.
+		return sourceLen >= 64*1024 && initialMaxStacks <= 3
 	default:
 		return false
 	}

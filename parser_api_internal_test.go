@@ -1316,6 +1316,16 @@ func TestGroovyLargeAcceptedErrorRetryUsesInitialStackCeiling(t *testing.T) {
 	if got := fullParseRetryMaxStacksOverride(tree, 1024, 2); got != fullParseRetryMaxGLRStacks {
 		t.Fatalf("fullParseRetryMaxStacksOverride(small groovy) = %d, want %d", got, fullParseRetryMaxGLRStacks)
 	}
+	tree.language = &Language{Name: "d"}
+	tree.root.endByte = 685384
+	tree.parseRuntime.ExpectedEOFByte = 685384
+	tree.parseRuntime.RootEndByte = 685384
+	if got := fullParseRetryMaxStacksOverride(tree, 685384, 3); got != 0 {
+		t.Fatalf("fullParseRetryMaxStacksOverride(large d) = %d, want 0", got)
+	}
+	if got := fullParseRetryMaxStacksOverride(tree, 1024, 3); got != fullParseRetryMaxGLRStacks {
+		t.Fatalf("fullParseRetryMaxStacksOverride(small d) = %d, want %d", got, fullParseRetryMaxGLRStacks)
+	}
 	tree.language = &Language{Name: "typescript"}
 	if got := fullParseRetryMaxStacksOverride(tree, 102960, 2); got != fullParseRetryMaxGLRStacks {
 		t.Fatalf("fullParseRetryMaxStacksOverride(typescript) = %d, want %d", got, fullParseRetryMaxGLRStacks)
@@ -1942,6 +1952,9 @@ func TestEffectiveFullParseInitialMaxStacks(t *testing.T) {
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "groovy"}, maxGLRStacks); got != 2 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(groovy) = %d, want 2", got)
 	}
+	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "d"}, maxGLRStacks); got != 2 {
+		t.Fatalf("effectiveFullParseInitialMaxStacks(d) = %d, want 2", got)
+	}
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "javascript"}, maxGLRStacks); got != 6 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(javascript) = %d, want 6", got)
 	}
@@ -1992,6 +2005,9 @@ func TestEffectiveFullParseInitialMaxStacks(t *testing.T) {
 	}
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "groovy"}, 16); got != 16 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(groovy, explicit override) = %d, want 16", got)
+	}
+	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "d"}, 16); got != 16 {
+		t.Fatalf("effectiveFullParseInitialMaxStacks(d, explicit override) = %d, want 16", got)
 	}
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "objc"}, 16); got != 16 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(objc, explicit override) = %d, want 16", got)
