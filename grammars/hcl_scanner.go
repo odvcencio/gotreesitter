@@ -19,9 +19,17 @@ const (
 	hclTokTemplateDirectiveStart     = 5
 	hclTokTemplateDirectiveEnd       = 6
 	hclTokHeredocIdentifier          = 7
+	hclTokenCount                    = hclTokHeredocIdentifier + 1
 )
 
-// Concrete symbol IDs from the generated HCL grammar.
+// Default/fallback symbol IDs, matching the checked-in ts2go HCL grammar blob's
+// ExternalSymbols. These are used only for a zero-value HclExternalScanner (no
+// bound Language). ExternalScannerForLanguage below binds the real per-Language
+// symbols POSITIONALLY (by external index, via bindExternalScannerSymbolNames),
+// not by these absolute IDs, so a future grammargen-generated hcl blob — which
+// emits the same 8 externals in the same order but under different absolute
+// Symbol numbering — still lexes correctly instead of silently mistyping every
+// external token.
 const (
 	hclSymQuotedTemplateStart        gotreesitter.Symbol = 48
 	hclSymQuotedTemplateEnd          gotreesitter.Symbol = 49
@@ -32,6 +40,34 @@ const (
 	hclSymTemplateDirectiveEnd       gotreesitter.Symbol = 54
 	hclSymHeredocIdentifier          gotreesitter.Symbol = 55
 )
+
+var hclDefaultSymTable = [hclTokenCount]gotreesitter.Symbol{
+	hclTokQuotedTemplateStart:        hclSymQuotedTemplateStart,
+	hclTokQuotedTemplateEnd:          hclSymQuotedTemplateEnd,
+	hclTokTemplateLiteralChunk:       hclSymTemplateLiteralChunk,
+	hclTokTemplateInterpolationStart: hclSymTemplateInterpolationStart,
+	hclTokTemplateInterpolationEnd:   hclSymTemplateInterpolationEnd,
+	hclTokTemplateDirectiveStart:     hclSymTemplateDirectiveStart,
+	hclTokTemplateDirectiveEnd:       hclSymTemplateDirectiveEnd,
+	hclTokHeredocIdentifier:          hclSymHeredocIdentifier,
+}
+
+// hclExternalSymbolNames lists the HCL grammar's external tokens, in scanner
+// token-index order (matching upstream tree-sitter-hcl's `externals: [...]`
+// order). Used by ExternalScannerForLanguage to bind this scanner's token slots
+// to a Language's ExternalSymbols positionally, the same pattern used by the
+// kotlin/python/swift/dart/rust scanners. See bindExternalScannerSymbolNames for
+// why positional (not absolute-ID or by-name) binding is required.
+var hclExternalSymbolNames = []string{
+	"quoted_template_start",
+	"quoted_template_end",
+	"_template_literal_chunk",
+	"template_interpolation_start",
+	"template_interpolation_end",
+	"template_directive_start",
+	"template_directive_end",
+	"heredoc_identifier",
+}
 
 // hclContextType identifies the kind of template context being tracked.
 type hclContextType uint32
@@ -80,10 +116,48 @@ func (s *hclState) inInterpolationContext() bool { return s.inContextType(hclCtx
 func (s *hclState) inDirectiveContext() bool     { return s.inContextType(hclCtxTemplateDirective) }
 
 // HclExternalScanner implements gotreesitter.ExternalScanner for the HCL grammar.
-type HclExternalScanner struct{}
+type HclExternalScanner struct {
+	symbols         [hclTokenCount]gotreesitter.Symbol
+	externalToToken []int
+}
+
+// ExternalScannerForLanguage binds this scanner's token slots to lang's external
+// symbols positionally (external index i -> scanner token i), so Scan resolves
+// result symbols through the bound table instead of hardcoded absolute IDs.
+func (HclExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	s := HclExternalScanner{symbols: hclDefaultSymTable}
+	s.externalToToken = bindExternalScannerSymbolNames(lang, hclExternalSymbolNames, func(tokenIdx int, sym gotreesitter.Symbol) {
+		s.symbols[tokenIdx] = sym
+	})
+	return s
+}
 
 func (HclExternalScanner) Create() any         { return &hclState{} }
 func (HclExternalScanner) Destroy(payload any) {}
+
+func (scanner HclExternalScanner) symbolTable() *[hclTokenCount]gotreesitter.Symbol {
+	if scanner.symbols == ([hclTokenCount]gotreesitter.Symbol{}) {
+		return &hclDefaultSymTable
+	}
+	return &scanner.symbols
+}
+
+func (scanner HclExternalScanner) remapValidSymbols(validSymbols []bool, semanticValid *[hclTokenCount]bool) []bool {
+	if len(scanner.externalToToken) == 0 {
+		return validSymbols
+	}
+	*semanticValid = [hclTokenCount]bool{}
+	for externalIdx, valid := range validSymbols {
+		if !valid || externalIdx >= len(scanner.externalToToken) {
+			continue
+		}
+		tokenIdx := scanner.externalToToken[externalIdx]
+		if tokenIdx >= 0 && tokenIdx < hclTokenCount {
+			semanticValid[tokenIdx] = true
+		}
+	}
+	return semanticValid[:]
+}
 
 func (HclExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*hclState)
@@ -163,8 +237,12 @@ func (HclExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
-func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (scanner HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*hclState)
+
+	var semanticValid [hclTokenCount]bool
+	validSymbols = scanner.remapValidSymbols(validSymbols, &semanticValid)
+	symbols := scanner.symbolTable()
 
 	// Skip whitespace, tracking whether a newline was seen.
 	hasLeadingNewline := false
@@ -183,13 +261,13 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 	if hclValid(validSymbols, hclTokQuotedTemplateStart) && !s.inQuotedContext() && lexer.Lookahead() == '"' {
 		s.push(hclContext{ctxType: hclCtxQuotedTemplate})
 		lexer.Advance(false)
-		lexer.SetResultSymbol(hclSymQuotedTemplateStart)
+		lexer.SetResultSymbol(symbols[hclTokQuotedTemplateStart])
 		return true
 	}
 	if hclValid(validSymbols, hclTokQuotedTemplateEnd) && s.inQuotedContext() && lexer.Lookahead() == '"' {
 		s.pop()
 		lexer.Advance(false)
-		lexer.SetResultSymbol(hclSymQuotedTemplateEnd)
+		lexer.SetResultSymbol(symbols[hclTokQuotedTemplateEnd])
 		return true
 	}
 
@@ -202,7 +280,7 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 		if lexer.Lookahead() == '{' {
 			s.push(hclContext{ctxType: hclCtxTemplateInterpolation})
 			lexer.Advance(false)
-			lexer.SetResultSymbol(hclSymTemplateInterpolationStart)
+			lexer.SetResultSymbol(symbols[hclTokTemplateInterpolationStart])
 			return true
 		}
 		// Escape sequence: $${ becomes literal chunk
@@ -210,17 +288,17 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			lexer.Advance(false)
 			if lexer.Lookahead() == '{' {
 				lexer.Advance(false)
-				lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+				lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 				return true
 			}
 		}
-		lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+		lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 		return true
 	}
 	if hclValid(validSymbols, hclTokTemplateInterpolationEnd) && s.inInterpolationContext() && lexer.Lookahead() == '}' {
 		s.pop()
 		lexer.Advance(false)
-		lexer.SetResultSymbol(hclSymTemplateInterpolationEnd)
+		lexer.SetResultSymbol(symbols[hclTokTemplateInterpolationEnd])
 		return true
 	}
 
@@ -233,7 +311,7 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 		if lexer.Lookahead() == '{' {
 			s.push(hclContext{ctxType: hclCtxTemplateDirective})
 			lexer.Advance(false)
-			lexer.SetResultSymbol(hclSymTemplateDirectiveStart)
+			lexer.SetResultSymbol(symbols[hclTokTemplateDirectiveStart])
 			return true
 		}
 		// Escape sequence: %%{ becomes literal chunk
@@ -241,17 +319,17 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			lexer.Advance(false)
 			if lexer.Lookahead() == '{' {
 				lexer.Advance(false)
-				lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+				lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 				return true
 			}
 		}
-		lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+		lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 		return true
 	}
 	if hclValid(validSymbols, hclTokTemplateDirectiveEnd) && s.inDirectiveContext() && lexer.Lookahead() == '}' {
 		s.pop()
 		lexer.Advance(false)
-		lexer.SetResultSymbol(hclSymTemplateDirectiveEnd)
+		lexer.SetResultSymbol(symbols[hclTokTemplateDirectiveEnd])
 		return true
 	}
 
@@ -267,7 +345,7 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			ctxType:           hclCtxHeredocTemplate,
 			heredocIdentifier: string(ident),
 		})
-		lexer.SetResultSymbol(hclSymHeredocIdentifier)
+		lexer.SetResultSymbol(symbols[hclTokHeredocIdentifier])
 		return true
 	}
 	if hclValid(validSymbols, hclTokHeredocIdentifier) && s.inHeredocContext() && hasLeadingNewline {
@@ -276,7 +354,7 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			if lexer.Lookahead() == rune(expected[i]) {
 				lexer.Advance(false)
 			} else {
-				lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+				lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 				return true
 			}
 		}
@@ -287,12 +365,12 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 		}
 		if lexer.Lookahead() == '\n' {
 			s.pop()
-			lexer.SetResultSymbol(hclSymHeredocIdentifier)
+			lexer.SetResultSymbol(symbols[hclTokHeredocIdentifier])
 			return true
 		}
 		lexer.Advance(false)
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+		lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 		return true
 	}
 
@@ -305,7 +383,7 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 			switch lexer.Lookahead() {
 			case '"', 'n', 'r', 't', '\\':
 				lexer.Advance(false)
-				lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+				lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 				return true
 			case 'u':
 				for i := 0; i < 4; i++ {
@@ -315,7 +393,7 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 					}
 				}
 				lexer.Advance(false)
-				lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+				lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 				return true
 			case 'U':
 				for i := 0; i < 8; i++ {
@@ -325,7 +403,7 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 					}
 				}
 				lexer.Advance(false)
-				lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+				lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 				return true
 			default:
 				return false
@@ -336,7 +414,7 @@ func (HclExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, v
 	// Handle all other characters in template contexts.
 	if hclValid(validSymbols, hclTokTemplateLiteralChunk) && s.inTemplateContext() {
 		lexer.Advance(false)
-		lexer.SetResultSymbol(hclSymTemplateLiteralChunk)
+		lexer.SetResultSymbol(symbols[hclTokTemplateLiteralChunk])
 		return true
 	}
 
