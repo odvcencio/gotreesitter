@@ -45,6 +45,7 @@ type measurementBasis struct {
 	MaxFiles     int      `json:"max_files,omitempty"`
 	Order        string   `json:"order,omitempty"`
 	Axes         []string `json:"axes"`
+	ExcludePaths []string `json:"exclude_paths,omitempty"`
 }
 
 type knownBudgetGap struct {
@@ -543,6 +544,10 @@ func renderMarkdown(doc *statusDocument) string {
 		doc.MeasurementBasis.MaxFiles,
 		mdInline(doc.MeasurementBasis.Order),
 		mdInline(strings.Join(doc.MeasurementBasis.Axes, ",")))
+
+	if len(doc.MeasurementBasis.ExcludePaths) > 0 {
+		fmt.Fprintf(&sb, "Excluded paths: `%s`.\n\n", strings.Join(doc.MeasurementBasis.ExcludePaths, "`, `"))
+	}
 
 	if len(doc.HeldOutLanguages) > 0 {
 		fmt.Fprintf(&sb, "Held out of the ratchet: `%s`.\n\n", strings.Join(doc.HeldOutLanguages, "`, `"))

@@ -20,6 +20,7 @@ func TestBuildStatusFromTrackedInputs(t *testing.T) {
 		"measurement_basis": map[string]any{
 			"reps": 5, "warmup": 1, "file_budget_ms": 10000,
 			"max_files": 8, "order": "largest", "axes": []string{"full", "noedit"},
+			"exclude_paths": []string{"groovy/large.groovy"},
 		},
 		"_seed_sources": map[string]string{
 			"wave3_batch1": "first batch",
@@ -77,8 +78,11 @@ func TestBuildStatusFromTrackedInputs(t *testing.T) {
 	if doc.Coverage.PartialMeasuredTodayBudgets != 1 {
 		t.Fatalf("partial measured today = %d, want 1", doc.Coverage.PartialMeasuredTodayBudgets)
 	}
+	if got := strings.Join(doc.MeasurementBasis.ExcludePaths, ","); got != "groovy/large.groovy" {
+		t.Fatalf("exclude paths = %q, want groovy/large.groovy", got)
+	}
 	md := renderMarkdown(doc)
-	for _, needle := range []string{"budgeted languages", "Held out of the ratchet", "groovy_gap", "wave3_batch1"} {
+	for _, needle := range []string{"budgeted languages", "Excluded paths", "Held out of the ratchet", "groovy_gap", "wave3_batch1"} {
 		if !strings.Contains(md, needle) {
 			t.Fatalf("markdown missing %q:\n%s", needle, md)
 		}
