@@ -1,6 +1,6 @@
 # Wave 3 Perf Sweep Status
 
-- generated_at: `2026-07-09T10:41:25Z`
+- generated_at: `2026-07-09T10:50:28Z`
 - budget: `perf_scan/perf_ratio_budgets.json`
 - fleet catalog: `tier_scan/exts.tsv`
 - budget_generated_at: `2026-07-09T10:38:34Z`
@@ -15,6 +15,7 @@
 | held out languages | 2 |
 | known budget class gaps | 4 |
 | wave2b pending budget rows | 15 |
+| scoped heldout budget rows | 1 |
 | measured-today budget rows | 194 |
 | partial measured-today notes | 1 |
 
@@ -72,4 +73,5 @@ Held out of the ratchet: `d`, `fsharp`.
 
 - The perf ratio budget is a ratchet and evidence ledger, not a universal near-C claim; >2x and cliff rows remain explicit backlog.
 - d, fsharp are intentionally held out of the language ratchet until their memory/C-reference RCA rows are resolved.
+- 1 budget row(s) use scoped heldout exclusions; see measurement_basis.exclude_paths and the known-gap ledger before treating those rows as whole-language claims.
 - The TypeScript webworker generated-file entry remains a correctness cross-check caveat even though TypeScript has a timing budget row.

@@ -32,10 +32,11 @@ func TestBuildStatusFromTrackedInputs(t *testing.T) {
 		},
 		"languages": map[string]any{
 			"go": map[string]any{
-				"status":         "green_with_caveat",
-				"measured_today": true,
-				"full_axis":      map[string]any{"max_timeouts": 0, "max_ratio_by_total": 2.0},
-				"noedit_axis":    map[string]any{"max_timeouts": 0, "max_ratio_by_total": 1.0},
+				"status":               "green_with_caveat",
+				"wave3_scoped_heldout": true,
+				"measured_today":       true,
+				"full_axis":            map[string]any{"max_timeouts": 0, "max_ratio_by_total": 2.0},
+				"noedit_axis":          map[string]any{"max_timeouts": 0, "max_ratio_by_total": 1.0},
 			},
 			"python": map[string]any{
 				"status":         "wave2b_pending",
@@ -78,11 +79,14 @@ func TestBuildStatusFromTrackedInputs(t *testing.T) {
 	if doc.Coverage.PartialMeasuredTodayBudgets != 1 {
 		t.Fatalf("partial measured today = %d, want 1", doc.Coverage.PartialMeasuredTodayBudgets)
 	}
+	if doc.Coverage.ScopedHeldoutBudgets != 1 {
+		t.Fatalf("scoped heldout budgets = %d, want 1", doc.Coverage.ScopedHeldoutBudgets)
+	}
 	if got := strings.Join(doc.MeasurementBasis.ExcludePaths, ","); got != "groovy/large.groovy" {
 		t.Fatalf("exclude paths = %q, want groovy/large.groovy", got)
 	}
 	md := renderMarkdown(doc)
-	for _, needle := range []string{"budgeted languages", "Excluded paths", "Held out of the ratchet", "groovy_gap", "wave3_batch1"} {
+	for _, needle := range []string{"budgeted languages", "scoped heldout budget rows", "Excluded paths", "Held out of the ratchet", "groovy_gap", "wave3_batch1"} {
 		if !strings.Contains(md, needle) {
 			t.Fatalf("markdown missing %q:\n%s", needle, md)
 		}
@@ -118,7 +122,8 @@ func TestBuildStatusWithScoreboards(t *testing.T) {
 		"config": map[string]any{
 			"reps": 5, "warmup": 1, "file_budget_ms": 10000, "lang_timeout_ms": 900000,
 			"max_files": 8, "order": "largest", "axes": []string{"full", "noedit"},
-			"contended": true, "contended_note": "test contention",
+			"exclude_paths": []string{"groovy/large.groovy"},
+			"contended":     true, "contended_note": "test contention",
 		},
 		"host":             map[string]any{"loadavg_start": "7.00 5.00 4.00", "loadavg_end": "6.00 5.00 4.00"},
 		"summary_verdicts": map[string]int{"<=2x": 1, "cliff>10x": 1},
@@ -162,6 +167,9 @@ func TestBuildStatusWithScoreboards(t *testing.T) {
 	}
 	if doc.ScoreboardCoverage.ContendedScoreboards != 1 {
 		t.Fatalf("contended scoreboards = %d, want 1", doc.ScoreboardCoverage.ContendedScoreboards)
+	}
+	if got := strings.Join(doc.Scoreboards[0].ExcludePaths, ","); got != "groovy/large.groovy" {
+		t.Fatalf("scoreboard exclude paths = %q, want groovy/large.groovy", got)
 	}
 }
 

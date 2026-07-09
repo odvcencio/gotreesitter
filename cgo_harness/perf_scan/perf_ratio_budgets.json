@@ -13,7 +13,10 @@
     "budgets are comfortably green today while still tight enough to catch a",
     "cliff regression. Where a language's real, fresh measurement contradicts an",
     "optimistic prior assumption (bash), the real measurement wins -- a ratchet",
-    "that isn't green today is worse than useless."
+    "that isn't green today is worse than useless.",
+    "Adding measurement_basis.exclude_paths is a budget-loosening operation and",
+    "must carry the same mechanism/RCA evidence as loosening a ratio budget;",
+    "removing exclusions is a tightening operation."
   ],
   "schema": "gts-perf-ratio-budgets/v1",
   "generated_at": "2026-07-09T10:38:34Z",

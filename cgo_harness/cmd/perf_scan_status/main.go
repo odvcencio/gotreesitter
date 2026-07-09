@@ -55,11 +55,12 @@ type knownBudgetGap struct {
 }
 
 type budgetLanguage struct {
-	Status        string     `json:"status"`
-	Wave2BPending ledgerFlag `json:"wave2b_pending,omitempty"`
-	MeasuredToday ledgerFlag `json:"measured_today,omitempty"`
-	FullAxis      budgetAxis `json:"full_axis"`
-	NoEditAxis    budgetAxis `json:"noedit_axis"`
+	Status             string     `json:"status"`
+	Wave2BPending      ledgerFlag `json:"wave2b_pending,omitempty"`
+	Wave3ScopedHeldout ledgerFlag `json:"wave3_scoped_heldout,omitempty"`
+	MeasuredToday      ledgerFlag `json:"measured_today,omitempty"`
+	FullAxis           budgetAxis `json:"full_axis"`
+	NoEditAxis         budgetAxis `json:"noedit_axis"`
 }
 
 type ledgerFlag struct {
@@ -119,6 +120,7 @@ type scoreboardConfig struct {
 	MaxFiles      int      `json:"max_files"`
 	Order         string   `json:"order"`
 	Axes          []string `json:"axes"`
+	ExcludePaths  []string `json:"exclude_paths,omitempty"`
 	Contended     bool     `json:"contended"`
 	ContendedNote string   `json:"contended_note,omitempty"`
 }
@@ -173,6 +175,7 @@ type coverageSummary struct {
 	HeldOutLanguages            int `json:"held_out_languages"`
 	KnownBudgetClassGaps        int `json:"known_budget_class_gaps"`
 	Wave2BPendingBudgets        int `json:"wave2b_pending_budgets"`
+	ScopedHeldoutBudgets        int `json:"scoped_heldout_budgets,omitempty"`
 	MeasuredTodayBudgets        int `json:"measured_today_budgets"`
 	PartialMeasuredTodayBudgets int `json:"partial_measured_today_budgets"`
 }
@@ -198,6 +201,7 @@ type scoreboardSummary struct {
 	Languages        int            `json:"languages"`
 	BudgetLanguages  int            `json:"budget_languages"`
 	HeldOutLanguages []string       `json:"held_out_languages,omitempty"`
+	ExcludePaths     []string       `json:"exclude_paths,omitempty"`
 	Contended        bool           `json:"contended"`
 	ContendedNote    string         `json:"contended_note,omitempty"`
 	LoadAvgStart     string         `json:"loadavg_start,omitempty"`
@@ -282,12 +286,15 @@ func buildStatus(opts options) (*statusDocument, error) {
 
 	budgetSet := map[string]bool{}
 	statusCounts := map[string]int{}
-	var pending, measuredToday, partialMeasuredToday int
+	var pending, scopedHeldout, measuredToday, partialMeasuredToday int
 	for lang, row := range budget.Languages {
 		budgetSet[lang] = true
 		statusCounts[row.Status]++
 		if row.Wave2BPending.IsTrue() {
 			pending++
+		}
+		if row.Wave3ScopedHeldout.IsTrue() {
+			scopedHeldout++
 		}
 		if row.MeasuredToday.IsTrue() {
 			measuredToday++
@@ -316,6 +323,7 @@ func buildStatus(opts options) (*statusDocument, error) {
 			HeldOutLanguages:            len(heldOut),
 			KnownBudgetClassGaps:        len(budget.KnownGaps),
 			Wave2BPendingBudgets:        pending,
+			ScopedHeldoutBudgets:        scopedHeldout,
 			MeasuredTodayBudgets:        measuredToday,
 			PartialMeasuredTodayBudgets: partialMeasuredToday,
 		},
@@ -323,7 +331,7 @@ func buildStatus(opts options) (*statusDocument, error) {
 		BudgetStatusCounts: statusCounts,
 		SeedSources:        sortedKeys(budget.SeedSources),
 		KnownGaps:          summarizeKnownGaps(budget.KnownGaps),
-		Caveats:            baseCaveats(heldOut, budget.KnownGaps),
+		Caveats:            baseCaveats(heldOut, scopedHeldout, budget.KnownGaps),
 	}
 
 	if opts.ScoreboardPatterns != "" {
@@ -449,6 +457,7 @@ func summarizeScoreboards(paths []string, budgetSet map[string]bool, heldOutSet 
 			Languages:        len(board.Languages),
 			BudgetLanguages:  budgetLangs,
 			HeldOutLanguages: heldOut,
+			ExcludePaths:     board.Config.ExcludePaths,
 			Contended:        board.Config.Contended,
 			ContendedNote:    board.Config.ContendedNote,
 			LoadAvgStart:     board.Host.LoadAvgStart,
@@ -531,6 +540,9 @@ func renderMarkdown(doc *statusDocument) string {
 	fmt.Fprintf(&sb, "| held out languages | %d |\n", doc.Coverage.HeldOutLanguages)
 	fmt.Fprintf(&sb, "| known budget class gaps | %d |\n", doc.Coverage.KnownBudgetClassGaps)
 	fmt.Fprintf(&sb, "| wave2b pending budget rows | %d |\n", doc.Coverage.Wave2BPendingBudgets)
+	if doc.Coverage.ScopedHeldoutBudgets > 0 {
+		fmt.Fprintf(&sb, "| scoped heldout budget rows | %d |\n", doc.Coverage.ScopedHeldoutBudgets)
+	}
 	fmt.Fprintf(&sb, "| measured-today budget rows | %d |\n", doc.Coverage.MeasuredTodayBudgets)
 	if doc.Coverage.PartialMeasuredTodayBudgets > 0 {
 		fmt.Fprintf(&sb, "| partial measured-today notes | %d |\n", doc.Coverage.PartialMeasuredTodayBudgets)
@@ -633,11 +645,14 @@ func summarizeKnownGaps(gaps map[string]knownBudgetGap) []knownGapSummary {
 	return out
 }
 
-func baseCaveats(heldOut []string, gaps map[string]knownBudgetGap) []string {
+func baseCaveats(heldOut []string, scopedHeldout int, gaps map[string]knownBudgetGap) []string {
 	var caveats []string
 	caveats = append(caveats, "The perf ratio budget is a ratchet and evidence ledger, not a universal near-C claim; >2x and cliff rows remain explicit backlog.")
 	if len(heldOut) > 0 {
 		caveats = append(caveats, fmt.Sprintf("%s are intentionally held out of the language ratchet until their memory/C-reference RCA rows are resolved.", strings.Join(heldOut, ", ")))
+	}
+	if scopedHeldout > 0 {
+		caveats = append(caveats, fmt.Sprintf("%d budget row(s) use scoped heldout exclusions; see measurement_basis.exclude_paths and the known-gap ledger before treating those rows as whole-language claims.", scopedHeldout))
 	}
 	if _, ok := gaps["webworker_generated_d_ts"]; ok {
 		caveats = append(caveats, "The TypeScript webworker generated-file entry remains a correctness cross-check caveat even though TypeScript has a timing budget row.")
