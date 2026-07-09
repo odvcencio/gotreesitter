@@ -12,7 +12,7 @@ func TestBuildStatusFromTrackedInputs(t *testing.T) {
 	dir := t.TempDir()
 	budgetPath := filepath.Join(dir, "budget.json")
 	fleetPath := filepath.Join(dir, "exts.tsv")
-	writeFile(t, fleetPath, "go\t.go\npython\t.py\ngroovy\t.groovy\n")
+	writeFile(t, fleetPath, "go\t.go\npython\t.py\ntypescript\t.ts\ngroovy\t.groovy\n")
 	writeJSON(t, budgetPath, map[string]any{
 		"schema":       budgetSchema,
 		"generated_at": "2026-07-09T01:17:47Z",
@@ -42,6 +42,12 @@ func TestBuildStatusFromTrackedInputs(t *testing.T) {
 				"full_axis":      map[string]any{"max_timeouts": 1, "max_ratio_by_total": 12.0},
 				"noedit_axis":    map[string]any{"max_timeouts": 1, "max_ratio_by_total": 1.0},
 			},
+			"typescript": map[string]any{
+				"status":         "green_with_caveat",
+				"measured_today": "partial oracle spot-check only",
+				"full_axis":      map[string]any{"max_timeouts": 0, "max_ratio_by_total": 2.0},
+				"noedit_axis":    map[string]any{"max_timeouts": 0, "max_ratio_by_total": 1.0},
+			},
 		},
 	})
 
@@ -53,11 +59,11 @@ func TestBuildStatusFromTrackedInputs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildStatus returned error: %v", err)
 	}
-	if doc.Coverage.FleetLanguages != 3 {
-		t.Fatalf("fleet languages = %d, want 3", doc.Coverage.FleetLanguages)
+	if doc.Coverage.FleetLanguages != 4 {
+		t.Fatalf("fleet languages = %d, want 4", doc.Coverage.FleetLanguages)
 	}
-	if doc.Coverage.BudgetedLanguages != 2 {
-		t.Fatalf("budgeted languages = %d, want 2", doc.Coverage.BudgetedLanguages)
+	if doc.Coverage.BudgetedLanguages != 3 {
+		t.Fatalf("budgeted languages = %d, want 3", doc.Coverage.BudgetedLanguages)
 	}
 	if got := strings.Join(doc.HeldOutLanguages, ","); got != "groovy" {
 		t.Fatalf("held out languages = %q, want groovy", got)
@@ -67,6 +73,9 @@ func TestBuildStatusFromTrackedInputs(t *testing.T) {
 	}
 	if doc.Coverage.MeasuredTodayBudgets != 1 {
 		t.Fatalf("measured today = %d, want 1", doc.Coverage.MeasuredTodayBudgets)
+	}
+	if doc.Coverage.PartialMeasuredTodayBudgets != 1 {
+		t.Fatalf("partial measured today = %d, want 1", doc.Coverage.PartialMeasuredTodayBudgets)
 	}
 	md := renderMarkdown(doc)
 	for _, needle := range []string{"budgeted languages", "Held out of the ratchet", "groovy_gap", "wave3_batch1"} {
