@@ -222,8 +222,12 @@ func assemble(
 		}
 	}
 
-	// Alias sequences.
-	buildAliasSequences(lang, ng)
+	// Alias sequences, and the derived non-terminal alias map (mirrors
+	// tree-sitter C's ts_non_terminal_alias_map; must run after
+	// buildAliasSequences so alias target symbols already exist in the table
+	// and resolve to the same IDs used in AliasSequences).
+	aliasSymMap := buildAliasSequences(lang, ng)
+	buildNonTerminalAliasMap(lang, ng, aliasSymMap)
 
 	// Supertype map.
 	if err := buildSupertypeMap(lang, ng); err != nil {
@@ -1498,9 +1502,21 @@ func compactProductionIDs(ng *NormalizedGrammar) {
 	}
 }
 
+// aliasSymbolKey identifies an alias target by its display name and named
+// status. An alias with Named=false (e.g. keyword "subgraph") must not reuse
+// a Named=true symbol (rule "subgraph") — they need separate symbol IDs,
+// just like tree-sitter.
+type aliasSymbolKey struct {
+	name  string
+	named bool
+}
+
 // buildAliasSequences constructs the AliasSequences table from production alias info.
 // AliasSequences[productionID][childIndex] = alias symbol (0 if no alias).
-func buildAliasSequences(lang *gotreesitter.Language, ng *NormalizedGrammar) {
+// It returns the (alias name, named) → symbol ID map it built (nil if the
+// grammar has no aliases at all) so buildNonTerminalAliasMap can resolve
+// alias targets to the exact same symbol IDs without recomputing them.
+func buildAliasSequences(lang *gotreesitter.Language, ng *NormalizedGrammar) map[aliasSymbolKey]gotreesitter.Symbol {
 	// Check if any production has aliases.
 	hasAliases := false
 	for _, prod := range ng.Productions {
@@ -1510,20 +1526,14 @@ func buildAliasSequences(lang *gotreesitter.Language, ng *NormalizedGrammar) {
 		}
 	}
 	if !hasAliases {
-		return
+		return nil
 	}
 
 	// Build a map from (alias name, named) → symbol ID. Create new symbols if needed.
-	// An alias with Named=false (e.g. keyword "subgraph") must not reuse a Named=true
-	// symbol (rule "subgraph") — they need separate symbol IDs, just like tree-sitter.
-	type aliasKey struct {
-		name  string
-		named bool
-	}
-	aliasSymMap := make(map[aliasKey]gotreesitter.Symbol)
+	aliasSymMap := make(map[aliasSymbolKey]gotreesitter.Symbol)
 	for _, prod := range ng.Productions {
 		for _, ai := range prod.Aliases {
-			ak := aliasKey{ai.Name, ai.Named}
+			ak := aliasSymbolKey{ai.Name, ai.Named}
 			if _, ok := aliasSymMap[ak]; ok {
 				continue
 			}
@@ -1568,10 +1578,135 @@ func buildAliasSequences(lang *gotreesitter.Language, ng *NormalizedGrammar) {
 		row := make([]gotreesitter.Symbol, len(prod.RHS))
 		for _, ai := range prod.Aliases {
 			if ai.ChildIndex < len(row) {
-				row[ai.ChildIndex] = aliasSymMap[aliasKey{ai.Name, ai.Named}]
+				row[ai.ChildIndex] = aliasSymMap[aliasSymbolKey{ai.Name, ai.Named}]
 			}
 		}
 		lang.AliasSequences[prod.ProductionID] = row
+	}
+	return aliasSymMap
+}
+
+// buildNonTerminalAliasMap derives Language.NonTerminalAliasMap, mirroring
+// tree-sitter C's ts_non_terminal_alias_map (see ts_language_aliases_for_symbol
+// in tree-sitter's runtime language.h): for every *nonterminal* grammar
+// symbol that appears as a production's RHS element, compute the set of
+// distinct "public" symbols a node carrying that underlying symbol can be
+// displayed as:
+//
+//   - every RHS occurrence of the symbol that is NOT aliased at that child
+//     position contributes the symbol itself (its default/unaliased display);
+//   - every RHS occurrence that IS aliased at that child position contributes
+//     the resolved alias target symbol.
+//
+// If the resulting set is exactly {symbol itself} (i.e. the symbol is never
+// aliased anywhere), no entry is emitted — this mirrors
+// ts_language_aliases_for_symbol's fallback to public_symbol_map when the
+// symbol has no ts_non_terminal_alias_map row. Terminals (including external
+// and named tokens) are excluded: the C array this mirrors is scoped to
+// non-terminals only.
+//
+// This must run after buildAliasSequences, reusing its alias-symbol
+// resolution so every alias target here resolves to the exact same symbol ID
+// used in AliasSequences.
+func buildNonTerminalAliasMap(lang *gotreesitter.Language, ng *NormalizedGrammar, aliasSymMap map[aliasSymbolKey]gotreesitter.Symbol) {
+	if len(aliasSymMap) == 0 {
+		return
+	}
+	symbolCount := len(lang.SymbolNames)
+	if symbolCount == 0 {
+		return
+	}
+
+	sets := make([]map[gotreesitter.Symbol]bool, symbolCount)
+	touch := func(sym int, alias gotreesitter.Symbol) {
+		if sym < 0 || sym >= symbolCount {
+			return
+		}
+		if sets[sym] == nil {
+			sets[sym] = make(map[gotreesitter.Symbol]bool)
+		}
+		sets[sym][alias] = true
+	}
+
+	var aliasByIndex map[int]AliasInfo
+	for _, prod := range ng.Productions {
+		if len(prod.RHS) == 0 {
+			continue
+		}
+		if len(prod.Aliases) == 0 {
+			aliasByIndex = nil
+		} else {
+			aliasByIndex = make(map[int]AliasInfo, len(prod.Aliases))
+			for _, ai := range prod.Aliases {
+				aliasByIndex[ai.ChildIndex] = ai
+			}
+		}
+		for idx, rhsSym := range prod.RHS {
+			if rhsSym < 0 || rhsSym >= len(ng.Symbols) {
+				continue
+			}
+			// Only nonterminals carry a ts_non_terminal_alias_map entry;
+			// terminal aliasing is resolved at the lexer/symbol level.
+			if ng.Symbols[rhsSym].Kind != SymbolNonterminal {
+				continue
+			}
+			// An AliasInfo with an empty Name means "no alias at this
+			// position" by the same convention promoteDefaultAliases uses
+			// (normalize.go); treat it as unaliased rather than as an alias
+			// resolution to look up.
+			if ai, ok := aliasByIndex[idx]; ok && ai.Name != "" {
+				if aliasSym, ok2 := aliasSymMap[aliasSymbolKey{ai.Name, ai.Named}]; ok2 {
+					touch(rhsSym, aliasSym)
+					continue
+				}
+				// Unresolvable alias should not happen once buildAliasSequences
+				// has populated aliasSymMap for every alias in the grammar; skip
+				// rather than record a symbol that doesn't exist.
+				continue
+			}
+			touch(rhsSym, gotreesitter.Symbol(rhsSym))
+		}
+	}
+
+	any := false
+	rows := make([][]gotreesitter.Symbol, symbolCount)
+	for sym, set := range sets {
+		if len(set) == 0 {
+			continue
+		}
+		selfSym := gotreesitter.Symbol(sym)
+		if len(set) < 2 {
+			// A symbol with exactly one possible display — whether that's
+			// always itself (never aliased) or always the same single alias
+			// target (aliased identically everywhere it appears) — has no
+			// ambiguity to record. tree-sitter's compiler folds that single
+			// value directly into public_symbol_map at compile time, and
+			// ts_language_aliases_for_symbol's unconditional fallback
+			// (`*start = &self->public_symbol_map[original_symbol]`) already
+			// returns it correctly, so no dynamic ts_non_terminal_alias_map
+			// row is emitted for it. A row is only needed when a symbol's
+			// display genuinely varies by occurrence (2+ distinct values),
+			// which a single static public_symbol_map slot cannot represent.
+			continue
+		}
+		row := make([]gotreesitter.Symbol, 0, len(set))
+		if set[selfSym] {
+			row = append(row, selfSym)
+		}
+		var rest []gotreesitter.Symbol
+		for s := range set {
+			if s == selfSym {
+				continue
+			}
+			rest = append(rest, s)
+		}
+		sort.Slice(rest, func(i, j int) bool { return rest[i] < rest[j] })
+		row = append(row, rest...)
+		rows[sym] = row
+		any = true
+	}
+	if any {
+		lang.NonTerminalAliasMap = rows
 	}
 }
 
