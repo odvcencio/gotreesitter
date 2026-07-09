@@ -248,7 +248,7 @@ func perfScanPathList(raw string) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, part := range strings.Split(raw, ",") {
-		part = filepath.ToSlash(strings.TrimSpace(part))
+		part = strings.ReplaceAll(strings.TrimSpace(part), "\\", "/")
 		part = strings.TrimPrefix(part, "./")
 		part = strings.TrimPrefix(part, "/")
 		if part == "" || seen[part] {
@@ -276,10 +276,10 @@ func perfScanPathExcluded(lang, rel string, patterns []string) bool {
 }
 
 func perfScanPathPatternMatches(pattern, candidate string) bool {
-	pattern = filepath.ToSlash(strings.TrimSpace(pattern))
+	pattern = strings.ReplaceAll(strings.TrimSpace(pattern), "\\", "/")
 	pattern = strings.TrimPrefix(pattern, "./")
 	pattern = strings.TrimPrefix(pattern, "/")
-	candidate = filepath.ToSlash(strings.TrimSpace(candidate))
+	candidate = strings.ReplaceAll(strings.TrimSpace(candidate), "\\", "/")
 	candidate = strings.TrimPrefix(candidate, "./")
 	candidate = strings.Trim(candidate, "/")
 	if pattern == "" {
@@ -1803,7 +1803,7 @@ func TestPerfScanHelpersUnit(t *testing.T) {
 	if strings.Contains(joined, "LANG=old") || !strings.Contains(joined, "GTS_PERF_SCAN_LANG=go") {
 		t.Fatalf("mergeEnv=%v", env)
 	}
-	paths := perfScanPathList(" ./compiler/src/dmd/expressionsem.d, fsharp/examples/*.fs, groovy/subprojects/ ")
+	paths := perfScanPathList(" .\\compiler\\src\\dmd\\expressionsem.d, fsharp/examples/*.fs, groovy/subprojects/ ")
 	if got, want := strings.Join(paths, ","), "compiler/src/dmd/expressionsem.d,fsharp/examples/*.fs,groovy/subprojects/"; got != want {
 		t.Fatalf("path list = %q, want %q", got, want)
 	}
@@ -1815,6 +1815,7 @@ func TestPerfScanHelpersUnit(t *testing.T) {
 		want     bool
 	}{
 		{name: "exact relative", lang: "d", rel: "compiler/src/dmd/expressionsem.d", patterns: []string{"compiler/src/dmd/expressionsem.d"}, want: true},
+		{name: "backslash relative", lang: "d", rel: "compiler/src/dmd/expressionsem.d", patterns: []string{`compiler\src\dmd\expressionsem.d`}, want: true},
 		{name: "exact language relative", lang: "d", rel: "compiler/src/dmd/expressionsem.d", patterns: []string{"d/compiler/src/dmd/expressionsem.d"}, want: true},
 		{name: "glob", lang: "fsharp", rel: "examples/ProvidedTypes.fs", patterns: []string{"fsharp/examples/*.fs"}, want: true},
 		{name: "directory prefix", lang: "groovy", rel: "subprojects/performance/x.groovy", patterns: []string{"groovy/subprojects/"}, want: true},

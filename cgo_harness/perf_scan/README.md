@@ -110,7 +110,7 @@ grammar repos, not corpus repos.
 | `GTS_PERF_SCAN_LANG_TIMEOUT_MS` | 600000 | hard subprocess kill per language |
 | `GTS_PERF_SCAN_MAX_FILES` | 16 | files per language (after ordering) |
 | `GTS_PERF_SCAN_MIN_FILE_BYTES` / `_MAX_FILE_BYTES` | 0 / 4MiB | size filters |
-| `GTS_PERF_SCAN_EXCLUDE_PATHS` | — | comma-separated language-relative or `language/path` exact paths/globs to omit from selection; globs use Go `path.Match` semantics (`*` does not cross `/`), and trailing `/` means directory prefix. Intended for named C-oracle cliff witnesses that remain tracked in the ledger |
+| `GTS_PERF_SCAN_EXCLUDE_PATHS` | — | comma-separated language-relative or `language/path` exact paths/globs to omit from selection; globs use Go `path.Match` semantics (`*` does not cross `/`, and `**` is not recursive), while trailing `/` means recursive directory prefix. Intended for named C-oracle cliff witnesses that remain tracked in the ledger |
 | `GTS_PERF_SCAN_ORDER` | `largest` | `largest` / `smallest` / `path` selection order |
 | `GTS_PERF_SCAN_AXES` | `full,noedit` | add `edit` for the incremental-edit axis |
 | `GTS_PERF_SCAN_CONTENDED` | auto (loadavg) | mark run as contended (smoke-only numbers) |
