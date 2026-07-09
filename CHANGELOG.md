@@ -7,31 +7,33 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-Wave-3 perf-fleet coverage and standing correctness gates. This unreleased line
-closes the perf-scan *measurement* gap — the Go-vs-C full-parse ratio ratchet
-now covers 203/206 grammars (up from the handful measured at the v0.22.0
-checkpoint) via batches 1–7 plus an assisted fleet gap-close sweep — and adds
-the structural gates that keep correctness from silently regressing between
-releases. It does not yet claim universal near-C throughput: the ratchet records
-where every grammar stands (many are near-C; a long tail is classified cliffs),
-and optimizing that tail plus a memory-blowup class in a few grammars remains
-tracked for the next waves. Honest-as-of-main.
+Wave-3 perf-fleet coverage and standing correctness checks. This unreleased
+line extends perf-scan measurement coverage: the Go-vs-C full-parse ratio
+ratchet now covers 203/206 grammars (up from the targeted subset measured at
+the v0.22.0 checkpoint) via batches 1–7 plus a fleet gap-close sweep, while
+keeping the three held-out grammars explicit in the ledger. It does not yet
+claim universal near-C throughput: the ratchet records where every grammar
+stands (many are near-C; a long tail is classified cliffs), and optimizing
+that tail plus a memory-blowup class in a few grammars remains tracked for the
+next waves.
 
 ### Added
 
 - Wave-3 fleet perf ratchet: Go-vs-C full-parse ratio budgets extended to
-  203/206 grammars (batches 1–7 plus an assisted fleet gap-close sweep),
-  turning "universal near-C" from an unmeasured claim into a per-language,
-  CI-enforced scoreboard, with a `perf_scan_status` CLI for coverage reporting.
+  203/206 grammars (batches 1–7 plus a fleet gap-close sweep), turning sparse
+  fleet coverage into a per-language CI-tracked scoreboard with a
+  `perf_scan_status` CLI for coverage reporting.
 - Auto-triggered exhaustive CGo parity on `parser_result_*` and recovery-path
-  PRs — a standing gate so masking-normalization or recovery changes cannot
-  merge without byte-exact verification against the tree-sitter v0.25.0 oracle.
+  PRs, so masking-normalization or recovery changes surface byte-exact
+  verification against the tree-sitter v0.25.0 oracle instead of relying only
+  on smoke coverage.
 - Runtime memory budget with unified materialization stop checks, bounding
   worst-case parse memory (with a small-source fast path).
 - perf-scan harness hardening: explicit C-reference failure budget, active-file
   tracking in partial fragments, and a parent-side RSS watchdog.
-- Non-terminal alias maps carried in ts2go blobs (Wave 5), preserving
-  parent-context aliasing across the blob boundary.
+- Non-terminal alias maps carried in ts2go blobs as part of the parallel
+  correctness work, preserving parent-context aliasing across the blob
+  boundary.
 - Grammargen now derives `Language.NonTerminalAliasMap`, with Lua parity,
   shipped-blob inventory coverage, and synthetic edge-case tests for
   self-recursive alias wrappers, singleton aliases, terminal aliases, and
@@ -39,7 +41,8 @@ tracked for the next waves. Honest-as-of-main.
 
 ### Changed
 
-- COBOL promoted to Tier III and marked parity-clean.
+- COBOL promoted to Tier III and marked parity-clean after the `EXEC CICS`
+  parity fix below.
 - CGo parity tests now run inside Docker; grammar race lanes split by test
   range / package group for CI throughput.
 - Groovy and D large-file GLR retry paths now use scoped stack ceilings to
