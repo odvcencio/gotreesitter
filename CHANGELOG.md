@@ -7,24 +7,24 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-Wave-3 perf-fleet coverage and standing correctness checks. This unreleased
+Wave-3 perf-fleet coverage and ongoing correctness checks. This unreleased
 line extends perf-scan measurement coverage: the Go-vs-C full-parse ratio
 ratchet now covers 203/206 grammars (up from the targeted subset measured at
 the v0.22.0 checkpoint) via batches 1–7 plus a fleet gap-close sweep, while
 keeping the three held-out grammars explicit in the ledger. It does not yet
 claim universal near-C throughput: the ratchet records where every grammar
-stands (many are near-C; a long tail is classified cliffs), and optimizing
-that tail plus a memory-blowup class in a few grammars remains tracked for the
-next waves.
+stands, including held-out rows and known cliffs, and optimizing that tail
+plus a memory-blowup class in a few grammars remains tracked for the next
+waves.
 
 ### Added
 
 - Wave-3 fleet perf ratchet: Go-vs-C full-parse ratio budgets extended to
   203/206 grammars (batches 1–7 plus a fleet gap-close sweep), turning sparse
-  fleet coverage into a per-language CI-tracked scoreboard with a
-  `perf_scan_status` CLI for coverage reporting.
-- Auto-triggered exhaustive CGo parity on `parser_result_*` and recovery-path
-  PRs, so masking-normalization or recovery changes surface byte-exact
+  fleet coverage into a per-language scoreboard with `perf_scan_status`
+  coverage reporting and CI budget validation.
+- Auto-triggered scoped CGo parity on `parser_result_*` and recovery-path PRs,
+  so masking-normalization or recovery changes surface byte-exact
   verification against the tree-sitter v0.25.0 oracle instead of relying only
   on smoke coverage.
 - Runtime memory budget with unified materialization stop checks, bounding
@@ -42,7 +42,8 @@ next waves.
 ### Changed
 
 - COBOL promoted to Tier III and marked parity-clean after the `EXEC CICS`
-  parity fix below.
+  parity fix below, retaining the 25/25 real-corpus and 20/20 direct C-oracle
+  parity gates for this line.
 - CGo parity tests now run inside Docker; grammar race lanes split by test
   range / package group for CI throughput.
 - Groovy and D large-file GLR retry paths now use scoped stack ceilings to
