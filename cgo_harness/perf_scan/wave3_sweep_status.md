@@ -35,7 +35,7 @@ Held out of the ratchet: `d`, `fsharp`, `groovy`.
 | key | file | action |
 |---|---|---|
 | `d_expressionsem_go_rss_blowup` | d/compiler/src/dmd/expressionsem.d (685384 bytes; largest D corpus file, first selected file under largest-order probes) | D remains held out of the ratchet. The prior Go timeout/OOM class is contained under default settings, but a ratchetable row needs either a smaller scoped D corpus selection or an explicit budget decision that treats expressionsem.d as a C-reference high-RSS witness instead of a normal Go-vs-C ratio sample. |
-| `fsharp_providedtypes_c_reference_memory_blowup` | fsharp/examples/FSharp.Compiler/tests/EndToEndBuildTests/ProvidedTypes/ProvidedTypes.fs (755275 bytes; first active selected file after largest-8 selection) | dedicated isolated C-reference containment or corpus-selection RCA on ProvidedTypes.fs; under a 4GiB cgroup, <=1536MiB RSS caps keep the parent alive but stop before active-file checkpointing, while 2500-3000MiB can still cgroup-OOM, so do not rerun fsharp broad sweeps without a disposable hard memory bound and an explicit cgroup/RSS envelope |
+| `fsharp_providedtypes_c_reference_memory_blowup` | fsharp/examples/FSharp.Compiler/tests/EndToEndBuildTests/ProvidedTypes/ProvidedTypes.fs (755275 bytes; first active selected file after largest-8 selection) | F# remains held out. Exact ProvidedTypes is a dual blocker under the normal policy: Go returns an honestly flagged truncated tree at byte 5339 and C returns nil at 10s/30s; with GOT_PARSE_NODE_LIMIT_SCALE=3, the same row reaches full/c/rep and crosses a 4096MiB RSS watchdog. Next step is scoped corpus selection or a default-budget truncation fix before any C-reference ratio can be ratcheted, plus an explicit C high-RSS witness decision for ProvidedTypes-class files. |
 | `groovy_pleac11_15_memory_blowup` | groovy/subprojects/performance/src/files/pleac11_15.groovy (102960 bytes, largest-file selection hit during the assisted fleet pass) | Groovy remains held out of the ratchet. The prior timeout/OOM class is contained for pleac11_15.groovy under default settings, but a ratchetable row needs either C-shape parity on the exact witness or an explicit scoped budget decision that accepts the error-bearing child-count divergence plus cliff full-parse ratio. |
 | `webworker_generated_d_ts` | typescript/src/lib/webworker.generated.d.ts (786262 bytes, largest .d.ts in the corpus sample) | typescript's full_axis budget above is intentionally NOT tightened to reflect a 'fixed' webworker.generated.d.ts; GOT_FAITHFUL_CONDENSE (or an equivalent default-budget-aware condense path) remains a real wave-2b item. |
 
@@ -58,10 +58,13 @@ Held out of the ratchet: `d`, `fsharp`, `groovy`.
 - `wave3_batch6_doxygen_20260708T230104Z`
 - `wave3_batch7_20260708T232544Z`
 - `d_expressionsem_default_20260709T083649Z`
+- `fsharp_providedtypes_exact_default_20260709T094157Z`
+- `fsharp_providedtypes_exact_full30s_20260709T094341Z`
+- `fsharp_providedtypes_exact_scale3_rss4096_20260709T094500Z`
 - `webworker_oracle_spotcheck`
 
 ## Caveats
 
 - The perf ratio budget is a ratchet and evidence ledger, not a universal near-C claim; >2x and cliff rows remain explicit backlog.
-- d, fsharp, groovy are intentionally held out of the language ratchet until their memory/C-reference RCA rows are resolved. D's Go-side expressionsem.d cliff is contained, but the standard exact-file row is still blocked by C-reference timeout/high-RSS.
+- d, fsharp, groovy are intentionally held out of the language ratchet until their memory/C-reference RCA rows are resolved. D's Go-side expressionsem.d cliff is contained, while F# exact ProvidedTypes now has a named default Go truncation plus C high-RSS/timeout blocker.
 - The TypeScript webworker generated-file entry remains a correctness cross-check caveat even though TypeScript has a timing budget row.
