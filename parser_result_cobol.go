@@ -1087,7 +1087,7 @@ func normalizeCobolIfHeaderExecCICSClassErrors(root *Node, source []byte, lang *
 		return
 	}
 	if proc := cobolLastChildOfType(program, lang, "procedure_division"); proc != nil {
-		cobolTrimNodeEndToLastRecoveredSpanChild(proc, source, lang)
+		cobolTrimNodeEndToLastRecoveredSpanChild(proc, source)
 		if proc.endByte > program.endByte {
 			setCobolNodeEnd(program, source, proc.endByte)
 		}
@@ -1109,7 +1109,7 @@ func normalizeCobolIfHeaderExecCICSProgramEnd(root *Node, source []byte, lang *L
 	if proc == nil || proc.endByte <= program.endByte || !cobolProcedureHasIfHeaderExecCICSClassError(proc, source, lang) {
 		return
 	}
-	cobolTrimNodeEndToLastRecoveredSpanChild(proc, source, lang)
+	cobolTrimNodeEndToLastRecoveredSpanChild(proc, source)
 	setCobolNodeEnd(program, source, proc.endByte)
 	cobolRefreshHasErrorFromChildren(program)
 	cobolRefreshHasErrorFromChildren(root)
@@ -1403,17 +1403,17 @@ func cobolTrimProgramEndToLastProcedure(program *Node, source []byte, lang *Lang
 	}
 }
 
-func cobolTrimNodeEndToLastRecoveredSpanChild(n *Node, source []byte, lang *Language) {
-	if n == nil || lang == nil || n.endByte <= n.startByte || int(n.endByte) > len(source) {
+func cobolTrimNodeEndToLastRecoveredSpanChild(n *Node, source []byte) {
+	if n == nil || n.endByte <= n.startByte || int(n.endByte) > len(source) {
 		return
 	}
-	last := cobolLastRecoveredSpanChild(n, lang)
+	last := cobolLastRecoveredSpanChild(n)
 	if last != nil && last.endByte > n.startByte && last.endByte < n.endByte {
 		setCobolNodeEnd(n, source, last.endByte)
 	}
 }
 
-func cobolLastRecoveredSpanChild(parent *Node, lang *Language) *Node {
+func cobolLastRecoveredSpanChild(parent *Node) *Node {
 	if parent == nil {
 		return nil
 	}
