@@ -81,6 +81,24 @@ func TestCompareScoreboardReportsStrictConfigMismatch(t *testing.T) {
 	}
 }
 
+func TestCompareScoreboardReportsExcludePathConfigMismatch(t *testing.T) {
+	b := testBudget()
+	b.MeasurementBasis.ExcludePaths = []string{"d/compiler/src/dmd/expressionsem.d"}
+	s := testScoreboard(2.5, 0, 0)
+
+	findings := compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	got := renderFindingKeys(findings)
+	if !strings.Contains(got, "::config.exclude_paths") {
+		t.Fatalf("findings %q missing config exclude_paths failure (%#v)", got, findings)
+	}
+
+	s.Config.ExcludePaths = []string{"d/compiler/src/dmd/expressionsem.d"}
+	findings = compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	if len(findings) != 0 {
+		t.Fatalf("matching exclude_paths should pass: %#v", findings)
+	}
+}
+
 func TestCompareScoreboardReportsCReferenceFailure(t *testing.T) {
 	b := testBudget()
 	s := testScoreboard(2.5, 0, 0)

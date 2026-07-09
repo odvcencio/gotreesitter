@@ -40,6 +40,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -68,6 +69,7 @@ const (
 	perfScanEnvMaxFiles    = "GTS_PERF_SCAN_MAX_FILES"
 	perfScanEnvMinBytes    = "GTS_PERF_SCAN_MIN_FILE_BYTES"
 	perfScanEnvMaxBytes    = "GTS_PERF_SCAN_MAX_FILE_BYTES"
+	perfScanEnvExclude     = "GTS_PERF_SCAN_EXCLUDE_PATHS"
 	perfScanEnvOrder       = "GTS_PERF_SCAN_ORDER"
 	perfScanEnvAxes        = "GTS_PERF_SCAN_AXES"
 	perfScanEnvContended   = "GTS_PERF_SCAN_CONTENDED"
@@ -98,6 +100,7 @@ type perfScanConfig struct {
 	MaxFiles      int      `json:"max_files"`
 	MinFileBytes  int      `json:"min_file_bytes"`
 	MaxFileBytes  int      `json:"max_file_bytes"`
+	ExcludePaths  []string `json:"exclude_paths,omitempty"`
 	Order         string   `json:"order"`
 	Axes          []string `json:"axes"`
 	Contended     bool     `json:"contended"`
@@ -207,6 +210,7 @@ func perfScanLoadConfig() perfScanConfig {
 		MaxFiles:      perfScanEnvIntDefault(perfScanEnvMaxFiles, 16),
 		MinFileBytes:  perfScanEnvIntDefault(perfScanEnvMinBytes, 0),
 		MaxFileBytes:  perfScanEnvIntDefault(perfScanEnvMaxBytes, 4<<20),
+		ExcludePaths:  perfScanPathList(os.Getenv(perfScanEnvExclude)),
 		Order:         strings.TrimSpace(os.Getenv(perfScanEnvOrder)),
 		Axes:          perfScanAxes(),
 		ChildRSSMB:    perfScanEnvIntDefault(perfScanEnvChildRSSMB, 0),
@@ -238,6 +242,61 @@ func perfScanAxes() []string {
 		return []string{perfScanAxisFull, perfScanAxisNoEdit}
 	}
 	return axes
+}
+
+func perfScanPathList(raw string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		part = filepath.ToSlash(strings.TrimSpace(part))
+		part = strings.TrimPrefix(part, "./")
+		part = strings.TrimPrefix(part, "/")
+		if part == "" || seen[part] {
+			continue
+		}
+		seen[part] = true
+		out = append(out, part)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func perfScanPathExcluded(lang, rel string, patterns []string) bool {
+	if len(patterns) == 0 {
+		return false
+	}
+	rel = filepath.ToSlash(strings.TrimPrefix(rel, "./"))
+	langRel := lang + "/" + rel
+	for _, pattern := range patterns {
+		if perfScanPathPatternMatches(pattern, rel) || perfScanPathPatternMatches(pattern, langRel) {
+			return true
+		}
+	}
+	return false
+}
+
+func perfScanPathPatternMatches(pattern, candidate string) bool {
+	pattern = filepath.ToSlash(strings.TrimSpace(pattern))
+	pattern = strings.TrimPrefix(pattern, "./")
+	pattern = strings.TrimPrefix(pattern, "/")
+	candidate = filepath.ToSlash(strings.TrimSpace(candidate))
+	candidate = strings.TrimPrefix(candidate, "./")
+	candidate = strings.Trim(candidate, "/")
+	if pattern == "" {
+		return false
+	}
+	if pattern == candidate {
+		return true
+	}
+	if strings.HasSuffix(pattern, "/") && strings.HasPrefix(candidate, pattern) {
+		return true
+	}
+	if strings.ContainsAny(pattern, "*?[") {
+		if ok, err := path.Match(pattern, candidate); err == nil && ok {
+			return true
+		}
+	}
+	return false
 }
 
 func perfScanCorpusRoot() string {
@@ -622,7 +681,11 @@ func perfScanSelectFiles(t *testing.T, lang string, cfg perfScanConfig, langRoot
 		if r, err := filepath.Rel(langRoot, path); err == nil {
 			rel = r
 		}
+		rel = filepath.ToSlash(rel)
 		if !realCorpusBenchmarkFileAllowed(rel, filters) {
+			return nil
+		}
+		if perfScanPathExcluded(lang, rel, cfg.ExcludePaths) {
 			return nil
 		}
 		size := info.Size()
@@ -632,7 +695,7 @@ func perfScanSelectFiles(t *testing.T, lang string, cfg perfScanConfig, langRoot
 		if cfg.MaxFileBytes > 0 && size > int64(cfg.MaxFileBytes) {
 			return nil
 		}
-		all = append(all, perfScanCorpusFile{path: path, rel: filepath.ToSlash(rel), size: size})
+		all = append(all, perfScanCorpusFile{path: path, rel: rel, size: size})
 		return nil
 	})
 	if err != nil {
@@ -1739,6 +1802,27 @@ func TestPerfScanHelpersUnit(t *testing.T) {
 	joined := strings.Join(env, " ")
 	if strings.Contains(joined, "LANG=old") || !strings.Contains(joined, "GTS_PERF_SCAN_LANG=go") {
 		t.Fatalf("mergeEnv=%v", env)
+	}
+	paths := perfScanPathList(" ./compiler/src/dmd/expressionsem.d, fsharp/examples/*.fs, groovy/subprojects/ ")
+	if got, want := strings.Join(paths, ","), "compiler/src/dmd/expressionsem.d,fsharp/examples/*.fs,groovy/subprojects/"; got != want {
+		t.Fatalf("path list = %q, want %q", got, want)
+	}
+	for _, tc := range []struct {
+		name     string
+		lang     string
+		rel      string
+		patterns []string
+		want     bool
+	}{
+		{name: "exact relative", lang: "d", rel: "compiler/src/dmd/expressionsem.d", patterns: []string{"compiler/src/dmd/expressionsem.d"}, want: true},
+		{name: "exact language relative", lang: "d", rel: "compiler/src/dmd/expressionsem.d", patterns: []string{"d/compiler/src/dmd/expressionsem.d"}, want: true},
+		{name: "glob", lang: "fsharp", rel: "examples/ProvidedTypes.fs", patterns: []string{"fsharp/examples/*.fs"}, want: true},
+		{name: "directory prefix", lang: "groovy", rel: "subprojects/performance/x.groovy", patterns: []string{"groovy/subprojects/"}, want: true},
+		{name: "miss", lang: "go", rel: "src/main.go", patterns: []string{"d/compiler/src/dmd/expressionsem.d"}, want: false},
+	} {
+		if got := perfScanPathExcluded(tc.lang, tc.rel, tc.patterns); got != tc.want {
+			t.Fatalf("%s: excluded=%v want %v", tc.name, got, tc.want)
+		}
 	}
 	rss, ok := perfScanParseStatusRSSBytes("Name:\tperfscan\nVmRSS:\t  1537 kB\n")
 	if !ok || rss != 1537*1024 {
