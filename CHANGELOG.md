@@ -13,8 +13,8 @@ now covers 203/206 grammars (up from the handful measured at the v0.22.0
 checkpoint) via batches 1–7 plus an assisted fleet gap-close sweep — and adds
 the structural gates that keep correctness from silently regressing between
 releases. It does not yet claim universal near-C throughput: the ratchet records
-where every grammar stands (many are near-C; a long tail are classified cliffs),
-and optimizing that tail plus a memory-blowup class in a few grammars remain
+where every grammar stands (many are near-C; a long tail is classified cliffs),
+and optimizing that tail plus a memory-blowup class in a few grammars remains
 tracked for the next waves. Honest-as-of-main.
 
 ### Added
@@ -32,12 +32,19 @@ tracked for the next waves. Honest-as-of-main.
   tracking in partial fragments, and a parent-side RSS watchdog.
 - Non-terminal alias maps carried in ts2go blobs (Wave 5), preserving
   parent-context aliasing across the blob boundary.
+- Grammargen now derives `Language.NonTerminalAliasMap`, with Lua parity,
+  shipped-blob inventory coverage, and synthetic edge-case tests for
+  self-recursive alias wrappers, singleton aliases, terminal aliases, and
+  deterministic row ordering.
 
 ### Changed
 
 - COBOL promoted to Tier III and marked parity-clean.
 - CGo parity tests now run inside Docker; grammar race lanes split by test
   range / package group for CI throughput.
+- Groovy and D large-file GLR retry paths now use scoped stack ceilings to
+  contain Go-side RSS cliffs; both remain explicitly tracked in the perf ledger
+  until their exact Go-vs-C rows are ratchetable.
 
 ### Fixed
 
