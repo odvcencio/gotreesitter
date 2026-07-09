@@ -7,6 +7,14 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Fixed
+
+- COBOL `EXEC CICS` error normalization now trims recovered
+  `procedure_division`/`program_definition` spans to the last material child
+  when C stops before trailing trivia, while preserving C's zero-width EOF
+  recovery shape. A cgo-backed adversarial fixture now guards the recovered
+  error signal and byte spans against the C oracle.
+
 ## [0.22.5] - 2026-07-09
 
 Scoped held-out perf-ratchet release. This release follows the fleet coverage

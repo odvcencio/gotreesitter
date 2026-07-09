@@ -163,6 +163,16 @@ func TestCobolCGOErrorOracleParity(t *testing.T) {
 				"      * banner\n" +
 				"       procedure division.\n",
 		},
+		{
+			name: "exec_cics_error_preserves_has_error_after_paragraph_recovery",
+			src: "       identification division.\n" +
+				"       program-id. a.\n" +
+				"       procedure division.\n" +
+				"           MOVE A TO B\n" +
+				"           IF FLAG\n" +
+				"              EXEC CICS RETURN\n" +
+				"       aa.\n",
+		},
 	}
 
 	for _, tc := range cases {
