@@ -1,0 +1,87 @@
+{
+  "schema": "gts-wave3-perf-sweep-status/v1",
+  "generated_at": "2026-07-09T04:59:41Z",
+  "budget_path": "perf_scan/perf_ratio_budgets.json",
+  "fleet_path": "tier_scan/exts.tsv",
+  "budget_generated_at": "2026-07-09T01:17:47Z",
+  "budget_generated_by": "wave-3 fleet perf sweep ratchet pass, branch wave3/perf-assisted-ratchets, extending the wave-2b budget with batch-1 through batch-7 plus the assisted fleet gap-close measurements",
+  "measurement_basis": {
+    "reps": 5,
+    "warmup": 1,
+    "file_budget_ms": 10000,
+    "max_files": 8,
+    "order": "largest",
+    "axes": [
+      "full",
+      "noedit"
+    ]
+  },
+  "coverage": {
+    "fleet_languages": 206,
+    "budgeted_languages": 203,
+    "held_out_languages": 3,
+    "known_budget_class_gaps": 4,
+    "wave2b_pending_budgets": 15,
+    "measured_today_budgets": 193,
+    "partial_measured_today_budgets": 1
+  },
+  "held_out_languages": [
+    "d",
+    "fsharp",
+    "groovy"
+  ],
+  "budget_status_counts": {
+    "green": 50,
+    "green_with_caveat": 142,
+    "wave2b_pending": 11
+  },
+  "seed_sources": [
+    "after_cliffs_20260706T210143Z",
+    "authoritative_20260706T145520Z",
+    "fleet_gap_close_assist_20260708T232019Z_to_20260709T003453Z",
+    "pr142_evidence_and_wave2a_closeout_spore",
+    "wave2b_green_20260707T0100Z",
+    "wave2b_js_20260707T0000Z",
+    "wave3_batch1_20260708T202820Z",
+    "wave3_batch2_20260708T211248Z",
+    "wave3_batch3_20260708T213644Z",
+    "wave3_batch4_20260708T215550Z",
+    "wave3_batch5_20260708T222227Z",
+    "wave3_batch6_20260708T224850Z",
+    "wave3_batch6_dot_20260708T225933Z",
+    "wave3_batch6_doxygen_20260708T230104Z",
+    "wave3_batch7_20260708T232544Z",
+    "webworker_oracle_spotcheck"
+  ],
+  "known_budget_class_gaps": [
+    {
+      "key": "d_docker_oom",
+      "file": "d corpus largest-file selection from wave3_batch6",
+      "backlog_ref": "wave3_batch6_20260708T224850Z seed note; intentionally not added to languages because both the batch run and one-language rerun ended with Docker oom_killed=true",
+      "action": "dedicated one-language D RCA under a hard disposable memory limit before creating any budget row"
+    },
+    {
+      "key": "fsharp_providedtypes_c_reference_memory_blowup",
+      "file": "fsharp/examples/FSharp.Compiler/tests/EndToEndBuildTests/ProvidedTypes/ProvidedTypes.fs (755275 bytes; first active selected file after largest-8 selection)",
+      "backlog_ref": "assisted Wave-3 fleet gap-close pass, reported in /tmp/gts_scratch/FLEET_SCOREBOARD.md; intentionally not added to languages because it is not a ratchetable row",
+      "action": "dedicated isolated C-reference containment or corpus-selection RCA on ProvidedTypes.fs; do not rerun fsharp broad sweeps without a disposable hard memory bound and process-level watchdog"
+    },
+    {
+      "key": "groovy_pleac11_15_memory_blowup",
+      "file": "groovy/subprojects/performance/src/files/pleac11_15.groovy (102960 bytes, largest-file selection hit during the assisted fleet pass)",
+      "backlog_ref": "assisted Wave-3 fleet gap-close pass, reported in /tmp/gts_scratch/FLEET_SCOREBOARD.md; intentionally not added to languages because it is not a ratchetable row",
+      "action": "dedicated RCA on pleac11_15.groovy in an isolated hard-bounded container; do not sweep this file again as part of broad fleet runs until containment is understood"
+    },
+    {
+      "key": "webworker_generated_d_ts",
+      "file": "typescript/src/lib/webworker.generated.d.ts (786262 bytes, largest .d.ts in the corpus sample)",
+      "backlog_ref": "named wave-1/wave-2 backlog item 'GOT_FAITHFUL_CONDENSE for the webworker 512MB-budget divergence' (pr141-scoreboard.md) -- CONFIRMED STILL OPEN by this pass",
+      "action": "typescript's full_axis budget above is intentionally NOT tightened to reflect a 'fixed' webworker.generated.d.ts; GOT_FAITHFUL_CONDENSE (or an equivalent default-budget-aware condense path) remains a real wave-2b item."
+    }
+  ],
+  "caveats": [
+    "The perf ratio budget is a ratchet and evidence ledger, not a universal near-C claim; \u003e2x and cliff rows remain explicit backlog.",
+    "d, fsharp, groovy are intentionally held out of the language ratchet until their memory/C-reference RCA rows are resolved.",
+    "The TypeScript webworker generated-file entry remains a correctness cross-check caveat even though TypeScript has a timing budget row."
+  ]
+}

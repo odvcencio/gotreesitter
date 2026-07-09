@@ -158,6 +158,24 @@ GOWORK=off go run ./cmd/perf_scan_budget \
   -budget perf_scan/perf_ratio_budgets.json
 ```
 
+Summarize the tracked Wave 3 fleet status from the checked-in budget and the
+language catalog:
+
+```sh
+cd cgo_harness
+GOWORK=off go run ./cmd/perf_scan_status \
+  -budget perf_scan/perf_ratio_budgets.json \
+  -fleet tier_scan/exts.tsv \
+  -out-json perf_scan/wave3_sweep_status.json \
+  -out-md perf_scan/wave3_sweep_status.md
+```
+
+This status is ledger-grade: it reports budgeted fleet coverage, languages
+held out of the ratchet, seed sources, and known budget-class gaps without
+requiring git-ignored local scoreboard artifacts. To fold in local scoreboards
+when they exist, add `-scoreboards 'perf_scan/out/wave3_batch*/scoreboard.json'`;
+contended runs remain explicitly labeled as smoke/visibility evidence.
+
 Compare an authoritative scoreboard against the ratchet:
 
 ```sh
