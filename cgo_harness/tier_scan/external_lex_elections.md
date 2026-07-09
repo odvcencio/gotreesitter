@@ -54,7 +54,7 @@ scanner.
 | `caddy` | default elected | IV-recovery? | 11/40 | yes | yes | no | no | `.caddy,caddyfile` |
 | `cairo` | default elected | IV-recovery? | 1/40 | yes | yes | no | no | `.cairo` |
 | `cmake` | default elected | CLEAN | 40/40 | yes | yes | no | no | `.cmake,.cmake.in` |
-| `cobol` | default elected | IV-recovery | 11/40 | yes | yes | no | no | `.cbl,.cob,.cpy` |
+| `cobol` | default elected | CLEAN | 40/40 | yes | yes | no | no | `.cbl,.cob,.cpy` |
 | `cooklang` | default elected | IV-recovery | 0/3 | yes | yes | no | no | `.cook` |
 | `crystal` | default elected | IV-shape? | unmeasured | yes | yes | no | no | `.cr` |
 | `css` | default elected | IV-unknown | 37/40 | yes | yes | no | no | `.css` |

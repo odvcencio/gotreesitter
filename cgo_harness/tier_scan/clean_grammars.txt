@@ -13,6 +13,7 @@ capnp
 chatito
 clojure
 cmake
+cobol
 comment
 corn
 cpon

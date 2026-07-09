@@ -344,12 +344,12 @@
    "extensions": ".cbl,.cob,.cpy",
    "grammar": "cobol",
    "has_external_scanner": true,
-   "parity": "11/40",
+   "parity": "40/40",
    "staged_external_lex_states": false,
    "status": "default_elected",
    "status_label": "default elected",
-   "tier_classification": "IV-recovery",
-   "tier_notes": "Wave 4 Cobol recovery-frontier normalization closes the accepted C-recovery shape bucket: BBANK10P, CLOSEFIL, DFHUAINS, OPENFIL, SBANK00P, SBANK10P, SCASH00P, SCASHDRV, SCHAR00P, SCUSTOMP, and SSECUREP match C under Docker wave4-cobol-tier40-recovery-frontier-final (parityMatch=11/40, trunc=29, errTree=38, diverge=29, medianRatio=3.21x, aggRatio=4.76x). BBANK10P default ELS witness matches (wave4-cobol-bbank10p-default-els). Remaining IV blockers are the 29 no_stacks_alive frontier-death files around copybook/procedure recovery; separate grammargen focus wrappers still surface upstream evaluate-corpus generated-parser mismatches outside this C-recovery tier runner, so do not ratchet Cobol CLEAN until frontier retention and generated evaluate parity are fixed."
+   "tier_classification": "CLEAN",
+   "tier_notes": "in ratchet; Docker grammargen C parity verified 2026-07-09 under run_grammargen_c_parity cobol40 (eligible=40 no_error=40 tree_parity=40 divergences=0, no timeout). Focused aggressive real-corpus parity also verified 25/25 no-error, sexpr, and deep parity in focus_targets/20260709T051852Z."
   },
   {
    "c_recovery_default_opt_out": false,

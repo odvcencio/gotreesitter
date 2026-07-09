@@ -1,6 +1,6 @@
 # Grammar tiers — unreleased
 
-Generated 2026-07-08T15:57:23Z at `f6702982`. Parity vs the
+Generated 2026-07-09T05:26:24Z at `5d21c536`. Parity vs the
 tree-sitter C oracle is the hard gate; performance is the sub-rank
 (rules in `cgo_harness/tier_scan/README.md`).
 
@@ -8,8 +8,8 @@ tree-sitter C oracle is the hard gate; performance is the sub-rank
 | --- | --- |
 | I | 14 |
 | II | 23 |
-| III | 3 |
-| IV | 166 |
+| III | 4 |
+| IV | 165 |
 
 ## Tier I — parity-clean, fast (14)
 
@@ -19,11 +19,11 @@ tree-sitter C oracle is the hard gate; performance is the sub-rank
 
 `arduino`, `beancount`, `cmake`, `devicetree`, `editorconfig`, `foam`, `fortran`, `git_config`, `git_rebase`, `gitignore`, `gn`, `janet`, `json`, `json5`, `pem`, `ql`, `ron`, `ruby`, `sparql`, `tablegen`, `todotxt`, `twig`, `vue`
 
-## Tier III — parity-clean, poor perf (3)
+## Tier III — parity-clean, poor perf (4)
 
-`embedded_template`, `gomod`, `regex`
+`cobol`, `embedded_template`, `gomod`, `regex`
 
-## Tier IV — not parity-clean (166)
+## Tier IV — not parity-clean (165)
 
 | grammar | cause | parity |
 | --- | --- | --- |
@@ -49,7 +49,6 @@ tree-sitter C oracle is the hard gate; performance is the sub-rank
 | `chatito` | IV-unknown | 1/5 |
 | `circom` | IV-shape? | 19/40 |
 | `clojure` | IV-perf | unmeasured |
-| `cobol` | IV-recovery | 11/40 |
 | `comment` | IV-perf | unmeasured |
 | `commonlisp` | IV-recovery? | unmeasured |
 | `cooklang` | IV-recovery | 0/3 |

@@ -1,6 +1,6 @@
 {
- "generated": "2026-07-08T15:57:23Z",
- "commit": "f6702982",
+ "generated": "2026-07-09T05:26:24Z",
+ "commit": "5d21c536",
  "version": "unreleased",
  "tier_rules": {
   "I": "parity-clean and <=1.5x C full-parse, cold <=5ms, blob <=150KB",
@@ -10,10 +10,10 @@
   "unranked": "parity-clean; perf measurement pending"
  },
  "histogram": {
-  "IV": 166,
+  "IV": 165,
   "II": 23,
   "I": 14,
-  "III": 3
+  "III": 4
  },
  "grammars": [
   {
@@ -196,10 +196,9 @@
   },
   {
    "grammar": "cobol",
-   "tier": "IV",
-   "iv_cause": "IV-recovery",
-   "parity": "11/40",
-   "notes": "Wave 4 Cobol recovery-frontier normalization closes the accepted C-recovery shape bucket: BBANK10P, CLOSEFIL, DFHUAINS, OPENFIL, SBANK00P, SBANK10P, SCASH00P, SCASHDRV, SCHAR00P, SCUSTOMP, and SSECUREP match C under Docker wave4-cobol-tier40-recovery-frontier-final (parityMatch=11/40, trunc=29, errTree=38, diverge=29, medianRatio=3.21x, aggRatio=4.76x). BBANK10P default ELS witness matches (wave4-cobol-bbank10p-default-els). Remaining IV blockers are the 29 no_stacks_alive frontier-death files around copybook/procedure recovery; separate grammargen focus wrappers still surface upstream evaluate-corpus generated-parser mismatches outside this C-recovery tier runner, so do not ratchet Cobol CLEAN until frontier retention and generated evaluate parity are fixed."
+   "tier": "III",
+   "parity": "clean",
+   "perf_source": "measured"
   },
   {
    "grammar": "comment",
