@@ -173,6 +173,17 @@ func TestCobolCGOErrorOracleParity(t *testing.T) {
 				"              EXEC CICS RETURN\n" +
 				"       aa.\n",
 		},
+		{
+			name: "exec_cics_error_trims_before_trailing_recovered_comment",
+			src: "       identification division.\n" +
+				"       program-id. a.\n" +
+				"       procedure division.\n" +
+				"           MOVE A TO B\n" +
+				"           IF FLAG\n" +
+				"              EXEC CICS RETURN\n" +
+				"       aa.\n" +
+				"      * trailing banner\n",
+		},
 	}
 
 	for _, tc := range cases {
