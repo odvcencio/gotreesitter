@@ -1437,6 +1437,8 @@ func perfScanRunChild(ctx context.Context, cmd *exec.Cmd, rssLimitMB int) (error
 		done <- cmd.Wait()
 	}()
 
+	// This knob is for containment probes, not authoritative timing runs; keep
+	// the poll tight so a fast RSS climb is stopped before the container OOMs.
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -1453,6 +1455,11 @@ func perfScanRunChild(ctx context.Context, cmd *exec.Cmd, rssLimitMB int) (error
 			rssLimitMB, (rssBytes+(1<<20)-1)>>20)
 	}
 	for {
+		select {
+		case err := <-done:
+			return err, ""
+		default:
+		}
 		if kill, detail := checkRSS(); kill {
 			_ = cmd.Process.Kill()
 			return <-done, detail
