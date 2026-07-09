@@ -1,10 +1,10 @@
 # Wave 3 Perf Sweep Status
 
-- generated_at: `2026-07-09T08:38:22Z`
+- generated_at: `2026-07-09T09:53:11Z`
 - budget: `perf_scan/perf_ratio_budgets.json`
 - fleet catalog: `tier_scan/exts.tsv`
-- budget_generated_at: `2026-07-09T01:17:47Z`
-- budget_generated_by: `wave-3 fleet perf sweep ratchet pass, branch wave3/perf-assisted-ratchets, extending the wave-2b budget with batch-1 through batch-7 plus the assisted fleet gap-close measurements`
+- budget_generated_at: `2026-07-09T09:53:11Z`
+- budget_generated_by: `wave-3 fleet perf sweep ratchet pass, branch wave3/perf-assisted-ratchets, extending the wave-2b budget with batch-1 through batch-7 plus the assisted fleet gap-close measurements and held-out exact-file RCA probes`
 
 ## Coverage
 
