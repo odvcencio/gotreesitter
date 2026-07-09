@@ -1291,6 +1291,37 @@ func TestCSharpAcceptedErrorTreeCanUseNamespaceRecovery(t *testing.T) {
 	}
 }
 
+func TestGroovyLargeAcceptedErrorRetryUsesInitialStackCeiling(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	ResetParseEnvConfigCacheForTests()
+	defer ResetParseEnvConfigCacheForTests()
+
+	tree := &Tree{
+		language: &Language{Name: "groovy"},
+		root: &Node{
+			endByte: 102960,
+			flags:   nodeFlagHasError,
+		},
+		parseRuntime: ParseRuntime{
+			StopReason:      ParseStopAccepted,
+			ExpectedEOFByte: 102960,
+			RootEndByte:     102960,
+			MaxStacksSeen:   35,
+		},
+	}
+
+	if got := fullParseRetryMaxStacksOverride(tree, 102960, 2); got != 0 {
+		t.Fatalf("fullParseRetryMaxStacksOverride(large groovy) = %d, want 0", got)
+	}
+	if got := fullParseRetryMaxStacksOverride(tree, 1024, 2); got != fullParseRetryMaxGLRStacks {
+		t.Fatalf("fullParseRetryMaxStacksOverride(small groovy) = %d, want %d", got, fullParseRetryMaxGLRStacks)
+	}
+	tree.language = &Language{Name: "typescript"}
+	if got := fullParseRetryMaxStacksOverride(tree, 102960, 2); got != fullParseRetryMaxGLRStacks {
+		t.Fatalf("fullParseRetryMaxStacksOverride(typescript) = %d, want %d", got, fullParseRetryMaxGLRStacks)
+	}
+}
+
 func TestCppAcceptedErrorRetrySkipsCompleteTree(t *testing.T) {
 	tree := &Tree{
 		language: &Language{Name: "cpp"},
@@ -1908,6 +1939,9 @@ func TestEffectiveFullParseInitialMaxStacks(t *testing.T) {
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "crystal"}, maxGLRStacks); got != 2 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(crystal) = %d, want 2", got)
 	}
+	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "groovy"}, maxGLRStacks); got != 2 {
+		t.Fatalf("effectiveFullParseInitialMaxStacks(groovy) = %d, want 2", got)
+	}
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "javascript"}, maxGLRStacks); got != 6 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(javascript) = %d, want 6", got)
 	}
@@ -1955,6 +1989,9 @@ func TestEffectiveFullParseInitialMaxStacks(t *testing.T) {
 	}
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "crystal"}, 16); got != 16 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(crystal, explicit override) = %d, want 16", got)
+	}
+	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "groovy"}, 16); got != 16 {
+		t.Fatalf("effectiveFullParseInitialMaxStacks(groovy, explicit override) = %d, want 16", got)
 	}
 	if got := effectiveFullParseInitialMaxStacks(&Language{Name: "objc"}, 16); got != 16 {
 		t.Fatalf("effectiveFullParseInitialMaxStacks(objc, explicit override) = %d, want 16", got)

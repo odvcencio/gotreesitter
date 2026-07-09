@@ -1,6 +1,6 @@
 # Wave 3 Perf Sweep Status
 
-- generated_at: `2026-07-09T06:58:32Z`
+- generated_at: `2026-07-09T07:57:40Z`
 - budget: `perf_scan/perf_ratio_budgets.json`
 - fleet catalog: `tier_scan/exts.tsv`
 - budget_generated_at: `2026-07-09T01:17:47Z`
@@ -36,7 +36,7 @@ Held out of the ratchet: `d`, `fsharp`, `groovy`.
 |---|---|---|
 | `d_expressionsem_go_rss_blowup` | d/compiler/src/dmd/expressionsem.d (685384 bytes; largest D corpus file, first selected file under largest-order probes) | reduce or contain the expressionsem.d Go full-parse memory blowup before adding D to the ratchet; D remains held out until full/noedit can complete or an explicit budget row is deliberately scoped around this RSS cliff |
 | `fsharp_providedtypes_c_reference_memory_blowup` | fsharp/examples/FSharp.Compiler/tests/EndToEndBuildTests/ProvidedTypes/ProvidedTypes.fs (755275 bytes; first active selected file after largest-8 selection) | dedicated isolated C-reference containment or corpus-selection RCA on ProvidedTypes.fs; under a 4GiB cgroup, <=1536MiB RSS caps keep the parent alive but stop before active-file checkpointing, while 2500-3000MiB can still cgroup-OOM, so do not rerun fsharp broad sweeps without a disposable hard memory bound and an explicit cgroup/RSS envelope |
-| `groovy_pleac11_15_memory_blowup` | groovy/subprojects/performance/src/files/pleac11_15.groovy (102960 bytes, largest-file selection hit during the assisted fleet pass) | use GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB for future isolated Groovy/F# memory probes so the sweep parent can preserve a scoreboard instead of dying with the container; Groovy remains held out of the ratchet until pleac11_15.groovy is reduced/fixed or a budget row is deliberately scoped around this memory_budget cliff |
+| `groovy_pleac11_15_memory_blowup` | groovy/subprojects/performance/src/files/pleac11_15.groovy (102960 bytes, largest-file selection hit during the assisted fleet pass) | Groovy remains held out of the ratchet. The prior timeout/OOM class is contained for pleac11_15.groovy under default settings, but a ratchetable row needs either C-shape parity on the exact witness or an explicit scoped budget decision that accepts the error-bearing child-count divergence plus cliff full-parse ratio. |
 | `webworker_generated_d_ts` | typescript/src/lib/webworker.generated.d.ts (786262 bytes, largest .d.ts in the corpus sample) | typescript's full_axis budget above is intentionally NOT tightened to reflect a 'fixed' webworker.generated.d.ts; GOT_FAITHFUL_CONDENSE (or an equivalent default-budget-aware condense path) remains a real wave-2b item. |
 
 ## Seed Sources
@@ -44,6 +44,7 @@ Held out of the ratchet: `d`, `fsharp`, `groovy`.
 - `after_cliffs_20260706T210143Z`
 - `authoritative_20260706T145520Z`
 - `fleet_gap_close_assist_20260708T232019Z_to_20260709T003453Z`
+- `groovy_ceiling_exact_20260709T075435Z`
 - `pr142_evidence_and_wave2a_closeout_spore`
 - `wave2b_green_20260707T0100Z`
 - `wave2b_js_20260707T0000Z`

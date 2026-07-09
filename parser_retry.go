@@ -483,6 +483,16 @@ func effectiveFullParseInitialMaxStacks(lang *Language, initialMaxStacks int) in
 		if initialMaxStacks == maxGLRStacks {
 			initialMaxStacks = 2
 		}
+	case "groovy":
+		// Groovy's pleac11_15.groovy corpus cliff retains redundant survivor
+		// stacks until the Go full-parse attempt either times out at 10s or
+		// crosses a 1536MiB RSS watchdog before the file checkpoint. Cap 2 keeps
+		// the same exact file bounded (about 1.7s in the contended Docker probe);
+		// the file remains a C-shape known gap, not a parity-clean ratchet row.
+		// Explicit overrides stay available for diagnosis.
+		if initialMaxStacks == maxGLRStacks {
+			initialMaxStacks = 2
+		}
 	case "javascript":
 		// Large JavaScript UMD/runtime bundles need enough survivors to keep the
 		// outer call-expression branch alive through long function arguments.
@@ -1109,6 +1119,9 @@ func fullParseRetryMaxStacksOverride(tree *Tree, sourceLen int, initialMaxStacks
 	if parseMaxGLRStacksEnvConfigured() {
 		return 0
 	}
+	if fullParseRetryUsesInitialStackCeiling(tree, sourceLen, initialMaxStacks) {
+		return 0
+	}
 	retryMaxStacks := fullParseRetryMaxGLRStacks
 	if tree != nil && tree.language != nil && tree.language.Name == "java" {
 		retryMaxStacks = javaFullParseRetryMaxGLRStacks
@@ -1125,6 +1138,24 @@ func fullParseRetryMaxStacksOverride(tree *Tree, sourceLen int, initialMaxStacks
 		return retryMaxStacks
 	}
 	return 0
+}
+
+func fullParseRetryUsesInitialStackCeiling(tree *Tree, sourceLen int, initialMaxStacks int) bool {
+	if tree == nil || tree.language == nil {
+		return false
+	}
+	switch tree.language.Name {
+	case "groovy":
+		// The large Groovy corpus cliff accepts at the tuned cap=2 but the
+		// widened retry spends the entire file budget and still returns an
+		// error-bearing tree. Treat the language-tuned cap as the ceiling for
+		// large files. Cap-2 merge retries remain available, and explicit env
+		// overrides are handled above as diagnostic ceilings. This contains the
+		// timeout/OOM class only; the exact witness remains a tracked C-shape gap.
+		return sourceLen >= 64*1024 && initialMaxStacks <= 2
+	default:
+		return false
+	}
 }
 
 func fullParseRetryNodeLimitOverride(tree *Tree, sourceLen int) int {
