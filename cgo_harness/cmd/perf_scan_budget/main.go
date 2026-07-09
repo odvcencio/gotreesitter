@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strings"
 )
@@ -188,6 +189,13 @@ func validateBudget(b *budgetFile) []evalFinding {
 			out = append(out, evalFinding{Axis: axis, Metric: "measurement_basis.axes", Got: strings.Join(b.MeasurementBasis.Axes, ","), Want: "include " + axis})
 		}
 	}
+	for _, pattern := range normalizedPathList(b.MeasurementBasis.ExcludePaths) {
+		if strings.ContainsAny(pattern, "*?[") {
+			if _, err := path.Match(pattern, "x"); err != nil {
+				out = append(out, evalFinding{Metric: "measurement_basis.exclude_paths", Got: pattern, Want: "valid path.Match pattern"})
+			}
+		}
+	}
 	for _, lang := range sortedBudgetLanguages(b) {
 		entry := b.Languages[lang]
 		if strings.TrimSpace(entry.Status) == "" {
@@ -295,7 +303,7 @@ func compareConfig(b budgetMeasurementBasis, s scoreboardConfig) []evalFinding {
 	if len(b.ExcludePaths) > 0 || len(s.ExcludePaths) > 0 {
 		got := normalizedPathList(s.ExcludePaths)
 		want := normalizedPathList(b.ExcludePaths)
-		if strings.Join(got, ",") != strings.Join(want, ",") {
+		if !stringSlicesEqual(got, want) {
 			out = append(out, evalFinding{Metric: "config.exclude_paths", Got: strings.Join(got, ","), Want: strings.Join(want, ",")})
 		}
 	}
@@ -431,7 +439,9 @@ func normalizedPathList(items []string) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, item := range items {
-		item = strings.Trim(strings.ReplaceAll(strings.TrimSpace(item), "\\", "/"), "/")
+		item = strings.ReplaceAll(strings.TrimSpace(item), "\\", "/")
+		item = strings.TrimPrefix(item, "./")
+		item = strings.TrimPrefix(item, "/")
 		if item == "" || seen[item] {
 			continue
 		}
@@ -440,6 +450,18 @@ func normalizedPathList(items []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func contains(items []string, needle string) bool {

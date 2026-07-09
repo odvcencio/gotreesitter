@@ -97,6 +97,25 @@ func TestCompareScoreboardReportsExcludePathConfigMismatch(t *testing.T) {
 	if len(findings) != 0 {
 		t.Fatalf("matching exclude_paths should pass: %#v", findings)
 	}
+
+	b.MeasurementBasis.ExcludePaths = []string{"groovy/subprojects/"}
+	s.Config.ExcludePaths = []string{"groovy/subprojects"}
+	findings = compareScoreboard(b, s, compareOptions{StrictConfig: true})
+	got = renderFindingKeys(findings)
+	if !strings.Contains(got, "::config.exclude_paths") {
+		t.Fatalf("trailing slash should remain semantically distinct, findings %q (%#v)", got, findings)
+	}
+}
+
+func TestValidateBudgetReportsMalformedExcludePathGlob(t *testing.T) {
+	b := testBudget()
+	b.MeasurementBasis.ExcludePaths = []string{"bad/[glob"}
+
+	findings := validateBudget(b)
+	got := renderFindingKeys(findings)
+	if !strings.Contains(got, "::measurement_basis.exclude_paths") {
+		t.Fatalf("findings %q missing malformed exclude path glob (%#v)", got, findings)
+	}
 }
 
 func TestCompareScoreboardReportsCReferenceFailure(t *testing.T) {
