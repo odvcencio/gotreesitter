@@ -3987,10 +3987,13 @@
       "observed": {
         "activeattempt_fsharp_lock_20260709T023116Z": "Docker 4GiB cgroup, GOMEMLIMIT=3GiB, lock-filtered corpus, largest-8, reps=1, warmup=0, file_budget=2000ms: child exited with signal:killed, docker wrapper reported oom_killed=true, files=0/8, active_axis=full, active_impl=c, active_phase=rep, active_attempt=1",
         "active_file_checkpoint_20260709T022239Z": "earlier active-file-only rerun identified the same first active file but could not distinguish Go vs C attempt",
-        "prior_isolated_attempts": "host GOMEMLIMIT=4GiB and 3GiB plus a Docker 6GiB cgroup reproduced severe memory blowups before attempt-level attribution existed"
+        "prior_isolated_attempts": "host GOMEMLIMIT=4GiB and 3GiB plus a Docker 6GiB cgroup reproduced severe memory blowups before attempt-level attribution existed",
+        "rss_watchdog_1536": "post-#185 Docker 4GiB, GOMEMLIMIT=3GiB, lock-filtered corpus, largest-8, reps=1, warmup=0, file_budget=10000ms, GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB=1536: parent exited cleanly with oom_killed=false but no language fragment; child stopped at rss=1540MiB before any file checkpoint",
+        "rss_watchdog_2500": "post-#185 Docker 4GiB, GOMEMLIMIT=3GiB, lock-filtered corpus, largest-8, reps=1, warmup=0, file_budget=10000ms, GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB=2500: container cgroup-OOMed before a scoreboard could be written; 2500MiB is too high for this 4GiB envelope",
+        "activeattempt_3000": "post-#185 Docker 4GiB, GOMEMLIMIT=3GiB, lock-filtered corpus, largest-8, reps=1, warmup=0, file_budget=10000ms, GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB=3000: scoreboard fragment preserved the same active_file=examples/FSharp.Compiler/tests/EndToEndBuildTests/ProvidedTypes/ProvidedTypes.fs, active_axis=full, active_impl=c, active_phase=rep, active_attempt=1, but docker still reported oom_killed=true"
       },
       "suspected_class": "C reference parser memory blowup on the active full-parse attempt, not currently evidence of a pure-Go memory blowup; fsharp still cannot be ratcheted because the reference side dies before a C median can be recorded",
-      "action": "dedicated isolated C-reference containment or corpus-selection RCA on ProvidedTypes.fs; do not rerun fsharp broad sweeps without a disposable hard memory bound and process-level watchdog"
+      "action": "dedicated isolated C-reference containment or corpus-selection RCA on ProvidedTypes.fs; under a 4GiB cgroup, <=1536MiB RSS caps keep the parent alive but stop before active-file checkpointing, while 2500-3000MiB can still cgroup-OOM, so do not rerun fsharp broad sweeps without a disposable hard memory bound and an explicit cgroup/RSS envelope"
     },
     "d_expressionsem_go_rss_blowup": {
       "file": "d/compiler/src/dmd/expressionsem.d (685384 bytes; largest D corpus file, first selected file under largest-order probes)",

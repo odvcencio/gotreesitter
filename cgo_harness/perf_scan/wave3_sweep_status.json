@@ -1,6 +1,6 @@
 {
   "schema": "gts-wave3-perf-sweep-status/v1",
-  "generated_at": "2026-07-09T06:28:40Z",
+  "generated_at": "2026-07-09T06:58:32Z",
   "budget_path": "perf_scan/perf_ratio_budgets.json",
   "fleet_path": "tier_scan/exts.tsv",
   "budget_generated_at": "2026-07-09T01:17:47Z",
@@ -64,7 +64,7 @@
       "key": "fsharp_providedtypes_c_reference_memory_blowup",
       "file": "fsharp/examples/FSharp.Compiler/tests/EndToEndBuildTests/ProvidedTypes/ProvidedTypes.fs (755275 bytes; first active selected file after largest-8 selection)",
       "backlog_ref": "assisted Wave-3 fleet gap-close pass, reported in /tmp/gts_scratch/FLEET_SCOREBOARD.md; intentionally not added to languages because it is not a ratchetable row",
-      "action": "dedicated isolated C-reference containment or corpus-selection RCA on ProvidedTypes.fs; do not rerun fsharp broad sweeps without a disposable hard memory bound and process-level watchdog"
+      "action": "dedicated isolated C-reference containment or corpus-selection RCA on ProvidedTypes.fs; under a 4GiB cgroup, \u003c=1536MiB RSS caps keep the parent alive but stop before active-file checkpointing, while 2500-3000MiB can still cgroup-OOM, so do not rerun fsharp broad sweeps without a disposable hard memory bound and an explicit cgroup/RSS envelope"
     },
     {
       "key": "groovy_pleac11_15_memory_blowup",
