@@ -1,6 +1,6 @@
 {
   "schema": "gts-wave3-perf-sweep-status/v1",
-  "generated_at": "2026-07-09T04:59:41Z",
+  "generated_at": "2026-07-09T05:57:37Z",
   "budget_path": "perf_scan/perf_ratio_budgets.json",
   "fleet_path": "tier_scan/exts.tsv",
   "budget_generated_at": "2026-07-09T01:17:47Z",
@@ -70,7 +70,7 @@
       "key": "groovy_pleac11_15_memory_blowup",
       "file": "groovy/subprojects/performance/src/files/pleac11_15.groovy (102960 bytes, largest-file selection hit during the assisted fleet pass)",
       "backlog_ref": "assisted Wave-3 fleet gap-close pass, reported in /tmp/gts_scratch/FLEET_SCOREBOARD.md; intentionally not added to languages because it is not a ratchetable row",
-      "action": "dedicated RCA on pleac11_15.groovy in an isolated hard-bounded container; do not sweep this file again as part of broad fleet runs until containment is understood"
+      "action": "use GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB for future isolated Groovy/F# memory probes so the sweep parent can preserve a scoreboard instead of dying with the container; Groovy remains held out of the ratchet until pleac11_15.groovy is reduced/fixed or a budget row is deliberately scoped around this memory_budget cliff"
     },
     {
       "key": "webworker_generated_d_ts",

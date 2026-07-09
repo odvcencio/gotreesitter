@@ -3973,10 +3973,13 @@
         "partial_progress": "7/8 selected files completed before the same final file reproduced the blowup; completing files still showed severe measured ratios, including one go_timeout lower-bound row",
         "host_gomemlimit_4gib": "killed while climbing past roughly 15GiB RSS",
         "host_gomemlimit_3gib": "killed around roughly 8GiB RSS",
-        "docker_cgroup_6gib": "Docker wrapper reported oom_killed=true"
+        "docker_cgroup_6gib": "Docker wrapper reported oom_killed=true",
+        "post_runtime_budget_docker_2gib": "post-#182, exact-file pleac11_15.groovy probe under Docker 2GiB/GOMEMLIMIT=1536MiB/GOT_PARSE_MEMORY_BUDGET_MB=512 still cgroup-OOMs before a scoreboard fragment can be written without a parent-side RSS watchdog",
+        "post_runtime_budget_docker_4gib": "post-#182, exact-file pleac11_15.groovy probe under Docker 4GiB/GOMEMLIMIT=3GiB completes the perf-scan row without cgroup OOM and reports full-axis go_timeout: parse stopped early (memory_budget), C median 27.67ms, lower-bound ratio >=361.4x",
+        "rss_watchdog_probe": "with GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB=512, the same 2GiB container exits cleanly with a written scoreboard row instead of oom_killed=true; the child is stopped at rss=519MiB before any file completes"
       },
       "suspected_class": "candidate severe memory variant of repetition-shift fork cascade or population explosion; distinct from ordinary 10s go_timeout and from clean internal memory_budget stops",
-      "action": "dedicated RCA on pleac11_15.groovy in an isolated hard-bounded container; do not sweep this file again as part of broad fleet runs until containment is understood"
+      "action": "use GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB for future isolated Groovy/F# memory probes so the sweep parent can preserve a scoreboard instead of dying with the container; Groovy remains held out of the ratchet until pleac11_15.groovy is reduced/fixed or a budget row is deliberately scoped around this memory_budget cliff"
     },
     "fsharp_providedtypes_c_reference_memory_blowup": {
       "file": "fsharp/examples/FSharp.Compiler/tests/EndToEndBuildTests/ProvidedTypes/ProvidedTypes.fs (755275 bytes; first active selected file after largest-8 selection)",

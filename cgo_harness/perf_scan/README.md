@@ -115,6 +115,7 @@ grammar repos, not corpus repos.
 | `GTS_PERF_SCAN_CONTENDED` | auto (loadavg) | mark run as contended (smoke-only numbers) |
 | `GTS_PERF_SCAN_INPROCESS` | 0 | debug: run languages in-process (no crash isolation) |
 | `GTS_PERF_SCAN_EDIT_CANDIDATES` | 16 | edit-site candidates tried per file |
+| `GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB` | 0 | optional parent-side RSS watchdog for the per-language child process; when set, kills the child before a container cgroup OOM can kill the sweep parent |
 
 Also honored: `GTS_PARITY_ALLOW_HOST`, `GTS_PARITY_SKIP_LANGS`,
 `GTS_PARITY_REPO_ROOT`, `GTS_PARITY_REPO_CACHE`,

@@ -73,6 +73,7 @@ const (
 	perfScanEnvContended   = "GTS_PERF_SCAN_CONTENDED"
 	perfScanEnvInProcess   = "GTS_PERF_SCAN_INPROCESS"
 	perfScanEnvEditCands   = "GTS_PERF_SCAN_EDIT_CANDIDATES"
+	perfScanEnvChildRSSMB  = "GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB"
 
 	perfScanAxisFull   = "full"
 	perfScanAxisNoEdit = "noedit"
@@ -101,6 +102,7 @@ type perfScanConfig struct {
 	Axes          []string `json:"axes"`
 	Contended     bool     `json:"contended"`
 	ContendedNote string   `json:"contended_note,omitempty"`
+	ChildRSSMB    int      `json:"child_rss_limit_mb,omitempty"`
 }
 
 type perfScanHost struct {
@@ -207,6 +209,7 @@ func perfScanLoadConfig() perfScanConfig {
 		MaxFileBytes:  perfScanEnvIntDefault(perfScanEnvMaxBytes, 4<<20),
 		Order:         strings.TrimSpace(os.Getenv(perfScanEnvOrder)),
 		Axes:          perfScanAxes(),
+		ChildRSSMB:    perfScanEnvIntDefault(perfScanEnvChildRSSMB, 0),
 	}
 	if cfg.Reps < 1 {
 		cfg.Reps = 1
@@ -1363,7 +1366,7 @@ func perfScanRunLanguageSubprocess(t *testing.T, lang string, cfg perfScanConfig
 	})
 
 	start := time.Now()
-	runErr := cmd.Run()
+	runErr, rssStop := perfScanRunChild(ctx, cmd, cfg.ChildRSSMB)
 	elapsed := time.Since(start)
 
 	fragment, fragErr := perfScanReadLangFragment(absOut, lang)
@@ -1384,12 +1387,16 @@ func perfScanRunLanguageSubprocess(t *testing.T, lang string, cfg perfScanConfig
 		}
 		return fragment
 	case fragment != nil:
+		stopDetail := fmt.Sprintf("%v", runErr)
+		if rssStop != "" {
+			stopDetail = rssStop
+		}
 		if runErr != nil && fragment.Status == perfScanStatusOK {
-			fragment.Notes = append(fragment.Notes, fmt.Sprintf("child exited with error after fragment write: %v", runErr))
+			fragment.Notes = append(fragment.Notes, "child exited with error after fragment write: "+stopDetail)
 		}
 		if fragment.Status == perfScanStatusRunning {
 			fragment.Status = "error"
-			fragment.Detail = strings.TrimSpace(fmt.Sprintf("child exited early (%v); partial results. %s", runErr, fragment.Detail))
+			fragment.Detail = strings.TrimSpace(fmt.Sprintf("child exited early (%s); partial results. %s", stopDetail, fragment.Detail))
 			perfScanAggregateLanguage(fragment, cfg)
 		}
 		return fragment
@@ -1399,6 +1406,8 @@ func perfScanRunLanguageSubprocess(t *testing.T, lang string, cfg perfScanConfig
 		if timedOut {
 			status = "lang_timeout"
 			detail = fmt.Sprintf("killed after %s before any file completed", langTimeout)
+		} else if rssStop != "" {
+			detail = rssStop + " before any file completed"
 		} else if fragErr != nil && runErr == nil {
 			detail = fmt.Sprintf("fragment read failed: %v", fragErr)
 		}
@@ -1413,6 +1422,79 @@ func perfScanRunLanguageSubprocess(t *testing.T, lang string, cfg perfScanConfig
 			ElapsedMS: elapsed.Milliseconds(),
 		}
 	}
+}
+
+func perfScanRunChild(ctx context.Context, cmd *exec.Cmd, rssLimitMB int) (error, string) {
+	if rssLimitMB <= 0 {
+		return cmd.Run(), ""
+	}
+	if err := cmd.Start(); err != nil {
+		return err, ""
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	limitBytes := int64(rssLimitMB) << 20
+	checkRSS := func() (bool, string) {
+		if cmd.Process == nil {
+			return false, ""
+		}
+		rssBytes, ok := perfScanProcessRSSBytes(cmd.Process.Pid)
+		if !ok || rssBytes < limitBytes {
+			return false, ""
+		}
+		return true, fmt.Sprintf("child rss exceeded %d MiB limit (rss=%d MiB)",
+			rssLimitMB, (rssBytes+(1<<20)-1)>>20)
+	}
+	for {
+		if kill, detail := checkRSS(); kill {
+			_ = cmd.Process.Kill()
+			return <-done, detail
+		}
+		select {
+		case err := <-done:
+			return err, ""
+		case <-ctx.Done():
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			return <-done, ""
+		case <-ticker.C:
+		}
+	}
+}
+
+func perfScanProcessRSSBytes(pid int) (int64, bool) {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
+	if err != nil {
+		return 0, false
+	}
+	return perfScanParseStatusRSSBytes(string(data))
+}
+
+func perfScanParseStatusRSSBytes(status string) (int64, bool) {
+	for _, line := range strings.Split(status, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "VmRSS:") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			return 0, false
+		}
+		kib, err := strconv.ParseInt(fields[1], 10, 64)
+		if err != nil || kib < 0 {
+			return 0, false
+		}
+		return kib * 1024, true
+	}
+	return 0, false
 }
 
 func perfScanReadLangFragment(outDir, lang string) (*perfScanLanguage, error) {
@@ -1537,6 +1619,9 @@ func perfScanRenderMarkdown(board *perfScanScoreboard) string {
 		board.Config.CorpusRoot, board.Config.Order, board.Config.MaxFiles,
 		board.Config.Reps, board.Config.Warmup, board.Config.FileBudgetMS,
 		strings.Join(board.Config.Axes, ","))
+	if board.Config.ChildRSSMB > 0 {
+		fmt.Fprintf(&b, "- child RSS limit: `%d MiB`\n", board.Config.ChildRSSMB)
+	}
 	if board.Config.Contended {
 		fmt.Fprintf(&b, "\n**WARNING: contended run (%s) — smoke-only numbers, not authoritative.**\n", board.Config.ContendedNote)
 	}
@@ -1647,6 +1732,17 @@ func TestPerfScanHelpersUnit(t *testing.T) {
 	joined := strings.Join(env, " ")
 	if strings.Contains(joined, "LANG=old") || !strings.Contains(joined, "GTS_PERF_SCAN_LANG=go") {
 		t.Fatalf("mergeEnv=%v", env)
+	}
+	rss, ok := perfScanParseStatusRSSBytes("Name:\tperfscan\nVmRSS:\t  1537 kB\n")
+	if !ok || rss != 1537*1024 {
+		t.Fatalf("parse VmRSS = %d,%v; want %d,true", rss, ok, 1537*1024)
+	}
+	if _, ok := perfScanParseStatusRSSBytes("Name:\tperfscan\n"); ok {
+		t.Fatal("parse VmRSS succeeded without VmRSS line")
+	}
+	t.Setenv(perfScanEnvChildRSSMB, "321")
+	if got := perfScanLoadConfig().ChildRSSMB; got != 321 {
+		t.Fatalf("ChildRSSMB = %d, want 321", got)
 	}
 
 	fragDir := t.TempDir()
