@@ -2653,6 +2653,21 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		if !ok {
 			continue
 		}
+		// Skip keywords — they're recognized via the word token + keyword
+		// DFA, same as the stringChoiceNamedTokens loop below. Before
+		// isPlainVisibleNamedLeafStringLiteral could promote a bare-STRING
+		// visible rule in a word-declaring grammar, no rule ever reached
+		// this loop while also being a keywordSet member (word grammars
+		// unconditionally kept such rules as nonterminals). Now that they
+		// can collapse to named tokens, a promoted keyword literal must
+		// stay out of the main lexer DFA — its only DFA identity is the
+		// keyword-DFA entry built from ng.KeywordEntries — or it would be
+		// double-registered: once as a direct main-DFA terminal here, and
+		// again in the keyword DFA, splitting a single tree-sitter dispatch
+		// path into two competing ones.
+		if keywordSet != nil && keywordSet[id] {
+			continue
+		}
 		rule := g.Rules[name]
 		expanded, imm, prec, err := expandTokenRule(rule)
 		if err != nil {
@@ -3017,7 +3032,20 @@ func identifyKeywords(g *Grammar, st *symbolTable, stringLits []string, namedTok
 		}
 		allKeyword := true
 		for _, lit := range lits {
-			if !matchesDFA(wordDFA, lit) || !isIdentifierLikeKeywordLiteral(lit) {
+			// isIdentifierLikeOrAllUnderscoreKeywordLiteral (not the plain
+			// isIdentifierLikeKeywordLiteral used below for the anonymous
+			// stringLits loop) matches the shape isPlainVisibleNamedLeafStringLiteral
+			// now accepts for word-grammar collapse: a uniquely-owned bare
+			// STRING rule like java's underscore_pattern = '_' can be
+			// promoted to a named token even though it contains no letter.
+			// Its own symbol must be able to reach this keyword-DFA
+			// registration too, or it would fall back to relying solely on
+			// per-state lex-mode filtering to disambiguate it from a
+			// same-shaped identifier — correct in the common case, but
+			// inconsistent with every other promoted keyword-shaped named
+			// token and not exercised across GLR stack forks the way
+			// promoteKeyword's keyword-DFA path is.
+			if !matchesDFA(wordDFA, lit) || !isIdentifierLikeOrAllUnderscoreKeywordLiteral(lit) {
 				allKeyword = false
 				break
 			}
@@ -3357,6 +3385,9 @@ func isLowercaseIdentifierLikeKeywordLiteral(s string) bool {
 }
 
 func isPlainVisibleNamedLeafStringLiteral(g *Grammar, s string) bool {
+	if isSafePlainPunctuationLiteral(s) || isBackslashEscapedNamedLeafLiteral(s) {
+		return true
+	}
 	// Whether a visible bare-string rule collapses into a plain named
 	// terminal (vs. wrapping the anonymous string token in a nonterminal
 	// production) is actually decided by ownership, not shape: it collapses
@@ -3364,7 +3395,7 @@ func isPlainVisibleNamedLeafStringLiteral(g *Grammar, s string) bool {
 	// and the value never appears bare elsewhere in the grammar (both
 	// already enforced by this function's caller, plainVisibleStringTokenRules,
 	// via candidatesByValue/anonymousSources). The punctuation and
-	// lowercase-identifier buckets described here are not the real rule — they only
+	// lowercase-identifier buckets below are not the real rule — they only
 	// approximate that real, shape-irrelevant ownership rule for the two
 	// shapes most commonly seen in practice. CSS's `!important` (punctuation
 	// prefix + identifier-like tail: neither pure punctuation nor a
@@ -3373,29 +3404,66 @@ func isPlainVisibleNamedLeafStringLiteral(g *Grammar, s string) bool {
 	// `important: $ => '!important'` produces a 0-child named leaf, not a
 	// wrapper. Extend eligibility to that specific shape — a run of safe
 	// punctuation immediately followed by a lowercase-identifier-like tail
-	// — without widening the bar for other shapes. This is still only a
-	// minimal, targeted extension, not the full ownership rule: a
-	// uniquely-owned rule whose value differs from an identifier only by
-	// case, like "True" (see TestCapitalizedPlainStringRuleStaysWrapper),
-	// would also collapse under real tree-sitter's shape-irrelevant
-	// ownership rule, but grammargen still keeps it wrapped — a
-	// pre-existing gap, predating this change and not fixed by it, tracked
-	// separately from the punctuation/identifier shape buckets extended
-	// here.
-	if isSafePlainPunctuationLiteral(s) || isBackslashEscapedNamedLeafLiteral(s) {
-		return true
-	}
-	if isPunctuationPrefixedLowercaseIdentifierLiteral(s) {
-		return true
-	}
-	// A pure lowercase identifier literal participates in word-token keyword
-	// handling, so preserve its nonterminal wrapper when a word symbol exists.
-	// Punctuation-prefixed literals cannot be word tokens and must be
-	// classified before this guard.
+	// — without widening the bar for other shapes not covered below.
+	//
+	// Declaring a `word:` rule (tree-sitter's keyword-extraction mechanism)
+	// does NOT change any of this: keyword extraction (the word token +
+	// keyword DFA dispatch, see identifyKeywords and the keywordSet-gated
+	// splits in extractTerminals) and leaf collapse are orthogonal
+	// mechanisms in tree-sitter's own compiler. A collapsed rule that also
+	// qualifies as a keyword still gets routed through word-token capture
+	// and keyword-DFA reclassification exactly like a choice-of-strings
+	// named token (e.g. `integral_type = choice("int", "long", ...)`)
+	// already does; it is not exempted from ownership-based collapse.
+	// Confirmed against the C oracle for word-declaring grammars
+	// specifically: rust's `mutable_specifier: $ => 'mut'` collapses despite
+	// rust declaring `word: identifier` and "mut" matching the identifier
+	// shape; python's `true`/`false`/`none` (`STRING("True"/"False"/"None")`)
+	// and java's `void_type`/`null_literal`/`underscore_pattern`
+	// (`STRING("void"/"null"/"_")`) collapse too, each confirmed as the
+	// unique owner of its string value. Note "True"/"False" are identifier
+	// shaped only case-insensitively, and "_" is not identifier-shaped at
+	// all under isLowercaseIdentifierLikeKeywordLiteral (it never contains a
+	// letter) — so word-declaring grammars need a broader shape bucket than
+	// the lowercase-only one used below for non-word grammars.
 	if g != nil && g.Word != "" {
+		return isIdentifierLikeOrAllUnderscoreKeywordLiteral(s) || isPunctuationPrefixedLowercaseIdentifierLiteral(s)
+	}
+	if isLowercaseIdentifierLikeKeywordLiteral(s) {
+		return true
+	}
+	// This is still only a minimal, targeted extension for non-word
+	// grammars, not the full ownership rule: a uniquely-owned rule whose
+	// value differs from an identifier only by case, like "True" (see
+	// TestCapitalizedPlainStringRuleStaysWrapper), would also collapse under
+	// real tree-sitter's shape-irrelevant ownership rule, but grammargen
+	// still keeps it wrapped when no word rule is declared — a pre-existing
+	// gap, predating this change and not fixed by it (word-declaring
+	// grammars are handled above; this branch is intentionally left as-is
+	// to avoid changing any non-word grammar's already-verified output).
+	return isPunctuationPrefixedLowercaseIdentifierLiteral(s)
+}
+
+// isIdentifierLikeOrAllUnderscoreKeywordLiteral reports whether s is
+// identifier-shaped independent of case (unlike
+// isLowercaseIdentifierLikeKeywordLiteral) or consists entirely of
+// underscores (e.g. "_"). isIdentifierLikeKeywordLiteral alone rejects a
+// bare "_" because it never observes a letter; tree-sitter's C compiler
+// still collapses a uniquely-owned rule with that value (java's
+// underscore_pattern = '_').
+func isIdentifierLikeOrAllUnderscoreKeywordLiteral(s string) bool {
+	if isIdentifierLikeKeywordLiteral(s) {
+		return true
+	}
+	if s == "" {
 		return false
 	}
-	return isLowercaseIdentifierLikeKeywordLiteral(s)
+	for _, r := range s {
+		if r != '_' {
+			return false
+		}
+	}
+	return true
 }
 
 // isPunctuationPrefixedLowercaseIdentifierLiteral reports whether s is a

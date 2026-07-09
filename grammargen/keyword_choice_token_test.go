@@ -218,8 +218,27 @@ func TestPlainVisibleStringRuleBecomesNamedLeafToken(t *testing.T) {
 	}
 }
 
-func TestPlainVisibleIdentifierStringRuleWithWordRemainsNonterminal(t *testing.T) {
-	g := NewGrammar("plain_visible_identifier_string_rule_with_word_nonterminal")
+// TestPlainVisibleIdentifierStringRuleWithWordBecomesNamedLeafToken pins the
+// wave7/fix-word-guard fix: a word-declaring grammar's uniquely-owned bare
+// STRING rule now collapses into a 0-child named leaf token exactly like a
+// non-word grammar's does (TestPlainVisibleStringRuleBecomesNamedLeafToken),
+// matching tree-sitter's C compiler (confirmed against the C oracle for
+// java's void_type/null_literal/underscore_pattern, rust's
+// mutable_specifier, and python's true/false/none — see
+// isPlainVisibleNamedLeafStringLiteral). Before this fix, ANY grammar
+// declaring `word:` unconditionally forced every plain-STRING visible rule
+// to stay a wrapper nonterminal, regardless of shape or unique ownership.
+//
+// "match" here is deliberately unreachable from source_file (no production
+// references Sym("match")), which doubles as a regression guard for the
+// *other* half of the fix: promoting a keyword-shaped literal to a named
+// token must not break the pre-existing context-aware keyword-promotion
+// fallback (dfaTokenSource.promoteKeyword) that demotes a keyword back to
+// the word token when no active parser state has an action for it. Keyword
+// extraction and leaf collapse are orthogonal mechanisms in tree-sitter;
+// this test exercises both at once on the same symbol.
+func TestPlainVisibleIdentifierStringRuleWithWordBecomesNamedLeafToken(t *testing.T) {
+	g := NewGrammar("plain_visible_identifier_string_rule_with_word_named_leaf_token")
 	g.Define("source_file", Sym("call"))
 	g.Define("call", Seq(Sym("identifier"), Str("("), Str(")")))
 	g.Define("match", Str("match"))
@@ -230,20 +249,29 @@ func TestPlainVisibleIdentifierStringRuleWithWordRemainsNonterminal(t *testing.T
 	if err != nil {
 		t.Fatalf("Normalize: %v", err)
 	}
-	foundNonterminal := false
+	if got := symbolKind(t, ng, "match"); got != SymbolNamedToken {
+		t.Fatalf("match kind = %v, want SymbolNamedToken", got)
+	}
+	matchSym := symbolID(t, ng, "match")
 	for _, sym := range ng.Symbols {
-		if sym.Name != "match" {
-			continue
-		}
-		if sym.Kind == SymbolNamedToken {
-			t.Fatalf("match was promoted to SymbolNamedToken")
-		}
-		if sym.Kind == SymbolNonterminal {
-			foundNonterminal = true
+		if sym.Name == "match" && sym.Kind == SymbolTerminal {
+			t.Fatalf("plain named string rule also registered anonymous %q terminal", sym.Name)
 		}
 	}
-	if !foundNonterminal {
-		t.Fatalf("match nonterminal not found")
+	for _, term := range ng.Terminals {
+		if term.SymbolID == matchSym {
+			t.Fatalf("match sym %d was double-registered as a main-DFA terminal (extractTerminals keywordSet gap)", matchSym)
+		}
+	}
+	foundKeyword := false
+	for _, symID := range ng.KeywordSymbols {
+		if symID == matchSym {
+			foundKeyword = true
+			break
+		}
+	}
+	if !foundKeyword {
+		t.Fatalf("match sym %d missing from keyword set despite matching the identifier-shaped word DFA", matchSym)
 	}
 
 	lang, err := GenerateLanguage(g)
@@ -260,6 +288,135 @@ func TestPlainVisibleIdentifierStringRuleWithWordRemainsNonterminal(t *testing.T
 		t.Fatalf("parse has error: %s", root.SExpr(lang))
 	}
 	if got, want := root.SExpr(lang), "(source_file (call (identifier)))"; got != want {
+		t.Fatalf("SExpr = %s, want %s (unreachable keyword must fall back to identifier)", got, want)
+	}
+}
+
+// TestWordGrammarSharedStringRuleStaysNonterminal is the negative
+// counterpart of TestPlainVisibleIdentifierStringRuleWithWordBecomesNamedLeafToken:
+// in a word-declaring grammar, a plain visible STRING rule whose value is
+// ALSO used bare elsewhere in the grammar is not a unique owner, so it must
+// keep wrapping the anonymous string token instead of collapsing — the word
+// guard's removal must not disable the ownership check itself.
+func TestWordGrammarSharedStringRuleStaysNonterminal(t *testing.T) {
+	g := NewGrammar("word_grammar_shared_string_rule_nonterminal")
+	g.Define("source_file", Seq(Sym("void_type"), Str("void")))
+	g.Define("void_type", Str("void"))
+	g.Define("identifier", Pat(`[a-z]+`))
+	g.SetWord("identifier")
+	g.SetExtras(Pat(`\s`))
+
+	ng, err := Normalize(g)
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+	if got := symbolKind(t, ng, "void_type"); got != SymbolNonterminal {
+		t.Fatalf("void_type kind = %v, want SymbolNonterminal (value used bare elsewhere, not a unique owner)", got)
+	}
+
+	lang, err := GenerateLanguage(g)
+	if err != nil {
+		t.Fatalf("GenerateLanguage: %v", err)
+	}
+	tree, err := gotreesitter.NewParser(lang).Parse([]byte("void void"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if root.HasError() {
+		t.Fatalf("parse has error: %s", root.SExpr(lang))
+	}
+	wrapper := root.Child(0)
+	if got := wrapper.Type(lang); got != "void_type" {
+		t.Fatalf("first child type = %q, want void_type; tree=%s", got, root.SExpr(lang))
+	}
+	if got := wrapper.ChildCount(); got != 1 {
+		t.Fatalf("void_type child count = %d, want wrapper child; tree=%s", got, root.SExpr(lang))
+	}
+}
+
+// TestWordGrammarCapitalizedUniqueOwnerBecomesNamedLeafToken pins python's
+// true/false/none shape exactly: STRING("True") is identifier-shaped only
+// case-insensitively. isLowercaseIdentifierLikeKeywordLiteral (used for
+// non-word grammars, see TestCapitalizedPlainStringRuleStaysWrapper) would
+// reject it, but tree-sitter's C compiler collapses it in word-declaring
+// grammars regardless of case — confirmed against the C oracle.
+func TestWordGrammarCapitalizedUniqueOwnerBecomesNamedLeafToken(t *testing.T) {
+	g := NewGrammar("word_grammar_capitalized_unique_owner_named_leaf_token")
+	g.Define("source_file", Sym("true"))
+	g.Define("true", Str("True"))
+	g.Define("identifier", Pat(`[A-Za-z]+`))
+	g.SetWord("identifier")
+
+	ng, err := Normalize(g)
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+	if got := symbolKind(t, ng, "true"); got != SymbolNamedToken {
+		t.Fatalf("true kind = %v, want SymbolNamedToken", got)
+	}
+
+	lang, err := GenerateLanguage(g)
+	if err != nil {
+		t.Fatalf("GenerateLanguage: %v", err)
+	}
+	tree, err := gotreesitter.NewParser(lang).Parse([]byte("True"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if root == nil || root.ChildCount() != 1 {
+		t.Fatalf("root = %v, child count = %d", root, root.ChildCount())
+	}
+	lit := root.Child(0)
+	if got := lit.Type(lang); got != "true" {
+		t.Fatalf("child type = %q, want true; tree=%s", got, root.SExpr(lang))
+	}
+	if got := lit.ChildCount(); got != 0 {
+		t.Fatalf("true child count = %d, want 0; tree=%s", got, root.SExpr(lang))
+	}
+}
+
+// TestWordGrammarUnderscoreUniqueOwnerBecomesNamedLeafToken pins java's
+// underscore_pattern shape exactly: STRING("_") is not identifier-shaped
+// under isIdentifierLikeKeywordLiteral (it never contains a letter), so it
+// needs the dedicated all-underscore allowance in
+// isIdentifierLikeOrAllUnderscoreKeywordLiteral. Also confirms a collapsed
+// single-char keyword-shaped literal still disambiguates correctly from a
+// longer identifier reachable in the same position.
+func TestWordGrammarUnderscoreUniqueOwnerBecomesNamedLeafToken(t *testing.T) {
+	g := NewGrammar("word_grammar_underscore_unique_owner_named_leaf_token")
+	g.Define("source_file", Repeat(Sym("_arg")))
+	g.Define("_arg", Choice(Sym("underscore_pattern"), Sym("identifier")))
+	g.Define("underscore_pattern", Str("_"))
+	g.Define("identifier", Pat(`[a-zA-Z][a-zA-Z0-9_]*`))
+	g.SetWord("identifier")
+	g.SetExtras(Pat(`\s`))
+
+	ng, err := Normalize(g)
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+	if got := symbolKind(t, ng, "underscore_pattern"); got != SymbolNamedToken {
+		t.Fatalf("underscore_pattern kind = %v, want SymbolNamedToken", got)
+	}
+
+	lang, err := GenerateLanguage(g)
+	if err != nil {
+		t.Fatalf("GenerateLanguage: %v", err)
+	}
+	tree, err := gotreesitter.NewParser(lang).Parse([]byte("_ foo _"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if root.HasError() {
+		t.Fatalf("parse has error: %s", root.SExpr(lang))
+	}
+	if got, want := root.SExpr(lang), "(source_file (underscore_pattern) (identifier) (underscore_pattern))"; got != want {
 		t.Fatalf("SExpr = %s, want %s", got, want)
 	}
 }
@@ -269,7 +426,6 @@ func TestPlainVisiblePunctuationPrefixedStringRuleWithWordBecomesNamedLeafToken(
 	g.Define("source_file", Seq(Sym("identifier"), Sym("important")))
 	g.Define("identifier", Pat(`[a-z]+`))
 	g.Define("important", Str("!important"))
-	g.Define("match", Str("match"))
 	g.SetWord("identifier")
 	g.Extras = []*Rule{Pat(`[ \t]+`)}
 
@@ -280,22 +436,6 @@ func TestPlainVisiblePunctuationPrefixedStringRuleWithWordBecomesNamedLeafToken(
 	if got := symbolKind(t, ng, "important"); got != SymbolNamedToken {
 		t.Fatalf("important kind = %v, want SymbolNamedToken", got)
 	}
-	foundMatchNonterminal := false
-	for _, sym := range ng.Symbols {
-		if sym.Name != "match" {
-			continue
-		}
-		if sym.Kind == SymbolNamedToken {
-			t.Fatal("match was promoted to SymbolNamedToken")
-		}
-		if sym.Kind == SymbolNonterminal {
-			foundMatchNonterminal = true
-		}
-	}
-	if !foundMatchNonterminal {
-		t.Fatal("match nonterminal not found")
-	}
-
 	lang, err := GenerateLanguage(g)
 	if err != nil {
 		t.Fatalf("GenerateLanguage: %v", err)
