@@ -7,6 +7,36 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.22.5] - 2026-07-09
+
+Scoped held-out perf-ratchet release. This release follows the fleet coverage
+cut with the exclusion machinery and ledger language needed to keep Wave 3
+honest: Groovy is now budgeted under a named scoped basis, while D and F#
+remain explicit held-outs because their current large-file witnesses fail in
+the C-reference side or hit the harness RSS watchdog before a stable Go-vs-C
+ratio can be ratcheted.
+
+### Added
+
+- perf-scan file exclusion support for reproducible scoped reruns, including
+  `GTS_PERF_SCAN_EXCLUDE_PATHS`, persisted scoreboard config, and status
+  reporting for measurement-basis exclusions.
+- `perf_scan_status` coverage accounting for scoped held-out budget rows, so
+  budgeted-with-caveat languages are visible separately from ordinary green
+  rows and hard held-outs.
+- Groovy Wave-3 scoped held-out budget row excluding
+  `groovy/subprojects/performance/src/files/pleac11_15.groovy`, with observed
+  full-parse and no-edit ratios recorded from the Docker perf sweep.
+
+### Changed
+
+- The perf-ratchet policy now treats expansion of
+  `measurement_basis.exclude_paths` as budget loosening that requires the same
+  RCA evidence as loosening a ratio threshold.
+- F# and D Wave-3 ledger entries now carry the exact C-reference timeout/RSS
+  witnesses found by the scoped reruns instead of presenting them as ordinary
+  unmeasured gaps.
+
 ## [0.22.4] - 2026-07-09
 
 Wave-3 perf-fleet coverage and ongoing correctness checks. This release
@@ -1333,7 +1363,8 @@ Warm-reuse throughput ~10 % higher. 206-grammar parity green under `GTS_PARITY_M
 - Initial standalone pure-Go runtime module.
 - External scanner VM foundation and base parser/lexer/tree infrastructure.
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.22.4...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.22.5...HEAD
+[0.22.5]: https://github.com/odvcencio/gotreesitter/compare/v0.22.4...v0.22.5
 [0.22.4]: https://github.com/odvcencio/gotreesitter/compare/v0.22.3...v0.22.4
 [0.22.3]: https://github.com/odvcencio/gotreesitter/compare/v0.22.2...v0.22.3
 [0.22.2]: https://github.com/odvcencio/gotreesitter/compare/v0.22.1...v0.22.2
