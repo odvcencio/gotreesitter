@@ -46,6 +46,7 @@ func normalizeDoxygenWholeBlockCommentError(root *Node, source []byte, lang *Lan
 		return
 	}
 	if doxygenErrorTreeHasRecoveredStructure(root, lang) {
+		retypeDoxygenRecoveredErrorRoot(root, source, lang)
 		return
 	}
 	replaceNodeChildrenUnfielded(root, nil)
@@ -65,4 +66,44 @@ func doxygenErrorTreeHasRecoveredStructure(root *Node, lang *Language) bool {
 		}
 	})
 	return found
+}
+
+// retypeDoxygenRecoveredErrorRoot mirrors C tree-sitter's shape for a
+// whole-input doxygen comment whose GLR recovery pass reconstructed real
+// structure (tags, descriptions, ...) but left it wrapped in a top-level
+// ERROR node instead of the `document` root C produces: C retypes that
+// wrapper to `document` and keeps only the recovered content, discarding the
+// leading ERROR-wrapped comment-open delimiter noise (a lexer hiccup around
+// `/**`/`/*!` that gets cleaned up once recovery locks onto the real grammar).
+// Only direct children that are themselves bare delimiter wrappers (ERROR,
+// _multiline_begin, _multiline_end, _singleline_begin) with no recovered
+// structure of their own are dropped; anything else — including an ERROR
+// child that happens to carry recovered structure nested inside it — is kept,
+// so real content is never silently discarded.
+func retypeDoxygenRecoveredErrorRoot(root *Node, source []byte, lang *Language) {
+	documentSym, ok := symbolByName(lang, "document")
+	if !ok {
+		return
+	}
+	total := resultChildCount(root)
+	kept := make([]*Node, 0, total)
+	for i := 0; i < total; i++ {
+		child := resultChildAt(root, i)
+		if child == nil {
+			continue
+		}
+		if doxygenStructuralDelimiterNodeTypes[child.Type(lang)] && !doxygenErrorTreeHasRecoveredStructure(child, lang) {
+			continue
+		}
+		kept = append(kept, child)
+	}
+	if len(kept) == 0 {
+		return
+	}
+	retagResultRoot(root, documentSym, symbolIsNamed(lang, documentSym))
+	replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(root.ownerArena, kept))
+	root.startByte = 0
+	root.startPoint = Point{}
+	setNodeEndTo(root, uint32(len(source)), source)
+	refreshResultRootError(root)
 }

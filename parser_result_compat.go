@@ -127,6 +127,8 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		normalizeDartCompatibility(ctx.root, ctx.source, ctx.lang)
 	case "doxygen":
 		normalizeDoxygenCompatibility(ctx.root, ctx.source, ctx.lang)
+	case "jsdoc":
+		normalizeJsdocCompatibility(ctx.root, ctx.source, ctx.lang)
 	case "dtd":
 		normalizeDTDCompatibility(ctx.root, ctx.source, ctx.lang)
 	case "elixir":
