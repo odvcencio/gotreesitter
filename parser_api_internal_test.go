@@ -1296,6 +1296,8 @@ func TestGroovyLargeAcceptedErrorRetryUsesInitialStackCeiling(t *testing.T) {
 	ResetParseEnvConfigCacheForTests()
 	defer ResetParseEnvConfigCacheForTests()
 
+	const dExpressionsemWitnessBytes = 685384
+
 	tree := &Tree{
 		language: &Language{Name: "groovy"},
 		root: &Node{
@@ -1317,13 +1319,13 @@ func TestGroovyLargeAcceptedErrorRetryUsesInitialStackCeiling(t *testing.T) {
 		t.Fatalf("fullParseRetryMaxStacksOverride(small groovy) = %d, want %d", got, fullParseRetryMaxGLRStacks)
 	}
 	tree.language = &Language{Name: "d"}
-	tree.root.endByte = 685384
-	tree.parseRuntime.ExpectedEOFByte = 685384
-	tree.parseRuntime.RootEndByte = 685384
-	if got := fullParseRetryMaxStacksOverride(tree, 685384, 3); got != 0 {
+	tree.root.endByte = dExpressionsemWitnessBytes
+	tree.parseRuntime.ExpectedEOFByte = dExpressionsemWitnessBytes
+	tree.parseRuntime.RootEndByte = dExpressionsemWitnessBytes
+	if got := fullParseRetryMaxStacksOverride(tree, dExpressionsemWitnessBytes, dLargeFileRetryStackCeiling); got != 0 {
 		t.Fatalf("fullParseRetryMaxStacksOverride(large d) = %d, want 0", got)
 	}
-	if got := fullParseRetryMaxStacksOverride(tree, 1024, 3); got != fullParseRetryMaxGLRStacks {
+	if got := fullParseRetryMaxStacksOverride(tree, dLargeFileRetryMinBytes-1, dLargeFileRetryStackCeiling); got != fullParseRetryMaxGLRStacks {
 		t.Fatalf("fullParseRetryMaxStacksOverride(small d) = %d, want %d", got, fullParseRetryMaxGLRStacks)
 	}
 	tree.language = &Language{Name: "typescript"}

@@ -23,6 +23,12 @@ const (
 	javaFullParseRetryMaxGLRStacks   = 64
 	javaFullParseRetryMaxMergePerKey = 16
 	javaTightMergeCapSourceLen       = 256 * 1024
+	// D's tuned default starts at cap 2, then fullParseInitialMaxStacks raises
+	// the effective parse cap to this conflict floor. Large D accepted-error
+	// retries must not widen beyond it, or expressionsem.d re-enters the
+	// survivor-population RSS cliff.
+	dLargeFileRetryStackCeiling = 3
+	dLargeFileRetryMinBytes     = 64 * 1024
 	// goAcceptedErrorMergePerKeyRetry widens Go's merge-per-key survivor
 	// budget only on the retry rung, when a fresh full parse at the
 	// steady-state cap (3, see the "go" case in effectiveParseMergePerKeyCap)
@@ -1168,7 +1174,7 @@ func fullParseRetryUsesInitialStackCeiling(tree *Tree, sourceLen int, initialMax
 		// grammar conflict floor) and stays below the prior Go-side RSS cliff.
 		// Widening accepted-error retry stacks reintroduces the survivor
 		// population blowup, so keep large D retries at the initial ceiling.
-		return sourceLen >= 64*1024 && initialMaxStacks <= 3
+		return sourceLen >= dLargeFileRetryMinBytes && initialMaxStacks <= dLargeFileRetryStackCeiling
 	default:
 		return false
 	}
