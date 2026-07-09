@@ -3992,15 +3992,18 @@
       "suspected_class": "C reference parser memory blowup on the active full-parse attempt, not currently evidence of a pure-Go memory blowup; fsharp still cannot be ratcheted because the reference side dies before a C median can be recorded",
       "action": "dedicated isolated C-reference containment or corpus-selection RCA on ProvidedTypes.fs; do not rerun fsharp broad sweeps without a disposable hard memory bound and process-level watchdog"
     },
-    "d_docker_oom": {
-      "file": "d corpus largest-file selection from wave3_batch6",
-      "backlog_ref": "wave3_batch6_20260708T224850Z seed note; intentionally not added to languages because both the batch run and one-language rerun ended with Docker oom_killed=true",
+    "d_expressionsem_go_rss_blowup": {
+      "file": "d/compiler/src/dmd/expressionsem.d (685384 bytes; largest D corpus file, first selected file under largest-order probes)",
+      "backlog_ref": "wave3_batch6_20260708T224850Z seed note; intentionally not added to languages because both the batch run and one-language rerun ended with Docker oom_killed=true before #185 added the parent-side RSS watchdog",
       "observed": {
         "wave3_batch6": "child process exited signal:killed with Docker oom_killed=true",
-        "one_language_rerun": "reproduced the Docker OOM"
+        "one_language_rerun": "reproduced the Docker OOM",
+        "rss_watchdog_512": "post-#185 Docker 2GiB, GOMEMLIMIT=1536MiB, largest-8, reps=5, warmup=1, file_budget=10000ms, GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB=512: parent preserved an error row instead of cgroup OOM; child stopped at rss=518MiB before any file checkpoint",
+        "rss_watchdog_1024": "post-#185 Docker 4GiB, GOMEMLIMIT=3GiB, largest-1, reps=1, warmup=0, file_budget=10000ms, GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB=1024: child stopped at rss=1025MiB before any file checkpoint",
+        "activeattempt_1536": "post-#185 Docker 4GiB, GOMEMLIMIT=3GiB, largest-1, reps=1, warmup=0, file_budget=10000ms, GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB=1536: child stopped at rss=1539MiB with active_file=compiler/src/dmd/expressionsem.d, active_axis=full, active_impl=go, active_phase=rep, active_attempt=1"
       },
-      "suspected_class": "severe memory blowup or containment failure requiring isolated RCA before broad sweeps",
-      "action": "dedicated one-language D RCA under a hard disposable memory limit before creating any budget row"
+      "suspected_class": "pure-Go D full-parse memory blowup during the first timed full/go attempt on expressionsem.d; no longer an unattributed container failure and not currently evidence of a C-reference blowup",
+      "action": "reduce or contain the expressionsem.d Go full-parse memory blowup before adding D to the ratchet; D remains held out until full/noedit can complete or an explicit budget row is deliberately scoped around this RSS cliff"
     }
   }
 }
