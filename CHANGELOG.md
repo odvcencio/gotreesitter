@@ -7,7 +7,9 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-Wave-3 perf-fleet coverage and ongoing correctness checks. This unreleased
+## [0.22.4] - 2026-07-09
+
+Wave-3 perf-fleet coverage and ongoing correctness checks. This release
 line extends perf-scan measurement coverage: the Go-vs-C full-parse ratio
 ratchet now covers 203/206 grammars (up from the targeted subset measured at
 the v0.22.0 checkpoint) via batches 1–7 plus a fleet gap-close sweep, while
@@ -1271,7 +1273,8 @@ Warm-reuse throughput ~10 % higher. 206-grammar parity green under `GTS_PARITY_M
 - Initial standalone pure-Go runtime module.
 - External scanner VM foundation and base parser/lexer/tree infrastructure.
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.22.4...HEAD
+[0.22.4]: https://github.com/odvcencio/gotreesitter/compare/v0.22.3...v0.22.4
 [0.22.0]: https://github.com/odvcencio/gotreesitter/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/odvcencio/gotreesitter/compare/v0.20.9...v0.21.0
 [0.20.9]: https://github.com/odvcencio/gotreesitter/compare/v0.20.8...v0.20.9
