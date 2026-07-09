@@ -1334,6 +1334,23 @@ func TestGroovyLargeAcceptedErrorRetryUsesInitialStackCeiling(t *testing.T) {
 	}
 }
 
+func TestDLargeRetryUsesInitialStackCeiling(t *testing.T) {
+	tree := &Tree{language: &Language{Name: "d"}}
+	if !fullParseRetryUsesInitialStackCeiling(tree, dLargeFileRetryMinBytes, dLargeFileRetryStackCeiling) {
+		t.Fatal("fullParseRetryUsesInitialStackCeiling(d large) = false, want true")
+	}
+	if fullParseRetryUsesInitialStackCeiling(tree, dLargeFileRetryMinBytes-1, dLargeFileRetryStackCeiling) {
+		t.Fatal("fullParseRetryUsesInitialStackCeiling(d below threshold) = true, want false")
+	}
+	if fullParseRetryUsesInitialStackCeiling(tree, dLargeFileRetryMinBytes, dLargeFileRetryStackCeiling+1) {
+		t.Fatal("fullParseRetryUsesInitialStackCeiling(d widened cap) = true, want false")
+	}
+	tree.language = &Language{Name: "typescript"}
+	if fullParseRetryUsesInitialStackCeiling(tree, dLargeFileRetryMinBytes, dLargeFileRetryStackCeiling) {
+		t.Fatal("fullParseRetryUsesInitialStackCeiling(typescript) = true, want false")
+	}
+}
+
 func TestCppAcceptedErrorRetrySkipsCompleteTree(t *testing.T) {
 	tree := &Tree{
 		language: &Language{Name: "cpp"},
