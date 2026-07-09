@@ -56,6 +56,66 @@ waves.
 
 - COBOL if-header `EXEC CICS` error parity aligned with the C parser.
 
+## [0.22.3] - 2026-07-08
+
+Cobol frontier and perf-ratchet release. This release completes the focused
+Wave 4 Cobol frontier work and adds the first checked-in Wave 3 perf budget
+ratchet. It does not claim universal near-C performance; the ratchet and CI
+validator make future claims auditable.
+
+### Added
+
+- `cgo_harness/cmd/perf_scan_budget` and the initial 20-language perf-ratio
+  budget seed, with a fast CI validation job wired into the aggregate build.
+
+### Changed
+
+- Cobol precise ELS is elected by default, and recovered BBANK roots plus
+  recovery-frontier shapes are normalized against the C oracle.
+- Race tests and cgo harness cleanup paths are split and tag-gated so CI stays
+  more responsive while preserving the correctness lanes.
+
+### Fixed
+
+- Cobol zero-width skipped tokens are absorbed into open `ERROR` regions so
+  recovered trees keep the C-oracle error carriers instead of timing out or
+  dropping them.
+
+## [0.22.2] - 2026-07-08
+
+C++ recovery parity fold. This release fixes the focused C++ malformed-class
+recovery gap without enabling cpp C-recovery globally.
+
+### Added
+
+- Registry-backed `REPRO_GO_BACKEND=registry` mode for C tree-dump
+  diagnostics.
+
+### Fixed
+
+- Malformed `class` bodies followed by `void A::b() {}` now normalize to the
+  C-oracle recovered `function_definition` shape.
+- Added scoped cpp result-compatibility coverage for recovered
+  `class_specifier`, retagged `namespace_identifier`, and nested extra
+  `ERROR(identifier)` shapes.
+
+## [0.22.1] - 2026-07-08
+
+Cobol oracle cleanup and CI/dead-code maintenance release.
+
+### Changed
+
+- CI build gating is split into faster parallel jobs.
+- GLR debug/stat scaffolding, scanner/staticcheck leftovers, cgo_harness dead
+  helpers, and untagged C-benchmark helpers were removed or gated.
+
+### Fixed
+
+- Cobol fixed-format trailing trivia spans now match the C oracle while
+  preserving free-format long-line content.
+- Added focused Cobol cgo regression coverage and validated Cobol against the
+  80-case C oracle and strict real-corpus gates.
+
 ## [0.22.0] - 2026-07-08
 
 Roadmap checkpoint release after the v0.21 engine cut. This release lands the
@@ -1275,6 +1335,9 @@ Warm-reuse throughput ~10 % higher. 206-grammar parity green under `GTS_PARITY_M
 
 [Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.22.4...HEAD
 [0.22.4]: https://github.com/odvcencio/gotreesitter/compare/v0.22.3...v0.22.4
+[0.22.3]: https://github.com/odvcencio/gotreesitter/compare/v0.22.2...v0.22.3
+[0.22.2]: https://github.com/odvcencio/gotreesitter/compare/v0.22.1...v0.22.2
+[0.22.1]: https://github.com/odvcencio/gotreesitter/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/odvcencio/gotreesitter/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/odvcencio/gotreesitter/compare/v0.20.9...v0.21.0
 [0.20.9]: https://github.com/odvcencio/gotreesitter/compare/v0.20.8...v0.20.9
