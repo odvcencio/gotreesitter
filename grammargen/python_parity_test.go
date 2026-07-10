@@ -131,6 +131,7 @@ func TestPythonGeneratedRepeatContinuationParity(t *testing.T) {
 		"2**2**3\n-2**2",
 		"if a:\n  b\n  c",
 		"{a, b, c,}\n{*{}}",
+		`"\x12 \123 \u1234"`,
 	}
 
 	for _, sample := range samples {
@@ -150,6 +151,7 @@ func TestPythonGeneratedRepeatContinuationParityWithExternalOrderAdapter(t *test
 		"2**2**3\n-2**2",
 		"if a:\n  b\n  c",
 		"{a, b, c,}\n{*{}}",
+		`"\x12 \123 \u1234"`,
 	}
 
 	for _, sample := range samples {

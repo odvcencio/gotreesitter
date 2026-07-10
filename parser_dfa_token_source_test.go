@@ -60,6 +60,68 @@ func (skipPrefixExternalScanner) Scan(payload any, lexer *ExternalLexer, valid [
 	return true
 }
 
+func TestAfterWhitespaceLexModeIgnoresWhitespaceInsideExternalContent(t *testing.T) {
+	mode := LexMode{}
+	mode.SetLexStateIndex(5)
+	mode.SetAfterWhitespaceLexStateIndex(9)
+	lang := &Language{
+		LexModes: []LexMode{{}, mode},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, Extra: true}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, ExtraChain: true}}},
+		},
+	}
+	actionIndex := uint16(1)
+	d := &dfaTokenSource{
+		lexer:                       &Lexer{source: []byte(" "), pos: 1},
+		language:                    lang,
+		state:                       1,
+		lookupActionIndex:           func(StateID, Symbol) uint16 { return actionIndex },
+		lexModeStarts:               lang.LexModeStarts(),
+		lastExternalTokenStartByte:  0,
+		lastExternalTokenEndByte:    1,
+		lastExternalTokenValid:      true,
+		externalTokenEndSameAsStart: false,
+	}
+
+	d.lastExternalTokenWasExtra = d.tokenIsExtraInAllActiveStates(1)
+	if d.lastExternalTokenWasExtra {
+		t.Fatal("ordinary external content classified as extra")
+	}
+	if got := d.lexStateForState(1); got != 5 {
+		t.Fatalf("lex state after external content = %d, want base immediate-capable state 5", got)
+	}
+
+	actionIndex = 2
+	d.lastExternalTokenWasExtra = d.tokenIsExtraInAllActiveStates(1)
+	if !d.lastExternalTokenWasExtra {
+		t.Fatal("external extra shift not classified as extra")
+	}
+	if got := d.lexStateForState(1); got != 9 {
+		t.Fatalf("lex state after external extra = %d, want after-whitespace state 9", got)
+	}
+
+	actionIndex = 3
+	d.lastExternalTokenWasExtra = d.tokenIsExtraInAllActiveStates(1)
+	if !d.lastExternalTokenWasExtra {
+		t.Fatal("external extra-chain shift not classified as extra")
+	}
+	if got := d.lexStateForState(1); got != 9 {
+		t.Fatalf("lex state after external extra chain = %d, want after-whitespace state 9", got)
+	}
+
+	snapshot := d.snapshotRelexState()
+	d.lastExternalTokenWasExtra = false
+	d.externalTokenEndSameAsStart = true
+	snapshot.restore(d)
+	if !d.lastExternalTokenWasExtra || d.externalTokenEndSameAsStart {
+		t.Fatalf("relex snapshot lost external-token provenance: extra=%t same_as_start=%t",
+			d.lastExternalTokenWasExtra, d.externalTokenEndSameAsStart)
+	}
+}
+
 func TestRelexExternalScannerTokenPreservesSkippedGapProvenance(t *testing.T) {
 	source := []byte("xxxT")
 	lang := &Language{

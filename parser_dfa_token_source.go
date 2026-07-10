@@ -35,6 +35,7 @@ type dfaTokenSource struct {
 	lastExternalTokenStartByte  uint32
 	lastExternalTokenEndByte    uint32
 	lastExternalTokenValid      bool
+	lastExternalTokenWasExtra   bool
 	externalTokenEndSameAsStart bool
 	singleState                 [1]StateID
 	glrStates                   []StateID // all active GLR stack states
@@ -369,6 +370,7 @@ func (d *dfaTokenSource) Reset(source []byte) {
 	d.lastExternalTokenStartByte = 0
 	d.lastExternalTokenEndByte = 0
 	d.lastExternalTokenValid = false
+	d.lastExternalTokenWasExtra = false
 	d.externalTokenEndSameAsStart = false
 	if d.language == nil || d.language.ExternalScanner == nil {
 		return
@@ -408,6 +410,7 @@ func (d *dfaTokenSource) Close() {
 	d.lastExternalTokenStartByte = 0
 	d.lastExternalTokenEndByte = 0
 	d.lastExternalTokenValid = false
+	d.lastExternalTokenWasExtra = false
 	d.externalTokenEndSameAsStart = false
 	if !d.noPool {
 		dfaTokenSourcePool.Put(d)
@@ -447,6 +450,7 @@ func (d *dfaTokenSource) Next() Token {
 		if d.shouldForceEOFLookahead() {
 			tok := d.syntheticEOFLookaheadToken()
 			d.lastExternalTokenValid = false
+			d.lastExternalTokenWasExtra = false
 			d.externalTokenEndSameAsStart = false
 			if DebugDFA.Load() {
 				fmt.Printf("  SYN tok %d  %d %d state=%d\n", tok.Symbol, tok.StartByte, tok.EndByte, d.state)
@@ -622,6 +626,9 @@ func (d *dfaTokenSource) Next() Token {
 			d.lastExternalTokenStartByte = tok.StartByte
 			d.lastExternalTokenEndByte = tok.EndByte
 			d.lastExternalTokenValid = true
+			d.lastExternalTokenWasExtra = tokenFromExternal &&
+				sourcePositionFollowsWhitespace(d.lexer.source, int(tok.EndByte)) &&
+				d.tokenIsExtraInAllActiveStates(tok.Symbol)
 			// Keep start/end snapshots in the token source until the parser
 			// either records them on a shifted leaf or advances to the next token.
 			if len(externalStartSnapshot) == 0 {
@@ -632,6 +639,7 @@ func (d *dfaTokenSource) Next() Token {
 			}
 		} else {
 			d.lastExternalTokenValid = false
+			d.lastExternalTokenWasExtra = false
 			d.externalTokenEndSameAsStart = false
 		}
 		return tok
@@ -662,6 +670,7 @@ func (d *dfaTokenSource) setExternalScannerCheckpointsEnabled(enabled bool) {
 		return
 	}
 	d.lastExternalTokenValid = false
+	d.lastExternalTokenWasExtra = false
 	d.externalTokenEndSameAsStart = false
 	d.externalTokenStart = d.externalTokenStart[:0]
 	d.externalTokenEnd = d.externalTokenEnd[:0]
@@ -1647,6 +1656,39 @@ func (d *dfaTokenSource) hasActionForStateSymbol(state StateID, sym Symbol) bool
 	return len(d.language.ParseActions[idx].Actions) > 0
 }
 
+// tokenIsExtraInAllActiveStates reports whether every active parser action
+// that can consume sym is an extra shift. External scanners can return both
+// layout tokens (comments, newlines) and ordinary content tokens; the lexer
+// must distinguish them when deciding whether a trailing whitespace byte was
+// layout or part of the token itself.
+func (d *dfaTokenSource) tokenIsExtraInAllActiveStates(sym Symbol) bool {
+	if d == nil || d.language == nil || d.lookupActionIndex == nil || sym == 0 {
+		return false
+	}
+	sawExtra := false
+	sawNonExtra := false
+	visit := func(state StateID) {
+		idx := d.lookupActionIndex(state, sym)
+		if idx == 0 || int(idx) >= len(d.language.ParseActions) {
+			return
+		}
+		for _, action := range d.language.ParseActions[idx].Actions {
+			if action.Type == ParseActionShift && (action.Extra || action.ExtraChain) {
+				sawExtra = true
+				continue
+			}
+			sawNonExtra = true
+		}
+	}
+	visit(d.state)
+	for _, state := range d.glrStates {
+		if state != d.state {
+			visit(state)
+		}
+	}
+	return sawExtra && !sawNonExtra
+}
+
 func (d *dfaTokenSource) symbolVisibleOrNamed(sym Symbol) bool {
 	if meta, ok := d.symbolMetadata(sym); ok {
 		return meta.Visible || meta.Named
@@ -1674,7 +1716,26 @@ func (d *dfaTokenSource) isAfterWhitespacePosition() bool {
 	if d == nil || d.lexer == nil || d.lexer.pos <= 0 || d.lexer.pos > len(d.lexer.source) {
 		return false
 	}
-	if ch := d.lexer.source[d.lexer.pos-1]; ch < utf8.RuneSelf {
+	// A non-extra external token may itself end in whitespace. Python's
+	// _string_content is the canonical case: the space in `"\\x12 \\123"`
+	// is string data, so the following immediate escape_sequence remains
+	// eligible. The byte-only fallback below cannot distinguish that from
+	// skipped layout; the external-token checkpoint can.
+	if d.lastExternalTokenValid &&
+		!d.externalTokenEndSameAsStart &&
+		!d.lastExternalTokenWasExtra &&
+		d.lastExternalTokenStartByte < d.lastExternalTokenEndByte &&
+		d.lastExternalTokenEndByte == uint32(d.lexer.pos) {
+		return false
+	}
+	return sourcePositionFollowsWhitespace(d.lexer.source, d.lexer.pos)
+}
+
+func sourcePositionFollowsWhitespace(source []byte, pos int) bool {
+	if pos <= 0 || pos > len(source) {
+		return false
+	}
+	if ch := source[pos-1]; ch < utf8.RuneSelf {
 		switch ch {
 		case ' ', '\t', '\n', '\r', '\v', '\f':
 			return true
@@ -1682,7 +1743,7 @@ func (d *dfaTokenSource) isAfterWhitespacePosition() bool {
 			return false
 		}
 	}
-	r, _ := utf8.DecodeLastRune(d.lexer.source[:d.lexer.pos])
+	r, _ := utf8.DecodeLastRune(source[:pos])
 	return unicode.IsSpace(r)
 }
 
@@ -2554,11 +2615,13 @@ type dfaRelexSnapshot struct {
 
 	externalPayload []byte
 
-	lastExternalTokenStartByte uint32
-	lastExternalTokenEndByte   uint32
-	lastExternalTokenValid     bool
-	externalTokenStart         []byte
-	externalTokenEnd           []byte
+	lastExternalTokenStartByte  uint32
+	lastExternalTokenEndByte    uint32
+	lastExternalTokenValid      bool
+	lastExternalTokenWasExtra   bool
+	externalTokenEndSameAsStart bool
+	externalTokenStart          []byte
+	externalTokenEnd            []byte
 
 	extZeroPos   int
 	extZeroState StateID
@@ -2570,19 +2633,21 @@ type dfaRelexSnapshot struct {
 
 func (d *dfaTokenSource) snapshotRelexState() dfaRelexSnapshot {
 	s := dfaRelexSnapshot{
-		lexerPos:                   d.lexer.pos,
-		lexerRow:                   d.lexer.row,
-		lexerCol:                   d.lexer.col,
-		lastExternalTokenStartByte: d.lastExternalTokenStartByte,
-		lastExternalTokenEndByte:   d.lastExternalTokenEndByte,
-		lastExternalTokenValid:     d.lastExternalTokenValid,
-		externalTokenStart:         append([]byte(nil), d.externalTokenStart...),
-		externalTokenEnd:           append([]byte(nil), d.externalTokenEnd...),
-		extZeroPos:                 d.extZeroPos,
-		extZeroState:               d.extZeroState,
-		extZeroTried:               append([]bool(nil), d.extZeroTried...),
-		zeroWidthPos:               d.zeroWidthPos,
-		zeroWidthCount:             d.zeroWidthCount,
+		lexerPos:                    d.lexer.pos,
+		lexerRow:                    d.lexer.row,
+		lexerCol:                    d.lexer.col,
+		lastExternalTokenStartByte:  d.lastExternalTokenStartByte,
+		lastExternalTokenEndByte:    d.lastExternalTokenEndByte,
+		lastExternalTokenValid:      d.lastExternalTokenValid,
+		lastExternalTokenWasExtra:   d.lastExternalTokenWasExtra,
+		externalTokenEndSameAsStart: d.externalTokenEndSameAsStart,
+		externalTokenStart:          append([]byte(nil), d.externalTokenStart...),
+		externalTokenEnd:            append([]byte(nil), d.externalTokenEnd...),
+		extZeroPos:                  d.extZeroPos,
+		extZeroState:                d.extZeroState,
+		extZeroTried:                append([]bool(nil), d.extZeroTried...),
+		zeroWidthPos:                d.zeroWidthPos,
+		zeroWidthCount:              d.zeroWidthCount,
 	}
 	if d.hasExternalScanner && d.language != nil && d.language.ExternalScanner != nil {
 		buf := make([]byte, externalScannerSerializationBufferSize)
@@ -2603,6 +2668,8 @@ func (s dfaRelexSnapshot) restore(d *dfaTokenSource) {
 	d.lastExternalTokenStartByte = s.lastExternalTokenStartByte
 	d.lastExternalTokenEndByte = s.lastExternalTokenEndByte
 	d.lastExternalTokenValid = s.lastExternalTokenValid
+	d.lastExternalTokenWasExtra = s.lastExternalTokenWasExtra
+	d.externalTokenEndSameAsStart = s.externalTokenEndSameAsStart
 	d.externalTokenStart = append(d.externalTokenStart[:0], s.externalTokenStart...)
 	d.externalTokenEnd = append(d.externalTokenEnd[:0], s.externalTokenEnd...)
 	d.extZeroPos = s.extZeroPos
@@ -2625,6 +2692,7 @@ func (d *dfaTokenSource) RelexFromTokenStart(tok Token) (Token, bool) {
 		d.restoreExternalScannerState(d.externalTokenStart)
 	}
 	d.lastExternalTokenValid = false
+	d.lastExternalTokenWasExtra = false
 	d.lastExternalTokenStartByte = 0
 	d.lastExternalTokenEndByte = 0
 	if len(d.externalTokenEnd) > 0 {
