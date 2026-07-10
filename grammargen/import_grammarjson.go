@@ -148,6 +148,37 @@ func applyImportGrammarPostShapeHints(g *Grammar) {
 				Sym("heredoc_end"),
 			)
 		}
+	case "crystal":
+		if _, ok := g.Rules["heredoc_body"]; ok {
+			// Crystal has the same pathology as ruby's heredoc_body above (see
+			// SHAPE_RCA_CRYSTAL_TLAPLUS_RESCRIPT: "crystal | heredoc_body ->
+			// interpolation -> _expression (173304 >= cap 173304)"): heredoc_body
+			// is a grammar extra shaped SEQ(_heredoc_body_start,
+			// REPEAT(CHOICE(heredoc_content, interpolation,
+			// string_escape_sequence, ignored_backslash)), heredoc_end), and
+			// `interpolation` pulls in `_expression` - the entire expression
+			// grammar - as a nonterminal extra chain, tripping the synthetic-state
+			// budget guard (and, absent the guard, never converging) the same way
+			// ruby's heredoc_body did. Crystal's scanner-delimited alternatives
+			// differ from ruby's - string_escape_sequence and ignored_backslash,
+			// not escape_sequence - so this is not a byte-for-byte copy of the
+			// ruby rewrite, but the shape and the fix are identical: drop the
+			// recursive `interpolation` alternative and keep only the
+			// scanner-delimited content/escape path, so heredoc bodies stay a
+			// bounded extra. `interpolation` itself is untouched and still
+			// reachable from regular string literals; only heredoc bodies lose
+			// real interpolation-node structure - the same parity trade ruby and
+			// perl already accepted, pending a scanner-aware follow-up.
+			g.Rules["heredoc_body"] = Seq(
+				Sym("_heredoc_body_start"),
+				Repeat(Choice(
+					Sym("heredoc_content"),
+					Sym("string_escape_sequence"),
+					Sym("ignored_backslash"),
+				)),
+				Sym("heredoc_end"),
+			)
+		}
 	}
 }
 
