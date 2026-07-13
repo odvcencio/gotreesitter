@@ -558,8 +558,14 @@ func TestTransientScratchCheckpointMaterializesLiveStackAndReusesSlabs(t *testin
 	parent.dynamicPrecedence = 13
 	parent.rawShape = 17
 	if slot := parser.cNodeMemoSlot(parent); slot != nil {
-		*slot = cNodeMemoCacheEntry{node: uintptr(unsafe.Pointer(parent)), hasCost: true}
+		*slot = cNodeMemoCacheEntry{
+			node:    uintptr(unsafe.Pointer(parent)),
+			hasCost: true,
+			epoch:   parser.cNodeMemoEpoch,
+		}
 	}
+	epochBefore := parser.cNodeMemoEpoch
+	memoIdx := cNodeMemoCacheIndex(uintptr(unsafe.Pointer(parent)), len(parser.cNodeMemoCache)>>1)
 	stack := glrStack{entries: []stackEntry{newStackEntryNode(7, parent)}, cacheEntries: true, byteOffset: 1}
 	parentCapacityBytes := scratch.transientParents.allocatedBytes
 	childCapacityBytes := scratch.transientChildren.allocatedBytes
@@ -587,10 +593,14 @@ func TestTransientScratchCheckpointMaterializesLiveStackAndReusesSlabs(t *testin
 	if scratch.transientCheckpoints != 1 {
 		t.Fatalf("transient checkpoints = %d, want 1", scratch.transientCheckpoints)
 	}
-	for i := range parser.cNodeMemoCache {
-		if parser.cNodeMemoCache[i].node != 0 {
-			t.Fatal("recovery node memo retained recycled transient pointers")
-		}
+	if parser.cNodeMemoEpoch != epochBefore+1 {
+		t.Fatalf("recovery memo epoch = %d, want %d", parser.cNodeMemoEpoch, epochBefore+1)
+	}
+	if stale := parser.cNodeMemoCache[memoIdx]; stale.node != uintptr(unsafe.Pointer(parent)) || stale.epoch != epochBefore || !stale.hasCost {
+		t.Fatalf("checkpoint physically cleared recovery memo instead of invalidating by epoch: %#v", stale)
+	}
+	if slot := parser.cNodeMemoSlot(parent); slot.hasCost {
+		t.Fatal("recovery node memo retained recycled transient pointer in the new epoch")
 	}
 
 	reused := scratch.transientParents.allocParent(arena, Symbol(3), true, nil, 0, false)

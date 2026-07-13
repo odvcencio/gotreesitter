@@ -9,6 +9,11 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Reused C-recovery node memos now use generation invalidation instead of
+  clearing a retained 16K-entry cache on every parse. On the pinned quiet
+  host, recovery-primed KDL tiny-clean parses fell from 31.98 microseconds to
+  13.46 microseconds (57.93%), while alternating error/clean parses improved
+  by 3.06%, with unchanged bytes and allocations per operation.
 - The exact built-in Meson grammar now skips the redundant accepted-error
   retry ladder only for sources of at least 2 KiB. A locked 1,549-file corpus
   certification preserved complete and structural trees across all 28

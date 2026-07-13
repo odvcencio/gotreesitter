@@ -1,6 +1,7 @@
 package gotreesitter_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
@@ -25,6 +26,44 @@ func requireRecurringBenchmarkTree(b *testing.B, tree *gotreesitter.Tree, err er
 // retained scratch caches, making recurring reset work visible.
 func BenchmarkKDLParseRecurringTinyClean(b *testing.B) {
 	benchmarkRecurringTinyClean(b, grammars.KdlLanguage(), []byte("node\n"))
+}
+
+// BenchmarkKDLParseRecurringTinyCleanAfterRecovery isolates the retained
+// recovery-memo invalidation floor. Keep it opt-in because the priming parse is
+// intentionally much larger than the timed tiny-clean workload.
+func BenchmarkKDLParseRecurringTinyCleanAfterRecovery(b *testing.B) {
+	if os.Getenv("GOT_BENCH_CNODE_MEMO_EPOCH") != "1" {
+		b.Skip("set GOT_BENCH_CNODE_MEMO_EPOCH=1 to run the recovery-primed probe")
+	}
+	lang := grammars.KdlLanguage()
+	parser := gotreesitter.NewParser(lang)
+	primeSrc := makeKDLRecoveryGarbageSource(120, 300)
+	cleanSrc := []byte("node\n")
+
+	prime, err := parser.Parse(primeSrc)
+	requireRecurringBenchmarkTree(b, prime, err, true)
+	if rt := prime.ParseRuntime(); !rt.CRecoveryEnteredErrorState {
+		b.Fatalf("priming parse did not enter C recovery: %s", rt.Summary())
+	}
+	if got, want := prime.RootNode().EndByte(), uint32(len(primeSrc)); got != want {
+		b.Fatalf("priming parse truncated: root.EndByte=%d want=%d", got, want)
+	}
+	prime.Release()
+
+	warm, err := parser.Parse(cleanSrc)
+	requireRecurringBenchmarkTree(b, warm, err, false)
+	warm.Release()
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(cleanSrc)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tree, err := parser.Parse(cleanSrc)
+		if err != nil {
+			b.Fatalf("parse: %v", err)
+		}
+		tree.Release()
+	}
 }
 
 // BenchmarkJavaParseRecurringTinyCleanDFA isolates the built-in DFA route. The
@@ -142,6 +181,47 @@ func BenchmarkKDLParseRecurringErrorCleanAlternate(b *testing.B) {
 			b.Fatalf("clean parse: %v", err)
 		}
 		cleanTree.Release()
+	}
+}
+
+func parseKDLSExpr(t *testing.T, parser *gotreesitter.Parser, lang *gotreesitter.Language, src []byte, wantError bool) string {
+	t.Helper()
+	tree, err := parser.Parse(src)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("parse returned nil root")
+	}
+	if got := root.HasError(); got != wantError {
+		t.Fatalf("root.HasError() = %v, want %v: %s", got, wantError, root.SExpr(lang))
+	}
+	return root.SExpr(lang)
+}
+
+func TestKDLRecoveryMemoEpochPreservesExactTreesAcrossReusedParses(t *testing.T) {
+	lang := grammars.KdlLanguage()
+	errorSrc := makeKDLRecoveryGarbageSource(4, 8)
+	cleanSrc := []byte("node\n")
+	reused := gotreesitter.NewParser(lang)
+
+	gotError := parseKDLSExpr(t, reused, lang, errorSrc, true)
+	wantError := parseKDLSExpr(t, gotreesitter.NewParser(lang), lang, errorSrc, true)
+	if gotError != wantError {
+		t.Fatalf("reused-parser error tree drift:\n got:  %s\n want: %s", gotError, wantError)
+	}
+
+	gotClean := parseKDLSExpr(t, reused, lang, cleanSrc, false)
+	wantClean := parseKDLSExpr(t, gotreesitter.NewParser(lang), lang, cleanSrc, false)
+	if gotClean != wantClean {
+		t.Fatalf("post-recovery clean tree drift:\n got:  %s\n want: %s", gotClean, wantClean)
+	}
+
+	gotErrorAgain := parseKDLSExpr(t, reused, lang, errorSrc, true)
+	if gotErrorAgain != wantError {
+		t.Fatalf("post-clean error tree drift:\n got:  %s\n want: %s", gotErrorAgain, wantError)
 	}
 }
 

@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "testing"
+import (
+	"testing"
+	"unsafe"
+)
 
 func TestCVersionStatusAddsPausedSkippedTreeCost(t *testing.T) {
 	parser := &Parser{}
@@ -1158,5 +1161,125 @@ func TestCCondenseAndResumeComparesMissingGroupStacks(t *testing.T) {
 	}
 	if condensed[0].cRecoverMissingGroup != nil {
 		t.Fatal("condense kept missing-group stack; want lower-cost clean stack")
+	}
+}
+
+func collidingCNodeMemoNodes(t *testing.T, setCount int) (*Node, *Node, *Node) {
+	t.Helper()
+	nodes := make([]Node, setCount*2+1)
+	seen := make(map[int][]*Node, setCount)
+	for i := range nodes {
+		n := &nodes[i]
+		n.equivVersion = 1
+		idx := cNodeMemoCacheIndex(uintptr(unsafe.Pointer(n)), setCount)
+		seen[idx] = append(seen[idx], n)
+		if len(seen[idx]) == 3 {
+			return seen[idx][0], seen[idx][1], seen[idx][2]
+		}
+	}
+	t.Fatal("failed to find three nodes in one recovery memo set")
+	return nil, nil, nil
+}
+
+func TestCNodeMemoEpochAdvancesAcrossParserParses(t *testing.T) {
+	p := NewParser(buildArithmeticLanguage())
+	p.errorCostCompetition = true
+
+	first, err := p.Parse([]byte("1"))
+	if err != nil {
+		t.Fatalf("first parse: %v", err)
+	}
+	first.Release()
+	firstEpoch := p.cNodeMemoEpoch
+	if firstEpoch == 0 {
+		t.Fatal("first parse left recovery memo epoch at zero")
+	}
+
+	second, err := p.Parse([]byte("1"))
+	if err != nil {
+		t.Fatalf("second parse: %v", err)
+	}
+	second.Release()
+	if got, want := p.cNodeMemoEpoch, firstEpoch+1; got != want {
+		t.Fatalf("second parse recovery memo epoch = %d, want %d", got, want)
+	}
+}
+
+func TestCNodeMemoSlotPreservesVictimPromotionAndEviction(t *testing.T) {
+	p := &Parser{cNodeMemoCache: make([]cNodeMemoCacheEntry, cNodeMemoCacheInitialSize)}
+	p.beginCNodeMemoEpoch()
+	a, b, c := collidingCNodeMemoNodes(t, len(p.cNodeMemoCache)>>1)
+
+	store := func(n *Node, cost uint32) {
+		slot := p.cNodeMemoSlot(n)
+		*slot = cNodeMemoCacheEntry{
+			node:    uintptr(unsafe.Pointer(n)),
+			ver:     n.equivVersion,
+			cost:    cost,
+			hasCost: true,
+			epoch:   p.cNodeMemoEpoch,
+		}
+	}
+	store(a, 11)
+	store(b, 22)
+
+	idx := cNodeMemoCacheIndex(uintptr(unsafe.Pointer(a)), len(p.cNodeMemoCache)>>1)
+	if got := p.cNodeMemoCache[idx].node; got != uintptr(unsafe.Pointer(b)) {
+		t.Fatalf("primary after collision = %#x, want b %#x", got, uintptr(unsafe.Pointer(b)))
+	}
+	if got := p.cNodeMemoCache[idx+1].node; got != uintptr(unsafe.Pointer(a)) {
+		t.Fatalf("victim after collision = %#x, want a %#x", got, uintptr(unsafe.Pointer(a)))
+	}
+
+	promoted := p.cNodeMemoSlot(a)
+	if promoted.cost != 11 || !promoted.hasCost {
+		t.Fatalf("promoted victim payload = %#v, want cached cost 11", *promoted)
+	}
+	if got := p.cNodeMemoCache[idx+1].node; got != uintptr(unsafe.Pointer(b)) {
+		t.Fatalf("victim after promotion = %#x, want b %#x", got, uintptr(unsafe.Pointer(b)))
+	}
+
+	store(c, 33)
+	if got := p.cNodeMemoCache[idx].node; got != uintptr(unsafe.Pointer(c)) {
+		t.Fatalf("primary after miss = %#x, want c %#x", got, uintptr(unsafe.Pointer(c)))
+	}
+	if got := p.cNodeMemoCache[idx+1].node; got != uintptr(unsafe.Pointer(a)) {
+		t.Fatalf("victim after miss = %#x, want prior primary a %#x", got, uintptr(unsafe.Pointer(a)))
+	}
+}
+
+func TestCNodeMemoEpochWrapClearsBeforeEpochReuse(t *testing.T) {
+	p := &Parser{
+		cNodeMemoCache: make([]cNodeMemoCacheEntry, cNodeMemoCacheInitialSize),
+		cNodeMemoEpoch: ^uint16(0),
+	}
+	n := &Node{equivVersion: 1}
+	idx := cNodeMemoCacheIndex(uintptr(unsafe.Pointer(n)), len(p.cNodeMemoCache)>>1)
+	p.cNodeMemoCache[idx] = cNodeMemoCacheEntry{
+		node:    uintptr(unsafe.Pointer(n)),
+		ver:     n.equivVersion,
+		cost:    41,
+		hasCost: true,
+		epoch:   p.cNodeMemoEpoch,
+	}
+
+	p.beginCNodeMemoEpoch()
+	if p.cNodeMemoEpoch != 1 {
+		t.Fatalf("memo epoch after wrap = %d, want 1", p.cNodeMemoEpoch)
+	}
+	for i, entry := range p.cNodeMemoCache {
+		if entry != (cNodeMemoCacheEntry{}) {
+			t.Fatalf("cache slot %d after epoch wrap = %#v, want zero", i, entry)
+		}
+	}
+}
+
+func TestCNodeMemoCacheEntrySize(t *testing.T) {
+	want := uintptr(20)
+	if unsafe.Sizeof(uintptr(0)) == 8 {
+		want = 32
+	}
+	if got := unsafe.Sizeof(cNodeMemoCacheEntry{}); got != want {
+		t.Fatalf("cNodeMemoCacheEntry size = %d, want %d", got, want)
 	}
 }

@@ -1036,7 +1036,11 @@ func (p *Parser) cNodeVisibleSubtreeCount(n *Node) int {
 		// pointer captured before recursing could now be stale.
 		slot := p.cNodeMemoSlot(n)
 		if slot.ver != n.equivVersion {
-			*slot = cNodeMemoCacheEntry{node: uintptr(unsafe.Pointer(n)), ver: n.equivVersion}
+			*slot = cNodeMemoCacheEntry{
+				node:  uintptr(unsafe.Pointer(n)),
+				ver:   n.equivVersion,
+				epoch: p.cNodeMemoEpoch,
+			}
 		}
 		slot.visCount = count
 		slot.hasVis = true
@@ -1178,6 +1182,9 @@ type cNodeMemoCacheEntry struct {
 	visCount int
 	hasCost  bool
 	hasVis   bool
+	// epoch occupies existing tail padding on 32- and 64-bit platforms,
+	// keeping each cache entry at 20 and 32 bytes respectively.
+	epoch uint16
 }
 
 const (
@@ -1221,31 +1228,51 @@ func (p *Parser) growCNodeMemoCache() {
 	p.cNodeMemoCache = make([]cNodeMemoCacheEntry, cNodeMemoCacheSize)
 }
 
-// cNodeMemoSlot returns the writable 2-way set-associative slot for node n,
-// evicting the current occupant into the victim half of the pair if n is not
-// already resident. This mirrors map[*Node]cNodeMemoEntry lookup semantics:
-// an existing entry for n keeps its stored version/cost/vis fields until the
-// caller explicitly overwrites them; a newly-resident node starts zeroed
-// (matching a fresh map key's zero value). Returns nil only when the cache is
-// unprovisioned (recovery gate off) or n/p is nil.
+// beginCNodeMemoEpoch invalidates every recovery memo entry in O(1). Epoch
+// zero is reserved for never-valid entries. On uint16 wrap, clear the cache
+// once before reusing epoch 1 so no surviving entry can alias the new epoch.
+func (p *Parser) beginCNodeMemoEpoch() {
+	if p == nil || len(p.cNodeMemoCache) == 0 {
+		return
+	}
+	if p.cNodeMemoEpoch == ^uint16(0) {
+		clear(p.cNodeMemoCache)
+		p.cNodeMemoEpoch = 0
+	}
+	p.cNodeMemoEpoch++
+}
+
+// cNodeMemoSlot returns the writable 2-way set-associative slot for node n.
+// A current-epoch miss evicts the primary into the victim half; stale-epoch
+// occupants are ignored. This mirrors map[*Node]cNodeMemoEntry lookup
+// semantics within an epoch: an existing entry for n keeps its stored
+// version/cost/vis fields until the caller explicitly overwrites them; a
+// newly-resident node starts zeroed (matching a fresh map key's zero value).
+// Returns nil only when the cache is unprovisioned (recovery gate off) or n/p
+// is nil.
 func (p *Parser) cNodeMemoSlot(n *Node) *cNodeMemoCacheEntry {
 	if p == nil || n == nil || len(p.cNodeMemoCache) == 0 {
 		return nil
+	}
+	if p.cNodeMemoEpoch == 0 {
+		p.beginCNodeMemoEpoch()
 	}
 	setCount := len(p.cNodeMemoCache) >> 1
 	ptr := uintptr(unsafe.Pointer(n))
 	idx := cNodeMemoCacheIndex(ptr, setCount)
 	primary := &p.cNodeMemoCache[idx]
-	if primary.node == ptr {
+	if primary.epoch == p.cNodeMemoEpoch && primary.node == ptr {
 		return primary
 	}
 	victim := &p.cNodeMemoCache[idx+1]
-	if victim.node == ptr {
+	if victim.epoch == p.cNodeMemoEpoch && victim.node == ptr {
 		*primary, *victim = *victim, *primary
 		return primary
 	}
-	*victim = *primary
-	*primary = cNodeMemoCacheEntry{node: ptr}
+	if primary.epoch == p.cNodeMemoEpoch {
+		*victim = *primary
+	}
+	*primary = cNodeMemoCacheEntry{node: ptr, epoch: p.cNodeMemoEpoch}
 	return primary
 }
 
@@ -1389,6 +1416,7 @@ func (p *Parser) cErrRegionPostAbsorb(pre cErrRegionAbsorbPre, added ...*Node) {
 			visCount: vis,
 			hasCost:  true,
 			hasVis:   true,
+			epoch:    p.cNodeMemoEpoch,
 		}
 	}
 	if ms := p.mergeScratch; ms != nil {
@@ -1500,7 +1528,11 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 	// set), so the pointer captured before recursing could now be stale.
 	slot := p.cNodeMemoSlot(n)
 	if slot.ver != n.equivVersion {
-		*slot = cNodeMemoCacheEntry{node: uintptr(unsafe.Pointer(n)), ver: n.equivVersion}
+		*slot = cNodeMemoCacheEntry{
+			node:  uintptr(unsafe.Pointer(n)),
+			ver:   n.equivVersion,
+			epoch: p.cNodeMemoEpoch,
+		}
 	}
 	slot.cost = cost
 	slot.hasCost = true
