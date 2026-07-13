@@ -29,6 +29,8 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- The real-corpus Docker runner now forwards `REAL_CORPUS_ONLY`, allowing a
+  reproducible single-language run without switching to a different wrapper.
 - HTML range normalization no longer extends already-closed child elements
   across trailing trivia to an enclosing end tag; genuinely unclosed recovered
   element chains retain their C-compatible range extension.

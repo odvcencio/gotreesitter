@@ -26,6 +26,7 @@ RATCHET_REBASE="${RATCHET_REBASE:-0}"
 # Grammars skipped by default: ocaml's "attribute" nonterminal-extra chain
 # exceeds the synthetic-state budget (generation-fatal; see GEN_COST_RCA).
 REAL_CORPUS_SKIP="${REAL_CORPUS_SKIP:-ocaml}"
+REAL_CORPUS_ONLY="${REAL_CORPUS_ONLY:-}"
 SEED_DIR=""
 CONTAINER_SEED_DIR=""
 OFFLINE=0
@@ -314,6 +315,7 @@ cd /workspace
   GTS_GRAMMARGEN_REAL_CORPUS_RATCHET_REBASE="$RATCHET_REBASE" \
   GTS_GRAMMARGEN_REAL_CORPUS_FLOORS_PATH="/workspace/tmp_floors/real_corpus_parity_floors.json" \
   GTS_GRAMMARGEN_REAL_CORPUS_SKIP="$REAL_CORPUS_SKIP" \
+  GTS_GRAMMARGEN_REAL_CORPUS_ONLY="$REAL_CORPUS_ONLY" \
   GOGC=50 GOMEMLIMIT=10GiB \
   go test ./grammargen -run '^TestMultiGrammarImportRealCorpusParity$' -count=1 -v -timeout 90m
 EOF2
