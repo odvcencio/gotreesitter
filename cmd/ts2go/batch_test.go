@@ -70,6 +70,16 @@ func TestSafeFileBase(t *testing.T) {
 	}
 }
 
+func TestGrammargenOwnedBlobSkipMessageUsesSafeGoCommand(t *testing.T) {
+	message := grammargenOwnedBlobSkipMessage("go")
+	if want := "go run ./cmd/grammargen emit go -bin grammars/grammar_blobs/go.bin"; !strings.Contains(message, want) {
+		t.Fatalf("skip message = %q, want command %q", message, want)
+	}
+	if strings.Contains(message, "-lr-split") {
+		t.Fatalf("skip message contains unsafe Go -lr-split guidance: %q", message)
+	}
+}
+
 func TestLanguageFuncNameSanitize(t *testing.T) {
 	if got := languageFuncName("c-sharp"); got != "CSharpLanguage" {
 		t.Fatalf("languageFuncName = %q, want %q", got, "CSharpLanguage")

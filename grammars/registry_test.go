@@ -11,24 +11,30 @@ func isRegisteredLanguage(name string) bool {
 	return lookupByName(name) != nil
 }
 
-// TestGoBlobIsGrammargenGenerated pins the contract invariant that the shipping
-// go.bin is a grammargen-compiled blob (GeneratedByGrammargen == true). The
-// runtime relies on this flag to bypass every per-language conflict-resolution
-// hack: deterministicConflictChoiceForDispatch returns early on
-// GeneratedByGrammargen before reaching its switch p.language.Name block, so a
-// grammargen blob resolves conflicts purely via the general ConflictPolicies +
-// structural generated-repeat detection. If a future blob regeneration silently
-// flipped this flag to false, those general paths would be bypassed and retired
-// per-language resolvers could resurrect. This test is the tripwire — and the
-// template the contract guard for every future ts2go->grammargen migration
-// should follow.
-func TestGoBlobIsGrammargenGenerated(t *testing.T) {
-	lang := GoLanguage()
-	if lang == nil {
-		t.Fatal("GoLanguage() returned nil")
-	}
-	if !lang.GeneratedByGrammargen {
-		t.Fatal("go.bin GeneratedByGrammargen = false, want true; the shipping go blob must be grammargen-compiled so the runtime's per-language conflict hacks stay bypassed")
+func TestGrammargenBlobProvenance(t *testing.T) {
+	for _, name := range []string{"go", "regex", "swift"} {
+		t.Run(name, func(t *testing.T) {
+			entry := DetectLanguageByName(name)
+			if entry == nil {
+				t.Fatalf("DetectLanguageByName(%q) returned nil", name)
+			}
+			if entry.GrammarSource != GrammarSourceGrammargenBlob {
+				t.Fatalf("GrammarSource = %q, want %q", entry.GrammarSource, GrammarSourceGrammargenBlob)
+			}
+			if blob := BlobByName(name); len(blob) == 0 {
+				t.Fatalf("BlobByName(%q) returned empty", name)
+			}
+			if entry.Language == nil {
+				t.Fatal("registry language loader is nil")
+			}
+			lang := entry.Language()
+			if lang == nil {
+				t.Fatal("registry language loader returned nil")
+			}
+			if !lang.GeneratedByGrammargen {
+				t.Fatal("decoded blob is not marked GeneratedByGrammargen")
+			}
+		})
 	}
 }
 
@@ -234,22 +240,6 @@ func TestBuiltinLanguagesAdvertiseTS2GoBlobSource(t *testing.T) {
 	}
 	if entry.GrammarSource != GrammarSourceTS2GoBlob {
 		t.Fatalf("Python GrammarSource = %q, want %q", entry.GrammarSource, GrammarSourceTS2GoBlob)
-	}
-}
-
-func TestGoAdvertisesGrammargenBlobSource(t *testing.T) {
-	// go.bin is grammargen-compiled (cmd/grammargen -lr-split -bin ...), the
-	// only builtin migrated off ts2go so far. It still ships an embedded
-	// blob, so BlobByName must keep serving it.
-	entry := DetectLanguage("main.go")
-	if entry == nil {
-		t.Fatal("expected Go language for main.go")
-	}
-	if entry.GrammarSource != GrammarSourceGrammargenBlob {
-		t.Fatalf("Go GrammarSource = %q, want %q", entry.GrammarSource, GrammarSourceGrammargenBlob)
-	}
-	if blob := BlobByName("go"); len(blob) == 0 {
-		t.Fatal("BlobByName(go) returned empty; grammargen-blob languages must stay blob-served")
 	}
 }
 

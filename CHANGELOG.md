@@ -36,6 +36,9 @@ for tags and release notes while still in `0.x`.
   element chains retain their C-compatible range extension.
 - Full-parse retry selection now preserves an accepted error tree when a later
   retry stops early, instead of replacing it with a farther provisional tree.
+- Grammargen-owned Go, Regex, and Swift blobs now share one registry
+  provenance contract, and ts2go's Go regeneration hint uses the safe
+  `grammargen emit go` command without LR splitting.
 - Fleet scoreboard reduction now canonicalizes hard-gate finding order and
   records clean reducer provenance separately from immutable measurement
   provenance, allowing later reducer fixes to authenticate historical shards

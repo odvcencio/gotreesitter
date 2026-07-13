@@ -237,7 +237,7 @@ func loadHighlightQuery(repoDir string) (string, bool) {
 }
 
 // grammargenOwnedBlobs lists languages whose checked-in grammar_blobs/*.bin
-// is compiled by grammargen (go run ./cmd/grammargen -lr-split -bin ...)
+// is compiled by grammargen (go run ./cmd/grammargen emit ...)
 // instead of the ts2go C-table extraction pipeline. Batch regeneration must
 // not clobber these blobs or relabel their registry entries: they advertise
 // GrammarSourceGrammargenBlob in grammars/registry_builtin_gen.go.
@@ -251,21 +251,24 @@ var grammargenOwnedBlobs = map[string]bool{
 // grammargen-owned blob, with a regeneration hint accurate for how that
 // specific language is actually built. "go" and "swift" are grammargen
 // builtin grammar names (see builtinGrammars in cmd/grammargen/main.go) and
-// regenerate via the positional-arg form below. "regex" is NOT a grammargen
+// regenerate via the emit subcommand below. "regex" is NOT a grammargen
 // builtin name — its blob is built ad hoc by importing a resolved
 // tree-sitter grammar.json (grammargen's -json flag), not from a builtin Go
 // DSL grammar, so the builtin-name regen command would fail if run verbatim.
 // See grammargen/regex_import_parity_test.go for the import path this blob
 // must stay parity-checked against.
 func grammargenOwnedBlobSkipMessage(name string) string {
+	if name == "go" {
+		return "skipped go (grammargen-owned blob; regenerate with: go run ./cmd/grammargen emit go -bin grammars/grammar_blobs/go.bin)"
+	}
 	if name == "regex" {
 		return fmt.Sprintf("skipped %s (grammargen-owned blob; regex.bin is grammargen-built via a "+
 			"tree-sitter grammar.json import, not a grammargen builtin grammar name — "+
 			"see grammargen/regex_import_parity_test.go for the import/parity path; "+
 			"do not regenerate it through this batch pipeline or clobber it here)", name)
 	}
-	return fmt.Sprintf("skipped %s (grammargen-owned blob; regenerate with: go run ./cmd/grammargen -lr-split -bin grammars/grammar_blobs/%s.bin %s)",
-		name, safeFileBase(name), name)
+	return fmt.Sprintf("skipped %s (grammargen-owned blob; regenerate with: go run ./cmd/grammargen emit %s -lr-split -bin grammars/grammar_blobs/%s.bin)",
+		name, name, safeFileBase(name))
 }
 
 func writeRegisterStub(outDir string, entry ManifestEntry, highlightQuery string) error {
