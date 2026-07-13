@@ -148,7 +148,7 @@ func query(this js.Value, args []js.Value) interface{} {
 				res["errorOffset"] = off
 			}
 		}
-		return res
+		return jsObject(res)
 	}
 
 	tree, parseErr := loaded.parseUTF16(args[1].String())
@@ -245,18 +245,29 @@ func updateDocument(this js.Value, args []js.Value) interface{} {
 	}
 	oldTree := document.tree
 	newTree, parseErr := document.runtime.parseUTF16Units(document.parser, newSource, oldTree)
-	if parseErr != nil {
+	if parseErr != nil || newTree == nil {
 		if newTree != nil && newTree != oldTree {
 			newTree.Release()
 		}
-		// EditUTF16 already moved the retained tree into the new coordinate
-		// space. Keep the source synchronized so a later update remains valid.
-		document.source = newSource
-		document.revision++
-		return err(parseErr.Error())
-	}
-	if newTree == nil {
-		return err("incremental parse returned no tree")
+		// Tree.EditUTF16 has already mutated oldTree. A full reparse gives the
+		// document a transactional fallback for parser errors and the defensive
+		// nil-tree/no-error edge instead of retaining a half-updated tree.
+		freshParser := gotreesitter.NewParser(document.runtime.language)
+		newTree, parseErr = document.runtime.parseUTF16Units(freshParser, newSource, nil)
+		if parseErr == nil && newTree != nil {
+			document.parser = freshParser
+		} else {
+			if newTree != nil {
+				newTree.Release()
+			}
+			oldTree.Release()
+			document.tree = nil
+			delete(documents, documentID)
+			if parseErr != nil {
+				return err("update failed and the document was closed: " + parseErr.Error())
+			}
+			return err("update returned no tree and the document was closed")
+		}
 	}
 	document.tree = newTree
 	document.source = newSource

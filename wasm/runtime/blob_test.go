@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
 )
 
 func TestRuntimeGoBlobSupportsUTF16Analysis(t *testing.T) {
@@ -12,7 +13,7 @@ func TestRuntimeGoBlobSupportsUTF16Analysis(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	language, err := gotreesitter.LoadLanguage(blob)
+	language, err := grammars.LoadLanguage("go", blob)
 	if err != nil {
 		t.Fatal(err)
 	}

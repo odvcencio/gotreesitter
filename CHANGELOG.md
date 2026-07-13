@@ -7,6 +7,20 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Added
+
+- The browser runtime now supports persistent UTF-16 documents through
+  `open`, `update`, `close`, and `queryDocument`. Updates compute a
+  surrogate-safe minimal edit, reuse the prior parse tree, and run highlights,
+  tags, and bounded queries over the same retained tree while leaving the
+  existing stateless parse, query, and highlight APIs intact.
+- `cmd/wasmassets` now emits reproducible single-language browser bundles for
+  either the Go or TinyGo WebAssembly compiler. Bundles contain the external
+  grammar blob, highlight and optional tags queries, the matching compiler
+  bootstrap, and a manifest with compiler identity and SHA-256 digests; the
+  runtime build is restricted to the selected grammar's tables, registry, and
+  scanner support instead of embedding the full grammar fleet.
+
 ### Performance
 
 - Linearized C-recovery strategy-1 elections with reusable cursor and dedupe
@@ -33,6 +47,9 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Browser runtime results are now assembled as explicit JavaScript objects and
+  arrays, avoiding TinyGo's primitive-only `syscall/js.ValueOf` path while
+  preserving the richer structured-tree and bounded-query wire formats.
 - The real-corpus Docker runner now forwards `REAL_CORPUS_ONLY`, allowing a
   reproducible single-language run without switching to a different wrapper.
 - HTML range normalization no longer extends already-closed child elements

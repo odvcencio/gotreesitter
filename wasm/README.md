@@ -24,6 +24,17 @@ cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/wasm_exec.js
 cp wasm/loader.js dist/loader.js
 ```
 
+For a deployable single-language bundle, use the asset command instead. It
+selects only the requested language's tables, registry, and scanner support,
+emits the browser-loaded grammar blob as a separate asset, and writes a digest
+manifest alongside the compiler's matching bootstrap:
+
+```sh
+go run ./cmd/wasmassets -language go -output dist/go -compiler go
+# Or use TinyGo and its matching wasm_exec.js:
+go run ./cmd/wasmassets -language go -output dist/go-tiny -compiler tinygo
+```
+
 Serve these files over HTTP. `WebAssembly.instantiateStreaming` normally
 requires the server to send `.wasm` as `application/wasm`; the shared loader
 falls back to fetching an `ArrayBuffer` when streaming instantiation is not
@@ -50,8 +61,8 @@ highlighting. Unknown out-of-tree names fall back to the blob's DFA tables.
 
 ### API
 
-- `loadBlob(name, blobUint8Array, highlightQuery)` loads one grammar blob. Pass
-  an empty string when no highlight query is available.
+- `loadBlob(name, blobUint8Array, highlightQuery, tagsQuery?)` loads one grammar
+  blob. Pass an empty string for either unavailable query.
 - `parse(name, source)` returns `{ok, sexp, hasError, tree}`. `tree` is a JSON
   string containing the structured syntax tree; parse it once with
   `JSON.parse`. Empty source returns an empty S-expression, `hasError: false`,
@@ -62,6 +73,15 @@ highlighting. Unknown out-of-tree names fall back to the blob's DFA tables.
 - `highlight(name, source)` returns `{ok, ranges}` for the highlight query
   supplied to `loadBlob`. Each range contains `startByte`, `endByte`, and
   `capture`.
+- `open(name, documentID, source)` retains a UTF-16 document tree and returns
+  its initial highlights and tags.
+- `update(documentID, source)` computes a surrogate-safe minimal edit,
+  incrementally reparses the document, and returns its new revision,
+  highlights, tags, and edit span.
+- `queryDocument(documentID, queryText)` runs a bounded query over the retained
+  tree without reparsing source.
+- `close(documentID)` releases the retained tree. Reopening an existing ID
+  replaces and releases the prior document.
 
 Tree nodes contain `type`, `named`, optional `missing`, `error`, and `field`
 properties, plus nested `children`. Their `start`/`end` positions are canonical
@@ -106,6 +126,18 @@ the streaming cursor rather than materializing every match first.
 
 To highlight, pass the language's `highlights.scm` contents as the third
 `loadBlob` argument and then call `api.highlight("go", source)`.
+
+Persistent editor clients can share one tree across analysis operations:
+
+```js
+const opened = api.open("go", "editor:main.go", source);
+const updated = api.update("editor:main.go", source.replace("hello", "world"));
+const matches = api.queryDocument(
+  "editor:main.go",
+  "(function_declaration name: (identifier) @name)",
+);
+api.close("editor:main.go");
+```
 
 ## Grammargen build
 

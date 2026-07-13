@@ -66,7 +66,7 @@ func generate(languageName, output, compiler, goBinary, tinygo string) error {
 
 	runtimeName := "gotreesitter.wasm"
 	runtimePath := filepath.Join(output, runtimeName)
-	wasmExec, err := buildRuntime(root, runtimePath, compiler, goBinary, tinygo)
+	wasmExec, err := buildRuntime(root, runtimePath, entry.Name, compiler, goBinary, tinygo)
 	if err != nil {
 		return err
 	}
@@ -105,12 +105,16 @@ func generate(languageName, output, compiler, goBinary, tinygo string) error {
 	return os.WriteFile(filepath.Join(output, "manifest.json"), encoded, 0o644)
 }
 
-func buildRuntime(root, output, compiler, goBinary, tinygo string) ([]byte, error) {
+func buildRuntime(root, output, languageName, compiler, goBinary, tinygo string) ([]byte, error) {
+	buildTags, err := runtimeBuildTags(languageName)
+	if err != nil {
+		return nil, err
+	}
 	var build *exec.Cmd
 	var wasmExecPath string
 	switch compiler {
 	case "go":
-		build = exec.Command(goBinary, "build", "-trimpath", "-o", output, "./wasm/runtime")
+		build = exec.Command(goBinary, "build", "-tags", buildTags, "-trimpath", "-o", output, "./wasm/runtime")
 		build.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 		goRoot, err := commandOutput(goBinary, "env", "GOROOT")
 		if err != nil {
@@ -121,7 +125,7 @@ func buildRuntime(root, output, compiler, goBinary, tinygo string) ([]byte, erro
 			wasmExecPath = filepath.Join(goRoot, "misc", "wasm", "wasm_exec.js")
 		}
 	case "tinygo":
-		build = exec.Command(tinygo, "build", "-target", "wasm", "-no-debug", "-opt=z", "-o", output, "./wasm/runtime")
+		build = exec.Command(tinygo, "build", "-tags", buildTags, "-target", "wasm", "-no-debug", "-opt=z", "-o", output, "./wasm/runtime")
 		tinygoRoot, err := commandOutput(tinygo, "env", "TINYGOROOT")
 		if err != nil {
 			return nil, fmt.Errorf("locate TinyGo runtime: %w", err)
@@ -141,6 +145,21 @@ func buildRuntime(root, output, compiler, goBinary, tinygo string) ([]byte, erro
 		return nil, fmt.Errorf("read %s bootstrap: %w", compiler, err)
 	}
 	return wasmExec, nil
+}
+
+func runtimeBuildTags(languageName string) (string, error) {
+	if languageName == "" {
+		return "", errors.New("language name is required")
+	}
+	for _, char := range languageName {
+		if (char < 'a' || char > 'z') && (char < '0' || char > '9') && char != '_' {
+			return "", fmt.Errorf("language %q cannot be expressed as a grammar subset build tag", languageName)
+		}
+	}
+	return strings.Join([]string{
+		"grammar_subset",
+		"grammar_subset_" + languageName,
+	}, ","), nil
 }
 
 func moduleRoot() (string, error) {

@@ -54,7 +54,10 @@ The repository ships two `GOOS=js GOARCH=wasm` targets: a blob-loading runtime
 and a grammargen build that imports Tree-sitter
 grammar JSON and generates tables in the browser. The runtime exposes parsing,
 queries, and highlighting; structured parse and query results include both
-UTF-8 byte offsets and JavaScript UTF-16 code-unit offsets.
+UTF-8 byte offsets and JavaScript UTF-16 code-unit offsets. It can also retain
+an incrementally updated document tree and reuse it for highlights, tags, and
+queries. `cmd/wasmassets` emits a reproducible, single-language browser bundle
+for either the Go or TinyGo WebAssembly compiler.
 
 See the [WebAssembly guide](wasm/README.md) for build commands, the complete
 JavaScript APIs, node and match limits, and a browser example.

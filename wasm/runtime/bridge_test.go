@@ -201,6 +201,54 @@ func TestRuntimeLanguageUsesRegisteredTokenSourceFactory(t *testing.T) {
 	}
 }
 
+func TestRuntimeLanguageIncrementalUTF16UsesRegisteredTokenSourceFactory(t *testing.T) {
+	entry := grammars.DetectLanguageByName("json")
+	if entry == nil {
+		t.Skip("JSON is not included in this grammar subset")
+	}
+	loaded := newRuntimeLanguage("json", entry.Language())
+	if loaded.tokenSourceFactory == nil {
+		t.Fatal("JSON runtime language did not retain its registered token-source factory")
+	}
+
+	factory := loaded.tokenSourceFactory
+	calls := 0
+	loaded.tokenSourceFactory = func(source []byte) gotreesitter.TokenSource {
+		calls++
+		return factory(source)
+	}
+	parser := gotreesitter.NewParser(loaded.language)
+	oldSource := units(`{"name":"gotreesitter"}`)
+	newSource := units(`{"name":"treesitter"}`)
+	oldTree, err := loaded.parseUTF16Units(parser, oldSource, nil)
+	if err != nil {
+		t.Fatalf("parse old source: %v", err)
+	}
+	if oldTree == nil {
+		t.Fatal("parse old source returned no tree")
+	}
+	defer oldTree.Release()
+
+	edit, changed := utf16EditBetween(oldSource, newSource)
+	if !changed || !oldTree.EditUTF16(edit, newSource) {
+		t.Fatalf("apply UTF-16 edit: changed=%v edit=%+v", changed, edit)
+	}
+	newTree, err := loaded.parseUTF16Units(parser, newSource, oldTree)
+	if err != nil {
+		t.Fatalf("incremental parse: %v", err)
+	}
+	if newTree == nil {
+		t.Fatal("incremental parse returned no tree")
+	}
+	defer newTree.Release()
+	if newTree.RootNode() == nil || newTree.RootNode().HasError() {
+		t.Fatalf("incremental parse returned invalid tree: %v", newTree.RootNode())
+	}
+	if calls != 2 {
+		t.Fatalf("full and incremental token-source factory calls = %d, want 2", calls)
+	}
+}
+
 func TestRuntimeLanguageKeepsGoOnDFA(t *testing.T) {
 	entry := grammars.DetectLanguageByName("go")
 	if entry == nil {
