@@ -1201,6 +1201,10 @@ func certifiedAcceptedErrorRetrySkipsComplete(tree *Tree, sourceLen int) bool {
 		return false
 	}
 	profile := tree.language.FullParseAcceptedErrorRetryProfile
+	if profile.SkipCompleteMinSourceBytes > 0 &&
+		uint64(sourceLen) < uint64(profile.SkipCompleteMinSourceBytes) {
+		return false
+	}
 	rt := tree.parseRuntimeReadOnly()
 	if profile.SkipCompleteMaxEntryScratchPeak > 0 &&
 		rt.EntryScratchPeak > uint64(profile.SkipCompleteMaxEntryScratchPeak) {
@@ -1370,6 +1374,25 @@ func certifiedAcceptedErrorRetrySkipsInitialMerge(tree *Tree, sourceLen int, ori
 		retryTreeCoversExpectedEOF(tree)
 }
 
+func certifiedAcceptedErrorRetryReusesCleanWide(p *Parser, tree *Tree, sourceLen int, origin fullParseRetryOrigin, maxNodesOverride int) bool {
+	if p == nil || tree == nil || tree.language == nil || sourceLen <= 0 || origin != fullParseRetryOriginFresh ||
+		maxNodesOverride != 0 ||
+		parseMaxGLRStacksEnvConfigured() || parseMaxMergePerKeyEnvConfigured() || parseNodeLimitScaleEnvConfigured() {
+		return false
+	}
+	profile := tree.language.FullParseAcceptedErrorRetryProfile
+	if !profile.ReuseCleanWideForWideRetry || profile.ReuseCleanWideMinSourceBytes == 0 ||
+		uint64(sourceLen) < uint64(profile.ReuseCleanWideMinSourceBytes) {
+		return false
+	}
+	rt := tree.parseRuntimeReadOnly()
+	return rt.StopReason == ParseStopAccepted &&
+		!rt.Truncated &&
+		!rt.TokenSourceEOFEarly &&
+		retryTreeHasError(tree) &&
+		retryTreeCoversExpectedEOF(tree)
+}
+
 func (p *Parser) retryFullParse(source []byte, initialMaxStacks int, tree *Tree, runRetry fullParseRetryRunner) *Tree {
 	return p.retryFullParseForOrigin(source, initialMaxStacks, tree, fullParseRetryOriginFresh, runRetry)
 }
@@ -1476,6 +1499,10 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 		}
 		release(candidate)
 	}
+	var reusableCleanWideTree *Tree
+	defer func() {
+		release(reusableCleanWideTree)
+	}()
 
 	structuralResyncRetry := shouldRetryFullParse(tree, len(source))
 	retryDebug := os.Getenv("GOT_RETRY_DEBUG") == "1"
@@ -1581,6 +1608,8 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 					return bestTree
 				}
 			}
+		} else if certifiedAcceptedErrorRetryReusesCleanWide(p, cleanRetryTree, len(source), origin, maxNodesOverride) {
+			reusableCleanWideTree = cleanRetryTree
 		} else {
 			release(cleanRetryTree)
 		}
@@ -1589,7 +1618,17 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 		}
 	}
 	if maxStacksOverride > 0 || maxNodesOverride > 0 {
-		retryTree := runRetryAttempt(retryMaxStacks, 0, maxNodesOverride)
+		var retryTree *Tree
+		if reusableCleanWideTree != nil && !retryPassLimitReached() {
+			// Consume the same pass slot as the recovery-enabled widened retry.
+			// Keeping accounting identical preserves the scheduling of any later
+			// secondary-node or merge retry.
+			p.fullParseRetryPassesTaken++
+			retryTree = reusableCleanWideTree
+			reusableCleanWideTree = nil
+		} else {
+			retryTree = runRetryAttempt(retryMaxStacks, 0, maxNodesOverride)
+		}
 		// nodeRetryTree is read below for stop-reason inspection, so we hold
 		// a pointer to it without handing it through replaceBest until the
 		// retry sequence is done. If it doesn't end up bestTree, we release

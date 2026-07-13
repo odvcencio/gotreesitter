@@ -34,14 +34,15 @@ func TestBuiltinExternalScannerRetryProfilesAttach(t *testing.T) {
 }
 
 func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
-	// 21 = the prior 19 plus D and Groovy: their retry ceilings moved out of
+	// 23 = the prior 19 plus D and Groovy, whose retry ceilings moved out of
 	// parser-core name switches and onto exact-blob profiles. The prior gomod
-	// and C additions moved hardcoded compat-tier
+	// and C additions moved hardcoded compat-tier behavior to profiles. Meson
+	// and Enforce add two exact-blob retry policies. The
 	// repetition-conflict helpers were retired in favor of certified
 	// ConflictPolicies rows here. dot's helper was
 	// retired outright, not migrated (see the "NOTE on dot" comment above
 	// the gomod entry), so it does not add a map entry.
-	if got, want := len(builtinLanguageRuntimeProfiles), 21; got != want {
+	if got, want := len(builtinLanguageRuntimeProfiles), 23; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -53,6 +54,39 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	}
 	if got := lang.FullParseAcceptedErrorRetryProfile; got != (gotreesitter.FullParseAcceptedErrorRetryProfile{}) {
 		t.Fatalf("unknown runtime profile changed accepted-error retry profile to %+v", got)
+	}
+}
+
+func TestEnforceDuplicateWideProfileRequiresExactBlobIdentity(t *testing.T) {
+	want := gotreesitter.FullParseAcceptedErrorRetryProfile{
+		ReuseCleanWideForWideRetry:   true,
+		ReuseCleanWideMinSourceBytes: 128 * 1024,
+	}
+
+	wrongSHA := &gotreesitter.Language{Name: "enforce"}
+	if attachBuiltinLanguageRuntimeProfile("enforce", sha256.Sum256([]byte("uncertified")), wrongSHA) {
+		t.Fatal("wrong Enforce blob SHA reported a runtime-profile attachment")
+	}
+	if got := wrongSHA.FullParseAcceptedErrorRetryProfile; got != (gotreesitter.FullParseAcceptedErrorRetryProfile{}) {
+		t.Fatalf("wrong Enforce blob SHA attached retry profile %+v", got)
+	}
+
+	adapted := &gotreesitter.Language{Name: "enforce"}
+	AttachLanguageSupport("enforce", adapted)
+	if got := adapted.FullParseAcceptedErrorRetryProfile; got != (gotreesitter.FullParseAcceptedErrorRetryProfile{}) {
+		t.Fatalf("adapted Enforce language attached retry profile %+v", got)
+	}
+
+	blob := BlobByName("enforce")
+	if len(blob) == 0 {
+		t.Fatal("BlobByName(enforce) returned no data")
+	}
+	exact := &gotreesitter.Language{Name: "enforce"}
+	if !attachBuiltinLanguageRuntimeProfile("enforce", sha256.Sum256(blob), exact) {
+		t.Fatal("exact Enforce blob did not attach duplicate-wide profile")
+	}
+	if got := exact.FullParseAcceptedErrorRetryProfile; got != want {
+		t.Fatalf("exact Enforce retry profile = %+v, want %+v", got, want)
 	}
 }
 
@@ -254,6 +288,7 @@ func TestBuiltinCompleteAcceptedErrorRetryProfilesAttach(t *testing.T) {
 		{name: "cpp", load: CppLanguage},
 		{name: "haxe", load: HaxeLanguage},
 		{name: "kdl", load: KdlLanguage},
+		{name: "meson", load: MesonLanguage},
 		{name: "odin", load: OdinLanguage},
 		{name: "rego", load: RegoLanguage},
 		{name: "scss", load: ScssLanguage},
@@ -268,6 +303,9 @@ func TestBuiltinCompleteAcceptedErrorRetryProfilesAttach(t *testing.T) {
 			}
 			if tt.name == "swift" && profile.SkipCompleteMaxEntryScratchPeak != 3*64*1024 {
 				t.Fatalf("FullParseAcceptedErrorRetryProfile = %+v, want first-growth entry-scratch ceiling", profile)
+			}
+			if tt.name == "meson" && profile.SkipCompleteMinSourceBytes != 2*1024 {
+				t.Fatalf("FullParseAcceptedErrorRetryProfile = %+v, want %d-byte skip minimum", profile, 2*1024)
 			}
 			if tt.name == "c_sharp" && (profile.SkipCompleteMaxEntryScratchPeak != csharpAcceptedErrorRetryMaxEntryScratchPeak ||
 				profile.FreshErrorNoStacksRetryMaxStacks != csharpFreshErrorNoStacksRetryMaxStacks ||
@@ -447,6 +485,13 @@ func TestResidualRetryProfilesRequireExactBlobIdentity(t *testing.T) {
 				SkipCompleteMaxEntryScratchPeak:            csharpAcceptedErrorRetryMaxEntryScratchPeak,
 				FreshErrorNoStacksRetryMaxStacks:           csharpFreshErrorNoStacksRetryMaxStacks,
 				SkipInitialCompleteAcceptedErrorMergeRetry: true,
+			},
+		},
+		{
+			name: "meson",
+			want: gotreesitter.FullParseAcceptedErrorRetryProfile{
+				SkipCompleteAcceptedErrorRetry: true,
+				SkipCompleteMinSourceBytes:     2 * 1024,
 			},
 		},
 	}

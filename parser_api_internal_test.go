@@ -577,6 +577,143 @@ func TestCertifiedInitialMergeRetrySkipKeepsWideningAndTreeSelection(t *testing.
 	}
 }
 
+func duplicateWideRetryTestTree(sourceLen, nodes, maxStacks int, certified bool) *Tree {
+	tree := certifiedAcceptedErrorRetryTestTree(false, sourceLen)
+	tree.language.Name = "synthetic"
+	tree.parseRuntime.NodesAllocated = nodes
+	tree.parseRuntime.MaxStacksSeen = maxStacks
+	if certified {
+		tree.language.FullParseAcceptedErrorRetryProfile = FullParseAcceptedErrorRetryProfile{
+			ReuseCleanWideForWideRetry:   true,
+			ReuseCleanWideMinSourceBytes: 128 * 1024,
+		}
+	}
+	return tree
+}
+
+func TestCertifiedDuplicateWideRetryPreservesPassAccounting(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	t.Setenv("GOT_PARSE_NODE_LIMIT_SCALE", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	const sourceLen = 256 * 1024
+	type retryCall struct {
+		stacks int
+		merge  int
+		clean  bool
+	}
+	run := func(certified bool) (calls []retryCall, passes int, got *Tree) {
+		parser := &Parser{}
+		initial := duplicateWideRetryTestTree(sourceLen, 100, 18, certified)
+		got = parser.retryFullParse(make([]byte, sourceLen), 8, initial, func(maxStacks, maxMergePerKeyOverride, maxNodes int) *Tree {
+			calls = append(calls, retryCall{stacks: maxStacks, merge: maxMergePerKeyOverride, clean: parser.forceCleanRetryPass})
+			switch {
+			case maxMergePerKeyOverride != 0 && len(calls) == 1:
+				return duplicateWideRetryTestTree(sourceLen, 90, 36, certified)
+			case parser.forceCleanRetryPass:
+				return duplicateWideRetryTestTree(sourceLen, 80, 54, certified)
+			case maxMergePerKeyOverride != 0:
+				return duplicateWideRetryTestTree(sourceLen, 85, 73, certified)
+			default:
+				return duplicateWideRetryTestTree(sourceLen, 80, 54, certified)
+			}
+		})
+		return calls, parser.fullParseRetryPassesTaken, got
+	}
+
+	genericCalls, genericPasses, genericTree := run(false)
+	certifiedCalls, certifiedPasses, certifiedTree := run(true)
+	if len(genericCalls) != 4 {
+		t.Fatalf("generic retry calls = %+v, want initial-merge, clean-wide, wide, final-merge", genericCalls)
+	}
+	if len(certifiedCalls) != 3 {
+		t.Fatalf("certified retry calls = %+v, want initial-merge, clean-wide, final-merge", certifiedCalls)
+	}
+	if genericPasses != 4 || certifiedPasses != genericPasses {
+		t.Fatalf("retry passes generic=%d certified=%d, want both 4", genericPasses, certifiedPasses)
+	}
+	if genericTree == nil || certifiedTree == nil || genericTree.parseRuntime.NodesAllocated != certifiedTree.parseRuntime.NodesAllocated {
+		t.Fatalf("selected nodes generic=%v certified=%v, want equivalent selected candidate", genericTree, certifiedTree)
+	}
+}
+
+func TestCertifiedDuplicateWideRetryFallbackScope(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	t.Setenv("GOT_PARSE_NODE_LIMIT_SCALE", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	const sourceLen = 256 * 1024
+	eligible := func() (*Parser, *Tree) {
+		return &Parser{}, duplicateWideRetryTestTree(sourceLen, 80, 54, true)
+	}
+	parser, tree := eligible()
+	if !certifiedAcceptedErrorRetryReusesCleanWide(parser, tree, sourceLen, fullParseRetryOriginFresh, 0) {
+		t.Fatal("eligible complete accepted-error clean-wide tree did not reuse")
+	}
+
+	assertFallback := func(label string, parser *Parser, tree *Tree, bytes int, origin fullParseRetryOrigin, maxNodes int) {
+		t.Helper()
+		if certifiedAcceptedErrorRetryReusesCleanWide(parser, tree, bytes, origin, maxNodes) {
+			t.Fatalf("%s unexpectedly reused clean-wide tree", label)
+		}
+	}
+
+	parser, tree = eligible()
+	parser.timeoutMicros = 1_000_000
+	if !certifiedAcceptedErrorRetryReusesCleanWide(parser, tree, sourceLen, fullParseRetryOriginFresh, 0) {
+		t.Fatal("configured timeout disabled exact-blob duplicate-wide policy")
+	}
+	parser, tree = eligible()
+	cancelled := uint32(0)
+	parser.cancellationFlag = &cancelled
+	if !certifiedAcceptedErrorRetryReusesCleanWide(parser, tree, sourceLen, fullParseRetryOriginFresh, 0) {
+		t.Fatal("configured cancellation pointer disabled exact-blob duplicate-wide policy")
+	}
+	parser, tree = eligible()
+	assertFallback("incremental origin", parser, tree, sourceLen, fullParseRetryOriginIncremental, 0)
+	parser, tree = eligible()
+	assertFallback("node-limit retry", parser, tree, sourceLen, fullParseRetryOriginFresh, 1)
+	parser, tree = eligible()
+	assertFallback("below certified floor", parser, tree, 129_488, fullParseRetryOriginFresh, 0)
+
+	for _, env := range []string{"GOT_GLR_MAX_STACKS", "GOT_GLR_MAX_MERGE_PER_KEY", "GOT_PARSE_NODE_LIMIT_SCALE"} {
+		t.Run(env, func(t *testing.T) {
+			t.Setenv(env, "2")
+			parser, tree := eligible()
+			assertFallback("explicit "+env, parser, tree, sourceLen, fullParseRetryOriginFresh, 0)
+			t.Setenv(env, "")
+		})
+	}
+}
+
+func TestCertifiedDuplicateWideRetryDoesNotBypassTerminalCancellation(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	t.Setenv("GOT_PARSE_NODE_LIMIT_SCALE", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	const sourceLen = 256 * 1024
+	cancelled := uint32(1)
+	parser := &Parser{cancellationFlag: &cancelled}
+	initial := duplicateWideRetryTestTree(sourceLen, 100, 18, true)
+	calls := 0
+	parser.retryFullParse(make([]byte, sourceLen), 8, initial, func(maxStacks, maxMergePerKeyOverride, maxNodes int) *Tree {
+		calls++
+		return duplicateWideRetryTestTree(sourceLen, 90, 36, true)
+	})
+	if calls != 1 {
+		t.Fatalf("retry calls after terminal cancellation = %d, want only the pre-deadline initial merge", calls)
+	}
+	if parser.fullParseRetryPassesTaken != 1 {
+		t.Fatalf("retry passes after terminal cancellation = %d, want 1", parser.fullParseRetryPassesTaken)
+	}
+}
+
 func TestCSharpAcceptedErrorTreeCanUseNamespaceRecovery(t *testing.T) {
 	source := []byte("using X;\nnamespace N { class C { } }\n")
 	nsStart := uint32(bytes.Index(source, []byte("namespace")))
@@ -954,6 +1091,57 @@ func TestCompleteAcceptedErrorRetrySkipRequiresCertification(t *testing.T) {
 	tree.parseRuntime.EntryScratchPeak = 1024
 	if shouldRetryAcceptedErrorParse(tree, 128, 8) {
 		t.Fatal("accepted-error tree at the certified entry-scratch peak scheduled retry")
+	}
+}
+
+func TestCompleteAcceptedErrorRetrySkipHonorsMinimumSourceBytes(t *testing.T) {
+	const minSourceBytes = 2 * 1024
+	newTree := func(sourceLen int, minSourceBytes uint32) *Tree {
+		return &Tree{
+			language: &Language{
+				Name: "synthetic",
+				FullParseAcceptedErrorRetryProfile: FullParseAcceptedErrorRetryProfile{
+					SkipCompleteAcceptedErrorRetry: true,
+					SkipCompleteMinSourceBytes:     minSourceBytes,
+				},
+			},
+			root: &Node{
+				endByte: uint32(sourceLen),
+				flags:   nodeFlagHasError,
+			},
+			parseRuntime: ParseRuntime{
+				StopReason:       ParseStopAccepted,
+				SourceLen:        uint32(sourceLen),
+				ExpectedEOFByte:  uint32(sourceLen),
+				RootEndByte:      uint32(sourceLen),
+				LastTokenEndByte: uint32(sourceLen),
+				LastTokenWasEOF:  true,
+				MaxStacksSeen:    9,
+			},
+		}
+	}
+
+	tests := []struct {
+		name            string
+		sourceLen       int
+		minSourceBytes  uint32
+		wantRetry       bool
+		wantMergePerKey int
+	}{
+		{name: "legacy zero is unbounded", sourceLen: 128, minSourceBytes: 0, wantMergePerKey: 0},
+		{name: "below threshold keeps retry", sourceLen: minSourceBytes - 1, minSourceBytes: minSourceBytes, wantRetry: true, wantMergePerKey: fullParseRetryMaxMergePerKey},
+		{name: "at threshold skips retry", sourceLen: minSourceBytes, minSourceBytes: minSourceBytes, wantMergePerKey: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tree := newTree(tt.sourceLen, tt.minSourceBytes)
+			if got := shouldRetryAcceptedErrorParse(tree, tt.sourceLen, 8); got != tt.wantRetry {
+				t.Fatalf("shouldRetryAcceptedErrorParse() = %v, want %v", got, tt.wantRetry)
+			}
+			if got := fullParseRetryMergePerKeyOverride(tree, tt.sourceLen, 8); got != tt.wantMergePerKey {
+				t.Fatalf("fullParseRetryMergePerKeyOverride() = %d, want %d", got, tt.wantMergePerKey)
+			}
+		})
 	}
 }
 

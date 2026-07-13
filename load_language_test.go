@@ -7,6 +7,31 @@ import (
 	"testing"
 )
 
+func TestFullParseAcceptedErrorRetryProfileLanguageBlobRoundTrip(t *testing.T) {
+	want := FullParseAcceptedErrorRetryProfile{
+		SkipCompleteAcceptedErrorRetry: true,
+		SkipCompleteMinSourceBytes:     2 * 1024,
+		ReuseCleanWideForWideRetry:     true,
+		ReuseCleanWideMinSourceBytes:   128 * 1024,
+	}
+	lang := &Language{
+		Name:                               "accepted_error_retry_profile_round_trip",
+		FullParseAcceptedErrorRetryProfile: want,
+	}
+
+	blob, err := EncodeLanguageBlob(lang)
+	if err != nil {
+		t.Fatalf("EncodeLanguageBlob: %v", err)
+	}
+	decoded, err := LoadLanguage(blob)
+	if err != nil {
+		t.Fatalf("LoadLanguage: %v", err)
+	}
+	if got := decoded.FullParseAcceptedErrorRetryProfile; got != want {
+		t.Fatalf("FullParseAcceptedErrorRetryProfile = %+v, want %+v", got, want)
+	}
+}
+
 func TestLoadLanguageInfersGeneratedRepeatAuxMetadata(t *testing.T) {
 	var buf bytes.Buffer
 	gzw := gzip.NewWriter(&buf)

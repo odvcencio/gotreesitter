@@ -7,6 +7,21 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Performance
+
+- The exact built-in Meson grammar now skips the redundant accepted-error
+  retry ladder only for sources of at least 2 KiB. A locked 1,549-file corpus
+  certification preserved complete and structural trees across all 28
+  eligible error-bearing files and cut their aggregate one-pass parse time by
+  78.04% (1.410s to 0.310s). Smaller inputs keep the generic retry ladder,
+  including seven witnesses where retrying changes the selected tree.
+- The exact built-in Enforce grammar now reuses a certified complete
+  accepted-error widened result instead of repeating it with recovery enabled
+  on sources of at least 128 KiB. Locked full-tree, structural, and semantic
+  runtime checks remained exact; count-10 runs cut playerbase time by 28.01%
+  and itembase time by 7.31%, with corresponding allocation reductions and an
+  unchanged clean control.
+
 ## [0.34.0] - 2026-07-13
 
 Forest-routing performance and compatibility-hygiene release. Automatic

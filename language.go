@@ -316,6 +316,18 @@ type FullParseAcceptedErrorRetryProfile struct {
 	// widened-stack and merge retries remain available. Incremental fallbacks
 	// and explicit stack/merge environment overrides ignore it.
 	SkipInitialCompleteAcceptedErrorMergeRetry bool
+	// SkipCompleteMinSourceBytes limits SkipCompleteAcceptedErrorRetry to
+	// sources at least this large. Zero preserves the legacy unbounded skip.
+	// It has no effect on the profile's other retry policies.
+	SkipCompleteMinSourceBytes uint32
+	// ReuseCleanWideForWideRetry certifies that the complete accepted-error tree
+	// from the non-recovery widened-stack pass is identical to the following
+	// recovery-enabled widened-stack pass. The parser may retain that tree and
+	// substitute it at the recovery-wide slot while preserving retry accounting.
+	ReuseCleanWideForWideRetry bool
+	// ReuseCleanWideMinSourceBytes limits clean-wide reuse to the certified
+	// large-source class. Zero disables the policy even when the boolean is set.
+	ReuseCleanWideMinSourceBytes uint32
 }
 
 // ResultCompatibilityCapability records result-tree shapes that a language

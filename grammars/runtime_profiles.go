@@ -22,6 +22,7 @@ type builtinLanguageRuntimeProfile struct {
 const (
 	csharpAcceptedErrorRetryMaxEntryScratchPeak = 690_365
 	csharpFreshErrorNoStacksRetryMaxStacks      = 16
+	mesonAcceptedErrorRetryMinSourceBytes       = 2 * 1024
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
@@ -126,10 +127,31 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
 	},
+	// On the locked large accepted-error witnesses, the non-recovery and
+	// recovery-enabled widened-stack passes produce the same complete tree and
+	// semantic runtime state. Retain the first result instead of parsing it
+	// again; exact blob identity keeps adapted and future grammars conservative.
+	"enforce": {
+		blobSHA256: mustRuntimeProfileSHA256("9ddb5d9b74c06eb3f3f9eba98be968719eff298d86ee9aa046009ed0a868b676"),
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			ReuseCleanWideForWideRetry:   true,
+			ReuseCleanWideMinSourceBytes: 128 * 1024,
+		},
+	},
 	"kdl": {
 		blobSHA256: mustRuntimeProfileSHA256("ef6d000123c053eddebd200a1cbd44d6df5dcab7c4b3d34ae18acdf2f14989f5"),
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
+		},
+	},
+	// Meson's retry ladder changes selected trees on small error-bearing files,
+	// but is redundant for complete accepted-error sources at or above this
+	// conservative exact-blob corpus-certified floor.
+	"meson": {
+		blobSHA256: mustRuntimeProfileSHA256("b3b7e74bcd35614419f5359c31eb8a05bd58c0b97529f133f2aea2f40796789d"),
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			SkipCompleteAcceptedErrorRetry: true,
+			SkipCompleteMinSourceBytes:     mesonAcceptedErrorRetryMinSourceBytes,
 		},
 	},
 	"rego": {

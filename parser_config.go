@@ -85,6 +85,10 @@ func parseNodeLimitScaleFactor() int {
 	return parseNodeLimitScale
 }
 
+func parseNodeLimitScaleEnvConfigured() bool {
+	return strings.TrimSpace(os.Getenv("GOT_PARSE_NODE_LIMIT_SCALE")) != ""
+}
+
 func parseMaxGLRStacksValue() int {
 	parseMaxGLRStacksOnce.Do(func() {
 		parseMaxGLRStacks = maxGLRStacks
