@@ -171,6 +171,16 @@ func (h *Highlighter) HighlightUTF16(source []uint16) []UTF16HighlightRange {
 	return h.highlightTreeUTF16(tree)
 }
 
+// HighlightTreeUTF16 executes the highlighter query against an already parsed
+// UTF-16 tree. It lets editor runtimes share one persistent parse tree across
+// syntax highlighting, tags, and ad-hoc queries.
+func (h *Highlighter) HighlightTreeUTF16(tree *Tree) []UTF16HighlightRange {
+	if tree == nil || tree.RootNode() == nil {
+		return nil
+	}
+	return h.highlightTreeUTF16(tree)
+}
+
 // HighlightUTF16Bytes is like HighlightUTF16 for endian-specific UTF-16 bytes.
 func (h *Highlighter) HighlightUTF16Bytes(source []byte, order UTF16ByteOrder) ([]UTF16HighlightRange, error) {
 	units, err := DecodeUTF16Bytes(source, order)

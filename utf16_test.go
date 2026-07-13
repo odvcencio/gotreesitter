@@ -346,6 +346,24 @@ func TestHighlighterUTF16(t *testing.T) {
 	}
 }
 
+func TestHighlighterHighlightTreeUTF16(t *testing.T) {
+	lang := buildArithmeticLanguage()
+	highlighter, err := NewHighlighter(lang, `(NUMBER) @number`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, err := NewParser(lang).ParseUTF16(utf16Units("1+2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+
+	ranges := highlighter.HighlightTreeUTF16(tree)
+	if len(ranges) != 2 {
+		t.Fatalf("HighlightTreeUTF16 len = %d, want 2: %+v", len(ranges), ranges)
+	}
+}
+
 func TestHighlighterIncrementalUTF16(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	hl, err := NewHighlighter(lang, `(NUMBER) @number`)

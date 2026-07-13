@@ -11,6 +11,8 @@ import (
 type runtimeLanguage struct {
 	language           *gotreesitter.Language
 	tokenSourceFactory func([]byte) gotreesitter.TokenSource
+	highlighter        *gotreesitter.Highlighter
+	tagger             *gotreesitter.Tagger
 }
 
 func newRuntimeLanguage(name string, lang *gotreesitter.Language) runtimeLanguage {
@@ -29,13 +31,26 @@ func newRuntimeLanguage(name string, lang *gotreesitter.Language) runtimeLanguag
 
 func (l runtimeLanguage) parseUTF16(source string) (*gotreesitter.Tree, error) {
 	parser := gotreesitter.NewParser(l.language)
-	units := utf16.Encode([]rune(source))
-	if l.tokenSourceFactory == nil {
-		return parser.ParseUTF16(units)
+	return l.parseUTF16Units(parser, toUTF16(source), nil)
+}
+
+func (l runtimeLanguage) parseUTF16Units(parser *gotreesitter.Parser, source []uint16, oldTree *gotreesitter.Tree) (*gotreesitter.Tree, error) {
+	if parser == nil {
+		parser = gotreesitter.NewParser(l.language)
 	}
-	return parser.ParseUTF16WithTokenSourceFactory(units, func(source []byte) (gotreesitter.TokenSource, error) {
+	if l.tokenSourceFactory == nil {
+		if oldTree != nil {
+			return parser.ParseIncrementalUTF16(source, oldTree)
+		}
+		return parser.ParseUTF16(source)
+	}
+	factory := func(source []byte) (gotreesitter.TokenSource, error) {
 		return l.tokenSourceFactory(source), nil
-	})
+	}
+	if oldTree != nil {
+		return parser.ParseIncrementalUTF16WithTokenSourceFactory(source, oldTree, factory)
+	}
+	return parser.ParseUTF16WithTokenSourceFactory(source, factory)
 }
 
 func (l runtimeLanguage) newHighlighter(query string) (*gotreesitter.Highlighter, error) {
@@ -47,6 +62,21 @@ func (l runtimeLanguage) newHighlighter(query string) (*gotreesitter.Highlighter
 		query,
 		gotreesitter.WithTokenSourceFactory(l.tokenSourceFactory),
 	)
+}
+
+func (l runtimeLanguage) newTagger(query string) (*gotreesitter.Tagger, error) {
+	if l.tokenSourceFactory == nil {
+		return gotreesitter.NewTagger(l.language, query)
+	}
+	return gotreesitter.NewTagger(
+		l.language,
+		query,
+		gotreesitter.WithTaggerTokenSourceFactory(l.tokenSourceFactory),
+	)
+}
+
+func toUTF16(source string) []uint16 {
+	return utf16.Encode([]rune(source))
 }
 
 // jsonNode is the wire shape of one syntax node in the structured tree the
