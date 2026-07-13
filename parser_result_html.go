@@ -111,7 +111,16 @@ func htmlExtendOpenElementChain(node *Node, endByte uint32, endPoint Point, lang
 }
 
 func htmlExtendLeadingElementChain(node *Node, endByte uint32, endPoint Point, lang *Language) {
+	// Validate the complete chain before changing any range. Doing this once
+	// also keeps deeply recovered HTML chains linear rather than re-walking the
+	// remaining suffix for every element.
+	if !htmlElementIsUnclosedChain(node, lang) {
+		return
+	}
 	for cur := node; cur != nil && lang != nil && cur.Type(lang) == "element"; {
+		// Only recovered chains of unclosed start tags should grow to the
+		// enclosing close token. Closed or self-closing elements and elements
+		// ending in concrete content already have an authoritative range.
 		cur.endByte = endByte
 		cur.endPoint = endPoint
 		child := resultChildAt(cur, 1)
@@ -120,6 +129,28 @@ func htmlExtendLeadingElementChain(node *Node, endByte uint32, endPoint Point, l
 		}
 		cur = child
 	}
+}
+
+func htmlElementIsUnclosedChain(node *Node, lang *Language) bool {
+	for cur := node; cur != nil && lang != nil && cur.Type(lang) == "element"; {
+		childCount := resultChildCount(cur)
+		if childCount == 0 {
+			return false
+		}
+		last := resultChildAt(cur, childCount-1)
+		if last == nil {
+			return false
+		}
+		switch last.Type(lang) {
+		case "start_tag":
+			return true
+		case "element":
+			cur = last
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 func normalizeHTMLRecoveredNestedCustomTagRanges(root *Node, source []byte, lang *Language) {

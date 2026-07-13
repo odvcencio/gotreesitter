@@ -29,6 +29,9 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- HTML range normalization no longer extends already-closed child elements
+  across trailing trivia to an enclosing end tag; genuinely unclosed recovered
+  element chains retain their C-compatible range extension.
 - Fleet scoreboard reduction now canonicalizes hard-gate finding order and
   records clean reducer provenance separately from immutable measurement
   provenance, allowing later reducer fixes to authenticate historical shards
