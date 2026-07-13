@@ -21,23 +21,26 @@ import (
 type manifest struct {
 	Version  int               `json:"version"`
 	Language string            `json:"language"`
+	Compiler string            `json:"compiler"`
 	Assets   map[string]string `json:"assets"`
 }
 
 func main() {
 	languageName := flag.String("language", "go", "registered grammar name")
 	output := flag.String("output", "", "output directory")
+	compiler := flag.String("compiler", "go", "WASM compiler: go or tinygo")
+	goBinary := flag.String("go", "go", "Go executable")
 	tinygo := flag.String("tinygo", "tinygo", "TinyGo executable")
 	flag.Parse()
 	if strings.TrimSpace(*output) == "" {
 		fatal(errors.New("-output is required"))
 	}
-	if err := generate(*languageName, *output, *tinygo); err != nil {
+	if err := generate(*languageName, *output, *compiler, *goBinary, *tinygo); err != nil {
 		fatal(err)
 	}
 }
 
-func generate(languageName, output, tinygo string) error {
+func generate(languageName, output, compiler, goBinary, tinygo string) error {
 	entry := grammars.DetectLanguageByName(languageName)
 	if entry == nil {
 		return fmt.Errorf("unknown language %q", languageName)
@@ -63,12 +66,9 @@ func generate(languageName, output, tinygo string) error {
 
 	runtimeName := "gotreesitter.wasm"
 	runtimePath := filepath.Join(output, runtimeName)
-	build := exec.Command(tinygo, "build", "-target", "wasm", "-no-debug", "-opt=z", "-o", runtimePath, "./wasm/runtime")
-	build.Dir = root
-	build.Stdout = os.Stdout
-	build.Stderr = os.Stderr
-	if err := build.Run(); err != nil {
-		return fmt.Errorf("build runtime: %w", err)
+	wasmExec, err := buildRuntime(root, runtimePath, compiler, goBinary, tinygo)
+	if err != nil {
+		return err
 	}
 	runtime, err := os.ReadFile(runtimePath)
 	if err != nil {
@@ -77,14 +77,6 @@ func generate(languageName, output, tinygo string) error {
 	digest := sha256.Sum256(runtime)
 	assets[runtimeName] = "sha256:" + hex.EncodeToString(digest[:])
 
-	tinygoRoot, err := commandOutput(tinygo, "env", "TINYGOROOT")
-	if err != nil {
-		return fmt.Errorf("locate TinyGo runtime: %w", err)
-	}
-	wasmExec, err := os.ReadFile(filepath.Join(tinygoRoot, "targets", "wasm_exec.js"))
-	if err != nil {
-		return err
-	}
 	if err := write("wasm_exec.js", wasmExec, 0o644); err != nil {
 		return err
 	}
@@ -105,12 +97,50 @@ func generate(languageName, output, tinygo string) error {
 		}
 	}
 
-	encoded, err := json.MarshalIndent(manifest{Version: 1, Language: entry.Name, Assets: assets}, "", "  ")
+	encoded, err := json.MarshalIndent(manifest{Version: 1, Language: entry.Name, Compiler: compiler, Assets: assets}, "", "  ")
 	if err != nil {
 		return err
 	}
 	encoded = append(encoded, '\n')
 	return os.WriteFile(filepath.Join(output, "manifest.json"), encoded, 0o644)
+}
+
+func buildRuntime(root, output, compiler, goBinary, tinygo string) ([]byte, error) {
+	var build *exec.Cmd
+	var wasmExecPath string
+	switch compiler {
+	case "go":
+		build = exec.Command(goBinary, "build", "-trimpath", "-o", output, "./wasm/runtime")
+		build.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+		goRoot, err := commandOutput(goBinary, "env", "GOROOT")
+		if err != nil {
+			return nil, fmt.Errorf("locate Go runtime: %w", err)
+		}
+		wasmExecPath = filepath.Join(goRoot, "lib", "wasm", "wasm_exec.js")
+		if _, err := os.Stat(wasmExecPath); err != nil {
+			wasmExecPath = filepath.Join(goRoot, "misc", "wasm", "wasm_exec.js")
+		}
+	case "tinygo":
+		build = exec.Command(tinygo, "build", "-target", "wasm", "-no-debug", "-opt=z", "-o", output, "./wasm/runtime")
+		tinygoRoot, err := commandOutput(tinygo, "env", "TINYGOROOT")
+		if err != nil {
+			return nil, fmt.Errorf("locate TinyGo runtime: %w", err)
+		}
+		wasmExecPath = filepath.Join(tinygoRoot, "targets", "wasm_exec.js")
+	default:
+		return nil, fmt.Errorf("unsupported compiler %q", compiler)
+	}
+	build.Dir = root
+	build.Stdout = os.Stdout
+	build.Stderr = os.Stderr
+	if err := build.Run(); err != nil {
+		return nil, fmt.Errorf("build runtime with %s: %w", compiler, err)
+	}
+	wasmExec, err := os.ReadFile(wasmExecPath)
+	if err != nil {
+		return nil, fmt.Errorf("read %s bootstrap: %w", compiler, err)
+	}
+	return wasmExec, nil
 }
 
 func moduleRoot() (string, error) {

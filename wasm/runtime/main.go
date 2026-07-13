@@ -20,18 +20,18 @@ type runtimeDocument struct {
 }
 
 func main() {
-	js.Global().Set("gotreesitter", js.ValueOf(map[string]interface{}{
-		"parse":         js.FuncOf(parse),
-		"query":         js.FuncOf(query),
-		"highlight":     js.FuncOf(highlight),
-		"loadBlob":      js.FuncOf(loadBlob),
-		"open":          js.FuncOf(openDocument),
-		"update":        js.FuncOf(updateDocument),
-		"close":         js.FuncOf(closeDocument),
-		"queryDocument": js.FuncOf(queryDocument),
-		"version":       js.ValueOf("0.2.0-runtime"),
-		"mode":          js.ValueOf("runtime"),
-	}))
+	runtime := js.Global().Get("Object").New()
+	runtime.Set("parse", js.FuncOf(parse))
+	runtime.Set("query", js.FuncOf(query))
+	runtime.Set("highlight", js.FuncOf(highlight))
+	runtime.Set("loadBlob", js.FuncOf(loadBlob))
+	runtime.Set("open", js.FuncOf(openDocument))
+	runtime.Set("update", js.FuncOf(updateDocument))
+	runtime.Set("close", js.FuncOf(closeDocument))
+	runtime.Set("queryDocument", js.FuncOf(queryDocument))
+	runtime.Set("version", "0.2.0-runtime")
+	runtime.Set("mode", "runtime")
+	js.Global().Set("gotreesitter", runtime)
 	select {}
 }
 
@@ -374,9 +374,57 @@ func jsPoint(point gotreesitter.Point) map[string]interface{} {
 
 func ok(extra map[string]interface{}) interface{} {
 	extra["ok"] = true
-	return extra
+	return jsObject(extra)
 }
 
 func err(msg string) interface{} {
-	return map[string]interface{}{"ok": false, "error": msg}
+	return jsObject(map[string]interface{}{"ok": false, "error": msg})
+}
+
+// TinyGo's syscall/js.ValueOf intentionally accepts only primitive Go values.
+// Build compound values explicitly so the same runtime works under TinyGo and
+// the standard Go js/wasm target.
+func jsObject(fields map[string]interface{}) js.Value {
+	object := js.Global().Get("Object").New()
+	for key, value := range fields {
+		object.Set(key, jsValue(value))
+	}
+	return object
+}
+
+func jsArray(values []interface{}) js.Value {
+	array := js.Global().Get("Array").New(len(values))
+	for index, value := range values {
+		array.SetIndex(index, jsValue(value))
+	}
+	return array
+}
+
+func jsValue(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		return jsObject(typed)
+	case []interface{}:
+		return jsArray(typed)
+	case uint:
+		return float64(typed)
+	case uint8:
+		return float64(typed)
+	case uint16:
+		return float64(typed)
+	case uint32:
+		return float64(typed)
+	case uint64:
+		return float64(typed)
+	case int8:
+		return int(typed)
+	case int16:
+		return int(typed)
+	case int32:
+		return int(typed)
+	case int64:
+		return float64(typed)
+	default:
+		return value
+	}
 }
