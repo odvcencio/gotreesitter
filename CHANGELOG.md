@@ -9,6 +9,10 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Linearized C-recovery strategy-1 elections with reusable cursor and dedupe
+  scratch. Against exact current main on the pinned quiet core, KDL recovery
+  improved 19.26% with 29.39% fewer bytes and 30.83% fewer allocations, while
+  the tiny-clean control remained statistically unchanged.
 - Reused C-recovery node memos now use generation invalidation instead of
   clearing a retained 16K-entry cache on every parse. On the pinned quiet
   host, recovery-primed KDL tiny-clean parses fell from 31.98 microseconds to

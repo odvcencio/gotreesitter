@@ -1,6 +1,7 @@
 package gotreesitter_test
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"strings"
 	"testing"
@@ -8,6 +9,57 @@ import (
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
+
+func TestKDLRecoveryGarbageSuffixExact(t *testing.T) {
+	lang := grammars.KdlLanguage()
+	src := makeKDLRecoveryGarbageSource(120, 300)
+	tree, err := gotreesitter.NewParser(lang).Parse(src)
+	if err != nil {
+		t.Fatalf("parse recovery garbage suffix: %v", err)
+	}
+	t.Cleanup(tree.Release)
+
+	root := tree.RootNode()
+	if root == nil {
+		t.Fatal("recovery garbage-suffix parse returned nil root")
+	}
+	if got, want := root.Type(lang), "document"; got != want {
+		t.Fatalf("root type = %q, want %q", got, want)
+	}
+	if !root.HasError() {
+		t.Fatal("recovery garbage-suffix workload parsed without error")
+	}
+	if got, want := root.EndByte(), uint32(len(src)); got != want {
+		t.Fatalf("root.EndByte = %d, want %d", got, want)
+	}
+
+	wantDigest := [sha256.Size]byte{
+		0xcb, 0xe5, 0x33, 0x87, 0x5b, 0xb7, 0x90, 0xc7,
+		0x7d, 0x7c, 0x7a, 0xe4, 0x7d, 0x36, 0xb2, 0xd4,
+		0x32, 0x05, 0xc3, 0x97, 0x88, 0x46, 0xa9, 0x8b,
+		0xd5, 0xd0, 0x04, 0x63, 0xb4, 0x5b, 0x12, 0x12,
+	}
+	if got := sha256.Sum256([]byte(root.SExpr(lang))); got != wantDigest {
+		t.Fatalf("selected tree digest = %x, want %x", got, wantDigest)
+	}
+
+	runtime := tree.ParseRuntime()
+	if got, want := runtime.StopReason, gotreesitter.ParseStopAccepted; got != want {
+		t.Fatalf("stop reason = %q, want %q", got, want)
+	}
+	if runtime.Truncated {
+		t.Fatal("parse runtime is truncated")
+	}
+	if !runtime.CRecoveryEnteredErrorState {
+		t.Fatal("parse did not enter C recovery")
+	}
+	if runtime.CRecoveryDroppedErrorForClean {
+		t.Fatal("selected tree carries the dropped-error marker")
+	}
+	if runtime.CRecoverySwallowedErrorFallbackAttempted {
+		t.Fatal("parse attempted the swallowed-error fallback")
+	}
+}
 
 // makeKDLRecoveryGarbageSource synthesizes a KDL document that reliably
 // drives the C-recovery cost-competition machinery: a valid, node-per-line

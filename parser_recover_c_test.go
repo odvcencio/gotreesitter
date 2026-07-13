@@ -1,6 +1,8 @@
 package gotreesitter
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 	"unsafe"
 )
@@ -622,7 +624,12 @@ func TestCRecoverStrategy1ElectionDedupesDuplicateEntryAcrossMembers(t *testing.
 	}
 }
 
-func TestCRecoverStrategy1ElectionIgnoresBetterVersionForNoActionEntry(t *testing.T) {
+// TestCRecoverStrategy1ElectionSkipsCostForWouldMergeNoActionEntry pins the
+// guard order for a no-action entry whose state/position already exists. The
+// would-merge guard skips that entry before cost, allowing the later candidate
+// to recover. This is not the cost-before-action case; that has a dedicated
+// non-wouldMerge fixture below.
+func TestCRecoverStrategy1ElectionSkipsCostForWouldMergeNoActionEntry(t *testing.T) {
 	parser := cRecoveryElectionTestParser()
 	arena := acquireNodeArena(arenaClassFull)
 	defer arena.Release()
@@ -680,6 +687,194 @@ func TestCRecoverStrategy1ElectionUsesMergedVersionCostBasis(t *testing.T) {
 	}
 	if len(stacks) != 3 {
 		t.Fatalf("stack count = %d, want no fork appended", len(stacks))
+	}
+}
+
+func TestCRecoverElectionDepthIteratorPreservesMergedSummaryOrder(t *testing.T) {
+	group := &cRecGroup{}
+	stacks := []glrStack{
+		{cRec: &cRecoverState{group: group, groupOrder: 2, summary: []cStackSummaryEntry{
+			{depth: 0, state: 8},
+			{depth: 1, state: 6},
+		}}},
+		{cRec: &cRecoverState{group: group, groupOrder: 0, summary: []cStackSummaryEntry{
+			{depth: 0, state: 2},
+			{depth: 1, state: 5},
+			{depth: 1, state: 7},
+		}}},
+		{cRec: &cRecoverState{group: group, groupOrder: 1, summary: []cStackSummaryEntry{
+			{depth: 0, state: 3},
+			{depth: 1, state: cErrorState},
+			{depth: 1, state: 5}, // duplicate: member 0 owns first encounter
+			{depth: 1, state: 9},
+		}}},
+	}
+
+	var scratch cRecoverElectionScratch
+	scratch.prepare(len(stacks), 10)
+	scratch.members = append(scratch.members, 0, 1, 2)
+	scratch.prepareMemberCursors(len(scratch.members))
+	cSortRecoverMembersByGroupOrder(stacks, scratch.members)
+
+	type tuple struct {
+		depth int
+		state StateID
+		owner uint32
+	}
+	var got []tuple
+	for depth := 0; depth <= 2; depth++ {
+		iter := scratch.beginDepth(depth)
+		for {
+			mi, entry, status := iter.next(stacks)
+			if status == cRecoverElectionIterExhausted {
+				// Exhaustion is stable and does not rewind a member cursor.
+				if _, _, again := iter.next(stacks); again != cRecoverElectionIterExhausted {
+					t.Fatalf("depth %d iterator produced an entry after exhaustion", depth)
+				}
+				break
+			}
+			if status == cRecoverElectionIterPoll {
+				continue
+			}
+			got = append(got, tuple{depth: entry.depth, state: entry.state, owner: stacks[mi].cRec.groupOrder})
+		}
+	}
+	want := []tuple{
+		{depth: 0, state: 2, owner: 0},
+		{depth: 0, state: 3, owner: 1},
+		{depth: 0, state: 8, owner: 2},
+		{depth: 1, state: 5, owner: 0},
+		{depth: 1, state: 7, owner: 0},
+		{depth: 1, state: 9, owner: 1},
+		{depth: 1, state: 6, owner: 2},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("election trace len = %d, want %d: got %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("election trace[%d] = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestCRecoverElectionScratchEpochWrapAndReleaseReset(t *testing.T) {
+	group := &cRecGroup{}
+	stacks := []glrStack{{cRec: &cRecoverState{group: group, summary: []cStackSummaryEntry{{depth: 0, state: 2}}}}}
+	var scratch cRecoverElectionScratch
+	scratch.prepare(1, 4)
+	scratch.members = append(scratch.members, 0)
+	scratch.prepareMemberCursors(len(scratch.members))
+	scratch.epoch = ^uint32(0)
+	for i := range scratch.stateStamp {
+		scratch.stateStamp[i] = 1
+	}
+
+	iter := scratch.beginDepth(0)
+	if scratch.epoch != 1 {
+		t.Fatalf("epoch after wrap = %d, want 1", scratch.epoch)
+	}
+	mi, entry, status := iter.next(stacks)
+	if status != cRecoverElectionIterCandidate || mi != 0 || entry.state != 2 {
+		t.Fatalf("entry after epoch wrap = member %d entry %+v status %v, want member 0 state 2", mi, entry, status)
+	}
+
+	// Ordinary release retains pointer-free capacity and the epoch while
+	// dropping active lengths. The next beginDepth makes old stamps stale.
+	scratch.resetForRelease()
+	if len(scratch.members) != 0 || len(scratch.cursors) != 0 || len(scratch.stateStamp) != 4 || scratch.epoch != 1 {
+		t.Fatalf("retained reset = members %d cursors %d stamps %d epoch %d", len(scratch.members), len(scratch.cursors), len(scratch.stateStamp), scratch.epoch)
+	}
+
+	// Oversized scratch is not retained by the parser pool.
+	scratch.prepare(maxStacksPerMergeKeyCeiling+1, 64*1024+1)
+	scratch.prepareMemberCursors(maxStacksPerMergeKeyCeiling + 1)
+	scratch.epoch = 7
+	scratch.resetForRelease()
+	if scratch.members != nil || scratch.cursors != nil || scratch.stateStamp != nil || scratch.epoch != 0 {
+		t.Fatalf("oversized reset retained scratch: members=%v cursors=%v stamps=%v epoch=%d",
+			scratch.members != nil, scratch.cursors != nil, scratch.stateStamp != nil, scratch.epoch)
+	}
+}
+
+func TestCRecoverElectionDepthIteratorPollsAcrossDuplicateRuns(t *testing.T) {
+	group := &cRecGroup{}
+	duplicates := make([]cStackSummaryEntry, 64)
+	for i := range duplicates {
+		duplicates[i] = cStackSummaryEntry{depth: 0, state: 2}
+	}
+	stacks := []glrStack{
+		{cRec: &cRecoverState{group: group, groupOrder: 0, summary: []cStackSummaryEntry{{depth: 0, state: 2}}}},
+		{cRec: &cRecoverState{group: group, groupOrder: 1, summary: duplicates}},
+	}
+	var scratch cRecoverElectionScratch
+	scratch.prepare(len(stacks), 3)
+	scratch.members = append(scratch.members, 0, 1)
+	scratch.prepareMemberCursors(len(scratch.members))
+
+	iter := scratch.beginDepth(0)
+	if _, _, status := iter.next(stacks); status != cRecoverElectionIterCandidate {
+		t.Fatalf("first iterator status = %v, want candidate", status)
+	}
+	if _, _, status := iter.next(stacks); status != cRecoverElectionIterPoll {
+		t.Fatalf("duplicate-run iterator status = %v, want poll", status)
+	}
+	if _, _, status := iter.next(stacks); status != cRecoverElectionIterExhausted {
+		t.Fatalf("post-poll iterator status = %v, want exhausted", status)
+	}
+}
+
+func TestCRecoverElectionDepthIteratorReusesPreparedScratch(t *testing.T) {
+	group := &cRecGroup{}
+	stacks := []glrStack{{cRec: &cRecoverState{group: group, summary: []cStackSummaryEntry{
+		{depth: 0, state: 2},
+		{depth: 1, state: 3},
+	}}}}
+	var scratch cRecoverElectionScratch
+	scratch.prepare(1, 4)
+	allocs := testing.AllocsPerRun(100, func() {
+		scratch.prepare(1, 4)
+		scratch.members = append(scratch.members, 0)
+		scratch.prepareMemberCursors(len(scratch.members))
+		for depth := 0; depth <= 1; depth++ {
+			iter := scratch.beginDepth(depth)
+			for {
+				if _, _, status := iter.next(stacks); status == cRecoverElectionIterExhausted {
+					break
+				}
+			}
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("allocations per prepared election traversal = %g, want 0", allocs)
+	}
+}
+
+func TestCRecoverStrategy1ElectionReusesParserScratchWithoutAllocating(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	group := &cRecGroup{}
+	entry := cStackSummaryEntry{depth: 1, state: 2, posBytes: 5}
+	stacks := []glrStack{
+		cRecoveryElectionStack(arena, 4, 3, 5, group, 0, []cStackSummaryEntry{entry}),
+		cRecoveryElectionStack(arena, 2, 3, 10, group, 1, []cStackSummaryEntry{entry}),
+	}
+	var gssScratch gssScratch
+	nodeCount := 0
+	if didRecover, forked, reason := parser.cRecoverStrategy1Election(&stacks, group, nil, Token{Symbol: 1}, &nodeCount, arena, nil, &gssScratch, nil); didRecover || forked || reason != ParseStopNone {
+		t.Fatalf("warm election = didRecover %v forked %v reason %v, want false false none", didRecover, forked, reason)
+	}
+
+	allocs := testing.AllocsPerRun(100, func() {
+		didRecover, forked, reason := parser.cRecoverStrategy1Election(&stacks, group, nil, Token{Symbol: 1}, &nodeCount, arena, nil, &gssScratch, nil)
+		if didRecover || forked || reason != ParseStopNone {
+			panic("unexpected election result")
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("allocations per warmed strategy-1 election = %g, want 0", allocs)
 	}
 }
 
@@ -1281,5 +1476,605 @@ func TestCNodeMemoCacheEntrySize(t *testing.T) {
 	}
 	if got := unsafe.Sizeof(cNodeMemoCacheEntry{}); got != want {
 		t.Fatalf("cNodeMemoCacheEntry size = %d, want %d", got, want)
+	}
+}
+
+// electionTraceEntry is the frozen strategy-1 attempt surface. It records
+// first ownership before any position, merge, cost, action, or recovery guard
+// runs, so a future cursor can be checked without duplicating those guards.
+type electionTraceEntry struct {
+	EntryDepth   int
+	RecoverDepth int
+	State        StateID
+	OwnerIndex   int
+	OwnerOrder   uint32
+	PosBytes     uint32
+	PosRow       uint32
+}
+
+// frozenCRecoveryStrategy1AttemptTrace preserves the pre-linearization strategy-1
+// collection, stable member ordering, depth-major walk, and pre-guard global
+// dedupe. Keep this test-only reference independent of any future production
+// cursor. It deliberately contains no position/merge/cost/action/recovery
+// logic.
+func frozenCRecoveryStrategy1AttemptTrace(p *Parser, stacks []glrStack, group *cRecGroup) []electionTraceEntry {
+	members := make([]int, 0, cRecoverMaxVersionCount)
+	for i := range stacks {
+		if !stacks[i].dead && stacks[i].cRec != nil && stacks[i].cRec.group == group {
+			members = append(members, i)
+		}
+	}
+	if len(members) == 0 {
+		return nil
+	}
+
+	// Frozen stable insertion sort: equal groupOrder values retain physical
+	// stack-slice order.
+	for i := 1; i < len(members); i++ {
+		cur := members[i]
+		curOrder := stacks[cur].cRec.groupOrder
+		j := i - 1
+		for ; j >= 0; j-- {
+			prev := members[j]
+			if stacks[prev].cRec.groupOrder <= curOrder {
+				break
+			}
+			members[j+1] = prev
+		}
+		members[j+1] = cur
+	}
+
+	depthBump := 0
+	m0 := members[0]
+	if p.cStackCumulativeNodeCount(&stacks[m0]) > int(stacks[m0].cNodeBaseline) {
+		depthBump = 1
+	}
+	type seenKey struct {
+		depth int
+		state StateID
+	}
+	seen := make(map[seenKey]struct{}, 16)
+	var trace []electionTraceEntry
+	for depth := 0; depth <= cRecoverMaxSummaryDepth+1; depth++ {
+		for _, member := range members {
+			rec := stacks[member].cRec
+			for _, entry := range rec.summary {
+				if entry.depth != depth || entry.state == cErrorState {
+					continue
+				}
+				key := seenKey{depth: entry.depth, state: entry.state}
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				trace = append(trace, electionTraceEntry{
+					EntryDepth:   entry.depth,
+					RecoverDepth: entry.depth + depthBump,
+					State:        entry.state,
+					OwnerIndex:   member,
+					OwnerOrder:   rec.groupOrder,
+					PosBytes:     entry.posBytes,
+					PosRow:       entry.posRow,
+				})
+			}
+		}
+	}
+	return trace
+}
+
+// linearCRecoveryStrategy1AttemptTrace exposes only the cursor's attempt
+// surface. Position, merge, cost, action, and recovery guards remain outside
+// this oracle so ordering and first ownership are tested independently.
+func linearCRecoveryStrategy1AttemptTrace(p *Parser, stacks []glrStack, group *cRecGroup) []electionTraceEntry {
+	stateCount := 1
+	for i := range stacks {
+		if stacks[i].cRec == nil {
+			continue
+		}
+		for _, entry := range stacks[i].cRec.summary {
+			if entry.state != cErrorState && int(entry.state)+1 > stateCount {
+				stateCount = int(entry.state) + 1
+			}
+		}
+	}
+	var scratch cRecoverElectionScratch
+	scratch.prepare(len(stacks), stateCount)
+	for i := range stacks {
+		if !stacks[i].dead && stacks[i].cRec != nil && stacks[i].cRec.group == group {
+			scratch.members = append(scratch.members, i)
+		}
+	}
+	if len(scratch.members) == 0 {
+		return nil
+	}
+	scratch.prepareMemberCursors(len(scratch.members))
+	cSortRecoverMembersByGroupOrder(stacks, scratch.members)
+
+	depthBump := 0
+	m0 := scratch.members[0]
+	if p.cStackCumulativeNodeCount(&stacks[m0]) > int(stacks[m0].cNodeBaseline) {
+		depthBump = 1
+	}
+	var trace []electionTraceEntry
+	for depth := 0; depth <= cRecoverMaxSummaryDepth+1; depth++ {
+		iter := scratch.beginDepth(depth)
+		for {
+			member, entry, status := iter.next(stacks)
+			switch status {
+			case cRecoverElectionIterExhausted:
+				goto nextDepth
+			case cRecoverElectionIterPoll:
+				continue
+			}
+			rec := stacks[member].cRec
+			trace = append(trace, electionTraceEntry{
+				EntryDepth: entry.depth, RecoverDepth: entry.depth + depthBump,
+				State: entry.state, OwnerIndex: member, OwnerOrder: rec.groupOrder,
+				PosBytes: entry.posBytes, PosRow: entry.posRow,
+			})
+		}
+	nextDepth:
+	}
+	return trace
+}
+
+type frozenElectionMemberSpec struct {
+	id    int
+	order uint32
+	dead  bool
+}
+
+func TestCRecoverElectionDepthIteratorMatchesFrozenOrdering(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	for memberCount := 1; memberCount <= 8; memberCount++ {
+		permutations := [][]int{
+			frozenIdentityPermutation(memberCount),
+			frozenReversePermutation(memberCount),
+			frozenRotatePermutation(memberCount),
+		}
+		deadMasks := []uint16{0, 1, 0x5555, uint16(1 << (memberCount - 1)), uint16((1 << memberCount) - 1)}
+		for permutationIndex, permutation := range permutations {
+			for _, deadMask := range deadMasks {
+				name := frozenElectionFixtureName(memberCount, permutationIndex, deadMask)
+				t.Run(name, func(t *testing.T) {
+					group := &cRecGroup{}
+					foreign := &cRecGroup{}
+					stacks := make([]glrStack, 0, memberCount+1)
+					specs := make([]frozenElectionMemberSpec, 0, memberCount)
+					for _, id := range permutation {
+						spec := frozenElectionMemberSpec{
+							id:    id,
+							order: uint32(id / 2), // equal-order ties are intentional.
+							dead:  deadMask&(1<<id) != 0,
+						}
+						specs = append(specs, spec)
+						stack := cRecoveryElectionStack(arena, 2, 3, uint32(500+id), group, int(spec.order), frozenElectionSummary(id))
+						stack.dead = spec.dead
+						stacks = append(stacks, stack)
+					}
+					// A lower-ordered foreign member must never enter this election.
+					stacks = append(stacks, cRecoveryElectionStack(arena, 2, 3, 999, foreign, 0, []cStackSummaryEntry{{depth: 0, state: 999}}))
+
+					got := frozenCRecoveryStrategy1AttemptTrace(parser, stacks, group)
+					want := frozenElectionExpectedTrace(specs)
+					if !reflect.DeepEqual(got, want) {
+						t.Fatalf("trace mismatch\n got: %#v\nwant: %#v", got, want)
+					}
+					linear := linearCRecoveryStrategy1AttemptTrace(parser, stacks, group)
+					if !reflect.DeepEqual(linear, got) {
+						t.Fatalf("linear trace mismatch\n got: %#v\nwant: %#v", linear, got)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestFrozenCRecoveryStrategy1AttemptTraceDepthBumpUsesSelectedM0(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	newMember := func(group *cRecGroup, order int, state StateID, baseline uint32) glrStack {
+		stack := cRecoveryElectionStack(arena, 2, 3, 10, group, order, []cStackSummaryEntry{{depth: 2, state: state}})
+		stack.cNodeBaseline = baseline
+		return stack
+	}
+
+	t.Run("selected_m0_positive", func(t *testing.T) {
+		group := &cRecGroup{}
+		stacks := []glrStack{newMember(group, 0, 11, 0), newMember(group, 1, 12, 1)}
+		trace := linearCRecoveryStrategy1AttemptTrace(parser, stacks, group)
+		for i, entry := range trace {
+			if entry.RecoverDepth != entry.EntryDepth+1 {
+				t.Fatalf("trace[%d] recover depth = %d, want entry depth %d + 1", i, entry.RecoverDepth, entry.EntryDepth)
+			}
+		}
+	})
+
+	t.Run("non_m0_positive_does_not_bump", func(t *testing.T) {
+		group := &cRecGroup{}
+		stacks := []glrStack{newMember(group, 0, 11, 1), newMember(group, 1, 12, 0)}
+		trace := linearCRecoveryStrategy1AttemptTrace(parser, stacks, group)
+		for i, entry := range trace {
+			if entry.RecoverDepth != entry.EntryDepth {
+				t.Fatalf("trace[%d] recover depth = %d, want unbumped %d", i, entry.RecoverDepth, entry.EntryDepth)
+			}
+		}
+	})
+
+	t.Run("sort_and_death_change_m0", func(t *testing.T) {
+		group := &cRecGroup{}
+		positivePhysicalFirst := newMember(group, 2, 21, 0)
+		zeroPhysicalSecond := newMember(group, 1, 22, 1)
+		stacks := []glrStack{positivePhysicalFirst, zeroPhysicalSecond}
+
+		trace := linearCRecoveryStrategy1AttemptTrace(parser, stacks, group)
+		if len(trace) != 2 || trace[0].OwnerIndex != 1 {
+			t.Fatalf("sorted trace = %#v, want physical member 1 selected as m0", trace)
+		}
+		for _, entry := range trace {
+			if entry.RecoverDepth != entry.EntryDepth {
+				t.Fatalf("live lower-order m0 unexpectedly bumped trace: %#v", trace)
+			}
+		}
+
+		stacks[1].dead = true
+		trace = frozenCRecoveryStrategy1AttemptTrace(parser, stacks, group)
+		if len(trace) != 1 || trace[0].OwnerIndex != 0 || trace[0].RecoverDepth != trace[0].EntryDepth+1 {
+			t.Fatalf("trace after lower-order death = %#v, want positive physical member 0 as bumped m0", trace)
+		}
+	})
+}
+
+func TestCRecoverStrategy1ElectionDeadFirstOwnerFallsBackWithGSSScratch(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	group := &cRecGroup{}
+	entry := cStackSummaryEntry{depth: 1, state: 2, posBytes: 0}
+	stacks := []glrStack{
+		cRecoveryElectionStack(arena, 4, 3, 5, group, 0, []cStackSummaryEntry{entry}),
+		cRecoveryElectionStack(arena, 2, 3, 5, group, 1, []cStackSummaryEntry{entry}),
+	}
+	stacks[0].dead = true
+	stacks[0].branchOrder = 11
+	stacks[1].branchOrder = 22
+	trace := linearCRecoveryStrategy1AttemptTrace(parser, stacks, group)
+	if len(trace) != 1 || trace[0].OwnerIndex != 1 {
+		t.Fatalf("attempt trace = %#v, want next live duplicate owner 1", trace)
+	}
+
+	var entryScratch glrEntryScratch
+	var gssScratch gssScratch
+	nodeCount := 0
+	didRecover, forked, reason := parser.cRecoverStrategy1Election(&stacks, group, nil, Token{Symbol: 1}, &nodeCount, arena, &entryScratch, &gssScratch, nil)
+	if reason != ParseStopNone || !didRecover || !forked {
+		t.Fatalf("election = recovered %v forked %v reason %v, want true/true/none", didRecover, forked, reason)
+	}
+	if len(stacks) != 3 || stacks[2].branchOrder != 22 || stacks[2].top().state != StateID(2) {
+		t.Fatalf("recovered fork = len %d branch %d top %d, want 3/22/2", len(stacks), stacks[len(stacks)-1].branchOrder, stacks[len(stacks)-1].top().state)
+	}
+	if gssScratch.usedTotal == 0 || stacks[1].gss.head == nil {
+		t.Fatal("election did not exercise the supplied non-nil GSS scratch")
+	}
+}
+
+func TestCRecoverStrategy1ElectionCostAbortsBeforeNoActionLookup(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	build := func(includeExpensiveNoAction bool) ([]glrStack, *cRecGroup) {
+		group := &cRecGroup{}
+		summary := make([]cStackSummaryEntry, 0, 2)
+		if includeExpensiveNoAction {
+			summary = append(summary, cStackSummaryEntry{depth: 0, state: 1, posBytes: 0})
+		}
+		summary = append(summary, cStackSummaryEntry{depth: 1, state: 2, posBytes: 2490})
+		return []glrStack{
+			cRecoveryElectionStack(arena, 2, 3, 2500, group, 0, summary),
+			cRecoveryElectionPlainStack(arena, 4, 4, 2500),
+		}, group
+	}
+
+	stacks, group := build(true)
+	if parser.lookupActionIndex(1, 1) != 0 {
+		t.Fatal("state 1 unexpectedly has a token action; fixture would not prove cost-before-action")
+	}
+	for i := range stacks {
+		if !stacks[i].dead && stacks[i].top().state == 1 && stacks[i].byteOffset == 2500 {
+			t.Fatal("state 1 candidate would merge; fixture would not reach its cost check")
+		}
+	}
+	nodeCount := 0
+	didRecover, forked, reason := parser.cRecoverStrategy1Election(&stacks, group, nil, Token{Symbol: 1}, &nodeCount, arena, nil, nil, nil)
+	if reason != ParseStopNone || didRecover || forked || len(stacks) != 2 {
+		t.Fatalf("election with expensive no-action entry = recovered %v forked %v reason %v len %d, want false/false/none/2", didRecover, forked, reason, len(stacks))
+	}
+
+	// Without the no-action entry, the later actionable candidate succeeds.
+	// Therefore the first run stopped at that entry's pre-action cost check.
+	control, controlGroup := build(false)
+	nodeCount = 0
+	didRecover, forked, reason = parser.cRecoverStrategy1Election(&control, controlGroup, nil, Token{Symbol: 1}, &nodeCount, arena, nil, nil, nil)
+	if reason != ParseStopNone || !didRecover || !forked || len(control) != 3 {
+		t.Fatalf("control election = recovered %v forked %v reason %v len %d, want true/true/none/3", didRecover, forked, reason, len(control))
+	}
+}
+
+func TestCRecoverStrategy1ElectionFailedRecoveryDoesNotRetryDuplicate(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	group := &cRecGroup{}
+	entry := cStackSummaryEntry{depth: 1, state: 2, posBytes: 0}
+	stacks := []glrStack{
+		// This live first owner advertises state 2, but its actual depth-1
+		// state is 4, forcing cRecoverToState to fail.
+		cRecoveryElectionStack(arena, 4, 3, 5, group, 0, []cStackSummaryEntry{entry}),
+		// A duplicate retry here would succeed, but first ownership forbids it.
+		cRecoveryElectionStack(arena, 2, 3, 5, group, 1, []cStackSummaryEntry{entry}),
+	}
+	trace := linearCRecoveryStrategy1AttemptTrace(parser, stacks, group)
+	if len(trace) != 1 || trace[0].OwnerIndex != 0 {
+		t.Fatalf("attempt trace = %#v, want live first owner 0 only", trace)
+	}
+
+	var gssScratch gssScratch
+	nodeCount := 0
+	didRecover, forked, reason := parser.cRecoverStrategy1Election(&stacks, group, nil, Token{Symbol: 1}, &nodeCount, arena, nil, &gssScratch, nil)
+	if reason != ParseStopNone || didRecover || forked || len(stacks) != 2 {
+		t.Fatalf("election = recovered %v forked %v reason %v len %d, want false/false/none/2", didRecover, forked, reason, len(stacks))
+	}
+	if gssScratch.usedTotal == 0 || stacks[0].gss.head == nil {
+		t.Fatal("failed recovery did not exercise the supplied non-nil GSS scratch")
+	}
+}
+
+func TestCRecoverStrategy1ElectionPositionFailureDoesNotRetryDuplicate(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	build := func(firstDead bool) ([]glrStack, *cRecGroup) {
+		group := &cRecGroup{}
+		stacks := []glrStack{
+			// The first live owner fails the position guard because the entry
+			// position equals the merged-version position.
+			cRecoveryElectionStack(arena, 4, 3, 5, group, 0, []cStackSummaryEntry{{depth: 1, state: 2, posBytes: 5}}),
+			// The duplicate has a recoverable position and a matching depth-1
+			// stack state. Pre-guard ownership must still suppress its retry.
+			cRecoveryElectionStack(arena, 2, 3, 5, group, 1, []cStackSummaryEntry{{depth: 1, state: 2, posBytes: 0}}),
+		}
+		stacks[0].dead = firstDead
+		return stacks, group
+	}
+
+	stacks, group := build(false)
+	trace := linearCRecoveryStrategy1AttemptTrace(parser, stacks, group)
+	if len(trace) != 1 || trace[0].OwnerIndex != 0 || trace[0].PosBytes != 5 {
+		t.Fatalf("attempt trace = %#v, want position-failing live owner 0 only", trace)
+	}
+	nodeCount := 0
+	didRecover, forked, reason := parser.cRecoverStrategy1Election(&stacks, group, nil, Token{Symbol: 1}, &nodeCount, arena, nil, nil, nil)
+	if reason != ParseStopNone || didRecover || forked || len(stacks) != 2 {
+		t.Fatalf("live-owner election = recovered %v forked %v reason %v len %d, want false/false/none/2", didRecover, forked, reason, len(stacks))
+	}
+
+	// Killing the first owner makes the second duplicate the first live owner;
+	// it must then recover. This proves the previous no-fork result came from
+	// no-fallback ownership, not an independently unrecoverable duplicate.
+	control, controlGroup := build(true)
+	nodeCount = 0
+	didRecover, forked, reason = parser.cRecoverStrategy1Election(&control, controlGroup, nil, Token{Symbol: 1}, &nodeCount, arena, nil, nil, nil)
+	if reason != ParseStopNone || !didRecover || !forked || len(control) != 3 || control[2].top().state != StateID(2) {
+		t.Fatalf("dead-owner control = recovered %v forked %v reason %v len %d top %d, want true/true/none/3/2", didRecover, forked, reason, len(control), control[len(control)-1].top().state)
+	}
+}
+
+func cloneRecoveryElectionStacksForSnapshot(stacks []glrStack) []glrStack {
+	cloned := make([]glrStack, len(stacks))
+	for i := range stacks {
+		cloned[i] = stacks[i]
+		cloned[i].entries = append([]stackEntry(nil), stacks[i].entries...)
+		if stacks[i].cRec != nil {
+			rec := *stacks[i].cRec
+			rec.summary = append([]cStackSummaryEntry(nil), stacks[i].cRec.summary...)
+			cloned[i].cRec = &rec
+		}
+	}
+	return cloned
+}
+
+func TestCRecoverStrategy1ElectionPreexistingCancellationDoesNotMutateParseState(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	cancelled := uint32(1)
+	parser.SetCancellationFlag(&cancelled)
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	group := &cRecGroup{}
+	stacks := []glrStack{cRecoveryElectionStack(arena, 2, 3, 5, group, 0, []cStackSummaryEntry{{depth: 1, state: 2, posBytes: 0}})}
+	stackBefore := cloneRecoveryElectionStacksForSnapshot(stacks)
+	groupBefore := *group
+	node := stackEntryNode(stacks[0].top())
+	nodeBefore := *node
+	arenaUsedBefore := arena.used
+	arenaBytesBefore := arena.allocatedBytes
+	arenaCursorBefore := arena.nodeSlabCursor
+	nodeCount := 73
+	var entryScratch glrEntryScratch
+	var gssScratch gssScratch
+	entryScratchBefore := entryScratch
+	gssScratchBefore := gssScratch
+
+	didRecover, forked, reason := parser.cRecoverStrategy1Election(&stacks, group, nil, Token{Symbol: 1}, &nodeCount, arena, &entryScratch, &gssScratch, nil)
+	if reason != ParseStopCancelled || didRecover || forked {
+		t.Fatalf("cancelled election = recovered %v forked %v reason %v, want false/false/cancelled", didRecover, forked, reason)
+	}
+	if !reflect.DeepEqual(stacks, stackBefore) || !reflect.DeepEqual(*group, groupBefore) {
+		t.Fatalf("cancelled election mutated stacks/group\n got stacks: %#v\nwant stacks: %#v", stacks, stackBefore)
+	}
+	if !reflect.DeepEqual(*node, nodeBefore) {
+		t.Fatal("cancelled election mutated the existing stack node")
+	}
+	if arena.used != arenaUsedBefore || arena.allocatedBytes != arenaBytesBefore || arena.nodeSlabCursor != arenaCursorBefore {
+		t.Fatalf("cancelled election mutated arena: used %d->%d bytes %d->%d cursor %d->%d", arenaUsedBefore, arena.used, arenaBytesBefore, arena.allocatedBytes, arenaCursorBefore, arena.nodeSlabCursor)
+	}
+	if nodeCount != 73 {
+		t.Fatalf("cancelled election mutated node count: got %d, want 73", nodeCount)
+	}
+	if !reflect.DeepEqual(entryScratch, entryScratchBefore) || !reflect.DeepEqual(gssScratch, gssScratchBefore) {
+		t.Fatalf("cancelled election mutated zero scratch\nentry got: %#v\nentry want: %#v\ngss got: %#v\ngss want: %#v", entryScratch, entryScratchBefore, gssScratch, gssScratchBefore)
+	}
+}
+
+func frozenElectionSummary(id int) []cStackSummaryEntry {
+	base := uint32(id * 100)
+	return []cStackSummaryEntry{
+		{depth: 0, state: 50, posBytes: base + 1, posRow: uint32(id)}, // across-member duplicate
+		{depth: 0, state: StateID(100 + id), posBytes: base + 2, posRow: uint32(id)},
+		{depth: 0, state: StateID(110 + id), posBytes: base + 3, posRow: uint32(id)}, // same-depth sibling
+		{depth: 0, state: cErrorState, posBytes: base + 4, posRow: uint32(id)},
+		{depth: 0, state: 50, posBytes: base + 5, posRow: uint32(id)},  // within-member duplicate
+		{depth: 16, state: 50, posBytes: base + 6, posRow: uint32(id)}, // same state, different depth
+		{depth: 16, state: StateID(200 + id), posBytes: base + 7, posRow: uint32(id)},
+		{depth: 17, state: StateID(300 + id), posBytes: base + 8, posRow: uint32(id)},
+		{depth: 18, state: StateID(400 + id), posBytes: base + 9, posRow: uint32(id)}, // ignored
+	}
+}
+
+func frozenElectionExpectedTrace(specs []frozenElectionMemberSpec) []electionTraceEntry {
+	ordered := make([]int, 0, len(specs))
+	for order := uint32(0); order <= 3; order++ {
+		for physicalIndex := range specs {
+			if !specs[physicalIndex].dead && specs[physicalIndex].order == order {
+				ordered = append(ordered, physicalIndex)
+			}
+		}
+	}
+	if len(ordered) == 0 {
+		return nil
+	}
+	var want []electionTraceEntry
+	appendEntry := func(physicalIndex, depth int, state StateID, offset uint32) {
+		spec := specs[physicalIndex]
+		want = append(want, electionTraceEntry{
+			EntryDepth: depth, RecoverDepth: depth, State: state,
+			OwnerIndex: physicalIndex, OwnerOrder: spec.order,
+			PosBytes: uint32(spec.id*100) + offset, PosRow: uint32(spec.id),
+		})
+	}
+	// At depth zero, the first live member owns the shared key. Every live
+	// member then owns its two unique same-depth states in stable order.
+	appendEntry(ordered[0], 0, 50, 1)
+	for _, physicalIndex := range ordered {
+		id := specs[physicalIndex].id
+		appendEntry(physicalIndex, 0, StateID(100+id), 2)
+		appendEntry(physicalIndex, 0, StateID(110+id), 3)
+	}
+	// Dedupe includes depth, so state 50 is eligible again at depth 16.
+	appendEntry(ordered[0], 16, 50, 6)
+	for _, physicalIndex := range ordered {
+		id := specs[physicalIndex].id
+		appendEntry(physicalIndex, 16, StateID(200+id), 7)
+	}
+	for _, physicalIndex := range ordered {
+		id := specs[physicalIndex].id
+		appendEntry(physicalIndex, 17, StateID(300+id), 8)
+	}
+	return want
+}
+
+func frozenIdentityPermutation(n int) []int {
+	out := make([]int, n)
+	for i := range out {
+		out[i] = i
+	}
+	return out
+}
+
+func frozenReversePermutation(n int) []int {
+	out := make([]int, n)
+	for i := range out {
+		out[i] = n - 1 - i
+	}
+	return out
+}
+
+func frozenRotatePermutation(n int) []int {
+	out := make([]int, n)
+	if n == 0 {
+		return out
+	}
+	for i := range out {
+		out[i] = (i + n/2) % n
+	}
+	return out
+}
+
+func frozenElectionFixtureName(memberCount, permutation int, deadMask uint16) string {
+	return fmt.Sprintf("members=%d/permutation=%d/dead=%x", memberCount, permutation, deadMask)
+}
+
+func TestCRecordSummaryDepthsAreMonotonic(t *testing.T) {
+	parser := &Parser{}
+	var summaries, comparisons, equalDepths, increasedDepths int
+	var errorEntries, nodelessEntries, nodeEntries, extraEntries int
+	maxDepth := 0
+	for fixture := uint32(1); fixture <= 128; fixture++ {
+		entries := make([]stackEntry, 48)
+		nodes := make([]Node, len(entries))
+		state := fixture*747796405 + 2891336453
+		for i := range entries {
+			state = state*1664525 + 1013904223
+			entryState := StateID(state%31 + 1)
+			switch state % 4 {
+			case 0:
+				entries[i] = stackEntry{state: cErrorState}
+				errorEntries++
+			case 1:
+				entries[i] = stackEntry{state: entryState}
+				nodelessEntries++
+			default:
+				nodes[i].symbol = 1
+				if state&8 != 0 {
+					nodes[i].setExtra(true)
+					extraEntries++
+				}
+				entries[i] = newStackEntryNode(entryState, &nodes[i])
+				nodeEntries++
+			}
+		}
+		summary := parser.cRecordSummary(entries)
+		if len(summary) > 0 {
+			summaries++
+			if summary[len(summary)-1].depth > maxDepth {
+				maxDepth = summary[len(summary)-1].depth
+			}
+		}
+		for i := 1; i < len(summary); i++ {
+			comparisons++
+			if summary[i].depth < summary[i-1].depth {
+				t.Fatalf("fixture %d summary depth fell at %d: %d -> %d", fixture, i, summary[i-1].depth, summary[i].depth)
+			}
+			if summary[i].depth == summary[i-1].depth {
+				equalDepths++
+			} else {
+				increasedDepths++
+			}
+		}
+	}
+	if summaries != 128 || comparisons == 0 || equalDepths == 0 || increasedDepths == 0 || maxDepth < cRecoverMaxSummaryDepth {
+		t.Fatalf("vacuous summary coverage: summaries=%d comparisons=%d equal=%d increased=%d max-depth=%d", summaries, comparisons, equalDepths, increasedDepths, maxDepth)
+	}
+	if errorEntries == 0 || nodelessEntries == 0 || nodeEntries == 0 || extraEntries == 0 {
+		t.Fatalf("vacuous entry coverage: error=%d nodeless=%d nodes=%d extras=%d", errorEntries, nodelessEntries, nodeEntries, extraEntries)
 	}
 }

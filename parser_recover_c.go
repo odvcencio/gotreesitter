@@ -893,6 +893,168 @@ type cStackSummaryEntry struct {
 	posRow   uint32
 }
 
+// cRecoverElectionScratch owns the reusable cursors and generation-stamped
+// state set used by strategy-1 recovery elections. Each member summary is
+// already depth ordered by cRecordSummary, so one monotonically advancing
+// cursor per member can enumerate the merged summary in depth-major,
+// member-order-minor order without rescanning every summary at every depth.
+//
+// stateStamp is a per-depth set: beginDepth advances epoch, making every old
+// stamp stale in O(1). The wrap path clears the stamps before reusing epoch 1.
+// All fields are pointer-free slices, so retaining this scratch cannot retain
+// parse trees or GSS nodes between parser-scratch pool uses.
+type cRecoverElectionScratch struct {
+	members    []int
+	cursors    []int
+	stateStamp []uint32
+	epoch      uint32
+}
+
+func (s *cRecoverElectionScratch) prepare(stackCount, stateCount int) {
+	s.members = s.members[:0]
+	s.cursors = s.cursors[:0]
+	if stackCount < 0 {
+		stackCount = 0
+	}
+	if cap(s.members) < stackCount {
+		s.members = make([]int, 0, stackCount)
+	}
+	if stateCount < 1 {
+		stateCount = 1
+	}
+	if len(s.stateStamp) < stateCount {
+		s.stateStamp = make([]uint32, stateCount)
+	}
+}
+
+func (s *cRecoverElectionScratch) prepareMemberCursors(memberCount int) {
+	if memberCount < 0 {
+		memberCount = 0
+	}
+	if cap(s.cursors) < memberCount {
+		s.cursors = make([]int, memberCount)
+	} else {
+		s.cursors = s.cursors[:memberCount]
+		clear(s.cursors)
+	}
+}
+
+func (s *cRecoverElectionScratch) allocatedBytes() int64 {
+	if s == nil {
+		return 0
+	}
+	return int64(cap(s.members)+cap(s.cursors))*int64(unsafe.Sizeof(int(0))) +
+		int64(cap(s.stateStamp))*int64(unsafe.Sizeof(uint32(0)))
+}
+
+func (s *cRecoverElectionScratch) beginDepth(depth int) cRecoverElectionDepthIter {
+	s.epoch++
+	if s.epoch == 0 {
+		clear(s.stateStamp)
+		s.epoch = 1
+	}
+	return cRecoverElectionDepthIter{scratch: s, depth: depth}
+}
+
+func (s *cRecoverElectionScratch) resetForRelease() {
+	const (
+		maxRetainedMembers = maxStacksPerMergeKeyCeiling
+		maxRetainedStates  = 64 * 1024
+	)
+	if cap(s.members) > maxRetainedMembers {
+		s.members = nil
+	} else {
+		s.members = s.members[:0]
+	}
+	if cap(s.cursors) > maxRetainedMembers {
+		s.cursors = nil
+	} else {
+		s.cursors = s.cursors[:0]
+	}
+	if cap(s.stateStamp) > maxRetainedStates {
+		s.stateStamp = nil
+		s.epoch = 0
+	}
+}
+
+type cRecoverElectionDepthIter struct {
+	scratch          *cRecoverElectionScratch
+	depth            int
+	member           int
+	skippedSincePoll uint8
+}
+
+type cRecoverElectionIterStatus uint8
+
+const (
+	cRecoverElectionIterExhausted cRecoverElectionIterStatus = iota
+	cRecoverElectionIterCandidate
+	cRecoverElectionIterPoll
+)
+
+// next returns each first-encounter (depth,state) candidate together with the
+// member that owns it. Member summaries are consumed monotonically, including
+// duplicate and cErrorState entries, so exhausted cursors stay exhausted. A
+// poll result after 64 otherwise-invisible skipped entries keeps cancellation
+// and resource-budget checks bounded even when later members repeat a wide
+// first member's entire summary.
+func (it *cRecoverElectionDepthIter) next(stacks []glrStack) (int, cStackSummaryEntry, cRecoverElectionIterStatus) {
+	if it == nil || it.scratch == nil {
+		return 0, cStackSummaryEntry{}, cRecoverElectionIterExhausted
+	}
+	s := it.scratch
+	for it.member < len(s.members) {
+		memberOrder := it.member
+		mi := s.members[memberOrder]
+		if mi < 0 || mi >= len(stacks) || stacks[mi].cRec == nil {
+			it.member++
+			continue
+		}
+		summary := stacks[mi].cRec.summary
+		cursor := s.cursors[memberOrder]
+		for cursor < len(summary) && summary[cursor].depth < it.depth {
+			cursor++
+		}
+		for cursor < len(summary) && summary[cursor].depth == it.depth {
+			entry := summary[cursor]
+			cursor++
+			s.cursors[memberOrder] = cursor
+			if entry.state == cErrorState {
+				it.skippedSincePoll++
+				if it.skippedSincePoll == 64 {
+					it.skippedSincePoll = 0
+					return 0, cStackSummaryEntry{}, cRecoverElectionIterPoll
+				}
+				continue
+			}
+			state := int(entry.state)
+			if state < 0 || state >= len(s.stateStamp) {
+				// The C-recovery capability gate proves every generated shift and
+				// goto target is below Language.StateCount, and summaries contain
+				// only those stack states. Keep unsupported hand-built tables safe
+				// without allocating inside the election; their out-of-range state
+				// simply cannot participate in dense dedupe.
+				it.skippedSincePoll = 0
+				return mi, entry, cRecoverElectionIterCandidate
+			}
+			if s.stateStamp[state] == s.epoch {
+				it.skippedSincePoll++
+				if it.skippedSincePoll == 64 {
+					it.skippedSincePoll = 0
+					return 0, cStackSummaryEntry{}, cRecoverElectionIterPoll
+				}
+				continue
+			}
+			s.stateStamp[state] = s.epoch
+			it.skippedSincePoll = 0
+			return mi, entry, cRecoverElectionIterCandidate
+		}
+		s.cursors[memberOrder] = cursor
+		it.member++
+	}
+	return 0, cStackSummaryEntry{}, cRecoverElectionIterExhausted
+}
+
 // cRecGroup coordinates the absorbing stacks that map to C's ONE merged
 // error-state version. C ts_parser__handle_error pushes the NULL discontinuity
 // onto every do_all_potential_reductions result and merges them into a single
@@ -3051,7 +3213,23 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 	if tok.Symbol == 0 && tok.StartByte != tok.EndByte {
 		return false, false, ParseStopNone
 	}
-	var members []int
+	var localElectionScratch cRecoverElectionScratch
+	electionScratch := &localElectionScratch
+	var electionScratchBytes int64
+	if gssScratch != nil {
+		electionScratch = &gssScratch.recoveryElection
+		electionScratchBytes = electionScratch.allocatedBytes()
+	}
+	stateCount := 0
+	if p != nil && p.language != nil {
+		stateCount = int(p.language.StateCount)
+	}
+	electionScratch.prepare(len(*stacks), stateCount)
+	if gssScratch != nil {
+		gssScratch.allocatedBytes += electionScratch.allocatedBytes() - electionScratchBytes
+		electionScratchBytes = electionScratch.allocatedBytes()
+	}
+	members := electionScratch.members
 	for i := range *stacks {
 		if i&63 == 0 {
 			if reason := checkStop(); reason != ParseStopNone {
@@ -3062,8 +3240,16 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 			members = append(members, i)
 		}
 	}
+	electionScratch.members = members
 	if len(members) == 0 {
 		return false, false, ParseStopNone
+	}
+	electionScratch.prepareMemberCursors(len(members))
+	if gssScratch != nil {
+		gssScratch.allocatedBytes += electionScratch.allocatedBytes() - electionScratchBytes
+	}
+	if reason := checkStop(); reason != ParseStopNone {
+		return false, false, reason
 	}
 	cSortRecoverMembersByGroupOrder((*stacks), members)
 	// C computes position, error cost and node-count-since-error once for the
@@ -3085,85 +3271,73 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 		// C skips strategy 1 for error-subtree lookaheads.
 		return false, false, ParseStopNone
 	}
-	type seenKey struct {
-		depth int
-		state StateID
-	}
-	seen := make(map[seenKey]bool, 16)
 	for d := 0; d <= cRecoverMaxSummaryDepth+1; d++ {
 		if reason := checkStop(); reason != ParseStopNone {
 			return false, false, reason
 		}
-		for _, mi := range members {
-			if reason := checkStop(); reason != ParseStopNone {
-				return false, false, reason
+		iter := electionScratch.beginDepth(d)
+		for {
+			mi, entry, status := iter.next(*stacks)
+			if status == cRecoverElectionIterExhausted {
+				break
 			}
-			for _, entry := range (*stacks)[mi].cRec.summary {
-				if len(seen)&63 == 0 {
-					if reason := checkStop(); reason != ParseStopNone {
-						return false, false, reason
-					}
-				}
-				if entry.depth != d {
-					continue
-				}
-				if entry.state == cErrorState {
-					continue
-				}
-				key := seenKey{depth: entry.depth, state: entry.state}
-				if seen[key] {
-					continue
-				}
-				seen[key] = true
-				if entry.posBytes == pos {
-					continue
-				}
-				depth := entry.depth + depthBump
-				// Do not recover in ways that create redundant stack versions.
-				wouldMerge := false
-				for i := range *stacks {
-					if (*stacks)[i].dead || (*stacks)[i].accepted {
-						continue
-					}
-					if (*stacks)[i].top().state == entry.state && (*stacks)[i].byteOffset == pos {
-						wouldMerge = true
-						break
-					}
-				}
-				if wouldMerge {
-					continue
-				}
-				// C: the cost check runs for every surviving entry — BEFORE
-				// the lookahead-validity check — and a better version aborts
-				// the entire scan (parser.c `break`), falling through to
-				// strategy 2.
-				newCost := curCost +
-					uint32(entry.depth)*cErrCostPerSkippedTree +
-					(pos-entry.posBytes)*cErrCostPerSkippedChar +
-					(curRow-entry.posRow)*cErrCostPerSkippedLine
-				if p.cBetterVersionExists(*stacks, m0, false, newCost) {
-					return false, false, ParseStopNone
-				}
-				if p.lookupActionIndex(entry.state, electionSym) == 0 {
-					continue
-				}
+			if status == cRecoverElectionIterPoll {
 				if reason := checkStop(); reason != ParseStopNone {
 					return false, false, reason
 				}
-				if fork, ok := p.cRecoverToState(&(*stacks)[mi], depth, entry.state, arena, entryScratch, gssScratch, trackChildErrors); ok {
-					if reason := checkStop(); reason != ParseStopNone {
-						return false, false, reason
-					}
-					fork.branchOrder = (*stacks)[mi].branchOrder
-					*stacks = append(*stacks, fork)
-					if nodeCount != nil {
-						*nodeCount = *nodeCount + 1
-					}
-					if p.glrTrace {
-						traceCRecoverToState(entry.state, depth)
-					}
-					return true, true, ParseStopNone
+				continue
+			}
+			if reason := checkStop(); reason != ParseStopNone {
+				return false, false, reason
+			}
+			if entry.posBytes == pos {
+				continue
+			}
+			depth := entry.depth + depthBump
+			// Do not recover in ways that create redundant stack versions.
+			wouldMerge := false
+			for i := range *stacks {
+				if (*stacks)[i].dead || (*stacks)[i].accepted {
+					continue
 				}
+				if (*stacks)[i].top().state == entry.state && (*stacks)[i].byteOffset == pos {
+					wouldMerge = true
+					break
+				}
+			}
+			if wouldMerge {
+				continue
+			}
+			// C: the cost check runs for every surviving entry — BEFORE
+			// the lookahead-validity check — and a better version aborts
+			// the entire scan (parser.c `break`), falling through to
+			// strategy 2.
+			newCost := curCost +
+				uint32(entry.depth)*cErrCostPerSkippedTree +
+				(pos-entry.posBytes)*cErrCostPerSkippedChar +
+				(curRow-entry.posRow)*cErrCostPerSkippedLine
+			if p.cBetterVersionExists(*stacks, m0, false, newCost) {
+				return false, false, ParseStopNone
+			}
+			if p.lookupActionIndex(entry.state, electionSym) == 0 {
+				continue
+			}
+			if reason := checkStop(); reason != ParseStopNone {
+				return false, false, reason
+			}
+			if fork, ok := p.cRecoverToState(&(*stacks)[mi], depth, entry.state, arena, entryScratch, gssScratch, trackChildErrors); ok {
+				if reason := checkStop(); reason != ParseStopNone {
+					return false, false, reason
+				}
+				fork.branchOrder = (*stacks)[mi].branchOrder
+				*stacks = append(*stacks, fork)
+				if nodeCount != nil {
+					*nodeCount = *nodeCount + 1
+				}
+				if p.glrTrace {
+					traceCRecoverToState(entry.state, depth)
+				}
+				return true, true, ParseStopNone
 			}
 		}
 	}

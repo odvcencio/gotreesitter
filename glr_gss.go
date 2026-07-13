@@ -131,6 +131,7 @@ type gssScratch struct {
 	nodesDemoted      uint64
 	audit             *runtimeAudit
 	frontier          conflictReduceFrontierScratch
+	recoveryElection  cRecoverElectionScratch
 	stackEntries      []stackEntry
 	// everForked latches true the first time this parse observes more than
 	// one live GLR stack (see the singleStackMode writers in parser.go, and
@@ -607,6 +608,7 @@ func (s *gssScratch) recycleForParse() {
 }
 
 func (s *gssScratch) reset() {
+	s.recoveryElection.resetForRelease()
 	if cap(s.stackEntries) > maxRetainedGSSStackEntries {
 		s.stackEntries = nil
 	} else if cap(s.stackEntries) > 0 {
@@ -622,7 +624,7 @@ func (s *gssScratch) reset() {
 		s.nodesDemoted = 0
 		s.skipClear = false
 		s.peakUsed = 0
-		s.allocatedBytes = s.frontier.allocatedBytes() + stackEntryBytesForCap(cap(s.stackEntries))
+		s.allocatedBytes = s.frontier.allocatedBytes() + s.recoveryElection.allocatedBytes() + stackEntryBytesForCap(cap(s.stackEntries))
 		s.audit = nil
 		return
 	}
@@ -726,6 +728,7 @@ func (s *gssScratch) recomputeAllocatedBytes() {
 		total += gssNodeBytesForCap(len(s.slabs[i].data))
 	}
 	total += s.frontier.allocatedBytes()
+	total += s.recoveryElection.allocatedBytes()
 	total += stackEntryBytesForCap(cap(s.stackEntries))
 	s.allocatedBytes = total
 }
