@@ -302,13 +302,19 @@ func preferRetryTree(p *Parser, candidate, incumbent *Tree) bool {
 	if treeParseClean(incumbent) {
 		return false
 	}
+	incRT := incumbent.parseRuntimeReadOnly()
+	if incRT.StopReason == ParseStopAccepted && candidate.ParseStoppedEarly() {
+		// A retry that stopped before acceptance is not a complete C-style
+		// selection candidate. Keep the accepted incumbent even when the
+		// provisional retry reached farther or reports a lower error cost.
+		return false
+	}
 	candEnd := retryTreeEndByte(candidate)
 	incEnd := retryTreeEndByte(incumbent)
 	if candEnd != incEnd {
 		return candEnd > incEnd
 	}
 	candRT := candidate.parseRuntimeReadOnly()
-	incRT := incumbent.parseRuntimeReadOnly()
 	if candRT.Truncated != incRT.Truncated {
 		return !candRT.Truncated
 	}

@@ -1816,6 +1816,88 @@ func TestPreferRetryTreePrefersFewerChildrenOnEqualErrorTrees(t *testing.T) {
 	}
 }
 
+func TestPreferRetryTreeKeepsAcceptedIncumbentOverStoppedCandidate(t *testing.T) {
+	tests := []struct {
+		name         string
+		incumbentEnd uint32
+	}{
+		{name: "equal span with fewer children", incumbentEnd: 200},
+		{name: "farther provisional progress", incumbentEnd: 180},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			incumbent := &Tree{
+				root: &Node{
+					endByte:  tt.incumbentEnd,
+					flags:    nodeFlagHasError,
+					children: make([]*Node, 12),
+				},
+				parseRuntime: ParseRuntime{
+					StopReason:      ParseStopAccepted,
+					ExpectedEOFByte: 200,
+				},
+			}
+			candidate := &Tree{
+				root: &Node{
+					endByte:  200,
+					flags:    nodeFlagHasError,
+					children: make([]*Node, 2),
+				},
+				parseRuntime: ParseRuntime{
+					StopReason:      ParseStopTimeout,
+					ExpectedEOFByte: 200,
+				},
+			}
+
+			if preferRetryTree(nil, candidate, incumbent) {
+				t.Fatal("preferRetryTree = true, want false for interrupted retry against accepted incumbent")
+			}
+		})
+	}
+}
+
+func TestPreferRetryTreeStoppedCandidateCanBeatStoppedIncumbent(t *testing.T) {
+	incumbent := &Tree{
+		root: &Node{endByte: 180, flags: nodeFlagHasError},
+		parseRuntime: ParseRuntime{
+			StopReason:      ParseStopMemoryBudget,
+			ExpectedEOFByte: 200,
+		},
+	}
+	candidate := &Tree{
+		root: &Node{endByte: 200, flags: nodeFlagHasError},
+		parseRuntime: ParseRuntime{
+			StopReason:      ParseStopTimeout,
+			ExpectedEOFByte: 200,
+		},
+	}
+
+	if !preferRetryTree(nil, candidate, incumbent) {
+		t.Fatal("preferRetryTree = false, want farther stopped candidate over stopped incumbent")
+	}
+}
+
+func TestPreferRetryTreeAcceptedCandidateCanBeatStoppedIncumbent(t *testing.T) {
+	incumbent := &Tree{
+		root: &Node{endByte: 200, flags: nodeFlagHasError},
+		parseRuntime: ParseRuntime{
+			StopReason:      ParseStopTimeout,
+			ExpectedEOFByte: 200,
+		},
+	}
+	candidate := &Tree{
+		root: &Node{endByte: 200, flags: nodeFlagHasError},
+		parseRuntime: ParseRuntime{
+			StopReason:      ParseStopAccepted,
+			ExpectedEOFByte: 200,
+		},
+	}
+
+	if !preferRetryTree(nil, candidate, incumbent) {
+		t.Fatal("preferRetryTree = false, want accepted candidate over stopped incumbent")
+	}
+}
+
 func TestGLRStackCullTrigger(t *testing.T) {
 	if got := glrStackCullTrigger(8, arenaClassFull, "go"); got != 12 {
 		t.Fatalf("glrStackCullTrigger(full, go) = %d, want 12", got)
