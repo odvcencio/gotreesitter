@@ -170,11 +170,15 @@ Reduction requires exactly one scoreboard for every locked language. It
 rejects missing or duplicate languages, schema or measurement-config drift,
 corpus-lock drift, path exclusions, contended runs, mixed or absent repository
 revisions, dirty source trees, mixed host/runtime identities, contradictory or
-malformed file classifications, and absent or stale shard hard gates. A stored
-shard gate may be either PASS or FAIL, but it must exactly equal the gate
-recomputed from that shard's evidence. Ratio cliffs, parser stops, missing
-ratios, and partial or zero file coverage are valid failure evidence and remain
-visible in the combined FAIL board. A host identity includes hostname,
+malformed file classifications, pre-existing reduction provenance, and absent
+or stale shard hard gates. Raw one-language measurement shards must not contain
+a `reduction` object. A stored shard gate may be either PASS or FAIL, but it
+must exactly equal the gate recomputed from that shard's evidence after
+canonical ordering. Published `failures` and `fast_full_files` are sorted by
+their complete finding and stop attribution, so Go map iteration order cannot
+change an authenticated gate or combined artifact. Ratio cliffs, parser stops,
+missing ratios, and partial or zero file coverage are valid failure evidence
+and remain visible in the combined FAIL board. A host identity includes hostname,
 GOOS/GOARCH, CPU count, `GOMAXPROCS`, and Go version; both start and end load
 averages must remain below the contention threshold. The
 only permitted per-shard config differences are the one-element `languages`
@@ -183,8 +187,11 @@ full lock language list with `require_fleet=true`. The reducer recomputes every
 language aggregate, verdict summary, fleet clean/error split, coverage record,
 and the full hard gate before writing authoritative JSON and Markdown. The
 reducer execution is authenticated independently: its checkout/build must be
-clean and at the same revision recorded by every shard, so one runtime version
-cannot silently reinterpret another version's evidence.
+clean, but it may be a later revision than the immutable measurement revision
+recorded by every shard. The combined board preserves the shard
+`git_revision`/`git_clean` fields as measurement provenance and adds a
+`reduction` object containing the reducer's `git_revision` and `git_clean`
+attestation; Markdown renders both revisions explicitly.
 
 `GTS_PERF_SCAN_REDUCE_MODE=report` writes the recomputed PASS or FAIL board and
 returns success after evidence authentication. `certify` is the default; it
@@ -380,11 +387,11 @@ Older `gts-perf-scan/v1` scoreboards still decode. They predate structured
 stops, corpus coverage, and the embedded hard-gate report, so use
 `-strict-config=false` only for historical analysis; they cannot establish a
 new hard-gate pass. `cmd/perf_scan_status` labels them `not_evaluated`.
-The clean/error and repository-revision fields are optional additions to the
-same v1 schema: readers must continue to accept rows without `classification`,
-`full_parse_split`, or `git_revision`, and current Go decoders do so. The
-authoritative shard reducer applies a stronger provenance policy after decoding
-and rejects revisionless inputs.
+The clean/error, repository-revision, and reduction-provenance fields are
+optional additions to the same v1 schema: readers must continue to accept rows
+without `classification`, `full_parse_split`, `git_revision`, or `reduction`,
+and current Go decoders do so. The authoritative shard reducer applies a
+stronger provenance policy after decoding and rejects revisionless inputs.
 
 ## Phase 2 (documented, not built)
 

@@ -4,8 +4,9 @@ package cgoharness
 
 // This file contains the merge-only fleet reducer for independently produced
 // one-language perf-scan scoreboards. It intentionally lives beside the scan
-// harness so reduction uses the exact scoreboard, aggregation, rendering, and
-// hard-gate implementation that produced the shards.
+// harness so reduction shares its scoreboard, aggregation, rendering, and
+// hard-gate implementation. Measurement and clean reducer revisions are
+// authenticated separately so historical shards can be reduced by a later fix.
 
 import (
 	"encoding/json"
@@ -88,7 +89,7 @@ func TestPerfScanReduce(t *testing.T) {
 	if err := perfScanPublishReducedScoreboard(absOut, board, reduceMode); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("reduced %d authenticated shard scoreboards at %s", len(board.Languages), board.GitRevision)
+	t.Logf("reduced %d authenticated shard scoreboards measured at %s with reducer %s", len(board.Languages), board.GitRevision, board.Reduction.GitRevision)
 	t.Logf("reducer mode: %s; hard gate: %s", reduceMode, strings.ToUpper(board.Gate.Status))
 	t.Logf("scoreboard: %s", filepath.Join(absOut, "scoreboard.json"))
 	t.Logf("scoreboard: %s", filepath.Join(absOut, "scoreboard.md"))
@@ -144,9 +145,7 @@ func perfScanAuthenticateReducer(board *perfScanScoreboard, provenance perfScanR
 	if err != nil {
 		return fmt.Errorf("reducer execution revision: %w", err)
 	}
-	if revision != board.GitRevision {
-		return fmt.Errorf("reducer execution revision %s differs from shard revision %s", revision, board.GitRevision)
-	}
+	board.Reduction = &perfScanReductionProvenance{GitRevision: revision, GitClean: true}
 	return nil
 }
 
@@ -228,6 +227,9 @@ func perfScanReduceScoreboards(paths []string, lockPath, lockSHA string, lockLan
 		if shard.Schema != perfScanSchema {
 			return nil, fmt.Errorf("shard %s schema %q, want %q", shardPath, shard.Schema, perfScanSchema)
 		}
+		if shard.Reduction != nil {
+			return nil, fmt.Errorf("shard %s contains reduction provenance; expected raw one-language measurement evidence", shardPath)
+		}
 		shardRevision, err := perfScanNormalizeRevision(shard.GitRevision)
 		if err != nil {
 			return nil, fmt.Errorf("shard %s git revision: %w", shardPath, err)
@@ -307,14 +309,15 @@ func perfScanReduceScoreboards(paths []string, lockPath, lockSHA string, lockLan
 			return nil, fmt.Errorf("shard %s host identity differs from earlier shards", shardPath)
 		}
 
-		recomputedGate := perfScanEvaluateHardGate(shard)
+		recomputedGate := perfScanCanonicalizeGateReport(perfScanEvaluateHardGate(shard))
 		if shard.Gate == nil {
 			return nil, fmt.Errorf("shard %s has no stored hard gate", shardPath)
 		}
 		if shard.Gate.Status != perfScanGatePass && shard.Gate.Status != perfScanGateFail {
 			return nil, fmt.Errorf("shard %s stored hard gate has unknown status %q", shardPath, shard.Gate.Status)
 		}
-		if !reflect.DeepEqual(*shard.Gate, recomputedGate) {
+		storedGate := perfScanCanonicalizeGateReport(*shard.Gate)
+		if !reflect.DeepEqual(storedGate, recomputedGate) {
 			return nil, fmt.Errorf("shard %s stored hard gate is stale or contradicts its file evidence", shardPath)
 		}
 		rowsByLang[lang] = row
@@ -554,11 +557,92 @@ func TestPerfScanReduceScoreboards(t *testing.T) {
 		if board.Gate == nil || board.Gate.Status != perfScanGatePass || board.Gate.FullFilesEvaluated != 2 {
 			t.Fatalf("gate = %+v", board.Gate)
 		}
+		if board.Reduction != nil {
+			t.Fatalf("pure reduction unexpectedly recorded execution provenance: %+v", board.Reduction)
+		}
 		markdown := perfScanRenderMarkdown(board)
 		for _, want := range []string{"git revision", "Fleet full-parse clean/error split", "2/2"} {
 			if !strings.Contains(markdown, want) {
 				t.Fatalf("markdown missing %q:\n%s", want, markdown)
 			}
+		}
+	})
+
+	t.Run("gate evidence is independent of axis insertion order", func(t *testing.T) {
+		setStoppedAxes := func(shard *perfScanScoreboard, order []string) {
+			file := shard.Languages[0].Files[0]
+			file.Classification = &perfScanFileClassification{
+				Class:        perfScanClassStopped,
+				Reason:       "Go parser stopped before accepting the full source",
+				GoStatus:     "go_timeout",
+				StoppedEarly: true,
+				StopReason:   perfScanStopParserTimeout,
+			}
+			file.Axes = make(map[string]*perfScanFileAxis, len(order))
+			for _, axis := range order {
+				file.Axes[axis] = &perfScanFileAxis{
+					Status: "go_timeout",
+					Detail: "parser timeout on " + axis,
+					Stop: &perfScanStop{
+						Class:          perfScanStopParserTimeout,
+						Reason:         perfScanStopParserTimeout,
+						Implementation: "go",
+						Phase:          "timed",
+					},
+				}
+			}
+		}
+
+		forward := perfScanTestShard("python", lockPath, lockSHA, len(lockLanguages), revision)
+		reverse := perfScanTestShard("python", lockPath, lockSHA, len(lockLanguages), revision)
+		setStoppedAxes(forward, []string{perfScanAxisFull, perfScanAxisNoEdit})
+		setStoppedAxes(reverse, []string{perfScanAxisNoEdit, perfScanAxisFull})
+		forwardGate := perfScanEvaluateHardGate(forward)
+		reverseGate := perfScanEvaluateHardGate(reverse)
+		if !reflect.DeepEqual(forwardGate, reverseGate) {
+			t.Fatalf("opposite axis insertion orders differ:\nforward=%+v\nreverse=%+v", forwardGate, reverseGate)
+		}
+
+		makeFastBoard := func(order []string) *perfScanScoreboard {
+			board := &perfScanScoreboard{}
+			for _, lang := range order {
+				row := perfScanTestShard(lang, lockPath, lockSHA, len(lockLanguages), revision).Languages[0]
+				full := row.Files[0].Axes[perfScanAxisFull]
+				full.GoMedianNs = 100
+				full.CMedianNs = 1_000
+				board.Languages = append(board.Languages, row)
+			}
+			return board
+		}
+		forwardFast := perfScanEvaluateHardGate(makeFastBoard([]string{"go", "python"}))
+		reverseFast := perfScanEvaluateHardGate(makeFastBoard([]string{"python", "go"}))
+		if !reflect.DeepEqual(forwardFast, reverseFast) {
+			t.Fatalf("opposite language orders differ:\nforward=%+v\nreverse=%+v", forwardFast, reverseFast)
+		}
+		if got := []string{forwardFast.FastFullFiles[0].Language, forwardFast.FastFullFiles[1].Language}; !reflect.DeepEqual(got, lockLanguages) {
+			t.Fatalf("canonical fast languages = %v, want %v", got, lockLanguages)
+		}
+
+		paths := makeInputs(t, func(_ *perfScanScoreboard, pythonShard *perfScanScoreboard) {
+			setStoppedAxes(pythonShard, []string{perfScanAxisNoEdit, perfScanAxisFull})
+			gate := perfScanEvaluateHardGate(pythonShard)
+			for left, right := 0, len(gate.Failures)-1; left < right; left, right = left+1, right-1 {
+				gate.Failures[left], gate.Failures[right] = gate.Failures[right], gate.Failures[left]
+			}
+			pythonShard.Gate = &gate
+		})
+		board, err := reduce(paths)
+		if err != nil {
+			t.Fatalf("reduce semantically identical gate evidence: %v", err)
+		}
+		var axes []string
+		for _, finding := range board.Gate.Failures {
+			if finding.Language == "python" && finding.Kind == "go_stop" {
+				axes = append(axes, finding.Axis)
+			}
+		}
+		if want := []string{perfScanAxisFull, perfScanAxisNoEdit}; !reflect.DeepEqual(axes, want) {
+			t.Fatalf("canonical stopped axes = %v, want %v", axes, want)
 		}
 	})
 
@@ -677,6 +761,16 @@ func TestPerfScanReduceScoreboards(t *testing.T) {
 				pythonShard.Schema = "gts-perf-scan/v0"
 			},
 			want: "schema",
+		},
+		{
+			name: "chained reduction provenance",
+			mutate: func(_, pythonShard *perfScanScoreboard) {
+				pythonShard.Reduction = &perfScanReductionProvenance{
+					GitRevision: strings.Repeat("b", 40),
+					GitClean:    true,
+				}
+			},
+			want: "contains reduction provenance",
 		},
 		{
 			name: "config mismatch",
@@ -940,16 +1034,49 @@ func TestPerfScanRepositoryProvenancePolicy(t *testing.T) {
 }
 
 func TestPerfScanAuthenticateReducer(t *testing.T) {
-	revision := strings.Repeat("a", 40)
-	board := &perfScanScoreboard{GitRevision: revision, GitClean: true}
-	if err := perfScanAuthenticateReducer(board, perfScanRepositoryState{Revision: revision, Clean: true}); err != nil {
+	measurementRevision := strings.Repeat("a", 40)
+	reducerRevision := strings.Repeat("b", 40)
+	board := &perfScanScoreboard{GitRevision: measurementRevision, GitClean: true}
+	if err := perfScanAuthenticateReducer(board, perfScanRepositoryState{Revision: reducerRevision, Clean: true}); err != nil {
+		t.Fatalf("different clean reducer provenance: %v", err)
+	}
+	if board.GitRevision != measurementRevision || !board.GitClean {
+		t.Fatalf("measurement provenance changed: %+v", board)
+	}
+	if board.Reduction == nil || board.Reduction.GitRevision != reducerRevision || !board.Reduction.GitClean {
+		t.Fatalf("recorded reducer provenance = %+v", board.Reduction)
+	}
+	markdown := perfScanRenderMarkdown(board)
+	for _, want := range []string{
+		"measurement git revision: `" + measurementRevision + "`",
+		"reducer git revision: `" + reducerRevision + "`",
+	} {
+		if !strings.Contains(markdown, want) {
+			t.Fatalf("reduced markdown missing %q:\n%s", want, markdown)
+		}
+	}
+
+	board = &perfScanScoreboard{GitRevision: measurementRevision, GitClean: true}
+	if err := perfScanAuthenticateReducer(board, perfScanRepositoryState{Revision: measurementRevision, Clean: true}); err != nil {
 		t.Fatalf("matching reducer provenance: %v", err)
 	}
-	if err := perfScanAuthenticateReducer(board, perfScanRepositoryState{Revision: strings.Repeat("b", 40), Clean: true}); err == nil || !strings.Contains(err.Error(), "differs from shard") {
-		t.Fatalf("mismatched reducer provenance error = %v", err)
+	if board.Reduction == nil || board.Reduction.GitRevision != measurementRevision || !board.Reduction.GitClean {
+		t.Fatalf("matching recorded reducer provenance = %+v", board.Reduction)
 	}
-	if err := perfScanAuthenticateReducer(board, perfScanRepositoryState{Revision: revision, Clean: false}); err == nil || !strings.Contains(err.Error(), "clean repository") {
+
+	board = &perfScanScoreboard{GitRevision: measurementRevision, GitClean: true}
+	if err := perfScanAuthenticateReducer(board, perfScanRepositoryState{Revision: reducerRevision, Clean: false}); err == nil || !strings.Contains(err.Error(), "clean repository") {
 		t.Fatalf("dirty reducer provenance error = %v", err)
+	}
+	if board.Reduction != nil {
+		t.Fatalf("dirty reducer recorded provenance: %+v", board.Reduction)
+	}
+
+	if err := perfScanAuthenticateReducer(board, perfScanRepositoryState{Revision: "not-a-revision", Clean: true}); err == nil || !strings.Contains(err.Error(), "reducer execution revision") {
+		t.Fatalf("invalid reducer provenance error = %v", err)
+	}
+	if board.Reduction != nil {
+		t.Fatalf("invalid reducer recorded provenance: %+v", board.Reduction)
 	}
 }
 
@@ -1070,6 +1197,13 @@ func TestPerfScanScoreboardAtomicWrite(t *testing.T) {
 	}
 	if decoded.GitRevision != revision || !decoded.GitClean || len(decoded.Languages) != 1 {
 		t.Fatalf("round-trip scoreboard = %+v", decoded)
+	}
+	if decoded.Reduction != nil {
+		t.Fatalf("unreduced shard recorded reducer provenance: %+v", decoded.Reduction)
+	}
+	jsonData, err := os.ReadFile(filepath.Join(outDir, "scoreboard.json"))
+	if err != nil || strings.Contains(string(jsonData), `"reduction"`) {
+		t.Fatalf("unreduced shard JSON contains reduction provenance: %v %s", err, jsonData)
 	}
 	markdown, err := os.ReadFile(filepath.Join(outDir, "scoreboard.md"))
 	if err != nil || !strings.Contains(string(markdown), revision) {

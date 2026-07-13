@@ -38,6 +38,7 @@ package cgoharness
 // See perf_scan/README.md for the full knob reference.
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -293,19 +294,25 @@ type perfScanGateReport struct {
 	Failures           []perfScanGateFinding `json:"failures,omitempty"`
 }
 
+type perfScanReductionProvenance struct {
+	GitRevision string `json:"git_revision"`
+	GitClean    bool   `json:"git_clean"`
+}
+
 type perfScanScoreboard struct {
-	Schema         string                   `json:"schema"`
-	GeneratedAt    string                   `json:"generated_at"`
-	GitRevision    string                   `json:"git_revision,omitempty"`
-	GitClean       bool                     `json:"git_clean"`
-	Host           perfScanHost             `json:"host"`
-	Config         perfScanConfig           `json:"config"`
-	Notes          []string                 `json:"notes,omitempty"`
-	Summary        map[string]int           `json:"summary_verdicts"`
-	Languages      []*perfScanLanguage      `json:"languages"`
-	FullParseSplit *perfScanCleanErrorSplit `json:"full_parse_split,omitempty"`
-	Corpus         perfScanCorpusCoverage   `json:"corpus_coverage"`
-	Gate           *perfScanGateReport      `json:"hard_gate,omitempty"`
+	Schema         string                       `json:"schema"`
+	GeneratedAt    string                       `json:"generated_at"`
+	GitRevision    string                       `json:"git_revision,omitempty"`
+	GitClean       bool                         `json:"git_clean"`
+	Host           perfScanHost                 `json:"host"`
+	Config         perfScanConfig               `json:"config"`
+	Notes          []string                     `json:"notes,omitempty"`
+	Summary        map[string]int               `json:"summary_verdicts"`
+	Languages      []*perfScanLanguage          `json:"languages"`
+	FullParseSplit *perfScanCleanErrorSplit     `json:"full_parse_split,omitempty"`
+	Corpus         perfScanCorpusCoverage       `json:"corpus_coverage"`
+	Gate           *perfScanGateReport          `json:"hard_gate,omitempty"`
+	Reduction      *perfScanReductionProvenance `json:"reduction,omitempty"`
 }
 
 func perfScanGateEnabled() bool {
@@ -790,6 +797,68 @@ func perfScanIsGoStop(stop *perfScanStop) bool {
 	return stop != nil && stop.Implementation == "go"
 }
 
+func perfScanCanonicalizeGateReport(report perfScanGateReport) perfScanGateReport {
+	report.FastFullFiles = append([]perfScanGateFinding(nil), report.FastFullFiles...)
+	report.Failures = append([]perfScanGateFinding(nil), report.Failures...)
+	sort.Slice(report.FastFullFiles, func(i, j int) bool {
+		return perfScanCompareGateFinding(report.FastFullFiles[i], report.FastFullFiles[j]) < 0
+	})
+	sort.Slice(report.Failures, func(i, j int) bool {
+		return perfScanCompareGateFinding(report.Failures[i], report.Failures[j]) < 0
+	})
+	return report
+}
+
+func perfScanCompareGateFinding(a, b perfScanGateFinding) int {
+	for _, pair := range [][2]string{
+		{a.Kind, b.Kind},
+		{a.Language, b.Language},
+		{a.Path, b.Path},
+		{a.Axis, b.Axis},
+		{a.Status, b.Status},
+	} {
+		if order := cmp.Compare(pair[0], pair[1]); order != 0 {
+			return order
+		}
+	}
+	if order := cmp.Compare(a.Ratio, b.Ratio); order != 0 {
+		return order
+	}
+	if order := cmp.Compare(a.Limit, b.Limit); order != 0 {
+		return order
+	}
+	if order := perfScanCompareGateStop(a.Stop, b.Stop); order != 0 {
+		return order
+	}
+	return cmp.Compare(a.Detail, b.Detail)
+}
+
+func perfScanCompareGateStop(a, b *perfScanStop) int {
+	if a == nil {
+		if b == nil {
+			return 0
+		}
+		return -1
+	}
+	if b == nil {
+		return 1
+	}
+	for _, pair := range [][2]string{
+		{a.Class, b.Class},
+		{a.Reason, b.Reason},
+		{a.Implementation, b.Implementation},
+		{a.Phase, b.Phase},
+	} {
+		if order := cmp.Compare(pair[0], pair[1]); order != 0 {
+			return order
+		}
+	}
+	if order := cmp.Compare(a.Attempt, b.Attempt); order != 0 {
+		return order
+	}
+	return cmp.Compare(a.Detail, b.Detail)
+}
+
 func perfScanEvaluateHardGate(board *perfScanScoreboard) perfScanGateReport {
 	report := perfScanGateReport{
 		Status:             perfScanGatePass,
@@ -802,7 +871,7 @@ func perfScanEvaluateHardGate(board *perfScanScoreboard) perfScanGateReport {
 	}
 	if board == nil {
 		addFailure(perfScanGateFinding{Kind: "coverage", Detail: "nil scoreboard"})
-		return report
+		return perfScanCanonicalizeGateReport(report)
 	}
 	if len(board.Languages) == 0 {
 		addFailure(perfScanGateFinding{Kind: "coverage", Status: "no_evidence", Detail: "scoreboard contains no language rows"})
@@ -900,7 +969,7 @@ func perfScanEvaluateHardGate(board *perfScanScoreboard) perfScanGateReport {
 	if report.FullFilesEvaluated == 0 {
 		addFailure(perfScanGateFinding{Kind: "coverage", Status: "no_evidence", Detail: "scoreboard contains no evaluated full-parse file ratios"})
 	}
-	return report
+	return perfScanCanonicalizeGateReport(report)
 }
 
 // ---------------------------------------------------------------------------
@@ -2672,8 +2741,12 @@ func perfScanRenderMarkdown(board *perfScanScoreboard) string {
 	fmt.Fprintf(&b, "# Go-vs-C real-corpus perf scoreboard\n\n")
 	fmt.Fprintf(&b, "- schema: `%s` generated: %s\n", board.Schema, board.GeneratedAt)
 	if board.GitRevision != "" {
-		fmt.Fprintf(&b, "- git revision: `%s`\n", board.GitRevision)
-		fmt.Fprintf(&b, "- git worktree clean: `%t`\n", board.GitClean)
+		fmt.Fprintf(&b, "- measurement git revision: `%s`\n", board.GitRevision)
+		fmt.Fprintf(&b, "- measurement git worktree clean: `%t`\n", board.GitClean)
+	}
+	if board.Reduction != nil {
+		fmt.Fprintf(&b, "- reducer git revision: `%s`\n", board.Reduction.GitRevision)
+		fmt.Fprintf(&b, "- reducer git worktree clean: `%t`\n", board.Reduction.GitClean)
 	}
 	fmt.Fprintf(&b, "- host: %s %s/%s cpus=%d gomaxprocs=%d %s\n",
 		board.Host.Hostname, board.Host.GOOS, board.Host.GOARCH, board.Host.NumCPU, board.Host.GOMAXPROCS, board.Host.GoVersion)

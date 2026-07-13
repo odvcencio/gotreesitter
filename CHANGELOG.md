@@ -22,6 +22,13 @@ for tags and release notes while still in `0.x`.
   and itembase time by 7.31%, with corresponding allocation reductions and an
   unchanged clean control.
 
+### Fixed
+
+- Fleet scoreboard reduction now canonicalizes hard-gate finding order and
+  records clean reducer provenance separately from immutable measurement
+  provenance, allowing later reducer fixes to authenticate historical shards
+  without weakening tamper checks.
+
 ## [0.34.0] - 2026-07-13
 
 Forest-routing performance and compatibility-hygiene release. Automatic
