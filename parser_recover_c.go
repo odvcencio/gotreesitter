@@ -1877,6 +1877,9 @@ func (p *Parser) cStackErrorCost(s *glrStack) uint32 {
 	if s == nil {
 		return 0
 	}
+	if p != nil && p.mergeScratch.provesNoChildErrors() {
+		return cStackOpenRecoveryCost(s)
+	}
 	var cost uint32
 	if len(s.entries) > 0 {
 		if p != nil && len(p.cNodeMemoCache) != 0 && s.cRec != nil {

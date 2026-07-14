@@ -803,15 +803,18 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 			return false
 		}
 		currentReduceKey := makeReduceKey(reduce)
+		currentReduceEntry := frontier.entry(currentReduceKey, true)
 		appendTerminalFork := func(fork glrStack) {
 			if allocBranchOrder != nil {
 				fork.branchOrder = allocBranchOrder()
 			}
 			p.pendingFrontierForkStacks = append(p.pendingFrontierForkStacks, fork)
-			frontier.add(currentReduceKey, conflictReduceFrontierForked)
+			if currentReduceEntry != nil {
+				currentReduceEntry.flags |= conflictReduceFrontierForked
+			}
 		}
 		terminalAppended := false
-		terminalAlreadyForked := frontier.has(currentReduceKey, conflictReduceFrontierForked)
+		terminalAlreadyForked := currentReduceEntry != nil && currentReduceEntry.flags&conflictReduceFrontierForked != 0
 		skipTerminalFork := seed.skipRepetitionShift && terminal.Type == ParseActionShift && terminal.Repetition
 		if !skipTerminalFork && !terminalAlreadyForked && frontierForkAdmissible() {
 			switch terminal.Type {
@@ -845,14 +848,16 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 				return false
 			}
 		}
-		if frontier.has(currentReduceKey, conflictReduceFrontierSeen) {
+		if currentReduceEntry != nil && currentReduceEntry.flags&conflictReduceFrontierSeen != 0 {
 			if terminalAppended || terminalAlreadyForked {
 				s.dead = true
 				return true
 			}
 			return false
 		}
-		frontier.add(currentReduceKey, conflictReduceFrontierSeen)
+		if currentReduceEntry != nil {
+			currentReduceEntry.flags |= conflictReduceFrontierSeen
+		}
 		p.noteStopActionDiagnostic("conflict-frontier-fork-reduce", s, tok, reduce, len(actions), true, step, 0, false)
 		p.applyReduceActionDispatch(source, s, reduce, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
 		p.noteStopActionResult(s)
@@ -877,10 +882,13 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 		switch act.Type {
 		case ParseActionReduce:
 			key := makeReduceKey(act)
-			if frontier.has(key, conflictReduceFrontierSeen) {
+			entry := frontier.entry(key, true)
+			if entry != nil && entry.flags&conflictReduceFrontierSeen != 0 {
 				return
 			}
-			frontier.add(key, conflictReduceFrontierSeen)
+			if entry != nil {
+				entry.flags |= conflictReduceFrontierSeen
+			}
 			p.noteStopActionDiagnostic("conflict-frontier-reduce", s, tok, act, 1, true, step, 0, false)
 			p.applyReduceActionDispatch(source, s, act, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
 			p.noteStopActionResult(s)

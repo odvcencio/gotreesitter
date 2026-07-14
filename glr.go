@@ -198,6 +198,13 @@ type glrMergeScratch struct {
 	cleanZeroBytes   int64
 	cleanZeroStack   []*gssNode
 	cleanZeroVisited []*gssNode
+	// childErrors points at parseInternal's sticky proof for fresh full parses.
+	// false means no ERROR, MISSING, or has-error payload has been constructed
+	// anywhere in this parse, so every GSS path has zero subtree error cost and
+	// the all-links DFS below is unnecessary. Incremental parses start true and
+	// every recovery insertion flips the value before merge/condense observes
+	// the new payload. reset clears the pointer before this scratch is pooled.
+	childErrors *bool
 	// preflight + mergeSeen are pooled per-scratch so the GSS merge can-phase
 	// stops allocating a preflight object plus several maps per merge attempt
 	// (the dominant profile cost on low-stack GLR grammars like json — maps
@@ -226,6 +233,10 @@ type glrMergeScratch struct {
 	// at the top of every mergeStacksWithScratch call so a stale flag from a
 	// previous merge in the same pooled scratch can never leak forward.
 	mergeBudgetStopReason ParseStopReason
+}
+
+func (s *glrMergeScratch) provesNoChildErrors() bool {
+	return s != nil && s.childErrors != nil && !*s.childErrors
 }
 
 type glrCErrorCostEntry struct {
@@ -1967,6 +1978,9 @@ func cStackCleanZeroErrorCostForMerge(scratch *glrMergeScratch, s *glrStack) (ui
 	if s == nil {
 		return 0, true
 	}
+	if scratch.provesNoChildErrors() {
+		return cStackOpenRecoveryCost(s), true
+	}
 	if scratch == nil || len(s.entries) != 0 || s.gss.head == nil {
 		return 0, false
 	}
@@ -3325,6 +3339,9 @@ func gssLinkByteOffset(prev *gssNode, entry stackEntry, seen map[*gssNode]bool) 
 
 func gssNodeCleanZeroErrorAllLinksWithScratch(scratch *glrMergeScratch, n *gssNode) bool {
 	if n == nil {
+		return true
+	}
+	if scratch.provesNoChildErrors() {
 		return true
 	}
 	var local glrMergeScratch
@@ -5265,6 +5282,7 @@ func (s *glrMergeScratch) reset() {
 		s.cleanZeroVisited = s.cleanZeroVisited[:0]
 	}
 	s.cleanZeroScan = 0
+	s.childErrors = nil
 	s.perKeyCap = 0
 	s.language = nil
 	s.arena = nil

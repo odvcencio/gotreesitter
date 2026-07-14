@@ -38,6 +38,22 @@ func TestCVersionStatusAddsPausedSkippedTreeCost(t *testing.T) {
 	}
 }
 
+func TestCStackErrorCostFreshParseProofFallsBackAfterError(t *testing.T) {
+	childErrors := false
+	parser := &Parser{mergeScratch: &glrMergeScratch{childErrors: &childErrors}}
+	errorNode := NewLeafNode(errorSymbol, true, 0, 1, Point{}, Point{Column: 1})
+	errorNode.setHasError(true)
+	stack := glrStack{entries: []stackEntry{newStackEntryNode(2, errorNode)}}
+
+	if got := parser.cStackErrorCost(&stack); got != 0 {
+		t.Fatalf("fresh full-parse proof cost = %d, want 0", got)
+	}
+	childErrors = true
+	if got := parser.cStackErrorCost(&stack); got == 0 {
+		t.Fatal("error cost remained zero after the proof was invalidated")
+	}
+}
+
 func TestCCondenseFreshTreeGatePreservesOpenRecoveryCosts(t *testing.T) {
 	parser := &Parser{language: &Language{SymbolMetadata: []SymbolMetadata{{}, {Visible: true}}}}
 	open := &Node{symbol: errorSymbol}

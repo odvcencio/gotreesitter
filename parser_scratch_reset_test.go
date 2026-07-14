@@ -7,6 +7,8 @@ import (
 
 func TestGLRMergeScratchResetInvalidatesEquivCacheByEpoch(t *testing.T) {
 	var scratch glrMergeScratch
+	childErrors := false
+	scratch.childErrors = &childErrors
 	scratch.beginEquivEpoch()
 
 	a := &Node{symbol: 1, startByte: 1, endByte: 2, equivVersion: 1}
@@ -18,6 +20,9 @@ func TestGLRMergeScratchResetInvalidatesEquivCacheByEpoch(t *testing.T) {
 
 	before := scratch.equivEpoch
 	scratch.reset()
+	if scratch.childErrors != nil {
+		t.Fatal("reset retained fresh-parse child-error proof pointer")
+	}
 	scratch.beginEquivEpoch()
 	if scratch.equivEpoch == before {
 		t.Fatalf("equiv epoch did not advance after reset: %d", before)

@@ -3798,6 +3798,50 @@ func TestGSSCleanZeroAllLinksRejectsErrorBearingPackedPredecessor(t *testing.T) 
 	}
 }
 
+func TestGSSCleanZeroAllLinksFreshParseProofFallsBackAfterError(t *testing.T) {
+	var gssScratch gssScratch
+	childErrors := false
+	mergeScratch := glrMergeScratch{childErrors: &childErrors}
+	mergeScratch.beginEquivEpoch()
+
+	errorEntry := newStackEntryNode(2, NewLeafNode(errorSymbol, true, 0, 1, Point{}, Point{Column: 1}))
+	stackEntryNode(errorEntry).setHasError(true)
+	head := gssScratch.allocNode(errorEntry, nil, 1)
+
+	// parseInternal only exposes the false proof before any error-bearing
+	// payload exists. While it is valid, the hot path must not walk the graph.
+	if !gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head) {
+		t.Fatal("fresh full-parse clean proof did not bypass the GSS walk")
+	}
+	childErrors = true
+	if gssNodeCleanZeroErrorAllLinksWithScratch(&mergeScratch, head) {
+		t.Fatal("clean-zero proof did not fall back after an error was recorded")
+	}
+}
+
+func TestStackCleanZeroErrorCostFreshParseProofCoversContiguousStacks(t *testing.T) {
+	childErrors := false
+	mergeScratch := glrMergeScratch{childErrors: &childErrors}
+	errorNode := NewLeafNode(errorSymbol, true, 0, 1, Point{}, Point{Column: 1})
+	errorNode.setHasError(true)
+	stack := glrStack{
+		entries: []stackEntry{newStackEntryNode(2, errorNode)},
+		cPaused: true,
+	}
+
+	got, ok := cStackCleanZeroErrorCostForMerge(&mergeScratch, &stack)
+	if want := cStackOpenRecoveryCost(&stack); !ok || got != want {
+		t.Fatalf("fresh full-parse cost proof = (%d, %v), want (%d, true)", got, ok, want)
+	}
+	childErrors = true
+	if _, ok := cStackCleanZeroErrorCostForMerge(&mergeScratch, &stack); ok {
+		t.Fatal("clean-zero cost proof did not fall back after an error was recorded")
+	}
+	if got := cStackErrorCostForMergeCached(&mergeScratch, nil, &stack); got <= cStackOpenRecoveryCost(&stack) {
+		t.Fatalf("fallback cost = %d, want child error cost above open recovery cost", got)
+	}
+}
+
 func TestGSSNodesCanMergeAllowsCleanPackedPredecessorLinks(t *testing.T) {
 	var scratch gssScratch
 	base := scratch.allocNode(stackEntry{state: 1}, nil, 1)

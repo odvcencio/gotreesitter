@@ -9,6 +9,17 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Fresh full parses now share the parser's existing no-error-payload proof with
+  GSS merge and C-recovery cost selection, avoiding recursive graph and subtree
+  walks until an `ERROR`, `MISSING`, or inherited error is actually
+  constructed. Paired runs of a 148 KiB clean Java witness improved by 43-47%
+  with unchanged full-span acceptance; isolated Go, Python, and Swift corpus
+  parity remained exact, and incremental/reuse parses retain the conservative
+  path.
+- Conflict-reduction frontiers now reuse one fixed-table lookup when reading
+  and updating the `forked` and `seen` flags for a reduction key. Paired runs
+  of a 707 KiB clean Dart witness improved by a further 6-13%, with fresh and
+  incremental C parity unchanged.
 - Automatic forest dispatch for the exact built-in JavaScript grammar now
   limits the speculative forest phase to 128 MiB while preserving the caller's
   full budget for the production fallback and for explicit forest parsing. A

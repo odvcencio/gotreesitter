@@ -23,6 +23,7 @@ type parserScratch struct {
 	transientParents         transientParentScratch
 	transientCheckpointBytes int64
 	transientCheckpoints     uint64
+	trackChildErrors         bool
 	budgetBytes              int64
 	budgetBaselineBytes      int64
 	gssBaselineBytes         int64
@@ -149,6 +150,7 @@ func releaseParserScratch(s *parserScratch, skipGSSClear bool) {
 	s.transientParents.resetForRelease()
 	s.transientCheckpointBytes = 0
 	s.transientCheckpoints = 0
+	s.trackChildErrors = false
 	s.entries.reset()
 	s.gss.skipClear = skipGSSClear
 	s.gss.audit = nil
