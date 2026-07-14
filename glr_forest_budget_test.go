@@ -57,6 +57,58 @@ func TestEnterForestMemoryBudgetArmsAndRestoresState(t *testing.T) {
 	}
 }
 
+func TestAutomaticForestMemoryBudgetUsesCertifiedProfileAndCaps(t *testing.T) {
+	operationBudget := int64(512 << 20)
+	unprofiled := NewParser(&Language{Name: "javascript"})
+	if got := automaticForestMemoryBudget(unprofiled, operationBudget); got != operationBudget {
+		t.Fatalf("unprofiled allowance = %d, want full budget %d", got, operationBudget)
+	}
+	custom := NewParser(&Language{Name: "custom", WantsForest: true})
+	if got := automaticForestMemoryBudget(custom, operationBudget); got != operationBudget {
+		t.Fatalf("custom WantsForest allowance = %d, want full budget %d", got, operationBudget)
+	}
+	profiled := NewParser(&Language{
+		Name:                                "javascript",
+		AutomaticForestMemoryAllowanceBytes: 128 << 20,
+	})
+	if got := automaticForestMemoryBudget(profiled, operationBudget); got != 128<<20 {
+		t.Fatalf("profiled allowance = %d, want %d", got, 128<<20)
+	}
+	if got := automaticForestMemoryBudget(profiled, 32<<20); got != 32<<20 {
+		t.Fatalf("profiled allowance under smaller operation budget = %d, want %d", got, 32<<20)
+	}
+	if got := automaticForestMemoryBudget(profiled, 0); got != 0 {
+		t.Fatalf("profiled allowance with disabled operation budget = %d, want disabled", got)
+	}
+}
+
+func TestAutomaticForestAllowanceDoesNotChangeExplicitForestBudget(t *testing.T) {
+	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "512")
+	t.Setenv("GOT_PARSE_MEMORY_HARD_CEILING_MB", "0")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+	DrainArenaPools()
+
+	parser := NewParser(loadBlobForDecode(t, "json"))
+	parser.language.AutomaticForestMemoryAllowanceBytes = 128 << 20
+	explicitArena := acquireNodeArena(arenaClassFull)
+	explicitRestore := parser.enterForestMemoryBudget(explicitArena, parseRuntimeMemoryMinSourceBytes)
+	if got, want := explicitArena.budgetBytes, int64(512<<20); got != want {
+		t.Fatalf("explicit forest arena budget = %d, want full %d", got, want)
+	}
+	explicitRestore.restore()
+	explicitArena.Release()
+
+	automaticArena := acquireNodeArena(arenaClassFull)
+	automaticBudget := automaticForestMemoryBudget(parser, 512<<20)
+	automaticRestore := parser.enterForestMemoryBudgetWithLimit(automaticArena, parseRuntimeMemoryMinSourceBytes, automaticBudget)
+	if got, want := automaticArena.budgetBytes, int64(128<<20); got != want {
+		t.Fatalf("automatic forest arena budget = %d, want allowance %d", got, want)
+	}
+	automaticRestore.restore()
+	automaticArena.Release()
+}
+
 func TestParseForestMemoryBudgetDeclines(t *testing.T) {
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "512")
 	t.Setenv("GOT_PARSE_MEMORY_HARD_CEILING_MB", "1")
@@ -72,7 +124,7 @@ func TestParseForestMemoryBudgetDeclines(t *testing.T) {
 	// this makes the regression sensitive to the forest's runtime-wide poll.
 	source := []byte("[" + strings.Repeat("0,", 40_000) + "0]")
 	arena := acquireNodeArena(arenaClassFull)
-	root, ok := parser.parseForest(arena, source, false)
+	root, ok := parser.parseForest(arena, source, false, parseMemoryBudgetForParser(parser, len(source)))
 	arenaBudgetExhausted := arena.budgetExhausted()
 	arena.Release()
 	if ok || root != nil {

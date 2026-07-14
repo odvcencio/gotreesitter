@@ -15,6 +15,7 @@ type builtinLanguageRuntimeProfile struct {
 	blobSHA256                         [32]byte
 	externalScannerFullParseRetry      gotreesitter.ExternalScannerFullParseRetryPolicy
 	fullParseAcceptedErrorRetryProfile gotreesitter.FullParseAcceptedErrorRetryProfile
+	automaticForestMemoryAllowance     int64
 	nativeResultCompatibility          gotreesitter.ResultCompatibilityCapability
 	conflictPolicies                   []gotreesitter.ConflictPolicy
 }
@@ -23,9 +24,18 @@ const (
 	csharpAcceptedErrorRetryMaxEntryScratchPeak = 690_365
 	csharpFreshErrorNoStacksRetryMaxStacks      = 16
 	mesonAcceptedErrorRetryMinSourceBytes       = 2 * 1024
+	javascriptAutomaticForestMemoryAllowance    = 128 * 1024 * 1024
 )
 
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
+	// JavaScript's speculative automatic forest phase is bounded separately
+	// from the production fallback. The exact locked corpus retained identical
+	// trees and outcomes across all files while cutting aggregate allocations;
+	// explicit forest parsing and non-certified languages keep the full budget.
+	"javascript": {
+		blobSHA256:                     mustRuntimeProfileSHA256("6706f93890f24d8ea90d6a140df5dde29c02ec8a3213bae16e8cc4df37e33ee0"),
+		automaticForestMemoryAllowance: javascriptAutomaticForestMemoryAllowance,
+	},
 	// These scanner-backed grammars have certified the first retry ladder's
 	// selected accepted-error tree as authoritative. Repeating the whole ladder
 	// does not improve the selected tree and imposes a full additional parse.
@@ -302,6 +312,11 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	if profile.fullParseAcceptedErrorRetryProfile != (gotreesitter.FullParseAcceptedErrorRetryProfile{}) &&
 		lang.FullParseAcceptedErrorRetryProfile != profile.fullParseAcceptedErrorRetryProfile {
 		lang.FullParseAcceptedErrorRetryProfile = profile.fullParseAcceptedErrorRetryProfile
+		changed = true
+	}
+	if profile.automaticForestMemoryAllowance > 0 &&
+		lang.AutomaticForestMemoryAllowanceBytes != profile.automaticForestMemoryAllowance {
+		lang.AutomaticForestMemoryAllowanceBytes = profile.automaticForestMemoryAllowance
 		changed = true
 	}
 	if missing := profile.nativeResultCompatibility &^ lang.NativeResultCompatibility; missing != 0 {

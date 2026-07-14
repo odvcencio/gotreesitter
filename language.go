@@ -549,6 +549,13 @@ type Language struct {
 	// caller-constructed languages, and language overrides.
 	FullParseAcceptedErrorRetryProfile FullParseAcceptedErrorRetryProfile
 
+	// AutomaticForestMemoryAllowanceBytes bounds only the speculative forest
+	// phase used by automatic dispatch. Zero preserves the full parse budget for
+	// legacy blobs, caller-constructed languages, language overrides, and
+	// explicit ParseForestExperimental calls. Built-in values are certified and
+	// attached only after exact blob-identity verification.
+	AutomaticForestMemoryAllowanceBytes int64
+
 	// NativeResultCompatibility identifies result-tree shapes produced natively
 	// by this exact language artifact. Zero keeps conservative post-parse
 	// compatibility fallbacks for legacy blobs, generated grammars, caller-built

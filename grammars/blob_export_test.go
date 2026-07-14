@@ -86,6 +86,41 @@ func TestLoadLanguageAttachesCertifiedJavaRetryProfile(t *testing.T) {
 	}
 }
 
+func TestLoadLanguageAttachesCertifiedJavaScriptForestAllowance(t *testing.T) {
+	blob := BlobByName("javascript")
+	if len(blob) == 0 {
+		t.Fatal("expected javascript blob")
+	}
+	lang, err := LoadLanguage("javascript", blob)
+	if err != nil {
+		t.Fatalf("LoadLanguage(javascript) error = %v", err)
+	}
+	if got, want := lang.AutomaticForestMemoryAllowanceBytes, int64(128<<20); got != want {
+		t.Fatalf("LoadLanguage(javascript) automatic forest allowance = %d, want %d", got, want)
+	}
+}
+
+func TestJavaScriptForestAllowanceRequiresExactBuiltinBlobIdentity(t *testing.T) {
+	wrongSHA := [32]byte{1}
+	wrongIdentity := &gotreesitter.Language{Name: "javascript"}
+	if attachBuiltinLanguageRuntimeProfile("javascript", wrongSHA, wrongIdentity) {
+		t.Fatal("wrong blob identity unexpectedly attached a runtime profile")
+	}
+	if got := wrongIdentity.AutomaticForestMemoryAllowanceBytes; got != 0 {
+		t.Fatalf("wrong-identity allowance = %d, want zero", got)
+	}
+
+	blob := BlobByName("javascript")
+	custom, err := gotreesitter.LoadLanguage(blob)
+	if err != nil {
+		t.Fatalf("decode caller-owned javascript blob: %v", err)
+	}
+	custom.WantsForest = true
+	if got := custom.AutomaticForestMemoryAllowanceBytes; got != 0 {
+		t.Fatalf("caller-owned WantsForest allowance = %d, want zero/full-budget behavior", got)
+	}
+}
+
 func TestLoadLanguageAcceptsAliases(t *testing.T) {
 	blob := BlobByName("golang")
 	if len(blob) == 0 {

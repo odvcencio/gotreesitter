@@ -34,15 +34,16 @@ func TestBuiltinExternalScannerRetryProfilesAttach(t *testing.T) {
 }
 
 func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
-	// 23 = the prior 19 plus D and Groovy, whose retry ceilings moved out of
+	// 24 = the prior 19 plus D and Groovy, whose retry ceilings moved out of
 	// parser-core name switches and onto exact-blob profiles. The prior gomod
 	// and C additions moved hardcoded compat-tier behavior to profiles. Meson
-	// and Enforce add two exact-blob retry policies. The
+	// and Enforce add two exact-blob retry policies. JavaScript adds one
+	// exact-blob automatic-forest memory allowance. The
 	// repetition-conflict helpers were retired in favor of certified
 	// ConflictPolicies rows here. dot's helper was
 	// retired outright, not migrated (see the "NOTE on dot" comment above
 	// the gomod entry), so it does not add a map entry.
-	if got, want := len(builtinLanguageRuntimeProfiles), 23; got != want {
+	if got, want := len(builtinLanguageRuntimeProfiles), 24; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -54,6 +55,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	}
 	if got := lang.FullParseAcceptedErrorRetryProfile; got != (gotreesitter.FullParseAcceptedErrorRetryProfile{}) {
 		t.Fatalf("unknown runtime profile changed accepted-error retry profile to %+v", got)
+	}
+	if got := lang.AutomaticForestMemoryAllowanceBytes; got != 0 {
+		t.Fatalf("unknown runtime profile changed automatic forest allowance to %d", got)
 	}
 }
 

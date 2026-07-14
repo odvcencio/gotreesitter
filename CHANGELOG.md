@@ -7,6 +7,16 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Performance
+
+- Automatic forest dispatch for the exact built-in JavaScript grammar now
+  limits the speculative forest phase to 128 MiB while preserving the caller's
+  full budget for the production fallback and for explicit forest parsing. A
+  20,784-file locked-corpus comparison preserved every tree, byte range, span,
+  error, and stop outcome while reducing aggregate parse time by 3.09%,
+  allocated bytes by 2.96%, and peak RSS by 19.02%. Caller-provided, modified,
+  and same-name grammars retain the existing full-budget behavior.
+
 ## [0.36.0] - 2026-07-13
 
 Parser recovery, recurring-work, grammar-contract, and browser-runtime release.
