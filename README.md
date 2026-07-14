@@ -661,11 +661,12 @@ Test suite covers: smoke tests (206 grammars), golden S-expression snapshots, hi
 
 ## Roadmap
 
-The current release is **v0.34.0**. The 206-grammar curated parity milestone is
-banked. v0.34.0 removes discarded automatic forest work for Beancount, Org,
-Vimdoc, Fish, and Racket, and deletes confirmed-dead C, C++, and Rust
-compatibility passes after full-corpus verification. Detailed history lives in
-[CHANGELOG.md](CHANGELOG.md).
+The current release is **v0.36.0**. The 206-grammar curated parity milestone is
+banked. v0.36.0 reduces recurring recovery work, hardens retry selection and
+generated-language provenance, and adds persistent incremental browser
+documents plus reproducible selected-language Go and TinyGo bundles. It
+supersedes the incomplete v0.35.0 release ancestry without rewriting that
+published Go module tag. Detailed history lives in [CHANGELOG.md](CHANGELOG.md).
 
 ### Now — performance and extreme hygiene
 

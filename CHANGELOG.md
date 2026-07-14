@@ -7,6 +7,19 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-07-13
+
+Parser recovery, recurring-work, grammar-contract, and browser-runtime release.
+C-recovery elections and retained memo invalidation reduce fixed overhead;
+retry selection and generated-language provenance are stricter; and the browser
+runtime gains persistent incremental documents plus reproducible selected-
+language bundles for Go and TinyGo.
+
+This release supersedes v0.35.0. That tag was published from incomplete
+ancestry; its browser-runtime changes have been reconciled here with every
+change on the current main line. The v0.35.0 tag remains immutable so existing
+Go module downloads continue to identify one source revision.
+
 ### Added
 
 - The browser runtime now supports persistent UTF-16 documents through
@@ -2383,7 +2396,8 @@ Warm-reuse throughput ~10 % higher. 206-grammar parity green under `GTS_PARITY_M
 - Initial standalone pure-Go runtime module.
 - External scanner VM foundation and base parser/lexer/tree infrastructure.
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.34.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/odvcencio/gotreesitter/compare/v0.34.0...v0.36.0
 [0.34.0]: https://github.com/odvcencio/gotreesitter/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/odvcencio/gotreesitter/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/odvcencio/gotreesitter/compare/v0.31.0...v0.32.0
