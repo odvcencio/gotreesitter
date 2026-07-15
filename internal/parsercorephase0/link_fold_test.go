@@ -118,6 +118,48 @@ func TestDiagnosticShallowFoldChildBearingParentSelectsHigherAggregateScore(t *t
 	}
 }
 
+func TestCondenseOutcomeClassifiesBoundaryFreshness(t *testing.T) {
+	core, seed := newDiagnosticShallowFoldCore(t, Limits{MaxDerivations: 4})
+	incumbent := appendShallowPayload(t, core, shallowPayloadSpec{
+		symbol: 20, productionID: 1, startByte: 12, endByte: 17, childSymbols: []Symbol{30},
+	})
+	key := core.boundaryKey(2, 17)
+	created, err := core.condenseWithOutcome(key, linkInput{prev: seed.Node, payload: incumbent, scoreDelta: 10})
+	if err != nil || created.change != condenseNew {
+		t.Fatalf("created outcome=%+v err=%v", created, err)
+	}
+	exact, err := core.condenseWithOutcome(key, linkInput{prev: seed.Node, payload: incumbent, scoreDelta: 10})
+	if err != nil || exact.change != condenseUnchanged || exact.head != created.head {
+		t.Fatalf("exact outcome=%+v err=%v, want unchanged head %+v", exact, err, created.head)
+	}
+
+	lower := appendShallowPayload(t, core, shallowPayloadSpec{
+		symbol: 20, productionID: 2, startByte: 12, endByte: 17, childSymbols: []Symbol{31},
+	})
+	for _, score := range []int64{9, 10} {
+		outcome, err := core.condenseWithOutcome(key, linkInput{prev: seed.Node, payload: lower, scoreDelta: score})
+		if err != nil || outcome.change != condenseUnchanged || outcome.head != created.head {
+			t.Fatalf("non-winning score %d outcome=%+v err=%v", score, outcome, err)
+		}
+	}
+
+	higher := appendShallowPayload(t, core, shallowPayloadSpec{
+		symbol: 20, productionID: 3, startByte: 12, endByte: 17, childSymbols: []Symbol{32},
+	})
+	updated, err := core.condenseWithOutcome(key, linkInput{prev: seed.Node, payload: higher, scoreDelta: 11})
+	if err != nil || updated.change != condenseUpdated || updated.head == created.head {
+		t.Fatalf("winning outcome=%+v err=%v", updated, err)
+	}
+
+	distinct := appendShallowPayload(t, core, shallowPayloadSpec{
+		symbol: 21, startByte: 12, endByte: 17,
+	})
+	linked, err := core.condenseWithOutcome(key, linkInput{prev: seed.Node, payload: distinct})
+	if err != nil || linked.change != condenseUpdated || linked.head == updated.head {
+		t.Fatalf("distinct-link outcome=%+v err=%v", linked, err)
+	}
+}
+
 func TestDiagnosticShallowFoldZeroChildParentHasZeroEffectivePrecedence(t *testing.T) {
 	core, seed := newDiagnosticShallowFoldCore(t, Limits{MaxDerivations: 4})
 	incumbent, err := core.appendSubtree(subtreeRecord{

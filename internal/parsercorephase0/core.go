@@ -603,10 +603,43 @@ func (c *Core) appendDiagnosticPayload(head Head, state StateID, token Token, me
 	})
 }
 
-// Reduce applies one authentic decoded reduction to every retained pop path in
-// head. Condensation selects only C-shallow clean links from the same exact
-// predecessor; other derivations remain distinct.
-func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkOrder) (frontier []Head, err error) {
+// ReductionFreshness describes how one final canonical boundary changed over
+// a complete ReduceOutputs call.
+type ReductionFreshness uint8
+
+const (
+	ReductionUnchanged ReductionFreshness = iota + 1
+	ReductionNew
+	ReductionUpdated
+)
+
+// ReductionOutput is one final canonical boundary and its aggregate freshness
+// relative to the boundary map at entry to ReduceOutputs.
+type ReductionOutput struct {
+	Head      Head
+	Freshness ReductionFreshness
+}
+
+// Reduce preserves the compatibility surface used by earlier phase-zero
+// diagnostics: it returns every canonical output, including unchanged ones.
+// Worklist schedulers must use ReduceOutputs and inspect Freshness explicitly.
+func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkOrder) ([]Head, error) {
+	outputs, err := c.ReduceOutputs(head, lookahead, actionOrdinal, fork)
+	if err != nil {
+		return nil, err
+	}
+	frontier := make([]Head, len(outputs))
+	for index, output := range outputs {
+		frontier[index] = output.Head
+	}
+	return frontier, nil
+}
+
+// ReduceOutputs applies one authentic decoded reduction to every retained pop
+// path and reports aggregate boundary freshness. Condensation selects only
+// C-shallow clean links from the same exact predecessor; other derivations
+// remain distinct.
+func (c *Core) ReduceOutputs(head Head, lookahead Symbol, actionOrdinal int, fork ForkOrder) (frontier []ReductionOutput, err error) {
 	mark := c.mark()
 	defer c.completeTransaction(mark, &err)
 	act, err := c.action(head, lookahead, actionOrdinal)
@@ -626,7 +659,11 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 	if len(paths) == 0 {
 		return nil, errors.New("parser-core phase zero: reduction has no exact pop path")
 	}
-	frontierByBoundary := make(map[boundaryKey]Head)
+	type reductionBoundaryOutput struct {
+		head      Head
+		freshness ReductionFreshness
+	}
+	frontierByBoundary := make(map[boundaryKey]reductionBoundaryOutput)
 	var boundaryOrder []boundaryKey
 	var batchParents []SubtreeID
 	for _, path := range paths {
@@ -651,8 +688,10 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 			scoreDelta: scoreDelta, order: order,
 		}
 		var out Head
+		var outcome condenseOutcome
 		if len(path.trailing) == 0 {
-			out, err = c.condense(key, parentLink)
+			outcome, err = c.condenseWithOutcome(key, parentLink)
+			out = outcome.head
 		} else {
 			out, err = c.appendPrivate(gotoState, path.structuralEnd, parentLink)
 		}
@@ -667,7 +706,8 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 			key = c.boundaryKey(gotoState, extra.endByte)
 			extraLink := linkInput{prev: out.Node, payload: trailing.payload, scoreDelta: trailing.scoreDelta}
 			if index == len(path.trailing)-1 {
-				out, err = c.condense(key, extraLink)
+				outcome, err = c.condenseWithOutcome(key, extraLink)
+				out = outcome.head
 			} else {
 				out, err = c.appendPrivate(gotoState, extra.endByte, extraLink)
 			}
@@ -675,14 +715,29 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 				return nil, err
 			}
 		}
-		if _, seen := frontierByBoundary[key]; !seen {
+		previous, seen := frontierByBoundary[key]
+		if !seen {
 			boundaryOrder = append(boundaryOrder, key)
 		}
-		frontierByBoundary[key] = out
+		freshness := previous.freshness
+		switch outcome.change {
+		case condenseUnchanged:
+			if !seen {
+				freshness = ReductionUnchanged
+			}
+		case condenseNew:
+			freshness = ReductionNew
+		case condenseUpdated:
+			if freshness != ReductionNew {
+				freshness = ReductionUpdated
+			}
+		}
+		frontierByBoundary[key] = reductionBoundaryOutput{head: out, freshness: freshness}
 	}
-	frontier = make([]Head, 0, len(boundaryOrder))
+	frontier = make([]ReductionOutput, 0, len(boundaryOrder))
 	for _, key := range boundaryOrder {
-		frontier = append(frontier, frontierByBoundary[key])
+		output := frontierByBoundary[key]
+		frontier = append(frontier, ReductionOutput{Head: output.head, Freshness: output.freshness})
 	}
 	return frontier, nil
 }
@@ -916,16 +971,38 @@ type linkInput struct {
 	order      ForkOrder
 }
 
+type condenseChange uint8
+
+const (
+	condenseUnchanged condenseChange = iota
+	condenseNew
+	condenseUpdated
+)
+
+type condenseOutcome struct {
+	head   Head
+	change condenseChange
+}
+
 func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
+	outcome, err := c.condenseWithOutcome(key, in)
+	return outcome.head, err
+}
+
+// condenseWithOutcome distinguishes a newly published boundary, a material
+// update to an existing canonical boundary, and an input already represented
+// by that canonical boundary. The reduction worklist uses this monotone
+// freshness signal; shifts only need the resulting head.
+func (c *Core) condenseWithOutcome(key boundaryKey, in linkInput) (condenseOutcome, error) {
 	if key.frontier != c.frontier {
-		return Head{}, errors.New("parser-core phase zero: boundary frontier mismatch")
+		return condenseOutcome{}, errors.New("parser-core phase zero: boundary frontier mismatch")
 	}
 	prev, err := c.node(in.prev)
 	if err != nil {
-		return Head{}, err
+		return condenseOutcome{}, err
 	}
 	if _, err := c.subtree(in.payload); err != nil {
-		return Head{}, err
+		return condenseOutcome{}, err
 	}
 	var oldID NodeID
 	var old nodeRecord
@@ -934,20 +1011,20 @@ func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
 	if oldID != 0 {
 		oldRecord, err := c.node(oldID)
 		if err != nil {
-			return Head{}, err
+			return condenseOutcome{}, err
 		}
 		old = *oldRecord
 		oldLinks, err = c.nodeLinks(old)
 		if err != nil {
-			return Head{}, err
+			return condenseOutcome{}, err
 		}
 		for _, link := range oldLinks {
 			equal, err := c.linkEqualInput(link, in)
 			if err != nil {
-				return Head{}, err
+				return condenseOutcome{}, err
 			}
 			if equal {
-				return Head{Node: oldID}, nil
+				return condenseOutcome{head: Head{Node: oldID}, change: condenseUnchanged}, nil
 			}
 		}
 		if c.diagnostics.foldSamePredecessorShallowPayloads {
@@ -955,29 +1032,30 @@ func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
 			for index, link := range oldLinks {
 				equal, err := c.shallowPayloadClassEqual(link, in)
 				if err != nil {
-					return Head{}, err
+					return condenseOutcome{}, err
 				}
 				if !equal {
 					continue
 				}
 				if candidate >= 0 {
-					return Head{}, errors.New("parser-core phase zero: multiple shallow-fold incumbents")
+					return condenseOutcome{}, errors.New("parser-core phase zero: multiple shallow-fold incumbents")
 				}
 				candidate = index
 			}
 			if candidate >= 0 {
 				incumbentPrecedence, err := c.effectivePayloadPrecedence(oldLinks[candidate].payload, oldLinks[candidate].scoreDelta)
 				if err != nil {
-					return Head{}, err
+					return condenseOutcome{}, err
 				}
 				incomingPrecedence, err := c.effectivePayloadPrecedence(in.payload, in.scoreDelta)
 				if err != nil {
-					return Head{}, err
+					return condenseOutcome{}, err
 				}
 				if incomingPrecedence <= incumbentPrecedence {
-					return Head{Node: oldID}, nil
+					return condenseOutcome{head: Head{Node: oldID}, change: condenseUnchanged}, nil
 				}
-				return c.replaceBoundaryLink(key, old, oldLinks, candidate, in)
+				head, err := c.replaceBoundaryLink(key, old, oldLinks, candidate, in)
+				return condenseOutcome{head: head, change: condenseUpdated}, err
 			}
 		}
 	}
@@ -986,18 +1064,18 @@ func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
 		newPathCount = saturatingAddPaths(newPathCount, old.pathCount)
 	}
 	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || len(c.links) >= math.MaxUint32 {
-		return Head{}, errors.New("parser-core phase zero: link arena cap")
+		return condenseOutcome{}, errors.New("parser-core phase zero: link arena cap")
 	}
 	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
-		return Head{}, errors.New("parser-core phase zero: node arena cap")
+		return condenseOutcome{}, errors.New("parser-core phase zero: node arena cap")
 	}
 	linkCount := uint32(1)
 	if oldID != 0 {
 		if old.linkCount == math.MaxUint32 {
-			return Head{}, errors.New("parser-core phase zero: boundary link count overflow")
+			return condenseOutcome{}, errors.New("parser-core phase zero: boundary link count overflow")
 		}
 		if old.linkCount >= c.limits.MaxLinksPerBoundary {
-			return Head{}, fmt.Errorf("parser-core phase zero: shared (%d,%d) live-link cap exceeded: %d > %d", key.state, key.byteOffset, uint64(old.linkCount)+1, c.limits.MaxLinksPerBoundary)
+			return condenseOutcome{}, fmt.Errorf("parser-core phase zero: shared (%d,%d) live-link cap exceeded: %d > %d", key.state, key.byteOffset, uint64(old.linkCount)+1, c.limits.MaxLinksPerBoundary)
 		}
 		linkCount += old.linkCount
 	}
@@ -1015,10 +1093,14 @@ func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
 		firstLink: uint32(linkID), linkCount: linkCount, pathCount: newPathCount,
 	})
 	if err != nil {
-		return Head{}, err
+		return condenseOutcome{}, err
 	}
 	c.writeBoundary(key, id)
-	return Head{Node: id}, nil
+	change := condenseNew
+	if oldID != 0 {
+		change = condenseUpdated
+	}
+	return condenseOutcome{head: Head{Node: id}, change: change}, nil
 }
 
 func (c *Core) linkEqualInput(link linkRecord, in linkInput) (bool, error) {

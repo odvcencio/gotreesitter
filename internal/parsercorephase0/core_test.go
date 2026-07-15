@@ -1239,6 +1239,121 @@ func TestReduceDoesNotShareDifferentChildIdentity(t *testing.T) {
 	}
 }
 
+func TestReduceOutputsAggregatesFreshnessPerFinalBoundary(t *testing.T) {
+	t.Run("new-dominates-later-fold", func(t *testing.T) {
+		tables := &fakeTable{
+			actions: map[tableCell][]Action{{state: 3, symbol: 9}: {{Type: ActionReduce, Symbol: 2, ChildCount: 1}}},
+			gotos:   map[tableCell]StateID{{state: 1, symbol: 2}: 4},
+		}
+		compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
+		if err != nil {
+			t.Fatal(err)
+		}
+		seed, _ := compact.Seed(1, 0)
+		first, _ := compact.appendSubtree(subtreeRecord{symbol: 10, endByte: 1, terminal: true}, nil, nil, nil)
+		second, _ := compact.appendSubtree(subtreeRecord{symbol: 11, endByte: 1, terminal: true}, nil, nil, nil)
+		head, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: seed.Node, payload: first, scoreDelta: 10})
+		if err != nil {
+			t.Fatal(err)
+		}
+		head, err = compact.condense(compact.boundaryKey(3, 1), linkInput{prev: seed.Node, payload: second, scoreDelta: 9})
+		if err != nil {
+			t.Fatal(err)
+		}
+		outputs, err := compact.ReduceOutputs(head, 9, 0, ForkOrder{})
+		if err != nil || len(outputs) != 1 || outputs[0].Freshness != ReductionNew {
+			t.Fatalf("aggregate outputs=%+v err=%v", outputs, err)
+		}
+		paths, err := compact.Derivations(outputs[0].Head)
+		if err != nil || len(paths) != 1 || paths[0].Score != 10 {
+			t.Fatalf("selected final canonical paths=%+v err=%v", paths, err)
+		}
+	})
+
+	t.Run("mixed-unchanged-and-new", func(t *testing.T) {
+		tables := &fakeTable{
+			actions: map[tableCell][]Action{{state: 3, symbol: 9}: {{Type: ActionReduce, Symbol: 2, ChildCount: 1}}},
+			gotos: map[tableCell]StateID{
+				{state: 1, symbol: 2}: 4,
+				{state: 2, symbol: 2}: 5,
+			},
+		}
+		compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
+		if err != nil {
+			t.Fatal(err)
+		}
+		firstSeed, _ := compact.Seed(1, 0)
+		secondSeed, _ := compact.Seed(2, 0)
+		firstChild, _ := compact.appendSubtree(subtreeRecord{symbol: 10, endByte: 1, terminal: true}, nil, nil, nil)
+		secondChild, _ := compact.appendSubtree(subtreeRecord{symbol: 11, endByte: 1, terminal: true}, nil, nil, nil)
+		head, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: firstSeed.Node, payload: firstChild, scoreDelta: 7})
+		if err != nil {
+			t.Fatal(err)
+		}
+		head, err = compact.condense(compact.boundaryKey(3, 1), linkInput{prev: secondSeed.Node, payload: secondChild, scoreDelta: 8})
+		if err != nil {
+			t.Fatal(err)
+		}
+		incumbentParent, err := compact.appendSubtree(subtreeRecord{symbol: 2, startByte: 0, endByte: 1}, []SubtreeID{firstChild}, nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := compact.condense(compact.boundaryKey(4, 1), linkInput{prev: firstSeed.Node, payload: incumbentParent, scoreDelta: 7}); err != nil {
+			t.Fatal(err)
+		}
+		outputs, err := compact.ReduceOutputs(head, 9, 0, ForkOrder{})
+		if err != nil || len(outputs) != 2 {
+			t.Fatalf("mixed outputs=%+v err=%v", outputs, err)
+		}
+		state0, _, _ := compact.Boundary(outputs[0].Head)
+		state1, _, _ := compact.Boundary(outputs[1].Head)
+		if state0 != 4 || outputs[0].Freshness != ReductionUnchanged || state1 != 5 || outputs[1].Freshness != ReductionNew {
+			t.Fatalf("mixed output order/freshness=%+v states=(%d,%d)", outputs, state0, state1)
+		}
+	})
+
+	t.Run("unchanged-updated-unchanged-aggregates-updated", func(t *testing.T) {
+		tables := &fakeTable{
+			actions: map[tableCell][]Action{{state: 3, symbol: 9}: {{Type: ActionReduce, Symbol: 2, ChildCount: 1}}},
+			gotos:   map[tableCell]StateID{{state: 1, symbol: 2}: 4},
+		}
+		compact, err := New(tables, Limits{MaxDerivations: 8, MaxPopPaths: 8})
+		if err != nil {
+			t.Fatal(err)
+		}
+		seed, _ := compact.Seed(1, 0)
+		children := make([]SubtreeID, 3)
+		for index := range children {
+			children[index], err = compact.appendSubtree(subtreeRecord{symbol: Symbol(10 + index), endByte: 1, terminal: true}, nil, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		var head Head
+		for index, score := range []int64{10, 11, 9} {
+			head, err = compact.condense(compact.boundaryKey(3, 1), linkInput{prev: seed.Node, payload: children[index], scoreDelta: score})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		incumbent, err := compact.appendSubtree(subtreeRecord{symbol: 2, endByte: 1}, []SubtreeID{children[0]}, nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := compact.condense(compact.boundaryKey(4, 1), linkInput{prev: seed.Node, payload: incumbent, scoreDelta: 10}); err != nil {
+			t.Fatal(err)
+		}
+		outputs, err := compact.ReduceOutputs(head, 9, 0, ForkOrder{})
+		if err != nil || len(outputs) != 1 || outputs[0].Freshness != ReductionUpdated {
+			t.Fatalf("updated aggregate outputs=%+v err=%v", outputs, err)
+		}
+		paths, err := compact.Derivations(outputs[0].Head)
+		if err != nil || len(paths) != 1 || paths[0].Score != 11 {
+			t.Fatalf("updated aggregate final paths=%+v err=%v", paths, err)
+		}
+	})
+}
+
 func TestReductionParentIdentityIncludesScalarsFlagsAndOrderedSides(t *testing.T) {
 	base := subtreeRecord{symbol: 2, productionID: 3, dynamicPrecedence: -4, startByte: 5, endByte: 6, extra: true, terminal: true}
 	children := []SubtreeID{7, 8}

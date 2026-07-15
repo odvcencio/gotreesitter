@@ -262,3 +262,27 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesFirstShallowLinkCap(t *testi
 		t.Fatalf("state 46 byte 2440 closure drifted: %+v", completion)
 	}
 }
+
+func TestDiagnosticParserCoreGenericSchedulerCrossesReductionFreshnessCycle(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	target := uint32(3070)
+	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+	)
+	if routeErr != nil || !result.Completed || result.GenericScheduler == nil || result.GenericScheduler.Completion == nil {
+		t.Fatalf("byte 3070 closure result=%+v err=%v", result, routeErr)
+	}
+	completion := result.GenericScheduler.Completion
+	if completion.TargetByte != target || completion.ElectionIndex != 597 || completion.LastToken.Symbol != 75 || completion.LastToken.Text != "&&" || completion.LastToken.StartByte != 3068 || completion.LastToken.EndByte != target ||
+		len(completion.Headers) != 1 || completion.Headers[0].Header.CreationSeq != 109 || completion.Headers[0].Header.State != 182 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.Paused || completion.Headers[0].Header.ExactPaths != 1 ||
+		completion.Stats != (core.Stats{Nodes: 1663, Links: 1662, Subtrees: 1455, Children: 1500, CurrentExactPaths: 1}) ||
+		completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
+			Passes: 1247, ActionLookups: 1778, Dispatches: 1298,
+			Conflicts: 80, ConflictActions: 168, Forks: 88, ConflictHeads: 179,
+			Reductions: 594, OrdinaryShifts: 612, OrdinaryCohorts: 118, ExtraShifts: 12,
+			ReductionPauses: 20, NoActionDrops: 90, Elections: 495, Canonicalizations: 1165, PeakHeaders: 4,
+		}) || len(result.GenericScheduler.Rounds) != 1165 || len(result.GenericScheduler.NoActionDrops) != 90 {
+		t.Fatalf("byte 3070 closure drifted: %+v", completion)
+	}
+}

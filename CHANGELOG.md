@@ -23,6 +23,11 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now distinguish new, updated, and unchanged
+  reduction boundaries before scheduling them. Unchanged reductions pause
+  without cycling, active siblings retain their scheduler identity when a
+  boundary is updated, and conflict execution preserves branch ordering while
+  remaining transactionally bounded.
 - Compact parser-core diagnostics now fold clean, non-external links from the
   same predecessor using C's shallow payload class and effective precedence:
   zero for childless payloads, aggregate precedence for parents. Historical
