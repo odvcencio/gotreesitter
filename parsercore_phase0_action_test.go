@@ -3,6 +3,7 @@
 package gotreesitter
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -43,5 +44,25 @@ func TestParserCoreActionConversionIsExhaustiveAndLossless(t *testing.T) {
 	}
 	if _, err := parserCoreAction(ParseAction{Type: ParseActionType(255)}); err == nil {
 		t.Fatal("invalid root action type was admitted")
+	}
+}
+
+func TestParserCoreSameLookaheadGuardsDeclineBeforeMutation(t *testing.T) {
+	tests := []struct {
+		name    string
+		token   Token
+		actions []core.Action
+	}{
+		{name: "no-lookahead", token: Token{NoLookahead: true}, actions: []core.Action{{Type: core.ActionShift, State: 2}}},
+		{name: "repetition", actions: []core.Action{{Type: core.ActionShift, State: 2, Repetition: true}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateDiagnosticParserCoreCell(test.token, test.actions)
+			var decline *diagnosticParserCoreDecline
+			if !errors.As(err, &decline) || decline.boundary != DiagnosticParserCoreRoute {
+				t.Fatalf("guard error=%v, want unsupported-route decline", err)
+			}
+		})
 	}
 }

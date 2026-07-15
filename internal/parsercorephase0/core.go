@@ -138,6 +138,8 @@ type boundaryKey struct {
 	frontier   uint64
 	state      StateID
 	byteOffset uint32
+	shifted    bool
+	checkpoint [32]byte
 }
 
 type nodeRecord struct {
@@ -251,11 +253,14 @@ type Core struct {
 	fields     []FieldMapEntry
 	aliases    []Symbol
 	frontier   uint64
+	checkpoint [32]byte
 	boundaries map[boundaryKey]NodeID
 }
 
 type checkpoint struct {
 	nodes, links, subtrees, children, fields, aliases int
+	frontier                                          uint64
+	checkpoint                                        [32]byte
 	boundaries                                        map[boundaryKey]NodeID
 }
 
@@ -270,6 +275,7 @@ func (c *Core) mark() checkpoint {
 	return checkpoint{
 		nodes: len(c.nodes), links: len(c.links), subtrees: len(c.subtrees),
 		children: len(c.children), fields: len(c.fields), aliases: len(c.aliases),
+		frontier: c.frontier, checkpoint: c.checkpoint,
 		boundaries: boundaries,
 	}
 }
@@ -281,6 +287,8 @@ func (c *Core) restore(mark checkpoint) {
 	c.children = c.children[:mark.children]
 	c.fields = c.fields[:mark.fields]
 	c.aliases = c.aliases[:mark.aliases]
+	c.frontier = mark.frontier
+	c.checkpoint = mark.checkpoint
 	c.boundaries = mark.boundaries
 }
 
@@ -303,11 +311,20 @@ func (c *Core) BeginFrontier() error {
 		return errors.New("parser-core phase zero: frontier epoch overflow")
 	}
 	c.frontier++
+	c.checkpoint = [32]byte{}
 	return nil
 }
 
+// SetPhaseCheckpoint binds subsequent condensation to the exact scanner
+// checkpoint for the current lookahead epoch. It does not advance the epoch.
+func (c *Core) SetPhaseCheckpoint(checkpoint [32]byte) { c.checkpoint = checkpoint }
+
 func (c *Core) boundaryKey(state StateID, byteOffset uint32) boundaryKey {
-	return boundaryKey{frontier: c.frontier, state: state, byteOffset: byteOffset}
+	return boundaryKey{frontier: c.frontier, state: state, byteOffset: byteOffset, checkpoint: c.checkpoint}
+}
+
+func (c *Core) shiftedBoundaryKey(state StateID, byteOffset uint32) boundaryKey {
+	return boundaryKey{frontier: c.frontier, state: state, byteOffset: byteOffset, shifted: true, checkpoint: c.checkpoint}
 }
 
 // Seed creates one empty derivation at a parser boundary.
@@ -333,6 +350,31 @@ func (c *Core) Boundary(head Head) (StateID, uint32, error) {
 		return 0, 0, err
 	}
 	return node.state, node.byteOffset, nil
+}
+
+// CanonicalBoundary returns the latest condensed head for one complete
+// same-lookahead scheduler phase identity. Headers use it at pass barriers to
+// replace stale immutable NodeIDs without changing their first-slot order.
+func (c *Core) CanonicalBoundary(state StateID, byteOffset uint32, consumed bool, checkpoint [32]byte) (Head, bool) {
+	id := c.boundaries[boundaryKey{
+		frontier: c.frontier, state: state, byteOffset: byteOffset,
+		shifted: consumed, checkpoint: checkpoint,
+	}]
+	return Head{Node: id}, id != 0
+}
+
+// ApplyAtomic rolls back every compact arena and boundary mutation if fn
+// fails. Scheduler conflict cells use it because per-action rollback is not
+// sufficient after an earlier secondary action succeeded.
+func (c *Core) ApplyAtomic(fn func() error) (err error) {
+	if fn == nil {
+		return errors.New("parser-core phase zero: nil atomic operation")
+	}
+	mark := c.mark()
+	if err = fn(); err != nil {
+		c.restore(mark)
+	}
+	return err
 }
 
 // Actions returns the authentic decoded action entry for (state, lookahead).
@@ -379,7 +421,7 @@ func (c *Core) Shift(head Head, lookahead Symbol, actionOrdinal int, token Token
 	if err != nil {
 		return Head{}, err
 	}
-	return c.condense(c.boundaryKey(targetState, token.EndByte), linkInput{
+	return c.condense(c.shiftedBoundaryKey(targetState, token.EndByte), linkInput{
 		prev: head.Node, payload: payload, order: fork,
 	})
 }

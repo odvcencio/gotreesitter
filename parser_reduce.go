@@ -874,6 +874,13 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 			return
 		}
 		actions := p.language.ParseActions[actionIdx].Actions
+		if p.ambiguityProfile != nil {
+			// Conflict-frontier reductions execute within one outer dispatch,
+			// so the ordinary dispatch profiler cannot see these intermediate
+			// state/lookahead cells. Record them here to keep diagnostic traces
+			// complete without affecting unprofiled parsing.
+			p.ambiguityProfile.record(s.top().state, tok.Symbol, actions, liveStacks)
+		}
 		if len(actions) != 1 {
 			if completeMultiActionFrontier(actions, step) {
 				continue

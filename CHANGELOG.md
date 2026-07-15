@@ -23,6 +23,12 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Authenticated parser-core diagnostics now preserve scanner-checkpoint and
+  token-consumption phase while continuing a locked Go conflict through
+  same-lookahead reductions. Conflict-frontier cells are visible in ambiguity
+  profiles; unsupported repetition, no-lookahead, and no-action paths decline
+  before unsupported execution, and ordinary builds retain no diagnostic
+  driver symbols.
 - Report-mode fleet reduction now preserves closed-vocabulary
   `no_static_c_oracle`, `no_corpus`, and `no_corpus_files` shards as fatal
   closure findings in the combined artifact. Certification remains fail-closed,

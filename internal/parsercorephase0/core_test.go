@@ -1,6 +1,7 @@
 package parsercorephase0
 
 import (
+	"errors"
 	"math"
 	"reflect"
 	"slices"
@@ -327,6 +328,96 @@ func TestExtraShiftWithZeroTargetRetainsCurrentState(t *testing.T) {
 	after, _ := core.Stats(head)
 	if after != before {
 		t.Fatalf("extra mismatch mutated core: before=%+v after=%+v", before, after)
+	}
+}
+
+func TestConsumedPhasePreventsZeroWidthShiftReductionCondensation(t *testing.T) {
+	tables := &fakeTable{actions: map[tableCell][]Action{
+		{state: 1, symbol: 1}: {{Type: ActionShift, State: 2}},
+	}}
+	core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, _ := core.Seed(1, 0)
+	shifted, err := core.Shift(seed, 1, 0, Token{Symbol: 1}, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := core.appendSubtree(subtreeRecord{symbol: 2, terminal: true}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runnable, err := core.condense(core.boundaryKey(2, 0), linkInput{prev: seed.Node, payload: payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if shifted.Node == runnable.Node {
+		t.Fatalf("consumed and runnable zero-width heads condensed to %d", shifted.Node)
+	}
+	if canonical, ok := core.CanonicalBoundary(2, 0, true, [32]byte{}); !ok || canonical != shifted {
+		t.Fatalf("consumed canonical head=%+v ok=%t, want %+v", canonical, ok, shifted)
+	}
+	if canonical, ok := core.CanonicalBoundary(2, 0, false, [32]byte{}); !ok || canonical != runnable {
+		t.Fatalf("runnable canonical head=%+v ok=%t, want %+v", canonical, ok, runnable)
+	}
+}
+
+func TestScannerCheckpointPreventsSameBoundaryCondensation(t *testing.T) {
+	core := newTinyCore(t, 4)
+	seed, _ := core.Seed(1, 0)
+	payload, _ := core.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1}, nil, nil, nil)
+	firstCheckpoint := [32]byte{1}
+	secondCheckpoint := [32]byte{2}
+	core.SetPhaseCheckpoint(firstCheckpoint)
+	first, err := core.condense(core.boundaryKey(2, 1), linkInput{prev: seed.Node, payload: payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	core.SetPhaseCheckpoint(secondCheckpoint)
+	second, err := core.condense(core.boundaryKey(2, 1), linkInput{prev: seed.Node, payload: payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatalf("distinct scanner checkpoints condensed to head %+v", first)
+	}
+	if canonical, ok := core.CanonicalBoundary(2, 1, false, firstCheckpoint); !ok || canonical != first {
+		t.Fatalf("first checkpoint canonical head=%+v ok=%t, want %+v", canonical, ok, first)
+	}
+	if canonical, ok := core.CanonicalBoundary(2, 1, false, secondCheckpoint); !ok || canonical != second {
+		t.Fatalf("second checkpoint canonical head=%+v ok=%t, want %+v", canonical, ok, second)
+	}
+}
+
+func TestApplyAtomicRollsBackEarlierConflictArm(t *testing.T) {
+	core := newTinyCore(t, 4)
+	seed, _ := core.Seed(1, 0)
+	payload, _ := core.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1}, nil, nil, nil)
+	before, _ := core.Stats(seed)
+	beforeFrontier, beforeCheckpoint := core.frontier, core.checkpoint
+	err := core.ApplyAtomic(func() error {
+		if err := core.BeginFrontier(); err != nil {
+			return err
+		}
+		core.SetPhaseCheckpoint([32]byte{1})
+		if _, err := core.condense(core.boundaryKey(2, 1), linkInput{prev: seed.Node, payload: payload}); err != nil {
+			return err
+		}
+		return errors.New("later primary arm declined")
+	})
+	if err == nil || !strings.Contains(err.Error(), "primary") {
+		t.Fatalf("atomic conflict error=%v", err)
+	}
+	after, _ := core.Stats(seed)
+	if after != before {
+		t.Fatalf("atomic conflict rollback mutated core: before=%+v after=%+v", before, after)
+	}
+	if core.frontier != beforeFrontier || core.checkpoint != beforeCheckpoint {
+		t.Fatalf("atomic phase rollback=(%d,%x), want (%d,%x)", core.frontier, core.checkpoint, beforeFrontier, beforeCheckpoint)
+	}
+	if _, ok := core.CanonicalBoundary(2, 1, false, [32]byte{}); ok {
+		t.Fatal("rolled-back conflict boundary remains published")
 	}
 }
 

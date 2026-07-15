@@ -22,6 +22,118 @@ func (fakeGoScanner) Scan(any, *gotreesitter.ExternalLexer, []bool) bool { retur
 
 type wrappedGoScanner struct{ grammars.GoExternalScanner }
 
+type parserCoreHeaderStep struct {
+	state       gotreesitter.StateID
+	byteOffset  uint32
+	creationSeq uint64
+	shifted     bool
+}
+
+type parserCoreRoundStep struct {
+	before, after []parserCoreHeaderStep
+	actions       []gotreesitter.DiagnosticParserCoreRoundAction
+}
+
+func assertParserCoreSameTokenRounds(t *testing.T, result gotreesitter.DiagnosticParserCorePrefixResult) {
+	t.Helper()
+	want := []parserCoreRoundStep{
+		{
+			before: []parserCoreHeaderStep{{state: 186, byteOffset: 579}},
+			after: []parserCoreHeaderStep{
+				{state: 285, byteOffset: 579},
+				{state: 193, byteOffset: 580, creationSeq: 1, shifted: true},
+			},
+			actions: []gotreesitter.DiagnosticParserCoreRoundAction{
+				{HeaderIndex: 0, State: 186, ByteOffset: 579, Ordinal: 1, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 193}, BranchOrder: 1},
+				{HeaderIndex: 0, State: 186, ByteOffset: 579, Ordinal: 0, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1}},
+			},
+		},
+		{
+			before: []parserCoreHeaderStep{
+				{state: 285, byteOffset: 579},
+				{state: 193, byteOffset: 580, creationSeq: 1, shifted: true},
+			},
+			after: []parserCoreHeaderStep{
+				{state: 77, byteOffset: 579},
+				{state: 193, byteOffset: 580, creationSeq: 1, shifted: true},
+			},
+			actions: []gotreesitter.DiagnosticParserCoreRoundAction{{HeaderIndex: 0, State: 285, ByteOffset: 579, Ordinal: 0, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionReduce, Symbol: 188, ChildCount: 2, ProductionID: 122}}},
+		},
+		{
+			before: []parserCoreHeaderStep{
+				{state: 77, byteOffset: 579},
+				{state: 193, byteOffset: 580, creationSeq: 1, shifted: true},
+			},
+			after: []parserCoreHeaderStep{
+				{state: 253, byteOffset: 579},
+				{state: 193, byteOffset: 580, creationSeq: 1, shifted: true},
+			},
+			actions: []gotreesitter.DiagnosticParserCoreRoundAction{{HeaderIndex: 0, State: 77, ByteOffset: 579, Ordinal: 0, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1}}},
+		},
+		{
+			before: []parserCoreHeaderStep{
+				{state: 253, byteOffset: 579},
+				{state: 193, byteOffset: 580, creationSeq: 1, shifted: true},
+			},
+			after: []parserCoreHeaderStep{
+				{state: 254, byteOffset: 579},
+				{state: 193, byteOffset: 580, creationSeq: 1, shifted: true},
+			},
+			actions: []gotreesitter.DiagnosticParserCoreRoundAction{{HeaderIndex: 0, State: 253, ByteOffset: 579, Ordinal: 0, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionReduce, Symbol: 119, ChildCount: 1}}},
+		},
+	}
+	if len(result.SameTokenRounds) != len(want) {
+		t.Fatalf("same-lookahead rounds=%d, want %d", len(result.SameTokenRounds), len(want))
+	}
+	checkpoint := result.Elections[len(result.Elections)-1].ScannerAfter.SHA256
+	checkHeaders := func(roundIndex int, label string, got []gotreesitter.DiagnosticParserCoreHeaderReceipt, expected []parserCoreHeaderStep) {
+		t.Helper()
+		if len(got) != len(expected) {
+			t.Fatalf("same-lookahead round %d %s headers=%d, want %d", roundIndex, label, len(got), len(expected))
+		}
+		for index, header := range got {
+			wantHeader := expected[index]
+			if header.State != wantHeader.state || header.ByteOffset != wantHeader.byteOffset || header.CreationSeq != wantHeader.creationSeq || header.Shifted != wantHeader.shifted || header.Accepted || header.ExactPaths != 1 || header.Checkpoint != checkpoint {
+				t.Fatalf("same-lookahead round %d %s header %d=%+v, want %+v with checkpoint %x", roundIndex, label, index, header, wantHeader, checkpoint)
+			}
+		}
+	}
+	for index, round := range result.SameTokenRounds {
+		if round.Index != index || !reflect.DeepEqual(round.Actions, want[index].actions) {
+			t.Fatalf("same-lookahead round %d identity/actions=%+v, want index=%d actions=%+v", index, round, index, want[index].actions)
+		}
+		checkHeaders(index, "before", round.Before, want[index].before)
+		checkHeaders(index, "after", round.After, want[index].after)
+	}
+}
+
+func assertProductionParserCoreCells(t *testing.T, profile *gotreesitter.AmbiguityProfile) {
+	t.Helper()
+	want := map[gotreesitter.StateID][]gotreesitter.ParseAction{
+		186: {
+			{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1},
+			{Type: gotreesitter.ParseActionShift, State: 193},
+		},
+		285: {{Type: gotreesitter.ParseActionReduce, Symbol: 188, ChildCount: 2, ProductionID: 122}},
+		77:  {{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1}},
+		253: {{Type: gotreesitter.ParseActionReduce, Symbol: 119, ChildCount: 1}},
+		254: nil,
+	}
+	seen := make(map[gotreesitter.StateID]bool, len(want))
+	for _, stat := range profile.SnapshotTop(-1) {
+		actions, ok := want[stat.State]
+		if !ok || stat.Lookahead != 20 || !reflect.DeepEqual(stat.Actions, actions) || stat.Hits == 0 {
+			continue
+		}
+		seen[stat.State] = true
+	}
+	for state := range want {
+		if !seen[state] {
+			t.Fatalf("production scheduler did not authenticate state %d/lookahead 20 actions %+v", state, want[state])
+		}
+	}
+}
+
 func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing.T) {
 	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
 	if err != nil {
@@ -51,8 +163,11 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if prefixErr != nil && result.Boundary == "" {
 		t.Fatalf("untyped prefix error: %v", prefixErr)
 	}
-	if result.Boundary != gotreesitter.DiagnosticParserCoreFirstFork || result.Tokens != 68 || result.Dispatches != 117 || result.State != 186 || result.Lookahead.Symbol != 20 || prefixErr != nil {
-		t.Fatalf("rewrite prefix identity drifted: boundary=%s tokens=%d dispatches=%d state=%d lookahead=%d fork_actions=%+v fork_boundaries=%d fork_paths=%d extras=%+v reductions=%+v", result.Boundary, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkActions, result.ForkBoundaries, result.ForkLogicalPaths, result.ExtraShifts, result.ReductionAttempts)
+	if result.Boundary != gotreesitter.DiagnosticParserCoreNoAction || result.Tokens != 68 || result.Dispatches != 121 || result.State != 254 || result.Lookahead.Symbol != 20 || prefixErr == nil {
+		t.Fatalf("rewrite prefix identity drifted: boundary=%s tokens=%d dispatches=%d state=%d lookahead=%d fork_actions=%+v fork_boundaries=%d fork_paths=%d same_rounds=%+v last_order=%d", result.Boundary, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkActions, result.ForkBoundaries, result.ForkLogicalPaths, result.SameTokenRounds, result.LastBranchOrder)
+	}
+	if result.Detail != "canonical cell has no action" || len(result.Elections) != int(result.Tokens) {
+		t.Fatalf("no-action boundary detail/elections = %q/%d, want exact no-new-election receipt for %d tokens", result.Detail, len(result.Elections), result.Tokens)
 	}
 	wantForkActions := []gotreesitter.DiagnosticParserCoreForkAction{
 		{Ordinal: 1, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 193}, BranchOrder: 1},
@@ -65,6 +180,10 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if !reflect.DeepEqual(result.ForkActions, wantForkActions) || !reflect.DeepEqual(result.ForkBoundaryReceipts, wantForkBoundaries) || result.ForkBoundaries != 2 || result.ForkLogicalPaths != 2 {
 		t.Fatalf("first fork receipt: actions=%+v boundary_receipts=%+v boundaries=%d paths=%d, want actions=%+v boundary_receipts=%+v boundaries=2 paths=2", result.ForkActions, result.ForkBoundaryReceipts, result.ForkBoundaries, result.ForkLogicalPaths, wantForkActions, wantForkBoundaries)
 	}
+	if result.LastBranchOrder != 1 || len(result.SameTokenRounds) != 4 {
+		t.Fatalf("same-lookahead scheduler receipt = rounds=%d last_branch_order=%d, want 4/1", len(result.SameTokenRounds), result.LastBranchOrder)
+	}
+	assertParserCoreSameTokenRounds(t, result)
 	wantExtraSpans := [][2]uint32{{49, 116}, {117, 183}, {184, 266}, {267, 310}, {457, 517}}
 	wantExtraStates := []gotreesitter.StateID{542, 542, 542, 542, 349}
 	if len(result.ExtraShifts) != len(wantExtraSpans) {
@@ -142,6 +261,7 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if tree.ParseStoppedEarly() || tree.RootNode() == nil || tree.RootNode().EndByte() != uint32(len(rewrite.Source)) {
 		t.Fatalf("production comparison did not accept frozen rewrite: runtime=%+v", tree.ParseRuntime())
 	}
+	assertProductionParserCoreCells(t, profile)
 	if len(productionTokens) < len(result.Elections) {
 		t.Fatalf("production token trace has %d tokens, prefix has %d", len(productionTokens), len(result.Elections))
 	}
@@ -151,28 +271,7 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 			t.Fatalf("election %d token=(%d,%d,%d) production=(%d,%d,%d)", index, election.Token.Symbol, election.Token.StartByte, election.Token.EndByte, want.symbol, want.start, want.end)
 		}
 	}
-	if result.Boundary == gotreesitter.DiagnosticParserCoreFirstFork {
-		var matched bool
-		for _, stat := range profile.SnapshotTop(-1) {
-			if stat.State == result.State && stat.Lookahead == result.Lookahead.Symbol {
-				want := make([]gotreesitter.ParseAction, 0, len(result.ForkActions))
-				for ordinal := 0; ordinal < len(result.ForkActions); ordinal++ {
-					for _, fork := range result.ForkActions {
-						if fork.Ordinal == ordinal {
-							want = append(want, fork.Action)
-						}
-					}
-				}
-				if reflect.DeepEqual(stat.Actions, want) {
-					matched = true
-					break
-				}
-			}
-		}
-		if !matched {
-			t.Fatalf("independent first-fork boundary (%d,%d) absent from production ambiguity profile", result.State, result.Lookahead.Symbol)
-		}
-	} else if prefixErr == nil || result.Boundary == "" {
+	if prefixErr == nil || result.Boundary == "" {
 		t.Fatalf("prefix stopped without a typed boundary: result=%+v err=%v", result, prefixErr)
 	}
 	t.Logf("parser-core rewrite prefix boundary=%s detail=%q tokens=%d dispatches=%d state=%d lookahead=%d fork_boundaries=%+v", result.Boundary, result.Detail, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkBoundaryReceipts)
@@ -194,7 +293,7 @@ func TestDiagnosticParserCoreUsesEmbeddedGrammarAndExactScanner(t *testing.T) {
 		t.Fatal("rewrite fixture missing")
 	}
 	canonical, canonicalErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, gotreesitter.DiagnosticParserCorePrefixOptions{})
-	if canonicalErr != nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreFirstFork || canonical.Tokens != 68 || canonical.Dispatches != 117 || canonical.State != 186 || canonical.Lookahead.Symbol != 20 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || !canonical.ExactRootDFA {
+	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreNoAction || canonical.Tokens != 68 || canonical.Dispatches != 121 || canonical.State != 254 || canonical.Lookahead.Symbol != 20 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 1 || len(canonical.SameTokenRounds) != 4 || !canonical.ExactRootDFA {
 		t.Fatalf("exact scanner did not reach authenticated boundary: result=%+v err=%v", canonical, canonicalErr)
 	}
 	wrongScanners := []struct {

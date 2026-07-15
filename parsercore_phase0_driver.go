@@ -16,15 +16,16 @@ import (
 type DiagnosticParserCoreBoundaryKind string
 
 const (
-	DiagnosticParserCoreFirstFork  DiagnosticParserCoreBoundaryKind = "first_fork"
-	DiagnosticParserCoreExtra      DiagnosticParserCoreBoundaryKind = "extra"
-	DiagnosticParserCoreExtraChain DiagnosticParserCoreBoundaryKind = "extra_chain"
-	DiagnosticParserCoreNoAction   DiagnosticParserCoreBoundaryKind = "no_action"
-	DiagnosticParserCoreRecovery   DiagnosticParserCoreBoundaryKind = "recovery"
-	DiagnosticParserCoreAccept     DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
-	DiagnosticParserCoreCap        DiagnosticParserCoreBoundaryKind = "cap"
-	DiagnosticParserCoreIdentity   DiagnosticParserCoreBoundaryKind = "identity"
-	DiagnosticParserCoreRoute      DiagnosticParserCoreBoundaryKind = "unsupported_route"
+	DiagnosticParserCoreFirstFork       DiagnosticParserCoreBoundaryKind = "first_fork"
+	DiagnosticParserCoreExtra           DiagnosticParserCoreBoundaryKind = "extra"
+	DiagnosticParserCoreExtraChain      DiagnosticParserCoreBoundaryKind = "extra_chain"
+	DiagnosticParserCoreNoAction        DiagnosticParserCoreBoundaryKind = "no_action"
+	DiagnosticParserCoreRecovery        DiagnosticParserCoreBoundaryKind = "recovery"
+	DiagnosticParserCoreAccept          DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
+	DiagnosticParserCoreCap             DiagnosticParserCoreBoundaryKind = "cap"
+	DiagnosticParserCoreIdentity        DiagnosticParserCoreBoundaryKind = "identity"
+	DiagnosticParserCoreRoute           DiagnosticParserCoreBoundaryKind = "unsupported_route"
+	DiagnosticParserCoreElectionBarrier DiagnosticParserCoreBoundaryKind = "multi_state_re_election"
 )
 
 type DiagnosticParserCorePrefixOptions struct {
@@ -65,6 +66,32 @@ type DiagnosticParserCoreForkBoundary struct {
 	ExactPaths uint64
 }
 
+type DiagnosticParserCoreHeaderReceipt struct {
+	CreationSeq uint64
+	State       StateID
+	ByteOffset  uint32
+	Shifted     bool
+	Accepted    bool
+	ExactPaths  uint64
+	Checkpoint  [32]byte
+}
+
+type DiagnosticParserCoreRoundAction struct {
+	HeaderIndex int
+	State       StateID
+	ByteOffset  uint32
+	Ordinal     int
+	Action      ParseAction
+	BranchOrder uint64
+}
+
+type DiagnosticParserCoreDispatchRound struct {
+	Index   int
+	Before  []DiagnosticParserCoreHeaderReceipt
+	Actions []DiagnosticParserCoreRoundAction
+	After   []DiagnosticParserCoreHeaderReceipt
+}
+
 type DiagnosticParserCoreExtraShift struct {
 	State          StateID
 	Token          Token
@@ -92,6 +119,8 @@ type DiagnosticParserCorePrefixResult struct {
 	ForkLogicalPaths     uint64
 	ExtraShifts          []DiagnosticParserCoreExtraShift
 	ReductionAttempts    []DiagnosticParserCoreReductionAttempt
+	SameTokenRounds      []DiagnosticParserCoreDispatchRound
+	LastBranchOrder      uint64
 	Elections            []DiagnosticParserCoreElection
 	SourceSHA256         [32]byte
 	GrammarBlobSHA256    [32]byte
@@ -254,6 +283,10 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 				CurrentCheckpointEnd:   parserCoreCheckpoint(current.end),
 				CurrentCheckpointBytes: [2]uint32{currentStart, currentEnd},
 			})
+			if err := compact.BeginFrontier(); err != nil {
+				return result, err
+			}
+			compact.SetPhaseCheckpoint(sha256.Sum256(after))
 			haveToken = true
 		}
 		result.Dispatches++
@@ -262,79 +295,40 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 		if err != nil {
 			return result, err
 		}
-		if len(actions) == 0 {
-			result.Boundary, result.Detail = DiagnosticParserCoreNoAction, "canonical cell has no action"
-			return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
-		}
-		for _, action := range actions {
-			if action.ExtraChain {
-				result.Boundary, result.Detail = DiagnosticParserCoreExtraChain, "extra-chain shift requires distinct nonterminal-chain semantics"
+		if err := validateDiagnosticParserCoreCell(token, actions); err != nil {
+			if setDiagnosticParserCoreBoundaryError(&result, err) {
 				return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 			}
-			if action.Extra && action.Type != core.ActionShift {
-				return result, errors.New("parser-core phase zero: decoded extra action is not a shift")
-			}
-		}
-		if err := compact.BeginFrontier(); err != nil {
 			return result, err
 		}
 		if len(actions) > 1 {
-			var forkHeads []core.Head
-			var forkActions []DiagnosticParserCoreForkAction
-			var branchOrder uint64
-			for ordinal := 1; ordinal < len(actions); ordinal++ {
-				branchOrder++
-				heads, err := applyParserCorePrefixAction(compact, head, token, actions[ordinal], ordinal, core.ForkOrder{Present: true, Value: branchOrder})
-				if err != nil {
-					if setDiagnosticParserCoreBoundaryError(&result, err) {
-						return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
-					}
-					return result, err
-				}
-				forkHeads = append(forkHeads, heads...)
-				forkActions = append(forkActions, DiagnosticParserCoreForkAction{Ordinal: ordinal, Action: rootParserCoreAction(actions[ordinal]), BranchOrder: branchOrder})
-			}
-			heads, err := applyParserCorePrefixAction(compact, head, token, actions[0], 0, core.ForkOrder{})
+			checkpoint := result.Elections[len(result.Elections)-1].ScannerAfter.SHA256
+			initial := diagnosticParserCoreHeader{head: head, creationSeq: 0, checkpoint: checkpoint}
+			headers, round, branchOrder, nextSeq, err := executeDiagnosticParserCoreConflict(compact, initial, 0, token, actions, 0, 1)
 			if err != nil {
 				if setDiagnosticParserCoreBoundaryError(&result, err) {
 					return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 				}
 				return result, err
 			}
-			forkHeads = append(forkHeads, heads...)
-			forkActions = append(forkActions, DiagnosticParserCoreForkAction{Ordinal: 0, Action: rootParserCoreAction(actions[0])})
-			type forkBoundary struct {
-				state      core.StateID
-				byteOffset uint32
+			result.SameTokenRounds = append(result.SameTokenRounds, round)
+			result.SameTokenRounds[len(result.SameTokenRounds)-1].Index = 0
+			recordDiagnosticParserCoreAppliedReductions(&result, token, round.Actions)
+			result.LastBranchOrder = branchOrder
+			result.ForkActions = make([]DiagnosticParserCoreForkAction, len(round.Actions))
+			for index, action := range round.Actions {
+				result.ForkActions[index] = DiagnosticParserCoreForkAction{Ordinal: action.Ordinal, Action: action.Action, BranchOrder: action.BranchOrder}
 			}
-			latest := make(map[forkBoundary]core.Head, len(forkHeads))
-			for _, forkHead := range forkHeads {
-				state, byteOffset, err := compact.Boundary(forkHead)
-				if err != nil {
-					return result, err
-				}
-				latest[forkBoundary{state: state, byteOffset: byteOffset}] = forkHead
+			if err := recordDiagnosticParserCoreFirstFork(compact, headers, &result); err != nil {
+				return result, err
 			}
-			for boundary, forkHead := range latest {
-				stats, err := compact.Stats(forkHead)
-				if err != nil {
-					return result, err
+			if err := continueDiagnosticParserCoreSameToken(compact, token, headers, branchOrder, nextSeq, options, &result); err != nil {
+				if setDiagnosticParserCoreBoundaryError(&result, err) {
+					return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 				}
-				result.ForkLogicalPaths += stats.CurrentExactPaths
-				result.ForkBoundaryReceipts = append(result.ForkBoundaryReceipts, DiagnosticParserCoreForkBoundary{
-					State: StateID(boundary.state), ByteOffset: boundary.byteOffset, ExactPaths: stats.CurrentExactPaths,
-				})
+				return result, err
 			}
-			sort.Slice(result.ForkBoundaryReceipts, func(i, j int) bool {
-				if result.ForkBoundaryReceipts[i].State != result.ForkBoundaryReceipts[j].State {
-					return result.ForkBoundaryReceipts[i].State < result.ForkBoundaryReceipts[j].State
-				}
-				return result.ForkBoundaryReceipts[i].ByteOffset < result.ForkBoundaryReceipts[j].ByteOffset
-			})
-			result.ForkBoundaries = len(latest)
-			result.ForkActions = forkActions
-			result.Boundary, result.Detail = DiagnosticParserCoreFirstFork, "independently decoded and scheduled first conflict"
-			return result, nil
+			return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 		}
 		action := actions[0]
 		switch action.Type {
@@ -389,6 +383,333 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 	}
 	result.Boundary, result.Detail = DiagnosticParserCoreCap, "dispatch cap"
 	return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+}
+
+type diagnosticParserCoreHeader struct {
+	head        core.Head
+	creationSeq uint64
+	shifted     bool
+	accepted    bool
+	checkpoint  [32]byte
+}
+
+func diagnosticParserCoreHeaderReceipt(compact *core.Core, header diagnosticParserCoreHeader) (DiagnosticParserCoreHeaderReceipt, error) {
+	state, byteOffset, err := compact.Boundary(header.head)
+	if err != nil {
+		return DiagnosticParserCoreHeaderReceipt{}, err
+	}
+	stats, err := compact.Stats(header.head)
+	if err != nil {
+		return DiagnosticParserCoreHeaderReceipt{}, err
+	}
+	return DiagnosticParserCoreHeaderReceipt{
+		CreationSeq: header.creationSeq,
+		State:       StateID(state),
+		ByteOffset:  byteOffset,
+		Shifted:     header.shifted,
+		Accepted:    header.accepted,
+		ExactPaths:  stats.CurrentExactPaths,
+		Checkpoint:  header.checkpoint,
+	}, nil
+}
+
+func diagnosticParserCoreHeaderReceipts(compact *core.Core, headers []diagnosticParserCoreHeader) ([]DiagnosticParserCoreHeaderReceipt, error) {
+	out := make([]DiagnosticParserCoreHeaderReceipt, len(headers))
+	for index, header := range headers {
+		receipt, err := diagnosticParserCoreHeaderReceipt(compact, header)
+		if err != nil {
+			return nil, err
+		}
+		out[index] = receipt
+	}
+	return out, nil
+}
+
+func validateDiagnosticParserCoreCell(token Token, actions []core.Action) error {
+	if token.NoLookahead {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "no-lookahead tokens require production recovery semantics"}
+	}
+	if len(actions) == 0 {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreNoAction, detail: "canonical cell has no action"}
+	}
+	for _, action := range actions {
+		if action.Repetition {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "repetition shifts require production frontier suppression semantics"}
+		}
+		if action.ExtraChain {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreExtraChain, detail: "extra-chain shift requires distinct nonterminal-chain semantics"}
+		}
+		if action.Extra && action.Type != core.ActionShift {
+			return errors.New("parser-core phase zero: decoded extra action is not a shift")
+		}
+		if action.Type == core.ActionRecover {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRecovery, detail: "recovery is unsupported in same-lookahead closure"}
+		}
+		if action.Type == core.ActionAccept {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreAccept, detail: "accept requires authenticated EOF selection"}
+		}
+	}
+	return nil
+}
+
+// executeDiagnosticParserCoreConflict executes one complete conflict cell
+// transactionally. Returned headers are ordered primary first, then secondary
+// clones in action-ordinal order. The caller inserts pre-existing siblings
+// between those groups to preserve production scheduler order.
+func executeDiagnosticParserCoreConflict(
+	compact *core.Core,
+	incoming diagnosticParserCoreHeader,
+	headerIndex int,
+	token Token,
+	actions []core.Action,
+	branchOrder uint64,
+	nextSeq uint64,
+) ([]diagnosticParserCoreHeader, DiagnosticParserCoreDispatchRound, uint64, uint64, error) {
+	before, err := diagnosticParserCoreHeaderReceipt(compact, incoming)
+	if err != nil {
+		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
+	}
+	if err := validateDiagnosticParserCoreCell(token, actions); err != nil {
+		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
+	}
+	if len(actions) < 2 {
+		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, errors.New("parser-core phase zero: conflict executor requires multiple actions")
+	}
+
+	trialOrder, trialSeq := branchOrder, nextSeq
+	var primary diagnosticParserCoreHeader
+	var secondaries []diagnosticParserCoreHeader
+	var receipts []DiagnosticParserCoreRoundAction
+	err = compact.ApplyAtomic(func() error {
+		for ordinal := 1; ordinal < len(actions); ordinal++ {
+			trialOrder++
+			heads, applyErr := applyParserCorePrefixAction(compact, incoming.head, token, actions[ordinal], ordinal, core.ForkOrder{Present: true, Value: trialOrder})
+			if applyErr != nil {
+				return applyErr
+			}
+			if len(heads) != 1 {
+				return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "multi-boundary conflict arm requires frontier-version scheduling"}
+			}
+			secondaries = append(secondaries, diagnosticParserCoreHeader{
+				head: heads[0], creationSeq: trialSeq, shifted: actions[ordinal].Type == core.ActionShift,
+				checkpoint: incoming.checkpoint,
+			})
+			receipts = append(receipts, DiagnosticParserCoreRoundAction{
+				HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
+				Ordinal: ordinal, Action: rootParserCoreAction(actions[ordinal]), BranchOrder: trialOrder,
+			})
+			trialSeq++
+		}
+		heads, applyErr := applyParserCorePrefixAction(compact, incoming.head, token, actions[0], 0, core.ForkOrder{})
+		if applyErr != nil {
+			return applyErr
+		}
+		if len(heads) != 1 {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "multi-boundary primary reduction requires frontier-version scheduling"}
+		}
+		primary = incoming
+		primary.head = heads[0]
+		primary.shifted = actions[0].Type == core.ActionShift
+		receipts = append(receipts, DiagnosticParserCoreRoundAction{
+			HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
+			Ordinal: 0, Action: rootParserCoreAction(actions[0]),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
+	}
+
+	headers := append([]diagnosticParserCoreHeader{primary}, secondaries...)
+	after, err := diagnosticParserCoreHeaderReceipts(compact, headers)
+	if err != nil {
+		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
+	}
+	return headers, DiagnosticParserCoreDispatchRound{
+		Before: []DiagnosticParserCoreHeaderReceipt{before}, Actions: receipts, After: after,
+	}, trialOrder, trialSeq, nil
+}
+
+func recordDiagnosticParserCoreAppliedReductions(result *DiagnosticParserCorePrefixResult, token Token, actions []DiagnosticParserCoreRoundAction) {
+	for _, dispatched := range actions {
+		if dispatched.Action.Type != ParseActionReduce {
+			continue
+		}
+		result.ReductionAttempts = append(result.ReductionAttempts, DiagnosticParserCoreReductionAttempt{
+			State: dispatched.State, Lookahead: token, Action: dispatched.Action, Applied: true,
+		})
+	}
+}
+
+func recordDiagnosticParserCoreFirstFork(compact *core.Core, headers []diagnosticParserCoreHeader, result *DiagnosticParserCorePrefixResult) error {
+	receipts, err := diagnosticParserCoreHeaderReceipts(compact, headers)
+	if err != nil {
+		return err
+	}
+	result.ForkBoundaryReceipts = result.ForkBoundaryReceipts[:0]
+	result.ForkLogicalPaths = 0
+	for _, receipt := range receipts {
+		result.ForkLogicalPaths += receipt.ExactPaths
+		result.ForkBoundaryReceipts = append(result.ForkBoundaryReceipts, DiagnosticParserCoreForkBoundary{
+			State: receipt.State, ByteOffset: receipt.ByteOffset, ExactPaths: receipt.ExactPaths,
+		})
+	}
+	sort.Slice(result.ForkBoundaryReceipts, func(i, j int) bool {
+		if result.ForkBoundaryReceipts[i].State != result.ForkBoundaryReceipts[j].State {
+			return result.ForkBoundaryReceipts[i].State < result.ForkBoundaryReceipts[j].State
+		}
+		return result.ForkBoundaryReceipts[i].ByteOffset < result.ForkBoundaryReceipts[j].ByteOffset
+	})
+	result.ForkBoundaries = len(result.ForkBoundaryReceipts)
+	return nil
+}
+
+func canonicalizeDiagnosticParserCoreHeaders(compact *core.Core, headers []diagnosticParserCoreHeader) ([]diagnosticParserCoreHeader, error) {
+	type phaseHead struct {
+		head       core.Head
+		shifted    bool
+		accepted   bool
+		checkpoint [32]byte
+	}
+	out := make([]diagnosticParserCoreHeader, 0, len(headers))
+	seen := make(map[phaseHead]bool, len(headers))
+	for _, header := range headers {
+		state, byteOffset, err := compact.Boundary(header.head)
+		if err != nil {
+			return nil, err
+		}
+		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok {
+			header.head = canonical
+		}
+		key := phaseHead{head: header.head, shifted: header.shifted, accepted: header.accepted, checkpoint: header.checkpoint}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, header)
+	}
+	return out, nil
+}
+
+func continueDiagnosticParserCoreSameToken(
+	compact *core.Core,
+	token Token,
+	headers []diagnosticParserCoreHeader,
+	branchOrder uint64,
+	nextSeq uint64,
+	options DiagnosticParserCorePrefixOptions,
+	result *DiagnosticParserCorePrefixResult,
+) error {
+	for roundIndex := 1; ; roundIndex++ {
+		if result.Dispatches >= options.MaxDispatches {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "same-lookahead dispatch cap"}
+		}
+		runnable := -1
+		for index, header := range headers {
+			if header.accepted || header.shifted {
+				continue
+			}
+			if runnable != -1 {
+				return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "multiple runnable headers require cohort scheduling"}
+			}
+			runnable = index
+		}
+		if runnable == -1 {
+			for _, header := range headers {
+				if header.accepted {
+					continue
+				}
+				_, byteOffset, err := compact.Boundary(header.head)
+				if err != nil {
+					return err
+				}
+				if !header.shifted || byteOffset != token.EndByte {
+					return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "same-lookahead heads did not close at token end"}
+				}
+			}
+			result.LastBranchOrder = branchOrder
+			result.Boundary = DiagnosticParserCoreElectionBarrier
+			result.Detail = fmt.Sprintf("same lookahead closed at byte %d before multi-state election", token.EndByte)
+			return &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+		}
+
+		beforeAll, err := diagnosticParserCoreHeaderReceipts(compact, headers)
+		if err != nil {
+			return err
+		}
+		active := headers[runnable]
+		state, byteOffset, err := compact.Boundary(active.head)
+		if err != nil {
+			return err
+		}
+		if byteOffset != token.StartByte {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "runnable header is not at cached lookahead start"}
+		}
+		result.State, result.Lookahead = StateID(state), token
+		result.Dispatches++
+		actions, err := compact.Actions(state, core.Symbol(token.Symbol))
+		if err != nil {
+			return err
+		}
+		if err := validateDiagnosticParserCoreCell(token, actions); err != nil {
+			return err
+		}
+
+		var round DiagnosticParserCoreDispatchRound
+		if len(actions) > 1 {
+			outputs, conflictRound, nextOrder, nextCreationSeq, err := executeDiagnosticParserCoreConflict(
+				compact, active, runnable, token, actions, branchOrder, nextSeq,
+			)
+			if err != nil {
+				return err
+			}
+			if len(outputs) < 2 {
+				return errors.New("parser-core phase zero: conflict did not create a secondary header")
+			}
+			headers[runnable] = outputs[0]
+			headers = append(headers, outputs[1:]...)
+			branchOrder, nextSeq = nextOrder, nextCreationSeq
+			round = conflictRound
+		} else {
+			action := actions[0]
+			var output []core.Head
+			err := compact.ApplyAtomic(func() error {
+				var applyErr error
+				output, applyErr = applyParserCorePrefixAction(compact, active.head, token, action, 0, core.ForkOrder{})
+				if applyErr != nil {
+					return applyErr
+				}
+				if len(output) != 1 {
+					return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "single action produced multiple scheduler boundaries"}
+				}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+			headers[runnable].head = output[0]
+			headers[runnable].shifted = action.Type == core.ActionShift
+			round.Actions = []DiagnosticParserCoreRoundAction{{
+				HeaderIndex: runnable, State: StateID(state), ByteOffset: byteOffset,
+				Ordinal: 0, Action: rootParserCoreAction(action),
+			}}
+		}
+
+		headers, err = canonicalizeDiagnosticParserCoreHeaders(compact, headers)
+		if err != nil {
+			return err
+		}
+		afterAll, err := diagnosticParserCoreHeaderReceipts(compact, headers)
+		if err != nil {
+			return err
+		}
+		round.Index = roundIndex
+		round.Before = beforeAll
+		round.After = afterAll
+		result.SameTokenRounds = append(result.SameTokenRounds, round)
+		recordDiagnosticParserCoreAppliedReductions(result, token, round.Actions)
+		result.LastBranchOrder = branchOrder
+	}
 }
 
 func setDiagnosticParserCoreBoundaryError(result *DiagnosticParserCorePrefixResult, err error) bool {
