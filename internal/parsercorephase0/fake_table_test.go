@@ -19,11 +19,19 @@ type fakeTable struct {
 	aliases map[productionKey][]Symbol
 }
 
-func (f *fakeTable) Actions(state StateID, symbol Symbol) ([]Action, error) {
+func (f *fakeTable) Actions(state StateID, symbol Symbol) (ActionRow, error) {
 	if f == nil {
-		return nil, errors.New("fake table is nil")
+		return ActionRow{}, errors.New("fake table is nil")
 	}
-	return f.actions[tableCell{state: state, symbol: symbol}], nil
+	return NewActionRow(f.actions[tableCell{state: state, symbol: symbol}]), nil
+}
+
+func actionRowValues(row ActionRow) []Action {
+	out := make([]Action, row.Len())
+	for index := range out {
+		out[index] = row.At(index)
+	}
+	return out
 }
 
 func (f *fakeTable) Goto(state StateID, symbol Symbol) (StateID, error) {

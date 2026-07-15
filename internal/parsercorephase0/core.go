@@ -50,6 +50,28 @@ type Action struct {
 	Repetition        bool
 }
 
+// ActionRow is an immutable decoded parse-table cell. Its backing storage is
+// deliberately hidden so a cached row can be shared across parser-core
+// lookups without allowing callers to corrupt later dispatches.
+type ActionRow struct {
+	actions []Action
+}
+
+// NewActionRow snapshots actions into an immutable row.
+func NewActionRow(actions []Action) ActionRow {
+	if len(actions) == 0 {
+		return ActionRow{}
+	}
+	return ActionRow{actions: append([]Action(nil), actions...)}
+}
+
+// Len reports the number of actions in the row.
+func (r ActionRow) Len() int { return len(r.actions) }
+
+// At returns one action by value, keeping the cached row immutable. Like a
+// slice index, it panics when index is outside [0, Len()).
+func (r ActionRow) At(index int) Action { return r.actions[index] }
+
 // FieldMapEntry is the production metadata required while materializing a
 // compact reduction payload.
 type FieldMapEntry struct {
@@ -62,7 +84,7 @@ type FieldMapEntry struct {
 // table decoding and grammar authentication; the compact core only requests
 // semantic cells and reduction metadata.
 type TableView interface {
-	Actions(StateID, Symbol) ([]Action, error)
+	Actions(StateID, Symbol) (ActionRow, error)
 	Goto(StateID, Symbol) (StateID, error)
 	ProductionFields(uint16, int) ([]FieldMapEntry, error)
 	ProductionAliases(uint16, int) ([]Symbol, error)
@@ -521,7 +543,7 @@ func (c *Core) ApplyAtomic(fn func() error) (err error) {
 }
 
 // Actions returns the authentic decoded action entry for (state, lookahead).
-func (c *Core) Actions(state StateID, lookahead Symbol) ([]Action, error) {
+func (c *Core) Actions(state StateID, lookahead Symbol) (ActionRow, error) {
 	return c.tables.Actions(state, lookahead)
 }
 
@@ -636,10 +658,10 @@ func (c *Core) ordinaryCohortShiftTarget(input OrdinaryCohortShiftInput, lookahe
 	if err != nil {
 		return 0, err
 	}
-	if len(actions) != 1 || input.ActionOrdinal != 0 {
+	if actions.Len() != 1 || input.ActionOrdinal != 0 {
 		return 0, fmt.Errorf("parser-core phase zero: head %d does not select one ordinary shift", input.Head.Node)
 	}
-	action := actions[0]
+	action := actions.At(0)
 	if action.State == 0 || action != (Action{Type: ActionShift, State: action.State}) {
 		return 0, fmt.Errorf("parser-core phase zero: head %d does not select one ordinary shift", input.Head.Node)
 	}
@@ -710,10 +732,10 @@ func (c *Core) extraCohortShiftTarget(input ExtraCohortShiftInput, lookahead Sym
 	if err != nil {
 		return 0, err
 	}
-	if len(actions) != 1 || input.ActionOrdinal != 0 {
+	if actions.Len() != 1 || input.ActionOrdinal != 0 {
 		return 0, fmt.Errorf("parser-core phase zero: head %d does not select one extra shift", input.Head.Node)
 	}
-	action := actions[0]
+	action := actions.At(0)
 	if action != (Action{Type: ActionShift, State: action.State, Extra: true}) {
 		return 0, fmt.Errorf("parser-core phase zero: head %d does not select one extra shift", input.Head.Node)
 	}
@@ -1106,10 +1128,10 @@ func (c *Core) action(head Head, lookahead Symbol, ordinal int) (Action, error) 
 	if err != nil {
 		return Action{}, err
 	}
-	if ordinal < 0 || ordinal >= len(actions) {
+	if ordinal < 0 || ordinal >= actions.Len() {
 		return Action{}, fmt.Errorf("parser-core phase zero: action ordinal %d out of range", ordinal)
 	}
-	return actions[ordinal], nil
+	return actions.At(ordinal), nil
 }
 
 type linkInput struct {

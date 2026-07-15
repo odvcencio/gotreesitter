@@ -99,12 +99,17 @@ func parserCoreWarmPrepare() (*parserCoreWarmPrepared, error) {
 			return
 		}
 		parser := NewParser(lang)
-		compact, err := core.New(parserCoreRootTables{parser: parser}, parserCoreWarmLimits)
+		tables, err := newParserCoreRootTables(parser)
 		if err != nil {
 			parserCoreWarmPrepareErr = err
 			return
 		}
-		acceptedCore, err := core.New(parserCoreRootTables{parser: parser}, parserCoreWarmLimits)
+		compact, err := core.New(tables, parserCoreWarmLimits)
+		if err != nil {
+			parserCoreWarmPrepareErr = err
+			return
+		}
+		acceptedCore, err := core.New(tables, parserCoreWarmLimits)
 		if err != nil {
 			parserCoreWarmPrepareErr = err
 			return

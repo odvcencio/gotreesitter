@@ -29,15 +29,23 @@ func adaptActions(actions []gts.ParseAction) []core.Action {
 	return out
 }
 
-func (a gotreesitterTableAdapter) Actions(state core.StateID, symbol core.Symbol) ([]core.Action, error) {
+func (a gotreesitterTableAdapter) Actions(state core.StateID, symbol core.Symbol) (core.ActionRow, error) {
 	index, err := a.lookup(state, symbol)
 	if err != nil || index == 0 {
-		return nil, err
+		return core.ActionRow{}, err
 	}
 	if int(index) >= len(a.language.ParseActions) {
-		return nil, errors.New("test adapter: action index out of range")
+		return core.ActionRow{}, errors.New("test adapter: action index out of range")
 	}
-	return adaptActions(a.language.ParseActions[index].Actions), nil
+	return core.NewActionRow(adaptActions(a.language.ParseActions[index].Actions)), nil
+}
+
+func actionRowValues(row core.ActionRow) []core.Action {
+	out := make([]core.Action, row.Len())
+	for index := range out {
+		out[index] = row.At(index)
+	}
+	return out
 }
 
 func (a gotreesitterTableAdapter) Goto(state core.StateID, symbol core.Symbol) (core.StateID, error) {
@@ -152,14 +160,14 @@ func TestRealGoTableAdapterPreservesPinnedProperties(t *testing.T) {
 	if index, _ := adapter.lookup(20, 4); index != 106 {
 		t.Fatalf("Go cell (20,4) index=%d want=106", index)
 	}
-	if got, err := compact.Actions(20, 4); err != nil || !reflect.DeepEqual(got, wantConflict) {
+	if got, err := compact.Actions(20, 4); err != nil || !reflect.DeepEqual(actionRowValues(got), wantConflict) {
 		t.Fatalf("Go conflict actions=%+v err=%v", got, err)
 	}
 	wantReduce := []core.Action{{Type: core.ActionReduce, Symbol: 121, ChildCount: 1, DynamicPrecedence: -1, ProductionID: 44}, {Type: core.ActionReduce, Symbol: 171, ChildCount: 1}}
 	if index, _ := adapter.lookup(20, 6); index != 107 {
 		t.Fatalf("Go cell (20,6) index=%d want=107", index)
 	}
-	if got, err := compact.Actions(20, 6); err != nil || !reflect.DeepEqual(got, wantReduce) {
+	if got, err := compact.Actions(20, 6); err != nil || !reflect.DeepEqual(actionRowValues(got), wantReduce) {
 		t.Fatalf("Go reduction actions=%+v err=%v", got, err)
 	}
 	if state, err := adapter.Goto(1, 121); err != nil || state != 101 {

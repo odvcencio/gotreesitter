@@ -23,6 +23,10 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now preconvert authenticated parse-action
+  rows once and expose them through immutable value access, removing recurring
+  action conversion and reducing the real-Go scheduler's allocations by 12.8%
+  and allocated bytes by 6.6% with unchanged exact tree and work totals.
 - Tagged compact parser-core diagnostics now expose a warm, real-Go lifecycle
   benchmark that separates scheduler, materialization, total compact-core, and
   production parse costs while pinning source identity, exact EOF acceptance,

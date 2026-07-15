@@ -118,7 +118,11 @@ func RunDiagnosticParserCoreSeedCapForTest(scanner ExternalScanner, source []byt
 		return DiagnosticParserCoreSeedCapForTest{}, err
 	}
 	parser := NewParser(lang)
-	compact, err := core.New(parserCoreRootTables{parser: parser}, options.Limits)
+	tables, err := newParserCoreRootTables(parser)
+	if err != nil {
+		return DiagnosticParserCoreSeedCapForTest{}, err
+	}
+	compact, err := core.New(tables, options.Limits)
 	if err != nil {
 		return DiagnosticParserCoreSeedCapForTest{}, err
 	}
@@ -155,7 +159,11 @@ func RunDiagnosticParserCoreSeedGoldenProbeForTest(scanner ExternalScanner, sour
 		return DiagnosticParserCoreSeedGoldenProbeForTest{}, err
 	}
 	parser := NewParser(lang)
-	compact, err := core.New(parserCoreRootTables{parser: parser}, core.Limits{})
+	tables, err := newParserCoreRootTables(parser)
+	if err != nil {
+		return DiagnosticParserCoreSeedGoldenProbeForTest{}, err
+	}
+	compact, err := core.New(tables, core.Limits{})
 	if err != nil {
 		return DiagnosticParserCoreSeedGoldenProbeForTest{}, err
 	}

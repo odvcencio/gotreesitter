@@ -229,8 +229,8 @@ func TestDiagnosticParserCoreGenericExtraPostExecutionFailureRollsBack(t *testin
 	beforeHeaders := append([]diagnosticParserCoreHeader(nil), scheduler.headers...)
 	before, _ := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
 	cells := []diagnosticParserCoreGenericCell{
-		{headerIndex: 0, receipt: before[0], actions: table.cells[genericConflictCell{state: 5, symbol: 9}]},
-		{headerIndex: 1, receipt: before[1], actions: table.cells[genericConflictCell{state: 6, symbol: 9}]},
+		{headerIndex: 0, receipt: before[0], actions: core.NewActionRow(table.cells[genericConflictCell{state: 5, symbol: 9}])},
+		{headerIndex: 1, receipt: before[1], actions: core.NewActionRow(table.cells[genericConflictCell{state: 6, symbol: 9}])},
 	}
 	err = scheduler.applyGenericExtraShifts(before, cells)
 	if err == nil {

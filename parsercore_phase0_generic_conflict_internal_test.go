@@ -29,14 +29,14 @@ type genericConflictTable struct {
 	gotos   map[genericConflictCell]core.StateID
 }
 
-func (t *genericConflictTable) Actions(state core.StateID, symbol core.Symbol) ([]core.Action, error) {
+func (t *genericConflictTable) Actions(state core.StateID, symbol core.Symbol) (core.ActionRow, error) {
 	if actions := t.cells[genericConflictCell{state: state, symbol: symbol}]; actions != nil {
-		return append([]core.Action(nil), actions...), nil
+		return core.NewActionRow(actions), nil
 	}
 	if state == 1 && symbol == 9 {
-		return append([]core.Action(nil), t.actions...), nil
+		return core.NewActionRow(t.actions), nil
 	}
-	return nil, nil
+	return core.ActionRow{}, nil
 }
 
 type genericConflictCell struct {
@@ -100,7 +100,7 @@ func TestDiagnosticParserCoreGenericConflictArbitraryNOrdering(t *testing.T) {
 		receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	if err := scheduler.applyGenericConflict(before, diagnosticParserCoreGenericCell{
-		headerIndex: 2, receipt: before[2], actions: actions,
+		headerIndex: 2, receipt: before[2], actions: core.NewActionRow(actions),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +235,7 @@ func TestDiagnosticParserCoreGenericConflictMultiOutputSequencing(t *testing.T) 
 				options: DiagnosticParserCorePrefixOptions{MaxDispatches: 100}, receipt: receipt,
 			}
 			err := scheduler.applyGenericConflict(before, diagnosticParserCoreGenericCell{
-				headerIndex: 1, receipt: before[1], actions: actions,
+				headerIndex: 1, receipt: before[1], actions: core.NewActionRow(actions),
 			})
 			if err == nil {
 				t.Fatal("overflowing conflict unexpectedly succeeded")
@@ -258,7 +258,7 @@ func TestDiagnosticParserCoreGenericConflictMultiOutputSequencing(t *testing.T) 
 		receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	if err := scheduler.applyGenericConflict(before, diagnosticParserCoreGenericCell{
-		headerIndex: 1, receipt: before[1], actions: actions,
+		headerIndex: 1, receipt: before[1], actions: core.NewActionRow(actions),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -382,7 +382,7 @@ func TestDiagnosticParserCoreGenericConflictArenaCapsRollback(t *testing.T) {
 			}
 			if err := compact.ApplyAtomic(func() error {
 				return scheduler.applyGenericConflict([]DiagnosticParserCoreHeaderReceipt{receipt}, diagnosticParserCoreGenericCell{
-					headerIndex: 0, receipt: receipt, actions: actions,
+					headerIndex: 0, receipt: receipt, actions: core.NewActionRow(actions),
 				})
 			}); err == nil {
 				t.Fatal("capped conflict unexpectedly succeeded")

@@ -38,7 +38,7 @@ func TestPinnedGoConflictAndReductionMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, wantConflict) {
+	if !reflect.DeepEqual(actionRowValues(got), wantConflict) {
 		t.Fatalf("Go cell (20,4) = %+v, want pinned conflict %+v", got, wantConflict)
 	}
 	conflictSeed, _ := core.Seed(20, 0)
@@ -58,7 +58,7 @@ func TestPinnedGoConflictAndReductionMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(reduceActions, wantReduceCell) {
+	if !reflect.DeepEqual(actionRowValues(reduceActions), wantReduceCell) {
 		t.Fatalf("Go reduction cell (20,6)/ParseActions[107] drifted: %+v", reduceActions)
 	}
 	if gotoState, err := tables.Goto(1, 121); err != nil || gotoState != 101 {
