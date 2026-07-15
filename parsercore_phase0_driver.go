@@ -307,8 +307,9 @@ type DiagnosticParserCorePackedConvergence struct {
 }
 
 type DiagnosticParserCoreHeaderPathReceipt struct {
-	Header      DiagnosticParserCoreHeaderReceipt
-	Derivations []DiagnosticParserCorePackedDerivation
+	Header               DiagnosticParserCoreHeaderReceipt
+	Derivations          []DiagnosticParserCorePackedDerivation
+	DerivationsTruncated bool
 }
 
 type DiagnosticParserCoreDotConflictFanout struct {
@@ -2557,11 +2558,15 @@ func diagnosticParserCoreHeaderPaths(compact *core.Core, header diagnosticParser
 	if err != nil {
 		return DiagnosticParserCoreHeaderPathReceipt{}, err
 	}
+	out := DiagnosticParserCoreHeaderPathReceipt{Header: receipt}
 	paths, err := compact.Derivations(header.head)
+	if errors.Is(err, core.ErrDerivationEnumerationCap) {
+		out.DerivationsTruncated = true
+		return out, nil
+	}
 	if err != nil {
 		return DiagnosticParserCoreHeaderPathReceipt{}, err
 	}
-	out := DiagnosticParserCoreHeaderPathReceipt{Header: receipt}
 	for _, path := range paths {
 		out.Derivations = append(out.Derivations, DiagnosticParserCorePackedDerivation{
 			Score: path.Score, BranchOrder: path.BranchOrder, HasBranchOrder: path.HasBranchOrder,

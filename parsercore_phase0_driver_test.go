@@ -704,7 +704,7 @@ func TestDiagnosticParserCorePostCondenseContinuationPublishesTransactionally(t 
 			result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 				grammars.GoExternalScanner{}, source,
 				gotreesitter.DiagnosticParserCorePrefixOptions{Limits: parsercorephase0.Limits{
-					MaxPathsPerBoundary: pathCap, MaxEnumeration: pathCap,
+					MaxDerivations: pathCap, MaxPopPaths: pathCap,
 				}},
 			)
 			if routeErr == nil || result.Boundary != gotreesitter.DiagnosticParserCoreCachedDotClosureBoundary ||

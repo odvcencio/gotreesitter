@@ -241,3 +241,20 @@ func TestDiagnosticParserCoreGenericSchedulerContinuesToNextRequestedClosedByte(
 		t.Fatalf("continuation election drifted: %+v", election)
 	}
 }
+
+func TestDiagnosticParserCoreGenericSchedulerUsesLocalLiveLinkCap(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true},
+	)
+	if routeErr == nil || !strings.Contains(routeErr.Error(), "shared (46,2440) live-link cap exceeded: 9 > 8") {
+		t.Fatalf("unbounded generic route error=%v", routeErr)
+	}
+	if strings.Contains(routeErr.Error(), "exact-path cap") {
+		t.Fatalf("exact-path telemetry still gated generic execution: %v", routeErr)
+	}
+	if result.GenericScheduler != nil || result.CachedDotClosure == nil || result.Tokens != 103 || result.Dispatches != 198 {
+		t.Fatalf("live-link rollback leaked generic publication: %+v", result)
+	}
+}

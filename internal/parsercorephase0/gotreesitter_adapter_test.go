@@ -141,7 +141,7 @@ func (a gotreesitterTableAdapter) lookup(state core.StateID, symbol core.Symbol)
 func TestRealGoTableAdapterPreservesPinnedProperties(t *testing.T) {
 	lang := grammars.GoLanguage()
 	adapter := gotreesitterTableAdapter{language: lang}
-	compact, err := core.New(adapter, core.Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
+	compact, err := core.New(adapter, core.Limits{MaxDerivations: 8, MaxPopPaths: 8})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -75,6 +75,10 @@ const (
 	DeclineExtras Decline = "reduction_extras"
 )
 
+// ErrDerivationEnumerationCap marks a diagnostic-only observation limit. It
+// must never be used to stop compact syntax execution.
+var ErrDerivationEnumerationCap = errors.New("parser-core phase zero: derivation enumeration cap")
+
 // DeclineError is returned instead of weakening a phase-zero boundary.
 type DeclineError struct {
 	Feature Decline
@@ -94,15 +98,17 @@ func IsDecline(err error, feature Decline) bool {
 	return errors.As(err, &decline) && decline.Feature == feature
 }
 
-// Limits bound every pointer-free arena and the exact derivation fanout.
+// Limits bound every pointer-free arena and bounded diagnostic traversal.
+// Packed root-path multiplicity is telemetry, not an execution limit.
 type Limits struct {
 	MaxNodes            uint32
 	MaxLinks            uint32
 	MaxSubtrees         uint32
 	MaxChildren         uint32
 	MaxMetadata         uint32
-	MaxPathsPerBoundary uint64
-	MaxEnumeration      uint64
+	MaxLinksPerBoundary uint32
+	MaxPopPaths         uint64
+	MaxDerivations      uint64
 }
 
 func (l Limits) withDefaults() Limits {
@@ -121,11 +127,14 @@ func (l Limits) withDefaults() Limits {
 	if l.MaxMetadata == 0 {
 		l.MaxMetadata = 32768
 	}
-	if l.MaxPathsPerBoundary == 0 {
-		l.MaxPathsPerBoundary = 6
+	if l.MaxLinksPerBoundary == 0 {
+		l.MaxLinksPerBoundary = 8
 	}
-	if l.MaxEnumeration == 0 {
-		l.MaxEnumeration = l.MaxPathsPerBoundary
+	if l.MaxPopPaths == 0 {
+		l.MaxPopPaths = 64
+	}
+	if l.MaxDerivations == 0 {
+		l.MaxDerivations = 64
 	}
 	return l
 }
@@ -247,10 +256,12 @@ type SubtreeView struct {
 // Stats reports physical storage separately from semantic path counts. It is
 // not a replacement for production work-count emissions.
 type Stats struct {
-	Nodes             uint32
-	Links             uint32
-	Subtrees          uint32
-	Children          uint32
+	Nodes    uint32
+	Links    uint32
+	Subtrees uint32
+	Children uint32
+	// CurrentExactPaths saturates at math.MaxUint64. It is observation only and
+	// never drops or selects a syntax alternative.
 	CurrentExactPaths uint64
 }
 
@@ -367,9 +378,6 @@ func New(tables TableView, limits Limits) (*Core, error) {
 		return nil, errors.New("parser-core phase zero: nil table view")
 	}
 	limits = limits.withDefaults()
-	if limits.MaxPathsPerBoundary > limits.MaxEnumeration {
-		return nil, fmt.Errorf("parser-core phase zero: path cap %d exceeds enumeration cap %d", limits.MaxPathsPerBoundary, limits.MaxEnumeration)
-	}
 	return &Core{tables: tables, limits: limits, frontier: 1, boundaries: make(map[boundaryKey]NodeID)}, nil
 }
 
@@ -852,9 +860,6 @@ func (c *Core) appendPrivate(state StateID, byteOffset uint32, in linkInput) (He
 	if _, err := c.subtree(in.payload); err != nil {
 		return Head{}, err
 	}
-	if prev.pathCount > c.limits.MaxPathsPerBoundary {
-		return Head{}, fmt.Errorf("parser-core phase zero: private exact-path cap exceeded: %d > %d", prev.pathCount, c.limits.MaxPathsPerBoundary)
-	}
 	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || len(c.links) >= math.MaxUint32 {
 		return Head{}, errors.New("parser-core phase zero: link arena cap")
 	}
@@ -939,13 +944,7 @@ func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
 	}
 	newPathCount := prev.pathCount
 	if oldID != 0 {
-		if math.MaxUint64-newPathCount < old.pathCount {
-			return Head{}, errors.New("parser-core phase zero: exact path count overflow")
-		}
-		newPathCount += old.pathCount
-	}
-	if newPathCount > c.limits.MaxPathsPerBoundary {
-		return Head{}, fmt.Errorf("parser-core phase zero: shared (%d,%d) exact-path cap exceeded: %d > %d", key.state, key.byteOffset, newPathCount, c.limits.MaxPathsPerBoundary)
+		newPathCount = saturatingAddPaths(newPathCount, old.pathCount)
 	}
 	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || len(c.links) >= math.MaxUint32 {
 		return Head{}, errors.New("parser-core phase zero: link arena cap")
@@ -957,6 +956,9 @@ func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
 	if oldID != 0 {
 		if old.linkCount == math.MaxUint32 {
 			return Head{}, errors.New("parser-core phase zero: boundary link count overflow")
+		}
+		if old.linkCount >= c.limits.MaxLinksPerBoundary {
+			return Head{}, fmt.Errorf("parser-core phase zero: shared (%d,%d) live-link cap exceeded: %d > %d", key.state, key.byteOffset, uint64(old.linkCount)+1, c.limits.MaxLinksPerBoundary)
 		}
 		linkCount += old.linkCount
 	}
@@ -1065,7 +1067,7 @@ func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
 			revOrders = append(revOrders, linkOrder)
 			next := remaining - 1
 			if next == 0 {
-				if uint64(len(out)) >= c.limits.MaxEnumeration {
+				if uint64(len(out)) >= c.limits.MaxPopPaths {
 					return errors.New("parser-core phase zero: pop enumeration cap")
 				}
 				path := popPath{prev: link.prev, startByte: payload.startByte, structuralEnd: nextStructuralEnd}
@@ -1133,8 +1135,8 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 				return nil, err
 			}
 			for _, prefix := range prefixes {
-				if uint64(len(paths)) >= c.limits.MaxEnumeration {
-					return nil, errors.New("parser-core phase zero: derivation enumeration cap")
+				if uint64(len(paths)) >= c.limits.MaxDerivations {
+					return nil, ErrDerivationEnumerationCap
 				}
 				score, err := checkedAddScore(prefix.Score, link.scoreDelta)
 				if err != nil {
@@ -1152,7 +1154,7 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 				paths = append(paths, path)
 			}
 		}
-		if uint64(len(paths)) != n.pathCount {
+		if n.pathCount != math.MaxUint64 && uint64(len(paths)) != n.pathCount {
 			return nil, fmt.Errorf("parser-core phase zero: path-count mismatch: enumerated %d, recorded %d", len(paths), n.pathCount)
 		}
 		return paths, nil
@@ -1163,6 +1165,13 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 	}
 	out = append(out, paths...)
 	return out, nil
+}
+
+func saturatingAddPaths(left, right uint64) uint64 {
+	if math.MaxUint64-left < right {
+		return math.MaxUint64
+	}
+	return left + right
 }
 
 func (c *Core) Subtree(id SubtreeID) (SubtreeView, error) {

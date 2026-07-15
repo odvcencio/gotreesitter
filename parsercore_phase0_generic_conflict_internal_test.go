@@ -154,7 +154,7 @@ func TestDiagnosticParserCoreGenericConflictMultiOutputSequencing(t *testing.T) 
 			{state: 2, symbol: 8}: 7,
 		},
 	}
-	compact, err := core.New(table, core.Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
+	compact, err := core.New(table, core.Limits{MaxDerivations: 8, MaxPopPaths: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,6 +257,66 @@ func TestDiagnosticParserCoreGenericConflictMultiOutputSequencing(t *testing.T) 
 		len(conflict.SecondaryArms) != 2 || len(conflict.SecondaryArms[0].Outputs) != 1 || len(conflict.SecondaryArms[1].Outputs) != 2 ||
 		len(conflict.Round.Actions) != 3 || conflict.Round.Actions[0].Ordinal != 1 || conflict.Round.Actions[1].Ordinal != 2 || conflict.Round.Actions[2].Ordinal != 0 {
 		t.Fatalf("multi-output conflict allocation drifted: order=%d seq=%d receipt=%+v", scheduler.branchOrder, scheduler.nextSeq, conflict)
+	}
+}
+
+func TestDiagnosticParserCoreHeaderPathsMarksBoundedObservation(t *testing.T) {
+	table := &genericConflictTable{cells: make(map[genericConflictCell][]core.Action)}
+	for state := core.StateID(1); state <= 64; state++ {
+		target := core.StateID(100 + (state-1)/8)
+		table.cells[genericConflictCell{state: state, symbol: 1}] = []core.Action{{Type: core.ActionShift, State: target}}
+		table.cells[genericConflictCell{target, 2}] = []core.Action{{Type: core.ActionShift, State: 200}}
+	}
+	table.cells[genericConflictCell{state: 200, symbol: 3}] = []core.Action{{Type: core.ActionShift, State: 300}}
+	table.cells[genericConflictCell{state: 1000, symbol: 3}] = []core.Action{{Type: core.ActionShift, State: 300}}
+
+	compact, err := core.New(table, core.Limits{MaxDerivations: 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	groups := make([]core.Head, 8)
+	for state := core.StateID(1); state <= 64; state++ {
+		seed, seedErr := compact.Seed(state, 0)
+		if seedErr != nil {
+			t.Fatal(seedErr)
+		}
+		group, shiftErr := compact.Shift(seed, 1, 0, core.Token{Symbol: 1, EndByte: 1}, core.ForkOrder{})
+		if shiftErr != nil {
+			t.Fatal(shiftErr)
+		}
+		groups[(state-1)/8] = group
+	}
+	spare, err := compact.Seed(1000, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := compact.BeginFrontier(); err != nil {
+		t.Fatal(err)
+	}
+	var sixtyFour core.Head
+	for _, group := range groups {
+		sixtyFour, err = compact.Shift(group, 2, 0, core.Token{Symbol: 2, StartByte: 1, EndByte: 2}, core.ForkOrder{})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := compact.BeginFrontier(); err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Shift(sixtyFour, 3, 0, core.Token{Symbol: 3, StartByte: 2, EndByte: 3}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = compact.Shift(spare, 3, 0, core.Token{Symbol: 3, StartByte: 2, EndByte: 3}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := diagnosticParserCoreHeaderPaths(compact, diagnosticParserCoreHeader{head: head})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.Header.ExactPaths != 65 || !receipt.DerivationsTruncated || len(receipt.Derivations) != 0 {
+		t.Fatalf("bounded path receipt=%+v, want 65 paths with explicitly truncated derivations", receipt)
 	}
 }
 

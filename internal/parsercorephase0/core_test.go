@@ -29,7 +29,7 @@ func TestPinnedGoConflictAndReductionMetadata(t *testing.T) {
 		},
 		aliases: map[productionKey][]Symbol{{productionID: 44, childCount: 1}: {229}},
 	}
-	core, err := New(tables, Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
+	core, err := New(tables, Limits{MaxDerivations: 8, MaxPopPaths: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestPinnedGoConflictAndReductionMetadata(t *testing.T) {
 	// row; generated metadata represents that ordinary case as nil rather
 	// than a child-count-sized zero slice.
 	base := StateID(1)
-	noAliasCore, err := New(tables, Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
+	noAliasCore, err := New(tables, Limits{MaxDerivations: 8, MaxPopPaths: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,33 +255,60 @@ func TestHeaderConvergencePreservesDistinctScoreAndOrderPaths(t *testing.T) {
 	}
 }
 
-func TestSharedBoundaryCapCountsExactPathsWithoutScorePartition(t *testing.T) {
-	core := newTinyCore(t, 2)
-	seed, _ := core.Seed(1, 0)
-	payload, _ := core.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1}, nil, nil, nil)
-	key := core.boundaryKey(2, 1)
-	head, err := core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: -100})
-	if err != nil {
-		t.Fatal(err)
+func TestSharedBoundaryPathMultiplicityDoesNotGateExecution(t *testing.T) {
+	build := func(t *testing.T, limits Limits) (*Core, Head) {
+		t.Helper()
+		core := newTinyCoreWithLimits(t, limits)
+		seed, _ := core.Seed(1, 0)
+		payload, _ := core.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1}, nil, nil, nil)
+		buildFourPathHead := func(state StateID, scoreBase int64) Head {
+			key := core.boundaryKey(state, 1)
+			var head Head
+			for index := int64(0); index < 4; index++ {
+				var err error
+				head, err = core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: scoreBase + index})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			return head
+		}
+		left := buildFourPathHead(2, 10)
+		right := buildFourPathHead(3, 20)
+		key := core.boundaryKey(4, 1)
+		head, err := core.condense(key, linkInput{prev: left.Node, payload: payload, scoreDelta: 30})
+		if err != nil {
+			t.Fatal(err)
+		}
+		head, err = core.condense(key, linkInput{prev: right.Node, payload: payload, scoreDelta: 40})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return core, head
 	}
-	head, err = core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 100})
-	if err != nil {
-		t.Fatal(err)
+
+	compact, head := build(t, Limits{})
+	stats, err := compact.Stats(head)
+	if err != nil || stats.CurrentExactPaths != 8 {
+		t.Fatalf("default packed multiplicity stats=%+v err=%v, want 8 paths", stats, err)
 	}
-	if _, err := core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 200}); err == nil || !strings.Contains(err.Error(), "exact-path cap") {
-		t.Fatalf("third score-partitioned path error = %v, want shared exact-path cap", err)
+	paths, err := compact.Derivations(head)
+	if err != nil || len(paths) != 8 {
+		t.Fatalf("default packed derivations=%d err=%v, want 8", len(paths), err)
 	}
-	stats, err := core.Stats(head)
-	if err != nil {
-		t.Fatal(err)
+
+	diagnostic, diagnosticHead := build(t, Limits{MaxDerivations: 6})
+	diagnosticStats, err := diagnostic.Stats(diagnosticHead)
+	if err != nil || diagnosticStats.CurrentExactPaths != 8 {
+		t.Fatalf("diagnostic-capped execution stats=%+v err=%v, want retained 8 paths", diagnosticStats, err)
 	}
-	if stats.CurrentExactPaths != 2 {
-		t.Fatalf("exact paths after declined insert = %d, want 2", stats.CurrentExactPaths)
+	if _, err := diagnostic.Derivations(diagnosticHead); err == nil || !strings.Contains(err.Error(), "derivation enumeration cap") {
+		t.Fatalf("diagnostic derivation cap error=%v", err)
 	}
 }
 
-func TestDeclinedDiagnosticAppendIsTransactional(t *testing.T) {
-	core := newTinyCore(t, 1)
+func TestLiveLinkCapIsLocalAndTransactional(t *testing.T) {
+	core := newTinyCoreWithLimits(t, Limits{MaxLinksPerBoundary: 1})
 	seed, _ := core.Seed(1, 0)
 	head, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 1, EndByte: 1}, pathMeta{ScoreDelta: 1})
 	if err != nil {
@@ -291,8 +318,8 @@ func TestDeclinedDiagnosticAppendIsTransactional(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 1, EndByte: 1}, pathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 9}}); err == nil {
-		t.Fatal("second exact path unexpectedly bypassed the shared cap")
+	if _, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 1, EndByte: 1}, pathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 9}}); err == nil || !strings.Contains(err.Error(), "live-link cap") {
+		t.Fatalf("second distinct live link error=%v", err)
 	}
 	after, err := core.Stats(head)
 	if err != nil {
@@ -303,13 +330,47 @@ func TestDeclinedDiagnosticAppendIsTransactional(t *testing.T) {
 	}
 }
 
+func TestDefaultLiveLinkCapRejectsNinthDistinctLink(t *testing.T) {
+	core := newTinyCoreWithLimits(t, Limits{})
+	seed, _ := core.Seed(1, 0)
+	payload, _ := core.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1}, nil, nil, nil)
+	key := core.boundaryKey(2, 1)
+	var head Head
+	for index := int64(0); index < 8; index++ {
+		var err error
+		head, err = core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: index})
+		if err != nil {
+			t.Fatalf("live link %d: %v", index+1, err)
+		}
+	}
+	before, err := core.Stats(head)
+	if err != nil || before.CurrentExactPaths != 8 {
+		t.Fatalf("eight-link stats=%+v err=%v", before, err)
+	}
+	duplicate, err := core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 7})
+	if err != nil || duplicate != head {
+		t.Fatalf("exact duplicate consumed a live-link slot: duplicate=%+v head=%+v err=%v", duplicate, head, err)
+	}
+	if _, err := core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 8}); err == nil || !strings.Contains(err.Error(), "live-link cap exceeded: 9 > 8") {
+		t.Fatalf("ninth distinct live link error=%v", err)
+	}
+	after, err := core.Stats(head)
+	if err != nil || after != before {
+		t.Fatalf("ninth-link failure mutated core: before=%+v after=%+v err=%v", before, after, err)
+	}
+	canonical, ok := core.CanonicalBoundary(2, 1, false, [32]byte{})
+	if !ok || canonical != head {
+		t.Fatalf("ninth-link failure changed canonical boundary: head=%+v canonical=%+v ok=%t", head, canonical, ok)
+	}
+}
+
 func TestExtraShiftWithZeroTargetRetainsCurrentState(t *testing.T) {
 	tables := &fakeTable{
 		actions: map[tableCell][]Action{
 			{state: 1, symbol: 1}: {{Type: ActionShift, Extra: true}},
 		},
 	}
-	core, err := New(tables, Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+	core, err := New(tables, Limits{MaxDerivations: 2, MaxPopPaths: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +397,7 @@ func TestConsumedPhasePreventsZeroWidthShiftReductionCondensation(t *testing.T) 
 	tables := &fakeTable{actions: map[tableCell][]Action{
 		{state: 1, symbol: 1}: {{Type: ActionShift, State: 2}},
 	}}
-	core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	core, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -564,7 +625,7 @@ func TestOuterRollbackUndoesSuccessfulNestedParserOperations(t *testing.T) {
 		},
 		gotos: map[tableCell]StateID{{state: 1, symbol: 4}: 5},
 	}
-	compact, err := New(tables, Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
+	compact, err := New(tables, Limits{MaxDerivations: 8, MaxPopPaths: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -713,7 +774,7 @@ func TestShiftOrdinaryCohortSharesOneTerminalPayload(t *testing.T) {
 		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
 		{state: 2, symbol: 9}: {{Type: ActionShift, State: 3}},
 	}}
-	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -768,7 +829,7 @@ func TestExternalTerminalProvenanceIsPartOfSubtreeIdentity(t *testing.T) {
 	tables := &fakeTable{actions: map[tableCell][]Action{
 		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
 	}}
-	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -823,7 +884,7 @@ func TestExternalTerminalCohortSharesProvenance(t *testing.T) {
 		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
 		{state: 2, symbol: 9}: {{Type: ActionShift, State: 3}},
 	}}
-	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -891,7 +952,7 @@ func TestShiftOrdinaryCohortValidatesBeforeMutation(t *testing.T) {
 		{state: 3, symbol: 9}: {{Type: ActionShift, State: 4, ExtraChain: true}},
 		{state: 4, symbol: 9}: {{Type: ActionShift, State: 5, Repetition: true}},
 	}}
-	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -975,7 +1036,7 @@ func TestShiftOrdinaryCohortRollsBackCaps(t *testing.T) {
 	}
 
 	t.Run("subtree", func(t *testing.T) {
-		compact, first, second := newCohort(t, Limits{MaxSubtrees: 1, MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+		compact, first, second := newCohort(t, Limits{MaxSubtrees: 1, MaxDerivations: 4, MaxPopPaths: 4})
 		if _, err := compact.appendSubtree(subtreeRecord{symbol: 8, terminal: true}, nil, nil, nil); err != nil {
 			t.Fatal(err)
 		}
@@ -985,9 +1046,9 @@ func TestShiftOrdinaryCohortRollsBackCaps(t *testing.T) {
 		name   string
 		limits Limits
 	}{
-		{name: "second-node", limits: Limits{MaxNodes: 3, MaxPathsPerBoundary: 4, MaxEnumeration: 4}},
-		{name: "second-link", limits: Limits{MaxLinks: 1, MaxPathsPerBoundary: 4, MaxEnumeration: 4}},
-		{name: "second-path", limits: Limits{MaxPathsPerBoundary: 1, MaxEnumeration: 1}},
+		{name: "second-node", limits: Limits{MaxNodes: 3, MaxDerivations: 4, MaxPopPaths: 4}},
+		{name: "second-link", limits: Limits{MaxLinks: 1, MaxDerivations: 4, MaxPopPaths: 4}},
+		{name: "second-live-link", limits: Limits{MaxLinksPerBoundary: 1, MaxDerivations: 4, MaxPopPaths: 4}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			compact, first, second := newCohort(t, test.limits)
@@ -1001,7 +1062,7 @@ func TestZeroChildReductionPushesParentAboveExistingExtra(t *testing.T) {
 		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{Type: ActionReduce, Symbol: 2}}},
 		gotos:   map[tableCell]StateID{{state: 3, symbol: 2}: 4},
 	}
-	core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	core, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1029,7 +1090,7 @@ func TestZeroChildReductionPushesParentAboveExistingExtra(t *testing.T) {
 }
 
 func TestReductionRepushesConsecutiveTrailingExtrasInOrder(t *testing.T) {
-	core, err := New(diagnosticReduceTable(1, 3), Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	core, err := New(diagnosticReduceTable(1, 3), Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1274,7 +1335,7 @@ func newSharedReductionFixture(t *testing.T, sameChild bool) (*Core, Head) {
 		fields:  map[uint16][]FieldMapEntry{6: {{FieldID: 7, ChildIndex: 0}}},
 		aliases: map[productionKey][]Symbol{{productionID: 6, childCount: 1}: {8}},
 	}
-	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1308,7 +1369,7 @@ func newReductionLinkCollisionFixture(t *testing.T, collidingMetadata bool) (*Co
 		actions: map[tableCell][]Action{{state: 3, symbol: 9}: {{Type: ActionReduce, Symbol: 2, ChildCount: 2}}},
 		gotos:   map[tableCell]StateID{{state: 1, symbol: 2}: 4},
 	}
-	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1353,7 +1414,7 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{Type: ActionReduce, Symbol: 2, ChildCount: 2}}},
 		gotos:   map[tableCell]StateID{{state: 1, symbol: 2}: 4},
 	}
-	core, err := New(tables, Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+	core, err := New(tables, Limits{MaxDerivations: 2, MaxPopPaths: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1398,7 +1459,7 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 		t.Fatalf("converged interstitial/trailing-extra metadata=%#v, want scores 13/14 and order 11", paths)
 	}
 
-	rollback, err := New(tables, Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+	rollback, err := New(tables, Limits{MaxDerivations: 2, MaxPopPaths: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1409,7 +1470,7 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 3, Token{Symbol: 12, StartByte: 2, EndByte: 3}, pathMeta{ScoreDelta: 4})
 	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 3, Token{Symbol: 13, StartByte: 3, EndByte: 4, Extra: true}, pathMeta{ScoreDelta: 5})
 	rollbackBefore, _ := rollback.Stats(rollbackHead)
-	rollback.limits.MaxPathsPerBoundary = 1
+	rollback.limits.MaxPopPaths = 1
 	if _, err := rollback.Reduce(rollbackHead, 1, 0, ForkOrder{}); err == nil || !strings.Contains(err.Error(), "cap") {
 		t.Fatalf("converged trailing-extra cap error=%v", err)
 	}
@@ -1435,7 +1496,7 @@ func TestReductionOwnsInterstitialExtrasAndRemapsStructuralMetadata(t *testing.T
 		}},
 		aliases: map[productionKey][]Symbol{{productionID: 5, childCount: 3}: {101, 102, 103}},
 	}
-	core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	core, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1530,7 +1591,7 @@ func TestReductionMetadataRemapFailuresRollback(t *testing.T) {
 				fields:  map[uint16][]FieldMapEntry{5: test.fields},
 				aliases: map[productionKey][]Symbol{{productionID: 5, childCount: 1}: test.aliases},
 			}
-			core, err := New(tables, Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+			core, err := New(tables, Limits{MaxDerivations: 2, MaxPopPaths: 2})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1558,7 +1619,7 @@ func TestReductionFieldRemapPastUint8RollsBack(t *testing.T) {
 	}
 	core, err := New(tables, Limits{
 		MaxNodes: 1024, MaxLinks: 1024, MaxSubtrees: 1024,
-		MaxPathsPerBoundary: 2, MaxEnumeration: 2,
+		MaxDerivations: 2, MaxPopPaths: 2,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1584,7 +1645,7 @@ func TestReductionFieldRemapPastUint8RollsBack(t *testing.T) {
 }
 
 func TestReduceScoreOverflowRollsBack(t *testing.T) {
-	core, err := New(diagnosticReduceTable(1, 1), Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	core, err := New(diagnosticReduceTable(1, 1), Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1613,7 +1674,7 @@ func TestReductionReturnsEveryDistinctGotoBoundary(t *testing.T) {
 			{state: 2, symbol: 2}: 5,
 		},
 	}
-	core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	core, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1687,7 +1748,7 @@ func TestCycleAndOverflowDeclineFailClosed(t *testing.T) {
 	})
 
 	t.Run("path_count", func(t *testing.T) {
-		core := newTinyCoreWithLimits(t, Limits{MaxPathsPerBoundary: math.MaxUint64, MaxEnumeration: math.MaxUint64})
+		core := newTinyCoreWithLimits(t, Limits{MaxDerivations: math.MaxUint64, MaxPopPaths: math.MaxUint64})
 		seedA, _ := core.Seed(1, 0)
 		seedB, _ := core.Seed(2, 0)
 		payload, _ := core.appendSubtree(subtreeRecord{symbol: 1, terminal: true}, nil, nil, nil)
@@ -1697,8 +1758,13 @@ func TestCycleAndOverflowDeclineFailClosed(t *testing.T) {
 		}
 		b, _ := core.node(seedB.Node)
 		b.pathCount = math.MaxUint64
-		if _, err := core.condense(key, linkInput{prev: seedB.Node, payload: payload}); err == nil || !strings.Contains(err.Error(), "path count overflow") {
-			t.Fatalf("path-count overflow error = %v", err)
+		head, err := core.condense(key, linkInput{prev: seedB.Node, payload: payload})
+		if err != nil {
+			t.Fatalf("path-count overflow changed execution: %v", err)
+		}
+		stats, err := core.Stats(head)
+		if err != nil || stats.CurrentExactPaths != math.MaxUint64 {
+			t.Fatalf("saturated path telemetry=%+v err=%v", stats, err)
 		}
 	})
 
@@ -1736,7 +1802,7 @@ func TestCycleAndOverflowDeclineFailClosed(t *testing.T) {
 
 func newTinyCore(t *testing.T, pathCap uint64) *Core {
 	t.Helper()
-	return newTinyCoreWithLimits(t, Limits{MaxPathsPerBoundary: pathCap, MaxEnumeration: pathCap})
+	return newTinyCoreWithLimits(t, Limits{MaxDerivations: pathCap, MaxPopPaths: pathCap})
 }
 
 func newTinyCoreWithLimits(t *testing.T, limits Limits) *Core {

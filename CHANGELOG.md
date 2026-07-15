@@ -23,6 +23,11 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now separate packed root-path telemetry from
+  execution limits. Path counts saturate without selecting syntax, exact
+  derivation observation is bounded independently, reduction pops have their
+  own 64-path bound, and canonical nodes fail closed on a ninth distinct live
+  link.
 - The generic parser-core diagnostic scheduler now applies a sole
   action-owned extra shift while preserving external-token provenance, and can
   publish a typed checkpoint-authenticated closed-byte completion before
