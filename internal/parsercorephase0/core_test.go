@@ -7,51 +7,37 @@ import (
 	"strings"
 	"testing"
 	"unsafe"
-
-	gts "github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-func TestGoScannerBackedFullParseDeclinesBeforeCoreExecution(t *testing.T) {
-	lang := grammars.GoLanguage()
-	if lang.ExternalScanner == nil || len(lang.ExternalSymbols) == 0 {
-		t.Fatal("test requires the certified Go external scanner attachment")
+func TestPinnedGoConflictAndReductionMetadata(t *testing.T) {
+	wantConflict := []Action{
+		{Type: ActionReduce, Symbol: 171, ChildCount: 1},
+		{Type: ActionShift, State: 194},
 	}
-	err := AdmitFullParse(lang, FullParseRequest{})
-	if !IsDecline(err, DeclineExternalScanner) {
-		t.Fatalf("AdmitFullParse error = %v, want external-scanner decline", err)
+	wantReduce := Action{Type: ActionReduce, Symbol: 121, ChildCount: 1, DynamicPrecedence: -1, ProductionID: 44}
+	wantReduceCell := []Action{wantReduce, Action{Type: ActionReduce, Symbol: 171, ChildCount: 1}}
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{
+			{state: 20, symbol: 4}: wantConflict,
+			{state: 20, symbol: 6}: wantReduceCell,
+		},
+		gotos: map[tableCell]StateID{
+			{state: 1, symbol: 121}: 101,
+			{state: 1, symbol: 171}: 2,
+		},
+		aliases: map[productionKey][]Symbol{{productionID: 44, childCount: 1}: {229}},
 	}
-	if !strings.Contains(err.Error(), "scanner/election") {
-		t.Fatalf("decline %q does not identify the next integration seam", err)
-	}
-}
-
-func TestRealGoDecodedConflictAndReductionMetadata(t *testing.T) {
-	lang := grammars.GoLanguage()
-	core, err := New(lang, Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
+	core, err := New(tables, Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	wantConflict := []gts.ParseAction{
-		{Type: gts.ParseActionReduce, Symbol: 171, ChildCount: 1},
-		{Type: gts.ParseActionShift, State: 194},
-	}
-	if lang.LargeStateCount != 2 || lang.SmallParseTableMap[18] != 814 {
-		t.Fatalf("Go sparse table identity drifted: large=%d state20-offset=%d", lang.LargeStateCount, lang.SmallParseTableMap[18])
-	}
-	if got := rawSparseActionIndex(t, lang, 20, 4); got != 106 {
-		t.Fatalf("Go raw sparse action cell (20,4) = %d, want pinned index 106", got)
-	}
 	got, err := core.Actions(20, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(got, wantConflict) {
 		t.Fatalf("Go cell (20,4) = %+v, want pinned conflict %+v", got, wantConflict)
-	}
-	if !reflect.DeepEqual(lang.ParseActions[106].Actions, wantConflict) {
-		t.Fatalf("Go ParseActions[106] drifted: %+v", lang.ParseActions[106].Actions)
 	}
 	conflictSeed, _ := core.Seed(20, 0)
 	conflictHead, err := core.Shift(conflictSeed, 4, 1, Token{Symbol: 4, EndByte: 1}, ForkOrder{Present: true, Value: 1})
@@ -66,32 +52,15 @@ func TestRealGoDecodedConflictAndReductionMetadata(t *testing.T) {
 		t.Fatalf("authentic conflict shift order = %#v, want current order 1", conflictPaths)
 	}
 
-	wantReduce := gts.ParseAction{Type: gts.ParseActionReduce, Symbol: 121, ChildCount: 1, DynamicPrecedence: -1, ProductionID: 44}
-	wantReduceCell := []gts.ParseAction{
-		wantReduce,
-		{Type: gts.ParseActionReduce, Symbol: 171, ChildCount: 1},
-	}
-	if got := rawSparseActionIndex(t, lang, 20, 6); got != 107 {
-		t.Fatalf("Go raw sparse action cell (20,6) = %d, want pinned index 107", got)
-	}
 	reduceActions, err := core.Actions(20, 6)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(reduceActions, wantReduceCell) || !reflect.DeepEqual(lang.ParseActions[107].Actions, wantReduceCell) {
+	if !reflect.DeepEqual(reduceActions, wantReduceCell) {
 		t.Fatalf("Go reduction cell (20,6)/ParseActions[107] drifted: %+v", reduceActions)
 	}
-	if lang.ParseTable[1][121] != 101 {
-		t.Fatalf("Go raw GOTO cell (1,121) = %d, want pinned state 101", lang.ParseTable[1][121])
-	}
-	if gotoState, err := lookupGoto(lang, 1, 121); err != nil || gotoState != 101 {
+	if gotoState, err := tables.Goto(1, 121); err != nil || gotoState != 101 {
 		t.Fatalf("lookupGoto(1,121) = %d, %v, want 101", gotoState, err)
-	}
-	if span := lang.FieldMapSlices[44]; span != [2]uint16{0, 0} {
-		t.Fatalf("Go production 44 field span = %v, want empty", span)
-	}
-	if got := lang.AliasSequences[44]; !slices.Equal(got, []gts.Symbol{229}) {
-		t.Fatalf("Go production 44 aliases = %v, want pinned [229]", got)
 	}
 
 	head, err := core.Seed(1, 0)
@@ -101,15 +70,15 @@ func TestRealGoDecodedConflictAndReductionMetadata(t *testing.T) {
 	var wantOrder uint64
 	var wantScore int64
 	for i := 0; i < int(wantReduce.ChildCount); i++ {
-		target := gts.StateID(1)
+		target := StateID(1)
 		if i == int(wantReduce.ChildCount)-1 {
 			target = 20
 		}
 		order := uint64(10 + i)
 		delta := int64(i + 1)
-		head, err = core.AppendDiagnosticPayload(head, target, Token{
-			Symbol: gts.Symbol(1), StartByte: uint32(i), EndByte: uint32(i + 1),
-		}, PathMeta{ScoreDelta: delta, BranchOrder: ForkOrder{Present: true, Value: order}})
+		head, err = core.appendDiagnosticPayload(head, target, Token{
+			Symbol: Symbol(1), StartByte: uint32(i), EndByte: uint32(i + 1),
+		}, pathMeta{ScoreDelta: delta, BranchOrder: ForkOrder{Present: true, Value: order}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -147,7 +116,7 @@ func TestRealGoDecodedConflictAndReductionMetadata(t *testing.T) {
 	if len(view.Fields) != 0 {
 		t.Fatalf("fields = %#v, want pinned empty production fields", view.Fields)
 	}
-	if !slices.Equal(view.Aliases, []gts.Symbol{229}) {
+	if !slices.Equal(view.Aliases, []Symbol{229}) {
 		t.Fatalf("aliases = %#v, want pinned [229]", view.Aliases)
 	}
 
@@ -155,21 +124,8 @@ func TestRealGoDecodedConflictAndReductionMetadata(t *testing.T) {
 	// reduction from the conflict cell above. Production zero has no alias
 	// row; generated metadata represents that ordinary case as nil rather
 	// than a child-count-sized zero slice.
-	if got := lang.AliasSequences[0]; len(got) != 0 {
-		t.Fatalf("Go production 0 aliases = %v, want pinned empty row", got)
-	}
-	var base gts.StateID
-	for state := gts.StateID(1); uint32(state) < lang.StateCount; state++ {
-		gotoState, lookupErr := lookupGoto(lang, state, wantConflict[0].Symbol)
-		if lookupErr == nil && gotoState != 0 {
-			base = state
-			break
-		}
-	}
-	if base == 0 {
-		t.Fatalf("Go grammar has no GOTO for pinned reduced symbol %d", wantConflict[0].Symbol)
-	}
-	noAliasCore, err := New(lang, Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
+	base := StateID(1)
+	noAliasCore, err := New(tables, Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +133,7 @@ func TestRealGoDecodedConflictAndReductionMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	noAliasHead, err = noAliasCore.AppendDiagnosticPayload(noAliasHead, 20, Token{Symbol: 1, EndByte: 1}, PathMeta{})
+	noAliasHead, err = noAliasCore.appendDiagnosticPayload(noAliasHead, 20, Token{Symbol: 1, EndByte: 1}, pathMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +281,7 @@ func TestSharedBoundaryCapCountsExactPathsWithoutScorePartition(t *testing.T) {
 func TestDeclinedDiagnosticAppendIsTransactional(t *testing.T) {
 	core := newTinyCore(t, 1)
 	seed, _ := core.Seed(1, 0)
-	head, err := core.AppendDiagnosticPayload(seed, 2, Token{Symbol: 1, EndByte: 1}, PathMeta{ScoreDelta: 1})
+	head, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 1, EndByte: 1}, pathMeta{ScoreDelta: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +289,7 @@ func TestDeclinedDiagnosticAppendIsTransactional(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := core.AppendDiagnosticPayload(seed, 2, Token{Symbol: 1, EndByte: 1}, PathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 9}}); err == nil {
+	if _, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 1, EndByte: 1}, pathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 9}}); err == nil {
 		t.Fatal("second exact path unexpectedly bypassed the shared cap")
 	}
 	after, err := core.Stats(head)
@@ -346,15 +302,12 @@ func TestDeclinedDiagnosticAppendIsTransactional(t *testing.T) {
 }
 
 func TestExtraShiftWithZeroTargetRetainsCurrentState(t *testing.T) {
-	lang := &gts.Language{
-		StateCount: 4, TokenCount: 2, InitialState: 1,
-		ParseTable: [][]uint16{{0, 0}, {0, 1}, {0, 0}, {0, 0}},
-		ParseActions: []gts.ParseActionEntry{
-			{},
-			{Actions: []gts.ParseAction{{Type: gts.ParseActionShift, Extra: true, State: 0}}},
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{
+			{state: 1, symbol: 1}: {{Type: ActionShift, Extra: true}},
 		},
 	}
-	core, err := New(lang, Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+	core, err := New(tables, Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,19 +333,19 @@ func TestExtraShiftWithZeroTargetRetainsCurrentState(t *testing.T) {
 func TestReductionOverExtrasDeclinesTransactionally(t *testing.T) {
 	for _, childCount := range []uint8{0, 1} {
 		t.Run(string(rune('0'+childCount))+"_children", func(t *testing.T) {
-			lang := diagnosticReduceLanguage(childCount, 0)
-			core, err := New(lang, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+			tables := diagnosticReduceTable(childCount, 0)
+			core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
 			if err != nil {
 				t.Fatal(err)
 			}
 			head, _ := core.Seed(1, 0)
 			if childCount > 0 {
-				head, err = core.AppendDiagnosticPayload(head, 2, Token{Symbol: 1, EndByte: 1}, PathMeta{})
+				head, err = core.appendDiagnosticPayload(head, 2, Token{Symbol: 1, EndByte: 1}, pathMeta{})
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
-			head, err = core.AppendDiagnosticPayload(head, 3, Token{Symbol: 1, StartByte: 1, EndByte: 2, Extra: true}, PathMeta{})
+			head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 1, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -411,12 +364,12 @@ func TestReductionOverExtrasDeclinesTransactionally(t *testing.T) {
 }
 
 func TestReduceScoreOverflowRollsBack(t *testing.T) {
-	core, err := New(diagnosticReduceLanguage(1, 1), Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	core, err := New(diagnosticReduceTable(1, 1), Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
 	head, _ := core.Seed(1, 0)
-	head, err = core.AppendDiagnosticPayload(head, 3, Token{Symbol: 1, EndByte: 1}, PathMeta{ScoreDelta: math.MaxInt64})
+	head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 1, EndByte: 1}, pathMeta{ScoreDelta: math.MaxInt64})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -431,32 +384,26 @@ func TestReduceScoreOverflowRollsBack(t *testing.T) {
 }
 
 func TestReductionReturnsEveryDistinctGotoBoundary(t *testing.T) {
-	lang := &gts.Language{
-		StateCount: 6, TokenCount: 2, InitialState: 1,
-		ParseTable: [][]uint16{
-			{0, 0, 0},
-			{0, 0, 4}, // state 1 GOTO(nonterminal 2) -> state 4
-			{0, 0, 5}, // state 2 GOTO(nonterminal 2) -> state 5
-			{0, 1, 0}, // state 3 reduces on terminal 1
-			{0, 0, 0},
-			{0, 0, 0},
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{
+			{state: 3, symbol: 1}: {{Type: ActionReduce, Symbol: 2, ChildCount: 1}},
 		},
-		ParseActions: []gts.ParseActionEntry{
-			{},
-			{Actions: []gts.ParseAction{{Type: gts.ParseActionReduce, Symbol: 2, ChildCount: 1}}},
+		gotos: map[tableCell]StateID{
+			{state: 1, symbol: 2}: 4,
+			{state: 2, symbol: 2}: 5,
 		},
 	}
-	core, err := New(lang, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
 	left, _ := core.Seed(1, 0)
 	right, _ := core.Seed(2, 0)
-	left, err = core.AppendDiagnosticPayload(left, 3, Token{Symbol: 1, EndByte: 1}, PathMeta{BranchOrder: ForkOrder{Present: true, Value: 1}})
+	left, err = core.appendDiagnosticPayload(left, 3, Token{Symbol: 1, EndByte: 1}, pathMeta{BranchOrder: ForkOrder{Present: true, Value: 1}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	merged, err := core.AppendDiagnosticPayload(right, 3, Token{Symbol: 1, EndByte: 1}, PathMeta{BranchOrder: ForkOrder{Present: true, Value: 2}})
+	merged, err := core.appendDiagnosticPayload(right, 3, Token{Symbol: 1, EndByte: 1}, pathMeta{BranchOrder: ForkOrder{Present: true, Value: 2}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -468,13 +415,13 @@ func TestReductionReturnsEveryDistinctGotoBoundary(t *testing.T) {
 	if len(frontier) != 2 {
 		t.Fatalf("reduction frontier has %d boundaries, want 2", len(frontier))
 	}
-	states := make([]gts.StateID, 0, 2)
+	states := make([]StateID, 0, 2)
 	for _, head := range frontier {
 		n, _ := core.node(head.Node)
 		states = append(states, n.state)
 	}
 	slices.Sort(states)
-	if !slices.Equal(states, []gts.StateID{4, 5}) {
+	if !slices.Equal(states, []StateID{4, 5}) {
 		t.Fatalf("reduction frontier states = %v, want [4 5]", states)
 	}
 }
@@ -574,63 +521,20 @@ func newTinyCore(t *testing.T, pathCap uint64) *Core {
 
 func newTinyCoreWithLimits(t *testing.T, limits Limits) *Core {
 	t.Helper()
-	core, err := New(&gts.Language{
-		StateCount: 16, TokenCount: 4, InitialState: 1,
-		ParseTable: make([][]uint16, 16),
-	}, limits)
+	core, err := New(&fakeTable{}, limits)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return core
 }
 
-func diagnosticReduceLanguage(childCount uint8, dynamicPrecedence int16) *gts.Language {
-	return &gts.Language{
-		StateCount: 5, TokenCount: 2, InitialState: 1,
-		ParseTable: [][]uint16{
-			{0, 0, 0},
-			{0, 0, 4}, // state 1 GOTO(nonterminal 2) -> state 4
-			{0, 0, 0},
-			{0, 1, 0}, // state 3 reduces on terminal 1
-			{0, 0, 0},
+func diagnosticReduceTable(childCount uint8, dynamicPrecedence int16) *fakeTable {
+	return &fakeTable{
+		actions: map[tableCell][]Action{
+			{state: 3, symbol: 1}: {{
+				Type: ActionReduce, Symbol: 2, ChildCount: childCount, DynamicPrecedence: dynamicPrecedence,
+			}},
 		},
-		ParseActions: []gts.ParseActionEntry{
-			{},
-			{Actions: []gts.ParseAction{{
-				Type: gts.ParseActionReduce, Symbol: 2, ChildCount: childCount,
-				DynamicPrecedence: dynamicPrecedence,
-			}}},
-		},
+		gotos: map[tableCell]StateID{{state: 1, symbol: 2}: 4},
 	}
-}
-
-// rawSparseActionIndex decodes the pinned generated table directly in the
-// test, independently of Core.Actions/lookupActionIndex.
-func rawSparseActionIndex(t *testing.T, lang *gts.Language, state gts.StateID, symbol gts.Symbol) uint16 {
-	t.Helper()
-	idx := int(state) - int(lang.LargeStateCount)
-	if idx < 0 || idx >= len(lang.SmallParseTableMap) {
-		t.Fatalf("state %d is not a sparse-table state", state)
-	}
-	pos := int(lang.SmallParseTableMap[idx])
-	groups := int(lang.SmallParseTable[pos])
-	pos++
-	for group := 0; group < groups; group++ {
-		if pos+1 >= len(lang.SmallParseTable) {
-			t.Fatal("truncated raw sparse group")
-		}
-		value := lang.SmallParseTable[pos]
-		count := int(lang.SmallParseTable[pos+1])
-		pos += 2
-		if pos+count > len(lang.SmallParseTable) {
-			t.Fatal("truncated raw sparse symbols")
-		}
-		for _, got := range lang.SmallParseTable[pos : pos+count] {
-			if got == uint16(symbol) {
-				return value
-			}
-		}
-		pos += count
-	}
-	return 0
 }

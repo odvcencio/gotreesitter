@@ -1,40 +1,77 @@
 // Package parsercorephase0 contains a diagnostic-only parser-core prototype.
 //
 // It deliberately is not imported by the production parser. The prototype
-// consumes decoded Language parse tables, but it does not own a lexer, an
+// consumes a dependency-neutral TableView, but it does not own a lexer, an
 // external-scanner election, recovery, retries, included ranges, or
-// incremental parsing. The next parser-core count seam is authenticated token
-// replay bound to each token's exact normalized active election-state set,
-// lexical state, and scanner checkpoint; a frontier mismatch must decline.
-// Exact scanner/election integration is still required before full-parse
-// timing. The next integration point is an external diagnostic harness that
-// imports both the production parser and this package; the root gotreesitter
-// package must not import this diagnostic package. If the direct-work gate
-// passes, proven primitive records can move behind a dependency-neutral
-// internal boundary. Callers must treat a decline as a request to use the
-// production parser; this package never silently substitutes partial work.
+// incremental parsing. A future build-tagged diagnostic driver in the root
+// package may adapt canonical production tables while independently scheduling
+// against the exact root lexer/scanner election; the ordinary production
+// parser does not import this package. Differential replay is debugging
+// evidence, not the execution route. Exact scanner/election integration remains
+// required before any full-parse timing claim. Callers must treat a decline as
+// a request to use the production parser; this package never silently
+// substitutes partial work.
 package parsercorephase0
 
 import (
 	"errors"
 	"fmt"
 	"math"
-
-	gts "github.com/odvcencio/gotreesitter"
 )
+
+// Symbol and StateID are grammar-table identifiers. They intentionally use
+// the same widths as tree-sitter language blobs without depending on the
+// public gotreesitter package.
+type Symbol uint16
+type StateID uint32
+type FieldID uint16
+
+// ActionType identifies a decoded parse-table action.
+type ActionType uint8
+
+const (
+	ActionShift ActionType = iota
+	ActionReduce
+	ActionAccept
+	ActionRecover
+)
+
+// Action is the lex-neutral action record consumed by the compact core.
+type Action struct {
+	Type              ActionType
+	State             StateID
+	Symbol            Symbol
+	ChildCount        uint8
+	DynamicPrecedence int16
+	ProductionID      uint16
+	Extra             bool
+	ExtraChain        bool
+	Repetition        bool
+}
+
+// FieldMapEntry is the production metadata required while materializing a
+// compact reduction payload.
+type FieldMapEntry struct {
+	FieldID    FieldID
+	ChildIndex uint8
+	Inherited  bool
+}
+
+// TableView is the dependency-neutral parser-table boundary. The adapter owns
+// table decoding and grammar authentication; the compact core only requests
+// semantic cells and reduction metadata.
+type TableView interface {
+	Actions(StateID, Symbol) ([]Action, error)
+	Goto(StateID, Symbol) (StateID, error)
+	ProductionFields(uint16) ([]FieldMapEntry, error)
+	ProductionAliases(uint16, int) ([]Symbol, error)
+}
 
 // Decline identifies a feature that phase zero cannot execute faithfully.
 type Decline string
 
 const (
-	DeclineExternalScanner Decline = "external_scanner"
-	DeclineRecovery        Decline = "recovery"
-	DeclineRetry           Decline = "retry"
-	DeclineIncludedRanges  Decline = "included_ranges"
-	DeclineIncremental     Decline = "incremental"
-	DeclineFleet           Decline = "fleet"
-	DeclineExtras          Decline = "reduction_extras"
-	DeclineLexerLoop       Decline = "lexer_and_election_loop"
+	DeclineExtras Decline = "reduction_extras"
 )
 
 // DeclineError is returned instead of weakening a phase-zero boundary.
@@ -54,46 +91,6 @@ func (e *DeclineError) Error() string {
 func IsDecline(err error, feature Decline) bool {
 	var decline *DeclineError
 	return errors.As(err, &decline) && decline.Feature == feature
-}
-
-// FullParseRequest describes only the unsupported boundaries that must remain
-// explicit while the compact graph is a diagnostic slice.
-type FullParseRequest struct {
-	Recovery       bool
-	Retry          bool
-	IncludedRanges bool
-	Incremental    bool
-	Fleet          bool
-}
-
-// AdmitFullParse always declines until the lexer/election loop is integrated.
-// Feature-specific declines precede that missing seam so a caller never
-// mistakes an unsupported parse shape for parser-core-only coverage.
-func AdmitFullParse(lang *gts.Language, req FullParseRequest) error {
-	switch {
-	case lang == nil:
-		return &DeclineError{Feature: DeclineLexerLoop, Detail: "nil language"}
-	case req.Incremental:
-		return &DeclineError{Feature: DeclineIncremental}
-	case req.Recovery:
-		return &DeclineError{Feature: DeclineRecovery}
-	case req.Retry:
-		return &DeclineError{Feature: DeclineRetry}
-	case req.IncludedRanges:
-		return &DeclineError{Feature: DeclineIncludedRanges}
-	case req.Fleet:
-		return &DeclineError{Feature: DeclineFleet}
-	case lang.ExternalTokenCount != 0 || len(lang.ExternalSymbols) != 0 || lang.ExternalScanner != nil:
-		return &DeclineError{
-			Feature: DeclineExternalScanner,
-			Detail:  "requires frontier-bound authenticated token replay for parser-core counts and certified scanner/election semantics before full-parse timing",
-		}
-	default:
-		return &DeclineError{
-			Feature: DeclineLexerLoop,
-			Detail:  "compact graph consumes decoded actions but does not yet elect or lex tokens",
-		}
-	}
 }
 
 // Limits bound every pointer-free arena and the exact derivation fanout.
@@ -139,12 +136,12 @@ type SubtreeID uint32
 
 type boundaryKey struct {
 	frontier   uint64
-	state      gts.StateID
+	state      StateID
 	byteOffset uint32
 }
 
 type nodeRecord struct {
-	state      gts.StateID
+	state      StateID
 	byteOffset uint32
 	firstLink  uint32
 	linkCount  uint32
@@ -165,7 +162,7 @@ const linkFlagHasOrder uint32 = 1 << iota
 func (l linkRecord) hasOrder() bool { return l.flags&linkFlagHasOrder != 0 }
 
 type subtreeRecord struct {
-	symbol            gts.Symbol
+	symbol            Symbol
 	productionID      uint16
 	dynamicPrecedence int16
 	startByte         uint32
@@ -180,10 +177,10 @@ type subtreeRecord struct {
 	terminal          bool
 }
 
-// PathMeta is stored on a graph link. ScoreDelta includes the contributions
+// pathMeta is stored on a graph link. ScoreDelta includes the contributions
 // collapsed into that payload; BranchOrder optionally overrides the current
 // path-local order when an authenticated dispatch event created a fork.
-type PathMeta struct {
+type pathMeta struct {
 	ScoreDelta  int64
 	BranchOrder ForkOrder
 }
@@ -199,7 +196,7 @@ type ForkOrder struct {
 // Token describes a parser-core terminal payload. Lexing is intentionally out
 // of scope; the symbol and span must already be authenticated by the caller.
 type Token struct {
-	Symbol    gts.Symbol
+	Symbol    Symbol
 	StartByte uint32
 	EndByte   uint32
 	Extra     bool
@@ -221,14 +218,14 @@ type Derivation struct {
 
 // SubtreeView exposes immutable reduction identity for tests and diagnostics.
 type SubtreeView struct {
-	Symbol            gts.Symbol
+	Symbol            Symbol
 	ProductionID      uint16
 	DynamicPrecedence int16
 	StartByte         uint32
 	EndByte           uint32
 	Children          []SubtreeID
-	Fields            []gts.FieldMapEntry
-	Aliases           []gts.Symbol
+	Fields            []FieldMapEntry
+	Aliases           []Symbol
 	Extra             bool
 	Terminal          bool
 }
@@ -245,14 +242,14 @@ type Stats struct {
 // Core is the compact, persistent diagnostic graph. All records are indexes
 // into pointer-free slices; the production parser is unaffected.
 type Core struct {
-	lang       *gts.Language
+	tables     TableView
 	limits     Limits
 	nodes      []nodeRecord
 	links      []linkRecord
 	subtrees   []subtreeRecord
 	children   []SubtreeID
-	fields     []gts.FieldMapEntry
-	aliases    []gts.Symbol
+	fields     []FieldMapEntry
+	aliases    []Symbol
 	frontier   uint64
 	boundaries map[boundaryKey]NodeID
 }
@@ -287,15 +284,15 @@ func (c *Core) restore(mark checkpoint) {
 	c.boundaries = mark.boundaries
 }
 
-func New(lang *gts.Language, limits Limits) (*Core, error) {
-	if lang == nil {
-		return nil, errors.New("parser-core phase zero: nil language")
+func New(tables TableView, limits Limits) (*Core, error) {
+	if tables == nil {
+		return nil, errors.New("parser-core phase zero: nil table view")
 	}
 	limits = limits.withDefaults()
 	if limits.MaxPathsPerBoundary > limits.MaxEnumeration {
 		return nil, fmt.Errorf("parser-core phase zero: path cap %d exceeds enumeration cap %d", limits.MaxPathsPerBoundary, limits.MaxEnumeration)
 	}
-	return &Core{lang: lang, limits: limits, frontier: 1, boundaries: make(map[boundaryKey]NodeID)}, nil
+	return &Core{tables: tables, limits: limits, frontier: 1, boundaries: make(map[boundaryKey]NodeID)}, nil
 }
 
 // BeginFrontier starts one authenticated election/dispatch generation.
@@ -309,12 +306,12 @@ func (c *Core) BeginFrontier() error {
 	return nil
 }
 
-func (c *Core) boundaryKey(state gts.StateID, byteOffset uint32) boundaryKey {
+func (c *Core) boundaryKey(state StateID, byteOffset uint32) boundaryKey {
 	return boundaryKey{frontier: c.frontier, state: state, byteOffset: byteOffset}
 }
 
 // Seed creates one empty derivation at a parser boundary.
-func (c *Core) Seed(state gts.StateID, byteOffset uint32) (Head, error) {
+func (c *Core) Seed(state StateID, byteOffset uint32) (Head, error) {
 	key := c.boundaryKey(state, byteOffset)
 	if id := c.boundaries[key]; id != 0 {
 		return Head{Node: id}, nil
@@ -328,21 +325,13 @@ func (c *Core) Seed(state gts.StateID, byteOffset uint32) (Head, error) {
 }
 
 // Actions returns the authentic decoded action entry for (state, lookahead).
-func (c *Core) Actions(state gts.StateID, lookahead gts.Symbol) ([]gts.ParseAction, error) {
-	idx, err := lookupActionIndex(c.lang, state, lookahead)
-	if err != nil || idx == 0 {
-		return nil, err
-	}
-	if int(idx) >= len(c.lang.ParseActions) {
-		return nil, fmt.Errorf("parser-core phase zero: action index %d out of range", idx)
-	}
-	actions := c.lang.ParseActions[idx].Actions
-	return actions, nil
+func (c *Core) Actions(state StateID, lookahead Symbol) ([]Action, error) {
+	return c.tables.Actions(state, lookahead)
 }
 
 // Shift applies one authentic decoded shift action and condenses the resulting
 // exact path at its (state, byte) boundary.
-func (c *Core) Shift(head Head, lookahead gts.Symbol, actionOrdinal int, token Token, fork ForkOrder) (out Head, err error) {
+func (c *Core) Shift(head Head, lookahead Symbol, actionOrdinal int, token Token, fork ForkOrder) (out Head, err error) {
 	mark := c.mark()
 	defer func() {
 		if err != nil {
@@ -353,7 +342,7 @@ func (c *Core) Shift(head Head, lookahead gts.Symbol, actionOrdinal int, token T
 	if err != nil {
 		return Head{}, err
 	}
-	if act.Type != gts.ParseActionShift {
+	if act.Type != ActionShift {
 		return Head{}, fmt.Errorf("parser-core phase zero: action %d is %v, not shift", actionOrdinal, act.Type)
 	}
 	if token.Symbol != lookahead {
@@ -384,10 +373,10 @@ func (c *Core) Shift(head Head, lookahead gts.Symbol, actionOrdinal int, token T
 	})
 }
 
-// AppendDiagnosticPayload adds an already-authenticated terminal payload. It
+// appendDiagnosticPayload adds an already-authenticated terminal payload. It
 // is only a setup seam for exercising real reductions before lexer/election
 // integration; it is not a parse action and is deliberately named as such.
-func (c *Core) AppendDiagnosticPayload(head Head, state gts.StateID, token Token, meta PathMeta) (out Head, err error) {
+func (c *Core) appendDiagnosticPayload(head Head, state StateID, token Token, meta pathMeta) (out Head, err error) {
 	mark := c.mark()
 	defer func() {
 		if err != nil {
@@ -411,7 +400,7 @@ func (c *Core) AppendDiagnosticPayload(head Head, state gts.StateID, token Token
 
 // Reduce applies one authentic decoded reduction to every exact pop path in
 // head. Equivalent boundaries are condensed without discarding derivations.
-func (c *Core) Reduce(head Head, lookahead gts.Symbol, actionOrdinal int, fork ForkOrder) (frontier []Head, err error) {
+func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkOrder) (frontier []Head, err error) {
 	mark := c.mark()
 	defer func() {
 		if err != nil {
@@ -422,7 +411,7 @@ func (c *Core) Reduce(head Head, lookahead gts.Symbol, actionOrdinal int, fork F
 	if err != nil {
 		return nil, err
 	}
-	if act.Type != gts.ParseActionReduce {
+	if act.Type != ActionReduce {
 		return nil, fmt.Errorf("parser-core phase zero: action %d is %v, not reduce", actionOrdinal, act.Type)
 	}
 	n, err := c.node(head.Node)
@@ -443,18 +432,18 @@ func (c *Core) Reduce(head Head, lookahead gts.Symbol, actionOrdinal int, fork F
 		if err != nil {
 			return nil, err
 		}
-		gotoState, err := lookupGoto(c.lang, prev.state, act.Symbol)
+		gotoState, err := c.tables.Goto(prev.state, act.Symbol)
 		if err != nil {
 			return nil, err
 		}
 		if gotoState == 0 {
 			return nil, fmt.Errorf("parser-core phase zero: no goto from state %d for reduced symbol %d", prev.state, act.Symbol)
 		}
-		fields, err := productionFields(c.lang, act.ProductionID)
+		fields, err := c.tables.ProductionFields(act.ProductionID)
 		if err != nil {
 			return nil, err
 		}
-		aliases, err := productionAliases(c.lang, act.ProductionID, len(path.children))
+		aliases, err := c.tables.ProductionAliases(act.ProductionID, len(path.children))
 		if err != nil {
 			return nil, err
 		}
@@ -494,17 +483,17 @@ func (c *Core) Reduce(head Head, lookahead gts.Symbol, actionOrdinal int, fork F
 	return frontier, nil
 }
 
-func (c *Core) action(head Head, lookahead gts.Symbol, ordinal int) (gts.ParseAction, error) {
+func (c *Core) action(head Head, lookahead Symbol, ordinal int) (Action, error) {
 	n, err := c.node(head.Node)
 	if err != nil {
-		return gts.ParseAction{}, err
+		return Action{}, err
 	}
 	actions, err := c.Actions(n.state, lookahead)
 	if err != nil {
-		return gts.ParseAction{}, err
+		return Action{}, err
 	}
 	if ordinal < 0 || ordinal >= len(actions) {
-		return gts.ParseAction{}, fmt.Errorf("parser-core phase zero: action ordinal %d out of range", ordinal)
+		return Action{}, fmt.Errorf("parser-core phase zero: action ordinal %d out of range", ordinal)
 	}
 	return actions[ordinal], nil
 }
@@ -794,7 +783,7 @@ func (c *Core) appendNode(r nodeRecord) (NodeID, error) {
 	return NodeID(len(c.nodes)), nil
 }
 
-func (c *Core) appendSubtree(r subtreeRecord, children []SubtreeID, fields []gts.FieldMapEntry, aliases []gts.Symbol) (SubtreeID, error) {
+func (c *Core) appendSubtree(r subtreeRecord, children []SubtreeID, fields []FieldMapEntry, aliases []Symbol) (SubtreeID, error) {
 	if uint64(len(c.subtrees))+1 > uint64(c.limits.MaxSubtrees) || len(c.subtrees) >= math.MaxUint32 {
 		return 0, errors.New("parser-core phase zero: subtree arena cap")
 	}
@@ -862,115 +851,4 @@ func checkedAddScore(a, b int64) (int64, error) {
 		return 0, errors.New("parser-core phase zero: score overflow")
 	}
 	return a + b, nil
-}
-
-func lookupActionIndex(lang *gts.Language, state gts.StateID, sym gts.Symbol) (uint16, error) {
-	if lang == nil {
-		return 0, errors.New("parser-core phase zero: nil language")
-	}
-	denseLimit := int(lang.LargeStateCount)
-	if denseLimit == 0 {
-		denseLimit = len(lang.ParseTable)
-	}
-	if int(state) < denseLimit {
-		if int(state) >= len(lang.ParseTable) || int(sym) >= len(lang.ParseTable[state]) {
-			return 0, nil
-		}
-		return lang.ParseTable[state][sym], nil
-	}
-	// Match Parser's split exactly: denseLimit controls dispatch, while
-	// smallBase is the generated LargeStateCount (which can differ for
-	// hand-built tables).
-	smallIdx := int(state) - int(lang.LargeStateCount)
-	if smallIdx < 0 || smallIdx >= len(lang.SmallParseTableMap) {
-		return 0, nil
-	}
-	offset := uint64(lang.SmallParseTableMap[smallIdx])
-	if offset >= uint64(len(lang.SmallParseTable)) {
-		return 0, errors.New("parser-core phase zero: sparse table offset out of range")
-	}
-	table := lang.SmallParseTable
-	groups := table[offset]
-	pos := offset + 1
-	for i := uint16(0); i < groups; i++ {
-		if pos+1 >= uint64(len(table)) {
-			return 0, errors.New("parser-core phase zero: truncated sparse table group")
-		}
-		value, count := table[pos], table[pos+1]
-		pos += 2
-		for j := uint16(0); j < count; j++ {
-			if pos >= uint64(len(table)) {
-				return 0, errors.New("parser-core phase zero: truncated sparse table symbols")
-			}
-			if table[pos] == uint16(sym) {
-				return value, nil
-			}
-			pos++
-		}
-	}
-	return 0, nil
-}
-
-func lookupGoto(lang *gts.Language, state gts.StateID, sym gts.Symbol) (gts.StateID, error) {
-	if lang.TokenCount > 0 && uint32(sym) >= lang.TokenCount {
-		if target := lang.LargeStateGotos[uint64(state)<<32|uint64(sym)]; target != 0 {
-			return target, nil
-		}
-	}
-	raw, err := lookupActionIndex(lang, state, sym)
-	if err != nil || raw == 0 {
-		return 0, err
-	}
-	if lang.TokenCount > 0 && uint32(sym) >= lang.TokenCount && lang.StateCount > 0 && lang.InitialState > 0 {
-		return gts.StateID(raw), nil
-	}
-	if int(raw) >= len(lang.ParseActions) || len(lang.ParseActions[raw].Actions) == 0 {
-		return 0, errors.New("parser-core phase zero: goto action out of range")
-	}
-	act := lang.ParseActions[raw].Actions[0]
-	if act.Type != gts.ParseActionShift {
-		return 0, errors.New("parser-core phase zero: hand-built goto is not shift")
-	}
-	return act.State, nil
-}
-
-func productionFields(lang *gts.Language, productionID uint16) ([]gts.FieldMapEntry, error) {
-	if lang == nil {
-		return nil, errors.New("parser-core phase zero: nil language metadata")
-	}
-	pid := int(productionID)
-	if pid >= len(lang.FieldMapSlices) {
-		return nil, nil
-	}
-	span := lang.FieldMapSlices[pid]
-	start, end := int(span[0]), int(span[0])+int(span[1])
-	if start < 0 || end > len(lang.FieldMapEntries) || start > end {
-		return nil, errors.New("parser-core phase zero: field metadata span out of range")
-	}
-	return lang.FieldMapEntries[start:end], nil
-}
-
-func productionAliases(lang *gts.Language, productionID uint16, childCount int) ([]gts.Symbol, error) {
-	if lang == nil {
-		return nil, errors.New("parser-core phase zero: nil language metadata")
-	}
-	pid := int(productionID)
-	if pid >= len(lang.AliasSequences) || childCount <= 0 {
-		return nil, nil
-	}
-	seq := lang.AliasSequences[pid]
-	if len(seq) == 0 {
-		return nil, nil
-	}
-	// Generated alias rows omit an all-zero tail. A missing entry therefore
-	// means "no alias" for that child; it is not malformed metadata. Retain a
-	// child-aligned row only when at least one relevant child is aliased.
-	aliases := make([]gts.Symbol, childCount)
-	copy(aliases, seq)
-	for _, alias := range aliases {
-		if alias != 0 {
-			return aliases, nil
-		}
-	}
-	return nil, nil
 }
