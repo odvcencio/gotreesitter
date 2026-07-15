@@ -3,6 +3,7 @@
 package gotreesitter_test
 
 import (
+	"crypto/sha256"
 	"reflect"
 	"strings"
 	"testing"
@@ -369,7 +370,7 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 	}
 	defer result.MaterializedTree.Release()
 	acceptance := result.GenericScheduler.Acceptance
-	if len(result.GenericScheduler.StartHeaders) != 1 || result.GenericScheduler.StartCheckpoint != result.GenericScheduler.Elections[0].ScannerBefore || result.GenericScheduler.StartHeaders[0].Header.Checkpoint != result.GenericScheduler.StartCheckpoint.SHA256 ||
+	if result.GenericScheduler.ReceiptMode != gotreesitter.DiagnosticParserCoreReceiptFull || len(result.GenericScheduler.StartHeaders) != 1 || result.GenericScheduler.StartCheckpoint != result.GenericScheduler.Elections[0].ScannerBefore || result.GenericScheduler.StartHeaders[0].Header.Checkpoint != result.GenericScheduler.StartCheckpoint.SHA256 ||
 		result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
 		result.Tokens != 1036 || result.Dispatches != 2682 || result.Dispatches != acceptance.Work.Dispatches || acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead ||
 		acceptance.Header.Header.CreationSeq != 234 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || acceptance.Header.Header.Shifted || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 ||
@@ -388,6 +389,13 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 	inspection, err := benchfixtures.InspectGoTree(result.MaterializedTree.RootNode(), grammars.GoLanguage())
 	if err != nil {
 		t.Fatal(err)
+	}
+	selectedNodes := uint64(0)
+	for _, count := range inspection.NodeKinds {
+		selectedNodes += count
+	}
+	if selectedNodes == 0 || acceptance.SelectedNodes != selectedNodes {
+		t.Fatalf("selected nodes=%d, receipt=%d", selectedNodes, acceptance.SelectedNodes)
 	}
 	root := result.MaterializedTree.RootNode()
 	if inspection.SHA256 != "b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1" || root.Type(grammars.GoLanguage()) != "source_file" || root.StartByte() != 0 || root.EndByte() != uint32(len(source)) || root.HasError() {
@@ -428,5 +436,80 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 			nextRuntime.StopReason != gotreesitter.ParseStopAccepted || nextRuntime.Truncated || nextRuntime.SourceLen != uint32(len(source)) || nextRuntime.RootEndByte != uint32(len(source)) || !nextRuntime.LastTokenWasEOF {
 			t.Fatalf("acceptance run %d tree/runtime drifted: digest=%s root=%d..%d error=%v runtime=%s inspect_err=%v", run, nextInspection.SHA256, nextRoot.StartByte(), nextRoot.EndByte(), nextRoot.HasError(), nextRuntime.Summary(), inspectErr)
 		}
+	}
+}
+
+func TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	var first *gotreesitter.DiagnosticParserCoreGenericScheduler
+	for run := 0; run < 3; run++ {
+		result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
+			grammars.GoExternalScanner{}, source,
+			gotreesitter.DiagnosticParserCorePrefixOptions{ReceiptMode: gotreesitter.DiagnosticParserCoreReceiptSummary},
+		)
+		if routeErr != nil || !result.Completed || !result.Materialized || result.MaterializedTree == nil || result.GenericScheduler == nil || result.GenericScheduler.Acceptance == nil {
+			t.Fatalf("run %d summary result=%+v err=%v", run, result, routeErr)
+		}
+		generic := result.GenericScheduler
+		acceptance := generic.Acceptance
+		if generic.ReceiptMode != gotreesitter.DiagnosticParserCoreReceiptSummary || generic.StartCheckpoint.Length != 0 ||
+			generic.StartHeaders != nil || generic.Rounds != nil || generic.Conflicts != nil || generic.ExternalShifts != nil || generic.Elections != nil || generic.NoActionDrops != nil ||
+			generic.Completion != nil || !reflect.DeepEqual(generic.Stop, gotreesitter.DiagnosticParserCoreGenericStop{}) || result.Elections != nil ||
+			acceptance.Header.Derivations != nil || acceptance.Header.DerivationsTruncated || acceptance.Payloads != nil {
+			result.MaterializedTree.Release()
+			t.Fatalf("run %d summary retained detailed collections: %+v", run, generic)
+		}
+		if result.SourceSHA256 != sha256.Sum256(source) || result.Grammar != "go" || !result.ExactRootDFA || result.GrammarBlobSHA256 == ([32]byte{}) ||
+			result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
+			result.Tokens != 1036 || result.Dispatches != 2682 || generic.Tokens != result.Tokens || generic.Dispatches != result.Dispatches || generic.GlobalBranchOrder != 168 || generic.NextCreationSeq != 235 ||
+			acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead || acceptance.Header.Header.CreationSeq != 234 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || !acceptance.Header.Header.Accepted || acceptance.Header.Header.ExactPaths != 1 ||
+			acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder || acceptance.SelectedNodes == 0 ||
+			acceptance.Stats != (core.Stats{Nodes: 3005, Links: 3004, Subtrees: 2624, Children: 2769, CurrentExactPaths: 1}) ||
+			acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
+				Passes: 2597, ActionLookups: 3545, Dispatches: 2682,
+				Conflicts: 160, ConflictActions: 328, Forks: 168, ConflictHeads: 357,
+				Reductions: 1256, OrdinaryShifts: 1238, OrdinaryCohorts: 215,
+				ExtraShifts: 27, ExtraCohorts: 1, Accepts: 1,
+				ReductionPauses: 31, NoActionDrops: 167, Elections: 1036,
+				Canonicalizations: 2443, PeakHeaders: 4,
+			}) {
+			result.MaterializedTree.Release()
+			t.Fatalf("run %d summary aggregates drifted: result=%+v acceptance=%+v", run, result, acceptance)
+		}
+		inspection, inspectErr := benchfixtures.InspectGoTree(result.MaterializedTree.RootNode(), grammars.GoLanguage())
+		root := result.MaterializedTree.RootNode()
+		selectedNodes := uint64(0)
+		for _, count := range inspection.NodeKinds {
+			selectedNodes += count
+		}
+		runtime := result.MaterializedTree.ParseRuntime()
+		if inspectErr != nil || inspection.SHA256 != "b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1" || acceptance.SelectedNodes != selectedNodes ||
+			root.StartByte() != 0 || root.EndByte() != uint32(len(source)) || root.HasError() || runtime.StopReason != gotreesitter.ParseStopAccepted || runtime.Truncated || !runtime.LastTokenWasEOF {
+			result.MaterializedTree.Release()
+			t.Fatalf("run %d summary tree drifted: digest=%s selected=%d receipt=%d root=%d..%d error=%v runtime=%s inspect_err=%v", run, inspection.SHA256, selectedNodes, acceptance.SelectedNodes, root.StartByte(), root.EndByte(), root.HasError(), runtime.Summary(), inspectErr)
+		}
+		result.MaterializedTree.Release()
+		if first == nil {
+			first = generic
+		} else if !reflect.DeepEqual(first, generic) {
+			t.Fatalf("run %d summary receipt is nondeterministic\nfirst=%+v\nnext=%+v", run, first, generic)
+		}
+	}
+}
+
+func TestDiagnosticParserCoreSummaryFailurePublishesNothing(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{
+			ReceiptMode:   gotreesitter.DiagnosticParserCoreReceiptSummary,
+			MaxDispatches: 116,
+		},
+	)
+	if routeErr == nil || !strings.Contains(routeErr.Error(), "dispatch cap") || result.Boundary != gotreesitter.DiagnosticParserCoreCap {
+		t.Fatalf("summary cap result=%+v err=%v", result, routeErr)
+	}
+	if result.GenericScheduler != nil || result.MaterializedTree != nil || result.Materialized || result.Completed || result.Tokens != 0 || result.Dispatches != 0 || result.Elections != nil {
+		t.Fatalf("failed summary route leaked publication: %+v", result)
 	}
 }

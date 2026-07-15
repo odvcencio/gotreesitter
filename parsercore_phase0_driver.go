@@ -28,6 +28,17 @@ const (
 	DiagnosticParserCoreGenericClosed DiagnosticParserCoreBoundaryKind = "generic_scheduler_closed"
 )
 
+// DiagnosticParserCoreReceiptMode controls diagnostic observation only. It
+// never changes parser-core scheduling or selection semantics. The zero value
+// preserves the complete historical receipt; summary mode retains only the
+// authenticated result and aggregate work needed for larger-fixture study.
+type DiagnosticParserCoreReceiptMode uint8
+
+const (
+	DiagnosticParserCoreReceiptFull DiagnosticParserCoreReceiptMode = iota
+	DiagnosticParserCoreReceiptSummary
+)
+
 type DiagnosticParserCorePrefixOptions struct {
 	Recovery       bool
 	Retry          bool
@@ -37,6 +48,7 @@ type DiagnosticParserCorePrefixOptions struct {
 	// when every authenticated scheduler head closes at this byte. Nil is
 	// unbounded. The boundary is checked before another scanner election.
 	GenericStopAtClosedByte *uint32
+	ReceiptMode             DiagnosticParserCoreReceiptMode
 	MaxDispatches           uint64
 	MaxTokens               uint64
 	Limits                  core.Limits
@@ -147,6 +159,7 @@ type DiagnosticParserCoreGenericAcceptance struct {
 	Score          int64
 	BranchOrder    uint64
 	HasBranchOrder bool
+	SelectedNodes  uint64
 	Stats          core.Stats
 	Work           DiagnosticParserCoreGenericWork
 }
@@ -224,6 +237,7 @@ type DiagnosticParserCoreGenericCompletion struct {
 	TargetByte    uint32
 	ElectionIndex int
 	LastToken     Token
+	State         StateID
 	Headers       []DiagnosticParserCoreHeaderPathReceipt
 	Stats         core.Stats
 	Work          DiagnosticParserCoreGenericWork
@@ -232,6 +246,7 @@ type DiagnosticParserCoreGenericCompletion struct {
 // DiagnosticParserCoreGenericScheduler records one committed compact scheduler
 // run from the sole authenticated seed lifecycle before its first election.
 type DiagnosticParserCoreGenericScheduler struct {
+	ReceiptMode       DiagnosticParserCoreReceiptMode
 	StartCheckpoint   DiagnosticParserCoreScannerCheckpoint
 	StartHeaders      []DiagnosticParserCoreHeaderPathReceipt
 	Rounds            []DiagnosticParserCoreDispatchRound
@@ -369,6 +384,10 @@ func parserCoreCheckpoint(bytes []byte) DiagnosticParserCoreScannerCheckpoint {
 // boundaries remain fail-closed. It never calls the production parser.
 func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, options DiagnosticParserCorePrefixOptions) (DiagnosticParserCorePrefixResult, error) {
 	result := DiagnosticParserCorePrefixResult{SourceSHA256: sha256.Sum256(source)}
+	if options.ReceiptMode != DiagnosticParserCoreReceiptFull && options.ReceiptMode != DiagnosticParserCoreReceiptSummary {
+		result.Boundary, result.Detail = DiagnosticParserCoreRoute, "unknown diagnostic receipt mode"
+		return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+	}
 	lang, err := authenticatedParserCoreGoLanguage(scanner)
 	if err != nil {
 		result.Boundary, result.Detail = DiagnosticParserCoreIdentity, err.Error()
@@ -455,7 +474,7 @@ func publishDiagnosticParserCoreGenericResult(
 		result.GenericScheduler = generic
 		result.Elections = append([]DiagnosticParserCoreElection(nil), generic.Elections...)
 		result.Completed = true
-		result.State = generic.Completion.Headers[0].Header.State
+		result.State = generic.Completion.State
 		result.Lookahead = Token{}
 		result.Boundary = DiagnosticParserCoreGenericClosed
 		result.Detail = "seed-owned generic scheduler reached the requested closed byte without reading another lookahead"
@@ -477,6 +496,7 @@ func publishDiagnosticParserCoreGenericResult(
 	if tree == nil {
 		return result, errors.New("parser-core phase zero: accepted seed scheduler materializer returned no tree")
 	}
+	generic.Acceptance.SelectedNodes = diagnosticParserCoreSelectedNodeCount(tree.root)
 	result.Tokens = generic.Tokens
 	result.Dispatches = generic.Dispatches
 	result.LastBranchOrder = generic.GlobalBranchOrder
@@ -490,6 +510,25 @@ func publishDiagnosticParserCoreGenericResult(
 	result.Boundary = DiagnosticParserCoreGenericClosed
 	result.Detail = "seed-owned generic scheduler accepted EOF and materialized one exact compact derivation"
 	return result, nil
+}
+
+func diagnosticParserCoreSelectedNodeCount(root *Node) uint64 {
+	if root == nil {
+		return 0
+	}
+	count := uint64(0)
+	stack := []*Node{root}
+	for len(stack) != 0 {
+		last := len(stack) - 1
+		node := stack[last]
+		stack = stack[:last]
+		if node == nil {
+			continue
+		}
+		count++
+		stack = append(stack, node.children...)
+	}
+	return count
 }
 
 type diagnosticParserCoreHeader struct {
@@ -519,6 +558,22 @@ func diagnosticParserCoreHeaderReceipt(compact *core.Core, header diagnosticPars
 		Accepted:    header.accepted,
 		Paused:      header.paused,
 		ExactPaths:  stats.CurrentExactPaths,
+		Checkpoint:  header.checkpoint,
+	}, nil
+}
+
+func diagnosticParserCoreHeaderSummary(compact *core.Core, header diagnosticParserCoreHeader) (DiagnosticParserCoreHeaderReceipt, error) {
+	state, byteOffset, err := compact.Boundary(header.head)
+	if err != nil {
+		return DiagnosticParserCoreHeaderReceipt{}, err
+	}
+	return DiagnosticParserCoreHeaderReceipt{
+		CreationSeq: header.creationSeq,
+		State:       StateID(state),
+		ByteOffset:  byteOffset,
+		Shifted:     header.shifted,
+		Accepted:    header.accepted,
+		Paused:      header.paused,
 		Checkpoint:  header.checkpoint,
 	}, nil
 }
@@ -583,10 +638,15 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 	token Token,
 	actions []core.Action,
 	branchOrder uint64,
+	collectReceipts bool,
 ) (diagnosticParserCoreConflictExecution, error) {
-	before, err := diagnosticParserCoreHeaderReceipt(compact, incoming)
-	if err != nil {
-		return diagnosticParserCoreConflictExecution{}, err
+	var before DiagnosticParserCoreHeaderReceipt
+	if collectReceipts {
+		var err error
+		before, err = diagnosticParserCoreHeaderReceipt(compact, incoming)
+		if err != nil {
+			return diagnosticParserCoreConflictExecution{}, err
+		}
 	}
 	if err := validateDiagnosticParserCoreCell(token, actions); err != nil {
 		return diagnosticParserCoreConflictExecution{}, err
@@ -603,7 +663,7 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 	var secondaries []diagnosticParserCoreHeader
 	var secondaryArms [][]diagnosticParserCoreHeader
 	var receipts []DiagnosticParserCoreRoundAction
-	err = compact.ApplyAtomic(func() error {
+	err := compact.ApplyAtomic(func() error {
 		for ordinal := 1; ordinal < len(actions); ordinal++ {
 			trialOrder++
 			outputs, applyErr := applyParserCoreConflictAction(compact, incoming.head, token, actions[ordinal], ordinal, core.ForkOrder{Present: true, Value: trialOrder})
@@ -621,10 +681,12 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 			}
 			secondaryArms = append(secondaryArms, arm)
 			secondaries = append(secondaries, arm...)
-			receipts = append(receipts, DiagnosticParserCoreRoundAction{
-				HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
-				Ordinal: ordinal, Action: rootParserCoreAction(actions[ordinal]), BranchOrder: trialOrder,
-			})
+			if collectReceipts {
+				receipts = append(receipts, DiagnosticParserCoreRoundAction{
+					HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
+					Ordinal: ordinal, Action: rootParserCoreAction(actions[ordinal]), BranchOrder: trialOrder,
+				})
+			}
 		}
 		outputs, applyErr := applyParserCoreConflictAction(compact, incoming.head, token, actions[0], 0, core.ForkOrder{})
 		if applyErr != nil {
@@ -638,26 +700,32 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 			primary.freshness = output.freshness
 			primaries[index] = primary
 		}
-		receipts = append(receipts, DiagnosticParserCoreRoundAction{
-			HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
-			Ordinal: 0, Action: rootParserCoreAction(actions[0]),
-		})
+		if collectReceipts {
+			receipts = append(receipts, DiagnosticParserCoreRoundAction{
+				HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
+				Ordinal: 0, Action: rootParserCoreAction(actions[0]),
+			})
+		}
 		return nil
 	})
 	if err != nil {
 		return diagnosticParserCoreConflictExecution{}, err
 	}
 
-	headers := append(primaries, secondaries...)
-	after, err := diagnosticParserCoreHeaderReceipts(compact, headers)
-	if err != nil {
-		return diagnosticParserCoreConflictExecution{}, err
+	var round DiagnosticParserCoreDispatchRound
+	if collectReceipts {
+		headers := append(primaries, secondaries...)
+		after, err := diagnosticParserCoreHeaderReceipts(compact, headers)
+		if err != nil {
+			return diagnosticParserCoreConflictExecution{}, err
+		}
+		round = DiagnosticParserCoreDispatchRound{
+			Before: []DiagnosticParserCoreHeaderReceipt{before}, Actions: receipts, After: after,
+		}
 	}
 	return diagnosticParserCoreConflictExecution{
 		primaries: primaries, secondaries: secondaries, secondaryArms: secondaryArms,
-		round: DiagnosticParserCoreDispatchRound{
-			Before: []DiagnosticParserCoreHeaderReceipt{before}, Actions: receipts, After: after,
-		},
+		round:       round,
 		branchOrder: trialOrder,
 	}, nil
 }
@@ -786,6 +854,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	nextSeq                    uint64
 	options                    DiagnosticParserCorePrefixOptions
 	receipt                    *DiagnosticParserCoreGenericScheduler
+	summaryHeaderScratch       []DiagnosticParserCoreHeaderReceipt
 	work                       DiagnosticParserCoreGenericWork
 	epochProgress              bool
 	acceptedHead               core.Head
@@ -793,6 +862,38 @@ type diagnosticParserCoreGenericScheduler struct {
 	extraPostExecutionFault    func() error
 	observer                   diagnosticParserCoreSeedObserver
 	stoppedAfterElection       bool
+}
+
+func (s *diagnosticParserCoreGenericScheduler) fullReceipts() bool {
+	return s != nil && s.options.ReceiptMode == DiagnosticParserCoreReceiptFull
+}
+
+func (s *diagnosticParserCoreGenericScheduler) headerReceipt(header diagnosticParserCoreHeader) (DiagnosticParserCoreHeaderReceipt, error) {
+	if s.fullReceipts() {
+		return diagnosticParserCoreHeaderReceipt(s.compact, header)
+	}
+	return diagnosticParserCoreHeaderSummary(s.compact, header)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) headerReceipts(headers []diagnosticParserCoreHeader) ([]DiagnosticParserCoreHeaderReceipt, error) {
+	if s.fullReceipts() {
+		return diagnosticParserCoreHeaderReceipts(s.compact, headers)
+	}
+	if cap(s.summaryHeaderScratch) < len(headers) {
+		s.summaryHeaderScratch = make([]DiagnosticParserCoreHeaderReceipt, len(headers))
+	} else {
+		s.summaryHeaderScratch = s.summaryHeaderScratch[:len(headers)]
+		clear(s.summaryHeaderScratch)
+	}
+	out := s.summaryHeaderScratch
+	for index, header := range headers {
+		receipt, err := diagnosticParserCoreHeaderSummary(s.compact, header)
+		if err != nil {
+			return nil, err
+		}
+		out[index] = receipt
+	}
+	return out, nil
 }
 
 // diagnosticParserCoreSeedObserver is a tagged, diagnostic-only probe seam.
@@ -829,14 +930,17 @@ func newDiagnosticParserCoreGenericScheduler(
 		electionIndex: -1, nextSeq: 1,
 		options: options, observer: observer,
 		receipt: &DiagnosticParserCoreGenericScheduler{
+			ReceiptMode:     options.ReceiptMode,
 			StartCheckpoint: checkpoint,
 		},
 	}
-	startHeaders, err := diagnosticParserCoreHeaderPathReceipts(compact, scheduler.headers)
-	if err != nil {
-		return nil, err
+	if scheduler.fullReceipts() {
+		startHeaders, err := diagnosticParserCoreHeaderPathReceipts(compact, scheduler.headers)
+		if err != nil {
+			return nil, err
+		}
+		scheduler.receipt.StartHeaders = startHeaders
 	}
-	scheduler.receipt.StartHeaders = startHeaders
 	return scheduler, nil
 }
 
@@ -1151,7 +1255,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 			}, nil
 		}
 	}
-	before, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+	before, err := s.headerReceipts(s.headers)
 	if err != nil {
 		return nil, err
 	}
@@ -1289,18 +1393,20 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericAccept(before []Diagn
 	if err := s.canonicalize(); err != nil {
 		return err
 	}
-	after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
-	if err != nil {
-		return err
+	if s.fullReceipts() {
+		after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+		if err != nil {
+			return err
+		}
+		s.receipt.Rounds = append(s.receipt.Rounds, DiagnosticParserCoreDispatchRound{
+			Index: len(s.receipt.Rounds), Before: before,
+			Actions: []DiagnosticParserCoreRoundAction{{
+				HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
+				Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
+			}},
+			After: after,
+		})
 	}
-	s.receipt.Rounds = append(s.receipt.Rounds, DiagnosticParserCoreDispatchRound{
-		Index: len(s.receipt.Rounds), Before: before,
-		Actions: []DiagnosticParserCoreRoundAction{{
-			HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
-			Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
-		}},
-		After: after,
-	})
 	return nil
 }
 
@@ -1318,22 +1424,33 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 	if len(paths) != 1 {
 		return s.finish(DiagnosticParserCoreAccept, "generic scheduler requires one exact accepted derivation", 0)
 	}
-	headers, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
-	if err != nil {
-		return err
-	}
 	stats, err := s.compact.Stats(s.headers[0].head)
 	if err != nil {
 		return err
 	}
 	path := paths[0]
-	payloads := make([]uint32, len(path.Payloads))
-	for index, payload := range path.Payloads {
-		payloads[index] = uint32(payload)
+	var header DiagnosticParserCoreHeaderPathReceipt
+	var payloads []uint32
+	if s.fullReceipts() {
+		headers, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+		if err != nil {
+			return err
+		}
+		header = headers[0]
+		payloads = make([]uint32, len(path.Payloads))
+		for index, payload := range path.Payloads {
+			payloads[index] = uint32(payload)
+		}
+	} else {
+		receipt, err := diagnosticParserCoreHeaderReceipt(s.compact, s.headers[0])
+		if err != nil {
+			return err
+		}
+		header.Header = receipt
 	}
 	s.acceptedHead = s.headers[0].head
 	s.receipt.Acceptance = &DiagnosticParserCoreGenericAcceptance{
-		ElectionIndex: s.electionIndex, Token: s.token, Header: headers[0],
+		ElectionIndex: s.electionIndex, Token: s.token, Header: header,
 		Payloads: payloads, Score: path.Score, BranchOrder: path.BranchOrder,
 		HasBranchOrder: path.HasBranchOrder, Stats: stats, Work: s.work,
 	}
@@ -1385,9 +1502,13 @@ func (s *diagnosticParserCoreGenericScheduler) dropGenericNoActionHeads(indices 
 	for _, index := range indices {
 		paused[index] = struct{}{}
 	}
-	pathReceipts, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
-	if err != nil {
-		return err
+	var pathReceipts []DiagnosticParserCoreHeaderPathReceipt
+	if s.fullReceipts() {
+		var err error
+		pathReceipts, err = diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+		if err != nil {
+			return err
+		}
 	}
 	kept := make([]diagnosticParserCoreHeader, 0, len(s.headers)-len(indices))
 	for index, header := range s.headers {
@@ -1395,9 +1516,11 @@ func (s *diagnosticParserCoreGenericScheduler) dropGenericNoActionHeads(indices 
 			kept = append(kept, header)
 			continue
 		}
-		s.receipt.NoActionDrops = append(s.receipt.NoActionDrops, DiagnosticParserCoreGenericNoActionDrop{
-			ElectionIndex: s.electionIndex, Token: s.token, Header: pathReceipts[index],
-		})
+		if s.fullReceipts() {
+			s.receipt.NoActionDrops = append(s.receipt.NoActionDrops, DiagnosticParserCoreGenericNoActionDrop{
+				ElectionIndex: s.electionIndex, Token: s.token, Header: pathReceipts[index],
+			})
+		}
 	}
 	if len(kept) == 0 {
 		return errors.New("parser-core phase zero: sibling-backed no-action drop removed the complete frontier")
@@ -1483,18 +1606,20 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionAtomic(befor
 	if err := s.canonicalize(); err != nil {
 		return err
 	}
-	after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
-	if err != nil {
-		return err
+	if s.fullReceipts() {
+		after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+		if err != nil {
+			return err
+		}
+		s.receipt.Rounds = append(s.receipt.Rounds, DiagnosticParserCoreDispatchRound{
+			Index: len(s.receipt.Rounds), Before: before,
+			Actions: []DiagnosticParserCoreRoundAction{{
+				HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
+				Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
+			}},
+			After: after,
+		})
 	}
-	s.receipt.Rounds = append(s.receipt.Rounds, DiagnosticParserCoreDispatchRound{
-		Index: len(s.receipt.Rounds), Before: before,
-		Actions: []DiagnosticParserCoreRoundAction{{
-			HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
-			Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
-		}},
-		After: after,
-	})
 	return nil
 }
 
@@ -1574,7 +1699,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictAtomic(before
 	}
 	execution, err := executeDiagnosticParserCoreGenericConflictDetailed(
 		s.compact, s.headers[cell.headerIndex], cell.headerIndex, s.token, cell.actions,
-		s.branchOrder,
+		s.branchOrder, s.fullReceipts(),
 	)
 	if err != nil {
 		return err
@@ -1625,30 +1750,6 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictAtomic(before
 	execution.nextSeq = trialSeq
 	prefix := s.headers[:cell.headerIndex]
 	suffix := s.headers[cell.headerIndex+1:]
-	primaryReceipts, err := diagnosticParserCoreHeaderReceipts(s.compact, execution.primaries)
-	if err != nil {
-		return err
-	}
-	prefixReceipts, err := diagnosticParserCoreHeaderReceipts(s.compact, prefix)
-	if err != nil {
-		return err
-	}
-	suffixReceipts, err := diagnosticParserCoreHeaderReceipts(s.compact, suffix)
-	if err != nil {
-		return err
-	}
-	secondaryArms := make([]DiagnosticParserCoreGenericConflictArm, len(execution.secondaryArms))
-	for index, arm := range execution.secondaryArms {
-		outputs, receiptErr := diagnosticParserCoreHeaderReceipts(s.compact, arm)
-		if receiptErr != nil {
-			return receiptErr
-		}
-		secondaryArms[index] = DiagnosticParserCoreGenericConflictArm{
-			Ordinal: index + 1, BranchOrder: execution.round.Actions[index].BranchOrder,
-			Outputs: outputs, Paused: len(outputs) == 0 && secondaryAdopted[index] == 0,
-			Adopted: secondaryAdopted[index] != 0,
-		}
-	}
 	outputCount := len(execution.primaries) + len(execution.secondaries)
 	headers := make([]diagnosticParserCoreHeader, 0, outputCount+len(prefix)+len(suffix)+1)
 	headers = append(headers, prefix...)
@@ -1682,30 +1783,58 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictAtomic(before
 	if err := s.canonicalize(); err != nil {
 		return err
 	}
-	after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
-	if err != nil {
-		return err
+	roundIndex := -1
+	if s.fullReceipts() {
+		primaryReceipts, err := diagnosticParserCoreHeaderReceipts(s.compact, execution.primaries)
+		if err != nil {
+			return err
+		}
+		prefixReceipts, err := diagnosticParserCoreHeaderReceipts(s.compact, prefix)
+		if err != nil {
+			return err
+		}
+		suffixReceipts, err := diagnosticParserCoreHeaderReceipts(s.compact, suffix)
+		if err != nil {
+			return err
+		}
+		secondaryArms := make([]DiagnosticParserCoreGenericConflictArm, len(execution.secondaryArms))
+		for index, arm := range execution.secondaryArms {
+			outputs, receiptErr := diagnosticParserCoreHeaderReceipts(s.compact, arm)
+			if receiptErr != nil {
+				return receiptErr
+			}
+			secondaryArms[index] = DiagnosticParserCoreGenericConflictArm{
+				Ordinal: index + 1, BranchOrder: execution.round.Actions[index].BranchOrder,
+				Outputs: outputs, Paused: len(outputs) == 0 && secondaryAdopted[index] == 0,
+				Adopted: secondaryAdopted[index] != 0,
+			}
+		}
+		after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+		if err != nil {
+			return err
+		}
+		round := execution.round
+		round.Index = len(s.receipt.Rounds)
+		round.Before = before
+		round.After = after
+		roundIndex = round.Index
+		s.receipt.Rounds = append(s.receipt.Rounds, round)
+		conflict := DiagnosticParserCoreGenericConflict{
+			ElectionIndex: s.electionIndex, Token: s.token, HeaderIndex: cell.headerIndex,
+			BranchOrderBefore: branchOrderBefore, BranchOrderAfter: s.branchOrder,
+			NextCreationSeqBefore: nextSeqBefore, NextCreationSeqAfter: s.nextSeq,
+			Round: round, Prefix: prefixReceipts,
+			PrimaryPaused: len(primaryReceipts) == 0 && primaryAdopted == 0, PrimaryAdopted: primaryAdopted != 0,
+			OriginalSuffix: suffixReceipts,
+			SecondaryArms:  secondaryArms, After: after,
+		}
+		if len(primaryReceipts) != 0 {
+			conflict.PrimaryOutput = primaryReceipts[0]
+			conflict.AdditionalPrimaryOutputs = primaryReceipts[1:]
+		}
+		s.receipt.Conflicts = append(s.receipt.Conflicts, conflict)
 	}
-	round := execution.round
-	round.Index = len(s.receipt.Rounds)
-	round.Before = before
-	round.After = after
-	s.receipt.Rounds = append(s.receipt.Rounds, round)
-	conflict := DiagnosticParserCoreGenericConflict{
-		ElectionIndex: s.electionIndex, Token: s.token, HeaderIndex: cell.headerIndex,
-		BranchOrderBefore: branchOrderBefore, BranchOrderAfter: s.branchOrder,
-		NextCreationSeqBefore: nextSeqBefore, NextCreationSeqAfter: s.nextSeq,
-		Round: round, Prefix: prefixReceipts,
-		PrimaryPaused: len(primaryReceipts) == 0 && primaryAdopted == 0, PrimaryAdopted: primaryAdopted != 0,
-		OriginalSuffix: suffixReceipts,
-		SecondaryArms:  secondaryArms, After: after,
-	}
-	if len(primaryReceipts) != 0 {
-		conflict.PrimaryOutput = primaryReceipts[0]
-		conflict.AdditionalPrimaryOutputs = primaryReceipts[1:]
-	}
-	s.receipt.Conflicts = append(s.receipt.Conflicts, conflict)
-	return s.recordGenericExternalShift(externalStatsBefore, round.Index)
+	return s.recordGenericExternalShift(externalStatsBefore, roundIndex)
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) (err error) {
@@ -1756,27 +1885,31 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []Diagn
 		s.work.OrdinaryCohorts++
 	}
 	s.epochProgress = true
-	actions := make([]DiagnosticParserCoreRoundAction, len(cells))
-	for index, cell := range cells {
-		actions[index] = DiagnosticParserCoreRoundAction{
-			HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
-			Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
-		}
-	}
 	s.work.OrdinaryShifts += uint64(len(cells))
 	s.work.Dispatches += uint64(len(cells))
 	if err := s.canonicalize(); err != nil {
 		return err
 	}
-	after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
-	if err != nil {
-		return err
+	roundIndex := -1
+	if s.fullReceipts() {
+		actions := make([]DiagnosticParserCoreRoundAction, len(cells))
+		for index, cell := range cells {
+			actions[index] = DiagnosticParserCoreRoundAction{
+				HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
+				Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
+			}
+		}
+		after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+		if err != nil {
+			return err
+		}
+		round := DiagnosticParserCoreDispatchRound{
+			Index: len(s.receipt.Rounds), Before: before, Actions: actions, After: after,
+		}
+		roundIndex = round.Index
+		s.receipt.Rounds = append(s.receipt.Rounds, round)
 	}
-	round := DiagnosticParserCoreDispatchRound{
-		Index: len(s.receipt.Rounds), Before: before, Actions: actions, After: after,
-	}
-	s.receipt.Rounds = append(s.receipt.Rounds, round)
-	return s.recordGenericExternalShift(externalStatsBefore, round.Index)
+	return s.recordGenericExternalShift(externalStatsBefore, roundIndex)
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) (err error) {
@@ -1837,27 +1970,31 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 		if err := s.canonicalize(); err != nil {
 			return err
 		}
-		after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
-		if err != nil {
-			return err
-		}
-		actions := make([]DiagnosticParserCoreRoundAction, len(cells))
-		for index, cell := range cells {
-			actions[index] = DiagnosticParserCoreRoundAction{
-				HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
-				Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
+		roundIndex := -1
+		if s.fullReceipts() {
+			after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+			if err != nil {
+				return err
 			}
+			actions := make([]DiagnosticParserCoreRoundAction, len(cells))
+			for index, cell := range cells {
+				actions[index] = DiagnosticParserCoreRoundAction{
+					HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
+					Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
+				}
+			}
+			round := DiagnosticParserCoreDispatchRound{
+				Index: len(s.receipt.Rounds), Before: before, Actions: actions, After: after,
+			}
+			roundIndex = round.Index
+			s.receipt.Rounds = append(s.receipt.Rounds, round)
 		}
-		round := DiagnosticParserCoreDispatchRound{
-			Index: len(s.receipt.Rounds), Before: before, Actions: actions, After: after,
-		}
-		s.receipt.Rounds = append(s.receipt.Rounds, round)
-		return s.recordGenericExternalShift(externalStatsBefore, round.Index)
+		return s.recordGenericExternalShift(externalStatsBefore, roundIndex)
 	})
 }
 
 func (s *diagnosticParserCoreGenericScheduler) genericExternalStats() (core.Stats, error) {
-	if !s.token.ExternalScannerToken {
+	if !s.fullReceipts() || !s.token.ExternalScannerToken {
 		return core.Stats{}, nil
 	}
 	if len(s.headers) == 0 {
@@ -1867,7 +2004,7 @@ func (s *diagnosticParserCoreGenericScheduler) genericExternalStats() (core.Stat
 }
 
 func (s *diagnosticParserCoreGenericScheduler) recordGenericExternalShift(before core.Stats, roundIndex int) error {
-	if !s.token.ExternalScannerToken {
+	if !s.fullReceipts() || !s.token.ExternalScannerToken {
 		return nil
 	}
 	if len(s.headers) == 0 {
@@ -1984,7 +2121,7 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 	}
 	states := make([]StateID, len(s.headers))
 	for index, header := range s.headers {
-		receipt, err := diagnosticParserCoreHeaderReceipt(s.compact, header)
+		receipt, err := s.headerReceipt(header)
 		if err != nil {
 			return err
 		}
@@ -2035,7 +2172,9 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 		CurrentCheckpointBytes: [2]uint32{currentStart, currentEnd},
 	}
 	s.currentElection = election
-	s.receipt.Elections = append(s.receipt.Elections, election)
+	if s.fullReceipts() {
+		s.receipt.Elections = append(s.receipt.Elections, election)
+	}
 	if s.observer.afterElection != nil {
 		stop, err := s.observer.afterElection(s)
 		if err != nil {
@@ -2047,13 +2186,12 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 }
 
 func (s *diagnosticParserCoreGenericScheduler) completeAtClosedByte(target uint32) (bool, error) {
-	paths, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+	receipts, err := s.headerReceipts(s.headers)
 	if err != nil {
 		return false, err
 	}
 	allBelow := true
-	for _, path := range paths {
-		header := path.Header
+	for _, header := range receipts {
 		if !header.Shifted || header.Accepted || header.Checkpoint != s.checkpoint.SHA256 {
 			return false, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic completion frontier is not shifted, nonaccepted, and checkpoint-continuous"}
 		}
@@ -2064,8 +2202,8 @@ func (s *diagnosticParserCoreGenericScheduler) completeAtClosedByte(target uint3
 	if allBelow {
 		return false, nil
 	}
-	for _, path := range paths {
-		if path.Header.ByteOffset != target {
+	for _, header := range receipts {
+		if header.ByteOffset != target {
 			return false, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic completion frontier straddled or passed the requested byte"}
 		}
 	}
@@ -2073,32 +2211,47 @@ func (s *diagnosticParserCoreGenericScheduler) completeAtClosedByte(target uint3
 	if err != nil {
 		return false, err
 	}
-	s.receipt.Completion = &DiagnosticParserCoreGenericCompletion{
+	completion := &DiagnosticParserCoreGenericCompletion{
 		TargetByte: target, ElectionIndex: s.electionIndex, LastToken: s.token,
-		Headers: paths, Stats: stats, Work: s.work,
+		State: receipts[0].State, Stats: stats, Work: s.work,
 	}
+	if s.fullReceipts() {
+		paths, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+		if err != nil {
+			return false, err
+		}
+		completion.Headers = paths
+	}
+	s.receipt.Completion = completion
 	s.publishTotals()
 	return true, nil
 }
 
 func (s *diagnosticParserCoreGenericScheduler) finish(boundary DiagnosticParserCoreBoundaryKind, detail string, headerIndex int) error {
-	paths, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+	if headerIndex < 0 || headerIndex >= len(s.headers) {
+		return errors.New("parser-core phase zero: generic stop header index out of range")
+	}
+	header, err := s.headerReceipt(s.headers[headerIndex])
 	if err != nil {
 		return err
-	}
-	if headerIndex < 0 || headerIndex >= len(paths) {
-		return errors.New("parser-core phase zero: generic stop header index out of range")
 	}
 	stats, err := s.compact.Stats(s.headers[headerIndex].head)
 	if err != nil {
 		return err
 	}
-	header := paths[headerIndex].Header
-	s.receipt.Stop = DiagnosticParserCoreGenericStop{
+	stop := DiagnosticParserCoreGenericStop{
 		Boundary: boundary, Detail: detail, ElectionIndex: s.electionIndex,
 		HeaderIndex: headerIndex, State: header.State, ByteOffset: header.ByteOffset,
-		Token: s.token, Headers: paths, Stats: stats, Work: s.work,
+		Token: s.token, Stats: stats, Work: s.work,
 	}
+	if s.fullReceipts() {
+		paths, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+		if err != nil {
+			return err
+		}
+		stop.Headers = paths
+	}
+	s.receipt.Stop = stop
 	s.publishTotals()
 	return nil
 }

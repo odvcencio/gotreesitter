@@ -380,6 +380,51 @@ func TestDiagnosticParserCoreConflictPostExecutionFailureRollsBack(t *testing.T)
 	}
 }
 
+func TestDiagnosticParserCoreSummaryConflictFailureRollsBack(t *testing.T) {
+	actions := []core.Action{{Type: core.ActionShift, State: 2}, {Type: core.ActionShift, State: 3}}
+	compact, err := core.New(&genericConflictTable{actions: actions}, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact: compact, headers: []diagnosticParserCoreHeader{{head: source, creationSeq: 4}},
+		token: Token{Symbol: 9, EndByte: 1}, branchOrder: 7, nextSeq: 10,
+		options:                    DiagnosticParserCorePrefixOptions{ReceiptMode: DiagnosticParserCoreReceiptSummary, MaxDispatches: 20},
+		receipt:                    &DiagnosticParserCoreGenericScheduler{ReceiptMode: DiagnosticParserCoreReceiptSummary},
+		conflictPostExecutionFault: func() error { return errors.New("summary post-execution fault") },
+	}
+	beforeStats, err := compact.Stats(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeHeaders := append([]diagnosticParserCoreHeader(nil), scheduler.headers...)
+	before, err := scheduler.headerReceipts(scheduler.headers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = scheduler.applyGenericConflict(before, diagnosticParserCoreGenericCell{headerIndex: 0, receipt: before[0], actions: actions})
+	if err == nil {
+		t.Fatal("summary post-execution fault unexpectedly succeeded")
+	}
+	afterStats, statsErr := compact.Stats(source)
+	if statsErr != nil {
+		t.Fatal(statsErr)
+	}
+	wantReceipt := &DiagnosticParserCoreGenericScheduler{ReceiptMode: DiagnosticParserCoreReceiptSummary}
+	if beforeStats != afterStats || !reflect.DeepEqual(scheduler.headers, beforeHeaders) || scheduler.branchOrder != 7 || scheduler.nextSeq != 10 || scheduler.dispatches != 0 || scheduler.work != (DiagnosticParserCoreGenericWork{}) || !reflect.DeepEqual(scheduler.receipt, wantReceipt) {
+		t.Fatalf("summary rollback leaked: before=%+v after=%+v scheduler=%+v", beforeStats, afterStats, scheduler)
+	}
+	for _, state := range []core.StateID{2, 3} {
+		if _, ok := compact.CanonicalBoundary(state, 1, true, [32]byte{}); ok {
+			t.Fatalf("summary rollback left shifted state %d", state)
+		}
+	}
+}
+
 func TestDiagnosticParserCoreConflictFiltersUnchangedArm(t *testing.T) {
 	actions := []core.Action{
 		{Type: core.ActionShift, State: 6},

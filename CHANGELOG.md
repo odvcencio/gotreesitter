@@ -23,6 +23,9 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now support aggregate-only receipts for
+  larger authenticated inputs, preserving exact materialization and work
+  totals while omitting per-election, round, conflict, and path traces.
 - Compact parser-core diagnostics now use one seed-owned scheduler. The retired
   staged bootstrap is preserved as an immutable 103-election golden instead of
   executable code, while scanner, rollback, and exact-tree coverage remain.
