@@ -28,43 +28,54 @@ func parserCoreGenericRewriteSource(t *testing.T) []byte {
 	return nil
 }
 
-func TestDiagnosticParserCoreGenericSchedulerFindsFirstUnsupportedSemantic(t *testing.T) {
+func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T) {
 	source := parserCoreGenericRewriteSource(t)
+	target := uint32(919)
 	var first *gotreesitter.DiagnosticParserCoreGenericScheduler
 	for run := 0; run < 3; run++ {
 		result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 			grammars.GoExternalScanner{}, source,
-			gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true},
+			gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
 		)
-		if routeErr == nil || result.GenericScheduler == nil {
+		if routeErr != nil || result.GenericScheduler == nil || !result.Completed {
 			t.Fatalf("run %d generic scheduler result=%+v err=%v", run, result.GenericScheduler, routeErr)
 		}
 		generic := result.GenericScheduler
+		completion := generic.Completion
 		if generic.StartElectionIndex != 102 || generic.StartToken.Symbol != 86 || generic.StartToken.StartByte != 742 || generic.StartToken.EndByte != 747 ||
-			generic.Stop.Boundary != gotreesitter.DiagnosticParserCoreExtra || generic.Stop.Detail != "generic scheduler does not yet apply extra shifts" ||
-			generic.Stop.ElectionIndex != 131 || generic.Stop.State != 345 || generic.Stop.ByteOffset != 850 ||
-			generic.Stop.Token.Symbol != 92 || generic.Stop.Token.StartByte != 851 || generic.Stop.Token.EndByte != 919 ||
-			generic.Stop.Token.Missing || generic.Stop.Token.NoLookahead || generic.Stop.Token.ExternalScannerToken ||
-			generic.Tokens != 132 || generic.Dispatches != 280 || generic.GlobalBranchOrder != 8 || generic.NextCreationSeq != 11 ||
-			len(generic.StartHeaders) != 2 || len(generic.Elections) != 29 || len(generic.Rounds) != 76 || len(generic.Conflicts) != 4 || len(generic.ExternalShifts) != 2 || len(generic.NoActionDrops) != 6 || len(generic.Stop.Headers) != 1 ||
-			generic.Stop.Stats.Nodes != 298 || generic.Stop.Stats.Links != 297 || generic.Stop.Stats.Subtrees != 278 || generic.Stop.Stats.Children != 277 || generic.Stop.Stats.CurrentExactPaths != 1 {
+			completion == nil || completion.TargetByte != 919 || completion.ElectionIndex != 131 || completion.LastToken.Symbol != 92 || completion.LastToken.StartByte != 851 || completion.LastToken.EndByte != 919 ||
+			completion.LastToken.Missing || completion.LastToken.NoLookahead || completion.LastToken.ExternalScannerToken ||
+			generic.Tokens != 132 || generic.Dispatches != 281 || generic.GlobalBranchOrder != 8 || generic.NextCreationSeq != 11 ||
+			len(generic.StartHeaders) != 2 || len(generic.Elections) != 29 || len(generic.Rounds) != 77 || len(generic.Conflicts) != 4 || len(generic.ExternalShifts) != 2 || len(generic.NoActionDrops) != 6 || len(completion.Headers) != 1 ||
+			completion.Stats.Nodes != 299 || completion.Stats.Links != 298 || completion.Stats.Subtrees != 279 || completion.Stats.Children != 277 || completion.Stats.CurrentExactPaths != 1 ||
+			!reflect.DeepEqual(generic.Stop, gotreesitter.DiagnosticParserCoreGenericStop{}) {
 			t.Fatalf("run %d generic scheduler boundary drifted: %+v", run, generic)
 		}
-		if generic.Stop.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 83, ActionLookups: 111, Dispatches: 82,
+		if completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
+			Passes: 83, ActionLookups: 111, Dispatches: 83,
 			Conflicts: 4, ConflictActions: 8, Forks: 4, ConflictHeads: 8,
-			Reductions: 44, OrdinaryShifts: 34, OrdinaryCohorts: 6, NoActionDrops: 6,
-			Elections: 29, Canonicalizations: 76, PeakHeaders: 3,
+			Reductions: 44, OrdinaryShifts: 34, OrdinaryCohorts: 6, ExtraShifts: 1, NoActionDrops: 6,
+			Elections: 29, Canonicalizations: 77, PeakHeaders: 3,
 		}) {
-			t.Fatalf("run %d generic scheduler work=%+v", run, generic.Stop.Work)
+			t.Fatalf("run %d generic scheduler work=%+v", run, completion.Work)
 		}
 		wantHeaders := []gotreesitter.DiagnosticParserCoreHeaderReceipt{{
-			CreationSeq: 10, State: 345, ByteOffset: 850, ExactPaths: 1, Checkpoint: generic.Elections[28].ScannerAfter.SHA256,
+			CreationSeq: 10, State: 345, ByteOffset: 919, Shifted: true, ExactPaths: 1, Checkpoint: generic.Elections[28].ScannerAfter.SHA256,
 		}}
 		for index, want := range wantHeaders {
-			if !reflect.DeepEqual(generic.Stop.Headers[index].Header, want) {
-				t.Fatalf("run %d final header %d=%+v want=%+v", run, index, generic.Stop.Headers[index].Header, want)
+			if !reflect.DeepEqual(completion.Headers[index].Header, want) {
+				t.Fatalf("run %d final header %d=%+v want=%+v", run, index, completion.Headers[index].Header, want)
 			}
+		}
+		extraRound := generic.Rounds[76]
+		if len(extraRound.Before) != 1 || extraRound.Before[0].State != 345 || extraRound.Before[0].ByteOffset != 850 || extraRound.Before[0].Shifted ||
+			len(extraRound.Actions) != 1 || extraRound.Actions[0].HeaderIndex != 0 || extraRound.Actions[0].State != 345 || extraRound.Actions[0].ByteOffset != 850 || extraRound.Actions[0].Ordinal != 0 ||
+			extraRound.Actions[0].Action.Type != gotreesitter.ParseActionShift || extraRound.Actions[0].Action.State != 0 || !extraRound.Actions[0].Action.Extra || extraRound.Actions[0].Action.ExtraChain || extraRound.Actions[0].Action.Repetition ||
+			len(extraRound.After) != 1 || extraRound.After[0].State != 345 || extraRound.After[0].ByteOffset != 919 || !extraRound.After[0].Shifted || extraRound.After[0].Checkpoint != generic.Elections[28].ScannerAfter.SHA256 {
+			t.Fatalf("run %d extra round drifted: %+v", run, extraRound)
+		}
+		if completion.Stats.Nodes-298 != 1 || completion.Stats.Links-297 != 1 || completion.Stats.Subtrees-278 != 1 || completion.Stats.Children != 277 {
+			t.Fatalf("run %d extra physical delta drifted: %+v", run, completion.Stats)
 		}
 		wantExternal := []struct {
 			election, electionIndex, round int
@@ -128,9 +139,10 @@ func TestDiagnosticParserCoreGenericSchedulerFindsFirstUnsupportedSemantic(t *te
 			generic.NoActionDrops[1].ElectionIndex != 104 || generic.NoActionDrops[1].Token.Symbol != 86 || generic.NoActionDrops[1].Token.Text != "rewriteEdit" {
 			t.Fatalf("run %d no-action drop epochs drifted: %+v", run, generic.NoActionDrops)
 		}
-		if result.Boundary != generic.Stop.Boundary || result.State != generic.Stop.State || !reflect.DeepEqual(result.Lookahead, generic.Stop.Token) ||
-			result.Tokens != generic.Tokens || result.Dispatches != generic.Dispatches {
-			t.Fatalf("run %d top-level publication drifted: result=%+v stop=%+v", run, result, generic.Stop)
+		if result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 345 || result.Lookahead != (gotreesitter.Token{}) ||
+			result.Tokens != generic.Tokens || result.Dispatches != generic.Dispatches || len(result.Elections) != 132 ||
+			!reflect.DeepEqual(result.Elections[131].Token, completion.LastToken) {
+			t.Fatalf("run %d top-level publication drifted: result=%+v completion=%+v", run, result, completion)
 		}
 		if first == nil {
 			first = generic
@@ -142,6 +154,7 @@ func TestDiagnosticParserCoreGenericSchedulerFindsFirstUnsupportedSemantic(t *te
 
 func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 	source := parserCoreGenericRewriteSource(t)
+	phaseA := uint32(919)
 	tests := []struct {
 		name          string
 		options       gotreesitter.DiagnosticParserCorePrefixOptions
@@ -154,6 +167,11 @@ func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 		{name: "first-conflict-dispatch", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxDispatches: 207}},
 		{name: "first-external-shift-dispatch", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxDispatches: 274}},
 		{name: "first-external-shift-subtree", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, Limits: core.Limits{MaxSubtrees: 272}}, rollbackError: "subtree arena cap"},
+		{name: "first-extra-shift-dispatch", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &phaseA, MaxDispatches: 280}},
+		{name: "first-extra-shift-subtree", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &phaseA, Limits: core.Limits{MaxSubtrees: 278}}, rollbackError: "subtree arena cap"},
+		{name: "first-extra-shift-link", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &phaseA, Limits: core.Limits{MaxLinks: 297}}, rollbackError: "link arena cap"},
+		{name: "first-extra-shift-node", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &phaseA, Limits: core.Limits{MaxNodes: 298}}, rollbackError: "node arena cap"},
+		{name: "after-extra-next-election", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxTokens: 132}},
 		{name: "after-second-drop-token", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxTokens: 105}},
 		{name: "next-election", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxTokens: 103}},
 	}
@@ -174,5 +192,52 @@ func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 				t.Fatalf("failed generic transaction leaked publication: result=%+v", result)
 			}
 		})
+	}
+}
+
+func TestDiagnosticParserCoreGenericSchedulerRejectsOvershotClosedByte(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	target := uint32(918)
+	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+	)
+	if routeErr == nil || !strings.Contains(routeErr.Error(), "straddled or passed") {
+		t.Fatalf("overshot target result=%+v err=%v", result.GenericScheduler, routeErr)
+	}
+	if result.GenericScheduler != nil || result.CachedDotClosure == nil || result.Tokens != 103 || result.Dispatches != 198 {
+		t.Fatalf("overshot target leaked generic publication: %+v", result)
+	}
+}
+
+func TestDiagnosticParserCoreGenericSchedulerContinuesToNextRequestedClosedByte(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	target := uint32(924)
+	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+	)
+	if routeErr != nil || !result.Completed || result.GenericScheduler == nil || result.GenericScheduler.Completion == nil {
+		t.Fatalf("continuation result=%+v err=%v", result, routeErr)
+	}
+	generic := result.GenericScheduler
+	completion := generic.Completion
+	if result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 16 || result.Lookahead != (gotreesitter.Token{}) ||
+		result.Tokens != 133 || result.Dispatches != 283 || len(generic.Elections) != 30 || len(generic.Rounds) != 79 ||
+		completion.TargetByte != 924 || completion.ElectionIndex != 132 || completion.LastToken.Symbol != 12 || completion.LastToken.Text != "func" || completion.LastToken.StartByte != 920 || completion.LastToken.EndByte != 924 ||
+		len(completion.Headers) != 1 || completion.Headers[0].Header.State != 16 || completion.Headers[0].Header.ByteOffset != 924 || !completion.Headers[0].Header.Shifted ||
+		completion.Stats != (core.Stats{Nodes: 302, Links: 301, Subtrees: 281, Children: 281, CurrentExactPaths: 1}) ||
+		completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
+			Passes: 85, ActionLookups: 113, Dispatches: 85,
+			Conflicts: 4, ConflictActions: 8, Forks: 4, ConflictHeads: 8,
+			Reductions: 45, OrdinaryShifts: 35, OrdinaryCohorts: 6, ExtraShifts: 1, NoActionDrops: 6,
+			Elections: 30, Canonicalizations: 79, PeakHeaders: 3,
+		}) {
+		t.Fatalf("continuation drifted: result=%+v generic=%+v", result, generic)
+	}
+	election := generic.Elections[29]
+	if election.Token.Symbol != 12 || election.Token.Text != "func" || election.Token.StartByte != 920 || election.Token.EndByte != 924 || election.Token.ExternalScannerToken ||
+		election.ScannerBefore != generic.Elections[28].ScannerAfter {
+		t.Fatalf("continuation election drifted: %+v", election)
 	}
 }

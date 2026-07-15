@@ -32,6 +32,7 @@ const (
 	DiagnosticParserCoreCohortCondensed            DiagnosticParserCoreBoundaryKind = "cohort_condensed_before_election"
 	DiagnosticParserCoreDotConflictFanoutBoundary  DiagnosticParserCoreBoundaryKind = "dot_conflict_fanout_before_cached_shift"
 	DiagnosticParserCoreCachedDotClosureBoundary   DiagnosticParserCoreBoundaryKind = "cached_dot_closed_before_edits_shift"
+	DiagnosticParserCoreGenericClosed              DiagnosticParserCoreBoundaryKind = "generic_scheduler_closed"
 )
 
 type DiagnosticParserCorePrefixOptions struct {
@@ -40,9 +41,13 @@ type DiagnosticParserCorePrefixOptions struct {
 	Incremental      bool
 	IncludedRanges   bool
 	GenericScheduler bool
-	MaxDispatches    uint64
-	MaxTokens        uint64
-	Limits           core.Limits
+	// GenericStopAtClosedByte publishes a successful closed-frontier receipt
+	// when every authenticated scheduler head closes at this byte. Nil is
+	// unbounded. The boundary is checked before another scanner election.
+	GenericStopAtClosedByte *uint32
+	MaxDispatches           uint64
+	MaxTokens               uint64
+	Limits                  core.Limits
 }
 
 type DiagnosticParserCoreScannerCheckpoint struct {
@@ -379,6 +384,7 @@ type DiagnosticParserCoreGenericWork struct {
 	Reductions        uint64
 	OrdinaryShifts    uint64
 	OrdinaryCohorts   uint64
+	ExtraShifts       uint64
 	NoActionDrops     uint64
 	Elections         uint64
 	Canonicalizations uint64
@@ -447,6 +453,18 @@ type DiagnosticParserCoreGenericStop struct {
 	Work          DiagnosticParserCoreGenericWork
 }
 
+// DiagnosticParserCoreGenericCompletion is a caller-selected, successfully
+// closed scheduler frontier. LastToken is consumed; no pending lookahead has
+// been read.
+type DiagnosticParserCoreGenericCompletion struct {
+	TargetByte    uint32
+	ElectionIndex int
+	LastToken     Token
+	Headers       []DiagnosticParserCoreHeaderPathReceipt
+	Stats         core.Stats
+	Work          DiagnosticParserCoreGenericWork
+}
+
 // DiagnosticParserCoreGenericScheduler records the committed suffix beginning
 // with the already-elected edits token. Elections contains only elections made
 // by this scheduler; the edits election remains owned by CachedDotClosure.
@@ -459,6 +477,7 @@ type DiagnosticParserCoreGenericScheduler struct {
 	ExternalShifts     []DiagnosticParserCoreGenericExternalShift
 	Elections          []DiagnosticParserCoreElection
 	NoActionDrops      []DiagnosticParserCoreGenericNoActionDrop
+	Completion         *DiagnosticParserCoreGenericCompletion
 	Stop               DiagnosticParserCoreGenericStop
 	Tokens             uint64
 	Dispatches         uint64
@@ -507,6 +526,7 @@ type DiagnosticParserCorePrefixResult struct {
 	DotConflictFanout        *DiagnosticParserCoreDotConflictFanout
 	CachedDotClosure         *DiagnosticParserCoreCachedDotClosure
 	GenericScheduler         *DiagnosticParserCoreGenericScheduler
+	Completed                bool
 	Elections                []DiagnosticParserCoreElection
 	SourceSHA256             [32]byte
 	GrammarBlobSHA256        [32]byte
@@ -609,9 +629,10 @@ func parserCoreCheckpoint(bytes []byte) DiagnosticParserCoreScannerCheckpoint {
 // DiagnosticParseParserCorePrefix independently schedules the compact core
 // from exact production DFA/scanner elections through the first authenticated
 // fork and its frozen oracle-condense continuation. The authenticated route
-// currently closes the later cached-dot primary cohort, elects the following
-// ordered token, and stops before dispatch. Earlier unsupported boundaries
-// remain fail-closed. It never calls the production parser.
+// closes the later cached-dot primary cohort and can continue table-driven
+// scheduling to a caller-selected, checkpoint-authenticated closed byte.
+// Earlier unsupported boundaries remain fail-closed. It never calls the
+// production parser.
 func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, options DiagnosticParserCorePrefixOptions) (DiagnosticParserCorePrefixResult, error) {
 	result := DiagnosticParserCorePrefixResult{SourceSHA256: sha256.Sum256(source)}
 	lang, err := authenticatedParserCoreGoLanguage(scanner)
@@ -742,6 +763,9 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 					}
 					return result, continueErr
 				}
+				if result.Completed {
+					return result, nil
+				}
 				if !resume.ready {
 					return result, errors.New("parser-core phase zero: later conflict continuation returned without boundary or resume")
 				}
@@ -775,6 +799,9 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 					return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 				}
 				return result, err
+			}
+			if result.Completed {
+				return result, nil
 			}
 			if !resume.ready {
 				return result, errors.New("parser-core phase zero: same-lookahead scheduler returned without a boundary or outer resume")
@@ -1473,6 +1500,14 @@ func continueDiagnosticParserCoreOrderedCohort(
 				result.Tokens = generic.Tokens
 				result.Dispatches = generic.Dispatches
 				result.LastBranchOrder = generic.GlobalBranchOrder
+				if generic.Completion != nil {
+					result.Completed = true
+					result.State = generic.Completion.Headers[0].Header.State
+					result.Lookahead = Token{}
+					result.Boundary = DiagnosticParserCoreGenericClosed
+					result.Detail = "generic scheduler reached the requested closed byte without reading another lookahead"
+					return nil
+				}
 				result.State, result.Lookahead = generic.Stop.State, generic.Stop.Token
 				result.Boundary, result.Detail = generic.Stop.Boundary, generic.Stop.Detail
 			}
@@ -3174,6 +3209,15 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 			}
 		}
 		if allClosed {
+			if s.options.GenericStopAtClosedByte != nil {
+				completed, err := s.completeAtClosedByte(*s.options.GenericStopAtClosedByte)
+				if err != nil {
+					return err
+				}
+				if completed {
+					return nil
+				}
+			}
 			if err := s.elect(); err != nil {
 				return err
 			}
@@ -3220,10 +3264,12 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 			noActionIndices = append(noActionIndices, index)
 			continue
 		}
-		if unsupported := diagnosticParserCoreGenericUnsupportedCell(index, s.token, actions); unsupported != nil {
+		cells = append(cells, diagnosticParserCoreGenericCell{headerIndex: index, receipt: receipt, actions: actions})
+	}
+	for _, cell := range cells {
+		if unsupported := diagnosticParserCoreGenericUnsupportedCell(cell.headerIndex, s.token, cell.actions); unsupported != nil {
 			return unsupported, nil
 		}
-		cells = append(cells, diagnosticParserCoreGenericCell{headerIndex: index, receipt: receipt, actions: actions})
 	}
 	if len(cells) == 0 {
 		if diagnosticParserCoreGenericNoActionDropEligible(s.headers, noActionIndices, s.epochProgress) {
@@ -3239,6 +3285,17 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 		return &diagnosticParserCoreGenericUnsupported{
 			boundary: DiagnosticParserCoreRoute, detail: "generic scheduler has no runnable head", headerIndex: 0,
 		}, nil
+	}
+	for _, cell := range cells {
+		if !cell.actions[0].Extra {
+			continue
+		}
+		if len(s.headers) != 1 || len(cells) != 1 || len(noActionIndices) != 0 {
+			return &diagnosticParserCoreGenericUnsupported{
+				boundary: DiagnosticParserCoreExtra, detail: "generic scheduler extra shift requires one sole runnable head", headerIndex: cell.headerIndex,
+			}, nil
+		}
+		return nil, s.applyGenericExtraShift(before, cell)
 	}
 
 	// One reduction-bearing cell is applied per pass. This deliberately
@@ -3525,6 +3582,48 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []Diagn
 	return s.recordGenericExternalShift(externalStatsBefore, round.Index)
 }
 
+func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShift(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) error {
+	if len(cell.actions) != 1 || cell.actions[0].Type != core.ActionShift || !cell.actions[0].Extra {
+		return errors.New("parser-core phase zero: extra shift requires one decoded extra action")
+	}
+	if err := s.reserveDispatches(1); err != nil {
+		return err
+	}
+	externalStatsBefore, err := s.genericExternalStats()
+	if err != nil {
+		return err
+	}
+	head, err := s.compact.Shift(s.headers[cell.headerIndex].head, core.Symbol(s.token.Symbol), 0, core.Token{
+		Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte,
+		Extra: true, External: s.token.ExternalScannerToken,
+	}, core.ForkOrder{})
+	if err != nil {
+		return err
+	}
+	s.headers[cell.headerIndex].head = head
+	s.headers[cell.headerIndex].shifted = true
+	s.epochProgress = true
+	s.work.ExtraShifts++
+	s.work.Dispatches++
+	if err := s.canonicalize(); err != nil {
+		return err
+	}
+	after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+	if err != nil {
+		return err
+	}
+	round := DiagnosticParserCoreDispatchRound{
+		Index: len(s.receipt.Rounds), Before: before,
+		Actions: []DiagnosticParserCoreRoundAction{{
+			HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
+			Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
+		}},
+		After: after,
+	}
+	s.receipt.Rounds = append(s.receipt.Rounds, round)
+	return s.recordGenericExternalShift(externalStatsBefore, round.Index)
+}
+
 func (s *diagnosticParserCoreGenericScheduler) genericExternalStats() (core.Stats, error) {
 	if !s.token.ExternalScannerToken {
 		return core.Stats{}, nil
@@ -3581,8 +3680,8 @@ func diagnosticParserCoreGenericUnsupportedCell(headerIndex int, token Token, ac
 		if action.ExtraChain {
 			return unsupported(DiagnosticParserCoreExtraChain, "generic scheduler does not support extra-chain shifts")
 		}
-		if action.Extra {
-			return unsupported(DiagnosticParserCoreExtra, "generic scheduler does not yet apply extra shifts")
+		if action.Extra && (len(actions) != 1 || action.Type != core.ActionShift) {
+			return unsupported(DiagnosticParserCoreExtra, "generic scheduler extra action is not one sole shift")
 		}
 		switch action.Type {
 		case core.ActionReduce:
@@ -3695,6 +3794,41 @@ func (s *diagnosticParserCoreGenericScheduler) elect() error {
 	return nil
 }
 
+func (s *diagnosticParserCoreGenericScheduler) completeAtClosedByte(target uint32) (bool, error) {
+	paths, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+	if err != nil {
+		return false, err
+	}
+	allBelow := true
+	for _, path := range paths {
+		header := path.Header
+		if !header.Shifted || header.Accepted || header.Checkpoint != s.checkpoint.SHA256 {
+			return false, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic completion frontier is not shifted, nonaccepted, and checkpoint-continuous"}
+		}
+		if header.ByteOffset >= target {
+			allBelow = false
+		}
+	}
+	if allBelow {
+		return false, nil
+	}
+	for _, path := range paths {
+		if path.Header.ByteOffset != target {
+			return false, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic completion frontier straddled or passed the requested byte"}
+		}
+	}
+	stats, err := s.compact.Stats(s.headers[0].head)
+	if err != nil {
+		return false, err
+	}
+	s.receipt.Completion = &DiagnosticParserCoreGenericCompletion{
+		TargetByte: target, ElectionIndex: s.electionIndex, LastToken: s.token,
+		Headers: paths, Stats: stats, Work: s.work,
+	}
+	s.publishTotals()
+	return true, nil
+}
+
 func (s *diagnosticParserCoreGenericScheduler) finish(boundary DiagnosticParserCoreBoundaryKind, detail string, headerIndex int) error {
 	paths, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
 	if err != nil {
@@ -3713,11 +3847,15 @@ func (s *diagnosticParserCoreGenericScheduler) finish(boundary DiagnosticParserC
 		HeaderIndex: headerIndex, State: header.State, ByteOffset: header.ByteOffset,
 		Token: s.token, Headers: paths, Stats: stats, Work: s.work,
 	}
+	s.publishTotals()
+	return nil
+}
+
+func (s *diagnosticParserCoreGenericScheduler) publishTotals() {
 	s.receipt.Tokens = s.tokens
 	s.receipt.Dispatches = s.dispatches
 	s.receipt.GlobalBranchOrder = s.branchOrder
 	s.receipt.NextCreationSeq = s.nextSeq
-	return nil
 }
 
 func readDiagnosticParserCorePostCondenseElection(
