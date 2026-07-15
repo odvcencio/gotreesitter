@@ -63,11 +63,13 @@ for tags and release notes while still in `0.x`.
   boundaries. An opt-in table-driven diagnostic scheduler continues from the
   authenticated `edits` handoff through ordinary cohorts and deterministic
   reductions, publishing reproducible work counters and the first typed
-  unsupported semantic without fixture-directed dispatch.
+  unsupported semantic without fixture-directed dispatch. It now drops paused
+  no-action heads only after a live sibling makes progress in the same token
+  epoch, receipts each drop, and keeps all-no-action epochs fail-closed.
   Conflict-frontier cells are visible in ambiguity profiles; generalized
-  repetition, no-lookahead, no-action, and recovery paths still decline before
-  unsupported execution, and ordinary builds retain no diagnostic driver
-  symbols.
+  repetition, no-lookahead, all-no-action recovery, and other recovery paths
+  still decline before unsupported execution, and ordinary builds retain no
+  diagnostic driver symbols.
 - Report-mode fleet reduction now preserves closed-vocabulary
   `no_static_c_oracle`, `no_corpus`, and `no_corpus_files` shards as fatal
   closure findings in the combined artifact. Certification remains fail-closed,

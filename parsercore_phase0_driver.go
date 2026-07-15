@@ -373,9 +373,18 @@ type DiagnosticParserCoreGenericWork struct {
 	Reductions        uint64
 	OrdinaryShifts    uint64
 	OrdinaryCohorts   uint64
+	NoActionDrops     uint64
 	Elections         uint64
 	Canonicalizations uint64
 	PeakHeaders       uint64
+}
+
+// DiagnosticParserCoreGenericNoActionDrop records a paused scheduler head
+// removed only after a sibling made real progress in the same token epoch.
+type DiagnosticParserCoreGenericNoActionDrop struct {
+	ElectionIndex int
+	Token         Token
+	Header        DiagnosticParserCoreHeaderPathReceipt
 }
 
 // DiagnosticParserCoreGenericStop is the first semantic the table-driven
@@ -402,6 +411,7 @@ type DiagnosticParserCoreGenericScheduler struct {
 	StartHeaders       []DiagnosticParserCoreHeaderPathReceipt
 	Rounds             []DiagnosticParserCoreDispatchRound
 	Elections          []DiagnosticParserCoreElection
+	NoActionDrops      []DiagnosticParserCoreGenericNoActionDrop
 	Stop               DiagnosticParserCoreGenericStop
 	Tokens             uint64
 	Dispatches         uint64
@@ -2988,6 +2998,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	options        DiagnosticParserCorePrefixOptions
 	receipt        *DiagnosticParserCoreGenericScheduler
 	work           DiagnosticParserCoreGenericWork
+	epochProgress  bool
 }
 
 type diagnosticParserCoreGenericCell struct {
@@ -3093,7 +3104,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 		return nil, err
 	}
 	var cells []diagnosticParserCoreGenericCell
-	firstNoAction := -1
+	var noActionIndices []int
 	for index, header := range s.headers {
 		if header.shifted || header.accepted {
 			continue
@@ -3105,9 +3116,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 		}
 		s.work.ActionLookups++
 		if len(actions) == 0 {
-			if firstNoAction < 0 {
-				firstNoAction = index
-			}
+			noActionIndices = append(noActionIndices, index)
 			continue
 		}
 		if unsupported := diagnosticParserCoreGenericUnsupportedCell(index, s.token, actions); unsupported != nil {
@@ -3116,11 +3125,14 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 		cells = append(cells, diagnosticParserCoreGenericCell{headerIndex: index, receipt: receipt, actions: actions})
 	}
 	if len(cells) == 0 {
-		if firstNoAction >= 0 {
+		if diagnosticParserCoreGenericNoActionDropEligible(s.headers, noActionIndices, s.epochProgress) {
+			return nil, s.dropGenericNoActionHeads(noActionIndices)
+		}
+		if len(noActionIndices) != 0 {
 			return &diagnosticParserCoreGenericUnsupported{
 				boundary:    DiagnosticParserCoreNoAction,
 				detail:      "generic scheduler has only paused no-action heads for the elected token",
-				headerIndex: firstNoAction,
+				headerIndex: noActionIndices[0],
 			}, nil
 		}
 		return &diagnosticParserCoreGenericUnsupported{
@@ -3150,6 +3162,55 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 	return nil, s.applyGenericShifts(before, shiftCells)
 }
 
+func diagnosticParserCoreGenericNoActionDropEligible(headers []diagnosticParserCoreHeader, noActionIndices []int, epochProgress bool) bool {
+	if !epochProgress || len(noActionIndices) == 0 || len(noActionIndices) >= len(headers) {
+		return false
+	}
+	noAction := make(map[int]struct{}, len(noActionIndices))
+	for _, index := range noActionIndices {
+		if index < 0 || index >= len(headers) {
+			return false
+		}
+		noAction[index] = struct{}{}
+	}
+	for index, header := range headers {
+		if _, paused := noAction[index]; paused {
+			continue
+		}
+		if header.shifted || header.accepted {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *diagnosticParserCoreGenericScheduler) dropGenericNoActionHeads(indices []int) error {
+	paused := make(map[int]struct{}, len(indices))
+	for _, index := range indices {
+		paused[index] = struct{}{}
+	}
+	pathReceipts, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+	if err != nil {
+		return err
+	}
+	kept := make([]diagnosticParserCoreHeader, 0, len(s.headers)-len(indices))
+	for index, header := range s.headers {
+		if _, drop := paused[index]; !drop {
+			kept = append(kept, header)
+			continue
+		}
+		s.receipt.NoActionDrops = append(s.receipt.NoActionDrops, DiagnosticParserCoreGenericNoActionDrop{
+			ElectionIndex: s.electionIndex, Token: s.token, Header: pathReceipts[index],
+		})
+	}
+	if len(kept) == 0 {
+		return errors.New("parser-core phase zero: sibling-backed no-action drop removed the complete frontier")
+	}
+	s.headers = kept
+	s.work.NoActionDrops += uint64(len(indices))
+	return nil
+}
+
 func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) error {
 	if err := s.reserveDispatches(1); err != nil {
 		return err
@@ -3172,6 +3233,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []Di
 		replacements[index] = replacement
 	}
 	s.headers = replaceDiagnosticParserCoreHeader(s.headers, cell.headerIndex, replacements)
+	s.epochProgress = true
 	s.work.Reductions++
 	s.work.Dispatches++
 	if err := s.canonicalize(); err != nil {
@@ -3223,6 +3285,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []Diagn
 		}
 		s.work.OrdinaryCohorts++
 	}
+	s.epochProgress = true
 	actions := make([]DiagnosticParserCoreRoundAction, len(cells))
 	for index, cell := range cells {
 		actions[index] = DiagnosticParserCoreRoundAction{
@@ -3364,6 +3427,7 @@ func (s *diagnosticParserCoreGenericScheduler) elect() error {
 	s.work.Elections++
 	s.token = token
 	s.checkpoint = after
+	s.epochProgress = false
 	s.receipt.Elections = append(s.receipt.Elections, DiagnosticParserCoreElection{
 		States: states, Token: token, ScannerBefore: before, ScannerAfter: after,
 		CurrentCheckpointValid: currentValid,

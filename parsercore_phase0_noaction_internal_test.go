@@ -159,6 +159,29 @@ func TestFrozenOracleCondenseRecordsSkippedTreeCostDecision(t *testing.T) {
 	}
 }
 
+func TestGenericNoActionDropRequiresSiblingBackedEpochProgress(t *testing.T) {
+	tests := []struct {
+		name          string
+		headers       []diagnosticParserCoreHeader
+		paused        []int
+		epochProgress bool
+		want          bool
+	}{
+		{name: "sole-no-action", headers: []diagnosticParserCoreHeader{{}}, paused: []int{0}},
+		{name: "all-no-action-after-progress", headers: []diagnosticParserCoreHeader{{}, {}}, paused: []int{0, 1}, epochProgress: true},
+		{name: "closed-sibling-without-progress", headers: []diagnosticParserCoreHeader{{shifted: true}, {}}, paused: []int{1}},
+		{name: "shifted-sibling-after-progress", headers: []diagnosticParserCoreHeader{{shifted: true}, {}}, paused: []int{1}, epochProgress: true, want: true},
+		{name: "accepted-sibling-after-progress", headers: []diagnosticParserCoreHeader{{accepted: true}, {}}, paused: []int{1}, epochProgress: true, want: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := diagnosticParserCoreGenericNoActionDropEligible(test.headers, test.paused, test.epochProgress); got != test.want {
+				t.Fatalf("eligibility=%t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
 func frozenState22CondenseTestInputs(t *testing.T) (*core.Core, Token, []diagnosticParserCoreHeader) {
 	t.Helper()
 	compact, err := core.New(parserCoreState22CondenseTestTables{}, core.Limits{})

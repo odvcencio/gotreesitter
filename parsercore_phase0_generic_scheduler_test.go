@@ -39,30 +39,41 @@ func TestDiagnosticParserCoreGenericSchedulerFindsFirstUnsupportedSemantic(t *te
 		}
 		generic := result.GenericScheduler
 		if generic.StartElectionIndex != 102 || generic.StartToken.Symbol != 86 || generic.StartToken.StartByte != 742 || generic.StartToken.EndByte != 747 ||
-			generic.Stop.Boundary != gotreesitter.DiagnosticParserCoreNoAction || generic.Stop.ElectionIndex != 103 || generic.Stop.State != 101 || generic.Stop.ByteOffset != 747 ||
-			generic.Stop.Token.Symbol != 9 || generic.Stop.Token.StartByte != 747 || generic.Stop.Token.EndByte != 748 ||
+			generic.Stop.Boundary != gotreesitter.DiagnosticParserCoreSubsequentConflictBoundary || generic.Stop.ElectionIndex != 105 || generic.Stop.State != 186 || generic.Stop.ByteOffset != 760 ||
+			generic.Stop.Token.Symbol != 20 || generic.Stop.Token.Text != "{" || generic.Stop.Token.StartByte != 760 || generic.Stop.Token.EndByte != 761 ||
 			generic.Stop.Token.Missing || generic.Stop.Token.NoLookahead || generic.Stop.Token.ExternalScannerToken ||
-			generic.Tokens != 104 || generic.Dispatches != 206 || generic.GlobalBranchOrder != 4 || generic.NextCreationSeq != 7 ||
-			len(generic.StartHeaders) != 2 || len(generic.Elections) != 1 || len(generic.Rounds) != 6 || len(generic.Stop.Headers) != 3 ||
-			generic.Stop.Stats.Nodes != 220 || generic.Stop.Stats.Links != 219 || generic.Stop.Stats.Subtrees != 204 || generic.Stop.Stats.Children != 192 || generic.Stop.Stats.CurrentExactPaths != 2 {
+			generic.Tokens != 106 || generic.Dispatches != 207 || generic.GlobalBranchOrder != 4 || generic.NextCreationSeq != 7 ||
+			len(generic.StartHeaders) != 2 || len(generic.Elections) != 3 || len(generic.Rounds) != 7 || len(generic.NoActionDrops) != 2 || len(generic.Stop.Headers) != 1 ||
+			generic.Stop.Stats.Nodes != 221 || generic.Stop.Stats.Links != 220 || generic.Stop.Stats.Subtrees != 205 || generic.Stop.Stats.Children != 192 || generic.Stop.Stats.CurrentExactPaths != 1 {
 			t.Fatalf("run %d generic scheduler boundary drifted: %+v", run, generic)
 		}
 		if generic.Stop.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 7, ActionLookups: 16, Dispatches: 8, Reductions: 4,
-			OrdinaryShifts: 4, OrdinaryCohorts: 2, Elections: 1,
-			Canonicalizations: 6, PeakHeaders: 3,
+			Passes: 10, ActionLookups: 20, Dispatches: 9, Reductions: 4,
+			OrdinaryShifts: 5, OrdinaryCohorts: 2, NoActionDrops: 2,
+			Elections: 3, Canonicalizations: 7, PeakHeaders: 3,
 		}) {
 			t.Fatalf("run %d generic scheduler work=%+v", run, generic.Stop.Work)
 		}
-		wantHeaders := []gotreesitter.DiagnosticParserCoreHeaderReceipt{
-			{CreationSeq: 1, State: 826, ByteOffset: 748, Shifted: true, ExactPaths: 1, Checkpoint: generic.Elections[0].ScannerAfter.SHA256},
-			{CreationSeq: 6, State: 716, ByteOffset: 748, Shifted: true, ExactPaths: 1, Checkpoint: generic.Elections[0].ScannerAfter.SHA256},
-			{CreationSeq: 4, State: 101, ByteOffset: 747, ExactPaths: 2, Checkpoint: generic.Elections[0].ScannerAfter.SHA256},
-		}
+		wantHeaders := []gotreesitter.DiagnosticParserCoreHeaderReceipt{{
+			CreationSeq: 6, State: 186, ByteOffset: 760, ExactPaths: 1, Checkpoint: generic.Elections[2].ScannerAfter.SHA256,
+		}}
 		for index, want := range wantHeaders {
 			if !reflect.DeepEqual(generic.Stop.Headers[index].Header, want) {
 				t.Fatalf("run %d final header %d=%+v want=%+v", run, index, generic.Stop.Headers[index].Header, want)
 			}
+		}
+		wantDrops := []gotreesitter.DiagnosticParserCoreHeaderReceipt{
+			{CreationSeq: 4, State: 101, ByteOffset: 747, ExactPaths: 2, Checkpoint: generic.Elections[0].ScannerAfter.SHA256},
+			{CreationSeq: 1, State: 826, ByteOffset: 748, ExactPaths: 1, Checkpoint: generic.Elections[1].ScannerAfter.SHA256},
+		}
+		for index, want := range wantDrops {
+			if !reflect.DeepEqual(generic.NoActionDrops[index].Header.Header, want) {
+				t.Fatalf("run %d no-action drop %d=%+v want=%+v", run, index, generic.NoActionDrops[index], want)
+			}
+		}
+		if generic.NoActionDrops[0].ElectionIndex != 103 || generic.NoActionDrops[0].Token.Symbol != 9 ||
+			generic.NoActionDrops[1].ElectionIndex != 104 || generic.NoActionDrops[1].Token.Symbol != 86 || generic.NoActionDrops[1].Token.Text != "rewriteEdit" {
+			t.Fatalf("run %d no-action drop epochs drifted: %+v", run, generic.NoActionDrops)
 		}
 		if result.Boundary != generic.Stop.Boundary || result.State != generic.Stop.State || !reflect.DeepEqual(result.Lookahead, generic.Stop.Token) ||
 			result.Tokens != generic.Tokens || result.Dispatches != generic.Dispatches {
@@ -84,6 +95,9 @@ func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 	}{
 		{name: "first-shift", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxDispatches: 199}},
 		{name: "after-election-dispatch", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxDispatches: 200}},
+		{name: "after-first-drop-token", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxTokens: 104}},
+		{name: "after-second-election-dispatch", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxDispatches: 206}},
+		{name: "after-second-drop-token", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxTokens: 105}},
 		{name: "next-election", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxTokens: 103}},
 	}
 	for _, test := range tests {
