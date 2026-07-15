@@ -350,8 +350,13 @@ func TestDefaultLiveLinkCapRejectsNinthDistinctLink(t *testing.T) {
 	if err != nil || duplicate != head {
 		t.Fatalf("exact duplicate consumed a live-link slot: duplicate=%+v head=%+v err=%v", duplicate, head, err)
 	}
-	if _, err := core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 8}); err == nil || !strings.Contains(err.Error(), "live-link cap exceeded: 9 > 8") {
-		t.Fatalf("ninth distinct live link error=%v", err)
+	_, err = core.condense(key, linkInput{prev: seed.Node, payload: payload, scoreDelta: 8})
+	var capacity *LiveLinkCapacityError
+	if !errors.As(err, &capacity) {
+		t.Fatalf("ninth distinct live link error=%v, want *LiveLinkCapacityError", err)
+	}
+	if want := (&LiveLinkCapacityError{State: 2, ByteOffset: 1, ObservedLinks: 9, Limit: 8}); *capacity != *want || err.Error() != "parser-core phase zero: shared (2,1) live-link cap exceeded: 9 > 8" {
+		t.Fatalf("ninth distinct live link error=%+v text=%q, want=%+v", capacity, err, want)
 	}
 	after, err := core.Stats(head)
 	if err != nil || after != before {

@@ -120,6 +120,19 @@ func IsDecline(err error, feature Decline) bool {
 	return errors.As(err, &decline) && decline.Feature == feature
 }
 
+// LiveLinkCapacityError reports the exact shared boundary whose next distinct
+// live link would exceed the configured local fan-out limit.
+type LiveLinkCapacityError struct {
+	State         StateID
+	ByteOffset    uint32
+	ObservedLinks uint64
+	Limit         uint32
+}
+
+func (e *LiveLinkCapacityError) Error() string {
+	return fmt.Sprintf("parser-core phase zero: shared (%d,%d) live-link cap exceeded: %d > %d", e.State, e.ByteOffset, e.ObservedLinks, e.Limit)
+}
+
 // Limits bound every pointer-free arena and bounded diagnostic traversal.
 // Packed root-path multiplicity is telemetry, not an execution limit.
 type Limits struct {
@@ -1252,7 +1265,10 @@ func (c *Core) condenseWithOutcome(key boundaryKey, in linkInput) (condenseOutco
 			return condenseOutcome{}, errors.New("parser-core phase zero: boundary link count overflow")
 		}
 		if old.linkCount >= c.limits.MaxLinksPerBoundary {
-			return condenseOutcome{}, fmt.Errorf("parser-core phase zero: shared (%d,%d) live-link cap exceeded: %d > %d", key.state, key.byteOffset, uint64(old.linkCount)+1, c.limits.MaxLinksPerBoundary)
+			return condenseOutcome{}, &LiveLinkCapacityError{
+				State: key.state, ByteOffset: key.byteOffset,
+				ObservedLinks: uint64(old.linkCount) + 1, Limit: c.limits.MaxLinksPerBoundary,
+			}
 		}
 		linkCount += old.linkCount
 	}
