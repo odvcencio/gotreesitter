@@ -490,9 +490,9 @@ type DiagnosticParserCoreGenericCompletion struct {
 	Work          DiagnosticParserCoreGenericWork
 }
 
-// DiagnosticParserCoreGenericScheduler records the committed suffix beginning
-// with the already-elected edits token. Elections contains only elections made
-// by this scheduler; the edits election remains owned by CachedDotClosure.
+// DiagnosticParserCoreGenericScheduler records one committed compact scheduler
+// run. A cached-dot continuation starts with its already-elected edits token;
+// a seed-owned diagnostic run starts before its first election.
 type DiagnosticParserCoreGenericScheduler struct {
 	StartElectionIndex int
 	StartToken         Token
@@ -3248,6 +3248,105 @@ type diagnosticParserCoreGenericScheduler struct {
 	acceptedHead               core.Head
 	conflictPostExecutionFault func() error
 	extraPostExecutionFault    func() error
+	lifecycle                  diagnosticParserCoreGenericLifecycle
+	observer                   diagnosticParserCoreSeedObserver
+	stoppedAfterElection       bool
+}
+
+type diagnosticParserCoreGenericLifecycle uint8
+
+const (
+	diagnosticParserCoreBeforeFirstElection diagnosticParserCoreGenericLifecycle = iota
+	diagnosticParserCoreElectionReady
+)
+
+// diagnosticParserCoreSeedObserver is a tagged, diagnostic-only shadow seam.
+// It can inspect closed frontiers immediately before an election and stop a
+// seed-owned run immediately after an election, before any action dispatch.
+type diagnosticParserCoreSeedObserver struct {
+	beforeElection func(*diagnosticParserCoreGenericScheduler) error
+	afterElection  func(*diagnosticParserCoreGenericScheduler) (bool, error)
+}
+
+type diagnosticParserCoreGenericStart struct {
+	headers       []diagnosticParserCoreHeader
+	token         Token
+	checkpoint    DiagnosticParserCoreScannerCheckpoint
+	election      DiagnosticParserCoreElection
+	electionIndex int
+	tokens        uint64
+	dispatches    uint64
+	branchOrder   uint64
+	nextSeq       uint64
+	lifecycle     diagnosticParserCoreGenericLifecycle
+	observer      diagnosticParserCoreSeedObserver
+}
+
+func newDiagnosticParserCoreGenericScheduler(
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	start diagnosticParserCoreGenericStart,
+	options DiagnosticParserCorePrefixOptions,
+) (*diagnosticParserCoreGenericScheduler, error) {
+	if compact == nil || tokenSource == nil || scannerScratch == nil || len(start.headers) == 0 {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "generic scheduler requires a compact core, token source, scanner scratch, and live frontier"}
+	}
+	switch start.lifecycle {
+	case diagnosticParserCoreBeforeFirstElection:
+		zeroElection := DiagnosticParserCoreElection{}
+		if len(start.headers) != 1 || start.electionIndex != -1 || start.tokens != 0 || start.dispatches != 0 || start.branchOrder != 0 || start.nextSeq != 1 ||
+			start.token != (Token{}) || !reflect.DeepEqual(start.election, zeroElection) {
+			return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic seed scheduler start identity is malformed"}
+		}
+		header := start.headers[0]
+		_, byteOffset, err := compact.Boundary(header.head)
+		if err != nil {
+			return nil, err
+		}
+		if header.creationSeq != 0 || header.shifted || header.accepted || header.paused || header.checkpoint != start.checkpoint.SHA256 || byteOffset != 0 {
+			return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic seed scheduler header identity is malformed"}
+		}
+	case diagnosticParserCoreElectionReady:
+		if start.electionIndex < 0 || start.tokens != uint64(start.electionIndex+1) || !reflect.DeepEqual(start.token, start.election.Token) || start.checkpoint != start.election.ScannerAfter {
+			return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic elected scheduler start identity is malformed"}
+		}
+		for _, header := range start.headers {
+			if header.accepted || header.paused || header.checkpoint != start.checkpoint.SHA256 {
+				return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic elected scheduler header identity is malformed"}
+			}
+		}
+	default:
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic scheduler lifecycle is invalid"}
+	}
+	if start.nextSeq == 0 {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic scheduler requires a nonzero next creation sequence"}
+	}
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact: compact, tokenSource: tokenSource, scannerScratch: scannerScratch,
+		headers: append([]diagnosticParserCoreHeader(nil), start.headers...),
+		token:   start.token, checkpoint: start.checkpoint, currentElection: start.election,
+		electionIndex: start.electionIndex, tokens: start.tokens, dispatches: start.dispatches,
+		branchOrder: start.branchOrder, nextSeq: start.nextSeq,
+		options: options, lifecycle: start.lifecycle, observer: start.observer,
+		receipt: &DiagnosticParserCoreGenericScheduler{
+			StartElectionIndex: start.electionIndex, StartToken: start.token,
+		},
+	}
+	for index := range scheduler.headers {
+		scheduler.headers[index].accepted = false
+		scheduler.headers[index].paused = false
+		scheduler.headers[index].checkpoint = start.checkpoint.SHA256
+		if start.lifecycle == diagnosticParserCoreElectionReady {
+			scheduler.headers[index].shifted = false
+		}
+	}
+	startHeaders, err := diagnosticParserCoreHeaderPathReceipts(compact, scheduler.headers)
+	if err != nil {
+		return nil, err
+	}
+	scheduler.receipt.StartHeaders = startHeaders
+	return scheduler, nil
 }
 
 type diagnosticParserCoreGenericCell struct {
@@ -3272,36 +3371,25 @@ func executeDiagnosticParserCoreGenericScheduler(
 	tokenSnapshot := tokenSource.snapshotRelexState()
 	tokenState := tokenSource.state
 	tokenGLRStates := append([]StateID(nil), tokenSource.glrStates...)
-	scheduler := &diagnosticParserCoreGenericScheduler{
-		compact: compact, tokenSource: tokenSource, scannerScratch: scannerScratch,
-		headers: append([]diagnosticParserCoreHeader(nil), headers...),
-		token:   closure.Election.Token, checkpoint: closure.Election.ScannerAfter,
-		currentElection: closure.Election,
-		electionIndex:   closure.ElectionIndex, tokens: tokens, dispatches: dispatches,
-		branchOrder: closure.GlobalBranchOrder, nextSeq: closure.NextCreationSeq,
-		options: options,
-		receipt: &DiagnosticParserCoreGenericScheduler{
-			StartElectionIndex: closure.ElectionIndex, StartToken: closure.Election.Token,
+	scheduler, err := newDiagnosticParserCoreGenericScheduler(
+		compact, tokenSource, scannerScratch,
+		diagnosticParserCoreGenericStart{
+			headers: headers, token: closure.Election.Token,
+			checkpoint: closure.Election.ScannerAfter, election: closure.Election,
+			electionIndex: closure.ElectionIndex, tokens: tokens, dispatches: dispatches,
+			branchOrder: closure.GlobalBranchOrder, nextSeq: closure.NextCreationSeq,
+			lifecycle: diagnosticParserCoreElectionReady,
 		},
+		options,
+	)
+	if err != nil {
+		return nil, core.Head{}, err
 	}
-	// The cached-dot route elected edits but deliberately did not start its
-	// compact frontier or reset scheduler consumption flags.
-	for index := range scheduler.headers {
-		scheduler.headers[index].shifted = false
-		scheduler.headers[index].accepted = false
-		scheduler.headers[index].paused = false
-		scheduler.headers[index].checkpoint = closure.Election.ScannerAfter.SHA256
-	}
-	err := compact.ApplyAtomic(func() error {
+	err = compact.ApplyAtomic(func() error {
 		if err := compact.BeginFrontier(); err != nil {
 			return err
 		}
 		compact.SetPhaseCheckpoint(closure.Election.ScannerAfter.SHA256)
-		start, err := diagnosticParserCoreHeaderPathReceipts(compact, scheduler.headers)
-		if err != nil {
-			return err
-		}
-		scheduler.receipt.StartHeaders = start
 		return scheduler.run()
 	})
 	if err != nil {
@@ -3309,6 +3397,50 @@ func executeDiagnosticParserCoreGenericScheduler(
 		return nil, core.Head{}, err
 	}
 	return scheduler.receipt, scheduler.acceptedHead, nil
+}
+
+// executeDiagnosticParserCoreGenericSchedulerFromSeed owns the compact seed
+// and the scheduler lifecycle before the first production DFA/scanner
+// election. It intentionally does not wrap the parse in one arena-wide atomic
+// transaction: each scheduler operation retains its own bounded publication
+// contract, while this fresh diagnostic core has no caller state to restore.
+func executeDiagnosticParserCoreGenericSchedulerFromSeed(
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	initialState StateID,
+	options DiagnosticParserCorePrefixOptions,
+	observer diagnosticParserCoreSeedObserver,
+) (*diagnosticParserCoreGenericScheduler, error) {
+	if compact == nil || tokenSource == nil || scannerScratch == nil {
+		return nil, errors.New("parser-core phase zero: seed scheduler requires compact core and production token source")
+	}
+	head, err := compact.Seed(core.StateID(initialState), 0)
+	if err != nil {
+		return nil, err
+	}
+	tokenSource.SetParserState(initialState)
+	tokenSource.SetGLRStates(nil)
+	initialCheckpoint := parserCoreCheckpoint(append([]byte(nil), tokenSource.captureExternalScannerStateInto(scannerScratch)...))
+	scheduler, err := newDiagnosticParserCoreGenericScheduler(
+		compact, tokenSource, scannerScratch,
+		diagnosticParserCoreGenericStart{
+			headers: []diagnosticParserCoreHeader{{
+				head: head, creationSeq: 0, checkpoint: initialCheckpoint.SHA256,
+			}},
+			checkpoint: initialCheckpoint, electionIndex: -1,
+			nextSeq: 1, lifecycle: diagnosticParserCoreBeforeFirstElection,
+			observer: observer,
+		},
+		options,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := scheduler.run(); err != nil {
+		return scheduler, err
+	}
+	return scheduler, nil
 }
 
 type diagnosticParserCorePointIndex struct {
@@ -3503,6 +3635,16 @@ func materializeDiagnosticParserCoreAcceptedTree(compact *core.Core, head core.H
 
 func (s *diagnosticParserCoreGenericScheduler) run() error {
 	for {
+		if s.lifecycle == diagnosticParserCoreBeforeFirstElection {
+			if err := s.elect(); err != nil {
+				return err
+			}
+			if s.stoppedAfterElection {
+				s.publishTotals()
+				return nil
+			}
+			continue
+		}
 		if uint64(len(s.headers)) > s.work.PeakHeaders {
 			s.work.PeakHeaders = uint64(len(s.headers))
 		}
@@ -3539,6 +3681,10 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 			}
 			if err := s.elect(); err != nil {
 				return err
+			}
+			if s.stoppedAfterElection {
+				s.publishTotals()
+				return nil
 			}
 			continue
 		}
@@ -4395,13 +4541,26 @@ func (s *diagnosticParserCoreGenericScheduler) elect() error {
 		if err != nil {
 			return err
 		}
-		if !receipt.Shifted || receipt.Accepted || receipt.Checkpoint != s.checkpoint.SHA256 {
+		shiftIdentity := receipt.Shifted
+		if s.lifecycle == diagnosticParserCoreBeforeFirstElection {
+			shiftIdentity = !receipt.Shifted
+		}
+		if !shiftIdentity || receipt.Accepted || receipt.Checkpoint != s.checkpoint.SHA256 {
 			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic scheduler election frontier is not closed and checkpoint-continuous"}
 		}
 		states[index] = receipt.State
 	}
+	if s.observer.beforeElection != nil {
+		if err := s.observer.beforeElection(s); err != nil {
+			return err
+		}
+	}
 	s.tokenSource.SetParserState(states[0])
-	s.tokenSource.SetGLRStates(append([]StateID(nil), states...))
+	if len(states) == 1 {
+		s.tokenSource.SetGLRStates(nil)
+	} else {
+		s.tokenSource.SetGLRStates(append([]StateID(nil), states...))
+	}
 	before := parserCoreCheckpoint(append([]byte(nil), s.tokenSource.captureExternalScannerStateInto(s.scannerScratch)...))
 	if before != s.checkpoint {
 		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic scheduler scanner checkpoint continuity failed"}
@@ -4433,6 +4592,14 @@ func (s *diagnosticParserCoreGenericScheduler) elect() error {
 	}
 	s.currentElection = election
 	s.receipt.Elections = append(s.receipt.Elections, election)
+	s.lifecycle = diagnosticParserCoreElectionReady
+	if s.observer.afterElection != nil {
+		stop, err := s.observer.afterElection(s)
+		if err != nil {
+			return err
+		}
+		s.stoppedAfterElection = stop
+	}
 	return nil
 }
 
