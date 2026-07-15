@@ -23,6 +23,11 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now retain double-buffered header
+  canonicalization scratch across a parse while preserving winner order,
+  rollback, and full conflict receipts. On the authenticated real-Go scheduler
+  benchmark, this reduced time by 4.3%, allocated bytes by 27.3%, and
+  allocations by 18.1% with unchanged exact tree and parser work totals.
 - Compact parser-core diagnostics now preconvert authenticated parse-action
   rows once and expose them through immutable value access, removing recurring
   action conversion and reducing the real-Go scheduler's allocations by 12.8%

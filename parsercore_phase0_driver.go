@@ -771,17 +771,52 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 	}, nil
 }
 
-func canonicalizeDiagnosticParserCoreHeaders(compact *core.Core, headers []diagnosticParserCoreHeader) ([]diagnosticParserCoreHeader, error) {
-	type phaseHead struct {
-		head       core.Head
-		shifted    bool
-		accepted   bool
-		checkpoint [32]byte
+type diagnosticParserCorePhaseHead struct {
+	head       core.Head
+	shifted    bool
+	accepted   bool
+	checkpoint [32]byte
+}
+
+type diagnosticParserCoreCanonicalScratch struct {
+	headerBuffers [2][]diagnosticParserCoreHeader
+	nextBuffer    uint8
+	keys          []diagnosticParserCorePhaseHead
+	winners       map[diagnosticParserCorePhaseHead]int
+	runnable      map[diagnosticParserCorePhaseHead]bool
+}
+
+func (s *diagnosticParserCoreCanonicalScratch) canonicalize(compact *core.Core, headers []diagnosticParserCoreHeader) ([]diagnosticParserCoreHeader, error) {
+	if s == nil {
+		return nil, errors.New("parser-core phase zero: nil canonicalization scratch")
 	}
-	normalized := append([]diagnosticParserCoreHeader(nil), headers...)
-	winners := make(map[phaseHead]int, len(headers))
-	runnable := make(map[phaseHead]bool, len(headers))
-	keys := make([]phaseHead, len(headers))
+	target := int(s.nextBuffer & 1)
+	if len(headers) != 0 && cap(s.headerBuffers[target]) != 0 && &headers[0] == &s.headerBuffers[target][:1][0] {
+		target ^= 1
+	}
+	normalized := s.headerBuffers[target]
+	if cap(normalized) < len(headers) {
+		normalized = make([]diagnosticParserCoreHeader, len(headers))
+	} else {
+		normalized = normalized[:len(headers)]
+	}
+	copy(normalized, headers)
+	s.headerBuffers[target] = normalized
+	if cap(s.keys) < len(headers) {
+		s.keys = make([]diagnosticParserCorePhaseHead, len(headers))
+	} else {
+		s.keys = s.keys[:len(headers)]
+	}
+	if s.winners == nil {
+		s.winners = make(map[diagnosticParserCorePhaseHead]int, len(headers))
+	} else {
+		clear(s.winners)
+	}
+	if s.runnable == nil {
+		s.runnable = make(map[diagnosticParserCorePhaseHead]bool, len(headers))
+	} else {
+		clear(s.runnable)
+	}
 	for index, header := range normalized {
 		state, byteOffset, err := compact.Boundary(header.head)
 		if err != nil {
@@ -790,34 +825,43 @@ func canonicalizeDiagnosticParserCoreHeaders(compact *core.Core, headers []diagn
 		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok {
 			header.head = canonical
 		}
-		key := phaseHead{head: header.head, shifted: header.shifted, accepted: header.accepted, checkpoint: header.checkpoint}
+		key := diagnosticParserCorePhaseHead{head: header.head, shifted: header.shifted, accepted: header.accepted, checkpoint: header.checkpoint}
 		normalized[index] = header
-		keys[index] = key
+		s.keys[index] = key
 		if !header.paused {
-			runnable[key] = true
+			s.runnable[key] = true
 		}
-		if existing, duplicate := winners[key]; duplicate {
+		if existing, duplicate := s.winners[key]; duplicate {
 			incumbent := normalized[existing]
 			incumbentFresh := incumbent.freshness != 0
 			headerFresh := header.freshness != 0
 			if (incumbentFresh && !headerFresh) ||
 				(incumbentFresh == headerFresh && incumbent.paused && !header.paused) {
-				winners[key] = index
+				s.winners[key] = index
 			}
 		} else {
-			winners[key] = index
+			s.winners[key] = index
 		}
 	}
-	out := make([]diagnosticParserCoreHeader, 0, len(winners))
+	write := 0
 	for index, header := range normalized {
-		if winners[keys[index]] != index {
+		if s.winners[s.keys[index]] != index {
 			continue
 		}
-		header.paused = !runnable[keys[index]]
+		header.paused = !s.runnable[s.keys[index]]
 		header.freshness = 0
-		out = append(out, header)
+		normalized[write] = header
+		write++
 	}
+	out := normalized[:write]
+	s.headerBuffers[target] = out
+	s.nextBuffer = uint8(target ^ 1)
 	return out, nil
+}
+
+func canonicalizeDiagnosticParserCoreHeaders(compact *core.Core, headers []diagnosticParserCoreHeader) ([]diagnosticParserCoreHeader, error) {
+	var scratch diagnosticParserCoreCanonicalScratch
+	return scratch.canonicalize(compact, headers)
 }
 
 func diagnosticParserCoreTerminalPayloadView(id uint32, view core.SubtreeView) DiagnosticParserCoreTerminalPayloadView {
@@ -896,6 +940,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	options                    DiagnosticParserCorePrefixOptions
 	receipt                    *DiagnosticParserCoreGenericScheduler
 	summaryHeaderScratch       []DiagnosticParserCoreHeaderReceipt
+	canonicalScratch           diagnosticParserCoreCanonicalScratch
 	work                       DiagnosticParserCoreGenericWork
 	epochProgress              bool
 	acceptedHead               core.Head
@@ -2138,7 +2183,7 @@ func replaceDiagnosticParserCoreHeader(headers []diagnosticParserCoreHeader, ind
 }
 
 func (s *diagnosticParserCoreGenericScheduler) canonicalize() error {
-	headers, err := canonicalizeDiagnosticParserCoreHeaders(s.compact, s.headers)
+	headers, err := s.canonicalScratch.canonicalize(s.compact, s.headers)
 	if err != nil {
 		return err
 	}
