@@ -4,6 +4,7 @@ package gotreesitter_test
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+	parsercorephase0 "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
 type fakeGoScanner struct{}
@@ -219,10 +221,10 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if prefixErr != nil && result.Boundary == "" {
 		t.Fatalf("untyped prefix error: %v", prefixErr)
 	}
-	if result.Boundary != gotreesitter.DiagnosticParserCoreDotConflictFanoutBoundary || result.Tokens != 102 || result.Dispatches != 196 || result.State != 520 || result.Lookahead.Symbol != 4 || prefixErr == nil {
+	if result.Boundary != gotreesitter.DiagnosticParserCoreCachedDotClosureBoundary || result.Tokens != 103 || result.Dispatches != 198 || result.State != 164 || result.Lookahead.Symbol != 86 || prefixErr == nil {
 		t.Fatalf("rewrite prefix identity drifted: boundary=%s tokens=%d dispatches=%d state=%d lookahead=%d fork_actions=%+v fork_boundaries=%d fork_paths=%d same_rounds=%+v last_order=%d", result.Boundary, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkActions, result.ForkBoundaries, result.ForkLogicalPaths, result.SameTokenRounds, result.LastBranchOrder)
 	}
-	if result.Detail != "dot conflict fanout closed before cached-lookahead primary shifts" || len(result.Elections) != int(result.Tokens) {
+	if result.Detail != "cached dot closure authenticated before edits shifts" || len(result.Elections) != int(result.Tokens) {
 		t.Fatalf("continued prefix detail/elections = %q/%d, want one election per %d tokens", result.Detail, len(result.Elections), result.Tokens)
 	}
 	if result.OracleCondenseResolution == nil || result.ContinuationElection == nil {
@@ -461,6 +463,39 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 		parent.ID != 197 || parent.Symbol != 171 || parent.ProductionID != 0 || parent.Terminal || !reflect.DeepEqual(parent.Children, []uint32{195}) {
 		t.Fatalf("dot payload views drifted: %+v", dot.NewPayloadViews)
 	}
+	closure := result.CachedDotClosure
+	wantClosureHeaders := []gotreesitter.DiagnosticParserCoreHeaderReceipt{
+		{CreationSeq: 1, State: 164, ByteOffset: 742, Shifted: true, ExactPaths: 2, Checkpoint: emptyCheckpoint.SHA256},
+		{CreationSeq: 4, State: 194, ByteOffset: 742, Shifted: true, ExactPaths: 2, Checkpoint: emptyCheckpoint.SHA256},
+	}
+	wantClosureDerivations := [][]gotreesitter.DiagnosticParserCorePackedDerivation{
+		{{Score: -11, BranchOrder: 1, HasBranchOrder: true}, {Score: -10, BranchOrder: 3, HasBranchOrder: true}},
+		{{Score: -11, BranchOrder: 4, HasBranchOrder: true}, {Score: -10, BranchOrder: 4, HasBranchOrder: true}},
+	}
+	wantClosureActions := []gotreesitter.DiagnosticParserCoreRoundAction{
+		{HeaderIndex: 0, State: 520, ByteOffset: 741, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 164}},
+		{HeaderIndex: 1, State: 407, ByteOffset: 741, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 164}},
+	}
+	wantNextActions := []gotreesitter.DiagnosticParserCoreRoundAction{
+		{HeaderIndex: 0, State: 164, ByteOffset: 742, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 410}},
+		{HeaderIndex: 1, State: 194, ByteOffset: 742, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 444}},
+	}
+	if closure == nil || !reflect.DeepEqual(closure.Before, dot.Headers) || !reflect.DeepEqual(closure.RunnableBefore, wantDotHeaders[:2]) || !reflect.DeepEqual(closure.RetainedBefore, dot.Headers[2]) ||
+		closure.ShiftRound.Index != 0 || !reflect.DeepEqual(closure.ShiftRound.Before, wantDotHeaders[:2]) || !reflect.DeepEqual(closure.ShiftRound.Actions, wantClosureActions) || len(closure.ShiftRound.After) != 2 ||
+		len(closure.BeforeCanonical) != 3 || closure.BeforeCanonical[0].State != 164 || closure.BeforeCanonical[0].CreationSeq != 1 || closure.BeforeCanonical[0].ExactPaths != 1 || closure.BeforeCanonical[1].State != 164 || closure.BeforeCanonical[1].CreationSeq != 5 || closure.BeforeCanonical[1].ExactPaths != 2 || !reflect.DeepEqual(closure.BeforeCanonical[2], wantDotHeaders[2]) ||
+		len(closure.Headers) != 2 || closure.LogicalPaths != 4 || closure.NodesBefore != 206 || closure.NodesAfter != 208 || closure.LinksBefore != 205 || closure.LinksAfter != 207 || closure.SubtreesBefore != 197 || closure.SubtreesAfter != 198 || closure.ChildrenBefore != 184 || closure.ChildrenAfter != 184 ||
+		closure.TerminalPayload.ID != 198 || closure.TerminalPayload.Symbol != 4 || closure.TerminalPayload.ProductionID != 0 || closure.TerminalPayload.DynamicPrecedence != 0 || closure.TerminalPayload.StartByte != 741 || closure.TerminalPayload.EndByte != 742 || !closure.TerminalPayload.Terminal || closure.TerminalPayload.Extra ||
+		!reflect.DeepEqual(closure.PrimaryTerminalPayloadIDs, []uint32{198, 198}) || !reflect.DeepEqual(closure.RetainedTerminalPayloadIDs, []uint32{196, 196}) ||
+		closure.GlobalBranchOrder != 4 || closure.NextCreationSeq != 6 || closure.Dispatches != 198 || closure.ElectionIndex != 102 || closure.ElectionExpectedBefore != emptyCheckpoint || !reflect.DeepEqual(closure.ElectionBefore, closure.Headers) ||
+		!reflect.DeepEqual(closure.Election.States, []gotreesitter.StateID{164, 194}) || closure.Election.Token.Symbol != 86 || closure.Election.Token.Text != "edits" || closure.Election.Token.StartByte != 742 || closure.Election.Token.EndByte != 747 || closure.Election.Token.Missing || closure.Election.Token.NoLookahead || closure.Election.Token.ExternalScannerToken ||
+		closure.Election.ScannerBefore != emptyCheckpoint || closure.Election.ScannerAfter != emptyCheckpoint || closure.Election.CurrentCheckpointValid || closure.Election.CurrentCheckpointStart != emptyCheckpoint || closure.Election.CurrentCheckpointEnd != emptyCheckpoint || closure.Election.CurrentCheckpointBytes != [2]uint32{} || !reflect.DeepEqual(closure.NextActions, wantNextActions) {
+		t.Fatalf("cached-dot closure drifted: %+v", closure)
+	}
+	for index := range closure.Headers {
+		if !reflect.DeepEqual(closure.Headers[index].Header, wantClosureHeaders[index]) || !reflect.DeepEqual(closure.Headers[index].Derivations, wantClosureDerivations[index]) {
+			t.Fatalf("cached-dot header %d=%+v, want header=%+v derivations=%+v", index, closure.Headers[index], wantClosureHeaders[index], wantClosureDerivations[index])
+		}
+	}
 	for _, want := range []struct {
 		index      int
 		start, end uint32
@@ -596,7 +631,7 @@ func TestDiagnosticParserCoreUsesEmbeddedGrammarAndExactScanner(t *testing.T) {
 		t.Fatal("rewrite fixture missing")
 	}
 	canonical, canonicalErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, gotreesitter.DiagnosticParserCorePrefixOptions{})
-	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreDotConflictFanoutBoundary || canonical.Tokens != 102 || canonical.Dispatches != 196 || canonical.State != 520 || canonical.Lookahead.Symbol != 4 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 4 || len(canonical.SameTokenRounds) != 4 || canonical.OracleCondenseResolution == nil || canonical.ContinuationElection == nil || canonical.LaterForkExecution == nil || len(canonical.OrderedElections) != 2 || canonical.CohortCondense == nil || canonical.PostCondenseContinuation == nil || canonical.SubsequentConflict == nil || canonical.PackedConvergence == nil || canonical.DotConflictFanout == nil || !canonical.ExactRootDFA {
+	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreCachedDotClosureBoundary || canonical.Tokens != 103 || canonical.Dispatches != 198 || canonical.State != 164 || canonical.Lookahead.Symbol != 86 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 4 || len(canonical.SameTokenRounds) != 4 || canonical.OracleCondenseResolution == nil || canonical.ContinuationElection == nil || canonical.LaterForkExecution == nil || len(canonical.OrderedElections) != 2 || canonical.CohortCondense == nil || canonical.PostCondenseContinuation == nil || canonical.SubsequentConflict == nil || canonical.PackedConvergence == nil || canonical.DotConflictFanout == nil || canonical.CachedDotClosure == nil || !canonical.ExactRootDFA {
 		t.Fatalf("exact scanner did not reach authenticated boundary: result=%+v err=%v", canonical, canonicalErr)
 	}
 	wrongScanners := []struct {
@@ -663,6 +698,20 @@ func TestDiagnosticParserCorePostCondenseContinuationPublishesTransactionally(t 
 	}
 	if len(source) == 0 {
 		t.Fatal("rewrite fixture missing")
+	}
+	for _, pathCap := range []uint64{2, 3} {
+		t.Run(fmt.Sprintf("per-boundary-path-cap-%d", pathCap), func(t *testing.T) {
+			result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
+				grammars.GoExternalScanner{}, source,
+				gotreesitter.DiagnosticParserCorePrefixOptions{Limits: parsercorephase0.Limits{
+					MaxPathsPerBoundary: pathCap, MaxEnumeration: pathCap,
+				}},
+			)
+			if routeErr == nil || result.Boundary != gotreesitter.DiagnosticParserCoreCachedDotClosureBoundary ||
+				result.CachedDotClosure == nil || result.CachedDotClosure.LogicalPaths != 4 {
+				t.Fatalf("per-boundary path cap %d rejected valid separate heads: result=%+v err=%v", pathCap, result, routeErr)
+			}
+		})
 	}
 	tests := []struct {
 		name    string
@@ -760,6 +809,81 @@ func TestDiagnosticParserCoreDotConflictFanoutPublishesTransactionally(t *testin
 				result.PackedConvergence == nil || result.DotConflictFanout != nil || result.LastBranchOrder != 3 {
 				t.Fatalf("failed dot conflict transaction leaked staged state: tokens=%d dispatches=%d elections=%d state=%d lookahead=%+v packed=%+v dot=%+v last_order=%d",
 					result.Tokens, result.Dispatches, len(result.Elections), result.State, result.Lookahead, result.PackedConvergence, result.DotConflictFanout, result.LastBranchOrder)
+			}
+		})
+	}
+}
+
+func TestDiagnosticParserCoreCachedDotClosurePublishesTransactionally(t *testing.T) {
+	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var source []byte
+	for _, fixture := range fixtures {
+		if fixture.Fixture.ID == "rewrite" {
+			source = fixture.Source
+			break
+		}
+	}
+	if len(source) == 0 {
+		t.Fatal("rewrite fixture missing")
+	}
+	tests := []struct {
+		name         string
+		options      gotreesitter.DiagnosticParserCorePrefixOptions
+		wantBoundary gotreesitter.DiagnosticParserCoreBoundaryKind
+	}{
+		{name: "subtree-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{Limits: parsercorephase0.Limits{MaxSubtrees: 197}}, wantBoundary: gotreesitter.DiagnosticParserCoreDotConflictFanoutBoundary},
+		{name: "second-node-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{Limits: parsercorephase0.Limits{MaxNodes: 207}}, wantBoundary: gotreesitter.DiagnosticParserCoreDotConflictFanoutBoundary},
+		{name: "second-link-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{Limits: parsercorephase0.Limits{MaxLinks: 206}}, wantBoundary: gotreesitter.DiagnosticParserCoreDotConflictFanoutBoundary},
+		{name: "first-dispatch-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 196}, wantBoundary: gotreesitter.DiagnosticParserCoreCap},
+		{name: "second-dispatch-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 197}, wantBoundary: gotreesitter.DiagnosticParserCoreCap},
+		{name: "next-election-token-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxTokens: 102}, wantBoundary: gotreesitter.DiagnosticParserCoreCap},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, test.options)
+			if routeErr == nil || result.Boundary != test.wantBoundary {
+				t.Fatalf("cached-dot capped route boundary=%s err=%v, want %s", result.Boundary, routeErr, test.wantBoundary)
+			}
+			if result.Tokens != 102 || result.Dispatches != 196 || len(result.Elections) != 102 || result.State != 520 || result.Lookahead.Symbol != 4 || result.Lookahead.Text != "." || result.Lookahead.StartByte != 741 || result.Lookahead.EndByte != 742 ||
+				result.PackedConvergence == nil || result.DotConflictFanout == nil || result.CachedDotClosure != nil || result.LastBranchOrder != 4 || result.DotConflictFanout.Dispatches != 196 || result.DotConflictFanout.SubtreesAfter != 197 || len(result.DotConflictFanout.Headers) != 3 || result.DotConflictFanout.LogicalPaths != 4 {
+				t.Fatalf("failed cached-dot transaction leaked staged state: tokens=%d dispatches=%d elections=%d state=%d lookahead=%+v packed=%+v dot=%+v closure=%+v last_order=%d",
+					result.Tokens, result.Dispatches, len(result.Elections), result.State, result.Lookahead, result.PackedConvergence, result.DotConflictFanout, result.CachedDotClosure, result.LastBranchOrder)
+			}
+		})
+	}
+}
+
+func TestDiagnosticParserCoreCachedDotClosureRestoresFaultedState(t *testing.T) {
+	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var source []byte
+	for _, fixture := range fixtures {
+		if fixture.Fixture.ID == "rewrite" {
+			source = fixture.Source
+			break
+		}
+	}
+	if len(source) == 0 {
+		t.Fatal("rewrite fixture missing")
+	}
+	for _, afterElection := range []bool{false, true} {
+		t.Run(fmt.Sprintf("after-election-%t", afterElection), func(t *testing.T) {
+			fault, check, reset := gotreesitter.InstallDiagnosticParserCoreCachedDotFaultForTest(afterElection)
+			defer reset()
+			result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, gotreesitter.DiagnosticParserCorePrefixOptions{})
+			if !errors.Is(routeErr, fault) {
+				t.Fatalf("faulted route error=%v, want %v", routeErr, fault)
+			}
+			if err := check(); err != nil {
+				t.Fatal(err)
+			}
+			if result.DotConflictFanout == nil || result.CachedDotClosure != nil || result.Tokens != 102 || result.Dispatches != 196 || result.State != 520 || result.Lookahead.Symbol != 4 {
+				t.Fatalf("fault leaked staged closure: %+v", result)
 			}
 		})
 	}
