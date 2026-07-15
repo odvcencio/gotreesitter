@@ -16,17 +16,18 @@ import (
 type DiagnosticParserCoreBoundaryKind string
 
 const (
-	DiagnosticParserCoreFirstFork               DiagnosticParserCoreBoundaryKind = "first_fork"
-	DiagnosticParserCoreExtra                   DiagnosticParserCoreBoundaryKind = "extra"
-	DiagnosticParserCoreExtraChain              DiagnosticParserCoreBoundaryKind = "extra_chain"
-	DiagnosticParserCoreNoAction                DiagnosticParserCoreBoundaryKind = "no_action"
-	DiagnosticParserCoreRecovery                DiagnosticParserCoreBoundaryKind = "recovery"
-	DiagnosticParserCoreAccept                  DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
-	DiagnosticParserCoreCap                     DiagnosticParserCoreBoundaryKind = "cap"
-	DiagnosticParserCoreIdentity                DiagnosticParserCoreBoundaryKind = "identity"
-	DiagnosticParserCoreRoute                   DiagnosticParserCoreBoundaryKind = "unsupported_route"
-	DiagnosticParserCoreElectionBarrier         DiagnosticParserCoreBoundaryKind = "multi_state_re_election"
-	DiagnosticParserCoreSingleStateContinuation DiagnosticParserCoreBoundaryKind = "single_state_continuation_before_dispatch"
+	DiagnosticParserCoreFirstFork                  DiagnosticParserCoreBoundaryKind = "first_fork"
+	DiagnosticParserCoreExtra                      DiagnosticParserCoreBoundaryKind = "extra"
+	DiagnosticParserCoreExtraChain                 DiagnosticParserCoreBoundaryKind = "extra_chain"
+	DiagnosticParserCoreNoAction                   DiagnosticParserCoreBoundaryKind = "no_action"
+	DiagnosticParserCoreRecovery                   DiagnosticParserCoreBoundaryKind = "recovery"
+	DiagnosticParserCoreAccept                     DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
+	DiagnosticParserCoreCap                        DiagnosticParserCoreBoundaryKind = "cap"
+	DiagnosticParserCoreIdentity                   DiagnosticParserCoreBoundaryKind = "identity"
+	DiagnosticParserCoreRoute                      DiagnosticParserCoreBoundaryKind = "unsupported_route"
+	DiagnosticParserCoreElectionBarrier            DiagnosticParserCoreBoundaryKind = "multi_state_re_election"
+	DiagnosticParserCoreSingleStateContinuation    DiagnosticParserCoreBoundaryKind = "single_state_continuation_before_dispatch"
+	DiagnosticParserCoreSubsequentConflictBoundary DiagnosticParserCoreBoundaryKind = "subsequent_conflict_before_execution"
 )
 
 type DiagnosticParserCorePrefixOptions struct {
@@ -124,6 +125,21 @@ type DiagnosticParserCoreContinuationElection struct {
 	// Shifted reset is scheduler state only; phase zero does not migrate or
 	// rewrite the persistent compact graph head.
 	SchedulerHeader DiagnosticParserCoreHeaderReceipt
+	HandoffBoundary DiagnosticParserCoreBoundaryKind
+}
+
+// DiagnosticParserCoreSubsequentConflict records a later multi-action cell
+// without executing it or replacing the authenticated first-fork evidence.
+type DiagnosticParserCoreSubsequentConflictReceipt struct {
+	State          StateID
+	ByteOffset     uint32
+	Header         DiagnosticParserCoreHeaderReceipt
+	Token          Token
+	Actions        []ParseAction
+	ElectionIndex  int
+	Score          int64
+	BranchOrder    uint64
+	HasBranchOrder bool
 }
 
 type DiagnosticParserCoreExtraShift struct {
@@ -157,6 +173,7 @@ type DiagnosticParserCorePrefixResult struct {
 	LastBranchOrder          uint64
 	OracleCondenseResolution *DiagnosticParserCoreOracleCondenseResolution
 	ContinuationElection     *DiagnosticParserCoreContinuationElection
+	SubsequentConflict       *DiagnosticParserCoreSubsequentConflictReceipt
 	Elections                []DiagnosticParserCoreElection
 	SourceSHA256             [32]byte
 	GrammarBlobSHA256        [32]byte
@@ -257,8 +274,10 @@ func parserCoreCheckpoint(bytes []byte) DiagnosticParserCoreScannerCheckpoint {
 }
 
 // DiagnosticParseParserCorePrefix independently schedules the compact core
-// from the exact production DFA/scanner election until the first authenticated
-// fork or a typed unsupported boundary. It never calls the production parser.
+// from exact production DFA/scanner elections through the first authenticated
+// fork and its frozen oracle-condense continuation. It stops before executing
+// the next conflict or at an earlier typed unsupported boundary. It never
+// calls the production parser.
 func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, options DiagnosticParserCorePrefixOptions) (DiagnosticParserCorePrefixResult, error) {
 	result := DiagnosticParserCorePrefixResult{SourceSHA256: sha256.Sum256(source)}
 	lang, err := authenticatedParserCoreGoLanguage(scanner)
@@ -338,6 +357,41 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 			return result, err
 		}
 		if len(actions) > 1 {
+			if len(result.ForkActions) != 0 {
+				converted := make([]ParseAction, len(actions))
+				for index, action := range actions {
+					converted[index] = rootParserCoreAction(action)
+				}
+				creationSeq := uint64(0)
+				if result.ContinuationElection != nil {
+					creationSeq = result.ContinuationElection.SchedulerHeader.CreationSeq
+				}
+				headerReceipt, boundaryErr := diagnosticParserCoreHeaderReceipt(compact, diagnosticParserCoreHeader{
+					head: head, creationSeq: creationSeq,
+					checkpoint: result.Elections[len(result.Elections)-1].ScannerAfter.SHA256,
+				})
+				if boundaryErr != nil {
+					return result, boundaryErr
+				}
+				derivations, derivationErr := compact.Derivations(head)
+				if derivationErr != nil {
+					return result, derivationErr
+				}
+				if len(derivations) != 1 {
+					return result, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "subsequent conflict requires one exact resumed derivation"}
+				}
+				derivation := derivations[0]
+				result.SubsequentConflict = &DiagnosticParserCoreSubsequentConflictReceipt{
+					State: state, ByteOffset: headerReceipt.ByteOffset, Header: headerReceipt,
+					Token: token, Actions: converted,
+					ElectionIndex: len(result.Elections) - 1,
+					Score:         derivation.Score, BranchOrder: derivation.BranchOrder,
+					HasBranchOrder: derivation.HasBranchOrder,
+				}
+				result.Boundary = DiagnosticParserCoreSubsequentConflictBoundary
+				result.Detail = "later multi-action cell reached before execution"
+				return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+			}
 			checkpoint := result.Elections[len(result.Elections)-1].ScannerAfter.SHA256
 			initial := diagnosticParserCoreHeader{head: head, creationSeq: 0, checkpoint: checkpoint}
 			headers, round, branchOrder, nextSeq, err := executeDiagnosticParserCoreConflict(compact, initial, 0, token, actions, 0, 1)
@@ -358,13 +412,18 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 			if err := recordDiagnosticParserCoreFirstFork(compact, headers, &result); err != nil {
 				return result, err
 			}
-			if err := continueDiagnosticParserCoreSameToken(compact, tokenSource, &scannerScratch, token, headers, branchOrder, nextSeq, options, &result); err != nil {
+			var resume diagnosticParserCoreOuterResume
+			if err := continueDiagnosticParserCoreSameToken(compact, tokenSource, &scannerScratch, token, headers, branchOrder, nextSeq, options, &result, &resume); err != nil {
 				if setDiagnosticParserCoreBoundaryError(&result, err) {
 					return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 				}
 				return result, err
 			}
-			return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+			if !resume.ready {
+				return result, errors.New("parser-core phase zero: same-lookahead scheduler returned without a boundary or outer resume")
+			}
+			head, state, token, haveToken = resume.head, resume.state, resume.token, true
+			continue
 		}
 		action := actions[0]
 		switch action.Type {
@@ -427,6 +486,13 @@ type diagnosticParserCoreHeader struct {
 	shifted     bool
 	accepted    bool
 	checkpoint  [32]byte
+}
+
+type diagnosticParserCoreOuterResume struct {
+	head  core.Head
+	state StateID
+	token Token
+	ready bool
 }
 
 func diagnosticParserCoreHeaderReceipt(compact *core.Core, header diagnosticParserCoreHeader) (DiagnosticParserCoreHeaderReceipt, error) {
@@ -637,6 +703,7 @@ func continueDiagnosticParserCoreSameToken(
 	nextSeq uint64,
 	options DiagnosticParserCorePrefixOptions,
 	result *DiagnosticParserCorePrefixResult,
+	resume *diagnosticParserCoreOuterResume,
 ) error {
 	for roundIndex := 1; ; roundIndex++ {
 		if result.Dispatches >= options.MaxDispatches {
@@ -691,7 +758,7 @@ func continueDiagnosticParserCoreSameToken(
 		}
 		if len(actions) == 0 {
 			return continueDiagnosticParserCoreFrozenOracleCondense(
-				compact, tokenSource, scannerScratch, token, headers, runnable, options, result,
+				compact, tokenSource, scannerScratch, token, headers, runnable, options, result, resume,
 			)
 		}
 		if err := validateDiagnosticParserCoreCell(token, actions); err != nil {
@@ -814,12 +881,16 @@ func continueDiagnosticParserCoreFrozenOracleCondense(
 	runnable int,
 	options DiagnosticParserCorePrefixOptions,
 	result *DiagnosticParserCorePrefixResult,
+	resume *diagnosticParserCoreOuterResume,
 ) error {
+	if resume == nil {
+		return errors.New("parser-core phase zero: nil outer resume")
+	}
 	if len(result.Elections) == 0 {
 		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "oracle condense requires a preceding scanner election"}
 	}
 	precedingScannerAfter := result.Elections[len(result.Elections)-1].ScannerAfter
-	resolution, _, err := validateDiagnosticParserCoreFrozenOracleCondense(compact, token, headers, runnable, precedingScannerAfter)
+	resolution, preserved, err := validateDiagnosticParserCoreFrozenOracleCondense(compact, token, headers, runnable, precedingScannerAfter)
 	if err != nil {
 		return err
 	}
@@ -882,10 +953,10 @@ func continueDiagnosticParserCoreFrozenOracleCondense(
 		ExpectedBefore: resolution.PrecedingScannerAfter,
 		ActualBefore:   beforeReceipt, CheckpointContinuous: checkpointContinuous, Token: next,
 		SchedulerHeader: schedulerHeader,
+		HandoffBoundary: DiagnosticParserCoreSingleStateContinuation,
 	}
-	result.Boundary = DiagnosticParserCoreSingleStateContinuation
-	result.Detail = "applied C-oracle skipped-tree cost comparison and elected one state-193 continuation token before dispatch"
-	return &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+	*resume = diagnosticParserCoreOuterResume{head: preserved.head, state: 193, token: next, ready: true}
+	return nil
 }
 
 func setDiagnosticParserCoreBoundaryError(result *DiagnosticParserCorePrefixResult, err error) bool {

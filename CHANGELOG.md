@@ -28,7 +28,8 @@ for tags and release notes while still in `0.x`.
   same-lookahead reductions. One oracle-pinned no-action cell then applies C's
   skipped-tree error cost to its paused state, preserves the zero-cost shifted
   sibling, and performs one checkpoint-continuous single-state election before
-  dispatch.
+  resuming ordinary scheduling. The diagnostic then stops before executing the
+  next authenticated multi-action cell, preserving the original fork receipt.
   Conflict-frontier cells are visible in ambiguity profiles; generalized
   repetition, no-lookahead, no-action, and recovery paths still decline before
   unsupported execution, and ordinary builds retain no diagnostic driver
