@@ -387,6 +387,7 @@ type DiagnosticParserCoreGenericWork struct {
 	OrdinaryShifts    uint64
 	OrdinaryCohorts   uint64
 	ExtraShifts       uint64
+	ExtraCohorts      uint64
 	ReductionPauses   uint64
 	NoActionDrops     uint64
 	Elections         uint64
@@ -434,8 +435,8 @@ type DiagnosticParserCoreGenericNoActionDrop struct {
 // DiagnosticParserCoreGenericExternalShift ties every compact external
 // terminal payload created by one generic scheduler round to its
 // scanner-authenticated election without embedding scanner state in the
-// compact graph. The round may be an ordinary shift cohort or a conflict with
-// one or more shift arms.
+// compact graph. The round may be an ordinary or extra shift cohort, or a
+// conflict with one or more shift arms.
 type DiagnosticParserCoreGenericExternalShift struct {
 	ElectionIndex int
 	Token         Token
@@ -3202,6 +3203,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	work                       DiagnosticParserCoreGenericWork
 	epochProgress              bool
 	conflictPostExecutionFault func() error
+	extraPostExecutionFault    func() error
 }
 
 type diagnosticParserCoreGenericCell struct {
@@ -3359,16 +3361,19 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 			boundary: DiagnosticParserCoreRoute, detail: "generic scheduler has no runnable head", headerIndex: 0,
 		}, nil
 	}
+	extraCells := 0
 	for _, cell := range cells {
-		if !cell.actions[0].Extra {
-			continue
+		if cell.actions[0].Extra {
+			extraCells++
 		}
-		if len(s.headers) != 1 || len(cells) != 1 || len(noActionIndices) != 0 {
+	}
+	if extraCells != 0 {
+		if extraCells != len(cells) || len(cells) != len(s.headers) || len(noActionIndices) != 0 {
 			return &diagnosticParserCoreGenericUnsupported{
-				boundary: DiagnosticParserCoreExtra, detail: "generic scheduler extra shift requires one sole runnable head", headerIndex: cell.headerIndex,
+				boundary: DiagnosticParserCoreExtra, detail: "generic scheduler requires a homogeneous all-runnable extra cohort", headerIndex: cells[0].headerIndex,
 			}, nil
 		}
-		return nil, s.applyGenericExtraShift(before, cell)
+		return nil, s.applyGenericExtraShifts(before, cells)
 	}
 
 	// One reduction-bearing cell is applied per pass. This deliberately
@@ -3822,46 +3827,81 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []Diagn
 	return s.recordGenericExternalShift(externalStatsBefore, round.Index)
 }
 
-func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShift(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) error {
-	if len(cell.actions) != 1 || cell.actions[0].Type != core.ActionShift || !cell.actions[0].Extra {
-		return errors.New("parser-core phase zero: extra shift requires one decoded extra action")
-	}
-	if err := s.reserveDispatches(1); err != nil {
-		return err
-	}
-	externalStatsBefore, err := s.genericExternalStats()
-	if err != nil {
-		return err
-	}
-	head, err := s.compact.Shift(s.headers[cell.headerIndex].head, core.Symbol(s.token.Symbol), 0, core.Token{
-		Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte,
-		Extra: true, External: s.token.ExternalScannerToken,
-	}, core.ForkOrder{})
-	if err != nil {
-		return err
-	}
-	s.headers[cell.headerIndex].head = head
-	s.headers[cell.headerIndex].shifted = true
-	s.epochProgress = true
-	s.work.ExtraShifts++
-	s.work.Dispatches++
-	if err := s.canonicalize(); err != nil {
-		return err
-	}
-	after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
-	if err != nil {
-		return err
-	}
-	round := DiagnosticParserCoreDispatchRound{
-		Index: len(s.receipt.Rounds), Before: before,
-		Actions: []DiagnosticParserCoreRoundAction{{
-			HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
-			Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
-		}},
-		After: after,
-	}
-	s.receipt.Rounds = append(s.receipt.Rounds, round)
-	return s.recordGenericExternalShift(externalStatsBefore, round.Index)
+func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) (err error) {
+	headersBefore := append([]diagnosticParserCoreHeader(nil), s.headers...)
+	dispatchesBefore, workBefore, epochProgressBefore := s.dispatches, s.work, s.epochProgress
+	roundsBefore, externalShiftsBefore := len(s.receipt.Rounds), len(s.receipt.ExternalShifts)
+	defer func() {
+		if err == nil {
+			return
+		}
+		s.headers = headersBefore
+		s.dispatches, s.work, s.epochProgress = dispatchesBefore, workBefore, epochProgressBefore
+		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
+		s.receipt.ExternalShifts = s.receipt.ExternalShifts[:externalShiftsBefore]
+	}()
+	return s.compact.ApplyAtomic(func() error {
+		if len(cells) == 0 {
+			return errors.New("parser-core phase zero: empty extra shift cohort")
+		}
+		for _, cell := range cells {
+			if len(cell.actions) != 1 || cell.actions[0].Type != core.ActionShift || !cell.actions[0].Extra {
+				return errors.New("parser-core phase zero: extra cohort requires one decoded extra action per head")
+			}
+		}
+		if err := s.reserveDispatches(uint64(len(cells))); err != nil {
+			return err
+		}
+		externalStatsBefore, err := s.genericExternalStats()
+		if err != nil {
+			return err
+		}
+		inputs := make([]core.ExtraCohortShiftInput, len(cells))
+		for index, cell := range cells {
+			inputs[index] = core.ExtraCohortShiftInput{Head: s.headers[cell.headerIndex].head, ActionOrdinal: 0}
+		}
+		heads, err := s.compact.ShiftExtraCohort(inputs, core.Symbol(s.token.Symbol), core.Token{
+			Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte,
+			Extra: true, External: s.token.ExternalScannerToken,
+		})
+		if err != nil {
+			return err
+		}
+		for index, cell := range cells {
+			s.headers[cell.headerIndex].head = heads[index]
+			s.headers[cell.headerIndex].shifted = true
+		}
+		if s.extraPostExecutionFault != nil {
+			if err := s.extraPostExecutionFault(); err != nil {
+				return err
+			}
+		}
+		s.epochProgress = true
+		s.work.ExtraShifts += uint64(len(cells))
+		if len(cells) > 1 {
+			s.work.ExtraCohorts++
+		}
+		s.work.Dispatches += uint64(len(cells))
+		if err := s.canonicalize(); err != nil {
+			return err
+		}
+		after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+		if err != nil {
+			return err
+		}
+		actions := make([]DiagnosticParserCoreRoundAction, len(cells))
+		for index, cell := range cells {
+			actions[index] = DiagnosticParserCoreRoundAction{
+				HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
+				Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
+			}
+		}
+		round := DiagnosticParserCoreDispatchRound{
+			Index: len(s.receipt.Rounds), Before: before, Actions: actions, After: after,
+		}
+		s.receipt.Rounds = append(s.receipt.Rounds, round)
+		return s.recordGenericExternalShift(externalStatsBefore, round.Index)
+	})
 }
 
 func (s *diagnosticParserCoreGenericScheduler) genericExternalStats() (core.Stats, error) {

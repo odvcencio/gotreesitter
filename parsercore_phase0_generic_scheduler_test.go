@@ -155,6 +155,7 @@ func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T)
 func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 	source := parserCoreGenericRewriteSource(t)
 	phaseA := uint32(919)
+	comment := uint32(3427)
 	tests := []struct {
 		name          string
 		options       gotreesitter.DiagnosticParserCorePrefixOptions
@@ -174,6 +175,10 @@ func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 		{name: "after-extra-next-election", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxTokens: 132}},
 		{name: "after-second-drop-token", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxTokens: 105}},
 		{name: "next-election", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxTokens: 103}},
+		{name: "multi-extra-dispatch", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &comment, MaxDispatches: 1503}},
+		{name: "multi-extra-subtree", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &comment, Limits: core.Limits{MaxSubtrees: 1655}}, rollbackError: "subtree arena cap"},
+		{name: "multi-extra-second-node", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &comment, Limits: core.Limits{MaxNodes: 1885}}, rollbackError: "node arena cap"},
+		{name: "multi-extra-second-link", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &comment, Limits: core.Limits{MaxLinks: 1884}}, rollbackError: "link arena cap"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -284,5 +289,79 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesReductionFreshnessCycle(t *t
 			ReductionPauses: 20, NoActionDrops: 90, Elections: 495, Canonicalizations: 1165, PeakHeaders: 4,
 		}) || len(result.GenericScheduler.Rounds) != 1165 || len(result.GenericScheduler.NoActionDrops) != 90 {
 		t.Fatalf("byte 3070 closure drifted: %+v", completion)
+	}
+}
+
+func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	braceTarget := uint32(3383)
+	braceResult, braceErr := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &braceTarget},
+	)
+	if braceErr != nil || !braceResult.Completed || braceResult.GenericScheduler == nil || braceResult.GenericScheduler.Completion == nil {
+		t.Fatalf("byte 3383 closure result=%+v err=%v", braceResult, braceErr)
+	}
+	braceCompletion := braceResult.GenericScheduler.Completion
+	if braceCompletion.Stats != (core.Stats{Nodes: 1884, Links: 1883, Subtrees: 1655, Children: 1725, CurrentExactPaths: 1}) ||
+		braceCompletion.Work.ExtraShifts != 13 || braceCompletion.Work.ExtraCohorts != 0 {
+		t.Fatalf("brace baseline drifted: %+v", braceCompletion)
+	}
+	commentTarget := uint32(3427)
+	commentResult, commentErr := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &commentTarget},
+	)
+	if commentErr != nil || !commentResult.Completed || commentResult.GenericScheduler == nil || commentResult.GenericScheduler.Completion == nil {
+		t.Fatalf("byte 3427 closure result=%+v err=%v", commentResult, commentErr)
+	}
+	commentCompletion := commentResult.GenericScheduler.Completion
+	if commentCompletion.TargetByte != commentTarget || commentCompletion.ElectionIndex != 672 || commentCompletion.LastToken.Symbol != 92 || commentCompletion.LastToken.StartByte != 3386 || commentCompletion.LastToken.EndByte != commentTarget ||
+		len(commentCompletion.Headers) != 2 || commentCompletion.Headers[0].Header.CreationSeq != 140 || commentCompletion.Headers[0].Header.State != 40 || commentCompletion.Headers[0].Header.ByteOffset != commentTarget || !commentCompletion.Headers[0].Header.Shifted ||
+		commentCompletion.Headers[1].Header.CreationSeq != 141 || commentCompletion.Headers[1].Header.State != 193 || commentCompletion.Headers[1].Header.ByteOffset != commentTarget || !commentCompletion.Headers[1].Header.Shifted ||
+		commentCompletion.Stats.Nodes-braceCompletion.Stats.Nodes != 2 || commentCompletion.Stats.Links-braceCompletion.Stats.Links != 2 || commentCompletion.Stats.Subtrees-braceCompletion.Stats.Subtrees != 1 || commentCompletion.Stats.Children != braceCompletion.Stats.Children ||
+		commentCompletion.Work.ExtraShifts-braceCompletion.Work.ExtraShifts != 2 || commentCompletion.Work.ExtraCohorts-braceCompletion.Work.ExtraCohorts != 1 || commentCompletion.Work.Dispatches-braceCompletion.Work.Dispatches != 2 {
+		t.Fatalf("comment cohort closure drifted: brace=%+v comment=%+v", braceCompletion, commentCompletion)
+	}
+	if len(commentResult.GenericScheduler.Rounds) != 1354 {
+		t.Fatalf("comment rounds=%d, want 1354", len(commentResult.GenericScheduler.Rounds))
+	}
+	extraRound := commentResult.GenericScheduler.Rounds[1353]
+	if len(extraRound.Before) != 2 || extraRound.Before[0].CreationSeq != 140 || extraRound.Before[0].State != 40 || extraRound.Before[0].ByteOffset != 3383 || extraRound.Before[0].Shifted ||
+		extraRound.Before[1].CreationSeq != 141 || extraRound.Before[1].State != 193 || extraRound.Before[1].ByteOffset != 3383 || extraRound.Before[1].Shifted ||
+		len(extraRound.Actions) != 2 || extraRound.Actions[0].HeaderIndex != 0 || extraRound.Actions[0].State != 40 || extraRound.Actions[0].Action.Type != gotreesitter.ParseActionShift || extraRound.Actions[0].Action.State != 0 || !extraRound.Actions[0].Action.Extra ||
+		extraRound.Actions[1].HeaderIndex != 1 || extraRound.Actions[1].State != 193 || extraRound.Actions[1].Action.Type != gotreesitter.ParseActionShift || extraRound.Actions[1].Action.State != 0 || !extraRound.Actions[1].Action.Extra ||
+		len(extraRound.After) != 2 || extraRound.After[0].CreationSeq != 140 || extraRound.After[0].State != 40 || extraRound.After[0].ByteOffset != commentTarget || !extraRound.After[0].Shifted ||
+		extraRound.After[1].CreationSeq != 141 || extraRound.After[1].State != 193 || extraRound.After[1].ByteOffset != commentTarget || !extraRound.After[1].Shifted {
+		t.Fatalf("comment cohort round drifted: %+v", extraRound)
+	}
+	target := uint32(3432)
+	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+	)
+	if routeErr != nil || !result.Completed || result.GenericScheduler == nil || result.GenericScheduler.Completion == nil {
+		t.Fatalf("byte 3432 closure result=%+v err=%v", result, routeErr)
+	}
+	completion := result.GenericScheduler.Completion
+	if completion.TargetByte != target || completion.ElectionIndex != 673 || completion.LastToken.Symbol != 49 || completion.LastToken.Text != "if" || completion.LastToken.StartByte != 3430 || completion.LastToken.EndByte != target ||
+		len(completion.Headers) != 1 || completion.Headers[0].Header.CreationSeq != 140 || completion.Headers[0].Header.State != 73 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.ExactPaths != 1 ||
+		completion.Stats != (core.Stats{Nodes: 1887, Links: 1886, Subtrees: 1657, Children: 1725, CurrentExactPaths: 1}) ||
+		completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
+			Passes: 1448, ActionLookups: 2043, Dispatches: 1505,
+			Conflicts: 91, ConflictActions: 190, Forks: 99, ConflictHeads: 202,
+			Reductions: 698, OrdinaryShifts: 701, OrdinaryCohorts: 134, ExtraShifts: 15, ExtraCohorts: 1,
+			ReductionPauses: 22, NoActionDrops: 101, Elections: 571, Canonicalizations: 1355, PeakHeaders: 4,
+		}) || len(result.GenericScheduler.Rounds) != 1355 || len(result.GenericScheduler.NoActionDrops) != 101 || len(result.GenericScheduler.ExternalShifts) != 33 {
+		t.Fatalf("post-comment boundary drifted: %+v", completion)
+	}
+	for run := 1; run < 3; run++ {
+		next, err := gotreesitter.DiagnosticParseParserCorePrefix(
+			grammars.GoExternalScanner{}, source,
+			gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+		)
+		if err != nil || next.GenericScheduler == nil || !reflect.DeepEqual(result.GenericScheduler, next.GenericScheduler) {
+			t.Fatalf("run %d post-comment receipt drifted: next=%+v err=%v", run, next.GenericScheduler, err)
+		}
 	}
 }
