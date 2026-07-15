@@ -419,20 +419,32 @@ func TestReductionRepushesConsecutiveTrailingExtrasInOrder(t *testing.T) {
 }
 
 func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.T) {
-	core, err := New(diagnosticReduceTable(1, 0), Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{Type: ActionReduce, Symbol: 2, ChildCount: 2}}},
+		gotos:   map[tableCell]StateID{{state: 1, symbol: 2}: 4},
+	}
+	core, err := New(tables, Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	seed, _ := core.Seed(1, 0)
-	head, err := core.appendDiagnosticPayload(seed, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1, BranchOrder: ForkOrder{Present: true, Value: 7}})
+	head, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1, BranchOrder: ForkOrder{Present: true, Value: 7}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	head, err = core.appendDiagnosticPayload(seed, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 8}})
+	head, err = core.appendDiagnosticPayload(seed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 8}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{ScoreDelta: 3, BranchOrder: ForkOrder{Present: true, Value: 9}})
+	head, err = core.appendDiagnosticPayload(head, 2, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{ScoreDelta: 3, BranchOrder: ForkOrder{Present: true, Value: 9}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 12, StartByte: 2, EndByte: 3}, pathMeta{ScoreDelta: 4, BranchOrder: ForkOrder{Present: true, Value: 10}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 13, StartByte: 3, EndByte: 4, Extra: true}, pathMeta{ScoreDelta: 5, BranchOrder: ForkOrder{Present: true, Value: 11}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,18 +461,20 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 	if err != nil || len(paths) != 2 {
 		t.Fatalf("converged trailing-extra derivations=%#v err=%v", paths, err)
 	}
-	if paths[0].Score != 4 || paths[1].Score != 5 || paths[0].BranchOrder != 9 || paths[1].BranchOrder != 9 {
-		t.Fatalf("converged trailing-extra metadata=%#v, want scores 4/5 and order 9", paths)
+	if paths[0].Score != 13 || paths[1].Score != 14 || paths[0].BranchOrder != 11 || paths[1].BranchOrder != 11 {
+		t.Fatalf("converged interstitial/trailing-extra metadata=%#v, want scores 13/14 and order 11", paths)
 	}
 
-	rollback, err := New(diagnosticReduceTable(1, 0), Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+	rollback, err := New(tables, Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	rollbackSeed, _ := rollback.Seed(1, 0)
-	rollbackHead, _ := rollback.appendDiagnosticPayload(rollbackSeed, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1})
-	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackSeed, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2})
-	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 3, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{ScoreDelta: 3})
+	rollbackHead, _ := rollback.appendDiagnosticPayload(rollbackSeed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1})
+	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackSeed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2})
+	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 2, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{ScoreDelta: 3})
+	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 3, Token{Symbol: 12, StartByte: 2, EndByte: 3}, pathMeta{ScoreDelta: 4})
+	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 3, Token{Symbol: 13, StartByte: 3, EndByte: 4, Extra: true}, pathMeta{ScoreDelta: 5})
 	rollbackBefore, _ := rollback.Stats(rollbackHead)
 	rollback.limits.MaxPathsPerBoundary = 1
 	if _, err := rollback.Reduce(rollbackHead, 1, 0, ForkOrder{}); err == nil || !strings.Contains(err.Error(), "cap") {
@@ -475,26 +489,164 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 	}
 }
 
-func TestReductionDeclinesInterstitialExtrasTransactionally(t *testing.T) {
+func TestReductionOwnsInterstitialExtrasAndRemapsStructuralMetadata(t *testing.T) {
 	tables := &fakeTable{
-		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{Type: ActionReduce, Symbol: 2, ChildCount: 2}}},
-		gotos:   map[tableCell]StateID{{state: 1, symbol: 2}: 4},
+		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{
+			Type: ActionReduce, Symbol: 20, ChildCount: 3, DynamicPrecedence: 2, ProductionID: 5,
+		}}},
+		gotos: map[tableCell]StateID{{state: 1, symbol: 20}: 4},
+		fields: map[uint16][]FieldMapEntry{5: {
+			{FieldID: 1, ChildIndex: 0},
+			{FieldID: 2, ChildIndex: 1, Inherited: true},
+			{FieldID: 3, ChildIndex: 2},
+		}},
+		aliases: map[productionKey][]Symbol{{productionID: 5, childCount: 3}: {101, 102, 103}},
 	}
 	core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
 	head, _ := core.Seed(1, 0)
+	inputs := []struct {
+		state StateID
+		token Token
+		score int64
+	}{
+		{state: 1, token: Token{Symbol: 30, EndByte: 1, Extra: true}, score: 10},
+		{state: 2, token: Token{Symbol: 31, StartByte: 5, EndByte: 6}, score: 1},
+		{state: 2, token: Token{Symbol: 32, StartByte: 6, EndByte: 7, Extra: true}, score: 2},
+		{state: 2, token: Token{Symbol: 33, StartByte: 7, EndByte: 8, Extra: true}, score: 3},
+		{state: 2, token: Token{Symbol: 34, StartByte: 8, EndByte: 9}, score: 4},
+		{state: 3, token: Token{Symbol: 35, StartByte: 9, EndByte: 10}, score: 5},
+		{state: 3, token: Token{Symbol: 36, StartByte: 10, EndByte: 11, Extra: true}, score: 6},
+		{state: 3, token: Token{Symbol: 37, StartByte: 11, EndByte: 12, Extra: true}, score: 7},
+	}
+	for index, input := range inputs {
+		head, err = core.appendDiagnosticPayload(head, input.state, input.token, pathMeta{
+			ScoreDelta: input.score, BranchOrder: ForkOrder{Present: true, Value: uint64(index + 1)},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	beforePaths, err := core.Derivations(head)
+	if err != nil || len(beforePaths) != 1 || len(beforePaths[0].Payloads) != len(inputs) {
+		t.Fatalf("interstitial fixture derivations=%#v err=%v", beforePaths, err)
+	}
+	inputPayloads := append([]SubtreeID(nil), beforePaths[0].Payloads...)
+	frontier, err := core.Reduce(head, 1, 0, ForkOrder{})
+	if err != nil || len(frontier) != 1 {
+		t.Fatalf("interstitial reduction frontier=%v err=%v", frontier, err)
+	}
+	state, offset, err := core.Boundary(frontier[0])
+	if err != nil || state != 4 || offset != 12 {
+		t.Fatalf("interstitial boundary=(%d,%d) err=%v, want (4,12)", state, offset, err)
+	}
+	paths, err := core.Derivations(frontier[0])
+	if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 4 {
+		t.Fatalf("interstitial result derivations=%#v err=%v", paths, err)
+	}
+	if paths[0].Score != 40 || !paths[0].HasBranchOrder || paths[0].BranchOrder != 8 {
+		t.Fatalf("interstitial result metadata=%+v, want score=40 order=8", paths[0])
+	}
+	if paths[0].Payloads[0] != inputPayloads[0] || !slices.Equal(paths[0].Payloads[2:], inputPayloads[6:]) {
+		t.Fatalf("leading/trailing extra payload reuse=%v, input=%v", paths[0].Payloads, inputPayloads)
+	}
+	parent, err := core.Subtree(paths[0].Payloads[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parent.Symbol != 20 || parent.StartByte != 5 || parent.EndByte != 10 || !slices.Equal(parent.Children, inputPayloads[1:6]) {
+		t.Fatalf("interstitial parent identity=%+v, input payloads=%v", parent, inputPayloads)
+	}
+	wantFields := []FieldMapEntry{
+		{FieldID: 1, ChildIndex: 0},
+		{FieldID: 2, ChildIndex: 3, Inherited: true},
+		{FieldID: 3, ChildIndex: 4},
+	}
+	if !reflect.DeepEqual(parent.Fields, wantFields) {
+		t.Fatalf("remapped fields=%+v, want %+v", parent.Fields, wantFields)
+	}
+	if !slices.Equal(parent.Aliases, []Symbol{101, 0, 0, 102, 103}) {
+		t.Fatalf("remapped aliases=%v, want [101 0 0 102 103]", parent.Aliases)
+	}
+	for _, field := range parent.Fields {
+		child, err := core.Subtree(parent.Children[field.ChildIndex])
+		if err != nil || child.Extra {
+			t.Fatalf("direct field %+v attached to extra child %+v err=%v", field, child, err)
+		}
+	}
+}
+
+func TestReductionMetadataRemapFailuresRollback(t *testing.T) {
+	tests := []struct {
+		name    string
+		fields  []FieldMapEntry
+		aliases []Symbol
+	}{
+		{name: "field structural index", fields: []FieldMapEntry{{FieldID: 1, ChildIndex: 2}}},
+		{name: "alias structural count", aliases: []Symbol{10, 11}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tables := &fakeTable{
+				actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{
+					Type: ActionReduce, Symbol: 2, ChildCount: 1, ProductionID: 5,
+				}}},
+				gotos:   map[tableCell]StateID{{state: 1, symbol: 2}: 4},
+				fields:  map[uint16][]FieldMapEntry{5: test.fields},
+				aliases: map[productionKey][]Symbol{{productionID: 5, childCount: 1}: test.aliases},
+			}
+			core, err := New(tables, Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+			if err != nil {
+				t.Fatal(err)
+			}
+			head, _ := core.Seed(1, 0)
+			head, _ = core.appendDiagnosticPayload(head, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{})
+			before, _ := core.Stats(head)
+			if _, err := core.Reduce(head, 1, 0, ForkOrder{}); err == nil {
+				t.Fatal("invalid production metadata was admitted")
+			}
+			after, _ := core.Stats(head)
+			if after != before {
+				t.Fatalf("metadata remap failure mutated core: before=%+v after=%+v", before, after)
+			}
+		})
+	}
+}
+
+func TestReductionFieldRemapPastUint8RollsBack(t *testing.T) {
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{
+			Type: ActionReduce, Symbol: 2, ChildCount: 2, ProductionID: 5,
+		}}},
+		gotos:  map[tableCell]StateID{{state: 1, symbol: 2}: 4},
+		fields: map[uint16][]FieldMapEntry{5: {{FieldID: 1, ChildIndex: 1}}},
+	}
+	core, err := New(tables, Limits{
+		MaxNodes: 1024, MaxLinks: 1024, MaxSubtrees: 1024,
+		MaxPathsPerBoundary: 2, MaxEnumeration: 2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, _ := core.Seed(1, 0)
 	head, _ = core.appendDiagnosticPayload(head, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{})
-	head, _ = core.appendDiagnosticPayload(head, 2, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{})
-	head, _ = core.appendDiagnosticPayload(head, 3, Token{Symbol: 12, StartByte: 2, EndByte: 3}, pathMeta{})
+	for index := 0; index < 256; index++ {
+		start := uint32(index + 1)
+		head, err = core.appendDiagnosticPayload(head, 2, Token{Symbol: 11, StartByte: start, EndByte: start + 1, Extra: true}, pathMeta{})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	head, _ = core.appendDiagnosticPayload(head, 3, Token{Symbol: 12, StartByte: 257, EndByte: 258}, pathMeta{})
 	before, _ := core.Stats(head)
-	if _, err := core.Reduce(head, 1, 0, ForkOrder{}); !IsDecline(err, DeclineExtras) || !strings.Contains(err.Error(), "interstitial") {
-		t.Fatalf("interstitial extra error=%v, want typed decline", err)
+	if _, err := core.Reduce(head, 1, 0, ForkOrder{}); err == nil || !strings.Contains(err.Error(), "uint8") {
+		t.Fatalf("wide field remap error=%v", err)
 	}
 	after, _ := core.Stats(head)
 	if after != before {
-		t.Fatalf("interstitial decline mutated core: before=%+v after=%+v", before, after)
+		t.Fatalf("wide field remap failure mutated core: before=%+v after=%+v", before, after)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
@@ -58,6 +59,12 @@ type DiagnosticParserCoreForkAction struct {
 	BranchOrder uint64
 }
 
+type DiagnosticParserCoreForkBoundary struct {
+	State      StateID
+	ByteOffset uint32
+	ExactPaths uint64
+}
+
 type DiagnosticParserCoreExtraShift struct {
 	State          StateID
 	Token          Token
@@ -73,23 +80,24 @@ type DiagnosticParserCoreReductionAttempt struct {
 }
 
 type DiagnosticParserCorePrefixResult struct {
-	Boundary          DiagnosticParserCoreBoundaryKind
-	Detail            string
-	Dispatches        uint64
-	Tokens            uint64
-	State             StateID
-	Lookahead         Token
-	ForkActions       []DiagnosticParserCoreForkAction
-	ForkBoundaries    int
-	ForkLogicalPaths  uint64
-	ExtraShifts       []DiagnosticParserCoreExtraShift
-	ReductionAttempts []DiagnosticParserCoreReductionAttempt
-	Elections         []DiagnosticParserCoreElection
-	SourceSHA256      [32]byte
-	GrammarBlobSHA256 [32]byte
-	Grammar           string
-	ExactRootDFA      bool
-	Materialized      bool
+	Boundary             DiagnosticParserCoreBoundaryKind
+	Detail               string
+	Dispatches           uint64
+	Tokens               uint64
+	State                StateID
+	Lookahead            Token
+	ForkActions          []DiagnosticParserCoreForkAction
+	ForkBoundaryReceipts []DiagnosticParserCoreForkBoundary
+	ForkBoundaries       int
+	ForkLogicalPaths     uint64
+	ExtraShifts          []DiagnosticParserCoreExtraShift
+	ReductionAttempts    []DiagnosticParserCoreReductionAttempt
+	Elections            []DiagnosticParserCoreElection
+	SourceSHA256         [32]byte
+	GrammarBlobSHA256    [32]byte
+	Grammar              string
+	ExactRootDFA         bool
+	Materialized         bool
 }
 
 type diagnosticParserCoreDecline struct {
@@ -307,13 +315,22 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 				}
 				latest[forkBoundary{state: state, byteOffset: byteOffset}] = forkHead
 			}
-			for _, forkHead := range latest {
+			for boundary, forkHead := range latest {
 				stats, err := compact.Stats(forkHead)
 				if err != nil {
 					return result, err
 				}
 				result.ForkLogicalPaths += stats.CurrentExactPaths
+				result.ForkBoundaryReceipts = append(result.ForkBoundaryReceipts, DiagnosticParserCoreForkBoundary{
+					State: StateID(boundary.state), ByteOffset: boundary.byteOffset, ExactPaths: stats.CurrentExactPaths,
+				})
 			}
+			sort.Slice(result.ForkBoundaryReceipts, func(i, j int) bool {
+				if result.ForkBoundaryReceipts[i].State != result.ForkBoundaryReceipts[j].State {
+					return result.ForkBoundaryReceipts[i].State < result.ForkBoundaryReceipts[j].State
+				}
+				return result.ForkBoundaryReceipts[i].ByteOffset < result.ForkBoundaryReceipts[j].ByteOffset
+			})
 			result.ForkBoundaries = len(latest)
 			result.ForkActions = forkActions
 			result.Boundary, result.Detail = DiagnosticParserCoreFirstFork, "independently decoded and scheduled first conflict"

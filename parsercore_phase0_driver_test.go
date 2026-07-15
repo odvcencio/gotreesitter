@@ -5,7 +5,6 @@ package gotreesitter_test
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -52,25 +51,41 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if prefixErr != nil && result.Boundary == "" {
 		t.Fatalf("untyped prefix error: %v", prefixErr)
 	}
-	if result.Boundary != gotreesitter.DiagnosticParserCoreExtra || result.Tokens != 36 || result.Dispatches != 59 || result.State != 349 || result.Lookahead.Symbol != 16 || !strings.Contains(result.Detail, "interstitial") {
-		t.Fatalf("rewrite prefix identity drifted: boundary=%s tokens=%d dispatches=%d state=%d lookahead=%d extras=%+v reductions=%+v", result.Boundary, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ExtraShifts, result.ReductionAttempts)
+	if result.Boundary != gotreesitter.DiagnosticParserCoreFirstFork || result.Tokens != 68 || result.Dispatches != 117 || result.State != 186 || result.Lookahead.Symbol != 20 || prefixErr != nil {
+		t.Fatalf("rewrite prefix identity drifted: boundary=%s tokens=%d dispatches=%d state=%d lookahead=%d fork_actions=%+v fork_boundaries=%d fork_paths=%d extras=%+v reductions=%+v", result.Boundary, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkActions, result.ForkBoundaries, result.ForkLogicalPaths, result.ExtraShifts, result.ReductionAttempts)
 	}
-	if len(result.ForkActions) != 0 || result.ForkBoundaries != 0 || result.ForkLogicalPaths != 0 {
-		t.Fatalf("non-fork boundary reported fork receipt: actions=%+v boundaries=%d paths=%d", result.ForkActions, result.ForkBoundaries, result.ForkLogicalPaths)
+	wantForkActions := []gotreesitter.DiagnosticParserCoreForkAction{
+		{Ordinal: 1, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 193}, BranchOrder: 1},
+		{Ordinal: 0, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1}},
 	}
-	wantExtraSpans := [][2]uint32{{49, 116}, {117, 183}, {184, 266}, {267, 310}}
+	wantForkBoundaries := []gotreesitter.DiagnosticParserCoreForkBoundary{
+		{State: 193, ByteOffset: 580, ExactPaths: 1},
+		{State: 285, ByteOffset: 579, ExactPaths: 1},
+	}
+	if !reflect.DeepEqual(result.ForkActions, wantForkActions) || !reflect.DeepEqual(result.ForkBoundaryReceipts, wantForkBoundaries) || result.ForkBoundaries != 2 || result.ForkLogicalPaths != 2 {
+		t.Fatalf("first fork receipt: actions=%+v boundary_receipts=%+v boundaries=%d paths=%d, want actions=%+v boundary_receipts=%+v boundaries=2 paths=2", result.ForkActions, result.ForkBoundaryReceipts, result.ForkBoundaries, result.ForkLogicalPaths, wantForkActions, wantForkBoundaries)
+	}
+	wantExtraSpans := [][2]uint32{{49, 116}, {117, 183}, {184, 266}, {267, 310}, {457, 517}}
+	wantExtraStates := []gotreesitter.StateID{542, 542, 542, 542, 349}
 	if len(result.ExtraShifts) != len(wantExtraSpans) {
 		t.Fatalf("plain extra shifts=%d, want %d", len(result.ExtraShifts), len(wantExtraSpans))
 	}
 	for index, extra := range result.ExtraShifts {
 		wantAction := gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, Extra: true}
-		if extra.State != 542 || extra.EffectiveState != 542 || extra.Token.Symbol != 92 ||
+		if extra.State != wantExtraStates[index] || extra.EffectiveState != wantExtraStates[index] || extra.Token.Symbol != 92 ||
 			extra.Token.StartByte != wantExtraSpans[index][0] || extra.Token.EndByte != wantExtraSpans[index][1] ||
 			extra.Token.NoLookahead || extra.Token.ExternalScannerToken || !reflect.DeepEqual(extra.Action, wantAction) {
 			t.Fatalf("plain extra %d=%+v, want state-preserving DFA comment span=%v action=%+v", index, extra, wantExtraSpans[index], wantAction)
 		}
-		election := result.Elections[15+index]
-		if !reflect.DeepEqual(election.Token, extra.Token) || election.ScannerBefore.Length != 0 || election.ScannerAfter.Length != 0 || election.CurrentCheckpointValid {
+		var election *gotreesitter.DiagnosticParserCoreElection
+		for electionIndex := range result.Elections {
+			candidate := &result.Elections[electionIndex]
+			if candidate.Token.StartByte == extra.Token.StartByte && candidate.Token.EndByte == extra.Token.EndByte {
+				election = candidate
+				break
+			}
+		}
+		if election == nil || !reflect.DeepEqual(election.Token, extra.Token) || election.ScannerBefore.Length != 0 || election.ScannerAfter.Length != 0 || election.CurrentCheckpointValid {
 			t.Fatalf("plain extra election %d=%+v, extra=%+v", index, election, extra)
 		}
 	}
@@ -85,10 +100,18 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if !foundTrailing {
 		t.Fatalf("state 542/lookahead 16 trailing-extra reduction missing: reductions=%+v", result.ReductionAttempts)
 	}
-	wantBlockingReduction := gotreesitter.ParseAction{Type: gotreesitter.ParseActionReduce, Symbol: 197, ChildCount: 3}
-	blocking := result.ReductionAttempts[len(result.ReductionAttempts)-1]
-	if blocking.State != 349 || blocking.Lookahead.Symbol != 16 || blocking.Applied || !reflect.DeepEqual(blocking.Action, wantBlockingReduction) {
-		t.Fatalf("blocking interstitial-extra reduction=%+v, want state=349 lookahead=16 action=%+v", blocking, wantBlockingReduction)
+	wantInterstitialReduction := gotreesitter.ParseAction{Type: gotreesitter.ParseActionReduce, Symbol: 197, ChildCount: 3}
+	var foundInterstitial bool
+	for _, attempt := range result.ReductionAttempts {
+		if !attempt.Applied {
+			t.Fatalf("pre-fork reduction was not applied: %+v", attempt)
+		}
+		if attempt.State == 349 && attempt.Lookahead.Symbol == 16 && reflect.DeepEqual(attempt.Action, wantInterstitialReduction) {
+			foundInterstitial = true
+		}
+	}
+	if !foundInterstitial {
+		t.Fatalf("applied state 349/lookahead 16 interstitial-extra reduction missing")
 	}
 
 	// The comparison parse is evidence only. It does not feed tokens, actions,
@@ -152,7 +175,7 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	} else if prefixErr == nil || result.Boundary == "" {
 		t.Fatalf("prefix stopped without a typed boundary: result=%+v err=%v", result, prefixErr)
 	}
-	t.Logf("parser-core rewrite prefix boundary=%s detail=%q tokens=%d dispatches=%d state=%d lookahead=%d", result.Boundary, result.Detail, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol)
+	t.Logf("parser-core rewrite prefix boundary=%s detail=%q tokens=%d dispatches=%d state=%d lookahead=%d fork_boundaries=%+v", result.Boundary, result.Detail, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkBoundaryReceipts)
 }
 
 func TestDiagnosticParserCoreUsesEmbeddedGrammarAndExactScanner(t *testing.T) {
@@ -171,7 +194,7 @@ func TestDiagnosticParserCoreUsesEmbeddedGrammarAndExactScanner(t *testing.T) {
 		t.Fatal("rewrite fixture missing")
 	}
 	canonical, canonicalErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, gotreesitter.DiagnosticParserCorePrefixOptions{})
-	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreExtra || canonical.Tokens != 36 || canonical.Dispatches != 59 || canonical.State != 349 || canonical.Lookahead.Symbol != 16 || !canonical.ExactRootDFA {
+	if canonicalErr != nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreFirstFork || canonical.Tokens != 68 || canonical.Dispatches != 117 || canonical.State != 186 || canonical.Lookahead.Symbol != 20 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || !canonical.ExactRootDFA {
 		t.Fatalf("exact scanner did not reach authenticated boundary: result=%+v err=%v", canonical, canonicalErr)
 	}
 	wrongScanners := []struct {

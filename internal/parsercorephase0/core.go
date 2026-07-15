@@ -457,6 +457,10 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 		if err != nil {
 			return nil, err
 		}
+		fields, aliases, err = c.remapProductionMetadata(path.children, int(act.ChildCount), fields, aliases)
+		if err != nil {
+			return nil, err
+		}
 		payload, err := c.appendSubtree(subtreeRecord{
 			symbol: act.Symbol, productionID: act.ProductionID,
 			dynamicPrecedence: act.DynamicPrecedence,
@@ -513,6 +517,45 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 		frontier = append(frontier, frontierByBoundary[key])
 	}
 	return frontier, nil
+}
+
+func (c *Core) remapProductionMetadata(children []SubtreeID, structuralCount int, fields []FieldMapEntry, aliases []Symbol) ([]FieldMapEntry, []Symbol, error) {
+	structuralPositions := make([]int, 0, structuralCount)
+	for index, child := range children {
+		payload, err := c.subtree(child)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !payload.extra {
+			structuralPositions = append(structuralPositions, index)
+		}
+	}
+	if len(structuralPositions) != structuralCount {
+		return nil, nil, fmt.Errorf("parser-core phase zero: reduction stored %d structural children, want %d", len(structuralPositions), structuralCount)
+	}
+	remappedFields := make([]FieldMapEntry, len(fields))
+	for index, field := range fields {
+		if int(field.ChildIndex) >= len(structuralPositions) {
+			return nil, nil, fmt.Errorf("parser-core phase zero: field child index %d exceeds structural child count %d", field.ChildIndex, structuralCount)
+		}
+		actual := structuralPositions[field.ChildIndex]
+		if actual > math.MaxUint8 {
+			return nil, nil, errors.New("parser-core phase zero: remapped field child index exceeds uint8")
+		}
+		field.ChildIndex = uint8(actual)
+		remappedFields[index] = field
+	}
+	if len(aliases) == 0 {
+		return remappedFields, nil, nil
+	}
+	if len(aliases) > structuralCount {
+		return nil, nil, fmt.Errorf("parser-core phase zero: alias count %d exceeds structural child count %d", len(aliases), structuralCount)
+	}
+	remappedAliases := make([]Symbol, len(children))
+	for index, alias := range aliases {
+		remappedAliases[structuralPositions[index]] = alias
+	}
+	return remappedFields, remappedAliases, nil
 }
 
 // appendPrivate adds one exact single-link node without publishing an
@@ -719,7 +762,16 @@ func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
 				continue
 			}
 			if payload.extra {
-				return &DeclineError{Feature: DeclineExtras, Detail: "interstitial extras in a reduction window are not implemented"}
+				rev = append(rev, link.payload)
+				revScores = append(revScores, link.scoreDelta)
+				revOrders = append(revOrders, linkOrder)
+				if err := walk(link.prev, remaining, false, structuralEnd); err != nil {
+					return err
+				}
+				rev = rev[:len(rev)-1]
+				revScores = revScores[:len(revScores)-1]
+				revOrders = revOrders[:len(revOrders)-1]
+				continue
 			}
 			nextStructuralEnd := structuralEnd
 			if peelingTrailing {
@@ -733,11 +785,7 @@ func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
 				if uint64(len(out)) >= c.limits.MaxEnumeration {
 					return errors.New("parser-core phase zero: pop enumeration cap")
 				}
-				prev, err := c.node(link.prev)
-				if err != nil {
-					return err
-				}
-				path := popPath{prev: link.prev, startByte: prev.byteOffset, structuralEnd: nextStructuralEnd}
+				path := popPath{prev: link.prev, startByte: payload.startByte, structuralEnd: nextStructuralEnd}
 				for i := len(rev) - 1; i >= 0; i-- {
 					path.children = append(path.children, rev[i])
 					path.score, err = checkedAddScore(path.score, revScores[i])
