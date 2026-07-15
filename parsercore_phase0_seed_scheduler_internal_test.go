@@ -4,10 +4,42 @@ package gotreesitter
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
+
+func TestDiagnosticParserCoreSeedPublicationRejectsMaterializationTransactionally(t *testing.T) {
+	base := DiagnosticParserCorePrefixResult{
+		Grammar: "go", ExactRootDFA: true,
+		SourceSHA256: [32]byte{1}, GrammarBlobSHA256: [32]byte{2},
+	}
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		receipt: &DiagnosticParserCoreGenericScheduler{
+			SeedOwned: true, Tokens: 1, Dispatches: 1,
+			Acceptance: &DiagnosticParserCoreGenericAcceptance{
+				Work: DiagnosticParserCoreGenericWork{Dispatches: 1},
+			},
+		},
+	}
+	wantErr := errors.New("materialization fault")
+	result, err := publishDiagnosticParserCoreGenericResult(base, scheduler, func(core.Head) (*Tree, error) {
+		return nil, wantErr
+	})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("materialization error=%v, want %v", err, wantErr)
+	}
+	if !reflect.DeepEqual(result, base) || result.GenericScheduler != nil || result.MaterializedTree != nil || result.Materialized || result.Completed || len(result.Elections) != 0 || result.Tokens != 0 || result.Dispatches != 0 {
+		t.Fatalf("failed materialization leaked publication: %+v", result)
+	}
+	result, err = publishDiagnosticParserCoreGenericResult(base, scheduler, func(core.Head) (*Tree, error) {
+		return nil, nil
+	})
+	if err == nil || !reflect.DeepEqual(result, base) || result.GenericScheduler != nil || result.MaterializedTree != nil || result.Materialized || result.Completed {
+		t.Fatalf("empty materialization leaked publication: result=%+v err=%v", result, err)
+	}
+}
 
 func TestDiagnosticParserCoreGenericSeedConstructorFailsClosed(t *testing.T) {
 	compact, err := core.New(&genericConflictTable{}, core.Limits{})
@@ -78,6 +110,52 @@ type DiagnosticParserCoreSeedShadowForTest struct {
 	NextCreationSeq  uint64
 	SingleHeadGLRNil bool
 	MultiHeadStates  []StateID
+}
+
+// DiagnosticParserCoreSeedCapForTest identifies the exact operation that a
+// seed-owned scheduler cap prevented before public result publication.
+type DiagnosticParserCoreSeedCapForTest struct {
+	ElectionIndex int
+	Token         Token
+	Dispatches    uint64
+	Work          DiagnosticParserCoreGenericWork
+}
+
+// RunDiagnosticParserCoreSeedCapForTest runs one capped seed-owned diagnostic
+// scheduler and returns its private stop point. It is available only to tagged
+// tests; DiagnosticParseParserCorePrefix deliberately does not publish it.
+func RunDiagnosticParserCoreSeedCapForTest(scanner ExternalScanner, source []byte, options DiagnosticParserCorePrefixOptions) (DiagnosticParserCoreSeedCapForTest, error) {
+	lang, err := authenticatedParserCoreGoLanguage(scanner)
+	if err != nil {
+		return DiagnosticParserCoreSeedCapForTest{}, err
+	}
+	parser := NewParser(lang)
+	compact, err := core.New(parserCoreRootTables{parser: parser}, options.Limits)
+	if err != nil {
+		return DiagnosticParserCoreSeedCapForTest{}, err
+	}
+	tokenSource := parser.acquireParserDFATokenSource(source)
+	if tokenSource == nil {
+		return DiagnosticParserCoreSeedCapForTest{}, errors.New("parser-core phase zero: production DFA unavailable")
+	}
+	defer tokenSource.Close()
+	if options.MaxDispatches == 0 {
+		options.MaxDispatches = 100000
+	}
+	if options.MaxTokens == 0 {
+		options.MaxTokens = 100000
+	}
+	var scannerScratch []byte
+	scheduler, runErr := executeDiagnosticParserCoreGenericSchedulerFromSeed(
+		compact, tokenSource, &scannerScratch, lang.InitialState, options, diagnosticParserCoreSeedObserver{},
+	)
+	if scheduler == nil {
+		return DiagnosticParserCoreSeedCapForTest{}, runErr
+	}
+	return DiagnosticParserCoreSeedCapForTest{
+		ElectionIndex: scheduler.electionIndex, Token: scheduler.token,
+		Dispatches: scheduler.dispatches, Work: scheduler.work,
+	}, runErr
 }
 
 // RunDiagnosticParserCoreSeedShadowForTest runs the generic clean scheduler

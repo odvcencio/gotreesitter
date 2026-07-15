@@ -23,6 +23,11 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics can now run the generic scheduler from one
+  authenticated seed through EOF and publish only complete closed-frontier or
+  exact materialized-tree results. Full runs preserve every scanner election,
+  match the locked deep-tree digest, and fail transactionally at shift,
+  conflict, extra, and accept caps.
 - Compact parser-core diagnostics can now start the generic scheduler from an
   authenticated unshifted seed. A shadow gate matches all 103 scanner elections
   and the exact packed frontier of the previous route while eliminating two

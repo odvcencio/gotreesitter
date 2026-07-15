@@ -494,6 +494,8 @@ type DiagnosticParserCoreGenericCompletion struct {
 // run. A cached-dot continuation starts with its already-elected edits token;
 // a seed-owned diagnostic run starts before its first election.
 type DiagnosticParserCoreGenericScheduler struct {
+	SeedOwned          bool
+	StartCheckpoint    DiagnosticParserCoreScannerCheckpoint
 	StartElectionIndex int
 	StartToken         Token
 	StartHeaders       []DiagnosticParserCoreHeaderPathReceipt
@@ -660,12 +662,10 @@ func parserCoreCheckpoint(bytes []byte) DiagnosticParserCoreScannerCheckpoint {
 }
 
 // DiagnosticParseParserCorePrefix independently schedules the compact core
-// from exact production DFA/scanner elections through the first authenticated
-// fork and its frozen oracle-condense continuation. The authenticated route
-// closes the later cached-dot primary cohort and can continue table-driven
-// scheduling to a caller-selected, checkpoint-authenticated closed byte.
-// Earlier unsupported boundaries remain fail-closed. It never calls the
-// production parser.
+// against exact production DFA/scanner elections. GenericScheduler owns one
+// compact seed and the complete election stream; the default diagnostic route
+// retains the frozen prefix receipts. Unsupported boundaries remain
+// fail-closed. It never calls the production parser.
 func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, options DiagnosticParserCorePrefixOptions) (DiagnosticParserCorePrefixResult, error) {
 	result := DiagnosticParserCorePrefixResult{SourceSHA256: sha256.Sum256(source)}
 	lang, err := authenticatedParserCoreGoLanguage(scanner)
@@ -692,10 +692,6 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 	if err != nil {
 		return result, err
 	}
-	head, err := compact.Seed(core.StateID(lang.InitialState), 0)
-	if err != nil {
-		return result, err
-	}
 	state := lang.InitialState
 	tokenSource := parser.acquireParserDFATokenSource(source)
 	if tokenSource == nil {
@@ -708,6 +704,15 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 	outerBranchOrder := uint64(0)
 	outerNextCreationSeq := uint64(1)
 	var scannerScratch []byte
+	if options.GenericScheduler {
+		return diagnosticParseParserCoreGenericFromSeed(
+			result, compact, tokenSource, &scannerScratch, parser, lang.InitialState, source, options,
+		)
+	}
+	head, err := compact.Seed(core.StateID(lang.InitialState), 0)
+	if err != nil {
+		return result, err
+	}
 	for result.Dispatches < options.MaxDispatches {
 		if !haveToken {
 			tokenSource.SetParserState(state)
@@ -896,6 +901,95 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 	}
 	result.Boundary, result.Detail = DiagnosticParserCoreCap, "dispatch cap"
 	return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+}
+
+func diagnosticParseParserCoreGenericFromSeed(
+	result DiagnosticParserCorePrefixResult,
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	parser *Parser,
+	initialState StateID,
+	source []byte,
+	options DiagnosticParserCorePrefixOptions,
+) (DiagnosticParserCorePrefixResult, error) {
+	scheduler, runErr := executeDiagnosticParserCoreGenericSchedulerFromSeed(
+		compact, tokenSource, scannerScratch, initialState, options, diagnosticParserCoreSeedObserver{},
+	)
+	if runErr != nil {
+		var decline *diagnosticParserCoreDecline
+		if errors.As(runErr, &decline) {
+			result.Boundary, result.Detail = decline.boundary, decline.detail
+		}
+		return result, runErr
+	}
+	if scheduler == nil || scheduler.receipt == nil {
+		return result, errors.New("parser-core phase zero: seed scheduler returned no receipt")
+	}
+	generic := scheduler.receipt
+	if generic.Stop.Boundary != "" {
+		result.Boundary, result.Detail = generic.Stop.Boundary, generic.Stop.Detail
+		return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+	}
+	return publishDiagnosticParserCoreGenericResult(result, scheduler, func(head core.Head) (*Tree, error) {
+		return materializeDiagnosticParserCoreAcceptedTree(compact, head, parser, source)
+	})
+}
+
+func publishDiagnosticParserCoreGenericResult(
+	result DiagnosticParserCorePrefixResult,
+	scheduler *diagnosticParserCoreGenericScheduler,
+	materialize func(core.Head) (*Tree, error),
+) (DiagnosticParserCorePrefixResult, error) {
+	if scheduler == nil || scheduler.receipt == nil {
+		return result, errors.New("parser-core phase zero: cannot publish an empty generic scheduler")
+	}
+	generic := scheduler.receipt
+	if generic.Completion != nil {
+		if generic.Dispatches != generic.Completion.Work.Dispatches {
+			return result, errors.New("parser-core phase zero: seed scheduler completion dispatch totals diverged")
+		}
+		result.Tokens = generic.Tokens
+		result.Dispatches = generic.Dispatches
+		result.LastBranchOrder = generic.GlobalBranchOrder
+		result.GenericScheduler = generic
+		result.Elections = append([]DiagnosticParserCoreElection(nil), generic.Elections...)
+		result.Completed = true
+		result.State = generic.Completion.Headers[0].Header.State
+		result.Lookahead = Token{}
+		result.Boundary = DiagnosticParserCoreGenericClosed
+		result.Detail = "seed-owned generic scheduler reached the requested closed byte without reading another lookahead"
+		return result, nil
+	}
+	if generic.Acceptance == nil {
+		return result, errors.New("parser-core phase zero: seed scheduler ended without completion, acceptance, or stop")
+	}
+	if generic.Dispatches != generic.Acceptance.Work.Dispatches {
+		return result, errors.New("parser-core phase zero: seed scheduler acceptance dispatch totals diverged")
+	}
+	if materialize == nil {
+		return result, errors.New("parser-core phase zero: accepted seed scheduler requires a materializer")
+	}
+	tree, materializeErr := materialize(scheduler.acceptedHead)
+	if materializeErr != nil {
+		return result, materializeErr
+	}
+	if tree == nil {
+		return result, errors.New("parser-core phase zero: accepted seed scheduler materializer returned no tree")
+	}
+	result.Tokens = generic.Tokens
+	result.Dispatches = generic.Dispatches
+	result.LastBranchOrder = generic.GlobalBranchOrder
+	result.GenericScheduler = generic
+	result.Elections = append([]DiagnosticParserCoreElection(nil), generic.Elections...)
+	result.Completed = true
+	result.Materialized = true
+	result.MaterializedTree = tree
+	result.State = generic.Acceptance.Header.Header.State
+	result.Lookahead = generic.Acceptance.Token
+	result.Boundary = DiagnosticParserCoreGenericClosed
+	result.Detail = "seed-owned generic scheduler accepted EOF and materialized one exact compact derivation"
+	return result, nil
 }
 
 type diagnosticParserCoreHeader struct {
@@ -3330,6 +3424,8 @@ func newDiagnosticParserCoreGenericScheduler(
 		branchOrder: start.branchOrder, nextSeq: start.nextSeq,
 		options: options, lifecycle: start.lifecycle, observer: start.observer,
 		receipt: &DiagnosticParserCoreGenericScheduler{
+			SeedOwned:          start.lifecycle == diagnosticParserCoreBeforeFirstElection,
+			StartCheckpoint:    start.checkpoint,
 			StartElectionIndex: start.electionIndex, StartToken: start.token,
 		},
 	}
@@ -4273,7 +4369,19 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictAtomic(before
 	return s.recordGenericExternalShift(externalStatsBefore, round.Index)
 }
 
-func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) error {
+func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) (err error) {
+	headersBefore := append([]diagnosticParserCoreHeader(nil), s.headers...)
+	dispatchesBefore, workBefore, epochProgressBefore := s.dispatches, s.work, s.epochProgress
+	roundsBefore, externalBefore := len(s.receipt.Rounds), len(s.receipt.ExternalShifts)
+	defer func() {
+		if err == nil {
+			return
+		}
+		s.headers = headersBefore
+		s.dispatches, s.work, s.epochProgress = dispatchesBefore, workBefore, epochProgressBefore
+		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
+		s.receipt.ExternalShifts = s.receipt.ExternalShifts[:externalBefore]
+	}()
 	if err := s.reserveDispatches(uint64(len(cells))); err != nil {
 		return err
 	}
