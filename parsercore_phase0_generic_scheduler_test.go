@@ -35,15 +35,14 @@ func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T)
 	for run := 0; run < 3; run++ {
 		result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 			grammars.GoExternalScanner{}, source,
-			gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+			gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &target},
 		)
 		if routeErr != nil || result.GenericScheduler == nil || !result.Completed {
 			t.Fatalf("run %d generic scheduler result=%+v err=%v", run, result.GenericScheduler, routeErr)
 		}
 		generic := result.GenericScheduler
 		completion := generic.Completion
-		if !generic.SeedOwned || generic.StartElectionIndex != -1 || generic.StartToken != (gotreesitter.Token{}) ||
-			generic.StartCheckpoint != generic.Elections[0].ScannerBefore ||
+		if generic.StartCheckpoint != generic.Elections[0].ScannerBefore ||
 			completion == nil || completion.TargetByte != 919 || completion.ElectionIndex != 131 || completion.LastToken.Symbol != 92 || completion.LastToken.StartByte != 851 || completion.LastToken.EndByte != 919 ||
 			completion.LastToken.Missing || completion.LastToken.NoLookahead || completion.LastToken.ExternalScannerToken ||
 			generic.Tokens != 132 || generic.Dispatches != 279 || generic.GlobalBranchOrder != 8 || generic.NextCreationSeq != 11 ||
@@ -167,10 +166,10 @@ func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 		dispatches   uint64
 		stageZero    func(gotreesitter.DiagnosticParserCoreGenericWork) bool
 	}{
-		{name: "before-first-shift", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, Limits: core.Limits{MaxNodes: 1}}, detail: "node arena cap", election: 0, symbol: 2, start: 0, dispatches: 0, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.OrdinaryShifts == 0 }},
-		{name: "before-first-conflict", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxDispatches: 116}, detail: "dispatch cap", typedDecline: true, election: 67, symbol: 20, start: 579, dispatches: 116, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Conflicts == 0 }},
-		{name: "before-first-extra", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, Limits: core.Limits{MaxSubtrees: 22}}, detail: "subtree arena cap", election: 15, symbol: 92, start: 49, dispatches: 22, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.ExtraShifts == 0 }},
-		{name: "before-accept", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxDispatches: 2681}, detail: "dispatch cap", typedDecline: true, election: 1035, symbol: 0, start: uint32(len(source)), dispatches: 2681, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Accepts == 0 }},
+		{name: "before-first-shift", options: gotreesitter.DiagnosticParserCorePrefixOptions{Limits: core.Limits{MaxNodes: 1}}, detail: "node arena cap", election: 0, symbol: 2, start: 0, dispatches: 0, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.OrdinaryShifts == 0 }},
+		{name: "before-first-conflict", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 116}, detail: "dispatch cap", typedDecline: true, election: 67, symbol: 20, start: 579, dispatches: 116, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Conflicts == 0 }},
+		{name: "before-first-extra", options: gotreesitter.DiagnosticParserCorePrefixOptions{Limits: core.Limits{MaxSubtrees: 22}}, detail: "subtree arena cap", election: 15, symbol: 92, start: 49, dispatches: 22, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.ExtraShifts == 0 }},
+		{name: "before-accept", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 2681}, detail: "dispatch cap", typedDecline: true, election: 1035, symbol: 0, start: uint32(len(source)), dispatches: 2681, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Accepts == 0 }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -186,7 +185,7 @@ func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 				t.Fatalf("cap route boundary=%s err=%v, want %q", result.Boundary, routeErr, test.detail)
 			}
 			if result.GenericScheduler != nil || result.MaterializedTree != nil || result.Materialized || result.Completed ||
-				result.CachedDotClosure != nil || result.Tokens != 0 || result.Dispatches != 0 || len(result.Elections) != 0 || result.State != 0 || result.Lookahead != (gotreesitter.Token{}) {
+				result.Tokens != 0 || result.Dispatches != 0 || len(result.Elections) != 0 || result.State != 0 || result.Lookahead != (gotreesitter.Token{}) {
 				t.Fatalf("failed generic transaction leaked publication: result=%+v", result)
 			}
 		})
@@ -198,12 +197,12 @@ func TestDiagnosticParserCoreGenericSchedulerRejectsOvershotClosedByte(t *testin
 	target := uint32(918)
 	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 		grammars.GoExternalScanner{}, source,
-		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &target},
 	)
 	if routeErr == nil || !strings.Contains(routeErr.Error(), "straddled or passed") {
 		t.Fatalf("overshot target result=%+v err=%v", result.GenericScheduler, routeErr)
 	}
-	if result.GenericScheduler != nil || result.MaterializedTree != nil || result.CachedDotClosure != nil || result.Tokens != 0 || result.Dispatches != 0 || len(result.Elections) != 0 {
+	if result.GenericScheduler != nil || result.MaterializedTree != nil || result.Tokens != 0 || result.Dispatches != 0 || len(result.Elections) != 0 {
 		t.Fatalf("overshot target leaked generic publication: %+v", result)
 	}
 }
@@ -213,7 +212,7 @@ func TestDiagnosticParserCoreGenericSchedulerContinuesToNextRequestedClosedByte(
 	target := uint32(924)
 	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 		grammars.GoExternalScanner{}, source,
-		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &target},
 	)
 	if routeErr != nil || !result.Completed || result.GenericScheduler == nil || result.GenericScheduler.Completion == nil {
 		t.Fatalf("continuation result=%+v err=%v", result, routeErr)
@@ -245,7 +244,7 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesFirstShallowLinkCap(t *testi
 	target := uint32(2440)
 	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 		grammars.GoExternalScanner{}, source,
-		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &target},
 	)
 	if routeErr != nil || !result.Completed || result.GenericScheduler == nil || result.GenericScheduler.Completion == nil {
 		t.Fatalf("state 46 byte 2440 closure result=%+v err=%v", result, routeErr)
@@ -266,7 +265,7 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesReductionFreshnessCycle(t *t
 	target := uint32(3070)
 	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 		grammars.GoExternalScanner{}, source,
-		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &target},
 	)
 	if routeErr != nil || !result.Completed || result.GenericScheduler == nil || result.GenericScheduler.Completion == nil {
 		t.Fatalf("byte 3070 closure result=%+v err=%v", result, routeErr)
@@ -290,7 +289,7 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 	braceTarget := uint32(3383)
 	braceResult, braceErr := gotreesitter.DiagnosticParseParserCorePrefix(
 		grammars.GoExternalScanner{}, source,
-		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &braceTarget},
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &braceTarget},
 	)
 	if braceErr != nil || !braceResult.Completed || braceResult.GenericScheduler == nil || braceResult.GenericScheduler.Completion == nil {
 		t.Fatalf("byte 3383 closure result=%+v err=%v", braceResult, braceErr)
@@ -303,7 +302,7 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 	commentTarget := uint32(3427)
 	commentResult, commentErr := gotreesitter.DiagnosticParseParserCorePrefix(
 		grammars.GoExternalScanner{}, source,
-		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &commentTarget},
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &commentTarget},
 	)
 	if commentErr != nil || !commentResult.Completed || commentResult.GenericScheduler == nil || commentResult.GenericScheduler.Completion == nil {
 		t.Fatalf("byte 3427 closure result=%+v err=%v", commentResult, commentErr)
@@ -331,7 +330,7 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 	target := uint32(3432)
 	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 		grammars.GoExternalScanner{}, source,
-		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &target},
 	)
 	if routeErr != nil || !result.Completed || result.GenericScheduler == nil || result.GenericScheduler.Completion == nil {
 		t.Fatalf("byte 3432 closure result=%+v err=%v", result, routeErr)
@@ -351,7 +350,7 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 	for run := 1; run < 3; run++ {
 		next, err := gotreesitter.DiagnosticParseParserCorePrefix(
 			grammars.GoExternalScanner{}, source,
-			gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
+			gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &target},
 		)
 		if err != nil || next.GenericScheduler == nil || !reflect.DeepEqual(result.GenericScheduler, next.GenericScheduler) {
 			t.Fatalf("run %d post-comment receipt drifted: next=%+v err=%v", run, next.GenericScheduler, err)
@@ -363,15 +362,14 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 	source := parserCoreGenericRewriteSource(t)
 	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 		grammars.GoExternalScanner{}, source,
-		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true},
+		gotreesitter.DiagnosticParserCorePrefixOptions{},
 	)
 	if routeErr != nil || !result.Completed || !result.Materialized || result.MaterializedTree == nil || result.GenericScheduler == nil || result.GenericScheduler.Acceptance == nil {
 		t.Fatalf("source=%d completed=%v materialized=%v boundary=%s state=%d tokens=%d dispatches=%d generic=%+v err=%v", len(source), result.Completed, result.Materialized, result.Boundary, result.State, result.Tokens, result.Dispatches, result.GenericScheduler, routeErr)
 	}
 	defer result.MaterializedTree.Release()
 	acceptance := result.GenericScheduler.Acceptance
-	if !result.GenericScheduler.SeedOwned || result.GenericScheduler.StartElectionIndex != -1 || result.GenericScheduler.StartToken != (gotreesitter.Token{}) || len(result.GenericScheduler.StartHeaders) != 1 ||
-		result.GenericScheduler.StartCheckpoint != result.GenericScheduler.Elections[0].ScannerBefore || result.GenericScheduler.StartHeaders[0].Header.Checkpoint != result.GenericScheduler.StartCheckpoint.SHA256 ||
+	if len(result.GenericScheduler.StartHeaders) != 1 || result.GenericScheduler.StartCheckpoint != result.GenericScheduler.Elections[0].ScannerBefore || result.GenericScheduler.StartHeaders[0].Header.Checkpoint != result.GenericScheduler.StartCheckpoint.SHA256 ||
 		result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
 		result.Tokens != 1036 || result.Dispatches != 2682 || result.Dispatches != acceptance.Work.Dispatches || acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead ||
 		acceptance.Header.Header.CreationSeq != 234 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || acceptance.Header.Header.Shifted || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 ||
@@ -415,7 +413,7 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 	for run := 1; run < 3; run++ {
 		next, err := gotreesitter.DiagnosticParseParserCorePrefix(
 			grammars.GoExternalScanner{}, source,
-			gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true},
+			gotreesitter.DiagnosticParserCorePrefixOptions{},
 		)
 		if next.MaterializedTree != nil {
 			defer next.MaterializedTree.Release()

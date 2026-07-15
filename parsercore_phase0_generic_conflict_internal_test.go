@@ -197,33 +197,6 @@ func TestDiagnosticParserCoreGenericConflictMultiOutputSequencing(t *testing.T) 
 	if err := compact.BeginFrontier(); err != nil {
 		t.Fatal(err)
 	}
-	beforeConflict, err := compact.Stats(secondShifted)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, test := range []struct {
-		name    string
-		nextSeq uint64
-	}{
-		{name: "partial-secondary-sequence-overflow", nextSeq: math.MaxUint64 - 2},
-		{name: "partial-primary-sequence-overflow", nextSeq: math.MaxUint64 - 3},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if _, err := executeDiagnosticParserCoreConflictDetailed(
-				compact, diagnosticParserCoreHeader{head: secondShifted, creationSeq: 4}, 0,
-				Token{Symbol: 10, StartByte: 1, EndByte: 2}, actions, 7, test.nextSeq,
-			); err == nil {
-				t.Fatal("overflowing multi-output conflict unexpectedly succeeded")
-			}
-			afterConflict, err := compact.Stats(secondShifted)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if afterConflict != beforeConflict {
-				t.Fatalf("multi-output overflow leaked graph mutation: before=%+v after=%+v", beforeConflict, afterConflict)
-			}
-		})
-	}
 	prefix, err := compact.Seed(9, 1)
 	if err != nil {
 		t.Fatal(err)
@@ -240,6 +213,44 @@ func TestDiagnosticParserCoreGenericConflictMultiOutputSequencing(t *testing.T) 
 	before, err := diagnosticParserCoreHeaderReceipts(compact, headers)
 	if err != nil {
 		t.Fatal(err)
+	}
+	beforeStats, err := compact.Stats(secondShifted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name        string
+		branchOrder uint64
+		nextSeq     uint64
+	}{
+		{name: "branch-order-overflow", branchOrder: math.MaxUint64 - 1, nextSeq: 10},
+		{name: "creation-sequence-overflow", branchOrder: 7, nextSeq: math.MaxUint64 - 2},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			receipt := &DiagnosticParserCoreGenericScheduler{}
+			scheduler := &diagnosticParserCoreGenericScheduler{
+				compact: compact, headers: append([]diagnosticParserCoreHeader(nil), headers...),
+				token:       Token{Symbol: 10, StartByte: 1, EndByte: 2},
+				branchOrder: test.branchOrder, nextSeq: test.nextSeq,
+				options: DiagnosticParserCorePrefixOptions{MaxDispatches: 100}, receipt: receipt,
+			}
+			err := scheduler.applyGenericConflict(before, diagnosticParserCoreGenericCell{
+				headerIndex: 1, receipt: before[1], actions: actions,
+			})
+			if err == nil {
+				t.Fatal("overflowing conflict unexpectedly succeeded")
+			}
+			afterStats, statsErr := compact.Stats(secondShifted)
+			if statsErr != nil {
+				t.Fatal(statsErr)
+			}
+			if beforeStats != afterStats || !reflect.DeepEqual(scheduler.headers, headers) ||
+				scheduler.branchOrder != test.branchOrder || scheduler.nextSeq != test.nextSeq ||
+				scheduler.dispatches != 0 || scheduler.work != (DiagnosticParserCoreGenericWork{}) ||
+				!reflect.DeepEqual(receipt, &DiagnosticParserCoreGenericScheduler{}) {
+				t.Fatalf("overflow rollback leaked: before=%+v after=%+v scheduler=%+v receipt=%+v", beforeStats, afterStats, scheduler, receipt)
+			}
+		})
 	}
 	scheduler := &diagnosticParserCoreGenericScheduler{
 		compact: compact, headers: headers, token: Token{Symbol: 10, StartByte: 1, EndByte: 2},
@@ -386,44 +397,6 @@ func TestDiagnosticParserCoreGenericConflictArenaCapsRollback(t *testing.T) {
 			if scheduler.dispatches != 0 || scheduler.branchOrder != 7 || scheduler.nextSeq != 10 || scheduler.work != (DiagnosticParserCoreGenericWork{}) ||
 				len(scheduler.headers) != 1 || scheduler.headers[0] != header || !reflect.DeepEqual(scheduler.receipt, &DiagnosticParserCoreGenericScheduler{}) {
 				t.Fatalf("capped conflict leaked scheduler allocation/receipt state: %+v receipt=%+v", scheduler, scheduler.receipt)
-			}
-		})
-	}
-}
-
-func TestDiagnosticParserCoreGenericConflictPreflight(t *testing.T) {
-	actions := []core.Action{
-		{Type: core.ActionShift, State: 2},
-		{Type: core.ActionShift, State: 3},
-		{Type: core.ActionShift, State: 4},
-	}
-	compact, err := core.New(&genericConflictTable{actions: actions}, core.Limits{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	incoming, err := compact.Seed(1, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	before, _ := compact.Stats(incoming)
-	for _, test := range []struct {
-		name        string
-		branchOrder uint64
-		nextSeq     uint64
-	}{
-		{name: "branch-order", branchOrder: math.MaxUint64 - 1, nextSeq: 1},
-		{name: "creation-sequence", branchOrder: 1, nextSeq: math.MaxUint64 - 1},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if _, err := executeDiagnosticParserCoreConflictDetailed(
-				compact, diagnosticParserCoreHeader{head: incoming}, 0,
-				Token{Symbol: 9, StartByte: 0, EndByte: 1}, actions, test.branchOrder, test.nextSeq,
-			); err == nil {
-				t.Fatal("overflowing conflict unexpectedly succeeded")
-			}
-			after, _ := compact.Stats(incoming)
-			if after != before {
-				t.Fatalf("preflight failure mutated graph: before=%+v after=%+v", before, after)
 			}
 		})
 	}

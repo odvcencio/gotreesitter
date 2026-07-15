@@ -23,6 +23,9 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now use one seed-owned scheduler. The retired
+  staged bootstrap is preserved as an immutable 103-election golden instead of
+  executable code, while scanner, rollback, and exact-tree coverage remain.
 - Compact parser-core diagnostics can now run the generic scheduler from one
   authenticated seed through EOF and publish only complete closed-frontier or
   exact materialized-tree results. Full runs preserve every scanner election,
