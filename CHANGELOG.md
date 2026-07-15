@@ -35,8 +35,15 @@ for tags and release notes while still in `0.x`.
   passes. The route applies C's state-22 cost competition as an explicit
   500-point open-recovery plus 100-point skipped-tree loss against the clean
   state-248 sibling. The surviving lineage then advances through one exact
-  single-state election and shift before stopping transactionally at the next
-  authenticated multi-action cell, without replacing any earlier fork receipt.
+  single-state election and shift into the next authenticated reduce/reduce
+  cell. That cell executes in production fork order, closes both cached-token
+  shifts, jointly elects and shifts the following identifier, and canonicalizes
+  at the first exact packed convergence before another scanner read. The
+  serializable receipt preserves both derivation scores and branch orders,
+  parse-global allocator identity, and the measured two-node, two-link,
+  two-subtree cost of allocating one equivalent terminal payload per header;
+  it records the duplicate without optimizing or replacing earlier fork
+  evidence.
   Conflict-frontier cells are visible in ambiguity profiles; generalized
   repetition, no-lookahead, no-action, and recovery paths still decline before
   unsupported execution, and ordinary builds retain no diagnostic driver

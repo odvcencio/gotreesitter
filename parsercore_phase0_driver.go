@@ -218,6 +218,62 @@ type DiagnosticParserCorePostCondenseContinuation struct {
 	Dispatches                 uint64
 }
 
+type diagnosticParserCorePostCondenseExecution struct {
+	receipt     *DiagnosticParserCorePostCondenseContinuation
+	finalHeader diagnosticParserCoreHeader
+}
+
+type DiagnosticParserCorePackedDerivation struct {
+	Score          int64
+	BranchOrder    uint64
+	HasBranchOrder bool
+}
+
+type DiagnosticParserCoreTerminalPayloadView struct {
+	ID                uint32
+	Symbol            Symbol
+	ProductionID      uint16
+	DynamicPrecedence int16
+	StartByte         uint32
+	EndByte           uint32
+	Children          []uint32
+	Fields            []FieldMapEntry
+	Aliases           []Symbol
+	Extra             bool
+	Terminal          bool
+}
+
+type DiagnosticParserCorePackedConvergence struct {
+	ConflictRound              DiagnosticParserCoreDispatchRound
+	PostConflictBoundaries     []DiagnosticParserCoreLaterForkBoundary
+	SameTokenRounds            []DiagnosticParserCoreDispatchRound
+	ClosedParenBoundaries      []DiagnosticParserCoreLaterForkBoundary
+	ElectionIndex              int
+	ElectionExpectedBefore     DiagnosticParserCoreScannerCheckpoint
+	Election                   DiagnosticParserCoreElection
+	ElectionBefore             []DiagnosticParserCoreHeaderReceipt
+	ElectionBeforeBoundaries   []DiagnosticParserCoreLaterForkBoundary
+	ElectionReset              []DiagnosticParserCoreHeaderReceipt
+	ShiftRounds                []DiagnosticParserCoreDispatchRound
+	BeforeCanonical            []DiagnosticParserCoreHeaderReceipt
+	Packed                     DiagnosticParserCoreHeaderReceipt
+	Derivations                []DiagnosticParserCorePackedDerivation
+	TerminalSubtreesBefore     uint32
+	TerminalSubtreesAfter      uint32
+	TerminalNodesBefore        uint32
+	TerminalNodesAfter         uint32
+	TerminalLinksBefore        uint32
+	TerminalLinksAfter         uint32
+	TerminalPayloadAllocations uint32
+	TerminalPayloadsPerHeader  []uint32
+	TerminalPayloadViews       []DiagnosticParserCoreTerminalPayloadView
+	EquivalentTerminalPayloads uint32
+	DuplicateTerminalPayloads  uint32
+	GlobalBranchOrder          uint64
+	NextCreationSeq            uint64
+	Dispatches                 uint64
+}
+
 type DiagnosticParserCoreExtraShift struct {
 	State          StateID
 	Token          Token
@@ -255,6 +311,7 @@ type DiagnosticParserCorePrefixResult struct {
 	CohortRounds             []DiagnosticParserCoreDispatchRound
 	CohortCondense           *DiagnosticParserCoreCohortCondense
 	PostCondenseContinuation *DiagnosticParserCorePostCondenseContinuation
+	PackedConvergence        *DiagnosticParserCorePackedConvergence
 	Elections                []DiagnosticParserCoreElection
 	SourceSHA256             [32]byte
 	GrammarBlobSHA256        [32]byte
@@ -1081,7 +1138,7 @@ func continueDiagnosticParserCoreOrderedCohort(
 		if execution.condense != nil {
 			result.CohortCondense = execution.condense
 			result.State, result.Lookahead = execution.condense.Preserved.State, execution.condense.Token
-			postCondense, postErr := executeDiagnosticParserCorePostCondenseContinuation(
+			postExecution, postErr := executeDiagnosticParserCorePostCondenseContinuation(
 				compact, tokenSource, scannerScratch, execution.headers[0],
 				stage.election.ScannerAfter, len(result.Elections), result.Dispatches,
 				options, branchOrder, nextSeq,
@@ -1089,6 +1146,7 @@ func continueDiagnosticParserCoreOrderedCohort(
 			if postErr != nil {
 				return postErr
 			}
+			postCondense := postExecution.receipt
 			result.Elections = append(result.Elections, postCondense.ContinuationElection, postCondense.ConflictElection)
 			result.Tokens += 2
 			result.Dispatches = postCondense.Dispatches
@@ -1098,6 +1156,22 @@ func continueDiagnosticParserCoreOrderedCohort(
 			result.State, result.Lookahead = postCondense.Conflict.State, postCondense.Conflict.Token
 			result.Boundary = DiagnosticParserCoreSubsequentConflictBoundary
 			result.Detail = "post-condense continuation reached authenticated multi-action cell before execution"
+			packed, packedErr := executeDiagnosticParserCorePackedConvergence(
+				compact, tokenSource, scannerScratch, postExecution.finalHeader,
+				postCondense.ConflictElection, len(result.Elections), result.Dispatches,
+				options, branchOrder, nextSeq,
+			)
+			if packedErr != nil {
+				return packedErr
+			}
+			result.Elections = append(result.Elections, packed.Election)
+			result.Tokens++
+			result.Dispatches = packed.Dispatches
+			result.LastBranchOrder = packed.GlobalBranchOrder
+			result.PackedConvergence = packed
+			result.State, result.Lookahead = packed.Packed.State, packed.Election.Token
+			result.Boundary = DiagnosticParserCoreElectionBarrier
+			result.Detail = "packed convergence closed before the next scanner election"
 			return &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 		}
 	}
@@ -1364,7 +1438,7 @@ func executeDiagnosticParserCorePostCondenseContinuation(
 	options DiagnosticParserCorePrefixOptions,
 	globalBranchOrder uint64,
 	nextCreationSeq uint64,
-) (*DiagnosticParserCorePostCondenseContinuation, error) {
+) (*diagnosticParserCorePostCondenseExecution, error) {
 	if electionBase != 98 || globalBranchOrder != 2 || nextCreationSeq != 3 {
 		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "post-condense continuation allocator identity mismatch"}
 	}
@@ -1414,7 +1488,7 @@ func executeDiagnosticParserCorePostCondenseContinuation(
 	if err != nil {
 		return nil, err
 	}
-	return receipt, nil
+	return &diagnosticParserCorePostCondenseExecution{receipt: receipt, finalHeader: trialHeader}, nil
 }
 
 func applyDiagnosticParserCorePostCondenseShift(
@@ -1540,6 +1614,347 @@ func authenticateDiagnosticParserCorePostCondenseConflict(
 	receipt.Conflict = *conflict
 	receipt.Dispatches = *dispatches
 	return nil
+}
+
+func executeDiagnosticParserCorePackedConvergence(
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	header diagnosticParserCoreHeader,
+	conflictElection DiagnosticParserCoreElection,
+	electionIndex int,
+	dispatches uint64,
+	options DiagnosticParserCorePrefixOptions,
+	branchOrder uint64,
+	nextCreationSeq uint64,
+) (*DiagnosticParserCorePackedConvergence, error) {
+	if electionIndex != 100 || branchOrder != 2 || nextCreationSeq != 3 {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed convergence allocator identity mismatch"}
+	}
+	if uint64(electionIndex) >= options.MaxTokens {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "packed convergence election token cap"}
+	}
+	wantConflict := []core.Action{
+		{Type: core.ActionReduce, Symbol: 121, ChildCount: 1, DynamicPrecedence: -1, ProductionID: 44},
+		{Type: core.ActionReduce, Symbol: 171, ChildCount: 1},
+	}
+	receipt := &DiagnosticParserCorePackedConvergence{}
+	err := compact.ApplyAtomic(func() error {
+		headers, conflictRound, nextOrder, nextSeq, err := executeDiagnosticParserCoreConflict(
+			compact, header, 0, conflictElection.Token, wantConflict, branchOrder, nextCreationSeq,
+		)
+		if err != nil {
+			return err
+		}
+		if nextOrder != 3 || nextSeq != 4 || len(headers) != 2 {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed conflict allocation identity mismatch"}
+		}
+		conflictRound.Index = 0
+		wantConflictRound := []DiagnosticParserCoreRoundAction{
+			{HeaderIndex: 0, State: 186, ByteOffset: 739, Ordinal: 1, Action: rootParserCoreAction(wantConflict[1]), BranchOrder: 3},
+			{HeaderIndex: 0, State: 186, ByteOffset: 739, Ordinal: 0, Action: rootParserCoreAction(wantConflict[0])},
+		}
+		if !reflect.DeepEqual(conflictRound.Actions, wantConflictRound) {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed conflict execution order mismatch"}
+		}
+		receipt.ConflictRound = conflictRound
+		postConflict, paths, err := diagnosticParserCoreLaterForkBoundaries(compact, headers)
+		if err != nil {
+			return err
+		}
+		if paths != 2 || len(postConflict) != 2 {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed conflict did not retain two exact derivations"}
+		}
+		if postConflict[0].Header.State != 101 || postConflict[0].Header.CreationSeq != 1 || postConflict[0].Score != -11 || postConflict[0].BranchOrder != 1 || !postConflict[0].HasBranchOrder ||
+			postConflict[1].Header.State != 253 || postConflict[1].Header.CreationSeq != 3 || postConflict[1].Score != -10 || postConflict[1].BranchOrder != 3 || !postConflict[1].HasBranchOrder {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed conflict post-reduce/GOTO identity mismatch"}
+		}
+		receipt.PostConflictBoundaries = postConflict
+		parenExecution := diagnosticParserCoreCohortExecution{headers: headers, dispatches: dispatches}
+		if err := runDiagnosticParserCoreCohortPasses(
+			compact, conflictElection.Token, electionIndex-1, options.MaxDispatches, 0, &parenExecution,
+		); err != nil {
+			return err
+		}
+		if parenExecution.condense != nil || !diagnosticParserCoreHeadersConsumed(parenExecution.headers) {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed conflict parenthesis closure declined"}
+		}
+		receipt.SameTokenRounds = parenExecution.rounds
+		wantParenRound := []DiagnosticParserCoreRoundAction{
+			{HeaderIndex: 0, State: 101, ByteOffset: 739, Ordinal: 0, Action: ParseAction{Type: ParseActionShift, State: 276}},
+			{HeaderIndex: 1, State: 253, ByteOffset: 739, Ordinal: 0, Action: ParseAction{Type: ParseActionShift, State: 163}},
+		}
+		if len(receipt.SameTokenRounds) != 1 || !reflect.DeepEqual(receipt.SameTokenRounds[0].Actions, wantParenRound) {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed parenthesis dispatch order mismatch"}
+		}
+		dispatches = parenExecution.dispatches
+		closedParen, paths, err := diagnosticParserCoreLaterForkBoundaries(compact, parenExecution.headers)
+		if err != nil {
+			return err
+		}
+		if paths != 2 || len(closedParen) != 2 {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed conflict parenthesis paths drifted"}
+		}
+		if closedParen[0].Header.State != 276 || closedParen[0].Header.ByteOffset != 740 || closedParen[0].Header.CreationSeq != 1 || closedParen[0].Score != -11 || closedParen[0].BranchOrder != 1 || !closedParen[0].HasBranchOrder ||
+			closedParen[1].Header.State != 163 || closedParen[1].Header.ByteOffset != 740 || closedParen[1].Header.CreationSeq != 3 || closedParen[1].Score != -10 || closedParen[1].BranchOrder != 3 || !closedParen[1].HasBranchOrder {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed parenthesis closure identity mismatch"}
+		}
+		receipt.ClosedParenBoundaries = closedParen
+		election, beforeHeaders, beforeBoundaries, err := readDiagnosticParserCorePackedElection(
+			compact, tokenSource, scannerScratch, parenExecution.headers, conflictElection.ScannerAfter,
+		)
+		if err != nil {
+			return err
+		}
+		receipt.ElectionIndex = electionIndex
+		receipt.ElectionExpectedBefore = conflictElection.ScannerAfter
+		receipt.Election = election
+		receipt.ElectionBefore = beforeHeaders
+		receipt.ElectionBeforeBoundaries = beforeBoundaries
+		if err := compact.BeginFrontier(); err != nil {
+			return err
+		}
+		compact.SetPhaseCheckpoint(election.ScannerAfter.SHA256)
+		for index := range parenExecution.headers {
+			parenExecution.headers[index].shifted = false
+			parenExecution.headers[index].checkpoint = election.ScannerAfter.SHA256
+		}
+		receipt.ElectionReset, err = diagnosticParserCoreHeaderReceipts(compact, parenExecution.headers)
+		if err != nil {
+			return err
+		}
+		packed, err := shiftDiagnosticParserCorePackedHeaders(
+			compact, election.Token, parenExecution.headers, dispatches, options.MaxDispatches, receipt,
+		)
+		if err != nil {
+			return err
+		}
+		dispatches = receipt.Dispatches
+		if len(receipt.BeforeCanonical) != 2 ||
+			receipt.BeforeCanonical[0].State != 186 || receipt.BeforeCanonical[0].ByteOffset != 741 || receipt.BeforeCanonical[0].CreationSeq != 1 || !receipt.BeforeCanonical[0].Shifted || receipt.BeforeCanonical[0].ExactPaths != 1 ||
+			receipt.BeforeCanonical[1].State != 186 || receipt.BeforeCanonical[1].ByteOffset != 741 || receipt.BeforeCanonical[1].CreationSeq != 3 || !receipt.BeforeCanonical[1].Shifted || receipt.BeforeCanonical[1].ExactPaths != 2 {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed raw post-shift boundary identity mismatch"}
+		}
+		canonical, err := canonicalizeDiagnosticParserCoreHeaders(compact, packed)
+		if err != nil {
+			return err
+		}
+		if len(canonical) != 1 {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "joint identifier shifts did not form one packed scheduler head"}
+		}
+		receipt.Packed, err = diagnosticParserCoreHeaderReceipt(compact, canonical[0])
+		if err != nil {
+			return err
+		}
+		derivations, err := compact.Derivations(canonical[0].head)
+		if err != nil {
+			return err
+		}
+		if len(derivations) != 2 || receipt.Packed.ExactPaths != 2 {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed scheduler head did not retain two derivations"}
+		}
+		if receipt.Packed.State != 186 || receipt.Packed.ByteOffset != 741 || receipt.Packed.CreationSeq != 1 || !receipt.Packed.Shifted {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed scheduler boundary identity mismatch"}
+		}
+		for _, derivation := range derivations {
+			receipt.Derivations = append(receipt.Derivations, DiagnosticParserCorePackedDerivation{
+				Score: derivation.Score, BranchOrder: derivation.BranchOrder, HasBranchOrder: derivation.HasBranchOrder,
+			})
+		}
+		sort.Slice(receipt.Derivations, func(i, j int) bool { return receipt.Derivations[i].BranchOrder < receipt.Derivations[j].BranchOrder })
+		if !reflect.DeepEqual(receipt.Derivations, []DiagnosticParserCorePackedDerivation{
+			{Score: -11, BranchOrder: 1, HasBranchOrder: true},
+			{Score: -10, BranchOrder: 3, HasBranchOrder: true},
+		}) {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed derivation score/order identity mismatch"}
+		}
+		receipt.GlobalBranchOrder, receipt.NextCreationSeq = nextOrder, nextSeq
+		receipt.Dispatches = dispatches
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return receipt, nil
+}
+
+func readDiagnosticParserCorePackedElection(
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	headers []diagnosticParserCoreHeader,
+	expectedBefore DiagnosticParserCoreScannerCheckpoint,
+) (DiagnosticParserCoreElection, []DiagnosticParserCoreHeaderReceipt, []DiagnosticParserCoreLaterForkBoundary, error) {
+	beforeHeaders, err := diagnosticParserCoreHeaderReceipts(compact, headers)
+	if err != nil {
+		return DiagnosticParserCoreElection{}, nil, nil, err
+	}
+	states := make([]StateID, len(headers))
+	for index, header := range beforeHeaders {
+		if !header.Shifted || header.Accepted || header.ExactPaths != 1 || header.ByteOffset != 740 || header.Checkpoint != expectedBefore.SHA256 {
+			return DiagnosticParserCoreElection{}, nil, nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed election header identity mismatch"}
+		}
+		states[index] = header.State
+	}
+	boundaries, paths, err := diagnosticParserCoreLaterForkBoundaries(compact, headers)
+	if err != nil {
+		return DiagnosticParserCoreElection{}, nil, nil, err
+	}
+	if paths != 2 || len(boundaries) != 2 {
+		return DiagnosticParserCoreElection{}, nil, nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed election derivation count mismatch"}
+	}
+	if !reflect.DeepEqual(states, []StateID{276, 163}) ||
+		beforeHeaders[0].CreationSeq != 1 || boundaries[0].Score != -11 || boundaries[0].BranchOrder != 1 || !boundaries[0].HasBranchOrder ||
+		beforeHeaders[1].CreationSeq != 3 || boundaries[1].Score != -10 || boundaries[1].BranchOrder != 3 || !boundaries[1].HasBranchOrder {
+		return DiagnosticParserCoreElection{}, nil, nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed election ordered frontier mismatch"}
+	}
+	tokenSource.SetParserState(states[0])
+	tokenSource.SetGLRStates(append([]StateID(nil), states...))
+	before := parserCoreCheckpoint(append([]byte(nil), tokenSource.captureExternalScannerStateInto(scannerScratch)...))
+	if before != expectedBefore {
+		return DiagnosticParserCoreElection{}, nil, nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "packed election scanner continuity failed"}
+	}
+	token := tokenSource.Next()
+	after := parserCoreCheckpoint(append([]byte(nil), tokenSource.captureExternalScannerStateInto(scannerScratch)...))
+	current, currentStart, currentEnd, currentValid := currentExternalScannerCheckpoint(tokenSource)
+	election := DiagnosticParserCoreElection{
+		States: append([]StateID(nil), states...), Token: token,
+		ScannerBefore: before, ScannerAfter: after,
+		CurrentCheckpointValid: currentValid,
+		CurrentCheckpointStart: parserCoreCheckpoint(current.start),
+		CurrentCheckpointEnd:   parserCoreCheckpoint(current.end),
+		CurrentCheckpointBytes: [2]uint32{currentStart, currentEnd},
+	}
+	empty := parserCoreCheckpoint(nil)
+	if token.Symbol != 86 || token.Text != "r" || token.StartByte != 740 || token.EndByte != 741 ||
+		token.Missing || token.NoLookahead || token.ExternalScannerToken || before != empty || after != empty ||
+		currentValid || election.CurrentCheckpointStart != empty || election.CurrentCheckpointEnd != empty || election.CurrentCheckpointBytes != [2]uint32{} {
+		return DiagnosticParserCoreElection{}, nil, nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "packed election token identity mismatch"}
+	}
+	return election, beforeHeaders, boundaries, nil
+}
+
+func shiftDiagnosticParserCorePackedHeaders(
+	compact *core.Core,
+	token Token,
+	headers []diagnosticParserCoreHeader,
+	dispatches uint64,
+	maxDispatches uint64,
+	receipt *DiagnosticParserCorePackedConvergence,
+) ([]diagnosticParserCoreHeader, error) {
+	beforeRound, err := diagnosticParserCoreHeaderReceipts(compact, headers)
+	if err != nil {
+		return nil, err
+	}
+	stats, err := compact.Stats(headers[0].head)
+	if err != nil {
+		return nil, err
+	}
+	receipt.TerminalSubtreesBefore = stats.Subtrees
+	receipt.TerminalNodesBefore = stats.Nodes
+	receipt.TerminalLinksBefore = stats.Links
+	var actions []DiagnosticParserCoreRoundAction
+	wantStates := []StateID{276, 163}
+	for index := range headers {
+		state, byteOffset, err := compact.Boundary(headers[index].head)
+		if err != nil {
+			return nil, err
+		}
+		cell, err := compact.Actions(state, core.Symbol(token.Symbol))
+		if err != nil {
+			return nil, err
+		}
+		if state != core.StateID(wantStates[index]) || len(cell) != 1 ||
+			!reflect.DeepEqual(cell[0], core.Action{Type: core.ActionShift, State: 186}) {
+			return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier cell is not one ordinary shift"}
+		}
+		if dispatches >= maxDispatches {
+			return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "packed identifier dispatch cap"}
+		}
+		beforeStats, err := compact.Stats(headers[index].head)
+		if err != nil {
+			return nil, err
+		}
+		output, err := applyParserCorePrefixAction(compact, headers[index].head, token, cell[0], 0, core.ForkOrder{})
+		if err != nil {
+			return nil, err
+		}
+		if len(output) != 1 {
+			return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier shift produced multiple boundaries"}
+		}
+		dispatches++
+		headers[index].head, headers[index].shifted = output[0], true
+		afterStats, err := compact.Stats(headers[index].head)
+		if err != nil {
+			return nil, err
+		}
+		receipt.TerminalPayloadsPerHeader = append(receipt.TerminalPayloadsPerHeader, afterStats.Subtrees-beforeStats.Subtrees)
+		actions = append(actions, DiagnosticParserCoreRoundAction{
+			HeaderIndex: index, State: StateID(state), ByteOffset: byteOffset,
+			Ordinal: 0, Action: rootParserCoreAction(cell[0]),
+		})
+	}
+	afterRound, err := diagnosticParserCoreHeaderReceipts(compact, headers)
+	if err != nil {
+		return nil, err
+	}
+	stats, err = compact.Stats(headers[0].head)
+	if err != nil {
+		return nil, err
+	}
+	receipt.TerminalSubtreesAfter = stats.Subtrees
+	receipt.TerminalNodesAfter = stats.Nodes
+	receipt.TerminalLinksAfter = stats.Links
+	receipt.TerminalPayloadAllocations = stats.Subtrees - receipt.TerminalSubtreesBefore
+	for id := receipt.TerminalSubtreesBefore + 1; id <= receipt.TerminalSubtreesAfter; id++ {
+		view, err := compact.Subtree(core.SubtreeID(id))
+		if err != nil {
+			return nil, err
+		}
+		converted := DiagnosticParserCoreTerminalPayloadView{
+			ID: id, Symbol: Symbol(view.Symbol), ProductionID: view.ProductionID,
+			DynamicPrecedence: view.DynamicPrecedence, StartByte: view.StartByte, EndByte: view.EndByte,
+			Extra: view.Extra, Terminal: view.Terminal,
+		}
+		for _, child := range view.Children {
+			converted.Children = append(converted.Children, uint32(child))
+		}
+		for _, field := range view.Fields {
+			converted.Fields = append(converted.Fields, FieldMapEntry{
+				FieldID: FieldID(field.FieldID), ChildIndex: field.ChildIndex, Inherited: field.Inherited,
+			})
+		}
+		for _, alias := range view.Aliases {
+			converted.Aliases = append(converted.Aliases, Symbol(alias))
+		}
+		receipt.TerminalPayloadViews = append(receipt.TerminalPayloadViews, converted)
+	}
+	if len(receipt.TerminalPayloadViews) == 2 {
+		left, right := receipt.TerminalPayloadViews[0], receipt.TerminalPayloadViews[1]
+		left.ID, right.ID = 0, 0
+		if reflect.DeepEqual(left, right) {
+			receipt.EquivalentTerminalPayloads = 1
+			receipt.DuplicateTerminalPayloads = 1
+		}
+	}
+	if receipt.TerminalSubtreesBefore != 194 || receipt.TerminalSubtreesAfter != 196 ||
+		receipt.TerminalNodesAfter-receipt.TerminalNodesBefore != 2 ||
+		receipt.TerminalLinksAfter-receipt.TerminalLinksBefore != 2 ||
+		receipt.TerminalPayloadAllocations != 2 ||
+		!reflect.DeepEqual(receipt.TerminalPayloadsPerHeader, []uint32{1, 1}) ||
+		receipt.EquivalentTerminalPayloads != 1 || receipt.DuplicateTerminalPayloads != 1 {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier physical payload measurement mismatch"}
+	}
+	terminal := receipt.TerminalPayloadViews[0]
+	if terminal.Symbol != 86 || terminal.ProductionID != 0 || terminal.DynamicPrecedence != 0 ||
+		terminal.StartByte != 740 || terminal.EndByte != 741 || terminal.Extra || !terminal.Terminal ||
+		len(terminal.Children) != 0 || len(terminal.Fields) != 0 || len(terminal.Aliases) != 0 {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier terminal payload identity mismatch"}
+	}
+	receipt.BeforeCanonical = afterRound
+	receipt.ShiftRounds = []DiagnosticParserCoreDispatchRound{{Index: 0, Before: beforeRound, Actions: actions, After: afterRound}}
+	receipt.Dispatches = dispatches
+	return headers, nil
 }
 
 func readDiagnosticParserCorePostCondenseElection(
