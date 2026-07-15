@@ -152,16 +152,20 @@ type DiagnosticParserCoreGenericWork struct {
 // are the selected bottom-to-top compact stack; materialization does not
 // mutate that graph.
 type DiagnosticParserCoreGenericAcceptance struct {
-	ElectionIndex  int
-	Token          Token
-	Header         DiagnosticParserCoreHeaderPathReceipt
-	Payloads       []uint32
-	Score          int64
-	BranchOrder    uint64
-	HasBranchOrder bool
-	SelectedNodes  uint64
-	Stats          core.Stats
-	Work           DiagnosticParserCoreGenericWork
+	ElectionIndex   int
+	Token           Token
+	Header          DiagnosticParserCoreHeaderPathReceipt
+	Payloads        []uint32
+	Score           int64
+	BranchOrder     uint64
+	HasBranchOrder  bool
+	CoreWork        core.Work
+	Accepts         uint64
+	SelectedNodes   uint64
+	SelectedParents uint64
+	SelectedLeaves  uint64
+	Stats           core.Stats
+	Work            DiagnosticParserCoreGenericWork
 }
 
 // DiagnosticParserCoreGenericConflict records one table-driven conflict cell.
@@ -496,7 +500,10 @@ func publishDiagnosticParserCoreGenericResult(
 	if tree == nil {
 		return result, errors.New("parser-core phase zero: accepted seed scheduler materializer returned no tree")
 	}
-	generic.Acceptance.SelectedNodes = diagnosticParserCoreSelectedNodeCount(tree.root)
+	selected := diagnosticParserCoreSelectedNodeCensus(tree.root)
+	generic.Acceptance.SelectedNodes = selected.total
+	generic.Acceptance.SelectedParents = selected.parents
+	generic.Acceptance.SelectedLeaves = selected.leaves
 	result.Tokens = generic.Tokens
 	result.Dispatches = generic.Dispatches
 	result.LastBranchOrder = generic.GlobalBranchOrder
@@ -512,11 +519,17 @@ func publishDiagnosticParserCoreGenericResult(
 	return result, nil
 }
 
-func diagnosticParserCoreSelectedNodeCount(root *Node) uint64 {
+type diagnosticParserCoreSelectedCensus struct {
+	total   uint64
+	parents uint64
+	leaves  uint64
+}
+
+func diagnosticParserCoreSelectedNodeCensus(root *Node) diagnosticParserCoreSelectedCensus {
 	if root == nil {
-		return 0
+		return diagnosticParserCoreSelectedCensus{}
 	}
-	count := uint64(0)
+	var census diagnosticParserCoreSelectedCensus
 	stack := []*Node{root}
 	for len(stack) != 0 {
 		last := len(stack) - 1
@@ -525,10 +538,15 @@ func diagnosticParserCoreSelectedNodeCount(root *Node) uint64 {
 		if node == nil {
 			continue
 		}
-		count++
+		census.total++
+		if len(node.children) == 0 {
+			census.leaves++
+		} else {
+			census.parents++
+		}
 		stack = append(stack, node.children...)
 	}
-	return count
+	return census
 }
 
 type diagnosticParserCoreHeader struct {
@@ -1452,7 +1470,8 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 	s.receipt.Acceptance = &DiagnosticParserCoreGenericAcceptance{
 		ElectionIndex: s.electionIndex, Token: s.token, Header: header,
 		Payloads: payloads, Score: path.Score, BranchOrder: path.BranchOrder,
-		HasBranchOrder: path.HasBranchOrder, Stats: stats, Work: s.work,
+		HasBranchOrder: path.HasBranchOrder, CoreWork: s.compact.Work(),
+		Accepts: s.work.Accepts, Stats: stats, Work: s.work,
 	}
 	s.publishTotals()
 	return nil

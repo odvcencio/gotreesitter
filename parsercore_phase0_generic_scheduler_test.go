@@ -375,7 +375,14 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 		result.Tokens != 1036 || result.Dispatches != 2682 || result.Dispatches != acceptance.Work.Dispatches || acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead ||
 		acceptance.Header.Header.CreationSeq != 234 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || acceptance.Header.Header.Shifted || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 ||
 		!reflect.DeepEqual(acceptance.Payloads, []uint32{2624}) || acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder ||
+		acceptance.Accepts != 1 || acceptance.SelectedNodes != 1524 || acceptance.SelectedParents != 572 || acceptance.SelectedLeaves != 952 || acceptance.SelectedParents+acceptance.SelectedLeaves != acceptance.SelectedNodes ||
 		acceptance.Stats != (core.Stats{Nodes: 3005, Links: 3004, Subtrees: 2624, Children: 2769, CurrentExactPaths: 1}) ||
+		acceptance.CoreWork != (core.Work{
+			Shifts: 1348, Reductions: 1501, ReductionPopRequests: 1501,
+			EmittedPopPaths: 1646, EmittedPopPayloads: 2995,
+			GraphLinkAdditionsProxy: 3004, LeafConstructionsProxy: 1109,
+			ParentConstructionsProxy: 1515,
+		}) ||
 		acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
 			Passes: 2597, ActionLookups: 3545, Dispatches: 2682,
 			Conflicts: 160, ConflictActions: 328, Forks: 168, ConflictHeads: 357,
@@ -463,8 +470,15 @@ func TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite(t *testing.T) {
 			result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
 			result.Tokens != 1036 || result.Dispatches != 2682 || generic.Tokens != result.Tokens || generic.Dispatches != result.Dispatches || generic.GlobalBranchOrder != 168 || generic.NextCreationSeq != 235 ||
 			acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead || acceptance.Header.Header.CreationSeq != 234 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || !acceptance.Header.Header.Accepted || acceptance.Header.Header.ExactPaths != 1 ||
-			acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder || acceptance.SelectedNodes == 0 ||
+			acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder || acceptance.Accepts != 1 ||
+			acceptance.SelectedNodes != 1524 || acceptance.SelectedParents != 572 || acceptance.SelectedLeaves != 952 || acceptance.SelectedParents+acceptance.SelectedLeaves != acceptance.SelectedNodes ||
 			acceptance.Stats != (core.Stats{Nodes: 3005, Links: 3004, Subtrees: 2624, Children: 2769, CurrentExactPaths: 1}) ||
+			acceptance.CoreWork != (core.Work{
+				Shifts: 1348, Reductions: 1501, ReductionPopRequests: 1501,
+				EmittedPopPaths: 1646, EmittedPopPayloads: 2995,
+				GraphLinkAdditionsProxy: 3004, LeafConstructionsProxy: 1109,
+				ParentConstructionsProxy: 1515,
+			}) ||
 			acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
 				Passes: 2597, ActionLookups: 3545, Dispatches: 2682,
 				Conflicts: 160, ConflictActions: 328, Forks: 168, ConflictHeads: 357,

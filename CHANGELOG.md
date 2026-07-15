@@ -23,6 +23,9 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now publish transaction-safe shift,
+  reduction, pop, construction, graph-link, accept, and selected-tree work
+  totals for authenticated comparisons with the locked C oracle.
 - Compact parser-core diagnostics now support aggregate-only receipts for
   larger authenticated inputs, preserving exact materialization and work
   totals while omitting per-election, round, conflict, and path traces.

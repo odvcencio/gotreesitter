@@ -309,6 +309,7 @@ func TestDiagnosticShallowFoldRebuildsAdjacencyWithoutMutatingOldHead(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
+	workBefore := core.Work()
 	newHead, err := core.condense(key, linkInput{
 		prev: seed.Node, payload: incoming, scoreDelta: 4,
 		order: ForkOrder{Present: true, Value: 8},
@@ -325,6 +326,10 @@ func TestDiagnosticShallowFoldRebuildsAdjacencyWithoutMutatingOldHead(t *testing
 	}
 	if after.Nodes != before.Nodes+1 || after.Links != before.Links+3 || after.CurrentExactPaths != 3 {
 		t.Fatalf("replacement stats=%+v, before=%+v; want one node, copied adjacency, three paths", after, before)
+	}
+	workAfter := core.Work()
+	if workAfter.GraphLinkAdditionsProxy-workBefore.GraphLinkAdditionsProxy != 3 || uint64(after.Links) != workAfter.GraphLinkAdditionsProxy {
+		t.Fatalf("replacement link work=%+v -> %+v, stats=%+v", workBefore, workAfter, after)
 	}
 	oldPaths, err := core.Derivations(oldHead)
 	if err != nil {

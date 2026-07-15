@@ -273,6 +273,22 @@ type Stats struct {
 	CurrentExactPaths uint64
 }
 
+// Work reports committed compact-core operations in units that can be
+// compared with an instrumented tree-sitter runtime. Every field is
+// transactional: failed operations contribute nothing. Counters saturate at
+// math.MaxUint64 and set Overflow instead of wrapping.
+type Work struct {
+	Shifts                   uint64
+	Reductions               uint64
+	ReductionPopRequests     uint64
+	EmittedPopPaths          uint64
+	EmittedPopPayloads       uint64
+	GraphLinkAdditionsProxy  uint64
+	LeafConstructionsProxy   uint64
+	ParentConstructionsProxy uint64
+	Overflow                 bool
+}
+
 // Core is the compact, persistent diagnostic graph. All records are indexes
 // into pointer-free slices; the production parser is unaffected.
 type Core struct {
@@ -291,6 +307,7 @@ type Core struct {
 	boundaryJournal []boundaryMutation
 	transactions    []uint64
 	nextTransaction uint64
+	work            Work
 }
 
 type diagnosticOptions struct {
@@ -303,6 +320,7 @@ type checkpoint struct {
 	checkpoint                                        [32]byte
 	journal                                           int
 	transaction                                       uint64
+	work                                              Work
 }
 
 func (c *Core) mark() checkpoint {
@@ -315,6 +333,7 @@ func (c *Core) mark() checkpoint {
 		children: len(c.children), fields: len(c.fields), aliases: len(c.aliases),
 		frontier: c.frontier, checkpoint: c.checkpoint,
 		journal: len(c.boundaryJournal), transaction: c.nextTransaction,
+		work: c.work,
 	}
 	c.transactions = append(c.transactions, mark.transaction)
 	return mark
@@ -330,6 +349,7 @@ func (c *Core) restore(mark checkpoint) {
 	c.aliases = c.aliases[:mark.aliases]
 	c.frontier = mark.frontier
 	c.checkpoint = mark.checkpoint
+	c.work = mark.work
 	for index := len(c.boundaryJournal) - 1; index >= mark.journal; index-- {
 		mutation := c.boundaryJournal[index]
 		if mutation.existed {
@@ -510,9 +530,14 @@ func (c *Core) Shift(head Head, lookahead Symbol, actionOrdinal int, token Token
 	if err != nil {
 		return Head{}, err
 	}
-	return c.condense(c.shiftedBoundaryKey(targetState, token.EndByte), linkInput{
+	out, err = c.condense(c.shiftedBoundaryKey(targetState, token.EndByte), linkInput{
 		prev: head.Node, payload: payload, order: fork,
 	})
+	if err != nil {
+		return Head{}, err
+	}
+	c.addWork(&c.work.Shifts, 1)
+	return out, nil
 }
 
 // ShiftOrdinaryCohort applies one ordinary terminal election to distinct
@@ -563,6 +588,7 @@ func (c *Core) ShiftOrdinaryCohort(inputs []OrdinaryCohortShiftInput, lookahead 
 				return err
 			}
 		}
+		c.addWork(&c.work.Shifts, uint64(len(inputs)))
 		return nil
 	})
 	if err != nil {
@@ -636,6 +662,7 @@ func (c *Core) ShiftExtraCohort(inputs []ExtraCohortShiftInput, lookahead Symbol
 				return err
 			}
 		}
+		c.addWork(&c.work.Shifts, uint64(len(inputs)))
 		return nil
 	})
 	if err != nil {
@@ -742,6 +769,12 @@ func (c *Core) ReduceOutputs(head Head, lookahead Symbol, actionOrdinal int, for
 	}
 	if len(paths) == 0 {
 		return nil, errors.New("parser-core phase zero: reduction has no exact pop path")
+	}
+	c.addWork(&c.work.Reductions, 1)
+	c.addWork(&c.work.ReductionPopRequests, 1)
+	c.addWork(&c.work.EmittedPopPaths, uint64(len(paths)))
+	for _, path := range paths {
+		c.addWork(&c.work.EmittedPopPayloads, uint64(len(path.children)+len(path.trailing)))
 	}
 	type reductionBoundaryOutput struct {
 		head      Head
@@ -1023,6 +1056,7 @@ func (c *Core) appendPrivate(state StateID, byteOffset uint32, in linkInput) (He
 		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
 		order: in.order.Value, flags: flags,
 	})
+	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	id, err := c.appendNode(nodeRecord{
 		state: state, byteOffset: byteOffset,
 		firstLink: uint32(linkID), linkCount: 1, pathCount: prev.pathCount,
@@ -1172,6 +1206,7 @@ func (c *Core) condenseWithOutcome(key boundaryKey, in linkInput) (condenseOutco
 		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
 		order: in.order.Value, flags: flags, next: LinkID(old.firstLink),
 	})
+	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	id, err := c.appendNode(nodeRecord{
 		state: key.state, byteOffset: key.byteOffset,
 		firstLink: uint32(linkID), linkCount: linkCount, pathCount: newPathCount,
@@ -1283,6 +1318,7 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, old nodeRecord, oldLinks []l
 		}
 		copy.next = first
 		c.links = append(c.links, copy)
+		c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 		first = LinkID(len(c.links))
 	}
 	id, err := c.appendNode(nodeRecord{
@@ -1644,6 +1680,14 @@ func (c *Core) Stats(head Head) (Stats, error) {
 	}, nil
 }
 
+// Work returns a value copy of the committed compact-core work counters.
+func (c *Core) Work() Work {
+	if c == nil {
+		return Work{}
+	}
+	return c.work
+}
+
 func (c *Core) appendNode(r nodeRecord) (NodeID, error) {
 	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
 		return 0, errors.New("parser-core phase zero: node arena cap")
@@ -1669,7 +1713,21 @@ func (c *Core) appendSubtree(r subtreeRecord, children []SubtreeID, fields []Fie
 	c.fields = append(c.fields, fields...)
 	c.aliases = append(c.aliases, aliases...)
 	c.subtrees = append(c.subtrees, r)
+	if r.terminal {
+		c.addWork(&c.work.LeafConstructionsProxy, 1)
+	} else {
+		c.addWork(&c.work.ParentConstructionsProxy, 1)
+	}
 	return SubtreeID(len(c.subtrees)), nil
+}
+
+func (c *Core) addWork(counter *uint64, delta uint64) {
+	if math.MaxUint64-*counter < delta {
+		*counter = math.MaxUint64
+		c.work.Overflow = true
+		return
+	}
+	*counter += delta
 }
 
 func (c *Core) node(id NodeID) (*nodeRecord, error) {

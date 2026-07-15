@@ -33,11 +33,17 @@ func TestDiagnosticParserCoreSeedPublicationRejectsMaterializationTransactionall
 	if !reflect.DeepEqual(result, base) || result.GenericScheduler != nil || result.MaterializedTree != nil || result.Materialized || result.Completed || len(result.Elections) != 0 || result.Tokens != 0 || result.Dispatches != 0 {
 		t.Fatalf("failed materialization leaked publication: %+v", result)
 	}
+	if acceptance := scheduler.receipt.Acceptance; acceptance.SelectedNodes != 0 || acceptance.SelectedParents != 0 || acceptance.SelectedLeaves != 0 {
+		t.Fatalf("failed materialization leaked selected census: %+v", acceptance)
+	}
 	result, err = publishDiagnosticParserCoreGenericResult(base, scheduler, func(core.Head) (*Tree, error) {
 		return nil, nil
 	})
 	if err == nil || !reflect.DeepEqual(result, base) || result.GenericScheduler != nil || result.MaterializedTree != nil || result.Materialized || result.Completed {
 		t.Fatalf("empty materialization leaked publication: result=%+v err=%v", result, err)
+	}
+	if acceptance := scheduler.receipt.Acceptance; acceptance.SelectedNodes != 0 || acceptance.SelectedParents != 0 || acceptance.SelectedLeaves != 0 {
+		t.Fatalf("empty materialization leaked selected census: %+v", acceptance)
 	}
 }
 

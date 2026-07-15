@@ -401,6 +401,7 @@ func TestDiagnosticParserCoreSummaryConflictFailureRollsBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	beforeCoreWork := compact.Work()
 	beforeHeaders := append([]diagnosticParserCoreHeader(nil), scheduler.headers...)
 	before, err := scheduler.headerReceipts(scheduler.headers)
 	if err != nil {
@@ -415,7 +416,7 @@ func TestDiagnosticParserCoreSummaryConflictFailureRollsBack(t *testing.T) {
 		t.Fatal(statsErr)
 	}
 	wantReceipt := &DiagnosticParserCoreGenericScheduler{ReceiptMode: DiagnosticParserCoreReceiptSummary}
-	if beforeStats != afterStats || !reflect.DeepEqual(scheduler.headers, beforeHeaders) || scheduler.branchOrder != 7 || scheduler.nextSeq != 10 || scheduler.dispatches != 0 || scheduler.work != (DiagnosticParserCoreGenericWork{}) || !reflect.DeepEqual(scheduler.receipt, wantReceipt) {
+	if beforeStats != afterStats || compact.Work() != beforeCoreWork || !reflect.DeepEqual(scheduler.headers, beforeHeaders) || scheduler.branchOrder != 7 || scheduler.nextSeq != 10 || scheduler.dispatches != 0 || scheduler.work != (DiagnosticParserCoreGenericWork{}) || !reflect.DeepEqual(scheduler.receipt, wantReceipt) {
 		t.Fatalf("summary rollback leaked: before=%+v after=%+v scheduler=%+v", beforeStats, afterStats, scheduler)
 	}
 	for _, state := range []core.StateID{2, 3} {
