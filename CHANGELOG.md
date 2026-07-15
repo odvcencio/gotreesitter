@@ -23,6 +23,9 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- The authenticated compact parser-core diagnostics now ratchet a real,
+  forking Go source file against the locked C work counters while requiring an
+  exact full-span tree and the unchanged bounded survivor policy.
 - Compact parser-core diagnostics now publish transaction-safe shift,
   reduction, pop, construction, graph-link, accept, and selected-tree work
   totals for authenticated comparisons with the locked C oracle.
