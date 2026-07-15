@@ -44,7 +44,12 @@ for tags and release notes while still in `0.x`.
   one-subtree cost of sharing one validated ordinary-DFA terminal across the
   cohort. The narrow operation rejects incompatible heads and actions before
   mutation, remains transactionally bounded, and does not expose payload-ID
-  injection or general interning.
+  injection or general interning. The next authenticated dot election now
+  executes its shift-before-reduce conflict through the first four-path
+  frontier and stops before cached-dot primary shifts. Its receipt preserves
+  exact GOTO order and allocator identity while exposing the unoptimized
+  two-parent duplication as a three-node, three-link, three-subtree, two-child
+  physical delta.
   Conflict-frontier cells are visible in ambiguity profiles; generalized
   repetition, no-lookahead, no-action, and recovery paths still decline before
   unsupported execution, and ordinary builds retain no diagnostic driver

@@ -143,6 +143,10 @@ func assertProductionParserCoreCells(t *testing.T, profile *gotreesitter.Ambigui
 		{253, 6}:  {{Type: gotreesitter.ParseActionShift, State: 163}},
 		{276, 86}: {{Type: gotreesitter.ParseActionShift, State: 186}},
 		{163, 86}: {{Type: gotreesitter.ParseActionShift, State: 186}},
+		{186, 4}: {
+			{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1},
+			{Type: gotreesitter.ParseActionShift, State: 194},
+		},
 	}
 	orderedSeen := make(map[cellKey]bool, len(orderedWant))
 	continuationSeen := false
@@ -215,10 +219,10 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if prefixErr != nil && result.Boundary == "" {
 		t.Fatalf("untyped prefix error: %v", prefixErr)
 	}
-	if result.Boundary != gotreesitter.DiagnosticParserCoreElectionBarrier || result.Tokens != 101 || result.Dispatches != 195 || result.State != 186 || result.Lookahead.Symbol != 86 || prefixErr == nil {
+	if result.Boundary != gotreesitter.DiagnosticParserCoreDotConflictFanoutBoundary || result.Tokens != 102 || result.Dispatches != 196 || result.State != 520 || result.Lookahead.Symbol != 4 || prefixErr == nil {
 		t.Fatalf("rewrite prefix identity drifted: boundary=%s tokens=%d dispatches=%d state=%d lookahead=%d fork_actions=%+v fork_boundaries=%d fork_paths=%d same_rounds=%+v last_order=%d", result.Boundary, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkActions, result.ForkBoundaries, result.ForkLogicalPaths, result.SameTokenRounds, result.LastBranchOrder)
 	}
-	if result.Detail != "packed convergence closed before the next scanner election" || len(result.Elections) != int(result.Tokens) {
+	if result.Detail != "dot conflict fanout closed before cached-lookahead primary shifts" || len(result.Elections) != int(result.Tokens) {
 		t.Fatalf("continued prefix detail/elections = %q/%d, want one election per %d tokens", result.Detail, len(result.Elections), result.Tokens)
 	}
 	if result.OracleCondenseResolution == nil || result.ContinuationElection == nil {
@@ -422,6 +426,41 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 		packed.GlobalBranchOrder != 3 || packed.NextCreationSeq != 4 || packed.Dispatches != 195 {
 		t.Fatalf("packed convergence drifted: %+v", packed)
 	}
+	dot := result.DotConflictFanout
+	wantDotActions := []gotreesitter.DiagnosticParserCoreRoundAction{
+		{HeaderIndex: 0, State: 186, ByteOffset: 741, Ordinal: 1, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 194}, BranchOrder: 4},
+		{HeaderIndex: 0, State: 186, ByteOffset: 741, Ordinal: 0, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1}},
+	}
+	wantDotHeaders := []gotreesitter.DiagnosticParserCoreHeaderReceipt{
+		{CreationSeq: 1, State: 520, ByteOffset: 741, ExactPaths: 1, Checkpoint: emptyCheckpoint.SHA256},
+		{CreationSeq: 5, State: 407, ByteOffset: 741, ExactPaths: 1, Checkpoint: emptyCheckpoint.SHA256},
+		{CreationSeq: 4, State: 194, ByteOffset: 742, Shifted: true, ExactPaths: 2, Checkpoint: emptyCheckpoint.SHA256},
+	}
+	wantDotDerivations := [][]gotreesitter.DiagnosticParserCorePackedDerivation{
+		{{Score: -11, BranchOrder: 1, HasBranchOrder: true}},
+		{{Score: -10, BranchOrder: 3, HasBranchOrder: true}},
+		{{Score: -11, BranchOrder: 4, HasBranchOrder: true}, {Score: -10, BranchOrder: 4, HasBranchOrder: true}},
+	}
+	if dot == nil || dot.ElectionIndex != 101 || dot.ElectionExpectedBefore != emptyCheckpoint ||
+		!reflect.DeepEqual(dot.Election.States, []gotreesitter.StateID{186}) || dot.Election.Token.Symbol != 4 || dot.Election.Token.Text != "." || dot.Election.Token.StartByte != 741 || dot.Election.Token.EndByte != 742 || dot.Election.Token.Missing || dot.Election.Token.NoLookahead || dot.Election.Token.ExternalScannerToken ||
+		dot.Election.ScannerBefore != emptyCheckpoint || dot.Election.ScannerAfter != emptyCheckpoint || dot.Election.CurrentCheckpointValid || dot.Election.CurrentCheckpointStart != emptyCheckpoint || dot.Election.CurrentCheckpointEnd != emptyCheckpoint || dot.Election.CurrentCheckpointBytes != [2]uint32{} ||
+		dot.ElectionBefore.Header.State != 186 || dot.ElectionBefore.Header.ByteOffset != 741 || dot.ElectionBefore.Header.CreationSeq != 1 || !dot.ElectionBefore.Header.Shifted || dot.ElectionBefore.Header.ExactPaths != 2 || !reflect.DeepEqual(dot.ElectionBefore.Derivations, wantPackedDerivations) ||
+		dot.ElectionReset.State != 186 || dot.ElectionReset.ByteOffset != 741 || dot.ElectionReset.CreationSeq != 1 || dot.ElectionReset.Shifted || dot.ElectionReset.ExactPaths != 2 ||
+		dot.ConflictRound.Index != 0 || len(dot.ConflictRound.Before) != 1 || !reflect.DeepEqual(dot.ConflictRound.Before[0], dot.ElectionReset) || !reflect.DeepEqual(dot.ConflictRound.Actions, wantDotActions) || !reflect.DeepEqual(dot.ConflictRound.After, wantDotHeaders) ||
+		len(dot.Headers) != 3 || dot.LogicalPaths != 4 || dot.NodesAfter-dot.NodesBefore != 3 || dot.LinksAfter-dot.LinksBefore != 3 || dot.SubtreesBefore != 195 || dot.SubtreesAfter != 198 || dot.ChildrenAfter-dot.ChildrenBefore != 2 ||
+		dot.SemanticReductionParents != 1 || dot.DistinctReductionParents != 2 || dot.DuplicateReductionParents != 1 || dot.GlobalBranchOrder != 4 || dot.NextCreationSeq != 6 || dot.Dispatches != 196 || len(dot.NewPayloadViews) != 3 {
+		t.Fatalf("dot conflict fanout drifted: %+v", dot)
+	}
+	for index := range dot.Headers {
+		if !reflect.DeepEqual(dot.Headers[index].Header, wantDotHeaders[index]) || !reflect.DeepEqual(dot.Headers[index].Derivations, wantDotDerivations[index]) {
+			t.Fatalf("dot header %d=%+v, want header=%+v derivations=%+v", index, dot.Headers[index], wantDotHeaders[index], wantDotDerivations[index])
+		}
+	}
+	dotToken, leftParent, rightParent := dot.NewPayloadViews[0], dot.NewPayloadViews[1], dot.NewPayloadViews[2]
+	if dotToken.ID != 196 || dotToken.Symbol != 4 || dotToken.StartByte != 741 || dotToken.EndByte != 742 || !dotToken.Terminal || dotToken.Extra ||
+		leftParent.ID != 197 || rightParent.ID != 198 || leftParent.Symbol != 171 || rightParent.Symbol != 171 || leftParent.ProductionID != 0 || rightParent.ProductionID != 0 || leftParent.Terminal || rightParent.Terminal || !reflect.DeepEqual(leftParent.Children, []uint32{195}) || !reflect.DeepEqual(rightParent.Children, []uint32{195}) {
+		t.Fatalf("dot payload views drifted: %+v", dot.NewPayloadViews)
+	}
 	for _, want := range []struct {
 		index      int
 		start, end uint32
@@ -444,8 +483,8 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if !reflect.DeepEqual(result.ForkActions, wantForkActions) || !reflect.DeepEqual(result.ForkBoundaryReceipts, wantForkBoundaries) || result.ForkBoundaries != 2 || result.ForkLogicalPaths != 2 {
 		t.Fatalf("first fork receipt: actions=%+v boundary_receipts=%+v boundaries=%d paths=%d, want actions=%+v boundary_receipts=%+v boundaries=2 paths=2", result.ForkActions, result.ForkBoundaryReceipts, result.ForkBoundaries, result.ForkLogicalPaths, wantForkActions, wantForkBoundaries)
 	}
-	if result.LastBranchOrder != 3 || len(result.SameTokenRounds) != 4 {
-		t.Fatalf("same-lookahead scheduler receipt = rounds=%d last_branch_order=%d, want 4/3", len(result.SameTokenRounds), result.LastBranchOrder)
+	if result.LastBranchOrder != 4 || len(result.SameTokenRounds) != 4 {
+		t.Fatalf("same-lookahead scheduler receipt = rounds=%d last_branch_order=%d, want 4/4", len(result.SameTokenRounds), result.LastBranchOrder)
 	}
 	assertParserCoreSameTokenRounds(t, result)
 	wantExtraSpans := [][2]uint32{{49, 116}, {117, 183}, {184, 266}, {267, 310}, {457, 517}, {599, 664}}
@@ -557,7 +596,7 @@ func TestDiagnosticParserCoreUsesEmbeddedGrammarAndExactScanner(t *testing.T) {
 		t.Fatal("rewrite fixture missing")
 	}
 	canonical, canonicalErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, gotreesitter.DiagnosticParserCorePrefixOptions{})
-	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreElectionBarrier || canonical.Tokens != 101 || canonical.Dispatches != 195 || canonical.State != 186 || canonical.Lookahead.Symbol != 86 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 3 || len(canonical.SameTokenRounds) != 4 || canonical.OracleCondenseResolution == nil || canonical.ContinuationElection == nil || canonical.LaterForkExecution == nil || len(canonical.OrderedElections) != 2 || canonical.CohortCondense == nil || canonical.PostCondenseContinuation == nil || canonical.SubsequentConflict == nil || canonical.PackedConvergence == nil || !canonical.ExactRootDFA {
+	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreDotConflictFanoutBoundary || canonical.Tokens != 102 || canonical.Dispatches != 196 || canonical.State != 520 || canonical.Lookahead.Symbol != 4 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 4 || len(canonical.SameTokenRounds) != 4 || canonical.OracleCondenseResolution == nil || canonical.ContinuationElection == nil || canonical.LaterForkExecution == nil || len(canonical.OrderedElections) != 2 || canonical.CohortCondense == nil || canonical.PostCondenseContinuation == nil || canonical.SubsequentConflict == nil || canonical.PackedConvergence == nil || canonical.DotConflictFanout == nil || !canonical.ExactRootDFA {
 		t.Fatalf("exact scanner did not reach authenticated boundary: result=%+v err=%v", canonical, canonicalErr)
 	}
 	wrongScanners := []struct {
@@ -684,6 +723,43 @@ func TestDiagnosticParserCorePackedConvergencePublishesTransactionally(t *testin
 				result.CohortCondense == nil || result.PostCondenseContinuation == nil || result.SubsequentConflict == nil || result.PackedConvergence != nil || result.LastBranchOrder != 2 {
 				t.Fatalf("failed packed convergence transaction leaked staged receipts: tokens=%d dispatches=%d elections=%d state=%d lookahead=%+v post=%+v subsequent=%+v packed=%+v last_order=%d",
 					result.Tokens, result.Dispatches, len(result.Elections), result.State, result.Lookahead, result.PostCondenseContinuation, result.SubsequentConflict, result.PackedConvergence, result.LastBranchOrder)
+			}
+		})
+	}
+}
+
+func TestDiagnosticParserCoreDotConflictFanoutPublishesTransactionally(t *testing.T) {
+	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var source []byte
+	for _, fixture := range fixtures {
+		if fixture.Fixture.ID == "rewrite" {
+			source = fixture.Source
+			break
+		}
+	}
+	if len(source) == 0 {
+		t.Fatal("rewrite fixture missing")
+	}
+	tests := []struct {
+		name    string
+		options gotreesitter.DiagnosticParserCorePrefixOptions
+	}{
+		{name: "election-token-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxTokens: 101}},
+		{name: "conflict-dispatch-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 195}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, test.options)
+			if routeErr == nil || result.Boundary != gotreesitter.DiagnosticParserCoreCap {
+				t.Fatalf("dot conflict route did not fail closed: result=%+v err=%v", result, routeErr)
+			}
+			if result.Tokens != 101 || result.Dispatches != 195 || len(result.Elections) != 101 || result.State != 186 || result.Lookahead.Symbol != 86 || result.Lookahead.Text != "r" || result.Lookahead.StartByte != 740 || result.Lookahead.EndByte != 741 ||
+				result.PackedConvergence == nil || result.DotConflictFanout != nil || result.LastBranchOrder != 3 {
+				t.Fatalf("failed dot conflict transaction leaked staged state: tokens=%d dispatches=%d elections=%d state=%d lookahead=%+v packed=%+v dot=%+v last_order=%d",
+					result.Tokens, result.Dispatches, len(result.Elections), result.State, result.Lookahead, result.PackedConvergence, result.DotConflictFanout, result.LastBranchOrder)
 			}
 		})
 	}

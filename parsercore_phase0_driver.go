@@ -29,6 +29,7 @@ const (
 	DiagnosticParserCoreSingleStateContinuation    DiagnosticParserCoreBoundaryKind = "single_state_continuation_before_dispatch"
 	DiagnosticParserCoreSubsequentConflictBoundary DiagnosticParserCoreBoundaryKind = "subsequent_conflict_before_execution"
 	DiagnosticParserCoreCohortCondensed            DiagnosticParserCoreBoundaryKind = "cohort_condensed_before_election"
+	DiagnosticParserCoreDotConflictFanoutBoundary  DiagnosticParserCoreBoundaryKind = "dot_conflict_fanout_before_cached_shift"
 )
 
 type DiagnosticParserCorePrefixOptions struct {
@@ -275,6 +276,37 @@ type DiagnosticParserCorePackedConvergence struct {
 	Dispatches                 uint64
 }
 
+type DiagnosticParserCoreHeaderPathReceipt struct {
+	Header      DiagnosticParserCoreHeaderReceipt
+	Derivations []DiagnosticParserCorePackedDerivation
+}
+
+type DiagnosticParserCoreDotConflictFanout struct {
+	ElectionIndex             int
+	ElectionExpectedBefore    DiagnosticParserCoreScannerCheckpoint
+	Election                  DiagnosticParserCoreElection
+	ElectionBefore            DiagnosticParserCoreHeaderPathReceipt
+	ElectionReset             DiagnosticParserCoreHeaderReceipt
+	ConflictRound             DiagnosticParserCoreDispatchRound
+	Headers                   []DiagnosticParserCoreHeaderPathReceipt
+	LogicalPaths              uint64
+	NodesBefore               uint32
+	NodesAfter                uint32
+	LinksBefore               uint32
+	LinksAfter                uint32
+	SubtreesBefore            uint32
+	SubtreesAfter             uint32
+	ChildrenBefore            uint32
+	ChildrenAfter             uint32
+	NewPayloadViews           []DiagnosticParserCoreTerminalPayloadView
+	SemanticReductionParents  uint32
+	DistinctReductionParents  uint32
+	DuplicateReductionParents uint32
+	GlobalBranchOrder         uint64
+	NextCreationSeq           uint64
+	Dispatches                uint64
+}
+
 type DiagnosticParserCoreExtraShift struct {
 	State          StateID
 	Token          Token
@@ -313,6 +345,7 @@ type DiagnosticParserCorePrefixResult struct {
 	CohortCondense           *DiagnosticParserCoreCohortCondense
 	PostCondenseContinuation *DiagnosticParserCorePostCondenseContinuation
 	PackedConvergence        *DiagnosticParserCorePackedConvergence
+	DotConflictFanout        *DiagnosticParserCoreDotConflictFanout
 	Elections                []DiagnosticParserCoreElection
 	SourceSHA256             [32]byte
 	GrammarBlobSHA256        [32]byte
@@ -721,9 +754,11 @@ func validateDiagnosticParserCoreCell(token Token, actions []core.Action) error 
 }
 
 // executeDiagnosticParserCoreConflict executes one complete conflict cell
-// transactionally. Returned headers are ordered primary first, then secondary
-// clones in action-ordinal order. The caller inserts pre-existing siblings
-// between those groups to preserve production scheduler order.
+// transactionally. Returned headers are ordered primary frontier first, then
+// secondary clones in action-ordinal order. The first primary retains the
+// incoming creation sequence; additional primary boundaries receive new
+// sequences after all secondary clones. The caller inserts pre-existing
+// siblings between those groups to preserve production scheduler order.
 func executeDiagnosticParserCoreConflict(
 	compact *core.Core,
 	incoming diagnosticParserCoreHeader,
@@ -745,7 +780,7 @@ func executeDiagnosticParserCoreConflict(
 	}
 
 	trialOrder, trialSeq := branchOrder, nextSeq
-	var primary diagnosticParserCoreHeader
+	var primaries []diagnosticParserCoreHeader
 	var secondaries []diagnosticParserCoreHeader
 	var receipts []DiagnosticParserCoreRoundAction
 	err = compact.ApplyAtomic(func() error {
@@ -772,12 +807,20 @@ func executeDiagnosticParserCoreConflict(
 		if applyErr != nil {
 			return applyErr
 		}
-		if len(heads) != 1 {
-			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "multi-boundary primary reduction requires frontier-version scheduling"}
+		if len(heads) == 0 {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "conflict primary produced no scheduler boundary"}
 		}
-		primary = incoming
-		primary.head = heads[0]
-		primary.shifted = actions[0].Type == core.ActionShift
+		primaries = make([]diagnosticParserCoreHeader, len(heads))
+		for index, head := range heads {
+			primary := incoming
+			primary.head = head
+			primary.shifted = actions[0].Type == core.ActionShift
+			if index > 0 {
+				primary.creationSeq = trialSeq
+				trialSeq++
+			}
+			primaries[index] = primary
+		}
 		receipts = append(receipts, DiagnosticParserCoreRoundAction{
 			HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
 			Ordinal: 0, Action: rootParserCoreAction(actions[0]),
@@ -788,7 +831,7 @@ func executeDiagnosticParserCoreConflict(
 		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
 	}
 
-	headers := append([]diagnosticParserCoreHeader{primary}, secondaries...)
+	headers := append(primaries, secondaries...)
 	after, err := diagnosticParserCoreHeaderReceipts(compact, headers)
 	if err != nil {
 		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
@@ -1173,6 +1216,21 @@ func continueDiagnosticParserCoreOrderedCohort(
 			result.State, result.Lookahead = packed.Packed.State, packed.Election.Token
 			result.Boundary = DiagnosticParserCoreElectionBarrier
 			result.Detail = "packed convergence closed before the next scanner election"
+			dot, dotErr := executeDiagnosticParserCoreDotConflictFanout(
+				compact, tokenSource, scannerScratch, packed, len(result.Elections), result.Dispatches,
+				options, packed.GlobalBranchOrder, packed.NextCreationSeq,
+			)
+			if dotErr != nil {
+				return dotErr
+			}
+			result.Elections = append(result.Elections, dot.Election)
+			result.Tokens++
+			result.Dispatches = dot.Dispatches
+			result.LastBranchOrder = dot.GlobalBranchOrder
+			result.DotConflictFanout = dot
+			result.State, result.Lookahead = dot.Headers[0].Header.State, dot.Election.Token
+			result.Boundary = DiagnosticParserCoreDotConflictFanoutBoundary
+			result.Detail = "dot conflict fanout closed before cached-lookahead primary shifts"
 			return &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 		}
 	}
@@ -2074,6 +2132,258 @@ func diagnosticParserCoreShiftPayloadIDs(compact *core.Core, shifted []core.Head
 		}
 	}
 	return payloads, nil
+}
+
+func executeDiagnosticParserCoreDotConflictFanout(
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	packed *DiagnosticParserCorePackedConvergence,
+	electionIndex int,
+	dispatches uint64,
+	options DiagnosticParserCorePrefixOptions,
+	branchOrder uint64,
+	nextCreationSeq uint64,
+) (*DiagnosticParserCoreDotConflictFanout, error) {
+	if electionIndex != 101 || branchOrder != 3 || nextCreationSeq != 4 || packed == nil {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict allocator identity mismatch"}
+	}
+	if uint64(electionIndex) >= options.MaxTokens {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "dot conflict election token cap"}
+	}
+	receipt := &DiagnosticParserCoreDotConflictFanout{}
+	err := compact.ApplyAtomic(func() error {
+		header, before, election, err := readDiagnosticParserCoreDotElection(
+			compact, tokenSource, scannerScratch, packed,
+		)
+		if err != nil {
+			return err
+		}
+		receipt.ElectionIndex = electionIndex
+		receipt.ElectionExpectedBefore = packed.Election.ScannerAfter
+		receipt.Election = election
+		receipt.ElectionBefore = before
+		if err := compact.BeginFrontier(); err != nil {
+			return err
+		}
+		compact.SetPhaseCheckpoint(election.ScannerAfter.SHA256)
+		header.shifted = false
+		header.checkpoint = election.ScannerAfter.SHA256
+		receipt.ElectionReset, err = diagnosticParserCoreHeaderReceipt(compact, header)
+		if err != nil {
+			return err
+		}
+		beforeStats, err := compact.Stats(header.head)
+		if err != nil {
+			return err
+		}
+		actions, err := compact.Actions(core.StateID(receipt.ElectionReset.State), core.Symbol(election.Token.Symbol))
+		if err != nil {
+			return err
+		}
+		wantActions := []core.Action{
+			{Type: core.ActionReduce, Symbol: 171, ChildCount: 1},
+			{Type: core.ActionShift, State: 194},
+		}
+		if !reflect.DeepEqual(actions, wantActions) {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict action cell mismatch"}
+		}
+		if dispatches >= options.MaxDispatches {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "dot conflict dispatch cap"}
+		}
+		dispatches++
+		headers, round, nextOrder, nextSeq, err := executeDiagnosticParserCoreConflict(
+			compact, header, 0, election.Token, actions, branchOrder, nextCreationSeq,
+		)
+		if err != nil {
+			return err
+		}
+		round.Index = 0
+		receipt.ConflictRound = round
+		if err := authenticateDiagnosticParserCoreDotFanout(compact, headers, nextOrder, nextSeq, receipt); err != nil {
+			return err
+		}
+		if err := measureDiagnosticParserCoreDotFanout(compact, headers, beforeStats, receipt); err != nil {
+			return err
+		}
+		receipt.GlobalBranchOrder = nextOrder
+		receipt.NextCreationSeq = nextSeq
+		receipt.Dispatches = dispatches
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return receipt, nil
+}
+
+func readDiagnosticParserCoreDotElection(
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	packed *DiagnosticParserCorePackedConvergence,
+) (diagnosticParserCoreHeader, DiagnosticParserCoreHeaderPathReceipt, DiagnosticParserCoreElection, error) {
+	if packed.Packed.State != 186 || packed.Packed.ByteOffset != 741 || packed.Packed.CreationSeq != 1 || !packed.Packed.Shifted || packed.Packed.ExactPaths != 2 ||
+		packed.GlobalBranchOrder != 3 || packed.NextCreationSeq != 4 || !reflect.DeepEqual(packed.Derivations, []DiagnosticParserCorePackedDerivation{
+		{Score: -11, BranchOrder: 1, HasBranchOrder: true},
+		{Score: -10, BranchOrder: 3, HasBranchOrder: true},
+	}) {
+		return diagnosticParserCoreHeader{}, DiagnosticParserCoreHeaderPathReceipt{}, DiagnosticParserCoreElection{}, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot election packed-header identity mismatch"}
+	}
+	head, ok := compact.CanonicalBoundary(186, 741, true, packed.Packed.Checkpoint)
+	if !ok {
+		return diagnosticParserCoreHeader{}, DiagnosticParserCoreHeaderPathReceipt{}, DiagnosticParserCoreElection{}, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot election packed head is not canonical"}
+	}
+	header := diagnosticParserCoreHeader{
+		head: head, creationSeq: 1, shifted: true, checkpoint: packed.Packed.Checkpoint,
+	}
+	before, err := diagnosticParserCoreHeaderPaths(compact, header)
+	if err != nil {
+		return diagnosticParserCoreHeader{}, DiagnosticParserCoreHeaderPathReceipt{}, DiagnosticParserCoreElection{}, err
+	}
+	if !reflect.DeepEqual(before.Derivations, packed.Derivations) {
+		return diagnosticParserCoreHeader{}, DiagnosticParserCoreHeaderPathReceipt{}, DiagnosticParserCoreElection{}, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot election packed derivations drifted"}
+	}
+	tokenSource.SetParserState(186)
+	tokenSource.SetGLRStates(nil)
+	beforeCheckpoint := parserCoreCheckpoint(append([]byte(nil), tokenSource.captureExternalScannerStateInto(scannerScratch)...))
+	if beforeCheckpoint != packed.Election.ScannerAfter {
+		return diagnosticParserCoreHeader{}, DiagnosticParserCoreHeaderPathReceipt{}, DiagnosticParserCoreElection{}, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "dot election scanner continuity failed"}
+	}
+	token := tokenSource.Next()
+	afterCheckpoint := parserCoreCheckpoint(append([]byte(nil), tokenSource.captureExternalScannerStateInto(scannerScratch)...))
+	current, currentStart, currentEnd, currentValid := currentExternalScannerCheckpoint(tokenSource)
+	election := DiagnosticParserCoreElection{
+		States: []StateID{186}, Token: token,
+		ScannerBefore: beforeCheckpoint, ScannerAfter: afterCheckpoint,
+		CurrentCheckpointValid: currentValid,
+		CurrentCheckpointStart: parserCoreCheckpoint(current.start),
+		CurrentCheckpointEnd:   parserCoreCheckpoint(current.end),
+		CurrentCheckpointBytes: [2]uint32{currentStart, currentEnd},
+	}
+	empty := parserCoreCheckpoint(nil)
+	if token.Symbol != 4 || token.Text != "." || token.StartByte != 741 || token.EndByte != 742 ||
+		token.Missing || token.NoLookahead || token.ExternalScannerToken || beforeCheckpoint != empty || afterCheckpoint != empty ||
+		currentValid || election.CurrentCheckpointStart != empty || election.CurrentCheckpointEnd != empty || election.CurrentCheckpointBytes != [2]uint32{} {
+		return diagnosticParserCoreHeader{}, DiagnosticParserCoreHeaderPathReceipt{}, DiagnosticParserCoreElection{}, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "dot election token identity mismatch"}
+	}
+	return header, before, election, nil
+}
+
+func diagnosticParserCoreHeaderPaths(compact *core.Core, header diagnosticParserCoreHeader) (DiagnosticParserCoreHeaderPathReceipt, error) {
+	receipt, err := diagnosticParserCoreHeaderReceipt(compact, header)
+	if err != nil {
+		return DiagnosticParserCoreHeaderPathReceipt{}, err
+	}
+	paths, err := compact.Derivations(header.head)
+	if err != nil {
+		return DiagnosticParserCoreHeaderPathReceipt{}, err
+	}
+	out := DiagnosticParserCoreHeaderPathReceipt{Header: receipt}
+	for _, path := range paths {
+		out.Derivations = append(out.Derivations, DiagnosticParserCorePackedDerivation{
+			Score: path.Score, BranchOrder: path.BranchOrder, HasBranchOrder: path.HasBranchOrder,
+		})
+	}
+	sort.Slice(out.Derivations, func(i, j int) bool {
+		if out.Derivations[i].Score != out.Derivations[j].Score {
+			return out.Derivations[i].Score < out.Derivations[j].Score
+		}
+		return out.Derivations[i].BranchOrder < out.Derivations[j].BranchOrder
+	})
+	return out, nil
+}
+
+func authenticateDiagnosticParserCoreDotFanout(
+	compact *core.Core,
+	headers []diagnosticParserCoreHeader,
+	branchOrder uint64,
+	nextSeq uint64,
+	receipt *DiagnosticParserCoreDotConflictFanout,
+) error {
+	if branchOrder != 4 || nextSeq != 6 || len(headers) != 3 {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict allocator/cardinality mismatch"}
+	}
+	wantActions := []DiagnosticParserCoreRoundAction{
+		{HeaderIndex: 0, State: 186, ByteOffset: 741, Ordinal: 1, Action: ParseAction{Type: ParseActionShift, State: 194}, BranchOrder: 4},
+		{HeaderIndex: 0, State: 186, ByteOffset: 741, Ordinal: 0, Action: ParseAction{Type: ParseActionReduce, Symbol: 171, ChildCount: 1}},
+	}
+	if !reflect.DeepEqual(receipt.ConflictRound.Actions, wantActions) {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict execution order mismatch"}
+	}
+	wantHeaders := []DiagnosticParserCoreHeaderReceipt{
+		{CreationSeq: 1, State: 520, ByteOffset: 741, ExactPaths: 1, Checkpoint: receipt.Election.ScannerAfter.SHA256},
+		{CreationSeq: 5, State: 407, ByteOffset: 741, ExactPaths: 1, Checkpoint: receipt.Election.ScannerAfter.SHA256},
+		{CreationSeq: 4, State: 194, ByteOffset: 742, Shifted: true, ExactPaths: 2, Checkpoint: receipt.Election.ScannerAfter.SHA256},
+	}
+	if !reflect.DeepEqual(receipt.ConflictRound.After, wantHeaders) {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict header order/identity mismatch"}
+	}
+	wantDerivations := [][]DiagnosticParserCorePackedDerivation{
+		{{Score: -11, BranchOrder: 1, HasBranchOrder: true}},
+		{{Score: -10, BranchOrder: 3, HasBranchOrder: true}},
+		{
+			{Score: -11, BranchOrder: 4, HasBranchOrder: true},
+			{Score: -10, BranchOrder: 4, HasBranchOrder: true},
+		},
+	}
+	for index, header := range headers {
+		pathReceipt, err := diagnosticParserCoreHeaderPaths(compact, header)
+		if err != nil {
+			return err
+		}
+		if !reflect.DeepEqual(pathReceipt.Header, wantHeaders[index]) || !reflect.DeepEqual(pathReceipt.Derivations, wantDerivations[index]) {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict derivation identity mismatch"}
+		}
+		receipt.Headers = append(receipt.Headers, pathReceipt)
+		receipt.LogicalPaths += pathReceipt.Header.ExactPaths
+	}
+	if receipt.LogicalPaths != 4 {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict logical path count mismatch"}
+	}
+	return nil
+}
+
+func measureDiagnosticParserCoreDotFanout(
+	compact *core.Core,
+	headers []diagnosticParserCoreHeader,
+	before core.Stats,
+	receipt *DiagnosticParserCoreDotConflictFanout,
+) error {
+	after, err := compact.Stats(headers[0].head)
+	if err != nil {
+		return err
+	}
+	receipt.NodesBefore, receipt.NodesAfter = before.Nodes, after.Nodes
+	receipt.LinksBefore, receipt.LinksAfter = before.Links, after.Links
+	receipt.SubtreesBefore, receipt.SubtreesAfter = before.Subtrees, after.Subtrees
+	receipt.ChildrenBefore, receipt.ChildrenAfter = before.Children, after.Children
+	for id := before.Subtrees + 1; id <= after.Subtrees; id++ {
+		view, err := compact.Subtree(core.SubtreeID(id))
+		if err != nil {
+			return err
+		}
+		receipt.NewPayloadViews = append(receipt.NewPayloadViews, diagnosticParserCoreTerminalPayloadView(id, view))
+	}
+	if after.Nodes-before.Nodes != 3 || after.Links-before.Links != 3 || after.Subtrees-before.Subtrees != 3 || after.Children-before.Children != 2 ||
+		before.Subtrees != 195 || after.Subtrees != 198 || len(receipt.NewPayloadViews) != 3 {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict physical work mismatch"}
+	}
+	dot, left, right := receipt.NewPayloadViews[0], receipt.NewPayloadViews[1], receipt.NewPayloadViews[2]
+	if dot.ID != 196 || dot.Symbol != 4 || dot.StartByte != 741 || dot.EndByte != 742 || dot.Extra || !dot.Terminal ||
+		len(dot.Children) != 0 || len(dot.Fields) != 0 || len(dot.Aliases) != 0 {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot terminal payload identity mismatch"}
+	}
+	leftID, rightID := left.ID, right.ID
+	left.ID, right.ID = 0, 0
+	if leftID != 197 || rightID != 198 || !reflect.DeepEqual(left, right) || left.Symbol != 171 || left.ProductionID != 0 || left.DynamicPrecedence != 0 ||
+		left.StartByte != 740 || left.EndByte != 741 || left.Extra || left.Terminal || !reflect.DeepEqual(left.Children, []uint32{195}) || len(left.Fields) != 0 || len(left.Aliases) != 0 {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot reduction parent payload identity mismatch"}
+	}
+	receipt.SemanticReductionParents = 1
+	receipt.DistinctReductionParents = 2
+	receipt.DuplicateReductionParents = 1
+	return nil
 }
 
 func readDiagnosticParserCorePostCondenseElection(

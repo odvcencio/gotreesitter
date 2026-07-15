@@ -246,6 +246,7 @@ type Stats struct {
 	Nodes             uint32
 	Links             uint32
 	Subtrees          uint32
+	Children          uint32
 	CurrentExactPaths uint64
 }
 
@@ -1028,7 +1029,7 @@ func (c *Core) Stats(head Head) (Stats, error) {
 		return Stats{}, err
 	}
 	return Stats{
-		Nodes: uint32(len(c.nodes)), Links: uint32(len(c.links)), Subtrees: uint32(len(c.subtrees)),
+		Nodes: uint32(len(c.nodes)), Links: uint32(len(c.links)), Subtrees: uint32(len(c.subtrees)), Children: uint32(len(c.children)),
 		CurrentExactPaths: n.pathCount,
 	}, nil
 }
