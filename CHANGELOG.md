@@ -30,7 +30,11 @@ for tags and release notes while still in `0.x`.
   sibling, and performs one checkpoint-continuous single-state election before
   resuming ordinary scheduling. A second authenticated conflict executes with
   parse-global branch order intact and a separate receipt, preserving the
-  original fork evidence before the route stops at multi-state re-election.
+  original fork evidence. Ordered, checkpoint-authenticated multi-state
+  elections then continue both headers through production-ordered dispatch
+  passes. The route applies C's state-22 cost competition as an explicit
+  500-point open-recovery plus 100-point skipped-tree loss against the clean
+  state-248 sibling, then stops after the condense with transactional receipts.
   Conflict-frontier cells are visible in ambiguity profiles; generalized
   repetition, no-lookahead, no-action, and recovery paths still decline before
   unsupported execution, and ordinary builds retain no diagnostic driver
