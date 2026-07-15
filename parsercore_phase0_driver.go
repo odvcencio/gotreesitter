@@ -7,6 +7,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 
@@ -370,6 +371,10 @@ type DiagnosticParserCoreGenericWork struct {
 	Passes            uint64
 	ActionLookups     uint64
 	Dispatches        uint64
+	Conflicts         uint64
+	ConflictActions   uint64
+	Forks             uint64
+	ConflictHeads     uint64
 	Reductions        uint64
 	OrdinaryShifts    uint64
 	OrdinaryCohorts   uint64
@@ -377,6 +382,31 @@ type DiagnosticParserCoreGenericWork struct {
 	Elections         uint64
 	Canonicalizations uint64
 	PeakHeaders       uint64
+}
+
+// DiagnosticParserCoreGenericConflict records one table-driven conflict cell.
+// Actions preserve execution order: secondary ordinals first, then primary.
+type DiagnosticParserCoreGenericConflictArm struct {
+	Ordinal     int
+	BranchOrder uint64
+	Outputs     []DiagnosticParserCoreHeaderReceipt
+}
+
+type DiagnosticParserCoreGenericConflict struct {
+	ElectionIndex            int
+	Token                    Token
+	HeaderIndex              int
+	BranchOrderBefore        uint64
+	BranchOrderAfter         uint64
+	NextCreationSeqBefore    uint64
+	NextCreationSeqAfter     uint64
+	Round                    DiagnosticParserCoreDispatchRound
+	Prefix                   []DiagnosticParserCoreHeaderReceipt
+	PrimaryOutput            DiagnosticParserCoreHeaderReceipt
+	OriginalSuffix           []DiagnosticParserCoreHeaderReceipt
+	SecondaryArms            []DiagnosticParserCoreGenericConflictArm
+	AdditionalPrimaryOutputs []DiagnosticParserCoreHeaderReceipt
+	After                    []DiagnosticParserCoreHeaderReceipt
 }
 
 // DiagnosticParserCoreGenericNoActionDrop records a paused scheduler head
@@ -410,6 +440,7 @@ type DiagnosticParserCoreGenericScheduler struct {
 	StartToken         Token
 	StartHeaders       []DiagnosticParserCoreHeaderPathReceipt
 	Rounds             []DiagnosticParserCoreDispatchRound
+	Conflicts          []DiagnosticParserCoreGenericConflict
 	Elections          []DiagnosticParserCoreElection
 	NoActionDrops      []DiagnosticParserCoreGenericNoActionDrop
 	Stop               DiagnosticParserCoreGenericStop
@@ -868,12 +899,20 @@ func validateDiagnosticParserCoreCell(token Token, actions []core.Action) error 
 	return nil
 }
 
+type diagnosticParserCoreConflictExecution struct {
+	primaries     []diagnosticParserCoreHeader
+	secondaries   []diagnosticParserCoreHeader
+	secondaryArms [][]diagnosticParserCoreHeader
+	round         DiagnosticParserCoreDispatchRound
+	branchOrder   uint64
+	nextSeq       uint64
+}
+
 // executeDiagnosticParserCoreConflict executes one complete conflict cell
 // transactionally. Returned headers are ordered primary frontier first, then
-// secondary clones in action-ordinal order. The first primary retains the
-// incoming creation sequence; additional primary boundaries receive new
-// sequences after all secondary clones. The caller inserts pre-existing
-// siblings between those groups to preserve production scheduler order.
+// secondary clones in action/output order. The first primary retains the
+// incoming creation sequence; every secondary output and every additional
+// primary boundary receives a deterministic new sequence.
 func executeDiagnosticParserCoreConflict(
 	compact *core.Core,
 	incoming diagnosticParserCoreHeader,
@@ -883,20 +922,49 @@ func executeDiagnosticParserCoreConflict(
 	branchOrder uint64,
 	nextSeq uint64,
 ) ([]diagnosticParserCoreHeader, DiagnosticParserCoreDispatchRound, uint64, uint64, error) {
-	before, err := diagnosticParserCoreHeaderReceipt(compact, incoming)
+	execution, err := executeDiagnosticParserCoreConflictDetailed(
+		compact, incoming, headerIndex, token, actions, branchOrder, nextSeq,
+	)
 	if err != nil {
 		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
 	}
+	headers := make([]diagnosticParserCoreHeader, 0, len(execution.primaries)+len(execution.secondaries))
+	headers = append(headers, execution.primaries...)
+	headers = append(headers, execution.secondaries...)
+	return headers, execution.round, execution.branchOrder, execution.nextSeq, nil
+}
+
+func executeDiagnosticParserCoreConflictDetailed(
+	compact *core.Core,
+	incoming diagnosticParserCoreHeader,
+	headerIndex int,
+	token Token,
+	actions []core.Action,
+	branchOrder uint64,
+	nextSeq uint64,
+) (diagnosticParserCoreConflictExecution, error) {
+	before, err := diagnosticParserCoreHeaderReceipt(compact, incoming)
+	if err != nil {
+		return diagnosticParserCoreConflictExecution{}, err
+	}
 	if err := validateDiagnosticParserCoreCell(token, actions); err != nil {
-		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
+		return diagnosticParserCoreConflictExecution{}, err
 	}
 	if len(actions) < 2 {
-		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, errors.New("parser-core phase zero: conflict executor requires multiple actions")
+		return diagnosticParserCoreConflictExecution{}, errors.New("parser-core phase zero: conflict executor requires multiple actions")
+	}
+	secondaryCount := uint64(len(actions) - 1)
+	if secondaryCount > math.MaxUint64-branchOrder {
+		return diagnosticParserCoreConflictExecution{}, errors.New("parser-core phase zero: conflict branch order overflow")
+	}
+	if secondaryCount > math.MaxUint64-nextSeq {
+		return diagnosticParserCoreConflictExecution{}, errors.New("parser-core phase zero: conflict creation sequence overflow")
 	}
 
 	trialOrder, trialSeq := branchOrder, nextSeq
 	var primaries []diagnosticParserCoreHeader
 	var secondaries []diagnosticParserCoreHeader
+	var secondaryArms [][]diagnosticParserCoreHeader
 	var receipts []DiagnosticParserCoreRoundAction
 	err = compact.ApplyAtomic(func() error {
 		for ordinal := 1; ordinal < len(actions); ordinal++ {
@@ -905,18 +973,26 @@ func executeDiagnosticParserCoreConflict(
 			if applyErr != nil {
 				return applyErr
 			}
-			if len(heads) != 1 {
-				return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "multi-boundary conflict arm requires frontier-version scheduling"}
+			if len(heads) == 0 {
+				return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "conflict secondary produced no scheduler boundary"}
 			}
-			secondaries = append(secondaries, diagnosticParserCoreHeader{
-				head: heads[0], creationSeq: trialSeq, shifted: actions[ordinal].Type == core.ActionShift,
-				checkpoint: incoming.checkpoint,
-			})
+			arm := make([]diagnosticParserCoreHeader, 0, len(heads))
+			for _, head := range heads {
+				if trialSeq == math.MaxUint64 {
+					return errors.New("parser-core phase zero: conflict creation sequence overflow")
+				}
+				arm = append(arm, diagnosticParserCoreHeader{
+					head: head, creationSeq: trialSeq, shifted: actions[ordinal].Type == core.ActionShift,
+					checkpoint: incoming.checkpoint,
+				})
+				trialSeq++
+			}
+			secondaryArms = append(secondaryArms, arm)
+			secondaries = append(secondaries, arm...)
 			receipts = append(receipts, DiagnosticParserCoreRoundAction{
 				HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
 				Ordinal: ordinal, Action: rootParserCoreAction(actions[ordinal]), BranchOrder: trialOrder,
 			})
-			trialSeq++
 		}
 		heads, applyErr := applyParserCorePrefixAction(compact, incoming.head, token, actions[0], 0, core.ForkOrder{})
 		if applyErr != nil {
@@ -931,6 +1007,9 @@ func executeDiagnosticParserCoreConflict(
 			primary.head = head
 			primary.shifted = actions[0].Type == core.ActionShift
 			if index > 0 {
+				if trialSeq == math.MaxUint64 {
+					return errors.New("parser-core phase zero: conflict creation sequence overflow")
+				}
 				primary.creationSeq = trialSeq
 				trialSeq++
 			}
@@ -943,17 +1022,21 @@ func executeDiagnosticParserCoreConflict(
 		return nil
 	})
 	if err != nil {
-		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
+		return diagnosticParserCoreConflictExecution{}, err
 	}
 
 	headers := append(primaries, secondaries...)
 	after, err := diagnosticParserCoreHeaderReceipts(compact, headers)
 	if err != nil {
-		return nil, DiagnosticParserCoreDispatchRound{}, branchOrder, nextSeq, err
+		return diagnosticParserCoreConflictExecution{}, err
 	}
-	return headers, DiagnosticParserCoreDispatchRound{
-		Before: []DiagnosticParserCoreHeaderReceipt{before}, Actions: receipts, After: after,
-	}, trialOrder, trialSeq, nil
+	return diagnosticParserCoreConflictExecution{
+		primaries: primaries, secondaries: secondaries, secondaryArms: secondaryArms,
+		round: DiagnosticParserCoreDispatchRound{
+			Before: []DiagnosticParserCoreHeaderReceipt{before}, Actions: receipts, After: after,
+		},
+		branchOrder: trialOrder, nextSeq: trialSeq,
+	}, nil
 }
 
 func recordDiagnosticParserCoreAppliedReductions(result *DiagnosticParserCorePrefixResult, token Token, actions []DiagnosticParserCoreRoundAction) {
@@ -3140,11 +3223,22 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 		}, nil
 	}
 
-	// One deterministic reduction is applied per pass. This deliberately
+	// One reduction-bearing cell is applied per pass. This deliberately
 	// reclassifies the complete frontier before any shift is allowed.
 	for _, cell := range cells {
+		if !diagnosticParserCoreActionsContain(cell.actions, core.ActionReduce) {
+			continue
+		}
+		if len(cell.actions) > 1 {
+			return nil, s.applyGenericConflict(before, cell)
+		}
 		if cell.actions[0].Type == core.ActionReduce {
 			return nil, s.applyGenericReduction(before, cell)
+		}
+	}
+	for _, cell := range cells {
+		if len(cell.actions) > 1 {
+			return nil, s.applyGenericConflict(before, cell)
 		}
 	}
 
@@ -3160,6 +3254,15 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 		}, nil
 	}
 	return nil, s.applyGenericShifts(before, shiftCells)
+}
+
+func diagnosticParserCoreActionsContain(actions []core.Action, actionType core.ActionType) bool {
+	for _, action := range actions {
+		if action.Type == actionType {
+			return true
+		}
+	}
+	return false
 }
 
 func diagnosticParserCoreGenericNoActionDropEligible(headers []diagnosticParserCoreHeader, noActionIndices []int, epochProgress bool) bool {
@@ -3254,6 +3357,91 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []Di
 	return nil
 }
 
+func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	headersBefore := append([]diagnosticParserCoreHeader(nil), s.headers...)
+	dispatchesBefore, branchOrderBefore, nextSeqBefore := s.dispatches, s.branchOrder, s.nextSeq
+	workBefore, epochProgressBefore := s.work, s.epochProgress
+	roundsBefore, conflictsBefore := len(s.receipt.Rounds), len(s.receipt.Conflicts)
+	defer func() {
+		if err == nil {
+			return
+		}
+		s.headers = headersBefore
+		s.dispatches, s.branchOrder, s.nextSeq = dispatchesBefore, branchOrderBefore, nextSeqBefore
+		s.work, s.epochProgress = workBefore, epochProgressBefore
+		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
+		s.receipt.Conflicts = s.receipt.Conflicts[:conflictsBefore]
+	}()
+	if err = s.reserveDispatches(1); err != nil {
+		return err
+	}
+	execution, err := executeDiagnosticParserCoreConflictDetailed(
+		s.compact, s.headers[cell.headerIndex], cell.headerIndex, s.token, cell.actions,
+		s.branchOrder, s.nextSeq,
+	)
+	if err != nil {
+		return err
+	}
+	prefix := s.headers[:cell.headerIndex]
+	suffix := s.headers[cell.headerIndex+1:]
+	primaryReceipts, err := diagnosticParserCoreHeaderReceipts(s.compact, execution.primaries)
+	if err != nil {
+		return err
+	}
+	prefixReceipts, err := diagnosticParserCoreHeaderReceipts(s.compact, prefix)
+	if err != nil {
+		return err
+	}
+	suffixReceipts, err := diagnosticParserCoreHeaderReceipts(s.compact, suffix)
+	if err != nil {
+		return err
+	}
+	secondaryArms := make([]DiagnosticParserCoreGenericConflictArm, len(execution.secondaryArms))
+	for index, arm := range execution.secondaryArms {
+		outputs, receiptErr := diagnosticParserCoreHeaderReceipts(s.compact, arm)
+		if receiptErr != nil {
+			return receiptErr
+		}
+		secondaryArms[index] = DiagnosticParserCoreGenericConflictArm{
+			Ordinal: index + 1, BranchOrder: branchOrderBefore + uint64(index) + 1, Outputs: outputs,
+		}
+	}
+	headers := make([]diagnosticParserCoreHeader, 0, len(execution.primaries)+len(prefix)+len(suffix)+len(execution.secondaries))
+	headers = append(headers, prefix...)
+	headers = append(headers, execution.primaries[0])
+	headers = append(headers, suffix...)
+	headers = append(headers, execution.secondaries...)
+	headers = append(headers, execution.primaries[1:]...)
+	s.headers = headers
+	s.branchOrder, s.nextSeq = execution.branchOrder, execution.nextSeq
+	s.epochProgress = true
+	s.work.Conflicts++
+	s.work.ConflictActions += uint64(len(cell.actions))
+	s.work.Forks += uint64(len(cell.actions) - 1)
+	s.work.ConflictHeads += uint64(len(execution.primaries) + len(execution.secondaries))
+	s.work.Dispatches++
+	if err := s.canonicalize(); err != nil {
+		return err
+	}
+	after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+	if err != nil {
+		return err
+	}
+	round := execution.round
+	round.Index = len(s.receipt.Rounds)
+	round.Before = before
+	round.After = after
+	s.receipt.Rounds = append(s.receipt.Rounds, round)
+	s.receipt.Conflicts = append(s.receipt.Conflicts, DiagnosticParserCoreGenericConflict{
+		ElectionIndex: s.electionIndex, Token: s.token, HeaderIndex: cell.headerIndex,
+		BranchOrderBefore: branchOrderBefore, BranchOrderAfter: s.branchOrder,
+		NextCreationSeqBefore: nextSeqBefore, NextCreationSeqAfter: s.nextSeq,
+		Round: round, Prefix: prefixReceipts, PrimaryOutput: primaryReceipts[0], OriginalSuffix: suffixReceipts,
+		SecondaryArms: secondaryArms, AdditionalPrimaryOutputs: primaryReceipts[1:], After: after,
+	})
+	return nil
+}
+
 func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) error {
 	if err := s.reserveDispatches(uint64(len(cells))); err != nil {
 		return err
@@ -3312,34 +3500,34 @@ func diagnosticParserCoreGenericUnsupportedCell(headerIndex int, token Token, ac
 	unsupported := func(boundary DiagnosticParserCoreBoundaryKind, detail string) *diagnosticParserCoreGenericUnsupported {
 		return &diagnosticParserCoreGenericUnsupported{boundary: boundary, detail: detail, headerIndex: headerIndex}
 	}
-	if len(actions) != 1 {
-		return unsupported(DiagnosticParserCoreSubsequentConflictBoundary, "generic scheduler reached a multi-action cell")
+	if len(actions) == 0 {
+		return unsupported(DiagnosticParserCoreNoAction, "generic scheduler reached an empty action cell")
 	}
-	action := actions[0]
-	if action.Repetition {
-		return unsupported(DiagnosticParserCoreRoute, "generic scheduler does not support repetition shifts")
-	}
-	if action.ExtraChain {
-		return unsupported(DiagnosticParserCoreExtraChain, "generic scheduler does not support extra-chain shifts")
-	}
-	if action.Extra {
-		return unsupported(DiagnosticParserCoreExtra, "generic scheduler does not yet apply extra shifts")
-	}
-	switch action.Type {
-	case core.ActionReduce:
-		return nil
-	case core.ActionShift:
-		if token.EndByte <= token.StartByte {
-			return unsupported(DiagnosticParserCoreRoute, "generic scheduler ordinary shift is not positive-width")
+	for _, action := range actions {
+		if action.Repetition {
+			return unsupported(DiagnosticParserCoreRoute, "generic scheduler does not support repetition shifts")
 		}
-		return nil
-	case core.ActionRecover:
-		return unsupported(DiagnosticParserCoreRecovery, "generic scheduler reached recovery")
-	case core.ActionAccept:
-		return unsupported(DiagnosticParserCoreAccept, "generic scheduler reached accept before materialization")
-	default:
-		return unsupported(DiagnosticParserCoreRoute, "generic scheduler reached an unknown action")
+		if action.ExtraChain {
+			return unsupported(DiagnosticParserCoreExtraChain, "generic scheduler does not support extra-chain shifts")
+		}
+		if action.Extra {
+			return unsupported(DiagnosticParserCoreExtra, "generic scheduler does not yet apply extra shifts")
+		}
+		switch action.Type {
+		case core.ActionReduce:
+		case core.ActionShift:
+			if token.EndByte <= token.StartByte {
+				return unsupported(DiagnosticParserCoreRoute, "generic scheduler ordinary shift is not positive-width")
+			}
+		case core.ActionRecover:
+			return unsupported(DiagnosticParserCoreRecovery, "generic scheduler reached recovery")
+		case core.ActionAccept:
+			return unsupported(DiagnosticParserCoreAccept, "generic scheduler reached accept before materialization")
+		default:
+			return unsupported(DiagnosticParserCoreRoute, "generic scheduler reached an unknown action")
+		}
 	}
+	return nil
 }
 
 func diagnosticParserCoreGenericUnsupportedToken(token Token) *diagnosticParserCoreGenericUnsupported {

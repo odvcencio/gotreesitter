@@ -23,6 +23,10 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- The authenticated generic parser-core scheduler now executes arbitrary-size
+  ordinary shift/reduce conflict cells in production order. Serializable
+  receipts preserve per-arm fork identity, deterministic header allocation,
+  sibling splice order, work counts, and atomic cap rollback.
 - Authenticated parser-core diagnostics now preserve scanner-checkpoint and
   token-consumption phase while continuing a locked Go conflict through
   same-lookahead reductions. One oracle-pinned no-action cell then applies C's
