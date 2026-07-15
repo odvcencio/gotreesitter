@@ -417,6 +417,36 @@ func New(tables TableView, limits Limits) (*Core, error) {
 	}, nil
 }
 
+// Reset returns the compact core to the same empty frontier created by New
+// while retaining its authenticated tables, limits, diagnostic policy, and
+// arena capacities. Reset is deliberately unavailable during an active
+// transaction because clearing the rollback journal would weaken the atomic
+// publication contract. Reset invalidates every Head, SubtreeID, and other
+// arena handle previously returned by the core; callers must discard them
+// because the retained arenas deliberately reuse their one-based IDs.
+func (c *Core) Reset() error {
+	if c == nil {
+		return errors.New("parser-core phase zero: reset nil core")
+	}
+	if len(c.transactions) != 0 {
+		return errors.New("parser-core phase zero: reset during active transaction")
+	}
+	c.nodes = c.nodes[:0]
+	c.links = c.links[:0]
+	c.subtrees = c.subtrees[:0]
+	c.children = c.children[:0]
+	c.fields = c.fields[:0]
+	c.aliases = c.aliases[:0]
+	c.frontier = 1
+	c.checkpoint = [32]byte{}
+	clear(c.boundaries)
+	c.boundaryJournal = c.boundaryJournal[:0]
+	c.transactions = c.transactions[:0]
+	c.nextTransaction = 0
+	c.work = Work{}
+	return nil
+}
+
 // BeginFrontier starts one authenticated election/dispatch generation.
 // Boundary condensation never crosses generations, even when state and byte
 // position repeat. Existing heads remain valid persistent predecessors.

@@ -23,6 +23,10 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Tagged compact parser-core diagnostics now expose a warm, real-Go lifecycle
+  benchmark that separates scheduler, materialization, total compact-core, and
+  production parse costs while pinning source identity, exact EOF acceptance,
+  selected-node census, and parser work totals.
 - The authenticated compact parser-core diagnostics now ratchet a real,
   forking Go source file against the locked C work counters while requiring an
   exact full-span tree and the unchanged bounded survivor policy.
