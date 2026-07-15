@@ -1499,6 +1499,140 @@ func (c *Core) Subtree(id SubtreeID) (SubtreeView, error) {
 	return view, nil
 }
 
+// MaterializationOrder authenticates roots as one ownership tree and returns
+// its subtree IDs in child-before-parent order. Compact subtrees can be shared
+// safely while they remain immutable parser payloads, but public gotreesitter
+// Nodes carry one mutable parent/index pair. A repeated compact ID therefore
+// cannot be materialized by pointer memoization without corrupting navigation.
+//
+// The walk is bounded by the already-capped subtree and child arenas. poll is
+// called at a coarse cadence and before success so callers can enforce their
+// cancellation and memory contracts during diagnostic materialization.
+func (c *Core) MaterializationOrder(roots []SubtreeID, poll func() error) ([]SubtreeID, error) {
+	if c == nil || len(roots) == 0 {
+		return nil, errors.New("parser-core phase zero: materialization requires at least one compact root")
+	}
+	if poll == nil {
+		poll = func() error { return nil }
+	}
+	if err := poll(); err != nil {
+		return nil, err
+	}
+
+	// IDs are one-based and dense within the capped arena.
+	colors := make([]uint8, len(c.subtrees)+1)
+	incoming := make([]uint8, len(c.subtrees)+1)
+	if err := poll(); err != nil {
+		return nil, err
+	}
+	type frame struct {
+		id   SubtreeID
+		next uint32
+	}
+	order := make([]SubtreeID, 0, len(c.subtrees))
+	var work uint64
+	pollWork := func() error {
+		work++
+		if work&255 == 0 {
+			return poll()
+		}
+		return nil
+	}
+
+	for _, root := range roots {
+		if _, err := c.subtree(root); err != nil {
+			return nil, err
+		}
+		if incoming[root] != 0 {
+			return nil, errors.New("parser-core phase zero: compact subtree has repeated public-tree ownership")
+		}
+		incoming[root] = 1
+		if colors[root] != 0 {
+			return nil, errors.New("parser-core phase zero: compact subtree has repeated public-tree ownership")
+		}
+		colors[root] = 1
+		stack := []frame{{id: root}}
+		for len(stack) != 0 {
+			if err := pollWork(); err != nil {
+				return nil, err
+			}
+			top := &stack[len(stack)-1]
+			record, err := c.subtree(top.id)
+			if err != nil {
+				return nil, err
+			}
+			if top.next < record.childCount {
+				child := c.children[record.firstChild+top.next]
+				top.next++
+				if _, err := c.subtree(child); err != nil {
+					return nil, err
+				}
+				if colors[child] == 1 {
+					return nil, errors.New("parser-core phase zero: compact subtree cycle during materialization")
+				}
+				if incoming[child] != 0 || colors[child] == 2 {
+					return nil, errors.New("parser-core phase zero: compact subtree has repeated public-tree ownership")
+				}
+				incoming[child] = 1
+				colors[child] = 1
+				stack = append(stack, frame{id: child})
+				continue
+			}
+			if err := c.validateMaterializationMetadata(top.id, *record); err != nil {
+				return nil, err
+			}
+			colors[top.id] = 2
+			order = append(order, top.id)
+			stack = stack[:len(stack)-1]
+		}
+	}
+	if len(order) > len(c.subtrees) {
+		return nil, errors.New("parser-core phase zero: materialization exceeded compact subtree arena")
+	}
+	if err := poll(); err != nil {
+		return nil, err
+	}
+	return order, nil
+}
+
+func (c *Core) validateMaterializationMetadata(id SubtreeID, record subtreeRecord) error {
+	children := c.children[record.firstChild : record.firstChild+record.childCount]
+	storedFields := c.fields[record.firstField : record.firstField+record.fieldCount]
+	storedAliases := c.aliases[record.firstAlias : record.firstAlias+record.aliasCount]
+	if record.terminal {
+		if len(children) != 0 || len(storedFields) != 0 || len(storedAliases) != 0 {
+			return fmt.Errorf("parser-core phase zero: terminal subtree %d carries reduction metadata", id)
+		}
+		return nil
+	}
+	structuralCount := 0
+	for _, child := range children {
+		payload, err := c.subtree(child)
+		if err != nil {
+			return err
+		}
+		if !payload.extra {
+			structuralCount++
+		}
+	}
+	fields, err := c.tables.ProductionFields(record.productionID, structuralCount)
+	if err != nil {
+		return err
+	}
+	aliases, err := c.tables.ProductionAliases(record.productionID, structuralCount)
+	if err != nil {
+		return err
+	}
+	fields, aliases, err = c.remapProductionMetadata(children, structuralCount, fields, aliases)
+	if err != nil {
+		return err
+	}
+	if !slices.Equal(fields, storedFields) || !slices.Equal(aliases, storedAliases) {
+		return fmt.Errorf("parser-core phase zero: compact subtree %d production metadata does not match authenticated tables", id)
+	}
+	return nil
+}
+
 func (c *Core) Stats(head Head) (Stats, error) {
 	n, err := c.node(head.Node)
 	if err != nil {

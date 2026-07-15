@@ -23,6 +23,11 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now authenticate an exclusive EOF-accept
+  frontier and can materialize the selected derivation as an exact, full-span
+  tree. Materialization validates compact ownership and production metadata,
+  remains bounded and polled between stages, and falls back to a fresh parse
+  when the diagnostic tree is supplied to changed-source incremental parsing.
 - Compact parser-core diagnostics now distinguish new, updated, and unchanged
   reduction boundaries before scheduling them. Unchanged reductions pause
   without cycling, active siblings retain their scheduler identity when a

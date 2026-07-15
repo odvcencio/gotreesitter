@@ -388,11 +388,28 @@ type DiagnosticParserCoreGenericWork struct {
 	OrdinaryCohorts   uint64
 	ExtraShifts       uint64
 	ExtraCohorts      uint64
+	Accepts           uint64
 	ReductionPauses   uint64
 	NoActionDrops     uint64
 	Elections         uint64
 	Canonicalizations uint64
 	PeakHeaders       uint64
+}
+
+// DiagnosticParserCoreGenericAcceptance records an authenticated EOF accept
+// after the compact frontier has converged to one exact derivation. Payloads
+// are the selected bottom-to-top compact stack; materialization does not
+// mutate that graph.
+type DiagnosticParserCoreGenericAcceptance struct {
+	ElectionIndex  int
+	Token          Token
+	Header         DiagnosticParserCoreHeaderPathReceipt
+	Payloads       []uint32
+	Score          int64
+	BranchOrder    uint64
+	HasBranchOrder bool
+	Stats          core.Stats
+	Work           DiagnosticParserCoreGenericWork
 }
 
 // DiagnosticParserCoreGenericConflict records one table-driven conflict cell.
@@ -486,6 +503,7 @@ type DiagnosticParserCoreGenericScheduler struct {
 	Elections          []DiagnosticParserCoreElection
 	NoActionDrops      []DiagnosticParserCoreGenericNoActionDrop
 	Completion         *DiagnosticParserCoreGenericCompletion
+	Acceptance         *DiagnosticParserCoreGenericAcceptance
 	Stop               DiagnosticParserCoreGenericStop
 	Tokens             uint64
 	Dispatches         uint64
@@ -541,6 +559,13 @@ type DiagnosticParserCorePrefixResult struct {
 	Grammar                  string
 	ExactRootDFA             bool
 	Materialized             bool
+	// MaterializedTree is a structural diagnostic owned by the caller and must
+	// be released. It is set only after authenticated EOF acceptance and
+	// one-shot compact-tree materialization succeed. Compact phase zero does not
+	// retain the production parser's per-node reuse state or scanner checkpoints,
+	// so the returned tree is explicitly barred from incremental reuse; passing
+	// it to ParseIncremental takes the production parser's fresh-parse fallback.
+	MaterializedTree *Tree
 }
 
 type diagnosticParserCoreDecline struct {
@@ -764,7 +789,7 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 				result.LastBranchOrder = nextOrder
 				var resume diagnosticParserCoreOuterResume
 				if continueErr := continueDiagnosticParserCoreSameToken(
-					compact, tokenSource, &scannerScratch, token, headers, nextOrder, nextSeq, options, &result, &resume,
+					compact, parser, source, tokenSource, &scannerScratch, token, headers, nextOrder, nextSeq, options, &result, &resume,
 				); continueErr != nil {
 					if setDiagnosticParserCoreBoundaryError(&result, continueErr) {
 						return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
@@ -802,7 +827,7 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 				return result, err
 			}
 			var resume diagnosticParserCoreOuterResume
-			if err := continueDiagnosticParserCoreSameToken(compact, tokenSource, &scannerScratch, token, headers, branchOrder, nextSeq, options, &result, &resume); err != nil {
+			if err := continueDiagnosticParserCoreSameToken(compact, parser, source, tokenSource, &scannerScratch, token, headers, branchOrder, nextSeq, options, &result, &resume); err != nil {
 				if setDiagnosticParserCoreBoundaryError(&result, err) {
 					return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 				}
@@ -1269,6 +1294,8 @@ func canonicalizeDiagnosticParserCoreHeaders(compact *core.Core, headers []diagn
 
 func continueDiagnosticParserCoreSameToken(
 	compact *core.Core,
+	parser *Parser,
+	source []byte,
 	tokenSource *dfaTokenSource,
 	scannerScratch *[]byte,
 	token Token,
@@ -1314,7 +1341,7 @@ func continueDiagnosticParserCoreSameToken(
 				result.LaterForkExecution.ClosedBoundaries = closed
 				result.LaterForkExecution.ClosedExactPaths = exactPaths
 				return continueDiagnosticParserCoreOrderedCohort(
-					compact, tokenSource, scannerScratch, headers, branchOrder, nextSeq, options, result,
+					compact, parser, source, tokenSource, scannerScratch, headers, branchOrder, nextSeq, options, result,
 				)
 			}
 			result.LastBranchOrder = branchOrder
@@ -1441,6 +1468,8 @@ type diagnosticParserCoreCohortExecution struct {
 
 func continueDiagnosticParserCoreOrderedCohort(
 	compact *core.Core,
+	parser *Parser,
+	source []byte,
 	tokenSource *dfaTokenSource,
 	scannerScratch *[]byte,
 	headers []diagnosticParserCoreHeader,
@@ -1552,7 +1581,7 @@ func continueDiagnosticParserCoreOrderedCohort(
 			result.Boundary = DiagnosticParserCoreCachedDotClosureBoundary
 			result.Detail = "cached dot closure authenticated before edits shifts"
 			if options.GenericScheduler {
-				generic, genericErr := executeDiagnosticParserCoreGenericScheduler(
+				generic, acceptedHead, genericErr := executeDiagnosticParserCoreGenericScheduler(
 					compact, tokenSource, scannerScratch, closureHeaders, closure,
 					result.Dispatches, result.Tokens, options,
 				)
@@ -1570,6 +1599,20 @@ func continueDiagnosticParserCoreOrderedCohort(
 					result.Lookahead = Token{}
 					result.Boundary = DiagnosticParserCoreGenericClosed
 					result.Detail = "generic scheduler reached the requested closed byte without reading another lookahead"
+					return nil
+				}
+				if generic.Acceptance != nil {
+					tree, materializeErr := materializeDiagnosticParserCoreAcceptedTree(compact, acceptedHead, parser, source)
+					if materializeErr != nil {
+						return materializeErr
+					}
+					result.Completed = true
+					result.Materialized = true
+					result.MaterializedTree = tree
+					result.State = generic.Acceptance.Header.Header.State
+					result.Lookahead = generic.Acceptance.Token
+					result.Boundary = DiagnosticParserCoreGenericClosed
+					result.Detail = "generic scheduler accepted EOF and materialized one exact compact derivation"
 					return nil
 				}
 				result.State, result.Lookahead = generic.Stop.State, generic.Stop.Token
@@ -3202,6 +3245,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	receipt                    *DiagnosticParserCoreGenericScheduler
 	work                       DiagnosticParserCoreGenericWork
 	epochProgress              bool
+	acceptedHead               core.Head
 	conflictPostExecutionFault func() error
 	extraPostExecutionFault    func() error
 }
@@ -3221,9 +3265,9 @@ func executeDiagnosticParserCoreGenericScheduler(
 	dispatches uint64,
 	tokens uint64,
 	options DiagnosticParserCorePrefixOptions,
-) (*DiagnosticParserCoreGenericScheduler, error) {
+) (*DiagnosticParserCoreGenericScheduler, core.Head, error) {
 	if closure == nil || len(headers) == 0 {
-		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "generic scheduler requires a closed elected frontier"}
+		return nil, core.Head{}, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "generic scheduler requires a closed elected frontier"}
 	}
 	tokenSnapshot := tokenSource.snapshotRelexState()
 	tokenState := tokenSource.state
@@ -3262,9 +3306,199 @@ func executeDiagnosticParserCoreGenericScheduler(
 	})
 	if err != nil {
 		restoreDiagnosticParserCoreCachedDotTokenSource(tokenSource, true, tokenSnapshot, tokenState, tokenGLRStates)
+		return nil, core.Head{}, err
+	}
+	return scheduler.receipt, scheduler.acceptedHead, nil
+}
+
+type diagnosticParserCorePointIndex struct {
+	lineStarts []uint32
+}
+
+func newDiagnosticParserCorePointIndex(source []byte, poll func() error) (diagnosticParserCorePointIndex, error) {
+	if uint64(len(source)) > math.MaxUint32 {
+		return diagnosticParserCorePointIndex{}, errors.New("parser-core phase zero: materialization source exceeds uint32 offsets")
+	}
+	starts := make([]uint32, 1, min(1024, 1+len(source)/32))
+	for index, b := range source {
+		if index&1023 == 0 {
+			if err := poll(); err != nil {
+				return diagnosticParserCorePointIndex{}, err
+			}
+		}
+		if b == '\n' {
+			starts = append(starts, uint32(index+1))
+		}
+	}
+	if err := poll(); err != nil {
+		return diagnosticParserCorePointIndex{}, err
+	}
+	return diagnosticParserCorePointIndex{lineStarts: starts}, nil
+}
+
+func (index diagnosticParserCorePointIndex) point(offset uint32) Point {
+	line := sort.Search(len(index.lineStarts), func(i int) bool { return index.lineStarts[i] > offset }) - 1
+	if line < 0 {
+		return Point{Column: offset}
+	}
+	return Point{Row: uint32(line), Column: offset - index.lineStarts[line]}
+}
+
+func materializeDiagnosticParserCoreAcceptedTree(compact *core.Core, head core.Head, parser *Parser, source []byte) (*Tree, error) {
+	if compact == nil || parser == nil || parser.language == nil || head.Node == 0 {
+		return nil, errors.New("parser-core phase zero: incomplete accepted-tree materialization input")
+	}
+	derivations, err := compactDerivationsForAcceptance(compact, head)
+	if err != nil {
 		return nil, err
 	}
-	return scheduler.receipt, nil
+	if len(derivations) != 1 {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreAccept, detail: "materialization requires one exact accepted derivation"}
+	}
+	stats, err := compact.Stats(head)
+	if err != nil {
+		return nil, err
+	}
+
+	arena := acquireNodeArena(arenaClassFull)
+	owned := true
+	defer func() {
+		if owned {
+			arena.Release()
+		}
+	}()
+	poll := func() error {
+		reason := parser.resultMaterializationStopReason(arena)
+		if !resultMaterializationShouldStop(reason) {
+			return nil
+		}
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "accepted-tree materialization stopped: " + string(reason)}
+	}
+	order, err := compact.MaterializationOrder(derivations[0].Payloads, poll)
+	if err != nil {
+		return nil, err
+	}
+	if uint64(len(order)) > uint64(stats.Subtrees) {
+		return nil, errors.New("parser-core phase zero: materialization order exceeds compact subtree arena")
+	}
+	points, err := newDiagnosticParserCorePointIndex(source, poll)
+	if err != nil {
+		return nil, err
+	}
+	nodesByID := make([]*Node, uint64(stats.Subtrees)+1)
+	if err := poll(); err != nil {
+		return nil, err
+	}
+	for orderIndex, id := range order {
+		if orderIndex&255 == 0 {
+			if err := poll(); err != nil {
+				return nil, err
+			}
+		}
+		view, err := compact.Subtree(id)
+		if err != nil {
+			return nil, err
+		}
+		if view.EndByte < view.StartByte || view.EndByte > uint32(len(source)) {
+			return nil, errors.New("parser-core phase zero: compact subtree extent is outside source")
+		}
+		named := parser.isNamedSymbol(Symbol(view.Symbol))
+		if view.Terminal {
+			node := newLeafNodeInArena(
+				arena, Symbol(view.Symbol), named, view.StartByte, view.EndByte,
+				points.point(view.StartByte), points.point(view.EndByte),
+			)
+			node.setExtra(view.Extra)
+			node.setExternalScannerToken(view.External)
+			nodesByID[id] = node
+			continue
+		}
+
+		entries := make([]stackEntry, len(view.Children))
+		structuralChildren := 0
+		for index, childID := range view.Children {
+			if uint64(childID) >= uint64(len(nodesByID)) || nodesByID[childID] == nil {
+				return nil, errors.New("parser-core phase zero: compact materialization order omitted a child")
+			}
+			child := nodesByID[childID]
+			entries[index] = newStackEntryNode(0, child)
+			if !child.isExtra() {
+				structuralChildren++
+			}
+		}
+		action := ParseAction{
+			Type: ParseActionReduce, Symbol: Symbol(view.Symbol), ChildCount: uint8(structuralChildren),
+			DynamicPrecedence: view.DynamicPrecedence, ProductionID: view.ProductionID,
+		}
+		if child := parser.collapsibleRawUnarySelfReduction(action, Token{}, arena, entries, 0, len(entries)); child != nil {
+			child.productionID = view.ProductionID
+			child.dynamicPrecedence += int32(view.DynamicPrecedence)
+			nodesByID[id] = child
+			continue
+		}
+		children, fieldIDs, fieldSources, _ := parser.buildReduceChildrenWithPath(
+			entries, 0, len(entries), structuralChildren,
+			Symbol(view.Symbol), view.ProductionID, arena,
+		)
+		if child := parser.collapsibleUnarySelfReduction(action, Token{}, arena, entries, 0, len(entries), children, fieldIDs); child != nil {
+			child.productionID = view.ProductionID
+			child.dynamicPrecedence += int32(view.DynamicPrecedence)
+			nodesByID[id] = child
+			continue
+		}
+		parent := newParentNodeInArenaWithFieldSources(
+			arena, Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
+		)
+		parent.dynamicPrecedence += int32(view.DynamicPrecedence)
+		parent.startByte = view.StartByte
+		parent.endByte = view.EndByte
+		parent.startPoint = points.point(view.StartByte)
+		parent.endPoint = points.point(view.EndByte)
+		parent.setExtra(view.Extra)
+		nodesByID[id] = parent
+	}
+
+	nodes := make([]*Node, len(derivations[0].Payloads))
+	for index, payload := range derivations[0].Payloads {
+		if uint64(payload) >= uint64(len(nodesByID)) || nodesByID[payload] == nil {
+			return nil, errors.New("parser-core phase zero: compact materialization order omitted an accepted payload")
+		}
+		nodes[index] = nodesByID[payload]
+	}
+	if err := poll(); err != nil {
+		return nil, err
+	}
+	var linkScratch []*Node
+	tree := parser.buildResultFromNodes(nodes, source, arena, nil, nil, &linkScratch)
+	if tree != nil {
+		owned = false // buildResultFromNodes transfers arena ownership to tree.
+	}
+	rejectTree := func(err error) (*Tree, error) {
+		if tree != nil {
+			tree.Release()
+		}
+		return nil, err
+	}
+	if tree == nil || tree.root == nil {
+		return rejectTree(errors.New("parser-core phase zero: accepted compact derivation materialized no root"))
+	}
+	if runtime := tree.ParseRuntime(); runtime.StopReason != ParseStopNone || runtime.Truncated || runtime.TokenSourceEOFEarly {
+		return rejectTree(fmt.Errorf("parser-core phase zero: accepted-tree materialization returned an incomplete runtime: %s", runtime.Summary()))
+	}
+	if err := poll(); err != nil {
+		return rejectTree(err)
+	}
+	sourceLen := uint32(len(source))
+	root := tree.root
+	if root.startByte != 0 || root.endByte != sourceLen || root.IsError() || root.HasError() {
+		return rejectTree(fmt.Errorf("parser-core phase zero: accepted compact root is incomplete or erroneous: span=%d..%d source=%d error=%t", root.startByte, root.endByte, sourceLen, root.HasError()))
+	}
+	tree.incrementalReuseDisabled = true
+	tree.setParseRuntime(ParseRuntime{
+		StopReason: ParseStopAccepted, SourceLen: sourceLen, ExpectedEOFByte: sourceLen,
+		RootEndByte: root.endByte, LastTokenEndByte: sourceLen, LastTokenSymbol: 0, LastTokenWasEOF: true,
+	})
+	return tree, nil
 }
 
 func (s *diagnosticParserCoreGenericScheduler) run() error {
@@ -3273,13 +3507,27 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 			s.work.PeakHeaders = uint64(len(s.headers))
 		}
 		allClosed := true
+		accepted := 0
+		shifted := 0
 		for _, header := range s.headers {
+			if header.accepted {
+				accepted++
+			}
+			if header.shifted {
+				shifted++
+			}
 			if !header.shifted && !header.accepted {
 				allClosed = false
 				break
 			}
 		}
 		if allClosed {
+			if accepted != 0 {
+				if shifted != 0 || accepted != len(s.headers) {
+					return s.finish(DiagnosticParserCoreRoute, "generic scheduler cannot mix accepted and shifted heads", 0)
+				}
+				return s.completeAcceptance()
+			}
 			if s.options.GenericStopAtClosedByte != nil {
 				completed, err := s.completeAtClosedByte(*s.options.GenericStopAtClosedByte)
 				if err != nil {
@@ -3314,6 +3562,13 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 	s.work.Passes++
 	if unsupported := diagnosticParserCoreGenericUnsupportedToken(s.token); unsupported != nil {
 		return unsupported, nil
+	}
+	for index, header := range s.headers {
+		if header.accepted {
+			return &diagnosticParserCoreGenericUnsupported{
+				boundary: DiagnosticParserCoreAccept, detail: "generic scheduler found an accepted head before sole-frontier completion", headerIndex: index,
+			}, nil
+		}
 	}
 	before, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
 	if err != nil {
@@ -3361,6 +3616,22 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 			boundary: DiagnosticParserCoreRoute, detail: "generic scheduler has no runnable head", headerIndex: 0,
 		}, nil
 	}
+	acceptCell := -1
+	for index, cell := range cells {
+		if diagnosticParserCoreActionsContain(cell.actions, core.ActionAccept) {
+			acceptCell = index
+			break
+		}
+	}
+	if acceptCell >= 0 {
+		cell := cells[acceptCell]
+		if len(s.headers) != 1 || len(cells) != 1 || len(noActionIndices) != 0 || cell.headerIndex != 0 || len(cell.actions) != 1 || cell.actions[0].Type != core.ActionAccept {
+			return &diagnosticParserCoreGenericUnsupported{
+				boundary: DiagnosticParserCoreAccept, detail: "generic scheduler requires a sole homogeneous accept frontier", headerIndex: cell.headerIndex,
+			}, nil
+		}
+		return nil, s.applyGenericAccept(before, cell)
+	}
 	extraCells := 0
 	for _, cell := range cells {
 		if cell.actions[0].Extra {
@@ -3394,7 +3665,6 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 			return nil, s.applyGenericConflict(before, cell)
 		}
 	}
-
 	shiftCells := make([]diagnosticParserCoreGenericCell, 0, len(cells))
 	for _, cell := range cells {
 		if cell.actions[0].Type == core.ActionShift {
@@ -3407,6 +3677,95 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 		}, nil
 	}
 	return nil, s.applyGenericShifts(before, shiftCells)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) applyGenericAccept(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	headersBefore := append([]diagnosticParserCoreHeader(nil), s.headers...)
+	dispatchesBefore, workBefore, epochProgressBefore := s.dispatches, s.work, s.epochProgress
+	roundsBefore := len(s.receipt.Rounds)
+	defer func() {
+		if err == nil {
+			return
+		}
+		s.headers = headersBefore
+		s.dispatches, s.work, s.epochProgress = dispatchesBefore, workBefore, epochProgressBefore
+		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
+	}()
+	if len(cell.actions) != 1 || cell.actions[0].Type != core.ActionAccept {
+		return errors.New("parser-core phase zero: generic accept requires one accept action")
+	}
+	if s.token.Symbol != 0 || s.token.StartByte != s.token.EndByte || s.token.Missing || s.token.NoLookahead || s.token.ExternalScannerToken {
+		return errors.New("parser-core phase zero: generic accept requires authenticated zero-width EOF")
+	}
+	if err := s.reserveDispatches(1); err != nil {
+		return err
+	}
+	s.headers[cell.headerIndex].accepted = true
+	s.headers[cell.headerIndex].paused = false
+	s.epochProgress = true
+	s.work.Accepts++
+	s.work.Dispatches++
+	if err := s.canonicalize(); err != nil {
+		return err
+	}
+	after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
+	if err != nil {
+		return err
+	}
+	s.receipt.Rounds = append(s.receipt.Rounds, DiagnosticParserCoreDispatchRound{
+		Index: len(s.receipt.Rounds), Before: before,
+		Actions: []DiagnosticParserCoreRoundAction{{
+			HeaderIndex: cell.headerIndex, State: cell.receipt.State, ByteOffset: cell.receipt.ByteOffset,
+			Ordinal: 0, Action: rootParserCoreAction(cell.actions[0]),
+		}},
+		After: after,
+	})
+	return nil
+}
+
+func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
+	if s.token.Symbol != 0 || s.token.StartByte != s.token.EndByte || s.token.Missing || s.token.NoLookahead || s.token.ExternalScannerToken {
+		return s.finish(DiagnosticParserCoreAccept, "generic scheduler accept is not authenticated EOF", 0)
+	}
+	if len(s.headers) != 1 {
+		return s.finish(DiagnosticParserCoreAccept, "generic scheduler requires one accepted compact head", 0)
+	}
+	paths, err := compactDerivationsForAcceptance(s.compact, s.headers[0].head)
+	if err != nil {
+		return err
+	}
+	if len(paths) != 1 {
+		return s.finish(DiagnosticParserCoreAccept, "generic scheduler requires one exact accepted derivation", 0)
+	}
+	headers, err := diagnosticParserCoreHeaderPathReceipts(s.compact, s.headers)
+	if err != nil {
+		return err
+	}
+	stats, err := s.compact.Stats(s.headers[0].head)
+	if err != nil {
+		return err
+	}
+	path := paths[0]
+	payloads := make([]uint32, len(path.Payloads))
+	for index, payload := range path.Payloads {
+		payloads[index] = uint32(payload)
+	}
+	s.acceptedHead = s.headers[0].head
+	s.receipt.Acceptance = &DiagnosticParserCoreGenericAcceptance{
+		ElectionIndex: s.electionIndex, Token: s.token, Header: headers[0],
+		Payloads: payloads, Score: path.Score, BranchOrder: path.BranchOrder,
+		HasBranchOrder: path.HasBranchOrder, Stats: stats, Work: s.work,
+	}
+	s.publishTotals()
+	return nil
+}
+
+func compactDerivationsForAcceptance(compact *core.Core, head core.Head) ([]core.Derivation, error) {
+	paths, err := compact.Derivations(head)
+	if errors.Is(err, core.ErrDerivationEnumerationCap) {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreAccept, detail: "accepted derivation enumeration cap"}
+	}
+	return paths, err
 }
 
 func diagnosticParserCoreActionsContain(actions []core.Action, actionType core.ActionType) bool {
@@ -3972,7 +4331,9 @@ func diagnosticParserCoreGenericUnsupportedCell(headerIndex int, token Token, ac
 		case core.ActionRecover:
 			return unsupported(DiagnosticParserCoreRecovery, "generic scheduler reached recovery")
 		case core.ActionAccept:
-			return unsupported(DiagnosticParserCoreAccept, "generic scheduler reached accept before materialization")
+			if len(actions) != 1 || token.Symbol != 0 || token.StartByte != token.EndByte || token.Missing || token.NoLookahead || token.ExternalScannerToken {
+				return unsupported(DiagnosticParserCoreAccept, "generic scheduler accept requires one authenticated EOF action")
+			}
 		default:
 			return unsupported(DiagnosticParserCoreRoute, "generic scheduler reached an unknown action")
 		}

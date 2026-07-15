@@ -179,6 +179,7 @@ func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 		{name: "multi-extra-subtree", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &comment, Limits: core.Limits{MaxSubtrees: 1655}}, rollbackError: "subtree arena cap"},
 		{name: "multi-extra-second-node", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &comment, Limits: core.Limits{MaxNodes: 1885}}, rollbackError: "node arena cap"},
 		{name: "multi-extra-second-link", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &comment, Limits: core.Limits{MaxLinks: 1884}}, rollbackError: "link arena cap"},
+		{name: "accept-dispatch", options: gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, MaxDispatches: 2683}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -363,5 +364,68 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 		if err != nil || next.GenericScheduler == nil || !reflect.DeepEqual(result.GenericScheduler, next.GenericScheduler) {
 			t.Fatalf("run %d post-comment receipt drifted: next=%+v err=%v", run, next.GenericScheduler, err)
 		}
+	}
+}
+
+func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true},
+	)
+	if routeErr != nil || !result.Completed || !result.Materialized || result.MaterializedTree == nil || result.GenericScheduler == nil || result.GenericScheduler.Acceptance == nil {
+		t.Fatalf("source=%d completed=%v materialized=%v boundary=%s state=%d tokens=%d dispatches=%d generic=%+v err=%v", len(source), result.Completed, result.Materialized, result.Boundary, result.State, result.Tokens, result.Dispatches, result.GenericScheduler, routeErr)
+	}
+	defer result.MaterializedTree.Release()
+	acceptance := result.GenericScheduler.Acceptance
+	if result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
+		result.Tokens != 1036 || result.Dispatches != 2684 || acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead ||
+		acceptance.Header.Header.CreationSeq != 234 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || acceptance.Header.Header.Shifted || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 ||
+		!reflect.DeepEqual(acceptance.Payloads, []uint32{2626}) || acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder ||
+		acceptance.Stats != (core.Stats{Nodes: 3005, Links: 3004, Subtrees: 2626, Children: 2769, CurrentExactPaths: 1}) ||
+		acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
+			Passes: 2403, ActionLookups: 3342, Dispatches: 2486,
+			Conflicts: 156, ConflictActions: 320, Forks: 164, ConflictHeads: 348,
+			Reductions: 1169, OrdinaryShifts: 1139, OrdinaryCohorts: 211,
+			ExtraShifts: 21, ExtraCohorts: 1, Accepts: 1,
+			ReductionPauses: 31, NoActionDrops: 165, Elections: 933,
+			Canonicalizations: 2251, PeakHeaders: 4,
+		}) || len(result.GenericScheduler.Rounds) != 2251 || len(result.GenericScheduler.NoActionDrops) != 165 {
+		t.Fatalf("acceptance receipt drifted: result=%+v acceptance=%+v", result, acceptance)
+	}
+	inspection, err := benchfixtures.InspectGoTree(result.MaterializedTree.RootNode(), grammars.GoLanguage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := result.MaterializedTree.RootNode()
+	if inspection.SHA256 != "b3f9814b65763642d4eac58b9065018048ea13e6f10d56afb28a0479bf5a68a1" || root.Type(grammars.GoLanguage()) != "source_file" || root.StartByte() != 0 || root.EndByte() != uint32(len(source)) || root.HasError() {
+		t.Fatalf("materialized tree drifted: digest=%s root=%s %d..%d has_error=%v", inspection.SHA256, root.Type(grammars.GoLanguage()), root.StartByte(), root.EndByte(), root.HasError())
+	}
+	runtime := result.MaterializedTree.ParseRuntime()
+	if runtime.StopReason != gotreesitter.ParseStopAccepted || runtime.Truncated || runtime.SourceLen != uint32(len(source)) || runtime.ExpectedEOFByte != uint32(len(source)) || runtime.RootEndByte != uint32(len(source)) || !runtime.LastTokenWasEOF {
+		t.Fatalf("materialized runtime is not an authenticated full-span accept: %s", runtime.Summary())
+	}
+	edited := append(append([]byte(nil), source...), '\n')
+	fallback, profile, err := gotreesitter.NewParser(grammars.GoLanguage()).ParseIncrementalProfiled(edited, result.MaterializedTree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fallback == nil {
+		t.Fatal("incremental fallback returned no tree")
+	}
+	defer fallback.Release()
+	if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason == "" || fallback == result.MaterializedTree || fallback.RootNode().EndByte() != uint32(len(edited)) {
+		t.Fatalf("diagnostic tree entered incremental reuse: profile=%+v same_tree=%v fallback_end=%d", profile, fallback == result.MaterializedTree, fallback.RootNode().EndByte())
+	}
+
+	next, err := gotreesitter.DiagnosticParseParserCorePrefix(
+		grammars.GoExternalScanner{}, source,
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true},
+	)
+	if next.MaterializedTree != nil {
+		defer next.MaterializedTree.Release()
+	}
+	if err != nil || next.MaterializedTree == nil || !reflect.DeepEqual(result.GenericScheduler, next.GenericScheduler) {
+		t.Fatalf("repeated acceptance drifted: next=%+v err=%v", next.GenericScheduler, err)
 	}
 }

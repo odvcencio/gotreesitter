@@ -3,12 +3,25 @@
 package gotreesitter
 
 import (
+	"errors"
 	"math"
 	"reflect"
 	"testing"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
+
+func TestDiagnosticParserCorePointIndexPollsBeforeScanning(t *testing.T) {
+	want := errors.New("stop")
+	polls := 0
+	index, err := newDiagnosticParserCorePointIndex([]byte("first\nsecond\n"), func() error {
+		polls++
+		return want
+	})
+	if !errors.Is(err, want) || polls != 1 || index.lineStarts != nil {
+		t.Fatalf("stopped point index=%+v err=%v polls=%d", index, err, polls)
+	}
+}
 
 type genericConflictTable struct {
 	actions []core.Action
@@ -445,5 +458,93 @@ func TestDiagnosticParserCoreGenericConflictRejectsUnsupportedArmBeforeMutation(
 	after, _ := compact.Stats(incoming)
 	if after != before {
 		t.Fatalf("unsupported-arm preflight mutated graph: before=%+v after=%+v", before, after)
+	}
+}
+
+func TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation(t *testing.T) {
+	accept := []core.Action{{Type: core.ActionAccept}}
+	for _, test := range []struct {
+		name          string
+		cells         map[genericConflictCell][]core.Action
+		headerStates  []core.StateID
+		configureHead func(*diagnosticParserCoreHeader)
+	}{
+		{
+			name:         "accept-and-no-action",
+			cells:        map[genericConflictCell][]core.Action{{state: 1, symbol: 0}: accept},
+			headerStates: []core.StateID{1, 2},
+		},
+		{
+			name:          "accept-and-shifted-sibling",
+			cells:         map[genericConflictCell][]core.Action{{state: 1, symbol: 0}: accept},
+			headerStates:  []core.StateID{1, 2},
+			configureHead: func(header *diagnosticParserCoreHeader) { header.shifted = true },
+		},
+		{
+			name: "accept-and-reduction-sibling",
+			cells: map[genericConflictCell][]core.Action{
+				{state: 1, symbol: 0}: accept,
+				{state: 2, symbol: 0}: {{Type: core.ActionReduce, Symbol: 3}},
+			},
+			headerStates: []core.StateID{1, 2},
+		},
+		{
+			name: "multiple-accepts",
+			cells: map[genericConflictCell][]core.Action{
+				{state: 1, symbol: 0}: accept,
+				{state: 2, symbol: 0}: accept,
+			},
+			headerStates: []core.StateID{1, 2},
+		},
+		{
+			name: "accept-in-fork",
+			cells: map[genericConflictCell][]core.Action{
+				{state: 1, symbol: 0}: {{Type: core.ActionAccept}, {Type: core.ActionReduce, Symbol: 3}},
+			},
+			headerStates: []core.StateID{1},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			compact, err := core.New(&genericConflictTable{cells: test.cells}, core.Limits{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			headers := make([]diagnosticParserCoreHeader, len(test.headerStates))
+			for index, state := range test.headerStates {
+				head, seedErr := compact.Seed(state, 0)
+				if seedErr != nil {
+					t.Fatal(seedErr)
+				}
+				headers[index] = diagnosticParserCoreHeader{head: head, creationSeq: uint64(index)}
+			}
+			if test.configureHead != nil {
+				test.configureHead(&headers[len(headers)-1])
+			}
+			beforeHeaders := append([]diagnosticParserCoreHeader(nil), headers...)
+			beforeStats, err := compact.Stats(headers[0].head)
+			if err != nil {
+				t.Fatal(err)
+			}
+			scheduler := &diagnosticParserCoreGenericScheduler{
+				compact: compact, headers: headers,
+				token:   Token{Symbol: 0, StartByte: 0, EndByte: 0},
+				options: DiagnosticParserCorePrefixOptions{MaxDispatches: 100},
+				receipt: &DiagnosticParserCoreGenericScheduler{},
+			}
+			stop, err := scheduler.dispatchPass()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stop == nil {
+				t.Fatal("mixed accept frontier unexpectedly dispatched")
+			}
+			afterStats, err := compact.Stats(headers[0].head)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if afterStats != beforeStats || !reflect.DeepEqual(scheduler.headers, beforeHeaders) || scheduler.dispatches != 0 || scheduler.work.Accepts != 0 || len(scheduler.receipt.Rounds) != 0 || scheduler.acceptedHead.Node != 0 {
+				t.Fatalf("mixed accept mutated state: stop=%+v beforeStats=%+v afterStats=%+v scheduler=%+v", stop, beforeStats, afterStats, scheduler)
+			}
+		})
 	}
 }
