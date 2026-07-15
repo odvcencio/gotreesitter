@@ -16,16 +16,17 @@ import (
 type DiagnosticParserCoreBoundaryKind string
 
 const (
-	DiagnosticParserCoreFirstFork       DiagnosticParserCoreBoundaryKind = "first_fork"
-	DiagnosticParserCoreExtra           DiagnosticParserCoreBoundaryKind = "extra"
-	DiagnosticParserCoreExtraChain      DiagnosticParserCoreBoundaryKind = "extra_chain"
-	DiagnosticParserCoreNoAction        DiagnosticParserCoreBoundaryKind = "no_action"
-	DiagnosticParserCoreRecovery        DiagnosticParserCoreBoundaryKind = "recovery"
-	DiagnosticParserCoreAccept          DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
-	DiagnosticParserCoreCap             DiagnosticParserCoreBoundaryKind = "cap"
-	DiagnosticParserCoreIdentity        DiagnosticParserCoreBoundaryKind = "identity"
-	DiagnosticParserCoreRoute           DiagnosticParserCoreBoundaryKind = "unsupported_route"
-	DiagnosticParserCoreElectionBarrier DiagnosticParserCoreBoundaryKind = "multi_state_re_election"
+	DiagnosticParserCoreFirstFork               DiagnosticParserCoreBoundaryKind = "first_fork"
+	DiagnosticParserCoreExtra                   DiagnosticParserCoreBoundaryKind = "extra"
+	DiagnosticParserCoreExtraChain              DiagnosticParserCoreBoundaryKind = "extra_chain"
+	DiagnosticParserCoreNoAction                DiagnosticParserCoreBoundaryKind = "no_action"
+	DiagnosticParserCoreRecovery                DiagnosticParserCoreBoundaryKind = "recovery"
+	DiagnosticParserCoreAccept                  DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
+	DiagnosticParserCoreCap                     DiagnosticParserCoreBoundaryKind = "cap"
+	DiagnosticParserCoreIdentity                DiagnosticParserCoreBoundaryKind = "identity"
+	DiagnosticParserCoreRoute                   DiagnosticParserCoreBoundaryKind = "unsupported_route"
+	DiagnosticParserCoreElectionBarrier         DiagnosticParserCoreBoundaryKind = "multi_state_re_election"
+	DiagnosticParserCoreSingleStateContinuation DiagnosticParserCoreBoundaryKind = "single_state_continuation_before_dispatch"
 )
 
 type DiagnosticParserCorePrefixOptions struct {
@@ -92,6 +93,39 @@ type DiagnosticParserCoreDispatchRound struct {
 	After   []DiagnosticParserCoreHeaderReceipt
 }
 
+// DiagnosticParserCoreOracleCondenseResolution records the one C-oracle-pinned
+// comparison that phase zero may apply at the frozen state-254 no-action cell.
+// C charges the paused version one skipped-tree error cost, keeps the zero-cost
+// shifted sibling, and does not resume the paused version. The paused graph
+// remains immutable; only the diagnostic scheduler agenda drops it.
+type DiagnosticParserCoreOracleCondenseResolution struct {
+	Paused                 DiagnosticParserCoreHeaderReceipt
+	Preserved              DiagnosticParserCoreHeaderReceipt
+	Lookahead              Token
+	PrecedingScannerAfter  DiagnosticParserCoreScannerCheckpoint
+	PausedEffectiveCost    uint32
+	PreservedEffectiveCost uint32
+	PausedDropped          bool
+	PausedResumed          bool
+	OraclePinned           bool
+}
+
+// DiagnosticParserCoreContinuationElection records the single authenticated
+// production-DFA election admitted after the frozen no-action resolution.
+type DiagnosticParserCoreContinuationElection struct {
+	State                StateID
+	ByteOffset           uint32
+	ElectionIndex        int
+	ExpectedBefore       DiagnosticParserCoreScannerCheckpoint
+	ActualBefore         DiagnosticParserCoreScannerCheckpoint
+	CheckpointContinuous bool
+	Token                Token
+	// SchedulerHeader is the sole agenda header for the new token epoch. Its
+	// Shifted reset is scheduler state only; phase zero does not migrate or
+	// rewrite the persistent compact graph head.
+	SchedulerHeader DiagnosticParserCoreHeaderReceipt
+}
+
 type DiagnosticParserCoreExtraShift struct {
 	State          StateID
 	Token          Token
@@ -107,26 +141,28 @@ type DiagnosticParserCoreReductionAttempt struct {
 }
 
 type DiagnosticParserCorePrefixResult struct {
-	Boundary             DiagnosticParserCoreBoundaryKind
-	Detail               string
-	Dispatches           uint64
-	Tokens               uint64
-	State                StateID
-	Lookahead            Token
-	ForkActions          []DiagnosticParserCoreForkAction
-	ForkBoundaryReceipts []DiagnosticParserCoreForkBoundary
-	ForkBoundaries       int
-	ForkLogicalPaths     uint64
-	ExtraShifts          []DiagnosticParserCoreExtraShift
-	ReductionAttempts    []DiagnosticParserCoreReductionAttempt
-	SameTokenRounds      []DiagnosticParserCoreDispatchRound
-	LastBranchOrder      uint64
-	Elections            []DiagnosticParserCoreElection
-	SourceSHA256         [32]byte
-	GrammarBlobSHA256    [32]byte
-	Grammar              string
-	ExactRootDFA         bool
-	Materialized         bool
+	Boundary                 DiagnosticParserCoreBoundaryKind
+	Detail                   string
+	Dispatches               uint64
+	Tokens                   uint64
+	State                    StateID
+	Lookahead                Token
+	ForkActions              []DiagnosticParserCoreForkAction
+	ForkBoundaryReceipts     []DiagnosticParserCoreForkBoundary
+	ForkBoundaries           int
+	ForkLogicalPaths         uint64
+	ExtraShifts              []DiagnosticParserCoreExtraShift
+	ReductionAttempts        []DiagnosticParserCoreReductionAttempt
+	SameTokenRounds          []DiagnosticParserCoreDispatchRound
+	LastBranchOrder          uint64
+	OracleCondenseResolution *DiagnosticParserCoreOracleCondenseResolution
+	ContinuationElection     *DiagnosticParserCoreContinuationElection
+	Elections                []DiagnosticParserCoreElection
+	SourceSHA256             [32]byte
+	GrammarBlobSHA256        [32]byte
+	Grammar                  string
+	ExactRootDFA             bool
+	Materialized             bool
 }
 
 type diagnosticParserCoreDecline struct {
@@ -322,7 +358,7 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 			if err := recordDiagnosticParserCoreFirstFork(compact, headers, &result); err != nil {
 				return result, err
 			}
-			if err := continueDiagnosticParserCoreSameToken(compact, token, headers, branchOrder, nextSeq, options, &result); err != nil {
+			if err := continueDiagnosticParserCoreSameToken(compact, tokenSource, &scannerScratch, token, headers, branchOrder, nextSeq, options, &result); err != nil {
 				if setDiagnosticParserCoreBoundaryError(&result, err) {
 					return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 				}
@@ -593,6 +629,8 @@ func canonicalizeDiagnosticParserCoreHeaders(compact *core.Core, headers []diagn
 
 func continueDiagnosticParserCoreSameToken(
 	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
 	token Token,
 	headers []diagnosticParserCoreHeader,
 	branchOrder uint64,
@@ -650,6 +688,11 @@ func continueDiagnosticParserCoreSameToken(
 		actions, err := compact.Actions(state, core.Symbol(token.Symbol))
 		if err != nil {
 			return err
+		}
+		if len(actions) == 0 {
+			return continueDiagnosticParserCoreFrozenOracleCondense(
+				compact, tokenSource, scannerScratch, token, headers, runnable, options, result,
+			)
 		}
 		if err := validateDiagnosticParserCoreCell(token, actions); err != nil {
 			return err
@@ -710,6 +753,139 @@ func continueDiagnosticParserCoreSameToken(
 		recordDiagnosticParserCoreAppliedReductions(result, token, round.Actions)
 		result.LastBranchOrder = branchOrder
 	}
+}
+
+func validateDiagnosticParserCoreFrozenOracleCondense(
+	compact *core.Core,
+	token Token,
+	headers []diagnosticParserCoreHeader,
+	runnable int,
+	precedingScannerAfter DiagnosticParserCoreScannerCheckpoint,
+) (DiagnosticParserCoreOracleCondenseResolution, diagnosticParserCoreHeader, error) {
+	// diagnosticParserCoreHeader intentionally has no prior recovery/error
+	// payload. Recovery routes are rejected before this scheduler is entered;
+	// this validator applies the pinned C pause-and-cost decision only to the
+	// two previously unrecovered lineages named below.
+	decline := func(detail string) (DiagnosticParserCoreOracleCondenseResolution, diagnosticParserCoreHeader, error) {
+		return DiagnosticParserCoreOracleCondenseResolution{}, diagnosticParserCoreHeader{}, &diagnosticParserCoreDecline{
+			boundary: DiagnosticParserCoreNoAction, detail: detail,
+		}
+	}
+	if compact == nil {
+		return decline("frozen no-action resolution requires a compact core")
+	}
+	if token.Symbol != 20 || token.StartByte != 579 || token.EndByte != 580 || token.NoLookahead || token.ExternalScannerToken {
+		return decline("no-action cell does not match the authenticated rewrite lookahead")
+	}
+	if len(headers) != 2 || runnable != 0 {
+		return decline("oracle condense requires exactly one no-action primary and one shifted sibling")
+	}
+	receipts, err := diagnosticParserCoreHeaderReceipts(compact, headers)
+	if err != nil {
+		return DiagnosticParserCoreOracleCondenseResolution{}, diagnosticParserCoreHeader{}, err
+	}
+	paused, preserved := receipts[0], receipts[1]
+	if paused.State != 254 || paused.ByteOffset != 579 || paused.CreationSeq != 0 || paused.Shifted || paused.Accepted || paused.ExactPaths != 1 {
+		return decline("primary no-action header does not match authenticated state 254 at byte 579")
+	}
+	if preserved.State != 193 || preserved.ByteOffset != 580 || preserved.CreationSeq != 1 || !preserved.Shifted || preserved.Accepted || preserved.ExactPaths != 1 {
+		return decline("shifted sibling does not match authenticated clean state 193 at byte 580")
+	}
+	if paused.Checkpoint != preserved.Checkpoint || paused.Checkpoint == ([32]byte{}) || precedingScannerAfter.SHA256 != preserved.Checkpoint {
+		return decline("oracle-condense headers do not match the complete preceding scanner checkpoint")
+	}
+	if precedingScannerAfter.Length != 0 {
+		return decline("frozen Go oracle-condense checkpoint length is not zero")
+	}
+	return DiagnosticParserCoreOracleCondenseResolution{
+		Paused: paused, Preserved: preserved, Lookahead: token,
+		PrecedingScannerAfter: precedingScannerAfter,
+		PausedEffectiveCost:   cErrCostPerSkippedTree, PreservedEffectiveCost: 0,
+		PausedDropped: true, PausedResumed: false, OraclePinned: true,
+	}, headers[1], nil
+}
+
+func continueDiagnosticParserCoreFrozenOracleCondense(
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	token Token,
+	headers []diagnosticParserCoreHeader,
+	runnable int,
+	options DiagnosticParserCorePrefixOptions,
+	result *DiagnosticParserCorePrefixResult,
+) error {
+	if len(result.Elections) == 0 {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "oracle condense requires a preceding scanner election"}
+	}
+	precedingScannerAfter := result.Elections[len(result.Elections)-1].ScannerAfter
+	resolution, _, err := validateDiagnosticParserCoreFrozenOracleCondense(compact, token, headers, runnable, precedingScannerAfter)
+	if err != nil {
+		return err
+	}
+	if tokenSource == nil || scannerScratch == nil {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "frozen continuation requires the authenticated production DFA"}
+	}
+	if result.Tokens >= options.MaxTokens {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "token cap before frozen continuation election"}
+	}
+
+	// Validate continuity before advancing the production token source. The
+	// paused agenda entry is not dropped from the caller-visible receipt until
+	// every guard succeeds.
+	tokenSource.SetParserState(193)
+	tokenSource.SetGLRStates(nil)
+	before := append([]byte(nil), tokenSource.captureExternalScannerStateInto(scannerScratch)...)
+	beforeReceipt := parserCoreCheckpoint(before)
+	checkpointContinuous := beforeReceipt == resolution.PrecedingScannerAfter
+	if !checkpointContinuous {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "scanner checkpoint continuity failed before frozen continuation election"}
+	}
+
+	// Next mutates the production lexer cursor. Every rejectable shape and
+	// checkpoint guard is therefore checked above; failures after this point
+	// are terminal diagnostic declines and never resume this token source.
+	next := tokenSource.Next()
+	after := append([]byte(nil), tokenSource.captureExternalScannerStateInto(scannerScratch)...)
+	current, currentStart, currentEnd, currentValid := currentExternalScannerCheckpoint(tokenSource)
+	election := DiagnosticParserCoreElection{
+		States: []StateID{193}, Token: next,
+		ScannerBefore: beforeReceipt, ScannerAfter: parserCoreCheckpoint(after),
+		CurrentCheckpointValid: currentValid,
+		CurrentCheckpointStart: parserCoreCheckpoint(current.start),
+		CurrentCheckpointEnd:   parserCoreCheckpoint(current.end),
+		CurrentCheckpointBytes: [2]uint32{currentStart, currentEnd},
+	}
+	if next.StartByte != resolution.Preserved.ByteOffset {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "frozen continuation election did not start at the preserved header"}
+	}
+	if err := compact.ApplyAtomic(func() error {
+		if err := compact.BeginFrontier(); err != nil {
+			return err
+		}
+		compact.SetPhaseCheckpoint(election.ScannerAfter.SHA256)
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	result.OracleCondenseResolution = &resolution
+	result.Elections = append(result.Elections, election)
+	result.Tokens++
+	result.State, result.Lookahead = 193, next
+	schedulerHeader := resolution.Preserved
+	schedulerHeader.Shifted = false
+	schedulerHeader.Checkpoint = election.ScannerAfter.SHA256
+	result.ContinuationElection = &DiagnosticParserCoreContinuationElection{
+		State: 193, ByteOffset: resolution.Preserved.ByteOffset,
+		ElectionIndex:  len(result.Elections) - 1,
+		ExpectedBefore: resolution.PrecedingScannerAfter,
+		ActualBefore:   beforeReceipt, CheckpointContinuous: checkpointContinuous, Token: next,
+		SchedulerHeader: schedulerHeader,
+	}
+	result.Boundary = DiagnosticParserCoreSingleStateContinuation
+	result.Detail = "applied C-oracle skipped-tree cost comparison and elected one state-193 continuation token before dispatch"
+	return &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 }
 
 func setDiagnosticParserCoreBoundaryError(result *DiagnosticParserCorePrefixResult, err error) bool {

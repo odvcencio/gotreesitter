@@ -120,7 +120,11 @@ func assertProductionParserCoreCells(t *testing.T, profile *gotreesitter.Ambigui
 		254: nil,
 	}
 	seen := make(map[gotreesitter.StateID]bool, len(want))
+	continuationSeen := false
 	for _, stat := range profile.SnapshotTop(-1) {
+		if stat.State == 193 && stat.Lookahead == 86 && reflect.DeepEqual(stat.Actions, []gotreesitter.ParseAction{{Type: gotreesitter.ParseActionShift, State: 186}}) && stat.Hits > 0 {
+			continuationSeen = true
+		}
 		actions, ok := want[stat.State]
 		if !ok || stat.Lookahead != 20 || !reflect.DeepEqual(stat.Actions, actions) || stat.Hits == 0 {
 			continue
@@ -131,6 +135,9 @@ func assertProductionParserCoreCells(t *testing.T, profile *gotreesitter.Ambigui
 		if !seen[state] {
 			t.Fatalf("production scheduler did not authenticate state %d/lookahead 20 actions %+v", state, want[state])
 		}
+	}
+	if !continuationSeen {
+		t.Fatal("production scheduler did not authenticate continuation state 193/lookahead 86 shift to state 186")
 	}
 }
 
@@ -163,11 +170,29 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if prefixErr != nil && result.Boundary == "" {
 		t.Fatalf("untyped prefix error: %v", prefixErr)
 	}
-	if result.Boundary != gotreesitter.DiagnosticParserCoreNoAction || result.Tokens != 68 || result.Dispatches != 121 || result.State != 254 || result.Lookahead.Symbol != 20 || prefixErr == nil {
+	if result.Boundary != gotreesitter.DiagnosticParserCoreSingleStateContinuation || result.Tokens != 69 || result.Dispatches != 121 || result.State != 193 || result.Lookahead.Symbol != 86 || prefixErr == nil {
 		t.Fatalf("rewrite prefix identity drifted: boundary=%s tokens=%d dispatches=%d state=%d lookahead=%d fork_actions=%+v fork_boundaries=%d fork_paths=%d same_rounds=%+v last_order=%d", result.Boundary, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkActions, result.ForkBoundaries, result.ForkLogicalPaths, result.SameTokenRounds, result.LastBranchOrder)
 	}
-	if result.Detail != "canonical cell has no action" || len(result.Elections) != int(result.Tokens) {
-		t.Fatalf("no-action boundary detail/elections = %q/%d, want exact no-new-election receipt for %d tokens", result.Detail, len(result.Elections), result.Tokens)
+	if result.Detail != "applied C-oracle skipped-tree cost comparison and elected one state-193 continuation token before dispatch" || len(result.Elections) != int(result.Tokens) {
+		t.Fatalf("no-action continuation detail/elections = %q/%d, want one exact continuation election for %d tokens", result.Detail, len(result.Elections), result.Tokens)
+	}
+	if result.OracleCondenseResolution == nil || result.ContinuationElection == nil {
+		t.Fatalf("missing oracle-condense continuation receipts: resolution=%+v election=%+v", result.OracleCondenseResolution, result.ContinuationElection)
+	}
+	lastEpochCheckpoint := result.Elections[67].ScannerAfter
+	resolution := result.OracleCondenseResolution
+	if !resolution.OraclePinned || !resolution.PausedDropped || resolution.PausedResumed || resolution.PausedEffectiveCost != 100 || resolution.PreservedEffectiveCost != 0 || resolution.Lookahead.Symbol != 20 || resolution.Lookahead.StartByte != 579 || resolution.Lookahead.EndByte != 580 ||
+		resolution.Paused.State != 254 || resolution.Paused.ByteOffset != 579 || resolution.Paused.CreationSeq != 0 || resolution.Paused.Shifted || resolution.Paused.ExactPaths != 1 ||
+		resolution.Preserved.State != 193 || resolution.Preserved.ByteOffset != 580 || resolution.Preserved.CreationSeq != 1 || !resolution.Preserved.Shifted || resolution.Preserved.ExactPaths != 1 ||
+		resolution.PrecedingScannerAfter != lastEpochCheckpoint || resolution.Paused.Checkpoint != lastEpochCheckpoint.SHA256 || resolution.Preserved.Checkpoint != lastEpochCheckpoint.SHA256 {
+		t.Fatalf("no-action resolution receipt drifted: %+v prior_checkpoint=%x", resolution, lastEpochCheckpoint)
+	}
+	continuation := result.ContinuationElection
+	if continuation.State != 193 || continuation.ByteOffset != 580 || continuation.ElectionIndex != 68 || !continuation.CheckpointContinuous || continuation.Token.Symbol != 86 || continuation.Token.StartByte != 580 || continuation.Token.EndByte != 586 ||
+		continuation.ExpectedBefore != lastEpochCheckpoint || continuation.ExpectedBefore.Length != 0 || continuation.ActualBefore != continuation.ExpectedBefore ||
+		continuation.SchedulerHeader.State != 193 || continuation.SchedulerHeader.ByteOffset != 580 || continuation.SchedulerHeader.CreationSeq != 1 || continuation.SchedulerHeader.Shifted || continuation.SchedulerHeader.Accepted || continuation.SchedulerHeader.ExactPaths != 1 || continuation.SchedulerHeader.Checkpoint != result.Elections[68].ScannerAfter.SHA256 ||
+		!reflect.DeepEqual(continuation.Token, result.Elections[68].Token) {
+		t.Fatalf("continuation election receipt drifted: %+v election=%+v", continuation, result.Elections[68])
 	}
 	wantForkActions := []gotreesitter.DiagnosticParserCoreForkAction{
 		{Ordinal: 1, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 193}, BranchOrder: 1},
@@ -293,7 +318,7 @@ func TestDiagnosticParserCoreUsesEmbeddedGrammarAndExactScanner(t *testing.T) {
 		t.Fatal("rewrite fixture missing")
 	}
 	canonical, canonicalErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, gotreesitter.DiagnosticParserCorePrefixOptions{})
-	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreNoAction || canonical.Tokens != 68 || canonical.Dispatches != 121 || canonical.State != 254 || canonical.Lookahead.Symbol != 20 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 1 || len(canonical.SameTokenRounds) != 4 || !canonical.ExactRootDFA {
+	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreSingleStateContinuation || canonical.Tokens != 69 || canonical.Dispatches != 121 || canonical.State != 193 || canonical.Lookahead.Symbol != 86 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 1 || len(canonical.SameTokenRounds) != 4 || canonical.OracleCondenseResolution == nil || canonical.ContinuationElection == nil || !canonical.ExactRootDFA {
 		t.Fatalf("exact scanner did not reach authenticated boundary: result=%+v err=%v", canonical, canonicalErr)
 	}
 	wrongScanners := []struct {
