@@ -181,10 +181,10 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if prefixErr != nil && result.Boundary == "" {
 		t.Fatalf("untyped prefix error: %v", prefixErr)
 	}
-	if result.Boundary != gotreesitter.DiagnosticParserCoreSubsequentConflictBoundary || result.Tokens != 96 || result.Dispatches != 180 || result.State != 232 || result.Lookahead.Symbol != 4 || prefixErr == nil {
+	if result.Boundary != gotreesitter.DiagnosticParserCoreElectionBarrier || result.Tokens != 96 || result.Dispatches != 181 || result.State != 18 || result.Lookahead.Symbol != 4 || prefixErr == nil {
 		t.Fatalf("rewrite prefix identity drifted: boundary=%s tokens=%d dispatches=%d state=%d lookahead=%d fork_actions=%+v fork_boundaries=%d fork_paths=%d same_rounds=%+v last_order=%d", result.Boundary, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkActions, result.ForkBoundaries, result.ForkLogicalPaths, result.SameTokenRounds, result.LastBranchOrder)
 	}
-	if result.Detail != "later multi-action cell reached before execution" || len(result.Elections) != int(result.Tokens) {
+	if result.Detail != "same lookahead closed at byte 725 before multi-state election" || len(result.Elections) != int(result.Tokens) {
 		t.Fatalf("continued prefix detail/elections = %q/%d, want one election per %d tokens", result.Detail, len(result.Elections), result.Tokens)
 	}
 	if result.OracleCondenseResolution == nil || result.ContinuationElection == nil {
@@ -208,18 +208,46 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if continuation.HandoffBoundary != gotreesitter.DiagnosticParserCoreSingleStateContinuation {
 		t.Fatalf("continuation handoff boundary=%s", continuation.HandoffBoundary)
 	}
-	if result.SubsequentConflict == nil {
-		t.Fatal("missing subsequent-conflict receipt")
+	if result.LaterForkExecution == nil || result.SubsequentConflict != nil {
+		t.Fatalf("later-fork/third-conflict receipts=%+v/%+v", result.LaterForkExecution, result.SubsequentConflict)
 	}
-	subsequent := result.SubsequentConflict
-	wantSubsequentActions := []gotreesitter.ParseAction{
-		{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1},
-		{Type: gotreesitter.ParseActionShift, State: 194},
+	later := result.LaterForkExecution
+	checkpoint := result.Elections[95].ScannerAfter.SHA256
+	wantLaterActions := []gotreesitter.DiagnosticParserCoreRoundAction{
+		{HeaderIndex: 0, State: 232, ByteOffset: 724, Ordinal: 1, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 194}, BranchOrder: 2},
+		{HeaderIndex: 0, State: 232, ByteOffset: 724, Ordinal: 0, Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1}},
 	}
-	if subsequent.State != 232 || subsequent.ByteOffset != 724 || subsequent.ElectionIndex != 95 || subsequent.Score != -10 || subsequent.BranchOrder != 1 || !subsequent.HasBranchOrder || subsequent.Token.Symbol != 4 || subsequent.Token.Text != "." || subsequent.Token.StartByte != 724 || subsequent.Token.EndByte != 725 ||
-		subsequent.Header.State != 232 || subsequent.Header.ByteOffset != 724 || subsequent.Header.CreationSeq != 1 || subsequent.Header.Shifted || subsequent.Header.Accepted || subsequent.Header.ExactPaths != 1 || subsequent.Header.Checkpoint != result.Elections[95].ScannerAfter.SHA256 ||
-		!reflect.DeepEqual(subsequent.Actions, wantSubsequentActions) {
-		t.Fatalf("subsequent conflict receipt=%+v, want actions=%+v checkpoint=%x", subsequent, wantSubsequentActions, result.Elections[95].ScannerAfter.SHA256)
+	if later.ElectionIndex != 95 || later.Token.Symbol != 4 || later.Token.Text != "." || later.Token.StartByte != 724 || later.Token.EndByte != 725 ||
+		later.BranchOrderBefore != 1 || later.BranchOrderAfter != 2 || later.NextCreationSeqBefore != 2 || later.NextCreationSeqAfter != 3 || later.ExactPaths != 2 || later.Round.Index != 0 ||
+		len(later.Round.Before) != 1 || later.Round.Before[0].CreationSeq != 1 || later.Round.Before[0].State != 232 || later.Round.Before[0].ByteOffset != 724 || later.Round.Before[0].Shifted || later.Round.Before[0].ExactPaths != 1 || later.Round.Before[0].Checkpoint != checkpoint ||
+		!reflect.DeepEqual(later.Round.Actions, wantLaterActions) || len(later.Round.After) != 2 || len(later.Boundaries) != 2 {
+		t.Fatalf("later fork execution=%+v, want actions=%+v checkpoint=%x", later, wantLaterActions, checkpoint)
+	}
+	wantLaterHeaders := []parserCoreHeaderStep{
+		{state: 18, byteOffset: 724, creationSeq: 1},
+		{state: 194, byteOffset: 725, creationSeq: 2, shifted: true},
+	}
+	wantLaterOrders := []uint64{1, 2}
+	for index, boundary := range later.Boundaries {
+		wantHeader := wantLaterHeaders[index]
+		if boundary.Header.State != wantHeader.state || boundary.Header.ByteOffset != wantHeader.byteOffset || boundary.Header.CreationSeq != wantHeader.creationSeq || boundary.Header.Shifted != wantHeader.shifted || boundary.Header.Accepted || boundary.Header.ExactPaths != 1 || boundary.Header.Checkpoint != checkpoint ||
+			boundary.Score != -10 || boundary.BranchOrder != wantLaterOrders[index] || !boundary.HasBranchOrder || !reflect.DeepEqual(boundary.Header, later.Round.After[index]) {
+			t.Fatalf("later fork boundary %d=%+v, want header=%+v score=-10 order=%d checkpoint=%x", index, boundary, wantHeader, wantLaterOrders[index], checkpoint)
+		}
+	}
+	if later.ClosedExactPaths != 2 || len(later.ClosedBoundaries) != 2 {
+		t.Fatalf("later fork closure=%+v exact_paths=%d", later.ClosedBoundaries, later.ClosedExactPaths)
+	}
+	wantClosedHeaders := []parserCoreHeaderStep{
+		{state: 164, byteOffset: 725, creationSeq: 1, shifted: true},
+		{state: 194, byteOffset: 725, creationSeq: 2, shifted: true},
+	}
+	for index, boundary := range later.ClosedBoundaries {
+		wantHeader := wantClosedHeaders[index]
+		if boundary.Header.State != wantHeader.state || boundary.Header.ByteOffset != wantHeader.byteOffset || boundary.Header.CreationSeq != wantHeader.creationSeq || boundary.Header.Shifted != wantHeader.shifted || boundary.Header.Accepted || boundary.Header.ExactPaths != 1 || boundary.Header.Checkpoint != checkpoint ||
+			boundary.Score != -10 || boundary.BranchOrder != wantLaterOrders[index] || !boundary.HasBranchOrder {
+			t.Fatalf("later fork closed boundary %d=%+v, want header=%+v score=-10 order=%d checkpoint=%x", index, boundary, wantHeader, wantLaterOrders[index], checkpoint)
+		}
 	}
 	emptyCheckpoint := gotreesitter.DiagnosticParserCoreScannerCheckpoint{Length: 0, SHA256: sha256.Sum256(nil)}
 	for _, want := range []struct {
@@ -244,8 +272,8 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if !reflect.DeepEqual(result.ForkActions, wantForkActions) || !reflect.DeepEqual(result.ForkBoundaryReceipts, wantForkBoundaries) || result.ForkBoundaries != 2 || result.ForkLogicalPaths != 2 {
 		t.Fatalf("first fork receipt: actions=%+v boundary_receipts=%+v boundaries=%d paths=%d, want actions=%+v boundary_receipts=%+v boundaries=2 paths=2", result.ForkActions, result.ForkBoundaryReceipts, result.ForkBoundaries, result.ForkLogicalPaths, wantForkActions, wantForkBoundaries)
 	}
-	if result.LastBranchOrder != 1 || len(result.SameTokenRounds) != 4 {
-		t.Fatalf("same-lookahead scheduler receipt = rounds=%d last_branch_order=%d, want 4/1", len(result.SameTokenRounds), result.LastBranchOrder)
+	if result.LastBranchOrder != 2 || len(result.SameTokenRounds) != 4 {
+		t.Fatalf("same-lookahead scheduler receipt = rounds=%d last_branch_order=%d, want 4/2", len(result.SameTokenRounds), result.LastBranchOrder)
 	}
 	assertParserCoreSameTokenRounds(t, result)
 	wantExtraSpans := [][2]uint32{{49, 116}, {117, 183}, {184, 266}, {267, 310}, {457, 517}, {599, 664}}
@@ -357,7 +385,7 @@ func TestDiagnosticParserCoreUsesEmbeddedGrammarAndExactScanner(t *testing.T) {
 		t.Fatal("rewrite fixture missing")
 	}
 	canonical, canonicalErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, gotreesitter.DiagnosticParserCorePrefixOptions{})
-	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreSubsequentConflictBoundary || canonical.Tokens != 96 || canonical.Dispatches != 180 || canonical.State != 232 || canonical.Lookahead.Symbol != 4 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 1 || len(canonical.SameTokenRounds) != 4 || canonical.OracleCondenseResolution == nil || canonical.ContinuationElection == nil || canonical.SubsequentConflict == nil || !canonical.ExactRootDFA {
+	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreElectionBarrier || canonical.Tokens != 96 || canonical.Dispatches != 181 || canonical.State != 18 || canonical.Lookahead.Symbol != 4 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 2 || len(canonical.SameTokenRounds) != 4 || canonical.OracleCondenseResolution == nil || canonical.ContinuationElection == nil || canonical.LaterForkExecution == nil || canonical.SubsequentConflict != nil || !canonical.ExactRootDFA {
 		t.Fatalf("exact scanner did not reach authenticated boundary: result=%+v err=%v", canonical, canonicalErr)
 	}
 	wrongScanners := []struct {

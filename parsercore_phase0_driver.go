@@ -142,6 +142,29 @@ type DiagnosticParserCoreSubsequentConflictReceipt struct {
 	HasBranchOrder bool
 }
 
+type DiagnosticParserCoreLaterForkBoundary struct {
+	Header         DiagnosticParserCoreHeaderReceipt
+	Score          int64
+	BranchOrder    uint64
+	HasBranchOrder bool
+}
+
+// DiagnosticParserCoreLaterForkExecution records the second authenticated
+// conflict independently from the immutable first-fork receipt.
+type DiagnosticParserCoreLaterForkExecution struct {
+	Token                 Token
+	ElectionIndex         int
+	BranchOrderBefore     uint64
+	BranchOrderAfter      uint64
+	NextCreationSeqBefore uint64
+	NextCreationSeqAfter  uint64
+	Round                 DiagnosticParserCoreDispatchRound
+	Boundaries            []DiagnosticParserCoreLaterForkBoundary
+	ExactPaths            uint64
+	ClosedBoundaries      []DiagnosticParserCoreLaterForkBoundary
+	ClosedExactPaths      uint64
+}
+
 type DiagnosticParserCoreExtraShift struct {
 	State          StateID
 	Token          Token
@@ -174,6 +197,7 @@ type DiagnosticParserCorePrefixResult struct {
 	OracleCondenseResolution *DiagnosticParserCoreOracleCondenseResolution
 	ContinuationElection     *DiagnosticParserCoreContinuationElection
 	SubsequentConflict       *DiagnosticParserCoreSubsequentConflictReceipt
+	LaterForkExecution       *DiagnosticParserCoreLaterForkExecution
 	Elections                []DiagnosticParserCoreElection
 	SourceSHA256             [32]byte
 	GrammarBlobSHA256        [32]byte
@@ -316,6 +340,9 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 	defer tokenSource.Close()
 	var token Token
 	haveToken := false
+	outerCreationSeq := uint64(0)
+	outerBranchOrder := uint64(0)
+	outerNextCreationSeq := uint64(1)
 	var scannerScratch []byte
 	for result.Dispatches < options.MaxDispatches {
 		if !haveToken {
@@ -358,39 +385,59 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 		}
 		if len(actions) > 1 {
 			if len(result.ForkActions) != 0 {
-				converted := make([]ParseAction, len(actions))
-				for index, action := range actions {
-					converted[index] = rootParserCoreAction(action)
+				if result.LaterForkExecution != nil {
+					receipt, receiptErr := diagnosticParserCoreSubsequentConflictReceipt(
+						compact, head, outerCreationSeq, token, actions, len(result.Elections)-1,
+						result.Elections[len(result.Elections)-1].ScannerAfter.SHA256,
+					)
+					if receiptErr != nil {
+						return result, receiptErr
+					}
+					result.SubsequentConflict = receipt
+					result.Boundary = DiagnosticParserCoreSubsequentConflictBoundary
+					result.Detail = "third multi-action cell reached before execution"
+					return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 				}
-				creationSeq := uint64(0)
-				if result.ContinuationElection != nil {
-					creationSeq = result.ContinuationElection.SchedulerHeader.CreationSeq
+
+				checkpoint := result.Elections[len(result.Elections)-1].ScannerAfter.SHA256
+				initial := diagnosticParserCoreHeader{head: head, creationSeq: outerCreationSeq, checkpoint: checkpoint}
+				headers, round, nextOrder, nextSeq, conflictErr := executeDiagnosticParserCoreConflict(
+					compact, initial, 0, token, actions, outerBranchOrder, outerNextCreationSeq,
+				)
+				if conflictErr != nil {
+					if setDiagnosticParserCoreBoundaryError(&result, conflictErr) {
+						return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+					}
+					return result, conflictErr
 				}
-				headerReceipt, boundaryErr := diagnosticParserCoreHeaderReceipt(compact, diagnosticParserCoreHeader{
-					head: head, creationSeq: creationSeq,
-					checkpoint: result.Elections[len(result.Elections)-1].ScannerAfter.SHA256,
-				})
-				if boundaryErr != nil {
-					return result, boundaryErr
+				round.Index = 0
+				boundaries, exactPaths, receiptErr := diagnosticParserCoreLaterForkBoundaries(compact, headers)
+				if receiptErr != nil {
+					return result, receiptErr
 				}
-				derivations, derivationErr := compact.Derivations(head)
-				if derivationErr != nil {
-					return result, derivationErr
+				result.LaterForkExecution = &DiagnosticParserCoreLaterForkExecution{
+					Token: token, ElectionIndex: len(result.Elections) - 1,
+					BranchOrderBefore: outerBranchOrder, BranchOrderAfter: nextOrder,
+					NextCreationSeqBefore: outerNextCreationSeq, NextCreationSeqAfter: nextSeq,
+					Round: round, Boundaries: boundaries, ExactPaths: exactPaths,
 				}
-				if len(derivations) != 1 {
-					return result, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "subsequent conflict requires one exact resumed derivation"}
+				recordDiagnosticParserCoreAppliedReductions(&result, token, round.Actions)
+				result.LastBranchOrder = nextOrder
+				var resume diagnosticParserCoreOuterResume
+				if continueErr := continueDiagnosticParserCoreSameToken(
+					compact, tokenSource, &scannerScratch, token, headers, nextOrder, nextSeq, options, &result, &resume,
+				); continueErr != nil {
+					if setDiagnosticParserCoreBoundaryError(&result, continueErr) {
+						return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+					}
+					return result, continueErr
 				}
-				derivation := derivations[0]
-				result.SubsequentConflict = &DiagnosticParserCoreSubsequentConflictReceipt{
-					State: state, ByteOffset: headerReceipt.ByteOffset, Header: headerReceipt,
-					Token: token, Actions: converted,
-					ElectionIndex: len(result.Elections) - 1,
-					Score:         derivation.Score, BranchOrder: derivation.BranchOrder,
-					HasBranchOrder: derivation.HasBranchOrder,
+				if !resume.ready {
+					return result, errors.New("parser-core phase zero: later conflict continuation returned without boundary or resume")
 				}
-				result.Boundary = DiagnosticParserCoreSubsequentConflictBoundary
-				result.Detail = "later multi-action cell reached before execution"
-				return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+				head, state, token, haveToken = resume.head, resume.state, resume.token, true
+				outerCreationSeq, outerBranchOrder, outerNextCreationSeq = resume.creationSeq, resume.branchOrder, resume.nextCreationSeq
+				continue
 			}
 			checkpoint := result.Elections[len(result.Elections)-1].ScannerAfter.SHA256
 			initial := diagnosticParserCoreHeader{head: head, creationSeq: 0, checkpoint: checkpoint}
@@ -423,6 +470,7 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 				return result, errors.New("parser-core phase zero: same-lookahead scheduler returned without a boundary or outer resume")
 			}
 			head, state, token, haveToken = resume.head, resume.state, resume.token, true
+			outerCreationSeq, outerBranchOrder, outerNextCreationSeq = resume.creationSeq, resume.branchOrder, resume.nextCreationSeq
 			continue
 		}
 		action := actions[0]
@@ -489,10 +537,13 @@ type diagnosticParserCoreHeader struct {
 }
 
 type diagnosticParserCoreOuterResume struct {
-	head  core.Head
-	state StateID
-	token Token
-	ready bool
+	head            core.Head
+	state           StateID
+	token           Token
+	creationSeq     uint64
+	branchOrder     uint64
+	nextCreationSeq uint64
+	ready           bool
 }
 
 func diagnosticParserCoreHeaderReceipt(compact *core.Core, header diagnosticParserCoreHeader) (DiagnosticParserCoreHeaderReceipt, error) {
@@ -666,6 +717,66 @@ func recordDiagnosticParserCoreFirstFork(compact *core.Core, headers []diagnosti
 	return nil
 }
 
+func diagnosticParserCoreSubsequentConflictReceipt(
+	compact *core.Core,
+	head core.Head,
+	creationSeq uint64,
+	token Token,
+	actions []core.Action,
+	electionIndex int,
+	checkpoint [32]byte,
+) (*DiagnosticParserCoreSubsequentConflictReceipt, error) {
+	converted := make([]ParseAction, len(actions))
+	for index, action := range actions {
+		converted[index] = rootParserCoreAction(action)
+	}
+	headerReceipt, err := diagnosticParserCoreHeaderReceipt(compact, diagnosticParserCoreHeader{
+		head: head, creationSeq: creationSeq, checkpoint: checkpoint,
+	})
+	if err != nil {
+		return nil, err
+	}
+	derivations, err := compact.Derivations(head)
+	if err != nil {
+		return nil, err
+	}
+	if len(derivations) != 1 {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "subsequent conflict requires one exact resumed derivation"}
+	}
+	derivation := derivations[0]
+	return &DiagnosticParserCoreSubsequentConflictReceipt{
+		State: headerReceipt.State, ByteOffset: headerReceipt.ByteOffset, Header: headerReceipt,
+		Token: token, Actions: converted, ElectionIndex: electionIndex,
+		Score: derivation.Score, BranchOrder: derivation.BranchOrder,
+		HasBranchOrder: derivation.HasBranchOrder,
+	}, nil
+}
+
+func diagnosticParserCoreLaterForkBoundaries(compact *core.Core, headers []diagnosticParserCoreHeader) ([]DiagnosticParserCoreLaterForkBoundary, uint64, error) {
+	out := make([]DiagnosticParserCoreLaterForkBoundary, 0, len(headers))
+	var exactPaths uint64
+	for _, header := range headers {
+		receipt, err := diagnosticParserCoreHeaderReceipt(compact, header)
+		if err != nil {
+			return nil, 0, err
+		}
+		derivations, err := compact.Derivations(header.head)
+		if err != nil {
+			return nil, 0, err
+		}
+		if len(derivations) != 1 || receipt.ExactPaths != 1 {
+			return nil, 0, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "later fork boundary requires one exact derivation"}
+		}
+		derivation := derivations[0]
+		out = append(out, DiagnosticParserCoreLaterForkBoundary{
+			Header: receipt, Score: derivation.Score,
+			BranchOrder: derivation.BranchOrder, HasBranchOrder: derivation.HasBranchOrder,
+		})
+		exactPaths += receipt.ExactPaths
+	}
+	return out, exactPaths, nil
+}
+
 func canonicalizeDiagnosticParserCoreHeaders(compact *core.Core, headers []diagnosticParserCoreHeader) ([]diagnosticParserCoreHeader, error) {
 	type phaseHead struct {
 		head       core.Head
@@ -732,6 +843,14 @@ func continueDiagnosticParserCoreSameToken(
 					return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "same-lookahead heads did not close at token end"}
 				}
 			}
+			if result.LaterForkExecution != nil {
+				closed, exactPaths, err := diagnosticParserCoreLaterForkBoundaries(compact, headers)
+				if err != nil {
+					return err
+				}
+				result.LaterForkExecution.ClosedBoundaries = closed
+				result.LaterForkExecution.ClosedExactPaths = exactPaths
+			}
 			result.LastBranchOrder = branchOrder
 			result.Boundary = DiagnosticParserCoreElectionBarrier
 			result.Detail = fmt.Sprintf("same lookahead closed at byte %d before multi-state election", token.EndByte)
@@ -758,11 +877,24 @@ func continueDiagnosticParserCoreSameToken(
 		}
 		if len(actions) == 0 {
 			return continueDiagnosticParserCoreFrozenOracleCondense(
-				compact, tokenSource, scannerScratch, token, headers, runnable, options, result, resume,
+				compact, tokenSource, scannerScratch, token, headers, runnable, branchOrder, nextSeq, options, result, resume,
 			)
 		}
 		if err := validateDiagnosticParserCoreCell(token, actions); err != nil {
 			return err
+		}
+		if len(actions) > 1 && result.LaterForkExecution != nil {
+			receipt, receiptErr := diagnosticParserCoreSubsequentConflictReceipt(
+				compact, active.head, active.creationSeq, token, actions,
+				len(result.Elections)-1, active.checkpoint,
+			)
+			if receiptErr != nil {
+				return receiptErr
+			}
+			result.SubsequentConflict = receipt
+			result.Boundary = DiagnosticParserCoreSubsequentConflictBoundary
+			result.Detail = "third multi-action cell reached before execution"
+			return &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 		}
 
 		var round DiagnosticParserCoreDispatchRound
@@ -816,7 +948,9 @@ func continueDiagnosticParserCoreSameToken(
 		round.Index = roundIndex
 		round.Before = beforeAll
 		round.After = afterAll
-		result.SameTokenRounds = append(result.SameTokenRounds, round)
+		if result.LaterForkExecution == nil {
+			result.SameTokenRounds = append(result.SameTokenRounds, round)
+		}
 		recordDiagnosticParserCoreAppliedReductions(result, token, round.Actions)
 		result.LastBranchOrder = branchOrder
 	}
@@ -879,6 +1013,8 @@ func continueDiagnosticParserCoreFrozenOracleCondense(
 	token Token,
 	headers []diagnosticParserCoreHeader,
 	runnable int,
+	branchOrder uint64,
+	nextSeq uint64,
 	options DiagnosticParserCorePrefixOptions,
 	result *DiagnosticParserCorePrefixResult,
 	resume *diagnosticParserCoreOuterResume,
@@ -955,7 +1091,11 @@ func continueDiagnosticParserCoreFrozenOracleCondense(
 		SchedulerHeader: schedulerHeader,
 		HandoffBoundary: DiagnosticParserCoreSingleStateContinuation,
 	}
-	*resume = diagnosticParserCoreOuterResume{head: preserved.head, state: 193, token: next, ready: true}
+	*resume = diagnosticParserCoreOuterResume{
+		head: preserved.head, state: 193, token: next,
+		creationSeq: preserved.creationSeq, branchOrder: branchOrder,
+		nextCreationSeq: nextSeq, ready: true,
+	}
 	return nil
 }
 
