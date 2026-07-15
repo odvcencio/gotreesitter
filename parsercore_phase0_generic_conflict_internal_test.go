@@ -76,8 +76,14 @@ func TestDiagnosticParserCoreGenericConflictArbitraryNOrdering(t *testing.T) {
 		t.Fatal(err)
 	}
 	scheduler := &diagnosticParserCoreGenericScheduler{
-		compact: compact, headers: headers, token: Token{Symbol: 9, StartByte: 0, EndByte: 1},
+		compact: compact, headers: headers, token: Token{Symbol: 9, StartByte: 0, EndByte: 1, ExternalScannerToken: true, ExternalScannerStartByte: 0},
 		branchOrder: 7, nextSeq: 10, options: DiagnosticParserCorePrefixOptions{MaxDispatches: 100},
+		electionIndex: 44,
+		currentElection: DiagnosticParserCoreElection{
+			Token:         Token{Symbol: 9, StartByte: 0, EndByte: 1, ExternalScannerToken: true, ExternalScannerStartByte: 0},
+			ScannerBefore: DiagnosticParserCoreScannerCheckpoint{Length: 1, SHA256: [32]byte{1}},
+			ScannerAfter:  DiagnosticParserCoreScannerCheckpoint{Length: 2, SHA256: [32]byte{2}},
+		},
 		receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	if err := scheduler.applyGenericConflict(before, diagnosticParserCoreGenericCell{
@@ -111,6 +117,21 @@ func TestDiagnosticParserCoreGenericConflictArbitraryNOrdering(t *testing.T) {
 		len(conflict.SecondaryArms) != 2 || len(conflict.SecondaryArms[0].Outputs) != 1 || len(conflict.SecondaryArms[1].Outputs) != 1 ||
 		len(conflict.AdditionalPrimaryOutputs) != 0 || len(conflict.After) != 5 {
 		t.Fatalf("three-action conflict receipt drifted: %+v", conflict)
+	}
+	if len(scheduler.receipt.ExternalShifts) != 1 {
+		t.Fatalf("external conflict receipts=%+v, want one round", scheduler.receipt.ExternalShifts)
+	}
+	external := scheduler.receipt.ExternalShifts[0]
+	if external.ElectionIndex != 44 || external.RoundIndex != 0 || !reflect.DeepEqual(external.Token, scheduler.currentElection.Token) ||
+		external.ScannerBefore != scheduler.currentElection.ScannerBefore || external.ScannerAfter != scheduler.currentElection.ScannerAfter || len(external.Payloads) != 3 {
+		t.Fatalf("external conflict receipt drifted: %+v", external)
+	}
+	for index, payload := range external.Payloads {
+		if payload.ID != uint32(index+1) || payload.Symbol != 9 || payload.StartByte != 0 || payload.EndByte != 1 ||
+			payload.ProductionID != 0 || payload.DynamicPrecedence != 0 || len(payload.Children) != 0 || len(payload.Fields) != 0 || len(payload.Aliases) != 0 ||
+			!payload.Terminal || !payload.External || payload.Extra {
+			t.Fatalf("external conflict payload %d=%+v", index, payload)
+		}
 	}
 }
 

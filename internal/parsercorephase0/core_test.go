@@ -764,6 +764,126 @@ func TestShiftOrdinaryCohortSharesOneTerminalPayload(t *testing.T) {
 	}
 }
 
+func TestExternalTerminalProvenanceIsPartOfSubtreeIdentity(t *testing.T) {
+	tables := &fakeTable{actions: map[tableCell][]Action{
+		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
+	}}
+	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := compact.Seed(1, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordinary, err := compact.Shift(seed, 9, 0, Token{Symbol: 9, StartByte: 4, EndByte: 5}, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	external, err := compact.Shift(seed, 9, 0, Token{Symbol: 9, StartByte: 4, EndByte: 5, External: true}, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordinaryPaths, err := compact.Derivations(ordinary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	externalPaths, err := compact.Derivations(external)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ordinaryPaths) != 1 || len(externalPaths) != 2 {
+		t.Fatalf("ordinary/external path identity ordinary=%+v external=%+v", ordinaryPaths, externalPaths)
+	}
+	var ordinarySeen, externalSeen bool
+	for _, path := range externalPaths {
+		if len(path.Payloads) != 1 {
+			t.Fatalf("terminal derivation=%+v", path)
+		}
+		view, err := compact.Subtree(path.Payloads[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if view.Symbol != 9 || view.StartByte != 4 || view.EndByte != 5 || view.Extra || !view.Terminal {
+			t.Fatalf("terminal provenance view=%+v", view)
+		}
+		if view.External {
+			externalSeen = true
+		} else {
+			ordinarySeen = true
+		}
+	}
+	if !ordinarySeen || !externalSeen {
+		t.Fatalf("ordinary/external provenance collapsed: ordinary=%t external=%t", ordinarySeen, externalSeen)
+	}
+}
+
+func TestExternalTerminalCohortSharesProvenance(t *testing.T) {
+	tables := &fakeTable{actions: map[tableCell][]Action{
+		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
+		{state: 2, symbol: 9}: {{Type: ActionShift, State: 3}},
+	}}
+	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, _ := compact.Seed(1, 4)
+	second, _ := compact.Seed(2, 4)
+	shifted, err := compact.ShiftOrdinaryCohort([]OrdinaryCohortShiftInput{
+		{Head: first, ActionOrdinal: 0},
+		{Head: second, ActionOrdinal: 0},
+	}, 9, Token{Symbol: 9, StartByte: 4, EndByte: 5, External: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shared SubtreeID
+	for _, head := range shifted {
+		paths, err := compact.Derivations(head)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range paths {
+			if len(path.Payloads) != 1 {
+				t.Fatalf("external cohort path=%+v", path)
+			}
+			if shared == 0 {
+				shared = path.Payloads[0]
+			} else if path.Payloads[0] != shared {
+				t.Fatalf("external cohort payload=%d, want shared %d", path.Payloads[0], shared)
+			}
+		}
+	}
+	view, err := compact.Subtree(shared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !view.External || !view.Terminal || view.Extra {
+		t.Fatalf("external cohort provenance=%+v", view)
+	}
+}
+
+func TestExternalShiftCapRollsBackProvenance(t *testing.T) {
+	tables := &fakeTable{actions: map[tableCell][]Action{
+		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
+	}}
+	compact, err := New(tables, Limits{MaxNodes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := compact.Seed(1, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, _ := compact.Stats(seed)
+	if _, err := compact.Shift(seed, 9, 0, Token{Symbol: 9, StartByte: 4, EndByte: 5, External: true}, ForkOrder{}); err == nil {
+		t.Fatal("capped external shift unexpectedly succeeded")
+	}
+	after, _ := compact.Stats(seed)
+	if after != before {
+		t.Fatalf("capped external shift leaked provenance payload: before=%+v after=%+v", before, after)
+	}
+}
+
 func TestShiftOrdinaryCohortValidatesBeforeMutation(t *testing.T) {
 	tables := &fakeTable{actions: map[tableCell][]Action{
 		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},

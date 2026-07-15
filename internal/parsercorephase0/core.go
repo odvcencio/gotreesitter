@@ -177,6 +177,7 @@ type subtreeRecord struct {
 	firstAlias        uint32
 	aliasCount        uint32
 	extra             bool
+	external          bool
 	terminal          bool
 }
 
@@ -203,6 +204,7 @@ type Token struct {
 	StartByte uint32
 	EndByte   uint32
 	Extra     bool
+	External  bool
 }
 
 // OrdinaryCohortShiftInput identifies one distinct scheduler head and its
@@ -238,6 +240,7 @@ type SubtreeView struct {
 	Fields            []FieldMapEntry
 	Aliases           []Symbol
 	Extra             bool
+	External          bool
 	Terminal          bool
 }
 
@@ -478,7 +481,7 @@ func (c *Core) Shift(head Head, lookahead Symbol, actionOrdinal int, token Token
 	}
 	payload, err := c.appendSubtree(subtreeRecord{
 		symbol: token.Symbol, startByte: token.StartByte, endByte: token.EndByte,
-		extra: act.Extra, terminal: true,
+		extra: act.Extra, external: token.External, terminal: true,
 	}, nil, nil, nil)
 	if err != nil {
 		return Head{}, err
@@ -492,9 +495,9 @@ func (c *Core) Shift(head Head, lookahead Symbol, actionOrdinal int, token Token
 // scheduler heads while allocating exactly one immutable terminal payload.
 // It is intentionally narrower than Shift: every cell must contain exactly
 // one undecorated non-extra shift and the token must have positive width.
-// Missing, no-lookahead, external, reused, and scanner-checkpoint identity
-// remain caller-visible concerns because this compact layer does not represent
-// them.
+// Missing, no-lookahead, reused, and scanner-checkpoint identity remain
+// caller-visible concerns. External provenance is one compact identity bit;
+// scanner state remains outside this layer.
 func (c *Core) ShiftOrdinaryCohort(inputs []OrdinaryCohortShiftInput, lookahead Symbol, token Token) (out []Head, err error) {
 	if len(inputs) == 0 {
 		return nil, errors.New("parser-core phase zero: empty ordinary shift cohort")
@@ -522,7 +525,7 @@ func (c *Core) ShiftOrdinaryCohort(inputs []OrdinaryCohortShiftInput, lookahead 
 	err = c.ApplyAtomic(func() error {
 		payload, err := c.appendSubtree(subtreeRecord{
 			symbol: token.Symbol, startByte: token.StartByte, endByte: token.EndByte,
-			terminal: true,
+			external: token.External, terminal: true,
 		}, nil, nil, nil)
 		if err != nil {
 			return err
@@ -574,7 +577,7 @@ func (c *Core) appendDiagnosticPayload(head Head, state StateID, token Token, me
 	}
 	payload, err := c.appendSubtree(subtreeRecord{
 		symbol: token.Symbol, startByte: token.StartByte, endByte: token.EndByte,
-		extra: token.Extra, terminal: true,
+		extra: token.Extra, external: token.External, terminal: true,
 	}, nil, nil, nil)
 	if err != nil {
 		return Head{}, err
@@ -1169,7 +1172,7 @@ func (c *Core) Subtree(id SubtreeID) (SubtreeView, error) {
 	}
 	view := SubtreeView{
 		Symbol: r.symbol, ProductionID: r.productionID, DynamicPrecedence: r.dynamicPrecedence,
-		StartByte: r.startByte, EndByte: r.endByte, Extra: r.extra, Terminal: r.terminal,
+		StartByte: r.startByte, EndByte: r.endByte, Extra: r.extra, External: r.external, Terminal: r.terminal,
 	}
 	view.Children = append(view.Children, c.children[r.firstChild:r.firstChild+r.childCount]...)
 	view.Fields = append(view.Fields, c.fields[r.firstField:r.firstField+r.fieldCount]...)

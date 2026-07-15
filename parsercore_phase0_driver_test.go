@@ -424,7 +424,7 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 		len(packed.BeforeCanonical) != 2 || packed.BeforeCanonical[0].State != 186 || packed.BeforeCanonical[0].ByteOffset != 741 || packed.BeforeCanonical[0].CreationSeq != 1 || packed.BeforeCanonical[0].ExactPaths != 1 || packed.BeforeCanonical[1].State != 186 || packed.BeforeCanonical[1].ByteOffset != 741 || packed.BeforeCanonical[1].CreationSeq != 3 || packed.BeforeCanonical[1].ExactPaths != 2 ||
 		packed.Packed.State != 186 || packed.Packed.ByteOffset != 741 || packed.Packed.CreationSeq != 1 || !packed.Packed.Shifted || packed.Packed.ExactPaths != 2 || !reflect.DeepEqual(packed.Derivations, wantPackedDerivations) ||
 		packed.TerminalSubtreesBefore != 194 || packed.TerminalSubtreesAfter != 195 || packed.TerminalNodesAfter-packed.TerminalNodesBefore != 2 || packed.TerminalLinksAfter-packed.TerminalLinksBefore != 2 || packed.TerminalPayloadAllocations != 1 || packed.TerminalPayloadsPerCohort != 1 || packed.SemanticTerminalIdentities != 1 || packed.DistinctTerminalPayloads != 1 || packed.DuplicateTerminalPayloads != 0 ||
-		len(packed.TerminalPayloadViews) != 1 || packed.TerminalPayloadViews[0].ID != 195 || packed.TerminalPayloadViews[0].Symbol != 86 || packed.TerminalPayloadViews[0].StartByte != 740 || packed.TerminalPayloadViews[0].EndByte != 741 || !packed.TerminalPayloadViews[0].Terminal || packed.TerminalPayloadViews[0].Extra ||
+		len(packed.TerminalPayloadViews) != 1 || packed.TerminalPayloadViews[0].ID != 195 || packed.TerminalPayloadViews[0].Symbol != 86 || packed.TerminalPayloadViews[0].StartByte != 740 || packed.TerminalPayloadViews[0].EndByte != 741 || !packed.TerminalPayloadViews[0].Terminal || packed.TerminalPayloadViews[0].Extra || packed.TerminalPayloadViews[0].External ||
 		packed.GlobalBranchOrder != 3 || packed.NextCreationSeq != 4 || packed.Dispatches != 195 {
 		t.Fatalf("packed convergence drifted: %+v", packed)
 	}
@@ -459,8 +459,8 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 		}
 	}
 	dotToken, parent := dot.NewPayloadViews[0], dot.NewPayloadViews[1]
-	if dotToken.ID != 196 || dotToken.Symbol != 4 || dotToken.StartByte != 741 || dotToken.EndByte != 742 || !dotToken.Terminal || dotToken.Extra ||
-		parent.ID != 197 || parent.Symbol != 171 || parent.ProductionID != 0 || parent.Terminal || !reflect.DeepEqual(parent.Children, []uint32{195}) {
+	if dotToken.ID != 196 || dotToken.Symbol != 4 || dotToken.StartByte != 741 || dotToken.EndByte != 742 || !dotToken.Terminal || dotToken.Extra || dotToken.External ||
+		parent.ID != 197 || parent.Symbol != 171 || parent.ProductionID != 0 || parent.Terminal || parent.External || !reflect.DeepEqual(parent.Children, []uint32{195}) {
 		t.Fatalf("dot payload views drifted: %+v", dot.NewPayloadViews)
 	}
 	closure := result.CachedDotClosure
@@ -484,7 +484,7 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 		closure.ShiftRound.Index != 0 || !reflect.DeepEqual(closure.ShiftRound.Before, wantDotHeaders[:2]) || !reflect.DeepEqual(closure.ShiftRound.Actions, wantClosureActions) || len(closure.ShiftRound.After) != 2 ||
 		len(closure.BeforeCanonical) != 3 || closure.BeforeCanonical[0].State != 164 || closure.BeforeCanonical[0].CreationSeq != 1 || closure.BeforeCanonical[0].ExactPaths != 1 || closure.BeforeCanonical[1].State != 164 || closure.BeforeCanonical[1].CreationSeq != 5 || closure.BeforeCanonical[1].ExactPaths != 2 || !reflect.DeepEqual(closure.BeforeCanonical[2], wantDotHeaders[2]) ||
 		len(closure.Headers) != 2 || closure.LogicalPaths != 4 || closure.NodesBefore != 206 || closure.NodesAfter != 208 || closure.LinksBefore != 205 || closure.LinksAfter != 207 || closure.SubtreesBefore != 197 || closure.SubtreesAfter != 198 || closure.ChildrenBefore != 184 || closure.ChildrenAfter != 184 ||
-		closure.TerminalPayload.ID != 198 || closure.TerminalPayload.Symbol != 4 || closure.TerminalPayload.ProductionID != 0 || closure.TerminalPayload.DynamicPrecedence != 0 || closure.TerminalPayload.StartByte != 741 || closure.TerminalPayload.EndByte != 742 || !closure.TerminalPayload.Terminal || closure.TerminalPayload.Extra ||
+		closure.TerminalPayload.ID != 198 || closure.TerminalPayload.Symbol != 4 || closure.TerminalPayload.ProductionID != 0 || closure.TerminalPayload.DynamicPrecedence != 0 || closure.TerminalPayload.StartByte != 741 || closure.TerminalPayload.EndByte != 742 || !closure.TerminalPayload.Terminal || closure.TerminalPayload.Extra || closure.TerminalPayload.External ||
 		!reflect.DeepEqual(closure.PrimaryTerminalPayloadIDs, []uint32{198, 198}) || !reflect.DeepEqual(closure.RetainedTerminalPayloadIDs, []uint32{196, 196}) ||
 		closure.GlobalBranchOrder != 4 || closure.NextCreationSeq != 6 || closure.Dispatches != 198 || closure.ElectionIndex != 102 || closure.ElectionExpectedBefore != emptyCheckpoint || !reflect.DeepEqual(closure.ElectionBefore, closure.Headers) ||
 		!reflect.DeepEqual(closure.Election.States, []gotreesitter.StateID{164, 194}) || closure.Election.Token.Symbol != 86 || closure.Election.Token.Text != "edits" || closure.Election.Token.StartByte != 742 || closure.Election.Token.EndByte != 747 || closure.Election.Token.Missing || closure.Election.Token.NoLookahead || closure.Election.Token.ExternalScannerToken ||

@@ -23,6 +23,10 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now retain external-token provenance as one
+  subtree identity bit and publish scanner-authenticated external-shift
+  receipts for ordinary cohorts and conflict arms without embedding scanner
+  state in compact records.
 - The authenticated generic parser-core scheduler now executes arbitrary-size
   ordinary shift/reduce conflict cells in production order. Serializable
   receipts preserve per-arm fork identity, deterministic header allocation,

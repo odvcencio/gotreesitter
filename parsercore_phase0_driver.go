@@ -265,6 +265,7 @@ type DiagnosticParserCoreTerminalPayloadView struct {
 	Fields            []FieldMapEntry
 	Aliases           []Symbol
 	Extra             bool
+	External          bool
 	Terminal          bool
 }
 
@@ -417,6 +418,20 @@ type DiagnosticParserCoreGenericNoActionDrop struct {
 	Header        DiagnosticParserCoreHeaderPathReceipt
 }
 
+// DiagnosticParserCoreGenericExternalShift ties every compact external
+// terminal payload created by one generic scheduler round to its
+// scanner-authenticated election without embedding scanner state in the
+// compact graph. The round may be an ordinary shift cohort or a conflict with
+// one or more shift arms.
+type DiagnosticParserCoreGenericExternalShift struct {
+	ElectionIndex int
+	Token         Token
+	ScannerBefore DiagnosticParserCoreScannerCheckpoint
+	ScannerAfter  DiagnosticParserCoreScannerCheckpoint
+	RoundIndex    int
+	Payloads      []DiagnosticParserCoreTerminalPayloadView
+}
+
 // DiagnosticParserCoreGenericStop is the first semantic the table-driven
 // clean scheduler deliberately does not implement.
 type DiagnosticParserCoreGenericStop struct {
@@ -441,6 +456,7 @@ type DiagnosticParserCoreGenericScheduler struct {
 	StartHeaders       []DiagnosticParserCoreHeaderPathReceipt
 	Rounds             []DiagnosticParserCoreDispatchRound
 	Conflicts          []DiagnosticParserCoreGenericConflict
+	ExternalShifts     []DiagnosticParserCoreGenericExternalShift
 	Elections          []DiagnosticParserCoreElection
 	NoActionDrops      []DiagnosticParserCoreGenericNoActionDrop
 	Stop               DiagnosticParserCoreGenericStop
@@ -771,7 +787,7 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 		switch action.Type {
 		case core.ActionShift:
 			beforeState := state
-			head, err = compact.Shift(head, core.Symbol(token.Symbol), 0, core.Token{Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte, Extra: action.Extra}, core.ForkOrder{})
+			head, err = compact.Shift(head, core.Symbol(token.Symbol), 0, core.Token{Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte, Extra: action.Extra, External: token.ExternalScannerToken}, core.ForkOrder{})
 			if err != nil {
 				return result, err
 			}
@@ -2194,7 +2210,7 @@ func shiftDiagnosticParserCorePackedHeaders(
 		return nil, err
 	}
 	shifted, err := compact.ShiftOrdinaryCohort(plan.cohort, core.Symbol(token.Symbol), core.Token{
-		Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte,
+		Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte, External: token.ExternalScannerToken,
 	})
 	if err != nil {
 		return nil, err
@@ -2319,7 +2335,7 @@ func measureDiagnosticParserCorePackedPayloads(
 	}
 	terminal := receipt.TerminalPayloadViews[0]
 	if terminal.Symbol != 86 || terminal.ProductionID != 0 || terminal.DynamicPrecedence != 0 ||
-		terminal.StartByte != 740 || terminal.EndByte != 741 || terminal.Extra || !terminal.Terminal ||
+		terminal.StartByte != 740 || terminal.EndByte != 741 || terminal.Extra || terminal.External || !terminal.Terminal ||
 		len(terminal.Children) != 0 || len(terminal.Fields) != 0 || len(terminal.Aliases) != 0 {
 		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier terminal payload identity mismatch"}
 	}
@@ -2330,7 +2346,7 @@ func diagnosticParserCoreTerminalPayloadView(id uint32, view core.SubtreeView) D
 	converted := DiagnosticParserCoreTerminalPayloadView{
 		ID: id, Symbol: Symbol(view.Symbol), ProductionID: view.ProductionID,
 		DynamicPrecedence: view.DynamicPrecedence, StartByte: view.StartByte, EndByte: view.EndByte,
-		Extra: view.Extra, Terminal: view.Terminal,
+		Extra: view.Extra, External: view.External, Terminal: view.Terminal,
 	}
 	for _, child := range view.Children {
 		converted.Children = append(converted.Children, uint32(child))
@@ -2611,7 +2627,7 @@ func measureDiagnosticParserCoreDotFanout(
 		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict physical work mismatch"}
 	}
 	dot, parent := receipt.NewPayloadViews[0], receipt.NewPayloadViews[1]
-	if dot.ID != 196 || dot.Symbol != 4 || dot.StartByte != 741 || dot.EndByte != 742 || dot.Extra || !dot.Terminal ||
+	if dot.ID != 196 || dot.Symbol != 4 || dot.StartByte != 741 || dot.EndByte != 742 || dot.Extra || dot.External || !dot.Terminal ||
 		len(dot.Children) != 0 || len(dot.Fields) != 0 || len(dot.Aliases) != 0 {
 		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot terminal payload identity mismatch"}
 	}
@@ -2808,7 +2824,7 @@ func applyDiagnosticParserCoreCachedDotClosure(
 	receipt.RunnableBefore = []DiagnosticParserCoreHeaderReceipt{plan.before[0].Header, plan.before[1].Header}
 	receipt.RetainedBefore = plan.before[2]
 	shifted, err := compact.ShiftOrdinaryCohort(plan.cohort, core.Symbol(dot.Election.Token.Symbol), core.Token{
-		Symbol: core.Symbol(dot.Election.Token.Symbol), StartByte: dot.Election.Token.StartByte, EndByte: dot.Election.Token.EndByte,
+		Symbol: core.Symbol(dot.Election.Token.Symbol), StartByte: dot.Election.Token.StartByte, EndByte: dot.Election.Token.EndByte, External: dot.Election.Token.ExternalScannerToken,
 	})
 	if err != nil {
 		return nil, err
@@ -2925,7 +2941,7 @@ func authenticateDiagnosticParserCoreCachedDotTerminal(
 	receipt.TerminalPayload = diagnosticParserCoreTerminalPayloadView(198, view)
 	terminal := receipt.TerminalPayload
 	if terminal.ID != 198 || terminal.Symbol != 4 || terminal.ProductionID != 0 || terminal.DynamicPrecedence != 0 ||
-		terminal.StartByte != 741 || terminal.EndByte != 742 || terminal.Extra || !terminal.Terminal ||
+		terminal.StartByte != 741 || terminal.EndByte != 742 || terminal.Extra || terminal.External || !terminal.Terminal ||
 		len(terminal.Children) != 0 || len(terminal.Fields) != 0 || len(terminal.Aliases) != 0 {
 		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "cached-dot cohort terminal identity mismatch"}
 	}
@@ -3067,21 +3083,22 @@ func authenticateDiagnosticParserCoreCachedDotNextActions(
 }
 
 type diagnosticParserCoreGenericScheduler struct {
-	compact        *core.Core
-	tokenSource    *dfaTokenSource
-	scannerScratch *[]byte
-	headers        []diagnosticParserCoreHeader
-	token          Token
-	checkpoint     DiagnosticParserCoreScannerCheckpoint
-	electionIndex  int
-	tokens         uint64
-	dispatches     uint64
-	branchOrder    uint64
-	nextSeq        uint64
-	options        DiagnosticParserCorePrefixOptions
-	receipt        *DiagnosticParserCoreGenericScheduler
-	work           DiagnosticParserCoreGenericWork
-	epochProgress  bool
+	compact         *core.Core
+	tokenSource     *dfaTokenSource
+	scannerScratch  *[]byte
+	headers         []diagnosticParserCoreHeader
+	token           Token
+	checkpoint      DiagnosticParserCoreScannerCheckpoint
+	currentElection DiagnosticParserCoreElection
+	electionIndex   int
+	tokens          uint64
+	dispatches      uint64
+	branchOrder     uint64
+	nextSeq         uint64
+	options         DiagnosticParserCorePrefixOptions
+	receipt         *DiagnosticParserCoreGenericScheduler
+	work            DiagnosticParserCoreGenericWork
+	epochProgress   bool
 }
 
 type diagnosticParserCoreGenericCell struct {
@@ -3110,7 +3127,8 @@ func executeDiagnosticParserCoreGenericScheduler(
 		compact: compact, tokenSource: tokenSource, scannerScratch: scannerScratch,
 		headers: append([]diagnosticParserCoreHeader(nil), headers...),
 		token:   closure.Election.Token, checkpoint: closure.Election.ScannerAfter,
-		electionIndex: closure.ElectionIndex, tokens: tokens, dispatches: dispatches,
+		currentElection: closure.Election,
+		electionIndex:   closure.ElectionIndex, tokens: tokens, dispatches: dispatches,
 		branchOrder: closure.GlobalBranchOrder, nextSeq: closure.NextCreationSeq,
 		options: options,
 		receipt: &DiagnosticParserCoreGenericScheduler{
@@ -3362,6 +3380,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []Dia
 	dispatchesBefore, branchOrderBefore, nextSeqBefore := s.dispatches, s.branchOrder, s.nextSeq
 	workBefore, epochProgressBefore := s.work, s.epochProgress
 	roundsBefore, conflictsBefore := len(s.receipt.Rounds), len(s.receipt.Conflicts)
+	externalShiftsBefore := len(s.receipt.ExternalShifts)
 	defer func() {
 		if err == nil {
 			return
@@ -3371,8 +3390,13 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []Dia
 		s.work, s.epochProgress = workBefore, epochProgressBefore
 		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
 		s.receipt.Conflicts = s.receipt.Conflicts[:conflictsBefore]
+		s.receipt.ExternalShifts = s.receipt.ExternalShifts[:externalShiftsBefore]
 	}()
 	if err = s.reserveDispatches(1); err != nil {
+		return err
+	}
+	externalStatsBefore, err := s.genericExternalStats()
+	if err != nil {
 		return err
 	}
 	execution, err := executeDiagnosticParserCoreConflictDetailed(
@@ -3439,17 +3463,21 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []Dia
 		Round: round, Prefix: prefixReceipts, PrimaryOutput: primaryReceipts[0], OriginalSuffix: suffixReceipts,
 		SecondaryArms: secondaryArms, AdditionalPrimaryOutputs: primaryReceipts[1:], After: after,
 	})
-	return nil
+	return s.recordGenericExternalShift(externalStatsBefore, round.Index)
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) error {
 	if err := s.reserveDispatches(uint64(len(cells))); err != nil {
 		return err
 	}
+	externalStatsBefore, err := s.genericExternalStats()
+	if err != nil {
+		return err
+	}
 	if len(cells) == 1 {
 		cell := cells[0]
 		head, err := s.compact.Shift(s.headers[cell.headerIndex].head, core.Symbol(s.token.Symbol), 0, core.Token{
-			Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte,
+			Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte, External: s.token.ExternalScannerToken,
 		}, core.ForkOrder{})
 		if err != nil {
 			return err
@@ -3462,7 +3490,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []Diagn
 			inputs[index] = core.OrdinaryCohortShiftInput{Head: s.headers[cell.headerIndex].head, ActionOrdinal: 0}
 		}
 		heads, err := s.compact.ShiftOrdinaryCohort(inputs, core.Symbol(s.token.Symbol), core.Token{
-			Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte,
+			Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte, External: s.token.ExternalScannerToken,
 		})
 		if err != nil {
 			return err
@@ -3490,9 +3518,52 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []Diagn
 	if err != nil {
 		return err
 	}
-	s.receipt.Rounds = append(s.receipt.Rounds, DiagnosticParserCoreDispatchRound{
+	round := DiagnosticParserCoreDispatchRound{
 		Index: len(s.receipt.Rounds), Before: before, Actions: actions, After: after,
-	})
+	}
+	s.receipt.Rounds = append(s.receipt.Rounds, round)
+	return s.recordGenericExternalShift(externalStatsBefore, round.Index)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) genericExternalStats() (core.Stats, error) {
+	if !s.token.ExternalScannerToken {
+		return core.Stats{}, nil
+	}
+	if len(s.headers) == 0 {
+		return core.Stats{}, errors.New("parser-core phase zero: external shift receipt requires a scheduler head")
+	}
+	return s.compact.Stats(s.headers[0].head)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) recordGenericExternalShift(before core.Stats, roundIndex int) error {
+	if !s.token.ExternalScannerToken {
+		return nil
+	}
+	if len(s.headers) == 0 {
+		return errors.New("parser-core phase zero: external shift receipt requires a scheduler head")
+	}
+	after, err := s.compact.Stats(s.headers[0].head)
+	if err != nil {
+		return err
+	}
+	external := DiagnosticParserCoreGenericExternalShift{
+		ElectionIndex: s.electionIndex, Token: s.token,
+		ScannerBefore: s.currentElection.ScannerBefore, ScannerAfter: s.currentElection.ScannerAfter,
+		RoundIndex: roundIndex,
+	}
+	for id := before.Subtrees + 1; id <= after.Subtrees; id++ {
+		view, err := s.compact.Subtree(core.SubtreeID(id))
+		if err != nil {
+			return err
+		}
+		if !view.Terminal || !view.External {
+			continue
+		}
+		external.Payloads = append(external.Payloads, diagnosticParserCoreTerminalPayloadView(id, view))
+	}
+	if len(external.Payloads) != 0 {
+		s.receipt.ExternalShifts = append(s.receipt.ExternalShifts, external)
+	}
 	return nil
 }
 
@@ -3539,10 +3610,6 @@ func diagnosticParserCoreGenericUnsupportedToken(token Token) *diagnosticParserC
 	case token.Missing:
 		return &diagnosticParserCoreGenericUnsupported{
 			boundary: DiagnosticParserCoreRoute, detail: "generic scheduler does not support missing tokens",
-		}
-	case token.ExternalScannerToken:
-		return &diagnosticParserCoreGenericUnsupported{
-			boundary: DiagnosticParserCoreRoute, detail: "generic scheduler does not yet carry external-token checkpoint identity",
 		}
 	default:
 		return nil
@@ -3616,13 +3683,15 @@ func (s *diagnosticParserCoreGenericScheduler) elect() error {
 	s.token = token
 	s.checkpoint = after
 	s.epochProgress = false
-	s.receipt.Elections = append(s.receipt.Elections, DiagnosticParserCoreElection{
+	election := DiagnosticParserCoreElection{
 		States: states, Token: token, ScannerBefore: before, ScannerAfter: after,
 		CurrentCheckpointValid: currentValid,
 		CurrentCheckpointStart: parserCoreCheckpoint(current.start),
 		CurrentCheckpointEnd:   parserCoreCheckpoint(current.end),
 		CurrentCheckpointBytes: [2]uint32{currentStart, currentEnd},
-	})
+	}
+	s.currentElection = election
+	s.receipt.Elections = append(s.receipt.Elections, election)
 	return nil
 }
 
@@ -3946,7 +4015,7 @@ func authenticatedParserCoreGoLanguage(scanner ExternalScanner) (*Language, erro
 func applyParserCorePrefixAction(compact *core.Core, head core.Head, token Token, action core.Action, ordinal int, fork core.ForkOrder) ([]core.Head, error) {
 	switch action.Type {
 	case core.ActionShift:
-		out, err := compact.Shift(head, core.Symbol(token.Symbol), ordinal, core.Token{Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte, Extra: action.Extra}, fork)
+		out, err := compact.Shift(head, core.Symbol(token.Symbol), ordinal, core.Token{Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte, Extra: action.Extra, External: token.ExternalScannerToken}, fork)
 		return []core.Head{out}, err
 	case core.ActionReduce:
 		return compact.Reduce(head, core.Symbol(token.Symbol), ordinal, fork)
