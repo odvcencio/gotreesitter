@@ -23,6 +23,11 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now retain dispatch classification scratch
+  while rejecting nested dispatch and clearing borrowed action rows on every
+  exit. The authenticated real-Go scheduler benchmark remained statistically
+  unchanged in time while allocated bytes fell 43.2% and allocations fell
+  22.9%, with unchanged exact tree, receipts, and parser work totals.
 - Compact parser-core diagnostics now retain one bounded adjacency frame per
   active pop depth while preserving stable link order and fail-closed graph
   validation. On the authenticated real-Go scheduler benchmark, the diagnostic

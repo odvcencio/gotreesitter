@@ -941,6 +941,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	receipt                    *DiagnosticParserCoreGenericScheduler
 	summaryHeaderScratch       []DiagnosticParserCoreHeaderReceipt
 	canonicalScratch           diagnosticParserCoreCanonicalScratch
+	dispatchScratch            diagnosticParserCoreDispatchScratch
 	work                       DiagnosticParserCoreGenericWork
 	epochProgress              bool
 	acceptedHead               core.Head
@@ -1034,6 +1035,29 @@ type diagnosticParserCoreGenericCell struct {
 	headerIndex int
 	receipt     DiagnosticParserCoreHeaderReceipt
 	actions     core.ActionRow
+}
+
+type diagnosticParserCoreDispatchScratch struct {
+	busy            bool
+	cells           []diagnosticParserCoreGenericCell
+	noActionIndices []int
+}
+
+func (scratch *diagnosticParserCoreDispatchScratch) begin() error {
+	if scratch.busy {
+		return errors.New("parser-core phase zero: reentrant generic scheduler dispatch")
+	}
+	scratch.busy = true
+	scratch.cells = scratch.cells[:0]
+	scratch.noActionIndices = scratch.noActionIndices[:0]
+	return nil
+}
+
+func (scratch *diagnosticParserCoreDispatchScratch) finish() {
+	clear(scratch.cells)
+	scratch.cells = scratch.cells[:0]
+	scratch.noActionIndices = scratch.noActionIndices[:0]
+	scratch.busy = false
 }
 
 // executeDiagnosticParserCoreGenericSchedulerFromSeed owns the compact seed
@@ -1330,6 +1354,11 @@ type diagnosticParserCoreGenericUnsupported struct {
 }
 
 func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParserCoreGenericUnsupported, error) {
+	if err := s.dispatchScratch.begin(); err != nil {
+		return nil, err
+	}
+	defer s.dispatchScratch.finish()
+
 	s.work.Passes++
 	if unsupported := diagnosticParserCoreGenericUnsupportedToken(s.token); unsupported != nil {
 		return unsupported, nil
@@ -1345,14 +1374,12 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 	if err != nil {
 		return nil, err
 	}
-	var cells []diagnosticParserCoreGenericCell
-	var noActionIndices []int
 	for index, header := range s.headers {
 		if header.shifted || header.accepted {
 			continue
 		}
 		if header.paused {
-			noActionIndices = append(noActionIndices, index)
+			s.dispatchScratch.noActionIndices = append(s.dispatchScratch.noActionIndices, index)
 			continue
 		}
 		receipt := before[index]
@@ -1362,11 +1389,13 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 		}
 		s.work.ActionLookups++
 		if actions.Len() == 0 {
-			noActionIndices = append(noActionIndices, index)
+			s.dispatchScratch.noActionIndices = append(s.dispatchScratch.noActionIndices, index)
 			continue
 		}
-		cells = append(cells, diagnosticParserCoreGenericCell{headerIndex: index, receipt: receipt, actions: actions})
+		s.dispatchScratch.cells = append(s.dispatchScratch.cells, diagnosticParserCoreGenericCell{headerIndex: index, receipt: receipt, actions: actions})
 	}
+	cells := s.dispatchScratch.cells
+	noActionIndices := s.dispatchScratch.noActionIndices
 	for _, cell := range cells {
 		if unsupported := diagnosticParserCoreGenericUnsupportedCell(cell.headerIndex, s.token, cell.actions); unsupported != nil {
 			return unsupported, nil
@@ -1436,18 +1465,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 			return nil, s.applyGenericConflict(before, cell)
 		}
 	}
-	shiftCells := make([]diagnosticParserCoreGenericCell, 0, len(cells))
-	for _, cell := range cells {
-		if cell.actions.At(0).Type == core.ActionShift {
-			shiftCells = append(shiftCells, cell)
-		}
-	}
-	if len(shiftCells) == 0 {
-		return &diagnosticParserCoreGenericUnsupported{
-			boundary: DiagnosticParserCoreRoute, detail: "generic scheduler pass made no progress", headerIndex: cells[0].headerIndex,
-		}, nil
-	}
-	return nil, s.applyGenericShifts(before, shiftCells)
+	return nil, s.applyGenericShifts(before, cells)
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericAccept(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
