@@ -15,14 +15,15 @@ import (
 type DiagnosticParserCoreBoundaryKind string
 
 const (
-	DiagnosticParserCoreFirstFork DiagnosticParserCoreBoundaryKind = "first_fork"
-	DiagnosticParserCoreExtra     DiagnosticParserCoreBoundaryKind = "extra"
-	DiagnosticParserCoreNoAction  DiagnosticParserCoreBoundaryKind = "no_action"
-	DiagnosticParserCoreRecovery  DiagnosticParserCoreBoundaryKind = "recovery"
-	DiagnosticParserCoreAccept    DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
-	DiagnosticParserCoreCap       DiagnosticParserCoreBoundaryKind = "cap"
-	DiagnosticParserCoreIdentity  DiagnosticParserCoreBoundaryKind = "identity"
-	DiagnosticParserCoreRoute     DiagnosticParserCoreBoundaryKind = "unsupported_route"
+	DiagnosticParserCoreFirstFork  DiagnosticParserCoreBoundaryKind = "first_fork"
+	DiagnosticParserCoreExtra      DiagnosticParserCoreBoundaryKind = "extra"
+	DiagnosticParserCoreExtraChain DiagnosticParserCoreBoundaryKind = "extra_chain"
+	DiagnosticParserCoreNoAction   DiagnosticParserCoreBoundaryKind = "no_action"
+	DiagnosticParserCoreRecovery   DiagnosticParserCoreBoundaryKind = "recovery"
+	DiagnosticParserCoreAccept     DiagnosticParserCoreBoundaryKind = "accept_without_materialization"
+	DiagnosticParserCoreCap        DiagnosticParserCoreBoundaryKind = "cap"
+	DiagnosticParserCoreIdentity   DiagnosticParserCoreBoundaryKind = "identity"
+	DiagnosticParserCoreRoute      DiagnosticParserCoreBoundaryKind = "unsupported_route"
 )
 
 type DiagnosticParserCorePrefixOptions struct {
@@ -57,6 +58,20 @@ type DiagnosticParserCoreForkAction struct {
 	BranchOrder uint64
 }
 
+type DiagnosticParserCoreExtraShift struct {
+	State          StateID
+	Token          Token
+	Action         ParseAction
+	EffectiveState StateID
+}
+
+type DiagnosticParserCoreReductionAttempt struct {
+	State     StateID
+	Lookahead Token
+	Action    ParseAction
+	Applied   bool
+}
+
 type DiagnosticParserCorePrefixResult struct {
 	Boundary          DiagnosticParserCoreBoundaryKind
 	Detail            string
@@ -65,6 +80,10 @@ type DiagnosticParserCorePrefixResult struct {
 	State             StateID
 	Lookahead         Token
 	ForkActions       []DiagnosticParserCoreForkAction
+	ForkBoundaries    int
+	ForkLogicalPaths  uint64
+	ExtraShifts       []DiagnosticParserCoreExtraShift
+	ReductionAttempts []DiagnosticParserCoreReductionAttempt
 	Elections         []DiagnosticParserCoreElection
 	SourceSHA256      [32]byte
 	GrammarBlobSHA256 [32]byte
@@ -240,47 +259,101 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 			return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 		}
 		for _, action := range actions {
-			if action.Extra || action.ExtraChain {
-				result.Boundary, result.Detail = DiagnosticParserCoreExtra, "extra action requires production extra ownership semantics"
+			if action.ExtraChain {
+				result.Boundary, result.Detail = DiagnosticParserCoreExtraChain, "extra-chain shift requires distinct nonterminal-chain semantics"
 				return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+			}
+			if action.Extra && action.Type != core.ActionShift {
+				return result, errors.New("parser-core phase zero: decoded extra action is not a shift")
 			}
 		}
 		if err := compact.BeginFrontier(); err != nil {
 			return result, err
 		}
 		if len(actions) > 1 {
+			var forkHeads []core.Head
+			var forkActions []DiagnosticParserCoreForkAction
 			var branchOrder uint64
 			for ordinal := 1; ordinal < len(actions); ordinal++ {
 				branchOrder++
-				if err := applyParserCorePrefixAction(compact, head, token, actions[ordinal], ordinal, core.ForkOrder{Present: true, Value: branchOrder}); err != nil {
+				heads, err := applyParserCorePrefixAction(compact, head, token, actions[ordinal], ordinal, core.ForkOrder{Present: true, Value: branchOrder})
+				if err != nil {
+					if setDiagnosticParserCoreBoundaryError(&result, err) {
+						return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+					}
 					return result, err
 				}
-				result.ForkActions = append(result.ForkActions, DiagnosticParserCoreForkAction{Ordinal: ordinal, Action: rootParserCoreAction(actions[ordinal]), BranchOrder: branchOrder})
+				forkHeads = append(forkHeads, heads...)
+				forkActions = append(forkActions, DiagnosticParserCoreForkAction{Ordinal: ordinal, Action: rootParserCoreAction(actions[ordinal]), BranchOrder: branchOrder})
 			}
-			if err := applyParserCorePrefixAction(compact, head, token, actions[0], 0, core.ForkOrder{}); err != nil {
+			heads, err := applyParserCorePrefixAction(compact, head, token, actions[0], 0, core.ForkOrder{})
+			if err != nil {
+				if setDiagnosticParserCoreBoundaryError(&result, err) {
+					return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+				}
 				return result, err
 			}
-			result.ForkActions = append(result.ForkActions, DiagnosticParserCoreForkAction{Ordinal: 0, Action: rootParserCoreAction(actions[0])})
+			forkHeads = append(forkHeads, heads...)
+			forkActions = append(forkActions, DiagnosticParserCoreForkAction{Ordinal: 0, Action: rootParserCoreAction(actions[0])})
+			type forkBoundary struct {
+				state      core.StateID
+				byteOffset uint32
+			}
+			latest := make(map[forkBoundary]core.Head, len(forkHeads))
+			for _, forkHead := range forkHeads {
+				state, byteOffset, err := compact.Boundary(forkHead)
+				if err != nil {
+					return result, err
+				}
+				latest[forkBoundary{state: state, byteOffset: byteOffset}] = forkHead
+			}
+			for _, forkHead := range latest {
+				stats, err := compact.Stats(forkHead)
+				if err != nil {
+					return result, err
+				}
+				result.ForkLogicalPaths += stats.CurrentExactPaths
+			}
+			result.ForkBoundaries = len(latest)
+			result.ForkActions = forkActions
 			result.Boundary, result.Detail = DiagnosticParserCoreFirstFork, "independently decoded and scheduled first conflict"
 			return result, nil
 		}
 		action := actions[0]
 		switch action.Type {
 		case core.ActionShift:
-			head, err = compact.Shift(head, core.Symbol(token.Symbol), 0, core.Token{Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte}, core.ForkOrder{})
+			beforeState := state
+			head, err = compact.Shift(head, core.Symbol(token.Symbol), 0, core.Token{Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte, Extra: action.Extra}, core.ForkOrder{})
 			if err != nil {
 				return result, err
 			}
-			state = StateID(action.State)
+			compactState, _, boundaryErr := compact.Boundary(head)
+			if boundaryErr != nil {
+				return result, boundaryErr
+			}
+			state = StateID(compactState)
+			if action.Extra {
+				result.ExtraShifts = append(result.ExtraShifts, DiagnosticParserCoreExtraShift{
+					State: beforeState, Token: token, Action: rootParserCoreAction(action), EffectiveState: state,
+				})
+			}
 			haveToken = false
 		case core.ActionReduce:
+			result.ReductionAttempts = append(result.ReductionAttempts, DiagnosticParserCoreReductionAttempt{
+				State: state, Lookahead: token, Action: rootParserCoreAction(action),
+			})
 			frontier, reduceErr := compact.Reduce(head, core.Symbol(token.Symbol), 0, core.ForkOrder{})
 			if reduceErr != nil {
+				if core.IsDecline(reduceErr, core.DeclineExtras) {
+					result.Boundary, result.Detail = DiagnosticParserCoreExtra, reduceErr.Error()
+					return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+				}
 				return result, reduceErr
 			}
 			if len(frontier) != 1 {
 				return result, errors.New("parser-core phase zero: clean prefix reduction produced multiple boundaries")
 			}
+			result.ReductionAttempts[len(result.ReductionAttempts)-1].Applied = true
 			head = frontier[0]
 			compactState, _, boundaryErr := compact.Boundary(head)
 			if boundaryErr != nil {
@@ -299,6 +372,19 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 	}
 	result.Boundary, result.Detail = DiagnosticParserCoreCap, "dispatch cap"
 	return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
+}
+
+func setDiagnosticParserCoreBoundaryError(result *DiagnosticParserCorePrefixResult, err error) bool {
+	var decline *diagnosticParserCoreDecline
+	if errors.As(err, &decline) {
+		result.Boundary, result.Detail = decline.boundary, decline.detail
+		return true
+	}
+	if core.IsDecline(err, core.DeclineExtras) {
+		result.Boundary, result.Detail = DiagnosticParserCoreExtra, err.Error()
+		return true
+	}
+	return false
 }
 
 func authenticatedParserCoreGoLanguage(scanner ExternalScanner) (*Language, error) {
@@ -320,20 +406,19 @@ func authenticatedParserCoreGoLanguage(scanner ExternalScanner) (*Language, erro
 	return decoded, nil
 }
 
-func applyParserCorePrefixAction(compact *core.Core, head core.Head, token Token, action core.Action, ordinal int, fork core.ForkOrder) error {
+func applyParserCorePrefixAction(compact *core.Core, head core.Head, token Token, action core.Action, ordinal int, fork core.ForkOrder) ([]core.Head, error) {
 	switch action.Type {
 	case core.ActionShift:
-		_, err := compact.Shift(head, core.Symbol(token.Symbol), ordinal, core.Token{Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte}, fork)
-		return err
+		out, err := compact.Shift(head, core.Symbol(token.Symbol), ordinal, core.Token{Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte, Extra: action.Extra}, fork)
+		return []core.Head{out}, err
 	case core.ActionReduce:
-		_, err := compact.Reduce(head, core.Symbol(token.Symbol), ordinal, fork)
-		return err
+		return compact.Reduce(head, core.Symbol(token.Symbol), ordinal, fork)
 	case core.ActionRecover:
-		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRecovery, detail: "recover action in first conflict"}
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRecovery, detail: "recover action in first conflict"}
 	case core.ActionAccept:
-		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreAccept, detail: "accept action in first conflict"}
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreAccept, detail: "accept action in first conflict"}
 	default:
-		return errors.New("parser-core phase zero: unknown conflict action")
+		return nil, errors.New("parser-core phase zero: unknown conflict action")
 	}
 }
 

@@ -330,36 +330,171 @@ func TestExtraShiftWithZeroTargetRetainsCurrentState(t *testing.T) {
 	}
 }
 
-func TestReductionOverExtrasDeclinesTransactionally(t *testing.T) {
-	for _, childCount := range []uint8{0, 1} {
-		t.Run(string(rune('0'+childCount))+"_children", func(t *testing.T) {
-			tables := diagnosticReduceTable(childCount, 0)
-			core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
-			if err != nil {
-				t.Fatal(err)
-			}
-			head, _ := core.Seed(1, 0)
-			if childCount > 0 {
-				head, err = core.appendDiagnosticPayload(head, 2, Token{Symbol: 1, EndByte: 1}, pathMeta{})
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-			head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 1, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{})
-			if err != nil {
-				t.Fatal(err)
-			}
-			before, _ := core.Stats(head)
-			key := core.boundaryKey(3, 2)
-			beforeBoundary := core.boundaries[key]
-			if _, err := core.Reduce(head, 1, 0, ForkOrder{}); !IsDecline(err, DeclineExtras) {
-				t.Fatalf("Reduce over trailing extra error = %v, want extras decline", err)
-			}
-			after, _ := core.Stats(head)
-			if after != before || core.boundaries[key] != beforeBoundary {
-				t.Fatalf("extras decline mutated core: before=%+v/%d after=%+v/%d", before, beforeBoundary, after, core.boundaries[key])
-			}
-		})
+func TestZeroChildReductionPushesParentAboveExistingExtra(t *testing.T) {
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{Type: ActionReduce, Symbol: 2}}},
+		gotos:   map[tableCell]StateID{{state: 3, symbol: 2}: 4},
+	}
+	core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, _ := core.Seed(1, 0)
+	head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 10, EndByte: 1, Extra: true}, pathMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontier, err := core.Reduce(head, 1, 0, ForkOrder{})
+	if err != nil || len(frontier) != 1 {
+		t.Fatalf("zero-child reduce frontier=%v err=%v", frontier, err)
+	}
+	state, offset, err := core.Boundary(frontier[0])
+	if err != nil || state != 4 || offset != 1 {
+		t.Fatalf("zero-child boundary=(%d,%d) err=%v, want (4,1)", state, offset, err)
+	}
+	paths, err := core.Derivations(frontier[0])
+	if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 2 {
+		t.Fatalf("zero-child derivations=%#v err=%v", paths, err)
+	}
+	parent, err := core.Subtree(paths[0].Payloads[1])
+	if err != nil || parent.Symbol != 2 || parent.StartByte != 1 || parent.EndByte != 1 || len(parent.Children) != 0 {
+		t.Fatalf("zero-child parent=%+v err=%v", parent, err)
+	}
+}
+
+func TestReductionRepushesConsecutiveTrailingExtrasInOrder(t *testing.T) {
+	core, err := New(diagnosticReduceTable(1, 3), Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, _ := core.Seed(1, 0)
+	head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1, BranchOrder: ForkOrder{Present: true, Value: 7}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 8}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 12, StartByte: 2, EndByte: 3, Extra: true}, pathMeta{ScoreDelta: 4, BranchOrder: ForkOrder{Present: true, Value: 9}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforePaths, err := core.Derivations(head)
+	if err != nil || len(beforePaths) != 1 || len(beforePaths[0].Payloads) != 3 {
+		t.Fatalf("pre-reduction trailing-extra derivations=%#v err=%v", beforePaths, err)
+	}
+	wantExtraPayloads := append([]SubtreeID(nil), beforePaths[0].Payloads[1:]...)
+	frontier, err := core.Reduce(head, 1, 0, ForkOrder{})
+	if err != nil || len(frontier) != 1 {
+		t.Fatalf("trailing-extra reduce frontier=%v err=%v", frontier, err)
+	}
+	state, offset, err := core.Boundary(frontier[0])
+	if err != nil || state != 4 || offset != 3 {
+		t.Fatalf("trailing-extra boundary=(%d,%d) err=%v, want (4,3)", state, offset, err)
+	}
+	paths, err := core.Derivations(frontier[0])
+	if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 3 {
+		t.Fatalf("trailing-extra derivations=%#v err=%v", paths, err)
+	}
+	if paths[0].Score != 10 || !paths[0].HasBranchOrder || paths[0].BranchOrder != 9 {
+		t.Fatalf("trailing-extra path metadata=%+v, want score=10 order=9", paths[0])
+	}
+	if !slices.Equal(paths[0].Payloads[1:], wantExtraPayloads) {
+		t.Fatalf("re-pushed payload IDs=%v, want exact reuse of %v", paths[0].Payloads[1:], wantExtraPayloads)
+	}
+	parent, err := core.Subtree(paths[0].Payloads[0])
+	if err != nil || parent.Symbol != 2 || parent.StartByte != 0 || parent.EndByte != 1 || len(parent.Children) != 1 {
+		t.Fatalf("trailing-extra parent=%+v err=%v", parent, err)
+	}
+	for index, want := range []SubtreeView{
+		{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true, Terminal: true},
+		{Symbol: 12, StartByte: 2, EndByte: 3, Extra: true, Terminal: true},
+	} {
+		got, err := core.Subtree(paths[0].Payloads[index+1])
+		if err != nil || !reflect.DeepEqual(got, want) {
+			t.Fatalf("re-pushed extra %d=%+v err=%v, want %+v", index, got, err, want)
+		}
+	}
+}
+
+func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.T) {
+	core, err := New(diagnosticReduceTable(1, 0), Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, _ := core.Seed(1, 0)
+	head, err := core.appendDiagnosticPayload(seed, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1, BranchOrder: ForkOrder{Present: true, Value: 7}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = core.appendDiagnosticPayload(seed, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2, BranchOrder: ForkOrder{Present: true, Value: 8}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = core.appendDiagnosticPayload(head, 3, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{ScoreDelta: 3, BranchOrder: ForkOrder{Present: true, Value: 9}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, _ := core.Stats(head)
+	frontier, err := core.Reduce(head, 1, 0, ForkOrder{})
+	if err != nil || len(frontier) != 1 {
+		t.Fatalf("converged trailing-extra frontier=%v err=%v", frontier, err)
+	}
+	stats, err := core.Stats(frontier[0])
+	if err != nil || stats.CurrentExactPaths != 2 {
+		t.Fatalf("converged trailing-extra stats=%+v err=%v, want exactly 2 paths", stats, err)
+	}
+	paths, err := core.Derivations(frontier[0])
+	if err != nil || len(paths) != 2 {
+		t.Fatalf("converged trailing-extra derivations=%#v err=%v", paths, err)
+	}
+	if paths[0].Score != 4 || paths[1].Score != 5 || paths[0].BranchOrder != 9 || paths[1].BranchOrder != 9 {
+		t.Fatalf("converged trailing-extra metadata=%#v, want scores 4/5 and order 9", paths)
+	}
+
+	rollback, err := New(diagnosticReduceTable(1, 0), Limits{MaxPathsPerBoundary: 2, MaxEnumeration: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollbackSeed, _ := rollback.Seed(1, 0)
+	rollbackHead, _ := rollback.appendDiagnosticPayload(rollbackSeed, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1})
+	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackSeed, 3, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2})
+	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackHead, 3, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{ScoreDelta: 3})
+	rollbackBefore, _ := rollback.Stats(rollbackHead)
+	rollback.limits.MaxPathsPerBoundary = 1
+	if _, err := rollback.Reduce(rollbackHead, 1, 0, ForkOrder{}); err == nil || !strings.Contains(err.Error(), "cap") {
+		t.Fatalf("converged trailing-extra cap error=%v", err)
+	}
+	rollbackAfter, _ := rollback.Stats(rollbackHead)
+	if rollbackAfter != rollbackBefore {
+		t.Fatalf("failed trailing-extra reduction mutated core: before=%+v after=%+v", rollbackBefore, rollbackAfter)
+	}
+	if before.CurrentExactPaths != 2 {
+		t.Fatalf("fixture input paths=%d, want 2", before.CurrentExactPaths)
+	}
+}
+
+func TestReductionDeclinesInterstitialExtrasTransactionally(t *testing.T) {
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{Type: ActionReduce, Symbol: 2, ChildCount: 2}}},
+		gotos:   map[tableCell]StateID{{state: 1, symbol: 2}: 4},
+	}
+	core, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, _ := core.Seed(1, 0)
+	head, _ = core.appendDiagnosticPayload(head, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{})
+	head, _ = core.appendDiagnosticPayload(head, 2, Token{Symbol: 11, StartByte: 1, EndByte: 2, Extra: true}, pathMeta{})
+	head, _ = core.appendDiagnosticPayload(head, 3, Token{Symbol: 12, StartByte: 2, EndByte: 3}, pathMeta{})
+	before, _ := core.Stats(head)
+	if _, err := core.Reduce(head, 1, 0, ForkOrder{}); !IsDecline(err, DeclineExtras) || !strings.Contains(err.Error(), "interstitial") {
+		t.Fatalf("interstitial extra error=%v, want typed decline", err)
+	}
+	after, _ := core.Stats(head)
+	if after != before {
+		t.Fatalf("interstitial decline mutated core: before=%+v after=%+v", before, after)
 	}
 }
 

@@ -425,8 +425,7 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 	if act.Type != ActionReduce {
 		return nil, fmt.Errorf("parser-core phase zero: action %d is %v, not reduce", actionOrdinal, act.Type)
 	}
-	n, err := c.node(head.Node)
-	if err != nil {
+	if _, err := c.node(head.Node); err != nil {
 		return nil, err
 	}
 	paths, err := c.popPaths(head.Node, int(act.ChildCount))
@@ -450,18 +449,18 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 		if gotoState == 0 {
 			return nil, fmt.Errorf("parser-core phase zero: no goto from state %d for reduced symbol %d", prev.state, act.Symbol)
 		}
-		fields, err := c.tables.ProductionFields(act.ProductionID, len(path.children))
+		fields, err := c.tables.ProductionFields(act.ProductionID, int(act.ChildCount))
 		if err != nil {
 			return nil, err
 		}
-		aliases, err := c.tables.ProductionAliases(act.ProductionID, len(path.children))
+		aliases, err := c.tables.ProductionAliases(act.ProductionID, int(act.ChildCount))
 		if err != nil {
 			return nil, err
 		}
 		payload, err := c.appendSubtree(subtreeRecord{
 			symbol: act.Symbol, productionID: act.ProductionID,
 			dynamicPrecedence: act.DynamicPrecedence,
-			startByte:         path.startByte, endByte: n.byteOffset,
+			startByte:         path.startByte, endByte: path.structuralEnd,
 		}, path.children, fields, aliases)
 		if err != nil {
 			return nil, err
@@ -474,13 +473,35 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 		if err != nil {
 			return nil, err
 		}
-		key := c.boundaryKey(gotoState, n.byteOffset)
-		out, err := c.condense(key, linkInput{
+		key := c.boundaryKey(gotoState, path.structuralEnd)
+		parentLink := linkInput{
 			prev: path.prev, payload: payload,
 			scoreDelta: scoreDelta, order: order,
-		})
+		}
+		var out Head
+		if len(path.trailing) == 0 {
+			out, err = c.condense(key, parentLink)
+		} else {
+			out, err = c.appendPrivate(gotoState, path.structuralEnd, parentLink)
+		}
 		if err != nil {
 			return nil, err
+		}
+		for index, trailing := range path.trailing {
+			extra, err := c.subtree(trailing.payload)
+			if err != nil {
+				return nil, err
+			}
+			key = c.boundaryKey(gotoState, extra.endByte)
+			extraLink := linkInput{prev: out.Node, payload: trailing.payload, scoreDelta: trailing.scoreDelta}
+			if index == len(path.trailing)-1 {
+				out, err = c.condense(key, extraLink)
+			} else {
+				out, err = c.appendPrivate(gotoState, extra.endByte, extraLink)
+			}
+			if err != nil {
+				return nil, err
+			}
 		}
 		if _, seen := frontierByBoundary[key]; !seen {
 			boundaryOrder = append(boundaryOrder, key)
@@ -492,6 +513,45 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 		frontier = append(frontier, frontierByBoundary[key])
 	}
 	return frontier, nil
+}
+
+// appendPrivate adds one exact single-link node without publishing an
+// intermediate boundary for cross-path condensation. Reduction paths with
+// trailing extras use it so only their final (state, byte) boundary merges.
+func (c *Core) appendPrivate(state StateID, byteOffset uint32, in linkInput) (Head, error) {
+	prev, err := c.node(in.prev)
+	if err != nil {
+		return Head{}, err
+	}
+	if _, err := c.subtree(in.payload); err != nil {
+		return Head{}, err
+	}
+	if prev.pathCount > c.limits.MaxPathsPerBoundary {
+		return Head{}, fmt.Errorf("parser-core phase zero: private exact-path cap exceeded: %d > %d", prev.pathCount, c.limits.MaxPathsPerBoundary)
+	}
+	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || len(c.links) >= math.MaxUint32 {
+		return Head{}, errors.New("parser-core phase zero: link arena cap")
+	}
+	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
+		return Head{}, errors.New("parser-core phase zero: node arena cap")
+	}
+	flags := uint32(0)
+	if in.order.Present {
+		flags |= linkFlagHasOrder
+	}
+	linkID := LinkID(len(c.links) + 1)
+	c.links = append(c.links, linkRecord{
+		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
+		order: in.order.Value, flags: flags,
+	})
+	id, err := c.appendNode(nodeRecord{
+		state: state, byteOffset: byteOffset,
+		firstLink: uint32(linkID), linkCount: 1, pathCount: prev.pathCount,
+	})
+	if err != nil {
+		return Head{}, err
+	}
+	return Head{Node: id}, nil
 }
 
 func (c *Core) action(head Head, lookahead Symbol, ordinal int) (Action, error) {
@@ -600,11 +660,19 @@ func (c *Core) linkEqualInput(link linkRecord, in linkInput) (bool, error) {
 }
 
 type popPath struct {
-	prev      NodeID
-	children  []SubtreeID
-	score     int64
-	order     ForkOrder
-	startByte uint32
+	prev          NodeID
+	children      []SubtreeID
+	trailing      []pathPayload
+	score         int64
+	order         ForkOrder
+	startByte     uint32
+	structuralEnd uint32
+}
+
+type pathPayload struct {
+	payload    SubtreeID
+	scoreDelta int64
+	order      ForkOrder
 }
 
 func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
@@ -613,28 +681,16 @@ func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
 		if err != nil {
 			return nil, err
 		}
-		links, err := c.nodeLinks(*n)
-		if err != nil {
-			return nil, err
-		}
-		for _, link := range links {
-			payload, err := c.subtree(link.payload)
-			if err != nil {
-				return nil, err
-			}
-			if payload.extra {
-				return nil, &DeclineError{Feature: DeclineExtras, Detail: "zero-child reduction below trailing extras is not implemented"}
-			}
-		}
-		return []popPath{{prev: head, startByte: n.byteOffset}}, nil
+		return []popPath{{prev: head, startByte: n.byteOffset, structuralEnd: n.byteOffset}}, nil
 	}
 	var out []popPath
 	visiting := make(map[NodeID]bool)
 	var rev []SubtreeID
 	var revScores []int64
 	var revOrders []ForkOrder
-	var walk func(NodeID, int) error
-	walk = func(id NodeID, remaining int) error {
+	var trailingRev []pathPayload
+	var walk func(NodeID, int, bool, uint32) error
+	walk = func(id NodeID, remaining int, peelingTrailing bool, structuralEnd uint32) error {
 		if visiting[id] {
 			return errors.New("parser-core phase zero: graph cycle")
 		}
@@ -653,14 +709,26 @@ func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
 			if err != nil {
 				return err
 			}
+			linkOrder := ForkOrder{Value: link.order, Present: link.hasOrder()}
+			if payload.extra && peelingTrailing {
+				trailingRev = append(trailingRev, pathPayload{payload: link.payload, scoreDelta: link.scoreDelta, order: linkOrder})
+				if err := walk(link.prev, remaining, true, structuralEnd); err != nil {
+					return err
+				}
+				trailingRev = trailingRev[:len(trailingRev)-1]
+				continue
+			}
 			if payload.extra {
-				return &DeclineError{Feature: DeclineExtras, Detail: "exact trailing-extra re-push is not implemented"}
+				return &DeclineError{Feature: DeclineExtras, Detail: "interstitial extras in a reduction window are not implemented"}
+			}
+			nextStructuralEnd := structuralEnd
+			if peelingTrailing {
+				nextStructuralEnd = payload.endByte
 			}
 			rev = append(rev, link.payload)
 			revScores = append(revScores, link.scoreDelta)
-			revOrders = append(revOrders, ForkOrder{Value: link.order, Present: link.hasOrder()})
-			next := remaining
-			next--
+			revOrders = append(revOrders, linkOrder)
+			next := remaining - 1
 			if next == 0 {
 				if uint64(len(out)) >= c.limits.MaxEnumeration {
 					return errors.New("parser-core phase zero: pop enumeration cap")
@@ -669,7 +737,7 @@ func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
 				if err != nil {
 					return err
 				}
-				path := popPath{prev: link.prev, startByte: prev.byteOffset}
+				path := popPath{prev: link.prev, startByte: prev.byteOffset, structuralEnd: nextStructuralEnd}
 				for i := len(rev) - 1; i >= 0; i-- {
 					path.children = append(path.children, rev[i])
 					path.score, err = checkedAddScore(path.score, revScores[i])
@@ -680,8 +748,14 @@ func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
 						path.order = revOrders[i]
 					}
 				}
+				for i := len(trailingRev) - 1; i >= 0; i-- {
+					path.trailing = append(path.trailing, trailingRev[i])
+					if trailingRev[i].order.Present {
+						path.order = trailingRev[i].order
+					}
+				}
 				out = append(out, path)
-			} else if err := walk(link.prev, next); err != nil {
+			} else if err := walk(link.prev, next, false, nextStructuralEnd); err != nil {
 				return err
 			}
 			rev = rev[:len(rev)-1]
@@ -690,7 +764,7 @@ func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
 		}
 		return nil
 	}
-	if err := walk(head, childCount); err != nil {
+	if err := walk(head, childCount, true, 0); err != nil {
 		return nil, err
 	}
 	return out, nil
