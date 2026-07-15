@@ -330,6 +330,7 @@ type Core struct {
 	transactions    []uint64
 	nextTransaction uint64
 	work            Work
+	popScratch      popEnumerationScratch
 }
 
 type diagnosticOptions struct {
@@ -466,6 +467,7 @@ func (c *Core) Reset() error {
 	c.transactions = c.transactions[:0]
 	c.nextTransaction = 0
 	c.work = Work{}
+	c.popScratch.resetLogical()
 	return nil
 }
 
@@ -805,6 +807,11 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 func (c *Core) ReduceOutputs(head Head, lookahead Symbol, actionOrdinal int, fork ForkOrder) (frontier []ReductionOutput, err error) {
 	mark := c.mark()
 	defer c.completeTransaction(mark, &err)
+	if c.popScratch.busy {
+		return nil, errors.New("parser-core phase zero: reentrant reduction while pop scratch is active")
+	}
+	c.popScratch.busy = true
+	defer c.popScratch.resetLogical()
 	act, err := c.action(head, lookahead, actionOrdinal)
 	if err != nil {
 		return nil, err
@@ -1401,31 +1408,93 @@ type pathPayload struct {
 	order      ForkOrder
 }
 
-func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
+type popEnumerationScratch struct {
+	busy      bool
+	visiting  map[NodeID]bool
+	rev       []SubtreeID
+	revScores []int64
+	revOrders []ForkOrder
+	trailing  []pathPayload
+	paths     []popPath
+}
+
+func (s *popEnumerationScratch) begin() {
+	if s.visiting == nil {
+		s.visiting = make(map[NodeID]bool)
+	} else {
+		clear(s.visiting)
+	}
+	s.rev = s.rev[:0]
+	s.revScores = s.revScores[:0]
+	s.revOrders = s.revOrders[:0]
+	s.trailing = s.trailing[:0]
+	s.paths = s.paths[:0]
+}
+
+func (s *popEnumerationScratch) finishTraversal() {
+	clear(s.visiting)
+	s.rev = s.rev[:0]
+	s.revScores = s.revScores[:0]
+	s.revOrders = s.revOrders[:0]
+	s.trailing = s.trailing[:0]
+}
+
+func (s *popEnumerationScratch) resetLogical() {
+	s.finishTraversal()
+	s.paths = s.paths[:0]
+	s.busy = false
+}
+
+func (s *popEnumerationScratch) nextPath() *popPath {
+	index := len(s.paths)
+	if index == cap(s.paths) {
+		s.paths = append(s.paths, popPath{})
+	} else {
+		s.paths = s.paths[:index+1]
+		previous := s.paths[index]
+		s.paths[index] = popPath{
+			children: previous.children[:0],
+			trailing: previous.trailing[:0],
+		}
+	}
+	return &s.paths[index]
+}
+
+// popPaths returns Core-owned ephemeral storage. ReduceOutputs consumes the
+// complete result before any later popPaths call, so serial calls may reuse
+// path slots and their child/trailing buffers. Paths within one result remain
+// independent and retain authentic enumeration order.
+func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) {
+	scratch := &c.popScratch
+	scratch.begin()
+	defer func() {
+		scratch.finishTraversal()
+		if err != nil {
+			scratch.paths = scratch.paths[:0]
+		}
+	}()
 	if childCount == 0 {
 		n, err := c.node(head)
 		if err != nil {
 			return nil, err
 		}
-		return []popPath{{prev: head, startByte: n.byteOffset, structuralEnd: n.byteOffset}}, nil
+		path := scratch.nextPath()
+		path.prev = head
+		path.startByte = n.byteOffset
+		path.structuralEnd = n.byteOffset
+		return scratch.paths, nil
 	}
-	var out []popPath
-	visiting := make(map[NodeID]bool)
-	var rev []SubtreeID
-	var revScores []int64
-	var revOrders []ForkOrder
-	var trailingRev []pathPayload
 	var walk func(NodeID, int, bool, uint32) error
 	walk = func(id NodeID, remaining int, peelingTrailing bool, structuralEnd uint32) error {
-		if visiting[id] {
+		if scratch.visiting[id] {
 			return errors.New("parser-core phase zero: graph cycle")
 		}
 		n, err := c.node(id)
 		if err != nil {
 			return err
 		}
-		visiting[id] = true
-		defer delete(visiting, id)
+		scratch.visiting[id] = true
+		defer delete(scratch.visiting, id)
 		links, err := c.nodeLinks(*n)
 		if err != nil {
 			return err
@@ -1437,68 +1506,70 @@ func (c *Core) popPaths(head NodeID, childCount int) ([]popPath, error) {
 			}
 			linkOrder := ForkOrder{Value: link.order, Present: link.hasOrder()}
 			if payload.extra && peelingTrailing {
-				trailingRev = append(trailingRev, pathPayload{payload: link.payload, scoreDelta: link.scoreDelta, order: linkOrder})
+				scratch.trailing = append(scratch.trailing, pathPayload{payload: link.payload, scoreDelta: link.scoreDelta, order: linkOrder})
 				if err := walk(link.prev, remaining, true, structuralEnd); err != nil {
 					return err
 				}
-				trailingRev = trailingRev[:len(trailingRev)-1]
+				scratch.trailing = scratch.trailing[:len(scratch.trailing)-1]
 				continue
 			}
 			if payload.extra {
-				rev = append(rev, link.payload)
-				revScores = append(revScores, link.scoreDelta)
-				revOrders = append(revOrders, linkOrder)
+				scratch.rev = append(scratch.rev, link.payload)
+				scratch.revScores = append(scratch.revScores, link.scoreDelta)
+				scratch.revOrders = append(scratch.revOrders, linkOrder)
 				if err := walk(link.prev, remaining, false, structuralEnd); err != nil {
 					return err
 				}
-				rev = rev[:len(rev)-1]
-				revScores = revScores[:len(revScores)-1]
-				revOrders = revOrders[:len(revOrders)-1]
+				scratch.rev = scratch.rev[:len(scratch.rev)-1]
+				scratch.revScores = scratch.revScores[:len(scratch.revScores)-1]
+				scratch.revOrders = scratch.revOrders[:len(scratch.revOrders)-1]
 				continue
 			}
 			nextStructuralEnd := structuralEnd
 			if peelingTrailing {
 				nextStructuralEnd = payload.endByte
 			}
-			rev = append(rev, link.payload)
-			revScores = append(revScores, link.scoreDelta)
-			revOrders = append(revOrders, linkOrder)
+			scratch.rev = append(scratch.rev, link.payload)
+			scratch.revScores = append(scratch.revScores, link.scoreDelta)
+			scratch.revOrders = append(scratch.revOrders, linkOrder)
 			next := remaining - 1
 			if next == 0 {
-				if uint64(len(out)) >= c.limits.MaxPopPaths {
+				if uint64(len(scratch.paths)) >= c.limits.MaxPopPaths {
 					return errors.New("parser-core phase zero: pop enumeration cap")
 				}
-				path := popPath{prev: link.prev, startByte: payload.startByte, structuralEnd: nextStructuralEnd}
-				for i := len(rev) - 1; i >= 0; i-- {
-					path.children = append(path.children, rev[i])
-					path.score, err = checkedAddScore(path.score, revScores[i])
+				path := scratch.nextPath()
+				path.prev = link.prev
+				path.startByte = payload.startByte
+				path.structuralEnd = nextStructuralEnd
+				for i := len(scratch.rev) - 1; i >= 0; i-- {
+					path.children = append(path.children, scratch.rev[i])
+					path.score, err = checkedAddScore(path.score, scratch.revScores[i])
 					if err != nil {
 						return err
 					}
-					if revOrders[i].Present {
-						path.order = revOrders[i]
+					if scratch.revOrders[i].Present {
+						path.order = scratch.revOrders[i]
 					}
 				}
-				for i := len(trailingRev) - 1; i >= 0; i-- {
-					path.trailing = append(path.trailing, trailingRev[i])
-					if trailingRev[i].order.Present {
-						path.order = trailingRev[i].order
+				for i := len(scratch.trailing) - 1; i >= 0; i-- {
+					path.trailing = append(path.trailing, scratch.trailing[i])
+					if scratch.trailing[i].order.Present {
+						path.order = scratch.trailing[i].order
 					}
 				}
-				out = append(out, path)
 			} else if err := walk(link.prev, next, false, nextStructuralEnd); err != nil {
 				return err
 			}
-			rev = rev[:len(rev)-1]
-			revScores = revScores[:len(revScores)-1]
-			revOrders = revOrders[:len(revOrders)-1]
+			scratch.rev = scratch.rev[:len(scratch.rev)-1]
+			scratch.revScores = scratch.revScores[:len(scratch.revScores)-1]
+			scratch.revOrders = scratch.revOrders[:len(scratch.revOrders)-1]
 		}
 		return nil
 	}
 	if err := walk(head, childCount, true, 0); err != nil {
 		return nil, err
 	}
-	return out, nil
+	return scratch.paths, nil
 }
 
 // Derivations enumerates the exact alternatives represented by head.
