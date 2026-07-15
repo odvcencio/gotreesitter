@@ -23,6 +23,11 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now retain one bounded adjacency frame per
+  active pop depth while preserving stable link order and fail-closed graph
+  validation. On the authenticated real-Go scheduler benchmark, the diagnostic
+  median improved by 9.9%, allocated bytes by 7.3%, and allocations by 12.3%
+  with unchanged exact tree and parser work totals.
 - Compact parser-core diagnostics now retain bounded pop-enumeration traversal
   and per-path buffers across warm parses while rejecting reentrant reductions
   and clearing logical scratch on rollback and reset. On the authenticated

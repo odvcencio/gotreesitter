@@ -1409,13 +1409,14 @@ type pathPayload struct {
 }
 
 type popEnumerationScratch struct {
-	busy      bool
-	visiting  map[NodeID]bool
-	rev       []SubtreeID
-	revScores []int64
-	revOrders []ForkOrder
-	trailing  []pathPayload
-	paths     []popPath
+	busy       bool
+	visiting   map[NodeID]bool
+	linkFrames [][]linkRecord
+	rev        []SubtreeID
+	revScores  []int64
+	revOrders  []ForkOrder
+	trailing   []pathPayload
+	paths      []popPath
 }
 
 func (s *popEnumerationScratch) begin() {
@@ -1423,6 +1424,9 @@ func (s *popEnumerationScratch) begin() {
 		s.visiting = make(map[NodeID]bool)
 	} else {
 		clear(s.visiting)
+	}
+	for index := range s.linkFrames {
+		s.linkFrames[index] = s.linkFrames[index][:0]
 	}
 	s.rev = s.rev[:0]
 	s.revScores = s.revScores[:0]
@@ -1433,6 +1437,9 @@ func (s *popEnumerationScratch) begin() {
 
 func (s *popEnumerationScratch) finishTraversal() {
 	clear(s.visiting)
+	for index := range s.linkFrames {
+		s.linkFrames[index] = s.linkFrames[index][:0]
+	}
 	s.rev = s.rev[:0]
 	s.revScores = s.revScores[:0]
 	s.revOrders = s.revOrders[:0]
@@ -1484,8 +1491,8 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 		path.structuralEnd = n.byteOffset
 		return scratch.paths, nil
 	}
-	var walk func(NodeID, int, bool, uint32) error
-	walk = func(id NodeID, remaining int, peelingTrailing bool, structuralEnd uint32) error {
+	var walk func(NodeID, int, bool, uint32, int) error
+	walk = func(id NodeID, remaining int, peelingTrailing bool, structuralEnd uint32, depth int) error {
 		if scratch.visiting[id] {
 			return errors.New("parser-core phase zero: graph cycle")
 		}
@@ -1495,7 +1502,11 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 		}
 		scratch.visiting[id] = true
 		defer delete(scratch.visiting, id)
-		links, err := c.nodeLinks(*n)
+		for len(scratch.linkFrames) <= depth {
+			scratch.linkFrames = append(scratch.linkFrames, nil)
+		}
+		links, err := c.nodeLinksInto(scratch.linkFrames[depth], *n)
+		scratch.linkFrames[depth] = links
 		if err != nil {
 			return err
 		}
@@ -1507,7 +1518,7 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 			linkOrder := ForkOrder{Value: link.order, Present: link.hasOrder()}
 			if payload.extra && peelingTrailing {
 				scratch.trailing = append(scratch.trailing, pathPayload{payload: link.payload, scoreDelta: link.scoreDelta, order: linkOrder})
-				if err := walk(link.prev, remaining, true, structuralEnd); err != nil {
+				if err := walk(link.prev, remaining, true, structuralEnd, depth+1); err != nil {
 					return err
 				}
 				scratch.trailing = scratch.trailing[:len(scratch.trailing)-1]
@@ -1517,7 +1528,7 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 				scratch.rev = append(scratch.rev, link.payload)
 				scratch.revScores = append(scratch.revScores, link.scoreDelta)
 				scratch.revOrders = append(scratch.revOrders, linkOrder)
-				if err := walk(link.prev, remaining, false, structuralEnd); err != nil {
+				if err := walk(link.prev, remaining, false, structuralEnd, depth+1); err != nil {
 					return err
 				}
 				scratch.rev = scratch.rev[:len(scratch.rev)-1]
@@ -1557,7 +1568,7 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 						path.order = scratch.trailing[i].order
 					}
 				}
-			} else if err := walk(link.prev, next, false, nextStructuralEnd); err != nil {
+			} else if err := walk(link.prev, next, false, nextStructuralEnd, depth+1); err != nil {
 				return err
 			}
 			scratch.rev = scratch.rev[:len(scratch.rev)-1]
@@ -1566,7 +1577,7 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 		}
 		return nil
 	}
-	if err := walk(head, childCount, true, 0); err != nil {
+	if err := walk(head, childCount, true, 0, 0); err != nil {
 		return nil, err
 	}
 	return scratch.paths, nil
@@ -1894,6 +1905,43 @@ func (c *Core) nodeLinks(n nodeRecord) ([]linkRecord, error) {
 		links[i], links[j] = links[j], links[i]
 	}
 	return links, nil
+}
+
+// nodeLinksInto copies one immutable adjacency chain into caller-owned
+// storage in stable insertion order. The chain itself is newest-first because
+// links prepend in O(1), so filling the destination backwards avoids both a
+// second pass and per-enumeration allocation. The recorded count bounds the
+// traversal: an early zero is short, while a nonzero successor after exactly
+// that many records is either overlong or cyclic and is rejected fail closed.
+func (c *Core) nodeLinksInto(dst []linkRecord, n nodeRecord) ([]linkRecord, error) {
+	count := uint64(n.linkCount)
+	if count > uint64(c.limits.MaxLinks) || count > uint64(c.limits.MaxLinksPerBoundary) {
+		return dst[:0], errors.New("parser-core phase zero: recorded link count exceeds configured limit")
+	}
+	if count > uint64(len(c.links)) {
+		return dst[:0], errors.New("parser-core phase zero: recorded link count exceeds link arena")
+	}
+	if cap(dst) < int(n.linkCount) {
+		dst = make([]linkRecord, n.linkCount)
+	} else {
+		dst = dst[:n.linkCount]
+	}
+	id := LinkID(n.firstLink)
+	for index := len(dst) - 1; index >= 0; index-- {
+		if id == 0 {
+			return dst, errors.New("parser-core phase zero: adjacency shorter than recorded link count")
+		}
+		if uint64(id) > uint64(len(c.links)) {
+			return dst, errors.New("parser-core phase zero: link adjacency out of range")
+		}
+		link := c.links[id-1]
+		dst[index] = link
+		id = link.next
+	}
+	if id != 0 {
+		return dst, errors.New("parser-core phase zero: adjacency exceeds recorded link count or cycles")
+	}
+	return dst, nil
 }
 
 func checkedAddScore(a, b int64) (int64, error) {

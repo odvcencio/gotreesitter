@@ -2,6 +2,7 @@ package parsercorephase0
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -80,6 +81,117 @@ func TestPopScratchPathsAreIndependentWithinOneEnumeration(t *testing.T) {
 	}
 	if &again[0].children[0] == &again[1].children[0] || &again[0].trailing[0] == &again[1].trailing[0] {
 		t.Fatalf("successive result aliases slots: %+v", again)
+	}
+}
+
+func TestPopScratchAdjacencyFramesPreserveStablePathOrderAndDepth(t *testing.T) {
+	compact, head := newReductionLinkCollisionFixture(t, false)
+	paths, err := compact.popPaths(head.Node, 2)
+	if err != nil || len(paths) != 2 {
+		t.Fatalf("pop paths=%+v err=%v", paths, err)
+	}
+	if got := []int64{paths[0].score, paths[1].score}; !slices.Equal(got, []int64{2, 5}) {
+		t.Fatalf("stable path scores=%v, want oldest-to-newest [2 5]", got)
+	}
+	if got := []uint64{paths[0].order.Value, paths[1].order.Value}; !slices.Equal(got, []uint64{7, 9}) {
+		t.Fatalf("stable path orders=%v, want oldest-to-newest [7 9]", got)
+	}
+	if len(compact.popScratch.linkFrames) < 2 || cap(compact.popScratch.linkFrames[0]) < 2 || cap(compact.popScratch.linkFrames[1]) < 1 {
+		t.Fatalf("recursion frames=%v, want distinct retained frames for two active depths", compact.popScratch.linkFrames)
+	}
+	outer := compact.popScratch.linkFrames[0][:1]
+	inner := compact.popScratch.linkFrames[1][:1]
+	if &outer[0] == &inner[0] {
+		t.Fatal("active recursion depths alias one adjacency frame")
+	}
+	for depth, frame := range compact.popScratch.linkFrames {
+		if len(frame) != 0 {
+			t.Fatalf("finished recursion frame %d retained logical length %d", depth, len(frame))
+		}
+	}
+}
+
+func TestPopScratchAdjacencyFramesRejectCorruptionAndRetryCleanly(t *testing.T) {
+	compact, head := newReductionLinkCollisionFixture(t, false)
+	node, err := compact.node(head.Node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalNode := *node
+	originalLinks := append([]linkRecord(nil), compact.links...)
+
+	tests := []struct {
+		name    string
+		corrupt func()
+		want    string
+	}{
+		{
+			name: "short",
+			corrupt: func() {
+				node.linkCount = originalNode.linkCount + 1
+			},
+			want: "shorter than recorded link count",
+		},
+		{
+			name: "out-of-range",
+			corrupt: func() {
+				node.linkCount = 1
+				node.firstLink = uint32(len(compact.links) + 1)
+			},
+			want: "link adjacency out of range",
+		},
+		{
+			name: "overlong-cycle",
+			corrupt: func() {
+				compact.links[originalNode.firstLink-1].next = LinkID(originalNode.firstLink)
+			},
+			want: "exceeds recorded link count or cycles",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			*node = originalNode
+			copy(compact.links, originalLinks)
+			test.corrupt()
+			if _, err := compact.popPaths(head.Node, 2); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("corruption error=%v, want %q", err, test.want)
+			}
+			if compact.popScratch.busy || len(compact.popScratch.visiting) != 0 || len(compact.popScratch.rev) != 0 || len(compact.popScratch.revScores) != 0 || len(compact.popScratch.revOrders) != 0 || len(compact.popScratch.trailing) != 0 || len(compact.popScratch.paths) != 0 {
+				t.Fatalf("failed traversal retained logical scratch: %+v", compact.popScratch)
+			}
+			for depth, frame := range compact.popScratch.linkFrames {
+				if len(frame) != 0 {
+					t.Fatalf("failed traversal frame %d retained logical length %d", depth, len(frame))
+				}
+			}
+
+			*node = originalNode
+			copy(compact.links, originalLinks)
+			paths, err := compact.popPaths(head.Node, 2)
+			if err != nil || len(paths) != 2 || paths[0].score != 2 || paths[1].score != 5 {
+				t.Fatalf("clean retry paths=%+v err=%v", paths, err)
+			}
+		})
+	}
+}
+
+func TestNodeLinksIntoRejectsRecordedCountOutsideBounds(t *testing.T) {
+	compact, head := newReductionLinkCollisionFixture(t, false)
+	node, err := compact.node(head.Node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tooMany := *node
+	tooMany.linkCount = compact.limits.MaxLinksPerBoundary + 1
+	if _, err := compact.nodeLinksInto(make([]linkRecord, 0, 4), tooMany); err == nil || !strings.Contains(err.Error(), "configured limit") {
+		t.Fatalf("configured-limit error=%v", err)
+	}
+	overArena := *node
+	overArena.linkCount = uint32(len(compact.links) + 1)
+	compact.limits.MaxLinksPerBoundary = overArena.linkCount
+	if _, err := compact.nodeLinksInto(make([]linkRecord, 0, 4), overArena); err == nil || !strings.Contains(err.Error(), "exceeds link arena") {
+		t.Fatalf("arena-limit error=%v", err)
 	}
 }
 
@@ -174,6 +286,25 @@ func TestPopScratchZeroChildSteadyStateDoesNotAllocate(t *testing.T) {
 	}
 }
 
+func TestPopScratchAdjacencyFramesDoNotAllocateAfterPriming(t *testing.T) {
+	compact, head := newReductionLinkCollisionFixture(t, false)
+	for range 4 {
+		paths, err := compact.popPaths(head.Node, 2)
+		if err != nil || len(paths) != 2 {
+			t.Fatalf("prime paths=%+v err=%v", paths, err)
+		}
+	}
+	var runErr error
+	var pathCount int
+	if allocs := testing.AllocsPerRun(1000, func() {
+		var paths []popPath
+		paths, runErr = compact.popPaths(head.Node, 2)
+		pathCount = len(paths)
+	}); allocs != 0 || runErr != nil || pathCount != 2 {
+		t.Fatalf("steady adjacency pop allocs=%v paths=%d err=%v", allocs, pathCount, runErr)
+	}
+}
+
 func TestResetClearsPopScratchAndRetainsCapacity(t *testing.T) {
 	compact, head := newPopScratchBranchFixture(t)
 	paths, err := compact.popPaths(head.Node, 2)
@@ -186,6 +317,10 @@ func TestResetClearsPopScratchAndRetainsCapacity(t *testing.T) {
 		cap(compact.popScratch.paths), cap(compact.popScratch.paths[0].children),
 		cap(compact.popScratch.paths[0].trailing),
 	}
+	wantFrameCaps := make([]int, len(compact.popScratch.linkFrames))
+	for depth, frame := range compact.popScratch.linkFrames {
+		wantFrameCaps[depth] = cap(frame)
+	}
 	if compact.popScratch.visiting == nil {
 		t.Fatal("pop visiting map was not initialized")
 	}
@@ -194,6 +329,14 @@ func TestResetClearsPopScratchAndRetainsCapacity(t *testing.T) {
 	}
 	if compact.popScratch.busy || len(compact.popScratch.visiting) != 0 || len(compact.popScratch.rev) != 0 || len(compact.popScratch.revScores) != 0 || len(compact.popScratch.revOrders) != 0 || len(compact.popScratch.trailing) != 0 || len(compact.popScratch.paths) != 0 {
 		t.Fatalf("reset retained logical pop scratch: %+v", compact.popScratch)
+	}
+	if len(compact.popScratch.linkFrames) != len(wantFrameCaps) {
+		t.Fatalf("reset adjacency frame count=%d want=%d", len(compact.popScratch.linkFrames), len(wantFrameCaps))
+	}
+	for depth, frame := range compact.popScratch.linkFrames {
+		if len(frame) != 0 || cap(frame) != wantFrameCaps[depth] {
+			t.Fatalf("reset adjacency frame %d len/cap=%d/%d want=0/%d", depth, len(frame), cap(frame), wantFrameCaps[depth])
+		}
 	}
 	retained := compact.popScratch.paths[:1][0]
 	gotCaps := [...]int{
