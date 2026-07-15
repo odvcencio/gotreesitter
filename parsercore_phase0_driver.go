@@ -199,6 +199,25 @@ type DiagnosticParserCoreCohortCondense struct {
 	Executed               bool
 }
 
+type DiagnosticParserCorePostCondenseContinuation struct {
+	Before                     DiagnosticParserCoreHeaderReceipt
+	BeforeBoundary             DiagnosticParserCoreLaterForkBoundary
+	ContinuationElectionIndex  int
+	ContinuationExpectedBefore DiagnosticParserCoreScannerCheckpoint
+	ContinuationElection       DiagnosticParserCoreElection
+	ContinuationReset          DiagnosticParserCoreHeaderReceipt
+	ShiftRound                 DiagnosticParserCoreDispatchRound
+	ShiftedBoundary            DiagnosticParserCoreLaterForkBoundary
+	ConflictElectionIndex      int
+	ConflictExpectedBefore     DiagnosticParserCoreScannerCheckpoint
+	ConflictElection           DiagnosticParserCoreElection
+	ConflictReset              DiagnosticParserCoreHeaderReceipt
+	Conflict                   DiagnosticParserCoreSubsequentConflictReceipt
+	GlobalBranchOrder          uint64
+	NextCreationSeq            uint64
+	Dispatches                 uint64
+}
+
 type DiagnosticParserCoreExtraShift struct {
 	State          StateID
 	Token          Token
@@ -235,6 +254,7 @@ type DiagnosticParserCorePrefixResult struct {
 	OrderedElections         []DiagnosticParserCoreOrderedElection
 	CohortRounds             []DiagnosticParserCoreDispatchRound
 	CohortCondense           *DiagnosticParserCoreCohortCondense
+	PostCondenseContinuation *DiagnosticParserCorePostCondenseContinuation
 	Elections                []DiagnosticParserCoreElection
 	SourceSHA256             [32]byte
 	GrammarBlobSHA256        [32]byte
@@ -1060,9 +1080,24 @@ func continueDiagnosticParserCoreOrderedCohort(
 		}
 		if execution.condense != nil {
 			result.CohortCondense = execution.condense
-			result.State, result.Lookahead = execution.condense.Preserved.State, stage.election.Token
-			result.Boundary = DiagnosticParserCoreCohortCondensed
-			result.Detail = "ordered cohort applied authenticated state22 cost condense"
+			result.State, result.Lookahead = execution.condense.Preserved.State, execution.condense.Token
+			postCondense, postErr := executeDiagnosticParserCorePostCondenseContinuation(
+				compact, tokenSource, scannerScratch, execution.headers[0],
+				stage.election.ScannerAfter, len(result.Elections), result.Dispatches,
+				options, branchOrder, nextSeq,
+			)
+			if postErr != nil {
+				return postErr
+			}
+			result.Elections = append(result.Elections, postCondense.ContinuationElection, postCondense.ConflictElection)
+			result.Tokens += 2
+			result.Dispatches = postCondense.Dispatches
+			result.PostCondenseContinuation = postCondense
+			conflict := postCondense.Conflict
+			result.SubsequentConflict = &conflict
+			result.State, result.Lookahead = postCondense.Conflict.State, postCondense.Conflict.Token
+			result.Boundary = DiagnosticParserCoreSubsequentConflictBoundary
+			result.Detail = "post-condense continuation reached authenticated multi-action cell before execution"
 			return &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 		}
 	}
@@ -1316,6 +1351,235 @@ func diagnosticParserCoreHeadersConsumed(headers []diagnosticParserCoreHeader) b
 		}
 	}
 	return true
+}
+
+func executeDiagnosticParserCorePostCondenseContinuation(
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	header diagnosticParserCoreHeader,
+	expectedBefore DiagnosticParserCoreScannerCheckpoint,
+	electionBase int,
+	dispatches uint64,
+	options DiagnosticParserCorePrefixOptions,
+	globalBranchOrder uint64,
+	nextCreationSeq uint64,
+) (*DiagnosticParserCorePostCondenseContinuation, error) {
+	if electionBase != 98 || globalBranchOrder != 2 || nextCreationSeq != 3 {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "post-condense continuation allocator identity mismatch"}
+	}
+	if uint64(electionBase)+2 > options.MaxTokens {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "post-condense continuation token cap"}
+	}
+	before, err := diagnosticParserCoreHeaderReceipt(compact, header)
+	if err != nil {
+		return nil, err
+	}
+	boundaries, exactPaths, err := diagnosticParserCoreLaterForkBoundaries(compact, []diagnosticParserCoreHeader{header})
+	if err != nil {
+		return nil, err
+	}
+	if before.State != 248 || before.ByteOffset != 732 || before.CreationSeq != 1 || !before.Shifted || before.Accepted || before.ExactPaths != 1 ||
+		before.Checkpoint != expectedBefore.SHA256 || exactPaths != 1 || len(boundaries) != 1 ||
+		boundaries[0].Score != -10 || boundaries[0].BranchOrder != 1 || !boundaries[0].HasBranchOrder {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "post-condense continuation header identity mismatch"}
+	}
+	continuationElection, err := readDiagnosticParserCorePostCondenseElection(
+		tokenSource, scannerScratch, 248, expectedBefore, 86, "append", 733, 739,
+	)
+	if err != nil {
+		return nil, err
+	}
+	receipt := &DiagnosticParserCorePostCondenseContinuation{
+		Before: before, BeforeBoundary: boundaries[0],
+		ContinuationElectionIndex:  electionBase,
+		ContinuationExpectedBefore: expectedBefore,
+		ContinuationElection:       continuationElection,
+		ConflictElectionIndex:      electionBase + 1,
+		GlobalBranchOrder:          globalBranchOrder, NextCreationSeq: nextCreationSeq,
+	}
+	trialHeader := header
+	err = compact.ApplyAtomic(func() error {
+		if err := applyDiagnosticParserCorePostCondenseShift(
+			compact, continuationElection, options.MaxDispatches,
+			&trialHeader, &dispatches, receipt,
+		); err != nil {
+			return err
+		}
+		return authenticateDiagnosticParserCorePostCondenseConflict(
+			compact, tokenSource, scannerScratch, continuationElection.ScannerAfter,
+			electionBase+1, options.MaxDispatches, &trialHeader, &dispatches, receipt,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return receipt, nil
+}
+
+func applyDiagnosticParserCorePostCondenseShift(
+	compact *core.Core,
+	election DiagnosticParserCoreElection,
+	maxDispatches uint64,
+	header *diagnosticParserCoreHeader,
+	dispatches *uint64,
+	receipt *DiagnosticParserCorePostCondenseContinuation,
+) error {
+	if err := compact.BeginFrontier(); err != nil {
+		return err
+	}
+	compact.SetPhaseCheckpoint(election.ScannerAfter.SHA256)
+	header.shifted = false
+	header.checkpoint = election.ScannerAfter.SHA256
+	reset, err := diagnosticParserCoreHeaderReceipt(compact, *header)
+	if err != nil {
+		return err
+	}
+	receipt.ContinuationReset = reset
+	state, byteOffset, err := compact.Boundary(header.head)
+	if err != nil {
+		return err
+	}
+	actions, err := compact.Actions(state, core.Symbol(election.Token.Symbol))
+	if err != nil {
+		return err
+	}
+	if state != 248 || byteOffset != 732 || !reflect.DeepEqual(actions, []core.Action{{Type: core.ActionShift, State: 186}}) {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "post-condense state248 continuation cell mismatch"}
+	}
+	if *dispatches >= maxDispatches {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "post-condense continuation dispatch cap"}
+	}
+	output, err := applyParserCorePrefixAction(compact, header.head, election.Token, actions[0], 0, core.ForkOrder{})
+	if err != nil {
+		return err
+	}
+	if len(output) != 1 {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "post-condense continuation shift produced multiple boundaries"}
+	}
+	*dispatches++
+	header.head, header.shifted = output[0], true
+	afterShift, err := diagnosticParserCoreHeaderReceipt(compact, *header)
+	if err != nil {
+		return err
+	}
+	receipt.ShiftRound = DiagnosticParserCoreDispatchRound{
+		Index: 0, Before: []DiagnosticParserCoreHeaderReceipt{reset},
+		Actions: []DiagnosticParserCoreRoundAction{{
+			HeaderIndex: 0, State: 248, ByteOffset: 732,
+			Ordinal: 0, Action: rootParserCoreAction(actions[0]),
+		}},
+		After: []DiagnosticParserCoreHeaderReceipt{afterShift},
+	}
+	shifted, paths, err := diagnosticParserCoreLaterForkBoundaries(compact, []diagnosticParserCoreHeader{*header})
+	if err != nil {
+		return err
+	}
+	if paths != 1 || len(shifted) != 1 || shifted[0].Score != -10 || shifted[0].BranchOrder != 1 || !shifted[0].HasBranchOrder {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "post-condense shifted boundary score/order mismatch"}
+	}
+	receipt.ShiftedBoundary = shifted[0]
+	return nil
+}
+
+func authenticateDiagnosticParserCorePostCondenseConflict(
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	expectedBefore DiagnosticParserCoreScannerCheckpoint,
+	electionIndex int,
+	maxDispatches uint64,
+	header *diagnosticParserCoreHeader,
+	dispatches *uint64,
+	receipt *DiagnosticParserCorePostCondenseContinuation,
+) error {
+	election, err := readDiagnosticParserCorePostCondenseElection(
+		tokenSource, scannerScratch, 186, expectedBefore, 6, "(", 739, 740,
+	)
+	if err != nil {
+		return err
+	}
+	receipt.ConflictExpectedBefore = expectedBefore
+	receipt.ConflictElection = election
+	if err := compact.BeginFrontier(); err != nil {
+		return err
+	}
+	compact.SetPhaseCheckpoint(election.ScannerAfter.SHA256)
+	header.shifted = false
+	header.checkpoint = election.ScannerAfter.SHA256
+	reset, err := diagnosticParserCoreHeaderReceipt(compact, *header)
+	if err != nil {
+		return err
+	}
+	receipt.ConflictReset = reset
+	state, byteOffset, err := compact.Boundary(header.head)
+	if err != nil {
+		return err
+	}
+	actions, err := compact.Actions(state, core.Symbol(election.Token.Symbol))
+	if err != nil {
+		return err
+	}
+	want := []core.Action{
+		{Type: core.ActionReduce, Symbol: 121, ChildCount: 1, DynamicPrecedence: -1, ProductionID: 44},
+		{Type: core.ActionReduce, Symbol: 171, ChildCount: 1},
+	}
+	if state != 186 || byteOffset != 739 || !reflect.DeepEqual(actions, want) {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "post-condense state186 conflict cell mismatch"}
+	}
+	if *dispatches >= maxDispatches {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "post-condense conflict dispatch cap"}
+	}
+	*dispatches++
+	conflict, err := diagnosticParserCoreSubsequentConflictReceipt(
+		compact, header.head, header.creationSeq, election.Token, actions, electionIndex, header.checkpoint,
+	)
+	if err != nil {
+		return err
+	}
+	receipt.Conflict = *conflict
+	receipt.Dispatches = *dispatches
+	return nil
+}
+
+func readDiagnosticParserCorePostCondenseElection(
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	state StateID,
+	expectedBefore DiagnosticParserCoreScannerCheckpoint,
+	wantSymbol Symbol,
+	wantText string,
+	wantStart uint32,
+	wantEnd uint32,
+) (DiagnosticParserCoreElection, error) {
+	// Token does not carry Tree-sitter's extra bit; that property belongs to
+	// the selected parse action. Both callers separately authenticate exact
+	// action rows whose Extra fields are false.
+	tokenSource.SetParserState(state)
+	tokenSource.SetGLRStates(nil)
+	before := parserCoreCheckpoint(append([]byte(nil), tokenSource.captureExternalScannerStateInto(scannerScratch)...))
+	if before != expectedBefore {
+		return DiagnosticParserCoreElection{}, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "post-condense scanner checkpoint continuity failed"}
+	}
+	token := tokenSource.Next()
+	after := parserCoreCheckpoint(append([]byte(nil), tokenSource.captureExternalScannerStateInto(scannerScratch)...))
+	current, currentStart, currentEnd, currentValid := currentExternalScannerCheckpoint(tokenSource)
+	election := DiagnosticParserCoreElection{
+		States: []StateID{state}, Token: token,
+		ScannerBefore: before, ScannerAfter: after,
+		CurrentCheckpointValid: currentValid,
+		CurrentCheckpointStart: parserCoreCheckpoint(current.start),
+		CurrentCheckpointEnd:   parserCoreCheckpoint(current.end),
+		CurrentCheckpointBytes: [2]uint32{currentStart, currentEnd},
+	}
+	emptyCheckpoint := parserCoreCheckpoint(nil)
+	if token.Symbol != wantSymbol || token.Text != wantText || token.StartByte != wantStart || token.EndByte != wantEnd ||
+		token.Missing || token.NoLookahead || token.ExternalScannerToken || before != emptyCheckpoint || after != emptyCheckpoint ||
+		currentValid || election.CurrentCheckpointStart != emptyCheckpoint || election.CurrentCheckpointEnd != emptyCheckpoint ||
+		election.CurrentCheckpointBytes != [2]uint32{} {
+		return DiagnosticParserCoreElection{}, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "post-condense ordinary-DFA token identity mismatch"}
+	}
+	return election, nil
 }
 
 // validateDiagnosticParserCoreState22Condense admits only the C-oracle-pinned

@@ -34,7 +34,9 @@ for tags and release notes while still in `0.x`.
   elections then continue both headers through production-ordered dispatch
   passes. The route applies C's state-22 cost competition as an explicit
   500-point open-recovery plus 100-point skipped-tree loss against the clean
-  state-248 sibling, then stops after the condense with transactional receipts.
+  state-248 sibling. The surviving lineage then advances through one exact
+  single-state election and shift before stopping transactionally at the next
+  authenticated multi-action cell, without replacing any earlier fork receipt.
   Conflict-frontier cells are visible in ambiguity profiles; generalized
   repetition, no-lookahead, no-action, and recovery paths still decline before
   unsupported execution, and ordinary builds retain no diagnostic driver

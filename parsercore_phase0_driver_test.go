@@ -134,6 +134,11 @@ func assertProductionParserCoreCells(t *testing.T, profile *gotreesitter.Ambigui
 		{65, 10}:  {{Type: gotreesitter.ParseActionShift, State: 248}},
 		{444, 10}: {{Type: gotreesitter.ParseActionReduce, Symbol: 190, ChildCount: 3, ProductionID: 123}},
 		{22, 10}:  nil,
+		{248, 86}: {{Type: gotreesitter.ParseActionShift, State: 186}},
+		{186, 6}: {
+			{Type: gotreesitter.ParseActionReduce, Symbol: 121, ChildCount: 1, DynamicPrecedence: -1, ProductionID: 44},
+			{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1},
+		},
 	}
 	orderedSeen := make(map[cellKey]bool, len(orderedWant))
 	continuationSeen := false
@@ -206,10 +211,10 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if prefixErr != nil && result.Boundary == "" {
 		t.Fatalf("untyped prefix error: %v", prefixErr)
 	}
-	if result.Boundary != gotreesitter.DiagnosticParserCoreCohortCondensed || result.Tokens != 98 || result.Dispatches != 189 || result.State != 248 || result.Lookahead.Symbol != 10 || prefixErr == nil {
+	if result.Boundary != gotreesitter.DiagnosticParserCoreSubsequentConflictBoundary || result.Tokens != 100 || result.Dispatches != 191 || result.State != 186 || result.Lookahead.Symbol != 6 || prefixErr == nil {
 		t.Fatalf("rewrite prefix identity drifted: boundary=%s tokens=%d dispatches=%d state=%d lookahead=%d fork_actions=%+v fork_boundaries=%d fork_paths=%d same_rounds=%+v last_order=%d", result.Boundary, result.Tokens, result.Dispatches, result.State, result.Lookahead.Symbol, result.ForkActions, result.ForkBoundaries, result.ForkLogicalPaths, result.SameTokenRounds, result.LastBranchOrder)
 	}
-	if result.Detail != "ordered cohort applied authenticated state22 cost condense" || len(result.Elections) != int(result.Tokens) {
+	if result.Detail != "post-condense continuation reached authenticated multi-action cell before execution" || len(result.Elections) != int(result.Tokens) {
 		t.Fatalf("continued prefix detail/elections = %q/%d, want one election per %d tokens", result.Detail, len(result.Elections), result.Tokens)
 	}
 	if result.OracleCondenseResolution == nil || result.ContinuationElection == nil {
@@ -233,7 +238,7 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 	if continuation.HandoffBoundary != gotreesitter.DiagnosticParserCoreSingleStateContinuation {
 		t.Fatalf("continuation handoff boundary=%s", continuation.HandoffBoundary)
 	}
-	if result.LaterForkExecution == nil || result.SubsequentConflict != nil {
+	if result.LaterForkExecution == nil {
 		t.Fatalf("later-fork/third-conflict receipts=%+v/%+v", result.LaterForkExecution, result.SubsequentConflict)
 	}
 	later := result.LaterForkExecution
@@ -335,6 +340,46 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 		condense.AfterBoundaries[0].Score != -10 || condense.AfterBoundaries[0].BranchOrder != 1 || !condense.AfterBoundaries[0].HasBranchOrder ||
 		!reflect.DeepEqual(condense.After[0], condense.Preserved) {
 		t.Fatalf("state22 cohort condense drifted: %+v", condense)
+	}
+	post := result.PostCondenseContinuation
+	wantPostConflictActions := []gotreesitter.ParseAction{
+		{Type: gotreesitter.ParseActionReduce, Symbol: 121, ChildCount: 1, DynamicPrecedence: -1, ProductionID: 44},
+		{Type: gotreesitter.ParseActionReduce, Symbol: 171, ChildCount: 1},
+	}
+	wantPostShiftRound := gotreesitter.DiagnosticParserCoreDispatchRound{
+		Index: 0,
+		Before: []gotreesitter.DiagnosticParserCoreHeaderReceipt{{
+			CreationSeq: 1, State: 248, ByteOffset: 732, ExactPaths: 1, Checkpoint: emptyCheckpoint.SHA256,
+		}},
+		Actions: []gotreesitter.DiagnosticParserCoreRoundAction{{
+			HeaderIndex: 0, State: 248, ByteOffset: 732,
+			Action: gotreesitter.ParseAction{Type: gotreesitter.ParseActionShift, State: 186},
+		}},
+		After: []gotreesitter.DiagnosticParserCoreHeaderReceipt{{
+			CreationSeq: 1, State: 186, ByteOffset: 739, Shifted: true, ExactPaths: 1, Checkpoint: emptyCheckpoint.SHA256,
+		}},
+	}
+	if post == nil || !reflect.DeepEqual(post.Before, condense.Preserved) ||
+		post.BeforeBoundary.Score != -10 || post.BeforeBoundary.BranchOrder != 1 || !post.BeforeBoundary.HasBranchOrder ||
+		post.ContinuationElectionIndex != 98 || post.ContinuationExpectedBefore != emptyCheckpoint ||
+		!reflect.DeepEqual(post.ContinuationElection.States, []gotreesitter.StateID{248}) ||
+		post.ContinuationElection.Token.Symbol != 86 || post.ContinuationElection.Token.Text != "append" || post.ContinuationElection.Token.StartByte != 733 || post.ContinuationElection.Token.EndByte != 739 ||
+		post.ContinuationElection.Token.Missing || post.ContinuationElection.Token.NoLookahead || post.ContinuationElection.Token.ExternalScannerToken ||
+		post.ContinuationElection.ScannerBefore != emptyCheckpoint || post.ContinuationElection.ScannerAfter != emptyCheckpoint || post.ContinuationElection.CurrentCheckpointValid || post.ContinuationElection.CurrentCheckpointStart != emptyCheckpoint || post.ContinuationElection.CurrentCheckpointEnd != emptyCheckpoint || post.ContinuationElection.CurrentCheckpointBytes != [2]uint32{} ||
+		post.ContinuationReset.State != 248 || post.ContinuationReset.ByteOffset != 732 || post.ContinuationReset.CreationSeq != 1 || post.ContinuationReset.Shifted || post.ContinuationReset.ExactPaths != 1 || post.ContinuationReset.Checkpoint != emptyCheckpoint.SHA256 ||
+		!reflect.DeepEqual(post.ShiftRound, wantPostShiftRound) || post.ShiftRound.Actions[0].Action.Extra ||
+		post.ShiftedBoundary.Header.State != 186 || post.ShiftedBoundary.Header.ByteOffset != 739 || !post.ShiftedBoundary.Header.Shifted || post.ShiftedBoundary.Header.Checkpoint != emptyCheckpoint.SHA256 || post.ShiftedBoundary.Score != -10 || post.ShiftedBoundary.BranchOrder != 1 || !post.ShiftedBoundary.HasBranchOrder ||
+		post.ConflictElectionIndex != 99 || post.ConflictExpectedBefore != emptyCheckpoint ||
+		!reflect.DeepEqual(post.ConflictElection.States, []gotreesitter.StateID{186}) ||
+		post.ConflictElection.Token.Symbol != 6 || post.ConflictElection.Token.Text != "(" || post.ConflictElection.Token.StartByte != 739 || post.ConflictElection.Token.EndByte != 740 ||
+		post.ConflictElection.Token.Missing || post.ConflictElection.Token.NoLookahead || post.ConflictElection.Token.ExternalScannerToken ||
+		post.ConflictElection.ScannerBefore != emptyCheckpoint || post.ConflictElection.ScannerAfter != emptyCheckpoint || post.ConflictElection.CurrentCheckpointValid || post.ConflictElection.CurrentCheckpointStart != emptyCheckpoint || post.ConflictElection.CurrentCheckpointEnd != emptyCheckpoint || post.ConflictElection.CurrentCheckpointBytes != [2]uint32{} ||
+		post.ConflictReset.State != 186 || post.ConflictReset.ByteOffset != 739 || post.ConflictReset.CreationSeq != 1 || post.ConflictReset.Shifted || post.ConflictReset.ExactPaths != 1 || post.ConflictReset.Checkpoint != emptyCheckpoint.SHA256 ||
+		post.Conflict.State != 186 || post.Conflict.ByteOffset != 739 || post.Conflict.ElectionIndex != 99 || !reflect.DeepEqual(post.Conflict.Token, post.ConflictElection.Token) || !reflect.DeepEqual(post.Conflict.Actions, wantPostConflictActions) || post.Conflict.Actions[0].Extra || post.Conflict.Actions[1].Extra || post.Conflict.Header.Checkpoint != emptyCheckpoint.SHA256 ||
+		post.Conflict.Score != -10 || post.Conflict.BranchOrder != 1 || !post.Conflict.HasBranchOrder ||
+		post.GlobalBranchOrder != 2 || post.NextCreationSeq != 3 || post.Dispatches != 191 ||
+		result.SubsequentConflict == nil || !reflect.DeepEqual(*result.SubsequentConflict, post.Conflict) {
+		t.Fatalf("post-condense continuation/conflict drifted: %+v want_shift=%+v want_conflict=%+v", post, wantPostShiftRound, wantPostConflictActions)
 	}
 	for _, want := range []struct {
 		index      int
@@ -471,7 +516,7 @@ func TestDiagnosticParserCoreUsesEmbeddedGrammarAndExactScanner(t *testing.T) {
 		t.Fatal("rewrite fixture missing")
 	}
 	canonical, canonicalErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, gotreesitter.DiagnosticParserCorePrefixOptions{})
-	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreCohortCondensed || canonical.Tokens != 98 || canonical.Dispatches != 189 || canonical.State != 248 || canonical.Lookahead.Symbol != 10 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 2 || len(canonical.SameTokenRounds) != 4 || canonical.OracleCondenseResolution == nil || canonical.ContinuationElection == nil || canonical.LaterForkExecution == nil || len(canonical.OrderedElections) != 2 || canonical.CohortCondense == nil || canonical.SubsequentConflict != nil || !canonical.ExactRootDFA {
+	if canonicalErr == nil || canonical.Boundary != gotreesitter.DiagnosticParserCoreSubsequentConflictBoundary || canonical.Tokens != 100 || canonical.Dispatches != 191 || canonical.State != 186 || canonical.Lookahead.Symbol != 6 || canonical.ForkBoundaries != 2 || canonical.ForkLogicalPaths != 2 || canonical.LastBranchOrder != 2 || len(canonical.SameTokenRounds) != 4 || canonical.OracleCondenseResolution == nil || canonical.ContinuationElection == nil || canonical.LaterForkExecution == nil || len(canonical.OrderedElections) != 2 || canonical.CohortCondense == nil || canonical.PostCondenseContinuation == nil || canonical.SubsequentConflict == nil || !canonical.ExactRootDFA {
 		t.Fatalf("exact scanner did not reach authenticated boundary: result=%+v err=%v", canonical, canonicalErr)
 	}
 	wrongScanners := []struct {
@@ -521,5 +566,43 @@ func TestDiagnosticParserCoreOrderedCohortRollsBackPartialPass(t *testing.T) {
 		result.LaterForkExecution == nil || len(result.LaterForkExecution.ClosedBoundaries) != 2 {
 		t.Fatalf("failed ordered pass leaked staged receipts: tokens=%d dispatches=%d elections=%d ordered=%+v rounds=%+v condense=%+v later=%+v",
 			result.Tokens, result.Dispatches, len(result.Elections), result.OrderedElections, result.CohortRounds, result.CohortCondense, result.LaterForkExecution)
+	}
+}
+
+func TestDiagnosticParserCorePostCondenseContinuationPublishesTransactionally(t *testing.T) {
+	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var source []byte
+	for _, fixture := range fixtures {
+		if fixture.Fixture.ID == "rewrite" {
+			source = fixture.Source
+			break
+		}
+	}
+	if len(source) == 0 {
+		t.Fatal("rewrite fixture missing")
+	}
+	tests := []struct {
+		name    string
+		options gotreesitter.DiagnosticParserCorePrefixOptions
+	}{
+		{name: "second-dispatch-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 190}},
+		{name: "second-token-cap", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxTokens: 99}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(grammars.GoExternalScanner{}, source, test.options)
+			if routeErr == nil || result.Boundary != gotreesitter.DiagnosticParserCoreCap {
+				t.Fatalf("post-condense route did not fail closed: result=%+v err=%v", result, routeErr)
+			}
+			if result.Tokens != 98 || result.Dispatches != 189 || len(result.Elections) != 98 ||
+				result.State != 248 || result.Lookahead.Symbol != 10 || result.Lookahead.Text != "=" || result.Lookahead.StartByte != 731 || result.Lookahead.EndByte != 732 ||
+				result.CohortCondense == nil || result.PostCondenseContinuation != nil || result.SubsequentConflict != nil {
+				t.Fatalf("failed post-condense transaction leaked staged receipts: tokens=%d dispatches=%d elections=%d condense=%+v post=%+v",
+					result.Tokens, result.Dispatches, len(result.Elections), result.CohortCondense, result.PostCondenseContinuation)
+			}
+		})
 	}
 }
