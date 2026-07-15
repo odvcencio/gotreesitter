@@ -2,6 +2,7 @@ package parsercorephase0
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"slices"
@@ -421,6 +422,292 @@ func TestApplyAtomicRollsBackEarlierConflictArm(t *testing.T) {
 	}
 }
 
+func TestBoundaryMutationJournalRollback(t *testing.T) {
+	newCore := func(t *testing.T) (*Core, Head) {
+		t.Helper()
+		compact, err := New(&fakeTable{}, Limits{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		head, err := compact.Seed(1, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return compact, head
+	}
+	sentinel := errors.New("rollback")
+
+	t.Run("repeated-same-key", func(t *testing.T) {
+		compact, head := newCore(t)
+		key := compact.boundaryKey(1, 0)
+		err := compact.ApplyAtomic(func() error {
+			compact.writeBoundary(key, 41)
+			compact.writeBoundary(key, 42)
+			if len(compact.boundaryJournal) != 2 {
+				return fmt.Errorf("journal entries=%d, want 2", len(compact.boundaryJournal))
+			}
+			return sentinel
+		})
+		if !errors.Is(err, sentinel) || compact.boundaries[key] != head.Node {
+			t.Fatalf("same-key rollback err=%v boundary=%d, want %d", err, compact.boundaries[key], head.Node)
+		}
+		assertTransactionJournalClean(t, compact)
+	})
+
+	t.Run("absent-key-deletion", func(t *testing.T) {
+		compact, _ := newCore(t)
+		key := compact.boundaryKey(9, 9)
+		err := compact.ApplyAtomic(func() error {
+			compact.writeBoundary(key, 9)
+			return sentinel
+		})
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("absent-key rollback err=%v", err)
+		}
+		if _, exists := compact.boundaries[key]; exists {
+			t.Fatal("absent boundary survived rollback")
+		}
+		assertTransactionJournalClean(t, compact)
+	})
+
+	t.Run("nested-success-outer-rollback", func(t *testing.T) {
+		compact, head := newCore(t)
+		key := compact.boundaryKey(1, 0)
+		err := compact.ApplyAtomic(func() error {
+			compact.writeBoundary(key, 2)
+			if err := compact.ApplyAtomic(func() error {
+				compact.writeBoundary(key, 3)
+				return nil
+			}); err != nil {
+				return err
+			}
+			if compact.boundaries[key] != 3 || len(compact.transactions) != 1 || len(compact.boundaryJournal) != 2 {
+				return fmt.Errorf("inner commit state boundary=%d transactions=%d journal=%d", compact.boundaries[key], len(compact.transactions), len(compact.boundaryJournal))
+			}
+			return sentinel
+		})
+		if !errors.Is(err, sentinel) || compact.boundaries[key] != head.Node {
+			t.Fatalf("outer rollback err=%v boundary=%d, want %d", err, compact.boundaries[key], head.Node)
+		}
+		assertTransactionJournalClean(t, compact)
+	})
+
+	t.Run("inner-failure-outer-commit", func(t *testing.T) {
+		compact, _ := newCore(t)
+		key := compact.boundaryKey(1, 0)
+		err := compact.ApplyAtomic(func() error {
+			compact.writeBoundary(key, 2)
+			innerErr := compact.ApplyAtomic(func() error {
+				compact.writeBoundary(key, 3)
+				return sentinel
+			})
+			if !errors.Is(innerErr, sentinel) || compact.boundaries[key] != 2 || len(compact.transactions) != 1 || len(compact.boundaryJournal) != 1 {
+				return fmt.Errorf("inner rollback err=%v boundary=%d transactions=%d journal=%d", innerErr, compact.boundaries[key], len(compact.transactions), len(compact.boundaryJournal))
+			}
+			return nil
+		})
+		if err != nil || compact.boundaries[key] != 2 {
+			t.Fatalf("outer commit err=%v boundary=%d, want 2", err, compact.boundaries[key])
+		}
+		assertTransactionJournalClean(t, compact)
+	})
+}
+
+func TestMutationJournalRestoresScalarsAndArenas(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeStats, _ := compact.Stats(head)
+	beforeBoundaries := cloneBoundaryMap(compact.boundaries)
+	beforeFrontier, beforeCheckpoint := compact.frontier, compact.checkpoint
+	wantCheckpoint := [32]byte{1, 2, 3}
+	sentinel := errors.New("rollback")
+	err = compact.ApplyAtomic(func() error {
+		if err := compact.BeginFrontier(); err != nil {
+			return err
+		}
+		compact.SetPhaseCheckpoint(wantCheckpoint)
+		payload, err := compact.appendSubtree(subtreeRecord{symbol: 7, terminal: true}, nil, nil, nil)
+		if err != nil {
+			return err
+		}
+		if _, err := compact.appendSubtree(subtreeRecord{symbol: 8}, []SubtreeID{payload}, nil, nil); err != nil {
+			return err
+		}
+		if _, err := compact.condense(compact.boundaryKey(2, 1), linkInput{prev: head.Node, payload: payload}); err != nil {
+			return err
+		}
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("scalar/arena rollback err=%v", err)
+	}
+	afterStats, _ := compact.Stats(head)
+	if afterStats != beforeStats || compact.frontier != beforeFrontier || compact.checkpoint != beforeCheckpoint || !reflect.DeepEqual(compact.boundaries, beforeBoundaries) {
+		t.Fatalf("scalar/arena rollback stats=%+v/%+v frontier=%d/%d checkpoint=%x/%x boundaries=%v/%v",
+			afterStats, beforeStats, compact.frontier, beforeFrontier, compact.checkpoint, beforeCheckpoint, compact.boundaries, beforeBoundaries)
+	}
+	assertTransactionJournalClean(t, compact)
+}
+
+func TestOuterRollbackUndoesSuccessfulNestedParserOperations(t *testing.T) {
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{
+			{state: 1, symbol: 9}:  {{Type: ActionShift, State: 3}},
+			{state: 2, symbol: 9}:  {{Type: ActionShift, State: 3}},
+			{state: 3, symbol: 10}: {{Type: ActionReduce, Symbol: 4, ChildCount: 1}},
+		},
+		gotos: map[tableCell]StateID{{state: 1, symbol: 4}: 5},
+	}
+	compact, err := New(tables, Limits{MaxPathsPerBoundary: 8, MaxEnumeration: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, _ := compact.Seed(1, 0)
+	second, _ := compact.Seed(2, 0)
+	before, _ := compact.Stats(first)
+	beforeBoundaries := cloneBoundaryMap(compact.boundaries)
+	sentinel := errors.New("outer rollback")
+	err = compact.ApplyAtomic(func() error {
+		shifted, err := compact.Shift(first, 9, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{})
+		if err != nil {
+			return err
+		}
+		if _, err := compact.Reduce(shifted, 10, 0, ForkOrder{}); err != nil {
+			return err
+		}
+		if _, err := compact.ShiftOrdinaryCohort(
+			[]OrdinaryCohortShiftInput{{Head: first}, {Head: second}},
+			9,
+			Token{Symbol: 9, EndByte: 1},
+		); err != nil {
+			return err
+		}
+		if len(compact.transactions) != 1 || len(compact.boundaryJournal) == 0 {
+			return fmt.Errorf("nested commits did not remain in outer journal: transactions=%d journal=%d", len(compact.transactions), len(compact.boundaryJournal))
+		}
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("nested parser operation rollback err=%v", err)
+	}
+	after, _ := compact.Stats(first)
+	if after != before || !reflect.DeepEqual(compact.boundaries, beforeBoundaries) {
+		t.Fatalf("nested parser operations survived rollback: stats=%+v/%+v boundaries=%v/%v", after, before, compact.boundaries, beforeBoundaries)
+	}
+	assertTransactionJournalClean(t, compact)
+}
+
+func TestBoundaryJournalDoesNotGrowOutsideTransaction(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := compact.Seed(1, 0); err != nil {
+		t.Fatal(err)
+	}
+	compact.writeBoundary(compact.boundaryKey(2, 0), 1)
+	assertTransactionJournalClean(t, compact)
+}
+
+func TestTransactionCheckpointRejectsNonLIFOUse(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	outer := compact.mark()
+	_ = compact.mark()
+	defer func() {
+		if recovered := recover(); recovered == nil {
+			t.Fatal("out-of-order transaction commit did not panic")
+		}
+	}()
+	compact.commit(outer)
+}
+
+func TestApplyAtomicPanicRollsBackAndRepanics(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := compact.boundaryKey(1, 0)
+	func() {
+		defer func() {
+			if recovered := recover(); recovered != "boom" {
+				t.Fatalf("recovered=%v, want boom", recovered)
+			}
+		}()
+		_ = compact.ApplyAtomic(func() error {
+			compact.writeBoundary(key, 99)
+			panic("boom")
+		})
+	}()
+	if compact.boundaries[key] != head.Node {
+		t.Fatalf("panic rollback boundary=%d, want %d", compact.boundaries[key], head.Node)
+	}
+	assertTransactionJournalClean(t, compact)
+}
+
+func TestApplyAtomicNoOpDoesNotScaleWithBoundaryCount(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index < 1<<15; index++ {
+		compact.writeBoundary(boundaryKey{frontier: 1, state: StateID(index + 1), byteOffset: uint32(index)}, NodeID(index+1))
+	}
+	noop := func() error { return nil }
+	if err := compact.ApplyAtomic(noop); err != nil {
+		t.Fatal(err)
+	}
+	allocs := testing.AllocsPerRun(100, func() {
+		if err := compact.ApplyAtomic(noop); err != nil {
+			panic(err)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("no-op transaction allocations=%v, want 0 with %d preloaded boundaries", allocs, len(compact.boundaries))
+	}
+	assertTransactionJournalClean(t, compact)
+}
+
+func BenchmarkApplyAtomicNoOpPreloadedBoundaries(b *testing.B) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	for index := 0; index < 1<<16; index++ {
+		compact.writeBoundary(boundaryKey{frontier: 1, state: StateID(index + 1), byteOffset: uint32(index)}, NodeID(index+1))
+	}
+	noop := func() error { return nil }
+	if err := compact.ApplyAtomic(noop); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for index := 0; index < b.N; index++ {
+		if err := compact.ApplyAtomic(noop); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func assertTransactionJournalClean(t *testing.T, compact *Core) {
+	t.Helper()
+	if len(compact.transactions) != 0 || len(compact.boundaryJournal) != 0 {
+		t.Fatalf("transaction state not clean: transactions=%v journal=%v", compact.transactions, compact.boundaryJournal)
+	}
+}
+
 func TestShiftOrdinaryCohortSharesOneTerminalPayload(t *testing.T) {
 	tables := &fakeTable{actions: map[tableCell][]Action{
 		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
@@ -823,7 +1110,7 @@ func TestReduceBatchParentSharingRollsBackCaps(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			compact, head := newSharedReductionFixture(t, true)
 			before, _ := compact.Stats(head)
-			beforeMark := compact.mark()
+			beforeBoundaries := cloneBoundaryMap(compact.boundaries)
 			beforePaths, _ := compact.Derivations(head)
 			switch name {
 			case "subtree":
@@ -839,13 +1126,21 @@ func TestReduceBatchParentSharingRollsBackCaps(t *testing.T) {
 				t.Fatalf("%s cap error=%v", name, err)
 			}
 			after, _ := compact.Stats(head)
-			afterMark := compact.mark()
+			afterBoundaries := cloneBoundaryMap(compact.boundaries)
 			afterPaths, _ := compact.Derivations(head)
-			if after != before || !reflect.DeepEqual(afterMark, beforeMark) || !reflect.DeepEqual(afterPaths, beforePaths) {
+			if after != before || !reflect.DeepEqual(afterBoundaries, beforeBoundaries) || !reflect.DeepEqual(afterPaths, beforePaths) {
 				t.Fatalf("%s cap mutated shared reduction: before=%+v after=%+v paths=%+v", name, before, after, afterPaths)
 			}
 		})
 	}
+}
+
+func cloneBoundaryMap(source map[boundaryKey]NodeID) map[boundaryKey]NodeID {
+	clone := make(map[boundaryKey]NodeID, len(source))
+	for key, id := range source {
+		clone[key] = id
+	}
+	return clone
 }
 
 func newSharedReductionFixture(t *testing.T, sameChild bool) (*Core, Head) {

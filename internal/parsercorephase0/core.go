@@ -254,43 +254,47 @@ type Stats struct {
 // Core is the compact, persistent diagnostic graph. All records are indexes
 // into pointer-free slices; the production parser is unaffected.
 type Core struct {
-	tables     TableView
-	limits     Limits
-	nodes      []nodeRecord
-	links      []linkRecord
-	subtrees   []subtreeRecord
-	children   []SubtreeID
-	fields     []FieldMapEntry
-	aliases    []Symbol
-	frontier   uint64
-	checkpoint [32]byte
-	boundaries map[boundaryKey]NodeID
+	tables          TableView
+	limits          Limits
+	nodes           []nodeRecord
+	links           []linkRecord
+	subtrees        []subtreeRecord
+	children        []SubtreeID
+	fields          []FieldMapEntry
+	aliases         []Symbol
+	frontier        uint64
+	checkpoint      [32]byte
+	boundaries      map[boundaryKey]NodeID
+	boundaryJournal []boundaryMutation
+	transactions    []uint64
+	nextTransaction uint64
 }
 
 type checkpoint struct {
 	nodes, links, subtrees, children, fields, aliases int
 	frontier                                          uint64
 	checkpoint                                        [32]byte
-	boundaries                                        map[boundaryKey]NodeID
+	journal                                           int
+	transaction                                       uint64
 }
 
 func (c *Core) mark() checkpoint {
-	// This full map clone makes the scaffold transactionally honest but
-	// intentionally invalidates wall-time evidence. Replace it with an
-	// append-only mutation journal before any timing claim.
-	boundaries := make(map[boundaryKey]NodeID, len(c.boundaries))
-	for key, id := range c.boundaries {
-		boundaries[key] = id
+	if c.nextTransaction == math.MaxUint64 {
+		panic("parser-core phase zero: transaction identity overflow")
 	}
-	return checkpoint{
+	c.nextTransaction++
+	mark := checkpoint{
 		nodes: len(c.nodes), links: len(c.links), subtrees: len(c.subtrees),
 		children: len(c.children), fields: len(c.fields), aliases: len(c.aliases),
 		frontier: c.frontier, checkpoint: c.checkpoint,
-		boundaries: boundaries,
+		journal: len(c.boundaryJournal), transaction: c.nextTransaction,
 	}
+	c.transactions = append(c.transactions, mark.transaction)
+	return mark
 }
 
 func (c *Core) restore(mark checkpoint) {
+	c.assertTopTransaction(mark)
 	c.nodes = c.nodes[:mark.nodes]
 	c.links = c.links[:mark.links]
 	c.subtrees = c.subtrees[:mark.subtrees]
@@ -299,7 +303,60 @@ func (c *Core) restore(mark checkpoint) {
 	c.aliases = c.aliases[:mark.aliases]
 	c.frontier = mark.frontier
 	c.checkpoint = mark.checkpoint
-	c.boundaries = mark.boundaries
+	for index := len(c.boundaryJournal) - 1; index >= mark.journal; index-- {
+		mutation := c.boundaryJournal[index]
+		if mutation.existed {
+			c.boundaries[mutation.key] = mutation.previous
+		} else {
+			delete(c.boundaries, mutation.key)
+		}
+	}
+	c.boundaryJournal = c.boundaryJournal[:mark.journal]
+	c.finishTransaction()
+}
+
+func (c *Core) commit(mark checkpoint) {
+	c.assertTopTransaction(mark)
+	c.finishTransaction()
+}
+
+func (c *Core) assertTopTransaction(mark checkpoint) {
+	if len(c.transactions) == 0 || c.transactions[len(c.transactions)-1] != mark.transaction {
+		panic("parser-core phase zero: transaction checkpoint used out of LIFO order")
+	}
+}
+
+func (c *Core) finishTransaction() {
+	c.transactions = c.transactions[:len(c.transactions)-1]
+	if len(c.transactions) == 0 {
+		c.boundaryJournal = c.boundaryJournal[:0]
+	}
+}
+
+func (c *Core) completeTransaction(mark checkpoint, err *error) {
+	if recovered := recover(); recovered != nil {
+		c.restore(mark)
+		panic(recovered)
+	}
+	if *err != nil {
+		c.restore(mark)
+	} else {
+		c.commit(mark)
+	}
+}
+
+type boundaryMutation struct {
+	key      boundaryKey
+	previous NodeID
+	existed  bool
+}
+
+func (c *Core) writeBoundary(key boundaryKey, id NodeID) {
+	previous, existed := c.boundaries[key]
+	if len(c.transactions) != 0 {
+		c.boundaryJournal = append(c.boundaryJournal, boundaryMutation{key: key, previous: previous, existed: existed})
+	}
+	c.boundaries[key] = id
 }
 
 func New(tables TableView, limits Limits) (*Core, error) {
@@ -347,7 +404,7 @@ func (c *Core) Seed(state StateID, byteOffset uint32) (Head, error) {
 	if err != nil {
 		return Head{}, err
 	}
-	c.boundaries[key] = id
+	c.writeBoundary(key, id)
 	return Head{Node: id}, nil
 }
 
@@ -381,9 +438,8 @@ func (c *Core) ApplyAtomic(fn func() error) (err error) {
 		return errors.New("parser-core phase zero: nil atomic operation")
 	}
 	mark := c.mark()
-	if err = fn(); err != nil {
-		c.restore(mark)
-	}
+	defer c.completeTransaction(mark, &err)
+	err = fn()
 	return err
 }
 
@@ -396,11 +452,7 @@ func (c *Core) Actions(state StateID, lookahead Symbol) ([]Action, error) {
 // exact path at its (state, byte) boundary.
 func (c *Core) Shift(head Head, lookahead Symbol, actionOrdinal int, token Token, fork ForkOrder) (out Head, err error) {
 	mark := c.mark()
-	defer func() {
-		if err != nil {
-			c.restore(mark)
-		}
-	}()
+	defer c.completeTransaction(mark, &err)
 	act, err := c.action(head, lookahead, actionOrdinal)
 	if err != nil {
 		return Head{}, err
@@ -516,11 +568,7 @@ func (c *Core) ordinaryCohortShiftTarget(input OrdinaryCohortShiftInput, lookahe
 // integration; it is not a parse action and is deliberately named as such.
 func (c *Core) appendDiagnosticPayload(head Head, state StateID, token Token, meta pathMeta) (out Head, err error) {
 	mark := c.mark()
-	defer func() {
-		if err != nil {
-			c.restore(mark)
-		}
-	}()
+	defer c.completeTransaction(mark, &err)
 	if _, err := c.node(head.Node); err != nil {
 		return Head{}, err
 	}
@@ -540,11 +588,7 @@ func (c *Core) appendDiagnosticPayload(head Head, state StateID, token Token, me
 // head. Equivalent boundaries are condensed without discarding derivations.
 func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkOrder) (frontier []Head, err error) {
 	mark := c.mark()
-	defer func() {
-		if err != nil {
-			c.restore(mark)
-		}
-	}()
+	defer c.completeTransaction(mark, &err)
 	act, err := c.action(head, lookahead, actionOrdinal)
 	if err != nil {
 		return nil, err
@@ -929,7 +973,7 @@ func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
 	if err != nil {
 		return Head{}, err
 	}
-	c.boundaries[key] = id
+	c.writeBoundary(key, id)
 	return Head{Node: id}, nil
 }
 
