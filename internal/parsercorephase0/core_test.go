@@ -421,6 +421,174 @@ func TestApplyAtomicRollsBackEarlierConflictArm(t *testing.T) {
 	}
 }
 
+func TestShiftOrdinaryCohortSharesOneTerminalPayload(t *testing.T) {
+	tables := &fakeTable{actions: map[tableCell][]Action{
+		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
+		{state: 2, symbol: 9}: {{Type: ActionShift, State: 3}},
+	}}
+	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, _ := compact.Seed(1, 4)
+	second, _ := compact.Seed(2, 4)
+	before, _ := compact.Stats(first)
+
+	shifted, err := compact.ShiftOrdinaryCohort([]OrdinaryCohortShiftInput{
+		{Head: first, ActionOrdinal: 0},
+		{Head: second, ActionOrdinal: 0},
+	}, 9, Token{Symbol: 9, StartByte: 4, EndByte: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(shifted) != 2 {
+		t.Fatalf("shifted cohort length=%d, want 2", len(shifted))
+	}
+	after, _ := compact.Stats(shifted[1])
+	if after.Nodes-before.Nodes != 2 || after.Links-before.Links != 2 || after.Subtrees-before.Subtrees != 1 || after.CurrentExactPaths != 2 {
+		t.Fatalf("shared cohort physical delta=%+v -> %+v, want N+2/L+2/S+1 and two paths", before, after)
+	}
+	var shared SubtreeID
+	for index, head := range shifted {
+		paths, err := compact.Derivations(head)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(paths) != index+1 {
+			t.Fatalf("shifted head %d paths=%d, want %d", index, len(paths), index+1)
+		}
+		for _, path := range paths {
+			if len(path.Payloads) != 1 {
+				t.Fatalf("shifted head %d path=%+v, want one terminal", index, path)
+			}
+			if shared == 0 {
+				shared = path.Payloads[0]
+			} else if path.Payloads[0] != shared {
+				t.Fatalf("shifted head %d payload=%d, want shared %d", index, path.Payloads[0], shared)
+			}
+		}
+	}
+	view, err := compact.Subtree(shared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Symbol != 9 || view.StartByte != 4 || view.EndByte != 5 || view.Extra || !view.Terminal || len(view.Children) != 0 || len(view.Fields) != 0 || len(view.Aliases) != 0 {
+		t.Fatalf("shared terminal view=%+v", view)
+	}
+}
+
+func TestShiftOrdinaryCohortValidatesBeforeMutation(t *testing.T) {
+	tables := &fakeTable{actions: map[tableCell][]Action{
+		{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
+		{state: 2, symbol: 9}: {{Type: ActionReduce, Symbol: 4}},
+		{state: 3, symbol: 9}: {{Type: ActionShift, State: 4, ExtraChain: true}},
+		{state: 4, symbol: 9}: {{Type: ActionShift, State: 5, Repetition: true}},
+	}}
+	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, _ := compact.Seed(1, 4)
+	second, _ := compact.Seed(2, 4)
+	extraChain, _ := compact.Seed(3, 4)
+	decoratedShift, _ := compact.Seed(4, 4)
+	before, _ := compact.Stats(first)
+	firstPaths, _ := compact.Derivations(first)
+	secondPaths, _ := compact.Derivations(second)
+	tests := []struct {
+		name   string
+		inputs []OrdinaryCohortShiftInput
+		token  Token
+	}{
+		{name: "empty", token: Token{Symbol: 9, StartByte: 4, EndByte: 5}},
+		{name: "duplicate-head", inputs: []OrdinaryCohortShiftInput{{Head: first}, {Head: first}}, token: Token{Symbol: 9, StartByte: 4, EndByte: 5}},
+		{name: "incompatible-second-action", inputs: []OrdinaryCohortShiftInput{{Head: first}, {Head: second}}, token: Token{Symbol: 9, StartByte: 4, EndByte: 5}},
+		{name: "extra-chain-action", inputs: []OrdinaryCohortShiftInput{{Head: first}, {Head: extraChain}}, token: Token{Symbol: 9, StartByte: 4, EndByte: 5}},
+		{name: "decorated-shift-action", inputs: []OrdinaryCohortShiftInput{{Head: first}, {Head: decoratedShift}}, token: Token{Symbol: 9, StartByte: 4, EndByte: 5}},
+		{name: "extra-token", inputs: []OrdinaryCohortShiftInput{{Head: first}}, token: Token{Symbol: 9, StartByte: 4, EndByte: 5, Extra: true}},
+		{name: "zero-width-token", inputs: []OrdinaryCohortShiftInput{{Head: first}}, token: Token{Symbol: 9, StartByte: 4, EndByte: 4}},
+		{name: "symbol-mismatch", inputs: []OrdinaryCohortShiftInput{{Head: first}}, token: Token{Symbol: 8, StartByte: 4, EndByte: 5}},
+		{name: "invalid-head", inputs: []OrdinaryCohortShiftInput{{Head: first}, {Head: Head{Node: 999}}}, token: Token{Symbol: 9, StartByte: 4, EndByte: 5}},
+		{name: "nonzero-ordinal", inputs: []OrdinaryCohortShiftInput{{Head: first, ActionOrdinal: 1}}, token: Token{Symbol: 9, StartByte: 4, EndByte: 5}},
+		{name: "negative-ordinal", inputs: []OrdinaryCohortShiftInput{{Head: first, ActionOrdinal: -1}}, token: Token{Symbol: 9, StartByte: 4, EndByte: 5}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := compact.ShiftOrdinaryCohort(test.inputs, 9, test.token); err == nil {
+				t.Fatal("invalid ordinary cohort shift succeeded")
+			}
+			after, _ := compact.Stats(first)
+			gotFirst, _ := compact.Derivations(first)
+			gotSecond, _ := compact.Derivations(second)
+			if after != before || !reflect.DeepEqual(gotFirst, firstPaths) || !reflect.DeepEqual(gotSecond, secondPaths) {
+				t.Fatalf("validation failure mutated core: before=%+v after=%+v first=%+v second=%+v", before, after, gotFirst, gotSecond)
+			}
+		})
+	}
+}
+
+func TestShiftOrdinaryCohortRollsBackCaps(t *testing.T) {
+	newCohort := func(t *testing.T, limits Limits) (*Core, Head, Head) {
+		t.Helper()
+		tables := &fakeTable{actions: map[tableCell][]Action{
+			{state: 1, symbol: 9}: {{Type: ActionShift, State: 3}},
+			{state: 2, symbol: 9}: {{Type: ActionShift, State: 3}},
+		}}
+		compact, err := New(tables, limits)
+		if err != nil {
+			t.Fatal(err)
+		}
+		first, err := compact.Seed(1, 4)
+		if err != nil {
+			t.Fatal(err)
+		}
+		second, err := compact.Seed(2, 4)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return compact, first, second
+	}
+	assertRollback := func(t *testing.T, compact *Core, first, second Head) {
+		t.Helper()
+		before, _ := compact.Stats(first)
+		firstPaths, _ := compact.Derivations(first)
+		secondPaths, _ := compact.Derivations(second)
+		if _, err := compact.ShiftOrdinaryCohort([]OrdinaryCohortShiftInput{{Head: first}, {Head: second}}, 9, Token{Symbol: 9, StartByte: 4, EndByte: 5}); err == nil {
+			t.Fatal("capped ordinary cohort shift succeeded")
+		}
+		after, _ := compact.Stats(first)
+		gotFirst, _ := compact.Derivations(first)
+		gotSecond, _ := compact.Derivations(second)
+		if after != before || !reflect.DeepEqual(gotFirst, firstPaths) || !reflect.DeepEqual(gotSecond, secondPaths) {
+			t.Fatalf("cap failure mutated core: before=%+v after=%+v first=%+v second=%+v", before, after, gotFirst, gotSecond)
+		}
+		if _, ok := compact.CanonicalBoundary(3, 5, true, [32]byte{}); ok {
+			t.Fatal("rolled-back cohort boundary remains published")
+		}
+	}
+
+	t.Run("subtree", func(t *testing.T) {
+		compact, first, second := newCohort(t, Limits{MaxSubtrees: 1, MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+		if _, err := compact.appendSubtree(subtreeRecord{symbol: 8, terminal: true}, nil, nil, nil); err != nil {
+			t.Fatal(err)
+		}
+		assertRollback(t, compact, first, second)
+	})
+	for _, test := range []struct {
+		name   string
+		limits Limits
+	}{
+		{name: "second-node", limits: Limits{MaxNodes: 3, MaxPathsPerBoundary: 4, MaxEnumeration: 4}},
+		{name: "second-link", limits: Limits{MaxLinks: 1, MaxPathsPerBoundary: 4, MaxEnumeration: 4}},
+		{name: "second-path", limits: Limits{MaxPathsPerBoundary: 1, MaxEnumeration: 1}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			compact, first, second := newCohort(t, test.limits)
+			assertRollback(t, compact, first, second)
+		})
+	}
+}
+
 func TestZeroChildReductionPushesParentAboveExistingExtra(t *testing.T) {
 	tables := &fakeTable{
 		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{Type: ActionReduce, Symbol: 2}}},

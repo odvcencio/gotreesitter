@@ -41,9 +41,10 @@ for tags and release notes while still in `0.x`.
   at the first exact packed convergence before another scanner read. The
   serializable receipt preserves both derivation scores and branch orders,
   parse-global allocator identity, and the measured two-node, two-link,
-  two-subtree cost of allocating one equivalent terminal payload per header;
-  it records the duplicate without optimizing or replacing earlier fork
-  evidence.
+  one-subtree cost of sharing one validated ordinary-DFA terminal across the
+  cohort. The narrow operation rejects incompatible heads and actions before
+  mutation, remains transactionally bounded, and does not expose payload-ID
+  injection or general interning.
   Conflict-frontier cells are visible in ambiguity profiles; generalized
   repetition, no-lookahead, no-action, and recovery paths still decline before
   unsupported execution, and ordinary builds retain no diagnostic driver

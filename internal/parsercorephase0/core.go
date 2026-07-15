@@ -204,6 +204,14 @@ type Token struct {
 	Extra     bool
 }
 
+// OrdinaryCohortShiftInput identifies one distinct scheduler head and its
+// authenticated single shift action. The operation deliberately accepts no
+// payload ID: sharing is confined to one validated cohort election.
+type OrdinaryCohortShiftInput struct {
+	Head          Head
+	ActionOrdinal int
+}
+
 // Head is a compact parse-version head referencing a persistent graph node.
 type Head struct {
 	Node NodeID
@@ -424,6 +432,81 @@ func (c *Core) Shift(head Head, lookahead Symbol, actionOrdinal int, token Token
 	return c.condense(c.shiftedBoundaryKey(targetState, token.EndByte), linkInput{
 		prev: head.Node, payload: payload, order: fork,
 	})
+}
+
+// ShiftOrdinaryCohort applies one ordinary terminal election to distinct
+// scheduler heads while allocating exactly one immutable terminal payload.
+// It is intentionally narrower than Shift: every cell must contain exactly
+// one undecorated non-extra shift and the token must have positive width.
+// Missing, no-lookahead, external, reused, and scanner-checkpoint identity
+// remain caller-visible concerns because this compact layer does not represent
+// them.
+func (c *Core) ShiftOrdinaryCohort(inputs []OrdinaryCohortShiftInput, lookahead Symbol, token Token) (out []Head, err error) {
+	if len(inputs) == 0 {
+		return nil, errors.New("parser-core phase zero: empty ordinary shift cohort")
+	}
+	if token.Symbol != lookahead {
+		return nil, fmt.Errorf("parser-core phase zero: token symbol %d != lookahead %d", token.Symbol, lookahead)
+	}
+	if token.Extra || token.EndByte <= token.StartByte {
+		return nil, errors.New("parser-core phase zero: cohort token is not an ordinary positive-width terminal")
+	}
+	targets := make([]StateID, len(inputs))
+	seen := make(map[NodeID]struct{}, len(inputs))
+	for index, input := range inputs {
+		if _, duplicate := seen[input.Head.Node]; duplicate {
+			return nil, fmt.Errorf("parser-core phase zero: duplicate ordinary cohort head %d", input.Head.Node)
+		}
+		seen[input.Head.Node] = struct{}{}
+		target, err := c.ordinaryCohortShiftTarget(input, lookahead)
+		if err != nil {
+			return nil, err
+		}
+		targets[index] = target
+	}
+
+	err = c.ApplyAtomic(func() error {
+		payload, err := c.appendSubtree(subtreeRecord{
+			symbol: token.Symbol, startByte: token.StartByte, endByte: token.EndByte,
+			terminal: true,
+		}, nil, nil, nil)
+		if err != nil {
+			return err
+		}
+		out = make([]Head, len(inputs))
+		for index, input := range inputs {
+			out[index], err = c.condense(c.shiftedBoundaryKey(targets[index], token.EndByte), linkInput{
+				prev: input.Head.Node, payload: payload,
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *Core) ordinaryCohortShiftTarget(input OrdinaryCohortShiftInput, lookahead Symbol) (StateID, error) {
+	current, err := c.node(input.Head.Node)
+	if err != nil {
+		return 0, err
+	}
+	actions, err := c.Actions(current.state, lookahead)
+	if err != nil {
+		return 0, err
+	}
+	if len(actions) != 1 || input.ActionOrdinal != 0 {
+		return 0, fmt.Errorf("parser-core phase zero: head %d does not select one ordinary shift", input.Head.Node)
+	}
+	action := actions[0]
+	if action.State == 0 || action != (Action{Type: ActionShift, State: action.State}) {
+		return 0, fmt.Errorf("parser-core phase zero: head %d does not select one ordinary shift", input.Head.Node)
+	}
+	return action.State, nil
 }
 
 // appendDiagnosticPayload adds an already-authenticated terminal payload. It

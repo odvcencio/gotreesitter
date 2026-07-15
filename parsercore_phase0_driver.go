@@ -265,9 +265,10 @@ type DiagnosticParserCorePackedConvergence struct {
 	TerminalLinksBefore        uint32
 	TerminalLinksAfter         uint32
 	TerminalPayloadAllocations uint32
-	TerminalPayloadsPerHeader  []uint32
+	TerminalPayloadsPerCohort  uint32
 	TerminalPayloadViews       []DiagnosticParserCoreTerminalPayloadView
-	EquivalentTerminalPayloads uint32
+	SemanticTerminalIdentities uint32
+	DistinctTerminalPayloads   uint32
 	DuplicateTerminalPayloads  uint32
 	GlobalBranchOrder          uint64
 	NextCreationSeq            uint64
@@ -1854,6 +1855,7 @@ func shiftDiagnosticParserCorePackedHeaders(
 	receipt.TerminalNodesBefore = stats.Nodes
 	receipt.TerminalLinksBefore = stats.Links
 	var actions []DiagnosticParserCoreRoundAction
+	cohort := make([]core.OrdinaryCohortShiftInput, len(headers))
 	wantStates := []StateID{276, 163}
 	for index := range headers {
 		state, byteOffset, err := compact.Boundary(headers[index].head)
@@ -1868,32 +1870,31 @@ func shiftDiagnosticParserCorePackedHeaders(
 			!reflect.DeepEqual(cell[0], core.Action{Type: core.ActionShift, State: 186}) {
 			return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier cell is not one ordinary shift"}
 		}
-		if dispatches >= maxDispatches {
-			return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "packed identifier dispatch cap"}
-		}
-		beforeStats, err := compact.Stats(headers[index].head)
-		if err != nil {
-			return nil, err
-		}
-		output, err := applyParserCorePrefixAction(compact, headers[index].head, token, cell[0], 0, core.ForkOrder{})
-		if err != nil {
-			return nil, err
-		}
-		if len(output) != 1 {
-			return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier shift produced multiple boundaries"}
-		}
-		dispatches++
-		headers[index].head, headers[index].shifted = output[0], true
-		afterStats, err := compact.Stats(headers[index].head)
-		if err != nil {
-			return nil, err
-		}
-		receipt.TerminalPayloadsPerHeader = append(receipt.TerminalPayloadsPerHeader, afterStats.Subtrees-beforeStats.Subtrees)
+		cohort[index] = core.OrdinaryCohortShiftInput{Head: headers[index].head, ActionOrdinal: 0}
 		actions = append(actions, DiagnosticParserCoreRoundAction{
 			HeaderIndex: index, State: StateID(state), ByteOffset: byteOffset,
 			Ordinal: 0, Action: rootParserCoreAction(cell[0]),
 		})
 	}
+	if token.Missing || token.NoLookahead || token.ExternalScannerToken || token.StartByte >= token.EndByte || token.Symbol != 86 || token.Text != "r" {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "packed identifier is not one ordinary DFA terminal"}
+	}
+	if dispatches > maxDispatches || uint64(len(headers)) > maxDispatches-dispatches {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "packed identifier dispatch cap"}
+	}
+	shifted, err := compact.ShiftOrdinaryCohort(cohort, core.Symbol(token.Symbol), core.Token{
+		Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(shifted) != len(headers) {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier cohort cardinality mismatch"}
+	}
+	for index := range headers {
+		headers[index].head, headers[index].shifted = shifted[index], true
+	}
+	dispatches += uint64(len(headers))
 	afterRound, err := diagnosticParserCoreHeaderReceipts(compact, headers)
 	if err != nil {
 		return nil, err
@@ -1906,6 +1907,7 @@ func shiftDiagnosticParserCorePackedHeaders(
 	receipt.TerminalNodesAfter = stats.Nodes
 	receipt.TerminalLinksAfter = stats.Links
 	receipt.TerminalPayloadAllocations = stats.Subtrees - receipt.TerminalSubtreesBefore
+	receipt.TerminalPayloadsPerCohort = receipt.TerminalPayloadAllocations
 	for id := receipt.TerminalSubtreesBefore + 1; id <= receipt.TerminalSubtreesAfter; id++ {
 		view, err := compact.Subtree(core.SubtreeID(id))
 		if err != nil {
@@ -1929,20 +1931,30 @@ func shiftDiagnosticParserCorePackedHeaders(
 		}
 		receipt.TerminalPayloadViews = append(receipt.TerminalPayloadViews, converted)
 	}
-	if len(receipt.TerminalPayloadViews) == 2 {
-		left, right := receipt.TerminalPayloadViews[0], receipt.TerminalPayloadViews[1]
-		left.ID, right.ID = 0, 0
-		if reflect.DeepEqual(left, right) {
-			receipt.EquivalentTerminalPayloads = 1
-			receipt.DuplicateTerminalPayloads = 1
+	sharedPayloads := make(map[core.SubtreeID]struct{})
+	for _, shiftedHead := range shifted {
+		derivations, err := compact.Derivations(shiftedHead)
+		if err != nil {
+			return nil, err
+		}
+		for _, derivation := range derivations {
+			if len(derivation.Payloads) == 0 {
+				return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier shift omitted terminal payload"}
+			}
+			sharedPayloads[derivation.Payloads[len(derivation.Payloads)-1]] = struct{}{}
 		}
 	}
-	if receipt.TerminalSubtreesBefore != 194 || receipt.TerminalSubtreesAfter != 196 ||
+	receipt.SemanticTerminalIdentities = 1
+	receipt.DistinctTerminalPayloads = uint32(len(sharedPayloads))
+	if receipt.DistinctTerminalPayloads > receipt.TerminalPayloadAllocations {
+		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier payload accounting underflow"}
+	}
+	receipt.DuplicateTerminalPayloads = receipt.TerminalPayloadAllocations - receipt.DistinctTerminalPayloads
+	if receipt.TerminalSubtreesBefore != 194 || receipt.TerminalSubtreesAfter != 195 ||
 		receipt.TerminalNodesAfter-receipt.TerminalNodesBefore != 2 ||
 		receipt.TerminalLinksAfter-receipt.TerminalLinksBefore != 2 ||
-		receipt.TerminalPayloadAllocations != 2 ||
-		!reflect.DeepEqual(receipt.TerminalPayloadsPerHeader, []uint32{1, 1}) ||
-		receipt.EquivalentTerminalPayloads != 1 || receipt.DuplicateTerminalPayloads != 1 {
+		receipt.TerminalPayloadAllocations != 1 || receipt.TerminalPayloadsPerCohort != 1 ||
+		receipt.SemanticTerminalIdentities != 1 || receipt.DistinctTerminalPayloads != 1 || receipt.DuplicateTerminalPayloads != 0 {
 		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "packed identifier physical payload measurement mismatch"}
 	}
 	terminal := receipt.TerminalPayloadViews[0]
