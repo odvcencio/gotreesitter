@@ -447,8 +447,8 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 		dot.ElectionBefore.Header.State != 186 || dot.ElectionBefore.Header.ByteOffset != 741 || dot.ElectionBefore.Header.CreationSeq != 1 || !dot.ElectionBefore.Header.Shifted || dot.ElectionBefore.Header.ExactPaths != 2 || !reflect.DeepEqual(dot.ElectionBefore.Derivations, wantPackedDerivations) ||
 		dot.ElectionReset.State != 186 || dot.ElectionReset.ByteOffset != 741 || dot.ElectionReset.CreationSeq != 1 || dot.ElectionReset.Shifted || dot.ElectionReset.ExactPaths != 2 ||
 		dot.ConflictRound.Index != 0 || len(dot.ConflictRound.Before) != 1 || !reflect.DeepEqual(dot.ConflictRound.Before[0], dot.ElectionReset) || !reflect.DeepEqual(dot.ConflictRound.Actions, wantDotActions) || !reflect.DeepEqual(dot.ConflictRound.After, wantDotHeaders) ||
-		len(dot.Headers) != 3 || dot.LogicalPaths != 4 || dot.NodesAfter-dot.NodesBefore != 3 || dot.LinksAfter-dot.LinksBefore != 3 || dot.SubtreesBefore != 195 || dot.SubtreesAfter != 198 || dot.ChildrenAfter-dot.ChildrenBefore != 2 ||
-		dot.SemanticReductionParents != 1 || dot.DistinctReductionParents != 2 || dot.DuplicateReductionParents != 1 || dot.GlobalBranchOrder != 4 || dot.NextCreationSeq != 6 || dot.Dispatches != 196 || len(dot.NewPayloadViews) != 3 {
+		len(dot.Headers) != 3 || dot.LogicalPaths != 4 || dot.NodesAfter-dot.NodesBefore != 3 || dot.LinksAfter-dot.LinksBefore != 3 || dot.SubtreesBefore != 195 || dot.SubtreesAfter != 197 || dot.ChildrenAfter-dot.ChildrenBefore != 1 ||
+		!reflect.DeepEqual(dot.ReductionParentPayloadIDs, []uint32{197, 197}) || dot.SemanticReductionParents != 1 || dot.DistinctReductionParents != 1 || dot.DuplicateReductionParents != 0 || dot.GlobalBranchOrder != 4 || dot.NextCreationSeq != 6 || dot.Dispatches != 196 || len(dot.NewPayloadViews) != 2 {
 		t.Fatalf("dot conflict fanout drifted: %+v", dot)
 	}
 	for index := range dot.Headers {
@@ -456,9 +456,9 @@ func TestDiagnosticParserCoreRewritePrefixUsesExactProductionElection(t *testing
 			t.Fatalf("dot header %d=%+v, want header=%+v derivations=%+v", index, dot.Headers[index], wantDotHeaders[index], wantDotDerivations[index])
 		}
 	}
-	dotToken, leftParent, rightParent := dot.NewPayloadViews[0], dot.NewPayloadViews[1], dot.NewPayloadViews[2]
+	dotToken, parent := dot.NewPayloadViews[0], dot.NewPayloadViews[1]
 	if dotToken.ID != 196 || dotToken.Symbol != 4 || dotToken.StartByte != 741 || dotToken.EndByte != 742 || !dotToken.Terminal || dotToken.Extra ||
-		leftParent.ID != 197 || rightParent.ID != 198 || leftParent.Symbol != 171 || rightParent.Symbol != 171 || leftParent.ProductionID != 0 || rightParent.ProductionID != 0 || leftParent.Terminal || rightParent.Terminal || !reflect.DeepEqual(leftParent.Children, []uint32{195}) || !reflect.DeepEqual(rightParent.Children, []uint32{195}) {
+		parent.ID != 197 || parent.Symbol != 171 || parent.ProductionID != 0 || parent.Terminal || !reflect.DeepEqual(parent.Children, []uint32{195}) {
 		t.Fatalf("dot payload views drifted: %+v", dot.NewPayloadViews)
 	}
 	for _, want := range []struct {

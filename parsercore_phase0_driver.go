@@ -299,6 +299,7 @@ type DiagnosticParserCoreDotConflictFanout struct {
 	ChildrenBefore            uint32
 	ChildrenAfter             uint32
 	NewPayloadViews           []DiagnosticParserCoreTerminalPayloadView
+	ReductionParentPayloadIDs []uint32
 	SemanticReductionParents  uint32
 	DistinctReductionParents  uint32
 	DuplicateReductionParents uint32
@@ -2358,6 +2359,16 @@ func measureDiagnosticParserCoreDotFanout(
 	receipt.LinksBefore, receipt.LinksAfter = before.Links, after.Links
 	receipt.SubtreesBefore, receipt.SubtreesAfter = before.Subtrees, after.Subtrees
 	receipt.ChildrenBefore, receipt.ChildrenAfter = before.Children, after.Children
+	for _, header := range headers[:2] {
+		paths, err := compact.Derivations(header.head)
+		if err != nil {
+			return err
+		}
+		if len(paths) != 1 || len(paths[0].Payloads) == 0 {
+			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot reduction parent path identity mismatch"}
+		}
+		receipt.ReductionParentPayloadIDs = append(receipt.ReductionParentPayloadIDs, uint32(paths[0].Payloads[len(paths[0].Payloads)-1]))
+	}
 	for id := before.Subtrees + 1; id <= after.Subtrees; id++ {
 		view, err := compact.Subtree(core.SubtreeID(id))
 		if err != nil {
@@ -2365,24 +2376,22 @@ func measureDiagnosticParserCoreDotFanout(
 		}
 		receipt.NewPayloadViews = append(receipt.NewPayloadViews, diagnosticParserCoreTerminalPayloadView(id, view))
 	}
-	if after.Nodes-before.Nodes != 3 || after.Links-before.Links != 3 || after.Subtrees-before.Subtrees != 3 || after.Children-before.Children != 2 ||
-		before.Subtrees != 195 || after.Subtrees != 198 || len(receipt.NewPayloadViews) != 3 {
+	if after.Nodes-before.Nodes != 3 || after.Links-before.Links != 3 || after.Subtrees-before.Subtrees != 2 || after.Children-before.Children != 1 ||
+		before.Subtrees != 195 || after.Subtrees != 197 || len(receipt.NewPayloadViews) != 2 {
 		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot conflict physical work mismatch"}
 	}
-	dot, left, right := receipt.NewPayloadViews[0], receipt.NewPayloadViews[1], receipt.NewPayloadViews[2]
+	dot, parent := receipt.NewPayloadViews[0], receipt.NewPayloadViews[1]
 	if dot.ID != 196 || dot.Symbol != 4 || dot.StartByte != 741 || dot.EndByte != 742 || dot.Extra || !dot.Terminal ||
 		len(dot.Children) != 0 || len(dot.Fields) != 0 || len(dot.Aliases) != 0 {
 		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot terminal payload identity mismatch"}
 	}
-	leftID, rightID := left.ID, right.ID
-	left.ID, right.ID = 0, 0
-	if leftID != 197 || rightID != 198 || !reflect.DeepEqual(left, right) || left.Symbol != 171 || left.ProductionID != 0 || left.DynamicPrecedence != 0 ||
-		left.StartByte != 740 || left.EndByte != 741 || left.Extra || left.Terminal || !reflect.DeepEqual(left.Children, []uint32{195}) || len(left.Fields) != 0 || len(left.Aliases) != 0 {
+	if !reflect.DeepEqual(receipt.ReductionParentPayloadIDs, []uint32{197, 197}) || parent.ID != 197 || parent.Symbol != 171 || parent.ProductionID != 0 || parent.DynamicPrecedence != 0 ||
+		parent.StartByte != 740 || parent.EndByte != 741 || parent.Extra || parent.Terminal || !reflect.DeepEqual(parent.Children, []uint32{195}) || len(parent.Fields) != 0 || len(parent.Aliases) != 0 {
 		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "dot reduction parent payload identity mismatch"}
 	}
 	receipt.SemanticReductionParents = 1
-	receipt.DistinctReductionParents = 2
-	receipt.DuplicateReductionParents = 1
+	receipt.DistinctReductionParents = 1
+	receipt.DuplicateReductionParents = 0
 	return nil
 }
 

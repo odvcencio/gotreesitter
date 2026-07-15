@@ -677,6 +677,262 @@ func TestReductionRepushesConsecutiveTrailingExtrasInOrder(t *testing.T) {
 	}
 }
 
+func TestReduceSharesCompleteIdentityParentWithinBatch(t *testing.T) {
+	compact, head := newSharedReductionFixture(t, true)
+	before, _ := compact.Stats(head)
+	frontier, err := compact.Reduce(head, 9, 0, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(frontier) != 2 {
+		t.Fatalf("shared reduction frontier=%d, want 2", len(frontier))
+	}
+	after, _ := compact.Stats(frontier[0])
+	if after.Nodes-before.Nodes != 2 || after.Links-before.Links != 2 || after.Subtrees-before.Subtrees != 1 || after.Children-before.Children != 1 {
+		t.Fatalf("shared reduction delta=%+v -> %+v, want N+2/L+2/S+1/children+1", before, after)
+	}
+	var parent SubtreeID
+	for index, wantState := range []StateID{4, 5} {
+		state, _, err := compact.Boundary(frontier[index])
+		if err != nil || state != wantState {
+			t.Fatalf("frontier %d state=%d err=%v, want %d", index, state, err, wantState)
+		}
+		paths, err := compact.Derivations(frontier[index])
+		if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 1 {
+			t.Fatalf("frontier %d paths=%+v err=%v", index, paths, err)
+		}
+		if parent == 0 {
+			parent = paths[0].Payloads[0]
+		} else if paths[0].Payloads[0] != parent {
+			t.Fatalf("frontier %d parent=%d, want shared %d", index, paths[0].Payloads[0], parent)
+		}
+	}
+	second, err := compact.Reduce(head, 9, 0, ForkOrder{})
+	if err != nil || len(second) != 2 {
+		t.Fatalf("second reduction frontier=%v err=%v", second, err)
+	}
+	secondStats, _ := compact.Stats(second[0])
+	if secondStats.Subtrees-after.Subtrees != 1 || secondStats.Children-after.Children != 1 {
+		t.Fatalf("second Reduce reused across calls: first=%+v second=%+v", after, secondStats)
+	}
+	paths, _ := compact.Derivations(second[0])
+	foundNew := false
+	for _, path := range paths {
+		foundNew = foundNew || path.Payloads[0] != parent
+	}
+	if len(paths) != 2 || !foundNew {
+		t.Fatalf("second Reduce parent identity=%+v, want a new batch-local payload", paths)
+	}
+}
+
+func TestReduceBatchSharingPreservesProspectiveLinkMultiplicity(t *testing.T) {
+	for _, test := range []struct {
+		name              string
+		collidingMetadata bool
+		wantSubtrees      uint32
+	}{
+		{name: "exact-link-collision-falls-back", collidingMetadata: true, wantSubtrees: 2},
+		{name: "different-score-order-shares", collidingMetadata: false, wantSubtrees: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			compact, head := newReductionLinkCollisionFixture(t, test.collidingMetadata)
+			before, _ := compact.Stats(head)
+			frontier, err := compact.Reduce(head, 9, 0, ForkOrder{})
+			if err != nil || len(frontier) != 1 {
+				t.Fatalf("collision reduction frontier=%v err=%v", frontier, err)
+			}
+			after, _ := compact.Stats(frontier[0])
+			paths, err := compact.Derivations(frontier[0])
+			if err != nil || len(paths) != 2 || after.CurrentExactPaths != 2 {
+				t.Fatalf("collision reduction paths=%+v stats=%+v err=%v", paths, after, err)
+			}
+			if after.Subtrees-before.Subtrees != test.wantSubtrees {
+				t.Fatalf("collision=%t subtree delta=%d, want %d", test.collidingMetadata, after.Subtrees-before.Subtrees, test.wantSubtrees)
+			}
+			if test.collidingMetadata && paths[0].Payloads[0] == paths[1].Payloads[0] {
+				t.Fatalf("colliding links reused payload %d and lost physical distinctness", paths[0].Payloads[0])
+			}
+			if !test.collidingMetadata && paths[0].Payloads[0] != paths[1].Payloads[0] {
+				t.Fatalf("distinct score/order links failed to share parent: %+v", paths)
+			}
+		})
+	}
+}
+
+func TestReduceDoesNotShareDifferentChildIdentity(t *testing.T) {
+	compact, head := newSharedReductionFixture(t, false)
+	before, _ := compact.Stats(head)
+	frontier, err := compact.Reduce(head, 9, 0, ForkOrder{})
+	if err != nil || len(frontier) != 2 {
+		t.Fatalf("different-child reduction frontier=%v err=%v", frontier, err)
+	}
+	after, _ := compact.Stats(frontier[0])
+	if after.Subtrees-before.Subtrees != 2 || after.Children-before.Children != 2 {
+		t.Fatalf("different child IDs shared a parent: before=%+v after=%+v", before, after)
+	}
+}
+
+func TestReductionParentIdentityIncludesScalarsFlagsAndOrderedSides(t *testing.T) {
+	base := subtreeRecord{symbol: 2, productionID: 3, dynamicPrecedence: -4, startByte: 5, endByte: 6, extra: true, terminal: true}
+	children := []SubtreeID{7, 8}
+	fields := []FieldMapEntry{{FieldID: 9, ChildIndex: 1, Inherited: true}, {FieldID: 10}}
+	aliases := []Symbol{10, 0, 11}
+	if !reductionParentIdentityEqual(base, children, fields, aliases, base, slices.Clone(children), slices.Clone(fields), slices.Clone(aliases)) {
+		t.Fatal("complete identical parent identity did not match")
+	}
+	recordCases := []subtreeRecord{
+		{symbol: 12, productionID: 3, dynamicPrecedence: -4, startByte: 5, endByte: 6, extra: true, terminal: true},
+		{symbol: 2, productionID: 12, dynamicPrecedence: -4, startByte: 5, endByte: 6, extra: true, terminal: true},
+		{symbol: 2, productionID: 3, dynamicPrecedence: 12, startByte: 5, endByte: 6, extra: true, terminal: true},
+		{symbol: 2, productionID: 3, dynamicPrecedence: -4, startByte: 12, endByte: 6, extra: true, terminal: true},
+		{symbol: 2, productionID: 3, dynamicPrecedence: -4, startByte: 5, endByte: 12, extra: true, terminal: true},
+		{symbol: 2, productionID: 3, dynamicPrecedence: -4, startByte: 5, endByte: 6, terminal: true},
+		{symbol: 2, productionID: 3, dynamicPrecedence: -4, startByte: 5, endByte: 6, extra: true},
+	}
+	for index, candidate := range recordCases {
+		if reductionParentIdentityEqual(base, children, fields, aliases, candidate, children, fields, aliases) {
+			t.Fatalf("scalar/flag case %d matched", index)
+		}
+	}
+	for index, candidate := range [][]SubtreeID{{7, 9}, {8, 7}, {7}} {
+		if reductionParentIdentityEqual(base, children, fields, aliases, base, candidate, fields, aliases) {
+			t.Fatalf("child identity case %d matched", index)
+		}
+	}
+	fieldCases := [][]FieldMapEntry{
+		{{FieldID: 11, ChildIndex: 1, Inherited: true}, {FieldID: 10}},
+		{{FieldID: 9, ChildIndex: 0, Inherited: true}, {FieldID: 10}},
+		{{FieldID: 9, ChildIndex: 1}, {FieldID: 10}},
+		{{FieldID: 10}, {FieldID: 9, ChildIndex: 1, Inherited: true}},
+		{{FieldID: 9, ChildIndex: 1, Inherited: true}},
+	}
+	for index, candidate := range fieldCases {
+		if reductionParentIdentityEqual(base, children, fields, aliases, base, children, candidate, aliases) {
+			t.Fatalf("field identity case %d matched", index)
+		}
+	}
+	for index, candidate := range [][]Symbol{{10, 1, 11}, {11, 0, 10}, {10, 0}, {10, 11}} {
+		if reductionParentIdentityEqual(base, children, fields, aliases, base, children, fields, candidate) {
+			t.Fatalf("alias identity case %d matched", index)
+		}
+	}
+}
+
+func TestReduceBatchParentSharingRollsBackCaps(t *testing.T) {
+	for _, name := range []string{"subtree", "children", "second-node", "second-link"} {
+		t.Run(name, func(t *testing.T) {
+			compact, head := newSharedReductionFixture(t, true)
+			before, _ := compact.Stats(head)
+			beforeMark := compact.mark()
+			beforePaths, _ := compact.Derivations(head)
+			switch name {
+			case "subtree":
+				compact.limits.MaxSubtrees = before.Subtrees
+			case "children":
+				compact.limits.MaxChildren = before.Children
+			case "second-node":
+				compact.limits.MaxNodes = before.Nodes + 1
+			case "second-link":
+				compact.limits.MaxLinks = before.Links + 1
+			}
+			if _, err := compact.Reduce(head, 9, 0, ForkOrder{}); err == nil || !strings.Contains(err.Error(), "cap") {
+				t.Fatalf("%s cap error=%v", name, err)
+			}
+			after, _ := compact.Stats(head)
+			afterMark := compact.mark()
+			afterPaths, _ := compact.Derivations(head)
+			if after != before || !reflect.DeepEqual(afterMark, beforeMark) || !reflect.DeepEqual(afterPaths, beforePaths) {
+				t.Fatalf("%s cap mutated shared reduction: before=%+v after=%+v paths=%+v", name, before, after, afterPaths)
+			}
+		})
+	}
+}
+
+func newSharedReductionFixture(t *testing.T, sameChild bool) (*Core, Head) {
+	t.Helper()
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{{state: 3, symbol: 9}: {{Type: ActionReduce, Symbol: 2, ChildCount: 1, ProductionID: 6}}},
+		gotos: map[tableCell]StateID{
+			{state: 1, symbol: 2}: 4,
+			{state: 2, symbol: 2}: 5,
+		},
+		fields:  map[uint16][]FieldMapEntry{6: {{FieldID: 7, ChildIndex: 0}}},
+		aliases: map[productionKey][]Symbol{{productionID: 6, childCount: 1}: {8}},
+	}
+	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, _ := compact.Seed(1, 0)
+	second, _ := compact.Seed(2, 0)
+	firstChild, err := compact.appendSubtree(subtreeRecord{symbol: 10, startByte: 0, endByte: 1, terminal: true}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondChild := firstChild
+	if !sameChild {
+		secondChild, err = compact.appendSubtree(subtreeRecord{symbol: 10, startByte: 0, endByte: 1, terminal: true}, nil, nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	head, err := compact.condense(compact.boundaryKey(3, 1), linkInput{prev: first.Node, payload: firstChild})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = compact.condense(compact.boundaryKey(3, 1), linkInput{prev: second.Node, payload: secondChild})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return compact, head
+}
+
+func newReductionLinkCollisionFixture(t *testing.T, collidingMetadata bool) (*Core, Head) {
+	t.Helper()
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{{state: 3, symbol: 9}: {{Type: ActionReduce, Symbol: 2, ChildCount: 2}}},
+		gotos:   map[tableCell]StateID{{state: 1, symbol: 2}: 4},
+	}
+	compact, err := New(tables, Limits{MaxPathsPerBoundary: 4, MaxEnumeration: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, _ := compact.Seed(1, 0)
+	firstChild, _ := compact.appendSubtree(subtreeRecord{symbol: 10, endByte: 1, terminal: true}, nil, nil, nil)
+	secondChild, _ := compact.appendSubtree(subtreeRecord{symbol: 11, startByte: 1, endByte: 2, terminal: true}, nil, nil, nil)
+	firstMid, err := compact.appendPrivate(2, 1, linkInput{
+		prev: seed.Node, payload: firstChild, scoreDelta: 1, order: ForkOrder{Present: true, Value: 7},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondMid, err := compact.appendPrivate(2, 1, linkInput{
+		prev: seed.Node, payload: firstChild, scoreDelta: 2, order: ForkOrder{Present: true, Value: 8},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondScore := int64(3)
+	secondOrder := ForkOrder{Present: true, Value: 9}
+	if collidingMetadata {
+		secondScore = 0
+		secondOrder = ForkOrder{Present: true, Value: 7}
+	}
+	head, err := compact.condense(compact.boundaryKey(3, 2), linkInput{
+		prev: firstMid.Node, payload: secondChild, scoreDelta: 1, order: ForkOrder{Present: true, Value: 7},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = compact.condense(compact.boundaryKey(3, 2), linkInput{
+		prev: secondMid.Node, payload: secondChild, scoreDelta: secondScore, order: secondOrder,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return compact, head
+}
+
 func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.T) {
 	tables := &fakeTable{
 		actions: map[tableCell][]Action{{state: 3, symbol: 1}: {{Type: ActionReduce, Symbol: 2, ChildCount: 2}}},
@@ -715,6 +971,9 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 	stats, err := core.Stats(frontier[0])
 	if err != nil || stats.CurrentExactPaths != 2 {
 		t.Fatalf("converged trailing-extra stats=%+v err=%v, want exactly 2 paths", stats, err)
+	}
+	if stats.Subtrees-before.Subtrees != 2 {
+		t.Fatalf("trailing-extra reduction shared batch parents: before=%+v after=%+v", before, stats)
 	}
 	paths, err := core.Derivations(frontier[0])
 	if err != nil || len(paths) != 2 {

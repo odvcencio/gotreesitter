@@ -47,9 +47,10 @@ for tags and release notes while still in `0.x`.
   injection or general interning. The next authenticated dot election now
   executes its shift-before-reduce conflict through the first four-path
   frontier and stops before cached-dot primary shifts. Its receipt preserves
-  exact GOTO order and allocator identity while exposing the unoptimized
-  two-parent duplication as a three-node, three-link, three-subtree, two-child
-  physical delta.
+  exact GOTO order and allocator identity. Compatible complete-identity
+  immutable reduction parents created within one reduction batch now share one
+  payload when link identity remains distinct, reducing that fanout to a
+  three-node, three-link, two-subtree, one-child physical delta.
   Conflict-frontier cells are visible in ambiguity profiles; generalized
   repetition, no-lookahead, no-action, and recovery paths still decline before
   unsupported execution, and ordinary builds retain no diagnostic driver

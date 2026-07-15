@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 )
 
 // Symbol and StateID are grammar-table identifiers. They intentionally use
@@ -563,6 +564,7 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 	}
 	frontierByBoundary := make(map[boundaryKey]Head)
 	var boundaryOrder []boundaryKey
+	var batchParents []SubtreeID
 	for _, path := range paths {
 		prev, err := c.node(path.prev)
 		if err != nil {
@@ -575,35 +577,11 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 		if gotoState == 0 {
 			return nil, fmt.Errorf("parser-core phase zero: no goto from state %d for reduced symbol %d", prev.state, act.Symbol)
 		}
-		fields, err := c.tables.ProductionFields(act.ProductionID, int(act.ChildCount))
-		if err != nil {
-			return nil, err
-		}
-		aliases, err := c.tables.ProductionAliases(act.ProductionID, int(act.ChildCount))
-		if err != nil {
-			return nil, err
-		}
-		fields, aliases, err = c.remapProductionMetadata(path.children, int(act.ChildCount), fields, aliases)
-		if err != nil {
-			return nil, err
-		}
-		payload, err := c.appendSubtree(subtreeRecord{
-			symbol: act.Symbol, productionID: act.ProductionID,
-			dynamicPrecedence: act.DynamicPrecedence,
-			startByte:         path.startByte, endByte: path.structuralEnd,
-		}, path.children, fields, aliases)
-		if err != nil {
-			return nil, err
-		}
-		order := path.order
-		if fork.Present {
-			order = fork
-		}
-		scoreDelta, err := checkedAddScore(path.score, int64(act.DynamicPrecedence))
-		if err != nil {
-			return nil, err
-		}
 		key := c.boundaryKey(gotoState, path.structuralEnd)
+		payload, scoreDelta, order, err := c.reductionParentForPath(act, path, key, fork, &batchParents)
+		if err != nil {
+			return nil, err
+		}
 		parentLink := linkInput{
 			prev: path.prev, payload: payload,
 			scoreDelta: scoreDelta, order: order,
@@ -643,6 +621,138 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 		frontier = append(frontier, frontierByBoundary[key])
 	}
 	return frontier, nil
+}
+
+func (c *Core) reductionParentForPath(
+	act Action,
+	path popPath,
+	key boundaryKey,
+	fork ForkOrder,
+	batchParents *[]SubtreeID,
+) (SubtreeID, int64, ForkOrder, error) {
+	fields, err := c.tables.ProductionFields(act.ProductionID, int(act.ChildCount))
+	if err != nil {
+		return 0, 0, ForkOrder{}, err
+	}
+	aliases, err := c.tables.ProductionAliases(act.ProductionID, int(act.ChildCount))
+	if err != nil {
+		return 0, 0, ForkOrder{}, err
+	}
+	fields, aliases, err = c.remapProductionMetadata(path.children, int(act.ChildCount), fields, aliases)
+	if err != nil {
+		return 0, 0, ForkOrder{}, err
+	}
+	parent := subtreeRecord{
+		symbol: act.Symbol, productionID: act.ProductionID,
+		dynamicPrecedence: act.DynamicPrecedence,
+		startByte:         path.startByte, endByte: path.structuralEnd,
+	}
+	order := path.order
+	if fork.Present {
+		order = fork
+	}
+	scoreDelta, err := checkedAddScore(path.score, int64(act.DynamicPrecedence))
+	if err != nil {
+		return 0, 0, ForkOrder{}, err
+	}
+	var payload SubtreeID
+	var found bool
+	if len(path.trailing) == 0 {
+		payload, found, err = c.findReductionBatchParent(*batchParents, parent, path.children, fields, aliases)
+		if err != nil {
+			return 0, 0, ForkOrder{}, err
+		}
+		if found {
+			collision, err := c.condenseInputExists(key, linkInput{
+				prev: path.prev, payload: payload, scoreDelta: scoreDelta, order: order,
+			})
+			if err != nil {
+				return 0, 0, ForkOrder{}, err
+			}
+			found = !collision
+		}
+	}
+	if !found {
+		payload, err = c.appendSubtree(parent, path.children, fields, aliases)
+		if err != nil {
+			return 0, 0, ForkOrder{}, err
+		}
+		if len(path.trailing) == 0 {
+			*batchParents = append(*batchParents, payload)
+		}
+	}
+	return payload, scoreDelta, order, nil
+}
+
+func (c *Core) condenseInputExists(key boundaryKey, in linkInput) (bool, error) {
+	id := c.boundaries[key]
+	if id == 0 {
+		return false, nil
+	}
+	node, err := c.node(id)
+	if err != nil {
+		return false, err
+	}
+	links, err := c.nodeLinks(*node)
+	if err != nil {
+		return false, err
+	}
+	for _, link := range links {
+		equal, err := c.linkEqualInput(link, in)
+		if err != nil {
+			return false, err
+		}
+		if equal {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (c *Core) findReductionBatchParent(
+	batch []SubtreeID,
+	record subtreeRecord,
+	children []SubtreeID,
+	fields []FieldMapEntry,
+	aliases []Symbol,
+) (SubtreeID, bool, error) {
+	for _, id := range batch {
+		stored, err := c.subtree(id)
+		if err != nil {
+			return 0, false, err
+		}
+		if reductionParentIdentityEqual(
+			*stored,
+			c.children[stored.firstChild:stored.firstChild+stored.childCount],
+			c.fields[stored.firstField:stored.firstField+stored.fieldCount],
+			c.aliases[stored.firstAlias:stored.firstAlias+stored.aliasCount],
+			record, children, fields, aliases,
+		) {
+			return id, true, nil
+		}
+	}
+	return 0, false, nil
+}
+
+func reductionParentIdentityEqual(
+	left subtreeRecord,
+	leftChildren []SubtreeID,
+	leftFields []FieldMapEntry,
+	leftAliases []Symbol,
+	right subtreeRecord,
+	rightChildren []SubtreeID,
+	rightFields []FieldMapEntry,
+	rightAliases []Symbol,
+) bool {
+	// Arena offsets are storage locations, not subtree identity. Normalize
+	// them while deriving each count from the complete ordered sidecar.
+	left.firstChild, left.childCount = 0, uint32(len(leftChildren))
+	left.firstField, left.fieldCount = 0, uint32(len(leftFields))
+	left.firstAlias, left.aliasCount = 0, uint32(len(leftAliases))
+	right.firstChild, right.childCount = 0, uint32(len(rightChildren))
+	right.firstField, right.fieldCount = 0, uint32(len(rightFields))
+	right.firstAlias, right.aliasCount = 0, uint32(len(rightAliases))
+	return left == right && slices.Equal(leftChildren, rightChildren) && slices.Equal(leftFields, rightFields) && slices.Equal(leftAliases, rightAliases)
 }
 
 func (c *Core) remapProductionMetadata(children []SubtreeID, structuralCount int, fields []FieldMapEntry, aliases []Symbol) ([]FieldMapEntry, []Symbol, error) {
