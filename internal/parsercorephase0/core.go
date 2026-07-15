@@ -63,7 +63,7 @@ type FieldMapEntry struct {
 type TableView interface {
 	Actions(StateID, Symbol) ([]Action, error)
 	Goto(StateID, Symbol) (StateID, error)
-	ProductionFields(uint16) ([]FieldMapEntry, error)
+	ProductionFields(uint16, int) ([]FieldMapEntry, error)
 	ProductionAliases(uint16, int) ([]Symbol, error)
 }
 
@@ -324,6 +324,17 @@ func (c *Core) Seed(state StateID, byteOffset uint32) (Head, error) {
 	return Head{Node: id}, nil
 }
 
+// Boundary returns the parser state and byte offset represented by head.
+// The tagged root scheduler uses it to continue independently after a reduce
+// returns one or more condensed boundaries.
+func (c *Core) Boundary(head Head) (StateID, uint32, error) {
+	node, err := c.node(head.Node)
+	if err != nil {
+		return 0, 0, err
+	}
+	return node.state, node.byteOffset, nil
+}
+
 // Actions returns the authentic decoded action entry for (state, lookahead).
 func (c *Core) Actions(state StateID, lookahead Symbol) ([]Action, error) {
 	return c.tables.Actions(state, lookahead)
@@ -439,7 +450,7 @@ func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkO
 		if gotoState == 0 {
 			return nil, fmt.Errorf("parser-core phase zero: no goto from state %d for reduced symbol %d", prev.state, act.Symbol)
 		}
-		fields, err := c.tables.ProductionFields(act.ProductionID)
+		fields, err := c.tables.ProductionFields(act.ProductionID, len(path.children))
 		if err != nil {
 			return nil, err
 		}

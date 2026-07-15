@@ -60,7 +60,7 @@ func (a gotreesitterTableAdapter) Goto(state core.StateID, symbol core.Symbol) (
 	return core.StateID(lang.ParseActions[raw].Actions[0].State), nil
 }
 
-func (a gotreesitterTableAdapter) ProductionFields(productionID uint16) ([]core.FieldMapEntry, error) {
+func (a gotreesitterTableAdapter) ProductionFields(productionID uint16, _ int) ([]core.FieldMapEntry, error) {
 	lang := a.language
 	if int(productionID) >= len(lang.FieldMapSlices) {
 		return nil, nil
@@ -165,7 +165,7 @@ func TestRealGoTableAdapterPreservesPinnedProperties(t *testing.T) {
 	if state, err := adapter.Goto(1, 121); err != nil || state != 101 {
 		t.Fatalf("Go goto (1,121)=%d err=%v want=101", state, err)
 	}
-	fields, err := adapter.ProductionFields(44)
+	fields, err := adapter.ProductionFields(44, 1)
 	if err != nil || len(fields) != 0 {
 		t.Fatalf("Go production 44 fields=%v err=%v want empty", fields, err)
 	}

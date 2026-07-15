@@ -33,7 +33,7 @@ func (f *fakeTable) Goto(state StateID, symbol Symbol) (StateID, error) {
 	return f.gotos[tableCell{state: state, symbol: symbol}], nil
 }
 
-func (f *fakeTable) ProductionFields(productionID uint16) ([]FieldMapEntry, error) {
+func (f *fakeTable) ProductionFields(productionID uint16, _ int) ([]FieldMapEntry, error) {
 	return f.fields[productionID], nil
 }
 
