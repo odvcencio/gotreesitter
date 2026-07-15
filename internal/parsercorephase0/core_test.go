@@ -210,7 +210,7 @@ func TestFrontierEpochPreventsStaleBoundaryResurrection(t *testing.T) {
 	}
 }
 
-func TestHeaderConvergencePreservesDistinctScoreAndOrderPaths(t *testing.T) {
+func TestHeaderConvergenceRetainsFirstZeroChildPayload(t *testing.T) {
 	core := newTinyCore(t, 6)
 	seed, err := core.Seed(1, 0)
 	if err != nil {
@@ -238,20 +238,16 @@ func TestHeaderConvergencePreservesDistinctScoreAndOrderPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Derivation{
-		{Payloads: []SubtreeID{payload}, Score: 1, BranchOrder: 7, HasBranchOrder: true},
-		{Payloads: []SubtreeID{payload}, Score: 2, BranchOrder: 7, HasBranchOrder: true},
-		{Payloads: []SubtreeID{payload}, Score: 1, BranchOrder: 8, HasBranchOrder: true},
-	}
+	want := []Derivation{{Payloads: []SubtreeID{payload}, Score: 1, BranchOrder: 7, HasBranchOrder: true}}
 	if !reflect.DeepEqual(paths, want) {
-		t.Fatalf("derivations = %#v, want exact score/order alternatives %#v", paths, want)
+		t.Fatalf("derivations = %#v, want first effective-zero link %#v", paths, want)
 	}
 	stats, err := core.Stats(head)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.Links != 3 {
-		t.Fatalf("physical/logical links = %d, want one O(1) adjacency record per alternative", stats.Links)
+	if stats.Links != 1 || stats.CurrentExactPaths != 1 {
+		t.Fatalf("selection stats = %+v, want one retained effective-zero path", stats)
 	}
 }
 
@@ -259,6 +255,7 @@ func TestSharedBoundaryPathMultiplicityDoesNotGateExecution(t *testing.T) {
 	build := func(t *testing.T, limits Limits) (*Core, Head) {
 		t.Helper()
 		core := newTinyCoreWithLimits(t, limits)
+		core.diagnostics.foldSamePredecessorShallowPayloads = false
 		seed, _ := core.Seed(1, 0)
 		payload, _ := core.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1}, nil, nil, nil)
 		buildFourPathHead := func(state StateID, scoreBase int64) Head {
@@ -309,6 +306,7 @@ func TestSharedBoundaryPathMultiplicityDoesNotGateExecution(t *testing.T) {
 
 func TestLiveLinkCapIsLocalAndTransactional(t *testing.T) {
 	core := newTinyCoreWithLimits(t, Limits{MaxLinksPerBoundary: 1})
+	core.diagnostics.foldSamePredecessorShallowPayloads = false
 	seed, _ := core.Seed(1, 0)
 	head, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 1, EndByte: 1}, pathMeta{ScoreDelta: 1})
 	if err != nil {
@@ -332,6 +330,7 @@ func TestLiveLinkCapIsLocalAndTransactional(t *testing.T) {
 
 func TestDefaultLiveLinkCapRejectsNinthDistinctLink(t *testing.T) {
 	core := newTinyCoreWithLimits(t, Limits{})
+	core.diagnostics.foldSamePredecessorShallowPayloads = false
 	seed, _ := core.Seed(1, 0)
 	payload, _ := core.appendSubtree(subtreeRecord{symbol: 1, terminal: true, endByte: 1}, nil, nil, nil)
 	key := core.boundaryKey(2, 1)
@@ -1339,6 +1338,7 @@ func newSharedReductionFixture(t *testing.T, sameChild bool) (*Core, Head) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	compact.diagnostics.foldSamePredecessorShallowPayloads = false
 	first, _ := compact.Seed(1, 0)
 	second, _ := compact.Seed(2, 0)
 	firstChild, err := compact.appendSubtree(subtreeRecord{symbol: 10, startByte: 0, endByte: 1, terminal: true}, nil, nil, nil)
@@ -1373,6 +1373,7 @@ func newReductionLinkCollisionFixture(t *testing.T, collidingMetadata bool) (*Co
 	if err != nil {
 		t.Fatal(err)
 	}
+	compact.diagnostics.foldSamePredecessorShallowPayloads = false
 	seed, _ := compact.Seed(1, 0)
 	firstChild, _ := compact.appendSubtree(subtreeRecord{symbol: 10, endByte: 1, terminal: true}, nil, nil, nil)
 	secondChild, _ := compact.appendSubtree(subtreeRecord{symbol: 11, startByte: 1, endByte: 2, terminal: true}, nil, nil, nil)
@@ -1418,6 +1419,7 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	core.diagnostics.foldSamePredecessorShallowPayloads = false
 	seed, _ := core.Seed(1, 0)
 	head, err := core.appendDiagnosticPayload(seed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1, BranchOrder: ForkOrder{Present: true, Value: 7}})
 	if err != nil {
@@ -1463,6 +1465,7 @@ func TestConvergedReductionPathsCondenseOnlyAfterTrailingExtraRepush(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	rollback.diagnostics.foldSamePredecessorShallowPayloads = false
 	rollbackSeed, _ := rollback.Seed(1, 0)
 	rollbackHead, _ := rollback.appendDiagnosticPayload(rollbackSeed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 1})
 	rollbackHead, _ = rollback.appendDiagnosticPayload(rollbackSeed, 2, Token{Symbol: 10, EndByte: 1}, pathMeta{ScoreDelta: 2})

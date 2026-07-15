@@ -229,8 +229,8 @@ type Head struct {
 	Node NodeID
 }
 
-// Derivation is one exact root-to-head path. No score/order selection occurs
-// while alternatives are condensed.
+// Derivation is one retained exact root-to-head path after local shallow-link
+// precedence selection.
 type Derivation struct {
 	Payloads       []SubtreeID
 	Score          int64
@@ -270,6 +270,7 @@ type Stats struct {
 type Core struct {
 	tables          TableView
 	limits          Limits
+	diagnostics     diagnosticOptions
 	nodes           []nodeRecord
 	links           []linkRecord
 	subtrees        []subtreeRecord
@@ -282,6 +283,10 @@ type Core struct {
 	boundaryJournal []boundaryMutation
 	transactions    []uint64
 	nextTransaction uint64
+}
+
+type diagnosticOptions struct {
+	foldSamePredecessorShallowPayloads bool
 }
 
 type checkpoint struct {
@@ -378,7 +383,10 @@ func New(tables TableView, limits Limits) (*Core, error) {
 		return nil, errors.New("parser-core phase zero: nil table view")
 	}
 	limits = limits.withDefaults()
-	return &Core{tables: tables, limits: limits, frontier: 1, boundaries: make(map[boundaryKey]NodeID)}, nil
+	return &Core{
+		tables: tables, limits: limits, frontier: 1, boundaries: make(map[boundaryKey]NodeID),
+		diagnostics: diagnosticOptions{foldSamePredecessorShallowPayloads: true},
+	}, nil
 }
 
 // BeginFrontier starts one authenticated election/dispatch generation.
@@ -595,8 +603,9 @@ func (c *Core) appendDiagnosticPayload(head Head, state StateID, token Token, me
 	})
 }
 
-// Reduce applies one authentic decoded reduction to every exact pop path in
-// head. Equivalent boundaries are condensed without discarding derivations.
+// Reduce applies one authentic decoded reduction to every retained pop path in
+// head. Condensation selects only C-shallow clean links from the same exact
+// predecessor; other derivations remain distinct.
 func (c *Core) Reduce(head Head, lookahead Symbol, actionOrdinal int, fork ForkOrder) (frontier []Head, err error) {
 	mark := c.mark()
 	defer c.completeTransaction(mark, &err)
@@ -941,6 +950,36 @@ func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
 				return Head{Node: oldID}, nil
 			}
 		}
+		if c.diagnostics.foldSamePredecessorShallowPayloads {
+			candidate := -1
+			for index, link := range oldLinks {
+				equal, err := c.shallowPayloadClassEqual(link, in)
+				if err != nil {
+					return Head{}, err
+				}
+				if !equal {
+					continue
+				}
+				if candidate >= 0 {
+					return Head{}, errors.New("parser-core phase zero: multiple shallow-fold incumbents")
+				}
+				candidate = index
+			}
+			if candidate >= 0 {
+				incumbentPrecedence, err := c.effectivePayloadPrecedence(oldLinks[candidate].payload, oldLinks[candidate].scoreDelta)
+				if err != nil {
+					return Head{}, err
+				}
+				incomingPrecedence, err := c.effectivePayloadPrecedence(in.payload, in.scoreDelta)
+				if err != nil {
+					return Head{}, err
+				}
+				if incomingPrecedence <= incumbentPrecedence {
+					return Head{Node: oldID}, nil
+				}
+				return c.replaceBoundaryLink(key, old, oldLinks, candidate, in)
+			}
+		}
 	}
 	newPathCount := prev.pathCount
 	if oldID != 0 {
@@ -985,6 +1024,111 @@ func (c *Core) condense(key boundaryKey, in linkInput) (Head, error) {
 func (c *Core) linkEqualInput(link linkRecord, in linkInput) (bool, error) {
 	return link.prev == in.prev && link.payload == in.payload && link.scoreDelta == in.scoreDelta &&
 		link.hasOrder() == in.order.Present && (!link.hasOrder() || link.order == in.order.Value), nil
+}
+
+type shallowPayloadClass struct {
+	symbol     Symbol
+	padding    uint32
+	size       uint32
+	childCount uint32
+	extra      bool
+}
+
+func (c *Core) shallowPayloadClassEqual(link linkRecord, in linkInput) (bool, error) {
+	if link.prev != in.prev {
+		return false, nil
+	}
+	left, leftOK, err := c.shallowPayloadClass(link.prev, link.payload)
+	if err != nil || !leftOK {
+		return false, err
+	}
+	right, rightOK, err := c.shallowPayloadClass(in.prev, in.payload)
+	if err != nil || !rightOK {
+		return false, err
+	}
+	return left == right, nil
+}
+
+func (c *Core) effectivePayloadPrecedence(payloadID SubtreeID, aggregate int64) (int64, error) {
+	payload, err := c.subtree(payloadID)
+	if err != nil {
+		return 0, err
+	}
+	if payload.childCount == 0 {
+		return 0, nil
+	}
+	return aggregate, nil
+}
+
+func (c *Core) shallowPayloadClass(prevID NodeID, payloadID SubtreeID) (shallowPayloadClass, bool, error) {
+	prev, err := c.node(prevID)
+	if err != nil {
+		return shallowPayloadClass{}, false, err
+	}
+	payload, err := c.subtree(payloadID)
+	if err != nil {
+		return shallowPayloadClass{}, false, err
+	}
+	// The compact phase-zero core cannot represent recovery/error subtrees yet,
+	// so every resident non-external payload is clean by construction. External
+	// scanner payloads remain ineligible until scanner-state equality is part of
+	// the compact graph.
+	if payload.external {
+		return shallowPayloadClass{}, false, nil
+	}
+	if payload.startByte < prev.byteOffset || payload.endByte < payload.startByte {
+		return shallowPayloadClass{}, false, errors.New("parser-core phase zero: invalid shallow payload extent")
+	}
+	return shallowPayloadClass{
+		symbol: payload.symbol, padding: payload.startByte - prev.byteOffset,
+		size: payload.endByte - payload.startByte, childCount: payload.childCount,
+		extra: payload.extra,
+	}, true, nil
+}
+
+// replaceBoundaryLink publishes a new canonical adjacency while leaving the
+// historical head and every link reachable from it immutable. oldLinks are in
+// stable insertion order, so rebuilding them through prepends preserves the
+// order observed by nodeLinks.
+func (c *Core) replaceBoundaryLink(key boundaryKey, old nodeRecord, oldLinks []linkRecord, candidate int, in linkInput) (Head, error) {
+	if candidate < 0 || candidate >= len(oldLinks) || uint32(len(oldLinks)) != old.linkCount {
+		return Head{}, errors.New("parser-core phase zero: invalid shallow-fold candidate")
+	}
+	if uint64(len(c.links))+uint64(len(oldLinks)) > uint64(c.limits.MaxLinks) || uint64(len(c.links))+uint64(len(oldLinks)) > math.MaxUint32 {
+		return Head{}, errors.New("parser-core phase zero: link arena cap")
+	}
+	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
+		return Head{}, errors.New("parser-core phase zero: node arena cap")
+	}
+
+	linkMark := len(c.links)
+	var first LinkID
+	for index, stored := range oldLinks {
+		copy := stored
+		if index == candidate {
+			copy.prev = in.prev
+			copy.payload = in.payload
+			copy.scoreDelta = in.scoreDelta
+			copy.order = in.order.Value
+			copy.flags &^= linkFlagHasOrder
+			if in.order.Present {
+				copy.flags |= linkFlagHasOrder
+			}
+		}
+		copy.next = first
+		c.links = append(c.links, copy)
+		first = LinkID(len(c.links))
+	}
+	id, err := c.appendNode(nodeRecord{
+		state: key.state, byteOffset: key.byteOffset,
+		firstLink: uint32(first), linkCount: old.linkCount, pathCount: old.pathCount,
+	})
+	if err != nil {
+		c.links = c.links[:linkMark]
+		return Head{}, err
+	}
+	c.writeBoundary(key, id)
+	return Head{Node: id}, nil
 }
 
 type popPath struct {

@@ -242,19 +242,23 @@ func TestDiagnosticParserCoreGenericSchedulerContinuesToNextRequestedClosedByte(
 	}
 }
 
-func TestDiagnosticParserCoreGenericSchedulerUsesLocalLiveLinkCap(t *testing.T) {
+func TestDiagnosticParserCoreGenericSchedulerCrossesFirstShallowLinkCap(t *testing.T) {
 	source := parserCoreGenericRewriteSource(t)
+	target := uint32(2440)
 	result, routeErr := gotreesitter.DiagnosticParseParserCorePrefix(
 		grammars.GoExternalScanner{}, source,
-		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true},
+		gotreesitter.DiagnosticParserCorePrefixOptions{GenericScheduler: true, GenericStopAtClosedByte: &target},
 	)
-	if routeErr == nil || !strings.Contains(routeErr.Error(), "shared (46,2440) live-link cap exceeded: 9 > 8") {
-		t.Fatalf("unbounded generic route error=%v", routeErr)
+	if routeErr != nil || !result.Completed || result.GenericScheduler == nil || result.GenericScheduler.Completion == nil {
+		t.Fatalf("state 46 byte 2440 closure result=%+v err=%v", result, routeErr)
 	}
-	if strings.Contains(routeErr.Error(), "exact-path cap") {
-		t.Fatalf("exact-path telemetry still gated generic execution: %v", routeErr)
-	}
-	if result.GenericScheduler != nil || result.CachedDotClosure == nil || result.Tokens != 103 || result.Dispatches != 198 {
-		t.Fatalf("live-link rollback leaked generic publication: %+v", result)
+	completion := result.GenericScheduler.Completion
+	// Before shallow same-predecessor selection, condensation failed at the
+	// unshifted (state 46, byte 2440) boundary. Completing the authenticated
+	// token through shifted state 473 proves that boundary is now crossed.
+	if completion.TargetByte != target || completion.ElectionIndex != 485 || completion.LastToken.Symbol != 21 || completion.LastToken.StartByte != 2439 || completion.LastToken.EndByte != target ||
+		len(completion.Headers) != 1 || completion.Headers[0].Header.State != 473 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.ExactPaths != 2 ||
+		completion.Stats != (core.Stats{Nodes: 1313, Links: 1312, Subtrees: 1146, Children: 1170, CurrentExactPaths: 2}) {
+		t.Fatalf("state 46 byte 2440 closure drifted: %+v", completion)
 	}
 }

@@ -23,8 +23,12 @@ for tags and release notes while still in `0.x`.
 
 ### Tooling
 
+- Compact parser-core diagnostics now fold clean, non-external links from the
+  same predecessor using C's shallow payload class and effective precedence:
+  zero for childless payloads, aggregate precedence for parents. Historical
+  heads remain immutable and arena-cap failures remain transactional.
 - Compact parser-core diagnostics now separate packed root-path telemetry from
-  execution limits. Path counts saturate without selecting syntax, exact
+  execution limits. Path counts saturate without stopping execution, exact
   derivation observation is bounded independently, reduction pops have their
   own 64-path bound, and canonical nodes fail closed on a ninth distinct live
   link.
