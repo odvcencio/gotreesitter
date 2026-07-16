@@ -1247,6 +1247,10 @@ func (c *Core) condenseWithOutcome(key boundaryKey, in linkInput) (condenseOutco
 				head, err := c.replaceBoundaryLink(key, old, oldLinks, candidate, in)
 				return condenseOutcome{head: head, change: condenseUpdated}, err
 			}
+			outcome, handled, err := c.factorExactPredecessor(key, oldID, oldLinks, in)
+			if err != nil || handled {
+				return outcome, err
+			}
 		}
 	}
 	newPathCount := prev.pathCount
@@ -1334,6 +1338,333 @@ func (c *Core) effectivePayloadPrecedence(payloadID SubtreeID, aggregate int64) 
 		return 0, nil
 	}
 	return aggregate, nil
+}
+
+// factorExactPredecessor applies the narrow persistent one-layer form of C's
+// recursive stack-link insertion that phase zero can represent exactly. The
+// outer edge must match in every stored field except predecessor identity. A merely
+// shallow-equivalent outer edge is deliberately declined: tree-sitter also
+// updates a node-level maximum precedence in that case, and nodeRecord has no
+// authenticated equivalent yet.
+func (c *Core) factorExactPredecessor(key boundaryKey, oldID NodeID, oldLinks []linkRecord, in linkInput) (out condenseOutcome, handled bool, err error) {
+	for index, incumbent := range oldLinks {
+		if incumbent.prev == in.prev {
+			continue
+		}
+		mergeable, matchErr := c.predecessorBoundariesMatch(incumbent.prev, in.prev)
+		if matchErr != nil {
+			return condenseOutcome{}, true, matchErr
+		}
+		if !mergeable {
+			continue
+		}
+		exactEdge := c.linkEdgeEqualInput(incumbent, in)
+		shallow, classErr := c.shallowPayloadsEqual(incumbent.prev, incumbent.payload, in.prev, in.payload)
+		if classErr != nil {
+			return condenseOutcome{}, true, classErr
+		}
+		if !exactEdge && !shallow {
+			continue
+		}
+		leftClean, cleanErr := c.subtreeHasNoExternalDescendant(incumbent.payload)
+		if cleanErr != nil {
+			return condenseOutcome{}, true, cleanErr
+		}
+		rightClean, cleanErr := c.subtreeHasNoExternalDescendant(in.payload)
+		if cleanErr != nil {
+			return condenseOutcome{}, true, cleanErr
+		}
+		if !leftClean || !rightClean {
+			return condenseOutcome{}, true, errors.New("parser-core phase zero: recursive insertion declined external payload")
+		}
+		if !exactEdge {
+			return condenseOutcome{}, true, errors.New("parser-core phase zero: recursive insertion declined shallow non-exact outer edge")
+		}
+		if !shallow {
+			return condenseOutcome{}, true, errors.New("parser-core phase zero: exact recursive edge is not a clean shallow payload")
+		}
+
+		handled = true
+		mark := c.mark()
+		defer c.completeTransaction(mark, &err)
+		merged, changed, mergeErr := c.mergePredecessorsOneLayer(incumbent.prev, in.prev)
+		if mergeErr != nil {
+			return condenseOutcome{}, true, mergeErr
+		}
+		if !changed {
+			return condenseOutcome{head: Head{Node: oldID}, change: condenseUnchanged}, true, nil
+		}
+		rebuilt := slices.Clone(oldLinks)
+		rebuilt[index].prev = merged
+		id, appendErr := c.appendAdjacencyNode(key.state, key.byteOffset, rebuilt)
+		if appendErr != nil {
+			return condenseOutcome{}, true, appendErr
+		}
+		c.writeBoundary(key, id)
+		return condenseOutcome{head: Head{Node: id}, change: condenseUpdated}, true, nil
+	}
+	return condenseOutcome{}, false, nil
+}
+
+func (c *Core) mergePredecessorsOneLayer(leftID, rightID NodeID) (NodeID, bool, error) {
+	if leftID == rightID {
+		return 0, false, errors.New("parser-core phase zero: recursive insertion self-merge")
+	}
+	left, err := c.node(leftID)
+	if err != nil {
+		return 0, false, err
+	}
+	right, err := c.node(rightID)
+	if err != nil {
+		return 0, false, err
+	}
+	if left.state != right.state || left.byteOffset != right.byteOffset {
+		return 0, false, errors.New("parser-core phase zero: recursive predecessors are not boundary-equivalent")
+	}
+	related, err := c.nodesAncestryRelated(leftID, rightID)
+	if err != nil {
+		return 0, false, err
+	}
+	if related {
+		return 0, false, errors.New("parser-core phase zero: recursive predecessors are ancestry-related")
+	}
+
+	links, err := c.nodeLinks(*left)
+	if err != nil {
+		return 0, false, err
+	}
+	rightLinks, err := c.nodeLinks(*right)
+	if err != nil {
+		return 0, false, err
+	}
+	changed := false
+	for _, incoming := range rightLinks {
+		var inserted bool
+		links, inserted, err = c.insertLinkOneLayer(left.state, left.byteOffset, links, incoming)
+		if err != nil {
+			return 0, false, err
+		}
+		changed = changed || inserted
+	}
+	if !changed {
+		return leftID, false, nil
+	}
+	merged, err := c.appendAdjacencyNode(left.state, left.byteOffset, links)
+	if err != nil {
+		return 0, false, err
+	}
+	return merged, true, nil
+}
+
+// insertLinkOneLayer mirrors the measured lower-adjacency decisions of
+// stack_node_add_link without mutating an existing adjacency. Same-pair
+// shallow payloads select the higher effective subtree precedence; every
+// other clean class remains in stable incumbent-first order. A second
+// different-predecessor merge is outside this tranche and declines.
+func (c *Core) insertLinkOneLayer(state StateID, byteOffset uint32, links []linkRecord, incoming linkRecord) ([]linkRecord, bool, error) {
+	clean, err := c.subtreeHasNoExternalDescendant(incoming.payload)
+	if err != nil {
+		return nil, false, err
+	}
+	if !clean {
+		return nil, false, errors.New("parser-core phase zero: recursive insertion declined external payload")
+	}
+	for index, incumbent := range links {
+		clean, err := c.subtreeHasNoExternalDescendant(incumbent.payload)
+		if err != nil {
+			return nil, false, err
+		}
+		if !clean {
+			return nil, false, errors.New("parser-core phase zero: recursive insertion declined external payload")
+		}
+		if c.linkRecordsEqual(incumbent, incoming) {
+			return links, false, nil
+		}
+		shallow, err := c.shallowPayloadsEqual(incumbent.prev, incumbent.payload, incoming.prev, incoming.payload)
+		if err != nil {
+			return nil, false, err
+		}
+		if !shallow {
+			continue
+		}
+		if incumbent.prev == incoming.prev {
+			incumbentPrecedence, err := c.effectivePayloadPrecedence(incumbent.payload, incumbent.scoreDelta)
+			if err != nil {
+				return nil, false, err
+			}
+			incomingPrecedence, err := c.effectivePayloadPrecedence(incoming.payload, incoming.scoreDelta)
+			if err != nil {
+				return nil, false, err
+			}
+			if incomingPrecedence <= incumbentPrecedence {
+				return links, false, nil
+			}
+			updated := slices.Clone(links)
+			updated[index] = incoming
+			return updated, true, nil
+		}
+		mergeable, err := c.predecessorBoundariesMatch(incumbent.prev, incoming.prev)
+		if err != nil {
+			return nil, false, err
+		}
+		if !mergeable {
+			continue
+		}
+		return nil, false, errors.New("parser-core phase zero: recursive insertion declined beyond one predecessor layer")
+	}
+	if uint32(len(links)) >= c.limits.MaxLinksPerBoundary {
+		return nil, false, &LiveLinkCapacityError{State: state, ByteOffset: byteOffset, ObservedLinks: uint64(len(links)) + 1, Limit: c.limits.MaxLinksPerBoundary}
+	}
+	return append(slices.Clone(links), incoming), true, nil
+}
+
+func (c *Core) subtreeHasNoExternalDescendant(root SubtreeID) (bool, error) {
+	seen := make(map[SubtreeID]bool)
+	visiting := make(map[SubtreeID]bool)
+	var walk func(SubtreeID) (bool, error)
+	walk = func(id SubtreeID) (bool, error) {
+		if visiting[id] {
+			return false, errors.New("parser-core phase zero: compact subtree cycle during recursive insertion")
+		}
+		if seen[id] {
+			return true, nil
+		}
+		record, err := c.subtree(id)
+		if err != nil {
+			return false, err
+		}
+		if record.external {
+			return false, nil
+		}
+		seen[id] = true
+		visiting[id] = true
+		defer delete(visiting, id)
+		for _, child := range c.children[record.firstChild : record.firstChild+record.childCount] {
+			clean, err := walk(child)
+			if err != nil || !clean {
+				return clean, err
+			}
+		}
+		return true, nil
+	}
+	return walk(root)
+}
+
+func (c *Core) predecessorBoundariesMatch(leftID, rightID NodeID) (bool, error) {
+	left, err := c.node(leftID)
+	if err != nil {
+		return false, err
+	}
+	right, err := c.node(rightID)
+	if err != nil {
+		return false, err
+	}
+	return left.state == right.state && left.byteOffset == right.byteOffset, nil
+}
+
+func (c *Core) shallowPayloadsEqual(leftPrev NodeID, leftPayload SubtreeID, rightPrev NodeID, rightPayload SubtreeID) (bool, error) {
+	left, leftOK, err := c.shallowPayloadClass(leftPrev, leftPayload)
+	if err != nil || !leftOK {
+		return false, err
+	}
+	right, rightOK, err := c.shallowPayloadClass(rightPrev, rightPayload)
+	if err != nil || !rightOK {
+		return false, err
+	}
+	return left == right, nil
+}
+
+func (c *Core) linkEdgeEqualInput(link linkRecord, in linkInput) bool {
+	return link.payload == in.payload && link.scoreDelta == in.scoreDelta &&
+		link.hasOrder() == in.order.Present && (!link.hasOrder() || link.order == in.order.Value)
+}
+
+func (c *Core) linkEdgesEqual(left, right linkRecord) bool {
+	return left.payload == right.payload && left.scoreDelta == right.scoreDelta &&
+		left.hasOrder() == right.hasOrder() && (!left.hasOrder() || left.order == right.order)
+}
+
+func (c *Core) linkRecordsEqual(left, right linkRecord) bool {
+	return left.prev == right.prev && c.linkEdgesEqual(left, right)
+}
+
+func (c *Core) nodesAncestryRelated(left, right NodeID) (bool, error) {
+	leftReaches, err := c.nodeReaches(left, right)
+	if err != nil || leftReaches {
+		return leftReaches, err
+	}
+	return c.nodeReaches(right, left)
+}
+
+func (c *Core) nodeReaches(start, target NodeID) (bool, error) {
+	seen := make(map[NodeID]bool)
+	visiting := make(map[NodeID]bool)
+	var walk func(NodeID) (bool, error)
+	walk = func(id NodeID) (bool, error) {
+		if id == target {
+			return true, nil
+		}
+		if visiting[id] {
+			return false, errors.New("parser-core phase zero: graph cycle during recursive insertion")
+		}
+		if seen[id] {
+			return false, nil
+		}
+		seen[id] = true
+		visiting[id] = true
+		defer delete(visiting, id)
+		node, err := c.node(id)
+		if err != nil {
+			return false, err
+		}
+		links, err := c.nodeLinks(*node)
+		if err != nil {
+			return false, err
+		}
+		for _, link := range links {
+			reaches, err := walk(link.prev)
+			if err != nil || reaches {
+				return reaches, err
+			}
+		}
+		return false, nil
+	}
+	return walk(start)
+}
+
+func (c *Core) appendAdjacencyNode(state StateID, byteOffset uint32, links []linkRecord) (NodeID, error) {
+	if len(links) == 0 {
+		return 0, errors.New("parser-core phase zero: recursive insertion produced empty adjacency")
+	}
+	if uint64(len(links)) > uint64(c.limits.MaxLinksPerBoundary) {
+		return 0, &LiveLinkCapacityError{State: state, ByteOffset: byteOffset, ObservedLinks: uint64(len(links)), Limit: c.limits.MaxLinksPerBoundary}
+	}
+	if uint64(len(c.links))+uint64(len(links)) > uint64(c.limits.MaxLinks) || uint64(len(c.links))+uint64(len(links)) > math.MaxUint32 {
+		return 0, errors.New("parser-core phase zero: link arena cap")
+	}
+	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
+		return 0, errors.New("parser-core phase zero: node arena cap")
+	}
+	pathCount := uint64(0)
+	for _, link := range links {
+		prev, err := c.node(link.prev)
+		if err != nil {
+			return 0, err
+		}
+		pathCount = saturatingAddPaths(pathCount, prev.pathCount)
+	}
+	var first LinkID
+	for _, stored := range links {
+		copy := stored
+		copy.next = first
+		c.links = append(c.links, copy)
+		c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
+		first = LinkID(len(c.links))
+	}
+	return c.appendNode(nodeRecord{
+		state: state, byteOffset: byteOffset, firstLink: uint32(first),
+		linkCount: uint32(len(links)), pathCount: pathCount,
+	})
 }
 
 func (c *Core) shallowPayloadClass(prevID NodeID, payloadID SubtreeID) (shallowPayloadClass, bool, error) {

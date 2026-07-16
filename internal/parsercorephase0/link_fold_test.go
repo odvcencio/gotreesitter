@@ -245,7 +245,7 @@ func TestDiagnosticShallowFoldKeepsDistinctClasses(t *testing.T) {
 	}
 }
 
-func TestDiagnosticShallowFoldRequiresExactPredecessor(t *testing.T) {
+func TestDiagnosticShallowNonExactOuterEdgeDeclinesRecursiveInsertion(t *testing.T) {
 	core, leftSeed := newDiagnosticShallowFoldCore(t, Limits{MaxDerivations: 4})
 	rightNode, err := core.appendNode(nodeRecord{state: 1, byteOffset: 10, pathCount: 1})
 	if err != nil {
@@ -273,16 +273,16 @@ func TestDiagnosticShallowFoldRequiresExactPredecessor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	head, err = core.condense(key, linkInput{prev: rightSeed.Node, payload: right, scoreDelta: 2})
+	before, err := core.Stats(head)
 	if err != nil {
 		t.Fatal(err)
 	}
-	paths, err := core.Derivations(head)
-	if err != nil {
-		t.Fatal(err)
+	if _, err = core.condense(key, linkInput{prev: rightSeed.Node, payload: right, scoreDelta: 2}); err == nil || !strings.Contains(err.Error(), "shallow non-exact outer edge") {
+		t.Fatalf("shallow non-exact outer edge error=%v", err)
 	}
-	if len(paths) != 2 {
-		t.Fatalf("distinct exact predecessors folded to %#v", paths)
+	after, statErr := core.Stats(head)
+	if statErr != nil || after != before {
+		t.Fatalf("decline mutated core: before=%+v after=%+v err=%v", before, after, statErr)
 	}
 }
 

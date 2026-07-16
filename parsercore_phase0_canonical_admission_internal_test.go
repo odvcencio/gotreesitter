@@ -4,7 +4,6 @@ package gotreesitter
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -76,6 +75,30 @@ func TestDiagnosticParserCoreCanonicalAdmissions(t *testing.T) {
 				ParentConstructionsProxy: 7537,
 			},
 		},
+		{
+			id: "language", bytes: 41387,
+			sourceSHA256:   "009aa9fd5352c712f3839670c7df8a9b00ae878ee20dc88131a438b2d5edfd9a",
+			deepTreeSHA256: "583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539",
+			selectedNodes:  7082, selectedParents: 2631, selectedLeaves: 4451,
+			work: core.Work{
+				Shifts: 6512, Reductions: 7561, ReductionPopRequests: 7561,
+				EmittedPopPaths: 8408, EmittedPopPayloads: 15864,
+				GraphLinkAdditionsProxy: 15145, LeafConstructionsProxy: 5375,
+				ParentConstructionsProxy: 7707,
+			},
+		},
+		{
+			id: "grammargen_lr", bytes: 235626,
+			sourceSHA256:   "a7e4a1a64b25a60aea36183b9d6d53dcd9240942cdb10e67a3cf9e6ce30f95b2",
+			deepTreeSHA256: "1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2",
+			selectedNodes:  71768, selectedParents: 26371, selectedLeaves: 45397,
+			work: core.Work{
+				Shifts: 66119, Reductions: 75988, ReductionPopRequests: 75988,
+				EmittedPopPaths: 84924, EmittedPopPayloads: 153451,
+				GraphLinkAdditionsProxy: 150271, LeafConstructionsProxy: 53897,
+				ParentConstructionsProxy: 78426,
+			},
+		},
 	}
 	for _, row := range rows {
 		row := row
@@ -129,59 +152,6 @@ func TestDiagnosticParserCoreCanonicalAdmissions(t *testing.T) {
 				t.Fatalf("production canonical deep-tree digest=%s want=%s", got, fixture.DeepTreeSHA256)
 			}
 			parserCoreWarmRequireDeepEqual(t, result.MaterializedTree, production, lang)
-		})
-	}
-}
-
-type diagnosticParserCoreCanonicalDecline struct {
-	id             string
-	bytes          int
-	sourceSHA256   string
-	deepTreeSHA256 string
-	state          uint32
-	byteOffset     uint32
-}
-
-func TestDiagnosticParserCoreCanonicalExpectedCap8Declines(t *testing.T) {
-	rows := []diagnosticParserCoreCanonicalDecline{
-		{
-			id: "language", bytes: 41387,
-			sourceSHA256:   "009aa9fd5352c712f3839670c7df8a9b00ae878ee20dc88131a438b2d5edfd9a",
-			deepTreeSHA256: "583df223904fe414c33bba3b474c6557ecdb20e7f47e304b9a09bfcc2da44539",
-			state:          217, byteOffset: 15513,
-		},
-		{
-			id: "grammargen_lr", bytes: 235626,
-			sourceSHA256:   "a7e4a1a64b25a60aea36183b9d6d53dcd9240942cdb10e67a3cf9e6ce30f95b2",
-			deepTreeSHA256: "1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2",
-			state:          218, byteOffset: 8559,
-		},
-	}
-	for _, row := range rows {
-		row := row
-		t.Run(row.id, func(t *testing.T) {
-			fixture := loadDiagnosticParserCoreCanonicalFixture(t, row.id)
-			requireDiagnosticParserCoreCanonicalFixtureIdentity(t, fixture, diagnosticParserCoreCanonicalAdmission{
-				id: row.id, bytes: row.bytes, sourceSHA256: row.sourceSHA256, deepTreeSHA256: row.deepTreeSHA256,
-			})
-			result, routeErr := DiagnosticParseParserCorePrefix(
-				parserCoreWarmGoScanner, fixture.Source,
-				DiagnosticParserCorePrefixOptions{
-					ReceiptMode: DiagnosticParserCoreReceiptSummary,
-					MaxTokens:   300000, MaxDispatches: 600000,
-					Limits: diagnosticParserCoreCanonicalLimits(),
-				},
-			)
-			var capacity *core.LiveLinkCapacityError
-			if !errors.As(routeErr, &capacity) {
-				t.Fatalf("cap8 decline=%v, want *parsercorephase0.LiveLinkCapacityError; result=%+v", routeErr, result)
-			}
-			if capacity.State != core.StateID(row.state) || capacity.ByteOffset != row.byteOffset || capacity.ObservedLinks != 9 || capacity.Limit != 8 {
-				t.Fatalf("cap8 decline fields=%+v, want state=%d byte=%d links=9 limit=8", capacity, row.state, row.byteOffset)
-			}
-			if result.Boundary != "" || result.GenericScheduler != nil || result.MaterializedTree != nil || result.Materialized || result.Completed || result.Tokens != 0 || result.Dispatches != 0 || len(result.Elections) != 0 || result.State != 0 || result.Lookahead != (Token{}) {
-				t.Fatalf("expected cap8 decline leaked publication: %+v", result)
-			}
 		})
 	}
 }
