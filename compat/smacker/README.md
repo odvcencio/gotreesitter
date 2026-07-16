@@ -48,8 +48,11 @@ The rest of your code — `sitter.ParseCtx`, `sitter.NewQuery`, `NewQueryCursor`
   `IsNull`, `StartByte`, `EndByte`, `StartPoint`, `EndPoint`, `Range`, `Equal`.
 - `Query` / `QueryCursor`: `NewQuery`, `NewQueryCursor`, `Exec`, `NextMatch`,
   `CaptureNameForId`, `QueryMatch`, `QueryCapture`.
-- Per-grammar subpackages (`smacker/golang`, `smacker/python`, ...) exposing
-  `GetLanguage()`, mirroring smacker's layout.
+- Per-grammar subpackages exposing `GetLanguage()`, mirroring smacker's
+  layout: `bash`, `c`, `cpp`, `csharp`, `css`, `dockerfile`, `elixir`, `elm`,
+  `golang`, `groovy`, `hcl`, `html`, `java`, `javascript`, `kotlin`, `lua`,
+  `ocaml`, `php`, `python`, `ruby`, `rust`, `scala`, `sql`, `swift`,
+  `typescript/typescript`, `typescript/tsx`.
 
 ## Notes
 

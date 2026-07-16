@@ -168,3 +168,29 @@ func TestSiblingsAndFilter(t *testing.T) {
 		t.Fatal("FilterPredicates should pass the match through unchanged")
 	}
 }
+
+// TestEqualDistinctSameSpanNodes confirms Equal returns false for distinct
+// nodes that share a span+type (the span-fallback false-positive that the
+// reviewer reproduced on error-laden input).
+func TestEqualDistinctSameSpanNodes(t *testing.T) {
+	root, err := sitter.ParseCtx(context.Background(), []byte("package p\nfunc f(){switch{case: case: case:}}"), golang.GetLanguage())
+	if err != nil {
+		t.Fatalf("ParseCtx: %v", err)
+	}
+	// Walk to the deepest node and compare it to its parent: distinct nodes,
+	// possibly identical span on ERROR recovery. They must never be Equal.
+	var deepest func(n *sitter.Node) *sitter.Node
+	deepest = func(n *sitter.Node) *sitter.Node {
+		if n.NamedChildCount() == 0 {
+			return n
+		}
+		return deepest(n.NamedChild(0))
+	}
+	leaf := deepest(root)
+	if p := leaf.Parent(); !p.IsNull() && leaf.Equal(p) {
+		t.Fatal("a node must never Equal its parent, even at an identical span")
+	}
+	if !leaf.Equal(leaf) {
+		t.Fatal("a node must Equal itself")
+	}
+}

@@ -18,6 +18,7 @@ package smacker
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -232,20 +233,19 @@ func (n *Node) Range() Range {
 	}
 }
 
-// Equal reports whether two wrapped nodes refer to the same syntax node.
-// smacker compares the underlying C node identity; here we compare the wrapped
-// pointer, falling back to identical span-and-type for nodes reached via
-// distinct navigation paths.
+// Equal reports whether two wrapped nodes refer to the same syntax node,
+// matching smacker's C-node identity semantics. gotreesitter returns a stable
+// *Node pointer for the same logical node across all navigation, so inner-
+// pointer identity is exact. A span+type comparison is deliberately NOT used as
+// a fallback: distinct nodes can share a span and type (e.g. nested ERROR nodes
+// on malformed input), and a node from Copy() has a fresh pointer, so such a
+// fallback would report false positives on exactly the error-laden input that
+// downstream scanners process.
 func (n *Node) Equal(other *Node) bool {
 	if n.IsNull() || other == nil || other.inner == nil {
 		return n.IsNull() && (other == nil || other.inner == nil)
 	}
-	if n.inner == other.inner {
-		return true
-	}
-	return n.inner.StartByte() == other.inner.StartByte() &&
-		n.inner.EndByte() == other.inner.EndByte() &&
-		n.inner.Type(n.lang) == other.inner.Type(other.lang)
+	return n.inner == other.inner
 }
 
 // Tree is a parsed syntax tree. It retains the language and source so RootNode
@@ -272,8 +272,8 @@ func (t *Tree) Edit(edit EditInput) {
 	t.inner.Edit(edit.toInputEdit())
 }
 
-// Copy returns a copy of the tree. gotreesitter trees are safe to reuse, so the
-// copy shares the same immutable nodes.
+// Copy returns an independent copy of the tree. gotreesitter deep-clones the
+// nodes into a fresh arena, matching smacker's ts_tree_copy.
 func (t *Tree) Copy() *Tree {
 	if t == nil || t.inner == nil {
 		return nil
@@ -302,7 +302,8 @@ func (p *Parser) ParseCtx(ctx context.Context, oldTree *Tree, content []byte) (*
 		return nil, err
 	}
 	parser := gts.NewParser(p.lang)
-	applyDeadline(ctx, parser)
+	stop := applyContext(ctx, parser)
+	defer stop()
 	var (
 		tree *gts.Tree
 		err  error
@@ -333,7 +334,8 @@ func ParseCtx(ctx context.Context, content []byte, lang *Language) (*Node, error
 		return nil, err
 	}
 	parser := gts.NewParser(lang)
-	applyDeadline(ctx, parser)
+	stop := applyContext(ctx, parser)
+	defer stop()
 	tree, err := parser.Parse(content)
 	if err != nil {
 		return nil, err
@@ -341,15 +343,31 @@ func ParseCtx(ctx context.Context, content []byte, lang *Language) (*Node, error
 	return wrapNode(tree.RootNode(), lang, content), nil
 }
 
-func applyDeadline(ctx context.Context, parser *gts.Parser) {
-	dl, ok := ctx.Deadline()
-	if !ok {
-		return
+// applyContext maps a context onto the parser the way smacker's ParseCtx does:
+// a deadline becomes gotreesitter's timeout, and cancellation is wired to the
+// parser's cancellation flag via a watcher goroutine so a context.WithCancel
+// context aborts an in-flight parse even without a deadline. The returned
+// function stops the watcher and must be called after parsing.
+func applyContext(ctx context.Context, parser *gts.Parser) func() {
+	if dl, ok := ctx.Deadline(); ok {
+		if micros := time.Until(dl).Microseconds(); micros > 0 {
+			parser.SetTimeoutMicros(uint64(micros))
+		}
 	}
-	micros := time.Until(dl).Microseconds()
-	if micros > 0 {
-		parser.SetTimeoutMicros(uint64(micros))
+	if ctx.Done() == nil {
+		return func() {}
 	}
+	var flag uint32
+	parser.SetCancellationFlag(&flag)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			atomic.StoreUint32(&flag, 1)
+		case <-done:
+		}
+	}()
+	return func() { close(done) }
 }
 
 // Query is a compiled tree-sitter query.
