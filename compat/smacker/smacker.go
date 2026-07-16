@@ -18,6 +18,7 @@ package smacker
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -63,6 +64,20 @@ func (e EditInput) toInputEdit() gts.InputEdit {
 	}
 }
 
+// nodeCache interns *Node wrappers per parse so the same underlying
+// gotreesitter node always yields the SAME *Node pointer. smacker guarantees
+// this (github.com/smacker/go-tree-sitter routes navigation through a per-Tree
+// cachedNode map), and consumers rely on it: raw `==` pointer comparisons and
+// map[*Node]key lookups over navigated nodes are common (e.g. resolving a
+// declaration identifier vs. a reference, or scope maps). Without interning,
+// two navigation paths to the same node compare unequal and that logic breaks.
+type nodeCache struct {
+	mu sync.Mutex
+	m  map[*gts.Node]*Node
+}
+
+func newNodeCache() *nodeCache { return &nodeCache{m: map[*gts.Node]*Node{}} }
+
 // Node wraps a gotreesitter node and exposes the argument-free smacker Node API
 // by threading the owning language and source that gotreesitter takes
 // explicitly. The zero value and a nil *Node both report IsNull() == true.
@@ -70,13 +85,24 @@ type Node struct {
 	inner  *gts.Node
 	lang   *gts.Language
 	source []byte
+	cache  *nodeCache
 }
 
-func wrapNode(n *gts.Node, lang *gts.Language, source []byte) *Node {
+func wrapNode(n *gts.Node, lang *gts.Language, source []byte, cache *nodeCache) *Node {
 	if n == nil {
 		return nil
 	}
-	return &Node{inner: n, lang: lang, source: source}
+	if cache == nil {
+		return &Node{inner: n, lang: lang, source: source}
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if existing, ok := cache.m[n]; ok {
+		return existing
+	}
+	wrapped := &Node{inner: n, lang: lang, source: source, cache: cache}
+	cache.m[n] = wrapped
+	return wrapped
 }
 
 // IsNull reports whether the node is absent. smacker returns a non-nil node
@@ -113,7 +139,7 @@ func (n *Node) ChildByFieldName(field string) *Node {
 	if n.IsNull() {
 		return nil
 	}
-	return wrapNode(n.inner.ChildByFieldName(field, n.lang), n.lang, n.source)
+	return wrapNode(n.inner.ChildByFieldName(field, n.lang), n.lang, n.source, n.cache)
 }
 
 // FieldNameForChild returns the field name of the i-th child, or "".
@@ -129,7 +155,7 @@ func (n *Node) Child(i int) *Node {
 	if n.IsNull() {
 		return nil
 	}
-	return wrapNode(n.inner.Child(i), n.lang, n.source)
+	return wrapNode(n.inner.Child(i), n.lang, n.source, n.cache)
 }
 
 // NamedChild returns the i-th named child, or a null node.
@@ -137,7 +163,7 @@ func (n *Node) NamedChild(i int) *Node {
 	if n.IsNull() {
 		return nil
 	}
-	return wrapNode(n.inner.NamedChild(i), n.lang, n.source)
+	return wrapNode(n.inner.NamedChild(i), n.lang, n.source, n.cache)
 }
 
 // ChildCount returns the number of children, matching smacker's uint32 return.
@@ -161,7 +187,7 @@ func (n *Node) Parent() *Node {
 	if n.IsNull() {
 		return nil
 	}
-	return wrapNode(n.inner.Parent(), n.lang, n.source)
+	return wrapNode(n.inner.Parent(), n.lang, n.source, n.cache)
 }
 
 // IsNamed reports whether the node is a named (non-anonymous) node.
@@ -177,7 +203,7 @@ func (n *Node) PrevSibling() *Node {
 	if n.IsNull() {
 		return nil
 	}
-	return wrapNode(n.inner.PrevSibling(), n.lang, n.source)
+	return wrapNode(n.inner.PrevSibling(), n.lang, n.source, n.cache)
 }
 
 // NextSibling returns the node's next sibling, or a null node.
@@ -185,7 +211,7 @@ func (n *Node) NextSibling() *Node {
 	if n.IsNull() {
 		return nil
 	}
-	return wrapNode(n.inner.NextSibling(), n.lang, n.source)
+	return wrapNode(n.inner.NextSibling(), n.lang, n.source, n.cache)
 }
 
 // StartByte returns the node's start byte offset.
@@ -254,6 +280,7 @@ type Tree struct {
 	inner  *gts.Tree
 	lang   *gts.Language
 	source []byte
+	cache  *nodeCache
 }
 
 // RootNode returns the tree's root node.
@@ -261,7 +288,10 @@ func (t *Tree) RootNode() *Node {
 	if t == nil || t.inner == nil {
 		return nil
 	}
-	return wrapNode(t.inner.RootNode(), t.lang, t.source)
+	if t.cache == nil {
+		t.cache = newNodeCache()
+	}
+	return wrapNode(t.inner.RootNode(), t.lang, t.source, t.cache)
 }
 
 // Edit applies a source edit in preparation for incremental reparsing.
@@ -316,7 +346,7 @@ func (p *Parser) ParseCtx(ctx context.Context, oldTree *Tree, content []byte) (*
 	if err != nil {
 		return nil, err
 	}
-	return &Tree{inner: tree, lang: p.lang, source: content}, nil
+	return &Tree{inner: tree, lang: p.lang, source: content, cache: newNodeCache()}, nil
 }
 
 // Parse parses content into a tree (non-incremental unless oldTree is given).
@@ -340,7 +370,7 @@ func ParseCtx(ctx context.Context, content []byte, lang *Language) (*Node, error
 	if err != nil {
 		return nil, err
 	}
-	return wrapNode(tree.RootNode(), lang, content), nil
+	return wrapNode(tree.RootNode(), lang, content, newNodeCache()), nil
 }
 
 // applyContext maps a context onto the parser the way smacker's ParseCtx does:
@@ -426,12 +456,16 @@ type QueryCursor struct {
 	query  *Query
 	lang   *gts.Language
 	source []byte
+	cache  *nodeCache
 }
 
 // NewQueryCursor returns a new, unbound cursor. Call Exec to bind it.
 func NewQueryCursor() *QueryCursor { return &QueryCursor{} }
 
 // Exec binds the cursor to a query and a node, ready for NextMatch iteration.
+// Captured nodes are interned through the same cache as the node passed here,
+// so a capture and a navigated node compare `==`-equal when they are the same
+// underlying node.
 func (c *QueryCursor) Exec(q *Query, n *Node) {
 	c.query = q
 	if n == nil || n.IsNull() {
@@ -440,6 +474,10 @@ func (c *QueryCursor) Exec(q *Query, n *Node) {
 	}
 	c.lang = n.lang
 	c.source = n.source
+	c.cache = n.cache
+	if c.cache == nil {
+		c.cache = newNodeCache()
+	}
 	c.inner = q.inner.Exec(n.inner, n.lang, n.source)
 }
 
@@ -456,7 +494,7 @@ func (c *QueryCursor) NextMatch() (*QueryMatch, bool) {
 	for i, cap := range m.Captures {
 		captures[i] = QueryCapture{
 			Index: c.query.nameToID[cap.Name],
-			Node:  wrapNode(cap.Node, c.lang, c.source),
+			Node:  wrapNode(cap.Node, c.lang, c.source, c.cache),
 		}
 	}
 	return &QueryMatch{PatternIndex: m.PatternIndex, Captures: captures}, true

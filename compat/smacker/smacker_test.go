@@ -194,3 +194,44 @@ func TestEqualDistinctSameSpanNodes(t *testing.T) {
 		t.Fatal("a node must Equal itself")
 	}
 }
+
+// TestNodeInterning confirms the shim returns pointer-stable *Node wrappers for
+// the same underlying node across navigation paths and query captures — the
+// smacker contract consumers rely on with raw == and map keys.
+func TestNodeInterning(t *testing.T) {
+	root, err := sitter.ParseCtx(context.Background(), []byte(goSource), golang.GetLanguage())
+	if err != nil {
+		t.Fatalf("ParseCtx: %v", err)
+	}
+	// Two navigation paths to the same node must yield the SAME pointer.
+	fn := root.NamedChild(1)
+	if fn.Type() != "function_declaration" {
+		t.Fatalf("unexpected node %q", fn.Type())
+	}
+	name := fn.ChildByFieldName("name")
+	if name != fn.ChildByFieldName("name") {
+		t.Fatal("ChildByFieldName must return a pointer-stable wrapper")
+	}
+	if name.Parent() != fn {
+		t.Fatal("name.Parent() must == the fn wrapper (interning)")
+	}
+	// A query capture of the same node must == the navigated wrapper.
+	q, err := sitter.NewQuery([]byte(`(function_declaration name: (identifier) @n)`), golang.GetLanguage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cur := sitter.NewQueryCursor()
+	cur.Exec(q, root)
+	m, ok := cur.NextMatch()
+	if !ok {
+		t.Fatal("expected a match")
+	}
+	if m.Captures[0].Node != name {
+		t.Fatal("captured node must == the navigated wrapper (shared cache)")
+	}
+	// map[*Node]T keying must work across navigation.
+	seen := map[*sitter.Node]bool{name: true}
+	if !seen[fn.ChildByFieldName("name")] {
+		t.Fatal("map keyed by *Node must hit across navigation paths")
+	}
+}
