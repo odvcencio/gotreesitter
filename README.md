@@ -2,6 +2,8 @@
 
 Pure-Go [tree-sitter](https://tree-sitter.github.io/) runtime. No CGo, no C toolchain. Cross-compiles to any `GOOS`/`GOARCH` target Go supports, including `wasip1`.
 
+**[Docs & guides](https://gotreesitter.m31labs.dev)** · **[Try it live in your browser](https://gotreesitter.m31labs.dev/playground)** (206 grammars, parsing in WASM) · **[Migrating from smacker/go-tree-sitter](https://gotreesitter.m31labs.dev/docs/migrating-from-smacker)**
+
 ```sh
 go get github.com/odvcencio/gotreesitter
 ```
