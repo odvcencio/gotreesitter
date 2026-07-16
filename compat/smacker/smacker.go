@@ -171,6 +171,22 @@ func (n *Node) IsNamed() bool {
 	return n.inner.IsNamed()
 }
 
+// PrevSibling returns the node's previous sibling, or a null node.
+func (n *Node) PrevSibling() *Node {
+	if n.IsNull() {
+		return nil
+	}
+	return wrapNode(n.inner.PrevSibling(), n.lang, n.source)
+}
+
+// NextSibling returns the node's next sibling, or a null node.
+func (n *Node) NextSibling() *Node {
+	if n.IsNull() {
+		return nil
+	}
+	return wrapNode(n.inner.NextSibling(), n.lang, n.source)
+}
+
 // StartByte returns the node's start byte offset.
 func (n *Node) StartByte() uint32 {
 	if n.IsNull() {
@@ -426,6 +442,16 @@ func (c *QueryCursor) NextMatch() (*QueryMatch, bool) {
 		}
 	}
 	return &QueryMatch{PatternIndex: m.PatternIndex, Captures: captures}, true
+}
+
+// FilterPredicates returns the match after applying the query's text
+// predicates (#eq?, #match?, #any-of?, ...). gotreesitter evaluates predicates
+// during matching — Exec is given the source for exactly that — so matches
+// reaching this call already satisfy their predicates and the match is returned
+// unchanged. It exists so smacker consumers that call it explicitly compile and
+// behave identically.
+func (c *QueryCursor) FilterPredicates(m *QueryMatch, input []byte) *QueryMatch {
+	return m
 }
 
 // Close is a no-op; gotreesitter cursors hold no C resources.

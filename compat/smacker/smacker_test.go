@@ -135,3 +135,36 @@ func TestIncrementalParser(t *testing.T) {
 		t.Fatal("root type mismatch via Parser path")
 	}
 }
+
+// TestSiblingsAndFilter covers PrevSibling/NextSibling and the FilterPredicates
+// compatibility passthrough used by globstar's checkers.
+func TestSiblingsAndFilter(t *testing.T) {
+	lang := golang.GetLanguage()
+	root, err := sitter.ParseCtx(context.Background(), []byte(goSource), lang)
+	if err != nil {
+		t.Fatalf("ParseCtx: %v", err)
+	}
+	// package_clause is the first child; its next sibling is the func decl.
+	first := root.NamedChild(0)
+	if first.IsNull() {
+		t.Fatal("no first child")
+	}
+	sib := first.NextSibling()
+	if sib.IsNull() || sib.PrevSibling() == nil || !sib.PrevSibling().Equal(first) {
+		t.Fatal("sibling navigation is not symmetric")
+	}
+
+	query, err := sitter.NewQuery([]byte(`(function_declaration) @f`), lang)
+	if err != nil {
+		t.Fatalf("NewQuery: %v", err)
+	}
+	cursor := sitter.NewQueryCursor()
+	cursor.Exec(query, root)
+	m, ok := cursor.NextMatch()
+	if !ok {
+		t.Fatal("expected a match")
+	}
+	if got := cursor.FilterPredicates(m, []byte(goSource)); got != m {
+		t.Fatal("FilterPredicates should pass the match through unchanged")
+	}
+}
