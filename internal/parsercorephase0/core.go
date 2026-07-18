@@ -533,6 +533,7 @@ type RawSelectedCensus struct {
 type Core struct {
 	tables              TableView
 	plans               ReductionPlanProvider
+	selectedPolicy      *SelectedStorePolicy
 	limits              Limits
 	diagnostics         diagnosticOptions
 	nodes               []nodeRecord
@@ -916,6 +917,13 @@ func New(tables TableView, limits Limits) (*Core, error) {
 		metadataConstructionAuthenticated: true,
 	}
 	core.plans, _ = tables.(ReductionPlanProvider)
+	if provider, ok := tables.(SelectedStorePolicyProvider); ok {
+		policy, policyErr := provider.SelectedStorePolicy()
+		if policyErr != nil {
+			return nil, policyErr
+		}
+		core.selectedPolicy = &policy
+	}
 	return core, nil
 }
 

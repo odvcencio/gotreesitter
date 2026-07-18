@@ -178,6 +178,85 @@ func BenchmarkParserCoreFreshFullCanonical(b *testing.B) {
 	}
 }
 
+// BenchmarkParserCoreFreshFullSelectedStoreCanonical measures the same
+// authenticated scheduler lifecycle but consumes the sealed store directly.
+// The compatibility benchmark above remains the public-Node fallback/control.
+func BenchmarkParserCoreFreshFullSelectedStoreCanonical(b *testing.B) {
+	for _, row := range diagnosticParserCoreCanonicalAdmissions {
+		row := row
+		b.Run(row.id, func(b *testing.B) {
+			fixture := loadDiagnosticParserCoreCanonicalFixture(b, row.id)
+			runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+			if err != nil {
+				b.Fatal(err)
+			}
+			store, err := runner.parseSelectedStore(fixture.Source)
+			if err != nil {
+				b.Fatal(err)
+			}
+			if got := store.NodeCount(); got != row.selectedNodes {
+				b.Fatalf("selected nodes=%d want=%d", got, row.selectedNodes)
+			}
+			if got := diagnosticParserCoreSelectedStoreDeepDigest(b, store, runner.lang, fixture.Source); got != row.deepTreeSHA256 {
+				b.Fatalf("selected digest=%s want=%s", got, row.deepTreeSHA256)
+			}
+			var scratch []core.SelectedNodeID
+			if checksum, retained := diagnosticParserCoreTraverseSelectedStore(store, scratch); checksum == 0 || retained == nil {
+				b.Fatal("selected traversal preflight failed")
+			}
+			runtime.GC()
+			b.ReportAllocs()
+			b.SetBytes(int64(len(fixture.Source)))
+			b.ResetTimer()
+			var checksum uint64
+			for index := 0; index < b.N; index++ {
+				store, err = runner.parseSelectedStore(fixture.Source)
+				if err != nil {
+					b.Fatal(err)
+				}
+				var value uint64
+				value, scratch = diagnosticParserCoreTraverseSelectedStore(store, scratch)
+				checksum ^= value
+			}
+			b.StopTimer()
+			if checksum == ^uint64(0) {
+				b.Fatal("unreachable selected traversal checksum")
+			}
+			if work := runner.compact.Work(); work != row.work || work.Overflow {
+				b.Fatalf("selected work=%+v want=%+v", work, row.work)
+			}
+			b.ReportMetric(0, "candidate_fallback/op")
+			b.ReportMetric(float64(store.RetainedBytes()), "selected_retained_B/op")
+		})
+	}
+}
+
+func diagnosticParserCoreTraverseSelectedStore(store *core.SelectedStore, scratch []core.SelectedNodeID) (uint64, []core.SelectedNodeID) {
+	if store == nil || store.Root() == 0 {
+		return 0, scratch[:0]
+	}
+	stack := append(scratch[:0], store.Root())
+	var checksum uint64
+	for len(stack) != 0 {
+		last := len(stack) - 1
+		id := stack[last]
+		stack = stack[:last]
+		record, ok := store.Record(id)
+		if !ok {
+			return 0, stack
+		}
+		checksum += uint64(id) + uint64(record.Symbol) + uint64(record.StartByte) + uint64(record.EndByte) + uint64(record.Field)
+		for child := int(record.ChildCount) - 1; child >= 0; child-- {
+			childID, ok := store.Child(record, uint32(child))
+			if !ok {
+				return 0, stack
+			}
+			stack = append(stack, childID)
+		}
+	}
+	return checksum, stack[:0]
+}
+
 // Keep the deep admission in a separate frame. Returning drops the only
 // reference to its compact arenas before the measured runner is constructed,
 // so DrainArenaPools cannot overlap the preflight and measured lifecycles.

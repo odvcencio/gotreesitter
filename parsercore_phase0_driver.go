@@ -323,6 +323,7 @@ type parserCoreRootTables struct {
 	reductionPlans      []core.ReductionPlan
 	reductionPlanIndex  []uint16
 	reductionPlanStride int
+	selectedStorePolicy core.SelectedStorePolicy
 }
 
 func newParserCoreRootTables(parser *Parser) (*parserCoreRootTables, error) {
@@ -389,7 +390,84 @@ func newParserCoreRootTables(parser *Parser) (*parserCoreRootTables, error) {
 			tables.reductionPlanIndex[pairIndex] = uint16(len(tables.reductionPlans))
 		}
 	}
+	policy, err := buildParserCoreSelectedStorePolicy(parser)
+	if err != nil {
+		return nil, err
+	}
+	tables.selectedStorePolicy = policy
 	return tables, nil
+}
+
+func buildParserCoreSelectedStorePolicy(parser *Parser) (core.SelectedStorePolicy, error) {
+	if parser == nil || parser.language == nil || !parser.hasRootSymbol {
+		return core.SelectedStorePolicy{}, errors.New("parser-core phase zero: selected-store policy requires an authenticated parser root")
+	}
+	lang := parser.language
+	width := max(len(lang.SymbolMetadata), len(lang.SymbolNames), int(lang.SymbolCount))
+	symbols := make([]core.SelectedSymbolPolicy, width)
+	for index := range symbols {
+		visible, named := true, false
+		if index < len(lang.SymbolMetadata) {
+			visible = lang.SymbolMetadata[index].Visible
+			named = lang.SymbolMetadata[index].Named
+		}
+		symbols[index] = core.SelectedSymbolPolicy{Visible: visible, Named: named}
+	}
+	if width != 0 && width > math.MaxInt/width {
+		return core.SelectedStorePolicy{}, errors.New("parser-core phase zero: selected-store unary policy overflow")
+	}
+	unary := make([]core.SelectedUnaryRule, width*width)
+	for parent := 0; parent < width; parent++ {
+		for child := 0; child < width; child++ {
+			parentSymbol, childSymbol := Symbol(parent), Symbol(child)
+			rule := core.SelectedUnaryKeep
+			switch {
+			case parentSymbol == childSymbol && !parser.isSharedVisibleAnonymousToken(childSymbol):
+				rule = core.SelectedUnaryPass
+			case parser.canCollapseInvisibleUnaryWrapperSymbol(parentSymbol):
+				rule = core.SelectedUnaryPass
+			case parser.canCollapseNamedLeafWrapper(parentSymbol, childSymbol) &&
+				!parser.shouldPreserveVisibleUnaryTokenWrapper(parentSymbol) &&
+				!parser.shouldKeepVisibleAnonymousTokenChild(parentSymbol, childSymbol):
+				rule = core.SelectedUnaryRenameLeaf
+			}
+			unary[parent*width+child] = rule
+		}
+	}
+	policy, err := core.NewSelectedStorePolicy(symbols, unary, core.Symbol(parser.rootSymbol))
+	if err != nil {
+		return core.SelectedStorePolicy{}, err
+	}
+	syms, _ := goCompatibilitySymbolsForLanguage(lang)
+	containers := make([]bool, width)
+	for _, symbol := range syms.semiContainers[:syms.semiContainerLen] {
+		if int(symbol) < width {
+			containers[symbol] = true
+		}
+	}
+	cases := make([]bool, width)
+	for _, symbol := range [...]Symbol{syms.expressionCase, syms.defaultCase, syms.typeCase, syms.communicationCase} {
+		if symbol != 0 && int(symbol) < width {
+			cases[symbol] = true
+		}
+	}
+	statementLists := make([]bool, width)
+	for _, symbol := range [...]Symbol{syms.statementList, syms.statementListTail} {
+		if symbol != 0 && int(symbol) < width {
+			statementLists[symbol] = true
+		}
+	}
+	if err := policy.SetGoCompatibility(core.Symbol(syms.semicolon), core.Symbol(syms.semicolonSentinel), containers, cases, statementLists); err != nil {
+		return core.SelectedStorePolicy{}, err
+	}
+	return policy, nil
+}
+
+func (a *parserCoreRootTables) SelectedStorePolicy() (core.SelectedStorePolicy, error) {
+	if a == nil || len(a.selectedStorePolicy.Symbols) == 0 {
+		return core.SelectedStorePolicy{}, errors.New("parser-core phase zero: selected-store policy is unavailable")
+	}
+	return a.selectedStorePolicy, nil
 }
 
 func (a *parserCoreRootTables) Actions(state core.StateID, symbol core.Symbol) (core.ActionRow, error) {
@@ -586,7 +664,7 @@ func diagnosticParseParserCoreGenericFromSeed(
 		return result, &diagnosticParserCoreDecline{boundary: result.Boundary, detail: result.Detail}
 	}
 	return publishDiagnosticParserCoreGenericResult(result, scheduler, func(head core.Head) (*Tree, error) {
-		return materializeDiagnosticParserCoreAcceptedTree(compact, head, parser, source)
+		return materializeDiagnosticParserCoreAcceptedSelection(compact, head, scheduler.acceptedPayloads, parser, source)
 	})
 }
 
@@ -1218,6 +1296,8 @@ type diagnosticParserCoreGenericScheduler struct {
 	work                       DiagnosticParserCoreGenericWork
 	epochProgress              bool
 	acceptedHead               core.Head
+	acceptedPayloads           []core.SubtreeID
+	selectedStore              *core.SelectedStore
 	conflictPostExecutionFault func() error
 	extraPostExecutionFault    func() error
 	freshSessionOwner          *core.SchedulerTransactionToken
@@ -1578,6 +1658,13 @@ func materializeDiagnosticParserCoreAcceptedTree(compact *core.Core, head core.H
 	if len(derivations) != 1 {
 		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreAccept, detail: "materialization requires one exact accepted derivation"}
 	}
+	return materializeDiagnosticParserCoreAcceptedSelection(compact, head, derivations[0].Payloads, parser, source)
+}
+
+func materializeDiagnosticParserCoreAcceptedSelection(compact *core.Core, head core.Head, payloads []core.SubtreeID, parser *Parser, source []byte) (*Tree, error) {
+	if compact == nil || parser == nil || parser.language == nil || head.Node == 0 || len(payloads) == 0 {
+		return nil, errors.New("parser-core phase zero: incomplete accepted-tree selection input")
+	}
 	stats, err := compact.Stats(head)
 	if err != nil {
 		return nil, err
@@ -1609,7 +1696,7 @@ func materializeDiagnosticParserCoreAcceptedTree(compact *core.Core, head core.H
 		return nil, err
 	}
 	err = withDiagnosticParserCoreMaterializationScratch(parser, func(materializationScratch *diagnosticParserCoreMaterializationScratch) error {
-		return compact.VisitMaterializationPostorder(derivations[0].Payloads, poll, func(id core.SubtreeID, view core.MaterializationSubtreeView) error {
+		return compact.VisitMaterializationPostorder(payloads, poll, func(id core.SubtreeID, view core.MaterializationSubtreeView) error {
 			if view.EndByte < view.StartByte || view.EndByte > uint32(len(source)) {
 				return errors.New("parser-core phase zero: compact subtree extent is outside source")
 			}
@@ -1674,8 +1761,8 @@ func materializeDiagnosticParserCoreAcceptedTree(compact *core.Core, head core.H
 		return nil, err
 	}
 
-	nodes := make([]*Node, len(derivations[0].Payloads))
-	for index, payload := range derivations[0].Payloads {
+	nodes := make([]*Node, len(payloads))
+	for index, payload := range payloads {
 		if uint64(payload) >= uint64(len(nodesByID)) || nodesByID[payload] == nil {
 			return nil, errors.New("parser-core phase zero: compact materialization order omitted an accepted payload")
 		}
@@ -1991,6 +2078,10 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 		return err
 	}
 	path := paths[0]
+	selectedStore, err := s.compact.BuildAuthenticatedSelectedStore(path.Payloads, s.tokenSource.lexer.source, nil)
+	if err != nil {
+		return err
+	}
 	var header DiagnosticParserCoreHeaderPathReceipt
 	var payloads []uint32
 	if s.fullReceipts() {
@@ -2011,6 +2102,8 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 		header.Header = receipt
 	}
 	s.acceptedHead = s.headers[0].head
+	s.acceptedPayloads = append(s.acceptedPayloads[:0], path.Payloads...)
+	s.selectedStore = selectedStore
 	s.receipt.Acceptance = &DiagnosticParserCoreGenericAcceptance{
 		ElectionIndex: s.electionIndex, Token: s.token, Header: header,
 		Payloads: payloads, Score: path.Score, BranchOrder: path.BranchOrder,

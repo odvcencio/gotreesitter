@@ -133,6 +133,13 @@ func (r *parserCoreFreshFullRunner) materialize(source []byte, compact *core.Cor
 	return materializeDiagnosticParserCoreAcceptedTree(compact, head, r.parser, source)
 }
 
+func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact *core.Core, scheduler *diagnosticParserCoreGenericScheduler) (*Tree, error) {
+	if r == nil || scheduler == nil {
+		return nil, errors.New("parser-core fresh-full selected materialization is incomplete")
+	}
+	return materializeDiagnosticParserCoreAcceptedSelection(compact, scheduler.acceptedHead, scheduler.acceptedPayloads, r.parser, source)
+}
+
 func (r *parserCoreFreshFullRunner) parse(source []byte) (*Tree, error) {
 	if r == nil || r.compact == nil {
 		return nil, errors.New("parser-core fresh-full runner is incomplete")
@@ -142,9 +149,28 @@ func (r *parserCoreFreshFullRunner) parse(source []byte) (*Tree, error) {
 		return nil, err
 	}
 	defer tokenSource.Close()
-	tree, err := r.materialize(source, r.compact, scheduler.acceptedHead)
+	tree, err := r.materializeSelection(source, r.compact, scheduler)
 	if err != nil {
 		return nil, err
 	}
 	return tree, nil
+}
+
+func (r *parserCoreFreshFullRunner) parseSelectedStore(source []byte) (*core.SelectedStore, error) {
+	if r == nil || r.compact == nil {
+		return nil, errors.New("parser-core fresh-full selected-store runner is incomplete")
+	}
+	scheduler, tokenSource, err := r.executeSchedulerOpen(source, r.compact, true)
+	if err != nil {
+		return nil, err
+	}
+	defer tokenSource.Close()
+	if scheduler.selectedStore == nil || scheduler.selectedStore.Root() == 0 {
+		return nil, errors.New("parser-core fresh-full selected-store route fell back")
+	}
+	root, ok := scheduler.selectedStore.Record(scheduler.selectedStore.Root())
+	if !ok || root.StartByte != 0 || root.EndByte != uint32(len(source)) {
+		return nil, fmt.Errorf("parser-core fresh-full selected-store root is incomplete: %d..%d source=%d", root.StartByte, root.EndByte, len(source))
+	}
+	return scheduler.selectedStore, nil
 }
