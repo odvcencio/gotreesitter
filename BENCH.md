@@ -592,10 +592,10 @@ The build-tagged `AUTHENTICATED_CANDIDATE` reports:
 | `grammargen/lr.go` | 187.140 ms | 58.882 ms | **3.178231x** | 2,414,818 | 91,201.5 | 96,336 KiB | 9,216 KiB |
 
 The equal-fixture geomean is **3.118130x C**, the fixed-suite sum of medians
-is **3.169740x C**, and every fixture is below 3.19x C. The paired same-session
-control measured 3.362496x C, so the fresh-session change improves the suite
-geomean by **7.27%**, with every fixture improving by 6.69-8.46%. Exact static-C
-admission, compact work signatures, and zero fallback remained unchanged.
+is **3.169740x C**, and every fixture is below 3.19x C. Exact static-C
+admission, compact work signatures, and zero fallback remained unchanged. This
+publication does not claim a paired per-change speedup: its diagnostic control
+used a different CPU, cycle count, and admission mode.
 
 Receipt identities:
 

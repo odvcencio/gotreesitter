@@ -718,7 +718,7 @@ the authenticated compact candidate to **3.118130x C** by equal-fixture
 geomean, **3.169740x C** by fixed-suite sum, and **3.185522x C** on its worst
 fixture, with zero timed fallback. The release also includes build-time PGO,
 forest-path pooling and copy elimination, query work budgeting, and incremental
-reuse boundary corrections merged after the v0.40.0 tag.
+reuse boundary corrections from the v0.40.0 line.
 The authenticated production receipt at tag target `1935a42c` measures public
 `Parser.Parse` at **4.851050x C** by equal-fixture geomean, **5.472406x C** by
 fixed-suite sum, and **5.608320x C** on the worst fixture against the locked
