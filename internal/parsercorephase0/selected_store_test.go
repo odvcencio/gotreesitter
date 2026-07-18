@@ -416,6 +416,30 @@ func TestSelectedStoreSiblingReleasesAreSynchronized(t *testing.T) {
 	}
 }
 
+func TestSelectedRootMergeCountsPreflightArithmetic(t *testing.T) {
+	tests := []struct {
+		name                          string
+		children, roots, realChildren int
+		wantMerged, wantFinal         int
+		wantErr                       bool
+	}{
+		{name: "ordinary", children: 10, roots: 3, realChildren: 2, wantMerged: 4, wantFinal: 12},
+		{name: "merged-overflow", children: 0, roots: math.MaxUint16 + 2, wantErr: true},
+		{name: "int-addition-overflow", children: int(^uint(0) >> 1), roots: 2, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			merged, final, err := selectedRootMergeCounts(test.children, test.roots, uint16(test.realChildren))
+			if (err != nil) != test.wantErr {
+				t.Fatalf("selectedRootMergeCounts() error=%v wantErr=%t", err, test.wantErr)
+			}
+			if !test.wantErr && (merged != test.wantMerged || final != test.wantFinal) {
+				t.Fatalf("selectedRootMergeCounts()=(%d,%d) want=(%d,%d)", merged, final, test.wantMerged, test.wantFinal)
+			}
+		})
+	}
+}
+
 func TestSelectedCursorWalksSealedStore(t *testing.T) {
 	compact, _ := New(&fakeTable{}, Limits{})
 	left, _ := compact.appendSubtree(subtreeRecord{symbol: 1, endByte: 1, terminal: true}, nil, nil, nil)

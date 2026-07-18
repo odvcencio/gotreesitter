@@ -30,6 +30,11 @@ for tags and release notes while still in `0.x`.
   selected-store backend and retain selected-store bytes alongside total
   allocation, work, fallback, and RSS metrics.
 
+### Fixed
+
+- Keep compact-parser arena and selected-root cap arithmetic portable on
+  32-bit targets by widening lengths before uint32-bound checks and additions.
+
 ## [0.41.0] - 2026-07-18
 
 ### Performance

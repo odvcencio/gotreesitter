@@ -461,10 +461,10 @@ func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy,
 		if !meta.Visible && !record.extra {
 			continue
 		}
-		if len(logical) > math.MaxUint16 || len(store.children)+len(logical) > math.MaxUint32 || len(store.records) >= math.MaxUint32 {
+		if len(logical) > math.MaxUint16 || uint64(len(store.children))+uint64(len(logical)) > math.MaxUint32 || uint64(len(store.records)) >= math.MaxUint32 {
 			return nil, errors.New("parser-core phase zero: selected store exceeded uint32 arena")
 		}
-		id := SelectedNodeID(len(store.records) + 1)
+		id := SelectedNodeID(uint64(len(store.records)) + 1)
 		first := uint32(len(store.children))
 		store.children = append(store.children, logical...)
 		flags := selectedFlags(meta, record.extra, record.external, record.terminal)
@@ -771,7 +771,7 @@ func (s *SelectedStore) normalizeCaseBoundary(current *SelectedNodeRecord, nextS
 	target, newline := selectedTrailingTriviaBoundaryBefore(nextStart, source)
 	if newline {
 		current.EndByte = target
-		if tail.EndByte > target || tail.EndByte < target && selectedTrivia(source, tail.EndByte, target) {
+		if tail.EndByte > target || (tail.EndByte < target && selectedTrivia(source, tail.EndByte, target)) {
 			tail.EndByte = target
 		}
 		return
@@ -826,6 +826,20 @@ func (s *SelectedStore) applyDirectField(ids []SelectedNodeID, field FieldID) {
 	}
 }
 
+func selectedRootMergeCounts(childCount, rootCount int, realChildCount uint16) (int, int, error) {
+	if childCount < 0 || rootCount < 1 {
+		return 0, 0, errors.New("parser-core phase zero: invalid selected root counts")
+	}
+	extraCount := uint64(rootCount - 1)
+	mergedCount := extraCount + uint64(realChildCount)
+	finalChildren := uint64(childCount) + extraCount
+	maxInt := uint64(^uint(0) >> 1)
+	if mergedCount > math.MaxUint16 || finalChildren > math.MaxUint32 || finalChildren > maxInt {
+		return 0, 0, errors.New("parser-core phase zero: selected root extras exceed arena")
+	}
+	return int(mergedCount), int(finalChildren), nil
+}
+
 func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStorePolicy, retainedCap uint64) error {
 	if len(roots) == 0 {
 		return errors.New("parser-core phase zero: selected store sealed no logical roots")
@@ -860,10 +874,9 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 	oldStart := real.FirstChild
 	oldEnd := oldStart + uint32(real.ChildCount)
 	extraCount := len(roots) - 1
-	mergedCount := extraCount + int(real.ChildCount)
-	finalChildren := len(s.children) + extraCount
-	if mergedCount > math.MaxUint16 || finalChildren > math.MaxUint32 {
-		return errors.New("parser-core phase zero: selected root extras exceed arena")
+	mergedCount, finalChildren, err := selectedRootMergeCounts(len(s.children), len(roots), real.ChildCount)
+	if err != nil {
+		return err
 	}
 	childCapacity := cap(s.children)
 	if childCapacity < finalChildren {
@@ -932,7 +945,7 @@ func (c *Core) selectedRawOccurrences(roots []SubtreeID, poll func() error) ([]s
 			uint64(len(children))+uint64(record.childCount) > uint64(c.limits.MaxSelectedOccurrences) {
 			return 0, errors.New("parser-core phase zero: raw selected occurrence cap")
 		}
-		if len(raw) >= math.MaxUint32 || uint64(len(children))+uint64(record.childCount) > math.MaxUint32 {
+		if uint64(len(raw)) >= math.MaxUint32 || uint64(len(children))+uint64(record.childCount) > math.MaxUint32 {
 			return 0, errors.New("parser-core phase zero: raw selected occurrence exceeds arena")
 		}
 		id := uint32(len(raw))

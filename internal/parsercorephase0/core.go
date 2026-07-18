@@ -1662,17 +1662,17 @@ func (c *Core) appendPrivate(state StateID, byteOffset uint32, in linkInput) (He
 	if _, err := c.subtree(in.payload); err != nil {
 		return Head{}, err
 	}
-	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || len(c.links) >= math.MaxUint32 {
+	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || uint64(len(c.links)) >= math.MaxUint32 {
 		return Head{}, errors.New("parser-core phase zero: link arena cap")
 	}
-	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
+	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
 		return Head{}, errors.New("parser-core phase zero: node arena cap")
 	}
 	flags := uint32(0)
 	if in.order.Present {
 		flags |= linkFlagHasOrder
 	}
-	linkID := LinkID(len(c.links) + 1)
+	linkID := LinkID(uint64(len(c.links)) + 1)
 	c.links = append(c.links, linkRecord{
 		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
 		order: in.order.Value, flags: flags,
@@ -1845,13 +1845,13 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if oldID != 0 {
 		newPathCount = saturatingAddPaths(newPathCount, old.pathCount)
 	}
-	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || len(c.links) >= math.MaxUint32 {
+	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || uint64(len(c.links)) >= math.MaxUint32 {
 		if oldID != 0 {
 			c.recordLinkUnionRejected()
 		}
 		return condenseOutcome{}, errors.New("parser-core phase zero: link arena cap")
 	}
-	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
+	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
 		if oldID != 0 {
 			c.recordLinkUnionRejected()
 		}
@@ -1871,7 +1871,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		}
 		linkCount += old.linkCount
 	}
-	linkID := LinkID(len(c.links) + 1)
+	linkID := LinkID(uint64(len(c.links)) + 1)
 	flags := uint32(0)
 	if in.order.Present {
 		flags |= linkFlagHasOrder
@@ -2307,10 +2307,10 @@ func (c *Core) appendAdjacencyNode(state StateID, byteOffset uint32, links []lin
 	if uint64(len(c.links))+uint64(len(links)) > uint64(c.limits.MaxLinks) || uint64(len(c.links))+uint64(len(links)) > math.MaxUint32 {
 		return 0, errors.New("parser-core phase zero: link arena cap")
 	}
-	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
+	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
 		return 0, errors.New("parser-core phase zero: node arena cap")
 	}
-	next := NodeID(len(c.nodes) + 1)
+	next := NodeID(uint64(len(c.nodes)) + 1)
 	pathCount := uint64(0)
 	for _, link := range links {
 		if link.prev == 0 || link.prev >= next {
@@ -2373,7 +2373,7 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, old nod
 	if uint64(len(c.links))+uint64(len(oldLinks)) > uint64(c.limits.MaxLinks) || uint64(len(c.links))+uint64(len(oldLinks)) > math.MaxUint32 {
 		return Head{}, errors.New("parser-core phase zero: link arena cap")
 	}
-	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
+	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
 		return Head{}, errors.New("parser-core phase zero: node arena cap")
 	}
 
@@ -3101,10 +3101,10 @@ func (c *Core) RawSelectedSubtreeCensus(roots []SubtreeID) (RawSelectedCensus, e
 }
 
 func (c *Core) appendNode(r nodeRecord) (NodeID, error) {
-	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || len(c.nodes) >= math.MaxUint32 {
+	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
 		return 0, errors.New("parser-core phase zero: node arena cap")
 	}
-	next := NodeID(len(c.nodes) + 1)
+	next := NodeID(uint64(len(c.nodes)) + 1)
 	if err := c.validatePublishedNodeDAG(r, next); err != nil {
 		return 0, err
 	}
@@ -3167,7 +3167,7 @@ func (c *Core) appendAuthenticatedTerminal(r subtreeRecord) (SubtreeID, error) {
 }
 
 func (c *Core) appendSubtreeRecord(r subtreeRecord, children []SubtreeID, fields []FieldMapEntry, aliases []Symbol) (SubtreeID, error) {
-	if uint64(len(c.subtrees))+1 > uint64(c.limits.MaxSubtrees) || len(c.subtrees) >= math.MaxUint32 {
+	if uint64(len(c.subtrees))+1 > uint64(c.limits.MaxSubtrees) || uint64(len(c.subtrees)) >= math.MaxUint32 {
 		return 0, errors.New("parser-core phase zero: subtree arena cap")
 	}
 	if uint64(len(c.children))+uint64(len(children)) > uint64(c.limits.MaxChildren) {
