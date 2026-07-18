@@ -12,9 +12,9 @@ for tags and release notes while still in `0.x`.
 - Run the authenticated fresh compact scheduler as one fail-closed session,
   resetting the entire compact core after any error or panic instead of taking
   a rollback checkpoint for every successful operation. On the pinned quiet
-  host, the paired four-fixture candidate improves from 3.362496x to 3.129149x
-  static C by equal-fixture geomean (6.94%), with every fixture faster by
-  5.20-8.36%, exact static-C admission, and zero fallback. The compact route
+  host, the paired four-fixture candidate improves from 3.362496x to 3.118130x
+  static C by equal-fixture geomean (7.27%), with every fixture faster by
+  6.69-8.46%, exact static-C admission, and zero fallback. The compact route
   remains build-tagged and diagnostic-only.
 - Bypass general graph enumeration when a compact-parser reduction follows a
   single-link stack path, while retaining the existing enumerator for branched
