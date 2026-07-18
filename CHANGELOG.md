@@ -7,6 +7,8 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-07-18
+
 ### Performance
 
 - Run the authenticated fresh compact scheduler as one fail-closed session,
@@ -2890,7 +2892,10 @@ Warm-reuse throughput ~10 % higher. 206-grammar parity green under `GTS_PARITY_M
 - Initial standalone pure-Go runtime module.
 - External scanner VM foundation and base parser/lexer/tree infrastructure.
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.38.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/odvcencio/gotreesitter/compare/v0.40.0...v0.41.0
+[0.40.0]: https://github.com/odvcencio/gotreesitter/compare/v0.39.0...v0.40.0
+[0.39.0]: https://github.com/odvcencio/gotreesitter/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/odvcencio/gotreesitter/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/odvcencio/gotreesitter/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/odvcencio/gotreesitter/compare/v0.34.0...v0.36.0

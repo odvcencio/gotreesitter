@@ -574,6 +574,43 @@ The support boundary remains unchanged: this is a diagnostic clean fresh-full
 Go candidate, not a public `Parser.Parse`, recovery, incremental,
 included-range, query/cursor, or multi-grammar claim.
 
+### Fresh compact scheduler session publication
+
+A clean candidate publication was collected on 2026-07-18 from quiet host
+`ns1007492`, pinned to its least-busy admitted CPU with Go 1.22.2, at exact
+revision `19a8f5265d158703ba1465687178a2adf527a372`. It uses the same locked
+static `-O2` oracle and passed cgo/static deep admission before five Go-C-C-Go
+cycles produced ten samples per backend and fixture.
+
+The build-tagged `AUTHENTICATED_CANDIDATE` reports:
+
+| Fixture | Candidate median | static C median | Candidate / C | B/op | allocs/op | Candidate max RSS | C max RSS |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `query_compile.go` | 17.573 ms | 5.516 ms | **3.185522x** | 230,909 | 9,030 | 46,948 KiB | 2,816 KiB |
+| `rewrite.go` | 3.621 ms | 1.203 ms | **3.010150x** | 55,897 | 1,935 | 50,644 KiB | 2,304 KiB |
+| `language.go` | 18.053 ms | 5.820 ms | **3.101863x** | 274,543 | 9,279 | 57,820 KiB | 2,816 KiB |
+| `grammargen/lr.go` | 187.140 ms | 58.882 ms | **3.178231x** | 2,414,818 | 91,201.5 | 96,336 KiB | 9,216 KiB |
+
+The equal-fixture geomean is **3.118130x C**, the fixed-suite sum of medians
+is **3.169740x C**, and every fixture is below 3.19x C. The paired same-session
+control measured 3.362496x C, so the fresh-session change improves the suite
+geomean by **7.27%**, with every fixture improving by 6.69-8.46%. Exact static-C
+admission, compact work signatures, and zero fallback remained unchanged.
+
+Receipt identities:
+
+- manifest/report/archive SHA-256:
+  `66242c222f60cafbbd4b1cf3b4deebd571e772f5c9f9981ef2aa17bbca404ed5`,
+  `3eb7accb7f227d426f7ecb38b7480ebadda6561a264ee0e013f66833dbd29f4e`,
+  `97c44e56600d60e6d8665c74e75f2da3dedf0347a009ed388634d79f16a938df`;
+- locked static C artifact SHA-256:
+  `dfbed45811491be8d81e32b293ed5577222445dae47b67d876cedae09679a871`.
+
+The support boundary remains diagnostic and unchanged: clean fresh-full Go,
+visible deep-tree structure, and exact work counts—not public `Parser.Parse`,
+recovery, incremental reuse, included ranges, query/cursor behavior, or
+multiple grammars.
+
 ### Diagnostic workload-regime receipt
 
 Before the static publication artifact was built, a strict-admitted quiet run
