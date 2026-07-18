@@ -169,6 +169,133 @@ func TestSchedulerTransactionCommitAndRollback(t *testing.T) {
 	})
 }
 
+func TestFreshSchedulerSessionCommitAndResetContract(t *testing.T) {
+	compact, _, boundary := newSchedulerTransactionShiftFixture(t)
+	var retained SchedulerTransactionToken
+	err := compact.RunFreshSchedulerSession(func(owner SchedulerTransactionToken) error {
+		retained = owner
+		if len(compact.transactions) != 0 {
+			t.Fatalf("fresh session opened rollback transaction: %v", compact.transactions)
+		}
+		_, err := compact.ShiftClassifiedOwned(owner, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{})
+		return err
+	})
+	if err != nil || compact.Work().Shifts != 1 || len(compact.transactions) != 0 {
+		t.Fatalf("fresh session commit err=%v work=%+v transactions=%v", err, compact.Work(), compact.transactions)
+	}
+	requireClearedSchedulerFrame(t, compact, retained.epoch)
+	if err := compact.Reset(); err != nil {
+		t.Fatalf("Reset after fresh session: %v", err)
+	}
+	requireClearedSchedulerFrame(t, compact, retained.epoch)
+}
+
+func TestFreshSchedulerSessionFailClosed(t *testing.T) {
+	t.Run("ignored-owned-error-poisons", func(t *testing.T) {
+		compact, _, boundary := newSchedulerTransactionShiftFixture(t)
+		err := compact.RunFreshSchedulerSession(func(owner SchedulerTransactionToken) error {
+			if _, innerErr := compact.ShiftClassifiedOwned(owner, boundary, 1, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); innerErr == nil {
+				t.Fatal("invalid owned shift unexpectedly succeeded")
+			}
+			return nil
+		})
+		if err == nil || !strings.Contains(err.Error(), "poisoned fresh scheduler session") {
+			t.Fatalf("ignored owned error did not poison fresh session: %v", err)
+		}
+		requireClearedSchedulerFrame(t, compact, 1)
+		if state := captureSchedulerTransactionState(compact); state.nodes != 0 || state.links != 0 || state.subtrees != 0 || state.work != (Work{}) {
+			t.Fatalf("failed fresh session retained published state: %+v", state)
+		}
+	})
+
+	t.Run("nested-session-poisons", func(t *testing.T) {
+		compact, _, _ := newSchedulerTransactionShiftFixture(t)
+		err := compact.RunFreshSchedulerSession(func(SchedulerTransactionToken) error {
+			if nestedErr := compact.RunFreshSchedulerSession(func(SchedulerTransactionToken) error { return nil }); nestedErr == nil {
+				t.Fatal("nested fresh session unexpectedly succeeded")
+			}
+			return nil
+		})
+		if err == nil || !strings.Contains(err.Error(), "poisoned fresh scheduler session") {
+			t.Fatalf("ignored nested error did not poison fresh session: %v", err)
+		}
+		requireClearedSchedulerFrame(t, compact, 1)
+		if state := captureSchedulerTransactionState(compact); state.nodes != 0 || state.links != 0 || state.subtrees != 0 || state.work != (Work{}) {
+			t.Fatalf("nested fresh session retained published state: %+v", state)
+		}
+	})
+
+	t.Run("nested-nil-session-poisons", func(t *testing.T) {
+		compact, _, _ := newSchedulerTransactionShiftFixture(t)
+		err := compact.RunFreshSchedulerSession(func(SchedulerTransactionToken) error {
+			if nestedErr := compact.RunFreshSchedulerSession(nil); nestedErr == nil {
+				t.Fatal("nested nil fresh session unexpectedly succeeded")
+			}
+			return nil
+		})
+		if err == nil || !strings.Contains(err.Error(), "poisoned fresh scheduler session") {
+			t.Fatalf("ignored nested nil error did not poison fresh session: %v", err)
+		}
+		requireClearedSchedulerFrame(t, compact, 1)
+		if state := captureSchedulerTransactionState(compact); state.nodes != 0 || state.links != 0 || state.subtrees != 0 || state.work != (Work{}) {
+			t.Fatalf("nested nil fresh session retained published state: %+v", state)
+		}
+	})
+
+	t.Run("panic-clears-capability", func(t *testing.T) {
+		compact, _, boundary := newSchedulerTransactionShiftFixture(t)
+		func() {
+			defer func() {
+				if recovered := recover(); recovered != "fresh panic" {
+					t.Fatalf("recovered=%v", recovered)
+				}
+			}()
+			_ = compact.RunFreshSchedulerSession(func(owner SchedulerTransactionToken) error {
+				if _, err := compact.ShiftClassifiedOwned(owner, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); err != nil {
+					return err
+				}
+				panic("fresh panic")
+			})
+		}()
+		requireClearedSchedulerFrame(t, compact, 1)
+		if state := captureSchedulerTransactionState(compact); state.nodes != 0 || state.links != 0 || state.subtrees != 0 || state.work != (Work{}) {
+			t.Fatalf("panicked fresh session retained published state: %+v", state)
+		}
+	})
+}
+
+func TestFreshSchedulerSessionRejectsRetainedToken(t *testing.T) {
+	compact, _, _ := newSchedulerTransactionShiftFixture(t)
+	var stale SchedulerTransactionToken
+	if err := compact.RunFreshSchedulerSession(func(owner SchedulerTransactionToken) error {
+		stale = owner
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := compact.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	seed, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	boundary, err := compact.ClassifyBoundary(seed, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := captureSchedulerTransactionState(compact)
+	err = compact.ApplySchedulerAtomic(func(SchedulerTransactionToken) error {
+		if _, innerErr := compact.ShiftClassifiedOwned(stale, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); innerErr == nil || !strings.Contains(innerErr.Error(), "stale") {
+			t.Fatalf("retained fresh token error=%v", innerErr)
+		}
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "poisoned scheduler transaction") || !reflect.DeepEqual(captureSchedulerTransactionState(compact), before) {
+		t.Fatalf("retained fresh token did not fail closed: %v", err)
+	}
+}
+
 func TestSchedulerTransactionInsideStandaloneOwner(t *testing.T) {
 	t.Run("outer-rollback", func(t *testing.T) {
 		compact, _, boundary := newSchedulerTransactionShiftFixture(t)

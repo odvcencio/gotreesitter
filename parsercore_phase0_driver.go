@@ -52,6 +52,9 @@ type DiagnosticParserCorePrefixOptions struct {
 	MaxDispatches           uint64
 	MaxTokens               uint64
 	Limits                  core.Limits
+	// freshSchedulerSession is set only by the reusable fresh-full runner,
+	// which resets before every call and never exposes a declined core.
+	freshSchedulerSession bool
 }
 
 type DiagnosticParserCoreScannerCheckpoint struct {
@@ -1217,6 +1220,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	acceptedHead               core.Head
 	conflictPostExecutionFault func() error
 	extraPostExecutionFault    func() error
+	freshSessionOwner          *core.SchedulerTransactionToken
 	observer                   diagnosticParserCoreSeedObserver
 	stoppedAfterElection       bool
 }
@@ -1437,7 +1441,17 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeed(
 		return nil, err
 	}
 	defer scheduler.headerRollbackScratch.reset()
-	if err := scheduler.run(); err != nil {
+	run := scheduler.run
+	if options.freshSchedulerSession {
+		run = func() error {
+			return compact.RunFreshSchedulerSession(func(owner core.SchedulerTransactionToken) error {
+				scheduler.freshSessionOwner = &owner
+				defer func() { scheduler.freshSessionOwner = nil }()
+				return scheduler.run()
+			})
+		}
+	}
+	if err := run(); err != nil {
 		return scheduler, err
 	}
 	return scheduler, nil
@@ -2071,6 +2085,9 @@ func (s *diagnosticParserCoreGenericScheduler) dropGenericNoActionHeads(indices 
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	if s.freshSessionOwner != nil {
+		return s.applyGenericReductionOwned(*s.freshSessionOwner, before, cell)
+	}
 	if err := s.headerRollbackScratch.begin(s.headers); err != nil {
 		return err
 	}
@@ -2214,6 +2231,9 @@ func (s *diagnosticParserCoreGenericScheduler) reconcileGenericConflictOutputs(s
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	if s.freshSessionOwner != nil {
+		return s.applyGenericConflictOwned(*s.freshSessionOwner, before, cell)
+	}
 	if err := s.headerRollbackScratch.begin(s.headers); err != nil {
 		return err
 	}
@@ -2405,6 +2425,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) (err error) {
+	if s.freshSessionOwner != nil {
+		return s.applyGenericShiftsOwned(*s.freshSessionOwner, before, cells)
+	}
 	if err := s.headerRollbackScratch.begin(s.headers); err != nil {
 		return err
 	}

@@ -593,6 +593,7 @@ type schedulerTransactionFrame struct {
 	epoch    uint64
 	poisoned error
 	active   bool
+	fresh    bool
 }
 
 // clearInactive releases every completed checkpoint reference, including the
@@ -713,10 +714,68 @@ func (c *Core) validateSchedulerTransaction(token SchedulerTransactionToken) err
 	if !frame.active || token.epoch == 0 || token.epoch != frame.epoch || token.transaction != frame.mark.transaction {
 		return errors.New("parser-core phase zero: stale scheduler transaction token")
 	}
+	if frame.fresh {
+		return nil
+	}
 	if len(c.transactions) == 0 || c.transactions[len(c.transactions)-1] != token.transaction {
 		return errors.New("parser-core phase zero: scheduler transaction token is not top-of-stack owner")
 	}
 	return nil
+}
+
+// RunFreshSchedulerSession authenticates one scheduler-owned run without
+// taking per-operation arena checkpoints. It is restricted to a core with no
+// active transaction. Successful runs keep their compact graph; any error or
+// panic resets the whole fresh core after invalidating the capability. The
+// session still poisons ignored owned-operation failures.
+func (c *Core) RunFreshSchedulerSession(fn func(SchedulerTransactionToken) error) (err error) {
+	frame := &c.schedulerFrame
+	if fn == nil {
+		err := errors.New("parser-core phase zero: nil fresh scheduler session")
+		if frame.active && frame.poisoned == nil {
+			frame.poisoned = err
+		}
+		return err
+	}
+	if frame.active {
+		err := errors.New("parser-core phase zero: nested fresh scheduler session")
+		if frame.poisoned == nil {
+			frame.poisoned = err
+		}
+		return err
+	}
+	if len(c.transactions) != 0 {
+		return errors.New("parser-core phase zero: fresh scheduler session inside active transaction")
+	}
+	if frame.epoch == math.MaxUint64 || c.nextTransaction == math.MaxUint64 {
+		return errors.New("parser-core phase zero: fresh scheduler session identity overflow")
+	}
+	frame.clearInactive()
+	frame.epoch++
+	c.nextTransaction++
+	frame.mark.transaction = c.nextTransaction
+	frame.active = true
+	frame.fresh = true
+	token := SchedulerTransactionToken{owner: c, epoch: frame.epoch, transaction: frame.mark.transaction}
+	defer func() {
+		recovered := recover()
+		if recovered != nil {
+			frame.clearInactive()
+			_ = c.Reset()
+			panic(recovered)
+		}
+		if err == nil && frame.poisoned != nil {
+			err = fmt.Errorf("parser-core phase zero: poisoned fresh scheduler session: %w", frame.poisoned)
+		}
+		frame.clearInactive()
+		if err != nil {
+			if resetErr := c.Reset(); resetErr != nil {
+				err = errors.Join(err, fmt.Errorf("parser-core phase zero: reset failed after fresh scheduler error: %w", resetErr))
+			}
+		}
+	}()
+	err = fn(token)
+	return err
 }
 
 func (c *Core) poisonSchedulerTransaction(token SchedulerTransactionToken, cause error) error {
@@ -778,6 +837,13 @@ func (c *Core) ApplySchedulerAtomic(fn func(SchedulerTransactionToken) error) (e
 		return err
 	}
 	frame := &c.schedulerFrame
+	if frame.active && frame.fresh {
+		token := SchedulerTransactionToken{owner: c, epoch: frame.epoch, transaction: frame.mark.transaction}
+		if err = fn(token); err != nil {
+			return c.poisonSchedulerTransaction(token, err)
+		}
+		return nil
+	}
 	if frame.active {
 		err := errors.New("parser-core phase zero: nested scheduler-owned transaction")
 		if frame.poisoned == nil {

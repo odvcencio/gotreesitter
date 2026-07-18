@@ -51,6 +51,7 @@ func newParserCoreFreshFullRunner(scanner ExternalScanner, options DiagnosticPar
 	if options.MaxTokens == 0 {
 		options.MaxTokens = 100000
 	}
+	options.freshSchedulerSession = true
 
 	lang, err := authenticatedParserCoreGoLanguage(scanner)
 	if err != nil {
@@ -89,11 +90,11 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 	)
 	if err != nil {
 		tokenSource.Close()
-		return scheduler, nil, err
+		return nil, nil, err
 	}
 	if err := requireParserCoreFreshFullAcceptance(scheduler, len(source)); err != nil {
 		tokenSource.Close()
-		return scheduler, nil, err
+		return nil, nil, err
 	}
 	return scheduler, tokenSource, nil
 }
