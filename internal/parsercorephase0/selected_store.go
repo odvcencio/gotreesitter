@@ -9,8 +9,8 @@ import (
 )
 
 // SelectedSymbolPolicy is immutable materialization metadata for one grammar
-// symbol. It is built once with the authenticated table adapter, outside the
-// parse and selected-store timing boundaries.
+// symbol. The authenticated table adapter builds it lazily only when the
+// selected-store boundary is requested; the Core then caches it.
 type SelectedSymbolPolicy struct {
 	Visible bool
 	Named   bool
@@ -39,8 +39,8 @@ type SelectedStorePolicy struct {
 	StatementLists      []bool
 }
 
-// SelectedStorePolicyProvider lets an authenticated table adapter install the
-// compact-to-consumer policy once when a Core is constructed.
+// SelectedStorePolicyProvider lets an authenticated table adapter build the
+// compact-to-consumer policy lazily on first selected-store use.
 type SelectedStorePolicyProvider interface {
 	SelectedStorePolicy() (SelectedStorePolicy, error)
 }
@@ -127,8 +127,6 @@ type SelectedNodeRecord struct {
 	FirstChild        uint32
 	StartByte         uint32
 	EndByte           uint32
-	ParseState        StateID
-	PreGotoState      StateID
 	Symbol            Symbol
 	Field             FieldID
 	ProductionID      uint16
@@ -202,8 +200,12 @@ func (s *SelectedStore) RetainedBytes() uint64 {
 	if s == nil || s.released {
 		return 0
 	}
-	return uint64(cap(s.records))*uint64(unsafe.Sizeof(SelectedNodeRecord{})) +
-		uint64(cap(s.children))*uint64(unsafe.Sizeof(SelectedNodeID(0)))
+	return selectedStoreRetainedBytes(cap(s.records), cap(s.children))
+}
+
+func selectedStoreRetainedBytes(recordCapacity, childCapacity int) uint64 {
+	return uint64(recordCapacity)*uint64(unsafe.Sizeof(SelectedNodeRecord{})) +
+		uint64(childCapacity)*uint64(unsafe.Sizeof(SelectedNodeID(0)))
 }
 
 func (s *SelectedStore) Record(id SelectedNodeID) (SelectedNodeRecord, bool) {
@@ -225,8 +227,10 @@ func (s *SelectedStore) Child(record SelectedNodeRecord, index uint32) (Selected
 }
 
 // Release invalidates the selected snapshot and returns its pointer-free
-// backing to the owning compact core. It is idempotent and must not race with
-// cursor reads. The store remains independent of Core.Reset until Release.
+// backing to the owning compact core. It is idempotent when called serially,
+// but must not race with any operation on the same store. Releasing distinct
+// sibling stores is synchronized. The store remains independent of Core.Reset
+// until Release.
 func (s *SelectedStore) Release() {
 	if s == nil || s.released {
 		return
@@ -241,9 +245,16 @@ func (s *SelectedStore) Release() {
 }
 
 func (c *Core) acquireSelectedStore(recordCapacity, childCapacity int) *SelectedStore {
+	c.selectedPoolMu.Lock()
 	records := c.selectedPool.records
 	children := c.selectedPool.children
 	c.selectedPool = selectedStoreBacking{}
+	c.selectedPoolMu.Unlock()
+	prospectiveRecords := max(cap(records), recordCapacity)
+	prospectiveChildren := max(cap(children), childCapacity)
+	if selectedStoreRetainedBytes(prospectiveRecords, prospectiveChildren) > c.limits.MaxSelectedBytes {
+		records, children = nil, nil
+	}
 	if cap(records) < recordCapacity {
 		records = make([]SelectedNodeRecord, 0, recordCapacity)
 	} else {
@@ -265,11 +276,16 @@ func (c *Core) recycleSelectedStore(records []SelectedNodeRecord, children []Sel
 	}
 	clear(records)
 	clear(children)
-	if cap(records) >= cap(c.selectedPool.records) {
-		c.selectedPool.records = records[:0]
+	incoming := selectedStoreBacking{records: records[:0], children: children[:0]}
+	incomingBytes := selectedStoreRetainedBytes(cap(records), cap(children))
+	if incomingBytes > c.limits.MaxSelectedBytes {
+		return
 	}
-	if cap(children) >= cap(c.selectedPool.children) {
-		c.selectedPool.children = children[:0]
+	c.selectedPoolMu.Lock()
+	defer c.selectedPoolMu.Unlock()
+	pooledBytes := selectedStoreRetainedBytes(cap(c.selectedPool.records), cap(c.selectedPool.children))
+	if incomingBytes >= pooledBytes {
+		c.selectedPool = incoming
 	}
 }
 
@@ -327,7 +343,8 @@ type selectedRawOccurrence struct {
 
 // BuildSelectedStore seals accepted roots directly from compact immutable
 // payload arenas. It does not enumerate a head, construct public Nodes, or
-// invoke a per-occurrence callback.
+// invoke a per-occurrence callback. It borrows Core-owned scratch and therefore
+// must not run concurrently with any other operation on the same Core.
 func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy, source []byte, poll func() error) (*SelectedStore, error) {
 	if c == nil || len(roots) == 0 {
 		return nil, errors.New("parser-core phase zero: selected store requires accepted roots")
@@ -497,7 +514,7 @@ func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy,
 			}
 		}
 	}
-	if err := store.finishRoots(rootIDs, policy); err != nil {
+	if err := store.finishRoots(rootIDs, policy, c.limits.MaxSelectedBytes); err != nil {
 		return nil, err
 	}
 	if err := store.normalizeGoCompatibility(policy, source, poll); err != nil {
@@ -575,11 +592,27 @@ func (s *SelectedStore) recomputePrecedence(deltas []int32) error {
 	return recompute(s.root)
 }
 
-// BuildAuthenticatedSelectedStore uses the immutable policy captured from the
-// Core's exact table adapter.
+// BuildAuthenticatedSelectedStore lazily requests the immutable policy from
+// the Core's exact table adapter. Generic/public compact-parser controls do not
+// pay the quadratic unary-policy initialization or retention cost.
 func (c *Core) BuildAuthenticatedSelectedStore(roots []SubtreeID, source []byte, poll func() error) (*SelectedStore, error) {
-	if c == nil || c.selectedPolicy == nil {
+	if c == nil || c.selectedProvider == nil {
 		return nil, errors.New("parser-core phase zero: selected-store policy is unavailable")
+	}
+	if poll != nil {
+		if err := poll(); err != nil {
+			return nil, err
+		}
+	}
+	if c.selectedPolicy == nil {
+		policy, err := c.selectedProvider.SelectedStorePolicy()
+		if err != nil {
+			return nil, err
+		}
+		if len(policy.Symbols) == 0 {
+			return nil, errors.New("parser-core phase zero: selected-store policy is unavailable")
+		}
+		c.selectedPolicy = &policy
 	}
 	return c.BuildSelectedStore(roots, *c.selectedPolicy, source, poll)
 }
@@ -793,7 +826,7 @@ func (s *SelectedStore) applyDirectField(ids []SelectedNodeID, field FieldID) {
 	}
 }
 
-func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStorePolicy) error {
+func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStorePolicy, retainedCap uint64) error {
 	if len(roots) == 0 {
 		return errors.New("parser-core phase zero: selected store sealed no logical roots")
 	}
@@ -813,6 +846,10 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 				return errors.New("parser-core phase zero: selected store has multiple authenticated roots")
 			}
 			realIndex = index
+			continue
+		}
+		if !record.Extra() {
+			return errors.New("parser-core phase zero: selected store has a non-extra sibling root")
 		}
 	}
 	if realIndex < 0 {
@@ -822,17 +859,40 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 	real := &s.records[realID-1]
 	oldStart := real.FirstChild
 	oldEnd := oldStart + uint32(real.ChildCount)
-	mergedCount := len(roots) - 1 + int(real.ChildCount)
-	if mergedCount > math.MaxUint16 || len(s.children)+mergedCount > math.MaxUint32 {
+	extraCount := len(roots) - 1
+	mergedCount := extraCount + int(real.ChildCount)
+	finalChildren := len(s.children) + extraCount
+	if mergedCount > math.MaxUint16 || finalChildren > math.MaxUint32 {
 		return errors.New("parser-core phase zero: selected root extras exceed arena")
 	}
-	real.FirstChild = uint32(len(s.children))
+	childCapacity := cap(s.children)
+	if childCapacity < finalChildren {
+		childCapacity = finalChildren
+	}
+	if selectedStoreRetainedBytes(cap(s.records), childCapacity) > retainedCap {
+		return errors.New("parser-core phase zero: selected store retained-byte cap")
+	}
+	oldLength := len(s.children)
+	if cap(s.children) < finalChildren {
+		children := make([]SelectedNodeID, oldLength, finalChildren)
+		copy(children, s.children)
+		s.children = children
+	}
+	s.children = s.children[:finalChildren]
+	copy(s.children[oldEnd+uint32(extraCount):], s.children[oldEnd:uint32(oldLength)])
+	before := uint32(realIndex)
+	copy(s.children[oldStart+before:oldEnd+before], s.children[oldStart:oldEnd])
+	copy(s.children[oldStart:oldStart+before], roots[:realIndex])
+	copy(s.children[oldEnd+before:oldEnd+uint32(extraCount)], roots[realIndex+1:])
+	for index := range s.records {
+		record := &s.records[index]
+		if SelectedNodeID(index+1) != realID && record.ChildCount != 0 && record.FirstChild >= oldEnd {
+			record.FirstChild += uint32(extraCount)
+		}
+	}
 	real.ChildCount = uint16(mergedCount)
 	real.StartByte = 0
-	s.children = append(s.children, roots[:realIndex]...)
-	s.children = append(s.children, s.children[oldStart:oldEnd]...)
-	s.children = append(s.children, roots[realIndex+1:]...)
-	merged := s.children[real.FirstChild:]
+	merged := s.children[oldStart : oldStart+uint32(mergedCount)]
 	for childIndex, child := range merged {
 		s.records[child-1].Parent = realID
 		s.records[child-1].ChildIndex = uint16(childIndex)

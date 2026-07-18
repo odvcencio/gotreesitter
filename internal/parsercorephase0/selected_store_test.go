@@ -4,7 +4,9 @@ import (
 	"errors"
 	"math"
 	"strings"
+	"sync"
 	"testing"
+	"unsafe"
 )
 
 func selectedStoreTestPolicy(t *testing.T, visible ...Symbol) SelectedStorePolicy {
@@ -201,9 +203,11 @@ func TestSelectedStoreDeclinesUnsupportedFieldProfile(t *testing.T) {
 type selectedStorePolicyTable struct {
 	fakeTable
 	policy SelectedStorePolicy
+	calls  int
 }
 
 func (t *selectedStorePolicyTable) SelectedStorePolicy() (SelectedStorePolicy, error) {
+	t.calls++
 	return t.policy, nil
 }
 
@@ -214,10 +218,16 @@ func TestSelectedStoreAuthenticatedPolicyCapability(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if tables.calls != 0 {
+		t.Fatalf("selected policy was built eagerly: calls=%d", tables.calls)
+	}
 	leaf, _ := compact.appendSubtree(subtreeRecord{symbol: 1, endByte: 1, terminal: true}, nil, nil, nil)
 	store, err := compact.BuildAuthenticatedSelectedStore([]SubtreeID{leaf}, []byte("x"), nil)
 	if err != nil || store == nil || store.NodeCount() != 1 {
 		t.Fatalf("authenticated store=%v err=%v", store, err)
+	}
+	if tables.calls != 1 {
+		t.Fatalf("selected policy lazy calls=%d want=1", tables.calls)
 	}
 	if err := compact.Reset(); err != nil {
 		t.Fatal(err)
@@ -246,10 +256,163 @@ func TestSelectedStoreAuthenticatedPolicyCapability(t *testing.T) {
 	if err != nil || freshStore == nil || freshStore.NodeCount() != 1 {
 		t.Fatalf("store backing was not reusable after release: store=%v err=%v", freshStore, err)
 	}
+	if tables.calls != 1 {
+		t.Fatalf("selected policy was rebuilt: calls=%d", tables.calls)
+	}
 	freshStore.Release()
 	withoutPolicy, _ := New(&fakeTable{}, Limits{})
 	if missing, err := withoutPolicy.BuildAuthenticatedSelectedStore([]SubtreeID{1}, []byte("x"), nil); err == nil || missing != nil {
 		t.Fatalf("missing policy store=%v err=%v", missing, err)
+	}
+}
+
+func TestSelectedStoreAuthenticatedPolicyCancellationPrecedesLazyBuild(t *testing.T) {
+	policy := selectedStoreTestPolicy(t, 1)
+	tables := &selectedStorePolicyTable{policy: policy}
+	compact, err := New(tables, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stop := errors.New("stop before policy")
+	store, err := compact.BuildAuthenticatedSelectedStore([]SubtreeID{1}, []byte("x"), func() error { return stop })
+	if !errors.Is(err, stop) || store != nil {
+		t.Fatalf("cancelled authenticated store=%v err=%v", store, err)
+	}
+	if tables.calls != 0 {
+		t.Fatalf("cancelled authenticated policy calls=%d want=0", tables.calls)
+	}
+}
+
+func TestSelectedStoreRootMergePreflightsCapAndLaterBuildRemainsBounded(t *testing.T) {
+	recordBytes := uint64(unsafe.Sizeof(SelectedNodeRecord{}))
+	childBytes := uint64(unsafe.Sizeof(SelectedNodeID(0)))
+	limit := 3*recordBytes + childBytes
+	compact, err := New(&fakeTable{}, Limits{MaxSelectedOccurrences: 8, MaxSelectedBytes: limit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, _ := compact.appendSubtree(subtreeRecord{symbol: 1, endByte: 1, terminal: true}, nil, nil, nil)
+	root, _ := compact.appendSubtree(subtreeRecord{symbol: 2, endByte: 1}, []SubtreeID{child}, nil, nil)
+	extra, _ := compact.appendSubtree(subtreeRecord{symbol: 3, endByte: 1, terminal: true, extra: true}, nil, nil, nil)
+	policy := selectedStoreTestPolicy(t, 2, 1, 3)
+	if store, err := compact.BuildSelectedStore([]SubtreeID{extra, root}, policy, []byte("x"), nil); err == nil || store != nil || !strings.Contains(err.Error(), "retained-byte cap") {
+		t.Fatalf("over-cap merged roots store=%v err=%v", store, err)
+	}
+	store, err := compact.BuildSelectedStore([]SubtreeID{root}, policy, []byte("x"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Release()
+	if got := store.RetainedBytes(); got > limit {
+		t.Fatalf("later selected store retained=%d cap=%d", got, limit)
+	}
+}
+
+func TestSelectedStoreRootMergeRelocatesLaterChildWindows(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootChild, _ := compact.appendSubtree(subtreeRecord{symbol: 1, endByte: 1, terminal: true}, nil, nil, nil)
+	root, _ := compact.appendSubtree(subtreeRecord{symbol: 2, endByte: 1}, []SubtreeID{rootChild}, nil, nil)
+	extraChild, _ := compact.appendSubtree(subtreeRecord{symbol: 4, endByte: 1, terminal: true}, nil, nil, nil)
+	extra, _ := compact.appendSubtree(subtreeRecord{symbol: 3, endByte: 1, extra: true}, []SubtreeID{extraChild}, nil, nil)
+	store, err := compact.BuildSelectedStore([]SubtreeID{extra, root}, selectedStoreTestPolicy(t, 2, 1, 3, 4), []byte("x"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Release()
+	rootRecord, _ := store.Record(store.Root())
+	extraID, ok := store.Child(rootRecord, 0)
+	if !ok {
+		t.Fatal("merged extra root is missing")
+	}
+	extraRecord, _ := store.Record(extraID)
+	extraChildID, ok := store.Child(extraRecord, 0)
+	extraChildRecord, _ := store.Record(extraChildID)
+	if !ok || extraRecord.Symbol != 3 || extraRecord.ChildCount != 1 || extraChildRecord.Symbol != 4 {
+		t.Fatalf("relocated extra window extra=%+v child=%+v ok=%t", extraRecord, extraChildRecord, ok)
+	}
+}
+
+func TestSelectedStoreRejectsNonExtraSiblingRootAndRecoversLifecycle(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, _ := compact.appendSubtree(subtreeRecord{symbol: 2, endByte: 1, terminal: true}, nil, nil, nil)
+	other, _ := compact.appendSubtree(subtreeRecord{symbol: 3, endByte: 1, terminal: true}, nil, nil, nil)
+	policy := selectedStoreTestPolicy(t, 2, 3)
+	if store, err := compact.BuildSelectedStore([]SubtreeID{other, root}, policy, []byte("x"), nil); err == nil || store != nil || !strings.Contains(err.Error(), "non-extra sibling root") {
+		t.Fatalf("non-extra sibling store=%v err=%v", store, err)
+	}
+	if got := selectedStoreRetainedBytes(cap(compact.selectedPool.records), cap(compact.selectedPool.children)); got > compact.limits.MaxSelectedBytes {
+		t.Fatalf("failed sibling lifecycle pooled=%d cap=%d", got, compact.limits.MaxSelectedBytes)
+	}
+	store, err := compact.BuildSelectedStore([]SubtreeID{root}, policy, []byte("x"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Release()
+}
+
+func TestSelectedStorePoolKeepsAtomicCappedBackingPair(t *testing.T) {
+	recordBytes := uint64(unsafe.Sizeof(SelectedNodeRecord{}))
+	childBytes := uint64(unsafe.Sizeof(SelectedNodeID(0)))
+	type capacities struct{ records, children int }
+	largeRecords := capacities{records: 20, children: 1}
+	largeChildren := capacities{records: 1, children: 100}
+	limit := max(
+		uint64(largeRecords.records)*recordBytes+uint64(largeRecords.children)*childBytes,
+		uint64(largeChildren.records)*recordBytes+uint64(largeChildren.children)*childBytes,
+	)
+	for _, order := range []struct {
+		name        string
+		first, last capacities
+	}{
+		{name: "records-then-children", first: largeRecords, last: largeChildren},
+		{name: "children-then-records", first: largeChildren, last: largeRecords},
+	} {
+		t.Run(order.name, func(t *testing.T) {
+			compact, err := New(&fakeTable{}, Limits{MaxSelectedBytes: limit})
+			if err != nil {
+				t.Fatal(err)
+			}
+			makeStore := func(c capacities) *SelectedStore {
+				return &SelectedStore{owner: compact, records: make([]SelectedNodeRecord, 0, c.records), children: make([]SelectedNodeID, 0, c.children)}
+			}
+			first, last := makeStore(order.first), makeStore(order.last)
+			first.Release()
+			last.Release()
+			pooled := compact.selectedPool
+			if got := selectedStoreRetainedBytes(cap(pooled.records), cap(pooled.children)); got > limit {
+				t.Fatalf("pooled pair retained=%d cap=%d", got, limit)
+			}
+			got := capacities{records: cap(pooled.records), children: cap(pooled.children)}
+			if got != largeRecords && got != largeChildren {
+				t.Fatalf("pooled pair synthesized capacities=%+v", got)
+			}
+		})
+	}
+}
+
+func TestSelectedStoreSiblingReleasesAreSynchronized(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	left := &SelectedStore{owner: compact, records: make([]SelectedNodeRecord, 0, 8), children: make([]SelectedNodeID, 0, 8)}
+	right := &SelectedStore{owner: compact, records: make([]SelectedNodeRecord, 0, 4), children: make([]SelectedNodeID, 0, 4)}
+	var wait sync.WaitGroup
+	wait.Add(2)
+	go func() { defer wait.Done(); left.Release() }()
+	go func() { defer wait.Done(); right.Release() }()
+	wait.Wait()
+	compact.selectedPoolMu.Lock()
+	retained := selectedStoreRetainedBytes(cap(compact.selectedPool.records), cap(compact.selectedPool.children))
+	compact.selectedPoolMu.Unlock()
+	if retained > compact.limits.MaxSelectedBytes {
+		t.Fatalf("concurrent releases retained=%d cap=%d", retained, compact.limits.MaxSelectedBytes)
 	}
 }
 

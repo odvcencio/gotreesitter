@@ -323,7 +323,6 @@ type parserCoreRootTables struct {
 	reductionPlans      []core.ReductionPlan
 	reductionPlanIndex  []uint16
 	reductionPlanStride int
-	selectedStorePolicy core.SelectedStorePolicy
 }
 
 func newParserCoreRootTables(parser *Parser) (*parserCoreRootTables, error) {
@@ -389,13 +388,6 @@ func newParserCoreRootTables(parser *Parser) (*parserCoreRootTables, error) {
 			tables.reductionPlans = append(tables.reductionPlans, plan)
 			tables.reductionPlanIndex[pairIndex] = uint16(len(tables.reductionPlans))
 		}
-	}
-	if parser.hasRootSymbol {
-		policy, err := buildParserCoreSelectedStorePolicy(parser)
-		if err != nil {
-			return nil, err
-		}
-		tables.selectedStorePolicy = policy
 	}
 	return tables, nil
 }
@@ -466,10 +458,10 @@ func buildParserCoreSelectedStorePolicy(parser *Parser) (core.SelectedStorePolic
 }
 
 func (a *parserCoreRootTables) SelectedStorePolicy() (core.SelectedStorePolicy, error) {
-	if a == nil || len(a.selectedStorePolicy.Symbols) == 0 {
+	if a == nil || a.parser == nil || !a.parser.hasRootSymbol {
 		return core.SelectedStorePolicy{}, nil
 	}
-	return a.selectedStorePolicy, nil
+	return buildParserCoreSelectedStorePolicy(a.parser)
 }
 
 func (a *parserCoreRootTables) Actions(state core.StateID, symbol core.Symbol) (core.ActionRow, error) {

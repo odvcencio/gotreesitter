@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sync"
 )
 
 // Symbol and StateID are grammar-table identifiers. They intentionally use
@@ -541,6 +542,7 @@ type RawSelectedCensus struct {
 type Core struct {
 	tables              TableView
 	plans               ReductionPlanProvider
+	selectedProvider    SelectedStorePolicyProvider
 	selectedPolicy      *SelectedStorePolicy
 	limits              Limits
 	diagnostics         diagnosticOptions
@@ -562,6 +564,7 @@ type Core struct {
 	popScratch          popEnumerationScratch
 	reductionScratch    reductionOutputScratch
 	selectedBuild       selectedStoreBuildScratch
+	selectedPoolMu      sync.Mutex
 	selectedPool        selectedStoreBacking
 	schedulerFrame      schedulerTransactionFrame
 	// metadataConstructionAuthenticated remains true only while every compact
@@ -927,15 +930,7 @@ func New(tables TableView, limits Limits) (*Core, error) {
 		metadataConstructionAuthenticated: true,
 	}
 	core.plans, _ = tables.(ReductionPlanProvider)
-	if provider, ok := tables.(SelectedStorePolicyProvider); ok {
-		policy, policyErr := provider.SelectedStorePolicy()
-		if policyErr != nil {
-			return nil, policyErr
-		}
-		if len(policy.Symbols) != 0 {
-			core.selectedPolicy = &policy
-		}
-	}
+	core.selectedProvider, _ = tables.(SelectedStorePolicyProvider)
 	return core, nil
 }
 

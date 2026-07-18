@@ -530,7 +530,7 @@ four clean fresh-full Go fixtures and visible deep-tree structure, not public
 `Parser.Parse`, recovery, incremental reuse, included ranges, parser-state
 metadata, query/cursor behavior, or multiple grammars.
 
-### Direct selected-store boundary receipt
+### Pre-review direct selected-store boundary board (superseded)
 
 The next diagnostic boundary removes public-node materialization from the
 opt-in compact consumer without changing the public-node control. Acceptance
@@ -541,6 +541,13 @@ public route never constructs that store. The store is readable after
 `Core.Reset`, retains no compact payload handle, and becomes unreadable after
 release. Cancellation, occurrence count, retained bytes, unsupported policy,
 precedence overflow, and root identity all fail closed.
+
+This board predates the final lifecycle review. It is retained only as a
+directional experiment and is **not publication evidence**: the reviewed
+implementation now creates unary policy metadata lazily, pools record and
+child backing as one synchronized capped pair, preflights root-extra growth,
+and releases the store on every post-build validation failure. A new locked-C
+publication is required after those corrections pass review.
 
 A balanced A-B-B-A board ran on 2026-07-18 on `ns1007492`, CPU 2, with Go
 1.22.2, `GOMAXPROCS=1`, 20 samples per lane and fixture, and 750 ms samples.
@@ -561,8 +568,10 @@ timed sample reports zero fallback and the exact standing shifts, reductions,
 pop requests, pop paths, pop payloads, link additions, leaf constructions, and
 parent constructions for its fixture. Exact admissions additionally compare
 all visible symbols, spans, fields, aliases/extras, terminal/external flags,
-production IDs, checked precedence, parser states, selected-node counts, and
-deep-tree digests against the public compact materializer.
+production IDs, checked precedence, selected-node counts, and deep-tree
+digests against the public compact materializer. Parser-state and
+pre-goto-state metadata are intentionally absent from the selected-store
+record and are not part of this admission.
 
 Board identities:
 

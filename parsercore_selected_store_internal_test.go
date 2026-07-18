@@ -35,6 +35,7 @@ func TestDiagnosticParserCoreSelectedStoreCanonicalAdmissions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer store.Release()
 			if got := store.NodeCount(); got != row.selectedNodes {
 				t.Fatalf("selected store nodes=%d want=%d", got, row.selectedNodes)
 			}
@@ -56,6 +57,29 @@ func TestDiagnosticParserCoreSelectedStoreCanonicalAdmissions(t *testing.T) {
 			t.Logf("SELECTED_STORE fixture=%s nodes=%d retained_bytes=%d", row.id, store.NodeCount(), store.RetainedBytes())
 		})
 	}
+}
+
+func TestDiagnosticParserCoreSelectedStoreCompletenessFailureReleasesBacking(t *testing.T) {
+	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite")
+	runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := runner.parseSelectedStore(fixture.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adopted, err := requireParserCoreSelectedStoreCompleteness(store, len(fixture.Source)+1); err == nil || adopted != nil {
+		t.Fatalf("incomplete selected store adopted=%v err=%v", adopted, err)
+	}
+	if store.NodeCount() != 0 || store.RetainedBytes() != 0 {
+		t.Fatalf("failed completeness retained nodes=%d bytes=%d", store.NodeCount(), store.RetainedBytes())
+	}
+	fresh, err := runner.parseSelectedStore(fixture.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh.Release()
 }
 
 func requireDiagnosticParserCoreSelectedStoreMatchesTree(t testing.TB, store *core.SelectedStore, root *Node, lang *Language) {
@@ -82,9 +106,8 @@ func requireDiagnosticParserCoreSelectedStoreMatchesTree(t testing.TB, store *co
 		if Symbol(record.Symbol) != current.node.symbol || record.StartByte != current.node.startByte || record.EndByte != current.node.endByte ||
 			record.Named() != current.node.IsNamed() || record.Extra() != current.node.IsExtra() || record.External() != current.node.hasFlag(nodeFlagExternalScannerToken) ||
 			record.Terminal() != terminal || int(record.ChildCount) != current.node.ChildCount() || FieldID(current.field) != treeField ||
-			StateID(record.ParseState) != current.node.parseState || StateID(record.PreGotoState) != current.node.preGotoState ||
 			record.ProductionID != current.node.productionID || record.DynamicPrecedence != current.node.dynamicPrecedence {
-			t.Fatalf("selected store metadata mismatch visit=%d store=%+v tree={sym:%d span:%d..%d named:%t extra:%t external:%t terminal:%t children:%d field:%d parse:%d pre-goto:%d production:%d precedence:%d type:%s}", visited, record, current.node.symbol, current.node.startByte, current.node.endByte, current.node.IsNamed(), current.node.IsExtra(), current.node.hasFlag(nodeFlagExternalScannerToken), terminal, current.node.ChildCount(), treeField, current.node.parseState, current.node.preGotoState, current.node.productionID, current.node.dynamicPrecedence, current.node.Type(lang))
+			t.Fatalf("selected store metadata mismatch visit=%d store=%+v tree={sym:%d span:%d..%d named:%t extra:%t external:%t terminal:%t children:%d field:%d production:%d precedence:%d type:%s}", visited, record, current.node.symbol, current.node.startByte, current.node.endByte, current.node.IsNamed(), current.node.IsExtra(), current.node.hasFlag(nodeFlagExternalScannerToken), terminal, current.node.ChildCount(), treeField, current.node.productionID, current.node.dynamicPrecedence, current.node.Type(lang))
 		}
 		for index := int(record.ChildCount) - 1; index >= 0; index-- {
 			childID, _ := store.Child(record, uint32(index))

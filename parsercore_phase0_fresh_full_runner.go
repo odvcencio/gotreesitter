@@ -182,9 +182,22 @@ func (r *parserCoreFreshFullRunner) parseSelectedStore(source []byte) (*core.Sel
 	if err != nil {
 		return nil, err
 	}
+	return requireParserCoreSelectedStoreCompleteness(store, len(source))
+}
+
+// requireParserCoreSelectedStoreCompleteness adopts store on success and
+// releases it on every failure. Callers must not retain another owner.
+func requireParserCoreSelectedStoreCompleteness(store *core.SelectedStore, sourceBytes int) (*core.SelectedStore, error) {
+	if store == nil || sourceBytes < 0 || uint64(sourceBytes) > uint64(^uint32(0)) {
+		if store != nil {
+			store.Release()
+		}
+		return nil, errors.New("parser-core fresh-full selected-store completeness input is invalid")
+	}
 	root, ok := store.Record(store.Root())
-	if !ok || root.StartByte != 0 || root.EndByte != uint32(len(source)) {
-		return nil, fmt.Errorf("parser-core fresh-full selected-store root is incomplete: %d..%d source=%d", root.StartByte, root.EndByte, len(source))
+	if !ok || root.StartByte != 0 || root.EndByte != uint32(sourceBytes) {
+		store.Release()
+		return nil, fmt.Errorf("parser-core fresh-full selected-store root is incomplete: %d..%d source=%d", root.StartByte, root.EndByte, sourceBytes)
 	}
 	return store, nil
 }

@@ -14,11 +14,12 @@ for tags and release notes while still in `0.x`.
   consumer; the public-node control remains store-free. The store preserves
   occurrence identity and authenticated visible metadata across compact-core
   resets, polls cancellation and resource limits, enforces occurrence and
-  retained-byte caps, and returns its backing through an explicit release
-  lifecycle. On the pinned quiet host, a balanced post-#366 A/B board improves
-  the four-fixture fresh-full geomean by 13.35%, with every fixture faster by
-  11.70-15.45%, total allocation bytes down 56.42%, lower peak RSS, exact work
-  counts, and zero fallback. The route remains diagnostic-only.
+  retained-byte caps before growth, builds its quadratic unary policy only on
+  demand, and returns each atomic record/child backing pair through an explicit
+  synchronized release lifecycle. A pre-review A/B board found a promising
+  directional win, but it is superseded pending a post-review locked-C
+  publication. The route remains diagnostic-only and intentionally omits
+  parser-state metadata.
 
 ### Tooling
 
