@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
@@ -73,6 +74,45 @@ func TestParserCoreFreshFullRunnerResetsAfterCap(t *testing.T) {
 	requireDiagnosticParserCoreCanonicalEOF(t, tree, len(fixture.Source))
 	if work := runner.compact.Work(); work != diagnosticParserCoreCanonicalAdmissions[0].work || work.Overflow {
 		t.Fatalf("parse after cap work=%+v want=%+v", work, diagnosticParserCoreCanonicalAdmissions[0].work)
+	}
+}
+
+func TestParserCoreFreshFullPublicRouteIsSelectedStoreFree(t *testing.T) {
+	options := parserCoreFreshFullCanonicalOptions()
+	options.Limits.MaxSelectedOccurrences = 1
+	options.Limits.MaxSelectedBytes = 1
+	runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite")
+	tree, err := runner.parse(fixture.Source)
+	if err != nil {
+		t.Fatalf("public compatibility route paid selected-store cap: %v", err)
+	}
+	tree.Release()
+	if store, err := runner.parseSelectedStore(fixture.Source); err == nil || store != nil || !strings.Contains(err.Error(), "occurrence cap") {
+		t.Fatalf("direct selected-store cap store=%v err=%v", store, err)
+	}
+}
+
+func TestParserCoreFreshFullSelectedStorePollsCancellation(t *testing.T) {
+	runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cancelled uint32
+	runner.parser.SetCancellationFlag(&cancelled)
+	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite")
+	atomic.StoreUint32(&cancelled, 1)
+	store, err := runner.parseSelectedStore(fixture.Source)
+	if err == nil || store != nil || !strings.Contains(err.Error(), "selected-store sealing stopped: cancelled") {
+		t.Fatalf("cancelled direct store=%v err=%v", store, err)
+	}
+	atomic.StoreUint32(&cancelled, 0)
+	store, err = runner.parseSelectedStore(fixture.Source)
+	if err != nil || store == nil {
+		t.Fatalf("selected store after cancellation reset=%v err=%v", store, err)
 	}
 }
 
@@ -200,10 +240,11 @@ func BenchmarkParserCoreFreshFullSelectedStoreCanonical(b *testing.B) {
 			if got := diagnosticParserCoreSelectedStoreDeepDigest(b, store, runner.lang, fixture.Source); got != row.deepTreeSHA256 {
 				b.Fatalf("selected digest=%s want=%s", got, row.deepTreeSHA256)
 			}
-			var scratch []core.SelectedNodeID
-			if checksum, retained := diagnosticParserCoreTraverseSelectedStore(store, scratch); checksum == 0 || retained == nil {
+			if checksum := diagnosticParserCoreTraverseSelectedStore(store); checksum == 0 {
 				b.Fatal("selected traversal preflight failed")
 			}
+			retainedBytes := store.RetainedBytes()
+			store.Release()
 			runtime.GC()
 			b.ReportAllocs()
 			b.SetBytes(int64(len(fixture.Source)))
@@ -214,9 +255,8 @@ func BenchmarkParserCoreFreshFullSelectedStoreCanonical(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				var value uint64
-				value, scratch = diagnosticParserCoreTraverseSelectedStore(store, scratch)
-				checksum ^= value
+				checksum ^= diagnosticParserCoreTraverseSelectedStore(store)
+				store.Release()
 			}
 			b.StopTimer()
 			if checksum == ^uint64(0) {
@@ -224,37 +264,42 @@ func BenchmarkParserCoreFreshFullSelectedStoreCanonical(b *testing.B) {
 			}
 			if work := runner.compact.Work(); work != row.work || work.Overflow {
 				b.Fatalf("selected work=%+v want=%+v", work, row.work)
+			} else {
+				reportParserCoreFreshFullWork(b, work)
 			}
-			b.ReportMetric(0, "candidate_fallback/op")
-			b.ReportMetric(float64(store.RetainedBytes()), "selected_retained_B/op")
+			b.ReportMetric(float64(retainedBytes), "selected_retained_B/op")
 		})
 	}
 }
 
-func diagnosticParserCoreTraverseSelectedStore(store *core.SelectedStore, scratch []core.SelectedNodeID) (uint64, []core.SelectedNodeID) {
+func diagnosticParserCoreTraverseSelectedStore(store *core.SelectedStore) uint64 {
 	if store == nil || store.Root() == 0 {
-		return 0, scratch[:0]
+		return 0
 	}
-	stack := append(scratch[:0], store.Root())
+	cursor := store.Cursor()
 	var checksum uint64
-	for len(stack) != 0 {
-		last := len(stack) - 1
-		id := stack[last]
-		stack = stack[:last]
-		record, ok := store.Record(id)
+	for {
+		record, ok := cursor.Record()
 		if !ok {
-			return 0, stack
+			return 0
 		}
-		checksum += uint64(id) + uint64(record.Symbol) + uint64(record.StartByte) + uint64(record.EndByte) + uint64(record.Field)
-		for child := int(record.ChildCount) - 1; child >= 0; child-- {
-			childID, ok := store.Child(record, uint32(child))
-			if !ok {
-				return 0, stack
+		checksum += uint64(cursor.ID()) + uint64(record.Symbol) + uint64(record.StartByte) + uint64(record.EndByte) + uint64(record.Field)
+		if child, ok := cursor.Child(0); ok {
+			cursor = child
+			continue
+		}
+		for {
+			if sibling, ok := cursor.NextSibling(); ok {
+				cursor = sibling
+				break
 			}
-			stack = append(stack, childID)
+			parent, ok := cursor.Parent()
+			if !ok {
+				return checksum
+			}
+			cursor = parent
 		}
 	}
-	return checksum, stack[:0]
 }
 
 // Keep the deep admission in a separate frame. Returning drops the only

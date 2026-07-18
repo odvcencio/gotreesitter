@@ -286,16 +286,18 @@ func (e *LiveLinkCapacityError) Error() string {
 // Limits bound every pointer-free arena and bounded diagnostic traversal.
 // Packed root-path multiplicity is telemetry, not an execution limit.
 type Limits struct {
-	MaxNodes            uint32
-	MaxLinks            uint32
-	MaxSubtrees         uint32
-	MaxChildren         uint32
-	MaxMetadata         uint32
-	MaxLinksPerBoundary uint32
-	MaxPopPaths         uint64
-	MaxDerivations      uint64
-	MaxCheckpoints      uint32
-	MaxCheckpointBytes  uint64
+	MaxNodes               uint32
+	MaxLinks               uint32
+	MaxSubtrees            uint32
+	MaxChildren            uint32
+	MaxMetadata            uint32
+	MaxLinksPerBoundary    uint32
+	MaxPopPaths            uint64
+	MaxDerivations         uint64
+	MaxCheckpoints         uint32
+	MaxCheckpointBytes     uint64
+	MaxSelectedOccurrences uint32
+	MaxSelectedBytes       uint64
 }
 
 func (l Limits) withDefaults() Limits {
@@ -328,6 +330,12 @@ func (l Limits) withDefaults() Limits {
 	}
 	if l.MaxCheckpointBytes == 0 {
 		l.MaxCheckpointBytes = 16 << 20
+	}
+	if l.MaxSelectedOccurrences == 0 {
+		l.MaxSelectedOccurrences = l.MaxSubtrees
+	}
+	if l.MaxSelectedBytes == 0 {
+		l.MaxSelectedBytes = uint64(l.MaxSelectedOccurrences) * 96
 	}
 	return l
 }
@@ -553,6 +561,8 @@ type Core struct {
 	work                Work
 	popScratch          popEnumerationScratch
 	reductionScratch    reductionOutputScratch
+	selectedBuild       selectedStoreBuildScratch
+	selectedPool        selectedStoreBacking
 	schedulerFrame      schedulerTransactionFrame
 	// metadataConstructionAuthenticated remains true only while every compact
 	// subtree was published through the authenticated shift/reduction seams.
@@ -922,7 +932,9 @@ func New(tables TableView, limits Limits) (*Core, error) {
 		if policyErr != nil {
 			return nil, policyErr
 		}
-		core.selectedPolicy = &policy
+		if len(policy.Symbols) != 0 {
+			core.selectedPolicy = &policy
+		}
 	}
 	return core, nil
 }

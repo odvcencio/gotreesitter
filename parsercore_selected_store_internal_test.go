@@ -28,22 +28,25 @@ func TestDiagnosticParserCoreSelectedStoreCanonicalAdmissions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			store := scheduler.selectedStore
-			if store == nil || store.Root() == 0 {
-				t.Fatal("selected store was not carried from acceptance")
+			if len(scheduler.acceptedPayloads) == 0 {
+				t.Fatal("accepted payloads were not carried from acceptance")
+			}
+			store, err := runner.compact.BuildAuthenticatedSelectedStore(scheduler.acceptedPayloads, fixture.Source, func() error { return nil })
+			if err != nil {
+				t.Fatal(err)
 			}
 			if got := store.NodeCount(); got != row.selectedNodes {
 				t.Fatalf("selected store nodes=%d want=%d", got, row.selectedNodes)
 			}
-			if bytesPerNode := store.RetainedBytes() / store.NodeCount(); bytesPerNode > 64 {
-				t.Fatalf("selected store retained bytes/node=%d want<=64", bytesPerNode)
+			if bytesPerNode := store.RetainedBytes() / store.NodeCount(); bytesPerNode > 80 {
+				t.Fatalf("selected store retained bytes/node=%d want<=80", bytesPerNode)
 			}
 			tree, materializeErr := runner.materialize(fixture.Source, runner.compact, scheduler.acceptedHead)
 			if materializeErr != nil {
 				t.Fatal(materializeErr)
 			}
 			defer tree.Release()
-			requireDiagnosticParserCoreSelectedStoreMatchesTree(t, store, tree.root, runner.lang, runner.compact)
+			requireDiagnosticParserCoreSelectedStoreMatchesTree(t, store, tree.root, runner.lang)
 			if got := diagnosticParserCoreSelectedStoreDeepDigest(t, store, runner.lang, fixture.Source); got != row.deepTreeSHA256 {
 				t.Fatalf("selected store digest=%s want=%s", got, row.deepTreeSHA256)
 			}
@@ -55,7 +58,7 @@ func TestDiagnosticParserCoreSelectedStoreCanonicalAdmissions(t *testing.T) {
 	}
 }
 
-func requireDiagnosticParserCoreSelectedStoreMatchesTree(t testing.TB, store *core.SelectedStore, root *Node, lang *Language, compact *core.Core) {
+func requireDiagnosticParserCoreSelectedStoreMatchesTree(t testing.TB, store *core.SelectedStore, root *Node, lang *Language) {
 	t.Helper()
 	type pair struct {
 		id    core.SelectedNodeID
@@ -75,14 +78,13 @@ func requireDiagnosticParserCoreSelectedStoreMatchesTree(t testing.TB, store *co
 		if current.node.parent != nil && current.node.childIndex >= 0 {
 			treeField = nodeFieldIDAt(current.node.parent, int(current.node.childIndex))
 		}
-		if Symbol(record.Symbol) != current.node.symbol || record.StartByte != current.node.startByte || record.EndByte != current.node.endByte || record.Named() != current.node.IsNamed() || record.Extra() != current.node.IsExtra() || int(record.ChildCount) != current.node.ChildCount() || FieldID(current.field) != treeField {
-			raw, _ := compact.Subtree(record.Payload)
-			var rawChildren []core.SubtreeView
-			for _, childID := range raw.Children {
-				child, _ := compact.Subtree(childID)
-				rawChildren = append(rawChildren, child)
-			}
-			t.Fatalf("selected store mismatch visit=%d store={id:%d sym:%d span:%d..%d named:%t extra:%t children:%d field:%d} tree={sym:%d span:%d..%d named:%t extra:%t children:%d field:%d type:%s} raw=%+v rawChildren=%+v", visited, current.id, record.Symbol, record.StartByte, record.EndByte, record.Named(), record.Extra(), record.ChildCount, current.field, current.node.symbol, current.node.startByte, current.node.endByte, current.node.IsNamed(), current.node.IsExtra(), current.node.ChildCount(), treeField, current.node.Type(lang), raw, rawChildren)
+		terminal := current.node.ChildCount() == 0
+		if Symbol(record.Symbol) != current.node.symbol || record.StartByte != current.node.startByte || record.EndByte != current.node.endByte ||
+			record.Named() != current.node.IsNamed() || record.Extra() != current.node.IsExtra() || record.External() != current.node.hasFlag(nodeFlagExternalScannerToken) ||
+			record.Terminal() != terminal || int(record.ChildCount) != current.node.ChildCount() || FieldID(current.field) != treeField ||
+			StateID(record.ParseState) != current.node.parseState || StateID(record.PreGotoState) != current.node.preGotoState ||
+			record.ProductionID != current.node.productionID || record.DynamicPrecedence != current.node.dynamicPrecedence {
+			t.Fatalf("selected store metadata mismatch visit=%d store=%+v tree={sym:%d span:%d..%d named:%t extra:%t external:%t terminal:%t children:%d field:%d parse:%d pre-goto:%d production:%d precedence:%d type:%s}", visited, record, current.node.symbol, current.node.startByte, current.node.endByte, current.node.IsNamed(), current.node.IsExtra(), current.node.hasFlag(nodeFlagExternalScannerToken), terminal, current.node.ChildCount(), treeField, current.node.parseState, current.node.preGotoState, current.node.productionID, current.node.dynamicPrecedence, current.node.Type(lang))
 		}
 		for index := int(record.ChildCount) - 1; index >= 0; index-- {
 			childID, _ := store.Child(record, uint32(index))

@@ -530,6 +530,53 @@ four clean fresh-full Go fixtures and visible deep-tree structure, not public
 `Parser.Parse`, recovery, incremental reuse, included ranges, parser-state
 metadata, query/cursor behavior, or multiple grammars.
 
+### Direct selected-store boundary receipt
+
+The next diagnostic boundary removes public-node materialization from the
+opt-in compact consumer without changing the public-node control. Acceptance
+carries only the exact selected payload IDs. After a successful fresh
+scheduler session, the direct route seals a pointer-light occurrence store,
+walks it through `SelectedCursor`, and calls `SelectedStore.Release`; the
+public route never constructs that store. The store is readable after
+`Core.Reset`, retains no compact payload handle, and becomes unreadable after
+release. Cancellation, occurrence count, retained bytes, unsupported policy,
+precedence overflow, and root identity all fail closed.
+
+A balanced A-B-B-A board ran on 2026-07-18 on `ns1007492`, CPU 2, with Go
+1.22.2, `GOMAXPROCS=1`, 20 samples per lane and fixture, and 750 ms samples.
+The control is the post-#366 public-node lifecycle; the candidate includes
+selected-store sealing, a complete cursor traversal, and release.
+
+| Fixture | Time delta | B/op delta | Retained selected bytes |
+|---|---:|---:|---:|
+| `rewrite.go` | **-13.18%** | **-55.45%** | 107,400 |
+| `query_compile.go` | **-13.03%** | **-58.40%** | 543,900 |
+| `language.go` | **-11.70%** | **-55.93%** | 516,500 |
+| `grammargen/lr.go` | **-15.45%** | **-55.83%** | 5,261,000 |
+
+The equal-fixture time geomean improves by **13.35%** and total B/op by
+**56.42%**; allocation count improves by 0.47%. Both direct-store orders peak
+below the public control (90,156/91,532 KiB versus 97,452/99,092 KiB). Every
+timed sample reports zero fallback and the exact standing shifts, reductions,
+pop requests, pop paths, pop payloads, link additions, leaf constructions, and
+parent constructions for its fixture. Exact admissions additionally compare
+all visible symbols, spans, fields, aliases/extras, terminal/external flags,
+production IDs, checked precedence, parser states, selected-node counts, and
+deep-tree digests against the public compact materializer.
+
+Board identities:
+
+- combined benchstat SHA-256:
+  `82041c1f868f9972ff2ffbf47b076de78fde0a8a0a54d4b58439b1ad2900522a`;
+- public samples SHA-256:
+  `e17bd37ab0999fbf2803e0002229bd749bc02290c50569fce18ced36eeed2027`;
+- direct selected-store samples SHA-256:
+  `c0d200a7834afeb31b2931b6c4dc12b76a7b7405b0225472442b1ce04bbfce9d`.
+
+This is a diagnostic clean fresh-full Go consumer boundary. It is not a
+public `Parser.Parse`, recovery, incremental, included-range, multi-grammar,
+or public query API claim.
+
 ### Single-link compact reduction publication
 
 A clean candidate publication was collected on 2026-07-18 from quiet host

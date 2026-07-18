@@ -390,11 +390,13 @@ func newParserCoreRootTables(parser *Parser) (*parserCoreRootTables, error) {
 			tables.reductionPlanIndex[pairIndex] = uint16(len(tables.reductionPlans))
 		}
 	}
-	policy, err := buildParserCoreSelectedStorePolicy(parser)
-	if err != nil {
-		return nil, err
+	if parser.hasRootSymbol {
+		policy, err := buildParserCoreSelectedStorePolicy(parser)
+		if err != nil {
+			return nil, err
+		}
+		tables.selectedStorePolicy = policy
 	}
-	tables.selectedStorePolicy = policy
 	return tables, nil
 }
 
@@ -465,7 +467,7 @@ func buildParserCoreSelectedStorePolicy(parser *Parser) (core.SelectedStorePolic
 
 func (a *parserCoreRootTables) SelectedStorePolicy() (core.SelectedStorePolicy, error) {
 	if a == nil || len(a.selectedStorePolicy.Symbols) == 0 {
-		return core.SelectedStorePolicy{}, errors.New("parser-core phase zero: selected-store policy is unavailable")
+		return core.SelectedStorePolicy{}, nil
 	}
 	return a.selectedStorePolicy, nil
 }
@@ -1297,7 +1299,6 @@ type diagnosticParserCoreGenericScheduler struct {
 	epochProgress              bool
 	acceptedHead               core.Head
 	acceptedPayloads           []core.SubtreeID
-	selectedStore              *core.SelectedStore
 	conflictPostExecutionFault func() error
 	extraPostExecutionFault    func() error
 	freshSessionOwner          *core.SchedulerTransactionToken
@@ -2078,10 +2079,6 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 		return err
 	}
 	path := paths[0]
-	selectedStore, err := s.compact.BuildAuthenticatedSelectedStore(path.Payloads, s.tokenSource.lexer.source, nil)
-	if err != nil {
-		return err
-	}
 	var header DiagnosticParserCoreHeaderPathReceipt
 	var payloads []uint32
 	if s.fullReceipts() {
@@ -2103,7 +2100,6 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 	}
 	s.acceptedHead = s.headers[0].head
 	s.acceptedPayloads = append(s.acceptedPayloads[:0], path.Payloads...)
-	s.selectedStore = selectedStore
 	s.receipt.Acceptance = &DiagnosticParserCoreGenericAcceptance{
 		ElectionIndex: s.electionIndex, Token: s.token, Header: header,
 		Payloads: payloads, Score: path.Score, BranchOrder: path.BranchOrder,

@@ -165,12 +165,26 @@ func (r *parserCoreFreshFullRunner) parseSelectedStore(source []byte) (*core.Sel
 		return nil, err
 	}
 	defer tokenSource.Close()
-	if scheduler.selectedStore == nil || scheduler.selectedStore.Root() == 0 {
-		return nil, errors.New("parser-core fresh-full selected-store route fell back")
+	leaveBudget := r.parser.enterParseBudget()
+	defer leaveBudget()
+	poller := parseStopPoller{check: r.parser.activeParseStopCheck(), memoryBudgetParser: r.parser}
+	poll := func() error {
+		reason := poller.pollNow()
+		if reason == ParseStopNone || reason == "" {
+			return nil
+		}
+		return &diagnosticParserCoreDecline{
+			boundary: DiagnosticParserCoreCap,
+			detail:   "selected-store sealing stopped: " + string(reason),
+		}
 	}
-	root, ok := scheduler.selectedStore.Record(scheduler.selectedStore.Root())
+	store, err := r.compact.BuildAuthenticatedSelectedStore(scheduler.acceptedPayloads, source, poll)
+	if err != nil {
+		return nil, err
+	}
+	root, ok := store.Record(store.Root())
 	if !ok || root.StartByte != 0 || root.EndByte != uint32(len(source)) {
 		return nil, fmt.Errorf("parser-core fresh-full selected-store root is incomplete: %d..%d source=%d", root.StartByte, root.EndByte, len(source))
 	}
-	return scheduler.selectedStore, nil
+	return store, nil
 }

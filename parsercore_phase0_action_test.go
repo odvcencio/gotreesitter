@@ -103,6 +103,33 @@ func TestParserCoreRootTablesRejectInvalidActionWhileCaching(t *testing.T) {
 	}
 }
 
+func TestParserCoreRootlessTablesRemainUsableWithoutSelectedStorePolicy(t *testing.T) {
+	lang := &Language{
+		LargeStateCount: 1,
+		ParseTable:      [][]uint16{{0}},
+		ParseActions:    []ParseActionEntry{{}},
+	}
+	parser := NewParser(lang)
+	if parser.hasRootSymbol {
+		t.Fatal("fixture unexpectedly authenticated a root symbol")
+	}
+	tables, err := newParserCoreRootTables(parser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy, err := tables.SelectedStorePolicy()
+	if err != nil || len(policy.Symbols) != 0 {
+		t.Fatalf("rootless selected policy=%+v err=%v", policy, err)
+	}
+	compact, err := core.New(tables, core.Limits{})
+	if err != nil {
+		t.Fatalf("rootless compact core construction: %v", err)
+	}
+	if store, err := compact.BuildAuthenticatedSelectedStore([]core.SubtreeID{1}, nil, nil); err == nil || store != nil {
+		t.Fatalf("rootless selected store=%v err=%v", store, err)
+	}
+}
+
 func TestParserCoreSameLookaheadGuardsDeclineBeforeMutation(t *testing.T) {
 	tests := []struct {
 		name    string

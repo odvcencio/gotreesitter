@@ -127,11 +127,12 @@ type SelectedNodeRecord struct {
 	FirstChild        uint32
 	StartByte         uint32
 	EndByte           uint32
-	Payload           SubtreeID
+	ParseState        StateID
+	PreGotoState      StateID
 	Symbol            Symbol
 	Field             FieldID
 	ProductionID      uint16
-	DynamicPrecedence int16
+	DynamicPrecedence int32
 	ChildCount        uint16
 	ChildIndex        uint16
 	flags             uint8
@@ -148,24 +149,48 @@ type SelectedStore struct {
 	root     SelectedNodeID
 	records  []SelectedNodeRecord
 	children []SelectedNodeID
+	owner    *Core
+	released bool
+}
+
+type selectedStoreBacking struct {
+	records  []SelectedNodeRecord
+	children []SelectedNodeID
+}
+
+type selectedStoreBuildScratch struct {
+	raw         []selectedRawOccurrence
+	rawChildren []uint32
+	rawRoots    []uint32
+	results     []SelectedNodeID
+	precedence  []int32
+	collect     []uint32
+	logical     []SelectedNodeID
+	rootIDs     []SelectedNodeID
+	stack       []selectedOccurrenceFrame
+}
+
+type selectedOccurrenceFrame struct {
+	occurrence uint32
+	next       uint32
 }
 
 func (s *SelectedStore) Root() SelectedNodeID {
-	if s == nil {
+	if s == nil || s.released {
 		return 0
 	}
 	return s.root
 }
 
 func (s *SelectedStore) NodeCount() uint64 {
-	if s == nil {
+	if s == nil || s.released {
 		return 0
 	}
 	return uint64(len(s.records))
 }
 
 func (s *SelectedStore) ChildCount() uint64 {
-	if s == nil {
+	if s == nil || s.released {
 		return 0
 	}
 	return uint64(len(s.children))
@@ -174,7 +199,7 @@ func (s *SelectedStore) ChildCount() uint64 {
 // RetainedBytes reports exact backing-array retention, excluding the small
 // store header itself so capacity changes remain visible.
 func (s *SelectedStore) RetainedBytes() uint64 {
-	if s == nil {
+	if s == nil || s.released {
 		return 0
 	}
 	return uint64(cap(s.records))*uint64(unsafe.Sizeof(SelectedNodeRecord{})) +
@@ -182,14 +207,14 @@ func (s *SelectedStore) RetainedBytes() uint64 {
 }
 
 func (s *SelectedStore) Record(id SelectedNodeID) (SelectedNodeRecord, bool) {
-	if s == nil || id == 0 || uint64(id) > uint64(len(s.records)) {
+	if s == nil || s.released || id == 0 || uint64(id) > uint64(len(s.records)) {
 		return SelectedNodeRecord{}, false
 	}
 	return s.records[id-1], true
 }
 
 func (s *SelectedStore) Child(record SelectedNodeRecord, index uint32) (SelectedNodeID, bool) {
-	if s == nil || index >= uint32(record.ChildCount) {
+	if s == nil || s.released || index >= uint32(record.ChildCount) {
 		return 0, false
 	}
 	slot := uint64(record.FirstChild) + uint64(index)
@@ -197,6 +222,55 @@ func (s *SelectedStore) Child(record SelectedNodeRecord, index uint32) (Selected
 		return 0, false
 	}
 	return s.children[slot], true
+}
+
+// Release invalidates the selected snapshot and returns its pointer-free
+// backing to the owning compact core. It is idempotent and must not race with
+// cursor reads. The store remains independent of Core.Reset until Release.
+func (s *SelectedStore) Release() {
+	if s == nil || s.released {
+		return
+	}
+	s.released = true
+	owner := s.owner
+	records, children := s.records, s.children
+	s.root, s.owner, s.records, s.children = 0, nil, nil, nil
+	if owner != nil {
+		owner.recycleSelectedStore(records, children)
+	}
+}
+
+func (c *Core) acquireSelectedStore(recordCapacity, childCapacity int) *SelectedStore {
+	records := c.selectedPool.records
+	children := c.selectedPool.children
+	c.selectedPool = selectedStoreBacking{}
+	if cap(records) < recordCapacity {
+		records = make([]SelectedNodeRecord, 0, recordCapacity)
+	} else {
+		clear(records)
+		records = records[:0]
+	}
+	if cap(children) < childCapacity {
+		children = make([]SelectedNodeID, 0, childCapacity)
+	} else {
+		clear(children)
+		children = children[:0]
+	}
+	return &SelectedStore{records: records, children: children, owner: c}
+}
+
+func (c *Core) recycleSelectedStore(records []SelectedNodeRecord, children []SelectedNodeID) {
+	if c == nil {
+		return
+	}
+	clear(records)
+	clear(children)
+	if cap(records) >= cap(c.selectedPool.records) {
+		c.selectedPool.records = records[:0]
+	}
+	if cap(children) >= cap(c.selectedPool.children) {
+		c.selectedPool.children = children[:0]
+	}
 }
 
 // SelectedCursor is a direct indexed cursor over a sealed store. It contains
@@ -272,13 +346,31 @@ func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy,
 	if err != nil {
 		return nil, err
 	}
-	results := make([]SelectedNodeID, len(raw))
-	store := &SelectedStore{
-		records:  make([]SelectedNodeRecord, 0, len(raw)),
-		children: make([]SelectedNodeID, 0, len(raw)-len(roots)),
+	defer c.finishSelectedBuildScratch()
+	results := resizeSelectedScratch(c.selectedBuild.results, len(raw))
+	c.selectedBuild.results = results
+	wantRetained := uint64(len(raw))*uint64(unsafe.Sizeof(SelectedNodeRecord{})) +
+		uint64(len(raw)-len(roots))*uint64(unsafe.Sizeof(SelectedNodeID(0)))
+	if wantRetained > c.limits.MaxSelectedBytes {
+		return nil, errors.New("parser-core phase zero: selected store retained-byte cap")
 	}
-	collect := make([]uint32, 0, 32)
-	logical := make([]SelectedNodeID, 0, 32)
+	store := c.acquireSelectedStore(len(raw), len(raw)-len(roots))
+	sealed := false
+	defer func() {
+		if !sealed {
+			store.Release()
+		}
+	}()
+	precedenceDeltas := resizeSelectedScratch(c.selectedBuild.precedence, 0)
+	if cap(precedenceDeltas) < len(raw) {
+		precedenceDeltas = make([]int32, 0, len(raw))
+	}
+	c.selectedBuild.precedence = precedenceDeltas
+	if store.RetainedBytes() > c.limits.MaxSelectedBytes {
+		return nil, errors.New("parser-core phase zero: selected store retained-byte cap")
+	}
+	collect := c.selectedBuild.collect[:0]
+	logical := c.selectedBuild.logical[:0]
 
 	for index := len(raw) - 1; index >= 0; index-- {
 		if index&255 == 0 {
@@ -299,7 +391,6 @@ func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy,
 		if !ok {
 			return nil, fmt.Errorf("parser-core phase zero: selected symbol %d is outside policy", symbol)
 		}
-
 		logical = logical[:0]
 		for childIndex := uint32(0); childIndex < uint32(occ.childCount); childIndex++ {
 			rawChild := rawChildren[occ.firstChild+childIndex]
@@ -337,7 +428,11 @@ func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy,
 					child.flags = selectedFlags(meta, child.Extra(), child.External(), child.Terminal())
 				}
 				child.ProductionID = record.productionID
-				child.DynamicPrecedence += record.dynamicPrecedence
+				delta, err := checkedSelectedPrecedence(precedenceDeltas[childID-1], int32(record.dynamicPrecedence))
+				if err != nil {
+					return nil, err
+				}
+				precedenceDeltas[childID-1] = delta
 				if occ.field != 0 {
 					child.Field = occ.field
 				}
@@ -369,10 +464,11 @@ func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy,
 		}
 		store.records = append(store.records, SelectedNodeRecord{
 			FirstChild: first, StartByte: startByte, EndByte: endByte,
-			Payload: occ.payload, Symbol: symbol, Field: occ.field,
-			ProductionID: record.productionID, DynamicPrecedence: record.dynamicPrecedence,
+			Symbol: symbol, Field: occ.field,
+			ProductionID: record.productionID, DynamicPrecedence: int32(record.dynamicPrecedence),
 			ChildCount: uint16(len(logical)), flags: flags,
 		})
+		precedenceDeltas = append(precedenceDeltas, int32(record.dynamicPrecedence))
 		for childIndex, childID := range logical {
 			store.records[childID-1].Parent = id
 			store.records[childID-1].ChildIndex = uint16(childIndex)
@@ -380,7 +476,7 @@ func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy,
 		results[index] = id
 	}
 
-	rootIDs := make([]SelectedNodeID, 0, len(roots))
+	rootIDs := c.selectedBuild.rootIDs[:0]
 	for _, index := range rawRoots {
 		if id := results[index]; id != 0 {
 			rootIDs = append(rootIDs, id)
@@ -407,10 +503,76 @@ func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy,
 	if err := store.normalizeGoCompatibility(policy, source, poll); err != nil {
 		return nil, err
 	}
+	if err := store.recomputePrecedence(precedenceDeltas); err != nil {
+		return nil, err
+	}
+	if store.RetainedBytes() > c.limits.MaxSelectedBytes {
+		return nil, errors.New("parser-core phase zero: selected store retained-byte cap")
+	}
 	if err := poll(); err != nil {
 		return nil, err
 	}
+	sealed = true
 	return store, nil
+}
+
+func resizeSelectedScratch[T any](items []T, length int) []T {
+	if cap(items) < length {
+		return make([]T, length)
+	}
+	items = items[:length]
+	clear(items)
+	return items
+}
+
+func (c *Core) finishSelectedBuildScratch() {
+	if c == nil {
+		return
+	}
+	c.selectedBuild.raw = c.selectedBuild.raw[:0]
+	c.selectedBuild.rawChildren = c.selectedBuild.rawChildren[:0]
+	c.selectedBuild.rawRoots = c.selectedBuild.rawRoots[:0]
+	clear(c.selectedBuild.results)
+	c.selectedBuild.results = c.selectedBuild.results[:0]
+	c.selectedBuild.precedence = c.selectedBuild.precedence[:0]
+	c.selectedBuild.collect = c.selectedBuild.collect[:0]
+	c.selectedBuild.logical = c.selectedBuild.logical[:0]
+	c.selectedBuild.rootIDs = c.selectedBuild.rootIDs[:0]
+	c.selectedBuild.stack = c.selectedBuild.stack[:0]
+}
+
+func checkedSelectedPrecedence(left, right int32) (int32, error) {
+	value := int64(left) + int64(right)
+	if value < math.MinInt32 || value > math.MaxInt32 {
+		return 0, errors.New("parser-core phase zero: selected precedence overflow")
+	}
+	return int32(value), nil
+}
+
+func (s *SelectedStore) recomputePrecedence(deltas []int32) error {
+	if s == nil || s.root == 0 || len(deltas) != len(s.records) {
+		return errors.New("parser-core phase zero: selected precedence sidecar drifted")
+	}
+	recompute := func(id SelectedNodeID) error {
+		record := &s.records[id-1]
+		value := deltas[id-1]
+		for index := uint32(0); index < uint32(record.ChildCount); index++ {
+			child := s.children[record.FirstChild+index]
+			var err error
+			value, err = checkedSelectedPrecedence(value, s.records[child-1].DynamicPrecedence)
+			if err != nil {
+				return err
+			}
+		}
+		record.DynamicPrecedence = value
+		return nil
+	}
+	for index := range s.records {
+		if err := recompute(SelectedNodeID(index + 1)); err != nil {
+			return err
+		}
+	}
+	return recompute(s.root)
 }
 
 // BuildAuthenticatedSelectedStore uses the immutable policy captured from the
@@ -432,7 +594,7 @@ func (s *SelectedStore) normalizeGoCompatibility(policy SelectedStorePolicy, sou
 	}
 	// First drop implicit semicolon transport nodes. Compact the child arena in
 	// one pass so dead windows do not survive in retained bytes.
-	children := make([]SelectedNodeID, 0, len(s.children))
+	children := s.children[:0]
 	for index := range s.records {
 		if index&255 == 0 {
 			if err := poll(); err != nil {
@@ -636,6 +798,10 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 		return errors.New("parser-core phase zero: selected store sealed no logical roots")
 	}
 	if len(roots) == 1 {
+		root := s.records[roots[0]-1]
+		if root.Extra() || root.Symbol != policy.ExpectedRoot {
+			return errors.New("parser-core phase zero: selected store root is not authenticated")
+		}
 		s.root = roots[0]
 		return nil
 	}
@@ -654,18 +820,19 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 	}
 	realID := roots[realIndex]
 	real := &s.records[realID-1]
-	oldChildren := append([]SelectedNodeID(nil), s.children[real.FirstChild:real.FirstChild+uint32(real.ChildCount)]...)
-	merged := make([]SelectedNodeID, 0, len(roots)-1+len(oldChildren))
-	merged = append(merged, roots[:realIndex]...)
-	merged = append(merged, oldChildren...)
-	merged = append(merged, roots[realIndex+1:]...)
-	if len(merged) > math.MaxUint16 || len(s.children)+len(merged) > math.MaxUint32 {
+	oldStart := real.FirstChild
+	oldEnd := oldStart + uint32(real.ChildCount)
+	mergedCount := len(roots) - 1 + int(real.ChildCount)
+	if mergedCount > math.MaxUint16 || len(s.children)+mergedCount > math.MaxUint32 {
 		return errors.New("parser-core phase zero: selected root extras exceed arena")
 	}
 	real.FirstChild = uint32(len(s.children))
-	real.ChildCount = uint16(len(merged))
+	real.ChildCount = uint16(mergedCount)
 	real.StartByte = 0
-	s.children = append(s.children, merged...)
+	s.children = append(s.children, roots[:realIndex]...)
+	s.children = append(s.children, s.children[oldStart:oldEnd]...)
+	s.children = append(s.children, roots[realIndex+1:]...)
+	merged := s.children[real.FirstChild:]
 	for childIndex, child := range merged {
 		s.records[child-1].Parent = realID
 		s.records[child-1].ChildIndex = uint16(childIndex)
@@ -675,21 +842,37 @@ func (s *SelectedStore) finishRoots(roots []SelectedNodeID, policy SelectedStore
 }
 
 func (c *Core) selectedRawOccurrences(roots []SubtreeID, poll func() error) ([]selectedRawOccurrence, []uint32, []uint32, error) {
-	raw := make([]selectedRawOccurrence, 0, len(c.subtrees))
-	children := make([]uint32, 0, len(c.children))
-	rootOccurrences := make([]uint32, 0, len(roots))
-	type frame struct {
-		occurrence uint32
-		next       uint32
+	rawCapacity := min(len(c.subtrees), int(c.limits.MaxSelectedOccurrences))
+	raw := c.selectedBuild.raw[:0]
+	if cap(raw) < rawCapacity {
+		raw = make([]selectedRawOccurrence, 0, rawCapacity)
 	}
-	stack := make([]frame, 0, 64)
+	children := c.selectedBuild.rawChildren[:0]
+	childCapacity := min(len(c.children), int(c.limits.MaxSelectedOccurrences))
+	if cap(children) < childCapacity {
+		children = make([]uint32, 0, childCapacity)
+	}
+	rootOccurrences := c.selectedBuild.rawRoots[:0]
+	if cap(rootOccurrences) < len(roots) {
+		rootOccurrences = make([]uint32, 0, len(roots))
+	}
+	stack := c.selectedBuild.stack[:0]
+	if cap(stack) < 64 {
+		stack = make([]selectedOccurrenceFrame, 0, 64)
+	}
+	c.selectedBuild.raw, c.selectedBuild.rawChildren = raw, children
+	c.selectedBuild.rawRoots, c.selectedBuild.stack = rootOccurrences, stack
 	var work uint64
 	appendOccurrence := func(payload SubtreeID, alias Symbol, field FieldID) (uint32, error) {
 		record, err := c.subtree(payload)
 		if err != nil {
 			return 0, err
 		}
-		if record.childCount > math.MaxUint16 || len(raw) >= math.MaxUint32 || len(children)+int(record.childCount) > math.MaxUint32 {
+		if record.childCount > math.MaxUint16 || uint64(len(raw))+1 > uint64(c.limits.MaxSelectedOccurrences) ||
+			uint64(len(children))+uint64(record.childCount) > uint64(c.limits.MaxSelectedOccurrences) {
+			return 0, errors.New("parser-core phase zero: raw selected occurrence cap")
+		}
+		if len(raw) >= math.MaxUint32 || uint64(len(children))+uint64(record.childCount) > math.MaxUint32 {
 			return 0, errors.New("parser-core phase zero: raw selected occurrence exceeds arena")
 		}
 		id := uint32(len(raw))
@@ -703,7 +886,7 @@ func (c *Core) selectedRawOccurrences(roots []SubtreeID, poll func() error) ([]s
 			return nil, nil, nil, err
 		}
 		rootOccurrences = append(rootOccurrences, rootID)
-		stack = append(stack, frame{occurrence: rootID})
+		stack = append(stack, selectedOccurrenceFrame{occurrence: rootID})
 		for len(stack) != 0 {
 			work++
 			if work&255 == 0 {
@@ -746,8 +929,10 @@ func (c *Core) selectedRawOccurrences(roots []SubtreeID, poll func() error) ([]s
 				return nil, nil, nil, err
 			}
 			children[parent.firstChild+ordinal] = childID
-			stack = append(stack, frame{occurrence: childID})
+			stack = append(stack, selectedOccurrenceFrame{occurrence: childID})
 		}
 	}
+	c.selectedBuild.raw, c.selectedBuild.rawChildren = raw, children
+	c.selectedBuild.rawRoots, c.selectedBuild.stack = rootOccurrences, stack
 	return raw, children, rootOccurrences, nil
 }

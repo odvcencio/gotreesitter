@@ -2,6 +2,7 @@ package parsercorephase0
 
 import (
 	"errors"
+	"math"
 	"strings"
 	"testing"
 )
@@ -116,6 +117,39 @@ func TestSelectedStoreRejectsMalformedPolicy(t *testing.T) {
 	}
 }
 
+func TestSelectedStoreEnforcesOccurrenceAndRetainedByteCaps(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		limits Limits
+		want   string
+	}{
+		{name: "occurrences", limits: Limits{MaxSelectedOccurrences: 2, MaxSelectedBytes: 1 << 20}, want: "occurrence cap"},
+		{name: "retained-bytes", limits: Limits{MaxSelectedOccurrences: 8, MaxSelectedBytes: 1}, want: "retained-byte cap"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			compact, err := New(&fakeTable{}, test.limits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			leaf, _ := compact.appendSubtree(subtreeRecord{symbol: 1, endByte: 1, terminal: true}, nil, nil, nil)
+			root, _ := compact.appendSubtree(subtreeRecord{symbol: 2, endByte: 1}, []SubtreeID{leaf, leaf}, nil, nil)
+			store, err := compact.BuildSelectedStore([]SubtreeID{root}, selectedStoreTestPolicy(t, 2, 1), []byte("x"), nil)
+			if err == nil || store != nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("capped store=%v err=%v want=%q", store, err, test.want)
+			}
+		})
+	}
+}
+
+func TestSelectedStorePrecedenceOverflowFailsClosed(t *testing.T) {
+	if _, err := checkedSelectedPrecedence(math.MaxInt32, 1); err == nil {
+		t.Fatal("positive selected precedence overflow succeeded")
+	}
+	if _, err := checkedSelectedPrecedence(math.MinInt32, -1); err == nil {
+		t.Fatal("negative selected precedence overflow succeeded")
+	}
+}
+
 func TestSelectedStoreDeepTraversalIsIterativeAndCancellable(t *testing.T) {
 	const depth = 20_000
 	compact, err := New(&fakeTable{}, Limits{MaxSubtrees: depth + 1, MaxChildren: depth + 1})
@@ -188,9 +222,31 @@ func TestSelectedStoreAuthenticatedPolicyCapability(t *testing.T) {
 	if err := compact.Reset(); err != nil {
 		t.Fatal(err)
 	}
+	if record, ok := store.Record(store.Root()); !ok || record.Symbol != 1 || record.StartByte != 0 || record.EndByte != 1 {
+		t.Fatalf("sealed store changed after core reset: record=%+v ok=%t", record, ok)
+	}
 	if stale, err := compact.BuildAuthenticatedSelectedStore([]SubtreeID{leaf}, []byte("x"), nil); err == nil || stale != nil {
 		t.Fatalf("stale accepted roots store=%v err=%v", stale, err)
 	}
+	retained := store.RetainedBytes()
+	store.Release()
+	store.Release()
+	if retained == 0 || store.Root() != 0 || store.NodeCount() != 0 || store.ChildCount() != 0 || store.RetainedBytes() != 0 {
+		t.Fatalf("released store remained readable: retained=%d root=%d nodes=%d children=%d bytes=%d",
+			retained, store.Root(), store.NodeCount(), store.ChildCount(), store.RetainedBytes())
+	}
+	if _, ok := store.Record(1); ok {
+		t.Fatal("released store record remained readable")
+	}
+	if _, ok := store.Cursor().Record(); ok {
+		t.Fatal("released store cursor remained readable")
+	}
+	freshLeaf, _ := compact.appendSubtree(subtreeRecord{symbol: 1, endByte: 1, terminal: true}, nil, nil, nil)
+	freshStore, err := compact.BuildAuthenticatedSelectedStore([]SubtreeID{freshLeaf}, []byte("x"), nil)
+	if err != nil || freshStore == nil || freshStore.NodeCount() != 1 {
+		t.Fatalf("store backing was not reusable after release: store=%v err=%v", freshStore, err)
+	}
+	freshStore.Release()
 	withoutPolicy, _ := New(&fakeTable{}, Limits{})
 	if missing, err := withoutPolicy.BuildAuthenticatedSelectedStore([]SubtreeID{1}, []byte("x"), nil); err == nil || missing != nil {
 		t.Fatalf("missing policy store=%v err=%v", missing, err)
