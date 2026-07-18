@@ -16,10 +16,13 @@ for tags and release notes while still in `0.x`.
   resets, polls cancellation and resource limits, enforces occurrence and
   retained-byte caps before growth, builds its quadratic unary policy only on
   demand, and returns each atomic record/child backing pair through an explicit
-  synchronized release lifecycle. A pre-review A/B board found a promising
-  directional win, but it is superseded pending a post-review locked-C
-  publication. The route remains diagnostic-only and intentionally omits
-  parser-state metadata.
+  synchronized release lifecycle. On the exact reviewed revision, the direct
+  consumer improves the same-revision public-node boundary by 13.27% across
+  the four locked fixtures, with every fixture 11.18-15.58% faster, B/op down
+  56.42%, lower RSS, exact work, and zero fallback. Its strict locked-static-C
+  publication measures 2.685181x C by equal-fixture geomean, 2.676794x by
+  fixed-suite sum, and 2.791974x on the worst fixture. The route remains
+  diagnostic-only and intentionally omits parser-state metadata.
 
 ### Tooling
 

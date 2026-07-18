@@ -530,7 +530,7 @@ four clean fresh-full Go fixtures and visible deep-tree structure, not public
 `Parser.Parse`, recovery, incremental reuse, included ranges, parser-state
 metadata, query/cursor behavior, or multiple grammars.
 
-### Pre-review direct selected-store boundary board (superseded)
+### Direct selected-store boundary receipt
 
 The next diagnostic boundary removes public-node materialization from the
 opt-in compact consumer without changing the public-node control. Acceptance
@@ -542,28 +542,29 @@ public route never constructs that store. The store is readable after
 release. Cancellation, occurrence count, retained bytes, unsupported policy,
 precedence overflow, and root identity all fail closed.
 
-This board predates the final lifecycle review. It is retained only as a
-directional experiment and is **not publication evidence**: the reviewed
-implementation now creates unary policy metadata lazily, pools record and
-child backing as one synchronized capped pair, preflights root-extra growth,
-and releases the store on every post-build validation failure. A new locked-C
-publication is required after those corrections pass review.
+The reviewed lifecycle creates unary policy metadata lazily, polls cancellation
+before that width-squared construction, pools record and child backing as one
+synchronized capped pair, preflights root-extra growth, rejects non-extra
+sibling roots, and releases the store on every post-build validation failure.
+The record deliberately omits parser-state and pre-goto-state metadata.
 
-A balanced A-B-B-A board ran on 2026-07-18 on `ns1007492`, CPU 2, with Go
-1.22.2, `GOMAXPROCS=1`, 20 samples per lane and fixture, and 750 ms samples.
-The control is the post-#366 public-node lifecycle; the candidate includes
-selected-store sealing, a complete cursor traversal, and release.
+The exact reviewed revision `ba1ed1bf5e2e50e6125fbf1d66ea9fdbb8320bed`
+first passed a balanced A-B-B-A boundary gate on 2026-07-18 on `ns1007492`,
+CPU 2, with Go 1.22.2, `GOMAXPROCS=1`, 20 samples per lane and fixture, and
+750 ms samples. The control is the same-revision public-node lifecycle; the
+candidate includes selected-store sealing, complete cursor traversal, and
+release.
 
 | Fixture | Time delta | B/op delta | Retained selected bytes |
 |---|---:|---:|---:|
-| `rewrite.go` | **-13.18%** | **-55.45%** | 107,400 |
-| `query_compile.go` | **-13.03%** | **-58.40%** | 543,900 |
-| `language.go` | **-11.70%** | **-55.93%** | 516,500 |
-| `grammargen/lr.go` | **-15.45%** | **-55.83%** | 5,261,000 |
+| `rewrite.go` | **-12.68%** | **-55.45%** | 89,476 |
+| `query_compile.go` | **-13.57%** | **-58.40%** | 453,236 |
+| `language.go` | **-11.18%** | **-55.93%** | 430,416 |
+| `grammargen/lr.go` | **-15.58%** | **-55.83%** | 4,384,556 |
 
-The equal-fixture time geomean improves by **13.35%** and total B/op by
+The equal-fixture time geomean improves by **13.27%** and total B/op by
 **56.42%**; allocation count improves by 0.47%. Both direct-store orders peak
-below the public control (90,156/91,532 KiB versus 97,452/99,092 KiB). Every
+below the public control (87,084/88,028 KiB versus 99,864/100,724 KiB). Every
 timed sample reports zero fallback and the exact standing shifts, reductions,
 pop requests, pop paths, pop payloads, link additions, leaf constructions, and
 parent constructions for its fixture. Exact admissions additionally compare
@@ -576,11 +577,40 @@ record and are not part of this admission.
 Board identities:
 
 - combined benchstat SHA-256:
-  `82041c1f868f9972ff2ffbf47b076de78fde0a8a0a54d4b58439b1ad2900522a`;
+  `48f2c660f96a081db6ecd6b6c353de516fc80813bf82cff4d46fa8524ec0c355`;
 - public samples SHA-256:
-  `e17bd37ab0999fbf2803e0002229bd749bc02290c50569fce18ced36eeed2027`;
+  `3ca87a44ca37cb5cc962d1edf238567d6ad3a7fa1340f203ec4b68c3e41d9477`;
 - direct selected-store samples SHA-256:
-  `c0d200a7834afeb31b2931b6c4dc12b76a7b7405b0225472442b1ce04bbfce9d`.
+  `f8bd8a724235e3053b523d07a7b36b365d6f1d9dc1295bb1216d9765ed1ca857`;
+- test binary SHA-256:
+  `ab042ed4030a608ed5f527cfef1941152f4ae36b8b0838bfadeb4e323b133d8e`.
+
+The same clean revision then completed the strict locked-static-C publication
+driver with cgo/static deep admission, quiet-host admission, five Go-C-C-Go
+cycles, ten process-isolated samples per backend and fixture, exact work, and
+zero fallback:
+
+| Fixture | Selected store median | static C median | Selected / C | B/op | allocs/op | Selected max RSS | C max RSS |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `rewrite.go` | 3.140 ms | 1.208 ms | **2.599748x** | 24,824 | 1,909 | 39,888 KiB | 2,304 KiB |
+| `query_compile.go` | 15.235 ms | 5.457 ms | **2.791974x** | 95,978 | 9,000 | 39,788 KiB | 2,816 KiB |
+| `language.go` | 15.670 ms | 5.835 ms | **2.685641x** | 120,682 | 9,220 | 40,184 KiB | 2,816 KiB |
+| `grammargen/lr.go` | 157.935 ms | 59.221 ms | **2.666881x** | 1,066,512.5 | 91,156.5 | 84,008 KiB | 9,216 KiB |
+
+The selected-store equal-fixture geomean is **2.685181x C**. Its fixed-suite
+sum is **2.676794x C** (191.980 ms selected store versus 71.720 ms static C),
+and its worst fixture is `query_compile.go` at **2.791974x C**.
+
+Publication identities:
+
+- manifest SHA-256:
+  `dcbe8586283f16e7da1122b3991277383f5ce0494e23bce653cf91757673042f`;
+- report SHA-256:
+  `c3b96d8713566833367f893eb598b4bd912407b55e31d6c23ba04418d523b78f`;
+- complete receipt archive SHA-256:
+  `9600063ebabd54e73a83d9b4af0fb3b2cb79d582a3803a61fa7f90f58d726c51`;
+- locked static-C artifact SHA-256:
+  `dfbed45811491be8d81e32b293ed5577222445dae47b67d876cedae09679a871`.
 
 This is a diagnostic clean fresh-full Go consumer boundary. It is not a
 public `Parser.Parse`, recovery, incremental, included-range, multi-grammar,

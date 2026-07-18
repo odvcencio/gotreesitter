@@ -389,9 +389,11 @@ receipt hash.
 A strict v0.40.0 production receipt at `1935a42c` measures public
 `Parser.Parse` at **4.851050x C** by equal-fixture geomean and **5.472406x C**
 by fixed-suite sum of medians, with a **5.608320x C** worst fixture. The latest
-clean publication of the separately build-tagged, fail-closed compact
-candidate, at `19a8f526`, measures **3.118130x C** and **3.169740x C**,
-respectively, with every fixture below **3.19x C** and zero timed fallbacks.
+clean publication of the separately build-tagged, fail-closed selected-store
+candidate, at `ba1ed1bf`, measures **2.685181x C** and **2.676794x C**,
+respectively, with a **2.791974x C** worst fixture and zero timed fallbacks.
+The measured lifecycle seals the accepted compact payloads into the indexed
+selected store, walks them through `SelectedCursor`, and releases the store.
 That candidate result is diagnostic: it authenticates visible
 `gts-deep-tree-v1` structure for the four clean fresh-full fixtures, not
 parser-state metadata, recovery, incremental reuse, included ranges, or public
@@ -713,18 +715,20 @@ Test suite covers: smoke tests (206 grammars), golden S-expression snapshots, hi
 
 The current release is **v0.41.0**. It banks the post-v0.40 correctness and
 tooling tranche plus five exact, build-tagged compact-parser performance wins.
-Those diagnostic improvements keep the public parser unchanged while reducing
-the authenticated compact candidate to **3.118130x C** by equal-fixture
-geomean, **3.169740x C** by fixed-suite sum, and **3.185522x C** on its worst
-fixture, with zero timed fallback. The release also includes build-time PGO,
+Subsequent unreleased selected-store work keeps the public parser unchanged
+while reducing the authenticated compact candidate to **2.685181x C** by
+equal-fixture geomean, **2.676794x C** by fixed-suite sum, and **2.791974x C**
+on its worst fixture, with zero timed fallback. Its measured lifecycle seals,
+traverses, and releases the selected store; it is not public `Parser.Parse`.
+The v0.41.0 release also includes build-time PGO,
 forest-path pooling and copy elimination, query work budgeting, and incremental
 reuse boundary corrections from the v0.40.0 line.
 The authenticated production receipt at tag target `1935a42c` measures public
 `Parser.Parse` at **4.851050x C** by equal-fixture geomean, **5.472406x C** by
 fixed-suite sum, and **5.608320x C** on the worst fixture against the locked
 static `-O2` C oracle. Its 0.716% geomean improvement over v0.39.0 is below the
-reproducible 2% win threshold. The latest build-tagged compact candidate,
-measured at `19a8f526`, remains outside public `Parser.Parse` despite its lower
+reproducible 2% win threshold. The latest build-tagged selected-store candidate,
+measured at `ba1ed1bf`, remains outside public `Parser.Parse` despite its lower
 authenticated ratio.
 The 206-grammar curated parity milestone is banked, the invalid historical
 1.895x headline remains withdrawn, and the incremental matrix is a
