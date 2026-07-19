@@ -1083,7 +1083,32 @@ func generateWithReport(g *Grammar, opts reportBuildOptions) (*GenerateReport, e
 
 // GenerateWithReport compiles a grammar and returns a full diagnostic report.
 func GenerateWithReport(g *Grammar) (*GenerateReport, error) {
-	return generateWithReport(g, reportBuildOptions{
+	return GenerateWithReportContext(context.Background(), g)
+}
+
+// GenerateWithReportContext is like GenerateWithReport but accepts a context
+// for cancellation and performs a SINGLE LR generation pass that produces
+// both the diagnostic report and the compiled *gotreesitter.Language.
+//
+// The returned report's Language field already holds the compiled Language
+// (same as GenerateLanguage(g) would return) — callers that need both the
+// diagnostics (Conflicts, Warnings, SplitCandidates, ...) and the compiled
+// Language should read report.Language here instead of calling
+// GenerateLanguage separately, which would otherwise trigger a second,
+// redundant full LR generation pass (state construction, conflict
+// resolution, lex DFA construction — all done twice for no benefit). This
+// matters most for heavy grammars (e.g. imported TypeScript/JavaScript
+// grammars), where a second pass can double wall-clock generation time and,
+// without a cancellable context, cannot be aborted by a caller such as a Web
+// Worker enforcing a generation deadline.
+//
+// When ctx is cancelled, LR table construction, lex DFA construction, and
+// conflict resolution abort promptly at their periodic cancellation checks
+// and this function returns a non-nil error wrapping ctx.Err() (checkable
+// with errors.Is(err, context.Canceled) / errors.Is(err,
+// context.DeadlineExceeded)).
+func GenerateWithReportContext(ctx context.Context, g *Grammar) (*GenerateReport, error) {
+	return generateWithReportCtx(ctx, g, reportBuildOptions{
 		includeDiagnostics: true,
 		includeLanguage:    true,
 		includeBlob:        true,

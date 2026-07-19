@@ -320,6 +320,22 @@ func Braces(rule *Rule) *Rule {
 //	    g.Define("declaration", Choice(Sym("class_declaration"), Sym("function_declaration")))
 //	})
 func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Grammar {
+	g := cloneGrammarForExtend(name, base)
+
+	// Let the caller customize.
+	customize(g)
+
+	return g
+}
+
+// cloneGrammarForExtend deep-copies base into a new Grammar named name,
+// ready for a caller to add/override rules and other fields. It is the
+// shared foundation for both ExtendGrammar (Go closure customization) and
+// ExtendGrammarJSON (data-driven delta customization) — every field that
+// influences LR generation fidelity (rules, extras, conflicts, externals,
+// precedences, reserved word sets, and every tuning flag) is copied here so
+// both entry points inherit the same base behavior.
+func cloneGrammarForExtend(name string, base *Grammar) *Grammar {
 	g := &Grammar{
 		Name:                               name,
 		Rules:                              make(map[string]*Rule, len(base.Rules)),
@@ -371,9 +387,6 @@ func ExtendGrammar(name string, base *Grammar, customize func(g *Grammar)) *Gram
 	copy(g.Supertypes, base.Supertypes)
 	copy(g.Tests, base.Tests)
 	copy(g.ReuseRepeatAuxForParents, base.ReuseRepeatAuxForParents)
-
-	// Let the caller customize.
-	customize(g)
 
 	return g
 }
