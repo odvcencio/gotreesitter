@@ -1167,7 +1167,9 @@ func TestForestTreeIncrementalEditCMakeTextInvariantLeafReuseIsCorrect(t *testin
 		NewEndPoint: pointForOffset(edited, offset+1),
 	}
 
-	parser := gts.NewParser(grm.CmakeLanguage())
+	lang := *grm.CmakeLanguage()
+	lang.WantsForest = true
+	parser := gts.NewParser(&lang)
 	oldTree, err := parser.Parse(src)
 	if err != nil {
 		t.Fatalf("initial parse: %v", err)
@@ -1188,7 +1190,7 @@ func TestForestTreeIncrementalEditCMakeTextInvariantLeafReuseIsCorrect(t *testin
 		leafType := "<nil>"
 		leafText := ""
 		if leaf != nil {
-			leafType = leaf.Type(grm.CmakeLanguage())
+			leafType = leaf.Type(&lang)
 			leafText = leaf.Text(src)
 		}
 		t.Fatalf("cmake text-invariant leaf edit fell back to fresh parse: %s leaf=%s text=%q", profile.ReuseUnsupportedReason, leafType, leafText)
@@ -1204,7 +1206,7 @@ func TestForestTreeIncrementalEditCMakeTextInvariantLeafReuseIsCorrect(t *testin
 		t.Fatalf("fresh parse: %v", err)
 	}
 	defer freshTree.Release()
-	if got, want := newTree.RootNode().SExpr(grm.CmakeLanguage()), freshTree.RootNode().SExpr(grm.CmakeLanguage()); got != want {
+	if got, want := newTree.RootNode().SExpr(&lang), freshTree.RootNode().SExpr(&lang); got != want {
 		t.Fatalf("incremental CMake tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 	}
 }

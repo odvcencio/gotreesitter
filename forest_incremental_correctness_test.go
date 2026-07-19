@@ -71,11 +71,12 @@ func deleteEdit(src []byte, p int) forestEdit {
 // tree is byte-for-byte identical (s-expr) to a fresh parse of the same edited
 // source — only over edits that keep the source valid (an edit that breaks
 // syntax routes fresh through production error recovery, a different-but-valid
-// path). erlang + javascript pass via real forest-incremental reuse; scss/css/
-// cmake are demoted from languageAllowsForestIncrementalPath (they FAILED this
+// path). Erlang + JavaScript pass via real forest-incremental reuse; SCSS/CSS/
+// CMake are demoted from languageAllowsForestIncrementalPath (they FAILED this
 // gate — wrong/truncated trees) and reach the same assertion via fresh-parse
 // fallback. Re-adding a language to that list without it passing here regresses
-// incremental correctness.
+// incremental correctness. Each case opts in explicitly so this experimental
+// gate remains independent of automatic-routing policy.
 func TestForestIncrementalCorrectness(t *testing.T) {
 	if os.Getenv("GTS_FOREST_INCR") == "" {
 		t.Skip("set GTS_FOREST_INCR=1 to run the forest incremental correctness matrix (heavy)")
@@ -85,13 +86,10 @@ func TestForestIncrementalCorrectness(t *testing.T) {
 		file string
 		lang func() *gts.Language
 	}{
-		// These are forest-default languages (builtinForestDefaults). erlang +
-		// javascript do real forest-incremental reuse (must match fresh); scss,
-		// css and cmake are forest for full parses but demoted from the
-		// incremental path, so they reach the same assertion via fresh-parse
-		// fallback. (python is NOT a forest language and its PRODUCTION incremental
-		// reuse has its own pre-existing bug — tracked separately — so it is out of
-		// scope here.)
+		// Erlang + JavaScript do real forest-incremental reuse (must match fresh);
+		// SCSS, CSS and CMake are demoted from the incremental path, so they reach
+		// the same assertion via fresh-parse fallback. (Python's production
+		// incremental reuse has its own pre-existing bug and is out of scope.)
 		{"javascript", "cgo_harness/corpus_real/javascript/large__jquery.js", grammars.JavascriptLanguage},
 		{"scss", "cgo_harness/corpus_real/scss/large__github.com.scss", grammars.ScssLanguage},
 		{"css", "cgo_harness/corpus_real/css/large__github.com.css", grammars.CssLanguage},
@@ -105,7 +103,9 @@ func TestForestIncrementalCorrectness(t *testing.T) {
 			if err != nil {
 				t.Skipf("corpus missing: %v", err)
 			}
-			lang := tc.lang()
+			langCopy := *tc.lang()
+			langCopy.WantsForest = true
+			lang := &langCopy
 
 			// Positions spread across the file, each exercised with replace,
 			// insert and delete.
