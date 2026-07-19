@@ -9,6 +9,15 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Move Faust, CMake, and Erlang automatic forest routing back to explicit-only
+  experiments after full locked-corpus recertification superseded their earlier
+  small-corpus receipts. Faust remained exact across 706 files but routed in
+  9.94 seconds versus 6.52 seconds for production; CMake remained exact across
+  11,506 files but routed in 35.03 seconds versus 23.36 seconds. Erlang's route
+  improved 4,114 files from 213.14 to 183.94 seconds, but 175 routed trees
+  differed from production and 125 forest trees differed from the direct C
+  oracle. Explicit `Language.WantsForest` experiments remain available for all
+  three while route overhead and Erlang result selection are improved.
 - Keep Common Lisp on the production parser unless callers explicitly request
   the forest path. On the locked 1,357-file corpus, the routed parser took
   173.6 seconds versus 46.0 seconds for production, dispatched one file, fell

@@ -397,10 +397,10 @@ func (p *Parser) recordForestDecline(reason string, tok Token, states []StateID)
 // TestForestCorpusParity (which compares all nodes, byte ranges, points,
 // named/extra/missing bits, child counts, and fields — named-only gates hid
 // systematic span bugs).
-// Measured production-vs-forest speedups on the real corpus: bash
-// 803x, erlang 664x, cmake 166x, awk 202x, javascript 36x, css 5x, scss 3x,
-// c_sharp 3x. GraphQL is clean against production here too, but stays out
-// until the production tree is C-oracle-clean on the ring matrix. The forest
+// Historical small-corpus speedups are not sufficient for admission. Current
+// locked full-corpus evidence must show both exact direct-C parity and a net
+// routed wall-time win. GraphQL is clean against production here too, but stays
+// out until the production tree is C-oracle-clean on the ring matrix. The forest
 // has no error recovery, so tryForestFastPath falls back to production on any
 // decline (failure / error / truncation); that fallback means a language can
 // never regress the cases it declines, but does NOT catch a clean-but-different
@@ -471,6 +471,15 @@ func (p *Parser) recordForestDecline(reason string, tok Token, states []StateID)
 // its recovery machinery available to explicit experiments, but do not charge
 // every normal parse for a route that almost always falls back.
 //
+// Faust, CMake, and Erlang are explicit-only after a full-corpus
+// recertification at 04a2cf92 superseded their earlier small-corpus receipts.
+// Faust was exact across 706 files, but routing took 9.94 seconds versus 6.52
+// seconds for production. CMake was exact across 11,506 files, but routing took
+// 35.03 seconds versus 23.36 seconds. Erlang's route was faster across 4,114
+// files, but 175 routed trees differed from production and 125 forest trees
+// differed from the direct C oracle. Keep all three available to explicit
+// callers while the route overhead and Erlang result-selection gaps are worked.
+//
 // Non-built-in languages opt in per-Language via Language.WantsForest (see
 // parserWantsForest) instead of joining this map — e.g. a grammargen consumer
 // generating its own grammar (a Pawn grammar, say) sets WantsForest directly
@@ -481,8 +490,6 @@ func (p *Parser) recordForestDecline(reason string, tok Token, states []StateID)
 // responsibility.
 var builtinForestDefaults = map[string]bool{
 	"bash":       true,
-	"erlang":     true,
-	"cmake":      true,
 	"css":        true,
 	"scss":       true,
 	"javascript": true,
@@ -518,13 +525,11 @@ var builtinForestDefaults = map[string]bool{
 
 	// Promoted 2026-06-08 via the forest-vs-C sweep (TestForestVsCSources):
 	// the forest introduces ZERO C-divergences (every divergence is inherited
-	// from production) and is a net-wall WIN — bibtex 109.8x, faust 34.5x,
-	// arduino 1.3x. faust/arduino also FIX production: the forest matches C on
-	// files where the culled production parser does not (faust 108/120,
-	// arduino 10/19 production-mismatches that are the forest being C-correct).
+	// from production) and is a net-wall WIN — bibtex 109.8x and arduino 1.3x.
+	// Arduino also fixes production on 10/19 production-mismatched files. The
+	// earlier Faust promotion was superseded by the full-corpus receipt above.
 	// Held: make (forest=C-clean but net-wall NEUTRAL 1.0x — no lift).
 	"bibtex":  true,
-	"faust":   true,
 	"arduino": true,
 	"authzed": true,
 	"make":    true,
