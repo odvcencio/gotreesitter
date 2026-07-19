@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"fmt"
 	"regexp"
+	"slices"
 )
 
 // Query holds compiled patterns parsed from a tree-sitter .scm query file.
@@ -287,8 +288,9 @@ type queryCursorWorkItem struct {
 }
 
 type queryExecBuffer struct {
-	matches  []QueryMatch
-	worklist []queryCursorWorkItem
+	matches        []QueryMatch
+	readerMatches  []queryReaderMatch[QueryCapture]
+	readerWorklist []queryReaderWorkItem[*Node]
 }
 
 // NewQuery compiles query source (tree-sitter .scm format) against a language.
@@ -532,20 +534,8 @@ func (q *Query) executeNode(root *Node, lang *Language, source []byte) []QueryMa
 	if root == nil || lang == nil {
 		return nil
 	}
-
-	cursor := q.Exec(root, lang, source)
-	// Pre-size based on source length: empirically ~1 match per 40 bytes for
-	// typical highlight queries. Underestimating is fine; we just grow once more.
-	initCap := len(source)/40 + 16
-	matches := make([]QueryMatch, 0, initCap)
-	for {
-		m, ok := cursor.NextMatch()
-		if !ok {
-			break
-		}
-		matches = append(matches, m)
-	}
-	return matches
+	var buf queryExecBuffer
+	return q.executeNodeIntoBuffer(root, lang, source, &buf)
 }
 
 func (q *Query) executeNodeInto(root *Node, lang *Language, source []byte, dst []QueryMatch) []QueryMatch {
@@ -565,101 +555,17 @@ func (q *Query) executeNodeInto(root *Node, lang *Language, source []byte, dst [
 }
 
 func (q *Query) executeNodeIntoBuffer(root *Node, lang *Language, source []byte, buf *queryExecBuffer) []QueryMatch {
-	if root == nil || lang == nil {
-		if buf == nil {
-			return nil
-		}
-		buf.matches = buf.matches[:0]
-		buf.worklist = buf.worklist[:0]
-		return buf.matches
-	}
 	if buf == nil {
 		return q.executeNode(root, lang, source)
 	}
-	if q.rootCandidatesBySymbol == nil && q.rootFallbackCandidates == nil {
-		q.buildRootPatternIndex()
-	}
-
 	buf.matches = buf.matches[:0]
-	buf.worklist = append(buf.worklist[:0], queryCursorWorkItem{node: root, childIdx: -1, depth: 0})
-
-	for len(buf.worklist) > 0 {
-		last := len(buf.worklist) - 1
-		item := buf.worklist[last]
-		buf.worklist = buf.worklist[:last]
-
-		n := item.node
-		if n == nil {
-			continue
-		}
-		if item.post {
-			candidates := q.postorderPatternCandidates(lang.PublicSymbolForNamedness(n.Symbol(), n.IsNamed()))
-			candidates = mergePatternIndexLists(q.rootRepetitionPostPatterns, candidates)
-			for _, pi := range candidates {
-				if q.isPatternDisabled(pi) {
-					continue
-				}
-				pat := q.patterns[pi]
-				budget := newQueryMatchBudget(defaultQueryMatchWorkBudget)
-				var captureSets [][]QueryCapture
-				if pat.steps[0].quantifier == queryQuantifierZeroOrMore || pat.steps[0].quantifier == queryQuantifierOneOrMore {
-					captureSets = q.matchPatternPostorderAll(&pat, n, item.parent, item.childIdx, lang, source, budget)
-				} else {
-					captureSets = q.matchPatternAll(&pat, n, lang, source, budget)
-				}
-				for _, captures := range captureSets {
-					buf.matches = append(buf.matches, QueryMatch{
-						PatternIndex: pi,
-						Captures:     captures,
-					})
-				}
-			}
-			continue
-		}
-
-		if q.hasPostorderPatterns() {
-			buf.worklist = append(buf.worklist, queryCursorWorkItem{
-				node:     n,
-				parent:   item.parent,
-				childIdx: item.childIdx,
-				depth:    item.depth,
-				post:     true,
-			})
-		}
-
-		for i := nodeChildCountNoMaterialize(n) - 1; i >= 0; i-- {
-			child := nodeChildAtForReason(n, i, materializeForQuery)
-			if child == nil {
-				continue
-			}
-			buf.worklist = append(buf.worklist, queryCursorWorkItem{
-				node:     child,
-				parent:   n,
-				childIdx: i,
-				depth:    item.depth + 1,
-			})
-		}
-
-		candidates := q.rootPatternCandidates(lang.PublicSymbolForNamedness(n.Symbol(), n.IsNamed()))
-		for _, pi := range candidates {
-			if q.isPatternDisabled(pi) {
-				continue
-			}
-			pat := q.patterns[pi]
-			budget := newQueryMatchBudget(defaultQueryMatchWorkBudget)
-			captureSets := q.matchPatternAll(&pat, n, lang, source, budget)
-			if len(captureSets) == 0 {
-				continue
-			}
-			for _, captures := range captureSets {
-				buf.matches = append(buf.matches, QueryMatch{
-					PatternIndex: pi,
-					Captures:     captures,
-				})
-			}
-		}
+	buf.readerMatches, buf.readerWorklist = executeQueryWithReader(
+		q, root, lang, source, publicQueryReader{}, buf.readerMatches, buf.readerWorklist,
+	)
+	buf.matches = slices.Grow(buf.matches, len(buf.readerMatches))
+	for _, match := range buf.readerMatches {
+		buf.matches = append(buf.matches, QueryMatch{PatternIndex: match.PatternIndex, Captures: match.Captures})
 	}
-
 	return buf.matches
 }
 

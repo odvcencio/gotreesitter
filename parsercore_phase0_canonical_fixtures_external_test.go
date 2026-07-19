@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
@@ -38,5 +39,12 @@ func init() {
 			return "", err
 		}
 		return inspection.SHA256, nil
+	})
+	gotreesitter.SetDiagnosticParserCoreGoHighlightQueryForTest(func() (string, error) {
+		entry := grammars.DetectLanguage("main.go")
+		if entry == nil {
+			return "", fmt.Errorf("Go grammar registry entry not found")
+		}
+		return entry.HighlightQuery, nil
 	})
 }

@@ -208,15 +208,83 @@ func selectedStoreRetainedBytes(recordCapacity, childCapacity int) uint64 {
 		uint64(childCapacity)*uint64(unsafe.Sizeof(SelectedNodeID(0)))
 }
 
-func (s *SelectedStore) Record(id SelectedNodeID) (SelectedNodeRecord, bool) {
+func (s *SelectedStore) record(id SelectedNodeID) (*SelectedNodeRecord, bool) {
 	if s == nil || s.released || id == 0 || uint64(id) > uint64(len(s.records)) {
+		return nil, false
+	}
+	return &s.records[id-1], true
+}
+
+func (s *SelectedStore) Record(id SelectedNodeID) (SelectedNodeRecord, bool) {
+	record, ok := s.record(id)
+	if !ok {
 		return SelectedNodeRecord{}, false
 	}
-	return s.records[id-1], true
+	return *record, true
+}
+
+func (s *SelectedStore) NodeSymbol(id SelectedNodeID) (Symbol, bool) {
+	record, ok := s.record(id)
+	if !ok {
+		return 0, false
+	}
+	return record.Symbol, true
+}
+
+func (s *SelectedStore) NodeNamed(id SelectedNodeID) (bool, bool) {
+	record, ok := s.record(id)
+	if !ok {
+		return false, false
+	}
+	return record.Named(), true
+}
+
+func (s *SelectedStore) NodeRange(id SelectedNodeID) (uint32, uint32, bool) {
+	record, ok := s.record(id)
+	if !ok {
+		return 0, 0, false
+	}
+	return record.StartByte, record.EndByte, true
+}
+
+func (s *SelectedStore) NodeParent(id SelectedNodeID) (SelectedNodeID, bool) {
+	record, ok := s.record(id)
+	if !ok || record.Parent == 0 {
+		return 0, false
+	}
+	return record.Parent, true
+}
+
+func (s *SelectedStore) NodeChildCount(id SelectedNodeID) (uint16, bool) {
+	record, ok := s.record(id)
+	if !ok {
+		return 0, false
+	}
+	return record.ChildCount, true
+}
+
+func (s *SelectedStore) NodeField(id SelectedNodeID) (FieldID, bool) {
+	record, ok := s.record(id)
+	if !ok {
+		return 0, false
+	}
+	return record.Field, true
+}
+
+func (s *SelectedStore) ChildID(parent SelectedNodeID, index uint32) (SelectedNodeID, bool) {
+	record, ok := s.record(parent)
+	if !ok {
+		return 0, false
+	}
+	return s.child(record, index)
 }
 
 func (s *SelectedStore) Child(record SelectedNodeRecord, index uint32) (SelectedNodeID, bool) {
-	if s == nil || s.released || index >= uint32(record.ChildCount) {
+	return s.child(&record, index)
+}
+
+func (s *SelectedStore) child(record *SelectedNodeRecord, index uint32) (SelectedNodeID, bool) {
+	if s == nil || s.released || record == nil || index >= uint32(record.ChildCount) {
 		return 0, false
 	}
 	slot := uint64(record.FirstChild) + uint64(index)

@@ -9,6 +9,17 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Execute Go highlight queries directly over the build-tagged compact selected
+  store through value node handles, without constructing public-node proxies.
+  All four locked real-Go fixtures preserve exact ordered query captures,
+  directives, and final highlight ranges; unsupported missing-node queries
+  decline explicitly. On the exact rebased revision, selected-store query time
+  improves by 8.51% and B/op by 14.18% against the public-tree control by
+  equal-fixture geomean. End-to-end selected parse plus highlight improves by
+  12.90% with 26.38% fewer B/op, and every fixture median is faster. A balanced
+  two-order public `Query.Execute` control preserves wall time while reducing
+  B/op and allocations by 14.50%; direct streaming-cursor allocations remain
+  unchanged. The selected route remains diagnostic-only.
 - Keep Common Lisp on the production parser unless callers explicitly request
   the forest path. On the locked 1,357-file corpus, the routed parser took
   173.6 seconds versus 46.0 seconds for production, dispatched one file, fell
