@@ -42,7 +42,94 @@ func normalizeGoReturnedTreeCompatibility(root *Node, source []byte, p *Parser, 
 	if reason := p.activeParseStopReason(); parseStopReasonIsActive(reason) {
 		return reason
 	}
+	if reason := p.goCompatMemoryBudgetStopReason(arena); reason == ParseStopMemoryBudget {
+		return reason
+	}
+	normalizeGoNewMakeTypeArgument(root, source, lang)
 	return p.goCompatMemoryBudgetStopReason(arena)
+}
+
+// normalizeGoNewMakeTypeArgument reclassifies the leading argument of a call
+// to the "new" or "make" builtins from `identifier` to `type_identifier` when
+// it is a bare identifier (e.g. `new(dirInfo)`).
+//
+// Root cause: tree-sitter-go's grammar declares `[$._simple_type,
+// $._expression]` as an explicit ambiguity (grammar.js conflicts array) for
+// exactly this position — special_argument_list's leading `_type` slot
+// (grammargen/go_grammar.go's special_argument_list/call_expression, mirrored
+// from grammar.js's call_expression/special_argument_list rules) overlaps
+// with argument_list's `_expression` slot for a single bare identifier
+// followed by "," or ")". The real tree-sitter table generator resolves this
+// reduce/reduce conflict *statically*, at table-build time, in favor of the
+// earlier-declared `_simple_type` production — confirmed empirically via the
+// real C runtime's own parse logger (ts_parser_set_logger), which shows
+// version_count staying at 1 (no GLR fork at all) and a single deterministic
+// "reduce sym:_simple_type" for this state. gotreesitter's LR table instead
+// treats this as a genuine two-way GLR fork (see AmbiguityProfile: state 186,
+// lookahead ")", two reduce actions — _simple_type dynPrec=-1 vs _expression
+// dynPrec=0) and its runtime merge picks the higher-dynamic-precedence
+// alternative (_expression), which is the opposite of what the real offline
+// table-build-time resolution picks. That is a genuine LALR/GLR
+// table-generation divergence in grammargen's conflict resolution — not a
+// per-language quirk — but replicating the real compiler's "earlier
+// declaration wins" static tie-break generally is a broad, cross-grammar
+// change to grammargen/lr.go's resolveReduceReduceLegacy family (used by
+// every language with declared conflicts) with real blast-radius risk.
+//
+// This function is the narrow, local, byte-identity-preserving patch: it
+// only retags the node's symbol/named-ness (never bytes, never structure) and
+// only for the one syntactic shape the owner-confirmed divergence covers —
+// the sole/leading argument of a literal `new`/`make` call. It mirrors the
+// existing precedent for this class of fix (see
+// normalizeArduinoBuiltinPrimitiveTypes in parser_result_c.go).
+func normalizeGoNewMakeTypeArgument(root *Node, source []byte, lang *Language) {
+	if root == nil || lang == nil || len(source) == 0 {
+		return
+	}
+	if !bytes.Contains(source, []byte("new")) && !bytes.Contains(source, []byte("make")) {
+		return
+	}
+	callSym, ok := symbolByName(lang, "call_expression")
+	if !ok {
+		return
+	}
+	argListSym, ok := symbolByName(lang, "argument_list")
+	if !ok {
+		return
+	}
+	identifierSym, ok := lang.symbolByNamePreferNamed("identifier")
+	if !ok {
+		return
+	}
+	typeIdentifierSym, ok := lang.symbolByNamePreferNamed("type_identifier")
+	if !ok {
+		return
+	}
+	typeIdentifierNamed := symbolIsNamed(lang, typeIdentifierSym)
+
+	walkResultTree(root, func(n *Node) {
+		if n == nil || n.symbol != callSym {
+			return
+		}
+		fn := n.ChildByFieldName("function", lang)
+		if fn == nil || fn.symbol != identifierSym {
+			return
+		}
+		name := fn.Text(source)
+		if name != "new" && name != "make" {
+			return
+		}
+		args := n.ChildByFieldName("arguments", lang)
+		if args == nil || args.symbol != argListSym {
+			return
+		}
+		first := args.NamedChild(0)
+		if first == nil || first.symbol != identifierSym {
+			return
+		}
+		first.symbol = typeIdentifierSym
+		first.setNamed(typeIdentifierNamed)
+	})
 }
 
 // goCompatMemoryBudgetStopReason forces a real (unmasked) memory-budget check

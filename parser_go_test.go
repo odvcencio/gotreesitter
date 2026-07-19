@@ -162,6 +162,66 @@ func TestParseGoFunctionDeclarationFields(t *testing.T) {
 	}
 }
 
+// TestParseGoNewMakeSoleArgumentIsTypeIdentifier is a regression test for a
+// C-oracle divergence found on real Go stdlib (os/dir_unix.go: `new(dirInfo)`):
+// tree-sitter-go's grammar declares `_simple_type`/`_expression` as an
+// explicit ambiguity for the sole/leading argument of a call to the "new" or
+// "make" builtins (special_argument_list's `_type` slot overlaps
+// argument_list's `_expression` slot for a bare identifier). C's LALR table
+// resolves this deterministically toward `_simple_type` (type_identifier);
+// gotreesitter's GLR table forked and picked `_expression` (identifier)
+// instead. normalizeGoNewMakeTypeArgument (parser_result_go.go) reclassifies
+// the argument node in the one syntactic shape this covers. See
+// cgo_harness's TestZZCodivRepro* / TestZZCodivCorpusSpotCheck* history for
+// the C-oracle byte-identity verification.
+func TestParseGoNewMakeSoleArgumentIsTypeIdentifier(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  string
+	}{
+		{"new-user-type", "package p\n\ntype dirInfo struct{}\n\nfunc f() {\n\td := new(dirInfo)\n\t_ = d\n}\n"},
+		{"make-user-type", "package p\n\ntype dirInfo struct{}\n\nfunc f() {\n\tm := make(dirInfo, 0)\n\t_ = m\n}\n"},
+		{"new-builtin-primitive", "package p\n\nfunc f() {\n\td := new(int)\n\t_ = d\n}\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tree, lang := parseGo(t, tc.src)
+			call := findNamedChild(lang, tree.RootNode(), "call_expression")
+			if call == nil {
+				t.Fatalf("no call_expression found; root=%s", tree.RootNode().SExpr(lang))
+			}
+			args := call.ChildByFieldName("arguments", lang)
+			if args == nil {
+				t.Fatalf("call_expression has no arguments field; root=%s", tree.RootNode().SExpr(lang))
+			}
+			arg := args.NamedChild(0)
+			if arg == nil {
+				t.Fatalf("argument_list has no named child; root=%s", tree.RootNode().SExpr(lang))
+			}
+			if got := arg.Type(lang); got != "type_identifier" {
+				t.Fatalf("sole new/make argument Type() = %q, want %q; root=%s", got, "type_identifier", tree.RootNode().SExpr(lang))
+			}
+		})
+	}
+}
+
+// TestParseGoNewMakeUserShadowNotMisclassified ensures the new/make
+// reclassification stays scoped to the exact "new"/"make" builtin call shape
+// (function field is literally the identifier "new" or "make") and does not
+// leak into ordinary calls whose function name happens to contain those
+// substrings, or calls to a same-named user function whose argument isn't a
+// bare identifier.
+func TestParseGoNewMakeUserShadowNotMisclassified(t *testing.T) {
+	tree, lang := parseGo(t, "package p\n\nfunc dirInfo() int { return 0 }\n\nfunc f() {\n\td := dirInfo()\n\t_ = d\n}\n")
+	call := findNamedChild(lang, tree.RootNode(), "call_expression")
+	if call == nil {
+		t.Fatalf("no call_expression found; root=%s", tree.RootNode().SExpr(lang))
+	}
+	fn := call.ChildByFieldName("function", lang)
+	if fn == nil || fn.Type(lang) != "identifier" || fn.Text([]byte("package p\n\nfunc dirInfo() int { return 0 }\n\nfunc f() {\n\td := dirInfo()\n\t_ = d\n}\n")) != "dirInfo" {
+		t.Fatalf("expected call to dirInfo() with identifier function field")
+	}
+}
+
 func TestParseGoRangeWithNestedFunctionLiteralBody(t *testing.T) {
 	src := `package p
 
