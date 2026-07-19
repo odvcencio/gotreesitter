@@ -416,6 +416,179 @@ func TestApplyGrammarJSONDeltaReservedWordSets(t *testing.T) {
 	}
 }
 
+// TestExtendGrammarJSONExternalsDedupByName is the regression test for the
+// silent-scanner-corruption finding: a delta external that names an
+// external the base already declares must be skipped, not appended a
+// second time, or registerExternalSymbols registers a duplicate
+// ExternalSymbols slot for the (deduplicated-by-name) symbol ID and
+// ExternalTokenCount is silently inflated -- an external-scanner ABI
+// mismatch, since the compiled scanner-call bookkeeping is sized off
+// ExternalTokenCount. The additive case (a genuinely new external name) is
+// checked alongside it so the fix doesn't regress the union behavior.
+func TestExtendGrammarJSONExternalsDedupByName(t *testing.T) {
+	base := NewGrammar("base")
+	base.Define("start", Sym("identifier"))
+	base.Define("identifier", Pat(`[a-z]+`))
+	base.SetExternals(Sym("_ext"))
+
+	baseJSON, err := ExportGrammarJSON(base)
+	if err != nil {
+		t.Fatalf("ExportGrammarJSON(base): %v", err)
+	}
+
+	t.Run("same-name external is deduplicated, not double-counted", func(t *testing.T) {
+		delta := NewGrammar("delta")
+		delta.SetExternals(Sym("_ext"))
+		deltaJSON, err := ExportGrammarJSON(delta)
+		if err != nil {
+			t.Fatalf("ExportGrammarJSON(delta): %v", err)
+		}
+
+		g, err := ExtendGrammarJSON("ext_dedup", baseJSON, deltaJSON)
+		if err != nil {
+			t.Fatalf("ExtendGrammarJSON: %v", err)
+		}
+		if len(g.Externals) != 1 {
+			t.Fatalf("g.Externals = %d entries, want 1 (deduplicated by name): %+v", len(g.Externals), g.Externals)
+		}
+
+		lang, err := GenerateLanguage(g)
+		if err != nil {
+			t.Fatalf("GenerateLanguage: %v", err)
+		}
+		if lang.ExternalTokenCount != 1 {
+			t.Fatalf("lang.ExternalTokenCount = %d, want 1 (was double-counted before the dedup fix)", lang.ExternalTokenCount)
+		}
+	})
+
+	t.Run("new external name is additive", func(t *testing.T) {
+		delta := NewGrammar("delta")
+		delta.SetExternals(Sym("_other"))
+		deltaJSON, err := ExportGrammarJSON(delta)
+		if err != nil {
+			t.Fatalf("ExportGrammarJSON(delta): %v", err)
+		}
+
+		g, err := ExtendGrammarJSON("ext_additive", baseJSON, deltaJSON)
+		if err != nil {
+			t.Fatalf("ExtendGrammarJSON: %v", err)
+		}
+		if len(g.Externals) != 2 {
+			t.Fatalf("g.Externals = %d entries, want 2 (base's _ext + delta's new _other): %+v", len(g.Externals), g.Externals)
+		}
+
+		lang, err := GenerateLanguage(g)
+		if err != nil {
+			t.Fatalf("GenerateLanguage: %v", err)
+		}
+		if lang.ExternalTokenCount != 2 {
+			t.Fatalf("lang.ExternalTokenCount = %d, want 2", lang.ExternalTokenCount)
+		}
+	})
+}
+
+// TestExtendGrammarJSONNamedPrecResolvesAcrossInheritance is the regression
+// test for the named-precedence-inheritance finding: a delta rule that
+// references a named precedence declared only in the BASE grammar's
+// "precedences" array (common for grammars derived from JS/TS-style bases
+// that name precs like "binary"/"unary" once) must resolve that name
+// against the base's declared level, not silently fall through to 0.
+func TestExtendGrammarJSONNamedPrecResolvesAcrossInheritance(t *testing.T) {
+	// Written as raw grammar.json (rather than built via the Grammar DSL
+	// and ExportGrammarJSON) because ExportGrammarJSON doesn't round-trip
+	// the "precedences" field today -- same reason
+	// TestApplyGrammarJSONDeltaReservedWordSets hand-writes its delta JSON
+	// instead of using ExportGrammarJSON for "reserved". "binary" is the
+	// higher-ranked (first) of the two named levels the base declares.
+	baseJSON := []byte(`{
+		"name": "base",
+		"rules": {
+			"start": {"type": "SYMBOL", "name": "expression"},
+			"expression": {
+				"type": "CHOICE",
+				"members": [
+					{"type": "SYMBOL", "name": "binary_expression"},
+					{"type": "SYMBOL", "name": "number"}
+				]
+			},
+			"binary_expression": {
+				"type": "PREC_LEFT",
+				"value": 0,
+				"content": {
+					"type": "SEQ",
+					"members": [
+						{"type": "FIELD", "name": "left", "content": {"type": "SYMBOL", "name": "expression"}},
+						{"type": "FIELD", "name": "operator", "content": {"type": "STRING", "value": "+"}},
+						{"type": "FIELD", "name": "right", "content": {"type": "SYMBOL", "name": "expression"}}
+					]
+				}
+			},
+			"number": {"type": "PATTERN", "value": "[0-9]+"}
+		},
+		"precedences": [
+			[{"type": "STRING", "value": "binary"}],
+			[{"type": "STRING", "value": "unary"}]
+		]
+	}`)
+
+	// The delta declares no "precedences" array of its own -- "binary" is
+	// only ever declared by the base -- and references it by name in a new
+	// rule via PREC_LEFT. Written as raw grammar.json since Grammar's
+	// PrecLeft/PrecRight helpers take a numeric level, not a name; this is
+	// the shape ExportGrammarJSON(deltaGrammar) with a named prec would
+	// produce.
+	deltaJSON := []byte(`{
+		"rules": {
+			"exp_expression": {
+				"type": "PREC_LEFT",
+				"value": "binary",
+				"content": {
+					"type": "SEQ",
+					"members": [
+						{"type": "SYMBOL", "name": "expression"},
+						{"type": "STRING", "value": "**"},
+						{"type": "SYMBOL", "name": "expression"}
+					]
+				}
+			}
+		}
+	}`)
+
+	g, err := ExtendGrammarJSON("named_prec_inherit", baseJSON, deltaJSON)
+	if err != nil {
+		t.Fatalf("ExtendGrammarJSON: %v", err)
+	}
+
+	rule, ok := g.Rules["exp_expression"]
+	if !ok {
+		t.Fatal("missing delta rule 'exp_expression'")
+	}
+	if rule.Kind != RulePrecLeft {
+		t.Fatalf("exp_expression.Kind = %v, want RulePrecLeft", rule.Kind)
+	}
+	// "binary" is the higher-ranked (first) of the two named levels the
+	// base declares, so it must resolve to a positive numeric value here,
+	// not the silent-0 fallback a delta-only-scoped lookup would produce.
+	if rule.Prec == 0 {
+		t.Fatalf("exp_expression.Prec = 0, want the base's resolved numeric value for named prec %q (base-declared names must be inherited, not silently zeroed)", "binary")
+	}
+
+	t.Run("still errors on a genuinely unresolved name", func(t *testing.T) {
+		badDeltaJSON := []byte(`{
+			"rules": {
+				"bad_expression": {
+					"type": "PREC_LEFT",
+					"value": "no_such_named_prec",
+					"content": {"type": "SYMBOL", "name": "expression"}
+				}
+			}
+		}`)
+		if _, err := ExtendGrammarJSON("named_prec_error", baseJSON, badDeltaJSON); err == nil {
+			t.Fatal("expected an error for a named precedence unresolved in both base and delta, got nil")
+		}
+	})
+}
+
 // TestExtendGrammarJSONInvalidJSON confirms errors are surfaced (not
 // panics) for malformed base/delta JSON.
 func TestExtendGrammarJSONInvalidJSON(t *testing.T) {

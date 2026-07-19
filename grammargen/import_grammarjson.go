@@ -428,6 +428,16 @@ type jsonRuleNode struct {
 type jsonConverter struct {
 	namedPrecs      map[string]int // named precedence → numeric value
 	sawReservedNode bool           // tracks whether any RESERVED wrapper was encountered
+	// strictNamedPrecs, when true, makes convertPrecRule return an error
+	// for a named (STRING) precedence that isn't in namedPrecs instead of
+	// silently falling back to prec 0. ImportGrammarJSON leaves this false
+	// (unchanged legacy behavior for standalone grammar.json import).
+	// applyGrammarJSONDelta sets it true: a delta rule referencing an
+	// unresolvable named precedence (not declared in the delta OR the
+	// base, even after merging both) should fail loudly rather than
+	// silently generate a grammar with the wrong (flattened-to-0)
+	// precedence for that rule.
+	strictNamedPrecs bool
 }
 
 // convertRule converts a grammar.json rule node to a Grammar Rule.
@@ -560,6 +570,9 @@ func (c *jsonConverter) convertRule(data json.RawMessage) (*Rule, error) {
 
 // convertPrecRule handles PREC/PREC_LEFT/PREC_RIGHT/PREC_DYNAMIC nodes.
 // Resolves named precedence strings to numeric values via the namedPrecs map.
+// A named precedence not found in namedPrecs falls back to prec 0, unless
+// c.strictNamedPrecs is set, in which case it is a hard error (see the
+// strictNamedPrecs field doc for why applyGrammarJSONDelta opts into this).
 func (c *jsonConverter) convertPrecRule(node jsonRuleNode, make_ func(int, *Rule) *Rule) (*Rule, error) {
 	prec := 0
 	switch v := node.Value.(type) {
@@ -570,6 +583,8 @@ func (c *jsonConverter) convertPrecRule(node jsonRuleNode, make_ func(int, *Rule
 	case string:
 		if val, ok := c.namedPrecs[v]; ok {
 			prec = val
+		} else if c.strictNamedPrecs {
+			return nil, fmt.Errorf("unresolved named precedence %q (not declared in the delta's or base's \"precedences\" array)", v)
 		}
 	}
 
