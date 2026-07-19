@@ -464,6 +464,13 @@ func (p *Parser) recordForestDecline(reason string, tok Token, states []StateID)
 // same cost on reused parsers. Their recovery policies remain available to
 // explicit forest experiments.
 //
+// Common Lisp is also explicit-only. A locked 1,357-file corpus audit at
+// 04a2cf92 measured 173.6 seconds routed versus 46.0 seconds for production,
+// dispatched one file, fell back on 1,356, and diverged on the sole dispatched
+// result. A separate direct C-oracle audit rejected that result as well. Keep
+// its recovery machinery available to explicit experiments, but do not charge
+// every normal parse for a route that almost always falls back.
+//
 // Non-built-in languages opt in per-Language via Language.WantsForest (see
 // parserWantsForest) instead of joining this map — e.g. a grammargen consumer
 // generating its own grammar (a Pawn grammar, say) sets WantsForest directly
@@ -501,14 +508,13 @@ var builtinForestDefaults = map[string]bool{
 	"prisma":    true,
 
 	// Phase 2 promotions 2026-06-08: forest+recovery, introduced=0 vs C and a
-	// large net-wall win. Org and Vimdoc later moved back to explicit-only
-	// routing after current clean witnesses showed only discarded attempts;
-	// their certified recovery profiles remain in languageWantsForestRecover.
-	"agda":       true,
-	"ledger":     true,
-	"yuck":       true,
-	"json5":      true,
-	"commonlisp": true,
+	// large net-wall win. Org, Vimdoc, and Common Lisp later moved back to
+	// explicit-only routing after current corpus evidence showed only discarded
+	// attempts; their recovery profiles remain in languageWantsForestRecover.
+	"agda":   true,
+	"ledger": true,
+	"yuck":   true,
+	"json5":  true,
 
 	// Promoted 2026-06-08 via the forest-vs-C sweep (TestForestVsCSources):
 	// the forest introduces ZERO C-divergences (every divergence is inherited
@@ -516,8 +522,7 @@ var builtinForestDefaults = map[string]bool{
 	// arduino 1.3x. faust/arduino also FIX production: the forest matches C on
 	// files where the culled production parser does not (faust 108/120,
 	// arduino 10/19 production-mismatches that are the forest being C-correct).
-	// Held: make (forest=C-clean but net-wall NEUTRAL 1.0x — no lift) and
-	// commonlisp (net-wall unverified; rich corpus times out — revisit).
+	// Held: make (forest=C-clean but net-wall NEUTRAL 1.0x — no lift).
 	"bibtex":  true,
 	"faust":   true,
 	"arduino": true,

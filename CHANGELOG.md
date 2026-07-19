@@ -9,6 +9,15 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Keep Common Lisp on the production parser unless callers explicitly request
+  the forest path. On the locked 1,357-file corpus, the routed parser took
+  173.6 seconds versus 46.0 seconds for production, dispatched one file, fell
+  back on 1,356, and diverged on the sole dispatched result. A separate direct
+  C-oracle audit rejected that result as well. On the authenticated
+  largest-eight static-C board, disabling automatic routing completed all eight
+  files instead of timing out on two, cut the six matched files by 58.3%,
+  reduced isolated sweep wall time by 19.9%, and lowered max RSS from 2.14 GB
+  to 746 MB. Explicit forest and recovery experiments remain available.
 - Add an opt-in, build-tagged selected-tree backing store at the compact
   parser/consumer boundary. Accepted payloads are sealed only for the direct
   consumer; the public-node control remains store-free. The store preserves
