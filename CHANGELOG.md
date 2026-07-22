@@ -7,7 +7,40 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Added
+
+- **Maintainer navigation and intake are now explicit.** A repository map names
+  subsystem ownership seams in the wide root package, the parser issue form
+  captures reproductions and route details consistently, and artifact-cleanup
+  guidance distinguishes disposable output from durable correctness,
+  certification, and benchmark receipts.
+
 ### Changed
+
+- **Release work now accumulates in coherent milestone-based trains.** Minor
+  releases normally tell one outcome story, clear declared gates, and soak on
+  `main` instead of following individual PRs. The default cadence allows no
+  more than one planned minor release in a rolling seven-day period; urgent
+  patches and recorded owner exceptions remain available. The first governed
+  train is documented in `docs/release-trains/v0.47.0.md`.
+
+- **Root race coverage is sharded and salvageable.** The previous serial
+  roughly 25-minute root-package job is split into deterministic regular and
+  isolated lanes. Aggregate required contexts remain stable, while every lane
+  emits JSON and uploads partial results on failure or timeout so one outlier
+  no longer hides the rest of the run.
+
+- **PowerShell changed edits may now reuse scanner-backed trees.** Its external
+  scanner is certified stateless and failure-preserving, with production-route
+  insert/delete/replace witnesses at the start, middle, and end. The 137 KiB
+  near-top lane ratchets an observed reuse floor without claiming `O(edit)`;
+  root-nonleaf and stale-boundary rejection remain explicit residuals.
+
+- **Incremental-reuse admission checks exact ownership frontiers.** Dirty-span
+  identity, edit right boundaries, and top-level parser frontiers fail closed
+  when their proof is incomplete. JavaScript, TypeScript, and TSX remain held
+  back where conflict provenance or malformed-edit behavior is not yet proven;
+  the change hardens correctness without claiming that frontier complete.
 
 - **SQL external-scanner reuse is now checkpoint-certified.** The runtime's
   checkpoint and checkpointless-reuse gates are capability based rather than

@@ -750,33 +750,18 @@ Test suite covers: smoke tests (206 grammars), golden S-expression snapshots, hi
 
 ## Roadmap
 
-The current release is **v0.45.0**. It fixes TypeScript arrow functions
-with a return-type annotation, which previously collapsed to `ERROR` as
-a `const`/`let` initializer (issue #402). It also fixes Go
-`new(pkg.Type)`, `new(*T)`, and parenthesized type arguments to
-byte-match the C oracle (issue #375 class). Unchanged top-level
-siblings now splice back as a single block. A clean-Go, near-top, 1MB
-edit measures about 82-88ms, down from about 148ms. The campaign's
-60ms target is not yet met; residual cost sits in result
-materialization outside the splice path. GLR-heavy files with genuine
-ambiguity still see little change, since settling and block-splice run
-on a single stack only. The prior release, v0.44.1, restored Swift's
-retry-ladder optimizations and introduced clean-file Go suffix and
-top-level-sibling reuse. Length-changing edits still include linear
-trailing-coordinate maintenance in `Tree.Edit`.
-The authenticated production receipt at tag target `1935a42c` measures
-public `Parser.Parse` at **4.851050x C** by equal-fixture geomean,
-**5.472406x C** by fixed-suite sum, and **5.608320x C** on the worst
-fixture against the locked static `-O2` C oracle. Its 0.716% geomean
-improvement over v0.39.0 is below the reproducible 2% win threshold. The
-latest build-tagged selected-store candidate, measured at `ba1ed1bf`,
-remains outside public `Parser.Parse` despite its lower authenticated
-ratio.
-The 206-grammar curated parity milestone is banked, the invalid historical
-1.895x headline stays withdrawn, and the incremental matrix is a
-correctness/work-classification receipt rather than a representative
-comparative speed headline. Detailed history lives in
-[CHANGELOG.md](CHANGELOG.md).
+The latest release is **v0.46.0**. It makes the byte-exact compact parser core
+the default full-parse route for eligible inputs, with fail-closed production
+fallback, scanner/replay-state reuse gates, and an emergency opt-out. The
+206-grammar scorecard reports 166 compact routes, 35 safe fallbacks, 5
+token-source skips, and 0 divergences. Detailed evidence and historical claims
+live in [CHANGELOG.md](CHANGELOG.md).
+
+Work after `v0.46.0` is accumulating in the governed
+[`v0.47.0` release train](docs/release-trains/v0.47.0.md). Releases now follow
+the [milestone-based release policy](docs/release-policy.md): merges remain
+continuous, while minor tags wait for a coherent outcome, declared gates, and
+soak time.
 
 ### Now — cleanup, ownership, and explainability
 

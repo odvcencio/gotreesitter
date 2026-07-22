@@ -6,6 +6,13 @@
 
 <!-- Brief rationale. Mention the main tradeoff or rejected alternative only if it matters. -->
 
+## Release train
+
+- Target: <!-- current train / later train / no release note -->
+- Changelog: <!-- updated / not required, with one-line reason -->
+
+<!-- A merged PR does not require a release. See docs/release-policy.md. -->
+
 ## Correctness
 
 - [ ] Focused package or unit tests ran for the touched behavior
