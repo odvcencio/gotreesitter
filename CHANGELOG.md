@@ -28,7 +28,9 @@ for tags and release notes while still in `0.x`.
   roughly 25-minute root-package job is split into deterministic regular and
   isolated lanes. Aggregate required contexts remain stable, while every lane
   emits JSON and uploads partial results on failure or timeout so one outlier
-  no longer hides the rest of the run.
+  no longer hides the rest of the run. Path-aware scope classification keeps
+  documentation-only changes on the lightweight build lane and skips the heavy
+  parser, parity, performance, and race matrix.
 
 - **PowerShell changed edits may now reuse scanner-backed trees.** Its external
   scanner is certified stateless and failure-preserving, with production-route
