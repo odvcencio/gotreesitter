@@ -21,8 +21,8 @@ for tags and release notes while still in `0.x`.
   releases normally tell one outcome story, clear declared gates, and soak on
   `main` instead of following individual PRs. The default cadence allows no
   more than one planned minor release in a rolling seven-day period; urgent
-  patches and recorded owner exceptions remain available. The first governed
-  train is documented in `docs/release-trains/v0.47.0.md`.
+  patches and recorded owner exceptions remain available. Evolving train
+  checklists stay in internal project coordination rather than GitHub issues.
 
 - **Root race coverage is sharded and salvageable.** The previous serial
   roughly 25-minute root-package job is split into deterministic regular and

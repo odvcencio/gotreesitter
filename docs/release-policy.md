@@ -66,6 +66,5 @@ Review this policy after three minor trains. Track days between releases,
 grouped outcomes per train, patch reasons, time-to-close, install failures, and
 release-announcement engagement. GitHub-star movement is worth observing over
 the same window, but it is not a release gate and cannot establish why an
-individual user starred or unstarred the repository.
-
-The active train is recorded under [`docs/release-trains`](release-trains/).
+individual user starred or unstarred the repository. Evolving train scope and
+receipts are internal project coordination rather than public issue traffic.

@@ -757,10 +757,9 @@ fallback, scanner/replay-state reuse gates, and an emergency opt-out. The
 token-source skips, and 0 divergences. Detailed evidence and historical claims
 live in [CHANGELOG.md](CHANGELOG.md).
 
-Work after `v0.46.0` is accumulating in the governed
-[`v0.47.0` release train](docs/release-trains/v0.47.0.md). Releases now follow
-the [milestone-based release policy](docs/release-policy.md): merges remain
-continuous, while minor tags wait for a coherent outcome, declared gates, and
+Work after `v0.46.0` is accumulating toward the next coherent minor release.
+The [milestone-based release policy](docs/release-policy.md) keeps merges
+continuous while minor tags wait for a coherent outcome, declared gates, and
 soak time.
 
 ### Now — cleanup, ownership, and explainability
