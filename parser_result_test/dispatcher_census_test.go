@@ -426,6 +426,16 @@ func TestDispatcherArmCensusTrackedReceipt(t *testing.T) {
 
 func TestTerminalLeafNativeInvariantOverRealCorpus(t *testing.T) {
 	const corpusRoot = "../cgo_harness/corpus_real"
+	corpusInfo, err := os.Stat(corpusRoot)
+	if os.IsNotExist(err) {
+		t.Skipf("real corpus is not available at %s", corpusRoot)
+	}
+	if err != nil {
+		t.Fatalf("inspect real corpus root %s: %v", corpusRoot, err)
+	}
+	if !corpusInfo.IsDir() {
+		t.Fatalf("real corpus root %s is not a directory", corpusRoot)
+	}
 
 	backends := map[string]grammars.ParseBackend{}
 	for _, report := range grammars.AuditParseSupport() {
