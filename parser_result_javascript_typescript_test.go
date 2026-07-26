@@ -176,7 +176,7 @@ func TestNormalizeJavaScriptProgramEndExtendsErrorRootTerminatorTail(t *testing.
 	}
 }
 
-func TestFinalizeResultRootOwnsJavaScriptProgramEndBeforeReturnedTreePass(t *testing.T) {
+func TestFinalizeResultRootOwnsJavaScriptProgramEndWithoutReturnedTreePass(t *testing.T) {
 	lang := &Language{
 		Name:        "javascript",
 		SymbolNames: []string{"EOF", "program", "call_expression"},
@@ -226,14 +226,6 @@ func TestFinalizeResultRootOwnsJavaScriptProgramEndBeforeReturnedTreePass(t *tes
 
 			if got, want := root.EndByte(), uint32(len(source)); got != want {
 				t.Fatalf("root end byte after canonical finalization = %d, want %d", got, want)
-			}
-			before := root.EndPoint()
-			normalizeReturnedTree(root, source, lang)
-			if got := root.EndByte(); got != uint32(len(source)) {
-				t.Fatalf("root end byte after returned-tree pass = %d, want %d", got, len(source))
-			}
-			if got := root.EndPoint(); got != before {
-				t.Fatalf("root end point changed after returned-tree pass: got %+v want %+v", got, before)
 			}
 			if tc.name == "compact-final-child-refs" && !nodeHasFinalChildRefs(root) {
 				t.Fatal("canonical JavaScript finalization drained compact final-child refs")

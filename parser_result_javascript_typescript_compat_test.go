@@ -422,14 +422,16 @@ func TestDeferredResultCompatibilityStateScrubbedAcrossTreePoolLifecycle(t *test
 	tree.Release()
 }
 
-func TestReturnedTreeNormalizationUsesRawRootForDeferredTypeScriptCompatibility(t *testing.T) {
+func TestRawRootAccessKeepsDeferredTypeScriptCompatibility(t *testing.T) {
 	lang, root, stmt := newDeferredCompatDynamicImportFixture()
 	tree := newTreeWithArenas(root, []byte("import"), lang, root.ownerArena, nil)
 	tree.deferResultCompatibility()
 
-	normalizeReturnedTree(rawRootOrNil(tree), []byte("import"), lang)
+	if got := rawRootOrNil(tree); got != root {
+		t.Fatalf("raw root = %p, want %p", got, root)
+	}
 	if got := resultChildCount(stmt); got != 0 {
-		t.Fatalf("import child count after returned-tree normalization = %d, want deferred", got)
+		t.Fatalf("import child count after raw root access = %d, want deferred", got)
 	}
 	_ = tree.RootNode()
 	if got, want := resultChildCount(stmt), 1; got != want {

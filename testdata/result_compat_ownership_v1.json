@@ -6,8 +6,8 @@
     "dispatcher_languages": 82,
     "dispatcher_predicates": 1,
     "generic_passes": 0,
-    "post_finalization_arms": 1,
-    "post_finalization_languages": 1
+    "post_finalization_arms": 0,
+    "post_finalization_languages": 0
   },
   "owner_categories": [
     "scheduler_action_semantics",
@@ -2397,10 +2397,19 @@
       "functions": [
         "normalizeReturnedTree",
         "normalizePostFinalizationReturnedTree",
-        "normalizeScalaProducedSpanRetirementPending"
+        "normalizeScalaTemplateBodyObjectFragments",
+        "normalizeScalaRecoveredObjectTemplateBodies",
+        "normalizeScalaDefinitionFields",
+        "normalizeScalaTemplateBodyFunctionAnnotations",
+        "normalizeScalaTemplateBodyFunctionEnds",
+        "normalizeScalaCaseClauseEnds",
+        "normalizeRootEOFNewlineSpan"
       ],
       "files": [
-        "parser_api.go"
+        "parser_api.go",
+        "parser_result_scala_template.go",
+        "parser_result_scala_compilation.go",
+        "parser_result_misc_spans.go"
       ],
       "languages": [
         "scala"
@@ -2414,11 +2423,17 @@
             "scala"
           ],
           "functions": [
-            "normalizeScalaProducedSpanRetirementPending"
+            "normalizeScalaTemplateBodyObjectFragments",
+            "normalizeScalaRecoveredObjectTemplateBodies",
+            "normalizeScalaDefinitionFields",
+            "normalizeScalaTemplateBodyFunctionAnnotations",
+            "normalizeScalaTemplateBodyFunctionEnds",
+            "normalizeScalaCaseClauseEnds",
+            "normalizeRootEOFNewlineSpan"
           ]
         }
       ],
-      "purpose": "Retain one inert marker so the registry stays bisectable until the returned-tree fixpoint scaffolding is deleted.",
+      "purpose": "Historical Scala arm of the returned-tree second-pass fixpoint. It repeated recovery, field, annotation, and span repairs after finalization.",
       "authoritative_owner": "materialization",
       "witnesses": [
         "parser_result_test/parser_result_scala_comment_attachment_test.go",
@@ -2428,16 +2443,23 @@
         "grammars/scala_span_ownership_test.go",
         "cgo_harness/scala_span_ownership_parity_test.go"
       ],
-      "retirement_condition": "Delete the inert marker and shared fixpoint after checkpoint B records the zero-mutation census and canonical first-pass witness.",
+      "retirement_condition": "Satisfied: canonical compatibility owns recovery, fields, and annotations. Materialization and rewrite refresh own final spans.",
       "route_coverage": {
-        "production": "post_finalization_fixpoint",
-        "compact": "post_finalization_fixpoint",
-        "forest": "post_finalization_fixpoint",
-        "incremental": "post_finalization_fixpoint",
-        "c_oracle": "language_witnesses_required"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "d82f9c2cadb81242cb324ba751aa2805038d4b60",
+      "receipt_refs": [
+        "parser_result_scala_fixpoint_retirement_test.go",
+        "parser_result_scala_produced_span_test.go",
+        "parser_reduce_span_test.go",
+        "grammars/scala_span_ownership_test.go",
+        "cgo_harness/scala_span_ownership_parity_test.go"
+      ]
     },
     {
       "id": "fixpoint.returned-tree-second-pass.html",

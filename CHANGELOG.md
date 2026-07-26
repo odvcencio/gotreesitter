@@ -97,6 +97,10 @@ for tags and release notes while still in `0.x`.
   Mandatory fixtures and the authenticated corpus report zero mutations when
   the deleted calls run again.
 
+- **The shared returned-tree fixpoint.** The last Scala arm became inert after
+  checkpoints A and B. The publication paths no longer call a repeated
+  post-finalization normalizer.
+
 - **The HTML returned-tree range fixup.** Materialization now extends recovered
   custom elements through each structural `_implicit_end_tag` child.
   Production, compact, forest, and incremental routes return the exact

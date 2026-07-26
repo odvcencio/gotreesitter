@@ -417,6 +417,29 @@ func assertGenericPassRegistry(t *testing.T, denominator resultCompatDenominator
 func assertPostFinalizationRegistry(t *testing.T, denominator resultCompatDenominator, byKind map[string][]resultCompatOwnershipEntry) {
 	t.Helper()
 	entries := byKind["second_pass_fixpoint"]
+	if denominator.PostFinalizationArms == 0 && denominator.PostFinalizationLanguages == 0 {
+		if len(entries) != 0 {
+			t.Fatalf("live second_pass_fixpoint entries = %d, want 0", len(entries))
+		}
+		file := parseOwnershipGoFile(t, "parser_api.go")
+		for _, removed := range []string{"normalizeReturnedTree", "normalizePostFinalizationReturnedTree"} {
+			for _, declaration := range file.Decls {
+				function, ok := declaration.(*ast.FuncDecl)
+				if ok && function.Name.Name == removed &&
+					(removed != "normalizeReturnedTree" || function.Recv == nil) {
+					t.Errorf("retired post-finalization function %s still exists", removed)
+				}
+			}
+		}
+		return
+	}
+	if denominator.PostFinalizationArms == 0 || denominator.PostFinalizationLanguages == 0 {
+		t.Fatalf(
+			"post-finalization denominator is inconsistent: arms=%d languages=%d",
+			denominator.PostFinalizationArms,
+			denominator.PostFinalizationLanguages,
+		)
+	}
 	if len(entries) != 1 {
 		t.Fatalf("live second_pass_fixpoint entries = %d, want 1", len(entries))
 	}

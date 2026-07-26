@@ -19,10 +19,9 @@ The v1 registry freezes the current surface:
   language names;
 - one predicate-dispatched COBOL entry matching exactly `cobol` or `COBOL`;
 - zero generic passes after language dispatch;
-- one retained post-finalization second-pass fixpoint with one Scala switch
-  arm.
+- zero post-finalization second-pass fixpoint arms.
 
-That is 77 live registry entries and 8 retired entries. The registry covers
+That is 76 live registry entries and 9 retired entries. The registry covers
 only this documented internal result-compatibility tier. Scheduler experiments
 and other engine research belong in their owning subsystem's durable traces.
 
@@ -59,8 +58,6 @@ The route fields use a closed vocabulary enforced by the registry test:
 - live dispatcher, predicate, and generic entries use
   `shared_result_compatibility_tail` for production/compact/forest/incremental
   and `curated_single_grammar_parity` for the C oracle;
-- the live fixpoint uses `post_finalization_fixpoint` for those four parser
-  routes and `language_witnesses_required` for the C oracle; and
 - retired entries use `retired_exact_receipt` for all four native routes.
   The C oracle uses `retired_exact_receipt` or
   `retired_known_divergence_receipt`. Each retired entry must include a
@@ -128,12 +125,11 @@ Error roots retain their recovery extra, and lazy final-child references are
 filtered without draining the compact range. Real RST and Comment fixtures are
 exact against their C oracles. The generic trailing-extra pass is retired.
 
-## The retained second pass
+## The retired second pass
 
-`normalizePostFinalizationReturnedTree` now runs one inert marker for Scala.
 Checkpoint A removed the span calls and their two exclusive helpers.
 Checkpoint B removed the four duplicate recovery, field, and annotation calls.
-The marker keeps the registry bisectable until the shared fixpoint is deleted.
+The final checkpoint deletes the marker and the shared fixpoint.
 
 An in-place child rewrite now preserves a valid producer-owned span. The
 rewrite can widen that span but cannot shrink it. This language-neutral rule
@@ -160,7 +156,7 @@ arm and its production, compact-final-ref, forest, and incremental receipts.
 
 The authenticated Scala corpus reports zero second-pass mutations.
 The mandatory fixture witness also reports zero mutations.
-The next commit can delete the marker and the shared fixpoint.
+No post-finalization fixpoint remains.
 
 ## Editing and validation
 

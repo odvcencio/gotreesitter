@@ -79,7 +79,7 @@ Status: complete.
 
 ### R1 — eliminate shared tail and fixpoint scaffolding
 
-Status: in progress.
+Status: complete.
 
 1. Land the clean-root trailing-trivia owner and delete the generic
    trailing-extra compatibility pass.
@@ -91,7 +91,7 @@ Status: in progress.
 4. Retire the HTML and Scala second-pass arms independently. The HTML arm is
    retired with exact range receipts. Scala span repairs are removed.
    Scala recovery, field, and annotation repairs now run once.
-   One inert registry marker remains.
+   The shared fixpoint is deleted.
    Delete the shared fixpoint only after the Scala arm retires.
 
 Exit: zero generic compatibility passes and zero post-finalization fixpoint
@@ -220,9 +220,10 @@ there.
 | JavaScript returned-tree arm | merged in PR #459 | 3 fixpoint arms | 2 | pre-second-pass root-span witness, JavaScript real-corpus parity, and 30/30 valid incremental/fresh edits |
 | R2 dead dispatcher arms (OCaml, Ruby, half of HTML) | merged in PR #463 | 78 dispatcher arms | 75 | real-corpus census, native-parse regression tests per language, `TestResultCompatibilityOwnershipRegistry` |
 | Generic terminal-leaf mutation | merged in PR #465 | 1 tree mutation | 0 | production, compact, forest, incremental, scanner-aware corpus, and Go C-oracle receipts |
-| HTML returned-tree range arm | retirement commit `22f506d9b633b9b83f405ca1d7d2770527b9a8cd` on branch `codex/retire-html-fixpoint-20260726`; not merged | 2 fixpoint arms | 1 | producer unit, absolute production/compact/forest/incremental ranges and points, nonzero incremental reuse, and exact C ranges and points |
+| HTML returned-tree range arm | merged in PR #467 | 2 fixpoint arms | 1 | producer unit, absolute production/compact/forest/incremental ranges and points, nonzero incremental reuse, and exact C ranges and points |
 | Scala returned-tree span repairs | checkpoint A commit `c334bace7da734d40e481ee236f5293b37db9a38` | 7 Scala calls | 4 duplicate calls plus one inert marker | producer controls, exact production, compact, forest, incremental, fresh, and C ranges and points |
-| Scala returned-tree duplicate calls | checkpoint B pending | 4 duplicate calls plus one inert marker | one inert marker | mandatory fixtures, authenticated corpus census, and canonical first-pass fingerprint |
+| Scala returned-tree duplicate calls | retirement commit `d82f9c2cadb81242cb324ba751aa2805038d4b60` | 4 duplicate calls plus one inert marker | one inert marker | mandatory fixtures, authenticated corpus census, and canonical first-pass fingerprint |
+| Shared returned-tree fixpoint | deleted on branch `codex/generalize-scala-produced-spans-20260726` | 1 inert arm | 0 | ownership denominator, focused route tests, and exact Scala C-oracle receipt |
 
 Mark a row merged only after CI and merge evidence exist. Detailed per-entry
 receipts stay in the JSON registry and durable run findings stay in Hyphae.
