@@ -2397,16 +2397,10 @@
       "functions": [
         "normalizeReturnedTree",
         "normalizePostFinalizationReturnedTree",
-        "normalizeScalaTemplateBodyObjectFragments",
-        "normalizeScalaRecoveredObjectTemplateBodies",
-        "normalizeScalaDefinitionFields",
-        "normalizeScalaTemplateBodyFunctionAnnotations",
         "normalizeScalaProducedSpanRetirementPending"
       ],
       "files": [
-        "parser_api.go",
-        "parser_result_scala_template.go",
-        "parser_result_scala_compilation.go"
+        "parser_api.go"
       ],
       "languages": [
         "scala"
@@ -2420,24 +2414,21 @@
             "scala"
           ],
           "functions": [
-            "normalizeScalaTemplateBodyObjectFragments",
-            "normalizeScalaRecoveredObjectTemplateBodies",
-            "normalizeScalaDefinitionFields",
-            "normalizeScalaTemplateBodyFunctionAnnotations",
             "normalizeScalaProducedSpanRetirementPending"
           ]
         }
       ],
-      "purpose": "Retain the bounded second pass for four Scala recovery, field, and annotation repairs. The inert span marker keeps checkpoint A bisectable until its commit can become the retirement receipt.",
+      "purpose": "Retain one inert marker so the registry stays bisectable until the returned-tree fixpoint scaffolding is deleted.",
       "authoritative_owner": "materialization",
       "witnesses": [
         "parser_result_test/parser_result_scala_comment_attachment_test.go",
         "parser_result_scala_produced_span_test.go",
+        "parser_result_scala_fixpoint_retirement_test.go",
         "parser_reduce_span_test.go",
         "grammars/scala_span_ownership_test.go",
         "cgo_harness/scala_span_ownership_parity_test.go"
       ],
-      "retirement_condition": "Delete the inert span marker after checkpoint A records its commit. Delete the remaining arm only after the Scala producer emits the four retained repairs before finalization.",
+      "retirement_condition": "Delete the inert marker and shared fixpoint after checkpoint B records the zero-mutation census and canonical first-pass witness.",
       "route_coverage": {
         "production": "post_finalization_fixpoint",
         "compact": "post_finalization_fixpoint",

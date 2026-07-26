@@ -83,16 +83,12 @@ func normalizeReturnedTree(root *Node, source []byte, lang *Language) {
 	}
 	switch lang.Name {
 	case "scala":
-		normalizeScalaTemplateBodyObjectFragments(root, source, nil, lang)
-		normalizeScalaRecoveredObjectTemplateBodies(root, source, nil, lang)
-		normalizeScalaDefinitionFields(root, source, lang)
-		normalizeScalaTemplateBodyFunctionAnnotations(root, source, nil, lang)
 		normalizeScalaProducedSpanRetirementPending(root, source, lang)
 	}
 }
 
 // normalizeScalaProducedSpanRetirementPending keeps the live registry
-// bisectable until the span retirement commit exists. It does not mutate.
+// bisectable until the returned-tree fixpoint is deleted. It does not mutate.
 func normalizeScalaProducedSpanRetirementPending(_ *Node, _ []byte, _ *Language) {}
 
 func shouldNormalizeIncrementalReturnedTree(tree, oldTree *Tree) bool {

@@ -92,6 +92,11 @@ for tags and release notes while still in `0.x`.
   locked C routes return the exact ranges and points. Scala incremental reuse
   remains unsupported and reports zero reuse.
 
+- **The duplicate Scala returned-tree repair calls.** Recovery, field, and
+  annotation repair now runs only in the canonical compatibility pass.
+  Mandatory fixtures and the authenticated corpus report zero mutations when
+  the deleted calls run again.
+
 - **The HTML returned-tree range fixup.** Materialization now extends recovered
   custom elements through each structural `_implicit_end_tag` child.
   Production, compact, forest, and incremental routes return the exact

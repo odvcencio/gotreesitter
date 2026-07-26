@@ -130,11 +130,10 @@ exact against their C oracles. The generic trailing-extra pass is retired.
 
 ## The retained second pass
 
-`normalizePostFinalizationReturnedTree` deliberately runs a bounded second
-pass for Scala. Four recovery, field, and annotation repairs remain live.
-Checkpoint A removes the three span calls and their two exclusive helpers.
-It keeps one inert marker until the checkpoint commit becomes a retirement
-receipt. The marker does not mutate the tree.
+`normalizePostFinalizationReturnedTree` now runs one inert marker for Scala.
+Checkpoint A removed the span calls and their two exclusive helpers.
+Checkpoint B removed the four duplicate recovery, field, and annotation calls.
+The marker keeps the registry bisectable until the shared fixpoint is deleted.
 
 An in-place child rewrite now preserves a valid producer-owned span. The
 rewrite can widen that span but cannot shrink it. This language-neutral rule
@@ -159,8 +158,9 @@ optional parent-link wiring. Neither can shorten or reclassify the root.
 The registry retains a retired historical entry for the deleted JavaScript
 arm and its production, compact-final-ref, forest, and incremental receipts.
 
-Removing the remaining Scala second pass now would reopen four known repairs.
-Its registry retirement condition remains the deletion gate.
+The authenticated Scala corpus reports zero second-pass mutations.
+The mandatory fixture witness also reports zero mutations.
+The next commit can delete the marker and the shared fixpoint.
 
 ## Editing and validation
 
