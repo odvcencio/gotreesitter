@@ -1,0 +1,480 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact vX.Y.Z release version
+        required: true
+        type: string
+      candidate_sha:
+        description: Exact lowercase 40-character main commit hash
+        required: true
+        type: string
+      release_kind:
+        description: Governed release route
+        required: true
+        type: choice
+        options:
+          - planned-minor
+          - urgent-patch
+      receipt_uri:
+        description: Governing Hyphae release receipt
+        required: true
+        type: string
+      incident:
+        description: Urgent patch incident
+        required: false
+        type: string
+      why_waiting_is_worse:
+        description: Reason that an urgent patch cannot wait
+        required: false
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  ARBITER_VERSION: "1.9.0"
+  ARBITER_LINUX_AMD64_SHA256: c6c5c6c069d33cc39b689201f30d4561472d6ed59731e3ba395b44079e53af38
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    env:
+      VERSION: ${{ inputs.version }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      RELEASE_KIND: ${{ inputs.release_kind }}
+      RECEIPT_URI: ${{ inputs.receipt_uri }}
+      INCIDENT: ${{ inputs.incident }}
+      WHY_WAITING_IS_WORSE: ${{ inputs.why_waiting_is_worse }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Require a main workflow revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$CANDIDATE_SHA"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install the pinned Arbiter CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/arbiter.tar.gz"
+          bin_dir="$RUNNER_TEMP/arbiter-bin"
+          url="https://github.com/odvcencio/arbiter/releases/download/v$ARBITER_VERSION/arbiter_${ARBITER_VERSION}_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location "$url" --output "$archive"
+          echo "$ARBITER_LINUX_AMD64_SHA256  $archive" | sha256sum --check -
+          mkdir -p "$bin_dir"
+          tar --extract --gzip --file "$archive" --directory "$bin_dir" arbiter
+          chmod 0755 "$bin_dir/arbiter"
+          echo "$bin_dir" >> "$GITHUB_PATH"
+
+      - name: Test the release policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          arbiter check policy/release.arb
+          arbiter fmt --check policy/release.arb policy/release.test.arb
+          arbiter test policy/release.test.arb
+
+      - id: facts
+        name: Collect main and hosted check facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin refs/heads/main:refs/remotes/origin/main
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          main_exact_candidate=false
+          if test "$main_sha" = "$CANDIDATE_SHA"; then
+            main_exact_candidate=true
+          fi
+
+          latest_tag="$(git tag --list --sort=-version:refname |
+            awk '$0 ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/ && first == "" { first=$0 } END { print first }')"
+          test -n "$latest_tag"
+
+          response="$RUNNER_TEMP/ci-runs.json"
+          url="https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$CANDIDATE_SHA&status=completed&event=workflow_dispatch&per_page=100"
+          if ! status="$(curl --silent --show-error --location \
+            --output "$response" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "$url")"; then
+            echo "The hosted check query failed." >&2
+            exit 1
+          fi
+          if test "$status" != "200"; then
+            jq -r '.message // "The hosted check query returned an error."' "$response" >&2
+            exit 1
+          fi
+
+          jq --arg sha "$CANDIDATE_SHA" \
+            '[.workflow_runs[] | select(
+              .head_sha == $sha
+              and .status == "completed"
+              and .event == "workflow_dispatch"
+            )] | sort_by([.run_number, .run_attempt]) | last' \
+            "$response" > "$RUNNER_TEMP/ci-run.json"
+
+          ci_run_id=""
+          ci_run_url=""
+          ci_event=""
+          ci_sha=""
+          ci_conclusion=""
+          ci_completed_at=""
+          if jq -e '. != null' "$RUNNER_TEMP/ci-run.json" >/dev/null; then
+            ci_run_id="$(jq -r '.id | tostring' "$RUNNER_TEMP/ci-run.json")"
+            ci_run_url="$(jq -r '.html_url // ""' "$RUNNER_TEMP/ci-run.json")"
+            ci_event="$(jq -r '.event // ""' "$RUNNER_TEMP/ci-run.json")"
+            ci_sha="$(jq -r '.head_sha // ""' "$RUNNER_TEMP/ci-run.json")"
+            ci_conclusion="$(jq -r '.conclusion // ""' "$RUNNER_TEMP/ci-run.json")"
+            ci_completed_at="$(jq -r '.updated_at // ""' "$RUNNER_TEMP/ci-run.json")"
+          fi
+
+          {
+            echo "main_exact_candidate=$main_exact_candidate"
+            echo "latest_tag=$latest_tag"
+            echo "ci_run_id=$ci_run_id"
+            echo "ci_run_url=$ci_run_url"
+            echo "ci_event=$ci_event"
+            echo "ci_sha=$ci_sha"
+            echo "ci_conclusion=$ci_conclusion"
+            echo "ci_completed_at=$ci_completed_at"
+          } >> "$GITHUB_OUTPUT"
+
+      - id: presence
+        name: Collect tag and release facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          query_absence() {
+            local label="$1"
+            local url="$2"
+            local body="$RUNNER_TEMP/${label}.json"
+            local status
+            if ! status="$(curl --silent --show-error --location \
+              --output "$body" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header "Accept: application/vnd.github+json" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "$url")"; then
+              echo "The $label query failed." >&2
+              exit 1
+            fi
+            if test "$status" = "404"; then
+              echo "true"
+              return
+            fi
+            if test "$status" = "200"; then
+              echo "false"
+              return
+            fi
+            jq -r '.message // "The GitHub query returned an error."' "$body" >&2
+            exit 1
+          }
+
+          api="https://api.github.com/repos/$GITHUB_REPOSITORY"
+          tag_absent="$(query_absence "tag" "$api/git/ref/tags/$VERSION")"
+          release_absent="$(query_absence "release" "$api/releases/tags/$VERSION")"
+          {
+            echo "tag_absent=$tag_absent"
+            echo "release_absent=$release_absent"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Test the release validator
+        run: go test ./cmd/releasegate -count=1
+
+      - name: Validate release evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/releasegate-verify"
+          go run ./cmd/releasegate \
+            -version "$VERSION" \
+            -candidate-sha "$CANDIDATE_SHA" \
+            -release-kind "$RELEASE_KIND" \
+            -receipt-uri "$RECEIPT_URI" \
+            -incident "$INCIDENT" \
+            -why-waiting-is-worse "$WHY_WAITING_IS_WORSE" \
+            -latest-tag "${{ steps.facts.outputs.latest_tag }}" \
+            -ci-run-id "${{ steps.facts.outputs.ci_run_id }}" \
+            -ci-run-url "${{ steps.facts.outputs.ci_run_url }}" \
+            -ci-event "${{ steps.facts.outputs.ci_event }}" \
+            -ci-sha "${{ steps.facts.outputs.ci_sha }}" \
+            -ci-conclusion "${{ steps.facts.outputs.ci_conclusion }}" \
+            -ci-completed-at "${{ steps.facts.outputs.ci_completed_at }}" \
+            -main-exact-candidate="${{ steps.facts.outputs.main_exact_candidate }}" \
+            -tag-absent="${{ steps.presence.outputs.tag_absent }}" \
+            -release-absent="${{ steps.presence.outputs.release_absent }}" \
+            -output-directory "$output"
+
+      - name: Decide release publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/releasegate-verify"
+          arbiter strategy policy/release.arb \
+            --name ReleasePublication \
+            --data "$(jq --compact-output . "$output/policy-facts.json")" \
+            > "$output/policy-decision.json"
+          jq -r '"- Arbiter decision: `\(.selected)`\n- Arbiter reason: \(.params.reason)"' \
+            "$output/policy-decision.json" >> "$output/summary.md"
+          jq -e '.selected == "Allow" and .params.action == "allow"' \
+            "$output/policy-decision.json" >/dev/null
+
+      - name: Preserve verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-${{ inputs.version }}
+          path: ${{ runner.temp }}/releasegate-verify
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      actions: read
+      contents: write
+    env:
+      VERSION: ${{ inputs.version }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      RELEASE_KIND: ${{ inputs.release_kind }}
+      RECEIPT_URI: ${{ inputs.receipt_uri }}
+      INCIDENT: ${{ inputs.incident }}
+      WHY_WAITING_IS_WORSE: ${{ inputs.why_waiting_is_worse }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Require the original main workflow revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$CANDIDATE_SHA"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install the pinned Arbiter CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/arbiter.tar.gz"
+          bin_dir="$RUNNER_TEMP/arbiter-bin"
+          url="https://github.com/odvcencio/arbiter/releases/download/v$ARBITER_VERSION/arbiter_${ARBITER_VERSION}_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location "$url" --output "$archive"
+          echo "$ARBITER_LINUX_AMD64_SHA256  $archive" | sha256sum --check -
+          mkdir -p "$bin_dir"
+          tar --extract --gzip --file "$archive" --directory "$bin_dir" arbiter
+          chmod 0755 "$bin_dir/arbiter"
+          echo "$bin_dir" >> "$GITHUB_PATH"
+
+      - id: facts
+        name: Recollect main and hosted check facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin refs/heads/main:refs/remotes/origin/main
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          main_exact_candidate=false
+          if test "$main_sha" = "$CANDIDATE_SHA"; then
+            main_exact_candidate=true
+          fi
+
+          latest_tag="$(git tag --list --sort=-version:refname |
+            awk '$0 ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/ && first == "" { first=$0 } END { print first }')"
+          test -n "$latest_tag"
+
+          response="$RUNNER_TEMP/ci-runs.json"
+          url="https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$CANDIDATE_SHA&status=completed&event=workflow_dispatch&per_page=100"
+          if ! status="$(curl --silent --show-error --location \
+            --output "$response" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "$url")"; then
+            echo "The hosted check query failed." >&2
+            exit 1
+          fi
+          if test "$status" != "200"; then
+            jq -r '.message // "The hosted check query returned an error."' "$response" >&2
+            exit 1
+          fi
+
+          jq --arg sha "$CANDIDATE_SHA" \
+            '[.workflow_runs[] | select(
+              .head_sha == $sha
+              and .status == "completed"
+              and .event == "workflow_dispatch"
+            )] | sort_by([.run_number, .run_attempt]) | last' \
+            "$response" > "$RUNNER_TEMP/ci-run.json"
+
+          ci_run_id=""
+          ci_run_url=""
+          ci_event=""
+          ci_sha=""
+          ci_conclusion=""
+          ci_completed_at=""
+          if jq -e '. != null' "$RUNNER_TEMP/ci-run.json" >/dev/null; then
+            ci_run_id="$(jq -r '.id | tostring' "$RUNNER_TEMP/ci-run.json")"
+            ci_run_url="$(jq -r '.html_url // ""' "$RUNNER_TEMP/ci-run.json")"
+            ci_event="$(jq -r '.event // ""' "$RUNNER_TEMP/ci-run.json")"
+            ci_sha="$(jq -r '.head_sha // ""' "$RUNNER_TEMP/ci-run.json")"
+            ci_conclusion="$(jq -r '.conclusion // ""' "$RUNNER_TEMP/ci-run.json")"
+            ci_completed_at="$(jq -r '.updated_at // ""' "$RUNNER_TEMP/ci-run.json")"
+          fi
+
+          {
+            echo "main_exact_candidate=$main_exact_candidate"
+            echo "latest_tag=$latest_tag"
+            echo "ci_run_id=$ci_run_id"
+            echo "ci_run_url=$ci_run_url"
+            echo "ci_event=$ci_event"
+            echo "ci_sha=$ci_sha"
+            echo "ci_conclusion=$ci_conclusion"
+            echo "ci_completed_at=$ci_completed_at"
+          } >> "$GITHUB_OUTPUT"
+
+      - id: presence
+        name: Recollect tag and release facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          query_absence() {
+            local label="$1"
+            local url="$2"
+            local body="$RUNNER_TEMP/${label}.json"
+            local status
+            if ! status="$(curl --silent --show-error --location \
+              --output "$body" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header "Accept: application/vnd.github+json" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "$url")"; then
+              echo "The $label query failed." >&2
+              exit 1
+            fi
+            if test "$status" = "404"; then
+              echo "true"
+              return
+            fi
+            if test "$status" = "200"; then
+              echo "false"
+              return
+            fi
+            jq -r '.message // "The GitHub query returned an error."' "$body" >&2
+            exit 1
+          }
+
+          api="https://api.github.com/repos/$GITHUB_REPOSITORY"
+          tag_absent="$(query_absence "tag" "$api/git/ref/tags/$VERSION")"
+          release_absent="$(query_absence "release" "$api/releases/tags/$VERSION")"
+          {
+            echo "tag_absent=$tag_absent"
+            echo "release_absent=$release_absent"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Revalidate release evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/releasegate-publish"
+          go run ./cmd/releasegate \
+            -version "$VERSION" \
+            -candidate-sha "$CANDIDATE_SHA" \
+            -release-kind "$RELEASE_KIND" \
+            -receipt-uri "$RECEIPT_URI" \
+            -incident "$INCIDENT" \
+            -why-waiting-is-worse "$WHY_WAITING_IS_WORSE" \
+            -latest-tag "${{ steps.facts.outputs.latest_tag }}" \
+            -ci-run-id "${{ steps.facts.outputs.ci_run_id }}" \
+            -ci-run-url "${{ steps.facts.outputs.ci_run_url }}" \
+            -ci-event "${{ steps.facts.outputs.ci_event }}" \
+            -ci-sha "${{ steps.facts.outputs.ci_sha }}" \
+            -ci-conclusion "${{ steps.facts.outputs.ci_conclusion }}" \
+            -ci-completed-at "${{ steps.facts.outputs.ci_completed_at }}" \
+            -main-exact-candidate="${{ steps.facts.outputs.main_exact_candidate }}" \
+            -tag-absent="${{ steps.presence.outputs.tag_absent }}" \
+            -release-absent="${{ steps.presence.outputs.release_absent }}" \
+            -output-directory "$output"
+
+      - name: Reevaluate release publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/releasegate-publish"
+          arbiter strategy policy/release.arb \
+            --name ReleasePublication \
+            --data "$(jq --compact-output . "$output/policy-facts.json")" \
+            > "$output/policy-decision.json"
+          jq -r '"- Arbiter decision: `\(.selected)`\n- Arbiter reason: \(.params.reason)"' \
+            "$output/policy-decision.json" >> "$output/summary.md"
+          jq -e '.selected == "Allow" and .params.action == "allow"' \
+            "$output/policy-decision.json" >/dev/null
+
+      - name: Publish the immutable tag and release
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/releasegate-publish"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --force origin refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$CANDIDATE_SHA"
+          git tag --annotate "$VERSION" "$CANDIDATE_SHA" --message "gotreesitter $VERSION"
+          git push origin "refs/tags/$VERSION:refs/tags/$VERSION"
+          gh release create "$VERSION" \
+            --verify-tag \
+            --title "$(cat "$output/title.txt")" \
+            --notes-file "$output/notes.md"
+
+      - name: Verify the published release
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/releasegate-publish"
+          peeled_sha="$(git ls-remote --tags origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
+          test "$peeled_sha" = "$CANDIDATE_SHA"
+
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$VERSION" > "$RUNNER_TEMP/release.json"
+          jq -e --arg version "$VERSION" \
+            '.tag_name == $version and .draft == false and .prerelease == false' \
+            "$RUNNER_TEMP/release.json" >/dev/null
+          {
+            echo
+            echo "- Verified remote tag commit: \`$peeled_sha\`"
+            echo "- Verified GitHub release: \`$VERSION\`"
+          } >> "$output/summary.md"
+
+      - name: Preserve publication evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-publication-${{ inputs.version }}
+          path: ${{ runner.temp }}/releasegate-publish
+          if-no-files-found: error

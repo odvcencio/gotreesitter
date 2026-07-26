@@ -1,0 +1,46 @@
+outcome ReleaseDecision {
+    action: string
+    reason: string
+}
+
+# Select one publication decision from deterministic release facts.
+strategy ReleasePublication returns ReleaseDecision {
+    when {
+        evidence.main_exact_candidate
+        and evidence.ci_exact_candidate
+        and evidence.ci_full_dispatch
+        and evidence.ci_successful
+        and evidence.ci_completion_not_future
+        and evidence.tag_absent
+        and evidence.release_absent
+        and evidence.receipt_valid
+        and evidence.changelog_section_present
+        and evidence.changelog_notes_present
+        and evidence.changelog_date_matches
+        and evidence.readme_matches
+        and evidence.unreleased_link_matches
+        and evidence.version_link_matches
+        and (
+            (
+                release.kind == "planned-minor"
+                and release.version_increment == "next-minor"
+                and release.los_angeles_thursday
+                and release.soak_seconds >= 172800
+            )
+            or (
+                release.kind == "urgent-patch"
+                and release.version_increment == "next-patch"
+                and release.incident_present
+                and release.delay_rationale_present
+            )
+        )
+    } then Allow {
+        action: "allow",
+        reason: "all release policy requirements are satisfied",
+    }
+
+    else Deny {
+        action: "deny",
+        reason: "release facts do not satisfy the publication policy",
+    }
+}

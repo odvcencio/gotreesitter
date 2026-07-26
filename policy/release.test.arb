@@ -1,0 +1,259 @@
+test "planned minor passes on Thursday after 48 hours" {
+    given {
+        release.kind: "planned-minor"
+        release.version_increment: "next-minor"
+        release.los_angeles_thursday: true
+        release.soak_seconds: 172800
+        release.incident_present: false
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Allow { action: "allow" }
+}
+
+test "urgent patch passes outside Thursday without a minimum soak" {
+    given {
+        release.kind: "urgent-patch"
+        release.version_increment: "next-patch"
+        release.los_angeles_thursday: false
+        release.soak_seconds: 3600
+        release.incident_present: true
+        release.delay_rationale_present: true
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Allow { action: "allow" }
+}
+
+test "planned minor fails outside Thursday" {
+    given {
+        release.kind: "planned-minor"
+        release.version_increment: "next-minor"
+        release.los_angeles_thursday: false
+        release.soak_seconds: 172800
+        release.incident_present: false
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Deny { action: "deny" }
+}
+
+test "planned minor fails before 48 hours" {
+    given {
+        release.kind: "planned-minor"
+        release.version_increment: "next-minor"
+        release.los_angeles_thursday: true
+        release.soak_seconds: 172740
+        release.incident_present: false
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Deny { action: "deny" }
+}
+
+test "urgent patch fails without both exception reasons" {
+    given {
+        release.kind: "urgent-patch"
+        release.version_increment: "next-patch"
+        release.los_angeles_thursday: false
+        release.soak_seconds: 3600
+        release.incident_present: true
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Deny { action: "deny" }
+}
+
+test "planned route fails with a patch increment" {
+    given {
+        release.kind: "planned-minor"
+        release.version_increment: "next-patch"
+        release.los_angeles_thursday: true
+        release.soak_seconds: 172800
+        release.incident_present: false
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Deny { action: "deny" }
+}
+
+test "failed hosted checks select the deny fallback" {
+    given {
+        release.kind: "planned-minor"
+        release.version_increment: "next-minor"
+        release.los_angeles_thursday: true
+        release.soak_seconds: 172800
+        release.incident_present: false
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_successful: false
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Deny { action: "deny" }
+}
+
+test "incoherent documents select the deny fallback" {
+    given {
+        release.kind: "planned-minor"
+        release.version_increment: "next-minor"
+        release.los_angeles_thursday: true
+        release.soak_seconds: 172800
+        release.incident_present: false
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: false
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Deny { action: "deny" }
+}
+
+test "mutable GitHub conflicts select the deny fallback" {
+    given {
+        release.kind: "planned-minor"
+        release.version_increment: "next-minor"
+        release.los_angeles_thursday: true
+        release.soak_seconds: 172800
+        release.incident_present: false
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: false
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: true
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: false
+        evidence.release_absent: false
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Deny { action: "deny" }
+}
+
+test "push CI event selects the deny fallback" {
+    given {
+        release.kind: "planned-minor"
+        release.version_increment: "next-minor"
+        release.los_angeles_thursday: true
+        release.soak_seconds: 172800
+        release.incident_present: false
+        release.delay_rationale_present: false
+        evidence.main_exact_candidate: true
+        evidence.ci_exact_candidate: true
+        evidence.ci_full_dispatch: false
+        evidence.ci_successful: true
+        evidence.ci_completion_not_future: true
+        evidence.tag_absent: true
+        evidence.release_absent: true
+        evidence.receipt_valid: true
+        evidence.changelog_section_present: true
+        evidence.changelog_notes_present: true
+        evidence.changelog_date_matches: true
+        evidence.readme_matches: true
+        evidence.unreleased_link_matches: true
+        evidence.version_link_matches: true
+    }
+    expect strategy ReleasePublication selected Deny { action: "deny" }
+}
