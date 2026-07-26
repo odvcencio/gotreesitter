@@ -84,6 +84,14 @@ for tags and release notes while still in `0.x`.
 
 ### Removed
 
+- **The Scala returned-tree span repair subfamily.** A language-neutral
+  in-place rewrite refresh now preserves a valid producer-owned span and can
+  widen it. The Scala function-end and case-clause helpers are deleted. The
+  second-pass root-end call and its duplicate case-clause block are also
+  removed. Production, compact, forest, changed incremental, fresh, and
+  locked C routes return the exact ranges and points. Scala incremental reuse
+  remains unsupported and reports zero reuse.
+
 - **The HTML returned-tree range fixup.** Materialization now extends recovered
   custom elements through each structural `_implicit_end_tag` child.
   Production, compact, forest, and incremental routes return the exact

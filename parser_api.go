@@ -87,11 +87,13 @@ func normalizeReturnedTree(root *Node, source []byte, lang *Language) {
 		normalizeScalaRecoveredObjectTemplateBodies(root, source, nil, lang)
 		normalizeScalaDefinitionFields(root, source, lang)
 		normalizeScalaTemplateBodyFunctionAnnotations(root, source, nil, lang)
-		normalizeScalaTemplateBodyFunctionEnds(root, source, lang)
-		normalizeScalaCaseClauseEnds(root, source, lang)
-		normalizeRootEOFNewlineSpan(root, source, lang)
+		normalizeScalaProducedSpanRetirementPending(root, source, lang)
 	}
 }
+
+// normalizeScalaProducedSpanRetirementPending keeps the live registry
+// bisectable until the span retirement commit exists. It does not mutate.
+func normalizeScalaProducedSpanRetirementPending(_ *Node, _ []byte, _ *Language) {}
 
 func shouldNormalizeIncrementalReturnedTree(tree, oldTree *Tree) bool {
 	if tree == nil {

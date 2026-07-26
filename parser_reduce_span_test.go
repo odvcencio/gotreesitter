@@ -11,6 +11,58 @@ func extendParentSpanToWindowForSourceTest(parent *Node, entries []stackEntry, s
 	extendParentSpanToWindow(parent, entries, start, reducedEnd, symbolMeta, spanExtending, nonSpanExtending, source)
 }
 
+func TestRewriteRefreshPreservesProducedSpan(t *testing.T) {
+	visible := NewLeafNode(2, true, 10, 20, Point{Column: 10}, Point{Column: 20})
+	parent := NewParentNode(3, true, []*Node{visible}, nil, 7)
+	parent.endByte = 24
+	parent.endPoint = Point{Row: 1, Column: 2}
+
+	replacement := NewLeafNode(2, true, 10, 18, Point{Column: 10}, Point{Column: 18})
+	replacement.setHasError(true)
+	parent.children = []*Node{replacement}
+	refreshRewrittenParentPreservingProducedSpan(parent, parent.children)
+
+	if got, want := parent.startByte, uint32(10); got != want {
+		t.Fatalf("parent start byte = %d, want %d", got, want)
+	}
+	if got, want := parent.endByte, uint32(24); got != want {
+		t.Fatalf("parent end byte = %d, want %d", got, want)
+	}
+	if got, want := parent.endPoint, (Point{Row: 1, Column: 2}); got != want {
+		t.Fatalf("parent end point = %#v, want %#v", got, want)
+	}
+	if replacement.parent != parent || replacement.childIndex != 0 {
+		t.Fatal("rewrite refresh did not restore the child link")
+	}
+	if !parent.hasError() {
+		t.Fatal("rewrite refresh did not update the parent error state")
+	}
+}
+
+func TestRewriteRefreshCanWidenProducedSpan(t *testing.T) {
+	visible := NewLeafNode(2, true, 10, 20, Point{Column: 10}, Point{Column: 20})
+	parent := NewParentNode(3, true, []*Node{visible}, nil, 7)
+	parent.endByte = 24
+	parent.endPoint = Point{Row: 1, Column: 2}
+
+	replacement := NewLeafNode(2, true, 8, 30, Point{Column: 8}, Point{Row: 1, Column: 8})
+	parent.children = []*Node{replacement}
+	refreshRewrittenParentPreservingProducedSpan(parent, parent.children)
+
+	if got, want := parent.startByte, uint32(8); got != want {
+		t.Fatalf("parent start byte = %d, want %d", got, want)
+	}
+	if got, want := parent.startPoint, (Point{Column: 8}); got != want {
+		t.Fatalf("parent start point = %#v, want %#v", got, want)
+	}
+	if got, want := parent.endByte, uint32(30); got != want {
+		t.Fatalf("parent end byte = %d, want %d", got, want)
+	}
+	if got, want := parent.endPoint, (Point{Row: 1, Column: 8}); got != want {
+		t.Fatalf("parent end point = %#v, want %#v", got, want)
+	}
+}
+
 func TestExtendParentSpanCoversInvisibleLeafChild(t *testing.T) {
 	// Invisible non-extra leaf child [20-22] dropped by buildReduceChildren
 	// should extend parent endByte from 20 to 22 (contiguous), but leading

@@ -13,11 +13,9 @@ func normalizeScalaCompatibility(root *Node, source []byte, parser *Parser, lang
 	normalizeScalaDefinitionFields(root, source, lang)
 	normalizeScalaTemplateBodyFunctionAnnotations(root, source, parser, lang)
 	normalizeScalaImportPathFields(root, lang)
-	normalizeScalaTemplateBodyFunctionEnds(root, source, lang)
 	normalizeScalaTrailingCommentOwnership(root, source, lang)
 	normalizeScalaFunctionModifierFields(root, lang)
 	normalizeScalaInterpolatedStringTail(root, source, lang)
-	normalizeScalaCaseClauseEnds(root, source, lang)
 	normalizeRootEOFNewlineSpan(root, source, lang)
 }
 
@@ -344,7 +342,7 @@ func normalizeScalaImportPathFields(root *Node, lang *Language) {
 	})
 }
 
-func normalizeScalaDefinitionFields(root *Node, source []byte, lang *Language) {
+func normalizeScalaDefinitionFields(root *Node, _ []byte, lang *Language) {
 	if root == nil || lang == nil || lang.Name != "scala" {
 		return
 	}
@@ -512,25 +510,6 @@ func normalizeScalaDefinitionFields(root *Node, source []byte, lang *Language) {
 					n.fieldSources()[i] = fieldSourceDirect
 				}
 			}
-		case "case_block":
-			for i := 0; i+1 < len(n.children); i++ {
-				curr := n.children[i]
-				if curr == nil || curr.Type(lang) != "case_clause" {
-					continue
-				}
-				next := scalaNextCaseClauseBoundaryNode(n.children, i, lang)
-				if next == nil {
-					continue
-				}
-				if curr.endByte >= next.startByte {
-					continue
-				}
-				gap := source[curr.endByte:next.startByte]
-				if !bytesAreTrivia(gap) || !bytesContainLineBreak(gap) {
-					continue
-				}
-				extendNodeEndTo(curr, next.startByte, source)
-			}
 		}
 	})
 }
@@ -589,86 +568,10 @@ func normalizeScalaTemplateBodyFunctionAnnotations(root *Node, source []byte, pa
 				if metadataChanged {
 					child.setFieldMetadata(childFieldIDs, childFieldSources)
 				}
-				populateParentNode(child, child.children)
+				refreshRewrittenParentPreservingProducedSpan(child, child.children)
 			}
 		}
 	})
-}
-
-func normalizeScalaCaseClauseEnds(root *Node, source []byte, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "scala" || len(source) == 0 {
-		return
-	}
-	walkResultTree(root, func(n *Node) {
-		if n.Type(lang) == "case_block" {
-			for i := 0; i+1 < len(n.children); i++ {
-				curr := n.children[i]
-				if curr == nil || curr.Type(lang) != "case_clause" {
-					continue
-				}
-				next := scalaNextCaseClauseBoundaryNode(n.children, i, lang)
-				if next == nil {
-					continue
-				}
-				if curr.endByte >= next.startByte || int(next.startByte) > len(source) {
-					continue
-				}
-				gap := source[curr.endByte:next.startByte]
-				if !bytesAreTrivia(gap) || !bytesContainLineBreak(gap) {
-					continue
-				}
-				extendNodeEndTo(curr, next.startByte, source)
-			}
-		}
-	})
-}
-
-func normalizeScalaTemplateBodyFunctionEnds(root *Node, source []byte, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "scala" || len(source) == 0 {
-		return
-	}
-	walkResultTree(root, func(n *Node) {
-		if n.Type(lang) == "template_body" {
-			for i := 0; i+1 < len(n.children); i++ {
-				curr := n.children[i]
-				next := n.children[i+1]
-				if curr == nil || next == nil || curr.Type(lang) != "function_definition" || next.IsExtra() {
-					continue
-				}
-				if len(curr.children) == 0 {
-					continue
-				}
-				last := curr.children[len(curr.children)-1]
-				if last == nil || last.Type(lang) != "indented_block" {
-					continue
-				}
-				if curr.endByte >= next.startByte || int(next.startByte) > len(source) {
-					continue
-				}
-				gap := source[curr.endByte:next.startByte]
-				if !bytesAreTrivia(gap) || !bytesContainLineBreak(gap) {
-					continue
-				}
-				extendNodeEndTo(last, next.startByte, source)
-				extendNodeEndTo(curr, next.startByte, source)
-			}
-		}
-	})
-}
-
-func scalaNextCaseClauseBoundaryNode(children []*Node, start int, lang *Language) *Node {
-	for i := start + 1; i < len(children); i++ {
-		child := children[i]
-		if child == nil {
-			continue
-		}
-		switch child.Type(lang) {
-		case "_automatic_semicolon":
-			continue
-		}
-		return child
-	}
-	return nil
 }
 
 func rootLooksLikeScalaCompilationUnit(root *Node, lang *Language) bool {

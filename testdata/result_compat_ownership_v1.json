@@ -2401,15 +2401,12 @@
         "normalizeScalaRecoveredObjectTemplateBodies",
         "normalizeScalaDefinitionFields",
         "normalizeScalaTemplateBodyFunctionAnnotations",
-        "normalizeScalaTemplateBodyFunctionEnds",
-        "normalizeScalaCaseClauseEnds",
-        "normalizeRootEOFNewlineSpan"
+        "normalizeScalaProducedSpanRetirementPending"
       ],
       "files": [
         "parser_api.go",
         "parser_result_scala_template.go",
-        "parser_result_scala_compilation.go",
-        "parser_result_misc_spans.go"
+        "parser_result_scala_compilation.go"
       ],
       "languages": [
         "scala"
@@ -2427,18 +2424,20 @@
             "normalizeScalaRecoveredObjectTemplateBodies",
             "normalizeScalaDefinitionFields",
             "normalizeScalaTemplateBodyFunctionAnnotations",
-            "normalizeScalaTemplateBodyFunctionEnds",
-            "normalizeScalaCaseClauseEnds",
-            "normalizeRootEOFNewlineSpan"
+            "normalizeScalaProducedSpanRetirementPending"
           ]
         }
       ],
-      "purpose": "Retain the bounded second pass that reaches a returned-tree fixpoint after finalization for Scala annotations and bounds.",
+      "purpose": "Retain the bounded second pass for four Scala recovery, field, and annotation repairs. The inert span marker keeps checkpoint A bisectable until its commit can become the retirement receipt.",
       "authoritative_owner": "materialization",
       "witnesses": [
-        "parser_result_test/parser_result_scala_comment_attachment_test.go"
+        "parser_result_test/parser_result_scala_comment_attachment_test.go",
+        "parser_result_scala_produced_span_test.go",
+        "parser_reduce_span_test.go",
+        "grammars/scala_span_ownership_test.go",
+        "cgo_harness/scala_span_ownership_parity_test.go"
       ],
-      "retirement_condition": "Delete only after the Scala producer emits final annotations and spans in one pass. Require exact production, compact, forest, incremental, and C-oracle receipts.",
+      "retirement_condition": "Delete the inert span marker after checkpoint A records its commit. Delete the remaining arm only after the Scala producer emits the four retained repairs before finalization.",
       "route_coverage": {
         "production": "post_finalization_fixpoint",
         "compact": "post_finalization_fixpoint",

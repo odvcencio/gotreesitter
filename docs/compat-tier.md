@@ -131,9 +131,19 @@ exact against their C oracles. The generic trailing-extra pass is retired.
 ## The retained second pass
 
 `normalizePostFinalizationReturnedTree` deliberately runs a bounded second
-pass for Scala. It remains live because the first pass can expose information
-needed by later normalization. Scala must emit its final annotations and spans
-in one pass before this arm can retire.
+pass for Scala. Four recovery, field, and annotation repairs remain live.
+Checkpoint A removes the three span calls and their two exclusive helpers.
+It keeps one inert marker until the checkpoint commit becomes a retirement
+receipt. The marker does not mutate the tree.
+
+An in-place child rewrite now preserves a valid producer-owned span. The
+rewrite can widen that span but cannot shrink it. This language-neutral rule
+replaces the Scala function, block, case-clause, and root span repairs.
+
+The route receipt covers production, compact, forest, changed incremental,
+and fresh parsing. Scala incremental reuse is unsupported because its
+external scanner lacks reuse support. The receipt records zero reused
+subtrees and bytes. It does not claim incremental reuse.
 
 HTML no longer participates in this fixpoint. Materialization extends each
 recovered custom element through its structural `_implicit_end_tag` child.
@@ -149,7 +159,7 @@ optional parent-link wiring. Neither can shorten or reclassify the root.
 The registry retains a retired historical entry for the deleted JavaScript
 arm and its production, compact-final-ref, forest, and incremental receipts.
 
-Removing the Scala second pass now would reopen known fixpoint behavior.
+Removing the remaining Scala second pass now would reopen four known repairs.
 Its registry retirement condition remains the deletion gate.
 
 ## Editing and validation

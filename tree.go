@@ -1997,6 +1997,34 @@ func populateParentNode(n *Node, children []*Node) {
 	}
 }
 
+// refreshRewrittenParentPreservingProducedSpan refreshes an existing parent
+// after an in-place child rewrite. A produced span can widen but cannot shrink.
+func refreshRewrittenParentPreservingProducedSpan(n *Node, children []*Node) {
+	if n == nil {
+		return
+	}
+	oldStartByte := n.startByte
+	oldEndByte := n.endByte
+	oldStartPoint := n.startPoint
+	oldEndPoint := n.endPoint
+	preserveProducedSpan := n.productionID != 0 &&
+		oldStartByte <= oldEndByte &&
+		!pointLessThan(oldEndPoint, oldStartPoint)
+
+	populateParentNode(n, children)
+	if !preserveProducedSpan {
+		return
+	}
+	if n.startByte >= oldStartByte {
+		n.startByte = oldStartByte
+		n.startPoint = oldStartPoint
+	}
+	if n.endByte <= oldEndByte {
+		n.endByte = oldEndByte
+		n.endPoint = oldEndPoint
+	}
+}
+
 // populateParentNodeNoLinks computes parent span/error metadata from children
 // without wiring child.parent/childIndex links. Used on deferred-link paths.
 func populateParentNodeNoLinks(n *Node, children []*Node, trackChildErrors bool) {
