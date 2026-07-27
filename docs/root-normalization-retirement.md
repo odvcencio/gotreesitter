@@ -88,8 +88,8 @@ Status: complete.
 3. Retire the remaining generic terminal-leaf pass by moving the invariant
    into construction/materialization. This must cover lazy compact child
    references without forcing them.
-4. Retire the HTML and Scala second-pass arms independently. Exact range
-   receipts support the HTML arm retirement. This change removes Scala span
+4. Retire HTML and Scala second-pass arms independently. Use exact range
+   receipts to retire the HTML arm. This change removes Scala span
    repairs.
    Scala recovery, field, and annotation repairs now run once.
    This change deletes the shared fixpoint.

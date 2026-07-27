@@ -1987,13 +1987,14 @@ func populateParentNode(n *Node, children []*Node) {
 		n.startPoint = first.startPoint
 		n.endPoint = last.endPoint
 
+		hasError := false
 		for i, c := range children {
 			setNodeParentLink(c, n, i)
 			if c.hasError() {
-				n.setHasError(true)
-				break
+				hasError = true
 			}
 		}
+		n.setHasError(hasError)
 	}
 }
 

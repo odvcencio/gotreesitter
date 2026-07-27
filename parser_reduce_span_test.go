@@ -63,6 +63,44 @@ func TestRewriteRefreshCanWidenProducedSpan(t *testing.T) {
 	}
 }
 
+func TestRewriteRefreshPreservesProducedSpanAcrossMultipleChildren(t *testing.T) {
+	original := NewLeafNode(2, true, 10, 24, Point{Column: 10}, Point{Row: 1, Column: 2})
+	parent := NewParentNode(3, true, []*Node{original}, nil, 7)
+	parent.endByte = 30
+	parent.endPoint = Point{Row: 1, Column: 8}
+
+	first := NewLeafNode(2, true, 12, 16, Point{Column: 12}, Point{Column: 16})
+	second := NewLeafNode(2, true, 18, 22, Point{Column: 18}, Point{Column: 22})
+	second.setHasError(true)
+	third := NewLeafNode(2, true, 24, 26, Point{Row: 1, Column: 2}, Point{Row: 1, Column: 4})
+	parent.children = []*Node{first, second, third}
+	refreshRewrittenParentPreservingProducedSpan(parent, parent.children)
+
+	if got, want := parent.startByte, uint32(10); got != want {
+		t.Fatalf("parent start byte = %d, want %d", got, want)
+	}
+	if got, want := parent.endByte, uint32(30); got != want {
+		t.Fatalf("parent end byte = %d, want %d", got, want)
+	}
+	if got, want := parent.endPoint, (Point{Row: 1, Column: 8}); got != want {
+		t.Fatalf("parent end point = %#v, want %#v", got, want)
+	}
+	for index, child := range parent.children {
+		if child.parent != parent || child.childIndex != int32(index) {
+			t.Fatalf("child %d link = (%p, %d), want (%p, %d)", index, child.parent, child.childIndex, parent, index)
+		}
+	}
+	if !parent.hasError() {
+		t.Fatal("rewrite refresh did not collect the error state from all children")
+	}
+
+	second.setHasError(false)
+	refreshRewrittenParentPreservingProducedSpan(parent, parent.children)
+	if parent.hasError() {
+		t.Fatal("rewrite refresh retained a stale child error state")
+	}
+}
+
 func TestExtendParentSpanCoversInvisibleLeafChild(t *testing.T) {
 	// Invisible non-extra leaf child [20-22] dropped by buildReduceChildren
 	// should extend parent endByte from 20 to 22 (contiguous), but leading

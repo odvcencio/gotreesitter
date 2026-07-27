@@ -131,8 +131,8 @@ Checkpoint A removed the span calls and their two exclusive helpers.
 Checkpoint B removed the four duplicate recovery, field, and annotation calls.
 The final checkpoint deletes the marker and the shared fixpoint.
 
-An in-place child rewrite now preserves a valid producer-owned span. The
-rewrite can widen that span but cannot shrink it. This language-neutral rule
+Child rewrites preserve a valid producer-owned span. A rewrite can widen the
+span but cannot shrink it. This language-neutral rule
 replaces the Scala function, block, case-clause, and root span repairs.
 
 The route receipt covers production, compact, forest, changed incremental,
