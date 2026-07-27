@@ -17,7 +17,7 @@ type collapsedChildParityRow struct {
 
 // TestCollapsedChildOccurrenceParity pins the exact C-tree shape for every
 // language represented by the collapsed named-leaf occurrence ledger. The
-// fixtures collectively exercise all 23 registered parent/raw-child pairs;
+// fixtures collectively exercise all 24 registered parent/raw-child pairs;
 // run subtests one language at a time in Docker.
 func TestCollapsedChildOccurrenceParity(t *testing.T) {
 	tests := []struct {
@@ -39,6 +39,7 @@ func TestCollapsedChildOccurrenceParity(t *testing.T) {
 			{parent: "this", child: "this"}, {parent: "super", child: "super"},
 		}},
 		{name: "elixir", source: "nil\n", rows: []collapsedChildParityRow{{parent: "nil", child: "nil"}}},
+		{name: "rust", source: "fn f(s: &str) -> &str { &s[..] }\n", rows: []collapsedChildParityRow{{parent: "range_expression", child: ".."}}},
 		{name: "apex", source: `trigger T on Account (before insert, before update, before delete, after insert, after update, after delete, after undelete) { System.debug(UserInfo.getUserId()); }
 public class C { public C(){ super(); } void f(Account a, User u) { insert a; delete a; undelete a; upsert a; insert as user a; update as system a; System.runAs(u) { } } }
 `, rows: []collapsedChildParityRow{

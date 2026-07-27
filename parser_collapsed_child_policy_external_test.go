@@ -40,9 +40,10 @@ func TestCollapsedChildOccurrencePolicyCoversExactAndAdaptedArtifacts(t *testing
 		{language: "dart", load: grammars.DartLanguage, parent: "super", child: "super"},
 		{language: "dart", load: grammars.DartLanguage, parent: "this", child: "this"},
 		{language: "elixir", load: grammars.ElixirLanguage, parent: "nil", child: "nil"},
+		{language: "rust", load: grammars.RustLanguage, parent: "range_expression", child: ".."},
 	}
-	if len(rows) != 23 {
-		t.Fatalf("collapsed-child occurrence rows=%d, want 23", len(rows))
+	if len(rows) != 24 {
+		t.Fatalf("collapsed-child occurrence rows=%d, want 24", len(rows))
 	}
 	for _, row := range rows {
 		row := row

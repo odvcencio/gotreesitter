@@ -2372,9 +2372,10 @@
         "parser_collapsed_child_policy_external_test.go",
         "cgo_harness/collapsed_child_occurrence_parity_test.go",
         "grammars/collapsed_child_native_regression_test.go",
+        "grammars/rust_dot_range_producer_test.go",
         "internal/parsercorephase0/selected_store_test.go"
       ],
-      "retirement_condition": "Satisfied: all 23 registered rows retain raw child identity during materialization, exact and adapted artifacts compile the same occurrence policy, production, compact, forest, and incremental witnesses are native, and the C oracle reports a nonzero equal occurrence census for every pair.",
+      "retirement_condition": "Satisfied: all 24 registered rows retain raw child identity during materialization, exact and adapted artifacts compile the same occurrence policy, production, compact, forest, and incremental witnesses are native, and the C oracle reports a nonzero equal occurrence census for every pair.",
       "route_coverage": {
         "production": "retired_exact_receipt",
         "compact": "retired_exact_receipt",
@@ -2388,6 +2389,7 @@
         "parser_collapsed_child_policy_test.go",
         "parser_collapsed_child_policy_external_test.go",
         "grammars/collapsed_child_native_regression_test.go",
+        "grammars/rust_dot_range_producer_test.go",
         "internal/parsercorephase0/selected_store_test.go"
       ]
     },

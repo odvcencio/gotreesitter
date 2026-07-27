@@ -276,6 +276,13 @@ func rustRangeExpressionNeedsDotRangeRepair(node *Node, lang *Language) bool {
 	if childCount == 0 {
 		return true
 	}
+	if childCount == 1 {
+		child := resultChildAt(node, 0)
+		if child != nil && child.Type(lang) == ".." &&
+			child.startByte == node.startByte && child.endByte == node.endByte {
+			return false
+		}
+	}
 	for i := 0; i < childCount; i++ {
 		child := resultChildAt(node, i)
 		if child == nil {

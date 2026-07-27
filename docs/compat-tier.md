@@ -33,6 +33,10 @@ reconstruction). At that checkpoint, HTML's range function stayed live.
 R1 later retired that separate second-pass function. The registry keeps both
 retired mechanisms as distinct historical receipts.
 
+The exact collapsed-child policy now retains a bare Rust `..` token.
+The compatibility pass leaves this producer-owned shape unchanged.
+Chained invalid dot ranges still require their recovery repair.
+
 Each registry entry has a stable ID, functions and files, languages, purpose,
 authoritative owner, witnesses, a retirement condition, coverage fields for
 production/compact/forest/incremental/C-oracle routes, status, and optional
@@ -82,9 +86,9 @@ The tier stays internal because it operates on arena and node internals before
 the tree is returned. Moving it into a package with exported plumbing would
 make the exported API surface worse without changing its ownership.
 
-## Current progress: collapsed named leaves
+## Current progress: collapsed children
 
-All 23 registered collapsed named-leaf rows for the six affected built-in
+All 24 registered collapsed child rows for the seven affected built-in
 languages now produce their child shape natively. The occurrence policy is
 admitted by the exact-profile receipt and compiled from exact named parent and
 raw-child metadata identities, so true adapted clones retaining both take the

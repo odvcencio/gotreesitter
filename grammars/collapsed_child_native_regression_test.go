@@ -23,6 +23,7 @@ func TestCollapsedChildLedgerRealLanguagesNeedNoSafetyNetRewrite(t *testing.T) {
 			count int
 		}
 		forestEligible bool
+		allowChecks    bool
 		want           map[string]struct {
 			child string
 			named bool
@@ -54,6 +55,11 @@ func TestCollapsedChildLedgerRealLanguagesNeedNoSafetyNetRewrite(t *testing.T) {
 			named bool
 			count int
 		}{"nil": {child: "nil", count: 1}}},
+		{name: "rust", lang: RustLanguage, src: "fn f(s: &str) -> &str { &s[..] }\n", forestEligible: true, allowChecks: true, want: map[string]struct {
+			child string
+			named bool
+			count int
+		}{"range_expression": {child: "..", count: 1}}},
 		{name: "apex", lang: ApexLanguage, forestEligible: true,
 			compactSrc: "trigger T on Account (before insert, after delete) { System.debug(UserInfo.getUserId()); }\n",
 			compactWant: map[string]struct {
@@ -77,7 +83,7 @@ public class C { public C(){ super(); } void f(Account a, User u) { insert a; de
 				"upsert": {child: "upsert", count: 1}, "user": {child: "user", count: 1},
 			}},
 	}
-	seenPairs := make(map[string]struct{}, 23)
+	seenPairs := make(map[string]struct{}, 24)
 	for _, test := range tests {
 		lang := test.lang()
 		if lang.NativeResultCompatibility&gotreesitter.ResultCompatibilityNativeCollapsedChildren == 0 {
@@ -96,8 +102,8 @@ public class C { public C(){ super(); } void f(Account a, User u) { insert a; de
 			seenPairs[key] = struct{}{}
 		}
 	}
-	if got := len(seenPairs); got != 23 {
-		t.Fatalf("exact-artifact collapsed-child route rows=%d, want 23", got)
+	if got := len(seenPairs); got != 24 {
+		t.Fatalf("exact-artifact collapsed-child route rows=%d, want 24", got)
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -108,7 +114,7 @@ public class C { public C(){ super(); } void f(Account a, User u) { insert a; de
 			if err != nil {
 				t.Fatal(err)
 			}
-			assertCollapsedChildRouteTree(t, "production", tree, lang, test.want)
+			assertCollapsedChildRouteTree(t, "production", tree, lang, test.want, test.allowChecks)
 			if tree.ParseRuntime().ForestFastPath {
 				t.Fatal("production-pinned parse reported forest route")
 			}
@@ -127,12 +133,12 @@ public class C { public C(){ super(); } void f(Account a, User u) { insert a; de
 			}
 			routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
 			if test.compactDecline {
-				assertCollapsedChildRouteTree(t, "compact-fallback", tree, lang, compactWant)
+				assertCollapsedChildRouteTree(t, "compact-fallback", tree, lang, compactWant, test.allowChecks)
 				if routedAfter != routedBefore || fallbackAfter != fallbackBefore+1 {
 					t.Fatalf("compact decline counters routed=%d/%d fallback=%d/%d", routedBefore, routedAfter, fallbackBefore, fallbackAfter)
 				}
 			} else {
-				assertCollapsedChildRouteTree(t, "compact-routed", tree, lang, compactWant)
+				assertCollapsedChildRouteTree(t, "compact-routed", tree, lang, compactWant, test.allowChecks)
 				if routedAfter != routedBefore+1 || fallbackAfter != fallbackBefore {
 					t.Fatalf("compact route counters routed=%d/%d fallback=%d/%d", routedBefore, routedAfter, fallbackBefore, fallbackAfter)
 				}
@@ -146,7 +152,7 @@ public class C { public C(){ super(); } void f(Account a, User u) { insert a; de
 					offset, symbol, reason, _ := forest.ForestDeclineInfo()
 					t.Fatalf("eligible forest route declined at %d symbol=%d reason=%s", offset, symbol, reason)
 				}
-				assertCollapsedChildRouteTree(t, "forest", tree, lang, test.want)
+				assertCollapsedChildRouteTree(t, "forest", tree, lang, test.want, test.allowChecks)
 				if !tree.ParseRuntime().ForestFastPath {
 					t.Fatal("forest parse did not report forest route")
 				}
@@ -163,7 +169,7 @@ public class C { public C(){ super(); } void f(Account a, User u) { insert a; de
 			if err != nil {
 				t.Fatal(err)
 			}
-			assertCollapsedChildRouteTree(t, "adapted-production", oldTree, &adapted, test.want)
+			assertCollapsedChildRouteTree(t, "adapted-production", oldTree, &adapted, test.want, test.allowChecks)
 
 			nextSource := append(append([]byte(nil), oldSource...), '\n')
 			endPoint := collapsedChildEndPoint(oldSource)
@@ -180,7 +186,7 @@ public class C { public C(){ super(); } void f(Account a, User u) { insert a; de
 				oldTree.Release()
 				t.Fatal(err)
 			}
-			assertCollapsedChildRouteTree(t, "adapted-incremental", incremental, &adapted, test.want)
+			assertCollapsedChildRouteTree(t, "adapted-incremental", incremental, &adapted, test.want, test.allowChecks)
 			freshParser := gotreesitter.NewParser(&adapted)
 			freshParser.SetAdmissionCandidateRoute(false)
 			fresh, err := freshParser.Parse(nextSource)
@@ -238,13 +244,15 @@ func assertCollapsedChildRouteTree(t *testing.T, route string, tree *gotreesitte
 	child string
 	named bool
 	count int
-}) {
+}, allowChecks bool) {
 	t.Helper()
 	root := tree.RootNode()
 	if root == nil || root.HasError() {
 		t.Fatalf("%s unclean fixture: %v", route, root)
 	}
-	if runtime := tree.ParseRuntime(); runtime.NormalizationPassesChecked != 0 || runtime.NormalizationPassesRun != 0 || runtime.NormalizationNodesVisited != 0 || runtime.NormalizationNodesRewritten != 0 {
+	runtime := tree.ParseRuntime()
+	if runtime.NormalizationNodesVisited != 0 || runtime.NormalizationNodesRewritten != 0 ||
+		!allowChecks && (runtime.NormalizationPassesChecked != 0 || runtime.NormalizationPassesRun != 0) {
 		t.Fatalf("%s normalization checked/run/visited/rewritten=%d/%d/%d/%d", route, runtime.NormalizationPassesChecked, runtime.NormalizationPassesRun, runtime.NormalizationNodesVisited, runtime.NormalizationNodesRewritten)
 	}
 	for parentType, want := range wants {

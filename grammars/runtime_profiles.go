@@ -110,6 +110,10 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                mustRuntimeProfileSHA256("9f1dc301142506249e7ac340372671f1d5e9ae76b7d378fc049635259bf8fc7f"),
 		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 	},
+	"rust": {
+		blobSHA256:                mustRuntimeProfileSHA256("1f00617f5a6cb9106bb3739d6ab8c592772b87b20d232adff9faf1552fa396fd"),
+		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
+	},
 	// Matlab's external-scanner repeat selects the same tree after the complete
 	// accepted-error retry ladder. Keep the full ladder, but do not run it twice
 	// for this exact built-in grammar/scanner artifact.

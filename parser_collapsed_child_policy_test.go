@@ -19,7 +19,7 @@ func collapsedChildPolicyTestLanguage(rule collapsedChildOccurrenceRule) (*Langu
 }
 
 func TestCollapsedChildOccurrencePolicyNativelyRetainsAllLedgerRows(t *testing.T) {
-	if got, want := len(collapsedChildOccurrenceRules), 23; got != want {
+	if got, want := len(collapsedChildOccurrenceRules), 24; got != want {
 		t.Fatalf("collapsed-child ledger rows = %d, want %d", got, want)
 	}
 	for _, rule := range collapsedChildOccurrenceRules {

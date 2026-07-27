@@ -45,6 +45,7 @@ var collapsedChildOccurrenceRules = []collapsedChildOccurrenceRule{
 	{languageName: "dart", parentName: "super", childName: "super"},
 	{languageName: "dart", parentName: "this", childName: "this"},
 	{languageName: "elixir", parentName: "nil", childName: "nil"},
+	{languageName: "rust", parentName: "range_expression", childName: ".."},
 }
 
 func collapsedChildPairKey(parent, child Symbol) uint32 {

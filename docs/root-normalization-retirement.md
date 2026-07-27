@@ -97,16 +97,18 @@ arms.
 
 ### R2 — census and remove inert language passes
 
-Status: the first retirement PR is prepared; eight more dispatcher arms
-censused zero and stayed live pending a wider corpus or a narrower sub-pass
-split.
+Status: the first dispatcher retirement merged in PR #463.
+Bare Rust ranges now have a producer-owned anonymous token.
+Chained invalid ranges still require the compatibility repair.
 
 The mandatory shape is census before migration. Historical audits already
 found that table or engine fixes can leave old normalizers behind.
 
-1. Re-run the Rust dot-range census over the full authenticated Rust corpus.
-   If rewrites remain zero and synthetic controls fire, remove the pass and
-   its exclusive traversal in one PR.
+1. Retire the Rust dot-range pass in two checkpoints.
+   The exact collapsed-child policy now retains each bare anonymous `..` token.
+   The authenticated producer census found no remaining bare-range candidate.
+   It covered 37,121 nonempty clean files and 18,506 truncated files.
+   Keep the chained invalid-range repair until its producer emits the C shape.
 2. Re-census any pass whose original bug is now covered upstream or whose
    registered witness no longer reaches it. A zero rewrite count is only
    actionable when positive controls prove the probe.
