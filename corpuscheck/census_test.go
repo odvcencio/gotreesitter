@@ -5,14 +5,12 @@ import (
 	"testing"
 )
 
-// These tests run against corpus fixtures vendored under
-// testdata/upstream_corpus (see NOTICE.md there for provenance) so this
-// harness gets real signal in CI without depending on the gts-corpora
-// sibling checkout. They are deliberately specific about *why* each
-// language doesn't hit 100% strict pass, rather than loosening the
-// comparator to make everything green -- see TestCorpusFormat_RealWorld
-// in census_gts_corpora_test.go for the much larger, skip-if-absent
-// sweep against the full upstream corpora.
+// These tests use the fixtures in testdata/upstream_corpus.
+// See NOTICE.md for their provenance.
+// The fixtures give continuous integration a stable signal.
+// They do not require the gts-corpora sibling checkout.
+// Each test records the cause of every known failure.
+// TestCorpusFormat_RealWorld runs the larger optional corpus sweep.
 
 func vendoredRoot(t *testing.T) string {
 	t.Helper()
@@ -23,11 +21,10 @@ func vendoredRoot(t *testing.T) string {
 	return abs
 }
 
-// TestVendoredCorpus_CleanLanguages is a regression gate: css and html's
-// vendored fixtures pass gotreesitter's strict comparison in full today.
-// If either regresses, this is a real gotreesitter defect, not upstream
-// fixture staleness -- css and html's committed corpora already include
-// field annotations, so there is no "field-lenient" excuse available.
+// TestVendoredCorpus_CleanLanguages is a regression gate.
+// The CSS and HTML fixtures pass the strict comparison.
+// A failure identifies a gotreesitter defect.
+// These fixtures include field annotations.
 func TestVendoredCorpus_CleanLanguages(t *testing.T) {
 	root := vendoredRoot(t)
 	for _, lang := range []string{"css", "html"} {

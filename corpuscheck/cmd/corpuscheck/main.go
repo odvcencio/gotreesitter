@@ -158,10 +158,9 @@ func printLanguage(r *corpuscheck.LanguageReport, verbose bool) {
 	}
 }
 
-// resolveLanguages expands "all" into every registered language name that
-// also has a discoverable corpus directory under root, capped at
-// maxLangs if >0. A plain comma list is returned as-is (still filtered to
-// registered names).
+// resolveLanguages expands "all" to each registered corpus directory.
+// A positive maxLangs value limits the result.
+// The function filters a comma-separated list to registered names.
 func resolveLanguages(root, langsFlag string, maxLangs int) ([]string, error) {
 	if strings.TrimSpace(langsFlag) != "all" {
 		parts := strings.Split(langsFlag, ",")

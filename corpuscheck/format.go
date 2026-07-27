@@ -1,10 +1,7 @@
-// Package corpuscheck parses the upstream tree-sitter "corpus test" format
-// (the same format read by `tree-sitter test`) and compares gotreesitter's
-// parse output against the expected S-expressions that grammar authors ship
-// in their own repositories.
+// Package corpuscheck parses the upstream tree-sitter corpus test format.
+// It compares gotreesitter output with the expected syntax expressions.
 //
-// The format, empirically surveyed across ~190 upstream grammar repos
-// (see gts-corpora/grammar_parity), is:
+// A survey of approximately 190 upstream grammars found this format:
 //
 //	====================
 //	test name
@@ -17,31 +14,20 @@
 //
 // Repeated for every test in the file. Variations this parser handles:
 //
-//   - Header/divider marker length varies per file and even per test
-//     (any run of 3+ '=' for headers, 3+ '-' for the result divider).
-//   - Marker lines may carry an arbitrary non-whitespace suffix appended
-//     directly after the run of '=' or '-' (e.g. "===========|||",
-//     "---\\\\\\"). Grammars whose source text legitimately contains bare
-//     "---" or "====" lines (YAML documents, TLA+ module footers, Liquid
-//     front matter) use this to disambiguate real dividers from body text.
-//     The suffix is captured from the opening header marker of each test
-//     and required to match on that test's closing header marker and
-//     result divider.
-//   - Attribute lines (":skip", ":error", ":language(x)", ...) appear
-//     between the test name and the closing header marker. They are only
-//     recognized in that header region -- a body/expected line that
-//     happens to start with ':' (a Ruby/Clojure/Lisp symbol literal such
-//     as ":foo") is ordinary content, not an attribute.
-//   - CRLF line endings (several grammars ship at least one CRLF-encoded
-//     corpus file; \r is stripped before matching marker lines and
-//     preserved nowhere since tree-sitter test parsing normalizes it away
-//     too).
-//   - ":error" tests may omit the expected output entirely -- the author
-//     is only asserting that the parse contains an error, not asserting
-//     an exact tree shape.
+//   - Header and divider lengths can vary in one file.
+//     Headers use three or more '=' characters.
+//     Result dividers use three or more '-' characters.
+//   - A marker can have a non-whitespace suffix.
+//     The parser reads the suffix from the opening header.
+//     The closing header and result divider must use the same suffix.
+//     This rule distinguishes markers from similar source lines.
+//   - Attribute lines can occur inside the header.
+//     A ':' at the start of source or expected output is ordinary content.
+//   - The parser accepts carriage return and line feed endings.
+//     It removes the carriage return before marker matching.
+//   - An ":error" test can omit the expected output.
 //
-// Format variants intentionally NOT supported (see doc comment on
-// ParseFile for the up to date list).
+// ParseFile documents the unsupported format variants.
 package corpuscheck
 
 import (
@@ -52,30 +38,24 @@ import (
 
 // TestCase is one corpus test extracted from a corpus file.
 type TestCase struct {
-	// Name is the test's title line (may be empty for anonymous tests).
+	// Name is the test title. An anonymous test can have an empty name.
 	Name string
-	// Attrs holds header attribute lines verbatim, without the leading
-	// ':' (e.g. "skip", "error", "language(tsx)").
+	// Attrs contains the header attributes without the leading ':'.
 	Attrs []string
 	// Input is the verbatim source text for this test.
 	Input []byte
-	// Expected is the raw expected-output text (the block after the
-	// result divider), not yet parsed into a tree. It may be empty
-	// (whitespace-only) for tests -- almost always ":error" tests --
-	// that don't assert an exact tree shape.
+	// Expected contains the raw text after the result divider.
+	// An ":error" test can omit this text.
 	Expected string
-	// Line is the 1-based line number of the test's opening header
-	// marker, for diagnostics.
+	// Line is the one-based line number of the opening header marker.
 	Line int
-	// ParseError is set when this test's own framing was malformed and
-	// could not be recovered from (e.g. no closing header marker found
-	// before EOF). Input/Expected are unreliable when this is set.
+	// ParseError contains a test framing error.
+	// Input and Expected are not reliable when ParseError is not nil.
 	ParseError error
 }
 
-// HasAttr reports whether the test carries the named attribute. Attributes
-// with values (e.g. "language(tsx)") match on their bare name prefix, so
-// HasAttr("language") is true for "language(tsx)".
+// HasAttr reports whether the test has the named attribute.
+// A valued attribute also matches its bare name.
 func (tc *TestCase) HasAttr(name string) bool {
 	for _, a := range tc.Attrs {
 		if a == name {
@@ -88,9 +68,8 @@ func (tc *TestCase) HasAttr(name string) bool {
 	return false
 }
 
-// AttrValue returns the parenthesized value of the named attribute (e.g.
-// AttrValue("language") returns "tsx" for the attribute "language(tsx)")
-// and whether it was present at all.
+// AttrValue returns the parenthesized value of the named attribute.
+// It also reports whether the attribute is present.
 func (tc *TestCase) AttrValue(name string) (string, bool) {
 	for _, a := range tc.Attrs {
 		if a == name {
