@@ -86,9 +86,9 @@ for tags and release notes while still in `0.x`.
 
 - **The Scala returned-tree span repair subfamily.** A language-neutral
   in-place rewrite refresh now preserves a valid producer-owned span and can
-  widen it. The Scala function-end and case-clause helpers are deleted. The
-  second-pass root-end call and its duplicate case-clause block are also
-  removed. Production, compact, forest, changed incremental, fresh, and
+  widen it. This change deletes the Scala function-end and case-clause helpers.
+  It also removes the second-pass root-end call and its duplicate case-clause
+  block. Production, compact, forest, changed incremental, fresh, and
   locked C routes return the exact ranges and points. Scala incremental reuse
   remains unsupported and reports zero reuse.
 

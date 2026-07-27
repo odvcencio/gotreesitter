@@ -88,10 +88,11 @@ Status: complete.
 3. Retire the remaining generic terminal-leaf pass by moving the invariant
    into construction/materialization. This must cover lazy compact child
    references without forcing them.
-4. Retire the HTML and Scala second-pass arms independently. The HTML arm is
-   retired with exact range receipts. Scala span repairs are removed.
+4. Retire the HTML and Scala second-pass arms independently. Exact range
+   receipts support the HTML arm retirement. This change removes Scala span
+   repairs.
    Scala recovery, field, and annotation repairs now run once.
-   The shared fixpoint is deleted.
+   This change deletes the shared fixpoint.
    Delete the shared fixpoint only after the Scala arm retires.
 
 Exit: zero generic compatibility passes and zero post-finalization fixpoint
