@@ -33,8 +33,8 @@ reconstruction). At that checkpoint, HTML's range function stayed live.
 R1 later retired that separate second-pass function. The registry keeps both
 retired mechanisms as distinct historical receipts.
 
-The exact collapsed-child policy now retains a bare Rust `..` token.
-The compatibility pass leaves this producer-owned shape unchanged.
+The exact collapsed-child policy retains a bare Rust `..` token.
+The compatibility pass preserves the shape that the parser produced.
 Chained invalid dot ranges still require their recovery repair.
 
 Each registry entry has a stable ID, functions and files, languages, purpose,

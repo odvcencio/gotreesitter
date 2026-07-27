@@ -107,7 +107,7 @@ found that table or engine fixes can leave old normalizers behind.
 1. Retire the Rust dot-range pass in two checkpoints.
    The exact collapsed-child policy now retains each bare anonymous `..` token.
    The authenticated producer census found no remaining bare-range candidate.
-   It covered 37,121 nonempty clean files and 18,506 truncated files.
+   It covered 37,121 nonempty, clean files and 18,506 truncated files.
    Keep the chained invalid-range repair until its producer emits the C shape.
 2. Re-census any pass whose original bug is now covered upstream or whose
    registered witness no longer reaches it. A zero rewrite count is only
