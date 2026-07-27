@@ -3,7 +3,6 @@ package gotreesitter
 import "bytes"
 
 type rustCompatibilitySourceFlags struct {
-	dotRangeExpressions    bool
 	docCommentRanges       bool
 	tokenBindingPatterns   bool
 	recoveredFunctionItems bool
@@ -40,9 +39,6 @@ func normalizeRustCompatibility(root *Node, source []byte, p *Parser, lang *Lang
 	run("rust_recovered_struct_expression_root", true, func() {
 		normalizeRustRecoveredStructExpressionRoot(root, source, lang)
 	})
-	run("rust_dot_range_expressions", flags.dotRangeExpressions, func() {
-		normalizeRustDotRangeExpressions(root, source, lang)
-	})
 	run("rust_token_binding_patterns", flags.tokenBindingPatterns || root.HasError(), func() {
 		normalizeRustTokenBindingPatternsAndRecoveredTokenTrees(root, source, lang)
 	})
@@ -55,9 +51,7 @@ func normalizeRustCompatibility(root *Node, source []byte, p *Parser, lang *Lang
 }
 
 func rustCompatibilitySourceFlagsFor(source []byte) rustCompatibilitySourceFlags {
-	hasDotDot := bytes.Contains(source, []byte(".."))
 	return rustCompatibilitySourceFlags{
-		dotRangeExpressions:    hasDotDot,
 		docCommentRanges:       bytes.Contains(source, []byte("///")) || bytes.Contains(source, []byte("//!")),
 		tokenBindingPatterns:   bytes.IndexByte(source, '$') >= 0,
 		recoveredFunctionItems: bytes.Contains(source, []byte("fn")),
@@ -235,66 +229,6 @@ func normalizeRustTokenBindingPatternNode(node *Node, source []byte, tokenTreePa
 
 		replaceChildRangeWithSingleNode(node, i, i+3, binding)
 	}
-}
-
-func normalizeRustDotRangeExpressions(root *Node, source []byte, lang *Language) {
-	if root == nil || lang == nil || lang.Name != "rust" || len(source) == 0 {
-		return
-	}
-	rangeExpressionSym, ok := symbolByName(lang, "range_expression")
-	if !ok {
-		return
-	}
-	changed := false
-	var walk func(*Node)
-	walk = func(node *Node) {
-		if node == nil {
-			return
-		}
-		if node.symbol == rangeExpressionSym && rustRangeExpressionNeedsDotRangeRepair(node, lang) {
-			if recovered, ok := rustBuildCanonicalDotRangeNode(node.ownerArena, source, lang, node.startByte, node.endByte); ok && recovered != nil {
-				*node = *recovered
-				changed = true
-				return
-			}
-		}
-		for _, child := range node.children {
-			walk(child)
-		}
-	}
-	walk(root)
-	if changed {
-		rustRefreshRecoveredErrorFlags(root)
-	}
-}
-
-func rustRangeExpressionNeedsDotRangeRepair(node *Node, lang *Language) bool {
-	if node == nil || lang == nil {
-		return false
-	}
-	childCount := resultChildCount(node)
-	if childCount == 0 {
-		return true
-	}
-	if childCount == 1 {
-		child := resultChildAt(node, 0)
-		if child != nil && child.Type(lang) == ".." &&
-			child.startByte == node.startByte && child.endByte == node.endByte {
-			return false
-		}
-	}
-	for i := 0; i < childCount; i++ {
-		child := resultChildAt(node, i)
-		if child == nil {
-			return false
-		}
-		switch child.Type(lang) {
-		case "range_expression", "..", "..=":
-		default:
-			return false
-		}
-	}
-	return true
 }
 
 func normalizeRustRecoveredPatternStatementsRoot(root *Node, source []byte, p *Parser) {

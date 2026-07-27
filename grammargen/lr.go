@@ -3890,13 +3890,22 @@ func preferredSameLHSContinuationShift(shifts, reduces []lrAction, ng *Normalize
 	if ng == nil || cache == nil || len(shifts) == 0 || len(reduces) != 1 {
 		return lrAction{}, false
 	}
+	reduce := reduces[0]
+	if reduce.prodIdx < 0 || reduce.prodIdx >= len(ng.Productions) {
+		return lrAction{}, false
+	}
+	reduceLHS := ng.Productions[reduce.prodIdx].LHS
 	var matched []lrAction
 	for _, shift := range shifts {
 		if shift.kind != lrShift {
 			continue
 		}
-		if leftAssocReduceContinuesWithShift(reduces[0], shift, ng, cache) ||
-			visibleSameLHSOptionalTailContinuesWithShift(reduces[0], shift, ng, cache) {
+		// A merged shift can contain both the reduce LHS and an unrelated
+		// continuation symbol. Apply the explicit same-LHS associativity in
+		// that case. The visible optional-tail rule remains independent.
+		if (!shiftHasExactLHSContributor(shift, reduceLHS) &&
+			leftAssocReduceContinuesWithShift(reduce, shift, ng, cache)) ||
+			visibleSameLHSOptionalTailContinuesWithShift(reduce, shift, ng, cache) {
 			matched = append(matched, shift)
 		}
 	}
@@ -3904,6 +3913,29 @@ func preferredSameLHSContinuationShift(shifts, reduces []lrAction, ng *Normalize
 		return lrAction{}, false
 	}
 	return matched[0], true
+}
+
+func shiftHasExactLHSContributor(shift lrAction, lhs int) bool {
+	if shift.kind != lrShift || lhs < 0 {
+		return false
+	}
+	if len(shift.shiftContributors) > 0 {
+		for _, contributor := range shift.shiftContributors {
+			if contributor.lhsSym == lhs {
+				return true
+			}
+		}
+		return false
+	}
+	if shift.lhsSym == lhs {
+		return true
+	}
+	for _, candidate := range shift.lhsSyms {
+		if candidate == lhs {
+			return true
+		}
+	}
+	return false
 }
 
 func visibleSameLHSOptionalTailContinuesWithShift(reduce, shift lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
@@ -4587,6 +4619,9 @@ func preferredLoweredRepeatContinuationShift(lookaheadSym int, shifts, reduces [
 	if prod.Assoc != AssocLeft || prod.LHS < 0 || prod.LHS >= len(cache.prodsByLHS) || len(prod.RHS) < 2 {
 		return lrAction{}, false
 	}
+	if shiftHasExactLHSContributor(shift, prod.LHS) {
+		return lrAction{}, false
+	}
 	lookaheadTargets := map[int]bool{lookaheadSym: true}
 	shiftTargets := shiftContinuationTargets(shift, len(ng.Symbols))
 	if len(shiftTargets) == 0 {
@@ -5158,6 +5193,24 @@ func shiftMetadataForReduce(shift lrAction, reduceLHS int, ng *NormalizedGrammar
 			primary = lrConflictMetadata{prec: contributor.prec, hasPrec: contributor.hasPrec, assoc: contributor.assoc}
 			break
 		}
+	}
+	var exact lrConflictMetadata
+	exactFound := false
+	for _, contributor := range contributors {
+		if contributor.lhsSym != reduceLHS {
+			continue
+		}
+		candidate := lrConflictMetadata{prec: contributor.prec, hasPrec: contributor.hasPrec, assoc: contributor.assoc}
+		if !exactFound || compareConflictMetadata(candidate, exact) > 0 {
+			exact = candidate
+			exactFound = true
+		}
+	}
+	if exactFound {
+		if shift.lhsSym == reduceLHS || compareConflictMetadata(exact, primary) > 0 {
+			return exact
+		}
+		return primary
 	}
 	best := primary
 	found := false
@@ -6055,6 +6108,19 @@ func resolveShiftLHSVsNamedPrec(shift lrAction, namedPrec int, ng *NormalizedGra
 func resolveShiftLHSVsReduceLHSPrecedence(shift lrAction, reduceLHS int, ng *NormalizedGrammar) int {
 	if ng == nil || ng.PrecedenceOrder == nil || reduceLHS < 0 || reduceLHS >= len(ng.Symbols) {
 		return 0
+	}
+	if shift.lhsSym == reduceLHS {
+		return 0
+	}
+	for _, lhs := range shift.lhsSyms {
+		if lhs == reduceLHS {
+			return 0
+		}
+	}
+	for _, contributor := range shift.shiftContributors {
+		if contributor.lhsSym == reduceLHS {
+			return 0
+		}
 	}
 	reduceName := ng.Symbols[reduceLHS].Name
 	if reduceName == "" {

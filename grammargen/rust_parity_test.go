@@ -266,6 +266,59 @@ func TestRustWeirdTopLevelParity(t *testing.T) {
 	assertGeneratedAndReferenceDeepParity(t, genLang, refLang, sample)
 }
 
+func TestRustDotRangeTableParityBeforeCompatibility(t *testing.T) {
+	jsonPath := rustGrammarJSONPathForTest(t)
+	source, err := os.ReadFile(jsonPath)
+	if err != nil {
+		t.Skipf("Rust grammar.json not available: %v", err)
+	}
+	gram, err := ImportGrammarJSON(source)
+	if err != nil {
+		t.Fatalf("import Rust grammar.json: %v", err)
+	}
+	genLang, err := generateWithTimeout(gram, 90*time.Second)
+	if err != nil {
+		t.Fatalf("generate Rust language: %v", err)
+	}
+	refLang := grammars.RustLanguage()
+	adaptExternalScanner(refLang, genLang)
+
+	sample := "fn punch_card() -> impl std::fmt::Debug {\n" +
+		"    ..=..=.. ..    .. .. .. ..    .. .. .. ..    .. ..=.. ..\n" +
+		"    ..=.. ..=..    .. .. .. ..    .. .. .. ..    ..=..=..=..\n" +
+		"    ..=.. ..=..    ..=.. ..=..    .. ..=..=..    .. ..=.. ..\n" +
+		"    ..=..=.. ..    ..=.. ..=..    ..=.. .. ..    .. ..=.. ..\n" +
+		"    ..=.. ..=..    ..=.. ..=..    .. ..=.. ..    .. ..=.. ..\n" +
+		"    ..=.. ..=..    ..=.. ..=..    .. .. ..=..    .. ..=.. ..\n" +
+		"    ..=.. ..=..    .. ..=..=..    ..=..=.. ..    .. ..=.. ..\n" +
+		"}\n"
+
+	assertGeneratedAndReferenceRawDeepParity(t, genLang, refLang, sample)
+}
+
+func assertGeneratedAndReferenceRawDeepParity(t *testing.T, genLang, refLang *gotreesitter.Language, src string) {
+	t.Helper()
+	data := []byte(src)
+	genTree, err := gotreesitter.NewParser(genLang).ParseNoResultCompatibilityBenchmarkOnly(data)
+	if err != nil {
+		t.Fatalf("generated parse: %v", err)
+	}
+	defer genTree.Release()
+	refTree, err := gotreesitter.NewParser(refLang).ParseNoResultCompatibilityBenchmarkOnly(data)
+	if err != nil {
+		t.Fatalf("reference parse: %v", err)
+	}
+	defer refTree.Release()
+
+	divs := compareTreesDeep(genTree.RootNode(), genLang, refTree.RootNode(), refLang, "root", 10)
+	if len(divs) > 0 {
+		t.Fatalf("raw deep mismatch\nGEN: %s\nREF: %s\nDIVS: %v",
+			safeSExpr(genTree.RootNode(), genLang, 256),
+			safeSExpr(refTree.RootNode(), refLang, 256),
+			divs)
+	}
+}
+
 func TestRustGeneratedMatchArmDiagnostic(t *testing.T) {
 	if os.Getenv("GTS_RUST_GENERATED_MATCH_DIAGNOSTIC") == "" {
 		t.Skip("set GTS_RUST_GENERATED_MATCH_DIAGNOSTIC=1 to reproduce the generated Rust match_arm divergence")

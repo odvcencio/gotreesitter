@@ -1620,6 +1620,64 @@ func TestResolveShiftReduceUsesLocalShiftContributorPrecedence(t *testing.T) {
 		t.Fatalf("resolved actions = %+v, want local break_expression reduce", got)
 	}
 }
+
+func TestResolveShiftReduceUsesExactSameLHSContributorForMergedShift(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Symbols: []SymbolInfo{
+			{Name: "..", Kind: SymbolTerminal},
+			{Name: "_expression", Kind: SymbolNonterminal},
+			{Name: "range_expression", Kind: SymbolNonterminal},
+			{Name: "call_expression", Kind: SymbolNonterminal},
+		},
+		Productions: []Production{
+			{LHS: 2, RHS: []int{0}, Prec: 1, HasExplicitPrec: true, Assoc: AssocLeft},
+			{LHS: 2, RHS: []int{0, 1}, Prec: 1, HasExplicitPrec: true, Assoc: AssocLeft},
+			{LHS: 1, RHS: []int{2}},
+			{LHS: 1, RHS: []int{3}},
+		},
+		PrecedenceOrder: &precOrderTable{
+			symbolPositions: map[string]int{
+				"range_expression": 1,
+				"call_expression":  2,
+			},
+			symbolLevels: map[string]int{
+				"range_expression": 0,
+				"call_expression":  0,
+			},
+		},
+	}
+	tables := &LRTables{ActionTable: map[int]map[int][]lrAction{0: {}}}
+	tables.addAction(0, 0, lrAction{kind: lrShift, state: 9, lhsSym: 2, hasPrec: true})
+	tables.addAction(0, 0, lrAction{kind: lrShift, state: 9, lhsSym: 2, prec: 1, hasPrec: true, assoc: AssocLeft})
+	tables.addAction(0, 0, lrAction{kind: lrShift, state: 9, lhsSym: 1})
+	tables.addAction(0, 0, lrAction{kind: lrShift, state: 9, lhsSym: 3, prec: 15, hasPrec: true})
+
+	actions := tables.ActionTable[0][0]
+	cache := getConflictResolutionCache(ng)
+	meta := shiftMetadataForReduce(actions[0], 2, ng, cache)
+	if meta.prec != 1 || meta.assoc != AssocLeft {
+		t.Fatalf("range shift metadata = %+v, want exact precedence 1 and left associativity", meta)
+	}
+	if preferred, ok := preferredSameLHSContinuationShift(
+		[]lrAction{actions[0]},
+		[]lrAction{{kind: lrReduce, prodIdx: 0, lhsSym: 2}},
+		ng,
+		cache,
+	); ok {
+		t.Fatalf("merged same-LHS continuation = %+v, want explicit associativity", preferred)
+	}
+	got, err := resolveActionConflict(0, []lrAction{
+		actions[0],
+		{kind: lrReduce, prodIdx: 0, lhsSym: 2},
+	}, ng)
+	if err != nil {
+		t.Fatalf("resolveActionConflict: %v", err)
+	}
+	if len(got) != 1 || got[0].kind != lrReduce || got[0].prodIdx != 0 {
+		t.Fatalf("resolved actions = %+v, want exact range reduction", got)
+	}
+}
+
 func TestResolveShiftReducePrefersSameLHSContinuationShift(t *testing.T) {
 	ng := &NormalizedGrammar{
 		Symbols: []SymbolInfo{
