@@ -4,8 +4,8 @@ import "fmt"
 
 // Divergence describes the first place two SNode trees stop matching.
 type Divergence struct {
-	// Path is a human-readable breadcrumb to the mismatching node, e.g.
-	// "/source_file/function_declaration[0]/block[2]".
+	// Path identifies the mismatching node.
+	// Example: "/source_file/function_declaration[0]/block[2]".
 	Path string
 	// Category classifies the mismatch for aggregate reporting.
 	Category string
@@ -20,7 +20,7 @@ func (d *Divergence) String() string {
 	return fmt.Sprintf("%s: %s: expected=%q actual=%q", d.Path, d.Category, d.Expected, d.Actual)
 }
 
-// Mismatch categories. Keep these stable -- callers aggregate by string.
+// Mismatch categories. Keep these values stable because callers aggregate them.
 const (
 	CategoryShape                 = "shape"                       // nil-ness / child count differs
 	CategoryType                  = "type"                        // node type name differs
@@ -30,10 +30,8 @@ const (
 	CategoryUnexpectedUnsupported = "unexpected_node_unsupported" // expected side uses UNEXPECTED; gotreesitter has no equivalent node kind
 )
 
-// Compare walks expected and actual in lockstep and returns the first
-// point of divergence, or nil if the trees are structurally identical
-// (ignoring nothing else -- field names, node types, MISSING-ness, and
-// child order/count all must match exactly).
+// Compare walks both trees in lockstep. It returns the first difference.
+// It returns nil when every type, field, missing state, and child matches.
 func Compare(expected, actual *SNode) *Divergence {
 	return CompareWithOptions(expected, actual, CompareOptions{})
 }
@@ -41,18 +39,12 @@ func Compare(expected, actual *SNode) *Divergence {
 // CompareOptions controls how much latitude Compare gives the comparison.
 // The zero value is the fully strict comparison Compare uses.
 type CompareOptions struct {
-	// IgnoreMissingExpectedFields treats "the fixture has no field name
-	// but gotreesitter's actual tree does" as a match rather than a
-	// CategoryField divergence. It does NOT ignore the reverse (fixture
-	// has a field, actual doesn't) or a genuine field-name conflict
-	// (both sides have a field, but a different one) -- those remain
-	// hard mismatches. This exists because several upstream grammar
-	// repos (see corpuscheck's report notes on json/go) added fields to
-	// their grammar.js well after their last `tree-sitter test --update`
-	// touched the affected fixtures, so their own committed corpus
-	// fixtures are stale with respect to their own compiled grammar
-	// tables -- confirmed by walking each repo's git history. Use this
-	// as a secondary, clearly-labeled lens, never as the sole number.
+	// IgnoreMissingExpectedFields accepts a missing expected field when the
+	// actual tree has one. It does not accept the reverse case.
+	// It also rejects two different field names.
+	// Some upstream repositories added fields without updating their fixtures.
+	// Repository histories confirm this state for JSON and Go.
+	// Use this option only as a labeled secondary measure.
 	IgnoreMissingExpectedFields bool
 }
 
@@ -109,9 +101,8 @@ func compareAt(expected, actual *SNode, path string, opts CompareOptions) *Diver
 		return &Divergence{Path: path, Category: CategoryType, Expected: expected.Type, Actual: actual.Type}
 	}
 	if len(expected.Children) != len(actual.Children) {
-		// If the expected subtree contains an UNEXPECTED node anywhere,
-		// prefer that diagnosis over a bare child-count mismatch -- it's
-		// the actionable reason, not a coincidence.
+		// Prefer the unsupported-node diagnosis when the expected subtree
+		// contains UNEXPECTED. This cause is more useful than a child count.
 		if containsUnexpected(expected) {
 			return &Divergence{Path: path, Category: CategoryUnexpectedUnsupported, Expected: describe(expected), Actual: describe(actual)}
 		}

@@ -1,16 +1,14 @@
-// Command corpuscheck runs gotreesitter against the upstream tree-sitter
-// grammar corpora (test/corpus fixtures shipped by each grammar's own
-// repository) and reports, per language: how many cases were run, how
-// many matched the grammar author's expected S-expression exactly, and a
-// breakdown of mismatches and skips by category.
+// Command corpuscheck runs gotreesitter against upstream tree-sitter corpora.
+// Each grammar repository supplies its test fixtures.
+// The command reports exact matches, mismatches, and skips for each language.
 //
 // Usage:
 //
 //	go run ./corpuscheck/cmd/corpuscheck -root /path/to/gts-corpora/grammar_parity -langs json,go,python
 //	go run ./corpuscheck/cmd/corpuscheck -root /path/to/gts-corpora/grammar_parity -langs all -max-langs 30
 //
-// This does not depend on cgo or a C tree-sitter runtime -- the "oracle"
-// is the expected output the grammar authors already committed.
+// The command does not use cgo or the C runtime.
+// Committed grammar output provides the comparison oracle.
 package main
 
 import (

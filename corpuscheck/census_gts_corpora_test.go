@@ -6,20 +6,18 @@ import (
 	"testing"
 )
 
-// gtsCorporaRoot returns the sibling gts-corpora checkout's
-// grammar_parity directory if present on this machine, or "" if not.
-// gts-corpora is NOT part of this repository and must never be required
-// for `go test ./...` to pass -- this is an opportunistic, skip-if-absent
-// sweep for local/manual use, not a CI gate. TestVendoredCorpus_* in
-// census_test.go is the always-on equivalent, running against a small
-// vendored fixture set instead.
+// gtsCorporaRoot returns a sibling gts-corpora checkout's grammar_parity
+// directory. It returns an empty string when no checkout is available.
+// This repository does not contain gts-corpora.
+// Do not require it for `go test ./...`.
+// This optional sweep supports local use. It is not a continuous integration
+// gate. TestVendoredCorpus_* provides the small, always-on equivalent.
 func gtsCorporaRoot(t *testing.T) string {
 	t.Helper()
 	candidates := []string{
 		os.Getenv("GTS_CORPORA_GRAMMAR_PARITY"),
 		filepath.Join("..", "..", "gts-corpora", "grammar_parity"),
 		filepath.Join("..", "..", "..", "gts-corpora", "grammar_parity"),
-		"/home/draco/work/gts-corpora/grammar_parity",
 	}
 	for _, c := range candidates {
 		if c == "" {
@@ -33,10 +31,10 @@ func gtsCorporaRoot(t *testing.T) string {
 	return ""
 }
 
-// languageCorpusDir mirrors cmd/corpuscheck's directory discovery for a
-// handful of representative languages, without pulling in the full
-// alias table (that lives in the CLI, which this package doesn't import
-// to avoid an import cycle risk and keep the library dependency-free).
+// languageCorpusDir mirrors the command's directory search for a small
+// language sample. The command owns the full alias table.
+// This package does not import the command. That rule prevents an import
+// cycle and keeps the library independent.
 func languageCorpusDir(root, name string) (string, bool) {
 	langRoot := filepath.Join(root, name)
 	for _, candidate := range []string{
@@ -54,21 +52,16 @@ func languageCorpusDir(root, name string) (string, bool) {
 	return dirs[0], true
 }
 
-// TestCorpusFormat_RealWorld runs a modest, deliberately bounded sample
-// of upstream grammars against the real gts-corpora checkout when it's
-// present. It exists to sanity-check the corpus-format parser and
-// renderer against real, unmodified upstream fixtures beyond the small
-// vendored set -- see cmd/corpuscheck for the full (188+ language) sweep
-// this project's report is based on, which is intentionally not
-// reproduced as a `go test` because it takes an explicit, scoped
-// invocation on a shared machine rather than running unattended in CI.
+// TestCorpusFormat_RealWorld runs a small, bounded upstream sample when
+// gts-corpora is available. It checks the format parser and renderer against
+// unchanged upstream fixtures.
+// Use cmd/corpuscheck for the full sweep. Run that command explicitly on a
+// shared machine. Do not run the full sweep through `go test`.
 func TestCorpusFormat_RealWorld(t *testing.T) {
 	root := gtsCorporaRoot(t)
 
-	// A small, fixed sample: clean baselines (json, go) plus a few of
-	// the languages this project has specifically had to reason about
-	// upstream construct coverage for (yaml, bash) -- not the full
-	// sweep, to keep this fast and deterministic for local use.
+	// Use clean baselines and two languages with known coverage questions.
+	// Keep this sample small and deterministic for local use.
 	for _, lang := range []string{"json", "go", "yaml", "bash"} {
 		lang := lang
 		t.Run(lang, func(t *testing.T) {
