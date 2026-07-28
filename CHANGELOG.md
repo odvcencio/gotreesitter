@@ -37,6 +37,10 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- The tracked dispatcher census now includes the locked JavaScript
+  convergence fixture.
+  The receipt exposes seven active compatibility rewrites on a direct route.
+
 - Native Crystal scanner lookahead now skips whitespace after hash and
   named-tuple openers.
   Exact token boundaries retire the Crystal compatibility dispatcher arm.

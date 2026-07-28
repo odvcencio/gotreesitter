@@ -3,6 +3,8 @@
 package gotreesitter_test
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +20,8 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 		name       string
 		corpusPath string
 		source     string
+		sourceSHA  string
+		treeSHA    string
 		load       func() *gts.Language
 	}{
 		{
@@ -38,7 +42,11 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 		{
 			name:       "javascript",
 			corpusPath: filepath.Join("testdata", "compact_converged_split", "javascript.js"),
-			load:       grammars.JavascriptLanguage,
+			// Source repository: https://github.com/tree-sitter/tree-sitter-javascript
+			// Source commit/path: 58404d8cf191d69f2674a8fd507bd5776f46cb11 test/tags/functions.js.
+			sourceSHA: "0bbd2cdb0a0492055e442c44b533797386ec9c8aeb7ce8a4d0f5f5a4681e3b90",
+			treeSHA:   "75429585a56be767f37a5ea2ee5de028a9947c34ae38d35d9699bb1f2d0133fd",
+			load:      grammars.JavascriptLanguage,
 		},
 		{
 			name:   "python",
@@ -55,6 +63,11 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 				source, err = os.ReadFile(test.corpusPath)
 				if err != nil {
 					t.Fatalf("read compact certification witness: %v", err)
+				}
+			}
+			if test.sourceSHA != "" {
+				if got := fmt.Sprintf("%x", sha256.Sum256(source)); got != test.sourceSHA {
+					t.Fatalf("source SHA-256 = %s, want %s", got, test.sourceSHA)
 				}
 			}
 
@@ -103,6 +116,9 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 					candidateInspection.SHA256,
 					productionInspection.SHA256,
 				)
+			}
+			if test.treeSHA != "" && candidateInspection.SHA256 != test.treeSHA {
+				t.Fatalf("candidate digest = %s, want %s", candidateInspection.SHA256, test.treeSHA)
 			}
 		})
 	}

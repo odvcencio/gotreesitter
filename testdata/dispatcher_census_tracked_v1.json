@@ -36,6 +36,17 @@
       "error_root": false
     },
     {
+      "language": "javascript",
+      "path": "testdata/compact_converged_split/javascript.js",
+      "sha256": "0bbd2cdb0a0492055e442c44b533797386ec9c8aeb7ce8a4d0f5f5a4681e3b90",
+      "arm_id": "dispatch.javascript",
+      "checked": 2,
+      "run": 2,
+      "nodes_visited": 202,
+      "nodes_rewritten": 7,
+      "error_root": false
+    },
+    {
       "language": "python",
       "path": "cgo_harness/corpus_structural/python_sample.py",
       "sha256": "3de858b73ba43ad3c2d43b9cfc08426f62dd4ae7bcf1358e3989ed311b435157",
