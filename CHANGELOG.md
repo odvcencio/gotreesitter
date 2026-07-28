@@ -9,6 +9,11 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- The compact full-parse receipt now stores its acceptance value in the
+  scheduler receipt allocation.
+  Full-parse allocations fall from 18 to 17 per operation.
+  Parse time and allocated bytes remain statistically unchanged.
+
 - PR #498 moved the single-header compact dispatch cell onto the stack.
   This removes one allocation from the common full-parse path.
   The stable Go benchmark improves full-parse time by 15.57 percent.

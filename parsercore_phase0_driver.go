@@ -285,6 +285,7 @@ type DiagnosticParserCoreGenericScheduler struct {
 	NoActionDrops     []DiagnosticParserCoreGenericNoActionDrop
 	Completion        *DiagnosticParserCoreGenericCompletion
 	Acceptance        *DiagnosticParserCoreGenericAcceptance
+	acceptanceBacking DiagnosticParserCoreGenericAcceptance
 	Stop              DiagnosticParserCoreGenericStop
 	Tokens            uint64
 	Dispatches        uint64
@@ -2675,12 +2676,13 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 	}
 	s.acceptedHead = s.headers[0].head
 	s.acceptedPayloads = append(s.acceptedPayloads[:0], path.Payloads...)
-	s.receipt.Acceptance = &DiagnosticParserCoreGenericAcceptance{
+	s.receipt.acceptanceBacking = DiagnosticParserCoreGenericAcceptance{
 		ElectionIndex: s.electionIndex, Token: s.token, Header: header,
 		Payloads: payloads, Score: path.Score, BranchOrder: path.BranchOrder,
 		HasBranchOrder: path.HasBranchOrder, CoreWork: s.compact.Work(),
 		Accepts: s.work.Accepts, Stats: stats, Work: s.work,
 	}
+	s.receipt.Acceptance = &s.receipt.acceptanceBacking
 	s.publishTotals()
 	return nil
 }
