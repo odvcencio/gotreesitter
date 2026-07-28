@@ -158,8 +158,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmCensus(ctx, "dispatch.eds", func() { normalizeEDSCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "fsharp":
 		dispatcherArmCensus(ctx, "dispatch.fsharp", func() { normalizeFSharpCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "forth":
-		dispatcherArmCensus(ctx, "dispatch.forth", func() { normalizeForthCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "fidl":
 		dispatcherArmCensus(ctx, "dispatch.fidl", func() { normalizeFIDLCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "go":

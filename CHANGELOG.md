@@ -41,6 +41,10 @@ for tags and release notes while still in `0.x`.
   convergence fixture.
   The receipt exposes seven active compatibility rewrites on a direct route.
 
+- Native Forth recovery now owns missing definition terminators.
+  Compatibility-free parses match the C oracle for unterminated definitions.
+  This retires the Forth compatibility dispatcher arm.
+
 - Native Crystal scanner lookahead now skips whitespace after hash and
   named-tuple openers.
   Exact token boundaries retire the Crystal compatibility dispatcher arm.
