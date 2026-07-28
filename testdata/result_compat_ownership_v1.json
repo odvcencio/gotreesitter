@@ -917,7 +917,7 @@
         "c_oracle": "retired_exact_receipt"
       },
       "status": "retired",
-      "retired_commit": "6969c9443d1b23cda53ef07b4bfae7a9da5183fe",
+      "retired_commit": "2c9a104503a0164d45d6fe6df1f5c1ee514cc533",
       "receipt_refs": [
         "grammars/forth_unterminated_native_regression_test.go",
         "cgo_harness/forth_unterminated_definition_parity_cgo_test.go"
