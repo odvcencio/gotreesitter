@@ -152,7 +152,8 @@ func TestDiagnosticParserCoreDispatchScratchDoesNotAliasFullReceipts(t *testing.
 func TestDiagnosticParserCoreDispatchScratchCleansNoActionReturn(t *testing.T) {
 	scheduler, _ := newDiagnosticParserCoreDispatchProbeScheduler(t, &genericConflictTable{})
 	stop, err := scheduler.dispatchPass()
-	if err != nil || stop == nil || stop.boundary != DiagnosticParserCoreNoAction || stop.headerIndex != 0 {
+	if err != nil || stop == nil || stop.boundary != DiagnosticParserCoreNoAction || stop.headerIndex != 0 ||
+		stop.detail != "generic scheduler has no table action for the elected token" {
 		t.Fatalf("no-action stop=%+v err=%v", stop, err)
 	}
 	if cap(scheduler.dispatchScratch.noActionIndices) == 0 {

@@ -86,6 +86,10 @@ const (
 	// example a trailing extra/whitespace token attached outside the
 	// accepted derivation).
 	censusMechanismEOFByteShort admissionCensusMechanism = "eof-byte-short-frontier"
+	// censusMechanismNoTableAction: every runnable frontier head lacks an
+	// action for the elected token. This often marks an input that needs
+	// recovery. A clean production tree can instead reveal a scheduler gap.
+	censusMechanismNoTableAction admissionCensusMechanism = "no-table-action"
 	// censusMechanismSchedulerShape: the generic scheduler's structural
 	// invariants (sole runnable head, homogeneous accept frontier, no mixed
 	// accepted/shifted heads, closed-and-checkpoint-continuous election) were
@@ -147,7 +151,12 @@ func admissionCensusClassify(boundary DiagnosticParserCoreBoundaryKind, detail s
 		default:
 			return censusMechanismSchedulerShape
 		}
-	case DiagnosticParserCoreNoAction, DiagnosticParserCoreAccept, DiagnosticParserCoreGenericClosed:
+	case DiagnosticParserCoreNoAction:
+		if strings.Contains(detail, "no table action") {
+			return censusMechanismNoTableAction
+		}
+		return censusMechanismSchedulerShape
+	case DiagnosticParserCoreAccept, DiagnosticParserCoreGenericClosed:
 		return censusMechanismSchedulerShape
 	case censusBoundaryMultiDerivation:
 		return censusMechanismMultiDerivation

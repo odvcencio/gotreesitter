@@ -2409,12 +2409,14 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 	var singletonCells [1]diagnosticParserCoreGenericCell
 	cells := singletonCells[:0]
 	scratchCells := s.dispatchScratch.cells
+	pausedNoActionHeads := 0
 	for index, header := range s.headers {
 		if header.shifted || header.accepted {
 			continue
 		}
 		if header.paused {
 			s.dispatchScratch.noActionIndices = append(s.dispatchScratch.noActionIndices, index)
+			pausedNoActionHeads++
 			continue
 		}
 		boundary, err := s.compact.ClassifyBoundary(header.head, core.Symbol(s.token.Symbol))
@@ -2492,9 +2494,15 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			return nil, s.dropGenericNoActionHeads(noActionIndices)
 		}
 		if len(noActionIndices) != 0 {
+			detail := "generic scheduler has no table action for the elected token"
+			if pausedNoActionHeads == len(noActionIndices) {
+				detail = "generic scheduler has only paused heads for the elected token"
+			} else if pausedNoActionHeads != 0 {
+				detail = "generic scheduler has only paused or no-action heads for the elected token"
+			}
 			return &diagnosticParserCoreGenericUnsupported{
 				boundary:    DiagnosticParserCoreNoAction,
-				detail:      "generic scheduler has only paused no-action heads for the elected token",
+				detail:      detail,
 				headerIndex: noActionIndices[0],
 			}, nil
 		}

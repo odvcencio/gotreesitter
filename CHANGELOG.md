@@ -53,6 +53,11 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- The compact admission census now separates runnable no-table-action stops
+  from paused frontiers.
+  The real-corpus matrix labels production error trees.
+  Clean graduation coverage no longer counts recovery fixtures as parser gaps.
+
 - Native C-style recovery now owns Angular, BibTeX, Chatito, and Electronic Data
   Sheet materialization for every registered recovery witness.
   This removes four inert result-compatibility dispatcher arms.

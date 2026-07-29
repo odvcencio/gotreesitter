@@ -49,10 +49,11 @@ const (
 )
 
 type scorecardRow struct {
-	name    string
-	backend string
-	status  string
-	detail  string
+	name               string
+	backend            string
+	status             string
+	detail             string
+	productionHasError bool
 }
 
 // admissionScorecardRequiredCompactPasses is the frozen per-language admission
@@ -241,6 +242,23 @@ func TestAdmissionCandidateCooklangSmokeRatchet(t *testing.T) {
 	}
 }
 
+func TestAdmissionScorecardLabelsProductionErrorTree(t *testing.T) {
+	var goEntry grammars.LangEntry
+	for _, entry := range grammars.AllLanguages() {
+		if entry.Name == "go" {
+			goEntry = entry
+			break
+		}
+	}
+	if goEntry.Name == "" {
+		t.Fatal("go is missing from the grammar registry")
+	}
+	row := runAdmissionScorecardSource(goEntry, []byte("package p\nfunc"))
+	if row.status != scorecardFallback || !row.productionHasError {
+		t.Fatalf("invalid Go route=%s production_error_tree=%t: %s", row.status, row.productionHasError, row.detail)
+	}
+}
+
 // TestAdmissionSwitchRoutePrecedenceRatchet pins the three dispatch outcomes
 // that release admission relies on. A certified forest policy owns the default
 // route; an explicit compact request intentionally overrides it; with neither
@@ -354,6 +372,7 @@ func runAdmissionScorecardSource(entry grammars.LangEntry, source []byte) (row s
 		return row
 	}
 	defer productionTree.Release()
+	row.productionHasError = productionTree.RootNode().HasError()
 	productionInspection, err := benchfixtures.InspectGoTree(productionTree.RootNode(), lang)
 	if err != nil {
 		row.detail = "production digest failed: " + err.Error()

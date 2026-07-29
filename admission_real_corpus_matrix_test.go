@@ -149,19 +149,26 @@ func TestAdmissionCandidateRealCorpusMatrix(t *testing.T) {
 	})
 
 	counts := map[string]int{}
+	parseClassCounts := map[string]int{}
 	languageCounts := map[string]map[string]int{}
 	for _, row := range rows {
 		counts[row.status]++
+		parseClass := "clean"
+		if row.productionHasError {
+			parseClass = "error-tree"
+		}
+		parseClassCounts[row.status+"/"+parseClass]++
 		if languageCounts[row.name] == nil {
 			languageCounts[row.name] = map[string]int{}
 		}
 		languageCounts[row.name][row.status]++
 		t.Logf(
-			"%-9s %-12s %-6s %7d %-5s %s",
+			"%-9s %-12s %-6s %7d %-10s %-5s %s",
 			row.status,
 			row.name,
 			row.backend,
 			row.bytes,
+			parseClass,
 			row.bucket,
 			row.detail,
 		)
@@ -174,6 +181,13 @@ func TestAdmissionCandidateRealCorpusMatrix(t *testing.T) {
 		counts[scorecardSkip],
 		counts[scorecardError],
 		len(rows),
+	)
+	t.Logf(
+		"--- parse class: FALLBACK clean=%d error-tree=%d; PASS clean=%d error-tree=%d ---",
+		parseClassCounts[scorecardFallback+"/clean"],
+		parseClassCounts[scorecardFallback+"/error-tree"],
+		parseClassCounts[scorecardPass+"/clean"],
+		parseClassCounts[scorecardPass+"/error-tree"],
 	)
 
 	names := make([]string, 0, len(languageCounts))

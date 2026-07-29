@@ -84,7 +84,8 @@ func TestDiagnosticParserCoreGenericReductionPauseIsFinite(t *testing.T) {
 		t.Fatal(err)
 	}
 	stop, err := sole.dispatchPass()
-	if err != nil || stop == nil || stop.boundary != DiagnosticParserCoreNoAction || !sole.headers[0].paused {
+	if err != nil || stop == nil || stop.boundary != DiagnosticParserCoreNoAction ||
+		stop.detail != "generic scheduler has only paused heads for the elected token" || !sole.headers[0].paused {
 		t.Fatalf("all-paused stop=%+v err=%v headers=%+v", stop, err, sole.headers)
 	}
 }
@@ -346,7 +347,8 @@ func TestDiagnosticParserCoreConflictAllUnchangedPauses(t *testing.T) {
 		t.Fatalf("all-unchanged conflict receipt=%+v", conflict)
 	}
 	stop, err := scheduler.dispatchPass()
-	if err != nil || stop == nil || stop.boundary != DiagnosticParserCoreNoAction {
+	if err != nil || stop == nil || stop.boundary != DiagnosticParserCoreNoAction ||
+		stop.detail != "generic scheduler has only paused heads for the elected token" {
 		t.Fatalf("all-unchanged conflict stop=%+v err=%v", stop, err)
 	}
 }
