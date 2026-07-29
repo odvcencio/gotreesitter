@@ -108,9 +108,10 @@ type dfaTokenSource struct {
 	// that pass their own lexer simply leave it unused.
 	ownedLexer *Lexer
 
-	// relexProbeLexer is a private Lexer for parser-state-specific DFA probes.
-	// Keep it outside the compact scheduler so ordinary parses do not enlarge
-	// each scheduler allocation. Close drops its source reference.
+	// relexProbeLexer is a private Lexer.
+	// It probes the deterministic finite automaton for one parser state.
+	// Keep it outside the compact scheduler to limit each scheduler allocation.
+	// Close drops its source reference.
 	relexProbeLexer *Lexer
 }
 

@@ -58,11 +58,11 @@ for tags and release notes while still in `0.x`.
   The real-corpus matrix labels production error trees.
   Clean graduation coverage no longer counts recovery fixtures as parser gaps.
 
-- Compact graph-structured stack dispatch now re-lexes an exact token span for
-  a no-action header's own Deterministic Finite Automaton state.
+- Compact graph branches now re-lex one exact token span for each parser state
+  when the shared symbol has no action.
   Each alternative keeps the shared byte range and scanner checkpoint.
   The medium Scala corpus now reaches compact acceptance.
-  The existing converged-path proof still controls direct publication.
+  A separate proof for joined reduction paths still gates direct publication.
 
 - Native C-style recovery now owns Angular, BibTeX, Chatito, and Electronic Data
   Sheet materialization for every registered recovery witness.

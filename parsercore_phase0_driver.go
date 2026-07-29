@@ -1649,7 +1649,7 @@ func diagnosticParserCoreConflictPolicyOrdinal(
 	return 0, false
 }
 
-// relexTokenForState mirrors the production parser's span-exact DFA probe.
+// relexTokenForState mirrors the production parser's span-exact lexer probe.
 // It gives one no-action header the tokenization required by its current state.
 func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID, tok Token) (Token, bool) {
 	if s == nil || s.tokenSource == nil || s.tokenSource.lexer == nil {
