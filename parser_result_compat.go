@@ -158,8 +158,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmCensus(ctx, "dispatch.eds", func() { normalizeEDSCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "fsharp":
 		dispatcherArmCensus(ctx, "dispatch.fsharp", func() { normalizeFSharpCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "forth":
-		dispatcherArmCensus(ctx, "dispatch.forth", func() { normalizeForthCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "fidl":
 		dispatcherArmCensus(ctx, "dispatch.fidl", func() { normalizeFIDLCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "go":
@@ -194,8 +192,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmCensus(ctx, "dispatch.ledger", func() { normalizeLedgerCompatibility(ctx.root, ctx.source, ctx.parser, ctx.lang) })
 	case "kotlin":
 		dispatcherArmCensus(ctx, "dispatch.kotlin", func() { normalizeKotlinCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "luau":
-		dispatcherArmCensus(ctx, "dispatch.luau", func() { normalizeLuauCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "ninja":
 		dispatcherArmCensus(ctx, "dispatch.ninja", func() { normalizeNinjaCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "perl":

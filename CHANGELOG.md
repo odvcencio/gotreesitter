@@ -47,6 +47,11 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Native recovery now owns Forth and Luau recovery-action materialization.
+  Forth keeps C-equivalent missing terminators and empty-definition errors.
+  Luau keeps recovered `end` tokens as identifiers.
+  This removes both result-compatibility dispatcher arms.
+
 - Parser recovery now owns skipped error materialization for Robot variables
   and Scheme quote-family forms.
   This removes both compatibility dispatcher arms as one defect class.
