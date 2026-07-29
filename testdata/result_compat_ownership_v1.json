@@ -2,8 +2,8 @@
   "schema": "gotreesitter/result-compat-ownership/v1",
   "source_of_truth": true,
   "denominator": {
-    "dispatcher_arms": 46,
-    "dispatcher_languages": 48,
+    "dispatcher_arms": 42,
+    "dispatcher_languages": 44,
     "dispatcher_predicates": 1,
     "generic_passes": 0,
     "post_finalization_arms": 0,
@@ -58,21 +58,26 @@
       "languages": [
         "angular"
       ],
-      "purpose": "Reconcile Angular recovery and returned-tree shape.",
+      "purpose": "Historical: Angular rewrote recovery-action materialization after publication.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/recovery_action_materialization_native_regression_test.go",
+        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: native recovery emits the same tree for every registered witness. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "b67d12a13bdd4eb8e4b27e9e77b28934c398b8b2",
+      "receipt_refs": [
+        "grammars/recovery_action_materialization_native_regression_test.go",
+        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.apex",
@@ -170,21 +175,26 @@
       "languages": [
         "bibtex"
       ],
-      "purpose": "Reconcile BibTeX returned-tree shape and spans.",
-      "authoritative_owner": "materialization",
+      "purpose": "Historical: BibTeX rewrote recovery-action materialization after publication.",
+      "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/recovery_action_materialization_native_regression_test.go",
+        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after materialization emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: native recovery emits the same tree for every registered witness. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "b67d12a13bdd4eb8e4b27e9e77b28934c398b8b2",
+      "receipt_refs": [
+        "grammars/recovery_action_materialization_native_regression_test.go",
+        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.bash",
@@ -256,21 +266,26 @@
       "languages": [
         "chatito"
       ],
-      "purpose": "Reconcile Chatito recovery and returned-tree shape.",
+      "purpose": "Historical: Chatito rewrote recovery-action materialization after publication.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/recovery_action_materialization_native_regression_test.go",
+        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: native recovery emits the same tree for every registered witness. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "b67d12a13bdd4eb8e4b27e9e77b28934c398b8b2",
+      "receipt_refs": [
+        "grammars/recovery_action_materialization_native_regression_test.go",
+        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.arduino",
@@ -812,21 +827,26 @@
       "languages": [
         "eds"
       ],
-      "purpose": "Reconcile EDS recovery and returned-tree shape.",
+      "purpose": "Historical: EDS rewrote recovery-action materialization after publication.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/recovery_action_materialization_native_regression_test.go",
+        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: native recovery emits the same tree for every registered witness. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "b67d12a13bdd4eb8e4b27e9e77b28934c398b8b2",
+      "receipt_refs": [
+        "grammars/recovery_action_materialization_native_regression_test.go",
+        "cgo_harness/inert_recovery_materialization_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.erlang",
