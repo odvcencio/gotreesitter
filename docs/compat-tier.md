@@ -71,10 +71,13 @@ The route fields use a closed vocabulary enforced by the registry test:
 - live dispatcher, predicate, and generic entries use
   `shared_result_compatibility_tail` for production/compact/forest/incremental
   and `curated_single_grammar_parity` for the C oracle;
-- retired entries use `retired_exact_receipt` for all four native routes.
-  The C oracle uses `retired_exact_receipt` or
-  `retired_known_divergence_receipt`. Each retired entry must include a
-  retirement commit and a receipt reference.
+- retired production and incremental routes use `retired_exact_receipt`;
+- retired compact and forest routes use `retired_exact_receipt` or
+  `retired_exact_or_fail_closed_receipt`;
+- the C oracle uses `retired_exact_receipt` or
+  `retired_known_divergence_receipt`.
+
+Each retired entry must include a retirement commit and a receipt reference.
 
 These are evidence labels, not claims that all five engines have independent
 implementations. The shared-tail value means that route reaches the same

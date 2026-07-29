@@ -188,10 +188,20 @@ func assertOwnershipStatusAndRoutes(t *testing.T, entry resultCompatOwnershipEnt
 
 	var want resultCompatRouteCoverage
 	if entry.Status == "retired" {
+		switch entry.RouteCoverage.Compact {
+		case "retired_exact_receipt", "retired_exact_or_fail_closed_receipt":
+		default:
+			t.Errorf("%s has unsupported retired compact receipt %q", entry.ID, entry.RouteCoverage.Compact)
+		}
+		switch entry.RouteCoverage.Forest {
+		case "retired_exact_receipt", "retired_exact_or_fail_closed_receipt":
+		default:
+			t.Errorf("%s has unsupported retired forest receipt %q", entry.ID, entry.RouteCoverage.Forest)
+		}
 		want = resultCompatRouteCoverage{
 			Production:  "retired_exact_receipt",
-			Compact:     "retired_exact_receipt",
-			Forest:      "retired_exact_receipt",
+			Compact:     entry.RouteCoverage.Compact,
+			Forest:      entry.RouteCoverage.Forest,
 			Incremental: "retired_exact_receipt",
 			COracle:     entry.RouteCoverage.COracle,
 		}

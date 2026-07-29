@@ -1867,8 +1867,8 @@
       "retirement_condition": "Satisfied: parser recovery now emits the skipped Robot error structure. Production and incremental routes are exact. Compact and forest routes remain fail-closed.",
       "route_coverage": {
         "production": "retired_exact_receipt",
-        "compact": "retired_exact_receipt",
-        "forest": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
         "incremental": "retired_exact_receipt",
         "c_oracle": "retired_exact_receipt"
       },
@@ -1994,8 +1994,8 @@
       "retirement_condition": "Satisfied: parser recovery now emits the skipped Scheme quote-family error leaves. Production and incremental routes are exact. Compact and forest routes remain fail-closed.",
       "route_coverage": {
         "production": "retired_exact_receipt",
-        "compact": "retired_exact_receipt",
-        "forest": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
         "incremental": "retired_exact_receipt",
         "c_oracle": "retired_exact_receipt"
       },
