@@ -68,6 +68,12 @@ for tags and release notes while still in `0.x`.
   The medium Scala corpus now reaches compact acceptance.
   A separate proof for joined reduction paths still gates direct publication.
 
+- Exact grammar profiles can now flatten certified same-span unary wrappers
+  during reduction materialization.
+  The F# profile removes its declaration-name compatibility walk.
+  Expression and dotted identifiers retain their wrappers.
+  Compact and forest routes retain fail-closed behavior.
+
 - Native C-style recovery now owns Angular, BibTeX, Chatito, and Electronic Data
   Sheet materialization for every registered recovery witness.
   This removes four inert result-compatibility dispatcher arms.

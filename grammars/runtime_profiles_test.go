@@ -54,7 +54,7 @@ func TestCrystalAndMatlabKeepAcceptedErrorRetryLadder(t *testing.T) {
 }
 
 func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
-	// 41 = the prior 40 plus the Erlang compact profile.
+	// 42 = the prior 41 plus the F# unary-wrapper materialization profile.
 	// Bash, Haskell, and JavaScript reuse their existing exact profiles.
 	// Exact blob identity bounds each profile capability.
 	// D and Groovy's retry ceilings
@@ -69,7 +69,7 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// the gomod entry), so it does not add a map entry. Crystal and Matlab add
 	// exact-blob external-scanner repeat suppression while retaining the full
 	// accepted-error retry ladder.
-	if got, want := len(builtinLanguageRuntimeProfiles), 41; got != want {
+	if got, want := len(builtinLanguageRuntimeProfiles), 42; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -942,5 +942,46 @@ func TestAttachLanguageSupportDoesNotCertifyWithoutBlobIdentity(t *testing.T) {
 	AttachLanguageSupport("rego", rego)
 	if got := rego.FullParseAcceptedErrorRetryProfile; got != (gotreesitter.FullParseAcceptedErrorRetryProfile{}) {
 		t.Fatalf("AttachLanguageSupport certified Rego retry profile without blob identity: %+v", got)
+	}
+}
+
+func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
+	configuredLanguages := make(map[string]int)
+	for _, entry := range AllLanguages() {
+		profile, ok := builtinLanguageRuntimeProfiles[entry.Name]
+		if !ok || len(profile.nativeUnaryWrapperFlattening) == 0 {
+			continue
+		}
+		configuredLanguages[entry.Name] = len(profile.nativeUnaryWrapperFlattening)
+	}
+	if len(configuredLanguages) != 1 || configuredLanguages["fsharp"] != 1 {
+		t.Fatalf("native unary-wrapper profile census = %v, want fsharp:1", configuredLanguages)
+	}
+
+	language := FsharpLanguage()
+	if len(language.NativeUnaryWrapperFlattening) != 1 {
+		t.Fatalf("F# native unary-wrapper rules = %d, want 1", len(language.NativeUnaryWrapperFlattening))
+	}
+	rule := language.NativeUnaryWrapperFlattening[0]
+	for symbol, want := range map[gotreesitter.Symbol]string{
+		rule.PublicParent: "long_identifier_or_op",
+		rule.Wrapper:      "long_identifier",
+		rule.Leaf:         "identifier",
+	} {
+		if int(symbol) >= len(language.SymbolNames) || language.SymbolNames[symbol] != want {
+			t.Fatalf("F# unary-wrapper symbol %d = %q, want %q", symbol, language.SymbolNames[symbol], want)
+		}
+	}
+	if got, want := rule.WrapperPreGotoState, gotreesitter.StateID(4258); got != want {
+		t.Fatalf("F# wrapper pre-goto state = %d, want %d", got, want)
+	}
+
+	stale := *language
+	stale.NativeUnaryWrapperFlattening = nil
+	if attachBuiltinLanguageRuntimeProfile("fsharp", [32]byte{}, &stale) {
+		t.Fatal("stale F# blob identity attached the unary-wrapper profile")
+	}
+	if len(stale.NativeUnaryWrapperFlattening) != 0 {
+		t.Fatalf("stale F# unary-wrapper rules = %v, want none", stale.NativeUnaryWrapperFlattening)
 	}
 }

@@ -110,6 +110,22 @@ child identity has been lost, a display-name-compatible caller artifact is no
 longer guessed into shape; custom artifacts must carry the explicit native
 capability and exact metadata receipt to opt in.
 
+## Current progress: unary named wrappers
+
+Reduction materialization now owns certified same-span unary wrapper chains.
+The parser core uses public-parent, wrapper, leaf, and parser-state identities.
+It contains no language-name condition.
+
+The exact F# artifact certifies one declaration-name state.
+Its `long_identifier` materializes as the named `identifier` leaf.
+Expression identifiers and dotted identifiers retain their wrappers.
+Custom, adapted, and stale artifacts retain conservative behavior.
+
+Production and incremental routes return the exact tree without compatibility.
+The compact route returns the exact tree or uses production.
+The forest route fails closed for this profile.
+The pinned C parser supplies the parity oracle.
+
 ## Current progress: collapsed token wrappers
 
 Reduction now owns one four-language collapsed-token family.

@@ -20,11 +20,19 @@ type builtinLanguageRuntimeProfile struct {
 	fullParseArenaDensityCap           bool
 	fullParseGSSConvergence            bool
 	nativeResultCompatibility          gotreesitter.ResultCompatibilityCapability
+	nativeUnaryWrapperFlattening       []nativeUnaryWrapperFlatteningProfile
 	compactConvergedSplitDrops         bool
 	compactEOFAcceptNoActionSiblings   bool
 	compactPrimaryAcceptDerivation     bool
 	exactStackNodeEquivalence          bool
 	conflictPolicies                   []gotreesitter.ConflictPolicy
+}
+
+type nativeUnaryWrapperFlatteningProfile struct {
+	publicParent        string
+	wrapper             string
+	leaf                string
+	wrapperPreGotoState gotreesitter.StateID
 }
 
 const (
@@ -45,6 +53,20 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	"erlang": {
 		blobSHA256:                 mustRuntimeProfileSHA256("355deb34ae4b9d8e0bf649c1c36096929d5e403107fa3c8b9c2ee82b138dfdc5"),
 		compactConvergedSplitDrops: true,
+	},
+	// F# has one declaration-name state where C omits a same-span unary
+	// long_identifier below long_identifier_or_op. Expression identifiers and
+	// dotted long identifiers retain the wrapper.
+	"fsharp": {
+		blobSHA256: mustRuntimeProfileSHA256("409f32a1a287c9f2a385dc96bea03ed8b700bc9bfe92c50f91eed538519475ae"),
+		nativeUnaryWrapperFlattening: []nativeUnaryWrapperFlatteningProfile{
+			{
+				publicParent:        "long_identifier_or_op",
+				wrapper:             "long_identifier",
+				leaf:                "identifier",
+				wrapperPreGotoState: 4258,
+			},
+		},
 	},
 	// These exact artifacts select one accepting EOF head while all sibling
 	// heads have no EOF action. Field-aware C-oracle parity certifies the
@@ -452,6 +474,11 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		lang.NativeResultCompatibility |= missing
 		changed = true
 	}
+	if rules := resolveNativeUnaryWrapperFlatteningProfile(lang, profile.nativeUnaryWrapperFlattening); len(rules) > 0 &&
+		!slices.Equal(lang.NativeUnaryWrapperFlattening, rules) {
+		lang.NativeUnaryWrapperFlattening = rules
+		changed = true
+	}
 	if profile.compactConvergedSplitDrops && !lang.CompactConvergedReductionSplitDropsCertified {
 		lang.CompactConvergedReductionSplitDropsCertified = true
 		changed = true
@@ -477,6 +504,46 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		changed = true
 	}
 	return changed
+}
+
+func resolveNativeUnaryWrapperFlatteningProfile(
+	lang *gotreesitter.Language,
+	profile []nativeUnaryWrapperFlatteningProfile,
+) []gotreesitter.UnaryWrapperFlatteningRule {
+	if lang == nil || len(profile) == 0 {
+		return nil
+	}
+	rules := make([]gotreesitter.UnaryWrapperFlatteningRule, 0, len(profile))
+	for _, candidate := range profile {
+		parent, parentOK := runtimeProfileNamedSymbol(lang, candidate.publicParent)
+		wrapper, wrapperOK := runtimeProfileNamedSymbol(lang, candidate.wrapper)
+		leaf, leafOK := runtimeProfileNamedSymbol(lang, candidate.leaf)
+		if !parentOK || !wrapperOK || !leafOK {
+			continue
+		}
+		rules = append(rules, gotreesitter.UnaryWrapperFlatteningRule{
+			PublicParent:        parent,
+			Wrapper:             wrapper,
+			Leaf:                leaf,
+			WrapperPreGotoState: candidate.wrapperPreGotoState,
+		})
+	}
+	return rules
+}
+
+func runtimeProfileNamedSymbol(lang *gotreesitter.Language, name string) (gotreesitter.Symbol, bool) {
+	if lang == nil {
+		return 0, false
+	}
+	for index, symbolName := range lang.SymbolNames {
+		if symbolName == name &&
+			index < len(lang.SymbolMetadata) &&
+			lang.SymbolMetadata[index].Visible &&
+			lang.SymbolMetadata[index].Named {
+			return gotreesitter.Symbol(index), true
+		}
+	}
+	return 0, false
 }
 
 func languageHasConflictPolicy(lang *gotreesitter.Language, want gotreesitter.ConflictPolicy) bool {

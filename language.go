@@ -169,6 +169,16 @@ type ProductionSignature struct {
 	RHS          []Symbol
 }
 
+// UnaryWrapperFlatteningRule identifies one exact public-parent, wrapper, leaf,
+// and parser-state chain that native materialization must flatten. Runtime
+// profiles attach these rules only to certified grammar artifacts.
+type UnaryWrapperFlatteningRule struct {
+	PublicParent        Symbol
+	Wrapper             Symbol
+	Leaf                Symbol
+	WrapperPreGotoState StateID
+}
+
 // ExternalScanner is the interface for language-specific external scanners.
 // Languages like Python and JavaScript need these for indent tracking,
 // template literals, regex vs division, etc.
@@ -663,6 +673,12 @@ type Language struct {
 	// compatibility fallbacks for legacy blobs, generated grammars, caller-built
 	// languages, and overrides whose native behavior has not been certified.
 	NativeResultCompatibility ResultCompatibilityCapability
+
+	// NativeUnaryWrapperFlattening identifies exact same-span unary wrappers
+	// that C omits below a public parent in one parser state. Exact runtime
+	// profiles populate the symbol and state identities. Custom and stale
+	// artifacts keep the wrappers.
+	NativeUnaryWrapperFlattening []UnaryWrapperFlatteningRule
 
 	// CompactConvergedReductionSplitDropsCertified permits the compact
 	// fresh-full route to accept after it drops a no-action head descended from

@@ -144,6 +144,7 @@ const forestRecoverCap = 1 << 20
 const forestDeclineEOFRecoveryConflict = "eof-recovery-conflict"
 const forestDeclineErrorRoot = "error_root"
 const forestDeclineRootHasError = "root_has_error"
+const forestDeclineUnaryWrapperProfile = "native_unary_wrapper_profile"
 
 // The automatic forest path is speculative: a decline always falls back to
 // the production parser. Repeating the same deterministic decline for an
@@ -360,6 +361,10 @@ func (p *Parser) ParseForestExperimental(source []byte) (*Tree, bool) {
 	endBudget := p.enterParseBudget()
 	defer endBudget()
 	p.resetNormalizationStats()
+	if p.language != nil && len(p.language.NativeUnaryWrapperFlattening) != 0 {
+		p.recordForestDecline(forestDeclineUnaryWrapperProfile, Token{}, nil)
+		return nil, false
+	}
 	arena := acquireNodeArena(arenaClassFull)
 	incrementalReuseProven := forestIncrementalReuseProven(p.language)
 	// A forest tree whose scanner class is not admitted can never consume
@@ -588,6 +593,10 @@ func automaticForestMemoryBudget(p *Parser, operationBudget int64) int64 {
 // parity is verified and the gate is lifted.
 func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	if !glrForestEnabled || !parserWantsForest(p) {
+		return nil
+	}
+	if p.language != nil && len(p.language.NativeUnaryWrapperFlattening) != 0 {
+		p.recordForestDecline(forestDeclineUnaryWrapperProfile, Token{}, nil)
 		return nil
 	}
 	if len(p.included) > 0 {
