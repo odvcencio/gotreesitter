@@ -153,7 +153,7 @@ func TestDiagnosticParserCoreDispatchScratchCleansNoActionReturn(t *testing.T) {
 	scheduler, _ := newDiagnosticParserCoreDispatchProbeScheduler(t, &genericConflictTable{})
 	stop, err := scheduler.dispatchPass()
 	if err != nil || stop == nil || stop.boundary != DiagnosticParserCoreNoAction || stop.headerIndex != 0 ||
-		stop.detail != "generic scheduler has no table action for the elected token" {
+		stop.detail != diagnosticParserCoreNoTableActionDetail {
 		t.Fatalf("no-action stop=%+v err=%v", stop, err)
 	}
 	if cap(scheduler.dispatchScratch.noActionIndices) == 0 {

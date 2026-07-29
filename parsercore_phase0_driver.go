@@ -2375,6 +2375,8 @@ type diagnosticParserCoreGenericUnsupported struct {
 	headerIndex int
 }
 
+const diagnosticParserCoreNoTableActionDetail = "generic scheduler has no table action for the elected token"
+
 func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParserCoreGenericUnsupported, error) {
 	if err := s.dispatchScratch.begin(); err != nil {
 		return nil, err
@@ -2494,7 +2496,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			return nil, s.dropGenericNoActionHeads(noActionIndices)
 		}
 		if len(noActionIndices) != 0 {
-			detail := "generic scheduler has no table action for the elected token"
+			detail := diagnosticParserCoreNoTableActionDetail
 			if pausedNoActionHeads == len(noActionIndices) {
 				detail = "generic scheduler has only paused heads for the elected token"
 			} else if pausedNoActionHeads != 0 {

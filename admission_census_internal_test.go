@@ -7,7 +7,7 @@ import "testing"
 func TestAdmissionCensusSeparatesNoTableActionFromPausedFrontier(t *testing.T) {
 	if got := admissionCensusClassify(
 		DiagnosticParserCoreNoAction,
-		"generic scheduler has no table action for the elected token",
+		diagnosticParserCoreNoTableActionDetail,
 	); got != censusMechanismNoTableAction {
 		t.Fatalf("no-table-action mechanism=%q", got)
 	}

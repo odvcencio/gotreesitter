@@ -152,7 +152,7 @@ func admissionCensusClassify(boundary DiagnosticParserCoreBoundaryKind, detail s
 			return censusMechanismSchedulerShape
 		}
 	case DiagnosticParserCoreNoAction:
-		if strings.Contains(detail, "no table action") {
+		if detail == diagnosticParserCoreNoTableActionDetail {
 			return censusMechanismNoTableAction
 		}
 		return censusMechanismSchedulerShape
