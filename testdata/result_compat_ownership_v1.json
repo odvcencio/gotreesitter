@@ -917,7 +917,7 @@
         "c_oracle": "retired_exact_receipt"
       },
       "status": "retired",
-      "retired_commit": "afae0c7e33794e84090eb8447b4c445d68b21f9c",
+      "retired_commit": "44f95347952fdf2b50eb7a70479d2aa6545941de",
       "receipt_refs": [
         "grammars/recovery_action_materialization_native_regression_test.go",
         "cgo_harness/recovery_action_materialization_parity_cgo_test.go"
@@ -1469,7 +1469,7 @@
         "c_oracle": "retired_exact_receipt"
       },
       "status": "retired",
-      "retired_commit": "afae0c7e33794e84090eb8447b4c445d68b21f9c",
+      "retired_commit": "44f95347952fdf2b50eb7a70479d2aa6545941de",
       "receipt_refs": [
         "grammars/recovery_action_materialization_native_regression_test.go",
         "cgo_harness/recovery_action_materialization_parity_cgo_test.go"
