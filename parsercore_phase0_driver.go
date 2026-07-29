@@ -1530,6 +1530,8 @@ func newDiagnosticParserCoreGenericScheduler(
 type diagnosticParserCoreGenericCell struct {
 	headerIndex             int
 	boundary                core.ClassifiedBoundary
+	token                   Token
+	stateRelexed            bool
 	conflictPolicy          bool
 	conflictPolicyOrdinal   int
 	repetitionFold          bool
@@ -1537,6 +1539,12 @@ type diagnosticParserCoreGenericCell struct {
 }
 
 func (cell diagnosticParserCoreGenericCell) actions() core.ActionRow { return cell.boundary.Actions() }
+func (cell diagnosticParserCoreGenericCell) dispatchToken(shared Token) Token {
+	if cell.stateRelexed {
+		return cell.token
+	}
+	return shared
+}
 func (cell diagnosticParserCoreGenericCell) descriptor() core.ActionRowDescriptor {
 	return cell.boundary.Actions().Descriptor()
 }
@@ -1639,6 +1647,57 @@ func diagnosticParserCoreConflictPolicyOrdinal(
 		}
 	}
 	return 0, false
+}
+
+// relexTokenForState mirrors the production parser's span-exact DFA probe.
+// It gives one no-action header the tokenization required by its current state.
+func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID, tok Token) (Token, bool) {
+	if s == nil || s.tokenSource == nil || s.tokenSource.lexer == nil {
+		return tok, false
+	}
+	lang := s.tokenSource.language
+	source := s.tokenSource.lexer.source
+	if lang == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
+		return tok, false
+	}
+	// A stateless external scanner has no checkpoint identity for this probe.
+	// Keep that route unchanged until each header can own its scanner state.
+	if lang.ExternalScanner != nil && s.checkpoint.Length == 0 {
+		return tok, false
+	}
+	if tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.Missing || tok.NoLookahead ||
+		tok.StartByte >= tok.EndByte || int(tok.StartByte) >= len(source) {
+		return tok, false
+	}
+	lexState := lang.LexModes[state].LexStateIndex()
+	if lexState == noLookaheadLexState || int(lexState) >= len(lang.LexStates) {
+		return tok, false
+	}
+	// Match Parser.relexTokenForStackLexState. Lexer.scan reads only these
+	// DFA fields, so this probe does not need parser or scanner state.
+	probe := s.tokenSource.relexProbeLexer
+	if probe == nil {
+		probe = &Lexer{}
+		s.tokenSource.relexProbeLexer = probe
+	}
+	*probe = Lexer{
+		states:          lang.LexStates,
+		asciiTable:      lang.LexAsciiTable(),
+		source:          source,
+		pos:             int(tok.StartByte),
+		row:             tok.StartPoint.Row,
+		col:             tok.StartPoint.Column,
+		immediateTokens: lang.ImmediateTokens,
+		zeroWidthTokens: lang.ZeroWidthTokens,
+	}
+	relexed, ok := probe.scan(uint32(lexState), probe.pos, probe.row, probe.col)
+	if !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol {
+		return tok, false
+	}
+	if relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte {
+		return tok, false
+	}
+	return relexed, true
 }
 
 type diagnosticParserCoreDispatchScratch struct {
@@ -2421,7 +2480,8 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			pausedNoActionHeads++
 			continue
 		}
-		boundary, err := s.compact.ClassifyBoundary(header.head, core.Symbol(s.token.Symbol))
+		cellToken := s.token
+		boundary, err := s.compact.ClassifyBoundary(header.head, core.Symbol(cellToken.Symbol))
 		if err != nil {
 			return nil, err
 		}
@@ -2429,14 +2489,35 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 		actions := boundary.Actions()
 		workCountRecordResolvedActionCell(actions.Len())
 		if actions.Len() == 0 {
-			s.dispatchScratch.noActionIndices = append(s.dispatchScratch.noActionIndices, index)
-			continue
+			state := StateID(boundary.State())
+			if len(s.headers) > 1 {
+				relexed, ok := s.relexTokenForState(state, s.token)
+				if ok {
+					cellToken = relexed
+					boundary, err = s.compact.ClassifyBoundary(header.head, core.Symbol(cellToken.Symbol))
+					if err != nil {
+						return nil, err
+					}
+					s.work.ActionLookups++
+					actions = boundary.Actions()
+					workCountRecordResolvedActionCell(actions.Len())
+				}
+			}
+			if actions.Len() == 0 {
+				s.dispatchScratch.noActionIndices = append(s.dispatchScratch.noActionIndices, index)
+				continue
+			}
 		}
-		cell := diagnosticParserCoreGenericCell{headerIndex: index, boundary: boundary}
+		cell := diagnosticParserCoreGenericCell{
+			headerIndex:  index,
+			boundary:     boundary,
+			token:        cellToken,
+			stateRelexed: cellToken != s.token,
+		}
 		if s.tokenSource != nil {
 			cell.conflictPolicyOrdinal, cell.conflictPolicy = diagnosticParserCoreConflictPolicyOrdinal(
 				s.tokenSource.language,
-				s.token,
+				cell.dispatchToken(s.token),
 				boundary.State(),
 				actions,
 			)
@@ -2466,7 +2547,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 	for index, cell := range cells {
 		descriptor := cell.descriptor()
 		if !cell.conflictPolicy && !cell.repetitionFold {
-			if unsupported := diagnosticParserCoreGenericUnsupportedCellDescriptor(cell.headerIndex, s.token, cell.actions(), descriptor); unsupported != nil {
+			if unsupported := diagnosticParserCoreGenericUnsupportedCellDescriptor(cell.headerIndex, cell.dispatchToken(s.token), cell.actions(), descriptor); unsupported != nil {
 				return unsupported, nil
 			}
 		}
@@ -2552,6 +2633,13 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				boundary: DiagnosticParserCoreExtra, detail: "generic scheduler requires a homogeneous all-runnable extra cohort", headerIndex: cells[0].headerIndex,
 			}, nil
 		}
+		for _, cell := range cells[1:] {
+			if cell.dispatchToken(s.token) != cells[0].dispatchToken(s.token) {
+				return &diagnosticParserCoreGenericUnsupported{
+					boundary: DiagnosticParserCoreExtra, detail: "generic scheduler extra cohort requires one tokenization", headerIndex: cell.headerIndex,
+				}, nil
+			}
+		}
 		if unsupported := s.zeroWidthExtraShiftWithoutProgress(cells); unsupported != nil {
 			return unsupported, nil
 		}
@@ -2574,18 +2662,21 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 }
 
 func (s *diagnosticParserCoreGenericScheduler) zeroWidthExtraShiftWithoutProgress(cells []diagnosticParserCoreGenericCell) *diagnosticParserCoreGenericUnsupported {
-	if s.token.EndByte != s.token.StartByte ||
-		s.currentElection.ScannerAfter != s.currentElection.ScannerBefore {
+	if s.currentElection.ScannerAfter != s.currentElection.ScannerBefore {
 		return nil
 	}
 	for _, cell := range cells {
+		token := cell.dispatchToken(s.token)
+		if token.EndByte != token.StartByte {
+			continue
+		}
 		action := cell.actions().At(0)
 		target := action.State
 		if target == 0 {
 			target = cell.boundary.State()
 		}
 		if target == cell.boundary.State() &&
-			s.token.EndByte <= cell.boundary.ByteOffset() {
+			token.EndByte <= cell.boundary.ByteOffset() {
 			return &diagnosticParserCoreGenericUnsupported{
 				boundary:    DiagnosticParserCoreRoute,
 				detail:      "generic scheduler zero-width extra shift has no scanner or parser-state progress",
@@ -2613,7 +2704,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericAccept(before []Diagn
 	if cell.actions().Len() != 1 || cell.actions().At(0).Type != core.ActionAccept {
 		return errors.New("parser-core phase zero: generic accept requires one accept action")
 	}
-	if s.token.Symbol != 0 || s.token.StartByte != s.token.EndByte || s.token.Missing || s.token.NoLookahead || s.token.ExternalScannerToken {
+	token := cell.dispatchToken(s.token)
+	if token.Symbol != 0 || token.StartByte != token.EndByte || token.Missing || token.NoLookahead || token.ExternalScannerToken {
 		return errors.New("parser-core phase zero: generic accept requires authenticated zero-width EOF")
 	}
 	if err := s.reserveDispatches(1); err != nil {
@@ -2862,7 +2954,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		s.compact.SetReduceConflictContext(true)
 		defer s.compact.SetReduceConflictContext(false)
 	}
-	if s.token.NoLookahead {
+	token := cell.dispatchToken(s.token)
+	if token.NoLookahead {
 		s.compact.SetReduceNoLookaheadContext(true)
 		defer s.compact.SetReduceNoLookaheadContext(false)
 	}
@@ -2896,7 +2989,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		replacement := s.headers[cell.headerIndex]
 		replacement.head = output.Head
 		replacement.paused = false
-		replacement.shifted = s.token.NoLookahead
+		replacement.shifted = token.NoLookahead
 		replacement.convergedReductionSplit = replacement.convergedReductionSplit || convergedReductionSplit
 		if len(replacements) > 0 {
 			if s.nextSeq == math.MaxUint64 {
@@ -2944,7 +3037,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 			After: after,
 		})
 	}
-	if s.token.NoLookahead &&
+	if token.NoLookahead &&
 		Symbol(cell.actions().At(ordinal).Symbol) == s.options.noLookaheadRootSymbol {
 		s.requireEOFPostNoLookaheadRoot = true
 	}
@@ -3036,7 +3129,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 	}
 	defer s.conflictScratch.finish()
 	execution, err := executeDiagnosticParserCoreGenericConflictDetailed(
-		s.compact, owner, s.headers[cell.headerIndex], cell.headerIndex, s.token, cell.boundary,
+		s.compact, owner, s.headers[cell.headerIndex], cell.headerIndex, cell.dispatchToken(s.token), cell.boundary,
 		s.branchOrder, s.fullReceipts(), &s.conflictScratch,
 	)
 	if err != nil {
@@ -3171,7 +3264,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		roundIndex = round.Index
 		s.receipt.Rounds = append(s.receipt.Rounds, round)
 		conflict := DiagnosticParserCoreGenericConflict{
-			ElectionIndex: s.electionIndex, Token: s.token, HeaderIndex: cell.headerIndex,
+			ElectionIndex: s.electionIndex, Token: cell.dispatchToken(s.token), HeaderIndex: cell.headerIndex,
 			BranchOrderBefore: branchOrderBefore, BranchOrderAfter: s.branchOrder,
 			NextCreationSeqBefore: nextSeqBefore, NextCreationSeqAfter: s.nextSeq,
 			Round: round, Prefix: prefixReceipts,
@@ -3221,7 +3314,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 	}
 	ordinaryCohort := len(cells) > 1
 	for _, cell := range cells {
-		if cell.selectedActionOrdinal() != 0 {
+		if cell.selectedActionOrdinal() != 0 || cell.dispatchToken(s.token) != cells[0].dispatchToken(s.token) {
 			ordinaryCohort = false
 			break
 		}
@@ -3231,8 +3324,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 		for _, cell := range cells {
 			s.classifiedBoundaries = append(s.classifiedBoundaries, cell.boundary)
 		}
+		token := cells[0].dispatchToken(s.token)
 		heads, err := s.compact.ShiftOrdinaryClassifiedCohortOwned(owner, s.classifiedBoundaries, core.Token{
-			Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte, External: s.token.ExternalScannerToken,
+			Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte, External: token.ExternalScannerToken,
 		})
 		if err != nil {
 			return err
@@ -3249,8 +3343,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 			if action.Type != core.ActionShift || action.Extra {
 				return errors.New("parser-core phase zero: ordinary shift selection is not an ordinary shift")
 			}
+			token := cell.dispatchToken(s.token)
 			head, err := s.compact.ShiftClassifiedOwned(owner, cell.boundary, ordinal, core.Token{
-				Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte, External: s.token.ExternalScannerToken,
+				Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte, External: token.ExternalScannerToken,
 			}, core.ForkOrder{})
 			if err != nil {
 				return err
@@ -3323,9 +3418,10 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 		for _, cell := range cells {
 			s.classifiedBoundaries = append(s.classifiedBoundaries, cell.boundary)
 		}
+		token := cells[0].dispatchToken(s.token)
 		heads, err := s.compact.ShiftExtraClassifiedCohortOwned(owner, s.classifiedBoundaries, core.Token{
-			Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte,
-			Extra: true, External: s.token.ExternalScannerToken,
+			Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte,
+			Extra: true, External: token.ExternalScannerToken,
 		})
 		if err != nil {
 			return err

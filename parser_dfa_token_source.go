@@ -107,6 +107,11 @@ type dfaTokenSource struct {
 	// reference) but keeps the allocation for the next pooled acquire. Callers
 	// that pass their own lexer simply leave it unused.
 	ownedLexer *Lexer
+
+	// relexProbeLexer is a private Lexer for parser-state-specific DFA probes.
+	// Keep it outside the compact scheduler so ordinary parses do not enlarge
+	// each scheduler allocation. Close drops its source reference.
+	relexProbeLexer *Lexer
 }
 
 const maxConsecutiveZeroWidthTokens = 4
@@ -270,6 +275,7 @@ func resetPooledDFATokenSource(ts *dfaTokenSource) {
 	savedSQLKeywordScratch := ts.sqlKeywordScratch[:0]
 	savedExtZeroTried := ts.extZeroTried[:0]
 	savedOwnedLexer := ts.ownedLexer
+	savedRelexProbeLexer := ts.relexProbeLexer
 	var savedGLRUnionScanScratch []glrUnionDFAScan
 	if cap(ts.glrUnionScanScratch) > len(ts.glrUnionScanInline) {
 		// Close clears every Token before the source enters the pool. Preserve
@@ -283,6 +289,7 @@ func resetPooledDFATokenSource(ts *dfaTokenSource) {
 		bashArithmeticCachePos: -1,
 	}
 	ts.ownedLexer = savedOwnedLexer
+	ts.relexProbeLexer = savedRelexProbeLexer
 	ts.externalValid = savedExternalValid
 	ts.externalTokenStart = savedExternalTokenStart
 	ts.externalTokenEnd = savedExternalTokenEnd
@@ -421,6 +428,9 @@ func (d *dfaTokenSource) Close() {
 		// contents so no source bytes or table slices stay pinned while the
 		// token source sits in the pool.
 		*d.ownedLexer = Lexer{}
+	}
+	if d.relexProbeLexer != nil {
+		*d.relexProbeLexer = Lexer{}
 	}
 	d.lexer = nil
 	d.language = nil
