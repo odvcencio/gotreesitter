@@ -909,7 +909,7 @@
         "c_oracle": "retired_exact_receipt"
       },
       "status": "retired",
-      "retired_commit": "ad3b4da167e5e2d08dbb99f783480d6a6bcaf03b",
+      "retired_commit": "c2721bc558cde4be27f1b8c4fcc131975d52741c",
       "receipt_refs": [
         "grammars/fsharp_unary_wrapper_native_regression_test.go",
         "cgo_harness/fsharp_unary_wrapper_retirement_parity_test.go"
