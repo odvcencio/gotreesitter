@@ -42,6 +42,11 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Parser recovery now owns skipped error materialization for Robot variables
+  and Scheme quote-family forms.
+  This removes both compatibility dispatcher arms as one defect class.
+  Compact and forest routes retain fail-closed behavior.
+
 - The tracked dispatcher census now includes the locked JavaScript
   convergence fixture.
   The receipt exposes seven active compatibility rewrites on a direct route.

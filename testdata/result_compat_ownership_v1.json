@@ -2,8 +2,8 @@
   "schema": "gotreesitter/result-compat-ownership/v1",
   "source_of_truth": true,
   "denominator": {
-    "dispatcher_arms": 52,
-    "dispatcher_languages": 54,
+    "dispatcher_arms": 50,
+    "dispatcher_languages": 52,
     "dispatcher_predicates": 1,
     "generic_passes": 0,
     "post_finalization_arms": 0,
@@ -1858,21 +1858,26 @@
       "languages": [
         "robot"
       ],
-      "purpose": "Reconcile Robot recovery and returned-tree shape.",
+      "purpose": "Historical: Robot inserted skipped error structure after materialization.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/robot_scheme_skipped_error_native_regression_test.go",
+        "cgo_harness/robot_scheme_skipped_error_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: parser recovery now emits the skipped Robot error structure. Production and incremental routes are exact. Compact and forest routes remain fail-closed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "9fe391d597f7cf1e129abeea2c5b68219392edd6",
+      "receipt_refs": [
+        "grammars/robot_scheme_skipped_error_native_regression_test.go",
+        "cgo_harness/robot_scheme_skipped_error_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.rust",
@@ -1980,21 +1985,26 @@
       "languages": [
         "scheme"
       ],
-      "purpose": "Reconcile Scheme recovery and returned-tree shape.",
+      "purpose": "Historical: Scheme inserted skipped quote-family error leaves after materialization.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/robot_scheme_skipped_error_native_regression_test.go",
+        "cgo_harness/robot_scheme_skipped_error_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: parser recovery now emits the skipped Scheme quote-family error leaves. Production and incremental routes are exact. Compact and forest routes remain fail-closed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "9fe391d597f7cf1e129abeea2c5b68219392edd6",
+      "receipt_refs": [
+        "grammars/robot_scheme_skipped_error_native_regression_test.go",
+        "cgo_harness/robot_scheme_skipped_error_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.solidity",
