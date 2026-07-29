@@ -213,14 +213,10 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmCensus(ctx, "dispatch.ql", func() { normalizeQLCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "python":
 		dispatcherArmCensus(ctx, "dispatch.python", func() { normalizePythonCompatibilityWithParser(ctx.root, ctx.source, ctx.parser, ctx.lang) })
-	case "robot":
-		dispatcherArmCensus(ctx, "dispatch.robot", func() { normalizeRobotCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "rust":
 		dispatcherArmCensus(ctx, "dispatch.rust", func() { normalizeRustCompatibility(ctx.root, ctx.source, ctx.parser, ctx.lang) })
 	case "scala":
 		dispatcherArmCensus(ctx, "dispatch.scala", func() { normalizeScalaCompatibility(ctx.root, ctx.source, ctx.parser, ctx.lang) })
-	case "scheme":
-		dispatcherArmCensus(ctx, "dispatch.scheme", func() { normalizeSchemeCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "solidity":
 		dispatcherArmCensus(ctx, "dispatch.solidity", func() {
 			normalizeSolidityMemberObjectWrappers(ctx.root, ctx.lang)
