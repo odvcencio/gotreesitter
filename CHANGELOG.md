@@ -52,6 +52,9 @@ for tags and release notes while still in `0.x`.
   This removes both compatibility dispatcher arms as one defect class.
   Compact and forest routes retain fail-closed behavior.
 
+- C-style recovery now marks an absorbed `ERROR` token as named.
+  Recovered INI trees now match the pinned C parser at this node boundary.
+
 - The tracked dispatcher census now includes the locked JavaScript
   convergence fixture.
   The receipt exposes seven active compatibility rewrites on a direct route.

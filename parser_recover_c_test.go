@@ -167,6 +167,52 @@ func TestCRecoveryCostCompetitionDisabledInNoTreeModes(t *testing.T) {
 	}
 }
 
+func TestCAbsorbErrorRunKeepsErrorLeafNamed(t *testing.T) {
+	parser := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	openErr := newParentNodeInArena(arena, errorSymbol, true, nil, nil, 0)
+	cSetNodeSpan(openErr, 10, 10, Point{Column: 10}, Point{Column: 10})
+	openErr.setHasError(true)
+	stack := newGLRStack(1)
+	stack.pushEntry(newStackEntryNode(cErrorState, openErr), nil, nil)
+	stack.byteOffset = 10
+	stack.cRec = &cRecoverState{group: &cRecGroup{}, openErr: openErr}
+	nodeCount := 0
+
+	parser.cAbsorbTokenIntoError(
+		&stack,
+		Token{
+			Symbol:    errorSymbol,
+			StartByte: 10,
+			EndByte:   18,
+			StartPoint: Point{
+				Column: 10,
+			},
+			EndPoint: Point{
+				Column: 18,
+			},
+		},
+		&nodeCount,
+		arena,
+		nil,
+		nil,
+		nil,
+	)
+
+	if got, want := openErr.ChildCount(), 1; got != want {
+		t.Fatalf("open error ChildCount = %d, want %d", got, want)
+	}
+	child := openErr.Child(0)
+	if !child.IsError() {
+		t.Fatalf("absorbed child type = %q, want ERROR", child.Type(parser.language))
+	}
+	if !child.IsNamed() {
+		t.Fatal("absorbed ERROR leaf is not named")
+	}
+}
+
 func TestCRecoverDispatchInErrorAdvancesZeroWidthSkippedToken(t *testing.T) {
 	parser := cRecoveryElectionTestParser()
 	arena := acquireNodeArena(arenaClassFull)

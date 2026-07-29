@@ -3761,7 +3761,7 @@ func (p *Parser) cAbsorbTokenIntoError(v *glrStack, tok Token, nodeCount *int, a
 	leafVisible := p.cSymbolVisible(tok.Symbol)
 	var leaf *Node
 	if leafVisible {
-		leaf = newLeafNodeInArena(arena, tok.Symbol, p.isNamedSymbol(tok.Symbol),
+		leaf = newLeafNodeInArena(arena, tok.Symbol, tok.Symbol == errorSymbol || p.isNamedSymbol(tok.Symbol),
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		leaf.setHasError(true)
 		// C: if the token shifts as extra in state 1, mark it extra so it is
