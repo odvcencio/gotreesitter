@@ -2,8 +2,8 @@
   "schema": "gotreesitter/result-compat-ownership/v1",
   "source_of_truth": true,
   "denominator": {
-    "dispatcher_arms": 42,
-    "dispatcher_languages": 44,
+    "dispatcher_arms": 41,
+    "dispatcher_languages": 43,
     "dispatcher_predicates": 1,
     "generic_passes": 0,
     "post_finalization_arms": 0,
@@ -894,21 +894,26 @@
       "languages": [
         "fsharp"
       ],
-      "purpose": "Reconcile F# returned-tree fields and spans.",
+      "purpose": "Historical F# declaration-name wrapper repair.",
       "authoritative_owner": "materialization",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/fsharp_unary_wrapper_native_regression_test.go",
+        "cgo_harness/fsharp_unary_wrapper_retirement_parity_test.go"
       ],
-      "retirement_condition": "Delete only after materialization emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied by exact production and incremental trees, compact fallback, forest fail-closed behavior, and pinned C parity.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "ad3b4da167e5e2d08dbb99f783480d6a6bcaf03b",
+      "receipt_refs": [
+        "grammars/fsharp_unary_wrapper_native_regression_test.go",
+        "cgo_harness/fsharp_unary_wrapper_retirement_parity_test.go"
+      ]
     },
     {
       "id": "dispatch.forth",
