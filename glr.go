@@ -198,25 +198,26 @@ const (
 )
 
 type glrMergeScratch struct {
-	result            []glrStack
-	slots             []glrMergeSlot
-	largeSlots        []glrMergeLargeSlot
-	perKeyCap         int
-	language          *Language
-	arena             *nodeArena
-	faithfulCapOne    bool
-	deferExactDedupe  bool
-	frontierMergeHash bool
-	trace             bool
-	cRecoveryCost     bool
-	audit             *runtimeAudit
-	equivEpoch        uint32
-	gssPointerEpoch   uint32
-	equivCache        []glrNodeEquivCacheEntry
-	stackEquivCache   []glrStackEquivCacheEntry
-	spineEquivCache   []glrSpineEquivCacheEntry
-	frontierHashCache []glrStackFrontierHashCacheEntry
-	cErrorCost        map[*Node]glrCErrorCostEntry
+	result                    []glrStack
+	slots                     []glrMergeSlot
+	largeSlots                []glrMergeLargeSlot
+	perKeyCap                 int
+	language                  *Language
+	arena                     *nodeArena
+	faithfulCapOne            bool
+	recoveryCapOneConvergence bool
+	deferExactDedupe          bool
+	frontierMergeHash         bool
+	trace                     bool
+	cRecoveryCost             bool
+	audit                     *runtimeAudit
+	equivEpoch                uint32
+	gssPointerEpoch           uint32
+	equivCache                []glrNodeEquivCacheEntry
+	stackEquivCache           []glrStackEquivCacheEntry
+	spineEquivCache           []glrSpineEquivCacheEntry
+	frontierHashCache         []glrStackFrontierHashCacheEntry
+	cErrorCost                map[*Node]glrCErrorCostEntry
 	// cPrefixPath is the descent scratch for merge-side GSS prefix-aggregate
 	// fills (cStackPrefixCostForMerge, parser_recover_c.go); the aggregates
 	// live on gssNode, validated against gssPrefixAggGen. reset clears the full
@@ -4452,7 +4453,9 @@ func preserveCapOneStackInSlot(result *[]glrStack, slot *glrMergeSlot, stack glr
 }
 
 func faithfulCapOneMergeEnabled(scratch *glrMergeScratch) bool {
-	return glrFaithfulCapOneMerge || (scratch != nil && scratch.faithfulCapOne)
+	return glrFaithfulCapOneMerge ||
+		(scratch != nil &&
+			(scratch.faithfulCapOne || (scratch.recoveryCapOneConvergence && scratch.cRecoveryCost)))
 }
 
 func mergeSlotTrackedCount(slot *glrMergeSlot) int {
@@ -5518,6 +5521,8 @@ func (s *glrMergeScratch) reset() {
 	s.perKeyCap = 0
 	s.language = nil
 	s.arena = nil
+	s.faithfulCapOne = false
+	s.recoveryCapOneConvergence = false
 	s.trace = false
 	s.cRecoveryCost = false
 	s.audit = nil

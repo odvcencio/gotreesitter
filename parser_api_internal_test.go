@@ -1043,6 +1043,46 @@ func TestConfigureParseCapsScopesFaithfulGSSConvergenceToFreshCapOne(t *testing.
 		)
 	}
 
+	recoveryParser := &Parser{
+		language:             &Language{Name: "recovery-cap-one"},
+		errorCostCompetition: true,
+	}
+	var recovery parserScratch
+	recoveryCaps := recoveryParser.configureParseCaps(
+		[]byte("source"),
+		nil,
+		arenaClassFull,
+		&recovery,
+		0,
+		0,
+		-1,
+	)
+	if recoveryCaps.mergePerKeyCap != 1 || !recovery.merge.recoveryCapOneConvergence {
+		t.Fatalf(
+			"recovery cap=%d recovery-faithful=%t, want cap=1 recovery-faithful=true",
+			recoveryCaps.mergePerKeyCap,
+			recovery.merge.recoveryCapOneConvergence,
+		)
+	}
+	var recoveryIncremental parserScratch
+	recoveryIncrementalCaps := recoveryParser.configureParseCaps(
+		[]byte("source"),
+		&reuseCursor{},
+		arenaClassIncremental,
+		&recoveryIncremental,
+		0,
+		0,
+		-1,
+	)
+	if recoveryIncrementalCaps.mergePerKeyCap != 1 ||
+		recoveryIncremental.merge.recoveryCapOneConvergence {
+		t.Fatalf(
+			"incremental recovery cap=%d recovery-faithful=%t, want cap=1 recovery-faithful=false",
+			recoveryIncrementalCaps.mergePerKeyCap,
+			recoveryIncremental.merge.recoveryCapOneConvergence,
+		)
+	}
+
 	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "1")
 	ResetParseEnvConfigCacheForTests()
 	var explicitCapOne parserScratch

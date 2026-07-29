@@ -3656,31 +3656,52 @@ func TestMergeStacksSmallFaithfulGSSUnionPreservesExtraLinks(t *testing.T) {
 	glrFaithfulCapOneMerge = false
 	t.Cleanup(func() { glrFaithfulCapOneMerge = old })
 
-	var gssScratch gssScratch
-	buildStack := func(sym Symbol) glrStack {
-		node := NewLeafNode(sym, true, 0, 5, Point{}, Point{Column: 5})
-		entries := []stackEntry{{state: 1}, newStackEntryNode(7, node)}
-		return glrStack{
-			gss:        buildGSSStack(entries, &gssScratch),
-			byteOffset: stackByteOffset(entries),
-		}
+	tests := []struct {
+		name    string
+		scratch glrMergeScratch
+	}{
+		{
+			name: "certified full parse",
+			scratch: glrMergeScratch{
+				faithfulCapOne: true,
+			},
+		},
+		{
+			name: "recovery cost became relevant",
+			scratch: glrMergeScratch{
+				recoveryCapOneConvergence: true,
+				cRecoveryCost:             true,
+			},
+		},
 	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var gssScratch gssScratch
+			buildStack := func(sym Symbol) glrStack {
+				node := NewLeafNode(sym, true, 0, 5, Point{}, Point{Column: 5})
+				entries := []stackEntry{{state: 1}, newStackEntryNode(7, node)}
+				return glrStack{
+					gss:        buildGSSStack(entries, &gssScratch),
+					byteOffset: stackByteOffset(entries),
+				}
+			}
 
-	var scratch glrMergeScratch
-	scratch.perKeyCap = 1
-	scratch.faithfulCapOne = true
-	scratch.beginEquivEpoch()
+			scratch := test.scratch
+			scratch.perKeyCap = 1
+			scratch.beginEquivEpoch()
 
-	result := mergeStacksWithScratch([]glrStack{buildStack(11), buildStack(12)}, &scratch)
-	if len(result) != 1 {
-		t.Fatalf("merged stack count = %d, want 1", len(result))
-	}
-	if got := result[0].gss.head.linkCount(); got != 2 {
-		t.Fatalf("merged link count = %d, want 2", got)
-	}
-	_, extra := result[0].gss.head.link(1)
-	if got := stackEntryNodeSymbol(extra); got != 12 {
-		t.Fatalf("extra link symbol = %d, want 12", got)
+			result := mergeStacksWithScratch([]glrStack{buildStack(11), buildStack(12)}, &scratch)
+			if len(result) != 1 {
+				t.Fatalf("merged stack count = %d, want 1", len(result))
+			}
+			if got := result[0].gss.head.linkCount(); got != 2 {
+				t.Fatalf("merged link count = %d, want 2", got)
+			}
+			_, extra := result[0].gss.head.link(1)
+			if got := stackEntryNodeSymbol(extra); got != 12 {
+				t.Fatalf("extra link symbol = %d, want 12", got)
+			}
+		})
 	}
 }
 
@@ -3697,6 +3718,16 @@ func TestFaithfulCapOneMergeEnabledByParsePolicy(t *testing.T) {
 	}
 	if !faithfulCapOneMergeEnabled(scratch) {
 		t.Fatal("active parse did not enable faithful cap-one merge")
+	}
+	recoveryScratch := &glrMergeScratch{
+		recoveryCapOneConvergence: true,
+	}
+	if faithfulCapOneMergeEnabled(recoveryScratch) {
+		t.Fatal("recovery policy activated before error cost became relevant")
+	}
+	recoveryScratch.cRecoveryCost = true
+	if !faithfulCapOneMergeEnabled(recoveryScratch) {
+		t.Fatal("recovery policy did not activate after error cost became relevant")
 	}
 }
 
