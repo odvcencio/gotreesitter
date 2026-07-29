@@ -1177,7 +1177,7 @@
         "c_oracle": "retired_exact_receipt"
       },
       "status": "retired",
-      "retired_commit": "f2d9b9e64c88e82b147bca8e7336ab67da29778e",
+      "retired_commit": "bcb9d1d27c8f71aa4490412eaec43d120be726ff",
       "receipt_refs": [
         "grammars/expected_root_fallback_native_regression_test.go",
         "cgo_harness/expected_root_fallback_parity_cgo_test.go"
@@ -1266,7 +1266,7 @@
         "c_oracle": "retired_exact_receipt"
       },
       "status": "retired",
-      "retired_commit": "f2d9b9e64c88e82b147bca8e7336ab67da29778e",
+      "retired_commit": "bcb9d1d27c8f71aa4490412eaec43d120be726ff",
       "receipt_refs": [
         "grammars/expected_root_fallback_native_regression_test.go",
         "cgo_harness/expected_root_fallback_parity_cgo_test.go"
