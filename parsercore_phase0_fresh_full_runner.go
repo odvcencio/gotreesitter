@@ -36,7 +36,8 @@ type parserCoreFreshFullRunner struct {
 	// is per-Parser and single-goroutine, so reusing these buffers across parses
 	// mirrors production's parser-held arena reuse and keeps the warm steady
 	// state from re-allocating the public-tree scratch on every parse.
-	scratch parserCoreRunnerScratch
+	scratch   parserCoreRunnerScratch
+	scheduler diagnosticParserCoreGenericScheduler
 }
 
 func newParserCoreFreshFullRunner(scanner ExternalScanner, options DiagnosticParserCorePrefixOptions) (*parserCoreFreshFullRunner, error) {
@@ -95,8 +96,8 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 	if tokenSource == nil {
 		return nil, nil, errors.New("parser-core fresh-full runner: production DFA unavailable")
 	}
-	scheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeed(
-		compact, tokenSource, &r.scannerScratch, r.lang.InitialState,
+	scheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
+		&r.scheduler, compact, tokenSource, &r.scannerScratch, r.lang.InitialState,
 		r.options, diagnosticParserCoreSeedObserver{},
 	)
 	if err != nil {

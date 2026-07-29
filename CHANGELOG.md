@@ -9,6 +9,10 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- The fresh compact runner now reuses its scheduler storage across parses.
+  Full-parse allocations fall from 15 to 14 per operation.
+  Parse time and allocated bytes remain statistically unchanged.
+
 - The parser now reuses its bound stop-check callback across compact full
   parses.
   This removes one allocation and 16 bytes per operation.

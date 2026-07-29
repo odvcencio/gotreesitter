@@ -1477,6 +1477,34 @@ func newDiagnosticParserCoreGenericScheduler(
 	observer diagnosticParserCoreSeedObserver,
 	options DiagnosticParserCorePrefixOptions,
 ) (*diagnosticParserCoreGenericScheduler, error) {
+	return initializeDiagnosticParserCoreGenericScheduler(
+		&diagnosticParserCoreGenericScheduler{},
+		compact,
+		tokenSource,
+		scannerScratch,
+		head,
+		checkpointID,
+		checkpoint,
+		observer,
+		options,
+	)
+}
+
+func initializeDiagnosticParserCoreGenericScheduler(
+	scheduler *diagnosticParserCoreGenericScheduler,
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	head core.Head,
+	checkpointID core.CheckpointID,
+	checkpoint DiagnosticParserCoreScannerCheckpoint,
+	observer diagnosticParserCoreSeedObserver,
+	options DiagnosticParserCorePrefixOptions,
+) (*diagnosticParserCoreGenericScheduler, error) {
+	if scheduler == nil {
+		return nil, errors.New("parser-core phase zero: seed scheduler storage is nil")
+	}
+	*scheduler = diagnosticParserCoreGenericScheduler{}
 	if compact == nil || tokenSource == nil || scannerScratch == nil || head.Node == 0 {
 		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreRoute, detail: "generic scheduler requires a compact core, token source, scanner scratch, and seed head"}
 	}
@@ -1495,7 +1523,7 @@ func newDiagnosticParserCoreGenericScheduler(
 		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreIdentity, detail: "generic seed head was not created under its scanner checkpoint identity"}
 	}
 	header := diagnosticParserCoreHeader{head: head, checkpoint: checkpointID}
-	scheduler := &diagnosticParserCoreGenericScheduler{
+	*scheduler = diagnosticParserCoreGenericScheduler{
 		compact: compact, tokenSource: tokenSource, scannerScratch: scannerScratch,
 		checkpoint: checkpoint, checkpointID: checkpointID,
 		electionIndex: -1, nextSeq: 1,
@@ -1794,6 +1822,20 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeed(
 	options DiagnosticParserCorePrefixOptions,
 	observer diagnosticParserCoreSeedObserver,
 ) (*diagnosticParserCoreGenericScheduler, error) {
+	return executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
+		nil, compact, tokenSource, scannerScratch, initialState, options, observer,
+	)
+}
+
+func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
+	scheduler *diagnosticParserCoreGenericScheduler,
+	compact *core.Core,
+	tokenSource *dfaTokenSource,
+	scannerScratch *[]byte,
+	initialState StateID,
+	options DiagnosticParserCorePrefixOptions,
+	observer diagnosticParserCoreSeedObserver,
+) (*diagnosticParserCoreGenericScheduler, error) {
 	if compact == nil || tokenSource == nil || scannerScratch == nil {
 		return nil, errors.New("parser-core phase zero: seed scheduler requires compact core and production token source")
 	}
@@ -1811,9 +1853,15 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeed(
 	if err != nil {
 		return nil, err
 	}
-	scheduler, err := newDiagnosticParserCoreGenericScheduler(
-		compact, tokenSource, scannerScratch, head, initialCheckpointID, initialCheckpointReceipt, observer, options,
-	)
+	if scheduler == nil {
+		scheduler, err = newDiagnosticParserCoreGenericScheduler(
+			compact, tokenSource, scannerScratch, head, initialCheckpointID, initialCheckpointReceipt, observer, options,
+		)
+	} else {
+		scheduler, err = initializeDiagnosticParserCoreGenericScheduler(
+			scheduler, compact, tokenSource, scannerScratch, head, initialCheckpointID, initialCheckpointReceipt, observer, options,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}

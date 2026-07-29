@@ -49,6 +49,30 @@ func TestParserCoreFreshFullRunnerRepeatedCanonicalLifecycle(t *testing.T) {
 	}
 }
 
+func TestParserCoreFreshFullRunnerReusesSchedulerStorage(t *testing.T) {
+	runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite")
+	first, tokenSource, err := runner.executeSchedulerOpen(fixture.Source, runner.compact, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokenSource.Close()
+	if first != &runner.scheduler {
+		t.Fatal("fresh-full runner did not use its scheduler storage")
+	}
+	second, tokenSource, err := runner.executeSchedulerOpen(fixture.Source, runner.compact, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokenSource.Close()
+	if second != first {
+		t.Fatal("fresh-full runner replaced its scheduler storage")
+	}
+}
+
 func TestParserCoreFreshFullRunnerScratchDoesNotAliasLiveTree(t *testing.T) {
 	runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
 	if err != nil {
