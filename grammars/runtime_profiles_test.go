@@ -976,9 +976,13 @@ func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
 		t.Fatalf("F# wrapper pre-goto state = %d, want %d", got, want)
 	}
 
-	stale := *language
-	stale.NativeUnaryWrapperFlattening = nil
-	if attachBuiltinLanguageRuntimeProfile("fsharp", [32]byte{}, &stale) {
+	stale := &gotreesitter.Language{
+		Name:           language.Name,
+		StateCount:     language.StateCount,
+		SymbolNames:    language.SymbolNames,
+		SymbolMetadata: language.SymbolMetadata,
+	}
+	if attachBuiltinLanguageRuntimeProfile("fsharp", [32]byte{}, stale) {
 		t.Fatal("stale F# blob identity attached the unary-wrapper profile")
 	}
 	if len(stale.NativeUnaryWrapperFlattening) != 0 {
