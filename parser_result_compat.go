@@ -111,16 +111,12 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 	switch ctx.lang.Name {
 	case "ada":
 		dispatcherArmCensus(ctx, "dispatch.ada", func() { normalizeAdaCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "angular":
-		dispatcherArmCensus(ctx, "dispatch.angular", func() { normalizeAngularCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "apex":
 		dispatcherArmCensus(ctx, "dispatch.apex", func() { normalizeApexCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "authzed":
 		dispatcherArmCensus(ctx, "dispatch.authzed", func() { normalizeAuthzedCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "awk":
 		dispatcherArmCensus(ctx, "dispatch.awk", func() { normalizeAwkCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "bibtex":
-		dispatcherArmCensus(ctx, "dispatch.bibtex", func() { normalizeBibtexCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "bash":
 		dispatcherArmCensus(ctx, "dispatch.bash", func() {
 			normalizeBashProgramVariableAssignments(ctx.root, ctx.lang)
@@ -129,8 +125,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		})
 	case "bitbake":
 		dispatcherArmCensus(ctx, "dispatch.bitbake", func() { normalizeBitbakeCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "chatito":
-		dispatcherArmCensus(ctx, "dispatch.chatito", func() { normalizeChatitoCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "c", "cpp":
 		dispatcherArmCensus(ctx, "dispatch.c_cpp", func() { normalizeCCompatibilityWithParser(ctx.root, ctx.source, ctx.parser, ctx.lang) })
 	case "c_sharp":
@@ -151,8 +145,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmCensus(ctx, "dispatch.elixir", func() { normalizeElixirCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "enforce":
 		dispatcherArmCensus(ctx, "dispatch.enforce", func() { normalizeEnforceCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "eds":
-		dispatcherArmCensus(ctx, "dispatch.eds", func() { normalizeEDSCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "fsharp":
 		dispatcherArmCensus(ctx, "dispatch.fsharp", func() { normalizeFSharpCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "fidl":

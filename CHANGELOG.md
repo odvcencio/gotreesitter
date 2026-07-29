@@ -53,6 +53,11 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Native C-style recovery now owns Angular, BibTeX, Chatito, and Electronic Data
+  Sheet materialization for every registered recovery witness.
+  This removes four inert result-compatibility dispatcher arms.
+  Compact and forest routes retain fail-closed behavior.
+
 - Native parser results now retain the expected Hurl and INI root types.
   This removes both expected-root fallback compatibility arms as one class.
   Compact and forest routes retain fail-closed behavior.
