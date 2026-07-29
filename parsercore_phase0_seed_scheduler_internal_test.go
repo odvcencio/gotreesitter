@@ -101,8 +101,19 @@ func TestDiagnosticParserCoreGenericSeedConstructorFailsClosed(t *testing.T) {
 	}
 	checkpoint := parserCoreCheckpoint(nil)
 	var scratch []byte
-	if _, err := newDiagnosticParserCoreGenericScheduler(compact, &dfaTokenSource{}, &scratch, seed, 0, checkpoint, diagnosticParserCoreSeedObserver{}, DiagnosticParserCorePrefixOptions{}); err != nil {
+	diagnosticScheduler, err := newDiagnosticParserCoreGenericScheduler(compact, &dfaTokenSource{}, &scratch, seed, 0, checkpoint, diagnosticParserCoreSeedObserver{}, DiagnosticParserCorePrefixOptions{})
+	if err != nil {
 		t.Fatalf("valid seed start declined: %v", err)
+	}
+	if diagnosticScheduler.receipt == &diagnosticScheduler.receiptBacking {
+		t.Fatal("public diagnostic scheduler embedded its published receipt")
+	}
+	freshScheduler, err := newDiagnosticParserCoreGenericScheduler(compact, &dfaTokenSource{}, &scratch, seed, 0, checkpoint, diagnosticParserCoreSeedObserver{}, DiagnosticParserCorePrefixOptions{freshSchedulerSession: true})
+	if err != nil {
+		t.Fatalf("fresh seed start declined: %v", err)
+	}
+	if freshScheduler.receipt != &freshScheduler.receiptBacking {
+		t.Fatal("fresh scheduler did not use its embedded receipt")
 	}
 	if _, err := newDiagnosticParserCoreGenericScheduler(nil, &dfaTokenSource{}, &scratch, seed, 0, checkpoint, diagnosticParserCoreSeedObserver{}, DiagnosticParserCorePrefixOptions{}); err == nil {
 		t.Fatal("nil compact core was admitted")

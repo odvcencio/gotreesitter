@@ -9,6 +9,11 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Fresh compact full parses now store the scheduler receipt inside the
+  scheduler allocation.
+  Full-parse allocations fall from 17 to 16 per operation.
+  Parse time, allocated bytes, and maximum resident set size remain unchanged.
+
 - The compact full-parse receipt now stores its acceptance value in the
   scheduler receipt allocation.
   Full-parse allocations fall from 18 to 17 per operation.

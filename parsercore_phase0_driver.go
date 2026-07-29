@@ -1400,6 +1400,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	branchOrder                   uint64
 	nextSeq                       uint64
 	options                       DiagnosticParserCorePrefixOptions
+	receiptBacking                DiagnosticParserCoreGenericScheduler
 	receipt                       *DiagnosticParserCoreGenericScheduler
 	summaryHeaderScratch          []DiagnosticParserCoreHeaderReceipt
 	headerRollbackScratch         diagnosticParserCoreHeaderRollbackScratch
@@ -1499,10 +1500,20 @@ func newDiagnosticParserCoreGenericScheduler(
 		checkpoint: checkpoint, checkpointID: checkpointID,
 		electionIndex: -1, nextSeq: 1,
 		options: options, observer: observer,
-		receipt: &DiagnosticParserCoreGenericScheduler{
+	}
+	// Public diagnostic results retain their receipt after the scheduler returns.
+	// Embed only for a fresh runner, which never publishes its receipt.
+	if options.freshSchedulerSession {
+		scheduler.receiptBacking = DiagnosticParserCoreGenericScheduler{
 			ReceiptMode:     options.ReceiptMode,
 			StartCheckpoint: checkpoint,
-		},
+		}
+		scheduler.receipt = &scheduler.receiptBacking
+	} else {
+		scheduler.receipt = &DiagnosticParserCoreGenericScheduler{
+			ReceiptMode:     options.ReceiptMode,
+			StartCheckpoint: checkpoint,
+		}
 	}
 	scheduler.seedHeaders[0] = header
 	scheduler.headers = scheduler.seedHeaders[:]
