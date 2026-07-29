@@ -53,6 +53,10 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Native parser results now retain the expected Hurl and INI root types.
+  This removes both expected-root fallback compatibility arms as one class.
+  Compact and forest routes retain fail-closed behavior.
+
 - Native recovery now owns Forth and Luau recovery-action materialization.
   Forth keeps C-equivalent missing terminators and empty-definition errors.
   Luau keeps recovered `end` tokens as identifiers.

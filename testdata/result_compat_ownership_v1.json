@@ -2,8 +2,8 @@
   "schema": "gotreesitter/result-compat-ownership/v1",
   "source_of_truth": true,
   "denominator": {
-    "dispatcher_arms": 48,
-    "dispatcher_languages": 50,
+    "dispatcher_arms": 46,
+    "dispatcher_languages": 48,
     "dispatcher_predicates": 1,
     "generic_passes": 0,
     "post_finalization_arms": 0,
@@ -1162,21 +1162,26 @@
       "languages": [
         "hurl"
       ],
-      "purpose": "Reconcile Hurl recovery and returned-tree shape.",
+      "purpose": "Historical: Hurl replaced a native expected root with an ERROR root after publication.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/expected_root_fallback_native_regression_test.go",
+        "cgo_harness/expected_root_fallback_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: native parsing retains the C-equivalent hurl_file root. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "f2d9b9e64c88e82b147bca8e7336ab67da29778e",
+      "receipt_refs": [
+        "grammars/expected_root_fallback_native_regression_test.go",
+        "cgo_harness/expected_root_fallback_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.hlsl",
@@ -1246,21 +1251,26 @@
       "languages": [
         "ini"
       ],
-      "purpose": "Reconcile INI recovery and returned-tree shape.",
+      "purpose": "Historical: INI replaced native document roots and rebuilt recovery trees after publication.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/expected_root_fallback_native_regression_test.go",
+        "cgo_harness/expected_root_fallback_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: native recovery emits C-equivalent document trees for malformed files and continuation inputs. Production and incremental routes are exact. Compact and forest routes remain exact or fail closed.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_or_fail_closed_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "receipt_refs": []
+      "status": "retired",
+      "retired_commit": "f2d9b9e64c88e82b147bca8e7336ab67da29778e",
+      "receipt_refs": [
+        "grammars/expected_root_fallback_native_regression_test.go",
+        "cgo_harness/expected_root_fallback_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.javascript",

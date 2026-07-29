@@ -18,11 +18,8 @@ type resultCompatibilityContext struct {
 }
 
 type resultCompatibilityResult struct {
-	stopReason                     ParseStopReason
-	iniMypyEnableErrorContinuation bool
-	iniContinuationStart           uint32
-	iniContinuationEnd             uint32
-	errorSummary                   resultErrorSummary
+	stopReason   ParseStopReason
+	errorSummary resultErrorSummary
 }
 
 // normalizeResultCompatibility applies narrow post-build tree rewrites that
@@ -168,18 +165,10 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		return resultCompatibilityResult{stopReason: stopReason}
 	case "http":
 		dispatcherArmCensus(ctx, "dispatch.http", func() { normalizeHTTPCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "hurl":
-		dispatcherArmCensus(ctx, "dispatch.hurl", func() { normalizeHurlCompatibility(ctx.root, ctx.lang) })
 	case "hlsl":
 		dispatcherArmCensus(ctx, "dispatch.hlsl", func() { normalizeHLSLCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "hyprlang":
 		dispatcherArmCensus(ctx, "dispatch.hyprlang", func() { normalizeHyprlangCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "ini":
-		var res resultCompatibilityResult
-		dispatcherArmCensus(ctx, "dispatch.ini", func() {
-			res = normalizeIniCompatibility(ctx.root, ctx.source, ctx.lang)
-		})
-		return res
 	case "javascript":
 		var stopReason ParseStopReason
 		dispatcherArmCensus(ctx, "dispatch.javascript", func() {

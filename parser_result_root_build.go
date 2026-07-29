@@ -1087,9 +1087,6 @@ func (p *Parser) shouldDeferResultCompatibility(root *Node) bool {
 	if p == nil || p.language == nil || root == nil || p.noResultCompatibilityBenchmarkOnly || p.noTreeBenchmarkOnly {
 		return false
 	}
-	if p.language.Name == "ini" {
-		return true
-	}
 	if !parseTypeScriptLazyResultCompatibilityEnabled() {
 		return false
 	}

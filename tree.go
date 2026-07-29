@@ -2419,15 +2419,14 @@ func (t *Tree) ensureResultCompatibility() {
 			t.resultErrorSummary = result.errorSummary
 			t.resultCompatibilityApplied = !parseStopReasonIsActive(result.stopReason)
 			// Diagnostic-only, mirrors the timing-enabled branch below: without
-			// this, every deferred-compatibility language (ini always;
-			// typescript/tsx by default, see shouldDeferResultCompatibility) would
+			// this, every deferred-compatibility language (typescript/tsx by
+			// default, see shouldDeferResultCompatibility) would
 			// look UNCOVERED to the dispatcher-arm census
 			// (GTS_DISPATCHER_CENSUS, parser_result_compat.go) even though its
 			// normalizer just ran on the line above. parser.normalizationStats is
 			// only ever non-empty when that census flag is set, so this is a
 			// no-op field copy in every ordinary parse.
 			parser.copyNormalizationStats(&t.parseRuntime)
-			t.finishDeferredResultCompatibility(result)
 			return
 		}
 		timing := &parseMaterializationTiming{}
@@ -2442,21 +2441,7 @@ func (t *Tree) ensureResultCompatibility() {
 		timing.addResultCompatibility(start)
 		t.parseRuntime.ResultCompatibilityNanos += timing.resultCompatibilityNanos
 		parser.copyNormalizationStats(&t.parseRuntime)
-		t.finishDeferredResultCompatibility(result)
 	})
-}
-
-func (t *Tree) finishDeferredResultCompatibility(result resultCompatibilityResult) {
-	if t == nil || t.root == nil || t.language == nil || t.language.Name != "ini" {
-		return
-	}
-	extendNodeToTrailingWhitespace(t.root, t.source)
-	wireParentLinksWithScratch(t.root, nil)
-	if t.parseRuntime.StopReason == ParseStopNoStacksAlive && iniDeferredCompatibilityAccepted(t.root, t.source, t.language, result) {
-		t.parseRuntime.StopReason = ParseStopAccepted
-		t.parseRuntime.RootEndByte = t.root.endByte
-		t.parseRuntime.Truncated = false
-	}
 }
 
 func newParentNode(arena *nodeArena, sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {
