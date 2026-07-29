@@ -106,7 +106,11 @@ type Parser struct {
 	// bound method only captures p (tables are re-read at call time), so one
 	// closure stays valid for the parser's whole lifetime, including language
 	// changes. See lookupActionIndexFunc (parser_tables.go).
-	lookupActionIndexFn                 func(state StateID, sym Symbol) uint16
+	lookupActionIndexFn func(state StateID, sym Symbol) uint16
+	// activeParseStopCheckFn caches the bound stop-check method. Compact
+	// full parses install this callback in a poller. Reusing one closure avoids
+	// one allocation per parse.
+	activeParseStopCheckFn              parseStopCheck
 	typeScriptPropertyIdentifierSymbol  Symbol
 	typeScriptIdentifierSymbol          Symbol
 	typeScriptHasPropertyIdentifier     bool
@@ -1443,6 +1447,7 @@ type parseReuseState struct {
 // NewParser creates a new Parser for the given language.
 func NewParser(lang *Language) *Parser {
 	p := &Parser{language: lang}
+	p.activeParseStopCheckFn = p.activeParseStopReason
 	if lang != nil {
 		p.forceRawSpanAll = lang.Name == "yaml"
 		p.leafInternByLang = languageWantsLeafInterning(lang.Name)

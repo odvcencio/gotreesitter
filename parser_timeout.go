@@ -116,7 +116,10 @@ func (p *Parser) activeParseStopCheck() parseStopCheck {
 	if p == nil {
 		return nil
 	}
-	return p.activeParseStopReason
+	if p.activeParseStopCheckFn == nil {
+		p.activeParseStopCheckFn = p.activeParseStopReason
+	}
+	return p.activeParseStopCheckFn
 }
 
 func (p *Parser) activeParseStopReason() ParseStopReason {

@@ -9,6 +9,12 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- The parser now reuses its bound stop-check callback across compact full
+  parses.
+  This removes one allocation and 16 bytes per operation.
+  Full-parse time and maximum resident set size remain unchanged.
+  Incremental parses retain zero allocations.
+
 - Fresh compact full parses now store the scheduler receipt inside the
   scheduler allocation.
   Full-parse allocations fall from 17 to 16 per operation.
