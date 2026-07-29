@@ -10,7 +10,7 @@ import (
 const Issue454PHPFixtureBytes = 137 * 1024
 
 // Issue454PHPSource builds the deterministic issue #454 PHP workload. The
-// first local variable is the near-top edit site for the $x0 to $0 deletion.
+// first local variable contains the edit site for the $x0 to $0 deletion.
 func Issue454PHPSource() []byte {
 	var source strings.Builder
 	source.Grow(Issue454PHPFixtureBytes)

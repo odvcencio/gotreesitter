@@ -6818,8 +6818,8 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 			maxMergePerKeyOverride < 0)
 	// C keeps equivalent cap-one recovery readings as links on one graph
 	// stack. Preserve that convergence after recovery makes error cost
-	// relevant. Separate Go stacks otherwise fork each history again at every
-	// clean suffix conflict and can grow quadratically.
+	// relevant. Otherwise, separate Go stacks fork each history at every clean
+	// suffix and grow quadratically.
 	scratch.merge.recoveryCapOneConvergence = reuse == nil &&
 		mergePerKeyCap == 1 &&
 		p.errorCostCompetitionEnabled()
