@@ -539,7 +539,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(frontier []ReductionOutput, bou
 	// case; see its doc comment.
 	multiPop := len(paths) > 1
 	if multiPop {
-		c.markCleanProductionRank(paths)
+		c.markReductionProductionRanks(paths)
 	}
 	for _, path := range paths {
 		prev, err := c.node(path.prev)
@@ -598,6 +598,10 @@ func (c *Core) reduceOutputsClassifiedIntoActive(frontier []ReductionOutput, bou
 		}
 		freshness := previous.freshness
 		cleanPathRank := mergeCleanPathRank(previous.cleanPathRank, path.cleanPathRank)
+		lineageDestinationRank := mergeCleanPathRank(
+			previous.lineageDestinationRank,
+			path.lineageDestinationRank,
+		)
 		historicalBoundarySplit := previous.historicalBoundarySplit || outcome.historicalBoundarySplit
 		historicalConvergedSplit := previous.historicalConvergedSplit
 		historicalForestDeterministic := previous.historicalForestDeterministic
@@ -640,6 +644,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(frontier []ReductionOutput, bou
 		}
 		scratch.store(boundaryIndex, seen, reductionBoundaryOutput{
 			key: key, head: out, freshness: freshness, cleanPathRank: cleanPathRank,
+			lineageDestinationRank:        lineageDestinationRank,
 			historicalBoundarySplit:       historicalBoundarySplit,
 			historicalConvergedSplit:      historicalConvergedSplit,
 			historicalForestDeterministic: historicalForestDeterministic,
@@ -661,6 +666,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(frontier []ReductionOutput, bou
 			Head:                         output.head,
 			Freshness:                    output.freshness,
 			CleanPathRank:                output.cleanPathRank,
+			LineageDestinationRank:       output.lineageDestinationRank,
 			MultiplePopPaths:             multiPop,
 			HistoricalBoundaryProvenance: historicalProvenance,
 			HistoricalCleanPathRank:      output.historicalCleanPathRank,
