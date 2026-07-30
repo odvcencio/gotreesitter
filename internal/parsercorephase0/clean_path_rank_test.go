@@ -11,6 +11,7 @@ type cleanPathRankBranch struct {
 	windowScore int64
 	gotoState   StateID
 	external    bool
+	exact       bool
 }
 
 func newCleanPathRankFixture(tb testing.TB, branches []cleanPathRankBranch) (*Core, Head) {
@@ -64,10 +65,29 @@ func newCleanPathRankFixture(tb testing.TB, branches []cleanPathRankBranch) (*Co
 				tb.Fatal(err)
 			}
 		}
-		child, err := compact.appendSubtree(subtreeRecord{
+		if branch.external && branch.exact {
+			start, err := compact.InternCheckpoint([]byte{1, 2})
+			if err != nil {
+				tb.Fatal(err)
+			}
+			end, err := compact.InternCheckpoint([]byte{3, 4})
+			if err != nil {
+				tb.Fatal(err)
+			}
+			if err := compact.SetPhaseExternalTokenScannerCheckpoints(start, end); err != nil {
+				tb.Fatal(err)
+			}
+		}
+		childRecord := subtreeRecord{
 			symbol: 10, startByte: 0, endByte: 1,
 			terminal: true, external: branch.external,
-		}, nil, nil, nil)
+		}
+		var child SubtreeID
+		if branch.exact {
+			child, err = compact.appendAuthenticatedTerminal(childRecord)
+		} else {
+			child, err = compact.appendSubtree(childRecord, nil, nil, nil)
+		}
 		if err != nil {
 			tb.Fatal(err)
 		}
@@ -268,6 +288,40 @@ func TestCleanPathRankExternalPayloadIsUnknown(t *testing.T) {
 		if output.CleanPathRank != CleanPathRankUnknown {
 			t.Fatalf("external ranked output=%+v, want unknown", output)
 		}
+	}
+}
+
+func TestExactExternalPayloadRanksOnlyLineageDestination(t *testing.T) {
+	compact, head := newCleanPathRankFixture(t, []cleanPathRankBranch{
+		{predecessor: 1, prefixScore: []int64{5}, gotoState: 60, external: true, exact: true},
+		{predecessor: 2, prefixScore: []int64{2}, gotoState: 61},
+	})
+	outputs, err := compact.ReduceOutputs(head, 9, 0, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotScheduler := cleanPathRankOutputStates(t, compact, outputs)
+	wantScheduler := map[StateID]CleanPathRankSelection{
+		60: CleanPathRankUnknown,
+		61: CleanPathRankUnknown,
+	}
+	if !reflect.DeepEqual(gotScheduler, wantScheduler) {
+		t.Fatalf("scheduler ranks=%v, want %v", gotScheduler, wantScheduler)
+	}
+	gotDestination := make(map[StateID]CleanPathRankSelection, len(outputs))
+	for _, output := range outputs {
+		record, err := compact.node(output.Head.Node)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotDestination[record.state] = output.LineageDestinationRank
+	}
+	wantDestination := map[StateID]CleanPathRankSelection{
+		60: CleanPathRankSelected,
+		61: CleanPathRankUnselected,
+	}
+	if !reflect.DeepEqual(gotDestination, wantDestination) {
+		t.Fatalf("destination ranks=%v, want %v", gotDestination, wantDestination)
 	}
 }
 

@@ -1550,6 +1550,7 @@ type ReductionOutput struct {
 	Head                         Head
 	Freshness                    ReductionFreshness
 	CleanPathRank                CleanPathRankSelection
+	LineageDestinationRank       CleanPathRankSelection
 	MultiplePopPaths             bool
 	HistoricalBoundaryProvenance HistoricalBoundaryProvenance
 	HistoricalCleanPathRank      CleanPathRankSelection
@@ -1563,6 +1564,7 @@ type reductionBoundaryOutput struct {
 	head                          Head
 	freshness                     ReductionFreshness
 	cleanPathRank                 CleanPathRankSelection
+	lineageDestinationRank        CleanPathRankSelection
 	historicalBoundarySplit       bool
 	historicalConvergedSplit      bool
 	historicalForestDeterministic bool
@@ -3095,14 +3097,15 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, old nod
 }
 
 type popPath struct {
-	prev          NodeID
-	cleanPathRank CleanPathRankSelection
-	children      []SubtreeID
-	trailing      []pathPayload
-	score         int64
-	order         ForkOrder
-	startByte     uint32
-	structuralEnd uint32
+	prev                   NodeID
+	cleanPathRank          CleanPathRankSelection
+	lineageDestinationRank CleanPathRankSelection
+	children               []SubtreeID
+	trailing               []pathPayload
+	score                  int64
+	order                  ForkOrder
+	startByte              uint32
+	structuralEnd          uint32
 }
 
 type pathPayload struct {
@@ -3225,11 +3228,34 @@ func (a *cleanPathRankAccumulator) observe(prefixScore int64, prefixDepth uint64
 // The walk reuses popScratch's existing traversal storage. It does not publish
 // arena data or allocate selector-owned storage.
 func (c *Core) markCleanProductionRank(paths []popPath) {
+	c.markProductionRank(paths, false, false)
+}
+
+// markReductionProductionRanks keeps the scheduler rank conservative. It
+// publishes exact external scanner evidence only through the destination
+// channel, which cannot change scheduler selection.
+func (c *Core) markReductionProductionRanks(paths []popPath) {
+	c.markProductionRank(paths, false, false)
+	allUnknown := true
+	for index := range paths {
+		paths[index].lineageDestinationRank = paths[index].cleanPathRank
+		allUnknown = allUnknown && paths[index].cleanPathRank == CleanPathRankUnknown
+	}
+	if allUnknown {
+		c.markProductionRank(paths, true, true)
+	}
+}
+
+func (c *Core) markProductionRank(
+	paths []popPath,
+	allowExactExternal bool,
+	destinationOnly bool,
+) {
 	if len(paths) < 2 {
 		return
 	}
 	for index := range paths {
-		paths[index].cleanPathRank = CleanPathRankUnselected
+		setProductionRank(&paths[index], destinationOnly, CleanPathRankUnselected)
 	}
 	scratch := &c.popScratch
 	scratch.finishTraversal()
@@ -3239,23 +3265,23 @@ func (c *Core) markCleanProductionRank(paths []popPath) {
 	for index := range paths {
 		path := &paths[index]
 		for _, payload := range path.children {
-			hasExternal, err := c.cleanPathPayloadHasExternal(payload)
+			hasExternal, err := c.cleanPathPayloadHasExternal(payload, allowExactExternal)
 			if err != nil || hasExternal {
-				markCleanPathRankUnknown(paths)
+				markProductionRankUnknown(paths, destinationOnly)
 				return
 			}
 		}
 		for _, trailing := range path.trailing {
-			hasExternal, err := c.cleanPathPayloadHasExternal(trailing.payload)
+			hasExternal, err := c.cleanPathPayloadHasExternal(trailing.payload, allowExactExternal)
 			if err != nil || hasExternal {
-				markCleanPathRankUnknown(paths)
+				markProductionRankUnknown(paths, destinationOnly)
 				return
 			}
 		}
 		prefix, err := c.node(path.prev)
 		if err != nil || prefix.pathCount == math.MaxUint64 ||
 			prefix.pathCount > c.limits.MaxDerivations {
-			markCleanPathRankUnknown(paths)
+			markProductionRankUnknown(paths, destinationOnly)
 			return
 		}
 		rank.pathIndex = index
@@ -3263,26 +3289,37 @@ func (c *Core) markCleanProductionRank(paths []popPath) {
 			score: path.score,
 			depth: uint64(len(path.children) + len(path.trailing)),
 		}
-		ok, err := c.walkCleanPrefixRanks(path.prev, &rank)
+		ok, err := c.walkCleanPrefixRanks(path.prev, &rank, allowExactExternal)
 		if err != nil || !ok {
-			markCleanPathRankUnknown(paths)
+			markProductionRankUnknown(paths, destinationOnly)
 			return
 		}
 	}
 	if !rank.found || rank.crossTie {
-		markCleanPathRankUnknown(paths)
+		markProductionRankUnknown(paths, destinationOnly)
 		return
 	}
-	paths[rank.winner].cleanPathRank = CleanPathRankSelected
+	setProductionRank(&paths[rank.winner], destinationOnly, CleanPathRankSelected)
 }
 
-func markCleanPathRankUnknown(paths []popPath) {
+func setProductionRank(path *popPath, destinationOnly bool, rank CleanPathRankSelection) {
+	if destinationOnly {
+		path.lineageDestinationRank = rank
+		return
+	}
+	path.cleanPathRank = rank
+}
+
+func markProductionRankUnknown(paths []popPath, destinationOnly bool) {
 	for index := range paths {
-		paths[index].cleanPathRank = CleanPathRankUnknown
+		setProductionRank(&paths[index], destinationOnly, CleanPathRankUnknown)
 	}
 }
 
-func (c *Core) cleanPathPayloadHasExternal(root SubtreeID) (bool, error) {
+func (c *Core) cleanPathPayloadHasExternal(
+	root SubtreeID,
+	allowExactExternal bool,
+) (bool, error) {
 	if c.externalPayloadsQuiescent {
 		return false, nil
 	}
@@ -3308,8 +3345,24 @@ func (c *Core) cleanPathPayloadHasExternal(root SubtreeID) (bool, error) {
 			return false, errors.New("parser-core phase zero: clean path external payload walk cap")
 		}
 		if record.external {
-			c.popScratch.external = stack[:0]
-			return true, nil
+			if !allowExactExternal {
+				c.popScratch.external = stack[:0]
+				return true, nil
+			}
+			provenance, exact := c.externalPayloadScannerProvenance(id)
+			if !record.terminal || !exact {
+				c.popScratch.external = stack[:0]
+				return true, nil
+			}
+			for _, checkpoint := range [...]CheckpointID{provenance.start, provenance.end} {
+				if checkpoint == 0 {
+					continue
+				}
+				if _, ok := c.checkpoints.record(checkpoint); !ok {
+					c.popScratch.external = stack[:0]
+					return true, nil
+				}
+			}
 		}
 		for _, child := range c.children[record.firstChild : record.firstChild+record.childCount] {
 			if child == 0 || child >= id {
@@ -3327,7 +3380,11 @@ func (c *Core) cleanPathPayloadHasExternal(root SubtreeID) (bool, error) {
 // walkCleanPrefixRanks visits each retained prefix derivation without a map.
 // The persistent graph is an append-only directed acyclic graph. Existing
 // link-frame and score scratch provide the iterative traversal stack.
-func (c *Core) walkCleanPrefixRanks(root NodeID, rank *cleanPathRankAccumulator) (bool, error) {
+func (c *Core) walkCleanPrefixRanks(
+	root NodeID,
+	rank *cleanPathRankAccumulator,
+	allowExactExternal bool,
+) (bool, error) {
 	scratch := &c.popScratch
 	scratch.finishTraversal()
 	id := root
@@ -3355,7 +3412,7 @@ descend:
 			if link.next != 0 {
 				return false, errors.New("parser-core phase zero: clean path single link has a successor")
 			}
-			hasExternal, err := c.cleanPathPayloadHasExternal(link.payload)
+			hasExternal, err := c.cleanPathPayloadHasExternal(link.payload, allowExactExternal)
 			if err != nil || hasExternal {
 				return false, err
 			}
@@ -3407,7 +3464,7 @@ descend:
 		link := frame[cursor]
 		scratch.revOrders[frameIndex].Value++
 		var err error
-		hasExternal, err := c.cleanPathPayloadHasExternal(link.payload)
+		hasExternal, err := c.cleanPathPayloadHasExternal(link.payload, allowExactExternal)
 		if err != nil || hasExternal {
 			return false, err
 		}

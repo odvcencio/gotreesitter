@@ -97,6 +97,77 @@ func TestDiagnosticParserCoreCanonicalScratchCollapsesCanonicalHeads(t *testing.
 	}
 }
 
+func TestDiagnosticParserCoreSelectedForestOwnershipDropsSharedBranch(t *testing.T) {
+	table := &genericConflictTable{
+		cells: map[genericConflictCell][]core.Action{
+			{state: 1, symbol: 7}: {{Type: core.ActionShift, State: 5}},
+			{state: 1, symbol: 8}: {{Type: core.ActionShift, State: 5}},
+		},
+	}
+	compact, err := core.New(table, core.Limits{MaxDerivations: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := compact.Shift(
+		seed,
+		7,
+		0,
+		core.Token{Symbol: 7, EndByte: 1},
+		core.ForkOrder{Present: true, Value: 6},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	survivor, err := compact.Shift(
+		seed,
+		8,
+		0,
+		core.Token{Symbol: 8, EndByte: 1},
+		core.ForkOrder{Present: true, Value: 3},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headers := []diagnosticParserCoreHeader{
+		{
+			head: selected, creationSeq: 7, convergedReductionSplit: true,
+			cleanPathRank:    core.CleanPathRankUnknown,
+			cleanPathLineage: diagnosticParserCoreSelectedForestOrderMarker | 7,
+		},
+		{
+			head: survivor, creationSeq: 3, convergedReductionSplit: true,
+			cleanPathRank: core.CleanPathRankUnknown,
+		},
+	}
+	proved, ok := diagnosticParserCoreSelectedForestOwnershipDrops(
+		compact,
+		headers,
+		[]int{0},
+	)
+	if !ok || proved != 1 {
+		t.Fatalf("shared selected forest proof = (%d,%t), want (1,true)", proved, ok)
+	}
+	if proved, ok := diagnosticParserCoreSelectedForestOwnershipDrops(
+		compact,
+		headers,
+		[]int{1},
+	); ok || proved != 0 {
+		t.Fatalf("unproved survivor drop = (%d,%t), want (0,false)", proved, ok)
+	}
+	headers[0].cleanPathLineage = 0
+	if proved, ok := diagnosticParserCoreSelectedForestOwnershipDrops(
+		compact,
+		headers,
+		[]int{0},
+	); ok || proved != 0 {
+		t.Fatalf("missing order proof = (%d,%t), want (0,false)", proved, ok)
+	}
+}
+
 func TestDiagnosticParserCoreCanonicalScratchDoesNotAliasPublishedOutput(t *testing.T) {
 	compact, firstHead, secondHead := newDiagnosticParserCoreCanonicalTestCore(t)
 	var scratch diagnosticParserCoreCanonicalScratch

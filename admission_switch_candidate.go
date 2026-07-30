@@ -48,6 +48,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		allowEOFAcceptNoActionSiblings:  p.language.CompactEOFAcceptNoActionSiblingsCertified,
 		allowPrimaryAcceptDerivation:    p.language.CompactPrimaryAcceptanceDerivationCertified,
 		allowConvergedSplitDropArtifact: p.language.CompactConvergedReductionSplitDropsCertified,
+		allowLineageDestinationProof:    true,
 		noLookaheadRootSymbol:           p.rootSymbol,
 		hasNoLookaheadRootSymbol:        p.hasRootSymbol,
 	}
