@@ -4588,10 +4588,16 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 	}
 	paths, err := compactDerivationsForAcceptance(s.compact, s.headers[0].head)
 	if err != nil {
+		// Stage D0 instrument (spec.derivation-set-equivalence.v1): a capped
+		// enumeration leaves D unknown, which the differential must not read
+		// as an empty set. Compiled out of the shipped build; see
+		// parsercore_phase0_derivation_set_census_disabled.go.
+		s.censusAcceptanceDerivationSetTruncated()
 		return err
 	}
 	path, selected := selectCompactAcceptanceDerivation(paths, s.options.allowPrimaryAcceptDerivation)
 	if !selected {
+		s.censusAcceptanceDerivationSet(paths, core.Derivation{}, false, false)
 		return s.finish(DiagnosticParserCoreAccept, "generic scheduler requires one certified accepted derivation", 0)
 	}
 	// R1 materiality gate: selectCompactAcceptanceDerivation's tie guard has
@@ -4626,6 +4632,7 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 			// this cap rather than pay for a comparison this rare. Counted
 			// under the same material-acceptance-election census mechanism
 			// (admission_census.go), with a distinguishable detail string.
+			s.censusAcceptanceDerivationSet(paths, path, true, true)
 			return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionCandidateCapDetail, 0)
 		}
 		if !s.options.materializationContextSet {
@@ -4637,6 +4644,7 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 			// executeSchedulerOpen, diagnosticParseParserCoreGenericFromSeed),
 			// so this is a fail-closed guard for a caller shape not observed
 			// in the certified sweep corpora.
+			s.censusAcceptanceDerivationSet(paths, path, true, true)
 			return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionNoContextDetail, 0)
 		}
 		if !compactAcceptanceElectionIsVacuous(
@@ -4644,9 +4652,13 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 			s.options.materializationForceReplayParseStates, s.options.materializationContextSet,
 			s.headers[0].head, paths, path,
 		) {
+			s.censusAcceptanceDerivationSet(paths, path, true, true)
 			return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionMaterialDetail, 0)
 		}
 	}
+	// Stage D0 instrument (spec.derivation-set-equivalence.v1): record the
+	// accepted derivation set D. Compiled out of the shipped build.
+	s.censusAcceptanceDerivationSet(paths, path, true, false)
 	if core.Phase0AEnabled {
 		if err := core.RecordPhase0ADiagnosticAcceptedRoots(s.compact, path.Payloads); err != nil {
 			return err
