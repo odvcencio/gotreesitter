@@ -1533,6 +1533,83 @@ func (c *Core) Boundary(head Head) (StateID, uint32, error) {
 	return node.state, node.byteOffset, nil
 }
 
+// AncestorStateWithActionExists reports whether any ancestor of head, found
+// by walking predecessor links up to maxDepth steps back (depth 1 is head's
+// own direct predecessors; head's own state is never itself checked here --
+// a caller that also needs that check performs it separately, exactly like
+// a depth-0 resume probe would), has a dispatchable action for lookahead. It
+// explores every predecessor link the condensed graph records at each depth
+// -- a node can carry more than one incoming link even without genuine
+// grammar ambiguity, from shallow path-merging condensation alone
+// (mergePredecessorsBounded's own doc comment) -- stopping at the first
+// depth where any visited state accepts lookahead. Link adjacency is a
+// strictly-decreasing-NodeID DAG by construction (validatePublishedNodeDAG
+// rejects any link.prev >= the node being published), so this walk cannot
+// cycle; the visited-node cap below exists only to bound pathological
+// fan-out, not to guard against a cycle that cannot occur.
+//
+// This is a bounded existence probe, not a resume: it performs no cost
+// comparison, no election, and no state mutation, and a true result names
+// no specific resume target. It exists purely so a caller working depth-0
+// recovery can detect "a deeper stack entry might accept this lookahead"
+// (the shape a full stack-summary election -- cRecoverMaxSummaryDepth in
+// the production Go port -- would explore and resolve) and decline instead
+// of silently assuming no such entry exists.
+func (c *Core) AncestorStateWithActionExists(head Head, lookahead Symbol, maxDepth int) (bool, error) {
+	if maxDepth <= 0 {
+		return false, nil
+	}
+	const maxVisitedNodes = 4096 // generous: no real S3 region approaches this
+	frontier := []NodeID{head.Node}
+	visited := map[NodeID]bool{head.Node: true}
+	for depth := 1; depth <= maxDepth && len(frontier) > 0; depth++ {
+		var next []NodeID
+		for _, id := range frontier {
+			n, err := c.node(id)
+			if err != nil {
+				return false, err
+			}
+			count := n.linkCount
+			if count == 0 {
+				continue
+			}
+			if uint64(count) > uint64(c.limits.MaxLinks) || uint64(count) > uint64(c.limits.MaxLinksPerBoundary) {
+				return false, errors.New("parser-core phase zero: recorded link count exceeds configured limit")
+			}
+			linkID := LinkID(n.firstLink)
+			for remaining := count; remaining > 0; remaining-- {
+				if linkID == 0 || uint64(linkID) > uint64(len(c.links)) {
+					return false, errors.New("parser-core phase zero: ancestor adjacency out of range")
+				}
+				link := c.links[linkID-1]
+				if link.prev != 0 && !visited[link.prev] {
+					visited[link.prev] = true
+					if len(visited) > maxVisitedNodes {
+						return false, nil
+					}
+					next = append(next, link.prev)
+				}
+				linkID = link.next
+			}
+		}
+		for _, id := range next {
+			ancestor, err := c.node(id)
+			if err != nil {
+				return false, err
+			}
+			row, err := c.tables.Actions(ancestor.state, lookahead)
+			if err != nil {
+				return false, err
+			}
+			if row.Len() > 0 {
+				return true, nil
+			}
+		}
+		frontier = next
+	}
+	return false, nil
+}
+
 // CanonicalBoundary returns the latest condensed head for one complete
 // same-lookahead scheduler phase identity. Headers use it at pass barriers to
 // replace stale immutable NodeIDs without changing their first-slot order.

@@ -235,3 +235,82 @@ func TestCompactRouteDeclinesAdjudicatedFalseCleanWitnesses(t *testing.T) {
 		})
 	}
 }
+
+// TestCompactRouteAcceptedRootLeafCoverageGapDeclines pins the adversarial
+// review finding against B3 stage S3's first shipped revision: html
+// "<!--c-->>" (9 bytes) reduced the compact route's accepted root over zero
+// real children (a hollow "document[0:9]"), and the tiling audit of the era
+// could not catch it because isDerivationRootReduce exempts the root's own
+// reduce from the per-reduce raw-children check, and the root was the only
+// accepted payload. finalizeDiagnosticParserCoreAcceptedRootSpan's
+// allowErrorRoot branch now runs a second, root-only audit
+// (diagnosticParserCoreAcceptedTreeLeafCoverageGap) after materialization:
+// it walks the finalized public tree and requires every genuine terminal
+// leaf (or built-in ERROR leaf) to tile [firstNonTriviaByte, sourceLen)
+// modulo trivia, independent of which reduce claimed which span. A hollow
+// non-terminal reduce (a childless node whose symbol is not a terminal and
+// not ERROR) contributes no coverage, so it can no longer paper over lost
+// bytes.
+//
+// Each case here absorbed a comment and a stray '>' (or more) into an S3
+// error region and then reduced "document" over nothing; every one must now
+// decline and fall back to production, which reports the correct
+// ERROR-wrapped, HasError=true tree for all five.
+func TestCompactRouteAcceptedRootLeafCoverageGapDeclines(t *testing.T) {
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	entry := grammars.DetectLanguageByName("html")
+	if entry == nil {
+		t.Fatal("html is not registered")
+	}
+	lang := entry.Language()
+
+	sources := []string{
+		"<!--c-->>",
+		"<!-- c -->>",
+		"<!--c--> >",
+		"<!--c-->>>",
+		"<!--c--><!--d-->>",
+	}
+	for _, src := range sources {
+		src := src
+		t.Run(src, func(t *testing.T) {
+			source := []byte(src)
+
+			production := gts.NewParser(lang)
+			production.SetAdmissionCandidateRoute(false)
+			productionTree, err := production.Parse(source)
+			if err != nil {
+				t.Fatalf("production parse: %v", err)
+			}
+			defer productionTree.Release()
+			if !productionTree.RootNode().HasError() {
+				t.Fatalf("production HasError=false, want true for %q", src)
+			}
+
+			gts.ResetAdmissionCandidateCountersForTest()
+			candidate := gts.NewParser(lang)
+			candidate.SetAdmissionCandidateRoute(true)
+			candidateTree, err := candidate.Parse(source)
+			if err != nil {
+				t.Fatalf("candidate parse: %v", err)
+			}
+			defer candidateTree.Release()
+
+			routed, fallback := gts.AdmissionCandidateCounters()
+			if routed != 0 || fallback != 1 {
+				t.Fatalf("%q: route counters routed=%d fallback=%d, want routed=0 fallback=1 (root leaf-coverage gap must decline)", src, routed, fallback)
+			}
+			reason := gts.AdmissionCandidateLastFallbackReason()
+			if !strings.Contains(reason, "do not tile the accepted span") {
+				t.Fatalf("%q: fallback reason=%q, want it to cite the root leaf-coverage gap", src, reason)
+			}
+
+			if !candidateTree.RootNode().HasError() {
+				t.Fatalf("%q: production-served HasError=false, want true", src)
+			}
+			if got, want := candidateTree.RootNode().SExpr(lang), productionTree.RootNode().SExpr(lang); got != want {
+				t.Fatalf("%q: served tree diverges from production\n got:  %s\n want: %s", src, got, want)
+			}
+		})
+	}
+}

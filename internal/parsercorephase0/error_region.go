@@ -59,7 +59,17 @@ const ErrorRegionSymbol Symbol = 65535
 func (c *Core) ErrorRegionLeaf(symbol Symbol, startByte, endByte uint32, extra bool) (id SubtreeID, err error) {
 	mark := c.mark()
 	defer c.completeTransaction(mark, &err)
-	return c.appendSubtreeRecord(subtreeRecord{
+	// appendSubtree, not appendSubtreeRecord directly: an absorbed error-
+	// region terminal is published outside the grammar-table-authenticated
+	// shift seam (shiftClassifiedUncheckpointed and friends), so
+	// metadataConstructionAuthenticated must clear the same way any other
+	// generic/diagnostic publication does (core.go's own doc comment on the
+	// flag) -- this is not just the lexical-provenance ratchet
+	// (metadata_auth_ratchet_test.go), it is the correct signal: an S3
+	// region's payloads earn full materialization-time metadata validation
+	// like any other unauthenticated construction, rather than skipping it
+	// on the assumption a grammar-table seam already checked them.
+	return c.appendSubtree(subtreeRecord{
 		symbol: symbol, startByte: startByte, endByte: endByte, extra: extra, terminal: true,
 	}, nil, nil, nil)
 }
@@ -83,6 +93,31 @@ func (c *Core) ErrorRegionLeaf(symbol Symbol, startByte, endByte uint32, extra b
 // case production's cRecoverToState splices an existing closed subtree in
 // front, an already-live SubtreeID the caller owns). len(children)==0 is
 // rejected: an ERROR region with no absorbed content has nothing to resume.
+//
+// KNOWN UNVERIFIED DIVERGENCE (adversarial review, MINOR item b): every
+// entry in children is always wrapped INSIDE the published ERROR container.
+// Production's own cRecoverToState (parser_recover_c.go:3638-3644, "Split
+// trailing extras (re-pushed after the ERROR per C)") instead splits its
+// popped node sequence at the last non-extra entry and keeps any TRAILING
+// extras (comments, whitespace absorbed at the tail of the region) OUTSIDE
+// the ERROR node, re-pushed onto the stack as siblings after it, mirroring
+// tree-sitter C's own ts_parser__recover: an error region's trailing extras
+// are not semantically part of the error content, so C does not nest them
+// under it.
+//
+// This port does not implement that split. It is unreached, not simply
+// untested, for every grammar S3 is certified against today: html's own
+// comment token always resumes via an ordinary EXTRA SHIFT onto the
+// pre-error head (s3TokenIsExtraShift's own resume-action check,
+// parsercore_phase0_driver.go) before it would ever need absorbing as one
+// of this region's children in the first place -- so no committed
+// html_erroneous_end_tag witness ever calls this function with a trailing
+// extra in children, and CompactStrategy2ErrorRegionCertified is html-only
+// (grammars/runtime_profiles.go). A grammar whose lexer can produce a
+// trailing extra inside an absorbed error region -- rather than always
+// resuming before absorbing one -- would need this split reproduced (or an
+// explicit decline guarding it) before certifying; do not assume this gap
+// is closed by extrapolation from html's own witnesses.
 func (c *Core) ErrorRegionResume(preErrorHead Head, preErrorState StateID, startByte, endByte uint32, children []SubtreeID) (out Head, err error) {
 	if len(children) == 0 {
 		return Head{}, errors.New("parser-core phase zero: error region resume has no absorbed children")
@@ -102,7 +137,11 @@ func (c *Core) ErrorRegionResume(preErrorHead Head, preErrorState StateID, start
 	// lookup on the wrong ancestor state entirely (observed directly: "no
 	// goto from state N for reduced symbol" once this region sits between
 	// two real children of a fixed-arity production).
-	payload, err := c.appendSubtreeRecord(subtreeRecord{
+	// appendSubtree, not appendSubtreeRecord directly: same rationale as
+	// ErrorRegionLeaf above -- the ERROR container is generic/diagnostic-
+	// seam publication, not grammar-table-authenticated reduction, so it
+	// must clear metadataConstructionAuthenticated the same way.
+	payload, err := c.appendSubtree(subtreeRecord{
 		symbol: ErrorRegionSymbol, startByte: startByte, endByte: endByte, extra: true,
 	}, children, nil, nil)
 	if err != nil {
