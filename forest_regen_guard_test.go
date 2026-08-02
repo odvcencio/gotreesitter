@@ -108,17 +108,23 @@ var forestRegenGuardCorpus = map[string]func(n int) []byte{
 }
 
 // TestForestRegenGuardRepeatedTopLevelItems is the work-floor regen guard: for
-// every forest-default language, parsing N=1..20 repeated top-level items
-// must keep dispatching through the GSS-forest fast path (no eof_no_root /
-// any other decline), and gotreesitter.Parser.Parse's own resulting
-// MaxStacksSeen on the same corpus must stay 0. It runs against whatever
-// blobs are currently embedded (grammars/grammar_blobs), so it is a plain
-// default-on test today and automatically re-checks the new blob the next
-// time a table-resync PR swaps one in.
+// every forest-default language, parsing N=1..20 repeated top-level items via
+// Parser.Parse (the real dispatch entry point, not the diagnostic-only
+// ParseForestExperimental) must keep ROUTING through the GSS-forest fast path
+// -- Tree.UsedForestFastPath() true, not merely "the forest engine can handle
+// this input in isolation" -- and Parse's own resulting MaxStacksSeen on the
+// same corpus must stay 0. It runs against whatever blobs are currently
+// embedded (grammars/grammar_blobs), so it is a plain default-on test today
+// and automatically re-checks the new blob the next time a table-resync PR
+// swaps one in.
 //
 // A generator is validated (HasError=false at a small N) before the sweep
-// trusts it, so an author mistake in forestRegenGuardCorpus skips with a
-// clear reason instead of masquerading as a forest-engine regression.
+// trusts it, but an established generator's baseline going dirty is treated
+// as a hard failure, not a skip: once a language is in this map, silently
+// skipping on a broken baseline would disable the guard on exactly the
+// regression class it exists to catch (a table resync corrupting even the
+// trivial corpus). Missing an entry entirely (a forest-default language with
+// no generator yet) still skips, since no coverage claim is being made there.
 func TestForestRegenGuardRepeatedTopLevelItems(t *testing.T) {
 	const maxN = 20
 	for _, entry := range grammars.AllLanguages() {
@@ -137,31 +143,31 @@ func TestForestRegenGuardRepeatedTopLevelItems(t *testing.T) {
 			baselineParser := gotreesitter.NewParser(lang)
 			baselineTree, err := baselineParser.Parse(baseline)
 			if err != nil || baselineTree == nil || baselineTree.RootNode() == nil || baselineTree.RootNode().HasError() {
-				t.Skipf("forest-regen-guard: generator baseline for %q is not clean (err=%v); fixture needs authoring, not a forest regression", name, err)
+				t.Fatalf("forest-regen-guard: generator baseline for %q is not clean (err=%v); either the fixture needs authoring or a table regen broke the trivial corpus itself -- the exact regression this guard exists to catch", name, err)
 			}
 			baselineTree.Release()
 
 			for n := 1; n <= maxN; n++ {
 				src := gen(n)
 
-				forestParser := gotreesitter.NewParser(lang)
-				forestTree, forestOK := forestParser.ParseForestExperimental(src)
-				if !forestOK {
-					offset, sym, reason, states := forestParser.ForestDeclineInfo()
-					t.Fatalf("N=%d: forest fast path declined (offset=%d sym=%d reason=%q states=%v); a table regen regressed forest coverage on a trivial repeated-item corpus",
-						n, offset, sym, reason, states)
-				}
-				forestTree.Release()
-
-				prodParser := gotreesitter.NewParser(lang)
-				prodTree, err := prodParser.Parse(src)
+				routedParser := gotreesitter.NewParser(lang)
+				routedTree, err := routedParser.Parse(src)
 				if err != nil {
 					t.Fatalf("N=%d: Parse failed: %v", n, err)
 				}
-				if maxStacks := prodTree.ParseRuntime().MaxStacksSeen; maxStacks != 0 {
-					t.Fatalf("N=%d: MaxStacksSeen=%d, want 0 on this trivial repeated-item corpus (forest decline or genuine multi-stack fork)", n, maxStacks)
+				if !routedTree.UsedForestFastPath() {
+					diagParser := gotreesitter.NewParser(lang)
+					_, forestOK := diagParser.ParseForestExperimental(src)
+					offset, sym, reason, states := diagParser.ForestDeclineInfo()
+					routedTree.Release()
+					t.Fatalf("N=%d: Parse did not route through the forest fast path (forest engine standalone ok=%v; decline offset=%d sym=%d reason=%q states=%v); a table regen regressed forest coverage on a trivial repeated-item corpus",
+						n, forestOK, offset, sym, reason, states)
 				}
-				prodTree.Release()
+				if maxStacks := routedTree.ParseRuntime().MaxStacksSeen; maxStacks != 0 {
+					routedTree.Release()
+					t.Fatalf("N=%d: MaxStacksSeen=%d, want 0 on this trivial repeated-item corpus (genuine multi-stack fork even while forest-routed)", n, maxStacks)
+				}
+				routedTree.Release()
 			}
 		})
 	}

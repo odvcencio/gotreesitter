@@ -2983,6 +2983,18 @@ func (t *Tree) RootNodeWithOffset(offsetBytes uint32, offsetExtent Point) *Node 
 // Source returns the original source text.
 func (t *Tree) Source() []byte { return t.source }
 
+// UsedForestFastPath reports whether this specific tree was produced by the
+// GSS-forest GLR fast path (Parser.Parse trying tryForestFastPath before the
+// production loop, or a direct ParseForestExperimental call) rather than the
+// production parser. Unlike LanguageWantsForest (which only reports whether a
+// language is eligible for the fast path), this reports what actually
+// happened for one parse: a forest-default language can still fall through to
+// production on any given input the forest declines. Exported so routing
+// regression gates can assert dispatch, not just engine capability.
+func (t *Tree) UsedForestFastPath() bool {
+	return t != nil && t.forestFastPath
+}
+
 // SourceEncoding returns the encoding used by the caller that produced this tree.
 //
 // For UTF-16 parses, Source still returns the parser's canonical UTF-8 copy.

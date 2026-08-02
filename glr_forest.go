@@ -561,21 +561,24 @@ var builtinForestDefaults = map[string]bool{
 	"gitattributes": true,
 }
 
-// parserWantsForest reports whether p's language dispatches to the GSS-forest
-// GLR fast path: either the Language opted in directly (WantsForest, set by a
-// grammargen consumer), its exact artifact received a certified automatic
-// profile, or it is one of the older curated built-ins in builtinForestDefaults.
+// parserWantsForest reports whether p's language is in the forest-default set:
+// either the Language opted in directly (WantsForest, set by a grammargen
+// consumer), its exact artifact received a certified automatic profile, or it
+// is one of the older curated built-ins in builtinForestDefaults. This is
+// per-language eligibility only; tryForestFastPath separately gates on the
+// glrForestEnabled global switch (GOT_GLR_FOREST) before dispatching.
 func parserWantsForest(p *Parser) bool {
-	return p != nil && p.language != nil &&
-		(p.language.WantsForest || p.language.AutomaticForestEnabledByDefault || builtinForestDefaults[p.language.Name])
+	return p != nil && LanguageWantsForest(p.language)
 }
 
-// LanguageWantsForest reports whether lang dispatches to the GSS-forest GLR
-// fast path by default (Parser.Parse tries tryForestFastPath before the
-// production loop). Exported so regression gates outside this package (e.g.
-// the regen-guard sweep that reparses N repeated top-level items per
-// forest-default language) can enumerate the same set parserWantsForest uses,
-// without duplicating or drifting from builtinForestDefaults.
+// LanguageWantsForest reports whether lang is in the forest-default set (see
+// parserWantsForest). It does not account for the glrForestEnabled global
+// switch (GOT_GLR_FOREST), which can still disable dispatch even for a
+// language this reports true for. Exported so regression gates outside this
+// package (e.g. the regen-guard sweep that reparses N repeated top-level
+// items per forest-default language) can enumerate the same set
+// parserWantsForest uses, without duplicating or drifting from
+// builtinForestDefaults.
 func LanguageWantsForest(lang *Language) bool {
 	return lang != nil &&
 		(lang.WantsForest || lang.AutomaticForestEnabledByDefault || builtinForestDefaults[lang.Name])
