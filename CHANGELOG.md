@@ -119,7 +119,7 @@ for tags and release notes while still in `0.x`.
   `testdata/result_compat_ownership_v1.json`.
   It is not a maintained list.
   A future dispatcher arm cannot silently escape it.
-  159 of 206 registered languages are eligible today.
+  163 of 206 registered languages are eligible today.
   Go is not one of them.
   `dispatch.go` stays live, so `grammargen_lr` and the other three canonical
   Go fixtures still take the full tail.

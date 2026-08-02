@@ -49,16 +49,22 @@ required at the elision call site.
 
 ## Eligible languages (2026-08-02, this registry)
 
-159 of the 206 registered languages route through `finalizeCompactReturnedTreeForParse`
-when they take the compact route (every language without a `"live"` entry in
-`testdata/result_compat_ownership_v1.json`). Notably **not** eligible: every
-language with a live dispatcher arm, including `go` — `dispatch.go` is
-`"live"` (`normalizeGoReturnedTreeCompatibility` still runs), so `grammargen_lr`
-and the other three canonical Go fixtures do not take the reduced tail.
-Eligible languages include every retired-arm language (for example `html`,
-`linkerscript`, `erlang`, `ruby`, `ocaml`, `d`, `ebnf`, `zig`) and every
-language that never had an arm at all (for example `java`, `css`, `json`,
-`toml`). `TestResultCompatibilityElisionSetMatchesRegistry`
+163 of the 206 registered languages are eligible: every language without a
+`"live"` entry in `testdata/result_compat_ownership_v1.json`. They take
+`finalizeCompactReturnedTreeForParse` whenever they take the compact route.
+The 43 **not** eligible languages are every language with a live dispatcher
+arm or the live cobol predicate: `ada`, `apex`, `authzed`, `awk`, `bash`,
+`bitbake`, `c`, `c_sharp`, `cobol`, `cooklang`, `corn`, `cpp`, `dart`,
+`doxygen`, `dtd`, `elixir`, `enforce`, `fidl`, `go`, `hlsl`, `hyprlang`,
+`javascript`, `jsdoc`, `julia`, `kotlin`, `ledger`, `ninja`, `perl`, `php`,
+`powershell`, `python`, `ql`, `rust`, `scala`, `solidity`, `sql`, `swift`,
+`templ`, `tsx`, `typescript`, `wgsl`, `wolfram`, `yaml`. `go` is in this
+list: `dispatch.go` is `"live"` (`normalizeGoReturnedTreeCompatibility`
+still runs), so `grammargen_lr` and the other three canonical Go fixtures do
+not take the reduced tail. Eligible languages include every retired-arm
+language (for example `html`, `linkerscript`, `erlang`, `ruby`, `ocaml`, `d`,
+`ebnf`, `zig`) and every language that never had an arm at all (for example
+`java`, `css`, `json`, `toml`). `TestResultCompatibilityElisionSetMatchesRegistry`
 (`result_compat_elision_test.go`) enumerates the exact set against the
 registry on every test run.
 
