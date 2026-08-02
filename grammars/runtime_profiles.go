@@ -162,9 +162,16 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:     gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 	},
+	// Apex's tied class-literal election matches the C oracle once the
+	// compact route selects the sole primary derivation; the compact tree is
+	// strictly more faithful than production plus the compat arm here. Apex
+	// has no converged-path split-drop shape, so it does not certify that
+	// mechanism. Full-corpus field-aware C-oracle verification certifies this
+	// exact blob (A3 certification workstream, spec.campaign.v7).
 	"apex": {
-		blobSHA256:                mustRuntimeProfileSHA256("69fc1b577f1f783a204c98719d55d2f15f329d296b9e227d651056ce878c1bd2"),
-		nativeResultCompatibility: gotreesitter.ResultCompatibilityNativeCollapsedChildren,
+		blobSHA256:                     mustRuntimeProfileSHA256("69fc1b577f1f783a204c98719d55d2f15f329d296b9e227d651056ce878c1bd2"),
+		nativeResultCompatibility:      gotreesitter.ResultCompatibilityNativeCollapsedChildren,
+		compactPrimaryAcceptDerivation: true,
 	},
 	"elixir": {
 		blobSHA256:                mustRuntimeProfileSHA256("9889f5f6704ea87f357c8d65ef3194d88fb5865922b45767fe4df0f2eda7e3f0"),
