@@ -34,6 +34,12 @@ import (
 // profile it declines earlier, at the converged-path-split checkpoint,
 // before ever reaching that election point -- either way it is a decline,
 // which this sweep records without chasing a fix for it.
+// object_declaration_no_body_members ("object S {}") is different again:
+// its decline classifies as mechanism=material-acceptance-election under
+// the shipped primary-accept-only profile directly, with no split-drops
+// forcing needed -- this witness reaches the tied-election point on its
+// own, so the materiality gate is live today, not merely latent insurance
+// for a future split-drops re-grant.
 //
 // CompactConvergedReductionSplitDropsCertified stays withheld: review found
 // a compact-only divergence class this sweep's original 3-file real corpus

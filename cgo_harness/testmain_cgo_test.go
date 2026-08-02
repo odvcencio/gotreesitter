@@ -20,6 +20,24 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, parityGuardrailText)
 		os.Exit(2)
 	}
+	// GTS_ADMISSION_CENSUS=1 makes the A3 certification sweeps' decline
+	// classification honest (a3DeclineReasonClass,
+	// a3_certification_sweep_helpers_test.go): without it, every soft
+	// decline collapses to the generic "did not accept EOF" detail
+	// (parsercore_phase0_fresh_full_runner.go,
+	// requireParserCoreFreshFullAcceptance), which shadows the more
+	// specific material-acceptance-election bucket. gotreesitter's own
+	// admission_census.go reads this once via sync.Once, so it must be set
+	// here, before m.Run(), rather than per-test with t.Setenv -- any test
+	// that reaches a decline first would otherwise lock the cached read to
+	// whatever the env var held at that moment, regardless of what a later
+	// test sets. Safe process-wide: per admission_census.go's own
+	// contract, this only changes the TEXT of an already-decided decline
+	// reason (never what the compact route accepts, declines, or
+	// materializes), and no test in this package asserts an exact decline
+	// reason string (only substring checks and %s formatting into failure
+	// messages).
+	os.Setenv("GTS_ADMISSION_CENSUS", "1")
 	os.Exit(m.Run())
 }
 

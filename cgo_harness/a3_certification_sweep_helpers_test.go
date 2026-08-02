@@ -116,6 +116,14 @@ func a3DeclineReasonClass(reason string) string {
 		// election (parsercore_phase0_driver.go,
 		// compactAcceptanceElectionIsVacuous) out of the no-eof-accept
 		// catch-all bucket.
+		//
+		// This bucket only ever fires with GTS_ADMISSION_CENSUS=1: without
+		// it, requireParserCoreFreshFullAcceptance
+		// (parsercore_phase0_fresh_full_runner.go) returns the plain,
+		// unclassified "did not accept EOF" error instead of the detailed
+		// boundary text this case matches. testmain_cgo_test.go's TestMain
+		// sets that env var process-wide for this package before any test
+		// runs, so every sweep's decline classification is honest.
 		return "material-acceptance-election"
 	case strings.Contains(reason, "did not accept EOF"):
 		return "no-eof-accept"

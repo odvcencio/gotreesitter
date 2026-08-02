@@ -137,15 +137,15 @@ func TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGate
 		t.Fatalf("production tree lost object_declaration (issue #93 regressed independently of this file): %s", productionSExpr)
 	}
 
-	forced := *lang
-	forced.CompactConvergedReductionSplitDropsCertified = true
+	lang.CompactConvergedReductionSplitDropsCertified = true
+	defer func() { lang.CompactConvergedReductionSplitDropsCertified = false }()
 
 	t.Setenv("GTS_ADMISSION_CENSUS", "1")
 	gts.ResetAdmissionCensusEnabledForTest()
 	t.Cleanup(gts.ResetAdmissionCensusEnabledForTest)
 
 	gts.ResetAdmissionCandidateCountersForTest()
-	candidate := gts.NewParser(&forced)
+	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)
 	if err != nil {
@@ -175,7 +175,7 @@ func TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGate
 	// source, computed identically above. This can only fail if production
 	// parsing itself is non-deterministic across two fresh parsers, a much
 	// larger and separately-tested property (TestW5DeterminismAcrossFreshParsers).
-	candidateSExpr := candidateTree.RootNode().SExpr(&forced)
+	candidateSExpr := candidateTree.RootNode().SExpr(lang)
 	t.Logf(
 		"confirmed: the materiality gate declines this material election (two derivations, two "+
 			"different trees, reason=%s) instead of publishing the positional primary, even with "+
@@ -203,12 +203,15 @@ func TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe(t *testing.T)
 		t.Fatal("kotlin unexpectedly carries the withheld converged-split-drop certification")
 	}
 
-	forced := *lang
-	forced.CompactConvergedReductionSplitDropsCertified = true
-	forced.CompactPrimaryAcceptanceDerivationCertified = false
+	lang.CompactConvergedReductionSplitDropsCertified = true
+	lang.CompactPrimaryAcceptanceDerivationCertified = false
+	defer func() {
+		lang.CompactConvergedReductionSplitDropsCertified = false
+		lang.CompactPrimaryAcceptanceDerivationCertified = true
+	}()
 
 	gts.ResetAdmissionCandidateCountersForTest()
-	candidate := gts.NewParser(&forced)
+	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)
 	if err != nil {
@@ -226,7 +229,7 @@ func TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe(t *testing.T)
 	want := "(source_file (function_declaration (modifiers (visibility_modifier) (platform_modifier)) " +
 		"(simple_identifier) (function_value_parameters) (user_type (type_identifier)) " +
 		"(function_body (string_literal (string_content)))))"
-	if got := candidateTree.RootNode().SExpr(&forced); got != want {
+	if got := candidateTree.RootNode().SExpr(lang); got != want {
 		t.Fatalf("split-drops-only candidate tree = %s, want %s", got, want)
 	}
 }

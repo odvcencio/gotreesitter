@@ -158,11 +158,11 @@ func TestKotlinA3CertificationObjectDeclarationMaterialityGateCOracleWhenSplitDr
 		)
 	}
 
-	forced := *goLang
-	forced.CompactConvergedReductionSplitDropsCertified = true
+	goLang.CompactConvergedReductionSplitDropsCertified = true
+	defer func() { goLang.CompactConvergedReductionSplitDropsCertified = false }()
 
 	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
-	candidate := gotreesitter.NewParser(&forced)
+	candidate := gotreesitter.NewParser(goLang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)
 	if err != nil {
