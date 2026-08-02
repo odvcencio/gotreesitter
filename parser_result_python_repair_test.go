@@ -345,7 +345,20 @@ func TestDispatcherArmCensusKeepsPythonFinalChildRefsLazy(t *testing.T) {
 	}
 }
 
-func TestRepairPythonRootNodeClearsErrorWithoutDrainingFinalRefs(t *testing.T) {
+// TestRepairPythonRootNodeNeverDropsErrorOnTheNoMaterializeFastPath pins the
+// post-retirement contract (elm/synthetic-root-drop-retirement) for the
+// no-materialize fast path exercised here: repairPythonRootNode must never
+// clear HasError on a root it takes no other action on, root.HasError() is
+// always honored verbatim, and the fast path still never drains final-child
+// refs just to answer that question. Before the retirement this fixture
+// (a single well-shaped import_statement child, the no-materialize branch's
+// "shape looks complete" case) was the one shape the deleted
+// syntheticRootCanDropError / pythonModuleChildrenLookCompleteNoMaterialize
+// pair would still act on; the positive control that preceded the deletion
+// (5,241-site incremental-gate corpus plus a wider real-corpus/edit sweep)
+// found that action wrong every time it was reachable outside a synthetic
+// fixture like this one, so the correct behavior is now a strict no-op.
+func TestRepairPythonRootNodeNeverDropsErrorOnTheNoMaterializeFastPath(t *testing.T) {
 	lang := &Language{
 		Name:        "python",
 		SymbolNames: []string{"EOF", "module", "import_statement", "_simple_statements"},
@@ -366,11 +379,11 @@ func TestRepairPythonRootNodeClearsErrorWithoutDrainingFinalRefs(t *testing.T) {
 	}
 	root.setHasError(true)
 	repaired := repairPythonRootNode(root, arena, lang)
-	if repaired == nil || repaired == root {
-		t.Fatalf("repairPythonRootNode returned %p, want a clone", repaired)
+	if repaired != root {
+		t.Fatalf("repairPythonRootNode returned %p, want the same root %p (no-op)", repaired, root)
 	}
-	if repaired.HasError() {
-		t.Fatal("repaired root still has error")
+	if !repaired.HasError() {
+		t.Fatal("repairPythonRootNode dropped HasError on the no-materialize fast path")
 	}
 	if !nodeHasFinalChildRefs(repaired) {
 		t.Fatal("repaired root did not preserve final-child refs")

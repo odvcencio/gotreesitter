@@ -3899,16 +3899,19 @@ func (p *Parser) stateDeterministicNonExtraShift(state StateID, sym Symbol) bool
 // production's ChildCount, the leaf is folded into whichever production
 // later reduces over it without perturbing arity, while populateParentNode's
 // HasError OR propagates the error through the reduce-built ancestors above
-// it, all the way to the tree root. Python's root-level convention
-// (parser_result_root_build.go's syntheticRootCanDropError /
-// pythonModuleChildrenLookComplete) used to break exactly that propagation
-// for EXTRA children: it skipped extra children before checking their
-// HasError, so this leaf -- extra by construction, see leaf.setExtra(true)
-// below -- could still be silently dropped at the python module root even
-// though it correctly carries HasError=true. Fixed in PR #636:
-// pythonModuleChildrenLookComplete and its no-materialize twin now check
-// HasError on every child, extra or not, before the extra-skip, so this
-// leaf's error status reaches the root like any other.
+// it, all the way to the tree root. Python's root-level convention (the now-
+// retired syntheticRootCanDropError / pythonModuleChildrenLookComplete pair,
+// parser_result_root_build.go / parser_result_python.go) used to break
+// exactly that propagation for EXTRA children: it skipped extra children
+// before checking their HasError, so this leaf -- extra by construction, see
+// leaf.setExtra(true) below -- could still be silently dropped at the python
+// module root even though it correctly carries HasError=true. PR #636 fixed
+// the check to look at HasError on every child, extra or not, before the
+// extra-skip; the fix then proved the whole drop mechanism inert (measured:
+// consulted thousands of times, actionable on a handful, and wrong every
+// time it acted) and the mechanism was deleted outright
+// (elm/synthetic-root-drop-retirement), so this leaf's error status now
+// reaches the root unconditionally, like any other.
 //
 // This is an ACCOUNTING fix, not a shape fix: the skipped bytes now have a
 // span and HasError=true, matching C tree-sitter's verdict that the

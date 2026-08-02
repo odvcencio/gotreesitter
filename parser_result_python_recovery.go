@@ -9,16 +9,18 @@ package gotreesitter
 // full incremental-gate corpus, 5,241 sites across all three edit classes),
 // both found zero witnesses where restoring the old override changes the
 // final tree's root HasError(): whatever intermediate error state these
-// helpers construct on the way in is either fully resolved (no error
-// remains once dropZeroWidthUnnamedTail/repairPythonNode-style repair
-// finishes) or is separately caught by pythonModuleChildrenLookComplete
-// (which the same review confirmed DOES have live teeth -- 762 witnesses)
-// before it would matter. The removals are kept anyway, as defense in
-// depth: forcing HasError to false regardless of children is never
-// correct per populateParentNode's own contract, and removing that override
-// costs nothing. If a future input reaches these functions with an error
-// that genuinely does survive to the final tree, this is the mechanism that
-// keeps it visible at the root.
+// helpers construct on the way in is fully resolved by the time
+// dropZeroWidthUnnamedTail/repairPythonNode-style repair finishes. (An
+// unrelated root-level mechanism, syntheticRootCanDropError /
+// pythonModuleChildrenLookComplete, used to also catch a residual case here;
+// a follow-up measurement found it inert on every input that reached it and
+// it was deleted outright -- elm/synthetic-root-drop-retirement.) The
+// removals are kept anyway, as defense in depth: forcing HasError to false
+// regardless of children is never correct per populateParentNode's own
+// contract, and removing that override costs nothing. If a future input
+// reaches these functions with an error that genuinely does survive to the
+// final tree, populateParentNode's own children-OR propagation is what keeps
+// it visible at the root.
 func collapsePythonRootFragments(nodes []*Node, arena *nodeArena, lang *Language) []*Node {
 	if len(nodes) == 0 || lang == nil || lang.Name != "python" {
 		return nodes

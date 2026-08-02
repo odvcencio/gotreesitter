@@ -89,7 +89,7 @@ func (b *resultRootBuild) tryBuildExpectedRootFromSingleError(candidate *Node) *
 		return nil
 	}
 	root := newParentNodeInArena(b.arena, b.expectedRootSymbol, true, rootChildren, nil, 0)
-	if (candidate.hasError() || resultNodesHaveError(rootChildren)) && !b.syntheticRootCanDropError(rootChildren) {
+	if candidate.hasError() || resultNodesHaveError(rootChildren) {
 		root.setHasError(true)
 	}
 	root = b.repairPythonRoot(root)
@@ -140,7 +140,7 @@ func (b *resultRootBuild) buildSyntheticRootTree(nodes []*Node) *Tree {
 	rootHasError := resultNodesHaveError(rootChildren)
 	rootSymbol := b.syntheticRootSymbol(nodes, rootChildren, rootHasError)
 	root := newParentNodeInArena(b.arena, rootSymbol, true, rootChildren, nil, 0)
-	if rootHasError && !b.syntheticRootCanDropError(rootChildren) {
+	if rootHasError {
 		root.setHasError(true)
 	}
 	root = b.repairPythonRoot(root)
@@ -718,10 +718,6 @@ func (b *resultRootBuild) expectedRootEmptyFrameAcceptsEOF() bool {
 	}
 	next := b.parser.lookupGoto(b.lang.InitialState, b.expectedRootSymbol)
 	return next != 0 && b.parser.stateHasAcceptOnEOF(next)
-}
-
-func (b *resultRootBuild) syntheticRootCanDropError(rootChildren []*Node) bool {
-	return b.isLanguage("python") && b.hasExpectedRoot && pythonModuleChildrenLookComplete(rootChildren, b.lang)
 }
 
 func (b *resultRootBuild) repairPythonKeywordNode(node *Node) *Node {
