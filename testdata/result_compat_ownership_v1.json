@@ -1607,10 +1607,11 @@
       "languages": [
         "kotlin"
       ],
-      "purpose": "Reconcile Kotlin derivation selection and returned-tree shape.",
+      "purpose": "Reconcile Kotlin derivation selection and returned-tree shape. Retired member normalizeKotlinRecoveredSourceFileRoot as dead code on 2026-08-02: no route sets its ERROR-root guard on any tested witness, so the retag never fires. The remaining members, normalizeKotlinGenericCallTypeArguments and normalizeKotlinPrefixComparisonExpressions, stay load-bearing.",
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/parity_cgo_test.go",
+        "query_kotlin_regression_test.go"
       ],
       "retirement_condition": "Delete only after derivation_election_selection emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
       "route_coverage": {
