@@ -3697,7 +3697,7 @@ func recordParseRuntimeRootStats(parseRuntime *ParseRuntime, tree *Tree, source 
 	if parseRuntime.LastTokenWasEOF && parseRuntime.LastTokenEndByte > tailStart && parseRuntime.LastTokenEndByte <= expectedEOFByte {
 		tailStart = parseRuntime.LastTokenEndByte
 	}
-	if parseRuntime.Truncated && parserTailAllowsCleanAcceptance(tailSource, tailStart, expectedEOFByte, included) {
+	if parseRuntime.Truncated && parserTailAllowsCleanAcceptance(tailSource, tailStart, expectedEOFByte, included, languageLineContinuationEscapeByte(lang)) {
 		parseRuntime.Truncated = false
 	}
 	if !collectFinalStats {
@@ -3893,18 +3893,36 @@ func (p *Parser) stateDeterministicNonExtraShift(state StateID, sym Symbol) bool
 	return actions[0].Type == ParseActionShift && !actions[0].Extra
 }
 
+// languageLineContinuationEscapeByte returns lang's declared line-continuation
+// escape byte (see Language.LineContinuationEscapeByte), or 0 when lang is nil
+// or declares none. This is the single accessor every padding-classification
+// call site reads through — both callers that only have a *Language (a Tree
+// already carries its language; some compact-engine call sites carry lang
+// directly) and (*Parser).lineContinuationEscapeByte below, which is the same
+// lookup for callers that have a *Parser instead. Keeping both behind the
+// same function keeps the gap-padding and tail-acceptance classifications
+// consistent (and default-off for every language that has not declared an
+// escape) no matter which handle a given call site holds.
+func languageLineContinuationEscapeByte(lang *Language) byte {
+	if lang == nil {
+		return 0
+	}
+	return lang.LineContinuationEscapeByte
+}
+
 // lineContinuationEscapeByte returns p's language-declared line-continuation
 // escape byte (see Language.LineContinuationEscapeByte), or 0 when p or its
 // language is nil, or the language declares none. Every production caller of
-// realTokenAttachmentGapIsParserPadding / bytesAreParserPadding that has a
-// Parser in scope reads the escape byte through this single accessor so the
-// gap-padding classification stays consistent (and default-off for every
+// realTokenAttachmentGapIsParserPadding / bytesAreParserPadding /
+// parserTailAllowsCleanAcceptance's chain that has a Parser in scope reads the
+// escape byte through this single accessor so the gap-padding and
+// tail-acceptance classifications stay consistent (and default-off for every
 // language that has not declared an escape) across every caller.
 func (p *Parser) lineContinuationEscapeByte() byte {
-	if p == nil || p.language == nil {
+	if p == nil {
 		return 0
 	}
-	return p.language.LineContinuationEscapeByte
+	return languageLineContinuationEscapeByte(p.language)
 }
 
 // materializeSkippedGapAsExtraError covers a lexer-skipped mid-production gap
@@ -4180,22 +4198,37 @@ func bytesAreParserPadding(source []byte, start, end uint32, continuationEscape 
 	return true
 }
 
-func parserTailAllowsCleanAcceptance(source []byte, start, end uint32, included []Range) bool {
+// parserTailAllowsCleanAcceptance reports whether source[start:end] — the
+// tail beyond an accepted stack's, or an accepted tree root's, own span — is
+// entirely parser padding, so the caller may treat that tail as silently
+// swallowed rather than a real, uncovered remainder. continuationEscape
+// carries the same language-declared line-continuation escape byte
+// bytesAreParserPadding accepts elsewhere (0 when the caller has no language
+// in scope, or the language declares none): a trailing continuation escape
+// immediately followed by a newline — for example a PowerShell file or
+// incremental edit that ends mid-backtick-continuation — is exactly as much
+// scanner-owned trivia at the tail as it is mid-file, and every caller here
+// that reaches this function with a language in scope now passes its real
+// escape byte instead of a hardcoded 0. Passing 0 for a language that HAS
+// declared an escape (the historical shape of this function) is the actual
+// defect this parameter closes: an accepted PowerShell stack with nothing but
+// trailing padding used to still get declined here whenever
+// materializeSkippedGapAsExtraError's spurious ERROR (removed for the
+// backtick-continuation gap-classification fix, see
+// realTokenAttachmentGapIsParserPadding) was gone and stackResultErrorRank
+// read 0 — the accepted stack then genuinely reached this tail check, which,
+// blind to the continuation escape, called an ordinary trailing
+// backtick+newline a real tail and forced a degraded fallback despite the
+// stack (and the C oracle) agreeing the parse was clean.
+func parserTailAllowsCleanAcceptance(source []byte, start, end uint32, included []Range, continuationEscape byte) bool {
 	if start >= end {
 		return true
 	}
 	if start > end || int(end) > len(source) {
 		return false
 	}
-	// continuationEscape is 0 here: trailing-tail EOF acceptance is a distinct
-	// concept from the real-token-attachment gap check below (different
-	// callers, different question — "can the root span silently swallow the
-	// rest of the file" vs "can the parser silently cross this one gap before
-	// shifting") and is out of the verified scope of the PowerShell
-	// continuation-padding fix. See realTokenAttachmentGapIsParserPadding for
-	// the language-aware caller.
 	if len(included) == 0 {
-		return bytesAreParserPadding(source, start, end, 0)
+		return bytesAreParserPadding(source, start, end, continuationEscape)
 	}
 	for _, r := range included {
 		if r.EndByte <= start {
@@ -4212,29 +4245,29 @@ func parserTailAllowsCleanAcceptance(source []byte, start, end uint32, included 
 		if r.EndByte < overlapEnd {
 			overlapEnd = r.EndByte
 		}
-		if overlapStart < overlapEnd && !bytesAreParserPadding(source, overlapStart, overlapEnd, 0) {
+		if overlapStart < overlapEnd && !bytesAreParserPadding(source, overlapStart, overlapEnd, continuationEscape) {
 			return false
 		}
 	}
 	return true
 }
 
-func cleanAcceptedStackSelectableAtEOF(source []byte, expectedEOFByte uint32, included []Range, arena *nodeArena, s *glrStack) bool {
+func cleanAcceptedStackSelectableAtEOF(source []byte, expectedEOFByte uint32, included []Range, arena *nodeArena, s *glrStack, continuationEscape byte) bool {
 	if s == nil || !s.accepted {
 		return false
 	}
 	if stackResultErrorRank(s, arena) != 0 {
 		return true
 	}
-	return parserTailAllowsCleanAcceptance(source, s.byteOffset, expectedEOFByte, included)
+	return parserTailAllowsCleanAcceptance(source, s.byteOffset, expectedEOFByte, included, continuationEscape)
 }
 
-func cleanAcceptedTreeLeavesRealTail(tree *Tree, source []byte, expectedEOFByte uint32, included []Range) bool {
+func cleanAcceptedTreeLeavesRealTail(tree *Tree, source []byte, expectedEOFByte uint32, included []Range, continuationEscape byte) bool {
 	root := rawRootOrNil(tree)
 	if root == nil || root.HasError() || root.EndByte() >= expectedEOFByte {
 		return false
 	}
-	return !parserTailAllowsCleanAcceptance(source, root.EndByte(), expectedEOFByte, included)
+	return !parserTailAllowsCleanAcceptance(source, root.EndByte(), expectedEOFByte, included, continuationEscape)
 }
 
 func (p *Parser) guardRealTokenAttachmentGap(source []byte, s *glrStack, tok Token, consumer string) bool {
@@ -4821,7 +4854,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				}
 			}
 		}
-		if stopReason == ParseStopAccepted && cleanAcceptedTreeLeavesRealTail(tree, source, expectedEOFByte, p.included) {
+		if stopReason == ParseStopAccepted && cleanAcceptedTreeLeavesRealTail(tree, source, expectedEOFByte, p.included, p.lineContinuationEscapeByte()) {
 			stopReason = ParseStopNoStacksAlive
 			tree = replaceWithOwnedErrorTree(tree, stopReason)
 		}
@@ -6735,8 +6768,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if !p.errorCostCompetitionEnabled() || liveUnaccepted == 0 {
 				accepted := compactAcceptedStacks(stacks)
 				selectable := accepted[:0]
+				continuationEscape := p.lineContinuationEscapeByte()
 				for i := range accepted {
-					if cleanAcceptedStackSelectableAtEOF(source, expectedEOFByte, p.included, arena, &accepted[i]) {
+					if cleanAcceptedStackSelectableAtEOF(source, expectedEOFByte, p.included, arena, &accepted[i], continuationEscape) {
 						selectable = append(selectable, accepted[i])
 					}
 				}

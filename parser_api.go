@@ -381,9 +381,10 @@ func finalizeReturnedTreeRootSpan(tree *Tree, source []byte) {
 	if root == nil {
 		return
 	}
+	continuationEscape := languageLineContinuationEscapeByte(tree.language)
 	rt := tree.parseRuntime
 	if rt.StopReason == ParseStopAccepted {
-		extendRootToAcceptedCleanTail(root, source, rt.ExpectedEOFByte, tree.includedRanges)
+		extendRootToAcceptedCleanTail(root, source, rt.ExpectedEOFByte, tree.includedRanges, continuationEscape)
 	}
 	rt.RootEndByte = root.endByte
 	rt.Truncated = rt.ExpectedEOFByte > root.endByte
@@ -391,7 +392,7 @@ func finalizeReturnedTreeRootSpan(tree *Tree, source []byte) {
 	if rt.LastTokenWasEOF && rt.LastTokenEndByte > tailStart && rt.LastTokenEndByte <= rt.ExpectedEOFByte {
 		tailStart = rt.LastTokenEndByte
 	}
-	if rt.Truncated && parserTailAllowsCleanAcceptance(source, tailStart, rt.ExpectedEOFByte, tree.includedRanges) {
+	if rt.Truncated && parserTailAllowsCleanAcceptance(source, tailStart, rt.ExpectedEOFByte, tree.includedRanges, continuationEscape) {
 		rt.Truncated = false
 	}
 	markTruncatedTreeHasError(rt, root)
@@ -428,11 +429,11 @@ func markTruncatedTreeHasError(rt ParseRuntime, root *Node) {
 	root.setHasError(true)
 }
 
-func extendRootToAcceptedCleanTail(root *Node, source []byte, expectedEOFByte uint32, included []Range) bool {
+func extendRootToAcceptedCleanTail(root *Node, source []byte, expectedEOFByte uint32, included []Range, continuationEscape byte) bool {
 	if root == nil || expectedEOFByte <= root.endByte {
 		return false
 	}
-	if !parserTailAllowsCleanAcceptance(source, root.endByte, expectedEOFByte, included) {
+	if !parserTailAllowsCleanAcceptance(source, root.endByte, expectedEOFByte, included, continuationEscape) {
 		return false
 	}
 	extendNodeEndToByte(root, source, expectedEOFByte)

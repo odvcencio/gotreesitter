@@ -260,7 +260,7 @@ func TestParserCoreFreshFullAcceptedTailRequiresParserPadding(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := parserCoreFreshFullAcceptedTailIsClean([]byte(test.source), test.headByte); got != test.want {
+			if got := parserCoreFreshFullAcceptedTailIsClean([]byte(test.source), test.headByte, 0); got != test.want {
 				t.Fatalf("clean accepted tail=%t, want %t", got, test.want)
 			}
 		})

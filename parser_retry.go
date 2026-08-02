@@ -422,7 +422,7 @@ func retryTreeCoversExpectedEOF(tree *Tree) bool {
 		return true
 	}
 	endByte := retryTreeEndByte(tree)
-	return endByte >= rt.ExpectedEOFByte || parserTailAllowsCleanAcceptance(tree.Source(), endByte, rt.ExpectedEOFByte, tree.includedRanges)
+	return endByte >= rt.ExpectedEOFByte || parserTailAllowsCleanAcceptance(tree.Source(), endByte, rt.ExpectedEOFByte, tree.includedRanges, languageLineContinuationEscapeByte(tree.language))
 }
 
 func retryStopRank(rt *ParseRuntime) int {

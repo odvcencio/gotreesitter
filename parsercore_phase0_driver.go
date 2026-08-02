@@ -2655,11 +2655,11 @@ func materializeDiagnosticParserCoreAcceptedTree(compact *core.Core, head core.H
 // the !root.IsError() && !root.HasError() bar so a genuinely recovered tree
 // can complete -- the span-completeness half of the check (root must still
 // cover the whole source) stays in force unconditionally either way.
-func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, tokenCount uint32) error {
+func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, tokenCount uint32, continuationEscape byte) error {
 	expectedStart := firstNonTriviaByteStart(source)
 	clean := allowErrorRoot || (!root.IsError() && !root.HasError())
 	if root.startByte == expectedStart && root.endByte < sourceLen && clean {
-		extendRootToAcceptedCleanTail(root, source, sourceLen, nil)
+		extendRootToAcceptedCleanTail(root, source, sourceLen, nil, continuationEscape)
 	}
 	if root.startByte == expectedStart && root.endByte == sourceLen && clean {
 		if allowErrorRoot {
@@ -3377,7 +3377,7 @@ func materializeDiagnosticParserCoreAcceptedSelection(compact *core.Core, head c
 	}
 	sourceLen := uint32(len(source))
 	root := tree.root
-	if err := finalizeDiagnosticParserCoreAcceptedRootSpan(root, source, sourceLen, allowErrorRoot, parser.language.TokenCount); err != nil {
+	if err := finalizeDiagnosticParserCoreAcceptedRootSpan(root, source, sourceLen, allowErrorRoot, parser.language.TokenCount, parser.lineContinuationEscapeByte()); err != nil {
 		return rejectTree(err)
 	}
 	// accepted-root-leading-gap: the derivation's own root reduce is exempt

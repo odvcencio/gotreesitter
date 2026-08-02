@@ -160,7 +160,7 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 		tokenSource.Close()
 		return nil, nil, err
 	}
-	if err := requireParserCoreFreshFullAcceptance(scheduler, source, r.allowConvergedReductionSplitDrops); err != nil {
+	if err := requireParserCoreFreshFullAcceptance(scheduler, source, r.allowConvergedReductionSplitDrops, languageLineContinuationEscapeByte(r.lang)); err != nil {
 		tokenSource.Close()
 		// The scheduler run itself already committed here (RunFreshSchedulerSession,
 		// invoked from inside executeDiagnosticParserCoreGenericSchedulerFromSeedInto,
@@ -179,7 +179,7 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 	return scheduler, tokenSource, nil
 }
 
-func requireParserCoreFreshFullAcceptance(scheduler *diagnosticParserCoreGenericScheduler, source []byte, allowConvergedReductionSplitDrops bool) error {
+func requireParserCoreFreshFullAcceptance(scheduler *diagnosticParserCoreGenericScheduler, source []byte, allowConvergedReductionSplitDrops bool, continuationEscape byte) error {
 	if scheduler == nil || scheduler.receipt == nil || scheduler.receipt.Acceptance == nil || scheduler.acceptedHead.Node == 0 {
 		// GTS_ADMISSION_CENSUS=1 (admission_census.go) re-surfaces the boundary
 		// and detail the scheduler already recorded in scheduler.receipt.Stop
@@ -201,7 +201,7 @@ func requireParserCoreFreshFullAcceptance(scheduler *diagnosticParserCoreGeneric
 	if acceptance.Token.Symbol != 0 || acceptance.Token.StartByte != wantEOF || acceptance.Token.EndByte != wantEOF ||
 		acceptance.Token.Missing || acceptance.Token.NoLookahead || acceptance.Token.ExternalScannerToken ||
 		!header.Accepted || header.Paused || header.ExactPaths != 1 && !selectedCertifiedPrimary ||
-		!parserCoreFreshFullAcceptedTailIsClean(source, header.ByteOffset) || acceptance.Accepts != 1 || acceptance.Work.Accepts != 1 {
+		!parserCoreFreshFullAcceptedTailIsClean(source, header.ByteOffset, continuationEscape) || acceptance.Accepts != 1 || acceptance.Work.Accepts != 1 {
 		// See the comment above: census classification is opt-in and additive.
 		if admissionCensusEnabled() {
 			return admissionCensusAcceptanceDecline(acceptance, wantEOF)
@@ -226,12 +226,16 @@ func requireParserCoreFreshFullAcceptance(scheduler *diagnosticParserCoreGeneric
 // parserCoreFreshFullAcceptedTailIsClean applies the production parser's
 // existing accepted-tail proof to compact acceptance. The compact head may
 // end before authenticated EOF only when every remaining byte is parser
-// padding; a real source byte keeps the route fail-closed.
-func parserCoreFreshFullAcceptedTailIsClean(source []byte, headByte uint32) bool {
+// padding; a real source byte keeps the route fail-closed. continuationEscape
+// is the runner's language-declared line-continuation escape byte (0 when
+// the language declares none), threaded down from requireParserCoreFreshFullAcceptance
+// so a trailing language-declared continuation is padding here exactly like
+// it is in the production parser's own tail check.
+func parserCoreFreshFullAcceptedTailIsClean(source []byte, headByte uint32, continuationEscape byte) bool {
 	if uint64(len(source)) > uint64(^uint32(0)) || headByte > uint32(len(source)) {
 		return false
 	}
-	return parserTailAllowsCleanAcceptance(source, headByte, uint32(len(source)), nil)
+	return parserTailAllowsCleanAcceptance(source, headByte, uint32(len(source)), nil, continuationEscape)
 }
 
 // s3AllowErrorRoot reports whether this runner's current options admit

@@ -132,6 +132,33 @@ func TestBytesAreParserPaddingLineContinuationEscapeComposes(t *testing.T) {
 	}
 }
 
+// TestRealTokenAttachmentGapIsParserPaddingAcceptsDeclaredEscape drives a
+// non-zero continuationEscape through realTokenAttachmentGapIsParserPadding
+// itself (every other direct call in this file passes 0, since those tests
+// predate the continuation-escape parameter and pin unrelated gap shapes).
+// This closes that gap in direct coverage: the function that
+// tryMaterializeSkippedRealGap, guardRealTokenAttachmentGap, and
+// tryReuseSubtree all actually call is exercised here with the same
+// declared-escape argument production passes, not just its
+// bytesAreParserPadding helper in isolation.
+func TestRealTokenAttachmentGapIsParserPaddingAcceptsDeclaredEscape(t *testing.T) {
+	source := []byte("a `\n   b") // same shape TestBytesAreParserPaddingLineContinuationEscapeComposes pins
+	stack := newGLRStack(1)
+	stack.byteOffset = 1
+	tok := Token{
+		Symbol:    1,
+		StartByte: 7,
+		EndByte:   8,
+	}
+
+	if !realTokenAttachmentGapIsParserPadding(source, &stack, tok, '`') {
+		t.Fatalf("realTokenAttachmentGapIsParserPadding(escape='`') = false, want true for gap %q", source[stack.byteOffset:tok.StartByte])
+	}
+	if realTokenAttachmentGapIsParserPadding(source, &stack, tok, 0) {
+		t.Fatalf("realTokenAttachmentGapIsParserPadding(escape=0) = true, want false: an undeclared escape must not become padding for gap %q", source[stack.byteOffset:tok.StartByte])
+	}
+}
+
 func TestRealShiftGapAllowsNoLookaheadToken(t *testing.T) {
 	source := []byte("call(arg1/*c*/)")
 	stack := newGLRStack(1)
