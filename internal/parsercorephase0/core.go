@@ -1,8 +1,10 @@
 // Package parsercorephase0 contains the admitted compact parser core.
 //
-// The root package routes every fresh full parse of a source under 64 KiB
-// through this engine by default. The admission switch in
-// admission_switch.go controls this routing.
+// The root package routes every eligible fresh full parse through this
+// engine by default, regardless of source size. The admission switch in
+// admission_switch.go controls this routing; a scheduler stop-control poll
+// (memory budget, deadline, cancellation) bounds a large input instead of a
+// source-length eligibility decline.
 //
 // The engine consumes a dependency-neutral TableView. It does not own a
 // lexer, an external-scanner election, recovery, retries, or included

@@ -415,18 +415,22 @@ func TestAdmissionSwitchDeclinesWhenLoggerAttached(t *testing.T) {
 	}
 }
 
-// TestAdmissionCandidateMemoryBudgetContractPreserved proves the Phase-3 size
-// gate keeps the automatic large-input memory budget contract intact even with
-// the candidate route on by default.
+// TestAdmissionCandidateMemoryBudgetContractPreserved proves the automatic
+// large-input memory budget contract survives tranche B9's removal of the
+// source-length eligibility decline.
 //
-// The compact scheduler does not poll the automatic memory budget, so the
-// switch declines every input at or above the source-length floor where the
-// production route arms that budget (parseRuntimeMemoryMinSourceBytes, 64 KiB).
-// Such inputs stay on production and honor ParseStopMemoryBudget. Inputs below
-// the floor, where no budget arms on either route, still route freely.
+// Before tranche B9, the switch declined every input at or above
+// parseRuntimeMemoryMinSourceBytes (64 KiB) outright: the compact scheduler
+// never attempted them, so it never needed to poll the budget itself. Tranche
+// B9 removed that decline; a large input now attempts the candidate route
+// like any other. The tranche B8 scheduler stop-control poll is what keeps
+// the contract intact: it compares the compact core's own deterministic
+// StorageBytes() against the same soft budget production's arena/scratch
+// accounting honors, declines (falls back to production) when the budget is
+// exceeded, and releases the compact core's storage before returning -- so a
+// pathological large input still stops at the configured budget and still
+// reports ParseStopMemoryBudget, just via a different mechanism than before.
 func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
-	// Pin the gate to the single source of truth rather than copy the 64 KiB
-	// literal (parseRuntimeMemoryMinSourceBytes, parser_memory_budget_runtime.go).
 	minBudgetSourceBytes := gts.ParseRuntimeMemoryMinSourceBytesForTest()
 
 	restore := gts.AdmissionCandidateRouteDefault()
@@ -435,7 +439,7 @@ func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
 
 	lang := grammars.GoLanguage()
 
-	// Positive control: a small clean source below the floor routes.
+	// Positive control: a small clean source routes.
 	small := []byte(grammars.ParseSmokeSample("go"))
 	if len(small) == 0 || len(small) >= minBudgetSourceBytes {
 		t.Skipf("go smoke sample unsuitable for the control (%d bytes)", len(small))
@@ -447,21 +451,22 @@ func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
 		t.Fatalf("small parse: %v", err)
 	}
 	smallTree.Release()
+	compiledOut := false
 	if routed, _ := gts.AdmissionCandidateCounters(); routed == 0 {
 		// In the emergency opt-out build (-tags gts_no_parsercorephase0) the
 		// compact engine is compiled out, so every eligible parse fails closed and
-		// the routed counter cannot move. The size-gate contract this test proves
-		// (budget-eligible inputs stay on production) still holds, so skip the
-		// positive control rather than fail. The stub records the "compiled out"
-		// fallback reason (admission_switch_stub.go).
+		// the routed counter cannot move. The budget contract this test proves
+		// still holds trivially (every parse stays on production), so record that
+		// and skip the routing-specific assertions below rather than fail.
 		if reason := gts.AdmissionCandidateLastFallbackReason(); strings.Contains(reason, "compiled out") {
-			t.Skip("compact candidate route compiled out (-tags gts_no_parsercorephase0); the routed counter cannot move")
+			compiledOut = true
+		} else {
+			t.Fatalf("small clean source did not route to the candidate; routed=%d", routed)
 		}
-		t.Fatalf("small clean source below the floor did not route to the candidate; routed=%d", routed)
 	}
 
-	// A clean source at or above the floor must NOT route: the size gate keeps
-	// it on production even with the switch on.
+	// A clean source well above the former 64 KiB floor now routes too: no
+	// eligibility decline stops it by length alone (tranche B9).
 	var big bytes.Buffer
 	big.WriteString("package p\n\nfunc f() {\n")
 	for big.Len() < minBudgetSourceBytes+(1<<15) {
@@ -478,59 +483,23 @@ func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
 		t.Fatalf("large parse: %v", err)
 	}
 	bigTree.Release()
-	if routed, _ := gts.AdmissionCandidateCounters(); routed != 0 {
-		t.Fatalf("source of %d bytes (>= %d floor) routed to the candidate; the memory-budget size gate did not decline it (routed=%d)",
-			big.Len(), minBudgetSourceBytes, routed)
+	if routed, fallback := gts.AdmissionCandidateCounters(); !compiledOut && (routed != 1 || fallback != 0) {
+		t.Fatalf("source of %d bytes (>= %d former floor) did not route cleanly to the candidate: routed=%d fallback=%d reason=%q",
+			big.Len(), minBudgetSourceBytes, routed, fallback, gts.AdmissionCandidateLastFallbackReason())
 	}
 
-	// Exact-boundary cases pin the gate's strict comparison
-	// (admissionCandidateInputSizeEligible: sourceLen < floor): floor-1 is
-	// eligible and admits, the floor byte is not eligible and declines.
-	for _, bc := range []struct {
-		name       string
-		length     int
-		wantRouted bool
-	}{
-		{"floor_minus_one", minBudgetSourceBytes - 1, true},
-		{"floor_exact", minBudgetSourceBytes, false},
-	} {
-		src := cleanGoSourceOfExactLength(t, bc.length)
-		if len(src) != bc.length {
-			t.Fatalf("%s: built %d bytes, want exactly %d", bc.name, len(src), bc.length)
-		}
-		gts.ResetAdmissionCandidateCountersForTest()
-		boundaryParser := gts.NewParser(lang)
-		boundaryTree, parseErr := boundaryParser.Parse(src)
-		if parseErr != nil {
-			t.Fatalf("%s parse: %v", bc.name, parseErr)
-		}
-		boundaryTree.Release()
-		routed, _ := gts.AdmissionCandidateCounters()
-		if bc.wantRouted {
-			if routed == 0 {
-				// The size gate admitted the input (it is below the floor). Whether the
-				// compact engine then accepts it is a separate concern; in the emergency
-				// opt-out build it is always declined. Only a size-gate failure is a bug.
-				if reason := gts.AdmissionCandidateLastFallbackReason(); strings.Contains(reason, "compiled out") {
-					continue
-				}
-				t.Fatalf("%s (%d bytes, below the %d floor) did not route; the size gate must admit it (routed=%d, reason=%q)",
-					bc.name, bc.length, minBudgetSourceBytes, routed, gts.AdmissionCandidateLastFallbackReason())
-			}
-			continue
-		}
-		if routed != 0 {
-			t.Fatalf("%s (%d bytes, at the %d floor) routed; the size gate must decline it (routed=%d)",
-				bc.name, bc.length, minBudgetSourceBytes, routed)
-		}
-	}
-
-	// With a low budget, a pathological large source on production honors
-	// ParseStopMemoryBudget -- the exact contract the size gate preserves by
-	// routing every budget-eligible input to production.
+	// With a low budget, a pathological large source still stops at
+	// ParseStopMemoryBudget: the candidate route attempts it, the scheduler's
+	// storage-based stop-control poll trips before completion (an engine
+	// decline, not a never-attempted eligibility decline), and production
+	// serves the fallback honoring the identical configured budget. The
+	// decline must also release the compact core's storage before returning,
+	// so production's fallback never runs alongside retained compact storage
+	// (tranche B9 storage-release gate).
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "1")
 	gts.ResetParseEnvConfigCacheForTests()
 	defer gts.ResetParseEnvConfigCacheForTests()
+	gts.DrainArenaPools()
 
 	var huge bytes.Buffer
 	huge.WriteString("package p\nfunc f() {\n")
@@ -545,33 +514,16 @@ func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
 		t.Fatalf("huge parse: %v", err)
 	}
 	defer hugeTree.Release()
-	if routed, _ := gts.AdmissionCandidateCounters(); routed != 0 {
-		t.Fatalf("budgeted large source routed to the candidate; routed=%d", routed)
-	}
 	if got := hugeTree.ParseStopReason(); got != gts.ParseStopMemoryBudget {
-		t.Fatalf("ParseStopReason() = %q, want %q (production must honor the budget the candidate cannot poll)",
+		t.Fatalf("ParseStopReason() = %q, want %q (production must serve the fallback and honor the budget)",
 			got, gts.ParseStopMemoryBudget)
 	}
-}
-
-// cleanGoSourceOfExactLength builds a valid Go source of exactly n bytes. It
-// pads the remainder inside a mid-source block comment (trivia the parser
-// skips) and ends with a clean statement, so the source parses cleanly at any
-// exact byte length at or above the minimum without a trailing-trivia EOF edge.
-func cleanGoSourceOfExactLength(t *testing.T, n int) []byte {
-	t.Helper()
-	const prefix = "package p\n/*"   // opens the padding block comment
-	const suffix = "*/\nvar x = 1\n" // closes it, then a clean statement
-	if n < len(prefix)+len(suffix) {
-		t.Fatalf("exact length %d is below the %d-byte minimum valid program", n, len(prefix)+len(suffix))
+	if routed, fallback := gts.AdmissionCandidateCounters(); routed != 0 || (!compiledOut && fallback != 1) {
+		t.Fatalf("budgeted huge source: routed=%d fallback=%d (want routed=0, fallback=1 unless compiled out)", routed, fallback)
 	}
-	src := make([]byte, n)
-	copy(src, prefix)
-	for i := len(prefix); i < n-len(suffix); i++ {
-		src[i] = ' '
+	if got := gts.AdmissionCandidateCompactStorageBytesForTest(hugeParser); got != 0 {
+		t.Fatalf("compact storage retained after the memory-budget decline: %d bytes (want 0, released before production's fallback ran)", got)
 	}
-	copy(src[n-len(suffix):], suffix)
-	return src
 }
 
 // TestAdmissionCandidateGoTypeConversionFailsClosed proves the compact candidate

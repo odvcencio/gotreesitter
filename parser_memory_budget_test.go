@@ -135,6 +135,19 @@ func TestGoParseGiantTableLiteralStopsWithinMemoryBudget(t *testing.T) {
 	runtime.ReadMemStats(&before)
 
 	parser := gotreesitter.NewParser(grammars.GoLanguage())
+	// Pin to production: this witness's ~12.7MB source sat above the compact
+	// admission switch's former 64 KiB size floor, so before tranche B9 "bare
+	// Parse" already meant production-only here, matching the doc comment
+	// above ("bare Parse with the DFA lexer"). B9 removed that floor, so an
+	// unpinned Parse here would also attempt the compact route first: its own
+	// bounded, independent decline still contains its own heap growth, but
+	// this test measures RAW PROCESS heap growth with GC disabled, which sums
+	// across both engines' retained arena/backing-array capacity rather than
+	// isolating either one -- a different, dual-engine measurement this
+	// witness was never designed to make. The explicit pin restores the
+	// single-engine, production-only scope the RCA this test guards against
+	// actually targets.
+	parser.SetAdmissionCandidateRoute(false)
 	tree, err := parser.Parse(src.Bytes())
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)

@@ -96,6 +96,26 @@ func (p *Parser) acquireAdmissionCandidateRunner() (*parserCoreFreshFullRunner, 
 	return runner, nil
 }
 
+// admissionCandidateCompactStorageBytes reports p's cached admission-candidate
+// runner's current compact-core storage (internal/parsercorephase0.Core.
+// StorageBytes()), or 0 when no runner is cached yet. It exists for
+// regression tests proving the tranche B9 storage-release gate: a declined
+// parse must not leave compact storage retained while the caller's
+// production fallback runs. Every decline path resets the compact core
+// before returning (parsercore_phase0_fresh_full_runner.go and
+// internal/parsercorephase0.Core.RunFreshSchedulerSession), so this reads 0
+// immediately after any decline, matching the pre-parse baseline.
+func admissionCandidateCompactStorageBytes(p *Parser) uint64 {
+	if p == nil {
+		return 0
+	}
+	runner, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)
+	if !ok || runner == nil || runner.compact == nil {
+		return 0
+	}
+	return runner.compact.StorageBytes()
+}
+
 // tryCompactFullParseRoute attempts the compact candidate route for a fresh
 // full parse. It returns (tree, true, "") on success and (nil, false, reason)
 // on any decline, so the caller falls back to production.

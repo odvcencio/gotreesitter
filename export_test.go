@@ -300,23 +300,37 @@ func AdmissionCandidateEnvEnabledForTest() bool {
 	return admissionCandidateEnvEnabled()
 }
 
-// ParseRuntimeMemoryMinSourceBytesForTest exposes the source-length floor where
-// the production route arms the automatic memory budget, so the external test
-// package can pin the admission size gate to the single source of truth
-// (parseRuntimeMemoryMinSourceBytes) instead of copying the 64 KiB literal.
+// ParseRuntimeMemoryMinSourceBytesForTest exposes the source-length floor
+// where the production route arms its own automatic runtime memory budget
+// (parser_memory_budget_runtime.go), so the external test package can pin
+// production-budget tests to the single source of truth instead of copying
+// the 64 KiB literal. Tranche B9 retired this floor's former second use as
+// the compact-route admission size gate; it no longer bounds candidate-route
+// eligibility, only when production's own runtime-heap watchdog arms.
 func ParseRuntimeMemoryMinSourceBytesForTest() int {
 	return parseRuntimeMemoryMinSourceBytes
 }
 
 // TryCompactFullParseRouteForTest exposes the admission-candidate engine seam
-// directly (bypassing eligibility and the size gate) so external test code
-// can drive the compact route's own accept-or-decline outcome, including its
-// decline detail string, without going through the public Parse route. Both
-// build configurations define tryCompactFullParseRoute (the real engine
-// under the default build, a fail-closed stub under -tags
+// directly (bypassing the public Parser.Parse eligibility checks) so external
+// test code can drive the compact route's own accept-or-decline outcome,
+// including its decline detail string, without going through the public
+// Parse route. Both build configurations define tryCompactFullParseRoute (the
+// real engine under the default build, a fail-closed stub under -tags
 // gts_no_parsercorephase0), so this resolves in either build.
 func TryCompactFullParseRouteForTest(p *Parser, source []byte) (tree *Tree, ok bool, reason string) {
 	return p.tryCompactFullParseRoute(source)
+}
+
+// AdmissionCandidateCompactStorageBytesForTest exposes the cached
+// admission-candidate runner's current compact-core StorageBytes() so
+// external test code can prove the tranche B9 storage-release gate: a
+// declined parse must not leave compact storage retained while the caller's
+// production fallback runs. It returns 0 when no runner is cached yet
+// (including under -tags gts_no_parsercorephase0, where the engine never
+// runs).
+func AdmissionCandidateCompactStorageBytesForTest(p *Parser) uint64 {
+	return admissionCandidateCompactStorageBytes(p)
 }
 
 // BeginParseOperationBudgetForTest opens the same outer parse-budget scope

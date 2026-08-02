@@ -457,7 +457,6 @@ func buildFunctionOverride() []functionOverrideEntry {
 		"Parser).tryCompactFullParseRoute",
 		"Parser).attemptAdmissionCandidateFullParse",
 		"Parser).admissionCandidateFullParseEligible",
-		"admissionCandidateInputSizeEligible",
 		"Parser).acquireAdmissionCandidateRunner",
 		"newAdmissionCandidateRunner",
 		"Parser).hasActiveParseObservability",

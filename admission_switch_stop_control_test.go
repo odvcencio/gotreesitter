@@ -13,18 +13,18 @@ import (
 )
 
 // Tranche B8 gate: for each stop-control class (memory budget, timeout,
-// cancellation), an admission-eligible input under the 64 KiB wall that
-// trips the class produces a stop receipt from the candidate route (routed
-// through the scheduler's new pollStopControl, parsercore_phase0_driver.go)
-// that matches what production itself reports for the identical input and
-// configuration: the same ParseStopReason, ParseStoppedEarly() true, and a
-// tree with no out-of-range partial state. Every witness stays under
-// ParseRuntimeMemoryMinSourceBytesForTest so B9's wall (out of scope here)
-// is never the reason for the fallback instead.
+// cancellation), an admission-eligible input that trips the class produces a
+// stop receipt from the candidate route (routed through the scheduler's
+// pollStopControl, parsercore_phase0_driver.go) that matches what production
+// itself reports for the identical input and configuration: the same
+// ParseStopReason, ParseStoppedEarly() true, and a tree with no out-of-range
+// partial state. Every witness here stays modest in size deliberately, not
+// because a size boundary still gates eligibility (tranche B9 removed it):
+// these tests isolate the stop-control mechanism itself, so keeping the
+// witnesses small keeps them fast without changing what they prove.
 
 // stopControlWitnessGoSource returns a small, valid Go source with `lines`
-// statements, small enough to stay under the admission wall for any
-// reasonable line count used by these tests.
+// statements.
 func stopControlWitnessGoSource(lines int) []byte {
 	var buf bytes.Buffer
 	buf.WriteString("package p\n\nfunc f() {\n")
@@ -35,10 +35,16 @@ func stopControlWitnessGoSource(lines int) []byte {
 	return buf.Bytes()
 }
 
+// requireStopControlWitnessUnderWall keeps these deliberately modest witnesses
+// well clear of ParseRuntimeMemoryMinSourceBytesForTest, the source-length
+// floor where production's own runtime-heap watchdog additionally arms
+// (parser_memory_budget_runtime.go). That floor no longer gates compact-route
+// eligibility (tranche B9); staying under it here is only about keeping these
+// witnesses small and fast, not about avoiding an eligibility decline.
 func requireStopControlWitnessUnderWall(t *testing.T, source []byte) {
 	t.Helper()
 	if wall := gts.ParseRuntimeMemoryMinSourceBytesForTest(); len(source) >= wall {
-		t.Fatalf("witness source is %d bytes, want < %d (B9's admission wall is out of scope for tranche B8)", len(source), wall)
+		t.Fatalf("witness source is %d bytes, want < %d (keep these stop-control witnesses modest and fast)", len(source), wall)
 	}
 }
 

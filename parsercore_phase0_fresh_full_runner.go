@@ -116,6 +116,17 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 	}
 	if err := requireParserCoreFreshFullAcceptance(scheduler, source, r.allowConvergedReductionSplitDrops); err != nil {
 		tokenSource.Close()
+		// The scheduler run itself already committed here (RunFreshSchedulerSession,
+		// invoked from inside executeDiagnosticParserCoreGenericSchedulerFromSeedInto,
+		// resets the core only on its own internal error), so this acceptance-gate
+		// decline -- accepted, but not the strict sole-exact-EOF frontier -- is the
+		// one decline path that would otherwise leave the compact core's storage
+		// retained on the cached runner until the next parse call resets it lazily.
+		// Reset immediately: a large declined parse must never leave compact storage
+		// retained while the caller's production fallback runs (tranche B9 gate).
+		if resetErr := compact.Reset(); resetErr != nil {
+			err = errors.Join(err, fmt.Errorf("parser-core fresh-full runner: reset after acceptance decline: %w", resetErr))
+		}
 		return nil, nil, err
 	}
 	return scheduler, tokenSource, nil

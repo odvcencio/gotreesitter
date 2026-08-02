@@ -157,7 +157,7 @@ func run() error {
 		}
 
 		// ---- Measurement phase: one final pass. ----
-		fmt.Println("attribution: [measure] capturing CPU profiles (diagnostic lane x4, shipped route x3)")
+		fmt.Println("attribution: [measure] capturing CPU profiles (diagnostic lane x4, shipped route x4)")
 		captureManifest, err = runCapture(cfg, captureBin)
 		if err != nil {
 			return fmt.Errorf("run capture: %w", err)

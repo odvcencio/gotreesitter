@@ -104,13 +104,15 @@ func benchmarkWarmRealGoDFA(b *testing.B, fixture benchfixtures.LoadedFixture, l
 	// above: this benchmark reports and asserts on GLR-only runtime counters
 	// (max_stacks, peak_depth, nodes/op below), which the compact candidate
 	// route never populates. Phase-3 admission defaults the candidate route
-	// on, and every one of this benchmark's fixtures sits under the compact
-	// eligibility ceiling, so an unpinned parser here silently measures the
-	// compact route on both sides of an A/B comparison instead of production
-	// (b4b-width-repair audit, 2026-08; oak-b's v9 decomposition first
-	// caught this reproducing unmodified on origin/main). The guard
-	// assertion after the timed loop below fails loudly if this pin is ever
-	// lost again, instead of silently re-conflating the two routes.
+	// on, and every one of this benchmark's fixtures is DFA-eligible, so an
+	// unpinned parser here silently measures the compact route on both sides
+	// of an A/B comparison instead of production (b4b-width-repair audit,
+	// 2026-08; oak-b's v9 decomposition first caught this reproducing
+	// unmodified on origin/main). Tranche B9 removed the source-length
+	// eligibility ceiling that used to additionally exempt the largest
+	// fixture from this risk; every fixture now needs this explicit pin. The
+	// guard assertion after the timed loop below fails loudly if this pin is
+	// ever lost again, instead of silently re-conflating the two routes.
 	parser.SetAdmissionCandidateRoute(false)
 	warmTree, err := parser.Parse(fixture.Source)
 	if err != nil {

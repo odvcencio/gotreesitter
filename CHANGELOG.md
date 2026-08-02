@@ -46,6 +46,18 @@ for tags and release notes while still in `0.x`.
   The host carried heavy background load throughout the run, so the result
   is not a sealed measurement.
 
+- Removed the 64 KiB source-length eligibility decline from the compact
+  admission switch.
+  A fresh full parse of any size now attempts the compact route first.
+  The scheduler's stop-control poll bounds a large or pathological input:
+  it compares the compact core's own deterministic storage accounting
+  against the same soft memory budget production honors, and falls back to
+  production with a matching `ParseStopMemoryBudget` stop reason when the
+  budget is exceeded.
+  A decline now also releases the compact core's storage immediately, so a
+  production fallback never runs alongside retained compact storage.
+  Routing only changes; every canonical tree digest stays identical.
+
 ## [0.48.0] - 2026-08-01
 
 ### Added

@@ -29,11 +29,13 @@ document is that receipt's home. The attached tool
 ## Scope
 
 The receipt covers the compact parser core's fresh, non-incremental full
-parse: the default route for eligible full parses below the 64 KiB compact
-admission floor (`parseRuntimeMemoryMinSourceBytes`,
-`admission_switch.go`), and the diagnostic runner path
-(`parserCoreFreshFullRunner`) that exercises the same scheduler and
-materialization code above that floor.
+parse: the default route for eligible full parses (`admission_switch.go`),
+and the diagnostic runner path (`parserCoreFreshFullRunner`) that exercises
+the same scheduler and materialization code directly. Campaign v7 tranche B9
+retired the compact admission switch's 64 KiB source-length eligibility
+decline; the shipped route now attempts every eligible full parse regardless
+of size, with a scheduler stop-control poll (tranche B8) bounding a large or
+pathological input instead.
 
 It does not cover: incremental reparse, error recovery, retry passes, the
 production (non-compact) GLR engine, or any language other than the four
@@ -54,15 +56,18 @@ The four canonical fixtures are SHA-256-pinned in
 `cgo_harness/pure_c/run_canonical_go_full_parse.sh` and
 `diagnosticParserCoreCanonicalAdmissions` authenticate them:
 
-| Fixture | Bytes | Below 64 KiB floor |
-|---|---:|---|
-| `rewrite.go` | 5,116 | yes |
-| `query_compile.go` | 20,168 | yes |
-| `language.go` | 41,387 | yes |
-| `grammargen/lr.go` | 235,626 | no |
+| Fixture | Bytes |
+|---|---:|
+| `rewrite.go` | 5,116 |
+| `query_compile.go` | 20,168 |
+| `language.go` | 41,387 |
+| `grammargen/lr.go` | 235,626 |
 
-`grammargen/lr.go` never takes the shipped `Parser.Parse` route: it is
-diagnostic-lane only. The other three fixtures run through both lanes.
+Before tranche B9, `grammargen/lr.go` sat above the compact admission
+switch's 64 KiB source-length eligibility floor and never took the shipped
+`Parser.Parse` route (diagnostic-lane only; see the first receipt below,
+which predates B9). B9 retired that floor, so all four fixtures now run
+through both lanes; see the B9 addendum.
 
 ## Two lanes, one methodology
 
@@ -75,9 +80,11 @@ identical, already-committed lifecycle; the tool never adds new parser calls.
   `gts_parsercorephase0`). Runs for all four fixtures.
 - **Shipped route.** `Parser.Parse` and `Tree.Release` — the exact timed
   region of `BenchmarkDiagnosticParserCoreWarmProductionParseQueryCompile`,
-  generalized to all three fixtures under the 64 KiB floor. Every sample is
-  verified, by the admission-candidate routed/fallback counters, to have
-  actually taken the compact route rather than falling back to production.
+  generalized to all four fixtures (tranche B9 retired the 64 KiB eligibility
+  floor that used to keep `grammargen/lr.go` diagnostic-lane only). Every
+  sample is verified, by the admission-candidate routed/fallback counters, to
+  have actually taken the compact route rather than falling back to
+  production.
 
 The tool labels every row with its lane so a reader never mixes shipped-route
 public-API overhead into the diagnostic lane's scheduler-only numbers, or
@@ -647,6 +654,89 @@ reasonable reading of a different implicit boundary that this receipt now
 makes explicit. From this tranche forward, campaign v7 should cite the
 eight-component table above — with its stated boundary and disambiguation
 rule — instead of any of the three legacy percentages.
+
+### B9 addendum: the wall-removal receipt
+
+Campaign v7 tranche B9 removed the compact admission switch's 64 KiB
+source-length eligibility decline (`admission_switch.go`). The shipped route
+now attempts every eligible full parse regardless of size; a scheduler
+stop-control poll (tranche B8) bounds a large or pathological input instead
+of a size wall. This addendum re-runs the documented command with
+`grammargen_lr` added to the shipped-route lane (diagnostic-lane only in
+every receipt above) and reports what changed. Per doctrine 10 (board
+honesty), every row below still names its lane; nothing here merges a
+diagnostic-lane number into a shipped-route claim or vice versa.
+
+Generated 2026-08-02T11:02:14Z. Host: shared WSL2 development host,
+background load uncontrolled -- the same local-development floor as every
+prior receipt in this document, not a quiet-host or enclave measurement.
+Git identity: `6fab988d30d42d931d42625eaa0cfa167d4877b` (the tranche's
+merge-base commit; the wall-removal change is a working-tree diff on top of
+it at capture time, so the tool's `git rev-parse HEAD` names the base, not a
+B9-specific commit). This run's raw JSON output was not committed, matching
+the existing `harness_out/` git-ignore rule; rerun the documented command to
+reproduce it.
+
+#### Attribution shares (regenerated; shipped route now covers all four fixtures)
+
+| lane | fixture | wall ns/op | coverage % | scheduler-dispatch | elections | reductions-and-pops | canonicalization | lexing | materialization | compat-tail | recovery | other |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| diagnostic lane | rewrite | 2.381ms | 110.9 | 23.6 | 6.7 | 22.5 | 11.2 | 11.2 | 23.6 | 0.0 | 0.0 | 1.1 |
+| diagnostic lane | query_compile | 11.548ms | 110.1 | 21.3 | 6.7 | 28.1 | 11.2 | 14.6 | 18.0 | 0.0 | 0.0 | 0.0 |
+| diagnostic lane | language | 12.156ms | 109.7 | 26.1 | 2.3 | 28.4 | 12.5 | 15.9 | 13.6 | 0.0 | 0.0 | 1.1 |
+| diagnostic lane | grammargen_lr | 126.493ms | 110.7 | 27.6 | 5.1 | 23.5 | 12.2 | 12.2 | 17.3 | 0.0 | 0.0 | 2.0 |
+| shipped route | rewrite | 2.480ms | 109.9 | 15.9 | 3.4 | 30.7 | 12.5 | 21.6 | 15.9 | 0.0 | 0.0 | 0.0 |
+| shipped route | query_compile | 11.661ms | 110.6 | 15.7 | 4.5 | 30.3 | 15.7 | 13.5 | 20.2 | 0.0 | 0.0 | 0.0 |
+| shipped route | language | 12.782ms | 110.5 | 16.9 | 4.5 | 30.3 | 9.0 | 18.0 | 20.2 | 0.0 | 0.0 | 1.1 |
+| **shipped route** | **grammargen_lr** | **140.751ms** | 111.3 | 11.7 | 10.6 | 29.8 | 8.5 | 19.1 | 20.2 | 0.0 | 0.0 | 0.0 |
+
+`grammargen_lr` has a shipped-route row for the first time. The public
+`Parser.Parse` route, with no per-Parser pin and no diagnostic flag, admitted
+it at 140.751ms against the diagnostic lane's 126.493ms for the same
+fixture -- an 11.3% shipped-route overhead. That overhead matches the
+compat-tail and admission-switch bookkeeping the shipped route pays and the
+diagnostic runner does not (`normalizeReturnedTreeForParse`,
+`resolveCRecoverySwallowedError`, `maybeCompactReturnedFullTree`, plus
+`Parser.Parse`'s own dispatch); it is not a new cost class, and `compat-tail`
+still reads 0.0% because this run's four fixtures stay clean (no error
+nodes, no C-recovery-swallowed error to resolve). Every shipped-route sample
+was verified, by the admission-candidate routed/fallback counters, to have
+actually taken the compact route rather than falling back to production.
+
+#### Noise floor (this run, interleaved A/A, 10 pairs per fixture)
+
+| fixture | pairs | median ns/op | p95 \|delta\| | p95 \|delta\| as % of median |
+|---|---:|---:|---:|---:|
+| `grammargen_lr` | 10 | 120.831ms | 27.151ms | 22.47% |
+| `language` | 10 | 12.164ms | 2.994ms | 24.61% |
+| `query_compile` | 10 | 11.770ms | 4.986ms | 42.36% |
+| `rewrite` | 10 | 2.458ms | 378.273us | 15.39% |
+
+This run's noise floor is wide (15.4%-42.4% of median), consistent with a
+busy shared host (other agents were active throughout this session). Read
+the 11.3% shipped-route/diagnostic-lane gap on `grammargen_lr` above against
+this floor: it sits below the `query_compile` and `language` floors and
+above `rewrite`'s, so treat it as directional, not a precise constant, until
+a quieter run confirms it.
+
+#### Cost per event (diagnostic lane; average, not causal)
+
+| fixture | wall ns/op | ns/shift | ns/reduction | ns/pop path | ns/pop payload | ns/canonicalization | ns/election |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `rewrite` | 2.381ms | 1766 | 1583 | 1446 | 795 | 973 | 2298 |
+| `query_compile` | 11.548ms | 1728 | 1538 | 1424 | 784 | 934 | 2253 |
+| `language` | 12.156ms | 1867 | 1607 | 1451 | 769 | 987 | 2403 |
+| `grammargen_lr` | 126.493ms | 1913 | 1658 | 1512 | 833 | 1036 | 2534 |
+
+Every per-event reading sits within this document's established noise
+floors from prior receipts. The wall-removal change moved routing, not the
+compact engine's per-event cost.
+
+This is a local, one-run, noisy-host receipt, not a sealed epoch. It does
+not replace or invalidate the first receipt or its addenda above (all
+measured before tranche B9 landed, correctly showing `grammargen_lr`
+diagnostic-lane only at that time); it extends the same methodology to the
+newly shipped-route-eligible fixture.
 
 ## Caveats
 

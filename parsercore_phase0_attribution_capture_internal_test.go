@@ -20,8 +20,9 @@ import (
 // documented command that drives it end to end.
 
 // attributionCaptureRow is one profiled sample series: either the diagnostic
-// runner path (all four canonical fixtures) or the shipped Parser.Parse route
-// (the three fixtures under the 64 KiB admission floor).
+// runner path or the shipped Parser.Parse route, each covering all four
+// canonical fixtures (tranche B9 removed the 64 KiB admission floor that used
+// to keep grammargen_lr shipped-route-ineligible).
 type attributionCaptureRow struct {
 	Label       string  `json:"label"`
 	Fixture     string  `json:"fixture"`
@@ -43,16 +44,18 @@ type attributionCaptureManifest struct {
 // endpoint. It is inert unless GTS_ATTRIBUTION_OUT names a writable directory,
 // so it never adds cost to a normal `go test` run.
 //
-// Each captured CPU profile brackets exactly one pinned lifecycle:
+// Each captured CPU profile brackets exactly one pinned lifecycle, for all
+// four canonical fixtures on both lanes (tranche B9 removed the 64 KiB
+// admission floor that used to keep grammargen_lr shipped-route-ineligible):
 //
 //   - "diagnostic lane": runner.parse, shallow completeness validation, and
 //     Tree.Release -- the same timed region BenchmarkParserCoreFreshFullCanonical
-//     measures, for all four canonical fixtures (so grammargen_lr is included).
+//     measures.
 //   - "shipped route": Parser.Parse and Tree.Release -- the timed region
-//     BenchmarkDiagnosticParserCoreWarmProductionParseQueryCompile measures, for
-//     the three fixtures under the 64 KiB compact-admission floor
-//     (parseRuntimeMemoryMinSourceBytes). grammargen_lr never takes this route
-//     (it is not eligible), so it is diagnostic-lane only.
+//     BenchmarkDiagnosticParserCoreWarmProductionParseQueryCompile measures.
+//     Every sample is verified, by the admission-candidate routed/fallback
+//     counters, to have actually taken the compact route rather than falling
+//     back to production.
 //
 // Every one-time preflight, warm pass, and digest check happens outside
 // pprof.StartCPUProfile/StopCPUProfile so the profile is not diluted by
@@ -85,9 +88,6 @@ func TestParserCoreAttributionCapture(t *testing.T) {
 	}
 	for _, row := range diagnosticParserCoreCanonicalAdmissions {
 		row := row
-		if row.bytes >= parseRuntimeMemoryMinSourceBytes {
-			continue // ineligible for the shipped route; stays production-only.
-		}
 		fixture := loadDiagnosticParserCoreCanonicalFixture(t, row.id)
 		requireDiagnosticParserCoreCanonicalFixtureIdentity(t, fixture, row)
 		rows = append(rows, captureAttributionShippedRoute(t, outDir, fixture, row, duration, minIterations))
