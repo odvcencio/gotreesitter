@@ -203,10 +203,16 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
 	},
+	// Python's tied tuple-assignment election matches the C oracle once the
+	// compact route selects the sole primary derivation. Full-corpus
+	// field-aware C-oracle verification certifies this mechanism for this
+	// exact blob, alongside the existing converged-path split-drop
+	// certification (A3 certification workstream, spec.campaign.v7).
 	"python": {
-		blobSHA256:                    mustRuntimeProfileSHA256("cde4a67dc6af6e1232dbbd1eab8618478d1d73727020e8a8002542390a452d37"),
-		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
-		compactConvergedSplitDrops:    true,
+		blobSHA256:                     mustRuntimeProfileSHA256("cde4a67dc6af6e1232dbbd1eab8618478d1d73727020e8a8002542390a452d37"),
+		externalScannerFullParseRetry:  gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
+		compactConvergedSplitDrops:     true,
+		compactPrimaryAcceptDerivation: true,
 	},
 	// Swift's low-pressure accepted-error parses select the same tree across
 	// the retry ladder. High-pressure parses still benefit from the first

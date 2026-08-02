@@ -68,7 +68,10 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// retired outright, not migrated (see the "NOTE on dot" comment above
 	// the gomod entry), so it does not add a map entry. Crystal and Matlab add
 	// exact-blob external-scanner repeat suppression while retaining the full
-	// accepted-error retry ladder.
+	// accepted-error retry ladder. Python adds compact
+	// primary-acceptance-derivation certification (A3 certification
+	// workstream, spec.campaign.v7, finding
+	// tied-election-family-compact-retirement).
 	if got, want := len(builtinLanguageRuntimeProfiles), 42; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
@@ -146,6 +149,16 @@ func TestBuiltinCompactAcceptanceProfilesRequireExactBlobIdentity(t *testing.T) 
 		},
 		{
 			name: "meson", load: MesonLanguage,
+			want: func(lang *gotreesitter.Language) bool {
+				return lang.CompactPrimaryAcceptanceDerivationCertified
+			},
+		},
+		// A3 certification workstream (spec.campaign.v7, finding
+		// tied-election-family-compact-retirement): full-corpus field-aware
+		// C-oracle verification certifies primary-acceptance-derivation
+		// selection for Python's tied tuple-assignment election.
+		{
+			name: "python", load: PythonLanguage,
 			want: func(lang *gotreesitter.Language) bool {
 				return lang.CompactPrimaryAcceptanceDerivationCertified
 			},
