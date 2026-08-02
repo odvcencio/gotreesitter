@@ -6753,6 +6753,23 @@ func flattenedHiddenPaddingTarget(n, source *Node, symbolMeta []SymbolMetadata) 
 	if n.isExternalScannerToken() {
 		return false
 	}
+	if len(n.children) > 0 && !flattenedHiddenPaddingSourceReachesTarget(n, source) {
+		// n has children (the only shape a preceding hidden node's overhang
+		// can legitimately widen -- see the metadata checks below), but
+		// source's own span ends before n's begins: source cannot be the
+		// hidden node whose flattening produced n, because a real container
+		// always spans at least up to its own descendant's start. That
+		// shape means source is an already-finished, unrelated PRECEDING
+		// SIBLING (e.g. the previous element of an operator repeat), and n
+		// is an independently reduced node -- typically an aliased
+		// multi-token wrapper, e.g. python's `not in` -- whose own span was
+		// already computed correctly from its own first child. The gap
+		// between them is ordinary unclaimed inter-sibling trivia, not
+		// padding a hidden node lost; widening n backward over it would
+		// swallow the separator instead of leaving it unclaimed like any
+		// other inter-token gap.
+		return false
+	}
 	if idx := int(n.symbol); idx >= 0 && idx < len(symbolMeta) {
 		meta := symbolMeta[n.symbol]
 		if !meta.Visible || meta.Named {
@@ -6761,6 +6778,17 @@ func flattenedHiddenPaddingTarget(n, source *Node, symbolMeta []SymbolMetadata) 
 		return len(n.children) > 0
 	}
 	return !n.isNamed() && len(n.children) > 0
+}
+
+// flattenedHiddenPaddingSourceReachesTarget reports whether source's own
+// span extends at least as far as n's recorded start byte -- the shape a
+// genuine container has over a descendant it has not fully accounted for
+// yet (source.startByte <= n.startByte always holds by construction; this
+// checks the other edge). When source's span ends before n begins, source
+// cannot be n's flattening origin: it is a finished, disjoint sibling
+// instead, and any gap before n belongs to neither.
+func flattenedHiddenPaddingSourceReachesTarget(n, source *Node) bool {
+	return source != nil && source.endByte >= n.startByte
 }
 
 func flattenedHiddenSiblingPaddingTarget(n, source *Node, symbolMeta []SymbolMetadata) bool {

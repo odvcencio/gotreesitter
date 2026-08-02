@@ -803,3 +803,69 @@ func TestFlattenedGeneratedRepeatPaddingWidensAnonymousWrapper(t *testing.T) {
 		t.Fatalf("generated-repeat anonymous wrapper endByte = %d, want %d", got, want)
 	}
 }
+
+// TestFlattenedSiblingGapDoesNotWidenAliasedWrapper is the family-S
+// regression fixture (spore.2026-08-02.maple-e.shared-divergence-census;
+// elm/aliased-span-fix): a minimal, hand-built shape of python's
+// `1 in 1 not in 1` -- an aliased multi-token wrapper (visible, unnamed, has
+// children -- the same shape TestFlattenedGeneratedRepeatPaddingWidensAnonymousWrapper
+// legitimately widens) sits as the FIRST flattened node of the SECOND
+// element of an operator repeat, with a one-byte unclaimed gap (the
+// separating space) between it and the first element's already-finished,
+// disjoint sibling subtree.
+//
+// The two cases share flattenedHiddenPaddingTarget's exact "visible,
+// unnamed, has children" shape check and must be told apart by whether the
+// padding source's span actually reaches the candidate's start
+// (flattenedHiddenPaddingSourceReachesTarget): the legitimate case's source
+// is the wrapper's own enclosing hidden node, which by construction always
+// spans at least up to its descendant; here the source is a finished,
+// disjoint PRECEDING SIBLING two levels up (elem1), whose span ends before
+// the wrapper begins. Before the fix, elem1's trailing edge leaked across
+// that sibling boundary and pulled the wrapper's start back over the gap
+// (matching the measured Go span 10..17 vs C's 11..17 on
+// `a = 1 in 1 not in 1`).
+func TestFlattenedSiblingGapDoesNotWidenAliasedWrapper(t *testing.T) {
+	op1 := NewLeafNode(3, false, 0, 2, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 2})
+	elem1 := NewParentNode(4, false, []*Node{op1}, nil, 0)
+	elem1.startByte, elem1.endByte = 0, 2
+	elem1.startPoint, elem1.endPoint = Point{Row: 0, Column: 0}, Point{Row: 0, Column: 2}
+
+	// Byte 2 is an unclaimed gap (the separating space); the wrapper's own
+	// content does not start until byte 3.
+	content := NewLeafNode(2, true, 3, 5, Point{Row: 0, Column: 3}, Point{Row: 0, Column: 5})
+	wrapper := NewParentNode(1, false, []*Node{content}, nil, 0)
+	wrapper.startByte, wrapper.endByte = 3, 5
+	wrapper.startPoint, wrapper.endPoint = Point{Row: 0, Column: 3}, Point{Row: 0, Column: 5}
+	elem2 := NewParentNode(4, false, []*Node{wrapper}, nil, 0)
+	elem2.startByte, elem2.endByte = 3, 5
+	elem2.startPoint, elem2.endPoint = Point{Row: 0, Column: 3}, Point{Row: 0, Column: 5}
+
+	repeatList := NewParentNode(5, false, []*Node{elem1, elem2}, nil, 0)
+	repeatList.startByte, repeatList.endByte = 0, 5
+	repeatList.startPoint, repeatList.endPoint = Point{Row: 0, Column: 0}, Point{Row: 0, Column: 5}
+
+	symbolMeta := []SymbolMetadata{
+		{},
+		{Name: "not_in", Visible: true, Named: false},
+		{Name: "content", Visible: true, Named: true},
+		{Name: "op", Visible: true, Named: false},
+		{Name: "_repeat_elem", Visible: false},
+		{Name: "_repeat_list", Visible: false},
+	}
+
+	scratch := &reduceBuildScratch{}
+	appendFlattenedHiddenChildrenToScratch(scratch, repeatList, symbolMeta, nil)
+	if got, want := len(scratch.nodes), 2; got != want {
+		t.Fatalf("flattened child count = %d, want %d", got, want)
+	}
+	if got, want := scratch.nodes[0].startByte, uint32(0); got != want {
+		t.Fatalf("first element startByte = %d, want %d", got, want)
+	}
+	if got, want := scratch.nodes[1].startByte, uint32(3); got != want {
+		t.Fatalf("aliased wrapper startByte = %d, want %d (must not widen across the preceding sibling's gap)", got, want)
+	}
+	if got, want := scratch.nodes[1].endByte, uint32(5); got != want {
+		t.Fatalf("aliased wrapper endByte = %d, want %d", got, want)
+	}
+}

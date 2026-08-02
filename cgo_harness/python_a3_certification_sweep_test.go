@@ -49,20 +49,19 @@ func TestPythonA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // materialization: an inherited field-map entry named the comma in a
 // comma-separated import list. C's node.c never names that comma. PR #638
 // repaired applyParentFieldToFlattenedHiddenSpan, so both divergences
-// stopped occurring, and the entries came out with the repair. The
-// stale-entry ratchet in a3ReportSweep now fails this test if a remaining
-// entry stops matching a live divergence.
+// stopped occurring, and the entries came out with the repair.
 //
 // The repair of large__python3.8_grammar.py uncovered a second, independent
-// divergence further into the same file. It is family S (materialization,
-// aliased multi-token span): Go starts the "not in" operator wrapper one
-// byte early. Go uses the previous sibling's end byte instead of the first
-// token's own start byte, so the wrapper includes the separating space.
-// The defect is older than PR #638. Only the family-M point ahead of it in
-// traversal order masked it, because a3MatchesKnownDivergence gates on the
-// first divergence. The entry below tracks the defect, so the family-M
-// burn-down does not turn an already-known defect into a false hard
-// failure.
+// divergence further into the same file, which PR #638 tracked as its own
+// family-S entry: Go started the "not in" operator wrapper one byte early,
+// using the previous sibling's end byte instead of the first token's own
+// start byte, so the wrapper swallowed the separating space. This PR fixes
+// that defect at its source (flattenedHiddenPaddingTarget /
+// flattenedHiddenPaddingSourceReachesTarget, parser_reduce.go) and removes
+// the entry with the repair, verified directly against the C oracle on this
+// exact file. large__python3.8_grammar.py now carries no tracked divergence
+// at all. The stale-entry ratchet in a3ReportSweep enforces this: it fails
+// the sweep if a remaining entry stops matching a live divergence.
 //
 // The two f-string entries are family D (a first-class declared
 // pattern_list/expression_list ambiguity; Go's reduceForkWindowPreference
@@ -70,13 +69,6 @@ func TestPythonA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // tied elections, not this gate's scope; repair lanes are tracked
 // separately.
 var pythonA3KnownDivergences = []a3KnownDivergence{
-	{
-		// Pre-existing production-level aliased-multi-token span defect.
-		// A repair lane is queued.
-		Witness:   "large__python3.8_grammar.py",
-		FirstPath: "/module/class_definition[25]/block[4]/function_definition[56]/block[6]/if_statement[12]/comparison_operator[1]/not in[15]",
-		GoValue:   "1190:45-1190:52 @37238..37245", CValue: "1190:46-1190:52 @37239..37245", Family: "S",
-	},
 	{
 		Witness:   "fstring_interpolation_bare_tuple",
 		FirstPath: "/module/assignment[2]/string[2]/interpolation[1]/pattern_list[1]",

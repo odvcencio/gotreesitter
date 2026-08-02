@@ -1359,11 +1359,18 @@ func coalesceForestWithRawAndAlternatives(p *Parser, arena *nodeArena, index *gs
 		// production silently truncating, not this gate picking a wrong
 		// alternative. The one genuine forest-vs-C divergence found in the
 		// sweep (python `not in`/`is not` compound-token leaf span, off by the
-		// leading space) reproduces identically with this whole hunk reverted
-		// to the original HEAD (pre-existing, unrelated to hidden-symbol
-		// dedup — see forest_gap_rejection_test.go / the cap-eviction tiebreak
-		// in forestCapReplacementIndex below for the mechanism that made this
-		// specific python file reachable enough to expose it).
+		// leading space) reproduced identically with this whole hunk reverted
+		// to HEAD, confirming it was pre-existing and unrelated to
+		// hidden-symbol dedup here — see forest_gap_rejection_test.go / the
+		// cap-eviction tiebreak in forestCapReplacementIndex below for the
+		// mechanism that made this specific python file reachable enough to
+		// expose it. Fixed at its actual source: flattenedHiddenPaddingTarget
+		// (parser_reduce.go) let a preceding sibling's trailing gap widen an
+		// aliased multi-token wrapper's already-correct start backward over
+		// the separating space whenever the wrapper was the second-or-later
+		// element of an operator repeat. That helper is shared by every route
+		// through buildReduceChildrenWithPath, so the forest route's copy of
+		// the divergence closed along with production's.
 		hiddenSym := p != nil && p.language != nil && !symbolIsVisible(p.language, esym)
 		for i := range node.links {
 			l := &node.links[i]
