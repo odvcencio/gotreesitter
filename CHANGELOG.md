@@ -9,6 +9,22 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- The GSS-forest link cap could silently drop the widest hidden-symbol
+  alternative when it tied a narrower one on score and error cost.
+  The cap kept the earlier arrival by default in every tie.
+  json5's flat-array grammar shape hits this tie constantly on ordinary
+  input.
+  Other forest-default languages hit it rarely or not at all on their
+  current tables.
+  The cap now keeps the wider alternative when two links tie on the same
+  symbol and the same end byte.
+  A narrower-tie or cross-symbol tie keeps the prior behavior unchanged.
+  `Parser.ForestCapTieStats()` is a new method.
+  It reports how often the tie fires and how often the fix changes the
+  outcome.
+  Set `GOT_FOREST_CAP_TIE_DUMP=1` to also record a bounded per-decision
+  receipt list.
+
 - Corrected the root-cause comment on the javascript declared-conflict
   election witness test.
   `grammargen/lr.go` already retains the `labeled_statement`/`_property_name`

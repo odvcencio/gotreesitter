@@ -103,13 +103,23 @@ type Parser struct {
 	forestDeclineStates []StateID
 	// forestCapTieStats is Stage 0's cap-event instrument (see
 	// ForestCapTieStats and glr_forest.go's forestCapReplacementIndex):
-	// hidden-symbol cap-tie counts for the most recent forest parse, reset
-	// at the top of parseForest like the decline diagnostics above.
+	// hidden-symbol cap-tie counts for the most recent forest parse. Reset
+	// (along with forestCapTieDumpActive) by resetForestCapTieStats at the
+	// top of every forest entry point, not only the decline diagnostics'
+	// parseForest -- tryForestFastPath's early declines (included ranges,
+	// the decline memo, ...) never reach parseForest at all, and without
+	// their own reset a reused Parser would report a stale prior parse's
+	// counts for a call that did no forest work this time.
 	forestCapTieStats ForestCapTieStats
-	hasRecoverState   []bool
-	hasRecoverSymbol  []bool
-	recoverByState    [][]recoverSymbolAction
-	hasKeywordState   []bool
+	// forestCapTieDumpActive is GOT_FOREST_CAP_TIE_DUMP's value latched once
+	// per parse by resetForestCapTieStats; recordForestCapTie reads this
+	// field on every hidden-symbol cap tie instead of calling os.Getenv
+	// per-tie (see forestCapTieDumpEnabled's doc comment).
+	forestCapTieDumpActive bool
+	hasRecoverState        []bool
+	hasRecoverSymbol       []bool
+	recoverByState         [][]recoverSymbolAction
+	hasKeywordState        []bool
 	// lookupActionIndexFn caches the bound-method closure for
 	// lookupActionIndex. Passing p.lookupActionIndex directly at token-source
 	// construction sites allocates a fresh 16-byte closure per parse; the
