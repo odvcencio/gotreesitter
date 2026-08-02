@@ -42,17 +42,30 @@ func TestPerlA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // perlA3KnownDivergences are already-triaged, pre-existing production-route
 // defects the tightened sweep criterion surfaced: the compact route only
 // reproduces what production already produces (verified directly, with the
-// compact route disabled) on each of these witnesses. All four are family D
-// (GLR derivation selection at a declared conflict: Go's
+// compact route disabled) on each of these witnesses. Both remaining entries
+// are family D (GLR derivation selection at a declared conflict: Go's
 // reduceForkWindowPreference disagrees with C's ts_parser__select_tree on
 // which branch of a real grammar-declared conflict to keep). Not tied
 // elections, not this gate's scope; repair lanes are tracked separately.
+//
+// Two entries burned down when the zero-width external-token fork rescue
+// landed (parser_dfa_token_source.go,
+// preferGLRUnionDFAOverExternalToken). Perl's bareword call conflict
+// ([$.function, $.function_call_expression], grammar.js:170) needs the
+// zero-width `_NONASSOC` external token to reach function_call_expression,
+// and the shared-frontier lexer used to drop that token in favor of the
+// higher-specificity DFA token, which killed the only fork that could use
+// it:
+//
+//   - local_dynamic_scope now matches the C oracle on both routes.
+//   - medium__statements.pm now matches the C oracle on the compact route
+//     and is reported as an adjudicated exception. Its production route
+//     still elects ambiguous_function_call_expression at 12 points, all of
+//     them bareword calls inside try/catch/finally blocks. The fork now
+//     survives to the end there; the remaining defect is the derivation
+//     selection between the two surviving derivations, which is the
+//     separate family-D tie-break lane.
 var perlA3KnownDivergences = []a3KnownDivergence{
-	{
-		Witness:   "medium__statements.pm",
-		FirstPath: "/source_file/try_statement[69]/block[1]/expression_statement[1]/ambiguous_function_call_expression[0]",
-		GoValue:   "ambiguous_function_call_expression", CValue: "function_call_expression", Family: "D",
-	},
 	{
 		Witness:   "join_assignment",
 		FirstPath: "/source_file/expression_statement[0]/list_expression[0]",
@@ -62,11 +75,6 @@ var perlA3KnownDivergences = []a3KnownDivergence{
 		Witness:   "return_list",
 		FirstPath: "/source_file/subroutine_declaration_statement[0]/block[2]/expression_statement[1]/list_expression[0]",
 		GoValue:   "list_expression", CValue: "return_expression", Family: "D",
-	},
-	{
-		Witness:   "local_dynamic_scope",
-		FirstPath: "/source_file/subroutine_declaration_statement[2]/block[2]/expression_statement[3]/ambiguous_function_call_expression[0]",
-		GoValue:   "ambiguous_function_call_expression", CValue: "function_call_expression", Family: "D",
 	},
 }
 

@@ -755,6 +755,25 @@ func (d *dfaTokenSource) preferGLRUnionDFAOverExternalToken(extTok Token, extEnd
 		}
 		return Token{}, 0, 0, 0, false
 	}
+	// A zero-width external token consumes no input, so keeping it costs the
+	// live stacks that cannot use it nothing: parser.go's zero-width no-action
+	// branch makes each of them skip the token and re-lex the same byte, and
+	// the zero-width retry filter (extZeroTried) stops the scanner from
+	// offering it a second time at that position. Dropping it, by contrast, is
+	// final. Any stack whose only continuation is that external token loses its
+	// one lookahead and dies, which removes a whole derivation from the parse.
+	// C never makes that trade: it lexes every stack version with that
+	// version's own lex mode, so a version gated behind a zero-width external
+	// token always receives it. Keep the external token whenever some live GLR
+	// state can act on it and cannot act on the DFA token.
+	if extTok.EndByte == extTok.StartByte && d.hasGLRActionSupportExclusiveTo(extTok.Symbol, dfaTok.Symbol) {
+		if DebugDFA.Load() {
+			fmt.Printf("  GLR ext/dfa keep external: zero-width ext=%s(%d) has a state the dfa=%s(%d) cannot serve\n",
+				d.symbolName(extTok.Symbol), extTok.Symbol,
+				d.symbolName(dfaTok.Symbol), dfaTok.Symbol)
+		}
+		return Token{}, 0, 0, 0, false
+	}
 	dfaSupport := d.countGLRActionSupport(dfaTok.Symbol)
 	dfaSpecificity := tokenSymbolSpecificity(d.language, dfaTok.Symbol)
 	extSpecificity := tokenSymbolSpecificity(d.language, extTok.Symbol)
