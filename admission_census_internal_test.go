@@ -23,13 +23,15 @@ func TestAdmissionCensusSeparatesNoTableActionFromPausedFrontier(t *testing.T) {
 }
 
 // TestAdmissionCensusClassifiesMaterialAcceptanceElection pins the census
-// mechanism the R1 materiality gate's two decline reasons classify into
-// (compactAcceptanceElectionMaterialDetail and
-// compactAcceptanceElectionCandidateCapDetail, parsercore_phase0_driver.go):
-// both share the DiagnosticParserCoreAccept boundary and both contain the
-// "material-acceptance-election" substring, so both must classify the same
-// way, distinct from the pre-existing accepted-leaf-tiling-gap and
-// accepted-root-leading-gap cases on the same boundary.
+// mechanism the R1 materiality gate's three decline reasons classify into
+// (compactAcceptanceElectionMaterialDetail,
+// compactAcceptanceElectionCandidateCapDetail, and
+// compactAcceptanceElectionNoContextDetail, parsercore_phase0_driver.go):
+// all three share the DiagnosticParserCoreAccept boundary and all three
+// contain the "material-acceptance-election" substring, so all three must
+// classify the same way, distinct from the pre-existing
+// accepted-leaf-tiling-gap and accepted-root-leading-gap cases on the same
+// boundary.
 func TestAdmissionCensusClassifiesMaterialAcceptanceElection(t *testing.T) {
 	if got := admissionCensusClassify(
 		DiagnosticParserCoreAccept, compactAcceptanceElectionMaterialDetail,
@@ -40,6 +42,14 @@ func TestAdmissionCensusClassifiesMaterialAcceptanceElection(t *testing.T) {
 		DiagnosticParserCoreAccept, compactAcceptanceElectionCandidateCapDetail,
 	); got != censusMechanismMaterialAcceptanceElection {
 		t.Fatalf("candidate-cap mechanism=%q, want %q", got, censusMechanismMaterialAcceptanceElection)
+	}
+	if got := admissionCensusClassify(
+		DiagnosticParserCoreAccept, compactAcceptanceElectionNoContextDetail,
+	); got != censusMechanismMaterialAcceptanceElection {
+		t.Fatalf("no-context mechanism=%q, want %q", got, censusMechanismMaterialAcceptanceElection)
+	}
+	if compactAcceptanceElectionNoContextDetail == compactAcceptanceElectionMaterialDetail {
+		t.Fatalf("no-context detail must be distinct wording from the ran-a-comparison detail")
 	}
 	// A soft decline wraps the recorded Stop detail as "did not accept EOF:
 	// <detail>" (admissionCensusStopDecline) before this classifier ever

@@ -4649,6 +4649,17 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 			// (admission_census.go), with a distinguishable detail string.
 			return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionCandidateCapDetail, 0)
 		}
+		if !s.options.materializationContextSet {
+			// No caller in this parse set up a materialization context, so no
+			// comparison can run at all here -- distinct from the case below,
+			// where a comparison ran and found (or failed to prove) equality.
+			// Every real parse entry point sets the context before running
+			// the scheduler (parsercore_phase0_fresh_full_runner.go
+			// executeSchedulerOpen, diagnosticParseParserCoreGenericFromSeed),
+			// so this is a fail-closed guard for a caller shape not observed
+			// in the certified sweep corpora.
+			return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionNoContextDetail, 0)
+		}
 		if !compactAcceptanceElectionIsVacuous(
 			s.compact, s.options.materializationParser, s.options.materializationSource,
 			s.options.materializationForceReplayParseStates, s.options.materializationContextSet,
@@ -4758,6 +4769,24 @@ func compactDerivationsForAcceptance(compact *core.Core, head core.Head) ([]core
 // counted mechanism class this detail is matched into.
 const compactAcceptanceElectionMaterialDetail = "material-acceptance-election: certified primary derivation is not proven byte-identical to every tied secondary derivation"
 
+// compactAcceptanceElectionNoContextDetail is the counted decline reason for
+// a tied election reached with no materialization context available: no
+// caller in this parse set DiagnosticParserCorePrefixOptions
+// .materializationContextSet, so compactAcceptanceElectionIsVacuous never
+// ran, and no comparison happened at all. This is deliberately distinct
+// wording from compactAcceptanceElectionMaterialDetail -- "not proven
+// byte-identical" would overstate what happened when no comparison ran.
+// completeAcceptance checks materializationContextSet itself and selects
+// this detail before ever calling compactAcceptanceElectionIsVacuous, so
+// that function's own internal contextSet check is a second, defensive
+// fail-closed guard for any other caller, not the source of this wording.
+// Classifies under the same material-acceptance-election census mechanism
+// (admissionCensusClassify, admission_census.go) as the other two decline
+// details in this family: the public contract is identical across all
+// three -- the route could not prove this election vacuous, so it declines
+// rather than guess.
+const compactAcceptanceElectionNoContextDetail = "material-acceptance-election: materialization context unavailable; election cannot be proven vacuous"
+
 // compactAcceptanceElectionMaxLiveDerivations bounds how many live
 // derivations compactAcceptanceElectionIsVacuous will materialize and
 // compare. Observed live-derivation counts at a tied accepted head top out
@@ -4804,7 +4833,12 @@ const compactAcceptanceElectionCandidateCapDetail = "material-acceptance-electio
 // function's contract is to compare what the published tree actually
 // carries, not some other configuration. contextSet distinguishes "no caller
 // provided a materialization context" (fail closed) from "the caller
-// provided one, and the source is legitimately empty".
+// provided one, and the source is legitimately empty". completeAcceptance
+// checks contextSet itself before calling this function and picks
+// compactAcceptanceElectionNoContextDetail instead of running a call that
+// can only fail closed, so the contextSet check inside this function is a
+// second, defensive guard for any other caller, not the source of the
+// no-context detail text.
 //
 // A materialization failure on any candidate (a cap, a tiling-gap decline,
 // or any other error) is treated as "not proven vacuous", matching the
@@ -4877,17 +4911,30 @@ func compactAcceptanceElectionIsVacuous(
 // equivalent of any of them. Adding any of the four to this comparator was
 // measured directly against the five R1 target languages' full sweep
 // corpora (perl, python, apex, ada, kotlin; certificates forced,
-// GTS_ADMISSION_CENSUS=1) and each one independently declines at least one
-// witness the pre-R1 election census had already proven vacuous (both
-// derivations publish byte-identical public trees): ParseState/PreGotoState
-// decline Perl push_two_args/push_three_args and Python assignment_bare_pair
-// (and 2-3 more per language); the fragile/external-scanner-token pair
-// declines Ada array_others_choice. In every measured case the two
-// derivations' PUBLIC trees remain identical; only the internal replay/
-// ambiguity bookkeeping differs. Comparing them would turn a correct,
-// C-exact accept into an unnecessary decline, so none of the four are
-// compared here. ParseState/PreGotoState trustworthiness for incremental
-// reuse is guarded separately and already, per materialized tree, by
+// GTS_ADMISSION_CENSUS=1). Only ParseState/PreGotoState decline a source
+// that was otherwise a clean, C-exact accept: Perl push_two_args_real_corpus_
+// witness, push_three_args, and Python assignment_bare_tuple_real_corpus_
+// witness, assignment_bare_pair, assignment_bare_single_trailing_comma (5
+// sources). In every one, the two derivations' PUBLIC trees are already
+// byte-identical, so adding either attribute declines a correct accept for
+// no benefit. That is the entire measured cost of this scope boundary.
+//
+// The other two measured effects are not an additional cost, because
+// neither source involved was a clean pass to begin with:
+//   - ParseState/PreGotoState also decline four already-tracked,
+//     C-divergent sources: Perl join_assignment, return_list, and Python
+//     fstring_interpolation_bare_tuple, fstring_interpolation_splat.
+//     Declining them buys nothing for parity -- production already carries
+//     the identical divergence -- but costs nothing new either.
+//   - The fragile/external-scanner-token pair declines exactly one source,
+//     Ada array_others_choice, which is itself a tracked Family M
+//     divergence (adaA3KnownDivergences), not a clean pass. This pair's
+//     measured effect is a wash: no fidelity change either way.
+//
+// None of the four are compared here; the measured, avoidable cost is
+// confined to the five ParseState/PreGotoState witnesses named above.
+// ParseState/PreGotoState trustworthiness for incremental reuse is guarded
+// separately and already, per materialized tree, by
 // incrementalReuseProven / Tree.incrementalReuseDisabled
 // (materializeDiagnosticParserCoreAcceptedSelection) -- that mechanism does
 // not depend on which of two shape-identical derivations was published, so
