@@ -1393,16 +1393,20 @@ func repairPythonKeywordErrorNode(node *Node, source []byte, arena *nodeArena, l
 		return node
 	}
 	childCount := resultChildCount(node)
-	// A childless ERROR leaf that is already EXTRA never came from a real
-	// shift the grammar directed (an EXTRA ERROR leaf only exists today from
-	// materializeSkippedGapAsExtraError, parser.go: a lexer-skipped gap that
-	// happens to spell an anonymous symbol's name). Relabeling it as that
-	// symbol would silently drop the error signal this repair itself must
-	// not launder away (setExtra below preserves Extra but never restores
-	// HasError on the replacement leaf) -- see parser.go's
-	// skippedRealGapContinuesSeparatedList doc for why that gap has no real
-	// token to begin with. Non-extra childless ERROR leaves (the case this
-	// repair exists for) are unaffected.
+	// Exclude a childless ERROR leaf that is already EXTRA: relabeling it as
+	// the matched keyword symbol would silently drop the error signal, since
+	// setExtra below preserves Extra but never restores HasError on the
+	// replacement leaf. This case is not unique to one call site --
+	// materializeSkippedGapAsExtraError (parser.go, a lexer-skipped gap that
+	// happens to spell an anonymous symbol's name) is one source, and
+	// tryRecoverPreviousShiftAsError (parser.go, a previously-shifted token
+	// reclassified as an EXTRA error during recovery) is a pre-existing one;
+	// there may be others. Measured on origin/main: the pre-existing sources
+	// already reach this childless-EXTRA-ERROR shape without ever matching
+	// pythonKeywordLeafSymbol, so this exclusion changes no tree at those
+	// sites -- it only changes outcomes for the new source. Non-extra
+	// childless ERROR leaves (the case this repair exists for) are
+	// unaffected regardless of source.
 	if node.Type(lang) == "ERROR" && childCount == 0 && !node.isExtra() {
 		if keyword, ok := pythonKeywordLeafSymbol(node, source, lang); ok {
 			named := symbolIsNamed(lang, keyword)

@@ -3883,7 +3883,14 @@ func (p *Parser) stateDeterministicNonExtraShift(state StateID, sym Symbol) bool
 // reduceWindowFromGSS only counts non-extra stack entries toward a
 // production's ChildCount, the leaf is folded into whichever production
 // later reduces over it without perturbing arity, while populateParentNode's
-// unconditional HasError OR still lets the error bubble to ancestors.
+// HasError OR propagates the error through the reduce-built ancestors above
+// it. That propagation is not universal all the way to the tree root: python
+// specifically can still report a clean root over a genuinely erroring
+// subtree (parser_result_root_build.go's syntheticRootCanDropError /
+// pythonModuleChildrenLookComplete, a pre-existing, python-only root-level
+// convention this fix does not change and does not fully interact well
+// with -- see the PR discussion for the measured effect on root-level
+// HasError()).
 //
 // This is an ACCOUNTING fix, not a shape fix: the skipped bytes now have a
 // span and HasError=true, matching C tree-sitter's verdict that the
