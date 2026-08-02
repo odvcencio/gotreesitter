@@ -284,6 +284,21 @@ func seedAdmissionRouteEqualityCorpus(f *testing.F, languages []admissionRouteEq
 		}
 		f.Add([]byte(w.SourceUTF8), idx)
 	}
+
+	// Class-e pin (campaign v7 class-e closure, spore.2026-08-02.alder-e.js-
+	// false-clean and spore.2026-08-02.hornbeam-e.byte-continuity): a lexer-
+	// skipped byte run the compact scheduler silently shifted across, tolerated
+	// by the now-retired bytesAreSingleByteDecorationTrivia predicate
+	// (parsercore_phase0_driver.go). Each seed is one isolated, space-padded
+	// stray byte between two real tokens -- the exact shape the mechanical
+	// sweep that found 189 occurrences (javascript 75, haskell 65, html 42,
+	// bash 7) injected. See TestCompactRouteLexerSkippedByteGapDeclines
+	// (admission_route_equality_byte_continuity_gap_test.go) for the pinned
+	// direct regression on the first witness.
+	f.Add([]byte("function A(){A000000} # 0"), langIndex["javascript"])
+	f.Add([]byte("a; # ; b"), langIndex["javascript"])
+	f.Add([]byte("<html> & <body>Hello</body></html>"), langIndex["html"])
+	f.Add([]byte("e \\ cho hi"), langIndex["bash"])
 }
 
 // routeEqualityTreeCarriesNativeRecoveryErrorContainer reports whether root's

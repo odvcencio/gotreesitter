@@ -2949,80 +2949,51 @@ func diagnosticParserCoreReduceChildrenTilingGap(startByte, endByte uint32, entr
 }
 
 // diagnosticParserCoreGapIsTolerated reports whether an apparent coverage
-// gap is not, in fact, a real one: either ordinary inter-token trivia
+// gap is not, in fact, a real one: ordinary inter-token trivia
 // (bytesAreInterTokenTrivia, matching the forest's own reduce-time coverage
-// rejection), or a single decoration byte strictly enclosed by trivia on
-// both sides (bytesAreSingleByteDecorationTrivia).
+// rejection).
+//
+// RETIRED (campaign v7 class-e closure, spore.2026-08-02.alder-e.js-false-
+// clean): this gate used to also tolerate a single decoration byte strictly
+// enclosed by trivia on both sides (bytesAreSingleByteDecorationTrivia),
+// added to excuse a doxygen/jsdoc comment-continuation marker ("* ") this B1
+// post-hoc auditor could not otherwise place. That predicate's own doctrine
+// comment claimed the shape was not a plausible one for a real scheduler
+// drop to produce; a stray byte injected between two spaces produces that
+// exact shape. The measured false-clean sweep found 189 occurrences of it
+// across javascript, haskell, html, and bash. Direct measurement (disabling
+// only this predicate, no other change) closes the class: 0 residual
+// divergences in a 624-input javascript-family probe, and only the
+// pre-existing, separately tracked 25-input haskell residual (a different
+// mechanism; compact may be correct there) surviving the 5,148-input
+// 9-language sweep. Retiring this predicate moves jsdoc from PASS to
+// FALLBACK on the 206-language admission scorecard (its own gap now
+// correctly declines at accepted-leaf-tiling-gap below); doxygen does not
+// regress -- verified directly, its gap sits at the derivation root
+// (isDerivationRootReduce, materializeDiagnosticParserCoreAcceptedSelection's
+// reduce visitor below), a position this predicate's retirement does not
+// touch.
+//
+// A companion dispatch-time byte-continuity guard in dispatchPassActive
+// (declining before any shift crosses an unexplained gap, one site upstream
+// of every compact shift call) was built and measured as a candidate
+// replacement. It over-declines: production's own tolerance for this exact
+// doxygen shape is decided only after full tree construction, by the
+// language-general "result compatibility" normalization layer
+// (finalizeResultRoot / normalizeResultCompatibility, parser_result_root_
+// build.go and parser_result_compat.go), which drops the interior error
+// production's own single-stack GLR run really does create for doxygen's
+// smoke sample (verified with GLR tracing: production shifts the gap,
+// tryMaterializeSkippedRealGap pushes a real, hasError=true ERROR node, the
+// root reduce includes it as a raw child with hasError=true, and only the
+// later result-compatibility pass removes it and clears the flag). No
+// three-exemption mirror at the compact scheduler's dispatch point --
+// necessarily earlier than materialization, let alone this later
+// normalization pass -- can see that decision. The guard was reverted for
+// this reason; this predicate retirement alone is the shipped fix. See
+// spore.2026-08-02.hornbeam-e.byte-continuity for the full account.
 func diagnosticParserCoreGapIsTolerated(gap []byte) bool {
-	return bytesAreInterTokenTrivia(gap) || bytesAreSingleByteDecorationTrivia(gap)
-}
-
-// bytesAreSingleByteDecorationTrivia is the second, narrow trivia exception
-// this gate needs, found by directly root-causing a currently-passing
-// smoke-corpus collision (doxygen, jsdoc -- javadoc/doxygen-style
-// "/** ... * @tag ... */" comment bodies): the continuation-line marker
-// "* " that begins every interior comment line is not represented by any
-// node -- hidden or public -- in either engine's tree. Verified by direct
-// inspection of both compact's raw, pre-filter view.Children (the exact
-// input this function receives, gap-for-gap) and production's own raw node
-// children: production's root for the doxygen smoke fixture has no child at
-// all for "/**" or the repeated "* ", only for the @tag content between
-// them. It is legitimate, lexer-level filler that the scanner treats the
-// same way it treats ordinary whitespace between tokens, just with a
-// literal '*' inside it, so the fixed ASCII-whitespace set
-// bytesAreInterTokenTrivia checks does not recognize it, and no
-// per-language exception is available to ask (tree-sitter's compiled DFA
-// transition tables have no queryable "is this byte skippable here"
-// surface at this layer).
-//
-// The rule requires trivia (bytesAreTrivia) strictly BEFORE AND AFTER the
-// one marker byte, never touching either of the gap's own edges. This is
-// deliberately the strict form, not "buffered on at least one side": an
-// earlier, one-sided version of this rule was built and measured against
-// the full 206-language admission scorecard, and it silently re-admitted 5
-// of the 8 already-fixed javascript witnesses (js_log_1, js_log_3, js_log_5,
-// js_log_6, js_log_7 -- their real dropped-byte gaps also happen to touch
-// one edge, e.g. immediately preceding the next real token with only
-// leading trivia), which is exactly the false-clean escape this tranche
-// exists to close. It was reverted; only the two-sided form ships. This
-// fixes doxygen outright (its one gap is interior, buffered on both sides).
-// jsdoc has two such gaps: an interior one this rule also fixes, and a
-// second one where the comment's closing "*/" (no leading space) puts the
-// decoration marker on the gap's own trailing edge -- correctly left
-// unrecognized here, since that exact shape is indistinguishable from a
-// genuine drop (js_log_3 and js_log_7 have the same trailing-edge shape and
-// must stay rejected). jsdoc's remaining root-level gap is instead closed by
-// the separate, narrower isDerivationRootReduce exemption in
-// materializeDiagnosticParserCoreAcceptedSelection's reduce visitor, not by
-// widening this predicate further.
-//
-// The general, language-independent shape that separates the tolerated
-// case from a genuine dropped byte (the html/js defect class this gate
-// exists to catch -- witness html_min_a's gap is the single byte "^",
-// touching both of its own gap edges at once, directly adjacent to real
-// content on both sides with no trivia buffer at all) is: exactly one
-// non-trivia byte, with ordinary trivia on both sides of it within the same
-// gap. A scheduler bug that truly skips real input skips a whole token or a
-// recognizable fragment sitting flush against a neighbor on at least one
-// edge; manufacturing an isolated, symmetrically trivia-padded punctuation
-// byte is not a plausible shape for that defect class. All 18 fixed
-// html/js witnesses were re-verified against this exact rule and none
-// qualify for it (admission_route_equality_leaf_tiling_test.go).
-func bytesAreSingleByteDecorationTrivia(gap []byte) bool {
-	if len(gap) < 3 {
-		return false
-	}
-	marker := -1
-	for i := 0; i < len(gap); i++ {
-		if bytesAreTrivia(gap[i : i+1]) {
-			continue
-		}
-		if marker != -1 {
-			return false
-		}
-		marker = i
-	}
-	return marker > 0 && marker < len(gap)-1
+	return bytesAreInterTokenTrivia(gap)
 }
 
 // materializeDiagnosticParserCoreAcceptedSelection materializes the accepted
@@ -3205,9 +3176,10 @@ func materializeDiagnosticParserCoreAcceptedSelection(compact *core.Core, head c
 			// by finalizeDiagnosticParserCoreAcceptedRootSpan's own checks) is a
 			// materially different, narrower risk than an internal gap anywhere
 			// below it, which every enclosing reduce's own tiling check still
-			// catches. This closes the jsdoc residual left after
-			// bytesAreSingleByteDecorationTrivia: javadoc/doxygen-style comments
-			// that close with "*/" (no leading space) put the decoration marker
+			// catches. This closes a jsdoc residual the retired
+			// bytesAreSingleByteDecorationTrivia predicate used to leave standing:
+			// javadoc/doxygen-style comments that close with "*/" (no leading
+			// space) put the decoration marker
 			// on the trailing edge of the root reduce's own gap, indistinguishable
 			// in isolation from a genuine drop (js_log_3 and js_log_7 have the
 			// identical trailing-edge shape and must still be rejected -- verified

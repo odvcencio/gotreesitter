@@ -78,7 +78,7 @@ var admissionScorecardRequiredCompactPasses = map[string]struct{}{
 	"gdscript": {}, "git_config": {}, "git_rebase": {}, "gitattributes": {}, "gitcommit": {}, "gitignore": {}, "gleam": {},
 	"glsl": {}, "gn": {}, "go": {}, "godot_resource": {}, "gomod": {}, "graphql": {},
 	"groovy": {}, "hack": {}, "hare": {}, "haskell": {}, "haxe": {}, "hcl": {}, "heex": {},
-	"hlsl": {}, "html": {}, "http": {}, "hurl": {}, "hyprlang": {}, "ini": {}, "janet": {}, "javascript": {}, "jinja2": {}, "jq": {}, "jsdoc": {},
+	"hlsl": {}, "html": {}, "http": {}, "hurl": {}, "hyprlang": {}, "ini": {}, "janet": {}, "javascript": {}, "jinja2": {}, "jq": {},
 	"json5": {}, "jsonnet": {}, "julia": {}, "just": {}, "kconfig": {}, "kdl": {}, "kotlin": {},
 	"ledger": {}, "less": {}, "linkerscript": {}, "liquid": {}, "llvm": {}, "lua": {},
 	"luau": {}, "make": {}, "markdown": {}, "matlab": {}, "mermaid": {}, "mojo": {},
@@ -147,22 +147,35 @@ func TestAdmissionCandidateScorecard206(t *testing.T) {
 		// registry drift, or surrendered route coverage require an explicit
 		// review and ratchet update.
 		//
-		// minPass moved 200 -> 199 and maxFallback 1 -> 2 when
-		// selectCompactAcceptanceDerivation's materiality gate
-		// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous)
-		// landed: meson's smoke sample ("message('hello')") has a genuine,
-		// score-tied grammar ambiguity between two distinct real symbols
-		// (variableunit and var_unit -- both present in the compiled
-		// language's SymbolNames). The old positional rule happened to pick
-		// the derivation that matches production; the gate cannot prove that
-		// pick correct without a C oracle, so it now declines instead of
-		// publishing an unproven tree, and the route falls back to
-		// production (still a PASS-safe FALLBACK, never a DIVERGE -- see
-		// counts[scorecardDiverge] below, unaffected at 0).
+		// minPass moved 200 -> 198 and maxFallback 1 -> 3 across two
+		// independent landings that collided on the same pair of numbers:
+		//
+		//   - meson moved PASS -> FALLBACK when
+		//     selectCompactAcceptanceDerivation's materiality gate
+		//     (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous)
+		//     landed: meson's smoke sample ("message('hello')") has a genuine,
+		//     score-tied grammar ambiguity between two distinct real symbols
+		//     (variableunit and var_unit -- both present in the compiled
+		//     language's SymbolNames). The old positional rule happened to
+		//     pick the derivation that matches production; the gate cannot
+		//     prove that pick correct without a C oracle, so it now declines
+		//     instead of publishing an unproven tree.
+		//   - jsdoc moved PASS -> FALLBACK (campaign v7 class-e closure,
+		//     spore.2026-08-02.hornbeam-e.byte-continuity): retiring
+		//     bytesAreSingleByteDecorationTrivia (parsercore_phase0_driver.go)
+		//     closes a measured 189-input false-clean class across
+		//     javascript, haskell, html, and bash, and moves jsdoc from PASS
+		//     to FALLBACK (accepted-leaf-tiling-gap: its own interior
+		//     comment-continuation gap no longer has a tolerating exemption).
+		//
+		// Both moves are PASS-safe FALLBACKs, never a DIVERGE (see
+		// counts[scorecardDiverge] below, unaffected at 0). No other
+		// language's status changes; production still serves meson and
+		// jsdoc correctly.
 		const (
 			wantTotal   = 206
-			minPass     = 199
-			maxFallback = 2
+			minPass     = 198
+			maxFallback = 3
 			wantSkip    = 5
 		)
 		if got := len(admissionScorecardRequiredCompactPasses); got != minPass {
@@ -197,9 +210,17 @@ func TestAdmissionCandidateScorecard206(t *testing.T) {
 }
 
 func TestAdmissionCandidateNoLookaheadSmokeRatchet(t *testing.T) {
+	// jsdoc dropped from this set (campaign v7 class-e closure,
+	// spore.2026-08-02.hornbeam-e.byte-continuity): its smoke sample now
+	// correctly declines at accepted-leaf-tiling-gap once
+	// bytesAreSingleByteDecorationTrivia (parsercore_phase0_driver.go) no
+	// longer excuses its interior comment-continuation gap. That decline is
+	// unrelated to the no-lookahead root-reduce shape this test otherwise
+	// covers; see admissionScorecardRequiredCompactPasses's own ratchet
+	// comment (above) for the full accounting. doxygen and vhdl are
+	// unaffected and keep the PASS assertion below.
 	wanted := map[string]struct{}{
 		"doxygen": {},
-		"jsdoc":   {},
 		"vhdl":    {},
 	}
 	var doxygen grammars.LangEntry

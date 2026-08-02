@@ -175,6 +175,31 @@ func TestJuliaBracketForComprehensionCompatibility(t *testing.T) {
 	}
 }
 
+// TestJuliaTrailingCommaAssignmentTupleCompatibility pins the tree shape for
+// a lexer-skipped "=" between a trailing tuple comma and its next real
+// token. The shape moved (campaign v7 class-e closure,
+// spore.2026-08-02.hornbeam-e.byte-continuity): retiring the compact
+// scheduler's bytesAreSingleByteDecorationTrivia exemption
+// (parsercore_phase0_driver.go) makes compact correctly decline this input
+// (the "=" gap is a genuine byte-coverage hole, not tolerable trivia) and
+// fall back to production. Production's own gap materialization already
+// changed independently, in the already-merged PR #633
+// ("materializeSkippedGapAsExtraError", parser.go): a lexer-skipped gap
+// mid-separated-list now gets a real, transparent EXTRA ERROR leaf spanning
+// the whole gap (here " = ", both flanking spaces included) instead of the
+// old silent byte-offset bump the language-specific
+// normalizeJuliaTrailingCommaAssignmentTuple (parser_result_julia.go)
+// synthesized a narrower ERROR for after the fact. That normalizer's own
+// pattern match (comma directly followed by the next real token, with no
+// node at all between them) no longer applies once production's own general
+// mechanism already inserts the ERROR node first, so it now correctly
+// no-ops for this input; the general, per-parse fix it was standing in for
+// (see that function's doc comment) has arrived. This test was previously
+// masked from ever exercising this exact shape by the same falsified
+// bytesAreSingleByteDecorationTrivia exemption: compact used to accept the
+// input silently (no error), so this Parse call -- which does not force a
+// route -- never fell back to the now-current production shape until the
+// exemption was retired.
 func TestJuliaTrailingCommaAssignmentTupleCompatibility(t *testing.T) {
 	lang := grammars.JuliaLanguage()
 	if lang == nil {
@@ -191,6 +216,10 @@ func TestJuliaTrailingCommaAssignmentTupleCompatibility(t *testing.T) {
 	}
 	defer tree.Release()
 
+	if !tree.RootNode().HasError() {
+		t.Fatalf("root HasError=false, want true (a lexer-skipped \"=\" is a real error); tree:\n%s", tree.RootNode().SExpr(lang))
+	}
+
 	tuple := findNodeByText(tree.RootNode(), lang, source, "open_tuple", "minarg, maxarg, = T_IFUNC[iidx]")
 	if tuple == nil {
 		t.Fatalf("open_tuple not found:\n%s", tree.RootNode().SExpr(lang))
@@ -201,14 +230,14 @@ func TestJuliaTrailingCommaAssignmentTupleCompatibility(t *testing.T) {
 	if got := tuple.Child(4).Type(lang); got != "ERROR" {
 		t.Fatalf("open_tuple child[4] = %q, want ERROR; tree:\n%s", got, tree.RootNode().SExpr(lang))
 	}
-	if got := tuple.Child(4).Text(source); got != "=" {
-		t.Fatalf("open_tuple ERROR text = %q, want %q", got, "=")
+	if got := tuple.Child(4).Text(source); got != " = " {
+		t.Fatalf("open_tuple ERROR text = %q, want %q", got, " = ")
 	}
-	if got, want := tuple.Child(4).ChildCount(), 1; got != want {
-		t.Fatalf("open_tuple ERROR child count = %d, want %d; tree:\n%s", got, want, tree.RootNode().SExpr(lang))
+	if !tuple.Child(4).IsExtra() {
+		t.Fatalf("open_tuple ERROR IsExtra=false, want true (materializeSkippedGapAsExtraError, parser.go); tree:\n%s", tree.RootNode().SExpr(lang))
 	}
-	if got := tuple.Child(4).Child(0).Type(lang); got != "operator" {
-		t.Fatalf("open_tuple ERROR child[0] = %q, want operator; tree:\n%s", got, tree.RootNode().SExpr(lang))
+	if got, want := tuple.Child(4).ChildCount(), 0; got != want {
+		t.Fatalf("open_tuple ERROR child count = %d, want %d (a flat EXTRA leaf, not a wrapped operator); tree:\n%s", got, want, tree.RootNode().SExpr(lang))
 	}
 }
 
