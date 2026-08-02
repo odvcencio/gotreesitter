@@ -53,6 +53,15 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 			source: "def greet(name):\n    return f\"hello {name}\"\n\nprint(greet(\"world\"))\n",
 			load:   grammars.PythonLanguage,
 		},
+		{
+			// A3 certification workstream (spec.campaign.v7, finding
+			// tied-election-family-compact-retirement): the tied push-list
+			// election real-corpus witness
+			// (cgo_harness/corpus_real/perl/medium__unicode_ranges.pl).
+			name:   "perl",
+			source: "push @found, $_;\n",
+			load:   grammars.PerlLanguage,
+		},
 	}
 
 	for _, test := range tests {
@@ -131,7 +140,6 @@ func TestAdmissionCandidateSelectedLineageSplitsMatchProduction(t *testing.T) {
 	}{
 		{name: "dart", load: grammars.DartLanguage},
 		{name: "elixir", load: grammars.ElixirLanguage},
-		{name: "perl", load: grammars.PerlLanguage},
 		{name: "scala", load: grammars.ScalaLanguage},
 	}
 

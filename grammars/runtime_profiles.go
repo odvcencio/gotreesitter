@@ -221,6 +221,16 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		compactConvergedSplitDrops:     true,
 		compactPrimaryAcceptDerivation: true,
 	},
+	// Perl's tied push-list election matches the C oracle once the compact
+	// route accepts after a converged-path split drop and selects the sole
+	// primary derivation. Full-corpus field-aware C-oracle verification
+	// certifies both mechanisms for this exact blob (A3 certification
+	// workstream, spec.campaign.v7).
+	"perl": {
+		blobSHA256:                     mustRuntimeProfileSHA256("22388f06c2c54bb4748fd5f5f682ed25eecff8115a7e8e6a98f94f9c94bb9820"),
+		compactConvergedSplitDrops:     true,
+		compactPrimaryAcceptDerivation: true,
+	},
 	// Swift's low-pressure accepted-error parses select the same tree across
 	// the retry ladder. High-pressure parses still benefit from the first
 	// ladder, while repeating that ladder for the external scanner does not.

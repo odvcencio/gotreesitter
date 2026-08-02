@@ -68,11 +68,12 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// retired outright, not migrated (see the "NOTE on dot" comment above
 	// the gomod entry), so it does not add a map entry. Crystal and Matlab add
 	// exact-blob external-scanner repeat suppression while retaining the full
-	// accepted-error retry ladder. Apex and Python add compact
-	// primary-acceptance-derivation certification (A3 certification
-	// workstream, spec.campaign.v7, finding
-	// tied-election-family-compact-retirement).
-	if got, want := len(builtinLanguageRuntimeProfiles), 42; got != want {
+	// 43 = the prior 42 plus one new A3 certification-workstream entry: Perl
+	// (spec.campaign.v7, finding tied-election-family-compact-retirement).
+	// Apex and Python add compact primary-acceptance-derivation
+	// certification (Python also adds converged-split-drop certification);
+	// Perl is a new entry carrying both certifications.
+	if got, want := len(builtinLanguageRuntimeProfiles), 43; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -156,8 +157,8 @@ func TestBuiltinCompactAcceptanceProfilesRequireExactBlobIdentity(t *testing.T) 
 		// A3 certification workstream (spec.campaign.v7, finding
 		// tied-election-family-compact-retirement): full-corpus field-aware
 		// C-oracle verification certifies primary-acceptance-derivation
-		// selection for Python's tied tuple-assignment election and Apex's
-		// tied class-literal election.
+		// selection for Python's tied tuple-assignment election, Apex's tied
+		// class-literal election, and Perl's tied push-list election.
 		{
 			name: "python", load: PythonLanguage,
 			want: func(lang *gotreesitter.Language) bool {
@@ -166,6 +167,12 @@ func TestBuiltinCompactAcceptanceProfilesRequireExactBlobIdentity(t *testing.T) 
 		},
 		{
 			name: "apex", load: ApexLanguage,
+			want: func(lang *gotreesitter.Language) bool {
+				return lang.CompactPrimaryAcceptanceDerivationCertified
+			},
+		},
+		{
+			name: "perl", load: PerlLanguage,
 			want: func(lang *gotreesitter.Language) bool {
 				return lang.CompactPrimaryAcceptanceDerivationCertified
 			},
@@ -211,6 +218,11 @@ func TestBuiltinCompactConvergedSplitProfilesRequireExactBlobIdentity(t *testing
 		{name: "haskell", load: HaskellLanguage},
 		{name: "javascript", load: JavascriptLanguage},
 		{name: "python", load: PythonLanguage},
+		// A3 certification workstream (spec.campaign.v7, finding
+		// tied-election-family-compact-retirement): Perl certifies
+		// converged-path split-drop acceptance after full-corpus field-aware
+		// C-oracle verification.
+		{name: "perl", load: PerlLanguage},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
