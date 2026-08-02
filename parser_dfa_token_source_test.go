@@ -296,7 +296,7 @@ func TestRelexExternalScannerTokenPreservesSkippedGapProvenance(t *testing.T) {
 	}
 
 	stack := newGLRStack(0)
-	if !realShiftGapIsParserPadding(source, &stack, relexed) {
+	if !realShiftGapIsParserPadding(source, &stack, relexed, 0) {
 		t.Fatalf("relexed scanner-owned gap rejected for %q; token=%+v", source[:relexed.StartByte], relexed)
 	}
 }

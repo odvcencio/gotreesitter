@@ -584,9 +584,9 @@ func (c *reuseCursor) sourceBytesIdentical() bool {
 	return c != nil && c.wholeSourceIdentical
 }
 
-func reuseSubtreeGapIsParserPadding(source []byte, stackByteOffset, nodeStart uint32) bool {
+func reuseSubtreeGapIsParserPadding(source []byte, stackByteOffset, nodeStart uint32, continuationEscape byte) bool {
 	stack := glrStack{byteOffset: stackByteOffset}
-	return realTokenAttachmentGapIsParserPadding(source, &stack, Token{StartByte: nodeStart})
+	return realTokenAttachmentGapIsParserPadding(source, &stack, Token{StartByte: nodeStart}, continuationEscape)
 }
 
 func reuseStackByteOffsetAfterTruncate(s *glrStack, depth int, entryScratch *glrEntryScratch) (uint32, bool) {
@@ -610,6 +610,7 @@ func reuseStackByteOffsetAfterTruncate(s *glrStack, depth int, entryScratch *glr
 // On success it appends the reused node to the stack and returns the first
 // lookahead token that begins at or after the node's end byte.
 func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, idx *reuseCursor, entryScratch *glrEntryScratch, gssScratch *gssScratch) (Token, uint32, bool) {
+	continuationEscape := p.lineContinuationEscapeByte()
 	candidates := idx.candidates(lookahead.StartByte)
 	if perfCountersEnabled {
 		perfRecordReuseCandidates(len(candidates))
@@ -645,7 +646,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		if !ok {
 			continue
 		}
-		if !reuseSubtreeGapIsParserPadding(idx.newSource, s.byteOffset, n.StartByte()) {
+		if !reuseSubtreeGapIsParserPadding(idx.newSource, s.byteOffset, n.StartByte(), continuationEscape) {
 			continue
 		}
 		cp, ok := canReuseNodeWithExternalScannerCheckpointAtLookahead(ts, state, n, lookahead.StartByte)
@@ -723,7 +724,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 				continue
 			}
 		}
-		if !reuseSubtreeGapIsParserPadding(idx.newSource, reuseByteOffset, n.StartByte()) {
+		if !reuseSubtreeGapIsParserPadding(idx.newSource, reuseByteOffset, n.StartByte(), continuationEscape) {
 			continue
 		}
 		if truncateDepth > 0 && truncateDepth < s.depth() {

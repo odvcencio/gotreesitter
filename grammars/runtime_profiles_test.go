@@ -78,7 +78,11 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 45 = the prior 44 plus the B3 stage S3 html entry, certifying native
 	// strategy-2 error-region recovery for the html_erroneous_end_tag class
 	// (spec.compact-recovery-ownership.v1).
-	if got, want := len(builtinLanguageRuntimeProfiles), 45; got != want {
+	// 46 = the prior 45 plus the powershell entry, declaring backtick as the
+	// language's line-continuation escape byte (Language.LineContinuationEscapeByte)
+	// so bytesAreParserPadding classifies backtick+newline as padding, matching
+	// the C oracle (spore.2026-08-02.birch-g.powershell-bisect).
+	if got, want := len(builtinLanguageRuntimeProfiles), 46; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -108,6 +112,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	}
 	if lang.ExactStackNodeEquivalenceCertified {
 		t.Fatal("unknown runtime profile enabled exact stack-node equivalence")
+	}
+	if lang.LineContinuationEscapeByte != 0 {
+		t.Fatalf("unknown runtime profile set a line-continuation escape byte: %q", lang.LineContinuationEscapeByte)
 	}
 }
 

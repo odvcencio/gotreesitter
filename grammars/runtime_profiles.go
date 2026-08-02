@@ -26,6 +26,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactPrimaryAcceptDerivation     bool
 	exactStackNodeEquivalence          bool
 	compactStrategy2ErrorRegion        bool
+	lineContinuationEscapeByte         byte
 	conflictPolicies                   []gotreesitter.ConflictPolicy
 }
 
@@ -476,6 +477,19 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			},
 		},
 	},
+	// PowerShell's backtick immediately followed by a newline is the
+	// language's line-continuation escape: the C reference scanner consumes
+	// it as ordinary skipped trivia (zero ERROR nodes across the sequence,
+	// two children on the enclosing command_argument_sep — the same shape as
+	// any other run of whitespace), never as a token of its own. Declaring it
+	// here lets bytesAreParserPadding give it the same unconditional
+	// treatment already applied to backslash+newline instead of falling
+	// through to skipped-gap ERROR materialization. C-oracle verified on the
+	// enclosing command_argument_sep shape (TestPowerShellBacktickContinuationIsParserPadding).
+	"powershell": {
+		blobSHA256:                 mustRuntimeProfileSHA256("8c7a2b47a39efb590cde7f75c9a1135c6423bc07b13b9604f1fa9f0061231687"),
+		lineContinuationEscapeByte: '`',
+	},
 }
 
 func mustRuntimeProfileSHA256(raw string) (sum [32]byte) {
@@ -551,6 +565,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactStrategy2ErrorRegion && !lang.CompactStrategy2ErrorRegionCertified {
 		lang.CompactStrategy2ErrorRegionCertified = true
+		changed = true
+	}
+	if profile.lineContinuationEscapeByte != 0 && lang.LineContinuationEscapeByte != profile.lineContinuationEscapeByte {
+		lang.LineContinuationEscapeByte = profile.lineContinuationEscapeByte
 		changed = true
 	}
 	for _, policy := range profile.conflictPolicies {

@@ -3816,7 +3816,15 @@ func copyParseRuntimeToTiming(timing *incrementalParseTiming, parseRuntime Parse
 	timing.normalizationNanos = parseRuntime.NormalizationNanos
 }
 
-func realTokenAttachmentGapIsParserPadding(source []byte, s *glrStack, tok Token) bool {
+// realTokenAttachmentGapIsParserPadding reports whether the gap between the
+// stack's current byte offset and tok's start is trivia the parser may
+// silently cross before attaching tok. continuationEscape is the calling
+// Parser's language-declared line-continuation escape byte (0 if none —
+// see Language.LineContinuationEscapeByte and (*Parser).lineContinuationEscapeByte),
+// threaded through to bytesAreParserPadding so a language-declared
+// escape+newline (for example PowerShell's backtick) counts as padding here
+// exactly like the unconditional backslash+newline case.
+func realTokenAttachmentGapIsParserPadding(source []byte, s *glrStack, tok Token, continuationEscape byte) bool {
 	if s == nil || tok.Missing || tok.NoLookahead || tok.StartByte <= s.byteOffset {
 		return true
 	}
@@ -3826,11 +3834,11 @@ func realTokenAttachmentGapIsParserPadding(source []byte, s *glrStack, tok Token
 	if int(s.byteOffset) > len(source) || int(tok.StartByte) > len(source) {
 		return true
 	}
-	return bytesAreParserPadding(source, s.byteOffset, tok.StartByte)
+	return bytesAreParserPadding(source, s.byteOffset, tok.StartByte, continuationEscape)
 }
 
-func realShiftGapIsParserPadding(source []byte, s *glrStack, tok Token) bool {
-	return realTokenAttachmentGapIsParserPadding(source, s, tok)
+func realShiftGapIsParserPadding(source []byte, s *glrStack, tok Token, continuationEscape byte) bool {
+	return realTokenAttachmentGapIsParserPadding(source, s, tok, continuationEscape)
 }
 
 // skippedRealGapContinuesSeparatedList reports whether the sole active stack is
@@ -3883,6 +3891,20 @@ func (p *Parser) stateDeterministicNonExtraShift(state StateID, sym Symbol) bool
 		return false
 	}
 	return actions[0].Type == ParseActionShift && !actions[0].Extra
+}
+
+// lineContinuationEscapeByte returns p's language-declared line-continuation
+// escape byte (see Language.LineContinuationEscapeByte), or 0 when p or its
+// language is nil, or the language declares none. Every production caller of
+// realTokenAttachmentGapIsParserPadding / bytesAreParserPadding that has a
+// Parser in scope reads the escape byte through this single accessor so the
+// gap-padding classification stays consistent (and default-off for every
+// language that has not declared an escape) across every caller.
+func (p *Parser) lineContinuationEscapeByte() byte {
+	if p == nil || p.language == nil {
+		return 0
+	}
+	return p.language.LineContinuationEscapeByte
 }
 
 // materializeSkippedGapAsExtraError covers a lexer-skipped mid-production gap
@@ -3945,7 +3967,7 @@ func (p *Parser) materializeSkippedGapAsExtraError(s *glrStack, state StateID, t
 }
 
 func (p *Parser) tryMaterializeSkippedRealGap(source []byte, s *glrStack, state StateID, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) bool {
-	if s == nil || tok.StartByte <= s.byteOffset || realTokenAttachmentGapIsParserPadding(source, s, tok) {
+	if s == nil || tok.StartByte <= s.byteOffset || realTokenAttachmentGapIsParserPadding(source, s, tok, p.lineContinuationEscapeByte()) {
 		return false
 	}
 	// A stray run of bytes that the lexer skipped mid-production, immediately
@@ -4108,7 +4130,15 @@ func extendHiddenErrorAncestorEnd(n *Node, end uint32, point Point) {
 	n.setHasError(true)
 }
 
-func bytesAreParserPadding(source []byte, start, end uint32) bool {
+// bytesAreParserPadding reports whether source[start:end] is entirely
+// trivia a real parser skips silently: plain whitespace, backslash+newline
+// (unconditional — see the field doc for why backslash needs no per-language
+// gate), or, when continuationEscape is non-zero, that language-declared
+// escape byte immediately followed by a newline (see
+// Language.LineContinuationEscapeByte). Pass 0 for continuationEscape at any
+// call site without a language-specific escape to declare; that reproduces
+// this function's behavior before the parameter existed exactly.
+func bytesAreParserPadding(source []byte, start, end uint32, continuationEscape byte) bool {
 	if start > end || int(end) > len(source) {
 		return false
 	}
@@ -4117,7 +4147,8 @@ func bytesAreParserPadding(source []byte, start, end uint32) bool {
 		i = len(utf8BOM)
 	}
 	for ; i < int(end); i++ {
-		switch source[i] {
+		b := source[i]
+		switch b {
 		case ' ', '\t', '\n', '\r', '\f', '\v':
 			continue
 		case '\\':
@@ -4132,6 +4163,17 @@ func bytesAreParserPadding(source []byte, start, end uint32) bool {
 			}
 			return false
 		default:
+			if continuationEscape != 0 && b == continuationEscape {
+				next := i + 1
+				if next < int(end) && source[next] == '\n' {
+					i = next
+					continue
+				}
+				if next+1 < int(end) && source[next] == '\r' && source[next+1] == '\n' {
+					i = next + 1
+					continue
+				}
+			}
 			return false
 		}
 	}
@@ -4145,8 +4187,15 @@ func parserTailAllowsCleanAcceptance(source []byte, start, end uint32, included 
 	if start > end || int(end) > len(source) {
 		return false
 	}
+	// continuationEscape is 0 here: trailing-tail EOF acceptance is a distinct
+	// concept from the real-token-attachment gap check below (different
+	// callers, different question — "can the root span silently swallow the
+	// rest of the file" vs "can the parser silently cross this one gap before
+	// shifting") and is out of the verified scope of the PowerShell
+	// continuation-padding fix. See realTokenAttachmentGapIsParserPadding for
+	// the language-aware caller.
 	if len(included) == 0 {
-		return bytesAreParserPadding(source, start, end)
+		return bytesAreParserPadding(source, start, end, 0)
 	}
 	for _, r := range included {
 		if r.EndByte <= start {
@@ -4163,7 +4212,7 @@ func parserTailAllowsCleanAcceptance(source []byte, start, end uint32, included 
 		if r.EndByte < overlapEnd {
 			overlapEnd = r.EndByte
 		}
-		if overlapStart < overlapEnd && !bytesAreParserPadding(source, overlapStart, overlapEnd) {
+		if overlapStart < overlapEnd && !bytesAreParserPadding(source, overlapStart, overlapEnd, 0) {
 			return false
 		}
 	}
@@ -4189,7 +4238,7 @@ func cleanAcceptedTreeLeavesRealTail(tree *Tree, source []byte, expectedEOFByte 
 }
 
 func (p *Parser) guardRealTokenAttachmentGap(source []byte, s *glrStack, tok Token, consumer string) bool {
-	if realTokenAttachmentGapIsParserPadding(source, s, tok) {
+	if realTokenAttachmentGapIsParserPadding(source, s, tok, p.lineContinuationEscapeByte()) {
 		return true
 	}
 	if consumer == "" {

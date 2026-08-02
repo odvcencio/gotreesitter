@@ -721,6 +721,25 @@ type Language struct {
 	// uncertified grammar keeps declining to production at the same
 	// no-action point exactly as before this stage landed.
 	CompactStrategy2ErrorRegionCertified bool
+
+	// LineContinuationEscapeByte declares the single byte this language's
+	// scanner treats as a line-continuation escape when immediately followed
+	// by a newline (LF, or CR+LF) — for example PowerShell's backtick. C
+	// tree-sitter's scanner consumes an escape+newline pair as ordinary
+	// skipped trivia, the same treatment bytesAreParserPadding already gives
+	// backslash+newline unconditionally. Backslash needs no per-language gate
+	// because it carries no competing meaning as bare trivia in any grammar
+	// this parser loads; an arbitrary escape byte cannot get that same
+	// unconditional treatment because it can collide with unrelated grammar
+	// meaning elsewhere (for example backtick opens a Markdown fence and a
+	// shell command substitution), so acceptance requires this explicit
+	// per-language declaration. Zero (the default) declares no continuation
+	// escape and leaves padding classification exactly as it was before this
+	// field existed. Exact built-in profiles set this only after C-oracle
+	// parity confirms the escape+newline pair is scanner-owned padding for
+	// the certified blob (see grammars/runtime_profiles.go). Custom, adapted,
+	// and generated languages default to zero and are unaffected.
+	LineContinuationEscapeByte byte
 }
 
 type symbolNameNamedKey struct {

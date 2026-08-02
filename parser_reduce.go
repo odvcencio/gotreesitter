@@ -5740,7 +5740,12 @@ func spanBridgeIsParserPadding(source []byte, from, to uint32) bool {
 	if len(source) == 0 || from >= to {
 		return false
 	}
-	return bytesAreParserPadding(source, from, to)
+	// continuationEscape is 0: this is the invisible-child span-extension
+	// bridge used while building a reduced parent's span, a distinct
+	// question from the real-token-attachment gap check
+	// (realTokenAttachmentGapIsParserPadding) that the PowerShell
+	// continuation-padding fix targets. Out of that fix's verified scope.
+	return bytesAreParserPadding(source, from, to, 0)
 }
 
 func buildInvisibleSpanSymbolTables(symbolNames []string) ([]bool, []bool) {
