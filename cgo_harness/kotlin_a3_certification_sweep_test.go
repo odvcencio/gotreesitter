@@ -9,38 +9,37 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// TestKotlinA3CompactCertificationForcedSweep is the R1 verification receipt
-// for Kotlin: it runs the same shared sweep harness as the four landed
-// languages (runA3CertificationSweep), with both A3 certificates
+// TestKotlinA3CompactCertificationFullCorpusSweep is the A3
+// certification-workstream (spec.campaign.v7, finding
+// tied-election-family-compact-retirement) full-corpus verification receipt
+// for Kotlin. It runs the same shared sweep harness as the four other landed
+// languages (runA3CertificationSweep) against the SHIPPED language --
+// grammars/runtime_profiles.go carries both A3 certificates
 // (CompactConvergedReductionSplitDropsCertified and
-// CompactPrimaryAcceptanceDerivationCertified) forced on locally for the
-// duration of this test only. It does not touch
-// grammars/runtime_profiles.go and does not certify Kotlin -- see
-// admission_switch_kotlin_certification_withheld_test.go and
-// kotlin_a3_certification_object_declaration_regression_test.go for why
-// Kotlin's certification still does not land in this PR.
+// CompactPrimaryAcceptanceDerivationCertified) for Kotlin's exact blob.
 //
-// Before selectCompactAcceptanceDerivation's materiality gate
-// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous), forcing
-// both certificates regressed the object_declaration witness (a C-divergent
-// accept). The gate closes that: the witness's two tied derivations are not
-// byte-identical, so it now declines and falls back to production instead.
-// The annotated_declaration witness is a separate, pre-existing derivation-
-// coverage gap (no election is involved; the C-correct derivation is not
-// reachable at the accepted head at all) and is expected to remain a
-// decline or a divergence -- this sweep records that outcome, it does not
-// chase a fix for it.
-func TestKotlinA3CompactCertificationForcedSweep(t *testing.T) {
+// Kotlin's certification was withheld for one interaction:
+// selectCompactAcceptanceDerivation's materiality gate
+// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) is the
+// fix that unblocked it. Before that gate existed, forcing both certificates
+// regressed the object_declaration witness (a C-divergent accept, issue
+// #93). The gate closes that: the witness's two tied derivations do not
+// materialize to the same public tree, so it declines and falls back to
+// production instead of publishing the wrong one -- see
+// admission_switch_kotlin_certification_withheld_test.go for the dedicated
+// no-cgo receipt pinning that decline. The annotated_declaration witness is
+// a separate, pre-existing derivation-coverage gap (no election is
+// involved; the C-correct derivation is not reachable at the accepted head
+// at all) and is expected to remain a decline or a divergence -- this sweep
+// records that outcome, it does not chase a fix for it.
+func TestKotlinA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	lang := grammars.KotlinLanguage()
-	if lang.CompactConvergedReductionSplitDropsCertified || lang.CompactPrimaryAcceptanceDerivationCertified {
-		t.Fatal("shared kotlin language unexpectedly carries a withheld A3 certificate")
+	if !lang.CompactPrimaryAcceptanceDerivationCertified {
+		t.Fatal("kotlin did not receive the A3 primary-acceptance-derivation certification")
 	}
-	lang.CompactConvergedReductionSplitDropsCertified = true
-	lang.CompactPrimaryAcceptanceDerivationCertified = true
-	defer func() {
-		lang.CompactConvergedReductionSplitDropsCertified = false
-		lang.CompactPrimaryAcceptanceDerivationCertified = false
-	}()
+	if !lang.CompactConvergedReductionSplitDropsCertified {
+		t.Fatal("kotlin did not receive the A3 converged-split-drop certification")
+	}
 
 	real := a3LoadRealCorpusDir(t, "kotlin", filepath.Join("corpus_real", "kotlin"))
 	constructed := append([]a3CertificationSweepSource{{
@@ -48,7 +47,7 @@ func TestKotlinA3CompactCertificationForcedSweep(t *testing.T) {
 		Source: []byte(grammars.ParseSmokeSample("kotlin")),
 	}}, kotlinA3AdversarialSources()...)
 	sources := append(append([]a3CertificationSweepSource{}, real...), constructed...)
-	t.Logf("kotlin A3 forced sweep source denominator: real=%d constructed=%d total=%d", len(real), len(constructed), len(sources))
+	t.Logf("kotlin A3 full-corpus sweep source denominator: real=%d constructed=%d total=%d", len(real), len(constructed), len(sources))
 
 	result := runA3CertificationSweep(t, "kotlin", "kotlin", lang, sources, kotlinA3KnownDivergences)
 	a3ReportSweep(t, result)

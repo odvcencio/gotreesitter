@@ -11,14 +11,14 @@ import (
 )
 
 // This file is the A3 certification-workstream (spec.campaign.v7, finding
-// tied-election-family-compact-retirement) withholding receipt for Kotlin.
+// tied-election-family-compact-retirement) materiality-gate receipt for
+// Kotlin.
 //
 // The finding's platform-modifier-recovery witness ("internal actual fun
 // f(): String = \"x\"") matches the C oracle once the compact route accepts
 // after a converged-path split drop
-// (cgo_harness/b4b_alternative_set_v2_kotlin_adjudication_test.go). Landing
-// CompactConvergedReductionSplitDropsCertified alone is safe:
-// TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe pins that.
+// (TestAdmissionCandidateKotlinPlatformModifierSplitAcceptsAdjudicatedException,
+// admission_switch_converged_path_test.go).
 //
 // Combining CompactConvergedReductionSplitDropsCertified with
 // CompactPrimaryAcceptanceDerivationCertified used to regress a distinct,
@@ -31,68 +31,32 @@ import (
 // (cgo_harness/kotlin_a3_certification_object_declaration_regression_test.go).
 //
 // selectCompactAcceptanceDerivation's materiality gate
-// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) closes
+// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) closed
 // this exact shape: the two derivations at this witness's accepted head
 // materialize to different trees, so the election is material and the
-// compact route now declines and falls back to production instead of
-// publishing the wrong one. TestKotlinCompactCertificationObjectDeclarationRegressionWithheld
-// below pins the corrected (declining) behavior. Kotlin's certification
-// still does not land in grammars/runtime_profiles.go: an unrelated
-// witness (annotated_declaration, a derivation-coverage gap rather than an
-// election error) remains open.
-//
-// This file pins both halves of the finding (the safe grant and the
-// now-safely-declining combination) so a future attempt to land Kotlin's
-// certification is checked against this exact counterexample.
+// compact route declines and falls back to production instead of publishing
+// the wrong one. That gate is the prerequisite grammars/runtime_profiles.go
+// cites for landing both certificates. Kotlin's A3 certification is now
+// shipped there; TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGate
+// below pins that the shipped, certified language still declines this exact
+// witness -- certification did not bypass the gate. An unrelated witness
+// (annotated_declaration, a derivation-coverage gap rather than an election
+// error) remains open; see kotlinA3KnownDivergences and the sweep's
+// per-witness log
+// (cgo_harness/kotlin_a3_certification_sweep_test.go).
 
-// TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe confirms
-// CompactConvergedReductionSplitDropsCertified alone (without
-// CompactPrimaryAcceptanceDerivationCertified) resolves the finding's
-// platform-modifier witness without introducing the object_declaration
-// regression.
-func TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe(t *testing.T) {
-	source := []byte("internal actual fun f(): String = \"x\"\n")
-	lang := grammars.KotlinLanguage()
-	if lang.CompactConvergedReductionSplitDropsCertified || lang.CompactPrimaryAcceptanceDerivationCertified {
-		t.Fatal("shared kotlin language unexpectedly carries a withheld A3 certificate")
-	}
-
-	lang.CompactConvergedReductionSplitDropsCertified = true
-	defer func() { lang.CompactConvergedReductionSplitDropsCertified = false }()
-
-	gts.ResetAdmissionCandidateCountersForTest()
-	candidate := gts.NewParser(lang)
-	candidate.SetAdmissionCandidateRoute(true)
-	candidateTree, err := candidate.Parse(source)
-	if err != nil {
-		t.Fatalf("candidate parse: %v", err)
-	}
-	defer candidateTree.Release()
-
-	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 1 || fallback != 0 {
-		t.Fatalf(
-			"split-drops-only candidate route counters = %d/%d, want 1/0; reason=%s",
-			routed, fallback, gts.AdmissionCandidateLastFallbackReason(),
-		)
-	}
-	want := "(source_file (function_declaration (modifiers (visibility_modifier) (platform_modifier)) " +
-		"(simple_identifier) (function_value_parameters) (user_type (type_identifier)) " +
-		"(function_body (string_literal (string_content)))))"
-	if got := candidateTree.RootNode().SExpr(lang); got != want {
-		t.Fatalf("split-drops-only candidate tree = %s, want %s", got, want)
-	}
-}
-
-// TestKotlinCompactCertificationObjectDeclarationRegressionWithheld pins the
-// corrected behavior on the counterexample that used to block Kotlin's A3
-// certification: with both CompactConvergedReductionSplitDropsCertified and
-// CompactPrimaryAcceptanceDerivationCertified forced on, the accepted head
+// TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGate
+// pins the counterexample that used to block Kotlin's A3 certification, now
+// against the shipped, certified language: with both
+// CompactConvergedReductionSplitDropsCertified and
+// CompactPrimaryAcceptanceDerivationCertified on, the accepted head still
 // carries two derivations that materialize to different trees (a material
-// election), so selectCompactAcceptanceDerivation's materiality gate now
+// election), so selectCompactAcceptanceDerivation's materiality gate
 // declines the compact route instead of publishing the wrong one, and the
 // route falls back to production's (C-oracle-matching, see the cgo_harness
-// companion receipt) object_declaration parse.
+// companion receipt) object_declaration parse. Certification did not bypass
+// this gate -- if it ever does, that is a soundness hole, not a fixed
+// witness.
 //
 // The route counters alone only prove "some soft decline happened" -- the
 // generic "did not accept EOF" fallback reason is shared by every soft
@@ -102,11 +66,14 @@ func TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe(t *testing.T)
 // this asserts mechanism=material-acceptance-election specifically: proof
 // this decline came from the materiality gate, not some other soft-decline
 // path that also contains "did not accept EOF".
-func TestKotlinCompactCertificationObjectDeclarationRegressionWithheld(t *testing.T) {
+func TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGate(t *testing.T) {
 	source := []byte("package demo\n\nobject Singleton {\n    fun work() = Unit\n}\n")
 	lang := grammars.KotlinLanguage()
-	if lang.CompactConvergedReductionSplitDropsCertified || lang.CompactPrimaryAcceptanceDerivationCertified {
-		t.Fatal("shared kotlin language unexpectedly carries a withheld A3 certificate")
+	if !lang.CompactConvergedReductionSplitDropsCertified {
+		t.Fatal("kotlin did not receive the A3 converged-split-drop certification")
+	}
+	if !lang.CompactPrimaryAcceptanceDerivationCertified {
+		t.Fatal("kotlin did not receive the A3 primary-acceptance-derivation certification")
 	}
 
 	production := gts.NewParser(lang)
@@ -120,13 +87,6 @@ func TestKotlinCompactCertificationObjectDeclarationRegressionWithheld(t *testin
 	if !strings.Contains(productionSExpr, "object_declaration") {
 		t.Fatalf("production tree lost object_declaration (issue #93 regressed independently of this file): %s", productionSExpr)
 	}
-
-	lang.CompactConvergedReductionSplitDropsCertified = true
-	lang.CompactPrimaryAcceptanceDerivationCertified = true
-	defer func() {
-		lang.CompactConvergedReductionSplitDropsCertified = false
-		lang.CompactPrimaryAcceptanceDerivationCertified = false
-	}()
 
 	t.Setenv("GTS_ADMISSION_CENSUS", "1")
 	gts.ResetAdmissionCensusEnabledForTest()
@@ -144,16 +104,17 @@ func TestKotlinCompactCertificationObjectDeclarationRegressionWithheld(t *testin
 	routed, fallback := gts.AdmissionCandidateCounters()
 	if routed != 0 || fallback != 1 {
 		t.Fatalf(
-			"forced-both-certificates candidate route counters = %d/%d, want 0/1 "+
-				"(the materiality gate should decline this material election and fall back "+
-				"to production); reason=%s",
+			"certified candidate route counters = %d/%d, want 0/1 "+
+				"(the materiality gate must decline this material election even though "+
+				"both A3 certificates are shipped -- an accept here would be a soundness "+
+				"hole, not a fixed witness); reason=%s",
 			routed, fallback, gts.AdmissionCandidateLastFallbackReason(),
 		)
 	}
 	reason := gts.AdmissionCandidateLastFallbackReason()
 	if !strings.Contains(reason, "mechanism=material-acceptance-election") {
 		t.Fatalf(
-			"forced-both-certificates fallback reason does not classify as the materiality gate "+
+			"certified candidate route fallback reason does not classify as the materiality gate "+
 				"(want mechanism=material-acceptance-election): %s", reason,
 		)
 	}

@@ -34,7 +34,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -225,31 +224,72 @@ func TestB4bV2OptInDeciderDifferentialSmokeCorpus(t *testing.T) {
 
 // TestB4bV2OptInDeciderDifferentialKotlinWitness is the Kotlin class
 // detector (spec.b4b-alternative-set.v2 section 6.1, section 7 gate item 2).
-// v2's own branch-discriminated proof must decline this drop -- the
-// v2-opt-in-decider route must therefore fall back to production, exactly
-// like the live scalar decider already does
-// (TestAdmissionCandidateConvergedPathSplitFailsClosed).
+//
+// Kotlin's A3 certification (CompactConvergedReductionSplitDropsCertified,
+// grammars/runtime_profiles.go) now routes this witness through the
+// certified artifact escape regardless of v2's own proof outcome -- the same
+// mechanism TestB4bV2OptInDeciderDifferentialErlangProbes documents for
+// Erlang ("its parse always routes regardless of proof outcome"). v2's own
+// branch-discriminated proof still declines this drop on its own merits
+// (the census below must still show the class-3, V1-proves-V2-declines
+// shape): certification did not make v2 re-prove it, it made the live route
+// stop depending on that proof for this exact certified blob.
+//
+// Unlike Erlang's probes, the routed tree does NOT match production here:
+// this is the finding's sanctioned adjudicated exception (production still
+// carries the unrelated, pre-existing issue #93 defect on this witness) --
+// see TestAdmissionCandidateKotlinPlatformModifierSplitAcceptsAdjudicatedException
+// (admission_switch_converged_path_test.go) and the C-oracle adjudication
+// (cgo_harness/b4b_alternative_set_v2_kotlin_adjudication_test.go), not a
+// soundness concern.
 func TestB4bV2OptInDeciderDifferentialKotlinWitness(t *testing.T) {
+	restoreCensus := gts.SetDiagnosticParserCoreShadowCensusEnabledForTest(true)
+	defer restoreCensus()
+	gts.DiagnosticParserCoreShadowCensusResetForTest()
+
 	source := []byte("internal actual fun f(): String = \"x\"\n")
 	lang := grammars.KotlinLanguage()
+	if !lang.CompactConvergedReductionSplitDropsCertified {
+		t.Fatal("kotlin did not receive the A3 converged-split-drop certification")
+	}
 
 	result := runV2OptInDeciderDifferential(t, "kotlin_witness", lang, source)
 	if result.err != nil {
 		t.Fatalf("kotlin witness differential: %v", result.err)
 	}
-	if result.routed {
+	if !result.routed {
 		t.Fatalf(
-			"expected v2's own proof to decline the Kotlin witness drop (spec section 6.1); v2-opt-in-decider route routed instead (digest=%s)",
-			result.candidateDigest,
+			"expected the certified artifact escape to route the Kotlin witness (matching Erlang's "+
+				"documented post-certification behavior); v2-opt-in-decider route fell back instead: reason=%q",
+			result.fallbackReason,
 		)
 	}
-	if !result.fallback || !strings.Contains(result.fallbackReason, "converged-path reduction split") {
-		t.Fatalf("expected the Kotlin witness to fall back on a converged-path reduction split decline under v2; fallback=%t reason=%q", result.fallback, result.fallbackReason)
+	if result.digestsMatch {
+		t.Fatalf(
+			"Kotlin witness candidate digest unexpectedly matches production -- production's #93 "+
+				"regression may be fixed independently; re-verify whether the adjudicated exception "+
+				"is still needed (candidate=production=%s)", result.candidateDigest,
+		)
 	}
-	if !result.digestsMatch {
-		t.Fatalf("Kotlin witness fallback tree does not match production: candidate=%s production=%s", result.candidateDigest, result.productionDigest)
+
+	totals := gts.DiagnosticParserCoreThreeProofCensusSnapshotForTest()
+	switch {
+	case totals.Class3V1ProvesV2Declines > 0:
+		t.Logf(
+			"confirmed: v2's own branch-discriminated proof still declines this witness on its own "+
+				"merits (V1Proved=%d, V2Proved=0, class3=%d); the certified artifact escape routes it "+
+				"anyway, producing the C-exact tree adjudicated separately (candidate=%s production=%s)",
+			totals.V1Proved, totals.Class3V1ProvesV2Declines, result.candidateDigest, result.productionDigest,
+		)
+	case totals.V2Proved > 0:
+		t.Logf("kotlin witness: v2 now re-proves on its own merit (V2Proved=%d of %d elections)", totals.V2Proved, totals.Elections)
+	default:
+		t.Errorf(
+			"kotlin witness: v2 did not prove (V2Proved=0) and the decline is not the expected class-3 "+
+				"(branch-discrimination) shape (V1Proved=%d class3=%d); this needs investigation",
+			totals.V1Proved, totals.Class3V1ProvesV2Declines,
+		)
 	}
-	t.Logf("kotlin witness: v2 declines (matches the live scalar decider's existing fail-closed behavior); fallback reason=%q", result.fallbackReason)
 }
 
 // TestB4bV2OptInDeciderDifferentialErlangProbes checks whether both erlang

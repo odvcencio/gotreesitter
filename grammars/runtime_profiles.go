@@ -168,18 +168,25 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	},
 	// Kotlin's tied platform-modifier recovery witness (internal actual fun
 	// f(): String = "x") matches the C oracle once the compact route accepts
-	// after a converged-path split drop. A3 certification-workstream
-	// verification withholds certification here: combining that grant with
-	// primary-acceptance-derivation selection regresses a distinct witness
+	// after a converged-path split drop. Combining that grant with primary-
+	// acceptance-derivation selection used to regress a distinct witness
 	// (object Singleton { fun work() = Unit }, issue #93) to an
-	// infix_expression misparse that diverges from the C oracle, which sides
-	// with production's object_declaration. Neither grant lands until that
-	// interaction is resolved (see
-	// TestKotlinCompactCertificationObjectDeclarationRegressionWithheld).
+	// infix_expression misparse that diverged from the C oracle, which sides
+	// with production's object_declaration; that interaction blocked
+	// certification. selectCompactAcceptanceDerivation's materiality gate
+	// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) closes
+	// it: the witness's two tied derivations do not materialize to the same
+	// public tree, so the election is material and the compact route declines
+	// it and falls back to production instead of publishing the wrong one.
+	// Full-corpus field-aware C-oracle verification under that gate certifies
+	// both mechanisms for this exact blob (A3 certification workstream,
+	// spec.campaign.v7; cgo_harness/kotlin_a3_certification_sweep_test.go).
 	"kotlin": {
-		blobSHA256:                    mustRuntimeProfileSHA256("643a3e6b60d07846dd972849b612159ff9bf09734b09fb00013229c8593a8c78"),
-		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
-		nativeResultCompatibility:     gotreesitter.ResultCompatibilityNativeCollapsedChildren,
+		blobSHA256:                     mustRuntimeProfileSHA256("643a3e6b60d07846dd972849b612159ff9bf09734b09fb00013229c8593a8c78"),
+		externalScannerFullParseRetry:  gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
+		nativeResultCompatibility:      gotreesitter.ResultCompatibilityNativeCollapsedChildren,
+		compactConvergedSplitDrops:     true,
+		compactPrimaryAcceptDerivation: true,
 	},
 	// Apex's tied class-literal election matches the C oracle once the
 	// compact route selects the sole primary derivation; the compact tree is

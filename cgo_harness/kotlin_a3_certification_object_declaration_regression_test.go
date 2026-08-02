@@ -12,27 +12,37 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// TestKotlinA3CertificationObjectDeclarationRegressionCOracle is the C-oracle
-// receipt for withholding Kotlin's A3 certification (spec.campaign.v7,
-// finding tied-election-family-compact-retirement).
+// TestKotlinA3CertificationObjectDeclarationMaterialityGateCOracle is the
+// C-oracle receipt for Kotlin's A3 certification-workstream materiality gate
+// (spec.campaign.v7, finding tied-election-family-compact-retirement).
 //
-// Forcing both CompactConvergedReductionSplitDropsCertified and
-// CompactPrimaryAcceptanceDerivationCertified on the shared Kotlin language
-// resolves the finding's platform-modifier-recovery witness
-// (b4b_alternative_set_v2_kotlin_adjudication_test.go), but the same pair
-// regresses this distinct witness (issue #93,
-// query_kotlin_object_declaration_test.go): the compact route accepts
-// "object Singleton { fun work() = Unit }" as an infix_expression instead
-// of an object_declaration. This test adjudicates directly against the
-// locked C oracle: production already matches C here, and the forced
-// compact route does not. That is a genuine divergence, not an adjudicated
-// exception, so grammars/runtime_profiles.go withholds both certificates
-// for Kotlin. See admission_switch_kotlin_certification_withheld_test.go
-// for the companion no-cgo receipt (including the safe split-drops-only
-// grant).
-func TestKotlinA3CertificationObjectDeclarationRegressionCOracle(t *testing.T) {
+// Combining CompactConvergedReductionSplitDropsCertified with
+// CompactPrimaryAcceptanceDerivationCertified used to regress this witness
+// (issue #93, query_kotlin_object_declaration_test.go): with both forced on,
+// the compact route used to accept "object Singleton { fun work() = Unit }"
+// as an infix_expression instead of an object_declaration, diverging from
+// the locked C oracle, which sides with production's object_declaration.
+// selectCompactAcceptanceDerivation's materiality gate
+// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) closed
+// that: the witness's two tied derivations do not materialize to the same
+// public tree, so the shipped, certified compact route declines this
+// material election and falls back to production instead. This test
+// adjudicates the served tree directly against the locked C oracle: it must
+// stay C-exact under the shipped certification, not merely self-consistent
+// with a second production parse (the companion no-cgo receipt,
+// admission_switch_kotlin_certification_withheld_test.go, checks that
+// weaker property plus the classified decline mechanism). See
+// cgo_harness/kotlin_a3_certification_sweep_test.go for the same witness
+// (object_declaration_multiline) inside the full-corpus sweep.
+func TestKotlinA3CertificationObjectDeclarationMaterialityGateCOracle(t *testing.T) {
 	source := []byte("package demo\n\nobject Singleton {\n    fun work() = Unit\n}\n")
 	goLang := grammars.KotlinLanguage()
+	if !goLang.CompactConvergedReductionSplitDropsCertified {
+		t.Fatal("kotlin did not receive the A3 converged-split-drop certification")
+	}
+	if !goLang.CompactPrimaryAcceptanceDerivationCertified {
+		t.Fatal("kotlin did not receive the A3 primary-acceptance-derivation certification")
+	}
 
 	cLang, err := COracleLanguage("kotlin")
 	if err != nil {
@@ -68,37 +78,38 @@ func TestKotlinA3CertificationObjectDeclarationRegressionCOracle(t *testing.T) {
 		)
 	}
 
-	if goLang.CompactConvergedReductionSplitDropsCertified || goLang.CompactPrimaryAcceptanceDerivationCertified {
-		t.Fatal("shared kotlin language unexpectedly carries a withheld A3 certificate")
-	}
-	goLang.CompactConvergedReductionSplitDropsCertified = true
-	goLang.CompactPrimaryAcceptanceDerivationCertified = true
-	defer func() {
-		goLang.CompactConvergedReductionSplitDropsCertified = false
-		goLang.CompactPrimaryAcceptanceDerivationCertified = false
-	}()
-
+	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	candidate := gotreesitter.NewParser(goLang)
 	candidate.SetAdmissionCandidateRoute(true)
 	candidateTree, err := candidate.Parse(source)
 	if err != nil {
-		t.Fatalf("forced compact parse: %v", err)
+		t.Fatalf("certified compact parse: %v", err)
 	}
 	defer candidateTree.Release()
 
+	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
+	if routedAfter != routedBefore || fallbackAfter != fallbackBefore+1 {
+		t.Fatalf(
+			"certified candidate route counters before=(%d,%d) after=(%d,%d), want fallback+1 only "+
+				"(the materiality gate must decline this material election even though both A3 "+
+				"certificates are shipped -- an accept here would be a soundness hole, not a fixed "+
+				"witness); reason=%s",
+			routedBefore, fallbackBefore, routedAfter, fallbackAfter, gotreesitter.AdmissionCandidateLastFallbackReason(),
+		)
+	}
+
 	var candidateMismatches []string
 	compareNodes(candidateTree.RootNode(), goLang, cRoot, "root", &candidateMismatches)
-	if len(candidateMismatches) == 0 {
+	if len(candidateMismatches) != 0 {
 		t.Fatalf(
-			"forced compact route (both A3 certificates) now matches the C oracle on the #93 " +
-				"witness; the object_declaration regression may be fixed -- re-verify " +
-				"admission_switch_kotlin_certification_withheld_test.go and consider landing " +
-				"Kotlin's A3 certification",
+			"certified compact route (declined, serving production's fallback tree) diverges from "+
+				"the C oracle at %d point(s); production is proven C-exact above, so this can only "+
+				"mean the fallback did not actually serve production's tree:\n%s",
+			len(candidateMismatches), strings.Join(candidateMismatches, "\n"),
 		)
 	}
 	t.Logf(
-		"confirmed: forced compact route (both A3 certificates) diverges from the C oracle at "+
-			"%d point(s); production matches C. Kotlin's A3 certification stays withheld:\n%s",
-		len(candidateMismatches), strings.Join(candidateMismatches, "\n"),
+		"confirmed: the certified compact route declines this material election (materiality gate) " +
+			"and falls back to production, which stays C-exact on the #93 witness",
 	)
 }

@@ -14,12 +14,17 @@ import (
 
 // This file is the shared A3 certification-workstream (spec.campaign.v7,
 // finding tied-election-family-compact-retirement) full-corpus verification
-// harness. Each certified language (perl, python, apex, ada; kotlin is
-// withheld, see admission_switch_kotlin_certification_withheld_test.go and
-// kotlin_a3_certification_object_declaration_regression_test.go) has its own
-// sweep test file that calls runA3CertificationSweep with that language's
-// full real-corpus-or-constructed source set and its certification flags
-// already landed in grammars/runtime_profiles.go.
+// harness. Each certified language (perl, python, apex, ada, kotlin) has its
+// own sweep test file that calls runA3CertificationSweep with that
+// language's full real-corpus-or-constructed source set and its
+// certification flags already landed in grammars/runtime_profiles.go.
+// Kotlin's certificates were withheld until
+// selectCompactAcceptanceDerivation's materiality gate
+// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) resolved
+// the interaction that blocked them; see
+// admission_switch_kotlin_certification_withheld_test.go and
+// kotlin_a3_certification_object_declaration_regression_test.go for that
+// witness's dedicated receipts.
 //
 // Method (matches the admission_switch_converged_path_test.go flag-mutation
 // pattern): for every source, parse once on production (compat tail on,
