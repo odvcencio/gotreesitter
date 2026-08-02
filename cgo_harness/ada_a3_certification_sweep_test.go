@@ -40,7 +40,7 @@ func TestAdaA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	t.Logf("ada A3 full-corpus sweep source denominator: real=0 (no corpus_real/ada on any host) constructed=%d total=%d", len(sources), len(sources))
 
 	result := runA3CertificationSweep(t, "ada", "ada", lang, sources, adaA3KnownDivergences)
-	a3ReportSweep(t, result)
+	a3ReportSweep(t, result, adaA3KnownDivergences)
 }
 
 // adaA3KnownDivergences are already-triaged, pre-existing production-route
@@ -48,18 +48,21 @@ func TestAdaA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // reproduces what production already produces (verified directly, with the
 // compact route disabled) on each of these witnesses.
 //
-// Six of the seven are family M (materialization: an inherited field-map
-// entry names a child Go's flattened-hidden-span heuristic should not; C's
-// node.c filters inherited entries and never does). Ada's grammar declares
-// "name"/"subtype_mark" as inherited fields on productions whose actual
-// child production (named_array_aggregate, range_g) never carries them
-// directly; Go's applyParentFieldToFlattenedHiddenSpan re-attaches the
-// inherited field anyway.
-//
 // attribute_constraint is family D: Ada's grammar declares
 // prec.dynamic(1, discriminant_constraint) over index_constraint with an
 // explicit grammar comment choosing it, and Go's reduceForkWindowPreference
 // still picks index_constraint.
+//
+// This list carried six family-M entries before PR #638:
+// locked_positional_array_aggregate, array_others_choice,
+// named_array_aggregate, mixed_positional_named_aggregate,
+// qualified_expression, and attribute_range_and_first_last. Family M is
+// materialization: an inherited field-map entry named a child that C's
+// node.c never names. PR #638 repaired
+// applyParentFieldToFlattenedHiddenSpan, so those six divergences stopped
+// occurring, and the entries came out with the repair. The stale-entry
+// ratchet in a3ReportSweep now fails this test if a remaining entry stops
+// matching a live divergence.
 //
 // Not tied elections, not this gate's scope; repair lanes are tracked
 // separately.
@@ -68,36 +71,6 @@ var adaA3KnownDivergences = []a3KnownDivergence{
 		Witness:   "attribute_constraint",
 		FirstPath: "/compilation/compilation_unit[0]/subprogram_body[0]/handled_sequence_of_statements[3]/assignment_statement[0]/expression[2]/term[0]/allocator[0]/index_constraint[2]",
 		GoValue:   "index_constraint", CValue: "discriminant_constraint", Family: "D",
-	},
-	{
-		Witness:   "locked_positional_array_aggregate",
-		FirstPath: "/compilation/compilation_unit[0]/package_declaration[0]/full_type_declaration[3]/array_type_definition[3]/range_g[2]",
-		GoValue:   "subtype_mark", CValue: "", Family: "M",
-	},
-	{
-		Witness:   "array_others_choice",
-		FirstPath: "/compilation/compilation_unit[0]/subprogram_body[0]/handled_sequence_of_statements[3]/assignment_statement[0]/expression[2]/term[0]/named_array_aggregate[0]",
-		GoValue:   "name", CValue: "", Family: "M",
-	},
-	{
-		Witness:   "named_array_aggregate",
-		FirstPath: "/compilation/compilation_unit[0]/package_declaration[0]/full_type_declaration[3]/array_type_definition[3]/range_g[2]",
-		GoValue:   "subtype_mark", CValue: "", Family: "M",
-	},
-	{
-		Witness:   "mixed_positional_named_aggregate",
-		FirstPath: "/compilation/compilation_unit[0]/package_declaration[0]/full_type_declaration[3]/array_type_definition[3]/range_g[2]",
-		GoValue:   "subtype_mark", CValue: "", Family: "M",
-	},
-	{
-		Witness:   "qualified_expression",
-		FirstPath: "/compilation/compilation_unit[0]/package_declaration[0]/full_type_declaration[3]/array_type_definition[3]/range_g[2]",
-		GoValue:   "subtype_mark", CValue: "", Family: "M",
-	},
-	{
-		Witness:   "attribute_range_and_first_last",
-		FirstPath: "/compilation/compilation_unit[0]/subprogram_body[0]/non_empty_declarative_part[2]/full_type_declaration[0]/array_type_definition[3]/range_g[2]",
-		GoValue:   "subtype_mark", CValue: "", Family: "M",
 	},
 }
 

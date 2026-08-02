@@ -66,7 +66,7 @@ func TestKotlinA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	t.Logf("kotlin A3 full-corpus sweep source denominator: real=%d constructed=%d total=%d", len(real), len(constructed), len(sources))
 
 	result := runA3CertificationSweep(t, "kotlin", "kotlin", lang, sources, kotlinA3KnownDivergences)
-	a3ReportSweep(t, result)
+	a3ReportSweep(t, result, kotlinA3KnownDivergences)
 }
 
 // kotlinA3KnownDivergences is an already-triaged, pre-existing

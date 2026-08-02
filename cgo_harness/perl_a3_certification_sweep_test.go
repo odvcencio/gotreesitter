@@ -36,7 +36,7 @@ func TestPerlA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	t.Logf("perl A3 full-corpus sweep source denominator: real=%d constructed=%d total=%d", len(real), len(constructed), len(sources))
 
 	result := runA3CertificationSweep(t, "perl", "perl", lang, sources, perlA3KnownDivergences)
-	a3ReportSweep(t, result)
+	a3ReportSweep(t, result, perlA3KnownDivergences)
 }
 
 // perlA3KnownDivergences are already-triaged, pre-existing production-route

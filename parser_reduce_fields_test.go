@@ -208,7 +208,23 @@ func TestBuildReduceChildrenDefersDirectHiddenFieldUntilVisibleBoundary(t *testi
 	}
 }
 
-func TestBuildReduceChildrenDeferredInheritedFieldRespectsLaterDirectField(t *testing.T) {
+// TestBuildReduceChildrenDeferredInheritedFieldStaysEmptyAlongsideSiblingDirectField
+// covers a two-level hidden chain: _outer wraps [_inner (no field map of
+// its own), tail]. _outer's own production carries an inherited entry over
+// the hidden position and an unrelated direct entry over the sibling
+// visible position. Both entries name the same field id.
+//
+// The test used to also assert which deferred-source marker the inherited
+// edge received: fieldSourceDeferredInherited or the since-removed
+// fieldSourceDeferredInheritedLater. That distinction never changed the
+// resolved field. applyParentFieldToFlattenedHiddenSpan ignored it, and the
+// O(remaining) fieldIDAppearsLater scan that computed it was dead work on
+// the reduce hot path. PR #638 removed both.
+//
+// This test still verifies the part that matters. The inherited edge
+// resolves to nothing, because no deeper non-inherited entry claims it. The
+// sibling's own direct entry resolves independently at its own position.
+func TestBuildReduceChildrenDeferredInheritedFieldStaysEmptyAlongsideSiblingDirectField(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "_inner", "_outer", "operator", "identifier", "visible_parent"},
 		SymbolMetadata: []SymbolMetadata{
@@ -240,7 +256,7 @@ func TestBuildReduceChildrenDeferredInheritedFieldRespectsLaterDirectField(t *te
 	if got, want := len(children), 2; got != want {
 		t.Fatalf("deferred len(children) = %d, want %d", got, want)
 	}
-	if got, want := fieldSourceAt(fieldSources, 0), uint8(fieldSourceDeferredInheritedLater); got != want {
+	if got, want := fieldSourceAt(fieldSources, 0), uint8(fieldSourceDeferredInherited); got != want {
 		t.Fatalf("first deferred field source = %d, want %d", got, want)
 	}
 	if got, want := fieldSourceAt(fieldSources, 1), uint8(fieldSourceDirect); got != want {
@@ -377,7 +393,9 @@ func TestBuildReduceChildrenInheritedFieldDoesNotOverrideAlreadyResolvedInnerFie
 	withTok := newLeafNodeInArena(arena, 3, false, 13, 17, Point{Row: 0, Column: 13}, Point{Row: 0, Column: 17})
 	right := newLeafNodeInArena(arena, 2, true, 18, 25, Point{Row: 0, Column: 18}, Point{Row: 0, Column: 25})
 	hidden := newParentNodeInArena(arena, 1, false, []*Node{left, withTok, right}, []FieldID{2, 2, 2}, 0)
-	hidden.setFieldSources([]uint8{fieldSourceInherited, fieldSourceInherited, fieldSourceInherited})
+	// fieldSourceDirect models a deeper level that already resolved this
+	// field. The outer reduction must leave the assignment alone.
+	hidden.setFieldSources([]uint8{fieldSourceDirect, fieldSourceDirect, fieldSourceDirect})
 
 	children, fieldIDs, _ := parser.buildReduceChildren([]stackEntry{newStackEntryNode(0, hidden)}, 0, 1, 1, 4, 0, arena)
 	if got, want := len(children), 3; got != want {
@@ -393,7 +411,18 @@ func TestBuildReduceChildrenInheritedFieldDoesNotOverrideAlreadyResolvedInnerFie
 	}
 }
 
-func TestBuildReduceChildrenProjectsConflictedInheritedFieldsBySymbol(t *testing.T) {
+// TestBuildReduceChildrenLeavesMatchedInheritedFieldConflictUnprojected is a
+// regression witness against a return of type-name-matching field
+// projection. The child symbol names ("imports", "declarations") equal the
+// conflicting field names. C still assigns no field here: its
+// ts_node__field_name_from_language (node.c:673-687) filters every
+// inherited entry and stops. C never matches a child's type name against
+// the field map. projectConflictedInheritedFields did that match. PR #638
+// removed the function, after a review disabled it and measured identical
+// output on a 52-language sweep. This test pairs with
+// TestBuildReduceChildrenLeavesUnmatchedInheritedFieldConflictUnprojected,
+// which covers the same conflict shape with names that do not match.
+func TestBuildReduceChildrenLeavesMatchedInheritedFieldConflictUnprojected(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "_sections", "imports", "declarations", "root"},
 		SymbolMetadata: []SymbolMetadata{
@@ -419,7 +448,7 @@ func TestBuildReduceChildrenProjectsConflictedInheritedFieldsBySymbol(t *testing
 	declarations := newLeafNodeInArena(arena, 3, true, 8, 20, Point{Column: 8}, Point{Column: 20})
 	sections := newParentNodeInArena(arena, 1, true, []*Node{imports, declarations}, nil, 0)
 
-	children, fieldIDs, fieldSources := parser.buildReduceChildren(
+	children, fieldIDs, _ := parser.buildReduceChildren(
 		[]stackEntry{newStackEntryNode(0, sections)},
 		0,
 		1,
@@ -431,13 +460,8 @@ func TestBuildReduceChildrenProjectsConflictedInheritedFieldsBySymbol(t *testing
 	if got, want := len(children), 2; got != want {
 		t.Fatalf("child count = %d, want %d", got, want)
 	}
-	for index, want := range []FieldID{1, 2} {
-		if got := fieldIDs[index]; got != want {
-			t.Fatalf("field %d = %d, want %d", index, got, want)
-		}
-		if got := fieldSourceAt(fieldSources, index); got != fieldSourceInherited {
-			t.Fatalf("field source %d = %d, want inherited", index, got)
-		}
+	if fieldIDSliceHasAny(fieldIDs) {
+		t.Fatalf("matched conflict fields = %v, want none", fieldIDs)
 	}
 }
 

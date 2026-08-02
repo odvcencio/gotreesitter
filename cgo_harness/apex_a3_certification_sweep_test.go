@@ -41,7 +41,7 @@ func TestApexA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	// No known-divergence entries: apex's sweep has zero unadjudicated
 	// divergences at both the pre- and post-tightening criterion.
 	result := runA3CertificationSweep(t, "apex", "apex", lang, sources, nil)
-	a3ReportSweep(t, result)
+	a3ReportSweep(t, result, nil)
 }
 
 // apexA3TiedElectionWitnesses reuses the three witnesses already vetted in

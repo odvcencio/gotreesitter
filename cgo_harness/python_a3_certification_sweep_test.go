@@ -36,19 +36,34 @@ func TestPythonA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	t.Logf("python A3 full-corpus sweep source denominator: real=%d constructed=%d total=%d", len(real), len(constructed), len(sources))
 
 	result := runA3CertificationSweep(t, "python", "python", lang, sources, pythonA3KnownDivergences)
-	a3ReportSweep(t, result)
+	a3ReportSweep(t, result, pythonA3KnownDivergences)
 }
 
 // pythonA3KnownDivergences are already-triaged, pre-existing production-route
 // defects the tightened sweep criterion surfaced: the compact route only
 // reproduces what production already produces (verified directly, with the
-// compact route disabled) on each of these witnesses. The two real-corpus
-// entries are family M (materialization: an inherited field-map entry names
-// a child Go's flattened-hidden-span heuristic should not; C's node.c filters
-// inherited entries and never does). large__python3.8_grammar.py's first
-// point is family M; it also carries a family S point further in (an
-// aliased "not in"/"is not" span that starts one byte early) not enumerated
-// as a separate entry here, since only the first divergence gates the match.
+// compact route disabled) on each of these witnesses.
+//
+// This list carried two family-M entries before PR #638:
+// large__python3.8_grammar.py and medium__setup.py. Family M is
+// materialization: an inherited field-map entry named the comma in a
+// comma-separated import list. C's node.c never names that comma. PR #638
+// repaired applyParentFieldToFlattenedHiddenSpan, so both divergences
+// stopped occurring, and the entries came out with the repair. The
+// stale-entry ratchet in a3ReportSweep now fails this test if a remaining
+// entry stops matching a live divergence.
+//
+// The repair of large__python3.8_grammar.py uncovered a second, independent
+// divergence further into the same file. It is family S (materialization,
+// aliased multi-token span): Go starts the "not in" operator wrapper one
+// byte early. Go uses the previous sibling's end byte instead of the first
+// token's own start byte, so the wrapper includes the separating space.
+// The defect is older than PR #638. Only the family-M point ahead of it in
+// traversal order masked it, because a3MatchesKnownDivergence gates on the
+// first divergence. The entry below tracks the defect, so the family-M
+// burn-down does not turn an already-known defect into a false hard
+// failure.
+//
 // The two f-string entries are family D (a first-class declared
 // pattern_list/expression_list ambiguity; Go's reduceForkWindowPreference
 // disagrees with C's ts_parser__select_tree on which side to keep). Not
@@ -56,14 +71,11 @@ func TestPythonA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // separately.
 var pythonA3KnownDivergences = []a3KnownDivergence{
 	{
+		// Pre-existing production-level aliased-multi-token span defect.
+		// A repair lane is queued.
 		Witness:   "large__python3.8_grammar.py",
-		FirstPath: "/module/class_definition[25]/block[4]/function_definition[13]/block[6]/import_from_statement[0]/,[4]",
-		GoValue:   "name", CValue: "", Family: "M",
-	},
-	{
-		Witness:   "medium__setup.py",
-		FirstPath: "/module/import_from_statement[2]/,[4]",
-		GoValue:   "name", CValue: "", Family: "M",
+		FirstPath: "/module/class_definition[25]/block[4]/function_definition[56]/block[6]/if_statement[12]/comparison_operator[1]/not in[15]",
+		GoValue:   "1190:45-1190:52 @37238..37245", CValue: "1190:46-1190:52 @37239..37245", Family: "S",
 	},
 	{
 		Witness:   "fstring_interpolation_bare_tuple",

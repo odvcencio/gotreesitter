@@ -254,9 +254,10 @@ func parityIncludeHighlightLanguage(name string) bool {
 	return smokeParityLanguages[name]
 }
 
-// parityCompareFields gates FieldName comparison in compareNodes (production
-// vs the C oracle) and compareGoNodes (production vs compact route
-// equality). Field parity is on by default: the reference runtime's
+// parityCompareFields gates FieldName comparison in compareNodes (a Go tree
+// vs the C oracle) and compareGoNodes (Go incremental-parse output vs Go
+// fresh-parse output, i.e. incremental-parse field correctness). Field
+// parity is on by default: the reference runtime's
 // !field_map->inherited filter (node.c:673-687) is part of the tree shape
 // the locked C oracle defines, not an optional extra, so a parity run that
 // silently skips it is not exercising the gate its name promises. Set
