@@ -112,6 +112,25 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- The compact fresh-path route now skips three steps for a language with no
+  live result-compatibility entry: the result-compatibility walk, the
+  C-recovery-swallow resolver, and the final-tree compaction pass.
+  The eligible set is computed from
+  `testdata/result_compat_ownership_v1.json`.
+  It is not a maintained list.
+  A future dispatcher arm cannot silently escape it.
+  159 of 206 registered languages are eligible today.
+  Go is not one of them.
+  `dispatch.go` stays live, so `grammargen_lr` and the other three canonical
+  Go fixtures still take the full tail.
+  A deep-tree digest comparison (elided against unelided) is exact across
+  every eligible language's smoke sample.
+  It is also exact across every real-corpus file this campaign measured, up
+  to 484 KB.
+  The measured effect on a shared, contended host stayed within noise on the
+  Go warm-route benchmark and on two eligible-language probes (OCaml, Zig).
+  See the PR for the full reading and its noise-floor caveats.
+
 - Live-header scoping reduces compact full-parse allocation counts by
   11.27 percent on the 235,626-byte Go fixture.
   Allocated bytes fall by 26.64 percent.

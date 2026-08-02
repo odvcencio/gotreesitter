@@ -78,6 +78,27 @@ func (p *Parser) SetDisableLeadingRunSplice(v bool) {
 	p.disableLeadingRunSplice = v
 }
 
+// SetResultCompatibilityElisionForceDisabledForTest forces every language
+// ineligible for the compact fresh path's compat-tail elision (spec.campaign.v7
+// tranche A5/C1, result_compat_elision.go), regardless of the registry-computed
+// eligibility set. It exists ONLY so the elision-equivalence regression tests
+// (admission_compat_tail_elision_test.go) can drive the SAME source through
+// the SAME compact route with elision on and off and diff the two resulting
+// trees. It returns a restore function and lives in export_test.go, so it is
+// compiled only in test builds and is never part of the public API.
+func SetResultCompatibilityElisionForceDisabledForTest(disabled bool) func() {
+	prev := resultCompatibilityElisionForceDisabledForTest.Swap(disabled)
+	return func() { resultCompatibilityElisionForceDisabledForTest.Store(prev) }
+}
+
+// ResultCompatibilityElisionEligibleForTest exposes the registry-computed
+// compat-tail elision eligibility set (result_compat_elision.go) to the
+// external gotreesitter_test package, so a corpus-wide differential test can
+// filter to eligible languages without duplicating the registry parse.
+func ResultCompatibilityElisionEligibleForTest(lang *Language) bool {
+	return resultCompatibilityElisionEligible(lang)
+}
+
 // ReplayDiffTree replays the LR tables over the tree rooted at root and
 // compares the reconstructed states against the recorded ones on every node.
 // It mutates nothing. maxSamples bounds the retained mismatch examples.

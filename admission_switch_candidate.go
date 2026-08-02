@@ -169,10 +169,65 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 	// normalized production tree (the canonical admission test proves it), so
 	// this deterministic tail is structure-preserving here; it runs for fidelity
 	// on the shared runtime-flag and root-span finalization steps.
+	//
+	// spec.campaign.v7 tranche A5/C1 (compat-tail elision): for a language with
+	// no live result-compatibility arm (resultCompatibilityElisionActive, see
+	// result_compat_elision.go), all three full-fidelity steps below are
+	// provably no-ops on THIS route -- see docs/compat-tail-elision.md for the
+	// per-step proof -- so an eligible language takes the reduced tail instead.
+	if resultCompatibilityElisionActive(p.language) {
+		p.finalizeCompactReturnedTreeForParse(tree, source)
+		return tree, true, ""
+	}
 	p.normalizeReturnedTreeForParse(tree, source)
 	tree = p.resolveCRecoverySwallowedError(source, tree)
 	tree = p.maybeCompactReturnedFullTree(tree, source)
 	return tree, true, ""
+}
+
+// finalizeCompactReturnedTreeForParse is the elided compat-tail for an
+// elision-eligible language on the compact fresh path. It reproduces
+// normalizeReturnedTreeForParse's own control flow with its three no-op steps
+// removed for this route and these languages -- see
+// docs/compat-tail-elision.md for the equivalence proof of each removal:
+//
+//  1. tree.hasDeferredResultCompatibility() is always false for a compact-
+//     materialized tree: only resultRootBuild.finishTree (production's own
+//     tree builder, parser_result_root_build.go) ever calls
+//     deferResultCompatibility, and the compact route never runs it. The
+//     deferred-truncation branch is dead here, so it is not reproduced.
+//  2. tree.resultCompatibilityApplied is always false for a freshly
+//     compact-materialized tree (materializeDiagnosticParserCoreAcceptedSelection
+//     never sets it), so the original always entered its normalize branch.
+//     This function always performs the one check that branch actually does
+//     for an eligible language on this route (see point 3) and then always
+//     sets the flag, matching the original's post-normalize assignment.
+//  3. The original's call to p.normalizeReturnedTree, for an elision-eligible
+//     language, reduces to exactly one more p.activeParseStopReason() read:
+//     runLanguageResultCompatibility's switch has no matching case (a pure
+//     ctx.stopReason() passthrough), and summarizeResultErrorsWithStop's
+//     errorSummary and stopReason are both discarded by normalizeReturnedTree
+//     itself, which recomputes p.parseStopReasonNow() -- the same
+//     p.activeParseStopReason() call -- unconditionally afterward regardless
+//     of what the discarded walk found. This function performs that same
+//     final check directly instead of the walk that used to precede it.
+//  4. resolveCRecoverySwallowedError and maybeCompactReturnedFullTree are not
+//     called at all: both are unconditional no-ops for every compact-route
+//     tree regardless of language (the former because compact materialization
+//     never sets the two C-recovery signal fields it requires both to be
+//     true; the latter because its 512 MiB retained-arena floor is far above
+//     anything a single-derivation compact build produces for any fixture
+//     this campaign measures). See docs/compat-tail-elision.md.
+func (p *Parser) finalizeCompactReturnedTreeForParse(tree *Tree, source []byte) {
+	if !shouldNormalizeReturnedTree(tree) {
+		return
+	}
+	if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+		tree.setParseStopReason(reason)
+		return
+	}
+	tree.resultCompatibilityApplied = true
+	finalizeReturnedTreeRootSpan(tree, source)
 }
 
 // admissionCandidateDeclineReason renders a runner error as a compact,
