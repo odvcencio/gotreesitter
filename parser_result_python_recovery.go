@@ -86,11 +86,17 @@ func collapsePythonClassFragments(nodes []*Node, arena *nodeArena, lang *Languag
 			copy(buf, bodyChildren)
 			bodyChildren = buf
 		}
+		// blockNode/classDef are freshly built by newParentNodeInArena, which
+		// already runs populateParentNode over their exact children -- HasError
+		// is already the correct OR-over-children value (bodyChildren for
+		// blockNode; classChildren, which includes blockNode, for classDef).
+		// Do NOT force it to false here: a body fragment can be shaped exactly
+		// like a complete class body while still containing a genuinely
+		// erroring descendant several levels down, and forcing false would
+		// silently discard that signal on its way up to the module root.
 		blockNode := newParentNodeInArena(arena, blockSym, true, bodyChildren, nil, 0)
 		if repairedBlock, changed := repairPythonBlock(blockNode, arena, lang, true); changed {
 			blockNode = repairedBlock
-		} else {
-			blockNode.setHasError(false)
 		}
 
 		classChildren := make([]*Node, 0, 5)
@@ -106,7 +112,6 @@ func collapsePythonClassFragments(nodes []*Node, arena *nodeArena, lang *Languag
 		}
 		classFieldIDs := pythonSyntheticClassFieldIDs(arena, len(classChildren), argNode != nil, lang)
 		classDef := newParentNodeInArena(arena, classDefSym, true, classChildren, classFieldIDs, 0)
-		classDef.setHasError(false)
 
 		out := make([]*Node, 0, len(nodes)-(bodyEnd-i)+1)
 		out = append(out, nodes[:i]...)
@@ -162,11 +167,13 @@ func collapsePythonFunctionFragments(nodes []*Node, arena *nodeArena, lang *Lang
 			copy(buf, bodyChildren)
 			bodyChildren = buf
 		}
+		// See the matching comment in collapsePythonClassFragments: blockNode
+		// and fn already carry the correct populateParentNode-derived HasError
+		// from their real children; forcing false here would drop a genuine
+		// nested error on the floor instead of letting it propagate to root.
 		blockNode := newParentNodeInArena(arena, blockSym, true, bodyChildren, nil, 0)
 		if repairedBlock, changed := repairPythonBlock(blockNode, arena, lang, false); changed {
 			blockNode = repairedBlock
-		} else {
-			blockNode.setHasError(false)
 		}
 		fnChildren := []*Node{defNode, nameNode, paramsNode, colonNode, blockNode}
 		if arena != nil {
@@ -175,7 +182,6 @@ func collapsePythonFunctionFragments(nodes []*Node, arena *nodeArena, lang *Lang
 			fnChildren = buf
 		}
 		fn := newParentNodeInArena(arena, functionDefSym, true, fnChildren, pythonSyntheticFunctionFieldIDs(arena, len(fnChildren), lang), 0)
-		fn.setHasError(false)
 
 		out := make([]*Node, 0, len(nodes)-(bodyEnd-i)+1)
 		out = append(out, nodes[:i]...)
@@ -226,8 +232,10 @@ func collapsePythonTerminalIfSuffix(nodes []*Node, arena *nodeArena, lang *Langu
 		copy(buf, blockChildren)
 		blockChildren = buf
 	}
+	// blockNode/ifStmt again already carry the correct
+	// populateParentNode-derived HasError from their real children (see
+	// collapsePythonClassFragments); no override needed or wanted here.
 	blockNode := newParentNodeInArena(arena, blockSym, true, blockChildren, nil, 0)
-	blockNode.setHasError(false)
 
 	ifChildren := []*Node{ifNode, condNode, colonNode, blockNode}
 	if arena != nil {
@@ -237,7 +245,6 @@ func collapsePythonTerminalIfSuffix(nodes []*Node, arena *nodeArena, lang *Langu
 	}
 	ifFieldIDs := pythonSyntheticIfFieldIDs(arena, len(ifChildren), lang)
 	ifStmt := newParentNodeInArena(arena, ifSym, true, ifChildren, ifFieldIDs, 0)
-	ifStmt.setHasError(false)
 
 	out := make([]*Node, 0, n-5)
 	out = append(out, nodes[:n-6]...)
