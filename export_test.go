@@ -341,6 +341,22 @@ func ParserRetainsCollapsedChildOccurrenceForTest(p *Parser, parent, child Symbo
 	return p != nil && p.retainsCollapsedChildOccurrence(parent, child)
 }
 
+// SetNoResultCompatibilityBenchmarkOnlyForTest sets p's
+// noResultCompatibilityBenchmarkOnly flag directly, without also suppressing
+// the admission candidate route the way the public
+// ParseNoResultCompatibilityBenchmarkOnly wrapper does (it defers
+// suppressAdmissionCandidateRoute, so it can never serve as a compact-route
+// probe). Combined with SetAdmissionCandidateRoute(true), this lets the A3
+// certification-workstream arm no-op receipt (spec.campaign.v7, finding
+// tied-election-family-compact-retirement) dump the compact route's raw,
+// pre-compat-tail runner tree for comparison against the normal tailed
+// parse. It returns a restore function.
+func SetNoResultCompatibilityBenchmarkOnlyForTest(p *Parser, enabled bool) func() {
+	prev := p.noResultCompatibilityBenchmarkOnly
+	p.noResultCompatibilityBenchmarkOnly = enabled
+	return func() { p.noResultCompatibilityBenchmarkOnly = prev }
+}
+
 // ParserPoolCheckoutForTest checks a parser out of the pool (applying defaults).
 func ParserPoolCheckoutForTest(pp *ParserPool) *Parser { return pp.checkout() }
 

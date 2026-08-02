@@ -241,6 +241,17 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		compactConvergedSplitDrops:     true,
 		compactPrimaryAcceptDerivation: true,
 	},
+	// Ada's tied aggregate elections (positional-array and others-choice)
+	// match the C oracle once the compact route accepts after a
+	// converged-path split drop and selects the sole primary derivation.
+	// Full-corpus field-aware C-oracle verification certifies both
+	// mechanisms for this exact blob (A3 certification workstream,
+	// spec.campaign.v7).
+	"ada": {
+		blobSHA256:                     mustRuntimeProfileSHA256("32f2dd8f0053ffb7e6b7014f6ff2eb7025287c0d5fcdab6ce1f6a694c2d8899e"),
+		compactConvergedSplitDrops:     true,
+		compactPrimaryAcceptDerivation: true,
+	},
 	// Swift's low-pressure accepted-error parses select the same tree across
 	// the retry ladder. High-pressure parses still benefit from the first
 	// ladder, while repeating that ladder for the external scanner does not.
