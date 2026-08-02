@@ -79,7 +79,27 @@ func TestCompactRouteRootLeadingGapDeclines(t *testing.T) {
 				t.Fatalf("route counters routed=%d fallback=%d, want routed=0 fallback=1 (compact must decline)", routed, fallback)
 			}
 			reason := gts.AdmissionCandidateLastFallbackReason()
-			if !strings.Contains(reason, "accepted-root-leading-gap") {
+			if c.lang == "html" {
+				// B3 stage S3 forces the shared token source's error-run
+				// lexing on whenever native html recovery is admitted
+				// (parser_api.go's acquireParserDFATokenSourceWithErrorRuns),
+				// so these root-leading-gap bytes ('&', '>') now surface as
+				// their own errorSymbol token instead of being silently
+				// skipped by the plain lexer. s3TryOpenErrorRegion declines
+				// them itself (the guard requires at least one real shifted
+				// token before the absorbed byte, which none of these
+				// zero-content sources have), so the parse never reaches
+				// materialization at all and falls back earlier, at the
+				// generic no-table-action recovery boundary, rather than at
+				// the later accepted-root-leading-gap span check. Both
+				// boundaries still decline and fall back to production
+				// unchanged (the functional contract this test pins below);
+				// only the internal boundary name differs, exactly like B3
+				// stage S1's own no-table-action reclassification.
+				if !strings.Contains(reason, "did not accept EOF") {
+					t.Fatalf("fallback reason=%q, want it to cite the generic no-table-action decline (B3 stage S3 changes which boundary an html leading-byte gap hits first)", reason)
+				}
+			} else if !strings.Contains(reason, "accepted-root-leading-gap") {
 				t.Fatalf("fallback reason=%q, want it to cite accepted-root-leading-gap", reason)
 			}
 

@@ -48,8 +48,17 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		allowEOFAcceptNoActionSiblings:  p.language.CompactEOFAcceptNoActionSiblingsCertified,
 		allowPrimaryAcceptDerivation:    p.language.CompactPrimaryAcceptanceDerivationCertified,
 		allowConvergedSplitDropArtifact: p.language.CompactConvergedReductionSplitDropsCertified,
-		noLookaheadRootSymbol:           p.rootSymbol,
-		hasNoLookaheadRootSymbol:        p.hasRootSymbol,
+		// B3 stage S3: Recovery declares that this operation may attempt
+		// native strategy-2 recovery; allowCompactStrategy2ErrorRegion is the
+		// certified-capability gate the scheduler actually checks
+		// (dispatchPassActive's s3ErrorRegionAdmitted). Both come from the
+		// same grammar-blob-keyed certification, so an uncertified grammar
+		// (every grammar but the one B3 stage S3 witness class covers today)
+		// gets both false and this parse's behavior is unchanged.
+		Recovery:                         p.language.CompactStrategy2ErrorRegionCertified,
+		allowCompactStrategy2ErrorRegion: p.language.CompactStrategy2ErrorRegionCertified,
+		noLookaheadRootSymbol:            p.rootSymbol,
+		hasNoLookaheadRootSymbol:         p.hasRootSymbol,
 		// Tranche B8 scheduler stop-control: bind this Parser so the scheduler
 		// polls its deadline, cancellation flag, and (via
 		// stopControlMemoryBudgetBytes, recomputed per parse in

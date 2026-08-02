@@ -59,10 +59,18 @@ func loadRouteEqualityWitnesses(t testing.TB) map[string]routeEqualityWitness {
 
 // TestCompactRouteHTMLErroneousEndTagByteGapDeclines pins the B1 reference
 // witness by its literal bytes, independent of the committed manifest file:
-// html "<a></a^>" must decline the compact route because no leaf covers byte
-// 6 (the stray '^' inside the malformed close tag), and production must
-// report HasError()==true for the same bytes. Before the tiling gate, the
-// compact route accepted this input and published document[0:8] clean.
+// html "<a></a^>". Through B3 stage S2 the compact route declined this input
+// (no leaf covered byte 6, the stray '^' inside the malformed close tag) and
+// fell back to production, which reports HasError()==true for the same
+// bytes. B3 stage S3 lands native strategy-2 recovery (error-region absorb
+// and condense-resume) for exactly this witness class
+// (html_erroneous_end_tag): compact now routes this input itself instead of
+// declining, publishing an ERROR-wrapped tree that matches the pinned C
+// oracle exactly (cgo_harness/compact_t3_oracle_adjudication_test.go's
+// compactT3S3CertifiedWitnesses asserts the full structural comparison
+// under cgo; this always-on test pins only the route decision and root
+// HasError, which do not need cgo). Before either gate landed, the compact
+// route accepted this input and published document[0:8] clean.
 func TestCompactRouteHTMLErroneousEndTagByteGapDeclines(t *testing.T) {
 	// This loads the html grammar into the process-wide embedded cache; purge
 	// afterward so it does not inflate heap for later whole-process tests
@@ -96,15 +104,11 @@ func TestCompactRouteHTMLErroneousEndTagByteGapDeclines(t *testing.T) {
 	defer candidateTree.Release()
 
 	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 0 || fallback != 1 {
-		t.Fatalf("route counters routed=%d fallback=%d, want routed=0 fallback=1 (compact must decline)", routed, fallback)
-	}
-	reason := gts.AdmissionCandidateLastFallbackReason()
-	if !strings.Contains(reason, "accepted-leaf-tiling-gap") {
-		t.Fatalf("fallback reason=%q, want it to cite accepted-leaf-tiling-gap", reason)
+	if routed != 1 || fallback != 0 {
+		t.Fatalf("route counters routed=%d fallback=%d, want routed=1 fallback=0 (B3 stage S3: compact now handles this witness natively)", routed, fallback)
 	}
 	if !candidateTree.RootNode().HasError() {
-		t.Fatal("production-served (post-fallback) tree HasError=false, want true")
+		t.Fatal("natively-routed compact tree HasError=false, want true")
 	}
 }
 
@@ -114,14 +118,19 @@ func TestCompactRouteHTMLErroneousEndTagByteGapDeclines(t *testing.T) {
 // accepted by the compact route with HasError()==false while production and
 // the locked C oracle both report an error (compact_t3_oracle_witnesses_v2.
 // json: c_has_error=production_has_error=true for all 20; compact_has_error
-// was false for all 20 before this tranche's fix, and is now recorded true
-// for the 18 html/javascript entries this gate closes -- see
+// was false for all 20 before B1's fix). B1 made compact decline and fall
+// back to production for all 18 html/javascript entries (see
 // TestCompactRouteSwiftShiftComparisonGapIsNotATilingDefect for the 2 swift
-// entries, which stay false). This asserts the fixed contract: compact
-// declines specifically at the new tiling gate, the caller falls back to
-// production within the same Parse call, and the production-served tree's
-// HasError matches the manifest's adjudicated
-// verdict.
+// entries, which stay a different, non-tiling mechanism). B3 stage S3 then
+// landed native strategy-2 recovery for the html_erroneous_end_tag class:
+// the 3 html entries here (html_min_a, html_min_html, html_log_1) now route
+// natively instead of declining, publishing a compact-native tree with the
+// same root HasError as production (exact structural C-oracle parity is
+// asserted separately, under cgo, by
+// cgo_harness/compact_t3_oracle_adjudication_test.go's
+// compactT3S3CertifiedWitnesses). The 3 javascript entries are outside B3's
+// witness classes staged so far and still decline at the tiling gate exactly
+// as B1 left them.
 //
 // Scope note: the manifest's 2 swift entries (swift_log_1, swift_log_2) are
 // NOT in this list. Root-cause (verified by direct tree inspection):
@@ -204,12 +213,19 @@ func TestCompactRouteDeclinesAdjudicatedFalseCleanWitnesses(t *testing.T) {
 			defer tree.Release()
 
 			routed, fallback := gts.AdmissionCandidateCounters()
-			if routed != 0 || fallback != 1 {
-				t.Fatalf("witness %q: route counters routed=%d fallback=%d, want routed=0 fallback=1 (compact must decline)", id, routed, fallback)
-			}
-			reason := gts.AdmissionCandidateLastFallbackReason()
-			if !strings.Contains(reason, "accepted-leaf-tiling-gap") {
-				t.Fatalf("witness %q: fallback reason=%q, want it to cite accepted-leaf-tiling-gap", id, reason)
+			if witness.Language == "html" {
+				// B3 stage S3: html_erroneous_end_tag now routes natively.
+				if routed != 1 || fallback != 0 {
+					t.Fatalf("witness %q: route counters routed=%d fallback=%d, want routed=1 fallback=0 (B3 stage S3: compact now handles this witness natively)", id, routed, fallback)
+				}
+			} else {
+				if routed != 0 || fallback != 1 {
+					t.Fatalf("witness %q: route counters routed=%d fallback=%d, want routed=0 fallback=1 (compact must decline)", id, routed, fallback)
+				}
+				reason := gts.AdmissionCandidateLastFallbackReason()
+				if !strings.Contains(reason, "accepted-leaf-tiling-gap") {
+					t.Fatalf("witness %q: fallback reason=%q, want it to cite accepted-leaf-tiling-gap", id, reason)
+				}
 			}
 
 			if got := tree.RootNode().HasError(); got != *witness.Expected.ProductionHasError {

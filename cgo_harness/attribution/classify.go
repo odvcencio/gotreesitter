@@ -96,12 +96,22 @@ func classifyFunction(fn pbFrame) (Component, bool) {
 		// near-zero.
 		return ComponentMaterialization, true
 	case strings.HasSuffix(file, "/recovery_cost.go"):
-		// B3 stage S2's planned file (internal/parsercorephase0/recovery_cost.go):
+		// B3 stage S2's file (internal/parsercorephase0/recovery_cost.go):
 		// compact equivalents of cNodeErrorCostLang, cSymbolVisibleLang, and
-		// cVersionStatus over immutable compact subtrees. Does not exist yet
-		// (B3 stage S1 adds only this classification rule, not the file), so
-		// this arm cannot match anything today; it is forward-declared so S2
-		// lands inert cost-model code without also having to touch this table.
+		// cVersionStatus over immutable compact subtrees. Dead code on the
+		// clean path by construction (S2's own no-outside-call-sites
+		// ratchet), so this arm still reads 0.0% on every clean canonical
+		// fixture; it exists so a later stage that does call into it needs
+		// no further table change here.
+		return ComponentRecovery, true
+	case strings.HasSuffix(file, "/error_region.go"):
+		// B3 stage S3's file (internal/parsercorephase0/error_region.go):
+		// publishes the ERROR container and absorbed leaves a native
+		// strategy-2 recovery region accumulates (ErrorRegionLeaf,
+		// ErrorRegionResume). Reachable only from the driver-side S3 helpers
+		// below, themselves reachable only when a genuine no-table-action
+		// point is hit under an admitted, certified recovery region -- never
+		// on a clean parse.
 		return ComponentRecovery, true
 	}
 
@@ -462,6 +472,28 @@ func buildFunctionOverride() []functionOverrideEntry {
 		"newAdmissionCandidateRunner",
 		"Parser).hasActiveParseObservability",
 		"admissionCandidateDeclineReason",
+	)
+
+	add(ComponentRecovery,
+		// B3 stage S3: native strategy-2 recovery (error-region absorb and
+		// condense-resume) driver-side helpers, parsercore_phase0_driver.go.
+		// Reachable only from dispatchPassActive's s3Region branch and its
+		// no-table-action decline branch, both gated on
+		// s3ErrorRegionAdmitted (Recovery && allowCompactStrategy2ErrorRegion,
+		// itself gated on the certified html grammar blob) -- every call
+		// under this override is, by construction, work a clean parse or an
+		// uncertified grammar never performs.
+		"GenericScheduler).s3ErrorRegionAdmitted",
+		"s3TokenIsExtraShift",
+		"GenericScheduler).s3ErrorModeRelex",
+		"s3RegionResumeAction",
+		"GenericScheduler).s3CloseInProgressProductions",
+		"GenericScheduler).s3MissingTokenOpportunityExists",
+		"GenericScheduler).s3TryOpenErrorRegion",
+		// The runner-level mirror of s3ErrorRegionAdmitted that
+		// materialization consults (parsercore_phase0_fresh_full_runner.go);
+		// same gate, same guarantee.
+		"FreshFullRunner).s3AllowErrorRoot",
 	)
 
 	return table

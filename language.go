@@ -708,6 +708,19 @@ type Language struct {
 	// bounded equivalence can merge parity-relevant shapes. Custom, adapted, and
 	// stale artifacts retain bounded equivalence unless callers opt in.
 	ExactStackNodeEquivalenceCertified bool
+
+	// CompactStrategy2ErrorRegionCertified permits the compact fresh-full route
+	// to attempt native strategy-2 recovery (error-region absorb and
+	// condense-resume, campaign v7 tranche B3 stage S3) for a true no-table-
+	// action point: close in-progress productions on a single deterministic
+	// path, open an ERROR region, absorb tokens the table cannot place, and
+	// resume once the pre-error state accepts the current token. Exact
+	// built-in profiles set this only after C-oracle parity proves the
+	// resulting tree matches the pinned C oracle exactly for the certified
+	// witness class. Custom and adapted languages fail closed: an
+	// uncertified grammar keeps declining to production at the same
+	// no-action point exactly as before this stage landed.
+	CompactStrategy2ErrorRegionCertified bool
 }
 
 type symbolNameNamedKey struct {

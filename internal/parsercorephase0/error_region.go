@@ -1,0 +1,114 @@
+package parsercorephase0
+
+import "errors"
+
+// ---------------------------------------------------------------------------
+// error_region.go -- campaign v7 tranche B3 stage S3: native strategy-2
+// recovery (error-region absorb and condense-resume) over compact headers.
+//
+// THE PRODUCTION GO PORT IS THE EXECUTABLE SPECIFICATION for the mechanism
+// (spec.compact-recovery-ownership.v1, section 6): parser_recover_c.go's
+// cAbsorbTokenIntoError (:3757) and cCondenseAndResume/cRecoverToState
+// (:3948,:3596), themselves faithful ports of tree-sitter C's
+// ts_parser__recover's strategy-2 tail and ts_parser__recover_to_state. The
+// pinned C oracle is the parity arbiter (decision 0007): where the production
+// Go port's own construction diverges from the C oracle, this port follows
+// the oracle, not the Go port's literal bit -- see ErrorRegionLeaf's doc
+// comment for the one confirmed instance (finding
+// production-recovery-structural-divergence).
+//
+// The open error region itself is NOT a record in this file: it lives on the
+// driver's header (parsercore_phase0_driver.go), a plain Go slice of already-
+// published SubtreeIDs plus span bytes, exactly like glrStack.cRec.openErr
+// lives on the stack, not in production's node arena (design section 4,
+// stage S2 doc comment, restated for S3). This file publishes the pieces the
+// header accumulates: one leaf per absorbed terminal (eager, cheap, and
+// itself immutable once published, matching every other compact subtree),
+// and -- once the driver decides to resume -- the ERROR container plus the
+// new head that carries it, both in one call.
+// ---------------------------------------------------------------------------
+
+// ErrorRegionSymbol is tree-sitter's built-in ERROR symbol (ts_builtin_sym_error),
+// fixed across every grammar. It matches RecoveryErrorSymbol (recovery_cost.go)
+// and the root package's own errorSymbol constant (parser_api.go:997); all
+// three names exist because each file documents the constant against its own
+// C source citation, not because the value can vary.
+const ErrorRegionSymbol Symbol = 65535
+
+// ErrorRegionLeaf publishes one absorbed terminal into the compact subtree
+// arena for a driver-owned open error region.
+//
+// HasError is deliberately never stored or forced true here, even when
+// symbol is itself ErrorRegionSymbol (an unlexable byte the token source
+// could not classify as any grammar terminal). This mirrors the pinned C
+// oracle exactly, and deliberately does NOT mirror production Go's
+// cAbsorbTokenIntoError, which calls leaf.setHasError(true) unconditionally
+// on every absorbed leaf (parser_recover_c.go:3766) -- a confirmed,
+// receipted production/C divergence (finding
+// production-recovery-structural-divergence; verified byte-for-byte against
+// the locked C oracle in Docker for all ten html_erroneous_end_tag
+// witnesses: every remaining structural gap after this port's mechanism ran
+// was exactly one absorbed leaf's own HasError flag reading true in Go
+// where the C oracle reads false). The wrapping ERROR container (see
+// ErrorRegionNode) is materialization's sole per-node HasError trigger for
+// this region; ordinary ancestor propagation (populateParentNode, tree.go)
+// already ORs a true child flag up through every enclosing reduce with zero
+// additional code, so leaving every leaf false here is what makes that
+// propagation land in exactly the right place -- on the container, and only
+// the container, exactly like the C oracle.
+func (c *Core) ErrorRegionLeaf(symbol Symbol, startByte, endByte uint32, extra bool) (id SubtreeID, err error) {
+	mark := c.mark()
+	defer c.completeTransaction(mark, &err)
+	return c.appendSubtreeRecord(subtreeRecord{
+		symbol: symbol, startByte: startByte, endByte: endByte, extra: extra, terminal: true,
+	}, nil, nil, nil)
+}
+
+// ErrorRegionResume publishes the ERROR container over the region's
+// accumulated children (parity obligation 1, design section 6: spans start
+// at the first real token; span writes mirror cSetNodeSpan,
+// parser_recover_c.go:3585 -- startByte/endByte come from the caller's own
+// tracked region bounds, not recomputed here) and condenses it onto
+// preErrorHead at preErrorState, publishing the resumed head strategy 2's
+// absorb-then-resume step produces (the compact equivalent of production's
+// pushStackNode(fork, goal, errNode, ...), cRecoverToState,
+// parser_recover_c.go:3743). The resumed head is keyed as a shift boundary
+// (shiftedBoundaryKey), matching the shape of every other terminal-carrying
+// attachment onto a head (scheduler_owned.go's shiftClassifiedUncheckpointed):
+// the ERROR container is, from the boundary index's point of view, one more
+// unit attached at this state and byte position, not a reduction replacing
+// existing children.
+//
+// children must already be published (via ErrorRegionLeaf or, for the rare
+// case production's cRecoverToState splices an existing closed subtree in
+// front, an already-live SubtreeID the caller owns). len(children)==0 is
+// rejected: an ERROR region with no absorbed content has nothing to resume.
+func (c *Core) ErrorRegionResume(preErrorHead Head, preErrorState StateID, startByte, endByte uint32, children []SubtreeID) (out Head, err error) {
+	if len(children) == 0 {
+		return Head{}, errors.New("parser-core phase zero: error region resume has no absorbed children")
+	}
+	mark := c.mark()
+	defer c.completeTransaction(mark, &err)
+	if _, err := c.node(preErrorHead.Node); err != nil {
+		return Head{}, err
+	}
+	// extra:true (mirrors cRecoverToState's errNode.setExtra(true),
+	// parser_recover_c.go) is load-bearing, not cosmetic: popPaths (core.go)
+	// skips extra payloads when counting a production's structural
+	// ChildCount, exactly like an ordinary whitespace/comment extra between
+	// two real children. Without it, an ordinary enclosing reduce (e.g.
+	// end_tag's '</' tag_name '>') would count this region as one of its own
+	// structural children, popping one link short and landing its GOTO
+	// lookup on the wrong ancestor state entirely (observed directly: "no
+	// goto from state N for reduced symbol" once this region sits between
+	// two real children of a fixed-arity production).
+	payload, err := c.appendSubtreeRecord(subtreeRecord{
+		symbol: ErrorRegionSymbol, startByte: startByte, endByte: endByte, extra: true,
+	}, children, nil, nil)
+	if err != nil {
+		return Head{}, err
+	}
+	return c.condense(c.shiftedBoundaryKey(preErrorState, endByte), linkInput{
+		prev: preErrorHead.Node, payload: payload,
+	})
+}

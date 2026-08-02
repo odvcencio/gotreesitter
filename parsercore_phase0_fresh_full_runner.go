@@ -41,7 +41,14 @@ type parserCoreFreshFullRunner struct {
 }
 
 func newParserCoreFreshFullRunner(scanner ExternalScanner, options DiagnosticParserCorePrefixOptions) (*parserCoreFreshFullRunner, error) {
-	if options.Recovery || options.Retry || options.Incremental || options.IncludedRanges || options.GenericStopAtClosedByte != nil {
+	// B3 stage S3: admit options.Recovery only when it is paired with the
+	// certified-capability gate (allowCompactStrategy2ErrorRegion, set only
+	// from a grammar's own CompactStrategy2ErrorRegionCertified flag). Every
+	// other Recovery request -- and Retry/Incremental/IncludedRanges/closed-
+	// prefix, none of which this stage touches -- still declines exactly as
+	// before this stage landed.
+	if (options.Recovery && !options.allowCompactStrategy2ErrorRegion) ||
+		options.Retry || options.Incremental || options.IncludedRanges || options.GenericStopAtClosedByte != nil {
 		return nil, &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreRoute,
 			detail:   "fresh-full runner declines recovery/retry/incremental/included-range/closed-prefix routes",
@@ -93,7 +100,15 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 			return nil, nil, err
 		}
 	}
-	tokenSource := r.parser.acquireParserDFATokenSource(source)
+	// B3 stage S3: force the shared token source's error-run lexing on when
+	// native compact recovery is admitted, so a genuinely unlexable byte run
+	// surfaces as its own errorSymbol token (parser_api.go's
+	// acquireParserDFATokenSourceWithErrorRuns doc comment) instead of the
+	// plain lexer silently skipping it -- the silent-skip shape a true no-
+	// table-action dispatch point can never observe, verified against every
+	// committed html_erroneous_end_tag witness.
+	forceErrorRuns := r.options.Recovery && r.options.allowCompactStrategy2ErrorRegion
+	tokenSource := r.parser.acquireParserDFATokenSourceWithErrorRuns(source, forceErrorRuns)
 	if tokenSource == nil {
 		return nil, nil, errors.New("parser-core fresh-full runner: production DFA unavailable")
 	}
@@ -176,18 +191,28 @@ func parserCoreFreshFullAcceptedTailIsClean(source []byte, headByte uint32) bool
 	return parserTailAllowsCleanAcceptance(source, headByte, uint32(len(source)), nil)
 }
 
+// s3AllowErrorRoot reports whether this runner's current options admit
+// native S3 recovery, the sole condition under which a materialized root may
+// legitimately carry HasError (finalizeDiagnosticParserCoreAcceptedRootSpan's
+// allowErrorRoot parameter). Mirrors s3ErrorRegionAdmitted exactly (same two
+// fields); duplicated here because the runner, not the scheduler, owns
+// materialization.
+func (r *parserCoreFreshFullRunner) s3AllowErrorRoot() bool {
+	return r != nil && r.options.Recovery && r.options.allowCompactStrategy2ErrorRegion
+}
+
 func (r *parserCoreFreshFullRunner) materialize(source []byte, compact *core.Core, head core.Head) (*Tree, error) {
 	if r == nil {
 		return nil, errors.New("parser-core fresh-full runner is nil")
 	}
-	return materializeDiagnosticParserCoreAcceptedTree(compact, head, r.parser, source, &r.scratch, r.replayParseStates)
+	return materializeDiagnosticParserCoreAcceptedTree(compact, head, r.parser, source, &r.scratch, r.replayParseStates, r.s3AllowErrorRoot())
 }
 
 func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact *core.Core, scheduler *diagnosticParserCoreGenericScheduler) (*Tree, error) {
 	if r == nil || scheduler == nil {
 		return nil, errors.New("parser-core fresh-full selected materialization is incomplete")
 	}
-	return materializeDiagnosticParserCoreAcceptedSelection(compact, scheduler.acceptedHead, scheduler.acceptedPayloads, r.parser, source, &r.scratch, r.replayParseStates)
+	return materializeDiagnosticParserCoreAcceptedSelection(compact, scheduler.acceptedHead, scheduler.acceptedPayloads, r.parser, source, &r.scratch, r.replayParseStates, r.s3AllowErrorRoot())
 }
 
 func (r *parserCoreFreshFullRunner) parse(source []byte) (*Tree, error) {

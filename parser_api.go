@@ -476,6 +476,25 @@ func (p *Parser) acquireParserDFATokenSource(source []byte) *dfaTokenSource {
 	return acquireDFATokenSourceReusingLexer(source, p.language, p.lookupActionIndexFunc(), p.hasKeywordState, p.externalValidByState, p.externalValidMaskByState, p.errorCostCompetitionEnabled())
 }
 
+// acquireParserDFATokenSourceWithErrorRuns is acquireParserDFATokenSource
+// with the lexer's error-run detection (NextWithErrorRuns instead of Next;
+// see nextTokenForLexState) forced on regardless of production's own
+// errorCostCompetitionEnabled gate. B3 stage S3's native compact recovery
+// needs the shared token source to report a genuinely unlexable byte run as
+// its own errorSymbol token (mirroring C's skipped-error lexing) rather than
+// the plain lexer's silent skip -- the same error-run machinery production's
+// C-recovery port relies on, admitted here independently of whether
+// production's own cost-model competition happens to be enabled by default
+// for this grammar (html's CRecoveryCostCompetitionEnabledByDefault is
+// false; CompactStrategy2ErrorRegionCertified is a separate, compact-only
+// capability -- design section 7, per-engine certification).
+func (p *Parser) acquireParserDFATokenSourceWithErrorRuns(source []byte, forceErrorRuns bool) *dfaTokenSource {
+	if p == nil || p.language == nil || len(p.language.LexStates) == 0 {
+		return nil
+	}
+	return acquireDFATokenSourceReusingLexer(source, p.language, p.lookupActionIndexFunc(), p.hasKeywordState, p.externalValidByState, p.externalValidMaskByState, p.errorCostCompetitionEnabled() || forceErrorRuns)
+}
+
 func (p *Parser) tokenSourceReparseFactory(ts TokenSource) TokenSourceFactory {
 	if rebuilder, ok := ts.(TokenSourceRebuilder); ok {
 		return func(source []byte) (TokenSource, error) {

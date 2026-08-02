@@ -112,6 +112,30 @@ type compactT3ExpectedOutcome struct {
 	CompactHasError    *bool `json:"compact_has_error"`
 }
 
+// compactT3S3CertifiedWitnesses lists witnesses where native compact
+// recovery is certified to reach exact structural C-oracle parity (B3 stage
+// S3: error-region absorb and condense-resume, Language.
+// CompactStrategy2ErrorRegionCertified, gated on the html grammar blob's own
+// SHA-256, not on Language.Name -- design section 7). html_log_7 is
+// deliberately excluded: its next real token after a dangling start_tag is
+// a valid "</" the parser cannot place without first inserting a synthetic
+// MISSING ">", which stage S5, not S3, owns (design section 4's stop rule:
+// "if any html witness needs strategy 1 or missing insertion, leave it
+// fail-closed and record it for S4/S5; do not widen S3"). Compact detects
+// that shape and declines it, falling back to production exactly as it did
+// before this stage landed; see the dedicated assertion below.
+var compactT3S3CertifiedWitnesses = map[string]bool{
+	"html_min_a":    true,
+	"html_min_html": true,
+	"html_log_1":    true,
+	"html_log_2":    true,
+	"html_log_3":    true,
+	"html_log_4":    true,
+	"html_log_5":    true,
+	"html_log_6":    true,
+	"html_log_8":    true,
+}
+
 // TestCompactT3OracleAdjudication verifies each committed false-clean witness
 // three ways: C oracle, production, and compact.
 //
@@ -121,11 +145,19 @@ type compactT3ExpectedOutcome struct {
 // B3 stage S1 extends the harness with a full structural comparison
 // (deep-tree shape, byte and point spans, the Missing flag, child fields,
 // and per-node HasError) for both production and compact against the C
-// oracle. Both comparisons are logged, not asserted:
+// oracle.
 //
-//   - compact vs. the C oracle: compact has no recovery implementation yet
-//     (B3 stages S2-S5 add it class by class), so its structural shape is
-//     expected to diverge on these witnesses today.
+//   - compact vs. the C oracle: B3 stage S3 lands native strategy-2 recovery
+//     (error-region absorb and condense-resume) for the html_erroneous_end_tag
+//     class. Every witness in compactT3S3CertifiedWitnesses is asserted
+//     (not logged) to match the C oracle exactly: a divergence there is a
+//     stage S3 regression, not an expected gap. The one witness S3 does not
+//     own (html_log_7; needs missing-token insertion, S5 scope) stays
+//     logged, with its own assertion that compact's decline is faithful
+//     to production (below) -- unowned shapes fail closed, they do not
+//     guess. Every other language in this manifest (javascript, swift)
+//     still has no compact recovery implementation and stays logged only,
+//     exactly as stage S1 left it.
 //   - production vs. the C oracle: the S1 design brief's stated gate is
 //     "the harness must pass with production serving every witness before
 //     any compact change." Verified in the pinned parity container
@@ -197,13 +229,38 @@ func TestCompactT3OracleAdjudication(t *testing.T) {
 						t.Logf("witness %q: production already matches the C oracle structurally", witness.ID)
 					}
 
-					if divergences := compactT3StructuralDivergences(compactRoot, goLanguage, cRoot); len(divergences) != 0 {
-						t.Logf(
-							"witness %q: compact diverges from the C oracle at %d node(s) (expected pre-B3-S3+ recovery); first: %s",
+					divergences := compactT3StructuralDivergences(compactRoot, goLanguage, cRoot)
+					switch {
+					case len(divergences) == 0:
+						t.Logf("witness %q: compact matches the C oracle structurally", witness.ID)
+					case compactT3S3CertifiedWitnesses[witness.ID]:
+						t.Fatalf(
+							"witness %q: B3 stage S3 certifies native compact recovery for this witness, but compact diverges from the C oracle at %d node(s); first: %s",
 							witness.ID, len(divergences), compactT3FormatDivergence(divergences[0]),
 						)
-					} else {
-						t.Logf("witness %q: compact already matches the C oracle structurally", witness.ID)
+					default:
+						t.Logf(
+							"witness %q: compact diverges from the C oracle at %d node(s) (expected pre-B3-S3+ recovery, or -- for html_erroneous_end_tag -- an owned-class witness B3 stage S3 declines); first: %s",
+							witness.ID, len(divergences), compactT3FormatDivergence(divergences[0]),
+						)
+						// The faithful-decline check only applies inside the
+						// witness class this stage owns: outside
+						// html_erroneous_end_tag, compact's shape is
+						// independently pre-S3 (no recovery attempt at all,
+						// per-witness expected.compact_has_error can differ
+						// from production's, e.g. the swift
+						// shift_comparison class), so comparing it against
+						// production is not meaningful and was never this
+						// harness's contract before this stage landed.
+						if witness.FailureClass != "html_erroneous_end_tag" {
+							break
+						}
+						if got, want := compactRoot.SExpr(goLanguage), productionRoot.SExpr(goLanguage); got != want {
+							t.Fatalf(
+								"witness %q: compact declined this shape but its tree does not match production's own tree (decline is not faithful):\ncompact:    %s\nproduction: %s",
+								witness.ID, got, want,
+							)
+						}
 					}
 				})
 			}
