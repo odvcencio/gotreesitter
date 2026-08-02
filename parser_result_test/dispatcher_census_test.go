@@ -330,6 +330,23 @@ type trackedDispatcherCensusReceipt struct {
 
 // TestDispatcherArmCensusTrackedReceipt validates a small tracked corpus on
 // every run. The full authenticated corpus remains an external release gate.
+//
+// The typescript fixture's nodes_rewritten count moved from 20 to 15 with
+// the inherited-field projection repair (PR #638). A dispatch pass counts a
+// node as rewritten when it must correct that node. The repair makes the
+// reduce path produce correct fields earlier, so the pass finds less to
+// correct. Both steps of the drop are measured, not estimated:
+//
+//   - 20 to 16: the reduce-path repair (parser_reduce.go). Four nodes now
+//     arrive with the fields C assigns, so the pass leaves them alone.
+//   - 16 to 15: the isNamed guard in typeScriptAssignMemberFields
+//     (parser_result_typescript.go). The pass no longer projects "value"
+//     onto the anonymous "=" token of the one public_field_definition in
+//     this fixture. C's field map has no entry for that position.
+//
+// checked, run, and nodes_visited are unchanged, so the pass still runs over
+// the same tree. The structural parity gate reports 0 divergences against
+// the locked C oracle for this fixture with field comparison on.
 func TestDispatcherArmCensusTrackedReceipt(t *testing.T) {
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 

@@ -159,8 +159,14 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"   V : constant A := (1 => True, 2 => False);\n" +
 				"   V2 : constant A := (1 => True, others => False);\n" +
 				"end P;\n",
-			wantRawDigest:    "728491faf7df326e0557c468af03e026a9b4461b86f9de9f28da9162f9510c71",
-			wantResultDigest: "728491faf7df326e0557c468af03e026a9b4461b86f9de9f28da9162f9510c71",
+			// Both digests moved with the inherited-field projection repair
+			// (PR #638). The old digests pinned a "subtype_mark" field on
+			// range_g that the C runtime never assigns. C receipt, taken
+			// with field comparison on: this source now reports 0 mismatches
+			// against the locked C oracle on the raw route and 0 on the
+			// production route.
+			wantRawDigest:    "d04b5a44207f4e4691e8aea35d0b15c01f225b5bbbd2f2bef3f75532fc5a517c",
+			wantResultDigest: "d04b5a44207f4e4691e8aea35d0b15c01f225b5bbbd2f2bef3f75532fc5a517c",
 			expectedSubpasses: []string{
 				"dispatch.ada",
 			},
@@ -173,8 +179,17 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"   type A is array (1 .. 3) of Boolean;\n" +
 				"   V : constant A := (1, 2, 3);\n" +
 				"end;\n",
-			wantRawDigest:    "2548948d4cac86cf3b438642ac347917b72371467fd928be0de7437210e98a50",
-			wantResultDigest: "c056e4222c7e642fbf23054a75b40f3ff186ff687eb49e8bcd5a36c513d10f14",
+			// Both digests moved with the inherited-field projection repair
+			// (PR #638). The old digests pinned a "subtype_mark" field on
+			// range_g that the C runtime never assigns. C receipt, taken
+			// with field comparison on: the production route now reports 0
+			// mismatches against the locked C oracle. The raw route keeps
+			// only the 2 pre-existing aggregate-kind election mismatches
+			// (record_aggregate for positional_array_aggregate) that
+			// dispatch.ada.aggregate-kind-election repairs, and 0 field
+			// mismatches.
+			wantRawDigest:    "03ed84353f6116db108013a4124c9e573333fbc9454464fe28711527b1e7d6ec",
+			wantResultDigest: "78ef4359be68f12055d075c272b5fbf63be2a9f0fe8672f5c26979308ba149ff",
 			expectedSubpasses: []string{
 				"dispatch.ada",
 				"dispatch.ada.aggregate-kind-election",
@@ -205,8 +220,18 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"begin\n" +
 				"   A := (others => 0);\n" +
 				"end;\n",
-			wantRawDigest:    "436a2b8ebb3e7d0a6ebad2fddaae9bd3a1f7a040a91741581109fa3d59558f7e",
-			wantResultDigest: "67f7351db255e847be4172f69a33cd349b2883c693b837eebb32979ccaf4b9a7",
+			// Both digests moved with the inherited-field projection repair
+			// (PR #638). The old digests pinned a "name" field on
+			// named_array_aggregate that the C runtime never assigns. C
+			// receipt, taken with field comparison on: the production route
+			// now reports 0 mismatches against the locked C oracle. The raw
+			// route keeps only the 6 pre-existing aggregate-kind and
+			// association-choice election mismatches that
+			// dispatch.ada.aggregate-kind-election and
+			// dispatch.ada.association-choice-materialization repair, and 0
+			// field mismatches.
+			wantRawDigest:    "ad2718a1e309fadba012881bc82689ff1dabec69814106b0dcbe3a39b6d70b27",
+			wantResultDigest: "95edae06bdbba04a19749854656b7c439a334cf9ae7bba367ed762386cf28d15",
 			expectedSubpasses: []string{
 				"dispatch.ada",
 				"dispatch.ada.aggregate-kind-election",
