@@ -81,7 +81,7 @@ var admissionScorecardRequiredCompactPasses = map[string]struct{}{
 	"hlsl": {}, "html": {}, "http": {}, "hurl": {}, "hyprlang": {}, "ini": {}, "janet": {}, "javascript": {}, "jinja2": {}, "jq": {}, "jsdoc": {},
 	"json5": {}, "jsonnet": {}, "julia": {}, "just": {}, "kconfig": {}, "kdl": {}, "kotlin": {},
 	"ledger": {}, "less": {}, "linkerscript": {}, "liquid": {}, "llvm": {}, "lua": {},
-	"luau": {}, "make": {}, "markdown": {}, "matlab": {}, "mermaid": {}, "meson": {}, "mojo": {},
+	"luau": {}, "make": {}, "markdown": {}, "matlab": {}, "mermaid": {}, "mojo": {},
 	"move": {}, "nginx": {}, "nickel": {}, "nim": {}, "ninja": {}, "nix": {}, "norg": {}, "nushell": {},
 	"objc": {}, "ocaml": {}, "odin": {}, "org": {}, "pascal": {}, "pem": {}, "perl": {},
 	"php": {}, "pkl": {}, "powershell": {}, "prisma": {}, "prolog": {}, "promql": {},
@@ -146,10 +146,23 @@ func TestAdmissionCandidateScorecard206(t *testing.T) {
 		// welcome (more PASS, fewer FALLBACK); silent correctness failures,
 		// registry drift, or surrendered route coverage require an explicit
 		// review and ratchet update.
+		//
+		// minPass moved 200 -> 199 and maxFallback 1 -> 2 when
+		// selectCompactAcceptanceDerivation's materiality gate
+		// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous)
+		// landed: meson's smoke sample ("message('hello')") has a genuine,
+		// score-tied grammar ambiguity between two distinct real symbols
+		// (variableunit and var_unit -- both present in the compiled
+		// language's SymbolNames). The old positional rule happened to pick
+		// the derivation that matches production; the gate cannot prove that
+		// pick correct without a C oracle, so it now declines instead of
+		// publishing an unproven tree, and the route falls back to
+		// production (still a PASS-safe FALLBACK, never a DIVERGE -- see
+		// counts[scorecardDiverge] below, unaffected at 0).
 		const (
 			wantTotal   = 206
-			minPass     = 200
-			maxFallback = 1
+			minPass     = 199
+			maxFallback = 2
 			wantSkip    = 5
 		)
 		if got := len(admissionScorecardRequiredCompactPasses); got != minPass {

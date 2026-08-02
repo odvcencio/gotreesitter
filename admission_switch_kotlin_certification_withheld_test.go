@@ -21,21 +21,28 @@ import (
 // TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe pins that.
 //
 // Combining CompactConvergedReductionSplitDropsCertified with
-// CompactPrimaryAcceptanceDerivationCertified -- the certification pair the
-// finding asks for -- regresses a distinct, pre-existing witness:
-// TestKotlinTopLevelObjectParsesAsDeclaration (issue #93,
-// query_kotlin_object_declaration_test.go). With both flags on, the compact
-// route accepts "object Singleton { fun work() = Unit }" as
+// CompactPrimaryAcceptanceDerivationCertified used to regress a distinct,
+// pre-existing witness: TestKotlinTopLevelObjectParsesAsDeclaration (issue
+// #93, query_kotlin_object_declaration_test.go). With both flags on, the
+// compact route used to accept "object Singleton { fun work() = Unit }" as
 // infix_expression(object_literal, Singleton, lambda_literal) instead of
-// object_declaration. The C oracle sides with production's
+// object_declaration, even though the C oracle sides with production's
 // object_declaration
 // (cgo_harness/kotlin_a3_certification_object_declaration_regression_test.go).
-// This is a genuine divergence, not an adjudicated exception, so neither
-// certificate lands for Kotlin in grammars/runtime_profiles.go: the
-// "kotlin" map entry stays at its pre-A3 shape.
+//
+// selectCompactAcceptanceDerivation's materiality gate
+// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) closes
+// this exact shape: the two derivations at this witness's accepted head
+// materialize to different trees, so the election is material and the
+// compact route now declines and falls back to production instead of
+// publishing the wrong one. TestKotlinCompactCertificationObjectDeclarationRegressionWithheld
+// below pins the corrected (declining) behavior. Kotlin's certification
+// still does not land in grammars/runtime_profiles.go: an unrelated
+// witness (annotated_declaration, a derivation-coverage gap rather than an
+// election error) remains open.
 //
 // This file pins both halves of the finding (the safe grant and the
-// regressing combination) so a future attempt to land Kotlin's
+// now-safely-declining combination) so a future attempt to land Kotlin's
 // certification is checked against this exact counterexample.
 
 // TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe confirms
@@ -77,12 +84,15 @@ func TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe(t *testing.T)
 	}
 }
 
-// TestKotlinCompactCertificationObjectDeclarationRegressionWithheld
-// reproduces the counterexample that blocks Kotlin's A3 certification: with
-// both CompactConvergedReductionSplitDropsCertified and
-// CompactPrimaryAcceptanceDerivationCertified forced on, the compact route
-// accepts a tree that diverges from production's (C-oracle-matching, see
-// the cgo_harness companion receipt) object_declaration parse.
+// TestKotlinCompactCertificationObjectDeclarationRegressionWithheld pins the
+// corrected behavior on the counterexample that used to block Kotlin's A3
+// certification: with both CompactConvergedReductionSplitDropsCertified and
+// CompactPrimaryAcceptanceDerivationCertified forced on, the accepted head
+// carries two derivations that materialize to different trees (a material
+// election), so selectCompactAcceptanceDerivation's materiality gate now
+// declines the compact route instead of publishing the wrong one, and the
+// route falls back to production's (C-oracle-matching, see the cgo_harness
+// companion receipt) object_declaration parse.
 func TestKotlinCompactCertificationObjectDeclarationRegressionWithheld(t *testing.T) {
 	source := []byte("package demo\n\nobject Singleton {\n    fun work() = Unit\n}\n")
 	lang := grammars.KotlinLanguage()
@@ -119,26 +129,23 @@ func TestKotlinCompactCertificationObjectDeclarationRegressionWithheld(t *testin
 	defer candidateTree.Release()
 
 	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 1 || fallback != 0 {
+	if routed != 0 || fallback != 1 {
 		t.Fatalf(
-			"forced-both-certificates candidate route counters = %d/%d, want 1/0 "+
-				"(if this now declines instead of accepting a wrong tree, re-check whether "+
-				"the certification pair is safe to land); reason=%s",
+			"forced-both-certificates candidate route counters = %d/%d, want 0/1 "+
+				"(the materiality gate should decline this material election and fall back "+
+				"to production); reason=%s",
 			routed, fallback, gts.AdmissionCandidateLastFallbackReason(),
 		)
 	}
+	if reason := gts.AdmissionCandidateLastFallbackReason(); !strings.Contains(reason, "did not accept EOF") {
+		t.Fatalf("forced-both-certificates fallback reason changed unexpectedly: %s", reason)
+	}
 	candidateSExpr := candidateTree.RootNode().SExpr(lang)
-	if candidateSExpr == productionSExpr {
+	if candidateSExpr != productionSExpr {
 		t.Fatalf(
-			"forced-both-certificates candidate tree now matches production (%s); the "+
-				"object_declaration regression may be fixed -- re-verify against the C oracle "+
-				"(cgo_harness/kotlin_a3_certification_object_declaration_regression_test.go) "+
-				"before landing Kotlin's A3 certification",
-			candidateSExpr,
+			"forced-both-certificates candidate tree (fallback to production) = %s, want production's object_declaration tree %s",
+			candidateSExpr, productionSExpr,
 		)
 	}
-	if !strings.Contains(candidateSExpr, "infix_expression") {
-		t.Fatalf("forced-both-certificates candidate tree changed shape unexpectedly: %s", candidateSExpr)
-	}
-	t.Logf("confirmed withheld: forced-both-certificates candidate tree diverges from production's object_declaration tree: %s", candidateSExpr)
+	t.Logf("confirmed: the materiality gate declines this material election (two derivations, two different trees) instead of publishing the positional primary; production's object_declaration tree is served: %s", candidateSExpr)
 }

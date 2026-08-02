@@ -32,6 +32,12 @@ func TestAdaA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	}
 	sources = append(sources, adaA3TiedElectionWitnesses()...)
 	sources = append(sources, adaA3AdversarialSources()...)
+	// Ada has no cgo_harness/corpus_real directory on any host (it is not
+	// one of the top-50 languages the real-corpus manifest profiles), so
+	// real=0 here is a documented, permanent property of this sweep, not a
+	// silent degradation -- unlike python/perl (a3LoadRealCorpusDir), there
+	// is no missing-fixture condition to detect for this language.
+	t.Logf("ada A3 full-corpus sweep source denominator: real=0 (no corpus_real/ada on any host) constructed=%d total=%d", len(sources), len(sources))
 
 	result := runA3CertificationSweep(t, "ada", "ada", lang, sources)
 	a3ReportSweep(t, result)
@@ -209,5 +215,20 @@ func adaA3AdversarialSources() []a3CertificationSweepSource {
 				"      end return;\n" +
 				"   end Make;\n" +
 				"end P;\n")},
+		// bare_aggregate_assignment_material_election is a permanent
+		// regression fixture: a genuinely material tied election outside
+		// this sweep's original corpus. The C oracle picks the derivation
+		// whose outer production is record_aggregate; the certified compact
+		// route's old positional primary picked the derivation whose outer
+		// production is named_array_aggregate instead (matching production,
+		// which also diverges from C here). Under the materiality gate
+		// (selectCompactAcceptanceDerivation, compactAcceptanceElectionIsVacuous)
+		// the two tied derivations are not byte-identical, so this now
+		// declines instead of accepting the C-divergent tree.
+		{Name: "bare_aggregate_assignment_material_election", Source: []byte(
+			"procedure P is\n" +
+				"begin\n" +
+				"   R := (F => 1, G => 2);\n" +
+				"end;\n")},
 	}
 }

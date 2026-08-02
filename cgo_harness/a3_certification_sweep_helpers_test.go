@@ -26,12 +26,14 @@ import (
 // route forced off) and once on the compact candidate route (route forced
 // on). A parse that declines the compact route is SAFE by construction (it
 // falls back to production automatically) and is only counted and
-// reason-classified. A parse that the compact route accepts must either
-// byte-match the production tree, or -- where the two differ -- match the
-// locked C oracle exactly (the adjudicated-exception rule: compact==C is
-// correct even when production diverges). Any accepted compact tree that
-// matches neither production nor the C oracle is a genuine, unadjudicated
-// divergence and fails the sweep.
+// reason-classified. A parse that the compact route accepts is adjudicated
+// against the locked C oracle directly and unconditionally: certification
+// means compact==C. Matching production is not itself sufficient and is
+// checked only to label the outcome -- a clean pass when compact, production,
+// and C all agree, or an adjudicated exception (the one sanctioned deviation)
+// when compact==C but production diverges. An accepted compact tree that does
+// not match the C oracle is a genuine, unadjudicated divergence and fails the
+// sweep, whether or not it happens to match production.
 
 // a3CertificationSweepSource is one corpus file or constructed source fed
 // through the sweep.
@@ -110,26 +112,43 @@ func runA3CertificationSweep(t *testing.T, language, cLangName string, lang *got
 
 		switch {
 		case routedAfter == routedBefore+1 && fallbackAfter == fallbackBefore:
-			// Accepted via the compact route.
+			// Accepted via the compact route. Certification means compact == the
+			// locked C oracle tree, checked directly and unconditionally: matching
+			// production alone is not sufficient, because production can itself
+			// carry an undetected divergence from C that an accepted compact tree
+			// would then inherit and pass silently. Every accepted source is
+			// therefore adjudicated against the C oracle here, not only the ones
+			// that already disagree with production. Production agreement is used
+			// only to label the outcome (a clean pass, or an adjudicated exception
+			// where compact is right and production is wrong); it never
+			// substitutes for the C comparison.
 			result.Accepted++
 			prodDivergences := a3GoTreeDivergences(candidateTree.RootNode(), lang, productionTree.RootNode())
-			if len(prodDivergences) == 0 {
-				break
-			}
-			// Compact disagrees with production: adjudicate against the locked
-			// C oracle. compact==C is the adjudicated exception (production is
-			// the divergent side); compact!=C is a genuine, unadjudicated
-			// divergence that blocks certification.
 			cTree := a3ParseCOracle(t, cLang, src.Source)
 			cDivergences := compactT3StructuralDivergences(candidateTree.RootNode(), lang, cTree.RootNode())
 			cTree.Close()
-			if len(cDivergences) == 0 {
-				result.AdjudicatedExceptions = append(result.AdjudicatedExceptions, src.Name)
-				t.Logf(
-					"%s: ADJUDICATED EXCEPTION -- compact diverges from production at %d point(s) but matches the C oracle exactly; first production divergence: %s",
-					src.Name, len(prodDivergences), prodDivergences[0],
+			switch {
+			case len(cDivergences) == 0:
+				// compact == C. A clean pass when production also agrees; an
+				// adjudicated exception (the existing sanctioned deviation) when
+				// production does not.
+				if len(prodDivergences) != 0 {
+					result.AdjudicatedExceptions = append(result.AdjudicatedExceptions, src.Name)
+					t.Logf(
+						"%s: ADJUDICATED EXCEPTION -- compact diverges from production at %d point(s) but matches the C oracle exactly; first production divergence: %s",
+						src.Name, len(prodDivergences), prodDivergences[0],
+					)
+				}
+			case len(prodDivergences) == 0:
+				// compact == production, but neither matches C: reproducing
+				// production is not a sanctioned deviation on its own.
+				detail := fmt.Sprintf(
+					"%s: UNADJUDICATED DIVERGENCE -- compact matches production but both diverge from the C oracle at %d point(s), first: %s",
+					src.Name, len(cDivergences), compactT3FormatDivergence(cDivergences[0]),
 				)
-			} else {
+				result.Divergences = append(result.Divergences, detail)
+				t.Log(detail)
+			default:
 				detail := fmt.Sprintf(
 					"%s: UNADJUDICATED DIVERGENCE -- compact matches neither production (%d pt(s), first: %s) nor the C oracle (%d pt(s), first: %s)",
 					src.Name, len(prodDivergences), prodDivergences[0], len(cDivergences), compactT3FormatDivergence(cDivergences[0]),

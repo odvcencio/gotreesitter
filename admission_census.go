@@ -128,6 +128,14 @@ const (
 	// publish a clean tree while production and the locked C oracle both
 	// report an error for the same input.
 	censusMechanismAcceptedRootLeadingGap admissionCensusMechanism = "accepted-root-leading-gap"
+	// censusMechanismMaterialAcceptanceElection: the accepted head carried a
+	// tied compact acceptance election (selectCompactAcceptanceDerivation's
+	// score-tie guard, gated by compactAcceptanceElectionIsVacuous in
+	// parsercore_phase0_driver.go) with more than one live derivation, and
+	// materializing every one of them did not prove they all publish the
+	// same tree. The route declines instead of admitting the positional
+	// primary derivation; production still serves the input.
+	censusMechanismMaterialAcceptanceElection admissionCensusMechanism = "material-acceptance-election"
 	// censusMechanismOther is the catch-all for a decline this classifier
 	// does not yet recognize. The full original detail is always preserved
 	// alongside it.
@@ -195,6 +203,8 @@ func admissionCensusClassify(boundary DiagnosticParserCoreBoundaryKind, detail s
 			return censusMechanismAcceptedLeafTilingGap
 		case strings.Contains(detail, "accepted-root-leading-gap"):
 			return censusMechanismAcceptedRootLeadingGap
+		case strings.Contains(detail, "material-acceptance-election"):
+			return censusMechanismMaterialAcceptanceElection
 		default:
 			return censusMechanismSchedulerShape
 		}

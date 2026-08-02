@@ -125,6 +125,11 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 		r.options.stopControlMemoryBudgetBytes = parseMemoryBudgetForParser(r.options.stopControlParser, len(source))
 		r.options.stopControlHardCeilingBytes = parseMemoryHardCeilingBytes()
 	}
+	// See DiagnosticParserCorePrefixOptions.materializationParser: this runner
+	// is reused across parses, so both fields are refreshed on every call
+	// rather than set once at construction.
+	r.options.materializationParser = r.parser
+	r.options.materializationSource = source
 	scheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 		&r.scheduler, compact, tokenSource, &r.scannerScratch, r.lang.InitialState,
 		r.options, diagnosticParserCoreSeedObserver{},

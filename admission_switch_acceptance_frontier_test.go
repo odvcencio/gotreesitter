@@ -11,7 +11,15 @@ import (
 )
 
 func TestAdmissionCandidateCertifiedAcceptanceFrontiers(t *testing.T) {
-	for _, name := range []string{"http", "robot", "meson"} {
+	// meson is not in this list: its smoke sample has a genuine, score-tied
+	// grammar ambiguity (variableunit vs var_unit) that
+	// selectCompactAcceptanceDerivation's materiality gate
+	// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) can
+	// no longer prove correct without a C oracle, so the route now declines
+	// and falls back to production instead of publishing an unproven pick.
+	// See admission_scorecard_test.go's admissionScorecardRequiredCompactPasses
+	// comment for the full account.
+	for _, name := range []string{"http", "robot"} {
 		t.Run(name, func(t *testing.T) {
 			entry := grammars.DetectLanguageByName(name)
 			if entry == nil {

@@ -31,6 +31,12 @@ func TestApexA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	}
 	sources = append(sources, apexA3TiedElectionWitnesses()...)
 	sources = append(sources, apexA3AdversarialSources()...)
+	// Apex has no cgo_harness/corpus_real directory on any host (it is not
+	// one of the top-50 languages the real-corpus manifest profiles), so
+	// real=0 here is a documented, permanent property of this sweep, not a
+	// silent degradation -- unlike python/perl (a3LoadRealCorpusDir), there
+	// is no missing-fixture condition to detect for this language.
+	t.Logf("apex A3 full-corpus sweep source denominator: real=0 (no corpus_real/apex on any host) constructed=%d total=%d", len(sources), len(sources))
 
 	result := runA3CertificationSweep(t, "apex", "apex", lang, sources)
 	a3ReportSweep(t, result)
@@ -216,6 +222,22 @@ func apexA3AdversarialSources() []a3CertificationSweepSource {
 				"  void m(String keyword) {\n" +
 				"    List<Account> results = [SELECT Id FROM Account WHERE Name = :keyword];\n" +
 				"    List<List<SObject>> both = [FIND :keyword IN ALL FIELDS RETURNING Account, Contact];\n" +
+				"  }\n" +
+				"}\n")},
+		// soql_local_declaration_material_election is a permanent regression
+		// fixture: a genuinely material tied election outside this sweep's
+		// original corpus. The C oracle picks the derivation whose outer
+		// production is local_variable_declaration; the certified compact
+		// route's old positional primary picked the derivation whose outer
+		// production is binary_expression instead (matching production,
+		// which also diverges from C here). Under the materiality gate
+		// (selectCompactAcceptanceDerivation, compactAcceptanceElectionIsVacuous)
+		// the two tied derivations are not byte-identical, so this now
+		// declines instead of accepting the C-divergent tree.
+		{Name: "soql_local_declaration_material_election", Source: []byte(
+			"public class C {\n" +
+				"  void m() {\n" +
+				"    List<Account> a = [SELECT Id FROM Account];\n" +
 				"  }\n" +
 				"}\n")},
 	}

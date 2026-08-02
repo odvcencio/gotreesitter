@@ -27,12 +27,13 @@ func TestPerlA3CompactCertificationFullCorpusSweep(t *testing.T) {
 		t.Fatal("perl did not receive the A3 converged-split-drop certification")
 	}
 
-	sources := a3LoadRealCorpusDir(t, filepath.Join("corpus_real", "perl"))
-	sources = append(sources, a3CertificationSweepSource{
+	real := a3LoadRealCorpusDir(t, "perl", filepath.Join("corpus_real", "perl"))
+	constructed := append([]a3CertificationSweepSource{{
 		Name:   "smoke_sample",
 		Source: []byte(grammars.ParseSmokeSample("perl")),
-	})
-	sources = append(sources, perlA3AdversarialSources()...)
+	}}, perlA3AdversarialSources()...)
+	sources := append(append([]a3CertificationSweepSource{}, real...), constructed...)
+	t.Logf("perl A3 full-corpus sweep source denominator: real=%d constructed=%d total=%d", len(real), len(constructed), len(sources))
 
 	result := runA3CertificationSweep(t, "perl", "perl", lang, sources)
 	a3ReportSweep(t, result)
@@ -60,5 +61,16 @@ func perlA3AdversarialSources() []a3CertificationSweepSource {
 		{Name: "ternary_list_context", Source: []byte("my @r = $flag ? (1, 2) : (3, 4);\n")},
 		{Name: "local_dynamic_scope", Source: []byte("our $x = 1;\nsub f { local $x = 2; g(); }\n")},
 		{Name: "wantarray_dispatch", Source: []byte("sub f { return wantarray ? (1, 2) : 1; }\n")},
+		// print_filehandle_list_material_election is a permanent regression
+		// fixture: a genuinely material tied election outside this sweep's
+		// original corpus. The C oracle picks the derivation whose outer
+		// production is ambiguous_function_call_expression; the certified
+		// compact route's old positional primary picked the derivation whose
+		// outer production is list_expression instead (matching production,
+		// which also diverges from C here). Under the materiality gate
+		// (selectCompactAcceptanceDerivation, compactAcceptanceElectionIsVacuous)
+		// the two tied derivations are not byte-identical, so this now
+		// declines instead of accepting the C-divergent tree.
+		{Name: "print_filehandle_list_material_election", Source: []byte("print $fh, \"a\", \"b\";\n")},
 	}
 }

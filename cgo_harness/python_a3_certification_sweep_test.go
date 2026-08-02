@@ -27,12 +27,13 @@ func TestPythonA3CompactCertificationFullCorpusSweep(t *testing.T) {
 		t.Fatal("python lost its pre-existing converged-split-drop certification")
 	}
 
-	sources := a3LoadRealCorpusDir(t, filepath.Join("corpus_real", "python"))
-	sources = append(sources, a3CertificationSweepSource{
+	real := a3LoadRealCorpusDir(t, "python", filepath.Join("corpus_real", "python"))
+	constructed := append([]a3CertificationSweepSource{{
 		Name:   "smoke_sample",
 		Source: []byte(grammars.ParseSmokeSample("python")),
-	})
-	sources = append(sources, pythonA3AdversarialSources()...)
+	}}, pythonA3AdversarialSources()...)
+	sources := append(append([]a3CertificationSweepSource{}, real...), constructed...)
+	t.Logf("python A3 full-corpus sweep source denominator: real=%d constructed=%d total=%d", len(real), len(constructed), len(sources))
 
 	result := runA3CertificationSweep(t, "python", "python", lang, sources)
 	a3ReportSweep(t, result)
@@ -76,13 +77,28 @@ func pythonA3AdversarialSources() []a3CertificationSweepSource {
 
 // a3LoadRealCorpusDir reads every regular file directly under dir (relative
 // to the cgo_harness package directory) into an a3CertificationSweepSource
-// slice, sorted by name for deterministic ordering. It skips (does not fail)
-// when dir does not exist, so a language with no corpus_real directory
-// simply contributes zero real-corpus sources.
-func a3LoadRealCorpusDir(t *testing.T, dir string) []a3CertificationSweepSource {
+// slice, sorted by name for deterministic ordering.
+//
+// cgo_harness/corpus_real is a generated, gitignored fixture
+// (cgo_harness/cmd/build_real_corpus); it is not always present. The calling
+// test's name claims full-corpus scope, so it must not silently downgrade to
+// a constructed-only run when the real corpus is missing -- that used to be
+// exactly what this function did (returning nil on a missing directory with
+// no signal to the caller or the test log). It now skips the calling test
+// loudly instead, matching this package's existing convention for a
+// claimed-scope test that cannot honor its own claim on the current host
+// (parityRequireExhaustive, parity_cgo_test.go). lang names the calling
+// sweep in the skip/log messages.
+func a3LoadRealCorpusDir(t *testing.T, lang, dir string) []a3CertificationSweepSource {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
 	if os.IsNotExist(err) {
+		t.Skipf(
+			"%s A3 full-corpus sweep requires %s (a generated, gitignored real-corpus fixture; "+
+				"see cgo_harness/cmd/build_real_corpus) -- absent on this host, so this sweep cannot "+
+				"claim full-corpus scope",
+			lang, dir,
+		)
 		return nil
 	}
 	if err != nil {
@@ -99,6 +115,9 @@ func a3LoadRealCorpusDir(t *testing.T, dir string) []a3CertificationSweepSource 
 			t.Fatalf("read corpus file %s: %v", path, err)
 		}
 		out = append(out, a3CertificationSweepSource{Name: entry.Name(), Source: data})
+	}
+	if len(out) == 0 {
+		t.Skipf("%s A3 full-corpus sweep found %s but it contains no files -- this sweep cannot claim full-corpus scope", lang, dir)
 	}
 	return out
 }

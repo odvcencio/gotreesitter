@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"sort"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
@@ -102,6 +103,20 @@ type DiagnosticParserCorePrefixOptions struct {
 	// disables it, mirroring the production contract's own 0=off escape
 	// hatch.
 	stopControlHardCeilingBytes int64
+	// materializationParser and materializationSource back the compact
+	// acceptance-election materiality gate (completeAcceptance ->
+	// compactAcceptanceElectionIsVacuous): when a certified primary
+	// derivation election has more than one live candidate, the gate
+	// re-materializes every candidate through the same public-tree pipeline
+	// the accepted parse itself uses, so it can require every candidate's
+	// tree to be byte-identical to the primary before admitting it. Both
+	// fields are set by the two production seed entry points
+	// (DiagnosticParseParserCorePrefix, parserCoreFreshFullRunner's
+	// executeSchedulerOpen) from the same Parser and source bytes those
+	// callers already hold. Nil/empty here (any other caller) makes the gate
+	// unable to prove vacuity, so it fails closed instead of guessing.
+	materializationParser *Parser
+	materializationSource []byte
 }
 
 type DiagnosticParserCoreScannerCheckpoint struct {
@@ -784,6 +799,8 @@ func diagnosticParseParserCoreGenericFromSeed(
 	source []byte,
 	options DiagnosticParserCorePrefixOptions,
 ) (DiagnosticParserCorePrefixResult, error) {
+	options.materializationParser = parser
+	options.materializationSource = source
 	scheduler, runErr := executeDiagnosticParserCoreGenericSchedulerFromSeed(
 		compact, tokenSource, scannerScratch, initialState, options, diagnosticParserCoreSeedObserver{},
 	)
@@ -4573,6 +4590,18 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 	if !selected {
 		return s.finish(DiagnosticParserCoreAccept, "generic scheduler requires one certified accepted derivation", 0)
 	}
+	// R1 materiality gate: selectCompactAcceptanceDerivation's tie guard has
+	// no C-faithful basis for choosing among score-tied derivations. It is
+	// only safe to admit the positional primary when every live derivation
+	// materializes to the identical tree (a vacuous election -- any pick is
+	// correct). len(paths) > 1 here means the tie guard, not the len(paths)
+	// == 1 fast path, selected primary, so every entry in paths is live.
+	if len(paths) > 1 && !compactAcceptanceElectionIsVacuous(
+		s.compact, s.options.materializationParser, s.options.materializationSource,
+		s.headers[0].head, paths, path,
+	) {
+		return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionMaterialDetail, 0)
+	}
 	if core.Phase0AEnabled {
 		if err := core.RecordPhase0ADiagnosticAcceptedRoots(s.compact, path.Payloads); err != nil {
 			return err
@@ -4662,6 +4691,104 @@ func compactDerivationsForAcceptance(compact *core.Core, head core.Head) ([]core
 		return nil, &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreAccept, detail: "accepted derivation enumeration cap"}
 	}
 	return paths, err
+}
+
+// compactAcceptanceElectionMaterialDetail is the counted decline reason FIX
+// R1 uses when a tied compact acceptance election is material: more than one
+// live derivation exists at the accepted head, and materializing every one of
+// them does not prove they all publish the same tree. The compact route has
+// no C-faithful tiebreak for this shape, so it declines instead of guessing
+// which derivation the locked C runtime would have picked; production still
+// serves the input. See admissionCensusClassify (admission_census.go) for the
+// counted mechanism class this detail is matched into.
+const compactAcceptanceElectionMaterialDetail = "material-acceptance-election: certified primary derivation is not proven byte-identical to every tied secondary derivation"
+
+// compactAcceptanceElectionIsVacuous decides whether every derivation in
+// paths materializes to the same public tree as the already-selected primary.
+// Called only when selectCompactAcceptanceDerivation has admitted primary
+// under its score-tie guard with more than one entry in paths, so every entry
+// is a live, score-tied-or-losing candidate -- exactly the shape the four A3
+// certified languages' own sweep corpora already satisfy on every witness
+// (every multi-derivation accept there is vacuous). A materialization failure
+// on any candidate (a cap, a tiling-gap decline, or any other error) is
+// treated as "not proven vacuous", matching the fail-closed contract every
+// other compact decline in this file uses: the route never guesses.
+//
+// This redundantly re-materializes primary (once here for comparison, once
+// again by the caller's normal post-acceptance materialization). That cost
+// lands only on multi-derivation accepts, which are rare; a sole-derivation
+// accept (the overwhelming majority) never reaches this function at all.
+func compactAcceptanceElectionIsVacuous(
+	compact *core.Core, parser *Parser, source []byte,
+	head core.Head, paths []core.Derivation, primary core.Derivation,
+) bool {
+	if len(paths) < 2 {
+		return true
+	}
+	if compact == nil || parser == nil || len(source) == 0 {
+		return false
+	}
+	// allowErrorRoot is always false here (B3 stage S3, materializeDiagnosticParserCoreAcceptedSelection):
+	// this gate only runs on a clean, non-recovery tied accept, and a
+	// candidate that needs allowErrorRoot=true to materialize is not
+	// something this gate is equipped to reason about -- it fails the trial
+	// materialization, which the fail-closed contract below already treats
+	// as "not proven vacuous".
+	primaryTree, err := materializeDiagnosticParserCoreAcceptedSelection(compact, head, primary.Payloads, parser, source, nil, false, false)
+	if err != nil {
+		return false
+	}
+	defer primaryTree.Release()
+	primaryRoot := primaryTree.RootNode()
+	for _, candidate := range paths {
+		if slices.Equal(candidate.Payloads, primary.Payloads) {
+			continue
+		}
+		candidateTree, err := materializeDiagnosticParserCoreAcceptedSelection(compact, head, candidate.Payloads, parser, source, nil, false, false)
+		if err != nil {
+			return false
+		}
+		equal := compactAcceptanceDerivationTreesEqual(parser.language, primaryRoot, candidateTree.RootNode())
+		candidateTree.Release()
+		if !equal {
+			return false
+		}
+	}
+	return true
+}
+
+// compactAcceptanceDerivationTreesEqual reports whether two materialized
+// derivation trees of the same accepted head are byte-identical: the same
+// node symbol, byte span, and named/extra/missing flags, the same field
+// assignment per child, and the same children, recursively. Field assignment
+// matters here even though it is invisible in an SExpr dump: a materiality
+// census that only compared SExpr text would miss a tied election where both
+// candidates share a symbol and shape but assign a field (for example
+// "object") on only one side. HasError is not compared separately -- it is a
+// pure function of the subtree below a node, so it is already implied once
+// every descendant symbol and shape matches.
+func compactAcceptanceDerivationTreesEqual(lang *Language, a, b *Node) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Symbol() != b.Symbol() ||
+		a.StartByte() != b.StartByte() || a.EndByte() != b.EndByte() ||
+		a.IsNamed() != b.IsNamed() || a.IsExtra() != b.IsExtra() || a.IsMissing() != b.IsMissing() {
+		return false
+	}
+	childCount := a.ChildCount()
+	if childCount != b.ChildCount() {
+		return false
+	}
+	for i := 0; i < childCount; i++ {
+		if a.FieldNameForChild(i, lang) != b.FieldNameForChild(i, lang) {
+			return false
+		}
+		if !compactAcceptanceDerivationTreesEqual(lang, a.Child(i), b.Child(i)) {
+			return false
+		}
+	}
+	return true
 }
 
 // diagnosticParserCoreGenericNoActionDropEligible reports whether at least one

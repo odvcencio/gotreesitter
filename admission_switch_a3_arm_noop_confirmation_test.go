@@ -43,8 +43,19 @@ import (
 // workstream certifies.
 //
 // Follow-up arm-deletion PRs for perl, python, and ada must not treat this
-// finding's retirement precondition as met on this evidence; apex's
-// arm-deletion follow-on can cite this receipt directly.
+// finding's retirement precondition as met on this evidence.
+//
+// UPDATE: apex's witness no longer confirms. selectCompactAcceptanceDerivation's
+// materiality gate (parsercore_phase0_driver.go,
+// compactAcceptanceElectionIsVacuous) found the class_literal_alias witness's
+// two tied derivations are not byte-identical (one assigns the "object"
+// field, the other does not), so the compact route now declines it instead
+// of publishing an unproven pick. With the route no longer originating a
+// tree for this witness, the raw-vs-tailed comparison this file's method
+// depends on no longer applies -- see
+// TestA3ArmNoOpConfirmationApexClassLiteralDeclinesAsMaterialElection. Apex's
+// arm-deletion follow-on needs a different witness or a direct review before
+// it can still cite this receipt.
 //
 // This does NOT affect A3's own certification landing. The certified
 // languages' full-corpus sweeps (cgo_harness a3_certification_sweep
@@ -53,13 +64,62 @@ import (
 // divergence there. The no-op question is a separate, later concern: only
 // whether the arm itself can be deleted.
 
-func TestA3ArmNoOpConfirmationApexConfirms(t *testing.T) {
+// TestA3ArmNoOpConfirmationApexClassLiteralDeclinesAsMaterialElection
+// supersedes this file's original apex "confirms no-op" receipt for the
+// class_literal_alias witness. selectCompactAcceptanceDerivation's
+// materiality gate (parsercore_phase0_driver.go,
+// compactAcceptanceElectionIsVacuous) found this witness's two tied
+// derivations are not byte-identical -- one assigns the "object" field to
+// its first child, the other does not -- so the compact route now declines
+// this witness (fail-closed) instead of publishing the positional primary,
+// and falls back to production on both the raw and tailed probes.
+//
+// The route no longer originates a tree here at all, so the raw-vs-tailed
+// "arm no-op" comparison this file's method depends on no longer applies to
+// this witness: with neither side routed, any raw/tailed difference would
+// only be re-measuring production's own noResultCompatibilityBenchmarkOnly
+// behavior, not the compact route's. The apex arm's retirement evidence
+// (this file's original RESULT note) needs a different witness or a direct
+// review before it can still be cited; this test only pins the corrected
+// admission outcome, not an arm no-op finding.
+func TestA3ArmNoOpConfirmationApexClassLiteralDeclinesAsMaterialElection(t *testing.T) {
 	source := []byte("public class C {\n  void m() {\n    Object t = RecordPage.class;\n  }\n}\n")
 	lang := grammars.ApexLanguage()
 	if !lang.CompactPrimaryAcceptanceDerivationCertified {
 		t.Fatal("apex did not receive its A3 certification")
 	}
-	assertA3ArmNoOp(t, "apex/class_literal_alias", lang, source, true)
+
+	for _, tt := range []struct {
+		name                    string
+		noResultCompatOnlyProbe bool
+	}{
+		{"tailed", false},
+		{"raw", true},
+	} {
+		gts.ResetAdmissionCandidateCountersForTest()
+		p := gts.NewParser(lang)
+		p.SetAdmissionCandidateRoute(true)
+		var restore func()
+		if tt.noResultCompatOnlyProbe {
+			restore = gts.SetNoResultCompatibilityBenchmarkOnlyForTest(p, true)
+		}
+		tree, err := p.Parse(source)
+		if restore != nil {
+			restore()
+		}
+		if err != nil {
+			t.Fatalf("apex/class_literal_alias %s: parse: %v", tt.name, err)
+		}
+		tree.Release()
+		routed, fallback := gts.AdmissionCandidateCounters()
+		if routed != 0 || fallback != 1 {
+			t.Fatalf(
+				"apex/class_literal_alias %s: route counters routed=%d fallback=%d, want 0/1 "+
+					"(the materiality gate should decline this material election); reason=%s",
+				tt.name, routed, fallback, gts.AdmissionCandidateLastFallbackReason(),
+			)
+		}
+	}
 }
 
 func TestA3ArmNoOpConfirmationPerlDoesNotConfirm(t *testing.T) {
@@ -129,9 +189,26 @@ func TestA3ArmNoOpConfirmationTrivialWitnessesAreVacuouslyNoOp(t *testing.T) {
 // no-op status matches wantNoOp exactly (a Fatal either way -- a status
 // flip in either direction changes the campaign's retirement evidence and
 // must be investigated, not silently accepted).
+//
+// Tailed (normal) must route through the compact route: a tailed fallback
+// means the witness is a material election under
+// selectCompactAcceptanceDerivation's materiality gate
+// (compactAcceptanceElectionIsVacuous) and needs its own dedicated test (see
+// TestA3ArmNoOpConfirmationApexClassLiteralDeclinesAsMaterialElection), not
+// this shared no-op probe.
+//
+// Raw (SetNoResultCompatibilityBenchmarkOnlyForTest) suppresses the compat
+// arm entirely, including during the gate's own comparison (Node.RootNode
+// applies the compat finalizer, so the gate's tailed-mode comparison already
+// runs post-arm; suppressing the arm removes whatever convergence it
+// provided). If raw then declines while tailed still routes, the arm was
+// exactly what let the election resolve at all -- unambiguous evidence it is
+// not a no-op, so this counts as gotNoOp=false without attempting the SExpr
+// comparison (there is no raw compact-route tree to compare).
 func assertA3ArmNoOp(t *testing.T, name string, lang *gts.Language, source []byte, wantNoOp bool) {
 	t.Helper()
 
+	gts.ResetAdmissionCandidateCountersForTest()
 	tailed := gts.NewParser(lang)
 	tailed.SetAdmissionCandidateRoute(true)
 	tailedTree, err := tailed.Parse(source)
@@ -139,20 +216,39 @@ func assertA3ArmNoOp(t *testing.T, name string, lang *gts.Language, source []byt
 		t.Fatalf("%s: tailed parse: %v", name, err)
 	}
 	defer tailedTree.Release()
+	if routed, fallback := gts.AdmissionCandidateCounters(); routed != 1 || fallback != 0 {
+		t.Fatalf("%s: tailed parse did not route through the compact route (routed=%d fallback=%d reason=%q)",
+			name, routed, fallback, gts.AdmissionCandidateLastFallbackReason())
+	}
 
+	gts.ResetAdmissionCandidateCountersForTest()
 	raw := gts.NewParser(lang)
 	raw.SetAdmissionCandidateRoute(true)
 	restore := gts.SetNoResultCompatibilityBenchmarkOnlyForTest(raw, true)
-	defer restore()
 	rawTree, err := raw.Parse(source)
+	restore()
 	if err != nil {
 		t.Fatalf("%s: raw parse: %v", name, err)
 	}
 	defer rawTree.Release()
+	routed, fallback := gts.AdmissionCandidateCounters()
+	if routed != 1 && fallback != 1 {
+		t.Fatalf("%s: ambiguous raw route counters routed=%d fallback=%d", name, routed, fallback)
+	}
 
 	tailedSExpr := tailedTree.RootNode().SExpr(lang)
-	rawSExpr := rawTree.RootNode().SExpr(lang)
-	gotNoOp := tailedSExpr == rawSExpr
+	var gotNoOp bool
+	var rawSExpr string
+	if routed == 1 {
+		rawSExpr = rawTree.RootNode().SExpr(lang)
+		gotNoOp = tailedSExpr == rawSExpr
+	} else {
+		// Raw declined (the arm's absence made the election unresolvable):
+		// definitively not a no-op, and there is no raw compact-route tree
+		// to compare against tailed's.
+		rawSExpr = "<declined: " + gts.AdmissionCandidateLastFallbackReason() + ">"
+		gotNoOp = false
+	}
 	if gotNoOp != wantNoOp {
 		t.Fatalf(
 			"%s: arm no-op status changed (compact-raw==compact-tailed is now %t, want %t) -- "+
