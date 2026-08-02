@@ -570,6 +570,17 @@ func parserWantsForest(p *Parser) bool {
 		(p.language.WantsForest || p.language.AutomaticForestEnabledByDefault || builtinForestDefaults[p.language.Name])
 }
 
+// LanguageWantsForest reports whether lang dispatches to the GSS-forest GLR
+// fast path by default (Parser.Parse tries tryForestFastPath before the
+// production loop). Exported so regression gates outside this package (e.g.
+// the regen-guard sweep that reparses N repeated top-level items per
+// forest-default language) can enumerate the same set parserWantsForest uses,
+// without duplicating or drifting from builtinForestDefaults.
+func LanguageWantsForest(lang *Language) bool {
+	return lang != nil &&
+		(lang.WantsForest || lang.AutomaticForestEnabledByDefault || builtinForestDefaults[lang.Name])
+}
+
 func automaticForestMemoryBudget(p *Parser, operationBudget int64) int64 {
 	if p == nil || p.language == nil || operationBudget <= 0 {
 		return operationBudget
