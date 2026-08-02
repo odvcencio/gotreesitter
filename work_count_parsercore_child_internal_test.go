@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	parserCoreWorkCountChildSchema = "gts-work-count-parsercore-child/v4"
+	parserCoreWorkCountChildSchema = "gts-work-count-parsercore-child/v5"
 	parserCoreWorkCountEngine      = "go-compact-parsercore-phase0-tagged-diagnostic"
 	parserCoreWorkCountContract    = "gts-work-count/v2"
 	parserCoreWorkCountDigest      = "gts-deep-tree-v1"
@@ -40,6 +40,14 @@ type parserCoreWorkCountCoreWork struct {
 }
 
 type parserCoreWorkCountSchedulerWork struct {
+	Passes uint64 `json:"passes"`
+	// SingleHeaderPasses is the C4 stage-2 pass-mix row
+	// (spec.c4-bytecode-isa.v1 section 5, obligation R6). It makes corridor
+	// coverage a committed board row instead of a profile-derived figure.
+	SingleHeaderPasses uint64 `json:"single_header_passes"`
+	// CorridorPasses is the subset of SingleHeaderPasses the C4 bytecode
+	// corridor executed. It is zero whenever the corridor lane is off.
+	CorridorPasses             uint64 `json:"corridor_passes"`
 	ActionLookups              uint64 `json:"action_lookups"`
 	Accepts                    uint64 `json:"accepts"`
 	Elections                  uint64 `json:"elections"`
@@ -181,6 +189,13 @@ func TestParserCoreWorkCountChild(t *testing.T) {
 	if schedulerWork.Overflow || schedulerWork.ConflictActionArmsAdmitted != admission.conflictArms || schedulerWork.CausalConflictForks != admission.causalForks || schedulerWork.Accepts != 1 || schedulerWork.ActionLookups == 0 || schedulerWork.Elections == 0 || schedulerWork.PeakHeaders < 2 {
 		t.Fatalf("invalid scheduler work: %+v", schedulerWork)
 	}
+	// R6 partition invariant: single-header passes are a subset of all passes,
+	// and corridor passes a subset of single-header passes.
+	if schedulerWork.Passes == 0 || schedulerWork.SingleHeaderPasses == 0 ||
+		schedulerWork.SingleHeaderPasses > schedulerWork.Passes ||
+		schedulerWork.CorridorPasses > schedulerWork.SingleHeaderPasses {
+		t.Fatalf("invalid pass mix: %+v", schedulerWork)
+	}
 	boardDirect := EndDiagnosticWorkCount().BoardDirect()
 	if !boardDirect.FrontierLexerElectionsAvailable || boardDirect.PerVersionLexRequestsAvailable || boardDirect.FrontierLexerElections != schedulerWork.Elections || boardDirect.ResolvedActionCellsExamined != schedulerWork.ActionLookups || boardDirect.RawMainLexerInvocations == 0 {
 		t.Fatalf("direct parser-core hooks diverged from scheduler work: direct=%+v scheduler=%+v", boardDirect, schedulerWork)
@@ -209,7 +224,10 @@ func TestParserCoreWorkCountChild(t *testing.T) {
 			Overflow:                               coreWork.Overflow,
 		},
 		SchedulerWork: parserCoreWorkCountSchedulerWork{
-			ActionLookups: schedulerWork.ActionLookups, Accepts: schedulerWork.Accepts,
+			Passes:             schedulerWork.Passes,
+			SingleHeaderPasses: schedulerWork.SingleHeaderPasses,
+			CorridorPasses:     schedulerWork.CorridorPasses,
+			ActionLookups:      schedulerWork.ActionLookups, Accepts: schedulerWork.Accepts,
 			Elections: schedulerWork.Elections, Forks: schedulerWork.Forks,
 			Conflicts: schedulerWork.Conflicts, ConflictActions: schedulerWork.ConflictActions,
 			ConflictActionArmsAdmitted: schedulerWork.ConflictActionArmsAdmitted,

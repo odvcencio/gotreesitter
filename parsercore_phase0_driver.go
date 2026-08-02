@@ -211,7 +211,17 @@ type DiagnosticParserCoreHeaderPathReceipt struct {
 // DiagnosticParserCoreGenericWork records semantic scheduler work separately
 // from the compact core's physical arena storage.
 type DiagnosticParserCoreGenericWork struct {
-	Passes                     uint64
+	Passes uint64
+	// SingleHeaderPasses counts dispatch passes executed against a
+	// single-header frontier (spec.c4-bytecode-isa.v1 section 5, obligation
+	// R6). It is count-only and published on the gts_workcount board so
+	// corridor coverage is a committed board row rather than a
+	// profile-derived figure. It is a strict subset of Passes.
+	SingleHeaderPasses uint64
+	// CorridorPasses counts the subset of SingleHeaderPasses the C4 bytecode
+	// corridor executed. It is zero on every build and every parse with the
+	// corridor lane off, so it never perturbs the pinned board.
+	CorridorPasses             uint64
 	ActionLookups              uint64
 	Dispatches                 uint64
 	Conflicts                  uint64
@@ -1828,6 +1838,18 @@ type diagnosticParserCoreGenericScheduler struct {
 	stoppedAfterElection          bool
 	requireEOFPostNoLookaheadRoot bool
 	seedHeaders                   [1]diagnosticParserCoreHeader
+	// corridor is the compiled C4 bytecode program for this parse's language,
+	// or nil when the corridor lane is off or the grammar did not compile
+	// (spec.c4-bytecode-isa.v1 section 6.2). corridorCells is the lane's own
+	// singleton dispatch-cell buffer, so the corridor never touches the
+	// generic pass's dispatch scratch.
+	corridor *ParserCoreCorridorProgram
+	// corridorRows is the shared converted action-row table, indexed by the
+	// action-row index every executable corridor body carries. It is the same
+	// immutable slice the compact core's TableView reads, so the corridor and
+	// the generic lane resolve one cell to one row.
+	corridorRows  []core.ActionRow
+	corridorCells [1]diagnosticParserCoreGenericCell
 }
 
 // Keep only small scheduler scratch buffers between fresh full parses. This
@@ -2034,6 +2056,18 @@ func initializeDiagnosticParserCoreGenericScheduler(
 	}
 	scheduler.seedHeaders[0] = header
 	scheduler.headers = scheduler.seedHeaders[:]
+	// C4 corridor: attach the compiled bytecode program for this language when
+	// the lane is on. The program is memoized on the *Language, so this is one
+	// atomic load per parse after the first (spec.c4-bytecode-isa.v1 section
+	// 3.6). A grammar that does not compile keeps the generic lane.
+	if parserCoreCorridorEnabled() {
+		if program := acquireParserCoreCorridorProgram(tokenSource.language); program != nil {
+			if rows, ok := tokenSource.language.compactTables.(*parserCoreLanguageTables); ok && rows != nil {
+				scheduler.corridor = program
+				scheduler.corridorRows = rows.actionRows
+			}
+		}
+	}
 	if scheduler.fullReceipts() {
 		startHeaders, err := diagnosticParserCoreHeaderPathReceipts(compact, scheduler.headers)
 		if err != nil {
@@ -3614,6 +3648,22 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 			}
 			continue
 		}
+		// C4 corridor: when the frontier is the deterministic single-header
+		// shape the bytecode lane owns, run the compiled program instead of
+		// the interpreted dispatch pass. The corridor executes
+		// election-to-election corridors and returns on any boundary opcode;
+		// it never produces a decline of its own, so the generic pass below
+		// still owns every boundary verbatim (spec.c4-bytecode-isa.v1
+		// section 6.2).
+		if s.corridorEligible() {
+			progressed, err := s.dispatchCorridor()
+			if err != nil {
+				return err
+			}
+			if progressed {
+				continue
+			}
+		}
 		stop, err := s.dispatchPass()
 		if err != nil {
 			return err
@@ -3645,6 +3695,12 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPass() (*diagnosticParser
 
 func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnosticParserCoreGenericUnsupported, error) {
 	s.work.Passes++
+	// R6 pass-mix counter. A single-header pass is exactly the shape the C4
+	// bytecode corridor is eligible for, so this count makes corridor coverage
+	// measurable on the committed board.
+	if len(s.headers) == 1 {
+		s.work.SingleHeaderPasses++
+	}
 	if unsupported := diagnosticParserCoreGenericUnsupportedToken(s.token); unsupported != nil {
 		return unsupported, nil
 	}

@@ -628,6 +628,17 @@ type Language struct {
 	compactTables     any   // *parserCoreLanguageTables under the default build
 	compactTablesErr  error // the build error, memoized alongside compactTables
 
+	// corridorProgram memoizes the compiled C4 bytecode corridor program for
+	// this Language (spec.c4-bytecode-isa.v1 section 3.6: the stream is
+	// memoized per *Language beside compactTables and dies with the Language).
+	// It is typed as any for the same reason compactTables is: the concrete
+	// type (*ParserCoreCorridorProgram) only exists under the default build.
+	// A grammar whose compile hits an unsupported construct simply keeps the
+	// generic lane, so a non-nil corridorProgramErr is never fatal.
+	corridorProgramOnce sync.Once
+	corridorProgram     any   // *ParserCoreCorridorProgram under the default build
+	corridorProgramErr  error // the compile error, memoized alongside corridorProgram
+
 	// NonTerminalAliasMap mirrors tree-sitter C's ts_non_terminal_alias_map.
 	// Rows are indexed by nonterminal symbol and contain aliases that require
 	// preserving the wrapper during alias-bearing reductions. This is cold

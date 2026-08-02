@@ -87,7 +87,7 @@ func TestDiagnosticParserCoreGenericSingleExtraPreservesPayloadAndState(t *testi
 		t.Fatalf("extra payload=%+v", view)
 	}
 	if scheduler.work != (DiagnosticParserCoreGenericWork{
-		Passes: 1, ActionLookups: 1, Dispatches: 1, ExtraShifts: 1, Canonicalizations: 1, PeakHeaders: 1,
+		Passes: 1, SingleHeaderPasses: 1, ActionLookups: 1, Dispatches: 1, ExtraShifts: 1, Canonicalizations: 1, PeakHeaders: 1,
 	}) || len(scheduler.receipt.Rounds) != 1 || len(scheduler.receipt.ExternalShifts) != 1 {
 		t.Fatalf("extra accounting work=%+v receipt=%+v", scheduler.work, scheduler.receipt)
 	}

@@ -1733,6 +1733,33 @@ func (c *Core) ClassifyBoundary(head Head, lookahead Symbol) (ClassifiedBoundary
 	}, nil
 }
 
+// ClassifyBoundaryWithRow builds one authenticated classification from an
+// action row the caller already resolved for this head's state and lookahead.
+// It exists for the compiled-corridor lane: that lane resolves the cell
+// through its own validated instruction stream, whose row index is a
+// projection of the same TableView this core reads, so consulting the parse
+// table a second time would be pure duplicate work
+// (spec.c4-bytecode-isa.v1 section 6.1: the win is removing the
+// state-to-row indirection chain).
+//
+// The caller owns the obligation that actions is exactly what
+// Actions(state, lookahead) returns for this head. The corridor discharges it
+// statically: its per-state decode-back test walks every (state, symbol) cell
+// and requires the compiled row index to equal the table's own action index,
+// and its stream validator runs once at build so the interpreter can trust
+// the stream (obligations S2 and S3). Every other caller must use
+// ClassifyBoundary, which resolves the row itself.
+func (c *Core) ClassifyBoundaryWithRow(head Head, lookahead Symbol, actions ActionRow) (ClassifiedBoundary, error) {
+	node, err := c.node(head.Node)
+	if err != nil {
+		return ClassifiedBoundary{}, err
+	}
+	return ClassifiedBoundary{
+		owner: c, actions: actions, phase: c.classificationPhase,
+		head: head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
+	}, nil
+}
+
 func (c *Core) validateClassification(boundary ClassifiedBoundary) error {
 	if boundary.owner != c {
 		return errors.New("parser-core phase zero: classified boundary belongs to another core")

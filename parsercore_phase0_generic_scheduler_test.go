@@ -397,7 +397,7 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 			ParentConstructionsProxy: 1515,
 		}) ||
 		acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 2600, ActionLookups: 3551, Dispatches: 2685,
+			Passes: 2600, SingleHeaderPasses: 1567, ActionLookups: 3551, Dispatches: 2685,
 			Conflicts: 160, ConflictActions: 328, Forks: 168, ConflictHeads: 357,
 			ConflictActionArmsAdmitted: 328, CausalConflictForks: 168,
 			Reductions: 1259, OrdinaryShifts: 1238, OrdinaryCohorts: 215,
@@ -496,7 +496,7 @@ func TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite(t *testing.T) {
 				ParentConstructionsProxy: 1515,
 			}) ||
 			acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-				Passes: 2600, ActionLookups: 3551, Dispatches: 2685,
+				Passes: 2600, SingleHeaderPasses: 1567, ActionLookups: 3551, Dispatches: 2685,
 				Conflicts: 160, ConflictActions: 328, Forks: 168, ConflictHeads: 357,
 				ConflictActionArmsAdmitted: 328, CausalConflictForks: 168,
 				Reductions: 1259, OrdinaryShifts: 1238, OrdinaryCohorts: 215,
