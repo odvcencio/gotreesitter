@@ -1177,7 +1177,7 @@ func (c *Core) RunFreshSchedulerSession(fn func(SchedulerTransactionToken) error
 		recovered := recover()
 		if recovered != nil {
 			frame.clearInactive()
-			_ = c.Reset()
+			_ = c.ResetReleasingRetention()
 			panic(recovered)
 		}
 		if err == nil && frame.poisoned != nil {
@@ -1185,7 +1185,14 @@ func (c *Core) RunFreshSchedulerSession(fn func(SchedulerTransactionToken) error
 		}
 		frame.clearInactive()
 		if err != nil {
-			if resetErr := c.Reset(); resetErr != nil {
+			// ResetReleasingRetention, not plain Reset: a declined session
+			// leaves no future value in whatever capacity this run grew, and
+			// this is the automatic reset every stop-control trip and every
+			// mid-run hard decline (recovery, extra-chain, cap hits, and
+			// friends) already goes through, so it is also the natural place
+			// to release retention on the class of decline this covers
+			// (tranche B9 retention-cap gate).
+			if resetErr := c.ResetReleasingRetention(); resetErr != nil {
 				err = errors.Join(err, fmt.Errorf("parser-core phase zero: reset failed after fresh scheduler error: %w", resetErr))
 			}
 		}
@@ -1414,6 +1421,24 @@ func (c *Core) Reset() error {
 	c.externalTokenScannerStart = 0
 	c.externalTokenScannerEnd = 0
 	c.externalTokenScannerExact = false
+	return nil
+}
+
+// ResetReleasingRetention performs the same truncation as Reset, then drops
+// any growable family's backing array whose combined FootprintBytes exceeds
+// coreRetentionCapBytes (releaseOversizedRetention). Reset alone preserves
+// capacity for legitimate reuse across repeated large-file parses -- the
+// routine "clear the slate before the next attempt" call every fresh parse
+// makes through the admission-candidate runner. This variant is for decline
+// paths specifically: a just-declined attempt's retained capacity has no
+// future value, and keeping it would otherwise stay billed to every later
+// unrelated parse on the same cached runner regardless of that parse's own
+// size (tranche B9 retention-cap gate).
+func (c *Core) ResetReleasingRetention() error {
+	if err := c.Reset(); err != nil {
+		return err
+	}
+	c.releaseOversizedRetention()
 	return nil
 }
 

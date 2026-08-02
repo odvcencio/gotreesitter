@@ -43,20 +43,30 @@ type admissionRouteEqualityLanguage struct {
 	production *gts.Parser
 }
 
-// routeEqualityFuzzMaxInputBytes bounds every fuzz input, well below the 64
-// KiB compact admission wall. This is a latency safety cap, not a
-// correctness one: the language-selector byte mutates independently of the
-// content byte, so the mutator can and does pair a large seed (e.g. a
-// canonical Go fixture) with an unrelated curated language. Measured
-// directly (production-forced parses of real Go source, mis-parsed as each
-// curated language): swift and erlang stay under 50ms through 16,000 bytes
-// but climb past 3s by 32,000 and past 7s by 65,000 -- a shape consistent
-// with GLR multi-stack growth on ambiguous, wrong-grammar token streams, not
-// a hang. Below this cap every curated language stayed under 60ms on the
-// same probe. A go-test-fuzz worker that runs a multi-second input risks
-// Go's own hang detector killing it, which reports as a spurious failure
-// unrelated to route equality. 4096 is a full order of magnitude below the
-// measured slow region.
+// routeEqualityFuzzMaxInputBytes bounds every fuzz input. This is a latency
+// safety cap, unrelated to the compact admission switch's former 64 KiB
+// source-length eligibility floor (tranche B9 retired that floor entirely;
+// this cap would exist unchanged even if it never had): the
+// language-selector byte mutates independently of the content byte, so the
+// mutator can and does pair a large seed (e.g. a canonical Go fixture) with
+// an unrelated curated language. Measured directly (production-forced
+// parses of real Go source, mis-parsed as each curated language): swift and
+// erlang stay under 50ms through 16,000 bytes but climb past 3s by 32,000
+// and past 7s by 65,000 -- a shape consistent with GLR multi-stack growth on
+// ambiguous, wrong-grammar token streams, not a hang. Below this cap every
+// curated language stayed under 60ms on the same probe. A go-test-fuzz
+// worker that runs a multi-second input risks Go's own hang detector
+// killing it, which reports as a spurious failure unrelated to route
+// equality. 4096 is a full order of magnitude below the measured slow
+// region.
+//
+// This cap is not raised as part of retiring the admission wall: doing so
+// would need a fresh mis-parsed-mismatched-grammar latency measurement at
+// the new ceiling for every curated language, which is out of this
+// tranche's scope. Generative (fuzzed, size-varying) route-equality
+// coverage for large inputs specifically is deferred; the tranche's own
+// large-file witness table (see its PR) is the non-generative, targeted
+// evidence for large-input route equality instead.
 const routeEqualityFuzzMaxInputBytes = 4096
 
 // FuzzAdmissionRouteEquality is the campaign v7 tranche B2 standing
@@ -194,10 +204,11 @@ func FuzzAdmissionRouteEquality(f *testing.F) {
 
 // seedAdmissionRouteEqualityCorpus commits the B2 seed corpus: the 20-witness
 // B0/B1 adjudication manifest (minus the two documented open swift
-// residuals), the four canonical Go BENCH.md fixtures (trimmed below the
-// compact size wall when needed), one smoke snippet per curated language,
-// and an empty-source edge case. languages supplies the language-selector
-// byte for each language name.
+// residuals), the four canonical Go BENCH.md fixtures (trimmed below
+// routeEqualityFuzzMaxInputBytes, the fuzzer's own latency cap, when
+// needed), one smoke snippet per curated language, and an empty-source edge
+// case. languages supplies the language-selector byte for each language
+// name.
 func seedAdmissionRouteEqualityCorpus(f *testing.F, languages []admissionRouteEqualityLanguage) {
 	f.Helper()
 

@@ -521,9 +521,125 @@ func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
 	if routed, fallback := gts.AdmissionCandidateCounters(); routed != 0 || (!compiledOut && fallback != 1) {
 		t.Fatalf("budgeted huge source: routed=%d fallback=%d (want routed=0, fallback=1 unless compiled out)", routed, fallback)
 	}
-	if got := gts.AdmissionCandidateCompactStorageBytesForTest(hugeParser); got != 0 {
-		t.Fatalf("compact storage retained after the memory-budget decline: %d bytes (want 0, released before production's fallback ran)", got)
+	// StorageBytes reads 0 after any Reset regardless of retained capacity
+	// (it counts live length, not backing-array size), so it cannot detect a
+	// decline that reset length but left a large arena retained -- assert
+	// FootprintBytes instead, which reads real capacity. requireCompactFootprintReleased
+	// bounds it well under the pre-fix retained level (157-193MB measured for
+	// this decline class before the retention-cap gate existed).
+	requireCompactFootprintReleased(t, hugeParser, "stop-control memory-budget decline")
+}
+
+// compactFootprintReleasedCapBytes bounds a "genuinely released" reading in
+// the tests below. It intentionally sits above internal/parsercorephase0's
+// own coreRetentionCapBytes (48 MiB): these tests assert the OUTCOME
+// (retention stays in the same order of magnitude as production's own
+// steady-state ~12-15MB, not the 157-193MB measured before the tranche B9
+// retention-cap gate), not the exact internal threshold, so the two can
+// evolve independently without coupling this test to that constant's value.
+const compactFootprintReleasedCapBytes = 64 << 20 // 64 MiB
+
+// requireCompactFootprintReleased asserts p's cached admission-candidate
+// runner's compact-core FootprintBytes (real retained capacity, not live
+// length) stays well under the pre-fix retained level after a decline,
+// proving the tranche B9 storage-release gate for the class of decline
+// label names.
+func requireCompactFootprintReleased(t *testing.T, p *gts.Parser, label string) {
+	t.Helper()
+	if got := gts.AdmissionCandidateCompactFootprintBytesForTest(p); got > compactFootprintReleasedCapBytes {
+		t.Fatalf("%s: compact footprint retained after decline: %d bytes (want <= %d, released before production's fallback ran)",
+			label, got, compactFootprintReleasedCapBytes)
 	}
+}
+
+// TestAdmissionCandidateStorageReleasedOnAcceptanceGateDecline drives the
+// acceptance-gate decline class specifically -- a different release path
+// from TestAdmissionCandidateMemoryBudgetContractPreserved's stop-control
+// class above. Here the compact scheduler run itself completes without a Go
+// error (it never reaches an accepted EOF frontier, so
+// RunFreshSchedulerSession commits rather than resets), and the runner's own
+// strict sole-exact-EOF acceptance gate declines afterward
+// (requireParserCoreFreshFullAcceptance, parsercore_phase0_fresh_full_runner.go).
+// Before the tranche B9 reset-completeness gate, this specific path retained
+// whatever the scheduler run had allocated until the next parse call on the
+// same runner reset it lazily.
+//
+// The Go generic-instantiation/type-conversion ambiguity
+// (TestAdmissionCandidateGoTypeConversionFailsClosed's witness) triggers
+// this class naturally: the compact scheduler forks on the conflict but
+// cannot rank the two arms by dynamic precedence, so it never reaches an
+// accepted EOF frontier at all ("did not accept EOF") rather than hitting a
+// hard scheduler error mid-run.
+func TestAdmissionCandidateStorageReleasedOnAcceptanceGateDecline(t *testing.T) {
+	src := "package p\n\n" +
+		"type Foo[T any] struct {\n\tV T\n}\n\n" +
+		"func f() {\n" +
+		"\ta := Foo[int]{}\n" +
+		"\tb := Foo[int](a)\n" +
+		"\t_ = a\n" +
+		"\t_ = b\n" +
+		"}\n"
+	lang := grammars.GoLanguage()
+	parser := gts.NewParser(lang)
+	tree, ok, reason := gts.TryCompactFullParseRouteForTest(parser, []byte(src))
+	if ok || tree != nil {
+		t.Fatalf("candidate engine accepted instead of declining at the acceptance gate (reason=%q); "+
+			"re-verify TestAdmissionCandidateGoTypeConversionFailsClosed's witness still forks this conflict", reason)
+	}
+	if !strings.Contains(reason, "did not accept EOF") {
+		t.Fatalf("decline reason = %q, want the acceptance-gate \"did not accept EOF\" class "+
+			"(a different decline no longer exercises this path; this test needs a new acceptance-gate witness)", reason)
+	}
+	requireCompactFootprintReleased(t, parser, "acceptance-gate decline")
+}
+
+// TestAdmissionCandidateStorageReleasedOnMaterializationDecline drives the
+// materialization-decline class specifically: the scheduler accepts a clean
+// EOF frontier (the full accepted derivation graph is now committed to the
+// compact core), and then a stop-control check inside materialization
+// itself (parser.resultMaterializationStopReason, parsercore_phase0_driver.go
+// -- not the scheduler's own dispatch-loop poll) trips. Before the tranche
+// B9 reset-completeness gate, this path released nothing at all: the core
+// held the entire accepted parse graph -- the largest possible retention
+// for a given witness, since acceptance is a precondition for reaching
+// materialization at all -- while production's fallback ran beside it.
+//
+// A timeout in the microsecond band where the scheduler itself has already
+// accepted but materialization has not yet finished reliably reproduces
+// this: too short and the scheduler's own dispatch-loop poll trips first (a
+// different, already-covered path); too long and materialization finishes
+// before the poll fires at all. The band below is measured against this
+// witness on the development host; like every other timeout-banded test in
+// this file it may need retuning against a materially different host.
+func TestAdmissionCandidateStorageReleasedOnMaterializationDecline(t *testing.T) {
+	lang := grammars.GoLanguage()
+	var src bytes.Buffer
+	src.WriteString("package p\n\nfunc f() {\n")
+	for i := 0; i < 20000; i++ {
+		src.WriteString("\t_ = 1\n")
+	}
+	src.WriteString("}\n")
+
+	const loBandMicros, hiBandMicros, stepMicros = 170_000, 260_000, 10_000
+	var lastReason string
+	for us := loBandMicros; us <= hiBandMicros; us += stepMicros {
+		gts.DrainArenaPools()
+		parser := gts.NewParser(lang)
+		parser.SetTimeoutMicros(uint64(us))
+		tree, err := parser.Parse(src.Bytes())
+		if err != nil {
+			t.Fatalf("timeout=%dus: Parse() error = %v", us, err)
+		}
+		lastReason = gts.AdmissionCandidateLastFallbackReason()
+		tree.Release()
+		if strings.Contains(lastReason, "materialization stopped") {
+			requireCompactFootprintReleased(t, parser, "materialization decline")
+			return
+		}
+	}
+	t.Fatalf("no timeout in [%d, %d]us band reproduced a materialization decline; last reason=%q "+
+		"(the band may need retuning against the current witness or host)",
+		loBandMicros, hiBandMicros, lastReason)
 }
 
 // TestAdmissionCandidateGoTypeConversionFailsClosed proves the compact candidate

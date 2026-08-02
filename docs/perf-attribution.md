@@ -670,7 +670,7 @@ diagnostic-lane number into a shipped-route claim or vice versa.
 Generated 2026-08-02T11:02:14Z. Host: shared WSL2 development host,
 background load uncontrolled -- the same local-development floor as every
 prior receipt in this document, not a quiet-host or enclave measurement.
-Git identity: `6fab988d30d42d931d42625eaa0cfa167d4877b` (the tranche's
+Git identity: `6fab988d30d42d931d42625eaa0cfa167d4877ba` (the tranche's
 merge-base commit; the wall-removal change is a working-tree diff on top of
 it at capture time, so the tool's `git rev-parse HEAD` names the base, not a
 B9-specific commit). This run's raw JSON output was not committed, matching
@@ -693,13 +693,18 @@ reproduce it.
 `grammargen_lr` has a shipped-route row for the first time. The public
 `Parser.Parse` route, with no per-Parser pin and no diagnostic flag, admitted
 it at 140.751ms against the diagnostic lane's 126.493ms for the same
-fixture -- an 11.3% shipped-route overhead. That overhead matches the
-compat-tail and admission-switch bookkeeping the shipped route pays and the
-diagnostic runner does not (`normalizeReturnedTreeForParse`,
+fixture -- a wall-time gap of 11.3% (not to be confused with the unrelated
+111.3 coverage % figure in that same table row above; coverage % is
+profiled-CPU-time over wall-time, see "Attribution shares" earlier in this
+document). Read this 11.3% gap against the noise floor below before treating
+it as a finding. A same-shape gap would be consistent with the compat-tail
+and admission-switch bookkeeping the shipped route pays and the diagnostic
+runner does not (`normalizeReturnedTreeForParse`,
 `resolveCRecoverySwallowedError`, `maybeCompactReturnedFullTree`, plus
-`Parser.Parse`'s own dispatch); it is not a new cost class, and `compat-tail`
-still reads 0.0% because this run's four fixtures stay clean (no error
-nodes, no C-recovery-swallowed error to resolve). Every shipped-route sample
+`Parser.Parse`'s own dispatch); `compat-tail` itself still reads 0.0% because
+this run's four fixtures stay clean (no error nodes, no C-recovery-swallowed
+error to resolve), so any such cost here is admission-switch dispatch
+overhead, not compat-tail's own conditional work. Every shipped-route sample
 was verified, by the admission-candidate routed/fallback counters, to have
 actually taken the compact route rather than falling back to production.
 
@@ -713,11 +718,12 @@ actually taken the compact route rather than falling back to production.
 | `rewrite` | 10 | 2.458ms | 378.273us | 15.39% |
 
 This run's noise floor is wide (15.4%-42.4% of median), consistent with a
-busy shared host (other agents were active throughout this session). Read
-the 11.3% shipped-route/diagnostic-lane gap on `grammargen_lr` above against
-this floor: it sits below the `query_compile` and `language` floors and
-above `rewrite`'s, so treat it as directional, not a precise constant, until
-a quieter run confirms it.
+busy shared host (other agents were active throughout this session). The
+11.3% shipped-route/diagnostic-lane gap on `grammargen_lr` above sits BELOW
+every one of these four floors, including `grammargen_lr`'s own (22.47%) and
+`rewrite`'s (the narrowest, at 15.39%). This run's noise cannot resolve that
+gap from zero: it is not a finding, directional or otherwise, until a
+quieter run repeats the measurement with a floor tighter than 11.3%.
 
 #### Cost per event (diagnostic lane; average, not causal)
 

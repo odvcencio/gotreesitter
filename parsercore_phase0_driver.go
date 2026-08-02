@@ -84,6 +84,17 @@ type DiagnosticParserCorePrefixOptions struct {
 	// disables the memory-budget half of the poll, mirroring production's
 	// own "budget disabled" contract (parseMemoryBudget's mb<=0 case).
 	stopControlMemoryBudgetBytes int64
+	// stopControlHardCeilingBytes is production's own absolute, decoupled
+	// hard ceiling (parseMemoryHardCeilingBytes, parser_config.go),
+	// independent of the soft budget above: it stays armed even when a
+	// caller explicitly disables the soft budget (GOT_PARSE_MEMORY_BUDGET_MB=0),
+	// the same independence production's own runtime-heap watchdog keeps
+	// (runtimeMemoryHardCeilingEnabled, parser_memory_budget_runtime.go).
+	// Without this the candidate route had no backstop at all when a caller
+	// zeroed the soft budget (tranche B9 honest-accounting gate). Zero
+	// disables it, mirroring the production contract's own 0=off escape
+	// hatch.
+	stopControlHardCeilingBytes int64
 }
 
 type DiagnosticParserCoreScannerCheckpoint struct {
@@ -3134,23 +3145,88 @@ func diagnosticParserCoreStopControlTripped(reason ParseStopReason) error {
 	}
 }
 
-// stopControlMemoryBudgetReason compares the compact core's own live storage
-// accounting against the production engine's soft per-parse byte budget
-// (stopControlMemoryBudgetBytes, sourced from parseMemoryBudgetForParser so
-// the same GOT_PARSE_MEMORY_BUDGET_MB configuration governs both engines).
-// Every input is Core.StorageBytes(): six already-tracked slice lengths times
-// a compile-time-constant record size, so this is pure deterministic integer
-// arithmetic -- no wall clock, no GC-timing dependence, and (same input, same
-// budget) the same trip point on every run, unlike the runtime heap/sys
-// signal production's own hard ceiling uses (parser_memory_budget_runtime.go).
+// stopControlFootprintChurnRatio documents a measured, deliberately UNUSED
+// lever (tranche B9 honest-accounting gate). FootprintBytes gauges retained
+// structure; it is blind to per-token ephemeral allocation (temporary
+// values the dispatch/election hot path creates and discards -- boxed
+// action results, scanner-state capture buffers, and similar -- that a live
+// GC reclaims continuously in normal operation but that accumulate
+// unbounded in any measurement that holds GC off for the whole parse,
+// including the RCA-era production replica test this poll is compared
+// against). On the giant-table-literal witness, a scheduler run whose
+// tracked footprint reached 103.6 MB at decline had allocated 516.5 MB
+// cumulative by then: a ~5x ratio.
+//
+// Discounting the comparison threshold by a fixed divisor (tripping the
+// poll at budget/divisor instead of budget) was tried and reverted: at
+// divisor 2, the giant-table-literal replica still exceeded the 6x
+// cumulative-allocation contract (6.15-6.70x measured, still over), and a
+// realistic, currently-passing witness (a 140KB clean Go source, budget 48
+// MB) started declining before completion, because ITS OWN legitimate
+// footprint at completion (order 28 MB) already exceeds budget/2. At
+// divisor 3 the replica came inside the contract (5.0-5.9x) but the same
+// 140KB/48MB witness still regressed. No tested divisor cleared the
+// pathological witness without cutting into ordinary coverage, because the
+// two witnesses need materially different discounts: the giant literal's
+// churn ratio is a property of ITS shape (dense, repeated struct-literal
+// reduction), not a universal constant every input pays.
+//
+// stopControlMemoryBudgetReason therefore compares FootprintBytes against
+// the configured budget with NO discount (ratio effectively 1): the honest,
+// cap()-based, structure-complete gauge alone, with its own measured,
+// no-coverage-cost improvement (11.51x to 9.02-9.56x cumulative allocation
+// on the same replica, down from the pre-B9-honest-accounting baseline).
+// Closing the remaining gap to the 6x contract needs either an owner
+// decision to accept the coverage cost above, or a deeper change to reduce
+// the scheduler's own per-token ephemeral allocation rate (out of this
+// tranche's scope). See the tranche's PR for the full witness table.
+const stopControlFootprintChurnRatio = 1
+
+// stopControlMemoryBudgetReason compares the compact core's own real
+// retained-memory footprint against the production engine's soft per-parse
+// byte budget (stopControlMemoryBudgetBytes, sourced from
+// parseMemoryBudgetForParser so the same GOT_PARSE_MEMORY_BUDGET_MB
+// configuration governs both engines) and, independently, against
+// production's own absolute hard ceiling (stopControlHardCeilingBytes,
+// armed even when the soft budget is disabled). Every input is
+// Core.FootprintBytes(): already-tracked slice/map length and capacity
+// reads times compile-time-constant record sizes, so this is pure
+// deterministic integer arithmetic -- no wall clock, no GC-timing
+// dependence, and (same input, same budget) the same trip point on every
+// run, unlike the runtime heap/sys signal production's own hard ceiling
+// poll uses (parser_memory_budget_runtime.go). FootprintBytes, not
+// StorageBytes, is deliberate here: StorageBytes counts live length only,
+// so it reads near zero for a core whose arenas hold retained capacity from
+// an earlier declined attempt on the same cached runner, and it never
+// counted scratch, the boundary index, or checkpoint interning at all --
+// either gap let a pathological input's real footprint clear the configured
+// budget well before this poll noticed (tranche B9 honest-accounting gate).
+// See stopControlFootprintChurnRatio's doc comment for the ephemeral-churn
+// gap this gauge still has, and why closing it further is left as an owner
+// decision rather than a silent default change.
 func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReason() ParseStopReason {
-	if s == nil || s.options.stopControlMemoryBudgetBytes <= 0 {
+	if s == nil {
 		return ParseStopNone
 	}
-	if s.compact.StorageBytes() < uint64(s.options.stopControlMemoryBudgetBytes) {
-		return ParseStopNone
+	footprint := uint64(0)
+	haveFootprint := false
+	footprintAtLeast := func(bytes int64) bool {
+		if bytes <= 0 {
+			return false
+		}
+		if !haveFootprint {
+			footprint = s.compact.FootprintBytes()
+			haveFootprint = true
+		}
+		return footprint*stopControlFootprintChurnRatio >= uint64(bytes)
 	}
-	return ParseStopMemoryBudget
+	if footprintAtLeast(s.options.stopControlMemoryBudgetBytes) {
+		return ParseStopMemoryBudget
+	}
+	if footprintAtLeast(s.options.stopControlHardCeilingBytes) {
+		return ParseStopMemoryBudget
+	}
+	return ParseStopNone
 }
 
 // pollStopControl is the bounded scheduler-boundary poll (spec.campaign.v7

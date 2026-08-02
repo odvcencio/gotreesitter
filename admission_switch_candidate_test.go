@@ -2,7 +2,27 @@
 
 package gotreesitter
 
-import "testing"
+import (
+	"strconv"
+	"testing"
+)
+
+// requireCandidateRouteBudgetMB arms GOT_PARSE_MEMORY_BUDGET_MB at mb for the
+// duration of the calling test (t.Setenv restores the ambient value
+// automatically), so a prior test's environment change or the process
+// environment can never silently leave a routing test under-budgeted. mb
+// must be comfortably above what the scheduler's stop-control poll needs to
+// see this fixture through to acceptance (Core.FootprintBytes() against the
+// configured budget, tranche B9 honest-accounting gate) -- grammargen_lr
+// specifically measured routing at 48 MB and declining at 32 MB on the
+// development host, so callers here use several times that for real
+// headroom against host and grammar drift.
+func requireCandidateRouteBudgetMB(t testing.TB, mb int) {
+	t.Helper()
+	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", strconv.Itoa(mb))
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+}
 
 // These tests run under the gts_parsercorephase0 tag, where the compact
 // candidate route is compiled in. They prove the switch actually routes a fresh
@@ -26,6 +46,7 @@ func newAdmissionCandidateGoParser(t testing.TB) *Parser {
 // every canonical fixture now routes on size alone. Large-input safety comes
 // from the tranche B8 scheduler stop-control poll instead.
 func TestAdmissionSwitchParseRoutesCandidateWhenOn(t *testing.T) {
+	requireCandidateRouteBudgetMB(t, 256)
 	resetAdmissionCandidateCounters()
 	p := newAdmissionCandidateGoParser(t)
 	p.SetAdmissionCandidateRoute(true)
@@ -59,6 +80,7 @@ func TestAdmissionSwitchParseRoutesCandidateWhenOn(t *testing.T) {
 // floor); today source length no longer decides eligibility, so the shipped
 // default routes it exactly like any other fixture.
 func TestAdmissionSwitchGrammargenLRRoutesCompactByDefault(t *testing.T) {
+	requireCandidateRouteBudgetMB(t, 256)
 	previousDefault := AdmissionCandidateRouteDefault()
 	t.Cleanup(func() { SetAdmissionCandidateRouteDefault(previousDefault) })
 	SetAdmissionCandidateRouteDefault(true)

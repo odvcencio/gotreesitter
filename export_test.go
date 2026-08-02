@@ -323,14 +323,27 @@ func TryCompactFullParseRouteForTest(p *Parser, source []byte) (tree *Tree, ok b
 }
 
 // AdmissionCandidateCompactStorageBytesForTest exposes the cached
-// admission-candidate runner's current compact-core StorageBytes() so
-// external test code can prove the tranche B9 storage-release gate: a
-// declined parse must not leave compact storage retained while the caller's
-// production fallback runs. It returns 0 when no runner is cached yet
-// (including under -tags gts_no_parsercorephase0, where the engine never
-// runs).
+// admission-candidate runner's current compact-core StorageBytes(): live
+// record length only, always 0 immediately after any Reset regardless of
+// retained capacity. It returns 0 when no runner is cached yet (including
+// under -tags gts_no_parsercorephase0, where the engine never runs). Use
+// AdmissionCandidateCompactFootprintBytesForTest to check the tranche B9
+// storage-RELEASE gate specifically; this one alone cannot.
 func AdmissionCandidateCompactStorageBytesForTest(p *Parser) uint64 {
 	return admissionCandidateCompactStorageBytes(p)
+}
+
+// AdmissionCandidateCompactFootprintBytesForTest exposes the cached
+// admission-candidate runner's current compact-core FootprintBytes(): real
+// retained capacity, not live length. External test code uses this to prove
+// the tranche B9 storage-release gate -- a declined parse must not leave
+// compact storage retained while the caller's production fallback runs --
+// because unlike StorageBytes, this can actually detect a decline path that
+// reset logical length but left a large backing array retained. It returns
+// 0 when no runner is cached yet (including under -tags
+// gts_no_parsercorephase0).
+func AdmissionCandidateCompactFootprintBytesForTest(p *Parser) uint64 {
+	return admissionCandidateCompactFootprintBytes(p)
 }
 
 // BeginParseOperationBudgetForTest opens the same outer parse-budget scope

@@ -212,14 +212,18 @@ func (p *Parser) admissionCandidateFullParseEligible(oldTree *Tree, usingProduct
 	// (tranche B8): the scheduler polls both through the exact production
 	// check (diagnosticParserCoreGenericScheduler.pollStopControl, once per
 	// dispatch-pass-loop iteration) and cleanly aborts -- releasing the
-	// compact arenas before falling back -- so production still serves a
+	// compact arenas' retained capacity before falling back (Core.
+	// ResetReleasingRetention, tranche B9) -- so production still serves a
 	// tripped deadline or cancellation with its own compatible stop receipt.
 	// Source length no longer declines eligibility either (tranche B9): the
-	// same scheduler poll compares the compact core's own deterministic
-	// StorageBytes() against production's soft memory budget on every input,
-	// large or small, so a pathological input still falls back to production
-	// and honors ParseStopMemoryBudget -- it just attempts the candidate route
-	// first instead of skipping it by source length.
+	// same scheduler poll compares the compact core's own real retained
+	// footprint (Core.FootprintBytes()) against production's soft memory
+	// budget on every input, large or small, so a pathological input still
+	// falls back to production and honors ParseStopMemoryBudget -- it just
+	// attempts the candidate route first instead of skipping it by source
+	// length. See attemptAdmissionCandidateFullParse's doc comment for the
+	// gap this retained-footprint gauge still has against cumulative
+	// ephemeral allocation, not just retained footprint.
 	//
 	// Preserve callback fidelity: the compact route does not emit the parser's
 	// logger, GLR-trace, ambiguity-profile, or parse-progress events, so decline
@@ -279,16 +283,31 @@ func (p *Parser) pinToProductionRoute() {
 // every input at or above parseRuntimeMemoryMinSourceBytes on production. A
 // large input now attempts the candidate route like any other: the scheduler's
 // stop-control poll (tranche B8, pollStopControl in
-// parsercore_phase0_driver.go) compares the compact core's own deterministic
-// StorageBytes() against the same soft budget production's arena/scratch
-// accounting honors, and the runner releases the compact core's storage
-// (Core.Reset, either through RunFreshSchedulerSession's automatic rollback on
-// a stop-control trip or through executeSchedulerOpen's explicit reset on an
-// acceptance decline) before returning control to this function, so a decline
-// never leaves compact storage retained while production's fallback parse
-// runs. A pathological input that exceeds the budget or a hard node/stack cap
-// declines here (an engine decline, counted below) and production serves it,
-// honoring ParseStopMemoryBudget exactly as it always has.
+// parsercore_phase0_driver.go) compares the compact core's own real retained
+// footprint (Core.FootprintBytes(), a capacity-based gauge -- see its doc
+// comment for the accounting it covers and the ephemeral-allocation gap it
+// still has) against the same soft budget production's arena/scratch
+// accounting honors, and the caller's own production/hard-ceiling backstop
+// (parseMemoryHardCeilingBytes) stays armed even when the soft budget is
+// disabled. On any decline -- a stop-control trip, an acceptance-gate
+// decline, or a materialization decline -- the runner releases the compact
+// core's retained capacity (Core.ResetReleasingRetention, not plain Reset:
+// Reset alone truncates logical length but keeps backing-array capacity for
+// reuse, which billed 157-193MB of retained memory to every later parse on
+// the same cached runner before this gate) before returning control to this
+// function, so a decline does not leave compact storage retained at an
+// unbounded multiple of the configured budget while production's fallback
+// parse runs. This bounds RETAINED footprint deterministically; it does not
+// bound the compact scheduler's own CUMULATIVE ephemeral allocation during
+// the declined attempt itself, which a GC-disabled measurement (unlike an
+// ordinary, GC-enabled process) can still observe as a multiple of the
+// configured budget above production's own contract -- see
+// stopControlFootprintChurnRatio's doc comment for the measured range and
+// why it is not fully closed. A pathological input that exceeds the budget
+// or a hard node/stack cap declines here (an engine decline, counted below,
+// which also bumps AdmissionCandidateCounters' fallback count -- an
+// operator watching that counter sees every one of these) and production
+// serves it, honoring ParseStopMemoryBudget exactly as it always has.
 func (p *Parser) attemptAdmissionCandidateFullParse(source []byte, oldTree *Tree, usingProductionDFA bool) (*Tree, bool) {
 	if !p.admissionCandidateFullParseEligible(oldTree, usingProductionDFA) {
 		return nil, false

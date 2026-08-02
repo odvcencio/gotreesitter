@@ -19,3 +19,9 @@ func (p *Parser) tryCompactFullParseRoute(_ []byte) (*Tree, bool, string) {
 func admissionCandidateCompactStorageBytes(_ *Parser) uint64 {
 	return 0
 }
+
+// admissionCandidateCompactFootprintBytes is the emergency-build stub,
+// matching admissionCandidateCompactStorageBytes above.
+func admissionCandidateCompactFootprintBytes(_ *Parser) uint64 {
+	return 0
+}

@@ -175,11 +175,11 @@ func TestAdmissionSwitchCompactCancellationStopReceiptMatchesProduction(t *testi
 }
 
 // TestAdmissionSwitchCompactMemoryBudgetStopReceiptMatchesProduction proves
-// the memory-budget class: a source under the admission wall, combined with
-// a tiny GOT_PARSE_MEMORY_BUDGET_MB, trips the scheduler's deterministic
-// StorageBytes-vs-budget poll -- the same configured budget production's own
-// arena/scratch accounting honors -- and both engines report
-// ParseStopMemoryBudget for the identical input.
+// the memory-budget class: this modest, deliberately small witness (see the
+// package doc comment above), combined with a tiny GOT_PARSE_MEMORY_BUDGET_MB,
+// trips the scheduler's deterministic FootprintBytes-vs-budget poll -- the
+// same configured budget production's own arena/scratch accounting honors --
+// and both engines report ParseStopMemoryBudget for the identical input.
 func TestAdmissionSwitchCompactMemoryBudgetStopReceiptMatchesProduction(t *testing.T) {
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "1")
 	gts.ResetParseEnvConfigCacheForTests()
@@ -236,9 +236,10 @@ func TestAdmissionSwitchCompactMemoryBudgetStopReceiptMatchesProduction(t *testi
 
 // TestAdmissionSwitchCompactMemoryBudgetPollIsDeterministic is the direct
 // determinism gate (tranche B8 work order item 4): the memory-budget half of
-// pollStopControl compares Core.StorageBytes(), six already-tracked slice
-// lengths, against a fixed byte budget -- pure integer arithmetic with no
-// wall-clock or GC-timing input. Same input and same budget must trip the
+// pollStopControl compares Core.FootprintBytes(), already-tracked slice and
+// map length/capacity reads (tranche B9 honest-accounting gate), against a
+// fixed byte budget -- pure integer arithmetic with no wall-clock or
+// GC-timing input. Same input and same budget must trip the
 // scheduler's poll at the same internal juncture on every attempt, unlike
 // production's own hard ceiling (runtime.MemStats-based, explicitly
 // documented as non-deterministic in parser_memory_budget_runtime.go). This

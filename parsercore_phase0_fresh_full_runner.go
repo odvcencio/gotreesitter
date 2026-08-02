@@ -103,8 +103,12 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 	// caller bound a stop-control Parser (admission_switch_candidate.go); the
 	// diagnostic and benchmark runners leave stopControlParser nil, so this
 	// stays zero and the scheduler's memory-budget poll is a no-op for them.
+	// The hard ceiling is armed independently of the soft budget (it stays
+	// on even when a caller zeroes GOT_PARSE_MEMORY_BUDGET_MB), mirroring
+	// production's own soft/hard independence.
 	if r.options.stopControlParser != nil {
 		r.options.stopControlMemoryBudgetBytes = parseMemoryBudgetForParser(r.options.stopControlParser, len(source))
+		r.options.stopControlHardCeilingBytes = parseMemoryHardCeilingBytes()
 	}
 	scheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 		&r.scheduler, compact, tokenSource, &r.scannerScratch, r.lang.InitialState,
@@ -122,9 +126,10 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 		// decline -- accepted, but not the strict sole-exact-EOF frontier -- is the
 		// one decline path that would otherwise leave the compact core's storage
 		// retained on the cached runner until the next parse call resets it lazily.
-		// Reset immediately: a large declined parse must never leave compact storage
-		// retained while the caller's production fallback runs (tranche B9 gate).
-		if resetErr := compact.Reset(); resetErr != nil {
+		// Reset immediately, releasing any oversized retention the accepted run
+		// grew: a large declined parse must never leave compact storage retained
+		// while the caller's production fallback runs (tranche B9 gate).
+		if resetErr := compact.ResetReleasingRetention(); resetErr != nil {
 			err = errors.Join(err, fmt.Errorf("parser-core fresh-full runner: reset after acceptance decline: %w", resetErr))
 		}
 		return nil, nil, err
@@ -201,16 +206,42 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 	return materializeDiagnosticParserCoreAcceptedSelection(compact, scheduler.acceptedHead, scheduler.acceptedPayloads, r.parser, source, &r.scratch, r.replayParseStates)
 }
 
-func (r *parserCoreFreshFullRunner) parse(source []byte) (*Tree, error) {
+// parse runs one fresh full parse and returns the materialized tree, or a
+// decline error when the compact route cannot serve this input.
+//
+// A single deferred cleanup guarantees release on every path that returns
+// without a tree -- including ones executeSchedulerOpen does not reset
+// explicitly itself (a compact.Seed or scheduler-init failure ahead of
+// RunFreshSchedulerSession, inside executeDiagnosticParserCoreGenericSchedulerFromSeedInto)
+// and a materialization decline below, which runs after acceptance already
+// committed the full derivation graph to the core (tranche B9
+// reset-completeness gate: before this defer, a materialization decline left
+// the ENTIRE accepted parse graph retained on the cached runner while the
+// caller's production fallback ran beside it). This is redundant with the
+// explicit resets on paths that already handle their own release
+// (RunFreshSchedulerSession's own defer on a hard scheduler error, and
+// executeSchedulerOpen's acceptance-gate branch); Core.Reset guards against
+// double-reset cleanly and is cheap on an already-reset core, so the
+// redundancy costs one extra FootprintBytes comparison on the decline path,
+// never on the accepted-and-returned path.
+func (r *parserCoreFreshFullRunner) parse(source []byte) (tree *Tree, err error) {
 	if r == nil || r.compact == nil {
 		return nil, errors.New("parser-core fresh-full runner is incomplete")
 	}
-	scheduler, tokenSource, err := r.executeSchedulerOpen(source, r.compact, true)
-	if err != nil {
-		return nil, err
+	defer func() {
+		if tree != nil {
+			return
+		}
+		if resetErr := r.compact.ResetReleasingRetention(); resetErr != nil {
+			err = errors.Join(err, fmt.Errorf("parser-core fresh-full runner: reset after decline: %w", resetErr))
+		}
+	}()
+	scheduler, tokenSource, err2 := r.executeSchedulerOpen(source, r.compact, true)
+	if err2 != nil {
+		return nil, err2
 	}
 	defer tokenSource.Close()
-	tree, err := r.materializeSelection(source, r.compact, scheduler)
+	tree, err = r.materializeSelection(source, r.compact, scheduler)
 	if err != nil {
 		return nil, err
 	}
