@@ -2642,6 +2642,18 @@ func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sou
 					gapStart, gapEnd, root.startByte, root.endByte,
 				)
 			}
+			// Round-2 adversarial review, accept-time splice gap: the leaf-
+			// coverage audit above closed the BYTE-LOSS symptom of a related
+			// gap; it cannot see this one, since every byte is still
+			// covered -- only the ATTACHMENT point is wrong. See
+			// diagnosticParserCoreAcceptedRootTrailingErrorExtraGap's own
+			// doc comment.
+			if diagnosticParserCoreAcceptedRootTrailingErrorExtraGap(root) {
+				return fmt.Errorf(
+					"parser-core phase zero: accepted compact root carries an error-bearing trailing extra payload after its last non-extra child: root=%d..%d",
+					root.startByte, root.endByte,
+				)
+			}
 		}
 		return nil
 	}
@@ -2718,6 +2730,63 @@ func diagnosticParserCoreAcceptedTreeLeafCoverageGap(root *Node, source []byte, 
 		return cur, sourceLen, true
 	}
 	return 0, 0, false
+}
+
+// diagnosticParserCoreAcceptedRootTrailingErrorExtraGap reports whether
+// root's direct children end with an error-bearing extra payload trailing
+// the last non-extra child -- the accept-time splice gap (adversarial
+// review round 2, html "<html><body>x</body>\x00>"). C's ts_parser__accept
+// rebuilds the last non-extra tree over the remaining stack contents,
+// INCLUDING trailing extras, at the moment of accepting; this splices a
+// trailing extra into whatever real content precedes it, extending that
+// content's own span and propagating its own HasError up through ordinary
+// ancestor propagation. This materializer's S3 accept path does not
+// perform that splice: an ERROR region that resumes onto a head already
+// past the last structural reduce (s3CloseInProgressProductions's own
+// eager closure -- correct and necessary on its own terms -- can land
+// there) ends up attached as the ROOT's own sibling instead, one level too
+// shallow. Observed: document[0:22], 2 children (element[0:20]
+// HasError=false, ERROR[20:22] extra) where the C oracle reports 1 child
+// (element[0:22] HasError=true, the same byte-identical ERROR nested
+// inside it) -- tokenization and the ERROR container itself are identical;
+// only the attachment point differs, and it flips the enclosing element's
+// own span and HasError, which callers read.
+//
+// This audit runs only under allowErrorRoot (S3-admitted parses), same as
+// the leaf-coverage gap above, and closes a different symptom of a related
+// class: that audit requires every byte to be COVERED by some leaf, which
+// this shape already satisfies (nothing is lost, just misattached), so it
+// cannot see this gap on its own.
+//
+// Deliberately narrower than "any trailing extra": an ordinary trailing
+// comment or whitespace extra (IsError()==false, HasError()==false)
+// legitimately sits beside a root's non-extra child in BOTH engines --
+// confirmed necessary: html "<a></a><!--trailing-->" produces
+// document[0:22], 2 children (element, comment), byte-identical between
+// compact and production, and must not decline. Only an error-bearing
+// trailing extra (the shape C would have spliced into the preceding
+// content instead of leaving as the root's own sibling) trips this gap.
+func diagnosticParserCoreAcceptedRootTrailingErrorExtraGap(root *Node) bool {
+	count := root.ChildCount()
+	if count < 2 {
+		return false
+	}
+	lastNonExtra := -1
+	for i := 0; i < count; i++ {
+		if !root.Child(i).IsExtra() {
+			lastNonExtra = i
+		}
+	}
+	if lastNonExtra < 0 {
+		return false
+	}
+	for i := lastNonExtra + 1; i < count; i++ {
+		child := root.Child(i)
+		if child.IsExtra() && (child.IsError() || child.HasError()) {
+			return true
+		}
+	}
+	return false
 }
 
 // diagnosticParserCoreReduceChildrenTilingGap is the B1 route-equality

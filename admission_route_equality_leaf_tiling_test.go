@@ -314,3 +314,137 @@ func TestCompactRouteAcceptedRootLeafCoverageGapDeclines(t *testing.T) {
 		})
 	}
 }
+
+// TestCompactRouteAcceptedRootTrailingErrorExtraDeclines pins the
+// adversarial review round-2 finding: the accept-time splice gap. C's
+// ts_parser__accept rebuilds the last non-extra tree over the remaining
+// stack contents, INCLUDING trailing extras, at the moment of accepting.
+// This materializer's S3 accept path did not perform that splice: an ERROR
+// region that resumes onto a head already past the last structural reduce
+// (s3CloseInProgressProductions's own eager closure can land there) ended
+// up attached as the accepted root's own sibling instead of nested inside
+// the preceding element -- one level too shallow. Every byte was still
+// covered (so REQUIRED 1's leaf-coverage audit could not catch this), but
+// the ATTACHMENT was wrong, and it flipped the enclosing element's own span
+// and HasError, which callers read.
+//
+// html "<html><body>x</body>\x00>" is the minimal reproducer: compact
+// published document[0:22] with 2 children (element[0:20] HasError=false,
+// ERROR[20:22] extra) where the C oracle reports 1 child (element[0:22]
+// HasError=true, the same byte-identical ERROR nested inside it). The 3
+// sibling reproducers here were found by construction (two hand-built
+// variants on the same base) and by direct search of the committed
+// adversarial-review fuzz corpus (the fourth, "the corpus original").
+//
+// Fixed fail-closed (diagnosticParserCoreAcceptedRootTrailingErrorExtraGap,
+// parsercore_phase0_driver.go): every one of these now declines and falls
+// back to production instead of publishing the misattached tree.
+func TestCompactRouteAcceptedRootTrailingErrorExtraDeclines(t *testing.T) {
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	entry := grammars.DetectLanguageByName("html")
+	if entry == nil {
+		t.Fatal("html is not registered")
+	}
+	lang := entry.Language()
+
+	sources := []string{
+		"<html><body>x</body>\x00>",
+		"<html><body>x</body>\x00/h>",
+		"<html><body>x</body>\x00/h>\x00/html>",
+		"<html><body>-->Hello</body>\x00/h>\x00/html>\n",
+	}
+	for _, src := range sources {
+		src := src
+		t.Run(src, func(t *testing.T) {
+			source := []byte(src)
+
+			gts.ResetAdmissionCandidateCountersForTest()
+			candidate := gts.NewParser(lang)
+			candidate.SetAdmissionCandidateRoute(true)
+			candidateTree, err := candidate.Parse(source)
+			if err != nil {
+				t.Fatalf("candidate parse: %v", err)
+			}
+			defer candidateTree.Release()
+
+			routed, fallback := gts.AdmissionCandidateCounters()
+			if routed != 0 || fallback != 1 {
+				t.Fatalf("%q: route counters routed=%d fallback=%d, want routed=0 fallback=1 (accept-time splice gap must decline)", src, routed, fallback)
+			}
+			reason := gts.AdmissionCandidateLastFallbackReason()
+			if !strings.Contains(reason, "error-bearing trailing extra") {
+				t.Fatalf("%q: fallback reason=%q, want it to cite the trailing extra splice gap", src, reason)
+			}
+		})
+	}
+}
+
+// TestCompactRouteCleanTrailingExtraStillRoutesNatively is the control case
+// for TestCompactRouteAcceptedRootTrailingErrorExtraDeclines: an ordinary
+// trailing extra (a comment, carrying no error at all) legitimately sits
+// beside -- or, once the enclosing element is genuinely still open, inside
+// -- a root's non-extra child in both engines, and must keep routing
+// natively. diagnosticParserCoreAcceptedRootTrailingErrorExtraGap is
+// deliberately narrower than "any trailing extra" specifically so these
+// two shapes do not trip it:
+//
+//   - "<html><body>x</body><!--c-->": the trailing comment is spliced into
+//     the still-open outer element by compact's ordinary (non-S3) extra-
+//     shift machinery before that element's own reduce ever fires --
+//     document ends up with exactly 1 child, matching production and the C
+//     oracle, so this shape is not even a root-level trailing extra.
+//   - "<a></a><!--trailing-->": the outer element closes explicitly (a real
+//     "</a>"), so the trailing comment lands beside it as document's own
+//     second child in every engine alike -- document[0:22], 2 children
+//     (element, comment), byte-identical between compact and production.
+//
+// Both must keep serving the compact-native tree; neither carries an
+// error-bearing trailing extra, so neither is the shape this gate exists
+// to reject.
+func TestCompactRouteCleanTrailingExtraStillRoutesNatively(t *testing.T) {
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	entry := grammars.DetectLanguageByName("html")
+	if entry == nil {
+		t.Fatal("html is not registered")
+	}
+	lang := entry.Language()
+
+	sources := []string{
+		"<html><body>x</body><!--c-->",
+		"<a></a><!--trailing-->",
+	}
+	for _, src := range sources {
+		src := src
+		t.Run(src, func(t *testing.T) {
+			source := []byte(src)
+
+			production := gts.NewParser(lang)
+			production.SetAdmissionCandidateRoute(false)
+			productionTree, err := production.Parse(source)
+			if err != nil {
+				t.Fatalf("production parse: %v", err)
+			}
+			defer productionTree.Release()
+
+			gts.ResetAdmissionCandidateCountersForTest()
+			candidate := gts.NewParser(lang)
+			candidate.SetAdmissionCandidateRoute(true)
+			candidateTree, err := candidate.Parse(source)
+			if err != nil {
+				t.Fatalf("candidate parse: %v", err)
+			}
+			defer candidateTree.Release()
+
+			routed, fallback := gts.AdmissionCandidateCounters()
+			if routed != 1 || fallback != 0 {
+				t.Fatalf("%q: route counters routed=%d fallback=%d, want routed=1 fallback=0 (clean trailing extra must not trip the splice-gap decline)", src, routed, fallback)
+			}
+			if candidateTree.RootNode().HasError() {
+				t.Fatalf("%q: candidate HasError=true, want false (clean trailing extra)", src)
+			}
+			if got, want := candidateTree.RootNode().SExpr(lang), productionTree.RootNode().SExpr(lang); got != want {
+				t.Fatalf("%q: served tree diverges from production\n got:  %s\n want: %s", src, got, want)
+			}
+		})
+	}
+}
