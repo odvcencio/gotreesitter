@@ -3821,20 +3821,17 @@ func realShiftGapIsParserPadding(source []byte, s *glrStack, tok Token) bool {
 // skippedRealGapContinuesSeparatedList reports whether the sole active stack is
 // mid-production immediately after an anonymous separator terminal (e.g. a comma
 // in a separated list) and the real lookahead continues that production. In that
-// position, covering a lexer-skipped stray with a STRUCTURAL error node would
-// insert it between the separator and the next element and corrupt the pending
-// reduction; the correct behavior is to shift across the uncovered gap (as the
-// parser did before the shift-gap guard existed) without materializing any node
-// for the stray, so the skipped bytes stay interior to the covering
-// production's span and total-span invariants hold. That is parse-time
-// behavior only: the stray now lands in no leaf's span, so leaf-level parity
-// with C tree-sitter — which represents such a stray as an EXTRA error
-// transparent to the production — currently depends on a per-language
-// post-parse normalizer re-materializing it (today only
-// normalizeJuliaTrailingCommaAssignmentTuple, dispatched from
-// parser_result_compat.go's language switch). Emitting the EXTRA error
-// directly at parse time, so every language gets it without a bespoke
-// normalizer, is the tracked follow-up.
+// position, covering a lexer-skipped stray with a STRUCTURAL error node — one
+// that changes the automaton state (pushOrExtendErrorNode's
+// schemeErrorRecoveryState target) or counts toward the enclosing production's
+// ChildCount — would corrupt the pending reduction and could collapse the
+// enclosing construct into a flat ERROR. When this returns true,
+// tryMaterializeSkippedRealGap calls materializeSkippedGapAsExtraError instead:
+// it covers the gap with a transparent EXTRA ERROR leaf pushed in the SAME
+// state (not the older silent shift-across, which advanced past the gap with
+// no node at all and left it in no leaf's span, HasError unset). See
+// materializeSkippedGapAsExtraError's doc for the mechanism and its known
+// remaining shape gap versus C tree-sitter's representation of the same stray.
 func (p *Parser) skippedRealGapContinuesSeparatedList(s *glrStack, state StateID, tok Token) bool {
 	if p == nil || s == nil || tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.Missing || tok.NoLookahead {
 		return false
@@ -3887,16 +3884,31 @@ func (p *Parser) stateDeterministicNonExtraShift(state StateID, sym Symbol) bool
 // production's ChildCount, the leaf is folded into whichever production
 // later reduces over it without perturbing arity, while populateParentNode's
 // unconditional HasError OR still lets the error bubble to ancestors.
+//
+// This is an ACCOUNTING fix, not a shape fix: the skipped bytes now have a
+// span and HasError=true, matching C tree-sitter's verdict that the
+// construct is erroneous. The leaf's own shape still diverges from C's for
+// the same stray in two ways that remain open follow-up work: the span
+// covers the whole lexer-skipped gap (which can include trivia C would not
+// attribute to the stray), and the leaf is childless where C typically wraps
+// the stray token as a child of its own ERROR/error_repeat node. Closing that
+// gap needs re-lexing the skipped bytes to find the stray token's true
+// bounds and giving the leaf that token as a child, which needs its own
+// verification pass and is out of scope here.
 func (p *Parser) materializeSkippedGapAsExtraError(s *glrStack, state StateID, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) {
-	if p != nil {
-		// See pushOrExtendErrorNode: error content makes costs relevant.
-		p.crecoveryCostCompetitionRelevant = true
-	}
+	// See pushOrExtendErrorNode: error content makes costs relevant. p is
+	// never nil here: the only caller (tryMaterializeSkippedRealGap) reaches
+	// this branch only after p.skippedRealGapContinuesSeparatedList already
+	// returned true, and that function itself returns false for a nil p.
+	p.crecoveryCostCompetitionRelevant = true
 	startPoint := stackEntryNodeEndPoint(s.top())
 	leaf := newLeafNodeInArena(arena, errorSymbol, true, s.byteOffset, tok.StartByte, startPoint, tok.StartPoint)
 	leaf.setHasError(true)
 	leaf.setExtra(true)
 	leaf.parseState = state
+	if perfCountersEnabled {
+		perfRecordErrorNode()
+	}
 	p.pushStackNode(s, state, leaf, entryScratch, gssScratch)
 	if nodeCount != nil {
 		*nodeCount = *nodeCount + 1
@@ -3911,25 +3923,16 @@ func (p *Parser) tryMaterializeSkippedRealGap(source []byte, s *glrStack, state 
 	if s == nil || tok.StartByte <= s.byteOffset || realTokenAttachmentGapIsParserPadding(source, s, tok) {
 		return false
 	}
-	// A stray token that the lexer skipped mid-production (immediately after an
-	// anonymous separator terminal, e.g. a comma in a separated list) must not be
-	// covered by a STRUCTURAL error node here: inserting one that changes the
-	// automaton state (pushOrExtendErrorNode's schemeErrorRecoveryState target)
-	// or that counts toward the enclosing production's ChildCount would corrupt
-	// the pending reduction and could collapse the enclosing construct into a
-	// flat ERROR. The parser has a concrete shift for the real lookahead that
-	// continues the production, so cover the gap with a transparent EXTRA ERROR
-	// leaf — pushed in the SAME state, so the following action lookup for tok is
-	// unaffected — and then advance across it exactly as a silent shift-across
-	// would (see materializeSkippedGapAsExtraError). reduceWindowFromGSS already
-	// treats EXTRA stack entries as free when counting a production's popped
-	// window, and populateParentNode ORs children's HasError regardless of
-	// Extra, so this leaf folds into whichever production reduces over it
-	// without perturbing arity, while still giving the skipped bytes their own
-	// span (parity with C tree-sitter's transparent EXTRA-error representation
-	// of such strays — see cmd/grammargen and the parser_shift_gap_test.go
-	// synthetic-language coverage of skippedRealGapContinuesSeparatedList's
-	// guard clauses for the shapes this must keep matching).
+	// A stray run of bytes that the lexer skipped mid-production, immediately
+	// after an anonymous separator terminal with a concrete deterministic
+	// shift for the real lookahead, is covered by materializeSkippedGapAsExtraError
+	// rather than by ordinary structural gap materialization below — see that
+	// function's doc and skippedRealGapContinuesSeparatedList's doc for why a
+	// structural node here would corrupt the pending reduction, and for the
+	// accounting-vs-shape distinction in what this branch actually fixes.
+	// parser_shift_gap_test.go's synthetic-language coverage of
+	// skippedRealGapContinuesSeparatedList's guard clauses pins the shapes
+	// this must keep matching.
 	if p.skippedRealGapContinuesSeparatedList(s, state, tok) {
 		if p.glrTrace {
 			fmt.Printf("    MATERIALIZE-EXTRA skipped real gap (mid-list separator): gap=%d..%d before tok=%d..%d\n",
