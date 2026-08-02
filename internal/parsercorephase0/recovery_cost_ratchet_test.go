@@ -11,13 +11,11 @@ import (
 )
 
 // TestRecoveryCostNoOutsideCallSitesRatchet is the compile-time,
-// clean-path-zero-cost guardrail for recovery_cost.go (campaign v7 tranche
+// bounded-call-site guardrail for recovery_cost.go (campaign v7 tranche
 // B3 stage S2, design section 8 gates G2/G3): every symbol recovery_cost.go
-// declares at package scope must be referenced from nowhere else in this
-// package's non-test source, proving by construction that ordinary
-// condense, shift, reduce, and materialization code paths cannot reach the
-// cost model. This is the same pattern as
-// TestCondenseWithOutcomeAtomicProvenanceRatchet
+// declares at package scope must be referenced from nowhere in this
+// package's non-test source EXCEPT the one file listed in callers below.
+// This is the same pattern as TestCondenseWithOutcomeAtomicProvenanceRatchet
 // (condense_outcome_provenance_ratchet_test.go), generalized from one
 // function name to a whole file's declared surface.
 //
@@ -27,11 +25,22 @@ import (
 // for one) that banning them by name would false-positive on unrelated
 // methods. What this ratchet protects is the set of package-scope
 // declarations recovery_cost.go introduces: its exported API plus its two
-// unexported helper functions/constant. A later stage that wires this file
-// in (S3 onward) will make this ratchet fail on purpose -- that failure is
-// the signal to update or retire it alongside the real call site landing.
+// unexported helper functions/constant.
+//
+// callers is the authorized call-site list, and it is deliberately a list of
+// exactly one file rather than an "off" switch. The one authorized caller is
+// acceptance_election.go, which reads the cost model for rungs 1, 2, and 5 of
+// ts_parser__select_tree and reuses RecoveryCostSource for the symbol and
+// child-count view ts_subtree_compare needs.
+//
+// That caller is ITSELF inert (TestAcceptanceElectionNoOutsideCallSitesRatchet,
+// acceptance_election_ratchet_test.go), so the clean-path-zero-cost property
+// stage S2 established is unchanged: no condense, shift, reduce, or
+// materialization path can reach the cost model, and now no shipping path
+// can reach it through the election either.
 func TestRecoveryCostNoOutsideCallSitesRatchet(t *testing.T) {
 	const homeFile = "recovery_cost.go"
+	callers := map[string]bool{"acceptance_election.go": true}
 
 	fset := token.NewFileSet()
 	home, err := parser.ParseFile(fset, homeFile, nil, 0)
@@ -75,7 +84,8 @@ func TestRecoveryCostNoOutsideCallSitesRatchet(t *testing.T) {
 	violations := 0
 	for _, entry := range entries {
 		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") || name == homeFile {
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") ||
+			name == homeFile || callers[name] {
 			continue
 		}
 		file, err := parser.ParseFile(fset, filepath.Clean(name), nil, 0)
