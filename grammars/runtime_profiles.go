@@ -166,26 +166,53 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
 	},
-	// Kotlin's tied platform-modifier recovery witness (internal actual fun
-	// f(): String = "x") matches the C oracle once the compact route accepts
-	// after a converged-path split drop. Combining that grant with primary-
-	// acceptance-derivation selection used to regress a distinct witness
-	// (object Singleton { fun work() = Unit }, issue #93) to an
-	// infix_expression misparse that diverged from the C oracle, which sides
-	// with production's object_declaration; that interaction blocked
-	// certification. selectCompactAcceptanceDerivation's materiality gate
-	// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) closes
-	// it: the witness's two tied derivations do not materialize to the same
-	// public tree, so the election is material and the compact route declines
-	// it and falls back to production instead of publishing the wrong one.
-	// Full-corpus field-aware C-oracle verification under that gate certifies
-	// both mechanisms for this exact blob (A3 certification workstream,
+	// Kotlin certifies CompactPrimaryAcceptanceDerivationCertified only.
+	// selectCompactAcceptanceDerivation's materiality gate
+	// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) is
+	// what makes that grant safe: the object_declaration tied election
+	// (object Singleton { fun work() = Unit }, issue #93) declines instead
+	// of publishing an unproven positional primary. Full-corpus field-aware
+	// C-oracle verification finds zero unadjudicated divergence under that
+	// gate for this mechanism alone (A3 certification workstream,
 	// spec.campaign.v7; cgo_harness/kotlin_a3_certification_sweep_test.go).
+	//
+	// CompactConvergedReductionSplitDropsCertified stays withheld. Review
+	// found a compact-only divergence class the certification sweep's
+	// 3-file real corpus did not surface: an annotated extension property
+	// with a getter, followed by a trailing comment (line or block), for
+	// example
+	//
+	//	@Deprecated("old")
+	//	val Int.double: Int
+	//	    get() = this * 2
+	//	// trailing
+	//
+	// Production is C-exact on this shape. With split-drops alone forced
+	// on, the compact route accepts a C-divergent tree: the annotation is
+	// torn into a bare prefix_expression and the getter becomes an
+	// assignment (first divergence at /source_file, child count 4 vs the
+	// C oracle's 3). Primary-acceptance-derivation alone is clean on the
+	// same witness: it declines the converged-path split, falling back to
+	// production's correct tree. See
+	// kotlinA3AdversarialSources's annotated_extension_property_getter_*
+	// entries for the pinned regression sweep coverage.
+	//
+	// A net fidelity ledger over 1,061 truncations of the Kotlin real
+	// corpus found split-drops regresses more than it improves (2 improved,
+	// 5 regressed) against a clean primary-accept-only baseline (0
+	// improved, 0 regressed). The two witnesses split-drops alone would
+	// otherwise fix -- the platform-modifier-recovery witness (internal
+	// actual fun f(): String = "x") and small__TimeZoneNative.kt -- both
+	// decline under primary-accept-only and fall back to production's own
+	// (C-divergent, issue #93-adjacent) tree; that reversion to the
+	// pre-certification status quo is the accepted, measured cost of
+	// withholding this grant. The derivation-selection defect in the
+	// converged-path split mechanism itself needs its own repair lane
+	// before this grant is reconsidered.
 	"kotlin": {
 		blobSHA256:                     mustRuntimeProfileSHA256("643a3e6b60d07846dd972849b612159ff9bf09734b09fb00013229c8593a8c78"),
 		externalScannerFullParseRetry:  gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:      gotreesitter.ResultCompatibilityNativeCollapsedChildren,
-		compactConvergedSplitDrops:     true,
 		compactPrimaryAcceptDerivation: true,
 	},
 	// Apex's tied class-literal election matches the C oracle once the

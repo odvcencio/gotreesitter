@@ -196,24 +196,30 @@ func TestAdmissionCandidateSelectedLineageSplitsMatchProduction(t *testing.T) {
 	}
 }
 
-// TestAdmissionCandidateKotlinPlatformModifierSplitAcceptsAdjudicatedException
-// covers Kotlin's certified converged-path split-drop mechanism
-// (CompactConvergedReductionSplitDropsCertified, grammars/runtime_profiles.go
-// "kotlin" entry). The visibility-modifier and identifier conflict paths
-// merge, then split during a later reduction. Production still recovers the
-// wrong path here (an unrelated, pre-existing production defect this
-// certification does not fix -- production's own tree still has an error and
-// still names it infix_expression); the certified compact route now accepts
-// after the split drop and produces the tree tree-sitter C agrees with. This
-// is the finding's sanctioned adjudicated exception: the certified compact
-// tree intentionally diverges from production because production is the
-// side that is wrong here (cgo_harness/kotlin_a3_certification_sweep_test.go's
-// platform_modifier_recovery witness carries the matching C-oracle receipt).
-func TestAdmissionCandidateKotlinPlatformModifierSplitAcceptsAdjudicatedException(t *testing.T) {
+// TestAdmissionCandidateKotlinPlatformModifierSplitDeclinesWithSplitDropsWithheld
+// covers a compact-route divergence found by the refreshed Kotlin corpus.
+// The visibility-modifier and identifier conflict paths merge, then split
+// during a later reduction. Production and tree-sitter C recover the
+// identifier path. The compact route otherwise drops that path and returns
+// a different clean tree.
+//
+// CompactConvergedReductionSplitDropsCertified would resolve this witness
+// correctly (TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe,
+// admission_switch_kotlin_certification_test.go, pins that it is safe in
+// isolation), but that grant stays withheld: review found a distinct,
+// compact-only divergence class on an annotated extension property (see the
+// runtime_profiles.go "kotlin" entry comment). Kotlin's shipped profile
+// carries CompactPrimaryAcceptanceDerivationCertified only, which this
+// witness's converged-path split does not reach -- it declines at the
+// converged-path-split checkpoint itself and falls back to production's
+// still-buggy (issue #93-adjacent) tree. This is the accepted, measured
+// cost of withholding split-drops: status quo ante, not a regression this
+// PR introduces.
+func TestAdmissionCandidateKotlinPlatformModifierSplitDeclinesWithSplitDropsWithheld(t *testing.T) {
 	source := []byte("internal actual fun f(): String = \"x\"\n")
 	lang := grammars.KotlinLanguage()
-	if !lang.CompactConvergedReductionSplitDropsCertified {
-		t.Fatal("kotlin did not receive the A3 converged-split-drop certification")
+	if lang.CompactConvergedReductionSplitDropsCertified {
+		t.Fatal("kotlin unexpectedly carries the withheld converged-split-drop certification")
 	}
 
 	production := gts.NewParser(lang)
@@ -225,7 +231,7 @@ func TestAdmissionCandidateKotlinPlatformModifierSplitAcceptsAdjudicatedExceptio
 	defer productionTree.Release()
 	productionSExpr := productionTree.RootNode().SExpr(lang)
 	if !productionTree.RootNode().HasError() || !strings.Contains(productionSExpr, "infix_expression") {
-		t.Fatalf("production witness changed (unrelated regression, not this certification's scope): %s", productionSExpr)
+		t.Fatalf("production/C witness changed: %s", productionSExpr)
 	}
 
 	gts.ResetAdmissionCandidateCountersForTest()
@@ -238,24 +244,14 @@ func TestAdmissionCandidateKotlinPlatformModifierSplitAcceptsAdjudicatedExceptio
 	defer candidateTree.Release()
 
 	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 1 || fallback != 0 {
-		t.Fatalf(
-			"certified converged-path split did not accept: routed=%d fallback=%d; reason=%s",
-			routed, fallback, gts.AdmissionCandidateLastFallbackReason(),
-		)
+	if routed != 0 || fallback != 1 {
+		t.Fatalf("converged-path split did not fail closed: routed=%d fallback=%d", routed, fallback)
 	}
-	want := "(source_file (function_declaration (modifiers (visibility_modifier) (platform_modifier)) " +
-		"(simple_identifier) (function_value_parameters) (user_type (type_identifier)) " +
-		"(function_body (string_literal (string_content)))))"
-	candidateSExpr := candidateTree.RootNode().SExpr(lang)
-	if candidateSExpr != want {
-		t.Fatalf("candidate tree = %s, want %s", candidateSExpr, want)
+	if reason := gts.AdmissionCandidateLastFallbackReason(); !strings.Contains(reason, "converged-path reduction split") {
+		t.Fatalf("fallback reason=%q", reason)
 	}
-	if candidateTree.RootNode().HasError() {
-		t.Fatalf("candidate tree unexpectedly has an error: %s", candidateSExpr)
-	}
-	if candidateSExpr == productionSExpr {
-		t.Fatal("candidate tree unexpectedly matches production's still-buggy tree -- the adjudicated exception may have closed; re-verify production's own #93 witness")
+	if candidateSExpr := candidateTree.RootNode().SExpr(lang); candidateSExpr != productionSExpr {
+		t.Fatalf("fallback tree diverged:\nproduction=%s\ncandidate=%s", productionSExpr, candidateSExpr)
 	}
 }
 

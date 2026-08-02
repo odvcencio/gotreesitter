@@ -242,14 +242,15 @@ func TestBuiltinCompactConvergedSplitProfilesRequireExactBlobIdentity(t *testing
 		{name: "javascript", load: JavascriptLanguage},
 		{name: "python", load: PythonLanguage},
 		// A3 certification workstream (spec.campaign.v7, finding
-		// tied-election-family-compact-retirement): Perl, Ada, and Kotlin
-		// certify converged-path split-drop acceptance after full-corpus
-		// field-aware C-oracle verification. Apex does not need this
-		// certification and stays out of this table. See the
+		// tied-election-family-compact-retirement): Perl and Ada certify
+		// converged-path split-drop acceptance after full-corpus field-aware
+		// C-oracle verification. Apex does not need this certification and
+		// stays out of this table. Kotlin's grant stays withheld: review
+		// found a compact-only divergence class (an annotated extension
+		// property with a getter and a trailing comment); see the
 		// runtime_profiles.go "kotlin" entry comment.
 		{name: "perl", load: PerlLanguage},
 		{name: "ada", load: AdaLanguage},
-		{name: "kotlin", load: KotlinLanguage},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

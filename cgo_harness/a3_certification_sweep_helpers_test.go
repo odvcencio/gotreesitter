@@ -18,13 +18,15 @@ import (
 // own sweep test file that calls runA3CertificationSweep with that
 // language's full real-corpus-or-constructed source set and its
 // certification flags already landed in grammars/runtime_profiles.go.
-// Kotlin's certificates were withheld until
+// Kotlin ships CompactPrimaryAcceptanceDerivationCertified only --
 // selectCompactAcceptanceDerivation's materiality gate
-// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) resolved
-// the interaction that blocked them; see
-// admission_switch_kotlin_certification_withheld_test.go and
-// kotlin_a3_certification_object_declaration_regression_test.go for that
-// witness's dedicated receipts.
+// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) is what
+// makes that grant safe on its own. CompactConvergedReductionSplitDropsCertified
+// stays withheld: review found a compact-only divergence class on an
+// annotated extension property; see the runtime_profiles.go "kotlin" entry
+// comment, admission_switch_kotlin_certification_test.go, and
+// kotlin_a3_certification_object_declaration_regression_test.go for the
+// dedicated receipts.
 //
 // Method (matches the admission_switch_converged_path_test.go flag-mutation
 // pattern): for every source, parse once on production (compat tail on,
@@ -105,6 +107,16 @@ func a3DeclineReasonClass(reason string) string {
 		return "unknown-empty-reason"
 	case strings.Contains(reason, "converged-path reduction split"):
 		return "converged-path-reduction-split"
+	case strings.Contains(reason, "material-acceptance-election"):
+		// Must precede the "did not accept EOF" case below: the materiality
+		// gate's full decline detail (admission_census.go,
+		// admissionCensusStopDecline) wraps its own boundary text with a
+		// "did not accept EOF: " prefix, so that coarser, generic substring
+		// always matches too. Checking this first keeps a genuine tied
+		// election (parsercore_phase0_driver.go,
+		// compactAcceptanceElectionIsVacuous) out of the no-eof-accept
+		// catch-all bucket.
+		return "material-acceptance-election"
 	case strings.Contains(reason, "did not accept EOF"):
 		return "no-eof-accept"
 	case strings.Contains(reason, "not sole exact EOF") || strings.Contains(reason, "acceptance is not sole exact EOF"):

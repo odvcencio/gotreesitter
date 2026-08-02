@@ -15,7 +15,8 @@ import (
 // TestB4bAlternativeSetV2KotlinWitnessCOracleAdjudication independently
 // verifies, against the locked C oracle, which side of the Kotlin witness
 // (admission_switch_converged_path_test.go's
-// TestAdmissionCandidateConvergedPathSplitFailsClosed) is the divergent one:
+// TestAdmissionCandidateKotlinPlatformModifierSplitDeclinesWithSplitDropsWithheld)
+// is the divergent one:
 // production's error-recovery tree, or the clean function_declaration tree
 // the v1/pre-branch-discrimination containment predicate would have
 // produced had it (wrongly) admitted the drop.
