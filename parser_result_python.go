@@ -1393,7 +1393,17 @@ func repairPythonKeywordErrorNode(node *Node, source []byte, arena *nodeArena, l
 		return node
 	}
 	childCount := resultChildCount(node)
-	if node.Type(lang) == "ERROR" && childCount == 0 {
+	// A childless ERROR leaf that is already EXTRA never came from a real
+	// shift the grammar directed (an EXTRA ERROR leaf only exists today from
+	// materializeSkippedGapAsExtraError, parser.go: a lexer-skipped gap that
+	// happens to spell an anonymous symbol's name). Relabeling it as that
+	// symbol would silently drop the error signal this repair itself must
+	// not launder away (setExtra below preserves Extra but never restores
+	// HasError on the replacement leaf) -- see parser.go's
+	// skippedRealGapContinuesSeparatedList doc for why that gap has no real
+	// token to begin with. Non-extra childless ERROR leaves (the case this
+	// repair exists for) are unaffected.
+	if node.Type(lang) == "ERROR" && childCount == 0 && !node.isExtra() {
 		if keyword, ok := pythonKeywordLeafSymbol(node, source, lang); ok {
 			named := symbolIsNamed(lang, keyword)
 			repl := newLeafNodeInArena(arena, keyword, named, node.startByte, node.endByte, node.startPoint, node.endPoint)
