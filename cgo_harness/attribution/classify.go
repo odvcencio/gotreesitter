@@ -494,6 +494,14 @@ func buildFunctionOverride() []functionOverrideEntry {
 		// materialization consults (parsercore_phase0_fresh_full_runner.go);
 		// same gate, same guarantee.
 		"FreshFullRunner).s3AllowErrorRoot",
+		// Adversarial-review revision (REQUIRED 1/2): the root leaf-coverage
+		// audit only runs inside finalizeDiagnosticParserCoreAcceptedRootSpan's
+		// allowErrorRoot branch, itself gated the same way as s3AllowErrorRoot
+		// above; the deeper-resume existence probe only runs from the two S3
+		// call sites listed above. Both are unreachable work for a clean
+		// parse or an uncertified grammar, same as every other entry here.
+		"diagnosticParserCoreAcceptedTreeLeafCoverageGap",
+		"Core).AncestorStateWithActionExists",
 	)
 
 	return table

@@ -75,7 +75,10 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// converged-split-drop certification); Perl and Ada are new entries
 	// carrying both certifications. Kotlin's entry stays unchanged (both
 	// grants withheld; see the "kotlin" map entry comment).
-	if got, want := len(builtinLanguageRuntimeProfiles), 44; got != want {
+	// 45 = the prior 44 plus the B3 stage S3 html entry, certifying native
+	// strategy-2 error-region recovery for the html_erroneous_end_tag class
+	// (spec.compact-recovery-ownership.v1).
+	if got, want := len(builtinLanguageRuntimeProfiles), 45; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
