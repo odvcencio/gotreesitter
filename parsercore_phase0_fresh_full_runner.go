@@ -126,10 +126,32 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 		r.options.stopControlHardCeilingBytes = parseMemoryHardCeilingBytes()
 	}
 	// See DiagnosticParserCorePrefixOptions.materializationParser: this runner
-	// is reused across parses, so both fields are refreshed on every call
-	// rather than set once at construction.
+	// is reused across parses, so these fields are refreshed on every call
+	// rather than set once at construction. materializationForceReplayParseStates
+	// forwards r.replayParseStates itself (not a hardcoded value): it is true
+	// only for the admission-candidate route (newAdmissionCandidateRunner),
+	// so the gate's trial materializations carry the same ParseState/
+	// PreGotoState presence the caller's own post-acceptance materialization
+	// (materializeSelection, below) will publish.
 	r.options.materializationParser = r.parser
 	r.options.materializationSource = source
+	r.options.materializationForceReplayParseStates = r.replayParseStates
+	r.options.materializationContextSet = true
+	// The gate (completeAcceptance, run synchronously inside the call below)
+	// is the only reader of these fields, and it runs to completion before
+	// this function returns. Clear both this runner's own copy and the
+	// scheduler's copy (scheduler.options is a byte-for-byte struct copy
+	// taken inside the call, so it holds its own slice header aliasing the
+	// same backing array) on every exit path, so the cached, per-Parser
+	// runner does not pin the caller's source buffer between parses.
+	defer func() {
+		r.options.materializationParser = nil
+		r.options.materializationSource = nil
+		r.options.materializationContextSet = false
+		r.scheduler.options.materializationParser = nil
+		r.scheduler.options.materializationSource = nil
+		r.scheduler.options.materializationContextSet = false
+	}()
 	scheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 		&r.scheduler, compact, tokenSource, &r.scannerScratch, r.lang.InitialState,
 		r.options, diagnosticParserCoreSeedObserver{},

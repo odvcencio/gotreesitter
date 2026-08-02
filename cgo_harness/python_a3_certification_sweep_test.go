@@ -35,8 +35,46 @@ func TestPythonA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	sources := append(append([]a3CertificationSweepSource{}, real...), constructed...)
 	t.Logf("python A3 full-corpus sweep source denominator: real=%d constructed=%d total=%d", len(real), len(constructed), len(sources))
 
-	result := runA3CertificationSweep(t, "python", "python", lang, sources)
+	result := runA3CertificationSweep(t, "python", "python", lang, sources, pythonA3KnownDivergences)
 	a3ReportSweep(t, result)
+}
+
+// pythonA3KnownDivergences are already-triaged, pre-existing production-route
+// defects the tightened sweep criterion surfaced: the compact route only
+// reproduces what production already produces (verified directly, with the
+// compact route disabled) on each of these witnesses. The two real-corpus
+// entries are family M (materialization: an inherited field-map entry names
+// a child Go's flattened-hidden-span heuristic should not; C's node.c filters
+// inherited entries and never does). large__python3.8_grammar.py's first
+// point is family M; it also carries a family S point further in (an
+// aliased "not in"/"is not" span that starts one byte early) not enumerated
+// as a separate entry here, since only the first divergence gates the match.
+// The two f-string entries are family D (a first-class declared
+// pattern_list/expression_list ambiguity; Go's reduceForkWindowPreference
+// disagrees with C's ts_parser__select_tree on which side to keep). Not
+// tied elections, not this gate's scope; repair lanes are tracked
+// separately.
+var pythonA3KnownDivergences = []a3KnownDivergence{
+	{
+		Witness:   "large__python3.8_grammar.py",
+		FirstPath: "/module/class_definition[25]/block[4]/function_definition[13]/block[6]/import_from_statement[0]/,[4]",
+		GoValue:   "name", CValue: "", Family: "M",
+	},
+	{
+		Witness:   "medium__setup.py",
+		FirstPath: "/module/import_from_statement[2]/,[4]",
+		GoValue:   "name", CValue: "", Family: "M",
+	},
+	{
+		Witness:   "fstring_interpolation_bare_tuple",
+		FirstPath: "/module/assignment[2]/string[2]/interpolation[1]/pattern_list[1]",
+		GoValue:   "pattern_list", CValue: "expression_list", Family: "D",
+	},
+	{
+		Witness:   "fstring_interpolation_splat",
+		FirstPath: "/module/assignment[1]/string[2]/interpolation[1]/pattern_list[1]",
+		GoValue:   "pattern_list", CValue: "expression_list", Family: "D",
+	},
 }
 
 // pythonA3AdversarialSources gathers Python's tied-election witness (the

@@ -61,7 +61,12 @@ import (
 // languages' full-corpus sweeps (cgo_harness a3_certification_sweep
 // pattern) compare the real shipped Parse() output, which always applies
 // the compat tail regardless of route, and found zero unadjudicated
-// divergence there. The no-op question is a separate, later concern: only
+// divergence there beyond the enumerated, tracked pre-existing
+// production-route defects each sweep file carries (perlA3KnownDivergences,
+// pythonA3KnownDivergences, adaA3KnownDivergences; apex carries none). Those
+// defects reproduce with the compact route disabled, so the compact route
+// contributes nothing to them; they are unrelated to this file's own arm
+// no-op question. The no-op question is a separate, later concern: only
 // whether the arm itself can be deleted.
 
 // TestA3ArmNoOpConfirmationApexClassLiteralDeclinesAsMaterialElection
@@ -232,8 +237,12 @@ func assertA3ArmNoOp(t *testing.T, name string, lang *gts.Language, source []byt
 	}
 	defer rawTree.Release()
 	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 1 && fallback != 1 {
-		t.Fatalf("%s: ambiguous raw route counters routed=%d fallback=%d", name, routed, fallback)
+	// Exactly one of routed/fallback must be 1: (routed == 1) == (fallback
+	// == 1) is true both when neither fired (0, 0; no parse reached a
+	// terminal outcome) and when both did (1, 1; a double count), and false
+	// only in the two valid, mutually exclusive outcomes (1, 0) and (0, 1).
+	if (routed == 1) == (fallback == 1) {
+		t.Fatalf("%s: ambiguous raw route counters routed=%d fallback=%d, want exactly one to be 1", name, routed, fallback)
 	}
 
 	tailedSExpr := tailedTree.RootNode().SExpr(lang)

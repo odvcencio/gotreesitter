@@ -51,3 +51,12 @@ func TestSelectCompactAcceptanceDerivation(t *testing.T) {
 		})
 	}
 }
+
+// CompactAcceptanceDerivationTreesEqualForTest exposes
+// compactAcceptanceDerivationTreesEqual to the external gotreesitter_test
+// package, which can import grammars to build real parsed trees (an
+// internal test file in this package cannot: grammars imports gotreesitter,
+// so that would be an import cycle).
+func CompactAcceptanceDerivationTreesEqualForTest(lang *Language, a, b *Node) bool {
+	return compactAcceptanceDerivationTreesEqual(lang, a, b)
+}

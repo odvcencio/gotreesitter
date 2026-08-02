@@ -38,7 +38,9 @@ func TestApexA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	// is no missing-fixture condition to detect for this language.
 	t.Logf("apex A3 full-corpus sweep source denominator: real=0 (no corpus_real/apex on any host) constructed=%d total=%d", len(sources), len(sources))
 
-	result := runA3CertificationSweep(t, "apex", "apex", lang, sources)
+	// No known-divergence entries: apex's sweep has zero unadjudicated
+	// divergences at both the pre- and post-tightening criterion.
+	result := runA3CertificationSweep(t, "apex", "apex", lang, sources, nil)
 	a3ReportSweep(t, result)
 }
 

@@ -93,6 +93,15 @@ func TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe(t *testing.T)
 // declines the compact route instead of publishing the wrong one, and the
 // route falls back to production's (C-oracle-matching, see the cgo_harness
 // companion receipt) object_declaration parse.
+//
+// The route counters alone only prove "some soft decline happened" -- the
+// generic "did not accept EOF" fallback reason is shared by every soft
+// decline, not specific to this gate. GTS_ADMISSION_CENSUS=1
+// (ResetAdmissionCensusEnabledForTest clears the cached env read so setting
+// it here reliably takes effect) surfaces the classified mechanism tag, so
+// this asserts mechanism=material-acceptance-election specifically: proof
+// this decline came from the materiality gate, not some other soft-decline
+// path that also contains "did not accept EOF".
 func TestKotlinCompactCertificationObjectDeclarationRegressionWithheld(t *testing.T) {
 	source := []byte("package demo\n\nobject Singleton {\n    fun work() = Unit\n}\n")
 	lang := grammars.KotlinLanguage()
@@ -119,6 +128,10 @@ func TestKotlinCompactCertificationObjectDeclarationRegressionWithheld(t *testin
 		lang.CompactPrimaryAcceptanceDerivationCertified = false
 	}()
 
+	t.Setenv("GTS_ADMISSION_CENSUS", "1")
+	gts.ResetAdmissionCensusEnabledForTest()
+	t.Cleanup(gts.ResetAdmissionCensusEnabledForTest)
+
 	gts.ResetAdmissionCandidateCountersForTest()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
@@ -137,15 +150,26 @@ func TestKotlinCompactCertificationObjectDeclarationRegressionWithheld(t *testin
 			routed, fallback, gts.AdmissionCandidateLastFallbackReason(),
 		)
 	}
-	if reason := gts.AdmissionCandidateLastFallbackReason(); !strings.Contains(reason, "did not accept EOF") {
-		t.Fatalf("forced-both-certificates fallback reason changed unexpectedly: %s", reason)
-	}
-	candidateSExpr := candidateTree.RootNode().SExpr(lang)
-	if candidateSExpr != productionSExpr {
+	reason := gts.AdmissionCandidateLastFallbackReason()
+	if !strings.Contains(reason, "mechanism=material-acceptance-election") {
 		t.Fatalf(
-			"forced-both-certificates candidate tree (fallback to production) = %s, want production's object_declaration tree %s",
-			candidateSExpr, productionSExpr,
+			"forced-both-certificates fallback reason does not classify as the materiality gate "+
+				"(want mechanism=material-acceptance-election): %s", reason,
 		)
 	}
-	t.Logf("confirmed: the materiality gate declines this material election (two derivations, two different trees) instead of publishing the positional primary; production's object_declaration tree is served: %s", candidateSExpr)
+	// Sanity check only, not a correctness proof: a decline falls back to
+	// production, so the served tree is production's own parse of the same
+	// source, computed identically above. This can only fail if production
+	// parsing itself is non-deterministic across two fresh parsers, a much
+	// larger and separately-tested property (TestW5DeterminismAcrossFreshParsers).
+	candidateSExpr := candidateTree.RootNode().SExpr(lang)
+	t.Logf(
+		"confirmed: the materiality gate declines this material election (two derivations, two "+
+			"different trees, reason=%s) instead of publishing the positional primary; production's "+
+			"object_declaration tree is served: %s",
+		reason, candidateSExpr,
+	)
+	if candidateSExpr != productionSExpr {
+		t.Fatalf("fallback tree = %s, want production's object_declaration tree %s (production parse non-determinism?)", candidateSExpr, productionSExpr)
+	}
 }

@@ -35,8 +35,39 @@ func TestPerlA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	sources := append(append([]a3CertificationSweepSource{}, real...), constructed...)
 	t.Logf("perl A3 full-corpus sweep source denominator: real=%d constructed=%d total=%d", len(real), len(constructed), len(sources))
 
-	result := runA3CertificationSweep(t, "perl", "perl", lang, sources)
+	result := runA3CertificationSweep(t, "perl", "perl", lang, sources, perlA3KnownDivergences)
 	a3ReportSweep(t, result)
+}
+
+// perlA3KnownDivergences are already-triaged, pre-existing production-route
+// defects the tightened sweep criterion surfaced: the compact route only
+// reproduces what production already produces (verified directly, with the
+// compact route disabled) on each of these witnesses. All four are family D
+// (GLR derivation selection at a declared conflict: Go's
+// reduceForkWindowPreference disagrees with C's ts_parser__select_tree on
+// which branch of a real grammar-declared conflict to keep). Not tied
+// elections, not this gate's scope; repair lanes are tracked separately.
+var perlA3KnownDivergences = []a3KnownDivergence{
+	{
+		Witness:   "medium__statements.pm",
+		FirstPath: "/source_file/try_statement[69]/block[1]/expression_statement[1]/ambiguous_function_call_expression[0]",
+		GoValue:   "ambiguous_function_call_expression", CValue: "function_call_expression", Family: "D",
+	},
+	{
+		Witness:   "join_assignment",
+		FirstPath: "/source_file/expression_statement[0]/list_expression[0]",
+		GoValue:   "list_expression", CValue: "assignment_expression", Family: "D",
+	},
+	{
+		Witness:   "return_list",
+		FirstPath: "/source_file/subroutine_declaration_statement[0]/block[2]/expression_statement[1]/list_expression[0]",
+		GoValue:   "list_expression", CValue: "return_expression", Family: "D",
+	},
+	{
+		Witness:   "local_dynamic_scope",
+		FirstPath: "/source_file/subroutine_declaration_statement[2]/block[2]/expression_statement[3]/ambiguous_function_call_expression[0]",
+		GoValue:   "ambiguous_function_call_expression", CValue: "function_call_expression", Family: "D",
+	},
 }
 
 // perlA3AdversarialSources reuses Perl's tied push-list election witness
