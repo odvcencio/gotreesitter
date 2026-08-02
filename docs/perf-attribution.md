@@ -670,9 +670,9 @@ diagnostic-lane number into a shipped-route claim or vice versa.
 Generated 2026-08-02T11:02:14Z. Host: shared WSL2 development host,
 background load uncontrolled -- the same local-development floor as every
 prior receipt in this document, not a quiet-host or enclave measurement.
-Git identity: `6fab988d30d42d931d42625eaa0cfa167d4877ba` (the tranche's
-merge-base commit; the wall-removal change is a working-tree diff on top of
-it at capture time, so the tool's `git rev-parse HEAD` names the base, not a
+Git identity: `6fab988d30d42d931d42625eaa0cfa167d4877ba` (the capture-time
+base commit; the wall-removal change is a working-tree diff on top of it at
+capture time, so the tool's `git rev-parse HEAD` names the base, not a
 B9-specific commit). This run's raw JSON output was not committed, matching
 the existing `harness_out/` git-ignore rule; rerun the documented command to
 reproduce it.

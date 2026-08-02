@@ -173,6 +173,7 @@ func TestGoParseGiantTableLiteralStopsWithinMemoryBudget(t *testing.T) {
 			heapGrowth, float64(heapGrowth)/float64(budgetBytes), maxOvershootFactor, budgetBytes, tree.ParseRuntime().Summary(),
 		)
 	}
+	t.Logf("heap growth = %d bytes (%.2fx budget %d bytes), stop=%s", heapGrowth, float64(heapGrowth)/float64(budgetBytes), budgetBytes, tree.ParseRuntime().Summary())
 }
 
 // TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound is the
@@ -198,16 +199,17 @@ func TestGoParseGiantTableLiteralStopsWithinMemoryBudget(t *testing.T) {
 // hot dispatch/election path allocates and discards per token -- a live GC
 // reclaims that continuously in normal operation, but nothing a
 // retained-footprint poll tracks can bound it, because it is never part of
-// any tracked structure. Measured on this witness: 9.01-9.56x across six
+// any tracked structure. Measured on this witness: 9.14-9.56x across six
 // runs (a real, verified improvement over the pre-honest-accounting
 // length-only gauge's 11.51x on the same witness), not inside the
-// production-only 6x contract. maxOvershootFactor sits with headroom above
-// the high end of that range and below the pre-fix figure, so this test
-// still catches a regression back to length-only accounting while tolerating
-// ordinary run-to-run variance. Closing the remaining gap to 6x is an open
-// trade-off against routing coverage (see stopControlFootprintChurnRatio's
-// doc comment, parsercore_phase0_driver.go) that this test intentionally
-// does not force by tightening this number further.
+// production-only 6x contract. maxOvershootFactor sits just above the high
+// end of that measured range and well below the pre-fix figure, so this
+// test still catches a regression back to length-only accounting while
+// tolerating ordinary run-to-run variance. Closing the remaining gap to 6x
+// is an open trade-off against routing coverage (see
+// stopControlFootprintChurnRatio's doc comment, parsercore_phase0_driver.go)
+// that this test intentionally does not force by tightening this number
+// further.
 func TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound(t *testing.T) {
 	const budgetMB = 96
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", strconv.Itoa(budgetMB))
@@ -256,7 +258,7 @@ func TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound(t *testing
 	}
 
 	budgetBytes := int64(budgetMB) * 1024 * 1024
-	const maxOvershootFactor = 11
+	const maxOvershootFactor = 10
 	if heapGrowth > budgetBytes*maxOvershootFactor {
 		t.Fatalf(
 			"process heap growth = %d bytes (%.2fx budget), want < %dx budget %d bytes -- regression past the tranche B9 achieved bound (runtime=%s)",

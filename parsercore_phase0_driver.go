@@ -3157,13 +3157,22 @@ func diagnosticParserCoreStopControlTripped(reason ParseStopReason) error {
 // tracked footprint reached 103.6 MB at decline had allocated 516.5 MB
 // cumulative by then: a ~5x ratio.
 //
+// A runtime-heap-based soft stop is not an option here. The determinism
+// contract at parser_memory_budget_runtime.go:162-172 (issue #454) bars a
+// runtime.MemStats reading (HeapAlloc, Sys) from stopping a parse at
+// anything but the absolute hard ceiling: both readings are process-global
+// and shift run to run with GC timing, not with the input, so using either
+// one for the SOFT per-parse budget would make this poll's trip point
+// non-deterministic. FootprintBytes is the deterministic, capacity-based
+// gauge that keeps the soft budget reproducible instead.
+//
 // Discounting the comparison threshold by a fixed divisor (tripping the
 // poll at budget/divisor instead of budget) was tried and reverted: at
 // divisor 2, the giant-table-literal replica still exceeded the 6x
 // cumulative-allocation contract (6.15-6.70x measured, still over), and a
 // realistic, currently-passing witness (a 140KB clean Go source, budget 48
 // MB) started declining before completion, because ITS OWN legitimate
-// footprint at completion (order 28 MB) already exceeds budget/2. At
+// footprint at completion (measured (34,36] MB) already exceeds budget/2. At
 // divisor 3 the replica came inside the contract (5.0-5.9x) but the same
 // 140KB/48MB witness still regressed. No tested divisor cleared the
 // pathological witness without cutting into ordinary coverage, because the
@@ -3173,13 +3182,21 @@ func diagnosticParserCoreStopControlTripped(reason ParseStopReason) error {
 //
 // stopControlMemoryBudgetReason therefore compares FootprintBytes against
 // the configured budget with NO discount (ratio effectively 1): the honest,
-// cap()-based, structure-complete gauge alone, with its own measured,
-// no-coverage-cost improvement (11.51x to 9.02-9.56x cumulative allocation
-// on the same replica, down from the pre-B9-honest-accounting baseline).
-// Closing the remaining gap to the 6x contract needs either an owner
-// decision to accept the coverage cost above, or a deeper change to reduce
-// the scheduler's own per-token ephemeral allocation rate (out of this
-// tranche's scope). See the tranche's PR for the full witness table.
+// cap()-based, structure-complete gauge alone, with its own measured
+// improvement (11.51x to 9.14-9.56x cumulative allocation on the same
+// replica, down from the pre-B9-honest-accounting baseline). That
+// improvement is not free at low budgets: FootprintBytes reads higher than
+// the length-only StorageBytes gauge tranche B9 replaced, so the minimum
+// budget a realistic witness needs to still route (rather than decline)
+// rose too -- measured +25-29% on two witnesses (the same 140KB clean Go
+// source referenced above: 28 MB to 36 MB; a 238KB one: 48 MB to 60 MB).
+// The cost is nil at the shipped 512 MB default budget, which clears both
+// thresholds with wide margin; it only reaches a caller who configured a
+// budget close to a witness's pre-B9 threshold. Closing the remaining gap
+// to the 6x contract needs either an owner decision to accept the
+// divisor-discount coverage cost described above, or a deeper change to
+// reduce the scheduler's own per-token ephemeral allocation rate (out of
+// this tranche's scope). See the tranche's PR for the full witness table.
 const stopControlFootprintChurnRatio = 1
 
 // stopControlMemoryBudgetReason compares the compact core's own real
