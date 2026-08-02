@@ -1,5 +1,24 @@
 package gotreesitter
 
+// collapsePythonRootFragments and its three collapse* helpers below
+// (collapsePythonClassFragments, collapsePythonFunctionFragments,
+// collapsePythonTerminalIfSuffix) no longer force setHasError(false) on the
+// block/class/function/if nodes they build; see each helper's own comment.
+// An independent PR #636 review, and an isolated-revert re-sweep performed
+// here (re-adding the removed setHasError(false) calls, then re-running the
+// full incremental-gate corpus, 5,241 sites across all three edit classes),
+// both found zero witnesses where restoring the old override changes the
+// final tree's root HasError(): whatever intermediate error state these
+// helpers construct on the way in is either fully resolved (no error
+// remains once dropZeroWidthUnnamedTail/repairPythonNode-style repair
+// finishes) or is separately caught by pythonModuleChildrenLookComplete
+// (which the same review confirmed DOES have live teeth -- 762 witnesses)
+// before it would matter. The removals are kept anyway, as defense in
+// depth: forcing HasError to false regardless of children is never
+// correct per populateParentNode's own contract, and removing that override
+// costs nothing. If a future input reaches these functions with an error
+// that genuinely does survive to the final tree, this is the mechanism that
+// keeps it visible at the root.
 func collapsePythonRootFragments(nodes []*Node, arena *nodeArena, lang *Language) []*Node {
 	if len(nodes) == 0 || lang == nil || lang.Name != "python" {
 		return nodes

@@ -3884,13 +3884,16 @@ func (p *Parser) stateDeterministicNonExtraShift(state StateID, sym Symbol) bool
 // production's ChildCount, the leaf is folded into whichever production
 // later reduces over it without perturbing arity, while populateParentNode's
 // HasError OR propagates the error through the reduce-built ancestors above
-// it. That propagation is not universal all the way to the tree root: python
-// specifically can still report a clean root over a genuinely erroring
-// subtree (parser_result_root_build.go's syntheticRootCanDropError /
-// pythonModuleChildrenLookComplete, a pre-existing, python-only root-level
-// convention this fix does not change and does not fully interact well
-// with -- see the PR discussion for the measured effect on root-level
-// HasError()).
+// it, all the way to the tree root. Python's root-level convention
+// (parser_result_root_build.go's syntheticRootCanDropError /
+// pythonModuleChildrenLookComplete) used to break exactly that propagation
+// for EXTRA children: it skipped extra children before checking their
+// HasError, so this leaf -- extra by construction, see leaf.setExtra(true)
+// below -- could still be silently dropped at the python module root even
+// though it correctly carries HasError=true. Fixed in PR #636:
+// pythonModuleChildrenLookComplete and its no-materialize twin now check
+// HasError on every child, extra or not, before the extra-skip, so this
+// leaf's error status reaches the root like any other.
 //
 // This is an ACCOUNTING fix, not a shape fix: the skipped bytes now have a
 // span and HasError=true, matching C tree-sitter's verdict that the

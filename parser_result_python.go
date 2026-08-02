@@ -1061,6 +1061,18 @@ func repairPythonRootNode(root *Node, arena *nodeArena, lang *Language) *Node {
 		return root
 	}
 	if !pythonRootRepairNeedsMaterializedChildren(root, lang) {
+		// This branch (root.hasError() true while the no-materialize fast path
+		// applies) was measured, both by an independent PR #636 review and by
+		// an isolated-revert re-sweep of the full incremental-gate corpus here
+		// (5,241 sites, all three edit classes), to never fire in practice: no
+		// known witness reaches pythonRootRepairNeedsMaterializedChildren==false
+		// with root.hasError()==true. Reverting the HasError check inside
+		// pythonModuleChildrenLookCompleteNoMaterialize entirely still produced
+		// zero witnesses on that corpus. The check is kept anyway: it is cheap,
+		// and it holds the same ERROR-FREE-shape contract as the materialize
+		// path (pythonModuleChildrenLookComplete, which the same review
+		// independently confirmed DOES have live teeth -- 762 witnesses) for
+		// whichever future input first reaches this branch with a real error.
 		if root.hasError() && pythonModuleChildrenLookCompleteNoMaterialize(root, lang) {
 			cloned := cloneNodeInArenaPreservingFinalRefsForMutation(arena, root)
 			cloned.setHasError(false)

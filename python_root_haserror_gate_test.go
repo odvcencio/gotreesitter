@@ -3,10 +3,12 @@ package gotreesitter_test
 // TestPythonRootHasErrorAgreementGate is the standing root-flag-agreement
 // gate identified as missing by
 // finding.pre-existing-route-divergences-2026-08-02 section 3: the
-// incremental invariant gate above scopes "clean" strictly by a recursive
-// IsError()/IsMissing() walk and deliberately never reads Node.HasError() (see
-// that file's doc comment), so it has no way to notice when a tree's ROOT
-// HasError() flag disagrees with the tree's own content.
+// incremental invariant gate (TestIncrementalInvariantGate,
+// incremental_invariant_gate_test.go, a separate file in this same package)
+// scopes "clean" strictly by a recursive IsError()/IsMissing() walk and
+// deliberately never reads Node.HasError() (see that file's doc comment), so
+// it has no way to notice when a tree's ROOT HasError() flag disagrees with
+// the tree's own content.
 //
 // This gate closes that hole directly: it reuses the same corpus and the
 // same delete/insert/replace edit-site generation as
