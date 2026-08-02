@@ -157,6 +157,16 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
 	},
+	// Kotlin's tied platform-modifier recovery witness (internal actual fun
+	// f(): String = "x") matches the C oracle once the compact route accepts
+	// after a converged-path split drop. A3 certification-workstream
+	// verification withholds certification here: combining that grant with
+	// primary-acceptance-derivation selection regresses a distinct witness
+	// (object Singleton { fun work() = Unit }, issue #93) to an
+	// infix_expression misparse that diverges from the C oracle, which sides
+	// with production's object_declaration. Neither grant lands until that
+	// interaction is resolved (see
+	// TestKotlinCompactCertificationObjectDeclarationRegressionWithheld).
 	"kotlin": {
 		blobSHA256:                    mustRuntimeProfileSHA256("643a3e6b60d07846dd972849b612159ff9bf09734b09fb00013229c8593a8c78"),
 		externalScannerFullParseRetry: gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
