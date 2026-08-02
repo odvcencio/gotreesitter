@@ -2965,8 +2965,15 @@ func diagnosticParserCoreReduceChildrenTilingGap(startByte, endByte uint32, entr
 // only this predicate, no other change) closes the class: 0 residual
 // divergences in a 624-input javascript-family probe, and only the
 // pre-existing, separately tracked 25-input haskell residual (a different
-// mechanism; compact may be correct there) surviving the 5,148-input
-// 9-language sweep. Retiring this predicate moves jsdoc from PASS to
+// mechanism; compact may be correct there) surviving the 5,148-input probe
+// restricted to the 9 curated languages (routeEqualityFuzzLanguages,
+// fuzz_admission_route_equality_test.go). A wider, 45-language review sweep
+// (11,884 inputs, unchanged before and after this predicate's retirement)
+// separately observed two more residual members outside that curated set,
+// hcl (12 instances) and doxygen (22 instances) -- both a different
+// mechanism from this class-e closure, neither touched by this predicate's
+// removal, and neither in scope here; they need their own adjudication,
+// same as the haskell residual. Retiring this predicate moves jsdoc from PASS to
 // FALLBACK on the 206-language admission scorecard (its own gap now
 // correctly declines at accepted-leaf-tiling-gap below); doxygen does not
 // regress -- verified directly, its gap sits at the derivation root

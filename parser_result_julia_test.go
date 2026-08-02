@@ -194,12 +194,26 @@ func TestJuliaBracketForComprehensionCompatibility(t *testing.T) {
 // node at all between them) no longer applies once production's own general
 // mechanism already inserts the ERROR node first, so it now correctly
 // no-ops for this input; the general, per-parse fix it was standing in for
-// (see that function's doc comment) has arrived. This test was previously
-// masked from ever exercising this exact shape by the same falsified
+// (see materializeSkippedGapAsExtraError's own doc comment, parser.go --
+// normalizeJuliaTrailingCommaAssignmentTuple itself carries no doc comment
+// of its own) has arrived. This test was previously masked from ever
+// exercising this exact shape by the same falsified
 // bytesAreSingleByteDecorationTrivia exemption: compact used to accept the
 // input silently (no error), so this Parse call -- which does not force a
 // route -- never fell back to the now-current production shape until the
 // exemption was retired.
+//
+// The pinned shape below (Text()==" = ", ChildCount()==0) itself diverges
+// from the C oracle, which reports this same ERROR as Text()=="=" with one
+// child. That divergence is not this test's own defect and is not new: it
+// is the known, already-documented accounting-not-shape gap
+// materializeSkippedGapAsExtraError's own doc comment names explicitly (see
+// "This is an ACCOUNTING fix, not a shape fix", parser.go) -- the leaf's
+// span still covers the whole lexer-skipped gap rather than only the true
+// stray token, and the leaf is still childless where C wraps the stray as
+// its own child, both named there as open follow-up work. This test pins
+// production's actual, current output, not a claim that this output
+// matches C.
 func TestJuliaTrailingCommaAssignmentTupleCompatibility(t *testing.T) {
 	lang := grammars.JuliaLanguage()
 	if lang == nil {

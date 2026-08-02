@@ -147,9 +147,13 @@ func TestAdmissionCandidateScorecard206(t *testing.T) {
 		// registry drift, or surrendered route coverage require an explicit
 		// review and ratchet update.
 		//
-		// minPass moved 200 -> 198 and maxFallback 1 -> 3 across two
-		// independent landings that collided on the same pair of numbers:
+		// minPass moved 200 -> 198 and maxFallback 1 -> 3. Three languages
+		// carry the three FALLBACK rows counted here:
 		//
+		//   - markdown_inline: the pre-existing baseline FALLBACK, already
+		//     present before either landing below and unrelated to both.
+		//     Never in admissionScorecardRequiredCompactPasses, so it was
+		//     never counted in minPass either.
 		//   - meson moved PASS -> FALLBACK when
 		//     selectCompactAcceptanceDerivation's materiality gate
 		//     (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous)
@@ -167,11 +171,17 @@ func TestAdmissionCandidateScorecard206(t *testing.T) {
 		//     javascript, haskell, html, and bash, and moves jsdoc from PASS
 		//     to FALLBACK (accepted-leaf-tiling-gap: its own interior
 		//     comment-continuation gap no longer has a tolerating exemption).
+		//     Every jsdoc full parse now pays a measured 2.2x-2.5x latency
+		//     cost relative to a plain production parse: the compact route
+		//     always attempts jsdoc first, always declines at this gate, and
+		//     production then parses the same source a second time from
+		//     scratch. Acceptable for a rare grammar on a fail-closed route;
+		//     not free.
 		//
-		// Both moves are PASS-safe FALLBACKs, never a DIVERGE (see
-		// counts[scorecardDiverge] below, unaffected at 0). No other
-		// language's status changes; production still serves meson and
-		// jsdoc correctly.
+		// meson's and jsdoc's moves are both PASS-safe FALLBACKs, never a
+		// DIVERGE (see counts[scorecardDiverge] below, unaffected at 0). No
+		// other language's status changes; production still serves
+		// markdown_inline, meson, and jsdoc correctly.
 		const (
 			wantTotal   = 206
 			minPass     = 198
