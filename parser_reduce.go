@@ -5880,36 +5880,6 @@ func flattenedSpanHasFieldID(fieldIDs []FieldID, start, end int, fid FieldID) bo
 	return false
 }
 
-func flattenedSpanHasAnyDirectField(children []*Node, fieldIDs []FieldID, fieldSources []uint8, start, end int) bool {
-	for i := start; i < end; i++ {
-		if i < len(fieldIDs) && fieldIDs[i] != 0 && fieldSourceIsDirect(fieldSourceAt(fieldSources, i)) {
-			return true
-		}
-		if i < len(children) && nodeHasAnyDirectField(children[i]) {
-			return true
-		}
-	}
-	return false
-}
-
-func flattenedSpanSingleDescendantFieldTarget(children []*Node, start, end int, fid FieldID) (int, bool) {
-	if fid == 0 {
-		return 0, false
-	}
-	target := -1
-	for i := start; i < end; i++ {
-		child := children[i]
-		if child == nil || child.isExtra() || !nodeHasDirectFieldID(child, fid) {
-			continue
-		}
-		if target >= 0 {
-			return 0, false
-		}
-		target = i
-	}
-	return target, target >= 0
-}
-
 type reduceBuildScratch struct {
 	nodes             []*Node
 	fieldIDs          []FieldID
@@ -6619,64 +6589,49 @@ func (p *Parser) appendVisibleReduceChildToScratch(scratch *reduceBuildScratch, 
 	}
 }
 
+// applyParentFieldToFlattenedHiddenSpan projects the field-map entry
+// hiddenParent's own enclosing production recorded at hiddenParent's
+// structural position onto the span hiddenParent flattened into. This
+// mirrors the C runtime's two-function field resolution exactly
+// (tree-sitter lib/src/node.c):
+//
+//   - ts_node__field_name_from_language (node.c:673-687) filters
+//     !field_map->inherited unconditionally: an inherited entry is never
+//     itself usable as a field name.
+//   - ts_node_field_name_for_child (node.c:689-729) resolves an inherited
+//     entry only by recursing into the referenced child's own (structural,
+//     unflattened) production and repeating the same non-inherited check
+//     one level closer to the target -- the field depends on which hidden
+//     production the child actually came through, not on the shape
+//     (child count, leaf-ness, sibling pattern) of whatever ended up there.
+//
+// Go performs that same recursion eagerly, one hidden level at a time, in
+// appendFlattenedHiddenChildrenWithFieldScratch and resolveDeferredParentField:
+// each hidden node's own field plan (built from its own production id, see
+// buildFieldPlanForProduction/fixedFieldIDsForProduction) is applied to its
+// own children as they are flattened, bottom-up, before this function ever
+// runs for an ancestor's span. So by the time this function is reached for
+// hiddenParent's span, every deeper level has already applied whatever
+// non-inherited entry it owns; flattenedSpanHasFieldID (consulted inside
+// applyFieldToFlattenedSpan for the direct case, and folded into
+// normalizeMixedSourceFieldSpan's existing-assignment checks here) reports
+// exactly what a strictly deeper, non-inherited hit resolved.
+//
+// When inherited is true, this function must therefore never invent a new
+// assignment from hiddenParent's span shape -- doing so (via a "single
+// non-leaf child" proxy and an "anonymous gap between direct fields" filler,
+// neither of which C has) was the fleet-wide field over-projection defect
+// (finding.production-divergence-census-2026-08-02). There is nothing left
+// to resolve at this level: either a deeper non-inherited hit already
+// claimed the field, or C itself has no field here, and Go must agree.
 func applyParentFieldToFlattenedHiddenSpan(children []*Node, fieldIDs []FieldID, fieldSources []uint8, hiddenParent *Node, spanStart, fieldEnd int, fid FieldID, inherited, appearsLater bool) {
-	source := fieldSourceForInheritance(inherited)
-	hasField := flattenedSpanHasFieldID(fieldIDs, spanStart, fieldEnd, fid)
-	if inherited && hasField {
-		fillAnonymousGapsBetweenDirectFields(children, fieldIDs, fieldSources, spanStart, fieldEnd, fid)
+	if inherited {
 		normalizeMixedSourceFieldSpan(fieldIDs, fieldSources, spanStart, fieldEnd)
 		return
 	}
-	if inherited && !hasField {
-		if assignSingleDescendantInheritedField(children, fieldIDs, fieldSources, spanStart, fieldEnd, fid) {
-			normalizeMixedSourceFieldSpan(fieldIDs, fieldSources, spanStart, fieldEnd)
-			return
-		}
-		if shouldSkipInheritedParentFieldForFlattenedSpan(children, fieldIDs, fieldSources, hiddenParent, spanStart, fieldEnd, fid) {
-			return
-		}
-	}
-	if inherited && appearsLater {
-		return
-	}
+	source := fieldSourceForInheritance(inherited)
 	applyFieldToFlattenedSpan(children, fieldIDs, fieldSources, spanStart, fieldEnd, fid, source, true)
 	normalizeMixedSourceFieldSpan(fieldIDs, fieldSources, spanStart, fieldEnd)
-}
-
-func fillAnonymousGapsBetweenDirectFields(
-	children []*Node,
-	fieldIDs []FieldID,
-	fieldSources []uint8,
-	start int,
-	end int,
-	fid FieldID,
-) {
-	previous := -1
-	for i := start; i < end; i++ {
-		if fieldIDs[i] != fid || !fieldSourceIsDirect(fieldSourceAt(fieldSources, i)) {
-			continue
-		}
-		if previous < 0 {
-			previous = i
-			continue
-		}
-		fill := true
-		for gap := previous + 1; gap < i; gap++ {
-			child := children[gap]
-			if child == nil || child.isNamed() || child.isExtra() || child.isMissing() || fieldIDs[gap] != 0 {
-				fill = false
-				break
-			}
-		}
-		if !fill {
-			previous = i
-			continue
-		}
-		for gap := previous + 1; gap < i; gap++ {
-			assignFlattenedField(fieldIDs, fieldSources, gap, fid, fieldSourceDirect)
-		}
-		previous = i
-	}
 }
 
 func resolveDeferredParentField(children []*Node, fieldIDs []FieldID, fieldSources []uint8, hiddenParent *Node, spanStart, fieldEnd int, fid FieldID, source uint8) (direct, deferred bool) {
@@ -6705,42 +6660,6 @@ func fieldSourceForInheritance(inherited bool) uint8 {
 		return fieldSourceInherited
 	}
 	return fieldSourceDirect
-}
-
-func assignSingleDescendantInheritedField(children []*Node, fieldIDs []FieldID, fieldSources []uint8, spanStart, fieldEnd int, fid FieldID) bool {
-	target, ok := flattenedSpanSingleDescendantFieldTarget(children, spanStart, fieldEnd, fid)
-	if !ok {
-		return false
-	}
-	fieldIDs[target] = fid
-	fieldSources[target] = fieldSourceInherited
-	return true
-}
-
-func shouldSkipInheritedParentFieldForFlattenedSpan(children []*Node, fieldIDs []FieldID, fieldSources []uint8, hiddenParent *Node, spanStart, fieldEnd int, fid FieldID) bool {
-	if fieldEnd-spanStart == 1 {
-		child := children[spanStart]
-		if child == nil || nodeHasDirectFieldID(child, fid) || len(child.children) == 0 {
-			return true
-		}
-	}
-	if hiddenParent.isNamed() && countEligibleNamedFieldTargets(children, fieldIDs, spanStart, fieldEnd) > 1 {
-		return true
-	}
-	if fieldEnd-spanStart > 1 {
-		first := children[spanStart]
-		if first != nil && !first.isNamed() && !first.isExtra() && !first.isMissing() {
-			return true
-		}
-	}
-	if !flattenedSpanHasAnyDirectField(children, fieldIDs, fieldSources, spanStart, fieldEnd) {
-		return false
-	}
-	if fieldEnd-spanStart != 1 {
-		return true
-	}
-	child := children[spanStart]
-	return child == nil || !nodeHasDirectFieldID(child, fid)
 }
 
 func (p *Parser) shouldSuppressVisibleDirectField(n *Node, fid FieldID) bool {
@@ -7090,7 +7009,22 @@ func applyDirectFieldToUnassignedFlattenedSpan(children []*Node, fieldIDs []Fiel
 	case allowAnonymousSingleDirectTarget:
 		assignFirstUnassignedFlattenedField(children, fieldIDs, fieldSources, start, end, fid, source, false)
 	case namedTargets > 1:
-		assignAllUnassignedFlattenedFields(children, fieldIDs, fieldSources, start, end, fid, source, true)
+		// A direct (non-inherited) field-map entry that lands on this whole
+		// flattened span (spanning multiple targets with no field of their
+		// own yet) is C's carried fallback for the entire span, not just its
+		// named members: ts_node_field_name_for_child (node.c:689-729) sets
+		// inherited_field_name from a !inherited entry at the position it is
+		// about to descend through, and that value is the answer for every
+		// descendant reached through it -- punctuation included -- unless a
+		// deeper, more specific entry overrides it first (which
+		// flattenedSpanHasFieldID/hasField above already accounts for by the
+		// time this span is unassigned). Excluding anonymous targets here
+		// undershoots C: scala's `import foo.bar.Baz` field-maps "path"
+		// directly onto _namespace_expression's sep1(".", identifier) slot
+		// (grammar.js:232), and the resulting "." separators inside the
+		// generated repeat helper carry no field of their own, so they must
+		// inherit "path" from this level exactly like the identifiers do.
+		assignAllUnassignedFlattenedFields(children, fieldIDs, fieldSources, start, end, fid, source, false)
 	case namedTargets == 1 && totalTargets > 1:
 		assignAllUnassignedFlattenedFields(children, fieldIDs, fieldSources, start, end, fid, source, false)
 	case namedTargets == 1:
@@ -7174,25 +7108,6 @@ func nodeHasDirectFieldID(n *Node, fid FieldID) bool {
 	}
 	for _, fieldID := range n.fieldIDs() {
 		if fieldID == fid {
-			return true
-		}
-	}
-	return false
-}
-
-func nodeHasAnyDirectField(n *Node) bool {
-	if n == nil {
-		return false
-	}
-	fieldIDs := n.fieldIDs()
-	fieldSources := n.fieldSources()
-	for i := range fieldIDs {
-		if fieldIDs[i] != 0 && fieldSourceIsDirect(fieldSourceAt(fieldSources, i)) {
-			return true
-		}
-	}
-	for _, child := range n.children {
-		if nodeHasAnyDirectField(child) {
 			return true
 		}
 	}

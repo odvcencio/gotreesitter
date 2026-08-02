@@ -175,6 +175,16 @@ func TestBuildReduceChildrenDefersDirectHiddenFieldUntilVisibleBoundary(t *testi
 		t.Fatalf("deferred field source = %d, want %d", got, want)
 	}
 
+	// _outer's entry for _inner's position is direct (non-inherited), not
+	// deferred-to-inherited: it is C's carried fallback for every descendant
+	// _inner flattens to, punctuation included, exactly like the scala
+	// `import foo.bar.Baz` case field-maps "path" directly onto
+	// _namespace_expression's whole sep1(".", identifier) slot
+	// (tree-sitter-scala grammar.js:229-232) and the "." separators inside
+	// the generated repeat helper inherit "path" from that level. See
+	// ts_node_field_name_for_child (tree-sitter lib/src/node.c:689-729):
+	// a !inherited entry at the position being descended through sets
+	// inherited_field_name for everything reached beneath it.
 	outer := newParentNodeInArenaWithFieldSources(arena, 2, false, children, fieldIDs, fieldSources, 0)
 	children, fieldIDs, fieldSources = parser.buildReduceChildren(
 		[]stackEntry{newStackEntryNode(0, outer)}, 0, 1, 1, 5, 1, arena,
@@ -183,8 +193,8 @@ func TestBuildReduceChildrenDefersDirectHiddenFieldUntilVisibleBoundary(t *testi
 		t.Fatalf("visible len(children) = %d, want %d", got, want)
 	}
 	wantChildren := []*Node{dot0, a, dot1, b}
-	wantFields := []FieldID{0, 1, 0, 1}
-	wantSources := []uint8{fieldSourceNone, fieldSourceDirect, fieldSourceNone, fieldSourceDirect}
+	wantFields := []FieldID{1, 1, 1, 1}
+	wantSources := []uint8{fieldSourceDirect, fieldSourceDirect, fieldSourceDirect, fieldSourceDirect}
 	for i := range wantChildren {
 		if children[i] != wantChildren[i] {
 			t.Fatalf("children[%d] = %p, want %p", i, children[i], wantChildren[i])
@@ -331,7 +341,18 @@ func TestBuildReduceChildrenDeferredDirectCountsAsRepeatedField(t *testing.T) {
 	assertFlattened("array", arrayChildren, arrayIDs, arraySources)
 }
 
-func TestBuildReduceChildrenInheritedFieldOverridesInheritedInnerFieldOnFlattenedSpan(t *testing.T) {
+// TestBuildReduceChildrenInheritedFieldDoesNotOverrideAlreadyResolvedInnerField
+// covers a hidden child whose own children already carry field data (of a
+// different field id) when the enclosing production also marks that hidden
+// child's position inherited. C never uses an inherited field-map entry to
+// name a child directly (ts_node__field_name_from_language, tree-sitter
+// lib/src/node.c:673-687, filters !field_map->inherited unconditionally), so
+// an inherited entry at this outer level can never override what a deeper
+// level already resolved -- it can only confirm it or add nothing. This test
+// used to assert the opposite (the outer inherited field replacing the
+// already-resolved inner one); that was the fleet-wide field over-projection
+// bug (finding.production-divergence-census-2026-08-02).
+func TestBuildReduceChildrenInheritedFieldDoesNotOverrideAlreadyResolvedInnerField(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "_hidden_inner", "type_identifier", "with", "visible_parent"},
 		SymbolMetadata: []SymbolMetadata{
@@ -366,7 +387,7 @@ func TestBuildReduceChildrenInheritedFieldOverridesInheritedInnerFieldOnFlattene
 		t.Fatalf("len(fieldIDs) = %d, want %d", got, want)
 	}
 	for i, fid := range fieldIDs {
-		if got, want := fid, FieldID(1); got != want {
+		if got, want := fid, FieldID(2); got != want {
 			t.Fatalf("fieldIDs[%d] = %d, want %d", i, got, want)
 		}
 	}
@@ -537,7 +558,18 @@ func TestBuildReduceChildrenDirectFieldKeepsInnerHiddenProjection(t *testing.T) 
 	}
 }
 
-func TestBuildReduceChildrenInheritedFieldDoesNotBlanketSpanWithoutConflict(t *testing.T) {
+// TestBuildReduceChildrenInheritedFieldWithNoDirectEntryAnywhereProjectsNothing
+// covers a hidden child whose own production declares no fields at all, spliced
+// under a parent whose only field-map entry for that position is inherited. C
+// only ever answers a field query with a genuine !inherited entry found
+// somewhere along the descent (ts_node_field_name_for_child, tree-sitter
+// lib/src/node.c:689-729); with no such entry at any level here, C's answer is
+// empty for every descendant, not just the punctuation. This test used to
+// assert that the first (named, non-leaf-adjacent) descendant received the
+// field anyway -- picking a target from shape (position, leaf-ness) rather
+// than from a real grammar declaration was the fleet-wide field
+// over-projection bug (finding.production-divergence-census-2026-08-02).
+func TestBuildReduceChildrenInheritedFieldWithNoDirectEntryAnywhereProjectsNothing(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "_hidden_inner", "identifier", ".", "namespace_wildcard", "visible_parent"},
 		SymbolMetadata: []SymbolMetadata{
@@ -571,8 +603,8 @@ func TestBuildReduceChildrenInheritedFieldDoesNotBlanketSpanWithoutConflict(t *t
 	if got, want := len(fieldIDs), 3; got != want {
 		t.Fatalf("len(fieldIDs) = %d, want %d", got, want)
 	}
-	if got, want := fieldIDs[0], FieldID(1); got != want {
-		t.Fatalf("fieldIDs[0] = %d, want %d", got, want)
+	if got := fieldIDs[0]; got != 0 {
+		t.Fatalf("fieldIDs[0] = %d, want 0", got)
 	}
 	if got := fieldIDs[1]; got != 0 {
 		t.Fatalf("fieldIDs[1] = %d, want 0", got)
@@ -727,7 +759,21 @@ func TestBuildReduceChildrenRepeatedDirectFieldOnHiddenPathLeavesAnonymousGapUnf
 	}
 }
 
-func TestBuildReduceChildrenInheritedFieldFillsRepeatedDirectAnonymousGaps(t *testing.T) {
+// TestBuildReduceChildrenInheritedFieldLeavesRepeatedDirectAnonymousGapsUnfielded
+// covers a hidden child whose own production wraps the field around each
+// repeat element independently (java DOT net DOT url, each identifier's own
+// direct entry, like python's commaSep1(field('name', ...)) shape
+// (tree-sitter-python grammar.js:175-181) rather than around the whole
+// repeat as one unit). C resolves the field for each child with its own
+// independent descent (ts_node_field_name_for_child, tree-sitter
+// lib/src/node.c:689-729): the separators have no field-map entry of their
+// own at any level, so C never assigns them one just because same-fielded
+// siblings surround them. Verified against the C oracle: `from a import b,
+// c` in python leaves the comma fieldless
+// (finding.production-divergence-census-2026-08-02). This test used to
+// assert the opposite -- that the gaps inherit the surrounding field -- which
+// was exactly that over-projection bug.
+func TestBuildReduceChildrenInheritedFieldLeavesRepeatedDirectAnonymousGapsUnfielded(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "_hidden_inner", ".", "identifier", "visible_parent"},
 		SymbolMetadata: []SymbolMetadata{
@@ -781,9 +827,13 @@ func TestBuildReduceChildrenInheritedFieldFillsRepeatedDirectAnonymousGaps(t *te
 	if got, want := len(children), 5; got != want {
 		t.Fatalf("child count = %d, want %d", got, want)
 	}
-	for index := range children {
-		if got, want := fieldIDs[index], FieldID(1); got != want {
+	wantFieldIDs := []FieldID{1, 0, 1, 0, 1}
+	for index, want := range wantFieldIDs {
+		if got := fieldIDs[index]; got != want {
 			t.Fatalf("field %d = %d, want %d", index, got, want)
+		}
+		if want == 0 {
+			continue
 		}
 		if got, want := fieldSourceAt(fieldSources, index), uint8(fieldSourceDirect); got != want {
 			t.Fatalf("field source %d = %d, want %d", index, got, want)
@@ -1115,7 +1165,20 @@ func TestBuildReduceChildrenInheritedFieldSkipsProjectionWhenDescendantHasDirect
 	}
 }
 
-func TestBuildReduceChildrenInheritedFieldProjectsSingleHiddenChildWhenDescendantHasDirectField(t *testing.T) {
+// TestBuildReduceChildrenInheritedFieldDoesNotProjectFromUnrelatedVisibleSiblingField
+// covers a hidden child whose own production declares no fields, where one of
+// its visible (opaque, not-further-flattened) children happens to carry a
+// same-numbered field id on ITS OWN production for an unrelated reason. C
+// only walks a hidden node's own field map when deciding what a child of the
+// enclosing production inherits (ts_node_field_name_for_child, tree-sitter
+// lib/src/node.c:689-729); once the target is itself a relevant (visible)
+// node, C never looks inside that node's own children to justify a field on
+// the node as a whole. This test used to assert that the coincidental match
+// (matching purely because it was the sole descendant carrying any direct
+// field id) was projected onto call's outer position -- that
+// "single-descendant" heuristic was the fleet-wide field over-projection bug
+// (finding.production-divergence-census-2026-08-02).
+func TestBuildReduceChildrenInheritedFieldDoesNotProjectFromUnrelatedVisibleSiblingField(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "_hidden", "call", "identifier", "arguments", "visible_parent"},
 		SymbolMetadata: []SymbolMetadata{
@@ -1144,15 +1207,15 @@ func TestBuildReduceChildrenInheritedFieldProjectsSingleHiddenChildWhenDescendan
 	outerArgs := newLeafNodeInArena(arena, 4, true, 10, 13, Point{Row: 0, Column: 10}, Point{Row: 0, Column: 13})
 	hidden := newParentNodeInArena(arena, 1, false, []*Node{call, outerArgs}, nil, 0)
 
-	children, fieldIDs, fieldSources := parser.buildReduceChildren([]stackEntry{newStackEntryNode(0, hidden)}, 0, 1, 1, 5, 0, arena)
+	children, fieldIDs, _ := parser.buildReduceChildren([]stackEntry{newStackEntryNode(0, hidden)}, 0, 1, 1, 5, 0, arena)
 	if got, want := len(children), 2; got != want {
 		t.Fatalf("len(children) = %d, want %d", got, want)
 	}
-	if got, want := fieldIDs[0], FieldID(1); got != want {
-		t.Fatalf("fieldIDs[0] = %d, want %d", got, want)
+	if got := fieldIDs[0]; got != 0 {
+		t.Fatalf("fieldIDs[0] = %d, want 0", got)
 	}
-	if got, want := fieldSourceAt(fieldSources, 0), uint8(fieldSourceInherited); got != want {
-		t.Fatalf("fieldSources[0] = %d, want %d", got, want)
+	if got := fieldIDs[1]; got != 0 {
+		t.Fatalf("fieldIDs[1] = %d, want 0", got)
 	}
 }
 
@@ -1188,7 +1251,21 @@ func TestBuildReduceChildrenInheritedFieldSkipsSingleLeafHiddenProjectionWithout
 	}
 }
 
-func TestBuildReduceChildrenInheritedFieldProjectsSingleNonLeafHiddenChildWithoutDirectField(t *testing.T) {
+// TestBuildReduceChildrenInheritedFieldSkipsSingleNonLeafHiddenProjectionWithoutDirectField
+// mirrors the sibling leaf case above for a non-leaf single descendant: the
+// hidden child's sole child (decl) has children of its own but declares no
+// field anywhere along its own production. Whether the lone descendant is a
+// leaf or not is irrelevant to C -- ts_node_field_name_for_child (tree-sitter
+// lib/src/node.c:689-729) only ever answers from a genuine !inherited
+// field-map entry found along the descent, never from "this position's
+// child count." Verified against the C oracle: ada's `A : Integer_Array
+// (1..3) := (others => 0)` leaves the aggregate fieldless even though it is
+// the single, non-leaf child of term's inherited "name" position
+// (finding.production-divergence-census-2026-08-02, ada grammar.js:561-566).
+// This test used to assert the opposite -- that a single non-leaf descendant
+// without its own field still received the parent's inherited field -- which
+// was exactly that "has children" over-projection heuristic.
+func TestBuildReduceChildrenInheritedFieldSkipsSingleNonLeafHiddenProjectionWithoutDirectField(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "_hidden", "local", "function_declaration", "visible_parent"},
 		SymbolMetadata: []SymbolMetadata{
@@ -1213,15 +1290,12 @@ func TestBuildReduceChildrenInheritedFieldProjectsSingleNonLeafHiddenChildWithou
 	decl := newParentNodeInArena(arena, 3, true, []*Node{localTok}, nil, 0)
 	hidden := newParentNodeInArena(arena, 1, false, []*Node{decl}, nil, 0)
 
-	children, fieldIDs, fieldSources := parser.buildReduceChildren([]stackEntry{newStackEntryNode(0, hidden)}, 0, 1, 1, 4, 0, arena)
+	children, fieldIDs, _ := parser.buildReduceChildren([]stackEntry{newStackEntryNode(0, hidden)}, 0, 1, 1, 4, 0, arena)
 	if got, want := len(children), 1; got != want {
 		t.Fatalf("len(children) = %d, want %d", got, want)
 	}
-	if got, want := fieldIDs[0], FieldID(1); got != want {
-		t.Fatalf("fieldIDs[0] = %d, want %d", got, want)
-	}
-	if got, want := fieldSourceAt(fieldSources, 0), uint8(fieldSourceInherited); got != want {
-		t.Fatalf("fieldSources[0] = %d, want %d", got, want)
+	if got := fieldIDs[0]; got != 0 {
+		t.Fatalf("fieldIDs[0] = %d, want 0", got)
 	}
 }
 

@@ -254,13 +254,21 @@ func parityIncludeHighlightLanguage(name string) bool {
 	return smokeParityLanguages[name]
 }
 
+// parityCompareFields gates FieldName comparison in compareNodes (production
+// vs the C oracle) and compareGoNodes (production vs compact route
+// equality). Field parity is on by default: the reference runtime's
+// !field_map->inherited filter (node.c:673-687) is part of the tree shape
+// the locked C oracle defines, not an optional extra, so a parity run that
+// silently skips it is not exercising the gate its name promises. Set
+// GTS_PARITY_COMPARE_FIELDS to a falsy value (0/false/no/off) to opt back
+// out for bisection.
 var parityCompareFields = func() bool {
 	raw := strings.TrimSpace(os.Getenv("GTS_PARITY_COMPARE_FIELDS"))
 	switch strings.ToLower(raw) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
+	case "0", "false", "no", "off":
 		return false
+	default:
+		return true
 	}
 }()
 

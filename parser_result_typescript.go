@@ -2135,7 +2135,15 @@ func typeScriptAssignMemberFields(node *Node, ctx *typeScriptNormalizationContex
 			case "statement_block":
 				fieldIDs[i] = ctx.bodyFieldID
 			default:
-				if node.symbol == ctx.publicFieldDefinitionSym && child.startByte > node.children[nameIdx].endByte {
+				// _initializer: $ => seq('=', field('value', $.expression))
+				// (javascript grammar.js) wraps only the expression, never
+				// the '=' token. C's field map has no entry for the
+				// anonymous '=' position (ts_node__field_name_from_language,
+				// tree-sitter lib/src/node.c:673-687); requiring isNamed
+				// here keeps this reconstruction from re-introducing that
+				// same over-projection on the reduce-time recovered/rewritten
+				// path (finding.production-divergence-census-2026-08-02).
+				if node.symbol == ctx.publicFieldDefinitionSym && child.isNamed() && child.startByte > node.children[nameIdx].endByte {
 					fieldIDs[i] = ctx.valueFieldID
 				}
 			}
