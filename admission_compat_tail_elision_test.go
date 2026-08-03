@@ -300,9 +300,21 @@ type compatTailElisionCorpusEntry struct {
 // cgo_harness/corpus_real is present on this host (it is git-ignored, so it
 // is not always available -- see admission_real_corpus_matrix_test.go for the
 // same convention this test follows).
+//
+// This gate does NOT run in CI: cgo_harness/corpus_real is git-ignored and no
+// CI job provisions it, so GTS_ADMISSION_REAL_CORPUS is never set there (see
+// docs/ci-gate-coverage.md). A prior PR cited this test's results as merge
+// evidence despite that -- both skip paths below print directly to stderr in
+// addition to t.Skip's own message, so the reason is captured verbatim by
+// `go test -json` (which race_root_shards/race_root_isolated already run
+// this untagged file under) and by any -v invocation, not only visible to
+// someone who happens to pass -v by hand, precisely so that mistake cannot
+// repeat silently.
 func TestCompatTailElisionEquivalenceRealCorpus(t *testing.T) {
 	if os.Getenv("GTS_ADMISSION_REAL_CORPUS") != "1" {
-		t.Skip("set GTS_ADMISSION_REAL_CORPUS=1 to run the compat-tail elision real-corpus gate")
+		reason := "SKIP " + t.Name() + ": GTS_ADMISSION_REAL_CORPUS is not set to 1; this gate requires cgo_harness/corpus_real, which is git-ignored and NOT provisioned by any CI job (see docs/ci-gate-coverage.md) -- its results are not CI evidence"
+		fmt.Fprintln(os.Stderr, reason)
+		t.Skip(reason)
 	}
 	t.Cleanup(func() {
 		grammars.PurgeEmbeddedLanguageCache()
@@ -313,7 +325,9 @@ func TestCompatTailElisionEquivalenceRealCorpus(t *testing.T) {
 	manifestPath := filepath.Join("cgo_harness", "corpus_real", "manifest.json")
 	manifestSource, err := os.ReadFile(manifestPath)
 	if err != nil {
-		t.Skipf("real corpus manifest unavailable: %v", err)
+		reason := fmt.Sprintf("SKIP %s: real corpus manifest unavailable at %s: %v", t.Name(), manifestPath, err)
+		fmt.Fprintln(os.Stderr, reason)
+		t.Skip(reason)
 	}
 	var manifest compatTailElisionCorpusManifest
 	if err := json.Unmarshal(manifestSource, &manifest); err != nil {

@@ -79,13 +79,25 @@ jobs:
           go-version-file: go.mod
 
       - name: Validate compact admission breadth, route precedence, depth, and incremental bridge
+        # GTS_COMPAT_TAIL_ELISION_EXHAUSTIVE=1 adds the full-registry (206
+        # language) compat-tail elision equivalence gate
+        # (TestCompatTailElisionEquivalenceSmokeExhaustive,
+        # admission_compat_tail_elision_test.go) to this lane. It shares this
+        # lane's own reason for gating a full-registry sweep behind an opt-in
+        # env var instead of running it unconditionally (loading every
+        # registered grammar in one process disturbs
+        # TestArenaGCRetentionAfterRelease elsewhere in this package's
+        # default suite); this lane's own `-run` selection already excludes
+        # that test, so the two do not interact here. Measured added cost is
+        # a few seconds.
         run: |
           set -euo pipefail
           GTS_ADMISSION_SCORECARD=1 \
           GTS_ADMISSION_SCORECARD_RATCHET=1 \
+          GTS_COMPAT_TAIL_ELISION_EXHAUSTIVE=1 \
           GOMAXPROCS=1 \
           go test -tags gts_parsercorephase0 . \
-            -run '^(TestAdmissionCandidateScorecard206|TestAdmissionSwitchRoutePrecedenceRatchet|TestAdmissionCandidateYAMLZeroWidthDepth|TestAdmissionCandidateRepresentativeDepthRatchet|TestAdmissionCompactTreeCarriesIncrementalReuseProof|TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape|TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite)$' \
+            -run '^(TestAdmissionCandidateScorecard206|TestAdmissionSwitchRoutePrecedenceRatchet|TestAdmissionCandidateYAMLZeroWidthDepth|TestAdmissionCandidateRepresentativeDepthRatchet|TestAdmissionCompactTreeCarriesIncrementalReuseProof|TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape|TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite|TestCompatTailElisionEquivalenceSmokeExhaustive)$' \
             -count=1 -timeout 10m
 
   admission_route_equality_fuzz:
