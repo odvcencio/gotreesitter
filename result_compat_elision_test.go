@@ -2,7 +2,11 @@ package gotreesitter
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
+	"strconv"
 	"testing"
 )
 
@@ -141,4 +145,105 @@ func TestResultCompatibilityElisionForceDisabledForTest(t *testing.T) {
 	if !resultCompatibilityElisionActive(lang) {
 		t.Fatal("resultCompatibilityElisionActive did not restore after the toggle's restore func ran")
 	}
+}
+
+// TestResultCompatibilityElisionExcludesDeferredLanguages ratchets a
+// precondition finalizeCompactReturnedTreeForParse's own deferred-branch
+// reasoning depends on (admission_switch_candidate.go): no elision-eligible
+// language may ever appear in shouldDeferResultCompatibility's deferred set
+// (parser_result_root_build.go). finalizeCompactReturnedTreeForParse DOES
+// still check tree.hasDeferredResultCompatibility() -- it is not assumed
+// unreachable -- but the doc comment's claim that no eligible language can
+// ever set it is a claim about today's deferred set (currently
+// typescript/tsx, both ineligible), not a structural guarantee. This test
+// parses shouldDeferResultCompatibility's own switch with go/ast (the same
+// technique compat_ownership_test.go's dispatcher-arm ratchet uses) so a
+// future language added to that deferred set while also being elision-
+// eligible fails the build here instead of silently changing this route's
+// behavior for that language.
+func TestResultCompatibilityElisionExcludesDeferredLanguages(t *testing.T) {
+	deferred := deferredResultCompatibilityLanguagesForTest(t)
+	if len(deferred) == 0 {
+		t.Fatal("shouldDeferResultCompatibility's switch named zero languages; update this ratchet's expectations")
+	}
+	for _, lang := range deferred {
+		if resultCompatibilityElisionEligible(&Language{Name: lang}) {
+			t.Errorf(
+				"%q is both elision-eligible and named in shouldDeferResultCompatibility's deferred set; "+
+					"finalizeCompactReturnedTreeForParse's doc comment (admission_switch_candidate.go) claims "+
+					"this never happens for an eligible language",
+				lang,
+			)
+		}
+	}
+}
+
+// deferredResultCompatibilityLanguagesForTest parses
+// shouldDeferResultCompatibility (parser_result_root_build.go) with go/ast
+// and returns every language name literal in a case clause that returns
+// true. It does not assume the current two-language set; it reads whatever
+// the switch says today.
+func deferredResultCompatibilityLanguagesForTest(t *testing.T) []string {
+	t.Helper()
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "parser_result_root_build.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parse parser_result_root_build.go: %v", err)
+	}
+	var fn *ast.FuncDecl
+	for _, decl := range file.Decls {
+		if f, ok := decl.(*ast.FuncDecl); ok && f.Name.Name == "shouldDeferResultCompatibility" {
+			fn = f
+			break
+		}
+	}
+	if fn == nil {
+		t.Fatal("shouldDeferResultCompatibility not found in parser_result_root_build.go")
+	}
+	var sw *ast.SwitchStmt
+	ast.Inspect(fn.Body, func(node ast.Node) bool {
+		if sw != nil {
+			return false
+		}
+		if s, ok := node.(*ast.SwitchStmt); ok {
+			sw = s
+			return false
+		}
+		return true
+	})
+	if sw == nil {
+		t.Fatal("shouldDeferResultCompatibility has no switch statement")
+	}
+	var names []string
+	for _, stmt := range sw.Body.List {
+		clause, ok := stmt.(*ast.CaseClause)
+		if !ok || len(clause.List) == 0 {
+			continue // skips the default clause, which has an empty List
+		}
+		returnsTrue := false
+		for _, bodyStmt := range clause.Body {
+			ret, ok := bodyStmt.(*ast.ReturnStmt)
+			if !ok || len(ret.Results) != 1 {
+				continue
+			}
+			if ident, ok := ret.Results[0].(*ast.Ident); ok && ident.Name == "true" {
+				returnsTrue = true
+			}
+		}
+		if !returnsTrue {
+			continue
+		}
+		for _, expr := range clause.List {
+			lit, ok := expr.(*ast.BasicLit)
+			if !ok || lit.Kind != token.STRING {
+				t.Fatalf("shouldDeferResultCompatibility case has non-string expression %T", expr)
+			}
+			value, err := strconv.Unquote(lit.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			names = append(names, value)
+		}
+	}
+	return names
 }

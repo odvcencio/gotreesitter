@@ -172,9 +172,25 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 	//
 	// spec.campaign.v7 tranche A5/C1 (compat-tail elision): for a language with
 	// no live result-compatibility arm (resultCompatibilityElisionActive, see
-	// result_compat_elision.go), all three full-fidelity steps below are
+	// result_compat_elision.go), two of the three steps below
+	// (resolveCRecoverySwallowedError, maybeCompactReturnedFullTree) are
 	// provably no-ops on THIS route -- see docs/compat-tail-elision.md for the
-	// per-step proof -- so an eligible language takes the reduced tail instead.
+	// per-step proof -- so an eligible language skips them. The third step
+	// (normalizeReturnedTreeForParse) is NOT skipped, and its own dispatch
+	// switch (runLanguageResultCompatibility) and error-summary walk
+	// (summarizeResultErrorsWithStop) run ZERO times here, for every
+	// language, eligible or not: materializeDiagnosticParserCoreAcceptedSelection
+	// already ran the full result-compatibility pass during materialization
+	// (buildResultFromNodes -> resultRootBuild.finishTree ->
+	// (*Parser).finalizeResultRoot, parser_result_root_build.go), which sets
+	// tree.resultCompatibilityApplied before tryCompactFullParseRoute ever
+	// runs, so normalizeReturnedTreeForParse's own copy of that dispatch and
+	// walk is dead code on this route already -- a route-wide fact, not an
+	// eligibility-conditioned one. finalizeCompactReturnedTreeForParse below
+	// is control-flow-identical to normalizeReturnedTreeForParse; it exists
+	// as its own function only so this route's benchmarks and profiles can
+	// name it and so the two no-op steps stay skipped for an eligible
+	// language. See docs/compat-tail-elision.md.
 	if resultCompatibilityElisionActive(p.language) {
 		p.finalizeCompactReturnedTreeForParse(tree, source)
 		return tree, true, ""
@@ -185,48 +201,71 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 	return tree, true, ""
 }
 
-// finalizeCompactReturnedTreeForParse is the elided compat-tail for an
-// elision-eligible language on the compact fresh path. It reproduces
-// normalizeReturnedTreeForParse's own control flow with its three no-op steps
-// removed for this route and these languages -- see
-// docs/compat-tail-elision.md for the equivalence proof of each removal:
+// finalizeCompactReturnedTreeForParse is normalizeReturnedTreeForParse's own
+// control flow, reproduced exactly, for an elision-eligible language on the
+// compact fresh path. It is NOT a reduced version of that control flow: an
+// earlier version of this function skipped the
+// "!tree.resultCompatibilityApplied" guard's terminal-stop-reason check
+// unconditionally, which was wrong -- see docs/compat-tail-elision.md's
+// "Corrected finding" section for the measured, cross-worktree-verified bug
+// report and the fix below.
 //
-//  1. tree.hasDeferredResultCompatibility() is always false for a compact-
-//     materialized tree: only resultRootBuild.finishTree (production's own
-//     tree builder, parser_result_root_build.go) ever calls
-//     deferResultCompatibility, and the compact route never runs it. The
-//     deferred-truncation branch is dead here, so it is not reproduced.
-//  2. tree.resultCompatibilityApplied is always false for a freshly
-//     compact-materialized tree (materializeDiagnosticParserCoreAcceptedSelection
-//     never sets it), so the original always entered its normalize branch.
-//     This function always performs the one check that branch actually does
-//     for an eligible language on this route (see point 3) and then always
-//     sets the flag, matching the original's post-normalize assignment.
-//  3. The original's call to p.normalizeReturnedTree, for an elision-eligible
-//     language, reduces to exactly one more p.activeParseStopReason() read:
-//     runLanguageResultCompatibility's switch has no matching case (a pure
-//     ctx.stopReason() passthrough), and summarizeResultErrorsWithStop's
-//     errorSummary and stopReason are both discarded by normalizeReturnedTree
-//     itself, which recomputes p.parseStopReasonNow() -- the same
-//     p.activeParseStopReason() call -- unconditionally afterward regardless
-//     of what the discarded walk found. This function performs that same
-//     final check directly instead of the walk that used to precede it.
-//  4. resolveCRecoverySwallowedError and maybeCompactReturnedFullTree are not
-//     called at all: both are unconditional no-ops for every compact-route
-//     tree regardless of language (the former because compact materialization
-//     never sets the two C-recovery signal fields it requires both to be
-//     true; the latter because its 512 MiB retained-arena floor is far above
-//     anything a single-derivation compact build produces for any fixture
-//     this campaign measures). See docs/compat-tail-elision.md.
+// tree.resultCompatibilityApplied is TRUE for essentially every
+// compact-route tree by the time this runs, for every language, eligible or
+// not: materializeDiagnosticParserCoreAcceptedSelection already ran
+// (*Parser).finalizeResultRoot during materialization (buildResultFromNodes
+// -> resultRootBuild.finishTree), which applies the full result-compatibility
+// pass -- including, for an ineligible language, a live dispatcher arm -- and
+// sets both tree.resultCompatibilityApplied and tree.resultErrorSummary from
+// that pass's own result. So the "!tree.resultCompatibilityApplied" guard
+// below is false in the overwhelmingly common case, and this function's body
+// reduces, in that case, to the same two calls
+// normalizeReturnedTreeForParse's body reduces to:
+// tree.hasDeferredResultCompatibility() (false for every eligible language:
+// shouldDeferResultCompatibility, parser_result_root_build.go, names only
+// typescript and tsx, both ineligible -- NOT because the compact route skips
+// finishTree; it does not) and finalizeReturnedTreeRootSpan. Preserving the
+// guard's exact shape (rather than hoisting the stop-reason check to the top,
+// as an earlier version of this function did) matters precisely because it is
+// usually false: hoisting it added a stop-reason re-check the original
+// control flow never performs once compatibility is already applied, which
+// let an unrelated concurrent cancellation discard an already-complete, good
+// tree that the unmodified tail would have returned successfully.
+//
+// What the elision actually removes for an eligible language, then, is not
+// an O(nodes) walk (see docs/compat-tail-elision.md for why that premise did
+// not hold) but exactly two full-tail calls that are unconditional no-ops on
+// this route regardless of language:
+//
+//  1. resolveCRecoverySwallowedError: it requires
+//     rt.CRecoveryEnteredErrorState && rt.CRecoveryDroppedErrorForClean, both
+//     read from the tree's own captured ParseRuntime. The only assignment
+//     site for either field (parser.go, inside the classic GLR engine's own
+//     result-building code) never runs on the compact route;
+//     materializeDiagnosticParserCoreAcceptedSelection constructs the
+//     returned tree's ParseRuntime from a fresh struct literal that never
+//     touches either field, so both stay false for every compact-route tree.
+//  2. maybeCompactReturnedFullTree: its own gate requires the tree's retained
+//     arena to be at least 512 MiB before it does any O(nodes) work. The
+//     largest retained arena measured across every real-corpus file this
+//     campaign has for an eligible language is 47.45 MiB
+//     (zig/large__x86.zig) -- an 11x margin below the floor, not a general
+//     claim; see docs/compat-tail-elision.md.
 func (p *Parser) finalizeCompactReturnedTreeForParse(tree *Tree, source []byte) {
 	if !shouldNormalizeReturnedTree(tree) {
 		return
 	}
-	if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
-		tree.setParseStopReason(reason)
+	if tree.hasDeferredResultCompatibility() {
+		finalizeDeferredReturnedTreeTruncation(tree, source)
 		return
 	}
-	tree.resultCompatibilityApplied = true
+	if !tree.resultCompatibilityApplied {
+		if reason := p.parseStopReasonNow(); parseStopReasonIsTerminal(reason) {
+			tree.setParseStopReason(reason)
+			return
+		}
+		tree.resultCompatibilityApplied = true
+	}
 	finalizeReturnedTreeRootSpan(tree, source)
 }
 

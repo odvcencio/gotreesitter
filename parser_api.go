@@ -152,7 +152,10 @@ func (p *Parser) normalizeReturnedTreeForParse(tree *Tree, source []byte) {
 
 // finalizeDeferredReturnedTreeTruncation enforces the silent-truncation contract
 // for a returned tree whose result-compatibility normalization is deferred
-// (ini/typescript/tsx via shouldDeferResultCompatibility). finalizeReturnedTreeRootSpan
+// (typescript/tsx via shouldDeferResultCompatibility -- see that function for
+// the exact, current, test-ratcheted set; this comment named a third
+// language, ini, that shouldDeferResultCompatibility no longer defers).
+// finalizeReturnedTreeRootSpan
 // is skipped for these trees, so without this a truncated typescript parse
 // (checker.ts / dom.generated.d.ts) returns a SILENT prefix-only program root
 // (root.HasError()==false, ParseStoppedEarly()==false). The deferred trees

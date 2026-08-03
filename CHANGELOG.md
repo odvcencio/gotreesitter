@@ -51,6 +51,32 @@ for tags and release notes while still in `0.x`.
 
 ### Changed
 
+- The compact fresh-path route now skips two tail steps for a language with
+  no live result-compatibility entry: the C-recovery-swallow resolver and
+  the final-tree compaction pass.
+  The eligible set is computed from
+  `testdata/result_compat_ownership_v1.json`.
+  It is not a maintained list.
+  A future dispatcher arm cannot silently escape it.
+  163 of 206 registered languages are eligible today.
+  Go is not one of them.
+  `dispatch.go` stays live, so `grammargen_lr` and the other three canonical
+  Go fixtures still take the full tail.
+  A deep-tree digest comparison (elided against unelided) is exact across
+  every eligible language's smoke sample.
+  It is also exact across every real-corpus file this campaign measured, up
+  to 484 KB.
+  This is a correctness-neutral simplification, not a measured performance
+  win: the result-compatibility dispatch and its error-summary walk already
+  run once, during materialization, for every language; the tail's own copy
+  of that work was already unreachable in the common case before this
+  change, eligible language or not.
+  Two eligible-language timing probes (OCaml, Zig) and the Go warm-route
+  benchmark all read within this shared host's noise floor, consistent with
+  that finding.
+  See the PR for the full reading and `docs/compat-tail-elision.md` for the
+  corrected performance and correctness analysis.
+
 - The condense-candidate dispatch path no longer passes a closure through
   two wrapper layers per event.
   Each shift, cohort, and reduction entry point now validates the scheduler
@@ -111,25 +137,6 @@ for tags and release notes while still in `0.x`.
   The bounded current receipt covers 110 rows.
 
 ### Performance
-
-- The compact fresh-path route now skips three steps for a language with no
-  live result-compatibility entry: the result-compatibility walk, the
-  C-recovery-swallow resolver, and the final-tree compaction pass.
-  The eligible set is computed from
-  `testdata/result_compat_ownership_v1.json`.
-  It is not a maintained list.
-  A future dispatcher arm cannot silently escape it.
-  163 of 206 registered languages are eligible today.
-  Go is not one of them.
-  `dispatch.go` stays live, so `grammargen_lr` and the other three canonical
-  Go fixtures still take the full tail.
-  A deep-tree digest comparison (elided against unelided) is exact across
-  every eligible language's smoke sample.
-  It is also exact across every real-corpus file this campaign measured, up
-  to 484 KB.
-  The measured effect on a shared, contended host stayed within noise on the
-  Go warm-route benchmark and on two eligible-language probes (OCaml, Zig).
-  See the PR for the full reading and its noise-floor caveats.
 
 - Live-header scoping reduces compact full-parse allocation counts by
   11.27 percent on the 235,626-byte Go fixture.
