@@ -89,6 +89,15 @@ type a3KnownDivergence struct {
 	GoValue   string
 	CValue    string
 	Family    string
+	// Dormant exempts this entry from the stale-entry ratchet in
+	// a3ReportSweep. Set it only for an entry that stays a true statement
+	// about the production route but cannot match today, because the sweep
+	// declines the witness before it compares trees. A dormant entry
+	// reattaches on its own when the decline goes away. Every use needs a
+	// written reason beside the entry that names what suppresses the match.
+	// Do not set it to quiet an entry whose defect the repair fixed: that
+	// entry must come out.
+	Dormant bool
 }
 
 // a3MatchesKnownDivergence reports whether first (the first entry in a
@@ -309,8 +318,16 @@ func a3ReportSweep(t *testing.T, result a3CertificationSweepResult, known []a3Kn
 	// certifies nothing, but it still reads as a live defect to a person who
 	// skims the list. Fail loud instead. PR #638 removed eight repaired
 	// entries by hand; this ratchet makes the next burn-down mandatory.
+	//
+	// An entry marked Dormant is exempt. A dormant entry describes a
+	// production defect that is still real, but the sweep declines its
+	// witness before it compares trees, so no match can happen today. See
+	// the Dormant field's own comment for the rules.
 	var stale []string
 	for _, k := range known {
+		if k.Dormant {
+			continue
+		}
 		if !result.MatchedKnownDivergences[k] {
 			stale = append(stale, fmt.Sprintf("%s (family %s, path %s)", k.Witness, k.Family, k.FirstPath))
 		}

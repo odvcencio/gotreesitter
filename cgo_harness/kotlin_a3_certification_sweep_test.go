@@ -95,6 +95,13 @@ var kotlinA3KnownDivergences = []a3KnownDivergence{
 		Witness:   "large__DeprecatedInstant.kt",
 		FirstPath: "/source_file/assignment[14]",
 		GoValue:   "assignment", CValue: "getter", Family: "D",
+		// Dormant for the reason the paragraph above records: the withheld
+		// split-drops certificate makes this witness decline, so the sweep
+		// never reaches the comparison that would match this entry. The
+		// entry stays a true statement about production and reattaches if
+		// split-drops is re-granted. The stale-entry ratchet in
+		// a3ReportSweep skips it for that reason alone.
+		Dormant: true,
 	},
 }
 
