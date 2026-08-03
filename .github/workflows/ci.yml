@@ -802,7 +802,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$'
+            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$'
 
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope
@@ -828,7 +828,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 30m \
-            --run '^TestParityFreshParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityKnownDegradedStructuralStillDiverges$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$'
+            --run '^TestParityFreshParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityKnownDegradedStructuralStillDiverges$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$'
 
       - name: CGo Structural Parity Exhaustive (Incremental + GLR)
         run: |

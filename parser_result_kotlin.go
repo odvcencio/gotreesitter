@@ -3,6 +3,18 @@ package gotreesitter
 import "strings"
 
 func normalizeKotlinCompatibility(root *Node, source []byte, lang *Language) {
+	normalizeKotlinCompatibilityWithCensus(root, source, lang, materializationSubpassCensus{})
+}
+
+func normalizeKotlinCompatibilityWithCensus(
+	root *Node,
+	source []byte,
+	lang *Language,
+	census materializationSubpassCensus,
+) {
+	census.run("dispatch.kotlin.recovered-source-file-root", func() {
+		normalizeKotlinRecoveredSourceFileRoot(root, source, lang)
+	})
 	normalizeKotlinInterpolatedCallExpressions(root, lang)
 	normalizeKotlinGenericCallTypeArguments(root, source, lang)
 	normalizeKotlinPrefixComparisonExpressions(root, source, lang)
@@ -607,6 +619,120 @@ func normalizeKotlinRawStringTrailingContent(root *Node, source []byte, lang *La
 		n.startByte, n.endByte = startByte, endByte
 		n.startPoint, n.endPoint = startPoint, endPoint
 	})
+}
+
+// normalizeKotlinRecoveredSourceFileRoot retags a recovered ERROR root as
+// `source_file` when its children still look like Kotlin top-level
+// declarations.
+//
+// This member was deleted on 2026-08-02 as dead code and is restored here. The
+// census behind the deletion measured the fresh, over-64-KiB, incremental and
+// pinned routes. It did not measure Parser.SetIncludedRanges. On that route the
+// member fires and moves the published root toward the reference runtime.
+//
+// Witness: testdata/included_ranges/kotlin_work_queue_test.kt with the three
+// ranges pinned by parser_included_ranges_kotlin_root_test.go. Without this
+// member the root is `ERROR`; with it the root is `source_file`, which is the
+// kind the locked Kotlin C oracle publishes for the same input.
+//
+// The route gate lives in parser_included_ranges_kotlin_root_test.go and
+// cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go.
+func normalizeKotlinRecoveredSourceFileRoot(root *Node, source []byte, lang *Language) {
+	if root == nil || lang == nil || lang.Name != "kotlin" || root.Type(lang) != "ERROR" {
+		return
+	}
+	if !kotlinRootLooksRecoverableSourceFile(root, lang) {
+		return
+	}
+	normalizeKotlinTopLevelFunctionFragments(root, source, lang)
+	sym, ok := symbolByName(lang, "source_file")
+	if !ok {
+		return
+	}
+	retagResultRootAndRefreshError(root, sym, symbolIsNamed(lang, sym))
+}
+
+func kotlinRootLooksRecoverableSourceFile(root *Node, lang *Language) bool {
+	if root == nil || lang == nil || resultChildCount(root) == 0 {
+		return false
+	}
+	for i := 0; i < resultChildCount(root); i++ {
+		child := resultChildAt(root, i)
+		if child == nil {
+			continue
+		}
+		switch child.Type(lang) {
+		case "package_header",
+			"import_list",
+			"class_declaration",
+			"function_declaration",
+			"object_declaration",
+			"property_declaration",
+			"typealias_declaration",
+			"multiline_comment",
+			"line_comment":
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeKotlinTopLevelFunctionFragments(root *Node, source []byte, lang *Language) {
+	fnSym, ok := symbolByName(lang, "function_declaration")
+	if !ok {
+		return
+	}
+	funSym, ok := symbolByName(lang, "fun")
+	if !ok {
+		return
+	}
+	children := resultChildSliceForMutation(root)
+	if len(children) < 3 {
+		return
+	}
+	arena := root.ownerArena
+	if arena == nil {
+		return
+	}
+	rebuilt := make([]*Node, 0, len(children))
+	changed := false
+	for i := 0; i < len(children); i++ {
+		if fn, ok := kotlinRecoveredTopLevelFunction(arena, children, i, source, lang, fnSym, funSym); ok {
+			rebuilt = append(rebuilt, fn)
+			i += 2
+			changed = true
+			continue
+		}
+		rebuilt = append(rebuilt, children[i])
+	}
+	if !changed {
+		return
+	}
+	replaceNodeChildrenUnfielded(root, cloneNodeSliceInArena(arena, rebuilt))
+}
+
+func kotlinRecoveredTopLevelFunction(arena *nodeArena, children []*Node, idx int, source []byte, lang *Language, fnSym, funSym Symbol) (*Node, bool) {
+	if idx+2 >= len(children) {
+		return nil, false
+	}
+	funKeyword := children[idx]
+	name := children[idx+1]
+	params := children[idx+2]
+	if funKeyword == nil || name == nil || params == nil {
+		return nil, false
+	}
+	if funKeyword.Type(lang) != "ERROR" || strings.TrimSpace(funKeyword.Text(source)) != "fun" {
+		return nil, false
+	}
+	if name.Type(lang) != "simple_identifier" || params.Type(lang) != "function_value_parameters" {
+		return nil, false
+	}
+	retagResultRoot(funKeyword, funSym, symbolIsNamed(lang, funSym))
+	funKeyword.setHasError(false)
+	fnChildren := cloneNodeSliceInArena(funKeyword.ownerArena, []*Node{funKeyword, name, params})
+	fn := newParentNodeInArena(funKeyword.ownerArena, fnSym, symbolIsNamed(lang, fnSym), fnChildren, nil, 0)
+	fn.setHasError(true)
+	return fn, true
 }
 
 func normalizeKotlinInterpolatedCallExpressions(root *Node, lang *Language) {

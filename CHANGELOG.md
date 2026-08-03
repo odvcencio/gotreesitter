@@ -46,6 +46,25 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Kotlin published an `ERROR` root instead of `source_file` when a parse used
+  `Parser.SetIncludedRanges` with more than one range and the parse entered
+  recovery.
+  The recovered-root normalization that owns this result was removed on
+  2026-08-02 as dead code.
+  The census behind that removal measured the fresh, over-64-KiB, incremental
+  and pinned routes.
+  It never measured the included-ranges route, and the member is live there.
+  The member is restored.
+  On the committed witness, `testdata/included_ranges/kotlin_work_queue_test.kt`
+  with three ranges, the root returns to `source_file`, which is the kind the
+  locked Kotlin C reference runtime publishes for the same input.
+  Production reaches this route through injection.
+  The member retags the root.
+  Its downstream consequence is not always toward the reference runtime: on one
+  measured file the retag lets a later stage flatten a clean
+  `class_declaration` into root-level members.
+  The route now has committed test coverage for Kotlin, in the root package and
+  in the C-parity lane.
 - The C-recovery missing-token search (`cHandleError` /
   `cDoAllPotentialReductions`, `parser_recover_c.go`) cloned the whole GSS
   stack without a work limit.

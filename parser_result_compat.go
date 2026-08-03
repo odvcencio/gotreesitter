@@ -177,7 +177,9 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 	case "ledger":
 		dispatcherArmCensus(ctx, "dispatch.ledger", func() { normalizeLedgerCompatibility(ctx.root, ctx.source, ctx.parser, ctx.lang) })
 	case "kotlin":
-		dispatcherArmCensus(ctx, "dispatch.kotlin", func() { normalizeKotlinCompatibility(ctx.root, ctx.source, ctx.lang) })
+		dispatcherArmSubpassCensus(ctx, "dispatch.kotlin", func(census materializationSubpassCensus) {
+			normalizeKotlinCompatibilityWithCensus(ctx.root, ctx.source, ctx.lang, census)
+		})
 	case "ninja":
 		dispatcherArmCensus(ctx, "dispatch.ninja", func() { normalizeNinjaCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "perl":
