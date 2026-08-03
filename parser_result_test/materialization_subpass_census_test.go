@@ -376,5 +376,24 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"dispatch.cooklang.recovered-recipe",
 			},
 		},
+		{
+			// Pins all three Go arm census subpass ids and one real rewrite
+			// receipt. dispatch.go.source-file-root is inert on this fresh
+			// route by design; its live route is included ranges, covered by
+			// cgo_harness/included_ranges_go_root_parity_cgo_test.go.
+			name:     "go_new_make_type_argument",
+			language: grammars.GoLanguage,
+			source:   "package p\n\nfunc f() {\n\t_ = new(dirInfo)\n}\n",
+			expectedSubpasses: []string{
+				"dispatch.go",
+				"dispatch.go.source-file-root",
+				"dispatch.go.compat-walk",
+				"dispatch.go.new-make-type",
+			},
+			rewrittenSubpasses: []string{
+				"dispatch.go",
+				"dispatch.go.new-make-type",
+			},
+		},
 	}
 }

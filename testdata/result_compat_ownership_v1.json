@@ -1131,6 +1131,23 @@
       ],
       "subpasses": [
         {
+          "id": "dispatch.go.source-file-root",
+          "functions": [
+            "normalizeGoSourceFileRoot",
+            "recoverGoRootTopLevelChunks"
+          ],
+          "files": [
+            "parser_result_go.go"
+          ],
+          "purpose": "Retag a recovered ERROR root back to source_file and, when the root does not already look like Go top level, rebuild the top-level declarations by a wrapped re-parse. Live on the included-ranges route, which injection children use.",
+          "authoritative_owner": "scheduler_action_semantics",
+          "witnesses": [
+            "parser_included_ranges_go_root_test.go",
+            "parser_result_c_go_cobol_test.go",
+            "cgo_harness/included_ranges_go_root_parity_cgo_test.go"
+          ]
+        },
+        {
           "id": "dispatch.go.compat-walk",
           "functions": [
             "normalizeGoCompatibilityInRangesWithParser",
@@ -1168,12 +1185,12 @@
       "languages": [
         "go"
       ],
-      "purpose": "Reconcile Go returned-tree shape: the semicolon/boundary compatibility walk and the new()/make() leading type-argument retag.",
+      "purpose": "Reconcile Go returned-tree shape: the recovered-root retag, the semicolon and boundary compatibility walk, and the new()/make() leading type-argument retag.",
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
         "cgo_harness/parity_cgo_test.go"
       ],
-      "retirement_condition": "Two members retired 2026-08-02: the ERROR-root retag with its top-level recovery reparse, and the end-of-file newline span. Delete the remaining two subpasses only after materialization and derivation_election_selection emit the same tree natively for every registered witness, with exact production, compact, forest, incremental, and C-oracle receipts.",
+      "retirement_condition": "One member retired 2026-08-02: the end-of-file newline span, which extendNodeToTrailingWhitespace subsumes. The recovered-root retag stays live: it is inert on the fresh, over-64-KiB, and incremental routes but rewrites the tree on the included-ranges route, where deleting it publishes an ERROR root and diverges from C. Delete a remaining subpass only after its owner emits the same tree natively for every registered witness, with exact receipts on all five routes: production, compact, forest, incremental, and included ranges, plus the C oracle.",
       "route_coverage": {
         "production": "shared_result_compatibility_tail",
         "compact": "shared_result_compatibility_tail",

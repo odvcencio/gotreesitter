@@ -9,27 +9,31 @@ for tags and release notes while still in `0.x`.
 
 ### Removed
 
-- Two members of the Go result-compatibility arm are retired.
-  The first retagged an `ERROR` root back to `source_file` and, when the
-  root did not already look like Go top-level code, re-parsed the file in
-  wrapped chunks to rebuild the top-level declarations.
-  The second widened the root span across a trailing end-of-file newline.
-  A language-neutral owner already does the root work: the result-root
-  builder replays the recovered fragments against the parse table and keeps
-  the expected root symbol when they frame.
-  A census over 11,437 real Go files and 11,038 mutated Go sources, of
-  which 5,351 carried a parse error, recorded zero tree rewrites from
-  either member.
-  The same census over 46 hand-written broken Go sources on the fresh
-  route, the over-64-KiB route, and the incremental route also recorded
-  zero rewrites, and every root stayed `source_file`.
+- One member of the Go result-compatibility arm is retired: the member
+  that widened the root span across a trailing end-of-file newline.
+  `extendNodeToTrailingWhitespace` runs unconditionally after the
+  compatibility pass and accepts a superset of the byte set the Go member
+  tested, so the Go member could never reach a span the later pass did not
+  already reach.
+  A census recorded 35,244 gate entries and zero rewrites.
   The four pinned canonical Go deep-tree digests are byte-identical, and
   the exhaustive C-oracle fresh and incremental parity sweep stays green.
-  This deletes 1,302 lines, including the whole Go top-level recovery
-  re-parse subsystem.
-  The Go arm stays live for its two remaining members: the compatibility
-  walk and the `new()`/`make()` type-argument retag.
-  Both are now registered as named census subpasses.
+
+### Added
+
+- The included-ranges route now has committed test coverage.
+  `Parser.SetIncludedRanges` had no test for any language, and injection
+  uses that call for every injected child.
+  A Markdown document with two or more Go fences reaches it in production.
+  Three new gates cover the route: a root-symbol gate, a positive control
+  that proves the Go arm still rewrites the tree there, and a C-oracle
+  comparison that pins the root symbol, span, and child count.
+
+- The Go result-compatibility arm's three members are now registered as
+  named census subpasses, so a census receipt names the member that
+  rewrote the tree instead of only the arm.
+  Census receipts are recorded on the production route only; the default
+  candidate route leaves `ParseRuntime().NormalizationPasses` nil.
 
 ### Fixed
 
