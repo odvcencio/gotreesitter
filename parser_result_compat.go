@@ -66,7 +66,7 @@ func applyResultCompatibility(
 	result := runLanguageResultCompatibility(ctx)
 	// resultMaterializationShouldStop (not parseStopReasonIsActive) here: Go's
 	// normalizer (the only one that can produce it — see
-	// normalizeGoReturnedTreeCompatibility) may now report ParseStopMemoryBudget,
+	// normalizeGoReturnedTreeCompatibilityWithCensus) may now report ParseStopMemoryBudget,
 	// which parseStopReasonIsActive deliberately excludes (many callers rely on
 	// its narrower Timeout/Cancelled-only semantics). Without this, a
 	// budget-stopped Go result would still fall through into the read-only
@@ -158,8 +158,8 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmCensus(ctx, "dispatch.fidl", func() { normalizeFIDLCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "go":
 		var stopReason ParseStopReason
-		dispatcherArmCensus(ctx, "dispatch.go", func() {
-			stopReason = normalizeGoReturnedTreeCompatibility(ctx.root, ctx.source, ctx.parser, ctx.lang, ctx.incrementalRanges)
+		dispatcherArmSubpassCensus(ctx, "dispatch.go", func(census materializationSubpassCensus) {
+			stopReason = normalizeGoReturnedTreeCompatibilityWithCensus(ctx.root, ctx.source, ctx.parser, ctx.lang, ctx.incrementalRanges, census)
 		})
 		return resultCompatibilityResult{stopReason: stopReason}
 	case "hlsl":

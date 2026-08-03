@@ -4,10 +4,7 @@ func normalizeRootEOFNewlineSpan(root *Node, source []byte, lang *Language) {
 	if root == nil || lang == nil || len(source) == 0 || root.endByte >= uint32(len(source)) {
 		return
 	}
-	switch {
-	case lang.Name == "go" && root.Type(lang) == "source_file":
-	case lang.Name == "scala" && root.Type(lang) == "compilation_unit":
-	default:
+	if lang.Name != "scala" || root.Type(lang) != "compilation_unit" {
 		return
 	}
 	gap := source[root.endByte:]

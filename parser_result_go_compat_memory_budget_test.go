@@ -17,7 +17,7 @@ import (
 // sharing it — see parser_result_javascript_typescript_memory_budget_test.go)
 // into the walk's poller
 // (parseStopPoller.memoryBudgetParser) and into per-stage boundary checks in
-// normalizeGoReturnedTreeCompatibility (parser_result_go.go), and latches
+// normalizeGoReturnedTreeCompatibilityWithCensus (parser_result_go.go), and latches
 // compatMemoryBudgetTripped so a trip detected there is reliably surfaced by
 // resultMaterializationStopReason afterward (parser_result.go).
 //
@@ -199,7 +199,7 @@ func TestWalkGoCompatSubtreeStopsOnMemoryBudget(t *testing.T) {
 
 // TestNormalizeGoCompatibilityWithParserPropagatesMemoryBudgetStop exercises
 // the full production entry point (normalizeGoCompatibilityWithParser, the
-// exact function normalizeGoReturnedTreeCompatibility calls) instead of
+// exact function normalizeGoReturnedTreeCompatibilityWithCensus calls) instead of
 // walkGoCompatSubtree directly, confirming the poller wiring done in
 // normalizeGoCompatibilityInRangesWithStopAndScratch (parser_result_go_compat.go)
 // reaches all the way from a *Parser's configured budget to the returned

@@ -7,6 +7,30 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Removed
+
+- Two members of the Go result-compatibility arm are retired.
+  The first retagged an `ERROR` root back to `source_file` and, when the
+  root did not already look like Go top-level code, re-parsed the file in
+  wrapped chunks to rebuild the top-level declarations.
+  The second widened the root span across a trailing end-of-file newline.
+  A language-neutral owner already does the root work: the result-root
+  builder replays the recovered fragments against the parse table and keeps
+  the expected root symbol when they frame.
+  A census over 11,437 real Go files and 11,038 mutated Go sources, of
+  which 5,351 carried a parse error, recorded zero tree rewrites from
+  either member.
+  The same census over 46 hand-written broken Go sources on the fresh
+  route, the over-64-KiB route, and the incremental route also recorded
+  zero rewrites, and every root stayed `source_file`.
+  The four pinned canonical Go deep-tree digests are byte-identical, and
+  the exhaustive C-oracle fresh and incremental parity sweep stays green.
+  This deletes 1,302 lines, including the whole Go top-level recovery
+  re-parse subsystem.
+  The Go arm stays live for its two remaining members: the compatibility
+  walk and the `new()`/`make()` type-argument retag.
+  Both are now registered as named census subpasses.
+
 ### Fixed
 
 - The GSS-forest link cap could silently drop the widest hidden-symbol

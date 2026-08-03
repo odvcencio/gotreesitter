@@ -451,7 +451,7 @@ func TestParseGoNewMakeFixDoesNotRegressCompositeLiterals(t *testing.T) {
 // TestParseGoNewMakeSoleArgumentIsTypeIdentifierIncremental is the
 // incremental counterpart to TestParseGoNewMakeSoleArgumentIsTypeIdentifier
 // (parser_go_test.go): normalizeGoNewMakeTypeArgument runs inside
-// normalizeGoReturnedTreeCompatibility, which every Go result-tree build
+// normalizeGoReturnedTreeCompatibilityWithCensus, which every Go result-tree build
 // path invokes (parser_result_root_build.go / parser_result_compat.go),
 // fresh AND incremental alike. This drives an actual incremental re-parse
 // (via ParseIncrementalWithTokenSource, matching the existing

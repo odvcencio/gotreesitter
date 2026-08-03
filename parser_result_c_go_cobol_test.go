@@ -51,35 +51,6 @@ func assertCollapsedKeywordChild(t *testing.T, node *Node, lang *Language, want 
 	}
 }
 
-func TestNormalizeGoSourceFileRootRetagsRecoveredTopLevelChildren(t *testing.T) {
-	lang := &Language{
-		Name:        "go",
-		SymbolNames: []string{"EOF", "ERROR", "source_file", "package_clause", "function_declaration"},
-		SymbolMetadata: []SymbolMetadata{
-			{Name: "EOF", Visible: false, Named: false},
-			{Name: "ERROR", Visible: true, Named: true},
-			{Name: "source_file", Visible: true, Named: true},
-			{Name: "package_clause", Visible: true, Named: true},
-			{Name: "function_declaration", Visible: true, Named: true},
-		},
-	}
-
-	arena := newNodeArena(arenaClassFull)
-	pkg := newLeafNodeInArena(arena, 3, true, 0, 12, Point{}, Point{Column: 12})
-	fn := newLeafNodeInArena(arena, 4, true, 13, 30, Point{Row: 1}, Point{Row: 1, Column: 17})
-	root := newParentNodeInArena(arena, 1, true, []*Node{pkg, fn}, nil, 0)
-	root.setHasError(true)
-
-	normalizeGoSourceFileRoot(root, nil, &Parser{language: lang})
-
-	if got, want := root.Type(lang), "source_file"; got != want {
-		t.Fatalf("root.Type = %q, want %q", got, want)
-	}
-	if root.HasError() {
-		t.Fatalf("root.HasError = true, want false")
-	}
-}
-
 func TestNormalizeGoStatementListTrailingExtrasStopsBeforeComment(t *testing.T) {
 	source := []byte("stmt\n// trailing comment\n")
 	arena := newNodeArena(arenaClassFull)

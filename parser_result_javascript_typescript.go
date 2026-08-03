@@ -24,7 +24,7 @@ func (p *Parser) javaScriptTypeScriptCompatMemoryBudgetStopReason(arena *nodeAre
 }
 
 // normalizeJavaScriptCompatibility drives JavaScript's post-build
-// compatibility pipeline. It mirrors normalizeGoReturnedTreeCompatibility's
+// compatibility pipeline. It mirrors normalizeGoReturnedTreeCompatibilityWithCensus's
 // containment discipline (parser_result_go.go): it is skipped entirely when
 // the parse already carries an active stop (timeout/cancellation) or an
 // already-tripped memory budget, and the fused walk plus the other
@@ -147,7 +147,7 @@ func normalizeTypeScriptTreeCompatibilityWithParser(root *Node, source []byte, p
 	// resultMaterializationShouldStop (not parseStopReasonIsActive): the fused
 	// walk above may report ParseStopMemoryBudget, which parseStopReasonIsActive
 	// deliberately excludes. Skip every remaining metrics pass below once the
-	// walk itself has already bailed out — mirroring normalizeGoReturnedTreeCompatibility's
+	// walk itself has already bailed out — mirroring normalizeGoReturnedTreeCompatibilityWithCensus's
 	// per-stage bail-out discipline (parser_result_go.go) — rather than running
 	// more passes over a tree the walk stopped partway through.
 	if resultMaterializationShouldStop(syntaxStopReason) {

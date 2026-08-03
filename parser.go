@@ -328,7 +328,7 @@ type Parser struct {
 	parseMemoryBudgetDiag              parseMemoryBudgetDiagnostic
 	parseMemoryBudgetDiagActive        bool
 	// compatMemoryBudgetTripped latches true the moment compat normalization
-	// — Go's (normalizeGoReturnedTreeCompatibility / walkGoCompatSubtree's
+	// — Go's (normalizeGoReturnedTreeCompatibilityWithCensus / walkGoCompatSubtree's
 	// poller) or JS/TS's fused walk (normalizeJavaScriptCompatibility /
 	// normalizeTypeScriptTreeCompatibilityWithParser / rewriteJavaScriptTypeScriptStatementKeywordsCallPrecedenceAndBuildUnaryBinaryIndex's
 	// poller) — observes a runtime memory-budget trip. The runtime heap/sys

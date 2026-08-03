@@ -1123,20 +1123,57 @@
       "id": "dispatch.go",
       "kind": "dispatcher_arm",
       "functions": [
-        "normalizeGoReturnedTreeCompatibility"
+        "normalizeGoReturnedTreeCompatibilityWithCensus"
       ],
       "files": [
-        "parser_result_go.go"
+        "parser_result_go.go",
+        "parser_result_go_compat.go"
+      ],
+      "subpasses": [
+        {
+          "id": "dispatch.go.compat-walk",
+          "functions": [
+            "normalizeGoCompatibilityInRangesWithParser",
+            "normalizeGoSemicolonContainer",
+            "normalizeGoAdjacentSiblingBoundaries",
+            "normalizeGoStatementListTrailingExtras"
+          ],
+          "files": [
+            "parser_result_go_compat.go"
+          ],
+          "purpose": "Drop the auto-semicolon terminals the C grammar hides, and align statement-list and case boundary spans.",
+          "authoritative_owner": "materialization",
+          "witnesses": [
+            "parser_result_go_compat_byte_identity_test.go",
+            "cgo_harness/parity_cgo_test.go"
+          ]
+        },
+        {
+          "id": "dispatch.go.new-make-type",
+          "functions": [
+            "normalizeGoNewMakeTypeArgument"
+          ],
+          "files": [
+            "parser_result_go.go"
+          ],
+          "purpose": "Retag the leading new()/make() argument as its C type node. grammargen resolves the _simple_type versus _expression reduce/reduce conflict at run time by dynamic precedence; the C table generator resolves it at table-build time.",
+          "authoritative_owner": "derivation_election_selection",
+          "witnesses": [
+            "parser_go_newmake_fix_test.go",
+            "parser_go_newmake_residual_test.go",
+            "cgo_harness/go_newmake_residual_parity_test.go"
+          ]
+        }
       ],
       "languages": [
         "go"
       ],
-      "purpose": "Reconcile Go derivation selection, recovery, and returned-tree shape.",
+      "purpose": "Reconcile Go returned-tree shape: the semicolon/boundary compatibility walk and the new()/make() leading type-argument retag.",
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
         "cgo_harness/parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after derivation_election_selection emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Two members retired 2026-08-02: the ERROR-root retag with its top-level recovery reparse, and the end-of-file newline span. Delete the remaining two subpasses only after materialization and derivation_election_selection emit the same tree natively for every registered witness, with exact production, compact, forest, incremental, and C-oracle receipts.",
       "route_coverage": {
         "production": "shared_result_compatibility_tail",
         "compact": "shared_result_compatibility_tail",
