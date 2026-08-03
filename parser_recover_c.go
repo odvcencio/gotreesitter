@@ -135,12 +135,34 @@ const (
 //     produces routinely, falling through to step 3's discontinuity-push +
 //     ts_parser__recover-equivalent path.
 //
-// Sizing: measured TokenCount across all 206 bundled grammars tops out at 585
-// (cobol); cDoAllPotentialReductions's own outer loop is bounded to roughly
-// cRecoverMaxVersionCount (reprocess-in-place rounds) +
-// cRecoverMaxVersionCount+1 (version slots) outer passes regardless of
-// grammar, so a naive worst case is on the order of 7*585 =~ 4095 candidate
-// attempts. Measured directly (2026-08-02, consolidating PR #641): a
+// Sizing: the measured distribution sets this ceiling, not a tight algebraic
+// bound on the loop shape below. A dedicated corpus pass (2026-08-02,
+// consolidating PR #641 and its follow-up review) recorded
+// CRecoverReductionCandidateAttemptsPeak — the largest candidateAttempts
+// value any one cDoAllPotentialReductions call reached — across 719 real
+// corpus files: 326 files never entered the search (peak 0), 243 files
+// reached 1-9, 148 files reached 10-99, and only 2 files reached 100 or
+// more. The highest value seen anywhere in that walk was 256: a 16x margin
+// below this 4096 ceiling, with zero ceiling hits.
+//
+// A loop-shape argument motivated the original 4096 pick. Read it as rough
+// orientation, not a derivation: it does not land on 4096 cleanly.
+// cDoAllPotentialReductions's outer `for iter` loop shares ONE `iter` counter
+// across the whole call, and the "reprocess in place" branch that can fire
+// up to cRecoverMaxVersionCount (6) times is gated on that same shared
+// counter (`iter < cRecoverMaxVersionCount`) — so those up-to-6 passes sit
+// INSIDE the first 6 total passes, not stacked on top of them. Counting them
+// separately anyway, alongside the up to cRecoverMaxVersionCount+1 (7)
+// passes `v` can spend advancing across version slots before the loop stops
+// accepting new ones, gives a loose upper bound of 6+7 = 13 outer passes,
+// each visiting up to TokenCount (585, cobol, the largest of all 206 bundled
+// grammars) reduce candidates: a naive worst case near 13*585 = 7,605 —
+// already above this 4096 ceiling, so this loop shape alone does not justify
+// 4096 either. The measured distribution above is the reason 4096 holds
+// anyway: real recovery search terminates far short of any of these naive
+// bounds on every file this corpus covers.
+//
+// Corpus-scale sweep, same basis (2026-08-02, consolidating PR #641): a
 // 212-language, 12,717-file walk of real-world source under
 // gotreesitter-corpora/corpus_sources — deliberately including files whose
 // content does not match the language directory it was sampled from (e.g. a
@@ -165,6 +187,22 @@ const (
 // them costs a small, bounded amount of additional work (combined with the
 // memory-budget feed alongside this one) well under a second, instead of an
 // unbounded multi-GB climb.
+//
+// cRecoverMaxReductionCandidateAttempts is the ACTIVE mechanism: every
+// witness and corpus-walk ceiling hit recorded against these two backstops
+// (CRecoverReductionCandidateCeilingHits) came from this constant.
+// cRecoverMaxMissingTokenTrials is a backstop that has never fired: across
+// all four memory-exhaustion witnesses and the 719-file corpus pass above,
+// CRecoverMissingTokenCeilingHits stayed 0 and
+// CRecoverMissingTokenTrialAttemptsPeak (mtPeak) ranged 1-11 on the four
+// witnesses and topped out at 120 across the corpus — a 68x margin below
+// this 8192 ceiling. It stays in place: an unfired backstop still guards
+// against a future input shape this codebase has not sampled, and the reduction-
+// candidate ceiling above bounds a narrower scope (one
+// cDoAllPotentialReductions call) than this one does (one entire
+// cHandleError missing-token search). Do not read its silence as proof it is
+// unreachable, and do not treat it as load-bearing for any witness fixed so
+// far — it is not.
 const (
 	cRecoverMaxReductionCandidateAttempts = 4096
 	cRecoverMaxMissingTokenTrials         = 8192

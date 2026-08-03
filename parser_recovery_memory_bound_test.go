@@ -188,12 +188,19 @@ func assertRecoveryMemoryBoundedParse(t *testing.T, name string, lang *gotreesit
 // serves the input -- exactly what spore.2026-08-02.walnut-e.memory-
 // exhaustion's four-combination reproduction (two witnesses times
 // compact-forced/production-forced) established was broken.
+// cobol joined this list to cover the widest search fan-out this codebase
+// has: cReductionCandidatesForAction's per-state candidate scan and
+// cHandleError's per-symbol missing-token scan both range over
+// language.TokenCount, and cobol's TokenCount (585) is the largest of all
+// 206 bundled grammars -- see cRecoverMaxReductionCandidateAttempts's doc
+// comment (parser_recover_c.go) for the sizing basis this bounds against.
 var recoveryFuzzLanguages = []struct {
 	name string
 	lang func() *gotreesitter.Language
 }{
 	{"erlang", grammars.ErlangLanguage},
 	{"jsdoc", grammars.JsdocLanguage},
+	{"cobol", grammars.CobolLanguage},
 }
 
 // recoveryFuzzMaxInputBytes caps fuzzed input size. The bug class this
@@ -228,6 +235,14 @@ func FuzzRecoveryMissingTokenSearchStaysBounded(f *testing.F) {
 	// grammar finds pathological is worth trying against the other.
 	f.Add([]byte{0x6b, 0x1c, 0x03, 0x21}, byte(1))
 	f.Add([]byte("/**\n * @param {string} name\n * #  @returns {number}\n */\n"), byte(0))
+	// cobol seed: a truncated PROGRAM-ID paragraph (missing both the program
+	// name and the terminating period) against cobol itself (index 2) and
+	// cross-paired against erlang and jsdoc, same rationale as above.
+	f.Add([]byte("       IDENTIFICATION DIVISION.\n       PROGRAM-ID. "), byte(2))
+	f.Add([]byte("       IDENTIFICATION DIVISION.\n       PROGRAM-ID. "), byte(0))
+	f.Add([]byte("       IDENTIFICATION DIVISION.\n       PROGRAM-ID. "), byte(1))
+	f.Add([]byte{0x6b, 0x1c, 0x03, 0x21}, byte(2))
+	f.Add([]byte("/**\n * @param {string} name\n * #  @returns {number}\n */\n"), byte(2))
 
 	f.Fuzz(func(t *testing.T, src []byte, langSel byte) {
 		if len(src) >= recoveryFuzzMaxInputBytes {
@@ -273,11 +288,30 @@ func FuzzRecoveryMissingTokenSearchStaysBounded(f *testing.F) {
 	})
 }
 
+// recoveryCeilingGreenCorpusPeakMargin bounds CRecoverReductionCandidateAttemptsPeak
+// on every green-corpus fixture, not just its ceiling-hit count. A dedicated
+// 719-file real-corpus pass (2026-08-02, consolidating PR #641's follow-up
+// review) recorded this peak directly: 326 files never entered the search
+// (peak 0), 243 files reached 1-9, 148 files reached 10-99, and only 2 files
+// reached 100 or more, topping out at 256. This threshold sits 4x above that
+// measured maximum, leaving headroom for legitimate input this repo has not
+// sampled yet while still catching upward drift in the search's real-world
+// cost long before any single fixture could reach
+// cRecoverMaxReductionCandidateAttempts (4096) itself. The corpus embedded in
+// this test (smoke samples plus curated stress fixtures) peaks far lower
+// still — 3, as of this writing — so this margin is not a tight fit to what
+// ships here; it is sized to the wider real-corpus measurement on purpose.
+const recoveryCeilingGreenCorpusPeakMargin = 1024
+
 // TestRecoveryCeilingsNeverTripOnGreenCorpus is the corpus assertion for
 // cRecoverMaxReductionCandidateAttempts and cRecoverMaxMissingTokenTrials
 // (parser_recover_c.go): both ceilings must stay unreached on every green
 // (non-adversarial) input, or they would change a currently-correct recovery
-// outcome instead of only bounding a pathological search. Scope: the
+// outcome instead of only bounding a pathological search. It also asserts a
+// margin on CRecoverReductionCandidateAttemptsPeak
+// (recoveryCeilingGreenCorpusPeakMargin): a ceiling-hit count of 0 alone only
+// proves the search stayed under 4096; the margin catches search-cost drift
+// toward that ceiling long before any fixture could reach it. Scope: the
 // smoke-sample corpus (one representative fixture per each of the 206
 // registered languages, grammars.ParseSmokeSample) plus a small curated set
 // of malformed-but-plausible recovery-stress snippets across widely used
@@ -307,6 +341,11 @@ func TestRecoveryCeilingsNeverTripOnGreenCorpus(t *testing.T) {
 		if rt.CRecoverMissingTokenCeilingHits != 0 {
 			t.Fatalf("%s: CRecoverMissingTokenCeilingHits = %d, want 0 -- the ceiling tripped on green input, "+
 				"which changes a currently-correct recovery outcome", label, rt.CRecoverMissingTokenCeilingHits)
+		}
+		if rt.CRecoverReductionCandidateAttemptsPeak >= recoveryCeilingGreenCorpusPeakMargin {
+			t.Fatalf("%s: CRecoverReductionCandidateAttemptsPeak = %d, want < %d -- the search cost on this green "+
+				"input drifted past the measured real-corpus margin (see recoveryCeilingGreenCorpusPeakMargin)",
+				label, rt.CRecoverReductionCandidateAttemptsPeak, recoveryCeilingGreenCorpusPeakMargin)
 		}
 	}
 

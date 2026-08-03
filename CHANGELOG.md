@@ -9,6 +9,43 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- The C-recovery missing-token search (`cHandleError` /
+  `cDoAllPotentialReductions`, `parser_recover_c.go`) cloned the whole GSS
+  stack without a work limit.
+  A 4-byte erlang input and a 56-byte jsdoc input drove heap use past 2 GB
+  in seconds.
+  Two new loop ceilings now bound the search directly.
+  `cRecoverMaxReductionCandidateAttempts` caps candidate attempts within one
+  `cDoAllPotentialReductions` call.
+  `cRecoverMaxMissingTokenTrials` caps total trials across one
+  `cHandleError` search.
+  `cRecoverMaxReductionCandidateAttempts` is the active mechanism.
+  It is what stops every known witness and every corpus file measured so
+  far.
+  `cRecoverMaxMissingTokenTrials` has not fired once on any of them.
+  It stays in place as an unexercised backstop for input this codebase has
+  not sampled yet, not as a mechanism this fix currently relies on.
+  A new `Parser.budgetScratch` pointer feeds GSS-scratch allocation into
+  the existing 512 MB soft memory budget.
+  The check already in the main parse loop now covers the C-recovery
+  candidate search too.
+
+  Measured through the shipped regression test on the `erlang_pfx_017_71b`
+  witness (`testdata/recovery_memory_bound_witnesses/`): heap growth after
+  this fix is 144.1 MB on the production route and 138.9 MB on the compact
+  route, in well under half a second.
+  Before this fix, the same input reached 695 MB and 52.0 seconds.
+  Both post-fix numbers are the real, reproducible figures.
+  An earlier draft of this fix reported smaller ones.
+
+  `parser_memory_budget_runtime.go`'s `runtimeMemoryHardCeilingEnabled`
+  function keeps its exact prior behavior.
+  This fix adds a comment there recording why an earlier draft's
+  source-length-independent hard ceiling was tried and dropped.
+  It reopened issue #454's determinism symptom class on sub-64 KiB input.
+  It also cost 3.6-9x more time on ordinary small parses, with no
+  offsetting protection over the two loop ceilings above.
+
 - The GSS-forest link cap could silently drop the widest hidden-symbol
   alternative when it tied a narrower one on score and error cost.
   The cap kept the earlier arrival by default in every tie.
