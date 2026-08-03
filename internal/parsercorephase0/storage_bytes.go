@@ -220,6 +220,40 @@ const coreRetentionCapBytes = 48 << 20 // 48 MiB
 // capacity for legitimate reuse across repeated large-file parses. Dropping
 // unconditionally on every reset would instead force full reallocation on
 // every large-fixture benchmark iteration.
+// releaseRecordArenaReserve drops the backing array of every record arena
+// ReserveRecordArenas reserves, unconditionally and regardless of size.
+//
+// This is the decline-path counterpart of the reserve. The reserve is taken
+// from the source length before the seed publishes anything, because that is
+// the only point where it can remove the growth series it exists to remove;
+// but every decline reason is discovered after that point, so a declined
+// attempt leaves a full source-proportional reserve behind that it never
+// filled. releaseOversizedRetention alone cannot reclaim it: that gate
+// compares total FootprintBytes against coreRetentionCapBytes, and a reserve
+// is deliberately sized below that cap, so the whole reserve of a declined
+// parse would otherwise stay billed to the cached runner until some later
+// parse on the same Parser happened to clear the cap.
+//
+// Dropping unconditionally is right here for the same reason the surrounding
+// gate exists at all: a just-declined attempt's retained capacity has no
+// future value, and the caller is already running its production fallback
+// beside it. The cost of being wrong is one reserve on the next parse, which
+// is one allocation per arena -- the same allocation that parse would take
+// anyway on a cold core.
+//
+// Call this only after Reset, from a decline path. It assumes every tracked
+// length is already zero.
+func (c *Core) releaseRecordArenaReserve() {
+	if c == nil {
+		return
+	}
+	c.nodes = nil
+	c.nodeLineages = nil
+	c.links = nil
+	c.subtrees = nil
+	c.children = nil
+}
+
 func (c *Core) releaseOversizedRetention() {
 	if c == nil || c.FootprintBytes() <= coreRetentionCapBytes {
 		return

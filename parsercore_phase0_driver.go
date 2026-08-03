@@ -2408,6 +2408,20 @@ func executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 	if err := compact.SetPhaseCheckpoint(initialCheckpointID); err != nil {
 		return nil, err
 	}
+	// Reserve the five record arenas from the source length before the seed
+	// publishes the first node, so a cold parse starts at its expected
+	// capacity instead of growing there from zero. The ceiling comes from
+	// compactArenaReserveBytes (parsercore_phase0_arena_reserve.go); the
+	// estimator is Core.ReserveRecordArenas
+	// (internal/parsercorephase0/arena_reserve.go). This is the one seam
+	// every compact route passes through: the shipped admission-candidate
+	// route, the diagnostic prefix route, and the benchmark runners all reach
+	// the scheduler here. Pure capacity -- no length, no record, and no Work
+	// counter moves -- so it cannot change a parse result.
+	compact.ReserveRecordArenas(
+		tokenSource.sourceLength(),
+		compactArenaReserveBytes(options.stopControlMemoryBudgetBytes, options.stopControlHardCeilingBytes),
+	)
 	head, err := compact.Seed(core.StateID(initialState), 0)
 	if err != nil {
 		return nil, err

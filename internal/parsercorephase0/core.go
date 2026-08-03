@@ -1425,19 +1425,24 @@ func (c *Core) Reset() error {
 }
 
 // ResetReleasingRetention performs the same truncation as Reset, then drops
-// any growable family's backing array whose combined FootprintBytes exceeds
-// coreRetentionCapBytes (releaseOversizedRetention). Reset alone preserves
-// capacity for legitimate reuse across repeated large-file parses -- the
-// routine "clear the slate before the next attempt" call every fresh parse
-// makes through the admission-candidate runner. This variant is for decline
-// paths specifically: a just-declined attempt's retained capacity has no
-// future value, and keeping it would otherwise stay billed to every later
+// retained capacity in two steps: every record arena ReserveRecordArenas
+// reserves goes unconditionally (releaseRecordArenaReserve), and every other
+// growable family goes when the combined FootprintBytes that remains still
+// exceeds coreRetentionCapBytes (releaseOversizedRetention). Reset alone
+// preserves capacity for legitimate reuse across repeated large-file parses
+// -- the routine "clear the slate before the next attempt" call every fresh
+// parse makes through the admission-candidate runner. This variant is for
+// decline paths specifically: a just-declined attempt's retained capacity has
+// no future value, and keeping it would otherwise stay billed to every later
 // unrelated parse on the same cached runner regardless of that parse's own
-// size (tranche B9 retention-cap gate).
+// size (tranche B9 retention-cap gate). The record arenas need the stronger
+// unconditional rule because a reserve is sized below the retention cap by
+// construction, so the size gate alone can never see it.
 func (c *Core) ResetReleasingRetention() error {
 	if err := c.Reset(); err != nil {
 		return err
 	}
+	c.releaseRecordArenaReserve()
 	c.releaseOversizedRetention()
 	return nil
 }

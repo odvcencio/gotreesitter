@@ -259,11 +259,7 @@ func TestDiagnosticParserCoreBoundaryIndexCensus(t *testing.T) {
 			var scannerScratch []byte
 			scheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeed(
 				compact, tokenSource, &scannerScratch, lang.InitialState,
-				DiagnosticParserCorePrefixOptions{
-					ReceiptMode: DiagnosticParserCoreReceiptSummary,
-					MaxTokens:   300000, MaxDispatches: 600000,
-					Limits: diagnosticParserCoreCanonicalLimits(),
-				},
+				diagnosticParserCoreCanonicalSeedOptions(lang),
 				observer,
 			)
 			if err != nil {
@@ -298,11 +294,7 @@ func BenchmarkDiagnosticParserCoreCanonicalSchedulerCold(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			options := DiagnosticParserCorePrefixOptions{
-				ReceiptMode: DiagnosticParserCoreReceiptSummary,
-				MaxTokens:   300000, MaxDispatches: 600000,
-				Limits: diagnosticParserCoreCanonicalLimits(),
-			}
+			options := diagnosticParserCoreCanonicalSeedOptions(lang)
 			var scannerScratch []byte
 			b.ReportAllocs()
 			b.SetBytes(int64(len(fixture.Source)))
@@ -375,6 +367,33 @@ func diagnosticParserCoreCanonicalLimits() core.Limits {
 		MaxChildren: 4 << 20, MaxMetadata: 2 << 20,
 		MaxLinksPerBoundary: 8, MaxPopPaths: 1 << 16, MaxDerivations: 1 << 16,
 	}
+}
+
+// diagnosticParserCoreCanonicalSeedOptions builds the prefix options for the
+// canonical instruments that seed the generic scheduler themselves rather
+// than call DiagnosticParseParserCorePrefix.
+//
+// allowConvergedSplitDropArtifact is the load-bearing field. The driver sets
+// it from the language's own certification record
+// (lang.CompactConvergedReductionSplitDropsCertified,
+// parsercore_phase0_driver.go), so every route that goes through
+// DiagnosticParseParserCorePrefix or the admission-candidate runner carries
+// it. An instrument that builds its own option literal and seeds
+// executeDiagnosticParserCoreGenericSchedulerFromSeed directly bypasses that
+// seam. Without this field the certified Go grammar's converged-path
+// reduction split no-action drop fails the alternative-set coverage proof
+// (dropGenericNoActionHeads) and every canonical fixture declines, so the
+// instrument measures nothing at all.
+func diagnosticParserCoreCanonicalSeedOptions(lang *Language) DiagnosticParserCorePrefixOptions {
+	options := DiagnosticParserCorePrefixOptions{
+		ReceiptMode: DiagnosticParserCoreReceiptSummary,
+		MaxTokens:   300000, MaxDispatches: 600000,
+		Limits: diagnosticParserCoreCanonicalLimits(),
+	}
+	if lang != nil {
+		options.allowConvergedSplitDropArtifact = lang.CompactConvergedReductionSplitDropsCertified
+	}
+	return options
 }
 
 func loadDiagnosticParserCoreCanonicalFixture(t testing.TB, id string) DiagnosticParserCoreCanonicalFixtureForTest {
