@@ -755,17 +755,28 @@ func (d *dfaTokenSource) preferGLRUnionDFAOverExternalToken(extTok Token, extEnd
 		}
 		return Token{}, 0, 0, 0, false
 	}
-	// A zero-width external token consumes no input, so keeping it costs the
-	// live stacks that cannot use it nothing: parser.go's zero-width no-action
-	// branch makes each of them skip the token and re-lex the same byte, and
-	// the zero-width retry filter (extZeroTried) stops the scanner from
-	// offering it a second time at that position. Dropping it, by contrast, is
-	// final. Any stack whose only continuation is that external token loses its
-	// one lookahead and dies, which removes a whole derivation from the parse.
-	// C never makes that trade: it lexes every stack version with that
-	// version's own lex mode, so a version gated behind a zero-width external
-	// token always receives it. Keep the external token whenever some live GLR
-	// state can act on it and cannot act on the DFA token.
+	// A zero-width external token consumes no input. The live stacks that
+	// cannot act on it take parser.go's zero-width no-action branch, skip it,
+	// and re-lex the same byte, so keeping it does not cost them their
+	// lookahead. Dropping it, by contrast, is final: any stack whose only
+	// continuation is that external token loses its one lookahead and dies,
+	// which removes a whole derivation from the parse. C never makes that
+	// trade, because it lexes every stack version with that version's own lex
+	// mode, so a version gated behind a zero-width external token always
+	// receives it. Keep the external token whenever some live GLR state can act
+	// on it and cannot act on the DFA token.
+	//
+	// What stops the scanner offering the same zero-width token again at that
+	// byte is the external validity set computed for the NEW frontier, not the
+	// (position, primary state) filter in extZeroTried. That filter goes inert
+	// as soon as the rescued fork shifts, because the primary parser state then
+	// changes and no longer matches the recorded one. Measured on "g();": the
+	// second lex at byte 2 runs with primary state 183, and the union over the
+	// live states {183, 285} does not admit _NONASSOC at all.
+	//
+	// Keeping a fork alive longer is not free elsewhere. It changes how many
+	// live versions the error-recovery ladder sees, so this rescue lands
+	// together with the live-sibling gates in parser.go's no-action ladder.
 	if extTok.EndByte == extTok.StartByte && d.hasGLRActionSupportExclusiveTo(extTok.Symbol, dfaTok.Symbol) {
 		if DebugDFA.Load() {
 			fmt.Printf("  GLR ext/dfa keep external: zero-width ext=%s(%d) has a state the dfa=%s(%d) cannot serve\n",

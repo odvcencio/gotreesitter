@@ -101,3 +101,31 @@ func TestPreferGLRUnionDFAStillPrefersDFAWhenExternalTokenHasWidth(t *testing.T)
 		t.Fatalf("dfa token symbol = %d, want 1 (%q)", dfaTok.Symbol, lang.SymbolNames[1])
 	}
 }
+
+// TestAnotherLiveParseStackRemainsIgnoresDeadSiblings pins the predicate the
+// no-action recovery ladder now uses instead of the raw slice length. Versions
+// this same dispatch pass already killed must not count: while they did, a
+// frontier that had ever forked lost its recovery entirely and the parse ended
+// with the rest of the file unparsed.
+func TestAnotherLiveParseStackRemainsIgnoresDeadSiblings(t *testing.T) {
+	stacks := make([]glrStack, 3)
+	stacks[0].dead = true
+	stacks[1].dead = true
+
+	if anotherLiveParseStackRemains(stacks, 2) {
+		t.Fatal("stacks[2] is the last live version, but the predicate reported a live sibling")
+	}
+	if !anotherLiveParseStackRemains(stacks, 0) {
+		t.Fatal("stacks[2] is live, so killing stacks[0] leaves a carrier")
+	}
+
+	stacks[1].dead = false
+	if !anotherLiveParseStackRemains(stacks, 2) {
+		t.Fatal("stacks[1] is live again, so stacks[2] is no longer the last live version")
+	}
+
+	single := make([]glrStack, 1)
+	if anotherLiveParseStackRemains(single, 0) {
+		t.Fatal("a one-version frontier has no sibling")
+	}
+}

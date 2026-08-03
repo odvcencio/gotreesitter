@@ -5745,6 +5745,13 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				// stack has an action for the lookahead, so re-lexing cannot steal a
 				// token another version was going to consume, whatever the grammar.
 				canRelexNoLiveAction := !sameState && p.language != nil && p.noLiveStackCanAcceptLookahead(stacks, tok)
+				// The recovery ladder below is written for "no other version can
+				// carry this parse". The slice length is the wrong way to ask
+				// that question: it also counts versions this same dispatch pass
+				// has already killed, so a frontier that ever forked silently
+				// loses its recovery even when this is its last live version.
+				// Ask about live siblings instead.
+				lastLiveStack := !anotherLiveParseStackRemains(stacks, si)
 				if tok.Symbol == errorSymbol && tok.StartByte != tok.EndByte && p.errorCostCompetitionEnabled() {
 					// Faithful C recovery port: an unlexable-run lookahead has
 					// no table actions in C either; the version pauses and the
@@ -5896,7 +5903,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				// nested declaration-start construct as an error rather than
 				// silently accepting it — see
 				// TestOpportunisticTopLevelResyncDoesNotLiftNestedDeclarationStarts/java_import_inside_malformed_method.
-				if len(stacks) == 1 && !p.resyncTopLevelLanguage() && !p.errorCostCompetitionEnabled() {
+				if lastLiveStack && !p.resyncTopLevelLanguage() && !p.errorCostCompetitionEnabled() {
 					switch p.tryOpportunisticTopLevelResyncRecovery(source, s, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
 					case resyncRetry:
 						currentState = s.top().state
@@ -5964,7 +5971,17 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					continue
 				}
-				if len(stacks) > 1 {
+				// Killing a version because it has no action for the lookahead
+				// is only safe while another version can still carry the parse.
+				// The old gate read the raw slice length, so the LAST live
+				// version was killed too whenever the frontier had ever forked,
+				// and the parse ended at ParseStopNoStacksAlive with the rest of
+				// the file unparsed. C never does that: ts_parser__advance runs
+				// ts_parser__handle_error once no version can act, so the file
+				// is always consumed to EOF. Keep the kill for versions that
+				// leave a live sibling behind, and give the last live version
+				// the single-stack recovery ladder below.
+				if !lastLiveStack {
 					if p.glrTrace {
 						fmt.Printf("  stack[%d] KILLED: no action for sym=%d in state=%d (multiple stacks)\n", si, tok.Symbol, currentState)
 					}
@@ -7444,6 +7461,19 @@ func (p *Parser) traceParseIteration(iter int, tok Token, stacks []glrStack, nee
 		fmt.Printf("  s[%d]: st=%d dead=%v shift=%v dep=%d byte=%d\n",
 			si, stacks[si].top().state, stacks[si].dead, stacks[si].shifted, stacks[si].depth(), stacks[si].byteOffset)
 	}
+}
+
+// anotherLiveParseStackRemains reports whether some version other than
+// stacks[si] is still live, so killing stacks[si] leaves the parse a carrier.
+// A version that already accepted still counts: it holds a complete parse.
+func anotherLiveParseStackRemains(stacks []glrStack, si int) bool {
+	for i := range stacks {
+		if i == si || stacks[i].dead {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func parseStacksShareState(stacks []glrStack, state StateID) bool {

@@ -60,11 +60,16 @@ func TestPerlA3CompactCertificationFullCorpusSweep(t *testing.T) {
 //   - local_dynamic_scope now matches the C oracle on both routes.
 //   - medium__statements.pm now matches the C oracle on the compact route
 //     and is reported as an adjudicated exception. Its production route
-//     still elects ambiguous_function_call_expression at 12 points, all of
-//     them bareword calls inside try/catch/finally blocks. The fork now
-//     survives to the end there; the remaining defect is the derivation
-//     selection between the two surviving derivations, which is the
-//     separate family-D tie-break lane.
+//     still elects ambiguous_function_call_expression at 12 points. The
+//     try/catch/finally blocks in that file are where those points sit, but
+//     the block kind is NOT the condition: the residual is that two bareword
+//     calls compete for one election, so exactly one of the pair keeps the
+//     ambiguous derivation. "A();\nB();" reproduces it in ten bytes with no
+//     block at all (see
+//     TestPerlBarewordCallResidualDivergenceCOracleParity). The fork now
+//     survives to the end in every one of these; the remaining defect is the
+//     derivation selection between the two surviving derivations, which is
+//     the separate family-D tie-break lane.
 var perlA3KnownDivergences = []a3KnownDivergence{
 	{
 		Witness:   "join_assignment",
