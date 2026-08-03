@@ -1,0 +1,74 @@
+{
+  "language": "go",
+  "fixture": "go/broken.go.fixture",
+  "purpose": "error-bearing source: the outline stays well-defined across an ERROR node",
+  "tree_has_error": true,
+  "report": {
+    "Symbols": 3,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "function",
+      "name": "Before",
+      "node_type": "function_declaration",
+      "range": {
+        "start_byte": 16,
+        "end_byte": 47,
+        "start_point": "2:0",
+        "end_point": "4:1"
+      },
+      "name_range": {
+        "start_byte": 21,
+        "end_byte": 27,
+        "start_point": "2:5",
+        "end_point": "2:11"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "function",
+      "name": "Damaged",
+      "node_type": "function_declaration",
+      "range": {
+        "start_byte": 49,
+        "end_byte": 81,
+        "start_point": "6:0",
+        "end_point": "8:1"
+      },
+      "name_range": {
+        "start_byte": 54,
+        "end_byte": 61,
+        "start_point": "6:5",
+        "end_point": "6:12"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "method",
+      "name": "After",
+      "node_type": "method_declaration",
+      "range": {
+        "start_byte": 118,
+        "end_byte": 166,
+        "start_point": "14:0",
+        "end_point": "16:1"
+      },
+      "name_range": {
+        "start_byte": 135,
+        "end_byte": 140,
+        "start_point": "14:17",
+        "end_point": "14:22"
+      },
+      "owner": ""
+    }
+  ]
+}

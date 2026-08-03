@@ -1,0 +1,114 @@
+{
+  "language": "tsx",
+  "fixture": "tsx/view.tsx",
+  "purpose": "interface and class beside JSX; nested function in a component",
+  "tree_has_error": false,
+  "report": {
+    "Symbols": 5,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "interface",
+      "name": "Props",
+      "node_type": "interface_declaration",
+      "range": {
+        "start_byte": 0,
+        "end_byte": 36,
+        "start_point": "0:0",
+        "end_point": "2:1"
+      },
+      "name_range": {
+        "start_byte": 10,
+        "end_byte": 15,
+        "start_point": "0:10",
+        "end_point": "0:15"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "function",
+      "name": "View",
+      "node_type": "function_declaration",
+      "range": {
+        "start_byte": 45,
+        "end_byte": 164,
+        "start_point": "4:7",
+        "end_point": "9:1"
+      },
+      "name_range": {
+        "start_byte": 54,
+        "end_byte": 58,
+        "start_point": "4:16",
+        "end_point": "4:20"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "function",
+          "name": "label",
+          "node_type": "function_declaration",
+          "range": {
+            "start_byte": 77,
+            "end_byte": 131,
+            "start_point": "5:2",
+            "end_point": "7:3"
+          },
+          "name_range": {
+            "start_byte": 86,
+            "end_byte": 91,
+            "start_point": "5:11",
+            "end_point": "5:16"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "Panel",
+      "node_type": "class_declaration",
+      "range": {
+        "start_byte": 173,
+        "end_byte": 236,
+        "start_point": "11:7",
+        "end_point": "15:1"
+      },
+      "name_range": {
+        "start_byte": 179,
+        "end_byte": 184,
+        "start_point": "11:13",
+        "end_point": "11:18"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "method",
+          "name": "render",
+          "node_type": "method_definition",
+          "range": {
+            "start_byte": 189,
+            "end_byte": 234,
+            "start_point": "12:2",
+            "end_point": "14:3"
+          },
+          "name_range": {
+            "start_byte": 189,
+            "end_byte": 195,
+            "start_point": "12:2",
+            "end_point": "12:8"
+          },
+          "owner": ""
+        }
+      ]
+    }
+  ]
+}

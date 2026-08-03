@@ -1,0 +1,33 @@
+package service
+
+import "fmt"
+
+const defaultName = "svc"
+
+type Registry struct {
+	entries map[string]int
+}
+
+type Named interface {
+	Name() string
+}
+
+func NewRegistry() *Registry {
+	return &Registry{entries: map[string]int{}}
+}
+
+func (r *Registry) Add(name string, weight int) {
+	r.entries[name] = weight
+	fmt.Println(name)
+}
+
+func (r *Registry) Name() string {
+	return defaultName
+}
+
+func Describe(n Named) string {
+	render := func(prefix string) string {
+		return prefix + n.Name()
+	}
+	return render("svc:")
+}

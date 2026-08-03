@@ -1,0 +1,150 @@
+{
+  "language": "rust",
+  "fixture": "rust/lib.rs",
+  "purpose": "struct, enum refinement by enum_item, trait, function nested in a function",
+  "tree_has_error": false,
+  "report": {
+    "Symbols": 7,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "type",
+      "name": "Registry",
+      "node_type": "struct_item",
+      "range": {
+        "start_byte": 0,
+        "end_byte": 41,
+        "start_point": "0:0",
+        "end_point": "2:1"
+      },
+      "name_range": {
+        "start_byte": 11,
+        "end_byte": 19,
+        "start_point": "0:11",
+        "end_point": "0:19"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "enum",
+      "name": "Level",
+      "node_type": "enum_item",
+      "range": {
+        "start_byte": 43,
+        "end_byte": 80,
+        "start_point": "4:0",
+        "end_point": "7:1"
+      },
+      "name_range": {
+        "start_byte": 52,
+        "end_byte": 57,
+        "start_point": "4:9",
+        "end_point": "4:14"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "type",
+      "name": "Named",
+      "node_type": "trait_item",
+      "range": {
+        "start_byte": 82,
+        "end_byte": 131,
+        "start_point": "9:0",
+        "end_point": "11:1"
+      },
+      "name_range": {
+        "start_byte": 92,
+        "end_byte": 97,
+        "start_point": "9:10",
+        "end_point": "9:15"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "function",
+          "name": "name",
+          "node_type": "function_signature_item",
+          "range": {
+            "start_byte": 104,
+            "end_byte": 129,
+            "start_point": "10:4",
+            "end_point": "10:29"
+          },
+          "name_range": {
+            "start_byte": 107,
+            "end_byte": 111,
+            "start_point": "10:7",
+            "end_point": "10:11"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "function",
+      "name": "name",
+      "node_type": "function_item",
+      "range": {
+        "start_byte": 163,
+        "end_byte": 228,
+        "start_point": "14:4",
+        "end_point": "16:5"
+      },
+      "name_range": {
+        "start_byte": 166,
+        "end_byte": 170,
+        "start_point": "14:7",
+        "end_point": "14:11"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "function",
+      "name": "describe",
+      "node_type": "function_item",
+      "range": {
+        "start_byte": 232,
+        "end_byte": 381,
+        "start_point": "19:0",
+        "end_point": "24:1"
+      },
+      "name_range": {
+        "start_byte": 239,
+        "end_byte": 247,
+        "start_point": "19:7",
+        "end_point": "19:15"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "function",
+          "name": "suffix",
+          "node_type": "function_item",
+          "range": {
+            "start_byte": 285,
+            "end_byte": 332,
+            "start_point": "20:4",
+            "end_point": "22:5"
+          },
+          "name_range": {
+            "start_byte": 288,
+            "end_byte": 294,
+            "start_point": "20:7",
+            "end_point": "20:13"
+          },
+          "owner": ""
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,170 @@
+{
+  "language": "java",
+  "fixture": "java/Service.java",
+  "purpose": "interface, enum refinement, constructor, method, nested class",
+  "tree_has_error": false,
+  "report": {
+    "Symbols": 8,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "interface",
+      "name": "Service",
+      "node_type": "interface_declaration",
+      "range": {
+        "start_byte": 15,
+        "end_byte": 62,
+        "start_point": "2:0",
+        "end_point": "4:1"
+      },
+      "name_range": {
+        "start_byte": 32,
+        "end_byte": 39,
+        "start_point": "2:17",
+        "end_point": "2:24"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "method",
+          "name": "name",
+          "node_type": "method_declaration",
+          "range": {
+            "start_byte": 46,
+            "end_byte": 60,
+            "start_point": "3:4",
+            "end_point": "3:18"
+          },
+          "name_range": {
+            "start_byte": 53,
+            "end_byte": 57,
+            "start_point": "3:11",
+            "end_point": "3:15"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "Level",
+      "node_type": "enum_declaration",
+      "range": {
+        "start_byte": 64,
+        "end_byte": 97,
+        "start_point": "6:0",
+        "end_point": "9:1"
+      },
+      "name_range": {
+        "start_byte": 69,
+        "end_byte": 74,
+        "start_point": "6:5",
+        "end_point": "6:10"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "class",
+      "name": "Registry",
+      "node_type": "class_declaration",
+      "range": {
+        "start_byte": 131,
+        "end_byte": 406,
+        "start_point": "14:0",
+        "end_point": "30:1"
+      },
+      "name_range": {
+        "start_byte": 144,
+        "end_byte": 152,
+        "start_point": "14:13",
+        "end_point": "14:21"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "constructor",
+          "name": "Registry",
+          "node_type": "constructor_declaration",
+          "range": {
+            "start_byte": 211,
+            "end_byte": 269,
+            "start_point": "17:4",
+            "end_point": "19:5"
+          },
+          "name_range": {
+            "start_byte": 211,
+            "end_byte": 219,
+            "start_point": "17:4",
+            "end_point": "17:12"
+          },
+          "owner": ""
+        },
+        {
+          "kind": "method",
+          "name": "name",
+          "node_type": "method_declaration",
+          "range": {
+            "start_byte": 275,
+            "end_byte": 325,
+            "start_point": "21:4",
+            "end_point": "23:5"
+          },
+          "name_range": {
+            "start_byte": 289,
+            "end_byte": 293,
+            "start_point": "21:18",
+            "end_point": "21:22"
+          },
+          "owner": ""
+        },
+        {
+          "kind": "class",
+          "name": "Inner",
+          "node_type": "class_declaration",
+          "range": {
+            "start_byte": 331,
+            "end_byte": 404,
+            "start_point": "25:4",
+            "end_point": "29:5"
+          },
+          "name_range": {
+            "start_byte": 337,
+            "end_byte": 342,
+            "start_point": "25:10",
+            "end_point": "25:15"
+          },
+          "owner": "",
+          "children": [
+            {
+              "kind": "method",
+              "name": "depth",
+              "node_type": "method_declaration",
+              "range": {
+                "start_byte": 353,
+                "end_byte": 398,
+                "start_point": "26:8",
+                "end_point": "28:9"
+              },
+              "name_range": {
+                "start_byte": 357,
+                "end_byte": 362,
+                "start_point": "26:12",
+                "end_point": "26:17"
+              },
+              "owner": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

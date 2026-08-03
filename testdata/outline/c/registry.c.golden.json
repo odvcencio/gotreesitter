@@ -1,0 +1,152 @@
+{
+  "language": "c",
+  "fixture": "c/registry.c",
+  "purpose": "struct, typedef, and function definitions; also pins the inferred-query over-capture of struct uses (spec risk R1)",
+  "tree_has_error": false,
+  "report": {
+    "Symbols": 7,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "type",
+      "name": "Registry",
+      "node_type": "struct_specifier",
+      "range": {
+        "start_byte": 21,
+        "end_byte": 55,
+        "start_point": "2:0",
+        "end_point": "4:1"
+      },
+      "name_range": {
+        "start_byte": 28,
+        "end_byte": 36,
+        "start_point": "2:7",
+        "end_point": "2:15"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "type",
+      "name": "RegistryAlias",
+      "node_type": "type_definition",
+      "range": {
+        "start_byte": 58,
+        "end_byte": 96,
+        "start_point": "6:0",
+        "end_point": "6:38"
+      },
+      "name_range": {
+        "start_byte": 82,
+        "end_byte": 95,
+        "start_point": "6:24",
+        "end_point": "6:37"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "type",
+          "name": "Registry",
+          "node_type": "struct_specifier",
+          "range": {
+            "start_byte": 66,
+            "end_byte": 81,
+            "start_point": "6:8",
+            "end_point": "6:23"
+          },
+          "name_range": {
+            "start_byte": 73,
+            "end_byte": 81,
+            "start_point": "6:15",
+            "end_point": "6:23"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "function",
+      "name": "registry_count",
+      "node_type": "function_definition",
+      "range": {
+        "start_byte": 145,
+        "end_byte": 222,
+        "start_point": "13:0",
+        "end_point": "15:1"
+      },
+      "name_range": {
+        "start_byte": 149,
+        "end_byte": 163,
+        "start_point": "13:4",
+        "end_point": "13:18"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "type",
+          "name": "Registry",
+          "node_type": "struct_specifier",
+          "range": {
+            "start_byte": 164,
+            "end_byte": 179,
+            "start_point": "13:19",
+            "end_point": "13:34"
+          },
+          "name_range": {
+            "start_byte": 171,
+            "end_byte": 179,
+            "start_point": "13:26",
+            "end_point": "13:34"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "function",
+      "name": "registry_reset",
+      "node_type": "function_definition",
+      "range": {
+        "start_byte": 224,
+        "end_byte": 299,
+        "start_point": "17:0",
+        "end_point": "19:1"
+      },
+      "name_range": {
+        "start_byte": 229,
+        "end_byte": 243,
+        "start_point": "17:5",
+        "end_point": "17:19"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "type",
+          "name": "Registry",
+          "node_type": "struct_specifier",
+          "range": {
+            "start_byte": 244,
+            "end_byte": 259,
+            "start_point": "17:20",
+            "end_point": "17:35"
+          },
+          "name_range": {
+            "start_byte": 251,
+            "end_byte": 259,
+            "start_point": "17:27",
+            "end_point": "17:35"
+          },
+          "owner": ""
+        }
+      ]
+    }
+  ]
+}

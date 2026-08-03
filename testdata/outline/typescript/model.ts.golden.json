@@ -1,0 +1,150 @@
+{
+  "language": "typescript",
+  "fixture": "typescript/model.ts",
+  "purpose": "enum refinement by node type, interface, class, nested function",
+  "tree_has_error": false,
+  "report": {
+    "Symbols": 7,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "enum",
+      "name": "Level",
+      "node_type": "enum_declaration",
+      "range": {
+        "start_byte": 7,
+        "end_byte": 36,
+        "start_point": "0:7",
+        "end_point": "3:1"
+      },
+      "name_range": {
+        "start_byte": 12,
+        "end_byte": 17,
+        "start_point": "0:12",
+        "end_point": "0:17"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "interface",
+      "name": "Shape",
+      "node_type": "interface_declaration",
+      "range": {
+        "start_byte": 45,
+        "end_byte": 82,
+        "start_point": "5:7",
+        "end_point": "7:1"
+      },
+      "name_range": {
+        "start_byte": 55,
+        "end_byte": 60,
+        "start_point": "5:17",
+        "end_point": "5:22"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "class",
+      "name": "Circle",
+      "node_type": "class_declaration",
+      "range": {
+        "start_byte": 91,
+        "end_byte": 304,
+        "start_point": "9:7",
+        "end_point": "18:1"
+      },
+      "name_range": {
+        "start_byte": 97,
+        "end_byte": 103,
+        "start_point": "9:13",
+        "end_point": "9:19"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "method",
+          "name": "constructor",
+          "node_type": "method_definition",
+          "range": {
+            "start_byte": 125,
+            "end_byte": 163,
+            "start_point": "10:2",
+            "end_point": "10:40"
+          },
+          "name_range": {
+            "start_byte": 125,
+            "end_byte": 136,
+            "start_point": "10:2",
+            "end_point": "10:13"
+          },
+          "owner": ""
+        },
+        {
+          "kind": "method",
+          "name": "area",
+          "node_type": "method_definition",
+          "range": {
+            "start_byte": 167,
+            "end_byte": 302,
+            "start_point": "12:2",
+            "end_point": "17:3"
+          },
+          "name_range": {
+            "start_byte": 167,
+            "end_byte": 171,
+            "start_point": "12:2",
+            "end_point": "12:6"
+          },
+          "owner": "",
+          "children": [
+            {
+              "kind": "function",
+              "name": "square",
+              "node_type": "function_declaration",
+              "range": {
+                "start_byte": 188,
+                "end_byte": 262,
+                "start_point": "13:4",
+                "end_point": "15:5"
+              },
+              "name_range": {
+                "start_byte": 197,
+                "end_byte": 203,
+                "start_point": "13:13",
+                "end_point": "13:19"
+              },
+              "owner": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "function",
+      "name": "describe",
+      "node_type": "function_declaration",
+      "range": {
+        "start_byte": 313,
+        "end_byte": 387,
+        "start_point": "20:7",
+        "end_point": "22:1"
+      },
+      "name_range": {
+        "start_byte": 322,
+        "end_byte": 330,
+        "start_point": "20:16",
+        "end_point": "20:24"
+      },
+      "owner": ""
+    }
+  ]
+}

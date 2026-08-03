@@ -1,0 +1,172 @@
+{
+  "language": "python",
+  "fixture": "python/app.py",
+  "purpose": "three nesting levels: module function, class, method, class inside a method",
+  "tree_has_error": false,
+  "report": {
+    "Symbols": 8,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "function",
+      "name": "top_level",
+      "node_type": "function_definition",
+      "range": {
+        "start_byte": 15,
+        "end_byte": 110,
+        "start_point": "3:0",
+        "end_point": "7:24"
+      },
+      "name_range": {
+        "start_byte": 19,
+        "end_byte": 28,
+        "start_point": "3:4",
+        "end_point": "3:13"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "function",
+          "name": "helper",
+          "node_type": "function_definition",
+          "range": {
+            "start_byte": 41,
+            "end_byte": 84,
+            "start_point": "4:4",
+            "end_point": "5:24"
+          },
+          "name_range": {
+            "start_byte": 45,
+            "end_byte": 51,
+            "start_point": "4:8",
+            "end_point": "4:14"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "Service",
+      "node_type": "class_definition",
+      "range": {
+        "start_byte": 113,
+        "end_byte": 312,
+        "start_point": "10:0",
+        "end_point": "19:30"
+      },
+      "name_range": {
+        "start_byte": 119,
+        "end_byte": 126,
+        "start_point": "10:6",
+        "end_point": "10:13"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "function",
+          "name": "__init__",
+          "node_type": "function_definition",
+          "range": {
+            "start_byte": 132,
+            "end_byte": 182,
+            "start_point": "11:4",
+            "end_point": "12:24"
+          },
+          "name_range": {
+            "start_byte": 136,
+            "end_byte": 144,
+            "start_point": "11:8",
+            "end_point": "11:16"
+          },
+          "owner": ""
+        },
+        {
+          "kind": "function",
+          "name": "render",
+          "node_type": "function_definition",
+          "range": {
+            "start_byte": 188,
+            "end_byte": 312,
+            "start_point": "14:4",
+            "end_point": "19:30"
+          },
+          "name_range": {
+            "start_byte": 192,
+            "end_byte": 198,
+            "start_point": "14:8",
+            "end_point": "14:14"
+          },
+          "owner": "",
+          "children": [
+            {
+              "kind": "class",
+              "name": "Nested",
+              "node_type": "class_definition",
+              "range": {
+                "start_byte": 214,
+                "end_byte": 280,
+                "start_point": "15:8",
+                "end_point": "17:24"
+              },
+              "name_range": {
+                "start_byte": 220,
+                "end_byte": 226,
+                "start_point": "15:14",
+                "end_point": "15:20"
+              },
+              "owner": "",
+              "children": [
+                {
+                  "kind": "function",
+                  "name": "deep",
+                  "node_type": "function_definition",
+                  "range": {
+                    "start_byte": 240,
+                    "end_byte": 280,
+                    "start_point": "16:12",
+                    "end_point": "17:24"
+                  },
+                  "name_range": {
+                    "start_byte": 244,
+                    "end_byte": 248,
+                    "start_point": "16:16",
+                    "end_point": "16:20"
+                  },
+                  "owner": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "Empty",
+      "node_type": "class_definition",
+      "range": {
+        "start_byte": 315,
+        "end_byte": 336,
+        "start_point": "22:0",
+        "end_point": "23:8"
+      },
+      "name_range": {
+        "start_byte": 321,
+        "end_byte": 326,
+        "start_point": "22:6",
+        "end_point": "22:11"
+      },
+      "owner": ""
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+{
+  "language": "javascript",
+  "fixture": "javascript/widget.js",
+  "purpose": "class with methods, function nested in a method, empty class",
+  "tree_has_error": false,
+  "report": {
+    "Symbols": 7,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "function",
+      "name": "build",
+      "node_type": "function_declaration",
+      "range": {
+        "start_byte": 0,
+        "end_byte": 122,
+        "start_point": "0:0",
+        "end_point": "5:1"
+      },
+      "name_range": {
+        "start_byte": 9,
+        "end_byte": 14,
+        "start_point": "0:9",
+        "end_point": "0:14"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "function",
+          "name": "normalize",
+          "node_type": "function_declaration",
+          "range": {
+            "start_byte": 28,
+            "end_byte": 85,
+            "start_point": "1:2",
+            "end_point": "3:3"
+          },
+          "name_range": {
+            "start_byte": 37,
+            "end_byte": 46,
+            "start_point": "1:11",
+            "end_point": "1:20"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "Widget",
+      "node_type": "class_declaration",
+      "range": {
+        "start_byte": 124,
+        "end_byte": 274,
+        "start_point": "7:0",
+        "end_point": "18:1"
+      },
+      "name_range": {
+        "start_byte": 130,
+        "end_byte": 136,
+        "start_point": "7:6",
+        "end_point": "7:12"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "method",
+          "name": "constructor",
+          "node_type": "method_definition",
+          "range": {
+            "start_byte": 141,
+            "end_byte": 189,
+            "start_point": "8:2",
+            "end_point": "10:3"
+          },
+          "name_range": {
+            "start_byte": 141,
+            "end_byte": 152,
+            "start_point": "8:2",
+            "end_point": "8:13"
+          },
+          "owner": ""
+        },
+        {
+          "kind": "method",
+          "name": "render",
+          "node_type": "method_definition",
+          "range": {
+            "start_byte": 193,
+            "end_byte": 272,
+            "start_point": "12:2",
+            "end_point": "17:3"
+          },
+          "name_range": {
+            "start_byte": 193,
+            "end_byte": 199,
+            "start_point": "12:2",
+            "end_point": "12:8"
+          },
+          "owner": "",
+          "children": [
+            {
+              "kind": "function",
+              "name": "inner",
+              "node_type": "function_declaration",
+              "range": {
+                "start_byte": 208,
+                "end_byte": 248,
+                "start_point": "13:4",
+                "end_point": "15:5"
+              },
+              "name_range": {
+                "start_byte": 217,
+                "end_byte": 222,
+                "start_point": "13:13",
+                "end_point": "13:18"
+              },
+              "owner": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "Empty",
+      "node_type": "class_declaration",
+      "range": {
+        "start_byte": 276,
+        "end_byte": 290,
+        "start_point": "20:0",
+        "end_point": "20:14"
+      },
+      "name_range": {
+        "start_byte": 282,
+        "end_byte": 287,
+        "start_point": "20:6",
+        "end_point": "20:11"
+      },
+      "owner": ""
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "language": "cpp",
+  "fixture": "cpp/registry.cpp",
+  "purpose": "class with member function definitions nested inside it",
+  "tree_has_error": false,
+  "report": {
+    "Symbols": 5,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "type",
+      "name": "Point",
+      "node_type": "struct_specifier",
+      "range": {
+        "start_byte": 18,
+        "end_byte": 56,
+        "start_point": "2:0",
+        "end_point": "5:1"
+      },
+      "name_range": {
+        "start_byte": 25,
+        "end_byte": 30,
+        "start_point": "2:7",
+        "end_point": "2:12"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "class",
+      "name": "Registry",
+      "node_type": "class_specifier",
+      "range": {
+        "start_byte": 59,
+        "end_byte": 214,
+        "start_point": "7:0",
+        "end_point": "19:1"
+      },
+      "name_range": {
+        "start_byte": 65,
+        "end_byte": 73,
+        "start_point": "7:6",
+        "end_point": "7:14"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "function",
+          "name": "count",
+          "node_type": "function_definition",
+          "range": {
+            "start_byte": 88,
+            "end_byte": 136,
+            "start_point": "9:4",
+            "end_point": "11:5"
+          },
+          "name_range": {
+            "start_byte": 92,
+            "end_byte": 97,
+            "start_point": "9:8",
+            "end_point": "9:13"
+          },
+          "owner": ""
+        },
+        {
+          "kind": "function",
+          "name": "reset",
+          "node_type": "function_definition",
+          "range": {
+            "start_byte": 142,
+            "end_byte": 182,
+            "start_point": "13:4",
+            "end_point": "15:5"
+          },
+          "name_range": {
+            "start_byte": 147,
+            "end_byte": 152,
+            "start_point": "13:9",
+            "end_point": "13:14"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "function",
+      "name": "total",
+      "node_type": "function_definition",
+      "range": {
+        "start_byte": 217,
+        "end_byte": 285,
+        "start_point": "21:0",
+        "end_point": "23:1"
+      },
+      "name_range": {
+        "start_byte": 221,
+        "end_byte": 226,
+        "start_point": "21:4",
+        "end_point": "21:9"
+      },
+      "owner": ""
+    }
+  ]
+}

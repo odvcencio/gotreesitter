@@ -1,0 +1,17 @@
+package broken
+
+func Before() int {
+	return 1
+}
+
+func Damaged(a int {
+	return a
+}
+
+type Holder struct {
+	value int
+}
+
+func (h *Holder) After() int {
+	return h.value
+}

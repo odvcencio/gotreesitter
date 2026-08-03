@@ -1,0 +1,92 @@
+{
+  "language": "go",
+  "fixture": "go/service.go.fixture",
+  "purpose": "functions and methods from the hand-written Go tags override; a nested function literal that the query does not capture",
+  "tree_has_error": false,
+  "report": {
+    "Symbols": 4,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OwnerRuleMisses": 0,
+    "QueryEmpty": false,
+    "Truncated": false,
+    "LanguageMismatch": false
+  },
+  "symbols": [
+    {
+      "kind": "function",
+      "name": "NewRegistry",
+      "node_type": "function_declaration",
+      "range": {
+        "start_byte": 149,
+        "end_byte": 226,
+        "start_point": "14:0",
+        "end_point": "16:1"
+      },
+      "name_range": {
+        "start_byte": 154,
+        "end_byte": 165,
+        "start_point": "14:5",
+        "end_point": "14:16"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "method",
+      "name": "Add",
+      "node_type": "method_declaration",
+      "range": {
+        "start_byte": 228,
+        "end_byte": 324,
+        "start_point": "18:0",
+        "end_point": "21:1"
+      },
+      "name_range": {
+        "start_byte": 247,
+        "end_byte": 250,
+        "start_point": "18:19",
+        "end_point": "18:22"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "method",
+      "name": "Name",
+      "node_type": "method_declaration",
+      "range": {
+        "start_byte": 326,
+        "end_byte": 382,
+        "start_point": "23:0",
+        "end_point": "25:1"
+      },
+      "name_range": {
+        "start_byte": 345,
+        "end_byte": 349,
+        "start_point": "23:19",
+        "end_point": "23:23"
+      },
+      "owner": ""
+    },
+    {
+      "kind": "function",
+      "name": "Describe",
+      "node_type": "function_declaration",
+      "range": {
+        "start_byte": 384,
+        "end_byte": 510,
+        "start_point": "27:0",
+        "end_point": "32:1"
+      },
+      "name_range": {
+        "start_byte": 389,
+        "end_byte": 397,
+        "start_point": "27:5",
+        "end_point": "27:13"
+      },
+      "owner": ""
+    }
+  ]
+}
