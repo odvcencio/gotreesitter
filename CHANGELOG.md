@@ -25,9 +25,18 @@ for tags and release notes while still in `0.x`.
   `Parser.SetIncludedRanges` had no test for any language, and injection
   uses that call for every injected child.
   A Markdown document with two or more Go fences reaches it in production.
-  Three new gates cover the route: a root-symbol gate, a positive control
-  that proves the Go arm still rewrites the tree there, and a C-oracle
-  comparison that pins the root symbol, span, and child count.
+  Four new gates cover the route: a root-symbol gate, a positive control
+  that proves the Go arm still rewrites the tree there, a C-oracle table
+  that pins the measured root of both parsers across four range
+  geometries, and a deletion guard.
+  The route is not at parity with C, and the new tests do not claim it is.
+  The root span matches C only when the first range starts at byte 0 and
+  the last ends at end of file, which is a shape an injection child never
+  receives.
+  One pinned geometry publishes an `ERROR` root where C publishes
+  `source_file`.
+  That case is an open defect in included-range clipping, recorded so the
+  fix moves the pin.
 
 - The Go result-compatibility arm's three members are now registered as
   named census subpasses, so a census receipt names the member that

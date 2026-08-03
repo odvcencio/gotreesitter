@@ -37,9 +37,17 @@ func includedRangesGoPointAt(src []byte, off int) gotreesitter.Point {
 	return point
 }
 
-// IncludedRangesGoFixtureSpans is the fixture's two included ranges. Both cut
-// mid-content, the way an injection child receives its fences.
-var includedRangesGoFixtureSpans = [2][2]int{{0, 150}, {203, 276}}
+// includedRangesGoFixtureSpans is the fixture's two included ranges. Both
+// start at a positive offset, which is the shape an injection child actually
+// receives: a Markdown fence cannot begin at byte 0, because the opening
+// fence line always precedes the content.
+//
+// The anchored geometry {{0, 150}, {203, 276}} is deliberately NOT used here.
+// It is the one geometry where the root span and child count reach C parity,
+// and pinning it would read as a parity claim the route does not support. See
+// cgo_harness/included_ranges_go_root_parity_cgo_test.go, which measures both
+// geometries and pins each observation separately.
+var includedRangesGoFixtureSpans = [2][2]int{{26, 150}, {203, 276}}
 
 func loadIncludedRangesGoFixture(tb testing.TB) ([]byte, []gotreesitter.Range) {
 	tb.Helper()
@@ -118,13 +126,16 @@ func TestIncludedRangesGoArmMemberIsLive(t *testing.T) {
 	}
 	defer tree.Release()
 
-	// Census receipts are recorded on the production route only. With the
-	// default candidate route ParseRuntime().NormalizationPasses is nil and
-	// nothing is recorded, so read the arm receipt through the runtime and
-	// skip when the route did not populate it.
+	// Census receipts are recorded on the production route only. An
+	// included-ranges parse always lands there today, because
+	// admission_switch.go declines the compact candidate route whenever the
+	// parser carries included ranges. This is a Fatal, not a Skip: if the
+	// compact runner ever gains included-ranges support, this positive control
+	// must fail loudly instead of turning into a silent skip that stops
+	// guarding the member.
 	passesPtr := tree.ParseRuntime().NormalizationPasses
 	if passesPtr == nil || len(*passesPtr) == 0 {
-		t.Skip("no census receipts on this route")
+		t.Fatal("included-ranges parse recorded no census receipts; the route no longer pins production")
 	}
 	var found bool
 	for _, pass := range *passesPtr {
