@@ -1,0 +1,140 @@
+{
+  "language": "c_sharp",
+  "fixture": "csharp/Service.cs",
+  "purpose": "real-data name conflict: the shared inference binds @name to both the return type and the method name, so the group drops and OmittedNameConflict fires instead of publishing the return type",
+  "query_definition_kinds": [
+    "class",
+    "constructor",
+    "interface",
+    "method",
+    "type"
+  ],
+  "report": {
+    "Symbols": 6,
+    "OmittedNoName": 0,
+    "OmittedDuplicate": 0,
+    "OmittedNameConflict": 2,
+    "OmittedConflict": 0,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OmittedMultipleDefinitions": 0,
+    "OwnerRuleMisses": 0,
+    "DeclineReason": "",
+    "Truncated": false,
+    "TreeHasError": false
+  },
+  "symbols": [
+    {
+      "kind": "interface",
+      "name": "IService",
+      "node_type": "interface_declaration",
+      "range": {
+        "start_byte": 21,
+        "end_byte": 81,
+        "start_point": "2:4",
+        "end_point": "5:5"
+      },
+      "name_range": {
+        "start_byte": 38,
+        "end_byte": 46,
+        "start_point": "2:21",
+        "end_point": "2:29"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "method",
+          "name": "Name",
+          "node_type": "method_declaration",
+          "range": {
+            "start_byte": 61,
+            "end_byte": 75,
+            "start_point": "4:8",
+            "end_point": "4:22"
+          },
+          "name_range": {
+            "start_byte": 68,
+            "end_byte": 72,
+            "start_point": "4:15",
+            "end_point": "4:19"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "Registry",
+      "node_type": "class_declaration",
+      "range": {
+        "start_byte": 87,
+        "end_byte": 434,
+        "start_point": "7:4",
+        "end_point": "25:5"
+      },
+      "name_range": {
+        "start_byte": 100,
+        "end_byte": 108,
+        "start_point": "7:17",
+        "end_point": "7:25"
+      },
+      "owner": "",
+      "children": [
+        {
+          "kind": "constructor",
+          "name": "Registry",
+          "node_type": "constructor_declaration",
+          "range": {
+            "start_byte": 174,
+            "end_byte": 255,
+            "start_point": "11:8",
+            "end_point": "14:9"
+          },
+          "name_range": {
+            "start_byte": 181,
+            "end_byte": 189,
+            "start_point": "11:15",
+            "end_point": "11:23"
+          },
+          "owner": ""
+        },
+        {
+          "kind": "method",
+          "name": "Name",
+          "node_type": "method_declaration",
+          "range": {
+            "start_byte": 265,
+            "end_byte": 331,
+            "start_point": "16:8",
+            "end_point": "19:9"
+          },
+          "name_range": {
+            "start_byte": 279,
+            "end_byte": 283,
+            "start_point": "16:22",
+            "end_point": "16:26"
+          },
+          "owner": ""
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "Level",
+      "node_type": "enum_declaration",
+      "range": {
+        "start_byte": 440,
+        "end_byte": 495,
+        "start_point": "27:4",
+        "end_point": "31:5"
+      },
+      "name_range": {
+        "start_byte": 452,
+        "end_byte": 457,
+        "start_point": "27:16",
+        "end_point": "27:21"
+      },
+      "owner": ""
+    }
+  ]
+}

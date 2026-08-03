@@ -58,7 +58,10 @@ var outlineRefinableKinds = map[string]bool{
 // tree, and it holds no parser state. Build one per language and call
 // OutlineTree with trees that language produced.
 //
-// Outliner is not safe for concurrent use.
+// An Outliner is safe for concurrent use by several goroutines. OutlineTree
+// writes no Outliner field, and every call takes its own query cursor and its
+// own working slices. TestOutlineTreeIsSafeForConcurrentUse runs the shared
+// path under the race detector and compares every result.
 type Outliner struct {
 	lang       *Language
 	query      *Query
@@ -77,6 +80,8 @@ type OutlinerOption func(*Outliner)
 
 // WithOutlineOwnerRules attaches declarative owner rules, indexed by node
 // type. The grammars package owns the per-language rows; the core holds none.
+// A later call REPLACES the rules an earlier call set; the option does not
+// accumulate.
 //
 // Owner resolution is NOT applied in this change. The outliner validates and
 // retains the rules, every OutlineSymbol.Owner stays empty, and
@@ -85,16 +90,22 @@ type OutlinerOption func(*Outliner)
 // alignment change; ownership therefore ships in its own change, behind its own
 // differential gate.
 //
-// A rule with an empty NodeType or an empty OwnerField is rejected at
-// construction, because such a rule can never resolve an owner.
+// What construction checks today: every rule must name a NodeType and an
+// OwnerField, because a rule missing either can never resolve an owner.
+//
+// What construction does NOT check today: it accepts an empty NameTypes list,
+// a blank entry inside Unwrap or NameTypes, and a NodeType or OwnerField the
+// language does not define. Each of those fails closed at resolution time and
+// will inflate OwnerRuleMisses rather than produce a wrong Owner. Gating rules
+// on symbol and field presence belongs with the ownership change, which owns
+// the per-language table.
 func WithOutlineOwnerRules(rules []OutlineOwnerRule) OutlinerOption {
 	return func(o *Outliner) {
+		o.ownerRules = nil
 		if len(rules) == 0 {
 			return
 		}
-		if o.ownerRules == nil {
-			o.ownerRules = make(map[string][]OutlineOwnerRule, len(rules))
-		}
+		o.ownerRules = make(map[string][]OutlineOwnerRule, len(rules))
 		for _, rule := range rules {
 			o.ownerRules[rule.NodeType] = append(o.ownerRules[rule.NodeType], rule)
 		}
@@ -103,10 +114,14 @@ func WithOutlineOwnerRules(rules []OutlineOwnerRule) OutlinerOption {
 
 // WithOutlineMatchLimit bounds the number of query matches the outliner
 // accepts. When the limit is reached, OutlineReport.Truncated reports true and
-// the symbol list is partial. A limit of zero keeps the query engine default.
+// the symbol list is partial.
+//
+// A limit of zero keeps the query engine default, exactly as a budget of zero
+// does in WithOutlineMatchWorkBudget. Zero always means "leave the default
+// alone" in both options.
 func WithOutlineMatchLimit(limit uint32) OutlinerOption {
 	return func(o *Outliner) {
-		o.hasMatchLimit = true
+		o.hasMatchLimit = limit > 0
 		o.matchLimit = limit
 	}
 }
@@ -114,10 +129,15 @@ func WithOutlineMatchLimit(limit uint32) OutlinerOption {
 // WithOutlineMatchWorkBudget bounds the enumeration steps the matcher may take
 // for each pattern and node. Exhausting the budget sets
 // OutlineReport.Truncated. Raise it for very large files whose outline comes
-// back truncated. A budget of zero means unlimited.
+// back truncated.
+//
+// A budget of zero keeps the query engine default. This option cannot disable
+// the guard: the underlying engine reads zero as "unlimited", and an outline
+// caller writing zero means "default", so the option refuses to pass zero
+// through. Removing the guard is not an outline concern.
 func WithOutlineMatchWorkBudget(budget int) OutlinerOption {
 	return func(o *Outliner) {
-		o.hasWorkBudget = true
+		o.hasWorkBudget = budget > 0
 		o.workBudget = budget
 	}
 }
@@ -168,6 +188,38 @@ func (o *Outliner) QueryEmpty() bool {
 	return o != nil && o.queryEmpty
 }
 
+// DefinitionKinds returns the normalized kinds the compiled query can emit, in
+// sorted order. It is derived from the query's capture names, so it states
+// what the tags DATA can express for this language.
+//
+// Use it to read an outline honestly. A Go outline, for example, reports only
+// "function" and "method", because the Go tags override carries no pattern for
+// a type, a constant, or a variable. Those definitions never become candidates
+// and never reach an omission counter, so an all-zero receipt does not mean the
+// file held nothing else.
+//
+// The list is an upper bound on Kind values, not a promise that each appears.
+// A node-type refinement can also map a capture to a kind outside this list;
+// the refinement rows are documented on outlineKindRefinement.
+func (o *Outliner) DefinitionKinds() []string {
+	if o == nil || o.query == nil {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	for _, name := range o.query.CaptureNames() {
+		if !isOutlineDefinitionCapture(name) {
+			continue
+		}
+		seen[normalizeOutlineKind(name, "")] = struct{}{}
+	}
+	kinds := make([]string, 0, len(seen))
+	for kind := range seen {
+		kinds = append(kinds, kind)
+	}
+	sort.Strings(kinds)
+	return kinds
+}
+
 // OutlineTree projects the outline of an already-parsed tree.
 //
 // The call is read-only: it runs the tags query over the tree, normalizes the
@@ -176,30 +228,39 @@ func (o *Outliner) QueryEmpty() bool {
 //
 // Trees that hold ERROR or MISSING nodes are not special-cased. The outline is
 // the projection of whatever the tags query matched on the tree as the parser
-// produced it. Definitions the parser could not recover simply do not appear.
-// The result stays well-defined: every candidate is emitted or counted.
+// produced it. The receipt says so through OutlineReport.TreeHasError; read
+// that field's documentation before trusting an outline over a damaged tree.
+//
+// When the outliner refuses to run, the returned report carries a
+// DeclineReason and no symbols. An empty DeclineReason with no symbols is a
+// different fact: the query ran and matched nothing.
 func (o *Outliner) OutlineTree(tree *Tree) ([]OutlineSymbol, OutlineReport) {
 	var report OutlineReport
 	if o == nil {
+		report.DeclineReason = OutlineDeclineNilOutliner
 		return nil, report
 	}
-	report.QueryEmpty = o.queryEmpty
 	if o.queryEmpty || o.query == nil {
+		report.DeclineReason = OutlineDeclineQueryEmpty
 		return nil, report
 	}
 	if tree == nil {
+		report.DeclineReason = OutlineDeclineNilTree
 		return nil, report
 	}
 	root := tree.RootNode()
 	if root == nil {
+		report.DeclineReason = OutlineDeclineNilRootNode
 		return nil, report
 	}
 	if !o.treeLanguageMatches(tree) {
-		report.LanguageMismatch = true
+		report.DeclineReason = OutlineDeclineLanguageMismatch
 		return nil, report
 	}
 
-	candidates, truncated := o.collectOutlineCandidates(root, tree.Source())
+	report.TreeHasError = root.HasError()
+
+	candidates, truncated := o.collectOutlineCandidates(root, tree.Source(), &report)
 	report.Truncated = truncated
 
 	kept := filterOutlineCandidates(candidates, &report)
@@ -212,6 +273,15 @@ func (o *Outliner) OutlineTree(tree *Tree) ([]OutlineSymbol, OutlineReport) {
 // query compiled against. Query symbol identifiers are language specific, so
 // running a query over a foreign tree yields nonsense; the outliner declines
 // instead.
+//
+// The check is pointer identity first, then a structural comparison of the
+// name together with the symbol, field, and state counts. Name alone is not
+// enough: two distinct grammars can carry the same name, and a name-only
+// check would run a foreign query with no receipt. The counts do not prove
+// two languages are the same grammar, so this check catches a swapped
+// language, not a regenerated one; a regenerated grammar with identical
+// counts still recompiles the query at construction, which is where a real
+// symbol change surfaces.
 func (o *Outliner) treeLanguageMatches(tree *Tree) bool {
 	treeLang := tree.Language()
 	if treeLang == nil {
@@ -220,7 +290,12 @@ func (o *Outliner) treeLanguageMatches(tree *Tree) bool {
 	if treeLang == o.lang {
 		return true
 	}
-	return treeLang.Name != "" && treeLang.Name == o.lang.Name
+	if treeLang.Name == "" || treeLang.Name != o.lang.Name {
+		return false
+	}
+	return treeLang.SymbolCount == o.lang.SymbolCount &&
+		treeLang.FieldCount == o.lang.FieldCount &&
+		treeLang.StateCount == o.lang.StateCount
 }
 
 // outlineCandidate is one definition capture paired with its name capture,
@@ -240,11 +315,17 @@ type outlineCandidate struct {
 // most one candidate.
 //
 // Capture handling mirrors Tagger.extractTag so the outline and the tagger
-// always agree on the same query: the last "@name" capture and the last
-// "@definition.X" capture in a match win. Matches that carry no definition
-// capture -- "@reference.X" matches, for instance -- are discarded without a
-// counter, because they are not outline candidates at all.
-func (o *Outliner) collectOutlineCandidates(root *Node, source []byte) ([]outlineCandidate, bool) {
+// agree on the same query: the last "@name" capture in a match wins. Matches
+// that carry no definition capture -- "@reference.X" matches, for instance --
+// are discarded without a counter, because they are not outline candidates at
+// all.
+//
+// The one deliberate divergence from the tagger: a match carrying MORE THAN
+// ONE "@definition.X" capture is dropped and counted in
+// OmittedMultipleDefinitions. The tagger silently keeps the last such capture.
+// For an outline that would pick one of two definitions by capture order, so
+// the outline refuses. No inferred pattern produces this shape today.
+func (o *Outliner) collectOutlineCandidates(root *Node, source []byte, report *OutlineReport) ([]outlineCandidate, bool) {
 	cursor := o.query.Exec(root, o.lang, source)
 	if cursor == nil {
 		return nil, false
@@ -265,41 +346,41 @@ func (o *Outliner) collectOutlineCandidates(root *Node, source []byte) ([]outlin
 		}
 
 		var (
-			defCapture  string
-			defNode     *Node
-			hasName     bool
-			nameText    string
-			nameSpan    Range
-			hasDefNode  bool
-			nameCapture QueryCapture
+			defCapture string
+			defNode    *Node
+			defCount   int
+			hasName    bool
+			nameText   string
+			nameSpan   Range
 		)
 		for _, capture := range match.Captures {
+			if capture.Node == nil {
+				continue
+			}
 			switch {
 			case capture.Name == outlineNameCapture:
-				if capture.Node == nil {
-					continue
-				}
-				nameCapture = capture
 				hasName = true
-				nameText = nameCapture.Text(source)
+				nameText = capture.Text(source)
 				nameSpan = capture.Node.Range()
 			case isOutlineDefinitionCapture(capture.Name):
-				if capture.Node == nil {
-					continue
-				}
 				defCapture = capture.Name
 				defNode = capture.Node
-				hasDefNode = true
+				defCount++
 			}
 		}
-		if !hasDefNode {
+		if defCount == 0 {
+			continue
+		}
+		if defCount > 1 {
+			report.OmittedMultipleDefinitions++
 			continue
 		}
 
+		nodeType := defNode.Type(o.lang)
 		candidate := outlineCandidate{
 			order:    order,
-			kind:     normalizeOutlineKind(defCapture, defNode.Type(o.lang)),
-			nodeType: defNode.Type(o.lang),
+			kind:     normalizeOutlineKind(defCapture, nodeType),
+			nodeType: nodeType,
 			rng:      defNode.Range(),
 		}
 		if hasName {
@@ -345,10 +426,17 @@ func normalizeOutlineKind(captureName, nodeType string) string {
 //
 //  1. no usable name;
 //  2. a name span that is not inside the definition span;
-//  3. a repeat of an accepted (Range, Kind) pair;
-//  4. one span carrying two different kinds;
-//  5. a span that partially overlaps an accepted span (rule 5 runs in
+//  3. one span carrying two different kinds;
+//  4. one span and kind carrying two different names;
+//  5. an exact repeat of an accepted (Range, Kind, Name, NameRange) tuple;
+//  6. a span that partially overlaps an accepted span (this rule runs in
 //     buildOutlineForest, where the containment forest is assembled).
+//
+// Rules 3 and 4 both drop every member of the group. A group that disagrees
+// about what it names cannot be resolved without reading the language, and
+// reading the language is what this projection refuses to do. Only rule 5
+// keeps a member, and only when the members are indistinguishable, so keeping
+// the first is not a choice between them.
 func filterOutlineCandidates(candidates []outlineCandidate, report *OutlineReport) []outlineCandidate {
 	if len(candidates) == 0 {
 		return nil
@@ -372,7 +460,7 @@ func filterOutlineCandidates(candidates []outlineCandidate, report *OutlineRepor
 		return nil
 	}
 
-	// Rules 3 and 4: group by exact span.
+	// Rules 3, 4, and 5: group by exact span.
 	type spanKey struct{ start, end uint32 }
 	groups := make(map[spanKey][]int, len(valid))
 	spanOrder := make([]spanKey, 0, len(valid))
@@ -387,20 +475,38 @@ func filterOutlineCandidates(candidates []outlineCandidate, report *OutlineRepor
 	kept := make([]outlineCandidate, 0, len(valid))
 	for _, key := range spanOrder {
 		members := groups[key]
-		conflict := false
+		first := valid[members[0]]
+
+		kindConflict := false
+		nameConflict := false
 		for _, idx := range members[1:] {
-			if valid[idx].kind != valid[members[0]].kind {
-				conflict = true
+			if valid[idx].kind != first.kind {
+				kindConflict = true
 				break
 			}
+			if !outlineSameName(valid[idx], first) {
+				nameConflict = true
+			}
 		}
-		if conflict {
-			// Rule 4: the span means two things at once. Drop the whole
+
+		switch {
+		case kindConflict:
+			// Rule 3: the span means two things at once. Drop the whole
 			// group and count every member. Do not guess.
 			report.OmittedConflict += len(members)
 			continue
+		case nameConflict:
+			// Rule 4: the span agrees on the kind and disagrees on the
+			// name. Picking by capture order publishes whichever binding
+			// the grammar happened to reach first, which in C-family
+			// method syntax is the return type. Drop the group instead
+			// and count it, so the data gap is legible.
+			report.OmittedNameConflict += len(members)
+			continue
 		}
-		// Rule 3: keep the first member in emission order.
+
+		// Rule 5: the members are indistinguishable, so keep the first in
+		// emission order and count the rest as exact repeats.
 		best := members[0]
 		for _, idx := range members[1:] {
 			if valid[idx].order < valid[best].order {
@@ -412,6 +518,15 @@ func filterOutlineCandidates(candidates []outlineCandidate, report *OutlineRepor
 	}
 
 	return kept
+}
+
+// outlineSameName reports whether two candidates name the same thing at the
+// same place. Both the text and the span must agree: a symbol carries both,
+// so a disagreement about either leaves the emitted symbol undetermined.
+func outlineSameName(a, b outlineCandidate) bool {
+	return a.name == b.name &&
+		a.nameRange.StartByte == b.nameRange.StartByte &&
+		a.nameRange.EndByte == b.nameRange.EndByte
 }
 
 // outlineRangeContains reports whether inner sits inside outer, by bytes. A

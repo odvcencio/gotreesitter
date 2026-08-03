@@ -1,0 +1,47 @@
+{
+  "language": "go",
+  "fixture": "go/counters.go.fixture",
+  "purpose": "pins OmittedDuplicate, OmittedConflict, OmittedNameConflict, OmittedNoName, and OmittedMultipleDefinitions end to end through a live query, which the shipped tags data cannot produce on demand",
+  "query_definition_kinds": [
+    "class",
+    "constant",
+    "function",
+    "method",
+    "type",
+    "variable"
+  ],
+  "report": {
+    "Symbols": 1,
+    "OmittedNoName": 1,
+    "OmittedDuplicate": 1,
+    "OmittedNameConflict": 2,
+    "OmittedConflict": 2,
+    "OmittedOverlap": 0,
+    "OmittedInvalidNameRange": 0,
+    "OmittedMultipleDefinitions": 1,
+    "OwnerRuleMisses": 0,
+    "DeclineReason": "",
+    "Truncated": false,
+    "TreeHasError": false
+  },
+  "symbols": [
+    {
+      "kind": "function",
+      "name": "Standalone",
+      "node_type": "function_declaration",
+      "range": {
+        "start_byte": 87,
+        "end_byte": 127,
+        "start_point": "10:0",
+        "end_point": "12:1"
+      },
+      "name_range": {
+        "start_byte": 92,
+        "end_byte": 102,
+        "start_point": "10:5",
+        "end_point": "10:15"
+      },
+      "owner": ""
+    }
+  ]
+}

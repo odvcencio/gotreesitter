@@ -83,19 +83,92 @@ func TestOutlineOmitsNameRangeOutsideDefinition(t *testing.T) {
 	assertOutlineReceiptBalances(t, len(candidates), report)
 }
 
-func TestOutlineCollapsesDuplicateSpanAndKind(t *testing.T) {
+// TestOutlineCollapsesExactRepeats covers rule 5. Only indistinguishable
+// candidates collapse, so keeping the first is not a choice between them.
+func TestOutlineCollapsesExactRepeats(t *testing.T) {
 	candidates := []outlineCandidate{
-		outlineTestCandidate(0, "function", "first", 0, 10, 0, 5),
-		outlineTestCandidate(1, "function", "second", 0, 10, 0, 6),
-		outlineTestCandidate(2, "function", "third", 0, 10, 0, 5),
+		outlineTestCandidate(0, "function", "same", 0, 10, 0, 5),
+		outlineTestCandidate(1, "function", "same", 0, 10, 0, 5),
+		outlineTestCandidate(2, "function", "same", 0, 10, 0, 5),
 	}
 	symbols, report := runOutlineRules(candidates)
 
 	if report.OmittedDuplicate != 2 {
 		t.Errorf("OmittedDuplicate = %d, want 2", report.OmittedDuplicate)
 	}
-	if len(symbols) != 1 || symbols[0].Name != "first" {
-		t.Errorf("symbols = %+v, want the first candidate in emission order", symbols)
+	if report.OmittedNameConflict != 0 {
+		t.Errorf("OmittedNameConflict = %d, want 0: the members are identical", report.OmittedNameConflict)
+	}
+	if len(symbols) != 1 || symbols[0].Name != "same" {
+		t.Errorf("symbols = %+v, want one symbol", symbols)
+	}
+	assertOutlineReceiptBalances(t, len(candidates), report)
+}
+
+// TestOutlineDropsSpanWithConflictingNames covers rule 4, the defect that
+// published a C-family return type as a method name. The shared inference can
+// bind "@name" twice on one definition node; the two bindings disagree, and no
+// language-neutral rule ranks them. The group drops and the counter says why.
+func TestOutlineDropsSpanWithConflictingNames(t *testing.T) {
+	candidates := []outlineCandidate{
+		// "Uri PathToUri(string p) {...}": the return type is captured
+		// first, the method name second. Choosing by order publishes "Uri".
+		outlineTestCandidate(0, "method", "Uri", 0, 40, 0, 3),
+		outlineTestCandidate(1, "method", "PathToUri", 0, 40, 4, 13),
+		outlineTestCandidate(2, "method", "kept", 50, 60, 50, 54),
+	}
+	symbols, report := runOutlineRules(candidates)
+
+	if report.OmittedNameConflict != 2 {
+		t.Errorf("OmittedNameConflict = %d, want 2 (both members of the group)", report.OmittedNameConflict)
+	}
+	if report.OmittedDuplicate != 0 {
+		t.Errorf("OmittedDuplicate = %d, want 0: a name conflict is not a duplicate", report.OmittedDuplicate)
+	}
+	if len(symbols) != 1 || symbols[0].Name != "kept" {
+		t.Fatalf("symbols = %+v, want only the unambiguous candidate", symbols)
+	}
+	for _, symbol := range symbols {
+		if symbol.Name == "Uri" {
+			t.Error("the outline published the return type as the symbol name")
+		}
+	}
+	assertOutlineReceiptBalances(t, len(candidates), report)
+}
+
+// TestOutlineTreatsDifferingNameSpansAsAConflict pins the stricter half of the
+// rule: identical name TEXT at different spans still leaves the emitted symbol
+// undetermined, because a symbol carries both.
+func TestOutlineTreatsDifferingNameSpansAsAConflict(t *testing.T) {
+	candidates := []outlineCandidate{
+		outlineTestCandidate(0, "function", "run", 0, 40, 0, 3),
+		outlineTestCandidate(1, "function", "run", 0, 40, 10, 13),
+	}
+	symbols, report := runOutlineRules(candidates)
+
+	if report.OmittedNameConflict != 2 {
+		t.Errorf("OmittedNameConflict = %d, want 2", report.OmittedNameConflict)
+	}
+	if len(symbols) != 0 {
+		t.Errorf("symbols = %+v, want none", symbols)
+	}
+	assertOutlineReceiptBalances(t, len(candidates), report)
+}
+
+// TestOutlineKindConflictOutranksNameConflict pins the precedence: a group
+// that disagrees about the kind is counted as a kind conflict, not twice.
+func TestOutlineKindConflictOutranksNameConflict(t *testing.T) {
+	candidates := []outlineCandidate{
+		outlineTestCandidate(0, "function", "a", 0, 10, 0, 1),
+		outlineTestCandidate(1, "method", "b", 0, 10, 2, 3),
+	}
+	_, report := runOutlineRules(candidates)
+
+	if report.OmittedConflict != 2 {
+		t.Errorf("OmittedConflict = %d, want 2", report.OmittedConflict)
+	}
+	if report.OmittedNameConflict != 0 {
+		t.Errorf("OmittedNameConflict = %d, want 0", report.OmittedNameConflict)
 	}
 	assertOutlineReceiptBalances(t, len(candidates), report)
 }
@@ -283,46 +356,93 @@ func TestOutlineDefinitionCaptureNeedsSuffix(t *testing.T) {
 	}
 }
 
-// TestOutlineKindTablesHoldNoLanguageNames is the doctrine gate for the
-// normalization data: the tables are keyed by capture suffix and by grammar
-// node type, never by a language name. A row keyed by a language name would
-// re-create the frozen definitionKind switch in a new place.
-func TestOutlineKindTablesHoldNoLanguageNames(t *testing.T) {
-	languageNames := []string{
-		"go", "java", "python", "starlark", "javascript", "typescript", "tsx",
-		"rust", "c", "cpp", "ruby", "kotlin", "swift", "scala",
+// TestOutlineKindTablesAreFrozenByExactKeySet is the doctrine gate for the
+// normalization data. The core cannot import the grammars registry, so it
+// cannot check a key against the 206 language names. Blocklisting a hand
+// written sample of those names has only partial teeth: 192 names would still
+// slip through.
+//
+// This gate freezes the whole key set instead. Any new row in either table
+// fails the test, whatever it is named, so a language-name row cannot land
+// without the reviewer seeing it here. Adding a genuine cross-language row is
+// a one-line edit to the expected set, in the same change, with its reason.
+func TestOutlineKindTablesAreFrozenByExactKeySet(t *testing.T) {
+	wantKindTable := map[string]string{
+		"function":    "function",
+		"method":      "method",
+		"class":       "class",
+		"interface":   "interface",
+		"type":        "type",
+		"constructor": "constructor",
+		"constant":    "constant",
+		"variable":    "variable",
+		"module":      "module",
 	}
-	for _, name := range languageNames {
-		if _, ok := outlineKindTable[name]; ok {
-			t.Errorf("outlineKindTable holds a row keyed by the language name %q", name)
-		}
-		if _, ok := outlineKindRefinement[name]; ok {
-			t.Errorf("outlineKindRefinement holds a row keyed by the language name %q", name)
+	// Every key here is a grammar node type shared by many grammars.
+	// "enum_declaration" alone appears in 18 registered languages.
+	wantRefinement := map[string]string{
+		"enum_declaration":   "enum",
+		"enum_item":          "enum",
+		"record_declaration": "record",
+	}
+	wantRefinable := map[string]bool{
+		"type":  true,
+		"class": true,
+	}
+
+	assertOutlineTableFrozen(t, "outlineKindTable", outlineKindTable, wantKindTable)
+	assertOutlineTableFrozen(t, "outlineKindRefinement", outlineKindRefinement, wantRefinement)
+
+	if len(outlineRefinableKinds) != len(wantRefinable) {
+		t.Errorf("outlineRefinableKinds holds %d rows, want exactly %d", len(outlineRefinableKinds), len(wantRefinable))
+	}
+	for kind, want := range wantRefinable {
+		if outlineRefinableKinds[kind] != want {
+			t.Errorf("outlineRefinableKinds[%q] = %v, want %v", kind, outlineRefinableKinds[kind], want)
 		}
 	}
-	for nodeType := range outlineKindRefinement {
-		if !isOutlineNodeTypeShaped(nodeType) {
-			t.Errorf("outlineKindRefinement key %q does not read as a grammar node type", nodeType)
+	for kind := range outlineRefinableKinds {
+		if !wantRefinable[kind] {
+			t.Errorf("outlineRefinableKinds holds an unexpected row %q; add it to the frozen set with its reason", kind)
 		}
 	}
 }
 
-// isOutlineNodeTypeShaped reports whether a key looks like a grammar node
-// type: lower snake case with at least one underscore. Every language name in
-// the registry is a single word, so this separates the two vocabularies.
-func isOutlineNodeTypeShaped(key string) bool {
-	underscores := 0
-	for i := 0; i < len(key); i++ {
-		c := key[i]
-		switch {
-		case c == '_':
-			underscores++
-		case c >= 'a' && c <= 'z':
-		default:
-			return false
+func assertOutlineTableFrozen(t *testing.T, name string, got, want map[string]string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Errorf("%s holds %d rows, want exactly %d", name, len(got), len(want))
+	}
+	for key, wantValue := range want {
+		gotValue, ok := got[key]
+		if !ok {
+			t.Errorf("%s is missing the frozen row %q", name, key)
+			continue
+		}
+		if gotValue != wantValue {
+			t.Errorf("%s[%q] = %q, want %q", name, key, gotValue, wantValue)
 		}
 	}
-	return underscores > 0
+	for key := range got {
+		if _, ok := want[key]; !ok {
+			t.Errorf("%s holds an unexpected row %q. If it is a genuine cross-language row, add it to the frozen set in this change. If it is a language name, it does not belong in this table at all.", name, key)
+		}
+	}
+}
+
+// TestOutlineKindTableFreezeCatchesALanguageNameRow proves the freeze has full
+// teeth for the case it exists to stop: a row keyed by a language name that no
+// hand-written blocklist happens to mention.
+func TestOutlineKindTableFreezeCatchesALanguageNameRow(t *testing.T) {
+	frozen := map[string]string{"function": "function"}
+	for _, injected := range []string{"go", "zig", "haskell", "gleam", "wgsl"} {
+		tampered := map[string]string{"function": "function", injected: "function"}
+		probe := &testing.T{}
+		assertOutlineTableFrozen(probe, "probe", tampered, frozen)
+		if !probe.Failed() {
+			t.Errorf("the freeze accepted an injected row keyed by the language name %q", injected)
+		}
+	}
 }
 
 func TestOutlineOwnerRuleValidationFailsClosed(t *testing.T) {

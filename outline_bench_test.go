@@ -1,6 +1,7 @@
 package gotreesitter_test
 
 import (
+	"strings"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -117,11 +118,13 @@ func BenchmarkOutlineTaggerBaseline(b *testing.B) {
 // assertion does not flake on a contended host. The wall-clock ratio is
 // measured by the two benchmarks above and reported with the change.
 func TestOutlineTreeCostStaysNearTagger(t *testing.T) {
-	// The allocation budget: the outline allocates the candidate slice, the
-	// sorted copy, the accepted and parent and children slices, and one
-	// slice per parent that has children. Four times the tagger's count
-	// leaves room for that without hiding a new pass over the tree.
-	const allocationBudgetMultiple = 4
+	// The allocation budget. Observed ratios are 1.005 to 1.018, because the
+	// outline allocates only the candidate slice, the sorted copy, the
+	// accepted, parent, and children slices, and one slice per parent that
+	// has children. A budget of 1.5 leaves room for that and still fails on
+	// a regression that adds a per-node allocation; a looser budget would
+	// let a threefold regression through unnoticed.
+	const allocationBudgetMultiple = 1.5
 
 	workloads := newOutlineBenchWorkloads(t)
 	if len(workloads) == 0 {
@@ -140,12 +143,22 @@ func TestOutlineTreeCostStaysNearTagger(t *testing.T) {
 				t.Fatalf("%s: tagger produced nothing", workload.id)
 			}
 
-			// Every outline candidate comes from a definition tag, so the
-			// candidate count can never exceed the tag count. A larger
-			// number would mean the outline ran extra work over the tree.
-			if report.Candidates() > len(tags) {
-				t.Errorf("%s: outline saw %d candidates from %d tags; it must not do more query work than the tagger",
-					workload.id, report.Candidates(), len(tags))
+			// Every outline candidate comes from a DEFINITION tag.
+			// Comparing against every tag would be loose by an order of
+			// magnitude, because the Go tags query is mostly call
+			// references, so count the definition tags exactly.
+			definitionTags := 0
+			for _, tag := range tags {
+				if strings.HasPrefix(tag.Kind, "definition.") {
+					definitionTags++
+				}
+			}
+			if definitionTags == 0 {
+				t.Fatalf("%s: the tagger produced no definition tag, so the bound is vacuous", workload.id)
+			}
+			if report.Candidates() > definitionTags {
+				t.Errorf("%s: outline saw %d candidates from %d definition tags; it must not do more query work than the tagger",
+					workload.id, report.Candidates(), definitionTags)
 			}
 
 			outlineAllocs := testing.AllocsPerRun(3, func() {
@@ -159,7 +172,7 @@ func TestOutlineTreeCostStaysNearTagger(t *testing.T) {
 			}
 			budget := taggerAllocs * allocationBudgetMultiple
 			if outlineAllocs > budget {
-				t.Errorf("%s: outline allocated %.0f times per call, budget %.0f (%d times the tagger's %.0f)",
+				t.Errorf("%s: outline allocated %.0f times per call, budget %.0f (%.1f times the tagger's %.0f)",
 					workload.id, outlineAllocs, budget, allocationBudgetMultiple, taggerAllocs)
 			}
 			t.Logf("%s: outline %.0f allocs, tagger %.0f allocs, ratio %.2f; outline symbols=%d tags=%d",

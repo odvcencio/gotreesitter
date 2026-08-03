@@ -1,0 +1,17 @@
+package counters
+
+const limit = 10
+
+var shared = 0
+
+type Holder struct {
+	value int
+}
+
+func Standalone(a int) int {
+	return a
+}
+
+func (h *Holder) Value() int {
+	return h.value
+}

@@ -1,10 +1,12 @@
 package gotreesitter_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -96,55 +98,207 @@ func TestOutlineDeclinesWithoutTagsQuery(t *testing.T) {
 		if len(symbols) != 0 {
 			t.Errorf("NewOutliner(%q) produced %d symbols, want none", query, len(symbols))
 		}
-		if !report.QueryEmpty {
-			t.Errorf("NewOutliner(%q) report.QueryEmpty = false, want true", query)
+		if report.DeclineReason != gts.OutlineDeclineQueryEmpty {
+			t.Errorf("NewOutliner(%q) DeclineReason = %q, want %q", query, report.DeclineReason, gts.OutlineDeclineQueryEmpty)
+		}
+		if !report.Declined() {
+			t.Errorf("NewOutliner(%q) Declined() = false, want true", query)
 		}
 		if report.Symbols != 0 || report.Omitted() != 0 {
-			t.Errorf("NewOutliner(%q) report = %+v, want an all-zero receipt beside QueryEmpty", query, report)
+			t.Errorf("NewOutliner(%q) report = %+v, want an all-zero receipt beside the decline", query, report)
 		}
 	}
 }
 
-// TestOutlineDeclinesForeignTree proves the outliner does not run a query
-// whose symbol identifiers belong to another grammar. It declines and reports.
-func TestOutlineDeclinesForeignTree(t *testing.T) {
+// TestOutlineDeclineReasonsAreDistinguishable is the fix for a receipt shape
+// that made four different failures byte identical. A caller must be able to
+// tell a genuinely empty file from a projection that never ran.
+func TestOutlineDeclineReasonsAreDistinguishable(t *testing.T) {
+	goTree, goLang, goQuery := loadOutlineFixture(t, "go", "go/service.go.fixture")
 	pythonTree, _, _ := loadOutlineFixture(t, "python", "python/app.py")
-	_, goLang, goQuery := loadOutlineFixture(t, "go", "go/service.go.fixture")
 
-	outliner, err := gts.NewOutliner(goLang, goQuery)
+	working, err := gts.NewOutliner(goLang, goQuery)
 	if err != nil {
 		t.Fatalf("build outliner: %v", err)
 	}
-	symbols, report := outliner.OutlineTree(pythonTree)
-	if len(symbols) != 0 {
-		t.Errorf("outlining a foreign tree produced %d symbols, want none", len(symbols))
+	declining, err := gts.NewOutliner(goLang, "")
+	if err != nil {
+		t.Fatalf("build declining outliner: %v", err)
 	}
-	if !report.LanguageMismatch {
-		t.Error("report.LanguageMismatch = false, want true")
+
+	// An empty source file: the query RAN and matched nothing. This is the
+	// case that must not look like a decline.
+	emptyParser := gts.NewParser(goLang)
+	emptyTree, err := emptyParser.Parse([]byte("package empty\n"))
+	if err != nil {
+		t.Fatalf("parse empty source: %v", err)
+	}
+	defer emptyTree.Release()
+
+	var nilOutliner *gts.Outliner
+
+	cases := []struct {
+		name       string
+		reason     string
+		run        func() (int, gts.OutlineReport)
+		wantSymbol bool
+	}{
+		{
+			name:   "nil outliner",
+			reason: gts.OutlineDeclineNilOutliner,
+			run:    func() (int, gts.OutlineReport) { s, r := nilOutliner.OutlineTree(goTree); return len(s), r },
+		},
+		{
+			name:   "empty query",
+			reason: gts.OutlineDeclineQueryEmpty,
+			run:    func() (int, gts.OutlineReport) { s, r := declining.OutlineTree(goTree); return len(s), r },
+		},
+		{
+			name:   "nil tree",
+			reason: gts.OutlineDeclineNilTree,
+			run:    func() (int, gts.OutlineReport) { s, r := working.OutlineTree(nil); return len(s), r },
+		},
+		{
+			name:   "foreign tree",
+			reason: gts.OutlineDeclineLanguageMismatch,
+			run:    func() (int, gts.OutlineReport) { s, r := working.OutlineTree(pythonTree); return len(s), r },
+		},
+		{
+			name:   "empty file, query ran",
+			reason: "",
+			run:    func() (int, gts.OutlineReport) { s, r := working.OutlineTree(emptyTree); return len(s), r },
+		},
+	}
+
+	seen := map[string]string{}
+	for _, tc := range cases {
+		count, report := tc.run()
+		if count != 0 {
+			t.Errorf("%s: produced %d symbols, want none", tc.name, count)
+		}
+		if report.DeclineReason != tc.reason {
+			t.Errorf("%s: DeclineReason = %q, want %q", tc.name, report.DeclineReason, tc.reason)
+		}
+		if report.Declined() != (tc.reason != "") {
+			t.Errorf("%s: Declined() = %v, want %v", tc.name, report.Declined(), tc.reason != "")
+		}
+		if previous, ok := seen[report.DeclineReason]; ok {
+			t.Errorf("%s and %s produce the same receipt %q; a caller cannot tell them apart",
+				tc.name, previous, report.DeclineReason)
+		}
+		seen[report.DeclineReason] = tc.name
+	}
+
+	if len(seen) != len(cases) {
+		t.Errorf("%d cases collapsed into %d distinguishable receipts", len(cases), len(seen))
 	}
 }
 
 func TestOutlineHandlesNilAndEmptyInput(t *testing.T) {
-	_, lang, query := loadOutlineFixture(t, "go", "go/service.go.fixture")
-	outliner, err := gts.NewOutliner(lang, query)
-	if err != nil {
-		t.Fatalf("build outliner: %v", err)
-	}
-
-	symbols, report := outliner.OutlineTree(nil)
-	if len(symbols) != 0 || report.Symbols != 0 {
-		t.Errorf("OutlineTree(nil) = %+v / %+v, want empty", symbols, report)
-	}
-
 	var nilOutliner *gts.Outliner
-	if symbols, report := nilOutliner.OutlineTree(nil); len(symbols) != 0 || report.Symbols != 0 {
-		t.Errorf("nil outliner returned %+v / %+v, want empty", symbols, report)
-	}
 	if nilOutliner.QueryEmpty() {
 		t.Error("nil outliner reported an empty query rather than staying inert")
 	}
 	if nilOutliner.Language() != nil {
 		t.Error("nil outliner returned a language")
+	}
+	if nilOutliner.DefinitionKinds() != nil {
+		t.Error("nil outliner returned definition kinds")
+	}
+}
+
+// TestOutlineDefinitionKindsBoundWhatTheOutlineCanContain covers the reading
+// trap behind "every counter is zero". The Go tags override carries no type,
+// constant, or variable pattern, so a Go outline can only ever hold functions
+// and methods, however many types the file declares.
+func TestOutlineDefinitionKindsBoundWhatTheOutlineCanContain(t *testing.T) {
+	tree, lang, query := loadOutlineFixture(t, "go", "go/service.go.fixture")
+	outliner, err := gts.NewOutliner(lang, query)
+	if err != nil {
+		t.Fatalf("build outliner: %v", err)
+	}
+
+	kinds := outliner.DefinitionKinds()
+	want := []string{"function", "method"}
+	if !reflect.DeepEqual(kinds, want) {
+		t.Errorf("go DefinitionKinds() = %v, want %v", kinds, want)
+	}
+
+	symbols, report := outliner.OutlineTree(tree)
+	allowed := map[string]bool{}
+	for _, kind := range kinds {
+		allowed[kind] = true
+	}
+	var check func([]gts.OutlineSymbol)
+	check = func(list []gts.OutlineSymbol) {
+		for _, symbol := range list {
+			if !allowed[symbol.Kind] {
+				t.Errorf("symbol %q has kind %q, which DefinitionKinds() does not list", symbol.Name, symbol.Kind)
+			}
+			check(symbol.Children)
+		}
+	}
+	check(symbols)
+
+	// The fixture declares a struct, an interface, and a constant. None
+	// reaches a candidate, so none reaches an omission counter either. That
+	// is the fact DefinitionKinds exists to make visible.
+	if report.Omitted() != 0 {
+		t.Errorf("Omitted() = %d, want 0 for this fixture", report.Omitted())
+	}
+	source, err := os.ReadFile(filepath.Join(outlineGoldenRoot, "go/service.go.fixture"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	for _, declared := range []string{"type Registry struct", "type Named interface", "const defaultName"} {
+		if !strings.Contains(string(source), declared) {
+			t.Fatalf("fixture no longer declares %q, so this test proves nothing", declared)
+		}
+	}
+	if report.Symbols != 4 {
+		t.Errorf("Symbols = %d, want 4: the query reaches only functions and methods", report.Symbols)
+	}
+}
+
+// TestOutlineTreeIsSafeForConcurrentUse backs the concurrency promise in the
+// Outliner documentation. Under the race detector this fails loudly if
+// OutlineTree writes shared state.
+func TestOutlineTreeIsSafeForConcurrentUse(t *testing.T) {
+	tree, lang, query := loadOutlineFixture(t, "python", "python/app.py")
+	outliner, err := gts.NewOutliner(lang, query)
+	if err != nil {
+		t.Fatalf("build outliner: %v", err)
+	}
+	wantSymbols, wantReport := outliner.OutlineTree(tree)
+	if wantReport.Symbols == 0 {
+		t.Fatal("the fixture produced no symbols")
+	}
+
+	const goroutines = 16
+	const callsEach = 20
+	var wg sync.WaitGroup
+	errs := make(chan string, goroutines*callsEach)
+	for g := 0; g < goroutines; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < callsEach; i++ {
+				symbols, report := outliner.OutlineTree(tree)
+				if report != wantReport {
+					errs <- fmt.Sprintf("receipt diverged: %+v", report)
+					return
+				}
+				if !outlineSymbolsEqual(symbols, wantSymbols) {
+					errs <- "symbols diverged under concurrent use"
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for msg := range errs {
+		t.Error(msg)
 	}
 }
 
@@ -291,9 +445,15 @@ func TestOutlineReportsTruncationUnderAMatchLimit(t *testing.T) {
 	_ = limitedSymbols
 }
 
-// TestOutlineReceiptBalancesOnEveryFixture asserts the accounting identity
-// against live extraction, not against the committed goldens.
-func TestOutlineReceiptBalancesOnEveryFixture(t *testing.T) {
+// TestOutlineReceiptMatchesIndependentGroundTruth is the real accounting gate.
+//
+// Comparing Candidates() to Symbols + Omitted() proves nothing, because
+// Candidates() is DEFINED as that sum. This test instead runs the same
+// compiled query a second time, independently of the outliner, counts the
+// matches that carry exactly one definition capture, and compares that ground
+// truth to the receipt. A candidate that vanished without a counter fails
+// here.
+func TestOutlineReceiptMatchesIndependentGroundTruth(t *testing.T) {
 	for _, fixture := range outlineGoldenFixtures {
 		fixture := fixture
 		t.Run(fixture.File, func(t *testing.T) {
@@ -304,13 +464,87 @@ func TestOutlineReceiptBalancesOnEveryFixture(t *testing.T) {
 			}
 			symbols, report := outliner.OutlineTree(tree)
 
+			singleDefinition, multipleDefinitions := countDefinitionBearingMatches(t, lang, query, tree)
+			if singleDefinition == 0 {
+				t.Fatal("the query produced no definition-bearing match, so this gate is vacuous")
+			}
+			if report.Candidates() != singleDefinition+multipleDefinitions {
+				t.Errorf("the query produced %d definition-bearing matches (%d single, %d multiple) but the receipt accounts for %d: symbols=%d omitted=%d %+v",
+					singleDefinition+multipleDefinitions, singleDefinition, multipleDefinitions,
+					report.Candidates(), report.Symbols, report.Omitted(), report)
+			}
+			if report.OmittedMultipleDefinitions != multipleDefinitions {
+				t.Errorf("OmittedMultipleDefinitions = %d, ground truth %d", report.OmittedMultipleDefinitions, multipleDefinitions)
+			}
 			if got := countLiveOutlineSymbols(symbols); got != report.Symbols {
 				t.Errorf("forest holds %d symbols, receipt says %d", got, report.Symbols)
 			}
-			if report.Candidates() != report.Symbols+report.Omitted() {
-				t.Errorf("receipt does not balance: %+v", report)
-			}
 			assertOutlineForestIsWellFormed(t, symbols, nil)
+		})
+	}
+}
+
+// countDefinitionBearingMatches runs the compiled query independently of the
+// outliner and counts matches by how many definition captures they carry.
+func countDefinitionBearingMatches(t *testing.T, lang *gts.Language, queryText string, tree *gts.Tree) (single, multiple int) {
+	t.Helper()
+	compiled, err := gts.NewQuery(queryText, lang)
+	if err != nil {
+		t.Fatalf("compile ground-truth query: %v", err)
+	}
+	for _, match := range compiled.Execute(tree) {
+		definitions := 0
+		for _, capture := range match.Captures {
+			if capture.Node == nil {
+				continue
+			}
+			if strings.HasPrefix(capture.Name, "definition.") && len(capture.Name) > len("definition.") {
+				definitions++
+			}
+		}
+		switch {
+		case definitions == 1:
+			single++
+		case definitions > 1:
+			multiple++
+		}
+	}
+	return single, multiple
+}
+
+// TestOutlineNameAgreesWithNameRange enforces the invariant documented on
+// OutlineSymbol.Name: the emitted name is the trimmed text of the capture
+// node, so the source bytes at NameRange must trim to exactly Name. A language
+// where a directive rewrites the text would surface here rather than ship a
+// name that does not match its own span.
+func TestOutlineNameAgreesWithNameRange(t *testing.T) {
+	for _, fixture := range outlineGoldenFixtures {
+		fixture := fixture
+		t.Run(fixture.File, func(t *testing.T) {
+			tree, lang, query := loadOutlineFixture(t, fixture.Language, fixture.File)
+			outliner, err := gts.NewOutliner(lang, query)
+			if err != nil {
+				t.Fatalf("build outliner: %v", err)
+			}
+			symbols, _ := outliner.OutlineTree(tree)
+			source := tree.Source()
+
+			var check func([]gts.OutlineSymbol)
+			check = func(list []gts.OutlineSymbol) {
+				for _, symbol := range list {
+					if int(symbol.NameRange.EndByte) > len(source) {
+						t.Errorf("%q: NameRange ends past the source", symbol.Name)
+						continue
+					}
+					span := strings.TrimSpace(string(source[symbol.NameRange.StartByte:symbol.NameRange.EndByte]))
+					if span != symbol.Name {
+						t.Errorf("%s %q: source at NameRange is %q; Name and NameRange disagree",
+							symbol.Kind, symbol.Name, span)
+					}
+					check(symbol.Children)
+				}
+			}
+			check(symbols)
 		})
 	}
 }

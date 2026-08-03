@@ -2,18 +2,26 @@
   "language": "tsx",
   "fixture": "tsx/view.tsx",
   "purpose": "interface and class beside JSX; nested function in a component",
-  "tree_has_error": false,
+  "query_definition_kinds": [
+    "class",
+    "function",
+    "interface",
+    "method",
+    "type"
+  ],
   "report": {
     "Symbols": 5,
     "OmittedNoName": 0,
     "OmittedDuplicate": 0,
+    "OmittedNameConflict": 0,
     "OmittedConflict": 0,
     "OmittedOverlap": 0,
     "OmittedInvalidNameRange": 0,
+    "OmittedMultipleDefinitions": 0,
     "OwnerRuleMisses": 0,
-    "QueryEmpty": false,
+    "DeclineReason": "",
     "Truncated": false,
-    "LanguageMismatch": false
+    "TreeHasError": false
   },
   "symbols": [
     {
