@@ -187,7 +187,15 @@ func TestParserCoreCorridorDecodeBackPerState(t *testing.T) {
 		// The interned key set must be exactly the populated terminal keys.
 		var expected []Symbol
 		for sym := Symbol(0); uint32(sym) < tables.tokenCount; sym++ {
-			idx := tables.actionIndex(StateID(state), sym)
+			// Oracle discipline: index through Parser.lookupActionIndex, the
+			// lookup the running scheduler actually uses, not through the
+			// compiler's own table walk. Using the compiler's walk on both
+			// sides would make this test blind to any divergence between the
+			// two — and they are not trivially the same function: the raw
+			// small-table walk is first-wins while smallTokenLookup is
+			// last-wins, so a duplicated symbol in one small-table group would
+			// resolve differently.
+			idx := parser.lookupActionIndex(StateID(state), sym)
 			if idx == 0 || int(idx) >= len(reference.actionRows) {
 				continue
 			}
@@ -206,7 +214,11 @@ func TestParserCoreCorridorDecodeBackPerState(t *testing.T) {
 		}
 
 		for _, sym := range keys {
-			idx := tables.actionIndex(StateID(state), sym)
+			idx := parser.lookupActionIndex(StateID(state), sym)
+			if compiled := tables.actionIndex(StateID(state), sym); compiled != idx {
+				t.Fatalf("state=%d symbol=%d compiler action index %d differs from Parser.lookupActionIndex %d",
+					state, sym, compiled, idx)
+			}
 			want := reference.actionRows[idx]
 			decoded, ok := program.DecodeCell(StateID(state), sym)
 			if !ok {
@@ -323,6 +335,30 @@ func TestParserCoreCorridorStreamValidation(t *testing.T) {
 			base := p.stateBlockOffset[1]
 			p.prog[base+1] = p.prog[base+1]&0xFFFF | uint32(len(p.prog))<<16
 		}},
+		{"SHIFT target points inside a block header", func(p *ParserCoreCorridorProgram) {
+			// The set-id word of a block whose set id is congruent to the
+			// EXPECT opcode modulo 64 reads as an EXPECT instruction to an
+			// opcode-bit sniff. Aim a SHIFT at it and require the validator to
+			// reject the target because it is not a compiled block start.
+			for state := 1; state < p.states; state++ {
+				base := p.stateBlockOffset[state]
+				if p.prog[base+1]&corridorOpcodeMask != uint32(corridorOpExpect) {
+					continue
+				}
+				for _, body := range p.forEachShiftBodyForTest() {
+					p.prog[body] = uint32(corridorOpShift) | (base+1)<<6
+					return
+				}
+			}
+		}},
+		{"FORK carries an out-of-range action-row index", func(p *ParserCoreCorridorProgram) {
+			for word := uint32(1); int(word) < len(p.prog); word++ {
+				if p.prog[word]&corridorOpcodeMask == uint32(corridorOpFork) {
+					p.prog[word] = uint32(corridorOpFork) | uint32(p.rowCount+1)<<6
+					return
+				}
+			}
+		}},
 	}
 	for _, tc := range corruptions {
 		tc := tc
@@ -411,4 +447,19 @@ func TestParserCoreCorridorTableShapeReceipt(t *testing.T) {
 			receiptPath, receiptPath,
 			corridorAnalyzedGrammars[0], corridorAnalyzedGrammars[1], corridorAnalyzedGrammars[2])
 	}
+}
+
+// forEachShiftBodyForTest returns the stream offsets of every SHIFT body, so a
+// corruption case can aim one at a chosen word.
+func (p *ParserCoreCorridorProgram) forEachShiftBodyForTest() []uint32 {
+	var found []uint32
+	for state := 0; state < p.states; state++ {
+		for _, sym := range p.KeySet(StateID(state)) {
+			body := corridorDispatch(p.prog, p.stateBlockOffset[state], sym)
+			if body != 0 && p.prog[body]&corridorOpcodeMask == uint32(corridorOpShift) {
+				found = append(found, body)
+			}
+		}
+	}
+	return found
 }

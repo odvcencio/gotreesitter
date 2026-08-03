@@ -72,19 +72,51 @@ type ParserCoreCorridorTableShape struct {
 	UnaryChainEdges       uint64  `json:"unary_chain_edges"`
 	UnaryChainEdgesDepth2 uint64  `json:"unary_chain_edges_depth2"`
 	UnaryChainDepth2Share float64 `json:"unary_chain_depth2_share"`
-	// EdgeStaticUnaryReduceCells counts unary sole-reduce cells whose goto
-	// target is the same for every predecessor edge, which is the
-	// edge-uniqueness precondition REDUCE_CHAIN needs.
+	// EdgeStaticUnaryReduceCells counts sole-reduce cells with ChildCount == 1
+	// whose goto target is the same for every predecessor edge. Its share is
+	// taken over UnaryReduceCells, so it answers "how often is a unary chain
+	// step edge-unique".
 	EdgeStaticUnaryReduceCells uint64  `json:"edge_static_unary_reduce_cells"`
 	EdgeStaticUnaryReduceShare float64 `json:"edge_static_unary_reduce_share"`
+	// EdgeStaticReduceCells is the same edge-uniqueness measurement over EVERY
+	// sole-reduce cell, not only the unary ones. corridorGotoModeStatic's
+	// precondition is edge-unique goto, which has nothing to do with the
+	// reduction's child count, so this is the row that decides whether a fused
+	// static goto target is admissible. Its share is taken over ReduceCells.
+	EdgeStaticReduceCells uint64  `json:"edge_static_reduce_cells"`
+	EdgeStaticReduceShare float64 `json:"edge_static_reduce_share"`
 
-	// "uniform-sole-reduce states" row: states where every populated terminal
-	// key decodes to the same sole reduce action.
+	// UniformSoleReduceStates counts states where EVERY populated terminal key
+	// decodes to the same sole reduce action. Extra-shift cells break
+	// uniformity under this definition.
+	//
+	// Read it with care: comment and whitespace tokens shift as extras in
+	// essentially every state of a real grammar, so this row is near zero by
+	// construction and says almost nothing about reduce uniformity. It is
+	// retained only for continuity with the first published receipt.
 	UniformSoleReduceStates int     `json:"uniform_sole_reduce_states"`
 	UniformSoleReduceShare  float64 `json:"uniform_sole_reduce_share"`
+	// UniformSoleReduceStatesExtraNeutral is the same row with extra-shift
+	// cells excluded from the uniformity test: a state qualifies when its
+	// populated terminal keys are all either an extra shift or one single,
+	// identical sole reduce.
+	//
+	// This is the definition consistent with the corridor's own semantics. An
+	// extra shift compiles to SHIFT_EXTRA, which spec section 3.2 says stays
+	// inside the same election, so an extra-shift key does not interrupt a
+	// reduce run the way an ordinary shift does. This is the row a fusion
+	// argument must use.
+	UniformSoleReduceStatesExtraNeutral int     `json:"uniform_sole_reduce_states_extra_neutral"`
+	UniformSoleReduceShareExtraNeutral  float64 `json:"uniform_sole_reduce_share_extra_neutral"`
+	// UniformSoleReduceCoveredCells counts the reduce cells that sit inside an
+	// extra-neutral uniform state, and its share is taken over ReduceCells. It
+	// is the reduce mass a state-uniform fusion would reach.
+	UniformSoleReduceCoveredCells uint64  `json:"uniform_sole_reduce_covered_cells"`
+	UniformSoleReduceCoveredShare float64 `json:"uniform_sole_reduce_covered_share"`
 
 	// REDUCE_SHIFT candidate row: a sole-reduce cell whose post-goto row for
-	// the same lookahead is a sole shift, for every predecessor edge.
+	// the same lookahead is a sole shift, for every predecessor edge. It spans
+	// every sole-reduce cell, and its share is taken over ReduceCells.
 	ReduceShiftCandidateCells uint64  `json:"reduce_shift_candidate_cells"`
 	ReduceShiftCandidateShare float64 `json:"reduce_shift_candidate_share"`
 
@@ -160,9 +192,15 @@ func AnalyzeParserCoreCorridorTables(lang *Language) (ParserCoreCorridorTableSha
 			continue
 		}
 
+		// Two uniformity tests run side by side. The strict one breaks on any
+		// non-reduce key. The extra-neutral one ignores extra-shift keys,
+		// because an extra shift compiles to SHIFT_EXTRA and stays inside the
+		// same election, so it does not interrupt a reduce run.
 		uniform := true
+		uniformExtraNeutral := true
 		var uniformAction core.Action
 		uniformSet := false
+		stateReduceCells := uint64(0)
 
 		for _, sym := range keys {
 			row, _, rowErr := tables.row(StateID(state), sym)
@@ -177,23 +215,31 @@ func AnalyzeParserCoreCorridorTables(lang *Language) (ParserCoreCorridorTableSha
 			descriptor := row.Descriptor()
 			if descriptor.Kind() != core.ActionRowReduce {
 				uniform = false
+				if descriptor.Kind() != core.ActionRowExtraShift {
+					uniformExtraNeutral = false
+				}
 				continue
 			}
 			action := row.At(0)
 			shape.ReduceCells++
+			stateReduceCells++
 			if !uniformSet {
 				uniformAction, uniformSet = action, true
 			} else if action != uniformAction {
 				uniform = false
+				uniformExtraNeutral = false
 			}
-			if action.ChildCount != 1 {
-				continue
+			isUnary := action.ChildCount == 1
+			if isUnary {
+				shape.UnaryReduceCells++
 			}
-			shape.UnaryReduceCells++
 
 			// Walk the predecessor edges: resolve goto(P, lhs) for every
 			// predecessor P of this state, then read the landing row for the
-			// same lookahead.
+			// same lookahead. Edge uniqueness and the REDUCE_SHIFT probe are
+			// properties of the goto edge, not of the reduction's child count,
+			// so both run over every sole-reduce cell. Only the unary-chain
+			// rows filter on ChildCount == 1.
 			edges := predecessors[state]
 			edgeStatic := len(edges) > 0
 			var firstTarget StateID
@@ -213,11 +259,13 @@ func AnalyzeParserCoreCorridorTables(lang *Language) (ParserCoreCorridorTableSha
 				if landErr != nil {
 					return ParserCoreCorridorTableShape{}, landErr
 				}
-				shape.UnaryChainEdges++
+				if isUnary {
+					shape.UnaryChainEdges++
+				}
 				switch landing.Descriptor().Kind() {
 				case core.ActionRowReduce:
 					reduceShiftCandidate = false
-					if landing.At(0).ChildCount == 1 {
+					if isUnary && landing.At(0).ChildCount == 1 {
 						shape.UnaryChainEdgesDepth2++
 					}
 				case core.ActionRowShift:
@@ -226,7 +274,10 @@ func AnalyzeParserCoreCorridorTables(lang *Language) (ParserCoreCorridorTableSha
 				}
 			}
 			if edgeStatic {
-				shape.EdgeStaticUnaryReduceCells++
+				shape.EdgeStaticReduceCells++
+				if isUnary {
+					shape.EdgeStaticUnaryReduceCells++
+				}
 			}
 			if reduceShiftCandidate {
 				shape.ReduceShiftCandidateCells++
@@ -234,6 +285,10 @@ func AnalyzeParserCoreCorridorTables(lang *Language) (ParserCoreCorridorTableSha
 		}
 		if uniform && uniformSet {
 			shape.UniformSoleReduceStates++
+		}
+		if uniformExtraNeutral && uniformSet {
+			shape.UniformSoleReduceStatesExtraNeutral++
+			shape.UniformSoleReduceCoveredCells += stateReduceCells
 		}
 	}
 
@@ -254,17 +309,21 @@ func AnalyzeParserCoreCorridorTables(lang *Language) (ParserCoreCorridorTableSha
 		shape.CorridorCellShare = float64(census.Shift+census.ShiftExtra+census.Reduce+census.Accept) / total
 	}
 	if shape.ReduceCells != 0 {
-		shape.UnaryReduceShare = float64(shape.UnaryReduceCells) / float64(shape.ReduceCells)
+		reduces := float64(shape.ReduceCells)
+		shape.UnaryReduceShare = float64(shape.UnaryReduceCells) / reduces
+		shape.EdgeStaticReduceShare = float64(shape.EdgeStaticReduceCells) / reduces
+		shape.ReduceShiftCandidateShare = float64(shape.ReduceShiftCandidateCells) / reduces
+		shape.UniformSoleReduceCoveredShare = float64(shape.UniformSoleReduceCoveredCells) / reduces
 	}
 	if shape.UnaryChainEdges != 0 {
 		shape.UnaryChainDepth2Share = float64(shape.UnaryChainEdgesDepth2) / float64(shape.UnaryChainEdges)
 	}
 	if shape.UnaryReduceCells != 0 {
 		shape.EdgeStaticUnaryReduceShare = float64(shape.EdgeStaticUnaryReduceCells) / float64(shape.UnaryReduceCells)
-		shape.ReduceShiftCandidateShare = float64(shape.ReduceShiftCandidateCells) / float64(shape.UnaryReduceCells)
 	}
 	if shape.States != 0 {
 		shape.UniformSoleReduceShare = float64(shape.UniformSoleReduceStates) / float64(shape.States)
+		shape.UniformSoleReduceShareExtraNeutral = float64(shape.UniformSoleReduceStatesExtraNeutral) / float64(shape.States)
 		shape.BytesPerState = float64(shape.ProgramBytes) / float64(shape.States)
 	}
 	return shape, nil

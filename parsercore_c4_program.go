@@ -178,15 +178,20 @@ const (
 	// language table with it, so the corridor never re-walks the parse table
 	// (spec section 6.1). FORK carries the same index in-word, so the fork
 	// lane sees the exact ActionRow the table interpreter would see.
-	corridorShiftWords       = 2
-	corridorShiftExtraWords  = 2
-	corridorReduceWords      = 3
-	corridorAcceptWords      = 2
-	corridorForkWords        = 1
-	corridorExitWords        = 1
-	corridorSparsePairWords  = 2
-	corridorMaxBlockOffset   = 1 << 26
-	corridorMaxOperandUint26 = (1 << 26) - 1
+	corridorShiftWords      = 2
+	corridorShiftExtraWords = 2
+	corridorReduceWords     = 3
+	corridorAcceptWords     = 2
+	corridorForkWords       = 1
+	corridorExitWords       = 1
+	corridorSparsePairWords = 2
+	// corridorMaxBlockOffset is the narrowest block-offset operand field in
+	// the encoding, not the widest. SHIFT packs 26 bits at bit 6, but
+	// SHIFT_EXTRA spends bit 6 on its self-loop flag and packs only 25 bits at
+	// bit 7, so a 26-bit ceiling would admit a stream whose SHIFT_EXTRA
+	// targets silently truncate. The compiler checks every block offset
+	// against this narrowest field.
+	corridorMaxBlockOffset = 1 << 25
 )
 
 // ParserCoreCorridorProgram is one grammar's compiled corridor program: a
@@ -222,13 +227,13 @@ type ParserCoreCorridorProgram struct {
 	grammar string
 	// census records the compiled disposition of every populated
 	// (state, terminal) cell (spec section 4.3).
-	census parserCoreCorridorCensus
+	census ParserCoreCorridorCensus
 }
 
-// parserCoreCorridorCensus counts compiled dispositions. Every populated
+// ParserCoreCorridorCensus counts compiled dispositions. Every populated
 // (state, terminal) cell contributes to exactly one field, which is what the
 // exhaustiveness test asserts.
-type parserCoreCorridorCensus struct {
+type ParserCoreCorridorCensus struct {
 	Shift            uint64
 	ShiftExtra       uint64
 	Reduce           uint64
@@ -944,6 +949,40 @@ func (p *ParserCoreCorridorProgram) validate() error {
 	return nil
 }
 
+// validateBlockTarget is part of S3: a threading operand must name a real
+// state block, not merely a word whose low six bits happen to read as EXPECT.
+// Sniffing the opcode bits is not sufficient — a target pointing one word into
+// a block header decodes its set-id field, and any set id congruent to the
+// EXPECT opcode modulo 64 would pass. It resolves the offset through the
+// state-block index instead, which admits exactly the compiled block starts.
+func (p *ParserCoreCorridorProgram) validateBlockTarget(
+	target uint32, state int, sym Symbol, op parserCoreCorridorOpcode,
+) error {
+	if !p.isBlockOffset(target) {
+		return fmt.Errorf("parser-core corridor: state %d symbol %d %s target %d is not a compiled block start", state, sym, op, target)
+	}
+	if int(target)+corridorExpectWords > len(p.prog) || p.prog[target]&corridorOpcodeMask != uint32(corridorOpExpect) {
+		return fmt.Errorf("parser-core corridor: state %d symbol %d %s target %d is not a block header", state, sym, op, target)
+	}
+	return nil
+}
+
+// isBlockOffset reports whether offset is exactly one state's block start.
+// stateBlockOffset is strictly ascending by construction, so this is the same
+// binary search blockState performs.
+func (p *ParserCoreCorridorProgram) isBlockOffset(offset uint32) bool {
+	lo, hi := 0, len(p.stateBlockOffset)
+	for lo < hi {
+		mid := int(uint(lo+hi) >> 1)
+		if p.stateBlockOffset[mid] < offset {
+			lo = mid + 1
+		} else {
+			hi = mid
+		}
+	}
+	return lo < len(p.stateBlockOffset) && p.stateBlockOffset[lo] == offset
+}
+
 // validateRowIndex is part of S3: an executable body's action-row index must
 // address a real row of the shared language table the interpreter reads.
 func (p *ParserCoreCorridorProgram) validateRowIndex(index uint32, state int, sym Symbol) error {
@@ -964,9 +1003,8 @@ func (p *ParserCoreCorridorProgram) validateBody(at uint32, state int, sym Symbo
 		if int(at)+corridorShiftWords > len(p.prog) {
 			return fmt.Errorf("parser-core corridor: state %d symbol %d SHIFT overruns the stream", state, sym)
 		}
-		target := word >> 6
-		if int(target)+corridorExpectWords > len(p.prog) || p.prog[target]&corridorOpcodeMask != uint32(corridorOpExpect) {
-			return fmt.Errorf("parser-core corridor: state %d symbol %d SHIFT target %d is not a block header", state, sym, target)
+		if err := p.validateBlockTarget(word>>6, state, sym, corridorOpShift); err != nil {
+			return err
 		}
 		if err := p.validateRowIndex(p.prog[at+1], state, sym); err != nil {
 			return err
@@ -979,9 +1017,8 @@ func (p *ParserCoreCorridorProgram) validateBody(at uint32, state int, sym Symbo
 			return err
 		}
 		if word>>6&1 == 0 {
-			target := word >> 7
-			if int(target)+corridorExpectWords > len(p.prog) || p.prog[target]&corridorOpcodeMask != uint32(corridorOpExpect) {
-				return fmt.Errorf("parser-core corridor: state %d symbol %d SHIFT_EXTRA target %d is not a block header", state, sym, target)
+			if err := p.validateBlockTarget(word>>7, state, sym, corridorOpShiftExtra); err != nil {
+				return err
 			}
 		}
 	case corridorOpReduce:
@@ -1001,7 +1038,13 @@ func (p *ParserCoreCorridorProgram) validateBody(at uint32, state int, sym Symbo
 		if err := p.validateRowIndex(p.prog[at+1], state, sym); err != nil {
 			return err
 		}
-	case corridorOpFork, corridorOpExitGeneric, corridorOpExitUnsupported:
+	case corridorOpFork:
+		// FORK hands the fork lane the original action-row index, so the same
+		// range obligation applies to it as to an executable body.
+		if err := p.validateRowIndex(word>>6, state, sym); err != nil {
+			return err
+		}
+	case corridorOpExitGeneric, corridorOpExitUnsupported:
 		// Single-word forms with in-word operands only.
 	default:
 		return fmt.Errorf("parser-core corridor: state %d symbol %d body decodes to non-body opcode %s", state, sym, op)
@@ -1150,9 +1193,9 @@ func (p *ParserCoreCorridorProgram) StateCount() int {
 }
 
 // Census reports the compiled disposition counts.
-func (p *ParserCoreCorridorProgram) Census() parserCoreCorridorCensus {
+func (p *ParserCoreCorridorProgram) Census() ParserCoreCorridorCensus {
 	if p == nil {
-		return parserCoreCorridorCensus{}
+		return ParserCoreCorridorCensus{}
 	}
 	return p.census
 }

@@ -85,8 +85,14 @@ func acquireParserCoreCorridorProgram(lang *Language) *ParserCoreCorridorProgram
 
 // corridorEligible is the entry test of spec section 4.2: exactly one header,
 // checkpoint continuity, a runnable header, and a token class the corridor
-// owns. It is one predicted branch plus one slice index, per the section 6.3
-// re-entry budget.
+// owns.
+//
+// Cost note, stated plainly: this runs once per generic run-loop iteration,
+// not once per parse, and it runs on every parse whose language compiled a
+// program — including the multi-header iterations the corridor can never
+// take. It is a handful of predicted branches over fields already in cache,
+// which is inside the section 6.3 re-entry budget, but it is not free and it
+// is not hoisted.
 func (s *diagnosticParserCoreGenericScheduler) corridorEligible() bool {
 	if s.corridor == nil || s.corridorRows == nil || len(s.headers) != 1 {
 		return false
@@ -359,6 +365,15 @@ func (s *diagnosticParserCoreGenericScheduler) corridorClassify(
 	// proven equal to the table's own action index for every (state, symbol)
 	// by the decode-back test (S2).
 	actions := s.corridorRows[rowIndex]
+	// The corridor still performs one table lookup for this cell — it reads
+	// its own validated dispatch table instead of walking the parse table —
+	// so it records the same raw table-lookup event Parser.lookupActionIndex
+	// records. Without this the published TableLookupsProxy counter
+	// (contract gts-work-count/v2) would fall by exactly one per corridor
+	// pass, which spec section 5 R1 classes as a semantics change rather
+	// than an optimization. The hook compiles to an empty function outside
+	// gts_workcount builds, so the corridor pays nothing for it by default.
+	workCountRecordTableLookup()
 	boundary, err := s.compact.ClassifyBoundaryWithRow(s.headers[0].head, core.Symbol(s.token.Symbol), actions)
 	if err != nil {
 		return cell, nil, err
