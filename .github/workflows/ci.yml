@@ -543,6 +543,7 @@ jobs:
       - perf_scan_budget
       - exhaustive_parity_scope
       - compact-t3-oracle-cgo
+      - merge-event-census-cgo
       - parity-cgo-exhaustive
     if: always()
     runs-on: ubuntu-latest
@@ -564,6 +565,7 @@ jobs:
           EXHAUSTIVE_PARITY_SCOPE_RESULT: ${{ needs.exhaustive_parity_scope.result }}
           EXHAUSTIVE_PARITY_SCOPE: ${{ needs.exhaustive_parity_scope.outputs.run_exhaustive }}
           COMPACT_T3_ORACLE_CGO_RESULT: ${{ needs.compact-t3-oracle-cgo.result }}
+          MERGE_EVENT_CENSUS_CGO_RESULT: ${{ needs.merge-event-census-cgo.result }}
           EXHAUSTIVE_PARITY_RESULT: ${{ needs.parity-cgo-exhaustive.result }}
         run: |
           set -euo pipefail
@@ -600,6 +602,7 @@ jobs:
           require_success "parity_report" "$PARITY_REPORT_RESULT"
           require_success "perf_scan_budget" "$PERF_SCAN_BUDGET_RESULT"
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
+          require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
 
           if [ "$IS_DRAFT" = "true" ]; then
             require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"
@@ -777,6 +780,48 @@ jobs:
             --c-ref-build-jobs 1 \
             --timeout 20m \
             --run '^TestCompactT3OracleAdjudication$'
+
+  # merge-event-census-cgo runs stage M0 of spec.merge-time-election.v1: the
+  # census that counts stack-merge events on both sides and breaks production's
+  # refusals down by gate. Every cgo parity lane in this file runs a FIXED
+  # --run regex, so a new cgo test runs nowhere unless it is named here; see
+  # docs/ci-gate-coverage.md. This lane names it.
+  #
+  # The census needs its own build tags, so it uses the docker runner's custom
+  # command form rather than --run: gts_merge_census compiles the production
+  # instrument into the library, and the lane is the only place it is compiled
+  # at all (merge_event_census_inert_test.go ratchets its absence everywhere
+  # else). The reference side compiles the repository's own work-count patch
+  # against the pinned runtime source from the module cache, so the lane needs
+  # cc and git, which the harness image already carries.
+  merge-event-census-cgo:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Merge-event census (stage M0 baseline and Foo[int](a) receipt)
+        run: |
+          GTS_PARITY_MODE=smoke \
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-merge-event-census \
+            --memory 8g \
+            --cpus 2 \
+            --pids 4096 \
+            --gomemlimit 6GiB \
+            --goflags -p=1 \
+            --test-parallel 1 \
+            --c-ref-build-jobs 1 \
+            --timeout 30m \
+            -- "cd /workspace/cgo_harness && GOWORK=off go test \
+              -tags 'cgo treesitter_c_parity gts_merge_census' \
+              -run '^TestMergeEventCensus' -count=1 -v -timeout 30m ."
 
   parity-cgo:
     needs: exhaustive_parity_scope

@@ -249,6 +249,46 @@ into that module, the same shape as the `gts_parsercorephase0` finding above.
 Given this branch's scope and the stop rules, this was noted but not
 quantified test-by-test; a dedicated audit pass is filed in the backlog.
 
+## Part 3: later additions
+
+### 3a. `merge-event-census-cgo` — wired with the census it runs (2026-08-02)
+
+Stage M0 of `spec.merge-time-election.v1` added two cgo tests,
+`TestMergeEventCensusBaseline` and `TestMergeEventCensusFooIntWitness`
+(`cgo_harness/merge_event_census_test.go`). Both sit behind the new
+`gts_merge_census` build tag, so no existing lane could reach them: every cgo
+parity lane passes a fixed `-run` allow-list AND a fixed `-tags` string, and
+`run_parity_in_docker.sh` hardcodes `-tags treesitter_c_parity` in its default
+command.
+
+Fixed in the same change that added the tests: a new `merge-event-census-cgo`
+job uses the docker runner's custom-command form to pass
+`-tags 'cgo treesitter_c_parity gts_merge_census'`, and the job is listed in
+the required `build` gate's `needs` and in its `require_success` checks. The
+census therefore blocks a merge when it fails.
+
+### 3b. The stage-D0 derivation-set differential is a DARK GATE and its pin has drifted
+
+`TestDerivationSetDifferentialBaselineCensus` and
+`TestDerivationSetDifferentialWitnessReproduction`
+(`cgo_harness/derivation_set_differential_test.go`, PR #646) need
+`-tags gts_derivation_set_census`. No workflow passes that tag. Searching
+`.github/` for `gts_derivation_set_census` returns nothing.
+
+The consequence is already measurable. On unmodified `main` at `56410214`,
+the baseline census reports 24 set differences against a pin of 32, so the
+test FAILS:
+
+```
+TOTAL SET-DIFFERENCE COUNT (constructed)=24 (all corpora)=24
+D0 baseline total set-difference count is 24, pinned at 32
+```
+
+The drift is a FALL, which is the direction stages D1 and D2 want, but it
+landed with no receipt because nothing ran the gate. Re-pinning belongs to the
+owner of that lane with the per-witness adjudication the file's own comment
+demands, so this branch reports the drift and does not re-fit the number.
+
 ## Backlog (not fixed in this branch)
 
 | Item | Severity | Why |
@@ -258,6 +298,7 @@ quantified test-by-test; a dedicated audit pass is filed in the backlog.
 | Hardcoded `/home/draco/...` absolute paths in 5 test files, including two named historical-regression tests (`TestGoZerrorsNormalizerByteIdentity`, `TestCRecoveryZerrorsTruncationAcyclic`) | High | Not just uncovered — unreachable by CI or any engineer without that exact local layout; no env var exists to opt in. |
 | `gts_parsercorephase0`-tagged surface: 277 top-level test functions across 57 root-package files, only on the order of a dozen actually executed by CI's narrow `-run` allow-lists | High (scale) | Same defect class as the two fixed items, much larger; needs a lane redesign, not a one-line change. |
 | `gts_workcount` build tag never passed by any CI job | Medium | Entire work-count differential harness (9+ files) compiled nowhere, run nowhere. |
+| `gts_derivation_set_census` build tag never passed by any CI job; its pinned baseline has already drifted from 32 to 24 on `main` | High | See 3b. The gate exists, fails on `main`, and nothing reports it. |
 | `gts_no_parsercorephase0` (emergency stub) build never compiled by CI | Medium | The fail-closed emergency route itself is untested; would only be discovered broken during an actual incident. |
 | `GTS_ADMISSION_REAL_CORPUS` in `admission_real_corpus_matrix_test.go` has the same silent-by-default shape as the gate loudened in 1b, not yet loudened itself | Low–Medium | Same fixture problem (`cgo_harness/corpus_real`), same fix shape as 1b; not touched here to keep this branch's diff minimal. |
 | `cgo_harness` module's own `gts_parsercorephase0`-style narrow-`-run`-vs-broad-tag-surface pattern (94 `treesitter_c_parity`-tagged files) | Unquantified | Flagged, not measured; separate module, separate audit warranted. |

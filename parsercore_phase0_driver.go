@@ -4760,6 +4760,21 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() error {
 		Accepts: s.work.Accepts, Stats: stats, Work: s.work,
 	}
 	s.receipt.Acceptance = &s.receipt.acceptanceBacking
+	if mergeCensusEnabled {
+		// Stage M0 instrument (spec.merge-time-election.v1): the compact
+		// core's own always-on link-union counters, read from the snapshot
+		// this function already took. Removed from the default build by the
+		// constant guard.
+		compactWork := s.receipt.acceptanceBacking.CoreWork
+		mergeCensusRecordCompactLinkUnion(
+			compactWork.PredecessorLinkUnionAttempts,
+			compactWork.PredecessorLinkUnionDuplicateNoop,
+			compactWork.PredecessorLinkUnionPrecedenceReplaced,
+			compactWork.PredecessorLinkUnionRecursiveChanged,
+			compactWork.PredecessorLinkUnionAlternateAppended,
+			compactWork.PredecessorLinkUnionRejected,
+		)
+	}
 	s.publishTotals()
 	return nil
 }

@@ -3248,7 +3248,13 @@ func tryGSSMainMergeForParser(p *Parser, a, b *glrStack) bool {
 		return tryGSSMainMergeForParserPhase(p, a, b, workCountConvergencePhaseBoundaryGSS, true)
 	}
 	workCountRecordMergeAttempt()
+	if mergeCensusEnabled {
+		mergeCensusRecordAttempt()
+	}
 	if !gssMainCanMergeForParser(p, a, b) {
+		if mergeCensusEnabled {
+			mergeCensusAttributeForParserRefusal(p, a, b)
+		}
 		return false
 	}
 	var scratch *glrMergeScratch
@@ -3258,20 +3264,31 @@ func tryGSSMainMergeForParser(p *Parser, a, b *glrStack) bool {
 	merged := gssMainMergeWithScratch(scratch, a, b)
 	if merged {
 		workCountRecordMergeSuccess()
+		if mergeCensusEnabled {
+			mergeCensusRecordSuccess()
+		}
 		a.cEverErrored = a.cEverErrored || b.cEverErrored
 		if p != nil {
 			p.mergeScratch.bumpShapePrefixEpoch()
 		}
+	} else if mergeCensusEnabled {
+		mergeCensusRecordMergeFailed()
 	}
 	return merged
 }
 
 func tryGSSMainMergeForParserPhase(p *Parser, a, b *glrStack, phase string, recordDecision bool) bool {
 	workCountRecordMergeAttempt()
+	if mergeCensusEnabled {
+		mergeCensusRecordAttempt()
+	}
 	if recordDecision {
 		workCountRecordPairCandidate(p, phase, "GSS merge entered eligibility preflight", a, b) // work-count-assembly: convergence GSS seam
 	}
 	if !gssMainCanMergeForParserPhase(p, a, b, phase) {
+		if mergeCensusEnabled {
+			mergeCensusAttributeForParserRefusal(p, a, b)
+		}
 		return false
 	}
 	var scratch *glrMergeScratch
@@ -3286,6 +3303,9 @@ func tryGSSMainMergeForParserPhase(p *Parser, a, b *glrStack, phase string, reco
 	}
 	if merged {
 		workCountRecordMergeSuccess()
+		if mergeCensusEnabled {
+			mergeCensusRecordSuccess()
+		}
 		// a survives and absorbs b, so OR the sticky wreckage bit: cEverErrored
 		// is lineage history, not current shape, and a clean survivor must not
 		// shed a merged-in recovered-wreckage lineage's error history (see
@@ -3299,6 +3319,8 @@ func tryGSSMainMergeForParserPhase(p *Parser, a, b *glrStack, phase string, reco
 			// bumpShapePrefixEpoch is nil-safe.
 			p.mergeScratch.bumpShapePrefixEpoch()
 		}
+	} else if mergeCensusEnabled {
+		mergeCensusRecordMergeFailed()
 	}
 	return merged
 }
@@ -4173,7 +4195,23 @@ func gssMainAddLinkSeenMutate(scratch *glrMergeScratch, n *gssNode, prev *gssNod
 	}
 	for i := 0; i < n.linkCount(); i++ {
 		existingPrev, existingEntry := n.link(i)
-		if !stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch, existingEntry, entry) {
+		if mergeCensusEnabled {
+			// Stage M0 instrument (spec.merge-time-election.v1). This loop is
+			// production's port of the reference runtime's Tier-2 link union
+			// (stack.c:199-263), and this comparison is its port of
+			// stack__subtree_is_equivalent. The census records production's DEEP
+			// verdict beside the reference runtime's SHALLOW verdict, so stage
+			// M1 knows exactly how many reference-runtime collapses the deep
+			// test turns into appends. Only the mutating union is instrumented;
+			// the preflight walkers repeat the same comparisons for the same
+			// pairs and would double count. The constant guard removes this
+			// block from the default build.
+			verdict := stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch, existingEntry, entry)
+			mergeCensusRecordLinkPayload(existingEntry, entry, verdict)
+			if !verdict {
+				continue
+			}
+		} else if !stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch, existingEntry, entry) {
 			continue
 		}
 		if existingPrev == prev {
@@ -4368,6 +4406,9 @@ func gssMainMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 
 func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int, stack *glrStack) (merged bool, attempted bool) {
 	workCountRecordMergeAttempt()
+	if mergeCensusEnabled {
+		mergeCensusRecordAttempt()
+	}
 	if idx < 0 || idx >= len(result) || stack == nil {
 		return false, false
 	}
@@ -4384,6 +4425,9 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		if workCountInstrumentationEnabled {
 			workCountRecordGSSScoreShiftReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, &result[idx], stack)
 		}
+		if mergeCensusEnabled {
+			mergeCensusRecordScorePreflight()
+		}
 		return false, false
 	}
 	if cRecoveryMergeCostsDiffer(scratch, &result[idx], stack) {
@@ -4391,19 +4435,31 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		if workCountInstrumentationEnabled {
 			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, workCountConvergenceReasonErrorCost, "boundary merge rejected by recovery cost", &result[idx], stack)
 		}
+		if mergeCensusEnabled {
+			mergeCensusRecordErrorCost()
+		}
 		return false, false
 	}
 	if workCountInstrumentationEnabled {
 		if !gssMainCanMergeWithScratchPhase(scratch, &result[idx], stack, workCountConvergencePhaseBoundaryGSS) {
+			if mergeCensusEnabled {
+				mergeCensusRecordGateRefusal(scratch, &result[idx], stack)
+			}
 			return false, false
 		}
 	} else if !gssMainCanMergeWithScratch(scratch, &result[idx], stack) {
+		if mergeCensusEnabled {
+			mergeCensusRecordGateRefusal(scratch, &result[idx], stack)
+		}
 		return false, false
 	}
 	if (scratch == nil || scratch.perKeyCap != 1) &&
 		gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, &result[idx], stack) {
 		if workCountInstrumentationEnabled {
 			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", &result[idx], stack)
+		}
+		if mergeCensusEnabled {
+			mergeCensusRecordDistinctShapes()
 		}
 		return false, true
 	}
@@ -4414,6 +4470,9 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	}
 	if merged {
 		workCountRecordMergeSuccess()
+		if mergeCensusEnabled {
+			mergeCensusRecordSuccess()
+		}
 		// result[idx] survives and absorbs stack, so OR the sticky wreckage bit:
 		// a clean survivor that merges a recovered-wreckage lineage must inherit
 		// its error history (see glrStack.cEverErrored / tryGSSMainMergeForParser).
@@ -4423,6 +4482,8 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 			// nodes (setGSSMainLink), so every cached spine prefix may be stale.
 			scratch.bumpShapePrefixEpoch()
 		}
+	} else if mergeCensusEnabled {
+		mergeCensusRecordMergeFailed()
 	}
 	return merged, true
 }
