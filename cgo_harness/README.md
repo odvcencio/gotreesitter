@@ -756,3 +756,28 @@ Two receipts run:
   attribution. The constructed-source totals are pinned and reproduce on any
   host. The real-corpus totals are reported separately, because
   `cgo_harness/corpus_real` is a generated, gitignored fixture.
+
+Two more receipts run under the same build tag and record why a condense-time
+arrival-order collapse does not repair the condense-class differences:
+
+- `TestCondenseTieArrivalOrderCounterexample` pins two witnesses that reach
+  the identical tie shape with the identical fork provenance, and whose
+  reference-runtime trees sit on opposite sides of the pair. A collapse rule
+  reads only that provenance, so it must answer the same for both, and one of
+  the two is then always wrong.
+- `TestCondenseTieArrivalOrderVersionSetIsSingleton` records the reason: the
+  reference runtime folds exactly one root at each of these accepts, so
+  `stack_node_add_link`'s equivalence branch never runs there. The surplus
+  compact candidate has no counterpart to arrive before or after it.
+
+Run them with:
+
+```sh
+cd cgo_harness
+GOFLAGS=-buildvcs=false \
+GTS_PARITY_ALLOW_HOST=1 \
+GTS_PARITY_C_REF_BUILD_CACHE="$PWD/../harness_out/parity_c_ref_cache" \
+CGO_ENABLED=1 \
+go test -tags "cgo treesitter_c_parity gts_derivation_set_census" \
+  -run '^TestCondenseTieArrivalOrder' -count=1 -v .
+```
