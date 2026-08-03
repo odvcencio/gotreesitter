@@ -1,0 +1,1632 @@
+{
+  "reproduction_command": "GTS_OUTLINE_CENSUS_OUT=harness_out/outline/tier_census.json GOFLAGS=-buildvcs=false go test ./grammars -run TestOutlineTierCensus -count=1",
+  "language_count": 206,
+  "real_corpus_root": "/home/draco/work/gotreesitter-corpora/corpus_sources",
+  "real_corpus_root_exists": true,
+  "counts_by_tier": {
+    "T1": 69,
+    "T2": 1,
+    "T3": 16,
+    "T4": 120
+  },
+  "rows": [
+    {
+      "language": "ada",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "agda",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "angular",
+      "tier": "T2",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "apex",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 4,
+      "smoke_capture_names": [
+        "definition.class",
+        "definition.method",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "arduino",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 4,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "asm",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "astro",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "authzed",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "awk",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "bash",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "function_definition"
+      ]
+    },
+    {
+      "language": "bass",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "beancount",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "bibtex",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "bicep",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "bitbake",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "blade",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "brightscript",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "c",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "c_sharp",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "caddy",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "cairo",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "capnp",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "chatito",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "circom",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "clojure",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "cmake",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "cobol",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "comment",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "commonlisp",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "cooklang",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "corn",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "cpon",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "cpp",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "crystal",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "css",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "csv",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "cuda",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "cue",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "cylc",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "d",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "dart",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "desktop",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "devicetree",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "dhall",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "diff",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "disassembly",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "djot",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "dockerfile",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "dot",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "doxygen",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "dtd",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "earthfile",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "ebnf",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "editorconfig",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "eds",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "eex",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "elisp",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "function_definition"
+      ]
+    },
+    {
+      "language": "elixir",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 6,
+      "smoke_capture_names": [
+        "name",
+        "reference.call"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "elm",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "type_declaration"
+      ]
+    },
+    {
+      "language": "elsa",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "embedded_template",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "enforce",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "erlang",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "call"
+      ]
+    },
+    {
+      "language": "facility",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "faust",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "fennel",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "fidl",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "firrtl",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "fish",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "function_definition"
+      ]
+    },
+    {
+      "language": "foam",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "forth",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "fortran",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "fsharp",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "gdscript",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "git_config",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "git_rebase",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "gitattributes",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "gitcommit",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "gitignore",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "gleam",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "glsl",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 4,
+      "smoke_capture_names": [
+        "definition.function",
+        "name",
+        "reference.call"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "gn",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "name",
+        "reference.call"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "go",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 4,
+      "smoke_capture_names": [
+        "definition.function",
+        "name",
+        "reference.call"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "godot_resource",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "gomod",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "graphql",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "type_definition"
+      ]
+    },
+    {
+      "language": "groovy",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "hack",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "hare",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "haskell",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "haxe",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 4,
+      "smoke_capture_names": [
+        "definition.class",
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "hcl",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "heex",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "hlsl",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "html",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "http",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "hurl",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "hyprlang",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "ini",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "janet",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "java",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.class",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "javascript",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "jinja2",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "jq",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "jsdoc",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "json",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "json5",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "jsonnet",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "julia",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "just",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "kconfig",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "type_definition"
+      ]
+    },
+    {
+      "language": "kdl",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "kotlin",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "ledger",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "less",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "linkerscript",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "call_expression"
+      ]
+    },
+    {
+      "language": "liquid",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "llvm",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "call"
+      ]
+    },
+    {
+      "language": "lua",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "luau",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "make",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "call"
+      ]
+    },
+    {
+      "language": "markdown",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "markdown_inline",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "matlab",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "mermaid",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "meson",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "mojo",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 4,
+      "smoke_capture_names": [
+        "definition.function",
+        "name",
+        "reference.call"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "move",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "nginx",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "nickel",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "nim",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "name",
+        "reference.call"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "ninja",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "nix",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "norg",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "nushell",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "objc",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "ocaml",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "method_definition",
+        "class_definition",
+        "constructor_declaration",
+        "type_definition",
+        "method_invocation"
+      ]
+    },
+    {
+      "language": "odin",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "org",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "pascal",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "pem",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "perl",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "php",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "function_definition",
+        "method_declaration",
+        "class_declaration",
+        "interface_declaration",
+        "enum_declaration"
+      ]
+    },
+    {
+      "language": "pkl",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "powershell",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "prisma",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "prolog",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "promql",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "properties",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "proto",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "pug",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "puppet",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.class",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "purescript",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "class_declaration"
+      ]
+    },
+    {
+      "language": "python",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "ql",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "r",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "racket",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "regex",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "rego",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "requirements",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "rescript",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "robot",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "ron",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "rst",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "ruby",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "rust",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "scala",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "scheme",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "scss",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "smithy",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "solidity",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "sparql",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "sql",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "squirrel",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "ssh_config",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "starlark",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "svelte",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "swift",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "tablegen",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "tcl",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "teal",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "templ",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "textproto",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "thrift",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "tlaplus",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "tmux",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "todotxt",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "toml",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "tsx",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "turtle",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "twig",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "typescript",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "typst",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "call"
+      ]
+    },
+    {
+      "language": "uxntal",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "v",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "verilog",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "function_declaration",
+        "class_declaration",
+        "interface_declaration",
+        "type_declaration"
+      ]
+    },
+    {
+      "language": "vhdl",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    },
+    {
+      "language": "vimdoc",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "vue",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "wat",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "wgsl",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
+    },
+    {
+      "language": "wolfram",
+      "tier": "T3",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false,
+      "candidate_symbols": [
+        "call"
+      ]
+    },
+    {
+      "language": "xml",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "yaml",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "yuck",
+      "tier": "T4",
+      "tags_query_non_empty": false,
+      "smoke_capture_count": 0,
+      "real_corpus_present": false
+    },
+    {
+      "language": "zig",
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 0,
+      "real_corpus_present": true
+    }
+  ]
+}
