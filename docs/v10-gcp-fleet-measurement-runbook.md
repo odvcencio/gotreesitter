@@ -152,7 +152,8 @@ Materialize every locked source with the repository helper:
 
 ~~~sh
 mkdir -p /srv/gotreesitter-perf/corpus_sources
-GOWORK=off go run ./cgo_harness/cmd/real_corpus_sources \
+cd /srv/gotreesitter-perf/gotreesitter/cgo_harness
+GOWORK=off go run ./cmd/real_corpus_sources \
   --lock /srv/gotreesitter-perf/corpus_sources.lock \
   --root /srv/gotreesitter-perf/corpus_sources \
   --langs all206 \
