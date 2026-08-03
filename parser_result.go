@@ -166,8 +166,29 @@ func (p *Parser) resultMaterializationStopReason(arena *nodeArena) ParseStopReas
 	if arena != nil && arena.budgetExhausted() {
 		return p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceArena)
 	}
+	if p != nil && p.budgetScratch != nil && p.budgetScratch.budgetExhausted() {
+		// Closes the gap documented in
+		// spore.2026-08-02.walnut-e.memory-exhaustion: gssScratch (the
+		// exploding allocator in production's C-recovery missing-token
+		// search, cHandleError/cDoAllPotentialReductions in
+		// parser_recover_c.go) has no budget state of its own, but the
+		// owning parserScratch already tracks it inside its own
+		// allocatedBytes()/budgetExhausted() (parser_scratch.go) — the SAME
+		// 512MB soft budget arena.budgetExhausted() above enforces, armed
+		// unconditionally regardless of source length (parseMemoryBudget,
+		// parser_limits.go). Before this check existed, the main GLR loop's
+		// own per-token checkpoints (parser.go) called scratch.budgetExhausted()
+		// directly, right beside their own resultMaterializationStopReason
+		// call, because this function could not see it; those five direct
+		// calls are gone now (this check makes them redundant), and every
+		// OTHER resultMaterializationStopReason call site — including the
+		// C-recovery candidate search, which never had a direct
+		// scratch.budgetExhausted() check of its own — gets the same
+		// coverage those five sites always had.
+		return p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceScratch)
+	}
 	if p != nil {
-		if reason := p.runtimeMemoryBudgetStopReason(arenaAllocatedVolume(arena)); reason == ParseStopMemoryBudget {
+		if reason := p.runtimeMemoryBudgetStopReason(arenaAllocatedVolume(arena) + scratchAllocatedVolume(p.budgetScratch)); reason == ParseStopMemoryBudget {
 			return reason
 		}
 	}
@@ -183,6 +204,25 @@ func arenaAllocatedVolume(arena *nodeArena) uint64 {
 		return 0
 	}
 	return uint64(arena.allocatedBytes)
+}
+
+// scratchAllocatedVolume returns the active parse's parserScratch
+// allocated-bytes counter — dominated in pathological cases by
+// gssScratch.allocatedBytes (see budgetScratch's doc comment on Parser) — as a
+// second, equally cheap volume signal alongside arenaAllocatedVolume. Costs no
+// syscalls: parserScratch.allocatedBytes() sums already-tracked
+// per-substructure counters, each updated incrementally at its own
+// slab-allocation boundary (e.g. (*gssScratch).allocNodeSlow,
+// glr_gss.go:629).
+func scratchAllocatedVolume(scratch *parserScratch) uint64 {
+	if scratch == nil {
+		return 0
+	}
+	bytes := scratch.allocatedBytes()
+	if bytes <= 0 {
+		return 0
+	}
+	return uint64(bytes)
 }
 
 func resultMaterializationShouldStop(reason ParseStopReason) bool {

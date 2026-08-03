@@ -215,6 +215,31 @@ type Parser struct {
 	// candidates routinely settles back to a legitimately clean tree without
 	// ever being "re-validated", so it must not be treated as suspicious.
 	crecoveryHandleErrorSingleStack bool
+	// crecoveryReductionCandidateCeilingHits and
+	// crecoveryMissingTokenCeilingHits count how many times this parse's
+	// cDoAllPotentialReductions / cHandleError missing-token search hit the
+	// cRecoverMaxReductionCandidateAttempts / cRecoverMaxMissingTokenTrials
+	// Go-side backstop ceilings (parser_recover_c.go). Both stay at zero for
+	// every currently-passing parse — see those constants' doc comment for
+	// sizing rationale — and exist purely as a "counted reason" diagnostic
+	// signal (surfaced via ParseRuntime) for the
+	// spore.2026-08-02.walnut-e.memory-exhaustion fix: neither ceiling halts
+	// the parse itself, so without a counter there would be no way to observe
+	// that either one engaged.
+	crecoveryReductionCandidateCeilingHits uint64
+	crecoveryMissingTokenCeilingHits       uint64
+	// crecoveryReductionCandidateAttemptsPeak and
+	// crecoveryMissingTokenTrialAttemptsPeak record the single largest
+	// candidateAttempts / missingTokenTrialAttempts value any ONE
+	// cDoAllPotentialReductions call / cHandleError missing-token search
+	// reached during this parse (not cumulative across calls, unlike the
+	// ceiling-hit counters above). Diagnostic-only, parse-wide max, reset per
+	// parse: lets a corpus walk report how close real, currently-passing
+	// input gets to cRecoverMaxReductionCandidateAttempts /
+	// cRecoverMaxMissingTokenTrials, the same way the ceiling constants'
+	// sizing rationale is measured against.
+	crecoveryReductionCandidateAttemptsPeak uint64
+	crecoveryMissingTokenTrialAttemptsPeak  uint64
 	// crecoveryCostCompetitionRelevant gates the C-recovery merge cost walks
 	// (cRecoveryMergeCostsDiffer / cRecoveryCostClassForSlot/Slice via
 	// scratch.merge.cRecoveryCost): until something cost-relevant happens in
@@ -367,6 +392,24 @@ type Parser struct {
 	// materializing-shape prefix cache when they rewrite a spine node's
 	// root->head prefix. nil outside a parse; bumpShapePrefixEpoch is nil-safe.
 	mergeScratch *glrMergeScratch
+	// budgetScratch points at the active parse's *parserScratch for the
+	// duration of parseInternal (set alongside mergeScratch/reduceScratch,
+	// cleared on return). resultMaterializationStopReason uses it to fold
+	// parserScratch's own tracked allocation — dominated in pathological
+	// cases by gssScratch.allocatedBytes — into the per-parse memory-budget
+	// poll. gssScratch carries no budget state of its own (see gssScratch's
+	// doc comment in glr_gss.go); only the owning parserScratch does
+	// (parserScratch.budgetExhausted, already exercised by the main GLR loop
+	// at several per-token checkpoints in parser.go). Before this field
+	// existed, resultMaterializationStopReason — the only poll site
+	// cDoAllPotentialReductions/cHandleError's C-recovery candidate search
+	// reaches (parser_recover_c.go) — had no way to see that check at all,
+	// because scratch is a local variable inside parseInternal, unreachable
+	// from a *Parser-only call chain. nil outside a parse; budgetExhausted()
+	// is itself nil-safe, but callers check budgetScratch != nil explicitly
+	// to match this file's existing arena != nil && arena.budgetExhausted()
+	// convention at the same call site (parser_result.go).
+	budgetScratch *parserScratch
 	// goCompatFrames points at the active parser scratch's reusable result-tree
 	// traversal stack. It is nil outside parseInternal.
 	goCompatFrames                     *[]goCompatSubtreeFrame
@@ -4297,6 +4340,19 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	defer releaseParserScratch(scratch, deferParentLinks)
 	p.reduceScratch = &scratch.reduce
 	p.mergeScratch = &scratch.merge
+	// budgetScratch is saved and restored, not just cleared, unlike its
+	// siblings above: a nested parseInternal call (a retry or compat-
+	// normalization sub-parse reachable from this call's own body, however
+	// unlikely in practice) must leave the OUTER call's resultMaterializationStopReason
+	// checks intact when the inner call returns. Clearing unconditionally to
+	// nil would silently disable the scratch-budget check (parser_result.go)
+	// for the rest of the outer parse instead of merely losing the inner
+	// call's own coverage — a nested caller degrading to "no fix" is the
+	// acceptable failure mode here, not the outer caller silently losing a
+	// check several of its own materialization-boundary poll sites still
+	// assume is active.
+	prevBudgetScratch := p.budgetScratch
+	p.budgetScratch = scratch
 	p.goCompatFrames = &scratch.goCompatFrames
 	if transientReduceParents {
 		p.reduceScratch.transientParents = &scratch.transientParents
@@ -4305,6 +4361,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	defer func() {
 		p.reduceScratch = nil
 		p.mergeScratch = nil
+		p.budgetScratch = prevBudgetScratch
 		p.goCompatFrames = nil
 	}()
 	scratch.audit.beginParse()
@@ -4332,6 +4389,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		p.beginCNodeMemoEpoch()
 		p.crecoveryEnteredErrorState = false
 		p.crecoveryDroppedErrorForClean = false
+		p.crecoveryReductionCandidateCeilingHits = 0
+		p.crecoveryMissingTokenCeilingHits = 0
+		p.crecoveryReductionCandidateAttemptsPeak = 0
+		p.crecoveryMissingTokenTrialAttemptsPeak = 0
 		// Cost walks stay gated off until this pass proves costs can be
 		// nonzero. A fresh full parse starts clean (false). An incremental
 		// parse over an old tree whose root bit is clean starts clean too.
@@ -4813,6 +4874,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		parseRuntime.RuntimeSysGrowthBytes = memoryBudgetDiag.runtimeSysGrowthBytes
 		parseRuntime.CRecoveryEnteredErrorState = p.crecoveryEnteredErrorState
 		parseRuntime.CRecoveryDroppedErrorForClean = p.crecoveryDroppedErrorForClean
+		parseRuntime.CRecoverReductionCandidateCeilingHits = p.crecoveryReductionCandidateCeilingHits
+		parseRuntime.CRecoverMissingTokenCeilingHits = p.crecoveryMissingTokenCeilingHits
+		parseRuntime.CRecoverReductionCandidateAttemptsPeak = p.crecoveryReductionCandidateAttemptsPeak
+		parseRuntime.CRecoverMissingTokenTrialAttemptsPeak = p.crecoveryMissingTokenTrialAttemptsPeak
 		recordParseRuntimeLoopStats(&parseRuntime, scratch, iterationsUsed, nodeCount, peakStackDepth, maxStacksSeen, singleStackIterations, multiStackIterations, singleStackTokens, multiStackTokens)
 		recordParseRuntimePhaseTiming(&parseRuntime, materializationTimingRef, parseStart, parserLoopNanos, tokenNextNanos, actionDispatchNanos, actionLookupNanos, glrMergeNanos, glrCullNanos)
 		recordParseRuntimeMaterializationTiming(&parseRuntime, materializationTimingRef, materializationTiming)
@@ -5066,9 +5131,6 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
 			return finalize(stacks, reason)
 		}
-		if scratch.budgetExhausted() {
-			return finalize(stacks, p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceScratch))
-		}
 
 		p.updateParserStateTokenSource(ts, stacks, scratch)
 
@@ -5236,10 +5298,6 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				}
 				if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
 					blockStopReason, blockStopped = reason, true
-					break
-				}
-				if scratch.budgetExhausted() {
-					blockStopReason, blockStopped = p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceScratch), true
 					break
 				}
 			}
@@ -6307,9 +6365,6 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
 			return finalize(stacks, reason)
 		}
-		if scratch.budgetExhausted() {
-			return finalize(stacks, p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceScratch))
-		}
 
 		if numStacks > 1 && retryPass && allParseStacksDead(stacks) {
 			bestIdx := bestRetryRecoveryStack(stacks)
@@ -6701,9 +6756,6 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
 						return finalize(accepted, reason)
 					}
-					if scratch.budgetExhausted() {
-						return finalize(accepted, p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceScratch))
-					}
 					// Faithful C recovery port: ts_parser__accept rebuilds the
 					// root around trailing extras before the tree competes.
 					for i := range accepted {
@@ -6996,10 +7048,6 @@ func (p *Parser) prepareParseStacksForIteration(stacks []glrStack, scratch *pars
 	}
 	if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
 		result.stop(reason, false)
-		return result
-	}
-	if scratch.budgetExhausted() {
-		result.stop(p.noteMemoryBudgetStop(parseMemoryBudgetStopSourceScratch), false)
 		return result
 	}
 	if allParseStacksDead(stacks) {

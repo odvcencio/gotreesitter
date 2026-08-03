@@ -4028,7 +4028,16 @@ func (p *Parser) forestMemoryBudgetExceeded(arena *nodeArena, final bool) bool {
 	if final {
 		return p.runtimeMemoryBudgetStopReasonNow() == ParseStopMemoryBudget
 	}
-	return p.runtimeMemoryBudgetStopReason(arenaAllocatedVolume(arena)) == ParseStopMemoryBudget
+	// arenaAllocatedVolume(arena) + scratchAllocatedVolume(p.budgetScratch)
+	// matches the same watermark computation resultMaterializationStopReason
+	// uses (parser_result.go), for the same volume-triggered-poll reasoning.
+	// The forest fast path (tryForestFastPath / ParseForestExperimental) runs
+	// before parseInternal ever sets p.budgetScratch (it has its own,
+	// separate GSS-forest node pool, not parserScratch/gssScratch), so
+	// scratchAllocatedVolume is a nil-safe no-op here today; it is included
+	// for unit consistency with the production watermark rather than because
+	// it currently contributes anything.
+	return p.runtimeMemoryBudgetStopReason(arenaAllocatedVolume(arena)+scratchAllocatedVolume(p.budgetScratch)) == ParseStopMemoryBudget
 }
 
 // maxForestNoLookaheadSteps bounds consecutive no-lookahead re-lex steps at one

@@ -60,6 +60,30 @@ func runtimeMemoryBudgetEnabled(p *Parser, bytes int64, sourceLen int) bool {
 // to GB scale) but is otherwise independent of whether the soft budget itself
 // is enabled, so it keeps working even if a caller explicitly disables the
 // soft budget (GOT_PARSE_MEMORY_BUDGET_MB=0).
+//
+// A source-length-independent hard ceiling was tried and dropped
+// (spore.2026-08-02.walnut-e.memory-exhaustion, consolidated into
+// PR #641/rowan/recovery-memory-bounds): removing this floor made
+// runtimeMemoryHardCeilingEnabled true at every length, which stopped
+// enterRuntimeMemoryBudget from taking its early return (a real,
+// stop-the-world-adjacent runtime.ReadMemStats call once per parse, even for
+// a one-byte source) and left the soft budget armed at 0 bytes, which in turn
+// selected the TIGHT poll mask instead of the loose one at every
+// materialization-boundary poll site for the rest of the parse (see
+// runtimeMemoryPollMask's git history). Adversarial review measured 3.6x-9x
+// mean latency on ordinary small Go parses, a 2.2x wall-clock regression on a
+// real 30 KB Swift file, and — the disqualifying finding — reopened the exact
+// issue #454 symptom class this file's own determinism contract exists to
+// prevent: the same 500-byte Go file returned seven distinct truncated trees
+// (HasError()==false over a partial range) across repeated runs under
+// concurrent heap churn, where main returns one accepted tree every time. It
+// also caught none of the three witnesses tested (arena/scratch stopped all
+// three; hard_ceiling stopped none), so it bought determinism risk and
+// latency with no offsetting protection. The floor stays; the memory-
+// exhaustion fix's real backstops are the always-armed arena/scratch soft
+// budget (resultMaterializationStopReason, parser_result.go) and the two
+// deterministic loop ceilings in parser_recover_c.go
+// (cRecoverMaxReductionCandidateAttempts, cRecoverMaxMissingTokenTrials).
 func runtimeMemoryHardCeilingEnabled(p *Parser, sourceLen int) bool {
 	return p != nil && sourceLen >= parseRuntimeMemoryMinSourceBytes && parseMemoryHardCeilingBytes() > 0
 }

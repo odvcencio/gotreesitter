@@ -839,7 +839,27 @@ type ParseRuntime struct {
 	// the fallback's false-fire rate (extra latency from a re-parse that is
 	// usually discarded) against their own corpora, e.g. by walking a tree of
 	// known-valid source files and counting how often this is true.
-	CRecoverySwallowedErrorFallbackAttempted      bool
+	CRecoverySwallowedErrorFallbackAttempted bool
+	// CRecoverReductionCandidateCeilingHits and CRecoverMissingTokenCeilingHits
+	// count how many times this parse's cDoAllPotentialReductions /
+	// cHandleError missing-token search hit the
+	// cRecoverMaxReductionCandidateAttempts / cRecoverMaxMissingTokenTrials
+	// Go-side backstop ceilings (parser_recover_c.go), a diagnostic signal for
+	// the spore.2026-08-02.walnut-e.memory-exhaustion fix. Both stay zero on
+	// every currently-passing parse; neither ceiling halts the parse itself
+	// (both fail gracefully into an already-supported "search found nothing"
+	// path), so this counter is the only way to observe that either engaged.
+	CRecoverReductionCandidateCeilingHits uint64
+	CRecoverMissingTokenCeilingHits       uint64
+	// CRecoverReductionCandidateAttemptsPeak and
+	// CRecoverMissingTokenTrialAttemptsPeak record the single largest
+	// candidateAttempts / missingTokenTrialAttempts value any ONE
+	// cDoAllPotentialReductions call / cHandleError missing-token search
+	// reached during this parse (not cumulative across calls). Diagnostic
+	// only: lets a corpus walk report how close real input gets to
+	// cRecoverMaxReductionCandidateAttempts / cRecoverMaxMissingTokenTrials.
+	CRecoverReductionCandidateAttemptsPeak        uint64
+	CRecoverMissingTokenTrialAttemptsPeak         uint64
 	SourceLen                                     uint32
 	ExpectedEOFByte                               uint32
 	RootEndByte                                   uint32
