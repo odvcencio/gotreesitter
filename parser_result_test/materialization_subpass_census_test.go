@@ -420,5 +420,23 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"dispatch.go.new-make-type",
 			},
 		},
+		{
+			// Pins the Kotlin arm's recovered-root subpass id and its
+			// INERTNESS off the included-ranges route. The member was retired
+			// on 2026-08-02 as dead code and restored on 2026-08-03 because it
+			// is live on the included-ranges route only. This probe is the
+			// other half of that claim: on the fresh route it is reached and
+			// rewrites nothing. Its live route is covered by
+			// parser_included_ranges_kotlin_root_test.go and
+			// cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go.
+			name:     "kotlin_clean_source_file_root_is_inert",
+			language: grammars.KotlinLanguage,
+			source:   "package demo\n\nfun main() {\n    println(\"hi\")\n}\n",
+			expectedSubpasses: []string{
+				"dispatch.kotlin",
+				"dispatch.kotlin.recovered-source-file-root",
+			},
+			rewrittenSubpasses: nil,
+		},
 	}
 }

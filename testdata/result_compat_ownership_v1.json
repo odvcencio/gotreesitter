@@ -1667,18 +1667,19 @@
           "files": [
             "parser_result_kotlin.go"
           ],
-          "purpose": "Retag a recovered ERROR root as source_file when its children still look like Kotlin top-level declarations. Restored on 2026-08-03 after the retirement of 2026-08-02 was reversed.",
+          "purpose": "Retag a recovered ERROR root as source_file when its children still look like Kotlin top-level declarations. Restored on 2026-08-03 after the retirement of 2026-08-02 was reversed. Live on the included-ranges route and inert on the fresh route; both halves are pinned by the witnesses below.",
           "authoritative_owner": "derivation_election_selection",
           "witnesses": [
             "parser_included_ranges_kotlin_root_test.go",
-            "cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go"
+            "cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go",
+            "parser_result_test/materialization_subpass_census_test.go"
           ]
         }
       ],
       "languages": [
         "kotlin"
       ],
-      "purpose": "Reconcile Kotlin derivation selection and returned-tree shape. Member normalizeKotlinRecoveredSourceFileRoot was retired as dead code on 2026-08-02 and RESTORED on 2026-08-03: that census measured the fresh, over-64-KiB, incremental and pinned routes and never measured Parser.SetIncludedRanges. On the included-ranges route the member fires and moves the published root toward the reference runtime. Witness testdata/included_ranges/kotlin_work_queue_test.kt with ranges [0,795), [883,1987) and [2019,3094): without the member the root is ERROR, with the member the root is source_file, and the locked Kotlin C oracle publishes source_file [0,3094). The member is correct today; re-evaluate it after the unclipped padding scan in bytesAreParserPadding gains range clipping, because that defect is why the route enters recovery at all. The members normalizeKotlinGenericCallTypeArguments and normalizeKotlinPrefixComparisonExpressions stay load-bearing.",
+      "purpose": "Reconcile Kotlin derivation selection and returned-tree shape. Member normalizeKotlinRecoveredSourceFileRoot was retired as dead code on 2026-08-02 and RESTORED on 2026-08-03: that census measured the fresh, over-64-KiB, incremental and pinned routes and never measured Parser.SetIncludedRanges. On the included-ranges route the member fires and moves the published ROOT toward the reference runtime. Witness testdata/included_ranges/kotlin_work_queue_test.kt with ranges [0,795), [883,1987) and [2019,3094): without the member the root is ERROR, with the member the root is source_file, and the locked Kotlin C oracle publishes source_file [0,3094). The member's effect is a root retag, and its DOWNSTREAM consequence is not always toward the reference runtime: on kotlinx-coroutines-core/common/test/DelayTest.kt with three ranges, the retag alone is necessary and sufficient to make a later stage flatten a clean class_declaration into root-level members (7 children become 12) where main and the C oracle both keep the class_declaration. Do not read the root receipt as a whole-tree improvement. The member is correct today; re-evaluate it after the unclipped padding scan in bytesAreParserPadding gains range clipping, because that defect is why the route enters recovery at all. The members normalizeKotlinGenericCallTypeArguments and normalizeKotlinPrefixComparisonExpressions stay load-bearing.",
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
         "cgo_harness/parity_cgo_test.go",

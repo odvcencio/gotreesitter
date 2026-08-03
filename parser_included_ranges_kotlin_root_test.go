@@ -124,13 +124,16 @@ func TestIncludedRangesKotlinArmMemberIsLive(t *testing.T) {
 	}
 	defer tree.Release()
 
-	// Census receipts are recorded on the production route only. With the
-	// default candidate route ParseRuntime().NormalizationPasses is nil and
-	// nothing is recorded, so read the subpass receipt through the runtime and
-	// skip when the route did not populate it.
+	// Census receipts are recorded on the production route only. An
+	// included-ranges parse always lands there today, because
+	// admission_switch.go declines the compact candidate route whenever the
+	// parser carries included ranges. This is a Fatal, not a Skip: if the
+	// compact runner ever gains included-ranges support, this positive control
+	// must fail loudly instead of turning into a silent skip that stops
+	// guarding the member.
 	passesPtr := tree.ParseRuntime().NormalizationPasses
 	if passesPtr == nil || len(*passesPtr) == 0 {
-		t.Skip("no census receipts on this route")
+		t.Fatal("included-ranges parse recorded no census receipts; the route no longer pins production")
 	}
 	const subpass = "dispatch.kotlin.recovered-source-file-root"
 	var found bool

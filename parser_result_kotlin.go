@@ -637,6 +637,34 @@ func normalizeKotlinRawStringTrailingContent(root *Node, source []byte, lang *La
 //
 // The route gate lives in parser_included_ranges_kotlin_root_test.go and
 // cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go.
+//
+// READ THIS BEFORE PROPOSING THIS MEMBER FOR RETIREMENT AGAIN. This comment
+// justifies the member TODAY. It is not a permanent justification, for two
+// measured reasons.
+//
+//  1. The route is defective, and the member may be live only because of that
+//     defect. bytesAreParserPadding (parser.go), reached through
+//     realTokenAttachmentGapIsParserPadding, scans raw bytes between the stack
+//     offset and the next token start with no range clipping. A non-whitespace
+//     gap between two included ranges therefore kills every GLR stack and
+//     forces C-recovery where the reference runtime never recovers. The
+//     range-aware twin already exists: parserTailAllowsCleanAcceptance. Make
+//     the ranges of the witness contiguous and both facts appear together: the
+//     parse reaches the oracle's span with no error, and this member goes
+//     inert. After the clipping fix lands, re-run the census and decide this
+//     member's fate on the corrected route.
+//
+//  2. What this member DOES is retag the root. What it CAUSES is wider, and
+//     not always toward the reference runtime. On
+//     kotlinx-coroutines-core/common/test/DelayTest.kt with three ranges, the
+//     retag alone is necessary and sufficient to make a later stage flatten a
+//     clean class_declaration into root-level members: 7 children become 12,
+//     while the C oracle and the pre-restoration build both keep the
+//     class_declaration. Neither normalizeKotlinTopLevelFunctionFragments nor
+//     the error refresh is involved; skipping either still reproduces the
+//     flattening, and skipping only retagResultRoot removes it. So a census
+//     receipt for this member bounds what it rewrote, not what its retag led
+//     downstream stages to do.
 func normalizeKotlinRecoveredSourceFileRoot(root *Node, source []byte, lang *Language) {
 	if root == nil || lang == nil || lang.Name != "kotlin" || root.Type(lang) != "ERROR" {
 		return
