@@ -373,6 +373,27 @@ func (s *diagnosticParserCoreGenericScheduler) corridorClassify(
 	// pass, which spec section 5 R1 classes as a semantics change rather
 	// than an optimization. The hook compiles to an empty function outside
 	// gts_workcount builds, so the corridor pays nothing for it by default.
+	//
+	// Semantic count, not physical count: this line records one event per
+	// corridor pass that reaches classification. It does not record one
+	// event per corridorDispatch probe. dispatchCorridor's run loop calls
+	// corridorDispatch once per iteration — a real read of the compiled
+	// dispatch table — before this function ever runs, and a probe that
+	// resolves to a FORK/EXIT_GENERIC/EXIT_UNSUPPORTED body, or to a body
+	// whose corridorTokenGateOpen gate is closed, returns straight to the
+	// generic pass without calling corridorClassify at all. The generic pass
+	// then re-walks the parse table for that same cell and records its own
+	// lookup, so the semantic event still lands exactly once — just on the
+	// other lane. Measured on the four canonical fixtures, physical
+	// corridorDispatch probes exceed recorded corridor passes by 10.7-15.0%
+	// (rewrite +251, query_compile +1,049, language +840, grammargen_lr
+	// +11,455 probes beyond recorded passes). This is the safe direction:
+	// the counter under-reports physical corridor work and never fabricates
+	// or double-counts an event. Stage 3 must not read CorridorPasses or the
+	// TableLookupsProxy delta as the corridor's physical probe count — they
+	// are semantic-event counters, and the refused-pass surplus above is the
+	// gap between "semantic events recorded" and "table reads physically
+	// performed."
 	workCountRecordTableLookup()
 	boundary, err := s.compact.ClassifyBoundaryWithRow(s.headers[0].head, core.Symbol(s.token.Symbol), actions)
 	if err != nil {

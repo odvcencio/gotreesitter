@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
 	"testing"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
@@ -352,12 +354,20 @@ func TestParserCoreCorridorStreamValidation(t *testing.T) {
 			}
 		}},
 		{"FORK carries an out-of-range action-row index", func(p *ParserCoreCorridorProgram) {
-			for word := uint32(1); int(word) < len(p.prog); word++ {
-				if p.prog[word]&corridorOpcodeMask == uint32(corridorOpFork) {
-					p.prog[word] = uint32(corridorOpFork) | uint32(p.rowCount+1)<<6
-					return
-				}
+			// A raw scan for corridorOpFork's opcode bits over p.prog is not
+			// safe: interned body operand words are arbitrary uint32 payloads
+			// (row indices, targets), and one of them can coincidentally carry
+			// the FORK opcode's low 6 bits without being a FORK body at all.
+			// Anchor to a real FORK body the same way
+			// forEachShiftBodyForTest anchors SHIFT: walk the compiled
+			// block/cell layout structurally through KeySet and
+			// corridorDispatch, the exact path the interpreter itself uses.
+			bodies := p.forEachForkBodyForTest()
+			if len(bodies) == 0 {
+				t.Fatal("no compiled FORK body found to corrupt")
 			}
+			body := bodies[0]
+			p.prog[body] = uint32(corridorOpFork) | uint32(p.rowCount+1)<<6
 		}},
 	}
 	for _, tc := range corruptions {
@@ -403,24 +413,23 @@ func TestParserCoreCorridorCompilerIsDeterministic(t *testing.T) {
 	}
 }
 
-// TestParserCoreCorridorTableShapeReceipt pins the analyzer output
-// (spec section 2: stage 2 runs the analyzer and pins the outputs). It fails
-// when the shipped tables no longer produce the committed numbers, so every
-// figure the stage-2 model rests on stays a measured number.
-func TestParserCoreCorridorTableShapeReceipt(t *testing.T) {
-	const receiptPath = "testdata/c4_table_shape.json"
-	committed, err := os.ReadFile(receiptPath)
-	if err != nil {
-		t.Fatalf("read committed receipt: %v", err)
-	}
+// corridorTableShapeReceipt is the committed-artifact envelope both the
+// three-grammar stage-2 receipt and the fleet-wide R3 receipt use. Sharing
+// the type keeps the two receipts byte-comparable against the same schema
+// cmd/c4tablestats emits.
+type corridorTableShapeReceipt struct {
+	Schema   string                         `json:"schema"`
+	Spec     string                         `json:"spec"`
+	Grammars []ParserCoreCorridorTableShape `json:"grammars"`
+}
 
-	type receipt struct {
-		Schema   string                         `json:"schema"`
-		Spec     string                         `json:"spec"`
-		Grammars []ParserCoreCorridorTableShape `json:"grammars"`
-	}
-	measured := receipt{Schema: "gts-c4-table-shape/v1", Spec: "spec.c4-bytecode-isa.v1"}
-	for _, path := range corridorAnalyzedGrammars {
+// measureCorridorTableShapes runs the analyzer over every path and returns
+// the receipt cmd/c4tablestats would emit for the same blob list, in the
+// order given. Callers that need a stable receipt must sort paths first.
+func measureCorridorTableShapes(t *testing.T, paths []string) corridorTableShapeReceipt {
+	t.Helper()
+	measured := corridorTableShapeReceipt{Schema: "gts-c4-table-shape/v1", Spec: "spec.c4-bytecode-isa.v1"}
+	for _, path := range paths {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
@@ -436,6 +445,21 @@ func TestParserCoreCorridorTableShapeReceipt(t *testing.T) {
 		shape.BlobSHA256 = fmt.Sprintf("%x", sha256.Sum256(data))
 		measured.Grammars = append(measured.Grammars, shape)
 	}
+	return measured
+}
+
+// TestParserCoreCorridorTableShapeReceipt pins the analyzer output
+// (spec section 2: stage 2 runs the analyzer and pins the outputs). It fails
+// when the shipped tables no longer produce the committed numbers, so every
+// figure the stage-2 model rests on stays a measured number.
+func TestParserCoreCorridorTableShapeReceipt(t *testing.T) {
+	const receiptPath = "testdata/c4_table_shape.json"
+	committed, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatalf("read committed receipt: %v", err)
+	}
+
+	measured := measureCorridorTableShapes(t, corridorAnalyzedGrammars)
 	encoded, err := json.MarshalIndent(measured, "", "  ")
 	if err != nil {
 		t.Fatalf("encode measured receipt: %v", err)
@@ -449,6 +473,73 @@ func TestParserCoreCorridorTableShapeReceipt(t *testing.T) {
 	}
 }
 
+// TestParserCoreCorridorFleetTableShapeReceipt is the fleet-wide discharge of
+// spec section 5, obligation R3 ("allocation and retained heap flat"). The
+// receipt above only samples go/javascript/json; the corridor program is
+// memoized once per *Language (acquireParserCoreCorridorProgram) and stays
+// retained for the language's lifetime, so an R3 claim resting on three
+// grammars out of 206 shipped ones is a sample, not a fleet receipt.
+//
+// This test extends the identical byte-identical regenerate-and-compare
+// discipline to every embedded grammar blob rather than adding a second
+// artifact shape: cmd/c4tablestats already accepts an arbitrary blob list, so
+// the committed file is one command away and every single grammar gets its
+// own receipted row — a summary-plus-outliers cut would only track the
+// grammars that are already over budget today and would miss a same-shaped
+// grammar drifting past the range later without anyone re-running the full
+// analysis anyway.
+//
+// It is gated behind an explicit opt-in, matching
+// TestAdmissionCandidateScorecard206's precedent: loading and compiling 206
+// corridor programs retains about 145 MiB and costs real wall time (about
+// 20s), which is unwelcome in the default -tags gts_parsercorephase0 run.
+func TestParserCoreCorridorFleetTableShapeReceipt(t *testing.T) {
+	if os.Getenv("GTS_C4_FLEET_RECEIPT") != "1" {
+		t.Skip("set GTS_C4_FLEET_RECEIPT=1 to run the 206-grammar fleet R3 receipt:\n" +
+			"  GTS_C4_FLEET_RECEIPT=1 go test -tags gts_parsercorephase0 " +
+			"-run TestParserCoreCorridorFleetTableShapeReceipt -v .")
+	}
+	const receiptPath = "testdata/c4_table_shape_fleet.json"
+	committed, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatalf("read committed receipt: %v", err)
+	}
+
+	paths, err := filepath.Glob("grammars/grammar_blobs/*.bin")
+	if err != nil {
+		t.Fatalf("glob grammar blobs: %v", err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("no grammar blobs found under grammars/grammar_blobs")
+	}
+	sort.Strings(paths)
+
+	measured := measureCorridorTableShapes(t, paths)
+	encoded, err := json.MarshalIndent(measured, "", "  ")
+	if err != nil {
+		t.Fatalf("encode measured receipt: %v", err)
+	}
+	encoded = append(encoded, '\n')
+	if !bytes.Equal(committed, encoded) {
+		t.Fatalf("fleet table-shape receipt %s is stale (grammar count changed or a compiled program's "+
+			"shape moved); regenerate with:\n"+
+			"  go run ./cmd/c4tablestats -out %s grammars/grammar_blobs/*.bin",
+			receiptPath, receiptPath)
+	}
+
+	var totalBytes, overRange int64
+	const rangeHighBytes = 500 * 1024 // spec section 3.6's upper estimate
+	for _, shape := range measured.Grammars {
+		totalBytes += int64(shape.ProgramBytes)
+		if shape.ProgramBytes > rangeHighBytes {
+			overRange++
+		}
+	}
+	t.Logf("fleet R3 receipt: %d grammars, %d bytes (%.2f MiB) retained total, "+
+		"%d grammars exceed the spec section 3.6 100-500 KiB per-grammar estimate",
+		len(measured.Grammars), totalBytes, float64(totalBytes)/1024/1024, overRange)
+}
+
 // forEachShiftBodyForTest returns the stream offsets of every SHIFT body, so a
 // corruption case can aim one at a chosen word.
 func (p *ParserCoreCorridorProgram) forEachShiftBodyForTest() []uint32 {
@@ -457,6 +548,26 @@ func (p *ParserCoreCorridorProgram) forEachShiftBodyForTest() []uint32 {
 		for _, sym := range p.KeySet(StateID(state)) {
 			body := corridorDispatch(p.prog, p.stateBlockOffset[state], sym)
 			if body != 0 && p.prog[body]&corridorOpcodeMask == uint32(corridorOpShift) {
+				found = append(found, body)
+			}
+		}
+	}
+	return found
+}
+
+// forEachForkBodyForTest returns the stream offsets of every FORK body, found
+// by walking the compiled block/cell layout structurally (per state, through
+// KeySet and corridorDispatch — the same lookup the interpreter performs)
+// rather than by scanning raw program words for corridorOpFork's opcode bits.
+// A raw word scan is unsound here: interned body operand words are arbitrary
+// uint32 payloads and one can coincidentally carry FORK's low 6 bits without
+// being a FORK body.
+func (p *ParserCoreCorridorProgram) forEachForkBodyForTest() []uint32 {
+	var found []uint32
+	for state := 0; state < p.states; state++ {
+		for _, sym := range p.KeySet(StateID(state)) {
+			body := corridorDispatch(p.prog, p.stateBlockOffset[state], sym)
+			if body != 0 && p.prog[body]&corridorOpcodeMask == uint32(corridorOpFork) {
 				found = append(found, body)
 			}
 		}
