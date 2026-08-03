@@ -163,7 +163,8 @@ GOWORK=off go run ./cmd/real_corpus_sources \
 
 Inspect the status file. Require 206 locked languages, matching commits, and
 no source errors. The sparse Git clones can use substantial disk space.
-Keep at least 100 GB free before starting the scan.
+Keep at least 40 GB free after materializing the corpus. Increase the boot
+disk size when the host has less free space.
 
 ## Run the authoritative full fleet
 
