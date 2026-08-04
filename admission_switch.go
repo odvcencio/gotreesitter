@@ -91,12 +91,10 @@ func admissionCandidateEnvEnabled() bool {
 // admission switch applies to Parsers with no explicit override. A per-Parser
 // override still wins.
 //
-// Tranche B9 removed the source-length eligibility decline: every input,
-// regardless of size, is eligible to attempt the candidate route. An explicit
-// timeout, cancellation flag, or the scheduler's own memory-budget poll
-// (tranche B8) is honored on the candidate route itself, with a compatible
-// stop receipt, falling back to production when it trips; included ranges and
-// observability hooks still keep a parse on production.
+// Sources at or above parseRuntimeMemoryMinSourceBytes remain on production.
+// The compact scheduler cannot poll the automatic memory budget at the required
+// granularity. Small sources still honor timeout, cancellation, and memory
+// budget checks before the parser accepts the candidate result.
 func SetAdmissionCandidateRouteDefault(enabled bool) {
 	admissionCandidateRouteDefault.Store(enabled)
 }
@@ -110,12 +108,10 @@ func AdmissionCandidateRouteDefault() bool {
 // over the process-wide default. enabled=true forces the candidate route on for
 // eligible full parses; enabled=false forces the production route.
 //
-// enabled=true still respects every remaining eligibility decline: included
-// ranges and observability hooks keep a parse on production. Source length no
-// longer declines eligibility (tranche B9); a large input attempts the
-// candidate route and either completes there or trips the scheduler's
-// stop-control poll (tranche B8) and falls back to production with a
-// compatible stop receipt honoring ParseStopMemoryBudget.
+// enabled=true still respects every eligibility decline: large sources,
+// included ranges, and observability hooks keep a parse on production. Small
+// sources may trip the scheduler's stop-control poll and fall back to
+// production with a compatible ParseStopMemoryBudget receipt.
 func (p *Parser) SetAdmissionCandidateRoute(enabled bool) {
 	if p == nil {
 		return
@@ -208,22 +204,11 @@ func (p *Parser) admissionCandidateFullParseEligible(oldTree *Tree, usingProduct
 	if len(p.included) > 0 {
 		return false
 	}
-	// An explicit timeout or cancellation flag no longer declines eligibility
-	// (tranche B8): the scheduler polls both through the exact production
-	// check (diagnosticParserCoreGenericScheduler.pollStopControl, once per
-	// dispatch-pass-loop iteration) and cleanly aborts -- releasing the
-	// compact arenas' retained capacity before falling back (Core.
-	// ResetReleasingRetention, tranche B9) -- so production still serves a
-	// tripped deadline or cancellation with its own compatible stop receipt.
-	// Source length no longer declines eligibility either (tranche B9): the
-	// same scheduler poll compares the compact core's own real retained
-	// footprint (Core.FootprintBytes()) against production's soft memory
-	// budget on every input, large or small, so a pathological input still
-	// falls back to production and honors ParseStopMemoryBudget -- it just
-	// attempts the candidate route first instead of skipping it by source
-	// length. See attemptAdmissionCandidateFullParse's doc comment for the
-	// gap this retained-footprint gauge still has against cumulative
-	// ephemeral allocation, not just retained footprint.
+	// Large sources stay on production because the compact scheduler cannot poll
+	// the automatic memory budget at the required granularity. Smaller sources
+	// use the scheduler's retained-footprint poll before candidate admission.
+	// See attemptAdmissionCandidateFullParse's doc comment for the remaining gap
+	// between retained and ephemeral memory.
 	//
 	// Preserve callback fidelity: the compact route does not emit the parser's
 	// logger, GLR-trace, ambiguity-profile, or parse-progress events, so decline
