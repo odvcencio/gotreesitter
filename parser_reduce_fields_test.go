@@ -687,7 +687,7 @@ func TestBuildReduceChildrenRepeatedDirectFieldOnHiddenPathLeavesAnonymousGapUnf
 	}
 }
 
-func TestBuildReduceChildrenInheritedFieldFillsRepeatedDirectAnonymousGaps(t *testing.T) {
+func TestBuildReduceChildrenInheritedFieldLeavesRepeatedDirectAnonymousGapsUnfielded(t *testing.T) {
 	lang := &Language{
 		SymbolNames: []string{"EOF", "_hidden_inner", ".", "identifier", "visible_parent"},
 		SymbolMetadata: []SymbolMetadata{
@@ -742,11 +742,17 @@ func TestBuildReduceChildrenInheritedFieldFillsRepeatedDirectAnonymousGaps(t *te
 		t.Fatalf("child count = %d, want %d", got, want)
 	}
 	for index := range children {
-		if got, want := fieldIDs[index], FieldID(1); got != want {
-			t.Fatalf("field %d = %d, want %d", index, got, want)
+		wantField := FieldID(1)
+		wantSource := uint8(fieldSourceDirect)
+		if index == 1 || index == 3 {
+			wantField = 0
+			wantSource = fieldSourceNone
 		}
-		if got, want := fieldSourceAt(fieldSources, index), uint8(fieldSourceDirect); got != want {
-			t.Fatalf("field source %d = %d, want %d", index, got, want)
+		if got := fieldIDs[index]; got != wantField {
+			t.Fatalf("field %d = %d, want %d", index, got, wantField)
+		}
+		if got := fieldSourceAt(fieldSources, index); got != wantSource {
+			t.Fatalf("field source %d = %d, want %d", index, got, wantSource)
 		}
 	}
 }

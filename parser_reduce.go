@@ -6615,7 +6615,11 @@ func applyParentFieldToFlattenedHiddenSpan(children []*Node, fieldIDs []FieldID,
 	source := fieldSourceForInheritance(inherited)
 	hasField := flattenedSpanHasFieldID(fieldIDs, spanStart, fieldEnd, fid)
 	if inherited && hasField {
-		fillAnonymousGapsBetweenDirectFields(children, fieldIDs, fieldSources, spanStart, fieldEnd, fid)
+		// A deferred direct entry may cover separators in a repeated field.
+		// An inherited-only entry must not invent fields for anonymous gaps.
+		if hiddenParentHasDeferredDirectField(hiddenParent, fid) {
+			fillAnonymousGapsBetweenDirectFields(children, fieldIDs, fieldSources, spanStart, fieldEnd, fid)
+		}
 		normalizeMixedSourceFieldSpan(fieldIDs, fieldSources, spanStart, fieldEnd)
 		return
 	}
@@ -6633,6 +6637,24 @@ func applyParentFieldToFlattenedHiddenSpan(children []*Node, fieldIDs []FieldID,
 	}
 	applyFieldToFlattenedSpan(children, fieldIDs, fieldSources, spanStart, fieldEnd, fid, source, true)
 	normalizeMixedSourceFieldSpan(fieldIDs, fieldSources, spanStart, fieldEnd)
+}
+
+func hiddenParentHasDeferredDirectField(parent *Node, fid FieldID) bool {
+	if parent == nil || fid == 0 {
+		return false
+	}
+	fieldIDs := parent.fieldIDs()
+	fieldSources := parent.fieldSources()
+	limit := len(fieldIDs)
+	if len(fieldSources) < limit {
+		limit = len(fieldSources)
+	}
+	for i := 0; i < limit; i++ {
+		if fieldIDs[i] == fid && fieldSources[i] == fieldSourceDeferredDirect {
+			return true
+		}
+	}
+	return false
 }
 
 func fillAnonymousGapsBetweenDirectFields(
