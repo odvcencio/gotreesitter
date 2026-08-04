@@ -415,21 +415,11 @@ func TestAdmissionSwitchDeclinesWhenLoggerAttached(t *testing.T) {
 	}
 }
 
-// TestAdmissionCandidateMemoryBudgetContractPreserved proves the automatic
-// large-input memory budget contract survives tranche B9's removal of the
-// source-length eligibility decline.
+// TestAdmissionCandidateMemoryBudgetContractPreserved proves that the
+// admission switch preserves the production memory-budget contract.
 //
-// Before tranche B9, the switch declined every input at or above
-// parseRuntimeMemoryMinSourceBytes (64 KiB) outright: the compact scheduler
-// never attempted them, so it never needed to poll the budget itself. Tranche
-// B9 removed that decline; a large input now attempts the candidate route
-// like any other. The tranche B8 scheduler stop-control poll is what keeps
-// the contract intact: it compares the compact core's own deterministic
-// StorageBytes() against the same soft budget production's arena/scratch
-// accounting honors, declines (falls back to production) when the budget is
-// exceeded, and releases the compact core's storage before returning -- so a
-// pathological large input still stops at the configured budget and still
-// reports ParseStopMemoryBudget, just via a different mechanism than before.
+// Inputs at or above parseRuntimeMemoryMinSourceBytes stay on production. The
+// compact scheduler does not poll the automatic budget at scheduler granularity.
 func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
 	minBudgetSourceBytes := gts.ParseRuntimeMemoryMinSourceBytesForTest()
 
@@ -465,8 +455,7 @@ func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
 		}
 	}
 
-	// A clean source well above the former 64 KiB floor now routes too: no
-	// eligibility decline stops it by length alone (tranche B9).
+	// A clean source above the 64 KiB floor stays on production.
 	var big bytes.Buffer
 	big.WriteString("package p\n\nfunc f() {\n")
 	for big.Len() < minBudgetSourceBytes+(1<<15) {
@@ -483,19 +472,13 @@ func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
 		t.Fatalf("large parse: %v", err)
 	}
 	bigTree.Release()
-	if routed, fallback := gts.AdmissionCandidateCounters(); !compiledOut && (routed != 1 || fallback != 0) {
-		t.Fatalf("source of %d bytes (>= %d former floor) did not route cleanly to the candidate: routed=%d fallback=%d reason=%q",
+	if routed, fallback := gts.AdmissionCandidateCounters(); !compiledOut && (routed != 0 || fallback != 0) {
+		t.Fatalf("source of %d bytes (>= %d floor) attempted the candidate: routed=%d fallback=%d reason=%q",
 			big.Len(), minBudgetSourceBytes, routed, fallback, gts.AdmissionCandidateLastFallbackReason())
 	}
 
-	// With a low budget, a pathological large source still stops at
-	// ParseStopMemoryBudget: the candidate route attempts it, the scheduler's
-	// storage-based stop-control poll trips before completion (an engine
-	// decline, not a never-attempted eligibility decline), and production
-	// serves the fallback honoring the identical configured budget. The
-	// decline must also release the compact core's storage before returning,
-	// so production's fallback never runs alongside retained compact storage
-	// (tranche B9 storage-release gate).
+	// With a low budget, a pathological large source stays on production and
+	// stops at ParseStopMemoryBudget without creating a compact runner.
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "1")
 	gts.ResetParseEnvConfigCacheForTests()
 	defer gts.ResetParseEnvConfigCacheForTests()
@@ -518,15 +501,11 @@ func TestAdmissionCandidateMemoryBudgetContractPreserved(t *testing.T) {
 		t.Fatalf("ParseStopReason() = %q, want %q (production must serve the fallback and honor the budget)",
 			got, gts.ParseStopMemoryBudget)
 	}
-	if routed, fallback := gts.AdmissionCandidateCounters(); routed != 0 || (!compiledOut && fallback != 1) {
-		t.Fatalf("budgeted huge source: routed=%d fallback=%d (want routed=0, fallback=1 unless compiled out)", routed, fallback)
+	if routed, fallback := gts.AdmissionCandidateCounters(); routed != 0 || fallback != 0 {
+		t.Fatalf("budgeted huge source: routed=%d fallback=%d (want routed=0, fallback=0)", routed, fallback)
 	}
-	// StorageBytes reads 0 after any Reset regardless of retained capacity
-	// (it counts live length, not backing-array size), so it cannot detect a
-	// decline that reset length but left a large arena retained -- assert
-	// FootprintBytes instead, which reads real capacity. requireCompactFootprintReleased
-	// bounds it well under the pre-fix retained level (157-193MB measured for
-	// this decline class before the retention-cap gate existed).
+	// No candidate runner exists after an eligibility decline, so its retained
+	// footprint must remain empty.
 	requireCompactFootprintReleased(t, hugeParser, "stop-control memory-budget decline")
 }
 
