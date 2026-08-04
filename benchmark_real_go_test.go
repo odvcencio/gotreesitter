@@ -108,9 +108,9 @@ func benchmarkWarmRealGoDFA(b *testing.B, fixture benchfixtures.LoadedFixture, l
 	// unpinned parser here silently measures the compact route on both sides
 	// of an A/B comparison instead of production (b4b-width-repair audit,
 	// 2026-08; oak-b's v9 decomposition first caught this reproducing
-	// unmodified on origin/main). Tranche B9 removed the source-length
-	// eligibility ceiling that used to additionally exempt the largest
-	// fixture from this risk; every fixture now needs this explicit pin. The
+	// unmodified on origin/main). The restored source-size gate keeps the largest
+	// fixture on production, but smaller fixtures remain DFA-eligible. Every
+	// fixture still needs this explicit pin. The
 	// guard assertion after the timed loop below fails loudly if this pin is
 	// ever lost again, instead of silently re-conflating the two routes.
 	parser.SetAdmissionCandidateRoute(false)

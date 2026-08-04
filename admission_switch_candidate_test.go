@@ -25,10 +25,9 @@ func requireCandidateRouteBudgetMB(t testing.TB, mb int) {
 }
 
 // These tests run under the gts_parsercorephase0 tag, where the compact
-// candidate route is compiled in. They prove the switch actually routes a fresh
-// full parse through the compact route, that the routed tree is byte-exact with
-// production on the four canonical fixtures, and that incremental reuse is
-// available only when a routed tree carries the replay/scanner proof.
+// candidate route is compiled in. They prove the switch routes eligible fresh
+// full parses through the compact route, that the routed tree is byte-exact with
+// production, and that incremental reuse requires the replay/scanner proof.
 
 func newAdmissionCandidateGoParser(t testing.TB) *Parser {
 	t.Helper()
@@ -40,11 +39,9 @@ func newAdmissionCandidateGoParser(t testing.TB) *Parser {
 }
 
 // TestAdmissionSwitchParseRoutesCandidateWhenOn proves Parse serves the compact
-// candidate route for every canonical fixture when the switch is on,
-// including grammargen_lr (235,626 bytes): tranche B9 removed the
-// source-length eligibility decline that used to keep it on production, so
-// every canonical fixture now routes on size alone. Large-input safety comes
-// from the tranche B8 scheduler stop-control poll instead.
+// candidate route for each eligible canonical fixture when the switch is on.
+// The 235,626-byte grammargen_lr fixture remains on production because the
+// source-size gate protects the automatic memory-budget contract.
 func TestAdmissionSwitchParseRoutesCandidateWhenOn(t *testing.T) {
 	requireCandidateRouteBudgetMB(t, 256)
 	resetAdmissionCandidateCounters()
@@ -58,28 +55,33 @@ func TestAdmissionSwitchParseRoutesCandidateWhenOn(t *testing.T) {
 			t.Fatalf("%s: parse: %v", row.id, err)
 		}
 		routed1, fb1 := AdmissionCandidateCounters()
-		if routed1 != routed0+1 || fb1 != fb0 {
-			t.Fatalf("%s (%d bytes): expected one candidate route, got routed %d->%d fallback %d->%d (last=%q)",
-				row.id, len(fixture.Source), routed0, routed1, fb0, fb1, AdmissionCandidateLastFallbackReason())
-		}
-		if !tree.compactMaterialized {
-			t.Fatalf("%s: routed tree is not compact-materialized", row.id)
-		}
-		if !tree.incrementalReuseDisabled {
-			requireCompactIncrementalStateProof(t, tree)
+		if len(fixture.Source) < parseRuntimeMemoryMinSourceBytes {
+			if routed1 != routed0+1 || fb1 != fb0 {
+				t.Fatalf("%s (%d bytes): expected one candidate route, got routed %d->%d fallback %d->%d (last=%q)",
+					row.id, len(fixture.Source), routed0, routed1, fb0, fb1, AdmissionCandidateLastFallbackReason())
+			}
+			if !tree.compactMaterialized {
+				t.Fatalf("%s: routed tree is not compact-materialized", row.id)
+			}
+			if !tree.incrementalReuseDisabled {
+				requireCompactIncrementalStateProof(t, tree)
+			}
+		} else {
+			if routed1 != routed0 || fb1 != fb0 {
+				t.Fatalf("%s (%d bytes): large input attempted candidate route: routed %d->%d fallback %d->%d",
+					row.id, len(fixture.Source), routed0, routed1, fb0, fb1)
+			}
+			if tree.compactMaterialized {
+				t.Fatalf("%s: large input returned a compact-materialized tree", row.id)
+			}
 		}
 		tree.Release()
 	}
 }
 
-// TestAdmissionSwitchGrammargenLRRoutesCompactByDefault proves grammargen_lr
-// (235,626 bytes) routes through the compact candidate on the shipped API: no
-// per-Parser SetAdmissionCandidateRoute pin, no diagnostic build flag, just
-// the process-wide default the campaign shipped ON. Before tranche B9 this
-// fixture was permanently ineligible (it sits above the retired 64 KiB size
-// floor); today source length no longer decides eligibility, so the shipped
-// default routes it exactly like any other fixture.
-func TestAdmissionSwitchGrammargenLRRoutesCompactByDefault(t *testing.T) {
+// TestAdmissionSwitchGrammargenLRStaysOnProductionByDefault proves that the
+// shipped default does not attempt the candidate route for a large fixture.
+func TestAdmissionSwitchGrammargenLRStaysOnProductionByDefault(t *testing.T) {
 	requireCandidateRouteBudgetMB(t, 256)
 	previousDefault := AdmissionCandidateRouteDefault()
 	t.Cleanup(func() { SetAdmissionCandidateRouteDefault(previousDefault) })
@@ -88,8 +90,8 @@ func TestAdmissionSwitchGrammargenLRRoutesCompactByDefault(t *testing.T) {
 
 	p := newAdmissionCandidateGoParser(t) // no SetAdmissionCandidateRoute call: follows the process default
 	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "grammargen_lr")
-	if len(fixture.Source) < 64*1024 {
-		t.Fatalf("grammargen_lr fixture is %d bytes, want it to exceed the retired 64 KiB floor", len(fixture.Source))
+	if len(fixture.Source) < parseRuntimeMemoryMinSourceBytes {
+		t.Fatalf("grammargen_lr fixture is %d bytes, want it to reach the source-size gate", len(fixture.Source))
 	}
 	routed0, fb0 := AdmissionCandidateCounters()
 	tree, err := p.Parse(fixture.Source)
@@ -98,12 +100,12 @@ func TestAdmissionSwitchGrammargenLRRoutesCompactByDefault(t *testing.T) {
 	}
 	defer tree.Release()
 	routed1, fb1 := AdmissionCandidateCounters()
-	if routed1 != routed0+1 || fb1 != fb0 {
-		t.Fatalf("grammargen_lr (%d bytes) did not route on the shipped default: routed %d->%d fallback %d->%d (last=%q)",
+	if routed1 != routed0 || fb1 != fb0 {
+		t.Fatalf("grammargen_lr (%d bytes) attempted the candidate route: routed %d->%d fallback %d->%d (last=%q)",
 			len(fixture.Source), routed0, routed1, fb0, fb1, AdmissionCandidateLastFallbackReason())
 	}
-	if !tree.compactMaterialized {
-		t.Fatal("grammargen_lr routed tree is not compact-materialized")
+	if tree.compactMaterialized {
+		t.Fatal("grammargen_lr large tree is compact-materialized")
 	}
 	digest := requireDiagnosticParserCoreCanonicalTreeDigest(t, tree, p.language)
 	if digest != fixture.DeepTreeSHA256 {
@@ -143,7 +145,7 @@ func TestAdmissionSwitchParseProductionWhenOff(t *testing.T) {
 // byte-exactness this proves holds regardless of which admission path a
 // caller takes to reach it. TestAdmissionSwitchParseRoutesCandidateWhenOn
 // separately proves the public Parse route reaches this same engine for every
-// canonical fixture, grammargen_lr included (tranche B9).
+// canonical fixture below the source-size gate.
 func TestAdmissionSwitchCandidateDigestMatchesProduction(t *testing.T) {
 	lang, err := authenticatedParserCoreGoLanguage(parserCoreWarmGoScanner)
 	if err != nil {
