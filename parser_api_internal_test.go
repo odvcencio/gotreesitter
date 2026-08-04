@@ -411,6 +411,29 @@ func TestFullParseRetryNodeLimitOverride(t *testing.T) {
 	}
 }
 
+func TestFullParseRetryMergeOverrideHonorsExplicitCap(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "3")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	tree := &Tree{
+		language: &Language{Name: "synthetic"},
+		root: &Node{
+			endByte: 128,
+			flags:   nodeFlagHasError,
+		},
+		parseRuntime: ParseRuntime{
+			StopReason:      ParseStopAccepted,
+			ExpectedEOFByte: 128,
+			RootEndByte:     128,
+			MaxStacksSeen:   8,
+		},
+	}
+	if got := fullParseRetryMergePerKeyOverride(tree, 128, 8); got != 0 {
+		t.Fatalf("fullParseRetryMergePerKeyOverride(explicit cap) = %d, want 0", got)
+	}
+}
+
 func TestFullParseRetrySecondaryNodeLimitOverride(t *testing.T) {
 	tree := &Tree{
 		parseRuntime: ParseRuntime{
@@ -1728,6 +1751,98 @@ func TestCertifiedFreshErrorNoStacksRetryMaxStacksFlowsThroughLadder(t *testing.
 	}
 	if result == nil || result.ParseStopReason() != ParseStopAccepted {
 		t.Fatalf("retry result = %v, want accepted tree", result)
+	}
+}
+
+func TestCertifiedNoStacksPressureRetryUsesOneHardCappedRung(t *testing.T) {
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+
+	const sourceLen = 128
+	source := make([]byte, sourceLen)
+	initial := certifiedFreshErrorNoStacksTestTree(false, sourceLen)
+	initial.root.flags = 0
+	initial.root.endByte = 0
+	initial.parseRuntime.RootEndByte = 0
+	initial.parseRuntime.LastTokenEndByte = 0
+	type retryCall struct {
+		stacks int
+		merge  int
+	}
+	var calls []retryCall
+	parser := &Parser{}
+	result := parser.retryFullParse(source, 8, initial, func(maxStacks, maxMergePerKeyOverride, _ int) *Tree {
+		calls = append(calls, retryCall{stacks: maxStacks, merge: maxMergePerKeyOverride})
+		candidate := certifiedFreshErrorNoStacksTestTree(false, sourceLen)
+		candidate.root.flags = nodeFlagHasError
+		candidate.resultErrorSummary = resultErrorSummaryPresent
+		candidate.root.endByte = sourceLen
+		candidate.parseRuntime.RootEndByte = sourceLen
+		candidate.parseRuntime.LastTokenEndByte = sourceLen
+		candidate.parseRuntime.MaxStacksSeen = maxStacks
+		if maxStacks == fullParseCertifiedNoStacksPressureRetryMaxGLRStacks && maxMergePerKeyOverride == fullParseCertifiedNoStacksPressureRetryMaxMergePerKey {
+			candidate.root.flags = 0
+			candidate.resultErrorSummary = resultErrorSummaryClean
+			candidate.root.endByte = sourceLen
+			candidate.parseRuntime.StopReason = ParseStopAccepted
+			candidate.parseRuntime.Truncated = false
+			candidate.parseRuntime.RootEndByte = sourceLen
+			candidate.parseRuntime.LastTokenEndByte = sourceLen
+			candidate.parseRuntime.LastTokenWasEOF = true
+		}
+		return candidate
+	})
+	want := []retryCall{
+		{stacks: 8, merge: fullParseRetryMaxMergePerKey},
+		{stacks: fullParseRetryMaxGLRStacks},
+		{stacks: fullParseRetryMaxGLRStacks},
+		{stacks: fullParseRetryMaxGLRStacks, merge: fullParseRetryMaxMergePerKey},
+		{stacks: fullParseCertifiedNoStacksPressureRetryMaxGLRStacks, merge: fullParseCertifiedNoStacksPressureRetryMaxMergePerKey},
+	}
+	if !slices.Equal(calls, want) {
+		t.Fatalf("retry calls = %+v, want %+v", calls, want)
+	}
+	if result == nil || result.ParseStopReason() != ParseStopAccepted || retryTreeHasError(result) {
+		t.Fatalf("retry result = %v, want clean accepted tree", result)
+	}
+}
+
+func TestCertifiedNoStacksPressureRetryHonorsExplicitCaps(t *testing.T) {
+	const sourceLen = 128
+	initial := certifiedFreshErrorNoStacksTestTree(false, sourceLen)
+	initial.root.flags = 0
+	retry := certifiedFreshErrorNoStacksTestTree(false, sourceLen)
+	retry.root.flags = nodeFlagHasError
+	retry.resultErrorSummary = resultErrorSummaryPresent
+	retry.parseRuntime.MaxStacksSeen = fullParseRetryMaxGLRStacks
+
+	if !shouldRetryCertifiedNoStacksPressure(initial, retry, sourceLen, 8, fullParseRetryMaxGLRStacks, fullParseRetryOriginFresh) {
+		t.Fatal("certified no-stacks pressure retry was not eligible")
+	}
+	t.Setenv("GOT_GLR_MAX_STACKS", "12")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
+	if shouldRetryCertifiedNoStacksPressure(initial, retry, sourceLen, 8, fullParseRetryMaxGLRStacks, fullParseRetryOriginFresh) {
+		t.Fatal("explicit max-stacks cap permitted a certified pressure retry")
+	}
+	t.Setenv("GOT_GLR_MAX_STACKS", "")
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "12")
+	ResetParseEnvConfigCacheForTests()
+	if shouldRetryCertifiedNoStacksPressure(initial, retry, sourceLen, 8, fullParseRetryMaxGLRStacks, fullParseRetryOriginFresh) {
+		t.Fatal("explicit merge cap permitted a certified pressure retry")
+	}
+	t.Setenv("GOT_GLR_MAX_MERGE_PER_KEY", "")
+	ResetParseEnvConfigCacheForTests()
+	const oversizedSourceLen = fullParseCertifiedNoStacksPressureRetryMaxSourceBytes + 1
+	oversizedInitial := certifiedFreshErrorNoStacksTestTree(false, oversizedSourceLen)
+	oversizedInitial.root.flags = 0
+	oversizedRetry := certifiedFreshErrorNoStacksTestTree(false, oversizedSourceLen)
+	oversizedRetry.resultErrorSummary = resultErrorSummaryPresent
+	oversizedRetry.parseRuntime.MaxStacksSeen = fullParseRetryMaxGLRStacks
+	if shouldRetryCertifiedNoStacksPressure(oversizedInitial, oversizedRetry, oversizedSourceLen, 8, fullParseRetryMaxGLRStacks, fullParseRetryOriginFresh) {
+		t.Fatal("oversized source permitted a certified pressure retry")
 	}
 }
 

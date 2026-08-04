@@ -502,6 +502,12 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// TestParityCPreprocConditional.
 	"c": {
 		blobSHA256: mustRuntimeProfileSHA256("9aee42825fd1446ce5b754951db26edadcdba5d2f26b61578a30e87ed2dbbd3c"),
+		// Measurements on large C witnesses show identical trees before and after
+		// the retry ladder. Keep the initial tree and avoid repeated full parses
+		// for this exact grammar blob.
+		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
+			SkipCompleteAcceptedErrorRetry: true,
+		},
 		conflictPolicies: []gotreesitter.ConflictPolicy{
 			{
 				State:         gotreesitter.ConflictPolicyAnyState,
