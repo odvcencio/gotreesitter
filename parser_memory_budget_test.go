@@ -176,40 +176,12 @@ func TestGoParseGiantTableLiteralStopsWithinMemoryBudget(t *testing.T) {
 	t.Logf("heap growth = %d bytes (%.2fx budget %d bytes), stop=%s", heapGrowth, float64(heapGrowth)/float64(budgetBytes), budgetBytes, tree.ParseRuntime().Summary())
 }
 
-// TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound is the
-// unpinned counterpart of TestGoParseGiantTableLiteralStopsWithinMemoryBudget
-// above: the same witness, the same GC-disabled cumulative-allocation
-// measurement, with the candidate route left on its shipped default instead
-// of pinned to production. This is the end-to-end coverage the production
-// pin above deliberately removes (that test isolates production's own
-// contract; this one measures what a caller who never pins actually gets).
-//
-// The compact route attempts this witness first (tranche B9 removed the
-// former 64 KiB size floor that used to keep it production-only). Its own
-// scheduler stop-control poll compares a real, capacity-based retained-
-// footprint gauge (Core.FootprintBytes, internal/parsercorephase0) against
-// the configured budget and declines close to it (measured 103.6 MB
-// footprint against a 96 MB budget on this witness), releasing its retained
-// capacity immediately on decline. Production then serves the fallback
-// exactly as the pinned test above already proves.
-//
-// The bound this asserts is measured, not the production-only 6x contract:
-// this GC-disabled methodology counts cumulative allocation, not retained
-// footprint, so it also counts every ephemeral value the compact scheduler's
-// hot dispatch/election path allocates and discards per token -- a live GC
-// reclaims that continuously in normal operation, but nothing a
-// retained-footprint poll tracks can bound it, because it is never part of
-// any tracked structure. Measured on this witness: 9.14-9.56x across six
-// runs (a real, verified improvement over the pre-honest-accounting
-// length-only gauge's 11.51x on the same witness), not inside the
-// production-only 6x contract. maxOvershootFactor sits just above the high
-// end of that measured range and well below the pre-fix figure, so this
-// test still catches a regression back to length-only accounting while
-// tolerating ordinary run-to-run variance. Closing the remaining gap to 6x
-// is an open trade-off against routing coverage (see
-// stopControlFootprintChurnRatio's doc comment, parsercore_phase0_driver.go)
-// that this test intentionally does not force by tightening this number
-// further.
+// TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound verifies
+// the shipped route for a source above the compact admission threshold. The
+// source-size gate keeps this witness on production, which preserves the
+// production memory-budget contract and avoids a dual-engine measurement.
+// The test also checks that an eligibility decline does not look like a
+// candidate fallback.
 func TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound(t *testing.T) {
 	const budgetMB = 96
 	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", strconv.Itoa(budgetMB))
@@ -248,12 +220,10 @@ func TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound(t *testing
 	if !tree.ParseStoppedEarly() {
 		t.Fatal("ParseStoppedEarly() = false, want true")
 	}
-	// The candidate route must have attempted and declined this witness (not
-	// silently stayed on production by some other eligibility gate): routed
-	// stays 0 (production served the returned tree) and fallback moves by
-	// exactly 1 (one candidate-route decline).
-	if routedAfter != routedBefore || fallbackAfter != fallbackBefore+1 {
-		t.Fatalf("candidate route routing: routed %d->%d fallback %d->%d, want routed unchanged and fallback +1",
+	// The large-input eligibility decline must leave both candidate counters
+	// unchanged. Production serves the returned tree.
+	if routedAfter != routedBefore || fallbackAfter != fallbackBefore {
+		t.Fatalf("candidate route routing: routed %d->%d fallback %d->%d, want both counters unchanged",
 			routedBefore, routedAfter, fallbackBefore, fallbackAfter)
 	}
 
