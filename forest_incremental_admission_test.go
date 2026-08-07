@@ -67,6 +67,12 @@ func TestForestIncrementalStatelessAdmission(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			forestLang := tc.lang()
+			if tc.wantForest {
+				previous := forestLang.WantsForest
+				forestLang.WantsForest = true
+				defer func() { forestLang.WantsForest = previous }()
+			}
 			plans := []struct {
 				size      int
 				positions []string
@@ -89,13 +95,11 @@ func TestForestIncrementalStatelessAdmission(t *testing.T) {
 					}
 					for _, class := range plan.classes {
 						edited, edit := applyStatelessScannerCertificationEdit(source, site, class)
-						lang := tc.lang()
+						runLang := tc.lang()
 						if tc.wantForest {
-							copy := *lang
-							copy.WantsForest = true
-							lang = &copy
+							runLang = forestLang
 						}
-						runForestIncrementalStatelessSample(t, lang, source, edited, edit)
+						runForestIncrementalStatelessSample(t, runLang, source, edited, edit)
 					}
 				}
 			}
@@ -151,9 +155,11 @@ func TestForestIncrementalCheckpointAdmissionCMake(t *testing.T) {
 		t.Fatal("CMake fixture has no edit site")
 	}
 	edited, edit := applyStatelessScannerCertificationEdit(source, sites[len(sites)/2], statelessScannerReplace)
-	langCopy := *grammars.CmakeLanguage()
-	langCopy.WantsForest = true
-	runForestIncrementalStatelessSample(t, &langCopy, source, edited, edit)
+	lang := grammars.CmakeLanguage()
+	previous := lang.WantsForest
+	lang.WantsForest = true
+	defer func() { lang.WantsForest = previous }()
+	runForestIncrementalStatelessSample(t, lang, source, edited, edit)
 }
 
 func TestForestIncrementalCheckpointAdmission(t *testing.T) {
