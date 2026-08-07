@@ -378,12 +378,12 @@ func TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback(t *testing.
 
 func TestExternalScannerTokenInvariantLeafReuse(t *testing.T) {
 	cases := []struct {
-		name           string
-		lang           func() *gotreesitter.Language
-		explicitForest bool
-		source         []byte
-		marker         []byte
-		replacement    byte
+		name             string
+		lang             func() *gotreesitter.Language
+		diagnosticForest bool
+		source           []byte
+		marker           []byte
+		replacement      byte
 	}{
 		{
 			name:        "elixir identifier",
@@ -393,20 +393,20 @@ func TestExternalScannerTokenInvariantLeafReuse(t *testing.T) {
 			replacement: 'w',
 		},
 		{
-			name:           "bash comment",
-			lang:           grammars.BashLanguage,
-			explicitForest: true,
-			source:         []byte("# look for old 0.x cruft\n"),
-			marker:         []byte("0"),
-			replacement:    '1',
+			name:             "bash comment",
+			lang:             grammars.BashLanguage,
+			diagnosticForest: true,
+			source:           []byte("# look for old 0.x cruft\n"),
+			marker:           []byte("0"),
+			replacement:      '1',
 		},
 		{
-			name:           "bash number",
-			lang:           grammars.BashLanguage,
-			explicitForest: true,
-			source:         []byte("echo -9\n"),
-			marker:         []byte("9"),
-			replacement:    '0',
+			name:             "bash number",
+			lang:             grammars.BashLanguage,
+			diagnosticForest: true,
+			source:           []byte("echo -9\n"),
+			marker:           []byte("9"),
+			replacement:      '0',
 		},
 		{
 			name:        "julia line comment",
@@ -434,35 +434,41 @@ func TestExternalScannerTokenInvariantLeafReuse(t *testing.T) {
 			next[offset] = tc.replacement
 
 			lang := tc.lang()
-			if tc.explicitForest {
+			if tc.diagnosticForest {
 				lang = explicitForestLanguage(t, lang)
 			}
 			parser := gotreesitter.NewParser(lang)
-			// Pin to production: this test asserts token-invariant incremental
-			// leaf reuse and the accepted forest runtime. A compact-materialized
-			// base tree is hard-barred from reuse (decision 0008), so the base and
-			// fresh parses must stay on the production engine.
+			// Pin the ordinary lanes to production. Diagnostic forest lanes use
+			// ParseForestExperimental because normal Parse admission fails closed.
 			parser.SetAdmissionCandidateRoute(false)
-			fresh, err := parser.Parse(next)
-			if err != nil {
-				t.Fatalf("fresh parse: %v", err)
+			parse := func(label string, source []byte) *gotreesitter.Tree {
+				if tc.diagnosticForest {
+					tree, ok := parser.ParseForestExperimental(source)
+					if !ok || tree == nil {
+						t.Fatalf("%s diagnostic forest parse: ok=%t tree_nil=%t", label, ok, tree == nil)
+					}
+					return tree
+				}
+				tree, err := parser.Parse(source)
+				if err != nil {
+					t.Fatalf("%s parse: %v", label, err)
+				}
+				return tree
 			}
+			fresh := parse("fresh", next)
 			defer fresh.Release()
 			requireCompleteParse(t, fresh, next, lang, "fresh")
-			if tc.explicitForest {
+			if tc.diagnosticForest {
 				requireAcceptedForestRuntime(t, "fresh "+tc.name+" parse", fresh)
 			}
 			if fresh.RootNode().HasError() {
 				t.Fatalf("fresh parse has error: %s", fresh.RootNode().SExpr(lang))
 			}
 
-			oldTree, err := parser.Parse(tc.source)
-			if err != nil {
-				t.Fatalf("old parse: %v", err)
-			}
+			oldTree := parse("old", tc.source)
 			defer oldTree.Release()
 			requireCompleteParse(t, oldTree, tc.source, lang, "old")
-			if tc.explicitForest {
+			if tc.diagnosticForest {
 				requireAcceptedForestRuntime(t, "old "+tc.name+" parse", oldTree)
 			}
 			oldTree.Edit(gotreesitter.InputEdit{
