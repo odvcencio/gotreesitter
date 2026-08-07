@@ -23,6 +23,24 @@ func TestParserWantsForestFieldDrivesDispatch(t *testing.T) {
 		t.Error("certified automatic forest profile should dispatch")
 	}
 
+	unsafeAutomatic := &Parser{language: &Language{
+		Name:                            "x",
+		AutomaticForestEnabledByDefault: true,
+		ExternalScanner:                 quiescenceOptOutScanner{},
+	}}
+	if parserWantsForest(unsafeAutomatic) {
+		t.Error("automatic forest profile without incremental reuse proof should not dispatch")
+	}
+
+	explicitUnsafe := &Parser{language: &Language{
+		Name:            "x",
+		WantsForest:     true,
+		ExternalScanner: quiescenceOptOutScanner{},
+	}}
+	if !parserWantsForest(explicitUnsafe) {
+		t.Error("explicit forest opt-in should remain available for experiments")
+	}
+
 	for _, name := range []string{"awk", "kdl", "uxntal"} {
 		sameNameCustom := &Parser{language: &Language{Name: name}}
 		if parserWantsForest(sameNameCustom) {

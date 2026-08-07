@@ -563,25 +563,35 @@ var builtinForestDefaults = map[string]bool{
 
 // parserWantsForest reports whether p's language is in the forest-default set:
 // either the Language opted in directly (WantsForest, set by a grammargen
-// consumer), its exact artifact received a certified automatic profile, or it
-// is one of the older curated built-ins in builtinForestDefaults. This is
-// per-language eligibility only; tryForestFastPath separately gates on the
-// glrForestEnabled global switch (GOT_GLR_FOREST) before dispatching.
+// consumer), or its automatic profile is certified and its scanner proves
+// incremental reuse. This is per-language eligibility only;
+// tryForestFastPath separately gates on the glrForestEnabled global switch
+// (GOT_GLR_FOREST) before dispatching.
 func parserWantsForest(p *Parser) bool {
 	return p != nil && LanguageWantsForest(p.language)
 }
 
 // LanguageWantsForest reports whether lang is in the forest-default set (see
-// parserWantsForest). It does not account for the glrForestEnabled global
-// switch (GOT_GLR_FOREST), which can still disable dispatch even for a
-// language this reports true for. Exported so regression gates outside this
-// package (e.g. the regen-guard sweep that reparses N repeated top-level
-// items per forest-default language) can enumerate the same set
-// parserWantsForest uses, without duplicating or drifting from
-// builtinForestDefaults.
+// parserWantsForest). Explicit WantsForest remains an experimenter's direct
+// opt-in. Automatic profiles also require a scanner proof because a forest
+// tree without an incremental reuse proof can turn every later edit into a
+// full reparse. It does not account for the glrForestEnabled global switch
+// (GOT_GLR_FOREST), which can still disable dispatch even for a language this
+// reports true for. Exported so regression gates outside this package (for
+// example, the regen-guard sweep that reparses repeated top-level items per
+// forest-default language) can enumerate the same set parserWantsForest uses,
+// without duplicating or drifting from builtinForestDefaults.
 func LanguageWantsForest(lang *Language) bool {
-	return lang != nil &&
-		(lang.WantsForest || lang.AutomaticForestEnabledByDefault || builtinForestDefaults[lang.Name])
+	if lang == nil {
+		return false
+	}
+	if lang.WantsForest {
+		return true
+	}
+	if !lang.AutomaticForestEnabledByDefault && !builtinForestDefaults[lang.Name] {
+		return false
+	}
+	return forestIncrementalReuseProven(lang)
 }
 
 func automaticForestMemoryBudget(p *Parser, operationBudget int64) int64 {
