@@ -446,12 +446,9 @@ type Language struct {
 	// metadata and conservative table validation.
 	CRecoveryCostCompetitionEnabledByDefault bool
 
-	// WantsForest opts this language into the GSS-forest GLR fast path.
-	// Consumers generating a Language via grammargen set this (directly or via
-	// grammargen.Grammar.WantsForest) to enable forest for their own grammar. This
-	// bypasses the byte-range parity certification built-ins undergo — the
-	// decline->production fallback still prevents hard failures on declined inputs,
-	// but a clean-but-different tree is the consumer's responsibility.
+	// WantsForest requests the GSS-forest GLR fast path for this language.
+	// Normal Parse dispatch requires the scanner incremental-reuse proof.
+	// ParseForestExperimental remains available for an unproven diagnostic run.
 	WantsForest bool
 
 	// LanguageVersion is the tree-sitter language ABI version.

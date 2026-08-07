@@ -23,11 +23,12 @@ func (unavailableForestCheckpointScanner) UsesExternalScannerCheckpoints() bool 
 
 func TestForestIncrementalStatelessAdmission(t *testing.T) {
 	cases := []struct {
-		name   string
-		lang   func() *gts.Language
-		prefix string
-		suffix string
-		line   func(int) string
+		name       string
+		lang       func() *gts.Language
+		wantForest bool
+		prefix     string
+		suffix     string
+		line       func(int) string
 	}{
 		{name: "awk", lang: grammars.AwkLanguage, line: func(i int) string {
 			return fmt.Sprintf("BEGIN { value_%06d = %d; print value_%06d }\n", i, i, i)
@@ -43,6 +44,24 @@ func TestForestIncrementalStatelessAdmission(t *testing.T) {
 		}},
 		{name: "uxntal", lang: grammars.UxntalLanguage, line: func(i int) string {
 			return fmt.Sprintf("@value_%06d BRK\n", i)
+		}},
+		{name: "toml", lang: grammars.TomlLanguage, wantForest: true, line: func(i int) string {
+			return fmt.Sprintf("value_%06d = %d\n", i, i)
+		}},
+		{name: "css", lang: grammars.CssLanguage, wantForest: true, line: func(i int) string {
+			return fmt.Sprintf(".value_%06d { width: %dpx; }\n", i, i)
+		}},
+		{name: "tsx", lang: grammars.TsxLanguage, wantForest: true, line: func(i int) string {
+			return fmt.Sprintf("const value_%06d = %d;\n", i, i)
+		}},
+		{name: "ini", lang: grammars.IniLanguage, wantForest: true, line: func(i int) string {
+			return fmt.Sprintf("[value_%06d]\nkey = %d\n", i, i)
+		}},
+		{name: "scss", lang: grammars.ScssLanguage, wantForest: true, line: func(i int) string {
+			return fmt.Sprintf(".value_%06d { width: %dpx; }\n", i, i)
+		}},
+		{name: "typescript", lang: grammars.TypescriptLanguage, wantForest: true, line: func(i int) string {
+			return fmt.Sprintf("const value_%06d = %d;\n", i, i)
 		}},
 	}
 
@@ -70,7 +89,13 @@ func TestForestIncrementalStatelessAdmission(t *testing.T) {
 					}
 					for _, class := range plan.classes {
 						edited, edit := applyStatelessScannerCertificationEdit(source, site, class)
-						runForestIncrementalStatelessSample(t, tc.lang(), source, edited, edit)
+						lang := tc.lang()
+						if tc.wantForest {
+							copy := *lang
+							copy.WantsForest = true
+							lang = &copy
+						}
+						runForestIncrementalStatelessSample(t, lang, source, edited, edit)
 					}
 				}
 			}
@@ -114,6 +139,21 @@ func runForestIncrementalStatelessSample(t *testing.T, lang *gts.Language, sourc
 	defer fresh.Release()
 	requireCompleteParse(t, fresh, edited, lang, "fresh forest admission")
 	requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
+}
+
+// TestForestIncrementalCheckpointAdmissionCMake keeps CMake on the
+// checkpoint-certified route. A changed-length edit must reuse the old tree.
+func TestForestIncrementalCheckpointAdmissionCMake(t *testing.T) {
+	source, sites := makeStatelessScannerCertificationSource(32<<10, "", "", func(i int) string {
+		return fmt.Sprintf("set(VALUE_%06d %d)\n", i, i)
+	})
+	if len(sites) == 0 {
+		t.Fatal("CMake fixture has no edit site")
+	}
+	edited, edit := applyStatelessScannerCertificationEdit(source, sites[len(sites)/2], statelessScannerReplace)
+	langCopy := *grammars.CmakeLanguage()
+	langCopy.WantsForest = true
+	runForestIncrementalStatelessSample(t, &langCopy, source, edited, edit)
 }
 
 func TestForestIncrementalCheckpointAdmission(t *testing.T) {

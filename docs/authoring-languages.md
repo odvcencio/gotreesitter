@@ -365,24 +365,26 @@ only when set, so standard grammars' JSON stays unchanged. Equivalently in
 code: set `g.WantsForest = true` on the IR, or `lang.WantsForest = true` on
 a loaded Language. `ExtendGrammar` inherits the flag from its base.
 
-**What it does.** `WantsForest` opts the language into the GSS-forest GLR
-fast path (`glr_forest.go`): a graph-structured-stack parse that coalesces
-equivalent stack tops instead of forking full stacks. Built-in languages
-get this through a curated, byte-parity-certified default map
-(`builtinForestDefaults`); your language cannot join that map without a PR
-— `WantsForest` is the supported alternative.
+**What it does.** `WantsForest` requests the GSS-forest GLR fast path
+(`glr_forest.go`): a graph-structured-stack parse that coalesces equivalent
+stack tops instead of forking full stacks. Normal `Parse` admission also
+requires proof that the external scanner supports incremental reuse. Built-in
+languages get this through a curated, byte-parity-certified default map
+(`builtinForestDefaults`); your language cannot join that map without a PR.
+Use `WantsForest` for a proven consumer language.
 
 **When to enable it.** Enable it for ambiguity-heavy grammars: many
 declared `conflicts`, heavy GLR forking, and deep expression nesting where
 production GLR blows up on stack-equivalence checks (bash was the
 motivating case). For a mostly deterministic LR grammar it buys little.
 
-**Risk profile, stated honestly.** By default, the forest path declines
-(falls back to the production parser) unless it produces a clean, complete
-tree. What you can get is a *clean but different* tree on ambiguous
-inputs, because your grammar bypasses the byte-range parity certification
-built-ins undergo — that trade is explicitly yours (see the
-`Language.WantsForest` doc comment in `language.go`). Forest error
+**Risk profile, stated honestly.** The normal forest path declines before
+dispatch when the scanner lacks incremental-reuse proof. After admission, it
+falls back to the production parser unless it produces a clean, complete
+tree. Use `ParseForestExperimental` for an unproven diagnostic run. A clean
+but different tree can still occur on ambiguous inputs, so validate the
+consumer corpus before shipping. See the `Language.WantsForest` doc comment
+in `language.go`. Forest error
 recovery defaults are name-keyed; `GOT_GLR_FOREST_RECOVER=1` or
 `gotreesitter.SetGLRForestRecover` enables recovery globally for
 experiments and tests, so validate error-bearing trees separately when you

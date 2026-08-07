@@ -89,7 +89,9 @@ type Grammar struct {
 	ExternalReduceFollowLookaheads             []string      // external token names that may be valid after reducing in the current state
 	PriorityInlinePatterns                     []string      // anonymous pattern terminals that should win same-length ties against named tokens
 	PreserveHiddenChoicePassthrough            []string      // hidden choice rules whose single-symbol reductions must not be flattened away
-	WantsForest                                bool          // opt this grammar's assembled Language into the GSS-forest GLR fast path (see gotreesitter.Language.WantsForest)
+	// WantsForest requests the forest path for the assembled Language.
+	// Normal Parse admission requires scanner incremental-reuse proof.
+	WantsForest bool
 }
 
 // NewGrammar creates a new grammar with the given name.

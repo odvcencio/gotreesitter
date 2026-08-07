@@ -41,6 +41,10 @@ func (CssExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (CssExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (CssExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// ExternalScannerIsStateless proves that CSS scanning depends only on
+// lookahead and the parser-provided valid-symbol set.
+func (CssExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 func (CssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	// Error recovery sentinel — always decline.
 	if cssValid(validSymbols, cssTokErrorRecovery) {

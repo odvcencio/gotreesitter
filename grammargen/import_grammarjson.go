@@ -311,9 +311,9 @@ func importPrecedenceLevels(rawLevels []json.RawMessage) [][]PrecEntry {
 // own tooling ignores this key; gotreesitter reads it during ImportGrammarJSON
 // and writes it back during ExportGrammarJSON (only when set).
 type grammarJSONExtensions struct {
-	// WantsForest opts the assembled Language into the GSS-forest GLR fast path
-	// (see gotreesitter.Language.WantsForest). Lets an existing grammar enable
-	// forest declaratively via grammar.json — no code change, no fork.
+	// WantsForest requests the GSS-forest GLR fast path for the assembled
+	// Language. Normal Parse admission requires incremental-reuse proof.
+	// ParseForestExperimental remains available for unproven diagnostics.
 	WantsForest bool `json:"wantsForest,omitempty"`
 }
 

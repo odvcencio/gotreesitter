@@ -175,10 +175,10 @@ func requireForestFallbackNodeIdentity(t *testing.T, path string, got, want *gts
 }
 
 // TestForestDispatchParity verifies the forest fast path is invisible: for an
-// explicitly dispatched language, the forest tree must be byte-identical to
-// production — same s-expr AND same root byte
-// span — and anything the forest declines (malformed input, non-dispatched
-// languages) must match production because we fall back to it.
+// admitted language, the forest tree must be byte-identical to production —
+// same s-expr AND same root byte span — and anything the forest declines
+// (malformed input, unproven opt-ins, non-dispatched languages) must match
+// production because we fall back to it.
 // SetGLRForestEnabled(false) yields the production baseline; true enables the
 // dispatch gate.
 func TestForestDispatchParity(t *testing.T) {
@@ -234,9 +234,10 @@ func TestForestDispatchParity(t *testing.T) {
 	for _, s := range malformed {
 		check("css-malformed-fallback", css, s)
 	}
-	// Bash compatibility remains testable through explicit forest dispatch.
+	// An unproven Bash opt-in remains on the production route. Its diagnostic
+	// forest compatibility is covered by TestForestExperimentalAppliesBashCompatibility.
 	bash := explicitForestLanguage(t, grm.BashLanguage())
-	check("bash-dispatched", bash, "f() { echo a; }\n")
+	check("bash-unproven-fallback", bash, "f() { echo a; }\n")
 	// Non-dispatched languages must be untouched even with the switch on.
 	check("go-untouched", grm.GoLanguage(), "package p\nfunc f() { return }\n")
 	goTree, err := gts.NewParser(grm.GoLanguage()).Parse([]byte("package p\nfunc f() { return }\n"))
@@ -380,8 +381,8 @@ func TestForestDispatchReportsAcceptedRuntime(t *testing.T) {
 	gts.SetGLRForestEnabled(true)
 	defer gts.SetGLRForestEnabled(true)
 
-	src := []byte("f() { echo a; }\n")
-	lang := explicitForestLanguage(t, grm.BashLanguage())
+	src := []byte("a { color: red; }\n")
+	lang := explicitForestLanguage(t, grm.CssLanguage())
 	// Pin to production: this test asserts a production-engine internal (the
 	// forest fast-path dispatch runtime) the compact candidate route bypasses.
 	parser := gts.NewParser(lang)
@@ -455,7 +456,7 @@ func TestForestDispatchPromotesJavaScript(t *testing.T) {
 	}
 }
 
-func TestForestDispatchPromotesCSharp(t *testing.T) {
+func TestUnprovenExplicitForestOptInStaysDiagnosticOnly(t *testing.T) {
 	gts.SetGLRForestEnabled(true)
 	defer gts.SetGLRForestEnabled(true)
 
@@ -480,15 +481,23 @@ class C {
 	gts.SetGLRForestEnabled(true)
 	tree, err := gts.NewParser(lang).Parse(src)
 	if err != nil {
-		t.Fatalf("forest dispatch parse: %v", err)
+		t.Fatalf("normal parse: %v", err)
 	}
 	defer tree.Release()
 	if got, want := tree.RootNode().SExpr(lang), prod.RootNode().SExpr(lang); got != want {
-		t.Fatalf("C# forest dispatch diverged\n got: %s\nwant: %s", got, want)
+		t.Fatalf("normal parse diverged\n got: %s\nwant: %s", got, want)
 	}
 	rt := tree.ParseRuntime()
-	if rt.StopReason != gts.ParseStopAccepted || !rt.ForestFastPath || !rt.LastTokenWasEOF || rt.TokensConsumed != 0 {
-		t.Fatalf("C# did not use forest accepted runtime: %s", rt.Summary())
+	if rt.ForestFastPath {
+		t.Fatalf("unproven explicit opt-in used normal forest dispatch: %s", rt.Summary())
+	}
+	experimental, ok := gts.NewParser(lang).ParseForestExperimental(src)
+	if !ok || experimental == nil {
+		t.Fatalf("diagnostic forest parse ok=%t tree_nil=%t", ok, experimental == nil)
+	}
+	defer experimental.Release()
+	if got, want := experimental.RootNode().SExpr(lang), prod.RootNode().SExpr(lang); got != want {
+		t.Fatalf("diagnostic forest parse diverged\n got: %s\nwant: %s", got, want)
 	}
 }
 
@@ -507,9 +516,9 @@ func TestForestTreeIncrementalEditCSharpNumericLiteralFastRescue(t *testing.T) {
 
 	lang := explicitForestLanguage(t, grm.CSharpLanguage())
 	parser := gts.NewParser(lang)
-	oldTree, err := parser.Parse(src)
-	if err != nil {
-		t.Fatalf("initial parse: %v", err)
+	oldTree, ok := parser.ParseForestExperimental(src)
+	if !ok || oldTree == nil {
+		t.Fatalf("initial diagnostic forest parse: ok=%t tree_nil=%t", ok, oldTree == nil)
 	}
 	defer oldTree.Release()
 	if rt := oldTree.ParseRuntime(); rt.StopReason != gts.ParseStopAccepted || !rt.ForestFastPath || !rt.LastTokenWasEOF || rt.TokensConsumed != 0 {
@@ -631,9 +640,9 @@ record F<T1, T2> where T1 : I1, I2, new() where T2 : I2 { }
 
 	lang := explicitForestLanguage(t, grm.CSharpLanguage())
 	parser := gts.NewParser(lang)
-	oldTree, err := parser.Parse(src)
-	if err != nil {
-		t.Fatalf("initial parse: %v", err)
+	oldTree, ok := parser.ParseForestExperimental(src)
+	if !ok || oldTree == nil {
+		t.Fatalf("initial diagnostic forest parse: ok=%t tree_nil=%t", ok, oldTree == nil)
 	}
 	defer oldTree.Release()
 	if rt := oldTree.ParseRuntime(); rt.StopReason != gts.ParseStopAccepted || !rt.ForestFastPath || !rt.LastTokenWasEOF || rt.TokensConsumed != 0 {
@@ -713,9 +722,9 @@ func TestForestTreeIncrementalEditCSharpContextualIdentifierStillFallsBack(t *te
 
 	lang := explicitForestLanguage(t, grm.CSharpLanguage())
 	parser := gts.NewParser(lang)
-	oldTree, err := parser.Parse(src)
-	if err != nil {
-		t.Fatalf("initial parse: %v", err)
+	oldTree, ok := parser.ParseForestExperimental(src)
+	if !ok || oldTree == nil {
+		t.Fatalf("initial diagnostic forest parse: ok=%t tree_nil=%t", ok, oldTree == nil)
 	}
 	defer oldTree.Release()
 	if rt := oldTree.ParseRuntime(); rt.StopReason != gts.ParseStopAccepted || !rt.ForestFastPath || !rt.LastTokenWasEOF || rt.TokensConsumed != 0 {
@@ -768,9 +777,9 @@ func TestForestTreeIncrementalEditCSharpStringLiteralStillFallsBack(t *testing.T
 
 	lang := explicitForestLanguage(t, grm.CSharpLanguage())
 	parser := gts.NewParser(lang)
-	oldTree, err := parser.Parse(src)
-	if err != nil {
-		t.Fatalf("initial parse: %v", err)
+	oldTree, ok := parser.ParseForestExperimental(src)
+	if !ok || oldTree == nil {
+		t.Fatalf("initial diagnostic forest parse: ok=%t tree_nil=%t", ok, oldTree == nil)
 	}
 	defer oldTree.Release()
 	if rt := oldTree.ParseRuntime(); rt.StopReason != gts.ParseStopAccepted || !rt.ForestFastPath || !rt.LastTokenWasEOF || rt.TokensConsumed != 0 {
@@ -798,9 +807,8 @@ func TestForestTreeIncrementalEditCSharpStringLiteralStillFallsBack(t *testing.T
 }
 
 // TestForestTreeIncrementalEditCSSTokenInvariantLeafReuseIsCorrect verifies the
-// safe reuse path for css forest trees that are otherwise demoted from general
-// forest-incremental reuse. Same-length edits inside a leaf can reuse the old
-// tree when rescanning the edited leaf preserves token kind and span.
+// safe reuse path for CSS forest trees. Same-length edits inside a leaf can
+// reuse the old tree when rescanning preserves the token kind and span.
 func TestForestTreeIncrementalEditCSSTokenInvariantLeafReuseIsCorrect(t *testing.T) {
 	gts.SetGLRForestEnabled(true)
 	defer gts.SetGLRForestEnabled(true)
@@ -1181,10 +1189,9 @@ func TestHCLIncrementalEditDigitLeafReuseIsCorrect(t *testing.T) {
 	}
 }
 
-// TestForestTreeIncrementalEditCMakeTextInvariantLeafReuseIsCorrect: cmake
-// remains outside forestIncrementalReuseProven, but same-length
-// alphanumeric edits inside unquoted_argument leaves can use the token-invariant
-// rescue path safely.
+// TestForestTreeIncrementalEditCMakeTextInvariantLeafReuseIsCorrect verifies
+// that same-length alphanumeric edits inside unquoted_argument leaves can use
+// the token-invariant rescue path safely.
 func TestForestTreeIncrementalEditCMakeTextInvariantLeafReuseIsCorrect(t *testing.T) {
 	gts.SetGLRForestEnabled(true)
 	defer gts.SetGLRForestEnabled(true)

@@ -37,11 +37,11 @@ import (
 //	         dynamic_precedence-then-first-match selection for byte-identical out.
 
 // glrForestEnabled is the master switch for the GSS-forest fast path. ON by
-// default: the byte-range-verified languages in builtinForestDefaults (plus any
-// Language with WantsForest set, see parserWantsForest) dispatch to the forest
-// automatically (with production fallback). Set GOT_GLR_FOREST=0 to disable
-// globally; tests/benchmarks toggle via SetGLRForestEnabled. Languages that
-// want neither always use production regardless of this switch.
+// default: the byte-range-verified languages in builtinForestDefaults and
+// proven explicit opt-ins dispatch to the forest automatically (with
+// production fallback). Set GOT_GLR_FOREST=0 to disable globally;
+// tests and benchmarks toggle via SetGLRForestEnabled. Unproven explicit
+// opt-ins remain available through ParseForestExperimental only.
 var glrForestEnabled = os.Getenv("GOT_GLR_FOREST") != "0"
 
 // SetGLRForestEnabled toggles the GSS-forest path at runtime (tests/benchmarks).
@@ -518,13 +518,11 @@ func (p *Parser) recordForestDecline(reason string, tok Token, states []StateID)
 // remain available for every language.
 //
 // Non-built-in languages opt in per-Language via Language.WantsForest (see
-// parserWantsForest) instead of joining this map — e.g. a grammargen consumer
-// generating its own grammar (a Pawn grammar, say) sets WantsForest directly
-// (or grammargen.Grammar.WantsForest, plumbed through assemble) without
-// forking this file. That path bypasses the byte-range parity certification
-// this curated set underwent; the decline->production fallback still prevents
-// hard failures, but a clean-but-different tree is the consumer's
-// responsibility.
+// parserWantsForest) instead of joining this map — for example, a grammargen
+// consumer generating its own grammar sets WantsForest directly (or through
+// grammargen.Grammar.WantsForest). Normal Parse dispatch still requires the
+// scanner proof. Unproven opt-ins remain available through
+// ParseForestExperimental for diagnostic work.
 var builtinForestDefaults = map[string]bool{
 	"javascript": true,
 
@@ -561,32 +559,25 @@ var builtinForestDefaults = map[string]bool{
 	"gitattributes": true,
 }
 
-// parserWantsForest reports whether p's language is in the forest-default set:
-// either the Language opted in directly (WantsForest, set by a grammargen
-// consumer), or its automatic profile is certified and its scanner proves
-// incremental reuse. This is per-language eligibility only;
-// tryForestFastPath separately gates on the glrForestEnabled global switch
-// (GOT_GLR_FOREST) before dispatching.
+// parserWantsForest reports whether p's language may use forest dispatch in
+// normal Parse calls. Explicit and automatic routes require incremental-reuse
+// proof. Unproven explicit routes remain diagnostic-only.
 func parserWantsForest(p *Parser) bool {
 	return p != nil && LanguageWantsForest(p.language)
 }
 
-// LanguageWantsForest reports whether lang is in the forest-default set (see
-// parserWantsForest). Explicit WantsForest remains an experimenter's direct
-// opt-in. Automatic profiles also require a scanner proof because a forest
-// tree without an incremental reuse proof can turn every later edit into a
-// full reparse. It does not account for the glrForestEnabled global switch
-// (GOT_GLR_FOREST), which can still disable dispatch even for a language this
-// reports true for. Exported so regression gates outside this package (for
-// example, the regen-guard sweep that reparses repeated top-level items per
-// forest-default language) can enumerate the same set parserWantsForest uses,
-// without duplicating or drifting from builtinForestDefaults.
+// LanguageWantsForest reports whether lang may use forest dispatch in normal
+// Parse calls. Explicit and automatic routes require incremental-reuse proof;
+// ParseForestExperimental remains available for unproven explicit routes.
+// This function does not account for the glrForestEnabled global switch.
+// Exported so regression gates outside this package can enumerate the same set
+// parserWantsForest uses without duplicating builtinForestDefaults.
 func LanguageWantsForest(lang *Language) bool {
 	if lang == nil {
 		return false
 	}
 	if lang.WantsForest {
-		return true
+		return forestIncrementalReuseProven(lang)
 	}
 	if !lang.AutomaticForestEnabledByDefault && !builtinForestDefaults[lang.Name] {
 		return false

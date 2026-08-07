@@ -71,11 +71,10 @@ func deleteEdit(src []byte, p int) forestEdit {
 // tree is byte-for-byte identical (s-expr) to a fresh parse of the same edited
 // source — only over edits that keep the source valid (an edit that breaks
 // syntax routes fresh through production error recovery, a different-but-valid
-// path). Erlang + JavaScript pass via real forest-incremental reuse; SCSS/CSS/
-// CMake remain outside the scanner-proof admission class (they FAILED this
-// gate — wrong/truncated trees) and reach the same assertion via fresh-parse
-// fallback. Admitting another scanner class without it passing here regresses
-// incremental correctness. Each case opts in explicitly so this experimental
+// path). Erlang, JavaScript, SCSS, CSS, and CMake pass through the
+// scanner-proof admission class and use real forest-incremental reuse.
+// Admitting another scanner class without it passing here regresses
+// incremental correctness. Each case opts in explicitly, so this experimental
 // gate remains independent of automatic-routing policy.
 func TestForestIncrementalCorrectness(t *testing.T) {
 	if os.Getenv("GTS_FOREST_INCR") == "" {
@@ -86,10 +85,9 @@ func TestForestIncrementalCorrectness(t *testing.T) {
 		file string
 		lang func() *gts.Language
 	}{
-		// Erlang + JavaScript do real forest-incremental reuse (must match fresh);
-		// SCSS, CSS and CMake are demoted from the incremental path, so they reach
-		// the same assertion via fresh-parse fallback. (Python's production
-		// incremental reuse has its own pre-existing bug and is out of scope.)
+		// Erlang, JavaScript, SCSS, CSS, and CMake use real forest-incremental
+		// reuse. Python's production incremental reuse has a separate bug and is
+		// out of scope.
 		{"javascript", "cgo_harness/corpus_real/javascript/large__jquery.js", grammars.JavascriptLanguage},
 		{"scss", "cgo_harness/corpus_real/scss/large__github.com.scss", grammars.ScssLanguage},
 		{"css", "cgo_harness/corpus_real/css/large__github.com.css", grammars.CssLanguage},

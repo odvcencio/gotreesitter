@@ -3,10 +3,10 @@ package gotreesitter
 import "testing"
 
 // TestParserWantsForestFieldDrivesDispatch verifies that Language.WantsForest
-// drives the forest dispatch gate independently of the curated
-// builtinForestDefaults allowlist: a synthetic non-built-in language opts in
-// via the field, and a built-in name dispatches even when the field is left
-// false (its default comes from the curated map).
+// drives the forest admission gate independently of the curated
+// builtinForestDefaults allowlist when the scanner proof is present. A
+// synthetic non-built-in language opts in via the field, and a built-in name
+// dispatches even when the field is left false.
 func TestParserWantsForestFieldDrivesDispatch(t *testing.T) {
 	optedIn := &Parser{language: &Language{Name: "x", WantsForest: true}}
 	if !parserWantsForest(optedIn) {
@@ -37,8 +37,8 @@ func TestParserWantsForestFieldDrivesDispatch(t *testing.T) {
 		WantsForest:     true,
 		ExternalScanner: quiescenceOptOutScanner{},
 	}}
-	if !parserWantsForest(explicitUnsafe) {
-		t.Error("explicit forest opt-in should remain available for experiments")
+	if parserWantsForest(explicitUnsafe) {
+		t.Error("unproven explicit forest opt-in should not dispatch through normal Parse")
 	}
 
 	for _, name := range []string{"awk", "kdl", "uxntal"} {

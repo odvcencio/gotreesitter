@@ -111,6 +111,10 @@ func (TypeScriptExternalScanner) Serialize(payload any, buf []byte) int { return
 func (TypeScriptExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (TypeScriptExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// ExternalScannerIsStateless proves that TypeScript scanning depends only on
+// lookahead and the parser-provided valid-symbol set.
+func (TypeScriptExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 // symbolTable returns the per-Language-bound result-symbol table, falling
 // back to the pinned defaults when Scan is invoked on an unbound scanner
 // value (s.symbols is still its zero value).

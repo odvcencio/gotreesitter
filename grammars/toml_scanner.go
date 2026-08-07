@@ -42,6 +42,10 @@ func (TomlExternalScanner) Create() any                    { return nil }
 func (TomlExternalScanner) Destroy(payload any)            {}
 func (TomlExternalScanner) SupportsIncrementalReuse() bool { return true }
 
+// ExternalScannerIsStateless proves that TOML scanning depends only on
+// lookahead and the parser-provided valid-symbol set.
+func (TomlExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 func (TomlExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (TomlExternalScanner) Deserialize(payload any, buf []byte)   {}
 

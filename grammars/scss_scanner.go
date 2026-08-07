@@ -40,6 +40,10 @@ func (ScssExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (ScssExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (ScssExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// ExternalScannerIsStateless proves that the payload stores only immutable
+// symbol binding and no cross-token scanner state.
+func (ScssExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 func (ScssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	lang := scssScanLang(payload)
 

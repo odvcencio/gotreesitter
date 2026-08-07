@@ -111,6 +111,10 @@ func (TsxExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (TsxExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (TsxExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// ExternalScannerIsStateless proves that TSX scanning depends only on
+// lookahead and the parser-provided valid-symbol set.
+func (TsxExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 // symbolTable returns the per-Language-bound result-symbol table, falling
 // back to the pinned defaults when Scan is invoked on an unbound scanner
 // value (s.symbols is still its zero value).
