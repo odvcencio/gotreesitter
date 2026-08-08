@@ -549,6 +549,24 @@ The ordered, receipt-driven cleanup program is documented in
 
 ## Adding a language
 
+### Optional native Lean grammar
+
+The Lean 4 grammar is an opt-in package during its default-fleet graduation.
+It is authored with grammargen's Go domain-specific language (DSL). It does
+not import another tree-sitter grammar.
+
+```go
+import _ "github.com/odvcencio/gotreesitter/grammars/lean"
+```
+
+The import registers `.lean`, `lean`, and `lean4` detection. Direct users can
+call `lean.Language()` instead. The package includes highlights, outline tags,
+and a Go scanner for nested comments.
+
+Lean modules can extend their parser at runtime. The fixed grammar gives core
+declarations stable nodes and preserves extension-specific lines as
+`custom_command` nodes.
+
 > Adding a language to your own project does **not** require forking this
 > repo or following the in-tree steps below. See
 > [docs/authoring-languages.md](docs/authoring-languages.md) for the

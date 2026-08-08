@@ -283,6 +283,9 @@ var pawnBlob []byte
 //go:embed queries/highlights.scm
 var highlightQuery string
 
+//go:embed queries/tags.scm
+var tagsQuery string
+
 var (
     once    sync.Once
     lang    *gts.Language
@@ -310,7 +313,9 @@ func init() {
         Extensions:       []string{".pwn", ".inc"},
         Aliases:          []string{"pawno"}, // markdown fence aliases
         GenerateLanguage: Language,
+        GrammarSource:    grammars.GrammarSourceGrammargenBlob,
         HighlightQuery:   highlightQuery,
+        TagsQuery:        tagsQuery,
     })
 }
 ```
@@ -330,10 +335,11 @@ Semantics worth knowing (all from `grammars/registry.go`):
   entry owning a suffix wins (`buildExtIndex`). Built-ins register before
   your `init` runs, so a suffix already claimed by a built-in stays theirs
   unless you `Register` over that language name itself.
-- **`RegisterExtension` has no `Shebangs`, `TagsQuery`, or
-  `TokenSourceFactory` fields.** If you need those, call `grammars.Register`
-  directly with a full `grammars.LangEntry` — all of those are public
-  fields, including `TokenSourceFactory func(src []byte, lang
+- **`RegisterExtension` has no `Shebangs` or `TokenSourceFactory` fields.**
+  It accepts `GrammarSource` and `TagsQuery`; an empty `GrammarSource`
+  defaults to `GrammarSourceGrammargen`. For the other fields, call
+  `grammars.Register` directly with a full `grammars.LangEntry`. These are
+  public fields, including `TokenSourceFactory func(src []byte, lang
   *gotreesitter.Language) gotreesitter.TokenSource` for hand-written token
   sources.
 - **Runtime language gating.** If the process sets `GOTREESITTER_GRAMMAR_SET`

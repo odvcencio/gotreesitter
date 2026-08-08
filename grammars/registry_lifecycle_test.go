@@ -136,6 +136,32 @@ func TestRegisterExtensionCachesGenerationError(t *testing.T) {
 	}
 }
 
+func TestRegisterExtensionPreservesBlobSourceAndTags(t *testing.T) {
+	preserveRegistryState(t)
+
+	const tagsQuery = "(identifier) @name @definition.variable"
+	RegisterExtension(ExtensionEntry{
+		Name:          "zz_extension_blob_metadata",
+		Extensions:    []string{".zz-extension-blob"},
+		GrammarSource: GrammarSourceGrammargenBlob,
+		TagsQuery:     tagsQuery,
+		GenerateLanguage: func() (*gotreesitter.Language, error) {
+			return nil, nil
+		},
+	})
+
+	entry := DetectLanguage("sample.zz-extension-blob")
+	if entry == nil {
+		t.Fatal("expected extension language to be registered")
+	}
+	if entry.GrammarSource != GrammarSourceGrammargenBlob {
+		t.Fatalf("GrammarSource = %q, want %q", entry.GrammarSource, GrammarSourceGrammargenBlob)
+	}
+	if entry.TagsQuery != tagsQuery {
+		t.Fatalf("TagsQuery = %q, want %q", entry.TagsQuery, tagsQuery)
+	}
+}
+
 func TestParseFilePooledReplacesPoolForReplacedLanguage(t *testing.T) {
 	preserveRegistryState(t)
 	const name = "zz_pool_language_identity"

@@ -151,11 +151,10 @@ func Register(entry LangEntry) {
 	extIndex = nil
 }
 
-// RegisterExtension registers a grammargen-based grammar extension with the
-// language registry. This enables detection by file extension, markdown code
-// fence highlighting, and LSP support. The language is generated lazily on
-// first access. Its result, including a generation error, is cached so the
-// generator is invoked at most once.
+// RegisterExtension registers a grammar extension with the language registry.
+// This enables file detection, fence highlighting, tags, and LSP support. The
+// callback runs lazily on first access. Its result and error are cached.
+// GrammarSource defaults to GrammarSourceGrammargen.
 //
 // Usage from an extension package:
 //
@@ -175,13 +174,19 @@ type ExtensionEntry struct {
 	Extensions        []string // file extensions: [".dmj", ".dingo", ".fw"]
 	Aliases           []string // markdown fence aliases: ["dmj", "danmuji"]
 	GenerateLanguage  func() (*gotreesitter.Language, error)
+	GrammarSource     GrammarSource // empty defaults to GrammarSourceGrammargen
 	HighlightQuery    string
 	InheritHighlights string // parent language for highlight query composition (e.g. "go")
+	TagsQuery         string // tree-sitter tags query for symbol extraction
 }
 
 // RegisterExtension registers a grammar extension for file detection and
 // markdown code fence highlighting.
 func RegisterExtension(ext ExtensionEntry) {
+	grammarSource := ext.GrammarSource
+	if grammarSource == "" {
+		grammarSource = GrammarSourceGrammargen
+	}
 	var (
 		generateOnce sync.Once
 		cached       *gotreesitter.Language
@@ -201,9 +206,10 @@ func RegisterExtension(ext ExtensionEntry) {
 		Name:              ext.Name,
 		Extensions:        ext.Extensions,
 		Language:          loader,
-		GrammarSource:     GrammarSourceGrammargen,
+		GrammarSource:     grammarSource,
 		HighlightQuery:    ext.HighlightQuery,
 		InheritHighlights: ext.InheritHighlights,
+		TagsQuery:         ext.TagsQuery,
 	})
 
 	// Register aliases for markdown fence resolution under the write lock so
