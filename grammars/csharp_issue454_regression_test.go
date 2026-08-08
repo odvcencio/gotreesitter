@@ -139,6 +139,7 @@ func BenchmarkIssue454CSharpRecoveredFullParse(b *testing.B) {
 }
 
 func issue454CSharpSource(targetBytes int) []byte {
+	// This internal regression shape is not the reporter's byte-identical source.
 	var source strings.Builder
 	source.Grow(targetBytes + 256)
 	source.WriteString("namespace Bench {\n")

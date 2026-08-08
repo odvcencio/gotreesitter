@@ -5,13 +5,12 @@ import (
 	"strings"
 )
 
-// Issue454CFixtureBytes is the exact size of the downstream C edit workload
-// reported in issue #454 (a repeated-function fixture grown to ~137 KiB,
-// matching the generator shape the field report used for c_sharp and php).
+// Issue454CFixtureBytes is the internal C regression size.
+// The reporter generator grows past its target and does not pad to this size.
 const Issue454CFixtureBytes = 137 * 1024
 
-// Issue454CSource builds the deterministic issue #454 C workload. The first
-// local variable contains the edit site for the x0 to 0 deletion (a
+// Issue454CSource builds an internal approximation of the issue 454 C workload.
+// The first local variable contains the edit site for the x0 to 0 deletion (a
 // transient-error edit: the declarator "x0" loses its leading letter and
 // becomes the bare integer literal "0").
 func Issue454CSource() []byte {

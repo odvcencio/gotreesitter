@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-// Issue454PHPFixtureBytes is the exact size of the downstream PHP edit
-// workload reported in issue #454.
+// Issue454PHPFixtureBytes is the internal PHP regression size.
+// The reporter generator grows past its target and does not pad to this size.
 const Issue454PHPFixtureBytes = 137 * 1024
 
-// Issue454PHPSource builds the deterministic issue #454 PHP workload. The
-// first local variable contains the edit site for the $x0 to $0 deletion.
+// Issue454PHPSource builds an internal approximation of the issue 454 PHP workload.
+// The first local variable contains the edit site for the $x0 to $0 deletion.
 func Issue454PHPSource() []byte {
 	var source strings.Builder
 	source.Grow(Issue454PHPFixtureBytes)

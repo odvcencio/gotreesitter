@@ -1,0 +1,427 @@
+{
+  "schema": "gotreesitter-issue454-field-matrix/v1",
+  "spec": "spec.issue454-field-matrix.v1",
+  "g1_status": "in_progress_missing_reporter_sources",
+  "provenance": {
+    "issue_url": "https://github.com/odvcencio/gotreesitter/issues/454",
+    "issue_body_sha256": "a8d8195d1872540b459c6832a0d164a7a63a669e1f595f6e3265c49b9a9b91fe",
+    "reports": [
+      {
+        "comment_id": 5060588126,
+        "url": "https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-5060588126",
+        "body_sha256": "a0cb6a30905eb9bd27edb6c5f4c10b220cfec0eb86233c65b716181cdcdb7001"
+      },
+      {
+        "comment_id": 5152318747,
+        "url": "https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-5152318747",
+        "body_sha256": "4cadb449284f3b2e43f248e0c8e6f0ccff4605b715b4c96ab3e681de2a01f817"
+      },
+      {
+        "comment_id": 5188399245,
+        "url": "https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-5188399245",
+        "body_sha256": "f19ee61dfd5c96f5af4489fb88c047bb14efb9b520792da5920b65b6e2a1abdd"
+      },
+      {
+        "comment_id": 5190539569,
+        "url": "https://github.com/odvcencio/gotreesitter/issues/454#issuecomment-5190539569",
+        "body_sha256": "0eea93a232d7e48f976a581c9f2292e5ba90010cb91ad592e2d3a0827c02adce"
+      }
+    ]
+  },
+  "execution": {
+    "gotreesitter_revision": "9036bbb47f2a2bc5c5ea8f5188913b4827571476",
+    "grammar_blob_receipt": "testdata/c4_table_shape_fleet.json",
+    "module_version": "v0.48.1-0.20260804231015-9036bbb47f2a",
+    "reporter_go_version": "go1.26.4",
+    "reporter_platforms": ["windows/arm64", "windows/amd64"],
+    "source_growth": "append_complete_records_while_len_is_below_target",
+    "process_scope": "one_language_per_process",
+    "seed_process_scope": "one_seed_per_process",
+    "comparison_samples": "median_of_9_warm_runs_or_1_when_over_300ms",
+    "base_candidate_order": "randomized_per_seed",
+    "edit_order": "randomized_per_seed",
+    "shuffle_seeds": [104729, 130363, 155921, 181081, 206369, 231701, 257053, 282371, 307723, 333017, 358373, 383681, 409043, 434353, 459677, 484981, 510337, 535657, 560969, 586301],
+    "edit_classes": ["replace", "insert", "delete"]
+  },
+  "grammars": [
+    {"name": "bash", "blob_sha256": "a3e898c88f6ad918d4d619dff2a4e74d613bda93c90e4a3f9fb7587c1952f3fb"},
+    {"name": "c", "blob_sha256": "9aee42825fd1446ce5b754951db26edadcdba5d2f26b61578a30e87ed2dbbd3c"},
+    {"name": "c_sharp", "blob_sha256": "7ad425e89733339dde94e3c03b762ae478fb453b530493f5d62e1ae7537e1784"},
+    {"name": "cmake", "blob_sha256": "de536323fb3fa89451fba03cd6accdbd4be42110793a25320987b5a9a50d32e2"},
+    {"name": "css", "blob_sha256": "ac216cbb231ef051ea76e0e039e779a2a887bd94e4362f9894af901138e09426"},
+    {"name": "csv", "blob_sha256": "1807b930c4e4116baa77dd1631d1879befc87b8421020dd4d11ba18ac00099f5"},
+    {"name": "dart", "blob_sha256": "06bac15a9921a2e6af2810fb37ecb29a358b120e137345b9af5fb5f6c6632f59"},
+    {"name": "groovy", "blob_sha256": "a1d1bb30d9971f1c3d645aab456521943a5f0da419b57a0986fc9b2a502a90d9"},
+    {"name": "haskell", "blob_sha256": "fcfc8794bca4442ebf5688d88e2397c78a22c8f0b585c4e1b868986cfa52dd09"},
+    {"name": "html", "blob_sha256": "76d3d788ec44b5eaeaa0b3b0069bf52ffc4b125791059ff743301b9938dffd3d"},
+    {"name": "ini", "blob_sha256": "889b7add01c97922db1579ca2328290400b2636856b4650cffb1756fb12d759b"},
+    {"name": "javascript", "blob_sha256": "6706f93890f24d8ea90d6a140df5dde29c02ec8a3213bae16e8cc4df37e33ee0"},
+    {"name": "json", "blob_sha256": "08daed821da265060c8b368243148533cb90eb980bfbd5f0a12ab5111088cf48"},
+    {"name": "markdown", "blob_sha256": "59899aaedfe488c6da35a298e037ea06093858809bd8fc958d99dc57cc1226d6"},
+    {"name": "php", "blob_sha256": "15724627db479c27304b43fa3b5ef7d8d81f85e3b9ce6d8575a847b2dbaa5cd5"},
+    {"name": "python", "blob_sha256": "cde4a67dc6af6e1232dbbd1eab8618478d1d73727020e8a8002542390a452d37"},
+    {"name": "scss", "blob_sha256": "0646d27248a96d865a717a2a020ede70762b8a0542fac32a316b34248af9a50e"},
+    {"name": "sql", "blob_sha256": "e21421cbab52b54cf5ba15c8f78a2bb4729bf4e8c0da14368069e897de451268"},
+    {"name": "toml", "blob_sha256": "119bfe03294fe87f8b36d5ae7906f1dc919432f5949652b2be35ac48c456c076"},
+    {"name": "tsx", "blob_sha256": "bf8c490b0bbeb6d4150abce2edc193552e44b093893665dde69bd39e9e940e85"},
+    {"name": "typescript", "blob_sha256": "46d8d4f7a0056db32e874500ae5b19170237e1628a63a9e3a401e0ee426d6126"},
+    {"name": "yaml", "blob_sha256": "c1271d783a5c1a685dc119ea3b012bf721dc1ba411110993e9aee8686e9bd1c5"}
+  ],
+  "fixtures": [
+    {
+      "id": "python-repeated-functions-v1",
+      "languages": ["python"],
+      "source_status": "verbatim_public",
+      "generator_function": "Issue454ReporterPythonSource",
+      "template_sha256": "5e7ea8c14f5daaf778b2f8514884de5ce8161bf3d7cd8baba4d2c6129990d7b6",
+      "marker": "x0",
+      "site": {"byte": 18, "row": 1, "column": 4},
+      "targets": [
+        {
+          "target_bytes": 140288,
+          "source_bytes": 140363,
+          "source_sha256": "3bbfe083cbe4b958ec90ddb88a91c44fbe35a22e9c33df374e533830ec23bd8b",
+          "edits": {
+            "replace": {"source_bytes": 140363, "source_sha256": "782917dcbaf0a4e257637ee9dbe48dcecf728cf7b8f83724f016979adef7c92f"},
+            "insert": {"source_bytes": 140364, "source_sha256": "5a8495ff8192d5b1ccf50e5aa4c4a1b7a05bf75192f8b7780ab3c0f0bc226ebd"},
+            "delete": {"source_bytes": 140362, "source_sha256": "946f4adda1df670cf07745b100262ab00847b61549775bf45265275f7ae85212"}
+          }
+        }
+      ],
+      "pending_fields": []
+    },
+    {
+      "id": "javascript-repeated-functions-v1",
+      "languages": ["javascript"],
+      "source_status": "verbatim_public",
+      "generator_function": "Issue454ReporterJavaScriptSource",
+      "template_sha256": "439dd86ed529d2cc841834a30d0b3a4bca2db0357c13f4e2ea762475f2c2b91e",
+      "marker": "x0",
+      "site": {"byte": 26, "row": 1, "column": 5},
+      "targets": [
+        {
+          "target_bytes": 140288,
+          "source_bytes": 140324,
+          "source_sha256": "7bba7daac9f6227d7ba4f1284e5498b3ad7434209e712ecc5826529d364ffa81",
+          "edits": {
+            "replace": {"source_bytes": 140324, "source_sha256": "6a67967dbbd1acaf31ee7b5812acfc0a445ac486e797c3545553d7ae5aeeca3e"},
+            "insert": {"source_bytes": 140325, "source_sha256": "a7141f9eb0af518e2d96deeb0064f20718e2360d9a71389208cdfbb53c8f982b"},
+            "delete": {"source_bytes": 140323, "source_sha256": "13bf312c411e3ad3b9333c7f9e40e633fe1b2f7c6371c15c853241f42eeeb875"}
+          }
+        },
+        {
+          "target_bytes": 1048576,
+          "source_bytes": 1048595,
+          "source_sha256": "83736a163575fad7b50ab714227b59e9153107074dd23826a1276e6bf19128cb",
+          "edits": {
+            "replace": {"source_bytes": 1048595, "source_sha256": "bfa95cb9b52fc15f0564ac0e0ca6541d8c99f41ea295947d8ba3fff2621cd460"},
+            "insert": {"source_bytes": 1048596, "source_sha256": "da339744af71d4ee97b43246114a55149e59332ace10b0ab4760a43eebfec482"},
+            "delete": {"source_bytes": 1048594, "source_sha256": "d72813897371136db1fc0410585fe79642d4506e0daec28b5eed897a7e856b56"}
+          }
+        }
+      ],
+      "pending_fields": []
+    },
+    {
+      "id": "typescript-repeated-functions-v1",
+      "languages": ["typescript"],
+      "source_status": "verbatim_public",
+      "generator_function": "Issue454ReporterTypeScriptSource",
+      "template_sha256": "b4dfb4760408a3ec513e5b3555d56a1b37157a4a061f234e484ed744f029dc1f",
+      "marker": "x0",
+      "site": {"byte": 52, "row": 1, "column": 7},
+      "targets": [
+        {
+          "target_bytes": 140288,
+          "source_bytes": 140374,
+          "source_sha256": "0f18a07b1757f1b2179c901fff6d31f4f76e482c298c31dfbdbbc150e6d4843d",
+          "edits": {
+            "replace": {"source_bytes": 140374, "source_sha256": "1ae1981613a0306c6347bdbf07f33e997d2ad3f8793fa4c476cfb52d762e1bf2"},
+            "insert": {"source_bytes": 140375, "source_sha256": "2d5d9d727350dcaedfea58710cbf981291b853c034914486d838fc4b0d1a083e"},
+            "delete": {"source_bytes": 140373, "source_sha256": "166588ad98fc8c0e086d3ae6057c1ff946871735e57704d20346f21974bac660"}
+          }
+        },
+        {
+          "target_bytes": 1048576,
+          "source_bytes": 1048660,
+          "source_sha256": "4ef0cd1de44b1ec5560b975a917668f9f09a9db80701b91cd054bf8fbf3fe20e",
+          "edits": {
+            "replace": {"source_bytes": 1048660, "source_sha256": "63a1e2e3fa635e8eaa7c5f56a776a55892ca27c30b08a06fd8bed17a8e482dc1"},
+            "insert": {"source_bytes": 1048661, "source_sha256": "8c8ccd2662458871fc1694ed95953c8a267eb5c0e34aeb15c13783096549f0e5"},
+            "delete": {"source_bytes": 1048659, "source_sha256": "7e72b9e686e64d7af7c37559630237d605151362bfe082ae9290e11a12f8617a"}
+          }
+        }
+      ],
+      "pending_fields": []
+    },
+    {
+      "id": "c-repeated-functions-v1",
+      "languages": ["c"],
+      "source_status": "reporter_source_pending",
+      "generator_function": "",
+      "marker": "x0",
+      "site": {"byte": 48, "row": 3, "column": 5},
+      "targets": [
+        {"target_bytes": 122880, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 126976, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 131072, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 140288, "source_bytes": 140340, "source_sha256": "", "edits": {}}
+      ],
+      "pending_fields": ["generator_source", "source_sha256", "edited_source_sha256"],
+      "internal_fixture": "Issue454CSource",
+      "internal_relation": "different_template_and_exact_length_padding"
+    },
+    {
+      "id": "csharp-repeated-classes-v1",
+      "languages": ["c_sharp"],
+      "source_status": "reporter_source_pending",
+      "generator_function": "",
+      "marker": "x0",
+      "site": {"byte": 63, "row": 4, "column": 6},
+      "targets": [
+        {"target_bytes": 2048, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 4096, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 8192, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 16384, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 32768, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 140288, "source_bytes": 0, "source_sha256": "", "edits": {}}
+      ],
+      "pending_fields": ["generator_layout", "source_sha256", "edited_source_sha256"],
+      "internal_fixture": "issue454CSharpSource",
+      "internal_relation": "different_namespace_and_member_template"
+    },
+    {
+      "id": "dart-repeated-declarations-v1",
+      "languages": ["dart"],
+      "source_status": "reporter_source_pending",
+      "generator_function": "",
+      "marker": "",
+      "site": null,
+      "targets": [
+        {"target_bytes": 4096, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 8192, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 16384, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 32768, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 65536, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 140288, "source_bytes": 0, "source_sha256": "", "edits": {}}
+      ],
+      "pending_fields": ["generator_source", "source_sha256"]
+    },
+    {
+      "id": "groovy-command-blocks-v1",
+      "languages": ["groovy"],
+      "source_status": "reporter_source_pending",
+      "generator_function": "",
+      "marker": "x0",
+      "site": {"byte": 23, "row": 1, "column": 8},
+      "targets": [
+        {"target_bytes": 2048, "source_bytes": 2083, "source_sha256": "", "edits": {}},
+        {"target_bytes": 4096, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 8192, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 16384, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 32768, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 65536, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 140288, "source_bytes": 0, "source_sha256": "", "edits": {}}
+      ],
+      "pending_fields": ["generator_source", "source_sha256", "edited_source_sha256"]
+    },
+    {
+      "id": "php-repeated-functions-v1",
+      "languages": ["php"],
+      "source_status": "reporter_source_pending",
+      "generator_function": "",
+      "marker": "x0",
+      "site": {"byte": 32, "row": 3, "column": 2},
+      "targets": [
+        {"target_bytes": 140288, "source_bytes": 0, "source_sha256": "", "edits": {}}
+      ],
+      "pending_fields": ["generator_source", "source_sha256", "edited_source_sha256"],
+      "internal_fixture": "Issue454PHPSource",
+      "internal_relation": "different_template_and_exact_length_padding"
+    },
+    {
+      "id": "flat-root-gamut-v1",
+      "languages": ["sql", "html", "json", "csv"],
+      "source_status": "reporter_source_pending",
+      "generator_function": "",
+      "marker": "",
+      "site": null,
+      "targets": [
+        {"target_bytes": 140288, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 1048576, "source_bytes": 0, "source_sha256": "", "edits": {}}
+      ],
+      "pending_fields": ["generator_sources", "edit_sites", "source_sha256", "edited_source_sha256"]
+    },
+    {
+      "id": "forest-reuse-gamut-v1",
+      "languages": ["css", "scss", "toml", "typescript", "tsx", "ini", "cmake"],
+      "source_status": "reporter_source_pending",
+      "generator_function": "",
+      "marker": "",
+      "site": null,
+      "targets": [
+        {"target_bytes": 140288, "source_bytes": 0, "source_sha256": "", "edits": {}}
+      ],
+      "pending_fields": ["generator_sources", "edited_source_sha256"]
+    },
+    {
+      "id": "haskell-repeated-source-v1",
+      "languages": ["haskell"],
+      "source_status": "reporter_source_pending",
+      "generator_function": "",
+      "marker": "",
+      "site": null,
+      "targets": [
+        {"target_bytes": 32768, "source_bytes": 0, "source_sha256": "", "edits": {}},
+        {"target_bytes": 140288, "source_bytes": 0, "source_sha256": "", "edits": {}}
+      ],
+      "pending_fields": ["generator_source", "source_sha256"]
+    },
+    {
+      "id": "scanner-tail-gamut-v1",
+      "languages": ["python", "markdown", "yaml", "bash"],
+      "source_status": "reporter_source_pending",
+      "generator_function": "",
+      "marker": "",
+      "site": null,
+      "targets": [
+        {"target_bytes": 140288, "source_bytes": 0, "source_sha256": "", "edits": {}}
+      ],
+      "pending_fields": ["generator_sources", "edit_sites", "source_sha256", "edited_source_sha256"]
+    }
+  ],
+  "rows": [
+    {
+      "id": "c-delete-exploration",
+      "stage": "G2_G3",
+      "current_status": "open",
+      "edit_classes": ["delete"],
+      "fixtures": ["c-repeated-functions-v1"],
+      "expected_receipts": [
+        "incremental_equals_fresh_full_digest",
+        "incremental_equals_locked_c_full_digest",
+        "parse_stop_none",
+        "new_nodes_are_source_scaled",
+        "complete_incremental_work_lte_1_10_fresh"
+      ]
+    },
+    {
+      "id": "csharp-full-scaling",
+      "stage": "G4",
+      "current_status": "open",
+      "edit_classes": ["full"],
+      "fixtures": ["csharp-repeated-classes-v1"],
+      "expected_receipts": [
+        "fresh_equals_locked_c_full_digest",
+        "bounded_completion_at_every_size",
+        "work_per_byte_band_lte_1_25"
+      ]
+    },
+    {
+      "id": "dart-full-scaling",
+      "stage": "G4",
+      "current_status": "open",
+      "edit_classes": ["full"],
+      "fixtures": ["dart-repeated-declarations-v1"],
+      "expected_receipts": [
+        "fresh_full_digest_is_stable",
+        "bounded_completion_at_every_size",
+        "work_per_byte_band_lte_1_25"
+      ]
+    },
+    {
+      "id": "python-delete-error-path",
+      "stage": "G3",
+      "current_status": "open",
+      "edit_classes": ["delete"],
+      "fixtures": ["python-repeated-functions-v1"],
+      "expected_receipts": [
+        "incremental_equals_fresh_full_digest",
+        "decline_precedes_large_scheduler_growth",
+        "complete_incremental_work_lte_1_10_fresh"
+      ]
+    },
+    {
+      "id": "javascript-settling",
+      "stage": "G5",
+      "current_status": "open",
+      "edit_classes": ["replace", "insert", "delete"],
+      "fixtures": ["javascript-repeated-functions-v1", "typescript-repeated-functions-v1"],
+      "expected_receipts": [
+        "incremental_equals_fresh_full_digest",
+        "settling_work_lt_fresh_work",
+        "typescript_and_tsx_do_not_regress"
+      ]
+    },
+    {
+      "id": "flat-root-conversion",
+      "stage": "G5",
+      "current_status": "open",
+      "edit_classes": ["replace", "insert", "delete"],
+      "fixtures": ["flat-root-gamut-v1"],
+      "expected_receipts": [
+        "incremental_equals_fresh_full_digest",
+        "rejected_root_counts_fall",
+        "incremental_work_lt_fresh_work"
+      ]
+    },
+    {
+      "id": "groovy-length-edits",
+      "stage": "G2",
+      "current_status": "open",
+      "edit_classes": ["replace", "insert", "delete"],
+      "fixtures": ["groovy-command-blocks-v1"],
+      "expected_receipts": [
+        "incremental_equals_fresh_full_digest",
+        "incremental_equals_locked_c_full_digest"
+      ]
+    },
+    {
+      "id": "forest-reuse-safety",
+      "stage": "G2",
+      "current_status": "open",
+      "edit_classes": ["replace", "insert", "delete"],
+      "fixtures": ["forest-reuse-gamut-v1"],
+      "expected_receipts": [
+        "normal_parse_keeps_proven_reuse",
+        "incremental_equals_fresh_full_digest",
+        "reused_byte_share_drop_lte_5_points"
+      ]
+    },
+    {
+      "id": "haskell-forest-safety",
+      "stage": "G2_G4",
+      "current_status": "open",
+      "edit_classes": ["full", "replace", "insert", "delete"],
+      "fixtures": ["haskell-repeated-source-v1"],
+      "expected_receipts": [
+        "unproven_normal_route_is_failed_closed",
+        "full_work_stays_in_prior_band",
+        "full_time_stays_in_prior_band"
+      ]
+    },
+    {
+      "id": "php-deletion",
+      "stage": "G2",
+      "current_status": "fixed_internally",
+      "edit_classes": ["delete"],
+      "fixtures": ["php-repeated-functions-v1"],
+      "expected_receipts": [
+        "incremental_equals_fresh_full_digest",
+        "incremental_equals_locked_c_full_digest",
+        "permanent_regression_row_remains_green"
+      ]
+    },
+    {
+      "id": "scanner-tail",
+      "stage": "G2_G5",
+      "current_status": "open",
+      "edit_classes": ["replace", "insert", "delete"],
+      "fixtures": ["scanner-tail-gamut-v1"],
+      "expected_receipts": [
+        "exact_checkpoint_receipt_or_failed_closed_route",
+        "incremental_equals_fresh_full_digest"
+      ]
+    }
+  ]
+}
