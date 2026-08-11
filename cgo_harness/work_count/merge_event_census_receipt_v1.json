@@ -1,0 +1,271 @@
+{
+  "schema": "gts-merge-census-receipt/v1",
+  "spec": "spec.merge-time-election.v1#M0",
+  "purpose": "Preserve the measured M0 baseline and its evidence limits.",
+  "result": {
+    "instrument": "complete",
+    "constructed_census": "complete",
+    "foo_int_a_discriminator": "complete",
+    "real_corpus": "not_measured",
+    "compact_fold_count": "not_exposed",
+    "stage_m0": "open_until_real_corpus_receipt"
+  },
+  "provenance": {
+    "repository": "odvcencio/gotreesitter",
+    "head_sha": "f13d192e7e768639821c93a40a3f83b477ed66de",
+    "m0_commit": "596b9bd0eaec3303fc78cf75c5ddcf6d80bd1cac",
+    "workflow_run_id": 31505332215,
+    "workflow_run_url": "https://github.com/odvcencio/gotreesitter/actions/runs/31505332215",
+    "job_id": 93825532830,
+    "job_name": "merge-event-census-cgo",
+    "behavior_change": false,
+    "reference": {
+      "runtime": "tree-sitter-c",
+      "version": "0.25.1",
+      "commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
+      "go_runtime_module": "github.com/tree-sitter/go-tree-sitter@v0.25.0",
+      "runtime_tree_sha256": "3b22a44edd412230a555dd3a78c14d45aafadd0033aa8f5d2516d016ab21dbb2"
+    },
+    "instrumentation": {
+      "patch": "cgo_harness/work_count/tree_sitter_v0_25_1.patch",
+      "patch_sha256": "4b7cadd46ebbbb73b8883d6bd634f9bf6bd5b3001333dae9bfcbedd5fbea4bf1",
+      "driver": "cgo_harness/pure_c/merge_census_oracle.c",
+      "driver_sha256": "7f93a00213c5d69d1bc9e8eca7da2237b2f7dd8780b51cdc3b5b8df0ae6aec37"
+    }
+  },
+  "constructed": {
+    "source_count": 104,
+    "totals": {
+      "c_merge_attempts": 1432,
+      "c_merge_successes": 191,
+      "go_merge_attempts": 308,
+      "go_merge_successes": 15,
+      "sources_where_c_merges_and_go_does_not": 22,
+      "sources_where_go_over_merges": 0,
+      "refusals": {
+        "no_gss_head_one_flat": 142,
+        "no_gss_head_both_flat": 0,
+        "score_or_shifted": 92,
+        "state_or_offset": 0,
+        "clean_zero": 0,
+        "error_cost": 0,
+        "distinct_shapes": 59,
+        "status": 0,
+        "merge_failed": 0
+      },
+      "tier2_link_payload": {
+        "tests": 41,
+        "deep_accepts": 29,
+        "deep_refusals": 12,
+        "shallow_would_accept": 10,
+        "deep_would_accept": 0,
+        "pending": 0
+      },
+      "compact": {
+        "accepted_sources": 87,
+        "link_union_attempts": 119,
+        "link_union_alternate_appends": 119
+      }
+    },
+    "languages": [
+      {
+        "name": "apex",
+        "source_count": 25,
+        "c_merge_attempts": 399,
+        "c_merge_successes": 31,
+        "go_merge_attempts": 107,
+        "go_merge_successes": 1,
+        "sources_where_c_merges_and_go_does_not": 5,
+        "refusals": {
+          "no_gss_head_one_flat": 53,
+          "score_or_shifted": 0,
+          "distinct_shapes": 53
+        },
+        "tier2_link_payload": {
+          "tests": 9,
+          "deep_accepts": 9,
+          "deep_refusals": 0,
+          "shallow_would_accept": 0
+        },
+        "compact": {
+          "accepted_sources": 21,
+          "link_union_attempts": 0,
+          "link_union_alternate_appends": 0
+        }
+      },
+      {
+        "name": "perl",
+        "source_count": 17,
+        "c_merge_attempts": 237,
+        "c_merge_successes": 57,
+        "go_merge_attempts": 43,
+        "go_merge_successes": 0,
+        "sources_where_c_merges_and_go_does_not": 7,
+        "refusals": {
+          "no_gss_head_one_flat": 43,
+          "score_or_shifted": 0,
+          "distinct_shapes": 0
+        },
+        "tier2_link_payload": {
+          "tests": 0,
+          "deep_accepts": 0,
+          "deep_refusals": 0,
+          "shallow_would_accept": 0
+        },
+        "compact": {
+          "accepted_sources": 14,
+          "link_union_attempts": 51,
+          "link_union_alternate_appends": 51
+        }
+      },
+      {
+        "name": "ada",
+        "source_count": 23,
+        "c_merge_attempts": 359,
+        "c_merge_successes": 47,
+        "go_merge_attempts": 135,
+        "go_merge_successes": 2,
+        "sources_where_c_merges_and_go_does_not": 5,
+        "refusals": {
+          "no_gss_head_one_flat": 35,
+          "score_or_shifted": 92,
+          "distinct_shapes": 6
+        },
+        "tier2_link_payload": {
+          "tests": 18,
+          "deep_accepts": 18,
+          "deep_refusals": 0,
+          "shallow_would_accept": 0
+        },
+        "compact": {
+          "accepted_sources": 20,
+          "link_union_attempts": 34,
+          "link_union_alternate_appends": 34
+        }
+      },
+      {
+        "name": "kotlin",
+        "source_count": 13,
+        "c_merge_attempts": 295,
+        "c_merge_successes": 54,
+        "go_merge_attempts": 14,
+        "go_merge_successes": 12,
+        "sources_where_c_merges_and_go_does_not": 3,
+        "refusals": {
+          "no_gss_head_one_flat": 2,
+          "score_or_shifted": 0,
+          "distinct_shapes": 0
+        },
+        "tier2_link_payload": {
+          "tests": 14,
+          "deep_accepts": 2,
+          "deep_refusals": 12,
+          "shallow_would_accept": 10
+        },
+        "compact": {
+          "accepted_sources": 6,
+          "link_union_attempts": 0,
+          "link_union_alternate_appends": 0
+        }
+      },
+      {
+        "name": "python",
+        "source_count": 26,
+        "c_merge_attempts": 142,
+        "c_merge_successes": 2,
+        "go_merge_attempts": 9,
+        "go_merge_successes": 0,
+        "sources_where_c_merges_and_go_does_not": 2,
+        "refusals": {
+          "no_gss_head_one_flat": 9,
+          "score_or_shifted": 0,
+          "distinct_shapes": 0
+        },
+        "tier2_link_payload": {
+          "tests": 0,
+          "deep_accepts": 0,
+          "deep_refusals": 0,
+          "shallow_would_accept": 0
+        },
+        "compact": {
+          "accepted_sources": 26,
+          "link_union_attempts": 34,
+          "link_union_alternate_appends": 34
+        }
+      }
+    ]
+  },
+  "real_corpus": {
+    "root": "cgo_harness/corpus_real",
+    "required_by_spec": true,
+    "status_in_archived_gate": "empty",
+    "source_count_in_archived_gate": 0,
+    "measured": false,
+    "note": "The archived CI job had no generated real-corpus files. Its zero rows are not a real-corpus measurement.",
+    "next_receipt": "Run the same tagged test with the authenticated corpus lock and replace this section with per-file rows."
+  },
+  "foo_int_a_discriminator": {
+    "control": {
+      "name": "frame_only_g_call",
+      "c_link_union": {
+        "attempts": 3,
+        "duplicate_noop": 2,
+        "precedence_replaced": 0,
+        "recursive_changed": 0,
+        "alternate_appended": 1,
+        "rejected": 0
+      }
+    },
+    "witnesses": [
+      {
+        "name": "foo_int_a",
+        "c_link_union": {
+          "attempts": 11,
+          "duplicate_noop": 6,
+          "precedence_replaced": 0,
+          "recursive_changed": 1,
+          "alternate_appended": 4,
+          "rejected": 0
+        },
+        "delta_over_control": {
+          "attempts": 8,
+          "duplicate_noop": 4,
+          "precedence_replaced": 0,
+          "recursive_changed": 1,
+          "alternate_appended": 3
+        },
+        "verdict": "packed_elected_at_pop"
+      },
+      {
+        "name": "index_call_a_b_c",
+        "delta_over_control": {
+          "attempts": 8,
+          "duplicate_noop": 4,
+          "precedence_replaced": 0,
+          "recursive_changed": 1,
+          "alternate_appended": 3
+        },
+        "verdict": "packed_elected_at_pop"
+      },
+      {
+        "name": "bare_instantiation",
+        "c_link_union": {
+          "attempts": 5,
+          "duplicate_noop": 2,
+          "precedence_replaced": 0,
+          "recursive_changed": 1,
+          "alternate_appended": 2,
+          "rejected": 0
+        },
+        "delta_over_control": {
+          "attempts": 2,
+          "duplicate_noop": 0,
+          "precedence_replaced": 0,
+          "recursive_changed": 1,
+          "alternate_appended": 1
+        },
+        "verdict": "packed_elected_at_pop"
+      }
+    ]
+  }
+}
