@@ -2090,6 +2090,9 @@ func cStackErrorCostForMergeCached(scratch *glrMergeScratch, lang *Language, s *
 	if cost, ok := cStackCleanZeroErrorCostForMerge(scratch, s); ok {
 		return cost
 	}
+	if recoveryRuntimeParser(scratch) != nil {
+		return recoveryRuntimeCostWalk(scratch, lang, s)
+	}
 	return cStackErrorCostForMergeWithScratch(scratch, lang, s)
 }
 
@@ -2100,6 +2103,7 @@ func cRecoveryMergeCostsDiffer(scratch *glrMergeScratch, a, b *glrStack) bool {
 	if !stacksHeaderEquivalent(a, b) {
 		return false
 	}
+	recordRecoveryCostCompetition(scratch)
 	return cStackErrorCostForMergeCached(scratch, scratch.language, a) != cStackErrorCostForMergeCached(scratch, scratch.language, b)
 }
 
@@ -2121,9 +2125,10 @@ func cRecoveryMergeCostsDifferForParser(p *Parser, a, b *glrStack) bool {
 	scratch := p.mergeScratch
 	if scratch == nil {
 		local := glrMergeScratch{
-			language:      p.language,
-			trace:         p.glrTrace,
-			cRecoveryCost: true,
+			language:         p.language,
+			trace:            p.glrTrace,
+			cRecoveryCost:    true,
+			cErrorCostParser: p,
 		}
 		return cRecoveryMergeCostsDiffer(&local, a, b)
 	}

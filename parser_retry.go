@@ -266,6 +266,7 @@ func (p *Parser) retryIncrementalAcceptedErrorWithBaseMergeCap(source []byte, fi
 	}
 
 	p.fullParseRetryPassesTaken++
+	p.recordRecoveryRuntimeRetry("accepted_error_under_wide_incremental_merge")
 	workCountSetNextParseAttempt("incremental_base_merge", "accepted_error_under_wide_incremental_merge")
 	var retryTiming *incrementalParseTiming
 	if timing != nil {
@@ -1721,6 +1722,7 @@ func (p *Parser) retryFullParseForOrigin(source []byte, initialMaxStacks int, tr
 				return nil
 			}
 			p.fullParseRetryPassesTaken++
+			p.recordRecoveryRuntimeRetry(operationCause)
 		}
 		var t0 time.Time
 		if retryDebug {

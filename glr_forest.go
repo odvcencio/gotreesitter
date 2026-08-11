@@ -188,6 +188,7 @@ type parserColdState struct {
 	forestDeclineMemoState
 	cNodeMemoRetainedCache []cNodeMemoCacheEntry
 	cNodeMemoCollisions    uint64
+	recoveryRuntime        recoveryRuntimeTelemetry
 }
 
 func (p *Parser) ensureParserColdState() *parserColdState {

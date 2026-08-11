@@ -813,6 +813,31 @@ type RecoveryNodeMemoRuntime struct {
 	Collisions uint32
 }
 
+// RecoveryRuntimeStats reports opt-in recovery facts for the most recent
+// completed parse attempt on a parser.
+//
+// The default value reports no facts. Enable the telemetry before parsing.
+// Existing tree runtime fields and RecoveryNodeMemoRuntime provide the other
+// B16 facts, including materialization, allocation, stop, and memo metrics.
+type RecoveryRuntimeStats struct {
+	Enabled   bool
+	Completed bool
+
+	RecoveryEntryCount           uint64
+	Strategy1ElectionCount       uint64
+	RecoveryCostCompetitionCount uint64
+	RecoveryCostWalkCount        uint64
+	RecoveryCostWalkNanos        uint64
+	ErrorNodeCount               uint64
+	ErrorSpanBytes               uint32
+	RetryPassCount               uint64
+	RetryReason                  string
+	ErrorModeTokenCount          uint64
+	ScannerResyncCount           uint64
+	LiveVersionCount             uint64
+	PeakLiveVersionCount         uint64
+}
+
 // ParseRuntime captures parser-loop diagnostics for a completed tree.
 type ParseRuntime struct {
 	StopReason     ParseStopReason

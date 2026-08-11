@@ -2,6 +2,8 @@
 
 Status: design brief
 
+The B16.0 implementation receipt is in `docs/b16-r1-recovery-telemetry.md`.
+
 This brief starts the first performance family after the C0f attribution receipt.
 It does not change parser routing, grammar admission, or recovery behavior.
 

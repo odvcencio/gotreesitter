@@ -63,6 +63,46 @@ func TestKDLRecoveryGarbageSuffixExact(t *testing.T) {
 	}
 }
 
+func TestRecoveryRuntimeTelemetry(t *testing.T) {
+	gotreesitter.EnableRecoveryRuntimeTelemetry(true)
+	defer gotreesitter.EnableRecoveryRuntimeTelemetry(false)
+
+	recoveryParser := gotreesitter.NewParser(grammars.KdlLanguage())
+	source := makeKDLRecoveryGarbageSource(12, 24)
+	tree, err := recoveryParser.Parse(source)
+	if err != nil {
+		t.Fatalf("parse recovery telemetry witness: %v", err)
+	}
+	if tree == nil || tree.RootNode() == nil {
+		t.Fatal("recovery telemetry witness returned a nil tree")
+	}
+	stats := recoveryParser.DebugRecoveryRuntimeStats()
+	tree.Release()
+	if !stats.Enabled || !stats.Completed {
+		t.Fatalf("telemetry status = enabled:%v completed:%v, want enabled and completed", stats.Enabled, stats.Completed)
+	}
+	if stats.RecoveryEntryCount == 0 {
+		t.Fatal("recovery entry count = 0, want a recovery witness")
+	}
+	if stats.ErrorNodeCount == 0 || stats.ErrorSpanBytes == 0 {
+		t.Fatalf("error shape = count:%d span:%d, want both non-zero", stats.ErrorNodeCount, stats.ErrorSpanBytes)
+	}
+	if stats.PeakLiveVersionCount == 0 {
+		t.Fatal("peak live version count = 0, want a recovery witness")
+	}
+
+	cleanParser := gotreesitter.NewParser(grammars.GoLanguage())
+	cleanTree, err := cleanParser.Parse([]byte("package p\n"))
+	if err != nil {
+		t.Fatalf("parse clean telemetry control: %v", err)
+	}
+	cleanStats := cleanParser.DebugRecoveryRuntimeStats()
+	cleanTree.Release()
+	if cleanStats.RecoveryEntryCount != 0 || cleanStats.ErrorNodeCount != 0 || cleanStats.ErrorSpanBytes != 0 {
+		t.Fatalf("clean control recorded recovery facts: %+v", cleanStats)
+	}
+}
+
 // makeKDLRecoveryGarbageSource synthesizes a KDL document that reliably
 // drives the C-recovery cost-competition machinery: a valid, node-per-line
 // KDL prefix truncated 70% of the way through, followed by a long run of

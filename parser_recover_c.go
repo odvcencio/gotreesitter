@@ -787,6 +787,7 @@ func (p *Parser) cRecoverAcquireToken(ts TokenSource, stacks []glrStack, source 
 	if p.cRecoverCustomResyncActive {
 		p.cRecoverCustomResyncActive = false
 		if skipper, ok := ts.(interface{ SkipToByte(uint32) Token }); ok {
+			p.recordRecoveryScannerResync()
 			return skipper.SkipToByte(p.cRecoverCustomResyncByte)
 		}
 	}
@@ -910,6 +911,7 @@ func (p *Parser) cRecoverResumeLookahead(source []byte, s *glrStack, tok Token) 
 	p.cRecoverSharedTokenErrorModeLexed = true
 	p.cRecoverCustomResyncActive = true
 	p.cRecoverCustomResyncByte = relexed.EndByte
+	p.recordRecoveryErrorModeToken()
 	return relexed, true
 }
 
@@ -983,6 +985,7 @@ func (p *Parser) cRecoverInternalErrorModeToken(ts TokenSource, stacks []glrStac
 	p.cRecoverSharedTokenErrorModeLexed = true
 	p.cRecoverCustomResyncActive = true
 	p.cRecoverCustomResyncByte = tok.EndByte
+	p.recordRecoveryErrorModeToken()
 	return tok, true
 }
 
@@ -3187,6 +3190,7 @@ func (p *Parser) cTerminalNextState(state StateID, sym Symbol) (StateID, ParseAc
 // missing-token versions and strategy-1 recoveries) — the caller must force a
 // re-dispatch pass for the same token.
 func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) (cRecoverOutcome, bool, ParseStopReason) {
+	p.recordRecoveryEntry()
 	// C-recovery reads raw shapes unconditionally once it runs (see
 	// cSelectReplacementParentEntry / compareRawStackEntries), and its
 	// version-spawning (cRecoverToState and friends) creates multi-stack
@@ -3453,6 +3457,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 			v.dead = true
 		}
 	}
+	p.recordRecoveryLiveVersions(*stacks)
 	return outcome, needsRedispatch, ParseStopNone
 }
 
@@ -3693,6 +3698,7 @@ func (p *Parser) cRecoverElectionLookaheadSymbol(source []byte, member *glrStack
 //   - entries are deduped on (depth, state) at first encounter, mirroring
 //     ts_stack_record_summary's record-time dedup across the merged paths.
 func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup, source []byte, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) (didRecover, forked bool, reason ParseStopReason) {
+	p.recordStrategy1Election()
 	checkStop := func() ParseStopReason {
 		if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
 			return reason
@@ -3836,6 +3842,7 @@ func (p *Parser) cRecoverStrategy1Election(stacks *[]glrStack, group *cRecGroup,
 				}
 				fork.branchOrder = (*stacks)[mi].branchOrder
 				*stacks = append(*stacks, fork)
+				p.recordRecoveryLiveVersions(*stacks)
 				if nodeCount != nil {
 					*nodeCount = *nodeCount + 1
 				}

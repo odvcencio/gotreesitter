@@ -4437,6 +4437,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	defer releaseParserScratch(scratch, deferParentLinks)
 	p.reduceScratch = &scratch.reduce
 	p.mergeScratch = &scratch.merge
+	p.beginRecoveryRuntimeTelemetry()
 	// budgetScratch is saved and restored, not just cleared, unlike its
 	// siblings above: a nested parseInternal call (a retry or compat-
 	// normalization sub-parse reachable from this call's own body, however
@@ -5002,6 +5003,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		recordParseRuntimeMaterializationTiming(&parseRuntime, materializationTimingRef, materializationTiming)
 		recordParseRuntimeTokenStats(&parseRuntime, perfTokensConsumed, lastTokenEndByte, lastTokenSymbol, lastTokenWasEOF, tokenSourceEOFEarly)
 		recordParseRuntimeRootStats(&parseRuntime, tree, source, expectedEOFByte, p.included, scratch.audit.enabled || (arena != nil && arena.breakdownEnabled), p.language)
+		p.finishRecoveryRuntimeTelemetry(tree, stacks)
 		recordStopDiagnostic(parseRuntime.StopReason, tree)
 		p.copyNormalizationStats(&parseRuntime)
 		if tree != nil {
