@@ -4,12 +4,14 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
 func TestKDLRecoveryGarbageSuffixExact(t *testing.T) {
@@ -246,4 +248,147 @@ func BenchmarkRecoveryCorpusFile(b *testing.B) {
 	b.ReportMetric(float64(memoEntries)/float64(b.N), "memo_entries/op")
 	b.ReportMetric(float64(memoBytes)/float64(b.N), "memo_bytes/op")
 	b.ReportMetric(float64(memoCollisions)/float64(b.N), "memo_collisions/op")
+}
+
+// TestSwiftRecoveryTelemetryWitnesses records the first B16.1 witness matrix
+// for the outside-reported Swift recovery-cost and parity issues.
+//
+// Keep this test diagnostic-only. It records Go facts and tree identity for
+// one language. The locked-C parity and performance receipts remain separate.
+func TestSwiftRecoveryTelemetryWitnesses(t *testing.T) {
+	gotreesitter.EnableRecoveryRuntimeTelemetry(true)
+	t.Cleanup(func() { gotreesitter.EnableRecoveryRuntimeTelemetry(false) })
+	previousAdmissionRoute := gotreesitter.AdmissionCandidateRouteDefault()
+	gotreesitter.SetAdmissionCandidateRouteDefault(false)
+	t.Cleanup(func() { gotreesitter.SetAdmissionCandidateRouteDefault(previousAdmissionRoute) })
+
+	const swiftGrammarLockCommit = "41d6e5fe811ec94229ee71771174a8cce558dfee"
+	witnesses := []struct {
+		name         string
+		issue        string
+		path         string
+		wantHasError bool
+	}{
+		{
+			name:         "swift-586-floating-point",
+			issue:        "#586/#576",
+			path:         filepath.Join("grammars", "testdata", "swift_corpus", "stdlib_FloatingPointToString.swift"),
+			wantHasError: true,
+		},
+		{
+			name:         "swift-576-collection-algorithms",
+			issue:        "#576",
+			path:         filepath.Join("grammars", "testdata", "swift_corpus", "stdlib_CollectionAlgorithms.swift"),
+			wantHasError: true,
+		},
+		{
+			name:         "swift-clean-control",
+			issue:        "control",
+			path:         "",
+			wantHasError: false,
+		},
+	}
+
+	for _, witness := range witnesses {
+		t.Run(witness.name, func(t *testing.T) {
+			var source []byte
+			var err error
+			if witness.path == "" {
+				source = []byte("let answer = 1\n")
+			} else {
+				source, err = os.ReadFile(witness.path)
+				if err != nil {
+					t.Fatalf("read Swift witness %q: %v", witness.path, err)
+				}
+			}
+
+			lang := grammars.SwiftLanguage()
+			parser := gotreesitter.NewParser(lang)
+			started := time.Now()
+			tree, parseErr := parser.Parse(source)
+			elapsed := time.Since(started)
+			if parseErr != nil {
+				t.Fatalf("parse Swift witness: %v", parseErr)
+			}
+			if tree == nil || tree.RootNode() == nil {
+				t.Fatal("Swift witness returned a nil tree")
+			}
+			root := tree.RootNode()
+			runtime := tree.ParseRuntime()
+			memo := tree.RecoveryNodeMemoRuntime()
+			stats := parser.DebugRecoveryRuntimeStats()
+			inspection, err := benchfixtures.InspectGoTree(root, lang)
+			if err != nil {
+				tree.Release()
+				t.Fatalf("inspect Swift witness tree: %v", err)
+			}
+
+			hasError := root.HasError()
+			fullSpan := root.StartByte() == 0 && root.EndByte() == uint32(len(source))
+			if hasError != witness.wantHasError {
+				tree.Release()
+				t.Fatalf("HasError() = %v, want %v", hasError, witness.wantHasError)
+			}
+			if !fullSpan {
+				tree.Release()
+				t.Fatalf("root span = %d..%d, want 0..%d", root.StartByte(), root.EndByte(), len(source))
+			}
+			if !stats.Enabled || !stats.Completed {
+				tree.Release()
+				t.Fatalf("telemetry status = enabled:%v completed:%v, want enabled and completed", stats.Enabled, stats.Completed)
+			}
+			if witness.wantHasError && (stats.RecoveryEntryCount == 0 || stats.ErrorNodeCount == 0) {
+				tree.Release()
+				t.Fatalf("error witness lacks recovery facts: %+v", stats)
+			}
+			if !witness.wantHasError && (stats.RecoveryEntryCount != 0 || stats.ErrorNodeCount != 0 || stats.ErrorSpanBytes != 0) {
+				tree.Release()
+				t.Fatalf("clean control recorded recovery facts: %+v", stats)
+			}
+
+			sourceDigest := sha256.Sum256(source)
+			t.Logf("B16_WITNESS version=1 name=%s issue=%s source_sha256=%x source_bytes=%d grammar=swift grammar_lock_commit=%s result_class=%s full_span=%t go_deep_sha256=%s parse_wall_ns=%d measured_wall_ns=%d stop_reason=%s truncated=%t recovery_entries=%d strategy1_elections=%d cost_competitions=%d cost_walks=%d cost_walk_ns=%d error_nodes=%d error_span_bytes=%d retry_passes=%d retry_reason=%q error_mode_tokens=%d scanner_resync=%d live_versions=%d peak_live_versions=%d reduction_ceiling_hits=%d reduction_attempts_peak=%d missing_ceiling_hits=%d missing_attempts_peak=%d memo_tier=%d memo_entries=%d memo_bytes=%d memo_collisions=%d arena_bytes=%d scratch_bytes=%d entry_scratch_bytes=%d gss_bytes=%d gss_nodes=%d max_stacks=%d",
+				witness.name,
+				witness.issue,
+				sourceDigest,
+				len(source),
+				swiftGrammarLockCommit,
+				map[bool]string{true: "error", false: "clean"}[hasError],
+				fullSpan,
+				inspection.SHA256,
+				runtime.ParseWallNanos,
+				elapsed.Nanoseconds(),
+				runtime.StopReason,
+				runtime.Truncated,
+				stats.RecoveryEntryCount,
+				stats.Strategy1ElectionCount,
+				stats.RecoveryCostCompetitionCount,
+				stats.RecoveryCostWalkCount,
+				stats.RecoveryCostWalkNanos,
+				stats.ErrorNodeCount,
+				stats.ErrorSpanBytes,
+				stats.RetryPassCount,
+				stats.RetryReason,
+				stats.ErrorModeTokenCount,
+				stats.ScannerResyncCount,
+				stats.LiveVersionCount,
+				stats.PeakLiveVersionCount,
+				runtime.CRecoverReductionCandidateCeilingHits,
+				runtime.CRecoverReductionCandidateAttemptsPeak,
+				runtime.CRecoverMissingTokenCeilingHits,
+				runtime.CRecoverMissingTokenTrialAttemptsPeak,
+				memo.PeakTier,
+				memo.PeakTier.Entries(),
+				memo.PeakTier.Bytes(),
+				memo.Collisions,
+				runtime.ArenaBytesAllocated,
+				runtime.ScratchBytesAllocated,
+				runtime.EntryScratchBytesAllocated,
+				runtime.GSSBytesAllocated,
+				runtime.GSSNodesUsed,
+				runtime.MaxStacksSeen,
+			)
+			tree.Release()
+		})
+	}
 }
