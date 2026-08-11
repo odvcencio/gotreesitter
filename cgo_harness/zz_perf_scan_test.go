@@ -68,35 +68,36 @@ import (
 const (
 	perfScanSchema = "gts-perf-scan/v2"
 
-	perfScanEnvGate         = "GTS_PERF_SCAN"
-	perfScanEnvLang         = "GTS_PERF_SCAN_LANG"
-	perfScanEnvLangs        = "GTS_PERF_SCAN_LANGS"
-	perfScanEnvOut          = "GTS_PERF_SCAN_OUT"
-	perfScanEnvCorpusRoot   = "GTS_PERF_SCAN_CORPUS_ROOT"
-	perfScanEnvReps         = "GTS_PERF_SCAN_REPS"
-	perfScanEnvWarmup       = "GTS_PERF_SCAN_WARMUP"
-	perfScanEnvFileBudget   = "GTS_PERF_SCAN_FILE_BUDGET_MS"
-	perfScanEnvLangTimeout  = "GTS_PERF_SCAN_LANG_TIMEOUT_MS"
-	perfScanEnvMaxFiles     = "GTS_PERF_SCAN_MAX_FILES"
-	perfScanEnvMinBytes     = "GTS_PERF_SCAN_MIN_FILE_BYTES"
-	perfScanEnvMaxBytes     = "GTS_PERF_SCAN_MAX_FILE_BYTES"
-	perfScanEnvExclude      = "GTS_PERF_SCAN_EXCLUDE_PATHS"
-	perfScanEnvOrder        = "GTS_PERF_SCAN_ORDER"
-	perfScanEnvAxes         = "GTS_PERF_SCAN_AXES"
-	perfScanEnvContended    = "GTS_PERF_SCAN_CONTENDED"
-	perfScanEnvInProcess    = "GTS_PERF_SCAN_INPROCESS"
-	perfScanEnvEditCands    = "GTS_PERF_SCAN_EDIT_CANDIDATES"
-	perfScanEnvChildRSSMB   = "GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB"
-	perfScanEnvCgoRSSMB     = "GTS_PERF_SCAN_CGO_ADMISSION_RSS_LIMIT_MB"
-	perfScanEnvCgoResult    = "GTS_PERF_SCAN_CGO_ADMISSION_RESULT"
-	perfScanEnvCgoGrammarSO = "GTS_PERF_SCAN_CGO_ADMISSION_GRAMMAR_SO"
-	perfScanEnvCgoGrammarID = "GTS_PERF_SCAN_CGO_ADMISSION_GRAMMAR_SHA256"
-	perfScanEnvRSSFixture   = "GTS_PERF_SCAN_RSS_FIXTURE"
-	perfScanEnvHardGate     = "GTS_PERF_SCAN_HARD_GATE"
-	perfScanEnvRequireFleet = "GTS_PERF_SCAN_REQUIRE_FLEET"
-	perfScanEnvCorpusLock   = "GTS_REAL_CORPUS_BENCH_LOCK"
-	perfScanEnvRevision     = "GTS_PERF_SCAN_GIT_REVISION"
-	perfScanEnvGitClean     = "GTS_PERF_SCAN_GIT_CLEAN"
+	perfScanEnvGate            = "GTS_PERF_SCAN"
+	perfScanEnvLang            = "GTS_PERF_SCAN_LANG"
+	perfScanEnvLangs           = "GTS_PERF_SCAN_LANGS"
+	perfScanEnvOut             = "GTS_PERF_SCAN_OUT"
+	perfScanEnvCorpusRoot      = "GTS_PERF_SCAN_CORPUS_ROOT"
+	perfScanEnvReps            = "GTS_PERF_SCAN_REPS"
+	perfScanEnvWarmup          = "GTS_PERF_SCAN_WARMUP"
+	perfScanEnvFileBudget      = "GTS_PERF_SCAN_FILE_BUDGET_MS"
+	perfScanEnvLangTimeout     = "GTS_PERF_SCAN_LANG_TIMEOUT_MS"
+	perfScanEnvMaxFiles        = "GTS_PERF_SCAN_MAX_FILES"
+	perfScanEnvMinBytes        = "GTS_PERF_SCAN_MIN_FILE_BYTES"
+	perfScanEnvMaxBytes        = "GTS_PERF_SCAN_MAX_FILE_BYTES"
+	perfScanEnvExclude         = "GTS_PERF_SCAN_EXCLUDE_PATHS"
+	perfScanEnvOrder           = "GTS_PERF_SCAN_ORDER"
+	perfScanEnvAxes            = "GTS_PERF_SCAN_AXES"
+	perfScanEnvContended       = "GTS_PERF_SCAN_CONTENDED"
+	perfScanEnvInProcess       = "GTS_PERF_SCAN_INPROCESS"
+	perfScanEnvEditCands       = "GTS_PERF_SCAN_EDIT_CANDIDATES"
+	perfScanEnvChildRSSMB      = "GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB"
+	perfScanEnvCgoRSSMB        = "GTS_PERF_SCAN_CGO_ADMISSION_RSS_LIMIT_MB"
+	perfScanEnvCgoResult       = "GTS_PERF_SCAN_CGO_ADMISSION_RESULT"
+	perfScanEnvCgoGrammarSO    = "GTS_PERF_SCAN_CGO_ADMISSION_GRAMMAR_SO"
+	perfScanEnvCgoGrammarID    = "GTS_PERF_SCAN_CGO_ADMISSION_GRAMMAR_SHA256"
+	perfScanEnvRSSFixture      = "GTS_PERF_SCAN_RSS_FIXTURE"
+	perfScanEnvHardGate        = "GTS_PERF_SCAN_HARD_GATE"
+	perfScanEnvRequireFleet    = "GTS_PERF_SCAN_REQUIRE_FLEET"
+	perfScanEnvCorpusLock      = "GTS_REAL_CORPUS_BENCH_LOCK"
+	perfScanEnvRevision        = "GTS_PERF_SCAN_GIT_REVISION"
+	perfScanEnvGitClean        = "GTS_PERF_SCAN_GIT_CLEAN"
+	perfScanEnvRuntimeEvidence = "GTS_PERF_SCAN_RUNTIME_EVIDENCE"
 
 	perfScanAxisFull   = "full"
 	perfScanAxisNoEdit = "noedit"
@@ -159,6 +160,7 @@ type perfScanConfig struct {
 	CgoAdmissionRSSMB   int      `json:"cgo_admission_rss_limit_mb,omitempty"`
 	HardGate            bool     `json:"hard_gate"`
 	RequireFleet        bool     `json:"require_fleet"`
+	RuntimeEvidence     bool     `json:"runtime_evidence,omitempty"`
 	CorpusLock          string   `json:"corpus_lock,omitempty"`
 	CorpusLockSHA256    string   `json:"corpus_lock_sha256,omitempty"`
 	CorpusLockLanguages int      `json:"corpus_lock_languages,omitempty"`
@@ -224,17 +226,18 @@ type perfScanFile struct {
 // summaries include stopped files in the non-clean/error side, matching the
 // parse-gap tools' existing Clean=false policy.
 type perfScanFileClassification struct {
-	Class                       string `json:"class"`
-	Reason                      string `json:"reason"`
-	GoStatus                    string `json:"go_status"`
-	FullSpan                    bool   `json:"full_span"`
-	RootHasError                bool   `json:"root_has_error"`
-	StoppedEarly                bool   `json:"stopped_early"`
-	StopReason                  string `json:"stop_reason,omitempty"`
-	RecoveryNodeMemoPeakTier    string `json:"recovery_node_memo_peak_tier,omitempty"`
-	RecoveryNodeMemoPeakEntries uint32 `json:"recovery_node_memo_peak_entries,omitempty"`
-	RecoveryNodeMemoPeakBytes   uint32 `json:"recovery_node_memo_peak_bytes,omitempty"`
-	RecoveryNodeMemoCollisions  uint32 `json:"recovery_node_memo_collisions,omitempty"`
+	Class                       string                   `json:"class"`
+	Reason                      string                   `json:"reason"`
+	GoStatus                    string                   `json:"go_status"`
+	FullSpan                    bool                     `json:"full_span"`
+	RootHasError                bool                     `json:"root_has_error"`
+	StoppedEarly                bool                     `json:"stopped_early"`
+	StopReason                  string                   `json:"stop_reason,omitempty"`
+	RecoveryNodeMemoPeakTier    string                   `json:"recovery_node_memo_peak_tier,omitempty"`
+	RecoveryNodeMemoPeakEntries uint32                   `json:"recovery_node_memo_peak_entries,omitempty"`
+	RecoveryNodeMemoPeakBytes   uint32                   `json:"recovery_node_memo_peak_bytes,omitempty"`
+	RecoveryNodeMemoCollisions  uint32                   `json:"recovery_node_memo_collisions,omitempty"`
+	Runtime                     *perfScanRuntimeEvidence `json:"runtime,omitempty"`
 }
 
 func perfScanRecoveryNodeMemoTierName(tier gotreesitter.RecoveryNodeMemoTier) string {
@@ -370,6 +373,23 @@ func perfScanGateEnabled() bool {
 	return parityEnvBool(perfScanEnvGate, false)
 }
 
+func perfScanRuntimeEvidenceEnabled() bool {
+	return parityEnvBool(perfScanEnvRuntimeEvidence, false)
+}
+
+func perfScanConfigureRuntimeEvidence(t *testing.T) {
+	t.Helper()
+	if !perfScanRuntimeEvidenceEnabled() {
+		return
+	}
+	gotreesitter.EnableRecoveryRuntimeTelemetry(true)
+	gotreesitter.EnableArenaBreakdown(true)
+	t.Cleanup(func() {
+		gotreesitter.EnableArenaBreakdown(false)
+		gotreesitter.EnableRecoveryRuntimeTelemetry(false)
+	})
+}
+
 func perfScanEnvIntDefault(name string, def int) int {
 	raw := strings.TrimSpace(os.Getenv(name))
 	if raw == "" {
@@ -401,10 +421,11 @@ func perfScanLoadConfig() perfScanConfig {
 			perfScanEnvCgoRSSMB,
 			perfScanDefaultCgoAdmissionRSSMB,
 		),
-		HardGate:     parityEnvBool(perfScanEnvHardGate, true),
-		RequireFleet: parityEnvBool(perfScanEnvRequireFleet, requireFleetDefault),
-		CorpusLock:   strings.TrimSpace(os.Getenv(perfScanEnvCorpusLock)),
-		Languages:    perfScanLanguageList(os.Getenv(perfScanEnvLangs)),
+		HardGate:        parityEnvBool(perfScanEnvHardGate, true),
+		RequireFleet:    parityEnvBool(perfScanEnvRequireFleet, requireFleetDefault),
+		RuntimeEvidence: perfScanRuntimeEvidenceEnabled(),
+		CorpusLock:      strings.TrimSpace(os.Getenv(perfScanEnvCorpusLock)),
+		Languages:       perfScanLanguageList(os.Getenv(perfScanEnvLangs)),
 	}
 	if cfg.Reps < 1 {
 		cfg.Reps = 1
@@ -1052,6 +1073,7 @@ func TestPerfScanLanguage(t *testing.T) {
 	if !perfScanGateEnabled() {
 		t.Skipf("set %s=1 to run the perf scan", perfScanEnvGate)
 	}
+	perfScanConfigureRuntimeEvidence(t)
 	lang := strings.TrimSpace(os.Getenv(perfScanEnvLang))
 	if lang == "" {
 		t.Skipf("set %s to a language name (child mode)", perfScanEnvLang)
@@ -1578,11 +1600,172 @@ type perfScanLangMeasurer struct {
 	cFullAttempt  func(src []byte, oldTree *sitter.Tree, keepTree bool) (*sitter.Tree, perfScanAttempt)
 }
 
+// perfScanRuntimeEvidence contains opt-in facts for one retained Go parse.
+// The normal timing lane does not collect these fields.
+type perfScanRuntimeEvidence struct {
+	Recovery *perfScanRecoveryEvidence `json:"recovery,omitempty"`
+	Parse    *perfScanParseEvidence    `json:"parse,omitempty"`
+	Arena    *perfScanArenaEvidence    `json:"arena,omitempty"`
+}
+
+type perfScanRecoveryEvidence struct {
+	Enabled                      bool   `json:"enabled"`
+	Completed                    bool   `json:"completed"`
+	RecoveryEntryCount           uint64 `json:"recovery_entry_count"`
+	Strategy1ElectionCount       uint64 `json:"strategy1_election_count"`
+	RecoveryCostCompetitionCount uint64 `json:"recovery_cost_competition_count"`
+	RecoveryCostWalkCount        uint64 `json:"recovery_cost_walk_count"`
+	RecoveryCostWalkNanos        uint64 `json:"recovery_cost_walk_nanos"`
+	ErrorNodeCount               uint64 `json:"error_node_count"`
+	ErrorSpanBytes               uint32 `json:"error_span_bytes"`
+	RetryPassCount               uint64 `json:"retry_pass_count"`
+	RetryReason                  string `json:"retry_reason"`
+	RetryAttemptCount            uint64 `json:"retry_attempt_count"`
+	RetrySelectedAttempt         string `json:"retry_selected_attempt"`
+	RetrySelectedAttemptHasError bool   `json:"retry_selected_attempt_has_error"`
+	RetrySelectedAttemptFullSpan bool   `json:"retry_selected_attempt_full_span"`
+	ErrorModeTokenCount          uint64 `json:"error_mode_token_count"`
+	ScannerResyncCount           uint64 `json:"scanner_resync_count"`
+	LiveVersionCount             uint64 `json:"live_version_count"`
+	PeakLiveVersionCount         uint64 `json:"peak_live_version_count"`
+}
+
+type perfScanParseEvidence struct {
+	ParseWallNanos                      int64  `json:"parse_wall_nanos"`
+	ParserLoopNanos                     int64  `json:"parser_loop_nanos"`
+	TokenNextNanos                      int64  `json:"token_next_nanos"`
+	ActionDispatchNanos                 int64  `json:"action_dispatch_nanos"`
+	ActionLookupNanos                   int64  `json:"action_lookup_nanos"`
+	GLRMergeNanos                       int64  `json:"glr_merge_nanos"`
+	GLRCullNanos                        int64  `json:"glr_cull_nanos"`
+	Iterations                          int    `json:"iterations"`
+	NodesAllocated                      int    `json:"nodes_allocated"`
+	ArenaBytesAllocated                 int64  `json:"arena_bytes_allocated"`
+	ScratchBytesAllocated               int64  `json:"scratch_bytes_allocated"`
+	GSSBytesAllocated                   int64  `json:"gss_bytes_allocated"`
+	GSSNodesAllocated                   uint64 `json:"gss_nodes_allocated"`
+	GSSNodesRetained                    uint64 `json:"gss_nodes_retained"`
+	GSSNodesDroppedSameToken            uint64 `json:"gss_nodes_dropped_same_token"`
+	ParentNodesAllocated                uint64 `json:"parent_nodes_allocated"`
+	ParentNodesRetained                 uint64 `json:"parent_nodes_retained"`
+	LeafNodesAllocated                  uint64 `json:"leaf_nodes_allocated"`
+	LeafNodesRetained                   uint64 `json:"leaf_nodes_retained"`
+	FinalNodes                          uint64 `json:"final_nodes"`
+	ResultSelectionNanos                int64  `json:"result_selection_nanos"`
+	TransientParentMaterializationNanos int64  `json:"transient_parent_materialization_nanos"`
+	TransientChildMaterializationNanos  int64  `json:"transient_child_materialization_nanos"`
+	ResultTreeBuildNanos                int64  `json:"result_tree_build_nanos"`
+	ResultFinalizeRootNanos             int64  `json:"result_finalize_root_nanos"`
+	ResultCompatibilityNanos            int64  `json:"result_compatibility_nanos"`
+	MemoryBudgetBytes                   int64  `json:"memory_budget_bytes"`
+	RuntimeHeapGrowthBytes              uint64 `json:"runtime_heap_growth_bytes"`
+	RuntimeSysGrowthBytes               uint64 `json:"runtime_sys_growth_bytes"`
+}
+
+type perfScanArenaEvidence struct {
+	NodeStructBytesAllocated        int64   `json:"node_struct_bytes_allocated"`
+	RawShapeBytesAllocated          int64   `json:"raw_shape_bytes_allocated"`
+	PendingParentBytesAllocated     int64   `json:"pending_parent_bytes_allocated"`
+	PendingChildEntryBytesAllocated int64   `json:"pending_child_entry_bytes_allocated"`
+	MergeScratchBytesAllocated      int64   `json:"merge_scratch_bytes_allocated"`
+	NodeLiveCount                   uint64  `json:"node_live_count"`
+	NodeCapacityCount               uint64  `json:"node_capacity_count"`
+	NodeCapacityWaste               uint64  `json:"node_capacity_waste"`
+	LargestNodeSlabUsedFraction     float64 `json:"largest_node_slab_used_fraction"`
+}
+
+func perfScanRuntimeEvidenceFromValues(stats gotreesitter.RecoveryRuntimeStats, runtime gotreesitter.ParseRuntime, arena gotreesitter.ArenaBreakdown, arenaOK bool) *perfScanRuntimeEvidence {
+	if !stats.Enabled && !arenaOK {
+		return nil
+	}
+	evidence := &perfScanRuntimeEvidence{
+		Parse: &perfScanParseEvidence{
+			ParseWallNanos:                      runtime.ParseWallNanos,
+			ParserLoopNanos:                     runtime.ParserLoopNanos,
+			TokenNextNanos:                      runtime.TokenNextNanos,
+			ActionDispatchNanos:                 runtime.ActionDispatchNanos,
+			ActionLookupNanos:                   runtime.ActionLookupNanos,
+			GLRMergeNanos:                       runtime.GLRMergeNanos,
+			GLRCullNanos:                        runtime.GLRCullNanos,
+			Iterations:                          runtime.Iterations,
+			NodesAllocated:                      runtime.NodesAllocated,
+			ArenaBytesAllocated:                 runtime.ArenaBytesAllocated,
+			ScratchBytesAllocated:               runtime.ScratchBytesAllocated,
+			GSSBytesAllocated:                   runtime.GSSBytesAllocated,
+			GSSNodesAllocated:                   runtime.GSSNodesAllocated,
+			GSSNodesRetained:                    runtime.GSSNodesRetained,
+			GSSNodesDroppedSameToken:            runtime.GSSNodesDroppedSameToken,
+			ParentNodesAllocated:                runtime.ParentNodesAllocated,
+			ParentNodesRetained:                 runtime.ParentNodesRetained,
+			LeafNodesAllocated:                  runtime.LeafNodesAllocated,
+			LeafNodesRetained:                   runtime.LeafNodesRetained,
+			FinalNodes:                          runtime.FinalNodes,
+			ResultSelectionNanos:                runtime.ResultSelectionNanos,
+			TransientParentMaterializationNanos: runtime.TransientParentMaterializationNanos,
+			TransientChildMaterializationNanos:  runtime.TransientChildMaterializationNanos,
+			ResultTreeBuildNanos:                runtime.ResultTreeBuildNanos,
+			ResultFinalizeRootNanos:             runtime.ResultFinalizeRootNanos,
+			ResultCompatibilityNanos:            runtime.ResultCompatibilityNanos,
+			MemoryBudgetBytes:                   runtime.MemoryBudgetBytes,
+			RuntimeHeapGrowthBytes:              runtime.RuntimeHeapGrowthBytes,
+			RuntimeSysGrowthBytes:               runtime.RuntimeSysGrowthBytes,
+		},
+	}
+	if stats.Enabled {
+		evidence.Recovery = &perfScanRecoveryEvidence{
+			Enabled:                      stats.Enabled,
+			Completed:                    stats.Completed,
+			RecoveryEntryCount:           stats.RecoveryEntryCount,
+			Strategy1ElectionCount:       stats.Strategy1ElectionCount,
+			RecoveryCostCompetitionCount: stats.RecoveryCostCompetitionCount,
+			RecoveryCostWalkCount:        stats.RecoveryCostWalkCount,
+			RecoveryCostWalkNanos:        stats.RecoveryCostWalkNanos,
+			ErrorNodeCount:               stats.ErrorNodeCount,
+			ErrorSpanBytes:               stats.ErrorSpanBytes,
+			RetryPassCount:               stats.RetryPassCount,
+			RetryReason:                  stats.RetryReason,
+			RetryAttemptCount:            stats.RetryAttemptCount,
+			RetrySelectedAttempt:         stats.RetrySelectedAttempt,
+			RetrySelectedAttemptHasError: stats.RetrySelectedAttemptHasError,
+			RetrySelectedAttemptFullSpan: stats.RetrySelectedAttemptFullSpan,
+			ErrorModeTokenCount:          stats.ErrorModeTokenCount,
+			ScannerResyncCount:           stats.ScannerResyncCount,
+			LiveVersionCount:             stats.LiveVersionCount,
+			PeakLiveVersionCount:         stats.PeakLiveVersionCount,
+		}
+	}
+	if arenaOK {
+		evidence.Arena = &perfScanArenaEvidence{
+			NodeStructBytesAllocated:        arena.NodeStructBytesAllocated,
+			RawShapeBytesAllocated:          arena.RawShapeBytesAllocated,
+			PendingParentBytesAllocated:     arena.PendingParentBytesAllocated,
+			PendingChildEntryBytesAllocated: arena.PendingChildEntryBytesAllocated,
+			MergeScratchBytesAllocated:      arena.MergeScratchBytesAllocated,
+			NodeLiveCount:                   arena.NodeLiveCount,
+			NodeCapacityCount:               arena.NodeCapacityCount,
+			NodeCapacityWaste:               arena.NodeCapacityWaste,
+			LargestNodeSlabUsedFraction:     arena.LargestNodeSlabUsedFraction,
+		}
+	}
+	return evidence
+}
+
+func perfScanCaptureRuntimeEvidence(parser *gotreesitter.Parser, tree *gotreesitter.Tree) *perfScanRuntimeEvidence {
+	if parser == nil || tree == nil || !perfScanRuntimeEvidenceEnabled() {
+		return nil
+	}
+	stats := parser.DebugRecoveryRuntimeStats()
+	runtime := tree.ParseRuntime()
+	arena, arenaOK := tree.ArenaBreakdown()
+	return perfScanRuntimeEvidenceFromValues(stats, runtime, arena, arenaOK)
+}
+
 type perfScanAttempt struct {
-	ns     int64
-	status string // "" == ok
-	detail string
-	stop   *perfScanStop
+	ns      int64
+	status  string // "" == ok
+	detail  string
+	stop    *perfScanStop
+	runtime *perfScanRuntimeEvidence
 }
 
 func (m *perfScanLangMeasurer) benchCase(src []byte) realCorpusBenchmarkCase {
@@ -1648,6 +1831,12 @@ func (m *perfScanLangMeasurer) goAttemptFullWithRetention(src []byte, keepTree, 
 		}
 		att.ns = time.Since(start).Nanoseconds()
 	})
+	if panicked == "" && keepTree {
+		// Runtime evidence must not turn an accepted parse into a scan failure.
+		_ = perfScanRecover(func() {
+			att.runtime = perfScanCaptureRuntimeEvidence(m.goPsr, tree)
+		})
+	}
 	return m.classifyGoAttemptWithRetention(tree, err, panicked, src, keepTree, retainRejected, att)
 }
 
@@ -2015,6 +2204,7 @@ func perfScanClassifyGoFull(tree *gotreesitter.Tree, att perfScanAttempt, source
 		Class:    perfScanClassError,
 		Reason:   att.detail,
 		GoStatus: status,
+		Runtime:  att.runtime,
 	}
 	if tree != nil && tree.RootNode() != nil {
 		root := tree.RootNode()
@@ -2544,6 +2734,7 @@ func TestPerfScanSweep(t *testing.T) {
 	if !perfScanGateEnabled() {
 		t.Skipf("set %s=1 to run the perf scan sweep", perfScanEnvGate)
 	}
+	perfScanConfigureRuntimeEvidence(t)
 	if strings.TrimSpace(os.Getenv(perfScanEnvLang)) != "" {
 		t.Skipf("%s is set; refusing to sweep inside a child invocation", perfScanEnvLang)
 	}
@@ -3810,6 +4001,54 @@ func TestPerfScanFullParseClassificationUnit(t *testing.T) {
 	}, len(src))
 	if stopped.Class != perfScanClassStopped || !stopped.StoppedEarly || stopped.StopReason != string(gotreesitter.ParseStopMemoryBudget) || stopped.GoStatus != "go_budget_stop" {
 		t.Fatalf("stopped classification = %+v", stopped)
+	}
+}
+
+func TestPerfScanRuntimeEvidenceUnit(t *testing.T) {
+	stats := gotreesitter.RecoveryRuntimeStats{
+		Enabled:                      true,
+		Completed:                    true,
+		RecoveryEntryCount:           7,
+		RecoveryCostCompetitionCount: 11,
+		RetryAttemptCount:            4,
+		RetrySelectedAttempt:         "initial_merge",
+		RetrySelectedAttemptHasError: true,
+		RetrySelectedAttemptFullSpan: true,
+		PeakLiveVersionCount:         28,
+	}
+	parse := gotreesitter.ParseRuntime{
+		ParseWallNanos:                      1234,
+		TransientParentMaterializationNanos: 567,
+		ResultTreeBuildNanos:                89,
+		NodesAllocated:                      42,
+		FinalNodes:                          19,
+	}
+	arena := gotreesitter.ArenaBreakdown{
+		NodeStructBytesAllocated:    1000,
+		NodeLiveCount:               38,
+		NodeCapacityCount:           64,
+		NodeCapacityWaste:           26,
+		LargestNodeSlabUsedFraction: 0.75,
+	}
+	evidence := perfScanRuntimeEvidenceFromValues(stats, parse, arena, true)
+	if evidence == nil || evidence.Recovery == nil || evidence.Parse == nil || evidence.Arena == nil {
+		t.Fatalf("runtime evidence = %+v, want all sections", evidence)
+	}
+	if evidence.Recovery.RetrySelectedAttempt != "initial_merge" || evidence.Recovery.PeakLiveVersionCount != 28 {
+		t.Fatalf("recovery evidence = %+v", evidence.Recovery)
+	}
+	if evidence.Parse.TransientParentMaterializationNanos != 567 || evidence.Parse.FinalNodes != 19 {
+		t.Fatalf("parse evidence = %+v", evidence.Parse)
+	}
+	if evidence.Arena.NodeLiveCount != 38 || evidence.Arena.NodeCapacityWaste != 26 {
+		t.Fatalf("arena evidence = %+v", evidence.Arena)
+	}
+	encoded, err := json.Marshal(evidence)
+	if err != nil || !strings.Contains(string(encoded), "retry_selected_attempt") {
+		t.Fatalf("marshal runtime evidence: err=%v json=%s", err, encoded)
+	}
+	if got := perfScanRuntimeEvidenceFromValues(gotreesitter.RecoveryRuntimeStats{}, gotreesitter.ParseRuntime{}, gotreesitter.ArenaBreakdown{}, false); got != nil {
+		t.Fatalf("disabled runtime evidence = %+v, want nil", got)
 	}
 }
 
