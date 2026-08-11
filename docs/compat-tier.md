@@ -15,14 +15,15 @@ without updating that registry.
 
 The v1 registry freezes the current source and registry:
 
-- 40 explicit `runLanguageResultCompatibility` switch arms covering 42
-  language names;
+- 40 explicit `runLanguageResultCompatibility` switch arms;
 - one predicate-dispatched COBOL entry matching exactly `cobol` or `COBOL`;
 - zero generic passes after language dispatch;
 - zero post-finalization second-pass fixpoint arms.
 
-That is 41 live registry entries and 44 retired entries. These counts backfill
-earlier retirements. This field repair change does not remove a dispatcher arm.
+The refreshed registry contains 41 live entries and 44 retired entries. It
+names 44 language labels because C/C++, TypeScript/TSX, and the COBOL case
+variants share entries. These counts backfill earlier retirements. This field
+repair change does not remove a dispatcher arm.
 The registry covers
 only this documented internal result-compatibility tier. Scheduler experiments
 and other engine research belong in their owning subsystem's durable traces.
@@ -52,6 +53,42 @@ authoritative owner, witnesses, a retirement condition, coverage fields for
 production/compact/forest/incremental/C-oracle routes, status, and optional
 receipt references. A retired entry remains in the registry with its commit
 and receipt references; deleting the historical record is not retirement.
+
+## A0 R1 denominator receipt
+
+Revision R1 of the campaign requires a current firing witness or a filed
+defect for every live arm. The evidence-only A0 refresh used commit
+`65c9472806bdaa9f98d7eff0e19c0b2d53ef84d5`.
+
+The all-arm runtime probe passed **41 of 41** live entries. Every arm returned
+`checked >= 1`, `run >= 1`, and `nodes_visited > 0` through the production parse
+path with `GTS_DISPATCHER_CENSUS=1`. The exact log is:
+
+`harness_out/docker/20260811T223206Z-a0-all-arm-probe/container.log`
+
+The real-source census observed 20 arm identifiers over 22 language
+directories: 7 inert arms and 13 active arms. Its exact log is:
+
+`harness_out/docker/20260811T222732Z-a0-arm-census/container.log`
+
+The corpus census does not cover these 21 live arms:
+
+`dispatch.ada`, `dispatch.apex`, `dispatch.authzed`, `dispatch.bitbake`,
+`dispatch.cooklang`, `dispatch.corn`, `dispatch.doxygen`, `dispatch.jsdoc`,
+`dispatch.dtd`, `dispatch.enforce`, `dispatch.fidl`, `dispatch.hlsl`,
+`dispatch.hyprlang`, `dispatch.ledger`, `dispatch.ninja`, `dispatch.ql`,
+`dispatch.solidity`, `dispatch.templ`, `dispatch.wgsl`, `dispatch.wolfram`,
+and `predicate.cobol-exact`.
+
+This is defect `A0-CORPUS-001`, an evidence gap. Add a small real-source
+corpus for each arm before using rewrite frequency for retirement or
+attribution. No live arm lacks a firing witness.
+
+The registry still gives every live entry the shared witness path
+`cgo_harness/parity_cgo_test.go` and leaves `receipt_refs` empty. This is
+defect `A0-REGISTRY-002`, a traceability gap. Keep it separate from firing
+coverage. The durable signed receipt is
+`hypha-receipt:2026-08-11:a0-r1-denominator-refresh`.
 
 ## Ownership
 
