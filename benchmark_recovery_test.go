@@ -345,9 +345,19 @@ func TestSwiftRecoveryTelemetryWitnesses(t *testing.T) {
 				tree.Release()
 				t.Fatalf("clean control recorded recovery facts: %+v", stats)
 			}
+			if witness.name == "swift-586-floating-point" {
+				if stats.RetryAttemptCount == 0 || stats.RetrySelectedAttempt == "" {
+					tree.Release()
+					t.Fatalf("#586 lacks selected retry facts: %+v", stats)
+				}
+				if !stats.RetrySelectedAttemptHasError || !stats.RetrySelectedAttemptFullSpan {
+					tree.Release()
+					t.Fatalf("#586 selected retry shape = has_error:%v full_span:%v, want true/true", stats.RetrySelectedAttemptHasError, stats.RetrySelectedAttemptFullSpan)
+				}
+			}
 
 			sourceDigest := sha256.Sum256(source)
-			t.Logf("B16_WITNESS version=1 name=%s issue=%s source_sha256=%x source_bytes=%d grammar=swift grammar_lock_commit=%s result_class=%s full_span=%t go_deep_sha256=%s parse_wall_ns=%d measured_wall_ns=%d stop_reason=%s truncated=%t recovery_entries=%d strategy1_elections=%d cost_competitions=%d cost_walks=%d cost_walk_ns=%d error_nodes=%d error_span_bytes=%d retry_passes=%d retry_reason=%q error_mode_tokens=%d scanner_resync=%d live_versions=%d peak_live_versions=%d reduction_ceiling_hits=%d reduction_attempts_peak=%d missing_ceiling_hits=%d missing_attempts_peak=%d memo_tier=%d memo_entries=%d memo_bytes=%d memo_collisions=%d arena_bytes=%d scratch_bytes=%d entry_scratch_bytes=%d gss_bytes=%d gss_nodes=%d max_stacks=%d",
+			t.Logf("B16_WITNESS version=2 name=%s issue=%s source_sha256=%x source_bytes=%d grammar=swift grammar_lock_commit=%s result_class=%s full_span=%t go_deep_sha256=%s parse_wall_ns=%d measured_wall_ns=%d stop_reason=%s truncated=%t recovery_entries=%d strategy1_elections=%d cost_competitions=%d cost_walks=%d cost_walk_ns=%d error_nodes=%d error_span_bytes=%d retry_passes=%d retry_reason=%q retry_attempts=%d retry_selected=%q retry_selected_has_error=%t retry_selected_full_span=%t error_mode_tokens=%d scanner_resync=%d live_versions=%d peak_live_versions=%d reduction_ceiling_hits=%d reduction_attempts_peak=%d missing_ceiling_hits=%d missing_attempts_peak=%d memo_tier=%d memo_entries=%d memo_bytes=%d memo_collisions=%d arena_bytes=%d scratch_bytes=%d entry_scratch_bytes=%d gss_bytes=%d gss_nodes=%d max_stacks=%d",
 				witness.name,
 				witness.issue,
 				sourceDigest,
@@ -369,6 +379,10 @@ func TestSwiftRecoveryTelemetryWitnesses(t *testing.T) {
 				stats.ErrorSpanBytes,
 				stats.RetryPassCount,
 				stats.RetryReason,
+				stats.RetryAttemptCount,
+				stats.RetrySelectedAttempt,
+				stats.RetrySelectedAttemptHasError,
+				stats.RetrySelectedAttemptFullSpan,
 				stats.ErrorModeTokenCount,
 				stats.ScannerResyncCount,
 				stats.LiveVersionCount,

@@ -7,8 +7,10 @@ import "time"
 var recoveryRuntimeTelemetryEnabled bool
 
 type recoveryRuntimeTelemetry struct {
-	stats              RecoveryRuntimeStats
-	pendingRetryReason string
+	stats                RecoveryRuntimeStats
+	pendingRetryReason   string
+	retryAttemptRungs    map[*Tree]string
+	selectedRetryAttempt string
 }
 
 // EnableRecoveryRuntimeTelemetry enables diagnostic recovery counters.
@@ -34,14 +36,20 @@ func (p *Parser) beginRecoveryRuntimeTelemetry() {
 	}
 	cold := p.ensureParserColdState()
 	state := &cold.recoveryRuntime
+	if p.fullParseRetryPassesTaken == 0 {
+		state.retryAttemptRungs = nil
+		state.selectedRetryAttempt = "initial"
+	}
 	retryReason := state.pendingRetryReason
 	if p.fullParseRetryPassesTaken == 0 {
 		retryReason = ""
 	}
 	state.stats = RecoveryRuntimeStats{
-		Enabled:        true,
-		RetryPassCount: uint64(p.fullParseRetryPassesTaken),
-		RetryReason:    retryReason,
+		Enabled:              true,
+		RetryPassCount:       uint64(p.fullParseRetryPassesTaken),
+		RetryReason:          retryReason,
+		RetryAttemptCount:    uint64(p.fullParseRetryPassesTaken),
+		RetrySelectedAttempt: state.selectedRetryAttempt,
 	}
 	state.pendingRetryReason = ""
 }
@@ -108,8 +116,65 @@ func (p *Parser) finishRecoveryRuntimeTelemetry(tree *Tree, stacks []glrStack) {
 		return
 	}
 	state.stats.Completed = true
+	state.stats.RetryAttemptCount = uint64(p.fullParseRetryPassesTaken)
+	state.stats.RetrySelectedAttempt = state.selectedRetryAttempt
 	p.recordRecoveryLiveVersions(stacks)
 	state.stats.ErrorNodeCount, state.stats.ErrorSpanBytes = recoveryRuntimeErrorStats(rawRootOrNil(tree))
+}
+
+func (p *Parser) recordRecoveryRuntimeRetryTree(tree *Tree, rung string) {
+	if p == nil || tree == nil || rung == "" || !recoveryRuntimeTelemetryEnabled {
+		return
+	}
+	state := p.recoveryRuntimeTelemetryState()
+	if state == nil {
+		return
+	}
+	if state.retryAttemptRungs == nil {
+		state.retryAttemptRungs = make(map[*Tree]string)
+	}
+	state.retryAttemptRungs[tree] = rung
+}
+
+func (p *Parser) recordRecoveryRuntimeSelectedTree(tree *Tree) {
+	if p == nil || tree == nil || !recoveryRuntimeTelemetryEnabled {
+		return
+	}
+	state := p.recoveryRuntimeTelemetryState()
+	if state == nil || state.retryAttemptRungs == nil {
+		return
+	}
+	if rung := state.retryAttemptRungs[tree]; rung != "" {
+		state.selectedRetryAttempt = rung
+		state.stats.RetrySelectedAttempt = rung
+	}
+}
+
+func (p *Parser) finishRecoveryRuntimeRetryTelemetry(tree *Tree, sourceLen int) {
+	if p == nil || !recoveryRuntimeTelemetryEnabled {
+		return
+	}
+	state := p.recoveryRuntimeTelemetryState()
+	if state == nil {
+		return
+	}
+	state.stats.RetryAttemptCount = uint64(p.fullParseRetryPassesTaken)
+	state.stats.RetrySelectedAttempt = state.selectedRetryAttempt
+	root := rawRootOrNil(tree)
+	if root == nil {
+		return
+	}
+	state.stats.RetrySelectedAttemptHasError = root.HasError()
+	state.stats.RetrySelectedAttemptFullSpan = root.StartByte() == 0 && root.EndByte() == uint32(sourceLen)
+}
+
+func (p *Parser) clearRecoveryRuntimeRetryTrees() {
+	if p == nil || !recoveryRuntimeTelemetryEnabled {
+		return
+	}
+	if state := p.recoveryRuntimeTelemetryState(); state != nil {
+		state.retryAttemptRungs = nil
+	}
 }
 
 func recoveryRuntimeErrorStats(root *Node) (count uint64, span uint32) {

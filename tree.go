@@ -832,6 +832,10 @@ type RecoveryRuntimeStats struct {
 	ErrorSpanBytes               uint32
 	RetryPassCount               uint64
 	RetryReason                  string
+	RetryAttemptCount            uint64
+	RetrySelectedAttempt         string
+	RetrySelectedAttemptHasError bool
+	RetrySelectedAttemptFullSpan bool
 	ErrorModeTokenCount          uint64
 	ScannerResyncCount           uint64
 	LiveVersionCount             uint64

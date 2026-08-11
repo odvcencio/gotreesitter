@@ -124,7 +124,7 @@ func TestB16SwiftRecoveryTelemetryCOracle(t *testing.T) {
 			}
 
 			sourceDigest := sha256.Sum256(source)
-			t.Logf("B16_C_WITNESS version=1 name=%s issue=%s source_sha256=%x source_bytes=%d grammar=swift grammar_lock_commit=%s c_runtime=%s@%s c_grammar_repo=%s c_grammar_commit=%s c_grammar_artifact_sha256=%s result_class=%s go_deep_sha256=%s c_deep_sha256=%s go_stop_reason=%s go_truncated=%t go_recovery_entries=%d go_strategy1_elections=%d go_cost_competitions=%d go_cost_walks=%d go_cost_walk_ns=%d go_error_nodes=%d go_error_span_bytes=%d go_retry_passes=%d go_retry_reason=%q go_memo_tier=%d go_memo_entries=%d go_memo_bytes=%d go_memo_collisions=%d go_arena_bytes=%d go_scratch_bytes=%d go_entry_scratch_bytes=%d go_gss_bytes=%d go_gss_nodes=%d go_max_stacks=%d",
+			t.Logf("B16_C_WITNESS version=2 name=%s issue=%s source_sha256=%x source_bytes=%d grammar=swift grammar_lock_commit=%s c_runtime=%s@%s c_grammar_repo=%s c_grammar_commit=%s c_grammar_artifact_sha256=%s result_class=%s go_deep_sha256=%s c_deep_sha256=%s go_stop_reason=%s go_truncated=%t go_recovery_entries=%d go_strategy1_elections=%d go_cost_competitions=%d go_cost_walks=%d go_cost_walk_ns=%d go_error_nodes=%d go_error_span_bytes=%d go_retry_passes=%d go_retry_reason=%q go_retry_attempts=%d go_retry_selected=%q go_retry_selected_has_error=%t go_retry_selected_full_span=%t go_memo_tier=%d go_memo_entries=%d go_memo_bytes=%d go_memo_collisions=%d go_arena_bytes=%d go_scratch_bytes=%d go_entry_scratch_bytes=%d go_gss_bytes=%d go_gss_nodes=%d go_max_stacks=%d",
 				witness.name,
 				witness.issue,
 				sourceDigest,
@@ -149,6 +149,10 @@ func TestB16SwiftRecoveryTelemetryCOracle(t *testing.T) {
 				goStats.ErrorSpanBytes,
 				goStats.RetryPassCount,
 				goStats.RetryReason,
+				goStats.RetryAttemptCount,
+				goStats.RetrySelectedAttempt,
+				goStats.RetrySelectedAttemptHasError,
+				goStats.RetrySelectedAttemptFullSpan,
 				goMemo.PeakTier,
 				goMemo.PeakTier.Entries(),
 				goMemo.PeakTier.Bytes(),
