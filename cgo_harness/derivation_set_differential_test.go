@@ -139,8 +139,8 @@ func TestDerivationSetDifferentialWitnessReproduction(t *testing.T) {
 		},
 	}
 
-	// Expectations, pinned from the first measurement. Keyed by
-	// language/name.
+	// Expectations, refreshed on exact origin/main after later parser fixes.
+	// Keyed by language/name.
 	expected := map[string]struct {
 		Classes         []string
 		Mechanisms      []string
@@ -151,8 +151,8 @@ func TestDerivationSetDifferentialWitnessReproduction(t *testing.T) {
 		"perl/print_filehandle_list_material_election":    {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
 		"perl/unshift_two_args":                           {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
 		"perl/join_bare":                                  {Classes: []string{derivationDiffExtra, derivationDiffDifferent}, Mechanisms: []string{derivationMechanismToken, derivationMechanismToken}, CompactSetSize: 2, CVersionSetSize: 1},
-		"ada/bare_aggregate_assignment_material_election": {Classes: []string{derivationDiffExtra, derivationDiffDifferent}, Mechanisms: []string{derivationMechanismCondense, derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
-		"ada/record_aggregate_named":                      {Classes: []string{derivationDiffExtra, derivationDiffDifferent}, Mechanisms: []string{derivationMechanismCondense, derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
+		"ada/bare_aggregate_assignment_material_election": {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
+		"ada/record_aggregate_named":                      {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
 		"ada/discriminated_record":                        {Classes: []string{derivationDiffExtra}, Mechanisms: []string{derivationMechanismCondense}, CompactSetSize: 2, CVersionSetSize: 1},
 		// The only witness whose cardinalities agree: |D| = |V| = 2, and the
 		// sets still disagree on content. It is the reason DIFFERENT is a
@@ -277,7 +277,7 @@ func equalStrings(left, right []string) bool {
 }
 
 // derivationSetBaselineConstructed pins the constructed-source portion of the
-// D0 baseline census. Constructed sources are compiled into this package, so
+	// D0 baseline census. Constructed sources are compiled into this package, so
 // every host reproduces these numbers exactly. Stages D1 and D2 must drive
 // the difference counts down; a rise is a regression.
 var derivationSetBaselineConstructed = map[string]struct {
@@ -290,8 +290,8 @@ var derivationSetBaselineConstructed = map[string]struct {
 	Differences int
 }{
 	"apex":   {Sources: 25, Compared: 22, Extra: 1, Missing: 0, Different: 0, Order: 0, Differences: 1},
-	"perl":   {Sources: 17, Compared: 17, Extra: 7, Missing: 1, Different: 4, Order: 0, Differences: 12},
-	"ada":    {Sources: 23, Compared: 23, Extra: 6, Missing: 0, Different: 9, Order: 0, Differences: 15},
+	"perl":   {Sources: 17, Compared: 17, Extra: 7, Missing: 1, Different: 3, Order: 0, Differences: 11},
+	"ada":    {Sources: 23, Compared: 23, Extra: 5, Missing: 0, Different: 0, Order: 0, Differences: 5},
 	"kotlin": {Sources: 13, Compared: 7, Extra: 0, Missing: 0, Different: 0, Order: 0, Differences: 0},
 	"python": {Sources: 26, Compared: 26, Extra: 2, Missing: 0, Different: 2, Order: 0, Differences: 4},
 }
@@ -299,7 +299,7 @@ var derivationSetBaselineConstructed = map[string]struct {
 // derivationSetBaselineConstructedTotal is the D0 baseline: the total
 // set-difference count over the five A3 sweep corpora's constructed sources.
 // Stages D1 and D2 must drive this number down.
-const derivationSetBaselineConstructedTotal = 32
+const derivationSetBaselineConstructedTotal = 21
 
 // TestDerivationSetDifferentialBaselineCensus publishes the first baseline
 // census: how many set-level differences each of the five A3 sweep corpora

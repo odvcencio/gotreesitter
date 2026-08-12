@@ -47,24 +47,28 @@ The certificate records those cases as undetermined.
 
 ## Baseline certificate
 
+The original certificate recorded 32 constructed differences. Later parser
+fixes changed the measured candidate sets. This section records the refreshed
+baseline from exact `origin/main` at `1d8da9f88bdd5ecc0b715ead32cb3f08cd293110`.
+
 The pinned constructed corpus contains 104 sources.
 The instrument compares 95 sources.
 
 | Difference class | Count |
 |---|---:|
-| Extra compact derivation | 16 |
+| Extra compact derivation | 15 |
 | Missing compact derivation | 1 |
-| Different derivation content | 15 |
+| Different derivation content | 5 |
 | Order difference | 0 |
-| Total classified difference | 32 |
+| Total classified difference | 21 |
 
-Mechanism attribution covers 30 of 32 differences:
+Mechanism attribution covers 17 of 21 differences:
 
 | Mechanism | Count | First target |
 |---|---:|---|
-| Condense-class | 26 | D1 condense-time tie collapse |
+| Condense-class | 13 | D1 condense-time tie collapse |
 | Token-class | 4 | D2 first-leaf token cache |
-| Unattributed | 2 | D0 follow-up trace |
+| Unattributed | 4 | D0 follow-up trace |
 
 The generated real-corpus extension contains 113 sources.
 It compares 100 sources and reports 35 differences.
@@ -89,9 +93,10 @@ The other Perl witnesses share leaf content with C and remain condense-class can
 
 These findings change the order of work:
 
-1. Prove safe condense-time tie collapse for comparable fork order.
-2. Port the C first-leaf token reuse predicate.
-3. Re-run the D0 census and classify the residual two cases.
+1. Refresh the D0 witness pins after each accepted parser fix.
+2. Prove safe condense-time tie collapse for comparable fork order.
+3. Port the C first-leaf token reuse predicate.
+4. Classify the four residual unattributed cases.
 
 Do not infer a mechanism from a ratio or from a language name.
 
@@ -173,7 +178,7 @@ The next D1 or D2 change must pass these gates:
 - The material-acceptance census does not increase.
 - The smallest Docker parity suite remains green.
 
-Run D1 before D2 because D1 owns 26 of the 32 classified differences.
+Run D1 before D2 because D1 owns 13 of the 21 classified differences.
 Keep D2 separate so token and condense effects remain attributable.
 
 ## Certificate boundary
