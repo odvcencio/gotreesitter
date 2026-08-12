@@ -89,3 +89,31 @@ func TestB16RuntimeEvidenceCaptureSwiftWitnesses(t *testing.T) {
 		})
 	}
 }
+
+func TestB16RuntimeEvidenceForcesProductionRoute(t *testing.T) {
+	t.Setenv(perfScanEnvRuntimeEvidence, "1")
+	gotreesitter.EnableRecoveryRuntimeTelemetry(true)
+	t.Cleanup(func() { gotreesitter.EnableRecoveryRuntimeTelemetry(false) })
+	gotreesitter.EnableArenaBreakdown(true)
+	t.Cleanup(func() { gotreesitter.EnableArenaBreakdown(false) })
+	previousRoute := gotreesitter.AdmissionCandidateRouteDefault()
+	gotreesitter.SetAdmissionCandidateRouteDefault(true)
+	t.Cleanup(func() { gotreesitter.SetAdmissionCandidateRouteDefault(previousRoute) })
+
+	parser := gotreesitter.NewParser(grammars.PythonLanguage())
+	perfScanConfigureParserForRuntimeEvidence(parser, true)
+	parser.SetParsePhaseTiming(true)
+	source := []byte("answer = 1\n")
+	tree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatalf("parse Python control: %v", err)
+	}
+	if tree == nil {
+		t.Fatal("Python control returned no tree")
+	}
+	evidence := perfScanCaptureRuntimeEvidence(parser, tree)
+	tree.Release()
+	if evidence == nil || evidence.Recovery == nil || evidence.Parse == nil || evidence.Arena == nil {
+		t.Fatalf("runtime evidence = %+v, want production-route facts", evidence)
+	}
+}

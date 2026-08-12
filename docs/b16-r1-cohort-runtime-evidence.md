@@ -15,6 +15,8 @@ The scan records `config.runtime_evidence=true` when the setting is active.
 The scan enables recovery telemetry, arena accounting, and parser-phase timing
 only for the retained classification parse. Timed full-parse samples do not
 enable these collectors. The scan captures the facts after classification.
+When this setting is active, the scan forces the production parser route. The
+compact candidate route does not publish the same runtime facts.
 
 ## Receipt shape
 

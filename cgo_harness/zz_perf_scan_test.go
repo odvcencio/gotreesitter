@@ -390,6 +390,15 @@ func perfScanConfigureRuntimeEvidence(t *testing.T) {
 	})
 }
 
+// perfScanConfigureParserForRuntimeEvidence forces the instrumented production
+// route. The compact candidate route does not publish the same runtime facts.
+func perfScanConfigureParserForRuntimeEvidence(parser *gotreesitter.Parser, enabled bool) {
+	if parser == nil || !enabled {
+		return
+	}
+	parser.SetAdmissionCandidateRoute(false)
+}
+
 func perfScanEnvIntDefault(name string, def int) int {
 	raw := strings.TrimSpace(os.Getenv(name))
 	if raw == "" {
@@ -1378,6 +1387,8 @@ func perfScanMeasureLanguage(t *testing.T, lang string, cfg perfScanConfig, flus
 		return finish("error", "grammars registry returned nil Go language")
 	}
 
+	goParser := gotreesitter.NewParser(goLang)
+	perfScanConfigureParserForRuntimeEvidence(goParser, cfg.RuntimeEvidence)
 	m := &perfScanLangMeasurer{
 		cfg:           cfg,
 		lang:          lang,
@@ -1389,7 +1400,7 @@ func perfScanMeasureLanguage(t *testing.T, lang string, cfg perfScanConfig, flus
 		cgoGrammarSHA: cgoIdentity.GrammarArtifactSHA256,
 		staticC:       staticOracle,
 		budget:        time.Duration(cfg.FileBudgetMS) * time.Millisecond,
-		goPsr:         gotreesitter.NewParser(goLang),
+		goPsr:         goParser,
 		editMax:       perfScanEnvIntDefault(perfScanEnvEditCands, 16),
 	}
 	m.goPsr.SetTimeoutMicros(uint64(m.budget.Microseconds()))
