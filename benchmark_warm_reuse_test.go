@@ -129,6 +129,10 @@ func TestArenaGCRetentionAfterRelease(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read parser_test.go: %v", err)
 	}
+	runtime.GC()
+	runtime.GC()
+	var baseline runtime.MemStats
+	runtime.ReadMemStats(&baseline)
 
 	parser := gotreesitter.NewParser(grammars.GoLanguage())
 	tree, parseErr := parser.Parse(src)
@@ -136,6 +140,8 @@ func TestArenaGCRetentionAfterRelease(t *testing.T) {
 		t.Fatalf("parse: %v", parseErr)
 	}
 	tree.Release()
+	parser = nil
+	src = nil
 
 	// Run GC three times: first pass marks, second pass sweeps, third confirms.
 	runtime.GC()
@@ -144,15 +150,24 @@ func TestArenaGCRetentionAfterRelease(t *testing.T) {
 
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
+	retainedBytes := int64(ms.HeapAlloc) - int64(baseline.HeapAlloc)
+	if retainedBytes < 0 {
+		retainedBytes = 0
+	}
 
 	// 60 MB is well above the expected ~12-20 MB post-fix but far below the
 	// ~545 MB retained by reset implementations that leave stale node pointers.
+	// Compare against a pre-parse baseline so unrelated suite allocations do
+	// not turn this arena-lifecycle test into a flaky absolute-heap gate.
 	const maxRetainedBytes = 60 * 1024 * 1024
-	if ms.HeapAlloc > maxRetainedBytes {
-		t.Fatalf("HeapAlloc after parse+release+GC = %d MB, want < %d MB\n"+
+	if retainedBytes > maxRetainedBytes {
+		t.Fatalf("HeapAlloc retained after parse+release+GC = %d MB (baseline=%d MB, final=%d MB), want < %d MB\n"+
 			"Hint: arena slab backing arrays may not be fully cleared on reset,\n"+
 			"leaving stale *Node pointers that prevent GC collection.",
-			ms.HeapAlloc/1024/1024, maxRetainedBytes/1024/1024)
+			retainedBytes/1024/1024,
+			baseline.HeapAlloc/1024/1024,
+			ms.HeapAlloc/1024/1024,
+			maxRetainedBytes/1024/1024)
 	}
 }
 
