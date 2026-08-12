@@ -89,7 +89,9 @@ var mergeCensusBaselineConstructed = map[string]struct {
 }{
 	"apex":   {Sources: 25, CMergeSuccesses: 31, GoSuccesses: 1, RefuseNoGSSHead: 53, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 53, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 5},
 	"perl":   {Sources: 17, CMergeSuccesses: 57, GoSuccesses: 0, RefuseNoGSSHead: 43, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 7},
-	"ada":    {Sources: 23, CMergeSuccesses: 47, GoSuccesses: 2, RefuseNoGSSHead: 35, RefuseScoreOrShifted: 92, RefuseDistinctShapes: 6, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 5},
+	// PR #708 elects Ada aggregate conflicts before the GLR fork. This removes
+	// five no-GSS-head opportunities without changing merges or other gates.
+	"ada":    {Sources: 23, CMergeSuccesses: 47, GoSuccesses: 2, RefuseNoGSSHead: 30, RefuseScoreOrShifted: 92, RefuseDistinctShapes: 6, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 5},
 	"kotlin": {Sources: 13, CMergeSuccesses: 54, GoSuccesses: 12, RefuseNoGSSHead: 2, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 10, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 3},
 	"python": {Sources: 26, CMergeSuccesses: 2, GoSuccesses: 0, RefuseNoGSSHead: 9, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 2},
 }
