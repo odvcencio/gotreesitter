@@ -512,7 +512,7 @@ func parseShouldCaptureMaterializationTiming(p *Parser, source []byte, reuse *re
 	if p == nil || p.noTreeBenchmarkOnly {
 		return false
 	}
-	if parsePhaseTimingEnabled() {
+	if p.parsePhaseTiming || parsePhaseTimingEnabled() {
 		return true
 	}
 	return parseShouldCaptureFullMaterializationTiming(p, source, reuse, oldTree, arenaClass)

@@ -674,6 +674,7 @@ func parseWithSnippetParserInheriting(lang *Language, source []byte, parent *Par
 	if parent != nil {
 		parser.timeoutMicros = parent.remainingTimeoutMicros()
 		parser.cancellationFlag = parent.cancellationFlag
+		parser.parsePhaseTiming = parent.parsePhaseTiming
 		if reason := parent.activeParseStopReason(); parseStopReasonIsActive(reason) {
 			parser.parseStoppedReason = reason
 			parser.parseBudgetDepth = 1
@@ -857,6 +858,15 @@ func (p *Parser) SetLogger(logger ParserLogger) {
 		return
 	}
 	p.logger = logger
+}
+
+// SetParsePhaseTiming enables parser-loop and result-materialization timing
+// for subsequent parses. Use it for retained diagnostic parses only.
+func (p *Parser) SetParsePhaseTiming(enabled bool) {
+	if p == nil {
+		return
+	}
+	p.parsePhaseTiming = enabled
 }
 
 // Logger returns the currently configured parser debug logger.

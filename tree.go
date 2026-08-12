@@ -2558,7 +2558,7 @@ func (t *Tree) ensureResultCompatibility() {
 		if t.root == nil || t.language == nil {
 			return
 		}
-		if !parsePhaseTimingEnabled() {
+		if !t.parsePhaseTiming && !parsePhaseTimingEnabled() {
 			parser := &Parser{language: t.language}
 			result := normalizeResultCompatibility(t.root, t.source, parser, nil)
 			t.resultErrorSummary = result.errorSummary
@@ -2949,6 +2949,7 @@ type Tree struct {
 	resultErrorSummary           resultErrorSummary
 	resultCompatibilityApplied   bool
 	resultCompatibilityFinalizer *treeResultCompatibilityFinalizer
+	parsePhaseTiming             bool
 	released                     bool
 	// Recovery-memo telemetry occupies the Tree's existing tail padding.
 	recoveryNodeMemoPeakTier   RecoveryNodeMemoTier
@@ -3077,6 +3078,7 @@ func (t *Tree) Release() {
 	t.resultErrorSummary = resultErrorSummaryUnknown
 	t.resultCompatibilityApplied = false
 	t.resultCompatibilityFinalizer = nil
+	t.parsePhaseTiming = false
 	t.recoveryNodeMemoPeakTier = RecoveryNodeMemoTierNone
 	t.recoveryNodeMemoCollisions = 0
 	treePool.Put(t)
@@ -3335,6 +3337,7 @@ func (t *Tree) Copy() *Tree {
 		parseRuntime:               t.parseRuntime,
 		resultErrorSummary:         t.resultErrorSummary,
 		resultCompatibilityApplied: t.resultCompatibilityApplied,
+		parsePhaseTiming:           t.parsePhaseTiming,
 		// Reuse-provenance flags must survive Copy: cloneNodeHeaderInto keeps the
 		// per-node stamped/replayed states, so a copy that dropped these would
 		// become reuse-eligible on the standard DFA path and splice replayed or
@@ -3926,6 +3929,13 @@ func (t *Tree) setParseRuntime(rt ParseRuntime) {
 		rt.StopReason = ParseStopNone
 	}
 	t.parseRuntime = rt
+}
+
+func (t *Tree) setParsePhaseTiming(enabled bool) {
+	if t == nil {
+		return
+	}
+	t.parsePhaseTiming = enabled
 }
 
 func (t *Tree) setRecoveryNodeMemoRuntime(rt RecoveryNodeMemoRuntime) {

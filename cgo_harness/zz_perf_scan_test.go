@@ -1821,6 +1821,7 @@ func (m *perfScanLangMeasurer) goAttemptFullWithRetention(src []byte, keepTree, 
 	if collectRuntimeEvidence {
 		gotreesitter.EnableRecoveryRuntimeTelemetry(true)
 		gotreesitter.EnableArenaBreakdown(true)
+		m.goPsr.SetParsePhaseTiming(true)
 	}
 	panicked := perfScanRecover(func() {
 		start := time.Now()
@@ -1843,6 +1844,7 @@ func (m *perfScanLangMeasurer) goAttemptFullWithRetention(src []byte, keepTree, 
 		})
 	}
 	if collectRuntimeEvidence {
+		m.goPsr.SetParsePhaseTiming(false)
 		gotreesitter.EnableArenaBreakdown(false)
 		gotreesitter.EnableRecoveryRuntimeTelemetry(false)
 	}

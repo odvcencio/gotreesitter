@@ -57,6 +57,7 @@ func TestB16RuntimeEvidenceCaptureSwiftWitnesses(t *testing.T) {
 			}
 
 			parser := gotreesitter.NewParser(grammars.SwiftLanguage())
+			parser.SetParsePhaseTiming(true)
 			tree, err := parser.Parse(source)
 			if err != nil {
 				t.Fatalf("parse Swift witness: %v", err)
@@ -68,6 +69,9 @@ func TestB16RuntimeEvidenceCaptureSwiftWitnesses(t *testing.T) {
 			tree.Release()
 			if evidence == nil || evidence.Recovery == nil || evidence.Parse == nil || evidence.Arena == nil {
 				t.Fatalf("runtime evidence = %+v, want all sections", evidence)
+			}
+			if evidence.Parse.ParseWallNanos <= 0 || evidence.Parse.ParserLoopNanos <= 0 {
+				t.Fatalf("phase timing = %+v, want positive parse and loop timing", evidence.Parse)
 			}
 			if !evidence.Recovery.Completed {
 				t.Fatalf("recovery evidence is incomplete: %+v", evidence.Recovery)

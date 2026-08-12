@@ -357,6 +357,10 @@ type Parser struct {
 	parseRuntimeMemoryHardCeilingBytes int64
 	parseMemoryBudgetDiag              parseMemoryBudgetDiagnostic
 	parseMemoryBudgetDiagActive        bool
+	// parsePhaseTiming enables parser-loop and result-materialization timing
+	// for retained diagnostic parses. Keep the default false to protect hot
+	// parse paths from timing overhead.
+	parsePhaseTiming bool
 	// compatMemoryBudgetTripped latches true the moment compat normalization
 	// — Go's (normalizeGoReturnedTreeCompatibilityWithCensus / walkGoCompatSubtree's
 	// poller) or JS/TS's fused walk (normalizeJavaScriptCompatibility /
@@ -1688,6 +1692,7 @@ func resetSnippetParser(parser *Parser) {
 	parser.parseRuntimeMemoryHardCeilingBytes = 0
 	parser.parseMemoryBudgetDiag = parseMemoryBudgetDiagnostic{}
 	parser.parseMemoryBudgetDiagActive = false
+	parser.parsePhaseTiming = false
 	parser.compatMemoryBudgetTripped = false
 	// Recovery and snippet sub-parsers must never route through the compact
 	// candidate: they parse fragments spliced into recovery and reuse.
@@ -5009,6 +5014,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if tree != nil {
 			tree.setIncludedRanges(p.included)
 			tree.setParseRuntime(parseRuntime)
+			tree.setParsePhaseTiming(phaseTiming)
 			tree.setRecoveryNodeMemoRuntime(memoRuntime)
 			if arenaBreakdown != nil {
 				tree.setArenaBreakdown(arenaBreakdown)

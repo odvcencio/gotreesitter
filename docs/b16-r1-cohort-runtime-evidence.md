@@ -12,9 +12,9 @@ Set `GTS_PERF_SCAN_RUNTIME_EVIDENCE=1` for the scan process.
 The setting remains off by default.
 The scan records `config.runtime_evidence=true` when the setting is active.
 
-The scan enables recovery telemetry and arena accounting only for the retained
-classification parse. Timed full-parse samples do not enable these collectors.
-The scan captures the facts after the classification parse completes.
+The scan enables recovery telemetry, arena accounting, and parser-phase timing
+only for the retained classification parse. Timed full-parse samples do not
+enable these collectors. The scan captures the facts after classification.
 
 ## Receipt shape
 
