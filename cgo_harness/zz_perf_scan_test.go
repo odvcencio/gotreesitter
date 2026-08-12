@@ -382,8 +382,8 @@ func perfScanConfigureRuntimeEvidence(t *testing.T) {
 	if !perfScanRuntimeEvidenceEnabled() {
 		return
 	}
-	gotreesitter.EnableRecoveryRuntimeTelemetry(true)
-	gotreesitter.EnableArenaBreakdown(true)
+	gotreesitter.EnableArenaBreakdown(false)
+	gotreesitter.EnableRecoveryRuntimeTelemetry(false)
 	t.Cleanup(func() {
 		gotreesitter.EnableArenaBreakdown(false)
 		gotreesitter.EnableRecoveryRuntimeTelemetry(false)
@@ -1817,6 +1817,11 @@ func (m *perfScanLangMeasurer) goAttemptFullWithRetention(src []byte, keepTree, 
 	var tree *gotreesitter.Tree
 	var err error
 	att := perfScanAttempt{}
+	collectRuntimeEvidence := keepTree && perfScanRuntimeEvidenceEnabled()
+	if collectRuntimeEvidence {
+		gotreesitter.EnableRecoveryRuntimeTelemetry(true)
+		gotreesitter.EnableArenaBreakdown(true)
+	}
 	panicked := perfScanRecover(func() {
 		start := time.Now()
 		switch m.report.Backend {
@@ -1831,11 +1836,15 @@ func (m *perfScanLangMeasurer) goAttemptFullWithRetention(src []byte, keepTree, 
 		}
 		att.ns = time.Since(start).Nanoseconds()
 	})
-	if panicked == "" && keepTree {
+	if panicked == "" && collectRuntimeEvidence {
 		// Runtime evidence must not turn an accepted parse into a scan failure.
 		_ = perfScanRecover(func() {
 			att.runtime = perfScanCaptureRuntimeEvidence(m.goPsr, tree)
 		})
+	}
+	if collectRuntimeEvidence {
+		gotreesitter.EnableArenaBreakdown(false)
+		gotreesitter.EnableRecoveryRuntimeTelemetry(false)
 	}
 	return m.classifyGoAttemptWithRetention(tree, err, panicked, src, keepTree, retainRejected, att)
 }
