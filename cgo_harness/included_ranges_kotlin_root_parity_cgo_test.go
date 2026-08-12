@@ -7,9 +7,16 @@ package cgoharness
 // normalizeKotlinRecoveredSourceFileRoot was deleted on 2026-08-02 as dead code
 // and is restored. The census behind the deletion measured the fresh,
 // over-64-KiB, incremental and pinned routes and never measured
-// Parser.SetIncludedRanges. On that route the member fires and moves the
-// published root toward this oracle: without it the root is `ERROR`, with it
-// the root is `source_file`, and the oracle publishes `source_file`.
+// Parser.SetIncludedRanges. On that route the member used to fire and move the
+// published root toward this oracle: without it the root was `ERROR`, with it
+// the root was `source_file`, and the oracle publishes `source_file`.
+//
+// Update: the parser's padding scan now clips to the included ranges, so this
+// route no longer forces recovery on this fixture. The root already comes out
+// as `source_file` before the member inspects it, and the member no longer
+// fires here. The root span and child count now match the oracle too; only
+// the root's HasError flag still diverges. See the doc comment on
+// TestIncludedRangesKotlinRootParity below for the current pins.
 //
 // Production reaches the route through injection: injection.go calls
 // childParser.SetIncludedRanges for every injected child.
@@ -47,15 +54,17 @@ func includedRangesKotlinPointAt(src []byte, off int) (uint, uint) {
 }
 
 // TestIncludedRangesKotlinRootParity pins the root symbol against the locked
-// Kotlin C oracle on the included-ranges route, and pins the route's known
-// span and error divergences so a change surfaces instead of passing silently.
+// Kotlin C oracle on the included-ranges route, and pins the route's one
+// remaining known divergence so a change surfaces instead of passing
+// silently.
 //
-// The root kind is a hard parity assertion: it is the value the restored arm
-// member owns. The root span and the root error flag still diverge, because the
-// route drops the third included range through an unrelated defect
-// (bytesAreParserPadding scans raw bytes between ranges with no clipping). Those
-// two are pinned, not asserted equal. When the clipping fix lands this test
-// fails and the pins move to the oracle values.
+// The root kind, span, and child count are hard parity assertions now that
+// the padding scan clips to the included ranges: the parser no longer drops
+// the third included range, and the restored arm member is not needed to
+// reach the right root symbol on this fixture. The root's HasError flag
+// still diverges from the oracle and is pinned, not asserted equal. If a
+// future change closes that divergence too, this test fails and the pin
+// moves to the oracle value.
 func TestIncludedRangesKotlinRootParity(t *testing.T) {
 	cLang, err := COracleLanguage("kotlin")
 	if err != nil {
@@ -129,8 +138,9 @@ func TestIncludedRangesKotlinRootParity(t *testing.T) {
 		goRoot.Type(goLang), goRoot.IsError(), goRoot.HasError(),
 		goRoot.StartByte(), goRoot.EndByte(), goRoot.ChildCount())
 
-	// The regression guard. The restored arm member owns this result. Delete the
-	// member and gotreesitter publishes `ERROR` here.
+	// The regression guard. The padding scan clips to the included ranges now,
+	// so the route no longer forces recovery here and the restored arm member
+	// is not needed to reach this root symbol.
 	if got, want := goRoot.Type(goLang), cRoot.Kind(); got != want {
 		t.Fatalf("included-ranges root kind: gotreesitter=%q C=%q", got, want)
 	}
@@ -141,23 +151,29 @@ func TestIncludedRangesKotlinRootParity(t *testing.T) {
 		t.Errorf("included-ranges root start byte: gotreesitter=%d C=%d", got, want)
 	}
 
-	// Pinned pre-existing divergences, both owned by the unclipped padding scan
-	// and not by the restored member. Neither value is asserted as correct; the
-	// pins make any change visible.
+	// Span and child count now match the C oracle: the padding-scan fix
+	// stopped the route from dropping the third included range.
 	const (
-		pinnedGoEnd     = uint32(1986)
-		pinnedCEnd      = uint32(3094)
-		pinnedCChildren = 8
+		pinnedEnd      = uint32(3094)
+		pinnedChildren = 8
 	)
-	if goRoot.EndByte() != pinnedGoEnd || uint32(cRoot.EndByte()) != pinnedCEnd {
-		t.Errorf("included-ranges root end byte moved: gotreesitter=%d C=%d, pinned gotreesitter=%d C=%d",
-			goRoot.EndByte(), cRoot.EndByte(), pinnedGoEnd, pinnedCEnd)
+	if got := goRoot.EndByte(); got != pinnedEnd {
+		t.Errorf("included-ranges root end byte: gotreesitter=%d, want %d (matches C)", got, pinnedEnd)
 	}
+	if got := uint32(cRoot.EndByte()); got != pinnedEnd {
+		t.Errorf("C oracle root end byte moved: got %d, pinned %d", got, pinnedEnd)
+	}
+	if got := int(cRoot.ChildCount()); got != pinnedChildren {
+		t.Errorf("C oracle root child count = %d, pinned %d", got, pinnedChildren)
+	}
+	if got := goRoot.ChildCount(); got != pinnedChildren {
+		t.Errorf("included-ranges root child count: gotreesitter=%d, want %d (matches C)", got, pinnedChildren)
+	}
+
+	// The one field that still diverges from the oracle. Not asserted as
+	// correct; the pin makes a future change visible instead of silent.
 	if cRoot.HasError() != false || goRoot.HasError() != true {
 		t.Errorf("included-ranges root HasError moved: C=%v gotreesitter=%v, pinned C=false gotreesitter=true",
 			cRoot.HasError(), goRoot.HasError())
-	}
-	if got := int(cRoot.ChildCount()); got != pinnedCChildren {
-		t.Errorf("C oracle root child count = %d, pinned %d", got, pinnedCChildren)
 	}
 }

@@ -3878,13 +3878,23 @@ func copyParseRuntimeToTiming(timing *incrementalParseTiming, parseRuntime Parse
 
 // realTokenAttachmentGapIsParserPadding reports whether the gap between the
 // stack's current byte offset and tok's start is trivia the parser may
-// silently cross before attaching tok. continuationEscape is the calling
-// Parser's language-declared line-continuation escape byte (0 if none —
-// see Language.LineContinuationEscapeByte and (*Parser).lineContinuationEscapeByte),
-// threaded through to bytesAreParserPadding so a language-declared
-// escape+newline (for example PowerShell's backtick) counts as padding here
-// exactly like the unconditional backslash+newline case.
-func realTokenAttachmentGapIsParserPadding(source []byte, s *glrStack, tok Token, continuationEscape byte) bool {
+// silently cross before attaching tok. included carries the parser's
+// configured include ranges (nil when SetIncludedRanges was never called).
+// When included is non-empty, the scan clips to the gap's overlap with those
+// ranges and treats everything outside every included range as
+// automatically crossable — see bytesAreParserPaddingInIncludedRanges.
+// Without that clipping, a gap that straddles an excluded region between two
+// included ranges scans real, non-included source text as if it had to be
+// whitespace, which it almost never is, so the gap reads as "not padding"
+// and the caller kills the stack: on the included-ranges route that forces
+// recovery the C parser never enters for the same input. continuationEscape
+// is the calling Parser's language-declared line-continuation escape byte (0
+// if none — see Language.LineContinuationEscapeByte and
+// (*Parser).lineContinuationEscapeByte), threaded through to
+// bytesAreParserPadding so a language-declared escape+newline (for example
+// PowerShell's backtick) counts as padding here exactly like the
+// unconditional backslash+newline case.
+func realTokenAttachmentGapIsParserPadding(source []byte, s *glrStack, tok Token, included []Range, continuationEscape byte) bool {
 	if s == nil || tok.Missing || tok.NoLookahead || tok.StartByte <= s.byteOffset {
 		return true
 	}
@@ -3894,11 +3904,15 @@ func realTokenAttachmentGapIsParserPadding(source []byte, s *glrStack, tok Token
 	if int(s.byteOffset) > len(source) || int(tok.StartByte) > len(source) {
 		return true
 	}
-	return bytesAreParserPadding(source, s.byteOffset, tok.StartByte, continuationEscape)
+	return bytesAreParserPaddingInIncludedRanges(source, s.byteOffset, tok.StartByte, included, continuationEscape)
 }
 
+// realShiftGapIsParserPadding is realTokenAttachmentGapIsParserPadding with
+// no included ranges configured. Production always has a Parser in scope and
+// passes its configured ranges (see (*Parser).guardRealShiftGap); this form
+// exists for the direct, Parser-free callers that check a gap without one.
 func realShiftGapIsParserPadding(source []byte, s *glrStack, tok Token, continuationEscape byte) bool {
-	return realTokenAttachmentGapIsParserPadding(source, s, tok, continuationEscape)
+	return realTokenAttachmentGapIsParserPadding(source, s, tok, nil, continuationEscape)
 }
 
 // skippedRealGapContinuesSeparatedList reports whether the sole active stack is
@@ -4048,7 +4062,7 @@ func (p *Parser) materializeSkippedGapAsExtraError(s *glrStack, state StateID, t
 }
 
 func (p *Parser) tryMaterializeSkippedRealGap(source []byte, s *glrStack, state StateID, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) bool {
-	if s == nil || tok.StartByte <= s.byteOffset || realTokenAttachmentGapIsParserPadding(source, s, tok, p.lineContinuationEscapeByte()) {
+	if s == nil || tok.StartByte <= s.byteOffset || realTokenAttachmentGapIsParserPadding(source, s, tok, p.included, p.lineContinuationEscapeByte()) {
 		return false
 	}
 	// A stray run of bytes that the lexer skipped mid-production, immediately
@@ -4290,6 +4304,22 @@ func parserTailAllowsCleanAcceptance(source []byte, start, end uint32, included 
 	if start > end || int(end) > len(source) {
 		return false
 	}
+	return bytesAreParserPaddingInIncludedRanges(source, start, end, included, continuationEscape)
+}
+
+// bytesAreParserPaddingInIncludedRanges reports whether source[start:end] is
+// entirely parser padding once clipped to included. With no included ranges
+// configured (included is empty, the overwhelming common case) this is
+// exactly bytesAreParserPadding(source, start, end, continuationEscape): a
+// caller with no active SetIncludedRanges call keeps its pre-clipping
+// behavior unchanged. With included ranges configured, only the portions of
+// [start,end) that actually fall inside an included range are scanned for
+// padding; a gap between two included ranges is skipped entirely rather than
+// scanned, because includedRangeTokenSource (included_ranges.go) already
+// treats bytes outside every included range as invisible and never lexes
+// them — this scan has to agree, or it ends up demanding that excluded,
+// arbitrary source text be whitespace before the parser may cross it.
+func bytesAreParserPaddingInIncludedRanges(source []byte, start, end uint32, included []Range, continuationEscape byte) bool {
 	if len(included) == 0 {
 		return bytesAreParserPadding(source, start, end, continuationEscape)
 	}
@@ -4334,7 +4364,7 @@ func cleanAcceptedTreeLeavesRealTail(tree *Tree, source []byte, expectedEOFByte 
 }
 
 func (p *Parser) guardRealTokenAttachmentGap(source []byte, s *glrStack, tok Token, consumer string) bool {
-	if realTokenAttachmentGapIsParserPadding(source, s, tok, p.lineContinuationEscapeByte()) {
+	if realTokenAttachmentGapIsParserPadding(source, s, tok, p.included, p.lineContinuationEscapeByte()) {
 		return true
 	}
 	if consumer == "" {
@@ -6066,6 +6096,37 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					continue
 				}
 				if len(stacks) > 1 {
+					// A GLR fork can leave sibling stacks in states that need
+					// different tokenizations of the same bytes: a keyword
+					// literal versus the grammar's generic word token, a
+					// dedicated operator token versus a shared one, and so
+					// on. This engine lexes one token per iteration for
+					// every live stack (see updateParserStateTokenSource),
+					// so a stack whose state needs the other reading is
+					// starved unless it gets a chance at its own lex mode
+					// first. relexTokenForStackLexState is the same
+					// span-exact, action-verified DFA probe the faithful
+					// C-recovery port already uses for this (issue #454)
+					// and the compact route runs unconditionally
+					// (relexTokenForState); it is a no-op whenever the
+					// re-lex does not land a different, action-bearing
+					// symbol at the identical byte span, so a stack that
+					// genuinely has no other reading is killed exactly as
+					// before.
+					if reTok, ok := p.relexTokenForStackLexState(source, currentState, tok); ok {
+						if p.glrTrace {
+							fmt.Printf("  stack[%d] STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
+								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState)
+						}
+						stackRelexRestoreTok = tok
+						stackRelexActive = true
+						tok = reTok
+						if actionTiming != nil {
+							ns := recordNoActionTiming()
+							actionTiming.actionNoActionRelexNanos += ns
+						}
+						goto retryAction
+					}
 					if p.glrTrace {
 						fmt.Printf("  stack[%d] KILLED: no action for sym=%d in state=%d (multiple stacks)\n", si, tok.Symbol, currentState)
 					}

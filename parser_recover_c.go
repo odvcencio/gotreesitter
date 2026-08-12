@@ -4972,7 +4972,20 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 // This is not Scala-specific. Any grammar where one byte sequence lexes as
 // different symbols depending on parse state has the same exposure: `+ - ! ~`
 // as unary or binary, `/` as divide or regex start, `<` as comparison or type
-// bracket.
+// bracket, a keyword literal or the grammar's generic word token. Apex's
+// `Type.class` is the word-token witness: `class_literal`'s _unannotated_type
+// reading and `field_access`'s primary_expression reading both stay live GLR
+// forks through the trailing `.`, one needing the `class` keyword and the
+// other needing plain `identifier` for the same bytes; the shared lexer
+// promotes the keyword, and the field_access fork used to die here with no
+// alternative. This function has two callers: the C-recovery port above
+// (parser.go, gated by errorCostCompetitionEnabled -- a no-action stack there
+// pauses instead of dying if the re-lex fails) and the plain multi-stack
+// dispatch loop (parser.go, ungated -- a no-action stack there is killed
+// instead of dying if the re-lex fails). Both callers restore the shared
+// token for every sibling stack via the same stackRelexRestoreTok /
+// stackRelexActive pair, so a re-lex never leaks sideways to a stack that
+// does accept the original symbol.
 //
 // The re-lex is deliberately narrow, so it cannot disturb the lockstep token
 // loop the rest of the engine relies on:

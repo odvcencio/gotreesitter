@@ -586,7 +586,7 @@ func (c *reuseCursor) sourceBytesIdentical() bool {
 
 func reuseSubtreeGapIsParserPadding(source []byte, stackByteOffset, nodeStart uint32, continuationEscape byte) bool {
 	stack := glrStack{byteOffset: stackByteOffset}
-	return realTokenAttachmentGapIsParserPadding(source, &stack, Token{StartByte: nodeStart}, continuationEscape)
+	return realTokenAttachmentGapIsParserPadding(source, &stack, Token{StartByte: nodeStart}, nil, continuationEscape)
 }
 
 func reuseStackByteOffsetAfterTruncate(s *glrStack, depth int, entryScratch *glrEntryScratch) (uint32, bool) {

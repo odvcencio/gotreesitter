@@ -331,8 +331,13 @@ func TestInferredTagsQueryCoverage(t *testing.T) {
 	}
 
 	// Core set (9) is explicit. Inference should expand this materially.
-	if withTags < 30 {
-		t.Fatalf("expected inferred tags query coverage to be >=30 languages, got %d", withTags)
+	// Floor raised 2026-08-11 (workstream D coverage growth pass) from 30 to
+	// 84, the measured tags-query-non-empty count (T1 83 + T2 1) recorded in
+	// testdata/outline_census/baseline.json. Any language that drops out of
+	// this count without a stated reason and a baseline update fails here
+	// first.
+	if withTags < 84 {
+		t.Fatalf("expected inferred tags query coverage to be >=84 languages, got %d", withTags)
 	}
 }
 

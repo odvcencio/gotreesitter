@@ -23,6 +23,11 @@ import (
 // comparison lives in
 // cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go.
 //
+// Update: the parser's padding scan now clips to the included ranges, so
+// this route no longer forces recovery on this fixture and the root already
+// comes out as `source_file` before normalizeKotlinRecoveredSourceFileRoot
+// inspects it. See TestIncludedRangesKotlinArmMemberNowInert below.
+//
 // Fixture provenance: testdata/included_ranges/kotlin_work_queue_test.kt is a
 // byte-exact copy of kotlinx-coroutines-core/jvm/test/scheduling/WorkQueueTest.kt
 // from the kotlinx.coroutines project, Apache License 2.0. The copy is byte
@@ -100,12 +105,16 @@ func TestIncludedRangesKotlinRootStaysSourceFile(t *testing.T) {
 	}
 }
 
-// TestIncludedRangesKotlinArmMemberIsLive records that the arm's recovered-root
-// member actually rewrites the tree on this route. It is the positive control
-// that makes the test above a real gate instead of an accident: if the member
-// ever becomes inert here, this fails and the retirement question reopens with
-// evidence.
-func TestIncludedRangesKotlinArmMemberIsLive(t *testing.T) {
+// TestIncludedRangesKotlinArmMemberNowInert records the current state of the
+// arm's recovered-root member on this route: the parser's padding scan now
+// clips to the configured included ranges, so the parse no longer forces
+// recovery between the three ranges and never hands the member an ERROR
+// root to repair. The member still runs on every parse; it now returns
+// immediately on this fixture because the root already carries the right
+// symbol before the member inspects it. If a future change reopens this
+// route to recovery, the member starts rewriting the tree again and the
+// assertion below catches it.
+func TestIncludedRangesKotlinArmMemberNowInert(t *testing.T) {
 	lang := grammars.KotlinLanguage()
 	if lang == nil {
 		t.Skip("kotlin grammar unavailable")
@@ -124,13 +133,17 @@ func TestIncludedRangesKotlinArmMemberIsLive(t *testing.T) {
 	}
 	defer tree.Release()
 
+	if got := tree.RootNode().Type(lang); got != "source_file" {
+		t.Fatalf("included-ranges root type = %q, want %q", got, "source_file")
+	}
+
 	// Census receipts are recorded on the production route only. An
 	// included-ranges parse always lands there today, because
 	// admission_switch.go declines the compact candidate route whenever the
 	// parser carries included ranges. This is a Fatal, not a Skip: if the
-	// compact runner ever gains included-ranges support, this positive control
-	// must fail loudly instead of turning into a silent skip that stops
-	// guarding the member.
+	// compact runner ever gains included-ranges support, this test must fail
+	// loudly instead of turning into a silent skip that stops watching the
+	// member.
 	passesPtr := tree.ParseRuntime().NormalizationPasses
 	if passesPtr == nil || len(*passesPtr) == 0 {
 		t.Fatal("included-ranges parse recorded no census receipts; the route no longer pins production")
@@ -142,30 +155,29 @@ func TestIncludedRangesKotlinArmMemberIsLive(t *testing.T) {
 			continue
 		}
 		found = true
-		if pass.NodesRewritten == 0 {
-			t.Fatalf("%s recorded no rewrite on the included-ranges route", subpass)
+		if pass.NodesRewritten != 0 {
+			t.Fatalf("%s rewrote %d nodes, want 0: the root should already carry the right symbol before the member runs", subpass, pass.NodesRewritten)
 		}
-		t.Logf("%s rewrote %d nodes", subpass, pass.NodesRewritten)
 	}
 	if !found {
 		t.Fatalf("%s has no census receipt on the included-ranges route", subpass)
 	}
 }
 
-// TestIncludedRangesKotlinRootCoveragePinned pins the route's known coverage
-// defect so a change becomes loud instead of silent.
+// TestIncludedRangesKotlinRootHasErrorPinned pins the route's one remaining
+// known divergence from the C oracle now that the padding scan clips to the
+// included ranges: the root's HasError flag. Every other measured field now
+// matches the C oracle exactly on this fixture: span, child count, and root
+// kind. See TestIncludedRangesKotlinRootParity in
+// cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go for the
+// C-oracle receipt these pins came from.
 //
-// The parse stops with no_stacks_alive and the root ends at byte 1986, so the
-// third included range is dropped. The C oracle publishes `source_file [0,3094)`
-// with no error for the same input. The cause is separate from the member this
-// file gates: bytesAreParserPadding scans raw bytes between the stack offset and
-// the next token start with no range clipping, so a non-whitespace gap between
-// ranges kills every GLR stack. The truncation predates the member deletion and
-// predates its restoration; it is measured identical on both.
-//
-// When the clipping fix lands, this test fails. That is the intended signal.
-// Update the pins then, from a fresh C-oracle receipt.
-func TestIncludedRangesKotlinRootCoveragePinned(t *testing.T) {
+// Before the padding-scan fix, this test pinned a larger defect: the parse
+// stopped with no live GLR stacks and the root dropped the third included
+// range entirely, ending at byte 1986 instead of 3094. That truncation is
+// gone. If the HasError divergence below ever closes too, update this pin
+// from a fresh C-oracle receipt.
+func TestIncludedRangesKotlinRootHasErrorPinned(t *testing.T) {
 	lang := grammars.KotlinLanguage()
 	if lang == nil {
 		t.Skip("kotlin grammar unavailable")
@@ -185,18 +197,22 @@ func TestIncludedRangesKotlinRootCoveragePinned(t *testing.T) {
 
 	root := tree.RootNode()
 	const (
-		pinnedStart = uint32(0)
-		pinnedEnd   = uint32(1986)
-		oracleEnd   = uint32(3094)
+		pinnedEnd        = uint32(3094) // matches the C oracle
+		pinnedChildCount = 8            // matches the C oracle
 	)
-	if got := root.StartByte(); got != pinnedStart {
-		t.Errorf("included-ranges root start byte = %d, pinned %d", got, pinnedStart)
+	if got := root.StartByte(); got != 0 {
+		t.Errorf("included-ranges root start byte = %d, want 0 (matches the C oracle)", got)
 	}
 	if got := root.EndByte(); got != pinnedEnd {
-		t.Errorf("included-ranges root end byte = %d, pinned %d (C oracle publishes %d)",
-			got, pinnedEnd, oracleEnd)
+		t.Errorf("included-ranges root end byte = %d, want %d (matches the C oracle)", got, pinnedEnd)
+	}
+	if got := root.ChildCount(); got != pinnedChildCount {
+		t.Errorf("included-ranges root child count = %d, want %d (matches the C oracle)", got, pinnedChildCount)
+	}
+	if root.IsError() {
+		t.Error("included-ranges root is an ERROR node")
 	}
 	if !root.HasError() {
-		t.Error("included-ranges root reports no error; the pinned value is true while the C oracle reports false")
+		t.Error("included-ranges root reports no error; the pinned value is true while the C oracle reports false — refresh this pin from a fresh C-oracle receipt if this ever flips")
 	}
 }

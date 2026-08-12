@@ -221,6 +221,11 @@ func outlineGoldenSymbolsOf(symbols []gts.OutlineSymbol) []outlineGoldenSymbol {
 // Query uses that query instead, which is how the omission counters get pinned
 // end to end: the shared inference cannot produce a duplicate or a conflict on
 // demand, but an explicit query can, and it exercises the identical code path.
+//
+// Every fixture attaches grammars.OutlineOwnerRules(entry), the same table a
+// real caller composes. This is a no-op for every language without a row in
+// that table -- WithOutlineOwnerRules(nil) leaves Owner empty exactly as
+// before -- and resolves real Owner values for the languages that do.
 func outlineForFixture(t *testing.T, fixture outlineGoldenFixture) outlineGoldenFile {
 	t.Helper()
 
@@ -253,7 +258,8 @@ func outlineForFixture(t *testing.T, fixture outlineGoldenFixture) outlineGolden
 	}
 	defer tree.Release()
 
-	outliner, err := gts.NewOutliner(lang, query)
+	outliner, err := gts.NewOutliner(lang, query,
+		gts.WithOutlineOwnerRules(grammars.OutlineOwnerRules(*entry)))
 	if err != nil {
 		t.Fatalf("%s: build outliner: %v", fixture.File, err)
 	}
@@ -345,7 +351,7 @@ func TestOutlineGoldenAccounting(t *testing.T) {
 				t.Errorf("%s: fixture outline is truncated; raise the work budget or shrink the fixture", path)
 			}
 			if golden.Report.OwnerRuleMisses != 0 {
-				t.Errorf("%s: owner rules do not run in this change, so OwnerRuleMisses must stay 0, got %d",
+				t.Errorf("%s: every committed fixture's owner-rule-eligible symbols carry a resolvable owner, so OwnerRuleMisses must stay 0, got %d",
 					path, golden.Report.OwnerRuleMisses)
 			}
 			if golden.Report.Symbols == 0 && golden.Report.Omitted() == 0 {

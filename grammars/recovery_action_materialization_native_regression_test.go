@@ -222,6 +222,64 @@ func TestRecoveryActionMaterializationRoutesStayExactOrFailClosed(t *testing.T) 
 	}
 }
 
+// TestForthIncrementalTerminatorDeletionMaterializesMissingEnd covers the
+// edit shape that actually triggers Forth recovery: removing a definition's
+// closing terminator. TestRecoveryActionMaterializationRoutesStayExactOrFailClosed
+// above only exercises an incremental edit that appends a trailing byte, so
+// it never removes a terminator. This case deletes the `;` from a terminated
+// definition and confirms the incremental route still materializes a
+// zero-width missing end_definition matching a fresh parse of the edited
+// source.
+func TestForthIncrementalTerminatorDeletionMaterializesMissingEnd(t *testing.T) {
+	language := ForthLanguage()
+	oldSource := []byte(": foo 1 2 ;\n")
+	semicolon := bytes.IndexByte(oldSource, ';')
+	if semicolon < 0 {
+		t.Fatal("fixture is missing its terminator")
+	}
+	newSource := append(append([]byte(nil), oldSource[:semicolon]...), oldSource[semicolon+1:]...)
+
+	parser := gotreesitter.NewParser(language)
+	parser.SetAdmissionCandidateRoute(false)
+	oldTree, err := parser.Parse(oldSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(oldTree.Release)
+
+	deletePoint := retiredDispatchPointAtByte(oldSource, semicolon)
+	afterPoint := retiredDispatchPointAtByte(oldSource, semicolon+1)
+	oldTree.Edit(gotreesitter.InputEdit{
+		StartByte:   uint32(semicolon),
+		OldEndByte:  uint32(semicolon + 1),
+		NewEndByte:  uint32(semicolon),
+		StartPoint:  deletePoint,
+		OldEndPoint: afterPoint,
+		NewEndPoint: deletePoint,
+	})
+
+	incremental, _, err := parser.ParseIncrementalProfiled(newSource, oldTree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(incremental.Release)
+	assertNoNormalizationPasses(t, incremental)
+
+	fresh, err := gotreesitter.NewParser(language).Parse(newSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(fresh.Release)
+	assertNoNormalizationPasses(t, fresh)
+	want := collapsedTokenTreeDigest(t, fresh, language)
+	assertRecoveryActionMaterializationDigest(t, "incremental-terminator-deletion", incremental, language, want)
+
+	missing := findRecoveryActionMaterializationNode(incremental.RootNode(), language, "end_definition")
+	if missing == nil || !missing.IsMissing() || missing.StartByte() != missing.EndByte() {
+		t.Fatalf("incremental end_definition = %v, want zero-width missing node", missing)
+	}
+}
+
 func assertRecoveryActionMaterializationIncremental(
 	t *testing.T,
 	language *gotreesitter.Language,

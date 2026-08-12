@@ -220,27 +220,23 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"begin\n" +
 				"   A := (others => 0);\n" +
 				"end;\n",
-			// Both digests moved with the inherited-field projection repair
-			// (PR #638). The old digests pinned a "name" field on
-			// named_array_aggregate that the C runtime never assigns. C
-			// receipt, taken with field comparison on: the production route
-			// now reports 0 mismatches against the locked C oracle. The raw
-			// route keeps only the 6 pre-existing aggregate-kind and
-			// association-choice election mismatches that
-			// dispatch.ada.aggregate-kind-election and
-			// dispatch.ada.association-choice-materialization repair, and 0
-			// field mismatches.
-			wantRawDigest:    "ad2718a1e309fadba012881bc82689ff1dabec69814106b0dcbe3a39b6d70b27",
+			// Ada's grammar declares conflicts: [[$.component_choice_list,
+			// $.discrete_choice], ...]. A bare "others" choice used to elect
+			// component_choice_list (record reading) where the C oracle
+			// elects discrete_choice (array reading), both plain REDUCE
+			// with no dynamic precedence; the outer named_array_aggregate
+			// reading follows from the inner choice, so the same tie drove
+			// both mismatches. The declared-conflict election policy
+			// (grammars/runtime_profiles.go "ada",
+			// ConflictPolicyDeclaredReduceReduceHighestSymbol) now folds
+			// that row before the GLR engine forks, so the raw route
+			// already matches the C oracle and dispatch.ada.aggregate-kind-election
+			// / dispatch.ada.association-choice-materialization are no
+			// longer engaged on this witness at all.
+			wantRawDigest:    "95edae06bdbba04a19749854656b7c439a334cf9ae7bba367ed762386cf28d15",
 			wantResultDigest: "95edae06bdbba04a19749854656b7c439a334cf9ae7bba367ed762386cf28d15",
 			expectedSubpasses: []string{
 				"dispatch.ada",
-				"dispatch.ada.aggregate-kind-election",
-				"dispatch.ada.association-choice-materialization",
-			},
-			rewrittenSubpasses: []string{
-				"dispatch.ada",
-				"dispatch.ada.aggregate-kind-election",
-				"dispatch.ada.association-choice-materialization",
 			},
 		},
 		{
@@ -250,13 +246,15 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"begin\n" +
 				"   A := new T (F => Pkg.Obj'Access);\n" +
 				"end;\n",
+			// Named associations are unambiguous (index_constraint is never
+			// a legal reading for a discriminant_selector_name/'=>' pair);
+			// dispatch.ada.constraint-kind-election now gates its rewrite on
+			// the single-positional-association shape, so it no longer
+			// rewrites this named witness (it still runs, and visits the
+			// discriminant_constraint node, hence it stays checked).
 			wantRawDigest:    "a35538112ad4ae10df6d5544c7f0a58f3e6a3ecb5fd5fb842808d0e31ac27ac2",
-			wantResultDigest: "d0006efd9f34dce85ac48330642b378dc2b5f995004c9c11a20aee98ac6be8a2",
+			wantResultDigest: "a35538112ad4ae10df6d5544c7f0a58f3e6a3ecb5fd5fb842808d0e31ac27ac2",
 			expectedSubpasses: []string{
-				"dispatch.ada",
-				"dispatch.ada.constraint-kind-election",
-			},
-			rewrittenSubpasses: []string{
 				"dispatch.ada",
 				"dispatch.ada.constraint-kind-election",
 			},
@@ -277,6 +275,22 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 			},
 		},
 		{
+			// The producer now elects field_access natively (a per-stack DFA
+			// relex, parser.go, plus a certified primary-derivation
+			// preference at accept-time result selection, parser_result.go),
+			// so raw and result now match and this pass no longer rewrites
+			// on the production route. Both digests moved: the producer fix
+			// also carries the "object"/"field" field assignments the old
+			// post-parse retag never reconstructed (retagResultRoot only
+			// relabels a node's symbol), so this digest is the first one
+			// verified against the locked C oracle with field comparison on
+			// (cgo_harness/apex_generic_local_parity_test.go
+			// TestApexCloseAngleRawCOracleParity/class_literal_alias). The
+			// pass still checks and still rewrites for the
+			// ParseForestExperimental route, which has its own, separate
+			// dispatch loop this fix does not reach -- see
+			// grammars/apex_class_literal_election_native_regression_test.go
+			// TestApexClassLiteralForestStillNeedsResultCompatibility.
 			name:     "apex_class_literal_alias",
 			language: grammars.ApexLanguage,
 			source: "public class C {\n" +
@@ -284,31 +298,26 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"    Object t = RecordPage.class;\n" +
 				"  }\n" +
 				"}\n",
-			wantRawDigest:    "a7ce1bb2fb703f6c85a85bac1116a31f9d14f03cd4560f8fe81f518b19d36f33",
-			wantResultDigest: "691872382855aafce9519a115ca30ac191c4a118d4ab7170e88e0193fd2f5bb6",
+			wantRawDigest:    "35a8cb0bdcf84a752c313b3c9cf296d4bf2acaac240646e0b32578c858832096",
+			wantResultDigest: "35a8cb0bdcf84a752c313b3c9cf296d4bf2acaac240646e0b32578c858832096",
 			expectedSubpasses: []string{
-				"dispatch.apex",
-				"dispatch.apex.class-literal-alias",
-			},
-			rewrittenSubpasses: []string{
 				"dispatch.apex",
 				"dispatch.apex.class-literal-alias",
 			},
 		},
 		{
+			// Materialization keeps the C-shaped variable_assignments wrapper
+			// natively (tree-sitter-bash test/corpus/literals.txt pins the
+			// same wrapper for consecutive top-level assignments), so this
+			// witness no longer rewrites: raw and production now agree.
 			name:             "bash_assignment_wrapper",
 			language:         grammars.BashLanguage,
 			source:           "a=1 b=2 c=3",
 			wantRawDigest:    "acf5436fdf47d1af14d387f9bc7ebc30ec09b4874d6a9e9caf452678e387c9f6",
-			wantResultDigest: "81ace1f9c8a394d177e5ea909ff3012329ec78b255e45a235fc8a3eea4a67a16",
+			wantResultDigest: "acf5436fdf47d1af14d387f9bc7ebc30ec09b4874d6a9e9caf452678e387c9f6",
 			expectedSubpasses: []string{
 				"dispatch.bash",
-				"dispatch.bash.variable-assignment-wrapper-flattening",
 				"dispatch.bash.generated-command-assignment",
-			},
-			rewrittenSubpasses: []string{
-				"dispatch.bash",
-				"dispatch.bash.variable-assignment-wrapper-flattening",
 			},
 		},
 		{
@@ -347,7 +356,6 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 			wantResultDigest: "7d110bcd4998cf43995020d6ee6326ef0e060b587ce44fa75943d95d86156cd5",
 			expectedSubpasses: []string{
 				"dispatch.bash",
-				"dispatch.bash.if-condition-field-projection",
 				"dispatch.bash.generated-command-assignment",
 			},
 		},

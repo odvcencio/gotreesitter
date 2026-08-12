@@ -311,6 +311,19 @@ const (
 	// ConflictPolicyRepetitionReduce is an exact-row certification for the
 	// ordinary C repetition fold: one reduce wins over one repetition shift.
 	ConflictPolicyRepetitionReduce
+	// ConflictPolicyDeclaredReduceReduceHighestSymbol resolves a row whose
+	// actions are all plain REDUCE and all reduce a symbol declared together
+	// in the grammar's own conflicts list. C's ts_stack_merge folds such rows
+	// deterministically: when the competing reductions later wrap into
+	// shape-equivalent subtrees (same symbol, span, and child count one level
+	// up), ts_stack_merge's shallow equivalence test keeps whichever subtree
+	// was established first without a deep content comparison, and arrival
+	// order is set by table-action order (the last action in a multi-action
+	// row runs immediately; earlier actions are deferred and lose). Because
+	// the generator lists same-row actions by ascending symbol id, "last
+	// processed" is "highest symbol id" for this shape. See
+	// declaredReduceReduceHighestSymbolConflictChoice.
+	ConflictPolicyDeclaredReduceReduceHighestSymbol
 )
 
 // ConflictPolicy describes one table row/lookahead conflict that can be

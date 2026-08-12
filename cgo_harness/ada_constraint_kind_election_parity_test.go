@@ -18,27 +18,24 @@ import (
 // production route (compat tail on, dispatch.ada.constraint-kind-election in
 // parser_result_ada.go included).
 //
-// The two routes disagree with the C oracle in opposite directions,
-// depending on the constraint shape:
-//
-//   - Named associations ("F => Pkg.Obj'Access") are unambiguous: the raw
-//     route already matches the C oracle, and the production route diverges
-//     because the compatibility pass renames discriminant_constraint to
-//     index_constraint and drops the discriminant_association wrapper
-//     regardless.
+//   - Named associations ("F => Pkg.Obj'Access") are unambiguous
+//     (index_constraint's discrete_range list carries no
+//     discriminant_selector_name/'=>' pair, so index_constraint is never a
+//     legal reading here): both routes match the C oracle. The subpass now
+//     gates its rewrite on the single-positional-association shape, so it no
+//     longer engages on a named association at all.
 //   - Positional (unnamed) constraint values that are
 //     'Access/'Delta/'Digits/'Mod attribute references, outside an
 //     allocator (object declarations, subtype declarations, record
-//     component declarations), go the other way: the raw route elects
+//     component declarations), stay load-bearing: the raw route elects
 //     discriminant_constraint wrapping a discriminant_association where the
 //     C oracle elects index_constraint directly, and the production route's
-//     rewrite produces the exact C shape.
+//     rewrite produces the exact C shape, subtype_mark/prefix/selector_name
+//     fields included.
 //
-// dispatch.ada.constraint-kind-election is therefore load-bearing for the
-// positional attribute-reference shapes even though it regresses the
-// named-association shapes; the two shapes need separate handling (for
-// example, gating on whether the discriminant_association carries a
-// name/arrow pair) rather than a single on/off subpass.
+// dispatch.ada.constraint-kind-election remains load-bearing for the
+// positional attribute-reference shapes; it is a no-op producer for every
+// other shape this suite exercises.
 func TestAdaConstraintKindElectionCParity(t *testing.T) {
 	goLang := grammars.AdaLanguage()
 	cLang, err := COracleLanguage("ada")
@@ -59,18 +56,18 @@ func TestAdaConstraintKindElectionCParity(t *testing.T) {
 		note                   string
 	}{
 		{
-			name:                   "named_allocator_witness_regresses",
+			name:                   "named_allocator_witness_unaffected",
 			source:                 "procedure P is\nbegin\n   A := new T (F => Pkg.Obj'Access);\nend;\n",
 			wantRawMismatch:        false,
-			wantProductionMismatch: true,
-			note:                   "named association is unambiguous (discriminant_association is the only legal shape); the subpass renames discriminant_constraint to index_constraint and drops the association wrapper anyway.",
+			wantProductionMismatch: false,
+			note:                   "named association is unambiguous (discriminant_association is the only legal shape); the subpass no longer engages on a multi-child (named) association.",
 		},
 		{
-			name:                   "named_object_decl_regresses",
+			name:                   "named_object_decl_unaffected",
 			source:                 "procedure P is\n   X : Rec (F => Pkg.Obj'Access);\nbegin\n   null;\nend;\n",
 			wantRawMismatch:        false,
-			wantProductionMismatch: true,
-			note:                   "same named-association regression outside an allocator.",
+			wantProductionMismatch: false,
+			note:                   "same named-association shape outside an allocator.",
 		},
 		{
 			name:                   "positional_object_decl_access_load_bearing",

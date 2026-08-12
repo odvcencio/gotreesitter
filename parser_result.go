@@ -598,7 +598,20 @@ func stackCompareForResultSelectionWithRawShape(p *Parser, arena *nodeArena, a, 
 	if cmp := compareAcceptedStackTreeOrderPreference(p, arena, a, b); cmp != 0 {
 		return cmp
 	}
-	if useRawShape {
+	// The raw-shape/symbol-id fallback below is a last-resort ordering with no
+	// grammar-authored basis: compareRawStackEntriesRec breaks ties on raw
+	// numeric Symbol id, an artifact of grammar-compiler assignment order that
+	// carries no relationship to which production the C oracle actually
+	// prefers. A CompactPrimaryAcceptanceDerivationCertified language has
+	// already proven (via the compact route's own primary-derivation election,
+	// admission_switch_candidate.go) that C keeps whichever accepted
+	// derivation never took a GLR-forked conflict branch; skipping the
+	// symbol-id fallback for exactly these certified languages lets that same
+	// signal -- already present below as the branchOrder tie-break, lower
+	// (never-forked) wins -- decide instead, rather than losing to an
+	// unrelated ordering first. This changes nothing for every uncertified
+	// language.
+	if useRawShape && (p == nil || p.language == nil || !p.language.CompactPrimaryAcceptanceDerivationCertified) {
 		if cmp := compareAcceptedStackRawShapePreference(p, arena, a, b); cmp != 0 {
 			return cmp
 		}

@@ -48,11 +48,6 @@ func TestAdaA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // reproduces what production already produces (verified directly, with the
 // compact route disabled) on each of these witnesses.
 //
-// attribute_constraint is family D: Ada's grammar declares
-// prec.dynamic(1, discriminant_constraint) over index_constraint with an
-// explicit grammar comment choosing it, and Go's reduceForkWindowPreference
-// still picks index_constraint.
-//
 // This list carried six family-M entries before PR #638:
 // locked_positional_array_aggregate, array_others_choice,
 // named_array_aggregate, mixed_positional_named_aggregate,
@@ -64,15 +59,21 @@ func TestAdaA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // ratchet in a3ReportSweep now fails this test if a remaining entry stops
 // matching a live divergence.
 //
+// attribute_constraint (family D) carried a divergence at its
+// index_constraint[2] node: dispatch.ada.constraint-kind-election
+// (parser_result_ada.go) used to rename ANY tick-bearing
+// discriminant_constraint to index_constraint, including named associations
+// ("F => Pkg.Obj'Access") for which index_constraint is never a legal
+// reading (index_constraint's discrete_range list carries no
+// discriminant_selector_name/'=>' pair) -- both the compact and production
+// routes ran that same shared post-parse rewrite, so both agreed with each
+// other while diverging from the C oracle, which needs no rewrite at all
+// here (the raw parse already elects discriminant_constraint). Gating the
+// rewrite on the single-positional-association shape removed the entry.
+//
 // Not tied elections, not this gate's scope; repair lanes are tracked
 // separately.
-var adaA3KnownDivergences = []a3KnownDivergence{
-	{
-		Witness:   "attribute_constraint",
-		FirstPath: "/compilation/compilation_unit[0]/subprogram_body[0]/handled_sequence_of_statements[3]/assignment_statement[0]/expression[2]/term[0]/allocator[0]/index_constraint[2]",
-		GoValue:   "index_constraint", CValue: "discriminant_constraint", Family: "D",
-	},
-}
+var adaA3KnownDivergences = []a3KnownDivergence{}
 
 // adaA3TiedElectionWitnesses reuses the three witnesses already vetted in
 // ada_election_local_parity_test.go (TestAdaElectionRawCOracleParity),
@@ -98,9 +99,13 @@ func adaA3TiedElectionWitnesses() []a3CertificationSweepSource {
 				"end;\n"),
 		},
 		{
+			// The finding's second "ada aggregate". Formerly a
 			// dispatch.ada.aggregate-kind-election +
-			// dispatch.ada.association-choice-materialization witness. The
-			// finding's second "ada aggregate".
+			// dispatch.ada.association-choice-materialization witness; the
+			// latter subpass retired once a declared-conflict election
+			// policy resolved the underlying component_choice_list vs
+			// discrete_choice tie natively (grammars/runtime_profiles.go
+			// "ada").
 			Name: "array_others_choice",
 			Source: []byte("procedure P is\n" +
 				"begin\n" +

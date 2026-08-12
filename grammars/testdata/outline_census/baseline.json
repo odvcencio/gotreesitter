@@ -4,10 +4,10 @@
   "real_corpus_root": "/home/draco/work/gotreesitter-corpora/corpus_sources",
   "real_corpus_root_exists": true,
   "counts_by_tier": {
-    "T1": 69,
+    "T1": 83,
     "T2": 1,
-    "T3": 16,
-    "T4": 120
+    "T3": 10,
+    "T4": 112
   },
   "rows": [
     {
@@ -84,13 +84,10 @@
     },
     {
       "language": "bash",
-      "tier": "T3",
-      "tags_query_non_empty": false,
+      "tier": "T1",
+      "tags_query_non_empty": true,
       "smoke_capture_count": 0,
-      "real_corpus_present": false,
-      "candidate_symbols": [
-        "function_definition"
-      ]
+      "real_corpus_present": true
     },
     {
       "language": "bass",
@@ -200,17 +197,22 @@
     },
     {
       "language": "clojure",
-      "tier": "T4",
-      "tags_query_non_empty": false,
-      "smoke_capture_count": 0,
-      "real_corpus_present": false
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 3,
+      "smoke_capture_names": [
+        "_head",
+        "definition.variable",
+        "name"
+      ],
+      "real_corpus_present": true
     },
     {
       "language": "cmake",
-      "tier": "T4",
-      "tags_query_non_empty": false,
+      "tier": "T1",
+      "tags_query_non_empty": true,
       "smoke_capture_count": 0,
-      "real_corpus_present": false
+      "real_corpus_present": true
     },
     {
       "language": "cobol",
@@ -228,10 +230,14 @@
     },
     {
       "language": "commonlisp",
-      "tier": "T4",
-      "tags_query_non_empty": false,
-      "smoke_capture_count": 0,
-      "real_corpus_present": false
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
     },
     {
       "language": "cooklang",
@@ -326,7 +332,11 @@
       "language": "dart",
       "tier": "T1",
       "tags_query_non_empty": true,
-      "smoke_capture_count": 0,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
       "real_corpus_present": true
     },
     {
@@ -448,8 +458,11 @@
       "language": "elixir",
       "tier": "T1",
       "tags_query_non_empty": true,
-      "smoke_capture_count": 6,
+      "smoke_capture_count": 12,
       "smoke_capture_names": [
+        "_head",
+        "definition.function",
+        "definition.module",
         "name",
         "reference.call"
       ],
@@ -488,13 +501,10 @@
     },
     {
       "language": "erlang",
-      "tier": "T3",
-      "tags_query_non_empty": false,
+      "tier": "T1",
+      "tags_query_non_empty": true,
       "smoke_capture_count": 0,
-      "real_corpus_present": false,
-      "candidate_symbols": [
-        "call"
-      ]
+      "real_corpus_present": true
     },
     {
       "language": "facility",
@@ -533,13 +543,10 @@
     },
     {
       "language": "fish",
-      "tier": "T3",
-      "tags_query_non_empty": false,
+      "tier": "T1",
+      "tags_query_non_empty": true,
       "smoke_capture_count": 0,
-      "real_corpus_present": false,
-      "candidate_symbols": [
-        "function_definition"
-      ]
+      "real_corpus_present": true
     },
     {
       "language": "foam",
@@ -669,13 +676,14 @@
     },
     {
       "language": "graphql",
-      "tier": "T3",
-      "tags_query_non_empty": false,
-      "smoke_capture_count": 0,
-      "real_corpus_present": false,
-      "candidate_symbols": [
-        "type_definition"
-      ]
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.type",
+        "name"
+      ],
+      "real_corpus_present": true
     },
     {
       "language": "groovy",
@@ -727,10 +735,10 @@
     },
     {
       "language": "hcl",
-      "tier": "T4",
-      "tags_query_non_empty": false,
+      "tier": "T1",
+      "tags_query_non_empty": true,
       "smoke_capture_count": 0,
-      "real_corpus_present": false
+      "real_corpus_present": true
     },
     {
       "language": "heex",
@@ -864,7 +872,11 @@
       "language": "julia",
       "tier": "T1",
       "tags_query_non_empty": true,
-      "smoke_capture_count": 0,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.module",
+        "name"
+      ],
       "real_corpus_present": true
     },
     {
@@ -895,7 +907,11 @@
       "language": "kotlin",
       "tier": "T1",
       "tags_query_non_empty": true,
-      "smoke_capture_count": 0,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
       "real_corpus_present": true
     },
     {
@@ -1079,17 +1095,14 @@
     },
     {
       "language": "ocaml",
-      "tier": "T3",
-      "tags_query_non_empty": false,
-      "smoke_capture_count": 0,
-      "real_corpus_present": false,
-      "candidate_symbols": [
-        "method_definition",
-        "class_definition",
-        "constructor_declaration",
-        "type_definition",
-        "method_invocation"
-      ]
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.function",
+        "name"
+      ],
+      "real_corpus_present": true
     },
     {
       "language": "odin",
@@ -1128,17 +1141,10 @@
     },
     {
       "language": "php",
-      "tier": "T3",
-      "tags_query_non_empty": false,
+      "tier": "T1",
+      "tags_query_non_empty": true,
       "smoke_capture_count": 0,
-      "real_corpus_present": false,
-      "candidate_symbols": [
-        "function_definition",
-        "method_declaration",
-        "class_declaration",
-        "interface_declaration",
-        "enum_declaration"
-      ]
+      "real_corpus_present": true
     },
     {
       "language": "pkl",
@@ -1149,10 +1155,10 @@
     },
     {
       "language": "powershell",
-      "tier": "T4",
-      "tags_query_non_empty": false,
+      "tier": "T1",
+      "tags_query_non_empty": true,
       "smoke_capture_count": 0,
-      "real_corpus_present": false
+      "real_corpus_present": true
     },
     {
       "language": "prisma",
@@ -1184,10 +1190,10 @@
     },
     {
       "language": "proto",
-      "tier": "T4",
-      "tags_query_non_empty": false,
+      "tier": "T1",
+      "tags_query_non_empty": true,
       "smoke_capture_count": 0,
-      "real_corpus_present": false
+      "real_corpus_present": true
     },
     {
       "language": "pug",
@@ -1214,7 +1220,8 @@
       "smoke_capture_count": 0,
       "real_corpus_present": false,
       "candidate_symbols": [
-        "class_declaration"
+        "class_declaration",
+        "type_alias"
       ]
     },
     {
@@ -1302,7 +1309,11 @@
       "language": "ruby",
       "tier": "T1",
       "tags_query_non_empty": true,
-      "smoke_capture_count": 0,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.method",
+        "name"
+      ],
       "real_corpus_present": true
     },
     {
@@ -1320,19 +1331,25 @@
       "language": "scala",
       "tier": "T1",
       "tags_query_non_empty": true,
-      "smoke_capture_count": 2,
+      "smoke_capture_count": 4,
       "smoke_capture_names": [
         "definition.function",
+        "definition.object",
         "name"
       ],
       "real_corpus_present": true
     },
     {
       "language": "scheme",
-      "tier": "T4",
-      "tags_query_non_empty": false,
-      "smoke_capture_count": 0,
-      "real_corpus_present": false
+      "tier": "T1",
+      "tags_query_non_empty": true,
+      "smoke_capture_count": 3,
+      "smoke_capture_names": [
+        "_head",
+        "definition.variable",
+        "name"
+      ],
+      "real_corpus_present": true
     },
     {
       "language": "scss",
@@ -1364,10 +1381,10 @@
     },
     {
       "language": "sql",
-      "tier": "T4",
-      "tags_query_non_empty": false,
+      "tier": "T1",
+      "tags_query_non_empty": true,
       "smoke_capture_count": 0,
-      "real_corpus_present": false
+      "real_corpus_present": true
     },
     {
       "language": "squirrel",
@@ -1443,7 +1460,11 @@
       "language": "thrift",
       "tier": "T1",
       "tags_query_non_empty": true,
-      "smoke_capture_count": 0,
+      "smoke_capture_count": 2,
+      "smoke_capture_names": [
+        "definition.type",
+        "name"
+      ],
       "real_corpus_present": true
     },
     {

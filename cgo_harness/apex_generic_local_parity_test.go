@@ -41,18 +41,23 @@ func TestApexCloseAngleRawCOracleParity(t *testing.T) {
 				"}\n"),
 		},
 		{
-			// Witness for issue #601: both class_literal and field_access
-			// reach acceptance as live parallel derivations (a grammar-
-			// declared conflict with no prec.dynamic tie-break), and
-			// gotreesitter's runtime accept-selection elects class_literal
-			// where the locked C oracle elects field_access.
+			// Former witness for issue #601: both class_literal and
+			// field_access used to reach acceptance as live parallel
+			// derivations (a grammar-declared conflict with no
+			// prec.dynamic tie-break), and gotreesitter's runtime
+			// accept-selection elected class_literal where the locked C
+			// oracle elects field_access. Fixed natively: a per-stack DFA
+			// relex (parser.go) stops the shared lexer from starving the
+			// field_access fork, and the certified primary-acceptance-
+			// derivation preference (parser_result.go, reusing
+			// CompactPrimaryAcceptanceDerivationCertified) now settles the
+			// resulting tie the same way the compact route already did.
 			name: "class_literal_alias",
 			source: []byte("public class C {\n" +
 				"  void m() {\n" +
 				"    Object t = RecordPage.class;\n" +
 				"  }\n" +
 				"}\n"),
-			wantDivergence: true,
 		},
 	}
 

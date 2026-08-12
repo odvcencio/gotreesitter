@@ -7,6 +7,111 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Added
+
+- `TestOutlineOracleDifferential` (`cgo_harness/outline_differential_test.go`)
+  runs each language's resolved tags query through both the pure-Go query
+  engine and the official C tree-sitter runtime, then diffs the two capture
+  streams. It hard-asserts capture parity for the core nine outline
+  languages (`go`, `python`, `javascript`, `typescript`, `tsx`, `rust`,
+  `java`, `c`, `cpp`) and logs a census for every other language with a
+  resolvable tags query.
+
+- `TestOutlineCoverageWitnesses` (`grammars/outline_coverage_witness_test.go`)
+  pins 30 languages against the real `Outliner` pipeline. Each case names an
+  exact symbol its resolved tags query must produce, so a pattern that
+  compiles but never fires now fails the test instead of hiding behind a
+  non-empty query string.
+
+- File-outline tags-query coverage rose from a 30-language floor to 84 of
+  206 registered languages: 83 with a real-corpus fixture and 1 with a
+  smoke-sample fixture (`grammars/testdata/outline_census/baseline.json`).
+  `TestInferredTagsQueryCoverage` (`grammars/registry_test.go`) now enforces
+  84 as the floor. See `docs/outline.md` for the full coverage tiers and the
+  file outline API.
+
+- `OutlineSymbol.Owner` now resolves on every `OutlineTree` call. A rule
+  attached through `WithOutlineOwnerRules` matches a symbol by `NodeType`,
+  reads its `OwnerField`, and descends through the rule's `Unwrap` node
+  types until it reaches exactly one `NameTypes` terminal. Any other
+  outcome — an absent field, or a walk that reaches zero or more than one
+  terminal — leaves `Owner` empty and counts one
+  `OutlineReport.OwnerRuleMisses`; a `NodeType` no attached rule names
+  touches neither field.
+
+- `grammars.OutlineOwnerRules(entry)` gates the shipped owner-rule table by
+  symbol and field presence in each language's own compiled grammar, the
+  same way `ResolveTagsQuery`'s inference table is gated, and composes
+  directly with `gotreesitter.WithOutlineOwnerRules`. The shipped Go rule
+  resolves all four receiver shapes — value, pointer, generic value, and
+  generic pointer — to the receiver's base type name. See `docs/outline.md`
+  for the full resolution contract and a worked example.
+### Removed
+
+- Native root-extra folding and reduction now own Elixir comment placement
+  and map entry grouping. Parsing drops the hidden
+  `_newline_before_comment` scanner token without a post-parse pass.
+  Reduction groups map keyword pairs and wraps update and arrow entries in
+  the map grammar's `binary_operator` node. This removes the Elixir
+  result-compatibility dispatcher arm.
+### Removed
+
+- Native scheduling and reduction now own the Enforce `const int` formal
+  parameter shape. Parsing classifies `const` as a
+  `formal_parameter_modifier` and `int` as `type_int` directly. It keeps
+  the parameter's own name and default value instead of losing them to a
+  misread type/name pair. This removes the Enforce result-compatibility
+  dispatcher arm.
+
+### Fixed
+
+- Hyprlang's keyword lexer now classifies boolean values (`true`, `false`,
+  `on`, `off`, `yes`, `no`) at lex time. The grammar's word token pattern can
+  absorb leading whitespace before a keyword, and the keyword re-lex
+  previously required its match to start at byte zero, so it missed that
+  case and left the value as a generic string token. DFA keyword promotion
+  now skips the leading run first, the same way tree-sitter's own generated
+  keyword lexer does. This retires the Hyprlang dispatcher arm and fixes a
+  related bug: a trailing space after the keyword no longer produces an
+  incorrect boolean node.
+
+- Seven of the file outline's core nine languages carried tags-query rows
+  that reference a child node type the grammar never produces at that
+  position: `javascript`, `typescript`, `tsx`, `java`, `c`, `cpp`, and
+  `rust`. The C query compiler rejects such a row as an "Impossible
+  pattern" and drops the entire multi-pattern query with it. The pure-Go
+  query engine has no matching check, so it compiled the same row and
+  silently matched nothing. The dead rows are now removed or corrected.
+  `TestOutlineOracleDifferential`'s core-nine tier reports capture-stream
+  parity for all nine languages, and the fix changed no Go outline output —
+  confirmed by unchanged golden fixtures.
+
+### Removed
+
+- **The Bash assignment-wrapper and if-condition-field repairs.** Native
+  reduction already builds the C-shaped `variable_assignments` wrapper for
+  two or more consecutive assignments. It already sets the `condition`
+  field on an if-statement's condition tokens too. The Bash compatibility
+  pass no longer splices that wrapper's children into the enclosing node or
+  rebuilds the field afterward.
+  tree-sitter-bash's own corpus (`test/corpus/literals.txt`) pins the same
+  wrapper for two top-level assignments.
+  Production, compact, forest, and incremental routes match the raw parse
+  exactly, and the isolated C-oracle comparison matches for every case.
+  One unrelated Bash subpass remains live.
+- The FIDL result-compatibility dispatcher arm is retired. Native recovery
+  already builds the C-equivalent error shape for a versioned-layout-modifier
+  declaration whose modifier keyword carries a stray `(name=value)` argument
+  list. Production, compact, forest, and incremental routes produce the same
+  tree, and an isolated C-oracle parity check confirms the shape.
+- The HLSL subscript-assignment declarator member of the result-compatibility
+  dispatcher arm is retired. `structured_binding_declarator` carries a
+  negative dynamic precedence in the grammar. Native parsing already elects
+  the C-equivalent subscript-assignment expression for `Name[index] = value;`
+  without a post-parse pass. Production, compact, forest, and incremental
+  routes stay exact. The negative-number cast and unorm-buffer members of the
+  HLSL arm remain live.
+
 ## [0.49.0] - 2026-08-11
 
 ### Removed

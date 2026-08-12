@@ -55,7 +55,7 @@
         "start_point": "18:19",
         "end_point": "18:22"
       },
-      "owner": ""
+      "owner": "Registry"
     },
     {
       "kind": "method",
@@ -73,7 +73,7 @@
         "start_point": "23:19",
         "end_point": "23:23"
       },
-      "owner": ""
+      "owner": "Registry"
     },
     {
       "kind": "function",

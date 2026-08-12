@@ -353,6 +353,22 @@ for _, tag := range tags {
 }
 ```
 
+### File outlines
+
+`Outliner` projects a symbol outline from a parsed tree: kind, name, spans, and lexical nesting, from the same tags-query captures `Tagger` uses.
+
+```go
+entry := grammars.DetectLanguageByName("go")
+lang := entry.Language()
+outliner, _ := gotreesitter.NewOutliner(lang, grammars.ResolveTagsQuery(*entry))
+symbols, report := outliner.OutlineTree(tree)
+for _, sym := range symbols {
+    fmt.Println(sym.Kind, sym.Name)
+}
+```
+
+An ambiguous or unnamed definition is omitted and counted in `report`, never guessed. See [docs/outline.md](docs/outline.md) for the full API, per-language coverage, and the C-oracle differential that guards it.
+
 ## Benchmarks
 
 Canonical, linkable performance claims live in [BENCH.md](BENCH.md) — the

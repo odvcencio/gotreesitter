@@ -296,7 +296,26 @@ type queryExecBuffer struct {
 // NewQuery compiles query source (tree-sitter .scm format) against a language.
 // It returns an error if the query syntax is invalid or references unknown
 // node types or field names.
+//
+// NewQuery is a thin call to NewQueryWithOptions with no options; its
+// signature and behavior are unchanged from before NewQueryWithOptions
+// existed. See NewQueryWithOptions to opt into WithStrictPatternValidation.
 func NewQuery(source string, lang *Language) (*Query, error) {
+	return NewQueryWithOptions(source, lang)
+}
+
+// NewQueryWithOptions compiles query source the same way NewQuery does, plus
+// any QueryOptions. opts is empty in every existing call site through
+// NewQuery and defaults to NewQuery's exact behavior; see
+// WithStrictPatternValidation for the one option currently defined.
+func NewQueryWithOptions(source string, lang *Language, opts ...QueryOption) (*Query, error) {
+	var cfg queryCompileOptions
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&cfg)
+		}
+	}
+
 	p := &queryParser{
 		input: source,
 		lang:  lang,
@@ -309,6 +328,11 @@ func NewQuery(source string, lang *Language) (*Query, error) {
 	}
 	p.q.buildAlternationIndices()
 	p.q.buildRootPatternIndex()
+	if cfg.strictPatternValidation {
+		if issues := ValidateQueryPatterns(lang, p.q); len(issues) > 0 {
+			return nil, fmt.Errorf("%s", issues[0].String())
+		}
+	}
 	return p.q, nil
 }
 

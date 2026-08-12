@@ -26,11 +26,18 @@ func outlineTestCandidate(order int, kind, name string, start, end, nameStart, n
 }
 
 // runOutlineRules drives the two pure stages the way OutlineTree does, so the
-// unit cases exercise the shipped code path rather than a copy of it.
+// unit cases exercise the shipped code path rather than a copy of it. These
+// cases build candidates with outlineTestCandidate, which sets no node and no
+// owner rule table, so buildOutlineForest's owner resolution is the
+// documented no-op case throughout this file. The owner-resolving tests
+// (TestOutlineOwnerResolves*, TestOutlineOwnerRuleFailsClosedWhenFieldIsAbsent
+// in outline_api_test.go) exercise resolution itself, over real parsed nodes;
+// resolveOutlineOwnerRule's walk needs a real Node, which only a parsed tree
+// provides.
 func runOutlineRules(candidates []outlineCandidate) ([]OutlineSymbol, OutlineReport) {
 	var report OutlineReport
 	kept := filterOutlineCandidates(candidates, &report)
-	symbols := buildOutlineForest(kept, &report)
+	symbols := buildOutlineForest(kept, nil, nil, nil, &report)
 	report.Symbols = countOutlineSymbols(symbols)
 	return symbols, report
 }

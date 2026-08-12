@@ -16,6 +16,7 @@ import (
 // file must be added here or the scan will not cover it.
 var outlineSourceFiles = []string{
 	"outline.go",
+	"outline_owner.go",
 	"outline_report.go",
 }
 

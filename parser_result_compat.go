@@ -125,7 +125,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmCensus(ctx, "dispatch.awk", func() { normalizeAwkCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "bash":
 		dispatcherArmSubpassCensus(ctx, "dispatch.bash", func(census materializationSubpassCensus) {
-			normalizeBashProgramVariableAssignmentsWithCensus(ctx.root, ctx.lang, census)
 			census.run("dispatch.bash.generated-command-assignment", func() {
 				normalizeBashGeneratedCommandAssignments(ctx.root, ctx.source, ctx.lang)
 			})
@@ -150,12 +149,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		dispatcherArmCensus(ctx, "dispatch.jsdoc", func() { normalizeJsdocCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "dtd":
 		dispatcherArmCensus(ctx, "dispatch.dtd", func() { normalizeDTDCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "elixir":
-		dispatcherArmCensus(ctx, "dispatch.elixir", func() { normalizeElixirCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "enforce":
-		dispatcherArmCensus(ctx, "dispatch.enforce", func() { normalizeEnforceCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "fidl":
-		dispatcherArmCensus(ctx, "dispatch.fidl", func() { normalizeFIDLCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "go":
 		var stopReason ParseStopReason
 		dispatcherArmSubpassCensus(ctx, "dispatch.go", func(census materializationSubpassCensus) {
@@ -164,8 +157,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 		return resultCompatibilityResult{stopReason: stopReason}
 	case "hlsl":
 		dispatcherArmCensus(ctx, "dispatch.hlsl", func() { normalizeHLSLCompatibility(ctx.root, ctx.source, ctx.lang) })
-	case "hyprlang":
-		dispatcherArmCensus(ctx, "dispatch.hyprlang", func() { normalizeHyprlangCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "javascript":
 		var stopReason ParseStopReason
 		dispatcherArmCensus(ctx, "dispatch.javascript", func() {
@@ -193,8 +184,6 @@ func runLanguageResultCompatibility(ctx resultCompatibilityContext) resultCompat
 			normalizePowerShellPathCommandNameVariables(ctx.root, ctx.source, ctx.lang)
 			normalizePowerShellEnumStatementKeywordSpans(ctx.root, ctx.source, ctx.lang)
 		})
-	case "ql":
-		dispatcherArmCensus(ctx, "dispatch.ql", func() { normalizeQLCompatibility(ctx.root, ctx.source, ctx.lang) })
 	case "python":
 		dispatcherArmCensus(ctx, "dispatch.python", func() { normalizePythonCompatibilityWithParser(ctx.root, ctx.source, ctx.parser, ctx.lang) })
 	case "rust":
@@ -336,28 +325,54 @@ func nativeRecoveredStructureHasIsolatedErrorReceipt(root *Node) bool {
 // when the flag is unset, and every dispatcher arm already performs at least
 // one full-tree walk of its own, so even the closure indirection paid when
 // the flag is set is in the noise relative to the arm's own cost.
+//
+// parser_result_dispatcher_transcript.go extends this same probe under its
+// own flag, GTS_DISPATCHER_TRANSCRIPT=1: where this census answers "did the
+// arm change the tree?", the transcript answers "what did it change, and
+// where?" for every invocation that did. dispatcherArmCensus,
+// dispatcherArmSubpassCensus, and materializationSubpassCensus.run below each
+// check both flags, but the disabled and census-only branches are exactly
+// the code that shipped before the transcript existed.
 func dispatcherCensusEnabled() bool {
 	return os.Getenv("GTS_DISPATCHER_CENSUS") == "1"
 }
 
 // dispatcherArmCensus runs fn (the body of one dispatcher-arm switch case)
-// and, only when census instrumentation is enabled, records whether fn
-// changed ctx.root's structural fingerprint under armID via
-// (*Parser).recordNormalizationMetric. armID matches the corresponding
-// "dispatch.<name>" / "predicate.<name>" id in
-// testdata/result_compat_ownership_v1.json so census receipts trace directly
+// and, only when census or transcript instrumentation is enabled, snapshots
+// ctx.root's structural fingerprint before and after fn runs. When the
+// census is enabled it records whether fn changed the fingerprint under
+// armID via (*Parser).recordNormalizationMetric. When the transcript is
+// enabled and fn changed the fingerprint, it also records a transcript
+// effect record (see recordDispatcherArmTranscript). armID matches the
+// corresponding "dispatch.<name>" / "predicate.<name>" id in
+// testdata/result_compat_ownership_v1.json so both receipts trace directly
 // back to the registry entry they measure.
 func dispatcherArmCensus(ctx resultCompatibilityContext, armID string, fn func()) {
-	if !dispatcherCensusEnabled() {
+	census := dispatcherCensusEnabled()
+	transcript := dispatcherTranscriptEnabled()
+	if !census && !transcript {
 		fn()
 		return
 	}
-	before := captureDispatcherFingerprint(ctx.root)
+	if !transcript {
+		before := captureDispatcherFingerprint(ctx.root)
+		fn()
+		after := captureDispatcherFingerprint(ctx.root)
+		visited, rewritten := diffDispatcherFingerprint(before, after)
+		if ctx.parser != nil {
+			ctx.parser.recordNormalizationMetric(armID, 1, 1, visited, rewritten)
+		}
+		return
+	}
+	before := captureDispatcherTranscriptSnapshot(ctx.root)
 	fn()
-	after := captureDispatcherFingerprint(ctx.root)
-	visited, rewritten := diffDispatcherFingerprint(before, after)
-	if ctx.parser != nil {
+	after := captureDispatcherTranscriptSnapshot(ctx.root)
+	visited, rewritten := diffDispatcherFingerprint(before.signatures, after.signatures)
+	if census && ctx.parser != nil {
 		ctx.parser.recordNormalizationMetric(armID, 1, 1, visited, rewritten)
+	}
+	if rewritten > 0 {
+		recordDispatcherArmTranscript(ctx.lang, armID, before, after)
 	}
 }
 
@@ -365,23 +380,38 @@ func dispatcherArmCensus(ctx resultCompatibilityContext, armID string, fn func()
 // arm. The parent arm supplies its enabled state, so each subpass avoids
 // another environment lookup.
 type materializationSubpassCensus struct {
-	ctx     resultCompatibilityContext
-	enabled bool
+	ctx        resultCompatibilityContext
+	enabled    bool // census: GTS_DISPATCHER_CENSUS=1
+	transcript bool // transcript: GTS_DISPATCHER_TRANSCRIPT=1
 }
 
-// run invokes fn and records its exact tree mutation receipt when the parent
-// dispatcher census is enabled.
+// run invokes fn and, when the parent dispatcher census or transcript is
+// enabled, records its exact tree mutation receipt (census) and/or a
+// transcript effect record (transcript; see recordDispatcherArmTranscript).
 func (c materializationSubpassCensus) run(subpassID string, fn func()) {
-	if !c.enabled {
+	if !c.enabled && !c.transcript {
 		fn()
 		return
 	}
-	before := captureDispatcherFingerprint(c.ctx.root)
+	if !c.transcript {
+		before := captureDispatcherFingerprint(c.ctx.root)
+		fn()
+		after := captureDispatcherFingerprint(c.ctx.root)
+		visited, rewritten := diffDispatcherFingerprint(before, after)
+		if c.ctx.parser != nil {
+			c.ctx.parser.recordNormalizationMetric(subpassID, 1, 1, visited, rewritten)
+		}
+		return
+	}
+	before := captureDispatcherTranscriptSnapshot(c.ctx.root)
 	fn()
-	after := captureDispatcherFingerprint(c.ctx.root)
-	visited, rewritten := diffDispatcherFingerprint(before, after)
-	if c.ctx.parser != nil {
+	after := captureDispatcherTranscriptSnapshot(c.ctx.root)
+	visited, rewritten := diffDispatcherFingerprint(before.signatures, after.signatures)
+	if c.enabled && c.ctx.parser != nil {
 		c.ctx.parser.recordNormalizationMetric(subpassID, 1, 1, visited, rewritten)
+	}
+	if rewritten > 0 {
+		recordDispatcherArmTranscript(c.ctx.lang, subpassID, before, after)
 	}
 }
 
@@ -393,17 +423,31 @@ func dispatcherArmSubpassCensus(
 	fn func(materializationSubpassCensus),
 ) {
 	enabled := dispatcherCensusEnabled()
-	census := materializationSubpassCensus{ctx: ctx, enabled: enabled}
-	if !enabled {
+	transcript := dispatcherTranscriptEnabled()
+	census := materializationSubpassCensus{ctx: ctx, enabled: enabled, transcript: transcript}
+	if !enabled && !transcript {
 		fn(census)
 		return
 	}
-	before := captureDispatcherFingerprint(ctx.root)
+	if !transcript {
+		before := captureDispatcherFingerprint(ctx.root)
+		fn(census)
+		after := captureDispatcherFingerprint(ctx.root)
+		visited, rewritten := diffDispatcherFingerprint(before, after)
+		if ctx.parser != nil {
+			ctx.parser.recordNormalizationMetric(armID, 1, 1, visited, rewritten)
+		}
+		return
+	}
+	before := captureDispatcherTranscriptSnapshot(ctx.root)
 	fn(census)
-	after := captureDispatcherFingerprint(ctx.root)
-	visited, rewritten := diffDispatcherFingerprint(before, after)
-	if ctx.parser != nil {
+	after := captureDispatcherTranscriptSnapshot(ctx.root)
+	visited, rewritten := diffDispatcherFingerprint(before.signatures, after.signatures)
+	if enabled && ctx.parser != nil {
 		ctx.parser.recordNormalizationMetric(armID, 1, 1, visited, rewritten)
+	}
+	if rewritten > 0 {
+		recordDispatcherArmTranscript(ctx.lang, armID, before, after)
 	}
 }
 

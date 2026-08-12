@@ -301,10 +301,29 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// Full-corpus field-aware C-oracle verification certifies both
 	// mechanisms for this exact blob (A3 certification workstream,
 	// spec.campaign.v7).
+	//
+	// Ada's grammar declares conflicts: [[$.component_choice_list,
+	// $.discrete_choice], ...] (tree-sitter-ada grammar.js): a bare
+	// "others" choice reduces the shared token as either component_choice_list
+	// (162... record-aggregate reading, RM 4.3.1) or discrete_choice
+	// (array-aggregate reading, RM 3.8.1), both plain REDUCE actions with no
+	// dynamic precedence on either alternative. The locked C oracle keeps
+	// the discrete_choice reading; this row-scoped fold (state/lookahead
+	// wildcarded, matched only by the declared-conflict symbol pair,
+	// component_choice_list=195, discrete_choice=255 in this blob) reproduces
+	// that natively, the same mechanism ql's signatureExpr election uses.
 	"ada": {
 		blobSHA256:                     mustRuntimeProfileSHA256("32f2dd8f0053ffb7e6b7014f6ff2eb7025287c0d5fcdab6ce1f6a694c2d8899e"),
 		compactConvergedSplitDrops:     true,
 		compactPrimaryAcceptDerivation: true,
+		conflictPolicies: []gotreesitter.ConflictPolicy{
+			{
+				State:         gotreesitter.ConflictPolicyAnyState,
+				Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
+				Kind:          gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol,
+				ReduceSymbols: []gotreesitter.Symbol{195, 255},
+			},
+		},
 	},
 	// Swift's low-pressure accepted-error parses select the same tree across
 	// the retry ladder. High-pressure parses still benefit from the first
@@ -524,6 +543,28 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 				Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
 				Kind:          gotreesitter.ConflictPolicyRepetitionShift,
 				ReduceSymbols: []gotreesitter.Symbol{324, 326},
+			},
+		},
+	},
+	// QL declares conflicts: [[$.simpleId, $.className], ...]. An upper-case
+	// identifier in signature position (`implements Foo`, `implements
+	// M::Foo`) reduces the shared _upper_id token as either simpleId (162,
+	// building moduleExpr) or className (163, building typeExpr); both are
+	// live GLR alternatives of signatureExpr's choice(typeExpr, moduleExpr,
+	// predicateExpr) with no dynamic precedence on either production. The
+	// locked C oracle (tree-sitter-ql 1fd627a4e8bff8c24c11987474bd33112bead857)
+	// always keeps the className/typeExpr reading; this row-scoped fold
+	// (state/lookahead wildcarded, matched only by the declared-conflict
+	// symbol pair) reproduces that natively instead of relying on a
+	// post-parse tree rewrite.
+	"ql": {
+		blobSHA256: mustRuntimeProfileSHA256("f9e092262139d482fef46ef6274a2ac90f9344ea13766d6528819a4e21e7cc84"),
+		conflictPolicies: []gotreesitter.ConflictPolicy{
+			{
+				State:         gotreesitter.ConflictPolicyAnyState,
+				Lookahead:     gotreesitter.ConflictPolicyAnyLookahead,
+				Kind:          gotreesitter.ConflictPolicyDeclaredReduceReduceHighestSymbol,
+				ReduceSymbols: []gotreesitter.Symbol{162, 163},
 			},
 		},
 	},

@@ -57,17 +57,24 @@ func TestAdaElectionRawCOracleParity(t *testing.T) {
 		{
 			// dispatch.ada.aggregate-kind-election +
 			// dispatch.ada.association-choice-materialization witness
-			// ("ada_array_others_choice"). Both component_choice_list and
-			// discrete_choice reach acceptance as live parallel
-			// derivations; gotreesitter's runtime accept-selection elects
-			// component_choice_list where the locked C oracle elects
-			// discrete_choice.
+			// ("ada_array_others_choice"). Ada's grammar declares
+			// conflicts: [[$.component_choice_list, $.discrete_choice]]: a
+			// bare "others" choice reduces as either component_choice_list
+			// (record reading) or discrete_choice (array reading), both
+			// plain REDUCE with no dynamic precedence. The declared-conflict
+			// election policy (grammars/runtime_profiles.go "ada",
+			// ConflictPolicyDeclaredReduceReduceHighestSymbol in
+			// conflict_policy.go) folds the row to the discrete_choice
+			// reading before the GLR engine ever forks, which in turn
+			// determines the outer named_array_aggregate reading (no
+			// separate outer-shape ambiguity remains once the inner choice
+			// is settled), so the raw production tree now matches C
+			// natively.
 			name: "array_others_choice",
 			source: []byte("procedure P is\n" +
 				"begin\n" +
 				"   A := (others => 0);\n" +
 				"end;\n"),
-			wantDivergence: true,
 		},
 	}
 

@@ -192,14 +192,16 @@ func semanticPhaseTraceRecordActionCell(p *Parser, stack *glrStack, state StateI
 	semanticPhaseAuditBoundary(stack, boundaryClass)
 	checkpoint := semanticPhaseScannerCheckpoint(p, tok)
 	if len(actions) == 0 {
-		semanticPhaseTraceAppend(DiagnosticSemanticPhaseEvent{
+		event := DiagnosticSemanticPhaseEvent{
 			Kind: "action_lookup", TokenOrdinal: activeWorkCountConvergence.electionOrdinal, Iteration: activeWorkCountConvergence.iteration,
 			ByteOffset: semanticPhaseStackByte(stack), State: uint32(state),
 			LookaheadSymbol: uint32(tok.Symbol), LookaheadStartByte: tok.StartByte, LookaheadEndByte: tok.EndByte,
 			LookaheadFlags: semanticPhaseLookaheadFlags(tok), LookupActionCellFingerprint: cellHash,
 			CoarseBoundaryClass: boundaryClass, ActionOrdinal: -1, ActionType: -1,
 			Phase: "action_cell", Outcome: "empty", ScannerCheckpoint: checkpoint,
-		})
+		}
+		semanticPhaseTraceAppend(event)
+		referenceAtlasTraceRecordActionLookup(event)
 		return
 	}
 	for ordinal, action := range actions {
@@ -208,14 +210,16 @@ func semanticPhaseTraceRecordActionCell(p *Parser, stack *glrStack, state StateI
 			ordinalValue = math.MaxInt16
 			trace.ArithmeticOverflow = true
 		}
-		semanticPhaseTraceAppend(DiagnosticSemanticPhaseEvent{
+		event := DiagnosticSemanticPhaseEvent{
 			Kind: "action_lookup", TokenOrdinal: activeWorkCountConvergence.electionOrdinal, Iteration: activeWorkCountConvergence.iteration,
 			ByteOffset: semanticPhaseStackByte(stack), State: uint32(state),
 			LookaheadSymbol: uint32(tok.Symbol), LookaheadStartByte: tok.StartByte, LookaheadEndByte: tok.EndByte,
 			LookaheadFlags: semanticPhaseLookaheadFlags(tok), LookupActionCellFingerprint: cellHash,
 			CoarseBoundaryClass: boundaryClass, ActionOrdinal: ordinalValue, ActionType: int16(action.Type),
 			Phase: "action_cell", Outcome: "candidate", ScannerCheckpoint: checkpoint,
-		})
+		}
+		semanticPhaseTraceAppend(event)
+		referenceAtlasTraceRecordActionLookup(event)
 	}
 }
 
@@ -246,14 +250,16 @@ func semanticPhaseTraceRecordActionExecution(p *Parser, stack *glrStack, tok Tok
 	if cycle {
 		outcome = "cycle_rejected"
 	}
-	semanticPhaseTraceAppend(DiagnosticSemanticPhaseEvent{
+	event := DiagnosticSemanticPhaseEvent{
 		Kind: "action_execution", TokenOrdinal: activeWorkCountConvergence.electionOrdinal, Iteration: activeWorkCountConvergence.iteration,
 		ByteOffset: semanticPhaseStackByte(stack), State: uint32(state),
 		LookaheadSymbol: uint32(tok.Symbol), LookaheadStartByte: tok.StartByte, LookaheadEndByte: tok.EndByte,
 		LookaheadFlags: semanticPhaseLookaheadFlags(tok), ExecutionActionCellFingerprint: cellHash, ExecutionCellRecomputed: true,
 		CoarseBoundaryClass: boundaryClass, ActionOrdinal: ordinal, ActionType: int16(action.Type),
 		Phase: phase, Outcome: outcome, ScannerCheckpoint: semanticPhaseScannerCheckpoint(p, tok),
-	})
+	}
+	semanticPhaseTraceAppend(event)
+	referenceAtlasTraceRecordActionExecution(event, action)
 }
 
 func semanticPhaseUniqueActionOrdinal(actions []ParseAction, chosen ParseAction) int {
@@ -307,7 +313,7 @@ func semanticPhaseTraceRecordDecision(p *Parser, phase, outcome, reason string, 
 	candidateClass := semanticPhaseCoarseBoundaryClass(candidate)
 	semanticPhaseAuditBoundary(target, targetClass)
 	semanticPhaseAuditBoundary(candidate, candidateClass)
-	semanticPhaseTraceAppend(DiagnosticSemanticPhaseEvent{
+	event := DiagnosticSemanticPhaseEvent{
 		Kind: "decision", TokenOrdinal: activeWorkCountConvergence.electionOrdinal, Iteration: activeWorkCountConvergence.iteration,
 		ByteOffset: semanticPhaseStackByte(stack), State: uint32(semanticPhaseStackState(stack)),
 		LookaheadSymbol: uint32(lookahead.Symbol), LookaheadStartByte: lookahead.StartByte, LookaheadEndByte: lookahead.EndByte,
@@ -315,7 +321,9 @@ func semanticPhaseTraceRecordDecision(p *Parser, phase, outcome, reason string, 
 		CoarseBoundaryClass: targetClass, CandidateBoundaryClass: candidateClass,
 		ActionOrdinal: -1, ActionType: -1, Phase: phase, Outcome: outcome, Reason: reason,
 		CandidateCountBefore: beforeValue, CandidateCountAfter: afterValue, ScannerCheckpoint: semanticPhaseScannerCheckpoint(p, lookahead),
-	})
+	}
+	semanticPhaseTraceAppend(event)
+	referenceAtlasTraceRecordDecision(event, target, candidate)
 }
 
 func semanticPhaseTraceAppend(event DiagnosticSemanticPhaseEvent) {

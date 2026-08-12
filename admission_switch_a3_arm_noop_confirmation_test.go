@@ -45,6 +45,20 @@ import (
 // Follow-up arm-deletion PRs for perl, python, and ada must not treat this
 // finding's retirement precondition as met on this evidence.
 //
+// UPDATE: ada's array_others_choice witness now confirms. A declared-conflict
+// election policy (grammars/runtime_profiles.go "ada",
+// ConflictPolicyDeclaredReduceReduceHighestSymbol in conflict_policy.go)
+// resolves the component_choice_list/discrete_choice tie natively before the
+// parser forks, so dispatch.ada.association-choice-materialization
+// (previously materialization-owned) retired outright and
+// dispatch.ada.aggregate-kind-election no longer reshapes this witness --
+// see TestA3ArmNoOpConfirmationAdaOthersChoiceConfirms.
+// locked_positional_array_aggregate's ambiguity
+// (record_component_association_list vs positional_array_aggregate) is a
+// separate shift/reduce fork with no dynamic-precedence differentiator, a
+// table-generation gap this policy mechanism does not reach; ada's arm
+// stays load-bearing for that witness.
+//
 // UPDATE: apex's witness no longer confirms. selectCompactAcceptanceDerivation's
 // materiality gate (parsercore_phase0_driver.go,
 // compactAcceptanceElectionIsVacuous) found the class_literal_alias witness's
@@ -153,6 +167,12 @@ func TestA3ArmNoOpConfirmationPythonDoesNotConfirm(t *testing.T) {
 	}
 }
 
+// TestA3ArmNoOpConfirmationAdaDoesNotConfirm covers Ada's still-load-bearing
+// witness. locked_positional_array_aggregate's ambiguity
+// (record_component_association_list vs positional_array_aggregate, a
+// shift/reduce fork with no dynamic-precedence differentiator) is a
+// table-generation gap, not a runtime election policy; the arm still
+// reshapes the compact route's tree for it.
 func TestA3ArmNoOpConfirmationAdaDoesNotConfirm(t *testing.T) {
 	lang := grammars.AdaLanguage()
 	if !lang.CompactPrimaryAcceptanceDerivationCertified || !lang.CompactConvergedReductionSplitDropsCertified {
@@ -160,10 +180,25 @@ func TestA3ArmNoOpConfirmationAdaDoesNotConfirm(t *testing.T) {
 	}
 	for _, tt := range []struct{ name, source string }{
 		{"locked_positional_array_aggregate", "package P is\n   type A is array (1 .. 3) of Boolean;\n   V : constant A := (1, 2, 3);\nend;\n"},
-		{"array_others_choice", "procedure P is\nbegin\n   A := (others => 0);\nend;\n"},
 	} {
 		assertA3ArmNoOp(t, "ada/"+tt.name, lang, []byte(tt.source), false)
 	}
+}
+
+// TestA3ArmNoOpConfirmationAdaOthersChoiceConfirms is the corrected receipt
+// for Ada's other tied-election witness. array_others_choice's ambiguity
+// (component_choice_list vs discrete_choice, a declared reduce-reduce
+// conflict with no dynamic precedence) is now resolved natively by a
+// declared-conflict election policy before the parser forks
+// (grammars/runtime_profiles.go "ada"), so the compact route's raw and
+// tailed trees are identical: the arm is confirmed inert on this witness.
+func TestA3ArmNoOpConfirmationAdaOthersChoiceConfirms(t *testing.T) {
+	lang := grammars.AdaLanguage()
+	if !lang.CompactPrimaryAcceptanceDerivationCertified || !lang.CompactConvergedReductionSplitDropsCertified {
+		t.Fatal("ada did not receive its A3 certification")
+	}
+	source := "procedure P is\nbegin\n   A := (others => 0);\nend;\n"
+	assertA3ArmNoOp(t, "ada/array_others_choice", lang, []byte(source), true)
 }
 
 // TestA3ArmNoOpConfirmationTrivialWitnessesAreVacuouslyNoOp documents the

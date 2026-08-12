@@ -1,0 +1,242 @@
+{
+  "schema": "gts-reference-atlas-event-schema/v1",
+  "spec": "spec.parser-graduation.v1#8.1",
+  "purpose": "Define matched C and Go event names before adding event emitters.",
+  "ordered_event_contract": "gts-reference-atlas-events/v1",
+  "reference": {
+    "runtime": "tree-sitter-c",
+    "version": "0.25.1",
+    "commit": "f5afe475deb7c0bae6407fb776c76824f717bb61"
+  },
+  "identity": {
+    "required_fields": [
+      "event_seq",
+      "source_start_byte",
+      "source_end_byte",
+      "parse_state",
+      "symbol",
+      "call_site",
+      "outcome"
+    ],
+    "semantic_key_fields": [
+      "source_start_byte",
+      "source_end_byte",
+      "parse_state",
+      "symbol",
+      "call_site",
+      "event_kind"
+    ],
+    "excluded_physical_identity": [
+      "go_pointer",
+      "stack_version_id",
+      "gss_node_id",
+      "arena_id",
+      "subtree_pointer"
+    ]
+  },
+  "status_definitions": {
+    "aggregate_only": "The engine exposes a counter, but not an ordered event record.",
+    "planned": "The contract names the event, but the current engine exposes no record.",
+    "ordered": "The engine emits a bounded ordered record with the contract semantic fields."
+  },
+  "events": [
+    {
+      "id": "lexer.entry_result",
+      "phase": "lexing",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "parse_state", "symbol", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["lexer_front_door_calls_proxy", "raw_main_lexer_invocations"]},
+      "go": {"status": "aggregate_only", "fields": ["LexerFrontDoorCallsProxy", "RawMainLexerInvocations"]}
+    },
+    {
+      "id": "token_cache.hit_miss",
+      "phase": "lexing",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "symbol", "event_kind"],
+      "c": {"status": "planned", "fields": []},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "old_tree.reuse_decision",
+      "phase": "reuse",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "call_site", "event_kind"],
+      "c": {"status": "planned", "fields": []},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "action_table.lookup",
+      "phase": "dispatch",
+      "required_fields": ["event_seq", "parse_state", "symbol", "call_site", "outcome"],
+      "semantic_key": ["parse_state", "symbol", "call_site", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["table_lookups_proxy", "action_entries_examined_proxy"]},
+      "go": {"status": "ordered", "fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "event_kind", "outcome"]}
+    },
+    {
+      "id": "parser.shift",
+      "phase": "dispatch",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "parse_state", "symbol", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["shifts"]},
+      "go": {"status": "ordered", "fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "event_kind", "outcome"]}
+    },
+    {
+      "id": "parser.reduce",
+      "phase": "dispatch",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "parse_state", "symbol", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["reductions", "reduction_pop_requests"]},
+      "go": {"status": "ordered", "fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "event_kind", "outcome"]}
+    },
+    {
+      "id": "parser.recover",
+      "phase": "recovery",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "parse_state", "symbol", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["explicit_recover_actions"]},
+      "go": {"status": "ordered", "fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "event_kind", "outcome"]}
+    },
+    {
+      "id": "parser.accept",
+      "phase": "dispatch",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "parse_state", "symbol", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["accept_actions"]},
+      "go": {"status": "ordered", "fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "event_kind", "outcome"]}
+    },
+    {
+      "id": "stack.copy",
+      "phase": "stack",
+      "required_fields": ["event_seq", "parse_state", "call_site", "outcome"],
+      "semantic_key": ["parse_state", "call_site", "event_kind"],
+      "c": {"status": "planned", "fields": []},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "stack.pause",
+      "phase": "stack",
+      "required_fields": ["event_seq", "parse_state", "call_site", "outcome"],
+      "semantic_key": ["parse_state", "call_site", "event_kind"],
+      "c": {"status": "planned", "fields": []},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "stack.resume",
+      "phase": "stack",
+      "required_fields": ["event_seq", "parse_state", "call_site", "outcome"],
+      "semantic_key": ["parse_state", "call_site", "event_kind"],
+      "c": {"status": "planned", "fields": []},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "stack.halt",
+      "phase": "stack",
+      "required_fields": ["event_seq", "parse_state", "call_site", "outcome"],
+      "semantic_key": ["parse_state", "call_site", "event_kind"],
+      "c": {"status": "planned", "fields": []},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "stack.remove",
+      "phase": "stack",
+      "required_fields": ["event_seq", "parse_state", "call_site", "outcome"],
+      "semantic_key": ["parse_state", "call_site", "event_kind"],
+      "c": {"status": "planned", "fields": []},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "head.merge",
+      "phase": "merge",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "parse_state", "call_site", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["merge_attempts_proxy", "merge_successes_proxy"]},
+      "go": {"status": "ordered", "fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "event_kind", "outcome"]}
+    },
+    {
+      "id": "link.duplicate",
+      "phase": "merge",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "symbol", "call_site", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["predecessor_link_union_duplicate_noop"]},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "link.precedence_replace",
+      "phase": "merge",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "symbol", "call_site", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["predecessor_link_union_precedence_replaced"]},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "link.recursive_merge",
+      "phase": "merge",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "symbol", "call_site", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["predecessor_link_union_recursive_changed"]},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "link.append",
+      "phase": "merge",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "symbol", "call_site", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["predecessor_link_union_alternate_appended"]},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "link.reject",
+      "phase": "merge",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "symbol", "call_site", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["predecessor_link_union_rejected"]},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "pop.path_create",
+      "phase": "pop",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "parse_state", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "parse_state", "symbol", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["emitted_pop_paths", "emitted_pop_payloads"]},
+      "go": {"status": "aggregate_only", "fields": ["EmittedPopPaths", "EmittedPopPayloads"]}
+    },
+    {
+      "id": "child.election",
+      "phase": "election",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "symbol", "call_site", "event_kind"],
+      "c": {"status": "planned", "fields": []},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "subtree.lifecycle",
+      "phase": "storage",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "symbol", "call_site", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["leaf_constructions_proxy", "parent_constructions_proxy"]},
+      "go": {"status": "aggregate_only", "fields": ["LeafConstructionsProxy", "ParentConstructionsProxy"]}
+    },
+    {
+      "id": "parser.progress_stop",
+      "phase": "control",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "call_site", "event_kind"],
+      "c": {"status": "planned", "fields": []},
+      "go": {"status": "planned", "fields": []}
+    },
+    {
+      "id": "tree.final_select",
+      "phase": "materialization",
+      "required_fields": ["event_seq", "source_start_byte", "source_end_byte", "symbol", "call_site", "outcome"],
+      "semantic_key": ["source_start_byte", "source_end_byte", "symbol", "event_kind"],
+      "c": {"status": "aggregate_only", "fields": ["raw_selected_internal_nodes", "raw_selected_internal_parent_occurrences", "raw_selected_internal_leaf_occurrences"]},
+      "go": {"status": "aggregate_only", "fields": ["SelectedNodes", "SelectedParentNodes", "SelectedLeafNodes"]}
+    }
+  ],
+  "claim_limits": [
+    "Aggregate counters do not prove event equality.",
+    "An event sequence is comparable only after both engines emit the same semantic key.",
+    "Physical identifiers cannot enter a cross-engine key.",
+    "A matched event receipt must record source, grammar, runtime, and build locks."
+  ]
+}

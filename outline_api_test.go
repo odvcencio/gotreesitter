@@ -302,13 +302,27 @@ func TestOutlineTreeIsSafeForConcurrentUse(t *testing.T) {
 	}
 }
 
-// TestOutlineOwnerStaysEmpty is the stage-1 ownership proof. It supplies the
-// exact Go receiver rule from the specification, outlines a fixture whose
-// methods all carry receivers, and asserts that every Owner is still empty and
-// that no owner-rule miss was recorded. Ownership is field-derived and ships in
-// its own change, behind its own differential gate.
-func TestOutlineOwnerStaysEmpty(t *testing.T) {
+// outlineGoFixtureOwners names, for each committed Go outline fixture, the
+// "Name=Owner" pairs collectOutlineOwners must read back once
+// outlineGoReceiverRule resolves every method symbol's receiver. Every
+// committed Go fixture uses a pointer receiver;
+// TestOutlineOwnerResolvesEveryGoReceiverShape below covers the value and
+// generic shapes this committed set does not exercise.
+var outlineGoFixtureOwners = map[string][]string{
+	"go/service.go.fixture":  {"Add=Registry", "Name=Registry"},
+	"go/broken.go.fixture":   {"After=Holder"},
+	"go/counters.go.fixture": {"Value=Holder"},
+}
+
+// TestOutlineOwnerResolvesGoReceiver is the ownership proof. It supplies the
+// exact Go receiver rule from the specification, outlines every committed Go
+// fixture, and asserts that ownership resolves the receiver type of every
+// method, changes no other field, and records no miss.
+func TestOutlineOwnerResolvesGoReceiver(t *testing.T) {
 	for _, fixture := range outlineGoldenFixtures {
+		if fixture.Language != "go" {
+			continue
+		}
 		fixture := fixture
 		t.Run(fixture.File, func(t *testing.T) {
 			tree, lang, query := loadOutlineFixture(t, fixture.Language, fixture.File)
@@ -329,23 +343,122 @@ func TestOutlineOwnerStaysEmpty(t *testing.T) {
 			if ruledReport != plainReport {
 				t.Errorf("owner rules changed the receipt: %+v with rules, %+v without", ruledReport, plainReport)
 			}
-			if !outlineSymbolsEqual(ruled, plain) {
-				t.Error("owner rules changed the symbol forest; stage 1 must not resolve ownership")
-			}
 			if ruledReport.OwnerRuleMisses != 0 {
-				t.Errorf("OwnerRuleMisses = %d, want 0 while ownership does not run", ruledReport.OwnerRuleMisses)
+				t.Errorf("OwnerRuleMisses = %d, want 0: every method in this fixture carries a resolvable receiver", ruledReport.OwnerRuleMisses)
 			}
-			owners := collectOutlineOwners(ruled)
-			if len(owners) != 0 {
-				t.Errorf("Owner is populated on %d symbols (%v); stage 1 must leave it empty", len(owners), owners)
+			if !outlineSymbolsEqual(stripOutlineOwners(ruled), plain) {
+				t.Error("owner rules changed a field other than Owner")
+			}
+
+			want := outlineGoFixtureOwners[fixture.File]
+			got := collectOutlineOwners(ruled)
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("owners = %v, want %v", got, want)
 			}
 		})
 	}
 }
 
-// TestOutlineGoFixtureHasReceiverMethods proves the ownership test above is
-// not vacuous: the Go fixture really does hold methods whose receiver field a
-// later owner rule would read.
+// TestOutlineOwnerResolvesEveryGoReceiverShape extends the fixture proof
+// above to the receiver shapes no committed Go fixture exercises: a value
+// receiver, a generic type's value receiver, and a generic type's pointer
+// receiver. It parses a small snippet directly instead of reading a
+// committed fixture, so covering all four shapes costs no fixture edit.
+func TestOutlineOwnerResolvesEveryGoReceiverShape(t *testing.T) {
+	const src = `package shapes
+
+type Value struct{}
+type Box[T any] struct{ item T }
+
+func (v Value) ByValue() int { return 0 }
+func (v *Value) ByPointer() int { return 0 }
+func (b Box[T]) GenericByValue() int { return 0 }
+func (b *Box[T]) GenericByPointer() int { return 0 }
+`
+	entry := grammars.DetectLanguageByName("go")
+	if entry == nil {
+		t.Fatal("the go grammar is not registered")
+	}
+	lang := entry.Language()
+	query := grammars.ResolveTagsQuery(*entry)
+
+	parser := gts.NewParser(lang)
+	tree, err := parser.Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	defer tree.Release()
+
+	outliner, err := gts.NewOutliner(lang, query,
+		gts.WithOutlineOwnerRules([]gts.OutlineOwnerRule{outlineGoReceiverRule}))
+	if err != nil {
+		t.Fatalf("build outliner: %v", err)
+	}
+	symbols, report := outliner.OutlineTree(tree)
+	if report.OwnerRuleMisses != 0 {
+		t.Errorf("OwnerRuleMisses = %d, want 0", report.OwnerRuleMisses)
+	}
+
+	want := map[string]string{
+		"ByValue":          "Value",
+		"ByPointer":        "Value",
+		"GenericByValue":   "Box",
+		"GenericByPointer": "Box",
+	}
+	got := map[string]string{}
+	for _, symbol := range symbols {
+		if symbol.Kind == "method" {
+			got[symbol.Name] = symbol.Owner
+		}
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("owners = %v, want %v", got, want)
+	}
+}
+
+// TestOutlineOwnerRuleFailsClosedWhenFieldIsAbsent is the fail-closed witness:
+// a rule whose NodeType matches a symbol but whose OwnerField the language
+// does not carry must leave Owner empty and count the miss, never guess.
+// Java's grammar names its method node "method_declaration" too, exactly
+// like Go's, but carries no "receiver" field, so applying the Go receiver
+// rule to real Java source is a genuine matched-node-type, absent-field
+// miss, not a constructed one.
+func TestOutlineOwnerRuleFailsClosedWhenFieldIsAbsent(t *testing.T) {
+	tree, lang, query := loadOutlineFixture(t, "java", "java/Service.java")
+
+	outliner, err := gts.NewOutliner(lang, query,
+		gts.WithOutlineOwnerRules([]gts.OutlineOwnerRule{outlineGoReceiverRule}))
+	if err != nil {
+		t.Fatalf("build outliner with owner rules: %v", err)
+	}
+	symbols, report := outliner.OutlineTree(tree)
+
+	methodSymbols := 0
+	var check func([]gts.OutlineSymbol)
+	check = func(list []gts.OutlineSymbol) {
+		for _, symbol := range list {
+			if symbol.NodeType == "method_declaration" {
+				methodSymbols++
+				if symbol.Owner != "" {
+					t.Errorf("%s: Owner = %q, want empty: java carries no receiver field", symbol.Name, symbol.Owner)
+				}
+			}
+			check(symbol.Children)
+		}
+	}
+	check(symbols)
+
+	if methodSymbols == 0 {
+		t.Fatal("the fixture holds no method_declaration symbol, so this fail-closed proof is vacuous")
+	}
+	if report.OwnerRuleMisses != methodSymbols {
+		t.Errorf("OwnerRuleMisses = %d, want %d (one per method_declaration symbol)", report.OwnerRuleMisses, methodSymbols)
+	}
+}
+
+// TestOutlineGoFixtureHasReceiverMethods proves
+// TestOutlineOwnerResolvesGoReceiver is not vacuous: the Go fixture really
+// does hold methods whose receiver field the owner rule reads.
 func TestOutlineGoFixtureHasReceiverMethods(t *testing.T) {
 	tree, lang, query := loadOutlineFixture(t, "go", "go/service.go.fixture")
 	outliner, err := gts.NewOutliner(lang, query)
@@ -589,6 +702,22 @@ func collectOutlineOwners(symbols []gts.OutlineSymbol) []string {
 			out = append(out, symbol.Name+"="+symbol.Owner)
 		}
 		out = append(out, collectOutlineOwners(symbol.Children)...)
+	}
+	return out
+}
+
+// stripOutlineOwners returns a deep copy of symbols with every Owner cleared,
+// so a forest resolved with owner rules attached can compare structurally
+// equal, via outlineSymbolsEqual, to the same forest resolved without them.
+func stripOutlineOwners(symbols []gts.OutlineSymbol) []gts.OutlineSymbol {
+	if len(symbols) == 0 {
+		return nil
+	}
+	out := make([]gts.OutlineSymbol, len(symbols))
+	for i, symbol := range symbols {
+		symbol.Owner = ""
+		symbol.Children = stripOutlineOwners(symbol.Children)
+		out[i] = symbol
 	}
 	return out
 }

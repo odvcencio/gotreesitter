@@ -33,10 +33,10 @@ type OutlineSymbol struct {
 	// counted.
 	NameRange Range
 	// Owner is the non-lexical owner name, for example the receiver type of
-	// a method. It is always empty in this change. Owner resolution runs
-	// from declarative OutlineOwnerRule rows and lands in a later change;
-	// see WithOutlineOwnerRules. Lexical containment never sets Owner --
-	// that information lives in Children.
+	// a Go method. It is set only when a declarative OutlineOwnerRule
+	// attached through WithOutlineOwnerRules matches this symbol's NodeType
+	// and resolves a single identifier; otherwise it is "". Lexical
+	// containment never sets Owner -- that information lives in Children.
 	Owner string
 	// Children holds the definitions lexically nested in this one, in source
 	// order. Nesting comes from byte containment of Range, never from the
@@ -129,7 +129,8 @@ type OutlineReport struct {
 	OmittedMultipleDefinitions int
 	// OwnerRuleMisses counts symbols where an owner rule matched the node
 	// type but the field or the normalization did not resolve a single
-	// name. It is always zero until owner resolution ships.
+	// name. It is zero whenever no attached rule names a symbol's NodeType,
+	// including whenever WithOutlineOwnerRules was never called.
 	OwnerRuleMisses int
 	// DeclineReason names why the outliner produced nothing, or is empty
 	// when it ran the query. See the OutlineDecline constants. An empty
@@ -185,9 +186,8 @@ func (r OutlineReport) Candidates() int {
 // Owner stays empty.
 //
 // Rules are data. The core holds no rule rows; the grammars package owns the
-// per-language table and passes it through WithOutlineOwnerRules.
-//
-// Owner resolution is not applied in this change. See WithOutlineOwnerRules.
+// per-language table (grammars.OutlineOwnerRules) and passes it through
+// WithOutlineOwnerRules.
 type OutlineOwnerRule struct {
 	// NodeType is the definition node type the rule applies to, for example
 	// "method_declaration".

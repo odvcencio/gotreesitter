@@ -4676,9 +4676,7 @@ func (d *dfaTokenSource) lexKeywordSource(source []byte) (Token, bool) {
 
 	curState := int32(0)
 	scanPos := 0
-	tokenStartPos := 0
 	acceptPos := -1
-	acceptStartPos := 0
 	acceptSymbol := Symbol(0)
 	acceptSkip := false
 	acceptPriorityBest := int16(32767)
@@ -4695,7 +4693,6 @@ func (d *dfaTokenSource) lexKeywordSource(source []byte) (Token, bool) {
 			newPrio := st.AcceptPriority
 			if acceptPos < 0 || newPrio < acceptPriorityBest || (newPrio == acceptPriorityBest && scanPos > acceptPos) {
 				acceptPos = scanPos
-				acceptStartPos = tokenStartPos
 				acceptSymbol = st.AcceptToken
 				acceptSkip = st.Skip
 				acceptPriorityBest = newPrio
@@ -4750,7 +4747,14 @@ func (d *dfaTokenSource) lexKeywordSource(source []byte) (Token, bool) {
 
 		scanPos += size
 		if skipTransition {
-			tokenStartPos = scanPos
+			// The keyword DFA can carry its own SKIP transitions — e.g. a
+			// leading-whitespace loop on the start state — whenever the
+			// grammar's word token is itself permissive enough to have
+			// absorbed leading extras that a plain identifier-shaped word
+			// token never would (tree-sitter's own generated keyword lexer
+			// does the same: it SKIPs those characters before matching the
+			// literal). Discard the tentative match found so far and keep
+			// scanning past the skipped run for the keyword itself.
 			acceptPos = -1
 			acceptSymbol = 0
 			acceptSkip = false
@@ -4758,7 +4762,13 @@ func (d *dfaTokenSource) lexKeywordSource(source []byte) (Token, bool) {
 		curState = nextState
 	}
 
-	if acceptSymbol == 0 || acceptSkip || acceptStartPos != 0 || acceptPos != len(source) {
+	// The keyword must own the rest of the captured source exactly: any
+	// leading run consumed by SKIP transitions above is already discarded
+	// (never part of accept tracking), and requiring acceptPos to reach
+	// len(source) rejects leftover trailing bytes that the keyword didn't
+	// consume — the captured span is a keyword only when it is "skippable
+	// prefix + exactly one literal", nothing more.
+	if acceptSymbol == 0 || acceptSkip || acceptPos != len(source) {
 		return Token{}, false
 	}
 	return Token{

@@ -289,6 +289,17 @@ landed with no receipt because nothing ran the gate. Re-pinning belongs to the
 owner of that lane with the per-witness adjudication the file's own comment
 demands, so this branch reports the drift and does not re-fit the number.
 
+### 3c. `TestOutlineOracleDifferential` joins `parity-cgo`'s fixed `--run` regex (2026-08-11)
+
+The outline C-oracle differential (`cgo_harness/outline_differential_test.go`,
+`spec.outline-api.v1` gate G-2) now appears in the `parity-cgo` job's fixed
+`--run` regex (`.github/workflows/ci.yml`), next to its query/capture-parity
+sibling `TestParityHighlight`. The job runs on pull requests and pushes to
+`main` that the `exhaustive_parity_scope` gate selects for code CI. The
+test's `CoreNine` subtest hard-gates the nine core languages. Its
+`FleetCensus` subtest only logs a census row for every other language.
+Naming the whole test in the regex is safe.
+
 ## Backlog (not fixed in this branch)
 
 | Item | Severity | Why |

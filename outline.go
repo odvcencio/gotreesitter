@@ -83,12 +83,13 @@ type OutlinerOption func(*Outliner)
 // A later call REPLACES the rules an earlier call set; the option does not
 // accumulate.
 //
-// Owner resolution is NOT applied in this change. The outliner validates and
-// retains the rules, every OutlineSymbol.Owner stays empty, and
-// OutlineReport.OwnerRuleMisses stays zero. Owner reads a child field name, and
-// field-name projection became trustworthy only after the field-projection
-// alignment change; ownership therefore ships in its own change, behind its own
-// differential gate.
+// OutlineTree applies the attached rules to every symbol: a rule whose
+// NodeType matches resolves OutlineSymbol.Owner when its OwnerField is
+// present on the node and its Unwrap/NameTypes walk reaches exactly one
+// accepted terminal node (resolveOutlineOwner, outline_owner.go). Any other
+// outcome leaves Owner empty and, for a NodeType a rule did match, increments
+// OutlineReport.OwnerRuleMisses. A NodeType no attached rule names never
+// touches Owner or OwnerRuleMisses at all.
 //
 // What construction checks today: every rule must name a NodeType and an
 // OwnerField, because a rule missing either can never resolve an owner.
@@ -96,9 +97,10 @@ type OutlinerOption func(*Outliner)
 // What construction does NOT check today: it accepts an empty NameTypes list,
 // a blank entry inside Unwrap or NameTypes, and a NodeType or OwnerField the
 // language does not define. Each of those fails closed at resolution time and
-// will inflate OwnerRuleMisses rather than produce a wrong Owner. Gating rules
-// on symbol and field presence belongs with the ownership change, which owns
-// the per-language table.
+// inflates OwnerRuleMisses rather than producing a wrong Owner. A caller that
+// wants those rows filtered out ahead of time, so a stale rule costs nothing
+// at resolution either, gates its own table on symbol and field presence the
+// way grammars.OutlineOwnerRules does.
 func WithOutlineOwnerRules(rules []OutlineOwnerRule) OutlinerOption {
 	return func(o *Outliner) {
 		o.ownerRules = nil
@@ -260,11 +262,12 @@ func (o *Outliner) OutlineTree(tree *Tree) ([]OutlineSymbol, OutlineReport) {
 
 	report.TreeHasError = root.HasError()
 
-	candidates, truncated := o.collectOutlineCandidates(root, tree.Source(), &report)
+	source := tree.Source()
+	candidates, truncated := o.collectOutlineCandidates(root, source, &report)
 	report.Truncated = truncated
 
 	kept := filterOutlineCandidates(candidates, &report)
-	symbols := buildOutlineForest(kept, &report)
+	symbols := buildOutlineForest(kept, o.ownerRules, o.lang, source, &report)
 	report.Symbols = countOutlineSymbols(symbols)
 	return symbols, report
 }
@@ -309,6 +312,13 @@ type outlineCandidate struct {
 	nodeType  string
 	rng       Range
 	nameRange Range
+	// node is the captured definition node itself, kept only so a surviving
+	// candidate can resolve its Owner once buildOutlineForest accepts it. No
+	// filter or sort keys off this field, and no OutlineSymbol field repeats
+	// it: symbols already spend Range for the same span, and Node exposes no
+	// other data OutlineSymbol does not already carry through Kind, Name,
+	// NodeType, Range, and NameRange.
+	node *Node
 }
 
 // collectOutlineCandidates runs the tags query and reduces each match to at
@@ -382,6 +392,7 @@ func (o *Outliner) collectOutlineCandidates(root *Node, source []byte, report *O
 			kind:     normalizeOutlineKind(defCapture, nodeType),
 			nodeType: nodeType,
 			rng:      defNode.Range(),
+			node:     defNode,
 		}
 		if hasName {
 			candidate.name = nameText
@@ -553,7 +564,16 @@ func outlineRangeContains(outer, inner Range) bool {
 // Materialization runs in reverse index order. Every child has a higher sorted
 // index than its parent, so each parent finds its children already built. The
 // pass is iterative and allocates one slice per parent that has children.
-func buildOutlineForest(candidates []outlineCandidate, report *OutlineReport) []OutlineSymbol {
+//
+// Materialization is also where Owner resolves, through resolveOutlineOwner
+// (outline_owner.go). Owner reads only the candidate's own node, so resolving
+// it here -- once per accepted candidate, alongside the rest of the symbol's
+// fields -- is equivalent to resolving it in a separate pass over the built
+// forest, without a second walk. ownerRules and lang may be nil, exactly as
+// they are whenever no WithOutlineOwnerRules call attached a table; both
+// resolveOutlineOwner and its test-only caller (runOutlineRules) rely on that
+// nil case costing nothing beyond the nil check.
+func buildOutlineForest(candidates []outlineCandidate, ownerRules map[string][]OutlineOwnerRule, lang *Language, source []byte, report *OutlineReport) []OutlineSymbol {
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -616,6 +636,7 @@ func buildOutlineForest(candidates []outlineCandidate, report *OutlineReport) []
 			NodeType:  candidate.nodeType,
 			Range:     candidate.rng,
 			NameRange: candidate.nameRange,
+			Owner:     resolveOutlineOwner(ownerRules, candidate.node, candidate.nodeType, lang, source, report),
 		}
 		if kids := childrenOf[idx]; len(kids) > 0 {
 			symbol.Children = make([]OutlineSymbol, 0, len(kids))

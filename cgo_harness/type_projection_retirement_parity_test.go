@@ -40,6 +40,32 @@ func TestTypeProjectionRetirementCOracleParity(t *testing.T) {
 			name:   "objc",
 			source: "void f(){int a=sizeof(CustomType);int b=sizeof(int);}\n",
 		},
+		{
+			name:   "hyprlang",
+			source: "resize_on_border = true\nname = myBezier\n",
+		},
+		{
+			// The word token's own pattern (`token(prec(-1, /[^\n,#]+|.*##.*/))`)
+			// absorbs leading whitespace via maximal munch before the DFA even
+			// asks whether the captured text is a keyword, so the keyword
+			// re-lex must skip a leading run of extras — not just match at
+			// byte zero — the same way tree-sitter's own generated keyword
+			// lexer SKIPs them.
+			name:   "hyprlang",
+			source: "a =   true\nb = false\nc = on\nd = off\ne = yes\nf = no\n",
+		},
+		{
+			// Trailing content after the keyword (a space before the
+			// linebreak, or extra identifier characters) must NOT promote:
+			// the captured span has to be exactly "skippable prefix + one
+			// full keyword literal", nothing left over.
+			name:   "hyprlang",
+			source: "a = true \nb = truex\nc = xtrue\n",
+		},
+		{
+			name:   "hyprlang",
+			source: "a = true,b\n",
+		},
 	}
 	for index, test := range tests {
 		test := test

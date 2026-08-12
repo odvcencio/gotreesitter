@@ -183,6 +183,12 @@ func typeProjectionRetirementCases() []typeProjectionRetirementCase {
 			assert:         assertObjcMethodTypeSequence,
 			compactDecline: true,
 		},
+		{
+			name:     "hyprlang_boolean_assignment_values",
+			source:   []byte("resize_on_border = true\nname = myBezier\n"),
+			language: HyprlangLanguage(),
+			assert:   assertHyprlangBooleanAssignmentValues,
+		},
 	}
 }
 
@@ -265,6 +271,34 @@ func assertObjcMethodTypeSequence(
 	)
 	if primitive == nil {
 		t.Fatalf("Objective-C primitive method type is missing: %s", root.SExpr(language))
+	}
+}
+
+// assertHyprlangBooleanAssignmentValues checks that a bare boolean keyword
+// value (here "true", preceded by the leading whitespace the DFA's word
+// token — declared as `word: $ => $.string` in the upstream grammar — always
+// captures along with it) is projected to a named boolean node wrapping the
+// specific unnamed keyword leaf, while a non-keyword value stays a plain
+// string leaf.
+func assertHyprlangBooleanAssignmentValues(
+	t *testing.T,
+	root *gotreesitter.Node,
+	language *gotreesitter.Language,
+	source []byte,
+) {
+	t.Helper()
+	boolNode := findTypeProjectionNode(root, language, source, "boolean", " true")
+	if boolNode == nil || !boolNode.IsNamed() || boolNode.ChildCount() != 1 {
+		t.Fatalf("Hyprlang boolean value = %v: %s", boolNode, root.SExpr(language))
+	}
+	child := boolNode.Child(0)
+	if child == nil || child.Type(language) != "true" || child.IsNamed() || child.ChildCount() != 0 {
+		t.Fatalf("Hyprlang boolean child = %v: %s", child, root.SExpr(language))
+	}
+
+	stringNode := findTypeProjectionNode(root, language, source, "string", " myBezier")
+	if stringNode == nil || !stringNode.IsNamed() || stringNode.ChildCount() != 0 {
+		t.Fatalf("Hyprlang non-boolean value = %v: %s", stringNode, root.SExpr(language))
 	}
 }
 

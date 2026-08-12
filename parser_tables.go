@@ -336,10 +336,30 @@ func (p *Parser) forEachActionIndexInState(state StateID, visit func(sym Symbol,
 	if smallIdx < 0 || smallIdx >= len(p.language.SmallParseTableMap) {
 		return
 	}
-	if smallIdx < len(p.smallLookup) && len(p.smallLookup[smallIdx]) > 0 {
-		for _, pair := range p.smallLookup[smallIdx] {
-			if !visit(Symbol(pair.sym), pair.val) {
-				return
+	hasDenseRow := smallIdx < len(p.smallTokenLookup) && len(p.smallTokenLookup[smallIdx]) > 0
+	hasOverflow := smallIdx < len(p.smallLookup) && len(p.smallLookup[smallIdx]) > 0
+	if hasDenseRow || hasOverflow {
+		// A small state can carry a dense smallTokenLookup row and a
+		// smallLookup overflow slice at the same time (dense covers the
+		// low symbol ids, overflow covers the rest). buildSmallLookup only
+		// admits symbols at or beyond the dense row's length into
+		// overflow, so the two sets are always disjoint and both must be
+		// visited to enumerate the state completely.
+		if hasDenseRow {
+			for sym, idx := range p.smallTokenLookup[smallIdx] {
+				if idx == 0 {
+					continue
+				}
+				if !visit(Symbol(sym), idx) {
+					return
+				}
+			}
+		}
+		if hasOverflow {
+			for _, pair := range p.smallLookup[smallIdx] {
+				if !visit(Symbol(pair.sym), pair.val) {
+					return
+				}
 			}
 		}
 		return

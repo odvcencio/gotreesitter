@@ -38,6 +38,34 @@ func conflictPolicyChoiceForContext(lang *Language, stack *glrStack, allowRecove
 	return ParseAction{}, false
 }
 
+// declaredReduceReduceConflictPolicyChoice scans only for
+// ConflictPolicyDeclaredReduceReduceHighestSymbol rows, independent of the
+// general ConflictPolicies dispatch above. It is safe to call regardless of
+// stack or reuse context: the fold reads nothing but the row's own action
+// list, so it always reproduces the choice a fresh parse would make at this
+// exact (state, lookahead).
+func declaredReduceReduceConflictPolicyChoice(lang *Language, currentState StateID, tok Token, actions []ParseAction) (ParseAction, bool) {
+	if lang == nil || len(lang.ConflictPolicies) == 0 {
+		return ParseAction{}, false
+	}
+	for i := range lang.ConflictPolicies {
+		policy := &lang.ConflictPolicies[i]
+		if policy.Kind != ConflictPolicyDeclaredReduceReduceHighestSymbol {
+			continue
+		}
+		if policy.State != currentState && policy.State != ConflictPolicyAnyState {
+			continue
+		}
+		if policy.Lookahead != tok.Symbol && policy.Lookahead != ConflictPolicyAnyLookahead {
+			continue
+		}
+		if chosen, ok := conflictPolicyChoiceForPolicy(lang, policy, actions); ok {
+			return chosen, true
+		}
+	}
+	return ParseAction{}, false
+}
+
 func conflictPolicyChoiceForPolicy(lang *Language, policy *ConflictPolicy, actions []ParseAction) (ParseAction, bool) {
 	if lang == nil || policy == nil {
 		return ParseAction{}, false
@@ -58,9 +86,43 @@ func conflictPolicyChoiceForPolicy(lang *Language, policy *ConflictPolicy, actio
 			return ParseAction{}, false
 		}
 		return singleReduceAgainstRepetitionShiftConflictChoice(actions)
+	case ConflictPolicyDeclaredReduceReduceHighestSymbol:
+		if len(policy.ReduceSymbols) < 2 {
+			return ParseAction{}, false
+		}
+		return declaredReduceReduceHighestSymbolConflictChoice(actions)
 	default:
 		return ParseAction{}, false
 	}
+}
+
+// declaredReduceReduceHighestSymbolConflictChoice folds a row whose actions
+// are all plain REDUCE (no shift, no extra, no repetition) by keeping the
+// action that reduces the highest-numbered symbol, and only when every
+// competing action already carries equal dynamic precedence. A grammar
+// author's explicit prec.dynamic() difference must keep deciding through the
+// existing dynamic-precedence tie-break; this fold only replaces the
+// otherwise-arbitrary default for rows where the table carries no
+// precedence signal at all. See ConflictPolicyDeclaredReduceReduceHighestSymbol
+// for the C mechanism this reproduces.
+func declaredReduceReduceHighestSymbolConflictChoice(actions []ParseAction) (ParseAction, bool) {
+	if len(actions) < 2 {
+		return ParseAction{}, false
+	}
+	best := -1
+	for i := range actions {
+		act := actions[i]
+		if act.Type != ParseActionReduce || act.Extra || act.Repetition {
+			return ParseAction{}, false
+		}
+		if act.DynamicPrecedence != actions[0].DynamicPrecedence {
+			return ParseAction{}, false
+		}
+		if best < 0 || act.Symbol > actions[best].Symbol {
+			best = i
+		}
+	}
+	return actions[best], true
 }
 
 func conflictPolicyReducesMatch(policy *ConflictPolicy, actions []ParseAction) bool {
@@ -231,6 +293,20 @@ func (p *Parser) deterministicConflictChoiceForDispatch(source []byte, s *glrSta
 		if next, ok := conflictPolicyChoice(p.language, tok, currentState, actions); ok {
 			return next, true
 		}
+	}
+	// ConflictPolicyDeclaredReduceReduceHighestSymbol applies even during
+	// incremental reuse dispatch (unlike the general ConflictPolicies path
+	// below, gated off during reuse): the fold is a pure function of the
+	// table row's own actions (every candidate is a plain REDUCE, tied on
+	// dynamic precedence), never of stack or reuse state, so replaying it at
+	// a reuse-forced re-dispatch point reaches the exact symbol a fresh
+	// parse would reach at the same position. Declared-conflict rows are
+	// always marked fragile (table_entry.action_count > 1), so the old
+	// subtree at this exact position can never be the one reuse recycles —
+	// this is the only choice available once reuse forces a re-dispatch
+	// here, not an override of a reuse decision.
+	if chosen, ok := declaredReduceReduceConflictPolicyChoice(p.language, currentState, tok, actions); ok {
+		return chosen, true
 	}
 	if reuse == nil {
 		if chosen, ok := conflictPolicyChoiceForDispatch(p.language, s, tok, currentState, actions); ok {

@@ -87,7 +87,11 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// the C oracle (spore.2026-08-02.birch-g.powershell-bisect).
 	// 47 = the prior 46 plus the V entry. It reuses a certified clean wide
 	// result during the accepted-error retry ladder.
-	if got, want := len(builtinLanguageRuntimeProfiles), 47; got != want {
+	// 48 = the prior 47 plus the ql entry. It carries a
+	// ConflictPolicyDeclaredReduceReduceHighestSymbol row that resolves the
+	// grammar-declared simpleId/className reduce-reduce conflict to the
+	// C-native reading during dispatch.
+	if got, want := len(builtinLanguageRuntimeProfiles), 48; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}

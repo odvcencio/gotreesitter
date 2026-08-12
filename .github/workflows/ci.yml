@@ -754,6 +754,78 @@ jobs:
             exit 1
           fi
 
+  # apidiff compares the public API of package `gotreesitter` (the module
+  # root only, not the full module) between the last released tag and this
+  # PR's HEAD, and fails on an incompatible change. No production build or
+  # test dependency runs here, so the job stays fast.
+  #
+  # APIDIFF_BASELINE_TAG is a pinned tag, not a dynamically discovered one
+  # (for example `git describe --tags --abbrev=0`). A pinned tag keeps the
+  # baseline visible in this file and reviewable in a diff, and a new
+  # release cannot silently change what a PR is compared against. Bump it
+  # by hand at each release; today's value matches the release train's own
+  # documented API-compatibility baseline.
+  #
+  # golang.org/x/exp has no tagged releases, so APIDIFF_TOOL_VERSION pins an
+  # exact pseudo-version of the tool instead. It has no relation to
+  # APIDIFF_BASELINE_TAG and can be bumped independently, on its own
+  # schedule.
+  apidiff:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APIDIFF_BASELINE_TAG: v0.49.0
+      APIDIFF_TOOL_VERSION: v0.0.0-20260811152304-ee035b5b010f
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Public API diff vs ${{ env.APIDIFF_BASELINE_TAG }} (package gotreesitter)
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags --depth=1 origin \
+            "refs/tags/${APIDIFF_BASELINE_TAG}:refs/tags/${APIDIFF_BASELINE_TAG}"
+
+          OLD_DIR="${RUNNER_TEMP}/apidiff-old"
+          mkdir -p "${OLD_DIR}"
+          git archive "${APIDIFF_BASELINE_TAG}" | tar -x -C "${OLD_DIR}"
+
+          OLD_EXPORT="${RUNNER_TEMP}/apidiff-old.export"
+          NEW_EXPORT="${RUNNER_TEMP}/apidiff-new.export"
+          apidiff_run() {
+            go run "golang.org/x/exp/cmd/apidiff@${APIDIFF_TOOL_VERSION}" "$@"
+          }
+
+          ( cd "${OLD_DIR}" && apidiff_run -w "${OLD_EXPORT}" . )
+          apidiff_run -w "${NEW_EXPORT}" .
+
+          report="${RUNNER_TEMP}/apidiff-report.txt"
+          apidiff_run "${OLD_EXPORT}" "${NEW_EXPORT}" | tee "${report}"
+          {
+            echo "### Public API diff: ${APIDIFF_BASELINE_TAG} -> HEAD"
+            echo
+            if [ -s "${report}" ]; then
+              echo '```'
+              cat "${report}"
+              echo '```'
+            else
+              echo "No public API change in package \`gotreesitter\`."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          incompatible="${RUNNER_TEMP}/apidiff-incompatible.txt"
+          apidiff_run -incompatible "${OLD_EXPORT}" "${NEW_EXPORT}" | tee "${incompatible}"
+          if [ -s "${incompatible}" ]; then
+            echo "::error::incompatible public API change(s) in package gotreesitter against ${APIDIFF_BASELINE_TAG}; see the job log or step summary above"
+            exit 1
+          fi
+
   compact-t3-oracle-cgo:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
@@ -837,6 +909,13 @@ jobs:
           go-version-file: go.mod
 
       - name: CGo Parity Smoke Gate
+        # TestOutlineOracleDifferential (cgo_harness/outline_differential_test.go)
+        # joined this regex next to its query/capture-parity sibling
+        # TestParityHighlight. Every cgo parity lane in this file runs a
+        # FIXED --run regex, so a new cgo test runs nowhere unless it is
+        # named here; see docs/ci-gate-coverage.md. Its CoreNine subtest
+        # hard-gates the nine core languages; its FleetCensus subtest only
+        # logs a census row, so naming the whole test is safe.
         run: |
           GTS_PARITY_MODE=smoke \
           bash cgo_harness/docker/run_parity_in_docker.sh \
@@ -848,7 +927,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$'
+            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$'
 
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope

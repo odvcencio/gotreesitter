@@ -7,7 +7,6 @@ func normalizeHLSLCompatibility(root *Node, source []byte, lang *Language) {
 	walkResultTreePostorder(root, func(n *Node) {
 		normalizeHLSLCastNegativeNumber(n, source, lang)
 		normalizeHLSLUnormBufferDeclaration(n, source, lang)
-		normalizeHLSLSubscriptAssignmentDeclaration(n, source, lang)
 	})
 }
 
@@ -136,61 +135,6 @@ func normalizeHLSLUnormBufferDeclaration(stmt *Node, source []byte, lang *Langua
 	stmt.setNamed(symbolIsNamed(lang, declSym))
 	stmt.setHasError(true)
 	replaceNodeChildrenUnfielded(stmt, []*Node{templateType, name, semi})
-}
-
-func normalizeHLSLSubscriptAssignmentDeclaration(stmt *Node, source []byte, lang *Language) {
-	if stmt == nil || stmt.Type(lang) != "declaration" || resultChildCount(stmt) != 3 || int(stmt.endByte) > len(source) {
-		return
-	}
-	typeIdent := resultChildAt(stmt, 0)
-	init := resultChildAt(stmt, 1)
-	semi := resultChildAt(stmt, 2)
-	if typeIdent == nil || init == nil || semi == nil ||
-		typeIdent.Type(lang) != "type_identifier" || init.Type(lang) != "init_declarator" || semi.Type(lang) != ";" ||
-		resultChildCount(init) != 3 {
-		return
-	}
-	binding := resultChildAt(init, 0)
-	eq := resultChildAt(init, 1)
-	value := resultChildAt(init, 2)
-	if binding == nil || eq == nil || value == nil ||
-		binding.Type(lang) != "structured_binding_declarator" || eq.Type(lang) != "=" || resultChildCount(binding) != 3 {
-		return
-	}
-	open := resultChildAt(binding, 0)
-	index := resultChildAt(binding, 1)
-	close := resultChildAt(binding, 2)
-	if open == nil || index == nil || close == nil || open.Type(lang) != "[" || close.Type(lang) != "]" {
-		return
-	}
-	exprStmtSym, ok := symbolByName(lang, "expression_statement")
-	if !ok {
-		return
-	}
-	assignSym, ok := symbolByName(lang, "assignment_expression")
-	if !ok {
-		return
-	}
-	subscriptSym, ok := symbolByName(lang, "subscript_expression")
-	if !ok {
-		return
-	}
-	subscriptArgsSym, ok := symbolByName(lang, "subscript_argument_list")
-	if !ok {
-		return
-	}
-	identifierSym, ok := symbolByName(lang, "identifier")
-	if !ok {
-		return
-	}
-
-	base := hlslCloneLeafAs(typeIdent, identifierSym, symbolIsNamed(lang, identifierSym))
-	args := newParentNodeInArena(stmt.ownerArena, subscriptArgsSym, symbolIsNamed(lang, subscriptArgsSym), []*Node{open, index, close}, nil, 0)
-	subscript := newParentNodeInArena(stmt.ownerArena, subscriptSym, symbolIsNamed(lang, subscriptSym), []*Node{base, args}, nil, 0)
-	assignment := newParentNodeInArena(stmt.ownerArena, assignSym, symbolIsNamed(lang, assignSym), []*Node{subscript, eq, value}, nil, 0)
-	stmt.symbol = exprStmtSym
-	stmt.setNamed(symbolIsNamed(lang, exprStmtSym))
-	replaceNodeChildrenUnfielded(stmt, []*Node{assignment, semi})
 }
 
 func hlslSingleChildOfType(n *Node, lang *Language, typ string) *Node {

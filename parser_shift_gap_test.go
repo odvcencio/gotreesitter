@@ -38,7 +38,7 @@ func TestRealTokenAttachmentGapRejectsCommentSource(t *testing.T) {
 		EndByte:   uint32(len(source)),
 	}
 
-	if realTokenAttachmentGapIsParserPadding(source, &stack, tok, 0) {
+	if realTokenAttachmentGapIsParserPadding(source, &stack, tok, nil, 0) {
 		t.Fatalf("realTokenAttachmentGapIsParserPadding = true, want false for comment gap %q", source[stack.byteOffset:tok.StartByte])
 	}
 
@@ -151,10 +151,10 @@ func TestRealTokenAttachmentGapIsParserPaddingAcceptsDeclaredEscape(t *testing.T
 		EndByte:   8,
 	}
 
-	if !realTokenAttachmentGapIsParserPadding(source, &stack, tok, '`') {
+	if !realTokenAttachmentGapIsParserPadding(source, &stack, tok, nil, '`') {
 		t.Fatalf("realTokenAttachmentGapIsParserPadding(escape='`') = false, want true for gap %q", source[stack.byteOffset:tok.StartByte])
 	}
-	if realTokenAttachmentGapIsParserPadding(source, &stack, tok, 0) {
+	if realTokenAttachmentGapIsParserPadding(source, &stack, tok, nil, 0) {
 		t.Fatalf("realTokenAttachmentGapIsParserPadding(escape=0) = true, want false: an undeclared escape must not become padding for gap %q", source[stack.byteOffset:tok.StartByte])
 	}
 }

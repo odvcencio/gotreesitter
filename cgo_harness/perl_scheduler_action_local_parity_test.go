@@ -30,19 +30,33 @@ import (
 // dispatch.perl cannot retire yet: this is the arm's uniform retirement
 // condition (testdata/result_compat_ownership_v1.json) failing on the
 // authoritative owner (scheduler_action_semantics). The root cause is a
-// GLR/LALR derivation-election tie-break in the generated perl grammar
-// tables for "ambiguous_function_call_expression" (a bareword call
-// immediately followed by a comma-separated tail): gotreesitter's runtime
-// elects the split derivation (the call keeps only its first argument; the
-// remainder becomes sibling list items) where the C reference elects the
-// grouped derivation (the call keeps every comma-separated item as its
-// argument list) -- see TestPerlSchedulerActionKnownGapCOracleParity for
-// witnesses (unshift, bare join, join-with-assignment, return) where this
-// same defect class reaches acceptance uncorrected today. That table
-// selection is grammar-specific (tree-sitter-perl's generated conflict
-// resolution), not a small language-neutral fix, so this pins the arm as
-// blocked-with-mechanism per spec.campaign.v7 workstream A3 rather than
-// forcing a root fix.
+// genuine GLR fork on perl's own declared conflict
+// ([$._listexpr, $._term_rightward] in tree-sitter-perl's grammar.js, kept
+// live in the generated table because it is declared, not resolved away at
+// table-build time): after "push @found" the parser forks into a stack that
+// shifts the comma (extending the call's own argument list -- the grouped
+// derivation C elects) and a stack that reduces early (closing the call at
+// one argument and reopening a list one level up -- the split derivation
+// gotreesitter elects). Both stacks reach an identical (state, byte offset)
+// repeatedly without ever merging (Go's GSS merge refuses across differing
+// materialized shapes), so both survive to acceptance and the final choice
+// falls to the shared accepted-stack tie-break
+// (stackCompareForResultSelectionWithRawShape, parser_result.go). Error
+// cost and dynamic precedence tie at zero for this input, so the decision
+// falls through to compareRawStackEntriesRec's (parser_reduce.go) last
+// rung: lower generated symbol ID wins. gotreesitter's generated numbering
+// happens to give list_expression a lower ID than
+// ambiguous_function_call_expression/assignment_expression/return_expression
+// for this grammar, so the split shape wins on every input, independent of
+// content -- see TestPerlSchedulerActionKnownGapCOracleParity for witnesses
+// (unshift, bare join, join-with-assignment, return) where this same defect
+// class reaches acceptance uncorrected today. That comparator is shared by
+// every grammar's final accepted-stack selection, and the fix is either
+// grammar-table-wide symbol renumbering to match the C oracle's own
+// generator or a change to the shared comparator's tie-break rule -- both
+// carry fleet-wide blast radius that a single-arm change cannot safely
+// audit, so this pins the arm as blocked-with-mechanism per
+// spec.campaign.v7 workstream A3 rather than forcing a root fix.
 func TestPerlSchedulerActionLoadBearingCOracleParity(t *testing.T) {
 	goLang := grammars.PerlLanguage()
 	cLang, err := COracleLanguage("perl")
@@ -125,19 +139,28 @@ func TestPerlSchedulerActionLoadBearingCOracleParity(t *testing.T) {
 // TestPerlSchedulerActionKnownGapCOracleParity pins the same
 // ambiguous_function_call_expression election defect
 // (TestPerlSchedulerActionLoadBearingCOracleParity's doc comment) on shapes
-// dispatch.perl's three sub-passes do not reach today: a second built-in
-// list operator (unshift, uncovered because normalizePerlPushExpressionLists
-// matches only fn.Text=="push"), and the two sub-passes
-// (normalizePerlJoinAssignmentLists, normalizePerlReturnExpressionLists)
-// whose match preconditions never fire against real grammar output --
-// their preconditions require the RAW tree to already show the grouped
-// (C-correct) shape and split it apart, but raw gotreesitter output for
-// these forms is the split (C-incorrect) shape from the start, matching
-// push's before-fix state. Zero corpus and constructed witnesses were found
-// where either sub-pass fires and improves on raw. This is evidence for a
-// spore finding, not a deletion in this tranche: dispatch.perl's overall
-// arm remains blocked (see TestPerlSchedulerActionLoadBearingCOracleParity),
-// so no route/registry disposition changes here.
+// dispatch.perl's sole remaining sub-pass (normalizePerlPushExpressionLists)
+// does not reach today: a second built-in list operator (unshift, uncovered
+// because normalizePerlPushExpressionLists matches only fn.Text=="push"),
+// and join/return, whose grouped-input shape a former sub-pass pair
+// (normalizePerlJoinAssignmentLists, normalizePerlReturnExpressionLists,
+// removed as dead code once this file's own cases proved the underlying
+// declared-conflict election never produces that grouped input on any real
+// derivation -- production always resolves the tie to the split shape) used
+// to target. The root cause is a runtime tie-break, not a materialization
+// gap: when error cost and dynamic precedence both tie, the shared
+// accepted-stack raw-shape comparator (compareRawStackEntriesRec,
+// parser_reduce.go) falls back to comparing the two candidate derivations'
+// top symbol IDs, and gotreesitter's generated symbol numbering for
+// list_expression happens to sit below ambiguous_function_call_expression /
+// assignment_expression / return_expression, so the comparator prefers the
+// split shape on every input, independent of content. That comparator is
+// shared by every grammar's final accepted-stack selection; making it (or
+// gotreesitter's symbol numbering) agree with the C oracle here without
+// auditing every other language's tie-break outcomes is out of scope for a
+// single-arm fix. dispatch.perl's overall arm remains blocked (see
+// TestPerlSchedulerActionLoadBearingCOracleParity), so no route/registry
+// disposition changes here.
 //
 // wantDivergence stays true for every case: if one flips to false, the same
 // grammar/scheduler defect has been fixed upstream for that shape.
@@ -161,14 +184,9 @@ func TestPerlSchedulerActionKnownGapCOracleParity(t *testing.T) {
 			wantDivergence: true,
 		},
 		{
-			// normalizePerlJoinAssignmentLists's intended trigger
-			// (parser_result_bash_perl_test.go,
-			// TestNormalizePerlJoinAssignmentListsRewritesBareListOperatorShape's
-			// source). Real gotreesitter output for this source is already
-			// the split list_expression shape the sub-pass tries to
-			// *produce*, so its precondition (top position ==
-			// assignment_expression) never matches -- dead code on real
-			// derivations.
+			// The tie-break always resolves to the split shape (see this
+			// function's doc comment), so no sub-pass ever sees the grouped
+			// input a join-rewrite would need to fire.
 			name:           "join_assignment_precondition_never_matches",
 			source:         "my $x = join \"\\n\", \"a\", \"b\";\n",
 			wantDivergence: true,
@@ -179,8 +197,7 @@ func TestPerlSchedulerActionKnownGapCOracleParity(t *testing.T) {
 			wantDivergence: true,
 		},
 		{
-			// normalizePerlReturnExpressionLists's intended trigger; same
-			// dead-precondition shape as the join-assignment case.
+			// Same always-split tie-break outcome as join_assignment above.
 			name:           "return_precondition_never_matches",
 			source:         "sub f { return $a, $b; }\n",
 			wantDivergence: true,

@@ -2,14 +2,14 @@
   "schema": "gotreesitter/result-compat-ownership/v1",
   "source_of_truth": true,
   "denominator": {
-    "dispatcher_arms": 40,
-    "dispatcher_languages": 42,
+    "dispatcher_arms": 35,
+    "dispatcher_languages": 37,
     "dispatcher_predicates": 1,
     "generic_passes": 0,
     "post_finalization_arms": 0,
     "post_finalization_languages": 0,
-    "live_entries": 41,
-    "retired_entries": 44
+    "live_entries": 36,
+    "retired_entries": 49
   },
   "live_evidence_baseline": {
     "scope": "baseline_corpus_wide_only",
@@ -62,7 +62,10 @@
           "purpose": "Select an index constraint and construct its attribute-reference children when the selected Ada derivation has the discriminant shape.",
           "authoritative_owner": "derivation_election_selection",
           "witnesses": [
-            "parser_result_test/materialization_subpass_census_test.go"
+            "parser_result_test/materialization_subpass_census_test.go",
+            "cgo_harness/ada_election_local_parity_test.go",
+            "cgo_harness/ada_constraint_kind_election_parity_test.go",
+            "cgo_harness/ada_a3_certification_sweep_test.go"
           ]
         },
         {
@@ -73,37 +76,27 @@
           "files": [
             "parser_result_ada.go"
           ],
-          "purpose": "Select the record, named-array, or positional-array aggregate type.",
+          "purpose": "Select the positional-array aggregate reading over the record aggregate reading for an unnamed comma-separated association list.",
           "authoritative_owner": "derivation_election_selection",
           "witnesses": [
-            "parser_result_test/materialization_subpass_census_test.go"
-          ]
-        },
-        {
-          "id": "dispatch.ada.association-choice-materialization",
-          "functions": [
-            "normalizeAdaArrayAssociationChoicesWithCensus",
-            "normalizeAdaRecordAssociationChoicesWithCensus"
-          ],
-          "files": [
-            "parser_result_ada.go"
-          ],
-          "purpose": "Construct the selected record or array association-choice wrappers.",
-          "authoritative_owner": "materialization",
-          "witnesses": [
-            "parser_result_test/materialization_subpass_census_test.go"
+            "parser_result_test/materialization_subpass_census_test.go",
+            "cgo_harness/ada_election_local_parity_test.go",
+            "cgo_harness/ada_a3_certification_sweep_test.go"
           ]
         }
       ],
       "languages": [
         "ada"
       ],
-      "purpose": "Reconcile Ada returned-tree fields, aliases, and spans.",
+      "purpose": "Reconcile Ada returned-tree fields, aliases, and spans. dispatch.ada.association-choice-materialization retired: the component_choice_list/discrete_choice tie it repaired (record vs array reading of a bare \"others\" choice) is now resolved natively by a declared-conflict election policy before the parser forks (grammars/runtime_profiles.go \"ada\"), so the arm's raw output already matches the C oracle for every registered witness and the post-parse wrapper conversion is unreachable.",
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/parity_cgo_test.go",
+        "cgo_harness/ada_election_local_parity_test.go",
+        "cgo_harness/ada_constraint_kind_election_parity_test.go",
+        "cgo_harness/ada_a3_certification_sweep_test.go"
       ],
-      "retirement_condition": "Delete only after materialization emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Delete only after derivation_election_selection emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
       "route_coverage": {
         "production": "shared_result_compatibility_tail",
         "compact": "shared_result_compatibility_tail",
@@ -165,20 +158,26 @@
           "files": [
             "parser_result_apex.go"
           ],
-          "purpose": "Materialize the field-access aliases for an Apex class literal.",
+          "purpose": "Retags a raw class_literal(type_identifier, \".\", \"class\") node to the C-native field_access(identifier, \".\", identifier) shape for `Type.class`. Inert for production, compact, and incremental since a per-stack DFA relex (parser.go) and a certified primary-derivation preference at accept-time result selection (parser_result.go) made the classic engine elect field_access natively; still reached by the GSS-forest experimental fast path, a separate engine this fix does not cover.",
           "authoritative_owner": "derivation_election_selection",
           "witnesses": [
-            "parser_result_test/materialization_subpass_census_test.go"
+            "parser_result_test/materialization_subpass_census_test.go",
+            "cgo_harness/apex_generic_local_parity_test.go",
+            "cgo_harness/apex_a3_certification_sweep_test.go",
+            "grammars/apex_class_literal_election_native_regression_test.go"
           ]
         }
       ],
       "languages": [
         "apex"
       ],
-      "purpose": "Reconcile Apex returned-tree aliases, fields, and spans.",
+      "purpose": "Reconciles Apex returned-tree aliases, fields, and spans, including the class_literal/field_access election. The election is now natively C-exact on production, compact, and incremental; this arm stays live only because the GSS-forest experimental fast path (ParseForestExperimental, not in apex's automatic-dispatch set) still needs the retag. See the class-literal-alias subpass for detail.",
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/parity_cgo_test.go",
+        "cgo_harness/apex_generic_local_parity_test.go",
+        "cgo_harness/apex_a3_certification_sweep_test.go",
+        "grammars/apex_class_literal_election_native_regression_test.go"
       ],
       "retirement_condition": "Delete only after materialization emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
       "route_coverage": {
@@ -284,27 +283,12 @@
       "id": "dispatch.bash",
       "kind": "dispatcher_arm",
       "functions": [
-        "normalizeBashProgramVariableAssignmentsWithCensus",
         "normalizeBashGeneratedCommandAssignments"
       ],
       "files": [
         "parser_result_bash.go"
       ],
       "subpasses": [
-        {
-          "id": "dispatch.bash.variable-assignment-wrapper-flattening",
-          "functions": [
-            "normalizeBashVariableAssignmentsInNodeWithCensus"
-          ],
-          "files": [
-            "parser_result_bash.go"
-          ],
-          "purpose": "Materialize assignment siblings without a generated variable-assignments wrapper.",
-          "authoritative_owner": "materialization",
-          "witnesses": [
-            "parser_result_test/materialization_subpass_census_test.go"
-          ]
-        },
         {
           "id": "dispatch.bash.generated-command-assignment",
           "functions": [
@@ -318,31 +302,17 @@
           "witnesses": [
             "parser_result_test/materialization_subpass_census_test.go"
           ]
-        },
-        {
-          "id": "dispatch.bash.if-condition-field-projection",
-          "functions": [
-            "assignBashIfConditionField"
-          ],
-          "files": [
-            "parser_result_bash.go"
-          ],
-          "purpose": "Project the condition field from the Bash reduction metadata.",
-          "authoritative_owner": "materialization",
-          "witnesses": [
-            "parser_result_test/materialization_subpass_census_test.go"
-          ]
         }
       ],
       "languages": [
         "bash"
       ],
-      "purpose": "Reconcile Bash assignment and command-argument materialization.",
-      "authoritative_owner": "materialization",
+      "purpose": "Select an assignment action instead of a generated command action.",
+      "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
         "cgo_harness/parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after materialization emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
       "route_coverage": {
         "production": "shared_result_compatibility_tail",
         "compact": "shared_result_compatibility_tail",
@@ -881,21 +851,26 @@
       "languages": [
         "elixir"
       ],
-      "purpose": "Reconcile Elixir recovery and returned-tree shape.",
+      "purpose": "Historical: Elixir dropped a stray external-scanner comment token and grouped map keyword pairs and update entries after publication.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/elixir_extras_and_pairs_native_regression_test.go",
+        "cgo_harness/elixir_extras_and_pairs_retirement_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: native root-extra folding drops the hidden comment-synchronization token, and reduction groups map keyword pairs and update/arrow entries directly. Production and incremental routes are exact. Compact and forest routes remain exact.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "5baffc7237200733e46bf9881cd81bfc3581ccf3",
+      "receipt_refs": [
+        "grammars/elixir_extras_and_pairs_native_regression_test.go",
+        "cgo_harness/elixir_extras_and_pairs_retirement_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.enforce",
@@ -909,21 +884,26 @@
       "languages": [
         "enforce"
       ],
-      "purpose": "Reconcile Enforce recovery and returned-tree shape.",
+      "purpose": "Historical: Enforce misread a const-int formal parameter's type and name after publication.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/enforce_const_param_native_regression_test.go",
+        "cgo_harness/enforce_const_param_retirement_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: native scheduling and reduction publish the C-equivalent formal_parameter_modifier, type_int, identifier, and default-value shape directly. Production and incremental routes are exact. Compact and forest routes remain exact.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "172177ea09f2dec718a85a4e3f65aee92f8bb20d",
+      "receipt_refs": [
+        "grammars/enforce_const_param_native_regression_test.go",
+        "cgo_harness/enforce_const_param_retirement_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.ebnf",
@@ -1103,21 +1083,26 @@
       "languages": [
         "fidl"
       ],
-      "purpose": "Reconcile FIDL recovery and returned-tree shape.",
+      "purpose": "Historical: reconciled versioned-layout-modifier recovery shape after publication.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/fidl_versioned_layout_modifier_native_regression_test.go",
+        "cgo_harness/fidl_versioned_layout_modifier_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: native parsing already recovers a versioned-layout-modifier declaration into the C-equivalent error shape without a post-parse pass. Production, compact, forest, incremental, and C-oracle receipts are exact.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "a2f14f5abe9277b4c6a5cec821fa8696914561aa",
+      "receipt_refs": [
+        "grammars/fidl_versioned_layout_modifier_native_regression_test.go",
+        "cgo_harness/fidl_versioned_layout_modifier_parity_cgo_test.go"
+      ]
     },
     {
       "id": "dispatch.go",
@@ -1422,12 +1407,14 @@
       "languages": [
         "hlsl"
       ],
-      "purpose": "Reconcile HLSL recovery and returned-tree shape.",
+      "purpose": "Reconcile HLSL derivation election and returned-tree shape: the negative-number cast rewrite and the unorm buffer template-argument repair. The subscript-assignment member retired 2026-08-12.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/parity_cgo_test.go",
+        "grammars/hlsl_subscript_assignment_native_regression_test.go",
+        "cgo_harness/hlsl_subscript_assignment_parity_cgo_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "One member retired 2026-08-12: the subscript-assignment declarator repair. `structured_binding_declarator` carries a negative dynamic precedence in the grammar, so a clean, unambiguous election already prefers the subscript-assignment expression natively; production, compact, forest, incremental, and C-oracle receipts are exact with no post-parse pass. The cast-negative-number and unorm-buffer members stay live: both still rewrite the tree to reach the C-equivalent shape. Delete a remaining member only after scheduler_action_semantics or derivation_election_selection emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
       "route_coverage": {
         "production": "shared_result_compatibility_tail",
         "compact": "shared_result_compatibility_tail",
@@ -1450,21 +1437,26 @@
       "languages": [
         "hyprlang"
       ],
-      "purpose": "Reconcile Hyprlang recovery and returned-tree shape.",
-      "authoritative_owner": "scheduler_action_semantics",
+      "purpose": "Historical: reconciled Hyprlang boolean assignment values by retagging a generic value token. DFA keyword promotion now emits each boolean keyword natively before compatibility.",
+      "authoritative_owner": "materialization",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/type_projection_native_regression_test.go",
+        "cgo_harness/type_projection_retirement_parity_test.go"
       ],
-      "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
+      "retirement_condition": "Satisfied: DFA keyword promotion emits each boolean keyword natively, skipping the leading whitespace its word token pattern absorbs. Compatibility-free, production, compact, forest, incremental, and C-oracle receipts return the same tree.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "1adc7c8694000b0b670f0ca05cc8b8d7b6588cd3",
+      "receipt_refs": [
+        "grammars/type_projection_native_regression_test.go",
+        "cgo_harness/type_projection_retirement_parity_test.go"
+      ]
     },
     {
       "id": "dispatch.ini",
@@ -2067,21 +2059,26 @@
       "languages": [
         "ql"
       ],
-      "purpose": "Reconcile QL derivation selection and returned-tree shape.",
+      "purpose": "Historical: relabeled the signatureExpr moduleExpr node to typeExpr after the parse, to match the C reading of an ambiguous upper-case identifier in signature position. Retired after a declared-conflict election policy resolved the underlying simpleId/className reduce-reduce conflict during dispatch, before the parser forks.",
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "grammars/ql_signature_expr_election_native_regression_test.go",
+        "cgo_harness/ql_election_local_parity_test.go"
       ],
       "retirement_condition": "Delete only after derivation_election_selection emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "retired_commit": "305e32b0bd796a47cfbd566ec596cd8d01ceb124",
+      "receipt_refs": [
+        "grammars/ql_signature_expr_election_native_regression_test.go",
+        "cgo_harness/ql_election_local_parity_test.go"
+      ]
     },
     {
       "id": "dispatch.r",
@@ -2288,7 +2285,8 @@
         "normalizeScalaCompatibility"
       ],
       "files": [
-        "parser_result_scala_compilation.go"
+        "parser_result_scala_compilation.go",
+        "parser_result_misc_spans.go"
       ],
       "languages": [
         "scala"

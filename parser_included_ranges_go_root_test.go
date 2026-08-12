@@ -23,6 +23,11 @@ import (
 //
 // These tests are the route's committed floor. The C-oracle comparison lives
 // in cgo_harness/included_ranges_go_root_parity_cgo_test.go.
+//
+// Update: the parser's padding scan now clips to the included ranges, so
+// this route no longer forces recovery on this fixture and the root already
+// comes out as `source_file` before normalizeGoSourceFileRoot inspects it.
+// See TestIncludedRangesGoArmMemberNowInert below.
 
 func includedRangesGoPointAt(src []byte, off int) gotreesitter.Point {
 	var point gotreesitter.Point
@@ -102,12 +107,16 @@ func TestIncludedRangesGoRootStaysSourceFile(t *testing.T) {
 	}
 }
 
-// TestIncludedRangesGoArmMemberIsLive records that the arm's root member
-// actually rewrites the tree on this route. It is the positive control that
-// makes the test above a real gate instead of an accident: if the member ever
-// becomes inert here, this fails and the deletion question reopens with
-// evidence.
-func TestIncludedRangesGoArmMemberIsLive(t *testing.T) {
+// TestIncludedRangesGoArmMemberNowInert records the current state of the
+// arm's root member on this route: the parser's padding scan now clips to
+// the configured included ranges, so the parse no longer forces recovery
+// between the two ranges and never hands the member an ERROR root to
+// repair. The member still runs on every parse; it now returns immediately
+// on this fixture because the root already carries the right symbol before
+// the member inspects it. If a future change reopens this route to
+// recovery, the member starts rewriting the tree again and the assertion
+// below catches it.
+func TestIncludedRangesGoArmMemberNowInert(t *testing.T) {
 	lang := grammars.GoLanguage()
 	if lang == nil {
 		t.Skip("go grammar unavailable")
@@ -126,13 +135,17 @@ func TestIncludedRangesGoArmMemberIsLive(t *testing.T) {
 	}
 	defer tree.Release()
 
+	if got := tree.RootNode().Type(lang); got != "source_file" {
+		t.Fatalf("included-ranges root type = %q, want %q", got, "source_file")
+	}
+
 	// Census receipts are recorded on the production route only. An
 	// included-ranges parse always lands there today, because
 	// admission_switch.go declines the compact candidate route whenever the
 	// parser carries included ranges. This is a Fatal, not a Skip: if the
-	// compact runner ever gains included-ranges support, this positive control
-	// must fail loudly instead of turning into a silent skip that stops
-	// guarding the member.
+	// compact runner ever gains included-ranges support, this test must fail
+	// loudly instead of turning into a silent skip that stops watching the
+	// member.
 	passesPtr := tree.ParseRuntime().NormalizationPasses
 	if passesPtr == nil || len(*passesPtr) == 0 {
 		t.Fatal("included-ranges parse recorded no census receipts; the route no longer pins production")
@@ -143,10 +156,9 @@ func TestIncludedRangesGoArmMemberIsLive(t *testing.T) {
 			continue
 		}
 		found = true
-		if pass.NodesRewritten == 0 {
-			t.Fatalf("dispatch.go.source-file-root recorded no rewrite on the included-ranges route")
+		if pass.NodesRewritten != 0 {
+			t.Fatalf("dispatch.go.source-file-root rewrote %d nodes, want 0: the root should already carry the right symbol before the member runs", pass.NodesRewritten)
 		}
-		t.Logf("dispatch.go.source-file-root rewrote %d nodes", pass.NodesRewritten)
 	}
 	if !found {
 		t.Fatal("dispatch.go.source-file-root has no census receipt on the included-ranges route")
