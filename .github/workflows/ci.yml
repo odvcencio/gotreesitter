@@ -545,6 +545,7 @@ jobs:
       - exhaustive_parity_scope
       - compact-t3-oracle-cgo
       - merge-event-census-cgo
+      - derivation-set-census-cgo
       - parity-cgo-exhaustive
     if: always()
     runs-on: ubuntu-latest
@@ -567,6 +568,7 @@ jobs:
           EXHAUSTIVE_PARITY_SCOPE: ${{ needs.exhaustive_parity_scope.outputs.run_exhaustive }}
           COMPACT_T3_ORACLE_CGO_RESULT: ${{ needs.compact-t3-oracle-cgo.result }}
           MERGE_EVENT_CENSUS_CGO_RESULT: ${{ needs.merge-event-census-cgo.result }}
+          DERIVATION_SET_CENSUS_CGO_RESULT: ${{ needs.derivation-set-census-cgo.result }}
           EXHAUSTIVE_PARITY_RESULT: ${{ needs.parity-cgo-exhaustive.result }}
         run: |
           set -euo pipefail
@@ -604,6 +606,7 @@ jobs:
           require_success "perf_scan_budget" "$PERF_SCAN_BUDGET_RESULT"
           require_success "compact-t3-oracle-cgo" "$COMPACT_T3_ORACLE_CGO_RESULT"
           require_success "merge-event-census-cgo" "$MERGE_EVENT_CENSUS_CGO_RESULT"
+          require_success "derivation-set-census-cgo" "$DERIVATION_SET_CENSUS_CGO_RESULT"
 
           if [ "$IS_DRAFT" = "true" ]; then
             require_success "draft_focused_tests" "$DRAFT_FOCUSED_RESULT"
@@ -895,6 +898,42 @@ jobs:
             -- "cd /workspace/cgo_harness && GOWORK=off go test \
               -tags 'cgo treesitter_c_parity gts_merge_census' \
               -run '^TestMergeEventCensus' -count=1 -v -timeout 30m ."
+
+  # derivation-set-census-cgo runs stage D0 of
+  # spec.derivation-set-equivalence.v1. The tag adds candidate-set census
+  # code to the compact parser. Default builds exclude that code.
+  #
+  # The lane pins the current difference count and the adjudicated witnesses.
+  # It also keeps the rejected arrival-order mechanism reproducible.
+  derivation-set-census-cgo:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Derivation-set census (stage D0 baseline and witnesses)
+        run: |
+          GTS_PARITY_MODE=smoke \
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-derivation-set-census \
+            --memory 8g \
+            --cpus 2 \
+            --pids 4096 \
+            --gomemlimit 6GiB \
+            --goflags -p=1 \
+            --test-parallel 1 \
+            --c-ref-build-jobs 1 \
+            --timeout 40m \
+            -- "cd /workspace/cgo_harness && GOWORK=off go test \
+              -tags 'cgo treesitter_c_parity gts_derivation_set_census' \
+              -run '^(TestDerivationSetDifferential(WitnessReproduction|BaselineCensus)|TestCondenseTieArrivalOrder(Counterexample|VersionSetIsSingleton))$' \
+              -count=1 -v -timeout 40m ."
 
   parity-cgo:
     needs: exhaustive_parity_scope

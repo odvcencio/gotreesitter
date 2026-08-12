@@ -15,6 +15,8 @@ The merge commit is `8070e1ad51f4cfdb7acf6008ac7695cf7e97cd66`.
 
 The instrument is inert in the default build.
 It runs only with the `gts_derivation_set_census` build tag.
+The `derivation-set-census-cgo` CI job runs all four D0 receipts.
+The required `build` gate checks that job.
 
 ## Equivalence claim
 

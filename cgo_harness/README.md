@@ -741,7 +741,7 @@ Tunable inputs:
 RUNS=7 SIZES="500 2000 10000" CFLAGS_EXTRA="-march=native -flto" ./pure_c/run_claim_suite.sh
 ```
 
-## Run the Derivation-Set Differential (Opt-In)
+## Run the Derivation-Set Differential
 
 The derivation-set differential compares, at every accept, the compact core's
 live derivation set against the reference runtime's live version set. It is
@@ -751,6 +751,10 @@ The compact side records the set behind the `gts_derivation_set_census` build
 tag. The default build carries no census code at all, so the shipped parse
 path is unchanged. The C side reconstructs the version set from
 `ts_parser_set_logger` output alone; the vendored C source stays unpatched.
+
+The `derivation-set-census-cgo` CI job runs all four D0 receipts.
+The required `build` gate checks that job.
+Use the commands below for a focused local reproduction.
 
 ```sh
 cd cgo_harness
