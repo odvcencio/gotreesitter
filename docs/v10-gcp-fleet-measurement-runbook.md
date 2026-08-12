@@ -29,6 +29,7 @@ Set these values before provisioning the machine:
 export GCP_PROJECT=bookt-cc
 export GCP_ZONE=us-central1-c
 export VM_NAME=gts-v10-$(date -u +%Y%m%d-%H%M%S)
+export TARGET_REV="<full-40-character-commit>"
 export PERF_HOSTNAME=gts-v10-full-fleet
 export CORPUS_LOCK_SHA=41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea
 export V10_VM_MAX_RUN_SECONDS=32400
@@ -41,14 +42,16 @@ export V10_MAX_COMPUTE_USD=3.00
 Record the following values in the final receipt:
 
 - repository commit and clean-worktree result;
-- machine type, zone, and pinned CPU;
+- instance identity, machine type, zone, and pinned CPU;
+- boot disk identity and retention settings;
 - Google Cloud image name and digest;
 - Go and Docker image identities;
 - corpus lock path and SHA-256 digest;
 - full-fleet language count;
 - virtual-machine, campaign, and language time limits;
 - the current Spot price and the maximum estimated cost;
-- output directory and raw logs.
+- output directory and raw logs;
+- receipt archive path and SHA-256 digest.
 
 Do not publish a partial or interrupted scan.
 
@@ -62,9 +65,10 @@ gcloud config set project "$GCP_PROJECT"
 gcloud compute instances list --project "$GCP_PROJECT"
 ~~~
 
-Use a dedicated eight-vCPU Compute-Optimized VM. Use Spot capacity and delete
-the VM after the run. The earlier v9 run found no regional quota for the
-preferred N2D shape, so use C2 unless N2D quota is confirmed.
+Use a dedicated eight-vCPU Compute-Optimized VM. Use Spot capacity and stop
+the VM at the time limit. Preserve its boot disk until receipt verification.
+The earlier v9 run found no regional quota for the preferred N2D shape. Use
+C2 unless N2D quota is confirmed.
 
 ~~~sh
 gcloud compute machine-types describe n2d-standard-4 \
@@ -75,14 +79,21 @@ gcloud compute instances create "$VM_NAME" \
   --zone "$GCP_ZONE" \
   --machine-type c2-standard-8 \
   --provisioning-model SPOT \
-  --instance-termination-action DELETE \
+  --instance-termination-action STOP \
   --max-run-duration "${V10_VM_MAX_RUN_SECONDS}s" \
   --image-family ubuntu-2404-lts-amd64 \
   --image-project ubuntu-os-cloud \
   --boot-disk-size 100GB \
   --boot-disk-type pd-balanced \
+  --no-boot-disk-auto-delete \
   --metadata enable-oslogin=TRUE \
   --labels purpose=gotreesitter-v10,max-run=9h
+
+export BOOT_DISK="$(gcloud compute instances describe "$VM_NAME" \
+  --project "$GCP_PROJECT" \
+  --zone "$GCP_ZONE" \
+  --format='value(disks[0].source)' | awk -F/ '{print $NF}')"
+test -n "$BOOT_DISK"
 ~~~
 
 Use a regular VM when Spot capacity cannot satisfy the measurement window.
@@ -93,7 +104,8 @@ hours, then add the disk estimate. Do not start above
 `V10_MAX_COMPUTE_USD`. Record the estimate in the receipt.
 
 The nine-hour VM limit includes installation and corpus staging. Google Cloud
-deletes the VM when this limit expires. Do not extend the limit in place.
+stops the VM when this limit expires. The preserved disk continues to incur
+storage charges. Do not extend the limit in place.
 
 ## Install the fresh machine
 
@@ -339,18 +351,56 @@ design brief with explicit correctness and performance gates.
 
 ## Preserve and clean up
 
-Copy the complete output directory off the VM before deletion. Store the
-receipt with the commit, lock digest, host identity, and regression summary.
+Package the complete receipt before deletion. Include the scoreboard,
+language fragments, container receipt, corpus identity, and source identity.
+If the VM stopped, start it only long enough to transfer the receipt.
 
 ~~~sh
-gcloud compute scp --recurse \
-  "$VM_NAME:/srv/gotreesitter-perf/gotreesitter/cgo_harness/perf_scan/out" \
-  ./v10-receipts/ \
+export RECEIPT_NAME="v10-${TARGET_REV}-receipt"
+export LOCAL_RECEIPT_ROOT="./v10-receipts/${TARGET_REV}"
+mkdir -p "$LOCAL_RECEIPT_ROOT"
+
+if test -z "${BOOT_DISK:-}"; then
+  export BOOT_DISK="$(gcloud compute instances describe "$VM_NAME" \
+    --project "$GCP_PROJECT" --zone "$GCP_ZONE" \
+    --format='value(disks[0].source)' | awk -F/ '{print $NF}')"
+fi
+test -n "$BOOT_DISK"
+
+if test "$(gcloud compute instances describe "$VM_NAME" \
+  --project "$GCP_PROJECT" --zone "$GCP_ZONE" \
+  --format='value(status)')" = "TERMINATED"; then
+  gcloud compute instances start "$VM_NAME" \
+    --project "$GCP_PROJECT" --zone "$GCP_ZONE"
+fi
+
+gcloud compute ssh "$VM_NAME" \
+  --project "$GCP_PROJECT" --zone "$GCP_ZONE" \
+  --command="set -eu
+    cd /srv/gotreesitter-perf
+    tar -czf '$RECEIPT_NAME.tar.gz' \
+      corpus-source-status.json \
+      corpus_sources.lock \
+      gotreesitter/cgo_harness/perf_scan/out \
+      gotreesitter/harness_out/docker
+    sha256sum '$RECEIPT_NAME.tar.gz' >'$RECEIPT_NAME.tar.gz.sha256'"
+
+gcloud compute scp \
+  "$VM_NAME:/srv/gotreesitter-perf/$RECEIPT_NAME.tar.gz" \
+  "$VM_NAME:/srv/gotreesitter-perf/$RECEIPT_NAME.tar.gz.sha256" \
+  "$LOCAL_RECEIPT_ROOT/" \
   --project "$GCP_PROJECT" --zone "$GCP_ZONE"
+
+(cd "$LOCAL_RECEIPT_ROOT" && \
+  sha256sum -c "$RECEIPT_NAME.tar.gz.sha256")
 
 gcloud compute instances delete "$VM_NAME" \
   --project "$GCP_PROJECT" --zone "$GCP_ZONE" --quiet
+gcloud compute disks delete "$BOOT_DISK" \
+  --project "$GCP_PROJECT" --zone "$GCP_ZONE" --quiet
 ~~~
 
-If the VM terminates before the output is copied, mark the run incomplete.
+Do not delete the VM or boot disk before local hash verification succeeds.
+If Spot capacity blocks restart, attach the preserved disk to a recovery VM.
+Mark the run incomplete when its output is missing or cannot authenticate.
 Do not merge incomplete artifacts into the authoritative fleet scoreboard.
