@@ -102,8 +102,9 @@ Set `GTS_PERF_SCAN_RUNTIME_EVIDENCE=1` to attach opt-in runtime evidence to
 each retained Go full-parse classification. The record includes recovery
 entries, recovery cost walks, retry attempts, the selected retry rung, parser
 allocation counters, phase timing, materialization timing, and arena capacity
-facts. The scan captures these facts outside timed samples. The knob does not alter
-routing, parser limits, or hard-gate decisions. Treat the output as cohort
+facts. The scan captures these facts outside timed samples. With this knob, the
+scan pins its parser to the production route. It does not change the shipped
+default, parser limits, or hard-gate decisions. Treat the output as cohort
 evidence, not performance credit.
 
 Verdict buckets: `<=0.10x`, `<=1.2x`, `<=2x`, `>2x`, `cliff>10x`. The first
@@ -328,7 +329,7 @@ the corpus builder deliberately supplies nested dependency checkouts and
 | `GTS_PERF_SCAN_EDIT_CANDIDATES` | 16 | edit-site candidates tried per file |
 | `GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB` | 0 | optional parent-side RSS watchdog for the per-language child process group; when set, kills and reaps the child and its descendants before a container cgroup OOM can kill the sweep parent |
 | `GTS_PERF_SCAN_CGO_ADMISSION_RSS_LIMIT_MB` | 4096 | RSS watchdog for each exact-source cgo admission child; hard-gate scans require a positive value |
-| `GTS_PERF_SCAN_RUNTIME_EVIDENCE` | 0 | attach opt-in recovery, retry, phase-timing, materialization, and arena facts to retained Go classifications |
+| `GTS_PERF_SCAN_RUNTIME_EVIDENCE` | 0 | attach runtime facts to retained Go classifications and pin the scan to the production route |
 | `GTS_REAL_CORPUS_BENCH_LOCK` | required by hard gate | authenticated corpus selection lock; digest is checked before any language runs |
 | `GTS_C_ORACLE_CACHE` | `harness_out/c_oracle/fleet_static` | cache for pinned runtime/grammar sources and content-keyed fully static timing artifacts |
 
