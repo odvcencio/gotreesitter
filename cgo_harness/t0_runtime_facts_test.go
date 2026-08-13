@@ -343,6 +343,11 @@ func t0BuildGoChild(t testing.TB, revision string) t0CardChildBuild {
 	}
 	sourceDir := filepath.Join(t.TempDir(), "t0-card-source")
 	clone := exec.Command("git", "-c", "safe.directory=*", "clone", "--no-local", repoRoot, sourceDir)
+	clone.Env = t0EnvWithOverrides(os.Environ(), map[string]string{
+		"GIT_CONFIG_COUNT":   "1",
+		"GIT_CONFIG_KEY_0":   "safe.directory",
+		"GIT_CONFIG_VALUE_0": "*",
+	})
 	if output, err := clone.CombinedOutput(); err != nil {
 		t.Fatalf("create clean T0 child clone: %v: %s", err, strings.TrimSpace(string(output)))
 	}
