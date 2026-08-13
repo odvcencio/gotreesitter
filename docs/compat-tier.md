@@ -128,6 +128,28 @@ The inspection SHA-256 is
 This recheck confirms A0-CORPUS-001 and A0-REGISTRY-002. It does not close
 A0 and changes no parser routing or compatibility arm.
 
+### A0 current source-lock inventory
+
+The external source inventory ran at the current campaign head with corpus
+lock SHA-256
+`41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea`.
+It found all 206 locked language roots checked out at their expected commits.
+All 206 roots had matching files, with zero missing source roots or files.
+
+The inventory report SHA-256 is
+`631fb5831708a2083252869586f5d936ef5282be20ff179c8dec5415c506e39a`.
+The selected-language list SHA-256 is
+`e81cc7845a3d61210a8f8a450a65f800a53857ac5bdd816e5cdeab482b344cf6`.
+
+The report supplies source candidates for all 17 uncovered live arms. The
+repository corpus manifest still contains only 50 languages, so 156 languages
+remain without checked-in corpus entries. External source availability is
+provenance evidence, not a firing witness. Keep A0-CORPUS-001 open until the
+selected files enter the reviewed corpus and the arm witnesses are recorded.
+
+The inventory is evidence-only. It changes no parser route, compatibility arm,
+grammar identity, or performance board.
+
 ## Ownership
 
 Compatibility functions describe symptoms. Their `authoritative_owner`
