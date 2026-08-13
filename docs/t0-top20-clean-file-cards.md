@@ -243,6 +243,32 @@ Diagnostic logs:
 Keep this card open for collector instrumentation. Do not use it as a no-memo
 control or grant performance credit.
 
+### Card 14 parity residual
+
+Card 14, Solidity `contracts/governance/Governor.sol`, reached the runtime
+facts gate but failed the locked-C deep-tree identity. The run did not produce
+an accepted machine receipt.
+
+The source has 31,997 bytes and SHA-256
+`658db74558ecc9e57dfde43216ce019867f45db775f016a15ebd8975ffa33e8d`.
+The first divergence is
+`/source_file/contract_declaration[16]/contract_body[17]/state_variable_declaration[5]/expression[5]/call_expression[0]`.
+Go selects `call_expression`; C selects `type_cast_expression`. The mismatch
+also changes `bytes32` and `uint8` from unnamed C tokens to named Go nodes and
+continues across later expressions.
+
+The Go digest was
+`4db304a56ecf0e37c3908e3b984b7af3b5f05b2a12dc1527b6ee988283bf0a24`.
+The C digest was
+`351c94a2e8466d6bfb1e696aaf445cc95130c7cfa2f5517c7cc255b892b40b82`.
+The run produced no out-of-memory stop and no wall timeout.
+
+Diagnostic log:
+`harness_out/docker/20260813T145657Z-t0-solidity-governor-parity-diagnostic-v1/container.log`.
+
+Keep this card open as a correctness residual. Do not use it for mechanism
+evidence or performance credit.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -258,7 +284,7 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for cards 14, 15, 16, 19, and 20.
+First collect the missing runtime facts for cards 15, 16, 19, and 20.
 Keep cards 4, 5, 6, 7, and 10 open as parity or instrumentation residuals until their exact tree differences
 are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
