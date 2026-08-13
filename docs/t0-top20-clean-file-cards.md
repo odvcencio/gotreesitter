@@ -522,6 +522,32 @@ The Docker log SHA-256 is
 `1c912c1977412e5bf2818941c0459f611ad5b16021b34d1a43a1ab9cef257c36`.
 This control grants no performance credit.
 
+### Card 9 empty-source control
+
+Card 9, HTTP `spec/examples/dotenv/without_dotenv.http`, has a complete
+evidence-only receipt. The source is empty and has SHA-256
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+The locked source is clean at commit
+`714d5512aaec5565d55652480c16c26f8d95645d`.
+
+The Go and locked-C deep digest is
+`168ca22d78bfa4dd98299538cc70df9806a94956bd74f4d7d51d824101f4364a`.
+The Go tree spans `0..0` without an error or early stop. The compact route
+served the parse with one routed event and zero fallbacks. No retry ran, and
+the recovery memo tier stayed none.
+
+The authenticated compact scheduler used 381,741 nanoseconds and the
+materializer used 821,909 nanoseconds. Its retained footprint was 716 bytes.
+The selected tree had one node and one leaf. Go allocated 3,570,576 bytes and
+reached 12,906,496 bytes of resident memory. The locked C oracle reached
+147,456 bytes of resident memory.
+
+The receipt is `harness_out/t0-http-without-dotenv-card-v1.json` with SHA-256
+`a04b8c8e41b3f72471b48e9482ee480061dc448be5b35b14aecf7918a5e27568`.
+The Docker log SHA-256 is
+`3a27144c21c758543f844a65e3b24d590faa009567d890236c4875dcf0c6b8ff`.
+This control grants no performance credit.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -537,8 +563,9 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-All seven previously pending T0 cards now have receipts. Cards 8, 11, 12, 13,
-and 18 are parity-clean and route-confirmed. Card 7 still needs a route-aware
+All seven previously pending T0 cards now have receipts. Cards 8, 9, 11, 12,
+13, and 18 are parity-clean and route-confirmed. Card 7 still needs a
+route-aware
 receipt.
 Cards 7, 14, 15, 16, 19, and 20 are parity residuals.
 Card 17 remains a compact-admission residual even though its production
