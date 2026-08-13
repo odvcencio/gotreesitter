@@ -257,6 +257,33 @@ Diagnostic logs:
 Keep this card as compact-route evidence. Do not use it as a no-memo control or
 grant performance credit.
 
+### Card 13 runtime-facts control
+
+Card 13, TOML `.prettierrc.toml`, has a complete evidence-only receipt. The
+source has 21 bytes and SHA-256
+`75d82f31b7ec7968ad7534e0c6aaa73ed984f9cbd45c8448ea1a7a9372a7320f`.
+The locked source is clean at commit
+`b69253c93d3dec7ee7627c96159c2d3c753ed794`.
+
+The Go and locked-C deep digest is
+`b0261cee0d0c14524f861fb928fd82cb60b25dd28fe3a43f091622f4f6c67eb4`.
+The Go tree spans `0..21` without an error or early stop. The compact route
+served the parse with one routed event and zero fallbacks. No retry ran, and
+the recovery memo tier stayed none.
+
+The authenticated compact scheduler used 127,508 nanoseconds and the
+materializer used 436,682 nanoseconds. Its retained footprint was 2,752 bytes.
+The selected tree had seven nodes, three parents, and four leaves. The compact
+scratch receipt recorded 4,096 scanner bytes and 64 postorder frames. Go
+allocated 3,088,296 bytes and reached 10,911,744 bytes of resident memory.
+The locked C oracle reached 188,416 bytes of resident memory.
+
+The receipt is `harness_out/t0-toml-prettier-card-v1.json` with SHA-256
+`5adb0e2d81336eccab2b7fe346b1cf9704b175de1bf3b08d547c76d094aba615`.
+The Docker log SHA-256 is
+`6cbb037a2be7cf1701d2d35e0c0ea002a1f191b9eadeb1c0a6d16b2a079f6a99`.
+This control grants no performance credit.
+
 ### Card 14 parity residual
 
 Card 14, Solidity `contracts/governance/Governor.sol`, reached the runtime
