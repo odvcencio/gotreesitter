@@ -173,18 +173,17 @@ The run produced no out-of-memory stop and no wall timeout.
 Diagnostic log:
 `harness_out/docker/20260813T144335Z-t0-scala-namers-parity-diagnostic-v1/container.log`.
 
-### Card 7 parity residual and route-facts gap
+### Card 7 parity residual and route-confirmed compact path
 
 Card 7, Perl `dist/Module-CoreList/lib/Module/CoreList.pm`, did not produce a
-complete runtime-facts receipt. The full tree reached the end of the source,
-but the Go child emitted no retry or parser-runtime counters. A parity-only
-probe also found structural differences.
+complete locked-C card receipt. A route-only diagnostic classified the parse as
+`compact`, with one routed parse and zero fallbacks. The full tree reached the
+source end, but compact materialization emitted no retry or classic
+parser-runtime counters.
 
-The route audit explains the zero counters. `Parser.Parse` tries the compact
-route before `parseInternal`. An accepted compact tree receives a fresh runtime
-record with acceptance and span fields only. It does not receive classic loop,
-arena, or retry fields. The current receipt does not prove route selection
-because the collector does not record the admission counters.
+A parity-only probe still found structural differences. Keep the card open for
+parity. Do not treat the route-only diagnostic as a performance or no-memo
+control.
 
 The source has 1,266,636 bytes and SHA-256
 `51ed1b05b1d76cdd9a350e9f839a87e0aa14061f8a1042d50fe1a776d459802c`.
@@ -193,12 +192,15 @@ The first parity divergence is
 Go selects `ambiguous_function_call_expression`; C selects
 `equality_expression`. The probe found additional type and field differences.
 
-The T0 collector run had Go peak resident set size 252,784,640 bytes, but no
-runtime facts. Keep this card open for parser parity and route-aware telemetry.
-Do not use it as a no-memo control or for performance credit.
+The route-only diagnostic reported Go peak resident set size `229720064` bytes.
+It reported no out-of-memory stop and no wall timeout. The full locked-C card
+remains blocked by the structural mismatch above.
 
 Diagnostic log:
 `harness_out/docker/20260813T144602Z-t0-perl-corelist-parity-diagnostic-v1/container.log`.
+
+Route diagnostic:
+`harness_out/docker/20260813T152741Z-t0-perl-route-v2/container.log`.
 
 ### Card 10 parity residual
 
