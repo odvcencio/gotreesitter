@@ -106,6 +106,30 @@ The machine receipt is
 The Docker log SHA-256 is
 `d416a5523c0088d5330b3e73070d2574c763f4942c59bcff1b491b3d9ec6a883`.
 
+### Card 4 parity residual
+
+Card 4, Scala `src/compiler/scala/tools/nsc/typechecker/Implicits.scala`, is
+not evidence-complete. The locked-C gate found a structural mismatch before
+runtime facts could be written.
+
+The source has 103,233 bytes and SHA-256
+`4c59df9daeb021cd4fcc61a8ac7a542087dd1a329b34c7e8e8483f0a56de684d`.
+The first divergence is
+`/compilation_unit/trait_definition[17]/template_body[3]`.
+Both trees use `template_body` over bytes `1117..101110`, but Go has 12
+children and C has 70 children. The run produced no out-of-memory stop and no
+wall timeout.
+
+The Go digest was
+`526ee3399a6a519fe211372dc10afac05c81d53155bc238e83f4d49c1397ed18`.
+The C digest was
+`97515a48635aa1bc9c1fe9548b1a5a6b3d46e1d7fd74c3e2462feff484734786`.
+Keep this card open as a correctness residual. Do not use it for performance
+credit or generic mechanism inference.
+
+Diagnostic log:
+`harness_out/docker/20260813T143924Z-t0-scala-implicits-parity-diagnostic-v2/container.log`.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
