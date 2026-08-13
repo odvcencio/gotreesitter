@@ -346,6 +346,9 @@ func (r *parserCoreFreshFullRunner) publishCompactParserCoreRuntime(tree *Tree, 
 		},
 		Scratch: r.compactParserCoreScratchRuntime(),
 	}
+	if tree.arena != nil {
+		tree.arena.compactRuntime = &compactRuntime
+	}
 	// Fresh-run acceptance does not need a second graph walk for routing. The
 	// diagnostic receipt may nevertheless publish final public-node counts when
 	// timing is enabled, which keeps the evidence complete without adding work
@@ -358,12 +361,10 @@ func (r *parserCoreFreshFullRunner) publishCompactParserCoreRuntime(tree *Tree, 
 		runtime.FinalNodes = selected.total
 		runtime.FinalParentNodes = selected.parents
 		runtime.FinalLeafNodes = selected.leaves
-		runtime.Compact = compactRuntime
 		tree.setParseRuntime(runtime)
 		return
 	}
 	runtime := *tree.rawParseRuntime()
-	runtime.Compact = compactRuntime
 	tree.setParseRuntime(runtime)
 }
 

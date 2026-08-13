@@ -1334,9 +1334,6 @@ type ParseRuntime struct {
 	// The parser sets NativeRecoveredStructureAuthoritative when an exact
 	// grammar profile certifies the recovered tree before compatibility.
 	NativeRecoveredStructureAuthoritative bool
-	// Compact carries evidence from the authenticated compact route. It is
-	// diagnostic only and remains empty on production-parser trees.
-	Compact CompactParserCoreRuntime
 }
 
 type NormalizationPassRuntime struct {
@@ -3968,6 +3965,16 @@ func (t *Tree) ParseRuntime() ParseRuntime {
 		out.StopReason = ParseStopNone
 	}
 	return out
+}
+
+// CompactParserCoreRuntime returns authenticated diagnostics for a compact
+// route tree. The data lives beside the arena, not in ParseRuntime, so routine
+// parser results do not carry the compact receipt's large cold payload.
+func (t *Tree) CompactParserCoreRuntime() (CompactParserCoreRuntime, bool) {
+	if t == nil || t.arena == nil || t.arena.compactRuntime == nil {
+		return CompactParserCoreRuntime{}, false
+	}
+	return *t.arena.compactRuntime, true
 }
 
 // RecoveryNodeMemoRuntime returns bounded memo telemetry for this tree. The

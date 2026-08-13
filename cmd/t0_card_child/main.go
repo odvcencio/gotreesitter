@@ -247,6 +247,7 @@ func parseOne(language *gotreesitter.Language, entry *grammars.LangEntry, source
 	parseCompleted := time.Now()
 	root := tree.RootNode()
 	runtimeResult := tree.ParseRuntime()
+	compactRuntime, _ := tree.CompactParserCoreRuntime()
 	inspection, err := benchfixtures.InspectGoTree(root, language)
 	if err != nil {
 		tree.Release()
@@ -265,7 +266,7 @@ func parseOne(language *gotreesitter.Language, entry *grammars.LangEntry, source
 		PeakBytes:   memo.PeakTier.Bytes(),
 		Collisions:  memo.Collisions,
 	}
-	result.Runtime = t0CardRuntimeFrom(runtimeResult, tree.ParseStoppedEarly())
+	result.Runtime = t0CardRuntimeFrom(runtimeResult, compactRuntime, tree.ParseStoppedEarly())
 	result.TreeObservationRetainedNanos = time.Since(parseCompleted).Nanoseconds()
 	tree.Release()
 	result.PeakRSSBytes, result.RSSSource = peakRSSBytes()
@@ -299,7 +300,7 @@ func t0CardAdmissionFromCounters(routedBefore, fallbackBefore, routedAfter, fall
 	}, nil
 }
 
-func t0CardRuntimeFrom(rt gotreesitter.ParseRuntime, stoppedEarly bool) t0CardRuntime {
+func t0CardRuntimeFrom(rt gotreesitter.ParseRuntime, compact gotreesitter.CompactParserCoreRuntime, stoppedEarly bool) t0CardRuntime {
 	return t0CardRuntime{
 		StopReason: rt.StopReason, StoppedEarly: stoppedEarly,
 		TokensConsumed: rt.TokensConsumed, Iterations: rt.Iterations, NodesAllocated: rt.NodesAllocated,
@@ -330,7 +331,7 @@ func t0CardRuntimeFrom(rt gotreesitter.ParseRuntime, stoppedEarly bool) t0CardRu
 		FinalNodes:               rt.FinalNodes, FinalParentNodes: rt.FinalParentNodes,
 		FinalLeafNodes: rt.FinalLeafNodes, FinalChildSlices: rt.FinalChildSlices,
 		FinalChildPointers: rt.FinalChildPointers,
-		Compact:            rt.Compact,
+		Compact:            compact,
 	}
 }
 
