@@ -152,6 +152,27 @@ The run produced no out-of-memory stop and no wall timeout.
 Diagnostic log:
 `harness_out/docker/20260813T144133Z-t0-elixir-macro-parity-diagnostic-v1/container.log`.
 
+### Card 5 parity residual
+
+Card 5, Scala `src/compiler/scala/tools/nsc/typechecker/Namers.scala`, is not
+evidence-complete. The locked-C gate found a structural mismatch before
+runtime facts could be written.
+
+The source has 102,961 bytes and SHA-256
+`d5ca0021418ad1bc6ed342ae56e6f771538afec293a1c535743676cb509fa83d`.
+The first divergence is at `/compilation_unit`: Go reports no root error,
+while C reports an error. The template body at `root[10][3]` has 34 Go
+children and 37 C children over the same bytes `700..102960`.
+
+The Go digest was
+`6578d87e6672aa3ae2b84b27e8ed5a77a5fd7193b67155dde710330d171ec376`.
+The C digest was
+`4650e21b2ad3b776eaad5b846b3c4de49cf122ac23428094625c17f8083eb1f3`.
+The run produced no out-of-memory stop and no wall timeout.
+
+Diagnostic log:
+`harness_out/docker/20260813T144335Z-t0-scala-namers-parity-diagnostic-v1/container.log`.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -167,8 +188,8 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for cards 5, 7, 10, 11, 14, 15, 16, 19, and 20.
-Keep cards 4 and 6 open as parity residuals until their exact tree differences
+First collect the missing runtime facts for cards 7, 10, 11, 14, 15, 16, 19, and 20.
+Keep cards 4, 5, and 6 open as parity residuals until their exact tree differences
 are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
 Use the B16 selected-rung telemetry for retry attribution.
