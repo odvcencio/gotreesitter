@@ -150,6 +150,28 @@ selected files enter the reviewed corpus and the arm witnesses are recorded.
 The inventory is evidence-only. It changes no parser route, compatibility arm,
 grammar identity, or performance board.
 
+### A0 current-head traceability census
+
+The current-head Docker census used commit
+`3a0060ea412bd7c05b5dd534615d483e80ba49c1`. The smoke probe passed 36 of 36
+live registry entries. The real-source probe observed 21 arm identifiers: six
+inert and 15 active. Seventeen registered arms remained uncovered because
+their selected `corpus_real` directories do not exist. Thirty languages were
+not applicable because they have no registered arm.
+
+The run passed without an out-of-memory stop or wall timeout. It took 77.825
+seconds inside the Docker test.
+
+Run artifact:
+`harness_out/docker/20260813T184742Z-a0-current-traceability-v1/`.
+
+- Container log SHA-256: `d8729e426ae08f84d0297fc27248c39c00cd22c8803a70cadb28081dcc1bb2ec`.
+- Metadata SHA-256: `8da613ce0283786c50f33579eb9261fda4beb0bfa652a73209376219804232c3`.
+- Inspection SHA-256: `97fc54540cbe0fb76466aac7ba1c5b2209f51d80379ed658743301ddd79abea1`.
+
+This receipt proves the current smoke witness and the current corpus defects.
+It does not populate `receipt_refs` or close A0-CORPUS-001 and A0-REGISTRY-002.
+
 ## Ownership
 
 Compatibility functions describe symptoms. Their `authoritative_owner`
