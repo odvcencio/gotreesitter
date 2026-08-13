@@ -5,6 +5,32 @@ Status: evidence certificate
 This certificate records the accepted D0 candidate-set evidence.
 It does not change parser behavior or grant a compatibility exception.
 
+## Current re-cut: 2026-08-13
+
+The baseline below is historical. The current constructed D0 run uses the
+same 104-source and 95-compared denominator, but reports 15 extra, 1 missing,
+and 5 different derivations. It reports 21 total differences, with 13
+condense-class, 4 token-class, and 4 unattributed mechanisms. The order axis
+remains zero.
+
+The full current corpus contains 113 sources and compares 100. It reports 15
+extra, 1 missing, and 6 different derivations, for 22 total differences.
+
+The focused D1 arrival-order counterexample remains green and falsifies an
+arrival-order-only collapse. Apex and Objective-C require opposite C survivor
+positions. Do not implement that collapse.
+
+The current M0 witness reproduction reaches all nine witnesses. Two Ada
+expected `DIFFERENT` classifications are stale; the current run reports
+`EXTRA` only. Keep the test pin unchanged until the evidence owner accepts the
+classification correction.
+
+Receipts:
+
+- D0 Docker artifact: `20260813T101032Z-a8-d0-baseline-current`
+- D1 Docker artifact: `20260813T100813Z-a8-d1-current`
+- M0 Docker artifact: `20260813T100936Z-a8-m0-witness-current`
+
 ## Authority
 
 Use Revision R1 of `spec.campaign.v7` as the campaign authority.
@@ -45,7 +71,7 @@ The instrument reports candidate counts and difference classes.
 The order axis remains undetermined when C logs identical root symbols without enough fold context.
 The certificate records those cases as undetermined.
 
-## Baseline certificate
+## Historical baseline certificate
 
 The pinned constructed corpus contains 104 sources.
 The instrument compares 95 sources.
@@ -87,11 +113,12 @@ The compact tree misses the C `escape_sequence` leaf.
 
 The other Perl witnesses share leaf content with C and remain condense-class candidates.
 
-These findings change the order of work:
+These historical findings do not authorize the D1 collapse. The current
+order of work is:
 
-1. Prove safe condense-time tie collapse for comparable fork order.
-2. Port the C first-leaf token reuse predicate.
-3. Re-run the D0 census and classify the residual two cases.
+1. Keep arrival-order collapse retired by the counterexample.
+2. Keep the token-class mechanism separate from condense analysis.
+3. Re-run D0 after an accepted generic mechanism changes the candidate set.
 
 Do not infer a mechanism from a ratio or from a language name.
 
@@ -173,8 +200,8 @@ The next D1 or D2 change must pass these gates:
 - The material-acceptance census does not increase.
 - The smallest Docker parity suite remains green.
 
-Run D1 before D2 because D1 owns 26 of the 32 classified differences.
-Keep D2 separate so token and condense effects remain attributable.
+Do not implement D1 from the historical count. Keep D2 separate so token and
+condense effects remain attributable if a generic mechanism is later admitted.
 
 ## Certificate boundary
 
