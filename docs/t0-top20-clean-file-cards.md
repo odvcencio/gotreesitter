@@ -67,6 +67,18 @@ Keep hygiene and tiny-input rows out of mechanism credit.
 Use the two large no-memo rows as negative controls.
 Use the 13 memo rows as the first recovery-materialization cohort.
 
+## Completed runtime-facts cards
+
+Two evidence-only cards now have complete runtime-facts receipts:
+
+- Card 1, Python `Lib/test/test_logging.py`:
+  `hypha-receipt:2026-08-13:t0-python-runtime-facts-receipt-v1`.
+- Card 2, Elixir `lib/elixir/lib/enum.ex`:
+  `hypha-receipt:2026-08-13:t0-elixir-runtime-facts-v1`.
+
+Both cards match the locked C deep-tree identity. Neither card grants
+performance credit or proves a shared runtime mechanism.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -82,7 +94,7 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for cards 1, 2, 4, 5, 6, 7, 10, 11, 14, 15, 16, 19, and 20.
+First collect the missing runtime facts for cards 3, 4, 5, 6, 7, 10, 11, 14, 15, 16, 19, and 20.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
 Use the B16 selected-rung telemetry for retry attribution.
 Do not admit a performance change until the card matrix has a generic predicate.
