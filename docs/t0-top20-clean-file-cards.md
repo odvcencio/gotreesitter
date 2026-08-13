@@ -69,15 +69,42 @@ Use the 13 memo rows as the first recovery-materialization cohort.
 
 ## Completed runtime-facts cards
 
-Two evidence-only cards now have complete runtime-facts receipts:
+Three evidence-only cards now have complete runtime-facts receipts:
 
 - Card 1, Python `Lib/test/test_logging.py`:
   `hypha-receipt:2026-08-13:t0-python-runtime-facts-receipt-v1`.
 - Card 2, Elixir `lib/elixir/lib/enum.ex`:
   `hypha-receipt:2026-08-13:t0-elixir-runtime-facts-v1`.
+- Card 3, Python `Lib/test/test_socket.py`:
+  `hypha-receipt:2026-08-13:t0-python-socket-runtime-facts-v1`.
 
-Both cards match the locked C deep-tree identity. Neither card grants
+All three cards match the locked C deep-tree identity. No card grants
 performance credit or proves a shared runtime mechanism.
+
+### Card 3 runtime facts
+
+The card ran at gotreesitter revision `90a872833706fcdf83685e66b44ecf2a243ac411`.
+The source has 288,768 bytes and SHA-256
+`5691e8a4e5186f74bd2e49babbab447b95a876806c3b7aebf3d4ff62a74ca896`.
+The Python source checkout is clean at commit
+`e5ced1f7788e77e318165b331d967156f81d6709`.
+
+The initial full parse was accepted on one attempt. The Go and locked-C deep
+digest is `69af657e9d86bd96f78c461c7c3d9a12345a9b61b268aa661ac93722b89c1745`.
+The peak memo tier was initial, with 128 entries, 3,072 bytes, and zero
+collisions. The arena used 41,275,152 bytes, scratch used 19,552,480 bytes,
+and the graph stack used 14,700,576 bytes across three slabs.
+
+The parser used 52,783 tokens, 55,454 iterations, and 201,094 allocated nodes.
+Materialization timing was 11,795,575 nanoseconds. The tree observation lasted
+12,105,167 nanoseconds. Go peak resident set size was 79,966,208 bytes, and C
+peak resident set size was 26,701,824 bytes.
+
+The machine receipt is
+`harness_out/t0-runtime-facts/python-socket-v1.json` with SHA-256
+`02f6017ac8e22fd5aad779b44c84830e52686470c72e91a056bdfa7bdd16977b`.
+The Docker log SHA-256 is
+`d416a5523c0088d5330b3e73070d2574c763f4942c59bcff1b491b3d9ec6a883`.
 
 ## Generated-file hypothesis
 
@@ -94,7 +121,7 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for cards 3, 4, 5, 6, 7, 10, 11, 14, 15, 16, 19, and 20.
+First collect the missing runtime facts for cards 4, 5, 6, 7, 10, 11, 14, 15, 16, 19, and 20.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
 Use the B16 selected-rung telemetry for retry attribution.
 Do not admit a performance change until the card matrix has a generic predicate.
