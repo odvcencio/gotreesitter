@@ -102,11 +102,13 @@ Set `GTS_PERF_SCAN_RUNTIME_EVIDENCE=1` to attach opt-in runtime evidence to
 each retained Go full-parse classification. The record includes recovery
 entries, recovery cost walks, retry attempts, the selected retry rung, parser
 allocation counters, phase timing, materialization timing, and arena capacity
-facts. The scan captures these facts outside timed samples. With this knob, the
-scan pins its parser to the production route. It suppresses compact admission,
-automatic forest dispatch, and forest recovery replacement. It does not change
-the shipped default, parser limits, or hard-gate decisions. Treat the output as
-cohort evidence, not performance credit.
+facts. The collector runs only on the retained classification parse. It does
+not add collector work to timed samples. The mode selects production GLR for
+the complete scan child. It suppresses compact admission and automatic forest
+routing in that child. Timed Go samples therefore use production GLR. The
+setting does not change the shipped default, parser limits, or hard-gate
+decisions. Treat the output as C0f cohort evidence. Do not use it as C6f
+timing credit.
 
 Verdict buckets: `<=0.10x`, `<=1.2x`, `<=2x`, `>2x`, `cliff>10x`. The first
 bucket is reported separately as a 10x-or-better win. The hard gate evaluates
@@ -330,7 +332,7 @@ the corpus builder deliberately supplies nested dependency checkouts and
 | `GTS_PERF_SCAN_EDIT_CANDIDATES` | 16 | edit-site candidates tried per file |
 | `GTS_PERF_SCAN_CHILD_RSS_LIMIT_MB` | 0 | optional parent-side RSS watchdog for the per-language child process group; when set, kills and reaps the child and its descendants before a container cgroup OOM can kill the sweep parent |
 | `GTS_PERF_SCAN_CGO_ADMISSION_RSS_LIMIT_MB` | 4096 | RSS watchdog for each exact-source cgo admission child; hard-gate scans require a positive value |
-| `GTS_PERF_SCAN_RUNTIME_EVIDENCE` | 0 | attach runtime facts to retained Go classifications and pin the scan to the production route |
+| `GTS_PERF_SCAN_RUNTIME_EVIDENCE` | 0 | attach runtime facts and run a dedicated production-GLR C0f scan lane |
 | `GTS_REAL_CORPUS_BENCH_LOCK` | required by hard gate | authenticated corpus selection lock; digest is checked before any language runs |
 | `GTS_C_ORACLE_CACHE` | `harness_out/c_oracle/fleet_static` | cache for pinned runtime/grammar sources and content-keyed fully static timing artifacts |
 

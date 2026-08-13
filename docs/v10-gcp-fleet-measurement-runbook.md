@@ -237,6 +237,15 @@ bash cgo_harness/docker/run_parity_in_docker.sh \
      -run '^TestPerfScanSweep$' -v -count=1 -timeout $V10_GO_TIMEOUT ."
 ~~~
 
+## Collect C0f runtime evidence
+
+For a C0f receipt, repeat the exact command with
+`GTS_PERF_SCAN_RUNTIME_EVIDENCE=1`. Use an output prefix such as
+`c0f-${REV}`. The collector runs on retained classification parses. The mode
+selects production GLR for the complete scan child. Its timed Go samples use
+that route. Keep C0f output separate from the C6f ratchet. Do not give timing
+credit to a cross-route comparison.
+
 The wrapper returns exit code 124 when the wall limit expires. It stops the
 container and writes `inspect.json` and `metadata.txt`. Treat that run as
 incomplete.
