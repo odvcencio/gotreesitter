@@ -344,7 +344,13 @@ func t0BuildGoChild(t testing.TB, revision string) t0CardChildBuild {
 	path := filepath.Join(t.TempDir(), "t0-card-child")
 	command := exec.Command("go", "build", "-trimpath", "-buildvcs=true", "-tags", "gts_workcount", "-o", path, "./cmd/t0_card_child")
 	command.Dir = repoRoot
-	command.Env = t0EnvWithOverrides(os.Environ(), map[string]string{"CGO_ENABLED": "0", "GOWORK": "off"})
+	command.Env = t0EnvWithOverrides(os.Environ(), map[string]string{
+		"CGO_ENABLED":        "0",
+		"GOWORK":             "off",
+		"GIT_CONFIG_COUNT":   "1",
+		"GIT_CONFIG_KEY_0":   "safe.directory",
+		"GIT_CONFIG_VALUE_0": "*",
+	})
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("build T0 Go child: %v: %s", err, strings.TrimSpace(string(output)))
 	}
