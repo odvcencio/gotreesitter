@@ -269,6 +269,31 @@ Diagnostic log:
 Keep this card open as a correctness residual. Do not use it for mechanism
 evidence or performance credit.
 
+### Card 15 parity residual
+
+Card 15, Enforce `4_world/entities/dayzplayerimplement.c`, reached the runtime
+facts gate but failed the locked-C deep-tree identity. The run did not produce
+an accepted machine receipt.
+
+The source has 104,908 bytes and SHA-256
+`56f81ccc9289a1865d7b15f66ba4f15b4f97aa779bb69de74a3da4b813453665`.
+The first divergence is
+`/compilation_unit/decl_class[1]/class_body[4]/decl_method[3]/block[5]`.
+Both nodes span bytes `280..319`, but Go has four children and C has three.
+The same extra-child shape repeats across later blocks.
+
+The Go digest was
+`3df4cfbfc776577ba7aa39638436051ce7ce144a27fe79db5ca4f8f3d886e8f0`.
+The C digest was
+`0f104f635b7d2382441eae34fd39af4b199ade53015076814bfa10a8c0b1e98e`.
+The run produced no out-of-memory stop and no wall timeout.
+
+Diagnostic log:
+`harness_out/docker/20260813T145903Z-t0-enforce-dayzplayerimplement-parity-diagnostic-v1/container.log`.
+
+Keep this card open as a correctness residual. Do not use it for mechanism
+evidence or performance credit.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -284,7 +309,7 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for cards 15, 16, 19, and 20.
+First collect the missing runtime facts for cards 16, 19, and 20.
 Keep cards 4, 5, 6, 7, and 10 open as parity or instrumentation residuals until their exact tree differences
 are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
