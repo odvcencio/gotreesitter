@@ -103,9 +103,10 @@ each retained Go full-parse classification. The record includes recovery
 entries, recovery cost walks, retry attempts, the selected retry rung, parser
 allocation counters, phase timing, materialization timing, and arena capacity
 facts. The scan captures these facts outside timed samples. With this knob, the
-scan pins its parser to the production route. It does not change the shipped
-default, parser limits, or hard-gate decisions. Treat the output as cohort
-evidence, not performance credit.
+scan pins its parser to the production route. It suppresses compact admission,
+automatic forest dispatch, and forest recovery replacement. It does not change
+the shipped default, parser limits, or hard-gate decisions. Treat the output as
+cohort evidence, not performance credit.
 
 Verdict buckets: `<=0.10x`, `<=1.2x`, `<=2x`, `>2x`, `cliff>10x`. The first
 bucket is reported separately as a 10x-or-better win. The hard gate evaluates

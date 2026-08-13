@@ -97,23 +97,61 @@ func TestB16RuntimeEvidenceForcesProductionRoute(t *testing.T) {
 	gotreesitter.EnableArenaBreakdown(true)
 	t.Cleanup(func() { gotreesitter.EnableArenaBreakdown(false) })
 	previousRoute := gotreesitter.AdmissionCandidateRouteDefault()
-	gotreesitter.SetAdmissionCandidateRouteDefault(true)
+	gotreesitter.SetAdmissionCandidateRouteDefault(false)
 	t.Cleanup(func() { gotreesitter.SetAdmissionCandidateRouteDefault(previousRoute) })
+	gotreesitter.SetGLRForestEnabled(true)
+	t.Cleanup(func() { gotreesitter.SetGLRForestEnabled(true) })
 
-	parser := gotreesitter.NewParser(grammars.PythonLanguage())
-	perfScanConfigureParserForRuntimeEvidence(parser, true)
-	parser.SetParsePhaseTiming(true)
-	source := []byte("answer = 1\n")
-	tree, err := parser.Parse(source)
-	if err != nil {
-		t.Fatalf("parse Python control: %v", err)
+	tests := []struct {
+		name     string
+		language *gotreesitter.Language
+		source   []byte
+	}{
+		{
+			name:     "automatic-forest-dispatch",
+			language: grammars.JavascriptLanguage(),
+			source:   []byte("const answer = 1;\n"),
+		},
+		{
+			name:     "forest-recovery-replacement",
+			language: grammars.KdlLanguage(),
+			source:   []byte("node \"Hello\\n\\tWorld\" \"Hello\\n\\tWorld\" \"Hello\\n\\tWorld\" \"Hello\\n\\tWorld\" \"Hello\\n\\tWorld\"\n"),
+		},
 	}
-	if tree == nil {
-		t.Fatal("Python control returned no tree")
-	}
-	evidence := perfScanCaptureRuntimeEvidence(parser, tree)
-	tree.Release()
-	if evidence == nil || evidence.Recovery == nil || evidence.Parse == nil || evidence.Arena == nil {
-		t.Fatalf("runtime evidence = %+v, want production-route facts", evidence)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			control := gotreesitter.NewParser(test.language)
+			controlTree, err := control.Parse(test.source)
+			if err != nil {
+				t.Fatalf("parse forest control: %v", err)
+			}
+			if controlTree == nil || !controlTree.UsedForestFastPath() {
+				t.Fatal("control did not use the forest route")
+			}
+			controlTree.Release()
+
+			parser := gotreesitter.NewParser(test.language)
+			perfScanConfigureParserForRuntimeEvidence(parser, true)
+			parser.SetParsePhaseTiming(true)
+			tree, err := parser.Parse(test.source)
+			if err != nil {
+				t.Fatalf("parse production control: %v", err)
+			}
+			if tree == nil {
+				t.Fatal("production control returned no tree")
+			}
+			if tree.UsedForestFastPath() {
+				t.Fatal("runtime evidence returned a forest tree")
+			}
+			evidence := perfScanCaptureRuntimeEvidence(parser, tree)
+			tree.Release()
+			if evidence == nil || evidence.Recovery == nil || evidence.Parse == nil || evidence.Arena == nil {
+				t.Fatalf("runtime evidence = %+v, want all production sections", evidence)
+			}
+			if evidence.Parse.ParseWallNanos <= 0 || evidence.Parse.ParserLoopNanos <= 0 {
+				t.Fatalf("phase timing = %+v, want positive production timing", evidence.Parse)
+			}
+		})
 	}
 }

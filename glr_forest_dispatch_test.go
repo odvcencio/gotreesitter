@@ -455,6 +455,64 @@ func TestForestDispatchPromotesJavaScript(t *testing.T) {
 	}
 }
 
+func TestProductionOverrideSuppressesAutomaticForestRoutes(t *testing.T) {
+	previousRoute := gts.AdmissionCandidateRouteDefault()
+	gts.SetAdmissionCandidateRouteDefault(false)
+	t.Cleanup(func() { gts.SetAdmissionCandidateRouteDefault(previousRoute) })
+	gts.SetGLRForestEnabled(true)
+	t.Cleanup(func() { gts.SetGLRForestEnabled(true) })
+
+	tests := []struct {
+		name     string
+		language *gts.Language
+		source   []byte
+	}{
+		{
+			name:     "initial-dispatch",
+			language: grm.JavascriptLanguage(),
+			source:   []byte("const answer = 1;\n"),
+		},
+		{
+			name:     "recovery-replacement",
+			language: grm.KdlLanguage(),
+			source:   []byte("node \"Hello\\n\\tWorld\" \"Hello\\n\\tWorld\" \"Hello\\n\\tWorld\" \"Hello\\n\\tWorld\" \"Hello\\n\\tWorld\"\n"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			control, err := gts.NewParser(test.language).Parse(test.source)
+			if err != nil {
+				t.Fatalf("parse forest control: %v", err)
+			}
+			if control == nil || !control.UsedForestFastPath() {
+				t.Fatal("control did not use the forest route")
+			}
+			control.Release()
+
+			parser := gts.NewParser(test.language)
+			parser.SetAdmissionCandidateRoute(false)
+			tree, err := parser.Parse(test.source)
+			if err != nil {
+				t.Fatalf("parse production override: %v", err)
+			}
+			if tree == nil {
+				t.Fatal("production override returned no tree")
+			}
+			defer tree.Release()
+			if tree.UsedForestFastPath() {
+				t.Fatal("production override returned a forest tree")
+			}
+
+			experimental, ok := parser.ParseForestExperimental(test.source)
+			if !ok || experimental == nil || !experimental.UsedForestFastPath() {
+				t.Fatal("production override blocked the explicit forest route")
+			}
+			experimental.Release()
+		})
+	}
+}
+
 func TestForestDispatchPromotesCSharp(t *testing.T) {
 	gts.SetGLRForestEnabled(true)
 	defer gts.SetGLRForestEnabled(true)
