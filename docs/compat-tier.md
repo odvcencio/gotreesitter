@@ -15,15 +15,15 @@ without updating that registry.
 
 The v1 registry freezes the current source and registry:
 
-- 39 explicit `runLanguageResultCompatibility` switch arms;
+- 35 explicit `runLanguageResultCompatibility` switch arms;
 - one predicate-dispatched COBOL entry matching exactly `cobol` or `COBOL`;
 - zero generic passes after language dispatch;
 - zero post-finalization second-pass fixpoint arms.
 
-The refreshed registry contains 40 live entries and 45 retired entries. It
-names 44 language labels because C/C++, TypeScript/TSX, and the COBOL case
-variants share entries. These counts backfill earlier retirements. This field
-repair change does not remove a dispatcher arm.
+The current registry contains 36 live entries and 49 retired entries. It
+names 39 language labels and 38 case-folded language mappings because C/C++,
+TypeScript/TSX, and the COBOL case variants share entries. The live entries
+contain nine named subpasses. These counts include all accepted retirements.
 The registry covers
 only this documented internal result-compatibility tier. Scheduler experiments
 and other engine research belong in their owning subsystem's durable traces.
@@ -68,37 +68,42 @@ and receipt references; deleting the historical record is not retirement.
 
 Revision R1 of the campaign requires a current firing witness or a filed
 defect for every live arm. The evidence-only A0 refresh used commit
-`65c9472806bdaa9f98d7eff0e19c0b2d53ef84d5`.
+`146f334c9ea82e4a29bfe89bccad86f49fb8377b`.
 
-The all-arm runtime probe passed **41 of 41** live entries. Every arm returned
-`checked >= 1`, `run >= 1`, and `nodes_visited > 0` through the production parse
-path with `GTS_DISPATCHER_CENSUS=1`. The exact log is:
+The current smoke probe passed **36 of 36** live entries. It checked 38
+case-folded language mappings. Every entry returned `checked >= 1`, `run >= 1`,
+and `nodes_visited > 0` through the production parse path with
+`GTS_DISPATCHER_CENSUS=1`. The exact log is:
 
-`harness_out/docker/20260811T223206Z-a0-all-arm-probe/container.log`
+`harness_out/docker/20260813T141019Z-a0-current-arm-probe-v3/container.log`
 
-The real-source census observed 20 arm identifiers over 22 language
-directories: 7 inert arms and 13 active arms. Its exact log is:
+The current production tier contains 74 `parser_result*.go` files and 50,619
+production lines. It contains 45 matching test files and 12,508 test lines.
+The root package contains 192 production Go files and 329 test Go files.
 
-`harness_out/docker/20260811T222732Z-a0-arm-census/container.log`
+The current real-source census observed 21 arm identifiers: six inert arms
+and 15 active arms. Its exact log is:
 
-The corpus census does not cover these 21 live arms:
+`harness_out/docker/20260813T141146Z-a0-current-real-corpus-census/container.log`
+
+The corpus census did not cover these 17 live arms:
 
 `dispatch.ada`, `dispatch.apex`, `dispatch.authzed`, `dispatch.bitbake`,
-`dispatch.cooklang`, `dispatch.corn`, `dispatch.doxygen`, `dispatch.jsdoc`,
-`dispatch.dtd`, `dispatch.enforce`, `dispatch.fidl`, `dispatch.hlsl`,
-`dispatch.hyprlang`, `dispatch.ledger`, `dispatch.ninja`, `dispatch.ql`,
-`dispatch.solidity`, `dispatch.templ`, `dispatch.wgsl`, `dispatch.wolfram`,
-and `predicate.cobol-exact`.
+`predicate.cobol-exact`, `dispatch.cooklang`, `dispatch.corn`,
+`dispatch.doxygen`, `dispatch.dtd`, `dispatch.hlsl`, `dispatch.jsdoc`,
+`dispatch.ledger`, `dispatch.ninja`, `dispatch.solidity`, `dispatch.templ`,
+`dispatch.wgsl`, and `dispatch.wolfram`.
 
-This is defect `A0-CORPUS-001`, an evidence gap. Add a small real-source
+This remains defect `A0-CORPUS-001`, an evidence gap. Add a small real-source
 corpus for each arm before using rewrite frequency for retirement or
 attribution. No live arm lacks a firing witness.
 
 The registry still gives every live entry the shared witness path
-`cgo_harness/parity_cgo_test.go` and leaves `receipt_refs` empty. This is
+`cgo_harness/parity_cgo_test.go` and leaves `receipt_refs` empty. This remains
 defect `A0-REGISTRY-002`, a traceability gap. Keep it separate from firing
-coverage. The durable signed receipt is
-`hypha-receipt:2026-08-11:a0-r1-denominator-refresh`.
+coverage. The durable receipts are
+`hypha-receipt:2026-08-11:a0-r1-denominator-refresh` and the current
+`hypha-receipt:2026-08-13:a0-current-denominator-refresh-v1`.
 
 ## Ownership
 
