@@ -89,12 +89,10 @@ const routeEqualityFuzzMaxInputBytes = 4096
 //
 // FIXED FINDING (root-start pull-back leading-byte drop): live fuzzing used
 // to reproduce a false-clean divergence in under 4 seconds from a cold
-// cache, independent of which curated language it landed on. Confirmed
-// witnesses: html "&0", "&;", "&#", ">0", "&000"; erlang "\x010", "\x100";
-// haskell "\"\n" -- all the same shape: one non-trivia byte at byte 0
-// (document start) that the accepted derivation's own root reduce never
-// represented (HasError()==false, no node anywhere in the derivation covers
-// the byte) while production correctly reported HasError()==true.
+// cache. The original witness set included HTML, Erlang, and Haskell inputs.
+// Current Erlang checks are clean in the locked C oracle and production, but
+// remain fail-closed controls because the accepted root span misses byte zero.
+// HTML and Haskell retain the historical production-error verdict.
 // diagnosticParserCoreReduceChildrenTilingGap (the B1 fix) never saw this
 // gap because it is exempt at the derivation's own root symbol
 // (isDerivationRootReduce, parsercore_phase0_driver.go); the shared post-
