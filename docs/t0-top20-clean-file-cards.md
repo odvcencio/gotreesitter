@@ -496,6 +496,32 @@ Diagnostic log:
 Keep this card open as a correctness residual. Do not use it for mechanism
 evidence or performance credit.
 
+### Card 8 empty-source control
+
+Card 8, HTTP `spec/examples/dotenv/with_dotenv.http`, has a complete
+evidence-only receipt. The source is empty and has SHA-256
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+The locked source is clean at commit
+`714d5512aaec5565d55652480c16c26f8d95645d`.
+
+The Go and locked-C deep digest is
+`168ca22d78bfa4dd98299538cc70df9806a94956bd74f4d7d51d824101f4364a`.
+The Go tree spans `0..0` without an error or early stop. The compact route
+served the parse with one routed event and zero fallbacks. No retry ran, and
+the recovery memo tier stayed none.
+
+The authenticated compact scheduler used 333,300 nanoseconds and the
+materializer used 826,400 nanoseconds. Its retained footprint was 716 bytes.
+The selected tree had one node and one leaf. Go allocated 3,570,576 bytes and
+reached 12,910,592 bytes of resident memory. The locked C oracle reached
+204,800 bytes of resident memory.
+
+The receipt is `harness_out/t0-http-with-dotenv-card-v1.json` with SHA-256
+`7b389a6f8f658b0efa22f3a5e0a174f5b22d5ebf6f987295b4926734d90fcbca`.
+The Docker log SHA-256 is
+`1c912c1977412e5bf2818941c0459f611ad5b16021b34d1a43a1ab9cef257c36`.
+This control grants no performance credit.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -511,8 +537,8 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-All seven previously pending T0 cards now have receipts. Cards 11, 12, 13, and
-18 are parity-clean and route-confirmed. Card 7 still needs a route-aware
+All seven previously pending T0 cards now have receipts. Cards 8, 11, 12, 13,
+and 18 are parity-clean and route-confirmed. Card 7 still needs a route-aware
 receipt.
 Cards 7, 14, 15, 16, 19, and 20 are parity residuals.
 Card 17 remains a compact-admission residual even though its production
