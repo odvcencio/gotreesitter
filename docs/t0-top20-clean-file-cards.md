@@ -130,6 +130,28 @@ credit or generic mechanism inference.
 Diagnostic log:
 `harness_out/docker/20260813T143924Z-t0-scala-implicits-parity-diagnostic-v2/container.log`.
 
+### Card 6 parity residual
+
+Card 6, Elixir `lib/elixir/lib/macro.ex`, is also not evidence-complete. The
+locked-C gate found a structural mismatch before runtime facts could be written.
+
+The source has 96,618 bytes and SHA-256
+`c1be1fd45a151e14a1602bcb6a1d23416113e7d2b8d629e9a8f5264a4999ef34`.
+The first divergence is
+`/source/call[4]/do_block[2]/call[296]/do_block[2]/call[1]/do_block[2]/stab_clause[1]`.
+The Go end byte is 61,513, while C ends at 61,538. The Go tree has one body
+child where C has two, and it selects `access_call` where C selects `list`.
+The run also found a later span divergence near byte 90,698.
+
+The Go digest was
+`4cd3dbd2b895e93f70f080f8d5368d5ee7550489697d67419d441a59e33ad516`.
+The C digest was
+`b73a755643300948f1c128f99d89bd9df20196c9a1359e1704b95662854b3fd8`.
+The run produced no out-of-memory stop and no wall timeout.
+
+Diagnostic log:
+`harness_out/docker/20260813T144133Z-t0-elixir-macro-parity-diagnostic-v1/container.log`.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -145,7 +167,9 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for cards 4, 5, 6, 7, 10, 11, 14, 15, 16, 19, and 20.
+First collect the missing runtime facts for cards 5, 7, 10, 11, 14, 15, 16, 19, and 20.
+Keep cards 4 and 6 open as parity residuals until their exact tree differences
+are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
 Use the B16 selected-rung telemetry for retry attribution.
 Do not admit a performance change until the card matrix has a generic predicate.
