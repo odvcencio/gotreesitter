@@ -98,10 +98,10 @@ This remains defect `A0-CORPUS-001`, an evidence gap. Add a small real-source
 corpus for each arm before using rewrite frequency for retirement or
 attribution. No live arm lacks a firing witness.
 
-The registry still gives every live entry the shared witness path
-`cgo_harness/parity_cgo_test.go` and leaves `receipt_refs` empty. This remains
-defect `A0-REGISTRY-002`, a traceability gap. Keep it separate from firing
-coverage. The durable receipts are
+The registry now records `evidence_refs` separately from retirement `witnesses`.
+It keeps `receipt_refs` empty on live entries. Keep these references separate
+from firing coverage. Defect `A0-REGISTRY-002` remains open pending owner
+acceptance of the mapping. The durable receipts are
 `hypha-receipt:2026-08-11:a0-r1-denominator-refresh` and the current
 `hypha-receipt:2026-08-13:a0-current-denominator-refresh-v1`.
 
@@ -170,7 +170,29 @@ Run artifact:
 - Inspection SHA-256: `97fc54540cbe0fb76466aac7ba1c5b2209f51d80379ed658743301ddd79abea1`.
 
 This receipt proves the current smoke witness and the current corpus defects.
-It does not populate `receipt_refs` or close A0-CORPUS-001 and A0-REGISTRY-002.
+It does not close A0-CORPUS-001 or A0-REGISTRY-002.
+
+### A0 registry evidence-reference candidate
+
+The registry candidate adds an `evidence_refs` set to every live entry. Each
+set includes the dispatcher census test and any entry-specific witness test.
+The ownership test checks that each path exists, uses a safe relative path, and
+does not appear on a retired entry. This separates positive-control references
+from retirement receipts without changing a parser route.
+
+The focused Docker check passed `TestResultCompatibilityOwnershipRegistry`.
+It used one CPU, two gigabytes of memory, and no wall-time or out-of-memory
+failure.
+
+Run artifact:
+`harness_out/docker/20260813T185555Z-a0-registry-evidence-v1/`.
+
+- Container log SHA-256: `3326fd9202ecc11ae39e15c212e0c07ee95ee8ad64c4e731a180eeb7b9b8e4ee`.
+- Metadata SHA-256: `c265c36982bde11c27c03e12997ca800a88395d11fb4c6952892e4601769284b`.
+- Inspection SHA-256: `b803b63c62aeb93866ff9636afe6ca524bdda5afa086136ea5b438a1a0e17683`.
+
+This candidate improves registry traceability only. It does not prove firing
+coverage for the 17 uncovered live arms, so A0-CORPUS-001 remains open.
 
 ## Ownership
 

@@ -57,6 +57,7 @@ type resultCompatOwnershipEntry struct {
 	Purpose             string                    `json:"purpose"`
 	AuthoritativeOwner  string                    `json:"authoritative_owner"`
 	Witnesses           []string                  `json:"witnesses"`
+	EvidenceRefs        []string                  `json:"evidence_refs,omitempty"`
 	RetirementCondition string                    `json:"retirement_condition"`
 	RouteCoverage       resultCompatRouteCoverage `json:"route_coverage"`
 	Status              string                    `json:"status"`
@@ -152,6 +153,7 @@ func TestResultCompatibilityOwnershipRegistry(t *testing.T) {
 				t.Errorf("%s is live but has no functions", entry.ID)
 			}
 			assertLiveOwnershipEvidenceScope(t, entry, registry.LiveEvidenceBaseline)
+			assertOwnershipEvidencePaths(t, entry.ID+" live evidence_refs", entry.EvidenceRefs)
 		case "retired":
 			retiredEntries++
 			if !resultCompatRetiredCommitPattern.MatchString(entry.RetiredCommit) {
@@ -159,6 +161,9 @@ func TestResultCompatibilityOwnershipRegistry(t *testing.T) {
 			}
 			if entry.EvidenceScope != "" {
 				t.Errorf("%s retired entry has live evidence_scope %q", entry.ID, entry.EvidenceScope)
+			}
+			if len(entry.EvidenceRefs) != 0 {
+				t.Errorf("%s retired entry has live evidence_refs %v", entry.ID, entry.EvidenceRefs)
 			}
 			assertRetiredOwnershipReceiptRefs(t, entry)
 		default:
