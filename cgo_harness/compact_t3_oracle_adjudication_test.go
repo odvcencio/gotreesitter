@@ -182,6 +182,7 @@ var compactT3S3CertifiedWitnesses = map[string]bool{
 //     green, CI-required test red over a defect outside this stage's scope).
 func TestCompactT3OracleAdjudication(t *testing.T) {
 	assertCompactT3WitnessMinerMutationContract(t)
+	assertCompactT3WitnessMinerSelectionContract(t)
 	manifest := loadCompactT3WitnessManifest(t)
 	for _, language := range compactT3WitnessLanguages(manifest) {
 		language := language
