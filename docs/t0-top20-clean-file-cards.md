@@ -222,38 +222,38 @@ The run produced no out-of-memory stop and no wall timeout.
 Diagnostic log:
 `harness_out/docker/20260813T144816Z-t0-solidity-packing-parity-diagnostic-v1/container.log`.
 
-### Card 11 route-facts gap
+### Card 11 compact-route receipt
 
-Card 11, Common Lisp `src/code/external-formats/enc-cn-tbl.lisp`, reached the
-full source end and passed the one-file locked-C parity precheck. The T0 child
-did not emit retry or parser-runtime facts, so the card is not
-evidence-complete.
-
-The route audit explains the zero counters. `Parser.Parse` tries the compact
-route before `parseInternal`. An accepted compact tree receives a fresh runtime
-record with acceptance and span fields only. It does not receive classic loop,
-arena, or retry fields. The current receipt does not prove route selection
-because the collector does not record the admission counters.
+Card 11, Common Lisp `src/code/external-formats/enc-cn-tbl.lisp`, now has a
+route-aware T0 receipt. The child classified the parse as `compact`, with one
+routed parse and zero fallbacks. It emitted no retry or classic parser-runtime
+counters because compact materialization publishes acceptance and span fields
+only.
 
 The source has 959,740 bytes and SHA-256
 `17da8956acc6d8402cee1a21b5d486fe4cda91a5de041a9c736843e8e527ce19`.
 The Go deep-tree digest is
 `df5bcbb96087a0082241894df136bd3c5cada82a89ed485f93a3414a971bf907`.
-The Go tree spans bytes `0..959740` without a root error. The T0 run reported
-peak resident set size `272289792` bytes, no out-of-memory stop, and no wall
-timeout.
+The Go tree spans bytes `0..959740` without a root error. The route-aware T0
+run reported peak resident set size `276848640` bytes, no out-of-memory stop,
+and no wall timeout.
 
-The parity precheck completed with one Common Lisp file. Go measured
-`1373782841` nanoseconds and C measured `206846468` nanoseconds. These timings
-are diagnostic only because the runtime-facts receipt is incomplete.
+The v2 receipt records gotreesitter revision
+`924a52c42285fdeda20e43a56ef325c328501533`, child binary SHA-256
+`c40382031eff3e6e4fe2ed341ab8e8026f5e624c35557a34e0b4cad294720e96`, and
+receipt SHA-256
+`ee348ff0f41924da36071130bbf84e25223398303aceb41625dd6e98a45bad60`.
+The Go peak resident set size was `276848640` bytes. The locked-C peak was
+`74964992` bytes, and the Go and C deep digests matched.
 
 Diagnostic logs:
 
 - T0: `harness_out/docker/20260813T145328Z-t0-commonlisp-enc-cn-card-v1/container.log`.
 - Parity: `harness_out/docker/20260813T145445Z-t0-commonlisp-enc-cn-parity-diagnostic-v1/container.log`.
+- Route-aware T0: `harness_out/docker/20260813T152505Z-t0-commonlisp-route-v2/container.log`.
 
-Keep this card open for route-aware telemetry and the compact-versus-C parity
-decision. Do not use it as a no-memo control or grant performance credit.
+Keep this card as compact-route evidence. Do not use it as a no-memo control or
+grant performance credit.
 
 ### Card 14 parity residual
 
@@ -398,8 +398,8 @@ Reject the mechanism when the result requires a language or file exception.
 ## Next bounded tranche
 
 All seven previously pending T0 cards now have receipts. Card 11 is parity
-clean but route-facts incomplete. Cards 7, 14, 15, 16, 19, and 20 are parity
-residuals.
+clean and route-confirmed. Card 7 still needs a route-aware receipt. Cards 7,
+14, 15, 16, 19, and 20 are parity residuals.
 Keep cards 4, 5, 6, 7, and 10 open as parity or route-facts residuals until their exact tree differences
 are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
