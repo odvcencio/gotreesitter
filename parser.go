@@ -3896,6 +3896,9 @@ func realTokenAttachmentGapIsParserPadding(source []byte, s *glrStack, tok Token
 	if tok.ExternalScannerToken && tok.ExternalScannerStartByte == s.byteOffset {
 		return true
 	}
+	if tok.lexerSkippedPrefix && tok.lexerSkippedPrefixStart == s.byteOffset {
+		return true
+	}
 	if int(s.byteOffset) > len(source) || int(tok.StartByte) > len(source) {
 		return true
 	}
