@@ -173,12 +173,18 @@ The run produced no out-of-memory stop and no wall timeout.
 Diagnostic log:
 `harness_out/docker/20260813T144335Z-t0-scala-namers-parity-diagnostic-v1/container.log`.
 
-### Card 7 parity and instrumentation residual
+### Card 7 parity residual and route-facts gap
 
 Card 7, Perl `dist/Module-CoreList/lib/Module/CoreList.pm`, did not produce a
 complete runtime-facts receipt. The full tree reached the end of the source,
 but the Go child emitted no retry or parser-runtime counters. A parity-only
 probe also found structural differences.
+
+The route audit explains the zero counters. `Parser.Parse` tries the compact
+route before `parseInternal`. An accepted compact tree receives a fresh runtime
+record with acceptance and span fields only. It does not receive classic loop,
+arena, or retry fields. The current receipt does not prove route selection
+because the collector does not record the admission counters.
 
 The source has 1,266,636 bytes and SHA-256
 `51ed1b05b1d76cdd9a350e9f839a87e0aa14061f8a1042d50fe1a776d459802c`.
@@ -188,8 +194,8 @@ Go selects `ambiguous_function_call_expression`; C selects
 `equality_expression`. The probe found additional type and field differences.
 
 The T0 collector run had Go peak resident set size 252,784,640 bytes, but no
-runtime facts. Keep this card open for both parser parity and collector
-instrumentation. Do not use it as a no-memo control or for performance credit.
+runtime facts. Keep this card open for parser parity and route-aware telemetry.
+Do not use it as a no-memo control or for performance credit.
 
 Diagnostic log:
 `harness_out/docker/20260813T144602Z-t0-perl-corelist-parity-diagnostic-v1/container.log`.
@@ -216,12 +222,18 @@ The run produced no out-of-memory stop and no wall timeout.
 Diagnostic log:
 `harness_out/docker/20260813T144816Z-t0-solidity-packing-parity-diagnostic-v1/container.log`.
 
-### Card 11 instrumentation residual
+### Card 11 route-facts gap
 
 Card 11, Common Lisp `src/code/external-formats/enc-cn-tbl.lisp`, reached the
 full source end and passed the one-file locked-C parity precheck. The T0 child
 did not emit retry or parser-runtime facts, so the card is not
 evidence-complete.
+
+The route audit explains the zero counters. `Parser.Parse` tries the compact
+route before `parseInternal`. An accepted compact tree receives a fresh runtime
+record with acceptance and span fields only. It does not receive classic loop,
+arena, or retry fields. The current receipt does not prove route selection
+because the collector does not record the admission counters.
 
 The source has 959,740 bytes and SHA-256
 `17da8956acc6d8402cee1a21b5d486fe4cda91a5de041a9c736843e8e527ce19`.
@@ -240,8 +252,8 @@ Diagnostic logs:
 - T0: `harness_out/docker/20260813T145328Z-t0-commonlisp-enc-cn-card-v1/container.log`.
 - Parity: `harness_out/docker/20260813T145445Z-t0-commonlisp-enc-cn-parity-diagnostic-v1/container.log`.
 
-Keep this card open for collector instrumentation. Do not use it as a no-memo
-control or grant performance credit.
+Keep this card open for route-aware telemetry and the compact-versus-C parity
+decision. Do not use it as a no-memo control or grant performance credit.
 
 ### Card 14 parity residual
 
@@ -386,10 +398,14 @@ Reject the mechanism when the result requires a language or file exception.
 ## Next bounded tranche
 
 All seven previously pending T0 cards now have receipts. Card 11 is parity
-clean but telemetry-incomplete. Cards 14, 15, 16, 19, and 20 are parity
+clean but route-facts incomplete. Cards 7, 14, 15, 16, 19, and 20 are parity
 residuals.
-Keep cards 4, 5, 6, 7, and 10 open as parity or instrumentation residuals until their exact tree differences
+Keep cards 4, 5, 6, 7, and 10 open as parity or route-facts residuals until their exact tree differences
 are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
 Use the B16 selected-rung telemetry for retry attribution.
 Do not admit a performance change until the card matrix has a generic predicate.
+
+The next T0 collector change must record admission routed and fallback counts.
+Treat a zero classic runtime record as compact-route evidence only after that
+route marker is present. Do not infer route selection from zero counters alone.
