@@ -341,18 +341,17 @@ func t0BuildGoChild(t testing.TB, revision string) t0CardChildBuild {
 	if err != nil {
 		t.Fatalf("resolve Go repository: %v", err)
 	}
-	worktree := filepath.Join(t.TempDir(), "t0-card-source")
-	if _, err := t0GitOutput(repoRoot, "worktree", "add", "--detach", worktree, revision); err != nil {
-		t.Fatalf("create clean T0 child worktree: %v", err)
+	sourceDir := filepath.Join(t.TempDir(), "t0-card-source")
+	clone := exec.Command("git", "-c", "safe.directory=*", "clone", "--no-local", repoRoot, sourceDir)
+	if output, err := clone.CombinedOutput(); err != nil {
+		t.Fatalf("create clean T0 child clone: %v: %s", err, strings.TrimSpace(string(output)))
 	}
-	t.Cleanup(func() {
-		if _, err := t0GitOutput(repoRoot, "worktree", "remove", "--force", worktree); err != nil {
-			t.Logf("remove T0 child worktree: %v", err)
-		}
-	})
+	if _, err := t0GitOutput(sourceDir, "checkout", "--detach", revision); err != nil {
+		t.Fatalf("select T0 child revision: %v", err)
+	}
 	path := filepath.Join(t.TempDir(), "t0-card-child")
 	command := exec.Command("go", "build", "-trimpath", "-buildvcs=true", "-tags", "gts_workcount", "-o", path, "./cmd/t0_card_child")
-	command.Dir = worktree
+	command.Dir = sourceDir
 	command.Env = t0EnvWithOverrides(os.Environ(), map[string]string{
 		"CGO_ENABLED":        "0",
 		"GOWORK":             "off",
