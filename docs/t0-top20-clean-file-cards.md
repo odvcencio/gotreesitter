@@ -312,6 +312,36 @@ The Docker log SHA-256 is
 `0ec585dde9a1f3928dfe3a82c629c3595ac7dfec856a8668671156f141295422`.
 This control grants no performance credit.
 
+### Card 17 compact-admission residual
+
+Card 17, Liquid `performance/tests/tribble/blog.liquid`, reached the
+production fallback and matched the locked-C tree. The compact candidate did
+not authenticate. The source has 1,133 bytes and SHA-256
+`52be8daea35fc95da630dd2d5a2efe7bb9b539a7ddd0e89889ff57508193ed44`.
+The locked source is clean at commit
+`7b368dffb844c44a9466226d1a243b05aafc5be5`.
+
+The route classified as `production_fallback`, with zero compact routes and
+one fallback. The candidate declined because its accepted root spanned
+`0..1133`, while the admission gate expected `2..1133`:
+`accepted compact root is incomplete or erroneous: span=0..1133 expected=2..1133 error=false allowErrorRoot=false`.
+
+The fallback Go tree and locked-C tree share deep digest
+`ce7eff8f36209b0a954b34083dd38167a90121ddf059eaf4b9f2aca8e60f3937`.
+The production tree spans `0..1133` without an error. The fallback run
+allocated 21,492,016 bytes and reached 19,615,744 bytes of resident memory.
+The locked C oracle reached 307,200 bytes of resident memory. These figures
+are fallback measurements, not compact performance evidence.
+
+The receipt is `harness_out/t0-liquid-tribble-card-v4.json` with SHA-256
+`f534ac4c42ad65265897a67e6bb5ee80bdeffcc16031fc282e3d99e8149e74c1`.
+The Docker log SHA-256 is
+`337181da339c188d25f86f376cfdc9509f5ef915706114c7a58820203ed71c74`.
+
+Keep this card open as a compact root-ownership residual. Resolve it with a
+generic proof that retained children cover any leading source padding. Do not
+relax the root gate without that proof. Grant no performance credit.
+
 ### Card 13 runtime-facts control
 
 Card 13, TOML `.prettierrc.toml`, has a complete evidence-only receipt. The
@@ -485,6 +515,8 @@ All seven previously pending T0 cards now have receipts. Cards 11, 12, 13, and
 18 are parity-clean and route-confirmed. Card 7 still needs a route-aware
 receipt.
 Cards 7, 14, 15, 16, 19, and 20 are parity residuals.
+Card 17 remains a compact-admission residual even though its production
+fallback matches the locked-C tree.
 Keep cards 4, 5, 6, 7, and 10 open as parity or route-facts residuals until
 their exact tree differences are resolved or explicitly accepted as campaign
 residuals.
