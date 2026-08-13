@@ -106,9 +106,10 @@ facts. The collector runs only on the retained classification parse. It does
 not add collector work to timed samples. The mode selects production GLR for
 the complete scan child. It suppresses compact admission and automatic forest
 routing in that child. Timed Go samples therefore use production GLR. The
-setting does not change the shipped default, parser limits, or hard-gate
-decisions. Treat the output as C0f cohort evidence. Do not use it as C6f
-timing credit.
+setting does not change the shipped default or parser limits. Treat the output
+as C0f cohort evidence. Do not use its hard-gate result as C6f timing credit.
+The ratio-budget command rejects scoreboards that set
+`runtime_evidence=true`.
 
 Verdict buckets: `<=0.10x`, `<=1.2x`, `<=2x`, `>2x`, `cliff>10x`. The first
 bucket is reported separately as a 10x-or-better win. The hard gate evaluates

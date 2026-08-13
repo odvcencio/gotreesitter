@@ -76,6 +76,7 @@ type scoreboardConfig struct {
 	ExcludePaths     []string `json:"exclude_paths,omitempty"`
 	HardGate         bool     `json:"hard_gate"`
 	RequireFleet     bool     `json:"require_fleet"`
+	RuntimeEvidence  bool     `json:"runtime_evidence,omitempty"`
 	CorpusLockSHA256 string   `json:"corpus_lock_sha256,omitempty"`
 }
 
@@ -306,6 +307,13 @@ type compareOptions struct {
 
 func compareScoreboard(b *budgetFile, s *scoreboardFile, opts compareOptions) []evalFinding {
 	var out []evalFinding
+	if s.Config.RuntimeEvidence {
+		out = append(out, evalFinding{
+			Metric: "config.runtime_evidence",
+			Got:    "true",
+			Want:   "false (C6f ratchet)",
+		})
+	}
 	switch s.Schema {
 	case scoreboardSchemaV1:
 		if opts.HardGateOnly {

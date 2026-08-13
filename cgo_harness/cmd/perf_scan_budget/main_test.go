@@ -120,6 +120,47 @@ func TestCompareScoreboardReportsStrictConfigMismatch(t *testing.T) {
 	}
 }
 
+func TestLoadScoreboardReadsRuntimeEvidence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "scoreboard.json")
+	writeFile(t, path, `{"config":{"runtime_evidence":true}}`)
+
+	s, err := loadScoreboard(path)
+	if err != nil {
+		t.Fatalf("load scoreboard: %v", err)
+	}
+	if !s.Config.RuntimeEvidence {
+		t.Fatal("runtime evidence was not decoded")
+	}
+}
+
+func TestCompareScoreboardRejectsRuntimeEvidenceLane(t *testing.T) {
+	b := testBudget()
+	tests := []struct {
+		name         string
+		hardGateOnly bool
+	}{
+		{name: "historical budget"},
+		{name: "current hard gate", hardGateOnly: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := testScoreboard(2.5, 0, 0)
+			if test.hardGateOnly {
+				makeV2FullBoard(s)
+			}
+			s.Config.RuntimeEvidence = true
+
+			findings := compareScoreboard(b, s, compareOptions{
+				HardGateOnly: test.hardGateOnly,
+			})
+			got := renderFindingKeys(findings)
+			if !strings.Contains(got, "::config.runtime_evidence") {
+				t.Fatalf("findings %q accepted a runtime-evidence lane (%#v)", got, findings)
+			}
+		})
+	}
+}
+
 func TestCompareScoreboardKeepsLegacyRatchetComparisonWithoutHardGate(t *testing.T) {
 	b := testBudget()
 	s := testScoreboard(2.5, 0, 0)
