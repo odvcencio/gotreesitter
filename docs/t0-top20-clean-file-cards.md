@@ -285,6 +285,33 @@ The Docker log SHA-256 is
 `f4128e59b3625d28032dae324d1fc90067e222bbdabececadf65ad29273ddc05`.
 This control grants no performance credit.
 
+### Card 18 runtime-facts control
+
+Card 18, Requirements
+`test/integration/targets/ansible-test-units-constraints/ansible_collections/ns/col/tests/unit/requirements.txt`, has a complete evidence-only receipt. The source has nine bytes and SHA-256
+`21d94dafd767c22de542deba74a9d2844e47054848a8116a2665619b5d5a8a39`.
+The locked source is clean at commit
+`fc5931c90beabea7b62747d2bc3038572c732f11`.
+
+The Go and locked-C deep digest is
+`7275ade5df87f05df55c8706333fc217f821fdf04ee9e35674301949cafdacf1`.
+The Go tree spans `0..9` without an error or early stop. The compact route
+served the parse with one routed event and zero fallbacks. No retry ran, and
+the recovery memo tier stayed none.
+
+The authenticated compact scheduler used 154,295 nanoseconds and the
+materializer used 853,093 nanoseconds. Its retained footprint was 1,480 bytes.
+The selected tree had three nodes, two parents, and one leaf. The compact
+scratch receipt recorded 64 postorder frames. Go allocated 3,152,672 bytes and
+reached 11,223,040 bytes of resident memory. The locked C oracle reached
+77,824 bytes of resident memory.
+
+The receipt is `harness_out/t0-requirements-units-card-v1.json` with SHA-256
+`fe9d94dccaf94b32e0f1cbe5a11ed86ffe37dabbeb29737c71236774cc7d6a7c`.
+The Docker log SHA-256 is
+`0ec585dde9a1f3928dfe3a82c629c3595ac7dfec856a8668671156f141295422`.
+This control grants no performance credit.
+
 ### Card 13 runtime-facts control
 
 Card 13, TOML `.prettierrc.toml`, has a complete evidence-only receipt. The
@@ -454,8 +481,9 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-All seven previously pending T0 cards now have receipts. Cards 11, 12, and 13
-are parity-clean and route-confirmed. Card 7 still needs a route-aware receipt.
+All seven previously pending T0 cards now have receipts. Cards 11, 12, 13, and
+18 are parity-clean and route-confirmed. Card 7 still needs a route-aware
+receipt.
 Cards 7, 14, 15, 16, 19, and 20 are parity residuals.
 Keep cards 4, 5, 6, 7, and 10 open as parity or route-facts residuals until
 their exact tree differences are resolved or explicitly accepted as campaign
