@@ -455,7 +455,7 @@ func TestForestDispatchPromotesJavaScript(t *testing.T) {
 	}
 }
 
-func TestProductionOverrideSuppressesAutomaticForestRoutes(t *testing.T) {
+func TestCandidateOverrideOffKeepsAutomaticForestRoutes(t *testing.T) {
 	previousRoute := gts.AdmissionCandidateRouteDefault()
 	gts.SetAdmissionCandidateRouteDefault(false)
 	t.Cleanup(func() { gts.SetAdmissionCandidateRouteDefault(previousRoute) })
@@ -494,19 +494,19 @@ func TestProductionOverrideSuppressesAutomaticForestRoutes(t *testing.T) {
 			parser.SetAdmissionCandidateRoute(false)
 			tree, err := parser.Parse(test.source)
 			if err != nil {
-				t.Fatalf("parse production override: %v", err)
+				t.Fatalf("parse candidate-off route: %v", err)
 			}
 			if tree == nil {
-				t.Fatal("production override returned no tree")
+				t.Fatal("candidate-off route returned no tree")
 			}
 			defer tree.Release()
-			if tree.UsedForestFastPath() {
-				t.Fatal("production override returned a forest tree")
+			if !tree.UsedForestFastPath() {
+				t.Fatal("candidate-off route bypassed automatic forest")
 			}
 
 			experimental, ok := parser.ParseForestExperimental(test.source)
 			if !ok || experimental == nil || !experimental.UsedForestFastPath() {
-				t.Fatal("production override blocked the explicit forest route")
+				t.Fatal("candidate-off route blocked the explicit forest route")
 			}
 			experimental.Release()
 		})

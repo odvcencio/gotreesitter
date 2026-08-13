@@ -382,21 +382,63 @@ func perfScanConfigureRuntimeEvidence(t *testing.T) {
 	if !perfScanRuntimeEvidenceEnabled() {
 		return
 	}
+	// Each language runs in its own child process. Disable automatic forest
+	// routing here so retained runtime facts describe the production GLR path.
+	previousForest := os.Getenv("GOT_GLR_FOREST") != "0"
+	gotreesitter.SetGLRForestEnabled(false)
 	gotreesitter.EnableArenaBreakdown(false)
 	gotreesitter.EnableRecoveryRuntimeTelemetry(false)
 	t.Cleanup(func() {
+		gotreesitter.SetGLRForestEnabled(previousForest)
 		gotreesitter.EnableArenaBreakdown(false)
 		gotreesitter.EnableRecoveryRuntimeTelemetry(false)
 	})
 }
 
-// perfScanConfigureParserForRuntimeEvidence forces the instrumented production
-// route. The compact candidate route does not publish the same runtime facts.
+// perfScanConfigureParserForRuntimeEvidence disables the compact candidate
+// route. The child setup already disables automatic forest routing.
 func perfScanConfigureParserForRuntimeEvidence(parser *gotreesitter.Parser, enabled bool) {
 	if parser == nil || !enabled {
 		return
 	}
 	parser.SetAdmissionCandidateRoute(false)
+}
+
+func TestPerfScanRuntimeEvidenceUsesProductionGLRRoute(t *testing.T) {
+	t.Setenv(perfScanEnvRuntimeEvidence, "1")
+	previousForest := os.Getenv("GOT_GLR_FOREST") != "0"
+	gotreesitter.SetGLRForestEnabled(true)
+	t.Cleanup(func() { gotreesitter.SetGLRForestEnabled(previousForest) })
+
+	source := []byte("const answer = 1;\n")
+	control := gotreesitter.NewParser(grammars.JavascriptLanguage())
+	control.SetAdmissionCandidateRoute(false)
+	controlTree, err := control.Parse(source)
+	if err != nil {
+		t.Fatalf("parse forest control: %v", err)
+	}
+	if controlTree == nil || !controlTree.UsedForestFastPath() {
+		if controlTree != nil {
+			controlTree.Release()
+		}
+		t.Fatal("forest control did not use the automatic route")
+	}
+	controlTree.Release()
+
+	perfScanConfigureRuntimeEvidence(t)
+	parser := gotreesitter.NewParser(grammars.JavascriptLanguage())
+	perfScanConfigureParserForRuntimeEvidence(parser, true)
+	tree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatalf("parse production GLR route: %v", err)
+	}
+	if tree == nil {
+		t.Fatal("production GLR route returned no tree")
+	}
+	defer tree.Release()
+	if tree.UsedForestFastPath() {
+		t.Fatal("runtime evidence parse used automatic forest")
+	}
 }
 
 func perfScanEnvIntDefault(name string, def int) int {

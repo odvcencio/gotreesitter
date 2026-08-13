@@ -108,9 +108,8 @@ func AdmissionCandidateRouteDefault() bool {
 
 // SetAdmissionCandidateRoute sets a per-Parser override that takes precedence
 // over the process-wide default. enabled=true forces the candidate route on for
-// eligible full parses. enabled=false forces automatic full parses onto the
-// production route. It also suppresses automatic forest dispatch and forest
-// recovery replacement. Direct ParseForestExperimental calls remain available.
+// eligible full parses. enabled=false disables the compact candidate route.
+// The separate automatic forest policy remains unchanged.
 //
 // enabled=true still respects every remaining eligibility decline: included
 // ranges and observability hooks keep a parse on production. Source length no
@@ -135,12 +134,6 @@ func (p *Parser) ClearAdmissionCandidateRoute() {
 	if p != nil {
 		p.admissionCandidateRoute = admissionRouteFollowDefault
 	}
-}
-
-// productionRouteForced reports whether automatic full parses must use the
-// production parser. Explicit experimental entry points do not use this gate.
-func (p *Parser) productionRouteForced() bool {
-	return p != nil && p.admissionCandidateRoute == admissionRouteProductionForced
 }
 
 // AdmissionCandidateCounters returns the number of full parses the compact

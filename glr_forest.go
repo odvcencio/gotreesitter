@@ -421,7 +421,7 @@ func (p *Parser) ParseForestExperimental(source []byte) (*Tree, bool) {
 // maybeReplaceRecoveredTreeWithForest replaces a recovered DFA result only
 // when the forest produces a complete tree without ERROR or MISSING nodes.
 func (p *Parser) maybeReplaceRecoveredTreeWithForest(source []byte, tree *Tree) (*Tree, bool) {
-	if p == nil || p.productionRouteForced() || tree == nil || tree.rawParseStoppedEarly() || tree.UsedForestFastPath() || p.recoveryInitialOnly {
+	if p == nil || tree == nil || tree.rawParseStoppedEarly() || tree.UsedForestFastPath() || p.recoveryInitialOnly {
 		return tree, false
 	}
 	if p.language == nil || p.language.ExternalScanner != nil || len(p.language.ExternalSymbols) != 0 || len(p.included) != 0 {
@@ -668,9 +668,6 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	// ForestCapTieStats reporting an earlier, unrelated parse's counts (see
 	// resetForestCapTieStats's doc comment).
 	p.resetForestCapTieStats()
-	if p.productionRouteForced() {
-		return nil
-	}
 	if !glrForestEnabled || !parserWantsForest(p) {
 		return nil
 	}
