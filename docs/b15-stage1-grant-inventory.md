@@ -70,3 +70,25 @@ and their proof gaps still match the current source. No grant receives credit.
 
 The durable signed receipt is
 `hypha-receipt:2026-08-13:b15-stage1-current-v1`.
+
+## Current-head shadow recheck
+
+The current-head Docker recheck used gotreesitter commit
+`a19776dc625adce558520f66073d50a2ecaea947` and the focused runtime-profile
+shadow suite. It passed the exact-blob attachment checks for the compact
+acceptance, converged split, runtime-profile, and external-scanner surfaces.
+It also passed the negative exact-blob checks for adapted or wrong-identity
+languages.
+
+The run did not change a grant or parser route. It confirms the inventory's
+shadow interpretation: the 18 sites remain exception sites until generic
+derivation, leaf-coverage, scanner, and recovery proofs exist.
+
+Run artifact:
+`harness_out/docker/20260813T182734Z-b15-current-profile-shadow-v1/`.
+
+- Container log SHA-256: `1dba96c1681faeff2205ad953d0cdb198228ca3343c0be34138f2261a36f9f64`.
+- Metadata SHA-256: `a5814fdc06ddd630c73444a543eb6643a71d5c034d5a09ed1239f001e56242db`.
+- Inspection SHA-256: `82cb2054ec00b3e2cc53e7c7c316d1ea2760aa0aca344aaf0e2abd9e1a2ea30c`.
+
+This recheck grants no B15 stage-2 credit and does not close B15.
