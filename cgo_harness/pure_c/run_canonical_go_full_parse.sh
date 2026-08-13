@@ -238,10 +238,11 @@ readonly FIXTURE_SPECS=(
   "grammargen_lr|grammargen_lr.go.gz|235626|a7e4a1a64b25a60aea36183b9d6d53dcd9240942cdb10e67a3cf9e6ce30f95b2|7d64368d4dbffca1b3cc472ff3397871c23e082efb1a2bdba5f9670564cc7b22|1472cfd9a014d4034dbc1456afd12c282630ef787c3543cf0cecb73619883ad2|8|500|400"
 )
 readonly CANDIDATE_WORK_SPECS=(
-  "query_compile|6685|7440|7440|8103|14703|14749|5546|7537"
-  "rewrite|1348|1501|1501|1646|2995|3004|1109|1515"
-  "language|6512|7561|7561|8408|15864|15145|5375|7707"
-  "grammargen_lr|66119|75988|75988|84924|153451|150271|53897|78426"
+  # Keep this lock equal to parsercore_phase0_canonical_admission_internal_test.go.
+  "query_compile|6685|7509|7509|8108|14730|14789|5546|7542"
+  "rewrite|1348|1504|1504|1646|2993|3006|1109|1515"
+  "language|6512|7564|7564|8377|15816|15124|5375|7674"
+  "grammargen_lr|66115|76310|76310|83658|151917|149768|53896|77168"
 )
 
 declare -a FIXTURE_IDS=()
@@ -333,10 +334,11 @@ GO_BIN_SHA="$(sha256sum "$GO_BIN" | awk '{print $1}')"
 go version -m "$GO_BIN" > "$OUT_DIR/preflight/go_binary_modules.txt"
 
 if ((SKIP_CGO_ADMISSION == 0)); then
+  CGO_BUILD_TAGS="treesitter_c_parity,$GO_BUILD_TAGS"
   (
     cd "$REPO_ROOT"
     bash cgo_harness/docker/run_parity_in_docker.sh -- \
-      "cd /workspace && go test -tags '$GO_BUILD_TAGS' . -run '^${GO_PREFLIGHT}$' -count=1 -v && cd /workspace/cgo_harness && go test . -tags treesitter_c_parity -run '^(TestCanonicalGoBenchmarkPreflight|TestCOracleStaticDeepParity)$' -count=1 -v"
+      "cd /workspace && go test -tags '$GO_BUILD_TAGS' . -run '^${GO_PREFLIGHT}$' -count=1 -v && cd /workspace/cgo_harness && GOT_PARSE_PHASE_TIMING=1 go test . -tags '$CGO_BUILD_TAGS' -run '^(TestCanonicalGoBackendBuildTag|TestCanonicalGoBenchmarkPreflight|TestCOracleStaticDeepParity)$' -count=1 -v"
   ) > "$OUT_DIR/preflight/cgo_static_deep_admission.txt" 2>&1
   CGO_ADMISSION="PASS"
 else
@@ -814,13 +816,13 @@ fi
     printf 'receipt_version=canonical-go-full-parse-v1\n'
   fi
   printf 'receipt_class=%s\n' "$RECEIPT_CLASS"
+  printf 'go_backend=%s\n' "$GO_BACKEND"
+  printf 'go_build_tags=%s\n' "$GO_BUILD_TAGS"
+  printf 'go_benchmark=%s\n' "$GO_BENCHMARK"
+  printf 'go_preflight=%s\n' "$GO_PREFLIGHT"
+  printf 'go_measured_lifecycle=%s\n' "$GO_LIFECYCLE"
+  printf 'go_fallback_policy=%s\n' "$GO_FALLBACK"
   if [[ "$GO_BACKEND" != "production" ]]; then
-    printf 'go_backend=%s\n' "$GO_BACKEND"
-    printf 'go_build_tags=%s\n' "$GO_BUILD_TAGS"
-    printf 'go_benchmark=%s\n' "$GO_BENCHMARK"
-    printf 'go_preflight=%s\n' "$GO_PREFLIGHT"
-    printf 'go_measured_lifecycle=%s\n' "$GO_LIFECYCLE"
-    printf 'go_fallback_policy=%s\n' "$GO_FALLBACK"
     printf 'candidate_runner_source_sha256=%s\n' "$RUNNER_SOURCE_SHA"
     printf 'candidate_benchmark_source_sha256=%s\n' "$BENCHMARK_SOURCE_SHA"
     printf 'max_fixture_go_c_ratio=%s\n' "$MAX_FIXTURE_GO_C_RATIO"
@@ -845,9 +847,9 @@ fi
   printf 'benchtime=%s\n' "$BENCHTIME"
   printf 'c_calibration_min_ns=%s\n' "$BENCHTIME_NS"
   printf 'cgo_static_deep_admission=%s\n' "$CGO_ADMISSION"
+  printf 'cgo_admission_contract=root_and_cgo_same_backend_tag+treesitter_c_parity_canonical_static_deep\n'
   if [[ "$GO_BACKEND" != "production" ]]; then
     printf 'workload_identity=compact_deep_tree_and_exact_work_admission_v1\n'
-    printf 'candidate_cgo_admission_contract=root_tagged_fresh_runner+treesitter_c_parity_canonical_static_deep\n'
   else
     printf 'workload_identity=runtime_and_node_kind_admission_v1\n'
   fi

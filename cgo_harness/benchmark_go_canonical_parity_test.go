@@ -41,6 +41,12 @@ func TestCanonicalGoBenchmarkPreflight(t *testing.T) {
 	preflightCanonicalGoFixtures(t, fixtures, grammars.GoLanguage(), loadCanonicalGoCLanguage(t))
 }
 
+func TestCanonicalGoBackendBuildTag(t *testing.T) {
+	if canonicalGoBenchmarkBackend != "production" && canonicalGoBenchmarkBackend != "candidate" {
+		t.Fatalf("canonical Go preflight requires exactly one backend tag: got %q", canonicalGoBenchmarkBackend)
+	}
+}
+
 func loadCanonicalGoFixtures(tb testing.TB) []benchfixtures.LoadedFixture {
 	tb.Helper()
 	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
@@ -73,7 +79,10 @@ func loadCanonicalGoCLanguage(tb testing.TB) *sitter.Language {
 
 func preflightCanonicalGoFixtures(tb testing.TB, fixtures []benchfixtures.LoadedFixture, goLang *gotreesitter.Language, cLang *sitter.Language) {
 	tb.Helper()
-	goParser := gotreesitter.NewParser(goLang)
+	if canonicalGoBenchmarkBackend != "production" && canonicalGoBenchmarkBackend != "candidate" {
+		tb.Fatalf("canonical Go preflight requires exactly one backend tag: got %q", canonicalGoBenchmarkBackend)
+	}
+	goParser := newCanonicalGoBenchmarkParser(tb, goLang)
 	cParser := sitter.NewParser()
 	defer cParser.Close()
 	if err := cParser.SetLanguage(cLang); err != nil {
@@ -86,10 +95,26 @@ func preflightCanonicalGoFixtures(tb testing.TB, fixtures []benchfixtures.Loaded
 		if err := fixture.Fixture.VerifySource(fixture.Source); err != nil {
 			tb.Fatal(err)
 		}
+		routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 		goTree, err := goParser.Parse(fixture.Source)
 		if err != nil {
 			releaseCanonicalGoTree(goTree)
 			tb.Fatalf("%s Go preflight: %v", fixture.Fixture.ID, err)
+		}
+		routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
+		routedDelta := routedAfter - routedBefore
+		fallbackDelta := fallbackAfter - fallbackBefore
+		switch canonicalGoBenchmarkBackend {
+		case "production":
+			if routedDelta != 0 || fallbackDelta != 0 {
+				releaseCanonicalGoTree(goTree)
+				tb.Fatalf("%s production preflight measured the compact route: routed_delta=%d fallback_delta=%d", fixture.Fixture.ID, routedDelta, fallbackDelta)
+			}
+		case "candidate":
+			if routedDelta != 1 || fallbackDelta != 0 {
+				releaseCanonicalGoTree(goTree)
+				tb.Fatalf("%s compact preflight did not publish from the compact route: routed_delta=%d fallback_delta=%d reason=%q", fixture.Fixture.ID, routedDelta, fallbackDelta, gotreesitter.AdmissionCandidateLastFallbackReason())
+			}
 		}
 		if err := validateCanonicalGoTree(goTree, fixture.Source, goLang); err != nil {
 			releaseCanonicalGoTree(goTree)
@@ -114,10 +139,16 @@ func preflightCanonicalGoFixtures(tb testing.TB, fixtures []benchfixtures.Loaded
 			cTree.Close()
 			tb.Fatalf("%s Go digest: %v", fixture.Fixture.ID, err)
 		}
-		if err := fixture.Fixture.VerifyWorkloadIdentity(goTree.ParseRuntime(), goInspection.NodeKinds); err != nil {
+		if canonicalGoBenchmarkBackend == "production" {
+			if err := fixture.Fixture.VerifyWorkloadIdentity(goTree.ParseRuntime(), goInspection.NodeKinds); err != nil {
+				releaseCanonicalGoTree(goTree)
+				cTree.Close()
+				tb.Fatalf("%s Go workload identity: %v", fixture.Fixture.ID, err)
+			}
+		} else if err := verifyCanonicalCompactWorkloadIdentity(goTree); err != nil {
 			releaseCanonicalGoTree(goTree)
 			cTree.Close()
-			tb.Fatalf("%s Go workload identity: %v", fixture.Fixture.ID, err)
+			tb.Fatalf("%s compact workload identity: %v", fixture.Fixture.ID, err)
 		}
 		cInspection, err := canonicalCTreeInspection(cTree.RootNode())
 		if err != nil {
@@ -154,10 +185,47 @@ func preflightCanonicalGoFixtures(tb testing.TB, fixtures []benchfixtures.Loaded
 	}
 }
 
+func newCanonicalGoBenchmarkParser(tb testing.TB, lang *gotreesitter.Language) *gotreesitter.Parser {
+	tb.Helper()
+	parser := gotreesitter.NewParser(lang)
+	switch canonicalGoBenchmarkBackend {
+	case "production":
+		parser.SetAdmissionCandidateRoute(false)
+	case "candidate":
+		parser.SetAdmissionCandidateRoute(true)
+	default:
+		tb.Fatalf("canonical Go preflight requires exactly one backend tag: got %q", canonicalGoBenchmarkBackend)
+	}
+	return parser
+}
+
+func verifyCanonicalCompactWorkloadIdentity(tree *gotreesitter.Tree) error {
+	if tree == nil {
+		return fmt.Errorf("compact tree is nil")
+	}
+	runtime, ok := tree.CompactParserCoreRuntime()
+	if !ok || !runtime.Authenticated {
+		return fmt.Errorf("compact runtime receipt is missing or unauthenticated")
+	}
+	if runtime.SchedulerNanos <= 0 || runtime.MaterializationNanos < 0 {
+		return fmt.Errorf("compact lifecycle timing is invalid: scheduler=%d materialization=%d", runtime.SchedulerNanos, runtime.MaterializationNanos)
+	}
+	if runtime.RetainedFootprintBytes == 0 || runtime.CoreStats.Subtrees == 0 {
+		return fmt.Errorf("compact storage receipt is incomplete: retained=%d subtrees=%d", runtime.RetainedFootprintBytes, runtime.CoreStats.Subtrees)
+	}
+	if runtime.CoreWork.Overflow || runtime.SchedulerWork.Overflow {
+		return fmt.Errorf("compact work receipt overflowed: core=%+v scheduler=%+v", runtime.CoreWork, runtime.SchedulerWork)
+	}
+	if runtime.SchedulerWork.Accepts != 1 {
+		return fmt.Errorf("compact scheduler accepts=%d want=1", runtime.SchedulerWork.Accepts)
+	}
+	return nil
+}
+
 func benchmarkCanonicalGoWarm(b *testing.B, fixture benchfixtures.LoadedFixture, lang *gotreesitter.Language) {
 	b.Helper()
 	gotreesitter.DrainArenaPools()
-	parser := gotreesitter.NewParser(lang)
+	parser := newCanonicalGoBenchmarkParser(b, lang)
 	warmTree, err := parser.Parse(fixture.Source)
 	if err != nil {
 		releaseCanonicalGoTree(warmTree)
