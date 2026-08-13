@@ -105,6 +105,29 @@ coverage. The durable receipts are
 `hypha-receipt:2026-08-11:a0-r1-denominator-refresh` and the current
 `hypha-receipt:2026-08-13:a0-current-denominator-refresh-v1`.
 
+### A0 current-head recheck
+
+The current-head Docker recheck used gotreesitter commit
+`83ee98eaf85a6bac6b898aa7686ced09389886a5` and completed without an
+out-of-memory stop or wall timeout. It reproduced the same evidence:
+
+- 36 of 36 live entries fired in the smoke census.
+- The real-source census observed 21 arm identifiers: 6 inert and 15 active.
+- The real-source corpus left 17 registered arms uncovered.
+- The probe covered 30 languages without a registered dispatcher arm.
+
+The run artifact is
+`harness_out/docker/20260813T182414Z-a0-current-arm-census-v1/`.
+The container log SHA-256 is
+`084390350f5189ef4b5991dd77f6e95f62654d431f665fc6f19433c311735e39`.
+The metadata SHA-256 is
+`a4a2f981182081c5bdc352182ffe03b32e5755ceaaaa03c8181900c6dcacbcbb`.
+The inspection SHA-256 is
+`6a5c120caaf2a5fce4a22f56dbc3b93e14ad46e19185619dea054963be8e32fc`.
+
+This recheck confirms A0-CORPUS-001 and A0-REGISTRY-002. It does not close
+A0 and changes no parser routing or compatibility arm.
+
 ## Ownership
 
 Compatibility functions describe symptoms. Their `authoritative_owner`
