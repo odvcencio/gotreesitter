@@ -131,6 +131,12 @@ func TestB16RuntimeEvidenceForcesProductionRoute(t *testing.T) {
 			}
 			controlTree.Release()
 
+			// The scan child disables automatic forest routing before it creates
+			// the production parser. Apply the same setup after the control.
+			perfScanConfigureRuntimeEvidence(t)
+			gotreesitter.EnableRecoveryRuntimeTelemetry(true)
+			gotreesitter.EnableArenaBreakdown(true)
+
 			parser := gotreesitter.NewParser(test.language)
 			perfScanConfigureParserForRuntimeEvidence(parser, true)
 			parser.SetParsePhaseTiming(true)
