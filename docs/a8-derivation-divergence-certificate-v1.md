@@ -25,9 +25,19 @@ expected `DIFFERENT` classifications are stale; the current run reports
 `EXTRA` only. Keep the test pin unchanged until the evidence owner accepts the
 classification correction.
 
+The current run used gotreesitter revision
+`240c5ef17fec3403b33eeca0c7b81abf5370a5a0`. The test exited nonzero for the
+stale constructed total and the two stale Ada expectations. It reported no
+out-of-memory event and no wall timeout. This is evidence drift, not a parser
+route change.
+
 Receipts:
 
 - D0 Docker artifact: `20260813T101032Z-a8-d0-baseline-current`
+- Current D0 Docker artifact: `20260813T153029Z-a8-d0-current-route-v2`
+- Current D0 log SHA-256: `886b554722647381597b7af113f3cc5473c8751aeb68cfb5ab70de6bee7d6d0b`
+- Current D0 inspection SHA-256: `d567cc2393533584e1685e98abfc0503e79abd4c1e67db6017b236858b319290`
+- Current D0 metadata SHA-256: `1bf61f39bd4eb512552019b4b8ab4bf36f4e4c724ebdb792b9b7a66173436330`
 - D1 Docker artifact: `20260813T100813Z-a8-d1-current`
 - M0 Docker artifact: `20260813T100936Z-a8-m0-witness-current`
 
