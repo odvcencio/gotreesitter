@@ -216,6 +216,33 @@ The run produced no out-of-memory stop and no wall timeout.
 Diagnostic log:
 `harness_out/docker/20260813T144816Z-t0-solidity-packing-parity-diagnostic-v1/container.log`.
 
+### Card 11 instrumentation residual
+
+Card 11, Common Lisp `src/code/external-formats/enc-cn-tbl.lisp`, reached the
+full source end and passed the one-file locked-C parity precheck. The T0 child
+did not emit retry or parser-runtime facts, so the card is not
+evidence-complete.
+
+The source has 959,740 bytes and SHA-256
+`17da8956acc6d8402cee1a21b5d486fe4cda91a5de041a9c736843e8e527ce19`.
+The Go deep-tree digest is
+`df5bcbb96087a0082241894df136bd3c5cada82a89ed485f93a3414a971bf907`.
+The Go tree spans bytes `0..959740` without a root error. The T0 run reported
+peak resident set size `272289792` bytes, no out-of-memory stop, and no wall
+timeout.
+
+The parity precheck completed with one Common Lisp file. Go measured
+`1373782841` nanoseconds and C measured `206846468` nanoseconds. These timings
+are diagnostic only because the runtime-facts receipt is incomplete.
+
+Diagnostic logs:
+
+- T0: `harness_out/docker/20260813T145328Z-t0-commonlisp-enc-cn-card-v1/container.log`.
+- Parity: `harness_out/docker/20260813T145445Z-t0-commonlisp-enc-cn-parity-diagnostic-v1/container.log`.
+
+Keep this card open for collector instrumentation. Do not use it as a no-memo
+control or grant performance credit.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -231,7 +258,7 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for cards 11, 14, 15, 16, 19, and 20.
+First collect the missing runtime facts for cards 14, 15, 16, 19, and 20.
 Keep cards 4, 5, 6, 7, and 10 open as parity or instrumentation residuals until their exact tree differences
 are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
