@@ -20,7 +20,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
-const t0CardChildSchema = "gts-t0-card-go-child/v1"
+const t0CardChildSchema = "gts-t0-card-go-child/v2"
 
 type t0CardAttempt struct {
 	LogicalRung        string                       `json:"logical_rung"`
@@ -31,6 +31,13 @@ type t0CardAttempt struct {
 	ResolvedMaxStacks  int                          `json:"resolved_max_stacks"`
 	ResolvedRetryPass  bool                         `json:"resolved_retry_pass"`
 	ResolvedMergeLimit int                          `json:"resolved_max_merge_per_key"`
+}
+
+type t0CardAdmission struct {
+	RoutedDelta    uint64 `json:"routed_delta"`
+	FallbackDelta  uint64 `json:"fallback_delta"`
+	FallbackReason string `json:"fallback_reason,omitempty"`
+	Classification string `json:"classification"`
 }
 
 type t0CardRuntime struct {
@@ -97,6 +104,7 @@ type t0CardParse struct {
 	TotalAllocBytes              uint64                       `json:"total_alloc_bytes"`
 	Attempts                     []t0CardAttempt              `json:"attempts"`
 	SelectedRetryRung            string                       `json:"selected_retry_rung"`
+	Admission                    t0CardAdmission              `json:"admission"`
 	TreePresent                  bool                         `json:"tree_present"`
 	StopReason                   gotreesitter.ParseStopReason `json:"stop_reason"`
 	RootStartByte                uint32                       `json:"root_start_byte"`
@@ -183,6 +191,7 @@ func parseOne(language *gotreesitter.Language, entry *grammars.LangEntry, source
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 	gotreesitter.BeginDiagnosticRetryTrace()
+	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	started := time.Now()
 	parser := gotreesitter.NewParser(language)
 	var tree *gotreesitter.Tree
@@ -194,11 +203,17 @@ func parseOne(language *gotreesitter.Language, entry *grammars.LangEntry, source
 	}
 	wall := time.Since(started)
 	trace := gotreesitter.EndDiagnosticRetryTrace()
+	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
+	admission, err := t0CardAdmissionFromCounters(routedBefore, fallbackBefore, routedAfter, fallbackAfter)
+	if err != nil {
+		return t0CardParse{}, err
+	}
 	runtime.ReadMemStats(&after)
 	result := t0CardParse{
 		WallNanos:       wall.Nanoseconds(),
 		TotalAllocBytes: after.TotalAlloc - before.TotalAlloc,
 		Attempts:        make([]t0CardAttempt, 0, len(trace.Attempts)),
+		Admission:       admission,
 	}
 	for _, attempt := range trace.Attempts {
 		result.Attempts = append(result.Attempts, t0CardAttempt{
@@ -254,6 +269,33 @@ func parseOne(language *gotreesitter.Language, entry *grammars.LangEntry, source
 	tree.Release()
 	result.PeakRSSBytes, result.RSSSource = peakRSSBytes()
 	return result, nil
+}
+
+func t0CardAdmissionFromCounters(routedBefore, fallbackBefore, routedAfter, fallbackAfter uint64) (t0CardAdmission, error) {
+	if routedAfter < routedBefore || fallbackAfter < fallbackBefore {
+		return t0CardAdmission{}, fmt.Errorf("admission counters moved backwards: before=%d/%d after=%d/%d", routedBefore, fallbackBefore, routedAfter, fallbackAfter)
+	}
+	routedDelta := routedAfter - routedBefore
+	fallbackDelta := fallbackAfter - fallbackBefore
+	classification := "production_ineligible"
+	switch {
+	case routedDelta > 0 && fallbackDelta > 0:
+		classification = "invalid"
+	case routedDelta > 0:
+		classification = "compact"
+	case fallbackDelta > 0:
+		classification = "production_fallback"
+	}
+	reason := ""
+	if fallbackDelta > 0 {
+		reason = gotreesitter.AdmissionCandidateLastFallbackReason()
+	}
+	return t0CardAdmission{
+		RoutedDelta:    routedDelta,
+		FallbackDelta:  fallbackDelta,
+		FallbackReason: reason,
+		Classification: classification,
+	}, nil
 }
 
 func t0CardRuntimeFrom(rt gotreesitter.ParseRuntime, stoppedEarly bool) t0CardRuntime {

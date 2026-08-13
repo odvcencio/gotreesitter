@@ -26,7 +26,7 @@ const (
 	t0CardEnvSourceStatus = "GTS_T0_CARD_SOURCE_STATUS"
 	t0CardEnvOutput       = "GTS_T0_CARD_OUT"
 	t0CardEnvTimeoutMS    = "GTS_T0_CARD_TIMEOUT_MS"
-	t0CardReceiptSchema   = "gts-t0-card/v1"
+	t0CardReceiptSchema   = "gts-t0-card/v2"
 )
 
 type t0SourceStatusRow struct {
@@ -45,6 +45,13 @@ type t0CardGoAttempt struct {
 	LogicalRung    string `json:"logical_rung"`
 	OperationCause string `json:"operation_cause"`
 	RootEndByte    uint32 `json:"root_end_byte"`
+}
+
+type t0CardGoAdmission struct {
+	RoutedDelta    uint64 `json:"routed_delta"`
+	FallbackDelta  uint64 `json:"fallback_delta"`
+	FallbackReason string `json:"fallback_reason"`
+	Classification string `json:"classification"`
 }
 
 type t0CardGoRuntime struct {
@@ -67,6 +74,7 @@ type t0CardGoParse struct {
 	TotalAllocBytes              uint64            `json:"total_alloc_bytes"`
 	Attempts                     []t0CardGoAttempt `json:"attempts"`
 	SelectedRetryRung            string            `json:"selected_retry_rung"`
+	Admission                    t0CardGoAdmission `json:"admission"`
 	TreePresent                  bool              `json:"tree_present"`
 	RootStartByte                uint32            `json:"root_start_byte"`
 	RootEndByte                  uint32            `json:"root_end_byte"`
@@ -228,7 +236,7 @@ func TestT0RuntimeFactsCard(t *testing.T) {
 	if err := t0WriteReceipt(outPath, receipt); err != nil {
 		t.Fatalf("write T0 receipt: %v", err)
 	}
-	t.Logf("T0 card %s/%s: Go/C digest=%s Go RSS=%d C RSS=%d", language, cardPath, goResult.Parse.DeepTreeSHA256, goResult.Parse.PeakRSSBytes, cAdmission.CgoPeakRSSBytes)
+	t.Logf("T0 card %s/%s: route=%s routed=%d fallback=%d Go/C digest=%s Go RSS=%d C RSS=%d", language, cardPath, goResult.Parse.Admission.Classification, goResult.Parse.Admission.RoutedDelta, goResult.Parse.Admission.FallbackDelta, goResult.Parse.DeepTreeSHA256, goResult.Parse.PeakRSSBytes, cAdmission.CgoPeakRSSBytes)
 }
 
 func t0CardGateEnabled() bool {
@@ -391,7 +399,7 @@ func t0BuildGoChild(t testing.TB, revision string) t0CardChildBuild {
 	return t0CardChildBuild{
 		Path: path,
 		Identity: t0GoChildIdentity{
-			Schema:            "gts-t0-card-go-child/v1",
+			Schema:            "gts-t0-card-go-child/v2",
 			BinarySHA256:      hex.EncodeToString(sum[:]),
 			CandidateRevision: revision,
 			BuildTags:         []string{"gts_workcount"},
@@ -442,21 +450,40 @@ func t0RunGoChild(t testing.TB, child t0CardChildBuild, language, source string,
 
 func t0ValidateGoResult(t testing.TB, result t0CardGoResponse, language string, sourceBytes int, sourceSHA, revision string) {
 	t.Helper()
-	if result.Schema != "gts-t0-card-go-child/v1" || result.Language != language || result.SourceBytes != sourceBytes || result.SourceSHA256 != sourceSHA {
+	if result.Schema != "gts-t0-card-go-child/v2" || result.Language != language || result.SourceBytes != sourceBytes || result.SourceSHA256 != sourceSHA {
 		t.Fatalf("incomplete Go child identity: schema=%q language=%q bytes=%d sha=%q", result.Schema, result.Language, result.SourceBytes, result.SourceSHA256)
 	}
 	if result.BuildModified || result.CandidateRevision != revision {
 		t.Fatalf("Go child build identity revision=%q modified=%t, want %q clean", result.CandidateRevision, result.BuildModified, revision)
 	}
 	parse := result.Parse
-	if len(parse.Attempts) == 0 || parse.SelectedRetryRung == "" || !parse.TreePresent || parse.DeepTreeSHA256 == "" {
+	switch parse.Admission.Classification {
+	case "compact":
+		if parse.Admission.RoutedDelta != 1 || parse.Admission.FallbackDelta != 0 {
+			t.Fatalf("invalid compact admission receipt: %+v", parse.Admission)
+		}
+	case "production_fallback":
+		if parse.Admission.RoutedDelta != 0 || parse.Admission.FallbackDelta != 1 || parse.Admission.FallbackReason == "" {
+			t.Fatalf("invalid production fallback admission receipt: %+v", parse.Admission)
+		}
+	case "production_ineligible":
+		if parse.Admission.RoutedDelta != 0 || parse.Admission.FallbackDelta != 0 {
+			t.Fatalf("invalid ineligible admission receipt: %+v", parse.Admission)
+		}
+	default:
+		t.Fatalf("unknown admission classification: %+v", parse.Admission)
+	}
+	if parse.Admission.Classification != "compact" && (len(parse.Attempts) == 0 || parse.SelectedRetryRung == "") {
 		t.Fatalf("Go child omitted required parse facts: %+v", parse)
 	}
 	if parse.RootStartByte != 0 || parse.RootEndByte != uint32(sourceBytes) || parse.RootHasError || parse.Runtime.StoppedEarly {
 		t.Fatalf("Go child did not produce a clean full-span tree: root=[%d,%d) bytes=%d error=%t stopped=%t", parse.RootStartByte, parse.RootEndByte, sourceBytes, parse.RootHasError, parse.Runtime.StoppedEarly)
 	}
-	if parse.PeakRSSBytes == 0 || parse.RSSSource == "" || parse.Runtime.ArenaBytesAllocated <= 0 || parse.Runtime.GSSBytesAllocated < 0 || parse.Runtime.MaterializationNanos < 0 || parse.TreeObservationRetainedNanos < 0 {
+	if parse.PeakRSSBytes == 0 || parse.RSSSource == "" || parse.Runtime.GSSBytesAllocated < 0 || parse.Runtime.MaterializationNanos < 0 || parse.TreeObservationRetainedNanos < 0 {
 		t.Fatalf("Go child omitted runtime facts: rss=%d source=%q arena=%d gss=%d materialization=%d retained=%d", parse.PeakRSSBytes, parse.RSSSource, parse.Runtime.ArenaBytesAllocated, parse.Runtime.GSSBytesAllocated, parse.Runtime.MaterializationNanos, parse.TreeObservationRetainedNanos)
+	}
+	if parse.Admission.Classification != "compact" && parse.Runtime.ArenaBytesAllocated <= 0 {
+		t.Fatalf("production Go child omitted arena facts: route=%s arena=%d", parse.Admission.Classification, parse.Runtime.ArenaBytesAllocated)
 	}
 }
 
