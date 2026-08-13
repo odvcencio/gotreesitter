@@ -23,34 +23,76 @@ The accepted local C0 profile records a separate noise floor: 7.367% to 10.803% 
 
 ## C0f fleet board
 
-Signal definition: `axis.status == "ok" and predicates.ratio_interpretable == true; timer threshold 1000 ns`.
+The current board is `c0f-b09e3d9-r2-20260813T022827Z`. It uses revision
+`b09e3d997690ec2b5d34a4a84310b5ebe06e14c6`, the 206-language corpus lock, and
+bundle digest `67871ab7e453d8848e7f0265725fc54dbf6cd7cba0b8902bd1a2c2d6940c4ef8`.
+It is partially gated and grants no performance credit.
 
-Signal rows: **1315**; Go time: **436257955255 ns**; C time: **39840435812 ns**; ratio-by-total: **10.950130x**.
+Signal definition: `full.status == "ok" and full.c_median_ns >= 1000`.
+
+Signal rows: **1,325**; Go time: **353011159791 ns**; C time:
+**41704371680 ns**; ratio-by-total: **8.464608x**.
 
 | Class | Rows | Go ns | C ns | Ratio by total | Go share | Local Go gap |
 |---|---:|---:|---:|---:|---:|---:|
-| clean | 871 | 121024265439 | 16610014247 | 7.286223x | 27.7414% | 86.2755% |
-| error | 444 | 315233689816 | 23230421565 | 13.569865x | 72.2586% | 92.6307% |
+| clean | 871 | 76310525415 | 16827373226 | 4.534905x | 21.6170% | 77.9894% |
+| error | 454 | 276700634376 | 24876998454 | 11.122750x | 78.3830% | 92.2688% |
 
-F0 counts: 1,435 rows; 876 clean; 534 error; 25 stopped; 1,317 measured-ok; 2 hygiene rows; 1,315 ratio-eligible; 808 clean rows above 3.0x before hygiene and 806 after hygiene.
+The run measured 1,428 files and evaluated 1,327 full parses. Runtime facts
+cover 1,374 of 1,428 rows and 99.0691% of signal Go time. The seven partial
+rows used automatic forest results during diagnostic capture.
+
+The targeted correction used revision `5067343eae3d2c3291bbbfbe918a71e4e3d871ea`.
+It covered 24 files, produced 24 complete runtime records, and produced zero
+forest records. Its bundle digest is
+`ce1fa135c9e350543bc2c7fd8ceffb62eef349141e72602178541c08a7fc6a15`.
+
+This confirmation proves the defect class and the diagnostic remedy. It does
+not approve the public route-control implementation.
 
 ## Weighted cohort ceilings
 
-The recovery row is an observable error-class proxy. The other cohorts lack runtime facts in V10. Their 100% values are upper bounds, not performance credit.
+The current run supplies runtime facts for the listed cohorts. Presence shares
+are upper bounds. Projected timed equivalents remain estimates, not credit.
 
-| Cohort | Observed | Rows | Go share | Local gap | Ceiling |
-|---|---:|---:|---:|---:|---:|
-| recovery | true | 444 | 72.2586% | 92.6307% | 72.3% |
-| alternative_lifetime | false | 0 | 0.0000% | 0.0000% | 100.0% |
-| scanner_boundary | false | 0 | 0.0000% | 0.0000% | 100.0% |
-| materialization | false | 0 | 0.0000% | 0.0000% | 100.0% |
+| Cohort | Rows | Languages | Go share | Decision |
+|---|---:|---:|---:|---|
+| recovery entry | 434 | 97 | 73.5438% | admit B16 evidence |
+| retry attempt | 156 | 45 | 62.2130% | admit retry transcript |
+| selected retry | 36 | 15 | 19.8017% | admit retry selection study |
+| retained initial result | 120 | 44 | 42.4113% | admit retry waste study |
+| multiple live versions | 423 | 93 | 72.8857% | admit lifetime study |
+| scanner resynchronization | 9 | 2 | 0.4752% | reject broad scanner work |
+| materialization present | 1,271 | 190 | 99.0691% | use timed estimate only |
 
-Selection formula: `projected_saved_go_ns / sum(go_median_ns over measured signal rows) >= 0.02`. C0f cannot evaluate the numerator for the three unobserved cohorts.
+| Projected mechanism | Signal Go share | Decision |
+|---|---:|---|
+| retry outer remainder | 48.6510% | instrumentation only |
+| recovery cost walk | 15.3249% | admit B16 mechanism search |
+| alternative lifetime | 16.8853% | admit lifetime investigation |
+| scanner boundary | 0.0208% | reject broad scanner work |
+| materialization | 11.4409% | admit grouped study |
+
+The retry remainder includes outer parse work and losing attempts. Do not treat
+it as a pure retry-cost estimate.
 
 ## Findings and conflicts
 
 - **legacy-share-boundary — resolved.** The accepted C0 profile assigns different named boundaries. Wide scheduler-family shares are 80.3-84.8%; dispatch plus reductions are 47.6-56.2%. Do not use any legacy percentage without its boundary.
 - **sealed-share-join — unresolved.** The sealed board contains ratios and A/A nulls, but no component profile. The local C0 profile is a different host and diagnostic instrument. Keep C0e ratios and C0e noise evidence separate from C0f fleet shares.
-- **fleet-mechanism-facts — unresolved.** The V10 scoreboard and F0 manifest contain class, stop, timing, recovery memo, and oracle fields. They contain no retry count, recovery-cost counter, live-version lifetime, scanner-call density, or materialization-work counter. Do not admit a mechanism or claim the 2% selection ceiling until a trace lane supplies these facts.
+- **fleet-mechanism-facts — partially resolved.** The R2 runtime lane supplies retry, recovery, lifetime, scanner, and materialization facts for 99.0691% of signal Go time. The seven partial records require the private diagnostic forest control and a repeated 24-file confirmation at the final pull-request head. Do not award performance credit.
 - **hygiene-provenance — unresolved.** F0 records 1000 ns as a fixed reporting policy, but the V10 metadata has no timer calibration or pre-run threshold record. Treat the F0 hygiene denominator as queryable evidence, not sealed C6f acceptance proof, until threshold provenance is attached.
 - **error-byte-denominator — unresolved.** F0 signal bytes give 84,094,345 / 260,884,819 = 32.2343%. R1 does not define the 39.0% byte denominator, so the values cannot be reconciled from this artifact. Publish both denominators and do not blend them.
+
+## Closure gates
+
+Close this board only after the following gates pass:
+
+- restore the admission-switch contract;
+- add a private diagnostic control for automatic forest routes;
+- repeat the 24-file confirmation at the final pull-request head;
+- pass the affected focused tests and required Continuous Integration checks;
+- amend the analyzer receipt with zero present partial rows.
+
+C0e remains a separate Phase-1 obligation. Its sealed board remains 3.986x with
+four fixtures above 3.0x.
