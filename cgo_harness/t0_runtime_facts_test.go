@@ -324,7 +324,7 @@ func t0GitRevision(t testing.TB) (string, bool) {
 
 func t0GitOutput(dir string, args ...string) (string, error) {
 	commandArgs := append([]string{"-C", dir}, args...)
-	command := exec.Command("git", commandArgs...)
+	command := exec.Command("git", append([]string{"-c", "safe.directory=*"}, commandArgs...)...)
 	data, err := command.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
