@@ -346,6 +346,30 @@ Diagnostic log:
 Keep this card open as a correctness residual. Do not use it for mechanism
 evidence or performance credit.
 
+### Card 20 parity residual
+
+Card 20, PureScript `src/Data/EuclideanRing.purs`, reached the runtime facts
+gate but failed the locked-C deep-tree identity. The run did not produce an
+accepted machine receipt.
+
+The source has 4,059 bytes and SHA-256
+`15d83e118a173ae91fff5b12152afdacc549c12da0a541602d0cf5d702fae863`.
+The first divergence is `/purescript/class_declaration[56]`. Go ends the node
+at byte 3,311; C ends it at byte 3,309. Later expressions select `exp_apply`
+in Go and `exp_name` in C, with named child nodes where C has unnamed tokens.
+
+The Go digest was
+`c65dd00ae3efe178a59cdca150986269662871eb65f2725370693dd7b9045c77`.
+The C digest was
+`80e5ee05c1a5fd2067390eaea5c2f45ff468171967c48d2aeb4ddcd736e94f75`.
+The run produced no out-of-memory stop and no wall timeout.
+
+Diagnostic log:
+`harness_out/docker/20260813T150433Z-t0-purescript-euclideanring-parity-diagnostic-v1/container.log`.
+
+Keep this card open as a correctness residual. Do not use it for mechanism
+evidence or performance credit.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -361,7 +385,9 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for card 20.
+All seven previously pending T0 cards now have receipts. Card 11 is parity
+clean but telemetry-incomplete. Cards 14, 15, 16, 19, and 20 are parity
+residuals.
 Keep cards 4, 5, 6, 7, and 10 open as parity or instrumentation residuals until their exact tree differences
 are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
