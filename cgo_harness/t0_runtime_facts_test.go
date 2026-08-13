@@ -341,9 +341,18 @@ func t0BuildGoChild(t testing.TB, revision string) t0CardChildBuild {
 	if err != nil {
 		t.Fatalf("resolve Go repository: %v", err)
 	}
+	gitHome := t.TempDir()
+	gitEnv := t0EnvWithOverrides(os.Environ(), map[string]string{"HOME": gitHome})
 	sourceDir := filepath.Join(t.TempDir(), "t0-card-source")
+	for _, safeDir := range []string{repoRoot, filepath.Join(repoRoot, ".git")} {
+		configureGit := exec.Command("git", "config", "--global", "--add", "safe.directory", safeDir)
+		configureGit.Env = gitEnv
+		if output, err := configureGit.CombinedOutput(); err != nil {
+			t.Fatalf("configure safe T0 child source directory %s: %v: %s", safeDir, err, strings.TrimSpace(string(output)))
+		}
+	}
 	clone := exec.Command("git", "-c", "safe.directory=*", "clone", "--no-local", repoRoot, sourceDir)
-	clone.Env = t0EnvWithOverrides(os.Environ(), map[string]string{
+	clone.Env = t0EnvWithOverrides(gitEnv, map[string]string{
 		"GIT_CONFIG_COUNT":   "1",
 		"GIT_CONFIG_KEY_0":   "safe.directory",
 		"GIT_CONFIG_VALUE_0": "*",
@@ -357,7 +366,7 @@ func t0BuildGoChild(t testing.TB, revision string) t0CardChildBuild {
 	path := filepath.Join(t.TempDir(), "t0-card-child")
 	command := exec.Command("go", "build", "-trimpath", "-buildvcs=true", "-tags", "gts_workcount", "-o", path, "./cmd/t0_card_child")
 	command.Dir = sourceDir
-	command.Env = t0EnvWithOverrides(os.Environ(), map[string]string{
+	command.Env = t0EnvWithOverrides(gitEnv, map[string]string{
 		"CGO_ENABLED":        "0",
 		"GOWORK":             "off",
 		"GIT_CONFIG_COUNT":   "1",
