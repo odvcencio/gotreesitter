@@ -4,9 +4,9 @@ Receipt ID: `b0-witness-restoration-v1`
 
 Authority: Hyphae `spec.campaign.v7`, Revision R1, Phase 1, unit 1.4.
 
-Audit time: `2026-08-11T22:30:10Z`.
+Audit time: `2026-08-13T14:22:02Z`.
 
-Audit tree: `f13d192e7e768639821c93a40a3f83b477ed66de`.
+Audit tree: `57cd672df44891fb403c0b1d220de3d6bb481aed`.
 
 ## Verdict
 
@@ -79,7 +79,17 @@ timeout.
 
 Run artifact:
 
-`/tmp/gotreesitter-r1-b0/harness_out/docker/20260811T223010Z/`
+`harness_out/docker/20260813T142202Z-b0-current-20260813-v2/`
+
+The current container log SHA-256 is
+`07b1539b81642feddc8a01b55d1a8c43e0b6ce6f96bbc09c4ee3b7157134638b`.
+The metadata SHA-256 is
+`88f9903662e138818182454668fa31185884527bb802054211f08619c38cd8f0`.
+The inspection SHA-256 is
+`42ea13ebb65ec79254512b164d756fdffdfb79f5125a0540d4ff64bcf2c841cc`.
+
+The current run completed in 1.25 seconds with exit code zero. It reported no
+out-of-memory kill and no wall timeout.
 
 The gate also reports the existing structural findings. Production differs
 from the C oracle on all 20 records below the root. This is outside B0.
@@ -91,4 +101,5 @@ fuzz harness. Pin every source, seed, oracle revision, and digest.
 
 Keep the compact route unchanged until the restored denominator is available.
 
-This receipt changes no parser code and no benchmark input.
+This receipt changes no parser code and no benchmark input. The current run
+supersedes the earlier partial-gate artifact without changing the verdict.
