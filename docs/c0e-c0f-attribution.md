@@ -96,3 +96,25 @@ Close this board only after the following gates pass:
 
 C0e remains a separate Phase-1 obligation. Its sealed board remains 3.986x with
 four fixtures above 3.0x.
+
+## Final-head closure status
+
+The current open campaign pull request is [#683](https://github.com/odvcencio/gotreesitter/pull/683)
+at head `1095aff7aba4a7c7df85da6e7cf9be918063c269`. No final-head C0f fleet
+receipt exists for that commit.
+
+The current board at `b09e3d997690ec2b5d34a4a84310b5ebe06e14c6` remains the
+latest retained diagnostic board. It measured 1,428 files, 1,327 full parses,
+and 99.0691% of signal Go time with runtime facts. Its clean and error ratios
+were 4.534905x and 11.122750x.
+
+The separate candidate comment for commit
+`fa4cf65b89a794f71d3af354a360c5c616a1bce1` reported 1,428 of 1,435 files,
+341 hard-gate findings, clean aggregate and median of 4.4992x and 3.1448x,
+and error aggregate and median of 11.1664x and 4.0921x. Keep those values as
+candidate evidence only; do not merge them into the `b09e3d9` board.
+
+Run the final-head fleet only after authenticated GCP access succeeds. Require
+the unchanged 206-language corpus lock, complete file coverage, route-control
+proof, runtime attribution, and hygiene provenance. Until then, C0f remains
+open, the grant freeze remains active, and no performance credit is allowed.
