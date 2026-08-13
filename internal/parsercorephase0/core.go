@@ -6,8 +6,9 @@
 // (memory budget, deadline, cancellation) bounds a large input instead of a
 // source-length eligibility decline.
 //
-// The engine consumes a dependency-neutral TableView. It does not own a
-// lexer, an external-scanner election, recovery, retries, or included
+// The engine consumes a dependency-neutral TableView. It owns compact stack
+// advancement and the admitted error-region recovery stages. It does not own
+// lexer selection, external-scanner election, retry policy, or included
 // ranges. Incremental parsing stays on the production engine.
 //
 // The engine fails closed. A decline at any eligibility check, or during
