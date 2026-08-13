@@ -194,6 +194,28 @@ instrumentation. Do not use it as a no-memo control or for performance credit.
 Diagnostic log:
 `harness_out/docker/20260813T144602Z-t0-perl-corelist-parity-diagnostic-v1/container.log`.
 
+### Card 10 parity residual
+
+Card 10, Solidity `test/utils/Packing.t.sol`, is not evidence-complete. The
+locked-C gate found a structural mismatch before runtime facts could be written.
+
+The source has 44,712 bytes and SHA-256
+`f634a75c5d44a38de450d9e8314ba4ccf727ad6a6eaf316aafc3c3b139e34cdc`.
+The first divergence is
+`/source_file/contract_declaration[5]/contract_body[4]/function_definition[58]/function_body[11]/statement[1]/expression_statement[0]/expression[0]/assignment_expression[0]/expression[2]/call_expression[0]`.
+Go selects `call_expression`; C selects `type_cast_expression`. The mismatch
+also changes the `uint8` node from an unnamed C token to a named Go node and
+continues across many later expressions.
+
+The Go digest was
+`13e074c354a6c4e8d6488824b040631ba92f0f43bdcc09732946ae39a32412d2`.
+The C digest was
+`298f236b4ca4bd8d9ae50c75bb019e717c1a29c0365f41d401f575207f459b11`.
+The run produced no out-of-memory stop and no wall timeout.
+
+Diagnostic log:
+`harness_out/docker/20260813T144816Z-t0-solidity-packing-parity-diagnostic-v1/container.log`.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -209,8 +231,8 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for cards 10, 11, 14, 15, 16, 19, and 20.
-Keep cards 4, 5, 6, and 7 open as parity or instrumentation residuals until their exact tree differences
+First collect the missing runtime facts for cards 11, 14, 15, 16, 19, and 20.
+Keep cards 4, 5, 6, 7, and 10 open as parity or instrumentation residuals until their exact tree differences
 are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
 Use the B16 selected-rung telemetry for retry attribution.
