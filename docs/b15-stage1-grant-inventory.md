@@ -3,7 +3,7 @@
 Status: implemented
 
 This receipt records the B15 stage 1 inventory at gotreesitter commit
-`65c9472806bdaa9f98d7eff0e19c0b2d53ef84d5`.
+`5d2924139b67a15570c1defb534391c57a4ba556`.
 
 Revision R1 remains the operative authority. Decision D2 freezes all
 admission exceptions. This receipt changes no grant, route, language name,
@@ -64,3 +64,9 @@ still permit admission when that machinery cannot prove the required property.
 The 18 sites therefore remain shadow-classified as exception sites. Stage 2
 may evacuate a site only after its generic proof receipt passes and the site
 continues to pass exact locked-C parity.
+
+This refresh changes documentation only. It confirms that the 18 grant paths
+and their proof gaps still match the current source. No grant receives credit.
+
+The durable signed receipt is
+`hypha-receipt:2026-08-13:b15-stage1-current-v1`.
