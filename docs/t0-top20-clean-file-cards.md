@@ -257,6 +257,34 @@ Diagnostic logs:
 Keep this card as compact-route evidence. Do not use it as a no-memo control or
 grant performance credit.
 
+### Card 12 runtime-facts control
+
+Card 12, Requirements
+`test/integration/targets/ansible-test-integration-constraints/ansible_collections/ns/col/tests/integration/requirements.txt`, has a complete evidence-only receipt. The source has nine bytes and SHA-256
+`21d94dafd767c22de542deba74a9d2844e47054848a8116a2665619b5d5a8a39`.
+The locked source is clean at commit
+`fc5931c90beabea7b62747d2bc3038572c732f11`.
+
+The Go and locked-C deep digest is
+`7275ade5df87f05df55c8706333fc217f821fdf04ee9e35674301949cafdacf1`.
+The Go tree spans `0..9` without an error or early stop. The compact route
+served the parse with one routed event and zero fallbacks. No retry ran, and
+the recovery memo tier stayed none.
+
+The authenticated compact scheduler used 162,869 nanoseconds and the
+materializer used 846,292 nanoseconds. Its retained footprint was 1,480 bytes.
+The selected tree had three nodes, two parents, and one leaf. The compact
+scratch receipt recorded 64 postorder frames. Go allocated 3,152,672 bytes and
+reached 11,227,136 bytes of resident memory. The locked C oracle reached
+188,416 bytes of resident memory.
+
+The receipt is `harness_out/t0-requirements-integration-card-v1.json` with
+SHA-256
+`a9cca3758c7956eb3fb0f32225dd45d95d1bdc61c75224227b430bb975f97374`.
+The Docker log SHA-256 is
+`f4128e59b3625d28032dae324d1fc90067e222bbdabececadf65ad29273ddc05`.
+This control grants no performance credit.
+
 ### Card 13 runtime-facts control
 
 Card 13, TOML `.prettierrc.toml`, has a complete evidence-only receipt. The
@@ -426,15 +454,16 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-All seven previously pending T0 cards now have receipts. Card 11 is parity
-clean and route-confirmed. Card 7 still needs a route-aware receipt. Cards 7,
-14, 15, 16, 19, and 20 are parity residuals.
-Keep cards 4, 5, 6, 7, and 10 open as parity or route-facts residuals until their exact tree differences
-are resolved or explicitly accepted as campaign residuals.
+All seven previously pending T0 cards now have receipts. Cards 11, 12, and 13
+are parity-clean and route-confirmed. Card 7 still needs a route-aware receipt.
+Cards 7, 14, 15, 16, 19, and 20 are parity residuals.
+Keep cards 4, 5, 6, 7, and 10 open as parity or route-facts residuals until
+their exact tree differences are resolved or explicitly accepted as campaign
+residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
 Use the B16 selected-rung telemetry for retry attribution.
 Do not admit a performance change until the card matrix has a generic predicate.
 
-The next T0 collector change must record admission routed and fallback counts.
+The T0 collector records admission routed and fallback counts.
 Treat a zero classic runtime record as compact-route evidence only after that
 route marker is present. Do not infer route selection from zero counters alone.
