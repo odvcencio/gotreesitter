@@ -221,3 +221,36 @@ It does not authorize a parser route change.
 It does not authorize a language-specific exception.
 
 The next receipt must include the exact D0 command, source revision, corpus digest, and full difference table.
+
+## Current-head recheck
+
+The current-head Docker recheck used commit
+`7cf1cb3d5b65ad877bb8d2143aa049d1fd174af8` and the D0, D1 safety, and
+singleton-version tests. It produced the current recut already described
+above:
+
+- constructed corpus: 104 sources, 95 compared, 15 extra, 1 missing, 5
+  different, 0 order, and 21 total set differences;
+- full corpus: 113 sources, 100 compared, 15 extra, 1 missing, 6 different,
+  0 order, and 22 total set differences;
+- mechanism counts: 13 condense-class, 4 token-class, and 4 unattributed on
+  the constructed corpus;
+- order-undetermined records: 5.
+
+The D1 arrival-order counterexample and singleton-version tests passed. The
+D0 witness and baseline tests exited nonzero because their committed
+expectations still contain the historical Ada classifications and the old
+constructed total of 32. The output identifies two Ada classifications that
+now report `EXTRA` instead of `EXTRA DIFFERENT`. This is evidence drift, not a
+parser route change.
+
+Run artifact:
+`harness_out/docker/20260813T183757Z-a8-current-head-v1/`.
+
+- Container log SHA-256: `6510729df18f22b2c366d34854e8d3ea3aa06f7239e0b11091f91c55b5a228bf`.
+- Metadata SHA-256: `968e4a69547a8bcae22088e8039f73e4df6d7e3f055aed1ea18aff51bbc3e9e6`.
+- Inspection SHA-256: `195b4a52bb06d71f1f91e8f0d73addd29685bacefbd10c36d1d1127097c73ac3`.
+
+Keep the historical test pins unchanged until the evidence owner accepts the
+recut. Do not use this receipt to admit B15 grants, change routing, or claim
+performance credit.
