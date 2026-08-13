@@ -173,6 +173,27 @@ The run produced no out-of-memory stop and no wall timeout.
 Diagnostic log:
 `harness_out/docker/20260813T144335Z-t0-scala-namers-parity-diagnostic-v1/container.log`.
 
+### Card 7 parity and instrumentation residual
+
+Card 7, Perl `dist/Module-CoreList/lib/Module/CoreList.pm`, did not produce a
+complete runtime-facts receipt. The full tree reached the end of the source,
+but the Go child emitted no retry or parser-runtime counters. A parity-only
+probe also found structural differences.
+
+The source has 1,266,636 bytes and SHA-256
+`51ed1b05b1d76cdd9a350e9f839a87e0aa14061f8a1042d50fe1a776d459802c`.
+The first parity divergence is
+`/source_file/subroutine_declaration_statement[10]/block[2]/expression_statement[2]/conditional_expression[0]/ambiguous_function_call_expression[1]`.
+Go selects `ambiguous_function_call_expression`; C selects
+`equality_expression`. The probe found additional type and field differences.
+
+The T0 collector run had Go peak resident set size 252,784,640 bytes, but no
+runtime facts. Keep this card open for both parser parity and collector
+instrumentation. Do not use it as a no-memo control or for performance credit.
+
+Diagnostic log:
+`harness_out/docker/20260813T144602Z-t0-perl-corelist-parity-diagnostic-v1/container.log`.
+
 ## Generated-file hypothesis
 
 The current data supports a memo-bearing cohort.
@@ -188,8 +209,8 @@ Reject the mechanism when the result requires a language or file exception.
 
 ## Next bounded tranche
 
-First collect the missing runtime facts for cards 7, 10, 11, 14, 15, 16, 19, and 20.
-Keep cards 4, 5, and 6 open as parity residuals until their exact tree differences
+First collect the missing runtime facts for cards 10, 11, 14, 15, 16, 19, and 20.
+Keep cards 4, 5, 6, and 7 open as parity or instrumentation residuals until their exact tree differences
 are resolved or explicitly accepted as campaign residuals.
 Keep cards 8, 9, 12, 13, and 18 as hygiene or scale controls.
 Use the B16 selected-rung telemetry for retry attribution.
