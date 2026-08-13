@@ -17,6 +17,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	gotreesitter "github.com/odvcencio/gotreesitter"
 )
 
 const (
@@ -26,7 +28,7 @@ const (
 	t0CardEnvSourceStatus = "GTS_T0_CARD_SOURCE_STATUS"
 	t0CardEnvOutput       = "GTS_T0_CARD_OUT"
 	t0CardEnvTimeoutMS    = "GTS_T0_CARD_TIMEOUT_MS"
-	t0CardReceiptSchema   = "gts-t0-card/v2"
+	t0CardReceiptSchema   = "gts-t0-card/v3"
 )
 
 type t0SourceStatusRow struct {
@@ -55,18 +57,19 @@ type t0CardGoAdmission struct {
 }
 
 type t0CardGoRuntime struct {
-	StoppedEarly         bool   `json:"stopped_early"`
-	ArenaBytesAllocated  int64  `json:"arena_bytes_allocated"`
-	GSSBytesAllocated    int64  `json:"gss_bytes_allocated"`
-	MaterializationNanos int64  `json:"materialization_nanos"`
-	ParserLoopNanos      int64  `json:"parser_loop_nanos"`
-	ResultSelectionNanos int64  `json:"result_selection_nanos"`
-	ResultTreeBuildNanos int64  `json:"result_tree_build_nanos"`
-	FinalNodes           uint64 `json:"final_nodes"`
-	FinalParentNodes     uint64 `json:"final_parent_nodes"`
-	FinalLeafNodes       uint64 `json:"final_leaf_nodes"`
-	FinalChildSlices     uint64 `json:"final_child_slices"`
-	FinalChildPointers   uint64 `json:"final_child_pointers"`
+	StoppedEarly         bool                                  `json:"stopped_early"`
+	ArenaBytesAllocated  int64                                 `json:"arena_bytes_allocated"`
+	GSSBytesAllocated    int64                                 `json:"gss_bytes_allocated"`
+	MaterializationNanos int64                                 `json:"materialization_nanos"`
+	ParserLoopNanos      int64                                 `json:"parser_loop_nanos"`
+	ResultSelectionNanos int64                                 `json:"result_selection_nanos"`
+	ResultTreeBuildNanos int64                                 `json:"result_tree_build_nanos"`
+	FinalNodes           uint64                                `json:"final_nodes"`
+	FinalParentNodes     uint64                                `json:"final_parent_nodes"`
+	FinalLeafNodes       uint64                                `json:"final_leaf_nodes"`
+	FinalChildSlices     uint64                                `json:"final_child_slices"`
+	FinalChildPointers   uint64                                `json:"final_child_pointers"`
+	Compact              gotreesitter.CompactParserCoreRuntime `json:"compact"`
 }
 
 type t0CardGoParse struct {
@@ -109,6 +112,7 @@ type t0CardProcessContract struct {
 	ChildTimeout    string `json:"child_timeout"`
 	RSSSource       string `json:"rss_source"`
 	Materialization string `json:"materialization_formula"`
+	CompactRuntime  string `json:"compact_runtime_contract"`
 }
 
 type t0CardReceipt struct {
@@ -231,6 +235,7 @@ func TestT0RuntimeFactsCard(t *testing.T) {
 			ChildTimeout:    timeout.String(),
 			RSSSource:       "linux /proc/self/status VmHWM for Go; managed child polling for C",
 			Materialization: "sum of ParseRuntime result-selection, transient-parent, result-tree, transient-child, final-root, trailing, root-normalization, compatibility, and parent-link timings; components may overlap",
+			CompactRuntime:  "GOT_PARSE_PHASE_TIMING=1; authenticated scheduler and materialization timing; Core.FootprintBytes capacity; scratch values are retained element capacities",
 		},
 	}
 	if err := t0WriteReceipt(outPath, receipt); err != nil {
@@ -399,7 +404,7 @@ func t0BuildGoChild(t testing.TB, revision string) t0CardChildBuild {
 	return t0CardChildBuild{
 		Path: path,
 		Identity: t0GoChildIdentity{
-			Schema:            "gts-t0-card-go-child/v2",
+			Schema:            "gts-t0-card-go-child/v3",
 			BinarySHA256:      hex.EncodeToString(sum[:]),
 			CandidateRevision: revision,
 			BuildTags:         []string{"gts_workcount"},
@@ -435,7 +440,10 @@ func t0RunGoChild(t testing.TB, child t0CardChildBuild, language, source string,
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	command := exec.CommandContext(ctx, child.Path, "-language", language, "-source", source)
-	command.Env = t0EnvWithOverrides(os.Environ(), map[string]string{"GOMAXPROCS": "1"})
+	command.Env = t0EnvWithOverrides(os.Environ(), map[string]string{
+		"GOMAXPROCS":             "1",
+		"GOT_PARSE_PHASE_TIMING": "1",
+	})
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("run T0 Go child: %v: %s", err, strings.TrimSpace(string(output)))
@@ -450,7 +458,7 @@ func t0RunGoChild(t testing.TB, child t0CardChildBuild, language, source string,
 
 func t0ValidateGoResult(t testing.TB, result t0CardGoResponse, language string, sourceBytes int, sourceSHA, revision string) {
 	t.Helper()
-	if result.Schema != "gts-t0-card-go-child/v2" || result.Language != language || result.SourceBytes != sourceBytes || result.SourceSHA256 != sourceSHA {
+	if result.Schema != "gts-t0-card-go-child/v3" || result.Language != language || result.SourceBytes != sourceBytes || result.SourceSHA256 != sourceSHA {
 		t.Fatalf("incomplete Go child identity: schema=%q language=%q bytes=%d sha=%q", result.Schema, result.Language, result.SourceBytes, result.SourceSHA256)
 	}
 	if result.BuildModified || result.CandidateRevision != revision {
@@ -481,6 +489,12 @@ func t0ValidateGoResult(t testing.TB, result t0CardGoResponse, language string, 
 	}
 	if parse.PeakRSSBytes == 0 || parse.RSSSource == "" || parse.Runtime.GSSBytesAllocated < 0 || parse.Runtime.MaterializationNanos < 0 || parse.TreeObservationRetainedNanos < 0 {
 		t.Fatalf("Go child omitted runtime facts: rss=%d source=%q arena=%d gss=%d materialization=%d retained=%d", parse.PeakRSSBytes, parse.RSSSource, parse.Runtime.ArenaBytesAllocated, parse.Runtime.GSSBytesAllocated, parse.Runtime.MaterializationNanos, parse.TreeObservationRetainedNanos)
+	}
+	if parse.Admission.Classification == "compact" {
+		compact := parse.Runtime.Compact
+		if !compact.Authenticated || compact.SchedulerNanos <= 0 || compact.MaterializationNanos < 0 || compact.RetainedFootprintBytes == 0 || compact.CoreStats.Subtrees == 0 || compact.CoreWork.Overflow || compact.SchedulerWork.Overflow {
+			t.Fatalf("compact Go child omitted authenticated compact runtime facts: %+v", compact)
+		}
 	}
 	if parse.Admission.Classification != "compact" && parse.Runtime.ArenaBytesAllocated <= 0 {
 		t.Fatalf("production Go child omitted arena facts: route=%s arena=%d", parse.Admission.Classification, parse.Runtime.ArenaBytesAllocated)

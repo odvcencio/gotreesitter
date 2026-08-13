@@ -20,7 +20,7 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
-const t0CardChildSchema = "gts-t0-card-go-child/v2"
+const t0CardChildSchema = "gts-t0-card-go-child/v3"
 
 type t0CardAttempt struct {
 	LogicalRung        string                       `json:"logical_rung"`
@@ -41,55 +41,56 @@ type t0CardAdmission struct {
 }
 
 type t0CardRuntime struct {
-	StopReason               gotreesitter.ParseStopReason `json:"stop_reason"`
-	StoppedEarly             bool                         `json:"stopped_early"`
-	TokensConsumed           uint64                       `json:"tokens_consumed"`
-	Iterations               int                          `json:"iterations"`
-	NodesAllocated           int                          `json:"nodes_allocated"`
-	ArenaBytesAllocated      int64                        `json:"arena_bytes_allocated"`
-	ArenaBaselineBytes       int64                        `json:"arena_baseline_bytes"`
-	ScratchBytesAllocated    int64                        `json:"scratch_bytes_allocated"`
-	ScratchBaselineBytes     int64                        `json:"scratch_baseline_bytes"`
-	EntryScratchBytes        int64                        `json:"entry_scratch_bytes_allocated"`
-	EntryScratchPeak         uint64                       `json:"entry_scratch_peak"`
-	GSSBytesAllocated        int64                        `json:"gss_bytes_allocated"`
-	GSSBaselineBytes         int64                        `json:"gss_baseline_bytes"`
-	GSSSlabCount             int                          `json:"gss_slab_count"`
-	GSSNodesUsed             int                          `json:"gss_nodes_used"`
-	GSSNodesCapacity         int                          `json:"gss_nodes_capacity"`
-	GSSDemotions             uint64                       `json:"gss_demotions"`
-	GSSNodesDemoted          uint64                       `json:"gss_nodes_demoted"`
-	PeakStackDepth           int                          `json:"peak_stack_depth"`
-	MaxStacksSeen            int                          `json:"max_stacks_seen"`
-	GSSNodesAllocated        uint64                       `json:"gss_nodes_allocated"`
-	GSSNodesRetained         uint64                       `json:"gss_nodes_retained"`
-	GSSNodesDropped          uint64                       `json:"gss_nodes_dropped_same_token"`
-	ParentNodesAllocated     uint64                       `json:"parent_nodes_allocated"`
-	ParentNodesRetained      uint64                       `json:"parent_nodes_retained"`
-	LeafNodesAllocated       uint64                       `json:"leaf_nodes_allocated"`
-	LeafNodesRetained        uint64                       `json:"leaf_nodes_retained"`
-	ParseWallNanos           int64                        `json:"parse_wall_nanos"`
-	ParserLoopNanos          int64                        `json:"parser_loop_nanos"`
-	TokenNextNanos           int64                        `json:"token_next_nanos"`
-	ActionDispatchNanos      int64                        `json:"action_dispatch_nanos"`
-	ActionLookupNanos        int64                        `json:"action_lookup_nanos"`
-	GLRMergeNanos            int64                        `json:"glr_merge_nanos"`
-	GLRCullNanos             int64                        `json:"glr_cull_nanos"`
-	ResultSelectionNanos     int64                        `json:"result_selection_nanos"`
-	TransientParentNanos     int64                        `json:"transient_parent_materialization_nanos"`
-	ResultTreeBuildNanos     int64                        `json:"result_tree_build_nanos"`
-	TransientChildNanos      int64                        `json:"transient_child_materialization_nanos"`
-	ResultFinalizeRootNanos  int64                        `json:"result_finalize_root_nanos"`
-	ResultTrailingNanos      int64                        `json:"result_extend_trailing_nanos"`
-	ResultNormalizeNanos     int64                        `json:"result_normalize_root_start_nanos"`
-	ResultCompatibilityNanos int64                        `json:"result_compatibility_nanos"`
-	ResultParentLinkNanos    int64                        `json:"result_parent_link_nanos"`
-	MaterializationNanos     int64                        `json:"materialization_nanos"`
-	FinalNodes               uint64                       `json:"final_nodes"`
-	FinalParentNodes         uint64                       `json:"final_parent_nodes"`
-	FinalLeafNodes           uint64                       `json:"final_leaf_nodes"`
-	FinalChildSlices         uint64                       `json:"final_child_slices"`
-	FinalChildPointers       uint64                       `json:"final_child_pointers"`
+	StopReason               gotreesitter.ParseStopReason          `json:"stop_reason"`
+	StoppedEarly             bool                                  `json:"stopped_early"`
+	TokensConsumed           uint64                                `json:"tokens_consumed"`
+	Iterations               int                                   `json:"iterations"`
+	NodesAllocated           int                                   `json:"nodes_allocated"`
+	ArenaBytesAllocated      int64                                 `json:"arena_bytes_allocated"`
+	ArenaBaselineBytes       int64                                 `json:"arena_baseline_bytes"`
+	ScratchBytesAllocated    int64                                 `json:"scratch_bytes_allocated"`
+	ScratchBaselineBytes     int64                                 `json:"scratch_baseline_bytes"`
+	EntryScratchBytes        int64                                 `json:"entry_scratch_bytes_allocated"`
+	EntryScratchPeak         uint64                                `json:"entry_scratch_peak"`
+	GSSBytesAllocated        int64                                 `json:"gss_bytes_allocated"`
+	GSSBaselineBytes         int64                                 `json:"gss_baseline_bytes"`
+	GSSSlabCount             int                                   `json:"gss_slab_count"`
+	GSSNodesUsed             int                                   `json:"gss_nodes_used"`
+	GSSNodesCapacity         int                                   `json:"gss_nodes_capacity"`
+	GSSDemotions             uint64                                `json:"gss_demotions"`
+	GSSNodesDemoted          uint64                                `json:"gss_nodes_demoted"`
+	PeakStackDepth           int                                   `json:"peak_stack_depth"`
+	MaxStacksSeen            int                                   `json:"max_stacks_seen"`
+	GSSNodesAllocated        uint64                                `json:"gss_nodes_allocated"`
+	GSSNodesRetained         uint64                                `json:"gss_nodes_retained"`
+	GSSNodesDropped          uint64                                `json:"gss_nodes_dropped_same_token"`
+	ParentNodesAllocated     uint64                                `json:"parent_nodes_allocated"`
+	ParentNodesRetained      uint64                                `json:"parent_nodes_retained"`
+	LeafNodesAllocated       uint64                                `json:"leaf_nodes_allocated"`
+	LeafNodesRetained        uint64                                `json:"leaf_nodes_retained"`
+	ParseWallNanos           int64                                 `json:"parse_wall_nanos"`
+	ParserLoopNanos          int64                                 `json:"parser_loop_nanos"`
+	TokenNextNanos           int64                                 `json:"token_next_nanos"`
+	ActionDispatchNanos      int64                                 `json:"action_dispatch_nanos"`
+	ActionLookupNanos        int64                                 `json:"action_lookup_nanos"`
+	GLRMergeNanos            int64                                 `json:"glr_merge_nanos"`
+	GLRCullNanos             int64                                 `json:"glr_cull_nanos"`
+	ResultSelectionNanos     int64                                 `json:"result_selection_nanos"`
+	TransientParentNanos     int64                                 `json:"transient_parent_materialization_nanos"`
+	ResultTreeBuildNanos     int64                                 `json:"result_tree_build_nanos"`
+	TransientChildNanos      int64                                 `json:"transient_child_materialization_nanos"`
+	ResultFinalizeRootNanos  int64                                 `json:"result_finalize_root_nanos"`
+	ResultTrailingNanos      int64                                 `json:"result_extend_trailing_nanos"`
+	ResultNormalizeNanos     int64                                 `json:"result_normalize_root_start_nanos"`
+	ResultCompatibilityNanos int64                                 `json:"result_compatibility_nanos"`
+	ResultParentLinkNanos    int64                                 `json:"result_parent_link_nanos"`
+	MaterializationNanos     int64                                 `json:"materialization_nanos"`
+	FinalNodes               uint64                                `json:"final_nodes"`
+	FinalParentNodes         uint64                                `json:"final_parent_nodes"`
+	FinalLeafNodes           uint64                                `json:"final_leaf_nodes"`
+	FinalChildSlices         uint64                                `json:"final_child_slices"`
+	FinalChildPointers       uint64                                `json:"final_child_pointers"`
+	Compact                  gotreesitter.CompactParserCoreRuntime `json:"compact"`
 }
 
 type t0CardMemo struct {
@@ -329,6 +330,7 @@ func t0CardRuntimeFrom(rt gotreesitter.ParseRuntime, stoppedEarly bool) t0CardRu
 		FinalNodes:               rt.FinalNodes, FinalParentNodes: rt.FinalParentNodes,
 		FinalLeafNodes: rt.FinalLeafNodes, FinalChildSlices: rt.FinalChildSlices,
 		FinalChildPointers: rt.FinalChildPointers,
+		Compact:            rt.Compact,
 	}
 }
 
