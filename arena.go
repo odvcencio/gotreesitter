@@ -120,6 +120,7 @@ type nodeArena struct {
 	rawShapeSlabCursor              int
 	rawShapeChildSlabs              []rawShapeChildSlab
 	rawShapeChildSlabCursor         int
+	rawShapeHashCache               []rawShapeHashCacheEntry
 	compactCheckpointLeafSlabs      []compactCheckpointLeafSlab
 	compactCheckpointLeafSlabCursor int
 	finalChildSidecars              []finalChildSidecar
@@ -552,6 +553,7 @@ func (a *nodeArena) reset() {
 	a.resetPendingChildEntrySlabs()
 	a.resetRawShapeSlabs()
 	a.resetRawShapeChildSlabs()
+	a.resetRawShapeHashCache()
 	a.resetFinalChildSidecars()
 	a.resetCompactCheckpointLeafSlabs()
 	a.resetNodeFieldMetadataSlabs()
@@ -820,6 +822,13 @@ func (a *nodeArena) resetRawShapeChildSlabs() {
 		slab.used = 0
 	}
 	a.rawShapeChildSlabCursor = 0
+}
+
+func (a *nodeArena) resetRawShapeHashCache() {
+	if a == nil || len(a.rawShapeHashCache) == 0 {
+		return
+	}
+	clear(a.rawShapeHashCache)
 }
 
 func (a *nodeArena) resetFinalChildSidecars() {
@@ -1804,6 +1813,13 @@ func (a *nodeArena) rawShapeChildBytesAllocated() int64 {
 	return total
 }
 
+func (a *nodeArena) rawShapeHashCacheBytesAllocated() int64 {
+	if a == nil {
+		return 0
+	}
+	return rawShapeHashCacheBytesForCap(cap(a.rawShapeHashCache))
+}
+
 func (a *nodeArena) pendingChildEntryCapacity() uint64 {
 	if a == nil {
 		return 0
@@ -1860,6 +1876,7 @@ func (a *nodeArena) recomputeAllocatedBytes() {
 		a.pendingChildEntryBytesAllocated() +
 		a.rawShapeBytesAllocated() +
 		a.rawShapeChildBytesAllocated() +
+		a.rawShapeHashCacheBytesAllocated() +
 		a.finalChildSidecarBytesAllocated() +
 		a.compactCheckpointLeafBytesAllocated() +
 		a.childSliceBytesAllocated() +
@@ -2218,6 +2235,7 @@ func (a *nodeArena) collectArenaBreakdown() *ArenaBreakdown {
 		PendingChildEntryBytesAllocated:     a.pendingChildEntryBytesAllocated(),
 		RawShapeBytesAllocated:              a.rawShapeBytesAllocated(),
 		RawShapeChildBytesAllocated:         a.rawShapeChildBytesAllocated(),
+		RawShapeHashCacheBytesAllocated:     a.rawShapeHashCacheBytesAllocated(),
 		FinalChildSidecarBytesAllocated:     a.finalChildSidecarBytesAllocated(),
 		CompactCheckpointLeafBytesAllocated: a.compactCheckpointLeafBytesAllocated(),
 		PendingChildEntriesAllocated:        a.pendingChildEntriesAllocated,

@@ -7,55 +7,28 @@ type rawShapeRef uint32
 const rawShapeRefIndexBits = 20
 
 type rawShape struct {
-	// Keep the 8-byte fields first. This holds the sidecar header to 24 bytes
-	// on 64-bit targets instead of 32 bytes lost to alignment padding; large
-	// GLR parses retain millions of these headers.
+	// The child count is encoded in the range's low 16 bits, so do not store it
+	// again. Large GLR parses retain millions of these headers.
 	childRange   rawShapeChildRange
 	symbol       Symbol
 	productionID uint16
-	childCount   uint16
-	// contentHash is a bottom-up structural fingerprint over (symbol,
-	// productionID, childCount) plus every child's (symbol, span, and — when
-	// the child itself has a captured raw shape — the child's own
-	// contentHash). Computed once in captureRawShape, when the shape is
-	// captured (children are always captured strictly before their parent, so
-	// every child's contentHash is already populated — this is one linear
-	// pass, not a recursive walk).
-	//
-	// The two existing consumers trust this hash in OPPOSITE directions:
-	//
-	//   - forestRawShapesExactEqualRec (glr_forest.go) trusts a MISMATCH: a
-	//     different hash proves the two shapes are not exactly
-	//     interchangeable (the contrapositive of "equal inputs hash
-	//     equally"), so it fast-rejects without a walk. A MATCH is never
-	//     trusted by itself — it still falls through to the existing exact
-	//     recursive walk as a collision safety net. So this consumer's use of
-	//     the hash never changes what it returns, only whether a fast-reject
-	//     or a full walk produces that answer; it is a provably
-	//     answer-preserving optimization.
-	//
-	//   - rawStackEntryChildPairHashEqual (parser_reduce.go, feeding
-	//     compareRawStackEntriesRec) trusts a MATCH: hash equality plus
-	//     matching symbol/childCount/span is treated as sufficient on its own
-	//     to skip the walk and declare the pair equal, with no fallback
-	//     verification. This is a probabilistic shortcut, not a proof (see
-	//     that function's doc comment) — it accepts the same
-	//     negligible-collision (~2^-64 FNV-1a) tradeoff already used for this
-	//     package's GSS merge-key hashing (see rawShapeComputeContentHash
-	//     below and glr_gss.go). A MISMATCH there falls through to the real
-	//     recursive comparison, unaffected. This direction is the inverse of
-	//     forestRawShapesExactEqualRec's, so a hash collision could change
-	//     this consumer's answer for one child pair; the effect is limited to
-	//     ambiguity tie-break/ordering choices and never touches memory
-	//     safety.
-	//
-	// See the forest link-cap eviction path (glr_forest.go
-	// forestCapReplacementIndex): on shapes with a long shared prefix (e.g.
-	// C# designer-style repeated-statement blocks), that path re-derives the
-	// same "is this exactly the resident's shape" question for every new
-	// alternative, and without this fingerprint each question re-walks the
-	// whole accumulated subtree.
-	contentHash uint64
+}
+
+// rawShapeHashCacheEntry keeps the original 64-bit shape fingerprint outside
+// the per-shape header. A direct-mapped cache bounds its memory cost while
+// preserving the old hash width and collision behavior.
+type rawShapeHashCacheEntry struct {
+	ref  rawShapeRef
+	hash uint64
+}
+
+const rawShapeHashCacheSize = 1 << 15
+
+func rawShapeHashCacheBytesForCap(n int) int64 {
+	if n <= 0 {
+		return 0
+	}
+	return int64(n) * int64(unsafe.Sizeof(rawShapeHashCacheEntry{}))
 }
 
 type rawShapeChild struct {
@@ -186,6 +159,7 @@ func (a *nodeArena) reclaimRawShapeStorage() {
 	// regression on ordinary files.
 	a.resetRawShapeSlabs()
 	a.resetRawShapeChildSlabs()
+	a.resetRawShapeHashCache()
 	a.recomputeAllocatedBytes()
 }
 
@@ -247,6 +221,17 @@ func (r rawShapeChildRange) start() int {
 	return int((uint64(r) >> 16) & 0xffffffff)
 }
 
+func (r rawShapeChildRange) count() int {
+	return int(uint16(uint64(r)))
+}
+
+func (s *rawShape) childCount() int {
+	if s == nil {
+		return 0
+	}
+	return s.childRange.count()
+}
+
 func (a *nodeArena) rawShapeForRef(ref rawShapeRef) (*rawShape, bool) {
 	if a == nil || ref == 0 {
 		return nil, false
@@ -263,13 +248,55 @@ func (a *nodeArena) rawShapeForRef(ref rawShapeRef) (*rawShape, bool) {
 	return &slab.data[entryIdx], true
 }
 
+func rawShapeHashCacheIndex(ref rawShapeRef) int {
+	// Multiplication spreads sequential references across the direct-mapped
+	// cache while keeping lookup to one integer operation.
+	return int((uint32(ref) * 2654435761) & (rawShapeHashCacheSize - 1))
+}
+
+func (a *nodeArena) ensureRawShapeHashCache() {
+	if a == nil || len(a.rawShapeHashCache) != 0 {
+		return
+	}
+	a.rawShapeHashCache = make([]rawShapeHashCacheEntry, rawShapeHashCacheSize)
+	a.allocatedBytes += rawShapeHashCacheBytesForCap(cap(a.rawShapeHashCache))
+}
+
+func (a *nodeArena) storeRawShapeHash(ref rawShapeRef, hash uint64) {
+	if a == nil || ref == 0 {
+		return
+	}
+	a.ensureRawShapeHashCache()
+	a.rawShapeHashCache[rawShapeHashCacheIndex(ref)] = rawShapeHashCacheEntry{ref: ref, hash: hash}
+}
+
+func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool) {
+	if a == nil || ref == 0 {
+		return 0, false
+	}
+	if len(a.rawShapeHashCache) != 0 {
+		cached := a.rawShapeHashCache[rawShapeHashCacheIndex(ref)]
+		if cached.ref == ref {
+			return cached.hash, true
+		}
+	}
+	shape, ok := a.rawShapeForRef(ref)
+	if !ok {
+		return 0, false
+	}
+	children := a.rawShapeChildren(shape)
+	hash := rawShapeComputeContentHash(a, ref, shape.symbol, shape.productionID, uint16(shape.childCount()), children)
+	a.storeRawShapeHash(ref, hash)
+	return hash, true
+}
+
 func (a *nodeArena) rawShapeChildren(shape *rawShape) []rawShapeChild {
-	if a == nil || shape == nil || shape.childCount == 0 || shape.childRange == 0 {
+	if a == nil || shape == nil || shape.childCount() == 0 || shape.childRange == 0 {
 		return nil
 	}
 	slabIdx := shape.childRange.slabIndex()
 	start := shape.childRange.start()
-	count := int(shape.childCount)
+	count := shape.childCount()
 	if slabIdx < 0 || slabIdx >= len(a.rawShapeChildSlabs) {
 		return nil
 	}
@@ -360,12 +387,11 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 	if count > 0xffff {
 		count = 0xffff
 	}
-	shape.childCount = uint16(count)
 	if count == 0 {
 		return ref
 	}
 	childRange := arena.allocRawShapeChildren(count)
-	children := arena.rawShapeChildren(&rawShape{childRange: childRange, childCount: uint16(count)})
+	children := arena.rawShapeChildren(&rawShape{childRange: childRange})
 	out := 0
 	for i := start; i < end && out < count; i++ {
 		entry := entries[i]
@@ -376,21 +402,24 @@ func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbo
 		out++
 	}
 	shape.childRange = childRange
-	shape.contentHash = rawShapeComputeContentHash(arena, symbol, productionID, uint16(count), children[:out])
+	// Cache the same 64-bit digest used by the previous inline field. The
+	// bounded cache may evict it later, so rawShapeHash can recompute it from
+	// the lossless sidecar without changing collision behavior.
+	arena.storeRawShapeHash(ref, rawShapeComputeContentHash(arena, ref, symbol, productionID, uint16(count), children[:out]))
 	return ref
 }
 
 // rawShapeComputeContentHash builds the bottom-up structural fingerprint
-// documented on rawShape.contentHash. It folds in the same fields the exact
+// documented on the raw-shape hash cache. It folds in the same fields the exact
 // raw-shape comparators inspect (symbol, productionID, childCount, and per
 // child: whether it has a node, its symbol, its span, and — recursively —
-// its own already-computed contentHash when it has a captured shape,
+// its own already-computed hash when it has a captured shape,
 // otherwise its own child count as a coarse stand-in for a leaf's shape).
 // Reusing the package's existing 64-bit FNV-1a combiner (gssHashSeed/
 // gssHashPrime/gssNilNodeSentinel, glr_gss.go) keeps this consistent with the
 // GSS merge-key hashing that already accepts the same negligible-collision
 // tradeoff for equivalence decisions.
-func rawShapeComputeContentHash(arena *nodeArena, symbol Symbol, productionID uint16, childCount uint16, children []rawShapeChild) uint64 {
+func rawShapeComputeContentHash(arena *nodeArena, parentRef rawShapeRef, symbol Symbol, productionID uint16, childCount uint16, children []rawShapeChild) uint64 {
 	h := gssHashSeed
 	h ^= uint64(symbol)
 	h *= gssHashPrime
@@ -409,9 +438,9 @@ func rawShapeComputeContentHash(arena *nodeArena, symbol Symbol, productionID ui
 		h *= gssHashPrime
 		h ^= (uint64(stackEntryNodeStartByte(entry)) << 32) | uint64(stackEntryNodeEndByte(entry))
 		h *= gssHashPrime
-		if ref := children[i].shapeRef(); ref != 0 && arena != nil {
-			if childShape, ok := arena.rawShapeForRef(ref); ok {
-				h ^= childShape.contentHash
+		if ref := children[i].shapeRef(); ref != 0 && ref < parentRef && arena != nil {
+			if childHash, ok := arena.rawShapeHash(ref); ok {
+				h ^= childHash
 				h *= gssHashPrime
 				continue
 			}
@@ -507,7 +536,7 @@ func rawStackEntryContainsShape(arena *nodeArena, entry stackEntry, depth int) b
 		return false
 	}
 	if shape, ok := rawShapeForStackEntry(arena, entry); ok {
-		if shape.childCount > 0 {
+		if shape.childCount() > 0 {
 			return true
 		}
 	}

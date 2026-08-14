@@ -993,9 +993,11 @@ func materializingShapeEntryHashWithScratch(scratch *glrMergeScratch, h uint64, 
 		scratch.arena == nil {
 		return h
 	}
-	if shape, ok := rawShapeForStackEntry(scratch.arena, entry); ok {
-		h ^= shape.contentHash
-		h *= gssHashPrime
+	if ref := stackEntryRawShapeRef(entry); ref != 0 {
+		if shapeHash, ok := scratch.arena.rawShapeHash(ref); ok {
+			h ^= shapeHash
+			h *= gssHashPrime
+		}
 	}
 	return h
 }
@@ -3642,9 +3644,11 @@ func stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch *glrMergeScr
 			scratch.language != nil &&
 			scratch.language.ExactStackNodeEquivalenceCertified &&
 			scratch.arena != nil {
-			aShape, aOK := rawShapeForStackEntry(scratch.arena, a)
-			bShape, bOK := rawShapeForStackEntry(scratch.arena, b)
-			if aOK && bOK && aShape.contentHash != bShape.contentHash {
+			aRef := stackEntryRawShapeRef(a)
+			bRef := stackEntryRawShapeRef(b)
+			aHash, aOK := scratch.arena.rawShapeHash(aRef)
+			bHash, bOK := scratch.arena.rawShapeHash(bRef)
+			if aOK && bOK && aHash != bHash {
 				return false
 			}
 		}

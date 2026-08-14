@@ -20,7 +20,6 @@ func TestReclaimRawShapeStorageClearsArenaPayloadRefs(t *testing.T) {
 		t.Fatal("allocRawShape returned no shape")
 	}
 	shape.childRange = arena.allocRawShapeChildren(1)
-	shape.childCount = 1
 	shapeLimit := maxRetainedRawShapeCapacityForClass(arena.class)
 	for i := 1; i < shapeLimit+defaultRawShapeSlabCap(arena.class); i++ {
 		if _, allocated := arena.allocRawShape(); allocated == nil {
@@ -105,12 +104,12 @@ func TestParseReclaimsRawShapeStorageAfterAccounting(t *testing.T) {
 		t.Fatalf("MaxStacksSeen = %d, want > 1 (this test requires a genuinely forking parse)", rt.MaxStacksSeen)
 	}
 	breakdown := assertParseRuntimeArenaBreakdown(t, tree, rt)
-	parseRawBytes := breakdown.RawShapeBytesAllocated + breakdown.RawShapeChildBytesAllocated
+	parseRawBytes := breakdown.RawShapeBytesAllocated + breakdown.RawShapeChildBytesAllocated + breakdown.RawShapeHashCacheBytesAllocated
 	if parseRawBytes == 0 {
 		t.Fatal("parse-time raw-shape bytes = 0, want captured allocation once the parse has forked")
 	}
 	assertTreeRawShapeStorageReclaimed(t, tree)
-	retainedRawBytes := tree.arena.rawShapeBytesAllocated() + tree.arena.rawShapeChildBytesAllocated()
+	retainedRawBytes := tree.arena.rawShapeBytesAllocated() + tree.arena.rawShapeChildBytesAllocated() + tree.arena.rawShapeHashCacheBytesAllocated()
 	if got, want := tree.ParseRuntime().ArenaBytesAllocated-tree.arena.allocatedBytes, parseRawBytes-retainedRawBytes; got != want {
 		t.Fatalf("retained arena reduction = %d, want reclaimed raw-shape allocation %d", got, want)
 	}
@@ -141,12 +140,12 @@ func TestParseReclaimsRawShapeStorageAccountsForZeroOnSingleStackParse(t *testin
 		t.Fatalf("MaxStacksSeen = %d, want <= 1 (arithmetic grammar has no GLR conflicts)", rt.MaxStacksSeen)
 	}
 	breakdown := assertParseRuntimeArenaBreakdown(t, tree, rt)
-	parseRawBytes := breakdown.RawShapeBytesAllocated + breakdown.RawShapeChildBytesAllocated
+	parseRawBytes := breakdown.RawShapeBytesAllocated + breakdown.RawShapeChildBytesAllocated + breakdown.RawShapeHashCacheBytesAllocated
 	if parseRawBytes != 0 {
 		t.Fatalf("parse-time raw-shape bytes = %d, want 0 on a pure single-stack parse (elision should skip every capture)", parseRawBytes)
 	}
 	assertTreeRawShapeStorageReclaimed(t, tree)
-	retainedRawBytes := tree.arena.rawShapeBytesAllocated() + tree.arena.rawShapeChildBytesAllocated()
+	retainedRawBytes := tree.arena.rawShapeBytesAllocated() + tree.arena.rawShapeChildBytesAllocated() + tree.arena.rawShapeHashCacheBytesAllocated()
 	if got, want := tree.ParseRuntime().ArenaBytesAllocated-tree.arena.allocatedBytes, parseRawBytes-retainedRawBytes; got != want {
 		t.Fatalf("retained arena reduction = %d, want reclaimed raw-shape allocation %d", got, want)
 	}
@@ -245,10 +244,10 @@ func BenchmarkReturnedTreeRawShapeRetention(b *testing.B) {
 			b.Fatal(err)
 		}
 		if breakdown, ok := tree.ArenaBreakdown(); ok {
-			parseRawBytes += breakdown.RawShapeBytesAllocated + breakdown.RawShapeChildBytesAllocated
+			parseRawBytes += breakdown.RawShapeBytesAllocated + breakdown.RawShapeChildBytesAllocated + breakdown.RawShapeHashCacheBytesAllocated
 		}
 		if tree.arena != nil {
-			retainedRawBytes += tree.arena.rawShapeBytesAllocated() + tree.arena.rawShapeChildBytesAllocated()
+			retainedRawBytes += tree.arena.rawShapeBytesAllocated() + tree.arena.rawShapeChildBytesAllocated() + tree.arena.rawShapeHashCacheBytesAllocated()
 		}
 		tree.Release()
 	}

@@ -3240,7 +3240,7 @@ func (p *Parser) compareRawStackEntriesRec(arena *nodeArena, a, b stackEntry, de
 	ac, bc := stackEntryNodeChildCount(a), stackEntryNodeChildCount(b)
 	if aHasShape && bHasShape {
 		as, bs = aShape.symbol, bShape.symbol
-		ac, bc = int(aShape.childCount), int(bShape.childCount)
+		ac, bc = aShape.childCount(), bShape.childCount()
 	}
 	if as != bs {
 		if as < bs {
@@ -3275,7 +3275,7 @@ func (p *Parser) compareRawStackEntriesRec(arena *nodeArena, a, b stackEntry, de
 			continue
 		}
 		if rawStackEntryChildPairHashEqual(arena, achild, bchild) {
-			// Bottom-up fingerprint match (see rawShape.contentHash /
+			// Bottom-up fingerprint match (see the raw-shape hash /
 			// rawShapeComputeContentHash): this child's subtree is treated as
 			// interchangeable with its counterpart under the same
 			// negligible-collision hash tradeoff documented on
@@ -3303,9 +3303,9 @@ func (p *Parser) compareRawStackEntriesRec(arena *nodeArena, a, b stackEntry, de
 // equal (cmp==0) under compareRawStackEntriesRec, in O(1) and without walking
 // their subtrees. This is not a proof of equality — it is a probabilistic
 // shortcut: it requires BOTH sides to carry a captured raw shape with
-// matching symbol, childCount and contentHash (see
+// matching symbol, child count, and shape hash (see
 // rawShapeComputeContentHash), AND matching start/end spans on the entries
-// themselves, and then accepts that combination as sufficient. contentHash is
+// themselves, and then accepts that combination as sufficient. The shape hash is
 // a 64-bit FNV-1a fingerprint, so a match here carries the same
 // negligible-collision (~2^-64) risk of a false positive that the package's
 // existing GSS merge-key hashing already accepts for equivalence decisions
@@ -3334,7 +3334,9 @@ func rawStackEntryChildPairHashEqual(arena *nodeArena, a, b stackEntry) bool {
 	if !bHasShape {
 		return false
 	}
-	if aShape.symbol != bShape.symbol || aShape.childCount != bShape.childCount || aShape.contentHash != bShape.contentHash {
+	aHash, aHashOK := arena.rawShapeHash(stackEntryRawShapeRef(a))
+	bHash, bHashOK := arena.rawShapeHash(stackEntryRawShapeRef(b))
+	if !aHashOK || !bHashOK || aShape.symbol != bShape.symbol || aShape.childCount() != bShape.childCount() || aHash != bHash {
 		return false
 	}
 	return stackEntryNodeStartByte(a) == stackEntryNodeStartByte(b) && stackEntryNodeEndByte(a) == stackEntryNodeEndByte(b)

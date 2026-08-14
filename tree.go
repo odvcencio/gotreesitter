@@ -1324,6 +1324,7 @@ type ArenaBreakdown struct {
 	PendingChildEntryBytesAllocated     int64
 	RawShapeBytesAllocated              int64
 	RawShapeChildBytesAllocated         int64
+	RawShapeHashCacheBytesAllocated     int64
 	FinalChildSidecarBytesAllocated     int64
 	CompactCheckpointLeafBytesAllocated int64
 	PendingChildEntriesAllocated        uint64

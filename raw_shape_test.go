@@ -17,7 +17,7 @@ const (
 )
 
 func TestRawShapeHeaderLayoutStaysCompact(t *testing.T) {
-	if got, want := unsafe.Sizeof(rawShape{}), uintptr(24); got != want {
+	if got, want := unsafe.Sizeof(rawShape{}), uintptr(16); got != want {
 		t.Fatalf("rawShape header size = %d bytes, want %d", got, want)
 	}
 	if got, want := unsafe.Sizeof(rawShapeChild{}), uintptr(16); got != want {
@@ -37,6 +37,36 @@ func TestRawShapeChildPacksShapeRefAndRestoresCurrentState(t *testing.T) {
 	}
 	if got := entry.state; got != 41 {
 		t.Fatalf("restored state = %d, want current node state 41", got)
+	}
+}
+
+func TestRawShapeHashCacheRecomputesAfterEviction(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser := testRawShapeParser()
+
+	leaf := newLeafNodeInArena(arena, 3, true, 0, 1, Point{}, Point{Column: 1})
+	ref := parser.captureRawShape(nil, arena, 1, 0, []stackEntry{newStackEntryNode(0, leaf)}, 0, 1)
+	if ref == 0 {
+		t.Fatal("captureRawShape returned no reference")
+	}
+	want, ok := arena.rawShapeHash(ref)
+	if !ok {
+		t.Fatal("rawShapeHash failed before eviction")
+	}
+
+	// Consecutive references cover every slot because the cache multiplier is
+	// odd. Use references outside the arena so no real shape is overwritten.
+	const fakeRefBase = rawShapeRef(2 << 20)
+	for i := 0; i < rawShapeHashCacheSize; i++ {
+		arena.storeRawShapeHash(fakeRefBase+rawShapeRef(i), uint64(i+1))
+	}
+	got, ok := arena.rawShapeHash(ref)
+	if !ok {
+		t.Fatal("rawShapeHash failed after eviction")
+	}
+	if got != want {
+		t.Fatalf("recomputed raw-shape hash = %#x, want %#x", got, want)
 	}
 }
 
@@ -1460,7 +1490,7 @@ func TestRawShapeRebuiltAcceptRootUsesSplicedChildren(t *testing.T) {
 	if !ok {
 		t.Fatal("rebuilt root raw shape missing")
 	}
-	if got := int(shape.childCount); got != 2 {
+	if got := shape.childCount(); got != 2 {
 		t.Fatalf("rebuilt root raw child count = %d, want 2", got)
 	}
 }

@@ -256,7 +256,7 @@ func nativeRecoveredStructureHasIsolatedErrorReceipt(root *Node) bool {
 		return false
 	}
 	shape, ok := root.ownerArena.rawShapeForRef(root.rawShape)
-	if !ok || shape.symbol != root.symbol || int(shape.childCount) != resultChildCount(root) {
+	if !ok || shape.symbol != root.symbol || shape.childCount() != resultChildCount(root) {
 		return false
 	}
 	rawChildren := root.ownerArena.rawShapeChildren(shape)

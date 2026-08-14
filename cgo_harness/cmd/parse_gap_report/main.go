@@ -194,6 +194,7 @@ type runtimeStats struct {
 	ArenaFieldB                           int64         `json:"arena_field_b,omitempty"`
 	ArenaRawShapeB                        int64         `json:"arena_raw_shape_b,omitempty"`
 	ArenaRawShapeChildB                   int64         `json:"arena_raw_shape_child_b,omitempty"`
+	ArenaRawShapeHashCacheB               int64         `json:"arena_raw_shape_hash_cache_b,omitempty"`
 	ArenaCapacityWaste                    uint64        `json:"arena_capacity_waste,omitempty"`
 	FinalChildRangeDrains                 uint64        `json:"final_child_range_drains,omitempty"`
 	PublicNodesMaterialized               uint64        `json:"public_nodes_materialized,omitempty"`
@@ -1186,6 +1187,7 @@ func statsFromGoTree(r *runner, tree *gotreesitter.Tree, queryCaptures, cursorNo
 			breakdown.FieldSourceBytesAllocated
 		stats.ArenaRawShapeB = breakdown.RawShapeBytesAllocated
 		stats.ArenaRawShapeChildB = breakdown.RawShapeChildBytesAllocated
+		stats.ArenaRawShapeHashCacheB = breakdown.RawShapeHashCacheBytesAllocated
 		stats.ArenaLiveB = arenaLiveBytes(breakdown, rt.ExternalScannerCheckpointBytesAllocated)
 		stats.ArenaCapacityWaste = breakdown.NodeCapacityWaste
 		stats.MergeScratchAllocatedB = breakdown.MergeScratchBytesAllocated
@@ -1289,6 +1291,7 @@ func arenaLiveBytes(b gotreesitter.ArenaBreakdown, externalScannerCheckpointByte
 		b.PendingChildEntryBytesAllocated +
 		b.RawShapeBytesAllocated +
 		b.RawShapeChildBytesAllocated +
+		b.RawShapeHashCacheBytesAllocated +
 		b.FinalChildSidecarBytesAllocated +
 		b.CompactCheckpointLeafBytesAllocated +
 		b.ChildSliceBytesAllocated +

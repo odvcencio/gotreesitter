@@ -122,7 +122,7 @@ func (p *Parser) emitRawShapeDiagEntry(arena *nodeArena, label string, entry sta
 	shapeChildCount := -1
 	if shape, ok := rawShapeForStackEntry(arena, entry); ok {
 		shapeProductionID = shape.productionID
-		shapeChildCount = int(shape.childCount)
+		shapeChildCount = shape.childCount()
 	}
 	fmt.Fprintf(os.Stderr,
 		"GLR-RAW-SHAPE %s depth=%d symbol=%d name=%s span=%d:%d children=%d shape_ref=%d shape_pid=%d shape_children=%d named=%t meta_named=%t visible=%t hidden=%t invisible=%t extra=%t missing=%t error=%t kind=%s\n",
@@ -189,7 +189,7 @@ func (p *Parser) emitRawShapeDiagEntry(arena *nodeArena, label string, entry sta
 
 func rawShapeDiagEntryChildCount(arena *nodeArena, entry stackEntry) int {
 	if shape, ok := rawShapeForStackEntry(arena, entry); ok {
-		return int(shape.childCount)
+		return shape.childCount()
 	}
 	return stackEntryNodeChildCount(entry)
 }

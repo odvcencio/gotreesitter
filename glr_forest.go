@@ -1914,13 +1914,13 @@ func forestRawStackEntriesExactEqualRec(arena *nodeArena, a, b stackEntry, depth
 	if !stackEntryHasNode(a) {
 		return forestRawEqual
 	}
-	aShape, aHasShape := rawShapeForStackEntry(arena, a)
-	bShape, bHasShape := rawShapeForStackEntry(arena, b)
+	_, aHasShape := rawShapeForStackEntry(arena, a)
+	_, bHasShape := rawShapeForStackEntry(arena, b)
 	if aHasShape != bHasShape {
 		return forestRawUnknown
 	}
 	if aHasShape {
-		return forestRawShapesExactEqualRec(arena, aShape, bShape, depth+1)
+		return forestRawShapesExactEqualRec(arena, stackEntryRawShapeRef(a), stackEntryRawShapeRef(b), depth+1)
 	}
 	if stackEntryNodeSymbol(a) != stackEntryNodeSymbol(b) ||
 		stackEntryNodeStartByte(a) != stackEntryNodeStartByte(b) ||
@@ -1933,17 +1933,27 @@ func forestRawStackEntriesExactEqualRec(arena *nodeArena, a, b stackEntry, depth
 	return forestRawEqual
 }
 
-func forestRawShapesExactEqualRec(arena *nodeArena, a, b *rawShape, depth int) forestRawEquality {
-	if arena == nil || a == nil || b == nil || depth > maxTreeWalkDepth {
+func forestRawShapesExactEqualRec(arena *nodeArena, aRef, bRef rawShapeRef, depth int) forestRawEquality {
+	if arena == nil || aRef == 0 || bRef == 0 || depth > maxTreeWalkDepth {
 		return forestRawUnknown
 	}
-	if a.symbol != b.symbol || a.productionID != b.productionID || a.childCount != b.childCount {
+	a, aOK := arena.rawShapeForRef(aRef)
+	b, bOK := arena.rawShapeForRef(bRef)
+	if !aOK || !bOK {
+		return forestRawUnknown
+	}
+	if a.symbol != b.symbol || a.productionID != b.productionID || a.childCount() != b.childCount() {
 		return forestRawDifferent
 	}
-	if a.contentHash != b.contentHash {
-		// contentHash folds in strictly more than this function inspects
+	aHash, aHashOK := arena.rawShapeHash(aRef)
+	bHash, bHashOK := arena.rawShapeHash(bRef)
+	if !aHashOK || !bHashOK {
+		return forestRawUnknown
+	}
+	if aHash != bHash {
+		// The 64-bit digest folds in strictly more than this function inspects
 		// (symbol, productionID, childCount, and every descendant's symbol,
-		// span and contentHash — see rawShapeComputeContentHash), so a
+		// span and digest — see rawShapeComputeContentHash), so a
 		// mismatch proves the subtrees differ somewhere without descending.
 		// This is the fast path on shapes with many raw-distinct alternatives
 		// (the common case here): only a genuine hash MATCH falls through to
@@ -1953,7 +1963,7 @@ func forestRawShapesExactEqualRec(arena *nodeArena, a, b *rawShape, depth int) f
 	}
 	aChildren := arena.rawShapeChildren(a)
 	bChildren := arena.rawShapeChildren(b)
-	if len(aChildren) != int(a.childCount) || len(bChildren) != int(b.childCount) || len(aChildren) != len(bChildren) {
+	if len(aChildren) != a.childCount() || len(bChildren) != b.childCount() || len(aChildren) != len(bChildren) {
 		return forestRawUnknown
 	}
 	for i := range aChildren {
@@ -1979,12 +1989,7 @@ func forestRawShapesExactEqualRec(arena *nodeArena, a, b *rawShape, depth int) f
 			}
 			continue
 		}
-		aChild, aOK := arena.rawShapeForRef(aRef)
-		bChild, bOK := arena.rawShapeForRef(bRef)
-		if !aOK || !bOK {
-			return forestRawUnknown
-		}
-		if eq := forestRawShapesExactEqualRec(arena, aChild, bChild, depth+1); eq != forestRawEqual {
+		if eq := forestRawShapesExactEqualRec(arena, aRef, bRef, depth+1); eq != forestRawEqual {
 			return eq
 		}
 	}
