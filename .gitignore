@@ -53,6 +53,7 @@ Thumbs.db
 
 # Private working notes
 .claude/
+.codex/
 docs/blog-outlines/
 docs/plans/
 docs/superpowers/
