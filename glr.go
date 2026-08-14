@@ -3812,6 +3812,10 @@ func (p *gssMainPreflight) clearGSSPointersForReuse() {
 
 const maxGSSPreflightReachCacheEntries = 32768
 
+// Small reachability walks avoid hash-map probes. Larger walks promote to the
+// pooled map without changing the graph or cycle semantics.
+const gssPreflightReachLinearLimit = 64
+
 type gssReachPair struct {
 	from   *gssNode
 	target *gssNode
@@ -3974,23 +3978,37 @@ func (p *gssMainPreflight) canReach(from, target *gssNode) bool {
 	if p.reachStrict && from.depth <= target.depth {
 		return false
 	}
-	if p.reachSeen == nil {
-		p.reachSeen = make(map[*gssNode]bool, 64)
-	}
 	stack := p.reachStack[:0]
 	visited := p.reachVisit[:0]
+	var seenMap map[*gssNode]bool
 	stack = append(stack, from)
 	for len(stack) > 0 {
 		last := len(stack) - 1
 		cur := stack[last]
 		stack = stack[:last]
-		if cur == nil || p.reachSeen[cur] {
+		if cur == nil {
+			continue
+		}
+		seen := false
+		if seenMap != nil {
+			seen = seenMap[cur]
+		} else {
+			for _, node := range visited {
+				if node == cur {
+					seen = true
+					break
+				}
+			}
+		}
+		if seen {
 			continue
 		}
 		if cur == target {
 			p.cacheReach(from, target, true)
 			for _, node := range visited {
-				delete(p.reachSeen, node)
+				if seenMap != nil {
+					delete(seenMap, node)
+				}
 			}
 			p.reachStack = stack[:0]
 			p.reachVisit = visited[:0]
@@ -4001,7 +4019,9 @@ func (p *gssMainPreflight) canReach(from, target *gssNode) bool {
 				if reachable {
 					p.cacheReach(from, target, true)
 					for _, node := range visited {
-						delete(p.reachSeen, node)
+						if seenMap != nil {
+							delete(seenMap, node)
+						}
 					}
 					p.reachStack = stack[:0]
 					p.reachVisit = visited[:0]
@@ -4010,7 +4030,20 @@ func (p *gssMainPreflight) canReach(from, target *gssNode) bool {
 				continue
 			}
 		}
-		p.reachSeen[cur] = true
+		if seenMap == nil && len(visited) >= gssPreflightReachLinearLimit {
+			if p.reachSeen == nil {
+				p.reachSeen = make(map[*gssNode]bool, gssPreflightReachLinearLimit*2)
+			} else {
+				clear(p.reachSeen)
+			}
+			seenMap = p.reachSeen
+			for _, node := range visited {
+				seenMap[node] = true
+			}
+		}
+		if seenMap != nil {
+			seenMap[cur] = true
+		}
 		visited = append(visited, cur)
 		for i := 0; i < p.linkCount(cur); i++ {
 			prev, _ := p.linkAt(cur, i)
@@ -4019,7 +4052,9 @@ func (p *gssMainPreflight) canReach(from, target *gssNode) bool {
 	}
 	p.cacheReach(from, target, false)
 	for _, node := range visited {
-		delete(p.reachSeen, node)
+		if seenMap != nil {
+			delete(seenMap, node)
+		}
 	}
 	p.reachStack = stack[:0]
 	p.reachVisit = visited[:0]

@@ -575,6 +575,27 @@ func TestGSSMainPreflightCachedReachSeesVirtualLinkAfterFalse(t *testing.T) {
 	}
 }
 
+func TestGSSMainPreflightReachPromotesLargeWalkAndCleans(t *testing.T) {
+	nodes := make([]*gssNode, gssPreflightReachLinearLimit+2)
+	for i := range nodes {
+		nodes[i] = &gssNode{
+			entry: stackEntry{state: StateID(i + 1)},
+			depth: uint32(i + 1),
+		}
+		if i > 0 {
+			nodes[i].prev = nodes[i-1]
+		}
+	}
+
+	p := newGSSMainPreflight(make(map[gssMergePair]bool))
+	if !p.canReach(nodes[len(nodes)-1], nodes[0]) {
+		t.Fatal("large preflight walk did not reach the chain root")
+	}
+	if p.reachSeen == nil || len(p.reachSeen) != 0 {
+		t.Fatalf("large preflight map after walk = %v, want allocated and empty", p.reachSeen)
+	}
+}
+
 func TestGSSMainPreflightCachedReachInvalidatesFalseBeforeCycleCheck(t *testing.T) {
 	base := func(state StateID, prev *gssNode) *gssNode {
 		return &gssNode{entry: stackEntry{state: state}, prev: prev, depth: 1}
