@@ -680,7 +680,21 @@ func TestNextDFATokenSplitsCompactCloseAnglesForInternalRightShiftVariant(t *tes
 	}
 }
 
-func TestNextDFATokenSplitsCompactCloseAnglesWhenDelimiterFollowsAndRightShiftHasAction(t *testing.T) {
+// TestNextDFATokenKeepsRightShiftWhenDelimiterFollowsWithoutOpenAngle covers a
+// case this test previously asserted the other way round.
+//
+// The old expectation was that `>>(` always narrows to `>`, on the reasoning
+// that a delimiter after a close-angle run means generic closers. No unclosed
+// '<' appears anywhere in the source here, so there is no generic argument list
+// to close: the run is a signed right shift whose right operand is
+// parenthesised. Splitting it produced `x = a >> (b)` parse failures across
+// real TypeScript, which is how this was found — see
+// grammars/typescript_shift_close_angle_regression_test.go.
+//
+// TestNextDFATokenSplitsCompactCloseAnglesWhenIdentifierFollowsAndRightShiftHasAction
+// keeps the positive direction: its source carries `<T>` before the run, so the
+// split still fires when a generic really is open.
+func TestNextDFATokenKeepsRightShiftWhenDelimiterFollowsWithoutOpenAngle(t *testing.T) {
 	lang := &Language{
 		Name:        "typescript",
 		SymbolNames: []string{"end", ">", ">>"},
@@ -723,13 +737,13 @@ func TestNextDFATokenSplitsCompactCloseAnglesWhenDelimiterFollowsAndRightShiftHa
 	}
 
 	tok := d.nextDFAToken()
-	if got, want := tok.Symbol, Symbol(1); got != want {
+	if got, want := tok.Symbol, Symbol(2); got != want {
 		t.Fatalf("token symbol = %d (%q), want %d (%q)", got, lang.SymbolNames[got], want, lang.SymbolNames[want])
 	}
-	if got, want := tok.Text, ">"; got != want {
+	if got, want := tok.Text, ">>"; got != want {
 		t.Fatalf("token text = %q, want %q", got, want)
 	}
-	if got, want := d.lexer.pos, 1; got != want {
+	if got, want := d.lexer.pos, 2; got != want {
 		t.Fatalf("lexer.pos = %d, want %d", got, want)
 	}
 }

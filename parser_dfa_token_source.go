@@ -2276,11 +2276,19 @@ func (p *Parser) shouldDeferContextualCloseAngleAction(source []byte, state Stat
 }
 
 func (d *dfaTokenSource) shouldSplitCompactCloseAngleToken(tok Token, gtSym, shiftSym Symbol, shiftOK bool) bool {
-	if d != nil && d.language != nil && d.language.Name == "java" && !d.hasJavaUnclosedAngleBefore(int(tok.StartByte)) {
-		return false
-	}
+	// With no `>>` symbol active in this state the run cannot shift as one
+	// token, so narrowing it to `>` is the only way to make progress. There is
+	// no shift-operator reading to protect, and the angle-depth gate below
+	// would only stall the parse.
 	if !shiftOK {
 		return true
+	}
+	// A real `>>` alternative exists, so the run is ambiguous: nested generic
+	// closers or a signed right shift. Only treat it as generic closers when an
+	// unclosed '<' actually precedes it.
+	if d != nil && d.language != nil && requiresUnclosedAngleForCloseAngleSplit(d.language.Name) &&
+		!d.hasUnclosedAngleBefore(int(tok.StartByte)) {
+		return false
 	}
 	gtSpec := d.activeActionSpecificity(gtSym)
 	shiftSpec := d.activeActionSpecificity(shiftSym)
@@ -2301,7 +2309,29 @@ func (d *dfaTokenSource) shouldSplitCompactCloseAngleToken(tok Token, gtSym, shi
 	}
 }
 
-func (d *dfaTokenSource) hasJavaUnclosedAngleBefore(pos int) bool {
+// requiresUnclosedAngleForCloseAngleSplit names the languages where `>>` is
+// both a nested generic closer and a real signed right-shift operator. In those
+// languages the compact close-angle split may only fire when an unclosed '<'
+// actually precedes the run, or a shift expression gets torn into two '>'
+// tokens and the parse fails.
+//
+// Dart and Swift are deliberately absent. Swift runs its own
+// splitSwiftWideCloseAngleToken path with an equivalent angle-depth gate, and
+// Dart is left on the previous behaviour rather than changed unmeasured here.
+func requiresUnclosedAngleForCloseAngleSplit(languageName string) bool {
+	switch languageName {
+	case "java", "typescript", "tsx":
+		return true
+	default:
+		return false
+	}
+}
+
+// hasUnclosedAngleBefore reports whether an unclosed '<' precedes pos, scanning
+// back until a statement or bracket boundary. It is the "am I really inside a
+// generic argument list" heuristic shared by the languages named in
+// requiresUnclosedAngleForCloseAngleSplit.
+func (d *dfaTokenSource) hasUnclosedAngleBefore(pos int) bool {
 	if d == nil || d.lexer == nil || pos <= 0 {
 		return false
 	}
@@ -3238,7 +3268,7 @@ func (d *dfaTokenSource) splitSwiftWideCloseAngleToken(tok Token, states []State
 
 // hasSwiftUnclosedAngleBefore reports whether an unclosed '<' opens before
 // byte pos in the current statement/scope. This is the same "are we inside a
-// generic argument list" heuristic hasJavaUnclosedAngleBefore uses for Java.
+// generic argument list" heuristic hasUnclosedAngleBefore uses.
 // The scan stops at a statement/scope boundary (; { } ( )) so an operator in
 // one statement is never mistaken for a generic closer left open by an
 // unrelated, already-closed earlier statement.
