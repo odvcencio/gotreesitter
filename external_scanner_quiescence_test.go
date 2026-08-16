@@ -19,6 +19,7 @@ type quiescenceStatelessScanner struct {
 }
 
 func (quiescenceStatelessScanner) ExternalScannerIsStateless() bool { return true }
+func (quiescenceStatelessScanner) SupportsIncrementalReuse() bool   { return true }
 
 type quiescenceCheckpointScanner struct {
 	parserTestSafeExternalScanner
@@ -95,6 +96,35 @@ func TestExternalScannerBoundaryQuiescentFailsClosed(t *testing.T) {
 	}
 	if !externalScannerBoundaryQuiescentWithoutCheckpoint(&Language{}) {
 		t.Fatal("no-scanner language rejected: predicate must admit a proven boundary")
+	}
+}
+
+func TestCompactIncrementalReuseProvenForLanguage(t *testing.T) {
+	cases := []struct {
+		name string
+		lang *Language
+		want bool
+	}{
+		{name: "no scanner", lang: &Language{}, want: true},
+		{name: "stateless scanner", lang: &Language{ExternalScanner: quiescenceStatelessScanner{}}, want: true},
+		{name: "legacy admitted unknown scanner", lang: &Language{ExternalScanner: parserTestSafeExternalScanner{}}, want: true},
+		{name: "refuted scanner", lang: &Language{ExternalScanner: quiescenceOptOutScanner{}}, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := compactIncrementalReuseProvenForLanguage(tc.lang); got != tc.want {
+				t.Fatalf("compactIncrementalReuseProvenForLanguage = %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIncrementalReuseUnsupportedReasonIdentifiesTreeProducer(t *testing.T) {
+	if got := incrementalReuseUnsupportedReasonForTree(&Tree{compactMaterialized: true, incrementalReuseDisabled: true}); got != compactIncrementalReuseUnsupportedReason {
+		t.Fatalf("compact tree reason = %q, want %q", got, compactIncrementalReuseUnsupportedReason)
+	}
+	if got := incrementalReuseUnsupportedReasonForTree(&Tree{incrementalReuseDisabled: true}); got != forestIncrementalReuseUnsupportedReason {
+		t.Fatalf("forest tree reason = %q, want %q", got, forestIncrementalReuseUnsupportedReason)
 	}
 }
 

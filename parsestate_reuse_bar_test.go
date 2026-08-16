@@ -75,11 +75,17 @@ func TestCompactMaterializedTreeBarsIncrementalReuse(t *testing.T) {
 			}
 			t.Fatal("compact tree was reused via the token-invariant leaf path")
 		}
-		got, err := p.ParseIncremental(newSrc, treeA)
+		got, profile, err := p.ParseIncrementalProfiled(newSrc, treeA)
 		if err != nil {
-			t.Fatalf("ParseIncremental: %v", err)
+			t.Fatalf("ParseIncrementalProfiled: %v", err)
 		}
 		defer got.Release()
+		if !profile.ReuseUnsupported {
+			t.Fatal("compact tree fallback did not report unsupported reuse")
+		}
+		if profile.ReuseUnsupportedReason != compactIncrementalReuseUnsupportedReason {
+			t.Fatalf("compact tree fallback reason = %q, want %q", profile.ReuseUnsupportedReason, compactIncrementalReuseUnsupportedReason)
+		}
 		requireFreshFallback(t, got, treeA)
 	})
 

@@ -175,12 +175,22 @@ func finalizeDeferredReturnedTreeTruncation(tree *Tree, _ []byte) {
 	markTruncatedTreeHasError(tree.parseRuntime, rawRootOrNil(tree))
 }
 
-const forestIncrementalReuseUnsupportedReason = "old tree was built by GSS forest fast path"
+const (
+	forestIncrementalReuseUnsupportedReason  = "old tree was built by GSS forest fast path"
+	compactIncrementalReuseUnsupportedReason = "old tree was compact-materialized without a scanner-quiescence proof"
+)
 
 const forestRecoveryFallbackReuseReason = "forest_recovery_fallback"
 
 func oldTreeDisablesIncrementalReuse(oldTree *Tree) bool {
 	return oldTree != nil && oldTree.incrementalReuseDisabled
+}
+
+func incrementalReuseUnsupportedReasonForTree(oldTree *Tree) string {
+	if oldTree != nil && oldTree.compactMaterialized {
+		return compactIncrementalReuseUnsupportedReason
+	}
+	return forestIncrementalReuseUnsupportedReason
 }
 
 func (p *Parser) tryTokenInvariantReuseForDisabledOldTree(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
@@ -1697,7 +1707,7 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 		if oldTree == nil || !oldTree.compactMaterialized {
 			start := time.Now()
 			tree, err := p.Parse(source)
-			return tree, profileFreshParseFallback(start, tree, forestIncrementalReuseUnsupportedReason), err
+			return tree, profileFreshParseFallback(start, tree, incrementalReuseUnsupportedReasonForTree(oldTree)), err
 		}
 		// Continue through the token-source path so a compact-tree decline keeps
 		// the same scanner reason and work attribution as an ordinary fallback.

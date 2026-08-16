@@ -3161,7 +3161,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		if timing != nil {
 			timing.reuseUnsupported = true
-			timing.reuseUnsupportedReason = forestIncrementalReuseUnsupportedReason
+			timing.reuseUnsupportedReason = incrementalReuseUnsupportedReasonForTree(oldTree)
 			if oldTree != nil && oldTree.compactMaterialized {
 				if reason := incrementalReuseUnavailableReason(ts); reason != "" {
 					timing.reuseUnsupportedReason = reason

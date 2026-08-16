@@ -3197,7 +3197,7 @@ func materializeDiagnosticParserCoreAcceptedSelection(compact *core.Core, head c
 		}
 		defer replayStates.release()
 	}
-	incrementalReuseProven := replayStates != nil && classifyExternalScannerQuiescence(parser.language) == scannerQuiescenceProven
+	incrementalReuseProven := replayStates != nil && compactIncrementalReuseProvenForLanguage(parser.language)
 	stamp := func(id core.SubtreeID, node *Node, terminal bool) {
 		// Stamp the reconstructed state for THIS derivation id onto the node
 		// that materializes it. For a unary collapse chain the driver visits the
