@@ -671,6 +671,36 @@ func TestCRecordSummaryAvoidsPositionAllocations(t *testing.T) {
 	}
 }
 
+func TestCRecordSummaryPreservesMoreThanReserveAtEqualDepth(t *testing.T) {
+	parser := &Parser{}
+	const entryCount = cRecoverMaxSummaryDepth + 8
+	entries := make([]stackEntry, entryCount)
+	nodes := make([]Node, entryCount)
+	for i := range entries {
+		nodes[i].endByte = uint32(100 + i)
+		nodes[i].endPoint = Point{Row: uint32(10 + i), Column: uint32(i)}
+		nodes[i].setExtra(true)
+		entries[i] = newStackEntryNode(StateID(i+1), &nodes[i])
+	}
+
+	got := parser.cRecordSummary(entries)
+	want := cRecordSummaryPositionTableReference(entries)
+	if len(got) != entryCount || len(got) <= cRecoverMaxSummaryDepth+1 {
+		t.Fatalf("summary len = %d, want %d entries beyond the reserve hint", len(got), entryCount)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("summary len = %d, reference len = %d", len(got), len(want))
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("summary[%d] = %+v, want %+v", i, got[i], want[i])
+		}
+		if got[i].depth != 0 {
+			t.Fatalf("summary[%d].depth = %d, want equal-depth entry", i, got[i].depth)
+		}
+	}
+}
+
 func cRecordSummaryPositionTableReference(entries []stackEntry) []cStackSummaryEntry {
 	summary := make([]cStackSummaryEntry, 0, 8)
 	posBytesAt := make([]uint32, len(entries))

@@ -2780,7 +2780,10 @@ func cEntryCountsTowardDepth(e stackEntry) bool {
 // spine: entries top-first, depth = crossings of depth-counting links,
 // deduped on (depth, state), bounded by MAX_SUMMARY_DEPTH.
 func (p *Parser) cRecordSummary(entries []stackEntry) []cStackSummaryEntry {
-	summary := make([]cStackSummaryEntry, 0, 8)
+	// cHandleError and forestEOFRecoveryCouldCompete usually record one state
+	// for each bounded depth. Reserve up to 17 entries for that common shape.
+	// Equal-depth states can exceed this hint, and append must preserve them.
+	summary := make([]cStackSummaryEntry, 0, min(len(entries), cRecoverMaxSummaryDepth+1))
 	depth := 0
 	record := func(d int, st StateID, posBytes, posRow uint32) {
 		for j := len(summary) - 1; j >= 0; j-- {
