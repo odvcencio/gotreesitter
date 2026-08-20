@@ -153,7 +153,8 @@ real construct. The thin corpus sample happened to miss that construct:
 - Kotlin: the generic-call-with-trailing-lambda repair. This is a common
   Gradle DSL shape.
 - PHP: list-destructuring retyping.
-- Swift: ternary-expression recovery.
+- Swift: ternary-expression recovery. This subpass was live at the R2
+  checkpoint. The regenerated Swift grammar blob now owns that shape.
 - YAML: malformed-flow-collection recovery.
 - Bash: multi-assignment splitting, for example `a=1 b=2 c=3`. A first,
   single-line probe missed this; a second, adversarial probe caught it.
@@ -172,6 +173,8 @@ Status: in progress.
 
 PR #471 retired the Lua, Make, and Zig field-projection arms.
 PR #472 retired the trailing-span family.
+The regenerated Swift grammar blob now emits native ternary expressions.
+This change retires the Swift ternary source-reparse subpass.
 Shared root finalization now owns the leading-trivia root family.
 This change removes seven language-local repairs and retires Squirrel's arm.
 Pinned alias maps now own the CUE, Git Commit, and R collapsed children.
@@ -348,6 +351,7 @@ there.
 | Bash command names | retirement change | 1 Bash subpass | 0 | compatibility-free producer, production, compact fallback, forest, incremental reuse, exact 25-case baseline at `83548f55`, and isolated C-oracle parity |
 | FIDL versioned layout modifiers | retirement change | 1 dispatcher arm | 0 | compatibility-free producer, production, compact fallback, forest-fail-closed, incremental reuse, and isolated C-oracle parity |
 | HLSL subscript-assignment declarator | retirement change | 1 HLSL member | 0 | negative dynamic precedence election, compatibility-free producer, production, compact fallback, forest, incremental reuse, and isolated C-oracle parity |
+| Swift ternary source reparse | retirement change | 1 Swift subpass | 0 | exact 16-case manifest, native producer, production, compact fallback, forest fail-closed behavior, incremental fresh fallback, and isolated C-oracle parity |
 
 Mark a row merged only after CI and merge evidence exist. Detailed per-entry
 receipts stay in the JSON registry and durable run findings stay in Hyphae.

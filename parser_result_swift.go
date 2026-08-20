@@ -26,9 +26,6 @@ func normalizeSwiftCompatibilityWithCensus(root *Node, source []byte, p *Parser,
 	census.run("dispatch.swift.conditions", func() {
 		normalizeSwiftRecoveredTrailingClosureConditions(root, source, p, lang)
 	})
-	census.run("dispatch.swift.ternary", func() {
-		normalizeSwiftRecoveredTernaryExpressions(root, source, p, lang)
-	})
 	census.run("dispatch.swift.top-level", func() {
 		normalizeSwiftRecoveredTopLevelDeclarations(root, source, p, lang)
 	})

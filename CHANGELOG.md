@@ -7,6 +7,11 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Removed
+
+- Swift ternary expressions now come directly from the regenerated grammar
+  blob. Parsing no longer runs the source-reparse compatibility pass.
+
 ### Fixed
 
 - End recovery convergence after a clean condense. Pending forks no longer

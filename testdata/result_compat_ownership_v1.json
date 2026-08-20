@@ -9,7 +9,7 @@
     "post_finalization_arms": 0,
     "post_finalization_languages": 0,
     "live_entries": 36,
-    "retired_entries": 49
+    "retired_entries": 50
   },
   "live_evidence_baseline": {
     "scope": "baseline_corpus_wide_only",
@@ -2446,10 +2446,12 @@
       "languages": [
         "swift"
       ],
-      "purpose": "Reconcile Swift recovery and returned-tree shape.",
+      "purpose": "Reconcile the remaining Swift condition, top-level declaration, and control-transfer recovery shapes. The ternary source-reparse subpass is retired because the regenerated grammar blob emits native ternary_expression nodes.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/parity_cgo_test.go",
+        "grammars/swift_ternary_retirement_test.go",
+        "cgo_harness/swift_ternary_retirement_parity_test.go"
       ],
       "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
       "route_coverage": {
@@ -2461,6 +2463,43 @@
       },
       "status": "live",
       "evidence_scope": "baseline_corpus_wide_only"
+    },
+    {
+      "id": "dispatch.swift.ternary",
+      "kind": "dispatcher_subpass",
+      "functions": [
+        "normalizeSwiftRecoveredTernaryExpressions"
+      ],
+      "files": [
+        "parser_result_swift_ternary.go"
+      ],
+      "languages": [
+        "swift"
+      ],
+      "purpose": "Historical: reconstruct Swift ternary_expression nodes with source scans and recovery reparses after the stale grammar blob misclassified the question-mark token.",
+      "authoritative_owner": "scheduler_action_semantics",
+      "witnesses": [
+        "testdata/swift_ternary_retirement_cases_v1.json",
+        "grammars/swift_ternary_retirement_test.go",
+        "cgo_harness/swift_ternary_retirement_parity_test.go"
+      ],
+      "retirement_condition": "Satisfied: the regenerated Swift grammar blob emits each historical ternary tree natively. Production and locked C are exact. Compact fallback and incremental fresh parsing preserve exact output. Forest is exact or fails closed.",
+      "route_coverage": {
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_or_fail_closed_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
+      },
+      "status": "retired",
+      "retired_commit": "71180718521aa6cf53fa4122a50998a7a2ef8020",
+      "positive_control_commit": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "producer_fix_commit": "71180718521aa6cf53fa4122a50998a7a2ef8020",
+      "receipt_refs": [
+        "testdata/swift_ternary_retirement_cases_v1.json",
+        "grammars/swift_ternary_retirement_test.go",
+        "cgo_harness/swift_ternary_retirement_parity_test.go"
+      ]
     },
     {
       "id": "dispatch.templ",

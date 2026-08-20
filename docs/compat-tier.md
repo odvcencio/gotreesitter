@@ -15,15 +15,14 @@ without updating that registry.
 
 The v1 registry freezes the current source and registry:
 
-- 39 explicit `runLanguageResultCompatibility` switch arms;
+- 35 explicit `runLanguageResultCompatibility` switch arms;
 - one predicate-dispatched COBOL entry matching exactly `cobol` or `COBOL`;
 - zero generic passes after language dispatch;
 - zero post-finalization second-pass fixpoint arms.
 
-The refreshed registry contains 40 live entries and 45 retired entries. It
-names 44 language labels because C/C++, TypeScript/TSX, and the COBOL case
-variants share entries. These counts backfill earlier retirements. This field
-repair change does not remove a dispatcher arm.
+The registry contains 36 live entries and 50 retired entries. The live entries
+name 39 language labels. Shared switch arms account for the label difference.
+The retired count includes the Swift ternary subpass.
 The registry covers
 only this documented internal result-compatibility tier. Scheduler experiments
 and other engine research belong in their owning subsystem's durable traces.

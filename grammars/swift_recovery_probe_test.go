@@ -140,7 +140,6 @@ func TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe(t *testing.T) {
 
 	for _, name := range []string{
 		"dispatch.swift.conditions",
-		"dispatch.swift.ternary",
 		"dispatch.swift.top-level",
 		"dispatch.swift.control",
 	} {
@@ -157,6 +156,9 @@ func TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe(t *testing.T) {
 		if pass.NodesRewritten != 0 {
 			t.Fatalf("census pass %q rewrote %d nodes, want 0", name, pass.NodesRewritten)
 		}
+	}
+	if _, ok := swiftRecoveryProbePass(runtime, "dispatch.swift.ternary"); ok {
+		t.Fatal("the census reports the retired Swift ternary pass")
 	}
 }
 

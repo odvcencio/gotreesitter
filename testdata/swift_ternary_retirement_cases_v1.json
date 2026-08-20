@@ -1,0 +1,85 @@
+{
+  "schema": "swift-ternary-retirement-cases-v1",
+  "cases": [
+    {
+      "name": "compat-top-level-let",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "let y = 3 > 0 ? 1 : 2\n"
+    },
+    {
+      "name": "compat-return-no-param",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "func f() -> Int { return true ? 1 : 2 }\n"
+    },
+    {
+      "name": "compat-return-with-param",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "func f(x: Int) -> Int { return x > 0 ? 1 : 2 }\n"
+    },
+    {
+      "name": "compat-call-argument",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "func f(x: Int) { print(x > 0 ? 1 : 2) }\n"
+    },
+    {
+      "name": "compat-string-operands",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "let a = cond ? \"x\" : \"y\"\n"
+    },
+    {
+      "name": "compat-nested-in-parens",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "let z = a + (cond ? 1 : 2) + b\n"
+    },
+    {
+      "name": "compat-parenthesised-condition",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "let availableRules = (context == nil) ? [.noContextRule] : []\n"
+    },
+    {
+      "name": "compat-enum-dot-operands",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "let result: MyEnumType = condition ? .someEnumCase : .someOtherEnum\n"
+    },
+    {
+      "name": "compat-multi-argument",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "let m = foo(a, b > 0 ? 1 : 2)\n"
+    },
+    {
+      "name": "compat-as-if-condition",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "if a ? b : c == d {\n}\n"
+    },
+    {
+      "name": "compat-field-layout",
+      "origin": "685ef7f885aa697e8a842de56de414d2a25cf0d8",
+      "source": "let y = a ? b : c\n"
+    },
+    {
+      "name": "producer-top-level-let",
+      "origin": "71180718521aa6cf53fa4122a50998a7a2ef8020",
+      "source": "let y = 3 > 0 ? 1 : 2"
+    },
+    {
+      "name": "producer-return-in-function",
+      "origin": "71180718521aa6cf53fa4122a50998a7a2ef8020",
+      "source": "func f() -> Int { return true ? 1 : 2 }"
+    },
+    {
+      "name": "producer-call-argument",
+      "origin": "71180718521aa6cf53fa4122a50998a7a2ef8020",
+      "source": "foo(true ? 1 : 2)"
+    },
+    {
+      "name": "producer-call-operands",
+      "origin": "71180718521aa6cf53fa4122a50998a7a2ef8020",
+      "source": "let a = condition ? doSomething() : doSomethingElse()"
+    },
+    {
+      "name": "producer-optional-unwrap",
+      "origin": "71180718521aa6cf53fa4122a50998a7a2ef8020",
+      "source": "let opt: Int? = 5\nlet val = opt != nil ? opt! : 0"
+    }
+  ]
+}
