@@ -5,6 +5,42 @@ Status: evidence certificate
 This certificate records the accepted D0 candidate-set evidence.
 It does not change parser behavior or grant a compatibility exception.
 
+## Current re-cut: 2026-08-13
+
+The baseline below is historical. The current constructed D0 run uses the
+same 104-source and 95-compared denominator, but reports 15 extra, 1 missing,
+and 5 different derivations. It reports 21 total differences, with 13
+condense-class, 4 token-class, and 4 unattributed mechanisms. The order axis
+remains zero.
+
+The full current corpus contains 113 sources and compares 100. It reports 15
+extra, 1 missing, and 6 different derivations, for 22 total differences.
+
+The focused D1 arrival-order counterexample remains green and falsifies an
+arrival-order-only collapse. Apex and Objective-C require opposite C survivor
+positions. Do not implement that collapse.
+
+The current M0 witness reproduction reaches all nine witnesses. Two Ada
+expected `DIFFERENT` classifications are stale; the current run reports
+`EXTRA` only. Keep the test pin unchanged until the evidence owner accepts the
+classification correction.
+
+The current run used gotreesitter revision
+`240c5ef17fec3403b33eeca0c7b81abf5370a5a0`. The test exited nonzero for the
+stale constructed total and the two stale Ada expectations. It reported no
+out-of-memory event and no wall timeout. This is evidence drift, not a parser
+route change.
+
+Receipts:
+
+- D0 Docker artifact: `20260813T101032Z-a8-d0-baseline-current`
+- Current D0 Docker artifact: `20260813T153029Z-a8-d0-current-route-v2`
+- Current D0 log SHA-256: `886b554722647381597b7af113f3cc5473c8751aeb68cfb5ab70de6bee7d6d0b`
+- Current D0 inspection SHA-256: `d567cc2393533584e1685e98abfc0503e79abd4c1e67db6017b236858b319290`
+- Current D0 metadata SHA-256: `1bf61f39bd4eb512552019b4b8ab4bf36f4e4c724ebdb792b9b7a66173436330`
+- D1 Docker artifact: `20260813T100813Z-a8-d1-current`
+- M0 Docker artifact: `20260813T100936Z-a8-m0-witness-current`
+
 ## Authority
 
 Use Revision R1 of `spec.campaign.v7` as the campaign authority.
@@ -45,7 +81,7 @@ The instrument reports candidate counts and difference classes.
 The order axis remains undetermined when C logs identical root symbols without enough fold context.
 The certificate records those cases as undetermined.
 
-## Baseline certificate
+## Historical baseline certificate
 
 The pinned constructed corpus contains 104 sources.
 The instrument compares 95 sources.
@@ -87,11 +123,12 @@ The compact tree misses the C `escape_sequence` leaf.
 
 The other Perl witnesses share leaf content with C and remain condense-class candidates.
 
-These findings change the order of work:
+These historical findings do not authorize the D1 collapse. The current
+order of work is:
 
-1. Prove safe condense-time tie collapse for comparable fork order.
-2. Port the C first-leaf token reuse predicate.
-3. Re-run the D0 census and classify the residual two cases.
+1. Keep arrival-order collapse retired by the counterexample.
+2. Keep the token-class mechanism separate from condense analysis.
+3. Re-run D0 after an accepted generic mechanism changes the candidate set.
 
 Do not infer a mechanism from a ratio or from a language name.
 
@@ -173,8 +210,8 @@ The next D1 or D2 change must pass these gates:
 - The material-acceptance census does not increase.
 - The smallest Docker parity suite remains green.
 
-Run D1 before D2 because D1 owns 26 of the 32 classified differences.
-Keep D2 separate so token and condense effects remain attributable.
+Do not implement D1 from the historical count. Keep D2 separate so token and
+condense effects remain attributable if a generic mechanism is later admitted.
 
 ## Certificate boundary
 
@@ -184,3 +221,36 @@ It does not authorize a parser route change.
 It does not authorize a language-specific exception.
 
 The next receipt must include the exact D0 command, source revision, corpus digest, and full difference table.
+
+## Current-head recheck
+
+The current-head Docker recheck used commit
+`7cf1cb3d5b65ad877bb8d2143aa049d1fd174af8` and the D0, D1 safety, and
+singleton-version tests. It produced the current recut already described
+above:
+
+- constructed corpus: 104 sources, 95 compared, 15 extra, 1 missing, 5
+  different, 0 order, and 21 total set differences;
+- full corpus: 113 sources, 100 compared, 15 extra, 1 missing, 6 different,
+  0 order, and 22 total set differences;
+- mechanism counts: 13 condense-class, 4 token-class, and 4 unattributed on
+  the constructed corpus;
+- order-undetermined records: 5.
+
+The D1 arrival-order counterexample and singleton-version tests passed. The
+D0 witness and baseline tests exited nonzero because their committed
+expectations still contain the historical Ada classifications and the old
+constructed total of 32. The output identifies two Ada classifications that
+now report `EXTRA` instead of `EXTRA DIFFERENT`. This is evidence drift, not a
+parser route change.
+
+Run artifact:
+`harness_out/docker/20260813T183757Z-a8-current-head-v1/`.
+
+- Container log SHA-256: `6510729df18f22b2c366d34854e8d3ea3aa06f7239e0b11091f91c55b5a228bf`.
+- Metadata SHA-256: `968e4a69547a8bcae22088e8039f73e4df6d7e3f055aed1ea18aff51bbc3e9e6`.
+- Inspection SHA-256: `195b4a52bb06d71f1f91e8f0d73addd29685bacefbd10c36d1d1127097c73ac3`.
+
+Keep the historical test pins unchanged until the evidence owner accepts the
+recut. Do not use this receipt to admit B15 grants, change routing, or claim
+performance credit.

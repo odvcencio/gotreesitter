@@ -1,6 +1,6 @@
 {
   "schema": "gts-c0-attribution/v1",
-  "generated_at": "2026-08-11T22:31:06Z",
+  "generated_at": "2026-08-13T04:18:14Z",
   "authority": {
     "spec": "hypha://m31labs/gotreesitter/spec.campaign.v7#r1",
     "revision": "R1",
@@ -51,107 +51,148 @@
   },
   "c0f": {
     "status": "partially_gated",
+    "run": "c0f-b09e3d9-r2-20260813T022827Z",
+    "revision": "b09e3d997690ec2b5d34a4a84310b5ebe06e14c6",
+    "corpus_lock_sha256": "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea",
+    "bundle_sha256": "67871ab7e453d8848e7f0265725fc54dbf6cd7cba0b8902bd1a2c2d6940c4ef8",
     "manifest_schema": "gts-perf-fleet-manifest/v1",
     "manifest_sha256": "573c0cecf7434075d828184f5660d0dd4d5ec23b218939ae8585418215a4ce42",
     "scoreboard_sha256": "620b4e98d532b0589adead4af4cdf1eccc3d7b85f5ada7a9e72137caa09137d5",
-    "signal_definition": "axis.status == \"ok\" and predicates.ratio_interpretable == true; timer threshold 1000 ns",
-    "signal_rows": 1315,
-    "signal_go_median_ns": 436257955255,
-    "signal_c_median_ns": 39840435812,
-    "signal_ratio_by_total": 10.950130096809795,
+    "expected_files": 1435,
+    "measured_files": 1428,
+    "evaluated_full_parse_files": 1327,
+    "signal_definition": "full.status == \"ok\" and full.c_median_ns >= 1000",
+    "signal_rows": 1325,
+    "signal_go_median_ns": 353011159791,
+    "signal_c_median_ns": 41704371680,
+    "signal_ratio_by_total": 8.464608039168521,
+    "hard_gate_status": "fail",
+    "runtime_fact_coverage": {
+      "rows": 1428,
+      "rows_with_runtime": 1374,
+      "signal_rows": 1325,
+      "signal_rows_with_runtime": 1271,
+      "signal_runtime_missing_rows": 54,
+      "signal_runtime_partial_rows": 7,
+      "signal_runtime_incomplete_rows": 0,
+      "signal_go_share_with_runtime": 0.9906908739062368,
+      "signal_go_unattributed_upper_bound": 0.009309126093763175
+    },
     "classes": {
       "clean": {
         "rows": 871,
-        "bytes": 176790474,
-        "go_median_ns": 121024265439,
-        "c_median_ns": 16610014247,
-        "ratio_by_total": 7.286222855640155,
-        "go_share_of_signal": 0.2774144608280193,
-        "local_go_gap": 0.8627546782725819,
-        "excess_go_ns": 104414251192,
-        "excess_share_of_signal_go": 0.2393406238998396
+        "languages": 160,
+        "go_median_ns": 76310525415,
+        "c_median_ns": 16827373226,
+        "ratio_by_total": 4.534904193905469,
+        "go_share_of_signal": 0.21617029178391864,
+        "local_go_gap": 0.779893738,
+        "excess_go_ns": 59514100950
       },
       "error": {
-        "rows": 444,
-        "bytes": 84094345,
-        "go_median_ns": 315233689816,
-        "c_median_ns": 23230421565,
-        "ratio_by_total": 13.56986522754048,
-        "go_share_of_signal": 0.7225855391719807,
-        "local_go_gap": 0.9263073005345354,
-        "excess_go_ns": 292003268251,
-        "excess_share_of_signal_go": 0.6693362601956891
+        "rows": 454,
+        "languages": 105,
+        "go_median_ns": 276700634376,
+        "c_median_ns": 24876998454,
+        "ratio_by_total": 11.12274999283561,
+        "go_share_of_signal": 0.7838297082160813,
+        "local_go_gap": 0.922687865,
+        "excess_go_ns": 255308317469
       }
-    },
-    "distributions": {
-      "clean": {
-        "rows": 871,
-        "p50": 4.871399642389936,
-        "p90": 10.150650739882332,
-        "p95": 13.798635357163782,
-        "p99": 25.130440921126667,
-        "max": 209.17072308400594
-      },
-      "error": {
-        "rows": 444,
-        "p50": 6.071673794922734,
-        "p90": 66.21133330180697,
-        "p95": 106.5491915440649,
-        "p99": 208.28810684924176,
-        "max": 273.7115719103429
-      }
-    },
-    "finding_records_by_kind": {
-      "coverage": 110,
-      "go_stop": 25,
-      "oracle": 1,
-      "ratio": 250
     },
     "cohorts": {
-      "alternative_lifetime": {
-        "predicate": "runtime live-version lifetime",
-        "observed": false,
-        "rows": 0,
-        "go_median_ns": 0,
-        "weight_of_signal_go": 0,
-        "local_go_gap": 0,
-        "upper_bound_signal_share": 1,
-        "note": "No per-row live-version lifetime exists in V10/F0. Evidence bound is 0..100% of signal Go time; no credit."
+      "recovery_entry": {
+        "rows": 434,
+        "languages": 97,
+        "upper_bound_signal_go_share": 0.735438343840763,
+        "decision": "admit B16 evidence"
+      },
+      "retry_attempt": {
+        "rows": 156,
+        "languages": 45,
+        "upper_bound_signal_go_share": 0.6221295888946544,
+        "decision": "admit retry transcript"
+      },
+      "retry_selected_retry": {
+        "rows": 36,
+        "languages": 15,
+        "upper_bound_signal_go_share": 0.19801696209373534,
+        "decision": "admit retry selection study"
+      },
+      "retry_retained_initial": {
+        "rows": 120,
+        "languages": 44,
+        "upper_bound_signal_go_share": 0.4241126268009191,
+        "decision": "admit retry waste study"
+      },
+      "multi_version": {
+        "rows": 423,
+        "languages": 93,
+        "upper_bound_signal_go_share": 0.7288573901667336,
+        "decision": "admit lifetime study"
+      },
+      "scanner_resync": {
+        "rows": 9,
+        "languages": 2,
+        "upper_bound_signal_go_share": 0.004751635999250256,
+        "decision": "reject broad scanner work"
       },
       "materialization": {
-        "predicate": "materialization work",
-        "observed": false,
-        "rows": 0,
-        "go_median_ns": 0,
-        "weight_of_signal_go": 0,
-        "local_go_gap": 0,
-        "upper_bound_signal_share": 1,
-        "note": "No per-row materialization-work counter exists in V10/F0. Evidence bound is 0..100% of signal Go time; no credit."
+        "rows": 1271,
+        "languages": 190,
+        "upper_bound_signal_go_share": 0.9906908739062368,
+        "decision": "use timed estimate only"
+      }
+    },
+    "projected_timed_equivalents": {
+      "retry_outer_remainder": {
+        "signal_go_share": 0.486509614148404,
+        "decision": "instrumentation only"
       },
-      "recovery": {
-        "predicate": "semantic_class == error and ratio-eligible",
-        "observed": true,
-        "rows": 444,
-        "go_median_ns": 315233689816,
-        "weight_of_signal_go": 0.7225855391719807,
-        "local_go_gap": 0.9263073005345354,
-        "upper_bound_signal_share": 0.7225855391719807,
-        "note": "Observable error-class proxy; not a causal recovery counter."
+      "recovery_cost_walk": {
+        "signal_go_share": 0.15324887424728056,
+        "decision": "admit B16 mechanism search"
+      },
+      "alternative_lifetime": {
+        "signal_go_share": 0.16885266904979843,
+        "decision": "admit lifetime investigation"
       },
       "scanner_boundary": {
-        "predicate": "scanner-call density or scanner boundary",
-        "observed": false,
-        "rows": 0,
-        "go_median_ns": 0,
-        "weight_of_signal_go": 0,
-        "local_go_gap": 0,
-        "upper_bound_signal_share": 1,
-        "note": "No per-row scanner-call density exists in V10/F0. Evidence bound is 0..100% of signal Go time; no credit."
+        "signal_go_share": 0.000207692642987526,
+        "decision": "reject broad scanner work"
+      },
+      "materialization": {
+        "signal_go_share": 0.11440916983996754,
+        "decision": "admit grouped study"
       }
-    }
+    },
+    "selected_attempts_all_signal": {
+      "none": 47,
+      "clean_wide": 1,
+      "final_merge": 6,
+      "initial": 1242,
+      "initial_merge": 29
+    },
+    "targeted_confirmation": {
+      "revision": "5067343eae3d2c3291bbbfbe918a71e4e3d871ea",
+      "selected_files": 24,
+      "runtime_records": 24,
+      "complete_runtime_records": 24,
+      "partial_runtime_records": 0,
+      "forest_runtime_records": 0,
+      "bundle_sha256": "ce1fa135c9e350543bc2c7fd8ceffb62eef349141e72602178541c08a7fc6a15",
+      "decision": "diagnostic remedy confirmed; public route control remains open"
+    },
+    "closure_gates": [
+      "restore admission-switch contract",
+      "add private automatic-forest diagnostic control",
+      "repeat the 24-file confirmation at final pull-request head",
+      "pass affected focused tests and required CI checks",
+      "amend analyzer receipt with zero present partial rows"
+    ]
   },
   "formulas": [
-    "signal = {row | axis.status == ok and c_median_ns \u003e= timer_threshold_ns}; hygiene rows stay in coverage and fixed-overhead reporting",
+    "signal = {row | full.status == ok and full.c_median_ns \u003e= 1000}; all expected files stay in the coverage denominator",
     "ratio_by_total(class) = sum(go_median_ns over class) / sum(c_median_ns over class)",
     "go_share(class) = sum(go_median_ns over class) / sum(go_median_ns over signal)",
     "local_go_gap(class) = 1 - sum(c_median_ns over class) / sum(go_median_ns over class)",
@@ -176,10 +217,10 @@
     },
     {
       "id": "fleet-mechanism-facts",
-      "status": "unresolved",
+      "status": "partially_resolved",
       "claim": "The V10 fleet can assign recovery, alternative lifetime, scanner, and materialization shares",
-      "finding": "The V10 scoreboard and F0 manifest contain class, stop, timing, recovery memo, and oracle fields. They contain no retry count, recovery-cost counter, live-version lifetime, scanner-call density, or materialization-work counter.",
-      "action": "Do not admit a mechanism or claim the 2% selection ceiling until a trace lane supplies these facts."
+      "finding": "The R2 runtime lane supplies these facts for 99.0691% of signal Go time. Seven partial records used automatic forest results during diagnostic capture.",
+      "action": "Keep performance credit closed until the private diagnostic control and final-head 24-file confirmation remove all present partial rows."
     },
     {
       "id": "hygiene-provenance",
@@ -194,6 +235,13 @@
       "claim": "The R1 39.0% error-byte share is the V10 denominator",
       "finding": "F0 signal bytes give 84,094,345 / 260,884,819 = 32.2343%. R1 does not define the 39.0% byte denominator, so the values cannot be reconciled from this artifact.",
       "action": "Publish both denominators and do not blend them."
+    },
+    {
+      "id": "automatic-forest-diagnostic-route",
+      "status": "unresolved",
+      "claim": "The C0f runtime attribution lane records only the compact route",
+      "finding": "Seven present rows used automatic forest results during diagnostic capture. A 24-file correction produced complete records and zero forest records at revision 5067343e, but the public contract still needs a private control and final-head confirmation.",
+      "action": "Restore the admission-switch contract, add the private diagnostic control, and repeat the focused confirmation before closing C0f."
     }
   ]
 }

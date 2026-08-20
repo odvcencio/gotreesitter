@@ -443,13 +443,14 @@ func TestDiagnosticParserCoreCheckpointCompactLayoutsAMD64(t *testing.T) {
 	// copies grouped up front, all 4-byte aligned, ahead of the
 	// byte/uint16-sized fields) so the three added bools fold into what
 	// would otherwise be trailing padding: 88 -> 64, exactly the pre-v2
-	// size despite carrying the full (event, branch) sets and all three
-	// bools. This struct is copied by value on every dispatch (the header
-	// canonicalize double-buffer and the rollback scratch snapshot), so the
-	// 24-byte-per-header reduction applies once per copy, twice per
-	// dispatch.
-	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 64 {
-		t.Fatalf("scheduler header size=%d, want 64", got)
+	// payload size despite carrying the full (event, branch) sets and all
+	// three bools. Native S3 later added one cold recovery-region pointer,
+	// taking the complete header to 72 bytes. This struct is copied by value
+	// on every dispatch (the header canonicalize double-buffer and the
+	// rollback scratch snapshot), so the 24-byte-per-header reduction still
+	// applies once per copy, twice per dispatch.
+	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 72 {
+		t.Fatalf("scheduler header size=%d, want 72", got)
 	}
 	if got := unsafe.Sizeof(diagnosticParserCorePhaseHead{}); got != 12 {
 		t.Fatalf("canonical phase key size=%d, want 12", got)

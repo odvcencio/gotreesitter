@@ -105,7 +105,13 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "cgo_harness/ada_a3_certification_sweep_test.go",
+        "cgo_harness/ada_constraint_kind_election_parity_test.go",
+        "cgo_harness/ada_election_local_parity_test.go",
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.angular",
@@ -188,7 +194,13 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "cgo_harness/apex_a3_certification_sweep_test.go",
+        "cgo_harness/apex_generic_local_parity_test.go",
+        "grammars/apex_class_literal_election_native_regression_test.go",
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.authzed",
@@ -216,7 +228,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.awk",
@@ -244,7 +259,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.bibtex",
@@ -321,7 +339,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.bitbake",
@@ -349,7 +370,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.chatito",
@@ -444,7 +468,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.c_sharp",
@@ -472,7 +499,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.shared_trailing_span",
@@ -558,7 +588,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.corn",
@@ -586,7 +619,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.crystal",
@@ -753,7 +789,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.doxygen",
@@ -781,7 +820,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.jsdoc",
@@ -809,7 +851,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.dtd",
@@ -837,7 +882,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.elixir",
@@ -1184,7 +1232,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.gitcommit",
@@ -1423,7 +1474,12 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "cgo_harness/hlsl_subscript_assignment_parity_cgo_test.go",
+        "grammars/hlsl_subscript_assignment_native_regression_test.go",
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.hyprlang",
@@ -1517,7 +1573,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.julia",
@@ -1545,7 +1604,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.just",
@@ -1606,7 +1668,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.linkerscript",
@@ -1688,7 +1753,13 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "cgo_harness/included_ranges_kotlin_root_parity_cgo_test.go",
+        "parser_included_ranges_kotlin_root_test.go",
+        "parser_result_test/dispatcher_census_test.go",
+        "query_kotlin_regression_test.go"
+      ]
     },
     {
       "id": "dispatch.lua",
@@ -1887,7 +1958,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.ocaml",
@@ -1986,7 +2060,11 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "cgo_harness/perl_scheduler_action_local_parity_test.go",
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.php",
@@ -2014,7 +2092,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.powershell",
@@ -2045,7 +2126,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.ql",
@@ -2144,7 +2228,11 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "cgo_harness/python_scheduler_action_local_parity_test.go",
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.rescript",
@@ -2238,7 +2326,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.ruby",
@@ -2305,7 +2396,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.scheme",
@@ -2367,7 +2461,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.sql",
@@ -2397,7 +2494,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.squirrel",
@@ -2460,7 +2560,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.templ",
@@ -2488,7 +2591,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.wgsl",
@@ -2516,7 +2622,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.wolfram",
@@ -2544,7 +2653,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.typescript",
@@ -2573,7 +2685,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.typst",
@@ -2634,7 +2749,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "dispatch.zig",
@@ -2698,7 +2816,10 @@
         "c_oracle": "curated_single_grammar_parity"
       },
       "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "evidence_scope": "baseline_corpus_wide_only",
+      "evidence_refs": [
+        "parser_result_test/dispatcher_census_test.go"
+      ]
     },
     {
       "id": "generic.trailing-extra-trivia",

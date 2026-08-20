@@ -10,18 +10,11 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// TestCompactRouteRootLeadingGapDeclines pins the eight fuzzer-found
-// reproductions of the root-start pull-back class: the accepted
-// derivation's own root reduce declared a span that starts after the
-// source's first non-trivia byte -- one real byte at document start that no
-// node in the derivation ever represented -- fully tiled within itself, so
-// diagnosticParserCoreReduceChildrenTilingGap's own-children check (exempt at
-// the root symbol, isDerivationRootReduce) never sees a gap. Before the
-// accepted-root-leading-gap decline, the shared post-materialization
-// normalizeRootSourceStart (parser_result_root_build.go) pulled the public
-// root span back over the dropped byte on the assumption of a legitimately
-// elided leading extra, publishing HasError()==false while production
-// correctly reports an error for the same bytes.
+// TestCompactRouteRootLeadingGapDeclines pins eight root-start gap
+// reproductions. The candidate must decline when its accepted derivation
+// starts after the first non-trivia byte. The current production verdict is
+// recorded per fixture because some historical witnesses are now clean in
+// both production and the locked C oracle.
 func TestCompactRouteRootLeadingGapDeclines(t *testing.T) {
 	// html, erlang, and haskell are not otherwise loaded by the always-on
 	// (untagged) suite; purge the process-wide embedded cache afterward so
@@ -30,18 +23,19 @@ func TestCompactRouteRootLeadingGapDeclines(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 
 	cases := []struct {
-		name   string
-		lang   string
-		source string
+		name              string
+		lang              string
+		source            string
+		wantProductionErr bool
 	}{
-		{"html_amp_digit", "html", "&0"},
-		{"html_amp_semicolon", "html", "&;"},
-		{"html_amp_hash", "html", "&#"},
-		{"html_close_angle_digit", "html", ">0"},
-		{"html_amp_zeros", "html", "&000"},
-		{"erlang_soh_digit", "erlang", "\x010"},
-		{"erlang_du_digit", "erlang", "\x100"},
-		{"haskell_unterminated_string", "haskell", "\"\n"},
+		{"html_amp_digit", "html", "&0", true},
+		{"html_amp_semicolon", "html", "&;", true},
+		{"html_amp_hash", "html", "&#", true},
+		{"html_close_angle_digit", "html", ">0", true},
+		{"html_amp_zeros", "html", "&000", true},
+		{"erlang_soh_digit", "erlang", "\x010", false},
+		{"erlang_du_digit", "erlang", "\x100", false},
+		{"haskell_unterminated_string", "haskell", "\"\n", true},
 	}
 
 	for _, c := range cases {
@@ -61,8 +55,8 @@ func TestCompactRouteRootLeadingGapDeclines(t *testing.T) {
 				t.Fatalf("production parse: %v", err)
 			}
 			defer productionTree.Release()
-			if !productionTree.RootNode().HasError() {
-				t.Fatalf("production HasError=false, want true for %q", c.source)
+			if got := productionTree.RootNode().HasError(); got != c.wantProductionErr {
+				t.Fatalf("production HasError=%t, want %t for %q", got, c.wantProductionErr, c.source)
 			}
 
 			gts.ResetAdmissionCandidateCountersForTest()

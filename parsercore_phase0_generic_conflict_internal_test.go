@@ -698,7 +698,8 @@ func TestDiagnosticParserCoreGenericConflictMultiOutputSequencing(t *testing.T) 
 				compact: compact, headers: append([]diagnosticParserCoreHeader(nil), headers...),
 				token:       Token{Symbol: 10, StartByte: 1, EndByte: 2},
 				branchOrder: test.branchOrder, nextSeq: test.nextSeq,
-				options: DiagnosticParserCorePrefixOptions{MaxDispatches: 100}, receipt: receipt,
+				nextCleanPathLineage: 1,
+				options:              DiagnosticParserCorePrefixOptions{MaxDispatches: 100}, receipt: receipt,
 			}
 			cell := mustDiagnosticParserCoreGenericCell(t, compact, 1, headers[1], 10)
 			err := scheduler.applyGenericConflict(before, cell)
@@ -719,7 +720,8 @@ func TestDiagnosticParserCoreGenericConflictMultiOutputSequencing(t *testing.T) 
 	}
 	scheduler := &diagnosticParserCoreGenericScheduler{
 		compact: compact, headers: headers, token: Token{Symbol: 10, StartByte: 1, EndByte: 2},
-		branchOrder: 7, nextSeq: 10, options: DiagnosticParserCorePrefixOptions{MaxDispatches: 100},
+		branchOrder: 7, nextSeq: 10, nextCleanPathLineage: 1,
+		options: DiagnosticParserCorePrefixOptions{MaxDispatches: 100},
 		receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	cell := mustDiagnosticParserCoreGenericCell(t, compact, 1, headers[1], 10)

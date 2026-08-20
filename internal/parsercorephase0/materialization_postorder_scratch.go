@@ -31,6 +31,15 @@ func (scratch *MaterializationPostorderScratch) Reset() {
 	scratch.inUse = false
 }
 
+// Capacities returns retained element capacities for diagnostic receipts.
+// The values do not represent bytes or live elements.
+func (scratch *MaterializationPostorderScratch) Capacities() (colors, frames int) {
+	if scratch == nil {
+		return 0, 0
+	}
+	return cap(scratch.colors), cap(scratch.frames)
+}
+
 func (scratch *MaterializationPostorderScratch) prepare(subtrees int) error {
 	if scratch == nil {
 		return errors.New("parser-core phase zero: materialization postorder scratch is nil")

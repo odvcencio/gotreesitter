@@ -842,6 +842,117 @@ type RecoveryRuntimeStats struct {
 	PeakLiveVersionCount         uint64
 }
 
+// CompactParserCoreWork records committed work from the compact parser core.
+// It is diagnostic evidence and stays zero on production-parser trees.
+type CompactParserCoreWork struct {
+	Shifts                                 uint64 `json:"shifts"`
+	Reductions                             uint64 `json:"reductions"`
+	ReductionPopRequests                   uint64 `json:"reduction_pop_requests"`
+	EmittedPopPaths                        uint64 `json:"emitted_pop_paths"`
+	EmittedPopPayloads                     uint64 `json:"emitted_pop_payloads"`
+	PredecessorLinkUnionAttempts           uint64 `json:"predecessor_link_union_attempts"`
+	PredecessorLinkUnionDuplicateNoop      uint64 `json:"predecessor_link_union_duplicate_noop"`
+	PredecessorLinkUnionPrecedenceReplaced uint64 `json:"predecessor_link_union_precedence_replaced"`
+	PredecessorLinkUnionRecursiveChanged   uint64 `json:"predecessor_link_union_recursive_changed"`
+	PredecessorLinkUnionAlternateAppended  uint64 `json:"predecessor_link_union_alternate_appended"`
+	PredecessorLinkUnionRejected           uint64 `json:"predecessor_link_union_rejected"`
+	GraphLinkAdditionsProxy                uint64 `json:"graph_link_additions_proxy"`
+	LeafConstructionsProxy                 uint64 `json:"leaf_constructions_proxy"`
+	ParentConstructionsProxy               uint64 `json:"parent_constructions_proxy"`
+	Overflow                               bool   `json:"overflow"`
+}
+
+// CompactParserCoreSchedulerWork mirrors the generic scheduler work receipt.
+// It is independent of the diagnostic scheduler build tag, so the public
+// runtime type remains available in compile-out builds.
+type CompactParserCoreSchedulerWork struct {
+	Passes                       uint64 `json:"passes"`
+	SingleHeaderPasses           uint64 `json:"single_header_passes"`
+	CorridorPasses               uint64 `json:"corridor_passes"`
+	ActionLookups                uint64 `json:"action_lookups"`
+	Dispatches                   uint64 `json:"dispatches"`
+	Conflicts                    uint64 `json:"conflicts"`
+	ConflictActions              uint64 `json:"conflict_actions"`
+	Forks                        uint64 `json:"forks"`
+	ConflictActionArmsAdmitted   uint64 `json:"conflict_action_arms_admitted"`
+	CausalConflictForks          uint64 `json:"causal_conflict_forks"`
+	ConflictHeads                uint64 `json:"conflict_heads"`
+	ConvergedReductionSplitDrops uint64 `json:"converged_reduction_split_drops"`
+	ConvergedCoverageDrops       uint64 `json:"converged_coverage_drops"`
+	RepetitionFolds              uint64 `json:"repetition_folds"`
+	Reductions                   uint64 `json:"reductions"`
+	OrdinaryShifts               uint64 `json:"ordinary_shifts"`
+	OrdinaryCohorts              uint64 `json:"ordinary_cohorts"`
+	ExtraShifts                  uint64 `json:"extra_shifts"`
+	ExtraCohorts                 uint64 `json:"extra_cohorts"`
+	Accepts                      uint64 `json:"accepts"`
+	ReductionPauses              uint64 `json:"reduction_pauses"`
+	NoActionDrops                uint64 `json:"no_action_drops"`
+	Elections                    uint64 `json:"elections"`
+	Canonicalizations            uint64 `json:"canonicalizations"`
+	PeakHeaders                  uint64 `json:"peak_headers"`
+	Overflow                     bool   `json:"overflow"`
+}
+
+// CompactParserCoreStats records compact graph storage at authenticated EOF.
+// Capacity and semantic work remain separate in the receipt.
+type CompactParserCoreStats struct {
+	Nodes             uint32 `json:"nodes"`
+	Links             uint32 `json:"links"`
+	Subtrees          uint32 `json:"subtrees"`
+	Children          uint32 `json:"children"`
+	CurrentExactPaths uint64 `json:"current_exact_paths"`
+}
+
+// CompactParserCoreScratch records retained scratch capacities in element
+// units. It does not claim byte allocation or resident-set size.
+type CompactParserCoreScratch struct {
+	ScannerBytes                   int `json:"scanner_bytes"`
+	SchedulerHeaders               int `json:"scheduler_headers"`
+	SchedulerSummaryHeaders        int `json:"scheduler_summary_headers"`
+	SchedulerReductionOutputs      int `json:"scheduler_reduction_outputs"`
+	SchedulerReplacements          int `json:"scheduler_replacements"`
+	SchedulerClassifiedBoundaries  int `json:"scheduler_classified_boundaries"`
+	SchedulerCondenseCandidates    int `json:"scheduler_condense_candidates"`
+	SchedulerElectStates           int `json:"scheduler_elect_states"`
+	SchedulerElectGLRStates        int `json:"scheduler_elect_glr_states"`
+	DispatchCells                  int `json:"dispatch_cells"`
+	DispatchNoActionIndices        int `json:"dispatch_no_action_indices"`
+	ConflictActionOutputs          int `json:"conflict_action_outputs"`
+	ConflictReductionOutputs       int `json:"conflict_reduction_outputs"`
+	ConflictOutputs                int `json:"conflict_outputs"`
+	ConflictArmRanges              int `json:"conflict_arm_ranges"`
+	ConflictAdopted                int `json:"conflict_adopted"`
+	ConflictHeaderAssembly         int `json:"conflict_header_assembly"`
+	MaterializationEntries         int `json:"materialization_entries"`
+	MaterializationReduceNodes     int `json:"materialization_reduce_nodes"`
+	MaterializationPostorderColors int `json:"materialization_postorder_colors"`
+	MaterializationPostorderFrames int `json:"materialization_postorder_frames"`
+	MaterializationNodesByID       int `json:"materialization_nodes_by_id"`
+	MaterializationNodes           int `json:"materialization_nodes"`
+	MaterializationLinkScratch     int `json:"materialization_link_scratch"`
+	MaterializationLineStarts      int `json:"materialization_line_starts"`
+	MaterializationCompatFrames    int `json:"materialization_compat_frames"`
+}
+
+// CompactParserCoreRuntime is an authenticated diagnostic receipt for one
+// compact parse. The fields stay zero unless GOT_PARSE_PHASE_TIMING is on.
+// Retained footprint is capacity-based. Scratch values are element counts.
+type CompactParserCoreRuntime struct {
+	Authenticated           bool                           `json:"authenticated"`
+	SchedulerNanos          int64                          `json:"scheduler_nanos"`
+	MaterializationNanos    int64                          `json:"materialization_nanos"`
+	SchedulerFootprintBytes uint64                         `json:"scheduler_footprint_bytes"`
+	RetainedFootprintBytes  uint64                         `json:"retained_footprint_bytes"`
+	SelectedNodes           uint64                         `json:"selected_nodes"`
+	SelectedParents         uint64                         `json:"selected_parents"`
+	SelectedLeaves          uint64                         `json:"selected_leaves"`
+	CoreWork                CompactParserCoreWork          `json:"core_work"`
+	SchedulerWork           CompactParserCoreSchedulerWork `json:"scheduler_work"`
+	CoreStats               CompactParserCoreStats         `json:"core_stats"`
+	Scratch                 CompactParserCoreScratch       `json:"scratch"`
+}
+
 // ParseRuntime captures parser-loop diagnostics for a completed tree.
 type ParseRuntime struct {
 	StopReason     ParseStopReason
@@ -3884,6 +3995,16 @@ func (t *Tree) ParseRuntime() ParseRuntime {
 		out.StopReason = ParseStopNone
 	}
 	return out
+}
+
+// CompactParserCoreRuntime returns authenticated diagnostics for a compact
+// route tree. The data lives beside the arena, not in ParseRuntime, so routine
+// parser results do not carry the compact receipt's large cold payload.
+func (t *Tree) CompactParserCoreRuntime() (CompactParserCoreRuntime, bool) {
+	if t == nil || t.arena == nil || t.arena.compactRuntime == nil {
+		return CompactParserCoreRuntime{}, false
+	}
+	return *t.arena.compactRuntime, true
 }
 
 // RecoveryNodeMemoRuntime returns bounded memo telemetry for this tree. The

@@ -91,6 +91,9 @@ type nodeArena struct {
 	// a parse did not borrow any external nodes (full parse without reuse).
 	skipChildClear bool
 	audit          *runtimeAudit
+	// compactRuntime is cold diagnostic data for a compact-route tree. Keep it
+	// on the arena so ParseRuntime remains a small hot result record.
+	compactRuntime *CompactParserCoreRuntime
 	// internLeaves observes potential leaf-interning hit rates during the
 	// parse loop, parseState-BLIND (hooked from newLeafNodeInArena before
 	// per-fork state is set). Allocated lazily, reset between parses.
@@ -542,6 +545,7 @@ func (a *nodeArena) Release() {
 }
 
 func (a *nodeArena) reset() {
+	a.compactRuntime = nil
 	a.resetPrimaryNodes()
 	a.resetParentLinks()
 	a.finalChildRefs = false

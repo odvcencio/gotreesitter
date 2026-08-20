@@ -31,6 +31,10 @@ type Token struct {
 	// began, before scanner-side skip advances moved StartByte forward.
 	ExternalScannerToken     bool
 	ExternalScannerStartByte uint32
+	// lexerSkippedPrefix records that the DFA consumed one or more skip
+	// transitions before producing this token.
+	lexerSkippedPrefix      bool
+	lexerSkippedPrefixStart uint32
 }
 
 func bytesToStringNoCopy(b []byte) string {
@@ -109,6 +113,7 @@ func (l *Lexer) next(startState uint32, emitErrorRuns bool) Token {
 	// whitespace the failed attempt skipped) when it switches to error-mode
 	// lexing; capture it for the errorModeRetry branch below.
 	callStartPos, callStartRow, callStartCol := l.pos, l.row, l.col
+	skippedPrefix := false
 	for {
 		// EOF check.
 		if l.pos >= len(l.source) {
@@ -131,12 +136,20 @@ func (l *Lexer) next(startState uint32, emitErrorRuns bool) Token {
 				// advanced past the skipped content to prevent an
 				// infinite loop on zero-width skip matches.
 				if l.pos <= tokenStartPos {
+					skippedPrefix = false
 					l.skipOneRune()
+				} else {
+					skippedPrefix = true
 				}
 				continue
 			}
+			if skippedPrefix {
+				tok.lexerSkippedPrefix = true
+				tok.lexerSkippedPrefixStart = uint32(callStartPos)
+			}
 			return tok
 		}
+		skippedPrefix = false
 
 		if emitErrorRuns && l.hasErrorRunLexState && l.errorModeRetry && startState != l.errorRunLexState {
 			// Faithful C error-recovery port: ts_parser__lex retries a failed
@@ -231,6 +244,7 @@ func (l *Lexer) scan(startState uint32, startPos int, startRow, startCol uint32)
 	tokenStartPos := startPos
 	tokenStartRow := startRow
 	tokenStartCol := startCol
+	skippedPrefix := false
 
 	// Track the last accepting state.
 	acceptPos := -1
@@ -331,6 +345,7 @@ func (l *Lexer) scan(startState uint32, startPos int, startRow, startCol uint32)
 
 		if skipTransition {
 			// tree-sitter SKIP(state) consumes and resets token start.
+			skippedPrefix = true
 			tokenStartPos = scanPos
 			tokenStartRow = scanRow
 			tokenStartCol = scanCol
@@ -382,20 +397,24 @@ func (l *Lexer) scan(startState uint32, startPos int, startRow, startCol uint32)
 	if acceptSkip {
 		// Return a zero-Symbol token to signal "skip".
 		return Token{
-			StartByte:  uint32(acceptStartPos),
-			EndByte:    uint32(acceptPos),
-			StartPoint: Point{Row: acceptStartRow, Column: acceptStartCol},
-			EndPoint:   Point{Row: acceptRow, Column: acceptCol},
+			StartByte:               uint32(acceptStartPos),
+			EndByte:                 uint32(acceptPos),
+			StartPoint:              Point{Row: acceptStartRow, Column: acceptStartCol},
+			EndPoint:                Point{Row: acceptRow, Column: acceptCol},
+			lexerSkippedPrefix:      skippedPrefix,
+			lexerSkippedPrefixStart: uint32(startPos),
 		}, true
 	}
 
 	return Token{
-		Symbol:     acceptSymbol,
-		Text:       bytesToStringNoCopy(l.source[acceptStartPos:acceptPos]),
-		StartByte:  uint32(acceptStartPos),
-		EndByte:    uint32(acceptPos),
-		StartPoint: Point{Row: acceptStartRow, Column: acceptStartCol},
-		EndPoint:   Point{Row: acceptRow, Column: acceptCol},
+		Symbol:                  acceptSymbol,
+		Text:                    bytesToStringNoCopy(l.source[acceptStartPos:acceptPos]),
+		StartByte:               uint32(acceptStartPos),
+		EndByte:                 uint32(acceptPos),
+		StartPoint:              Point{Row: acceptStartRow, Column: acceptStartCol},
+		EndPoint:                Point{Row: acceptRow, Column: acceptCol},
+		lexerSkippedPrefix:      skippedPrefix,
+		lexerSkippedPrefixStart: uint32(startPos),
 	}, true
 }
 

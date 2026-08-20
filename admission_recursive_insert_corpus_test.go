@@ -31,7 +31,7 @@ func TestAdmissionCandidateBoundedRecursiveInsertionCorpus(t *testing.T) {
 			language:   "elixir",
 			path:       "testdata/admission_direct/recursive_insert/elixir.ex",
 			sha256:     "7977e259f7e718177e568eedbb82ba8df72a149095718f3c563de5ec06db285c",
-			nextReason: "converged-path reduction split drops",
+			nextReason: "lacks alternative-set coverage by one non-blended survivor",
 		},
 		// tree-sitter-perl@ad74e6db234c, test/highlight/statements.pm
 		{
@@ -45,7 +45,7 @@ func TestAdmissionCandidateBoundedRecursiveInsertionCorpus(t *testing.T) {
 			language:   "scala",
 			path:       "testdata/admission_direct/recursive_insert/scala.scala",
 			sha256:     "d53a16c04dd1ad917104a5f9ab6bf45c4c779188bafe7044d2fec06217a3b7d9",
-			nextReason: "converged-path reduction split drops",
+			nextReason: "lacks alternative-set coverage by one non-blended survivor",
 		},
 	}
 	entries := make(map[string]grammars.LangEntry)

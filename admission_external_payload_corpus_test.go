@@ -24,7 +24,7 @@ func TestAdmissionCandidateExactExternalPayloadCorpus(t *testing.T) {
 			language:   "kotlin",
 			path:       "testdata/admission_direct/external_payload/kotlin.kt",
 			sha256:     "e825c4c57c95082c9aa2b62f35853d0b2edfc24934a349ce9f1195d14ae7522b",
-			nextReason: "live-link cap exceeded",
+			nextReason: "unproved historical boundary resurrection",
 		},
 		// ocaml/ocaml@7c51f06c0a5d, testsuite/tools/environment.mli
 		{

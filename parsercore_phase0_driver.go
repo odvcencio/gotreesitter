@@ -954,14 +954,16 @@ func diagnosticParserCoreSelectedNodeCensus(root *Node) diagnosticParserCoreSele
 // then cleanPathLineage (2-byte aligned), then every remaining byte-sized
 // field. This is layout-only: every construction site across the package
 // and its tests uses keyed fields (grep-verified), so declaration order
-// changes memory footprint, never behavior. It restores this struct to its
-// pre-b4b-v2 64 bytes (unsafe.Sizeof-verified, parsercore_phase0_canonical_scratch_internal_test.go)
+// changes memory footprint, never behavior. It restores the pre-S3 fields
+// of this struct to their pre-b4b-v2 64 bytes
+// (unsafe.Sizeof-verified, parsercore_phase0_canonical_scratch_internal_test.go)
 // despite carrying two full (event, branch) alternative sets plus three
 // bools v1 never had (b4b-width-repair audit, 2026-08): the widened
 // AlternativeSet's own inline-capacity reduction (core.go) supplies most of
 // the recovered space, and this reorder folds the three new bools into
 // padding a naive append-at-the-end declaration order would otherwise pay
-// for separately.
+// for separately. Native S3 subsequently adds one cold recovery-region
+// pointer, making the complete amd64 header 72 bytes.
 type diagnosticParserCoreHeader struct {
 	creationSeq uint64
 	head        core.Head

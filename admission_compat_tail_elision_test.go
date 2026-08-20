@@ -1,3 +1,5 @@
+//go:build !gts_no_parsercorephase0
+
 package gotreesitter_test
 
 import (
@@ -27,13 +29,12 @@ import (
 // hard failure: per the campaign's stop rule, a tree difference kills the
 // elision for that language rather than being papered over here.
 //
-// Deliberately untagged (no gts_parsercorephase0 build tag): the production
-// code this file gates, admission_switch_candidate.go, ships in the DEFAULT
-// build (it is excluded only by the opt-out tag gts_no_parsercorephase0), so
-// this gate must compile and run in the same default build -- including the
-// required, untagged `go test . -race` root-package lane
-// (.github/scripts/root_race_shard.sh enumerates targets with `go test -race
-// . -list`, which cannot see a tagged file). This file therefore defines its
+// Deliberately constrained only by the opt-out tag (not by the positive
+// gts_parsercorephase0 tag): the production code this file gates,
+// admission_switch_candidate.go, ships in the DEFAULT build, so this gate
+// must compile and run there -- including the required, untagged
+// `go test . -race` root-package lane (.github/scripts/root_race_shard.sh
+// enumerates targets with `go test -race . -list`). This file therefore defines its
 // own small local copies of the two helpers it needs from tagged sibling
 // files (firstAdmissionTreeDivergence in admission_scorecard_test.go,
 // admissionRealCorpusPath in admission_real_corpus_matrix_test.go) instead

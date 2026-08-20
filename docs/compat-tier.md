@@ -15,15 +15,15 @@ without updating that registry.
 
 The v1 registry freezes the current source and registry:
 
-- 39 explicit `runLanguageResultCompatibility` switch arms;
+- 35 explicit `runLanguageResultCompatibility` switch arms;
 - one predicate-dispatched COBOL entry matching exactly `cobol` or `COBOL`;
 - zero generic passes after language dispatch;
 - zero post-finalization second-pass fixpoint arms.
 
-The refreshed registry contains 40 live entries and 45 retired entries. It
-names 44 language labels because C/C++, TypeScript/TSX, and the COBOL case
-variants share entries. These counts backfill earlier retirements. This field
-repair change does not remove a dispatcher arm.
+The current registry contains 36 live entries and 49 retired entries. It
+names 39 language labels and 38 case-folded language mappings because C/C++,
+TypeScript/TSX, and the COBOL case variants share entries. The live entries
+contain nine named subpasses. These counts include all accepted retirements.
 The registry covers
 only this documented internal result-compatibility tier. Scheduler experiments
 and other engine research belong in their owning subsystem's durable traces.
@@ -68,37 +68,131 @@ and receipt references; deleting the historical record is not retirement.
 
 Revision R1 of the campaign requires a current firing witness or a filed
 defect for every live arm. The evidence-only A0 refresh used commit
-`65c9472806bdaa9f98d7eff0e19c0b2d53ef84d5`.
+`146f334c9ea82e4a29bfe89bccad86f49fb8377b`.
 
-The all-arm runtime probe passed **41 of 41** live entries. Every arm returned
-`checked >= 1`, `run >= 1`, and `nodes_visited > 0` through the production parse
-path with `GTS_DISPATCHER_CENSUS=1`. The exact log is:
+The current smoke probe passed **36 of 36** live entries. It checked 38
+case-folded language mappings. Every entry returned `checked >= 1`, `run >= 1`,
+and `nodes_visited > 0` through the production parse path with
+`GTS_DISPATCHER_CENSUS=1`. The exact log is:
 
-`harness_out/docker/20260811T223206Z-a0-all-arm-probe/container.log`
+`harness_out/docker/20260813T141019Z-a0-current-arm-probe-v3/container.log`
 
-The real-source census observed 20 arm identifiers over 22 language
-directories: 7 inert arms and 13 active arms. Its exact log is:
+The current production tier contains 74 `parser_result*.go` files and 50,619
+production lines. It contains 45 matching test files and 12,508 test lines.
+The root package contains 192 production Go files and 329 test Go files.
 
-`harness_out/docker/20260811T222732Z-a0-arm-census/container.log`
+The current real-source census observed 21 arm identifiers: six inert arms
+and 15 active arms. Its exact log is:
 
-The corpus census does not cover these 21 live arms:
+`harness_out/docker/20260813T141146Z-a0-current-real-corpus-census/container.log`
+
+The corpus census did not cover these 17 live arms:
 
 `dispatch.ada`, `dispatch.apex`, `dispatch.authzed`, `dispatch.bitbake`,
-`dispatch.cooklang`, `dispatch.corn`, `dispatch.doxygen`, `dispatch.jsdoc`,
-`dispatch.dtd`, `dispatch.enforce`, `dispatch.fidl`, `dispatch.hlsl`,
-`dispatch.hyprlang`, `dispatch.ledger`, `dispatch.ninja`, `dispatch.ql`,
-`dispatch.solidity`, `dispatch.templ`, `dispatch.wgsl`, `dispatch.wolfram`,
-and `predicate.cobol-exact`.
+`predicate.cobol-exact`, `dispatch.cooklang`, `dispatch.corn`,
+`dispatch.doxygen`, `dispatch.dtd`, `dispatch.hlsl`, `dispatch.jsdoc`,
+`dispatch.ledger`, `dispatch.ninja`, `dispatch.solidity`, `dispatch.templ`,
+`dispatch.wgsl`, and `dispatch.wolfram`.
 
-This is defect `A0-CORPUS-001`, an evidence gap. Add a small real-source
+This remains defect `A0-CORPUS-001`, an evidence gap. Add a small real-source
 corpus for each arm before using rewrite frequency for retirement or
 attribution. No live arm lacks a firing witness.
 
-The registry still gives every live entry the shared witness path
-`cgo_harness/parity_cgo_test.go` and leaves `receipt_refs` empty. This is
-defect `A0-REGISTRY-002`, a traceability gap. Keep it separate from firing
-coverage. The durable signed receipt is
-`hypha-receipt:2026-08-11:a0-r1-denominator-refresh`.
+The registry now records `evidence_refs` separately from retirement `witnesses`.
+It keeps `receipt_refs` empty on live entries. Keep these references separate
+from firing coverage. Defect `A0-REGISTRY-002` remains open pending owner
+acceptance of the mapping. The durable receipts are
+`hypha-receipt:2026-08-11:a0-r1-denominator-refresh` and the current
+`hypha-receipt:2026-08-13:a0-current-denominator-refresh-v1`.
+
+### A0 current-head recheck
+
+The current-head Docker recheck used gotreesitter commit
+`83ee98eaf85a6bac6b898aa7686ced09389886a5` and completed without an
+out-of-memory stop or wall timeout. It reproduced the same evidence:
+
+- 36 of 36 live entries fired in the smoke census.
+- The real-source census observed 21 arm identifiers: 6 inert and 15 active.
+- The real-source corpus left 17 registered arms uncovered.
+- The probe covered 30 languages without a registered dispatcher arm.
+
+The run artifact is
+`harness_out/docker/20260813T182414Z-a0-current-arm-census-v1/`.
+The container log SHA-256 is
+`084390350f5189ef4b5991dd77f6e95f62654d431f665fc6f19433c311735e39`.
+The metadata SHA-256 is
+`a4a2f981182081c5bdc352182ffe03b32e5755ceaaaa03c8181900c6dcacbcbb`.
+The inspection SHA-256 is
+`6a5c120caaf2a5fce4a22f56dbc3b93e14ad46e19185619dea054963be8e32fc`.
+
+This recheck confirms A0-CORPUS-001 and A0-REGISTRY-002. It does not close
+A0 and changes no parser routing or compatibility arm.
+
+### A0 current source-lock inventory
+
+The external source inventory ran at the current campaign head with corpus
+lock SHA-256
+`41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea`.
+It found all 206 locked language roots checked out at their expected commits.
+All 206 roots had matching files, with zero missing source roots or files.
+
+The inventory report SHA-256 is
+`631fb5831708a2083252869586f5d936ef5282be20ff179c8dec5415c506e39a`.
+The selected-language list SHA-256 is
+`e81cc7845a3d61210a8f8a450a65f800a53857ac5bdd816e5cdeab482b344cf6`.
+
+The report supplies source candidates for all 17 uncovered live arms. The
+repository corpus manifest still contains only 50 languages, so 156 languages
+remain without checked-in corpus entries. External source availability is
+provenance evidence, not a firing witness. Keep A0-CORPUS-001 open until the
+selected files enter the reviewed corpus and the arm witnesses are recorded.
+
+The inventory is evidence-only. It changes no parser route, compatibility arm,
+grammar identity, or performance board.
+
+### A0 current-head traceability census
+
+The current-head Docker census used commit
+`3a0060ea412bd7c05b5dd534615d483e80ba49c1`. The smoke probe passed 36 of 36
+live registry entries. The real-source probe observed 21 arm identifiers: six
+inert and 15 active. Seventeen registered arms remained uncovered because
+their selected `corpus_real` directories do not exist. Thirty languages were
+not applicable because they have no registered arm.
+
+The run passed without an out-of-memory stop or wall timeout. It took 77.825
+seconds inside the Docker test.
+
+Run artifact:
+`harness_out/docker/20260813T184742Z-a0-current-traceability-v1/`.
+
+- Container log SHA-256: `d8729e426ae08f84d0297fc27248c39c00cd22c8803a70cadb28081dcc1bb2ec`.
+- Metadata SHA-256: `8da613ce0283786c50f33579eb9261fda4beb0bfa652a73209376219804232c3`.
+- Inspection SHA-256: `97fc54540cbe0fb76466aac7ba1c5b2209f51d80379ed658743301ddd79abea1`.
+
+This receipt proves the current smoke witness and the current corpus defects.
+It does not close A0-CORPUS-001 or A0-REGISTRY-002.
+
+### A0 registry evidence-reference candidate
+
+The registry candidate adds an `evidence_refs` set to every live entry. Each
+set includes the dispatcher census test and any entry-specific witness test.
+The ownership test checks that each path exists, uses a safe relative path, and
+does not appear on a retired entry. This separates positive-control references
+from retirement receipts without changing a parser route.
+
+The focused Docker check passed `TestResultCompatibilityOwnershipRegistry`.
+It used one CPU, two gigabytes of memory, and no wall-time or out-of-memory
+failure.
+
+Run artifact:
+`harness_out/docker/20260813T185555Z-a0-registry-evidence-v1/`.
+
+- Container log SHA-256: `3326fd9202ecc11ae39e15c212e0c07ee95ee8ad64c4e731a180eeb7b9b8e4ee`.
+- Metadata SHA-256: `c265c36982bde11c27c03e12997ca800a88395d11fb4c6952892e4601769284b`.
+- Inspection SHA-256: `b803b63c62aeb93866ff9636afe6ca524bdda5afa086136ea5b438a1a0e17683`.
+
+This candidate improves registry traceability only. It does not prove firing
+coverage for the 17 uncovered live arms, so A0-CORPUS-001 remains open.
 
 ## Ownership
 

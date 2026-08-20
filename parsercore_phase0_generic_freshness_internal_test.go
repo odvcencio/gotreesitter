@@ -305,7 +305,7 @@ func TestDiagnosticParserCoreConflictSecondaryUpdateAdoptsActiveSibling(t *testi
 	}
 }
 
-func TestDiagnosticParserCoreConflictAllUnchangedPauses(t *testing.T) {
+func TestDiagnosticParserCoreConflictPrimaryUnchangedSecondaryProgresses(t *testing.T) {
 	actions := []core.Action{
 		{Type: core.ActionReduce, Symbol: 2, ChildCount: 1},
 		{Type: core.ActionReduce, Symbol: 2, ChildCount: 1},
@@ -323,7 +323,7 @@ func TestDiagnosticParserCoreConflictAllUnchangedPauses(t *testing.T) {
 	}
 	scheduler := &diagnosticParserCoreGenericScheduler{
 		compact: compact, headers: []diagnosticParserCoreHeader{{head: source, creationSeq: 4}},
-		token: Token{Symbol: 9, StartByte: 1, EndByte: 2}, branchOrder: 7, nextSeq: math.MaxUint64,
+		token: Token{Symbol: 9, StartByte: 1, EndByte: 2}, branchOrder: 7, nextSeq: 10,
 		options: DiagnosticParserCorePrefixOptions{MaxDispatches: 20}, receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	before, _ := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
@@ -331,17 +331,14 @@ func TestDiagnosticParserCoreConflictAllUnchangedPauses(t *testing.T) {
 	if err := scheduler.applyGenericConflict(before, cell); err != nil {
 		t.Fatal(err)
 	}
-	if len(scheduler.headers) != 1 || !scheduler.headers[0].paused || scheduler.headers[0].freshness != 0 || scheduler.branchOrder != 8 || scheduler.nextSeq != math.MaxUint64 || scheduler.epochProgress {
-		t.Fatalf("all-unchanged conflict scheduler=%+v", scheduler)
+	// The cached primary pauses, while the authenticated fork-order secondary
+	// is a fresh conflict derivation and must consume one creation sequence.
+	if len(scheduler.headers) != 1 || scheduler.headers[0].paused || scheduler.headers[0].freshness != 0 || scheduler.headers[0].creationSeq != 10 || scheduler.branchOrder != 8 || scheduler.nextSeq != 11 || !scheduler.epochProgress {
+		t.Fatalf("primary-unchanged conflict scheduler=%+v", scheduler)
 	}
 	conflict := scheduler.receipt.Conflicts[0]
-	if !conflict.PrimaryPaused || conflict.PrimaryAdopted || len(conflict.SecondaryArms) != 1 || !conflict.SecondaryArms[0].Paused || conflict.SecondaryArms[0].Adopted {
-		t.Fatalf("all-unchanged conflict receipt=%+v", conflict)
-	}
-	stop, err := scheduler.dispatchPass()
-	if err != nil || stop == nil || stop.boundary != DiagnosticParserCoreNoAction ||
-		stop.detail != "generic scheduler has only paused heads for the elected token" {
-		t.Fatalf("all-unchanged conflict stop=%+v err=%v", stop, err)
+	if !conflict.PrimaryPaused || conflict.PrimaryAdopted || len(conflict.SecondaryArms) != 1 || conflict.SecondaryArms[0].Paused || conflict.SecondaryArms[0].Adopted || len(conflict.SecondaryArms[0].Outputs) != 1 || conflict.SecondaryArms[0].Outputs[0].CreationSeq != 10 {
+		t.Fatalf("primary-unchanged conflict receipt=%+v", conflict)
 	}
 }
 
@@ -424,7 +421,7 @@ func TestDiagnosticParserCoreSummaryConflictFailureRollsBack(t *testing.T) {
 	}
 }
 
-func TestDiagnosticParserCoreConflictFiltersUnchangedArm(t *testing.T) {
+func TestDiagnosticParserCoreConflictRecreatesRetiredSecondaryArm(t *testing.T) {
 	actions := []core.Action{
 		{Type: core.ActionShift, State: 6},
 		{Type: core.ActionReduce, Symbol: 2, ChildCount: 1},
@@ -437,12 +434,18 @@ func TestDiagnosticParserCoreConflictFiltersUnchangedArm(t *testing.T) {
 		gotos: map[genericConflictCell]core.StateID{{state: 1, symbol: 2}: 4},
 	}
 	compact, source := newGenericFreshnessSource(t, table)
-	if outputs, err := compact.ReduceOutputs(source, 9, 1, core.ForkOrder{Present: true, Value: 7}); err != nil || len(outputs) != 1 {
+	// Seed the exact authenticated secondary-arm derivation before the scheduler
+	// declares its live headers. The retired boundary is historical, so the
+	// conflict must recreate it with a fresh sequence.
+	compact.SetReduceConflictContext(true)
+	outputs, err := compact.ReduceOutputs(source, 9, 1, core.ForkOrder{Present: true, Value: 8})
+	compact.SetReduceConflictContext(false)
+	if err != nil || len(outputs) != 1 {
 		t.Fatalf("prepopulate conflict reduction outputs=%+v err=%v", outputs, err)
 	}
 	scheduler := &diagnosticParserCoreGenericScheduler{
 		compact: compact, headers: []diagnosticParserCoreHeader{{head: source, creationSeq: 4}},
-		token: Token{Symbol: 9, StartByte: 1, EndByte: 2}, branchOrder: 7, nextSeq: math.MaxUint64,
+		token: Token{Symbol: 9, StartByte: 1, EndByte: 2}, branchOrder: 7, nextSeq: 10,
 		options: DiagnosticParserCorePrefixOptions{MaxDispatches: 20}, receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	before, _ := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
@@ -451,14 +454,16 @@ func TestDiagnosticParserCoreConflictFiltersUnchangedArm(t *testing.T) {
 		t.Fatal(err)
 	}
 	receipts, _ := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
-	if len(receipts) != 1 || receipts[0].State != 6 || receipts[0].CreationSeq != 4 || !receipts[0].Shifted ||
-		scheduler.branchOrder != 8 || scheduler.nextSeq != math.MaxUint64 {
-		t.Fatalf("filtered conflict headers=%+v order=%d seq=%d", receipts, scheduler.branchOrder, scheduler.nextSeq)
+	if len(receipts) != 2 || receipts[0].State != 6 || receipts[0].CreationSeq != 4 || !receipts[0].Shifted ||
+		receipts[1].State != 4 || receipts[1].CreationSeq != 10 || receipts[1].Shifted ||
+		scheduler.branchOrder != 8 || scheduler.nextSeq != 11 {
+		t.Fatalf("retired-secondary conflict headers=%+v order=%d seq=%d", receipts, scheduler.branchOrder, scheduler.nextSeq)
 	}
 	conflict := scheduler.receipt.Conflicts[0]
-	if conflict.PrimaryPaused || len(conflict.SecondaryArms) != 1 || !conflict.SecondaryArms[0].Paused || conflict.SecondaryArms[0].BranchOrder != 8 || len(conflict.SecondaryArms[0].Outputs) != 0 ||
+	arm := conflict.SecondaryArms[0]
+	if conflict.PrimaryPaused || len(conflict.SecondaryArms) != 1 || arm.Paused || arm.BranchOrder != 8 || len(arm.Outputs) != 1 || arm.Outputs[0].CreationSeq != 10 ||
 		len(conflict.Round.Actions) != 2 || conflict.Round.Actions[0].Ordinal != 1 || conflict.Round.Actions[0].BranchOrder != 8 || conflict.Round.Actions[1].Ordinal != 0 {
-		t.Fatalf("filtered conflict receipt=%+v", conflict)
+		t.Fatalf("retired-secondary conflict receipt=%+v", conflict)
 	}
 
 	beforeGraph, _ := compact.Stats(scheduler.headers[0].head)
@@ -472,10 +477,10 @@ func TestDiagnosticParserCoreConflictFiltersUnchangedArm(t *testing.T) {
 		cell := mustDiagnosticParserCoreGenericCell(t, compact, 0, rollback.headers[0], 9)
 		return rollback.applyGenericConflict(rollbackBefore, cell)
 	}); err == nil {
-		t.Fatal("capped filtered conflict unexpectedly succeeded")
+		t.Fatal("capped retired-secondary conflict unexpectedly succeeded")
 	}
 	afterGraph, _ := compact.Stats(scheduler.headers[0].head)
 	if beforeGraph != afterGraph || rollback.branchOrder != 7 || rollback.nextSeq != 10 || !reflect.DeepEqual(rollback.receipt, &DiagnosticParserCoreGenericScheduler{}) {
-		t.Fatalf("filtered conflict rollback leaked: before=%+v after=%+v scheduler=%+v", beforeGraph, afterGraph, rollback)
+		t.Fatalf("retired-secondary conflict rollback leaked: before=%+v after=%+v scheduler=%+v", beforeGraph, afterGraph, rollback)
 	}
 }

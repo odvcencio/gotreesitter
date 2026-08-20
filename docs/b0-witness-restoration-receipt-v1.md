@@ -4,9 +4,9 @@ Receipt ID: `b0-witness-restoration-v1`
 
 Authority: Hyphae `spec.campaign.v7`, Revision R1, Phase 1, unit 1.4.
 
-Audit time: `2026-08-11T22:30:10Z`.
+Audit time: `2026-08-13T14:22:02Z`.
 
-Audit tree: `f13d192e7e768639821c93a40a3f83b477ed66de`.
+Audit tree: `57cd672df44891fb403c0b1d220de3d6bb481aed`.
 
 ## Verdict
 
@@ -79,7 +79,17 @@ timeout.
 
 Run artifact:
 
-`/tmp/gotreesitter-r1-b0/harness_out/docker/20260811T223010Z/`
+`harness_out/docker/20260813T142202Z-b0-current-20260813-v2/`
+
+The current container log SHA-256 is
+`07b1539b81642feddc8a01b55d1a8c43e0b6ce6f96bbc09c4ee3b7157134638b`.
+The metadata SHA-256 is
+`88f9903662e138818182454668fa31185884527bb802054211f08619c38cd8f0`.
+The inspection SHA-256 is
+`42ea13ebb65ec79254512b164d756fdffdfb79f5125a0540d4ff64bcf2c841cc`.
+
+The current run completed in 1.25 seconds with exit code zero. It reported no
+out-of-memory kill and no wall timeout.
 
 The gate also reports the existing structural findings. Production differs
 from the C oracle on all 20 records below the root. This is outside B0.
@@ -91,4 +101,28 @@ fuzz harness. Pin every source, seed, oracle revision, and digest.
 
 Keep the compact route unchanged until the restored denominator is available.
 
-This receipt changes no parser code and no benchmark input.
+## Deterministic miner recheck
+
+The archived deterministic miner was replayed against the ten available HTML
+seeds with the complete one-byte mutation contract. It generated 8,040
+candidates and evaluated 8,035 unique candidates at the current parser head.
+It found zero new production-exact/C-exact/compact-divergent findings.
+
+The same replay at the pre-leaf-tiling checkpoint `b21e154529d611439b6e7fe6e5f33237b85ebfd4`
+also generated 8,040 candidates, evaluated 8,035 unique candidates, and found
+zero findings. This replay does not reconstruct the missing 78 witnesses. It
+supports the existing conclusion that the original mutation seeds or sweep
+record are absent.
+
+Current-head report SHA-256:
+`806db9e9fc1b3c9011721c6e01424a8777b5d9de10ae99a5818ff040db31a323`.
+Pre-leaf report SHA-256:
+`12a0cb8d06bdacbc78146d55e80ab6ed6bf00a060d80ebeaf7e65423e93507b5`.
+The miner contract SHA-256 was
+`6bd2d3eb0de902c923e00ee9aad34f7e43a66f1227e58fc4f00d33fc6ba77150`.
+
+The recheck is evidence-only. It does not close B0 or add fabricated
+witnesses.
+
+This receipt changes no parser code and no benchmark input. The current run
+supersedes the earlier partial-gate artifact without changing the verdict.

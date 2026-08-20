@@ -54,11 +54,11 @@ func TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte(t *testing.T)
 			t.Fatalf("run %d generic scheduler boundary drifted: %+v", run, generic)
 		}
 		if completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 277, ActionLookups: 314, Dispatches: 279,
+			Passes: 277, SingleHeaderPasses: 229, ActionLookups: 314, Dispatches: 279,
 			Conflicts: 8, ConflictActions: 16, Forks: 8, ConflictHeads: 17,
 			ConflictActionArmsAdmitted: 16, CausalConflictForks: 8,
 			Reductions: 131, OrdinaryShifts: 133, OrdinaryCohorts: 10, ExtraShifts: 7, NoActionDrops: 8,
-			ConvergedReductionSplitDrops: 5,
+			ConvergedReductionSplitDrops: 6,
 			Elections:                    132, Canonicalizations: 269, PeakHeaders: 3,
 		}) {
 			t.Fatalf("run %d generic scheduler work=%+v", run, completion.Work)
@@ -172,7 +172,7 @@ func TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing(t *testing.T) {
 		{name: "before-first-shift", options: gotreesitter.DiagnosticParserCorePrefixOptions{Limits: core.Limits{MaxNodes: 1}}, detail: "node arena cap", election: 0, symbol: 2, start: 0, dispatches: 0, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.OrdinaryShifts == 0 }},
 		{name: "before-first-conflict", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 116}, detail: "dispatch cap", typedDecline: true, election: 67, symbol: 20, start: 579, dispatches: 116, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Conflicts == 0 }},
 		{name: "before-first-extra", options: gotreesitter.DiagnosticParserCorePrefixOptions{Limits: core.Limits{MaxSubtrees: 22}}, detail: "subtree arena cap", election: 15, symbol: 92, start: 49, dispatches: 22, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.ExtraShifts == 0 }},
-		{name: "before-accept", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 2681}, detail: "dispatch cap", typedDecline: true, election: 1035, symbol: 0, start: uint32(len(source)), dispatches: 2681, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Accepts == 0 }},
+		{name: "before-unproved-resurrection", options: gotreesitter.DiagnosticParserCorePrefixOptions{MaxDispatches: 203}, detail: "dispatch cap", typedDecline: true, election: 103, symbol: 9, start: 747, dispatches: 202, stageZero: func(work gotreesitter.DiagnosticParserCoreGenericWork) bool { return work.Accepts == 0 }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -228,11 +228,11 @@ func TestDiagnosticParserCoreGenericSchedulerContinuesToNextRequestedClosedByte(
 		len(completion.Headers) != 1 || completion.Headers[0].Header.State != 16 || completion.Headers[0].Header.ByteOffset != 924 || !completion.Headers[0].Header.Shifted ||
 		completion.Stats != (core.Stats{Nodes: 302, Links: 301, Subtrees: 279, Children: 281, CurrentExactPaths: 1}) ||
 		completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 279, ActionLookups: 316, Dispatches: 281,
+			Passes: 279, SingleHeaderPasses: 231, ActionLookups: 316, Dispatches: 281,
 			Conflicts: 8, ConflictActions: 16, Forks: 8, ConflictHeads: 17,
 			ConflictActionArmsAdmitted: 16, CausalConflictForks: 8,
 			Reductions: 132, OrdinaryShifts: 134, OrdinaryCohorts: 10, ExtraShifts: 7, NoActionDrops: 8,
-			ConvergedReductionSplitDrops: 5,
+			ConvergedReductionSplitDrops: 6,
 			Elections:                    133, Canonicalizations: 271, PeakHeaders: 3,
 		}) {
 		t.Fatalf("continuation drifted: result=%+v generic=%+v", result, generic)
@@ -278,13 +278,13 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesReductionFreshnessCycle(t *t
 	completion := result.GenericScheduler.Completion
 	if completion.TargetByte != target || completion.ElectionIndex != 597 || completion.LastToken.Symbol != 75 || completion.LastToken.Text != "&&" || completion.LastToken.StartByte != 3068 || completion.LastToken.EndByte != target ||
 		len(completion.Headers) != 1 || completion.Headers[0].Header.CreationSeq != 109 || completion.Headers[0].Header.State != 182 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.Paused || completion.Headers[0].Header.ExactPaths != 1 ||
-		completion.Stats != (core.Stats{Nodes: 1663, Links: 1662, Subtrees: 1453, Children: 1500, CurrentExactPaths: 1}) ||
+		completion.Stats != (core.Stats{Nodes: 1663, Links: 1662, Subtrees: 1452, Children: 1499, CurrentExactPaths: 1}) ||
 		completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 1441, ActionLookups: 1981, Dispatches: 1494,
+			Passes: 1441, SingleHeaderPasses: 882, ActionLookups: 1981, Dispatches: 1494,
 			Conflicts: 84, ConflictActions: 176, Forks: 92, ConflictHeads: 188,
 			ConflictActionArmsAdmitted: 176, CausalConflictForks: 92,
 			Reductions: 681, OrdinaryShifts: 711, OrdinaryCohorts: 122, ExtraShifts: 18,
-			ReductionPauses: 20, NoActionDrops: 92, ConvergedReductionSplitDrops: 89,
+			ReductionPauses: 20, NoActionDrops: 92, ConvergedReductionSplitDrops: 90,
 			Elections: 598, Canonicalizations: 1357, PeakHeaders: 4,
 		}) || len(result.GenericScheduler.Rounds) != 1357 || len(result.GenericScheduler.NoActionDrops) != 92 {
 		t.Fatalf("byte 3070 closure drifted: %+v", completion)
@@ -302,7 +302,7 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 		t.Fatalf("byte 3383 closure result=%+v err=%v", braceResult, braceErr)
 	}
 	braceCompletion := braceResult.GenericScheduler.Completion
-	if braceCompletion.Stats != (core.Stats{Nodes: 1884, Links: 1883, Subtrees: 1653, Children: 1725, CurrentExactPaths: 1}) ||
+	if braceCompletion.Stats != (core.Stats{Nodes: 1884, Links: 1883, Subtrees: 1651, Children: 1723, CurrentExactPaths: 1}) ||
 		braceCompletion.Work.ExtraShifts != 19 || braceCompletion.Work.ExtraCohorts != 0 {
 		t.Fatalf("brace baseline drifted: %+v", braceCompletion)
 	}
@@ -345,13 +345,13 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 	completion := result.GenericScheduler.Completion
 	if completion.TargetByte != target || completion.ElectionIndex != 673 || completion.LastToken.Symbol != 49 || completion.LastToken.Text != "if" || completion.LastToken.StartByte != 3430 || completion.LastToken.EndByte != target ||
 		len(completion.Headers) != 1 || completion.Headers[0].Header.CreationSeq != 140 || completion.Headers[0].Header.State != 73 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.ExactPaths != 1 ||
-		completion.Stats != (core.Stats{Nodes: 1887, Links: 1886, Subtrees: 1655, Children: 1725, CurrentExactPaths: 1}) ||
+		completion.Stats != (core.Stats{Nodes: 1887, Links: 1886, Subtrees: 1653, Children: 1723, CurrentExactPaths: 1}) ||
 		completion.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 1642, ActionLookups: 2246, Dispatches: 1701,
+			Passes: 1642, SingleHeaderPasses: 995, ActionLookups: 2246, Dispatches: 1701,
 			Conflicts: 95, ConflictActions: 198, Forks: 103, ConflictHeads: 211,
 			ConflictActionArmsAdmitted: 198, CausalConflictForks: 103,
 			Reductions: 785, OrdinaryShifts: 800, OrdinaryCohorts: 138, ExtraShifts: 21, ExtraCohorts: 1,
-			ReductionPauses: 22, NoActionDrops: 103, ConvergedReductionSplitDrops: 100,
+			ReductionPauses: 22, NoActionDrops: 103, ConvergedReductionSplitDrops: 101,
 			Elections: 674, Canonicalizations: 1547, PeakHeaders: 4,
 		}) || len(result.GenericScheduler.Rounds) != 1547 || len(result.GenericScheduler.NoActionDrops) != 103 || len(result.GenericScheduler.ExternalShifts) != 46 {
 		t.Fatalf("post-comment boundary drifted: %+v", completion)

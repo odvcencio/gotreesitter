@@ -5,6 +5,7 @@ package gotreesitter
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
@@ -292,16 +293,152 @@ func (r *parserCoreFreshFullRunner) parse(source []byte) (tree *Tree, err error)
 			err = errors.Join(err, fmt.Errorf("parser-core fresh-full runner: reset after decline: %w", resetErr))
 		}
 	}()
+	collectRuntimeFacts := parsePhaseTimingEnabled()
+	var schedulerStart time.Time
+	if collectRuntimeFacts {
+		schedulerStart = time.Now()
+	}
 	scheduler, tokenSource, err2 := r.executeSchedulerOpen(source, r.compact, true)
+	var schedulerNanos int64
+	var schedulerFootprintBytes uint64
+	if collectRuntimeFacts {
+		schedulerNanos = time.Since(schedulerStart).Nanoseconds()
+		schedulerFootprintBytes = r.compact.FootprintBytes()
+	}
 	if err2 != nil {
 		return nil, err2
 	}
 	defer tokenSource.Close()
+	var materializationStart time.Time
+	if collectRuntimeFacts {
+		materializationStart = time.Now()
+	}
 	tree, err = r.materializeSelection(source, r.compact, scheduler)
 	if err != nil {
 		return nil, err
 	}
+	if collectRuntimeFacts {
+		r.publishCompactParserCoreRuntime(tree, scheduler, schedulerNanos, time.Since(materializationStart).Nanoseconds(), schedulerFootprintBytes)
+	}
 	return tree, nil
+}
+
+func (r *parserCoreFreshFullRunner) publishCompactParserCoreRuntime(tree *Tree, scheduler *diagnosticParserCoreGenericScheduler, schedulerNanos, materializationNanos int64, schedulerFootprintBytes uint64) {
+	if r == nil || r.compact == nil || tree == nil || scheduler == nil || scheduler.receipt == nil || scheduler.receipt.Acceptance == nil {
+		return
+	}
+	acceptance := scheduler.receipt.Acceptance
+	stats := acceptance.Stats
+	compactRuntime := CompactParserCoreRuntime{
+		Authenticated:           true,
+		SchedulerNanos:          schedulerNanos,
+		MaterializationNanos:    materializationNanos,
+		SchedulerFootprintBytes: schedulerFootprintBytes,
+		RetainedFootprintBytes:  r.compact.FootprintBytes(),
+		SelectedNodes:           acceptance.SelectedNodes,
+		SelectedParents:         acceptance.SelectedParents,
+		SelectedLeaves:          acceptance.SelectedLeaves,
+		CoreWork:                compactParserCoreWorkRuntime(acceptance.CoreWork),
+		SchedulerWork:           compactParserCoreSchedulerWorkRuntime(acceptance.Work),
+		CoreStats: CompactParserCoreStats{
+			Nodes: stats.Nodes, Links: stats.Links, Subtrees: stats.Subtrees,
+			Children: stats.Children, CurrentExactPaths: stats.CurrentExactPaths,
+		},
+		Scratch: r.compactParserCoreScratchRuntime(),
+	}
+	if tree.arena != nil {
+		tree.arena.compactRuntime = &compactRuntime
+	}
+	// Fresh-run acceptance does not need a second graph walk for routing. The
+	// diagnostic receipt may nevertheless publish final public-node counts when
+	// timing is enabled, which keeps the evidence complete without adding work
+	// to normal compact parses.
+	if selected := diagnosticParserCoreSelectedNodeCensus(tree.root); selected.total != 0 {
+		compactRuntime.SelectedNodes = selected.total
+		compactRuntime.SelectedParents = selected.parents
+		compactRuntime.SelectedLeaves = selected.leaves
+		runtime := *tree.rawParseRuntime()
+		runtime.FinalNodes = selected.total
+		runtime.FinalParentNodes = selected.parents
+		runtime.FinalLeafNodes = selected.leaves
+		tree.setParseRuntime(runtime)
+		return
+	}
+	runtime := *tree.rawParseRuntime()
+	tree.setParseRuntime(runtime)
+}
+
+func compactParserCoreWorkRuntime(work core.Work) CompactParserCoreWork {
+	return CompactParserCoreWork{
+		Shifts: work.Shifts, Reductions: work.Reductions,
+		ReductionPopRequests: work.ReductionPopRequests, EmittedPopPaths: work.EmittedPopPaths,
+		EmittedPopPayloads:                     work.EmittedPopPayloads,
+		PredecessorLinkUnionAttempts:           work.PredecessorLinkUnionAttempts,
+		PredecessorLinkUnionDuplicateNoop:      work.PredecessorLinkUnionDuplicateNoop,
+		PredecessorLinkUnionPrecedenceReplaced: work.PredecessorLinkUnionPrecedenceReplaced,
+		PredecessorLinkUnionRecursiveChanged:   work.PredecessorLinkUnionRecursiveChanged,
+		PredecessorLinkUnionAlternateAppended:  work.PredecessorLinkUnionAlternateAppended,
+		PredecessorLinkUnionRejected:           work.PredecessorLinkUnionRejected,
+		GraphLinkAdditionsProxy:                work.GraphLinkAdditionsProxy,
+		LeafConstructionsProxy:                 work.LeafConstructionsProxy,
+		ParentConstructionsProxy:               work.ParentConstructionsProxy,
+		Overflow:                               work.Overflow,
+	}
+}
+
+func compactParserCoreSchedulerWorkRuntime(work DiagnosticParserCoreGenericWork) CompactParserCoreSchedulerWork {
+	return CompactParserCoreSchedulerWork{
+		Passes: work.Passes, SingleHeaderPasses: work.SingleHeaderPasses,
+		CorridorPasses: work.CorridorPasses, ActionLookups: work.ActionLookups,
+		Dispatches: work.Dispatches, Conflicts: work.Conflicts,
+		ConflictActions: work.ConflictActions, Forks: work.Forks,
+		ConflictActionArmsAdmitted: work.ConflictActionArmsAdmitted,
+		CausalConflictForks:        work.CausalConflictForks, ConflictHeads: work.ConflictHeads,
+		ConvergedReductionSplitDrops: work.ConvergedReductionSplitDrops,
+		ConvergedCoverageDrops:       work.ConvergedCoverageDrops,
+		RepetitionFolds:              work.RepetitionFolds, Reductions: work.Reductions,
+		OrdinaryShifts: work.OrdinaryShifts, OrdinaryCohorts: work.OrdinaryCohorts,
+		ExtraShifts: work.ExtraShifts, ExtraCohorts: work.ExtraCohorts,
+		Accepts: work.Accepts, ReductionPauses: work.ReductionPauses,
+		NoActionDrops: work.NoActionDrops, Elections: work.Elections,
+		Canonicalizations: work.Canonicalizations, PeakHeaders: work.PeakHeaders,
+		Overflow: work.Overflow,
+	}
+}
+
+func (r *parserCoreFreshFullRunner) compactParserCoreScratchRuntime() CompactParserCoreScratch {
+	if r == nil {
+		return CompactParserCoreScratch{}
+	}
+	postorderColors, postorderFrames := r.scratch.postorder.Capacities()
+	return CompactParserCoreScratch{
+		ScannerBytes:                   cap(r.scannerScratch),
+		SchedulerHeaders:               cap(r.scheduler.headers),
+		SchedulerSummaryHeaders:        cap(r.scheduler.summaryHeaderScratch),
+		SchedulerReductionOutputs:      cap(r.scheduler.reductionOutputs),
+		SchedulerReplacements:          cap(r.scheduler.reductionReplacements),
+		SchedulerClassifiedBoundaries:  cap(r.scheduler.classifiedBoundaries),
+		SchedulerCondenseCandidates:    cap(r.scheduler.condenseCandidates),
+		SchedulerElectStates:           cap(r.scheduler.electStates),
+		SchedulerElectGLRStates:        cap(r.scheduler.electGLRStates),
+		DispatchCells:                  cap(r.scheduler.dispatchScratch.cells),
+		DispatchNoActionIndices:        cap(r.scheduler.dispatchScratch.noActionIndices),
+		ConflictActionOutputs:          cap(r.scheduler.conflictScratch.actionOutputs),
+		ConflictReductionOutputs:       cap(r.scheduler.conflictScratch.reductionOutputs),
+		ConflictOutputs:                cap(r.scheduler.conflictScratch.outputs),
+		ConflictArmRanges:              cap(r.scheduler.conflictScratch.armRanges),
+		ConflictAdopted:                cap(r.scheduler.conflictScratch.adopted),
+		ConflictHeaderAssembly:         cap(r.scheduler.conflictScratch.headerAssembly),
+		MaterializationEntries:         cap(r.scratch.materialization.entries),
+		MaterializationReduceNodes:     cap(r.scratch.materialization.reduce.nodes),
+		MaterializationPostorderColors: postorderColors,
+		MaterializationPostorderFrames: postorderFrames,
+		MaterializationNodesByID:       cap(r.scratch.nodesByID),
+		MaterializationNodes:           cap(r.scratch.nodes),
+		MaterializationLinkScratch:     cap(r.scratch.linkScratch),
+		MaterializationLineStarts:      cap(r.scratch.lineStarts),
+		MaterializationCompatFrames:    cap(r.scratch.goCompatFrames),
+	}
 }
 
 func (r *parserCoreFreshFullRunner) parseSelectedStore(source []byte) (*core.SelectedStore, error) {
