@@ -12,10 +12,8 @@ import "errors"
 // (:3948,:3596), themselves faithful ports of tree-sitter C's
 // ts_parser__recover's strategy-2 tail and ts_parser__recover_to_state. The
 // pinned C oracle is the parity arbiter (decision 0007): where the production
-// Go port's own construction diverges from the C oracle, this port follows
-// the oracle, not the Go port's literal bit -- see ErrorRegionLeaf's doc
-// comment for the one confirmed instance (finding
-// production-recovery-structural-divergence).
+// Go port's own construction differs from the C oracle, this port follows the
+// oracle's node flags. ErrorRegionLeaf documents the ordinary-token rule.
 //
 // The open error region itself is NOT a record in this file: it lives on the
 // driver's header (parsercore_phase0_driver.go), a plain Go slice of already-
@@ -36,26 +34,9 @@ import "errors"
 const ErrorRegionSymbol Symbol = 65535
 
 // ErrorRegionLeaf publishes one absorbed terminal into the compact subtree
-// arena for a driver-owned open error region.
-//
-// HasError is deliberately never stored or forced true here, even when
-// symbol is itself ErrorRegionSymbol (an unlexable byte the token source
-// could not classify as any grammar terminal). This mirrors the pinned C
-// oracle exactly, and deliberately does NOT mirror production Go's
-// cAbsorbTokenIntoError, which calls leaf.setHasError(true) unconditionally
-// on every absorbed leaf (parser_recover_c.go:3766) -- a confirmed,
-// receipted production/C divergence (finding
-// production-recovery-structural-divergence; verified byte-for-byte against
-// the locked C oracle in Docker for all ten html_erroneous_end_tag
-// witnesses: every remaining structural gap after this port's mechanism ran
-// was exactly one absorbed leaf's own HasError flag reading true in Go
-// where the C oracle reads false). The wrapping ERROR container (see
-// ErrorRegionNode) is materialization's sole per-node HasError trigger for
-// this region; ordinary ancestor propagation (populateParentNode, tree.go)
-// already ORs a true child flag up through every enclosing reduce with zero
-// additional code, so leaving every leaf false here is what makes that
-// propagation land in exactly the right place -- on the container, and only
-// the container, exactly like the C oracle.
+// arena for a driver-owned open error region. The leaf does not carry the
+// HasError flag. The enclosing ERROR node carries that recovery error, which
+// matches the pinned C oracle for ordinary absorbed terminals.
 func (c *Core) ErrorRegionLeaf(symbol Symbol, startByte, endByte uint32, extra bool) (id SubtreeID, err error) {
 	mark := c.mark()
 	defer c.completeTransaction(mark, &err)
