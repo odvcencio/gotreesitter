@@ -1217,6 +1217,56 @@ capability proves all of the following:
 - Use an authenticated source lock and corpus evidence.
 
 
+## C26w generated SQL wrapper rejection
+
+C26w used base
+`e24ccf5a87bbd7febc21f67f014c2d5301d229d0`.
+
+Restore the locked SQL source with:
+
+```sh
+bash scripts/seed_real_corpus_from_lock.sh /tmp/gts-c26w-pinned-grammar-20260824 sql
+```
+
+The source came from
+`https://github.com/m-novikov/tree-sitter-sql` at commit
+`587f30d184b058450be2a2330878210c5f33b3f9`.
+
+The restored hashes were:
+
+- `src/grammar.json`: `42f011860137175a5a0cb820d1a694e5ccca1d17f226729ff6a4e886910cde1c`
+- `src/scanner.cc`: `d437ad9f517d7a1f4248ccd05abe58370b5040c0037c877dab1f0aefeaa04af6`
+
+The clean baseline run used one CPU, 4 GiB memory, and the pinned source mount.
+Its artifact was
+`/tmp/gts-c26w-artifacts/20260823T172144Z-c26w-clean-baseline-sql`.
+Its container log SHA-256 was
+`bd4855d401c03722285554b4a98f5849c59d7e27276b30ed4f3b973d297241c2`.
+Its metadata SHA-256 was
+`aa3d186814cd9c873e33c951367e36db88d8513fb7960910dac4f1cca3a45616`.
+The baseline did not skip the regression. It preserved 13 checkpoint records,
+4 leaves, 4 snapshots, 1 reused subtree, and 16 reused bytes. It failed the
+generated dollar-quote witness because generated Go still emitted `ERROR`
+nodes. Blob-backed Go and locked C matched.
+
+The candidate added a generic external scanner wrapper. The wrapper remapped
+result symbols, forwarded serialization and optional scanner capabilities, and
+bound the target grammar identity. The candidate artifact was
+`/tmp/gts-c26w-artifacts/20260823T171947Z-c26w-candidate-sql`.
+Its container log SHA-256 was
+`58f80f856232a28d6c7b34bc93e302495542e5922d1edaa4f8333f0e40105ff3`.
+Its metadata SHA-256 was
+`ebab2e2b63519686e6359dff43da90472713f11149cf24456312a1014f4168e7`.
+The candidate preserved the scanner identity, but it produced zero checkpoint
+records, zero leaves, and zero snapshots. It failed the required checkpoint
+and reuse gate before either witness could pass. Revert the candidate.
+
+Keep issue #576 open. Reopen this route only after both dollar-quote witnesses
+match generated Go, locked-blob Go, and locked C. Require exact values of 13
+records, 4 leaves, 4 snapshots, 1 subtree, and 16 bytes. Require zero stale
+cross-grammar reuse. Keep the remap table immutable and outside serialized
+scanner state.
+
 ## C26q SQL scanner identity gate
 
 Publication base: `a62b9db306bcb983852cbf0043852546e864e856`.
