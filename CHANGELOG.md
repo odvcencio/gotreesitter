@@ -9,6 +9,16 @@ for tags and release notes while still in `0.x`.
 
 ### Correctness
 
+- Record the `dispatch.solidity` blocker receipt at base
+  `d54147516440a91b8eda6983251c7cd6c4be2707`. Keep the arm live. The A0
+  manifest records three Solidity files, three checks, three runs, and 666
+  rewrites. The `Initializable` witness diverges from locked C after 666
+  rewrites. The member and call witnesses expose two live rewrite families.
+  The malformed controls retain locked-C shape differences. Forest parsing
+  diverges on clean controls. The authenticated Solidity corpus is
+  unavailable. No registry or production code changes are included. See
+  `docs/root-normalization-retirement.md`.
+
 - Added the C26q SQL scanner identity gate on publication base
   `a62b9db306bcb983852cbf0043852546e864e856`. Native SQL binds each
   checkpoint to its scanner and exact grammar blob. Generated overrides hash

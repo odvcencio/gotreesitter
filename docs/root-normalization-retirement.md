@@ -2791,6 +2791,134 @@ Exit: any remaining broad root subsystem is broad because it shares runtime
 ownership, not because unrelated utilities or generated artifacts were left
 there.
 
+## 2026-08-23 Solidity blocker receipt
+
+Status: NO-GO. KEEP LIVE: `dispatch.solidity`.
+
+Base commit: `d54147516440a91b8eda6983251c7cd6c4be2707`.
+
+Select Solidity as the next unreceipted A0 arm. It has three authenticated
+fixtures, no external scanner, and a small two-function compatibility arm.
+
+The registry has 88 entries. It has 78 dispatcher arms, three dispatcher
+subpasses, one dispatcher predicate, three generic passes, and three fixpoint
+passes. The live denominator has 31 dispatcher arms, 33 dispatcher-arm
+language labels, one predicate, 32 live entries, and 56 retired entries. It
+has zero live generic or fixpoint passes.
+
+The registry keeps `dispatch.solidity` live. It names these functions in
+`parser_result_solidity.go`:
+
+- `normalizeSolidityMemberObjectWrappers`;
+- `normalizeSolidityCallExpressionAliases`.
+
+The authoritative owner is `derivation_election_selection`. The registry
+requires exact production, compact, forest, incremental, and locked-C route
+receipts for every registered witness before retirement.
+
+The A0 (initial dispatcher census) manifest has 14 languages, 14 receipts,
+and 42 files. It records 44 checks, 44 runs, 313572 visited nodes, 3267
+rewrites, 20 error roots, and zero parse errors. Solidity records three files,
+three checks, three runs, 26897 visited nodes, 666 rewrites, zero error roots,
+and zero parse errors.
+
+The Solidity A0 files are:
+
+| File | Bytes | Source SHA-256 |
+| --- | ---: | --- |
+| `small__IERC3156.sol` | 263 | `9fbd10c6970c328f348c9a86604bdad336743caeda2547f94b6a86d8a906c961` |
+| `medium__Initializable.sol` | 9279 | `f527a063813c2bf60c153fb08e38539578935402894fcc36fac42324ca325d3b` |
+| `large__Packing.sol` | 64872 | `766829f6d9758a1318dd009143912d7aa6bbafa4f4b2a137c94d7f81a73b38ac` |
+
+The tracked census has seven fixtures across six languages. It excludes
+Solidity. The authenticated real-corpus census is unavailable. The full
+authenticated corpus is unavailable because `cgo_harness/corpus_real` is
+absent.
+Included-ranges coverage is not applicable to Solidity because it has no
+external scanner route.
+
+The locked C oracle uses grammar commit `048fe686cb1fde267243739b8bdbec8fc3a55272`.
+The focused receipt covers eight witnesses on raw, production, compact,
+forest, incremental, and locked-C routes.
+
+The registered A0 and positive witnesses report these exact results:
+
+- `a0-small-IERC3156` matches locked C on every route. Forest and incremental
+  report `1/1/31/0`. Incremental reuse is `15/179`.
+- `a0-medium-Initializable` has raw digest
+  `b38a5f0babca0fec5a4b6c6fad6169ad0f201e0606f8400553ca2034e731c8dd` and
+  locked-C digest `9c73deee203b676abf35a10a7dfa02c6ed90ee21209f9745bcb0256fd935526f`.
+  The first raw and normalized difference is the `member_expression` versus
+  `unary_expression` at
+  `/source_file/contract_declaration[4]/contract_body[3]/modifier_definition[12]/function_body[4]/statement[4]/variable_declaration_statement[0]/expression[2]/member_expression[0]`.
+  Production, compact, and incremental report `1/1/798/666`. Forest reports
+  `1/1/817/604` and a second `_primary_expression` versus `identifier`
+  difference. Compact falls back at the scheduler frontier. Incremental reuse
+  is `46/840`.
+- `a0-large-Packing` matches locked C on raw, production, compact, and
+  incremental routes. Those routes report `1/1/26068/0`. Forest reports
+  `1/1/26458/0` and diverges at
+  `/source_file/library_declaration[6]/contract_body[2]/function_definition[58]/function_body[10]/statement[1]/if_statement[0]/expression[2]/binary_expression[0]/expression[0]/_primary_expression[0]`.
+  Compact falls back because the live-link cap reaches `9 > 8`. Incremental
+  reuse is `6898/26115`.
+- `positive-control` matches locked C on raw, production, compact, and
+  incremental routes. Forest reports a `_primary_expression` versus
+  `identifier` difference. Incremental reuse is `14/53`.
+
+The focused member and call witnesses expose both live Solidity functions:
+
+- `clean-member` matches locked C after production, compact, and incremental
+  routes rewrite the unary member wrapper. Each of those routes reports
+  `1/1/42/7`. Forest matches without a rewrite and reports `1/1/41/0`. Raw differs at
+  `/source_file/contract_declaration[0]/contract_body[2]/function_definition[1]/function_body[8]/statement[1]/return_statement[0]/expression[1]/member_expression[0]/expression[0]`.
+  Incremental reuse is `14/53`.
+- `clean-call-alias` matches locked C on raw. Production, compact, and
+  incremental routes report `1/1/45/12` but keep `call_expression` where C
+  has `type_cast_expression`. Forest reports `1/1/46/13` and the same type
+  difference. Incremental reuse is `16/61`.
+
+The malformed controls remain live evidence:
+
+- `malformed-member` has an `ERROR` root. Raw reports digest
+  `64d54df15129a3845acd6eda9e9470f40dc50f40108b7646c72c956516072d69`.
+  Production, compact, and incremental report digest
+  `4d876136804ad8a663cdd5fce91f04cdfab2f3bd215c7ea499b92d72dd577690` and
+  `1/1/42/7`. Every returned route differs from locked C by `children=3`
+  versus `children=4` at the return statement. Forest declines. Incremental
+  reuse is `13/52`.
+- `malformed-call` has an `ERROR` root. Raw, production, and compact report
+  digest `9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d`.
+  Incremental reports digest
+  `afb72aead66613b4cb37a32bdf9aacd8a945963e1af1b6c47f0f2999359e071d`.
+  Production and compact report `1/1/43/0`. Incremental reports `1/1/42/0`.
+  Every returned route differs from locked C by `children=3` versus `children=4`
+  at the return statement. Forest declines. Compact recovery falls back at the
+  elected token. Incremental reuse is `14/59`.
+
+The focused receipt traces every observed rewrite:
+
+- A0 `Initializable`: 666 production, compact, and incremental rewrites; 604
+  forest rewrites.
+- Clean member: 7 production, compact, and incremental rewrites; zero forest
+  rewrites.
+- Clean call alias: 12 production, compact, and incremental rewrites; 13
+  forest rewrites.
+- Malformed member: 7 production, compact, and incremental rewrites.
+- All other covered routes report zero rewrites.
+
+The six existing Solidity normalizer unit tests pass. The positive control
+keeps native output live. No registry or production code changes are included.
+
+The current focused Docker artifact is:
+
+- `/tmp/gts-n31l-normalization-20260823/harness_out/docker/20260823T161302Z-n31l-solidity-current-terminal-v2` — route and receipt guards;
+  `container.log` SHA-256 `242c696d1e3d872ef7f6d116622654cc0e601fce6722333f7988a507ec97e4b6`;
+  `metadata.txt` SHA-256 `f5089de2758a910b547584bbbb08f6a3416f1ec31ffea4abf508490be361d8a0`.
+
+Keep `dispatch.solidity` live until the producer closes every locked-C
+divergence, the malformed controls match, and the authenticated corpus is
+available. Then rerun all six routes before changing the registry.
+
 ## Progress ledger
 
 | Ratchet | Status | Before | After | Evidence |

@@ -1,0 +1,165 @@
+# package: .
+# bench regex: ^BenchmarkP25aoRecoveryDeletion$
+# build tags: gts_parsercorephase0
+# seeds: 1..20
+# benchtime: 750ms
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      79	  11584015 ns/op	 4766438 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.683s
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      79	  11026647 ns/op	 4766068 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.604s
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      86	   9879049 ns/op	 4763386 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.517s
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      86	  10107200 ns/op	 4763374 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.519s
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      75	  11518180 ns/op	 4767838 B/op	     112 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.662s
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      85	   9483409 ns/op	 4763745 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.488s
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      85	   9387467 ns/op	 4763745 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.333s
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      58	  13666413 ns/op	 4778123 B/op	     113 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.881s
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      96	  10220979 ns/op	 4760214 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.453s
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      91	  10104254 ns/op	 4761708 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.601s
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      87	  11201152 ns/op	 4763035 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.702s
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      80	  10245062 ns/op	 4765652 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.587s
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      99	   9017674 ns/op	 4759405 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.665s
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      96	   9767181 ns/op	 4760224 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.754s
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      96	   8892460 ns/op	 4760225 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.493s
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      91	   8604799 ns/op	 4761718 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.473s
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      94	   9139417 ns/op	 4760797 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.563s
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      87	   8847570 ns/op	 4763024 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.489s
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      96	   9356793 ns/op	 4760224 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.387s
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25aoRecoveryDeletion 	      92	   9374086 ns/op	 4761404 B/op	     111 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.598s
