@@ -3730,6 +3730,12 @@ type diagnosticParserCoreGenericCell struct {
 	relexedSymbol            Symbol
 	selectedBy               diagnosticParserCoreCellSelection
 	corridorTrustedReduction bool
+	// singleHeadShiftValidated records the dispatch loop's proof that this
+	// cell is one authenticated, ordinary shift on the exact single-head
+	// frontier. Apply code uses it only to skip the repeated action-shape
+	// check. Core calls still validate the owner, epoch, boundary, action,
+	// transaction, and rollback contracts.
+	singleHeadShiftValidated bool
 }
 
 func (cell *diagnosticParserCoreGenericCell) actions() core.ActionRow { return cell.boundary.Actions() }
@@ -3772,6 +3778,40 @@ func (cell *diagnosticParserCoreGenericCell) selectsConflictReduction() bool {
 	return cell.selectedBy != diagnosticParserCoreCellSelectionNone &&
 		cell.selectedBy != diagnosticParserCoreCellSelectionRepetitionFork &&
 		cell.actions().At(cell.selectedActionOrdinal()).Type == core.ActionReduce
+}
+
+// singleHeadShiftCellAuthenticated proves the narrow action check that the
+// singleton shift path would otherwise repeat in applyGenericShiftsOwned.
+// The caller invokes it after election and boundary classification. The
+// state, checkpoint, and cell-kind checks keep the proof local to that pass.
+func (s *diagnosticParserCoreGenericScheduler) singleHeadShiftCellAuthenticated(cell *diagnosticParserCoreGenericCell, kind core.ActionRowKind) bool {
+	if s == nil || cell == nil || len(s.headers) != 1 || len(s.currentElection.States) != 1 ||
+		cell.headerIndex != 0 || cell.relexedSymbol != 0 {
+		return false
+	}
+	header := s.headers[0]
+	if header.accepted || header.shifted || header.paused || header.s3Region != nil ||
+		header.checkpoint != s.checkpointID ||
+		StateID(cell.boundary.State()) != s.currentElection.States[0] {
+		return false
+	}
+	if cell.selectedBy != diagnosticParserCoreCellSelectionNone &&
+		cell.selectedBy != diagnosticParserCoreCellSelectionConflictPolicy &&
+		cell.selectedBy != diagnosticParserCoreCellSelectionRepetitionFold &&
+		cell.selectedBy != diagnosticParserCoreCellSelectionRepetitionFork {
+		return false
+	}
+	if kind != core.ActionRowShift {
+		return false
+	}
+	// Conflict-policy selection can choose a repetition shift. Keep the
+	// action-shape proof explicit so an extra shift never enters this fast path.
+	ordinal := cell.selectedActionOrdinal()
+	if ordinal < 0 || ordinal >= cell.actions().Len() {
+		return false
+	}
+	action := cell.actions().At(ordinal)
+	return action.Type == core.ActionShift && !action.Extra
 }
 
 func dropCohortSelectionClass(selected diagnosticParserCoreCellSelection) core.DropCohortSelectionClass {
@@ -5822,7 +5862,9 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				return unsupported, nil
 			}
 		}
-		switch cell.kind() {
+		kind := cell.kind()
+		cell.singleHeadShiftValidated = s.singleHeadShiftCellAuthenticated(cell, kind)
+		switch kind {
 		case core.ActionRowAccept:
 			if acceptCell < 0 {
 				acceptCell = index
@@ -8252,9 +8294,11 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 		for index := range cells {
 			cell := &cells[index]
 			ordinal := cell.selectedActionOrdinal()
-			action := cell.actions().At(ordinal)
-			if action.Type != core.ActionShift || action.Extra {
-				return errors.New("parser-core phase zero: ordinary shift selection is not an ordinary shift")
+			if !cell.singleHeadShiftValidated {
+				action := cell.actions().At(ordinal)
+				if action.Type != core.ActionShift || action.Extra {
+					return errors.New("parser-core phase zero: ordinary shift selection is not an ordinary shift")
+				}
 			}
 			token := cell.dispatchToken(s.token)
 			shifted := core.Token{

@@ -424,6 +424,120 @@ func TestDiagnosticParserCoreDescriptorValidatesCompleteFrontierBeforeDispatch(t
 	}
 }
 
+func TestDiagnosticParserCoreSingleHeadShiftCellAuthentication(t *testing.T) {
+	table := &genericConflictTable{cells: map[genericConflictCell][]core.Action{
+		{state: 1, symbol: 9}: {{Type: core.ActionShift, State: 2}},
+	}}
+	compact, err := core.New(table, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	boundary, err := compact.ClassifyBoundary(head, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newScheduler := func(header diagnosticParserCoreHeader) *diagnosticParserCoreGenericScheduler {
+		return &diagnosticParserCoreGenericScheduler{
+			compact: compact, headers: []diagnosticParserCoreHeader{header},
+			checkpointID:    core.CheckpointID(7),
+			currentElection: DiagnosticParserCoreElection{States: []StateID{1}},
+		}
+	}
+	newCell := func() diagnosticParserCoreGenericCell {
+		return diagnosticParserCoreGenericCell{headerIndex: 0, boundary: boundary}
+	}
+	header := diagnosticParserCoreHeader{head: head, checkpoint: core.CheckpointID(7)}
+	cell := newCell()
+	if kind := cell.kind(); kind != core.ActionRowShift || !newScheduler(header).singleHeadShiftCellAuthenticated(&cell, kind) {
+		t.Fatalf("authenticated singleton shift proof failed: kind=%v cell=%+v", cell.kind(), cell)
+	}
+	for _, test := range []struct {
+		name   string
+		mutate func(*diagnosticParserCoreGenericScheduler, *diagnosticParserCoreGenericCell)
+	}{
+		{name: "second header", mutate: func(s *diagnosticParserCoreGenericScheduler, _ *diagnosticParserCoreGenericCell) {
+			s.headers = append(s.headers, s.headers[0])
+		}},
+		{name: "shifted header", mutate: func(s *diagnosticParserCoreGenericScheduler, _ *diagnosticParserCoreGenericCell) {
+			s.headers[0].shifted = true
+		}},
+		{name: "checkpoint mismatch", mutate: func(s *diagnosticParserCoreGenericScheduler, _ *diagnosticParserCoreGenericCell) {
+			s.headers[0].checkpoint = core.CheckpointID(8)
+		}},
+		{name: "parser state mismatch", mutate: func(s *diagnosticParserCoreGenericScheduler, _ *diagnosticParserCoreGenericCell) {
+			s.currentElection.States[0] = 2
+		}},
+		{name: "relexed symbol", mutate: func(_ *diagnosticParserCoreGenericScheduler, c *diagnosticParserCoreGenericCell) {
+			c.relexedSymbol = 10
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			scheduler := newScheduler(header)
+			candidate := newCell()
+			test.mutate(scheduler, &candidate)
+			if kind := candidate.kind(); scheduler.singleHeadShiftCellAuthenticated(&candidate, kind) {
+				t.Fatal("adversarial singleton shift proof was admitted")
+			}
+		})
+	}
+
+	extraTable := &genericConflictTable{cells: map[genericConflictCell][]core.Action{
+		{state: 1, symbol: 9}: {{Type: core.ActionShift, State: 2, Extra: true}},
+	}}
+	extraCompact, err := core.New(extraTable, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	extraHead, err := extraCompact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extraBoundary, err := extraCompact.ClassifyBoundary(extraHead, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extraCell := diagnosticParserCoreGenericCell{headerIndex: 0, boundary: extraBoundary}
+	extraScheduler := &diagnosticParserCoreGenericScheduler{
+		compact: extraCompact, headers: []diagnosticParserCoreHeader{{head: extraHead, checkpoint: core.CheckpointID(7)}},
+		checkpointID: core.CheckpointID(7), currentElection: DiagnosticParserCoreElection{States: []StateID{1}},
+	}
+	if kind := extraCell.kind(); kind != core.ActionRowExtraShift || extraScheduler.singleHeadShiftCellAuthenticated(&extraCell, kind) {
+		t.Fatalf("extra shift proof=%t kind=%v, want false/non-shift", extraScheduler.singleHeadShiftCellAuthenticated(&extraCell, extraCell.kind()), kind)
+	}
+}
+
+func TestDiagnosticParserCoreSingleHeadShiftValidationGuardFailsClosed(t *testing.T) {
+	table := &genericConflictTable{cells: map[genericConflictCell][]core.Action{
+		{state: 1, symbol: 9}: {{Type: core.ActionReduce, Symbol: 4}},
+	}}
+	compact, err := core.New(table, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := mustDiagnosticParserCoreGenericCell(t, compact, 0, diagnosticParserCoreHeader{head: head}, 9)
+	cell.singleHeadShiftValidated = true
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact: compact, headers: []diagnosticParserCoreHeader{{head: head}},
+		token:   Token{Symbol: 9, StartByte: 0, EndByte: 1},
+		options: DiagnosticParserCorePrefixOptions{MaxDispatches: 8},
+		receipt: &DiagnosticParserCoreGenericScheduler{},
+	}
+	if err := scheduler.applyGenericShifts(nil, []diagnosticParserCoreGenericCell{cell}); err == nil {
+		t.Fatal("forged singleton proof admitted a reduce action")
+	}
+	if scheduler.dispatches != 0 || scheduler.work != (DiagnosticParserCoreGenericWork{}) {
+		t.Fatalf("forged singleton proof leaked scheduler work: dispatches=%d work=%+v", scheduler.dispatches, scheduler.work)
+	}
+}
+
 func TestDiagnosticParserCorePointIndexPollsBeforeScanning(t *testing.T) {
 	want := errors.New("stop")
 	polls := 0
