@@ -7148,7 +7148,7 @@ func (p *Parser) ensureParseInitialCapacity(source []byte, arenaClass arenaClass
 		p.ensureFullParseInitialCapacity(source, arena, scratch)
 	case arenaClassIncremental:
 		target := parseIncrementalArenaNodeCapacity(len(source), p.incrementalArenaHintCapacity())
-		arena.ensureNodeCapacity(target)
+		arena.ensureExactNodeCapacity(target)
 		scratch.entries.ensureInitialCap(parseIncrementalEntryScratchCapacity(len(source)))
 	}
 }

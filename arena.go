@@ -492,6 +492,7 @@ func newNodeArena(class arenaClass) *nodeArena {
 		fieldSourceSlabs: []fieldSourceSliceSlab{{data: make([]uint8, fieldSourceCap)}},
 	}
 	a.recomputeAllocatedBytes()
+	p17TraceArenaEvent("new_arena", class, 0, len(a.nodes), len(a.nodes), a.used)
 	return a
 }
 
@@ -1138,6 +1139,7 @@ func (a *nodeArena) allocNodeSlow() *Node {
 		a.nodeSlabs = append(a.nodeSlabs, nodeSlab{data: make([]Node, capacity)})
 		a.allocatedBytes += nodeBytesForCap(capacity)
 		a.nodeSlabCursor = 0
+		p17TraceArenaEvent("overflow_slab", a.class, 0, capacity, capacity, a.used)
 	}
 	if a.nodeSlabCursor < 0 || a.nodeSlabCursor >= len(a.nodeSlabs) {
 		a.nodeSlabCursor = 0
@@ -1148,6 +1150,7 @@ func (a *nodeArena) allocNodeSlow() *Node {
 			capacity := boundedNextSlabCap(lastCap, minArenaNodeCap, int(unsafe.Sizeof(Node{})))
 			a.nodeSlabs = append(a.nodeSlabs, nodeSlab{data: make([]Node, capacity)})
 			a.allocatedBytes += nodeBytesForCap(capacity)
+			p17TraceArenaEvent("overflow_slab", a.class, lastCap, capacity, capacity, a.used)
 		}
 
 		slab := &a.nodeSlabs[i]
@@ -1423,6 +1426,7 @@ func (a *nodeArena) ensureNodeCapacity(min int) {
 		// Calling this after allocation begins is an internal usage bug.
 		panic("ensureNodeCapacity called after arena allocations started")
 	}
+	before := len(a.nodes)
 	newCap := max(len(a.nodes), minArenaNodeCap)
 	for newCap < min {
 		newCap *= 2
@@ -1434,6 +1438,7 @@ func (a *nodeArena) ensureNodeCapacity(min int) {
 	a.externalScannerNodeCheckpoints = externalScannerCheckpointSet{}
 	a.externalScannerNodeCheckpointSlabs = nil
 	a.recomputeAllocatedBytes()
+	p17TraceArenaEvent("geometric_primary", a.class, before, min, newCap, a.used)
 }
 
 func (a *nodeArena) ensureExactNodeCapacity(min int) {
@@ -1443,6 +1448,7 @@ func (a *nodeArena) ensureExactNodeCapacity(min int) {
 	if a.used > 0 {
 		panic("ensureExactNodeCapacity called after arena allocations started")
 	}
+	before := len(a.nodes)
 	newCap := max(min, minArenaNodeCap)
 	a.nodes = make([]Node, newCap)
 	a.used = 0
@@ -1451,6 +1457,7 @@ func (a *nodeArena) ensureExactNodeCapacity(min int) {
 	a.externalScannerNodeCheckpoints = externalScannerCheckpointSet{}
 	a.externalScannerNodeCheckpointSlabs = nil
 	a.recomputeAllocatedBytes()
+	p17TraceArenaEvent("exact_primary", a.class, before, min, newCap, a.used)
 }
 
 func (a *nodeArena) ensureExternalScannerCheckpointCapacity(min int) {
