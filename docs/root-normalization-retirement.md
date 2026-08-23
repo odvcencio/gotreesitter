@@ -3354,6 +3354,106 @@ The authenticated corpus lock is absent; only its sidecar hash exists.
 Reopen this decision after a pinned corpus lock exists and all listed route digests match C.
 Require compact admission to accept every witness and the dispatcher to record zero rewrites.
 
+## 2026-08-24 Perl dispatcher blocker receipt
+
+Status: `KEEP LIVE / NO-GO`. Keep `dispatch.perl` live. Make no parser or registry change.
+
+### Perl selection proof
+
+The base is `af9ded2b77b7828b12b1d2da7c9fff8dd5ca053b`.
+The worktree is `/tmp/gotreesitter-n31s-next-arm.1787521201`.
+The excluded arms include every accepted receipt through WGSL.
+The base-main history search found no Perl receipt in the retirement document or changelog.
+The ownership record marks `dispatch.perl` as live with baseline corpus coverage only.
+The arm remains in `parser_result_compat.go` and calls `normalizePerlCompatibility`.
+The registry attaches `grammars.PerlExternalScanner` to Perl.
+The arm has one active sub-pass, `normalizePerlPushExpressionLists`.
+The existing local parity test identifies the `push` shape as load-bearing.
+
+The A0 and tracked manifests contain no Perl witness.
+Their hashes are `215df59aa56d28caa403f799733ef915db1c4ac07eb2bc96a9402f80cf67f80a`
+and `be584a0a4a26f0ca5268a7845cf3f04247e6b57259b9c7057e8eb2c9af26f839`.
+The receipt uses two deterministic source-hashed witnesses.
+The first source is `push @found, $_;` with hash
+`08ac06c62278aa8bb26361629ac930bbbfbe5031da04a54ee3aeec4875ce0b3b`.
+The second source is `push @found, $a, $b;` with hash
+`7be8389f1e6981c2e1e6324357df96ffb34063e9ea6811b8c332143e76015cd1`.
+
+### Perl identity and scanner
+
+The grammar lock hash is `9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb`.
+The embedded Perl blob hash is `22388f06c2c54bb4748fd5f5f682ed25eecff8115a7e8e6a98f94f9c94bb9820`.
+The grammar is `https://github.com/tree-sitter-perl/tree-sitter-perl` at
+`ad74e6db234c35d537de9358799a8e0cc4f5dee0`.
+The C artifact hash is `3d8bb427c9043d5e4846f5cd83313afecf6b6e27be8fb82a7cd58f3b8f52ab87`.
+The C oracle uses `tree-sitter-c-v1`, binding `v0.25.0`, and runtime `0.25.1`.
+The binding commit is `adc13ffd8b2c0b01b878fda9f7c422ce0df5fad4`.
+The runtime commit is `f5afe475deb7c0bae6407fb776c76824f717bb61`.
+The compiler is `/usr/bin/cc`, version `cc (Debian 12.2.0-14+deb12u1) 12.2.0`.
+The scanner type is `grammars.PerlExternalScanner`.
+The scanner does not advertise incremental reuse.
+Included ranges are not applicable to this Perl registration.
+
+The corpus sidecar hash is `2b2209597d1701ccc813bd35d1685b5b13730e6ebd285e66485ce812e35877cf`.
+It names lock hash `41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea`.
+The lock file and the full Perl corpus are absent.
+
+### Perl route receipt
+
+The focused test is `cgo_harness/perl_n31s_dispatcher_blocker_receipt_test.go`.
+The test checks source and artifact identities without reading this document.
+The raw route bypasses normalization.
+The production route disables admission.
+The compact route enables admission.
+The forest and incremental routes use their normal parser entry points.
+The C oracle uses the pinned shared grammar artifact.
+
+The first witness uses locked-C digest `27dac6760d613fe9d554c1f4a73465d5ea5d339098540bd7bce136eead0d3916`.
+Raw digest is `f084c77bb5f2c5824dbdf978f68b11f4069b85d9a2dd0a7d11c40ce5e9d2a4d9`.
+Production, compact, forest, and incremental digest match locked C.
+Production dispatch is `1/1/13/4`.
+Forest dispatch is `1/1/13/0`.
+Incremental dispatch is `1/1/13/4`.
+Raw and compact dispatch are `none`.
+The raw divergence is a type mismatch at `/source_file/expression_statement[0]/list_expression[0]`.
+Go emits `list_expression`; locked C emits `ambiguous_function_call_expression`.
+
+The second witness uses locked-C digest `a18c7dba86442049b19f644c9db50b5d090340065698deb180e7b2088dff408e`.
+Raw digest is `6dfa1321087fae3d85fa419198d72c54cf3ee91258e49b1213c64ebf2192e20d`.
+Production, compact, forest, and incremental digest match locked C.
+Production dispatch is `1/1/17/4`.
+Forest dispatch is `1/1/17/0`.
+Incremental dispatch is `1/1/17/4`.
+Raw and compact dispatch are `none`.
+The raw divergence has the same path, category, and node-type values as the first witness.
+
+Each compact delta is one routed candidate and zero fallbacks.
+The fallback reason is empty.
+Forest accepts both witnesses.
+The runtime rewrite counter is zero on every route.
+Dispatch fourth fields record four compatibility node rewrites on production and incremental routes.
+Incremental reuse is unsupported because the Perl scanner lacks the reuse contract.
+Each incremental profile records `external_scanner_unsupported`, zero reused subtrees, and zero reused bytes.
+
+### Perl Docker evidence and decision
+
+Run the focused test in image `sha256:5060d2a11578710fdb0adc48e638efab98b3e7ff18bb5082596911fe86011b08`.
+Use one CPU, `GOMAXPROCS=1`, one C build job, and one test process.
+The artifact directory is `/tmp/gotreesitter-n31s-next-arm.1787521201/harness_out/docker/20260823T214723Z`.
+The container log hash is `6b6b27e69d4ed466cb2cbd424811184fae0ea053c5e62e240fa3f2cc328c04ff`.
+The inspection hash is `a10d105fdf3b7dc79ba23c26b8642690b63d755785eed4bae749a6077825348b`.
+The metadata hash is `d5ea890f83de3cf6baf0af78e59d38939ddcb2619de685162bdecc48bb4674b2`.
+The focused Docker test passed without an out-of-memory kill or timeout.
+
+Keep `dispatch.perl` live.
+The raw route still diverges from locked C on both witnesses.
+The normalized routes match locked C only after the compatibility arm runs.
+The authenticated Perl corpus lock is absent.
+Incremental reuse remains unsupported by the scanner.
+Reopen after a pinned Perl corpus lock exists and raw native trees match locked C.
+Require compact, forest, incremental, and locked-C routes to retain exact parity.
+Require the scanner to publish a sound incremental reuse contract before claiming reuse.
+
 ## Progress ledger
 
 | Ratchet | Status | Before | After | Evidence |

@@ -53,6 +53,17 @@ for tags and release notes while still in `0.x`.
   Locked C still differs in shape, type, and error state.
   No parser or registry change is included.
   See `docs/root-normalization-retirement.md`.
+- Recorded the unreceipted `dispatch.perl` blocker at base
+  `af9ded2b77b7828b12b1d2da7c9fff8dd5ca053b`.
+  The focused Docker receipt covers raw, production, compact, forest,
+  incremental, and locked-C routes for two source-hashed Perl witnesses.
+  It pins the grammar lock, blob, scanner, C artifact, runtime, binding,
+  compiler, source digests, route digests, dispatch counts, compact counters,
+  forest results, and incremental reuse status.
+  Raw trees diverge from locked C, while normalized routes match after dispatch.
+  The Perl corpus lock is absent, and the scanner provides no incremental reuse.
+  Keep the arm live. No parser or registry change is included.
+  See `docs/root-normalization-retirement.md`.
 
 - Recorded the unreceipted `dispatch.wolfram` blocker at base
   `f8b9d718ee19f65598e274035f5481a899ab2b72`. The A0 manifest records three
