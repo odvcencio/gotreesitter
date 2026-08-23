@@ -302,6 +302,51 @@ func (c *Core) dropCohortVerifyRefs(heads []Head, refs []DropCohortRef, drops []
 	return c.dropCohortVerifierResult(dropCohortVerifierProved, publish)
 }
 
+func (c *Core) dropCohortVerifyRefsOwned(
+	owner SchedulerTransactionToken,
+	heads []Head,
+	refs []DropCohortRef,
+	drops []int,
+	publish bool,
+) (dropCohortVerifierReason, error) {
+	if c == nil {
+		return dropCohortVerifierUnknownCohort, errors.New("parser-core phase zero: verifier on nil core")
+	}
+	// Validate the capability before any certificate lookup. The verifier's
+	// identity checks protect the certificate store after this gate.
+	if err := c.validateSchedulerTransaction(owner); err != nil {
+		return dropCohortVerifierUnknownCohort, err
+	}
+	return c.dropCohortVerifyRefs(heads, refs, drops, publish), nil
+}
+
+// ClassifyDropCohortRefsOwned checks one candidate without publishing
+// counters. It validates the active scheduler owner before reading records.
+func (c *Core) ClassifyDropCohortRefsOwned(
+	owner SchedulerTransactionToken,
+	heads []Head,
+	refs []DropCohortRef,
+	drops []int,
+) (string, error) {
+	reason, err := c.dropCohortVerifyRefsOwned(owner, heads, refs, drops, false)
+	return dropCohortVerifierReasonString(reason), err
+}
+
+// VerifyDropCohortRefsOwned checks one selected candidate and publishes one
+// verifier result. It validates the active scheduler owner before any lookup.
+func (c *Core) VerifyDropCohortRefsOwned(
+	owner SchedulerTransactionToken,
+	heads []Head,
+	refs []DropCohortRef,
+	drops []int,
+) error {
+	reason, err := c.dropCohortVerifyRefsOwned(owner, heads, refs, drops, true)
+	if err != nil {
+		return err
+	}
+	return dropCohortVerifierError(reason)
+}
+
 // DiagnosticVerifyDropCohortRefsForTest exposes only the inert verifier
 // foundation. It does not compact headers or authorize a production drop.
 func (c *Core) DiagnosticVerifyDropCohortRefsForTest(heads []Head, refs []DropCohortRef, drops []int) (string, error) {

@@ -6912,6 +6912,239 @@ func diagnosticParserCoreSelectedLineageDrops(
 	return proved, true
 }
 
+// diagnosticParserCoreDropCohortCertificateProof selects one common cohort
+// for the first survivor and every dropped head. It probes before publishing.
+func (s *diagnosticParserCoreGenericScheduler) diagnosticParserCoreDropCohortCertificateProof(indices []int) (bool, error) {
+	if s == nil || s.compact == nil || s.freshSessionOwner == nil || len(s.headers) == 0 ||
+		len(s.headers) > len(s.verifierHeads) || len(s.headers) > len(s.verifierRefs) {
+		return false, nil
+	}
+	defer s.resetDropCohortVerifierScratch()
+	firstSurvivor, owner, survivorRefs, ok := s.dropCohortVerifierPrepare(indices)
+	if !ok {
+		return false, nil
+	}
+	return s.dropCohortVerifierTryCandidates(owner, firstSurvivor, indices, survivorRefs)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) dropCohortVerifierPrepare(
+	indices []int,
+) (int, core.SchedulerTransactionToken, core.DropCohortRefSet, bool) {
+	if len(indices) == 0 || len(indices) >= len(s.headers) {
+		return -1, core.SchedulerTransactionToken{}, core.DropCohortRefSet{}, false
+	}
+	firstSurvivor := -1
+	nextDrop := 0
+	for index := range s.headers {
+		s.verifierHeads[index] = s.headers[index].head
+		if nextDrop < len(indices) {
+			drop := indices[nextDrop]
+			if drop < 0 || drop >= len(s.headers) || (nextDrop > 0 && drop <= indices[nextDrop-1]) {
+				return -1, core.SchedulerTransactionToken{}, core.DropCohortRefSet{}, false
+			}
+			if drop == index {
+				nextDrop++
+				continue
+			}
+		}
+		if firstSurvivor < 0 {
+			firstSurvivor = index
+		}
+	}
+	if nextDrop != len(indices) || firstSurvivor < 0 {
+		return -1, core.SchedulerTransactionToken{}, core.DropCohortRefSet{}, false
+	}
+	clear(s.verifierRefs[:len(s.headers)])
+	survivorRefs := s.headers[firstSurvivor].dropCohortRefs
+	if survivorRefs.Empty() || survivorRefs.Overflowed() || survivorRefs.Blended() {
+		return -1, core.SchedulerTransactionToken{}, core.DropCohortRefSet{}, false
+	}
+	return firstSurvivor, *s.freshSessionOwner, survivorRefs, true
+}
+
+func (s *diagnosticParserCoreGenericScheduler) dropCohortVerifierTryCandidates(
+	owner core.SchedulerTransactionToken,
+	firstSurvivor int,
+	drops []int,
+	survivorRefs core.DropCohortRefSet,
+) (bool, error) {
+	var previous core.DropCohortRef
+	for {
+		candidate, found, err := dropCohortVerifierNextCommonIdentity(
+			s, owner, firstSurvivor, drops, survivorRefs, previous,
+		)
+		if err != nil {
+			return false, err
+		}
+		if !found {
+			return false, nil
+		}
+		selected, err := dropCohortVerifierSelectBranches(s, owner, firstSurvivor, drops, candidate)
+		if err != nil {
+			return false, err
+		}
+		if !selected {
+			return false, nil
+		}
+		reason, err := s.compact.ClassifyDropCohortRefsOwned(
+			owner,
+			s.verifierHeads[:len(s.headers)],
+			s.verifierRefs[:len(s.headers)],
+			drops,
+		)
+		if err != nil {
+			return false, err
+		}
+		if reason == "proved" {
+			if err := s.compact.VerifyDropCohortRefsOwned(
+				owner,
+				s.verifierHeads[:len(s.headers)],
+				s.verifierRefs[:len(s.headers)],
+				drops,
+			); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+		previous = candidate
+	}
+}
+
+func dropCohortVerifierNextCommonIdentity(
+	s *diagnosticParserCoreGenericScheduler,
+	owner core.SchedulerTransactionToken,
+	firstSurvivor int,
+	drops []int,
+	survivorRefs core.DropCohortRefSet,
+	previous core.DropCohortRef,
+) (core.DropCohortRef, bool, error) {
+	var candidate core.DropCohortRef
+	for candidateIndex := 0; candidateIndex < survivorRefs.Len(); candidateIndex++ {
+		ref, ok, err := s.compact.DropCohortRefAtOwned(owner, survivorRefs, candidateIndex)
+		if err != nil {
+			return core.DropCohortRef{}, false, err
+		}
+		if !ok {
+			return core.DropCohortRef{}, false, nil
+		}
+		if ref.Owner == 0 || ref.Epoch == 0 || ref.Sequence == 0 ||
+			(previous.Owner != 0 && !dropCohortVerifierIdentityLess(previous, ref)) {
+			continue
+		}
+		common, err := dropCohortVerifierCommonIdentity(s, owner, firstSurvivor, drops, ref)
+		if err != nil {
+			return core.DropCohortRef{}, false, err
+		}
+		if !common {
+			continue
+		}
+		if candidate.Owner == 0 || dropCohortVerifierIdentityLess(ref, candidate) {
+			candidate = ref
+		}
+	}
+	return candidate, candidate.Owner != 0, nil
+}
+
+func dropCohortVerifierCommonIdentity(
+	s *diagnosticParserCoreGenericScheduler,
+	owner core.SchedulerTransactionToken,
+	firstSurvivor int,
+	drops []int,
+	candidate core.DropCohortRef,
+) (bool, error) {
+	for index := range s.headers {
+		if index != firstSurvivor && !dropCohortVerifierDropIndex(index, drops) {
+			continue
+		}
+		refs := s.headers[index].dropCohortRefs
+		if refs.Empty() || refs.Overflowed() || refs.Blended() {
+			return false, nil
+		}
+		found := false
+		for refIndex := 0; refIndex < refs.Len(); refIndex++ {
+			ref, valid, err := s.compact.DropCohortRefAtOwned(owner, refs, refIndex)
+			if err != nil {
+				return false, err
+			}
+			if !valid || ref.Owner == 0 || ref.Epoch == 0 || ref.Sequence == 0 {
+				return false, nil
+			}
+			if ref.Owner == candidate.Owner && ref.Epoch == candidate.Epoch && ref.Sequence == candidate.Sequence {
+				found = true
+			}
+		}
+		if !found {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func dropCohortVerifierSelectBranches(
+	s *diagnosticParserCoreGenericScheduler,
+	owner core.SchedulerTransactionToken,
+	firstSurvivor int,
+	drops []int,
+	candidate core.DropCohortRef,
+) (bool, error) {
+	for index := range s.headers {
+		if index != firstSurvivor && !dropCohortVerifierDropIndex(index, drops) {
+			continue
+		}
+		refs := s.headers[index].dropCohortRefs
+		var selected core.DropCohortRef
+		found := false
+		for refIndex := 0; refIndex < refs.Len(); refIndex++ {
+			ref, valid, err := s.compact.DropCohortRefAtOwned(owner, refs, refIndex)
+			if err != nil {
+				return false, err
+			}
+			if !valid || ref.Owner == 0 || ref.Epoch == 0 || ref.Sequence == 0 {
+				return false, nil
+			}
+			if ref.Owner != candidate.Owner || ref.Epoch != candidate.Epoch || ref.Sequence != candidate.Sequence {
+				continue
+			}
+			if !found || ref.Branch < selected.Branch {
+				selected = ref
+				found = true
+			}
+		}
+		if !found {
+			return false, nil
+		}
+		s.verifierRefs[index] = selected
+	}
+	return true, nil
+}
+
+func dropCohortVerifierIdentityLess(left, right core.DropCohortRef) bool {
+	if left.Owner != right.Owner {
+		return left.Owner < right.Owner
+	}
+	if left.Epoch != right.Epoch {
+		return left.Epoch < right.Epoch
+	}
+	return left.Sequence < right.Sequence
+}
+
+func (s *diagnosticParserCoreGenericScheduler) resetDropCohortVerifierScratch() {
+	if s == nil {
+		return
+	}
+	clear(s.verifierHeads[:])
+	clear(s.verifierRefs[:])
+}
+
+func dropCohortVerifierDropIndex(index int, drops []int) bool {
+	for _, drop := range drops {
+		if drop == index {
+			return true
+		}
+	}
+	return false
+}
+
 // dropGenericNoActionHeads removes the paused/no-action heads named by indices.
 // indices is produced in ascending, unique header order by the dispatch pass,
 // so the surviving frontier is compacted in place with no allocation. The drop
@@ -6949,8 +7182,22 @@ func (s *diagnosticParserCoreGenericScheduler) dropGenericNoActionHeads(indices 
 	// differing-tree cases, the Kotlin witness declines under v2, stage 1's
 	// gates re-passed); erlang's own class-3 probe re-proof miss is scoped
 	// to its stage 3 certificate precondition, not this gate.
-	convergedCoverageDrops, proved := uint64(0), metadataDrop
-	if !metadataDrop {
+	certificateProved := false
+	if !metadataDrop && s.options.recordDropCohortCertificates {
+		var err error
+		certificateProved, err = s.diagnosticParserCoreDropCohortCertificateProof(indices)
+		if err != nil {
+			return err
+		}
+	}
+	convergedCoverageDrops, proved := uint64(0), metadataDrop || certificateProved
+	if certificateProved {
+		for _, index := range indices {
+			if index >= 0 && index < len(s.headers) && s.headers[index].convergedReductionSplit {
+				convergedCoverageDrops++
+			}
+		}
+	} else if !metadataDrop {
 		convergedCoverageDrops, proved = s.diagnosticParserCoreConvergedCoverageDropsV2(indices)
 	}
 	if !metadataDrop && diagnosticParserCoreShadowCensusEnabled() {

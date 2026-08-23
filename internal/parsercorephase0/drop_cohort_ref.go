@@ -117,6 +117,19 @@ func (c *Core) DropCohortRefAt(set DropCohortRefSet, index int) (DropCohortRef, 
 	return c.dropCohortRefSpill[position], true
 }
 
+// DropCohortRefAtOwned validates the active scheduler owner before reading a
+// reference, including a reference stored in the spill arena.
+func (c *Core) DropCohortRefAtOwned(owner SchedulerTransactionToken, set DropCohortRefSet, index int) (DropCohortRef, bool, error) {
+	if c == nil {
+		return DropCohortRef{}, false, errors.New("parser-core phase zero: reference read on nil core")
+	}
+	if err := c.validateSchedulerTransaction(owner); err != nil {
+		return DropCohortRef{}, false, err
+	}
+	ref, ok := c.DropCohortRefAt(set, index)
+	return ref, ok, nil
+}
+
 // dropCohortRefSpillLimit returns the configured reference count ceiling.
 func (c *Core) dropCohortRefSpillLimit() uint64 {
 	if c == nil {
