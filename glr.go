@@ -4617,6 +4617,76 @@ func gssMainMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	return gssMainMergeNodesSeenMutate(scratch, ah, bh, acquireMergeSeenForScratch(scratch))
 }
 
+// mixedGSSMergeCandidate holds a staged entries-to-GSS promotion. The result
+// slot is changed only after the staged GSS merge succeeds.
+type mixedGSSMergeCandidate struct {
+	packed        *glrStack
+	promoted      glrStack
+	publishResult bool
+	rejectShape   bool
+}
+
+func mixedGSSRepresentations(result []glrStack, idx int, stack *glrStack) (packed, entries *glrStack, promoteResult bool, ok bool) {
+	if idx < 0 || idx >= len(result) || stack == nil {
+		return nil, nil, false, false
+	}
+	left := &result[idx]
+	switch {
+	case left.gss.head != nil && stack.gss.head == nil && len(stack.entries) > 0:
+		return left, stack, false, true
+	case left.gss.head == nil && len(left.entries) > 0 && stack.gss.head != nil:
+		return stack, left, true, true
+	default:
+		return nil, nil, false, false
+	}
+}
+
+func mixedGSSIdentityEqual(packed, entries *glrStack) bool {
+	return packed.dead == entries.dead && packed.accepted == entries.accepted && packed.shifted == entries.shifted &&
+		packed.score == entries.score && packed.top().state == entries.top().state &&
+		packed.byteOffset == entries.byteOffset && packed.depth() == entries.depth() &&
+		packed.cEverErrored == entries.cEverErrored &&
+		packed.cNodeBaseline == entries.cNodeBaseline && packed.cPaused == entries.cPaused
+}
+
+func mixedGSSRecoveryEqual(scratch *glrMergeScratch, packed, entries *glrStack) bool {
+	if cRecoveryMergeCostsDiffer(scratch, packed, entries) {
+		return false
+	}
+	return scratch.cRecoveryCostWalk || scratch.cRecoveryCost ||
+		cStackErrorCostForMergeCached(scratch, scratch.language, packed) == cStackErrorCostForMergeCached(scratch, scratch.language, entries)
+}
+
+func prepareMixedGSSMergeCandidate(scratch *glrMergeScratch, result []glrStack, idx int, stack *glrStack) (mixedGSSMergeCandidate, bool) {
+	if scratch == nil || scratch.gssOwner == nil {
+		return mixedGSSMergeCandidate{}, false
+	}
+	packed, entries, promoteResult, ok := mixedGSSRepresentations(result, idx, stack)
+	if !ok {
+		return mixedGSSMergeCandidate{}, false
+	}
+	if !mixedGSSIdentityEqual(packed, entries) {
+		return mixedGSSMergeCandidate{}, false
+	}
+	if !mixedGSSRecoveryEqual(scratch, packed, entries) {
+		return mixedGSSMergeCandidate{}, false
+	}
+	if !stackEquivalentForMergeState(scratch, scratch.language, packed.top().state, packed, entries) {
+		return mixedGSSMergeCandidate{}, false
+	}
+	if gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, packed, entries) {
+		return mixedGSSMergeCandidate{packed: &result[idx], rejectShape: true}, true
+	}
+	promoted := *entries
+	promoted.ensureGSS(scratch.gssOwner)
+	promoted.entries = nil
+	promoted.cacheEntries = false
+	if promoteResult {
+		return mixedGSSMergeCandidate{packed: packed, promoted: promoted, publishResult: true}, true
+	}
+	return mixedGSSMergeCandidate{packed: packed, promoted: promoted}, true
+}
+
 func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int, stack *glrStack) (merged bool, attempted bool) {
 	workCountRecordMergeAttempt()
 	if mergeCensusEnabled {
@@ -4625,28 +4695,44 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	if idx < 0 || idx >= len(result) || stack == nil {
 		return false, false
 	}
-	if workCountInstrumentationEnabled {
-		workCountRecordPairCandidate(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, "boundary merge entered eligibility preflight", &result[idx], stack)
-	}
-	// Score is an unconditional GSS merge identity component (see
-	// gssMainCanMergeWithScratch). Reject it before recovery-cost attribution
-	// and deeper graph/equivalence work: on ambiguity-heavy parses most
-	// same-state, same-offset candidates carry distinct cumulative dynamic
-	// precedence, so walking recovery state for those pairs can never affect the
-	// outcome. Diagnostic builds still retain the candidate and score rejection.
-	if result[idx].score != stack.score {
+	left, right := &result[idx], stack
+	// Score is an unconditional GSS merge identity component. Reject it before
+	// mixed-representation equivalence or entries-to-GSS promotion work.
+	if left.score != right.score {
 		if workCountInstrumentationEnabled {
-			workCountRecordGSSScoreShiftReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, &result[idx], stack)
+			workCountRecordGSSScoreShiftReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, left, right)
 		}
 		if mergeCensusEnabled {
 			mergeCensusRecordScorePreflight()
 		}
 		return false, false
 	}
-	if cRecoveryMergeCostsDiffer(scratch, &result[idx], stack) {
-		traceCRecoverMergeDecision(scratch, "gss", "reject-cost", &result[idx], stack)
+	mergePair, mixed := prepareMixedGSSMergeCandidate(scratch, result, idx, stack)
+	if mixed {
+		if mergePair.rejectShape {
+			left, right = &result[idx], stack
+			if workCountInstrumentationEnabled {
+				workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", left, right)
+			}
+			if mergeCensusEnabled {
+				mergeCensusRecordDistinctShapes()
+			}
+			return false, true
+		}
+		if mergePair.publishResult {
+			left, right = &mergePair.promoted, stack
+		} else {
+			left, right = mergePair.packed, &mergePair.promoted
+		}
+	}
+	if workCountInstrumentationEnabled {
+		workCountRecordPairCandidate(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, "boundary merge entered eligibility preflight", left, right)
+	}
+	// Diagnostic builds still retain the candidate and score rejection.
+	if !mixed && cRecoveryMergeCostsDiffer(scratch, left, right) {
+		traceCRecoverMergeDecision(scratch, "gss", "reject-cost", left, right)
 		if workCountInstrumentationEnabled {
-			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, workCountConvergenceReasonErrorCost, "boundary merge rejected by recovery cost", &result[idx], stack)
+			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, workCountConvergenceReasonErrorCost, "boundary merge rejected by recovery cost", left, right)
 		}
 		if mergeCensusEnabled {
 			mergeCensusRecordErrorCost()
@@ -4654,22 +4740,23 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		return false, false
 	}
 	if workCountInstrumentationEnabled {
-		if !gssMainCanMergeWithScratchPhase(scratch, &result[idx], stack, workCountConvergencePhaseBoundaryGSS) {
+		if !gssMainCanMergeWithScratchPhase(scratch, left, right, workCountConvergencePhaseBoundaryGSS) {
 			if mergeCensusEnabled {
-				mergeCensusRecordGateRefusal(scratch, &result[idx], stack)
+				mergeCensusRecordGateRefusal(scratch, left, right)
 			}
 			return false, false
 		}
-	} else if !gssMainCanMergeWithScratch(scratch, &result[idx], stack) {
+	} else if !gssMainCanMergeWithScratch(scratch, left, right) {
 		if mergeCensusEnabled {
-			mergeCensusRecordGateRefusal(scratch, &result[idx], stack)
+			mergeCensusRecordGateRefusal(scratch, left, right)
 		}
 		return false, false
 	}
-	if (scratch == nil || scratch.perKeyCap != 1) &&
-		gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, &result[idx], stack) {
+	if (mixed && gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, left, right)) ||
+		(!mixed && (scratch == nil || scratch.perKeyCap != 1) &&
+			gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, left, right)) {
 		if workCountInstrumentationEnabled {
-			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", &result[idx], stack)
+			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", left, right)
 		}
 		if mergeCensusEnabled {
 			mergeCensusRecordDistinctShapes()
@@ -4677,11 +4764,15 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		return false, true
 	}
 	if workCountInstrumentationEnabled {
-		merged = workCountMergeGSSObserved(workCountParserFromMergeScratch(scratch), scratch, workCountConvergencePhaseBoundaryGSS, "boundary merge", &result[idx], stack)
+		merged = workCountMergeGSSObserved(workCountParserFromMergeScratch(scratch), scratch, workCountConvergencePhaseBoundaryGSS, "boundary merge", left, right)
 	} else {
-		merged = gssMainMergeWithScratch(scratch, &result[idx], stack)
+		merged = gssMainMergeWithScratch(scratch, left, right)
 	}
 	if merged {
+		if mixed && mergePair.publishResult {
+			result[idx] = *left
+			left = &result[idx]
+		}
 		workCountRecordMergeSuccess()
 		if mergeCensusEnabled {
 			mergeCensusRecordSuccess()
@@ -4689,7 +4780,7 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		// result[idx] survives and absorbs stack, so OR the sticky wreckage bit:
 		// a clean survivor that merges a recovered-wreckage lineage must inherit
 		// its error history (see glrStack.cEverErrored / tryGSSMainMergeForParser).
-		result[idx].cEverErrored = result[idx].cEverErrored || stack.cEverErrored
+		left.cEverErrored = left.cEverErrored || right.cEverErrored
 		if scratch != nil {
 			// A successful main merge can rewrite link 0 (prev/entry) of surviving
 			// nodes (setGSSMainLink), so every cached spine prefix may be stale.

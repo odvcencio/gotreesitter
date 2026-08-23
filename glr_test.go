@@ -3355,6 +3355,260 @@ func TestTryGSSMainMergeResultRejectsDistinctScoreBeforeMutation(t *testing.T) {
 	}
 }
 
+func mixedGSSMergeFixture(nodeA, nodeB *Node) (glrStack, glrStack, gssScratch) {
+	entriesA := []stackEntry{{state: 1}}
+	entriesB := []stackEntry{{state: 1}}
+	if nodeA != nil {
+		entriesA = append(entriesA, newStackEntryNode(7, nodeA))
+	}
+	if nodeB != nil {
+		entriesB = append(entriesB, newStackEntryNode(7, nodeB))
+	}
+	var owner gssScratch
+	packed := glrStack{gss: buildGSSStack(entriesA, &owner), byteOffset: 5}
+	entries := glrStack{entries: entriesB, byteOffset: 5}
+	return packed, entries, owner
+}
+
+func TestTryGSSMainMergeResultPromotesEquivalentMixedStack(t *testing.T) {
+	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	packed, entries, owner := mixedGSSMergeFixture(node, node)
+	scratch := glrMergeScratch{gssOwner: &owner}
+	result := []glrStack{packed}
+	merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &entries)
+	if !attempted || !merged {
+		t.Fatalf("mixed GSS merge attempted=%v merged=%v, want true/true", attempted, merged)
+	}
+	if result[0].gss.head == nil || len(result[0].entries) != 0 {
+		t.Fatalf("mixed merge did not retain a packed representation: head=%p entries=%d", result[0].gss.head, len(result[0].entries))
+	}
+}
+
+func TestTryGSSMainMergeResultPreservesBranchOrderAcrossMixedOrientations(t *testing.T) {
+	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	tests := []struct {
+		name         string
+		resultPacked bool
+		resultBranch uint64
+		stackBranch  uint64
+	}{
+		{name: "packed-result", resultPacked: true, resultBranch: 7, stackBranch: 3},
+		{name: "entries-result", resultPacked: false, resultBranch: 3, stackBranch: 7},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			packed, entries, owner := mixedGSSMergeFixture(node, node)
+			if tt.resultPacked {
+				packed.branchOrder = tt.resultBranch
+				entries.branchOrder = tt.stackBranch
+			} else {
+				packed.branchOrder = tt.stackBranch
+				entries.branchOrder = tt.resultBranch
+			}
+			scratch := glrMergeScratch{gssOwner: &owner}
+			var result []glrStack
+			var stack *glrStack
+			if tt.resultPacked {
+				result = []glrStack{packed}
+				stack = &entries
+			} else {
+				result = []glrStack{entries}
+				stack = &packed
+			}
+			merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, stack)
+			if !attempted || !merged {
+				t.Fatalf("mixed merge attempted=%v merged=%v, want true/true", attempted, merged)
+			}
+			if got := result[0].branchOrder; got != tt.resultBranch {
+				t.Fatalf("result branch order=%d, want survivor order=%d", got, tt.resultBranch)
+			}
+		})
+	}
+}
+
+func TestTryGSSMainMergeResultRejectsMixedIdentityDifferences(t *testing.T) {
+	base := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	other := NewLeafNode(12, true, 0, 5, Point{}, Point{Column: 5})
+	tests := []struct {
+		name   string
+		mutate func(*glrStack, *glrStack)
+	}{
+		{name: "payload", mutate: func(packed, entries *glrStack) {
+			*packed, *entries, _ = mixedGSSMergeFixture(base, other)
+		}},
+		{name: "state", mutate: func(packed, entries *glrStack) {
+			*packed, *entries, _ = mixedGSSMergeFixture(base, base)
+			packed.gss.head.entry.state = 2
+		}},
+		{name: "offset", mutate: func(packed, entries *glrStack) {
+			*packed, *entries, _ = mixedGSSMergeFixture(base, base)
+			packed.byteOffset = 4
+		}},
+		{name: "depth", mutate: func(packed, entries *glrStack) {
+			*packed, *entries, _ = mixedGSSMergeFixture(base, base)
+			entries.entries = entries.entries[:1]
+		}},
+		{name: "error", mutate: func(packed, entries *glrStack) {
+			errNode := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+			errNode.setHasError(true)
+			*packed, *entries, _ = mixedGSSMergeFixture(base, errNode)
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var owner gssScratch
+			packed, entries := glrStack{}, glrStack{}
+			tt.mutate(&packed, &entries)
+			owner = gssScratch{}
+			// Rebuild the packed side with the owner used by this invocation.
+			if packed.gss.head != nil {
+				var spine []stackEntry
+				for n := packed.gss.head; n != nil; n = n.prev {
+					spine = append(spine, n.entry)
+				}
+				for i, j := 0, len(spine)-1; i < j; i, j = i+1, j-1 {
+					spine[i], spine[j] = spine[j], spine[i]
+				}
+				packed.gss = buildGSSStack(spine, &owner)
+			}
+			scratch := glrMergeScratch{gssOwner: &owner}
+			before := packed.gss.head
+			result := []glrStack{packed}
+			merged, _ := tryGSSMainMergeResult(&scratch, result, 0, &entries)
+			if merged {
+				t.Fatal("mixed identity difference merged")
+			}
+			if result[0].gss.head != before {
+				t.Fatal("rejected mixed merge changed the packed representation")
+			}
+		})
+	}
+}
+
+func TestTryGSSMainMergeResultPreservesPackedLinkAlternatives(t *testing.T) {
+	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	packed, entries, owner := mixedGSSMergeFixture(node, node)
+	alternate := buildGSSStack([]stackEntry{{state: 1}}, &owner).head
+	packed.gss.head.appendExtraLink(gssMainLink{prev: alternate, entry: packed.gss.head.entry})
+	scratch := glrMergeScratch{gssOwner: &owner}
+	result := []glrStack{packed}
+	merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &entries)
+	if !attempted || !merged {
+		t.Fatalf("packed-link mixed merge attempted=%v merged=%v, want true/true", attempted, merged)
+	}
+	if result[0].gss.head.linkCount() < 2 {
+		t.Fatal("mixed merge discarded a packed-link alternative")
+	}
+}
+
+func TestTryGSSMainMergeResultMixedWarmScratchAllocs(t *testing.T) {
+	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	entriesTemplate := []stackEntry{{state: 1}, newStackEntryNode(7, node)}
+	var owner gssScratch
+	scratch := glrMergeScratch{gssOwner: &owner}
+	setupRun := func() {
+		owner.reset()
+		scratch.beginEquivEpoch()
+		packed := glrStack{gss: buildGSSStack(entriesTemplate, &owner), byteOffset: 5}
+		var result [1]glrStack
+		result[0] = packed
+	}
+	run := func() {
+		owner.reset()
+		scratch.beginEquivEpoch()
+		packed := glrStack{gss: buildGSSStack(entriesTemplate, &owner), byteOffset: 5}
+		entries := glrStack{entries: entriesTemplate, byteOffset: 5}
+		var result [1]glrStack
+		result[0] = packed
+		merged, attempted := tryGSSMainMergeResult(&scratch, result[:], 0, &entries)
+		if !attempted || !merged {
+			panic("warm mixed merge did not succeed")
+		}
+	}
+	run()
+	acceptedAllocs := testing.AllocsPerRun(10, run)
+	t.Logf("warm accepted mixed merge allocations = %v", acceptedAllocs)
+	if acceptedAllocs > 2 {
+		t.Fatalf("warm accepted mixed merge allocations = %v, want <= 2", acceptedAllocs)
+	}
+	rejectRun := func() {
+		owner.reset()
+		scratch.beginEquivEpoch()
+		packed := glrStack{gss: buildGSSStack(entriesTemplate, &owner), byteOffset: 5}
+		mismatch := append([]stackEntry(nil), entriesTemplate...)
+		mismatch[1].state++
+		entries := glrStack{entries: mismatch[:], byteOffset: 5}
+		var result [1]glrStack
+		result[0] = packed
+		merged, _ := tryGSSMainMergeResult(&scratch, result[:], 0, &entries)
+		if merged {
+			panic("mixed reject unexpectedly merged")
+		}
+	}
+	rejectRun()
+	legacyRejectRun := func() {
+		owner.reset()
+		scratch.beginEquivEpoch()
+		scratch.gssOwner = nil
+		packed := glrStack{gss: buildGSSStack(entriesTemplate, &owner), byteOffset: 5}
+		mismatch := append([]stackEntry(nil), entriesTemplate...)
+		mismatch[1].state++
+		entries := glrStack{entries: mismatch[:], byteOffset: 5}
+		var result [1]glrStack
+		result[0] = packed
+		merged, _ := tryGSSMainMergeResult(&scratch, result[:], 0, &entries)
+		if merged {
+			panic("legacy mixed reject unexpectedly merged")
+		}
+		scratch.gssOwner = &owner
+	}
+	setupAllocs := testing.AllocsPerRun(10, setupRun)
+	legacyAllocs := testing.AllocsPerRun(10, legacyRejectRun)
+	rejectAllocs := testing.AllocsPerRun(10, rejectRun)
+	if rejectAllocs > legacyAllocs {
+		t.Fatalf("warm rejected mixed merge allocations = %v, legacy = %v", rejectAllocs, legacyAllocs)
+	}
+	t.Logf("warm rejected mixed merge allocations = %v (legacy = %v, setup = %v)", rejectAllocs, legacyAllocs, setupAllocs)
+}
+
+func TestTryGSSMainMergeResultRejectsDistinctMaterializingShape(t *testing.T) {
+	arena := newNodeArena(arenaClassFull)
+	parser := &Parser{}
+	leaf := NewLeafNode(1, true, 0, 1, Point{}, Point{Column: 1})
+	makeParent := func(childState StateID) *Node {
+		parent := NewParentNode(9, true, []*Node{leaf}, nil, 0)
+		parent.rawShape = parser.captureRawShape(nil, arena, parent.symbol, parent.productionID, []stackEntry{newStackEntryNode(childState, leaf)}, 0, 1)
+		return parent
+	}
+	leftNode, rightNode := makeParent(2), makeParent(3)
+	leftShapeHash, ok := arena.rawShapeHash(leftNode.rawShape)
+	if !ok {
+		t.Fatal("left shape hash is unavailable")
+	}
+	arena.storeRawShapeHash(rightNode.rawShape, leftShapeHash^1)
+	packed, entries, owner := mixedGSSMergeFixture(leftNode, rightNode)
+	scratch := glrMergeScratch{
+		arena:    arena,
+		language: &Language{ExactStackNodeEquivalenceCertified: true},
+		gssOwner: &owner,
+	}
+	if !stackEquivalentForMergeState(&scratch, scratch.language, 1, &packed, &entries) {
+		t.Fatal("shape fixture is not semantically equivalent")
+	}
+	if !gssStacksHaveDistinctMaterializingShapesWithScratch(&scratch, &packed, &entries) {
+		t.Fatal("shape fixture did not produce distinct materializing shapes")
+	}
+	before := packed.gss.head
+	result := []glrStack{packed}
+	merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &entries)
+	if merged || !attempted {
+		t.Fatalf("distinct-shape mixed merge merged=%v attempted=%v, want false/true", merged, attempted)
+	}
+	if result[0].gss.head != before {
+		t.Fatal("distinct-shape rejection changed the packed representation")
+	}
+}
+
 func TestTryGSSMainMergeForParserBumpsShapePrefixEpoch(t *testing.T) {
 	// Cross-token invalidation guard for the DISPATCH-time GSS main merge
 	// (reached through tryGSSMainMergeForParser from parser_reduce /
