@@ -276,10 +276,16 @@ func (s *transientParentScratch) materializeVisitedNodeUntil(n *Node, arena *nod
 				}
 			}
 			if replacement := s.transientReplacement(child); replacement != nil {
+				if replacement == n {
+					panic("transient replacement linked node to itself")
+				}
 				out[i] = replacement
 				continue
 			}
 			if replacement, ok := s.seen[child]; ok {
+				if replacement == n {
+					panic("seen replacement linked node to itself")
+				}
 				out[i] = replacement
 			}
 		}

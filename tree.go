@@ -339,6 +339,20 @@ func setNodeParentLink(child, parent *Node, index int) {
 	if child == nil {
 		return
 	}
+	if child.ownerArena == nil && parent != nil {
+		panic(fmt.Sprintf(
+			"linked ownerless child symbol=%d span=%d:%d to parent symbol=%d span=%d:%d child=%p parent=%p index=%d",
+			child.symbol,
+			child.startByte,
+			child.endByte,
+			parent.symbol,
+			parent.startByte,
+			parent.endByte,
+			child,
+			parent,
+			index,
+		))
+	}
 	child.parent = parent
 	if sidecar, ok := child.ownerArena.finalChildSidecarForNode(child); ok {
 		sidecar.parent = parent

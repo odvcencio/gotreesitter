@@ -322,12 +322,18 @@ func (p *Parser) buildResultFromGLR(stacks []glrStack, source []byte, arena *nod
 	if resultMaterializationShouldStop(reason) {
 		return errorTreeWithStopReason(reason)
 	}
+	if !recoveredResultNodesAcyclic(nodes) {
+		panic("result cycle before transient parent materialization")
+	}
 	materializeStart := time.Time{}
 	if materializationTiming != nil {
 		materializeStart = time.Now()
 	}
 	if reason := materializeTransientParentNodes(nodes, arena, transientParents, transientChildren, p); resultMaterializationShouldStop(reason) {
 		return errorTreeWithStopReason(reason)
+	}
+	if !recoveredResultNodesAcyclic(nodes) {
+		panic("result cycle after transient parent materialization")
 	}
 	if materializationTiming != nil {
 		materializationTiming.transientParentMaterializeNanos += time.Since(materializeStart).Nanoseconds()
