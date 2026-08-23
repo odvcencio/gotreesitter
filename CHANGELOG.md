@@ -178,6 +178,18 @@ for tags and release notes while still in `0.x`.
   `docs/root-normalization-retirement.md` for the receipt, artifacts, and
   reopening condition.
 
+- Record the N31c Python dispatcher blocker at main commit
+  `11d9aec70eaef0c0d65c3cd14b8f594d64869c7b`. The A0 manifest excludes
+  Python, and the authenticated Python corpus and lock are unavailable. The
+  tracked Python fixture records zero rewrites. The positive witness differs
+  from locked C only before normalization; production, compact, forest, and
+  incremental routes match. Two f-string witnesses differ from locked C on
+  every route. Incremental parsing reports
+  `external_scanner_unsupported` with zero reuse. Keep `dispatch.python` live.
+  No production or registry change survives. See
+  `docs/root-normalization-retirement.md` for the receipt, artifacts, and
+  reopening condition.
+
 - Record the C26b Swift issue #576 conformance-list recovery blocker at main
   commit `838aba943038248529429a572c4d6d98359bd87e`. The 66-byte
   `associatedtype` witness still differs from locked C. Go emits

@@ -307,6 +307,131 @@ Retire `dispatch.typescript` only after all of these conditions hold:
 Keep `dispatch.typescript` live until each condition passes.
 Keep the registry entry unchanged until each condition passes.
 
+## 2026-08-24 Python dispatcher blocker receipt
+
+Status: `NO-GO`. Keep `dispatch.python` live.
+
+Base commit: `11d9aec70eaef0c0d65c3cd14b8f594d64869c7b`.
+This receipt adds one focused route and document guard test. It changes no
+parser or registry behavior.
+
+The registry arm is `dispatch.python`. Its function is
+`normalizePythonCompatibilityWithParser` in `parser_result_python.go`. Its
+authoritative owner is `scheduler_action_semantics`. Its route coverage is
+production, compact, forest, incremental, and locked-C. The registry status
+is `live`. Retirement requires exact native output for every registered
+witness on every covered route.
+
+The A0 (initial dispatcher census) manifest has 14 languages, 42 files, and
+14 receipts. It excludes Python. Its parser revision is
+`3c55dca287c9dd6ed987c764b9aafd90b22281a2`. Its grammar lock SHA-256 is
+`9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb`.
+Its totals are `checked=44`, `run=44`, `nodes_visited=313572`,
+`nodes_rewritten=3267`, `error_roots=20`, and `parse_errors=0`.
+
+The tracked census has seven fixtures. Its Python fixture is
+`cgo_harness/corpus_structural/python_sample.py`. Its source SHA-256 is
+`3de858b73ba43ad3c2d43b9cfc08426f62dd4ae7bcf1358e3989ed311b435157`.
+It records one check, one run, 1,547 visited nodes, zero rewritten nodes, and
+no error root. The tracked totals are `checked=9`, `run=9`,
+`nodes_visited=26022`, and `nodes_rewritten=2107`.
+
+The authenticated Python corpus and corpus lock are unavailable. The
+`cgo_harness/corpus_real` directory does not exist. The manifests reference
+that directory, but they cannot provide its files. The sidecar
+`cgo_harness/perf_scan/corpus_sources.lock.sha256` records
+`41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea`.
+The sidecar records the expected corpus lock SHA, but it does not provide the
+corpus. The full Python A3 corpus sweep therefore skips.
+
+The focused test is
+`cgo_harness/python_dispatch_blocker_receipt_test.go`. It pins three
+witnesses, their source bytes, source SHA-256 values, locked-C digests, Go
+digests, first divergences, route results, and dispatcher pass counts.
+Pass counts use the format `checked/run/visited/rewritten`.
+
+The positive witness is 32 bytes. Its source SHA-256 is
+`6a1661337725eea3d5f3e26c38c3c3536f2c9fbfb66e04ae73f2dcc1a1afdd03`.
+Its raw Go digest is
+`1ee859d4c1d2489f24dd57e0671a1832480b1c43afb960c10f798ce9f71f9759`.
+Locked C and normalized Go use digest
+`577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622`.
+The raw first divergence is
+`/module/assignment[1]/pattern_list[2]`, where Go uses `pattern_list` and C
+uses `expression_list`.
+
+The raw positive witness differs from locked C, but production, compact,
+forest, and incremental routes match locked C. Production records
+`1/1/24/1`. Compact accepts the candidate route and records no dispatcher
+pass, with counters `0/0->1/0`. Forest records `1/1/24/0`. Incremental
+records `1/1/24/1`.
+Raw records no dispatcher pass.
+
+The bare-tuple f-string witness is 26 bytes. Its source SHA-256 is
+`7d0029944fcffb700144302da9b1b80b03da8f89d716772b3a207dca9ba543a7`.
+Its Go digest is
+`89ca835ae4fb5cf19d38e40b6ae4f09c99c66987ca77d8b4921aa9f593aaa641`.
+Locked C uses digest
+`84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07`.
+The first divergence is
+`/module/assignment[2]/string[2]/interpolation[1]/pattern_list[1]`, where Go
+uses `pattern_list` and C uses `expression_list`.
+
+The splat f-string witness is 26 bytes. Its source SHA-256 is
+`660a9ed55b63e6b98cfc70db1776895ec9046a16c906c33b3d273bee496a121d`.
+Its Go digest is
+`102ebedd10a3864a2640cb293f541e42f63b4f1ce3d60c9f219d7088b4f484c6`.
+Locked C uses digest
+`e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9`.
+The first divergence is
+`/module/assignment[1]/string[2]/interpolation[1]/pattern_list[1]`, where Go
+uses `pattern_list` and C uses `expression_list`.
+
+The two f-string witnesses differ from locked C on every route. Production,
+compact, forest, and incremental retain the Go digest. Their dispatcher
+counts are listed below. Raw records no dispatcher pass for both witnesses.
+
+- Bare tuple: production `1/1/22/0`, compact accepted with counters
+  `1/0->2/0`, forest `1/1/22/1`, and incremental `1/1/22/0`.
+- Splat: production `1/1/24/0`, compact accepted with counters `2/0->3/0`,
+  forest `1/1/24/0`, and incremental `1/1/24/0`.
+
+All route receipts set `native_authoritative=false`. Every incremental route
+reports `external_scanner_unsupported`, with zero reused subtrees and zero
+reused bytes. Incremental equality is therefore a fresh-parse result, not a
+reuse proof.
+
+The existing load-bearing C-oracle test passes its three assignment witnesses.
+The root-error and byte-drop tests pass. The existing known-gap test skips both
+f-string witnesses. The skipped cases remain explicit blockers.
+
+Canopy traces `runLanguageResultCompatibility` to `dispatcherArmCensus` and
+then to `normalizePythonCompatibilityWithParser`. It also traces the generic
+selection paths `reduceForkWindowPreference` and
+`stackCompareForResultSelectionWithRawShape`. The f-string tie affects
+`for`, `except`, `with`, `del`, and `match` target shapes. A generic scheduler
+change could affect every grammar. No safe generic correction is proven.
+
+The Docker controls use one Python workload, one CPU, 4 GiB memory,
+`GOMAXPROCS=1`, `-p=1`, and test parallelism one. The successful final
+artifacts are:
+
+- `/tmp/gts-n31c-python-blocker-20260824/harness_out/docker/20260823T052051Z-n31c-python-blocker-final5` — route and document guard;
+- `/tmp/gts-n31c-python-blocker-20260824/harness_out/docker/20260823T051420Z-n31c-python-receipts-final` — canonical Python receipts;
+- `/tmp/gts-n31c-python-blocker-20260824/harness_out/docker/20260823T051431Z-n31c-python-census-final` — tracked census;
+- `/tmp/gts-n31c-python-blocker-20260824/harness_out/docker/20260823T051442Z-n31c-python-a3-corpus-absence` — authenticated corpus skip.
+
+Each run completed without timeout or out-of-memory failure. Maximum resident
+set size was 303,840 KB for the route guard, 231,200 KB for the canonical
+receipts, 609,280 KB for the tracked census, and 230,560 KB for the corpus
+skip.
+
+Keep dispatch.python live until scheduler_action_semantics emits the locked-C
+tree for every witness and route. Reopen retirement only after the
+authenticated corpus and lock become available, the A0 denominator includes
+Python, both f-string gaps close, the skipped tests run, and all route digests
+match. Preserve the scanner limitation as a separate incremental receipt.
+
 ## 2026-08-22 normalization checkpoint
 
 Status: NO-GO. Do not retire an entry from this checkpoint.
