@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<census date="2026-08-23">
+  <bucket name="PASS" count="48"/>
+  <bucket name="FALLBACK" count="153">
+    <mechanism name="eof-byte-short-frontier" count="90"/>
+    <mechanism name="zero-width-shift" count="33"/>
+    <mechanism name="repetition-shift-class" count="27"/>
+  </bucket>
+</census>

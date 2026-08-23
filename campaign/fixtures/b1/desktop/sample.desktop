@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Census Runner
+Exec=/usr/local/bin/run-census --full
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;

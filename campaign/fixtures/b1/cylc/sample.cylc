@@ -1,0 +1,8 @@
+[scheduling]
+    initial cycle point = 20260701T00Z
+    [[graph]]
+        R1 = prep => census => report
+
+[runtime]
+    [[census]]
+        script = python3 run_census.py --full

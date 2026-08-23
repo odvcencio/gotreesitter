@@ -1,0 +1,9 @@
+0000000000401000 <classify>:
+  401000:	55                   	push   %rbp
+  401001:	48 89 e5             	mov    %rsp,%rbp
+  401004:	89 f8                	mov    %edi,%eax
+  401006:	83 f8 01             	cmp    $0x1,%eax
+  401009:	74 05                	je     401010 <pass>
+  40100b:	b8 02 00 00 00       	mov    $0x2,%eax
+  401010:	5d                   	pop    %rbp
+  401011:	c3                   	retq

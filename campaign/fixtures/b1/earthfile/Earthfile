@@ -1,0 +1,7 @@
+VERSION 0.8
+FROM alpine:3.19
+build:
+    RUN apk add go git
+    COPY . .
+    RUN go build ./...
+save-artifact census

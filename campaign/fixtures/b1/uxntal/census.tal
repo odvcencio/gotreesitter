@@ -1,0 +1,8 @@
+( classify: 0=PASS 1=FALLBACK )
+|0100 @on-reset
+    #01 classify
+    #18 DEO
+    BRK
+
+@classify ( status -- class )
+    #01 AND JMP2r

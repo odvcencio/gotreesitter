@@ -1,0 +1,7 @@
+{% assign passing = site.languages | where: "status", "PASS" %}
+<h2>{{ passing.size }} languages pass</h2>
+<ul>
+{% for lang in passing %}
+  <li>{{ lang.name }} — {{ lang.mechanism | default: "byte-exact" }}</li>
+{% endfor %}
+</ul>

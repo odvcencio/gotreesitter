@@ -1,0 +1,7 @@
+graph TD
+    A[Smoke fixture] --> B{Compact route}
+    B -->|accept| C[PASS]
+    B -->|decline| D[FALLBACK]
+    D --> E[repetition-shift-class]
+    D --> F[zero-width-shift]
+    D --> G[eof-byte-short-frontier]

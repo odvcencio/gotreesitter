@@ -1,0 +1,5 @@
+intent orderDrink
+training order a latte
+training can I get an espresso
+@
+    drink [latte] @id(1)

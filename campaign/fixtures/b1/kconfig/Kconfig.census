@@ -1,0 +1,14 @@
+menu "Census options"
+
+config GTS_ADMISSION_CENSUS
+	bool "Enable fine-grained admission decline census"
+	default n
+	help
+	  Tag every compact-route decline with its mechanism class.
+
+config GTS_MAX_FRONTIER
+	int "Maximum scheduler frontier size"
+	range 64 4096
+	default 512
+
+endmenu

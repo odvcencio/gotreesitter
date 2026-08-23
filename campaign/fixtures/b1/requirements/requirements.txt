@@ -1,0 +1,4 @@
+# pinned for the depth-census runner
+pytest==8.2.0
+pyyaml==6.0.1
+tree-sitter==0.22.3

@@ -1,0 +1,7 @@
+2026-07-01 * "Grocery run"
+  Expenses:Food:Groceries      42.17 USD
+  Assets:Checking
+
+2026-07-03 open Assets:Checking
+2026-07-05 pad Assets:Checking Equity:Opening-Balances
+2026-07-31 balance Assets:Checking 1204.55 USD

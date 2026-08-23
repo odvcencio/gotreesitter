@@ -1,0 +1,7 @@
+admission: add fine-grained decline mechanism census
+
+Split the two coarse FALLBACK buckets into eleven mechanism classes,
+gated behind GTS_ADMISSION_CENSUS=1 so every default-build call site
+stays byte-identical.
+
+PASS=48 DIVERGE=0 FALLBACK=153 SKIP=5 ERROR=0 total=206
