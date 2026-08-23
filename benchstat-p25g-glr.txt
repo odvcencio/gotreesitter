@@ -1,0 +1,64 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                          sec/op                          │                 sec/op                  vs base                │
+GoParseWarmRealDFA/grammargen_lr                                                126.0m ± 8%                             194.5m ± 10%  +54.28% (p=0.000 n=20)
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                           B/s                            │                  B/s                    vs base                │
+GoParseWarmRealDFA/grammargen_lr                                               1.779Mi ± 7%                            1.154Mi ± 11%  -35.12% (p=0.000 n=20)
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                        arena_B/op                        │                 arena_B/op                  vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                56.43M ± 0%                                  56.43M ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                     forest_fast_path                     │              forest_fast_path               vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                 0.000 ± 0%                                   0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                        max_stacks                        │                 max_stacks                  vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                 18.00 ± 0%                                   18.00 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                      multi_iters/op                      │               multi_iters/op                vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                53.12k ± 0%                                  53.12k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                     multi_tokens/op                      │              multi_tokens/op                vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                47.98k ± 0%                                  47.98k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                         nodes/op                         │                  nodes/op                   vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                330.5k ± 0%                                  330.5k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                  normalization_runs/op                   │           normalization_runs/op             vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                 0.000 ± 0%                                   0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                        peak_depth                        │                 peak_depth                  vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                 58.00 ± 0%                                   58.00 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                        tokens/op                         │                 tokens/op                   vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                49.91k ± 0%                                  49.91k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                           B/op                           │                  B/op                   vs base                │
+GoParseWarmRealDFA/grammargen_lr                                              5.364Mi ± 16%                            9.363Mi ± 20%  +74.57% (p=0.000 n=20)
+
+                                 │ /tmp/gts-p25g-baseline/harness_out/p25g-baseline-glr.txt │ /tmp/gts-p25g-investigation/harness_out/p25g-candidate-glr.txt │
+                                 │                        allocs/op                         │                allocs/op                 vs base               │
+GoParseWarmRealDFA/grammargen_lr                                                 156.0 ± 0%                                157.0 ± 1%  +0.64% (p=0.005 n=20)
