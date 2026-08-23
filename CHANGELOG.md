@@ -19,6 +19,21 @@ for tags and release notes while still in `0.x`.
   generated SQL locked-C divergences remain. Keep issue #576 open until
   generated and locked-C trees match.
 
+- Recorded the `dispatch.solidity` blocker at publication base
+  `055051a24a1195bd8743be38674fc9aae75e1bc6`. Keep the arm live. The A0
+  manifest records three Solidity files, three checks, three runs, 26897
+  visited nodes, and 666 rewrites. The source files use OpenZeppelin commit
+  `48ab75f29abaa315fad7fa7b8338f92bb07376a7`. The grammar lock, Solidity
+  blob, C grammar artifact, runtime, binding, and grammar repository identities
+  are pinned. The receipt covers raw, production, compact, forest, incremental,
+  and locked-C routes. Production forces admission off, and the Docker run sets
+  `GTS_ADMISSION_CANDIDATE=0`. Compact records exact routed and fallback deltas
+  for its accepted and fallback cases. The focused receipt reports locked-C
+  divergences for Initializable, call aliases, malformed controls, and forest
+  witnesses. The authenticated Solidity corpus lock is absent. No registry or
+  production code changes are included. See
+  `docs/root-normalization-retirement.md`.
+
 - Added the C26q SQL scanner identity gate on publication base
   `a62b9db306bcb983852cbf0043852546e864e856`. Native SQL binds each
   checkpoint to its scanner and exact grammar blob. Generated overrides hash

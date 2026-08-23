@@ -2791,6 +2791,214 @@ Exit: any remaining broad root subsystem is broad because it shares runtime
 ownership, not because unrelated utilities or generated artifacts were left
 there.
 
+## 2026-08-23 Solidity dispatcher blocker receipt
+
+Status: `NO-GO`. Keep `dispatch.solidity` live.
+
+Base commit: `055051a24a1195bd8743be38674fc9aae75e1bc6`.
+
+Select Solidity because its A0 receipt has three fixtures and two live
+normalizer functions. The receipt must cover each registered route before
+retirement.
+
+The registry has 88 entries:
+
+- 78 dispatcher arms;
+- three dispatcher subpasses;
+- one dispatcher predicate;
+- three generic passes;
+- three fixpoint passes.
+
+The live denominator has 31 dispatcher arms, 33 dispatcher-arm language
+labels, one predicate, 32 live entries, and 56 retired entries. It has zero
+live generic or fixpoint passes.
+
+The registry entry is `dispatch.solidity`. It names these functions in
+`parser_result_solidity.go`:
+
+- `normalizeSolidityMemberObjectWrappers`;
+- `normalizeSolidityCallExpressionAliases`.
+
+The authoritative owner is `derivation_election_selection`. The registry
+requires exact production, compact, forest, incremental, and locked-C route
+receipts. It also requires the shared compatibility tail and the curated
+single-grammar route.
+
+### Selection and corpus evidence
+
+The A0 manifest has 14 languages, 14 receipts, and 42 files. It records 44
+checks, 44 runs, 313572 visited nodes, 3267 rewrites, 20 error roots, and zero
+parse errors.
+
+The Solidity receipt has three files, three checks, three runs, 26897 visited
+nodes, 666 rewrites, zero error roots, and zero parse errors.
+
+The three files come from
+[OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts)
+at commit `48ab75f29abaa315fad7fa7b8338f92bb07376a7`:
+
+| File | Source path | Bytes | Source SHA-256 |
+| --- | --- | ---: | --- |
+| `small__IERC3156.sol` | `contracts/interfaces/IERC3156.sol` | 263 | `9fbd10c6970c328f348c9a86604bdad336743caeda2547f94b6a86d8a906c961` |
+| `medium__Initializable.sol` | `contracts/proxy/utils/Initializable.sol` | 9279 | `f527a063813c2bf60c153fb08e38539578935402894fcc36fac42324ca325d3b` |
+| `large__Packing.sol` | `contracts/utils/Packing.sol` | 64872 | `766829f6d9758a1318dd009143912d7aa6bbafa4f4b2a137c94d7f81a73b38ac` |
+
+The tracked census excludes Solidity. The authenticated corpus lock is
+absent. The `cgo_harness/corpus_real` directory is absent. The grammar lock
+does not authenticate corpus coverage.
+The route test pins both census manifests and checks the lock sidecar without
+accepting the absent authenticated lock.
+
+### Non-circular C identity
+
+The test loads the C grammar through `COracleIdentity("solidity")`. It
+checks every identity field that the loader reports.
+
+| Field | Pinned value |
+| --- | --- |
+| Contract | `tree-sitter-c-v1` |
+| Transport | `cgo_parity_binding` |
+| Binding module | `github.com/tree-sitter/go-tree-sitter` |
+| Binding version | `v0.25.0` |
+| Binding commit | `adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3` |
+| Runtime version | `0.25.1` |
+| Runtime commit | `f5afe475deb7c0bae6407fb776c76824f717bb61` |
+| Runtime linkage | `static_cgo_test_binary` |
+| Language | `solidity` |
+| Grammar repository | [tree-sitter-solidity](https://github.com/JoranHonig/tree-sitter-solidity) |
+| Grammar commit | `048fe686cb1fde267243739b8bdbec8fc3a55272` |
+| Grammar linkage | `shared_dlopen` |
+| Grammar compile flags | `-std=c11 -fPIC -O2 -I .` |
+| Compiler | `/usr/bin/cc` |
+| Compiler version | `cc (Debian 12.2.0-14+deb12u1) 12.2.0` |
+| C grammar artifact SHA-256 | `5bafc32251964c20e5a61f74ec32d001fcc5776e7ed3b7ed8621fd7fd96d6a2a` |
+| Grammar lock SHA-256 | `9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb` |
+| Embedded Solidity blob SHA-256 | `79a2deeff86d17d79472ce603713312135fe9dbb08760013412b6d428f351c74` |
+
+The test hashes both the lock file and the embedded Solidity blob file. It
+also hashes the embedded blob returned by the grammar package.
+
+### Route contract
+
+The receipt distinguishes these routes:
+
+- Raw uses `ParseNoResultCompatibilityBenchmarkOnly`.
+- Production forces admission off with `SetAdmissionCandidateRoute(false)`.
+- Compact forces admission on with `SetAdmissionCandidateRoute(true)`.
+- Forest uses `ParseForestExperimental` with admission forced off.
+- Incremental forces admission off before the base and edited parses.
+- Locked C uses the loaded C grammar and `COracleDeepDigest`.
+
+The Docker command sets `GTS_ADMISSION_CANDIDATE=0`. The production route
+therefore stays off even when the process default changes. The compact route
+still uses its explicit candidate pin.
+
+The following table records every route digest. The digest format is
+`gts-deep-tree-v1`.
+
+| Witness | Locked C | Raw | Production | Compact | Forest | Incremental |
+| --- | --- | --- | --- | --- | --- | --- |
+| `a0-small-IERC3156` | `e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415` | `e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415` | `e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415` | `e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415` | `e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415` | `e930abf94bedfcdfaaade28d76373c3ed9b2587fb075d800c1de3357320ce415` |
+| `a0-medium-Initializable` | `9c73deee203b676abf35a10a7dfa02c6ed90ee21209f9745bcb0256fd935526f` | `b38a5f0babca0fec5a4b6c6fad6169ad0f201e0606f8400553ca2034e731c8dd` | `8f424e55a8dc92e0e3f8d5e7408c0a15120881a5815255a35256fb8ecd188083` | `8f424e55a8dc92e0e3f8d5e7408c0a15120881a5815255a35256fb8ecd188083` | `e7f3c1838b6d50dbcf9c94241f068a282e34cd7dc46111bd2968560cf32ef512` | `8f424e55a8dc92e0e3f8d5e7408c0a15120881a5815255a35256fb8ecd188083` |
+| `a0-large-Packing` | `7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8` | `7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8` | `7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8` | `7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8` | `7c1d74398a8a9023f2aabc44c8274cdd752a73c043362314ce4addf0e264ad82` | `7ebe5bde35327a5138ff647e0b0d3d807c8ee33fb8db2589ef1196fdea5ee6e8` |
+| `clean-member` | `58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c` | `59d346b564a497fa8299c68724f8d3bae4f40e041552c4ec2b4431e1892da4fb` | `58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c` | `58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c` | `58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c` | `58e3573f7d0a876346fed1636144f061175594f507e5813d2e07aca6c6f2ed8c` |
+| `clean-call-alias` | `3b4933bab1c7f82173bbc78c423f30c596521f1ec34a12a2588571d501e518d6` | `3b4933bab1c7f82173bbc78c423f30c596521f1ec34a12a2588571d501e518d6` | `9882705b4b5b2001a012dbde7971ecec760ff3e9f59b94544c30881daf5184ff` | `9882705b4b5b2001a012dbde7971ecec760ff3e9f59b94544c30881daf5184ff` | `d9c040b976230d7454ac85d3928b5b6041c11776eaccef1d48b6c979a6c4e7e8` | `9882705b4b5b2001a012dbde7971ecec760ff3e9f59b94544c30881daf5184ff` |
+| `malformed-member` | `7ae2871bd3028093215d8118e3f0a58065e4276834db38329a8b97e65f8df912` | `64d54df15129a3845acd6eda9e9470f40dc50f40108b7646c72c956516072d69` | `4d876136804ad8a663cdd5fce91f04cdfab2f3bd215c7ea499b92d72dd577690` | `4d876136804ad8a663cdd5fce91f04cdfab2f3bd215c7ea499b92d72dd577690` | declined | `4d876136804ad8a663cdd5fce91f04cdfab2f3bd215c7ea499b92d72dd577690` |
+| `malformed-call` | `00b5fccbcf99a1bf710682cfa4d01db50e74e3bddad5c3a78977269ba76053cb` | `9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d` | `9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d` | `9272deb09841144e85fd5ed32a3a6bc6b6f1d39b2221e0692db918c7f3c33d2d` | declined | `afb72aead66613b4cb37a32bdf9aacd8a945963e1af1b6c47f0f2999359e071d` |
+| `positive-control` | `90e10f0667bbcac3ad8f10774370c052084020d6782bc3b5e22a6670308b4bd2` | `90e10f0667bbcac3ad8f10774370c052084020d6782bc3b5e22a6670308b4bd2` | `90e10f0667bbcac3ad8f10774370c052084020d6782bc3b5e22a6670308b4bd2` | `90e10f0667bbcac3ad8f10774370c052084020d6782bc3b5e22a6670308b4bd2` | `c25f7b71de7473b83eac6e6cb582d4d155da05f239818b7d597b8166ae48a69c` | `90e10f0667bbcac3ad8f10774370c052084020d6782bc3b5e22a6670308b4bd2` |
+
+### Exact route counters, compact outcome, and reuse
+
+Each route counter uses checked, run, visited, and rewritten values. The
+compact delta uses routed and fallback counter changes.
+
+| Witness | Production | Compact | Forest | Incremental | Compact routed/fallback delta | Reuse subtrees/bytes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `a0-small-IERC3156` | `1/1/31/0` | `none` | `1/1/31/0` | `1/1/31/0` | `1/0` | `15/179` |
+| `a0-medium-Initializable` | `1/1/798/666` | `1/1/798/666` | `1/1/817/604` | `1/1/798/666` | `0/1` | `46/840` |
+| `a0-large-Packing` | `1/1/26068/0` | `1/1/26068/0` | `1/1/26458/0` | `1/1/26068/0` | `0/1` | `6898/26115` |
+| `clean-member` | `1/1/42/7` | `1/1/42/7` | `1/1/41/0` | `1/1/42/7` | `0/1` | `14/53` |
+| `clean-call-alias` | `1/1/45/12` | `1/1/45/12` | `1/1/46/13` | `1/1/45/12` | `0/1` | `16/61` |
+| `malformed-member` | `1/1/42/7` | `1/1/42/7` | declined | `1/1/42/7` | `0/1` | `13/52` |
+| `malformed-call` | `1/1/43/0` | `1/1/43/0` | declined | `1/1/42/0` | `0/1` | `14/59` |
+| `positive-control` | `1/1/38/0` | `1/1/38/0` | `1/1/39/0` | `1/1/38/0` | `0/1` | `14/53` |
+
+Compact outcomes are exact:
+
+| Witness | Result |
+| --- | --- |
+| `a0-small-IERC3156` | accepted; routed delta `1`; fallback delta `0` |
+| `a0-medium-Initializable` | `fallback:compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection` |
+| `a0-large-Packing` | `fallback:compact route error: parser-core phase zero: shared (101,1721) live-link cap exceeded: 9 > 8` |
+| `clean-member` | `fallback:compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection` |
+| `clean-call-alias` | `fallback:compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection` |
+| `malformed-member` | `fallback:compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection` |
+| `malformed-call` | `fallback:compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token` |
+| `positive-control` | `fallback:compact route declined at no_action [mechanism=scheduler-frontier-shape]: converged-path reduction split no-action drop descends from an unproved historical boundary resurrection` |
+
+### Exact divergence receipt
+
+The test compares each route with the locked C tree. It records the first
+divergence as path, category, Go value, and C value.
+
+| Witness | Route | Path | Category | Go value | C value |
+| --- | --- | --- | --- | --- | --- |
+| `a0-medium-Initializable` | raw, production, compact, incremental | `/source_file/contract_declaration[4]/contract_body[3]/modifier_definition[12]/function_body[4]/statement[4]/variable_declaration_statement[0]/expression[2]/member_expression[0]` | type | `member_expression` | `unary_expression` |
+| `a0-medium-Initializable` | forest | `/source_file/contract_declaration[4]/contract_body[3]/modifier_definition[12]/function_body[4]/statement[2]/variable_declaration_statement[0]/expression[2]/call_expression[0]/expression[0]/_primary_expression[0]` | type | `_primary_expression` | `identifier` |
+| `a0-large-Packing` | forest | `/source_file/library_declaration[6]/contract_body[2]/function_definition[58]/function_body[10]/statement[1]/if_statement[0]/expression[2]/binary_expression[0]/expression[0]/_primary_expression[0]` | type | `_primary_expression` | `identifier` |
+| `clean-member` | raw | `/source_file/contract_declaration[0]/contract_body[2]/function_definition[1]/function_body[8]/statement[1]/return_statement[0]/expression[1]/member_expression[0]/expression[0]` | type | `expression` | `identifier` |
+| `clean-call-alias` | production, compact, forest, incremental | `/source_file/contract_declaration[0]/contract_body[2]/function_definition[1]/function_body[8]/statement[1]/return_statement[0]/expression[1]/call_expression[0]` | type | `call_expression` | `type_cast_expression` |
+| `malformed-member` | raw, production, compact, incremental | `/source_file/contract_declaration[0]/contract_body[2]/function_definition[1]/function_body[8]/statement[1]/return_statement[0]` | shape | `children=3` | `children=4` |
+| `malformed-call` | raw, production, compact, incremental | `/source_file/contract_declaration[0]/contract_body[2]/function_definition[1]/function_body[8]/statement[1]/return_statement[0]` | shape | `children=3` | `children=4` |
+| `positive-control` | forest | `/source_file/contract_declaration[0]/contract_body[2]/function_definition[1]/function_body[8]/statement[1]/return_statement[0]/expression[1]/_primary_expression[0]` | type | `_primary_expression` | `identifier` |
+
+The route test rejects missing trees, empty digests, unexpected root errors,
+unexpected divergences, and unexpected forest trees.
+It rejects empty compact receipts and wrong compact counter deltas.
+
+### Artifacts and decision
+
+The bounded Docker route run used one central processing unit (CPU), 4 GiB
+of memory, 512 process identifiers, `GOMAXPROCS=1`, `GOFLAGS=-p=1`, and
+`GOMEMLIMIT=3GiB`. It set `GTS_ADMISSION_CANDIDATE=0`. The run passed with
+exit code zero. It had no out-of-memory kill and no wall timeout.
+
+The artifact is
+`/tmp/gts-n31m-solidity-20260823/harness_out/docker/20260823T170118Z-n31m-solidity-review-routes-r2`.
+
+- `container.log` SHA-256:
+  `a5b5c0393a1e3fa6de85afe14d0f611f054c363d02bd791db85c956466b2aae9`;
+- `metadata.txt` SHA-256:
+  `5859403b2aab8bf1af60363d39679340f2e80570051a593e23c81dff131e6f11`;
+- `inspect.json` SHA-256:
+  `0b91801681a08ae12bd9bec42303032d0bc8ad45361f178a8226328324b3071c`.
+
+The focused Solidity normalizer unit run passed in Docker. Its artifact is
+`/tmp/gts-n31m-solidity-20260823/harness_out/docker/20260823T170151Z-n31m-solidity-review-unit-r2`.
+
+- `container.log` SHA-256:
+  `fdf7d98846132ef4d7ee6ac2aab9c5cb499a7a148de998edfef8463050b79714`;
+- `metadata.txt` SHA-256:
+  `51373baa942cbb5010cdfd118c2c8f4558f3189542ce351d98346c67a315a326`;
+- `inspect.json` SHA-256:
+  `5868b9e4badb44600d6a4cb751a929d6e07756755e7365e4aca0669f782b1ce6`.
+
+Keep `dispatch.solidity` live. Do not alter the registry or production
+code.
+
+Reopen retirement only after all conditions pass:
+
+1. Restore an authenticated Solidity corpus lock and corpus directory.
+2. Run every registered Solidity witness at the pinned grammar revision.
+3. Prove exact raw, production, compact, forest, incremental, and locked-C
+   trees.
+4. Close every listed divergence, including malformed controls.
+5. Preserve exact incremental reuse and compact route counters.
+6. Replace the live compatibility functions with a shared producer invariant.
+
+The receipt remains NO-GO. The documentation does not authenticate itself.
+The route test supplies the independent evidence.
+
 ## Progress ledger
 
 | Ratchet | Status | Before | After | Evidence |
