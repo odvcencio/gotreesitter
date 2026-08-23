@@ -140,13 +140,15 @@ The focused run artifacts are:
 - `/tmp/gts-issue454-rss-audit/20260823T005555Z-issue454-arena-breakdown-baseline`
 - `/tmp/gts-issue454-rss-audit/20260823T005611Z-issue454-arena-breakdown-candidate`
 
-## Issue-closing condition
+## Issue status
 
-Keep issue #454 open during publication. Close it only after all conditions
-pass:
+This patch closes only the recorded C locked-tree parity subproblem.
+Keep issue #454 open for the remaining field-report performance and recovery
+work.
 
-1. Merge this candidate.
-2. Pass main CI.
-3. Keep the five-size locked-C guard green.
-4. Keep the replace, insert, and delete guards green.
-5. Preserve the memory-budget fallback as a separate performance concern.
+Remaining work includes performance, memory-budget retry, scanner, flat-root,
+JavaScript, and other recovery findings.
+
+The five-size locked-C guard and the replace, insert, and delete guards remain
+focused regression guards. Preserve the memory-budget fallback as a separate
+performance concern.

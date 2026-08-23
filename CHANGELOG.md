@@ -210,9 +210,9 @@ for tags and release notes while still in `0.x`.
   and element counts were equal. No release-blocking memory regression
   reproduced. The standard 20-seed primary Go trio was not run because only C
   recovery paths changed. The focused C workload is the relevant gate. No
-  out-of-memory failure or timeout occurred. Keep issue #454 open until this
-  change merges and main CI passes. See [the issue #454 compact-parser
-  correctness receipt](docs/issue-454-compact-correctness-blocker.md).
+  out-of-memory failure or timeout occurred. Keep issue #454 open for the
+  remaining field-report performance and recovery work. See [the issue #454
+  compact-parser correctness receipt](docs/issue-454-compact-correctness-blocker.md).
 
 - Record the `dispatch.rust` blocker receipt at base
   `97a7bde26bac9b1a110bbf9216cc681ca59cc5aa`. Keep the arm live. The receipt
