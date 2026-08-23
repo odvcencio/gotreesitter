@@ -276,6 +276,15 @@ for tags and release notes while still in `0.x`.
   locked C. The full real-corpus census is unavailable. See
   `docs/root-normalization-retirement.md`.
 
+- Record the `dispatch.bitbake` blocker receipt at base
+  `18d63b6f7802b28a0ddb889327fcd4ebebb99426`. Keep the arm live. A0 covers
+  three files, 40358 visited nodes, two error roots, and zero rewrites. The
+  focused receipt covers eight witnesses across raw, production, compact,
+  forest, incremental, and locked-C routes. The medium and large A0 witnesses
+  differ at `/recipe`. Three constructed producer witnesses also differ. The
+  full authenticated corpus is unavailable. Do not change registry or
+  production state. See `docs/root-normalization-retirement.md`.
+
 - Record a durable Doxygen locked-C blocker receipt. Keep `dispatch.doxygen`
   live. The three A0 witnesses report zero raw and production rewrites. The
   historical childless and recovered routes report 3 and 14 named rewrites
