@@ -254,6 +254,9 @@ declarators already makes native election prefer a subscript-assignment
 expression over a structured-binding declaration.
 This change retires the HLSL subscript-assignment member.
 The negative-number cast and unorm-buffer members remain live.
+The included-range-aware padding scan now emits Kotlin's `source_file` root
+before result compatibility. This change retires the Kotlin recovered-root
+member. Generic-call type-argument and prefix-comparison repairs remain live.
 
 Group by invariant, not language:
 
@@ -348,6 +351,7 @@ there.
 | Bash command names | retirement change | 1 Bash subpass | 0 | compatibility-free producer, production, compact fallback, forest, incremental reuse, exact 25-case baseline at `83548f55`, and isolated C-oracle parity |
 | FIDL versioned layout modifiers | retirement change | 1 dispatcher arm | 0 | compatibility-free producer, production, compact fallback, forest-fail-closed, incremental reuse, and isolated C-oracle parity |
 | HLSL subscript-assignment declarator | retirement change | 1 HLSL member | 0 | negative dynamic precedence election, compatibility-free producer, production, compact fallback, forest, incremental reuse, and isolated C-oracle parity |
+| Kotlin included-ranges recovered root | retirement change | 1 Kotlin member | 0 | included-range-aware padding producer, compatibility-free producer, production, compact, forest, incremental, and isolated C-oracle receipt with one known unrelated error flag divergence |
 
 Mark a row merged only after CI and merge evidence exist. Detailed per-entry
 receipts stay in the JSON registry and durable run findings stay in Hyphae.
