@@ -554,6 +554,16 @@ type parserCoreRootTables struct {
 	*parserCoreLanguageTables
 }
 
+// TableIdentity binds compact replay to the immutable Language that produced
+// the cached action and reduction tables. The parser back-reference is read at
+// validation time, so a language change cannot reuse stale state numbers.
+func (a *parserCoreRootTables) TableIdentity() ([32]byte, bool) {
+	if a == nil || a.parser == nil {
+		return [32]byte{}, false
+	}
+	return a.parser.language.parserCoreTableIdentity()
+}
+
 // acquireParserCoreLanguageTables returns the converted tables for the parser's
 // language, building them once and caching them on the Language itself.
 //

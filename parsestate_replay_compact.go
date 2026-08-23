@@ -146,6 +146,12 @@ func (p *Parser) replayCompactDerivation(compact *core.Core, roots []core.Subtre
 	if p == nil || p.language == nil || compact == nil {
 		return nil, errors.New("parser-core phase zero: replay requires parser and core")
 	}
+	if !compact.TableIdentityMatches() {
+		return nil, &diagnosticParserCoreDecline{
+			boundary: DiagnosticParserCoreIdentity,
+			detail:   "compact parser table identity does not match the materialization parser",
+		}
+	}
 	n := compact.SubtreeArenaLen() + 1
 	states := acquireCompactReplayStates(n)
 	seed := p.replayRootPreGotoState()

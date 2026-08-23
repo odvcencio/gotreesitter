@@ -121,3 +121,28 @@ func TestParserCoreLanguageTablesCacheSharesAcrossParsers(t *testing.T) {
 		}
 	}
 }
+
+func TestParserCoreRootTablesIdentityUsesLanguageBlobHash(t *testing.T) {
+	firstLanguage := loadCertifiedGoLanguageForTest(t)
+	secondLanguage := loadCertifiedGoLanguageForTest(t)
+	first, err := newParserCoreRootTables(NewParser(firstLanguage))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := newParserCoreRootTables(NewParser(secondLanguage))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, ok := firstLanguage.GrammarBlobSHA256()
+	if !ok {
+		t.Fatal("certified language has no blob identity")
+	}
+	got, ok := first.TableIdentity()
+	if !ok || got != want {
+		t.Fatalf("first table identity=%x/%t, want blob=%x", got, ok, want)
+	}
+	other, ok := second.TableIdentity()
+	if !ok || other != want {
+		t.Fatalf("second table identity=%x/%t, want blob=%x", other, ok, want)
+	}
+}

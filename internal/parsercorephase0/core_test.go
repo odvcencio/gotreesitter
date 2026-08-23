@@ -11,6 +11,41 @@ import (
 	"unsafe"
 )
 
+type identityTestTable struct {
+	fakeTable
+	identity [32]byte
+	valid    bool
+}
+
+func (t *identityTestTable) TableIdentity() ([32]byte, bool) {
+	if t == nil {
+		return [32]byte{}, false
+	}
+	return t.identity, t.valid
+}
+
+func TestCoreTableIdentityCapturesAndRejectsProducerDrift(t *testing.T) {
+	tables := &identityTestTable{identity: [32]byte{1}, valid: true}
+	compact, err := New(tables, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !compact.TableIdentityMatches() {
+		t.Fatal("matching table identity was rejected")
+	}
+	tables.identity[0] = 2
+	if compact.TableIdentityMatches() {
+		t.Fatal("changed table identity was accepted")
+	}
+	legacy, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.TableIdentityMatches() {
+		t.Fatal("table without identity was accepted for replay")
+	}
+}
+
 func TestPinnedGoConflictAndReductionMetadata(t *testing.T) {
 	wantConflict := []Action{
 		{Type: ActionReduce, Symbol: 171, ChildCount: 1},

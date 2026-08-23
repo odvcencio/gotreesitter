@@ -79,8 +79,8 @@ for tags and release notes while still in `0.x`.
   13/4/4 values. Correct production routes record 14/5/5. Compact admission
   records zero sidecars and zero incremental reuse. Reject the compact
   candidate.
-  Keep issue #576 open until compact sidecars and safe nonzero reuse have a
-  generic proof.
+  Keep SQL compact admission gated until compact sidecars and safe nonzero
+  reuse have a generic proof.
 
 - Screened generic compact-admission sidecars for checkpointed scanners in
   C26z. The diagnostic SQL route recorded 14 records, 5 leaves, and 5
@@ -91,7 +91,7 @@ for tags and release notes while still in `0.x`.
   parse-state replay. Generated content replay state `180` made checkpoint
   scanning return error span `9-14`. Locked production state `16613` returned
   expected span `9-12`. A stale grammar identity reused zero subtrees and zero
-  bytes. Keep issue #576 open.
+  bytes. Keep SQL compact admission gated.
 
 - Recorded the C26ad SQL compact replay state-provenance blocker at publication
   base `515df769b9b4e2f8e3ea715e78b75a44faa3b6d6`. The evidence base was
@@ -106,8 +106,20 @@ for tags and release notes while still in `0.x`.
   transitions across tables. The clean Docker route still fails generated
   dollar-quoted parity with the generated scanner's reference symbol mapping;
   temporary target-symbol binding repaired that route but did not establish a
-  generic replay contract. No parser, scanner, or test change ships. Keep issue
-  #576 open. See `docs/compact-route-real-corpus-matrix.md`.
+  generic replay contract. No parser, scanner, or test change ships. Keep SQL
+  compact replay gated. See `docs/compact-route-real-corpus-matrix.md`.
+
+- Added the C26ag generic table-identity guard at base
+  `af9ded2b77b7828b12b1d2da7c9fff8dd5ca053b`. The compact core captures the
+  producer identity at construction. Loaded languages use the exact grammar
+  blob SHA-256. In-memory languages use one process-local producer token.
+  Replay now declines before state reconstruction when the producer identity
+  changes or is absent. The guard preserves same-language replay and does not
+  translate numeric parser states. Focused identity tests passed in Docker.
+  SQL scanner unit tests passed. The generated SQL route still has the known
+  dollar-quoted locked-C divergence. Keep SQL compact admission gated until
+  that parity gap and the complete replay contract are resolved. See
+  `docs/compact-route-real-corpus-matrix.md`.
 
 - Added authenticated generated-SQL scanner identity to the grammargen C
   parity route. The route now reloads the generated blob through `LoadLanguage`
@@ -116,8 +128,8 @@ for tags and release notes while still in `0.x`.
   checkpoint records, 4 checkpoint leaves, and 4 snapshots. Fresh and
   incremental trees match. A stale
   reference grammar identity reuses zero subtrees and zero bytes. The four
-  generated SQL locked-C divergences remain. Keep issue #576 open until
-  generated and locked-C trees match.
+  generated SQL locked-C divergences remain. Keep generated SQL compact parity
+  gated until generated and locked-C trees match.
 
 - Recorded the `dispatch.solidity` blocker at publication base
   `e24ccf5a87bbd7febc21f67f014c2d5301d229d0`. Keep the arm live. The A0
@@ -149,7 +161,7 @@ for tags and release notes while still in `0.x`.
   use exact allocation deltas. Reset clears the identity. Native SQL passed
   the route and real-corpus gates. Generated SQL still has four locked-C
   divergences. A one-shot accounting screen is diagnostic only. It does not
-  provide release performance evidence. Keep issue #576 open.
+  provide release performance evidence. Keep the SQL identity gate scoped.
 
 - Recorded the C26i, C26j, and C26k Swift issue #576 scanner checkpoint
   blocker. C26i and C26j use evidence base
