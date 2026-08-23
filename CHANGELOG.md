@@ -205,6 +205,16 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Record the `dispatch.c_sharp` blocker at main commit
+  `18d63b6f7802b28a0ddb889327fcd4ebebb99426`. The A0 manifest excludes C#;
+  the tracked census records one C# fixture with 2,085 rewrites. The focused
+  probe keeps one exact positive control, but the A0 and recovery witnesses
+  still differ from locked C. Forest declines the recovery witnesses, and
+  incremental reuse remains unsupported because the grammar has an external
+  scanner. Keep the arm live. No parser or registry code changes ship. See
+  `docs/root-normalization-retirement.md` for the digests, artifacts, and
+  reopening condition.
+
 - Reject the issue #454 generic recovery candidate from PR #793. The candidate
   code and test hash is
   `71fdb2ab00f8f31e74b7e165f381c0856bd3720abdeb4d1556454d0cc75c50fa`.

@@ -69,6 +69,105 @@ year-directive recovery use the production fallback after that decline. The
 Ledger receipt records both forest routes and locked-C parity. Reopen Ledger
 retirement if a future witness differs on any covered route.
 
+## 2026-08-24 C# dispatcher blocker receipt
+
+Status: `NO-GO`. Keep `dispatch.c_sharp` live.
+
+Base commit: `18d63b6f7802b28a0ddb889327fcd4ebebb99426`.
+This receipt adds one focused probe test. It changes no parser or registry
+behavior.
+
+The registry contains 88 entries. It has 31 live dispatcher arms, one live
+dispatcher predicate, and 35 live dispatcher labels. The C# entry is
+`dispatch.c_sharp`. Its function is `normalizeCSharpCompatibility` in
+`parser_result_csharp.go`. Its authoritative owner is
+`scheduler_action_semantics`. Retirement requires exact production, compact,
+forest, incremental, and locked-C output for every registered witness.
+
+The grammar lock pins C# to commit
+`88366631d598ce6595ec655ce1591b315cffb14c` in
+`grammars/languages.lock`. The A0 (initial dispatcher census) manifest has 14
+languages, 42 files, and 14 receipts. It excludes C#. The seven-fixture
+tracked census includes one C# fixture:
+`testdata/parser_result/csharp/jsontextreader_excerpt.cs`. It records one
+check, one run, 2,093 visited nodes, and 2,085 rewritten nodes.
+
+The full authenticated corpus is unavailable to the committed census.
+`cgo_harness/corpus_real` does not exist, so
+`TestDispatcherArmCensusOverRealCorpus` skips. An external C# source checkout
+exists, but it is not the committed corpus gate.
+
+The focused probe is
+`cgo_harness/csharp_dispatch_blocker_receipt_test.go`. It runs one C# grammar
+workload and records raw, production, compact, forest, incremental, and
+locked-C routes. The route receipt is
+`/tmp/gts-n31a-artifacts-receipt/20260823T024157Z-csharp-blocker-routes`.
+
+The A0 witness is `jsontextreader_excerpt.cs`. Its source SHA-256 is
+`d76fd62cfc90076c11d86cb7d7a0058df181231aa3b34f30e549f650b5294d4a`.
+The Go deep digest is
+`6e5eb91f5577569ca2adebf26056095af492a5921ed09c72b05cba045dca57dc`.
+The locked-C deep digest is
+`17a882ecc47150a396236512827eb2dd077ff2d65d9923d79d4ba98cb0b66abf`.
+The raw first divergence is at `/compilation_unit`, with five Go children and
+six C children. Production, compact, and incremental report a root error flag
+of `false` in Go and `true` in C. Production, compact, and incremental record
+2,085 dispatcher rewrites. Forest declines.
+
+The positive producer control is `class C { public int M() { return 1; } }`.
+Its source SHA-256 is
+`a6946abc5b7086a1ba0d6cd585882b3b8a20d96b6e578351cf07ecf993964362`.
+Every route matches locked C at digest
+`58cdc6772314e0e82478a1d5811db6c8c09d939b5ac690ced9fb9695e0946ae7`.
+The dispatcher visits 22 nodes and rewrites zero nodes. Compact and forest
+accept the control.
+
+The historical issue #454 witness is 140,289 bytes. Its source SHA-256 is
+`a0de6cfb0e98995f41f1bac3931a4d0300ab8d34f68dd30843afecd9ee984711`.
+The Go digest is
+`4e6e7e9f33ca204763aff7a4d3e8ab4aee089ad057a9515cbc37a7c9a35f49aa`.
+The locked-C digest is
+`d9ca44d4b6d5d7d555e5066a2c45fa329afb0fa237791746abe855fd31494ae4`.
+The first divergence is
+`/compilation_unit/namespace_declaration[0]/declaration_list[2]/class_declaration[1]/declaration_list[4]/method_declaration[1]/block[5]/expression_statement[1]/assignment_expression[0]/ERROR[1]/integer_literal[0]`.
+Go marks the node as an error. C does not. Production marks the native
+recovered structure authoritative, but the digest still differs. The
+dispatcher visits 57,067 nodes and rewrites zero nodes. Compact and forest
+decline during recovery.
+
+The malformed witness is `class C { void M() { int x = ;`. Its source
+SHA-256 is
+`86a8c9f0a2ea38797add255cbbffcbe748af3c6f465d3db989b9dffd182d4ce8`.
+The Go digest is
+`5140aac5a98ce1a8fa774400df978fa57b87ffcbe1d66fb159a82fe0de6553e2`.
+The locked-C digest is
+`b252b21dc16f944cda8457956f65879a0222792efd936673448083a3b678aabc`.
+The first divergence is `/compilation_unit/ERROR[0]`; C has an extra child.
+The dispatcher visits 19 nodes and rewrites zero nodes. Compact and forest
+decline during recovery.
+
+Every incremental receipt reports `external_scanner_unsupported`. Each run
+uses a fresh parse, with zero reused subtrees and zero reused bytes. The C#
+external-lex-state regression passes. The `DeclaredTypeManager.cs` first-pass
+guard also passes when the external source checkout is mounted. The scanner
+artifacts are:
+
+- `/tmp/gts-n31a-artifacts-receipt/20260823T024157Z-csharp-blocker-routes`;
+- `/tmp/gts-n31a-artifacts-receipt/20260823T024449Z-csharp-scanner`;
+- `/tmp/gts-n31a-artifacts-receipt/20260823T024459Z-csharp-scanner-corpus`;
+- `/tmp/gts-n31a-artifacts-receipt/20260823T024520Z-csharp-census`.
+
+Canopy confirms the dispatcher call from
+`runLanguageResultCompatibility` to `dispatcherArmCensus`, and the C# call to
+`normalizeCSharpCompatibility`. Its recovery helpers own top-level chunks,
+namespaces, and type declarations. The probe does not prove that the generic
+scheduler emits the C tree. It therefore does not support retirement.
+
+Reopen C# retirement only after the authenticated corpus becomes available
+and every registered recovery witness matches locked C on raw, production,
+compact, forest, incremental, and C-oracle routes. Require zero dispatcher
+rewrites on the matching witnesses. Keep the registry unchanged.
+
 ## 2026-08-22 normalization checkpoint
 
 Status: NO-GO. Do not retire an entry from this checkpoint.
