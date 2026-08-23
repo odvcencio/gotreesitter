@@ -4074,6 +4074,21 @@ func (p *Parser) cAppendVisibleSplice(dst []*Node, n *Node) []*Node {
 	return dst
 }
 
+func (p *Parser) cAppendVisibleSpliceWithFields(scratch *reduceBuildScratch, n *Node) {
+	if p == nil || scratch == nil || n == nil {
+		return
+	}
+	if n.symbol == errorSymbol || n.isMissing() || p.cSymbolVisible(n.symbol) {
+		scratch.appendNode(n)
+		return
+	}
+	if hiddenTreeHasFieldIDs(n) {
+		appendFlattenedHiddenChildrenWithFieldScratch(scratch, n, p.language.SymbolMetadata, nil)
+		return
+	}
+	appendFlattenedHiddenChildrenToScratch(scratch, n, p.language.SymbolMetadata, nil)
+}
+
 func (p *Parser) cAppendVisibleSpliceUntil(dst []*Node, n *Node, limit int) ([]*Node, bool) {
 	if n == nil {
 		return dst, true
@@ -4162,7 +4177,8 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 	// open ERROR node's children) and splice invisible nodes the way the
 	// engine's reduce does. The raw popped extent pins the ERROR span (C
 	// error regions cover invisible subtrees too).
-	children := make([]*Node, 0, len(wrapped)+2)
+	splice := reduceBuildScratch{}
+	splice.nodes = make([]*Node, 0, len(wrapped)+2)
 	openErr := (*cRecoverState)(nil)
 	if v.cRec != nil {
 		openErr = v.cRec
@@ -4175,14 +4191,17 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 		rawLast = n
 		if openErr != nil && n == openErr.openErr {
 			// Open-region children were visible-spliced at absorb time.
-			children = append(children, n.children...)
+			for _, child := range n.children {
+				splice.appendNode(child)
+			}
 			continue
 		}
 		// C parity: popped closed subtrees (ERROR carriers included) keep
 		// their identity inside the new ERROR; only invisible subtrees
 		// flatten.
-		children = p.cAppendVisibleSplice(children, n)
+		p.cAppendVisibleSpliceWithFields(&splice, n)
 	}
+	children, fieldIDs, fieldSources := materializeReduceChildrenFromScratch(&splice, arena)
 
 	fork := v.cloneWithScratch(gssScratch)
 	fork.cRec = nil
@@ -4215,6 +4234,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 
 	if rawFirst != nil {
 		errNode := p.newRecoveryParentNodeInArena(arena, errorSymbol, true, children, 0)
+		errNode.setFieldMetadata(fieldIDs, fieldSources)
 		cSetNodeSpan(errNode, rawFirst.startByte, rawLast.endByte, rawFirst.startPoint, rawLast.endPoint)
 		errNode.setHasError(true)
 		errNode.setExtra(true)
