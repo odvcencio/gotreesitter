@@ -1,0 +1,7 @@
+RSS campaign: 20 isolated processes per checkout; Docker CPU4, GOMAXPROCS=1, memory=3GiB, GOMEMLIMIT=2GiB.
+Each checkout used its own prebuilt benchmark binary and identical benchmark flags.
+Raw TSV median: sort the third column and average rows 10 and 11.
+Exact base receipt: /home/draco/work/gts-perf-p10-base-20260821/harness_out/docker/20260821T092751Z-p10-rss-base-20.
+Base bb09ff6978cb2e46d98b805c0e2f6bb7d4429e24: median 30640 KB, max 30880 KB.
+Candidate: median 30640 KB, max 30880 KB.
+Threshold: candidate median and max must not exceed base; passed.

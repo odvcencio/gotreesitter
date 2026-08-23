@@ -1,0 +1,250 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                                        │ artifacts/p10-base-20seed.txt │  artifacts/p10-candidate-20seed.txt  │
+                                                        │            sec/op             │    sec/op     vs base                │
+ExtractAllFactsTreeGo                                                      850.2µ ± 18%   965.9µ ±  8%  +13.62% (p=0.040 n=20)
+GoParseIncrementalSingleByteEditDFA                                        1.182µ ± 18%   1.197µ ± 10%        ~ (p=0.101 n=20)
+KDLRecoveryGarbageSuffix                                                   40.45m ± 19%   41.62m ±  8%        ~ (p=0.398 n=20)
+GoParseCoreDFA                                                             4.011m ± 16%   4.312m ±  8%        ~ (p=0.253 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                          2.268m ± 20%   2.285m ±  6%        ~ (p=0.529 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                    10.30m ± 19%   11.06m ±  6%        ~ (p=0.060 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/language                         10.60m ± 22%   11.27m ±  5%        ~ (p=0.265 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                    110.6m ± 24%   113.9m ±  3%        ~ (p=0.495 n=20)
+ExtractCodeUnderstandingGo                                                 10.10m ± 15%   10.30m ±  8%        ~ (p=0.192 n=20)
+ParserCoreFreshFullCanonical/rewrite                                       2.234m ± 20%   2.520m ±  4%  +12.81% (p=0.030 n=20)
+ParserCoreFreshFullCanonical/query_compile                                 10.84m ± 17%   11.94m ±  5%        ~ (p=0.091 n=20)
+ParserCoreFreshFullCanonical/language                                      10.81m ± 19%   12.02m ±  5%        ~ (p=0.149 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                 115.2m ± 17%   121.0m ±  6%        ~ (p=0.221 n=20)
+GoParseIncrementalRandomSingleByteEdit                                     2.056µ ± 18%   2.072µ ±  7%        ~ (p=0.286 n=20)
+GoParseFullDFA                                                             8.892m ± 16%   9.668m ±  4%        ~ (p=0.242 n=20)
+ExpectedRootCanFrameLongRepeat                                             661.7µ ± 34%   794.9µ ±  8%        ~ (p=0.134 n=20)
+GoParseIncrementalNoEditDFA                                                3.591n ± 31%   4.027n ± 10%        ~ (p=0.165 n=20)
+DiagnosticParserCoreCorridorSchedulerOnly                                  9.592m ± 15%   9.379m ±  4%        ~ (p=0.989 n=20)
+DiagnosticParserCoreWarmMaterializationOnlyQueryCompile                    1.674m ± 13%   1.797m ±  6%   +7.37% (p=0.035 n=20)
+FactProgramTreeGo                                                          144.8µ ± 17%   144.0µ ± 10%        ~ (p=0.445 n=20)
+ExtractCodeUnderstandingTreeGo                                             478.4µ ± 14%   485.8µ ± 12%        ~ (p=0.314 n=20)
+DiagnosticParserCoreWarmSchedulerOnlyQueryCompile                          8.903m ± 16%   9.584m ±  7%        ~ (p=0.086 n=20)
+FactProgramGo                                                              9.307m ± 15%   9.673m ±  4%        ~ (p=0.253 n=20)
+FactProgramAllTreeGo                                                       139.1µ ± 20%   145.4µ ±  8%        ~ (p=0.414 n=20)
+TaggerTagTreeGo                                                            878.0µ ± 14%   968.9µ ±  8%  +10.35% (p=0.028 n=20)
+geomean                                                                    1.297m         1.377m         +6.21%
+
+                                                        │ artifacts/p10-base-20seed.txt │  artifacts/p10-candidate-20seed.txt   │
+                                                        │              B/s              │      B/s       vs base                │
+ExtractAllFactsTreeGo                                                     21.67Mi ± 21%   19.05Mi ±  8%  -12.06% (p=0.040 n=20)
+GoParseIncrementalSingleByteEditDFA                                       15.20Gi ± 22%   15.01Gi ±  9%        ~ (p=0.096 n=20)
+KDLRecoveryGarbageSuffix                                                  380.9Ki ± 15%   366.2Ki ±  7%        ~ (p=0.378 n=20)
+GoParseCoreDFA                                                            4.616Mi ± 14%   4.268Mi ±  7%        ~ (p=0.245 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                         2.151Mi ± 25%   2.136Mi ±  6%        ~ (p=0.516 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                   1.869Mi ± 24%   1.740Mi ±  5%        ~ (p=0.058 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/language                        3.734Mi ± 27%   3.505Mi ±  5%        ~ (p=0.250 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                   2.036Mi ± 32%   1.974Mi ±  3%        ~ (p=0.490 n=20)
+ExtractCodeUnderstandingGo                                                1.826Mi ± 18%   1.783Mi ±  7%        ~ (p=0.194 n=20)
+ParserCoreFreshFullCanonical/rewrite                                      2.189Mi ± 25%   1.936Mi ±  4%  -11.55% (p=0.031 n=20)
+ParserCoreFreshFullCanonical/query_compile                                1.783Mi ± 20%   1.607Mi ±  6%        ~ (p=0.098 n=20)
+ParserCoreFreshFullCanonical/language                                     3.672Mi ± 17%   3.285Mi ±  4%        ~ (p=0.147 n=20)
+ParserCoreFreshFullCanonical/grammargen_lr                                1.955Mi ± 21%   1.860Mi ±  6%        ~ (p=0.218 n=20)
+GoParseIncrementalRandomSingleByteEdit                                    8.740Gi ± 21%   8.675Gi ±  7%        ~ (p=0.289 n=20)
+GoParseFullDFA                                                            2.084Mi ± 14%   1.903Mi ±  4%        ~ (p=0.239 n=20)
+ExpectedRootCanFrameLongRepeat                                            5.903Mi ± 25%   4.916Mi ±  8%        ~ (p=0.129 n=20)
+GoParseIncrementalNoEditDFA                                               4.917Ti ± 24%   4.357Ti ±  9%        ~ (p=0.165 n=20)
+DiagnosticParserCoreCorridorSchedulerOnly                                 2.007Mi ± 17%   2.050Mi ±  5%        ~ (p=0.963 n=20)
+DiagnosticParserCoreWarmMaterializationOnlyQueryCompile                   11.53Mi ± 15%   10.70Mi ±  6%   -7.16% (p=0.034 n=20)
+FactProgramTreeGo                                                         127.3Mi ± 20%   127.8Mi ±  9%        ~ (p=0.445 n=20)
+ExtractCodeUnderstandingTreeGo                                            38.56Mi ± 16%   37.88Mi ± 11%        ~ (p=0.314 n=20)
+DiagnosticParserCoreWarmSchedulerOnlyQueryCompile                         2.170Mi ± 19%   2.007Mi ±  6%        ~ (p=0.087 n=20)
+FactProgramGo                                                             1.984Mi ± 17%   1.903Mi ±  4%        ~ (p=0.245 n=20)
+FactProgramAllTreeGo                                                      133.2Mi ± 17%   126.5Mi ±  7%        ~ (p=0.414 n=20)
+TaggerTagTreeGo                                                           21.05Mi ± 13%   18.99Mi ±  7%   -9.78% (p=0.028 n=20)
+geomean                                                                   15.63Mi         14.67Mi         -6.15%
+
+                                                        │ artifacts/p10-base-20seed.txt │   artifacts/p10-candidate-20seed.txt   │
+                                                        │             B/op              │     B/op      vs base                  │
+ExtractAllFactsTreeGo                                                    99.47Ki ± 0%     99.47Ki ± 0%        ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                        0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=20) ¹
+KDLRecoveryGarbageSuffix                                                 1.215Mi ± 0%     1.038Mi ± 0%  -14.59% (p=0.000 n=20)
+GoParseCoreDFA                                                             993.5 ± 0%       994.0 ± 0%        ~ (p=0.191 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                          796.0 ± 0%       796.0 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                  1.528Ki ± 0%     1.528Ki ± 0%        ~ (p=0.737 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/language                       6.329Ki ± 0%     6.329Ki ± 0%        ~ (p=1.000 n=20)
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                  11.95Ki ± 0%     11.95Ki ± 0%   +0.01% (p=0.016 n=20)
+ExtractCodeUnderstandingGo                                               147.8Ki ± 4%     147.7Ki ± 1%        ~ (p=0.379 n=20)
+ParserCoreFreshFullCanonical/rewrite                                       100.0 ± 0%       100.0 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                 148.0 ± 0%       148.0 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                    5.711Ki ± 0%     5.711Ki ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                               6.239Ki ± 0%     6.238Ki ± 0%        ~ (p=0.054 n=20)
+GoParseIncrementalRandomSingleByteEdit                                   1.330Ki ± 0%     1.330Ki ± 0%        ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                           47.02Ki ± 9%     50.26Ki ± 3%        ~ (p=0.161 n=20)
+ExpectedRootCanFrameLongRepeat                                           141.6Ki ± 0%     141.6Ki ± 0%        ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA                                                0.000 ± 0%       0.000 ± 0%        ~ (p=1.000 n=20) ¹
+DiagnosticParserCoreCorridorSchedulerOnly                                  76.00 ± 0%       76.00 ± 0%        ~ (p=1.000 n=20) ¹
+DiagnosticParserCoreWarmMaterializationOnlyQueryCompile                    124.0 ± 0%       124.0 ± 0%        ~ (p=1.000 n=20) ¹
+FactProgramTreeGo                                                        97.47Ki ± 0%     97.47Ki ± 0%        ~ (p=1.000 n=20) ¹
+ExtractCodeUnderstandingTreeGo                                           97.47Ki ± 0%     97.47Ki ± 0%        ~ (p=1.000 n=20) ¹
+DiagnosticParserCoreWarmSchedulerOnlyQueryCompile                          76.00 ± 0%       76.00 ± 0%        ~ (p=1.000 n=20) ¹
+FactProgramGo                                                            144.0Ki ± 3%     148.6Ki ± 2%   +3.17% (p=0.039 n=20)
+FactProgramAllTreeGo                                                     97.60Ki ± 0%     97.60Ki ± 0%        ~ (p=1.000 n=20) ¹
+TaggerTagTreeGo                                                          1.205Mi ± 0%     1.205Mi ± 0%   +0.00% (p=0.016 n=20)
+geomean                                                                               ²                  -0.24%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                        │ artifacts/p10-base-20seed.txt │  artifacts/p10-candidate-20seed.txt   │
+                                                        │           allocs/op           │  allocs/op   vs base                  │
+ExtractAllFactsTreeGo                                                     1.012k ± 0%     1.012k ± 0%        ~ (p=1.000 n=20) ¹
+GoParseIncrementalSingleByteEditDFA                                        0.000 ± 0%      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+KDLRecoveryGarbageSuffix                                                  22.17k ± 0%     15.13k ± 0%  -31.73% (p=0.000 n=20)
+GoParseCoreDFA                                                             6.000 ± 0%      6.000 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                          9.000 ± 0%      9.000 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                    11.00 ± 0%      11.00 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                         17.00 ± 0%      17.00 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                    20.00 ± 0%      20.00 ± 0%        ~ (p=1.000 n=20) ¹
+ExtractCodeUnderstandingGo                                                 515.0 ± 0%      515.0 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                       4.000 ± 0%      4.000 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                 5.000 ± 0%      5.000 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                      21.00 ± 0%      21.00 ± 0%        ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                 123.0 ± 0%      123.0 ± 0%        ~ (p=1.000 n=20) ¹
+GoParseIncrementalRandomSingleByteEdit                                     12.00 ± 0%      12.00 ± 0%        ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                             5.000 ± 0%      5.000 ± 0%        ~ (p=0.487 n=20)
+ExpectedRootCanFrameLongRepeat                                            4.110k ± 0%     4.110k ± 0%        ~ (p=1.000 n=20) ¹
+GoParseIncrementalNoEditDFA                                                0.000 ± 0%      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+DiagnosticParserCoreCorridorSchedulerOnly                                  3.000 ± 0%      3.000 ± 0%        ~ (p=1.000 n=20) ¹
+DiagnosticParserCoreWarmMaterializationOnlyQueryCompile                    4.000 ± 0%      4.000 ± 0%        ~ (p=1.000 n=20) ¹
+FactProgramTreeGo                                                          510.0 ± 0%      510.0 ± 0%        ~ (p=1.000 n=20) ¹
+ExtractCodeUnderstandingTreeGo                                             510.0 ± 0%      510.0 ± 0%        ~ (p=1.000 n=20) ¹
+DiagnosticParserCoreWarmSchedulerOnlyQueryCompile                          3.000 ± 0%      3.000 ± 0%        ~ (p=1.000 n=20) ¹
+FactProgramGo                                                              515.0 ± 0%      515.0 ± 0%        ~ (p=0.487 n=20)
+FactProgramAllTreeGo                                                       512.0 ± 0%      512.0 ± 0%        ~ (p=1.000 n=20) ¹
+TaggerTagTreeGo                                                           9.506k ± 0%     9.506k ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                               ²                 -1.52%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                        │ artifacts/p10-base-20seed.txt │       artifacts/p10-candidate-20seed.txt       │
+                                                        │     candidate_fallback/op     │ candidate_fallback/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                          0.000 ± 0%                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                    0.000 ± 0%                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                         0.000 ± 0%                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                    0.000 ± 0%                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                       0.000 ± 0%                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                 0.000 ± 0%                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                      0.000 ± 0%                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                 0.000 ± 0%                0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                               ²                          +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                        │ artifacts/p10-base-20seed.txt │           artifacts/p10-candidate-20seed.txt           │
+                                                        │ compact_leaf_constructions/op │ compact_leaf_constructions/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                           1.109k ± 0%                     1.109k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                     5.546k ± 0%                     5.546k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                          5.375k ± 0%                     5.375k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                     53.90k ± 0%                     53.90k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                        1.109k ± 0%                     1.109k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                  5.546k ± 0%                     5.546k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                       5.375k ± 0%                     5.375k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                  53.90k ± 0%                     53.90k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                     6.497k                          6.497k       +0.00%
+¹ all samples are equal
+
+                                                        │ artifacts/p10-base-20seed.txt │         artifacts/p10-candidate-20seed.txt         │
+                                                        │   compact_link_additions/op   │ compact_link_additions/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                           3.006k ± 0%                 3.006k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                     14.79k ± 0%                 14.79k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                          15.12k ± 0%                 15.12k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                     149.8k ± 0%                 149.8k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                        3.006k ± 0%                 3.006k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                  14.79k ± 0%                 14.79k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                       15.12k ± 0%                 15.12k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                  149.8k ± 0%                 149.8k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                     17.81k                      17.81k       +0.00%
+¹ all samples are equal
+
+                                                        │  artifacts/p10-base-20seed.txt  │            artifacts/p10-candidate-20seed.txt            │
+                                                        │ compact_parent_constructions/op │ compact_parent_constructions/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                             1.515k ± 0%                       1.515k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                       7.542k ± 0%                       7.542k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                            7.674k ± 0%                       7.674k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                       77.17k ± 0%                       77.17k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                          1.515k ± 0%                       1.515k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                    7.542k ± 0%                       7.542k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                         7.674k ± 0%                       7.674k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                    77.17k ± 0%                       77.17k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                       9.070k                            9.070k       +0.00%
+¹ all samples are equal
+
+                                                        │ artifacts/p10-base-20seed.txt │      artifacts/p10-candidate-20seed.txt       │
+                                                        │     compact_pop_paths/op      │ compact_pop_paths/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                           1.646k ± 0%            1.646k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                     8.108k ± 0%            8.108k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                          8.377k ± 0%            8.377k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                     83.66k ± 0%            83.66k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                        1.646k ± 0%            1.646k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                  8.108k ± 0%            8.108k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                       8.377k ± 0%            8.377k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                  83.66k ± 0%            83.66k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                     9.834k                 9.834k       +0.00%
+¹ all samples are equal
+
+                                                        │ artifacts/p10-base-20seed.txt │        artifacts/p10-candidate-20seed.txt        │
+                                                        │    compact_pop_payloads/op    │ compact_pop_payloads/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                           2.993k ± 0%               2.993k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                     14.73k ± 0%               14.73k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                          15.82k ± 0%               15.82k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                     151.9k ± 0%               151.9k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                        2.993k ± 0%               2.993k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                  14.73k ± 0%               14.73k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                       15.82k ± 0%               15.82k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                  151.9k ± 0%               151.9k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                     18.04k                    18.04k       +0.00%
+¹ all samples are equal
+
+                                                        │ artifacts/p10-base-20seed.txt │        artifacts/p10-candidate-20seed.txt        │
+                                                        │    compact_pop_requests/op    │ compact_pop_requests/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                           1.504k ± 0%               1.504k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                     7.509k ± 0%               7.509k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                          7.564k ± 0%               7.564k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                     76.31k ± 0%               76.31k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                        1.504k ± 0%               1.504k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                  7.509k ± 0%               7.509k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                       7.564k ± 0%               7.564k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                  76.31k ± 0%               76.31k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                     8.985k                    8.985k       +0.00%
+¹ all samples are equal
+
+                                                        │ artifacts/p10-base-20seed.txt │       artifacts/p10-candidate-20seed.txt       │
+                                                        │     compact_reductions/op     │ compact_reductions/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                           1.504k ± 0%             1.504k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                     7.509k ± 0%             7.509k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                          7.564k ± 0%             7.564k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                     76.31k ± 0%             76.31k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                        1.504k ± 0%             1.504k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                  7.509k ± 0%             7.509k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                       7.564k ± 0%             7.564k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                  76.31k ± 0%             76.31k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                     8.985k                  8.985k       +0.00%
+¹ all samples are equal
+
+                                                        │ artifacts/p10-base-20seed.txt │     artifacts/p10-candidate-20seed.txt     │
+                                                        │       compact_shifts/op       │ compact_shifts/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                           1.348k ± 0%         1.348k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                     6.685k ± 0%         6.685k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                          6.512k ± 0%         6.512k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                     66.11k ± 0%         66.11k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/rewrite                                        1.348k ± 0%         1.348k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/query_compile                                  6.685k ± 0%         6.685k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/language                                       6.512k ± 0%         6.512k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullCanonical/grammargen_lr                                  66.11k ± 0%         66.11k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                     7.892k              7.892k       +0.00%
+¹ all samples are equal
+
+                                                        │ artifacts/p10-base-20seed.txt │       artifacts/p10-candidate-20seed.txt        │
+                                                        │    selected_retained_B/op     │ selected_retained_B/op  vs base                 │
+ParserCoreFreshFullSelectedStoreCanonical/rewrite                           89.48k ± 0%              89.48k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/query_compile                     453.2k ± 0%              453.2k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/language                          430.4k ± 0%              430.4k ± 0%       ~ (p=1.000 n=20) ¹
+ParserCoreFreshFullSelectedStoreCanonical/grammargen_lr                     4.385M ± 0%              4.385M ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                     526.0k                   526.0k       +0.00%
+¹ all samples are equal

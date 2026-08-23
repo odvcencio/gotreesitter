@@ -1,0 +1,19 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                         │ artifacts/p10-base-20seed.txt │ artifacts/p10-candidate-20seed.txt │
+                         │            sec/op             │      sec/op       vs base          │
+KDLRecoveryGarbageSuffix                    40.45m ± 19%        41.62m ± 8%  ~ (p=0.398 n=20)
+
+                         │ artifacts/p10-base-20seed.txt │ artifacts/p10-candidate-20seed.txt │
+                         │              B/s              │       B/s         vs base          │
+KDLRecoveryGarbageSuffix                   380.9Ki ± 15%       366.2Ki ± 7%  ~ (p=0.378 n=20)
+
+                         │ artifacts/p10-base-20seed.txt │  artifacts/p10-candidate-20seed.txt  │
+                         │             B/op              │     B/op      vs base                │
+KDLRecoveryGarbageSuffix                    1.215Mi ± 0%   1.038Mi ± 0%  -14.59% (p=0.000 n=20)
+
+                         │ artifacts/p10-base-20seed.txt │ artifacts/p10-candidate-20seed.txt  │
+                         │           allocs/op           │  allocs/op   vs base                │
+KDLRecoveryGarbageSuffix                     22.17k ± 0%   15.13k ± 0%  -31.73% (p=0.000 n=20)

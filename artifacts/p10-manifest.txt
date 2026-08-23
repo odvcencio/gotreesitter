@@ -1,0 +1,32 @@
+base RSS receipt: /home/draco/work/gts-perf-p10-base-20260821/harness_out/docker/20260821T092751Z-p10-rss-base-20
+final memory defect receipt: /home/draco/work/gts-perf-p10-attribution-20260821/harness_out/docker/20260821T092958Z-p10-memory-defect-final
+RSS summary:
+RSS campaign: 20 isolated processes per checkout; Docker CPU4, GOMAXPROCS=1, memory=3GiB, GOMEMLIMIT=2GiB.
+Each checkout used its own prebuilt benchmark binary and identical benchmark flags.
+Raw TSV median: sort the third column and average rows 10 and 11.
+Exact base receipt: /home/draco/work/gts-perf-p10-base-20260821/harness_out/docker/20260821T092751Z-p10-rss-base-20.
+Base bb09ff6978cb2e46d98b805c0e2f6bb7d4429e24: median 30640 KB, max 30880 KB.
+Candidate: median 30640 KB, max 30880 KB.
+Threshold: candidate median and max must not exceed base; passed.
+source hashes:
+de94c4e5a2912d4e4502542cf720d9a4cfe2332ea576a62613ed68ec82153cf3  parser.go
+646b5c4a14bc50e7b54070a7c83d47f86fa487a6aa2887d9e59dfe905eb50712  parser_recover_c.go
+08eca21d4f5bc4720ea463ea5238c9c6b4861c9550f908b129b9127984151aa6  parser_recover_c_test.go
+5e10b0918cc9b78e9d9e19285573efde7ae6878735a517ae60cc1b90a02258d0  recovery_runtime_detailed_disabled.go
+1744cf0bdd39cfcd53a1370193ca26541c12869cc80b2fe916d2f5b26ecbaca5  recovery_runtime_detailed_enabled.go
+artifact hashes:
+773fd98f3b815eb3c96540d7785c9a6e3b7a6a4eb36842764c0a8438d4f16a8f  artifacts/p10-base-20seed-aborted.txt
+b6783ecc1517af0fd7b133793f3f45185a499bb4e26b7fc6cab3b5e79a480df9  artifacts/p10-base-20seed.txt
+b38702fe26389600c2ab08d966f86530e02219946d1bb54f36465f29014e6acf  artifacts/p10-benchstat.txt
+7b5cdca688a706a0513ebf5e0211ad1af712f0a45192175ed65a9a80953cd880  artifacts/p10-candidate-20seed.txt
+648d9c883ac937765b640a383942c562ca94cee279ac96b4ef61c8754054e51a  artifacts/p10-environment.txt
+430c3423f474babaa11d763c5a4d7fc5cb99eb4de069451ddd3008a37a1a6a04  artifacts/p10-focused-root-test.log
+8e4f95ad4a77897e363192dadbbbaa1132d0f0729f12772ee5f91ce4595521e6  artifacts/p10-gts-recovery-telemetry-compile.log
+742459c5a60a250b2be815096321a4f64d9f2e97c0e4ceaff8f203373645b591  artifacts/p10-kdl-benchstat.txt
+1efab4fbe44a282933efe83b8229a418941bb2473f39961237db6210c9eb5d7e  artifacts/p10-kdl-focus-cgo.log
+1efab4fbe44a282933efe83b8229a418941bb2473f39961237db6210c9eb5d7e  artifacts/p10-kdl-focus-real-corpus.log
+77a3697c5e13ea50cc4f5c511af27fb0a4c4c0ffb78db4fb91857d164006f7e5  artifacts/p10-manifest.txt
+e4337a56adc1d6b452b0cc00af8592d7cfbfe2e9de3144a8dcf7969b8c628421  artifacts/p10-rss-base.tsv
+e99b53e5be86ff0fe07b428415cbd313a7bbea1aedc3338036fd18931b91b378  artifacts/p10-rss-candidate.tsv
+ba1ac625f0a5130e391f60257a2ff2bebcd1f718451be80006a6206996bda789  artifacts/p10-rss-summary.txt
+994d3bcdf85ec06a62aef336ad61aa33d63a5696350594c697752a5c396b0d6a  artifacts/p10.patch

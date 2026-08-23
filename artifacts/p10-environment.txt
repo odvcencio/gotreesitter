@@ -1,0 +1,14 @@
+bb09ff6978cb2e46d98b805c0e2f6bb7d4429e24
+ parser.go                             |   8 +-
+ parser_recover_c.go                   |  33 +++--
+ parser_recover_c_test.go              | 245 ++++++++++++++++++++++++++++++++--
+ recovery_runtime_detailed_disabled.go |   3 +-
+ recovery_runtime_detailed_enabled.go  |   5 +-
+ 5 files changed, 267 insertions(+), 27 deletions(-)
+go version go1.25.1 linux/amd64
+994d3bcdf85ec06a62aef336ad61aa33d63a5696350594c697752a5c396b0d6a  artifacts/p10.patch
+de94c4e5a2912d4e4502542cf720d9a4cfe2332ea576a62613ed68ec82153cf3  parser.go
+646b5c4a14bc50e7b54070a7c83d47f86fa487a6aa2887d9e59dfe905eb50712  parser_recover_c.go
+08eca21d4f5bc4720ea463ea5238c9c6b4861c9550f908b129b9127984151aa6  parser_recover_c_test.go
+5e10b0918cc9b78e9d9e19285573efde7ae6878735a517ae60cc1b90a02258d0  recovery_runtime_detailed_disabled.go
+1744cf0bdd39cfcd53a1370193ca26541c12869cc80b2fe916d2f5b26ecbaca5  recovery_runtime_detailed_enabled.go

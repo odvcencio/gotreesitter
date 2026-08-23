@@ -1,0 +1,645 @@
+# package: .
+# bench regex: ^(BenchmarkGoParse(FullDFA|CoreDFA|IncrementalSingleByteEditDFA|IncrementalNoEditDFA|IncrementalRandomSingleByteEdit)|Benchmark(KDLRecoveryGarbageSuffix|RecoveryCorpusFile)|BenchmarkExpectedRootCanFrameLongRepeat|BenchmarkDiagnosticParserCore(CorridorSchedulerOnly|WarmSchedulerOnlyQueryCompile|WarmMaterializationOnlyQueryCompile)|BenchmarkParserCoreFreshFull(Canonical|SelectedStoreCanonical)|Benchmark(TaggerTag(Tree)?Go|ExtractCodeUnderstanding(Tree)?Go|ExtractAllFactsTreeGo|FactProgram(All)?(Tree)?Go))$
+# build tags: gts_parsercorephase0
+# seeds: 1..20
+# benchtime: 750ms
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkExtractAllFactsTreeGo                                   	    1308	    641426 ns/op	  30.08 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  979196	       970.3 ns/op	19884.83 MB/s	       0 B/op	       0 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      25	  33602103 ns/op	   0.47 MB/s	 1270711 B/op	   22169 allocs/op
+BenchmarkGoParseCoreDFA                                          	     277	   3412579 ns/op	   5.65 MB/s	     993 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     500	   1641035 ns/op	   3.12 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	     100	   7679365 ns/op	   2.63 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	     100	   7784431 ns/op	   5.32 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	      10	  81706683 ns/op	   2.88 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12234 B/op	      20 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	     100	   7567462 ns/op	   2.55 MB/s	  144597 B/op	     515 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     542	   1699379 ns/op	   3.01 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	     100	   8168898 ns/op	   2.47 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	     104	   8867812 ns/op	   4.67 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       9	  95826262 ns/op	   2.46 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  540924	      1468 ns/op	13143.04 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkGoParseFullDFA                                          	     129	   6969610 ns/op	   2.77 MB/s	   34740 B/op	       4 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1491	    558692 ns/op	   7.33 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	306421087	         3.064 ns/op	6296061.01 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     100	   9624386 ns/op	   2.10 MB/s	      76 B/op	       3 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     522	   1511360 ns/op	  13.34 MB/s	     124 B/op	       4 allocs/op
+BenchmarkFactProgramTreeGo                                       	    6508	    133108 ns/op	 144.95 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1828	    421426 ns/op	  45.78 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     100	   8099606 ns/op	   2.49 MB/s	      76 B/op	       3 allocs/op
+BenchmarkFactProgramGo                                           	     105	   8682267 ns/op	   2.22 MB/s	  142469 B/op	     515 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    6901	    127793 ns/op	 150.98 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     996	    795770 ns/op	  24.25 MB/s	 1263886 B/op	    9506 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	28.314s
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkExtractCodeUnderstandingTreeGo                          	    2280	    365439 ns/op	  52.80 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseCoreDFA                                          	     284	   3196665 ns/op	   6.04 MB/s	     993 B/op	       6 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     132	   6766902 ns/op	   2.98 MB/s	      76 B/op	       3 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	    1236	    690605 ns/op	  27.94 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkGoParseFullDFA                                          	     124	   7959455 ns/op	   2.42 MB/s	   36136 B/op	       4 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      99	   7714242 ns/op	   2.50 MB/s	  145048 B/op	     515 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     657	   1368746 ns/op	  14.73 MB/s	     124 B/op	       4 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1581	    542229 ns/op	   7.55 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  611587	      1482 ns/op	13020.60 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     483	   1782963 ns/op	   2.87 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	     100	   8967497 ns/op	   2.25 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      99	   9257385 ns/op	   4.47 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	      10	  90237031 ns/op	   2.61 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6388 B/op	     123 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     501	   1672831 ns/op	   3.06 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	     120	   7739525 ns/op	   2.61 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	     100	   8295990 ns/op	   4.99 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       9	  85242303 ns/op	   2.76 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12236 B/op	      20 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  973436	       862.6 ns/op	22366.25 MB/s	       0 B/op	       0 allocs/op
+BenchmarkFactProgramTreeGo                                       	    8160	    102822 ns/op	 187.65 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkFactProgramGo                                           	     100	   7739533 ns/op	   2.49 MB/s	  144598 B/op	     515 allocs/op
+BenchmarkTaggerTagTreeGo                                         	    1281	    672027 ns/op	  28.71 MB/s	 1263877 B/op	    9506 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	   10000	    105858 ns/op	 182.26 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      28	  31016120 ns/op	   0.51 MB/s	 1269236 B/op	   22169 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     129	   6638774 ns/op	   3.04 MB/s	      76 B/op	       3 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	317191240	         2.803 ns/op	6884419.37 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	29.550s
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                                          	     111	   8009913 ns/op	   2.41 MB/s	   40357 B/op	       5 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1293	    659980 ns/op	   6.21 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkFactProgramTreeGo                                       	    7358	    120366 ns/op	 160.29 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    7340	    120559 ns/op	 160.04 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkGoParseCoreDFA                                          	     250	   3536917 ns/op	   5.46 MB/s	     993 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	280563252	         3.069 ns/op	6287132.68 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     522	   1702562 ns/op	   3.00 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	     100	   8015228 ns/op	   2.52 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	     109	   8270752 ns/op	   5.00 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       9	  88143559 ns/op	   2.67 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     123	   6921740 ns/op	   2.91 MB/s	      76 B/op	       3 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	    1263	    697285 ns/op	  27.67 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkTaggerTagTreeGo                                         	    1172	    766458 ns/op	  25.17 MB/s	 1263880 B/op	    9506 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  870074	       999.2 ns/op	19310.09 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    2292	    407422 ns/op	  47.36 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     504	   1768378 ns/op	   2.89 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	     100	   7722868 ns/op	   2.61 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	     100	   7935016 ns/op	   5.22 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	      10	  78945291 ns/op	   2.98 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12234 B/op	      20 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     135	   7434333 ns/op	   2.71 MB/s	      76 B/op	       3 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     651	   1442550 ns/op	  13.98 MB/s	     124 B/op	       4 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  492770	      1529 ns/op	12617.68 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	     116	   7434058 ns/op	   2.60 MB/s	  138434 B/op	     515 allocs/op
+BenchmarkFactProgramGo                                           	     126	   7513431 ns/op	   2.57 MB/s	  135376 B/op	     514 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      22	  34269997 ns/op	   0.46 MB/s	 1273237 B/op	   22169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	31.843s
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkFactProgramTreeGo                                       	    7885	    111341 ns/op	 173.29 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  935552	       924.0 ns/op	20879.90 MB/s	       0 B/op	       0 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    7689	    122276 ns/op	 157.79 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1963	    393789 ns/op	  49.00 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1353	    629112 ns/op	   6.51 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	     100	   8449040 ns/op	   2.28 MB/s	  144602 B/op	     515 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     607	   1448303 ns/op	  13.93 MB/s	     124 B/op	       4 allocs/op
+BenchmarkTaggerTagTreeGo                                         	    1002	    783764 ns/op	  24.62 MB/s	 1263885 B/op	    9506 allocs/op
+BenchmarkFactProgramGo                                           	     100	   8358954 ns/op	   2.31 MB/s	  144597 B/op	     515 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      24	  37024600 ns/op	   0.42 MB/s	 1271335 B/op	   22169 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  433000	      2250 ns/op	8576.32 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     100	   8455406 ns/op	   2.39 MB/s	      76 B/op	       3 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     100	  10714640 ns/op	   1.88 MB/s	      76 B/op	       3 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     858	    879282 ns/op	  21.94 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkGoParseFullDFA                                          	     100	   7905904 ns/op	   2.44 MB/s	   44785 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	291564835	         3.307 ns/op	5833622.92 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseCoreDFA                                          	     236	   3560112 ns/op	   5.42 MB/s	     993 B/op	       6 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     520	   1823233 ns/op	   2.81 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	     100	   8788697 ns/op	   2.29 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	     100	   9144099 ns/op	   4.53 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       9	  92591212 ns/op	   2.54 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12236 B/op	      20 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     464	   1683880 ns/op	   3.04 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	     100	   8478111 ns/op	   2.38 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	     100	   8174533 ns/op	   5.06 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	      10	  89938593 ns/op	   2.62 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6388 B/op	     123 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	28.345s
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkTaggerTagTreeGo                                         	    1051	    783786 ns/op	  24.62 MB/s	 1263884 B/op	    9506 allocs/op
+BenchmarkGoParseFullDFA                                          	      96	   7993600 ns/op	   2.41 MB/s	   46647 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     487	   1662878 ns/op	   3.08 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	     112	   7962207 ns/op	   2.53 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	     100	   9267304 ns/op	   4.47 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       9	  85127988 ns/op	   2.77 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	 1000000	       832.2 ns/op	23183.65 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseCoreDFA                                          	     283	   3089708 ns/op	   6.24 MB/s	     993 B/op	       6 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      26	  30420848 ns/op	   0.52 MB/s	 1270409 B/op	   22169 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     732	   1242977 ns/op	  16.23 MB/s	     124 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     535	   1837138 ns/op	   2.78 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	     100	   7614848 ns/op	   2.65 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	     100	   7745974 ns/op	   5.34 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	      10	  83906118 ns/op	   2.81 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12234 B/op	      20 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1644	    565091 ns/op	   7.25 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     138	   6953869 ns/op	   2.90 MB/s	      76 B/op	       3 allocs/op
+BenchmarkFactProgramTreeGo                                       	    8649	    104146 ns/op	 185.26 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	     120	   7459767 ns/op	   2.59 MB/s	  137149 B/op	     515 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     138	   6504064 ns/op	   3.10 MB/s	      76 B/op	       3 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    2552	    359056 ns/op	  53.74 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	    1346	    644224 ns/op	  29.95 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	311997768	         2.943 ns/op	6555571.69 MB/s	       0 B/op	       0 allocs/op
+BenchmarkFactProgramGo                                           	     126	   7241308 ns/op	   2.66 MB/s	  135376 B/op	     514 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  585915	      1407 ns/op	13708.34 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    9049	     99798 ns/op	 193.33 MB/s	   99944 B/op	     512 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	30.603s
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     126	   6697161 ns/op	   3.01 MB/s	      76 B/op	       3 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	 1000000	       843.3 ns/op	22878.61 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     488	   1802691 ns/op	   2.84 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      96	   8898446 ns/op	   2.27 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	     100	   8472117 ns/op	   4.89 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	      10	  79546039 ns/op	   2.96 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12234 B/op	      20 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     129	   6636721 ns/op	   3.04 MB/s	      76 B/op	       3 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     511	   1625840 ns/op	   3.15 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	     100	   8238074 ns/op	   2.45 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	     100	   8129236 ns/op	   5.09 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	      10	  85422590 ns/op	   2.76 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6388 B/op	     123 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    7833	    103811 ns/op	 185.86 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1566	    553083 ns/op	   7.41 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  567846	      1693 ns/op	11393.10 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	    1215	    742081 ns/op	  26.00 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    2004	    412335 ns/op	  46.79 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseFullDFA                                          	      93	   8192099 ns/op	   2.36 MB/s	   48148 B/op	       5 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     538	   1448223 ns/op	  13.93 MB/s	     124 B/op	       4 allocs/op
+BenchmarkGoParseCoreDFA                                          	     249	   3609777 ns/op	   5.34 MB/s	     993 B/op	       6 allocs/op
+BenchmarkFactProgramTreeGo                                       	    7387	    123584 ns/op	 156.12 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkTaggerTagTreeGo                                         	    1032	    801972 ns/op	  24.06 MB/s	 1263884 B/op	    9506 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	     100	   8781436 ns/op	   2.20 MB/s	  144597 B/op	     515 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      22	  35852986 ns/op	   0.44 MB/s	 1273239 B/op	   22169 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	280009453	         3.292 ns/op	5861487.58 MB/s	       0 B/op	       0 allocs/op
+BenchmarkFactProgramGo                                           	     100	   8349843 ns/op	   2.31 MB/s	  144598 B/op	     515 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	26.866s
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseFullDFA                                          	     111	   8150805 ns/op	   2.37 MB/s	   40357 B/op	       5 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1291	    631850 ns/op	   6.48 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     435	   1919831 ns/op	   2.66 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      97	   9156246 ns/op	   2.20 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      86	   8813793 ns/op	   4.70 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       8	  95077604 ns/op	   2.48 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6388 B/op	     123 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    2170	    413936 ns/op	  46.61 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	286509710	         3.174 ns/op	6078181.18 MB/s	       0 B/op	       0 allocs/op
+BenchmarkFactProgramTreeGo                                       	    7368	    125397 ns/op	 153.86 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  457549	      1745 ns/op	11059.42 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     100	   8167205 ns/op	   2.47 MB/s	      76 B/op	       3 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      96	   8779730 ns/op	   2.20 MB/s	  146459 B/op	     515 allocs/op
+BenchmarkGoParseCoreDFA                                          	     244	   3696585 ns/op	   5.22 MB/s	     993 B/op	       6 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      25	  35568691 ns/op	   0.44 MB/s	 1270664 B/op	   22169 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    7760	    110176 ns/op	 175.12 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkFactProgramGo                                           	     100	   7720945 ns/op	   2.50 MB/s	  144598 B/op	     515 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     579	   1522477 ns/op	   3.36 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	     100	   7859615 ns/op	   2.57 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	     100	   8209048 ns/op	   5.04 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	      10	  80278103 ns/op	   2.94 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12234 B/op	      20 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     132	   6673049 ns/op	   3.02 MB/s	      76 B/op	       3 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	 1000000	       960.6 ns/op	20084.38 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	    1276	    677967 ns/op	  28.46 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     638	   1306016 ns/op	  15.44 MB/s	     124 B/op	       4 allocs/op
+BenchmarkTaggerTagTreeGo                                         	    1178	    760456 ns/op	  25.37 MB/s	 1263880 B/op	    9506 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	30.444s
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseCoreDFA                                          	     241	   3381292 ns/op	   5.71 MB/s	     993 B/op	       6 allocs/op
+BenchmarkGoParseFullDFA                                          	     118	   7659529 ns/op	   2.52 MB/s	   37969 B/op	       5 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     128	   6894289 ns/op	   2.93 MB/s	      76 B/op	       3 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	326309919	         2.679 ns/op	7202254.51 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTaggerTagTreeGo                                         	    1126	    671097 ns/op	  28.75 MB/s	 1263881 B/op	    9506 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     546	   1913494 ns/op	   2.67 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      99	   9295633 ns/op	   2.17 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      98	   9245469 ns/op	   4.48 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       7	 109812855 ns/op	   2.15 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6388 B/op	     123 allocs/op
+BenchmarkFactProgramGo                                           	      97	   8575315 ns/op	   2.25 MB/s	  145979 B/op	     515 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     598	   1499042 ns/op	  13.45 MB/s	     124 B/op	       4 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1446	    658916 ns/op	   6.22 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     109	   8876360 ns/op	   2.27 MB/s	      76 B/op	       3 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  436467	      1818 ns/op	10612.18 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     420	   2141320 ns/op	   2.39 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      96	  10083605 ns/op	   2.00 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      91	  10025447 ns/op	   4.13 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       8	 106663738 ns/op	   2.21 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12237 B/op	      20 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      21	  37121073 ns/op	   0.42 MB/s	 1273731 B/op	   22169 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      93	   9811715 ns/op	   1.97 MB/s	  147961 B/op	     515 allocs/op
+BenchmarkFactProgramTreeGo                                       	    6489	    138973 ns/op	 138.83 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  784140	      1175 ns/op	16420.12 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    2126	    454389 ns/op	  42.46 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    6650	    125147 ns/op	 154.17 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	    1208	    754893 ns/op	  25.56 MB/s	  101856 B/op	    1012 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	29.794s
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkFactProgramAllTreeGo                                    	    7644	    122923 ns/op	 156.96 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkGoParseFullDFA                                          	     100	   7910297 ns/op	   2.44 MB/s	   44785 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  395461	      1994 ns/op	9676.35 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      90	   9108506 ns/op	   2.21 MB/s	      76 B/op	       3 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     296	   2929939 ns/op	   1.75 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      82	  10032516 ns/op	   2.01 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      92	   9342307 ns/op	   4.43 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       8	  96272776 ns/op	   2.45 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12237 B/op	      20 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	    1082	    767544 ns/op	  25.14 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkFactProgramGo                                           	     100	   7515571 ns/op	   2.57 MB/s	  144597 B/op	     515 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1539	    578358 ns/op	   7.08 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkFactProgramTreeGo                                       	    8835	    105380 ns/op	 183.09 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseCoreDFA                                          	     294	   3172219 ns/op	   6.08 MB/s	     993 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	292934322	         3.204 ns/op	6021534.15 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  784914	      1067 ns/op	18080.11 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     453	   2022419 ns/op	   2.53 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      93	   9797386 ns/op	   2.06 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      94	   9430754 ns/op	   4.39 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       8	 100378454 ns/op	   2.35 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6388 B/op	     123 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     100	   8074745 ns/op	   2.50 MB/s	      76 B/op	       3 allocs/op
+BenchmarkTaggerTagTreeGo                                         	    1158	    818805 ns/op	  23.56 MB/s	 1263880 B/op	    9506 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      24	  35706877 ns/op	   0.44 MB/s	 1271681 B/op	   22169 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    2224	    417227 ns/op	  46.24 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	     100	   9135906 ns/op	   2.11 MB/s	  144597 B/op	     515 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     602	   1583232 ns/op	  12.74 MB/s	     124 B/op	       4 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	30.896s
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  515947	      1619 ns/op	11919.50 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     121	   6788147 ns/op	   2.97 MB/s	      76 B/op	       3 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     100	   7637729 ns/op	   2.64 MB/s	      76 B/op	       3 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    7570	    111859 ns/op	 172.48 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkFactProgramTreeGo                                       	    9073	    104865 ns/op	 183.99 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     702	   1263353 ns/op	  15.96 MB/s	     124 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     441	   2112680 ns/op	   2.42 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      82	  10208624 ns/op	   1.98 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      84	  10019229 ns/op	   4.13 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       9	 104819282 ns/op	   2.25 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkFactProgramGo                                           	     121	   7933302 ns/op	   2.43 MB/s	  136842 B/op	     515 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	    1212	    701054 ns/op	  27.52 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkGoParseFullDFA                                          	     100	   8014309 ns/op	   2.41 MB/s	   44785 B/op	       5 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1250	    663506 ns/op	   6.17 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  811827	      1079 ns/op	17883.54 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     452	   1905483 ns/op	   2.68 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      97	   8305422 ns/op	   2.43 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	     100	   8185020 ns/op	   5.06 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       9	  83723158 ns/op	   2.81 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12236 B/op	      20 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      26	  34224273 ns/op	   0.46 MB/s	 1270044 B/op	   22168 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    2306	    383854 ns/op	  50.26 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     964	    811229 ns/op	  23.78 MB/s	 1263887 B/op	    9506 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      90	   8547613 ns/op	   2.26 MB/s	  149562 B/op	     515 allocs/op
+BenchmarkGoParseCoreDFA                                          	     250	   3517359 ns/op	   5.49 MB/s	     993 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	325451709	         2.872 ns/op	6718777.07 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	31.163s
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1497	    650039 ns/op	   6.30 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	    1148	    821050 ns/op	  23.50 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	208466838	         4.308 ns/op	4478862.29 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     379	   2447661 ns/op	   2.09 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      80	  11187505 ns/op	   1.80 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      70	  12008316 ns/op	   3.45 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 123640232 ns/op	   1.91 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+BenchmarkGoParseFullDFA                                          	      70	  11449688 ns/op	   1.69 MB/s	   63936 B/op	       5 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  756019	      1289 ns/op	14973.35 MB/s	       0 B/op	       0 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    5486	    181493 ns/op	 106.31 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkFactProgramGo                                           	      79	  10740121 ns/op	   1.80 MB/s	  156481 B/op	     515 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     493	   1873825 ns/op	  10.76 MB/s	     124 B/op	       4 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1608	    588846 ns/op	  32.77 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      80	  10584452 ns/op	   1.82 MB/s	  155768 B/op	     515 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      78	   9968476 ns/op	   2.02 MB/s	      76 B/op	       3 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     337	   2684935 ns/op	   1.91 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      73	  12820271 ns/op	   1.57 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      70	  12333566 ns/op	   3.36 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       6	 128111902 ns/op	   1.84 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      19	  44983880 ns/op	   0.35 MB/s	 1276189 B/op	   22169 allocs/op
+BenchmarkFactProgramTreeGo                                       	    5314	    160324 ns/op	 120.34 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseCoreDFA                                          	     213	   4338260 ns/op	   4.45 MB/s	     994 B/op	       6 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     834	    964427 ns/op	  20.01 MB/s	 1263893 B/op	    9506 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  425647	      2054 ns/op	9392.87 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	      80	   9881432 ns/op	   2.04 MB/s	      76 B/op	       3 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	29.715s
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalNoEditDFA                             	237618357	         3.900 ns/op	4946944.54 MB/s	       0 B/op	       0 allocs/op
+BenchmarkFactProgramGo                                           	      80	  10116534 ns/op	   1.91 MB/s	  155774 B/op	     515 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     409	   2267049 ns/op	   2.26 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      93	  11030996 ns/op	   1.83 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      87	  11557181 ns/op	   3.58 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6546 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 118291771 ns/op	   1.99 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+BenchmarkGoParseFullDFA                                          	      93	   9806308 ns/op	   1.97 MB/s	   48149 B/op	       5 allocs/op
+BenchmarkFactProgramTreeGo                                       	    5684	    150627 ns/op	 128.09 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  416803	      2058 ns/op	9374.28 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkGoParseCoreDFA                                          	     206	   4324757 ns/op	   4.46 MB/s	     994 B/op	       6 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     970	    936386 ns/op	  20.60 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     382	   2355475 ns/op	   2.17 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      74	  11465471 ns/op	   1.76 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      74	  11593345 ns/op	   3.57 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       7	 122967778 ns/op	   1.92 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6388 B/op	     123 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1102	    785339 ns/op	   5.22 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	      94	   9891228 ns/op	   2.04 MB/s	      76 B/op	       3 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     914	    981561 ns/op	  19.66 MB/s	 1263889 B/op	    9506 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  657255	      1217 ns/op	15855.71 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      81	  10407279 ns/op	   1.85 MB/s	  155079 B/op	     515 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    4868	    156977 ns/op	 122.91 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      79	   9558854 ns/op	   2.11 MB/s	      76 B/op	       3 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     490	   1764549 ns/op	  11.43 MB/s	     124 B/op	       4 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      20	  43769586 ns/op	   0.36 MB/s	 1274694 B/op	   22169 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1822	    517304 ns/op	  37.30 MB/s	   99813 B/op	     510 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	32.842s
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     477	   1836564 ns/op	  10.98 MB/s	     124 B/op	       4 allocs/op
+BenchmarkFactProgramGo                                           	      91	  10078605 ns/op	   1.91 MB/s	  149017 B/op	     515 allocs/op
+BenchmarkGoParseCoreDFA                                          	     188	   4540816 ns/op	   4.25 MB/s	     994 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  731691	      1248 ns/op	15463.46 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1575	    530005 ns/op	  36.40 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     348	   2505196 ns/op	   2.04 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      75	  12331658 ns/op	   1.64 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      84	  12940071 ns/op	   3.20 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       6	 129115956 ns/op	   1.82 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     874	    946489 ns/op	  20.38 MB/s	 1263891 B/op	    9506 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      86	   9503368 ns/op	   2.12 MB/s	      76 B/op	       3 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    6013	    150429 ns/op	 128.26 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  390937	      2084 ns/op	9256.20 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	      94	   9920473 ns/op	   2.03 MB/s	      76 B/op	       3 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      82	  10917116 ns/op	   1.77 MB/s	  154406 B/op	     515 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     362	   2405939 ns/op	   2.13 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      87	  11222372 ns/op	   1.80 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      67	  12673071 ns/op	   3.27 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6482 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 124860314 ns/op	   1.89 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	     811	    990349 ns/op	   4.14 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      19	  52094823 ns/op	   0.30 MB/s	 1276189 B/op	   22169 allocs/op
+BenchmarkFactProgramTreeGo                                       	    6722	    154601 ns/op	 124.80 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	196957579	         4.808 ns/op	4012621.00 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     807	   1098758 ns/op	  17.56 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkGoParseFullDFA                                          	      87	   9722776 ns/op	   1.98 MB/s	   51462 B/op	       5 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	31.742s
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseCoreDFA                                          	     180	   4447279 ns/op	   4.34 MB/s	     994 B/op	       6 allocs/op
+BenchmarkGoParseFullDFA                                          	      93	   9591064 ns/op	   2.01 MB/s	   48148 B/op	       5 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     520	   1772872 ns/op	  11.38 MB/s	     124 B/op	       4 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     920	    901152 ns/op	  21.41 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     403	   2269517 ns/op	   2.25 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      75	  10510620 ns/op	   1.92 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      90	  11172944 ns/op	   3.70 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 114630419 ns/op	   2.06 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    5214	    248045 ns/op	  77.78 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	      82	  10996382 ns/op	   1.83 MB/s	      76 B/op	       3 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1419	    550141 ns/op	  35.07 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     304	   2773801 ns/op	   1.84 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      66	  13788429 ns/op	   1.46 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      70	  12891729 ns/op	   3.21 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       6	 147159187 ns/op	   1.60 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkFactProgramTreeGo                                       	    5181	    170018 ns/op	 113.48 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     748	   1049980 ns/op	  18.38 MB/s	 1263898 B/op	    9506 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      78	  10510468 ns/op	   1.92 MB/s	      76 B/op	       3 allocs/op
+BenchmarkFactProgramGo                                           	      85	  10117917 ns/op	   1.91 MB/s	  152483 B/op	     515 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  682981	      1311 ns/op	14713.81 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  414350	      2151 ns/op	8967.84 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	     901	    887119 ns/op	   4.62 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      15	  79750632 ns/op	   0.20 MB/s	 1281953 B/op	   22170 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      73	  11483989 ns/op	   1.68 MB/s	  161125 B/op	     515 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	200279816	         5.274 ns/op	3658652.13 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	31.607s
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1370	    622536 ns/op	  30.99 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  696945	      1355 ns/op	14233.95 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     476	   1942968 ns/op	  10.38 MB/s	     124 B/op	       4 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	160757496	         5.491 ns/op	3513634.73 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1002	    953011 ns/op	   4.30 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkGoParseFullDFA                                          	      74	  10526721 ns/op	   1.83 MB/s	   60485 B/op	       5 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      85	  11332370 ns/op	   1.78 MB/s	      76 B/op	       3 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     344	   2523265 ns/op	   2.03 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      81	  11850606 ns/op	   1.70 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1635 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      68	  12111287 ns/op	   3.42 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6482 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 121986112 ns/op	   1.93 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+BenchmarkGoParseCoreDFA                                          	     180	   4724741 ns/op	   4.08 MB/s	     994 B/op	       6 allocs/op
+BenchmarkFactProgramTreeGo                                       	    5079	    174966 ns/op	 110.27 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      18	  49175871 ns/op	   0.32 MB/s	 1277385 B/op	   22169 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	      96	  10308213 ns/op	   1.96 MB/s	      76 B/op	       3 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     333	   2705241 ns/op	   1.89 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      64	  12911345 ns/op	   1.56 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      63	  12580640 ns/op	   3.29 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       6	 132858826 ns/op	   1.77 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    7573	    158848 ns/op	 121.46 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkFactProgramGo                                           	      87	  10315996 ns/op	   1.87 MB/s	  151274 B/op	     515 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  428781	      2231 ns/op	8647.16 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     895	   1001831 ns/op	  19.26 MB/s	 1263890 B/op	    9506 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      80	  11162022 ns/op	   1.73 MB/s	  155768 B/op	     515 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     909	   1006590 ns/op	  19.17 MB/s	  101856 B/op	    1012 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	29.974s
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	      81	  10300517 ns/op	   1.96 MB/s	      76 B/op	       3 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1831	    543135 ns/op	  35.52 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  708524	      1270 ns/op	15190.44 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  388292	      2352 ns/op	8201.93 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     334	   2627765 ns/op	   1.95 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      61	  13183719 ns/op	   1.53 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      58	  13513681 ns/op	   3.06 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       6	 128969884 ns/op	   1.83 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      16	  55269270 ns/op	   0.28 MB/s	 1280244 B/op	   22169 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     375	   2598871 ns/op	   1.97 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      78	  11987347 ns/op	   1.68 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      73	  11938517 ns/op	   3.47 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 125815547 ns/op	   1.87 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1000	    943919 ns/op	   4.34 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     802	   1022865 ns/op	  18.86 MB/s	 1263895 B/op	    9506 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      97	  10439232 ns/op	   1.93 MB/s	      76 B/op	       3 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      68	  11261072 ns/op	   1.71 MB/s	  165626 B/op	     515 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	180778515	         4.709 ns/op	4096950.91 MB/s	       0 B/op	       0 allocs/op
+BenchmarkFactProgramTreeGo                                       	    4867	    171272 ns/op	 112.65 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    5638	    172070 ns/op	 112.13 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkGoParseFullDFA                                          	      80	  10520375 ns/op	   1.83 MB/s	   55956 B/op	       5 allocs/op
+BenchmarkGoParseCoreDFA                                          	     171	   5037145 ns/op	   3.83 MB/s	     994 B/op	       6 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     765	   1145891 ns/op	  16.84 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     462	   1894855 ns/op	  10.64 MB/s	     124 B/op	       4 allocs/op
+BenchmarkFactProgramGo                                           	      85	  10485871 ns/op	   1.84 MB/s	  152483 B/op	     515 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	30.426s
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseCoreDFA                                          	     175	   5208399 ns/op	   3.70 MB/s	     994 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  735270	      1333 ns/op	14473.23 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      74	  11607055 ns/op	   1.66 MB/s	  160298 B/op	     515 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    4467	    171513 ns/op	 112.49 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      76	   9894761 ns/op	   2.04 MB/s	      76 B/op	       3 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     738	   1020908 ns/op	  18.90 MB/s	 1263899 B/op	    9506 allocs/op
+BenchmarkFactProgramTreeGo                                       	    6280	    159009 ns/op	 121.34 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     471	   1925736 ns/op	  10.47 MB/s	     124 B/op	       4 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  377523	      2357 ns/op	8185.39 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	     925	    905428 ns/op	   4.52 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     336	   2617732 ns/op	   1.95 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      76	  12351721 ns/op	   1.63 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      66	  13031674 ns/op	   3.18 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       6	 133827847 ns/op	   1.76 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkGoParseFullDFA                                          	      84	  10607399 ns/op	   1.82 MB/s	   53297 B/op	       5 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      16	  48779396 ns/op	   0.32 MB/s	 1279722 B/op	   22169 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     865	   1092966 ns/op	  17.65 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1668	    607126 ns/op	  31.78 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkFactProgramGo                                           	      82	  11058470 ns/op	   1.74 MB/s	  154407 B/op	     515 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	      88	  10699556 ns/op	   1.88 MB/s	      76 B/op	       3 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	187008814	         4.838 ns/op	3988168.00 MB/s	       0 B/op	       0 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     327	   2576467 ns/op	   1.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      87	  12164444 ns/op	   1.66 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      76	  12515672 ns/op	   3.31 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 129055030 ns/op	   1.83 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	30.200s
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     355	   2648307 ns/op	   1.93 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      66	  11984863 ns/op	   1.68 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1566 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      81	  12654819 ns/op	   3.27 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 129811073 ns/op	   1.82 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	      88	  10629444 ns/op	   1.90 MB/s	      76 B/op	       3 allocs/op
+BenchmarkGoParseFullDFA                                          	      88	  10276249 ns/op	   1.88 MB/s	   50879 B/op	       5 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     466	   2002400 ns/op	  10.07 MB/s	     124 B/op	       4 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      78	  10746658 ns/op	   1.88 MB/s	      76 B/op	       3 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     882	   1001304 ns/op	  19.27 MB/s	 1263890 B/op	    9506 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  682512	      1301 ns/op	14835.12 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      81	  11217095 ns/op	   1.72 MB/s	  155079 B/op	     515 allocs/op
+BenchmarkFactProgramGo                                           	      75	  10318028 ns/op	   1.87 MB/s	  159492 B/op	     515 allocs/op
+BenchmarkGoParseCoreDFA                                          	     188	   4925127 ns/op	   3.92 MB/s	     994 B/op	       6 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	195412711	         4.864 ns/op	3966472.46 MB/s	       0 B/op	       0 allocs/op
+BenchmarkFactProgramTreeGo                                       	    4983	    165148 ns/op	 116.83 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1504	    597053 ns/op	  32.32 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     859	   1032619 ns/op	  18.68 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1160	    894277 ns/op	   4.58 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      18	  47133677 ns/op	   0.33 MB/s	 1277390 B/op	   22169 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    7233	    166335 ns/op	 116.00 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     340	   2673622 ns/op	   1.91 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      66	  12226288 ns/op	   1.65 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      50	  15137038 ns/op	   2.73 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       6	 140626826 ns/op	   1.68 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  338296	      2323 ns/op	8306.80 MB/s	    1362 B/op	      12 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	31.273s
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseCoreDFA                                          	     177	   4904087 ns/op	   3.93 MB/s	     994 B/op	       6 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    5821	    155000 ns/op	 124.48 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1648	    502459 ns/op	  38.40 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  395301	      2058 ns/op	9376.19 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     931	    960752 ns/op	  20.08 MB/s	  101856 B/op	    1012 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      84	  10388865 ns/op	   1.86 MB/s	  153109 B/op	     515 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  765800	      1189 ns/op	16223.00 MB/s	       0 B/op	       0 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1120	    795404 ns/op	   5.15 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	      70	  10945710 ns/op	   1.84 MB/s	      76 B/op	       3 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	234112424	         3.875 ns/op	4979077.14 MB/s	       0 B/op	       0 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	     100	   9349911 ns/op	   2.16 MB/s	      76 B/op	       3 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     368	   2496714 ns/op	   2.05 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      84	  11711262 ns/op	   1.72 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      75	  12252126 ns/op	   3.38 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       7	 120546537 ns/op	   1.95 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6388 B/op	     123 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     852	    937193 ns/op	  20.59 MB/s	 1263892 B/op	    9506 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     400	   2326474 ns/op	   2.20 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      91	  10966496 ns/op	   1.84 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1565 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      81	  11289583 ns/op	   3.67 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 116495814 ns/op	   2.02 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+BenchmarkGoParseFullDFA                                          	      76	  10172409 ns/op	   1.90 MB/s	   58896 B/op	       5 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     488	   1823407 ns/op	  11.06 MB/s	     124 B/op	       4 allocs/op
+BenchmarkFactProgramGo                                           	      81	  10623930 ns/op	   1.82 MB/s	  155080 B/op	     515 allocs/op
+BenchmarkFactProgramTreeGo                                       	    4628	    174865 ns/op	 110.34 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkKDLRecoveryGarbageSuffix                                	      18	  48052857 ns/op	   0.33 MB/s	 1276926 B/op	   22169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	31.277s
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkKDLRecoveryGarbageSuffix                                	      18	  46204316 ns/op	   0.34 MB/s	 1276993 B/op	   22170 allocs/op
+BenchmarkGoParseIncrementalRandomSingleByteEdit                  	  383311	      2246 ns/op	8590.56 MB/s	    1362 B/op	      12 allocs/op
+BenchmarkFactProgramGo                                           	      90	   9932031 ns/op	   1.94 MB/s	  149562 B/op	     515 allocs/op
+BenchmarkGoParseIncrementalSingleByteEditDFA                     	  704511	      1213 ns/op	15909.36 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseIncrementalNoEditDFA                             	224362278	         4.033 ns/op	4783893.75 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGoParseCoreDFA                                          	     196	   4641386 ns/op	   4.16 MB/s	     994 B/op	       6 allocs/op
+BenchmarkExpectedRootCanFrameLongRepeat                          	    1006	    849758 ns/op	   4.82 MB/s	  144992 B/op	    4110 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/rewrite       	     333	   2575285 ns/op	   1.99 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     89476 selected_retained_B/op	     796 B/op	       9 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/query_compile 	      67	  11728537 ns/op	   1.72 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	    453236 selected_retained_B/op	    1566 B/op	      11 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/language      	      74	  11578287 ns/op	   3.57 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    430416 selected_retained_B/op	    6481 B/op	      17 allocs/op
+BenchmarkParserCoreFreshFullSelectedStoreCanonical/grammargen_lr 	       7	 124732642 ns/op	   1.89 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	   4384556 selected_retained_B/op	   12240 B/op	      20 allocs/op
+BenchmarkFactProgramTreeGo                                       	    5514	    160050 ns/op	 120.55 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkExtractCodeUnderstandingTreeGo                          	    1738	    517452 ns/op	  37.29 MB/s	   99813 B/op	     510 allocs/op
+BenchmarkDiagnosticParserCoreWarmMaterializationOnlyQueryCompile 	     500	   1787283 ns/op	  11.28 MB/s	     124 B/op	       4 allocs/op
+BenchmarkExtractCodeUnderstandingGo                              	      82	  10540669 ns/op	   1.83 MB/s	  154406 B/op	     515 allocs/op
+BenchmarkDiagnosticParserCoreCorridorSchedulerOnly               	     100	  10008009 ns/op	   2.02 MB/s	      76 B/op	       3 allocs/op
+BenchmarkDiagnosticParserCoreWarmSchedulerOnlyQueryCompile       	      93	   9759391 ns/op	   2.07 MB/s	      76 B/op	       3 allocs/op
+BenchmarkParserCoreFreshFullCanonical/rewrite                    	     362	   2412915 ns/op	   2.12 MB/s	         0 candidate_fallback/op	      1109 compact_leaf_constructions/op	      3006 compact_link_additions/op	      1515 compact_parent_constructions/op	      1646 compact_pop_paths/op	      2993 compact_pop_payloads/op	      1504 compact_pop_requests/op	      1504 compact_reductions/op	      1348 compact_shifts/op	     100 B/op	       4 allocs/op
+BenchmarkParserCoreFreshFullCanonical/query_compile              	      68	  12381518 ns/op	   1.63 MB/s	         0 candidate_fallback/op	      5546 compact_leaf_constructions/op	     14789 compact_link_additions/op	      7542 compact_parent_constructions/op	      8108 compact_pop_paths/op	     14730 compact_pop_payloads/op	      7509 compact_pop_requests/op	      7509 compact_reductions/op	      6685 compact_shifts/op	     148 B/op	       5 allocs/op
+BenchmarkParserCoreFreshFullCanonical/language                   	      68	  13436058 ns/op	   3.08 MB/s	         0 candidate_fallback/op	      5375 compact_leaf_constructions/op	     15124 compact_link_additions/op	      7674 compact_parent_constructions/op	      8377 compact_pop_paths/op	     15816 compact_pop_payloads/op	      7564 compact_pop_requests/op	      7564 compact_reductions/op	      6512 compact_shifts/op	    5848 B/op	      21 allocs/op
+BenchmarkParserCoreFreshFullCanonical/grammargen_lr              	       6	 158113257 ns/op	   1.49 MB/s	         0 candidate_fallback/op	     53896 compact_leaf_constructions/op	    149768 compact_link_additions/op	     77168 compact_parent_constructions/op	     83658 compact_pop_paths/op	    151917 compact_pop_payloads/op	     76310 compact_pop_requests/op	     76310 compact_reductions/op	     66115 compact_shifts/op	    6389 B/op	     123 allocs/op
+BenchmarkGoParseFullDFA                                          	      85	  12051183 ns/op	   1.60 MB/s	   52671 B/op	       5 allocs/op
+BenchmarkFactProgramAllTreeGo                                    	    4382	    172969 ns/op	 111.55 MB/s	   99944 B/op	     512 allocs/op
+BenchmarkTaggerTagTreeGo                                         	     657	   1521862 ns/op	  12.68 MB/s	 1263905 B/op	    9506 allocs/op
+BenchmarkExtractAllFactsTreeGo                                   	     621	   1254701 ns/op	  15.38 MB/s	  101856 B/op	    1012 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	30.700s
