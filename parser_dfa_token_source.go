@@ -3165,25 +3165,6 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	return tok, true
 }
 
-// splitSwiftWideCloseAngleToken narrows a run of external `_custom_operator`
-// close-angle characters (">>", ">>>", ">>>>", ...) down to a single `>` when
-// the run is really N adjacent generic closers, e.g. the trailing `>>>` in
-// `A<B<C<Int>>>`. Swift's external scanner has no notion of generic nesting:
-// it greedily lexes any maximal run of `>` bytes as one custom-operator
-// token, so only the parser's own angle-bracket bookkeeping can tell that
-// run apart from a genuine multi-character user operator (Swift lets you
-// declare `infix operator >>> : ...` and use it standalone, e.g. `x >>> y`).
-//
-// hasSwiftUnclosedAngleBefore is the load-bearing guard: it requires at
-// least one unclosed '<' before this run. Without an open generic to close,
-// `x >>> y` must be refused here and left as one _custom_operator token.
-// This function only ever runs for language "swift" (guard below), so Java
-// and JavaScript/TypeScript `>>>`/`>>>=` shift operators never reach it.
-//
-// Known limitation, tracked separately and not fixed here: a run like
-// `>>>?` (close-angle run immediately followed by optional-chaining `?`)
-// isn't handled by this split — the all-'>' check below refuses it as soon
-// as it sees the `?`, so `A<B<C<Int>>>?` still needs its own follow-up fix.
 func (d *dfaTokenSource) splitSwiftWideCloseAngleToken(tok Token, states []StateID) (Token, int, uint32, uint32, bool) {
 	if d == nil || d.language == nil || d.language.Name != "swift" || d.lexer == nil ||
 		tok.EndPoint.Row != tok.StartPoint.Row || tok.EndByte <= tok.StartByte+1 {
@@ -3196,68 +3177,25 @@ func (d *dfaTokenSource) splitSwiftWideCloseAngleToken(tok Token, states []State
 		}
 		tok.Text = bytesToStringNoCopy(d.lexer.source[start:end])
 	}
-	for i := 0; i < len(tok.Text); i++ {
-		if tok.Text[i] != '>' {
+	for _, ch := range tok.Text {
+		if ch != '>' {
 			return tok, 0, 0, 0, false
 		}
-	}
-	if !d.hasSwiftUnclosedAngleBefore(int(tok.StartByte)) {
-		return tok, 0, 0, 0, false
 	}
 	gtSym, ok := d.bestActiveSymbolByName(">")
 	if !ok || gtSym == 0 {
 		return tok, 0, 0, 0, false
 	}
-	// Secondary safety net alongside the angle-depth gate above: if the
-	// parser's own action tables treat the run as a more specific match kept
-	// whole (as the custom operator) than as a lone '>', defer to that
-	// reading. Mirrors the gtSym/shiftSym specificity comparison in
-	// shouldSplitCompactCloseAngleToken.
-	if d.activeActionSpecificity(gtSym) < d.activeActionSpecificity(tok.Symbol) {
-		return tok, 0, 0, 0, false
-	}
 	for _, state := range states {
 		if d.lookupActionIndex(state, gtSym) != 0 {
 			tok.Symbol = gtSym
-			tok.Text = tok.Text[:1]
+			tok.Text = ">"
 			tok.EndByte = tok.StartByte + 1
 			tok.EndPoint = Point{Row: tok.StartPoint.Row, Column: tok.StartPoint.Column + 1}
-			// tok.ExternalScannerToken stays true (it was set by the caller
-			// before this function ran): realTokenAttachmentGapIsParserPadding
-			// (parser.go) relies on that flag to treat the gap between the
-			// previous real token and this narrowed token as scanner padding
-			// rather than a parse error.
 			return tok, int(tok.EndByte), tok.EndPoint.Row, tok.EndPoint.Column, true
 		}
 	}
 	return tok, 0, 0, 0, false
-}
-
-// hasSwiftUnclosedAngleBefore reports whether an unclosed '<' opens before
-// byte pos in the current statement/scope. This is the same "are we inside a
-// generic argument list" heuristic hasJavaUnclosedAngleBefore uses for Java.
-// The scan stops at a statement/scope boundary (; { } ( )) so an operator in
-// one statement is never mistaken for a generic closer left open by an
-// unrelated, already-closed earlier statement.
-func (d *dfaTokenSource) hasSwiftUnclosedAngleBefore(pos int) bool {
-	if d == nil || d.lexer == nil || pos <= 0 {
-		return false
-	}
-	depth := 0
-	for i := pos - 1; i >= 0; i-- {
-		switch d.lexer.source[i] {
-		case ';', '{', '}', '(', ')':
-			return depth > 0
-		case '>':
-			depth--
-		case '<':
-			depth++
-			if depth > 0 {
-				return true
-			}
-		}
-	}
-	return depth > 0
 }
 
 func (d *dfaTokenSource) bashGeneratedSyntheticExternalLiteral(valid []bool) (Token, bool) {

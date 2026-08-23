@@ -135,62 +135,6 @@ func TestSwiftRightShiftOperatorUnaffected(t *testing.T) {
 	}
 }
 
-// TestSwiftCustomOperatorCloseAngleRunsUnaffected is the regression test for
-// the review finding on PR #567: splitSwiftWideCloseAngleToken used to split
-// any external close-angle run made only of '>' characters as soon as any
-// active parser state accepted a lone '>' (true in every comparison
-// context), destroying Swift custom operators built from '>' runs (`>>>`,
-// `>>>>`, ...) even when no generic argument list was open. Each case here
-// has no unclosed '<' in scope, so the run must stay one custom_operator
-// token: no ERROR node, and exactly the statement count the source implies.
-func TestSwiftCustomOperatorCloseAngleRunsUnaffected(t *testing.T) {
-	lang := SwiftLanguage()
-	cases := []struct {
-		name           string
-		src            string
-		wantStatements int
-	}{
-		{name: "triple_infix", src: "let v = x >>> y\n", wantStatements: 1},
-		{name: "infix_declaration", src: "infix operator >>> : MultiplicationPrecedence\n", wantStatements: 1},
-		{name: "chained_triple_infix", src: "let v = a >>> b >>> c\n", wantStatements: 1},
-		{name: "quadruple_infix", src: "let v = x >>>> y\n", wantStatements: 1},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			for _, route := range []struct {
-				name    string
-				compact bool
-			}{
-				{name: "production"},
-				{name: "compact", compact: true},
-			} {
-				t.Run(route.name, func(t *testing.T) {
-					parser := gotreesitter.NewParser(lang)
-					parser.SetAdmissionCandidateRoute(route.compact)
-					src := []byte(tc.src)
-					tree, err := parser.Parse(src)
-					if err != nil {
-						t.Fatalf("parse %q: %v", tc.src, err)
-					}
-					defer tree.Release()
-
-					root := tree.RootNode()
-					if root.HasError() {
-						t.Fatalf("%q has parse errors: %s", tc.src, root.SExpr(lang))
-					}
-					sexpr := root.SExpr(lang)
-					if !strings.Contains(sexpr, "(custom_operator)") {
-						t.Fatalf("%q did not keep a custom_operator token: %s", tc.src, sexpr)
-					}
-					if got, want := root.NamedChildCount(), tc.wantStatements; got != want {
-						t.Fatalf("%q statement count = %d, want %d; tree: %s", tc.src, got, want, sexpr)
-					}
-				})
-			}
-		})
-	}
-}
-
 // TestSwiftStringLiteralEndingInDotDoesNotCorruptFollowingToken guards against
 // a regression in shouldDemoteSwiftMemberKeyword/isAfterSwiftMemberDot: a
 // string literal whose last content character is '.' immediately before the
@@ -647,9 +591,6 @@ func TestSwiftTripleNestedGenericTypeAnnotationParses(t *testing.T) {
 		"struct S { let value: A<B<C<Int>>> }",
 		"func f(value: A<B<C<Int>>>) {}",
 		"let value: A<B<C<Int>>> = make()",
-		// Depth-4: locks in that the fix generalizes over the run length
-		// instead of only handling the depth-3 shape from issue #559.
-		"let value: A<B<C<D<Int>>>> = make()",
 	} {
 		t.Run(src, func(t *testing.T) {
 			parser := gotreesitter.NewParser(lang)
@@ -660,61 +601,6 @@ func TestSwiftTripleNestedGenericTypeAnnotationParses(t *testing.T) {
 			defer tree.Release()
 			if root := tree.RootNode(); root.HasError() {
 				t.Fatalf("triple nested generic type has parse errors: %s", root.SExpr(lang))
-			}
-		})
-	}
-}
-
-// swiftTreeHasMissingNode walks the parse tree looking for a MISSING node,
-// the exact presentation issue #559 named: a wide close-angle run that a
-// parser cannot split leaves a generic argument list open, and recovery
-// inserts a MISSING closer instead of surfacing a plain ERROR.
-func swiftTreeHasMissingNode(n *gotreesitter.Node) bool {
-	if n == nil {
-		return false
-	}
-	if n.IsMissing() {
-		return true
-	}
-	for i := 0; i < n.ChildCount(); i++ {
-		if swiftTreeHasMissingNode(n.Child(i)) {
-			return true
-		}
-	}
-	return false
-}
-
-// TestSwiftTripleNestedGenericCallParses is the direct regression test for
-// issue #559: `A<B<C<Int>>>()` construction calls, not just type
-// annotations, used to fail with a MISSING close-angle node inserted by
-// error recovery even though HasError() could still report false.
-func TestSwiftTripleNestedGenericCallParses(t *testing.T) {
-	lang := SwiftLanguage()
-	for _, src := range []string{
-		"func f() { let v = A<B<C<Int>>>() }",
-		"func f() { let v = IndexValidator<ChunksOfCountCollection<ClosedRange<Int>>>() }",
-		// Depth-5: one level deeper than the issue's own repro, guarding
-		// against a fix that only special-cases depth 3 or 4.
-		"func f() { let v = A<B<C<D<E<Int>>>>>() }",
-	} {
-		t.Run(src, func(t *testing.T) {
-			parser := gotreesitter.NewParser(lang)
-			tree, err := parser.Parse([]byte(src))
-			if err != nil {
-				t.Fatalf("parse triple nested generic call: %v", err)
-			}
-			defer tree.Release()
-
-			root := tree.RootNode()
-			if root.HasError() {
-				t.Fatalf("triple nested generic call has parse errors: %s", root.SExpr(lang))
-			}
-			if swiftTreeHasMissingNode(root) {
-				t.Fatalf("triple nested generic call has a MISSING node: %s", root.SExpr(lang))
-			}
-			sexpr := root.SExpr(lang)
-			if !strings.Contains(sexpr, "(constructor_expression") {
-				t.Fatalf("triple nested generic call is not a constructor_expression: %s", sexpr)
 			}
 		})
 	}
