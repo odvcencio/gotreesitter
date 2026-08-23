@@ -167,6 +167,115 @@ minimal witness, the corpus ratchet, locked-C parity, field projection, and
 generic zero-width tests to pass. Keep issue #576 open until both witnesses
 match locked C.
 
+## C26c Swift issue #576 masking-shift recovery blocker
+
+Receipt base: `ef57c9d1b73bac046ef40f2a111bb76db643ebfd`.
+
+Status: **NO-GO / KEEP LIVE**. No production or test change survives. Keep
+issue #576 open.
+
+The canonical witness includes its trailing newline:
+
+```swift
+let x = 1&<<7
+```
+
+It has 14 bytes. Its secure hash algorithm 256 (SHA-256) source digest is
+`25d8869d28d13d391a46d2afcab12662c4a9c62b3c9555be966767caf27bc720`.
+The Go tree digest is
+`0a080f094102d27305084a234d22396a1c4b64cad5be9ab55a9969249f2a67aa`.
+The locked C tree digest is
+`14b99aace77ea88a972e0d1bbefcdef9f226bb764aeba12bb41c2cf1509610e9`.
+
+Both roots span `0:14` and report an error. Go has one root child. Its
+`property_declaration` spans `0:13`, and its `infix_expression` spans `8:13`.
+That expression contains `integer_literal[8:9]`, `_custom_operator[9:11]`,
+`ERROR[11:12]` with `<`, and `integer_literal[12:13]`.
+
+Locked C has two root children. Its `property_declaration` spans `0:12`, and
+its `infix_expression` spans `8:12`. The second root child is
+`ERROR[12:13]`, with `integer_literal[12:13]` as its child. The first
+divergence is `/source_file`, where Go has `children=1` and C has
+`children=2`.
+
+The 13-byte control has no trailing newline. Its source digest is
+`82b80d62359b54747565d50be90f55f6177299dde3c43237b1efddc417339809`.
+Its Go tree digest is
+`1b4e24b4b42e2f38df92cf0a7d9ffd2345373dad5b3766f120a61b3419284740`.
+Its locked C tree digest is
+`b226b4ce49ab883efb4614f0cb05ad92a34ba39262beb80f8bd502c38130ffff`.
+Both roots span `0:13` and have two children. Go reports no error. Locked C
+reports an error. This control is not the tracked root-child absorption case.
+
+Both traces report this token sequence:
+
+- `let[0:3]`
+- `identifier x[4:5]`
+- `=[6:7]`
+- `integer_literal[8:9]`
+- `_custom_operator[9:11]`
+- `<[11:12]`
+- `integer_literal[12:13]`
+- `_implicit_semi[14:14]`
+- `EOF[14:14]`
+
+The first Go recovery event occurs at byte `12`. The integer literal has no
+parser action in state `130`. Go calls `cRecoverToState` at state `291` with
+depth `2`. Recovery creates ten stacks. Condense rejects the missing-group
+lineage because the ordinary lineage has lower cost. The final Go tree keeps
+`7` inside the infix expression.
+
+The first locked-C recovery event occurs in state `1459` at byte `12`. C
+lexes an integer literal of size one, detects an error, and resumes version
+zero. It recovers with missing `custom_operator_token1` in state `432`, then
+recovers to previous state `623` at depth `2`. It skips the integer literal.
+The final locked-C tree keeps `7` in a sibling `ERROR` node.
+
+Canopy assigns the ownership path to generic recovery and materialization:
+
+- `parser.go:4526` `parseInternal` reaches `parser_recover_c.go:776`
+  `cRecoverAcquireToken`.
+- `parser_recover_c.go:4110` `cRecoverToState` uses
+  `cAppendVisibleSplice:4064` and `cSetNodeSpan:4099`.
+- `parser_recover_c.go:4462` `cCondenseAndResume` uses the recovery version
+  comparison and lookahead paths.
+- `parser.go:3876` `materializeTransientChildrenForReturnedTree` finalizes
+  transient nodes.
+
+The token sequence does not differ first. A Swift-specific lexer rule that
+joins `&<<` is rejected. A generic condense change that prefers an error group
+is rejected because existing tests require the lower-cost clean stack. A
+generic operator or materialization heuristic lacks cross-language proof. A
+source-hash exception, blob exception, or witness repair is also rejected.
+
+The corpus witness is `grammars/testdata/swift_corpus/stdlib_ASCII.swift`.
+It has 3,115 bytes. Its source digest is
+`0db11184c2f5e94ae43dd5349cc37ae55fc9acca4dd2eb82b0311daefca72540`.
+Its Go tree digest is
+`e4cc31fc7b2c14ad9c466cabc4614cb002ac3fad8cb671eaba22a4d1661b1572`.
+Its locked C tree digest is
+`4721985dfa027f12728eb183afd782e77bb5a44fff22a0e4aa002e2495f648f3`.
+Both roots span `0:3115`, have 14 children, and report an error. The target
+`1&<<7` occurrence starts at byte `1513`. The first full-corpus difference is
+the existing `user_type` versus `simple_identifier` difference at
+`/source_file/class_declaration[12]/class_body[4]/function_declaration[5]/function_body[8]/statements[1]/control_transfer_statement[0]/call_expression[1]/navigation_expression[0]/user_type[0]`.
+The known-failing `stdlib_ASCII.swift` corpus ratchet passes.
+
+The focused Docker artifacts are:
+
+- `/tmp/gts-c26c-artifacts/20260823T033300Z-swift576-masking-shift-probe-minimal-canonical`
+- `/tmp/gts-c26c-artifacts/20260823T033224Z-swift576-masking-shift-probe-minimal-exact`
+- `/tmp/gts-c26c-artifacts/20260823T033433Z-swift576-masking-shift-tree-dump`
+- `/tmp/gts-c26c-artifacts/20260823T033312Z-swift576-masking-shift-probe-corpus`
+- `/tmp/gts-c26c-artifacts/20260823T033324Z-swift576-masking-shift-corpus-ratchet`
+- `/tmp/gts-c26c-artifacts/20260823T033347Z-swift576-masking-shift-go-trace-exact`
+- `/tmp/gts-c26c-artifacts/20260823T033508Z-swift576-masking-shift-c-logger`
+
+Reopen implementation work only after a generic recovery or materialization
+change produces the locked-C sibling `ERROR` without a Swift-specific rule.
+Require the 14-byte witness, the 13-byte control, the corpus ratchet, focused
+generic recovery tests, and locked-C parity to pass. Keep issue #576 open.
+
 ## Current bounded result
 
 The bounded matrix completed with no silent divergence.
