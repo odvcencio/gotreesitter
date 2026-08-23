@@ -1,4 +1,4 @@
-# B1 depth fixtures — one real corpus fixture per currently-PASSING language (48)
+# B1 depth fixtures — one fixture per currently-PASSING language (48; 14 repo-sourced, 34 authored)
 
 Source for the PASS set: `docs/compact-route-coverage-census.md`, section
 "Full per-language table → PASS (48)" (2026-07-20 snapshot, base commit
@@ -35,7 +35,7 @@ Provenance classes:
 | 8 | cylc | campaign/fixtures/b1/cylc/sample.cylc | authored |
 | 9 | desktop | campaign/fixtures/b1/desktop/sample.desktop | authored |
 | 10 | disassembly | campaign/fixtures/b1/disassembly/sample.disassembly | authored |
-| 11 | dockerfile | cgo_harness/docker/Dockerfile | repo (same fixture the 2026-07-20 depth check used) |
+| 11 | dockerfile | cgo_harness/docker/Dockerfile | repo (same path as the 2026-07-20 depth check used, but different content — that check read a 572-byte file; this one reads the current worktree copy) |
 | 12 | dtd | testdata/dispatcher_census_a0/dtd/large__docbook.dtd | repo (dispatcher census corpus) |
 | 13 | earthfile | campaign/fixtures/b1/earthfile/Earthfile | authored |
 | 14 | editorconfig | campaign/fixtures/b1/editorconfig/sample.editorconfig | authored |
@@ -48,7 +48,7 @@ Provenance classes:
 | 21 | gomod | cgo_harness/go.mod | repo |
 | 22 | hcl | campaign/fixtures/b1/hcl/main.hcl | authored |
 | 23 | hyprlang | campaign/fixtures/b1/hyprlang/sample.conf | authored |
-| 24 | ini | testdata/dispatcher_census_a0/doxygen/small__example.cfg | repo (INI-shape config from dispatcher census corpus; nearest INI-family real file) |
+| 24 | ini | testdata/dispatcher_census_a0/doxygen/small__example.cfg | repo (INI-shape config from dispatcher census corpus; actually a Doxygen .cfg repurposed — weak evidence for INI, nearest INI-family real file available) |
 | 25 | julia | testdata/compact_selected_lineage/julia_utils.jl | repo |
 | 26 | kconfig | campaign/fixtures/b1/kconfig/Kconfig.census | authored |
 | 27 | ledger | testdata/dispatcher_census_a0/ledger/small__non-profit-test-data.ledger | repo (dispatcher census corpus) |

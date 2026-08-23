@@ -29,7 +29,7 @@ Exit code 0, all 48 fixtures exercised, raw log at
 `campaign/fixtures/b1/depth-census-run.log`. Results recorded in
 `campaign/b1-depth-census.md`.
 
-## STILL OPEN G-2 — no real third-party corpus for 34 of the 48 PASS languages
+## STILL OPEN G-2 — no real third-party corpus for 34 of the 48 census-PASS languages
 
 A full sweep of the workspace (`caps.WalkDir(".")`, 2,858 entries,
 bucketed by extension) found no pre-existing real corpus file for:
@@ -55,6 +55,9 @@ manifest-driven).
 ledger's decline ("accepted compact root is incomplete or erroneous:
 span=0..932 expected=1..932 error=false allowErrorRoot=false") carries no
 `[mechanism=…]` tag under `GTS_ADMISSION_CENSUS=1`; it exits through a path
-that does not route through `admissionCensusClassify`
+that does not route through `admissionCensusClassify`:
+`admission_switch_candidate.go:330` (the `errors.As` that fails, so the
+census classifier is never reached) and `parsercore_phase0_driver.go:4416`
+(the bare `fmt.Errorf` that formats the decline without a mechanism tag)
 (`campaign/fixtures/b1/depth-census-run.log`, line 77). Recorded verbatim in
 `b1-depth-census.md` row 27 rather than guessed.
