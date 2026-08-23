@@ -1838,6 +1838,9 @@ func (d *dfaTokenSource) normalizeDFAToken(tok Token, endPos int, endRow, endCol
 	if splitTok, splitEndPos, splitEndRow, splitEndCol, ok := d.splitCompactCloseAngleToken(tok); ok {
 		return splitTok, splitEndPos, splitEndRow, splitEndCol
 	}
+	if splitTok, splitEndPos, splitEndRow, splitEndCol, ok := d.splitSwiftOptionalGenericCloseToken(tok); ok {
+		return splitTok, splitEndPos, splitEndRow, splitEndCol
+	}
 	if d.isBashGenerated {
 		if splitTok, splitEndPos, splitEndRow, splitEndCol, ok := d.splitBashGeneratedDoubleCloseParenToken(tok); ok {
 			return splitTok, splitEndPos, splitEndRow, splitEndCol
@@ -2190,6 +2193,30 @@ func (d *dfaTokenSource) splitCompactCloseAngleToken(tok Token) (Token, int, uin
 		tok.Text = tok.Text[:1]
 	}
 	return tok, int(tok.EndByte), tok.EndPoint.Row, tok.EndPoint.Column, true
+}
+
+// splitSwiftOptionalGenericCloseToken keeps the generic close and optional
+// marker separate when Swift's external scanner reports `>?` as one operator.
+func (d *dfaTokenSource) splitSwiftOptionalGenericCloseToken(tok Token) (Token, int, uint32, uint32, bool) {
+	if d == nil || d.language == nil || d.lexer == nil || d.language.Name != "swift" ||
+		d.symbolName(tok.Symbol) != "_custom_operator" || tok.EndByte != tok.StartByte+2 ||
+		tok.EndPoint.Row != tok.StartPoint.Row {
+		return tok, 0, 0, 0, false
+	}
+	start := int(tok.StartByte)
+	if start < 0 || start+1 >= len(d.lexer.source) ||
+		d.lexer.source[start] != '>' || d.lexer.source[start+1] != '?' {
+		return tok, 0, 0, 0, false
+	}
+	gtSym, ok := d.bestActiveSymbolByName(">")
+	if !ok || gtSym == 0 {
+		return tok, 0, 0, 0, false
+	}
+	tok.Symbol = gtSym
+	tok.EndByte = tok.StartByte + 1
+	tok.EndPoint = Point{Row: tok.StartPoint.Row, Column: tok.StartPoint.Column + 1}
+	tok.Text = ">"
+	return tok, start + 1, tok.EndPoint.Row, tok.EndPoint.Column, true
 }
 
 func supportsCompactCloseAngleSplit(languageName string) bool {
@@ -3162,22 +3189,6 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	return tok, true
 }
 
-// shouldDeferSwiftOptionalGenericCloseToDFA reports that the byte pair at the
-// lexer position is `>?` and that at least one active state resolves the DFA's
-// plain `>` candidate by reducing a production (closing an open generic
-// argument list), not merely shifting it. A shift-only match means some other
-// live GLR stack reads `>` as the start of an unrelated construct (for
-// example a comparison operator continuing across a line break); deferring
-// there would starve every stack of the external `_custom_operator` token
-// and turn a harmless trailing `>?` into a full parse failure. Requiring a
-// reduce restricts deferral to states where `>` genuinely closes a
-// `type_arguments` list, matching the C tree-sitter behavior of splitting the
-// generic close from the following `?` only in that context.
-//
-// Known limitation: this only recognizes the exact `>?` byte pair. A run of
-// closing angle brackets before the `?` (for example `A<B<Int>>?`) still
-// combines into one external `_custom_operator` token and is out of scope for
-// this fix; see the follow-up issue for the `>`-run-then-`?` family.
 func (d *dfaTokenSource) shouldDeferSwiftOptionalGenericCloseToDFA(valid []bool, states []StateID) bool {
 	if d == nil || d.language == nil || d.lexer == nil || d.lookupActionIndex == nil || d.language.Name != "swift" {
 		return false
@@ -3200,33 +3211,14 @@ func (d *dfaTokenSource) shouldDeferSwiftOptionalGenericCloseToDFA(valid []bool,
 		return false
 	}
 	if len(states) == 0 {
-		var single [1]StateID
-		single[0] = d.state
-		states = single[:]
+		states = []StateID{d.state}
 	}
 	for _, state := range states {
-		cand, endPos, _, _ := d.scanPreferredTokenForState(state)
-		if cand.Symbol == 0 || cand.StartByte != uint32(pos) || endPos <= pos || d.symbolName(cand.Symbol) != ">" {
+		cand, _, _, _ := d.scanPreferredTokenForState(state)
+		if cand.StartByte != uint32(pos) || d.symbolName(cand.Symbol) != ">" {
 			continue
 		}
-		actionIdx := d.lookupActionIndex(state, cand.Symbol)
-		if actionIdx == 0 || int(actionIdx) >= len(d.language.ParseActions) {
-			continue
-		}
-		if d.swiftCloseAngleActionReduces(actionIdx) {
-			return true
-		}
-	}
-	return false
-}
-
-// swiftCloseAngleActionReduces reports that the parse action entry contains a
-// reduce action. A reduce here means the `>` candidate closes an open
-// production (a generic argument list) rather than merely shifting into a
-// state that expects further tokens.
-func (d *dfaTokenSource) swiftCloseAngleActionReduces(actionIdx uint16) bool {
-	for _, a := range d.language.ParseActions[actionIdx].Actions {
-		if a.Type == ParseActionReduce {
+		if d.lookupActionIndex(state, cand.Symbol) != 0 {
 			return true
 		}
 	}

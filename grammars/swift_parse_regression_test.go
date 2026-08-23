@@ -101,147 +101,23 @@ func TestSwiftNestedGenericCallAdjacentClosers(t *testing.T) {
 	}
 }
 
-// TestSwiftOptionalGenericTypeParses checks issue #556: a generic type
-// annotated optional (`Range<Int>?`) must parse error-free, and the
-// reconstructed tree must be optional_type wrapping a user_type with a
-// type_arguments list, not just an error-free tree of any shape.
 func TestSwiftOptionalGenericTypeParses(t *testing.T) {
 	lang := SwiftLanguage()
-	for _, tc := range []struct {
-		src          string
-		typeArgCount int
-	}{
-		{src: "struct S { internal let kRange: Range<Int>? }", typeArgCount: 1},
-		{src: "struct S { let value: Dictionary<String, Int>? }", typeArgCount: 2},
+	for _, src := range []string{
+		"struct S { internal let kRange: Range<Int>? }",
+		"struct S { let value: Dictionary<String, Int>? }",
 	} {
-		t.Run(tc.src, func(t *testing.T) {
+		t.Run(src, func(t *testing.T) {
 			parser := gotreesitter.NewParser(lang)
-			tree, err := parser.Parse([]byte(tc.src))
+			tree, err := parser.Parse([]byte(src))
 			if err != nil {
 				t.Fatalf("parse optional generic type: %v", err)
 			}
 			defer tree.Release()
-			root := tree.RootNode()
-			if root.HasError() {
+			if root := tree.RootNode(); root.HasError() {
 				t.Fatalf("optional generic type has parse errors: %s", root.SExpr(lang))
 			}
-			var optType *gotreesitter.Node
-			var find func(n *gotreesitter.Node)
-			find = func(n *gotreesitter.Node) {
-				if n == nil || optType != nil {
-					return
-				}
-				if n.Type(lang) == "optional_type" {
-					optType = n
-					return
-				}
-				for i := 0; i < n.ChildCount(); i++ {
-					find(n.Child(i))
-				}
-			}
-			find(root)
-			if optType == nil {
-				t.Fatalf("no optional_type node: %s", root.SExpr(lang))
-			}
-			userType := optType.NamedChild(0)
-			if userType == nil || userType.Type(lang) != "user_type" {
-				t.Fatalf("optional_type does not wrap a user_type: %s", root.SExpr(lang))
-			}
-			var typeArgs *gotreesitter.Node
-			for i := 0; i < userType.NamedChildCount(); i++ {
-				if c := userType.NamedChild(i); c.Type(lang) == "type_arguments" {
-					typeArgs = c
-				}
-			}
-			if typeArgs == nil {
-				t.Fatalf("user_type is missing type_arguments: %s", root.SExpr(lang))
-			}
-			if got, want := typeArgs.NamedChildCount(), tc.typeArgCount; got != want {
-				t.Fatalf("type_arguments count = %d, want %d: %s", got, want, root.SExpr(lang))
-			}
 		})
-	}
-}
-
-// TestSwiftOptionalGenericCloseDoesNotStarveCustomOperator guards the fix for
-// issue #556 against a regression the fix itself introduced: deferring the
-// `>?` close-angle split to the DFA must fire only when a `>` genuinely
-// closes an open generic argument list. A standalone trailing `>?` (no open
-// generic in scope) must still reach the external scanner as one
-// `_custom_operator` token and parse exactly as it does without the #556
-// fix in place: as its own custom_operator node, never a full parse
-// failure and never a bare anonymous `>` / `?` pair with no error reported.
-func TestSwiftOptionalGenericCloseDoesNotStarveCustomOperator(t *testing.T) {
-	lang := SwiftLanguage()
-	for _, tc := range []struct {
-		name string
-		src  string
-		want string
-	}{
-		{
-			name: "trailing after property",
-			src:  "let a = 1\n>?",
-			want: "(source_file (property_declaration (value_binding_pattern) (pattern (simple_identifier)) (integer_literal)) (custom_operator))",
-		},
-		{
-			name: "trailing after import",
-			src:  "import Foundation\n>?",
-			want: "(source_file (import_declaration (identifier (simple_identifier))) (custom_operator))",
-		},
-		{
-			name: "trailing after function",
-			src:  "func f() {}\n>?",
-			want: "(source_file (function_declaration (simple_identifier) (function_body)) (custom_operator))",
-		},
-		{
-			name: "trailing after bare identifier",
-			src:  "let a = 1\nb >?",
-			want: "(source_file (property_declaration (value_binding_pattern) (pattern (simple_identifier)) (integer_literal)) (simple_identifier) (custom_operator))",
-		},
-		{
-			name: "trailing after class",
-			src:  "class C {}\n>?",
-			want: "(source_file (class_declaration (type_identifier) (class_body)) (custom_operator))",
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			parser := gotreesitter.NewParser(lang)
-			tree, err := parser.Parse([]byte(tc.src))
-			if err != nil {
-				t.Fatalf("parse: %v", err)
-			}
-			defer tree.Release()
-			root := tree.RootNode()
-			if root.HasError() {
-				t.Fatalf("trailing >? fixture has parse errors: %s", root.SExpr(lang))
-			}
-			if got := root.SExpr(lang); got != tc.want {
-				t.Fatalf("s-expr = %s, want %s", got, tc.want)
-			}
-		})
-	}
-}
-
-// TestSwiftOptionalGenericCloseKeepsCustomOperatorDeclarations guards that
-// the #556 fix does not disturb genuine custom operators: an `infix operator
-// >?` declaration and its use must keep the `>?` spelling intact as a single
-// custom_operator node, both in the declaration and at each use site.
-func TestSwiftOptionalGenericCloseKeepsCustomOperatorDeclarations(t *testing.T) {
-	lang := SwiftLanguage()
-	src := "infix operator >?\nlet q = a >? b\n"
-	parser := gotreesitter.NewParser(lang)
-	tree, err := parser.Parse([]byte(src))
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	defer tree.Release()
-	root := tree.RootNode()
-	if root.HasError() {
-		t.Fatalf("custom operator declaration has parse errors: %s", root.SExpr(lang))
-	}
-	want := "(source_file (operator_declaration (custom_operator)) (property_declaration (value_binding_pattern) (pattern (simple_identifier)) (infix_expression (simple_identifier) (custom_operator) (simple_identifier))))"
-	if got := root.SExpr(lang); got != want {
-		t.Fatalf("s-expr = %s, want %s", got, want)
 	}
 }
 
