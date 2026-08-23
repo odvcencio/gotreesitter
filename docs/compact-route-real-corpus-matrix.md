@@ -1217,6 +1217,63 @@ capability proves all of the following:
 - Use an authenticated source lock and corpus evidence.
 
 
+## C26x SQL checkpoint admission diagnosis
+
+C26x used base
+`e24ccf5a87bbd7febc21f67f014c2d5301d229d0`.
+
+Restore the pinned SQL source with:
+
+```sh
+bash scripts/seed_real_corpus_from_lock.sh /tmp/gts-c26x-pinned-grammar-20260824 sql
+```
+
+The source used commit
+`587f30d184b058450be2a2330878210c5f33b3f9`.
+
+- `src/grammar.json`:
+  `42f011860137175a5a0cb820d1a694e5ccca1d17f226729ff6a4e886910cde1c`
+- `src/scanner.cc`:
+  `d437ad9f517d7a1f4248ccd05abe58370b5040c0037c877dab1f0aefeaa04af6`
+
+The clean baseline artifact was
+`/tmp/gts-c26x-artifacts/20260823T172345Z-c26x-clean-baseline`.
+Its log SHA-256 was
+`e471997005ae8dbd4851dc8b66f1a0b1b3a7b928f8deb6d01cad9d267990e41d`.
+Its metadata SHA-256 was
+`a16ed3b68446b52b66e59a8cf3159b25a374564e92576b1d96560128c464c151`.
+The baseline preserved 13 records, 4 leaves, 4 snapshots, 1 reused subtree,
+and 16 reused bytes. The compact route declined at recovery. Production then
+reported the generated dollar-quote divergence.
+
+The first wrapper artifact was
+`/tmp/gts-c26x-artifacts/20260823T172522Z-c26x-diag-wrapper`.
+Its log SHA-256 was
+`4d529ccddd7e4e574ea8c75ab2b3cdaebad44e3858082fcec17a0b3affc4b1bc`.
+Its metadata SHA-256 was
+`a897a40b3c4c931ab3bff81c58f380c8357dfa31e4d7eab50a8c0510c5be4aad`.
+Telemetry showed the first failing predicate:
+`attemptAdmissionCandidateFullParse` returned `ok=true` for
+`*gotreesitter.externalScannerOrderAdapter`. The compact route returned a tree
+before production checkpoint sidecars were recorded. The observed counts were
+zero records, zero leaves, and zero snapshots.
+
+The smallest generic diagnostic gate kept checkpointed scanners on production.
+The resulting artifact was
+`/tmp/gts-c26x-artifacts/20260823T173055Z-c26x-candidate-production-gate`.
+Its log SHA-256 was
+`8bfad246de988aca440a4ade9b76e36cbb881c66eeea13edd8a5bac460033ab6`.
+Its metadata SHA-256 was
+`1646d0b91907d351d70f0c7596774a26ca510eaa2c00e25993d142f2ad458688`.
+The target-symbol wrapper then recorded 14 records, 5 leaves, and 5 snapshots.
+The accepted leaf spans were `0-6`, `7-9`, `9-12`, `12-14`, and `14-15`.
+The required values were 13 records, 4 leaves, 4 snapshots, 1 subtree, and 16
+bytes. Reject the candidate. Remove all diagnostic and production changes.
+
+Keep issue #576 open. Reopen only after both dollar-quote witnesses match
+generated Go, locked-blob Go, and locked C. Require exact checkpoint reuse and
+zero stale cross-grammar reuse.
+
 ## C26q SQL scanner identity gate
 
 Publication base: `a62b9db306bcb983852cbf0043852546e864e856`.

@@ -9,6 +9,23 @@ for tags and release notes while still in `0.x`.
 
 ### Correctness
 
+- Recorded the C26x SQL checkpoint admission diagnosis on base
+  `e24ccf5a87bbd7febc21f67f014c2d5301d229d0`. The pinned SQL source used
+  commit `587f30d184b058450be2a2330878210c5f33b3f9`.
+  `grammar.json` SHA-256 was
+  `42f011860137175a5a0cb820d1a694e5ccca1d17f226729ff6a4e886910cde1c`.
+  `src/scanner.cc` SHA-256 was
+  `d437ad9f517d7a1f4248ccd05abe58370b5040c0037c877dab1f0aefeaa04af6`.
+  The clean baseline declined the compact admission route at recovery and
+  recorded 13 checkpoint records, 4 leaves, 4 snapshots, 1 reused subtree,
+  and 16 reused bytes. The wrapper made compact admission succeed. That route
+  returned before production checkpoint sidecars were recorded, so it produced
+  zero records, leaves, and snapshots. A production-only gate fixed that first
+  predicate, but the corrected target symbols then produced 14 records, 5
+  leaves, and 5 snapshots. Reject the candidate. Keep issue #576 open until
+  both dollar-quote witnesses pass with exact 13/4/4/1/16 reuse and zero stale
+  cross-grammar reuse.
+
 - Added authenticated generated-SQL scanner identity to the grammargen C
   parity route. The route now reloads the generated blob through `LoadLanguage`
   before scanner adaptation. The scanner binds checkpoints to exact generated
