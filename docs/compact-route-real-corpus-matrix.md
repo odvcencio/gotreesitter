@@ -1216,6 +1216,73 @@ capability proves all of the following:
 - Pass the full witness on raw, production, compact, forest, and incremental routes.
 - Use an authenticated source lock and corpus evidence.
 
+## C26n Swift issue #576 synthetic checkpoint lifecycle
+
+Evidence base: `675697a1144fad306489c5142aedaae0825545d9`.
+
+Status: **KEEP ISSUE #576 OPEN / NO-GO FOR REAL PARSER INTEGRATION**.
+
+C26n adds a bounded synthetic lifecycle for an external scanner checkpoint.
+It remains explicit opt-in and test-only. It does not add a production caller.
+It does not enter `glrStack` or `gssNode`. It does not change parser, grammar,
+Swift, generalized LR (GLR), recovery, condense, merge, or incremental paths.
+
+### Lifecycle safety result
+
+The exact code files are:
+
+- `external_scanner_checkpoint_lifecycle.go`;
+- `external_scanner_checkpoint_lifecycle_test.go`.
+
+The lifecycle records a stable epoch and monotonic version key. It owns each
+scanner payload until merge, deletion, or close. It destroys a payload when
+restore verification fails. It also removes that version from the ledger.
+Failed election and recovery restore paths use this fail-closed rule.
+
+Before merge or condense sharing, the lifecycle serializes the current payload
+and compares it with the complete checkpoint record. A stale payload cannot
+share a checkpoint. Incomplete records cannot enter the version lookup.
+
+The tests cover:
+
+- explicit opt-in and disabled mode;
+- capture and stable version ownership;
+- failed-scan rollback and failed restore destruction;
+- independent forks and exact checkpoint sharing;
+- stale and mismatched checkpoint rejection;
+- condense selection and sibling deletion;
+- recovery resume and dead-version deletion.
+
+### Structural proof and focused validation
+
+Canopy version `v0.18.0-19-g01a5f95-dirty` traced the constructor. Its reverse
+caller result contains only `external_scanner_checkpoint_lifecycle_test.go`.
+Literal search found no production caller. Literal search found no
+`glrStack` or `gssNode` reference in either C26n file.
+
+The focused Docker artifact is
+`/tmp/gts-c26n-lifecycle-audit/harness_out/docker/20260823T110609Z-c26n-lifecycle-1cpu-4g`.
+The command ran the C26l and C26n checkpoint tests with one CPU and 4 GiB.
+It set `GOMAXPROCS=1`, `GOMEMLIMIT=3GiB`, `GOFLAGS=-p=1`, and `-parallel=1`.
+The run passed with exit code zero. It had no out-of-memory kill or wall
+timeout. The container log hash is
+`447db9ac7de149cef7381440690e1db3bfcf1a52b067d96929e04688dbf9ac4d`.
+The metadata hash is
+`7d2f90ca01c28ad6b25211b24c4bbb19fa53cb2fe0de71b3557c6bfde26aa064`.
+
+The corrected code file hashes are:
+
+- `external_scanner_checkpoint_lifecycle.go`:
+  `961bad1b3872b35253f02aeb1ea1f2427bc2807a3719b78cf723a610b967e412`;
+- `external_scanner_checkpoint_lifecycle_test.go`:
+  `a039dd39f9cb0196bcc798b5e05d1607c0ca10b9339da59bfaa0613c1483bcad`.
+
+The four-file documentation and code receipt passes `go doc`, `gofmt`, Canopy,
+Markdown++, and `git diff --check`. It proves only a synthetic lifecycle.
+It does not prove real scanner ownership across GLR versions, recovery,
+condense, or incremental reuse. Keep issue #576 open until a real parser
+integration passes locked-C parity on the full route set.
+
 
 ## Current bounded result
 

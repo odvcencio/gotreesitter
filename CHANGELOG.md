@@ -46,6 +46,23 @@ for tags and release notes while still in `0.x`.
   Keep issue #576 open until a real scanner and parser lifecycle use this
   capability with locked-C parity.
 
+- Audited the C26n synthetic external-scanner checkpoint lifecycle at evidence
+  base `675697a1144fad306489c5142aedaae0825545d9`. The exact code scope is
+  `external_scanner_checkpoint_lifecycle.go` and
+  `external_scanner_checkpoint_lifecycle_test.go`. The lifecycle is explicit
+  opt-in and test-only. It has no production caller and does not reference
+  `glrStack` or `gssNode`. Failed restore verification now destroys and removes
+  the payload. Merge and condense reserialize each payload before they share a
+  checkpoint. The focused Docker run used one central processing unit (CPU),
+  4 GiB, `GOMAXPROCS=1`, `GOMEMLIMIT=3GiB`, and `GOFLAGS=-p=1`. It passed with
+  no out-of-memory kill or wall timeout. The artifact is
+  `/tmp/gts-c26n-lifecycle-audit/harness_out/docker/20260823T110609Z-c26n-lifecycle-1cpu-4g`.
+  The code file hashes are
+  `961bad1b3872b35253f02aeb1ea1f2427bc2807a3719b78cf723a610b967e412` and
+  `a039dd39f9cb0196bcc798b5e05d1607c0ca10b9339da59bfaa0613c1483bcad`.
+  Keep issue #576 open. Do not connect this lifecycle to real GLR, recovery,
+  condense, or incremental parser paths without locked-C proof.
+
 - Recorded the N31e C and C++ dispatcher blocker at main commit
   `ab2010d74da5330d64dbddb0d9c58969da766d6d`. Keep `dispatch.c_cpp` live.
   The initial dispatcher census (A0) excludes both languages, and the
