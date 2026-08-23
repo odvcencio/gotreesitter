@@ -39,17 +39,16 @@ def main():
     live = [e for e in entries if e.get("status") == "live"]
     retired = [e for e in entries if e.get("status") != "live"]
     arms = [e for e in live if e.get("kind") == "dispatcher_arm"]
-    languages = sorted({lang for e in live for lang in e.get("languages", [])})
 
     check("schema", data.get("schema"), "gotreesitter/result-compat-ownership/v1")
-    check("total entries", len(entries), len(live) + len(retired))
     check("live_entries", denom.get("live_entries"), len(live))
-    check("retired_entries", denom.get("retired_entries"), len(retired))
     check("dispatcher_arms", denom.get("dispatcher_arms"), len(arms))
-    # tsx+typescript share one arm and c+cpp share one arm: registry language
-    # labels minus those two shared-arm duplicates give dispatcher_languages.
+    # Count language labels over dispatcher-arm entries only. The one live
+    # predicate entry carries cobol/COBOL labels that are not part of the
+    # 33; tsx/typescript and c/cpp each share an arm and stay inside the 33.
     check("dispatcher_languages", denom.get("dispatcher_languages"),
-          len(languages) - 2)
+          len({lang for e in arms for lang in e.get("languages", [])}))
+    check("retired_entries", denom.get("retired_entries"), len(retired))
 
     # Cross-check against the Go dispatcher source: every live dispatcher arm
     # id should appear as a registered census identifier.

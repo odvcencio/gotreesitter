@@ -5,7 +5,8 @@ test behavior. Companion to `campaign/a1-live-arm-inventory.md`.
 
 ## Ranking basis
 
-Every one of the 32 live registry entries is currently **blocked**:
+All 32 live registry entries are accounted for: 21 arms carry blocker
+receipts; the remaining 11 are unassessed:
 
 - 21 entries have a dated dispatcher blocker receipt in
   `docs/root-normalization-retirement.md`, each ending `KEEP LIVE / NO-GO`.
@@ -45,7 +46,7 @@ split as follows:
 | 6 | `dispatch.c_cpp` | C recovery gap + incremental token-source divergence + absent corpus lock; the C++ `normalizeCppMalformedClassFunctionDefinition` subpass is not a registry subpass (registry has subpasses: null) and remains an open blocker; seven reopen conditions ("2026-08-24 C and C++ dispatcher blocker receipt") |
 | 7 | `dispatch.c_sharp` | Generic-scheduler emission unproven; authenticated corpus unavailable ("2026-08-24 C# dispatcher blocker receipt") |
 | 8 | `dispatch.cooklang` | Keep live until scheduler_action_semantics emits the locked-C tree on every route with zero required dispatcher rewrites and exact production, compact, forest, incremental, and locked-C parity; authenticated Cooklang corpus and source lock required ("2026-08-24 Cooklang dispatcher blocker receipt") |
-| 9 | `dispatch.corn` | No complete six-route locked-C receipt yet ("2026-08-23 Corn blocker receipt") |
+| 9 | `dispatch.corn` | Gap corrected in the ranked queue below: four reopen conditions; witness-4 locked-C divergence; witness-6 compact fallback; zero-rewrite profile covers the A0 subset only ("2026-08-23 Corn blocker receipt") |
 | 10 | `dispatch.dart` | Route receipts don't prove native ownership; corpus absent; scanner-reuse receipt open ("2026-08-23 Dart dispatcher blocker receipt") |
 | 11 | `dispatch.doxygen` | Known locked-C divergences documented ("2026-08-22 Doxygen blocker receipt"; "2026-08-23 Doxygen dispatcher blocker receipt") |
 | 12 | `dispatch.dtd` | Two named divergences must close ("2026-08-22 document type definition (DTD) blocker receipt") |
@@ -67,8 +68,7 @@ record, and its absence means the arm has not been probed. Under Rule 2
 `docs/root-normalization-retirement.md`), instrument and census measurement
 comes first. Every live arm needs a current firing witness or a filed defect
 (`docs/compat-tier.md` lines 81–83) plus exact route receipts before any
-deletion; with no receipt, there is not even a measured gap to close.
-Baseline coverage only
+deletion. Baseline coverage only
 (`evidence_scope: baseline_corpus_wide_only`, per A1):
 
 | # | Entry ID | Note |
@@ -101,7 +101,7 @@ crosses into retirable-now until its full checklist closes.
 | -- | --- | --- | --- |
 | 1 | `dispatch.corn` | 792 visited nodes, zero error roots, zero rewrites — cleanest zero-rewrite A0 profile among receipted arms ("2026-08-23 Corn blocker receipt") | The receipt's own four reopen conditions (`docs/root-normalization-retirement.md` lines 1335–1339) are open: scheduler_action_semantics must emit the locked-C quoted-path tree; malformed recovery must match locked C; exact production, compact, forest, incremental, and locked-C receipts required; authenticated Corn corpus required. Witness 4 has an open measured locked-C divergence surviving four production rewrites (lines 1301–1308: raw Go has seven children where C has eight at `/source_file/object[0]`); witness 6 forces a compact fallback (line 1327); the 792-node zero-rewrite profile covers the A0 subset (3 of 6 focused witnesses) only. |
 | 2 | `dispatch.bitbake` | 40,358 visited nodes, zero rewrites, two error roots ("2026-08-24 BitBake blocker receipt") | Two error-root witnesses must close; full-route receipts missing |
-| 3 | `dispatch.apex` | Four witnesses incl. A3 certification sweep; "strongest remaining focused route evidence" at selection time; no clean-route divergence in existing classic-route tests ("2026-08-22 Apex blocker receipt") | Native ownership not proven across all routes; focused locked-C route receipt incomplete |
+| 3 | `dispatch.apex` | Four witnesses incl. A3 certification sweep; "strongest remaining focused route evidence" at selection time; no clean-route divergence in existing classic-route tests ("2026-08-22 Apex blocker receipt") | The forest route still rewrites one witness and fails exact locked-C parity on both class-literal witnesses (`docs/root-normalization-retirement.md` lines 995–997) |
 
 Excluded from the top 3, with reason:
 
@@ -113,7 +113,10 @@ Excluded from the top 3, with reason:
   open locked-C divergences with substantial rewrite counts.
 - `dispatch.c_cpp`, `dispatch.dtd`, `dispatch.hlsl` — multiple named live
   members/divergences; largest remaining repair surface.
-- The 11 unreceipted arms — a blocker receipt must exist first; several are
+- The 11 unreceipted arms — unassessed, not blocked: no blocker receipt
+  exists yet, which means these arms have not been probed, and the cheapest
+  probes above (`dispatch.yaml`, `predicate.cobol-exact`, `dispatch.julia`)
+  are already queued first; several are
   already partially retired (Swift ternary, JavaScript dynamic-import, Kotlin
   interpolated-call subpasses are retired history), so their residual arms
   need fresh focused probes before they can rank.
