@@ -34,7 +34,29 @@ func retiredDispatchRouteReceiptsAllowCompactFallbackExactSource(
 	lang *gotreesitter.Language,
 	source []byte,
 ) []retiredDispatchRouteReceipt {
-	return retiredDispatchRouteReceiptsWithCompactPolicyAndNewline(t, lang, source, false, false)
+	return retiredDispatchRouteReceiptsWithCompactPolicyAndRoutes(
+		t,
+		lang,
+		source,
+		false,
+		false,
+		false,
+	)
+}
+
+func retiredDispatchRouteReceiptsAllowCompactAndForestFallbackExactSource(
+	t *testing.T,
+	lang *gotreesitter.Language,
+	source []byte,
+) []retiredDispatchRouteReceipt {
+	return retiredDispatchRouteReceiptsWithCompactPolicyAndRoutes(
+		t,
+		lang,
+		source,
+		false,
+		false,
+		true,
+	)
 }
 
 func retiredDispatchRouteReceiptsWithCompactPolicy(
@@ -43,15 +65,23 @@ func retiredDispatchRouteReceiptsWithCompactPolicy(
 	baseSource []byte,
 	requireDirectCompact bool,
 ) []retiredDispatchRouteReceipt {
-	return retiredDispatchRouteReceiptsWithCompactPolicyAndNewline(t, lang, baseSource, requireDirectCompact, true)
+	return retiredDispatchRouteReceiptsWithCompactPolicyAndRoutes(
+		t,
+		lang,
+		baseSource,
+		requireDirectCompact,
+		true,
+		false,
+	)
 }
 
-func retiredDispatchRouteReceiptsWithCompactPolicyAndNewline(
+func retiredDispatchRouteReceiptsWithCompactPolicyAndRoutes(
 	t *testing.T,
 	lang *gotreesitter.Language,
 	baseSource []byte,
 	requireDirectCompact bool,
 	appendTrailingNewline bool,
+	allowForestFallback bool,
 ) []retiredDispatchRouteReceipt {
 	t.Helper()
 
@@ -92,15 +122,30 @@ func retiredDispatchRouteReceiptsWithCompactPolicyAndNewline(
 			gotreesitter.AdmissionCandidateLastFallbackReason(),
 		)
 	}
+	if direct {
+		t.Logf("compact route=direct")
+	} else {
+		t.Logf("compact route=fallback reason=%q", gotreesitter.AdmissionCandidateLastFallbackReason())
+	}
 
 	forestParser := gotreesitter.NewParser(lang)
 	forest, ok := forestParser.ParseForestExperimental(source)
+	forestName := "forest"
 	if !ok || forest == nil {
 		offset, symbol, reason, _ := forestParser.ForestDeclineInfo()
-		t.Fatalf("forest route declined at %d symbol=%d reason=%s", offset, symbol, reason)
+		if !allowForestFallback {
+			t.Fatalf("forest route declined at %d symbol=%d reason=%s", offset, symbol, reason)
+		}
+		t.Logf("forest route=fallback offset=%d symbol=%d reason=%q", offset, symbol, reason)
+		var fallbackErr error
+		forest, fallbackErr = forestParser.Parse(source)
+		if fallbackErr != nil {
+			t.Fatalf("forest fallback parse failed: %v", fallbackErr)
+		}
+		forestName = "forest-fallback"
 	}
 	t.Cleanup(forest.Release)
-	if !forest.ParseRuntime().ForestFastPath {
+	if forestName == "forest" && !forest.ParseRuntime().ForestFastPath {
 		t.Fatal("forest parse did not report the forest route")
 	}
 
@@ -134,7 +179,7 @@ func retiredDispatchRouteReceiptsWithCompactPolicyAndNewline(
 	receipts := []retiredDispatchRouteReceipt{
 		{name: "production", tree: production},
 		{name: "compact", tree: compact},
-		{name: "forest", tree: forest},
+		{name: forestName, tree: forest},
 		{name: "incremental", tree: incremental, incrementalProfile: incrementalProfile},
 	}
 	want, err := benchfixtures.InspectGoTree(production.RootNode(), lang)
