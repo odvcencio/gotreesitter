@@ -61,23 +61,7 @@ func (l *ExternalLexer) Lookahead() rune {
 }
 
 // Previous returns the rune immediately before the current lexer position.
-// It returns 0 only at the start of the source (pos <= 0) or when pos is out
-// of range. For invalid UTF-8 immediately before pos, it returns
-// utf8.RuneError (U+FFFD), matching utf8.DecodeLastRune -- never 0.
-//
-// Warning: a scanner that reads Previous() looks behind the current scan
-// position, which is a byte, not a grammar token. A caller cannot assume the
-// preceding byte belongs to the token that logically precedes this position:
-// extras (comments, whitespace) the core lexer matches between two scanner
-// invocations are invisible to the scanner, so the byte immediately before
-// pos can be the tail of a comment rather than the true previous token. A
-// scanner that relies on Previous() to decide something as history-sensitive
-// as this must track token-boundary state itself across calls (see
-// grammars/swift_scanner.go) rather than trust a single raw byte read.
-// This lookbehind also breaks external-scanner quiescence obligation 2 (see
-// external_scanner_quiescence.go): Scan must depend only on bytes at or after
-// the current position plus the valid-symbol set, not on bytes before it. A
-// scanner that calls Previous() must not claim StatelessExternalScanner.
+// It returns 0 at the start of the source or when the previous byte is invalid.
 func (l *ExternalLexer) Previous() rune {
 	if l == nil || l.pos <= 0 || l.pos > len(l.source) {
 		return 0

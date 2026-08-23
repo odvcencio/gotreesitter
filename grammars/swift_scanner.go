@@ -316,7 +316,7 @@ var swtReservedOps = [swtReservedOpCount]string{
 
 // ---------- non-consuming cross-semi characters ----------
 
-var swtNonConsumingCrossSemiChars = [3]rune{'?', ':', '{'}
+var swtNonConsumingCrossSemiChars = [4]rune{'?', ':', '{', ','}
 
 // ---------- parse directive ----------
 
@@ -351,23 +351,6 @@ var swtDirectiveSymbols = [swtDirectiveCount]int{
 
 type swtScannerState struct {
 	ongoingRawStrHashCount uint32
-
-	// carriedPreviousRune and carriedPreviousValid bridge swtEatWhitespace
-	// across scanner invocations that the core lexer splits with an extra
-	// (a comment) in between. lexer.Previous() reads a raw source byte: at a
-	// fresh invocation right after a real token, that byte is trustworthy,
-	// but once the core lexer has silently consumed a comment as an extra
-	// and re-invoked the scanner past it, the byte before the new position
-	// can be the tail of the comment's text instead of the token that really
-	// precedes this boundary. When swtEatWhitespace is about to hand an
-	// unrecognized comment start off to the core lexer, it carries its
-	// already-resolved previous rune forward here so the next invocation
-	// uses it instead of re-reading a byte that may sit inside that comment.
-	// It is cleared (by defaulting to false, then only reset to true in that
-	// one hand-off case) on every other return path, so a genuinely fresh
-	// token boundary is never shadowed by a stale carried value.
-	carriedPreviousRune  rune
-	carriedPreviousValid bool
 }
 
 // SwiftExternalScanner handles all external tokens for the Swift grammar.
@@ -406,12 +389,6 @@ func (SwiftExternalScanner) Serialize(payload any, buf []byte) int {
 func (SwiftExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*swtScannerState)
 	s.ongoingRawStrHashCount = 0
-	// carriedPreviousRune/carriedPreviousValid are not serialized: they only
-	// bridge two back-to-back invocations within the same forward-scanning
-	// trivia run and are not meaningful across a restored checkpoint. Clear
-	// them so a restore falls back to a fresh lexer.Previous() read, never a
-	// stale carried rune from a discarded branch.
-	s.carriedPreviousValid = false
 	if len(buf) < 4 {
 		return
 	}
@@ -420,17 +397,6 @@ func (SwiftExternalScanner) Deserialize(payload any, buf []byte) {
 		uint32(buf[2])<<8 |
 		uint32(buf[3])
 }
-
-// PreservesStateOnScanFailure holds because Scan only writes
-// swtScannerState.ongoingRawStrHashCount on a path that itself returns true
-// (see swtEatRawStrPart), so a false return never leaves that field
-// mutated. swtEatWhitespace does write carriedPreviousRune/carriedPreviousValid
-// on some false-returning paths, and that write is intentional: it must
-// survive the false return so the next Scan call sees it (see swtScannerState
-// doc comment). Declaring this true tells the token source to stop
-// snapshotting and restoring scanner state around every failed scan, which
-// would otherwise erase that carried value before the caller could use it.
-func (SwiftExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
 func (s SwiftExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	state := payload.(*swtScannerState)
@@ -804,23 +770,10 @@ func swtEatComment(
 // ---------- eat_whitespace ----------
 
 func swtEatWhitespace(
-	state *swtScannerState,
 	lexer *gotreesitter.ExternalLexer,
 	validSymbols []bool,
 ) (directive int, symbolResult int) {
 	previous := lexer.Previous()
-	if state.carriedPreviousValid {
-		// A prior invocation for this same trivia run ended right before an
-		// unrecognized comment start and carried its resolved boundary rune
-		// forward (see below). Use it instead of the fresh read above, which
-		// would see a byte from inside the comment the core lexer has since
-		// consumed as an extra.
-		previous = state.carriedPreviousRune
-	}
-	// Default to "no carry" for this call; the one hand-off case below
-	// re-arms it. Every other return path leaves this cleared, so a fresh
-	// token boundary is never shadowed by a stale carried value.
-	state.carriedPreviousValid = false
 	wsDirective := swtContinueParsingNothingFound
 	semiIsValid := validSymbols[swtTokImplicitSemi] && validSymbols[swtTokExplicitSemi]
 
@@ -845,20 +798,6 @@ func swtEatWhitespace(
 		if wsDirective == swtContinueParsingNothingFound && (lookahead == '\n' || lookahead == '\r') {
 			wsDirective = swtContinueParsingTokenFound
 		}
-	}
-
-	if wsDirective == swtContinueParsingNothingFound && lookahead == '/' {
-		// No newline has been seen yet, so the branch below does not claim
-		// this comment; every check past this point requires wsDirective to
-		// be swtContinueParsingTokenFound, so this call is about to fall
-		// through to the final "nothing found" return and hand the comment
-		// off to the core lexer's own extras matching. Carry the
-		// already-resolved previous rune forward: the next scanner
-		// invocation will start right after the comment, where a fresh
-		// lexer.Previous() read would see the comment's last byte instead
-		// of the real token that precedes this whole trivia run.
-		state.carriedPreviousRune = previous
-		state.carriedPreviousValid = true
 	}
 
 	anyComment := swtContinueParsingNothingFound
@@ -1064,7 +1003,7 @@ func swtEatRawStrPart(
 
 func swtScan(state *swtScannerState, lexer *gotreesitter.ExternalLexer, validSymbols []bool, symbols *[swtTokenCount]gotreesitter.Symbol) bool {
 	// Consume any whitespace at the start.
-	wsDirective, wsResult := swtEatWhitespace(state, lexer, validSymbols)
+	wsDirective, wsResult := swtEatWhitespace(lexer, validSymbols)
 	if wsDirective == swtStopParsingTokenFound {
 		swtSetResult(lexer, wsResult, symbols)
 		return true

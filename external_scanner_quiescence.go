@@ -79,22 +79,6 @@ package gotreesitter
 // GoExternalScanner encodes this proof by implementing StatelessExternalScanner
 // and returning true; the classifier below reads that marker and returns
 // scannerQuiescenceProven.
-//
-// -----------------------------------------------------------------------
-// Note: ExternalLexer.Previous() and obligation 2.
-//
-// ExternalLexer.Previous() (external_lexer.go) reads the raw byte before the
-// current scan position. That byte can be the tail of a comment or other
-// extra the core lexer matched between two scanner invocations, not the
-// token that logically precedes this boundary -- Scan never sees extras
-// directly. Any scanner that calls Previous() therefore depends on more than
-// "local lookahead plus the valid-symbol set" and fails obligation 2 above.
-// SwiftExternalScanner (grammars/swift_scanner.go) calls Previous() and
-// compensates by tracking the last resolved token-boundary rune across calls
-// in its own scanner state, but it does not implement
-// StatelessExternalScanner or IncrementalReuseExternalScanner, so it is
-// classified scannerQuiescenceUnknown, not scannerQuiescenceProven. Do not
-// mark a scanner that calls Previous() as stateless.
 // -----------------------------------------------------------------------
 
 // externalScannerQuiescence is the per-boundary classification result.

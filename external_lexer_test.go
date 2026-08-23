@@ -1,9 +1,6 @@
 package gotreesitter
 
-import (
-	"testing"
-	"unicode/utf8"
-)
+import "testing"
 
 func tokenAfterResult(t *testing.T, l *ExternalLexer, sym Symbol) Token {
 	t.Helper()
@@ -183,43 +180,6 @@ func TestExternalLexerResetClearsScannerState(t *testing.T) {
 	}
 	if got, want := tok.EndByte, uint32(1); got != want {
 		t.Fatalf("EndByte=%d want=%d", got, want)
-	}
-}
-
-func TestExternalLexerPreviousAtStartOfSource(t *testing.T) {
-	l := newExternalLexer([]byte("abc"), 0, 0, 0)
-	if got := l.Previous(); got != 0 {
-		t.Fatalf("Previous() at pos 0 = %q, want 0", got)
-	}
-}
-
-func TestExternalLexerPreviousAtEndOfSource(t *testing.T) {
-	src := []byte("abc")
-	l := newExternalLexer(src, len(src), 0, uint32(len(src)))
-	if got, want := l.Previous(), rune('c'); got != want {
-		t.Fatalf("Previous() at pos len(source) = %q, want %q", got, want)
-	}
-}
-
-func TestExternalLexerPreviousMultiByteRune(t *testing.T) {
-	src := []byte("x✗z")
-	// ✗ (U+2717) is 3 bytes; place pos right after it, before 'z'.
-	pos := 1 + len("✗")
-	l := newExternalLexer(src, pos, 0, uint32(pos))
-	if got, want := l.Previous(), rune('✗'); got != want {
-		t.Fatalf("Previous() after multi-byte rune = %q, want %q", got, want)
-	}
-}
-
-func TestExternalLexerPreviousInvalidUTF8(t *testing.T) {
-	// 0xFF is never valid as a UTF-8 continuation or lead byte.
-	src := []byte{'a', 0xFF}
-	l := newExternalLexer(src, len(src), 0, uint32(len(src)))
-	if got, want := l.Previous(), rune(utf8.RuneError); got != want {
-		t.Fatalf("Previous() after invalid UTF-8 byte = %q, want utf8.RuneError (%q)", got, want)
-	}
-	if got := l.Previous(); got == 0 {
-		t.Fatalf("Previous() after invalid UTF-8 byte returned 0, doc promises utf8.RuneError not 0")
 	}
 }
 

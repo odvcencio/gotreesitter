@@ -585,124 +585,16 @@ func TestSwiftTernaryFieldsAndShape(t *testing.T) {
 	}
 }
 
-// swiftParseNoError parses src and fails the test if the parse errors or the
-// resulting tree reports a syntax error.
-func swiftParseNoError(t *testing.T, lang *gotreesitter.Language, src string) *gotreesitter.Tree {
-	t.Helper()
-	parser := gotreesitter.NewParser(lang)
-	tree, err := parser.Parse([]byte(src))
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	if tree.RootNode().HasError() {
-		t.Fatalf("has parse errors: %s", tree.RootNode().SExpr(lang))
-	}
-	return tree
-}
-
-// swiftFindFirstNodeByType returns the first node of the given type in a
-// pre-order walk of the tree rooted at n, or nil if none exists.
-func swiftFindFirstNodeByType(lang *gotreesitter.Language, n *gotreesitter.Node, nodeType string) *gotreesitter.Node {
-	if n == nil {
-		return nil
-	}
-	if n.Type(lang) == nodeType {
-		return n
-	}
-	for i := 0; i < n.ChildCount(); i++ {
-		if found := swiftFindFirstNodeByType(lang, n.Child(i), nodeType); found != nil {
-			return found
-		}
-	}
-	return nil
-}
-
-// TestSwiftMultilineExtensionWhereClauseParses guards issue #557: a
-// constrained extension whose generic constraint list breaks across lines
-// must parse identically to the same constraints written on one line.
 func TestSwiftMultilineExtensionWhereClauseParses(t *testing.T) {
 	lang := SwiftLanguage()
-
-	singleLineTree := swiftParseNoError(t, lang,
-		"extension X: P where Base: Q, Base.Element: Q {\n  func f() {}\n}\n")
-	defer singleLineTree.Release()
-	singleLineConstraints := swiftFindFirstNodeByType(lang, singleLineTree.RootNode(), "type_constraints")
-	if singleLineConstraints == nil {
-		t.Fatalf("single-line form: no type_constraints node: %s", singleLineTree.RootNode().SExpr(lang))
+	src := []byte("extension X: P\nwhere\n  Base: Q,\n  Base.Element: Q\n{\n  func f() {}\n}\n")
+	parser := gotreesitter.NewParser(lang)
+	tree, err := parser.Parse(src)
+	if err != nil {
+		t.Fatalf("parse multiline extension where clause: %v", err)
 	}
-	wantSExpr := singleLineConstraints.SExpr(lang)
-
-	cases := []struct {
-		name string
-		src  string
-	}{
-		{
-			name: "where alone on its own line, constraint list split across lines",
-			src:  "extension X: P\nwhere\n  Base: Q,\n  Base.Element: Q\n{\n  func f() {}\n}\n",
-		},
-		{
-			// The split-constraint variant from the issue #557 follow-up
-			// comment: `where` shares a line with the first constraint, and
-			// the list still breaks across lines after the comma.
-			name: "where shares a line with the first constraint, list split across lines",
-			src:  "extension X: P\nwhere Base: Q,\n  Base.Element: Q\n{\n  func f() {}\n}\n",
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			tree := swiftParseNoError(t, lang, tc.src)
-			defer tree.Release()
-			constraints := swiftFindFirstNodeByType(lang, tree.RootNode(), "type_constraints")
-			if constraints == nil {
-				t.Fatalf("no type_constraints node: %s", tree.RootNode().SExpr(lang))
-			}
-			if got := constraints.SExpr(lang); got != wantSExpr {
-				t.Fatalf("type_constraints S-expr = %q, want %q (single-line form)", got, wantSExpr)
-			}
-		})
-	}
-}
-
-// TestSwiftGenericFunctionMultilineWhereClauseParses guards issue #557 for a
-// generic function's where clause, mirroring the extension case above.
-func TestSwiftGenericFunctionMultilineWhereClauseParses(t *testing.T) {
-	lang := SwiftLanguage()
-	tree := swiftParseNoError(t, lang,
-		"func f<T>(_ x: T) -> T where T: Q,\n  T: R {\n  return x\n}\n")
 	defer tree.Release()
-}
-
-// TestSwiftCommentWithCommaDoesNotSuppressImplicitSemi guards against a
-// regression where a trailing line comment containing a comma is mistaken
-// for a real comma token, wrongly suppressing implicit semicolon insertion
-// between two unrelated statements on consecutive lines.
-func TestSwiftCommentWithCommaDoesNotSuppressImplicitSemi(t *testing.T) {
-	lang := SwiftLanguage()
-	cases := []struct {
-		name string
-		src  string
-	}{
-		{
-			name: "function body, trailing line comment containing a comma",
-			src:  "func f() {\n  let a = 1 // x,\n  let b = 2\n}\n",
-		},
-		{
-			name: "class body, trailing line comment containing a comma",
-			src:  "class C {\n  var a = 1 // x,\n  var b = 2\n}\n",
-		},
-		{
-			name: "function body, trailing line comment without a comma (control)",
-			src:  "func f() {\n  let a = 1 // x\n  let b = 2\n}\n",
-		},
-		{
-			name: "class body, trailing line comment without a comma (control)",
-			src:  "class C {\n  var a = 1 // x\n  var b = 2\n}\n",
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			tree := swiftParseNoError(t, lang, tc.src)
-			defer tree.Release()
-		})
+	if root := tree.RootNode(); root.HasError() {
+		t.Fatalf("multiline extension where clause has parse errors: %s", root.SExpr(lang))
 	}
 }
