@@ -2078,6 +2078,72 @@ The boundary originally moved four files to FALLBACK:
 Focused field-aware C-oracle receipts now certify Bash, Erlang, and JavaScript.
 Those files route directly again. Kotlin remains fail-closed.
 
+## C26y SQL compact checkpoint trace
+
+C26y used base
+`e24ccf5a87bbd7febc21f67f014c2d5301d229d0`.
+
+Restore the pinned source with:
+
+```sh
+bash scripts/seed_real_corpus_from_lock.sh /tmp/gts-c26y-pinned-grammar-20260824 sql
+```
+
+The source used commit
+`587f30d184b058450be2a2330878210c5f33b3f9`.
+
+- `src/grammar.json`: `42f011860137175a5a0cb820d1a694e5ccca1d17f226729ff6a4e886910cde1c`
+- `src/scanner.cc`: `d437ad9f517d7a1f4248ccd05abe58370b5040c0037c877dab1f0aefeaa04af6`
+
+The direct production and locked-C parity artifact is
+`/tmp/gts-c26y-artifacts-prod2/20260823T174027Z-c26y-production-direct-trace`.
+Its log SHA-256 is
+`9db58d347835f6c2fede671ebce47c89c840f8651bed93fb109c6be24ea3cbc5`.
+Its metadata SHA-256 is
+`17b8ca563d6e41000490371aff422500fea4857d9551e9bdffc458e0b9e2b012`.
+
+The direct generated route recorded 13 records, 4 leaves, and 4 snapshots,
+but it returned an error tree. The locked blob returned the correct tree and
+recorded 14 records, 5 leaves, and 5 snapshots. The locked C comparison in
+the same parity suite matched the locked blob tree. The C binding does not
+expose scanner serialization bytes.
+
+The target-symbol wrapper production artifact is
+`/tmp/gts-c26y-artifacts-wrapperprod2/20260823T174239Z-c26y-wrapper-production-trace2`.
+Its log SHA-256 is
+`87658133020bc5232ce5e2b67b12fb61b6d253a39f3af56137894ef937b575a0`.
+Its metadata SHA-256 is
+`5fe266fdab999e4c2b825ff6ed81e54c4503c487a4779595cc567f95b36e0207`.
+The wrapper returned the correct tree. It recorded 14 records, 5 leaves, and
+5 snapshots. Its target symbols differed, but its scanner bytes matched the
+locked blob at every checkpoint boundary.
+
+The successful compact-admission artifact is
+`/tmp/gts-c26y-artifacts-compact2/20260823T174539Z-c26y-compact-wrapper-trace2`.
+Its log SHA-256 is
+`81ff5dee3f401dd15e11b0bc3a6bee5f15e86aed18c8e177c015af5228a7ba09`.
+Its metadata SHA-256 is
+`4a6329873e021ad0db5a4d28c968971e629669a58fee81baccf8d5e0e1314563`.
+The compact scheduler captured the same four current checkpoint pairs:
+
+- `7-9`: `00` to `242400`
+- `9-12`: `242400` to `242400`
+- `12-14`: `242400` to `00`
+- `14-15`: `00` to `00`
+
+The compact tree returned zero records, zero leaves, and zero snapshots. Its
+incremental probe reused zero subtrees and zero bytes. The route therefore
+has a semantic scanner trace but no tree-owned sidecar proof. Do not enable
+checkpointed compact reuse from this trace alone.
+
+The 13/4/4 values are path-specific. They come from the direct generated
+route's failed external-token mapping and error recovery. The invariant for a
+correct SQL route is the four byte-span and serialized-state pairs above,
+plus a complete tree with no error. A future candidate must materialize these
+sidecars, preserve scanner and grammar identity, and prove nonzero reuse.
+Keep issue #576 open. Do not require the path-specific 13/4/4 receipt for a
+semantically correct route.
+
 ## Corpus state
 
 The current manifest has these properties:
