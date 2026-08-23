@@ -10,6 +10,124 @@ published receipt.
 This is measurement infrastructure only. It changes no parser code, no
 routing, and no shipped behavior.
 
+## 2026-08-23 P25k-P25q incremental and source-hotspot blocker
+
+Status: **KEEP ISSUE #454 LIVE / NO-GO**. Ship no code.
+
+The publication base is main commit
+`09cb5faa41af35a6bc84fefccbab1a17850d38cc`. P25k through P25q used this
+same clean base. Every investigation worktree remained code-clean.
+
+### P25k fresh profile and remaining source hotspots
+
+P25k collected a quiet Docker profile for the authenticated Go
+`grammargen_lr` workload. The container used one central processing unit
+(CPU), four GiB of memory, `GOMEMLIMIT=3GiB`, `GOMAXPROCS=1`, and
+`GOFLAGS=-p=1`. The three-second benchmark reported `96,500,616 ns/op`,
+`8,630 B/op`, and `123 allocs/op` over 32 iterations.
+
+The profile ranked source-owned work outside the exhausted copy, dispatch,
+token-source, lexer, generalized LR (GLR) ranking, checkpoint, and
+graph-structured stack (GSS) hash lanes:
+
+| Function | Flat time | Cumulative time | Result |
+|---|---:|---:|---|
+| `VisitMaterializationPostorderWithScratch` | `110 ms` | `370 ms` | Required traversal |
+| `reduceOutputsClassifiedIntoActive` | `110 ms` | `880 ms` | Required reduction and condensation |
+| `appendSubtreeRecord` | `100 ms` | `140 ms` | Required provenance append |
+| `lookupActionIndexSmall` | `70 ms` | — | State and symbol dependent |
+| `applyGenericShiftsOwned` | `60 ms` | `540 ms` | Required authenticated shift |
+| `condenseDirectAppend` | `50 ms` | `180 ms` | Required graph publication |
+| `persistHeaderLineageOwned` | `40 ms` | `290 ms` | Already skips clean state |
+| `appendNodeAt` | `40 ms` | `120 ms` | Required graph validation |
+| `popPaths` | `10 ms` | `130 ms` | Required ambiguous traversal |
+
+Canopy and source review found no duplicate operation with a generic
+invariant. The profile and symbol binary are:
+
+- CPU profile: `/tmp/gts-p25k-investigation/harness_out/p25k-profile/grammargen_lr.cpu.pprof`, SHA-256 `45b04d62b726bb9683eca458fade8c238cb18ff8b0f8f098e8d3823d46b8b1ef`.
+- Allocation profile: `/tmp/gts-p25k-investigation/harness_out/p25k-profile/grammargen_lr.alloc.pprof`, SHA-256 `9148278e831f4b48c801bbdb206e83ee46d3b310f1cc61ebe28a55733ac07bb9`.
+- Test binary: `/tmp/gts-p25k-investigation/harness_out/p25k-profile/gotreesitter.test`, SHA-256 `f92306de048603a8029efbf7603d9429b3f1da62b97a45be98394694d9bb0405`.
+- Docker metadata: `/tmp/gts-p25k-investigation/harness_out/docker/20260823T091826Z-p25k-fresh-profile/metadata.txt`, SHA-256 `f0b8e34630730b6ab896977908d8a846d9df29e4fa9035e4917112a17837fb30`.
+
+### P25l through P25p source attribution
+
+P25l traced `dispatchPassActive` and `elect`. Canopy mapped their callers,
+state ownership, rollback points, and parity-sensitive operations. No
+provably duplicate lookup or operation remained.
+
+P25m traced the `tokenSource.Next` cost. The existing profile placed about
+`460 ms` of flat time in that function. Checkpoint and scanner sites each
+used about `20` to `40 ms`. The trace found no safe serialization or lookup
+to remove.
+
+P25n separated the lexer and GLR token paths. `Lexer.scan` used about
+`110 ms` flat time. `scanPreferredTokenForState` used about `90 ms` flat
+time. Rune decoding, table access, state restoration, and candidate ranking
+remain semantics-sensitive. No generic redundant operation was proven.
+
+P25o attempted dynamic branch evidence. Docker installed `perf`, but the
+kernel rejected branch events with `No permission to enable branches event`.
+The permission context reported `perf_event_paranoid=2`. The blocker
+artifacts are:
+
+- Install probe: `/tmp/gts-p25o-investigation/harness_out/docker/20260823T093535Z-p25o-perf-install-probe`, metadata SHA-256 `b75d25658cb815a64385b20c478d69a865efaaefb8088cec9c15fa8b55aad`.
+- Permission probe: `/tmp/gts-p25o-investigation/harness_out/docker/20260823T093722Z-p25o-perf-permission-context`, metadata SHA-256 `3c857661b771725fd1d1a442b729b706d15016074f01223457ebea4679f08669`.
+
+P25p reused the P25k profile to rank the remaining source-owned functions.
+It found no exact redundant operation and created no code or new benchmark
+artifact. P25l through P25p did not run correctness or parity gates because
+no candidate passed the proof boundary.
+
+### P25q incremental attribution
+
+P25q collected separate edit and no-edit profiles with one CPU,
+`GOMAXPROCS=1`, `GOFLAGS=-p=1`, `-count=1`, `-benchmem`, and two-second
+Docker runs. Both runs passed without an out-of-memory event or timeout.
+
+The edit benchmark reported `791.5 ns/op`, `0 B/op`, and `0 allocs/op`.
+The edit profile placed `Tree.Edit` at `8.51%` flat and `16.41%`
+cumulative CPU. `tryTokenInvariantLeafEdit` used `43.47%` cumulative CPU,
+and `parseIncrementalChanged` used `58.36%` cumulative CPU. The edit
+telemetry reported `88.8 ns` in `Tree.Edit`, `420.0 ns` in reuse, and zero
+reparse or rebuild time per iteration. It reused one subtree and 19,294
+bytes. It created no new nodes and performed no recovery work.
+
+The no-edit benchmark reported `2.625 ns/op`, `0 B/op`, and `0 allocs/op`.
+It is a same-source identity path, not a reparse workload. Its profile placed
+`checkLanguageCompatible` at `16.91%` flat CPU,
+`ensureResultCompatibility` at `10.79%`, and
+`canReuseUnchangedTree` at `9.35%`. Compatibility caching is unsafe without
+an immutable-language invariant and the existing telemetry reset.
+
+P25q artifacts are:
+
+- Edit CPU profile: `/tmp/gts-p25q-investigation/harness_out/p25q-edit/edit.cpu.pprof`, SHA-256 `a47c9c712b29e639c0a965ae239ca9f9977742b9f883429e1de6cd8d8bd88141`.
+- Edit allocation profile: `/tmp/gts-p25q-investigation/harness_out/p25q-edit/edit.alloc.pprof`, SHA-256 `b85eba69409d1e24003967ee94a3d2d7760c75c9c4086662405578e8b4951492`.
+- No-edit CPU profile: `/tmp/gts-p25q-investigation/harness_out/p25q-noedit/noedit.cpu.pprof`, SHA-256 `e9d53a47367b877ec5126425e75dfae4d7f8e67ded76494d636c2b88586ccbb7`.
+- No-edit allocation profile: `/tmp/gts-p25q-investigation/harness_out/p25q-noedit/noedit.alloc.pprof`, SHA-256 `a671e53fad75cc7d47a022b8f86e4606d051d0872261006526bace67e949aca9`.
+- Edit metadata: `/tmp/gts-p25q-investigation/harness_out/docker/20260823T094337Z-p25q-incremental-edit-profile-final/metadata.txt`, SHA-256 `cd5607f50c9fa887d90f1484d76b319bac200039a2afc4058771fb20be65fd80`.
+- No-edit metadata: `/tmp/gts-p25q-investigation/harness_out/docker/20260823T094349Z-p25q-incremental-noedit-profile-final/metadata.txt`, SHA-256 `1907b4a2563a77a5c799643ef5785f2e70428403688c74544141802043ee8afd`.
+- Edit telemetry metadata: `/tmp/gts-p25q-investigation/harness_out/docker/20260823T094511Z-p25q-incremental-edit-stats/metadata.txt`, SHA-256 `871f72defab4f08178c6bad5d93f9879ed290e5ebc98572cbf2c07dfb7943ade`.
+
+### Decision and reopening condition
+
+Reject every P25k through P25q candidate or speculative lever. No production
+or test change survives. Keep issue #454 open. Do not publish a 20-seed
+campaign because no candidate passed correctness and performance screening.
+
+The Docker profile runs are performance evidence only. They do not replace
+focused correctness tests or locked-C parity. Run those gates before any
+future candidate benchmark.
+
+Reopen this lane only when an authenticated incremental workload forces actual
+reparse or rebuild work, and a fresh profile identifies one bounded operation.
+Prove fresh and incremental equality, one-language locked-C parity, recovery,
+field and raw-shape behavior, and memory safety. Then run six-seed screens.
+Run the 20-seed primary and authenticated GLR campaigns only after a
+significant target win with neutral bytes, allocations, maximum resident set
+size (RSS), and work counters.
+
 ## 2026-08-23 P25h-P25j parser-core dispatch copy blocker
 
 Status: **KEEP ISSUE #454 LIVE / NO-GO**. Ship no code.
