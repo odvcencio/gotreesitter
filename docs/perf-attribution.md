@@ -10,6 +10,111 @@ published receipt.
 This is measurement infrastructure only. It changes no parser code, no
 routing, and no shipped behavior.
 
+## 2026-08-23 P25aw Swift incremental capacity witness
+
+Status: **NO-GO / NO WITNESS**. Keep the Swift external scanner reuse gate
+closed. Do not change `nodeArena.ensureNodeCapacity` for Swift.
+
+P25aw used clean base commit
+`af9ded2b77b7828b12b1d2da7c9fff8dd5ca053b`. The route test manifest is
+`testdata/swift_ternary_retirement_cases_v1.json`. Its SHA-256 is
+`49f57837686d0ea7e070cd08e14ab05dc1b7c128a540ae5aa6c155435a6e18e9`.
+The authenticated Swift corpus manifest is
+`grammars/testdata/swift_corpus/MANIFEST.md`. Its SHA-256 is
+`1a48d83c37f3596fecb53ec34e277aa62d1e41d36749db8b97a0468a31e2a4ec`.
+The corpus pins Swift 6.3 and Swift Algorithms 1.2.1 sources.
+
+Each case parsed an old source, applied one final-newline edit, and called
+`ParseIncrementalProfiled` with that edited old tree. The probe covered four
+large pinned Swift files.
+
+| File | Old bytes | New bytes | Reuse status | Reused subtrees | Reused bytes |
+| --- | ---: | ---: | --- | ---: | ---: |
+| `stdlib_Collection.swift` | 66,940 | 66,941 | unsupported: external scanner | 0 | 0 |
+| `stdlib_CollectionAlgorithms.swift` | 24,055 | 24,056 | unsupported: external scanner | 0 | 0 |
+| `stdlib_FloatingPointToString.swift` | 104,680 | 104,681 | unsupported: external scanner | 0 | 0 |
+| `stdlib_Optional.swift` | 33,866 | 33,867 | unsupported: external scanner | 0 | 0 |
+
+All four cases reported `OldTreeReuseRoute=false`. All four cases reported
+`ReuseUnsupported=true` and `ReuseUnsupportedReason=external_scanner_unsupported`.
+All four cases reported `valid_witness=false`. The edited roots had errors.
+
+The Swift scanner type has no `SupportsIncrementalReuse` method. The parser
+therefore refuses incremental reuse with reason `external_scanner_unsupported`.
+`parseIncrementalInternal` calls `incrementalTokenSourceFreshFullParse` after
+this refusal. That helper selects `arenaClassFull`, which uses
+`ensureExactNodeCapacity`. It does not set `Tree.incrementalReuseDisabled` or
+call `Parse`.
+
+The route proof gives zero calls to the hotspot. The four cases made zero
+reuse progress. They are route controls, not allocator witnesses. The existing
+16-case Swift ternary test also passed its route classification check.
+
+The P25aw gate requires a valid old-tree edit, nonzero reuse, and nonzero
+`ensureNodeCapacity` calls. No case met these requirements. Do not run a
+six-seed screen, the required 20-seed campaign, or a maximum resident set
+size (RSS) campaign. No sizing candidate was tested.
+
+Source identities are:
+
+- Swift scanner: `219941b1ff0bcb0defa9e475075d13cf929a2554acd0d19a5e76cacdd8f97147`.
+- Route test manifest (`testdata/swift_ternary_retirement_cases_v1.json`): `49f57837686d0ea7e070cd08e14ab05dc1b7c128a540ae5aa6c155435a6e18e9`.
+- Swift corpus manifest (`grammars/testdata/swift_corpus/MANIFEST.md`): `1a48d83c37f3596fecb53ec34e277aa62d1e41d36749db8b97a0468a31e2a4ec`.
+- `stdlib_Collection.swift`: `7ccfed56194d956b47724c935ea3a6e1abcdddbfa23f440a9c19a3e5eab03c6c`.
+- `stdlib_CollectionAlgorithms.swift`: `1aae0051b0bfb50e17c7ac94961ee7cab7332367dcc16e827d2482be7a2dc5a1`.
+- `stdlib_FloatingPointToString.swift`: `ec96801e5237dff8da773f617a8a2f36e95b6a0a7c94b581855a451cd6507fdc`.
+- `stdlib_Optional.swift`: `06e7d03986b079ced51e8f918c2ef63ecb1f1e33b1dfb20744ea61aa6e699eb6`.
+
+The focused Docker receipts are:
+
+- Existing Swift ternary route test: `/tmp/gts-p25aw-artifacts-aw/20260823T204343Z-swift-existing-ternary/container.log`, SHA-256 `909f0cd5e8a00c9a8df7503b3564ae2d5dff386e849b144aa8333a4c60a44054`.
+- Existing test metadata: `/tmp/gts-p25aw-artifacts-aw/20260823T204343Z-swift-existing-ternary/metadata.txt`, SHA-256 `66db6fb229833632eed5ee18164dcafaadf40b30a82a0f480084c12ed20cd11a`.
+- Four-file probe: `/tmp/gts-p25aw-artifacts-aw/20260823T204617Z-swift-incremental-probe/container.log`, SHA-256 `169a82520d75631081eb02d5351772591e72afe3e364d63f525279f8a59711d1`.
+- Probe metadata: `/tmp/gts-p25aw-artifacts-aw/20260823T204617Z-swift-incremental-probe/metadata.txt`, SHA-256 `b5ae4abbf8385e2883668d33726cf97fe6ba9553314c1bd011d0679c2c80d42c`.
+- Probe inspection: `/tmp/gts-p25aw-artifacts-aw/20260823T204617Z-swift-incremental-probe/inspect.json`, SHA-256 `a6a6e7667d0a042709eea653d2b341df84a0a8811909806a8ba145721fbc738`.
+
+P25aw used these structural commands:
+
+```text
+scripts/canopy_query.sh search symbols cgo_harness --name 'Swift|swift|Incremental|incremental|Reuse|reuse|Edit|edit' --limit 200 --json
+scripts/canopy_query.sh search refs ParseIncrementalProfiled cgo_harness --limit 200 --json
+scripts/canopy_query.sh search refs ParseIncremental cgo_harness --limit 300 --json
+scripts/canopy_query.sh search refs SupportsIncrementalReuse grammars --limit 200 --json
+canopy search refs SupportsIncrementalReuse grammars/swift_scanner.go --no-cache --limit 20 --json
+canopy search symbols parser.go --name 'incrementalTokenSourceFreshFullParse|parseIncrementalInternal' --no-cache --limit 20 --json
+canopy search refs incrementalTokenSourceFreshFullParse parser.go --no-cache --limit 20 --json
+canopy search refs ensureExactNodeCapacity parser.go --no-cache --limit 20 --json
+canopy search refs ensureNodeCapacity parser.go --no-cache --limit 20 --json
+```
+
+The correctness commands were:
+
+```text
+bash cgo_harness/docker/run_parity_in_docker.sh --repo-root /tmp/gts-p25aw-swift-capacity-20260823 --out-root /tmp/gts-p25aw-artifacts-aw --label swift-existing-ternary --no-build --memory 8g --cpus 1 --goflags '-p=1' --test-parallel 1 --timeout 30m -- "cd /workspace && GOMAXPROCS=1 go test ./grammars -run '^TestSwiftTernaryRetirementRoutes$' -count=1 -parallel 1 -timeout 20m -v"
+bash cgo_harness/docker/run_parity_in_docker.sh --repo-root /tmp/gts-p25aw-swift-capacity-20260823 --out-root /tmp/gts-p25aw-artifacts-aw --label swift-incremental-probe --no-build --memory 8g --cpus 1 --goflags '-p=1' --test-parallel 1 --timeout 30m -- "cd /workspace && GOMAXPROCS=1 go test . -run '^TestP25awSwiftIncrementalProbe$' -count=1 -parallel 1 -timeout 20m -v"
+```
+
+The document checks were:
+
+```text
+mdpp parse --json docs/perf-attribution.md
+mdpp lint --json docs/perf-attribution.md
+mdpp fmt --check docs/perf-attribution.md
+mdpp parse --json CHANGELOG.md
+mdpp lint --json CHANGELOG.md
+mdpp fmt --check CHANGELOG.md
+git diff --check
+```
+
+Both parse checks passed. Lint and format checks returned the same existing
+baseline warnings and formatting status. The final diff check passed.
+
+The temporary probe and test file were removed. No parser or test change
+remains. No benchmark or RSS artifact exists because no valid witness exists.
+
+Reopen P25aw only after the Swift scanner certifies incremental reuse, an old
+tree edit reports nonzero reuse, and the parser preserves parity.
+
 ## 2026-08-23 P25at `nodeArena.ensureNodeCapacity` screen
 
 Status: **NO-GO / REVERTED**. Keep the geometric growth loop in

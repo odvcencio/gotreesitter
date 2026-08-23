@@ -9,6 +9,14 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Recorded P25aw at merged main commit
+  `af9ded2b77b7828b12b1d2da7c9fff8dd5ca053b`. Four authenticated Swift corpus
+  edits used old trees and one final-newline edit. Every profile reported
+  `external_scanner_unsupported`, zero reused subtrees, zero reused bytes, and
+  no incremental arena route. The result is **NO-GO / NO WITNESS**. No
+  six-seed, 20-seed, or maximum resident set size (RSS) run was justified.
+  See `docs/perf-attribution.md` for exact commands, identities, and artifacts.
+
 - Recorded P25at at publication base `b65a9c235915edc3198851cf07b0257e3caed6d6`.
   Measurements used `3c2a2106102769bab891047174dbcfec15045e74`; relevant
   source files are unchanged between these bases.
