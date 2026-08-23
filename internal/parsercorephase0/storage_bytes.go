@@ -6,21 +6,24 @@ import "unsafe"
 // once from each record type's real in-memory layout so StorageBytes stays
 // authoritative if a record ever gains or loses a field.
 var (
-	coreNodeRecordBytes                 = uint64(unsafe.Sizeof(nodeRecord{}))
-	coreLinkRecordBytes                 = uint64(unsafe.Sizeof(linkRecord{}))
-	coreSubtreeRecordBytes              = uint64(unsafe.Sizeof(subtreeRecord{}))
-	coreChildRecordBytes                = uint64(unsafe.Sizeof(SubtreeID(0)))
-	coreFieldRecordBytes                = uint64(unsafe.Sizeof(FieldMapEntry{}))
-	coreAliasRecordBytes                = uint64(unsafe.Sizeof(Symbol(0)))
-	coreDropCohortActionBytes           = uint64(unsafe.Sizeof(DropCohortActionIdentity{}))
-	coreDropCohortRecordBytes           = uint64(unsafe.Sizeof(dropCohortRecord{}))
-	coreDropCohortMemberBytes           = uint64(unsafe.Sizeof(dropCohortMember{}))
-	coreDropCohortDerivationRecordBytes = uint64(unsafe.Sizeof(dropCohortDerivationRecord{}))
-	coreDropCohortDerivationInternBytes = uint64(unsafe.Sizeof(dropCohortDerivationInternEntry{}))
-	coreDropCohortMutationBytes         = uint64(unsafe.Sizeof(dropCohortMutation{}))
-	coreDropCohortMapEntryBytes         = uint64(unsafe.Sizeof(dropCohortMapEntry{}))
-	coreDropCohortJournalStoreBytes     = uint64(unsafe.Sizeof(dropCohortJournalStoreEntry{}))
-	coreDropCohortReservationBytes      = uint64(unsafe.Sizeof(dropCohortReservation{}))
+	coreNodeRecordBytes                    = uint64(unsafe.Sizeof(nodeRecord{}))
+	coreLinkRecordBytes                    = uint64(unsafe.Sizeof(linkRecord{}))
+	coreSubtreeRecordBytes                 = uint64(unsafe.Sizeof(subtreeRecord{}))
+	coreChildRecordBytes                   = uint64(unsafe.Sizeof(SubtreeID(0)))
+	coreFieldRecordBytes                   = uint64(unsafe.Sizeof(FieldMapEntry{}))
+	coreAliasRecordBytes                   = uint64(unsafe.Sizeof(Symbol(0)))
+	coreDropCohortActionBytes              = uint64(unsafe.Sizeof(DropCohortActionIdentity{}))
+	coreDropCohortRecordBytes              = uint64(unsafe.Sizeof(dropCohortRecord{}))
+	coreDropCohortMemberBytes              = uint64(unsafe.Sizeof(dropCohortMember{}))
+	coreDropCohortDerivationRecordBytes    = uint64(unsafe.Sizeof(dropCohortDerivationRecord{}))
+	coreDropCohortDerivationInternBytes    = uint64(unsafe.Sizeof(dropCohortDerivationInternEntry{}))
+	coreDropCohortMutationBytes            = uint64(unsafe.Sizeof(dropCohortMutation{}))
+	coreDropCohortMapEntryBytes            = uint64(unsafe.Sizeof(dropCohortMapEntry{}))
+	coreDropCohortJournalStoreBytes        = uint64(unsafe.Sizeof(dropCohortJournalStoreEntry{}))
+	coreDropCohortReservationBytes         = uint64(unsafe.Sizeof(dropCohortReservation{}))
+	coreDropCohortFrontierRecordBytes      = uint64(unsafe.Sizeof(dropCohortFrontierRecord{}))
+	coreDropCohortFrontierParticipantBytes = uint64(unsafe.Sizeof(dropCohortFrontierParticipant{}))
+	coreDropCohortFrontierMemberBytes      = uint64(unsafe.Sizeof(dropCohortFrontierMember{}))
 )
 
 // StorageBytes returns a cheap, deterministic, O(1) estimate of the compact
@@ -70,6 +73,9 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.dropCohortCertificateRefs))*coreDropCohortRefBytes +
 		uint64(len(c.dropCohortMapStore))*coreDropCohortMapEntryBytes +
 		uint64(len(c.dropCohortJournalStore))*coreDropCohortJournalStoreBytes +
+		uint64(len(c.dropCohortFrontiers))*coreDropCohortFrontierRecordBytes +
+		uint64(len(c.dropCohortFrontierParticipants))*coreDropCohortFrontierParticipantBytes +
+		uint64(len(c.dropCohortFrontierMembers))*coreDropCohortFrontierMemberBytes +
 		uint64(len(c.dropCohortReservations))*coreDropCohortReservationBytes +
 		uint64(len(c.dropCohortJournal))*coreDropCohortMutationBytes
 }
@@ -158,6 +164,9 @@ func (c *Core) FootprintBytes() uint64 {
 	total += uint64(cap(c.dropCohortCertificateRefs)) * coreDropCohortRefBytes
 	total += uint64(cap(c.dropCohortMapStore)) * coreDropCohortMapEntryBytes
 	total += uint64(cap(c.dropCohortJournalStore)) * coreDropCohortJournalStoreBytes
+	total += uint64(cap(c.dropCohortFrontiers)) * coreDropCohortFrontierRecordBytes
+	total += uint64(cap(c.dropCohortFrontierParticipants)) * coreDropCohortFrontierParticipantBytes
+	total += uint64(cap(c.dropCohortFrontierMembers)) * coreDropCohortFrontierMemberBytes
 	total += uint64(cap(c.dropCohortReservations)) * coreDropCohortReservationBytes
 	// A durable reservation is a committed memory budget even before its
 	// backing store is filled. Include it in the containment gauge so nested
@@ -303,6 +312,9 @@ func (c *Core) releaseRecordArenaReserve() {
 	c.dropCohortCertificateRefs = nil
 	c.dropCohortMapStore = nil
 	c.dropCohortJournalStore = nil
+	c.dropCohortFrontiers = nil
+	c.dropCohortFrontierParticipants = nil
+	c.dropCohortFrontierMembers = nil
 	c.dropCohortDerivationScratch = nil
 	c.dropCohortPathScratch = nil
 	c.dropCohortJournal = nil
@@ -334,6 +346,9 @@ func (c *Core) releaseOversizedRetention() {
 	c.dropCohortCertificateRefs = nil
 	c.dropCohortMapStore = nil
 	c.dropCohortJournalStore = nil
+	c.dropCohortFrontiers = nil
+	c.dropCohortFrontierParticipants = nil
+	c.dropCohortFrontierMembers = nil
 	c.dropCohortDerivationScratch = nil
 	c.dropCohortPathScratch = nil
 	c.dropCohortJournal = nil

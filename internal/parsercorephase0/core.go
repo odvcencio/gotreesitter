@@ -928,6 +928,9 @@ type Core struct {
 	dropCohortCertificateRefs      []DropCohortRef
 	dropCohortMapStore             []dropCohortMapEntry
 	dropCohortJournalStore         []dropCohortJournalStoreEntry
+	dropCohortFrontiers            []dropCohortFrontierRecord
+	dropCohortFrontierParticipants []dropCohortFrontierParticipant
+	dropCohortFrontierMembers      []dropCohortFrontierMember
 	dropCohortDerivationScratch    []byte
 	dropCohortPathScratch          []dropCohortPathStep
 	dropCohortEphemeralBytes       uint64
@@ -936,6 +939,7 @@ type Core struct {
 	dropCohortOwner                uint64
 	dropCohortEpoch                uint64
 	dropCohortNextSequence         uint64
+	dropCohortFrontierNextSequence uint64
 	dropCohortProducerWrites       [dropCohortProducerCount]uint64
 	dropCohortAuthenticatedHistory uint64
 	dropCohortUnprovedHistory      uint64
@@ -1082,9 +1086,13 @@ type checkpoint struct {
 	dropCohortCertificateRefs                                                 int
 	dropCohortMapStore                                                        int
 	dropCohortJournalStore                                                    int
+	dropCohortFrontiers                                                       int
+	dropCohortFrontierParticipants                                            int
+	dropCohortFrontierMembers                                                 int
 	dropCohortEphemeralBytes                                                  uint64
 	dropCohortJournal                                                         int
 	dropCohortNextSequence                                                    uint64
+	dropCohortFrontierNextSequence                                            uint64
 	dropCohortProducerWrites                                                  [dropCohortProducerCount]uint64
 	dropCohortAuthenticatedHistory                                            uint64
 	dropCohortUnprovedHistory                                                 uint64
@@ -1124,6 +1132,9 @@ type checkpoint struct {
 	dropCohortCertificateRefsHeader                                           []DropCohortRef
 	dropCohortMapStoreHeader                                                  []dropCohortMapEntry
 	dropCohortJournalStoreHeader                                              []dropCohortJournalStoreEntry
+	dropCohortFrontiersHeader                                                 []dropCohortFrontierRecord
+	dropCohortFrontierParticipantsHeader                                      []dropCohortFrontierParticipant
+	dropCohortFrontierMembersHeader                                           []dropCohortFrontierMember
 	dropCohortJournalHeader                                                   []dropCohortMutation
 	dropCohortReservationsHeader                                              []dropCohortReservation
 	transaction                                                               uint64
@@ -1171,65 +1182,72 @@ func (c *Core) markInto(mark *checkpoint) {
 		externalProvenance: len(c.externalProvenance),
 		children:           len(c.children), fields: len(c.fields), aliases: len(c.aliases),
 		frontier: c.frontier, checkpoint: c.checkpoint,
-		boundaryIndex:                    c.boundaries.snapshot(),
-		journal:                          len(c.boundaryJournal),
-		nodeLineageJournal:               len(c.nodeLineageJournal),
-		dropCohortRefSpill:               len(c.dropCohortRefSpill),
-		dropCohortActions:                len(c.dropCohortActions),
-		dropCohortRecords:                len(c.dropCohortRecords),
-		dropCohortMembers:                len(c.dropCohortMembers),
-		dropCohortDerivations:            len(c.dropCohortDerivations),
-		dropCohortDerivationIntern:       len(c.dropCohortDerivationIntern),
-		dropCohortDerivationBytes:        len(c.dropCohortDerivationBytes),
-		dropCohortCertificateRefs:        len(c.dropCohortCertificateRefs),
-		dropCohortMapStore:               len(c.dropCohortMapStore),
-		dropCohortJournalStore:           len(c.dropCohortJournalStore),
-		dropCohortEphemeralBytes:         c.dropCohortEphemeralBytes,
-		dropCohortJournal:                len(c.dropCohortJournal),
-		dropCohortNextSequence:           c.dropCohortNextSequence,
-		dropCohortProducerWrites:         c.dropCohortProducerWrites,
-		dropCohortAuthenticatedHistory:   c.dropCohortAuthenticatedHistory,
-		dropCohortUnprovedHistory:        c.dropCohortUnprovedHistory,
-		dropCohortOwnerCheckedLookups:    c.dropCohortOwnerCheckedLookups,
-		dropCohortVerifierElections:      c.dropCohortVerifierElections,
-		dropCohortVerifierProofs:         c.dropCohortVerifierProofs,
-		dropCohortVerifierDeclines:       c.dropCohortVerifierDeclines,
-		dropCohortActionDeclines:         c.dropCohortActionDeclines,
-		dropCohortDerivationDeclines:     c.dropCohortDerivationDeclines,
-		dropCohortDeclineReasons:         c.dropCohortDeclineReasons,
-		dropCohortInlineReads:            c.dropCohortInlineReads,
-		dropCohortSpillReads:             c.dropCohortSpillReads,
-		dropCohortMapReads:               c.dropCohortMapReads,
-		dropCohortInternerReads:          c.dropCohortInternerReads,
-		dropCohortReservations:           len(c.dropCohortReservations),
-		dropCohortReserved:               c.dropCohortReserved,
-		dropCohortReservedBytes:          c.dropCohortReservedBytes,
-		dropCohortRefSpillCap:            cap(c.dropCohortRefSpill),
-		dropCohortActionsCap:             cap(c.dropCohortActions),
-		dropCohortRecordsCap:             cap(c.dropCohortRecords),
-		dropCohortMembersCap:             cap(c.dropCohortMembers),
-		dropCohortDerivationsCap:         cap(c.dropCohortDerivations),
-		dropCohortDerivationInternCap:    cap(c.dropCohortDerivationIntern),
-		dropCohortDerivationBytesCap:     cap(c.dropCohortDerivationBytes),
-		dropCohortCertificateRefsCap:     cap(c.dropCohortCertificateRefs),
-		dropCohortMapStoreCap:            cap(c.dropCohortMapStore),
-		dropCohortJournalStoreCap:        cap(c.dropCohortJournalStore),
-		dropCohortJournalCap:             cap(c.dropCohortJournal),
-		dropCohortReservationsCap:        cap(c.dropCohortReservations),
-		dropCohortRefSpillHeader:         c.dropCohortRefSpill,
-		dropCohortActionsHeader:          c.dropCohortActions,
-		dropCohortRecordsHeader:          c.dropCohortRecords,
-		dropCohortMembersHeader:          c.dropCohortMembers,
-		dropCohortDerivationsHeader:      c.dropCohortDerivations,
-		dropCohortDerivationInternHeader: c.dropCohortDerivationIntern,
-		dropCohortDerivationBytesHeader:  c.dropCohortDerivationBytes,
-		dropCohortCertificateRefsHeader:  c.dropCohortCertificateRefs,
-		dropCohortMapStoreHeader:         c.dropCohortMapStore,
-		dropCohortJournalStoreHeader:     c.dropCohortJournalStore,
-		dropCohortJournalHeader:          c.dropCohortJournal,
-		dropCohortReservationsHeader:     c.dropCohortReservations,
-		transaction:                      c.nextTransaction,
-		work:                             c.work,
+		boundaryIndex:                        c.boundaries.snapshot(),
+		journal:                              len(c.boundaryJournal),
+		nodeLineageJournal:                   len(c.nodeLineageJournal),
+		dropCohortRefSpill:                   len(c.dropCohortRefSpill),
+		dropCohortActions:                    len(c.dropCohortActions),
+		dropCohortRecords:                    len(c.dropCohortRecords),
+		dropCohortMembers:                    len(c.dropCohortMembers),
+		dropCohortDerivations:                len(c.dropCohortDerivations),
+		dropCohortDerivationIntern:           len(c.dropCohortDerivationIntern),
+		dropCohortDerivationBytes:            len(c.dropCohortDerivationBytes),
+		dropCohortCertificateRefs:            len(c.dropCohortCertificateRefs),
+		dropCohortMapStore:                   len(c.dropCohortMapStore),
+		dropCohortJournalStore:               len(c.dropCohortJournalStore),
+		dropCohortFrontiers:                  len(c.dropCohortFrontiers),
+		dropCohortFrontierParticipants:       len(c.dropCohortFrontierParticipants),
+		dropCohortFrontierMembers:            len(c.dropCohortFrontierMembers),
+		dropCohortEphemeralBytes:             c.dropCohortEphemeralBytes,
+		dropCohortJournal:                    len(c.dropCohortJournal),
+		dropCohortNextSequence:               c.dropCohortNextSequence,
+		dropCohortFrontierNextSequence:       c.dropCohortFrontierNextSequence,
+		dropCohortProducerWrites:             c.dropCohortProducerWrites,
+		dropCohortAuthenticatedHistory:       c.dropCohortAuthenticatedHistory,
+		dropCohortUnprovedHistory:            c.dropCohortUnprovedHistory,
+		dropCohortOwnerCheckedLookups:        c.dropCohortOwnerCheckedLookups,
+		dropCohortVerifierElections:          c.dropCohortVerifierElections,
+		dropCohortVerifierProofs:             c.dropCohortVerifierProofs,
+		dropCohortVerifierDeclines:           c.dropCohortVerifierDeclines,
+		dropCohortActionDeclines:             c.dropCohortActionDeclines,
+		dropCohortDerivationDeclines:         c.dropCohortDerivationDeclines,
+		dropCohortDeclineReasons:             c.dropCohortDeclineReasons,
+		dropCohortInlineReads:                c.dropCohortInlineReads,
+		dropCohortSpillReads:                 c.dropCohortSpillReads,
+		dropCohortMapReads:                   c.dropCohortMapReads,
+		dropCohortInternerReads:              c.dropCohortInternerReads,
+		dropCohortReservations:               len(c.dropCohortReservations),
+		dropCohortReserved:                   c.dropCohortReserved,
+		dropCohortReservedBytes:              c.dropCohortReservedBytes,
+		dropCohortRefSpillCap:                cap(c.dropCohortRefSpill),
+		dropCohortActionsCap:                 cap(c.dropCohortActions),
+		dropCohortRecordsCap:                 cap(c.dropCohortRecords),
+		dropCohortMembersCap:                 cap(c.dropCohortMembers),
+		dropCohortDerivationsCap:             cap(c.dropCohortDerivations),
+		dropCohortDerivationInternCap:        cap(c.dropCohortDerivationIntern),
+		dropCohortDerivationBytesCap:         cap(c.dropCohortDerivationBytes),
+		dropCohortCertificateRefsCap:         cap(c.dropCohortCertificateRefs),
+		dropCohortMapStoreCap:                cap(c.dropCohortMapStore),
+		dropCohortJournalStoreCap:            cap(c.dropCohortJournalStore),
+		dropCohortJournalCap:                 cap(c.dropCohortJournal),
+		dropCohortReservationsCap:            cap(c.dropCohortReservations),
+		dropCohortRefSpillHeader:             c.dropCohortRefSpill,
+		dropCohortActionsHeader:              c.dropCohortActions,
+		dropCohortRecordsHeader:              c.dropCohortRecords,
+		dropCohortMembersHeader:              c.dropCohortMembers,
+		dropCohortDerivationsHeader:          c.dropCohortDerivations,
+		dropCohortDerivationInternHeader:     c.dropCohortDerivationIntern,
+		dropCohortDerivationBytesHeader:      c.dropCohortDerivationBytes,
+		dropCohortCertificateRefsHeader:      c.dropCohortCertificateRefs,
+		dropCohortMapStoreHeader:             c.dropCohortMapStore,
+		dropCohortJournalStoreHeader:         c.dropCohortJournalStore,
+		dropCohortFrontiersHeader:            c.dropCohortFrontiers,
+		dropCohortFrontierParticipantsHeader: c.dropCohortFrontierParticipants,
+		dropCohortFrontierMembersHeader:      c.dropCohortFrontierMembers,
+		dropCohortJournalHeader:              c.dropCohortJournal,
+		dropCohortReservationsHeader:         c.dropCohortReservations,
+		transaction:                          c.nextTransaction,
+		work:                                 c.work,
 	}
 	c.transactions = append(c.transactions, mark.transaction)
 	parent := uint64(0)
@@ -1304,11 +1322,15 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.dropCohortCertificateRefs = mark.dropCohortCertificateRefsHeader
 	c.dropCohortMapStore = mark.dropCohortMapStoreHeader
 	c.dropCohortJournalStore = mark.dropCohortJournalStoreHeader
+	c.dropCohortFrontiers = mark.dropCohortFrontiersHeader
+	c.dropCohortFrontierParticipants = mark.dropCohortFrontierParticipantsHeader
+	c.dropCohortFrontierMembers = mark.dropCohortFrontierMembersHeader
 	c.dropCohortDerivationScratch = c.dropCohortDerivationScratch[:0]
 	c.dropCohortPathScratch = c.dropCohortPathScratch[:0]
 	c.dropCohortEphemeralBytes = mark.dropCohortEphemeralBytes
 	c.dropCohortJournal = mark.dropCohortJournalHeader
 	c.dropCohortNextSequence = mark.dropCohortNextSequence
+	c.dropCohortFrontierNextSequence = mark.dropCohortFrontierNextSequence
 	c.dropCohortProducerWrites = mark.dropCohortProducerWrites
 	c.dropCohortAuthenticatedHistory = mark.dropCohortAuthenticatedHistory
 	c.dropCohortUnprovedHistory = mark.dropCohortUnprovedHistory
@@ -1714,12 +1736,16 @@ func (c *Core) Reset() error {
 	c.dropCohortCertificateRefs = c.dropCohortCertificateRefs[:0]
 	c.dropCohortMapStore = c.dropCohortMapStore[:0]
 	c.dropCohortJournalStore = c.dropCohortJournalStore[:0]
+	c.dropCohortFrontiers = c.dropCohortFrontiers[:0]
+	c.dropCohortFrontierParticipants = c.dropCohortFrontierParticipants[:0]
+	c.dropCohortFrontierMembers = c.dropCohortFrontierMembers[:0]
 	c.dropCohortDerivationScratch = c.dropCohortDerivationScratch[:0]
 	c.dropCohortPathScratch = c.dropCohortPathScratch[:0]
 	c.dropCohortEphemeralBytes = 0
 	c.dropCohortEphemeralPeak = 0
 	c.dropCohortJournal = c.dropCohortJournal[:0]
 	c.dropCohortNextSequence = 0
+	c.dropCohortFrontierNextSequence = 0
 	clear(c.dropCohortProducerWrites[:])
 	c.dropCohortAuthenticatedHistory = 0
 	c.dropCohortUnprovedHistory = 0
@@ -2022,6 +2048,15 @@ func (c *Core) InternCheckpoint(serialized []byte) (CheckpointID, error) {
 // serialized storage.
 func (c *Core) CheckpointReceipt(id CheckpointID) (uint32, [32]byte, bool) {
 	if c == nil {
+		return 0, [32]byte{}, false
+	}
+	return c.checkpoints.receipt(id)
+}
+
+// CheckpointReceiptOwned resolves one checkpoint only under the active
+// scheduler token. Callers use it before reading checkpoint interner state.
+func (c *Core) CheckpointReceiptOwned(owner SchedulerTransactionToken, id CheckpointID) (uint32, [32]byte, bool) {
+	if c == nil || c.validateSchedulerTransaction(owner) != nil {
 		return 0, [32]byte{}, false
 	}
 	return c.checkpoints.receipt(id)

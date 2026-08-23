@@ -95,9 +95,7 @@ func (c *Core) dropCohortRefCount(set DropCohortRefSet) (int, bool) {
 	return int(set.Count), true
 }
 
-// DropCohortRefAt returns one sorted reference without exposing an inline
-// slice. Callers can enumerate into fixed storage without a heap escape.
-func (c *Core) DropCohortRefAt(set DropCohortRefSet, index int) (DropCohortRef, bool) {
+func (c *Core) dropCohortRefAt(set DropCohortRefSet, index int) (DropCohortRef, bool) {
 	if index < 0 || index >= int(set.Count) {
 		return DropCohortRef{}, false
 	}
@@ -115,6 +113,21 @@ func (c *Core) DropCohortRefAt(set DropCohortRefSet, index int) (DropCohortRef, 
 		return DropCohortRef{}, false
 	}
 	return c.dropCohortRefSpill[position], true
+}
+
+// DropCohortRefAt returns one sorted reference without exposing an inline
+// slice. Callers can enumerate into fixed storage without a heap escape.
+func (c *Core) DropCohortRefAt(set DropCohortRefSet, index int) (DropCohortRef, bool) {
+	return c.dropCohortRefAt(set, index)
+}
+
+// DropCohortRefAtOwned reads one reference only under the active scheduler
+// token. It permits bounded spill access without an unowned store read.
+func (c *Core) DropCohortRefAtOwned(owner SchedulerTransactionToken, set DropCohortRefSet, index int) (DropCohortRef, bool) {
+	if c == nil || c.validateSchedulerTransaction(owner) != nil {
+		return DropCohortRef{}, false
+	}
+	return c.dropCohortRefAt(set, index)
 }
 
 // dropCohortRefSpillLimit returns the configured reference count ceiling.

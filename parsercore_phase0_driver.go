@@ -1095,6 +1095,7 @@ type diagnosticParserCoreHeader struct {
 	lastPersistedHead           core.Head
 	lastPersistedAltSet         core.AlternativeSet
 	lastPersistedDropCohortRefs core.DropCohortRefSet
+	frontierSequence            uint32
 	cleanPathLineage            uint16
 	freshness                   core.ReductionFreshness
 	shifted                     bool
@@ -1207,6 +1208,19 @@ func markDiagnosticParserCoreExternalLineage(
 	}
 	header.cleanPathRank = core.CleanPathRankUnknown
 	header.cleanPathLineage = 0
+}
+
+func mergeDiagnosticParserCoreFrontier(left, right uint32) uint32 {
+	if left == 0 {
+		return right
+	}
+	if right == 0 || left == right {
+		return left
+	}
+	// A canonical group must not claim two different producer frontiers.
+	// Clear the compact sequence and let the authenticated producer state fail
+	// closed if a later consumer requests a frontier from this group.
+	return 0
 }
 
 func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(
@@ -1694,15 +1708,49 @@ func (s *diagnosticParserCoreCanonicalScratch) observeGroupsInsertion(entries in
 // construction site (canonicalizeLinear/canonicalizeMapped) uses keyed
 // fields, so this reorder is layout-only (b4b-width-repair audit, 2026-08).
 type diagnosticParserCoreCanonicalGroup struct {
-	winner                  int
-	dropCohortRefs          core.DropCohortRefSet
-	altSet                  core.AlternativeSet
-	cleanPathLineage        uint16
-	runnable                bool
-	convergedReductionSplit bool
-	resurrectionUnproved    bool
-	cleanPathRank           core.CleanPathRankSelection
-	blended                 bool
+	winner           int
+	dropCohortRefs   core.DropCohortRefSet
+	altSet           core.AlternativeSet
+	frontierSequence uint32
+	cleanPathLineage uint16
+	cleanPathRank    core.CleanPathRankSelection
+	flags            uint8
+}
+
+const (
+	diagnosticParserCoreCanonicalGroupRunnable uint8 = 1 << iota
+	diagnosticParserCoreCanonicalGroupConvergedReductionSplit
+	diagnosticParserCoreCanonicalGroupResurrectionUnproved
+	diagnosticParserCoreCanonicalGroupBlended
+)
+
+func (group *diagnosticParserCoreCanonicalGroup) setFlag(flag uint8, value bool) {
+	if value {
+		group.flags |= flag
+	} else {
+		group.flags &^= flag
+	}
+}
+
+func (group diagnosticParserCoreCanonicalGroup) hasFlag(flag uint8) bool {
+	return group.flags&flag != 0
+}
+
+func diagnosticParserCoreCanonicalGroupFlags(header diagnosticParserCoreHeader) uint8 {
+	var flags uint8
+	if !header.paused {
+		flags |= diagnosticParserCoreCanonicalGroupRunnable
+	}
+	if header.convergedReductionSplit {
+		flags |= diagnosticParserCoreCanonicalGroupConvergedReductionSplit
+	}
+	if header.resurrectionUnproved {
+		flags |= diagnosticParserCoreCanonicalGroupResurrectionUnproved
+	}
+	if header.blended {
+		flags |= diagnosticParserCoreCanonicalGroupBlended
+	}
+	return flags
 }
 
 const diagnosticParserCoreLinearCanonicalLimit = 8
@@ -1825,12 +1873,11 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeLinearCheckedWithMuta
 			groups[groupCount] = linearGroup{
 				keyIndex: index,
 				diagnosticParserCoreCanonicalGroup: diagnosticParserCoreCanonicalGroup{
-					winner: index, runnable: !header.paused,
-					convergedReductionSplit: header.convergedReductionSplit,
-					resurrectionUnproved:    header.resurrectionUnproved,
-					cleanPathRank:           header.cleanPathRank, cleanPathLineage: header.cleanPathLineage,
-					altSet: header.altSet, blended: header.blended,
+					winner: index, frontierSequence: header.frontierSequence,
+					cleanPathRank: header.cleanPathRank, cleanPathLineage: header.cleanPathLineage,
+					altSet:         header.altSet,
 					dropCohortRefs: header.dropCohortRefs,
+					flags:          diagnosticParserCoreCanonicalGroupFlags(header),
 				},
 			}
 			groupCount++
@@ -1838,9 +1885,9 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeLinearCheckedWithMuta
 		}
 		merged = true
 		group := &groups[groupIndex].diagnosticParserCoreCanonicalGroup
-		group.runnable = group.runnable || !header.paused
-		group.convergedReductionSplit = group.convergedReductionSplit || header.convergedReductionSplit
-		group.resurrectionUnproved = group.resurrectionUnproved || header.resurrectionUnproved
+		group.setFlag(diagnosticParserCoreCanonicalGroupRunnable, group.hasFlag(diagnosticParserCoreCanonicalGroupRunnable) || !header.paused)
+		group.setFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit, group.hasFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit) || header.convergedReductionSplit)
+		group.setFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved, group.hasFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved) || header.resurrectionUnproved)
 		group.cleanPathRank, group.cleanPathLineage = mergeDiagnosticParserCoreCleanPathLineage(
 			group.cleanPathRank,
 			group.cleanPathLineage,
@@ -1858,13 +1905,14 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeLinearCheckedWithMuta
 		if header.altSet.Len() != 0 {
 			incomparable := compact.AlternativeSetIncomparable(group.altSet, header.altSet)
 			compact.UnionAlternativeSet(&group.altSet, header.altSet)
-			group.blended = group.blended || header.blended || incomparable
+			group.setFlag(diagnosticParserCoreCanonicalGroupBlended, group.hasFlag(diagnosticParserCoreCanonicalGroupBlended) || header.blended || incomparable)
 		}
 		if !header.dropCohortRefs.Empty() || header.dropCohortRefs.Overflowed() || header.dropCohortRefs.Blended() {
 			if _, err := compact.UnionDropCohortRefsChecked(&group.dropCohortRefs, header.dropCohortRefs); err != nil {
 				return nil, 0, err
 			}
 		}
+		group.frontierSequence = mergeDiagnosticParserCoreFrontier(group.frontierSequence, header.frontierSequence)
 		if diagnosticParserCoreCanonicalCandidateWins(normalized[group.winner], header) {
 			group.winner = index
 		}
@@ -1876,15 +1924,16 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeLinearCheckedWithMuta
 			if group.winner != index {
 				continue
 			}
-			header.paused = !group.runnable
+			header.paused = !group.hasFlag(diagnosticParserCoreCanonicalGroupRunnable)
 			header.freshness = 0
-			header.convergedReductionSplit = group.convergedReductionSplit
-			header.resurrectionUnproved = group.resurrectionUnproved
+			header.convergedReductionSplit = group.hasFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit)
+			header.resurrectionUnproved = group.hasFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved)
 			header.cleanPathRank = group.cleanPathRank
 			header.cleanPathLineage = group.cleanPathLineage
 			header.altSet = group.altSet
 			header.dropCohortRefs = group.dropCohortRefs
-			header.blended = group.blended
+			header.frontierSequence = group.frontierSequence
+			header.blended = group.hasFlag(diagnosticParserCoreCanonicalGroupBlended)
 			normalized[write] = header
 			write++
 			break
@@ -1921,16 +1970,16 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeMappedCheckedWithMuta
 		group, duplicate := s.groups[key]
 		if !duplicate {
 			group.winner = index
+			group.frontierSequence = header.frontierSequence
+			group.flags = diagnosticParserCoreCanonicalGroupFlags(header)
 			s.observeGroupsInsertion(len(s.groups) + 1)
 		} else {
 			merged = true
-			if diagnosticParserCoreCanonicalCandidateWins(normalized[group.winner], header) {
-				group.winner = index
-			}
+			group.frontierSequence = mergeDiagnosticParserCoreFrontier(group.frontierSequence, header.frontierSequence)
 		}
-		group.runnable = group.runnable || !header.paused
-		group.convergedReductionSplit = group.convergedReductionSplit || header.convergedReductionSplit
-		group.resurrectionUnproved = group.resurrectionUnproved || header.resurrectionUnproved
+		group.setFlag(diagnosticParserCoreCanonicalGroupRunnable, group.hasFlag(diagnosticParserCoreCanonicalGroupRunnable) || !header.paused)
+		group.setFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit, group.hasFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit) || header.convergedReductionSplit)
+		group.setFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved, group.hasFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved) || header.resurrectionUnproved)
 		group.cleanPathRank, group.cleanPathLineage = mergeDiagnosticParserCoreCleanPathLineage(
 			group.cleanPathRank,
 			group.cleanPathLineage,
@@ -1941,12 +1990,15 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeMappedCheckedWithMuta
 		if header.altSet.Len() != 0 {
 			incomparable := compact.AlternativeSetIncomparable(group.altSet, header.altSet)
 			compact.UnionAlternativeSet(&group.altSet, header.altSet)
-			group.blended = group.blended || header.blended || incomparable
+			group.setFlag(diagnosticParserCoreCanonicalGroupBlended, group.hasFlag(diagnosticParserCoreCanonicalGroupBlended) || header.blended || incomparable)
 		}
 		if !header.dropCohortRefs.Empty() || header.dropCohortRefs.Overflowed() || header.dropCohortRefs.Blended() {
 			if _, err := compact.UnionDropCohortRefsChecked(&group.dropCohortRefs, header.dropCohortRefs); err != nil {
 				return nil, 0, err
 			}
+		}
+		if diagnosticParserCoreCanonicalCandidateWins(normalized[group.winner], header) {
+			group.winner = index
 		}
 		s.groups[key] = group
 	}
@@ -1956,15 +2008,16 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeMappedCheckedWithMuta
 		if group.winner != index {
 			continue
 		}
-		header.paused = !group.runnable
+		header.paused = !group.hasFlag(diagnosticParserCoreCanonicalGroupRunnable)
 		header.freshness = 0
-		header.convergedReductionSplit = group.convergedReductionSplit
-		header.resurrectionUnproved = group.resurrectionUnproved
+		header.convergedReductionSplit = group.hasFlag(diagnosticParserCoreCanonicalGroupConvergedReductionSplit)
+		header.resurrectionUnproved = group.hasFlag(diagnosticParserCoreCanonicalGroupResurrectionUnproved)
 		header.cleanPathRank = group.cleanPathRank
 		header.cleanPathLineage = group.cleanPathLineage
 		header.altSet = group.altSet
 		header.dropCohortRefs = group.dropCohortRefs
-		header.blended = group.blended
+		header.frontierSequence = group.frontierSequence
+		header.blended = group.hasFlag(diagnosticParserCoreCanonicalGroupBlended)
 		normalized[write] = header
 		write++
 	}
@@ -3227,6 +3280,11 @@ func (s *diagnosticParserCoreGenericScheduler) applyCompactEOFRecoveryAdmission(
 	if accepted != 1 || len(indices) != 1 {
 		return rollback(errors.New("parser-core phase zero: EOF recovery admission did not preserve one accepting head"))
 	}
+	if s.options.recordDropCohortCertificates {
+		if publishErr := s.publishDropCohortFrontierOwned(); publishErr != nil {
+			return rollback(publishErr)
+		}
+	}
 	if dropErr := s.dropGenericNoActionHeads(indices); dropErr != nil {
 		return rollback(dropErr)
 	}
@@ -3526,11 +3584,12 @@ func (s *diagnosticParserCoreGenericScheduler) headerReceipts(headers []diagnost
 }
 
 // diagnosticParserCoreSeedObserver is a tagged, diagnostic-only probe seam.
-// It can inspect closed frontiers immediately before an election and stop a
-// seed-owned run immediately after an election, before any action dispatch.
+// It can inspect closed frontiers before an election, after an election, or
+// after a complete owned frontier seal and before header publication.
 type diagnosticParserCoreSeedObserver struct {
-	beforeElection func(*diagnosticParserCoreGenericScheduler) error
-	afterElection  func(*diagnosticParserCoreGenericScheduler) (bool, error)
+	beforeElection    func(*diagnosticParserCoreGenericScheduler) error
+	afterElection     func(*diagnosticParserCoreGenericScheduler) (bool, error)
+	frontierPublished func(*diagnosticParserCoreGenericScheduler, core.SchedulerTransactionToken) error
 }
 
 func newDiagnosticParserCoreGenericScheduler(
@@ -5771,6 +5830,11 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 	}
 	if len(cells) == 0 {
 		if diagnosticParserCoreGenericNoActionDropEligible(s.headers, noActionIndices, s.epochProgress) {
+			if s.options.recordDropCohortCertificates {
+				if err := s.publishDropCohortFrontierOwned(); err != nil {
+					return nil, err
+				}
+			}
 			return nil, s.dropGenericNoActionHeads(noActionIndices)
 		}
 		if len(noActionIndices) != 0 {
@@ -5882,6 +5946,11 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 		}
 		if accepted != 1 || len(noActionIndices)+1 != len(s.headers) {
 			return nil, errors.New("parser-core phase zero: certified EOF accept did not preserve one accepted head")
+		}
+		if s.options.recordDropCohortCertificates {
+			if err := s.publishDropCohortFrontierOwned(); err != nil {
+				return nil, err
+			}
 		}
 		return nil, s.dropGenericNoActionHeads(noActionIndices)
 	}
@@ -6912,6 +6981,123 @@ func diagnosticParserCoreSelectedLineageDrops(
 	return proved, true
 }
 
+// publishDropCohortFrontierOwned records the complete current election before
+// the no-action consumer sees its headers. Incomplete producer facts keep the
+// existing v2 fallback unchanged.
+const diagnosticParserCoreFrontierParticipantCap = 32
+
+func (s *diagnosticParserCoreGenericScheduler) dropCohortFrontierTokenOwned(owner core.SchedulerTransactionToken) (core.DropCohortFrontierToken, bool) {
+	if s == nil || s.compact == nil {
+		return core.DropCohortFrontierToken{}, false
+	}
+	beforeLength, beforeDigest, beforeOK := s.compact.CheckpointReceiptOwned(owner, s.checkpointBeforeID)
+	afterLength, afterDigest, afterOK := s.compact.CheckpointReceiptOwned(owner, s.checkpointID)
+	if !beforeOK || !afterOK || beforeLength != uint32(s.currentElection.ScannerBefore.Length) || afterLength != uint32(s.currentElection.ScannerAfter.Length) {
+		return core.DropCohortFrontierToken{}, false
+	}
+	return core.DropCohortFrontierToken{
+		Symbol: core.Symbol(s.token.Symbol), StartByte: s.token.StartByte, EndByte: s.token.EndByte,
+		StartRow: s.token.StartPoint.Row, StartColumn: s.token.StartPoint.Column,
+		EndRow: s.token.EndPoint.Row, EndColumn: s.token.EndPoint.Column,
+		NoLookahead: s.token.NoLookahead, Missing: s.token.Missing,
+		ExternalScannerToken: s.token.ExternalScannerToken,
+		ScannerBefore:        s.checkpointBeforeID, ScannerAfter: s.checkpointID,
+		ScannerBeforeDigest: beforeDigest, ScannerAfterDigest: afterDigest,
+	}, true
+}
+
+func (s *diagnosticParserCoreGenericScheduler) publishDropCohortFrontierMembersOwned(
+	owner core.SchedulerTransactionToken,
+	electionSequence uint64,
+	heads []core.Head,
+	refs []core.DropCohortRefSet,
+) (uint32, bool, error) {
+	if s == nil || !s.options.recordDropCohortCertificates || electionSequence == 0 ||
+		len(heads) == 0 || len(heads) > diagnosticParserCoreFrontierParticipantCap || len(heads) != len(refs) {
+		return 0, false, nil
+	}
+	token, ok := s.dropCohortFrontierTokenOwned(owner)
+	if !ok {
+		return 0, false, nil
+	}
+	var branchOrders [diagnosticParserCoreFrontierParticipantCap]uint64
+	for index := range heads {
+		branchOrders[index] = uint64(index)
+	}
+	handle, complete, err := s.compact.PublishDropCohortFrontierOwned(
+		owner, electionSequence, token, heads, branchOrders[:len(heads)], refs,
+	)
+	if err != nil || !complete {
+		return 0, complete, err
+	}
+	if handle.Sequence > math.MaxUint32 {
+		return 0, false, errors.New("parser-core phase zero: frontier sequence does not fit the header")
+	}
+	if s.observer.frontierPublished != nil {
+		if err := s.observer.frontierPublished(s, owner); err != nil {
+			return 0, false, err
+		}
+	}
+	return uint32(handle.Sequence), true, nil
+}
+
+func (s *diagnosticParserCoreGenericScheduler) publishDropCohortFrontierOwned() error {
+	if s == nil || !s.options.recordDropCohortCertificates || s.freshSessionOwner == nil ||
+		len(s.headers) == 0 || len(s.headers) > diagnosticParserCoreFrontierParticipantCap {
+		return nil
+	}
+	var heads [diagnosticParserCoreFrontierParticipantCap]core.Head
+	var refs [diagnosticParserCoreFrontierParticipantCap]core.DropCohortRefSet
+	for index, header := range s.headers {
+		heads[index], refs[index] = header.head, header.dropCohortRefs
+	}
+	_, _, err := s.publishDropCohortFrontierMembersOwned(
+		*s.freshSessionOwner, uint64(s.electionIndex+1), heads[:len(s.headers)], refs[:len(s.headers)],
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *diagnosticParserCoreGenericScheduler) publishDropCohortFrontierForReductionOwned(
+	owner core.SchedulerTransactionToken,
+	cohort core.DropCohortHandle,
+	outputs []core.ReductionOutput,
+) (uint32, error) {
+	if len(outputs) < 2 || len(outputs) > diagnosticParserCoreFrontierParticipantCap {
+		return 0, nil
+	}
+	var heads [diagnosticParserCoreFrontierParticipantCap]core.Head
+	var refs [diagnosticParserCoreFrontierParticipantCap]core.DropCohortRefSet
+	for index, output := range outputs {
+		ref, err := s.compact.DropCohortRefForBranchOwned(owner, cohort, uint16(index))
+		if err != nil {
+			return 0, nil
+		}
+		heads[index] = output.Head
+		refs[index] = core.DropCohortRefSet{Inline: [2]core.DropCohortRef{ref}, Count: 1}
+	}
+	sequence, complete, err := s.publishDropCohortFrontierMembersOwned(
+		owner, uint64(s.electionIndex+1), heads[:len(outputs)], refs[:len(outputs)],
+	)
+	if err != nil || !complete {
+		return 0, err
+	}
+	return sequence, nil
+}
+
+func (s *diagnosticParserCoreGenericScheduler) attachDiagnosticParserCoreFrontierToHead(head core.Head, sequence uint32) {
+	if s == nil || sequence == 0 {
+		return
+	}
+	for index := range s.headers {
+		if s.headers[index].head == head {
+			s.headers[index].frontierSequence = mergeDiagnosticParserCoreFrontier(s.headers[index].frontierSequence, sequence)
+		}
+	}
+}
+
 // dropGenericNoActionHeads removes the paused/no-action heads named by indices.
 // indices is produced in ascending, unique header order by the dispatch pass,
 // so the surviving frontier is compacted in place with no allocation. The drop
@@ -7181,6 +7367,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		}
 	}
 	var reductionLineage uint16
+	var reductionFrontierSequence uint32
 	if hasMultiplePopPaths {
 		reductionLineage, err = nextDiagnosticParserCoreCleanPathLineage(&s.nextCleanPathLineage)
 		if err != nil {
@@ -7236,8 +7423,13 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 				if _, err := s.compact.FinalizeDropCohortOwned(owner, cohort); err != nil {
 					return err
 				}
+				if sequence, publishErr := s.publishDropCohortFrontierForReductionOwned(owner, cohort, outputs); publishErr != nil {
+					return publishErr
+				} else {
+					reductionFrontierSequence = sequence
+				}
 				for outputIndex := range outputs {
-					ref, refErr := s.compact.DropCohortRefForBranch(cohort, uint16(outputIndex))
+					ref, refErr := s.compact.DropCohortRefForBranchOwned(owner, cohort, uint16(outputIndex))
 					if refErr != nil {
 						return refErr
 					}
@@ -7317,6 +7509,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 				); err != nil {
 					return err
 				}
+				if reductionFrontierSequence != 0 {
+					s.attachDiagnosticParserCoreFrontierToHead(output.Head, reductionFrontierSequence)
+				}
 			}
 			continue
 		case core.ReductionNew, core.ReductionUpdated:
@@ -7342,11 +7537,15 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 				return err
 			}
 			if adopted {
+				if reductionFrontierSequence != 0 {
+					s.attachDiagnosticParserCoreFrontierToHead(output.Head, reductionFrontierSequence)
+				}
 				continue
 			}
 		}
 		replacement := s.headers[cell.headerIndex]
 		replacement.head = output.Head
+		replacement.frontierSequence = mergeDiagnosticParserCoreFrontier(replacement.frontierSequence, reductionFrontierSequence)
 		replacement.paused = false
 		replacement.shifted = token.NoLookahead
 		replacement.convergedReductionSplit = replacement.convergedReductionSplit || convergedHistory
@@ -7455,6 +7654,10 @@ func (s *diagnosticParserCoreGenericScheduler) adoptUpdatedReductionSibling(
 	setBlended bool,
 	compat ...interface{},
 ) (bool, error) {
+	if source < 0 || source >= len(s.headers) {
+		return false, errors.New("parser-core phase zero: sibling adoption source is out of range")
+	}
+	sourceFrontier := s.headers[source].frontierSequence
 	var dropCohortRefs core.DropCohortRefSet
 	var convergedReductionSplit, resurrectionUnproved bool
 	switch len(compat) {
@@ -7504,6 +7707,10 @@ func (s *diagnosticParserCoreGenericScheduler) adoptUpdatedReductionSibling(
 			s.headers[index].convergedReductionSplit || convergedReductionSplit
 		s.headers[index].resurrectionUnproved =
 			s.headers[index].resurrectionUnproved || resurrectionUnproved
+		s.headers[index].frontierSequence = mergeDiagnosticParserCoreFrontier(
+			s.headers[index].frontierSequence,
+			sourceFrontier,
+		)
 		applyDiagnosticParserCoreCleanPathOutput(&s.headers[index], rank, lineage)
 		dst := &s.headers[index]
 		if set.Len() != 0 {
@@ -8377,6 +8584,7 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 	for index := range s.headers {
 		s.headers[index].shifted = false
 		s.headers[index].paused = false
+		s.headers[index].frontierSequence = 0
 		s.headers[index].checkpoint = afterID
 	}
 	s.electionIndex++

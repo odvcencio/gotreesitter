@@ -44,14 +44,17 @@ func TestG18RefSetHeaderAndCanonicalPropagation(t *testing.T) {
 	refs := g18RootRefs(t, compact)
 	var scratch diagnosticParserCoreCanonicalScratch
 	out, err := scratch.canonicalize(compact, []diagnosticParserCoreHeader{
-		{head: head, dropCohortRefs: refs, creationSeq: 1},
-		{head: head, dropCohortRefs: refs, creationSeq: 2},
+		{head: head, dropCohortRefs: refs, creationSeq: 1, frontierSequence: 17},
+		{head: head, dropCohortRefs: refs, creationSeq: 2, frontierSequence: 17},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(out) != 1 || !slices.Equal(g18RootMembers(t, compact, out[0].dropCohortRefs), g18RootMembers(t, compact, refs)) {
 		t.Fatalf("linear canonical refs=%+v output=%+v", refs, out)
+	}
+	if out[0].frontierSequence != 17 {
+		t.Fatalf("linear canonical frontier=%d, want 17", out[0].frontierSequence)
 	}
 
 	// Force the mapped path and fold a distinct reference into its winner.
@@ -72,9 +75,9 @@ func TestG18RefSetHeaderAndCanonicalPropagation(t *testing.T) {
 		if index == 0 {
 			set = other
 		}
-		headers = append(headers, diagnosticParserCoreHeader{head: seeded, dropCohortRefs: set, creationSeq: uint64(index + 1)})
+		headers = append(headers, diagnosticParserCoreHeader{head: seeded, dropCohortRefs: set, creationSeq: uint64(index + 1), frontierSequence: 23})
 	}
-	headers = append(headers, diagnosticParserCoreHeader{head: heads[0], dropCohortRefs: refs, creationSeq: 99})
+	headers = append(headers, diagnosticParserCoreHeader{head: heads[0], dropCohortRefs: refs, creationSeq: 99, frontierSequence: 23})
 	out, err = scratch.canonicalize(compact, headers)
 	if err != nil {
 		t.Fatal(err)
@@ -91,6 +94,9 @@ func TestG18RefSetHeaderAndCanonicalPropagation(t *testing.T) {
 	}
 	if winner.head != heads[0] {
 		t.Fatalf("mapped canonical output omitted the duplicate winner: %+v", out)
+	}
+	if winner.frontierSequence != 23 {
+		t.Fatalf("mapped canonical frontier=%d, want 23", winner.frontierSequence)
 	}
 	members := g18RootMembers(t, compact, winner.dropCohortRefs)
 	want := append(g18RootMembers(t, compact, refs), g18RootMembers(t, compact, other)...)
@@ -126,6 +132,13 @@ func TestG18RefSetHeaderAndCanonicalPropagation(t *testing.T) {
 	}
 	if scratch.groupsRetainedBytes == 0 || scratch.groupsBucketCount == 0 {
 		t.Fatalf("mapped canonical groups were not accounted: %+v", scratch)
+	}
+	mismatched := []diagnosticParserCoreHeader{
+		{head: heads[0], frontierSequence: 31},
+		{head: heads[0], frontierSequence: 32},
+	}
+	if out, err := scratch.canonicalize(compact, mismatched); err != nil || len(out) != 1 || out[0].frontierSequence != 0 {
+		t.Fatalf("mismatched mapped frontier=%+v err=%v, want one cleared sequence", out, err)
 	}
 	peak := scratch.groupsRetainedBytes
 	_, err = scratch.canonicalize(compact, headers[:1])
@@ -361,7 +374,7 @@ func TestG18RefSetHeaderPersistenceSiblingAdoptionAndConflictReconciliation(t *t
 	refs := g18RootRefs(t, compact)
 	scheduler := &diagnosticParserCoreGenericScheduler{
 		compact: compact,
-		headers: []diagnosticParserCoreHeader{{head: head, creationSeq: 1, dropCohortRefs: refs, convergedReductionSplit: true}},
+		headers: []diagnosticParserCoreHeader{{head: head, creationSeq: 1, dropCohortRefs: refs, convergedReductionSplit: true, frontierSequence: 41}},
 	}
 	if err := compact.RunFreshSchedulerSession(func(owner core.SchedulerTransactionToken) error {
 		return scheduler.persistHeaderLineageOwned(owner)
@@ -386,8 +399,11 @@ func TestG18RefSetHeaderPersistenceSiblingAdoptionAndConflictReconciliation(t *t
 		if !slices.Equal(g18RootMembers(t, compact, scheduler.headers[1].dropCohortRefs), g18RootMembers(t, compact, refs)) {
 			return fmt.Errorf("adopted sibling refs=%+v", scheduler.headers[1].dropCohortRefs)
 		}
+		if scheduler.headers[1].frontierSequence != 41 {
+			return fmt.Errorf("adopted sibling frontier=%d, want 41", scheduler.headers[1].frontierSequence)
+		}
 
-		scheduler.headers = []diagnosticParserCoreHeader{{head: head, creationSeq: 1}, {head: head, creationSeq: 2}}
+		scheduler.headers = []diagnosticParserCoreHeader{{head: head, creationSeq: 1, frontierSequence: 43}, {head: head, creationSeq: 2}}
 		outputs, conflictAdopted, err := scheduler.reconcileGenericConflictOutputs(owner, 0, []diagnosticParserCoreHeader{{
 			head: head, freshness: core.ReductionUpdated, dropCohortRefs: refs,
 		}})
@@ -396,6 +412,9 @@ func TestG18RefSetHeaderPersistenceSiblingAdoptionAndConflictReconciliation(t *t
 		}
 		if !slices.Equal(g18RootMembers(t, compact, scheduler.headers[1].dropCohortRefs), g18RootMembers(t, compact, refs)) {
 			return fmt.Errorf("reconciled sibling refs=%+v", scheduler.headers[1].dropCohortRefs)
+		}
+		if scheduler.headers[1].frontierSequence != 43 {
+			return fmt.Errorf("reconciled sibling frontier=%d, want 43", scheduler.headers[1].frontierSequence)
 		}
 		return nil
 	}); err != nil {
@@ -533,5 +552,48 @@ func TestG18RefSetSchedulerRecordSizeRatchets(t *testing.T) {
 	}
 	if got := unsafe.Sizeof(core.CondenseCandidate{}); got != 88 {
 		t.Fatalf("condense candidate size=%d, want 88", got)
+	}
+}
+
+func TestG18DropCohortFrontierDefaultOffHasNoAllocationOrStorage(t *testing.T) {
+	compact, _, _ := newDiagnosticParserCoreCanonicalTestCore(t)
+	scheduler := &diagnosticParserCoreGenericScheduler{compact: compact}
+	baseSchedulerFootprint := diagnosticParserCoreSchedulerFootprintBytes(scheduler)
+	baseStorage := compact.StorageBytes()
+	allocs := testing.AllocsPerRun(100, func() {
+		if err := scheduler.publishDropCohortFrontierOwned(); err != nil {
+			t.Fatalf("default-off producer returned error: %v", err)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("default-off frontier producer allocations=%f, want 0", allocs)
+	}
+	if got := diagnosticParserCoreSchedulerFootprintBytes(scheduler); got != baseSchedulerFootprint {
+		t.Fatalf("default-off scheduler footprint=%d, want unchanged %d", got, baseSchedulerFootprint)
+	}
+	if got := compact.StorageBytes(); got != baseStorage {
+		t.Fatalf("default-off compact storage=%d, want unchanged %d", got, baseStorage)
+	}
+	if scheduler.options.recordDropCohortCertificates || scheduler.canonicalScratch.groups != nil {
+		t.Fatalf("default-off scheduler state expanded: options=%+v canonical=%+v", scheduler.options, scheduler.canonicalScratch)
+	}
+	t.Logf("default-off scheduler=%d bytes, header=%d bytes, compact storage=%d bytes", unsafe.Sizeof(*scheduler), unsafe.Sizeof(diagnosticParserCoreHeader{}), baseStorage)
+}
+
+func TestG18FrontierHeaderReplacementAndRollbackPropagation(t *testing.T) {
+	compact, head, _ := newDiagnosticParserCoreCanonicalTestCore(t)
+	headers := []diagnosticParserCoreHeader{{head: head, frontierSequence: 51}}
+	replaced := replaceDiagnosticParserCoreHeader(headers, 0, []diagnosticParserCoreHeader{{head: head, frontierSequence: 52}})
+	if len(replaced) != 1 || replaced[0].frontierSequence != 52 {
+		t.Fatalf("replacement frontier=%+v, want 52", replaced)
+	}
+	scheduler := diagnosticParserCoreGenericScheduler{compact: compact, headers: replaced}
+	if err := scheduler.headerRollbackScratch.begin(scheduler.headers); err != nil {
+		t.Fatal(err)
+	}
+	scheduler.headers[0].frontierSequence = 99
+	scheduler.headerRollbackScratch.finish(&scheduler.headers, true)
+	if scheduler.headers[0].frontierSequence != 52 {
+		t.Fatalf("rollback frontier=%d, want 52", scheduler.headers[0].frontierSequence)
 	}
 }

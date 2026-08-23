@@ -96,6 +96,15 @@ func newParserCoreFreshFullRunner(scanner ExternalScanner, options DiagnosticPar
 }
 
 func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact *core.Core, reset bool) (*diagnosticParserCoreGenericScheduler, *dfaTokenSource, error) {
+	return r.executeSchedulerOpenWithObserver(source, compact, reset, diagnosticParserCoreSeedObserver{})
+}
+
+func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserver(
+	source []byte,
+	compact *core.Core,
+	reset bool,
+	observer diagnosticParserCoreSeedObserver,
+) (*diagnosticParserCoreGenericScheduler, *dfaTokenSource, error) {
 	if r == nil || r.parser == nil || r.lang == nil || r.tables == nil || compact == nil {
 		return nil, nil, errors.New("parser-core fresh-full runner is incomplete")
 	}
@@ -162,7 +171,7 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpen(source []byte, compact 
 	}()
 	scheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeedInto(
 		&r.scheduler, compact, tokenSource, &r.scannerScratch, r.lang.InitialState,
-		r.options, diagnosticParserCoreSeedObserver{},
+		r.options, observer,
 	)
 	if err != nil {
 		tokenSource.Close()
@@ -339,6 +348,13 @@ func (r *parserCoreFreshFullRunner) materializeSelectedStoreSelection(
 // redundancy costs one extra FootprintBytes comparison on the decline path,
 // never on the accepted-and-returned path.
 func (r *parserCoreFreshFullRunner) parse(source []byte) (tree *Tree, err error) {
+	return r.parseWithObserver(source, diagnosticParserCoreSeedObserver{})
+}
+
+func (r *parserCoreFreshFullRunner) parseWithObserver(
+	source []byte,
+	observer diagnosticParserCoreSeedObserver,
+) (tree *Tree, err error) {
 	if r == nil || r.compact == nil {
 		return nil, errors.New("parser-core fresh-full runner is incomplete")
 	}
@@ -350,7 +366,7 @@ func (r *parserCoreFreshFullRunner) parse(source []byte) (tree *Tree, err error)
 			err = errors.Join(err, fmt.Errorf("parser-core fresh-full runner: reset after decline: %w", resetErr))
 		}
 	}()
-	scheduler, tokenSource, err2 := r.executeSchedulerOpen(source, r.compact, true)
+	scheduler, tokenSource, err2 := r.executeSchedulerOpenWithObserver(source, r.compact, true, observer)
 	if err2 != nil {
 		return nil, err2
 	}
