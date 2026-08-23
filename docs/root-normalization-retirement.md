@@ -2331,6 +2331,141 @@ tree on every route. Require zero required dispatcher rewrites and exact
 production, compact, forest, incremental, and locked-C parity. Do not change
 the registry or production state before every condition passes.
 
+## 2026-08-24 Go dispatcher blocker receipt
+
+Status: `KEEP LIVE / NO-GO`. Keep `dispatch.go` live.
+The evidence base is
+`929609ccde78b0c9f4e57cf2225e0ae1204149cb`. The publication base is
+`891fdefbdec0a48357a05c7bb218c473ad796b2e`.
+This receipt changes only CHANGELOG.md, this document, and the focused test.
+It changes no production or registry file.
+
+The registry has 88 entries. It has 31 live dispatcher arms, 32 live entries,
+and 56 retired entries. The Go arm calls
+`normalizeGoReturnedTreeCompatibilityWithCensus` in `parser_result_go.go`.
+It has three live subpasses:
+
+- `dispatch.go.source-file-root` owns included-ranges root recovery.
+- `dispatch.go.compat-walk` owns semicolon and sibling-boundary materialization.
+- `dispatch.go.new-make-type` owns `new` and `make` type election.
+
+The first subpass belongs to `scheduler_action_semantics`.
+The compatibility walk belongs to `materialization`.
+The type election belongs to `derivation_election_selection`.
+The receipt keeps all three owners visible.
+
+The grammar lock pins tree-sitter-go commit
+`2346a3ab1bb3857b48b29d779a1ef9799a248cd7`.
+The grammar lock SHA-256 is
+`9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb`.
+The embedded Go grammar blob SHA-256 is
+`9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08`.
+
+The A0 (authenticated dispatcher census) manifest has 14 languages, 42 files,
+and 14 receipts. It has no Go entry. The manifest names
+`corpus_sources.lock`, but no committed lock is available for Go.
+The tracked census has seven fixtures. Its Go fixture is
+`cgo_harness/corpus_structural/go_sample.go`.
+It has source SHA-256
+`262c7b8359a364b56db8549f65f4f2e01ed43de096e607dd05f50b94bd45efb0`.
+It records one checked file, one run file, 768 visited nodes, and zero
+rewrites. The tracked aggregate has nine checked files, nine run files,
+26,022 visited nodes, 2,107 rewrites, and zero error roots.
+The mounted real corpus is ignored and is not authenticated evidence.
+
+The C oracle uses contract `tree-sitter-c-v1`, runtime `0.25.1`, and runtime
+commit `f5afe475deb7c0bae6407fb776c76824f717bb61`.
+The C grammar artifact SHA-256 is
+`f17d674be6e3e7a0edb521defa31d3174c877b01414fd758a4988673423573f7`.
+
+The focused receipt covers six tracked or pinned witnesses. It covers raw,
+production, compact, forest, incremental, and locked-C routes.
+The included-ranges route adds the Go root-recovery witness.
+The test pins every source SHA and C digest.
+It pins checked, run, and rewritten counts for all three subpasses.
+Visited counts remain diagnostic.
+
+The standard route results are:
+
+- The tracked witness has 2,194 bytes and C digest
+  `833b5685c629a0224ed220aceb98679ee7a81197c7c9d0e3d0516dfed1b9cdf9`.
+  Every standard route matches C. Each production pass reports `1/1/0`.
+  Compact accepts. Forest returns a tree. Incremental reuse reports 25
+  subtrees and 68 bytes.
+- The clean semicolon and sibling witness has 110 bytes and C digest
+  `e0570a37201e4cf73162dd11b4508aaa8c169706af8f5cd87462b5cd12e4207f`.
+  Every standard route matches C. Each production pass reports `1/1/0`.
+  Compact accepts. Forest returns a tree. Incremental reuse reports 23
+  subtrees and 57 bytes.
+- The malformed recovery witness has 43 bytes and C digest
+  `9c04d41835d5bff3fcd1ca7db2f1279508819fcca287942813236091b0c3c088`.
+  Every standard tree matches C and has an error root. Each production pass
+  reports `1/1/0`. Compact falls back. Forest returns nil. Incremental reuse
+  reports 14 subtrees and 42 bytes.
+- The no-op control has 21 bytes and C digest
+  `2b5a222aef26944bb46ea6bdc1bbc17da9af330252dc3317610965e7feb514e5`.
+  Every standard route matches C. Each production pass reports `1/1/0`.
+  Compact accepts. Forest returns a tree. Incremental reuse reports five
+  subtrees and 13 bytes.
+- The `new` and `make` witness has 79 bytes. Its raw digest is
+  `322f6d6db609c49fb8b09a52d2d9e9ae0853c56d2349bc89a9af1df8c6ca4374`.
+  Its production, compact, forest, incremental, and C digest is
+  `329fac609c64a2e338b8e0532b63dd6a38e3f1b6da311dab68e0eb3576a664a6`.
+  Raw first differs at
+  `/source_file/function_declaration[1]/block[3]/statement_list[1]/assignment_statement[0]/expression_list[2]/call_expression[0]/argument_list[1]/selector_expression[1]`.
+  Go has `selector_expression`. C has `qualified_type`.
+  The three production passes report `1/1/0`, `1/1/0`, and `1/1/9`.
+  Compact falls back. Forest returns a tree. Incremental reuse reports seven
+  subtrees and 16 bytes.
+- The recovery control has 66 bytes and C digest
+  `3c74ff188c1085bb06dd82824347a8e4ff63760b5bfd51dff01663625f53927d`.
+  Every standard route matches C. Each production pass reports `1/1/0`.
+  Compact accepts. Forest returns a tree. Incremental reuse reports 16
+  subtrees and 35 bytes.
+
+The compact guard accepts only `routed+1/fallback` unchanged, or routed
+unchanged and `fallback+1`. The malformed and `new`/`make` witnesses use the
+fallback transition. The malformed reason is recovery entry.
+The `new`/`make` reason is an uncertified scheduler frontier.
+
+The included-ranges source has 276 bytes and SHA-256
+`978465a10f7d814c2183eed2e4ceedfd1dd467efd780210ae39be8e170f3b01b`.
+The C digest is
+`9c8e5bb506bb345a577beb351f7b9230cca5e2e02cc4fd619e21f607657f290f`.
+The Go digest is
+`8231fb8782e5699708e183619b68e1d030ab09e60de99ac52e3c092ffc56d59c`.
+Both roots are `source_file` with an error flag.
+Go uses range `0..276` with 10 children.
+C uses range `26..276` with seven children.
+The first difference is the root range.
+The Go arm records zero root rewrites, 25 compatibility rewrites, and zero
+`new`/`make` rewrites on this route.
+
+Every Go tree reports `NativeRecoveredStructureAuthoritative=false`.
+Forest returns nil when it declines and a non-nil tree when it accepts.
+The guard releases an unexpected tree before it fails.
+Incremental routes require positive old-tree reuse and reject unsupported reuse.
+The exact reuse values remain receipt evidence, not a brittle counter contract.
+
+The route receipt is under
+`/tmp/gts-n31j-go-rebased-artifacts/20260823T112605Z-final-rebased-ratchet`.
+Its `container.log` SHA-256 is
+`aeb53730c138395ef4618d7c1cfee805c720908dacc1cf8cd63248c72ae2d1d8`.
+The document guard receipt is under
+`/tmp/gts-n31j-go-rebased-artifacts/20260823T112634Z-final-rebased-document`.
+Its `container.log` SHA-256 is
+`15084a11ddaf6f0628919623a371ed1b39a3156ac817e4e7f008a2cf7ed2eaf2`.
+The run used one Go grammar, one CPU, 4 GiB, 512 process IDs,
+`GOMEMLIMIT=3GiB`, `GOMAXPROCS=1`, `GOFLAGS=-p=1`, `-parallel=1`, and a
+20-minute timeout. It exited zero without timeout or out-of-memory failure.
+
+No safe shared producer invariant was identified.
+Keep `dispatch.go` live until a producer emits exact C output for every
+authenticated witness and route. Require zero rewrites in all three subpasses.
+Require an authenticated Go corpus and source lock.
+Require included-ranges root, semicolon, sibling-boundary, and `new`/`make`
+parity before retirement. Do not change production or registry state.
+
 ### R3 — move materialization invariants upstream
 
 Status: in progress.

@@ -110,6 +110,17 @@ for tags and release notes while still in `0.x`.
   `docs/root-normalization-retirement.md` for the receipt and reopening
   conditions.
 
+- Recorded the N31j Go dispatcher blocker at evidence base
+  `929609ccde78b0c9f4e57cf2225e0ae1204149cb` and publication base
+  `891fdefbdec0a48357a05c7bb218c473ad796b2e`. Keep `dispatch.go` live.
+  The focused receipt covers six standard witnesses and the included-ranges
+  route. All standard routes match locked C except raw `new`/`make` input.
+  Included ranges still differ in root range and child count. The three Go
+  subpasses report exact checked, run, and rewrite counts. The authenticated
+  Go corpus lock is unavailable. Ship no parser, registry, or production
+  change. See `docs/root-normalization-retirement.md` for the route receipt,
+  artifacts, and reopening condition.
+
 ### Performance
 
 - Recorded the P25x-P25ab performance blocker at publication base
