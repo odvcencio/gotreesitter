@@ -298,6 +298,65 @@ func BenchmarkParityGoCanonicalIncremental(b *testing.B) {
 	}
 }
 
+// BenchmarkP25sRecoveryDeletionForwardOnly admits and times only the forward
+// recovery deletion. Keep this temporary benchmark outside the canonical tree.
+func BenchmarkP25sRecoveryDeletionForwardOnly(b *testing.B) {
+	cases := loadCanonicalGoIncrementalCases(b)
+	var tc *canonicalGoIncrementalCase
+	for i := range cases {
+		if cases[i].spec.Name == "recovery_deletion" {
+			tc = &cases[i]
+			break
+		}
+	}
+	if tc == nil {
+		b.Fatal("canonical recovery_deletion case is missing")
+	}
+	goLang := canonicalIncrementalGoLanguage(b, tc.spec.Language)
+	cLang := canonicalIncrementalCLanguage(b, tc.spec.Language)
+	goParser := gotreesitter.NewParser(goLang)
+	cParser := sitter.NewParser()
+	defer cParser.Close()
+	if err := cParser.SetLanguage(cLang); err != nil {
+		b.Fatalf("recovery_deletion set pinned Go C reference: %v", err)
+	}
+	direction := tc.directions()[0]
+	admitCanonicalGoIncrementalDirection(b, tc.spec.Name, direction, goParser, cParser, goLang)
+
+	parser := gotreesitter.NewParser(goLang)
+	tree, err := parser.Parse(tc.source)
+	requireCanonicalGoIncrementalTree(b, tree, tc.source, tc.spec.Name+" initial Go", err)
+	b.ReportAllocs()
+	b.SetBytes(int64((len(tc.source) + len(tc.edited)) / 2))
+	b.ResetTimer()
+	var totals realCorpusIncrementalProfileTotals
+	for i := 0; i < b.N; i++ {
+		if i > 0 {
+			b.StopTimer()
+			releaseCanonicalGoTree(tree)
+			tree, err = parser.Parse(tc.source)
+			requireCanonicalGoIncrementalTree(b, tree, tc.source, tc.spec.Name+" reset Go", err)
+			b.StartTimer()
+		}
+		editStart := time.Now()
+		tree.Edit(tc.forward)
+		totals.addEdit(time.Since(editStart))
+		oldTree := tree
+		parseStart := time.Now()
+		newTree, profile, err := parser.ParseIncrementalProfiled(tc.edited, oldTree)
+		totals.addParseWall(time.Since(parseStart))
+		requireCanonicalGoIncrementalTree(b, newTree, tc.edited, tc.spec.Name+" timed Go", err)
+		totals.add(profile)
+		if newTree != oldTree {
+			releaseCanonicalGoTree(oldTree)
+		}
+		tree = newTree
+	}
+	b.StopTimer()
+	totals.report(b, b.N)
+	releaseCanonicalGoTree(tree)
+}
+
 func loadCanonicalGoIncrementalCases(tb testing.TB) []canonicalGoIncrementalCase {
 	tb.Helper()
 	decoder := json.NewDecoder(bytes.NewReader(canonicalGoIncrementalManifestJSON))
