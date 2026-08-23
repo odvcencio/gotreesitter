@@ -226,6 +226,16 @@ for tags and release notes while still in `0.x`.
   The authenticated HLSL corpus is unavailable. No registry or production
   code changes are included. See `docs/root-normalization-retirement.md`.
 
+- Record the `dispatch.solidity` blocker receipt at base
+  `7498a678c52029a82f312e9637ecb66b15defa0b`. Keep the arm live. The A0
+  manifest records three Solidity files, three checks, three runs, and 666
+  rewrites. The `Initializable` witness diverges from locked C after 666
+  rewrites. The member and call witnesses expose two live rewrite families.
+  The malformed controls retain locked-C shape differences. Forest parsing
+  diverges on clean controls. The authenticated Solidity corpus is
+  unavailable. No registry or production code changes are included. See
+  `docs/root-normalization-retirement.md`.
+
 - Reconfirm the DTD locked-C blocker at base
   `30f470f5c2bf18540f7a18b2b22a7e33b88d4e10`. Keep `dispatch.dtd` live. The
   raw route matches the production route by deep digest for all four
