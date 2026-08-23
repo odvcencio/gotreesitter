@@ -4656,13 +4656,15 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, tok Token,
 			// C's pause lookahead already went through ts_parser__lex's
 			// error-mode fallback; a custom source's normal-mode token must
 			// be substituted the same way before handle_error consumes it.
-			if replacement, replaced := p.cRecoverResumeLookahead(source, &stacks[i], tok); replaced {
-				if p.glrTrace {
-					fmt.Printf("      -> C-RESUME-RELEX sym=%d [%d-%d] -> sym=%d [%d-%d]\n",
-						tok.Symbol, tok.StartByte, tok.EndByte,
-						replacement.Symbol, replacement.StartByte, replacement.EndByte)
+			if p.cRecoverCustomSourceEligible && !p.cRecoverSharedTokenErrorModeLexed {
+				if replacement, replaced := p.cRecoverResumeLookahead(source, &stacks[i], tok); replaced {
+					if p.glrTrace {
+						fmt.Printf("      -> C-RESUME-RELEX sym=%d [%d-%d] -> sym=%d [%d-%d]\n",
+							tok.Symbol, tok.StartByte, tok.EndByte,
+							replacement.Symbol, replacement.StartByte, replacement.EndByte)
+					}
+					tok = replacement
 				}
-				tok = replacement
 			}
 			if reason := checkStop(); reason != ParseStopNone {
 				return stacks, false, tok, reason

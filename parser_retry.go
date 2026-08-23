@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"os"
 	"sync/atomic"
 	"time"
 )
@@ -229,6 +230,7 @@ func shouldRetryIncrementalParseAsFull(tree *Tree, sourceLen int, initialMaxStac
 func incrementalAcceptedErrorBaseMergeCap(p *Parser, tree *Tree, source []byte) int {
 	sourceLen := len(source)
 	if p == nil || p.language == nil || parseMaxMergePerKeyEnvConfigured() ||
+		os.Getenv("GOT_DIAGNOSTIC_SKIP_ACCEPTED_ERROR_BASE_MERGE_RETRY") == "1" ||
 		!shouldRetryIncrementalAcceptedErrorAtBaseMergeCap(tree, sourceLen) {
 		return 0
 	}

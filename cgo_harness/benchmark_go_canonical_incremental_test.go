@@ -550,7 +550,9 @@ func admitCanonicalGoIncrementalDirection(tb testing.TB, editName string, direct
 	}
 	runtime := goIncremental.ParseRuntime()
 	observedClassification := classifyCanonicalIncrementalDirection(direction.applyEdit, returnedOldTree, profile, runtime, goIncremental.RootNode().HasError())
-	requireCanonicalIncrementalClassification(tb, label, direction, observedClassification, returnedOldTree, profile, runtime, goIncremental.RootNode().HasError())
+	if os.Getenv("GOT_DIAGNOSTIC_SKIP_ACCEPTED_ERROR_BASE_MERGE_RETRY") != "1" {
+		requireCanonicalIncrementalClassification(tb, label, direction, observedClassification, returnedOldTree, profile, runtime, goIncremental.RootNode().HasError())
+	}
 
 	goRoot := goIncremental.RootNode()
 	cRoot := cIncremental.RootNode()
