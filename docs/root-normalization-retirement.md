@@ -609,6 +609,106 @@ The focused Docker artifacts are:
 - `/tmp/ada-next-live-rebased-artifacts/20260822T232118Z-ada-census-registry`;
 - `/tmp/ada-next-live-rebased-artifacts/20260822T232128Z-ada-real-census`.
 
+## 2026-08-24 BitBake blocker receipt
+
+Status: `NO-GO`. `KEEP LIVE`: `dispatch.bitbake`.
+The BitBake arm remains live.
+
+Base commit: `7498a678c52029a82f312e9637ecb66b15defa0b`.
+
+Select BitBake after excluding the Apex, Rust, Doxygen, DTD, Ada, HLSL, and
+Corn arms. BitBake has 40358 A0 visited nodes and zero rewrites. Wolfram has
+77 A0 visited nodes, three error roots, and zero rewrites. BitBake has the
+stronger remaining evidence.
+
+The ownership registry contains 88 entries. It contains 78 dispatcher arms,
+one dispatcher predicate, three dispatcher subpasses, three generic passes,
+and three second-pass fixpoints. It contains 31 live dispatcher arms, one
+live predicate, 32 live entries, and 56 retired entries. The live dispatcher
+arms cover 33 language labels.
+
+The registry records `dispatch.bitbake` as a `dispatcher_arm`. Its function is
+`normalizeBitbakeCompatibility` in `parser_result_bitbake.go`. Its
+authoritative owner is `scheduler_action_semantics`. Its registered witness is
+`cgo_harness/parity_cgo_test.go`.
+
+The production, compact, forest, and incremental routes use the shared
+compatibility tail. The C oracle route uses the curated single-grammar parity
+path.
+
+The A0 (initial dispatcher census) manifest contains 14 languages and 42
+files. A0 has three BitBake files, three checked, three run, and zero rewrites.
+It records 40358 visited nodes, two error roots, and zero parse errors.
+
+The tracked census contains seven fixtures across six languages. It excludes
+BitBake and Wolfram. The authenticated real-corpus census is unavailable
+because `cgo_harness/corpus_real` is absent. The focused census test skips
+this lane.
+
+The focused receipt covers eight witnesses:
+
+| Witness | Bytes | Source SHA-256 | Go digest | Locked-C digest | Result |
+| --- | ---: | --- | --- | --- | --- |
+| `a0-small-error` | 259 | `fbdb85e443edd378e944e5a1416c0c4a1e485f0cd38f70a5ac75748073a15d12` | `6154c15dcc0a1f365b7cfb0bf0cc120f3e365b55a491ca793a0cf170bc5cfe92` | `6154c15dcc0a1f365b7cfb0bf0cc120f3e365b55a491ca793a0cf170bc5cfe92` | Exact. |
+| `a0-medium-clang-git` | 9229 | `7deb41efd839d8b5b8b2c98589614377d12fd81fa6033824330084e07c5eaf9f` | `f9d3bffb1d39a952d36d56b4ac15e2fe69e020d2cebabc359c8e897ab4ba2c2c` | `7eb2e581801fd0dbf1ed79a9eaf2ad357062725d6b26a238a168b3e14473d064` | Diverges at `/recipe`: shape, children 72 versus 71. |
+| `a0-large-linux-firmware` | 168224 | `eaa9e3f2354345d558717c4791a67144d8b27767674bf5468e157a0e0a332ff6` | `d3c65cb639ef93ddbc96a03b39abbd184ac28ee8261cd894aab3bc6cc63e048d` | `9627acb8fdaf0b4cb9adaf5c23dc0229ea5cfcdeca63e8b8856645654ff33734` | Diverges at `/recipe`: shape, children 2056 versus 2054. |
+| `addtask-error-wrapper` | 964 | `35ccf9d007ef76548258088b18adb39d7c0509452b4fb62bd7dfdc94cdcdf780` | `54ff030bff3669038144d08a72aa778c6e7d5f44de6682ce0fbc78c31fc9620c` | `464f3db4c1ad8be4dabc16c9631524f4cee1d99c9c1c6f4abfad6d6bfe8cabed` | Diverges at `/recipe`: Go error false, C error true. |
+| `function-flag-assignment` | 148 | `8655832f5acd3b4ada197881f41b0110657572aa0c791ecf4524fbc10603a1eb` | `6fda1b4df6c27597c4b6218dd30b0b6c55a51f4d7e7adfff8756fe05f5adef7e` | `dd7147f575544eadae2a0c5aa1ecd571495d66f40da096cba1fd9b309635bd61` | Diverges at `/recipe/function_definition[0]/ERROR[4]`: shape, children 10 versus 9. |
+| `adjacent-override-functions` | 230 | `068037e13b101cf01d0a36da586f798972fa39b99ba0c2a86dc17996bc34d185` | `e939ebdd239811c6154def7a5e4c3faa1a4024f8540ece27d4e3d78bb92c7eed` | `f972c3f88404f41643400bfa2c200c72f2ddbcb93295a258c8b1f404e2cb7d9b` | Diverges at `/recipe`: shape, children 2 versus 3. |
+| `plain-assignment-control` | 18 | `b6a30f2e69cfe6ad0a3ca514e855b86b3c7e9403c5106d7d2239c3f42abea292` | `99187413f4fea3d1d6a10fb61768341c4188db1bd8582cdb041837d8ff49306b` | `99187413f4fea3d1d6a10fb61768341c4188db1bd8582cdb041837d8ff49306b` | Exact no-op control. |
+| `malformed-shell-function` | 40 | `248dddc07429da83d3f05a14da1137270b7715dca43aa41abf58a51109b14477` | `f3ad263fcb44ab306ad7b1cc6a510840ce86c2683c7c94df7333fdec57edeae0` | `f3ad263fcb44ab306ad7b1cc6a510840ce86c2683c7c94df7333fdec57edeae0` | Exact error tree. |
+
+The raw and production routes emit the same digest for every witness. The
+production pass checks, runs, visits, and rewrites these counts:
+
+| Witness | `dispatch.bitbake` checked/run/visited/rewritten |
+| --- | ---: |
+| `a0-small-error` | `1/1/48/0` |
+| `a0-medium-clang-git` | `1/1/1486/0` |
+| `a0-large-linux-firmware` | `1/1/38824/0` |
+| `addtask-error-wrapper` | `1/1/144/0` |
+| `function-flag-assignment` | `1/1/35/0` |
+| `adjacent-override-functions` | `1/1/37/0` |
+| `plain-assignment-control` | `1/1/9/0` |
+| `malformed-shell-function` | `1/1/7/0` |
+
+Every raw, production, compact, and incremental tree reports zero normalization
+nodes rewritten. Each accepted forest tree also reports zero rewrites.
+
+The medium A0 witness differs from locked C at the recipe shape. The large
+A0 witness has the same divergence category. The three constructed producer
+witnesses also differ from locked C. The malformed shell-function witness
+remains a recovery blocker.
+
+The compact route accepts `a0-small-error` and
+`plain-assignment-control`. It falls back for the other six witnesses with
+reason `compact route declined at recovery [mechanism=recovery-entered]: did
+not accept EOF: generic scheduler has no table action for the elected token`.
+
+The forest route accepts `a0-small-error` and
+`plain-assignment-control`. It declines the other six witnesses.
+
+Every incremental route reports `reuse=false`, `unsupported=true`, reason
+`external_scanner_unsupported`, zero reused subtrees, and zero reused bytes.
+The incremental digest equals the raw digest for every witness. It therefore
+matches C for three witnesses and preserves the five locked-C divergences.
+
+The raw, production, compact, forest, incremental, and C-oracle receipts do
+not prove native ownership. Keep dispatch.bitbake live until scheduler_action_semantics emits the locked-C shell-function tree.
+Require `scheduler_action_semantics` to emit that tree for every
+registered witness. Require exact route parity and an authenticated corpus
+before retirement. Do not change the registry or production state.
+
+The focused Docker artifacts are:
+
+- `/tmp/bitbake-next-artifacts/20260823T003226Z-bitbake-next-route-probe`;
+- `/tmp/bitbake-next-artifacts/20260823T003533Z-bitbake-next-registry`;
+- `/tmp/bitbake-next-artifacts/20260823T003543Z-bitbake-next-a0`;
+- `/tmp/bitbake-next-artifacts/20260823T003550Z-bitbake-next-tracked`;
+- `/tmp/bitbake-next-artifacts/20260823T003557Z-bitbake-next-real-corpus`;
+- `/tmp/bitbake-next-artifacts/20260823T003813Z-bitbake-next-final-corrected`;
+- `/tmp/bitbake-next-artifacts/20260823T003855Z-bitbake-next-document-final`.
+
 ## Ordered program
 
 ### R0 — inventory and containment
