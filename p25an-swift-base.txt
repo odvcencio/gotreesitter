@@ -1,0 +1,165 @@
+# package: .
+# bench regex: ^BenchmarkP25anHighHitSwift$
+# build tags: gts_parsercorephase0
+# seeds: 1..20
+# benchtime: 750ms
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       7	 124898680 ns/op	11753541 B/op	    5180 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.084s
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       7	 117538976 ns/op	11753548 B/op	    5180 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.643s
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       8	  96276827 ns/op	11745825 B/op	    5179 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.774s
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       9	  92256915 ns/op	11739828 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.718s
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	      10	  83084754 ns/op	11735128 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.696s
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	      10	  83375032 ns/op	11735128 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.687s
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	      10	  84850158 ns/op	11735128 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.701s
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	      10	  83641706 ns/op	11735137 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.702s
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       6	 136294772 ns/op	11763830 B/op	    5182 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.811s
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       7	 116775500 ns/op	11753541 B/op	    5180 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.485s
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       8	 109928378 ns/op	11745825 B/op	    5179 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.527s
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       9	  84627670 ns/op	11739823 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.635s
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	      10	  82702755 ns/op	11735132 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.678s
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	      10	  81681506 ns/op	11735128 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.508s
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       9	  84952265 ns/op	11739828 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.619s
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	      10	  83397809 ns/op	11735128 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.755s
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	      10	  84719395 ns/op	11735128 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.781s
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	      10	  82014307 ns/op	11735128 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.661s
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       6	 132844703 ns/op	11763830 B/op	    5182 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.710s
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkP25anHighHitSwift 	       9	  90716590 ns/op	11739828 B/op	    5178 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	1.731s

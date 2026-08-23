@@ -10,6 +10,177 @@ published receipt.
 This is measurement infrastructure only. It changes no parser code, no
 routing, and no shipped behavior.
 
+## 2026-08-23 P25an collision hardening
+
+Status: **NO-GO / REVERTED**. Keep `glrNodeEquivCacheSize` at `16384`.
+
+P25an tested the candidate from base
+`5eaa38e536e54530b3d795c6c0a56d927d3d0e0e` with code-only SHA-256
+`9c8a68735bcfca0c3c7971957d631bb5beb8d639aeeb216a98228d0f6e7b84fd`.
+The candidate changed the node-equivalence cache from `16384` entries to
+`2` entries. The candidate also replaced the stale `8192 sets` comment with
+the correct diagnostic description. The production comment now matches the
+base again.
+
+The temporary `TestNodeEquivCacheTwoEntryCollisionSafety` test passed in
+Docker. It used one set with two ways and checked these conditions:
+
+- Reversed pointers returned the stored result.
+- A different depth returned a miss.
+- A different node pair returned a miss.
+- A third pair evicted the oldest pair without a false hit.
+- A changed node version returned a miss.
+- A new equivalence epoch returned a miss.
+- Two arithmetic parses returned identical S-expressions after cache thrash.
+
+The focused Docker log is `/home/draco/work/gotreesitter/harness_out/docker/20260823T155519Z-p25an-collision-correctness/container.log`, SHA-256
+`f8b701422f118969189208595b6ee29cf9373d317778e29751793cafc27f1ab4`.
+The temporary test was removed when the candidate was reverted.
+
+P25an screened two merge-heavy workloads. The Swift workload used
+`grammars/testdata/swift_corpus/stdlib_Collection.swift`. Its audit observed
+20,377 node-cache lookups and 45 hits. The JavaScript workload used
+`testdata/parser_result/csharp/jsontextreader_excerpt.cs`. Its audit observed
+6 lookups and 2 hits. The JavaScript lane had the higher hit share, while the
+Swift lane supplied the higher hit count.
+
+Each lane used 20 randomized seeds, `GOMAXPROCS=1`, one process per seed,
+`-count=1`, `-benchtime=750ms`, and `-benchmem` in Docker.
+
+| Lane | Time change | Bytes change | Allocs change | Decision |
+| --- | ---: | ---: | ---: | --- |
+| Swift | `+45.38%` | `+0.12%` | `+0.04%` | Reject |
+| JavaScript | `-8.45%` | unchanged | unchanged | Pass |
+
+Swift failed the one-percent time limit. The candidate is therefore rejected,
+even though JavaScript improved. The production cache size and semantics did
+not change.
+
+P25an benchmark artifacts are:
+
+- Swift base: `/tmp/gts-p25al-base-20260824/p25an-swift-base.txt`, SHA-256 `c5cf3294ba250ef28634268ab1caa205fda71a38b70d23f4a4bc27e900d39238`.
+- Swift candidate: `/tmp/gts-p25aj-screen-20260824-aj/p25an-swift-candidate-v2.txt`, SHA-256 `af8feb9106a8171937d68cf9d6568a29891e86f7701883944e726236be7fb571`.
+- JavaScript base: `/tmp/gts-p25al-base-20260824/p25an-js-base.txt`, SHA-256 `ad83319ad36c5ee1c46e97a14bc0384d907818a09e8896a5314a79314626ebcf`.
+- JavaScript candidate: `/tmp/gts-p25aj-screen-20260824-aj/p25an-js-candidate.txt`, SHA-256 `c61ff75df97fbc6db0cec3042cd151cc303d67da7352502c35cfd6bf1631921f`.
+
+The candidate was reverted. No production or test change from P25an remains.
+
+## 2026-08-23 P25ak-P25al node-equivalence cache screen
+
+Status: **HISTORICAL SCREEN / SUPERSEDED BY P25an NO-GO**. P25ak-P25al
+passed their scoped gates, but P25an rejected the candidate on a Swift time
+regression.
+
+The base is main commit
+`5eaa38e536e54530b3d795c6c0a56d927d3d0e0`. The candidate changes one
+constant in `glr.go`:
+
+```text
+glrNodeEquivCacheSize: 16384 -> 2
+```
+
+The code-only diff SHA-256 is
+`9c8a68735bcfca0c3c7971957d631bb5beb8d639aeeb216a98228d0f6e7b84fd`.
+The candidate worktree is `/tmp/gts-p25aj-screen-20260824-aj`.
+
+### P25ak cache telemetry
+
+P25ak used the authenticated Go `recovery_deletion` incremental workload.
+The diagnostic build measured construction, lookup, store, and retained
+bytes for four merge caches.
+
+| Cache | Initial bytes | Lookups | Hits | Drained construction |
+| --- | ---: | ---: | ---: | ---: |
+| Node equivalence | 512 KiB | 3,482 | 81 | 2 |
+| Stack equivalence | 96 KiB | 1,321 | 85 | 1 |
+| Spine equivalence | 640 KiB | 2,876 | 1,145 | 2 |
+| Shape prefix | 512 KiB | 3,210 | 1,146 | 2 |
+
+Pooled mode constructed each cache once. Truly drained mode reconstructed the
+node, spine, and shape caches during the two measured iterations. The node
+cache had the lowest hit rate and the largest removable low-value allocation.
+
+P25ak used these telemetry logs:
+
+- Pooled container log: `/home/draco/work/gotreesitter/harness_out/docker/20260823T151230Z-p25ak-telemetry-pooled/container.log`, SHA-256 `2abc13026c624620f98a2b0099202f2019d19cc105f27d823469f5efc2674c2a`.
+- Drained container log: `/home/draco/work/gotreesitter/harness_out/docker/20260823T151300Z-p25ak-telemetry-drained/container.log`, SHA-256 `821c01d44ee5cdafffda8254c88cdd399e987bbdaeece8a57886213a591e8ecb`.
+
+P25ak used a 20-seed randomized screen with `GOMAXPROCS=1`, one process per
+seed, `-count=1`, `-benchtime=750ms`, and `-benchmem`.
+
+| Mode | Time | Bytes | Allocs | RSS |
+| --- | ---: | ---: | ---: | ---: |
+| Pooled base | 4.560 ms/op | 1.269 MiB/op | 62.5 | 232,320 KiB |
+| Pooled candidate | 3.949 ms/op | 1.268 MiB/op | 62.0 | 232,160 KiB |
+| Drained base | 6.964 ms/op | 4.425 MiB/op | 133.0 | 232,960 KiB |
+| Drained candidate | 5.060 ms/op | 3.920 MiB/op | 132.0 | 233,920 KiB |
+
+The drained screen reduced bytes per operation by `11.41%` and allocations by
+`0.75%`. Pooled time improved by `13.40%`, and drained time improved by
+`27.34%`. RSS stayed within the one-percent limit.
+
+P25ak benchmark and RSS artifacts are:
+
+- Base pooled benchmark: `/tmp/gts-p25ak-artifacts/p25ak-base-pooled.txt`, SHA-256 `afa0873842a704d54ea6a897dd7c8312cbc56e7a66bc862da3d4eac02c716fee`.
+- Base drained benchmark: `/tmp/gts-p25ak-artifacts/p25ak-base-drained.txt`, SHA-256 `0ff2c4c066268dd61a1d066afd5505ca4806b80d53864aaa1a1afcd8e0d1722f`.
+- Candidate pooled benchmark: `/tmp/gts-p25ak-artifacts/p25ak-candidate-pooled.txt`, SHA-256 `ce4d9fa83e3b58f185535dc00713e5f615e9aeec2dcd6cb8a44de6b160340178`.
+- Candidate drained benchmark: `/tmp/gts-p25ak-artifacts/p25ak-candidate-drained.txt`, SHA-256 `febf9a0de0e16c7130ef28eaf17d8d72413a61ca37c859a9d4296a6a7ea09d8f`.
+- Base pooled RSS: `/tmp/gts-p25ak-artifacts/p25ak-rss-pooled.rss`, SHA-256 `4ff20b0ea038db84ab218f1d4497ee2604a81d5509365cc72f243a952a4e82f4`.
+- Base drained RSS: `/tmp/gts-p25ak-artifacts/p25ak-rss-drained.rss`, SHA-256 `86ce56e61bccab432599fe6e9ebd67d016df2ada1830a9e4e5c0005db1958917`.
+- Candidate pooled RSS: `/tmp/gts-p25ak-artifacts/p25ak-candidate-rss-pooled.rss`, SHA-256 `f1f46608ba9eb12fcf7f192f133e99ffc820f76a03386039580e8363d5ac44f6`.
+- Candidate drained RSS: `/tmp/gts-p25ak-artifacts/p25ak-candidate-rss-drained.rss`, SHA-256 `f688a21537bce3581a8601140e2fc64e682a785320f031396e279cc9ec582363`.
+- Base correctness log: `/home/draco/work/gotreesitter/harness_out/docker/20260823T151310Z-p25ak-correctness/container.log`, SHA-256 `9e43d9a81e7e25fe5074dfbbd13b655cf7f2f128f0c0f66422229d160b1069fc`.
+- Candidate correctness log: `/home/draco/work/gotreesitter/harness_out/docker/20260823T151632Z-p25ak-candidate-correctness/container.log`, SHA-256 `d3ac510409d70e1b886cb392b7ae536b1b1bedceaf73b54c070ad59096612d30`.
+
+### P25al expanded acceptance
+
+P25al used clean base and candidate worktrees. Docker correctness passed for
+both trees in these focused suites:
+
+- Go: `TestCanonicalGoIncrementalParity/recovery_deletion`.
+- JavaScript: three focused regression tests.
+- Python: `TestPythonRootHasError*`.
+- Rust: `TestCollapsedChildOccurrenceParity/rust`.
+
+The broader JavaScript control `TestParityJavaScriptIncrementalRepetitionFoldControl`
+failed in the base and candidate controls. The three focused JavaScript
+regressions passed in both trees. Treat the control failure as a known baseline
+failure, not as a candidate regression.
+
+The primary trio used the same 20-seed protocol. The candidate changed the
+time results as follows:
+
+| Benchmark | Time change | Bytes change | Allocs change |
+| --- | ---: | ---: | ---: |
+| Full parse | `-7.76%` | `-7.56%` | unchanged |
+| Incremental single-byte edit | `-6.64%` | unchanged | unchanged |
+| Incremental no-edit | `-7.22%` | unchanged | unchanged |
+
+Do not claim a broad allocation win. Only the full-parse lane reduced bytes
+per operation. The other trio allocation metrics stayed unchanged.
+
+P25al primary artifacts are:
+
+- Base primary benchmark: `/tmp/gts-p25al-artifacts/p25al-base-primary.txt`, SHA-256 `ffecaf146c1dcc9238a79676109fb81d5d77e0e563aa0e473a2b6dde84093592`.
+- Candidate primary benchmark: `/tmp/gts-p25al-artifacts/p25al-candidate-primary.txt`, SHA-256 `d23323f0d18d61b11f6f1be4ab00230ae2bdd8d962caa5d21eb487230203764e`.
+- Base large-file RSS: `/tmp/gts-p25al-artifacts/p25al-base-large-rss.rss`, SHA-256 `de5e642a1aa8a4669496ed1f6cad63f9ce7e0f42f3f2b166a42553fdba6fe73b`.
+- Candidate large-file RSS: `/tmp/gts-p25al-artifacts/p25al-candidate-large-rss.rss`, SHA-256 `01892345b764f36dcd3bc0d5bcf01be68d7285b6844ac0831edb0d3a77faccf1`.
+- Base large-file output: `/tmp/gts-p25al-artifacts/p25al-base-large-rss.out`, SHA-256 `d897abe78f2b9ce73417ecbce0b1e87910efa6d41df7b2537ed3b92219aa95e9`.
+- Candidate large-file output: `/tmp/gts-p25al-artifacts/p25al-candidate-large-rss.out`, SHA-256 `085207cf4d7a33e67be73d37337180800d0e9cb6b7688562de2c8e16c04134c0`.
+
+The large-file run used `GOT_BENCH_FUNC_COUNT=10000`. RSS changed from
+`571,840 KiB` to `567,680 KiB`, or `-0.73%`.
+
+Focused Docker log hashes are:
+
+- Go base and candidate: `d9b8e83086e9e4fece2ff7ba48db77438b3bfd2b9b1448a02111673e191a8315`, `41ddea9cc81b9288613334b1deeb0b2dffee32b1de6fa6157e15441fd6dc1f2f`.
+- JavaScript base and candidate: `f3ac435b50361ab11dbcf40bd7e9440e32587733ca8349a9453eb64a11bb602c`, `fcb8613856b3dea3efb1b90c64a83ba75cca1767c86dd201b7afd7289a515f98`.
+- Python base and candidate: `449fa67799c3f22696cd5ee6dd178c7e712866d6bb2b503b7c8dad4f784b7b71`, `1d2556ef65f4e048f21d59007172e7791ac72a0f060810d513034ae34fecd3b5`.
+- Rust base and candidate: `cdf86f834c6118ffcc33e27c76f2d7f50fdc8bbf6445c024569506253aef734c`, `77bc5afda285d0d627fa2acbf671ddfe58f978e7cb376664d0efc436227459ce`.
+
+P25al passed the expanded screen. P25an then rejected the candidate on a
+broader merge-heavy Swift lane. Keep issue #454 live.
+
 ## 2026-08-23 P25x-P25ab field and reduction performance blocker
 
 Status: **KEEP ISSUE #454 LIVE / NO-GO**. Ship no code.

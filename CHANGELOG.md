@@ -140,6 +140,27 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Rejected the P25an two-entry node-equivalence cache after collision
+  hardening and two-language screening. The deterministic test covered full
+  node keys, versions, depth, epoch, eviction, and parse-result stability.
+  The Swift lane regressed time by `45.38%`, which exceeded the one-percent
+  limit. The JavaScript lane improved time by `8.45%`, but it could not offset
+  the Swift regression. Restored the `16384` entry cache. See
+  `docs/perf-attribution.md` for artifacts and hashes.
+
+- Recorded the P25ak-P25al node-equivalence cache screen at base
+  `5eaa38e536e54530b3d795c6c0a56d927d3d0e0e`. P25ak traced the four fixed
+  merge caches. The node cache used 512 KiB and had the lowest hit rate.
+  The accepted candidate changed `glrNodeEquivCacheSize` from `16384` to `2`.
+  Its recovery `recovery_deletion` drained screen reduced bytes per operation
+  by `11.41%`. P25al passed focused Go, JavaScript, Python, and Rust Docker
+  checks. The primary trio improved time by `6.64%` to `7.76%`. Only full
+  parse reduced bytes per operation, by `7.56%`; other trio allocation metrics
+  stayed unchanged. A known JavaScript control failed in both baseline
+  controls; three focused JavaScript regressions passed in both trees. P25an
+  later rejected the candidate on a Swift time regression. See
+  `docs/perf-attribution.md` for artifacts, hashes, and limits.
+
 - Recorded the P25x-P25ab performance blocker at publication base
   `8c80a46e450d906fc9ce1665c189497b02483a3e`. P25x used evidence base
   `3d6cd2628f7a42c348f51dce0a0ed9b92b183c6a`. P25y and P25z used evidence
