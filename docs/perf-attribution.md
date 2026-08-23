@@ -10,6 +10,328 @@ published receipt.
 This is measurement infrastructure only. It changes no parser code, no
 routing, and no shipped behavior.
 
+## 2026-08-23 P25h-P25j parser-core dispatch copy blocker
+
+Status: **KEEP ISSUE #454 LIVE / NO-GO**. Ship no code.
+
+The publication base is main commit
+`137860ebd80921094e5a8069007d49188dcb5e50`. The performance evidence uses
+base commit `41d0b9de133de777aeba9c1dca091903da052a7f`.
+
+### Fresh profile and bounded candidate
+
+The fresh profile used one quiet Docker CPU, `GOMAXPROCS=1`, and a three-second
+capture. It used the authenticated Go `grammargen_lr` workload.
+
+The profile placed `13.25%` flat CPU time in `runtime.duffcopy` and `3.31%`
+in `dispatchPassActive`. The latter had `58.94%` cumulative CPU time. The
+profile also showed `2.65%` flat time in materialization.
+
+The fresh profile is at
+`/tmp/gts-p25h-investigation/harness_out/docker/20260823T075254Z-p25h-fresh-attribution`.
+Its shipped `grammargen_lr` profile SHA-256 is
+`fc8187d35fcb1dc99717193e9a689bf3567719c58e675bceb1507a9a64db2590`.
+The profile manifest SHA-256 is
+`a881ae0263b988490408cdb7b3241e3a19d54e09e11f3b7249d92abf58dd6899`.
+
+The candidate changed only `parsercore_phase0_driver.go`. It introduced a
+value snapshot with five fields: `head`, `s3Region`, `shifted`, `accepted`,
+and `paused`. The loop read and wrote these fields through the existing header
+array. The resume path rebuilt the same value snapshot after each mutation.
+This design avoided pointer aliasing.
+
+The candidate preserved the loop's value-snapshot semantics. It did not retry
+the rejected indexed pointer approach. The raw diff SHA-256 is
+`1a21f58236d65b6f2c91d74c6a9be322c4d0e095a929452218b60ebfcfeae776`.
+The candidate source SHA-256 was
+`420ebab3f073e140571c7e0fe99a8c8dfe52d57e3fcb27778218c15b0b5def3a`.
+The baseline source SHA-256 was
+`dd711d956b3174a1281acc121766ef31d2d1b8b86a191230589200456e0f3211`.
+
+Canopy traced `dispatchPassActive` and the new snapshot type in the changed
+file. The trace covered every header field read, write, and resume reload.
+The trace also covered boundary classification, recovery, cell construction,
+and downstream materialization calls.
+
+- Canopy symbol trace: direct `canopy search symbols` with `--no-cache`.
+- Impact graph: `/tmp/p25h-impact.json`.
+- Call graph: `/tmp/p25h-calls.json`.
+- Dispatch field trace: `/tmp/p25h-dispatch.txt`.
+
+The candidate profile is at
+`/tmp/gts-p25h-investigation/harness_out/docker/20260823T075754Z-p25h-candidate-attribution`.
+Its shipped `grammargen_lr` profile SHA-256 is
+`a00a9e360f19b4312584a4623013ddcca0f0b9bb8a6e6e031154188a39db6328`.
+The candidate profile manifest SHA-256 is
+`c857f2bfc3bf7c179a17a6c3f7e3af1a8646e46e309f3feb76c91a02a4cb9093`.
+
+### Correctness and parity
+
+The action conversion test passed. The exact rewrite and materialization test
+passed. The candidate attribution capture passed. The focused scheduler test
+failed with `ConvergedReductionSplitDrops=6`; the existing test expects `5`.
+
+The baseline focused run reported the same failure and the same value of `6`.
+Treat this result as a baseline-reproduced test limitation, not a candidate
+finding.
+
+- Candidate focused tests: `/tmp/gts-p25h-investigation/harness_out/docker/20260823T075521Z-p25h-candidate-focused`
+- Baseline focused tests: `/tmp/gts-p25h-baseline/harness_out/docker/20260823T080901Z-p25h-baseline-focused`
+- Candidate attribution: `/tmp/gts-p25h-investigation/harness_out/docker/20260823T075754Z-p25h-candidate-attribution`
+
+The one-language Go parity run reproduced the known locked-C result. It
+reported `24/25` deep-parity samples. The first difference remained the
+`declarations.txt` parameter span. The candidate added no divergence.
+
+- Candidate parity: `/tmp/gts-p25h-investigation/harness_out/docker/20260823T075557Z-diag-go_lang`
+
+The Docker metadata recorded one CPU, four GiB memory, `GOMEMLIMIT=3GiB`,
+`GOMAXPROCS=1`, and `GOFLAGS=-p=1`. The focused and parity runs reported no
+timeout and no out-of-memory event.
+
+### Randomized performance result
+
+The primary protocol used 20 seeds. Each seed used one process,
+`GOMAXPROCS=1`, `GOFLAGS=-p=1`, `-count=1`, `-benchtime=750ms`, `-benchmem`,
+and one shuffle seed.
+
+| Benchmark | Candidate minus baseline | p-value | Result |
+|---|---:|---:|---|
+| Full parse | `-1.34%` | `<0.001` | Improvement |
+| Single-byte edit | `-0.29%` | `0.147` | Neutral |
+| No edit | `-0.75%` | `<0.001` | Improvement |
+| Trio geometric mean (geomean) | `-0.79%` | — | Improvement |
+
+Full-parse bytes per operation fell `2.36%` (`p=0.001`). Incremental bytes
+per operation stayed at zero. Allocation counts stayed unchanged at four for
+full parsing and zero for both incremental lanes.
+
+- Baseline primary output: `/tmp/gts-p25h-baseline/harness_out/p25h-baseline-primary.txt`
+- Candidate primary output: `/tmp/gts-p25h-investigation/harness_out/p25h-candidate-primary.txt`
+- Baseline primary SHA-256: `7236e7f49e146029002584942efb00a4b5a396e8634642f094059b4a4e95c5b9`
+- Candidate primary SHA-256: `f4dca94d250374bd3ce2c6aa893b5af0df9b585d9de6402a2717b68eee22e557`
+
+The authenticated `grammargen_lr` control used the same 20-seed protocol.
+Generalized LR (GLR) parsing means generalized parsing with
+multiple active stacks.
+
+| Metric | Candidate minus baseline | p-value |
+|---|---:|---:|
+| Time per operation | `+11.03%` | `<0.001` |
+| Bytes per operation | `+16.61%` | `<0.001` |
+| Allocations per operation | neutral at `156` | `0.231` |
+
+Structural counters stayed equal. Both runs reported `56.43M` arena bytes,
+zero forest fast-path uses, `18` maximum stacks, `53.12k` multi-iterations,
+`47.98k` multi-tokens, `330.5k` nodes, zero normalization runs, `58` peak
+depth, and `49.91k` tokens.
+
+- Baseline GLR output: `/tmp/gts-p25h-baseline/harness_out/p25h-baseline-glr.txt`
+- Candidate GLR output: `/tmp/gts-p25h-investigation/harness_out/p25h-candidate-glr.txt`
+- Baseline GLR SHA-256: `7e790b96b94f1a22288a77f4f1abbeaa13ed138c6875bf93003e48958ee99aae`
+- Candidate GLR SHA-256: `5b542313530087333a78ac069da295bcd2e324c0717bd2930dca0507a945c0ca`
+
+The first cold RSS run included a candidate compile outlier. The controlled
+warm run built each test binary before measurement. Its three samples were:
+
+| Run | Samples in KiB | Median |
+|---|---:|---:|
+| Baseline | `602880`, `600000`, `580000` | `600000` |
+| Candidate | `600960`, `610240`, `612160` | `610240` |
+
+The warm candidate median increased `1.71%`. The warm RSS artifacts are:
+
+- Baseline: `/tmp/gts-p25h-baseline/harness_out/docker/20260823T081017Z-p25h-baseline-rss-warm`
+- Candidate: `/tmp/gts-p25h-investigation/harness_out/docker/20260823T081040Z-p25h-candidate-rss-warm`
+
+The candidate and baseline runs reported no crash, out-of-memory event, or
+wall timeout. The candidate did not retain a production change.
+
+### P25i scalar follow-up diagnostic
+
+P25i used the same base commit and re-applied the P25h candidate temporarily.
+It compared compiler reports, assembly, and allocation-space profiles. It did
+not create a production change or a 20-seed publication.
+
+The compiler inline costs were:
+
+| Variant | Inline cost | Escape result |
+|---|---:|---|
+| Baseline | `3572` | Scheduler receiver leaks to heap |
+| P25h aggregate | `3631` | Same result |
+| P25i scalar | `3613` | Same result |
+
+The assembly comparison was:
+
+| Variant | Lines | `MOVUPS` | `MOVQ` | Calls | Stack frame |
+|---|---:|---:|---:|---:|---:|
+| Baseline | `2019` | `342` | `644` | `79` | `0x538` |
+| P25h aggregate | `2057` | `346` | `645` | `85` | `0x510` |
+| P25i scalar | `1997` | `342` | `616` | `77` | `0x500` |
+
+The P25h aggregate added stack copy and spill sequences. The compiler did not
+report a new header allocation. The assembly and profile evidence support
+copy and spill cost as the cause of the P25h regression.
+
+The P25i scalar form read `shifted`, `accepted`, and `paused` into scalars.
+It kept value snapshots for `head` and `s3Region`. It reloaded both values
+after an error-region resume. Its raw diff SHA-256 is
+`63eb4b41af5b601dd5105887918ab1024fbe2d96dacbf56e15ccd3ae84ec0cd7`.
+
+The focused action, rewrite, and materialization tests passed. The scheduler
+test failed on both baseline and scalar runs with `ConvergedReductionSplitDrops=6`;
+the existing test expects `5`. The scalar Go parity run preserved the known
+`24/25` deep-parity result and the same `declarations.txt` span divergence.
+
+- Scalar focused test: `/tmp/gts-p25i-investigation/harness_out/docker/20260823T082832Z-p25i-scalar-focused`
+- Scalar parity: `/tmp/gts-p25i-investigation/harness_out/docker/20260823T082839Z-diag-go_lang`
+- Baseline escape report: `/tmp/gts-p25i-baseline/harness_out/p25i-baseline-escape.txt` (SHA-256 `12f03d67c2a16c5fcd7f2c29ff96a3e181118ecafc939a390a6ad9119ca7736b`)
+- Aggregate escape report: `/tmp/gts-p25i-investigation/harness_out/p25i-candidate-escape.txt` (SHA-256 `8b7f3838c99c88b09d60526c5d319fffe9181c48106b88d4249688cacbe6401d`)
+- Scalar escape report: `/tmp/gts-p25i-investigation/harness_out/p25i-scalar-escape.txt` (SHA-256 `5525db79bc8042036a8216d46797368cccc38accc58d1e29f25b9e836d5ac5ac`)
+- Baseline assembly: `/tmp/gts-p25i-baseline/harness_out/p25i-baseline-objdump.txt` (SHA-256 `9c31c466f60ea7a6718ecce8faca4e63ae39024eee43aa4760f32da0f8db22be`)
+- Aggregate assembly: `/tmp/gts-p25i-investigation/harness_out/p25i-candidate-objdump.txt` (SHA-256 `9c218c616710e642be26c147ec49de401a12950b462309e33c35fb52005b949e`)
+- Scalar assembly: `/tmp/gts-p25i-investigation/harness_out/p25i-scalar-objdump.txt` (SHA-256 `a21c31cb1384a2e31c868233615608c09fe83180058f7a55d921a2f593030d7c`)
+- Baseline allocation profile: `/tmp/gts-p25i-baseline/harness_out/p25i-baseline-alloc.pprof` (SHA-256 `ca586b976602d05f6e596dbe09d1a567edafd5d677dc768e598cd8451d3ca673`)
+- Aggregate allocation profile: `/tmp/gts-p25i-investigation/harness_out/p25i-candidate-alloc.pprof` (SHA-256 `e610c5abc43468fc9173a1269dec39110339b670e0839e92e8b324c3da4a7d1b`)
+
+The six-seed screen used alternating baseline-first and scalar-first order.
+Each run used one CPU, `GOMAXPROCS=1`, `GOFLAGS=-p=1`, `-count=1`,
+`-benchtime=750ms`, and `-benchmem`. Treat this screen as diagnostic only.
+
+Primary trio screen:
+
+| Benchmark | Scalar minus baseline | p-value |
+|---|---:|---:|
+| Full parse | `-1.90%` | `0.026` |
+| Single-byte edit | neutral | `0.331` |
+| No edit | neutral | `1.000` |
+| Trio geometric mean (geomean) | `-0.18%` | — |
+
+Full-parse bytes per operation increased `1.85%` (`p=0.022`). Allocation
+counts stayed unchanged in the screen.
+
+Authenticated generalized LR (GLR) screen:
+
+| Metric | Baseline | Scalar | p-value |
+|---|---:|---:|---:|
+| Time per operation | `133.8 ms` | `132.4 ms` | `0.937` |
+| Bytes per operation | `6.251 MiB` | `6.256 MiB` | `0.513` |
+| Allocations per operation | `156.5` | `157.0` | `0.859` |
+
+Arena bytes, forest fast-path uses, maximum stacks, multi-iterations,
+multi-tokens, nodes, normalization runs, peak depth, and tokens stayed equal.
+The screen did not show a GLR improvement. Do not run the 20-seed campaign.
+
+Warm three-sample maximum resident set size (RSS) was:
+
+| Variant | Samples in KiB | Median |
+|---|---:|---:|
+| Baseline | `621120`, `588800`, `590720` | `590720` |
+| Scalar | `621080`, `596320`, `587840` | `596320` |
+
+The scalar median increased `0.95%`.
+
+- Canopy symbols: `/tmp/p25i-symbols.json` (SHA-256 `daae9f3e6b7ffb00be6e7ec040a16b66526d02cedb59c1bc7a14fded5487274e`)
+- Canopy calls: `/tmp/p25i-calls.json` (SHA-256 `a641a797a23c0ef571ee3582414b018934484e73e1492513e7f94073db53bdba`)
+- Canopy impact: `/tmp/p25i-impact.json` (SHA-256 `bc7d6b0d274b58cee95f9e63e588ec51f2cc24355a68eb26e3ce9259ba4632d5`)
+- Alternating screen artifacts: `/tmp/gts-p25i-investigation/harness_out/p25i-screen`
+- Warm RSS baseline: `/tmp/gts-p25i-baseline/harness_out/docker/20260823T083306Z-p25i-baseline-rss-warm`
+- Warm RSS scalar: `/tmp/gts-p25i-investigation/harness_out/docker/20260823T083324Z-p25i-scalar-rss-warm`
+
+### P25j distinct-copy follow-up diagnostic
+
+P25j used the same publication base and a clean isolated worktree at
+`/tmp/gts-p25j-investigation`. The exact experiment base was
+`5d39d9658f5071c5c0f476eaadc6ae067e6c77e1`. The baseline worktree was
+`/tmp/gts-p25j-baseline` at the same commit.
+
+The fresh authenticated profile used one quiet Docker CPU,
+`GOMAXPROCS=1`, `GOFLAGS=-p=1`, a three-second benchmark, and
+`BenchmarkParserCoreFreshFullCanonical/grammargen_lr`.
+
+The profile measured `11.82%` flat CPU time in `runtime.duffcopy`. The total
+was `0.48` seconds in `runtime.duffcopy`. Canonical linear grouping accounted
+for `0.07` seconds of that total. Keep these two values separate.
+
+The assembly showed one distinct 224-byte copy at the `linearGroup` literal
+assignment in `canonicalizeLinearCheckedWithMutation`. The candidate changed
+only `parsercore_phase0_driver.go`. Its raw diff SHA-256 is
+`a055e19160f401b266c6afb43a4be8e24bd058434c05ba6b3050b3629b27404b`.
+
+Each inline group slot starts zeroed and is used once per call. Field-wise
+initialization therefore preserves the literal's zero-value fields. It removes
+the targeted 224-byte assembly copy without changing group ownership or values.
+The assembly still contains the existing dispatch header copies. The candidate
+did not retry the rejected indexed header pointer.
+
+The fresh profile artifacts are:
+
+- CPU profile: `/tmp/gts-p25j-investigation/harness_out/p25j-profile/grammargen_lr.cpu.pprof` (SHA-256 `8c6d0e5e3869bf1d9da41b3abea49fdc9722ccccf789938290241578445d11c5`)
+- Allocation profile: `/tmp/gts-p25j-investigation/harness_out/p25j-profile/grammargen_lr.alloc.pprof` (SHA-256 `341ef74b8d622e5c6e3626f20b03acec0de107db63f3eb492ef70720f13a834`)
+- Docker metadata: `/tmp/gts-p25j-investigation/harness_out/docker/20260823T084133Z-p25j-authenticated-profile/metadata.txt` (SHA-256 `99cc9af90cb4db78e4e361cf4465032eb46c46614d38f739e84d976fa8002b5e`)
+
+The benchmark reported `89.588 ms/op`, `8,276 B/op`, and `123 allocs/op`.
+The allocation profile is process-wide. Use benchmark B/op and allocs/op for
+the timed operation values.
+
+The focused Docker correctness run passed all nine canonical-scratch tests.
+It used one CPU, four GiB memory, `GOMEMLIMIT=3GiB`, `GOMAXPROCS=1`, and
+`GOFLAGS=-p=1`. It reported no timeout or out-of-memory event.
+
+- Correctness artifact: `/tmp/gts-p25j-investigation/harness_out/docker/20260823T084901Z-p25j-canonical-correctness-tags`
+- Correctness metadata SHA-256: `50db1ffa0d44e94f854688943f0d43868edef89c83e5b21c4c9ab10ea39c25b7`
+
+The first six-seed screen used one process per seed, one CPU,
+`GOMAXPROCS=1`, `GOFLAGS=-p=1`, `-count=1`, `-benchtime=750ms`, and
+`-benchmem`. It included the primary deterministic finite automaton (DFA)
+trio and the authenticated `grammargen_lr` generalized LR (GLR) control.
+The combined screen geomean changed by `-0.21%` (`p=0.589`, `n=6`).
+
+- Baseline output: `/tmp/gts-p25j-baseline/harness_out/p25j-baseline-screen.txt` (SHA-256 `65dd23929f7b3a8429904720278e4a7b5fa1e2838f29d1125b2b2036e0abcdd8`)
+- Candidate output: `/tmp/gts-p25j-investigation/harness_out/p25j-candidate-screen.txt` (SHA-256 `06c41f63e1d93c854143f971389dfa17c192f54c86b5cee4b7ce0776961ce69d`)
+- Docker artifact: `/tmp/gts-p25j-investigation/harness_out/docker/20260823T084946Z-p25j-candidate-screen`
+
+The order-balanced screen alternated baseline-first and candidate-first
+containers for seeds 1 through 6. Its geomean changed by `-0.07%`.
+The primary lanes were neutral: full parse changed `+0.34%`, single-byte
+edit changed `-0.06%`, and no-edit changed `-0.20%`. The authenticated
+`grammargen_lr` control changed `-1.16%` (`p=0.394`, `n=6`). These results
+did not establish a target improvement.
+
+The parser-core B/op and allocs/op values stayed equal. Full-DFA B/op noise
+changed sign between the two screen orders. The compact work counters stayed
+identical for every authenticated parser-core sub-benchmark.
+
+- Order-balanced benchstat: `/tmp/p25j-order-benchstat.txt` (SHA-256 `48033a28d28a5638a00682662941977a440a8c7d817f120b3225dc584571dcb5`)
+- Candidate order artifacts: `/tmp/gts-p25j-investigation/harness_out/p25j-order-candidate-seed1.txt` through `p25j-order-candidate-seed6.txt`
+- Baseline order artifacts: `/tmp/gts-p25j-baseline/harness_out/p25j-order-baseline-seed1.txt` through `p25j-order-baseline-seed6.txt`
+
+The candidate failed the six-seed improvement gate. Do not run a 20-seed
+campaign or an RSS campaign for this rejected candidate. No production or
+test change survives. Both P25j worktrees are clean.
+
+### Decision and reopening condition
+
+Reject the aggregate, scalar, and linear-group value projections. The aggregate regresses
+authenticated GLR time, bytes per operation, and RSS. The scalar screen is
+neutral on GLR and nearly neutral on the primary trio. The P25j screen is
+neutral on both the primary trio and authenticated GLR.
+
+Keep issue #454 open. Ship no parser or test change. No 20-seed publication
+exists for P25h, P25i, or P25j. Reopen this lane only after a fresh quiet
+profile identifies a distinct 224-byte or larger copy outside the rejected
+header snapshots, and an order-balanced screen improves the target without
+changing B/op, allocs/op, RSS, or parser-work counters.
+
+Preserve value-snapshot semantics without pointer aliasing. Prove equal work,
+raw shape, fields, fragility, recovery, materialization, incremental behavior,
+and locked-C parity. Repeat the 20-seed primary trio, the 20-seed authenticated
+GLR control, and three warm RSS runs. Reject any result with a crash,
+out-of-memory event, timeout, or retention regression.
+
+The isolated worktrees are code-clean at publication base
+`137860ebd80921094e5a8069007d49188dcb5e50`.
+
 ## 2026-08-23 P25g parser-core dispatch blocker
 
 Status: **KEEP ISSUE #454 LIVE / NO-GO**. Ship no code.

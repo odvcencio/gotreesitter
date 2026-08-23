@@ -32,6 +32,36 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Recorded the P25h-P25j parser-core dispatch blocker at evidence base
+  `41d0b9de133de777aeba9c1dca091903da052a7f` and publication base
+  `137860ebd80921094e5a8069007d49188dcb5e50`. A fresh quiet profile placed
+  `3.31%` flat CPU time in `dispatchPassActive` and `13.25%` in
+  `runtime.duffcopy`. A value projection copied `head`, `s3Region`,
+  `shifted`, `accepted`, and `paused`. Its raw diff SHA-256 is
+  `1a21f58236d65b6f2c91d74c6a9be322c4d0e095a929452218b60ebfcfeae776`.
+  The primary trio geometric mean (geomean) improved `0.79%`, but the
+  authenticated generalized LR (GLR) control regressed `11.03%`
+  and bytes per operation
+  regressed `16.61%`. Warm three-sample maximum resident set size (RSS)
+  increased from `600000 KiB` to `610240 KiB`. Structural counters stayed
+  equal. Focused tests and Go parity reproduced baseline results. No code
+  ships. A P25i scalar follow-up removed the aggregate snapshot. Its six-seed
+  diagnostic screen was neutral on authenticated generalized LR (GLR), and
+  its warm RSS median increased `0.95%`. No 20-seed publication occurred.
+  Keep issue #454 open. See `docs/perf-attribution.md` for limits, artifacts,
+  and the field-projection reopening condition.
+
+  P25j screened one distinct 224-byte `linearGroup` copy outside the rejected
+  dispatch header snapshots. Field-wise initialization removed that assembly
+  copy while preserving the zero-value slot invariant. Its raw diff SHA-256 is
+  `a055e19160f401b266c6afb43a4be8e24bd058434c05ba6b3050b3629b27404b`.
+  The six-seed alternating screen was neutral. Its geomean changed by
+  `-0.07%`, with no systematic
+  bytes-per-operation, allocation, or parser-work change. The candidate was
+  rejected before a 20-seed campaign or RSS measurement. Ship no code. See
+  `docs/perf-attribution.md` for profile identities, artifacts, and reopening
+  conditions.
+
 - Recorded the P25g parser-core dispatch blocker at evidence base
   `1c30650814ec6e65cbf31184301bf4776f3e5f41` and publication base
   `54c7f521505e23b7a32c84c2a14d3bd3175c09dd`. A fresh quiet profile measured
