@@ -23,12 +23,12 @@ selection ceiling claimed until a trace lane supplies runtime facts.
 ## Ranked cohort table
 
 Ranked by admissible `projected_saved_go_ns` treatment. "Gap-bound projection"
-is `(1 - local_go_gap) applied in reverse`: `go_median_ns * local_go_gap`, i.e.
+is `go_median_ns * local_go_gap`, i.e.
 the error-class excess Go time. It is an upper bound, not credit.
 
 | Rank | Cohort | Languages | Fleet ratio contribution | projected_saved_go_ns treatment | Evidence that admits it | Evidence that blocks it |
 |---:|---|---|---|---|---|---|
-| 1 | `recovery` | Fleet-wide error-class rows (444 rows across the V10 fleet's 206 validated languages, `docs/v10-fleet-manifest.md` lines 5–10). Memo-tier witnesses include Python, Elixir, Scala, Solidity, Enforce, Liquid, PureScript (`docs/t0-tail-cards.md` top-20 census, ranks 1–20) — witnesses, not code selectors | Error class ratio-by-total **13.569865x**; Go share of signal **72.2586%**; excess share of signal Go **66.9336%** (`docs/c0e-c0f-attribution.md` line 33; JSON `c0f.classes.error`) | Gap-bound projection **292,003,268,251 ns** = 66.93% of signal ≥ 0.02 threshold (**passes as upper bound only**) | Observable error-class proxy: `semantic_class == error` over 444 ratio-eligible rows (JSON `c0f.cohorts.recovery`) | No recovery-cost counter or retry count exists in V10/F0 (`docs/c0e-c0f-attribution.md` line 54). The proxy is "not a causal recovery counter" (JSON `c0f.cohorts.recovery.note`). No C0f receipt exists |
+| 1 | `recovery` | Fleet-wide error-class rows (444 rows across the V10 fleet's 206 validated languages, `docs/v10-fleet-manifest.md` lines 5–10). Memo-tier witnesses include Python, Elixir, Scala, Solidity, Enforce, Liquid, PureScript (`docs/t0-tail-cards.md` top-20 census, ranks 1–20) — witnesses, not code selectors | Error class ratio-by-total **13.569865x**; Go share of signal **72.2586%**; excess share of signal Go **66.9336%** (`docs/c0e-c0f-attribution.md` line 33; JSON `c0f.classes.error`) | Gap-bound ceiling 292,003,268,251 ns (66.93% of signal). The selection numerator remains unevaluable, so no pass or fail is recorded | Observable error-class proxy: `semantic_class == error` over 444 ratio-eligible rows (JSON `c0f.cohorts.recovery`) | No recovery-cost counter or retry count exists in V10/F0 (`docs/c0e-c0f-attribution.md` line 54). The proxy is "not a causal recovery counter" (JSON `c0f.cohorts.recovery.note`). No C0f receipt exists |
 | 2 | `alternative_lifetime` | None attributable; no per-row live-version lifetime exists for any of the 206 languages | **0 observed rows**; weight of signal Go **0.0000%** (`docs/c0e-c0f-attribution.md` line 44; JSON `c0f.cohorts.alternative_lifetime`) | Numerator **unevaluable**: C0f cannot evaluate it (`docs/c0e-c0f-attribution.md` line 48); evidence bound is 0..100% of signal Go time, no credit (JSON note) | Nothing yet | Missing runtime fact: live-version lifetime counter (`docs/c0e-c0f-attribution.md` line 54). Cannot pass or fail the 0.02 formula |
 | 3 | `scanner_boundary` | None attributable; no per-row scanner-call density exists | **0 observed rows**; weight of signal Go **0.0000%** (`docs/c0e-c0f-attribution.md` line 45; JSON `c0f.cohorts.scanner_boundary`) | Numerator **unevaluable**, same treatment as rank 2 | Nothing yet | Missing runtime fact: scanner-call density / scanner boundary predicate (`docs/c0e-c0f-attribution.md` line 54) |
 | 4 | `materialization` | None attributable; no materialization-work counter exists | **0 observed rows**; weight of signal Go **0.0000%** (`docs/c0e-c0f-attribution.md` line 46; JSON `c0f.cohorts.materialization`) | Numerator **unevaluable**, same treatment as rank 2 | Nothing yet | Missing runtime fact: materialization-work counter (`docs/c0e-c0f-attribution.md` line 54) |
@@ -43,8 +43,8 @@ cohorts are measured, not a selectable cohort.
 
 1. Only `recovery` has an observable proxy, so only it can be ranked with a
    number today; its number is a ceiling, not a claim.
-2. Ranks 2–4 tie at "unevaluable". Their order is alphabetical from the board,
-   not evidentiary.
+2. Ranks 2–4 tie at "unevaluable". Their order follows the board table at
+   `docs/c0e-c0f-attribution.md` lines 44–46 and carries no evidentiary weight.
 3. Cohort ceilings are non-exclusive: the three unobserved cohorts each carry a
    100%-of-signal upper bound, so ceilings must never be summed
    (`docs/c0e-c0f-attribution.md` line 39: "Their 100% values are upper bounds").

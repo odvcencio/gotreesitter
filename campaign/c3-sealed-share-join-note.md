@@ -13,8 +13,8 @@ the unresolved conflict `sealed-share-join` in
 
 | | C0e sealed equal-fixture board | C0f fleet board |
 |---|---|---|
-| Epoch / commit | `strictboundary-20260802T062212Z-v9`, commit `492cd600…` (`docs/c0e-c0f-attribution.md` line 11) | V10 scoreboard, revision `5003ffba…` (`docs/c0e-c0f-attribution.md` line 28; `docs/v10-fleet-manifest.md` lines 5–8) |
-| Fixture scope | 4 compact Go/C fixtures (`docs/c0e-c0f-attribution.md` lines 13–18) | 1,315 ratio-eligible signal rows across 206 languages (`docs/v10-fleet-manifest.md` line 12; `docs/c0e-c0f-attribution.md` line 29) |
+| Epoch / commit | `strictboundary-20260802T062212Z-v9`, commit `492cd600…` (`docs/c0e-c0f-attribution.md` line 11) | V10 scoreboard, revision `5003ffba…` (`docs/v10-fleet-manifest.md` line 5; also `docs/v10-fleet-manifest.md` lines 5–8) |
+| Fixture scope | 4 compact Go/C fixtures (`docs/c0e-c0f-attribution.md` lines 13–18) | 1,315 ratio-eligible signal rows across 206 languages (`docs/v10-fleet-manifest.md` line 10; `docs/c0e-c0f-attribution.md` line 28) |
 | What it publishes | Per-fixture ratios and a geomean (3.986x) | Class totals, shares, distributions, cohort ceilings |
 | Noise evidence | Local WSL2 A/A p95 floor 7.367%–10.803% (`docs/c0e-c0f-attribution.md` line 22) | None published for its own host |
 
@@ -139,6 +139,30 @@ population that does not exist.
 (`docs/c0e-c0f-attribution.md` line 56): R1's byte denominator is undefined in
 this artifact, so no reconciliation — including "within rounding" — is
 licensed.
+
+**W6 — Arithmetic blend of a C0e ratio with a C0f share.**
+> ✗ "**3.986x × 72.2586%** gives the fleet-wide error-class ratio."
+
+*Fails:* rule 1 (never derive a share from a ratio or a ratio from a share).
+3.986x is a C0e(v9) four-fixture geomean and 72.2586% is a C0f(V10) fleet
+share; multiplying them blends two boards, hosts, and populations into one
+meaningless product.
+
+**W7 — Transferring the C0e noise band onto fleet shares.**
+> ✗ "Apply the 7.367%–10.803% band to the 72.2586% error-class share, giving a
+> corrected fleet share range."
+
+*Fails:* rule 3 (keep each board's noise with it). The band is the local C0
+WSL2 A/A p95 floor and qualifies only C0e fixture deltas; the C0f fleet board
+publishes no noise floor for its own host.
+
+**W8 — Blending byte denominators.**
+> ✗ "Combining R1's 39.0% error-byte share with F0's 84,094,345 / 260,884,819
+> bytes yields an overall error-byte share of about 35.6%."
+
+*Fails:* rule 6 (byte denominators stay separate). The two figures use
+different — and in R1's case undefined-in-this-artifact — denominators, so any
+combined byte share fabricates a denominator that no board publishes.
 
 ## Join table template
 
