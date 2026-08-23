@@ -108,6 +108,15 @@ for tags and release notes while still in `0.x`.
 
 ### Added
 
+- Record the Cooklang normalization blocker at main commit
+  `7498a678c52029a82f312e9637ecb66b15defa0b`. The A0 manifest has three
+  Cooklang files, three checked, three run, and 1021 rewrites. The three
+  registered raw-digest controls from rejected pull request (PR) #793 remain live. The
+  focused raw, production, compact, forest, incremental, and locked-C receipt
+  records residual A0 and recovered-recipe differences, forest declines, and
+  external-scanner incremental fallback. Keep `dispatch.cooklang` live. See
+  `docs/root-normalization-retirement.md` for the exact receipt.
+
 - Add the default-off authenticated D6a drop-cohort frontier producer. It
   binds the scheduler owner and epoch, the election token and scanner
   checkpoints, the ordered participants, the action identity, the derivation

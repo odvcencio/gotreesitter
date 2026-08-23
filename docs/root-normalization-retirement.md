@@ -869,6 +869,125 @@ Require exact production, compact, forest, incremental, and locked-C parity.
 Keep dispatch.hlsl live until scheduler_action_semantics emits the C field.
 Require the authenticated HLSL corpus before retirement.
 
+## 2026-08-22 Cooklang blocker receipt
+
+Status: NO-GO. KEEP LIVE: `dispatch.cooklang`. The Cooklang dispatcher arm
+remains live.
+
+Base commit: `7498a678c52029a82f312e9637ecb66b15defa0b`.
+
+The registry contains 88 entries. It contains 78 dispatcher arms, three
+dispatcher subpasses, one dispatcher predicate, three generic passes, and
+three fixpoint passes. The live denominator contains 31 dispatcher arms, 33
+dispatcher-arm language labels, one predicate, 32 live entries, and 56
+retired entries. It contains zero live generic or fixpoint passes.
+
+The registry names `normalizeCooklangCompatibilityWithCensus` in
+`parser_result_cooklang.go`. Its owner is `scheduler_action_semantics`.
+The registered subpass is `dispatch.cooklang.recovered-recipe`. It names
+`normalizeCooklangRecoveredRecipe` in the same file. Its witness is
+`parser_result_test/materialization_subpass_census_test.go`. Its purpose is to
+construct recovered steps, metadata, punctuation errors, and fence comments.
+The arm witness is `cgo_harness/parity_cgo_test.go`.
+
+The locked grammar is `tree-sitter-cooklang` at commit
+`4ebe237c1cf64cf3826fc249e9ec0988fe07e58e`.
+
+The A0 (authenticated dispatcher census) manifest has 14 languages, 42 files,
+and 14 receipts. Cooklang has three files, three checked, three run, 1037
+nodes visited, 1021 rewrites, two error roots, and zero parse errors.
+The A0 aggregate has 44 checked, 44 run, 313572 nodes visited, 3267 rewrites,
+20 error roots, and zero parse errors.
+
+The Cooklang A0 files are:
+
+- `testdata/dispatcher_census_a0/cooklang/medium__complex_test_recipe.cook` — source SHA-256 `6120e9cafce48a745c0f5dade752499883bc2b07230cae93d6a452a788c7ba74`;
+- `testdata/dispatcher_census_a0/cooklang/medium__frontmatter_test_recipe.cook` — source SHA-256 `956fcaf1c14e0e915efded324450789cb5d9a896cf60e4feafb71b918c8e621a`;
+- `testdata/dispatcher_census_a0/cooklang/medium__test_recipe.cook` — source SHA-256 `1acb11626700218ebc8ff8b7d445e1a257b12af35dea7dbc0fcef0587a79468f`.
+
+The tracked census has seven fixtures across six languages. It omits Cooklang.
+Its aggregate has nine checked, nine run, 26022 nodes visited, 2107 rewrites,
+and zero error roots.
+The authenticated real-corpus census is unavailable because
+`cgo_harness/corpus_real` is absent.
+
+The focused receipt covers nine witnesses. It covers raw, production, compact,
+forest, incremental, and locked-C routes. The test records both Cooklang pass
+identities on every route that runs a pass.
+Forest declines the three A0 witnesses and the three recovered-recipe controls.
+
+The three A0 witnesses diverge from locked C on raw, production, compact, and
+incremental routes. Forest declines all three witnesses. The first differences
+are:
+
+- `medium__complex_test_recipe.cook`: raw first differs at `/recipe`, shape.
+  Go has `children=22`. C has `children=42`. Recovery has `children=23`.
+- `medium__frontmatter_test_recipe.cook`: raw first differs at `/recipe`, shape.
+  Go has `children=36`. C has `children=47`. Recovery has `children=35`.
+- `medium__test_recipe.cook`: raw first differs at `/recipe`, shape.
+  Go has `children=34`. C has `children=43`. Recovery changes the first
+  difference to error, `false` versus `true`.
+
+The A0 rewrite receipts are `1/1/450/442`, `1/1/289/287`, and `1/1/298/292`.
+The values are checked, run, visited, and rewritten. Both registered Cooklang
+pass identities report each value.
+
+The three raw-digest controls from rejected pull request (PR) #793 are
+retained.
+
+- `Add @salt{1%tsp}.\n` uses source SHA-256
+  `8dd8b584db0c0ef919fdcc229645c2cb5d7697c7f555624b3c075e7f1a4eb53a`.
+  Raw digest is
+  `0e6880ec4902576c2a6de014424c3cba7eef99cdc5fd8fded8ceb6382a6df9cd`.
+  Locked C and result digest are
+  `c6e4535b725516550ca7a0ee4c69974799c2d2d10fed4e5f1ba6b71e43c5ba8a`.
+  Production, compact, and incremental report `1/1/13/4`. Forest declines.
+- The recovered recipe uses source SHA-256
+  `8fefd1eb97742b1ef8349e9e51b5260c28295ed0d583d12eb5fbc04db579ce8a`.
+  Raw digest is
+  `896d9f79d941c3869dca7b855bae45738392d02519f0fbe3ac45cc2623fcfa2f`.
+  Locked C digest is
+  `3ae5ffba70cd0922976d24ed3e4d254cbb9d356639e8485b8b4b3abdc2667133`.
+  Production, compact, and incremental report digest
+  `814240a8aff9c3e253b37ce1ff535ff2cd96510c6afea40680a270405699967f`.
+  They report `1/1/20/18`. Forest declines.
+- `Add @salt{1%tsp}.` uses source SHA-256
+  `6d60ac3d4e9155e84ead7b1f9e751728dcebafe03d6561d913f3f18f58a14297`.
+  Raw digest is
+  `f49ca1a85a0b2ee7ed7f07993d6bc8b103d66311f83d4a026e085cf2013a69ec`.
+  Locked C and result digest are
+  `dd3692a1a0e9145af9f2d082126a1e798d60cbe74942427746d3f0e83bd31e1c`.
+  Production, compact, and incremental report `1/1/13/4`. Forest declines.
+
+The recovered recipe still differs after 18 rewrites. The mismatch is
+`/recipe`, shape, `children=5` versus `children=7`.
+
+The malformed frontmatter witness has source SHA-256
+`f2c2b1b02d9b3497d42c1cc53b94373974bd7b525af438d7dcf73391725f3615`.
+Raw differs from locked C at `/recipe`, error, `true` versus `false`.
+Production, compact, and incremental match locked C. They report
+`1/1/13/11`. Forest declines.
+
+The clean control and the no-op ingredient control match locked C on every
+route. Forest accepts both controls. The clean control reports `1/1/11/1` on
+production, forest, and incremental routes. The no-op control reports
+`1/1/7/1` on those routes. Compact records no Cooklang pass for either control.
+
+Compact falls back for every other witness. The fallback says that the generic
+scheduler has no table action for the elected token. Incremental parsing reports
+`external_scanner_unsupported` for every witness. It reuses zero subtrees and
+zero bytes. These scanner fallbacks are route results, not retirement proof.
+
+The successful focused Docker route receipt is:
+
+- `/tmp/cooklang-next-artifacts/20260823T020941Z-cooklang-next-blocker-final4`.
+
+Keep `dispatch.cooklang` live. Require a producer fix for the A0 and recovered
+recipe differences. Require the authenticated Cooklang corpus. Move scanner
+and recovery controls to their owning subsystems before retirement.
+Keep dispatch.cooklang live until scheduler_action_semantics emits the locked-C
+tree on every route.
+
 The mandatory shape is census before migration. Historical audits already
 found that table or engine fixes can leave old normalizers behind.
 
