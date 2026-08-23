@@ -1217,6 +1217,53 @@ capability proves all of the following:
 - Use an authenticated source lock and corpus evidence.
 
 
+## C26v generated SQL source restoration and candidate rejection
+
+C26v used base
+`055051a24a1195bd8743be38674fc9aae75e1bc6`.
+
+Restore the SQL source from the repository lock with:
+
+```sh
+bash scripts/seed_real_corpus_from_lock.sh /tmp/gts-c26v-pinned-grammar-20260824 sql
+```
+
+The lock used repository
+`https://github.com/m-novikov/tree-sitter-sql` at commit
+`587f30d184b058450be2a2330878210c5f33b3f9`.
+
+The restored source hashes were:
+
+- `src/grammar.json`: `42f011860137175a5a0cb820d1a694e5ccca1d17f226729ff6a4e886910cde1c`
+- `src/scanner.cc`: `d437ad9f517d7a1f4248ccd05abe58370b5040c0037c877dab1f0aefeaa04af6`
+
+The source stayed outside the tracked repository. The baseline Docker run used
+one CPU, 4 GiB memory, and the mounted pinned source. Its artifact was
+`/tmp/gts-c26v-artifacts/20260823T170242Z-c26v-baseline-pinned-sql`.
+Its container log SHA-256 was
+`e08ae3a91f1bbda69315fde9b8fd7f949e6f7be28e57667f3943ee20d8e19e1d`.
+Its metadata SHA-256 was
+`790dcd91a547c403f8d2fb673bb96dc88b3567c1ab3a626d8d4749317cdf9842`.
+The run did not skip the regression. It reproduced the generated dollar-quote
+divergence.
+
+The strict target-symbol candidate used the same pinned source and fixed the
+generated dollar-quote tree. Its artifact was
+`/tmp/gts-c26v-artifacts/20260823T170520Z-c26v-candidate-pinned-sql`.
+Its container log SHA-256 was
+`4a93b9ba9948dbfff48b5136a752aa3218e0d6a57153f8aa94a034f179ae3400`.
+Its metadata SHA-256 was
+`48a48afc2cde2f0a436d7689fab700ae57abd7d5e32913db340758f26cae98d6`.
+The candidate recorded zero checkpoint records, zero checkpoint leaves, and
+zero snapshots. It failed the required 13 records, 4 leaves, and 4 snapshots,
+plus 1 reused subtree and 16 reused bytes. Revert the candidate. Do not claim
+generated SQL parity from this run.
+
+Keep issue #576 open. Reopen this route only after both dollar-quote witnesses
+match generated Go, locked-blob Go, and locked C. Require exact checkpoint
+reuse of 13 records, 4 leaves, 4 snapshots, 1 subtree, and 16 bytes. Require
+zero stale cross-grammar reuse and unchanged scanner and grammar identities.
+
 ## C26q SQL scanner identity gate
 
 Publication base: `a62b9db306bcb983852cbf0043852546e864e856`.

@@ -9,6 +9,22 @@ for tags and release notes while still in `0.x`.
 
 ### Correctness
 
+- Recorded the C26v generated SQL source restoration and candidate rejection on
+  base `055051a24a1195bd8743be38674fc9aae75e1bc6`. The repository lock restored
+  `https://github.com/m-novikov/tree-sitter-sql` at commit
+  `587f30d184b058450be2a2330878210c5f33b3f9`. The restored `grammar.json`
+  SHA-256 was `42f011860137175a5a0cb820d1a694e5ccca1d17f226729ff6a4e886910cde1c`.
+  The restored `src/scanner.cc` SHA-256 was
+  `d437ad9f517d7a1f4248ccd05abe58370b5040c0037c877dab1f0aefeaa04af6`.
+  The pinned baseline no longer skipped the regression, but it failed on the
+  generated dollar-quote witness. A strict target-symbol candidate produced the
+  correct generated tree, but it recorded zero checkpoint records, zero leaves,
+  and zero snapshots. It failed the required 13 records, 4 leaves, and 4
+  snapshots, plus 1 reused subtree and 16 reused bytes. The candidate was
+  reverted. Keep issue #576 open. Reopen only after both dollar-quote witnesses
+  pass for generated Go, locked-blob Go, and locked C with the exact checkpoint
+  and stale-identity gates.
+
 - Added authenticated generated-SQL scanner identity to the grammargen C
   parity route. The route now reloads the generated blob through `LoadLanguage`
   before scanner adaptation. The scanner binds checkpoints to exact generated
