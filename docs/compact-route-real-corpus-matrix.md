@@ -1122,6 +1122,85 @@ control, and a scanner-free control. Keep the capability default off and fail
 closed when identity or completeness is unavailable. No code or test change
 was made.
 
+## C26l Swift issue #576 checkpoint foundation
+
+Evidence base: `f9a141c57c6588a63d51301820867730079ce87b`.
+
+Status: **ACCEPTED DEFAULT-OFF FOUNDATION**. Keep issue #576 open.
+
+C26l adds an opt-in identity-bearing checkpoint capability. It does not add a
+parser production call site. It does not change Swift, grammar, generalized
+LR (GLR), recovery, merge, or incremental paths. It does not change behavior
+when the capability is absent.
+
+### API and safety boundary
+
+`ExternalScannerCheckpointIdentityProvider` embeds the existing
+`CheckpointedExternalScanner` contract. It adds `CheckpointIdentity`, which
+must return stable, non-empty scanner and grammar identifiers. Each identifier
+must be at most 256 bytes. The existing contract requires complete
+serialization. C26l also requires non-empty serialized bytes from `Serialize`.
+
+The internal owned record stores:
+
+- scanner and grammar identifiers;
+- source byte and source point;
+- external lexer state;
+- token start and end bytes;
+- serialized scanner bytes.
+
+Capture fails closed when the capability is absent, disabled, or incomplete.
+It also fails closed when identity is missing or too large, serialization is
+empty or too large, or the token span is inverted. Capture deep-copies identity
+and serialized bytes. Fork cloning makes independent copies. Share and merge
+require exact identity, source position, lexer state, token span, and
+serialized bytes. Restore checks exact identity before it calls `Deserialize`.
+It serializes the restored payload into the bounded buffer and requires exact
+length and byte equality. It returns false on any mismatch. Callers must
+discard a payload after failed verification. Restore passes a copied byte
+slice and rejects an inverted token span.
+
+The synthetic lifecycle tests cover:
+
+- absent capability, incomplete identity, oversized identity, or invalid
+  serialization;
+- owned identity and serialized state bytes;
+- independent fork copies;
+- exact merge equality and mismatch;
+- elected recovery-state transfer;
+- restore after a failed scan;
+- an internally overlong record and restore verification mismatch;
+- identity-mismatch restore failure;
+- an external-scanner control;
+- scanner-free off mode.
+
+### Structural proof and focused validation
+
+The new files are
+`external_scanner_checkpoint_capability.go` and
+`external_scanner_checkpoint_capability_test.go`. Scoped Canopy searches found
+the new definitions and test references. Direct no-cache Canopy impact for
+`captureExternalScannerCheckpointRecord` returned only 14 affected test
+functions in `external_scanner_checkpoint_capability_test.go`. It returned no
+affected production file. A literal search found no production caller outside
+the new API file. This proves zero production call sites. Therefore the
+absent-capability path has no parser runtime or allocation change. This is a
+structural proof, not a performance benchmark.
+
+The focused Docker artifact is
+`/tmp/gts-c26l-checkpoint-foundation-receipt/harness_out/docker/20260823T101208Z-c26l-checkpoint-foundation-hardened`.
+The run executed the C26l tests in the root package. It used one central
+processing unit (CPU), 4 GiB, `GOMEMLIMIT=3GiB`, `GOFLAGS=-p=1`, and
+`-parallel=1`. The metadata does not set `GOMAXPROCS`. The run passed with
+exit code zero. It had no out-of-memory kill and no wall timeout. This focused
+validation did not collect maximum resident set size (RSS).
+
+This foundation does not prove scanner ownership across real parser versions.
+It does not prove GLR scheduling, recovery, merge, or edit-reuse parity. The
+next proof must connect the capability to those paths without enabling it for
+Swift or any grammar. Keep issue #576 open until that proof passes against
+locked C.
+
 ### C26i decision and reopening condition
 
 Keep issue #576 open.

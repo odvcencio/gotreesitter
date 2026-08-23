@@ -21,6 +21,30 @@ for tags and release notes while still in `0.x`.
   `docs/compact-route-real-corpus-matrix.md` for identities, traces, routes,
   and reopening conditions.
 
+- Accepted the C26l default-off external-scanner checkpoint foundation at
+  evidence base `f9a141c57c6588a63d51301820867730079ce87b`. The opt-in API
+  requires stable, non-empty scanner and grammar identities. It accepts only
+  identities of at most 256 bytes and complete, non-empty serialized state.
+  It owns source position, lexer state, token span, identity, and serialized
+  bytes. It deep-copies state and fails closed on missing capability,
+  incomplete state, inverted spans, or identity mismatch. The API has zero
+  production call sites. It does not change parser, grammar,
+  Swift, generalized LR (GLR), recovery, merge, or incremental behavior.
+  Restore verifies the serialized payload after `Deserialize` and fails closed
+  on any length or byte mismatch. Callers must discard a payload after failed
+  verification.
+  Synthetic lifecycle tests cover capture, fork, merge, recovery transfer,
+  failed-scan restore, overlong-record rejection, restore verification
+  mismatch, external-scanner use, and scanner-free off mode. The
+  focused Docker run used
+  one central processing unit (CPU), 4 GiB, `GOMEMLIMIT=3GiB`, `GOFLAGS=-p=1`,
+  and `-parallel=1`.
+  Metadata does not set `GOMAXPROCS`. The run passed without an out-of-memory
+  kill or wall timeout. Its artifact is
+  `/tmp/gts-c26l-checkpoint-foundation-receipt/harness_out/docker/20260823T101208Z-c26l-checkpoint-foundation-hardened`.
+  Keep issue #576 open until a real scanner and parser lifecycle use this
+  capability with locked-C parity.
+
 - Recorded the N31e C and C++ dispatcher blocker at main commit
   `ab2010d74da5330d64dbddb0d9c58969da766d6d`. Keep `dispatch.c_cpp` live.
   The initial dispatcher census (A0) excludes both languages, and the
