@@ -2894,7 +2894,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		// deterministic-frontier direct-append fast path (spec.campaign.v7
 		// tranche C0 item 4; ginkgo's open question 3, "can
 		// condenseWithOutcomeAtomic prove a single pop path and take a
-		// direct append"). condenseDirectAppend produces the exact bytes the
+		// direct append"). The inline append produces the exact bytes the
 		// general path below would: every historical* field stays zero,
 		// oldID stays 0, and the ~200-line fold-comparison block is
 		// unreachable for this shape either way. This is a restructuring of
@@ -2904,7 +2904,39 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		// function depends on is untouched -- this function still cannot
 		// prove a caller can never roll back past this append, so it does
 		// not weaken that contract.
-		return c.condenseDirectAppend(key, probe, prev.pathCount, in)
+		if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || uint64(len(c.links)) >= math.MaxUint32 {
+			return condenseOutcome{}, errors.New("parser-core phase zero: link arena cap")
+		}
+		if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
+			return condenseOutcome{}, errors.New("parser-core phase zero: node arena cap")
+		}
+		linkID := LinkID(uint64(len(c.links)) + 1)
+		flags := uint32(0)
+		if in.order.Present {
+			flags |= linkFlagHasOrder
+		}
+		c.links = append(c.links, linkRecord{
+			prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
+			order: in.order.Value, flags: flags,
+		})
+		c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
+		id, err := c.appendNodeAt(nodeRecord{
+			state: key.state, byteOffset: key.byteOffset,
+			firstLink: uint32(linkID), linkCount: 1, pathCount: prev.pathCount,
+		}, key.checkpoint)
+		if err != nil {
+			return condenseOutcome{}, err
+		}
+		if err := c.publishBoundary(probe, id); err != nil {
+			return condenseOutcome{}, err
+		}
+		if phase0AEnabled {
+			phase0AObserveDirectPublication(c, key, in, linkID, id, 0)
+		}
+		var out condenseOutcome
+		out.head = Head{Node: id}
+		out.change = condenseNew
+		return out, nil
 	}
 	historicalBoundarySplit := false
 	var historicalCleanPathRank CleanPathRankSelection
@@ -3176,49 +3208,6 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		c.recordLinkUnionAlternateAppended()
 	}
 	return buildOutcome(Head{Node: id}, change), nil
-}
-
-// condenseDirectAppend is condenseWithOutcomeAtomic's single-candidate fast
-// path: probe.found is false, so this frontier has never published key
-// before, in is the sole candidate, and no fold comparison or historical
-// retirement applies. Every argument and every write below matches exactly
-// what the general path performs when oldID stays 0 throughout -- the same
-// arena-cap checks, the same unlinked (next: 0) single-link node, the same
-// publishBoundary call against the same probe, and the same zero-valued
-// condenseOutcome shape (change: condenseNew, every historical* field at its
-// zero value). publishBoundary keeps deciding journal writes from
-// len(c.transactions) unchanged; this helper does not touch that contract.
-func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPathCount uint64, in linkInput) (condenseOutcome, error) {
-	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || uint64(len(c.links)) >= math.MaxUint32 {
-		return condenseOutcome{}, errors.New("parser-core phase zero: link arena cap")
-	}
-	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
-		return condenseOutcome{}, errors.New("parser-core phase zero: node arena cap")
-	}
-	linkID := LinkID(uint64(len(c.links)) + 1)
-	flags := uint32(0)
-	if in.order.Present {
-		flags |= linkFlagHasOrder
-	}
-	c.links = append(c.links, linkRecord{
-		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
-		order: in.order.Value, flags: flags,
-	})
-	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
-	id, err := c.appendNodeAt(nodeRecord{
-		state: key.state, byteOffset: key.byteOffset,
-		firstLink: uint32(linkID), linkCount: 1, pathCount: prevPathCount,
-	}, key.checkpoint)
-	if err != nil {
-		return condenseOutcome{}, err
-	}
-	if err := c.publishBoundary(probe, id); err != nil {
-		return condenseOutcome{}, err
-	}
-	if phase0AEnabled {
-		phase0AObserveDirectPublication(c, key, in, linkID, id, 0)
-	}
-	return condenseOutcome{head: Head{Node: id}, change: condenseNew}, nil
 }
 
 func (c *Core) linkEqualInput(link linkRecord, in linkInput) (bool, error) {
