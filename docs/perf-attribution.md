@@ -151,6 +151,108 @@ parity, and meets both target allocation gates.
 Checkpoint candidate: exact-fit sizing. Decision: **NO-GO**. Next action:
 retain geometric growth and obtain the missing Swift incremental witness.
 
+## 2026-08-23 P25ay hidden-field flattening attribution
+
+Status: **NO-GO / NO CANDIDATE**. Keep issue #454 live. Ship no code.
+
+The evidence base is main commit
+`af9ded2b77b7828b12b1d2da7c9fff8dd5ca053b`.
+The isolated worktree is `/tmp/gts-p25ay-hotspot-20260823`.
+The worktree started at this commit and contains only this receipt.
+
+P25at rejected arena capacity sizing. P25aw still lacks a valid Swift
+incremental witness. P25ay did not reopen either investigation.
+
+P25ab recorded material field-helper execution, but it did not measure the
+primary trio. Its profile placed `1.30%` flat time in this helper. Its
+allocation profile placed `74.98%` of bytes in arena growth. The field helper
+was therefore the next unreceipted source-owned seam.
+
+Canopy traced `appendFlattenedHiddenChildrenWithFieldScratch` through the
+reduction child path. The helper is recursive and flattens hidden children.
+It also applies field metadata, deferred fields, and repeated fields.
+
+The structural commands were:
+
+```text
+scripts/canopy_query.sh search refs appendFlattenedHiddenChildrenWithFieldScratch . --limit 100 --json
+scripts/canopy_query.sh graph calls --reverse appendFlattenedHiddenChildrenWithFieldScratch parser_reduce.go --json --depth 4
+canopy search symbols parser_reduce.go --name 'appendFlattenedHiddenChildrenWithFieldScratch' --no-cache --limit 20 --json
+```
+
+The temporary probe counted calls, structural nodes, hidden nodes, visited
+bytes, child visits, field-storage calls, deferred fields, applied fields,
+repeated fields, and appended nodes. It was removed after measurement.
+
+| Lane | Calls | Structural | Hidden | Visited bytes | Child visits | Field storage | Deferred | Applied | Repeated | Appended |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Primary full parse | 51 | 26 | 25 | 12,857 | 50 | 0 | 0 | 0 | 0 | 26 |
+| Primary single-byte edit | 51 | 26 | 25 | 12,857 | 50 | 0 | 0 | 0 | 0 | 26 |
+| Primary no-edit | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Authenticated recovery deletion | 2,207 | 1,213 | 994 | 270,196 | 1,477 | 0 | 0 | 0 | 0 | 1,213 |
+| JavaScript control edit | 399 | 150 | 249 | 21,934 | 323 | 25 | 25 | 0 | 0 | 150 |
+
+The recovery profile allocated `3,789,432` arena bytes and `6,562,072`
+scratch bytes. It allocated `11,564` new nodes and reused `123` subtrees.
+The JavaScript profile allocated `719,424` arena bytes and `1,878,656`
+scratch bytes. It allocated `892` new nodes and reused eight subtrees.
+The primary edit profile allocated `156,224` arena bytes and `2,083,744`
+scratch bytes. It allocated `723` new nodes and reused five subtrees.
+
+The recovery source digest is
+`74c0705f8729670559492fb5460a01b2a1a2a109928e1aeb52736e485e8ff097`.
+The edited recovery digest is
+`81543368d0ec807dd951edfdb04fb66ee9ef14ca32b0bb5c53fc8a4d0f2e7b07`.
+The JavaScript source digest is
+`4042a6e4401f9c0bda2b8187a744e667b34226196037678718de1ef645bc0a19`.
+The edited JavaScript digest is
+`0ddd352e2cd9cf01a20e8ef6d7980aba810a5ec643396bf856c78f6b0fbb392d`.
+
+The Go primary and recovery paths made no field-storage or field-application
+calls. JavaScript made 25 deferred field calls and 25 field-storage calls.
+This difference blocks one safe generic skip. P25ab also found no helper
+allocation source. No candidate met the proof boundary.
+
+The authenticated recovery parity test passed. The focused fielded-arena
+correctness test passed. No six-seed screen ran because no candidate existed. No twenty-
+seed or maximum resident set size (RSS) run was justified.
+
+The commands used one Docker workload per container, one central processing
+unit, eight GiB memory, `GOMAXPROCS=1`, `GOFLAGS=-p=1`, and test parallelism
+one. The telemetry command was:
+
+```text
+bash cgo_harness/docker/run_parity_in_docker.sh --repo-root /tmp/gts-p25ay-hotspot-20260823 --out-root /tmp/gts-p25ay-artifacts --label <label> --no-build --memory 8g --cpus 1 --goflags '-p=1' --test-parallel 1 --timeout 30m -- "cd /workspace && GOMAXPROCS=1 P25AY_WORKLOAD=<workload> go test . -run '^TestP25ayFieldTelemetry$' -count=1 -parallel 1 -timeout 20m -v"
+```
+
+The workload values were `primary_full`, `primary_edit`, `primary_no_edit`,
+`recovery_deletion`, and `javascript_control`. The authoritative edit run
+used label `p25ay-primary-edit-v2` after the counter reset.
+
+The correctness commands were:
+
+```text
+bash cgo_harness/docker/run_parity_in_docker.sh --repo-root /tmp/gts-p25ay-hotspot-20260823 --out-root /tmp/gts-p25ay-artifacts --label p25ay-recovery-parity --no-build --memory 8g --cpus 1 --goflags '-p=1' --test-parallel 1 --timeout 30m -- "cd /workspace/cgo_harness && GOMAXPROCS=1 GTS_CANONICAL_GO_INCREMENTAL=1 go test . -tags treesitter_c_parity -run '^TestCanonicalGoIncrementalParity/recovery_deletion$' -count=1 -parallel 1 -timeout 20m -v"
+bash cgo_harness/docker/run_parity_in_docker.sh --repo-root /tmp/gts-p25ay-hotspot-20260823 --out-root /tmp/gts-p25ay-artifacts --label p25ay-field-correctness --no-build --memory 8g --cpus 1 --goflags '-p=1' --test-parallel 1 --timeout 30m -- "cd /workspace && GOMAXPROCS=1 go test . -run '^(TestFlattenHiddenChildren|TestTransientChildScratchMaterializesFieldedArenaParent)$' -count=1 -parallel 1 -timeout 20m -v"
+```
+
+Artifacts and hashes are:
+
+- Recovery parity log: `/tmp/gts-p25ay-artifacts/20260823T214643Z-p25ay-recovery-parity/container.log`, SHA-256 `52d12d161ae6540170a30ca5d66c3e9d435d9e0db4a481751c0e5c1c24d3ca60`.
+- Field correctness log: `/tmp/gts-p25ay-artifacts/20260823T215118Z-p25ay-field-correctness/container.log`, SHA-256 `ff6523ee43fc89f7981b66aba74b08929b9cd9090907353c9d1154d8bf5a1246`.
+- Primary full log: `/tmp/gts-p25ay-artifacts/20260823T214741Z-p25ay-primary-full/container.log`, SHA-256 `49d07e12ae6577fd68cbc5b611be454d12144cc784e3362790aa67251433bfd8`.
+- Primary edit log: `/tmp/gts-p25ay-artifacts/20260823T215055Z-p25ay-primary-edit-v2/container.log`, SHA-256 `4b2b9d9f14fb384dd91d1e0d589e0f75311278d877b9df4acebf7cc5db56a383`.
+- Primary no-edit log: `/tmp/gts-p25ay-artifacts/20260823T214902Z-p25ay-primary-no-edit/container.log`, SHA-256 `95437eff5d911219279c02fec6af0b21528252344b65550c841b42777ec302bd`.
+- Recovery telemetry log: `/tmp/gts-p25ay-artifacts/20260823T214916Z-p25ay-recovery-telemetry/container.log`, SHA-256 `f7df6aa64709d22c5908afd26b3b920faa5733a08ae3380675fd92d592cc8bdf`.
+- JavaScript control log: `/tmp/gts-p25ay-artifacts/20260823T215105Z-p25ay-javascript-control/container.log`, SHA-256 `e5c0de04ce598ef899f608640dc7d4ad45a24ba6437392eb84dc6cbd8159ad7c`.
+
+Reopen this hotspot only after a profile identifies one bounded operation
+with a grammar-agnostic invariant and measurable allocation impact. Require
+fresh, incremental, recovery, and locked-C equality before a candidate.
+
+Decision: **NO-GO**. Checkpoint candidate: none. Next action: keep the
+reduction helper unchanged and continue with a different profiled seam.
+
 ## 2026-08-23 P25aq node-equivalence depth telemetry
 
 Status: **NO-GO / NO CANDIDATE**. Keep `glrNodeEquivCacheSize` at `16384`.
