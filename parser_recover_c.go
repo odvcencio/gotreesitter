@@ -4277,7 +4277,6 @@ func (p *Parser) cAbsorbTokenIntoError(v *glrStack, tok Token, nodeCount *int, a
 	if leafVisible {
 		leaf = newLeafNodeInArena(arena, tok.Symbol, tok.Symbol == errorSymbol || p.isNamedSymbol(tok.Symbol),
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
-		leaf.setHasError(true)
 		// C: if the token shifts as extra in state 1, mark it extra so it is
 		// not counted in error cost calculations.
 		if idx := p.lookupActionIndex(1, tok.Symbol); idx != 0 && int(idx) < len(p.language.ParseActions) {
