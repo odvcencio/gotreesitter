@@ -226,6 +226,17 @@ for tags and release notes while still in `0.x`.
   The authenticated HLSL corpus is unavailable. No registry or production
   code changes are included. See `docs/root-normalization-retirement.md`.
 
+- Record the `dispatch.wgsl` blocker receipt at base
+  `7498a678c52029a82f312e9637ecb66b15defa0b`. Keep the arm live. The A0
+  manifest records three WGSL files, three checks, three runs, and 171
+  rewrites. The `normalMap` and `radiosity` witnesses diverge from locked C
+  on raw, production, compact, and incremental routes. Both malformed
+  controls rewrite five nodes on normalized routes. The production, compact,
+  and incremental routes for both controls diverge from locked C. The raw
+  missing-expression control matches locked C. The full authenticated corpus
+  is unavailable. No registry or production code changes are included. See
+  `docs/root-normalization-retirement.md`.
+
 - Reconfirm the DTD locked-C blocker at base
   `30f470f5c2bf18540f7a18b2b22a7e33b88d4e10`. Keep `dispatch.dtd` live. The
   raw route matches the production route by deep digest for all four

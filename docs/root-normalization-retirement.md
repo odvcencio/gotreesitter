@@ -932,6 +932,151 @@ count over a three-file corpus is a lead, not proof. Only a native-parse
 regression test — run after removing the candidate code, not before — can
 confirm dead code.
 
+## 2026-08-24 WGSL blocker receipt
+
+Status: NO-GO. KEEP LIVE: `dispatch.wgsl`.
+
+Base commit: `7498a678c52029a82f312e9637ecb66b15defa0b`.
+
+Select WGSL after the Templ investigation because its A0 receipt records the
+next live dispatcher evidence. The ownership registry keeps the arm live.
+
+The registry names `normalizeWGSLCompatibility` in
+`parser_result_wgsl.go`. Its authoritative owner is
+`scheduler_action_semantics`. Its registered witness source is
+`cgo_harness/parity_cgo_test.go`. Its retirement condition requires exact
+production, compact, forest, incremental, and C-oracle trees.
+
+The registry contains 88 entries: 78 dispatcher arms, three dispatcher
+subpasses, one dispatcher predicate, three generic passes, and three fixpoint
+passes. The live denominator contains 31 dispatcher arms, 33 dispatcher
+language labels, one predicate, 32 live entries, and 56 retired entries.
+
+A0 means the authenticated initial dispatcher census. A0 contains 14
+languages, 42 files, and 14 receipts. It records 44 checks, 44 runs, 313,572
+visited nodes, 3,267 rewrites, 20 error roots, and zero parse errors.
+
+The WGSL A0 receipt contains three files, three checks, three runs, 2,630
+visited nodes, 171 rewrites, two error roots, and zero parse errors.
+
+| A0 file | Bytes | Source SHA-256 |
+| --- | ---: | --- |
+| `small__fragmentTextureQuad.wgsl` | 272 | `7af39dd8fd0e00f911fafaef4e2b40e2b0314f586049acef74c0fc451dd73286` |
+| `medium__normalMap.wgsl` | 5,737 | `999d93539ed738ab5041d75fe28e7b9d4da7e7ef25c345f2a1ef52239320268b` |
+| `medium__radiosity.wgsl` | 5,444 | `2d5630364c6667404abeb05ead49255f6538998ec66bf20cd5337a0eb5a26783` |
+
+The tracked census has seven fixtures across six languages. It excludes WGSL.
+The authenticated real corpus is unavailable because
+`cgo_harness/corpus_real` is absent. The real-corpus test skips for that
+reason.
+
+The focused receipt uses seven witnesses. It covers the three A0 files, one
+clean recovery control, two malformed recovery controls, and one positive
+control. It tests raw, production, compact, forest, incremental, and locked-C
+routes.
+
+The locked-C grammar uses the pinned WGSL commit
+`40259f3c77ea856841a4e0c4c807705f3e4a2b65`.
+
+The small A0 witness matches locked C on every route. Its digest is
+`d3e58954c750ed560edd3177a165bbf701c159467a1b4677996bec620c377804`.
+The forest receipt is `1/1/111/0`. The incremental receipt is `1/1/112/51`.
+The production and compact routes report zero dispatcher rewrites.
+
+The `normalMap` A0 witness exposes the first live blocker. Its locked-C digest
+is `231e10ca2215945a5fb51670620c9f5ba2ea1ca7d445cb2c9443fb51b8e0e18a`.
+Its raw digest is
+`77fdfd002d6937e6f5784fc19e21a6f63ab8f2280ca8ba0dcfc1ee5b1d3d42cc`.
+Production and compact produce
+`9d802a0e9af71176c0520496ae99425406aa76dc8560f8c7e939e366f9fbbd44`.
+Incremental produces
+`fe0cb9f758eaace140619c81a9ef3347d89633580b18492e46dcfae6fb8f57c7`.
+Production and compact report `1/1/1289/120`. Incremental reports
+`1/1/1287/684`. Forest declines at `dead_end@0/1`.
+
+The raw, production, and compact routes first differ from C at
+`/source_file`, with `children=70` in Go and `children=79` in C.
+The incremental route first differs at `/source_file`, with `children=69` in
+Go and `children=79` in C.
+
+The `radiosity` A0 witness also blocks retirement. Its locked-C digest is
+`22b9d004c33c6a8229b56876282125e04efddf59deef6224eddd61f38c9952b2`.
+Its raw digest is
+`c591b9329ad2fc946b6b8b7c4bc80adb7305f41934dd51d4505e4f606787b127`.
+Production and compact produce
+`592abfad21a9a3170c11fd2e18888a9c5ecac7f681af5cf81e2d1c352873df63`.
+Incremental produces
+`9e0113134b748e66ba22390bdf09e6e083a7f09dc0fc3b1dec67a407fed979cd`.
+Production and compact report `1/1/1230/51`. Incremental reports
+`1/1/1230/56`. Forest declines at `dead_end@247/43`.
+
+The raw route first differs from C at
+`/source_file/global_variable_declaration[3]/variable_declaration[2]/variable_identifier_declaration[2]/type_declaration[2]/ERROR[1]`.
+Go has `ERROR`. C has `<`. The production and compact routes first differ at
+`/source_file/function_declaration[29]`. Go reports no error. C reports an
+error. The incremental route first differs at `/source_file`, with
+`children=46` in Go and `children=48` in C.
+
+The clean empty-return recovery control matches locked C on every route. Its digest
+is `909c5e3b5efd2201372daf83848ea91cc459c1069537f89fcebf1f7c49cd58f4`.
+The forest and incremental receipts are both `1/1/12/0`.
+
+The malformed missing-expression control matches locked C on its raw route.
+Its source SHA-256 is
+`40fa64204b69aded167403d87ddd86ced1068117d41ffa7b2fda5250d0e44f96`.
+Its raw and C digest is
+`dcdd782dbf759ef627faf475817ba14b68ae5b0783e431fc06a1bee5a879e73b`.
+Production, compact, and incremental produce
+`88373bc4d0bc650c42c159273d5cc2a6915b2c69334adc3d5e8923a421fce02b`.
+They first differ from C at `/source_file`: Go reports no error and C reports
+an error. Each normalized route reports `1/1/19/5`. Compact falls back, and
+forest declines at `dead_end@34/3`.
+
+The malformed argument-list control keeps a live rewrite. Its raw digest is
+`40a24a35095668102b40bd1bd92f5576211eaf92b3aac01f24b5e81a6ab755a9`.
+Production, compact, and incremental produce
+`2555f0b34dfb5e295bc72d8d5532ceadfd6807686edc2e417a5e8ae911aa9df7`.
+Locked C produces
+`4a43e477628bba014be5e5863dc87ab460c14c7232c96aa737414f299a407e81`.
+The raw route differs at
+`/source_file/function_declaration[0]/compound_statement[4]/assignment_statement[1]/parenthesized_expression[2]/ERROR[2]/,[0]`.
+Go reports an error. C does not. The normalized routes differ at
+`/source_file/function_declaration[0]/compound_statement[4]/assignment_statement[1]/compound_assignment_operator[1]`.
+Go reports no error. C reports an error. Each normalized route reports
+`1/1/23/5`.
+
+The compact route falls back for `normalMap`, `radiosity`, and both malformed
+controls. Each fallback reports no table action for the elected token.
+The forest route declines those witnesses at the recorded dead ends.
+
+Incremental reuse remains supported for all seven witnesses. It reuses 49/192,
+452/2,318, 185/1,197, 6/20, 9/26, 6/25, and 11/37 subtrees and bytes, in
+witness order. The clean positive control matches locked C on every route with digest
+`7868a6b43efc8d14b73746e2472a596c9eeb3cd215f734021528aaa3668f05ea`.
+It reports zero dispatcher rewrites. The eight existing WGSL normalizer unit
+tests remain live producer controls.
+
+The A0 production rewrites total 171: 120 for `normalMap` and 51 for
+`radiosity`. The two malformed controls each add five rewrites. The route
+receipts also record 51, 684, and 56 incremental rewrites for the small,
+`normalMap`, and `radiosity` witnesses.
+
+The successful focused Docker artifacts are:
+
+- `/tmp/wgsl-next-artifacts/20260823T011913Z-wgsl-registry` — registry gate;
+- `/tmp/wgsl-next-artifacts/20260823T011923Z-wgsl-a0` — A0 gate;
+- `/tmp/wgsl-next-artifacts/20260823T011934Z-wgsl-tracked` — tracked census gate;
+- `/tmp/wgsl-next-artifacts/20260823T011941Z-wgsl-real` — unavailable corpus receipt;
+- `/tmp/wgsl-next-artifacts/20260823T012037Z-wgsl-unit` — WGSL unit tests;
+- `/tmp/wgsl-next-artifacts/20260823T014757Z-wgsl-blocker-final-seven-corrected` — final route, changelog, and document guard.
+
+The probe changes only the receipt test, changelog, and retirement ledger.
+It does not change production or registry state.
+
+Keep `dispatch.wgsl` live until the producer emits the locked-C trees for all
+registered witnesses and all listed routes. Require the authenticated corpus.
+Move the recovery controls to their owning subsystem before retirement.
+
 ### R3 — move materialization invariants upstream
 
 Status: in progress.
