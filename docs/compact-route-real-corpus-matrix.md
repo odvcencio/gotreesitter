@@ -4,6 +4,78 @@ Current evidence date: 2026-08-22.
 Current base commit: `f298328a` from `main`.
 Current candidate base commit: `f298328a`.
 
+## C26a Swift issue #576 token-production blocker
+
+Receipt base: `8751e3684542134cec16f56771b6130cbde1ad8f`.
+
+Status: **NO-GO / KEEP LIVE**. This receipt does not change compact route
+admission, D6 status, or the bounded matrix counts. Keep issue #576 open.
+
+The smallest existing witness is the 20-byte source `let x = unsafe bar()`.
+Its source SHA-256 digest is
+`b511d81ace2a89b05e8e5e0ca6730c10f2ac9295111dae013097c7c6be8861fe`.
+The Go deep-tree digest is
+`860b79483c37e217690deae43036bada15b259bed77713606124fa851702e62f`.
+The locked C deep-tree digest is
+`c64b894edc4a20e15f2b4127bad4223f698c8996dba091c06c34aa89386d3c68`.
+
+The first divergence is
+`/source_file/property_declaration[0]/call_expression[3]/ERROR[1]`, bytes
+15..18. Go emits a childless `ERROR` node. Locked C emits an `ERROR` node with
+the `bar` child. The two existing Swift corpus witnesses share this unsafe
+expression-prefix cause.
+
+The locked C reference parser uses grammar version `0.7.2`, grammar commit
+`41d6e5fe811ec94229ee71771174a8cce558dfee`, runtime `0.25.1`, and runtime
+commit `f5afe475deb7c0bae6407fb776c76824f717bb61`. Its lexer skips `bar`,
+emits an error token of size four, detects the error, and resumes through the
+previous recovery point. Go emits identifier symbol `160`, reaches state 47
+without a parser action, and enters generic recovery. Go therefore does not
+receive the C error token before it materializes the childless `ERROR` node.
+
+Canopy attributes the generic C error-mode acquisition to
+`cRecoverAcquireToken` in `parser_recover_c.go`. The
+`cRecoverResumeLookahead` path serves custom source fallback. The
+`pushLexErrorRunLeaf` path owns the C-shaped error wrapper. Those paths cannot
+restore a token that the deterministic finite automaton (DFA) token source did
+not produce. The divergence is therefore in token production and grammar-table
+behavior, before generic error materialization. The direct structural queries
+were:
+
+- `scripts/canopy_query.sh search symbols parser_recover_c.go --limit 120 --no-cache`
+- `canopy graph calls 'pushLexErrorRunLeaf' parser_reduce.go --no-cache --depth 3`
+- `canopy graph calls 'cRecoverAcquireToken' parser_recover_c.go --no-cache --depth 3`
+
+The isolated experiment tried a grammar-agnostic predicate. When normal
+lookahead had no parser action, it relexed from broad error mode before
+recovery. The prototype touched only `parser.go` and
+`parser_dfa_token_source.go`. The focused Swift run kept both deep-tree
+digests and the first divergence unchanged. The prototype was removed. No
+production or test change survives.
+
+The focused Docker artifacts are:
+
+- `/tmp/gts-c26a-artifacts/20260823T021728Z-swift576-minimal`
+- `/tmp/gts-c26a-artifacts/20260823T021757Z-swift576-corpus`
+- `/tmp/gts-c26a-artifacts/20260823T022322Z-swift576-predicate2`
+
+An upstream regeneration also left the witness unchanged. It produced blob
+digest `be5cd0bf8df7077804fe4b54ee47d76005c9a85c7c33b857ef6d2aff34461286`.
+The shipped Go Swift blob is
+`be4575bc0acc3c60324aab635d067f940ac5f0557b80a8e3565d1e7d02d53582`.
+The upstream probe used revision
+`172ada1cc4117d0260d9340680b4134adba2bc2c`, package version `0.7.3`, and
+these artifacts:
+
+- `/tmp/gts-swift-upstream-probe-artifacts/20260823T000638Z-swift-upstream-issue576-range`
+- `/tmp/gts-swift-upstream-probe-artifacts/20260823T000433Z-swift-upstream-issue576-parity`
+
+Reopen implementation work only after an authoritative grammar or lexer
+revision changes token production for the `unsafe` expression prefix, or a
+generic runtime change produces the locked C error token without a Swift
+specific rule. Then run the 20-byte witness and one corpus witness in separate
+Docker parity runs. Keep issue #576 open until both witnesses pass.
+
 ## Current bounded result
 
 The bounded matrix completed with no silent divergence.
