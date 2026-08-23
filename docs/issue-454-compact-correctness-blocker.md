@@ -1,80 +1,152 @@
-# Issue #454 compact-parser correctness blocker
+# Issue #454 compact-parser correctness fix
 
-Status: **NO-GO**. Ship no parser change from this investigation. Keep issue
-[#454](https://github.com/odvcencio/gotreesitter/issues/454) open.
+Status: **GO for publication**. The candidate fixes the recorded locked-C
+difference. Do not close issue
+[#454](https://github.com/odvcencio/gotreesitter/issues/454) until this change
+merges and main CI passes.
 
 ## Scope
 
-This receipt uses base commit
-`30f470f5c2bf18540f7a18b2b22a7e33b88d4e10`.
+The audit uses base commit
+`60b7b41c06443627ad063497f974ef50aca2fa85`.
 
-The issue #454 report describes C latency and marks correctness as OK. This
-repository uses an internal deterministic C witness. The witness uses a
-repeated source near 137 kibibytes (KiB). The edit removes the first `x` from
-`x0`. The transient malformed text becomes `0`. The original source has
-140,288 bytes. The edited source has 140,287 bytes.
+The candidate diff SHA-256 is
+`71fdb2ab00f8f31e74b7e165f381c0856bd3720abdeb4d1556454d0cc75c50fa`.
+The candidate changes exactly these files:
 
-The smallest locked-C witness uses the same source prefix at 1,024 bytes. The
-known-divergence ratchet is
-`cgo_harness/issue454_c_compact_blocker_parity_test.go`.
+- `parser_recover_c.go`
+- `cgo_harness/issue454_c_compact_blocker_parity_test.go`
+
+The receipt patch changes four files. It updates this document and the changelog.
+
+The patch changes no grammar registry or grammar blob. The deterministic C
+witness uses a repeated source with 140,288 bytes. The edit removes the first
+`x` from `x0`. The edited source has 140,287 bytes.
+
+## Producer proof
+
+The first difference came from generic recovery materialization.
+
+1. `cRecoverDispatchInError` calls `cAbsorbTokenIntoError`.
+   The absorbed visible leaf now remains clean. The enclosing `ERROR` node
+   still reports an error.
+2. `cRecoverStrategy1Election` calls `cRecoverToState`.
+   Hidden nodes with field metadata now use the field-preserving flatten path.
+   The materializer copies field identifiers and field sources into the new
+   recovery node.
+
+Direct no-cache Canopy queries confirmed both call paths. Other recovery
+entry points remain unchanged.
 
 ## Locked-C evidence
 
-The guard compares a fresh Go tree with the pinned C parser. Both roots report
-an error. The first deep-tree difference is:
+Before the fix, the first difference was:
 
 ```text
 /translation_unit/function_definition[0]/compound_statement[2]/ERROR[2]/number_literal[0]
 category=error Go=true C=false
 ```
 
-The fresh Go tree differs from locked C at every tested size:
+After the fix, the fresh Go tree matches locked C at every tested size:
 
 | Source size | Result |
 | --- | --- |
-| 1 KiB (1,024 bytes) | The first difference is the recorded `number_literal` error flag. |
-| 4 KiB (4,096 bytes) | The same first difference remains. |
-| 16 KiB (16,384 bytes) | The same first difference remains. |
-| 64 KiB (65,536 bytes) | The same first difference remains. |
-| 137 KiB (140,288 bytes) | The same first difference remains. |
+| 1 KiB (1,024 bytes) | Exact tree parity |
+| 4 KiB (4,096 bytes) | Exact tree parity |
+| 16 KiB (16,384 bytes) | Exact tree parity |
+| 64 KiB (65,536 bytes) | Exact tree parity |
+| 137 KiB (140,288 bytes) | Exact tree parity |
 
-The structure probe records all digest pairs in
-`/tmp/gts-issue454-artifacts/20260822T221718Z-issue454-c-structure/container.log`.
+The audit-only five-size guard passed in Docker. Its artifact is
+`/tmp/gts-issue454-independent-artifacts/20260823T003842Z-five-sizes`.
+
+The committed 1 KiB guard is
+`TestIssue454COneKiBLockedCParity`.
+Its artifact is
+`/tmp/gts-issue454-independent-artifacts/20260823T004435Z-committed-1k`.
 
 ## Incremental evidence
 
-The 137 KiB incremental Go tree equals the fresh Go tree. Both have digest
-`9c979bb436f92e7f96885454de81d9d95d2befff242145b1026addf5d9395c4d`.
+`TestIssue454CIncrementalDeleteMatchesFresh` passed its replace, insert, and
+delete subtests. Each incremental tree matched its fresh tree.
 
-The locked-C digest is
-`8fe04819317a4f225b5c298a71acdceb5aa965abb3a397e35eb48c5849888d5c`.
+The replace and insert cases retained old-tree reuse. The delete case retained
+the fail-closed reason
+`incremental_parse_memory_budget_full_retry`.
 
-The incremental profile reports
-`ReuseUnsupportedReason=incremental_parse_memory_budget_full_retry`.
-The parser completes the edit after the memory-budget fallback. The existing
-replace, insert, and delete regression passes in
-`/tmp/gts-issue454-artifacts/20260822T221438Z-issue454-c-current`.
+The artifact is
+`/tmp/gts-issue454-independent-artifacts/20260823T003852Z-incremental-edit-classes`.
 
-The fresh Go mismatch proves that retry selection cannot repair the C parity
-difference. The fallback fixes the incremental failure mode only.
+The focused recovery and field tests passed in
+`/tmp/gts-issue454-independent-artifacts/20260823T003826Z-parser-core-unit`.
 
-## Ownership and decision
+The direct grammargen-to-C preset passed 20 of 20 cases. Its artifact is
+`/tmp/gts-issue454-field-followup-audit-20260823/harness_out/grammargen_cparity/20260822_174020-focus-c`.
 
-The first difference is a child error flag inside a recovered declaration. It
-appears during fresh parsing, before incremental retry selection. The likely
-owner is generic recovery or error-node materialization. A bounded generic fix
-is not safe without wider recovery validation.
+The C real-corpus preset reported 23 of 25 no-error cases and 20 of 25 deep
+parity cases. The unmodified base reported the same counts and three type
+divergences. This is a known baseline result, not a regression from this fix.
 
-The 1 KiB known-divergence ratchet passes in
-`/tmp/gts-issue454-artifacts-rebase/20260822T230037Z-issue454-c-1k-ratchet-20260822`.
+## Controlled memory audit
 
-## Reopening conditions
+The audit used three alternating base and candidate order pairs. Each pair ran
+one C language in one Docker container. The container used 8 GiB memory, one
+CPU, 512 process IDs, and one Go test worker. The command used 25 cases and a
+15-minute timeout.
 
-Reopen this work only when all conditions pass:
+| Pair | Base RSS | Candidate RSS | Candidate minus base |
+| --- | ---: | ---: | ---: |
+| 1 | 566,680 KiB | 609,464 KiB | +42,784 KiB |
+| 2 | 628,852 KiB | 606,980 KiB | -21,872 KiB |
+| 3 | 593,812 KiB | 620,544 KiB | +26,732 KiB |
 
-1. Keep the 1 KiB known-divergence ratchet as the only CI guard.
-2. Trace the producer that sets the `number_literal` error flag.
-3. Repair generic recovery materialization without changing unrelated routes.
-4. Require fresh and incremental trees to match locked C at 1, 4, 16, 64, and 137 KiB.
-5. Re-run the existing replace, insert, delete, and C recovery gates.
-6. Preserve the memory-budget fallback as a separate correctness concern.
+The base mean was 596,448 KiB. The candidate mean was 612,329 KiB. The
+candidate mean was 2.66% higher. The pair results include one lower candidate
+run. The earlier 1,089,364 KiB candidate result did not reproduce.
+
+The focused workload used `TestIssue454CIncrementalDeleteMatchesFresh`. It
+passed the replace, insert, and delete cases. Without heap profiling, RSS was
+857,624 KiB for base and 842,900 KiB for candidate. A paired heap-profile run
+measured 858,400 KiB for base and 863,336 KiB for candidate.
+
+The base `alloc_space` profile measured 1,180.79 MB. The candidate measured
+1,167.62 MB. The base `inuse_space` profile measured 129.30 MB. The candidate
+measured 128.66 MB. The arena breakdown was equal for both trees:
+
+- Fresh field storage: 196,608 bytes, with 41,745 field identifiers and 41,745 field sources.
+- Incremental-delete field storage: 393,216 bytes, with 83,472 field identifiers and 83,472 field sources.
+
+The standard 20-seed primary Go trio was not run. The candidate changes only C
+recovery paths. The focused C workload is the relevant performance gate.
+
+No release-blocking memory regression reproduced. All Docker runs completed
+without an out-of-memory failure or timeout.
+
+The real-corpus logs are:
+
+- `/tmp/gts-issue454-rss-audit/rep1-base/20260823T004613Z/real_corpus/diag_c_lang.log`
+- `/tmp/gts-issue454-rss-audit/rep1-candidate/20260823T004629Z/real_corpus/diag_c_lang.log`
+- `/tmp/gts-issue454-rss-audit/rep2-candidate/20260823T004646Z/real_corpus/diag_c_lang.log`
+- `/tmp/gts-issue454-rss-audit/rep2-base/20260823T004702Z/real_corpus/diag_c_lang.log`
+- `/tmp/gts-issue454-rss-audit/rep3-base/20260823T004719Z/real_corpus/diag_c_lang.log`
+- `/tmp/gts-issue454-rss-audit/rep3-candidate/20260823T004917Z/real_corpus/diag_c_lang.log`
+
+The focused run artifacts are:
+
+- `/tmp/gts-issue454-rss-audit/20260823T005027Z-issue454-focused-baseline-timed`
+- `/tmp/gts-issue454-rss-audit/20260823T005043Z-issue454-focused-candidate-timed`
+- `/tmp/gts-issue454-heap-audit/base/issue454.pprof`
+- `/tmp/gts-issue454-heap-audit/candidate/issue454.pprof`
+- `/tmp/gts-issue454-rss-audit/20260823T005555Z-issue454-arena-breakdown-baseline`
+- `/tmp/gts-issue454-rss-audit/20260823T005611Z-issue454-arena-breakdown-candidate`
+
+## Issue-closing condition
+
+Keep issue #454 open during publication. Close it only after all conditions
+pass:
+
+1. Merge this candidate.
+2. Pass main CI.
+3. Keep the five-size locked-C guard green.
+4. Keep the replace, insert, and delete guards green.
+5. Preserve the memory-budget fallback as a separate performance concern.

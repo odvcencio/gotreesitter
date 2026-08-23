@@ -10,11 +10,9 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-// TestIssue454COneKiBLockedCDivergence keeps the smallest issue #454 witness
-// visible while recovery materialization remains under investigation. The
-// test passes only when the known-divergence ratchet remains exact. Remove
-// this ratchet after a generic recovery fix restores locked-C parity.
-func TestIssue454COneKiBLockedCDivergence(t *testing.T) {
+// TestIssue454COneKiBLockedCParity keeps the smallest issue #454 witness
+// visible after the generic recovery fix restores locked-C parity.
+func TestIssue454COneKiBLockedCParity(t *testing.T) {
 	source := append([]byte(nil), benchfixtures.Issue454CSource()[:1024]...)
 	site := bytes.Index(source, []byte("x0"))
 	if site < 0 {
@@ -51,17 +49,8 @@ func TestIssue454COneKiBLockedCDivergence(t *testing.T) {
 	}
 
 	diff := FirstDivergenceDumpV1(goTree.RootNode(), goLang, cTree.RootNode())
-	if diff == nil {
-		t.Fatal("known issue #454 divergence now matches locked C; remove this ratchet after route verification")
+	if diff != nil {
+		t.Fatalf("issue #454 locked-C parity diverged: %+v", *diff)
 	}
-	want := DumpV1Divergence{
-		Path:     "/translation_unit/function_definition[0]/compound_statement[2]/ERROR[2]/number_literal[0]",
-		Category: "error",
-		GoValue:  "true",
-		CValue:   "false",
-	}
-	if *diff != want {
-		t.Fatalf("issue #454 divergence changed: got %+v, want %+v", *diff, want)
-	}
-	t.Logf("known locked-C divergence: path=%s category=%s Go=%s C=%s", diff.Path, diff.Category, diff.GoValue, diff.CValue)
+	t.Log("issue #454 1 KiB witness matches locked C")
 }

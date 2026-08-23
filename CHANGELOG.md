@@ -192,17 +192,27 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
-- Record the issue #454 compact-parser correctness blocker. A 1 KiB fresh Go
-  tree differs from locked C at
-  `/translation_unit/function_definition[0]/compound_statement[2]/ERROR[2]/number_literal[0]`.
-  Issue #454 reports C latency with correctness marked OK. This repository uses
-  an internal deterministic C witness. Go marks the `number_literal` as an
-  error, and C does not. The original source has 140,288 bytes. The edited
-  source has 140,287 bytes. The same difference persists at 4, 16, 64, and
-  137 KiB. Incremental Go equals fresh Go at 137 KiB, and the memory-budget fallback reports
-  `incremental_parse_memory_budget_full_retry`. The fresh-parse mismatch makes
-  retry selection unable to fix C parity. Status: NO-GO. Keep issue #454 open.
-  See [the issue #454 compact-parser correctness blocker receipt](docs/issue-454-compact-correctness-blocker.md).
+- Record the audited generic recovery fix for issue #454. The candidate diff
+  SHA-256 is
+  `71fdb2ab00f8f31e74b7e165f381c0856bd3720abdeb4d1556454d0cc75c50fa`.
+  `cAbsorbTokenIntoError` leaves visible absorbed leaves clean.
+  `cRecoverToState` preserves field metadata when it flattens hidden nodes.
+  The five-size Docker guard matches locked C at 1, 4, 16, 64, and 137 KiB.
+  The replace, insert, and delete guards match fresh parses. Direct
+  grammargen-to-C parity passes 20 of 20 cases. The C real-corpus result
+  matches the base result: 23 of 25 no-error cases and 20 of 25 deep-parity
+  cases. A controlled three-pair Docker RSS audit measured a base mean of
+  596,448 KiB and a candidate mean of 612,329 KiB. The candidate mean was
+  2.66% higher. The earlier 1,089,364 KiB candidate result did not reproduce.
+  The focused C recovery workload measured 857,624 KiB for base and 842,900
+  KiB for candidate. Allocation profiles measured 1,180.79 MB versus 1,167.62
+  MB allocated, and 129.30 MB versus 128.66 MB retained. Arena field storage
+  and element counts were equal. No release-blocking memory regression
+  reproduced. The standard 20-seed primary Go trio was not run because only C
+  recovery paths changed. The focused C workload is the relevant gate. No
+  out-of-memory failure or timeout occurred. Keep issue #454 open until this
+  change merges and main CI passes. See [the issue #454 compact-parser
+  correctness receipt](docs/issue-454-compact-correctness-blocker.md).
 
 - Record the `dispatch.rust` blocker receipt at base
   `97a7bde26bac9b1a110bbf9216cc681ca59cc5aa`. Keep the arm live. The receipt
