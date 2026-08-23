@@ -609,6 +609,106 @@ The focused Docker artifacts are:
 - `/tmp/ada-next-live-rebased-artifacts/20260822T232118Z-ada-census-registry`;
 - `/tmp/ada-next-live-rebased-artifacts/20260822T232128Z-ada-real-census`.
 
+## 2026-08-24 Wolfram blocker receipt
+
+Status: `NO-GO`. `KEEP LIVE`: `dispatch.wolfram`.
+The Wolfram arm remains live.
+
+Base commit: `7498a678c52029a82f312e9637ecb66b15defa0b`.
+
+Select Wolfram after excluding the Apex, Rust, Doxygen, DTD, Ada, HLSL, Corn,
+and BitBake arms. Wolfram is the remaining cited zero-rewrite A0 arm. The
+registry still marks `dispatch.wolfram` as live.
+
+The ownership registry contains 88 entries. It contains 78 dispatcher arms,
+one dispatcher predicate, three dispatcher subpasses, three generic passes,
+and three second-pass fixpoints. It contains 31 live dispatcher arms, one
+live predicate, 32 live entries, and 56 retired entries. The live dispatcher
+arms cover 33 language labels.
+
+The registry records `dispatch.wolfram` as a `dispatcher_arm`. Its function is
+`normalizeWolframCompatibility` in `parser_result_wolfram.go`. Its
+authoritative owner is `derivation_election_selection`. Its registered witness
+is `cgo_harness/parity_cgo_test.go`.
+
+The production, compact, forest, and incremental routes use the shared
+compatibility tail. The C oracle route uses the curated single-grammar parity
+path.
+
+The A0 (initial dispatcher census) manifest contains 14 languages and 42
+files. A0 has three Wolfram files, six checked, six run, and zero rewrites.
+It records 77 visited nodes, three error roots, and zero parse errors.
+
+The tracked census contains seven fixtures across six languages. It excludes
+Wolfram. The authenticated real-corpus census is unavailable because
+`cgo_harness/corpus_real` is absent. The focused census test skips this lane.
+
+The focused receipt covers eight witnesses:
+
+| Witness | Bytes | Source SHA-256 | Go digest | Locked-C digest | Result |
+| --- | ---: | --- | --- | --- | --- |
+| `a0-small-paclet-info` | 322 | `55be9b6143e5dd68ddb433bb9c95c0388a505b65c452fb6036e064d537e3f602` | `a800797037893e3541b1265a179b09ab8795c26c9b174bbee7fe23d9c0814b6d` | `8e9966945e16f3a6fa173cc41ed6a171821f4a196bb4198057786ba4edbd464d` | Diverges at `/source_file`: shape, children 5 versus 4. |
+| `a0-medium-output-handling` | 9315 | `45a6287c3c8ad5f4f37298d4915d1bfb29e6e91ee0eccde1c842efb7c90e3dec` | `756d9dea72eca24759de158fa88d5779c1b8cf02d6b908327468ff9b3e443d56` | `5cc3a3615d9f5e1113e43ebc10ede08cefefc293bce9fb6306621cd0c1b106c1` | Diverges at `/source_file`: Go type `source_file`, C type `ERROR`. |
+| `a0-large-evaluation-utilities` | 19124 | `e03c8588214ce3a0a5ba48d1f1335276c1826356052c33df1f3184a6d6303a53` | `fe5f88dd4b103ced493354d2bf9161964eb5d59333a633178f2629b5cf293af1` | `d5ed73a998ea3abb1778b3882b31824db86b1b18428e00176b3cd8cd72e685e1` | Diverges at `/source_file`: Go type `source_file`, C type `ERROR`. |
+| `split-infix` | 6 | `2ff5f5b73b79baf991a11cf00ca251c8c436a9e4c768b907cd6c589211a87dec` | `f55efd4d7590d69c7a0cf938c4276db5a91c67fe864951e58fd6e222bb9dc3e8` | `f55efd4d7590d69c7a0cf938c4276db5a91c67fe864951e58fd6e222bb9dc3e8` | Exact. |
+| `compound-infix` | 10 | `152bc617f5365ed084aafaed5931344b1b0e88b76e529e3395c0101489cf12a8` | `81ed91fde125367ad42aa8925dd8d13d8d8f2080917ed460691cf2e11cc1d431` | `81ed91fde125367ad42aa8925dd8d13d8d8f2080917ed460691cf2e11cc1d431` | Exact. |
+| `unary-prefix-control` | 3 | `cde557e97820752c6cafb7efc7e2c6d34560c63b189c439ae524d8d8b3c50ae0` | `e534919f575355d31c91418b072d8f4a63f82b6022e31cce196acc7882953670` | `e534919f575355d31c91418b072d8f4a63f82b6022e31cce196acc7882953670` | Exact no-op control. |
+| `plain-symbol-control` | 2 | `87428fc522803d31065e7bce3cf03fe475096631e5e07bbd7a0fde60c4cf25c7` | `d417ec327539473cae7cc3baffce13f6391e31563ee60835f2f289baf5c1dcba` | `d417ec327539473cae7cc3baffce13f6391e31563ee60835f2f289baf5c1dcba` | Exact no-op control. |
+| `malformed-infix` | 4 | `0743fffb28bab9c8a803d05f63061f6e9578b01cdcac165608c71392395fd5af` | `647d0ecc7542b5eeab97d968c582b031258772a0d694f654a2662a88bdf96c3e` | `0239eda45e2781be67dce8d9a1cf61168e8b41e46c67f5d2be17795830b9c99a` | Diverges at `/source_file`: shape, children 2 versus 1. |
+
+The raw and production routes emit the same digest for every witness. The
+production pass checks, runs, visits, and rewrites these counts:
+
+| Witness | `dispatch.wolfram` checked/run/visited/rewritten |
+| --- | ---: |
+| `a0-small-paclet-info` | `2/2/45/0` |
+| `a0-medium-output-handling` | `2/2/16/0` |
+| `a0-large-evaluation-utilities` | `2/2/16/0` |
+| `split-infix` | `1/1/5/0` |
+| `compound-infix` | `1/1/8/0` |
+| `unary-prefix-control` | `1/1/4/0` |
+| `plain-symbol-control` | `1/1/2/0` |
+| `malformed-infix` | `2/2/5/0` |
+
+Every raw, production, compact, and incremental tree reports zero normalization
+nodes rewritten. Each accepted forest tree also reports zero rewrites.
+
+The split-infix parser route records zero dispatch.wolfram rewrites. The
+existing synthetic known-firing transcript exercises the real dispatcher
+switch. It records one `dispatch.wolfram` rewrite. It merges two root
+children into one `infix` node. It records one
+`dispatch.wolfram` transcript event with child-count delta `-1`.
+
+The compact route accepts the four focused clean witnesses. It falls back for
+the three A0 witnesses and the malformed witness. The fallback reason is
+`compact route declined at recovery [mechanism=recovery-entered]: did not
+accept EOF: generic scheduler has no table action for the elected token`.
+
+The forest route accepts the four focused clean witnesses. It declines the
+three A0 witnesses and the malformed witness.
+
+Every incremental route reports `reuse=false`, `unsupported=true`, reason
+`external_scanner_unsupported`, zero reused subtrees, and zero reused bytes.
+The incremental digest equals the raw digest for every witness. It matches C
+for four witnesses and preserves four locked-C divergences.
+
+The malformed infix witness remains a recovery blocker. The A0 witnesses
+remain locked-C blockers. Keep dispatch.wolfram live until
+derivation_election_selection emits the locked-C infix tree. Require exact
+route parity for every registered witness. Require an authenticated corpus
+before retirement. Do not change the registry or production state.
+
+The focused Docker artifacts are:
+
+- `/tmp/wolfram-next-artifacts/20260823T004149Z-wolfram-next-route-probe`;
+- `/tmp/wolfram-next-artifacts/20260823T004216Z-wolfram-next-existing-transcript`;
+- `/tmp/wolfram-next-artifacts/20260823T004224Z-wolfram-next-registry`;
+- `/tmp/wolfram-next-artifacts/20260823T004233Z-wolfram-next-a0`;
+- `/tmp/wolfram-next-artifacts/20260823T004240Z-wolfram-next-tracked`;
+- `/tmp/wolfram-next-artifacts/20260823T004249Z-wolfram-next-real-corpus`;
+- `/tmp/wolfram-next-artifacts/20260823T004428Z-wolfram-next-final`;
+- `/tmp/wolfram-next-artifacts/20260823T004500Z-wolfram-next-document-final`.
+
 ## Ordered program
 
 ### R0 — inventory and containment
