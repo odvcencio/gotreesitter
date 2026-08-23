@@ -46,6 +46,100 @@ the unresolved conflict `sealed-share-join` in
    published with their own denominators and never reconciled by fiat
    (`docs/c0e-c0f-attribution.md` line 56).
 
+## Worked examples
+
+Each example states the sentence form, why it passes or fails, and its anchors.
+All values are quoted unchanged from their own boards
+(`docs/c0e-c0f-attribution.md` lines 11, 15, 20, 22, 28, 33, 48, 54, 56).
+
+### Correct claims
+
+**C1 — C0e ratio cited alone, board-tagged.**
+> "C0e(v9) reports fixture `rewrite.go` at compact Go/C **4.348x**
+> (`docs/c0e-c0f-attribution.md` line 15), against the sealed target of
+> ≤3.0x per fixture (line 20)."
+
+*Passes:* single board, named fixture, ratio kept as a ratio, target cited
+from the same board. No share is implied.
+
+**C2 — C0f share cited alone, denominator explicit.**
+> "C0f(V10) attributes **72.2586%** of measured signal Go time (436,257,955,255 ns
+> over 1,315 rows) to the error class (`docs/c0e-c0f-attribution.md` lines
+> 28, 33)."
+
+*Passes:* the share names its denominator (signal Go ns) and row population,
+both from the C0f board.
+
+**C3 — Adjacency join, no arithmetic.**
+> "C0e(v9) reports a compact Go/C geomean of **3.986x**, failing its ≤2.0x
+> target (geomean pass false, `docs/c0e-c0f-attribution.md` lines 11, 20);
+> separately, C0f(V10) attributes **72.2586%** of signal Go time to the error
+> class (line 33). The two statements concern different hosts and populations;
+> neither scales the other."
+
+*Passes:* rule 4's permitted form. Each clause cites its own board; the final
+sentence restates non-derivability rather than computing anything.
+
+**C4 — Byte denominators published side by side, unreconciled.**
+> "R1 reports a **39.0%** error-byte share under an R1-defined byte
+> denominator; F0 signal bytes give **32.2343%** (84,094,345 / 260,884,819)
+> (`docs/c0e-c0f-attribution.md` line 56). Both are published with their own
+> denominators; they are not reconciled here."
+
+*Passes:* rule 6. Two byte figures coexist without blending because their
+denominators differ and one is undefined in this artifact.
+
+### Incorrect claims
+
+**W1 — Deriving a fleet share from the C0e geomean (arithmetic conflation).**
+> ✗ "The compact geomean is 3.986x and the error class holds 72.2586% of Go
+> time, so error-class code is 3.986 × 0.722586 = **2.8802x slower** overall."
+
+*Fails:* rules 1–2. It multiplies a four-fixture C0e(v9) geomean by a C0f(V10)
+fleet share — different hosts, different populations. The product
+**2.8802x** is meaningless and must not appear in any document. No source
+supports it.
+
+**W2 — Borrowing the C0e noise floor to qualify a C0f number.**
+> ✗ "The C0f error-class share 72.2586% carries ±7.367%–10.803% measurement
+> noise."
+
+*Fails:* rule 3. The 7.367%–10.803% p95 A/A floor is a local WSL2 C0-host
+result and is explicitly not a sealed-v9 or fleet noise floor
+(`docs/c0e-c0f-attribution.md` line 22); per `campaign/c2-hygiene-provenance-plan.md`
+(item 3) the fleet host's noise floor is unpublished until its own A/A receipt
+attaches. Attaching the local floor to a C0f share fabricates provenance.
+
+**W3 — Using a join to admit a mechanism or claim the selection ceiling.**
+> ✗ "Since the error class is 72.2586% of signal and C0e shows ~4x compact
+> ratios, the recovery cohort clears the 2% selection threshold and may be
+> credited."
+
+*Fails:* rule 5. The 0.02 selection formula needs an evaluable
+`projected_saved_go_ns` numerator from runtime trace facts (retry counts,
+recovery-cost counters), which V10/F0 do not contain
+(`docs/c0e-c0f-attribution.md` lines 48, 54; conflict `fleet-mechanism-facts`).
+Adjacency cannot substitute for the trace lane, and no performance credit may
+be claimed before a C0f receipt exists.
+
+**W4 — Dropping board tags so the two totals read as one scale.**
+> ✗ "The boards show ratios of 3.986x and 10.950130x, i.e. roughly a 4x-to-11x
+> improvement range across the project."
+
+*Fails:* rules 1–2. 3.986x is a four-fixture compact geomean on C0e(v9)
+(line 11); 10.950130x is a fleet-wide ratio-by-total over 1,315 signal rows on
+C0f(V10) (line 28). Presenting them as points on one range implies a common
+population that does not exist.
+
+**W5 — Reconciling byte shares by fiat.**
+> ✗ "The 39.0% R1 byte share and the 32.2343% F0 byte share agree within
+> rounding after hygiene adjustments."
+
+*Fails:* rule 6 and the unresolved `error-byte-denominator` conflict
+(`docs/c0e-c0f-attribution.md` line 56): R1's byte denominator is undefined in
+this artifact, so no reconciliation — including "within rounding" — is
+licensed.
+
 ## Join table template
 
 Any document citing both boards should use rows of this shape:
