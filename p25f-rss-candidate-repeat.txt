@@ -1,0 +1,93 @@
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       7	 116054828 ns/op	   2.03 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330478 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 5618872 B/op	     156 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.411s
+	Command being timed: "env GOMAXPROCS=1 GOFLAGS=-p=1 go test -tags gts_parsercorephase0 -run ^$ -bench ^BenchmarkGoParseWarmRealDFA/grammargen_lr$ -count=1 -benchtime=750ms -benchmem -shuffle=1"
+	User time (seconds): 4.10
+	System time (seconds): 0.47
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.57
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 592640
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 348
+	Minor (reclaiming a frame) page faults: 288266
+	Voluntary context switches: 1198
+	Involuntary context switches: 74
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 77768
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       7	 116645813 ns/op	   2.02 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330478 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 5618872 B/op	     156 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.664s
+	Command being timed: "env GOMAXPROCS=1 GOFLAGS=-p=1 go test -tags gts_parsercorephase0 -run ^$ -bench ^BenchmarkGoParseWarmRealDFA/grammargen_lr$ -count=1 -benchtime=750ms -benchmem -shuffle=2"
+	User time (seconds): 4.48
+	System time (seconds): 0.41
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.90
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 598560
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 347
+	Minor (reclaiming a frame) page faults: 288629
+	Voluntary context switches: 1153
+	Involuntary context switches: 73
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 77680
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       7	 117479066 ns/op	   2.01 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330478 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 5618872 B/op	     156 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	2.482s
+	Command being timed: "env GOMAXPROCS=1 GOFLAGS=-p=1 go test -tags gts_parsercorephase0 -run ^$ -bench ^BenchmarkGoParseWarmRealDFA/grammargen_lr$ -count=1 -benchtime=750ms -benchmem -shuffle=3"
+	User time (seconds): 4.26
+	System time (seconds): 0.49
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.76
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 593760
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 349
+	Minor (reclaiming a frame) page faults: 299214
+	Voluntary context switches: 1448
+	Involuntary context switches: 75
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 77696
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -580,6 +580,7 @@ func gssEntryHash(prev uint64, entry stackEntry) uint64 {
 	var productionID uint16
 	var childCount int
 	var flags nodeFlags
+	var dynamicPrecedence int32
 
 	switch entry.kind {
 	case stackEntryKindNode:
@@ -592,6 +593,7 @@ func gssEntryHash(prev uint64, entry stackEntry) uint64 {
 		productionID = n.productionID
 		childCount = nodeChildCountNoMaterialize(n)
 		flags = n.flags
+		dynamicPrecedence = n.dynamicPrecedence
 	case stackEntryKindNoTreeNode:
 		n := (*noTreeNode)(entry.node)
 		symbol = n.symbol
@@ -601,6 +603,7 @@ func gssEntryHash(prev uint64, entry stackEntry) uint64 {
 		preGotoState = n.preGotoState
 		productionID = n.productionID
 		flags = n.flags
+		dynamicPrecedence = n.dynamicPrecedence
 	case stackEntryKindCompactFullLeaf:
 		n := (*compactFullLeaf)(entry.node)
 		symbol = n.symbol
@@ -610,6 +613,7 @@ func gssEntryHash(prev uint64, entry stackEntry) uint64 {
 		preGotoState = n.preGotoState
 		productionID = n.productionID
 		flags = n.flags
+		dynamicPrecedence = n.dynamicPrecedence
 	case stackEntryKindPendingParent:
 		n := (*pendingParent)(entry.node)
 		symbol = n.symbol
@@ -620,6 +624,7 @@ func gssEntryHash(prev uint64, entry stackEntry) uint64 {
 		productionID = n.productionID
 		childCount = n.childEntryCount()
 		flags = n.flags
+		dynamicPrecedence = n.dynamicPrecedence
 	default:
 		h ^= gssNilNodeSentinel
 		h *= gssHashPrime
@@ -638,7 +643,7 @@ func gssEntryHash(prev uint64, entry stackEntry) uint64 {
 	h *= gssHashPrime
 	h ^= uint64(childCount)
 	h *= gssHashPrime
-	h ^= uint64(uint32(stackEntryDynamicPrecedence(entry)))
+	h ^= uint64(uint32(dynamicPrecedence))
 	h *= gssHashPrime
 	h ^= gssEntryFlagHash(flags)
 	h *= gssHashPrime
