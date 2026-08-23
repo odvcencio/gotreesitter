@@ -1,0 +1,86 @@
+{
+  "roots": [
+    {
+      "id": "benchmark_go_canonical_incremental_test.go\u0000function_definition\u0000benchmarkCanonicalGoIncremental\u0000886",
+      "file": "benchmark_go_canonical_incremental_test.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "benchmarkCanonicalGoIncremental",
+      "signature": "func benchmarkCanonicalGoIncremental(b *testing.B, tc canonicalGoIncrementalCase, lang *gotreesitter.Language)",
+      "start_line": 886,
+      "end_line": 939,
+      "callable": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "benchmark_go_canonical_incremental_test.go\u0000function_definition\u0000benchmarkCanonicalGoIncremental\u0000886",
+      "file": "benchmark_go_canonical_incremental_test.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "benchmarkCanonicalGoIncremental",
+      "signature": "func benchmarkCanonicalGoIncremental(b *testing.B, tc canonicalGoIncrementalCase, lang *gotreesitter.Language)",
+      "start_line": 886,
+      "end_line": 939,
+      "callable": true
+    },
+    {
+      "id": "benchmark_go_canonical_incremental_test.go\u0000function_definition\u0000requireCanonicalGoIncrementalTree\u0000987",
+      "file": "benchmark_go_canonical_incremental_test.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "requireCanonicalGoIncrementalTree",
+      "signature": "func requireCanonicalGoIncrementalTree(tb testing.TB, tree *gotreesitter.Tree, source []byte, phase string, err error)",
+      "start_line": 987,
+      "end_line": 1000,
+      "callable": true
+    }
+  ],
+  "edges": [
+    {
+      "caller": {
+        "id": "benchmark_go_canonical_incremental_test.go\u0000function_definition\u0000benchmarkCanonicalGoIncremental\u0000886",
+        "file": "benchmark_go_canonical_incremental_test.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "benchmarkCanonicalGoIncremental",
+        "signature": "func benchmarkCanonicalGoIncremental(b *testing.B, tc canonicalGoIncrementalCase, lang *gotreesitter.Language)",
+        "start_line": 886,
+        "end_line": 939,
+        "callable": true
+      },
+      "callee": {
+        "id": "benchmark_go_canonical_incremental_test.go\u0000function_definition\u0000requireCanonicalGoIncrementalTree\u0000987",
+        "file": "benchmark_go_canonical_incremental_test.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "requireCanonicalGoIncrementalTree",
+        "signature": "func requireCanonicalGoIncrementalTree(tb testing.TB, tree *gotreesitter.Tree, source []byte, phase string, err error)",
+        "start_line": 987,
+        "end_line": 1000,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 2,
+      "samples": [
+        {
+          "file": "benchmark_go_canonical_incremental_test.go",
+          "start_line": 889,
+          "start_column": 2,
+          "kind": "reference.call",
+          "name": "requireCanonicalGoIncrementalTree"
+        },
+        {
+          "file": "benchmark_go_canonical_incremental_test.go",
+          "start_line": 928,
+          "start_column": 4,
+          "kind": "reference.call",
+          "name": "requireCanonicalGoIncrementalTree"
+        }
+      ]
+    }
+  ],
+  "depth": 2,
+  "reverse": false,
+  "unresolved_call_count": 322
+}

@@ -1,0 +1,38 @@
+File: p13_cgo_harness_alloc.test
+Build ID: 8c08114734c0c549a92d17d6d8da009b2d5d3063
+Type: inuse_space
+Time: 2026-08-21 14:25:48 PDT
+Showing nodes accounting for 8736.46kB, 100% of 8736.46kB total
+      flat  flat%   sum%        cum   cum%
+ 4669.39kB 53.45% 53.45%  4669.39kB 53.45%  github.com/odvcencio/gotreesitter/grammars.compactAndInternTransitions
+ 1536.21kB 17.58% 71.03%  2048.23kB 23.44%  github.com/odvcencio/gotreesitter/grammars.(*vhdlTrie).insert
+  988.58kB 11.32% 82.35%   988.58kB 11.32%  github.com/odvcencio/gotreesitter/grammars.BlobByName
+  518.02kB  5.93% 88.28%   518.02kB  5.93%  github.com/odvcencio/gotreesitter/cgo_harness.init.func2 (inline)
+  512.23kB  5.86% 94.14%   512.23kB  5.86%  github.com/odvcencio/gotreesitter.buildSmallTokenLookupFullRows
+  512.02kB  5.86%   100%   512.02kB  5.86%  github.com/odvcencio/gotreesitter/grammars.newVhdlTrieNode (inline)
+         0     0%   100%   512.23kB  5.86%  github.com/odvcencio/gotreesitter.NewParser
+         0     0%   100%   512.23kB  5.86%  github.com/odvcencio/gotreesitter.buildSmallTokenLookup
+         0     0%   100%  6170.20kB 70.63%  github.com/odvcencio/gotreesitter/cgo_harness.BenchmarkP13TimerIsolated.func1
+         0     0%   100%   512.23kB  5.86%  github.com/odvcencio/gotreesitter/cgo_harness.admitCanonicalGoIncrementalCase
+         0     0%   100%   988.58kB 11.32%  github.com/odvcencio/gotreesitter/cgo_harness.canonicalIncrementalCLanguage
+         0     0%   100%  4669.39kB 53.45%  github.com/odvcencio/gotreesitter/cgo_harness.canonicalIncrementalGoLanguage
+         0     0%   100%   518.02kB  5.93%  github.com/odvcencio/gotreesitter/cgo_harness.init
+         0     0%   100%   988.58kB 11.32%  github.com/odvcencio/gotreesitter/cgo_harness.loadCanonicalGoCLanguage
+         0     0%   100%  4669.39kB 53.45%  github.com/odvcencio/gotreesitter/grammars.GoLanguage (inline)
+         0     0%   100%  4669.39kB 53.45%  github.com/odvcencio/gotreesitter/grammars.compactDecodedLanguage
+         0     0%   100%  4669.39kB 53.45%  github.com/odvcencio/gotreesitter/grammars.decodeEmbeddedLanguage
+         0     0%   100%  4669.39kB 53.45%  github.com/odvcencio/gotreesitter/grammars.decodeLanguageBlobData
+         0     0%   100%  2048.23kB 23.44%  github.com/odvcencio/gotreesitter/grammars.init.91
+         0     0%   100%  4669.39kB 53.45%  github.com/odvcencio/gotreesitter/grammars.loadEmbeddedLanguage
+         0     0%   100%  4669.39kB 53.45%  github.com/odvcencio/gotreesitter/grammars.loadEmbeddedLanguageBase
+         0     0%   100%  4669.39kB 53.45%  github.com/odvcencio/gotreesitter/grammars.loadEmbeddedLanguageBase.func1
+         0     0%   100%   512.07kB  5.86%  github.com/odvcencio/gotreesitter/grammars.vhdlRegisterReserved
+         0     0%   100%   512.07kB  5.86%  github.com/odvcencio/gotreesitter/grammars.vhdlRegisterStdEnv
+         0     0%   100%  1024.09kB 11.72%  github.com/odvcencio/gotreesitter/grammars.vhdlRegisterStdStandard
+         0     0%   100%  2566.26kB 29.37%  runtime.doInit (inline)
+         0     0%   100%  2566.26kB 29.37%  runtime.doInit1
+         0     0%   100%  2566.26kB 29.37%  runtime.main
+         0     0%   100%  4669.39kB 53.45%  sync.(*Once).Do (inline)
+         0     0%   100%  4669.39kB 53.45%  sync.(*Once).doSlow
+         0     0%   100%  6170.20kB 70.63%  testing.(*B).run1.func1
+         0     0%   100%  6170.20kB 70.63%  testing.(*B).runN

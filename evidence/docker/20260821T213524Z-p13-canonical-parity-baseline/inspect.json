@@ -1,0 +1,263 @@
+[
+    {
+        "Id": "cd080a46f5e0e96c69acf94e2ccc839b4d43b6eb6f7c94acad69951a00f46d31",
+        "Created": "2026-08-21T21:35:27.891667454Z",
+        "Path": "bash",
+        "Args": [
+            "-c",
+            "export PATH=/usr/local/go/bin:$PATH; cd /workspace/cgo_harness && go test . -tags \"cgo treesitter_c_parity\" -run \"^TestCanonicalGoIncrementalParity$\" -count=1"
+        ],
+        "State": {
+            "Status": "exited",
+            "Running": false,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 0,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-08-21T21:35:28.048806546Z",
+            "FinishedAt": "2026-08-21T21:35:29.640628144Z"
+        },
+        "Image": "sha256:8988c75c874ba63954c48091176cfa0380ee87f493a5b5d577f368e78921475f",
+        "ResolvConfPath": "/var/lib/docker/containers/cd080a46f5e0e96c69acf94e2ccc839b4d43b6eb6f7c94acad69951a00f46d31/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/cd080a46f5e0e96c69acf94e2ccc839b4d43b6eb6f7c94acad69951a00f46d31/hostname",
+        "HostsPath": "/var/lib/docker/containers/cd080a46f5e0e96c69acf94e2ccc839b4d43b6eb6f7c94acad69951a00f46d31/hosts",
+        "LogPath": "/var/lib/docker/containers/cd080a46f5e0e96c69acf94e2ccc839b4d43b6eb6f7c94acad69951a00f46d31/cd080a46f5e0e96c69acf94e2ccc839b4d43b6eb6f7c94acad69951a00f46d31-json.log",
+        "Name": "/gts-parity-20260821t213524z-p13-canonical-parity-baseline",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "bridge",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 8589934592,
+            "NanoCpus": 1000000000,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "19",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 8589934592,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": 4096,
+            "Ulimits": [],
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "Mounts": [
+                {
+                    "Type": "bind",
+                    "Source": "/home/draco/work/gts-p13-attribution-20260821",
+                    "Target": "/workspace"
+                },
+                {
+                    "Type": "volume",
+                    "Source": "gotreesitter-go-mod-cache",
+                    "Target": "/go/pkg/mod"
+                },
+                {
+                    "Type": "volume",
+                    "Source": "gotreesitter-go-build-cache",
+                    "Target": "/root/.cache/go-build"
+                }
+            ],
+            "MaskedPaths": [
+                "/proc/asound",
+                "/proc/acpi",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware",
+                "/sys/devices/virtual/powercap"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ],
+            "Init": true
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "cd080a46f5e0e96c69acf94e2ccc839b4d43b6eb6f7c94acad69951a00f46d31",
+                "LowerDir": "/var/lib/docker/overlay2/3c2b0ebce0dba17d468924f7bab37fbf378bd66627612fbf42bd61a5480706ad-init/diff:/var/lib/docker/overlay2/l20p7ivp5fmfu67ucdbhb5ue5/diff:/var/lib/docker/overlay2/jbzdq46jdlc1d6v421c35rnt2/diff:/var/lib/docker/overlay2/vedqu7tywz8s8403cmkgxivod/diff:/var/lib/docker/overlay2/kqs9t9cuanwazh5mazsmv5kwi/diff:/var/lib/docker/overlay2/n1g8pch0vg1mz0su7vmbc4aqy/diff:/var/lib/docker/overlay2/igilgpekptif55lud77mc4q4a/diff:/var/lib/docker/overlay2/ff86dbef8ae843e9436de52f81f6d7d78eba3d3cc9ee7fed249efea3e3a2bb14/diff:/var/lib/docker/overlay2/5fee04788714b684b1cdf133d91b917c47f19f7de7adcc24865be7a6d3720532/diff:/var/lib/docker/overlay2/7dfcc1490e3ff650f4555530c06ca0de20f1cdd45460cec59432c902dd9ab655/diff:/var/lib/docker/overlay2/250a380bb08563e7cbe12c86de851c05f6f56d8fc4346d25e110e5c6da78257c/diff:/var/lib/docker/overlay2/3714b447d7a51334f27fb9a8264be5afb41b78a7ce9f236ca4e387fa2be13148/diff:/var/lib/docker/overlay2/00601642e93d24c8a5e3d11c6e17f6f513bc88bf3b52d0a438fd5dbac28de1f7/diff:/var/lib/docker/overlay2/2798219669adee74f92ad77f9ab6fea7448234d307fb1bc829ee13bc034e04d2/diff",
+                "MergedDir": "/var/lib/docker/overlay2/3c2b0ebce0dba17d468924f7bab37fbf378bd66627612fbf42bd61a5480706ad/merged",
+                "UpperDir": "/var/lib/docker/overlay2/3c2b0ebce0dba17d468924f7bab37fbf378bd66627612fbf42bd61a5480706ad/diff",
+                "WorkDir": "/var/lib/docker/overlay2/3c2b0ebce0dba17d468924f7bab37fbf378bd66627612fbf42bd61a5480706ad/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "gotreesitter-go-build-cache",
+                "Source": "/var/lib/docker/volumes/gotreesitter-go-build-cache/_data",
+                "Destination": "/root/.cache/go-build",
+                "Driver": "local",
+                "Mode": "z",
+                "RW": true,
+                "Propagation": ""
+            },
+            {
+                "Type": "bind",
+                "Source": "/home/draco/work/gts-p13-attribution-20260821",
+                "Destination": "/workspace",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "volume",
+                "Name": "gotreesitter-go-mod-cache",
+                "Source": "/var/lib/docker/volumes/gotreesitter-go-mod-cache/_data",
+                "Destination": "/go/pkg/mod",
+                "Driver": "local",
+                "Mode": "z",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+        "Config": {
+            "Hostname": "cd080a46f5e0",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": true,
+            "AttachStderr": true,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "GTS_PARITY_PARALLEL=0",
+                "GTS_PARITY_C_REF_BUILD_JOBS=1",
+                "GOMEMLIMIT=6GiB",
+                "GOFLAGS=-p=1",
+                "GTS_PARITY_MODE=top50",
+                "GTS_PARITY_IN_DOCKER=1",
+                "PATH=/usr/local/go/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "GOLANG_VERSION=1.25.12",
+                "GOTOOLCHAIN=local",
+                "GOPATH=/go",
+                "GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt",
+                "CGO_ENABLED=1",
+                "GO111MODULE=on"
+            ],
+            "Cmd": [
+                "bash",
+                "-c",
+                "export PATH=/usr/local/go/bin:$PATH; cd /workspace/cgo_harness && go test . -tags \"cgo treesitter_c_parity\" -run \"^TestCanonicalGoIncrementalParity$\" -count=1"
+            ],
+            "Image": "gotreesitter/cgo-harness:go1.25-local",
+            "Volumes": null,
+            "WorkingDir": "/workspace",
+            "Entrypoint": null,
+            "OnBuild": null,
+            "Labels": {}
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "",
+            "SandboxKey": "",
+            "Ports": {},
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "SecondaryIPAddresses": null,
+            "SecondaryIPv6Addresses": null,
+            "EndpointID": "",
+            "Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "MacAddress": "",
+            "Networks": {
+                "bridge": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "MacAddress": "",
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "5021ff1a8e77d3b0da864de621b803dd16d6e8e3b3afa88284f8a6437a9e28c7",
+                    "EndpointID": "",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        }
+    }
+]

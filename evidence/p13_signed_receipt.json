@@ -1,0 +1,25 @@
+{
+  "schema": "gts-p13-signed-receipt/v1",
+  "disposition": "NO-GO",
+  "base_commit": "de4fe455d3a9778b8a9b09347908e860a1f6b7f8",
+  "algorithm": "Ed25519 raw-message signature via OpenSSL pkeyutl",
+  "manifest": {
+    "path": "evidence/p13_artifact_manifest.json",
+    "sha256": "9e652ea31528d3e3ef687b7e087684f169932ad030f6c9369f6c4181ca4f8cfc"
+  },
+  "signature": {
+    "path": "evidence/p13_artifact_manifest.sig",
+    "sha256": "71c8fe99f7539a4b80e2d8b79e34a2b2d9ba4892c1e663e423e632feac7b2bf2",
+    "base64": "JykLwFlu7Ga+kHbJP9rViBKlPKzF2oYLKsS0QQs+G597pnTGJLvLfZwsXx3Gw8HRXfq6irCrd8gxshIzmuhqAQ=="
+  },
+  "public_key": {
+    "path": "evidence/p13_signer_public.pem",
+    "sha256": "134e8e26e1ab05f087d31da282baa16e86916b908fef594aa140f52b96cc3a20",
+    "der_sha256": "d815ae607ff94f304260fcf39d62a34b98f75a24f37b54b006cf340fc2cb8361"
+  },
+  "report": {
+    "path": "evidence/p13_report.md",
+    "sha256": "b55faf20da5fd49d57c26ebea8ebf4ebc75d3bfe219cc31f0bc17e171951a509"
+  },
+  "verification": "openssl pkeyutl -verify -pubin -inkey evidence/p13_signer_public.pem -rawin -in evidence/p13_artifact_manifest.json -sigfile evidence/p13_artifact_manifest.sig"
+}

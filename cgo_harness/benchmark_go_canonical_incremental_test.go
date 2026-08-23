@@ -908,9 +908,25 @@ func benchmarkCanonicalGoIncremental(b *testing.B, tc canonicalGoIncrementalCase
 		totals.addEdit(time.Since(editStart))
 		oldTree := tree
 		parseStart := time.Now()
-		newTree, profile, err := parser.ParseIncrementalProfiled(target, oldTree)
+		parse := func() (*gotreesitter.Tree, gotreesitter.IncrementalParseProfile, error) {
+			return parser.ParseIncrementalProfiled(target, oldTree)
+		}
+		var newTree *gotreesitter.Tree
+		var profile gotreesitter.IncrementalParseProfile
+		var err error
+		if p13IncrementalProfileHook != nil {
+			direction := "forward"
+			if edited {
+				direction = "reverse"
+			}
+			newTree, profile, err = p13IncrementalProfileHook(tc.spec.Name, direction, parse)
+		} else {
+			newTree, profile, err = parse()
+		}
 		totals.addParseWall(time.Since(parseStart))
-		requireCanonicalGoIncrementalTree(b, newTree, target, tc.spec.Name+" timed Go", err)
+		if !p13ProfileSkipValidation {
+			requireCanonicalGoIncrementalTree(b, newTree, target, tc.spec.Name+" timed Go", err)
+		}
 		totals.add(profile)
 		if newTree != oldTree {
 			oldTree.Release()

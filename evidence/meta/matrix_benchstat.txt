@@ -1,0 +1,624 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                                                │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                                │                     sec/op                     │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           42.77m ± 15%
+P13CanonicalGoIncremental/token_class_change/tree-sitter-c                                          86.48µ ± 14%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      54.24m ± 11%
+P13CanonicalGoIncremental/same_line_length_change/tree-sitter-c                                     101.2µ ± 11%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                825.6m ± 10%
+P13CanonicalGoIncremental/early_newline/tree-sitter-c                                               669.7µ ±  8%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            5.930m ± 10%
+P13CanonicalGoIncremental/recovery_deletion/tree-sitter-c                                           63.80µ ± 15%
+geomean                                                                                             2.841m
+
+                                                                │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                                │                      B/s                       │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          459.0Ki ± 19%
+P13CanonicalGoIncremental/token_class_change/tree-sitter-c                                         222.4Mi ± 16%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     742.2Ki ± 12%
+P13CanonicalGoIncremental/same_line_length_change/tree-sitter-c                                    389.9Mi ± 11%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               278.3Ki ±  9%
+P13CanonicalGoIncremental/early_newline/tree-sitter-c                                              335.6Mi ±  9%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           839.8Ki ± 10%
+P13CanonicalGoIncremental/recovery_deletion/tree-sitter-c                                          76.47Mi ± 17%
+geomean                                                                                            10.62Mi
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │               action_apply_ns/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          23.17M ± 12%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     22.88M ±  9%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               617.5M ± 10%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           2.528M ±  7%
+geomean                                                                                            30.16M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             action_dispatch_ns/op              │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          24.13M ± 12%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     24.30M ± 10%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               628.7M ± 10%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           2.689M ±  8%
+geomean                                                                                            31.55M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              action_lookup_ns/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          982.1k ± 11%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     1.212M ± 10%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               8.191M ±  9%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           147.1k ± 13%
+geomean                                                                                            1.094M
+
+                                                                │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                                │                   edit_ns/op                   │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           2.188k ± 24%
+P13CanonicalGoIncremental/token_class_change/tree-sitter-c                                           972.3 ± 12%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      103.1k ± 19%
+P13CanonicalGoIncremental/same_line_length_change/tree-sitter-c                                      968.5 ± 16%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                1.801M ± 73%
+P13CanonicalGoIncremental/early_newline/tree-sitter-c                                                986.1 ± 15%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            27.15k ± 17%
+P13CanonicalGoIncremental/recovery_deletion/tree-sitter-c                                            879.6 ± 20%
+geomean                                                                                             7.402k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │               entry_scratch_peak               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           4.096k ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      4.665k ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                5.379k ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            4.627k ± 0%
+geomean                                                                                             4.670k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │            global_cull_stacks_in/op            │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │           global_cull_stacks_out/op            │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                 glr_cull_ns/op                 │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          46.33k ± 19%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     60.32k ± 12%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               734.5k ±  9%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           6.447k ±  8%
+geomean                                                                                            60.32k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                glr_merge_ns/op                 │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          4.974M ± 20%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     7.228M ± 12%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               46.86M ±  7%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           616.1k ± 17%
+geomean                                                                                            5.676M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │               gss_nodes_alloc/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              gss_nodes_dropped/op              │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             gss_nodes_retained/op              │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                 incr_tokens/op                 │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           5.088k ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      8.087k ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                39.91k ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            1.030k ± 0%
+geomean                                                                                             6.413k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              leaf_nodes_alloc/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             leaf_nodes_dropped/op              │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             leaf_nodes_retained/op             │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                max_stacks_peak                 │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                            24.00 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                       36.00 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                 36.00 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                             18.00 ± 0%
+geomean                                                                                              27.35
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              merge_slots_used/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │               merge_stacks_in/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              merge_stacks_out/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │            multi_stack_gss_nodes/op            │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           59.04k ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      72.82k ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                474.3k ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            8.568k ± 0%
+geomean                                                                                             64.65k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │           multi_stack_iterations/op            │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           5.522k ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      8.278k ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                43.69k ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            1.067k ± 0%
+geomean                                                                                             6.794k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             multi_stack_tokens/op              │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           5.073k ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      7.668k ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                39.56k ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                             946.8 ± 0%
+geomean                                                                                             6.178k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                  new_nodes/op                  │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           63.13k ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      79.73k ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                505.8k ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            9.356k ± 0%
+geomean                                                                                             69.86k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              normalization_ns/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             parent_nodes_alloc/op              │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │            parent_nodes_dropped/op             │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │            parent_nodes_retained/op            │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                                │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                                │                parse_wall_ns/op                │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           42.26M ± 16%
+P13CanonicalGoIncremental/token_class_change/tree-sitter-c                                          72.06k ± 15%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      53.88M ± 11%
+P13CanonicalGoIncremental/same_line_length_change/tree-sitter-c                                     84.61k ± 10%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                823.2M ± 10%
+P13CanonicalGoIncremental/early_newline/tree-sitter-c                                               582.7k ±  8%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            5.824M ± 10%
+P13CanonicalGoIncremental/recovery_deletion/tree-sitter-c                                           53.88k ± 16%
+geomean                                                                                             2.600M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             parser_accounted_ns/op             │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          32.76M ± 14%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     36.23M ±  8%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               712.0M ± 10%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           3.933M ±  8%
+geomean                                                                                            42.70M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │               parser_loop_ns/op                │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          40.97M ± 16%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     52.19M ± 11%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               778.3M ± 12%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           5.479M ± 10%
+geomean                                                                                            54.95M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │           parser_unattributed_ns/op            │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          8.014M ±  9%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     16.00M ± 10%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               69.45M ± 11%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           1.623M ± 13%
+geomean                                                                                            10.96M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                recover_hits/op                 │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │               recover_lookups/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              recover_searches/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │            recover_state_checks/op             │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             recover_state_skips/op             │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │            recover_symbol_skips/op             │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                 reparse_ns/op                  │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          41.97M ± 16%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     53.18M ± 11%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               822.9M ± 10%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           5.690M ± 11%
+geomean                                                                                            56.86M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             result_accounted_ns/op             │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          1.621M ± 17%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     2.545M ± 23%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               60.47M ± 10%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           304.0k ± 29%
+geomean                                                                                            2.951M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │           result_compatibility_ns/op           │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          502.1k ± 15%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     757.5k ± 26%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               13.46M ±  9%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           89.91k ± 21%
+geomean                                                                                            823.6k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │          result_extend_trailing_ns/op          │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           181.2 ± 24%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      311.6 ± 24%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                270.0 ± 16%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            140.2 ± 30%
+geomean                                                                                             215.0
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │           result_finalize_root_ns/op           │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          505.4k ± 15%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     771.0k ± 25%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               13.47M ±  9%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           93.03k ± 22%
+geomean                                                                                            835.9k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │       result_normalize_root_start_ns/op        │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           544.2 ± 10%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     1.190k ± 16%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                787.5 ±  9%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            366.0 ± 36%
+geomean                                                                                             657.2
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │            result_parent_link_ns/op            │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │       result_python_keyword_repair_ns/op       │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           293.1 ± 13%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      631.6 ± 11%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                226.8 ± 38%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            266.9 ± 40%
+geomean                                                                                             325.4
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │        result_python_root_repair_ns/op         │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           277.9 ± 11%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      570.7 ± 19%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                270.0 ± 29%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            241.2 ± 37%
+geomean                                                                                             318.8
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              result_select_ns/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          88.76k ± 27%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     26.01k ± 15%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               18.08M ± 12%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           1.544k ± 12%
+geomean                                                                                            89.60k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │            result_tree_build_ns/op             │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          514.8k ± 15%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     859.2k ± 35%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               13.53M ±  9%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           108.7k ± 37%
+geomean                                                                                            898.2k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                  reuse_ns/op                   │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          22.71k ± 22%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     172.7k ± 12%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               237.9k ±  9%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           35.27k ± 17%
+geomean                                                                                            75.74k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │         reuse_reject_ancestor_dirty/op         │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          10.00 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     5.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           8.500 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             reuse_reject_dirty/op              │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                            1.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                       2.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                 1.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                             3.000 ± 1%
+geomean                                                                                              1.565
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             reuse_reject_error/op              │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                          500.0m ± 1%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │          reuse_reject_invalid_span/op          │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     2.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           1.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │         reuse_reject_large_nonleaf/op          │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              reuse_reject_oob/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │          reuse_reject_root_nonleaf/op          │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           14.78 ±  0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      368.3 ±  0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                304.0 ± 12%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            76.73 ±  0%
+geomean                                                                                             106.2
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │              reuse_unsupported/op              │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                  reused_B/op                   │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                            131.2 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      13.84k ± 1%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                45.77k ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            1.859k ± 0%
+geomean                                                                                             3.526k
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │               reused_subtrees/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                            14.00 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                       200.8 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                 259.0 ± 5%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                             56.26 ± 0%
+geomean                                                                                              80.00
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │           single_stack_gss_nodes/op            │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                            37.50 ± 1%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                       759.3 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                1.509k ± 8%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                             98.12 ± 0%
+geomean                                                                                              254.8
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │           single_stack_iterations/op           │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                            25.96 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                       587.9 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                 557.0 ± 4%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                             126.4 ± 0%
+geomean                                                                                              181.1
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │             single_stack_tokens/op             │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                            14.96 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                       418.4 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                 353.0 ± 4%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                             83.27 ± 0%
+geomean                                                                                              116.5
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │                token_next_ns/op                │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          3.693M ± 21%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     4.422M ± 17%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               29.19M ± 12%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           625.6k ±  8%
+geomean                                                                                            4.155M
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │       transient_child_materialize_ns/op        │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          0.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     0.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               0.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           0.000 ± 0%
+geomean                                                                                                       ¹
+¹ summaries must be >0 to compute geomean
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │       transient_parent_materialize_ns/op       │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                           60.99 ± 22%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                      104.2 ± 19%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                360.0 ± 23%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                            72.67 ± 16%
+geomean                                                                                             113.6
+
+                                                               │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                               │               unattributed_ns/op               │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          283.4k ± 15%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     513.0k ± 22%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               49.64k ± 11%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           86.02k ± 34%
+geomean                                                                                            157.9k
+
+                                                                │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                                │                      B/op                      │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                          13.58Mi ±  0%
+P13CanonicalGoIncremental/token_class_change/tree-sitter-c                                         20.27Ki ±  0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                     20.29Mi ±  1%
+P13CanonicalGoIncremental/same_line_length_change/tree-sitter-c                                    18.27Ki ±  0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                               73.27Mi ± 36%
+P13CanonicalGoIncremental/early_newline/tree-sitter-c                                              232.3Ki ±  0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                           1.291Mi ±  0%
+P13CanonicalGoIncremental/recovery_deletion/tree-sitter-c                                          3.266Ki ±  0%
+geomean                                                                                            547.2Ki
+
+                                                                │ evidence/matrix/canonical-go-c-20-seeds-v3.txt │
+                                                                │                   allocs/op                    │
+P13CanonicalGoIncremental/token_class_change/gotreesitter                                             96.50 ± 2%
+P13CanonicalGoIncremental/token_class_change/tree-sitter-c                                            9.000 ± 0%
+P13CanonicalGoIncremental/same_line_length_change/gotreesitter                                        295.0 ± 2%
+P13CanonicalGoIncremental/same_line_length_change/tree-sitter-c                                       9.000 ± 0%
+P13CanonicalGoIncremental/early_newline/gotreesitter                                                 1.565k ± 0%
+P13CanonicalGoIncremental/early_newline/tree-sitter-c                                                 9.000 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/gotreesitter                                              119.0 ± 0%
+P13CanonicalGoIncremental/recovery_deletion/tree-sitter-c                                             9.000 ± 0%
+geomean                                                                                               49.28

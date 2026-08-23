@@ -1,0 +1,817 @@
+{
+  "roots": [
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeSymbol\u0000250",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeSymbol",
+      "signature": "func stackEntryNodeSymbol(e stackEntry) Symbol",
+      "start_line": 250,
+      "end_line": 264,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeStartByte\u0000266",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeStartByte",
+      "signature": "func stackEntryNodeStartByte(e stackEntry) uint32",
+      "start_line": 266,
+      "end_line": 280,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeEndByte\u0000282",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeEndByte",
+      "signature": "func stackEntryNodeEndByte(e stackEntry) uint32",
+      "start_line": 282,
+      "end_line": 296,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeParseState\u0000328",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeParseState",
+      "signature": "func stackEntryNodeParseState(e stackEntry) StateID",
+      "start_line": 328,
+      "end_line": 342,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryHasNode\u0000376",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryHasNode",
+      "signature": "func stackEntryHasNode(e stackEntry) bool",
+      "start_line": 376,
+      "end_line": 378,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeChildCount\u0000528",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeChildCount",
+      "signature": "func stackEntryNodeChildCount(e stackEntry) int",
+      "start_line": 528,
+      "end_line": 536,
+      "callable": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNode\u0000100",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNode",
+      "signature": "func stackEntryNode(e stackEntry) *Node",
+      "start_line": 100,
+      "end_line": 105,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNoTreeNode\u0000107",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNoTreeNode",
+      "signature": "func stackEntryNoTreeNode(e stackEntry) *noTreeNode",
+      "start_line": 107,
+      "end_line": 112,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryCompactFullLeaf\u0000114",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryCompactFullLeaf",
+      "signature": "func stackEntryCompactFullLeaf(e stackEntry) *compactFullLeaf",
+      "start_line": 114,
+      "end_line": 119,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryPendingParent\u0000121",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryPendingParent",
+      "signature": "func stackEntryPendingParent(e stackEntry) *pendingParent",
+      "start_line": 121,
+      "end_line": 126,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeSymbol\u0000250",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeSymbol",
+      "signature": "func stackEntryNodeSymbol(e stackEntry) Symbol",
+      "start_line": 250,
+      "end_line": 264,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeStartByte\u0000266",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeStartByte",
+      "signature": "func stackEntryNodeStartByte(e stackEntry) uint32",
+      "start_line": 266,
+      "end_line": 280,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeEndByte\u0000282",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeEndByte",
+      "signature": "func stackEntryNodeEndByte(e stackEntry) uint32",
+      "start_line": 282,
+      "end_line": 296,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeParseState\u0000328",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeParseState",
+      "signature": "func stackEntryNodeParseState(e stackEntry) StateID",
+      "start_line": 328,
+      "end_line": 342,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryHasNode\u0000376",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryHasNode",
+      "signature": "func stackEntryHasNode(e stackEntry) bool",
+      "start_line": 376,
+      "end_line": 378,
+      "callable": true
+    },
+    {
+      "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeChildCount\u0000528",
+      "file": "no_tree_node.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryNodeChildCount",
+      "signature": "func stackEntryNodeChildCount(e stackEntry) int",
+      "start_line": 528,
+      "end_line": 536,
+      "callable": true
+    }
+  ],
+  "edges": [
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeSymbol\u0000250",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeSymbol",
+        "signature": "func stackEntryNodeSymbol(e stackEntry) Symbol",
+        "start_line": 250,
+        "end_line": 264,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNode\u0000100",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNode",
+        "signature": "func stackEntryNode(e stackEntry) *Node",
+        "start_line": 100,
+        "end_line": 105,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 251,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryNode"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeSymbol\u0000250",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeSymbol",
+        "signature": "func stackEntryNodeSymbol(e stackEntry) Symbol",
+        "start_line": 250,
+        "end_line": 264,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNoTreeNode\u0000107",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNoTreeNode",
+        "signature": "func stackEntryNoTreeNode(e stackEntry) *noTreeNode",
+        "start_line": 107,
+        "end_line": 112,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 254,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryNoTreeNode"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeSymbol\u0000250",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeSymbol",
+        "signature": "func stackEntryNodeSymbol(e stackEntry) Symbol",
+        "start_line": 250,
+        "end_line": 264,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryCompactFullLeaf\u0000114",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryCompactFullLeaf",
+        "signature": "func stackEntryCompactFullLeaf(e stackEntry) *compactFullLeaf",
+        "start_line": 114,
+        "end_line": 119,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 257,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryCompactFullLeaf"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeSymbol\u0000250",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeSymbol",
+        "signature": "func stackEntryNodeSymbol(e stackEntry) Symbol",
+        "start_line": 250,
+        "end_line": 264,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryPendingParent\u0000121",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryPendingParent",
+        "signature": "func stackEntryPendingParent(e stackEntry) *pendingParent",
+        "start_line": 121,
+        "end_line": 126,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 260,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryPendingParent"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeStartByte\u0000266",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeStartByte",
+        "signature": "func stackEntryNodeStartByte(e stackEntry) uint32",
+        "start_line": 266,
+        "end_line": 280,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNode\u0000100",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNode",
+        "signature": "func stackEntryNode(e stackEntry) *Node",
+        "start_line": 100,
+        "end_line": 105,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 267,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryNode"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeStartByte\u0000266",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeStartByte",
+        "signature": "func stackEntryNodeStartByte(e stackEntry) uint32",
+        "start_line": 266,
+        "end_line": 280,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNoTreeNode\u0000107",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNoTreeNode",
+        "signature": "func stackEntryNoTreeNode(e stackEntry) *noTreeNode",
+        "start_line": 107,
+        "end_line": 112,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 270,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryNoTreeNode"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeStartByte\u0000266",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeStartByte",
+        "signature": "func stackEntryNodeStartByte(e stackEntry) uint32",
+        "start_line": 266,
+        "end_line": 280,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryCompactFullLeaf\u0000114",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryCompactFullLeaf",
+        "signature": "func stackEntryCompactFullLeaf(e stackEntry) *compactFullLeaf",
+        "start_line": 114,
+        "end_line": 119,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 273,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryCompactFullLeaf"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeStartByte\u0000266",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeStartByte",
+        "signature": "func stackEntryNodeStartByte(e stackEntry) uint32",
+        "start_line": 266,
+        "end_line": 280,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryPendingParent\u0000121",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryPendingParent",
+        "signature": "func stackEntryPendingParent(e stackEntry) *pendingParent",
+        "start_line": 121,
+        "end_line": 126,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 276,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryPendingParent"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeEndByte\u0000282",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeEndByte",
+        "signature": "func stackEntryNodeEndByte(e stackEntry) uint32",
+        "start_line": 282,
+        "end_line": 296,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNode\u0000100",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNode",
+        "signature": "func stackEntryNode(e stackEntry) *Node",
+        "start_line": 100,
+        "end_line": 105,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 283,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryNode"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeEndByte\u0000282",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeEndByte",
+        "signature": "func stackEntryNodeEndByte(e stackEntry) uint32",
+        "start_line": 282,
+        "end_line": 296,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNoTreeNode\u0000107",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNoTreeNode",
+        "signature": "func stackEntryNoTreeNode(e stackEntry) *noTreeNode",
+        "start_line": 107,
+        "end_line": 112,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 286,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryNoTreeNode"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeEndByte\u0000282",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeEndByte",
+        "signature": "func stackEntryNodeEndByte(e stackEntry) uint32",
+        "start_line": 282,
+        "end_line": 296,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryCompactFullLeaf\u0000114",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryCompactFullLeaf",
+        "signature": "func stackEntryCompactFullLeaf(e stackEntry) *compactFullLeaf",
+        "start_line": 114,
+        "end_line": 119,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 289,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryCompactFullLeaf"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeEndByte\u0000282",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeEndByte",
+        "signature": "func stackEntryNodeEndByte(e stackEntry) uint32",
+        "start_line": 282,
+        "end_line": 296,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryPendingParent\u0000121",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryPendingParent",
+        "signature": "func stackEntryPendingParent(e stackEntry) *pendingParent",
+        "start_line": 121,
+        "end_line": 126,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 292,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryPendingParent"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeParseState\u0000328",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeParseState",
+        "signature": "func stackEntryNodeParseState(e stackEntry) StateID",
+        "start_line": 328,
+        "end_line": 342,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNode\u0000100",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNode",
+        "signature": "func stackEntryNode(e stackEntry) *Node",
+        "start_line": 100,
+        "end_line": 105,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 329,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryNode"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeParseState\u0000328",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeParseState",
+        "signature": "func stackEntryNodeParseState(e stackEntry) StateID",
+        "start_line": 328,
+        "end_line": 342,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNoTreeNode\u0000107",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNoTreeNode",
+        "signature": "func stackEntryNoTreeNode(e stackEntry) *noTreeNode",
+        "start_line": 107,
+        "end_line": 112,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 332,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryNoTreeNode"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeParseState\u0000328",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeParseState",
+        "signature": "func stackEntryNodeParseState(e stackEntry) StateID",
+        "start_line": 328,
+        "end_line": 342,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryCompactFullLeaf\u0000114",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryCompactFullLeaf",
+        "signature": "func stackEntryCompactFullLeaf(e stackEntry) *compactFullLeaf",
+        "start_line": 114,
+        "end_line": 119,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 335,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryCompactFullLeaf"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeParseState\u0000328",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeParseState",
+        "signature": "func stackEntryNodeParseState(e stackEntry) StateID",
+        "start_line": 328,
+        "end_line": 342,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryPendingParent\u0000121",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryPendingParent",
+        "signature": "func stackEntryPendingParent(e stackEntry) *pendingParent",
+        "start_line": 121,
+        "end_line": 126,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 338,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryPendingParent"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeChildCount\u0000528",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeChildCount",
+        "signature": "func stackEntryNodeChildCount(e stackEntry) int",
+        "start_line": 528,
+        "end_line": 536,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNode\u0000100",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNode",
+        "signature": "func stackEntryNode(e stackEntry) *Node",
+        "start_line": 100,
+        "end_line": 105,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 529,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryNode"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryNodeChildCount\u0000528",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryNodeChildCount",
+        "signature": "func stackEntryNodeChildCount(e stackEntry) int",
+        "start_line": 528,
+        "end_line": 536,
+        "callable": true
+      },
+      "callee": {
+        "id": "no_tree_node.go\u0000function_definition\u0000stackEntryPendingParent\u0000121",
+        "file": "no_tree_node.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryPendingParent",
+        "signature": "func stackEntryPendingParent(e stackEntry) *pendingParent",
+        "start_line": 121,
+        "end_line": 126,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "no_tree_node.go",
+          "start_line": 532,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "stackEntryPendingParent"
+        }
+      ]
+    }
+  ],
+  "depth": 1,
+  "reverse": false,
+  "unresolved_call_count": 38
+}

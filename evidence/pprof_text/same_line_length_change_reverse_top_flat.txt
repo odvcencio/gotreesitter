@@ -1,0 +1,145 @@
+File: p13_cgo_harness.test
+Build ID: 709cbead639fc959c0bd4df7626fce7f43dbcbca
+Type: cpu
+Time: 2026-08-21 14:22:49 PDT
+Duration: 2.02s, Total samples = 570ms (28.20%)
+Showing nodes accounting for 570ms, 100% of 570ms total
+      flat  flat%   sum%        cum   cum%
+      60ms 10.53% 10.53%       60ms 10.53%  runtime.memclrNoHeapPointers
+      40ms  7.02% 17.54%       40ms  7.02%  runtime.findObject
+      40ms  7.02% 24.56%       40ms  7.02%  time.runtimeNow
+      20ms  3.51% 28.07%      180ms 31.58%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceActionFromGSS
+      20ms  3.51% 31.58%       70ms 12.28%  github.com/odvcencio/gotreesitter.(*Parser).cNodeErrorCostAndVisibleSubtreeCount
+      20ms  3.51% 35.09%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).cNodeMemoPrimaryHit (inline)
+      20ms  3.51% 38.60%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).updateParserStateTokenSource
+      20ms  3.51% 42.11%       40ms  7.02%  github.com/odvcencio/gotreesitter.(*gssScratch).allocNode
+      20ms  3.51% 45.61%       20ms  3.51%  github.com/odvcencio/gotreesitter.stackEntryNodeParseState
+      10ms  1.75% 47.37%       30ms  5.26%  github.com/odvcencio/gotreesitter.(*Parser).appendReduceChildItemToScratch
+      10ms  1.75% 49.12%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).buildReduceChildrenNoAliasNoFieldsPlanned
+      10ms  1.75% 50.88%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).cRecoverAcquireToken
+      10ms  1.75% 52.63%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).canCollapseInvisibleUnaryWrapper
+      10ms  1.75% 54.39%       60ms 10.53%  github.com/odvcencio/gotreesitter.(*Parser).captureRawShape
+      10ms  1.75% 56.14%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).checkpointTransientScratch
+      10ms  1.75% 57.89%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).lookupActionIndexSmall
+      10ms  1.75% 59.65%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).noteStopActionResult
+      10ms  1.75% 61.40%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).parseInternal.func9 (partial-inline)
+      10ms  1.75% 63.16%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).promotePrimaryStack
+      10ms  1.75% 64.91%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).demoteSwiftMemberKeyword
+      10ms  1.75% 66.67%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*glrStack).depth
+      10ms  1.75% 68.42%       50ms  8.77%  github.com/odvcencio/gotreesitter.(*gssStack).pushEntry
+      10ms  1.75% 70.18%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*nodeArena).allocNode (inline)
+      10ms  1.75% 71.93%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*nodeArena).allocNodeFieldMetadata
+      10ms  1.75% 73.68%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*nodeArena).allocRawShapeChildren
+      10ms  1.75% 75.44%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*nodeArena).rawShapeForRef (inline)
+      10ms  1.75% 77.19%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*nodeArena).recordReduceChildSliceScratchGeneral (inline)
+      10ms  1.75% 78.95%       20ms  3.51%  github.com/odvcencio/gotreesitter.clearParseStackEntryCaches (inline)
+      10ms  1.75% 80.70%       10ms  1.75%  github.com/odvcencio/gotreesitter.defaultFieldSourcesInArena
+      10ms  1.75% 82.46%       10ms  1.75%  github.com/odvcencio/gotreesitter.flattenedSpanConflictSummary
+      10ms  1.75% 84.21%       10ms  1.75%  github.com/odvcencio/gotreesitter.gssNodeHash
+      10ms  1.75% 85.96%       10ms  1.75%  github.com/odvcencio/gotreesitter.hiddenTreeHasFieldIDs
+      10ms  1.75% 87.72%       10ms  1.75%  github.com/odvcencio/gotreesitter.lookupShapePrefixCache
+      10ms  1.75% 89.47%       40ms  7.02%  github.com/odvcencio/gotreesitter.rawShapeComputeContentHash
+      10ms  1.75% 91.23%       10ms  1.75%  github.com/odvcencio/gotreesitter.stackCompareMerge
+      10ms  1.75% 92.98%       10ms  1.75%  runtime.addb (inline)
+      10ms  1.75% 94.74%       10ms  1.75%  runtime.gcWriteBarrier1
+      10ms  1.75% 96.49%       10ms  1.75%  runtime.nanotime1
+      10ms  1.75% 98.25%       40ms  7.02%  runtime.scanobject
+      10ms  1.75%   100%       10ms  1.75%  runtime.typePointers.next
+         0     0%   100%       30ms  5.26%  gcWriteBarrier
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Node).setFieldMetadata
+         0     0%   100%      540ms 94.74%  github.com/odvcencio/gotreesitter.(*Parser).ParseIncrementalProfiled
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).aliasedNodeInArena
+         0     0%   100%       40ms  7.02%  github.com/odvcencio/gotreesitter.(*Parser).appendReduceChildrenToScratch
+         0     0%   100%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).applyAction
+         0     0%   100%      170ms 29.82%  github.com/odvcencio/gotreesitter.(*Parser).applyActionWithReduceChain
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceAction
+         0     0%   100%      190ms 33.33%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceActionDispatch
+         0     0%   100%       30ms  5.26%  github.com/odvcencio/gotreesitter.(*Parser).applyShiftAction
+         0     0%   100%       60ms 10.53%  github.com/odvcencio/gotreesitter.(*Parser).buildReduceChildrenWithPath
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).cAcceptRootRebuild
+         0     0%   100%       50ms  8.77%  github.com/odvcencio/gotreesitter.(*Parser).cApplyMergedErrorGroupBaseline
+         0     0%   100%       70ms 12.28%  github.com/odvcencio/gotreesitter.(*Parser).cCondenseAndResume
+         0     0%   100%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).cCondenseVersionStatus
+         0     0%   100%       50ms  8.77%  github.com/odvcencio/gotreesitter.(*Parser).cHandleError
+         0     0%   100%       30ms  5.26%  github.com/odvcencio/gotreesitter.(*Parser).cNodeMemoSlot
+         0     0%   100%       50ms  8.77%  github.com/odvcencio/gotreesitter.(*Parser).cStackCumulativeNodeCount
+         0     0%   100%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).cStackErrorCost
+         0     0%   100%       70ms 12.28%  github.com/odvcencio/gotreesitter.(*Parser).cStackPrefixAgg
+         0     0%   100%      120ms 21.05%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActions
+         0     0%   100%      120ms 21.05%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActionsClassified
+         0     0%   100%      120ms 21.05%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActionsClassifiedDefault
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).collapseUnaryChildForReductionWithRule
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).collapsibleRawUnarySelfReduction
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).completeConflictReduceFrontier
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).contextualActionIndex
+         0     0%   100%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).ensureParseInitialCapacity
+         0     0%   100%       30ms  5.26%  github.com/odvcencio/gotreesitter.(*Parser).growCNodeMemoCacheTo
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).lookupActionIndex
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).noteStopActionDiagnostic
+         0     0%   100%      540ms 94.74%  github.com/odvcencio/gotreesitter.(*Parser).parseIncrementalChangedProfiled
+         0     0%   100%      310ms 54.39%  github.com/odvcencio/gotreesitter.(*Parser).parseIncrementalInternal (inline)
+         0     0%   100%      530ms 92.98%  github.com/odvcencio/gotreesitter.(*Parser).parseIncrementalInternalWithMergePerKeyOverride
+         0     0%   100%      530ms 92.98%  github.com/odvcencio/gotreesitter.(*Parser).parseInternal
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).parseInternal.func10 (inline)
+         0     0%   100%       50ms  8.77%  github.com/odvcencio/gotreesitter.(*Parser).prepareParseStacksForIteration
+         0     0%   100%       50ms  8.77%  github.com/odvcencio/gotreesitter.(*Parser).pushStackNode
+         0     0%   100%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).recycleDemotedGSS
+         0     0%   100%      230ms 40.35%  github.com/odvcencio/gotreesitter.(*Parser).retryIncrementalAcceptedErrorWithBaseMergeCap
+         0     0%   100%      230ms 40.35%  github.com/odvcencio/gotreesitter.(*Parser).retryIncrementalAcceptedErrorWithDFA
+         0     0%   100%      220ms 38.60%  github.com/odvcencio/gotreesitter.(*Parser).retryIncrementalAcceptedErrorWithDFA.func1
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).settleEagerDefaultReduceChainForReuse
+         0     0%   100%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*Parser).tryDemoteSingleLinearGSS
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Parser).tryFastUnaryCollapseFromGSS
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*Tree).Release
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).Next
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).nextDFAToken
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).scanDFATokenForState
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).scanPreferredTokenForState
+         0     0%   100%       50ms  8.77%  github.com/odvcencio/gotreesitter.(*glrStack).push (inline)
+         0     0%   100%       50ms  8.77%  github.com/odvcencio/gotreesitter.(*glrStack).pushEntry
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*gssScratch).recycleForParse
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*nodeArena).Release
+         0     0%   100%       20ms  3.51%  github.com/odvcencio/gotreesitter.(*nodeArena).ensureNodeCapacity
+         0     0%   100%       30ms  5.26%  github.com/odvcencio/gotreesitter.(*nodeArena).rawShapeHash
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*nodeArena).reset
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.(*nodeArena).resetPrimaryNodes (inline)
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.aliasedNodeInArena
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.applyFieldToFlattenedSpan
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.applyParentFieldToFlattenedHiddenSpan
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.captureRawShapeForEntries
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.captureRawShapeForNodeSlice
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.gssMaterializingShapePrefix
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.gssStacksHaveDistinctMaterializingShapesWithScratch
+         0     0%   100%       20ms  3.51%  github.com/odvcencio/gotreesitter.mergeStacksWithScratch
+         0     0%   100%       30ms  5.26%  github.com/odvcencio/gotreesitter.newParentNodeInArenaWithFieldSources
+         0     0%   100%       20ms  3.51%  github.com/odvcencio/gotreesitter.rawShapeChild.entry (inline)
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.stackMaterializingShapeHashWithScratch
+         0     0%   100%       10ms  1.75%  github.com/odvcencio/gotreesitter.tryGSSMainMergeResult
+         0     0%   100%      530ms 92.98%  github.com/odvcencio/gotreesitter/cgo_harness.(*p13ProfileCapture).hook
+         0     0%   100%      530ms 92.98%  github.com/odvcencio/gotreesitter/cgo_harness.BenchmarkP13TimerIsolated.func1
+         0     0%   100%      530ms 92.98%  github.com/odvcencio/gotreesitter/cgo_harness.benchmarkCanonicalGoIncremental
+         0     0%   100%      530ms 92.98%  github.com/odvcencio/gotreesitter/cgo_harness.benchmarkCanonicalGoIncremental.func2
+         0     0%   100%       10ms  1.75%  runtime.(*gcBits).bitp (inline)
+         0     0%   100%       10ms  1.75%  runtime.(*gcBits).bytep (inline)
+         0     0%   100%       10ms  1.75%  runtime.(*mspan).markBitsForIndex (inline)
+         0     0%   100%       20ms  3.51%  runtime.deductAssistCredit
+         0     0%   100%       20ms  3.51%  runtime.gcAssistAlloc
+         0     0%   100%       20ms  3.51%  runtime.gcAssistAlloc.func2
+         0     0%   100%       20ms  3.51%  runtime.gcAssistAlloc1
+         0     0%   100%       20ms  3.51%  runtime.gcBgMarkWorker
+         0     0%   100%       20ms  3.51%  runtime.gcBgMarkWorker.func2
+         0     0%   100%       20ms  3.51%  runtime.gcDrain
+         0     0%   100%       20ms  3.51%  runtime.gcDrainMarkWorkerFractional (inline)
+         0     0%   100%       20ms  3.51%  runtime.gcDrainN
+         0     0%   100%       50ms  8.77%  runtime.makeslice
+         0     0%   100%       50ms  8.77%  runtime.mallocgc
+         0     0%   100%       30ms  5.26%  runtime.mallocgcLarge
+         0     0%   100%       30ms  5.26%  runtime.memclrHasPointers
+         0     0%   100%       30ms  5.26%  runtime.memclrNoHeapPointersChunked
+         0     0%   100%       70ms 12.28%  runtime.systemstack
+         0     0%   100%       30ms  5.26%  runtime.wbBufFlush
+         0     0%   100%       30ms  5.26%  runtime.wbBufFlush.func1
+         0     0%   100%       30ms  5.26%  runtime.wbBufFlush1
+         0     0%   100%      530ms 92.98%  testing.(*B).run1.func1
+         0     0%   100%      530ms 92.98%  testing.(*B).runN
+         0     0%   100%       40ms  7.02%  time.Now

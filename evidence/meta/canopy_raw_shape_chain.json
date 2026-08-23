@@ -1,0 +1,1016 @@
+{
+  "roots": [
+    {
+      "id": "raw_shape.go\u0000function_definition\u0000rawShapeHashCacheBytesForCap\u000027",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "rawShapeHashCacheBytesForCap",
+      "signature": "func rawShapeHashCacheBytesForCap(n int) int64",
+      "start_line": 27,
+      "end_line": 32,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000entry\u000049",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "entry",
+      "signature": "func (c rawShapeChild) entry() stackEntry",
+      "receiver": "c rawShapeChild",
+      "start_line": 49,
+      "end_line": 53,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000function_definition\u0000rawShapeHashCacheIndex\u0000251",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "rawShapeHashCacheIndex",
+      "signature": "func rawShapeHashCacheIndex(ref rawShapeRef) int",
+      "start_line": 251,
+      "end_line": 255,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000rawShapeHash\u0000273",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "rawShapeHash",
+      "signature": "func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool)",
+      "receiver": "a *nodeArena",
+      "start_line": 273,
+      "end_line": 291,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000captureRawShape\u0000365",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "captureRawShape",
+      "signature": "func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbol Symbol, productionID uint16, entries []stackEntry, start, end int) rawShapeRef",
+      "receiver": "p *Parser",
+      "start_line": 365,
+      "end_line": 410,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000function_definition\u0000rawShapeComputeContentHash\u0000422",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "rawShapeComputeContentHash",
+      "signature": "func rawShapeComputeContentHash(arena *nodeArena, parentRef rawShapeRef, symbol Symbol, productionID uint16, childCount uint16, children []rawShapeChild) uint64",
+      "start_line": 422,
+      "end_line": 452,
+      "callable": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "raw_shape.go\u0000function_definition\u0000rawShapeHashCacheBytesForCap\u000027",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "rawShapeHashCacheBytesForCap",
+      "signature": "func rawShapeHashCacheBytesForCap(n int) int64",
+      "start_line": 27,
+      "end_line": 32,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000function_definition\u0000newRawShapeChild\u000043",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "newRawShapeChild",
+      "signature": "func newRawShapeChild(entry stackEntry) rawShapeChild",
+      "start_line": 43,
+      "end_line": 47,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000entry\u000049",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "entry",
+      "signature": "func (c rawShapeChild) entry() stackEntry",
+      "receiver": "c rawShapeChild",
+      "start_line": 49,
+      "end_line": 53,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000shapeRef\u000055",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "shapeRef",
+      "signature": "func (c rawShapeChild) shapeRef() rawShapeRef",
+      "receiver": "c rawShapeChild",
+      "start_line": 55,
+      "end_line": 57,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000slabIndex\u0000216",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "slabIndex",
+      "signature": "func (r rawShapeChildRange) slabIndex() int",
+      "receiver": "r rawShapeChildRange",
+      "start_line": 216,
+      "end_line": 218,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000start\u0000220",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "start",
+      "signature": "func (r rawShapeChildRange) start() int",
+      "receiver": "r rawShapeChildRange",
+      "start_line": 220,
+      "end_line": 222,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000count\u0000224",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "count",
+      "signature": "func (r rawShapeChildRange) count() int",
+      "receiver": "r rawShapeChildRange",
+      "start_line": 224,
+      "end_line": 226,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000childCount\u0000228",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "childCount",
+      "signature": "func (s *rawShape) childCount() int",
+      "receiver": "s *rawShape",
+      "start_line": 228,
+      "end_line": 233,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000rawShapeForRef\u0000235",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "rawShapeForRef",
+      "signature": "func (a *nodeArena) rawShapeForRef(ref rawShapeRef) (*rawShape, bool)",
+      "receiver": "a *nodeArena",
+      "start_line": 235,
+      "end_line": 249,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000function_definition\u0000rawShapeHashCacheIndex\u0000251",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "rawShapeHashCacheIndex",
+      "signature": "func rawShapeHashCacheIndex(ref rawShapeRef) int",
+      "start_line": 251,
+      "end_line": 255,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000ensureRawShapeHashCache\u0000257",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "ensureRawShapeHashCache",
+      "signature": "func (a *nodeArena) ensureRawShapeHashCache()",
+      "receiver": "a *nodeArena",
+      "start_line": 257,
+      "end_line": 263,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000storeRawShapeHash\u0000265",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "storeRawShapeHash",
+      "signature": "func (a *nodeArena) storeRawShapeHash(ref rawShapeRef, hash uint64)",
+      "receiver": "a *nodeArena",
+      "start_line": 265,
+      "end_line": 271,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000rawShapeHash\u0000273",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "rawShapeHash",
+      "signature": "func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool)",
+      "receiver": "a *nodeArena",
+      "start_line": 273,
+      "end_line": 291,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000rawShapeChildren\u0000293",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "rawShapeChildren",
+      "signature": "func (a *nodeArena) rawShapeChildren(shape *rawShape) []rawShapeChild",
+      "receiver": "a *nodeArena",
+      "start_line": 293,
+      "end_line": 308,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000method_definition\u0000captureRawShape\u0000365",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "method_definition",
+      "name": "captureRawShape",
+      "signature": "func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbol Symbol, productionID uint16, entries []stackEntry, start, end int) rawShapeRef",
+      "receiver": "p *Parser",
+      "start_line": 365,
+      "end_line": 410,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000function_definition\u0000rawShapeComputeContentHash\u0000422",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "rawShapeComputeContentHash",
+      "signature": "func rawShapeComputeContentHash(arena *nodeArena, parentRef rawShapeRef, symbol Symbol, productionID uint16, childCount uint16, children []rawShapeChild) uint64",
+      "start_line": 422,
+      "end_line": 452,
+      "callable": true
+    },
+    {
+      "id": "raw_shape.go\u0000function_definition\u0000stackEntryRawShapeRef\u0000454",
+      "file": "raw_shape.go",
+      "package": ".",
+      "kind": "function_definition",
+      "name": "stackEntryRawShapeRef",
+      "signature": "func stackEntryRawShapeRef(entry stackEntry) rawShapeRef",
+      "start_line": 454,
+      "end_line": 468,
+      "callable": true
+    }
+  ],
+  "edges": [
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000function_definition\u0000newRawShapeChild\u000043",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "newRawShapeChild",
+        "signature": "func newRawShapeChild(entry stackEntry) rawShapeChild",
+        "start_line": 43,
+        "end_line": 47,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000function_definition\u0000stackEntryRawShapeRef\u0000454",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "stackEntryRawShapeRef",
+        "signature": "func stackEntryRawShapeRef(entry stackEntry) rawShapeRef",
+        "start_line": 454,
+        "end_line": 468,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 44,
+          "start_column": 9,
+          "kind": "reference.call",
+          "name": "stackEntryRawShapeRef"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000childCount\u0000228",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "childCount",
+        "signature": "func (s *rawShape) childCount() int",
+        "receiver": "s *rawShape",
+        "start_line": 228,
+        "end_line": 233,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000count\u0000224",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "count",
+        "signature": "func (r rawShapeChildRange) count() int",
+        "receiver": "r rawShapeChildRange",
+        "start_line": 224,
+        "end_line": 226,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 232,
+          "start_column": 22,
+          "kind": "reference.call",
+          "name": "count"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000storeRawShapeHash\u0000265",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "storeRawShapeHash",
+        "signature": "func (a *nodeArena) storeRawShapeHash(ref rawShapeRef, hash uint64)",
+        "receiver": "a *nodeArena",
+        "start_line": 265,
+        "end_line": 271,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000function_definition\u0000rawShapeHashCacheIndex\u0000251",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "rawShapeHashCacheIndex",
+        "signature": "func rawShapeHashCacheIndex(ref rawShapeRef) int",
+        "start_line": 251,
+        "end_line": 255,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 270,
+          "start_column": 22,
+          "kind": "reference.call",
+          "name": "rawShapeHashCacheIndex"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000storeRawShapeHash\u0000265",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "storeRawShapeHash",
+        "signature": "func (a *nodeArena) storeRawShapeHash(ref rawShapeRef, hash uint64)",
+        "receiver": "a *nodeArena",
+        "start_line": 265,
+        "end_line": 271,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000ensureRawShapeHashCache\u0000257",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "ensureRawShapeHashCache",
+        "signature": "func (a *nodeArena) ensureRawShapeHashCache()",
+        "receiver": "a *nodeArena",
+        "start_line": 257,
+        "end_line": 263,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 269,
+          "start_column": 4,
+          "kind": "reference.call",
+          "name": "ensureRawShapeHashCache"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeHash\u0000273",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeHash",
+        "signature": "func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool)",
+        "receiver": "a *nodeArena",
+        "start_line": 273,
+        "end_line": 291,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000childCount\u0000228",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "childCount",
+        "signature": "func (s *rawShape) childCount() int",
+        "receiver": "s *rawShape",
+        "start_line": 228,
+        "end_line": 233,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 288,
+          "start_column": 92,
+          "kind": "reference.call",
+          "name": "childCount"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeHash\u0000273",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeHash",
+        "signature": "func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool)",
+        "receiver": "a *nodeArena",
+        "start_line": 273,
+        "end_line": 291,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeForRef\u0000235",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeForRef",
+        "signature": "func (a *nodeArena) rawShapeForRef(ref rawShapeRef) (*rawShape, bool)",
+        "receiver": "a *nodeArena",
+        "start_line": 235,
+        "end_line": 249,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 283,
+          "start_column": 17,
+          "kind": "reference.call",
+          "name": "rawShapeForRef"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeHash\u0000273",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeHash",
+        "signature": "func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool)",
+        "receiver": "a *nodeArena",
+        "start_line": 273,
+        "end_line": 291,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000function_definition\u0000rawShapeHashCacheIndex\u0000251",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "rawShapeHashCacheIndex",
+        "signature": "func rawShapeHashCacheIndex(ref rawShapeRef) int",
+        "start_line": 251,
+        "end_line": 255,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 278,
+          "start_column": 33,
+          "kind": "reference.call",
+          "name": "rawShapeHashCacheIndex"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeHash\u0000273",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeHash",
+        "signature": "func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool)",
+        "receiver": "a *nodeArena",
+        "start_line": 273,
+        "end_line": 291,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000storeRawShapeHash\u0000265",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "storeRawShapeHash",
+        "signature": "func (a *nodeArena) storeRawShapeHash(ref rawShapeRef, hash uint64)",
+        "receiver": "a *nodeArena",
+        "start_line": 265,
+        "end_line": 271,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 289,
+          "start_column": 4,
+          "kind": "reference.call",
+          "name": "storeRawShapeHash"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeHash\u0000273",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeHash",
+        "signature": "func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool)",
+        "receiver": "a *nodeArena",
+        "start_line": 273,
+        "end_line": 291,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeChildren\u0000293",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeChildren",
+        "signature": "func (a *nodeArena) rawShapeChildren(shape *rawShape) []rawShapeChild",
+        "receiver": "a *nodeArena",
+        "start_line": 293,
+        "end_line": 308,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 287,
+          "start_column": 16,
+          "kind": "reference.call",
+          "name": "rawShapeChildren"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeHash\u0000273",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeHash",
+        "signature": "func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool)",
+        "receiver": "a *nodeArena",
+        "start_line": 273,
+        "end_line": 291,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000function_definition\u0000rawShapeComputeContentHash\u0000422",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "rawShapeComputeContentHash",
+        "signature": "func rawShapeComputeContentHash(arena *nodeArena, parentRef rawShapeRef, symbol Symbol, productionID uint16, childCount uint16, children []rawShapeChild) uint64",
+        "start_line": 422,
+        "end_line": 452,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 288,
+          "start_column": 10,
+          "kind": "reference.call",
+          "name": "rawShapeComputeContentHash"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeChildren\u0000293",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeChildren",
+        "signature": "func (a *nodeArena) rawShapeChildren(shape *rawShape) []rawShapeChild",
+        "receiver": "a *nodeArena",
+        "start_line": 293,
+        "end_line": 308,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000slabIndex\u0000216",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "slabIndex",
+        "signature": "func (r rawShapeChildRange) slabIndex() int",
+        "receiver": "r rawShapeChildRange",
+        "start_line": 216,
+        "end_line": 218,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 297,
+          "start_column": 30,
+          "kind": "reference.call",
+          "name": "slabIndex"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeChildren\u0000293",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeChildren",
+        "signature": "func (a *nodeArena) rawShapeChildren(shape *rawShape) []rawShapeChild",
+        "receiver": "a *nodeArena",
+        "start_line": 293,
+        "end_line": 308,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000start\u0000220",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "start",
+        "signature": "func (r rawShapeChildRange) start() int",
+        "receiver": "r rawShapeChildRange",
+        "start_line": 220,
+        "end_line": 222,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 298,
+          "start_column": 28,
+          "kind": "reference.call",
+          "name": "start"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeChildren\u0000293",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeChildren",
+        "signature": "func (a *nodeArena) rawShapeChildren(shape *rawShape) []rawShapeChild",
+        "receiver": "a *nodeArena",
+        "start_line": 293,
+        "end_line": 308,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000childCount\u0000228",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "childCount",
+        "signature": "func (s *rawShape) childCount() int",
+        "receiver": "s *rawShape",
+        "start_line": 228,
+        "end_line": 233,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 2,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 294,
+          "start_column": 39,
+          "kind": "reference.call",
+          "name": "childCount"
+        },
+        {
+          "file": "raw_shape.go",
+          "start_line": 299,
+          "start_column": 17,
+          "kind": "reference.call",
+          "name": "childCount"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000captureRawShape\u0000365",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "captureRawShape",
+        "signature": "func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbol Symbol, productionID uint16, entries []stackEntry, start, end int) rawShapeRef",
+        "receiver": "p *Parser",
+        "start_line": 365,
+        "end_line": 410,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000function_definition\u0000newRawShapeChild\u000043",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "newRawShapeChild",
+        "signature": "func newRawShapeChild(entry stackEntry) rawShapeChild",
+        "start_line": 43,
+        "end_line": 47,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 401,
+          "start_column": 19,
+          "kind": "reference.call",
+          "name": "newRawShapeChild"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000captureRawShape\u0000365",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "captureRawShape",
+        "signature": "func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbol Symbol, productionID uint16, entries []stackEntry, start, end int) rawShapeRef",
+        "receiver": "p *Parser",
+        "start_line": 365,
+        "end_line": 410,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000storeRawShapeHash\u0000265",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "storeRawShapeHash",
+        "signature": "func (a *nodeArena) storeRawShapeHash(ref rawShapeRef, hash uint64)",
+        "receiver": "a *nodeArena",
+        "start_line": 265,
+        "end_line": 271,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 408,
+          "start_column": 8,
+          "kind": "reference.call",
+          "name": "storeRawShapeHash"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000captureRawShape\u0000365",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "captureRawShape",
+        "signature": "func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbol Symbol, productionID uint16, entries []stackEntry, start, end int) rawShapeRef",
+        "receiver": "p *Parser",
+        "start_line": 365,
+        "end_line": 410,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeChildren\u0000293",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeChildren",
+        "signature": "func (a *nodeArena) rawShapeChildren(shape *rawShape) []rawShapeChild",
+        "receiver": "a *nodeArena",
+        "start_line": 293,
+        "end_line": 308,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 394,
+          "start_column": 20,
+          "kind": "reference.call",
+          "name": "rawShapeChildren"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000method_definition\u0000captureRawShape\u0000365",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "captureRawShape",
+        "signature": "func (p *Parser) captureRawShape(gssScratch *gssScratch, arena *nodeArena, symbol Symbol, productionID uint16, entries []stackEntry, start, end int) rawShapeRef",
+        "receiver": "p *Parser",
+        "start_line": 365,
+        "end_line": 410,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000function_definition\u0000rawShapeComputeContentHash\u0000422",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "rawShapeComputeContentHash",
+        "signature": "func rawShapeComputeContentHash(arena *nodeArena, parentRef rawShapeRef, symbol Symbol, productionID uint16, childCount uint16, children []rawShapeChild) uint64",
+        "start_line": 422,
+        "end_line": 452,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 408,
+          "start_column": 31,
+          "kind": "reference.call",
+          "name": "rawShapeComputeContentHash"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000function_definition\u0000rawShapeComputeContentHash\u0000422",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "rawShapeComputeContentHash",
+        "signature": "func rawShapeComputeContentHash(arena *nodeArena, parentRef rawShapeRef, symbol Symbol, productionID uint16, childCount uint16, children []rawShapeChild) uint64",
+        "start_line": 422,
+        "end_line": 452,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000entry\u000049",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "entry",
+        "signature": "func (c rawShapeChild) entry() stackEntry",
+        "receiver": "c rawShapeChild",
+        "start_line": 49,
+        "end_line": 53,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 431,
+          "start_column": 24,
+          "kind": "reference.call",
+          "name": "entry"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000function_definition\u0000rawShapeComputeContentHash\u0000422",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "rawShapeComputeContentHash",
+        "signature": "func rawShapeComputeContentHash(arena *nodeArena, parentRef rawShapeRef, symbol Symbol, productionID uint16, childCount uint16, children []rawShapeChild) uint64",
+        "start_line": 422,
+        "end_line": 452,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000shapeRef\u000055",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "shapeRef",
+        "signature": "func (c rawShapeChild) shapeRef() rawShapeRef",
+        "receiver": "c rawShapeChild",
+        "start_line": 55,
+        "end_line": 57,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 441,
+          "start_column": 25,
+          "kind": "reference.call",
+          "name": "shapeRef"
+        }
+      ]
+    },
+    {
+      "caller": {
+        "id": "raw_shape.go\u0000function_definition\u0000rawShapeComputeContentHash\u0000422",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "function_definition",
+        "name": "rawShapeComputeContentHash",
+        "signature": "func rawShapeComputeContentHash(arena *nodeArena, parentRef rawShapeRef, symbol Symbol, productionID uint16, childCount uint16, children []rawShapeChild) uint64",
+        "start_line": 422,
+        "end_line": 452,
+        "callable": true
+      },
+      "callee": {
+        "id": "raw_shape.go\u0000method_definition\u0000rawShapeHash\u0000273",
+        "file": "raw_shape.go",
+        "package": ".",
+        "kind": "method_definition",
+        "name": "rawShapeHash",
+        "signature": "func (a *nodeArena) rawShapeHash(ref rawShapeRef) (uint64, bool)",
+        "receiver": "a *nodeArena",
+        "start_line": 273,
+        "end_line": 291,
+        "callable": true
+      },
+      "resolution": "file",
+      "count": 1,
+      "samples": [
+        {
+          "file": "raw_shape.go",
+          "start_line": 442,
+          "start_column": 30,
+          "kind": "reference.call",
+          "name": "rawShapeHash"
+        }
+      ]
+    }
+  ],
+  "depth": 2,
+  "reverse": false,
+  "unresolved_call_count": 100
+}

@@ -1,0 +1,50 @@
+File: p13_cgo_harness.test
+Build ID: 709cbead639fc959c0bd4df7626fce7f43dbcbca
+Type: cpu
+Time: 2026-08-21 14:23:22 PDT
+Duration: 10.03s, Total samples = 100ms (    1%)
+Showing nodes accounting for 100ms, 100% of 100ms total
+      flat  flat%   sum%        cum   cum%
+      20ms 20.00% 20.00%       20ms 20.00%  github.com/odvcencio/gotreesitter.(*Parser).buildReduceChildrenNoAliasNoFieldsPlanned
+      20ms 20.00% 40.00%      100ms   100%  github.com/odvcencio/gotreesitter.(*Parser).parseInternal
+      10ms 10.00% 50.00%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).parseInternal.func9
+      10ms 10.00% 60.00%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).promotePrimaryStack
+      10ms 10.00% 70.00%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).runtimeMemoryBudgetStopReason
+      10ms 10.00% 80.00%       10ms 10.00%  github.com/odvcencio/gotreesitter.gssNodeShallowMergeHash
+      10ms 10.00% 90.00%       10ms 10.00%  runtime.memhash64
+      10ms 10.00%   100%       10ms 10.00%  type:.eq.github.com/odvcencio/gotreesitter.Token
+         0     0%   100%      100ms   100%  github.com/odvcencio/gotreesitter.(*Parser).ParseIncrementalProfiled
+         0     0%   100%       30ms 30.00%  github.com/odvcencio/gotreesitter.(*Parser).applyActionWithReduceChain
+         0     0%   100%       30ms 30.00%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceActionDispatch
+         0     0%   100%       30ms 30.00%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceActionFromGSS
+         0     0%   100%       20ms 20.00%  github.com/odvcencio/gotreesitter.(*Parser).buildReduceChildrenWithPath
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).cCondenseAndResume
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).cRecoverAcquireToken
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActions
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActionsClassified
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActionsClassifiedDefault
+         0     0%   100%      100ms   100%  github.com/odvcencio/gotreesitter.(*Parser).parseIncrementalChangedProfiled
+         0     0%   100%      100ms   100%  github.com/odvcencio/gotreesitter.(*Parser).parseIncrementalInternalWithMergePerKeyOverride
+         0     0%   100%       20ms 20.00%  github.com/odvcencio/gotreesitter.(*Parser).prepareParseStacksForIteration
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).pushStackNode
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*Parser).resultMaterializationStopReason
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).Next
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).nextGLRUnionDFAToken
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*glrStack).pushEntry
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*gssScratch).allocNode
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.(*gssStack).pushEntry
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.cNodeErrorCostLangWithScratch
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.cRecoveryMergeCostsDiffer
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.cStackErrorCostForMergeCached
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.cStackErrorCostForMergeWithScratch
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.gssEntryHash
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.mergeStacksSmallForLanguage
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.mergeStacksWithScratch
+         0     0%   100%       10ms 10.00%  github.com/odvcencio/gotreesitter.stackEquivalentForMergeState
+         0     0%   100%      100ms   100%  github.com/odvcencio/gotreesitter/cgo_harness.(*p13ProfileCapture).hook
+         0     0%   100%      100ms   100%  github.com/odvcencio/gotreesitter/cgo_harness.BenchmarkP13TimerIsolated.func1
+         0     0%   100%      100ms   100%  github.com/odvcencio/gotreesitter/cgo_harness.benchmarkCanonicalGoIncremental
+         0     0%   100%      100ms   100%  github.com/odvcencio/gotreesitter/cgo_harness.benchmarkCanonicalGoIncremental.func2
+         0     0%   100%       10ms 10.00%  runtime.mapaccess2_fast64
+         0     0%   100%      100ms   100%  testing.(*B).run1.func1
+         0     0%   100%      100ms   100%  testing.(*B).runN

@@ -1,0 +1,108 @@
+File: p13_cgo_harness_alloc.test
+Build ID: 8c08114734c0c549a92d17d6d8da009b2d5d3063
+Type: inuse_space
+Time: 2026-08-21 14:25:23 PDT
+Showing nodes accounting for 33850.08kB, 100% of 33850.08kB total
+      flat  flat%   sum%        cum   cum%
+ 6242.50kB 18.44% 18.44%  6242.50kB 18.44%  github.com/odvcencio/gotreesitter/grammars.compactAndInternTransitions
+ 4717.09kB 13.94% 32.38%  4717.09kB 13.94%  github.com/odvcencio/gotreesitter.newNodeArena
+ 4097.37kB 12.10% 44.48%  4097.37kB 12.10%  github.com/odvcencio/gotreesitter.(*glrEntryScratch).ensureInitialCap (inline)
+ 3539.54kB 10.46% 54.94%  3539.54kB 10.46%  github.com/odvcencio/gotreesitter.buildLexAsciiTable
+ 2644.87kB  7.81% 62.75%  2644.87kB  7.81%  github.com/odvcencio/gotreesitter.(*gssScratch).allocNodeSlow
+ 1314.11kB  3.88% 66.63%  1314.11kB  3.88%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.reserveArena[go.shape.cb9c4f5e031063f199975836c26b5ae942056aa2be3c7b816d4711f873e3d36a] (inline)
+ 1184.27kB  3.50% 70.13%  1184.27kB  3.50%  github.com/odvcencio/gotreesitter.(*nodeArena).ensureNodeCapacity
+ 1146.40kB  3.39% 73.52%  1146.40kB  3.39%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.reserveArena[go.shape.ffb498027ca3bd63177feffbda688cf1ea1b5c8afe60ef0ab1073be1356326d7] (inline)
+ 1054.05kB  3.11% 76.63%  1054.05kB  3.11%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.reserveArena[go.shape.d8894871b0924b36848c2343ee4b46db26116dea027151f69b371bf8f16ec774] (inline)
+  959.49kB  2.83% 79.47%   959.49kB  2.83%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.reserveArena[go.shape.struct { github.com/odvcencio/gotreesitter/internal/parsercorephase0.state github.com/odvcencio/gotreesitter/internal/parsercorephase0.StateID; github.com/odvcencio/gotreesitter/internal/parsercorephase0.byteOffset uint32; github.com/odvcencio/gotreesitter/internal/parsercorephase0.firstLink uint32; github.com/odvcencio/gotreesitter/internal/parsercorephase0.linkCount uint32; github.com/odvcencio/gotreesitter/internal/parsercorephase0.pathCount uint64 }] (inline)
+  896.99kB  2.65% 82.12%   896.99kB  2.65%  github.com/odvcencio/gotreesitter.(*glrMergeScratch).ensureMergeHotCaches (inline)
+  809.97kB  2.39% 84.51%   809.97kB  2.39%  github.com/odvcencio/gotreesitter.(*glrMergeScratch).beginEquivEpoch
+  809.97kB  2.39% 86.90%   809.97kB  2.39%  github.com/odvcencio/gotreesitter.(*nodeArena).allocNodeSlow
+  727.78kB  2.15% 89.05%   727.78kB  2.15%  github.com/odvcencio/gotreesitter.(*Parser).growCNodeMemoCacheTo
+  544.67kB  1.61% 90.66%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.(*gssScratch).ensureReachMarks
+  544.67kB  1.61% 92.27%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.(*nodeArena).allocRawShapeChildren
+  540.51kB  1.60% 93.87%   540.51kB  1.60%  github.com/odvcencio/gotreesitter.acquireCompactReplayStates
+  536.37kB  1.58% 95.45%   536.37kB  1.58%  github.com/odvcencio/gotreesitter/cgo_harness.applyCanonicalGoIncrementalEdit (inline)
+  515.19kB  1.52% 96.97%   515.19kB  1.52%  github.com/odvcencio/gotreesitter/cgo_harness.init.func6 (inline)
+  512.23kB  1.51% 98.49%   512.23kB  1.51%  github.com/odvcencio/gotreesitter.buildSmallTokenLookupFullRows
+  512.02kB  1.51%   100%   512.02kB  1.51%  github.com/odvcencio/gotreesitter/grammars.newVhdlTrieNode (inline)
+         0     0%   100%  3539.54kB 10.46%  github.com/odvcencio/gotreesitter.(*Language).LexAsciiTable
+         0     0%   100%  3539.54kB 10.46%  github.com/odvcencio/gotreesitter.(*Language).LexAsciiTable.func1
+         0     0%   100% 13271.19kB 39.21%  github.com/odvcencio/gotreesitter.(*Parser).Parse
+         0     0%   100% 12260.56kB 36.22%  github.com/odvcencio/gotreesitter.(*Parser).ParseIncrementalProfiled
+         0     0%   100%  3539.54kB 10.46%  github.com/odvcencio/gotreesitter.(*Parser).acquireParserDFATokenSourceWithErrorRuns
+         0     0%   100%  1354.64kB  4.00%  github.com/odvcencio/gotreesitter.(*Parser).applyActionWithReduceChain
+         0     0%   100%  1354.64kB  4.00%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceActionDispatch
+         0     0%   100%  1354.64kB  4.00%  github.com/odvcencio/gotreesitter.(*Parser).applyReduceActionFromGSS
+         0     0%   100%  1994.25kB  5.89%  github.com/odvcencio/gotreesitter.(*Parser).applyShiftAction
+         0     0%   100% 13271.19kB 39.21%  github.com/odvcencio/gotreesitter.(*Parser).attemptAdmissionCandidateFullParse
+         0     0%   100%   727.78kB  2.15%  github.com/odvcencio/gotreesitter.(*Parser).cCondenseAndResume
+         0     0%   100%   727.78kB  2.15%  github.com/odvcencio/gotreesitter.(*Parser).cCondenseVersionStatus
+         0     0%   100%   727.78kB  2.15%  github.com/odvcencio/gotreesitter.(*Parser).cNodeErrorCost
+         0     0%   100%   727.78kB  2.15%  github.com/odvcencio/gotreesitter.(*Parser).cNodeMemoSlot
+         0     0%   100%   727.78kB  2.15%  github.com/odvcencio/gotreesitter.(*Parser).cStackErrorCost
+         0     0%   100%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.(*Parser).captureRawShape
+         0     0%   100%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActions
+         0     0%   100%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActionsClassified
+         0     0%   100%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.(*Parser).chainSingleReduceActionsClassifiedDefault
+         0     0%   100%  1184.27kB  3.50%  github.com/odvcencio/gotreesitter.(*Parser).completeConflictReduceFrontier
+         0     0%   100%  1706.96kB  5.04%  github.com/odvcencio/gotreesitter.(*Parser).configureParseScratch
+         0     0%   100%  5281.65kB 15.60%  github.com/odvcencio/gotreesitter.(*Parser).ensureParseInitialCapacity
+         0     0%   100% 12260.56kB 36.22%  github.com/odvcencio/gotreesitter.(*Parser).parseIncrementalChangedProfiled
+         0     0%   100% 12260.56kB 36.22%  github.com/odvcencio/gotreesitter.(*Parser).parseIncrementalInternal (inline)
+         0     0%   100% 12260.56kB 36.22%  github.com/odvcencio/gotreesitter.(*Parser).parseIncrementalInternalWithMergePerKeyOverride
+         0     0%   100% 12260.56kB 36.22%  github.com/odvcencio/gotreesitter.(*Parser).parseInternal
+         0     0%   100%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.(*Parser).prepareParseStacksForIteration
+         0     0%   100%  1994.25kB  5.89%  github.com/odvcencio/gotreesitter.(*Parser).pushStackNode
+         0     0%   100%   540.51kB  1.60%  github.com/odvcencio/gotreesitter.(*Parser).replayCompactDerivation
+         0     0%   100% 13271.19kB 39.21%  github.com/odvcencio/gotreesitter.(*Parser).tryCompactFullParseRoute
+         0     0%   100%   650.62kB  1.92%  github.com/odvcencio/gotreesitter.(*glrStack).cloneWithScratch
+         0     0%   100%   650.62kB  1.92%  github.com/odvcencio/gotreesitter.(*glrStack).ensureGSS
+         0     0%   100%  1994.25kB  5.89%  github.com/odvcencio/gotreesitter.(*glrStack).push (inline)
+         0     0%   100%  1994.25kB  5.89%  github.com/odvcencio/gotreesitter.(*glrStack).pushEntry
+         0     0%   100%  2644.87kB  7.81%  github.com/odvcencio/gotreesitter.(*gssScratch).allocNode
+         0     0%   100%  2644.87kB  7.81%  github.com/odvcencio/gotreesitter.(*gssStack).pushEntry
+         0     0%   100%   809.97kB  2.39%  github.com/odvcencio/gotreesitter.(*nodeArena).allocNodeFast
+         0     0%   100%  4717.09kB 13.94%  github.com/odvcencio/gotreesitter.(*nodeArenaPool).acquire
+         0     0%   100%  8013.59kB 23.67%  github.com/odvcencio/gotreesitter.(*parserCoreFreshFullRunner).executeSchedulerOpen
+         0     0%   100%  5257.60kB 15.53%  github.com/odvcencio/gotreesitter.(*parserCoreFreshFullRunner).materializeSelection
+         0     0%   100% 13271.19kB 39.21%  github.com/odvcencio/gotreesitter.(*parserCoreFreshFullRunner).parse
+         0     0%   100%   512.23kB  1.51%  github.com/odvcencio/gotreesitter.NewParser
+         0     0%   100%  3539.54kB 10.46%  github.com/odvcencio/gotreesitter.acquireDFATokenSourceReusingLexer
+         0     0%   100%  4717.09kB 13.94%  github.com/odvcencio/gotreesitter.acquireNodeArena
+         0     0%   100%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.acquirePreflightForScratch
+         0     0%   100%   650.62kB  1.92%  github.com/odvcencio/gotreesitter.buildGSSStack (inline)
+         0     0%   100%   512.23kB  1.51%  github.com/odvcencio/gotreesitter.buildSmallTokenLookup
+         0     0%   100%  4474.05kB 13.22%  github.com/odvcencio/gotreesitter.executeDiagnosticParserCoreGenericSchedulerFromSeedInto
+         0     0%   100%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.gssMainMergeWithScratch
+         0     0%   100%  3539.54kB 10.46%  github.com/odvcencio/gotreesitter.initDFATokenSourceWithCRecovery
+         0     0%   100%  5257.60kB 15.53%  github.com/odvcencio/gotreesitter.materializeDiagnosticParserCoreAcceptedSelection (inline)
+         0     0%   100%  5257.60kB 15.53%  github.com/odvcencio/gotreesitter.materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization
+         0     0%   100%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.mergeStacksWithScratch
+         0     0%   100%   809.97kB  2.39%  github.com/odvcencio/gotreesitter.newLeafNodeInArena
+         0     0%   100%   544.67kB  1.61%  github.com/odvcencio/gotreesitter.tryGSSMainMergeResult
+         0     0%   100%   536.37kB  1.58%  github.com/odvcencio/gotreesitter/cgo_harness.BenchmarkP13TimerIsolated
+         0     0%   100% 32286.48kB 95.38%  github.com/odvcencio/gotreesitter/cgo_harness.BenchmarkP13TimerIsolated.func1
+         0     0%   100% 26043.98kB 76.94%  github.com/odvcencio/gotreesitter/cgo_harness.admitCanonicalGoIncrementalCase
+         0     0%   100% 25531.75kB 75.43%  github.com/odvcencio/gotreesitter/cgo_harness.admitCanonicalGoIncrementalDirection
+         0     0%   100%  6242.50kB 18.44%  github.com/odvcencio/gotreesitter/cgo_harness.canonicalIncrementalGoLanguage
+         0     0%   100%   515.19kB  1.52%  github.com/odvcencio/gotreesitter/cgo_harness.init
+         0     0%   100%   536.37kB  1.58%  github.com/odvcencio/gotreesitter/cgo_harness.loadCanonicalGoIncrementalCases
+         0     0%   100%   536.37kB  1.58%  github.com/odvcencio/gotreesitter/cgo_harness.makeCanonicalGoIncrementalCase
+         0     0%   100%   512.02kB  1.51%  github.com/odvcencio/gotreesitter/grammars.(*vhdlTrie).insert
+         0     0%   100%  6242.50kB 18.44%  github.com/odvcencio/gotreesitter/grammars.GoLanguage (inline)
+         0     0%   100%  6242.50kB 18.44%  github.com/odvcencio/gotreesitter/grammars.compactDecodedLanguage
+         0     0%   100%  6242.50kB 18.44%  github.com/odvcencio/gotreesitter/grammars.decodeEmbeddedLanguage
+         0     0%   100%  6242.50kB 18.44%  github.com/odvcencio/gotreesitter/grammars.decodeLanguageBlobData
+         0     0%   100%   512.02kB  1.51%  github.com/odvcencio/gotreesitter/grammars.init.91
+         0     0%   100%  6242.50kB 18.44%  github.com/odvcencio/gotreesitter/grammars.loadEmbeddedLanguage
+         0     0%   100%  6242.50kB 18.44%  github.com/odvcencio/gotreesitter/grammars.loadEmbeddedLanguageBase
+         0     0%   100%  6242.50kB 18.44%  github.com/odvcencio/gotreesitter/grammars.loadEmbeddedLanguageBase.func1
+         0     0%   100%   512.02kB  1.51%  github.com/odvcencio/gotreesitter/grammars.vhdlRegisterReserved
+         0     0%   100%  4474.05kB 13.22%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).ReserveRecordArenas
+         0     0%   100%  1027.22kB  3.03%  runtime.doInit (inline)
+         0     0%   100%  1027.22kB  3.03%  runtime.doInit1
+         0     0%   100%  1027.22kB  3.03%  runtime.main
+         0     0%   100%  9782.05kB 28.90%  sync.(*Once).Do (inline)
+         0     0%   100%  9782.05kB 28.90%  sync.(*Once).doSlow
+         0     0%   100% 32822.86kB 96.97%  testing.(*B).run1.func1
+         0     0%   100% 32822.86kB 96.97%  testing.(*B).runN
