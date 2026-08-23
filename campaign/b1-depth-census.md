@@ -106,6 +106,6 @@ The prior census's 10-file depth check (docs/compact-route-coverage-census.md,
 "Depth check") found only go holding. The measured split for this full-48 run:
 34 PASS, of which 26 ran on authored fixtures of 85–436 bytes. The four July
 regressions that flipped back (hcl, make, xml, svelte) did so on fixtures
-10x–45x smaller than the corresponding July corpus files, so this run neither
+1.5x–45x smaller than the corresponding July corpus files, so this run neither
 confirms nor contradicts the July depth extrapolation. Zero DIVERGE in either
 run: every decline is fail-closed.

@@ -143,10 +143,10 @@ This depth run [C1] surfaced two mechanism classes that the 2026-07-20 smoke
 census [C2] recorded as near-empty:
 
 - **`scheduler-frontier-shape`**: 8 languages blocked at depth, versus 1
-  language (0.7%) in [C2] (its lines 121–122).
+  language (0.7%) in [C2] (its line 122).
 - **`recovery-entered`**: 5 languages blocked at depth, versus zero in [C2].
 
-This is exactly what [C2] predicted at its lines 126–127. It is the strongest
+This is exactly what [C2] predicted at its lines 130–132. It is the strongest
 argument for funding depth work: the mechanisms that actually block real-file
 depth are invisible to a smoke census until you run one.
 
