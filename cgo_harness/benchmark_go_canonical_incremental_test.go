@@ -4,6 +4,7 @@ package cgoharness
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
@@ -12,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"testing"
 	"time"
@@ -296,6 +298,117 @@ func BenchmarkParityGoCanonicalIncremental(b *testing.B) {
 			})
 		})
 	}
+}
+
+// BenchmarkP25tRecoveryDeletionForwardOnly repeats the forward recovery edit.
+// Keep this temporary benchmark outside the canonical tree.
+func BenchmarkP25tRecoveryDeletionForwardOnly(b *testing.B) {
+	cases := loadCanonicalGoIncrementalCases(b)
+	var tc *canonicalGoIncrementalCase
+	for i := range cases {
+		if cases[i].spec.Name == "recovery_deletion" {
+			tc = &cases[i]
+			break
+		}
+	}
+	if tc == nil {
+		b.Fatal("canonical recovery_deletion case is missing")
+	}
+	goLang := canonicalIncrementalGoLanguage(b, tc.spec.Language)
+	cLang := canonicalIncrementalCLanguage(b, tc.spec.Language)
+	goParser := gotreesitter.NewParser(goLang)
+	cParser := sitter.NewParser()
+	defer cParser.Close()
+	if err := cParser.SetLanguage(cLang); err != nil {
+		b.Fatalf("recovery_deletion set pinned Go C reference: %v", err)
+	}
+	direction := tc.directions()[0]
+	admitCanonicalGoIncrementalDirection(b, tc.spec.Name, direction, goParser, cParser, goLang)
+
+	parser := gotreesitter.NewParser(goLang)
+	tree, err := parser.Parse(tc.source)
+	requireCanonicalGoIncrementalTree(b, tree, tc.source, tc.spec.Name+" initial Go", err)
+	b.ReportAllocs()
+	b.SetBytes(int64((len(tc.source) + len(tc.edited)) / 2))
+	b.ResetTimer()
+	b.StopTimer()
+	var totals realCorpusIncrementalProfileTotals
+	iterationLogPath := os.Getenv("P25T_ITERATION_LOG")
+	var iterationLog *os.File
+	if iterationLogPath != "" {
+		iterationLog, err = os.Create(iterationLogPath)
+		if err != nil {
+			b.Fatalf("create P25t iteration log: %v", err)
+		}
+		defer iterationLog.Close()
+	}
+	labels := pprof.Labels("phase", "incremental")
+	for i := 0; i < b.N; i++ {
+		if i > 0 {
+			releaseCanonicalGoTree(tree)
+			tree, err = parser.Parse(tc.source)
+			requireCanonicalGoIncrementalTree(b, tree, tc.source, tc.spec.Name+" reset Go", err)
+		}
+		var editElapsed, parseElapsed time.Duration
+		var profile gotreesitter.IncrementalParseProfile
+		var newTree *gotreesitter.Tree
+		var oldTree *gotreesitter.Tree
+		pprof.Do(context.Background(), labels, func(context.Context) {
+			b.StartTimer()
+			editStart := time.Now()
+			tree.Edit(tc.forward)
+			editElapsed = time.Since(editStart)
+			oldTree = tree
+			parseStart := time.Now()
+			newTree, profile, err = parser.ParseIncrementalProfiled(tc.edited, oldTree)
+			parseElapsed = time.Since(parseStart)
+			requireCanonicalGoIncrementalTree(b, newTree, tc.edited, tc.spec.Name+" timed Go", err)
+			b.StopTimer()
+		})
+		totals.addEdit(editElapsed)
+		totals.addParseWall(parseElapsed)
+		totals.add(profile)
+		if newTree != oldTree {
+			releaseCanonicalGoTree(oldTree)
+		}
+		tree = newTree
+		if iterationLog != nil {
+			_, _ = fmt.Fprintf(iterationLog,
+				"iteration=%d edit_ns=%d parse_wall_ns=%d reuse_ns=%d reparse_ns=%d reused_subtrees=%d reused_bytes=%d new_nodes=%d tokens=%d max_stacks=%d single_iters=%d multi_iters=%d parser_loop_ns=%d token_next_ns=%d result_tree_build_ns=%d result_finalize_root_ns=%d result_compatibility_ns=%d gss_alloc=%d gss_retained=%d gss_dropped=%d parent_alloc=%d parent_retained=%d parent_dropped=%d leaf_alloc=%d leaf_retained=%d leaf_dropped=%d retry_attempts=%d retry_adopted=%t old_tree_reuse=%t\n",
+				i+1,
+				editElapsed.Nanoseconds(),
+				parseElapsed.Nanoseconds(),
+				profile.ReuseCursorNanos,
+				profile.ReparseNanos,
+				profile.ReusedSubtrees,
+				profile.ReusedBytes,
+				profile.NewNodesAllocated,
+				profile.TokensConsumed,
+				profile.MaxStacksSeen,
+				profile.SingleStackIterations,
+				profile.MultiStackIterations,
+				profile.ParserLoopNanos,
+				profile.TokenNextNanos,
+				profile.ResultTreeBuildNanos,
+				profile.ResultFinalizeRootNanos,
+				profile.ResultCompatibilityNanos,
+				profile.GSSNodesAllocated,
+				profile.GSSNodesRetained,
+				profile.GSSNodesDroppedSameToken,
+				profile.ParentNodesAllocated,
+				profile.ParentNodesRetained,
+				profile.ParentNodesDroppedSameToken,
+				profile.LeafNodesAllocated,
+				profile.LeafNodesRetained,
+				profile.LeafNodesDroppedSameToken,
+				profile.AcceptedErrorRetryAttempts,
+				profile.AcceptedErrorRetryAdopted,
+				profile.OldTreeReuseRoute,
+			)
+		}
+	}
+	totals.report(b, b.N)
+	releaseCanonicalGoTree(tree)
 }
 
 func loadCanonicalGoIncrementalCases(tb testing.TB) []canonicalGoIncrementalCase {
