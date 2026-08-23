@@ -1197,7 +1197,7 @@ func TestCDoAllPotentialReductionsCollapsesSamePopTargetSlicesByCParentSelection
 	start := glrStack{gss: gssStack{head: rightNode}, byteOffset: 2}
 
 	nodeCount := 0
-	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, start, 0, true, Token{}, &nodeCount, arena, nil, &scratch, nil)
+	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, start, 0, true, Token{}, &nodeCount, arena, nil, &scratch, nil, nil)
 	if reason != ParseStopNone {
 		t.Fatalf("cDoAllPotentialReductions stop reason = %v, want none", reason)
 	}
@@ -1263,7 +1263,7 @@ func TestCDoAllPotentialReductionsCollapsesSamePopWithTrailingExtra(t *testing.T
 	start := glrStack{gss: gssStack{head: head}, byteOffset: 3}
 
 	nodeCount := 0
-	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, start, 0, true, Token{}, &nodeCount, arena, nil, &scratch, nil)
+	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, start, 0, true, Token{}, &nodeCount, arena, nil, &scratch, nil, nil)
 	if reason != ParseStopNone {
 		t.Fatalf("cDoAllPotentialReductions stop reason = %v, want none", reason)
 	}
@@ -1471,7 +1471,7 @@ func TestCDoAllPotentialReductionsKeepsShiftableOriginalWithReductionFork(t *tes
 	start.pushEntry(newStackEntryNode(3, leaf), nil, nil)
 
 	nodeCount := 0
-	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, start, 0, true, Token{}, &nodeCount, arena, nil, nil, nil)
+	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, start, 0, true, Token{}, &nodeCount, arena, nil, nil, nil, nil)
 	if reason != ParseStopNone {
 		t.Fatalf("cDoAllPotentialReductions stop reason = %v, want none", reason)
 	}
@@ -1491,6 +1491,145 @@ func TestCDoAllPotentialReductionsKeepsShiftableOriginalWithReductionFork(t *tes
 		t.Fatalf("reduction fork top entry = %+v, want reduced parent symbol", top)
 	}
 }
+
+func cCallerSeedShiftableParserAndStack(arena *nodeArena) (*Parser, glrStack) {
+	lang := &Language{
+		TokenCount:  2,
+		StateCount:  10,
+		SymbolCount: 5,
+		ParseTable: [][]uint16{
+			nil,
+			{0, 0, 0, 0, 2},
+			nil,
+			{0, 1},
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+		},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{
+				{Type: ParseActionReduce, Symbol: 4, ChildCount: 1},
+				{Type: ParseActionShift, State: 8},
+			}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 9}}},
+		},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end", Visible: true, Named: true},
+			{Name: "tok", Visible: true, Named: true},
+			{Name: "leaf", Visible: true, Named: true},
+			{Name: "unused", Visible: true, Named: true},
+			{Name: "parent", Visible: true, Named: true},
+		},
+	}
+	parser := &Parser{language: lang, denseLimit: len(lang.ParseTable)}
+	leaf := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	start := newGLRStack(1)
+	start.pushEntry(newStackEntryNode(3, leaf), nil, nil)
+	return parser, start
+}
+
+func cCallerSeedFallbackParserAndStack(arena *nodeArena) (*Parser, glrStack) {
+	lang := &Language{
+		TokenCount:  4,
+		StateCount:  12,
+		SymbolCount: 7,
+		ParseTable:  make([][]uint16, 12),
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 1}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 5, ChildCount: 1}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 6, ChildCount: 1}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 9}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 10}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 11}}},
+		},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end", Visible: true, Named: true},
+			{Name: "a", Visible: true, Named: true},
+			{Name: "b", Visible: true, Named: true},
+			{Name: "c", Visible: true, Named: true},
+			{Name: "parent_a", Visible: true, Named: true},
+			{Name: "parent_b", Visible: true, Named: true},
+			{Name: "parent_c", Visible: true, Named: true},
+		},
+	}
+	lang.ParseTable[1] = []uint16{0, 0, 0, 0, 4, 5, 6}
+	lang.ParseTable[3] = []uint16{0, 1, 2, 3}
+	parser := &Parser{language: lang, denseLimit: len(lang.ParseTable)}
+	leaf := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	start := newGLRStack(1)
+	start.pushEntry(newStackEntryNode(3, leaf), nil, nil)
+	return parser, start
+}
+
+func TestCDoAllPotentialReductionsCallerSeedFirstFork(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser, start := cCallerSeedShiftableParserAndStack(arena)
+	var callerSeed [2]glrStack
+	nodeCount := 0
+	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, start, 0, true, Token{}, &nodeCount, arena, nil, nil, nil, callerSeed[:0])
+	if reason != ParseStopNone {
+		t.Fatalf("cDoAllPotentialReductions stop reason = %v, want none", reason)
+	}
+	if !canShift || len(versions) != 2 {
+		t.Fatalf("caller-seeded versions: canShift=%v len=%d, want true/2", canShift, len(versions))
+	}
+	if &versions[0] != &callerSeed[0] || &versions[1] != &callerSeed[1] {
+		t.Fatal("first reduction fork did not preserve caller-seed ownership")
+	}
+	if got, want := versions[0].top().state, StateID(3); got != want {
+		t.Fatalf("caller-seeded version[0] state = %d, want original state %d", got, want)
+	}
+	if got, want := versions[1].top().state, StateID(9); got != want {
+		t.Fatalf("caller-seeded version[1] state = %d, want reduction state %d", got, want)
+	}
+}
+
+func TestCDoAllPotentialReductionsCallerSeedFallback(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser, start := cCallerSeedFallbackParserAndStack(arena)
+	var callerSeed [2]glrStack
+	nodeCount := 0
+	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, start, 0, true, Token{}, &nodeCount, arena, nil, nil, nil, callerSeed[:0])
+	if reason != ParseStopNone {
+		t.Fatalf("cDoAllPotentialReductions stop reason = %v, want none", reason)
+	}
+	if canShift || len(versions) != 3 {
+		t.Fatalf("fallback versions: canShift=%v len=%d, want false/3", canShift, len(versions))
+	}
+	if &versions[0] == &callerSeed[0] || &versions[1] == &callerSeed[1] {
+		t.Fatal("fallback growth retained an alias to the caller seed")
+	}
+	seedByteOffset := callerSeed[0].byteOffset
+	versions[0].byteOffset++
+	if callerSeed[0].byteOffset != seedByteOffset {
+		t.Fatal("fallback result still aliases caller-seed storage")
+	}
+}
+
+func TestCAppendReductionVersionCallerSeedFirstAppendAllocatesZero(t *testing.T) {
+	parser := &Parser{}
+	var callerSeed [2]glrStack
+	candidate := glrStack{byteOffset: 1}
+	allocs := testing.AllocsPerRun(1000, func() {
+		versions := callerSeed[:1]
+		versions[0] = glrStack{}
+		out, appended := parser.cAppendReductionVersion(versions, candidate, 0)
+		if !appended || len(out) != 2 {
+			t.Fatalf("caller-seeded append: appended=%v len=%d, want true/2", appended, len(out))
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("caller-seeded first append allocations = %v, want zero", allocs)
+	}
+}
+
 func TestCDoAllPotentialReductionsDistinguishesEOFFromAnyLookahead(t *testing.T) {
 	lang := &Language{
 		TokenCount:  2,
@@ -1517,7 +1656,7 @@ func TestCDoAllPotentialReductionsDistinguishesEOFFromAnyLookahead(t *testing.T)
 	defer arena.Release()
 
 	nodeCount := 0
-	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, newGLRStack(1), 0, true, Token{}, &nodeCount, arena, nil, nil, nil)
+	versions, canShift, reason := parser.cDoAllPotentialReductions(nil, newGLRStack(1), 0, true, Token{}, &nodeCount, arena, nil, nil, nil, nil)
 	if reason != ParseStopNone {
 		t.Fatalf("cDoAllPotentialReductions stop reason = %v, want none", reason)
 	}
@@ -1525,7 +1664,7 @@ func TestCDoAllPotentialReductionsDistinguishesEOFFromAnyLookahead(t *testing.T)
 		t.Fatalf("any-lookahead reductions: canShift=%v versions=%d, want true/1", canShift, len(versions))
 	}
 
-	versions, canShift, reason = parser.cDoAllPotentialReductions(nil, newGLRStack(1), 0, false, Token{}, &nodeCount, arena, nil, nil, nil)
+	versions, canShift, reason = parser.cDoAllPotentialReductions(nil, newGLRStack(1), 0, false, Token{}, &nodeCount, arena, nil, nil, nil, nil)
 	if reason != ParseStopNone {
 		t.Fatalf("cDoAllPotentialReductions stop reason = %v, want none", reason)
 	}
@@ -1533,7 +1672,7 @@ func TestCDoAllPotentialReductionsDistinguishesEOFFromAnyLookahead(t *testing.T)
 		t.Fatalf("exact EOF reductions on non-EOF state: canShift=%v versions=%d, want false/0", canShift, len(versions))
 	}
 
-	versions, canShift, reason = parser.cDoAllPotentialReductions(nil, newGLRStack(2), 0, false, Token{}, &nodeCount, arena, nil, nil, nil)
+	versions, canShift, reason = parser.cDoAllPotentialReductions(nil, newGLRStack(2), 0, false, Token{}, &nodeCount, arena, nil, nil, nil, nil)
 	if reason != ParseStopNone {
 		t.Fatalf("cDoAllPotentialReductions stop reason = %v, want none", reason)
 	}

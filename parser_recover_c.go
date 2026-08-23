@@ -2948,8 +2948,10 @@ func (p *Parser) cCollectPotentialReductions(state StateID, lookaheadSym Symbol,
 // that dead-end keep their pre-reduction shape (C leaves them in place).
 // With anyLookahead false, dead-end versions are dropped (C removes them).
 // EOF is symbol 0, so callers must pass anyLookahead explicitly instead of
-// overloading lookaheadSym == 0.
-func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookaheadSym Symbol, anyLookahead bool, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) ([]glrStack, bool, ParseStopReason) {
+// overloading lookaheadSym == 0. The caller seed supplies reusable initial
+// capacity for the returned version set; growth beyond that capacity remains
+// ordinary append growth.
+func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookaheadSym Symbol, anyLookahead bool, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool, callerSeed []glrStack) ([]glrStack, bool, ParseStopReason) {
 	oldDisablePostReduceForkMerge := p.disablePostReduceForkMerge
 	p.disablePostReduceForkMerge = true
 	defer func() {
@@ -2965,7 +2967,7 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 		return nil, false, reason
 	}
 
-	versions := []glrStack{start}
+	versions := append(callerSeed[:0], start)
 	canShift := false
 	var reduces []ParseAction
 	var singletonCandidate glrStack
@@ -3363,7 +3365,8 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	// 1. Close in-progress productions: reductions reachable on any symbol.
 	// Promote the error stack to the graph-structured stack before reductions.
 	// Recovery forks then share the immutable prefix instead of copying each deep linear stack.
-	versions, _, reason := p.cDoAllPotentialReductions(source, s.cloneWithScratch(gssScratch), 0, true, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
+	var outerResultSeed [2]glrStack
+	versions, _, reason := p.cDoAllPotentialReductions(source, s.cloneWithScratch(gssScratch), 0, true, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, outerResultSeed[:0])
 	if reason != ParseStopNone {
 		return cRecHalted, false, reason
 	}
@@ -3373,6 +3376,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	// C keeps every version that survives do_all_potential_reductions on the
 	// lookahead (the copied version plus its reduction forks).
 	var missingVersions []glrStack
+	var missingProbeSeed [2]glrStack
 	if !p.isGraphQLRecoveryTripleQuote(tok.Symbol) {
 		missingTokenTrialAttempts := 0
 	missingTokenSearch:
@@ -3438,7 +3442,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 				if cand.dead {
 					continue
 				}
-				reduced, canShift, reason := p.cDoAllPotentialReductions(source, cand, tok.Symbol, false, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
+				reduced, canShift, reason := p.cDoAllPotentialReductions(source, cand, tok.Symbol, false, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, missingProbeSeed[:0])
 				if reason != ParseStopNone {
 					return cRecHalted, false, reason
 				}
