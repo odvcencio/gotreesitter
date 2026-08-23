@@ -1237,15 +1237,15 @@ func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(
 		if header.creationSeq >= math.MaxUint32 {
 			return errors.New("parser-core phase zero: scheduler lineage overflow")
 		}
-		if err := s.compact.RecordHeadOwnerOwned(
-			owner,
-			header.head,
-			uint32(header.creationSeq)+1,
-		); err != nil {
-			return err
-		}
 		if !header.convergedReductionSplit && header.dropCohortRefs.Empty() &&
 			!header.dropCohortRefs.Overflowed() && !header.dropCohortRefs.Blended() {
+			if err := s.compact.RecordHeadOwnerOwned(
+				owner,
+				header.head,
+				uint32(header.creationSeq)+1,
+			); err != nil {
+				return err
+			}
 			continue
 		}
 		// The scalar pair is re-merged unconditionally: recordNodeLineage
@@ -1263,9 +1263,10 @@ func (s *diagnosticParserCoreGenericScheduler) persistHeaderLineageOwned(
 			header.altSet != header.lastPersistedAltSet ||
 			header.blended != header.lastPersistedBlended ||
 			header.dropCohortRefs != header.lastPersistedDropCohortRefs
-		if err := s.compact.RecordHeadLineageOwned(
+		if err := s.compact.RecordHeadOwnerAndLineageOwned(
 			owner,
 			header.head,
+			uint32(header.creationSeq)+1,
 			header.cleanPathRank,
 			header.cleanPathLineage,
 			header.altSet,

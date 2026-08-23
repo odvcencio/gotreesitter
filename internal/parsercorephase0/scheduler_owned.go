@@ -66,7 +66,7 @@ func (c *Core) RecordReductionLineageOwned(owner SchedulerTransactionToken, outp
 // Sharing one RunSchedulerOwned call for both halves -- rather than a
 // second Owned call for the set -- halves the per-header token-validation
 // cost of persistHeaderLineageOwned's per-dispatch persistence loop
-// (parsercore_phase0_driver.go), its sole caller.
+// (parsercore_phase0_driver.go).
 //
 // setDirty lets that caller skip the set union outright: scalar dirtiness
 // cannot be inferred from set dirtiness (a rank flip on an already-recorded
@@ -181,6 +181,75 @@ func (c *Core) RecordHeadOwnerOwned(owner SchedulerTransactionToken, head Head, 
 		node.owner = lineage
 		return nil
 	})
+}
+
+// RecordHeadOwnerAndLineageOwned binds one compact head and persists its
+// inherited lineage in one scheduler-owned operation. Keep the owner-only
+// operation separate at the caller when no inherited lineage needs recording.
+func (c *Core) RecordHeadOwnerAndLineageOwned(
+	owner SchedulerTransactionToken,
+	head Head,
+	ownerLineage uint32,
+	rank CleanPathRankSelection,
+	lineage uint16,
+	set AlternativeSet,
+	setBlended bool,
+	setDirty bool,
+	dropCohortRefs ...DropCohortRefSet,
+) error {
+	return c.RunSchedulerOwned(owner, func() error {
+		if ownerLineage == 0 {
+			return errors.New("parser-core phase zero: zero scheduler lineage")
+		}
+		node, err := c.nodeLineage(head.Node)
+		if err != nil {
+			return err
+		}
+		if node.owner == ownerLineage {
+			return c.recordHeadLineageUncheckpointed(head, rank, lineage, set, setBlended, setDirty, dropCohortRefs...)
+		}
+		if node.owner != 0 {
+			return errors.New("parser-core phase zero: compact head has multiple scheduler owners")
+		}
+		if len(c.transactions) != 0 {
+			c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
+				node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
+				setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
+				lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			})
+		}
+		node.owner = ownerLineage
+		return c.recordHeadLineageUncheckpointed(head, rank, lineage, set, setBlended, setDirty, dropCohortRefs...)
+	})
+}
+
+func (c *Core) recordHeadLineageUncheckpointed(
+	head Head,
+	rank CleanPathRankSelection,
+	lineage uint16,
+	set AlternativeSet,
+	setBlended bool,
+	setDirty bool,
+	dropCohortRefs ...DropCohortRefSet,
+) error {
+	if rank != CleanPathRankSelected && rank != CleanPathRankUnselected || lineage == 0 {
+		rank = CleanPathRankUnknown
+		lineage = 0
+	}
+	if err := c.recordNodeLineage(head, rank, lineage); err != nil {
+		return err
+	}
+	if setDirty {
+		if err := c.recordNodeLineageSet(head, set, setBlended); err != nil {
+			return err
+		}
+	}
+	for _, refs := range dropCohortRefs {
+		if err := c.recordNodeLineageRefs(head, refs); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RecordHeadLineageSetOwned unions set into one compact head's node record.
