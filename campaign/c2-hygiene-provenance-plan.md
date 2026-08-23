@@ -56,7 +56,7 @@ artifacts above can bound how much the missing declaration could have moved.
 |---:|---|---|---|
 | 1 | Timer calibration record | Per-timer (Go and C) calibration against a reference clock on the fleet measurement host, with method, sample count, and drift bound; bound to the V10 epoch's scoreboard | V10 (post-hoc) |
 | 2 | Pre-run threshold declaration | The `timer_threshold_ns = 1000` value recorded as a run parameter *before* measurement, with author and timestamp, hash-bound into the scoreboard metadata | future epoch only |
-| 3 | Host noise-floor receipt | An A/A null distribution from the fleet host itself using the interleaved A/B method (`docs/perf-attribution.md` lines 2900–2934); the local WSL2 floor cannot substitute (`docs/c0e-c0f-attribution.md` line 22) | V10 (post-hoc) |
+| 3 | Host noise-floor receipt | An A/A null distribution from the fleet host itself using the interleaved A/A method (`docs/perf-attribution.md` line 3252, "Noise floor (interleaved A/A...)", with method detail at lines 2900–2934); the local WSL2 floor cannot substitute (`docs/c0e-c0f-attribution.md` line 22) | V10 (post-hoc) |
 | 4 | Threshold-sensitivity statement | Which rows move across the 1000 ns boundary under plausible timer error; today 2 hygiene rows and 1,315 ratio-eligible rows depend on this cut (`docs/v10-fleet-manifest.md` lines 28–29) | V10 (post-hoc) |
 
 Existing repo hooks to build on:
@@ -129,10 +129,13 @@ Two definitions of the C0f signal are in circulation:
 These are not identical: the first gates on the manifest's precomputed
 `predicates.ratio_interpretable` flag, the second recomputes eligibility from
 the raw `c_median_ns` against the threshold. The threshold-provenance work
-depends on definition 2 (`formulas[0]`, `c_median_ns >= timer_threshold_ns`),
-because it is the one whose output actually varies with
-`timer_threshold_ns`; a sensitivity analysis against the threshold is only
-meaningful under the raw-value comparison.
+cannot simply pick definition 2: per `cgo_harness/cmd/perf_scan_manifest/main.go`
+line 605, `ratio_interpretable` is itself computed from `timer_threshold_ns`
+(`RawCMedianBelowThreshold` uses it), so definition 1's output varies with the
+threshold too — and definition 1 is strictly narrower, since it additionally
+requires `Measured`, `RawCMedianPresent`, and a non-nil ratio. Before any
+sensitivity analysis picks either definition, the two must be proven equivalent
+on the V10 rows; `main.go` line 605 is the authority on how each is computed.
 
 ## Acceptance rule
 
