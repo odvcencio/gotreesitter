@@ -2156,6 +2156,46 @@ func TestCNodeMemoEpochAdvancesAcrossParserParses(t *testing.T) {
 	}
 }
 
+func TestCNodeMemoProbeEpochZeroHitDiffersFromSlotWrapper(t *testing.T) {
+	n := &Node{equivVersion: 1}
+	ptr := uintptr(unsafe.Pointer(n))
+	newSeededParser := func() *Parser {
+		p := &Parser{cNodeMemoCache: make([]cNodeMemoCacheEntry, cNodeMemoCacheInitialSize)}
+		idx := cNodeMemoCacheIndex(ptr, len(p.cNodeMemoCache)>>1)
+		p.cNodeMemoCache[idx] = cNodeMemoCacheEntry{
+			node:    ptr,
+			cost:    41,
+			hasCost: true,
+		}
+		return p
+	}
+
+	probeParser := newSeededParser()
+	probeIdx := cNodeMemoCacheIndex(ptr, len(probeParser.cNodeMemoCache)>>1)
+	probeSlot := probeParser.cNodeMemoProbe(n)
+	if probeSlot != &probeParser.cNodeMemoCache[probeIdx] {
+		t.Fatalf("epoch-zero probe slot = %p, want primary %p", probeSlot, &probeParser.cNodeMemoCache[probeIdx])
+	}
+	if probeParser.cNodeMemoEpoch != 0 {
+		t.Fatalf("epoch-zero probe advanced epoch to %d", probeParser.cNodeMemoEpoch)
+	}
+	if probeSlot.cost != 41 || !probeSlot.hasCost {
+		t.Fatalf("epoch-zero probe payload = %#v, want seeded payload", *probeSlot)
+	}
+
+	slotParser := newSeededParser()
+	slot := slotParser.cNodeMemoSlot(n)
+	if slotParser.cNodeMemoEpoch != 1 {
+		t.Fatalf("standalone slot epoch = %d, want 1", slotParser.cNodeMemoEpoch)
+	}
+	if slot == nil || slot.node != ptr || slot.epoch != slotParser.cNodeMemoEpoch {
+		t.Fatalf("standalone slot = %#v, want a new current-epoch entry", slot)
+	}
+	if slot.cost != 0 || slot.hasCost {
+		t.Fatalf("standalone slot preserved epoch-zero payload: %#v", *slot)
+	}
+}
+
 func TestCNodeMemoSlotPreservesVictimPromotionAndEviction(t *testing.T) {
 	p := &Parser{cNodeMemoCache: make([]cNodeMemoCacheEntry, cNodeMemoCacheInitialSize)}
 	p.beginCNodeMemoEpoch()
@@ -2196,6 +2236,57 @@ func TestCNodeMemoSlotPreservesVictimPromotionAndEviction(t *testing.T) {
 	}
 	if got := p.cNodeMemoCache[idx+1].node; got != uintptr(unsafe.Pointer(a)) {
 		t.Fatalf("victim after miss = %#x, want prior primary a %#x", got, uintptr(unsafe.Pointer(a)))
+	}
+}
+
+func newThreeNodeCNodeMemoEvictionParser(t *testing.T) (*Parser, *Node) {
+	t.Helper()
+	p := &Parser{
+		language:       &Language{SymbolMetadata: []SymbolMetadata{{}, {Visible: true}}},
+		cNodeMemoCache: make([]cNodeMemoCacheEntry, cNodeMemoCacheInitialSize),
+	}
+	p.beginCNodeMemoEpoch()
+	parent, childA, childB := collidingCNodeMemoNodes(t, len(p.cNodeMemoCache)>>1)
+	parent.symbol = 1
+	childA.symbol = 1
+	childB.symbol = 1
+	parent.children = []*Node{childA, childB}
+	return p, parent
+}
+
+func TestCNodeErrorCostReFetchesParentAfterTwoCollidingChildren(t *testing.T) {
+	p, parent := newThreeNodeCNodeMemoEvictionParser(t)
+	if got := p.cNodeErrorCost(parent); got != 0 {
+		t.Fatalf("error cost = %d, want 0", got)
+	}
+	if got, want := p.cNodeMemoThrash, uint32(3); got != want {
+		t.Fatalf("memo thrash = %d, want %d child and parent collisions", got, want)
+	}
+	idx := cNodeMemoCacheIndex(uintptr(unsafe.Pointer(parent)), len(p.cNodeMemoCache)>>1)
+	slot := &p.cNodeMemoCache[idx]
+	if slot.node != uintptr(unsafe.Pointer(parent)) || slot.epoch != p.cNodeMemoEpoch {
+		t.Fatalf("parent slot = %#v, want restored current-epoch parent", *slot)
+	}
+	if slot.ver != parent.equivVersion || !slot.hasCost {
+		t.Fatalf("parent cost slot = %#v, want version %d with hasCost", *slot, parent.equivVersion)
+	}
+}
+
+func TestCNodeVisibleSubtreeCountReFetchesParentAfterTwoCollidingChildren(t *testing.T) {
+	p, parent := newThreeNodeCNodeMemoEvictionParser(t)
+	if got := p.cNodeVisibleSubtreeCount(parent); got != 3 {
+		t.Fatalf("visible subtree count = %d, want 3", got)
+	}
+	if got, want := p.cNodeMemoThrash, uint32(3); got != want {
+		t.Fatalf("memo thrash = %d, want %d child and parent collisions", got, want)
+	}
+	idx := cNodeMemoCacheIndex(uintptr(unsafe.Pointer(parent)), len(p.cNodeMemoCache)>>1)
+	slot := &p.cNodeMemoCache[idx]
+	if slot.node != uintptr(unsafe.Pointer(parent)) || slot.epoch != p.cNodeMemoEpoch {
+		t.Fatalf("parent slot = %#v, want restored current-epoch parent", *slot)
+	}
+	if slot.ver != parent.equivVersion || !slot.hasVis || slot.visCount != 3 {
+		t.Fatalf("parent visibility slot = %#v, want version %d with visCount 3", *slot, parent.equivVersion)
 	}
 }
 

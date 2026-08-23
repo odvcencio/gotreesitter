@@ -1327,10 +1327,7 @@ func (p *Parser) cNodeVisibleSubtreeCount(n *Node) int {
 		return 0
 	}
 	if p != nil && len(p.cNodeMemoCache) != 0 {
-		slot := p.cNodeMemoPrimaryHit(n)
-		if slot == nil {
-			slot = p.cNodeMemoSlot(n)
-		}
+		slot := p.cNodeMemoProbe(n)
 		if slot.hasVis && slot.ver == n.equivVersion {
 			return int(slot.visCount)
 		}
@@ -1346,10 +1343,7 @@ func (p *Parser) cNodeVisibleSubtreeCount(n *Node) int {
 		// Re-fetch the slot: the recursive calls above may have evicted n's
 		// slot (a child's pointer hashing into the same 2-way set), so the
 		// pointer captured before recursing could now be stale.
-		slot := p.cNodeMemoPrimaryHit(n)
-		if slot == nil {
-			slot = p.cNodeMemoSlot(n)
-		}
+		slot := p.cNodeMemoProbe(n)
 		if slot.ver != n.equivVersion {
 			*slot = cNodeMemoCacheEntry{
 				node:  uintptr(unsafe.Pointer(n)),
@@ -1709,26 +1703,25 @@ func (p *Parser) beginCNodeMemoEpoch() {
 	p.cNodeMemoEpoch++
 }
 
-// cNodeMemoPrimaryHit checks the primary cache way. Callers must provide a
-// non-nil parser and node with a provisioned cache.
-func (p *Parser) cNodeMemoPrimaryHit(n *Node) *cNodeMemoCacheEntry {
+// cNodeMemoProbe fuses the primary-hit and writable-slot probes. Callers must
+// provide a non-nil parser and node with a provisioned cache. It computes the
+// node key and primary entry once before entering the miss path.
+func (p *Parser) cNodeMemoProbe(n *Node) *cNodeMemoCacheEntry {
 	ptr := uintptr(unsafe.Pointer(n))
-	idx := cNodeMemoCacheIndex(ptr, len(p.cNodeMemoCache)>>1)
+	setCount := len(p.cNodeMemoCache) >> 1
+	idx := cNodeMemoCacheIndex(ptr, setCount)
 	primary := &p.cNodeMemoCache[idx]
 	if primary.epoch == p.cNodeMemoEpoch && primary.node == ptr {
 		return primary
 	}
-	return nil
+	if p.cNodeMemoEpoch == 0 {
+		p.beginCNodeMemoEpoch()
+	}
+	return p.cNodeMemoSlotMiss(ptr, idx, primary)
 }
 
 // cNodeMemoSlot returns the writable 2-way set-associative slot for node n.
-// A current-epoch miss evicts the primary into the victim half; stale-epoch
-// occupants are ignored. This mirrors map[*Node]cNodeMemoEntry lookup
-// semantics within an epoch: an existing entry for n keeps its stored
-// version/cost/vis fields until the caller explicitly overwrites them; a
-// newly-resident node starts zeroed (matching a fresh map key's zero value).
-// Returns nil only when the cache is unprovisioned (recovery gate off) or n/p
-// is nil.
+// It preserves the standalone wrapper's nil and epoch initialization rules.
 func (p *Parser) cNodeMemoSlot(n *Node) *cNodeMemoCacheEntry {
 	if p == nil || n == nil || len(p.cNodeMemoCache) == 0 {
 		return nil
@@ -1736,13 +1729,18 @@ func (p *Parser) cNodeMemoSlot(n *Node) *cNodeMemoCacheEntry {
 	if p.cNodeMemoEpoch == 0 {
 		p.beginCNodeMemoEpoch()
 	}
-	setCount := len(p.cNodeMemoCache) >> 1
-	ptr := uintptr(unsafe.Pointer(n))
-	idx := cNodeMemoCacheIndex(ptr, setCount)
-	primary := &p.cNodeMemoCache[idx]
-	if primary.epoch == p.cNodeMemoEpoch && primary.node == ptr {
-		return primary
-	}
+	return p.cNodeMemoProbe(n)
+}
+
+// cNodeMemoSlotMiss completes a fused probe after its primary way missed.
+// A current-epoch miss evicts the primary into the victim half; stale-epoch
+// occupants are ignored. This mirrors map[*Node]cNodeMemoEntry lookup
+// semantics within an epoch: an existing entry for n keeps its stored
+// version/cost/vis fields until the caller explicitly overwrites them; a
+// newly-resident node starts zeroed (matching a fresh map key's zero value).
+// The supplied pointer, index, and primary entry all refer to the current
+// cache until this function grows it.
+func (p *Parser) cNodeMemoSlotMiss(ptr uintptr, idx int, primary *cNodeMemoCacheEntry) *cNodeMemoCacheEntry {
 	victim := &p.cNodeMemoCache[idx+1]
 	if victim.epoch == p.cNodeMemoEpoch && victim.node == ptr {
 		*primary, *victim = *victim, *primary
@@ -1780,11 +1778,10 @@ func (p *Parser) cNodeMemoSlot(n *Node) *cNodeMemoCacheEntry {
 		if growTarget != 0 && p.cNodeMemoThrash >= growThreshold {
 			p.growCNodeMemoCacheTo(growTarget)
 			// Re-resolve idx/primary against the freshly-grown cache: the
-			// setCount above is now stale, and growCNodeMemoCache reset every
+			// precomputed index is now stale, and growCNodeMemoCache reset every
 			// slot to unwritten (epoch 0), so this is guaranteed to be a
 			// (safe -- see growCNodeMemoCache's doc) miss.
-			setCount = len(p.cNodeMemoCache) >> 1
-			idx = cNodeMemoCacheIndex(ptr, setCount)
+			idx = cNodeMemoCacheIndex(ptr, len(p.cNodeMemoCache)>>1)
 			primary = &p.cNodeMemoCache[idx]
 		}
 	}
@@ -1926,10 +1923,7 @@ func (p *Parser) cErrRegionPostAbsorb(pre cErrRegionAbsorbPre, added ...*Node) {
 	if debugRecoveryIncrementalCost {
 		p.debugCheckErrRegionIncremental(n, cost, vis)
 	}
-	slot := p.cNodeMemoPrimaryHit(n)
-	if slot == nil {
-		slot = p.cNodeMemoSlot(n)
-	}
+	slot := p.cNodeMemoProbe(n)
 	if slot != nil {
 		entry := cNodeMemoCacheEntry{
 			node:    uintptr(unsafe.Pointer(n)),
@@ -2011,10 +2005,7 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 	if len(p.cNodeMemoCache) == 0 {
 		return cNodeErrorCostLang(p.language, n)
 	}
-	slot := p.cNodeMemoPrimaryHit(n)
-	if slot == nil {
-		slot = p.cNodeMemoSlot(n)
-	}
+	slot := p.cNodeMemoProbe(n)
 	if slot.hasCost && slot.ver == n.equivVersion {
 		return slot.cost
 	}
@@ -2054,10 +2045,7 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 	// Re-fetch the slot: the recursive p.cNodeErrorCost(c) calls above may
 	// have evicted n's slot (a child's pointer hashing into the same 2-way
 	// set), so the pointer captured before recursing could now be stale.
-	slot = p.cNodeMemoPrimaryHit(n)
-	if slot == nil {
-		slot = p.cNodeMemoSlot(n)
-	}
+	slot = p.cNodeMemoProbe(n)
 	if slot.ver != n.equivVersion {
 		*slot = cNodeMemoCacheEntry{
 			node:  uintptr(unsafe.Pointer(n)),
@@ -2081,10 +2069,7 @@ func (p *Parser) cNodeErrorCostAndVisibleSubtreeCount(n *Node) (uint32, int) {
 	}
 
 	version := n.equivVersion
-	slot := p.cNodeMemoPrimaryHit(n)
-	if slot == nil {
-		slot = p.cNodeMemoSlot(n)
-	}
+	slot := p.cNodeMemoProbe(n)
 	if slot.ver == version {
 		switch {
 		case slot.hasCost && slot.hasVis:
@@ -2142,10 +2127,7 @@ func (p *Parser) cNodeErrorCostAndVisibleSubtreeCount(n *Node) (uint32, int) {
 
 	// Child recursion can evict the original slot. Resolve it again before the
 	// write and preserve any matching partial entry.
-	slot = p.cNodeMemoPrimaryHit(n)
-	if slot == nil {
-		slot = p.cNodeMemoSlot(n)
-	}
+	slot = p.cNodeMemoProbe(n)
 	if slot.ver != version {
 		*slot = cNodeMemoCacheEntry{
 			node:  uintptr(unsafe.Pointer(n)),
