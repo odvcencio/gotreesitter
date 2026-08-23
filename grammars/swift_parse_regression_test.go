@@ -584,3 +584,31 @@ func TestSwiftTernaryFieldsAndShape(t *testing.T) {
 		t.Fatalf("ternary end = %d, want %d", got, want)
 	}
 }
+
+func TestSwiftNestedIfLetParses(t *testing.T) {
+	lang := SwiftLanguage()
+	src := []byte("func f() {\n  if let a = a {\n    if let b = b {\n      print(a, b)\n    }\n  }\n}\n")
+	parser := gotreesitter.NewParser(lang)
+	tree, err := parser.Parse(src)
+	if err != nil {
+		t.Fatalf("parse nested if-let: %v", err)
+	}
+	defer tree.Release()
+	if root := tree.RootNode(); root.HasError() {
+		t.Fatalf("nested if-let has parse errors: %s", root.SExpr(lang))
+	}
+}
+
+func TestSwiftNestedIfLetComparisonParses(t *testing.T) {
+	lang := SwiftLanguage()
+	src := []byte("func f() {\n  if let limit = limit {\n    if baseIdx == nil {\n      if baseDistance > 0 && limit == endIndex {\n        if self.distance(from: i, to: limit) < distance {\n          return\n        }\n      }\n    }\n  }\n}\n")
+	parser := gotreesitter.NewParser(lang)
+	tree, err := parser.Parse(src)
+	if err != nil {
+		t.Fatalf("parse nested if-let comparison: %v", err)
+	}
+	defer tree.Release()
+	if root := tree.RootNode(); root.HasError() {
+		t.Fatalf("nested if-let comparison has parse errors: %s", root.SExpr(lang))
+	}
+}
