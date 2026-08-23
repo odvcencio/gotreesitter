@@ -1899,7 +1899,7 @@ The authenticated corpus lock is unavailable. The repository has no
 sidecar records only the expected lock SHA-256
 `41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea`.
 
-### Route receipt
+### WGSL route receipt
 
 The focused probe used 11 witnesses: three A0 files, two clean positive
 controls, and six malformed recovery controls. Every Go route compared its
@@ -3258,6 +3258,75 @@ template route retains a shape divergence after 53 rewrites. Compact falls
 back for every witness. Incremental reuse is unsupported. Reopen after a
 producer fix closes the listed divergences, proves scanner-aware reuse,
 supplies the authenticated corpus lock, and repeats all six route classes.
+## 2026-08-24 WGSL dispatcher blocker receipt
+
+Status: `KEEP LIVE / NO-GO`. Keep `dispatch.wgsl` live. Make no parser or registry change.
+
+### Selection proof
+
+The N31r base is `cf58fba517ed4fa6a8f5d1328ac2f850d48a8c75`.
+The worktree is `/tmp/gotreesitter-n31r-next-arm.1787516501`.
+The history and this document contain no earlier WGSL route-complete receipt.
+The ownership record marks `dispatch.wgsl` as live with baseline corpus coverage only.
+The arm is present in `parser_result_compat.go` and calls `normalizeWGSLCompatibility`.
+The registry attaches `grammars.WgslExternalScanner` to the WGSL language.
+
+The A0 manifest contains three WGSL witnesses. It records three checks, three runs,
+2,630 visited nodes, 171 rewrites, two error roots, and no parse errors.
+The witness source hashes are:
+
+- `sample/normalMap/normalMap.wgsl`: `999d93539ed738ab5041d75fe28e7b9d4da7e7ef25c345f2a1ef52239320268b`.
+- `sample/cornell/radiosity.wgsl`: `2d5630364c6667404abeb05ead49255f6538998ec66bf20cd5337a0eb5a26783`.
+- `sample/reversedZ/fragmentTextureQuad.wgsl`: `7af39dd8fd0e00f911fafaef4e2b40e2b0314f586049acef74c0fc451dd73286`.
+
+### Identity and scanner
+
+The grammar lock hash is `9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb`.
+The grammar is `https://github.com/szebniok/tree-sitter-wgsl` at
+`40259f3c77ea856841a4e0c4c807705f3e4a2b65`.
+The embedded WGSL blob hash is `bed4620b51ac8e6dde6ea1ed0d14465f8b17ab11c2487a190650ef15abe392eb`.
+The C artifact hash is `67e5190b02afea88cfd9ced8866be93a6ab083922bdb73328c8d481d54907f0c`.
+The C oracle uses tree-sitter C contract `tree-sitter-c-v1`, binding version `v0.25.0`,
+binding commit `adc13ffd8b2c0b01b878fda9f7c422ce0df5fad3`, and runtime `0.25.1` at
+`f5afe475deb7c0bae6407fb776c76824f717bb61`.
+The compiler is `/usr/bin/cc`, version `cc (Debian 12.2.0-14+deb12u1) 12.2.0`.
+
+The scanner type is `grammars.WgslExternalScanner`.
+It certifies incremental reuse, stateless operation, and failure preservation.
+The included-ranges route is not a WGSL registration contract and was not applied.
+
+### Route receipt
+
+The focused test is `cgo_harness/wgsl_n31r_dispatcher_blocker_receipt_test.go`.
+It checks source hashes and never reads this document.
+The raw route bypasses normalization. The production route disables admission.
+The compact route enables admission. The forest and incremental routes use their
+normal parser entry points. The C oracle uses the pinned shared grammar artifact.
+
+The exact route results are:
+
+- `a0-normalMap`: C `231e10ca2215945a5fb51670620c9f5ba2ea1ca7d445cb2c9443fb51b8e0e18a`; raw `77fdfd002d6937e6f5784fc19e21a6f63ab8f2280ca8ba0dcfc1ee5b1d3d42cc`, dispatch `none`; production and compact `9d802a0e9af71176c0520496ae99425406aa76dc8560f8c7e939e366f9fbbd44`, dispatch `1/1/1289/120`; compact fallback `0/1`, reason `recovery-entered`; forest rejected; incremental `fe0cb9f758eaace140619c81a9ef3347d89633580b18492e46dcfae6fb8f57c7`, dispatch `1/1/1287/684`, reuse `452` subtrees and `2318` bytes. Raw and production diverge at `/source_file` with `children=70` versus `children=79`; incremental diverges with `children=69` versus `children=79`.
+- `a0-radiosity`: C `22b9d004c33c6a8229b56876282125e04efddf59deef6224eddd61f38c9952b2`; raw `c591b9329ad2fc946b6b8b7c4bc80adb7305f41934dd51d4505e4f606787b127`, dispatch `none`; production and compact `592abfad21a9a3170c11fd2e18888a9c5ecac7f681af5cf81e2d1c352873df63`, dispatch `1/1/1230/51`; compact fallback `0/1`, reason `recovery-entered`; forest rejected; incremental `9e0113134b748e66ba22390bdf09e6e083a7f09dc0fc3b1dec67a407fed979cd`, dispatch `1/1/1230/56`, reuse `185` subtrees and `1197` bytes. Divergences include the raw `ERROR` versus `<` node, the production function error flag, and the incremental root shape `children=46` versus `children=48`.
+- `a0-fragmentTextureQuad`: all routes match C `d3e58954c750ed560edd3177a165bbf701c159467a1b4677996bec620c377804`; raw dispatch `none`; production and forest dispatch `1/1/111/0`; compact dispatch `none` with routed `1`, fallback `0`; incremental dispatch `1/1/112/51`, reuse `49` subtrees and `192` bytes.
+- `clean-control`: all routes match C `14614e2c6311dffe5c29ab57a2aa210e46d51280ed82d8886a46e61e2f9e5f23`; raw dispatch `none`; production and forest dispatch `1/1/9/0`; compact dispatch `none` with routed `1`, fallback `0`; incremental dispatch `1/1/9/0`, reuse `6` subtrees and `10` bytes.
+- `malformed-control`: raw matches C `95ceb782bbf18d9b5f3658c798aaefcd010bc694205abbf6ba1e793642db14d8`, dispatch `none`, and keeps the error root; production, compact, and incremental return `34650fa98c42f84b32954caa9d371cc4e75f2a3d32da379cfda1de0736a27f11`, dispatch `1/1/19/5`; compact fallback is `0/1` for `recovery-entered`; forest rejects; incremental reuse is `9` subtrees and `17` bytes. The production, compact, and incremental root error flag differs from C.
+
+### Docker evidence and decision
+
+Run the receipt in image `sha256:5060d2a11578710fdb0adc48e638efab98b3e7ff18bb5082596911fe86011b08`.
+Use one CPU with `GOMAXPROCS=1`, one C artifact build job, and one test process.
+The final artifact directory is `/tmp/gotreesitter-n31r-next-arm.1787516501/harness_out/docker/20260823T203436Z`.
+The container log hash is `ff4203a44d2c318200271edbd2a5ccf4c4d5606eaf2a6eea49695cfc9187db17`.
+The inspection hash is `a953ee2b40a91a100166cde87c663e21e510a21d7949d991d9dbe696baed0419`.
+The metadata hash is `ee0639a7d88fa1221d22a6f9bdfa5224630ba5ccf7732af0e2aca6e268291a8d`.
+The focused Docker test passed.
+
+Keep the arm live. The raw route exposes source-shape differences.
+The production route still needs 171 A0 rewrites, and compact falls back on both large witnesses.
+The locked-C route has shape, type, and error-state divergences.
+The authenticated corpus lock is absent; only its sidecar hash exists.
+Reopen this decision after a pinned corpus lock exists, all listed route digests match C,
+compact admission accepts every witness, and the dispatcher records zero rewrites.
 
 ## Progress ledger
 
