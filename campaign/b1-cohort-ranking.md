@@ -19,7 +19,10 @@ Sources (every claim below cites one of these):
 ## Scope note: two complementary rankings
 
 The three named classes (`zero-width-shift`, `repetition-shift-class`,
-`eof-byte-short-frontier`) come from the whole-campaign census [C2]. The fresh
+`eof-byte-short-frontier`) come from the whole-campaign census [C2]. Note that
+Ranking A below is census-PASS **at the authored fixtures used** [C1] — it does
+**not** establish PASS-on-real-files-today; this carries the G-2 authored-fixture
+caveat (`campaign/b1-harness-gaps.md`). The fresh
 depth run [C1] re-exercised only the 48 currently-PASSING languages and found
 **none** of those three tags on any decline — the declines there carry newer,
 finer shapes (`scheduler-frontier-shape`, `recovery-entered`) plus one
@@ -45,13 +48,15 @@ the row list is authoritative — 34 + 8 + 5 + 1 = 48.)
 
 ### Campaign-leverage overlay within Ranking A
 
-- The 8-language `scheduler-frontier-shape` bucket is one uniform shape family:
-  six share the same "converged-path reduction split no-action drop lacks
-  alternative-set coverage" detail or its shorthand "no-action drop" (cylc,
-  dtd, earthfile, elixir, purescript, v — [C1] rows 8, 12, 13, 15, 38, 46),
-  plus julia ("unproved historical boundary resurrection") and nushell ("EOF
-  recovery admission requires scanner quiescence"). One fix shape touches 6 of
-  8 immediately.
+- The 8-language `scheduler-frontier-shape` bucket splits by decline boundary
+  (verified against `campaign/fixtures/b1/depth-census-run.log`):
+  **no_action (6)** — dtd, earthfile, elixir, julia, purescript, v ([C1] rows 8,
+  12, 13, 15, 38, 46) — sharing the "converged-path reduction split no-action
+  drop" shape family (julia's variant descends from an unproved historical
+  boundary resurrection); and **accept_without_materialization (2)** — cylc
+  ("did not accept EOF: generic scheduler requires one certified accepted
+  derivation") and nushell ("EOF recovery admission requires scanner
+  quiescence"). One fix shape touches 6 of 8 immediately.
 - All declines are fail-closed: DIVERGE=0 [C1], so none of these is a
   correctness risk — pure upside.
 
@@ -82,12 +87,18 @@ mechanisms are `repetition-shift-class` and `zero-width-shift`. Hence B1/B2 outr
    G-3.
 2. **A1 `scheduler-frontier-shape`** — biggest depth-blocked bucket (8/14
    declines), and 6 of its members share one verbatim detail. *Named first
-   fix:* give the converged-path reduction split's no-action drop
-   alternative-set coverage by blending the surviving derivation with the
-   certified accept, so `accept_without_materialization` sees one certified
-   accepted derivation. Smallest repro: the 99–233-byte fixtures for cylc,
-   earthfile, purescript, v (`campaign/b1-depth-fixtures.md`); dtd (198 KB)
-   is the stress case. Evidence: [C1] rows 8, 12, 13, 15, 38, 46.
+   fixes (one per boundary):* (a) **no_action boundary** — give the
+   converged-path reduction split's no-action drop alternative-set coverage by
+   blending the surviving derivation with the certified accept; this addresses
+   dtd, earthfile, elixir, julia, purescript, v. (b)
+   **accept_without_materialization boundary** — separately ensure the generic
+   scheduler can produce one certified accepted derivation at EOF so cylc and
+   nushell stop declining there; the no_action fix alone does not give
+   `accept_without_materialization` a certified derivation to see.
+   Smallest repro: earthfile (116 bytes), purescript (148 bytes), v
+   (235 bytes), julia (1089 bytes) per `campaign/fixtures/b1/depth-census-run.log`
+   (`campaign/b1-depth-fixtures.md`); dtd (198 KB) is the stress case.
+   Evidence: [C1] rows 8, 12, 13, 15, 38, 46.
 3. **A2 `recovery-entered`** — 5 depth-blocked languages, all fail-closed
    error trees from "scheduler has no table action for the elected token".
    *Named first fix:* teach the compact route to admit the recovery-elected
@@ -125,3 +136,17 @@ go test -tags gts_parsercorephase0 -run TestAdmissionCandidateRealCorpusMatrix -
 
 and confirm the targeted rows flip FALLBACK→PASS with digest logged ([C1]'s
 exact command). No code change is made by this document; it is evidence only.
+
+## Buried headline: depth work surfaced what the smoke census predicted
+
+This depth run [C1] surfaced two mechanism classes that the 2026-07-20 smoke
+census [C2] recorded as near-empty:
+
+- **`scheduler-frontier-shape`**: 8 languages blocked at depth, versus 1
+  language (0.7%) in [C2] (its lines 121–122).
+- **`recovery-entered`**: 5 languages blocked at depth, versus zero in [C2].
+
+This is exactly what [C2] predicted at its lines 126–127. It is the strongest
+argument for funding depth work: the mechanisms that actually block real-file
+depth are invisible to a smoke census until you run one.
+

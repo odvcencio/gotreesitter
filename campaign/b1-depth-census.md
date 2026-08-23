@@ -80,7 +80,8 @@ made; this is evidence only.
 | 48 | xml | 331 | PASS | digest a02018448256 |
 
 All cells above are verbatim from `campaign/fixtures/b1/depth-census-run.log`
-(log lines 51–100), which is the authoritative record.
+(log lines 51–100), which is the authoritative record. The log is gitignored;
+its SHA-256 is `329869642604d528297bb6ebdac8f36a545daf1755e8405ed9980b497b1cd875`.
 
 ## Cohort ranking at depth
 
@@ -89,22 +90,22 @@ All cells above are verbatim from `campaign/fixtures/b1/depth-census-run.log`
   go, gomod, hcl, hyprlang, ini, kconfig, liquid, make, markdown, matlab,
   ninja, odin, pascal, prolog, requirements, svelte, tcl, tmux, twig, uxntal,
   vimdoc, xml.
-- **Declined, mechanism `scheduler-frontier-shape` (clean production tree, 8):**
-  cylc, dtd, earthfile, elixir, julia, nushell, purescript, v.
-- **Declined, `recovery-entered` with production error tree (6):** bitbake,
+- **Declined, mechanism `scheduler-frontier-shape` (8, of which 7 clean):**
+  cylc, dtd, earthfile, elixir, julia, nushell, purescript, v — earthfile is
+  error-tree (row 13), the rest are on a clean production tree.
+- **Declined, `recovery-entered` with production error tree (5):** bitbake,
   chatito, disassembly, mermaid, templ — inputs needing recovery; the route
-  declines fail-closed.
+  declines fail-closed. (The earlier count of 6 was the error-tree parse-class
+  count, which also contains earthfile.)
 - **Unclassified (1):** ledger — accepted-root-incompleteness decline that did
   not carry a `[mechanism=…]` tag.
 
 ## Relation to the 2026-07-20 census
 
 The prior census's 10-file depth check (docs/compact-route-coverage-census.md,
-"Depth check") found only go holding. This fresh, full-48 run contradicts the
-extrapolation: 34 of 48 hold byte-exact on the fixtures inventoried in
-`campaign/b1-depth-fixtures.md`. Differences are attributable to fixtures, not
-regressions: e.g. dockerfile passes here on the 1396-byte
-`cgo_harness/docker/Dockerfile`, whereas the earlier check used a different
-(572-byte) Dockerfile; elixir declines here as `scheduler-frontier-shape`
-rather than `repetition-shift-class`. Zero DIVERGE in either run: every
-decline is fail-closed.
+"Depth check") found only go holding. The measured split for this full-48 run:
+34 PASS, of which 26 ran on authored fixtures of 85–436 bytes. The four July
+regressions that flipped back (hcl, make, xml, svelte) did so on fixtures
+10x–45x smaller than the corresponding July corpus files, so this run neither
+confirms nor contradicts the July depth extrapolation. Zero DIVERGE in either
+run: every decline is fail-closed.
