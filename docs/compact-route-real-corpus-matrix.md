@@ -414,6 +414,129 @@ the corpus forest route to produce a certified comparison instead of
 declining. Require the condition-family controls to pass. Keep issue #576 open
 until these controls pass.
 
+## C26e Swift issue #576 CollectionAlgorithms recovery blocker
+
+Receipt base: `2b755f744aef8dd253a4415ca4a5816fa85b0dbb`.
+
+Evidence base: `14f6692fac65eab817f65af8cc6072e423ca6563`.
+
+Status: **NO-GO / KEEP ISSUE #576 OPEN**. No production or test change
+survives.
+
+The locked C identity is:
+
+- Grammar commit `41d6e5fe811ec94229ee71771174a8cce558dfee`.
+- Runtime `0.25.1`, commit `f5afe475deb7c0bae6407fb776c76824f717bb61`.
+- Grammar artifact SHA-256
+  `2a9f14046d4ca88b6db1316ee5f48b876aea1700e3c09811b3c87257fe827c5c`.
+
+The 16,871-byte witness is the exact prefix of
+`grammars/testdata/swift_corpus/stdlib_CollectionAlgorithms.swift`.
+Its source SHA-256 digest is
+`39591b90ee9164a0bc594f2206945946ea27c0ee24149a23ed9755f9466c703d`.
+The tracked source has 24,056 bytes. Its source SHA-256 digest is
+`1aae0051b0bfb50e17c7ac94961ee7cab7332367dcc16e827d2482be7a2dc5a`.
+The prefix is therefore a byte-exact part of the tracked full source.
+
+The prefix locked-C digest is
+`030878796edce87bdae03b7fb51be6e92c52e81482a9a94edc822248c3aad9d1`.
+The Go digest on raw, production, compact, and incremental routes is
+`cd95cd60eb4cac2ad3d1dd7652eec9b5c188c98338e9d4fe22c9223dacedba03`.
+Both roots report an error over `0..16871`. Locked C has 37 root children.
+Go has 39 root children.
+
+The prefix first-error records are:
+
+- Go: `/source_file/class_declaration[35]/class_body[2]/function_declaration[48]/function_body[9]/ERROR[2]@13078..13223/children=2`.
+- Locked C: `/source_file/class_declaration[36]/class_body[3]/function_declaration[43]/function_body[9]/statements[1]/property_declaration[0]/try_expression[3]/call_expression[1]/ERROR[1]@15495..15534/children=5`.
+
+Go reports eight errors. Locked C reports seven errors. The first root
+difference is the child count. Do not apply these prefix error paths to the
+full corpus.
+
+The full-corpus locked-C digest is
+`132d332f511f12735d80e846f52ec1fddf5f3d0dcd7a097779640a7710497487`.
+The Go digest on raw, production, compact, and incremental routes is
+`23035510c7f709e0cf029509c1d54aef62fefe27535e12e10a7bd874c0479fe2`.
+Both roots report an error over `0..24056`. Locked C has 50 root children.
+Go has 39 root children. The full-corpus record reports only this root shape
+difference. It does not claim a full-corpus first-error path.
+
+All four Go routes retain their Go digest for both witnesses. Each route
+reports `stop=accepted`, `c_recovery=true`, `dropped=false`, `retries=0`,
+`retry_reason='\x00'`, `normalization=0/0`, `rewritten=0`, and
+`authority=false`. The prefix profile reports `stacks=15`, `depth=120`,
+`nodes=10511`, and `error_ceiling=0/0`, `error_peak=9/11`. The full-corpus
+profile reports `stacks=16`, `depth=144`, `nodes=16483`, and the same error
+ceiling and peak.
+
+The compact route falls back for both witnesses. Its counters move from
+`before=0/0` to `after=0/1`. The reason is:
+
+```text
+compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: generic scheduler has no table action for the elected token
+```
+
+The forest route declines for both witnesses:
+`accepted=false reason="dead_end" states=[10 524 46 646]`.
+
+The incremental route reports
+`reuse=false unsupported=true reason="external_scanner_unsupported"` and
+`old_reuse=false`. It reports zero reused subtrees, zero reused bytes, zero
+accepted retries, no adopted retry, and zero recovery searches and hits.
+The prefix reports `new_nodes=9105` and `max_stacks=15`. The full corpus
+reports `new_nodes=14490` and `max_stacks=16`.
+
+Canopy v0.18.0-19-g01a5f95 attributes the generic path to
+`cHandleError` in `parser_recover_c.go` and
+`nextGLRUnionDFAToken` in `parser_dfa_token_source.go`. The recovery graph is
+at `/tmp/gts-c26e-correct-canopy-recovery.json`. The token graph is at
+`/tmp/gts-c26e-correct-canopy-token.json`. Direct no-cache queries confirmed
+the generic recovery and token-preference paths. No safe grammar-agnostic
+correction is proven. The Swift normalization path did not run a repair:
+`normalization=0/0`, `rewritten=0`.
+
+The successful Docker artifacts are:
+
+- `/tmp/gts-c26e-correct/harness_out/docker/20260823T053216Z-c26e-correct-swift576-collection-final2`
+- `/tmp/gts-c26e-correct/harness_out/docker/20260823T052929Z-c26e-correct-swift576-collection-full`
+
+Each run used one Swift workload, one CPU, 4 GiB of container memory,
+`GOMAXPROCS=1`, `-p=1`, test parallelism one, and a 3 GiB Go memory limit.
+Each run used a 20-minute test timeout. Both focused Docker tests passed with
+exit code zero. Neither run timed out or hit an out-of-memory failure.
+
+The authenticated corpus is unavailable. The repository has no
+`cgo_harness/corpus_real` directory and no
+`cgo_harness/perf_scan/corpus_sources.lock` file. The sidecar
+`cgo_harness/perf_scan/corpus_sources.lock.sha256` does not supply that lock.
+The tracked full source is a control, not an authenticated release corpus.
+
+The shared 20-byte unsafe control is `let x = unsafe bar()`.
+Its source SHA-256 digest is
+`b511d81ace2a89b05e8e5e0ca6730c10f2ac9295111dae013097c7c6be8861fe`.
+Its Go digest is
+`860b79483c37e217690deae43036bada15b259bed77713606124fa851702e62f`.
+Its locked-C digest is
+`c64b894edc4a20e15f2b4127bad4223f698c8996dba091c06c34aa89386d3c68`.
+The first divergence is
+`/source_file/property_declaration[0]/call_expression[3]/ERROR[1]`, bytes
+`15..18`. Go emits a childless error. Locked C includes the `bar` child.
+This control shares the unsafe-expression-prefix family. It does not prove
+parity for either CollectionAlgorithms witness.
+
+The 645-byte construction at
+`/tmp/gts-c26e-correct/harness_out/docker/20260823T052725Z-c26e-correct-swift576-collection`
+is excluded. It used the wrong source and is not a valid C26e witness.
+
+Reopen implementation work only after a grammar, lexer, or generic
+token-recovery change supplies a safe proof. Require locked-C equality for the
+20-byte control, the 16,871-byte prefix, and the 24,056-byte full source on
+raw, production, compact, forest, and incremental routes. Require compact
+and forest routes to produce certified comparisons. Require the authenticated
+corpus and its source lock before release retirement. Keep issue #576 open
+until these conditions pass.
+
 ## Current bounded result
 
 The bounded matrix completed with no silent divergence.

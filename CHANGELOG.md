@@ -151,6 +151,17 @@ for tags and release notes while still in `0.x`.
 
 ### Correctness
 
+- Record the C26e Swift issue #576 CollectionAlgorithms recovery blocker at
+  current main commit `2b755f744aef8dd253a4415ca4a5816fa85b0dbb`. Evidence
+  comes from `14f6692fac65eab817f65af8cc6072e423ca6563`. The exact 16,871-byte
+  prefix and the 24,056-byte tracked source differ from locked C on the raw,
+  production, compact, and incremental routes. Compact fallback declines at
+  recovery. Forest declines at `dead_end`. Incremental reuse is unsupported
+  because of `external_scanner_unsupported`. The authenticated corpus and
+  source lock are unavailable. No production or test change survives. Keep
+  issue #576 open. See `docs/compact-route-real-corpus-matrix.md` for the
+  20-byte unsafe control, evidence, artifacts, and reopening conditions.
+
 - Record the C26d Swift optional-binding recovery blocker at main commit
   `11d9aec70eaef0c0d65c3cd14b8f594d64869c7b`. The `issue-590` artifacts show
   a 118-byte witness and a 27,814-byte corpus witness that differ from locked
