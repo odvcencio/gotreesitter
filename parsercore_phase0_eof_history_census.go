@@ -34,8 +34,45 @@ type EOFAcceptHistoryHead struct {
 	NoAction             bool
 	Header               DiagnosticParserCoreHeaderReceipt
 	Candidates           []EOFAcceptHistoryCandidate
+	RecoveryShadow       *EOFRecoveryShadowReceipt
 	EnumerationTruncated bool
 	EnumerationErr       string
+}
+
+// EOFRecoveryShadowReceipt records one private, bounded recover_eof fold.
+// The G3 build supplies this receipt. Other G2 builds leave it nil.
+type EOFRecoveryShadowReceipt struct {
+	AcceptIndex            int
+	Kind                   string
+	Steps                  uint32
+	MaxSteps               uint32
+	Payloads               uint32
+	MaxPayloads            uint32
+	SourceFootprintBytes   uint64
+	MaxCloneBytes          uint64
+	StartByte              uint32
+	EndByte                uint32
+	SubtreesBefore         uint32
+	SubtreesAfter          uint32
+	ChildrenBefore         uint32
+	ChildrenAfter          uint32
+	ExistingArenaPreserved bool
+	RootChildrenExact      bool
+	RootSymbol             Symbol
+	RootNamed              bool
+	RootExtra              bool
+	RootMissing            bool
+	RootIsError            bool
+	RootHasError           bool
+	RootDynamicPrecedence  int32
+	RootShape              string
+	DeepSHA256             [32]byte
+	ErrorCost              uint32
+	MutableStorageDisjoint bool
+	LiveStateUnchanged     bool
+	WorkBefore             core.Work
+	WorkAfter              core.Work
+	Error                  string
 }
 
 // EOFAcceptHistoryFrontier records all compact histories at one certified
@@ -75,6 +112,10 @@ func EOFAcceptHistoryCensusSnapshot() []EOFAcceptHistoryFrontier {
 		for headIndex, head := range frontier.Heads {
 			out[index].Heads[headIndex] = head
 			out[index].Heads[headIndex].Candidates = append([]EOFAcceptHistoryCandidate(nil), head.Candidates...)
+			if head.RecoveryShadow != nil {
+				shadow := *head.RecoveryShadow
+				out[index].Heads[headIndex].RecoveryShadow = &shadow
+			}
 		}
 	}
 	return out
@@ -119,6 +160,9 @@ func (s *diagnosticParserCoreGenericScheduler) censusEOFAcceptHistoryFrontier(
 			continue
 		}
 		order := eofAcceptHistoryFoldOrder(paths)
+		if headRecord.NoAction {
+			s.censusEOFRecoveryShadow(index, paths, &headRecord)
+		}
 		for foldIndex, pathIndex := range order {
 			path := paths[pathIndex]
 			candidate := EOFAcceptHistoryCandidate{

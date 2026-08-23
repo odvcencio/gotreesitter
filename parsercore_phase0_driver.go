@@ -3134,6 +3134,17 @@ func diagnosticParserCoreGapIsTolerated(gap []byte) bool {
 // steady state does not re-allocate the public-tree scratch on every parse.
 // scratch is reset on return, so it is safe to reuse for the next parse.
 func materializeDiagnosticParserCoreAcceptedSelection(compact *core.Core, head core.Head, payloads []core.SubtreeID, parser *Parser, source []byte, scratch *parserCoreRunnerScratch, forceReplayParseStates bool, allowErrorRoot bool) (*Tree, error) {
+	return materializeDiagnosticParserCoreAcceptedSelectionWithEOFRecoveryShadow(
+		compact, head, payloads, parser, source, scratch,
+		forceReplayParseStates, allowErrorRoot, false,
+	)
+}
+
+// materializeDiagnosticParserCoreAcceptedSelectionWithEOFRecoveryShadow is
+// the G3-only private recover_eof materializer when its final argument is
+// true. All serving callers use the wrapper above and keep the strict root
+// tiling audit.
+func materializeDiagnosticParserCoreAcceptedSelectionWithEOFRecoveryShadow(compact *core.Core, head core.Head, payloads []core.SubtreeID, parser *Parser, source []byte, scratch *parserCoreRunnerScratch, forceReplayParseStates bool, allowErrorRoot bool, eofRecoveryAccept bool) (*Tree, error) {
 	if compact == nil || parser == nil || parser.language == nil || head.Node == 0 || len(payloads) == 0 {
 		return nil, errors.New("parser-core phase zero: incomplete accepted-tree selection input")
 	}
@@ -3469,9 +3480,20 @@ func materializeDiagnosticParserCoreAcceptedSelection(compact *core.Core, head c
 		parser.goCompatFrames = &scratch.goCompatFrames
 		defer func() { parser.goCompatFrames = previousGoCompatFrames }()
 	}
-	tree := parser.buildResultFromNodes(nodes, source, arena, nil, nil, linkScratch)
+	var tree *Tree
+	if eofRecoveryAccept {
+		if len(nodes) != 1 || nodes[0] == nil || !nodes[0].IsError() {
+			return nil, errors.New("parser-core phase zero: private recover_eof accept requires one ERROR payload")
+		}
+		// C publishes the sole ERROR parent that recover_eof pushed before
+		// ts_parser__accept. Do not apply Go's generic single-error framing.
+		builder := newResultRootBuild(parser, source, arena, nil, nil, linkScratch)
+		tree = builder.finishTree(nodes[0], builder.shouldWireParentLinks, true)
+	} else {
+		tree = parser.buildResultFromNodes(nodes, source, arena, nil, nil, linkScratch)
+	}
 	if tree != nil {
-		owned = false // buildResultFromNodes transfers arena ownership to tree.
+		owned = false // The result tree owns the materialization arena.
 	}
 	rejectTree := func(err error) (*Tree, error) {
 		if tree != nil {
@@ -3502,8 +3524,19 @@ func materializeDiagnosticParserCoreAcceptedSelection(compact *core.Core, head c
 	}
 	sourceLen := uint32(len(source))
 	root := tree.root
-	if err := finalizeDiagnosticParserCoreAcceptedRootSpan(root, source, sourceLen, allowErrorRoot, parser.language.TokenCount, parser.lineContinuationEscapeByte()); err != nil {
-		return rejectTree(err)
+	if eofRecoveryAccept {
+		expectedStart := firstNonTriviaByteStart(source)
+		if !allowErrorRoot || !root.IsError() || !root.HasError() ||
+			root.startByte != expectedStart || root.endByte != sourceLen {
+			return rejectTree(fmt.Errorf(
+				"parser-core phase zero: private EOF recovery root is not exact: span=%d..%d expected=%d..%d error=%t has-error=%t",
+				root.startByte, root.endByte, expectedStart, sourceLen, root.IsError(), root.HasError(),
+			))
+		}
+	} else {
+		if err := finalizeDiagnosticParserCoreAcceptedRootSpan(root, source, sourceLen, allowErrorRoot, parser.language.TokenCount, parser.lineContinuationEscapeByte()); err != nil {
+			return rejectTree(err)
+		}
 	}
 	// accepted-root-leading-gap: the derivation's own root reduce is exempt
 	// from diagnosticParserCoreReduceChildrenTilingGap (isDerivationRootReduce,
