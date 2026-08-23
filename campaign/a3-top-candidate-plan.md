@@ -42,6 +42,10 @@ or registry change. Target candidate per `campaign/a2-retirement-queue.md`:
 If any route diverges: stop, file the divergence as a new blocker receipt,
 keep the arm live. This plan proceeds only when all six pass.
 
+Note: the quoted-path locked-C divergence (Corn receipt lines 1301–1308) is
+the expected first failure here. This is a producer task: build a native
+producer that emits locked-C exactly; do not treat it as receipt collection.
+
 ### Step 1 — Delete the switch arm
 
 File: `parser_result_compat.go`
@@ -80,8 +84,10 @@ Files:
 
 - `testdata/dispatcher_census_a0_manifest_v1.json` — remove/annotate the corn
   fixture entries so the A0 manifest matches the post-retirement denominator.
-- `testdata/dispatcher_census_tracked_v1.json` — same for the tracked census
-  (seven fixtures; confirm whether a corn fixture is present).
+- `testdata/dispatcher_census_tracked_v1.json` — no-op: per the Corn blocker
+  receipt (docs/root-normalization-retirement.md, tracked-census note) the
+  tracked census has seven fixtures in six languages and excludes corn, so
+  nothing to update here.
 - `parser_result_test/dispatcher_census_test.go` — the census tests
   (`TestDispatcherArmCensusOverRealCorpus`,
   `TestDispatcherArmCensusTrackedReceipt`) read the registry JSON directly
@@ -115,9 +121,10 @@ HLSL retirement-test pattern):
 
 Files:
 
-- `docs/compat-tier.md` — remove corn from the live-arm narrative; add the
-  retirement note with the new denominator (30 explicit arms, 32 languages,
-  31 live entries, 57 retired entries).
+- `docs/compat-tier.md` — remove corn from the live-arm narrative; update the
+  language-label count at line 27 from 35 to 34 (corn label leaves the live
+  set); add the retirement note with the new denominator (30 explicit arms,
+  32 languages, 31 live entries, 57 retired entries).
 - `docs/root-normalization-retirement.md` — append a dated Corn retirement
   receipt: base commit, six route receipts, census logs, decision GO, reopen
   conditions ("Reopen the entry if a future witness rewrites a node or
@@ -142,7 +149,9 @@ go test ./parser_result_test -run TestDispatcherArmCensusOverRealCorpus -count=1
 go test ./parser_result_test -run TestDispatcherArmCensusTrackedReceipt -count=1 -v
 
 # Registry/denominator ownership guard after the JSON edit:
-go test ./parser_result_test -run 'Ownership|Registry' -count=1 -v
+# TestResultCompatibilityOwnershipRegistry lives in package gotreesitter
+# (compat_ownership_test.go:113; see docs/compat-tier.md line 527):
+go test . -run '^TestResultCompatibilityOwnershipRegistry$' -count=1
 
 # Focused native regression (Step 5):
 go test ./grammars -run CornNativeRegression -count=1 -v

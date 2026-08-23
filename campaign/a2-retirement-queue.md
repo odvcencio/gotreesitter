@@ -11,10 +11,14 @@ Every one of the 32 live registry entries is currently **blocked**:
   `docs/root-normalization-retirement.md`, each ending `KEEP LIVE / NO-GO`.
 - 11 entries (`javascript`, `julia`, `kotlin`, `perl`, `php`, `powershell`,
   `scala`, `sql`, `swift`, `yaml`, `predicate.cobol-exact`) have no dedicated
-  receipt and therefore cannot be retired under the program's rules ("Rules
-  for every retirement PR", `docs/root-normalization-retirement.md`): a
-  current firing witness or a filed defect is required for every live arm,
-  plus exact route receipts before any arm deletion.
+  receipt and are therefore **unassessed**, not blocked: a blocker receipt is
+  a NO-GO record, and its absence means the arm has not been probed. Under
+  Rule 2 of "Rules for every retirement PR"
+  (`docs/root-normalization-retirement.md`) — instrument and census first —
+  these arms need focused measurement before any ranking or retirement
+  attempt; a current firing witness or a filed defect is required for every
+  live arm (`docs/compat-tier.md` lines 81–83), plus exact route receipts
+  before any arm deletion.
 
 "Retirable-now" below therefore means *closest to retirement*: the smallest
 remaining gap measured against the standard receipt checklist, ranked by the
@@ -26,40 +30,45 @@ Classification rule applied per entry: **retirable-now** requires either (a)
 a current firing witness plus exact route receipts under the "Rules for every
 retirement PR", or (b) no blocker receipt but a completed focused probe
 proving native ownership. Neither condition holds for any live entry today,
-so **zero entries are retirable-now and all 32 are blocked**, split by block
-type:
+so **zero entries are retirable-now**: 21 are blocked and 11 are unassessed,
+split as follows:
 
 ### Blocked A — dated blocker receipt ends NO-GO / KEEP LIVE (21 entries)
 
 | # | Entry ID | Block (citation: receipt in `docs/root-normalization-retirement.md`) |
 | -- | --- | --- |
 | 1 | `dispatch.ada` | Derivation election wrong on seven clean witnesses; production rewrites seven, fails parity on two malformed ("2026-08-22 Ada blocker receipt") |
-| 2 | `dispatch.apex` | Full-route native ownership unproven despite four-witness A3 sweep ("2026-08-22 Apex blocker receipt") |
+| 2 | `dispatch.apex` | The forest route still rewrites the unqualified class-literal witness and fails exact locked-C parity on both class-literal witnesses; malformed recovery witnesses also fail exact parity ("2026-08-22 Apex blocker receipt") |
 | 3 | `dispatch.authzed` | 17 + 11 production rewrites needed; no safe shared producer invariant ("2026-08-24 Authzed dispatcher blocker receipt") |
-| 4 | `dispatch.awk` | Retirement gated on exact five-route output for every witness ("2026-08-24 AWK dispatcher blocker receipt") |
+| 4 | `dispatch.awk` | Keep live until the authenticated AWK corpus enters A0 and tracked coverage, recovery incremental telemetry is recorded, and every registered witness matches locked C on all required routes ("2026-08-24 AWK dispatcher blocker receipt") |
 | 5 | `dispatch.bitbake` | Two error roots remain despite clean zero-rewrite A0 profile ("2026-08-24 BitBake blocker receipt") |
-| 6 | `dispatch.c_cpp` | C recovery gap + incremental token-source divergence + absent corpus lock; six reopen conditions ("2026-08-24 C and C++ dispatcher blocker receipt") |
+| 6 | `dispatch.c_cpp` | C recovery gap + incremental token-source divergence + absent corpus lock; the C++ `normalizeCppMalformedClassFunctionDefinition` subpass is not a registry subpass (registry has subpasses: null) and remains an open blocker; seven reopen conditions ("2026-08-24 C and C++ dispatcher blocker receipt") |
 | 7 | `dispatch.c_sharp` | Generic-scheduler emission unproven; authenticated corpus unavailable ("2026-08-24 C# dispatcher blocker receipt") |
-| 8 | `dispatch.cooklang` | Full-route native ownership unproven ("2026-08-24 Cooklang dispatcher blocker receipt") |
+| 8 | `dispatch.cooklang` | Keep live until scheduler_action_semantics emits the locked-C tree on every route with zero required dispatcher rewrites and exact production, compact, forest, incremental, and locked-C parity; authenticated Cooklang corpus and source lock required ("2026-08-24 Cooklang dispatcher blocker receipt") |
 | 9 | `dispatch.corn` | No complete six-route locked-C receipt yet ("2026-08-23 Corn blocker receipt") |
 | 10 | `dispatch.dart` | Route receipts don't prove native ownership; corpus absent; scanner-reuse receipt open ("2026-08-23 Dart dispatcher blocker receipt") |
 | 11 | `dispatch.doxygen` | Known locked-C divergences documented ("2026-08-22 Doxygen blocker receipt"; "2026-08-23 Doxygen dispatcher blocker receipt") |
 | 12 | `dispatch.dtd` | Two named divergences must close ("2026-08-22 document type definition (DTD) blocker receipt") |
-| 13 | `dispatch.go` | Three live subpasses enumerated ("2026-08-24 Go dispatcher blocker receipt") |
+| 13 | `dispatch.go` | Keep live until a producer emits exact C output for every authenticated witness and route with zero rewrites in all three subpasses, an authenticated Go corpus and source lock, and included-ranges root, semicolon, sibling-boundary, and `new`/`make` parity ("2026-08-24 Go dispatcher blocker receipt") |
 | 14 | `dispatch.hlsl` | Two named live members remain ("2026-08-22 HLSL blocker receipt") |
 | 15 | `dispatch.python` | Both f-string gaps open; corpus and lock absent; excluded from A0 denominator ("2026-08-24 Python dispatcher blocker receipt") |
 | 16 | `dispatch.rust` | Zero-rewrite on all 23 witnesses but route-complete ownership unproven ("`dispatch.rust` blocker receipt — 2026-08-22") |
-| 17 | `dispatch.solidity` | Corpus lock/directory absent; listed divergences incl. malformed controls open; five reopen conditions ("2026-08-23 Solidity dispatcher blocker receipt") |
+| 17 | `dispatch.solidity` | Corpus lock/directory absent; listed divergences incl. malformed controls open; six reopen conditions ("2026-08-23 Solidity dispatcher blocker receipt") |
 | 18 | `dispatch.templ` | Error-root route diverges from locked C after 53 rewrites; compact falls back everywhere ("2026-08-24 Templ dispatcher blocker receipt") |
-| 19 | `dispatch.typescript` | Exact all-route output unproven ("2026-08-24 TypeScript dispatcher blocker receipt") |
+| 19 | `dispatch.typescript` | Retirement requires all seven named reopen conditions: authenticated corpus lock and A0 receipts, rerun at locked grammar, exact raw/production/compact/forest/incremental/locked-C output per witness, scanner-reuse receipts on incremental routes, PrecDynamic tie-break proof, typed-arrow selection without exception, and closure of the webworker divergence with a safe condense design ("2026-08-24 TypeScript dispatcher blocker receipt") |
 | 20 | `dispatch.wgsl` | 171 A0 rewrites; locked-C shape/type/error divergences; corpus lock absent (N31R probe receipt, "2026-08-24 WGSL dispatcher blocker receipt") |
 | 21 | `dispatch.wolfram` | Three error roots; producer, incremental reuse, and corpus work all outstanding ("2026-08-24 Wolfram blocker receipt") |
 
-### Blocked B — no dedicated receipt, so retirement cannot even be attempted (11 entries)
+### Unassessed B — no dedicated receipt, so the arm is unprobed, not blocked (11 entries)
 
-Under "Rules for every retirement PR", every live arm needs a current firing
-witness or filed defect plus exact route receipts before any deletion; with no
-receipt, there is not even a measured gap to close. Baseline coverage only
+These entries are **unassessed**, not blocked: a blocker receipt is a NO-GO
+record, and its absence means the arm has not been probed. Under Rule 2
+("instrument and census first", "Rules for every retirement PR",
+`docs/root-normalization-retirement.md`), instrument and census measurement
+comes first. Every live arm needs a current firing witness or a filed defect
+(`docs/compat-tier.md` lines 81–83) plus exact route receipts before any
+deletion; with no receipt, there is not even a measured gap to close.
+Baseline coverage only
 (`evidence_scope: baseline_corpus_wide_only`, per A1):
 
 | # | Entry ID | Note |
@@ -76,17 +85,21 @@ receipt, there is not even a measured gap to close. Baseline coverage only
 | 31 | `dispatch.yaml` | One local repair (recovered root); no receipt |
 | 32 | `predicate.cobol-exact` | Predicate entry; no receipt; baseline coverage only |
 
-Cross-check: Blocked A (21) + Blocked B (11) = 32 =
+Cross-check: Blocked A (21) + Unassessed B (11) = 32 =
 `denominator.live_entries`. Every A1 row is classified exactly once.
 
-Within Blocked A/B above, "closest to retirement" ranking is below; no entry
+Cheapest probe next (smallest unreceipted arms): `dispatch.yaml` — one local
+repair; `predicate.cobol-exact` — none;
+`dispatch.julia` — none.
+
+Within Blocked A / Unassessed B above, "closest to retirement" ranking is below; no entry
 crosses into retirable-now until its full checklist closes.
 
 ## Ranked queue (top candidates)
 
 | Rank | Entry | A0/census profile (from its receipt) | Remaining gap |
 | -- | --- | --- | --- |
-| 1 | `dispatch.corn` | 792 visited nodes, zero error roots, zero rewrites — cleanest zero-rewrite A0 profile among receipted arms ("2026-08-23 Corn blocker receipt") | No complete six-route locked-C receipt yet; authenticated corpus coverage unproven |
+| 1 | `dispatch.corn` | 792 visited nodes, zero error roots, zero rewrites — cleanest zero-rewrite A0 profile among receipted arms ("2026-08-23 Corn blocker receipt") | The receipt's own four reopen conditions (`docs/root-normalization-retirement.md` lines 1335–1339) are open: scheduler_action_semantics must emit the locked-C quoted-path tree; malformed recovery must match locked C; exact production, compact, forest, incremental, and locked-C receipts required; authenticated Corn corpus required. Witness 4 has an open measured locked-C divergence surviving four production rewrites (lines 1301–1308: raw Go has seven children where C has eight at `/source_file/object[0]`); witness 6 forces a compact fallback (line 1327); the 792-node zero-rewrite profile covers the A0 subset (3 of 6 focused witnesses) only. |
 | 2 | `dispatch.bitbake` | 40,358 visited nodes, zero rewrites, two error roots ("2026-08-24 BitBake blocker receipt") | Two error-root witnesses must close; full-route receipts missing |
 | 3 | `dispatch.apex` | Four witnesses incl. A3 certification sweep; "strongest remaining focused route evidence" at selection time; no clean-route divergence in existing classic-route tests ("2026-08-22 Apex blocker receipt") | Native ownership not proven across all routes; focused locked-C route receipt incomplete |
 
