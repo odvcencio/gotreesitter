@@ -22,12 +22,12 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 	}{
 		{
 			name:       "bash",
-			corpusPath: filepath.Join("cgo_harness", "corpus_real", "bash", "medium__clean-old.sh"),
+			corpusPath: filepath.Join("testdata", "compact_converged_split", "bash.sh"),
 			load:       grammars.BashLanguage,
 		},
 		{
 			name:       "erlang",
-			corpusPath: filepath.Join("cgo_harness", "corpus_real", "erlang", "medium__attributes.erl"),
+			corpusPath: filepath.Join("testdata", "compact_converged_split", "erlang.erl"),
 			load:       grammars.ErlangLanguage,
 		},
 		{
@@ -37,7 +37,7 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 		},
 		{
 			name:       "javascript",
-			corpusPath: filepath.Join("cgo_harness", "corpus_real", "javascript", "small__functions.js"),
+			corpusPath: filepath.Join("testdata", "compact_converged_split", "javascript.js"),
 			load:       grammars.JavascriptLanguage,
 		},
 		{
@@ -53,11 +53,8 @@ func TestAdmissionCandidateCertifiedConvergedPathSplitsMatchProduction(t *testin
 			if test.corpusPath != "" {
 				var err error
 				source, err = os.ReadFile(test.corpusPath)
-				if os.IsNotExist(err) {
-					t.Skipf("real-corpus witness is unavailable: %s", test.corpusPath)
-				}
 				if err != nil {
-					t.Fatalf("read real-corpus witness: %v", err)
+					t.Fatalf("read compact certification witness: %v", err)
 				}
 			}
 

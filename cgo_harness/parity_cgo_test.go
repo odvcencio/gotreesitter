@@ -830,10 +830,10 @@ func TestParityCompactConvergedSplitCorpus(t *testing.T) {
 		corpusPath string
 		source     string
 	}{
-		{name: "bash", corpusPath: "corpus_real/bash/medium__clean-old.sh"},
-		{name: "erlang", corpusPath: "corpus_real/erlang/medium__attributes.erl"},
+		{name: "bash", corpusPath: "../testdata/compact_converged_split/bash.sh"},
+		{name: "erlang", corpusPath: "../testdata/compact_converged_split/erlang.erl"},
 		{name: "haskell", source: grammars.ParseSmokeSample("haskell")},
-		{name: "javascript", corpusPath: "corpus_real/javascript/small__functions.js"},
+		{name: "javascript", corpusPath: "../testdata/compact_converged_split/javascript.js"},
 		{name: "python", source: "def greet(name):\n    return f\"hello {name}\"\n\nprint(greet(\"world\"))\n"},
 	}
 
@@ -843,11 +843,8 @@ func TestParityCompactConvergedSplitCorpus(t *testing.T) {
 			if test.corpusPath != "" {
 				var err error
 				source, err = os.ReadFile(test.corpusPath)
-				if os.IsNotExist(err) {
-					t.Skipf("real-corpus witness is unavailable: %s", test.corpusPath)
-				}
 				if err != nil {
-					t.Fatalf("read real-corpus witness: %v", err)
+					t.Fatalf("read compact certification witness: %v", err)
 				}
 			}
 
