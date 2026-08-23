@@ -2374,6 +2374,159 @@ identity:
 The contract must reject a missing or changed identity before it attempts
 scanner replay. A numeric state translation alone is not sufficient.
 
+## C26ag generic compact table identity guard
+
+C26ag used base
+`d134ed5f963c7ed1d27fa1247aeb2a16746ab585`.
+The isolated worktree was `/tmp/gts-c26ag-table-identity-20260824`.
+
+Status: ACCEPTED guard. Keep issue #576 open for the remaining SQL parity gap.
+
+The guard adds a dependency-neutral `TableIdentityProvider` contract at
+`internal/parsercorephase0/core.go:277-282`.
+`Core` stores the producer identity at construction and compares it before
+parser-state replay (`internal/parsercorephase0/core.go:898-900,1690-1708`).
+The root adapter supplies the identity from its current `Language`
+(`parsercore_phase0_driver.go:552-562`).
+Replay returns an identity decline before it allocates or walks replay states
+when the identity differs (`parsestate_replay_compact.go:145-155`).
+
+Loaded languages use their exact compressed grammar blob SHA-256.
+In-memory generated languages use one process-local producer token.
+The contract does not translate numeric parser states.
+
+The existing reuse cursor requires the same `*Language` pointer
+(`parser.go:3450-3452`). Scanner checkpoint reuse requires scanner and grammar
+identity (`external_scanner_checkpoint_capability.go:153-159`). These gates
+remain unchanged. The new core guard covers the earlier replay boundary.
+
+### Identity evidence
+
+The focused tests cover matching identity, producer drift, and missing identity.
+The blob test proves that two loaded copies use the same exact blob SHA-256.
+The language-swap test proves that replay returns
+`DiagnosticParserCoreIdentity` before state reconstruction.
+
+The test files are:
+
+- `internal/parsercorephase0/core_test.go`
+- `parsercore_phase0_action_test.go`
+- `parsercore_phase0_language_tables_internal_test.go`
+
+### Docker validation
+
+Run the SQL scanner unit gate:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh \
+  --repo-root /tmp/gts-c26ag-table-identity-20260824 \
+  --out-root /tmp/gts-c26ag-artifacts \
+  --label c26ag-sql-unit --no-build --memory 4g --cpus 1 \
+  --goflags -p=1 --test-parallel 1 --timeout 10m \
+  --mount /tmp/gts-c26ad-grammar_parity:/tmp/grammar_parity:ro -- \
+  'export PATH=/usr/local/go/bin:$PATH; cd /workspace && \
+   go test ./grammars -run "^TestSQLScanner" -count=1 -v'
+```
+
+Artifact:
+`/tmp/gts-c26ag-artifacts/20260823T210107Z-c26ag-sql-unit`.
+
+- `container.log`: `a78c2bedc254da214328c2882471946d22bb92f95d2cb77edeec9b257a0fcfc5`
+- `metadata.txt`: `4c97fb3e942ff14b56ea4f29a168cb3c51028af9497c6ae5e083de609860b772`
+- `inspect.json`: `d3a5f75fb417f633964c50ebbb56f257d13d291218e47cc0ee2996e1e8697c80`
+
+The unit gate passed all SQL scanner tests.
+
+Run the generated SQL, locked-C, fresh-tree, incremental-reuse, and
+stale-identity gate:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh \
+  --repo-root /tmp/gts-c26ag-table-identity-20260824 \
+  --out-root /tmp/gts-c26ag-artifacts \
+  --label c26ag-sql-generated-locked-c --no-build --memory 4g --cpus 1 \
+  --goflags -p=1 --test-parallel 1 --timeout 10m \
+  --mount /tmp/gts-c26ad-grammar_parity:/tmp/grammar_parity:ro -- \
+  'export PATH=/usr/local/go/bin:$PATH; cd /workspace/cgo_harness && \
+   go test -tags "cgo treesitter_c_parity" . \
+   -run "^TestSQLGrammargenCGORegressionCases$" -count=1 -v'
+```
+
+Artifact:
+`/tmp/gts-c26ag-artifacts/20260823T210145Z-c26ag-sql-generated-locked-c`.
+
+- `container.log`: `736e2f2eaf768a36a66eb502e20bb1e087de33deee27fb3927cba06dbf55c62a`
+- `metadata.txt`: `6c34e0c42da9ec862263e90709c16d9de7c1afcdf580c4a2832e5520cf0e604c`
+- `inspect.json`: `76d02ec4b1fb55a7003c057181431404ca6e6579d75e2e695a037c3886b8861d`
+
+The generated identity matched the generated blob:
+`4ffb2a6d09e2000126f10101db9028d28e0752ac3e4f83e401f045c3b028ca7c`.
+The route reused one subtree and 16 bytes.
+The stale identity route reused zero subtrees and zero bytes.
+The identifier and parenthesized Boolean cases passed.
+The dollar-quoted case failed with the known generated-vs-locked-C error
+tree difference. The guard did not change that result.
+
+Run the focused identity tests:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh \
+  --repo-root /tmp/gts-c26ag-table-identity-20260824 \
+  --out-root /tmp/gts-c26ag-artifacts \
+  --label c26ag-table-identity-tests --no-build --memory 4g --cpus 1 \
+  --goflags -p=1 --test-parallel 1 --timeout 10m -- \
+  'export PATH=/usr/local/go/bin:$PATH; cd /workspace && \
+   go test ./internal/parsercorephase0 \
+   -run "^TestCoreTableIdentityCapturesAndRejectsProducerDrift$" -count=1 && \
+   go test -tags gts_parsercorephase0 . \
+   -run "^TestParserCoreReplayRejectsLanguageTableSwap$" -count=1'
+```
+
+Artifact:
+`/tmp/gts-c26ag-artifacts/20260823T210252Z-c26ag-table-identity-tests`.
+
+- `container.log`: `f9e9347197bd61ec6cccab08cfe9ffdfd592a77c8b03fef9996cbe4d7ff0d7b3`
+- `metadata.txt`: `586ee50d8776c8acdb86852efdd72d36b7d673831858f8bac42d288528c7aa2e`
+- `inspect.json`: `e13703264e21a47ab1b4b0265150f39471df1bd934796b22c08e89baea8184a9`
+
+The focused core and root tests passed.
+
+Run the loaded-blob identity test:
+
+```sh
+bash cgo_harness/docker/run_parity_in_docker.sh \
+  --repo-root /tmp/gts-c26ag-table-identity-20260824 \
+  --out-root /tmp/gts-c26ag-artifacts \
+  --label c26ag-identity-blob-test --no-build --memory 4g --cpus 1 \
+  --goflags -p=1 --test-parallel 1 --timeout 10m -- \
+  'export PATH=/usr/local/go/bin:$PATH; cd /workspace && \
+   go test -tags gts_parsercorephase0 . \
+   -run "^TestParserCoreRootTablesIdentityUsesLanguageBlobHash$" -count=1'
+```
+
+Artifact:
+`/tmp/gts-c26ag-artifacts/20260823T210428Z-c26ag-identity-blob-test`.
+
+- `container.log`: `ff89dcb7bfb870183e0871a08aa11a9aabe11a46967ab8b294db15f662815e0c`
+- `metadata.txt`: `34ab6bf29fa3b2ebadb28e303b6afa5c4ccb57e7c3a5a76dc8190d6f5b251aa1`
+- `inspect.json`: `1db29621cf1c5c1a2d8245f869a4d477683a6ebbed6a5b92813aa74358af5d25`
+
+The blob identity test passed.
+
+### Decision and reopening condition
+
+Accept the generic table-identity guard. Do not add SQL-specific symbol maps.
+Keep the SQL compact route gated until generated SQL matches locked C on the
+dollar-quoted witness and the replay contract covers all derivation metadata.
+
+Reopen the SQL route only after a Docker gate proves all of these conditions:
+
+- equal table identity permits replay;
+- changed or missing identity declines before replay;
+- scanner identity and checkpoint bytes remain exact;
+- fresh, compact, incremental, and locked-C trees match; and
+- the generated SQL dollar-quoted witness passes without a state remap.
+
 ## Corpus state
 
 The current manifest has these properties:

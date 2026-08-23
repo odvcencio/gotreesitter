@@ -94,6 +94,18 @@ for tags and release notes while still in `0.x`.
   generic replay contract. No parser, scanner, or test change ships. Keep issue
   #576 open. See `docs/compact-route-real-corpus-matrix.md`.
 
+- Added the C26ag generic table-identity guard at base
+  `d134ed5f963c7ed1d27fa1247aeb2a16746ab585`. The compact core captures the
+  producer identity at construction. Loaded languages use the exact grammar
+  blob SHA-256. In-memory languages use one process-local producer token.
+  Replay now declines before state reconstruction when the producer identity
+  changes or is absent. The guard preserves same-language replay and does not
+  translate numeric parser states. Focused identity tests passed in Docker.
+  SQL scanner unit tests passed. The generated SQL route still has the known
+  dollar-quoted locked-C divergence. Keep issue #576 open until that parity gap
+  and the complete replay contract are resolved. See
+  `docs/compact-route-real-corpus-matrix.md`.
+
 - Added authenticated generated-SQL scanner identity to the grammargen C
   parity route. The route now reloads the generated blob through `LoadLanguage`
   before scanner adaptation. The scanner binds checkpoints to exact generated

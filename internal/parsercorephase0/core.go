@@ -271,6 +271,13 @@ type TableView interface {
 	ProductionAliases(uint16, int) ([]Symbol, error)
 }
 
+// TableIdentityProvider supplies the immutable identity of the table producer.
+// A compact core must not replay parser states after its producer changes.
+// Adapters that do not provide an identity cannot prove replay compatibility.
+type TableIdentityProvider interface {
+	TableIdentity() ([32]byte, bool)
+}
+
 // Decline identifies a feature that phase zero cannot execute faithfully.
 type Decline string
 
@@ -891,6 +898,8 @@ type RawSelectedCensus struct {
 // into pointer-free slices; the production parser is unaffected.
 type Core struct {
 	tables             TableView
+	tableIdentity      [32]byte
+	tableIdentityValid bool
 	plans              ReductionPlanProvider
 	selectedProvider   SelectedStorePolicyProvider
 	selectedPolicy     *SelectedStorePolicy
@@ -1681,9 +1690,27 @@ func New(tables TableView, limits Limits) (*Core, error) {
 		diagnostics:                       diagnosticOptions{foldSamePredecessorShallowPayloads: true},
 		metadataConstructionAuthenticated: true,
 	}
+	if provider, ok := tables.(TableIdentityProvider); ok {
+		core.tableIdentity, core.tableIdentityValid = provider.TableIdentity()
+	}
 	core.plans, _ = tables.(ReductionPlanProvider)
 	core.selectedProvider, _ = tables.(SelectedStorePolicyProvider)
 	return core, nil
+}
+
+// TableIdentityMatches reports whether the table producer still matches the
+// identity captured when the compact core was created. Missing identity fails
+// closed because parser-state replay needs exact table provenance.
+func (c *Core) TableIdentityMatches() bool {
+	if c == nil || !c.tableIdentityValid {
+		return false
+	}
+	provider, ok := c.tables.(TableIdentityProvider)
+	if !ok {
+		return false
+	}
+	identity, valid := provider.TableIdentity()
+	return valid && identity == c.tableIdentity
 }
 
 // AuthenticationGeneration identifies the current Core capability phase.

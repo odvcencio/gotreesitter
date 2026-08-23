@@ -648,6 +648,12 @@ type Language struct {
 	compactTables     any   // *parserCoreLanguageTables under the default build
 	compactTablesErr  error // the build error, memoized alongside compactTables
 
+	// compactTableIdentityOnce assigns one immutable identity to the parser
+	// table producer. Loaded blobs use their exact blob hash. In-memory
+	// generated languages use a process-local token until they are encoded.
+	compactTableIdentityOnce sync.Once
+	compactTableIdentity     [32]byte
+
 	// corridorProgram memoizes the compiled C4 bytecode corridor program for
 	// this Language (spec.c4-bytecode-isa.v1 section 3.6: the stream is
 	// memoized per *Language beside compactTables and dies with the Language).
@@ -1002,6 +1008,25 @@ func (l *Language) GrammarBlobSHA256() ([32]byte, bool) {
 		return [32]byte{}, false
 	}
 	return l.grammarBlobSHA256, true
+}
+
+var nextCompactTableIdentity atomic.Uint64
+
+func (l *Language) parserCoreTableIdentity() ([32]byte, bool) {
+	if l == nil {
+		return [32]byte{}, false
+	}
+	l.compactTableIdentityOnce.Do(func() {
+		if blob, ok := l.GrammarBlobSHA256(); ok {
+			l.compactTableIdentity = blob
+			return
+		}
+		id := nextCompactTableIdentity.Add(1)
+		for i := 0; i < 8; i++ {
+			l.compactTableIdentity[i] = byte(id >> (8 * i))
+		}
+	})
+	return l.compactTableIdentity, true
 }
 
 // CompatibleWithRuntime reports whether this language can be parsed by the

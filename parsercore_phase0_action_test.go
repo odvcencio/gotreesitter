@@ -103,6 +103,39 @@ func TestParserCoreRootTablesRejectInvalidActionWhileCaching(t *testing.T) {
 	}
 }
 
+func TestParserCoreReplayRejectsLanguageTableSwap(t *testing.T) {
+	firstLanguage := &Language{
+		LargeStateCount: 1,
+		ParseTable:      [][]uint16{{0}},
+		ParseActions:    []ParseActionEntry{{}},
+	}
+	parser := NewParser(firstLanguage)
+	tables, err := newParserCoreRootTables(parser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compact, err := core.New(tables, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !compact.TableIdentityMatches() {
+		t.Fatal("initial table identity did not match")
+	}
+	parser.language = &Language{
+		LargeStateCount: 1,
+		ParseTable:      [][]uint16{{0}},
+		ParseActions:    []ParseActionEntry{{}},
+	}
+	if compact.TableIdentityMatches() {
+		t.Fatal("language table swap retained the old identity")
+	}
+	_, err = parser.replayCompactDerivation(compact, nil)
+	var decline *diagnosticParserCoreDecline
+	if !errors.As(err, &decline) || decline.boundary != DiagnosticParserCoreIdentity {
+		t.Fatalf("replay error=%v, want identity decline", err)
+	}
+}
+
 func TestParserCoreRootlessTablesRemainUsableWithoutSelectedStorePolicy(t *testing.T) {
 	lang := &Language{
 		LargeStateCount: 1,
