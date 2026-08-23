@@ -869,6 +869,164 @@ Require exact production, compact, forest, incremental, and locked-C parity.
 Keep dispatch.hlsl live until scheduler_action_semantics emits the C field.
 Require the authenticated HLSL corpus before retirement.
 
+## 2026-08-22 Authzed blocker receipt
+
+Status: NO-GO. KEEP LIVE: `dispatch.authzed`.
+The Authzed arm remains live.
+
+Base commit: `7498a678c52029a82f312e9637ecb66b15defa0b`.
+
+Select Authzed after excluding the documented blockers for Apex, Rust, Doxygen,
+DTD, Ada, HLSL, Corn, BitBake, and Wolfram.
+Authzed ranks first among the remaining arms in A0 (initial dispatcher census).
+
+The remaining A0-backed arms rank as follows:
+
+| Arm | Files | Nodes visited | Nodes rewritten | Error roots |
+| --- | ---: | ---: | ---: | ---: |
+| `dispatch.authzed` | 3 | 8,326 | 18 | 1 |
+| `dispatch.templ` | 3 | 1,138 | 76 | 1 |
+| `dispatch.wgsl` | 3 | 2,630 | 171 | 2 |
+| `dispatch.solidity` | 3 | 26,897 | 666 | 0 |
+| `dispatch.cooklang` | 3 | 1,037 | 1,021 | 2 |
+
+Authzed has the lowest nonzero rewrite count.
+It also has existing forest and incremental evidence.
+The other remaining arms lack an equivalent route receipt at this depth.
+
+The registry contains 88 entries. It contains 78 dispatcher arms, three
+dispatcher subpasses, one dispatcher predicate, three generic passes, and
+three fixpoint passes.
+The live denominator contains 31 dispatcher arms, 33 dispatcher languages,
+one predicate, 32 live entries, and 56 retired entries.
+It contains zero generic passes and zero post-finalization arms.
+
+The registry names `normalizeAuthzedCompatibility` in
+`parser_result_authzed.go`.
+The authoritative owner is `scheduler_action_semantics`.
+The registered witness is `cgo_harness/parity_cgo_test.go`.
+The retirement condition requires exact native output on every registered
+witness and on production, compact, forest, incremental, and C-oracle routes.
+
+The A0 receipt covers these authenticated files:
+All files are under `testdata/dispatcher_census_a0/authzed/`.
+
+| File | Bytes | Source SHA-256 |
+| --- | ---: | --- |
+| `small__localimport_with_quotes_in_quotes.zed` | 280 | `a78131bee5849e2ce1b002605896a090a0003e052574e76ea469c3b895c534e0` |
+| `small__doccomments.zed` | 692 | `fac84d359ebf4b628e54f567b30657792550d0c58441c42fb10a2a044b379574` |
+| `large__superlarge.zed` | 106,126 | `86921255ed996dbf67a519adf1e33d5353aa873f025f77e2150ded76ac81197c` |
+
+The A0 receipt records three files, three checked, three run, 8,326 visited
+nodes, 18 rewrites, one error root, and zero parse errors.
+The manifest has 14 languages, 42 files, and 14 receipts.
+The tracked census has seven fixtures across six languages.
+It has no Authzed fixture.
+The real corpus is unavailable because `cgo_harness/corpus_real` is absent.
+`TestDispatcherArmCensusOverRealCorpus` skips for this reason.
+
+Existing forest research provides two limits:
+
+- 25 of 25 lock-filtered `.zed` files matched production with recovery on;
+- an authenticated 110-file audit matched 81 files and diverged on 29 files.
+
+The forest implementation keeps Authzed explicit-only until the 29-file gap
+closes.
+
+The focused route probe uses nine witnesses:
+
+- three A0 files;
+- three clean controls;
+- one plain-definition control;
+- two malformed recovery controls.
+
+The probe traces every dispatcher rewrite:
+
+| Witness | Raw | Production | Compact request | Forest | Incremental |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A0 local import | 0 | 18 | 18 | declined | 19 |
+| A0 doc comments | 0 | 0 | 0 | 0 | 0 |
+| A0 superlarge | 0 | 0 | 0 | declined | 0 |
+| Clean basic definition | 0 | 0 | 0 | declined | 0 |
+| Clean single-quoted caveat | 0 | 0 | 0 | declined | 0 |
+| Clean associativity | 0 | 0 | 0 | 0 | 0 |
+| Plain-definition control | 0 | 0 | 0 | 0 | 0 |
+| Malformed unsupported use | 0 | 11 | 11 | declined | 12 |
+| Malformed permission method | 0 | 0 | 0 | declined | 0 |
+
+The raw route uses the built-in deterministic finite automaton (DFA) path.
+The no-result route cannot accept the registered custom token source.
+Raw and production differ on two A0 files:
+
+- The local-import tree differs at `/source_file/ERROR[2]/\n[0]`.
+  Go marks the newline as an error, and C does not.
+- The doc-comment tree differs at `/source_file`.
+  Go has 16 children, and C has 6 children.
+
+The superlarge raw tree matches locked C.
+All raw route rewrite counts are zero.
+
+The production route uses `NewAuthzedTokenSourceOrEOF`.
+The local-import A0 file rewrites 18 nodes and then matches locked C.
+The other two A0 files report zero rewrites and match locked C.
+The unsupported-use control rewrites 11 nodes and matches locked C.
+The malformed permission control rewrites zero nodes but diverges from C at
+`/source_file/ERROR[0]/\n[8]`.
+Go marks the error flag true, and C marks it false.
+
+The compact request declines because the custom token source is not eligible.
+The candidate counters remain `0/0 -> 0/0` for every witness.
+The returned tree is the production token-source tree.
+Its rewrite counts match the production column.
+
+The direct forest route accepts the associativity and plain-definition
+controls.
+It also accepts the doc-comment A0 file, but keeps its 16-child root.
+The other six witnesses decline at `error_root` or
+`eof-recovery-conflict`.
+The Authzed token source does not provide forest fallback eligibility.
+The recovery-enabled rerun produces the same route outcomes.
+
+The incremental route appends one newline to each source.
+Every incremental result equals a fresh token-source result by deep digest.
+The A0 local-import result rewrites 19 nodes after the appended newline.
+The malformed unsupported-use result rewrites 12 nodes.
+The malformed permission result still diverges from C at the error flag.
+Incremental reuse records these `(subtrees, bytes)` pairs:
+
+| Witness | Reused subtrees | Reused bytes |
+| --- | ---: | ---: |
+| A0 local import | 2 | 118 |
+| A0 doc comments | 22 | 253 |
+| A0 superlarge | 5,182 | 99,087 |
+| Clean basic definition | 13 | 65 |
+| Clean single-quoted caveat | 20 | 124 |
+| Clean associativity | 15 | 105 |
+| Plain-definition control | 4 | 16 |
+| Malformed unsupported use | 0 | 0 |
+| Malformed permission method | 8 | 36 |
+
+The focused Authzed grammar run passes all 15 lexer and recovery tests.
+The incremental associativity test passes its fresh-tree and retry guards.
+The live positive controls still exercise caveat, directive, and malformed
+permission recovery.
+
+Do not retire `dispatch.authzed`.
+Require the scheduler owner to emit every locked-C tree without rewrites.
+Require the 110-file authenticated corpus.
+Require forest fallback ownership for the custom token source.
+Keep the arm live until the two route divergences and all rewrite counts close.
+
+The successful focused Docker artifacts are:
+
+- `/tmp/authzed-next-artifacts/20260823T010006Z-authzed-next-final-receipt` — final nine-witness route and document receipt;
+- `/tmp/authzed-next-artifacts/20260823T005356Z-authzed-next-routes-recovery` — recovery-enabled forest rerun;
+- `/tmp/authzed-next-artifacts/20260823T005155Z-authzed-registry` — ownership registry;
+- `/tmp/authzed-next-artifacts/20260823T005203Z-authzed-a0` — A0 manifest;
+- `/tmp/authzed-next-artifacts/20260823T005212Z-authzed-tracked` — tracked census;
+- `/tmp/authzed-next-artifacts/20260823T005220Z-authzed-real-corpus` — unavailable real-corpus receipt;
+- `/tmp/authzed-next-artifacts/20260823T005448Z-authzed-grammar-all` — Authzed lexer and recovery tests.
+
 The mandatory shape is census before migration. Historical audits already
 found that table or engine fixes can leave old normalizers behind.
 

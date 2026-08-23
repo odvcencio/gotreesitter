@@ -243,6 +243,16 @@ for tags and release notes while still in `0.x`.
   locked C. The full real-corpus census is unavailable. See
   `docs/root-normalization-retirement.md`.
 
+- Record the `dispatch.authzed` blocker receipt at base
+  `7498a678c52029a82f312e9637ecb66b15defa0b`. Keep the arm live. The A0
+  manifest records three files, three checks, three runs, 8,326 visited nodes,
+  and 18 rewrites. The focused probe traces nine witnesses across raw,
+  production, compact, forest, incremental, and locked-C routes. Production
+  rewrites the A0 local-import witness 18 times and the malformed use witness
+  11 times. The malformed permission witness still differs from locked C.
+  The full Authzed corpus is unavailable. No registry or production change is
+  included. See `docs/root-normalization-retirement.md`.
+
 - Record a durable Doxygen locked-C blocker receipt. Keep `dispatch.doxygen`
   live. The three A0 witnesses report zero raw and production rewrites. The
   historical childless and recovered routes report 3 and 14 named rewrites
