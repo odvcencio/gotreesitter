@@ -22,6 +22,18 @@ for tags and release notes while still in `0.x`.
   size (RSS) run was justified.
   See `docs/perf-attribution.md` for exact identities, commands, and artifacts.
 
+- Recorded P25ay at base `af9ded2b77b7828b12b1d2da7c9fff8dd5ca053b`.
+  The probe measured hidden-field flattening across the primary trio, recovery,
+  and JavaScript control.
+  Recovery made 2,207 helper calls and appended 1,213 nodes.
+  JavaScript made 399 helper calls and made 25 deferred field calls.
+  Primary no-edit made zero helper calls.
+  P25ab showed that the helper was not the dominant allocation source.
+  No grammar-agnostic candidate met the proof boundary.
+  The result is **NO-GO / NO CANDIDATE**.
+  No six-seed, twenty-seed, or maximum resident set size (RSS) run was justified.
+  See `docs/perf-attribution.md` for exact commands, artifacts, and hashes.
+
 ### Correctness
 
 - Recorded the next unreceipted `dispatch.templ` blocker at base
