@@ -10,6 +10,122 @@ published receipt.
 This is measurement infrastructure only. It changes no parser code, no
 routing, and no shipped behavior.
 
+## 2026-08-23 P25a fresh-profile performance blocker receipt
+
+Status: **KEEP LIVE / NO-GO**. Ship no candidate code.
+
+This receipt is based on main commit
+`0448715e9a80305556b687b6ecaf041da42e9d9d`.
+
+P25a used the fresh profile settings required by P24i. The artifacts prove the
+recorded commands, but they do not prove a quiet host before or during the run.
+The run used one central processing unit (CPU), `GOMAXPROCS=1`, one process per
+benchmark, and sequential benchmark execution. The process was pinned to CPU
+19 with `taskset`. The benchmark used one count, one test CPU, benchmark memory
+reporting, and a five-second profile window. The benchmark invocation used
+`GOFLAGS=-p=1`.
+
+The artifact set records benchmark process logs only. It does not measure
+unrelated host activity or prove the absence of a concurrent workload.
+
+The exact benchmark command was:
+
+```text
+taskset -c 19 env GOMAXPROCS=1 GOFLAGS=-p=1 GOT_BENCH_FUNC_COUNT=500 GOT_GLR_MAX_STACKS=6 /tmp/p25a-profile-20260824-artifacts/gotreesitter.test -test.run '^$' -test.bench '^BenchmarkName$' -test.benchtime 5s -test.count 1 -test.cpu 1 -test.benchmem -test.cpuprofile /tmp/p25a-profile-20260824-artifacts/profiles/BenchmarkName.pprof
+```
+
+P25a substituted each name from the primary trio. It ran the benchmarks
+sequentially. It did not run the 20-seed publication protocol. One profile
+ran for each lane. This receipt does not establish a formal noise floor.
+
+### P25a fresh profile results
+
+The primary trio is a historical generated straight-LR control. It does not
+prove generalized LR (GLR) behavior or a real-GLR performance improvement.
+
+| Benchmark | Time | Bytes per operation (B/op) | Allocations per operation (allocs/op) | Maximum resident set size (RSS) |
+|---|---:|---:|---:|---:|
+| `BenchmarkGoParseFullDFA` | 9.763 ms | 12,453 | 4 | 49,872 KiB |
+| `BenchmarkGoParseIncrementalSingleByteEditDFA` | 882.5 ns | 0 | 0 | 50,668 KiB |
+| `BenchmarkGoParseIncrementalNoEditDFA` | 3.212 ns | 0 | 0 | 49,868 KiB |
+
+Full parsing had distributed cost. `runtime.duffcopy` used 9.99% flat CPU.
+`Core.reduceOutputsClassifiedIntoActive` used 4.70% flat and 23.35%
+cumulative CPU. The generic scheduler dispatch used 3.96% flat and 55.65%
+cumulative CPU. Materialization used 2.35% flat and 10.43% cumulative CPU.
+No single full-parse helper formed a safe local candidate.
+
+The single-byte edit profile supplied the strongest target region:
+
+- `runtime.memmove` used 21.78% flat CPU.
+- `Tree.Edit` used 8.08% flat and 11.37% cumulative CPU.
+- `tryTokenInvariantLeafEdit` used 3.56% flat and 47.95% cumulative CPU.
+- `reuseTreeWithNewSource` used 2.05% flat and 13.15% cumulative CPU.
+- `newTreeWithUniqueArenas` used 6.16% flat and 11.10% cumulative CPU.
+
+The no-edit lane is an identity-reuse control. `Parser.ParseIncremental` used
+32.98% flat and 63.03% cumulative CPU. Compatibility checks and root reuse
+accounted for most remaining samples. It is not a useful local target.
+
+### P25a candidate and proof boundary
+
+P25a considered the `Tree.Edit` single-byte replacement and reuse path. The
+path marks the affected tree path. When final child references exist, it uses
+the general delta path. That path shifts child entries, stack entries, pending
+parents, and points.
+
+The token-invariant fast path checks the language, edit range, leaf range,
+error and missing flags, scanner checkpoints, token symbol, and token span.
+The reuse path retains arenas, clears dirty paths, and carries forest, compact,
+reuse, result, and compatibility state into the new tree.
+
+Any candidate in this region must prove all of these properties:
+
+- Preserve linear and forked graph-structured stack (GSS) paths.
+- Preserve pending-parent ownership, child references, and materialization.
+- Preserve raw shape, hashes, precedence, and result selection.
+- Preserve field identifiers, field sources, hidden flattening, and field order.
+- Preserve fragility flags and fragile non-leaf reuse rejection.
+- Preserve locked-C recovery, retries, missing tokens, and fallback decisions.
+- Prove incremental trees equal fresh parses after clean and malformed edits.
+
+The fresh profiles identify a region, but they do not identify one helper whose
+edit can satisfy this proof boundary. The primary trio also lacks forked GLR
+coverage. P25a therefore found no defensible candidate.
+
+### P25a artifacts and decision
+
+The isolated profile worktree was `/tmp/gts-p25a-profile-20260824`. The
+benchmark binary SHA-256 is
+`8f05f5c338ab95050dcb91c8944dd9c51995765ca12a727359b1de564fd40ac2`.
+
+The profile artifacts are in
+`/tmp/p25a-profile-20260824-artifacts/`. The `profiles` directory contains
+these files:
+
+- `profiles/BenchmarkGoParseFullDFA.pprof`
+- `profiles/BenchmarkGoParseIncrementalSingleByteEditDFA.pprof`
+- `profiles/BenchmarkGoParseIncrementalNoEditDFA.pprof`
+
+The `top` directory contains the matching top reports. The same directory
+contains benchmark output and `/usr/bin/time -v` logs.
+
+P25a changed no parser or test code. It ran no Docker correctness or parity
+test because no candidate survived the profile proof boundary. It ran no
+20-seed, 40-process publication. The accepted decision is **KEEP LIVE / NO-GO**.
+
+### P25a reopening condition
+
+Reopen P25a only when a fresh quiet-host profile names one bounded helper
+above a measured noise floor. Use one CPU, `GOMAXPROCS=1`, and no concurrent
+CPU work. Make one local candidate edit only after the profile identifies it.
+Prove linear and forked GSS, pending parents, raw shape, fields, fragility,
+recovery, and incremental equality on production and compact routes. Run
+focused Docker correctness and parity before any performance publication.
+Then run the exact 20-seed, 40-process protocol with alternating order,
+`GOMAXPROCS=1`, count one, 750 milliseconds, benchmark memory reporting, the
+primary trio, and per-process RSS.
+
 ## 2026-08-22 P24i final performance blocker receipt
 
 Status: **KEEP LIVE / NO-GO**. Ship no candidate code.

@@ -9,6 +9,18 @@ for tags and release notes while still in `0.x`.
 
 ### Performance
 
+- Recorded the P25a fresh-profile performance blocker at main commit
+  `0448715e9a80305556b687b6ecaf041da42e9d9d`. The primary trio produced no
+  defensible bounded candidate. The profile used one CPU, `GOMAXPROCS=1`,
+  stable single-process settings. The recorded commands ran sequentially.
+  Full parsing used 12,453 bytes per operation (B/op) and four allocations
+  per operation (allocs/op). The incremental lanes used zero B/op and zero
+  allocs/op. Maximum resident set size (RSS) ranged from 49,868 to 50,668
+  KiB. No code changed. The receipt includes no Docker correctness run or
+  20-seed publication. Keep the performance arm live. See
+  `docs/perf-attribution.md` for the proof boundary, artifacts, and reopening
+  condition.
+
 - Recorded the P24i final performance blocker at main commit
   `603f64155651888d46937e6b5df461873283b9a1`. After P24a through P24h, no
   safe bounded candidate remained. P24i made no code change and ran no
