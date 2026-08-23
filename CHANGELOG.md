@@ -9,6 +9,19 @@ for tags and release notes while still in `0.x`.
 
 ### Correctness
 
+- Recorded the C26s generated SQL dollar-quote blocker. The generated
+  external symbols were `286`, `287`, and `288`. The locked blob symbols were
+  `285`, `286`, and `287`. Their names matched, but the generated scanner
+  emitted native symbol IDs before recovery. The 16-byte and 20-byte
+  witnesses produced `ERROR` nodes in generated Go. Blob-backed Go and locked
+  C matched. A target-symbol candidate fixed fresh trees but changed the old
+  checkpoint count from 13 records, 4 leaves, and 4 snapshots to zero. It
+  changed incremental reuse from 1 subtree and 16 bytes to zero, with
+  `ReuseRejectScannerUnquiescent=1`. The candidate diff SHA-256 was
+  `15938c6f9db8f5b0366711d3b57f0c6c63f8baa5c1a088f106cba3155e7e8aa9`.
+  Keep issue #576 open. See the compact route matrix for artifact hashes and
+  the rejected candidate details.
+
 - Added authenticated generated-SQL scanner identity to the grammargen C
   parity route. The route now reloads the generated blob through `LoadLanguage`
   before scanner adaptation. The scanner binds checkpoints to exact generated

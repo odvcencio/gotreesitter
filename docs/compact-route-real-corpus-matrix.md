@@ -1365,6 +1365,59 @@ Its `metadata.txt` SHA-256 is
 The route remains blocked by four generated SQL locked-C divergences. Keep
 issue #576 open until those trees match node for node.
 
+### C26s generated SQL dollar-quote blocker
+
+C26s used publication base
+`055051a24a1195bd8743be38674fc9aae75e1bc6`.
+The causal Docker artifact is:
+
+`/tmp/gts-c26s-artifacts/20260823T161551Z-c26s-sql-dollar-trace-c`
+
+Its `container.log` SHA-256 is
+`d0d1fb2d178eb989640cc23d1108585053add132fcdefe8dbaa50294e7bfd05`.
+Its `metadata.txt` SHA-256 is
+`cc4e6632a7edb0b4b867256fec32a927f07396e9e2a7f82c0b328a4f16c4d15e`.
+The run used one CPU, 4 GiB memory, `GOMEMLIMIT=3GiB`, `GOFLAGS=-p=1`, and
+test parallelism 1. It had no timeout or out-of-memory failure.
+
+The 16-byte witness was `SELECT $$hey$$;\n`. The 20-byte witness was
+`SELECT $$(a + b)$$;\n`. The generated external symbols were
+`286:_dollar_quoted_string_tag`, `287:content`, and
+`288:_dollar_quoted_string_end_tag`. The locked blob symbols were
+`285:_dollar_quoted_string_tag`, `286:content`, and
+`287:_dollar_quoted_string_end_tag`.
+
+The names matched, but the generated scanner emitted native symbol IDs.
+The generated scanner retried valid symbol `[0]`. The blob scanner emitted
+valid symbols `[0]`, `[1]`, and `[2]`. Generated Go added `ERROR` nodes in both
+witnesses. Blob-backed Go and locked C matched.
+
+The rejected candidate diff SHA-256 was
+`15938c6f9db8f5b0366711d3b57f0c6c63f8baa5c1a088f106cba3155e7e8aa9`.
+Its unit artifact was
+`/tmp/gts-c26s-artifacts/20260823T161719Z-c26s-sql-scanner-unit-fix`.
+Its `container.log` SHA-256 was
+`90e222dafc51fcd3dacc720bbe9f5b5b7c7d755a48cb9d8eb8d3ae2f9ffa0bc6`.
+Its `metadata.txt` SHA-256 was
+`71800197d81cd8a1b32231406219389267a2bee86f0292c482f65b8bfc3c163e`.
+The fresh-parity artifact was
+`/tmp/gts-c26s-artifacts/20260823T161743Z-c26s-sql-dollar-fix-parity`.
+Its `container.log` SHA-256 was
+`b22ae8af5901c2a1dc78dec36a6a8c81592eae7425a65cbda21ba5394953571a`.
+Its `metadata.txt` SHA-256 was
+`ffb3f1c20b71957a43968e943da4d5d2bfa74c993ff88bb0e1a88c80f4099977`.
+The candidate recorded zero checkpoint records, zero leaves, and zero
+snapshots. Its reuse artifact was
+`/tmp/gts-c26s-artifacts/20260823T162020Z-c26s-sql-dollar-fix-reuse`.
+Its `container.log` SHA-256 was
+`795384ab6b6296ae5c15e0587abfa5a2b58d90c243b6beae407e87131b4636f1`.
+Its `metadata.txt` SHA-256 was
+`875d090548d1be40003cccee9c9380c019bc8ea26453bddc84b9b1ec9a856193`.
+The candidate reported `ReusedSubtrees=0`, `ReusedBytes=0`, and
+`ReuseRejectScannerUnquiescent=1`. It also allocated 14 new nodes.
+Reject this candidate. Keep issue #576 open. No C26s production or test change
+survives.
+
 ### Generated SQL override proof
 
 The generated override tests use the checked-in SQL blob as input. They
