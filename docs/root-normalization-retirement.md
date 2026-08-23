@@ -609,6 +609,140 @@ The focused Docker artifacts are:
 - `/tmp/ada-next-live-rebased-artifacts/20260822T232118Z-ada-census-registry`;
 - `/tmp/ada-next-live-rebased-artifacts/20260822T232128Z-ada-real-census`.
 
+## 2026-08-24 Templ blocker receipt
+
+Status: `NO-GO`. `KEEP LIVE`: `dispatch.templ`.
+
+Base commit: `7498a678c52029a82f312e9637ecb66b15defa0b`.
+This isolated receipt changes no production or registry file.
+
+Select Templ after the Authzed review and all earlier retired or blocked arms.
+The registry ranks Templ next by its remaining A0 rewrite count.
+
+The registry has 88 entries. It has 78 dispatcher arms, three dispatcher
+subpasses, one dispatcher predicate, three generic passes, and three fixpoints.
+The live registry has 31 dispatcher arms, 33 dispatcher languages, one
+predicate, 32 live entries, and 56 retired entries. It has 35 live language
+labels, or 34 after case folding.
+
+The registry records `dispatch.templ` in `parser_result_templ.go`. Its owner is
+`scheduler_action_semantics`. Its witnesses are in
+`cgo_harness/parity_cgo_test.go`.
+
+The A0 (initial dispatcher census) manifest has 14 languages, 42 files, and
+14 receipts. It records 44 checks, 44 runs, 313572 visited nodes, 3267
+rewritten nodes, 20 error roots, and zero parse errors.
+
+The authenticated Templ A0 receipt records three files, three checks, three
+runs, 1138 visited nodes, 76 rewritten nodes, one error root, and zero parse
+errors. The source files come from `a-h/templ` commit
+`f8e3a1b4efb329e94e4831e3ad494bbc2086b756`.
+
+| A0 witness | Bytes | Source SHA-256 |
+| --- | ---: | --- |
+| `medium__main.templ` | 2161 | `4415618a310cc880cb67fcd902bb7e9f82e91b9d0f461349e0cfb5cd0b1fa007` |
+| `medium__template.templ` | 2999 | `e4a5934ad709206e1c5ca82ab9bc86cd20467df61484357096e6378b5dbb7791` |
+| `small__template.templ` | 257 | `bdc8798d13311d9f459108d3fad77f291dde4156fe68295671706684b8dd3eb3` |
+
+The tracked census has seven fixtures across six languages. It has no Templ
+fixture. The full real-corpus census is unavailable because
+`cgo_harness/corpus_real` is absent. The real-corpus test records a controlled
+skip for this condition.
+
+The locked-C route receipt covers raw, production, compact, forest, and
+incremental routes. The raw route suppresses result compatibility. It is a
+diagnostic route and cannot support retirement by itself.
+
+| Witness | Raw Go digest | Normalized route digest | Locked C digest |
+| --- | --- | --- | --- |
+| `medium__main.templ` | `895657a1c4978896653cf968b2dedddf7badd40f464d558e97dd95a9d9675595` | `895657a1c4978896653cf968b2dedddf7badd40f464d558e97dd95a9d9675595` | `efab90f3a4a75a4deba8c94d67c741dd842a7c8c6708bed3f59e37e0a994a11f` |
+| `medium__template.templ` | `33a54940b5da62255e5a03056b2ed7935994773b53a746b9a7e706b60a1a8dcb` | `2499953c81a152ca9db474f121b1a8a9de0c888c6f00a25125301c157bcb0b0e` | `7de9788750436a485bee98ec6200da09d5062700368333fe380562d71f171891` |
+| `small__template.templ` | `80e67baee0a78d252f4621c42b4eab3e1334bc919bdcba000d17034d04f954f3` | `cb81fe10587416eae568216d16d2f7258bda32d00136030d8a4fcd2198e12594` | `cb81fe10587416eae568216d16d2f7258bda32d00136030d8a4fcd2198e12594` |
+
+The main witness differs at `/source_file`. Go marks the root as an error,
+but C does not. Production, compact, and incremental routes report zero
+`dispatch.templ` rewrites. The compact route falls back because the scheduler
+did not accept EOF. The forest route declines at offset 1025, symbol 74, with
+reason `dead_end`. Incremental parsing falls back for
+`external_scanner_unsupported`.
+
+The medium template witness rewrites 53 nodes on production, compact, forest,
+and incremental routes. The normalized routes still differ at
+`/source_file/component_declaration[26]/component_block[3]`: Go has 12
+children, while C has 11. The raw route has 20 children at that path. Compact
+parsing falls back for a converged-path reduction split. Forest parsing
+accepts the source. Incremental parsing falls back for
+`external_scanner_unsupported`.
+
+The small template witness rewrites 23 nodes on production, compact, forest,
+and incremental routes. The normalized routes match locked C exactly. The raw
+route differs at
+`/source_file/component_declaration[3]/component_block[3]/element[2]/element[1]`:
+Go has four children, while C has three. Compact parsing falls back for a
+converged-path reduction split. Forest parsing accepts the source. Incremental
+parsing falls back for `external_scanner_unsupported`.
+
+The focused positive control is `positive-no-op-control`. Its source SHA-256 is
+`e0eb659e93f9306b1cc8cb6e9ec5fd9f86760d5d9de5f28122d0706bedc16ea4`. Every
+route matches locked C digest
+`ac11fb7f49572a2132e31c3a46328e17a103c4ae73fd75745427a188c5987e11`. Every
+route records zero `dispatch.templ` rewrites.
+
+The qualified import witness has source SHA-256
+`8ff9410ceb223050d5ce5588700b3f8526115e12e130416533528bdcb22d1e9d`.
+The raw route differs at `/source_file/component_declaration[1]/component_block[3]`:
+Go has four children, while C has three. Production, forest, and incremental
+routes rewrite 15 nodes and match locked C digest
+`631955c93c466e736f59aa22039f2558b7685d3b4641b71b874cac52b5e70a23`.
+Compact parsing accepts the source and records zero rewrites.
+
+The malformed dangling-quote witness has source SHA-256
+`8d823a16cc2d63f2ce220abfe07c792e7e2281855ac3b0a16e4de68c4450cb17`.
+All raw, production, compact, and incremental routes match locked C digest
+`3e6eb2d96ca843d122d8f1e952fcd465feee7f67d289c8de118c08436f1b4491` and
+record zero rewrites. The root has an error. Compact parsing falls back because
+the scheduler did not accept EOF. Forest parsing declines at offset 47, symbol
+24, with reason `dead_end`. Incremental parsing falls back for
+`external_scanner_unsupported`.
+
+The malformed component-import witness has source SHA-256
+`319a3cf489c8984bbe8c71d2be8bda4e28c073a6df43d75addeaea8c555b8e5f`.
+Every Go route has digest
+`8954432deb8e607319a63b17b665508434a8d87fac8c6fe9923ad1bbe062760f`.
+Locked C has digest
+`922cf68ffcfd8e890f27d0cb8fb995b5a5fdfb10c3853bc661bd8c722bbd34cb`.
+The first difference is `/source_file`: Go has `error=false`, while C has
+`error=true`. Every route records zero rewrites. Compact and forest parsing
+accept the source. Incremental parsing falls back for
+`external_scanner_unsupported`.
+
+The live positive controls include
+`TestNormalizeTemplCompatibilityMergesComponentImportArgs`,
+`TestNormalizeTemplCompatibilityBuildsSimpleStringArgument`,
+`TestNormalizeTemplCompatibilityMergesQualifiedComponentImport`, and
+`TestNormalizeTemplCompatibilityAddsDanglingAttributeQuoteError`.
+
+Do not retire `dispatch.templ`. The A0 receipt records 76 rewrites. The medium
+template route retains a shape mismatch after 53 rewrites. The malformed
+component-import route retains an error-flag mismatch. The authenticated
+real-corpus census is unavailable.
+
+Keep `dispatch.templ` live until `scheduler_action_semantics` emits native
+trees for every registered witness. Require exact raw, production, compact,
+forest, incremental, and locked-C receipts. Require zero `dispatch.templ`
+rewrites on every covered route. Require the authenticated Templ corpus before
+retirement. Do not change the registry or production state.
+
+The focused Docker artifacts are:
+
+- `/tmp/templ-next-artifacts/20260823T011320Z-templ-registry-final` — registry receipt;
+- `/tmp/templ-next-artifacts/20260823T011328Z-templ-a0-final` — A0 manifest receipt;
+- `/tmp/templ-next-artifacts/20260823T011334Z-templ-tracked-final` — tracked census receipt;
+- `/tmp/templ-next-artifacts/20260823T011340Z-templ-real-final` — unavailable corpus receipt;
+- `/tmp/templ-next-artifacts/20260823T011354Z-templ-routes-final` — route and locked-C receipt;
+- `/tmp/templ-next-artifacts/20260823T011346Z-templ-unit-final` — unit and scanner receipt;
+- `/tmp/templ-next-artifacts/20260823T011507Z-templ-document-final2` — document guard receipt.
+
 ## Ordered program
 
 ### R0 — inventory and containment

@@ -192,6 +192,16 @@ for tags and release notes while still in `0.x`.
 
 ### Fixed
 
+- Record the `dispatch.templ` blocker receipt at base
+  `7498a678c52029a82f312e9637ecb66b15defa0b`. Keep the arm live. The
+  authenticated A0 manifest covers three Templ files, three checks, three
+  runs, 1138 visited nodes, and 76 rewrites. The medium template route
+  rewrites 53 nodes and still differs from locked C. The small template route
+  rewrites 23 nodes and matches after normalization. A malformed component
+  import still differs in its root error flag. The full real-corpus census is
+  unavailable. No registry or production change is included. See
+  `docs/root-normalization-retirement.md`.
+
 - Record the issue #454 compact-parser correctness blocker. A 1 KiB fresh Go
   tree differs from locked C at
   `/translation_unit/function_definition[0]/compound_statement[2]/ERROR[2]/number_literal[0]`.
