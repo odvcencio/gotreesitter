@@ -70,6 +70,21 @@ for tags and release notes while still in `0.x`.
   registry change. See `docs/root-normalization-retirement.md` for the
   route receipt, failed attempts, and reopening condition.
 
+- Recorded the N31i Cooklang dispatcher blocker at evidence base
+  `7498a678c52029a82f312e9637ecb66b15defa0b` and publication base
+  `929609ccde78b0c9f4e57cf2225e0ae1204149cb`. Keep `dispatch.cooklang` live.
+  A0 lists three Cooklang files, three checked files, three run files, and
+  1,021 rewrites. The focused probe covers nine witnesses and six routes.
+  Seven non-control witnesses differ from locked C on at least one route.
+  Four witnesses differ from locked C on the production route.
+  Compact fallback and forest decline remain active for those witnesses.
+  Incremental parsing reports external-scanner fallback with zero reuse.
+  The authenticated corpus and source lock are unavailable. The focused guard
+  pins source, grammar, C, route, pass, forest, and counter identities. Ship no
+  parser, registry, or production change. See
+  `docs/root-normalization-retirement.md` for the receipt and reopening
+  conditions.
+
 ### Performance
 
 - Recorded the P25h-P25j parser-core dispatch blocker at evidence base
