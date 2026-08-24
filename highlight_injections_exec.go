@@ -132,7 +132,10 @@ func (h *Highlighter) collectInjectedHighlightRanges(ctx injectedHighlightContex
 }
 
 func (h *Highlighter) childHighlightQuery(cacheKey string, querySource string, lang *Language) (*Query, bool) {
-	childQuery := h.childQueries[cacheKey]
+	// Combine the language resolver key and the exact query source so queries
+	// compiled from different sources are never confused for one another.
+	compositeKey := cacheKey + "\x00" + querySource
+	childQuery := h.childQueries[compositeKey]
 	if childQuery != nil {
 		return childQuery, true
 	}
@@ -140,7 +143,7 @@ func (h *Highlighter) childHighlightQuery(cacheKey string, querySource string, l
 	if err != nil {
 		return nil, false
 	}
-	h.childQueries[cacheKey] = childQuery
+	h.childQueries[compositeKey] = childQuery
 	return childQuery, true
 }
 
