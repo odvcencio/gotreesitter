@@ -16,18 +16,18 @@ without updating that registry.
 At exact main commit `f5adfc7091bad6f8adb5088a32f3b2912561fc72`, the v1
 registry freezes the current source and registry:
 
-- 31 explicit `runLanguageResultCompatibility` switch arms;
-- 33 dispatcher languages across those arms;
+- 30 explicit `runLanguageResultCompatibility` switch arms;
+- 32 dispatcher languages across those arms;
 - one predicate-dispatched COBOL entry matching exactly `cobol` or `COBOL`;
 - zero generic passes after language dispatch;
 - zero post-finalization second-pass fixpoint arms;
 - zero post-finalization languages.
 
-The registry contains 32 live entries and 56 retired entries. The live entries
-name 35 language labels. Shared switch arms account for the label difference.
+The registry contains 31 live entries and 57 retired entries. The live entries
+name 34 language labels. Shared switch arms account for the label difference.
 The retired count includes the Swift ternary, JavaScript dynamic-import, Kotlin
 interpolated-call, Bash generated-command assignment, Ninja recovery, and
-Ledger recovery, and JSDoc recovery arms.
+Ledger recovery, JSDoc recovery, and Julia recovered-range-and-tuple arms.
 The 2026-08-22 normalization checkpoint keeps the DTD entry live. See the
 [checkpoint receipt](root-normalization-retirement.md#2026-08-22-normalization-checkpoint).
 The registry covers

@@ -2,14 +2,14 @@
   "schema": "gotreesitter/result-compat-ownership/v1",
   "source_of_truth": true,
   "denominator": {
-    "dispatcher_arms": 31,
-    "dispatcher_languages": 33,
+    "dispatcher_arms": 30,
+    "dispatcher_languages": 32,
     "dispatcher_predicates": 1,
     "generic_passes": 0,
     "post_finalization_arms": 0,
     "post_finalization_languages": 0,
-    "live_entries": 32,
-    "retired_entries": 56
+    "live_entries": 31,
+    "retired_entries": 57
   },
   "live_evidence_baseline": {
     "scope": "baseline_corpus_wide_only",
@@ -1565,18 +1565,23 @@
       "purpose": "Reconcile Julia recovery and returned-tree shape.",
       "authoritative_owner": "scheduler_action_semantics",
       "witnesses": [
-        "cgo_harness/parity_cgo_test.go"
+        "cgo_harness/julia_decision_dump_test.go"
       ],
       "retirement_condition": "Delete only after scheduler_action_semantics emits the same tree natively for every registered witness and production, compact, forest, incremental, and C-oracle route receipts are exact.",
       "route_coverage": {
-        "production": "shared_result_compatibility_tail",
-        "compact": "shared_result_compatibility_tail",
-        "forest": "shared_result_compatibility_tail",
-        "incremental": "shared_result_compatibility_tail",
-        "c_oracle": "curated_single_grammar_parity"
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_known_divergence_receipt"
       },
-      "status": "live",
-      "evidence_scope": "baseline_corpus_wide_only"
+      "status": "retired",
+      "receipt_refs": [
+        "campaign/julia-decision.md",
+        "campaign/julia-trailing-comma-defect.md",
+        "parser_result_julia_retirement_test.go"
+      ],
+      "retired_commit": "2c5ddcc9a566d2df4eed8544df0a022636d9977b"
     },
     {
       "id": "dispatch.just",
