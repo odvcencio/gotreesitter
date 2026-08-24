@@ -1,0 +1,58 @@
+diff --git highlight_injections_exec.go
+--- highlight_injections_exec.go
++++ highlight_injections_exec.go
+@@ -1,14 +1,16 @@
+ func (h *Highlighter) childHighlightQuery(cacheKey string, querySource string, lang *Language) (*Query, bool) {
+-	childQuery := h.childQueries[cacheKey]
++	// Combine the language resolver key and the exact query source so queries
++	// compiled from different sources are never confused for one another.
++	compositeKey := cacheKey + "\x00" + querySource
++	childQuery := h.childQueries[compositeKey]
+ 	if childQuery != nil {
+ 		return childQuery, true
+ 	}
+ 	childQuery, err := NewQuery(querySource, lang)
+ 	if err != nil {
+ 		return nil, false
+ 	}
+-	h.childQueries[cacheKey] = childQuery
++	h.childQueries[compositeKey] = childQuery
+ 	return childQuery, true
+ }
+diff --git highlight_injections_exec_test.go
+--- /dev/null
++++ highlight_injections_exec_test.go
+@@ -0,0 +1,28 @@
++package gotreesitter
++
++import "testing"
++
++func TestChildHighlightQueryCacheIncludesQuerySource(t *testing.T) {
++	lang := queryTestLanguage()
++	h := &Highlighter{childQueries: make(map[string]*Query)}
++
++	first, ok := h.childHighlightQuery("shared-language", `(identifier) @first`, lang)
++	if !ok {
++		t.Fatal("first child query did not compile")
++	}
++	firstAgain, ok := h.childHighlightQuery("shared-language", `(identifier) @first`, lang)
++	if !ok {
++		t.Fatal("repeated child query did not compile")
++	}
++	if firstAgain != first {
++		t.Fatal("identical resolver query sources did not reuse one cached query")
++	}
++
++	second, ok := h.childHighlightQuery("shared-language", `(identifier) @second`, lang)
++	if !ok {
++		t.Fatal("second child query did not compile")
++	}
++	if first == second {
++		t.Fatal("different resolver query sources reused one cached query")
++	}
++
++	matches := second.Execute(buildSimpleTree(lang))
++	if len(matches) != 1 || len(matches[0].Captures) != 1 || matches[0].Captures[0].Name != "second" {
++		t.Fatalf("second query captures = %#v, want @second", matches)
++	}
++}
