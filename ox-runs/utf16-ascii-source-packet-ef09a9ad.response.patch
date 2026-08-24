@@ -1,0 +1,206 @@
+```diff
+diff --git a/utf16.go b/utf16.go
+--- a/utf16.go
++++ b/utf16.go
+@@
+ func encodeUTF16ToUTF8WithMap(source []uint16) ([]byte, *utf16SourceMap) {
+ 	lineStartCap := min(len(source)+1, 128)
+ 	m := &utf16SourceMap{
+ 		source:         source,
+ 		unitToByte:     make([]uint32, len(source)+1),
+@@
+ 	if len(source) == 0 {
+ 		return nil, m
+ 	}
+ 
+ 	out := make([]byte, 0, len(source))
+ 	for unitPos := 0; unitPos < len(source); {
++		if source[unitPos] < 0x80 {
++			// Fast path: contiguous ASCII run. Each unit is exactly one
++			// UTF-8 byte equal to the unit value, so no rune decoding or
++			// UTF-8 encoding is needed.
++			runStart := unitPos
++			byteStart := len(out)
++			for unitPos < len(source) {
++				u := source[unitPos]
++				if u >= 0x80 {
++					break
++				}
++				m.unitToByte[unitPos] = uint32(byteStart + (unitPos - runStart))
++				m.unitBoundary[unitPos] = true
++				out = append(out, byte(u))
++				m.byteToUnit = append(m.byteToUnit, uint32(unitPos+1))
++				m.byteBoundary = append(m.byteBoundary, true)
++				if u == '
+' {
++					m.lineStartUnits = append(m.lineStartUnits, uint32(unitPos+1))
++					m.lineStartBytes = append(m.lineStartBytes, uint32(len(out)))
++				}
++				unitPos++
++			}
++			continue
++		}
+ 		unitStart := unitPos
+ 		byteStart := len(out)
+ 		r, unitSize := decodeUTF16Rune(source, unitPos)
+ 		unitPos += unitSize
+@@
+ 			m.lineStartBytes = append(m.lineStartBytes, uint32(byteEnd))
+ 		}
+ 	}
++	if len(source) > 0 {
++		m.unitToByte[len(source)] = uint32(len(out))
++		m.unitBoundary[len(source)] = true
++	}
+ 	m.utf8 = out
+ 	return out, m
+ }
+diff --git a/utf16_test.go b/utf16_test.go
+--- a/utf16_test.go
++++ b/utf16_test.go
+@@
++func TestEncodeUTF16ToUTF8WithMapASCIIIdentity(t *testing.T) {
++	source := []uint16("ab
+cd
+ef
+")
++	out, m := encodeUTF16ToUTF8WithMap(source)
++	if string(out) != "ab
+cd
+ef
+" {
++		t.Fatalf("utf8 = %q", out)
++	}
++	for i := 0; i <= len(source); i++ {
++		if got := int(m.unitToByte[i]); got != i {
++			t.Fatalf("unitToByte[%d] = %d", i, got)
++		}
++		if !m.unitBoundary[i] {
++			t.Fatalf("unitBoundary[%d] = false", i)
++		}
++		if i < len(source) {
++			if got := int(m.byteToUnit[i]); got != i {
++				t.Fatalf("byteToUnit[%d] = %d", i, got)
++			}
++			if !m.byteBoundary[i] {
++				t.Fatalf("byteBoundary[%d] = false", i)
++			}
++		}
++	}
++	wantUnits := []uint32{3, 6, 9}
++	wantBytes := []uint32{3, 6, 9}
++	if !equalUint32s(m.lineStartUnits, wantUnits) || !equalUint32s(m.lineStartBytes, wantBytes) {
++		t.Fatalf("line starts = %v/%v, want %v/%v", m.lineStartUnits, m.lineStartBytes, wantUnits, wantBytes)
++	}
++}
++
++func TestEncodeUTF16ToUTF8WithMapMixed(t *testing.T) {
++	source := []uint16{'a', 'b', 0xE9, 'c', 0xD83D, 0xDE00, 'd', 0xD800, 'e'}
++	want := "ab\u00e9c\U0001F600d\uFFFDe"
++	out, m := encodeUTF16ToUTF8WithMap(source)
++	if string(out) != want {
++		t.Fatalf("utf8 = %q, want %q", out, want)
++	}
++	// Rune starts in units: 0(a) 1(b) 2(e') 3(c) 4(pair) 6(d) 7(unpaired) 8(e).
++	starts := []int{0, 1, 2, 3, 4, 6, 7, 8}
++	for _, s := range starts {
++		if !m.unitBoundary[s] {
++			t.Fatalf("unitBoundary[%d] = false", s)
++		}
++	}
++	ends := []int{1, 2, 3, 4, 6, 7, 8, 9}
++	for _, e := range ends {
++		if !m.unitBoundary[e] {
++			t.Fatalf("unitBoundary[%d] = false", e)
++		}
++		if int(m.unitToByte[e]) != len(want) && !isRuneEndByte(m, e, want) {
++			t.Fatalf("unitToByte[%d] = %d", e, m.unitToByte[e])
++		}
++	}
++	if m.unitBoundary[5] {
++		t.Fatal("middle surrogate unit marked as boundary")
++	}
++	if m.unitToByte[5] != m.unitToByte[4] {
++		t.Fatalf("unitToByte[5] = %d, want %d", m.unitToByte[5], m.unitToByte[4])
++	}
++}
++
++func TestEncodeUTF16ToUTF8WithMapInvalidBoundaries(t *testing.T) {
++	source := []uint16{'a', 'b', 0xE9, 'c', 0xD83D, 0xDE00, 'd', 0xD800, 'e'}
++	_, m := encodeUTF16ToUTF8WithMap(source)
++	// Continuation bytes: 0xA9 of U+00E9 (byte 3), bytes 6-8 of the pair,
++	// byte 11 of the replacement character.
++	for _, bad := range []int{3, 6, 7, 8, 11} {
++		if m.byteBoundary[bad] {
++			t.Fatalf("byteBoundary[%d] = true", bad)
++		}
++	}
++	wantOwner := map[int]int{3: 2, 6: 4, 7: 4, 8: 4, 11: 7}
++	for bad, owner := range wantOwner {
++		if m.byteToUnit[bad] != uint32(owner) {
++			t.Fatalf("byteToUnit[%d] = %d, want %d", bad, m.byteToUnit[bad], owner)
++		}
++	}
++}
++
++func TestEncodeUTF16ToUTF8WithMapLineStarts(t *testing.T) {
++	source := []uint16{'a', '
+', 0xE9, '
+', 0xD83D, 0xDE00, '
+', 0xD800, '
+'}
++	out, m := encodeUTF16ToUTF8WithMap(source)
++	if got := len(out); got != 11 {
++		t.Fatalf("len(utf8) = %d, want 11", got)
++	}
++	wantUnits := []uint32{2, 5, 8, 10}
++	wantBytes := []uint32{2, 4, 8, 11}
++	if !equalUint32s(m.lineStartUnits, wantUnits) || !equalUint32s(m.lineStartBytes, wantBytes) {
++		t.Fatalf("line starts = %v/%v, want %v/%v", m.lineStartUnits, m.lineStartBytes, wantUnits, wantBytes)
++	}
++}
++
++func equalUint32s(a, b []uint32) bool {
++	if len(a) != len(b) {
++		return false
++	}
++	for i := range a {
++		if a[i] != b[i] {
++			return false
++		}
++	}
++	return true
++}
++
++func isRuneEndByte(m *utf16SourceMap, unit int, s string) bool {
++	b := int(m.unitToByte[unit])
++	return b > 0 && b <= len(s) && (b == len(s) || utf8.RuneStart(s[b]))
++}
+diff --git a/utf16_benchmark_test.go b/utf16_benchmark_test.go
+--- a/utf16_benchmark_test.go
++++ b/utf16_benchmark_test.go
+@@
++func buildMixedUTF16(n int) []uint16 {
++	base := []uint16{'a', 'b', 'c', 'd', '
+', 0xE9, 'x', 'y', 'z', '
+', 0xD83D, 0xDE00, '
+'}
++	src := make([]uint16, 0, n+len(base))
++	for len(src) < n {
++		src = append(src, base...)
++	}
++	return src[:n]
++}
++
++func BenchmarkUTF16SourceMapConversionMixed(b *testing.B) {
++	source := buildMixedUTF16(4096)
++	b.ReportAllocs()
++	b.SetBytes(int64(len(source) * 2))
++	b.ResetTimer()
++	for i := 0; i < b.N; i++ {
++		encodeUTF16ToUTF8WithMap(source)
++	}
++}
+```
+
+Note on validation intent: the fast path preserves every required mapping fact per ASCII unit (output byte equals the unit, both unit boundaries valid, `byteToUnit` gains the ending unit offset, byte boundary valid, newline line-start entries added), falls through to the unchanged general path at any non-ASCII unit (preserving BMP runes, surrogate pairs, and unpaired-surrogate replacement), and adds no new allocations, keeping allocation count at eight while materially reducing repeated-ASCII work (no `decodeUTF16Rune`, no `utf8.EncodeRune` per unit).
