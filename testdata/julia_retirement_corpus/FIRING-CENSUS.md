@@ -1,4 +1,4 @@
-# `dispatch.julia` firing-census receipt — corpus `campaign/fixtures/julia/`
+# `dispatch.julia` firing-census receipt — corpus `testdata/julia_retirement_corpus/`
 
 Status: **receipt** (re-runnable proof; six-term vocabulary: producer / defect /
 witness / census / receipt / retirement). This file records the firing census

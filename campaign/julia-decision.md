@@ -158,7 +158,7 @@ says so plainly: of the arm's five sub-repairs, only **one**
 (`normalizeJuliaRecoveredReturnRange`) carries a locked-C verdict — it is the
 sole producer whose firing witness was three-way dumped against the locked C
 oracle and shown to be a live defect. The **other four sub-repairs are
-unfired across all 24 census inputs** (`campaign/fixtures/julia/FIRING-CENSUS.md`):
+unfired across all 24 census inputs** (`testdata/julia_retirement_corpus/FIRING-CENSUS.md`):
 they are deleted as unreachable dead code whose trigger shapes are
 grammar-revision-dependent, not as verified defects. There is also **no julia
 A0 entry and no real julia corpus** in this campaign: the denominator evidence
@@ -188,8 +188,8 @@ registry row flipped — not deleted — to `status: "retired"` with
 retired_entries 57, labels 34 in `docs/compat-tier.md:19-27`). The
 `incremental_leaf_fastpath.go:146` julia case is KEPT intact. The regression
 corpus (firing witness + census sweep) ships as testdata under
-`campaign/fixtures/julia/` with the firing-census receipt
-(`campaign/fixtures/julia/FIRING-CENSUS.md`, recorded before the deletion), the
+`testdata/julia_retirement_corpus/` with the firing-census receipt
+(`testdata/julia_retirement_corpus/FIRING-CENSUS.md`, recorded before the deletion), the
 pre-deletion defect filing lives at
 `campaign/julia-trailing-comma-defect.md`, and the permanent gates are
 `TestJuliaRetirementRawMatchesLockedCOracleOnFiringWitness`,
@@ -199,7 +199,7 @@ pre-deletion defect filing lives at
 
 ## Artifacts
 
-- `campaign/fixtures/julia/` — regression corpus: ACTIVE firing witness
+- `testdata/julia_retirement_corpus/` — regression corpus: ACTIVE firing witness
   (`inline-recovered-return-range.jl`) plus the 24-witness census sweep as
   testdata, with `FIRING-CENSUS.md` recording the pre-deletion firing census
   output and the post-retirement confirmation gate

@@ -28,8 +28,8 @@ filing filed BEFORE deletion at `campaign/julia-trailing-comma-defect.md`.
 4. **Registry flipped, never deleted**: row `dispatch.julia`
    (`testdata/result_compat_ownership_v1.json:1554-1585`) set to
    `status: "retired"` with route coverage for compatibility-free producer,
-   production, compact fallback, forest, incremental reuse, and isolated
-   C-oracle parity (`production`/`compact`/`forest`/`incremental` =
+   production, compact fallback, forest, incremental reuse, and
+   isolated C-oracle parity (`production`/`compact`/`forest`/`incremental` =
    `retired_exact_receipt`; `c_oracle` = `retired_known_divergence_receipt`),
    `receipt_refs`, and `retired_commit`.
 5. **Denominator arithmetic updated everywhere stated**
@@ -45,14 +45,14 @@ filing filed BEFORE deletion at `campaign/julia-trailing-comma-defect.md`.
    `parser_result_julia.go`, so no window ever existed where the code was
    gone and the defect knowledge was unrecorded.
 7. **Firing census run BEFORE deletion**: output preserved verbatim in
-   `campaign/fixtures/julia/FIRING-CENSUS.md` §1 and
+   `testdata/julia_retirement_corpus/FIRING-CENSUS.md` §1 and
    `campaign/julia-trailing-comma-defect.md` §4 (24-witness corpus, base
    `62fa03fe`: exactly one sub-repair ACTIVE — recovered-return-range on two
    witnesses; other four sub-repairs unfired).
 
 ## 2. Regression corpus and gates
 
-Corpus shipped as testdata under `campaign/fixtures/julia/` (25 `.jl` fixtures
+Corpus shipped under `testdata/julia_retirement_corpus/` (25 `.jl` fixtures
 + `FIRING-CENSUS.md`): the firing witness
 (`inline-recovered-return-range.jl`, 38 bytes) and the full 24-witness census
 sweep plus one recovery variant. Permanent gates in
