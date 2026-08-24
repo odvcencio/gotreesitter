@@ -11,8 +11,8 @@ package gotreesitter_test
 //     sha256:9e2de3670281c5a0013d55b570e6c175c7d7eb2d5142bca99276974ea61453e2;
 //   - the 24-witness corpus from the pre-deletion firing census (recorded in
 //     campaign/julia-trailing-comma-defect.md §4 and shipped as testdata under
-//     campaign/fixtures/julia/): production output must equal raw output on
-//     every witness now that no julia compat producer remains;
+//     testdata/julia_retirement_corpus/): production output must equal raw
+//     output on every witness now that no julia compat producer remains;
 //   - the trailing-comma defect witness (`x, = 1\n`): its raw dump digest is
 //     pinned so the known raw-vs-C divergence documented in
 //     campaign/julia-trailing-comma-defect.md stays observable;
@@ -41,12 +41,12 @@ const (
 
 // juliaFixtureDir is the committed regression corpus: the ACTIVE firing
 // witness plus the pre-deletion firing-census sweep witnesses, shipped as
-// testdata under campaign/fixtures/julia/ so the retirement receipts stay
-// re-runnable against real files.
-const juliaFixtureDir = "campaign/fixtures/julia"
+// testdata under testdata/julia_retirement_corpus/ so the retirement
+// receipts stay re-runnable against real files.
+const juliaFixtureDir = "testdata/julia_retirement_corpus"
 
 // juliaCensusWitnessFiles lists the canonical 24-witness pre-deletion firing
-// census corpus in census order (campaign/fixtures/julia/FIRING-CENSUS.md,
+// census corpus in census order (testdata/julia_retirement_corpus/FIRING-CENSUS.md,
 // campaign/julia-trailing-comma-defect.md §4). The ACTIVE firing witness is
 // inline-recovered-return-range.
 var juliaCensusWitnessFiles = []string{
@@ -198,8 +198,9 @@ func TestJuliaRetirementProductionEqualsRawOverCorpus(t *testing.T) {
 // TestJuliaRetirementFiringCensusPostDeletion runs a firing census over the
 // committed fixture corpus AFTER the deletion (the pre-deletion census over
 // these same witnesses is recorded in campaign/julia-trailing-comma-defect.md
-// §4 and campaign/fixtures/julia/FIRING-CENSUS.md): with the producer deleted,
-// no parse may record a `dispatch.julia` normalization pass again.
+// §4 and testdata/julia_retirement_corpus/FIRING-CENSUS.md): with the
+// producer deleted, no parse may record a `dispatch.julia` normalization pass
+// again.
 func TestJuliaRetirementFiringCensusPostDeletion(t *testing.T) {
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	lang := grammars.JuliaLanguage()
@@ -227,9 +228,9 @@ func TestJuliaRetirementFiringCensusPostDeletion(t *testing.T) {
 }
 
 // TestJuliaRetirementFixtureCorpusIsComplete pins the shipped corpus itself:
-// campaign/fixtures/julia must contain exactly the 24 census witnesses plus
-// the one extra recovery variant, and every shipped witness must satisfy
-// production==raw parity.
+// testdata/julia_retirement_corpus must contain exactly the 24 census
+// witnesses plus the one extra recovery variant, and every shipped witness
+// must satisfy production==raw parity.
 func TestJuliaRetirementFixtureCorpusIsComplete(t *testing.T) {
 	entries, err := os.ReadDir(juliaFixtureDir)
 	if err != nil {

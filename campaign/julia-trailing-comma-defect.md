@@ -33,8 +33,8 @@ Locked C oracle (`tree-sitter-julia @ e0f9dcd180fdcfcfa8d79a3531e11d99e79321d3`,
 open_tuple [0:6] hasError=true cc=4
   identifier [0:1] "x"
   comma      [1:2] ","
-  ERROR      [2:3] hasError=true cc=1     ← structured error parent
-    operator [2:3] "="                    ← operator child inside the ERROR
+  ERROR      [3:4] hasError=true cc=1     ← structured error parent
+    operator [3:4] "="                    ← operator child inside the ERROR
   integer_literal [5:6] "1"
 ```
 

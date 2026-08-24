@@ -27,8 +27,9 @@ filing filed BEFORE deletion at `campaign/julia-trailing-comma-defect.md`.
    constraint); retiring it would break julia line-comment reuse.
 4. **Registry flipped, never deleted**: row `dispatch.julia`
    (`testdata/result_compat_ownership_v1.json:1554-1585`) set to
-   `status: "retired"` with all five route receipts
-   (`production`/`compact`/`forest`/`incremental` =
+   `status: "retired"` with route coverage for compatibility-free producer,
+   production, compact fallback, forest, incremental reuse, and isolated
+   C-oracle parity (`production`/`compact`/`forest`/`incremental` =
    `retired_exact_receipt`; `c_oracle` = `retired_known_divergence_receipt`),
    `receipt_refs`, and `retired_commit`.
 5. **Denominator arithmetic updated everywhere stated**
@@ -39,7 +40,10 @@ filing filed BEFORE deletion at `campaign/julia-trailing-comma-defect.md`.
    witness recorded at `campaign/julia-trailing-comma-defect.md` (C:
    `open_tuple` with structured `ERROR(operator)` child, `hasError=true`;
    raw Go: bare extra `ERROR [2:5] " = "` leaf) so the C-shape knowledge
-   survives the code deletion.
+   survives the code deletion. `campaign/julia-trailing-comma-defect.md`
+   landed atomically in commit `2c5ddcc9`, the same commit that deleted
+   `parser_result_julia.go`, so no window ever existed where the code was
+   gone and the defect knowledge was unrecorded.
 7. **Firing census run BEFORE deletion**: output preserved verbatim in
    `campaign/fixtures/julia/FIRING-CENSUS.md` §1 and
    `campaign/julia-trailing-comma-defect.md` §4 (24-witness corpus, base

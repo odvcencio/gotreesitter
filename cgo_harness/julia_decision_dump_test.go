@@ -141,4 +141,11 @@ func TestJuliaDecisionThreeWayDump(t *testing.T) {
 	cEqProd := strings.ReplaceAll(cB.String(), "C ", "X") == strings.ReplaceAll(prodB.String(), "G ", "X")
 	t.Logf("VERDUMP C==rawGo: %v", cEqRaw)
 	t.Logf("VERDUMP C==prodGo: %v", cEqProd)
+
+	if !cEqRaw {
+		t.Fatalf("C oracle tree differs from raw Go (no result-compatibility arm) tree on the firing witness (bytes=%d)", len(src))
+	}
+	if prod.RootNode().HasError() {
+		t.Fatalf("production Go root node reports HasError=true for the firing witness (bytes=%d); dispatch.julia retirement requires an error-free production route", len(src))
+	}
 }

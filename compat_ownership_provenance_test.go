@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-const resultCompatAuthoritativeMainCommit = "cca7215444b29aea8a7046406a928a263fddde0f"
+const resultCompatAuthoritativeMainCommit = "2c5ddcc9a566d2df4eed8544df0a022636d9977b"
 
 // These are zero-based registry indexes. Keep this map explicit so a later
 // ledger regeneration cannot silently restore a parallel retirement commit.
@@ -69,6 +69,7 @@ var resultCompatRetirementFixtures = map[string]resultCompatRetirementFixture{
 	"27b0f624032680f6246bb4ee307883a2b874afb9": {true, []string{"generic.trailing-extra-trivia"}},
 	"29b6e302701058e2ed101941c6da5f52a98dfe9a": {true, []string{"dispatch.objc"}},
 	"2509e61d8cceeeaa017ce46e059fee1a014933c2": {true, []string{"dispatch.bash"}},
+	"2c5ddcc9a566d2df4eed8544df0a022636d9977b": {true, []string{"dispatch.julia"}},
 	"cca7215444b29aea8a7046406a928a263fddde0f": {true, []string{"dispatch.ledger"}},
 	"c3e734a527ed95327cf4fc010167a222cea1900c": {true, []string{"dispatch.ninja"}},
 	"2ef4802f2dbb853486d852cc9c1909e2a26f0199": {true, []string{"dispatch.angular", "dispatch.bibtex", "dispatch.chatito", "dispatch.eds"}},
