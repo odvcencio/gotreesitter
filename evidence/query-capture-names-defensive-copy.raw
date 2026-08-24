@@ -1,0 +1,67 @@
+diff --git a/query.go b/query.go
+index 0000000..1111111 100644
+--- a/query.go
++++ b/query.go
+@@ -1,6 +1,7 @@
+ package gotreesitter
+ 
+ import (
++	"slices"
+ 	"fmt"
+ 	"regexp"
+ )
+@@ -20,7 +21,7 @@ func (q *Query) CaptureCount() uint32 {
+ 
+ // CaptureNames returns the list of unique capture names used in the query.
+ func (q *Query) CaptureNames() []string {
+-	return q.captures
++	return slices.Clone(q.captures)
+ }
+ 
+ // CaptureNameForID returns the capture name for the given capture id.
+diff --git a/query_test.go b/query_test.go
+index 2222222..3333333 100644
+--- a/query_test.go
++++ b/query_test.go
+@@ -1100,3 +1100,40 @@ func TestCaptureNames(t *testing.T) {
+ 	}
+ }
+ 
++func TestProbeCaptureNamesCallerMutationDoesNotAffectQuery(t *testing.T) {
++	lang := queryTestLanguage()
++	q, err := NewQuery(`(identifier) @ident`, lang)
++	if err != nil {
++		t.Fatalf("parse error: %v", err)
++	}
++
++	names := q.CaptureNames()
++	if len(names) != 1 || names[0] != "ident" {
++		t.Fatalf("CaptureNames: got %v, want [ident]", names)
++	}
++
++	names[0] = "corrupted"
++
++	if got := q.CaptureNames(); len(got) != 1 || got[0] != "ident" {
++		t.Errorf("CaptureNames after caller mutation: got %q want %q", got[0], "ident")
++	}
++	if got, ok := q.CaptureNameForID(0); !ok || got != "ident" {
++		t.Errorf("CaptureNameForID(0) after caller mutation: got %q want %q", got, "ident")
++	}
++
++	tree := buildSimpleTree(lang)
++	matches := q.Execute(tree)
++	found := false
++	for _, m := range matches {
++		for _, c := range m.Captures {
++			if c.Name == "ident" {
++				found = true
++			}
++			if c.Name == "corrupted" {
++				t.Errorf("query execution returned corrupted capture name")
++			}
++		}
++	}
++	if !found {
++		t.Errorf("expected match with capture name %q", "ident")
++	}
++}
