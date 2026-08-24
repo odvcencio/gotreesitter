@@ -1,0 +1,47 @@
+--- a/query.go
++++ b/query.go
+@@
+ func NewQueryWithOptions(source string, lang *Language, opts ...QueryOption) (*Query, error) {
++	if lang == nil {
++		return nil, fmt.Errorf("NewQueryWithOptions: language is nil")
++	}
++
+ 	var cfg queryCompileOptions
+ 	for _, opt := range opts {
+ 		if opt != nil {
+ 			opt(&cfg)
+--- a/query_test.go
++++ b/query_test.go
+@@
+ func TestParseSimpleNodeType(t *testing.T) {
+ 	lang := queryTestLanguage()
+ 	q, err := NewQuery(`(identifier) @ident`, lang)
+@@
+ }
++
++func TestNewQueryRejectsNilLanguage(t *testing.T) {
++	tests := []struct {
++		name string
++		call func() (*Query, error)
++	}{
++		{
++			name: "NewQuery",
++			call: func() (*Query, error) { return NewQuery(`(identifier) @name`, nil) },
++		},
++		{
++			name: "NewQueryWithOptions",
++			call: func() (*Query, error) { return NewQueryWithOptions(`(identifier) @name`, nil) },
++		},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			q, err := tt.call()
++			if err == nil {
++				t.Fatal("expected an error for a nil language")
++			}
++			if q != nil {
++				t.Fatalf("expected a nil query, got %#v", q)
++			}
++		})
++	}
++}
