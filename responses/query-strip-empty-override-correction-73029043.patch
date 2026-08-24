@@ -1,0 +1,82 @@
+diff --git a/query.go b/query.go
+index 1111111..2222222 100644
+--- a/query.go
++++ b/query.go
+@@
+ type QueryCapture struct {
+ 	Name         string
+ 	Node         *Node
+ 	TextOverride string
++	// textOverridePresent records that TextOverride was explicitly set,
++	// even when the override itself is the empty string.
++	textOverridePresent bool
+ }
+ 
+ func (c QueryCapture) Text(source []byte) string {
+-	if c.TextOverride != "" {
++	if c.textOverridePresent || c.TextOverride != "" {
+ 		return c.TextOverride
+ 	}
+ 	if c.Node == nil {
+diff --git a/query_reader.go b/query_reader.go
+index 3333333..4444444 100644
+--- a/query_reader.go
++++ b/query_reader.go
+@@
+-func (publicQueryReader) CaptureTextOverride(capture QueryCapture) string {
+-	return capture.TextOverride
++func (publicQueryReader) CaptureTextOverride(capture QueryCapture) (string, bool) {
++	return capture.TextOverride, capture.textOverridePresent || capture.TextOverride != ""
+ }
+ func (publicQueryReader) SetCaptureTextOverride(capture *QueryCapture, text string) {
+ 	capture.TextOverride = text
++	capture.textOverridePresent = true
+ }
+diff --git a/query_predicates.go b/query_predicates.go
+index 5555555..6666666 100644
+--- a/query_predicates.go
++++ b/query_predicates.go
+@@
+-	if override := reader.CaptureTextOverride(capture); override != "" {
+-		return override, true
++	if override, present := reader.CaptureTextOverride(capture); present {
++		return override, true
+ 	}
+@@
+ func TestStripEntireCaptureKeepsEmptyOverride(t *testing.T) {
+ 	source := []byte("hello")
+ 	node := leaf(Symbol(1), true, 0, uint32(len(source)))
+ 	predicate := QueryPredicate{
+ 		kind:        predicateStrip,
+ 		leftCapture: "name",
+ 		regex:       mustCompileTestRegex(t, ".+"),
+ 	}
+ 	captures := applyStrip(predicate, []QueryCapture{{Name: "name", Node: node}}, source)
+ 	if got := captures[0].Text(source); got != "" {
+ 		t.Fatalf("fully stripped capture text = %q, want empty", got)
+ 	}
+ 	if got, ok := captureTextWithReader("name", captures, source, publicQueryReader{}); !ok || got != "" {
+ 		t.Fatalf("generic capture text = %q, %v; want empty, true", got, ok)
+ 	}
+ }
+diff --git a/parsercore_phase0_selected_query.go b/parsercore_phase0_selected_query.go
+index 7777777..8888888 100644
+--- a/parsercore_phase0_selected_query.go
++++ b/parsercore_phase0_selected_query.go
+@@
+ type queryValueCapture[NodeT core.NodeID] struct {
+ 	Name         string
+ 	Node         NodeT
+ 	TextOverride string
++	textOverridePresent bool
+ }
+ 
+-func (selectedStoreQueryReader) CaptureTextOverride(capture queryValueCapture[core.SelectedNodeID]) string {
+-	return capture.TextOverride
++func (selectedStoreQueryReader) CaptureTextOverride(capture queryValueCapture[core.SelectedNodeID]) (string, bool) {
++	return capture.TextOverride, capture.textOverridePresent || capture.TextOverride != ""
+ }
+ func (selectedStoreQueryReader) SetCaptureTextOverride(capture *queryValueCapture[core.SelectedNodeID], text string) {
+ 	capture.TextOverride = text
++	capture.textOverridePresent = true
+ }
