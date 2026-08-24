@@ -1,0 +1,65 @@
+diff --git a/query_compile_helpers.go b/query_compile_helpers.go
+index 1111111..2222222 100644
+--- a/query_compile_helpers.go
++++ b/query_compile_helpers.go
+@@ -10,6 +10,9 @@ import (
+ // symbol ID and whether it's a named symbol. Uses Language.SymbolByName
+ // for O(1) lookup.
+ func (p *queryParser) resolveSymbol(name string) (Symbol, bool, error) {
++	if p.lang == nil {
++		return 0, false, queryUnknownNodeTypeError{name: name}
++	}
+ 	if name == "_" {
+ 		return 0, false, nil
+ 	}
+@@ -44,6 +47,9 @@ func (p *queryParser) resolveSymbol(name string) (Symbol, bool, error) {
+ // resolveField looks up a field name in the language with compatibility
+ // fallbacks for grammar/query naming drift.
+ func (p *queryParser) resolveField(name string, parentSymbol Symbol, parentSymbolHint Symbol) (FieldID, error) {
++	if p.lang == nil {
++		return 0, fmt.Errorf("query: unknown field %q", name)
++	}
+ 	fid, ok := p.lang.FieldByName(name)
+ 	if ok {
+ 		return fid, nil
+diff --git a/query_test.go b/query_test.go
+index 3333333..4444444 100644
+--- a/query_test.go
++++ b/query_test.go
+@@ -1,8 +1,11 @@
+ package gotreesitter
+ 
+-import "testing"
++import (
++	"errors"
++	"testing"
++)
+ 
+-func TestQueryParseSimple(t *testing.T) {
++func TestQueryParse(t *testing.T) {
+ 	tests := []struct {
+ 		name   string
+ 		source string
+@@ -30,3 +33,21 @@ func TestQueryParseSimple(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestQueryNilLanguageNamedNodeType(t *testing.T) {
++	const src = "(identifier) @name"
++
++	q, err := NewQuery(src, nil)
++	if q != nil || err == nil {
++		t.Fatalf("NewQuery = %#v, %v; want nil query and non-nil error", q, err)
++	}
++
++	q2, err2 := NewQueryWithOptions(src, nil)
++	if q2 != nil || err2 == nil {
++		t.Fatalf("NewQueryWithOptions = %#v, %v; want nil query and non-nil error", q2, err2)
++	}
++
++	var unknown queryUnknownNodeTypeError
++	if !errors.As(err, &unknown) || !errors.As(err2, &unknown) {
++		t.Fatalf("errors = %v, %v; want queryUnknownNodeTypeError", err, err2)
++	}
++}
