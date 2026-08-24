@@ -10,11 +10,14 @@ package gotreesitter_test
 //     digest recorded in campaign/julia-decision.md,
 //     sha256:9e2de3670281c5a0013d55b570e6c175c7d7eb2d5142bca99276974ea61453e2;
 //   - the 24-witness corpus from the pre-deletion firing census (recorded in
-//     campaign/julia-trailing-comma-defect.md): production output must equal
-//     raw output on every witness now that no julia compat producer remains;
+//     campaign/julia-trailing-comma-defect.md §4 and shipped as testdata under
+//     campaign/fixtures/julia/): production output must equal raw output on
+//     every witness now that no julia compat producer remains;
 //   - the trailing-comma defect witness (`x, = 1\n`): its raw dump digest is
 //     pinned so the known raw-vs-C divergence documented in
-//     campaign/julia-trailing-comma-defect.md stays observable.
+//     campaign/julia-trailing-comma-defect.md stays observable;
+//   - a post-deletion firing census over that same fixture corpus asserting
+//     no `dispatch.julia` normalization pass is ever recorded again.
 //
 // Any future reintroduction of a julia rewrite — or a grammar revision that
 // moves these shapes — fails loudly here and reopens the filed defect.
@@ -23,6 +26,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -35,44 +39,67 @@ const (
 	juliaRetiredDefectWitnessDigest = "sha256:f6780ebcc18b9638afb915c133bc5d627bff6abdbe0570d8e6c783035aa47d03"
 )
 
+// juliaFixtureDir is the committed regression corpus: the ACTIVE firing
+// witness plus the pre-deletion firing-census sweep witnesses, shipped as
+// testdata under campaign/fixtures/julia/ so the retirement receipts stay
+// re-runnable against real files.
+const juliaFixtureDir = "campaign/fixtures/julia"
+
+// juliaCensusWitnessFiles lists the canonical 24-witness pre-deletion firing
+// census corpus in census order (campaign/fixtures/julia/FIRING-CENSUS.md,
+// campaign/julia-trailing-comma-defect.md §4). The ACTIVE firing witness is
+// inline-recovered-return-range.
+var juliaCensusWitnessFiles = []string{
+	"inline-clean-program",
+	"inline-recovered-return-range",
+	"inline-bracket-comprehension",
+	"inline-subscript-single-row",
+	"inline-macro-juxtaposition",
+	"inline-trailing-comma-tuple",
+	"inline-broken",
+	"julia_utils",
+	"inline-subscript-binary-index",
+	"inline-macro-string-arg",
+	"inline-bare-return-range",
+	"inline-clean-for-loop",
+	"inline-clean-struct",
+	"inline-unbalanced-paren",
+	"inline-string-interpolation",
+	"inline-ternary",
+	"inline-chained-comparison",
+	"inline-while-break",
+	"inline-local-func",
+	"inline-comment-only",
+	"inline-try-catch",
+	"inline-nested-module-error",
+	"inline-trailing-comma-newline-rhs",
+	"inline-recovery-missing-end",
+}
+
 type juliaRetirementWitness struct {
 	name   string
 	source []byte
 }
 
+func juliaReadFixture(t *testing.T, base string) []byte {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join(juliaFixtureDir, base+".jl"))
+	if err != nil {
+		t.Fatalf("read corpus fixture %s: %v", base, err)
+	}
+	return src
+}
+
 func juliaRetirementCorpus(t *testing.T) []juliaRetirementWitness {
 	t.Helper()
-	witnesses := []juliaRetirementWitness{
-		{name: "inline-clean-program", source: []byte("module M\nexport f\nf(x) = x + 1\nend\n")},
-		{name: "inline-recovered-return-range", source: []byte("function f()\n    return 1:(2 + 3)\nend\n")},
-		{name: "inline-bracket-comprehension", source: []byte("[x for x in xs]\n")},
-		{name: "inline-subscript-single-row", source: []byte("a = [1]\nb = a[1]\n")},
-		{name: "inline-macro-juxtaposition", source: []byte("@nbits 1 2\n")},
-		{name: "inline-trailing-comma-tuple", source: []byte("x, = 1\n")},
-		{name: "inline-broken", source: []byte("function f(\n  return 1:(2 + 3)\nend\n")},
-		{name: "inline-assignment-tuple-multi", source: []byte("x, y = 1, 2\n")},
-		{name: "inline-subscript-binary-index", source: []byte("a = [1, 2]\nb = a[1 + 1]\n")},
-		{name: "inline-macro-string-arg", source: []byte("@show \"s\"\n")},
-		{name: "inline-bare-return-range", source: []byte("function f()\n    return 1:2\nend\n")},
-		{name: "inline-clean-for-loop", source: []byte("for i in 1:3\n    println(i)\nend\n")},
-		{name: "inline-clean-struct", source: []byte("struct P\n    x::Int\nend\n")},
-		{name: "inline-unbalanced-paren", source: []byte("f(x\n")},
-		{name: "inline-string-interpolation", source: []byte("s = \"a$(b)c\"\n")},
-		{name: "inline-ternary", source: []byte("y = x > 0 ? 1 : -1\n")},
-		{name: "inline-chained-comparison", source: []byte("ok = 1 < x < 10\n")},
-		{name: "inline-while-break", source: []byte("while true\n    break\nend\n")},
-		{name: "inline-local-func", source: []byte("g(x) = x^2 + 1\n")},
-		{name: "inline-comment-only", source: []byte("# just a comment\n")},
-		{name: "inline-try-catch", source: []byte("try\n    error(\"x\")\ncatch e\n    show(e)\nend\n")},
-		{name: "inline-nested-module-error", source: []byte("module M\nusing X.\nend\n")},
-		{name: "inline-trailing-comma-newline-rhs", source: []byte("x,\n= 1\n")},
-		{name: "inline-recovery-missing-end", source: []byte("function f()\n    return 1\n")},
+	witnesses := make([]juliaRetirementWitness, 0, len(juliaCensusWitnessFiles))
+	for _, base := range juliaCensusWitnessFiles {
+		name := base
+		if base == "julia_utils" {
+			name = "julia_utils.jl"
+		}
+		witnesses = append(witnesses, juliaRetirementWitness{name: name, source: juliaReadFixture(t, base)})
 	}
-	src, err := os.ReadFile("testdata/compact_selected_lineage/julia_utils.jl")
-	if err != nil {
-		t.Fatalf("read corpus fixture: %v", err)
-	}
-	witnesses[7] = juliaRetirementWitness{name: "testdata/compact_selected_lineage/julia_utils.jl", source: src}
 	if len(witnesses) != 24 {
 		t.Fatalf("corpus size = %d, want 24", len(witnesses))
 	}
@@ -107,13 +134,19 @@ func juliaDumpDigest(t *testing.T, root *gotreesitter.Node, lang *gotreesitter.L
 	return fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(strings.ReplaceAll(b.String(), "G ", "X"))))
 }
 
-func TestJuliaRetirementRawMatchesLockedCOracleOnFiringWitness(t *testing.T) {
-	lang := grammars.JuliaLanguage()
-	source := []byte("function f()\n    return 1:(2 + 3)\nend\n")
+func juliaParseRaw(t *testing.T, lang *gotreesitter.Language, source []byte) *gotreesitter.Tree {
+	t.Helper()
 	raw, err := gotreesitter.NewParser(lang).ParseNoResultCompatibilityBenchmarkOnly(source)
 	if err != nil {
 		t.Fatalf("raw parse failed: %v", err)
 	}
+	return raw
+}
+
+func TestJuliaRetirementRawMatchesLockedCOracleOnFiringWitness(t *testing.T) {
+	lang := grammars.JuliaLanguage()
+	source := []byte("function f()\n    return 1:(2 + 3)\nend\n")
+	raw := juliaParseRaw(t, lang, source)
 	defer raw.Release()
 	if got := juliaDumpDigest(t, raw.RootNode(), lang, source); got != juliaRetiredActiveWitnessDigest {
 		t.Fatalf("firing witness raw digest = %s, want locked-C digest %s; the grammar revision moved the recovered return-range shape and campaign/julia-decision.md must be re-decided", got, juliaRetiredActiveWitnessDigest)
@@ -123,10 +156,7 @@ func TestJuliaRetirementRawMatchesLockedCOracleOnFiringWitness(t *testing.T) {
 func TestJuliaRetirementTrailingCommaDefectWitnessPinned(t *testing.T) {
 	lang := grammars.JuliaLanguage()
 	source := []byte("x, = 1\n")
-	raw, err := gotreesitter.NewParser(lang).ParseNoResultCompatibilityBenchmarkOnly(source)
-	if err != nil {
-		t.Fatalf("raw parse failed: %v", err)
-	}
+	raw := juliaParseRaw(t, lang, source)
 	defer raw.Release()
 	root := raw.RootNode()
 	if got := root.HasError(); !got {
@@ -137,30 +167,107 @@ func TestJuliaRetirementTrailingCommaDefectWitnessPinned(t *testing.T) {
 	}
 }
 
+func juliaAssertProductionEqualsRaw(t *testing.T, lang *gotreesitter.Language, w juliaRetirementWitness) {
+	t.Helper()
+	prod, err := gotreesitter.NewParser(lang).Parse(w.source)
+	if err != nil {
+		t.Fatalf("production parse failed: %v", err)
+	}
+	defer prod.Release()
+	raw := juliaParseRaw(t, lang, w.source)
+	defer raw.Release()
+	prodRoot, rawRoot := prod.RootNode(), raw.RootNode()
+	if prodRoot.HasError() != rawRoot.HasError() {
+		t.Fatalf("root error flag diverges: production=%v raw=%v", prodRoot.HasError(), rawRoot.HasError())
+	}
+	if got, want := juliaDumpDigest(t, prodRoot, lang, w.source), juliaDumpDigest(t, rawRoot, lang, w.source); got != want {
+		t.Fatalf("production tree differs from raw tree on retired-arm witness:\n production=%s\n raw      =%s", got, want)
+	}
+}
+
 func TestJuliaRetirementProductionEqualsRawOverCorpus(t *testing.T) {
 	lang := grammars.JuliaLanguage()
 	for _, w := range juliaRetirementCorpus(t) {
 		w := w
 		t.Run(w.name, func(t *testing.T) {
-			prod, err := gotreesitter.NewParser(lang).Parse(w.source)
+			juliaAssertProductionEqualsRaw(t, lang, w)
+		})
+	}
+}
+
+// TestJuliaRetirementFiringCensusPostDeletion runs a firing census over the
+// committed fixture corpus AFTER the deletion (the pre-deletion census over
+// these same witnesses is recorded in campaign/julia-trailing-comma-defect.md
+// §4 and campaign/fixtures/julia/FIRING-CENSUS.md): with the producer deleted,
+// no parse may record a `dispatch.julia` normalization pass again.
+func TestJuliaRetirementFiringCensusPostDeletion(t *testing.T) {
+	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
+	lang := grammars.JuliaLanguage()
+	for _, w := range juliaRetirementCorpus(t) {
+		w := w
+		t.Run(w.name, func(t *testing.T) {
+			tree, err := gotreesitter.NewParser(lang).Parse(w.source)
 			if err != nil {
 				t.Fatalf("production parse failed: %v", err)
 			}
-			defer prod.Release()
-			raw, err := gotreesitter.NewParser(lang).ParseNoResultCompatibilityBenchmarkOnly(w.source)
-			if err != nil {
-				t.Fatalf("raw parse failed: %v", err)
+			defer tree.Release()
+			rt := tree.ParseRuntime()
+			if rt.NormalizationPasses != nil {
+				for _, pass := range *rt.NormalizationPasses {
+					if pass.Name == "dispatch.julia" {
+						t.Fatalf("post-retirement firing: dispatch.julia pass recorded on witness %s (checked=%d run=%d visited=%d rewritten=%d); a julia producer was reintroduced without a new receipt",
+							w.name, pass.Checked, pass.Run, pass.NodesVisited, pass.NodesRewritten)
+					}
+				}
 			}
-			defer raw.Release()
-			prodRoot, rawRoot := prod.RootNode(), raw.RootNode()
-			if prodRoot.HasError() != rawRoot.HasError() {
-				t.Fatalf("root error flag diverges: production=%v raw=%v", prodRoot.HasError(), rawRoot.HasError())
-			}
-			if got, want := juliaDumpDigest(t, prodRoot, lang, w.source), juliaDumpDigest(t, rawRoot, lang, w.source); got != want {
-				t.Fatalf("production tree differs from raw tree on retired-arm witness:\n production=%s\n raw      =%s", got, want)
-			}
+			t.Logf("witness=%s bytes=%d status=NO-PASS-RECORD prod_root=%s hasError=%v",
+				w.name, len(w.source), tree.RootNode().Type(lang), tree.RootNode().HasError())
 		})
 	}
+}
+
+// TestJuliaRetirementFixtureCorpusIsComplete pins the shipped corpus itself:
+// campaign/fixtures/julia must contain exactly the 24 census witnesses plus
+// the one extra recovery variant, and every shipped witness must satisfy
+// production==raw parity.
+func TestJuliaRetirementFixtureCorpusIsComplete(t *testing.T) {
+	entries, err := os.ReadDir(juliaFixtureDir)
+	if err != nil {
+		t.Fatalf("read fixture dir: %v", err)
+	}
+	want := map[string]bool{"inline-assignment-tuple-multi": true}
+	for _, base := range juliaCensusWitnessFiles {
+		want[base] = true
+	}
+	got := map[string]bool{}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jl") {
+			continue
+		}
+		base := strings.TrimSuffix(e.Name(), ".jl")
+		if !want[base] {
+			t.Errorf("unexpected fixture %s/%s not covered by the census corpus", juliaFixtureDir, e.Name())
+			continue
+		}
+		got[base] = true
+	}
+	for base := range want {
+		if !got[base] {
+			t.Errorf("missing fixture %s/%s.jl", juliaFixtureDir, base)
+		}
+	}
+	if len(got) != len(want) {
+		t.Fatalf("fixture corpus size = %d, want %d", len(got), len(want))
+	}
+	lang := grammars.JuliaLanguage()
+	for _, base := range juliaCensusWitnessFiles {
+		name := base
+		if base == "julia_utils" {
+			name = "julia_utils.jl"
+		}
+		juliaAssertProductionEqualsRaw(t, lang, juliaRetirementWitness{name: name, source: juliaReadFixture(t, base)})
+	}
+	juliaAssertProductionEqualsRaw(t, lang, juliaRetirementWitness{name: "inline-assignment-tuple-multi", source: juliaReadFixture(t, "inline-assignment-tuple-multi")})
 }
 
 // findNodeByText was previously defined in parser_result_julia_test.go (deleted

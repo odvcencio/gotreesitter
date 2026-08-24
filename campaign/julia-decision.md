@@ -102,20 +102,39 @@ structure the native parser and the locked C oracle agree on, truncates spans, i
 (The wave-2 draft blocker receipt is superseded by this record; its reopening conditions 1–3
 remain valid hygiene items for any retirement PR but are no longer decision-blocking.)
 
-## Follow-on: retirement change plan (draft)
+## Follow-on: retirement change plan (drafted 2026-08-24; amended per reviewer FIXes 2–4)
 
-Scope of deletion (single dispatcher arm, five sub-repairs, one file + one switch arm):
+Scope of deletion (single dispatcher arm — one producer file plus its switch
+case). Vocabulary throughout follows the compatibility-tier ledger terms:
+**producer** (the compat function that rewrites returned trees), **defect**
+(a filed divergence between shipped output and the locked-C oracle), **witness**
+(an exact input pinning behavior), **census** (a counted firing survey over a
+fixed corpus), **receipt** (a committed, re-runnable proof), and **retirement**
+(registry `status: retired` with `retired_commit` + `receipt_refs`, never row
+deletion).
 
 1. **Delete producer**: remove `parser_result_julia.go` entirely
    (`normalizeJuliaCompatibility` + `normalizeJuliaRecoveredReturnRange`,
    `normalizeJuliaMacroArgumentJuxtaposition`, `normalizeJuliaSubscriptSingleRowMatrix`,
    `normalizeJuliaTrailingCommaAssignmentTuple`, `normalizeJuliaBracketForComprehensions`,
    `normalizeJuliaRecoveredSourceRoot` + helpers).
-2. **Delete switch arm**: `case "julia":` in `parser_result_compat.go:158-159`.
-   Audit `incremental_leaf_fastpath.go:146` which also carries a `case "julia":` — confirm
-   whether it routes to the same compat tail and retire consistently.
-3. **Registry**: set `dispatch.julia` status `"retired"` (or delete the row) in
-   `testdata/result_compat_ownership_v1.json:1554-1579`; `TestResultCompatibilityOwnershipRegistry`
+2. **Delete switch arm, KEEP the incremental fastpath case**: remove
+   `case "julia":` in `parser_result_compat.go:158-159`. **Explicit KEEP**:
+   the other `case "julia":` at `incremental_leaf_fastpath.go:146` is **NOT
+   part of this arm and MUST NOT be retired** — it is an incremental
+   line-comment reuse predicate (`node.Type == "line_comment" &&
+   hashLineCommentTextInvariantEdit(...)`), unrelated to the compat producer;
+   retiring it would break line-comment reuse for julia editors.
+3. **Registry: flip, never delete**: per `docs/compat-tier.md:77` (deleting
+   the historical record is not retirement) and the editing rules at
+   `docs/compat-tier.md:523-524`, keep the row at
+   `testdata/result_compat_ownership_v1.json:1554-1579`, set `status`
+   `"retired"`, and add `retired_commit` plus at least one `receipt_refs`
+   item (the decision record, the defect filing, and the regression receipt
+   test). Update the denominator arithmetic everywhere it is stated:
+   dispatcher_arms 31→30, dispatcher_languages 33→32, live_entries 32→31,
+   retired_entries 56→57, and the live language labels on
+   `docs/compat-tier.md:27` 35→34. `TestResultCompatibilityOwnershipRegistry`
    must pass.
 4. **Route receipts before merge** (registry retirement condition vocabulary):
    - production route: the witness set above must ship raw-equal trees (this dump is the
@@ -132,14 +151,61 @@ Scope of deletion (single dispatcher arm, five sub-repairs, one file + one switc
    tracked census (`GTS_DISPATCHER_CENSUS=1`) showing the `dispatch.julia` pass gone,
    `TestResultCompatibilityOwnershipRegistry`, baseline `parity_cgo_test.go`.
 
+### Scope honesty
+
+This retirement's evidence is narrower than its blast radius, and the record
+says so plainly: of the arm's five sub-repairs, only **one**
+(`normalizeJuliaRecoveredReturnRange`) carries a locked-C verdict — it is the
+sole producer whose firing witness was three-way dumped against the locked C
+oracle and shown to be a live defect. The **other four sub-repairs are
+unfired across all 24 census inputs** (`campaign/fixtures/julia/FIRING-CENSUS.md`):
+they are deleted as unreachable dead code whose trigger shapes are
+grammar-revision-dependent, not as verified defects. There is also **no julia
+A0 entry and no real julia corpus** in this campaign: the denominator evidence
+for julia rests entirely on the 24 synthetic witnesses plus the single
+`julia_utils.jl` control file, so any claim that real-world julia output
+improves is out of scope for this receipt. What IS proven: on every input
+where the arm ever fired, deletion moves shipped output toward strict locked-C
+parity (Decision 0007), and on every input where it never fired, output is
+unchanged and pinned by regression receipts.
+
 Risk assessment: low. On clean real input the arm is INERT (`julia_utils.jl`: rewritten=0 /
 343 visited), so only recovered-range sources change output — and those change **toward**
 locked-C parity. The four other sub-repairs were INERT on the wave-2 witness set and their
 trigger shapes are grammar-revision-dependent; deleting them removes dead code paths, and
 the permanent gate in step 4 catches any behavioral regression.
 
+### Execution status
+
+Executed 2026-08-24: producer deleted with the switch arm in
+`2c5ddcc9a566d2df4eed8544df0a022636d9977b` (= the registry `retired_commit`);
+registry row flipped — not deleted — to `status: "retired"` with
+`receipt_refs` (`campaign/julia-decision.md`,
+`campaign/julia-trailing-comma-defect.md`,
+`parser_result_julia_retirement_test.go`) and that `retired_commit`
+(`testdata/result_compat_ownership_v1.json`); denominator arithmetic updated
+(dispatcher_arms 30, dispatcher_languages 32, live_entries 31,
+retired_entries 57, labels 34 in `docs/compat-tier.md:19-27`). The
+`incremental_leaf_fastpath.go:146` julia case is KEPT intact. The regression
+corpus (firing witness + census sweep) ships as testdata under
+`campaign/fixtures/julia/` with the firing-census receipt
+(`campaign/fixtures/julia/FIRING-CENSUS.md`, recorded before the deletion), the
+pre-deletion defect filing lives at
+`campaign/julia-trailing-comma-defect.md`, and the permanent gates are
+`TestJuliaRetirementRawMatchesLockedCOracleOnFiringWitness`,
+`TestJuliaRetirementProductionEqualsRawOverCorpus`,
+`TestJuliaRetirementFiringCensusPostDeletion`, and
+`TestJuliaRetirementFixtureCorpusIsComplete`.
+
 ## Artifacts
 
+- `campaign/fixtures/julia/` — regression corpus: ACTIVE firing witness
+  (`inline-recovered-return-range.jl`) plus the 24-witness census sweep as
+  testdata, with `FIRING-CENSUS.md` recording the pre-deletion firing census
+  output and the post-retirement confirmation gate
+- `parser_result_julia_retirement_test.go` — retirement receipt test pinning
+  both digests, corpus parity, and post-deletion arm absence
+- `campaign/julia-trailing-comma-defect.md` — producer-defect filing for the
+  trailing-comma sub-repair, filed before the deletion
 - `campaign/julia-probe-context/dispatch_julia_census_test.go` — wave-2 probe (path fix only)
-- `cgo_harness/zz_julia_decision_dump_test.go` — three-way dump diag (build-tag gated, env-gated)
 - This record.
