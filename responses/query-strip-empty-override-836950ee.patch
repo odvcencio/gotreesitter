@@ -1,0 +1,149 @@
+```diff
+diff --git a/query.go b/query.go
+index 0000000..1111111
+--- a/query.go
++++ b/query.go
+@@ -12,9 +12,11 @@ import (
+ 
+ type QueryCapture struct {
+-	Name         string
+-	Node         *Node
+-	TextOverride string
++	Name            string
++	Node            *Node
++	TextOverride    string
++	hasTextOverride bool
+ }
+ 
+ func (c QueryCapture) Text(source []byte) string {
+-	if c.TextOverride != "" {
++	if c.hasTextOverride {
+ 		return c.TextOverride
+ 	}
++	if c.TextOverride != "" {
++		return c.TextOverride
++	}
+ 	if c.Node == nil {
+ 		return ""
+ 	}
+diff --git a/query_reader.go b/query_reader.go
+index 2222222..3333333
+--- a/query_reader.go
++++ b/query_reader.go
+@@ -8,6 +8,10 @@ type queryNodeReader[N comparable, C any] interface {
+ 	CaptureTextOverride(C) string
+ 	SetCaptureTextOverride(*C, string)
++	CaptureHasTextOverride(C) bool
++	SetCaptureHasTextOverride(*C, bool)
+ }
+ 
+ func (publicQueryReader) CaptureTextOverride(capture QueryCapture) string {
+ 	return capture.TextOverride
+ }
+ func (publicQueryReader) SetCaptureTextOverride(capture *QueryCapture, text string) {
+ 	capture.TextOverride = text
+ }
++
++func (publicQueryReader) CaptureHasTextOverride(capture QueryCapture) bool {
++	return capture.hasTextOverride
++}
++func (publicQueryReader) SetCaptureHasTextOverride(capture *QueryCapture, present bool) {
++	capture.hasTextOverride = present
++}
+@@ -30,5 +34,13 @@ type queryValueCapture[N comparable] struct {
+ 	Name         string
+ 	Node         N
+ 	TextOverride string
++	// hasTextOverride records that an override was explicitly written,
++	// even when the override text itself is empty.
++	hasTextOverride bool
+ }
++
++func genericSetCaptureTextOverride[N comparable](capture *queryValueCapture[N], text string) {
++	capture.TextOverride = text
++	capture.hasTextOverride = true
++}
++
++func genericCaptureHasTextOverride[N comparable](capture queryValueCapture[N]) bool {
++	return capture.hasTextOverride || capture.TextOverride != ""
++}
+diff --git a/query_predicates.go b/query_predicates.go
+index 4444444..5555555
+--- a/query_predicates.go
++++ b/query_predicates.go
+@@ -40,7 +40,7 @@ func captureTextWithReader[N comparable, C any, R queryNodeReader[N, C]](name st
+ 		if reader.CaptureName(capture) != name {
+ 			continue
+ 		}
+-		if override := reader.CaptureTextOverride(capture); override != "" {
++		if reader.CaptureHasTextOverride(capture) {
++			return reader.CaptureTextOverride(capture), true
++		}
++		if override := reader.CaptureTextOverride(capture); override != "" {
+ 			return override, true
+ 		}
+ 		node := reader.CaptureNode(capture)
+diff --git a/parsercore_phase0_selected_query.go b/parsercore_phase0_selected_query.go
+index 6666666..7777777
+--- a/parsercore_phase0_selected_query.go
++++ b/parsercore_phase0_selected_query.go
+@@ -20,3 +20,11 @@ func (selectedStoreQueryReader) SetCaptureTextOverride(capture *queryValueCapture[core.SelectedNodeID], text string) {
+ 	capture.TextOverride = text
+ }
++
++func (selectedStoreQueryReader) CaptureHasTextOverride(capture queryValueCapture[core.SelectedNodeID]) bool {
++	return genericCaptureHasTextOverride(capture)
++}
++
++func (selectedStoreQueryReader) SetCaptureHasTextOverride(capture *queryValueCapture[core.SelectedNodeID], present bool) {
++	capture.hasTextOverride = present
++}
+diff --git a/query_test.go b/query_test.go
+index 8888888..9999999
+--- a/query_test.go
++++ b/query_test.go
+@@ -100,6 +100,60 @@ func TestStripRemovesMatchedSubstrings(t *testing.T) {
+ 	}
+ }
+ 
++func TestProbeStripEntireCaptureKeepsEmptyOverride(t *testing.T) {
++	source := []byte("hello")
++	parser := getParser(t)
++	tree, err := parse(parser, "pattern", source)
++	if err != nil {
++		t.Fatalf("parse: %v", err)
++	}
++	qc, err := newQueryCompiler().compile("(pattern) @cap (#strip! @cap ".*")")
++	if err != nil {
++		t.Fatalf("compile: %v", err)
++	}
++	matches := qc.exec(tree.RootNode(), source)
++	if len(matches) == 0 {
++		t.Fatal("expected at least one match")
++	}
++	for _, m := range matches {
++		for _, c := range m.captures {
++			if got := c.Text(source); got != "" {
++				t.Errorf("fully stripped capture text = %q, want empty", got)
++			}
++			if got, ok := qc.captureText("cap", m.captures, source); !ok || got != "" {
++				t.Errorf("generic predicate text lookup = %q, %v; want "", true", got, ok)
++			}
++		}
++	}
++}
++
++func TestQueryCaptureDirectTextOverrideStillWorks(t *testing.T) {
++	node := &Node{symbol: symbol(1), startByte: 0, endByte: uint32(len("hello"))}
++	source := []byte("hello")
++	c := QueryCapture{Name: "x", Node: node}
++	if got := c.Text(source); got != "hello" {
++		t.Fatalf("unchanged capture text = %q, want %q", got, "hello")
++	}
++	c.TextOverride = "override"
++	if got := c.Text(source); got != "override" {
++		t.Errorf("direct override text = %q, want %q", got, "override")
++	}
++}
++
+```
