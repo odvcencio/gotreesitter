@@ -1,0 +1,43 @@
+--- a/injection.go
++++ b/injection.go
+@@
+ func (ip *InjectionParser) ParseIncremental(source []byte, parentLang string,
+ 	oldResult *InjectionResult) (*InjectionResult, error) {
+ 
++	if oldResult == nil {
++		return ip.Parse(source, parentLang)
++	}
++
+ 	// Detach prevResult now; release it after parsing so that oldResult.Tree
+ 	// (which may be the same object) remains valid throughout the parse.
+ 	prev := ip.prevResult
+--- a/injection_test.go
++++ b/injection_test.go
+@@
+ func TestInjectionParserEmptySource(t *testing.T) {
+ 	parentLang := buildContainerLanguage()
+ 	ip := NewInjectionParser()
+ 	ip.RegisterLanguage("container", parentLang)
+ 	// ...
+ }
++
++func TestProbeInjectionParserParseIncrementalNilOldResult(t *testing.T) {
++	parentLang := buildContainerLanguage()
++	ip := NewInjectionParser()
++	ip.RegisterLanguage("container", parentLang)
++
++	result, err := ip.ParseIncremental([]byte("[value]"), "container", nil)
++	if err != nil {
++		t.Fatalf("ParseIncremental with nil old result: %v", err)
++	}
++	if result == nil || result.Tree == nil {
++		t.Fatal("ParseIncremental with nil old result returned no tree")
++	}
++	if result.Tree.RootNode() == nil {
++		t.Fatal("ParseIncremental with nil old result returned no root node")
++	}
++	root := result.Tree.RootNode()
++	if got := string(root.Text([]byte("[value]"))); got != "[value]" {
++		t.Errorf("root text = %q, want %q", got, "[value]")
++	}
++}
