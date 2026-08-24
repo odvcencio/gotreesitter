@@ -1,0 +1,54 @@
+diff --git a/highlight_injections_exec.go b/highlight_injections_exec.go
+index 0000000..0000001 100644
+--- a/highlight_injections_exec.go
++++ b/highlight_injections_exec.go
+@@ -1,5 +1,6 @@
+ package gotreesitter
+ 
+-import "strings"
++import (
++	"strings"
++)
+ 
+ type injectedHighlightContext struct {
+@@ -33,10 +36,12 @@ func (h *Highlighter) collectInjectedHighlightRanges(ctx injectedHighlightContext
+ }
+ 
+ func (h *Highlighter) childHighlightQuery(cacheKey string, querySource string, lang *Language) (*Query, bool) {
+-	childQuery := h.childQueries[cacheKey]
++	cacheKey = cacheKey + "\x00" + querySource
++	childQuery := h.childQueries[cacheKey]
+ 	if childQuery != nil {
+ 		return childQuery, true
+ 	}
+diff --git a/highlight_injections_exec_test.go b/highlight_injections_exec_test.go
+new file mode 100644
+index 0000000..0000002
+--- /dev/null
++++ b/highlight_injections_exec_test.go
+@@ -0,0 +1,24 @@
++package gotreesitter
++
++import "testing"
++
++func TestChildHighlightQueryCacheIncludesQuerySource(t *testing.T) {
++	lang := queryTestLanguage()
++	h := &Highlighter{childQueries: make(map[string]*Query)}
++
++	first, ok := h.childHighlightQuery("shared-language", `(identifier) @first`, lang)
++	if !ok {
++		t.Fatal("first child query did not compile")
++	}
++	second, ok := h.childHighlightQuery("shared-language", `(identifier) @second`, lang)
++	if !ok {
++		t.Fatal("second child query did not compile")
++	}
++	if first == second {
++		t.Fatal("different resolver query sources reused one cached query")
++	}
++
++	matches := second.Execute(buildSimpleTree(lang))
++	if len(matches) != 1 || len(matches[0].Captures) != 1 || matches[0].Captures[0].Name != "second" {
++		t.Fatalf("second query captures = %#v, want @second", matches)
++	}
++}
