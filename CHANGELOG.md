@@ -91,6 +91,9 @@ for tags and release notes while still in `0.x`.
 
 ### Correctness
 
+- Preserved C conflict version order for generic object creation in C#
+  collection initializers.
+
 - Added a default-off Core link provenance sidecar. It stores finalized
   drop-cohort reference indexes by LinkID. Compact routing and admission stay
   unchanged.

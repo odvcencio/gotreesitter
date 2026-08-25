@@ -6480,10 +6480,24 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					continue
 				}
 				base := *s
+				// C keeps the current stack version for a non-repetition shift.
+				// It creates separate versions for reductions before it shifts.
+				// Preserve that version order because equal-precedence links keep
+				// the first subtree when the versions merge.
+				primaryActionIndex := 0
+				for ai := range actions {
+					if actions[ai].Type == ParseActionShift && !actions[ai].Repetition {
+						primaryActionIndex = ai
+						break
+					}
+				}
 				if p.glrTrace {
 					p.traceParseFork(currentState, actions)
 				}
-				for ai := 1; ai < len(actions); ai++ {
+				for ai := range actions {
+					if ai == primaryActionIndex {
+						continue
+					}
 					fork := base.cloneWithScratch(&scratch.gss)
 					fork.branchOrder = allocBranchOrder()
 					if actions[ai].Type != ParseActionShift || p.guardRealShiftGap(source, &fork, tok) {
@@ -6529,23 +6543,24 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 				}
 				s = &stacks[si]
-				if actions[0].Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
+				primaryAction := actions[primaryActionIndex]
+				if primaryAction.Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
 					continue
 				}
-				if actions[0].Type == ParseActionRecover && !p.guardRealTokenAttachmentGap(source, s, tok, "recover") {
+				if primaryAction.Type == ParseActionRecover && !p.guardRealTokenAttachmentGap(source, s, tok, "recover") {
 					continue
 				}
-				traceVisit(si, s, "conflict-original", 0, len(actions), actions[0])
-				setPendingTrace("conflict-original", si, 0, len(actions), actions[0])
-				p.noteStopActionDiagnostic("conflict-original", s, tok, actions[0], 0, len(actions), false, 0, 0, false)
+				traceVisit(si, s, "conflict-original", primaryActionIndex, len(actions), primaryAction)
+				setPendingTrace("conflict-original", si, primaryActionIndex, len(actions), primaryAction)
+				p.noteStopActionDiagnostic("conflict-original", s, tok, primaryAction, primaryActionIndex, len(actions), false, 0, 0, false)
 				actionBeforeState, actionBeforeByte, actionBeforeDepth := stackTraceState(s)
-				p.applyAction(source, s, actions[0], tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
+				p.applyAction(source, s, primaryAction, tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
 				p.noteStopActionResult(s)
 				actionAfterState, actionAfterByte, actionAfterDepth := stackTraceState(s)
 				traceAfterPrimary(si, s)
-				if actions[0].Type == ParseActionReduce {
+				if primaryAction.Type == ParseActionReduce {
 					p.completeConflictReduceFrontier(source, s, tok, conflictReduceFrontierSeed{
-						action:      actions[0],
+						action:      primaryAction,
 						beforeState: actionBeforeState,
 						beforeByte:  actionBeforeByte,
 						beforeDepth: actionBeforeDepth,
@@ -6556,8 +6571,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					traceFrontier(si, s, traceFrontierResult(actionAfterState, actionAfterByte, actionAfterDepth, s))
 				}
 				if p.glrTrace {
-					fmt.Printf("[GLR] orig[%d] after action[0]: st=%d dead=%v shift=%v dep=%d byte=%d\n",
-						si, s.top().state, s.dead, s.shifted, s.depth(), s.byteOffset)
+					fmt.Printf("[GLR] orig[%d] after action[%d]: st=%d dead=%v shift=%v dep=%d byte=%d\n",
+						si, primaryActionIndex, s.top().state, s.dead, s.shifted, s.depth(), s.byteOffset)
 				}
 				drainPendingForkStacks()
 				drainPendingFrontierForkStacks()

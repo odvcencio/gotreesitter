@@ -74,3 +74,9 @@ func TestCSharpGenericBaseListParity(t *testing.T) {
 	tc := parityCase{name: "c_sharp", source: string(src)}
 	runParityCase(t, tc, "generic-base-list", src)
 }
+
+func TestCSharpGenericObjectCreationInCollectionInitializerParity(t *testing.T) {
+	src := []byte("class C { object x = new D() { { typeof(T?), new F<T>(G.I) }, }; }\n")
+	tc := parityCase{name: "c_sharp", source: string(src)}
+	runParityCase(t, tc, "generic-object-creation-in-collection-initializer", src)
+}
