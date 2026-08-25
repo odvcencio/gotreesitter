@@ -1,8 +1,8 @@
 # Compact route real-corpus matrix
 
 Current evidence date: 2026-08-25.
-Current base commit: `509b9298aff9fd1853237ee24cd7b794b0f62c5c` from `main`.
-Current candidate base commit: `c2b78c5d0ea3ea4e5f32f2bb46f9a71759e0ea45`.
+Current base commit: `e4557bac36ec1794922a1ecce9ca5772d31f1a31` from `main`.
+Current candidate base commit: `e4557bac36ec1794922a1ecce9ca5772d31f1a31`.
 
 ## Latest Swift issue #576 parser recovery candidate
 
@@ -1642,12 +1642,27 @@ The bounded matrix completed with no silent divergence.
 
 | Status | Files |
 |---|---:|
-| PASS | 62 |
-| FALLBACK | 27 |
+| PASS | 63 |
+| FALLBACK | 26 |
 | SKIP | 8 |
 | DIVERGE | 0 |
 | ERROR | 0 |
 | Total | 97 |
+
+The compact route now admits no-primary multi-derivation end-of-file (EOF)
+frontiers through a bounded materiality comparison. It selects a deterministic
+provisional candidate only for that comparison. It requires exact public-tree
+equality for every live candidate and caps the comparison at eight candidates.
+The route fails closed when the cap, context, materialization, or equality
+proof fails.
+
+The C# 642-byte `variableDeclarations.cs` row now routes. Production, compact,
+and locked-C report the exact deep digest
+`005b39bd9a68ff9775129d3fb793b9d7a58b9f56812bb9ca9bd0eb753465dd86`.
+The change grants no language profile or digest grant.
+
+The 97-row matrix moves from 62 PASS, 27 FALLBACK, and 8 SKIP to 63 PASS,
+26 FALLBACK, and 8 SKIP. It has zero DIVERGE and ERROR rows.
 
 The corpus manifest contains 149 verified files across 50 languages.
 Its SHA-256 digest is
@@ -1670,6 +1685,10 @@ language-specific rule.
 
 The direct route served 64 percent of the selected files.
 Production served every fallback and every ineligible file.
+
+The C# `small__variableDeclarations.cs` row changed from fallback to direct
+admission. It has 642 bytes and the exact production, compact, and locked-C
+deep digest recorded above.
 
 ## D6a producer evidence
 

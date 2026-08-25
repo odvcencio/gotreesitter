@@ -375,24 +375,28 @@ func (w *DiagnosticParserCoreGenericWork) add(counter *uint64, delta uint64) {
 }
 
 // DiagnosticParserCoreGenericAcceptance records an authenticated EOF accept
-// after the compact frontier has converged to one exact derivation. Payloads
-// are the selected bottom-to-top compact stack; materialization does not
-// mutate that graph.
+// after the compact frontier has selected one derivation. A materiality-
+// certified selection may represent more than one live derivation when every
+// candidate publishes the same public tree. Payloads are the selected
+// bottom-to-top compact stack; materialization does not mutate that graph.
 type DiagnosticParserCoreGenericAcceptance struct {
-	ElectionIndex   int
-	Token           Token
-	Header          DiagnosticParserCoreHeaderPathReceipt
-	Payloads        []uint32
-	Score           int64
-	BranchOrder     uint64
-	HasBranchOrder  bool
-	CoreWork        core.Work
-	Accepts         uint64
-	SelectedNodes   uint64
-	SelectedParents uint64
-	SelectedLeaves  uint64
-	Stats           core.Stats
-	Work            DiagnosticParserCoreGenericWork
+	ElectionIndex  int
+	Token          Token
+	Header         DiagnosticParserCoreHeaderPathReceipt
+	Payloads       []uint32
+	Score          int64
+	BranchOrder    uint64
+	HasBranchOrder bool
+	// MaterialityCertified records the bounded public-tree comparison that
+	// makes a multi-derivation selection safe without a certified primary.
+	MaterialityCertified bool
+	CoreWork             core.Work
+	Accepts              uint64
+	SelectedNodes        uint64
+	SelectedParents      uint64
+	SelectedLeaves       uint64
+	Stats                core.Stats
+	Work                 DiagnosticParserCoreGenericWork
 }
 
 // DiagnosticParserCoreGenericConflict records one table-driven conflict cell.
@@ -6828,17 +6832,20 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 		s.censusAcceptanceDerivationSetTruncated()
 		return err
 	}
-	path, selected := selectCompactAcceptanceDerivation(paths, s.options.allowPrimaryAcceptDerivation)
+	path, selected, materialityCertified := selectCompactAcceptanceDerivationWithMateriality(
+		paths, s.options.allowPrimaryAcceptDerivation,
+	)
 	if !selected {
 		s.censusAcceptanceDerivationSet(paths, core.Derivation{}, false, false)
 		return s.finish(DiagnosticParserCoreAccept, "generic scheduler requires one certified accepted derivation", 0)
 	}
 	// R1 materiality gate: selectCompactAcceptanceDerivation's tie guard has
-	// no C-faithful basis for choosing among score-tied derivations. It is
-	// only safe to admit the positional primary when every live derivation
-	// materializes to the identical tree (a vacuous election -- any pick is
-	// correct). len(paths) > 1 here means the tie guard, not the len(paths)
-	// == 1 fast path, selected primary, so every entry in paths is live.
+	// no C-faithful basis for choosing among score-tied derivations. A
+	// certified primary, or the provisional path selected above when no
+	// primary is certified, is safe only when every live derivation
+	// materializes to the identical tree. This is a vacuous election: any
+	// candidate produces the same public result. len(paths) > 1 here means
+	// that the bounded comparison must run.
 	//
 	// COST, stated plainly, not special-cased away: Apex's class_literal_alias
 	// witness ("Object t = RecordPage.class;", apexA3TiedElectionWitnesses,
@@ -6856,29 +6863,13 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 	// the way the C runtime does instead of requiring exact identity. It is
 	// not fixed by special-casing this witness.
 	if len(paths) > 1 {
-		if len(paths) > compactAcceptanceElectionMaxLiveDerivations {
-			// Observed live-derivation counts top out at 8 (bounded by
-			// MaxLinksPerBoundary); Limits.MaxDerivations itself allows up
-			// to 1<<16. Materializing and comparing every candidate up to
-			// that theoretical count is an unbounded-cost path with no
-			// observed witness anywhere near it, so decline outright above
-			// this cap rather than pay for a comparison this rare. Counted
-			// under the same material-acceptance-election census mechanism
-			// (admission_census.go), with a distinguishable detail string.
+		if detail := compactAcceptanceElectionMaterialityDeclineDetail(paths, s.options.materializationContextSet); detail != "" {
+			// The cap and context guard keep comparison cost bounded and keep
+			// callers without a materialization context fail-closed. Count
+			// both outcomes under the material-acceptance-election census
+			// mechanism with their distinct detail strings.
 			s.censusAcceptanceDerivationSet(paths, path, true, true)
-			return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionCandidateCapDetail, 0)
-		}
-		if !s.options.materializationContextSet {
-			// No caller in this parse set up a materialization context, so no
-			// comparison can run at all here -- distinct from the case below,
-			// where a comparison ran and found (or failed to prove) equality.
-			// Every real parse entry point sets the context before running
-			// the scheduler (parsercore_phase0_fresh_full_runner.go
-			// executeSchedulerOpen, diagnosticParseParserCoreGenericFromSeed),
-			// so this is a fail-closed guard for a caller shape not observed
-			// in the certified sweep corpora.
-			s.censusAcceptanceDerivationSet(paths, path, true, true)
-			return s.finish(DiagnosticParserCoreAccept, compactAcceptanceElectionNoContextDetail, 0)
+			return s.finish(DiagnosticParserCoreAccept, detail, 0)
 		}
 		if !compactAcceptanceElectionIsVacuous(
 			s.compact, s.options.materializationParser, s.options.materializationSource,
@@ -6933,8 +6924,9 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 	s.receipt.acceptanceBacking = DiagnosticParserCoreGenericAcceptance{
 		ElectionIndex: s.electionIndex, Token: s.token, Header: header,
 		Payloads: payloads, Score: path.Score, BranchOrder: path.BranchOrder,
-		HasBranchOrder: path.HasBranchOrder, CoreWork: s.compact.Work(),
-		Accepts: s.work.Accepts, Stats: stats, Work: s.work,
+		HasBranchOrder: path.HasBranchOrder, MaterialityCertified: materialityCertified,
+		CoreWork: s.compact.Work(),
+		Accepts:  s.work.Accepts, Stats: stats, Work: s.work,
 	}
 	s.receipt.Acceptance = &s.receipt.acceptanceBacking
 	if mergeCensusEnabled {
@@ -6998,6 +6990,17 @@ func selectCompactAcceptanceDerivation(paths []core.Derivation, allowPrimary boo
 	return paths[primary], true
 }
 
+// selectCompactAcceptanceDerivationWithMateriality keeps the certified
+// primary rules unchanged. An uncertified multi-derivation frontier receives
+// a provisional first path only for the bounded public-tree comparison.
+func selectCompactAcceptanceDerivationWithMateriality(paths []core.Derivation, allowPrimary bool) (core.Derivation, bool, bool) {
+	path, selected := selectCompactAcceptanceDerivation(paths, allowPrimary)
+	if selected || allowPrimary || len(paths) < 2 {
+		return path, selected, false
+	}
+	return paths[0], true, true
+}
+
 func compactDerivationsForAcceptance(compact *core.Core, head core.Head) ([]core.Derivation, error) {
 	paths, err := compact.Derivations(head)
 	if errors.Is(err, core.ErrDerivationEnumerationCap) {
@@ -7055,13 +7058,23 @@ const compactAcceptanceElectionMaxLiveDerivations = 8
 // election vacuous, so it declines rather than guess.
 const compactAcceptanceElectionCandidateCapDetail = "material-acceptance-election: tied derivation count exceeds the materiality gate's comparison cap"
 
+// compactAcceptanceElectionMaterialityDeclineDetail returns the preconditions
+// that prevent the bounded public-tree comparison from running.
+func compactAcceptanceElectionMaterialityDeclineDetail(paths []core.Derivation, contextSet bool) string {
+	if len(paths) > compactAcceptanceElectionMaxLiveDerivations {
+		return compactAcceptanceElectionCandidateCapDetail
+	}
+	if !contextSet {
+		return compactAcceptanceElectionNoContextDetail
+	}
+	return ""
+}
+
 // compactAcceptanceElectionIsVacuous decides whether every derivation in
-// paths materializes to the same public tree as the already-selected primary.
-// Called only when selectCompactAcceptanceDerivation has admitted primary
-// under its score-tie guard with 2 to compactAcceptanceElectionMaxLiveDerivations
-// entries in paths (completeAcceptance declines above the cap before ever
-// calling this function), so every entry is a live, score-tied-or-losing
-// candidate.
+// paths materializes to the same public tree as the selected reference.
+// The reference may be a certified primary or a deterministic provisional
+// path when no primary exists. The caller limits paths to
+// compactAcceptanceElectionMaxLiveDerivations before this function runs.
 //
 // This is NOT a property every multi-derivation accept in the certified
 // languages' own sweep corpora already had before this gate landed: Apex's

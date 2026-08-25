@@ -100,6 +100,18 @@ for tags and release notes while still in `0.x`.
 
 ### Correctness
 
+- Added bounded materiality-only acceptance for no-primary multi-derivation
+  end-of-file (EOF) frontiers. The route selects a deterministic provisional
+  candidate only for the existing bounded public-tree comparison. It routes
+  only when every live candidate materializes to the same public tree. The
+  comparison caps live candidates at eight and fails closed on a cap, missing
+  context, materialization failure, or tree mismatch. The C# 642-byte
+  `variableDeclarations.cs` row now routes. The 97-row matrix moves from 62
+  PASS, 27 FALLBACK, and 8 SKIP to 63 PASS, 26 FALLBACK, and 8 SKIP, with zero
+  DIVERGE or ERROR rows. Production, compact, and locked-C report the exact
+  deep digest `005b39bd9a68ff9775129d3fb793b9d7a58b9f56812bb9ca9bd0eb753465dd86`.
+  The change grants no language profile or digest grant.
+
 - Raw accepted-leaf coverage now preserves hidden terminals and exact `ERROR`
   provenance with bounded reusable scratch and cancellation polling. The
   authenticated matrix moves from 60 PASS, 29 FALLBACK, and 8 SKIP to 62 PASS,

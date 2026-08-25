@@ -3,6 +3,7 @@
 package gotreesitter
 
 import (
+	"reflect"
 	"testing"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
@@ -49,6 +50,45 @@ func TestSelectCompactAcceptanceDerivation(t *testing.T) {
 				t.Fatalf("selected=%+v, want primary %+v", got, primary)
 			}
 		})
+	}
+}
+
+func TestSelectCompactAcceptanceDerivationWithMateriality(t *testing.T) {
+	paths := []core.Derivation{
+		{Payloads: []core.SubtreeID{1}, Score: 1, BranchOrder: 12, HasBranchOrder: true},
+		{Payloads: []core.SubtreeID{1}, Score: 1, BranchOrder: 13, HasBranchOrder: true},
+		{Payloads: []core.SubtreeID{1}, Score: 1, BranchOrder: 14, HasBranchOrder: true},
+	}
+	path, selected, materiality := selectCompactAcceptanceDerivationWithMateriality(paths, false)
+	if !selected || !materiality || !reflect.DeepEqual(path, paths[0]) {
+		t.Fatalf("all-branch-ordered materiality reference = (%+v, %t, %t), want first path, selected, materiality", path, selected, materiality)
+	}
+
+	primary := core.Derivation{Score: 4}
+	secondary := core.Derivation{Score: 4, BranchOrder: 1, HasBranchOrder: true}
+	path, selected, materiality = selectCompactAcceptanceDerivationWithMateriality([]core.Derivation{primary, secondary}, true)
+	if !selected || materiality || !reflect.DeepEqual(path, primary) {
+		t.Fatalf("certified primary selection = (%+v, %t, %t), want ordinary primary selection", path, selected, materiality)
+	}
+
+	higherSecondary := core.Derivation{Score: 5, BranchOrder: 1, HasBranchOrder: true}
+	path, selected, materiality = selectCompactAcceptanceDerivationWithMateriality([]core.Derivation{primary, higherSecondary}, true)
+	if selected || materiality || !reflect.DeepEqual(path, core.Derivation{}) {
+		t.Fatalf("higher secondary selection = (%+v, %t, %t), want the existing decline", path, selected, materiality)
+	}
+}
+
+func TestCompactAcceptanceElectionMaterialityDeclineDetail(t *testing.T) {
+	paths := make([]core.Derivation, compactAcceptanceElectionMaxLiveDerivations+1)
+	if got := compactAcceptanceElectionMaterialityDeclineDetail(paths, true); got != compactAcceptanceElectionCandidateCapDetail {
+		t.Fatalf("candidate-cap detail = %q, want %q", got, compactAcceptanceElectionCandidateCapDetail)
+	}
+	paths = paths[:2]
+	if got := compactAcceptanceElectionMaterialityDeclineDetail(paths, false); got != compactAcceptanceElectionNoContextDetail {
+		t.Fatalf("no-context detail = %q, want %q", got, compactAcceptanceElectionNoContextDetail)
+	}
+	if got := compactAcceptanceElectionMaterialityDeclineDetail(paths, true); got != "" {
+		t.Fatalf("ready materiality detail = %q, want empty", got)
 	}
 }
 
