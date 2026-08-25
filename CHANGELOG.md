@@ -100,6 +100,12 @@ for tags and release notes while still in `0.x`.
 
 ### Correctness
 
+- Raw accepted-leaf coverage now preserves hidden terminals and exact `ERROR`
+  provenance with bounded reusable scratch and cancellation polling. The
+  authenticated matrix moves from 60 PASS, 29 FALLBACK, and 8 SKIP to 62 PASS,
+  27 FALLBACK, and 8 SKIP, with zero DIVERGE or ERROR rows. Both HTML rows now
+  convert directly. Isolated HTML Docker parity is 25/25.
+
 - Added a default-off Core link provenance sidecar. It stores finalized
   drop-cohort reference indexes by LinkID. Compact routing and admission stay
   unchanged.

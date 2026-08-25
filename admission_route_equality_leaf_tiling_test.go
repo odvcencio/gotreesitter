@@ -112,6 +112,43 @@ func TestCompactRouteHTMLErroneousEndTagByteGapDeclines(t *testing.T) {
 	}
 }
 
+// TestCompactRouteAcceptedHiddenDoctypeLeafTiles proves that a hidden raw
+// terminal can supply the bytes omitted from the public doctype children.
+func TestCompactRouteAcceptedHiddenDoctypeLeafTiles(t *testing.T) {
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	entry := grammars.DetectLanguageByName("html")
+	if entry == nil {
+		t.Fatal("html is not registered")
+	}
+	lang := entry.Language()
+	source := []byte("<!doctype html>\n")
+
+	production := gts.NewParser(lang)
+	production.SetAdmissionCandidateRoute(false)
+	productionTree, err := production.Parse(source)
+	if err != nil {
+		t.Fatalf("production parse: %v", err)
+	}
+	defer productionTree.Release()
+
+	gts.ResetAdmissionCandidateCountersForTest()
+	candidate := gts.NewParser(lang)
+	candidate.SetAdmissionCandidateRoute(true)
+	candidateTree, err := candidate.Parse(source)
+	if err != nil {
+		t.Fatalf("candidate parse: %v", err)
+	}
+	defer candidateTree.Release()
+
+	routed, fallback := gts.AdmissionCandidateCounters()
+	if routed != 1 || fallback != 0 {
+		t.Fatalf("route counters routed=%d fallback=%d, want routed=1 fallback=0", routed, fallback)
+	}
+	if got, want := candidateTree.RootNode().SExpr(lang), productionTree.RootNode().SExpr(lang); got != want {
+		t.Fatalf("candidate tree diverges from production\n got:  %s\n want: %s", got, want)
+	}
+}
+
 // TestCompactRouteDeclinesAdjudicatedFalseCleanWitnesses pulls a focused
 // subset (3 html, 3 javascript) from the 20-witness committed manifest (10
 // html, 8 javascript, 2 swift). Each entry was, before the B1 tiling gate,

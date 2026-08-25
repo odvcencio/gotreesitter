@@ -4217,11 +4217,86 @@ const parserCoreMaxRetainedLineStarts = 256 * 1024
 type parserCoreRunnerScratch struct {
 	materialization diagnosticParserCoreMaterializationScratch
 	postorder       core.MaterializationPostorderScratch
+	acceptedLeaves  diagnosticParserCoreAcceptedLeafCoverageScratch
 	nodesByID       []*Node
 	nodes           []*Node
 	linkScratch     []*Node
 	lineStarts      []uint32
 	goCompatFrames  []goCompatSubtreeFrame
+}
+
+// parserCoreMaxRetainedAcceptedLeafSpans bounds the caller-owned coverage
+// storage retained by a parser after a wide accepted tree.
+const parserCoreMaxRetainedAcceptedLeafSpans = 256 * 1024
+
+type diagnosticParserCoreAcceptedLeafSpan struct {
+	id        core.SubtreeID
+	startByte uint32
+	endByte   uint32
+	hidden    bool
+}
+
+type diagnosticParserCoreAcceptedLeafCoverageScratch struct {
+	spans []diagnosticParserCoreAcceptedLeafSpan
+}
+
+func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) reset() {
+	if scratch == nil {
+		return
+	}
+	if cap(scratch.spans) > parserCoreMaxRetainedAcceptedLeafSpans {
+		scratch.spans = nil
+		return
+	}
+	clear(scratch.spans)
+	scratch.spans = scratch.spans[:0]
+}
+
+func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) append(
+	id core.SubtreeID,
+	view core.MaterializationSubtreeView,
+	sourceLen uint32,
+	hidden bool,
+) error {
+	if scratch == nil || !view.Terminal {
+		return nil
+	}
+	if view.StartByte > view.EndByte || view.EndByte > sourceLen {
+		return fmt.Errorf("terminal subtree span=%d..%d is outside source length %d", view.StartByte, view.EndByte, sourceLen)
+	}
+	if count := len(scratch.spans); count > 0 {
+		previous := scratch.spans[count-1]
+		if view.StartByte < previous.startByte {
+			return fmt.Errorf("terminal subtree spans move backward: previous=%d..%d current=%d..%d", previous.startByte, previous.endByte, view.StartByte, view.EndByte)
+		}
+		if view.StartByte < previous.endByte {
+			return fmt.Errorf("terminal subtree spans overlap: previous=%d..%d current=%d..%d", previous.startByte, previous.endByte, view.StartByte, view.EndByte)
+		}
+	}
+	scratch.spans = append(scratch.spans, diagnosticParserCoreAcceptedLeafSpan{
+		id:        id,
+		startByte: view.StartByte,
+		endByte:   view.EndByte,
+		hidden:    hidden,
+	})
+	return nil
+}
+
+func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) hasVisibleTerminalNode(startByte, endByte uint32, node *Node, nodesByID []*Node) bool {
+	if scratch == nil {
+		return false
+	}
+	index := sort.Search(len(scratch.spans), func(index int) bool {
+		return scratch.spans[index].startByte >= startByte
+	})
+	for index < len(scratch.spans) && scratch.spans[index].startByte == startByte {
+		span := scratch.spans[index]
+		if !span.hidden && span.endByte == endByte && uint64(span.id) < uint64(len(nodesByID)) && nodesByID[span.id] == node {
+			return true
+		}
+		index++
+	}
+	return false
 }
 
 // nodeSlice returns a zeroed length-n *Node slice, reusing buf's capacity when
@@ -4264,6 +4339,7 @@ func (s *parserCoreRunnerScratch) resetTreeBuffers() {
 		return
 	}
 	s.postorder.Reset()
+	s.acceptedLeaves.reset()
 	s.nodesByID = clearNodeScratch(s.nodesByID)
 	s.nodes = clearNodeScratch(s.nodes)
 	s.linkScratch = clearNodeScratch(s.linkScratch)
@@ -4368,7 +4444,7 @@ func materializeDiagnosticParserCoreAcceptedTree(compact *core.Core, head core.H
 // the !root.IsError() && !root.HasError() bar so a genuinely recovered tree
 // can complete -- the span-completeness half of the check (root must still
 // cover the whole source) stays in force unconditionally either way.
-func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, tokenCount uint32, continuationEscape byte) error {
+func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node) error {
 	expectedStart := firstNonTriviaByteStart(source)
 	clean := allowErrorRoot || (!root.IsError() && !root.HasError())
 	if root.startByte == expectedStart && root.endByte < sourceLen && clean {
@@ -4402,7 +4478,20 @@ func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sou
 			// it runs only in the one case that needs it (allowErrorRoot),
 			// so every other language and every non-recovery compact parse
 			// pays nothing.
-			if gapStart, gapEnd, gapped := diagnosticParserCoreAcceptedTreeLeafCoverageGap(root, source, expectedStart, sourceLen, tokenCount); gapped {
+			if err := poll(); err != nil {
+				return err
+			}
+			if gapStart, gapEnd, gapped, err := diagnosticParserCoreAcceptedDerivationLeafCoverageGap(coverage, source, expectedStart, sourceLen, poll); err != nil {
+				return fmt.Errorf("parser-core phase zero: accepted compact derivation leaf coverage: %w", err)
+			} else if gapped {
+				return fmt.Errorf(
+					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: gap=%d..%d root=%d..%d",
+					gapStart, gapEnd, root.startByte, root.endByte,
+				)
+			}
+			if gapStart, gapEnd, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(root, source, expectedStart, sourceLen, tokenCount, coverage, nodesByID, poll); err != nil {
+				return fmt.Errorf("parser-core phase zero: accepted compact public-tree leaf coverage: %w", err)
+			} else if gapped {
 				return fmt.Errorf(
 					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: gap=%d..%d root=%d..%d",
 					gapStart, gapEnd, root.startByte, root.endByte,
@@ -4414,6 +4503,9 @@ func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sou
 			// covered -- only the ATTACHMENT point is wrong. See
 			// diagnosticParserCoreAcceptedRootTrailingErrorExtraGap's own
 			// doc comment.
+			if err := poll(); err != nil {
+				return err
+			}
 			if diagnosticParserCoreAcceptedRootTrailingErrorExtraGap(root) {
 				return fmt.Errorf(
 					"parser-core phase zero: accepted compact root carries an error-bearing trailing extra payload after its last non-extra child: root=%d..%d",
@@ -4434,68 +4526,198 @@ func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sou
 	)
 }
 
-// diagnosticParserCoreAcceptedTreeLeafCoverageGap walks root's already-
-// materialized, public tree (the same surface go-tree-sitter callers see) in
-// byte order and reports the first non-trivia byte range no genuine terminal
-// leaf covers -- the same predicate diagnosticParserCoreReduceChildrenTilingGap
-// uses per reduce (diagnosticParserCoreGapIsTolerated), applied once, across
-// the whole finalized tree, independent of which reduce's declared span
-// claimed which bytes. See finalizeDiagnosticParserCoreAcceptedRootSpan's
-// allowErrorRoot branch for why the per-reduce check alone is not sufficient
-// here.
-//
-// A childless NODE only counts as covering its span when it is a genuine
-// terminal: symbol < tokenCount (an ordinary lexed token, matching the exact
-// bound s3CloseInProgressProductions already uses to enumerate terminals),
-// or the built-in ERROR symbol (a leaf absorbed into an open S3 region,
-// which is also structurally childless -- html_min_a's innermost
-// "(ERROR (ERROR))", for one). A childless NON-terminal (symbol >=
-// tokenCount, not ERROR) covers NOTHING: this is exactly the shape the
-// adversarial finding exposed -- html "<!--c-->>" reduces "document" over
-// zero real children, and treating that hollow reduce as if it were a leaf
-// spanning its own (already-stretched) declared range let the accept
-// through with the comment and the absorbed '>' entirely unrepresented in
-// the public tree.
-func diagnosticParserCoreAcceptedTreeLeafCoverageGap(root *Node, source []byte, expectedStart, sourceLen, tokenCount uint32) (gapStart, gapEnd uint32, gapped bool) {
+// diagnosticParserCoreAcceptedDerivationLeafCoverageGap checks the raw
+// terminal spans collected during authenticated materialization. Hidden
+// terminals remain available, while childless non-terminals contribute none.
+func diagnosticParserCoreAcceptedDerivationLeafCoverageGap(coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, source []byte, expectedStart, sourceLen uint32, poll func() error) (gapStart, gapEnd uint32, gapped bool, err error) {
+	if coverage == nil {
+		return 0, 0, false, errors.New("accepted derivation leaf coverage requires terminal spans")
+	}
+	if poll != nil {
+		if err := poll(); err != nil {
+			return 0, 0, false, err
+		}
+	}
 	cur := expectedStart
-	var walk func(n *Node) (uint32, uint32, bool)
-	walk = func(n *Node) (uint32, uint32, bool) {
-		if n == nil {
-			return 0, 0, false
+	for index, span := range coverage.spans {
+		if index&255 == 0 && poll != nil {
+			if err := poll(); err != nil {
+				return 0, 0, false, err
+			}
+		}
+		if span.startByte > span.endByte || span.endByte > sourceLen {
+			return 0, 0, false, fmt.Errorf("terminal subtree span=%d..%d is outside source length %d", span.startByte, span.endByte, sourceLen)
+		}
+		if span.startByte > cur {
+			tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:span.startByte], poll)
+			if gapErr != nil {
+				return 0, 0, false, gapErr
+			}
+			if !tolerated {
+				return cur, span.startByte, true, nil
+			}
+		}
+		if span.endByte > cur {
+			cur = span.endByte
+		}
+	}
+	if cur < sourceLen {
+		tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:sourceLen], poll)
+		if gapErr != nil {
+			return 0, 0, false, gapErr
+		}
+		if !tolerated {
+			return cur, sourceLen, true, nil
+		}
+	}
+	return 0, 0, false, nil
+}
+
+func diagnosticParserCoreAcceptedHiddenLeafCovers(coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, source []byte, startByte, endByte uint32, nextSpan *int, poll func() error) (covered bool, err error) {
+	if coverage == nil || startByte >= endByte || nextSpan == nil {
+		return false, nil
+	}
+	if endByte > uint32(len(source)) {
+		return false, fmt.Errorf("public leaf gap=%d..%d is outside source length %d", startByte, endByte, len(source))
+	}
+	for *nextSpan < len(coverage.spans) && coverage.spans[*nextSpan].endByte <= startByte {
+		(*nextSpan)++
+	}
+	cur := startByte
+	for index := *nextSpan; index < len(coverage.spans); index++ {
+		if index&255 == 0 && poll != nil {
+			if err := poll(); err != nil {
+				return false, err
+			}
+		}
+		span := coverage.spans[index]
+		if span.startByte >= endByte {
+			break
+		}
+		if !span.hidden {
+			if span.endByte > cur {
+				return false, nil
+			}
+			*nextSpan = index + 1
+			continue
+		}
+		if span.startByte > cur {
+			tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:min(span.startByte, endByte)], poll)
+			if gapErr != nil {
+				return false, gapErr
+			}
+			if !tolerated {
+				return false, nil
+			}
+			cur = span.startByte
+		}
+		if span.endByte > cur {
+			cur = min(span.endByte, endByte)
+		}
+		*nextSpan = index + 1
+		if cur >= endByte {
+			return true, nil
+		}
+	}
+	if cur < endByte {
+		tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:endByte], poll)
+		if gapErr != nil {
+			return false, gapErr
+		}
+		if tolerated {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func diagnosticParserCoreAcceptedTreeLeafCoverageGap(root *Node, source []byte, expectedStart, sourceLen, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node, poll func() error) (gapStart, gapEnd uint32, gapped bool, err error) {
+	if coverage == nil {
+		return 0, 0, false, errors.New("public leaf coverage requires terminal spans")
+	}
+	if poll != nil {
+		if err := poll(); err != nil {
+			return 0, 0, false, err
+		}
+	}
+	cur := expectedStart
+	nextHiddenSpan := 0
+	acceptGap := func(startByte, endByte uint32) (bool, error) {
+		if endByte <= startByte {
+			return true, nil
+		}
+		if startByte > endByte || endByte > sourceLen {
+			return false, fmt.Errorf("public leaf gap=%d..%d is outside source length %d", startByte, endByte, sourceLen)
+		}
+		tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[startByte:endByte], poll)
+		if gapErr != nil {
+			return false, gapErr
+		}
+		if tolerated {
+			cur = endByte
+			return true, nil
+		}
+		covered, hiddenErr := diagnosticParserCoreAcceptedHiddenLeafCovers(coverage, source, startByte, endByte, &nextHiddenSpan, poll)
+		if hiddenErr != nil {
+			return false, hiddenErr
+		}
+		if covered {
+			cur = endByte
+			return true, nil
+		}
+		gapStart, gapEnd, gapped = startByte, endByte, true
+		return false, nil
+	}
+	var walk func(n *Node) error
+	var visited uint32
+	walk = func(n *Node) error {
+		if n == nil || gapped {
+			return nil
+		}
+		visited++
+		if visited&255 == 0 && poll != nil {
+			if err := poll(); err != nil {
+				return err
+			}
 		}
 		count := n.ChildCount()
 		if count == 0 {
 			sym := n.Symbol()
 			if uint32(sym) >= tokenCount && sym != errorSymbol {
-				// A hollow non-terminal: covers nothing, does not advance
-				// cur. Any real content it claimed but does not itself
-				// contain surfaces as a gap at the next genuine leaf (or at
-				// the trailing check below, if it was the last thing in the
-				// tree).
-				return 0, 0, false
+				return nil
 			}
-			if n.startByte > cur && !diagnosticParserCoreGapIsTolerated(source[cur:n.startByte]) {
-				return cur, n.startByte, true
+			if sym == errorSymbol && !coverage.hasVisibleTerminalNode(n.startByte, n.endByte, n, nodesByID) {
+				return nil
+			}
+			if n.startByte > cur {
+				if ok, gapErr := acceptGap(cur, n.startByte); gapErr != nil || !ok {
+					return gapErr
+				}
 			}
 			if n.endByte > cur {
 				cur = n.endByte
 			}
-			return 0, 0, false
+			return nil
 		}
-		for i := 0; i < count; i++ {
-			if gs, ge, gapped := walk(n.Child(i)); gapped {
-				return gs, ge, true
+		for index := 0; index < count; index++ {
+			if err := walk(n.Child(index)); err != nil {
+				return err
+			}
+			if gapped {
+				return nil
 			}
 		}
-		return 0, 0, false
+		return nil
 	}
-	if gs, ge, gapped := walk(root); gapped {
-		return gs, ge, true
+	if err = walk(root); err != nil || gapped {
+		return gapStart, gapEnd, gapped, err
 	}
-	if cur < sourceLen && !diagnosticParserCoreGapIsTolerated(source[cur:sourceLen]) {
-		return cur, sourceLen, true
+	if cur < sourceLen {
+		if ok, gapErr := acceptGap(cur, sourceLen); gapErr != nil || !ok {
+			return gapStart, gapEnd, gapped, gapErr
+		}
 	}
-	return 0, 0, false
+	return 0, 0, false, nil
 }
 
 // diagnosticParserCoreAcceptedRootTrailingErrorExtraGap reports whether
@@ -4716,6 +4938,28 @@ func diagnosticParserCoreGapIsTolerated(gap []byte) bool {
 	return bytesAreInterTokenTrivia(gap)
 }
 
+func diagnosticParserCoreGapIsToleratedWithPoll(gap []byte, poll func() error) (bool, error) {
+	for index := 0; index < len(gap); index++ {
+		if index&255 == 0 && poll != nil {
+			if err := poll(); err != nil {
+				return false, err
+			}
+		}
+		switch gap[index] {
+		case ' ', '\t', '\n', '\r', '\f':
+			continue
+		case '\\':
+			if index+1 < len(gap) && (gap[index+1] == '\n' || gap[index+1] == '\r') {
+				continue
+			}
+			return false, nil
+		default:
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // materializeDiagnosticParserCoreAcceptedSelection materializes the accepted
 // compact derivation into a public tree. When scratch is non-nil the runner's
 // reusable buffers back the transient materialization storage, so the warm
@@ -4855,10 +5099,28 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		node.setFragileLeft(true)
 		node.setFragileRight(true)
 	}
+	var acceptedLeavesLocal diagnosticParserCoreAcceptedLeafCoverageScratch
+	acceptedLeaves := &acceptedLeavesLocal
+	if scratch != nil {
+		scratch.acceptedLeaves.reset()
+		acceptedLeaves = &scratch.acceptedLeaves
+	}
+	if !allowErrorRoot {
+		acceptedLeaves = nil
+	}
 	materializeVisit := func(materializationScratch *diagnosticParserCoreMaterializationScratch) error {
 		visit := func(id core.SubtreeID, view core.MaterializationSubtreeView) error {
 			if view.EndByte < view.StartByte || view.EndByte > uint32(len(source)) {
 				return errors.New("parser-core phase zero: compact subtree extent is outside source")
+			}
+			if acceptedLeaves != nil && view.Terminal {
+				hidden := !parser.isVisibleSymbol(Symbol(view.Symbol))
+				if view.Symbol == core.RecoveryErrorSymbol {
+					hidden = false
+				}
+				if err := acceptedLeaves.append(id, view, uint32(len(source)), hidden); err != nil {
+					return err
+				}
 			}
 			named := parser.isNamedSymbol(Symbol(view.Symbol))
 			// B3 stage S3: the built-in ERROR symbol (65535) sits outside
@@ -5131,7 +5393,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			))
 		}
 	} else {
-		if err := finalizeDiagnosticParserCoreAcceptedRootSpan(root, source, sourceLen, allowErrorRoot, parser.language.TokenCount, parser.lineContinuationEscapeByte()); err != nil {
+		if err := finalizeDiagnosticParserCoreAcceptedRootSpan(root, source, sourceLen, allowErrorRoot, parser.lineContinuationEscapeByte(), poll, parser.language.TokenCount, acceptedLeaves, nodesByID); err != nil {
 			return rejectTree(err)
 		}
 	}

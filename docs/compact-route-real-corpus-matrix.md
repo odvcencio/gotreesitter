@@ -1,8 +1,8 @@
 # Compact route real-corpus matrix
 
-Current evidence date: 2026-08-24.
-Current base commit: `da6f71471aaaa835503accaa1bc2083ced90b4e6` from `main`.
-Current candidate base commit: `da6f71471aaaa835503accaa1bc2083ced90b4e6`.
+Current evidence date: 2026-08-25.
+Current base commit: `509b9298aff9fd1853237ee24cd7b794b0f62c5c` from `main`.
+Current candidate base commit: `c2b78c5d0ea3ea4e5f32f2bb46f9a71759e0ea45`.
 
 ## Latest Swift issue #576 parser recovery candidate
 
@@ -1642,16 +1642,31 @@ The bounded matrix completed with no silent divergence.
 
 | Status | Files |
 |---|---:|
-| PASS | 70 |
-| FALLBACK | 30 |
-| SKIP | 10 |
+| PASS | 62 |
+| FALLBACK | 27 |
+| SKIP | 8 |
 | DIVERGE | 0 |
 | ERROR | 0 |
-| Total | 110 |
+| Total | 97 |
 
-The corpus manifest contains 147 verified files across 50 languages.
-This run selected files smaller than 16,384 bytes and excluded AWK.
+The corpus manifest contains 149 verified files across 50 languages.
+Its SHA-256 digest is
+`14e811c4c278570e795a4a79f387dd15c61ff20718e3430f2091fe386e35c92b`.
+This run selected files at or below 16,383 bytes and excluded AWK.
 The AWK medium file needs a separate slow-path budget.
+
+The selected HTML rows are:
+
+- `small__index.html`, 258 bytes, source SHA-256
+  `d6255f90847aca0286078542cd8ab6a9da0687069222bb868ab0315b05396a86`.
+- `medium__a00355.html`, 9,218 bytes, source SHA-256
+  `c166899fb1aeceb0a3967731a6a37cad628133f82fb17bb3c282b4afe7bf85bd`.
+
+The compact route now collects raw terminal spans and compact subtree
+identities during authenticated materialization. It preserves hidden terminal
+bytes and exact public `ERROR` provenance. Caller-owned scratch bounds retained
+storage. Bounded polling preserves cancellation response. The change uses no
+language-specific rule.
 
 The direct route served 64 percent of the selected files.
 Production served every fallback and every ineligible file.
@@ -2065,10 +2080,8 @@ Run this command from the repository root:
 
 ```sh
 GTS_ADMISSION_REAL_CORPUS=1 \
-GTS_ADMISSION_REAL_CORPUS_RATCHET=1 \
 GTS_ADMISSION_REAL_CORPUS_EXCLUDE_LANGS=awk \
 GTS_ADMISSION_REAL_CORPUS_MAX_BYTES=16383 \
-GTS_ADMISSION_CENSUS=1 \
 GOMAXPROCS=1 go test . \
   -tags gts_parsercorephase0 \
   -run '^TestAdmissionCandidateRealCorpusMatrix$' \
@@ -2078,9 +2091,8 @@ GOMAXPROCS=1 go test . \
 
 The test reads `cgo_harness/corpus_real/manifest.json` by default.
 Use `GTS_ADMISSION_REAL_CORPUS_MANIFEST` to select another manifest.
-
-Add ratchet mode when you reproduce the current 110-row receipt.
-The current result satisfies the canonical 110-row bounds.
+This command reproduces the current 97-row bounded result.
+Ratchet mode applies only to the historical 110-row receipt.
 
 Use these optional filters:
 
