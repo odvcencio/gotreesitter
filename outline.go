@@ -272,6 +272,15 @@ func (o *Outliner) OutlineTree(tree *Tree) ([]OutlineSymbol, OutlineReport) {
 	return symbols, report
 }
 
+// OutlineBound projects an outline from a BoundTree.
+// It uses the same validation, query, and receipt path as OutlineTree.
+func (o *Outliner) OutlineBound(tree *BoundTree) ([]OutlineSymbol, OutlineReport) {
+	if tree == nil {
+		return o.OutlineTree(nil)
+	}
+	return o.OutlineTree(tree.tree)
+}
+
 // treeLanguageMatches reports whether the tree came from the same language the
 // query compiled against. Query symbol identifiers are language specific, so
 // running a query over a foreign tree yields nonsense; the outliner declines

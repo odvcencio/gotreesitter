@@ -134,6 +134,15 @@ func (p *FactProgram) Extract(tree *Tree) FactSet {
 	return facts
 }
 
+// ExtractBound emits selected facts from a BoundTree.
+// It uses the same guards and traversal as Extract.
+func (p *FactProgram) ExtractBound(tree *BoundTree) FactSet {
+	if tree == nil {
+		return p.Extract(nil)
+	}
+	return p.Extract(tree.tree)
+}
+
 func (p *FactProgram) compileFields() {
 	if p == nil || p.language == nil {
 		return

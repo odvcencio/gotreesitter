@@ -110,6 +110,25 @@ func TestOutlineDeclinesWithoutTagsQuery(t *testing.T) {
 	}
 }
 
+func TestOutlineBoundMatchesOutlineTree(t *testing.T) {
+	tree, lang, query := loadOutlineFixture(t, "go", "go/service.go.fixture")
+	outliner, err := gts.NewOutliner(lang, query)
+	if err != nil {
+		t.Fatalf("NewOutliner failed: %v", err)
+	}
+
+	wantSymbols, wantReport := outliner.OutlineTree(tree)
+	gotSymbols, gotReport := outliner.OutlineBound(gts.Bind(tree))
+	if !reflect.DeepEqual(gotSymbols, wantSymbols) || gotReport != wantReport {
+		t.Fatalf("OutlineBound = (%#v, %#v), want (%#v, %#v)", gotSymbols, gotReport, wantSymbols, wantReport)
+	}
+
+	_, nilReport := outliner.OutlineBound(nil)
+	if nilReport.DeclineReason != gts.OutlineDeclineNilTree {
+		t.Fatalf("OutlineBound(nil) decline = %q, want %q", nilReport.DeclineReason, gts.OutlineDeclineNilTree)
+	}
+}
+
 // TestOutlineDeclineReasonsAreDistinguishable is the fix for a receipt shape
 // that made four different failures byte identical. A caller must be able to
 // tell a genuinely empty file from a projection that never ran.

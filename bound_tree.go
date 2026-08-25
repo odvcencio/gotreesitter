@@ -37,6 +37,27 @@ func (bt *BoundTree) Source() []byte {
 	return bt.tree.Source()
 }
 
+// ParseStopReason reports why parsing ended.
+func (bt *BoundTree) ParseStopReason() ParseStopReason {
+	if bt == nil || bt.tree == nil {
+		return ParseStopNone
+	}
+	return bt.tree.ParseStopReason()
+}
+
+// ParseStoppedEarly reports whether parsing hit an early-stop condition.
+func (bt *BoundTree) ParseStoppedEarly() bool {
+	return bt != nil && bt.tree != nil && bt.tree.ParseStoppedEarly()
+}
+
+// ParseRuntime returns diagnostics from the parse that built the tree.
+func (bt *BoundTree) ParseRuntime() ParseRuntime {
+	if bt == nil || bt.tree == nil {
+		return ParseRuntime{StopReason: ParseStopNone}
+	}
+	return bt.tree.ParseRuntime()
+}
+
 // NodeType returns the node's type name, resolved via the bound language.
 func (bt *BoundTree) NodeType(n *Node) string {
 	if bt == nil || bt.tree == nil || n == nil {

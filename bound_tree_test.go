@@ -81,6 +81,35 @@ func TestBoundTreeSource(t *testing.T) {
 	}
 }
 
+func TestBoundTreeParseReceipt(t *testing.T) {
+	tree := buildSimpleTree(queryTestLanguage())
+	tree.setParseStopReason(ParseStopTimeout)
+	bt := Bind(tree)
+
+	if got := bt.ParseStopReason(); got != ParseStopTimeout {
+		t.Fatalf("ParseStopReason() = %q, want %q", got, ParseStopTimeout)
+	}
+	if !bt.ParseStoppedEarly() {
+		t.Fatal("ParseStoppedEarly() = false, want true")
+	}
+	if got := bt.ParseRuntime().StopReason; got != ParseStopTimeout {
+		t.Fatalf("ParseRuntime().StopReason = %q, want %q", got, ParseStopTimeout)
+	}
+}
+
+func TestNilBoundTreeParseReceipt(t *testing.T) {
+	var bt *BoundTree
+	if got := bt.ParseStopReason(); got != ParseStopNone {
+		t.Fatalf("ParseStopReason() = %q, want %q", got, ParseStopNone)
+	}
+	if bt.ParseStoppedEarly() {
+		t.Fatal("ParseStoppedEarly() = true, want false")
+	}
+	if got := bt.ParseRuntime().StopReason; got != ParseStopNone {
+		t.Fatalf("ParseRuntime().StopReason = %q, want %q", got, ParseStopNone)
+	}
+}
+
 func TestBindNil(t *testing.T) {
 	bt := Bind(nil)
 	if bt.RootNode() != nil {

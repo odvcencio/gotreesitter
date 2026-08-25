@@ -148,6 +148,29 @@ func TestFactProgramSelectionAndLanguageGuard(t *testing.T) {
 	}
 }
 
+func TestFactProgramExtractBoundMatchesExtract(t *testing.T) {
+	tree := parseUnderstandingTree(t, "main.go", []byte("package main\nfunc run() { helper() }\n"))
+	defer tree.Release()
+
+	program, err := gotreesitter.NewFactProgram(tree.Language(), gotreesitter.FactAll)
+	if err != nil {
+		t.Fatalf("NewFactProgram failed: %v", err)
+	}
+	want := program.Extract(tree)
+	got := program.ExtractBound(gotreesitter.Bind(tree))
+	if !slices.Equal(got.Definitions, want.Definitions) ||
+		!slices.Equal(got.Calls, want.Calls) ||
+		!slices.Equal(got.Heritage, want.Heritage) ||
+		!slices.Equal(got.Imports, want.Imports) {
+		t.Fatalf("ExtractBound = %#v, want %#v", got, want)
+	}
+
+	empty := program.ExtractBound(nil)
+	if empty.Definitions != nil || empty.Calls != nil || empty.Heritage != nil || empty.Imports != nil {
+		t.Fatalf("ExtractBound(nil) = %#v, want empty set", empty)
+	}
+}
+
 func TestNewFactProgramRejectsInvalidConfiguration(t *testing.T) {
 	if _, err := gotreesitter.NewFactProgram(nil, gotreesitter.FactAll); err == nil {
 		t.Fatal("NewFactProgram accepted a nil language")
