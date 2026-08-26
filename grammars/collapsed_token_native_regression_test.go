@@ -170,11 +170,10 @@ func collapsedTokenRetirementCases() []collapsedTokenRetirementCase {
 			assert:   assertCPONCollapsedTokens,
 		},
 		{
-			name:           "c_sharp",
-			language:       CSharpLanguage,
-			source:         []byte("public class C { public bool F = false; void M() { var x = global::System.String.Empty; } }"),
-			compactDecline: true,
-			assert:         assertCSharpCollapsedTokens,
+			name:     "c_sharp",
+			language: CSharpLanguage,
+			source:   []byte("public class C { public bool F = false; void M() { var x = global::System.String.Empty; } }"),
+			assert:   assertCSharpCollapsedTokens,
 		},
 		{
 			name:     "powershell",

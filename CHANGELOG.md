@@ -110,6 +110,9 @@ for tags and release notes while still in `0.x`.
   PASS, 27 FALLBACK, and 8 SKIP to 63 PASS, 26 FALLBACK, and 8 SKIP, with zero
   DIVERGE or ERROR rows. Production, compact, and locked-C report the exact
   deep digest `005b39bd9a68ff9775129d3fb793b9d7a58b9f56812bb9ca9bd0eb753465dd86`.
+  The C# collapsed-token regression fixture and three Dart constructor probes
+  (class, private, and enum) route without a dispatch pass and with exact
+  locked-C trees.
   The change grants no language profile or digest grant.
 
 - Raw accepted-leaf coverage now preserves hidden terminals and exact `ERROR`

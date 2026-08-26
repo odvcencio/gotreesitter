@@ -1659,6 +1659,10 @@ proof fails.
 The C# 642-byte `variableDeclarations.cs` row now routes. Production, compact,
 and locked-C report the exact deep digest
 `005b39bd9a68ff9775129d3fb793b9d7a58b9f56812bb9ca9bd0eb753465dd86`.
+The C# collapsed-token regression fixture and three Dart constructor probes
+(class, private, and enum) route without a dispatch pass and with exact
+locked-C trees. These focused probes are outside the matrix and do not change
+its counts.
 The change grants no language profile or digest grant.
 
 The 97-row matrix moves from 62 PASS, 27 FALLBACK, and 8 SKIP to 63 PASS,
