@@ -67,6 +67,13 @@ type DiagnosticParserCorePrefixOptions struct {
 	// test-and-diagnostic lever only: no production caller sets it, and it
 	// has no operator-facing surface (config flag, CLI flag, or similar).
 	DisablePerHeaderSpanUnlockedRelex bool
+	// DisableUnanimousRelexAdoption restores the D2-1 ragged-end decline
+	// exactly (diagnosticParserCoreRaggedRelexDeclineDetail) instead of D2-2a's
+	// unanimous-relex adoption (diagnosticParserCoreAdoptUnanimousRelex). The
+	// zero value keeps adoption on. This is a test-and-diagnostic lever only:
+	// no production caller sets it, and it has no operator-facing surface
+	// (config flag, CLI flag, or similar).
+	DisableUnanimousRelexAdoption bool
 	// recordDropCohortCertificates keeps the Slice C certificate stores inert
 	// until a focused authentic producer test enables the later activation.
 	recordDropCohortCertificates bool
@@ -367,10 +374,15 @@ type DiagnosticParserCoreGenericWork struct {
 	Accepts                uint64
 	ReductionPauses        uint64
 	NoActionDrops          uint64
-	Elections              uint64
-	Canonicalizations      uint64
-	PeakHeaders            uint64
-	Overflow               bool
+	// RelexAdoptions counts D2-2a unanimous-relex adoptions: a ragged-end
+	// pass (D2-1) where every no-action head shared one byte-identical,
+	// live-action relex, adopted as the pass's own election instead of
+	// declining fail-closed (diagnosticParserCoreAdoptUnanimousRelex).
+	RelexAdoptions    uint64
+	Elections         uint64
+	Canonicalizations uint64
+	PeakHeaders       uint64
+	Overflow          bool
 }
 
 func (w *DiagnosticParserCoreGenericWork) add(counter *uint64, delta uint64) {
@@ -444,6 +456,19 @@ type DiagnosticParserCoreGenericNoActionDrop struct {
 	Header        DiagnosticParserCoreHeaderPathReceipt
 }
 
+// DiagnosticParserCoreGenericRelexAdoption records one D2-2a unanimous-relex
+// adoption: every no-action head in a D2-1 ragged-end pass shared one
+// byte-identical relex with a live action, so the scheduler replaced
+// SharedToken (the pass's own, universally-declined shared election) with
+// AdoptedToken (every header's own agreed relex) instead of declining
+// fail-closed the way the D2-1 ragged-end decline otherwise would.
+type DiagnosticParserCoreGenericRelexAdoption struct {
+	ElectionIndex int
+	HeaderCount   int
+	SharedToken   Token
+	AdoptedToken  Token
+}
+
 // DiagnosticParserCoreGenericExternalShift ties every compact external
 // terminal payload created by one generic scheduler round to its
 // scanner-authenticated election without embedding scanner state in the
@@ -497,6 +522,7 @@ type DiagnosticParserCoreGenericScheduler struct {
 	ExternalShifts    []DiagnosticParserCoreGenericExternalShift
 	Elections         []DiagnosticParserCoreElection
 	NoActionDrops     []DiagnosticParserCoreGenericNoActionDrop
+	RelexAdoptions    []DiagnosticParserCoreGenericRelexAdoption
 	Completion        *DiagnosticParserCoreGenericCompletion
 	Acceptance        *DiagnosticParserCoreGenericAcceptance
 	acceptanceBacking DiagnosticParserCoreGenericAcceptance
@@ -2142,18 +2168,24 @@ type diagnosticParserCoreTokenCell struct {
 }
 
 type diagnosticParserCoreGenericScheduler struct {
-	compact                    *core.Core
-	tokenSource                *dfaTokenSource
-	scannerScratch             *[]byte
-	headers                    []diagnosticParserCoreHeader
-	token                      Token
-	checkpoint                 DiagnosticParserCoreScannerCheckpoint
-	checkpointBeforeID         core.CheckpointID
-	checkpointID               core.CheckpointID
-	currentElection            DiagnosticParserCoreElection
-	tokenCell                  diagnosticParserCoreTokenCell
-	electionIndex              int
-	noLookaheadSteps           uint8
+	compact            *core.Core
+	tokenSource        *dfaTokenSource
+	scannerScratch     *[]byte
+	headers            []diagnosticParserCoreHeader
+	token              Token
+	checkpoint         DiagnosticParserCoreScannerCheckpoint
+	checkpointBeforeID core.CheckpointID
+	checkpointID       core.CheckpointID
+	currentElection    DiagnosticParserCoreElection
+	tokenCell          diagnosticParserCoreTokenCell
+	electionIndex      int
+	noLookaheadSteps   uint8
+	// relexAdoptionSteps is D2-2a's self-loop cap (mirrors noLookaheadSteps
+	// above): it counts consecutive unanimous-relex adoptions at the same
+	// election, without an intervening real election, and is reset to zero
+	// inside elect. diagnosticParserCoreAdoptUnanimousRelex declines to adopt
+	// once this exceeds maxDiagnosticParserCoreRelexAdoptionSteps.
+	relexAdoptionSteps         uint8
 	tokens                     uint64
 	dispatches                 uint64
 	branchOrder                uint64
@@ -3580,6 +3612,13 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 
 const maxDiagnosticParserCoreNoLookaheadSteps = 64
 
+// maxDiagnosticParserCoreRelexAdoptionSteps mirrors
+// maxDiagnosticParserCoreNoLookaheadSteps above: a self-loop cap on
+// consecutive D2-2a unanimous-relex adoptions at one election, so a future
+// defect elsewhere cannot turn adoption's own re-entrant dispatch into an
+// unbounded loop.
+const maxDiagnosticParserCoreRelexAdoptionSteps = 64
+
 func (s *diagnosticParserCoreGenericScheduler) fullReceipts() bool {
 	return s != nil && s.options.ReceiptMode == DiagnosticParserCoreReceiptFull
 }
@@ -4021,6 +4060,139 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		return tok, false
 	}
 	return relexed, true
+}
+
+// diagnosticParserCoreUnanimousRelexAdoptionCandidate is one ragged-relex
+// no-action head's own contribution to the D2-2a guard check
+// (diagnosticParserCoreUnanimousRelexAdoptionEligible): its own relexed
+// token, and whether its own header classifies a live action for that
+// token.
+type diagnosticParserCoreUnanimousRelexAdoptionCandidate struct {
+	token     Token
+	hasAction bool
+}
+
+// diagnosticParserCoreUnanimousRelexAdoptionEligible implements the D2-2a
+// unanimous-relex-adoption guard set (G1-G5). It reports the shared relexed
+// token every candidate agreed on and whether every guard held; a false
+// result leaves the D2-1 ragged-end decline as the only outcome.
+//
+//   - G1: raggedCount == noActionCount == headerCount -- every no-action
+//     head this pass reached the D2-1 ragged-end shape, so no genuinely-empty
+//     head shares the pass with a ragged one.
+//   - G2: every candidate's own relex is byte-identical (tokensSameLex).
+//   - G3: every candidate's own header classifies a live action for it.
+//   - G4: checkpointSame (the shared election left the serialized external-
+//     scanner checkpoint unchanged) and no candidate is an external-scanner
+//     token.
+//   - G5: no candidate is Missing or NoLookahead.
+func diagnosticParserCoreUnanimousRelexAdoptionEligible(
+	candidates []diagnosticParserCoreUnanimousRelexAdoptionCandidate,
+	raggedCount, noActionCount, headerCount int,
+	checkpointSame bool,
+) (Token, bool) {
+	if raggedCount != noActionCount || noActionCount != headerCount || len(candidates) == 0 {
+		return Token{}, false // G1
+	}
+	if !checkpointSame {
+		return Token{}, false // G4, scanner-checkpoint half
+	}
+	unanimous := candidates[0].token
+	for _, candidate := range candidates {
+		if candidate.token.ExternalScannerToken {
+			return Token{}, false // G4, external-scanner half
+		}
+		if candidate.token.Missing || candidate.token.NoLookahead {
+			return Token{}, false // G5
+		}
+		if !tokensSameLex(unanimous, candidate.token) {
+			return Token{}, false // G2
+		}
+		if !candidate.hasAction {
+			return Token{}, false // G3
+		}
+	}
+	return unanimous, true
+}
+
+// diagnosticParserCoreAdoptUnanimousRelex is D2-2a: at the D2-1 ragged-end
+// decline site (dispatchPassActive's pausedNoActionHeads == 0 &&
+// deferredNoActionHeads == 0 && raggedRelexNoActionHeads > 0 branch), adopt
+// every ragged header's own unanimous relex as the pass's shared token
+// instead of declining fail-closed, when every guard in
+// diagnosticParserCoreUnanimousRelexAdoptionEligible holds. It reports
+// whether adoption happened; on a true result s.token, s.currentElection.Token,
+// and the token source's byte cursor are already updated for the caller's
+// immediate (nil, nil) return, which re-enters dispatch against the adopted
+// token without a fresh election (the S3 absorb inside dispatchPassActive's
+// error-region branch is the precedent for this same immediate-return
+// shape). It never mutates the election already appended to
+// s.receipt.Elections; a separate DiagnosticParserCoreGenericRelexAdoption
+// entry records the substitution instead.
+//
+// diagnosticParserCoreGenericCell carries no adopted-span field: adoption
+// replaces s.token wholesale before any cell for this pass is built, so the
+// next dispatchPassActive call classifies every header against the adopted
+// token directly (ClassifyBoundary(header.head, T.Symbol)), the same as any
+// other freshly elected token. No consuming path needs the span on a cell.
+func (s *diagnosticParserCoreGenericScheduler) diagnosticParserCoreAdoptUnanimousRelex(
+	noActionIndices []int, raggedRelexNoActionHeads int,
+) (bool, error) {
+	if s.options.DisableUnanimousRelexAdoption {
+		return false, nil
+	}
+	if raggedRelexNoActionHeads != len(noActionIndices) || len(noActionIndices) != len(s.headers) {
+		return false, nil // G1, cheap to check before any recompute below
+	}
+	if s.relexAdoptionSteps >= maxDiagnosticParserCoreRelexAdoptionSteps {
+		return false, nil
+	}
+	candidates := make([]diagnosticParserCoreUnanimousRelexAdoptionCandidate, 0, len(noActionIndices))
+	for _, index := range noActionIndices {
+		header := s.headers[index]
+		state, _, err := s.compact.Boundary(header.head)
+		if err != nil {
+			return false, err
+		}
+		relexed, ok := s.relexTokenForState(StateID(state), s.token)
+		if !ok || relexed.EndByte == s.token.EndByte {
+			// This index was classified ragged by the per-header loop above,
+			// earlier in this same dispatchPassActive call; a non-ragged
+			// result here would mean the compact core or token source
+			// mutated between that classification and this recompute, which
+			// this scheduler's single-threaded, non-reentrant contract
+			// forbids. Decline instead of adopting an inconsistent view.
+			return false, nil
+		}
+		row, err := s.compact.ClassifyBoundary(header.head, core.Symbol(relexed.Symbol))
+		if err != nil {
+			return false, err
+		}
+		candidates = append(candidates, diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+			token: relexed, hasAction: row.Actions().Len() != 0,
+		})
+	}
+	checkpointSame := s.checkpointBeforeID == s.checkpointID
+	adopted, eligible := diagnosticParserCoreUnanimousRelexAdoptionEligible(
+		candidates, raggedRelexNoActionHeads, len(noActionIndices), len(s.headers), checkpointSame,
+	)
+	if !eligible {
+		return false, nil
+	}
+	if s.fullReceipts() {
+		s.receipt.RelexAdoptions = append(s.receipt.RelexAdoptions, DiagnosticParserCoreGenericRelexAdoption{
+			ElectionIndex: s.electionIndex, HeaderCount: len(s.headers),
+			SharedToken: s.token, AdoptedToken: adopted,
+		})
+	}
+	s.relexAdoptionSteps++
+	s.work.RelexAdoptions++
+	s.token = adopted
+	s.currentElection.Token = adopted
+	s.tokenSource.SeekTokenFrontier(adopted.EndByte, adopted.EndPoint)
+	s.tokenCell.valid = false
+	s.tokens++
+	return true, nil
 }
 
 type diagnosticParserCoreDispatchScratch struct {
@@ -6393,6 +6565,16 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				}, nil
 			}
 			if pausedNoActionHeads == 0 && deferredNoActionHeads == 0 {
+				// D2-2a: before declining fail-closed below, try adopting a
+				// unanimous per-header relex as this pass's own election
+				// (diagnosticParserCoreAdoptUnanimousRelex's own doc comment
+				// for the full guard set). Every guard failure falls straight
+				// through to the existing D2-1 decline unchanged.
+				if adopted, err := s.diagnosticParserCoreAdoptUnanimousRelex(noActionIndices, raggedRelexNoActionHeads); err != nil {
+					return nil, err
+				} else if adopted {
+					return nil, nil
+				}
 				// raggedRelexNoActionHeads > 0: at least one no-action head
 				// reached this point through the D2-1 ragged-end decline
 				// (relexTokenForState found a genuine, same-start relex
@@ -9267,6 +9449,10 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 	} else {
 		s.noLookaheadSteps = 0
 	}
+	// A real election always proves genuine forward token-source progress,
+	// ending any D2-2a adoption self-loop at the prior election's own
+	// frontier position (relexAdoptionSteps's own doc comment).
+	s.relexAdoptionSteps = 0
 	if err := s.compact.BeginFrontier(); err != nil {
 		return err
 	}

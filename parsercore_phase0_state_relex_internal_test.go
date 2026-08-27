@@ -162,7 +162,7 @@ func RelexTokenForStateForTest(
 }
 
 func RunStateDependentRelexSchedulerForTest(lang *Language, source []byte) (DiagnosticParserCoreGenericScheduler, error) {
-	return runStateDependentRelexSchedulerForTest(lang, source, false)
+	return runStateDependentRelexSchedulerForTest(lang, source, false, false)
 }
 
 // RunStateDependentRelexSchedulerWithSpanUnlockedRelexDisabledForTest is
@@ -171,10 +171,140 @@ func RunStateDependentRelexSchedulerForTest(lang *Language, source []byte) (Diag
 // (Phase 1 item 5: "when disabled, restore the span-locked behavior
 // exactly").
 func RunStateDependentRelexSchedulerWithSpanUnlockedRelexDisabledForTest(lang *Language, source []byte) (DiagnosticParserCoreGenericScheduler, error) {
-	return runStateDependentRelexSchedulerForTest(lang, source, true)
+	return runStateDependentRelexSchedulerForTest(lang, source, true, false)
 }
 
-func runStateDependentRelexSchedulerForTest(lang *Language, source []byte, disablePerHeaderSpanUnlockedRelex bool) (DiagnosticParserCoreGenericScheduler, error) {
+// RunStateDependentRelexSchedulerWithUnanimousRelexAdoptionDisabledForTest is
+// RunStateDependentRelexSchedulerForTest with DisableUnanimousRelexAdoption
+// forced on, for the D2-2a negative-arm test: restoring the D2-1 ragged-end
+// decline exactly in place of adoption.
+func RunStateDependentRelexSchedulerWithUnanimousRelexAdoptionDisabledForTest(lang *Language, source []byte) (DiagnosticParserCoreGenericScheduler, error) {
+	return runStateDependentRelexSchedulerForTest(lang, source, false, true)
+}
+
+// TestD2AdoptionEligibleGuards pins each D2-2a unanimous-relex-adoption
+// guard (G1-G5, diagnosticParserCoreUnanimousRelexAdoptionEligible's own doc
+// comment) directly, against hand-built candidates. The baseline case is
+// eligible; every other case breaks exactly one guard and must decline.
+// G4 and G5 each cover two independent checks, so each has two arms: a
+// mutation deleting either check alone still has a dedicated arm to catch
+// it.
+func TestD2AdoptionEligibleGuards(t *testing.T) {
+	validToken := Token{Symbol: 9, StartByte: 3, EndByte: 4}
+	disagreeingToken := Token{Symbol: 11, StartByte: 3, EndByte: 4}
+	externalToken := Token{Symbol: 9, StartByte: 3, EndByte: 4, ExternalScannerToken: true}
+	missingToken := Token{Symbol: 9, StartByte: 3, EndByte: 4, Missing: true}
+	noLookaheadToken := Token{Symbol: 9, StartByte: 3, EndByte: 4, NoLookahead: true}
+
+	tests := []struct {
+		name           string
+		candidates     []diagnosticParserCoreUnanimousRelexAdoptionCandidate
+		raggedCount    int
+		noActionCount  int
+		headerCount    int
+		checkpointSame bool
+		wantEligible   bool
+	}{
+		{
+			name: "baseline is eligible",
+			candidates: []diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+				{token: validToken, hasAction: true},
+				{token: validToken, hasAction: true},
+			},
+			raggedCount: 2, noActionCount: 2, headerCount: 2, checkpointSame: true,
+			wantEligible: true,
+		},
+		{
+			name: "G1 ragged count does not cover every no-action head",
+			candidates: []diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+				{token: validToken, hasAction: true},
+				{token: validToken, hasAction: true},
+			},
+			raggedCount: 1, noActionCount: 2, headerCount: 2, checkpointSame: true,
+			wantEligible: false,
+		},
+		{
+			name: "G1 no-action heads do not cover every header",
+			candidates: []diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+				{token: validToken, hasAction: true},
+				{token: validToken, hasAction: true},
+			},
+			raggedCount: 2, noActionCount: 2, headerCount: 3, checkpointSame: true,
+			wantEligible: false,
+		},
+		{
+			name: "G2 candidates disagree on the relexed token",
+			candidates: []diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+				{token: validToken, hasAction: true},
+				{token: disagreeingToken, hasAction: true},
+			},
+			raggedCount: 2, noActionCount: 2, headerCount: 2, checkpointSame: true,
+			wantEligible: false,
+		},
+		{
+			name: "G3 one candidate has no live action",
+			candidates: []diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+				{token: validToken, hasAction: true},
+				{token: validToken, hasAction: false},
+			},
+			raggedCount: 2, noActionCount: 2, headerCount: 2, checkpointSame: true,
+			wantEligible: false,
+		},
+		{
+			name: "G4 scanner checkpoint changed",
+			candidates: []diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+				{token: validToken, hasAction: true},
+				{token: validToken, hasAction: true},
+			},
+			raggedCount: 2, noActionCount: 2, headerCount: 2, checkpointSame: false,
+			wantEligible: false,
+		},
+		{
+			name: "G4 relexed token is an external-scanner token",
+			candidates: []diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+				{token: externalToken, hasAction: true},
+				{token: externalToken, hasAction: true},
+			},
+			raggedCount: 2, noActionCount: 2, headerCount: 2, checkpointSame: true,
+			wantEligible: false,
+		},
+		{
+			name: "G5 relexed token is missing",
+			candidates: []diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+				{token: missingToken, hasAction: true},
+				{token: missingToken, hasAction: true},
+			},
+			raggedCount: 2, noActionCount: 2, headerCount: 2, checkpointSame: true,
+			wantEligible: false,
+		},
+		{
+			name: "G5 relexed token has no lookahead",
+			candidates: []diagnosticParserCoreUnanimousRelexAdoptionCandidate{
+				{token: noLookaheadToken, hasAction: true},
+				{token: noLookaheadToken, hasAction: true},
+			},
+			raggedCount: 2, noActionCount: 2, headerCount: 2, checkpointSame: true,
+			wantEligible: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			token, eligible := diagnosticParserCoreUnanimousRelexAdoptionEligible(
+				test.candidates, test.raggedCount, test.noActionCount, test.headerCount, test.checkpointSame,
+			)
+			if eligible != test.wantEligible {
+				t.Fatalf("eligible = %v, want %v (token=%+v)", eligible, test.wantEligible, token)
+			}
+			if eligible && token != test.candidates[0].token {
+				t.Fatalf("adopted token = %+v, want the candidates' own shared token %+v", token, test.candidates[0].token)
+			}
+		})
+	}
+}
+
+func runStateDependentRelexSchedulerForTest(
+	lang *Language, source []byte, disablePerHeaderSpanUnlockedRelex, disableUnanimousRelexAdoption bool,
+) (DiagnosticParserCoreGenericScheduler, error) {
 	parser := NewParser(lang)
 	runner, err := newAdmissionCandidateRunner(parser)
 	if err != nil {
@@ -182,6 +312,7 @@ func runStateDependentRelexSchedulerForTest(lang *Language, source []byte, disab
 	}
 	runner.options.ReceiptMode = DiagnosticParserCoreReceiptFull
 	runner.options.DisablePerHeaderSpanUnlockedRelex = disablePerHeaderSpanUnlockedRelex
+	runner.options.DisableUnanimousRelexAdoption = disableUnanimousRelexAdoption
 	tokenSource := parser.acquireParserDFATokenSource(source)
 	if tokenSource == nil {
 		return DiagnosticParserCoreGenericScheduler{}, nil

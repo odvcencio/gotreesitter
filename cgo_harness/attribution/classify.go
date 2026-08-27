@@ -254,6 +254,8 @@ func buildFunctionOverride() []functionOverrideEntry {
 		"GenericScheduler).relexTokenForState",
 		"diagnosticParserCoreSameSpanRelex",
 		"diagnosticParserCoreRaggedRelexDeclineDetailFor",
+		"GenericScheduler).diagnosticParserCoreAdoptUnanimousRelex",
+		"diagnosticParserCoreUnanimousRelexAdoptionEligible",
 		"GenericScheduler).validateGenericNoLookaheadReduction",
 		"diagnosticParserCoreGenericUnsupportedCell",
 		"diagnosticParserCoreGenericUnsupportedToken",

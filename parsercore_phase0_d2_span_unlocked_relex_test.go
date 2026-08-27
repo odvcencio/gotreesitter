@@ -143,6 +143,17 @@ func TestD2SpanUnlockedRaggedRelexDeclineDetailCarriesWiderTokenSpan(t *testing.
 // dispatchPassActive declines that shape before a cell is built), so a
 // leaked shift would remove the drop record entirely rather than change
 // its span.
+//
+// D2-2a note: swiftRaggedEndWitnessSource is also the D2-2a "second witness"
+// (spore.2026-08-27.rowan.d2-2a-unanimous-relex-adoption): with unanimous
+// relex adoption on (the D2-2a zero-value default), every guard for this
+// exact pass holds, so the scheduler adopts the relexed token instead of
+// reaching this decline at all, and the parse instead surfaces a separate,
+// already-recorded converged-path alternative-set coverage gap (B4b) a
+// later pass hits. That gap is a distinct, filed defect, not this test's
+// concern (see the D2Adoption B4b test), so this test forces
+// DisableUnanimousRelexAdoption to keep pinning D2-1's own ragged-end
+// decline shape in isolation.
 func TestD2SpanUnlockedSchedulerDeclinesRaggedEndRelex(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	entry := grammars.DetectLanguageByName("swift")
@@ -151,7 +162,7 @@ func TestD2SpanUnlockedSchedulerDeclinesRaggedEndRelex(t *testing.T) {
 	}
 	lang := entry.Language()
 
-	receipt, err := gts.RunStateDependentRelexSchedulerForTest(lang, swiftRaggedEndWitnessSource)
+	receipt, err := gts.RunStateDependentRelexSchedulerWithUnanimousRelexAdoptionDisabledForTest(lang, swiftRaggedEndWitnessSource)
 	if err != nil {
 		t.Fatalf("compact scheduler: %v", err)
 	}
@@ -315,6 +326,12 @@ func TestD2SpanUnlockedSameSpanRelexStillShiftsRealBashInstallWitness(t *testing
 // deleting the option check at relexTokenForState's own
 // DisablePerHeaderSpanUnlockedRelex guard makes disabled match enabled
 // instead, and this test's disabled-detail assertion below fails.
+//
+// D2-2a note: "enabled" here forces DisableUnanimousRelexAdoption to isolate
+// the D2-1 span-unlocked-vs-span-locked comparison this test owns from
+// D2-2a's own, separately-tested, now-default-on adoption (see the doc
+// comment on TestD2SpanUnlockedSchedulerDeclinesRaggedEndRelex above for why
+// this same witness's D2-2a-enabled outcome differs).
 func TestD2SpanUnlockedDisableOptionMatchesLegacyBehavior(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	entry := grammars.DetectLanguageByName("swift")
@@ -323,7 +340,7 @@ func TestD2SpanUnlockedDisableOptionMatchesLegacyBehavior(t *testing.T) {
 	}
 	lang := entry.Language()
 
-	enabled, err := gts.RunStateDependentRelexSchedulerForTest(lang, swiftRaggedEndWitnessSource)
+	enabled, err := gts.RunStateDependentRelexSchedulerWithUnanimousRelexAdoptionDisabledForTest(lang, swiftRaggedEndWitnessSource)
 	if err != nil {
 		t.Fatalf("enabled: compact scheduler: %v", err)
 	}
