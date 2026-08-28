@@ -791,13 +791,14 @@ type Language struct {
 	// NOT SET BY ANY BUILT-IN PROFILE, DELIBERATELY. Missing-token insertion
 	// is not correct as a standalone stage. C creates the missing version as
 	// a copy and keeps the error-absorbing version alive beside it, then
-	// decides between them by error cost, where the missing side costs 610
-	// and an absorbed span costs 500 plus its length. On php
-	// "<?php namespace ; ?>" the absorber wins and C publishes an ERROR tree,
-	// while a route that follows only the missing version publishes a clean
-	// namespace_definition. See s5TryMissingTokenInsertion's doc comment for
-	// the trees and the production-side instrumentation. Do not add a profile
-	// entry for this flag until the version competition lands.
+	// decides between them by whole-tree error cost, where the missing side
+	// costs a flat 610 and an absorbed span costs 500 plus its length plus
+	// 100 per visible child. The stage carries a local arbitration that
+	// removes the known wrong-tree class, but that arbitration is measured
+	// too conservative to graduate any real-corpus row. See
+	// s5TryMissingTokenInsertion's doc comment for both measurements. Do not
+	// add a profile entry for this flag until the concurrent-lineage
+	// competition lands.
 	//
 	// Soundness note. Do NOT re-derive this gate from an error-cost argument.
 	// C's ts_subtree_error_cost short-circuits on the missing bit and returns

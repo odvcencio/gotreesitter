@@ -6881,6 +6881,140 @@ func (s *diagnosticParserCoreGenericScheduler) s3CloseInProgressProductions(head
 	return current, changed, false, nil
 }
 
+// s5AbsorbMaxTokens bounds the strategy-2 simulation below. A region that
+// has not resumed after this many absorbed tokens is not a shape this
+// arbitration can price, so it declines rather than extrapolating.
+const s5AbsorbMaxTokens = 64
+
+// s5AbsorbAlternativeCost prices the strategy-2 version C creates ALONGSIDE
+// every missing-token insertion, so the two can be compared the way C
+// compares them.
+//
+// This is the piece stage S5 cannot do without. ts_parser__handle_error makes
+// the missing version a COPY and pushes the error discontinuity onto the
+// original regardless, so both versions parse forward and the winner is the
+// cheaper tree (ts_parser__select_tree). A route that only ever builds the
+// missing version publishes the loser whenever absorbing is cheaper, which is
+// the common case rather than the rare one: a missing subtree costs a flat
+// ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY = 610
+// (subtree.h:331-337), while an ERROR node costs ERROR_COST_PER_RECOVERY plus
+// its span plus ERROR_COST_PER_SKIPPED_TREE per visible child
+// (subtree.c:400-402,442-444), so absorbing a single short token costs about
+// 600 and WINS. Measured on php "<?php namespace ; ?>": absorbing the nine
+// bytes of "namespace" costs 500 + 9 + 100 = 609 against the insertion's 610,
+// and the locked C oracle indeed publishes the ERROR tree.
+//
+// The simulation walks C's own strategy-2 loop with the error-mode lexer a
+// live C stack in ERROR_STATE uses (LexModes[0], the same probe
+// s3ErrorModeRelex serves stage S3), absorbing tokens until the pre-error
+// state can act on one. It is deliberately narrow, and every shape it does
+// not model returns resolved=false so the caller declines instead of
+// arbitrating on a number it cannot stand behind:
+//
+//   - end of file, where C reaches recover_eof and wraps the whole remaining
+//     stack rather than resuming;
+//   - a stack-summary (strategy 1) resume, which C's election could prefer
+//     over both alternatives and which stage S4 owns;
+//   - a region that has not resumed within s5AbsorbMaxTokens.
+func (s *diagnosticParserCoreGenericScheduler) s5AbsorbAlternativeCost(preErrorState core.StateID, head core.Head) (uint32, bool, error) {
+	if s.tokenSource == nil || s.tokenSource.language == nil || s.tokenSource.lexer == nil {
+		return 0, false, nil
+	}
+	source := s.tokenSource.lexer.source
+	token := s.token
+	spanStart := token.StartByte
+	spanEnd := token.StartByte
+	visibleChildren := uint32(0)
+	for absorbed := 0; absorbed < s5AbsorbMaxTokens; absorbed++ {
+		if token.Symbol == 0 {
+			// recover_eof: a whole-file wrap, not a resume. Out of scope.
+			return 0, false, nil
+		}
+		if absorbed > 0 {
+			resumes, err := s3RegionResumeAction(s.compact, preErrorState, Symbol(token.Symbol))
+			if err != nil {
+				return 0, false, err
+			}
+			if resumes {
+				return s5AbsorbCost(source, spanStart, spanEnd, visibleChildren), true, nil
+			}
+			// C's election would consider a deeper stack-summary resume
+			// before continuing to absorb. That is strategy 1, and a cheaper
+			// third alternative this arbitration cannot price.
+			deeper, err := s.compact.AncestorStateWithActionExists(head, core.Symbol(token.Symbol), cRecoverMaxSummaryDepth)
+			if err != nil {
+				return 0, false, err
+			}
+			if deeper {
+				return 0, false, nil
+			}
+		}
+		extra, err := s3TokenIsExtraShift(s.compact, token.Symbol)
+		if err != nil {
+			return 0, false, err
+		}
+		if !extra && s5SymbolVisible(s.tokenSource.language, token.Symbol) {
+			// ts_subtree_summarize_children charges one skipped tree per
+			// visible, non-extra child (subtree.c:400-402).
+			visibleChildren++
+		}
+		spanEnd = token.EndByte
+		next, ok := s.s3ErrorModeRelex(spanEnd)
+		if !ok {
+			return 0, false, nil
+		}
+		if next.EndByte <= spanEnd && next.Symbol != 0 {
+			// No forward progress: not a shape this simulation can price.
+			return 0, false, nil
+		}
+		token = next
+	}
+	return 0, false, nil
+}
+
+// s5AbsorbCost applies C's ERROR-node cost formula to a simulated region.
+func s5AbsorbCost(source []byte, startByte, endByte uint32, visibleChildren uint32) uint32 {
+	spanBytes := uint32(0)
+	if endByte > startByte {
+		spanBytes = endByte - startByte
+	}
+	return core.RecoveryCostPerRecovery +
+		core.RecoveryCostPerSkippedChar*spanBytes +
+		core.RecoveryCostPerSkippedLine*s5SpanRows(source, startByte, endByte) +
+		core.RecoveryCostPerSkippedTree*visibleChildren
+}
+
+// s5SpanRows counts the newlines inside [startByte, endByte), which is the
+// row extent C multiplies by ERROR_COST_PER_SKIPPED_LINE.
+func s5SpanRows(source []byte, startByte, endByte uint32) uint32 {
+	if endByte > uint32(len(source)) {
+		endByte = uint32(len(source))
+	}
+	if startByte >= endByte {
+		return 0
+	}
+	rows := uint32(0)
+	for _, b := range source[startByte:endByte] {
+		if b == '\n' {
+			rows++
+		}
+	}
+	return rows
+}
+
+// s5SymbolVisible mirrors RecoverySymbolVisible over the root package's own
+// symbol metadata, which is the same signal the compact selected-store policy
+// is built from.
+func s5SymbolVisible(lang *Language, sym Symbol) bool {
+	if sym == errorSymbol {
+		return true
+	}
+	if lang == nil || int(sym) >= len(lang.SymbolMetadata) {
+		return false
+	}
+	return lang.SymbolMetadata[sym].Visible
+}
+
 // s5MissingTokenAdmitted reports whether this parse may attempt native
 // missing-token insertion. Both the operation-level Recovery declaration and
 // the grammar-blob-keyed capability must hold, mirroring s3ErrorRegionAdmitted.
@@ -6927,51 +7061,54 @@ const s5MissingTokenMaxSpineDepth = 4096
 // or an exhausted insertion budget all decline to the existing path rather
 // than guessing.
 //
-// DO NOT CERTIFY ANY GRAMMAR FOR THIS MECHANISM YET. Missing-token insertion
-// cannot be correct as a STANDALONE stage, and the reason is structural, not
-// a bug in the scan above.
+// DO NOT CERTIFY ANY GRAMMAR FOR THIS MECHANISM YET. The arbitration below
+// is a LOCAL approximation of a GLOBAL competition, and it is measured
+// insufficient. It is kept because it is sound in the safe direction and it
+// removes a known wrong-tree class, not because it finishes the stage.
 //
-// C does not choose between missing-token insertion and error-region absorb
-// at the point of insertion. ts_parser__handle_error creates the missing
-// version as a COPY (ts_stack_copy_version) and then pushes the error
-// discontinuity onto the original anyway, so both versions live on and parse
-// forward. The winner is decided later, by error cost, in
-// ts_parser__select_tree / ts_parser__better_version_exists.
+// What C does. ts_parser__handle_error makes the missing version a COPY
+// (ts_stack_copy_version) and pushes the error discontinuity onto the
+// original anyway, so both versions parse forward to completion and the
+// cheaper TREE wins (ts_parser__select_tree). A missing subtree costs a flat
+// ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY = 610
+// (subtree.h:331-337); an ERROR node costs ERROR_COST_PER_RECOVERY plus its
+// span plus ERROR_COST_PER_SKIPPED_TREE per visible child
+// (subtree.c:400-402,442-444). The two are close, so the winner genuinely
+// depends on how far the absorbing version has to skip.
 //
-// The two costs are close, and the missing side is the EXPENSIVE one:
-// ts_subtree_error_cost short-circuits on the missing bit and returns
-// ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY, which is 610
-// (subtree.h:331-337), while an ERROR node built over a skipped span costs
-// ERROR_COST_PER_RECOVERY plus per-char and per-line terms, which is 500
-// plus the span (subtree.c:442-444).
+// What this code does instead: prices ONE simulated strategy-2 alternative at
+// the decision point (s5AbsorbAlternativeCost) and inserts only when the
+// missing version wins outright. Both known error directions were checked:
 //
-// Measured witness, php source "<?php namespace ; ?>":
+//   - It eliminated the wrong-tree class. php "<?php namespace ; ?>" now
+//     declines. Absorbing the nine bytes of "namespace" prices at
+//     500 + 9 + 100 = 609 against the insertion's 610, so C keeps the ERROR
+//     tree -- which the locked C oracle confirms. Before this arbitration the
+//     stage published a clean namespace_definition here, a wrong tree.
 //
-//	compact     (program (php_tag) (namespace_definition (namespace_name (name))) (text_interpolation (php_end_tag)))
-//	production  (program (php_tag) (ERROR) (empty_statement) (text_interpolation (php_end_tag)))
-//	locked C    (program (php_tag) (ERROR) (empty_statement) (text_interpolation (php_end_tag)))
+//   - It is far too conservative to graduate anything. On the awk large
+//     real-corpus row it prices the alternative at 601 and declines, yet
+//     production's own tree carries the eight MISSING nodes this stage was
+//     inserting, so C decided the missing version wins there. The estimate is
+//     wrong because the simulation re-lexes an awk comment at byte 8031 as a
+//     one-byte token under the ERROR-state lex mode and then finds an
+//     immediate depth-0 resume, so it charges the absorber for one byte where
+//     C absorbs far more.
 //
-// Instrumenting production's own port confirms the mechanism here is right
-// and the ARBITRATION is what is missing: production's missing-token search
-// ACCEPTS the very same insertion this stage makes ("candidate state=2176
-// ms=1 next=2053", then "ACCEPT ms=1"), and production still publishes the
-// ERROR tree, because absorbing the nine bytes of "namespace" costs about
-// 509 and beats the missing version's 610. This stage follows only the
-// missing version, so it publishes the loser's tree.
+// The error is one-directional and that is deliberate: the simulation resumes
+// at the EARLIEST depth-0 opportunity and declines outright on a deeper
+// stack-summary resume, on end of file, and on any region it cannot resolve.
+// So it can only ever UNDER-price the absorber, which can only ever cause a
+// decline. It cannot cause an insertion C would not make.
 //
-// This also explains why the stage IS right where the missing side wins: on
-// the awk large real-corpus row it inserts exactly the eight missing tokens
-// production's own tree reports, and php "<?php function a( {} ?>" and
-// python "def f(:" both come out equal to the C oracle.
-//
-// Closing this needs the version competition, not a better scan: model the
-// strategy-2 alternative alongside the insertion and select by error cost.
-// The primitives already exist from stage S2 -- RecoveryNodeErrorCost,
-// RecoveryVersionStatus, and RecoveryCompareVersions in
-// internal/parsercorephase0/recovery_cost.go -- so the work is arbitration
-// and lifetime, not a new cost model. Until that lands, the capability stays
-// unset for every grammar, which makes this whole function unreachable in
-// every shipped parse.
+// Finishing the stage needs the real competition, not a better estimate: fork
+// the header at the failure point, carry the missing lineage and the
+// strategy-2 lineage forward together, and select at accept time. The pricing
+// half already exists -- diagnosticParserCoreLineageErrorCost over the S2
+// model in parsercore_phase0_recovery_cost_source.go -- so the remaining work
+// is version lifetime and selection inside the scheduler. Until that lands
+// the capability stays unset for every grammar, which makes this whole
+// function unreachable in every shipped parse.
 func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertion(index int) (handled bool, err error) {
 	if !s.s5MissingTokenAdmitted() {
 		return false, nil
@@ -7085,6 +7222,29 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertion(index 
 		}
 		if !canShift {
 			continue
+		}
+		// ARBITRATION. C does not choose between this insertion and the
+		// error region: it builds both and keeps the cheaper tree. Price the
+		// competing strategy-2 version and insert only when the missing
+		// version actually wins, which is the comparison
+		// ts_parser__select_tree ultimately makes. A flat 610 loses to most
+		// short absorbs, so this rejects far more candidates than it admits
+		// -- that asymmetry is C's, not a conservative choice here.
+		absorbCost, arbitrated, absorbErr := s.s5AbsorbAlternativeCost(state, scanHead)
+		if absorbErr != nil {
+			return false, absorbErr
+		}
+		if !arbitrated {
+			// The competing version could not be priced (end of file, a
+			// stage S4 stack-summary resume, or an unresolved region). Decline
+			// rather than insert on an unarbitrated guess.
+			return false, nil
+		}
+		const missingCost = uint32(core.RecoveryCostPerMissingTree + core.RecoveryCostPerRecovery)
+		if missingCost >= absorbCost {
+			// The absorbing version is cheaper or ties, so C publishes its
+			// tree. Decline; stage S3 owns that shape.
+			return false, nil
 		}
 		newHead, insertErr := s.compact.ShiftMissingLeaf(scanHead, targetState, core.Symbol(missing), byteOffset)
 		if insertErr != nil {
