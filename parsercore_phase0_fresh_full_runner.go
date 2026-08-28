@@ -61,7 +61,7 @@ func newParserCoreFreshFullRunner(scanner ExternalScanner, options DiagnosticPar
 	// other Recovery request -- and Retry/Incremental/IncludedRanges/closed-
 	// prefix, none of which this stage touches -- still declines exactly as
 	// before this stage landed.
-	if (options.Recovery && !options.allowCompactStrategy2ErrorRegion) ||
+	if (options.Recovery && !options.allowCompactStrategy2ErrorRegion && !options.allowCompactMissingTokenInsertion) ||
 		options.Retry || options.Incremental || options.IncludedRanges || options.GenericStopAtClosedByte != nil {
 		return nil, &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreRoute,
@@ -288,6 +288,43 @@ func (r *parserCoreFreshFullRunner) s3AllowErrorRoot() bool {
 	return r != nil && r.options.Recovery && r.options.allowCompactStrategy2ErrorRegion
 }
 
+// recoveryAllowsErrorRoot extends s3AllowErrorRoot with stage S5. A
+// successful missing-token insertion publishes no ERROR node at all, yet its
+// root still reads HasError: a MISSING leaf sets its own has-error bit (C
+// defines ts_node_has_error as error_cost > 0, node.c:520-522, and a missing
+// subtree's cost is 610, subtree.h:331-337), and ordinary ancestor
+// propagation carries it up. Without this, every successful S5 insertion
+// would fail at materialization.
+//
+// The S5 arm is gated on an insertion HAVING HAPPENED, not on the grammar
+// merely holding the capability, and that distinction is load-bearing rather
+// than conservative. allowErrorRoot also switches on stage S3's own
+// accepted-leaf coverage audit inside
+// finalizeDiagnosticParserCoreAcceptedRootSpan. That audit was written and
+// validated against the one certified S3 witness class (html), and it
+// reports false gaps on clean trees from other grammars: measured directly,
+// certifying Go for S5 and gating on capability alone made a clean Go
+// source (a package clause plus one function returning a bare return)
+// -- which the compact route admits today, and whose digest matches
+// production -- fail with "accepted compact root leaves do not tile the
+// accepted span: gap=7..10 root=0..34".
+//
+// Gating on the insertion counter keeps every clean parse of an S5-certified
+// grammar byte-identical to the same parse before this stage landed, because
+// a clean parse never reaches a no-table-action point and so never inserts.
+// Widening the audit's own reach is a separate question with its own
+// evidence, and it is not this stage's to decide.
+func (r *parserCoreFreshFullRunner) recoveryAllowsErrorRoot(scheduler *diagnosticParserCoreGenericScheduler) bool {
+	if r == nil || !r.options.Recovery {
+		return false
+	}
+	if r.options.allowCompactStrategy2ErrorRegion {
+		return true
+	}
+	return r.options.allowCompactMissingTokenInsertion &&
+		scheduler != nil && scheduler.s5MissingInsertions > 0
+}
+
 func (r *parserCoreFreshFullRunner) materialize(source []byte, compact *core.Core, head core.Head) (*Tree, error) {
 	if r == nil {
 		return nil, errors.New("parser-core fresh-full runner is nil")
@@ -314,7 +351,7 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		source,
 		&r.scratch,
 		r.replayParseStates,
-		r.s3AllowErrorRoot(),
+		r.recoveryAllowsErrorRoot(scheduler),
 	)
 	if err != nil && gated {
 		scheduler.failCompactEOFRecoveryConstruction(err)

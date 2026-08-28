@@ -771,6 +771,40 @@ type Language struct {
 	// no-action point exactly as before this stage landed.
 	CompactStrategy2ErrorRegionCertified bool
 
+	// CompactMissingTokenInsertionCertified permits the compact fresh-full
+	// route to attempt native missing-token insertion (campaign v7 tranche B3
+	// stage S5) at a true no-table-action point: scan terminals in ascending
+	// symbol order for one whose shift lands in a state whose leading action
+	// for the elected token is a reduce, confirm the resulting version could
+	// then act on that token, and insert a zero-width MISSING leaf instead of
+	// declining. This is C's ts_parser__handle_error step 2
+	// (parser.c:2154-2230), which C tries BEFORE either recovery strategy.
+	//
+	// Exact built-in profiles set this only after C-oracle parity proves the
+	// resulting tree matches the pinned C oracle exactly for the certified
+	// witness class. The gate is grammar-blob-keyed, not name-keyed. It is
+	// deliberately separate from CompactStrategy2ErrorRegionCertified: the
+	// two mechanisms are independent, a grammar may earn one without the
+	// other, and C tries them in a fixed order regardless of which the
+	// compact route owns. Custom and adapted languages fail closed.
+	//
+	// NOT SET BY ANY BUILT-IN PROFILE, DELIBERATELY. The mechanism behind
+	// this flag is measured incomplete: its confirmation step is a table-only
+	// reachability search where C runs ts_parser__do_all_potential_reductions,
+	// so it inserts a missing token on at least one witness where the pinned
+	// C oracle inserts none and recovers through an ERROR region instead. See
+	// s5TryMissingTokenInsertion's doc comment for the witness and the trees.
+	// Do not add a profile entry for this flag until that gate reproduces C.
+	//
+	// Soundness note. Do NOT re-derive this gate from an error-cost argument.
+	// C's ts_subtree_error_cost short-circuits on the missing bit and returns
+	// ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY (610, subtree.h:
+	// 331-337), not ERROR_COST_PER_MISSING_TREE alone, so a missing version
+	// does not automatically beat the competing absorbing version C creates
+	// at the same point. Only oracle parity for the witness class justifies
+	// certifying a grammar here.
+	CompactMissingTokenInsertionCertified bool
+
 	// LineContinuationEscapeByte declares the single byte this language's
 	// scanner treats as a line-continuation escape when immediately followed
 	// by a newline (LF, or CR+LF) — for example PowerShell's backtick. C

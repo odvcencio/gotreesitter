@@ -67,10 +67,17 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		// same grammar-blob-keyed certification, so an uncertified grammar
 		// (every grammar but the one B3 stage S3 witness class covers today)
 		// gets both false and this parse's behavior is unchanged.
-		Recovery:                         p.language.CompactStrategy2ErrorRegionCertified,
-		allowCompactStrategy2ErrorRegion: p.language.CompactStrategy2ErrorRegionCertified,
-		noLookaheadRootSymbol:            p.rootSymbol,
-		hasNoLookaheadRootSymbol:         p.hasRootSymbol,
+		// Recovery declares that this operation may attempt SOME native
+		// recovery mechanism; each mechanism then has its own
+		// grammar-blob-keyed capability below. A grammar certified for either
+		// one arms Recovery; a grammar certified for neither keeps both false
+		// and parses exactly as it did before these stages landed.
+		Recovery: p.language.CompactStrategy2ErrorRegionCertified ||
+			p.language.CompactMissingTokenInsertionCertified,
+		allowCompactStrategy2ErrorRegion:  p.language.CompactStrategy2ErrorRegionCertified,
+		allowCompactMissingTokenInsertion: p.language.CompactMissingTokenInsertionCertified,
+		noLookaheadRootSymbol:             p.rootSymbol,
+		hasNoLookaheadRootSymbol:          p.hasRootSymbol,
 		// Tranche B8 scheduler stop-control: bind this Parser so the scheduler
 		// polls its deadline, cancellation flag, and (via
 		// stopControlMemoryBudgetBytes, recomputed per parse in

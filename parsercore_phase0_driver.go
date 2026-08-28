@@ -95,8 +95,14 @@ type DiagnosticParserCorePrefixOptions struct {
 	// name-keyed -- design section 7). Recovery must also be true: this
 	// option alone does not admit the fresh-full runner's recovery guard.
 	allowCompactStrategy2ErrorRegion bool
-	noLookaheadRootSymbol            Symbol
-	hasNoLookaheadRootSymbol         bool
+	// allowCompactMissingTokenInsertion permits the generic scheduler to
+	// attempt native S5 missing-token insertion at a true no-table-action
+	// point instead of declining. Set only from
+	// Language.CompactMissingTokenInsertionCertified (grammar-blob-keyed).
+	// Recovery must also be true, exactly as for the S3 option.
+	allowCompactMissingTokenInsertion bool
+	noLookaheadRootSymbol             Symbol
+	hasNoLookaheadRootSymbol          bool
 	// stopControlParser, when non-nil, arms the scheduler's stop-control poll
 	// (spec.campaign.v7 tranche B8): once per dispatch-pass-loop iteration,
 	// diagnosticParserCoreGenericScheduler.run checks this Parser's deadline
@@ -2142,18 +2148,26 @@ type diagnosticParserCoreTokenCell struct {
 }
 
 type diagnosticParserCoreGenericScheduler struct {
-	compact                    *core.Core
-	tokenSource                *dfaTokenSource
-	scannerScratch             *[]byte
-	headers                    []diagnosticParserCoreHeader
-	token                      Token
-	checkpoint                 DiagnosticParserCoreScannerCheckpoint
-	checkpointBeforeID         core.CheckpointID
-	checkpointID               core.CheckpointID
-	currentElection            DiagnosticParserCoreElection
-	tokenCell                  diagnosticParserCoreTokenCell
-	electionIndex              int
-	noLookaheadSteps           uint8
+	compact            *core.Core
+	tokenSource        *dfaTokenSource
+	scannerScratch     *[]byte
+	headers            []diagnosticParserCoreHeader
+	token              Token
+	checkpoint         DiagnosticParserCoreScannerCheckpoint
+	checkpointBeforeID core.CheckpointID
+	checkpointID       core.CheckpointID
+	currentElection    DiagnosticParserCoreElection
+	tokenCell          diagnosticParserCoreTokenCell
+	electionIndex      int
+	noLookaheadSteps   uint8
+	// s5MissingInsertions counts native missing-token insertions this parse
+	// performed (B3 stage S5). Capped by
+	// maxDiagnosticParserCoreMissingInsertions: each insertion is zero width,
+	// so byte offset alone cannot prove the scheduler is making progress, and
+	// a grammar whose tables let one inserted terminal re-enable the same
+	// insertion would otherwise spin. Real inputs need few: the largest
+	// observed real-corpus row needs eight.
+	s5MissingInsertions        uint32
 	tokens                     uint64
 	dispatches                 uint64
 	branchOrder                uint64
@@ -3579,6 +3593,10 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 }
 
 const maxDiagnosticParserCoreNoLookaheadSteps = 64
+
+// maxDiagnosticParserCoreMissingInsertions bounds native missing-token
+// insertions per parse (B3 stage S5). See s5MissingInsertions.
+const maxDiagnosticParserCoreMissingInsertions = 256
 
 func (s *diagnosticParserCoreGenericScheduler) fullReceipts() bool {
 	return s != nil && s.options.ReceiptMode == DiagnosticParserCoreReceiptFull
@@ -6400,6 +6418,19 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				// decline -- fail-closed, never a guess (design section 4's
 				// fail-closed rule).
 				if len(s.headers) == 1 && len(noActionIndices) == 1 {
+					// C order: ts_parser__handle_error runs its missing-token
+					// search (step 2) BEFORE pushing the error discontinuity
+					// and calling ts_parser__recover, so stage S5 is tried
+					// before stage S3 here. Both fail closed, so a grammar
+					// certified for neither reaches the same decline as
+					// before either stage landed.
+					handled, s5Err := s.s5TryMissingTokenInsertion(noActionIndices[0])
+					if s5Err != nil {
+						return nil, s5Err
+					}
+					if handled {
+						return nil, nil
+					}
 					handled, s3Err := s.s3TryOpenErrorRegion(noActionIndices[0])
 					if s3Err != nil {
 						return nil, s3Err
@@ -6848,6 +6879,184 @@ func (s *diagnosticParserCoreGenericScheduler) s3CloseInProgressProductions(head
 		changed = true
 	}
 	return current, changed, false, nil
+}
+
+// s5MissingTokenAdmitted reports whether this parse may attempt native
+// missing-token insertion. Both the operation-level Recovery declaration and
+// the grammar-blob-keyed capability must hold, mirroring s3ErrorRegionAdmitted.
+func (s *diagnosticParserCoreGenericScheduler) s5MissingTokenAdmitted() bool {
+	return s.options.Recovery && s.options.allowCompactMissingTokenInsertion
+}
+
+// s5MissingTokenMaxSpineDepth bounds the unique-state-spine walk the
+// confirmation step needs. A reduce can only pop as many states as the spine
+// holds, so a truncated walk would answer C's question against a stack that
+// is not the real one; UniqueStateSpine therefore reports failure rather than
+// truncating, and this bound simply decides how deep a stack the stage is
+// willing to own before declining.
+const s5MissingTokenMaxSpineDepth = 4096
+
+// s5TryMissingTokenInsertion attempts native missing-token insertion for the
+// sole no-action header index. handled=true means one zero-width MISSING leaf
+// was published and attached, and the caller must let the ordinary dispatch
+// loop redispatch THE SAME token against the new head -- the elected token is
+// not consumed here, exactly as C does not consume it when it inserts a
+// missing tree. handled=false means the caller falls through unchanged.
+//
+// This is C's ts_parser__handle_error step 2 (parser.c:2154-2230), and it is
+// attempted BEFORE the S3 error region because C attempts it before either
+// recovery strategy: handle_error runs the missing-token search first and
+// only then pushes the error discontinuity and calls ts_parser__recover.
+// Reversing that order would absorb into an ERROR region a token C would have
+// kept, and publish a different tree.
+//
+// C's own scan, reproduced here clause for clause:
+//
+//   - terminals are scanned in ASCENDING symbol id order and the FIRST one
+//     that passes every test wins (C breaks out of the loop);
+//   - a candidate must have a genuine shift from the current state to a
+//     DIFFERENT state (ts_language_next_state returns 0 or the same state
+//     otherwise, and C skips both);
+//   - that target state's leading action for the real lookahead must be a
+//     reduce (ts_language_has_reduce_action);
+//   - and the version that receives the missing tree must then be able to act
+//     on the real lookahead (C's do_all_potential_reductions gate).
+//
+// Everything this stage does not own fails closed: an ambiguous head (no
+// unique state spine), an open S3 region, a recovery-flagged elected token,
+// or an exhausted insertion budget all decline to the existing path rather
+// than guessing.
+//
+// DO NOT CERTIFY ANY GRAMMAR FOR THIS MECHANISM YET. It is incomplete in a
+// way that produces a WRONG TREE, not merely a missed graduation, and the
+// defect is measured, not suspected.
+//
+// The confirmation step below is more permissive than C's. C gates the
+// insertion on ts_parser__do_all_potential_reductions, which does not ask
+// "is some shift reachable through reduce actions"; it BUILDS versions,
+// applies real reductions to them, merges them, and reports whether the
+// surviving version set can act on the lookahead. CanShiftAfterReductions is
+// a table-only reachability search over the same reduce actions. Reachability
+// is a weaker condition, so it answers yes on inputs where C answers no, and
+// this stage then inserts a token C never inserts.
+//
+// Measured witness, php source "<?php namespace ; ?>", compared against the
+// pinned C oracle:
+//
+//	compact     (program (php_tag) (namespace_definition (namespace_name (name))) (text_interpolation (php_end_tag)))
+//	production  (program (php_tag) (ERROR) (empty_statement) (text_interpolation (php_end_tag)))
+//	locked C    (program (php_tag) (ERROR) (empty_statement) (text_interpolation (php_end_tag)))
+//
+// Production and the oracle agree exactly: C recovers this input through an
+// ERROR region, inserting NO missing token at all. This stage inserted a
+// missing name and published a clean namespace_definition instead. Three
+// other witnesses (php "<?php function a( {} ?>", python "def f(:", and the
+// awk large real-corpus row, which inserts exactly the eight missing tokens
+// production also reports) come out right, so the mechanism is close but the
+// gate is wrong.
+//
+// Closing this needs a faithful compact analogue of do_all_potential_reductions
+// -- version construction and merging, not a reachability query. Until then
+// the capability stays unset for every grammar, which makes this whole
+// function unreachable in every shipped parse.
+func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertion(index int) (handled bool, err error) {
+	if !s.s5MissingTokenAdmitted() {
+		return false, nil
+	}
+	header := &s.headers[index]
+	if header.s3Region != nil {
+		// A header carrying an open error region is strategy 2's; C is past
+		// the handle_error step for that lineage.
+		return false, nil
+	}
+	if s.token.Missing || s.token.NoLookahead {
+		// C's scan keys on ts_subtree_leaf_symbol(lookahead) of a real lexed
+		// token. A synthetic recovery-lexer token is not that.
+		return false, nil
+	}
+	if s.token.Symbol == errorSymbol {
+		// An unlexable run is C's error subtree; handle_error's missing scan
+		// tests a reduce action for it and real grammars do not offer one.
+		// Decline rather than scanning the whole terminal space for nothing.
+		return false, nil
+	}
+	if s.s5MissingInsertions >= maxDiagnosticParserCoreMissingInsertions {
+		return false, nil
+	}
+	if s.tokenSource == nil || s.tokenSource.language == nil {
+		return false, nil
+	}
+	tokenCount := Symbol(s.tokenSource.language.TokenCount)
+	if tokenCount == 0 {
+		return false, nil
+	}
+	state, byteOffset, boundaryErr := s.compact.Boundary(header.head)
+	if boundaryErr != nil {
+		return false, boundaryErr
+	}
+	spine, spineOK, spineErr := s.compact.UniqueStateSpine(header.head, s5MissingTokenMaxSpineDepth)
+	if spineErr != nil {
+		return false, spineErr
+	}
+	if !spineOK {
+		return false, nil
+	}
+	// One simulation buffer for the whole scan, with the candidate's target
+	// state written into the last slot each iteration. Appending to spine
+	// inside the loop instead would write through spine's own backing array
+	// on every iteration after the first, which happens to be harmless today
+	// only because CanShiftAfterReductions copies its input.
+	simulation := make([]core.StateID, len(spine)+1)
+	copy(simulation, spine)
+	for missing := Symbol(1); missing < tokenCount; missing++ {
+		row, rowErr := s.compact.Actions(state, core.Symbol(missing))
+		if rowErr != nil {
+			return false, rowErr
+		}
+		if row.Len() == 0 {
+			continue
+		}
+		// C reads the LAST action of the entry (ts_language_next_state), not
+		// the first, and treats an extra shift as keeping the same state --
+		// which its own next_state test then rejects.
+		last := row.At(row.Len() - 1)
+		if last.Type != core.ActionShift {
+			continue
+		}
+		targetState := core.StateID(last.State)
+		if last.Extra {
+			targetState = core.StateID(state)
+		}
+		if targetState == 0 || targetState == core.StateID(state) {
+			continue
+		}
+		nextRow, nextErr := s.compact.Actions(targetState, core.Symbol(s.token.Symbol))
+		if nextErr != nil {
+			return false, nextErr
+		}
+		if nextRow.Len() == 0 || nextRow.At(0).Type != core.ActionReduce {
+			continue
+		}
+		simulation[len(simulation)-1] = targetState
+		canShift, shiftErr := s.compact.CanShiftAfterReductions(simulation, core.Symbol(s.token.Symbol))
+		if shiftErr != nil {
+			return false, shiftErr
+		}
+		if !canShift {
+			continue
+		}
+		newHead, insertErr := s.compact.ShiftMissingLeaf(header.head, targetState, core.Symbol(missing), byteOffset)
+		if insertErr != nil {
+			return false, insertErr
+		}
+		s.headers[index].head = newHead
+		// Deliberately NOT marking the header shifted: the elected token was
+		// not consumed. The dispatch loop redispatches it against the new
+		// head, which is what C's own re-dispatch after handle_error does.
+		s.s5MissingInsertions++
+		return true, nil
+	}
+	return false, nil
 }
 
 // s3TryOpenErrorRegion attempts to open (and immediately begin absorbing
