@@ -6927,38 +6927,51 @@ const s5MissingTokenMaxSpineDepth = 4096
 // or an exhausted insertion budget all decline to the existing path rather
 // than guessing.
 //
-// DO NOT CERTIFY ANY GRAMMAR FOR THIS MECHANISM YET. It is incomplete in a
-// way that produces a WRONG TREE, not merely a missed graduation, and the
-// defect is measured, not suspected.
+// DO NOT CERTIFY ANY GRAMMAR FOR THIS MECHANISM YET. Missing-token insertion
+// cannot be correct as a STANDALONE stage, and the reason is structural, not
+// a bug in the scan above.
 //
-// The confirmation step below is more permissive than C's. C gates the
-// insertion on ts_parser__do_all_potential_reductions, which does not ask
-// "is some shift reachable through reduce actions"; it BUILDS versions,
-// applies real reductions to them, merges them, and reports whether the
-// surviving version set can act on the lookahead. CanShiftAfterReductions is
-// a table-only reachability search over the same reduce actions. Reachability
-// is a weaker condition, so it answers yes on inputs where C answers no, and
-// this stage then inserts a token C never inserts.
+// C does not choose between missing-token insertion and error-region absorb
+// at the point of insertion. ts_parser__handle_error creates the missing
+// version as a COPY (ts_stack_copy_version) and then pushes the error
+// discontinuity onto the original anyway, so both versions live on and parse
+// forward. The winner is decided later, by error cost, in
+// ts_parser__select_tree / ts_parser__better_version_exists.
 //
-// Measured witness, php source "<?php namespace ; ?>", compared against the
-// pinned C oracle:
+// The two costs are close, and the missing side is the EXPENSIVE one:
+// ts_subtree_error_cost short-circuits on the missing bit and returns
+// ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY, which is 610
+// (subtree.h:331-337), while an ERROR node built over a skipped span costs
+// ERROR_COST_PER_RECOVERY plus per-char and per-line terms, which is 500
+// plus the span (subtree.c:442-444).
+//
+// Measured witness, php source "<?php namespace ; ?>":
 //
 //	compact     (program (php_tag) (namespace_definition (namespace_name (name))) (text_interpolation (php_end_tag)))
 //	production  (program (php_tag) (ERROR) (empty_statement) (text_interpolation (php_end_tag)))
 //	locked C    (program (php_tag) (ERROR) (empty_statement) (text_interpolation (php_end_tag)))
 //
-// Production and the oracle agree exactly: C recovers this input through an
-// ERROR region, inserting NO missing token at all. This stage inserted a
-// missing name and published a clean namespace_definition instead. Three
-// other witnesses (php "<?php function a( {} ?>", python "def f(:", and the
-// awk large real-corpus row, which inserts exactly the eight missing tokens
-// production also reports) come out right, so the mechanism is close but the
-// gate is wrong.
+// Instrumenting production's own port confirms the mechanism here is right
+// and the ARBITRATION is what is missing: production's missing-token search
+// ACCEPTS the very same insertion this stage makes ("candidate state=2176
+// ms=1 next=2053", then "ACCEPT ms=1"), and production still publishes the
+// ERROR tree, because absorbing the nine bytes of "namespace" costs about
+// 509 and beats the missing version's 610. This stage follows only the
+// missing version, so it publishes the loser's tree.
 //
-// Closing this needs a faithful compact analogue of do_all_potential_reductions
-// -- version construction and merging, not a reachability query. Until then
-// the capability stays unset for every grammar, which makes this whole
-// function unreachable in every shipped parse.
+// This also explains why the stage IS right where the missing side wins: on
+// the awk large real-corpus row it inserts exactly the eight missing tokens
+// production's own tree reports, and php "<?php function a( {} ?>" and
+// python "def f(:" both come out equal to the C oracle.
+//
+// Closing this needs the version competition, not a better scan: model the
+// strategy-2 alternative alongside the insertion and select by error cost.
+// The primitives already exist from stage S2 -- RecoveryNodeErrorCost,
+// RecoveryVersionStatus, and RecoveryCompareVersions in
+// internal/parsercorephase0/recovery_cost.go -- so the work is arbitration
+// and lifetime, not a new cost model. Until that lands, the capability stays
+// unset for every grammar, which makes this whole function unreachable in
+// every shipped parse.
 func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertion(index int) (handled bool, err error) {
 	if !s.s5MissingTokenAdmitted() {
 		return false, nil
@@ -6990,11 +7003,39 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertion(index 
 	if tokenCount == 0 {
 		return false, nil
 	}
-	state, byteOffset, boundaryErr := s.compact.Boundary(header.head)
+	// C's ts_parser__handle_error runs step 1 -- do_all_potential_reductions
+	// over ANY symbol -- BEFORE the missing-token search, and the search then
+	// scans ts_stack_state of each version step 1 produced, not the state the
+	// parser was in when it hit the error. Scanning the pre-closure state
+	// asks the table a different question and admits candidates C never
+	// considers: measured on php "<?php namespace ; ?>", the pre-closure scan
+	// inserted a missing name where the locked C oracle recovers through an
+	// ERROR region instead.
+	//
+	// s3CloseInProgressProductions is that step-1 closure. It is shared with
+	// stage S3 rather than duplicated (the s3 prefix records where it landed
+	// first, not that it belongs to strategy 2), and it reports ok=false on
+	// genuine ambiguity or an epsilon reduce it cannot fold on one path --
+	// both of which this stage must decline rather than guess through.
+	closedHead, closedChanged, closeOK, closeErr := s.s3CloseInProgressProductions(header.head)
+	if closeErr != nil {
+		return false, closeErr
+	}
+	if !closeOK {
+		return false, nil
+	}
+	// The closed head is adopted ONLY if a candidate wins below. A decline
+	// leaves header.head untouched, so the existing S3 attempt and the
+	// existing decline path both see exactly the head they saw before.
+	scanHead := header.head
+	if closedChanged {
+		scanHead = closedHead
+	}
+	state, byteOffset, boundaryErr := s.compact.Boundary(scanHead)
 	if boundaryErr != nil {
 		return false, boundaryErr
 	}
-	spine, spineOK, spineErr := s.compact.UniqueStateSpine(header.head, s5MissingTokenMaxSpineDepth)
+	spine, spineOK, spineErr := s.compact.UniqueStateSpine(scanHead, s5MissingTokenMaxSpineDepth)
 	if spineErr != nil {
 		return false, spineErr
 	}
@@ -7045,7 +7086,7 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertion(index 
 		if !canShift {
 			continue
 		}
-		newHead, insertErr := s.compact.ShiftMissingLeaf(header.head, targetState, core.Symbol(missing), byteOffset)
+		newHead, insertErr := s.compact.ShiftMissingLeaf(scanHead, targetState, core.Symbol(missing), byteOffset)
 		if insertErr != nil {
 			return false, insertErr
 		}

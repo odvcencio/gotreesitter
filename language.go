@@ -788,13 +788,16 @@ type Language struct {
 	// other, and C tries them in a fixed order regardless of which the
 	// compact route owns. Custom and adapted languages fail closed.
 	//
-	// NOT SET BY ANY BUILT-IN PROFILE, DELIBERATELY. The mechanism behind
-	// this flag is measured incomplete: its confirmation step is a table-only
-	// reachability search where C runs ts_parser__do_all_potential_reductions,
-	// so it inserts a missing token on at least one witness where the pinned
-	// C oracle inserts none and recovers through an ERROR region instead. See
-	// s5TryMissingTokenInsertion's doc comment for the witness and the trees.
-	// Do not add a profile entry for this flag until that gate reproduces C.
+	// NOT SET BY ANY BUILT-IN PROFILE, DELIBERATELY. Missing-token insertion
+	// is not correct as a standalone stage. C creates the missing version as
+	// a copy and keeps the error-absorbing version alive beside it, then
+	// decides between them by error cost, where the missing side costs 610
+	// and an absorbed span costs 500 plus its length. On php
+	// "<?php namespace ; ?>" the absorber wins and C publishes an ERROR tree,
+	// while a route that follows only the missing version publishes a clean
+	// namespace_definition. See s5TryMissingTokenInsertion's doc comment for
+	// the trees and the production-side instrumentation. Do not add a profile
+	// entry for this flag until the version competition lands.
 	//
 	// Soundness note. Do NOT re-derive this gate from an error-cost argument.
 	// C's ts_subtree_error_cost short-circuits on the missing bit and returns
