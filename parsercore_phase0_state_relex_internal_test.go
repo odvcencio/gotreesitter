@@ -165,6 +165,59 @@ func RunStateDependentRelexSchedulerForTest(lang *Language, source []byte) (Diag
 	return runStateDependentRelexSchedulerForTest(lang, source, false)
 }
 
+// StateDependentRecoveryProvenanceForTest records the recovery lifecycle that
+// produced one forced error-mode scheduler receipt.
+type StateDependentRecoveryProvenanceForTest struct {
+	ResumeState        StateID
+	ResumeSymbol       Symbol
+	ResumeCount        uint32
+	MissingInsertions  uint32
+	LineageSelections  uint64
+	LineageRetirements uint64
+	NoActionDrops      uint64
+}
+
+// RunStateDependentRecoveryRelexProvenanceForTest runs the forced error-mode
+// compact attempt that follows a certified plain-first decline.
+func RunStateDependentRecoveryRelexProvenanceForTest(lang *Language, source []byte) (DiagnosticParserCoreGenericScheduler, StateDependentRecoveryProvenanceForTest, error) {
+	return runStateDependentRecoveryRelexSchedulerForTest(lang, source)
+}
+
+func runStateDependentRecoveryRelexSchedulerForTest(lang *Language, source []byte) (DiagnosticParserCoreGenericScheduler, StateDependentRecoveryProvenanceForTest, error) {
+	parser := NewParser(lang)
+	runner, err := newAdmissionCandidateRunner(parser)
+	if err != nil {
+		return DiagnosticParserCoreGenericScheduler{}, StateDependentRecoveryProvenanceForTest{}, err
+	}
+	runner.options.ReceiptMode = DiagnosticParserCoreReceiptFull
+	tokenSource := parser.acquireParserDFATokenSourceWithErrorRuns(source, true)
+	if tokenSource == nil {
+		return DiagnosticParserCoreGenericScheduler{}, StateDependentRecoveryProvenanceForTest{}, nil
+	}
+	defer tokenSource.Close()
+	scheduler, runErr := executeDiagnosticParserCoreGenericSchedulerFromSeed(
+		runner.compact,
+		tokenSource,
+		&runner.scannerScratch,
+		lang.InitialState,
+		runner.options,
+		diagnosticParserCoreSeedObserver{},
+	)
+	if scheduler == nil || scheduler.receipt == nil {
+		return DiagnosticParserCoreGenericScheduler{}, StateDependentRecoveryProvenanceForTest{}, runErr
+	}
+	provenance := StateDependentRecoveryProvenanceForTest{
+		ResumeState:        scheduler.s3ResumeState,
+		ResumeSymbol:       scheduler.s3ResumeSymbol,
+		ResumeCount:        scheduler.s3ResumeCount,
+		MissingInsertions:  scheduler.s5MissingInsertions,
+		LineageSelections:  scheduler.work.RecoveryLineageSelections,
+		LineageRetirements: scheduler.work.RecoveryLineageRetirements,
+		NoActionDrops:      scheduler.work.NoActionDrops,
+	}
+	return *scheduler.receipt, provenance, runErr
+}
+
 // RunStateDependentRelexSchedulerWithSpanUnlockedRelexDisabledForTest is
 // RunStateDependentRelexSchedulerForTest with
 // DisablePerHeaderSpanUnlockedRelex forced on, for the D2-1 gate test

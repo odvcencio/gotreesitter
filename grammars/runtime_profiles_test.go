@@ -75,10 +75,11 @@ func TestJavaScriptProfileCertifiesCompactRecoveryFrontier(t *testing.T) {
 	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
 	lang := JavascriptLanguage()
 	if !lang.CompactStrategy2ErrorRegionCertified || !lang.CompactMissingTokenInsertionCertified ||
-		!lang.CompactRecoveryPlainFirstCertified {
+		!lang.CompactRecoveryPlainFirstCertified || !lang.CompactRecoveryTrailingLineageRetirementCertified {
 		t.Fatal("the JavaScript profile did not attach its compact recovery capabilities")
 	}
 	wantAliases := []gotreesitter.CompactRecoveryTerminalAliasRule{
+		{ResumeState: 231, ResumeSymbol: 85, AliasSymbol: 261},
 		{ResumeState: 1042, ResumeSymbol: 129, AliasSymbol: 261},
 		{ResumeState: 1367, ResumeSymbol: 7, AliasSymbol: 261},
 	}
@@ -88,7 +89,8 @@ func TestJavaScriptProfileCertifiesCompactRecoveryFrontier(t *testing.T) {
 	uncertified := &gotreesitter.Language{}
 	if attachBuiltinLanguageRuntimeProfile("javascript", sha256.Sum256([]byte("wrong javascript blob")), uncertified) ||
 		uncertified.CompactStrategy2ErrorRegionCertified || uncertified.CompactMissingTokenInsertionCertified ||
-		uncertified.CompactRecoveryPlainFirstCertified || len(uncertified.CompactRecoveryTerminalAliasRules) != 0 {
+		uncertified.CompactRecoveryPlainFirstCertified || uncertified.CompactRecoveryTrailingLineageRetirementCertified ||
+		len(uncertified.CompactRecoveryTerminalAliasRules) != 0 {
 		t.Fatal("a mismatched JavaScript blob received compact recovery certification")
 	}
 }
@@ -164,6 +166,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	}
 	if lang.CompactRecoveryPlainFirstCertified {
 		t.Fatal("unknown runtime profile enabled compact plain-first recovery")
+	}
+	if lang.CompactRecoveryTrailingLineageRetirementCertified {
+		t.Fatal("unknown runtime profile enabled compact trailing-lineage retirement")
 	}
 	if len(lang.CompactRecoveryTerminalAliasRules) != 0 {
 		t.Fatal("unknown runtime profile attached compact recovery terminal aliases")

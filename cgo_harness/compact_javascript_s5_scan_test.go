@@ -120,8 +120,10 @@ func TestCompactJavaScriptS5RecoveryMutationDifferential(t *testing.T) {
 			}
 		}
 	}
-	if expanded != 26 || contracted != 0 {
-		t.Fatalf("S5 route delta expanded=%d contracted=%d, want 26/0 across %d cases", expanded, contracted, cases)
+	// Trailing-lineage retirement adds 15 exact routes to the prior 26-route
+	// S5 frontier. The loop compared every expanded tree with C above.
+	if expanded != 41 || contracted != 0 {
+		t.Fatalf("S5 route delta expanded=%d contracted=%d, want 41/0 across %d cases", expanded, contracted, cases)
 	}
 	t.Logf("JavaScript S5 mutation differential: cases=%d expanded=%d contracted=%d", cases, expanded, contracted)
 }

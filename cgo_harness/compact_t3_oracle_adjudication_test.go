@@ -115,7 +115,7 @@ type compactT3ExpectedOutcome struct {
 // compactT3RecoveryCertifiedWitnesses lists witnesses where native compact
 // recovery reaches exact structural C-oracle parity. The exact HTML artifact
 // certifies its complete class. JavaScript certifies the current S3 frontier;
-// its remaining three witnesses stay fail-closed.
+// its remaining witness stays fail-closed.
 var compactT3RecoveryCertifiedWitnesses = map[string]bool{
 	"html_min_a":    true,
 	"html_min_html": true,
@@ -131,7 +131,9 @@ var compactT3RecoveryCertifiedWitnesses = map[string]bool{
 	"js_log_2":      true,
 	"js_log_3":      true,
 	"js_log_4":      true,
+	"js_log_5":      true,
 	"js_log_7":      true,
+	"js_log_8":      true,
 }
 
 // TestCompactT3OracleAdjudication verifies each committed false-clean witness
@@ -148,7 +150,7 @@ var compactT3RecoveryCertifiedWitnesses = map[string]bool{
 //   - compact vs. the C oracle: S3 and S5 cover all ten
 //     html_erroneous_end_tag witnesses. Every witness in
 //     compactT3RecoveryCertifiedWitnesses must match the C oracle exactly.
-//     JavaScript routes five witnesses exactly and fails closed on three.
+//     JavaScript routes seven witnesses exactly and fails closed on one.
 //     Swift still has no compact recovery implementation.
 //   - production vs. the C oracle: the S1 design brief's stated gate is
 //     "the harness must pass with production serving every witness before
@@ -283,10 +285,10 @@ func TestCompactT3JavaScriptRecoveryProfileCharacterization(t *testing.T) {
 		"js_log_2": {routed: true},
 		"js_log_3": {routed: true},
 		"js_log_4": {routed: true},
-		"js_log_5": {fallbackDetail: "generic scheduler has no table action for the elected token"},
+		"js_log_5": {routed: true},
 		"js_log_6": {fallbackDetail: "error-mode lex disagrees with the ordinary shared election"},
 		"js_log_7": {routed: true},
-		"js_log_8": {fallbackDetail: "generic scheduler has no table action for the elected token"},
+		"js_log_8": {routed: true},
 	}
 
 	for _, witness := range compactT3WitnessesForLanguage(manifest, "javascript") {
@@ -496,8 +498,12 @@ func TestCompactT3JavaScriptRecoveryMutationDifferential(t *testing.T) {
 	if routed == 0 || fallback == 0 {
 		t.Fatalf("mutation differential lacked both route outcomes: cases=%d routed=%d fallback=%d", cases, routed, fallback)
 	}
-	if missingExpanded != 0 || missingContracted != 0 {
-		t.Fatalf("T3 neighborhood crossed the S5 boundary: expanded=%d contracted=%d", missingExpanded, missingContracted)
+	// The certified retirement adds 46 exact routes to the S3-only baseline.
+	// The loop compared every routed tree with C before this count check.
+	const trailingRetirementExpansions = 46
+	if missingExpanded != trailingRetirementExpansions || missingContracted != 0 {
+		t.Fatalf("T3 neighborhood S5 boundary: expanded=%d contracted=%d, want %d/0",
+			missingExpanded, missingContracted, trailingRetirementExpansions)
 	}
 	t.Logf("JavaScript compact recovery mutation differential: cases=%d routed=%d fallback=%d S3-only=%d missing-expanded=%d missing-contracted=%d",
 		cases, routed, fallback, s3OnlyRouted, missingExpanded, missingContracted)

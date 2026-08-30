@@ -112,8 +112,12 @@ type DiagnosticParserCorePrefixOptions struct {
 	// The admission route sets this only when one artifact certifies both
 	// recovery mechanisms. Other parses retain the conservative false default.
 	allowCompactRecoveryLineageSelection bool
-	noLookaheadRootSymbol                Symbol
-	hasNoLookaheadRootSymbol             bool
+	// allowCompactRecoveryTrailingLineageRetirement permits C's condense-tail
+	// removal for one exact two-version S5 frontier. The admission route sets
+	// this only from an exact grammar-artifact capability.
+	allowCompactRecoveryTrailingLineageRetirement bool
+	noLookaheadRootSymbol                         Symbol
+	hasNoLookaheadRootSymbol                      bool
 	// stopControlParser, when non-nil, arms the scheduler's stop-control poll
 	// (spec.campaign.v7 tranche B8): once per dispatch-pass-loop iteration,
 	// diagnosticParserCoreGenericScheduler.run checks this Parser's deadline
@@ -354,6 +358,9 @@ type DiagnosticParserCoreGenericWork struct {
 	// in the receipt from one that never competed, and no differential harness
 	// could confirm the port picks what C picks.
 	RecoveryLineageSelections uint64
+	// RecoveryLineageRetirements counts C-condense-tail transitions that remove
+	// one trailing no-action recovery version after an earlier version shifts.
+	RecoveryLineageRetirements uint64
 	// SingleHeaderPasses counts dispatch passes executed against a
 	// single-header frontier (spec.c4-bytecode-isa.v1 section 5, obligation
 	// R6). It is count-only and published on the gts_workcount board so
@@ -1224,6 +1231,50 @@ func (s *diagnosticParserCoreGenericScheduler) competingRecoveryFrontier() bool 
 		}
 	}
 	return true
+}
+
+// retireTrailingRecoveryNoActionLineage ports one exact C condense-tail
+// transition. S5 orders the absorbing version before the missing version. If
+// the absorbing version consumes the elected token and the later missing
+// version cannot act on it, C keeps the earlier unpaused version and removes
+// the later paused version without another recovery election.
+//
+// Keep the proof deliberately narrow. Both versions must share the elected
+// checkpoint, carry no open error region, and preserve creation order. The
+// survivor must end exactly at the elected token boundary. Every other
+// recovery frontier continues to fail closed.
+func (s *diagnosticParserCoreGenericScheduler) retireTrailingRecoveryNoActionLineage(indices []int) (bool, error) {
+	if s == nil || !s.options.allowCompactRecoveryTrailingLineageRetirement ||
+		!s.competingRecoveryFrontier() || len(s.headers) != 2 || len(indices) != 1 || indices[0] != 1 ||
+		!diagnosticParserCoreGenericNoActionDropEligible(s.headers, indices, s.epochProgress) {
+		return false, nil
+	}
+	survivor := &s.headers[0]
+	loser := &s.headers[1]
+	if !survivor.shifted || survivor.accepted || survivor.paused || loser.shifted || loser.accepted || loser.paused ||
+		survivor.s3Region != nil || loser.s3Region != nil || survivor.creationSeq >= loser.creationSeq ||
+		survivor.checkpoint != loser.checkpoint || survivor.checkpoint != s.checkpointID ||
+		s.token.Symbol == 0 || s.token.EndByte <= s.token.StartByte {
+		return false, nil
+	}
+	_, survivorByte, err := s.compact.Boundary(survivor.head)
+	if err != nil {
+		return false, err
+	}
+	_, loserByte, err := s.compact.Boundary(loser.head)
+	if err != nil {
+		return false, err
+	}
+	if survivorByte != s.token.EndByte || loserByte > s.token.StartByte {
+		return false, nil
+	}
+
+	survivor.clearRecoveryLineage()
+	clear(s.headers[1:])
+	s.headers = s.headers[:1]
+	s.recoveryIsolation = false
+	s.work.add(&s.work.RecoveryLineageRetirements, 1)
+	return true, nil
 }
 
 // recoveryOpenSegments returns the open-recovery segment count pricing charges
@@ -6677,6 +6728,13 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			// classification only: every one of these boundaries still
 			// declines and falls back to production unchanged (B3 stage S1).
 			if pausedNoActionHeads == 0 && deferredNoActionHeads == 0 && raggedRelexNoActionHeads == 0 {
+				retired, retireErr := s.retireTrailingRecoveryNoActionLineage(noActionIndices)
+				if retireErr != nil {
+					return nil, retireErr
+				}
+				if retired {
+					return nil, nil
+				}
 				// Try the certified S5 competition before standalone S3.
 				// Both routes own only the sole-header, sole-no-action shape.
 				// Unmodeled ambiguity falls through to the existing decline.

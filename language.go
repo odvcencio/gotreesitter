@@ -801,6 +801,14 @@ type Language struct {
 	// Custom and adapted languages retain the false default.
 	CompactMissingTokenInsertionCertified bool
 
+	// CompactRecoveryTrailingLineageRetirementCertified permits the compact
+	// scheduler to retire one trailing no-action missing lineage after the
+	// earlier error-absorb lineage consumed the same elected token. This is the
+	// exact two-version shape that C removes in its recovery condense tail.
+	// Exact built-in profiles must certify the complete transition. Custom,
+	// adapted, and stale artifacts retain the false default.
+	CompactRecoveryTrailingLineageRetirementCertified bool
+
 	// CompactRecoveryTerminalAliasRules permits the accepted-root leaf audit to
 	// authenticate a materialized terminal alias after one certified recovery
 	// resume. The materializer must also prove the exact raw terminal and alias

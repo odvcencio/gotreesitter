@@ -306,9 +306,14 @@ func (r *parserCoreFreshFullRunner) compactRecoveryTerminalAliasSymbol(
 ) (Symbol, bool) {
 	if r == nil || r.lang == nil || scheduler == nil ||
 		!scheduler.s3RegionOpened || scheduler.s3ResumeCount != 1 ||
-		scheduler.s5MissingInsertions != 0 ||
-		scheduler.work.RecoveryLineageSelections != 0 ||
-		scheduler.work.NoActionDrops != 1 {
+		scheduler.work.RecoveryLineageSelections != 0 {
+		return 0, false
+	}
+	standaloneRegion := scheduler.s5MissingInsertions == 0 &&
+		scheduler.work.RecoveryLineageRetirements == 0 && scheduler.work.NoActionDrops == 1
+	retiredMissingLineage := scheduler.s5MissingInsertions == 1 &&
+		scheduler.work.RecoveryLineageRetirements == 1 && scheduler.work.NoActionDrops == 1
+	if !standaloneRegion && !retiredMissingLineage {
 		return 0, false
 	}
 	for _, rule := range r.lang.CompactRecoveryTerminalAliasRules {
@@ -439,17 +444,20 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 	savedErrorRegion := r.options.allowCompactStrategy2ErrorRegion
 	savedMissingInsertion := r.options.allowCompactMissingTokenInsertion
 	savedLineageSelection := r.options.allowCompactRecoveryLineageSelection
+	savedTrailingRetirement := r.options.allowCompactRecoveryTrailingLineageRetirement
 	if !recoveryEnabled {
 		r.options.Recovery = false
 		r.options.allowCompactStrategy2ErrorRegion = false
 		r.options.allowCompactMissingTokenInsertion = false
 		r.options.allowCompactRecoveryLineageSelection = false
+		r.options.allowCompactRecoveryTrailingLineageRetirement = false
 	}
 	defer func() {
 		r.options.Recovery = savedRecovery
 		r.options.allowCompactStrategy2ErrorRegion = savedErrorRegion
 		r.options.allowCompactMissingTokenInsertion = savedMissingInsertion
 		r.options.allowCompactRecoveryLineageSelection = savedLineageSelection
+		r.options.allowCompactRecoveryTrailingLineageRetirement = savedTrailingRetirement
 	}()
 	scheduler, tokenSource, err := r.executeSchedulerOpenWithObserverAndErrorRuns(
 		source, r.compact, true, observer, forceErrorRuns,

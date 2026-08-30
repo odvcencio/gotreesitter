@@ -27,6 +27,7 @@ type builtinLanguageRuntimeProfile struct {
 	exactStackNodeEquivalence          bool
 	compactStrategy2ErrorRegion        bool
 	compactMissingTokenInsertion       bool
+	compactRecoveryTrailingRetirement  bool
 	compactRecoveryTerminalAliases     []compactRecoveryTerminalAliasProfile
 	compactRecoveryPlainFirst          bool
 	lineContinuationEscapeByte         byte
@@ -108,15 +109,17 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// explicit forest parsing and non-certified languages keep the full budget.
 	//
 	// The same exact artifact certifies the current compact recovery frontier.
-	// Five pinned witnesses route with exact C parity. Three stop at
-	// typed fail-closed boundaries and remain production-owned.
+	// Seven pinned witnesses route with exact C parity. One stops at a typed
+	// fail-closed boundary and remains production-owned.
 	"javascript": {
-		blobSHA256:                     mustRuntimeProfileSHA256("6706f93890f24d8ea90d6a140df5dde29c02ec8a3213bae16e8cc4df37e33ee0"),
-		automaticForestMemoryAllowance: javascriptAutomaticForestMemoryAllowance,
-		compactConvergedSplitDrops:     true,
-		compactStrategy2ErrorRegion:    true,
-		compactMissingTokenInsertion:   true,
+		blobSHA256:                        mustRuntimeProfileSHA256("6706f93890f24d8ea90d6a140df5dde29c02ec8a3213bae16e8cc4df37e33ee0"),
+		automaticForestMemoryAllowance:    javascriptAutomaticForestMemoryAllowance,
+		compactConvergedSplitDrops:        true,
+		compactStrategy2ErrorRegion:       true,
+		compactMissingTokenInsertion:      true,
+		compactRecoveryTrailingRetirement: true,
 		compactRecoveryTerminalAliases: []compactRecoveryTerminalAliasProfile{
+			{resumeState: 231, resumeSymbol: "+", aliasSymbol: "property_identifier"},
 			{resumeState: 1042, resumeSymbol: "_automatic_semicolon", aliasSymbol: "property_identifier"},
 			{resumeState: 1367, resumeSymbol: "{", aliasSymbol: "property_identifier"},
 		},
@@ -692,6 +695,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactMissingTokenInsertion && !lang.CompactMissingTokenInsertionCertified {
 		lang.CompactMissingTokenInsertionCertified = true
+		changed = true
+	}
+	if profile.compactRecoveryTrailingRetirement && !lang.CompactRecoveryTrailingLineageRetirementCertified {
+		lang.CompactRecoveryTrailingLineageRetirementCertified = true
 		changed = true
 	}
 	if rules := resolveCompactRecoveryTerminalAliasProfile(lang, profile.compactRecoveryTerminalAliases); len(rules) > 0 &&

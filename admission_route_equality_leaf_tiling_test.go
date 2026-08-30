@@ -150,7 +150,7 @@ func TestCompactRouteAcceptedHiddenDoctypeLeafTiles(t *testing.T) {
 }
 
 // TestCompactRouteAdjudicatesFalseCleanWitnesses pulls a focused
-// subset (3 html, 4 javascript) from the 20-witness committed manifest (10
+// subset (3 html, 6 javascript) from the 20-witness committed manifest (10
 // html, 8 javascript, 2 swift). Each entry was, before the B1 tiling gate,
 // accepted by the compact route with HasError()==false while production and
 // the locked C oracle both report an error (compact_t3_oracle_witnesses_v2.
@@ -166,7 +166,8 @@ func TestCompactRouteAcceptedHiddenDoctypeLeafTiles(t *testing.T) {
 // asserted separately, under cgo, by
 // cgo_harness/compact_t3_oracle_adjudication_test.go's
 // compactT3RecoveryCertifiedWitnesses). The certified JavaScript artifact now
-// routes js_log_1, js_log_2, js_log_3, and js_log_7 with exact C parity.
+// routes js_log_1, js_log_2, js_log_3, js_log_5, js_log_7, and js_log_8
+// with exact C parity.
 //
 // Scope note: the manifest's 2 swift entries (swift_log_1, swift_log_2) are
 // NOT in this list. Root-cause (verified by direct tree inspection):
@@ -201,7 +202,7 @@ func TestCompactRouteAdjudicatesFalseCleanWitnesses(t *testing.T) {
 	witnesses := loadRouteEqualityWitnesses(t)
 	ids := []string{
 		"html_min_a", "html_min_html", "html_log_1",
-		"js_log_1", "js_log_2", "js_log_3", "js_log_7",
+		"js_log_1", "js_log_2", "js_log_3", "js_log_5", "js_log_7", "js_log_8",
 	}
 	for _, id := range ids {
 		id := id
@@ -249,10 +250,12 @@ func TestCompactRouteAdjudicatesFalseCleanWitnesses(t *testing.T) {
 			defer tree.Release()
 
 			routed, fallback := gts.AdmissionCandidateCounters()
-			nativeRecovery := witness.Language == "html" || id == "js_log_1" || id == "js_log_2" || id == "js_log_3" || id == "js_log_7"
+			nativeRecovery := witness.Language == "html" || id == "js_log_1" || id == "js_log_2" || id == "js_log_3" ||
+				id == "js_log_5" || id == "js_log_7" || id == "js_log_8"
 			if nativeRecovery {
 				if routed != 1 || fallback != 0 {
-					t.Fatalf("witness %q: route counters routed=%d fallback=%d, want routed=1 fallback=0", id, routed, fallback)
+					t.Fatalf("witness %q: route counters routed=%d fallback=%d, want routed=1 fallback=0; reason=%q",
+						id, routed, fallback, gts.AdmissionCandidateLastFallbackReason())
 				}
 			} else {
 				if routed != 0 || fallback != 1 {
@@ -287,6 +290,30 @@ func TestCompactRouteDeclinesUncertifiedRecoveryAliasResume(t *testing.T) {
 	tree, err := parser.Parse(source)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
+	}
+	defer tree.Release()
+
+	routed, fallback := gts.AdmissionCandidateCounters()
+	if routed != 0 || fallback != 1 {
+		t.Fatalf("route counters routed=%d fallback=%d, want 0/1", routed, fallback)
+	}
+	if reason := gts.AdmissionCandidateLastFallbackReason(); !strings.Contains(reason, "accepted compact root leaves do not tile the accepted span") {
+		t.Fatalf("fallback reason=%q, want an accepted-root leaf gap", reason)
+	}
+}
+
+func TestCompactRouteDeclinesRetiredRecoveryWithoutAliasRule(t *testing.T) {
+	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	lang := *grammars.JavascriptLanguage()
+	lang.CompactRecoveryTerminalAliasRules = nil
+	source := []byte("const f = (a) =. + + 1;\nclass A { m() { return 1 } }\n\n")
+
+	gts.ResetAdmissionCandidateCountersForTest()
+	parser := gts.NewParser(&lang)
+	parser.SetAdmissionCandidateRoute(true)
+	tree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
 	}
 	defer tree.Release()
 
