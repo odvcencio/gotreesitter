@@ -71,6 +71,18 @@ const (
 	cErrorState = StateID(0)
 )
 
+// cExactParentSelectionWorkLimit bounds one exact subtree comparison. The
+// certified route stops instead of guessing after it schedules 65,536 nodes.
+const cExactParentSelectionWorkLimit = 65_536
+
+type cParentEntrySelection uint8
+
+const (
+	cParentEntrySelectionIncomplete cParentEntrySelection = iota
+	cParentEntryRetainExisting
+	cParentEntryUseCandidate
+)
+
 // cRecoverMaxReductionCandidateAttempts and cRecoverMaxMissingTokenTrials are
 // Go-side backstop ceilings with NO exact C analog. Background
 // (spore.2026-08-02.walnut-e.memory-exhaustion): a 4-byte erlang input and a
@@ -3195,8 +3207,8 @@ func (p *Parser) cAppendReductionActionVersions(source []byte, versions []glrSta
 	if len(actionCandidates) == 0 {
 		return versions, -1, ParseStopNone
 	}
-	versions, reductionVersion := p.cAppendActionReductionVersions(versions, actionCandidates, originalVersion, arena)
-	return versions, reductionVersion, ParseStopNone
+	versions, reductionVersion, reason := p.cAppendActionReductionVersions(versions, actionCandidates, originalVersion, arena)
+	return versions, reductionVersion, reason
 }
 
 // cAppendActionCellReductionVersions applies the reductions in one parse-table
@@ -3302,8 +3314,12 @@ func (p *Parser) cReductionCandidatesForActionInto(source []byte, start glrStack
 	return candidates, false, ParseStopNone
 }
 
-func (p *Parser) cAppendActionReductionVersions(versions []glrStack, candidates []glrStack, originalVersion int, arena *nodeArena) ([]glrStack, int) {
-	candidates = p.cCollapseSamePopReductionCandidates(candidates, arena)
+func (p *Parser) cAppendActionReductionVersions(versions []glrStack, candidates []glrStack, originalVersion int, arena *nodeArena) ([]glrStack, int, ParseStopReason) {
+	var reason ParseStopReason
+	candidates, reason = p.cCollapseSamePopReductionCandidates(candidates, arena)
+	if reason != ParseStopNone {
+		return versions, -1, reason
+	}
 	firstAppended := -1
 	for i := range candidates {
 		var appended bool
@@ -3312,18 +3328,22 @@ func (p *Parser) cAppendActionReductionVersions(versions []glrStack, candidates 
 			firstAppended = len(versions) - 1
 		}
 	}
-	return versions, firstAppended
+	return versions, firstAppended, ParseStopNone
 }
 
-func (p *Parser) cCollapseSamePopReductionCandidates(candidates []glrStack, arena *nodeArena) []glrStack {
+func (p *Parser) cCollapseSamePopReductionCandidates(candidates []glrStack, arena *nodeArena) ([]glrStack, ParseStopReason) {
 	if len(candidates) < 2 {
-		return candidates
+		return candidates, ParseStopNone
 	}
 	out := candidates[:0]
 	for i := range candidates {
 		keep := true
 		for j := 0; j < len(out); j++ {
-			if p.cTryCollapseSamePopReductionVersion(&out[j], &candidates[i], arena) {
+			collapsed, reason := p.cTryCollapseSamePopReductionVersion(&out[j], &candidates[i], arena)
+			if reason != ParseStopNone {
+				return nil, reason
+			}
+			if collapsed {
 				keep = false
 				break
 			}
@@ -3332,7 +3352,7 @@ func (p *Parser) cCollapseSamePopReductionCandidates(candidates []glrStack, aren
 			out = append(out, candidates[i])
 		}
 	}
-	return out
+	return out, ParseStopNone
 }
 
 func (p *Parser) cAppendReductionVersion(versions []glrStack, candidate glrStack, originalVersion int) ([]glrStack, bool) {
@@ -3384,25 +3404,32 @@ func (p *Parser) cTryMergeReductionVersion(target, candidate *glrStack) bool {
 	return tryGSSMainMergeForParser(p, target, candidate)
 }
 
-func (p *Parser) cTryCollapseSamePopReductionVersion(target, candidate *glrStack, arena *nodeArena) bool {
+func (p *Parser) cTryCollapseSamePopReductionVersion(target, candidate *glrStack, arena *nodeArena) (bool, ParseStopReason) {
 	if target == nil || candidate == nil || target.dead || candidate.dead || target.accepted || candidate.accepted {
-		return false
+		return false, ParseStopNone
 	}
 	targetParent, targetPopTo, ok := cReductionParentAndPopTarget(target)
 	if !ok {
-		return false
+		return false, ParseStopNone
 	}
 	candidateParent, candidatePopTo, ok := cReductionParentAndPopTarget(candidate)
 	if !ok || targetPopTo != candidatePopTo {
-		return false
+		return false, ParseStopNone
 	}
 	if targetPopTo == nil || !stacksHeaderEquivalent(target, candidate) {
-		return false
+		return false, ParseStopNone
 	}
-	if p.cSelectReplacementParentEntry(arena, targetParent.entry, candidateParent.entry) {
+	switch p.cSelectReplacementParentEntry(arena, targetParent.entry, candidateParent.entry) {
+	case cParentEntrySelectionIncomplete:
+		return false, ParseStopInvariantViolation
+	case cParentEntryUseCandidate:
 		*target = *candidate
+	case cParentEntryRetainExisting:
+		// Keep the incumbent physical version.
+	default:
+		return false, ParseStopInvariantViolation
 	}
-	return true
+	return true, ParseStopNone
 }
 
 func cReductionParentAndPopTarget(s *glrStack) (*gssNode, *gssNode, bool) {
@@ -3423,27 +3450,40 @@ func cReductionParentAndPopTarget(s *glrStack) (*gssNode, *gssNode, bool) {
 	return n, n.prev, true
 }
 
-func (p *Parser) cSelectReplacementParentEntry(arena *nodeArena, existing, candidate stackEntry) bool {
+func (p *Parser) cSelectReplacementParentEntry(arena *nodeArena, existing, candidate stackEntry) cParentEntrySelection {
 	existingCost := p.rawStackEntryErrorCost(arena, existing)
 	candidateCost := p.rawStackEntryErrorCost(arena, candidate)
 	if candidateCost < existingCost {
-		return true
+		return cParentEntryUseCandidate
 	}
 	if existingCost < candidateCost {
-		return false
+		return cParentEntryRetainExisting
 	}
 	existingDyn := stackEntryDynamicPrecedence(existing)
 	candidateDyn := stackEntryDynamicPrecedence(candidate)
 	if candidateDyn > existingDyn {
-		return true
+		return cParentEntryUseCandidate
 	}
 	if existingDyn > candidateDyn {
-		return false
+		return cParentEntryRetainExisting
 	}
 	if existingCost > 0 {
-		return true
+		return cParentEntryUseCandidate
 	}
-	return p.compareRawStackEntries(arena, candidate, existing) < 0
+	if p.language != nil && p.language.CompactPackedGSSVersionOrderCertified {
+		cmp, complete := compareRawStackEntriesCExact(arena, candidate, existing, cExactParentSelectionWorkLimit)
+		if !complete {
+			return cParentEntrySelectionIncomplete
+		}
+		if cmp < 0 {
+			return cParentEntryUseCandidate
+		}
+		return cParentEntryRetainExisting
+	}
+	if p.compareRawStackEntries(arena, candidate, existing) < 0 {
+		return cParentEntryUseCandidate
+	}
+	return cParentEntryRetainExisting
 }
 
 // ---------------------------------------------------------------------------

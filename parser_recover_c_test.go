@@ -1476,6 +1476,128 @@ func cRecoveryBaselineStack(arena *nodeArena, start StateID, visibleNodes int) g
 	return s
 }
 
+func TestCSelectReplacementParentEntryUsesExactCOrderWhenCertified(t *testing.T) {
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	parser := &Parser{language: &Language{CompactPackedGSSVersionOrderCertified: true}}
+
+	existing := cExactCompareParent(t, parser, arena, 10,
+		cExactCompareLeaf(3),
+		cExactCompareLeaf(1),
+	)
+	candidate := cExactCompareParent(t, parser, arena, 10,
+		cExactCompareLeaf(2),
+		cExactCompareLeaf(9),
+	)
+
+	if got := parser.cSelectReplacementParentEntry(arena, existing, candidate); got != cParentEntryUseCandidate {
+		t.Fatalf("candidate selection = %d, want use-candidate", got)
+	}
+	if got := parser.cSelectReplacementParentEntry(arena, candidate, existing); got != cParentEntryRetainExisting {
+		t.Fatalf("reverse candidate selection = %d, want retain-existing", got)
+	}
+}
+
+func TestCSelectReplacementParentEntryRetainsExactEqualIncumbent(t *testing.T) {
+	parser := &Parser{language: &Language{CompactPackedGSSVersionOrderCertified: true}}
+	existing := newStackEntryNode(1, &Node{
+		symbol:    7,
+		flags:     nodeFlagNamed,
+		startByte: 1,
+		endByte:   2,
+	})
+	candidate := newStackEntryNode(1, &Node{
+		symbol:    7,
+		flags:     nodeFlagNamed,
+		startByte: 20,
+		endByte:   40,
+	})
+
+	if got := parser.cSelectReplacementParentEntry(nil, existing, candidate); got != cParentEntryRetainExisting {
+		t.Fatalf("equal candidate selection = %d, want retain-existing", got)
+	}
+}
+
+func TestCSelectReplacementParentEntryUsesLaterPositiveErrorCandidate(t *testing.T) {
+	parser := &Parser{language: &Language{CompactPackedGSSVersionOrderCertified: true}}
+	existingNode := &Node{symbol: 7, flags: nodeFlagNamed}
+	existingNode.setMissing(true)
+	candidateNode := &Node{symbol: 7, flags: nodeFlagNamed}
+	candidateNode.setMissing(true)
+	existing := newStackEntryNode(1, existingNode)
+	candidate := newStackEntryNode(1, candidateNode)
+
+	existingCost := parser.rawStackEntryErrorCost(nil, existing)
+	candidateCost := parser.rawStackEntryErrorCost(nil, candidate)
+	if existingCost == 0 || existingCost != candidateCost {
+		t.Fatalf("test error costs = %d/%d, want equal positive values", existingCost, candidateCost)
+	}
+	if got := parser.cSelectReplacementParentEntry(nil, existing, candidate); got != cParentEntryUseCandidate {
+		t.Fatalf("positive-error candidate selection = %d, want use-candidate", got)
+	}
+}
+
+func TestCAppendActionReductionVersionsStopsOnIncompleteExactSelection(t *testing.T) {
+	parser := newCRecoverySyntheticReduceParser()
+	parser.language.CompactPackedGSSVersionOrderCertified = true
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+
+	child := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	newShapelessParent := func() *Node {
+		return newParentNodeInArena(arena, 4, true, []*Node{child}, nil, 0)
+	}
+	leftParent := newShapelessParent()
+	rightParent := newShapelessParent()
+	leftEntry := newStackEntryNode(9, leftParent)
+	rightEntry := newStackEntryNode(9, rightParent)
+
+	if got := parser.cSelectReplacementParentEntry(arena, leftEntry, rightEntry); got != cParentEntrySelectionIncomplete {
+		t.Fatalf("certified shapeless selection = %d, want incomplete", got)
+	}
+	parser.language.CompactPackedGSSVersionOrderCertified = false
+	if got := parser.cSelectReplacementParentEntry(arena, leftEntry, rightEntry); got != cParentEntryRetainExisting {
+		t.Fatalf("ordinary shapeless selection = %d, want retain-existing", got)
+	}
+	parser.language.CompactPackedGSSVersionOrderCertified = true
+
+	var scratch gssScratch
+	popTo := scratch.allocNode(stackEntry{state: 1}, nil, 1)
+	candidates := []glrStack{
+		{gss: gssStack{head: scratch.allocNode(leftEntry, popTo, 2)}, byteOffset: 2},
+		{gss: gssStack{head: scratch.allocNode(rightEntry, popTo, 2)}, byteOffset: 2},
+	}
+	if collapsed, reason := parser.cCollapseSamePopReductionCandidates(candidates, arena); reason != ParseStopInvariantViolation || collapsed != nil {
+		t.Fatalf("same-pop collapse result = %d stacks, reason=%v; want nil and invariant violation", len(collapsed), reason)
+	}
+
+	olderPop := scratch.allocNode(stackEntry{state: 8}, nil, 1)
+	olderParent := newParentNodeInArena(arena, 4, true, []*Node{child}, nil, 0)
+	olderHead := scratch.allocNode(newStackEntryNode(9, olderParent), olderPop, 2)
+	versions := []glrStack{
+		{gss: gssStack{head: olderHead}, byteOffset: 2},
+		{gss: gssStack{head: scratch.allocNode(stackEntry{state: 3}, popTo, 2)}, byteOffset: 2},
+	}
+	candidates = []glrStack{
+		{gss: gssStack{head: scratch.allocNode(leftEntry, popTo, 2)}, byteOffset: 2},
+		{gss: gssStack{head: scratch.allocNode(rightEntry, popTo, 2)}, byteOffset: 2},
+	}
+
+	gotVersions, reductionVersion, reason := parser.cAppendActionReductionVersions(versions, candidates, 1, arena)
+	if reason != ParseStopInvariantViolation {
+		t.Fatalf("action-version append stop reason = %v, want invariant violation", reason)
+	}
+	if reductionVersion != -1 {
+		t.Fatalf("reduction version = %d, want -1", reductionVersion)
+	}
+	if len(gotVersions) != len(versions) || gotVersions[0].gss.head != olderHead {
+		t.Fatal("action-version append changed the incumbent versions after an incomplete comparison")
+	}
+	if got := olderHead.linkCount(); got != 1 {
+		t.Fatalf("older head link count = %d, want one before any later graph merge", got)
+	}
+}
+
 func TestCDoAllPotentialReductionsCollapsesSamePopTargetSlicesByCParentSelection(t *testing.T) {
 	old := glrFaithfulCapOneMerge
 	glrFaithfulCapOneMerge = true
@@ -1623,7 +1745,10 @@ func TestCAppendActionReductionVersionsCollapsesSamePopBeforeOlderMerge(t *testi
 		{gss: gssStack{head: scratch.allocNode(newStackEntryNode(9, highParent), popTo, 2)}, byteOffset: 2},
 	}
 
-	versions, reductionVersion := parser.cAppendActionReductionVersions(versions, candidates, 1, arena)
+	versions, reductionVersion, reason := parser.cAppendActionReductionVersions(versions, candidates, 1, arena)
+	if reason != ParseStopNone {
+		t.Fatalf("append action reduction versions stop reason = %v, want none", reason)
+	}
 	if reductionVersion != -1 {
 		t.Fatalf("reduction version = %d, want merge into older existing version", reductionVersion)
 	}
