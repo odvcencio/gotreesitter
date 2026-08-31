@@ -174,6 +174,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	if lang.ExactStackNodeEquivalenceCertified {
 		t.Fatal("unknown runtime profile enabled exact stack-node equivalence")
 	}
+	if lang.CompactPackedGSSVersionOrderCertified {
+		t.Fatal("unknown runtime profile enabled packed GSS version ordering")
+	}
 	if lang.CompactRecoveryPlainFirstCertified {
 		t.Fatal("unknown runtime profile enabled compact plain-first recovery")
 	}

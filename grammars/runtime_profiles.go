@@ -27,6 +27,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactAcceptanceStructuralElection bool
 	compactLexerSkippedPrefixTiling     bool
 	exactStackNodeEquivalence           bool
+	compactPackedGSSVersionOrder        bool
 	compactStrategy2ErrorRegion         bool
 	compactMissingTokenInsertion        bool
 	compactRecoveryTrailingRetirement   bool
@@ -719,6 +720,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.exactStackNodeEquivalence && !lang.ExactStackNodeEquivalenceCertified {
 		lang.ExactStackNodeEquivalenceCertified = true
+		changed = true
+	}
+	if profile.compactPackedGSSVersionOrder && !lang.CompactPackedGSSVersionOrderCertified {
+		lang.CompactPackedGSSVersionOrderCertified = true
 		changed = true
 	}
 	if profile.compactStrategy2ErrorRegion && !lang.CompactStrategy2ErrorRegionCertified {
