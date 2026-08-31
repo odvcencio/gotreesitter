@@ -281,9 +281,6 @@ func (p *Parser) buildResultFromGLR(stacks []glrStack, source []byte, arena *nod
 		selectionStart = time.Now()
 	}
 	best := 0
-	if workCountInstrumentationEnabled {
-		workCountTopologyRecordAcceptElection(nil, &stacks[0], &stacks[0], true, true) // work-count-assembly: topology first-accept seam
-	}
 	for i := 1; i < len(stacks); i++ {
 		if i&63 == 0 {
 			if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
@@ -293,13 +290,6 @@ func (p *Parser) buildResultFromGLR(stacks []glrStack, source []byte, arena *nod
 		cmp := stackCompareForResultSelection(p, arena, &stacks[i], &stacks[best], skipErrorRank)
 		if p.glrTrace && p.errorCostCompetitionEnabled() {
 			p.traceCResultSelectionCompare(i, best, cmp, &stacks[i], &stacks[best], arena)
-		}
-		if workCountInstrumentationEnabled {
-			selectedIndex := best
-			if cmp > 0 {
-				selectedIndex = i
-			}
-			workCountTopologyRecordAcceptElection(&stacks[best], &stacks[i], &stacks[selectedIndex], false, cmp > 0) // work-count-assembly: topology accept-election seam
 		}
 		if cmp > 0 {
 			best = i

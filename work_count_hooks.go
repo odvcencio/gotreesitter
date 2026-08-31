@@ -3,8 +3,10 @@
 package gotreesitter
 
 type workCountAttemptToken uint32
+type diagnosticTopologyStackToken struct{}
 
 const workCountInstrumentationEnabled = false
+const diagnosticTopologyStackOverhead = uintptr(0)
 
 func workCountAttemptTraceActive() bool { return false }
 
@@ -77,18 +79,20 @@ func workCountRecordBoundaryCull(*Parser, int, int)                             
 func workCountRecordFinalExpand(*Parser, *glrStack, int, bool, bool)                {}
 func workCountRecordFinalExpansions(*Parser, []glrStack)                            {}
 func workCountRecordFinalSelect(*Parser, []glrStack, *glrStack)                     {}
+func workCountTopologySetParseContext(*Parser, *nodeArena, *bool)                   {}
+func workCountTopologyRecordAction(*glrStack, Token, ParseAction, int)              {}
 func workCountTopologyRecordActionResult(*glrStack)                                 {}
 func workCountTopologyRecordInitialVersion(*glrStack)                               {}
 func workCountTopologyPrepareVersionCopy(*glrStack, *glrStack)                      {}
 func workCountTopologyRecordVersionCopy(*glrStack, *glrStack)                       {}
 func workCountTopologyCommitVersion(*glrStack)                                      {}
+func workCountTopologyPreparePromotion(*glrStack)                                   {}
+func workCountTopologyCommitPromotion(*glrStack)                                    {}
 func workCountTopologyRecordNodeAllocation(*gssNode)                                {}
 func workCountTopologyRecordLinkInsert(*gssNode, *gssNode, int, bool)               {}
 func workCountTopologyRecordPopPath(*glrStack, []stackEntry, *gssNode, uint64)      {}
 func workCountTopologyRecordChildElection(*glrStack, reduceFork, reduceFork, int)   {}
 func workCountTopologyRecordMerge(*glrStack, *glrStack, bool)                       {}
-func workCountTopologyRecordAcceptElection(*glrStack, *glrStack, *glrStack, bool, bool) {
-}
 func workCountTryPostReduceMergeObserved(p *Parser, _ string, _ string, target, candidate *glrStack) bool {
 	return tryMergePostReduceFork(p, target, candidate)
 }

@@ -3256,6 +3256,10 @@ func (p *Parser) cReductionCandidatesForActionInto(source []byte, start glrStack
 		return nil, false, reason
 	}
 	fork := start.cloneWithScratch(gssScratch)
+	if workCountInstrumentationEnabled {
+		workCountTopologyPrepareVersionCopy(&start, &fork)
+		workCountTopologyRecordAction(&fork, tok, act, -1)
+	}
 	var dummy bool
 	deferParentLinks := p.reduceScratch != nil && p.reduceScratch.transientParents != nil
 	var localTmpEntries []stackEntry
@@ -3265,6 +3269,9 @@ func (p *Parser) cReductionCandidatesForActionInto(source []byte, start glrStack
 	p.applyAction(source, &fork, act, tok, &dummy, nodeCount, arena, entryScratch, gssScratch, &localTmpEntries, deferParentLinks, trackChildErrors)
 	if dummy && anyReduced != nil {
 		*anyReduced = true
+	}
+	if workCountInstrumentationEnabled {
+		workCountTopologyRecordActionResult(&fork)
 	}
 	if tmpEntries != nil {
 		if localTmpEntries != nil {
@@ -3573,7 +3580,11 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	// Promote the error stack to the graph-structured stack before reductions.
 	// Recovery forks then share the immutable prefix instead of copying each deep linear stack.
 	var outerResultSeed [2]glrStack
-	versions, _, reason := p.cDoAllPotentialReductions(source, s.cloneWithScratch(gssScratch), 0, true, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, outerResultSeed[:0])
+	reductionSeed := s.cloneWithScratch(gssScratch)
+	if workCountInstrumentationEnabled {
+		workCountTopologyRecordVersionCopy(s, &reductionSeed)
+	}
+	versions, _, reason := p.cDoAllPotentialReductions(source, reductionSeed, 0, true, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, outerResultSeed[:0])
 	if reason != ParseStopNone {
 		return cRecHalted, false, reason
 	}
@@ -3621,6 +3632,9 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 					break missingTokenSearch
 				}
 				cand := versions[vi].cloneWithScratch(gssScratch)
+				if workCountInstrumentationEnabled {
+					workCountTopologyRecordVersionCopy(&versions[vi], &cand)
+				}
 				cand.cRec = nil
 				cand.cRecoverMissingGroup = nil
 				missingTok := Token{
@@ -4432,6 +4446,9 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 	}
 
 	fork := v.cloneWithScratch(gssScratch)
+	if workCountInstrumentationEnabled {
+		workCountTopologyRecordVersionCopy(v, &fork)
+	}
 	fork.cRec = nil
 	fork.cRecoverMissingGroup = nil
 	fork.dead = false

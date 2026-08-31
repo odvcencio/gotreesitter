@@ -68,6 +68,9 @@ func assertDiagnosticTopologyEventInvariants(t *testing.T, receipt gts.Diagnosti
 		if !hasAction && (event.ActionID != 0 || event.ActionOrdinal != -1 || event.ActionType != 255) {
 			t.Fatalf("event %d has invalid absent action context: %+v", event.EventID, event)
 		}
+		if event.Kind != gts.DiagnosticTopologyEventAction && hasAction && event.ActionID != lastActionID {
+			t.Fatalf("event %d is outside action %d: latest action is %d", event.EventID, event.ActionID, lastActionID)
+		}
 		switch event.Kind {
 		case gts.DiagnosticTopologyEventAction:
 			if event.ActionID <= lastActionID {
@@ -204,17 +207,21 @@ func TestDiagnosticTopologyReceiptErlangIssue984(t *testing.T) {
 	if len(acceptEvents) != 4 {
 		t.Fatalf("accept elections = %d, want four accepted candidates", len(acceptEvents))
 	}
-	wantAcceptPayloads := []uint64{1, 1, 1, 1}
+	wantAcceptPayloads := []uint64{5, 7, 6, 7}
 	for i := range acceptEvents {
 		if acceptEvents[i].PayloadCount != wantAcceptPayloads[i] {
 			t.Fatalf("accept payloads = [%d %d %d %d], want %v", acceptEvents[0].PayloadCount, acceptEvents[1].PayloadCount, acceptEvents[2].PayloadCount, acceptEvents[3].PayloadCount, wantAcceptPayloads)
+		}
+		if acceptEvents[i].Flags&gts.DiagnosticTopologyFlagActionContextKnown == 0 ||
+			acceptEvents[i].ActionID == 0 || acceptEvents[i].ActionType != uint64(gts.ParseActionAccept) {
+			t.Fatalf("accept election lacks ACCEPT action context: %+v", acceptEvents[i])
 		}
 	}
 	last := acceptEvents[len(acceptEvents)-1]
 	if acceptEvents[0].VersionIndex != 1 || last.SelectedID != acceptEvents[0].CandidateID || last.Flags&gts.DiagnosticTopologyFlagSuccessOrSelected != 0 {
 		t.Fatalf("final production selection = %+v, want first branch 1 candidate %d to remain selected", last, acceptEvents[0].CandidateID)
 	}
-	if receipt.EventsSeen != 387 || receipt.SHA256() != "283e0a0a8405d8f6059787ac441779d234fae30e4a19ca8fb383fc5baa3e89e3" {
+	if receipt.EventsSeen != 386 || receipt.SHA256() != "afd1958220f13ad6aae1a91595576518e61c7ea0b3e86e6fe271bb3291c2158e" {
 		t.Fatalf("canonical receipt = %d/%s", receipt.EventsSeen, receipt.SHA256())
 	}
 	t.Logf("receipt sha256=%s events=%d kinds=%v selected_candidate=%d", receipt.SHA256(), receipt.EventsSeen, counts, last.SelectedID)
@@ -222,5 +229,47 @@ func TestDiagnosticTopologyReceiptErlangIssue984(t *testing.T) {
 	secondSExpr, second := captureErlangIssue984Topology(t)
 	if secondSExpr != sexpr || second.SHA256() != receipt.SHA256() {
 		t.Fatalf("receipt is not deterministic: first=%s/%s second=%s/%s", sexpr, receipt.SHA256(), secondSExpr, second.SHA256())
+	}
+}
+
+func TestDiagnosticTopologyReceiptRecoveryDoesNotForgeAcceptContext(t *testing.T) {
+	parser := gts.NewParser(grammars.ErlangLanguage())
+	parser.SetAdmissionCandidateRoute(false)
+	gts.BeginDiagnosticTopologyReceipt()
+	tree, err := parser.Parse([]byte("f() -> ."))
+	receipt := gts.EndDiagnosticTopologyReceipt()
+	if err != nil {
+		t.Fatalf("parse recovery witness: %v", err)
+	}
+	if tree == nil || tree.RootNode() == nil {
+		if tree != nil {
+			tree.Release()
+		}
+		t.Fatal("parse recovery witness: no root")
+	}
+	defer tree.Release()
+	if !tree.RootNode().HasError() {
+		t.Fatalf("recovery witness has no error: %s", tree.RootNode().SExpr(grammars.ErlangLanguage()))
+	}
+	if !receipt.Complete() {
+		t.Fatalf("recovery receipt is incomplete: %+v", receipt)
+	}
+	foundPotentialReduction := false
+	for _, event := range receipt.Events {
+		if event.Kind == gts.DiagnosticTopologyEventAction &&
+			event.ActionType == uint64(gts.ParseActionReduce) &&
+			event.ActionOrdinal == -1 && event.State == 414 && event.ByteOffset == 6 {
+			if event.LookaheadSymbol != 2 {
+				t.Fatalf("recovery reduction lookahead = %d, want 2: %+v", event.LookaheadSymbol, event)
+			}
+			foundPotentialReduction = true
+		}
+		if event.Kind == gts.DiagnosticTopologyEventAcceptElection &&
+			(event.Flags&gts.DiagnosticTopologyFlagActionContextKnown == 0 || event.ActionType != uint64(gts.ParseActionAccept)) {
+			t.Fatalf("recovery forged an ACCEPT election: %+v", event)
+		}
+	}
+	if !foundPotentialReduction {
+		t.Fatal("recovery receipt has no state-414 potential reduction at byte 6")
 	}
 }

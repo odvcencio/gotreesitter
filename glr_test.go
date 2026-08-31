@@ -22,8 +22,9 @@ func TestCRecoverStateSizeBudget(t *testing.T) {
 }
 
 func TestGLRStackSizeBudget(t *testing.T) {
-	if got := unsafe.Sizeof(glrStack{}); got != 104 {
-		t.Fatalf("glrStack size = %d, want 104", got)
+	want := uintptr(104) + diagnosticTopologyStackOverhead
+	if got := unsafe.Sizeof(glrStack{}); got != want {
+		t.Fatalf("glrStack size = %d, want %d", got, want)
 	}
 }
 

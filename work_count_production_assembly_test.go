@@ -37,8 +37,6 @@ const (
 	topologyChildElectionMarker            = "work-count-assembly: topology child-election seam"
 	topologyPopPathMarker                  = "work-count-assembly: topology pop-path seam"
 	topologyReduceCopyMarker               = "work-count-assembly: topology reduce-copy seam"
-	topologyFirstAcceptMarker              = "work-count-assembly: topology first-accept seam"
-	topologyAcceptElectionMarker           = "work-count-assembly: topology accept-election seam"
 	topologyNodeAllocationMarker           = "work-count-assembly: topology primary-link seam"
 	semanticPhaseActionCellMarker          = "semantic-phase-assembly: action-cell seam"
 	semanticPhaseActionExecutionMarker     = "semantic-phase-assembly: action-execution seam"
@@ -111,8 +109,6 @@ func TestWorkCountProductionAssemblyHasNoDiagnosticScaffolding(t *testing.T) {
 	assertNoDiagnosticAssembly(t, noteStopAssembly)
 	resultAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.\(\*Parser\)\.buildResultFromGLR`, testBinary)
 	assertNoAssemblyAtMarker(t, resultAssembly, "parser_result.go", convergenceFinalExpandMarker)
-	assertNoAssemblyAtMarker(t, resultAssembly, "parser_result.go", topologyFirstAcceptMarker)
-	assertNoAssemblyAtMarker(t, resultAssembly, "parser_result.go", topologyAcceptElectionMarker)
 	assertNoDiagnosticAssembly(t, resultAssembly)
 	gssAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.tryGSSMainMergeForParser`, testBinary)
 	assertNoAssemblyAtMarker(t, gssAssembly, "glr.go", convergenceGSSMarker)

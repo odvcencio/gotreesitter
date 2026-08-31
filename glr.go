@@ -91,6 +91,11 @@ type glrStack struct {
 	// lockstep token loop uses this to avoid letting an already-advanced
 	// sibling suppress that group's Strategy 1 recovery.
 	cRecoverMissingGroup *cRecGroup
+	// diagnosticTopology carries a version identity only in gts_workcount
+	// builds. The production type is zero-sized, so it does not change the
+	// parser stack layout. Ordinary Go value copies preserve the identity;
+	// explicit parser forks replace it through the topology copy hooks.
+	diagnosticTopology diagnosticTopologyStackToken
 	// cEntryAgg* caches the recovery-cost and visible-node aggregates of this
 	// stack's contiguous entries representation. It lives on the stack value,
 	// not the shared cRecoverState pointer, so distinct materialized GSS paths
@@ -593,7 +598,13 @@ func (s *glrStack) ensureGSS(scratch *gssScratch) {
 	if s.gss.head != nil || len(s.entries) == 0 {
 		return
 	}
+	if workCountInstrumentationEnabled {
+		workCountTopologyPreparePromotion(s)
+	}
 	s.gss = buildGSSStack(s.entries, scratch)
+	if workCountInstrumentationEnabled {
+		workCountTopologyCommitPromotion(s)
+	}
 }
 
 // conflictForkBase promotes the live stack before it copies the fork base.
@@ -635,6 +646,7 @@ func (s *glrStack) clone() glrStack {
 			branchOrder:                s.branchOrder,
 			cRec:                       s.cRec.clone(),
 			cRecoverMissingGroup:       s.cRecoverMissingGroup,
+			diagnosticTopology:         s.diagnosticTopology,
 			cNodeBaseline:              s.cNodeBaseline,
 			cEntryAggGen:               s.cEntryAggGen,
 			cEntryAggCost:              s.cEntryAggCost,
@@ -654,6 +666,7 @@ func (s *glrStack) clone() glrStack {
 		branchOrder:                s.branchOrder,
 		cRec:                       s.cRec.clone(),
 		cRecoverMissingGroup:       s.cRecoverMissingGroup,
+		diagnosticTopology:         s.diagnosticTopology,
 		cNodeBaseline:              s.cNodeBaseline,
 		cEntryAggGen:               s.cEntryAggGen,
 		cEntryAggCost:              s.cEntryAggCost,
@@ -676,6 +689,7 @@ func (s *glrStack) cloneWithScratch(scratch *gssScratch) glrStack {
 		branchOrder:                s.branchOrder,
 		cRec:                       s.cRec.clone(),
 		cRecoverMissingGroup:       s.cRecoverMissingGroup,
+		diagnosticTopology:         s.diagnosticTopology,
 		cNodeBaseline:              s.cNodeBaseline,
 		cEntryAggGen:               s.cEntryAggGen,
 		cEntryAggCost:              s.cEntryAggCost,
