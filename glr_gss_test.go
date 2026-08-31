@@ -85,6 +85,38 @@ func TestGSSPackedLinkCapacityIsTrackedAndReleasedOnRecycle(t *testing.T) {
 	}
 }
 
+func TestGSSPackedLinkCertifiedPolicyBillsSevenSlotCapacity(t *testing.T) {
+	var owner gssScratch
+	prevs := make([]*gssNode, maxCMainLinkCount)
+	for i := range prevs {
+		prevs[i] = owner.allocNode(stackEntry{state: StateID(10 + i)}, nil, 1)
+	}
+	head := owner.allocNode(newStackEntryNode(2, &Node{symbol: 1}), prevs[0], 2)
+	baseline := owner.allocatedBytes
+	merge := glrMergeScratch{
+		language: &Language{CompactPackedGSSVersionOrderCertified: true},
+		gssOwner: &owner,
+	}
+
+	for i := 1; i < maxCMainLinkCount; i++ {
+		entry := newStackEntryNode(2, &Node{symbol: Symbol(10 + i)})
+		if !gssMainAddLinkSeenMutate(&merge, head, prevs[i], entry, make(map[gssMergePair]bool)) {
+			t.Fatalf("append certified packed link %d failed", i)
+		}
+	}
+
+	wantBytes := gssMainLinkBytesForCap(maxCMainLinkCount - 1)
+	if got := int(head.extraLinkCap); got != maxCMainLinkCount-1 {
+		t.Fatalf("certified packed link capacity = %d, want %d", got, maxCMainLinkCount-1)
+	}
+	if got := owner.packedLinkBytes; got != wantBytes {
+		t.Fatalf("certified packed link bytes = %d, want %d", got, wantBytes)
+	}
+	if got := owner.allocatedBytes; got != baseline+wantBytes {
+		t.Fatalf("certified allocated bytes = %d, want %d", got, baseline+wantBytes)
+	}
+}
+
 func TestGSSPackedLinkRecycleRepairsCounterUnderflow(t *testing.T) {
 	var owner gssScratch
 	base := owner.allocNode(stackEntry{state: 1}, nil, 1)
@@ -765,6 +797,9 @@ func TestGSSMainAddLinkAtCapRejectsUnsafeEquivalentReplacement(t *testing.T) {
 	if got := head.linkCount(); got != maxMainLinkCount {
 		t.Fatalf("head link count = %d, want cap %d", got, maxMainLinkCount)
 	}
+	if got := int(head.extraLinkCap); got != maxMainLinkCount-1 {
+		t.Fatalf("ordinary extra-link capacity = %d, want %d", got, maxMainLinkCount-1)
+	}
 
 	latePrev := &gssNode{entry: stackEntry{state: 200}, depth: 1}
 	lateEntry := newStackEntryNode(10, &Node{symbol: 20, startByte: 1, endByte: 2, flags: nodeFlagNamed, dynamicPrecedence: 99})
@@ -823,6 +858,152 @@ func TestGSSMainAddLinkAtCapReplacesEquivalentSamePredecessorWithHigherDynamic(t
 	}
 	if got := stackEntryDynamicPrecedence(entry); got != 99 {
 		t.Fatalf("dynamic precedence = %d, want 99", got)
+	}
+}
+
+func TestGSSMainCLinkPolicyUsesEightSlotsThenDropsDistinctLink(t *testing.T) {
+	entry := func(sym Symbol, dynamic int32) stackEntry {
+		return newStackEntryNode(10, &Node{
+			symbol:            sym,
+			startByte:         1,
+			endByte:           2,
+			flags:             nodeFlagNamed,
+			dynamicPrecedence: dynamic,
+		})
+	}
+	prev := func(state StateID) *gssNode {
+		return &gssNode{entry: stackEntry{state: state}, depth: 1}
+	}
+
+	head := &gssNode{entry: entry(20, 1), prev: prev(100), depth: 2}
+	scratch := glrMergeScratch{language: &Language{CompactPackedGSSVersionOrderCertified: true}}
+	for i := 1; i < maxCMainLinkCount; i++ {
+		if !gssMainAddLinkSeenMutate(
+			&scratch,
+			head,
+			prev(StateID(100+i)),
+			entry(Symbol(20+i), int32(i+1)),
+			make(map[gssMergePair]bool),
+		) {
+			t.Fatalf("add link %d was rejected", i)
+		}
+	}
+	if got := head.linkCount(); got != maxCMainLinkCount {
+		t.Fatalf("head link count = %d, want C cap %d", got, maxCMainLinkCount)
+	}
+	if got := int(head.extraLinkCap); got != maxCMainLinkCount-1 {
+		t.Fatalf("C extra-link capacity = %d, want %d", got, maxCMainLinkCount-1)
+	}
+	if head.linkCount() <= maxMainLinkCount {
+		t.Fatalf("C link policy did not exceed ordinary cap %d", maxMainLinkCount)
+	}
+
+	before := snapshotGSSMainLinks(head)
+	latePrev := prev(999)
+	lateEntry := entry(20, 99)
+	preflight := acquirePreflightForScratch(&scratch)
+	if !preflight.canAddLink(head, latePrev, lateEntry) {
+		t.Fatal("C preflight rejected a distinct link that C drops at capacity")
+	}
+	if got := preflight.linkCount(head); got != maxCMainLinkCount {
+		t.Fatalf("preflight link count = %d, want unchanged C cap %d", got, maxCMainLinkCount)
+	}
+	if !gssMainAddLinkSeenMutate(&scratch, head, latePrev, lateEntry, make(map[gssMergePair]bool)) {
+		t.Fatal("C mutate phase rejected a distinct link that C drops at capacity")
+	}
+	assertGSSMainLinksEqual(t, head, before)
+}
+
+func TestGSSMainCLinkPolicyStillUpdatesSamePredecessorAtCap(t *testing.T) {
+	entry := func(sym Symbol, dynamic int32) stackEntry {
+		return newStackEntryNode(10, &Node{
+			symbol:            sym,
+			startByte:         1,
+			endByte:           2,
+			flags:             nodeFlagNamed,
+			dynamicPrecedence: dynamic,
+		})
+	}
+	sharedPrev := &gssNode{entry: stackEntry{state: 100}, depth: 1}
+	head := &gssNode{entry: entry(20, 1), prev: sharedPrev, depth: 2}
+	for i := 1; i < maxCMainLinkCount; i++ {
+		head.appendExtraLinkWithLimit(gssMainLink{
+			prev:  &gssNode{entry: stackEntry{state: StateID(100 + i)}, depth: 1},
+			entry: entry(Symbol(20+i), int32(i+1)),
+		}, maxCMainLinkCount)
+	}
+
+	scratch := glrMergeScratch{language: &Language{CompactPackedGSSVersionOrderCertified: true}}
+	if !gssMainAddLinkSeenMutate(&scratch, head, sharedPrev, entry(20, 99), make(map[gssMergePair]bool)) {
+		t.Fatal("same-predecessor update was rejected at the C link cap")
+	}
+	if got := head.linkCount(); got != maxCMainLinkCount {
+		t.Fatalf("head link count = %d, want %d", got, maxCMainLinkCount)
+	}
+	gotPrev, gotEntry := head.link(0)
+	if gotPrev != sharedPrev || stackEntryDynamicPrecedence(gotEntry) != 99 {
+		t.Fatal("same-predecessor update did not retain C's higher dynamic precedence")
+	}
+}
+
+func TestGSSMainCLinkPolicyPreflightMatchesMultiLinkMutationAtLimit(t *testing.T) {
+	entry := func(sym Symbol) stackEntry {
+		return newStackEntryNode(10, &Node{
+			symbol:    sym,
+			startByte: 1,
+			endByte:   2,
+			flags:     nodeFlagNamed,
+		})
+	}
+	prev := func(state StateID) *gssNode {
+		return &gssNode{entry: stackEntry{state: state}, depth: 1}
+	}
+
+	destination := &gssNode{entry: entry(20), prev: prev(100), depth: 2}
+	for i := 1; i < maxMainLinkCount; i++ {
+		destination.appendExtraLink(gssMainLink{
+			prev:  prev(StateID(100 + i)),
+			entry: entry(Symbol(20 + i)),
+		})
+	}
+	sourcePrevs := []*gssNode{prev(200), prev(201), prev(202)}
+	source := &gssNode{entry: entry(50), prev: sourcePrevs[0], depth: 2}
+	for i := 1; i < len(sourcePrevs); i++ {
+		source.appendExtraLink(gssMainLink{
+			prev:  sourcePrevs[i],
+			entry: entry(Symbol(50 + i)),
+		})
+	}
+
+	scratch := glrMergeScratch{language: &Language{CompactPackedGSSVersionOrderCertified: true}}
+	preflight := acquirePreflightForScratch(&scratch)
+	if !preflight.canMergeNodes(destination, source) {
+		t.Fatal("C preflight rejected a merge that can fill and then drop links")
+	}
+	if got := preflight.linkCount(destination); got != maxCMainLinkCount {
+		t.Fatalf("preflight destination links = %d, want %d", got, maxCMainLinkCount)
+	}
+	if got := len(preflight.virtualLink[destination]); got != maxCMainLinkCount-maxMainLinkCount {
+		t.Fatalf("preflight staged links = %d, want %d", got, maxCMainLinkCount-maxMainLinkCount)
+	}
+	if !gssMainMergeNodesSeenMutate(&scratch, destination, source, make(map[gssMergePair]bool)) {
+		t.Fatal("C mutation rejected a merge that its preflight accepted")
+	}
+	if got := destination.linkCount(); got != maxCMainLinkCount {
+		t.Fatalf("mutated destination links = %d, want %d", got, maxCMainLinkCount)
+	}
+	for i, sourcePrev := range sourcePrevs {
+		found := false
+		for linkIndex := 0; linkIndex < destination.linkCount(); linkIndex++ {
+			gotPrev, _ := destination.link(linkIndex)
+			if gotPrev == sourcePrev {
+				found = true
+				break
+			}
+		}
+		if want := i < maxCMainLinkCount-maxMainLinkCount; found != want {
+			t.Fatalf("source link %d retained = %v, want %v", i, found, want)
+		}
 	}
 }
 

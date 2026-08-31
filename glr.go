@@ -4399,6 +4399,17 @@ func gssMainCanAddLinkSeen(n *gssNode, prev *gssNode, entry stackEntry, seen map
 	return newGSSMainPreflight(seen).canAddLink(n, prev, entry)
 }
 
+func compactCMainLinkPolicyEnabled(scratch *glrMergeScratch) bool {
+	return scratch != nil && scratch.language != nil && scratch.language.CompactPackedGSSVersionOrderCertified
+}
+
+func gssMainLinkLimitForScratch(scratch *glrMergeScratch) int {
+	if compactCMainLinkPolicyEnabled(scratch) {
+		return maxCMainLinkCount
+	}
+	return maxMainLinkCount
+}
+
 func (p *gssMainPreflight) canAddLink(n *gssNode, prev *gssNode, entry stackEntry) bool {
 	if n == nil {
 		return false
@@ -4418,7 +4429,13 @@ func (p *gssMainPreflight) canAddLink(n *gssNode, prev *gssNode, entry stackEntr
 			return p.canMergeNodes(existingPrev, prev)
 		}
 	}
-	if p.linkCount(n) >= maxMainLinkCount {
+	if p.linkCount(n) >= gssMainLinkLimitForScratch(p.scratch) {
+		// stack_node_add_link is void in C. Once all eight slots are full, it
+		// drops a new distinct link and still completes the enclosing merge.
+		// Do not stage a virtual link, because the mutate phase also drops it.
+		if compactCMainLinkPolicyEnabled(p.scratch) {
+			return true
+		}
 		return p.canReplaceWorstEquivalentLinkIfBetter(n, prev, entry)
 	}
 	p.addVirtualLink(n, prev, entry)
@@ -4476,7 +4493,12 @@ func gssMainAddLinkSeenMutate(scratch *glrMergeScratch, n *gssNode, prev *gssNod
 			return merged
 		}
 	}
-	if n.linkCount() >= maxMainLinkCount {
+	if n.linkCount() >= gssMainLinkLimitForScratch(scratch) {
+		// Match C's fixed eight-link node: keep the incumbent links, drop this
+		// distinct late link, and let the enclosing merge retire its source.
+		if compactCMainLinkPolicyEnabled(scratch) {
+			return true
+		}
 		if gssMainReplaceWorstEquivalentLinkIfBetterMutate(scratch, n, prev, entry, seen) {
 			n.hash = 0
 			return true
@@ -4487,7 +4509,11 @@ func gssMainAddLinkSeenMutate(scratch *glrMergeScratch, n *gssNode, prev *gssNod
 	if scratch != nil {
 		owner = scratch.gssOwner
 	}
-	n.appendExtraLinkWithOwner(gssMainLink{prev: prev, entry: entry}, owner)
+	n.appendExtraLinkWithLimitAndOwner(
+		gssMainLink{prev: prev, entry: entry},
+		gssMainLinkLimitForScratch(scratch),
+		owner,
+	)
 	n.hash = 0
 	return true
 }

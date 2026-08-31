@@ -4344,7 +4344,7 @@ func TestGSSMainMergePreservesCandidateBeyondUnsafeCLinkCap(t *testing.T) {
 		t.Fatalf("setup link count = %d, want %d", got, maxMainLinkCount)
 	}
 
-	var scratch glrMergeScratch
+	scratch := glrMergeScratch{language: &Language{}}
 	scratch.perKeyCap = 1
 	scratch.beginEquivEpoch()
 
@@ -4355,6 +4355,37 @@ func TestGSSMainMergePreservesCandidateBeyondUnsafeCLinkCap(t *testing.T) {
 	if got := result[0].gss.head.linkCount(); got != maxMainLinkCount {
 		t.Fatalf("link count after capped merge = %d, want %d", got, maxMainLinkCount)
 	}
+}
+
+func TestGSSMainMergeCLinkPolicyRetiresCandidateAtEightLinkCap(t *testing.T) {
+	var gssScratch gssScratch
+	buildStack := func(sym Symbol) glrStack {
+		node := NewLeafNode(sym, true, 0, 5, Point{}, Point{Column: 5})
+		entries := []stackEntry{{state: 1}, newStackEntryNode(7, node)}
+		return glrStack{
+			gss:        buildGSSStack(entries, &gssScratch),
+			byteOffset: stackByteOffset(entries),
+		}
+	}
+
+	incumbent := buildStack(20)
+	for i := 1; i < maxCMainLinkCount; i++ {
+		extraNode := NewLeafNode(Symbol(20+i), true, 0, 5, Point{}, Point{Column: 5})
+		incumbent.gss.head.appendExtraLinkWithLimit(gssMainLink{
+			prev:  incumbent.gss.head.prev,
+			entry: newStackEntryNode(StateID(7+i), extraNode),
+		}, maxCMainLinkCount)
+	}
+	before := snapshotGSSMainLinks(incumbent.gss.head)
+	candidate := buildStack(99)
+	scratch := glrMergeScratch{language: &Language{CompactPackedGSSVersionOrderCertified: true}}
+	if !gssMainCanMergeWithScratch(&scratch, &incumbent, &candidate) {
+		t.Fatal("certified C link policy rejected the merge eligibility gate")
+	}
+	if !gssMainMergeWithScratch(&scratch, &incumbent, &candidate) {
+		t.Fatal("certified C link policy retained a candidate that C retires")
+	}
+	assertGSSMainLinksEqual(t, incumbent.gss.head, before)
 }
 
 func TestMergeStacksGeneralFaithfulGSSPreservesCandidateBeyondUnsafeCLinkCap(t *testing.T) {
