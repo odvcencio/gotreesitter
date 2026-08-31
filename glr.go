@@ -4931,6 +4931,9 @@ func mergeStacksSmallForLanguage(alive []glrStack, scratch *glrMergeScratch, lan
 				}
 				cmp := stackCompareMergeSmallCapOne(scratch, &stack, &result[j])
 				if cmp > 0 {
+					if workCountInstrumentationEnabled {
+						workCountTopologyRenumberVersion(&stack, &result[j])
+					}
 					result[j] = stack
 					duplicateIndex = j
 					break
@@ -4955,6 +4958,9 @@ func mergeStacksSmallForLanguage(alive []glrStack, scratch *glrMergeScratch, lan
 		}
 		if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
 			traceCRecoverMergeDecision(scratch, "small", "replace-duplicate", &result[duplicateIndex], &stack)
+			if workCountInstrumentationEnabled {
+				workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
+			}
 			result[duplicateIndex] = stack
 		} else {
 			traceCRecoverMergeDecision(scratch, "small", "drop-duplicate", &result[duplicateIndex], &stack)
@@ -5008,6 +5014,9 @@ func mergeStacksSmallDeferExact(alive []glrStack, scratch *glrMergeScratch, lang
 				}
 				cmp := stackCompareMergeSmallCapOne(scratch, &stack, &result[j])
 				if cmp > 0 {
+					if workCountInstrumentationEnabled {
+						workCountTopologyRenumberVersion(&stack, &result[j])
+					}
 					result[j] = stack
 					duplicateIndex = j
 					break
@@ -5036,6 +5045,9 @@ func mergeStacksSmallDeferExact(alive []glrStack, scratch *glrMergeScratch, lang
 		}
 		if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
 			traceCRecoverMergeDecision(scratch, "small-defer", "replace-duplicate", &result[duplicateIndex], &stack)
+			if workCountInstrumentationEnabled {
+				workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
+			}
 			result[duplicateIndex] = stack
 		} else {
 			traceCRecoverMergeDecision(scratch, "small-defer", "drop-duplicate", &result[duplicateIndex], &stack)
@@ -5060,6 +5072,10 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 		perfRecordMergeCall(len(stacks))
 	}
 
+	var topologyBeforeAlive []glrStack
+	if workCountInstrumentationEnabled {
+		topologyBeforeAlive = append(topologyBeforeAlive, stacks...)
+	}
 	// Remove dead stacks first. Most merge calls have no dead stacks; avoid
 	// copying the full live slice in that case.
 	alive := stacks
@@ -5085,6 +5101,9 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 	if perfCountersEnabled {
 		perfRecordMergeAlive(len(alive), deadCount)
 	}
+	if workCountInstrumentationEnabled && deadCount > 0 {
+		workCountTopologyRetireMissingVersions(topologyBeforeAlive, alive)
+	}
 	if len(alive) <= 1 {
 		return alive
 	}
@@ -5094,7 +5113,14 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 		scratch = &local
 	}
 	if limit := mergeAliveLimitForScratch(scratch, len(alive)); limit > 0 && len(alive) > limit {
+		var topologyBeforeCull []glrStack
+		if workCountInstrumentationEnabled {
+			topologyBeforeCull = append(topologyBeforeCull, alive...)
+		}
 		alive = retainTopStacksForLanguage(alive, limit, scratch.language)
+		if workCountInstrumentationEnabled {
+			workCountTopologyReconcileVersionSelection(topologyBeforeCull, alive)
+		}
 	}
 	if len(alive) <= 4 {
 		result := mergeStacksSmallForLanguage(alive, scratch, scratch.language)
@@ -5179,6 +5205,9 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 			}
 			cmp := stackCompareMergeSmallCapOne(scratch, &stack, &result[idx])
 			if cmp > 0 {
+				if workCountInstrumentationEnabled {
+					workCountTopologyRenumberVersion(&stack, &result[idx])
+				}
 				result[idx] = stack
 				if pos := mergeSlotPositionForIndex(slot, idx); pos >= 0 {
 					mergeSlotSetHashAt(slot, pos, hash)
@@ -5234,6 +5263,9 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 				continue
 			}
 			if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+				if workCountInstrumentationEnabled {
+					workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
+				}
 				result[duplicateIndex] = stack
 				if pos := mergeSlotPositionForIndex(slot, duplicateIndex); pos >= 0 {
 					mergeSlotSetHashAt(slot, pos, hash)
@@ -5292,6 +5324,9 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 			}
 			if perfCountersEnabled {
 				perfRecordMergeReplacement()
+			}
+			if workCountInstrumentationEnabled {
+				workCountTopologyRenumberVersion(&stack, &result[slot.worstIndex])
 			}
 			result[slot.worstIndex] = stack
 			if replacedSlot >= 0 {
@@ -5368,6 +5403,9 @@ func mergeStacksWithScratchDeferExact(alive []glrStack, scratch *glrMergeScratch
 			}
 			cmp := stackCompareMergeSmallCapOne(scratch, &stack, &result[idx])
 			if cmp > 0 {
+				if workCountInstrumentationEnabled {
+					workCountTopologyRenumberVersion(&stack, &result[idx])
+				}
 				result[idx] = stack
 				if pos := mergeSlotPositionForIndex(slot, idx); pos >= 0 {
 					mergeSlotSetHashAt(slot, pos, hash)
@@ -5420,6 +5458,9 @@ func mergeStacksWithScratchDeferExact(alive []glrStack, scratch *glrMergeScratch
 				continue
 			}
 			if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+				if workCountInstrumentationEnabled {
+					workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
+				}
 				result[duplicateIndex] = stack
 				if pos := mergeSlotPositionForIndex(slot, duplicateIndex); pos >= 0 {
 					mergeSlotSetHashAt(slot, pos, hash)
@@ -5476,6 +5517,9 @@ func mergeStacksWithScratchDeferExact(alive []glrStack, scratch *glrMergeScratch
 			}
 			if perfCountersEnabled {
 				perfRecordMergeReplacement()
+			}
+			if workCountInstrumentationEnabled {
+				workCountTopologyRenumberVersion(&stack, &result[slot.worstIndex])
 			}
 			result[slot.worstIndex] = stack
 			if replacedSlot >= 0 {
@@ -5587,6 +5631,9 @@ func mergeStacksWithScratchLargeCap(alive []glrStack, scratch *glrMergeScratch, 
 			// branch by accident. Let later survivors replace ties so
 			// post-reduce reprocessing can keep the branch that stayed viable.
 			if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+				if workCountInstrumentationEnabled {
+					workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
+				}
 				result[duplicateIndex] = stack
 				for j := 0; j < slot.count; j++ {
 					if slot.indices[j] == duplicateIndex {
@@ -5637,6 +5684,9 @@ func mergeStacksWithScratchLargeCap(alive []glrStack, scratch *glrMergeScratch, 
 			}
 			if perfCountersEnabled {
 				perfRecordMergeReplacement()
+			}
+			if workCountInstrumentationEnabled {
+				workCountTopologyRenumberVersion(&stack, &result[slot.worstIndex])
 			}
 			result[slot.worstIndex] = stack
 			if replacedSlot >= 0 {

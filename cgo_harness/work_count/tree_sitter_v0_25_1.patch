@@ -1,5 +1,5 @@
 diff --git a/lib/src/language.c b/lib/src/language.c
-index b341a670..07ac8155 100644
+index b341a67..07ac815 100644
 --- a/lib/src/language.c
 +++ b/lib/src/language.c
 @@ -1,6 +1,7 @@
@@ -30,10 +30,10 @@ index b341a670..07ac8155 100644
 
  TSLexerMode ts_language_lex_mode_for_state(
 diff --git a/lib/src/parser.c b/lib/src/parser.c
-index 7aac259e..9032e98a 100644
+index 41a349d..c944b7a 100644
 --- a/lib/src/parser.c
 +++ b/lib/src/parser.c
-@@ -20,6 +20,83 @@
+@@ -20,6 +20,228 @@
  #include "./tree.h"
  #include "./ts_assert.h"
  #include "./wasm_store.h"
@@ -41,13 +41,158 @@ index 7aac259e..9032e98a 100644
 +#include <stddef.h>
 +
 +_Thread_local GTSWorkCount gts_work_count_current;
++_Thread_local GTSTopologyReceipt gts_topology_current;
++static _Thread_local uint64_t gts_topology_generation_counter;
 +
 +void gts_work_count_reset(void) {
 +  gts_work_count_current = (GTSWorkCount) {0};
++  gts_topology_current = (GTSTopologyReceipt) {
++    .current_action_ordinal = -1,
++    .current_action_type = GTSTopologyActionUnknown,
++  };
 +}
 +
 +GTSWorkCount gts_work_count_snapshot(void) {
 +  return gts_work_count_current;
++}
++
++void gts_topology_enable(bool enabled) {
++  if (enabled && !gts_topology_current.enabled) {
++    if (gts_topology_generation_counter == UINT64_MAX) {
++      gts_topology_current.arithmetic_overflow = true;
++      gts_topology_current.identity_incomplete = true;
++      return;
++    }
++    gts_topology_current.generation = ++gts_topology_generation_counter;
++  }
++  gts_topology_current.enabled = enabled;
++}
++
++void gts_topology_finish_parse(void) {
++  gts_topology_action_end();
++  gts_topology_current.enabled = false;
++}
++
++const GTSTopologyReceipt *gts_topology_snapshot(void) {
++  return &gts_topology_current;
++}
++
++static uint64_t gts_topology_next_id(uint64_t *slot) {
++  if (!gts_topology_current.enabled) return 0;
++  if (*slot == UINT64_MAX) {
++    gts_topology_current.arithmetic_overflow = true;
++    gts_topology_current.identity_incomplete = true;
++    return 0;
++  }
++  return ++*slot;
++}
++
++uint64_t gts_topology_next_action_id(void) {
++  return gts_topology_next_id(&gts_topology_current.next_action_id);
++}
++
++uint64_t gts_topology_next_version_id(void) {
++  return gts_topology_next_id(&gts_topology_current.next_version_id);
++}
++
++uint64_t gts_topology_next_node_id(void) {
++  return gts_topology_next_id(&gts_topology_current.next_node_id);
++}
++
++uint64_t gts_topology_next_link_id(void) {
++  return gts_topology_next_id(&gts_topology_current.next_link_id);
++}
++
++uint64_t gts_topology_next_pop_id(void) {
++  return gts_topology_next_id(&gts_topology_current.next_pop_id);
++}
++
++uint64_t gts_topology_next_election_id(void) {
++  return gts_topology_next_id(&gts_topology_current.next_election_id);
++}
++
++uint64_t gts_topology_next_candidate_id(void) {
++  return gts_topology_next_id(&gts_topology_current.next_candidate_id);
++}
++
++uint64_t gts_topology_generation(void) {
++  return gts_topology_current.enabled ? gts_topology_current.generation : 0;
++}
++
++void gts_topology_action_begin(uint64_t action_id, int64_t ordinal, uint64_t type) {
++  if (!gts_topology_current.enabled) return;
++  gts_topology_current.current_action_id = action_id;
++  gts_topology_current.current_action_ordinal = ordinal;
++  gts_topology_current.current_action_type = type;
++}
++
++void gts_topology_action_end(void) {
++  gts_topology_current.current_action_id = 0;
++  gts_topology_current.current_action_ordinal = -1;
++  gts_topology_current.current_action_type = GTSTopologyActionUnknown;
++}
++
++void gts_topology_record(GTSTopologyEvent event) {
++  if (!gts_topology_current.enabled) return;
++  if (gts_topology_current.events_seen == UINT64_MAX) {
++    gts_topology_current.arithmetic_overflow = true;
++    gts_topology_current.identity_incomplete = true;
++    return;
++  }
++  event.event_id = ++gts_topology_current.events_seen;
++  if (gts_topology_current.current_action_id != 0) {
++    event.action_id = gts_topology_current.current_action_id;
++    event.action_ordinal = gts_topology_current.current_action_ordinal;
++    event.action_type = gts_topology_current.current_action_type;
++    event.flags |= GTSTopologyFlagActionContextKnown;
++  } else {
++    event.action_ordinal = -1;
++    event.action_type = GTSTopologyActionUnknown;
++  }
++  if (gts_topology_current.events_retained < GTS_TOPOLOGY_EVENT_CAPACITY) {
++    gts_topology_current.events[gts_topology_current.events_retained++] = event;
++    return;
++  }
++  gts_topology_current.truncated = true;
++  if (gts_topology_current.events_dropped == UINT64_MAX) {
++    gts_topology_current.arithmetic_overflow = true;
++    return;
++  }
++  gts_topology_current.events_dropped++;
++}
++
++bool gts_topology_validate_model(void) {
++  gts_work_count_reset();
++  gts_topology_enable(true);
++  uint64_t action_id = gts_topology_next_action_id();
++  gts_topology_action_begin(action_id, 7, GTSTopologyActionReduce);
++  for (uint64_t i = 0; i <= GTS_TOPOLOGY_EVENT_CAPACITY; i++) {
++    gts_topology_record((GTSTopologyEvent) {
++      .kind = GTSTopologyEventAction,
++      .state = i,
++    });
++  }
++  gts_topology_action_end();
++  bool bounded = action_id == 1 &&
++    gts_topology_current.events_seen == GTS_TOPOLOGY_EVENT_CAPACITY + 1 &&
++    gts_topology_current.events_retained == GTS_TOPOLOGY_EVENT_CAPACITY &&
++    gts_topology_current.events_dropped == 1 &&
++    gts_topology_current.truncated &&
++    gts_topology_current.events[0].event_id == 1 &&
++    gts_topology_current.events[GTS_TOPOLOGY_EVENT_CAPACITY - 1].event_id == GTS_TOPOLOGY_EVENT_CAPACITY &&
++    gts_topology_current.events[0].action_id == action_id &&
++    gts_topology_current.events[0].action_ordinal == 7 &&
++    gts_topology_current.events[0].action_type == GTSTopologyActionReduce &&
++    gts_topology_current.events[0].flags == GTSTopologyFlagActionContextKnown &&
++    !gts_topology_current.arithmetic_overflow &&
++    !gts_topology_current.identity_collision &&
++    !gts_topology_current.identity_incomplete;
++  gts_topology_current.next_node_id = UINT64_MAX;
++  bool overflowed = gts_topology_next_node_id() == 0 &&
++    gts_topology_current.arithmetic_overflow &&
++    gts_topology_current.identity_incomplete;
++  gts_work_count_reset();
++  return bounded && overflowed;
 +}
 +
 +static void gts_work_count_raw_selected_subtree(Subtree subtree) {
@@ -117,7 +262,37 @@ index 7aac259e..9032e98a 100644
 
  #define LOG(...)                                                                            \
    if (self->lexer.logger.log || self->dot_graph_file) {                                     \
-@@ -345,6 +422,7 @@ static bool ts_parser__better_version_exists(
+@@ -119,6 +341,29 @@ struct TSParser {
+   bool has_error;
+ };
+
++static uint64_t gts_topology_begin_parser_action(
++  TSParser *self,
++  StackVersion version,
++  TSStateId state,
++  Subtree lookahead,
++  int64_t ordinal,
++  uint64_t type
++) {
++  uint64_t action_id = gts_topology_next_action_id();
++  gts_topology_action_begin(action_id, ordinal, type);
++  gts_topology_record((GTSTopologyEvent) {
++    .kind = GTSTopologyEventAction,
++    .state = state,
++    .lookahead_symbol = lookahead.ptr
++      ? ts_subtree_leaf_symbol(lookahead)
++      : ts_builtin_sym_end,
++    .byte_offset = ts_stack_position(self->stack, version).bytes,
++    .version_id = ts_stack_topology_version_id(self->stack, version),
++    .version_index = version,
++  });
++  return action_id;
++}
++
+ typedef struct {
+   unsigned cost;
+   unsigned node_count;
+@@ -345,6 +590,7 @@ static bool ts_parser__better_version_exists(
  }
 
  static bool ts_parser__call_main_lex_fn(TSParser *self, TSLexerMode lex_mode) {
@@ -125,7 +300,7 @@ index 7aac259e..9032e98a 100644
    if (ts_language_is_wasm(self->language)) {
      return ts_wasm_store_call_lex_main(self->wasm_store, lex_mode.lex_state);
    } else {
-@@ -509,6 +587,8 @@ static Subtree ts_parser__lex(
+@@ -509,6 +755,8 @@ static Subtree ts_parser__lex(
    StackVersion version,
    TSStateId parse_state
  ) {
@@ -134,7 +309,7 @@ index 7aac259e..9032e98a 100644
    TSLexerMode lex_mode = ts_language_lex_mode_for_state(self->language, parse_state);
    if (lex_mode.lex_state == (uint16_t)-1) {
      LOG("no_lookahead_after_non_terminal_extra");
-@@ -912,6 +992,7 @@ static void ts_parser__shift(
+@@ -912,6 +1160,7 @@ static void ts_parser__shift(
    Subtree lookahead,
    bool extra
  ) {
@@ -142,7 +317,7 @@ index 7aac259e..9032e98a 100644
    bool is_leaf = ts_subtree_child_count(lookahead) == 0;
    Subtree subtree_to_push = lookahead;
    if (extra != ts_subtree_extra(lookahead) && is_leaf) {
-@@ -938,6 +1019,7 @@ static StackVersion ts_parser__reduce(
+@@ -938,6 +1187,7 @@ static StackVersion ts_parser__reduce(
    bool is_fragile,
    bool end_of_non_terminal_extra
  ) {
@@ -150,7 +325,51 @@ index 7aac259e..9032e98a 100644
    uint32_t initial_version_count = ts_stack_version_count(self->stack);
 
    // Pop the given number of nodes from the given version of the parse stack.
-@@ -1048,6 +1130,7 @@ static void ts_parser__accept(
+@@ -977,6 +1227,7 @@ static StackVersion ts_parser__reduce(
+     MutableSubtree parent = ts_subtree_new_node(
+       symbol, &children, production_id, self->language
+     );
++    uint64_t parent_candidate_id = gts_topology_next_candidate_id();
+
+     // This pop operation may have caused multiple stack versions to collapse
+     // into one, because they all diverged from a common state. In that case,
+@@ -990,17 +1241,33 @@ static StackVersion ts_parser__reduce(
+       SubtreeArray next_slice_children = next_slice.subtrees;
+       ts_subtree_array_remove_trailing_extras(&next_slice_children, &self->trailing_extras2);
+
+-      if (ts_parser__select_children(
++      uint64_t candidate_id = gts_topology_next_candidate_id();
++      uint64_t election_id = gts_topology_next_election_id();
++      bool selected_candidate = ts_parser__select_children(
+         self,
+         ts_subtree_from_mut(parent),
+         &next_slice_children
+-      )) {
++      );
++      gts_topology_record((GTSTopologyEvent) {
++        .kind = GTSTopologyEventChildElection,
++        .state = symbol,
++        .version_id = ts_stack_topology_version_id(self->stack, slice_version),
++        .version_index = slice_version,
++        .election_id = election_id,
++        .incumbent_id = parent_candidate_id,
++        .candidate_id = candidate_id,
++        .selected_id = selected_candidate ? candidate_id : parent_candidate_id,
++        .payload_count = next_slice_children.size,
++        .flags = selected_candidate ? GTSTopologyFlagSuccessOrSelected : 0,
++      });
++      if (selected_candidate) {
+         ts_subtree_array_clear(&self->tree_pool, &self->trailing_extras);
+         ts_subtree_release(&self->tree_pool, ts_subtree_from_mut(parent));
+         array_swap(&self->trailing_extras, &self->trailing_extras2);
+         parent = ts_subtree_new_node(
+           symbol, &next_slice_children, production_id, self->language
+         );
++        parent_candidate_id = candidate_id;
+       } else {
+         array_clear(&self->trailing_extras2);
+         ts_subtree_array_delete(&self->tree_pool, &next_slice.subtrees);
+@@ -1048,6 +1315,7 @@ static void ts_parser__accept(
    StackVersion version,
    Subtree lookahead
  ) {
@@ -158,7 +377,68 @@ index 7aac259e..9032e98a 100644
    ts_assert(ts_subtree_is_eof(lookahead));
    ts_stack_push(self->stack, version, lookahead, false, 1);
 
-@@ -1616,13 +1699,19 @@ static bool ts_parser__advance(
+@@ -1079,16 +1347,43 @@ static void ts_parser__accept(
+
+     ts_assert(root.ptr);
+     self->accept_count++;
++    uint64_t candidate_id = gts_topology_next_candidate_id();
++    uint64_t election_id = gts_topology_next_election_id();
+
+     if (self->finished_tree.ptr) {
+-      if (ts_parser__select_tree(self, self->finished_tree, root)) {
++      uint64_t incumbent_id = gts_topology_current.finished_candidate_id;
++      bool selected_candidate = ts_parser__select_tree(self, self->finished_tree, root);
++      gts_topology_record((GTSTopologyEvent) {
++        .kind = GTSTopologyEventAcceptElection,
++        .version_id = ts_stack_topology_version_id(self->stack, version),
++        .version_index = version,
++        .election_id = election_id,
++        .incumbent_id = incumbent_id,
++        .candidate_id = candidate_id,
++        .selected_id = selected_candidate ? candidate_id : incumbent_id,
++        .payload_count = trees.size,
++        .flags = selected_candidate ? GTSTopologyFlagSuccessOrSelected : 0,
++      });
++      if (selected_candidate) {
+         ts_subtree_release(&self->tree_pool, self->finished_tree);
+         self->finished_tree = root;
++        gts_topology_current.finished_candidate_id = candidate_id;
+       } else {
+         ts_subtree_release(&self->tree_pool, root);
+       }
+     } else {
++      gts_topology_record((GTSTopologyEvent) {
++        .kind = GTSTopologyEventAcceptElection,
++        .version_id = ts_stack_topology_version_id(self->stack, version),
++        .version_index = version,
++        .election_id = election_id,
++        .candidate_id = candidate_id,
++        .selected_id = candidate_id,
++        .payload_count = trees.size,
++        .flags = GTSTopologyFlagSuccessOrSelected | GTSTopologyFlagNoIncumbent,
++      });
+       self->finished_tree = root;
++      gts_topology_current.finished_candidate_id = candidate_id;
+     }
+   }
+
+@@ -1160,11 +1455,15 @@ static bool ts_parser__do_all_potential_reductions(
+     for (uint32_t j = 0; j < self->reduce_actions.size; j++) {
+       ReduceAction action = self->reduce_actions.contents[j];
+
++      gts_topology_begin_parser_action(
++        self, version, state, NULL_SUBTREE, -1, GTSTopologyActionReduce
++      );
+       reduction_version = ts_parser__reduce(
+         self, version, action.symbol, action.count,
+         action.dynamic_precedence, action.production_id,
+         true, false
+       );
++      gts_topology_action_end();
+     }
+
+     if (has_shift_action) {
+@@ -1616,13 +1915,22 @@ static bool ts_parser__advance(
      // an ambiguous state. REDUCE actions always create a new stack
      // version, whereas SHIFT actions update the existing stack version
      // and terminate this loop.
@@ -174,35 +454,73 @@ index 7aac259e..9032e98a 100644
        switch (action.type) {
          case TSParseActionTypeShift: {
            if (action.shift.repetition) break;
++          gts_topology_begin_parser_action(
++            self, version, state, lookahead, i, GTSTopologyActionShift
++          );
 +          gts_work_count_admit_action_arm(&admitted_action_arms, table_entry.action_count);
            TSStateId next_state;
            if (action.shift.extra) {
              next_state = state;
-@@ -1643,6 +1732,7 @@ static bool ts_parser__advance(
+@@ -1639,10 +1947,15 @@ static bool ts_parser__advance(
+
+           ts_parser__shift(self, version, next_state, lookahead, action.shift.extra);
+           if (did_reuse) reusable_node_advance(&self->reusable_node);
++          gts_topology_action_end();
+           return true;
          }
 
          case TSParseActionTypeReduce: {
++          gts_topology_begin_parser_action(
++            self, version, state, lookahead, i, GTSTopologyActionReduce
++          );
 +          gts_work_count_admit_action_arm(&admitted_action_arms, table_entry.action_count);
            bool is_fragile = table_entry.action_count > 1;
            bool end_of_non_terminal_extra = lookahead.ptr == NULL;
            LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.reduce.symbol), action.reduce.child_count);
-@@ -1658,12 +1748,15 @@ static bool ts_parser__advance(
+@@ -1654,22 +1967,34 @@ static bool ts_parser__advance(
+           if (reduction_version != STACK_VERSION_NONE) {
+             last_reduction_version = reduction_version;
+           }
++          gts_topology_action_end();
+           break;
          }
 
          case TSParseActionTypeAccept: {
++          gts_topology_begin_parser_action(
++            self, version, state, lookahead, i, GTSTopologyActionAccept
++          );
 +          gts_work_count_admit_action_arm(&admitted_action_arms, table_entry.action_count);
            LOG("accept");
            ts_parser__accept(self, version, lookahead);
++          gts_topology_action_end();
            return true;
          }
 
          case TSParseActionTypeRecover: {
++          gts_topology_begin_parser_action(
++            self, version, state, lookahead, i, GTSTopologyActionRecover
++          );
 +          gts_work_count_admit_action_arm(&admitted_action_arms, table_entry.action_count);
 +          gts_work_count_add(&gts_work_count_current.explicit_recover_actions, 1);
            if (ts_subtree_child_count(lookahead) > 0) {
              ts_parser__breakdown_lookahead(self, &lookahead, ERROR_STATE, &self->reusable_node);
            }
-@@ -2203,6 +2296,7 @@ balance:
+
+           ts_parser__recover(self, version, lookahead);
+           if (did_reuse) reusable_node_advance(&self->reusable_node);
++          gts_topology_action_end();
+           return true;
+         }
+       }
+@@ -2137,6 +2462,7 @@ TSTree *ts_parser_parse(
+   }
+
+   uint32_t position = 0, last_position = 0, version_count = 0;
++  ts_stack_topology_begin(self->stack);
+   do {
+     for (
+       StackVersion version = 0;
+@@ -2202,6 +2528,7 @@ balance:
    self->canceled_balancing = false;
    LOG("done");
    LOG_TREE(self->finished_tree);
@@ -210,8 +528,16 @@ index 7aac259e..9032e98a 100644
 
    result = ts_tree_new(
      self->finished_tree,
+@@ -2212,6 +2539,7 @@ balance:
+   self->finished_tree = NULL_SUBTREE;
+
+ exit:
++  gts_topology_finish_parse();
+   ts_parser_reset(self);
+   return result;
+ }
 diff --git a/lib/src/stack.c b/lib/src/stack.c
-index f0d57108..ddf0425d 100644
+index f0d5710..d5bf3b7 100644
 --- a/lib/src/stack.c
 +++ b/lib/src/stack.c
 @@ -4,6 +4,7 @@
@@ -222,15 +548,94 @@ index f0d57108..ddf0425d 100644
  #include <assert.h>
  #include <inttypes.h>
  #include <stdio.h>
-@@ -158,6 +159,7 @@ static StackNode *stack_node_new(
+@@ -24,6 +25,8 @@ typedef struct {
+   StackNode *node;
+   Subtree subtree;
+   bool is_pending;
++  uint64_t topology_generation;
++  uint64_t topology_id;
+ } StackLink;
+
+ struct StackNode {
+@@ -35,6 +38,8 @@ struct StackNode {
+   unsigned error_cost;
+   unsigned node_count;
+   int dynamic_precedence;
++  uint64_t topology_generation;
++  uint64_t topology_id;
+ };
+
+ typedef struct {
+@@ -59,6 +64,8 @@ typedef struct {
+   Subtree last_external_token;
+   Subtree lookahead_when_paused;
+   StackStatus status;
++  uint64_t topology_generation;
++  uint64_t topology_id;
+ } StackHead;
+
+ struct Stack {
+@@ -79,6 +86,34 @@ enum {
+
+ typedef StackAction (*StackCallback)(void *, const StackIterator *);
+
++static uint64_t stack_node_topology_id(StackNode *node) {
++  uint64_t generation = gts_topology_generation();
++  if (!node || generation == 0) return 0;
++  if (node->topology_generation != generation) {
++    node->topology_generation = generation;
++    node->topology_id = gts_topology_next_node_id();
++  }
++  return node->topology_id;
++}
++
++static void stack_record_link_insert(
++  StackNode *node,
++  StackNode *predecessor,
++  uint64_t link_id,
++  uint64_t link_ordinal,
++  bool primary
++) {
++  gts_topology_record((GTSTopologyEvent) {
++    .kind = GTSTopologyEventLinkInsert,
++    .state = node ? node->state : 0,
++    .node_id = stack_node_topology_id(node),
++    .predecessor_node_id = stack_node_topology_id(predecessor),
++    .link_id = link_id,
++    .link_ordinal = link_ordinal,
++    .flags = primary ? GTSTopologyFlagPrimaryLink : 0,
++  });
++}
++
+ static void stack_node_retain(StackNode *self) {
+   if (!self)
+     return;
+@@ -150,6 +185,7 @@ static StackNode *stack_node_new(
+     .link_count = 0,
+     .state = state
+   };
++  stack_node_topology_id(node);
+
+   if (previous_node) {
+     node->link_count = 1;
+@@ -158,6 +194,16 @@ static StackNode *stack_node_new(
        .subtree = subtree,
        .is_pending = is_pending,
      };
++    node->links[0].topology_generation = gts_topology_generation();
++    node->links[0].topology_id = gts_topology_next_link_id();
++    stack_record_link_insert(
++      node,
++      previous_node,
++      node->links[0].topology_id,
++      0,
++      true
++    );
 +    gts_work_count_add(&gts_work_count_current.graph_link_additions_proxy, 1);
 
      node->position = previous_node->position;
      node->error_cost = previous_node->error_cost;
-@@ -197,12 +199,29 @@ static bool stack__subtree_is_equivalent(Subtree left, Subtree right) {
+@@ -197,12 +243,29 @@ static bool stack__subtree_is_equivalent(Subtree left, Subtree right) {
    );
  }
 
@@ -262,7 +667,7 @@ index f0d57108..ddf0425d 100644
 
    for (int i = 0; i < self->link_count; i++) {
      StackLink *existing_link = &self->links[i];
-@@ -221,8 +240,15 @@ static void stack_node_add_link(
+@@ -221,8 +284,15 @@ static void stack_node_add_link(
            existing_link->subtree = link.subtree;
            self->dynamic_precedence =
              link.node->dynamic_precedence + ts_subtree_dynamic_precedence(link.subtree);
@@ -279,7 +684,7 @@ index f0d57108..ddf0425d 100644
        }
 
        // If the previous nodes are mergeable, merge them recursively.
-@@ -231,8 +257,17 @@ static void stack_node_add_link(
+@@ -231,8 +301,17 @@ static void stack_node_add_link(
          existing_link->node->position.bytes == link.node->position.bytes &&
          existing_link->node->error_cost == link.node->error_cost
        ) {
@@ -298,7 +703,7 @@ index f0d57108..ddf0425d 100644
          }
          int32_t dynamic_precedence = link.node->dynamic_precedence;
          if (link.subtree.ptr) {
-@@ -241,17 +276,38 @@ static void stack_node_add_link(
+@@ -241,17 +320,42 @@ static void stack_node_add_link(
          if (dynamic_precedence > self->dynamic_precedence) {
            self->dynamic_precedence = dynamic_precedence;
          }
@@ -330,7 +735,11 @@ index f0d57108..ddf0425d 100644
    stack_node_retain(link.node);
    unsigned node_count = link.node->node_count;
    int dynamic_precedence = link.node->dynamic_precedence;
++  uint64_t link_ordinal = self->link_count;
++  link.topology_generation = gts_topology_generation();
++  link.topology_id = gts_topology_next_link_id();
    self->links[self->link_count++] = link;
++  stack_record_link_insert(self, link.node, link.topology_id, link_ordinal, false);
 +  gts_work_count_add(&gts_work_count_current.graph_link_additions_proxy, 1);
 +  if (union_attempt) {
 +    gts_work_count_add(&gts_work_count_current.predecessor_link_union_alternate_appended, 1);
@@ -339,7 +748,7 @@ index f0d57108..ddf0425d 100644
 
    if (link.subtree.ptr) {
      ts_subtree_retain(link.subtree);
-@@ -261,6 +317,132 @@ static void stack_node_add_link(
+@@ -261,6 +365,132 @@ static void stack_node_add_link(
 
    if (node_count > self->node_count) self->node_count = node_count;
    if (dynamic_precedence > self->dynamic_precedence) self->dynamic_precedence = dynamic_precedence;
@@ -472,15 +881,153 @@ index f0d57108..ddf0425d 100644
  }
 
  static void stack_head_delete(
-@@ -296,6 +478,7 @@ static StackVersion ts_stack__add_version(
+@@ -296,12 +526,26 @@ static StackVersion ts_stack__add_version(
      .lookahead_when_paused = NULL_SUBTREE,
    };
    array_push(&self->heads, head);
 +  gts_work_count_add(&gts_work_count_current.stack_version_creations_proxy, 1);
++  StackVersion version = (StackVersion)(self->heads.size - 1);
++  StackHead *added = &self->heads.contents[version];
++  added->topology_generation = gts_topology_generation();
++  added->topology_id = gts_topology_next_version_id();
++  StackHead *source = &self->heads.contents[original_version];
++  gts_topology_record((GTSTopologyEvent) {
++    .kind = GTSTopologyEventVersionAdd,
++    .version_id = added->topology_id,
++    .version_index = version,
++    .source_version_id = source->topology_id,
++    .source_index = original_version,
++    .node_id = stack_node_topology_id(node),
++  });
    stack_node_retain(node);
    if (head.last_external_token.ptr) ts_subtree_retain(head.last_external_token);
-   return (StackVersion)(self->heads.size - 1);
-@@ -521,7 +704,16 @@ forceinline StackAction pop_count_callback(void *payload, const StackIterator *i
+-  return (StackVersion)(self->heads.size - 1);
++  return version;
+ }
+
+-static void ts_stack__add_slice(
++static StackVersion ts_stack__add_slice(
+   Stack *self,
+   StackVersion original_version,
+   StackNode *node,
+@@ -312,13 +556,14 @@ static void ts_stack__add_slice(
+     if (self->heads.contents[version].node == node) {
+       StackSlice slice = {*subtrees, version};
+       array_insert(&self->slices, i + 1, slice);
+-      return;
++      return version;
+     }
+   }
+
+   StackVersion version = ts_stack__add_version(self, original_version, node);
+   StackSlice slice = { *subtrees, version };
+   array_push(&self->slices, slice);
++  return version;
+ }
+
+ static StackSliceArray stack__iter(
+@@ -332,6 +577,9 @@ static StackSliceArray stack__iter(
+   array_clear(&self->iterators);
+
+   StackHead *head = array_get(&self->heads, version);
++  uint64_t source_version_id = head->topology_id;
++  uint64_t pop_id = goal_subtree_count >= 0 ? gts_topology_next_pop_id() : 0;
++  uint64_t path_ordinal = 0;
+   StackIterator new_iterator = {
+     .node = head->node,
+     .subtrees = array_new(),
+@@ -362,12 +610,25 @@ static StackSliceArray stack__iter(
+           ts_subtree_array_copy(subtrees, &subtrees);
+         }
+         ts_subtree_array_reverse(&subtrees);
+-        ts_stack__add_slice(
++        StackVersion pop_version = ts_stack__add_slice(
+           self,
+           version,
+           node,
+           &subtrees
+         );
++        StackHead *pop_head = &self->heads.contents[pop_version];
++        gts_topology_record((GTSTopologyEvent) {
++          .kind = GTSTopologyEventPopPath,
++          .version_id = pop_head->topology_id,
++          .version_index = pop_version,
++          .source_version_id = source_version_id,
++          .source_index = version,
++          .node_id = stack_node_topology_id(pop_head->node),
++          .pop_id = pop_id,
++          .path_ordinal = path_ordinal++,
++          .pop_to_node_id = stack_node_topology_id(node),
++          .payload_count = subtrees.size,
++        });
+       }
+
+       if (should_stop) {
+@@ -460,6 +721,63 @@ uint32_t ts_stack_version_count(const Stack *self) {
+   return self->heads.size;
+ }
+
++void ts_stack_topology_begin(Stack *self) {
++  uint64_t generation = gts_topology_generation();
++  if (generation == 0) return;
++  for (uint32_t i = 0; i < self->heads.size; i++) {
++    StackHead *head = &self->heads.contents[i];
++    head->topology_generation = generation;
++    head->topology_id = gts_topology_next_version_id();
++    gts_topology_record((GTSTopologyEvent) {
++      .kind = GTSTopologyEventVersionAdd,
++      .version_id = head->topology_id,
++      .version_index = i,
++      .node_id = stack_node_topology_id(head->node),
++      .flags = GTSTopologyFlagInitialVersion,
++    });
++  }
++}
++
++uint64_t ts_stack_topology_version_id(const Stack *self, StackVersion version) {
++  return array_get(&self->heads, version)->topology_id;
++}
++
++bool gts_topology_validate_stack_model(void) {
++  gts_work_count_reset();
++  gts_topology_enable(true);
++  SubtreePool pool = ts_subtree_pool_new(0);
++  Stack *stack = ts_stack_new(&pool);
++  ts_stack_topology_begin(stack);
++  ts_stack_copy_version(stack, 0);
++  ts_stack_copy_version(stack, 0);
++  ts_stack_copy_version(stack, 0);
++  ts_stack_remove_version(stack, 1);
++  ts_stack_copy_version(stack, 0);
++  ts_stack_copy_version(stack, 0);
++  ts_stack_renumber_version(stack, 3, 1);
++  const GTSTopologyReceipt *receipt = gts_topology_snapshot();
++  bool passed = receipt->events_seen == 10 && receipt->events_retained == 10 && receipt->events_dropped == 0 &&
++    receipt->events[0].kind == GTSTopologyEventVersionAdd && receipt->events[0].version_id == 1 && receipt->events[0].flags == GTSTopologyFlagInitialVersion &&
++    receipt->events[1].kind == GTSTopologyEventVersionCopy && receipt->events[1].version_id == 2 && receipt->events[2].version_id == 3 &&
++    receipt->events[3].version_id == 4 && receipt->events[6].version_id == 5 && receipt->events[7].version_id == 6 &&
++    receipt->events[4].kind == GTSTopologyEventVersionRenumber && receipt->events[4].version_id == 3 &&
++    receipt->events[4].source_index == 2 && receipt->events[4].target_index == 1 && receipt->events[4].target_version_id == 2 &&
++    receipt->events[5].kind == GTSTopologyEventVersionRenumber && receipt->events[5].version_id == 4 &&
++    receipt->events[5].source_index == 3 && receipt->events[5].target_index == 2 && receipt->events[5].target_version_id == 3 &&
++    receipt->events[8].kind == GTSTopologyEventVersionRenumber && receipt->events[8].version_id == 5 &&
++    receipt->events[8].source_index == 3 && receipt->events[8].target_index == 1 && receipt->events[8].target_version_id == 3 &&
++    receipt->events[9].kind == GTSTopologyEventVersionRenumber && receipt->events[9].version_id == 6 &&
++    receipt->events[9].source_index == 4 && receipt->events[9].target_index == 3 && receipt->events[9].target_version_id == 5 &&
++    receipt->events[4].flags == GTSTopologyFlagTargetReplaced && receipt->events[5].flags == GTSTopologyFlagTargetReplaced &&
++    receipt->events[8].flags == GTSTopologyFlagTargetReplaced && receipt->events[9].flags == GTSTopologyFlagTargetReplaced &&
++    !receipt->truncated && !receipt->arithmetic_overflow && !receipt->identity_collision && !receipt->identity_incomplete;
++  gts_topology_finish_parse();
++  ts_stack_delete(stack);
++  ts_subtree_pool_delete(&pool);
++  gts_work_count_reset();
++  return passed;
++}
++
+ TSStateId ts_stack_state(const Stack *self, StackVersion version) {
+   return array_get(&self->heads, version)->node->state;
+ }
+@@ -521,7 +839,16 @@ forceinline StackAction pop_count_callback(void *payload, const StackIterator *i
  }
 
  StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count) {
@@ -498,23 +1045,106 @@ index f0d57108..ddf0425d 100644
  }
 
  forceinline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
-@@ -685,6 +877,7 @@ void ts_stack_swap_versions(Stack *self, StackVersion v1, StackVersion v2) {
+@@ -656,7 +983,28 @@ bool ts_stack_has_advanced_since_error(const Stack *self, StackVersion version) {
+   return false;
+ }
+
++static void ts_stack__record_version_shift(Stack *self, StackVersion source_index) {
++  if (gts_topology_generation() == 0) return;
++  ts_assert(source_index > 0 && source_index < self->heads.size);
++  StackHead *source_head = &self->heads.contents[source_index];
++  StackHead *target_head = &self->heads.contents[source_index - 1];
++  gts_topology_record((GTSTopologyEvent) {
++    .kind = GTSTopologyEventVersionRenumber,
++    .version_id = source_head->topology_id,
++    .version_index = source_index - 1,
++    .source_version_id = source_head->topology_id,
++    .source_index = source_index,
++    .target_version_id = target_head->topology_id,
++    .target_index = source_index - 1,
++    .node_id = stack_node_topology_id(source_head->node),
++    .flags = GTSTopologyFlagTargetReplaced,
++  });
++}
++
+ void ts_stack_remove_version(Stack *self, StackVersion version) {
++  for (StackVersion source = version + 1; source < self->heads.size; source++) {
++    ts_stack__record_version_shift(self, source);
++  }
+   stack_head_delete(array_get(&self->heads, version), &self->node_pool, self->subtree_pool);
+   array_erase(&self->heads, version);
+ }
+@@ -667,6 +1015,20 @@ void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
+   ts_assert((uint32_t)v1 < self->heads.size);
+   StackHead *source_head = &self->heads.contents[v1];
+   StackHead *target_head = &self->heads.contents[v2];
++  gts_topology_record((GTSTopologyEvent) {
++    .kind = GTSTopologyEventVersionRenumber,
++    .version_id = source_head->topology_id,
++    .version_index = v2,
++    .source_version_id = source_head->topology_id,
++    .source_index = v1,
++    .target_version_id = target_head->topology_id,
++    .target_index = v2,
++    .node_id = stack_node_topology_id(source_head->node),
++    .flags = GTSTopologyFlagTargetReplaced,
++  });
++  for (StackVersion source = v1 + 1; source < self->heads.size; source++) {
++    ts_stack__record_version_shift(self, source);
++  }
+   if (target_head->summary && !source_head->summary) {
+     source_head->summary = target_head->summary;
+     target_head->summary = NULL;
+@@ -685,17 +1047,46 @@ void ts_stack_swap_versions(Stack *self, StackVersion v1, StackVersion v2) {
  StackVersion ts_stack_copy_version(Stack *self, StackVersion version) {
    ts_assert(version < self->heads.size);
    array_push(&self->heads, self->heads.contents[version]);
 +  gts_work_count_add(&gts_work_count_current.stack_version_creations_proxy, 1);
    StackHead *head = array_back(&self->heads);
++  StackHead *source = &self->heads.contents[version];
++  StackVersion copy = self->heads.size - 1;
++  head->topology_generation = gts_topology_generation();
++  head->topology_id = gts_topology_next_version_id();
++  gts_topology_record((GTSTopologyEvent) {
++    .kind = GTSTopologyEventVersionCopy,
++    .version_id = head->topology_id,
++    .version_index = copy,
++    .source_version_id = source->topology_id,
++    .source_index = version,
++    .node_id = stack_node_topology_id(head->node),
++  });
    stack_node_retain(head->node);
    if (head->last_external_token.ptr) ts_subtree_retain(head->last_external_token);
-@@ -693,6 +886,7 @@ StackVersion ts_stack_copy_version(Stack *self, StackVersion version) {
+   head->summary = NULL;
+-  return self->heads.size - 1;
++  return copy;
  }
 
  bool ts_stack_merge(Stack *self, StackVersion version1, StackVersion version2) {
+-  if (!ts_stack_can_merge(self, version1, version2)) return false;
 +  gts_work_count_add(&gts_work_count_current.merge_attempts_proxy, 1);
-   if (!ts_stack_can_merge(self, version1, version2)) return false;
    StackHead *head1 = &self->heads.contents[version1];
    StackHead *head2 = &self->heads.contents[version2];
-@@ -703,6 +897,7 @@ bool ts_stack_merge(Stack *self, StackVersion version1, StackVersion version2) {
++  bool can_merge = ts_stack_can_merge(self, version1, version2);
++  gts_topology_record((GTSTopologyEvent) {
++    .kind = GTSTopologyEventMerge,
++    .version_id = head1->topology_id,
++    .version_index = version1,
++    .source_version_id = head1->topology_id,
++    .source_index = version1,
++    .target_version_id = head2->topology_id,
++    .target_index = version2,
++    .survivor_version_id = head1->topology_id,
++    .removed_version_id = head2->topology_id,
++    .node_id = stack_node_topology_id(head1->node),
++    .predecessor_node_id = stack_node_topology_id(head2->node),
++    .flags = can_merge ? GTSTopologyFlagSuccessOrSelected : 0,
++  });
++  if (!can_merge) return false;
+   for (uint32_t i = 0; i < head2->node->link_count; i++) {
+     stack_node_add_link(head1->node, head2->node->links[i], self->subtree_pool);
+   }
+@@ -703,6 +1094,7 @@ bool ts_stack_merge(Stack *self, StackVersion version1, StackVersion version2) {
      head1->node_count_at_last_error = head1->node->node_count;
    }
    ts_stack_remove_version(self, version2);
@@ -522,7 +1152,7 @@ index f0d57108..ddf0425d 100644
    return true;
  }
 
-@@ -762,6 +957,7 @@ void ts_stack_clear(Stack *self) {
+@@ -762,6 +1154,7 @@ void ts_stack_clear(Stack *self) {
      .last_external_token = NULL_SUBTREE,
      .lookahead_when_paused = NULL_SUBTREE,
    }));
@@ -530,8 +1160,23 @@ index f0d57108..ddf0425d 100644
  }
 
  bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) {
+diff --git a/lib/src/stack.h b/lib/src/stack.h
+index ac32234..190f3ac 100644
+--- a/lib/src/stack.h
++++ b/lib/src/stack.h
+@@ -36,6 +36,10 @@ void ts_stack_delete(Stack *self);
+ // Get the stack's current number of versions.
+ uint32_t ts_stack_version_count(const Stack *self);
+
++void ts_stack_topology_begin(Stack *self);
++
++uint64_t ts_stack_topology_version_id(const Stack *self, StackVersion version);
++
+ // Get the state at the top of the given version of the stack. If the stack is
+ // empty, this returns the initial state, 0.
+ TSStateId ts_stack_state(const Stack *self, StackVersion version);
 diff --git a/lib/src/subtree.c b/lib/src/subtree.c
-index 42794de7..c814693e 100644
+index 42794de..c814693 100644
 --- a/lib/src/subtree.c
 +++ b/lib/src/subtree.c
 @@ -10,6 +10,7 @@
@@ -560,15 +1205,102 @@ index 42794de7..c814693e 100644
 
 diff --git a/lib/src/work_count.h b/lib/src/work_count.h
 new file mode 100644
-index 00000000..5e09ba6c
+index 0000000..e41e849
 --- /dev/null
 +++ b/lib/src/work_count.h
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,172 @@
 +#ifndef TREE_SITTER_WORK_COUNT_H_
 +#define TREE_SITTER_WORK_COUNT_H_
 +
 +#include <stdbool.h>
 +#include <stdint.h>
++
++#define GTS_TOPOLOGY_EVENT_CAPACITY 4096u
++
++typedef enum {
++  GTSTopologyEventAction = 1,
++  GTSTopologyEventVersionAdd = 2,
++  GTSTopologyEventVersionCopy = 3,
++  GTSTopologyEventVersionRenumber = 4,
++  GTSTopologyEventMerge = 5,
++  GTSTopologyEventLinkInsert = 6,
++  GTSTopologyEventPopPath = 7,
++  GTSTopologyEventChildElection = 8,
++  GTSTopologyEventAcceptElection = 9,
++} GTSTopologyEventKind;
++
++enum {
++  GTSTopologyFlagSuccessOrSelected = 1u << 0,
++  GTSTopologyFlagPrimaryLink = 1u << 1,
++  GTSTopologyFlagInitialVersion = 1u << 2,
++  GTSTopologyFlagTargetReplaced = 1u << 3,
++  GTSTopologyFlagNoIncumbent = 1u << 4,
++  GTSTopologyFlagActionContextKnown = 1u << 5,
++};
++
++enum {
++  GTSTopologyActionShift = 0,
++  GTSTopologyActionReduce = 1,
++  GTSTopologyActionAccept = 2,
++  GTSTopologyActionRecover = 3,
++  GTSTopologyActionUnknown = 255,
++};
++
++typedef struct {
++  uint64_t event_id;
++  uint64_t kind;
++  uint64_t action_id;
++  int64_t action_ordinal;
++  uint64_t action_type;
++  uint64_t state;
++  uint64_t lookahead_symbol;
++  uint64_t byte_offset;
++  uint64_t version_id;
++  uint64_t version_index;
++  uint64_t source_version_id;
++  uint64_t source_index;
++  uint64_t target_version_id;
++  uint64_t target_index;
++  uint64_t survivor_version_id;
++  uint64_t removed_version_id;
++  uint64_t node_id;
++  uint64_t predecessor_node_id;
++  uint64_t link_id;
++  uint64_t link_ordinal;
++  uint64_t pop_id;
++  uint64_t path_ordinal;
++  uint64_t pop_to_node_id;
++  uint64_t election_id;
++  uint64_t incumbent_id;
++  uint64_t candidate_id;
++  uint64_t selected_id;
++  uint64_t payload_count;
++  uint64_t flags;
++} GTSTopologyEvent;
++
++typedef struct {
++  bool enabled;
++  bool truncated;
++  bool arithmetic_overflow;
++  bool identity_collision;
++  bool identity_incomplete;
++  uint32_t events_retained;
++  uint64_t generation;
++  uint64_t events_seen;
++  uint64_t events_dropped;
++  uint64_t next_action_id;
++  uint64_t next_version_id;
++  uint64_t next_node_id;
++  uint64_t next_link_id;
++  uint64_t next_pop_id;
++  uint64_t next_election_id;
++  uint64_t next_candidate_id;
++  uint64_t current_action_id;
++  int64_t current_action_ordinal;
++  uint64_t current_action_type;
++  uint64_t finished_candidate_id;
++  GTSTopologyEvent events[GTS_TOPOLOGY_EVENT_CAPACITY];
++} GTSTopologyReceipt;
 +
 +typedef struct {
 +  bool overflow;
@@ -614,12 +1346,29 @@ index 00000000..5e09ba6c
 +} GTSWorkCount;
 +
 +extern _Thread_local GTSWorkCount gts_work_count_current;
++extern _Thread_local GTSTopologyReceipt gts_topology_current;
 +
 +void gts_work_count_reset(void);
 +GTSWorkCount gts_work_count_snapshot(void);
 +bool gts_work_count_validate_action_model(void);
 +bool gts_work_count_validate_link_union_model(void);
 +bool gts_work_count_validate_raw_census_model(void);
++bool gts_topology_validate_model(void);
++bool gts_topology_validate_stack_model(void);
++void gts_topology_enable(bool enabled);
++void gts_topology_finish_parse(void);
++const GTSTopologyReceipt *gts_topology_snapshot(void);
++uint64_t gts_topology_next_action_id(void);
++uint64_t gts_topology_next_version_id(void);
++uint64_t gts_topology_next_node_id(void);
++uint64_t gts_topology_next_link_id(void);
++uint64_t gts_topology_next_pop_id(void);
++uint64_t gts_topology_next_election_id(void);
++uint64_t gts_topology_next_candidate_id(void);
++uint64_t gts_topology_generation(void);
++void gts_topology_action_begin(uint64_t action_id, int64_t ordinal, uint64_t type);
++void gts_topology_action_end(void);
++void gts_topology_record(GTSTopologyEvent event);
 +
 +static inline void gts_work_count_add(uint64_t *slot, uint64_t delta) {
 +  if (!slot || delta == 0) return;

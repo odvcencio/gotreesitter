@@ -5,6 +5,7 @@ package gotreesitter_test
 import (
 	"crypto/sha256"
 	"fmt"
+	"sync"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -12,6 +13,81 @@ import (
 )
 
 const erlangIssue984Source = "000\"0A!A \"A\"=0:A0!)A\"0%0000"
+
+type diagnosticTopologyCapture struct {
+	sexpr  string
+	digest string
+	events uint64
+}
+
+func captureErlangTopology(source string) (diagnosticTopologyCapture, error) {
+	parser := gts.NewParser(grammars.ErlangLanguage())
+	parser.SetAdmissionCandidateRoute(false)
+	gts.BeginDiagnosticTopologyReceipt()
+	tree, parseErr := parser.Parse([]byte(source))
+	receipt := gts.EndDiagnosticTopologyReceipt()
+	if parseErr != nil {
+		return diagnosticTopologyCapture{}, parseErr
+	}
+	if tree == nil || tree.RootNode() == nil {
+		if tree != nil {
+			tree.Release()
+		}
+		return diagnosticTopologyCapture{}, fmt.Errorf("parse returned no root")
+	}
+	defer tree.Release()
+	if !receipt.Complete() {
+		return diagnosticTopologyCapture{}, fmt.Errorf("receipt is incomplete: %+v", receipt)
+	}
+	return diagnosticTopologyCapture{
+		sexpr:  tree.RootNode().SExpr(grammars.ErlangLanguage()),
+		digest: receipt.SHA256(),
+		events: receipt.EventsSeen,
+	}, nil
+}
+
+func TestDiagnosticTopologyReceiptSerializesConcurrentOwners(t *testing.T) {
+	sources := [...]string{erlangIssue984Source, "f() -> ."}
+	var want [len(sources)]diagnosticTopologyCapture
+	for i := range sources {
+		capture, err := captureErlangTopology(sources[i])
+		if err != nil {
+			t.Fatalf("capture baseline %d: %v", i, err)
+		}
+		want[i] = capture
+	}
+
+	const workerCount = 8
+	type result struct {
+		worker  int
+		capture diagnosticTopologyCapture
+		err     error
+	}
+	start := make(chan struct{})
+	results := make(chan result, workerCount)
+	var workers sync.WaitGroup
+	workers.Add(workerCount)
+	for worker := 0; worker < workerCount; worker++ {
+		go func(worker int) {
+			defer workers.Done()
+			<-start
+			capture, err := captureErlangTopology(sources[worker%len(sources)])
+			results <- result{worker: worker, capture: capture, err: err}
+		}(worker)
+	}
+	close(start)
+	workers.Wait()
+	close(results)
+	for got := range results {
+		if got.err != nil {
+			t.Errorf("worker %d: %v", got.worker, got.err)
+			continue
+		}
+		if expected := want[got.worker%len(sources)]; got.capture != expected {
+			t.Errorf("worker %d capture = %+v, want %+v", got.worker, got.capture, expected)
+		}
+	}
+}
 
 func captureErlangIssue984Topology(t *testing.T) (string, gts.DiagnosticTopologyReceipt) {
 	t.Helper()
@@ -81,13 +157,19 @@ func assertDiagnosticTopologyEventInvariants(t *testing.T, receipt gts.Diagnosti
 			if event.VersionID != nextVersionID || event.NodeID == 0 {
 				t.Fatalf("version event %d has ID/node %d/%d, want ID %d", event.EventID, event.VersionID, event.NodeID, nextVersionID)
 			}
+			if event.Kind == gts.DiagnosticTopologyEventVersionCopy && event.SourceVersionID == 0 {
+				t.Fatalf("version copy event %d has no source: %+v", event.EventID, event)
+			}
 			nextVersionID++
 		case gts.DiagnosticTopologyEventVersionRenumber:
-			if event.VersionID == 0 || event.SourceVersionID != event.VersionID || event.TargetVersionID == 0 || event.Flags&gts.DiagnosticTopologyFlagTargetReplaced == 0 {
+			if event.VersionID == 0 || event.SourceVersionID != event.VersionID || event.TargetVersionID == 0 ||
+				event.VersionIndex != event.TargetIndex || event.SourceIndex <= event.TargetIndex || event.NodeID == 0 ||
+				event.Flags&gts.DiagnosticTopologyFlagTargetReplaced == 0 {
 				t.Fatalf("invalid renumber event %d: %+v", event.EventID, event)
 			}
 		case gts.DiagnosticTopologyEventMerge:
-			if event.SurvivorVersionID == 0 || event.RemovedVersionID == 0 || event.SurvivorVersionID != event.SourceVersionID || event.RemovedVersionID != event.TargetVersionID {
+			if event.SurvivorVersionID == 0 || event.RemovedVersionID == 0 || event.SurvivorVersionID != event.SourceVersionID ||
+				event.RemovedVersionID != event.TargetVersionID || event.SourceIndex >= event.TargetIndex {
 				t.Fatalf("invalid merge event %d: %+v", event.EventID, event)
 			}
 		case gts.DiagnosticTopologyEventLinkInsert:
@@ -138,7 +220,7 @@ func TestDiagnosticTopologyReceiptErlangIssue984(t *testing.T) {
 	type actionSliceEntry struct {
 		state, actionType uint64
 		ordinal           int64
-		branch            uint64
+		versionIndex      uint64
 	}
 	var state320Slice []actionSliceEntry
 	state320Started := false
@@ -157,7 +239,7 @@ func TestDiagnosticTopologyReceiptErlangIssue984(t *testing.T) {
 			anchors[[4]uint64{event.State, event.LookaheadSymbol, event.ByteOffset, uint64(event.ActionOrdinal)}] = true
 			if (event.State == 320 && event.LookaheadSymbol == 130 && event.ByteOffset == 10) ||
 				(event.State == 274 && event.LookaheadSymbol == 133 && event.ByteOffset == 11) {
-				t.Logf("anchor event=%d state=%d lookahead=%d byte=%d ordinal=%d version=%d branch=%d", event.EventID, event.State, event.LookaheadSymbol, event.ByteOffset, event.ActionOrdinal, event.VersionID, event.VersionIndex)
+				t.Logf("anchor event=%d state=%d lookahead=%d byte=%d ordinal=%d version=%d index=%d", event.EventID, event.State, event.LookaheadSymbol, event.ByteOffset, event.ActionOrdinal, event.VersionID, event.VersionIndex)
 			}
 		}
 		if event.Kind == gts.DiagnosticTopologyEventAcceptElection {
@@ -195,6 +277,7 @@ func TestDiagnosticTopologyReceiptErlangIssue984(t *testing.T) {
 		gts.DiagnosticTopologyEventAction,
 		gts.DiagnosticTopologyEventVersionAdd,
 		gts.DiagnosticTopologyEventVersionCopy,
+		gts.DiagnosticTopologyEventVersionRenumber,
 		gts.DiagnosticTopologyEventMerge,
 		gts.DiagnosticTopologyEventLinkInsert,
 		gts.DiagnosticTopologyEventPopPath,
@@ -218,13 +301,13 @@ func TestDiagnosticTopologyReceiptErlangIssue984(t *testing.T) {
 		}
 	}
 	last := acceptEvents[len(acceptEvents)-1]
-	if acceptEvents[0].VersionIndex != 1 || last.SelectedID != acceptEvents[0].CandidateID || last.Flags&gts.DiagnosticTopologyFlagSuccessOrSelected != 0 {
-		t.Fatalf("final production selection = %+v, want first branch 1 candidate %d to remain selected", last, acceptEvents[0].CandidateID)
-	}
-	if receipt.EventsSeen != 386 || receipt.SHA256() != "afd1958220f13ad6aae1a91595576518e61c7ea0b3e86e6fe271bb3291c2158e" {
-		t.Fatalf("canonical receipt = %d/%s", receipt.EventsSeen, receipt.SHA256())
+	if acceptEvents[0].VersionIndex != 0 || last.SelectedID != acceptEvents[0].CandidateID || last.Flags&gts.DiagnosticTopologyFlagSuccessOrSelected != 0 {
+		t.Fatalf("final production selection = %+v, want physical slot 0 candidate %d to remain selected; elections=%+v", last, acceptEvents[0].CandidateID, acceptEvents)
 	}
 	t.Logf("receipt sha256=%s events=%d kinds=%v selected_candidate=%d", receipt.SHA256(), receipt.EventsSeen, counts, last.SelectedID)
+	if receipt.EventsSeen != 399 || receipt.SHA256() != "492192644602d6cc85bee6fe05301e6a9067088f8c24125dda470edb896b45a2" {
+		t.Fatalf("canonical receipt = %d/%s", receipt.EventsSeen, receipt.SHA256())
+	}
 
 	secondSExpr, second := captureErlangIssue984Topology(t)
 	if secondSExpr != sexpr || second.SHA256() != receipt.SHA256() {

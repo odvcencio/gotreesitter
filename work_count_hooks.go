@@ -93,6 +93,14 @@ func workCountTopologyRecordLinkInsert(*gssNode, *gssNode, int, bool)           
 func workCountTopologyRecordPopPath(*glrStack, []stackEntry, *gssNode, uint64)      {}
 func workCountTopologyRecordChildElection(*glrStack, reduceFork, reduceFork, int)   {}
 func workCountTopologyRecordMerge(*glrStack, *glrStack, bool)                       {}
+func workCountTopologyRetireVersion(*glrStack)                                      {}
+func workCountTopologyRetireVersionIfActive(*glrStack)                              {}
+func workCountTopologyRetireVersionsIfActive([]glrStack)                            {}
+func workCountTopologyRetireUnpublishedVersions([]glrStack, []glrStack)             {}
+func workCountTopologyRenumberVersion(*glrStack, *glrStack)                         {}
+func workCountTopologyRetireMissingVersions([]glrStack, []glrStack)                 {}
+func workCountTopologyReconcileVersionSelection([]glrStack, []glrStack)             {}
+func workCountTopologySyncVersionOrder([]glrStack)                                  {}
 func workCountTryPostReduceMergeObserved(p *Parser, _ string, _ string, target, candidate *glrStack) bool {
 	return tryMergePostReduceFork(p, target, candidate)
 }
