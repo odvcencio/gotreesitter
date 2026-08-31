@@ -235,6 +235,228 @@ func TestFaithfulForkReduceFromPackedGSSHeadEnumeratesReducedParents(t *testing.
 	}
 }
 
+func TestCWaveReduceWindowsFromGSSUsesPhysicalIteratorWaveOrder(t *testing.T) {
+	entry := func(state StateID, symbol Symbol) stackEntry {
+		return newStackEntryNode(state, &Node{symbol: symbol, flags: nodeFlagNamed})
+	}
+	base := func(state StateID) *gssNode {
+		return &gssNode{entry: stackEntry{state: state}, depth: 1}
+	}
+
+	baseA0 := base(100)
+	baseA1 := base(101)
+	baseB0 := base(200)
+	baseB1 := base(201)
+	leftA := gssNodeWithExtraLinks(gssNode{
+		entry: entry(10, 10),
+		prev:  baseA0,
+		depth: 2,
+	}, gssMainLink{prev: baseA1, entry: entry(11, 11)})
+	leftB := gssNodeWithExtraLinks(gssNode{
+		entry: entry(20, 20),
+		prev:  baseB0,
+		depth: 2,
+	}, gssMainLink{prev: baseB1, entry: entry(21, 21)})
+	head := gssNodeWithExtraLinks(gssNode{
+		entry: entry(30, 30),
+		prev:  leftA,
+		depth: 3,
+	}, gssMainLink{prev: leftB, entry: entry(31, 31)})
+
+	forks := cWaveReduceWindowsFromGSS(&glrStack{gss: gssStack{head: head}}, 2)
+	if len(forks) != 4 {
+		t.Fatalf("C-wave windows = %d, want 4", len(forks))
+	}
+	wantSymbols := [][2]Symbol{{10, 30}, {20, 31}, {11, 30}, {21, 31}}
+	wantStates := []StateID{100, 200, 101, 201}
+	for i, fork := range forks {
+		if len(fork.window) != 2 {
+			t.Fatalf("window %d length = %d, want 2", i, len(fork.window))
+		}
+		gotSymbols := [2]Symbol{
+			stackEntryNodeSymbol(fork.window[0]),
+			stackEntryNodeSymbol(fork.window[1]),
+		}
+		if gotSymbols != wantSymbols[i] || fork.topState != wantStates[i] {
+			t.Fatalf("window %d = symbols:%v state:%d, want symbols:%v state:%d", i, gotSymbols, fork.topState, wantSymbols[i], wantStates[i])
+		}
+	}
+}
+
+func TestCWaveReduceWindowsFromGSSGroupsRepeatedPopTargetsLikeStackSlices(t *testing.T) {
+	entry := func(state StateID, symbol Symbol) stackEntry {
+		return newStackEntryNode(state, &Node{symbol: symbol, flags: nodeFlagNamed})
+	}
+	base := func(state StateID) *gssNode {
+		return &gssNode{entry: stackEntry{state: state}, depth: 1}
+	}
+
+	sharedBase := base(100)
+	baseB0 := base(200)
+	baseB1 := base(201)
+	leftA := gssNodeWithExtraLinks(gssNode{
+		entry: entry(10, 10),
+		prev:  sharedBase,
+		depth: 2,
+	}, gssMainLink{prev: sharedBase, entry: entry(11, 11)})
+	leftB := gssNodeWithExtraLinks(gssNode{
+		entry: entry(20, 20),
+		prev:  baseB0,
+		depth: 2,
+	}, gssMainLink{prev: baseB1, entry: entry(21, 21)})
+	head := gssNodeWithExtraLinks(gssNode{
+		entry: entry(30, 30),
+		prev:  leftA,
+		depth: 3,
+	}, gssMainLink{prev: leftB, entry: entry(31, 31)})
+
+	forks := cWaveReduceWindowsFromGSS(&glrStack{gss: gssStack{head: head}}, 2)
+	wantSymbols := [][2]Symbol{{10, 30}, {11, 30}, {20, 31}, {21, 31}}
+	wantTargets := []*gssNode{sharedBase, sharedBase, baseB0, baseB1}
+	if len(forks) != len(wantSymbols) {
+		t.Fatalf("C-wave windows = %d, want %d", len(forks), len(wantSymbols))
+	}
+	for i, fork := range forks {
+		gotSymbols := [2]Symbol{
+			stackEntryNodeSymbol(fork.window[0]),
+			stackEntryNodeSymbol(fork.window[1]),
+		}
+		if gotSymbols != wantSymbols[i] || fork.popTo != wantTargets[i] {
+			t.Fatalf("window %d = symbols:%v target:%p, want symbols:%v target:%p", i, gotSymbols, fork.popTo, wantSymbols[i], wantTargets[i])
+		}
+	}
+}
+
+func TestCWaveReduceWindowsFromGSSStableRemovalPreservesLaterWaveOrder(t *testing.T) {
+	entry := func(state StateID, symbol Symbol, extra bool) stackEntry {
+		node := &Node{symbol: symbol, flags: nodeFlagNamed}
+		node.setExtra(extra)
+		return newStackEntryNode(state, node)
+	}
+	base := func(state StateID) *gssNode {
+		return &gssNode{entry: stackEntry{state: state}, depth: 1}
+	}
+	base0 := base(100)
+	baseA0 := base(200)
+	baseA1 := base(201)
+	baseB0 := base(300)
+	baseB1 := base(301)
+	branchA := gssNodeWithExtraLinks(gssNode{
+		entry: entry(20, 20, false),
+		prev:  baseA0,
+		depth: 2,
+	}, gssMainLink{prev: baseA1, entry: entry(21, 21, false)})
+	branchB := gssNodeWithExtraLinks(gssNode{
+		entry: entry(30, 30, false),
+		prev:  baseB0,
+		depth: 2,
+	}, gssMainLink{prev: baseB1, entry: entry(31, 31, false)})
+	head := gssNodeWithExtraLinks(gssNode{
+		entry: entry(10, 10, false),
+		prev:  base0,
+		depth: 3,
+	},
+		gssMainLink{prev: branchA, entry: entry(11, 11, true)},
+		gssMainLink{prev: branchB, entry: entry(12, 12, true)},
+	)
+
+	forks := cWaveReduceWindowsFromGSS(&glrStack{gss: gssStack{head: head}}, 1)
+	wantSymbols := [][]Symbol{{10}, {20, 11}, {30, 12}, {21, 11}, {31, 12}}
+	wantStates := []StateID{100, 200, 300, 201, 301}
+	if len(forks) != len(wantSymbols) {
+		t.Fatalf("C-wave windows = %d, want %d", len(forks), len(wantSymbols))
+	}
+	for i, fork := range forks {
+		if len(fork.window) != len(wantSymbols[i]) {
+			t.Fatalf("window %d length = %d, want %d", i, len(fork.window), len(wantSymbols[i]))
+		}
+		for j, want := range wantSymbols[i] {
+			if got := stackEntryNodeSymbol(fork.window[j]); got != want {
+				t.Fatalf("window %d symbol %d = %d, want %d", i, j, got, want)
+			}
+		}
+		if fork.topState != wantStates[i] {
+			t.Fatalf("window %d top state = %d, want %d", i, fork.topState, wantStates[i])
+		}
+	}
+}
+
+func TestCWaveReduceWindowsFromGSSCapsLiveIteratorsAtCMaximum(t *testing.T) {
+	entry := func(state StateID, symbol Symbol) stackEntry {
+		return newStackEntryNode(state, &Node{symbol: symbol, flags: nodeFlagNamed})
+	}
+	base := &gssNode{entry: stackEntry{state: 7}, depth: 1}
+	lowest := &gssNode{entry: entry(10, 1), prev: base, depth: 2}
+	for i := 1; i < maxMainLinkCount; i++ {
+		lowest.appendExtraLink(gssMainLink{prev: base, entry: entry(StateID(10+i), Symbol(1+i))})
+	}
+	middle := &gssNode{entry: entry(30, 20), prev: lowest, depth: 3}
+	for i := 1; i < maxMainLinkCount; i++ {
+		middle.appendExtraLink(gssMainLink{prev: lowest, entry: entry(StateID(30+i), Symbol(20+i))})
+	}
+	head := &gssNode{entry: entry(50, 40), prev: middle, depth: 4}
+	for i := 1; i < maxMainLinkCount; i++ {
+		head.appendExtraLink(gssMainLink{prev: middle, entry: entry(StateID(50+i), Symbol(40+i))})
+	}
+
+	forks := cWaveReduceWindowsFromGSS(&glrStack{gss: gssStack{head: head}}, 3)
+	if len(forks) != cStackMaxIteratorCount {
+		t.Fatalf("C-wave windows = %d, want iterator cap %d", len(forks), cStackMaxIteratorCount)
+	}
+	mainWindowCount := maxMainLinkCount * maxMainLinkCount
+	for i, fork := range forks {
+		if len(fork.window) != 3 {
+			t.Fatalf("window %d length = %d, want 3", i, len(fork.window))
+		}
+		wantLowest := Symbol(1)
+		if i >= mainWindowCount {
+			wantLowest = Symbol(2 + (i-mainWindowCount)%(maxMainLinkCount-1))
+		}
+		if got := stackEntryNodeSymbol(fork.window[0]); got != wantLowest {
+			t.Fatalf("window %d lowest-link symbol = %d, want %d from C cap order", i, got, wantLowest)
+		}
+		if fork.popTo != base || fork.topState != 7 {
+			t.Fatalf("window %d pop target = %p state=%d, want %p state=7", i, fork.popTo, fork.topState, base)
+		}
+	}
+}
+
+func TestCWaveReduceWindowsFromGSSZeroCountReturnsTheCurrentHead(t *testing.T) {
+	head := &gssNode{entry: stackEntry{state: 9}, depth: 1}
+	forks := cWaveReduceWindowsFromGSS(&glrStack{gss: gssStack{head: head}}, 0)
+	if len(forks) != 1 || len(forks[0].window) != 0 || forks[0].popTo != head || forks[0].topState != 9 {
+		t.Fatalf("zero-count C-wave windows = %+v, want one empty window at the current head", forks)
+	}
+}
+
+func TestCWaveReduceWindowsFromGSSCountsInternalNullSubtreeButNotBase(t *testing.T) {
+	base := &gssNode{entry: stackEntry{state: 1}, depth: 1}
+	stateOnly := &gssNode{
+		entry: stackEntry{state: 2},
+		prev:  base,
+		depth: 2,
+	}
+	head := &gssNode{
+		entry: newStackEntryNode(3, &Node{symbol: 7, flags: nodeFlagNamed}),
+		prev:  stateOnly,
+		depth: 3,
+	}
+
+	forks := cWaveReduceWindowsFromGSS(&glrStack{gss: gssStack{head: head}}, 2)
+	if len(forks) != 1 {
+		t.Fatalf("C-wave windows = %d, want 1", len(forks))
+	}
+	if len(forks[0].window) != 2 || stackEntryHasNode(forks[0].window[0]) || stackEntryNodeSymbol(forks[0].window[1]) != 7 {
+		t.Fatalf("C-wave window = %+v, want internal null subtree then symbol 7", forks[0].window)
+	}
+	if forks[0].popTo != base || forks[0].topState != 1 {
+		t.Fatalf("C-wave pop target = %p state=%d, want %p state=1", forks[0].popTo, forks[0].topState, base)
+	}
+	if got := cWaveReduceWindowsFromGSS(&glrStack{gss: gssStack{head: base}}, 1); len(got) != 0 {
+		t.Fatalf("linkless base produced %d windows, want 0", len(got))
+	}
+}
+
 func TestFaithfulGSSMergeRecursesPredecessorLinksAndReduceSelectsConstructedParent(t *testing.T) {
 	old := glrFaithfulCapOneMerge
 	glrFaithfulCapOneMerge = true
