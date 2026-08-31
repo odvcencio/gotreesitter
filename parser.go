@@ -79,10 +79,10 @@ type Parser struct {
 	// mirroring C tree-sitter's live action_count/version_count checks
 	// rather than a whole-parse latch.
 	//
-	// reduceMultiVersion mirrors C's "ts_stack_version_count > 1": set once
-	// per token-dispatch pass, before the per-stack loop, to numStacks > 1
-	// (see parseInternal). It stays constant for every stack dispatched
-	// against the current token.
+	// reduceMultiVersion mirrors C's "ts_stack_version_count > 1". The ordinary
+	// path sets it once per token-dispatch pass. The packed-version transaction
+	// path recomputes it before each same-round retry because that path can add
+	// and promote physical versions while it scans one action cell.
 	reduceMultiVersion bool
 	// reduceActionConflict mirrors C's "action_count > 1": true only while
 	// the "if len(actions) > 1" conflict-dispatch block (parseInternal) is
@@ -4534,6 +4534,22 @@ func incrementalOldTreeMayCarryErrorCost(reuse *reuseCursor, oldTree *Tree) bool
 	return oldTree.root.hasError()
 }
 
+func compactPackedGSSActionCellRequiresTransaction(actions []ParseAction) bool {
+	if len(actions) > 1 {
+		return true
+	}
+	return len(actions) == 1 &&
+		(actions[0].Type == ParseActionReduce ||
+			(actions[0].Type == ParseActionShift && actions[0].Repetition))
+}
+
+func compactPackedGSSDispatchVersionCount(certified bool, roundVersionCount, currentVersionCount int) int {
+	if certified {
+		return currentVersionCount
+	}
+	return roundVersionCount
+}
+
 // parseInternal is the core GLR parsing loop shared by Parse and
 // ParseWithTokenSource.
 //
@@ -5859,7 +5875,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// never handed a token it cannot use.
 		stackRelexRestoreTok := Token{}
 		stackRelexActive := false
-		for si := 0; si < numStacks; si++ {
+		packedVersionOrder := p.language != nil && p.language.CompactPackedGSSVersionOrderCertified
+		for si := 0; si < numStacks || (packedVersionOrder && si < len(stacks)); si++ {
 			s := &stacks[si]
 			if stackRelexActive {
 				tok = stackRelexRestoreTok
@@ -5910,7 +5927,16 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			}
 			currentState := s.top().state
 			noteStopDiagnosticStack(s)
+			packedVersionReductionSteps := 0
 		retryAction:
+			if packedVersionOrder {
+				// A transaction can append reduction versions and then remove its
+				// promoted source before this retry. Recompute both live C signals;
+				// do not carry the prior action cell's conflict state forward.
+				p.reduceMultiVersion = len(stacks) > 1
+				p.reduceActionConflict = false
+			}
+			dispatchVersionCount := compactPackedGSSDispatchVersionCount(packedVersionOrder, numStacks, len(stacks))
 			actionStart := time.Time{}
 			if phaseTiming {
 				actionStart = time.Now()
@@ -5926,7 +5952,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if phaseTiming {
 				actionLookupNanos += time.Since(actionStart).Nanoseconds()
 			}
-			if keywordSym, ok := p.typeScriptContextualPropertyKeywordSymbol(tok, source); ok && parseStacksShareState(stacks[:numStacks], currentState) {
+			if keywordSym, ok := p.typeScriptContextualPropertyKeywordSymbol(tok, source); ok && parseStacksShareState(stacks[:dispatchVersionCount], currentState) {
 				if p.typeScriptContextualPropertyKeywordHasAction(keywordSym, currentState) {
 					tok.Symbol = keywordSym
 					workCountRefreshConvergenceLookahead(tok)
@@ -5936,14 +5962,85 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			}
 			p.traceStackActions(si, currentState, tok.Symbol, actions)
 			if p.ambiguityProfile != nil {
-				p.ambiguityProfile.record(currentState, tok.Symbol, actions, numStacks)
+				p.ambiguityProfile.record(currentState, tok.Symbol, actions, dispatchVersionCount)
+			}
+			if packedVersionOrder && compactPackedGSSActionCellRequiresTransaction(actions) {
+				p.reduceActionConflict = len(actions) > 1
+				if len(actions) > 1 {
+					scratch.gss.everForked = true
+				}
+				s.ensureGSS(&scratch.gss)
+				var lastReductionVersion int
+				var terminalOrdinal int
+				var reason ParseStopReason
+				stacks, lastReductionVersion, terminalOrdinal, reason = p.cAppendActionCellReductionVersions(
+					source, stacks, si, actions, tok, &nodeCount, arena,
+					&scratch.entries, &scratch.gss, &scratch.tmpEntries, trackChildErrors, &anyReduced,
+				)
+				if reason != ParseStopNone {
+					return finalize(stacks, reason)
+				}
+				p.reduceMultiVersion = len(stacks) > 1
+				s = &stacks[si]
+				if terminalOrdinal >= 0 {
+					terminal := actions[terminalOrdinal]
+					if terminal.Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
+						continue
+					}
+					if terminal.Type == ParseActionRecover && !p.guardRealTokenAttachmentGap(source, s, tok, "packed-version-recover") {
+						continue
+					}
+					traceVisit(si, s, "packed-version-terminal", terminalOrdinal, len(actions), terminal)
+					setPendingTrace("packed-version-terminal", si, terminalOrdinal, len(actions), terminal)
+					p.noteStopActionDiagnostic("packed-version-terminal", s, tok, terminal, terminalOrdinal, len(actions), false, 0, 0, false)
+					p.applyAction(source, s, terminal, tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
+					p.noteStopActionResult(s)
+					traceAfterPrimary(si, s)
+					if terminal.Type == ParseActionShift || terminal.Type == ParseActionRecover {
+						consumeCurrentToken(s)
+					}
+					continue
+				}
+				if lastReductionVersion >= 0 {
+					var renumbered bool
+					stacks, renumbered = cRenumberReductionVersion(stacks, lastReductionVersion, si)
+					if !renumbered {
+						return finalize(stacks, ParseStopInvariantViolation)
+					}
+					packedVersionReductionSteps++
+					if packedVersionReductionSteps > maxConsecutivePrimaryReduces {
+						return finalize(stacks, ParseStopIterationLimit)
+					}
+					s = &stacks[si]
+					currentState = s.top().state
+					if tok.NoLookahead {
+						// C sets needs_lex after it promotes a reduction made at
+						// the end of a nonterminal extra. Do not dispatch the EOF
+						// table again against the promoted state.
+						needToken = true
+						continue
+					}
+					needToken = false
+					goto retryAction
+				}
+				if tok.NoLookahead {
+					// C halts a nonterminal-extra version whose fixed reduction
+					// produced no surviving physical version.
+					s.dead = true
+					continue
+				}
+				// A real lookahead remains invalid on the unchanged source slot.
+				// Continue through the ordinary no-action path so keyword repair,
+				// re-lexing, and recovery retain their existing ownership.
+				p.reduceActionConflict = false
+				actions = nil
 			}
 			if len(actions) > 0 && actions[0].Type == ParseActionShift && actions[0].Extra {
 				actionKindStart := time.Time{}
 				if actionTiming != nil {
 					actionKindStart = time.Now()
 				}
-				if numStacks == 1 && p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
+				if dispatchVersionCount == 1 && p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
 					anyReduced = true
 					needToken = false
 					goto retryAction
@@ -6581,7 +6678,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			} else {
 				switch act.Type {
 				case ParseActionShift:
-					if numStacks == 1 && p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
+					if dispatchVersionCount == 1 && p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
 						anyReduced = true
 						needToken = false
 						goto retryAction
@@ -6612,7 +6709,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						recordActionTiming(currentState, tok.Symbol, actions, ambiguityActionSingleAccept, ns)
 					}
 				case ParseActionRecover:
-					if numStacks == 1 && p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
+					if dispatchVersionCount == 1 && p.tryMaterializeSkippedRealGap(source, s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors) {
 						anyReduced = true
 						needToken = false
 						goto retryAction
@@ -6664,7 +6761,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			return finalize(stacks, reason)
 		}
 
-		if numStacks > 1 && retryPass && allParseStacksDead(stacks) {
+		postDispatchVersionCount := compactPackedGSSDispatchVersionCount(packedVersionOrder, numStacks, len(stacks))
+		if postDispatchVersionCount > 1 && retryPass && allParseStacksDead(stacks) {
 			bestIdx := bestRetryRecoveryStack(stacks)
 			stacks[bestIdx].dead = false
 			stacks[0] = stacks[bestIdx]
@@ -7003,7 +7101,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				noTokenProgressHaveLast = true
 			}
 			if consecutiveNoTokenDispatches > maxConsecutiveNoTokenDispatches {
-				stopDiagFrontier = p.buildStopFrontierDiagnostics(stacks, tok, numStacks, dispatchTrace)
+				stopDiagFrontier = p.buildStopFrontierDiagnostics(stacks, tok, postDispatchVersionCount, dispatchTrace)
 				if progress.enabled {
 					extra := fmt.Sprintf("count=%d cap=%d any_reduced=%t consumed_token=%t", consecutiveNoTokenDispatches, maxConsecutiveNoTokenDispatches, anyReduced, dispatchConsumedCurrentToken)
 					if actionExtra := stopActionDiag.progressString(); actionExtra != "" {

@@ -1639,6 +1639,406 @@ func TestCAppendActionReductionVersionsCollapsesSamePopBeforeOlderMerge(t *testi
 	}
 }
 
+func cActionCellTransactionParser() *Parser {
+	lang := &Language{
+		TokenCount:  2,
+		StateCount:  10,
+		SymbolCount: 6,
+		ParseTable:  make([][]uint16, 10),
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 7}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 8}}},
+		},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end", Visible: true, Named: true},
+			{Name: "token", Visible: true, Named: true},
+			{Name: "leaf", Visible: true, Named: true},
+			{Name: "unused", Visible: true, Named: true},
+			{Name: "left_parent", Visible: true, Named: true},
+			{Name: "right_parent", Visible: true, Named: true},
+		},
+	}
+	lang.ParseTable[1] = []uint16{0, 0, 0, 0, 1, 2}
+	return &Parser{language: lang, denseLimit: len(lang.ParseTable)}
+}
+
+func cActionCellTransactionStart(arena *nodeArena) glrStack {
+	leaf := newLeafNodeInArena(arena, 2, true, 0, 1, Point{}, Point{Column: 1})
+	start := newGLRStack(1)
+	start.pushEntry(newStackEntryNode(3, leaf), nil, nil)
+	return start
+}
+
+type cActionCellTokenSource struct {
+	tokens []Token
+	index  int
+}
+
+func (s *cActionCellTokenSource) Next() Token {
+	if s.index >= len(s.tokens) {
+		return Token{}
+	}
+	tok := s.tokens[s.index]
+	s.index++
+	return tok
+}
+
+func cActionCellIntegrationLanguage(actions []ParseAction) *Language {
+	return &Language{
+		Name:                                  "c_action_cell_integration",
+		SymbolCount:                           4,
+		TokenCount:                            2,
+		StateCount:                            5,
+		InitialState:                          1,
+		CompactPackedGSSVersionOrderCertified: true,
+		SymbolNames:                           []string{"end", "x", "low_root", "high_root"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end", Visible: false},
+			{Name: "x", Visible: true},
+			{Name: "low_root", Visible: true, Named: true},
+			{Name: "high_root", Visible: true, Named: true},
+		},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 2, ChildCount: 1}}},
+			{Actions: actions},
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},
+		},
+		ParseTable: [][]uint16{
+			make([]uint16, 4),
+			{0, 1, 2, 4},
+			{3, 0, 0, 0},
+			{2, 0, 0, 0},
+			{4, 0, 0, 0},
+		},
+	}
+}
+
+func TestCompactPackedGSSActionTransactionProcessesReductionVersionSameRound(t *testing.T) {
+	tests := []struct {
+		name    string
+		actions []ParseAction
+		want    string
+	}{
+		{
+			name: "reduction before terminal survives",
+			actions: []ParseAction{
+				{Type: ParseActionReduce, Symbol: 3, ChildCount: 1, DynamicPrecedence: 1},
+				{Type: ParseActionAccept},
+			},
+			want: "high_root",
+		},
+		{
+			name: "terminal before reduction stops scan",
+			actions: []ParseAction{
+				{Type: ParseActionAccept},
+				{Type: ParseActionReduce, Symbol: 3, ChildCount: 1, DynamicPrecedence: 1},
+			},
+			want: "low_root",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			language := cActionCellIntegrationLanguage(test.actions)
+			parser := NewParser(language)
+			parser.hasRootSymbol = false
+			tree, err := parser.ParseWithTokenSource([]byte("x"), &cActionCellTokenSource{tokens: []Token{
+				{Symbol: 1, StartByte: 0, EndByte: 1, EndPoint: Point{Column: 1}},
+				{Symbol: 0, StartByte: 1, EndByte: 1, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 1}},
+			}})
+			if err != nil {
+				t.Fatalf("ParseWithTokenSource() error = %v", err)
+			}
+			if got := tree.RootNode().Type(language); got != test.want {
+				t.Fatalf("root type = %q, want %q; tree=%s", got, test.want, tree.RootNode().SExpr(language))
+			}
+			if got := tree.ParseStopReason(); got != ParseStopAccepted {
+				t.Fatalf("parse stop reason = %q, want accepted", got)
+			}
+		})
+	}
+}
+
+func TestCompactPackedGSSActionTransactionRecomputesRetryFragility(t *testing.T) {
+	language := cActionCellIntegrationLanguage([]ParseAction{
+		{Type: ParseActionReduce, Symbol: 3, ChildCount: 1},
+	})
+	parser := NewParser(language)
+	parser.hasRootSymbol = false
+	tree, err := parser.ParseWithTokenSource([]byte("x"), &cActionCellTokenSource{tokens: []Token{
+		{Symbol: 1, StartByte: 0, EndByte: 1, EndPoint: Point{Column: 1}},
+		{Symbol: 0, StartByte: 1, EndByte: 1, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 1}},
+	}})
+	if err != nil {
+		t.Fatalf("ParseWithTokenSource() error = %v", err)
+	}
+	if got := tree.ParseStopReason(); got != ParseStopAccepted {
+		t.Fatalf("parse stop reason = %q, want accepted", got)
+	}
+	root := tree.RootNode()
+	if got := root.Type(language); got != "high_root" {
+		t.Fatalf("root type = %q, want high_root; tree=%s", got, root.SExpr(language))
+	}
+	if root.isFragile() {
+		t.Fatal("single surviving reduction version stayed fragile after promotion retry")
+	}
+}
+
+func TestCompactPackedGSSActionTransactionRelexesAfterNoLookaheadReduction(t *testing.T) {
+	language := &Language{
+		Name:                                  "c_action_cell_no_lookahead",
+		SymbolCount:                           3,
+		TokenCount:                            2,
+		StateCount:                            4,
+		InitialState:                          1,
+		CompactPackedGSSVersionOrderCertified: true,
+		SymbolNames:                           []string{"end", "x", "root"},
+		SymbolMetadata: []SymbolMetadata{
+			{Name: "end", Visible: false},
+			{Name: "x", Visible: true},
+			{Name: "root", Visible: true, Named: true},
+		},
+		ParseActions: []ParseActionEntry{
+			{},
+			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 2}}},
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 3}}},
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},
+		},
+		ParseTable: [][]uint16{
+			make([]uint16, 3),
+			{1, 0, 2},
+			{0, 2, 0},
+			{3, 0, 0},
+		},
+	}
+	parser := NewParser(language)
+	parser.hasRootSymbol = false
+	tokens := &cActionCellTokenSource{tokens: []Token{
+		{Symbol: 0, NoLookahead: true},
+		{Symbol: 1, StartByte: 0, EndByte: 1, EndPoint: Point{Column: 1}},
+		{Symbol: 0, StartByte: 1, EndByte: 1, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 1}},
+	}}
+	tree, err := parser.ParseWithTokenSource([]byte("x"), tokens)
+	if err != nil {
+		t.Fatalf("ParseWithTokenSource() error = %v", err)
+	}
+	if got := tree.ParseStopReason(); got != ParseStopAccepted {
+		t.Fatalf("parse stop reason = %q, want accepted", got)
+	}
+	if tokens.index != len(tokens.tokens) {
+		t.Fatalf("token reads = %d, want %d; promoted reduction reused null lookahead", tokens.index, len(tokens.tokens))
+	}
+}
+
+func TestCAppendActionCellReductionVersionsPromotesLastSuccessfulReduction(t *testing.T) {
+	parser := cActionCellTransactionParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	start := cActionCellTransactionStart(arena)
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 4, ChildCount: 1},
+		{Type: ParseActionReduce, Symbol: 5, ChildCount: 1},
+		// This result merges into the first reduction. C keeps the last
+		// successful result instead of overwriting it with NONE.
+		{Type: ParseActionReduce, Symbol: 4, ChildCount: 1},
+	}
+	nodeCount := 0
+	anyReduced := false
+	versions, lastReduction, terminalOrdinal, reason := parser.cAppendActionCellReductionVersions(
+		nil, []glrStack{start}, 0, actions, Token{}, &nodeCount, arena,
+		nil, nil, nil, nil, &anyReduced,
+	)
+	if reason != ParseStopNone {
+		t.Fatalf("action-cell transaction stop reason = %v, want none", reason)
+	}
+	if terminalOrdinal != -1 || lastReduction != 2 {
+		t.Fatalf("action-cell result terminal=%d reduction=%d, want -1/2", terminalOrdinal, lastReduction)
+	}
+	if !anyReduced {
+		t.Fatal("action-cell reductions did not report round progress")
+	}
+	if got, want := len(versions), 3; got != want {
+		t.Fatalf("version count = %d, want %d", got, want)
+	}
+	for i, want := range []StateID{3, 7, 8} {
+		if got := versions[i].top().state; got != want {
+			t.Fatalf("pre-promotion version[%d] state = %d, want %d", i, got, want)
+		}
+	}
+	for i, want := range []Symbol{4, 5} {
+		if got := stackEntryNode(versions[i+1].top()).symbol; got != want {
+			t.Fatalf("reduction version[%d] symbol = %d, want %d", i+1, got, want)
+		}
+	}
+	versions, ok := cRenumberReductionVersion(versions, lastReduction, 0)
+	if !ok {
+		t.Fatal("last successful reduction did not promote")
+	}
+	for i, want := range []Symbol{5, 4} {
+		if got := stackEntryNode(versions[i].top()).symbol; got != want {
+			t.Fatalf("post-promotion version[%d] symbol = %d, want %d", i, got, want)
+		}
+	}
+}
+
+func TestCAppendActionCellReductionVersionsStopsAtFirstTerminal(t *testing.T) {
+	parser := cActionCellTransactionParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	start := cActionCellTransactionStart(arena)
+	actions := []ParseAction{
+		{Type: ParseActionReduce, Symbol: 4, ChildCount: 1},
+		{Type: ParseActionShift, Repetition: true},
+		{Type: ParseActionReduce, Symbol: 5, ChildCount: 1},
+		{Type: ParseActionShift, State: 8},
+		{Type: ParseActionReduce, Symbol: 4, ChildCount: 1},
+	}
+	nodeCount := 0
+	anyReduced := false
+	versions, lastReduction, terminalOrdinal, reason := parser.cAppendActionCellReductionVersions(
+		nil, []glrStack{start}, 0, actions, Token{}, &nodeCount, arena,
+		nil, nil, nil, nil, &anyReduced,
+	)
+	if reason != ParseStopNone {
+		t.Fatalf("action-cell transaction stop reason = %v, want none", reason)
+	}
+	if terminalOrdinal != 3 || lastReduction != 2 {
+		t.Fatalf("action-cell result terminal=%d reduction=%d, want 3/2", terminalOrdinal, lastReduction)
+	}
+	if !anyReduced {
+		t.Fatal("action-cell reductions did not report round progress")
+	}
+	if got, want := len(versions), 3; got != want {
+		t.Fatalf("version count = %d, want %d", got, want)
+	}
+	for i, want := range []Symbol{4, 5} {
+		if got := stackEntryNode(versions[i+1].top()).symbol; got != want {
+			t.Fatalf("reduction version[%d] symbol = %d, want %d", i+1, got, want)
+		}
+	}
+}
+
+func TestCAppendActionCellReductionVersionsTerminalOwnsOriginal(t *testing.T) {
+	parser := cActionCellTransactionParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	start := cActionCellTransactionStart(arena)
+	actions := []ParseAction{
+		{Type: ParseActionShift, State: 8},
+		{Type: ParseActionReduce, Symbol: 4, ChildCount: 1},
+	}
+	nodeCount := 0
+	anyReduced := false
+	versions, lastReduction, terminalOrdinal, reason := parser.cAppendActionCellReductionVersions(
+		nil, []glrStack{start}, 0, actions, Token{}, &nodeCount, arena,
+		nil, nil, nil, nil, &anyReduced,
+	)
+	if reason != ParseStopNone {
+		t.Fatalf("action-cell transaction stop reason = %v, want none", reason)
+	}
+	if terminalOrdinal != 0 || lastReduction != -1 {
+		t.Fatalf("action-cell result terminal=%d reduction=%d, want 0/-1", terminalOrdinal, lastReduction)
+	}
+	if anyReduced || len(versions) != 1 {
+		t.Fatalf("later reduction ran: anyReduced=%t versions=%d", anyReduced, len(versions))
+	}
+	if parser.disablePostReduceForkMerge {
+		t.Fatal("action-cell transaction did not restore post-reduce merge policy")
+	}
+}
+
+func TestCAppendActionCellReductionVersionsRepetitionShiftIsNoOp(t *testing.T) {
+	parser := cActionCellTransactionParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	start := cActionCellTransactionStart(arena)
+	nodeCount := 0
+	anyReduced := false
+	versions, lastReduction, terminalOrdinal, reason := parser.cAppendActionCellReductionVersions(
+		nil, []glrStack{start}, 0,
+		[]ParseAction{{Type: ParseActionShift, Repetition: true}},
+		Token{}, &nodeCount, arena, nil, nil, nil, nil, &anyReduced,
+	)
+	if reason != ParseStopNone {
+		t.Fatalf("action-cell transaction stop reason = %v, want none", reason)
+	}
+	if terminalOrdinal != -1 || lastReduction != -1 {
+		t.Fatalf("action-cell result terminal=%d reduction=%d, want -1/-1", terminalOrdinal, lastReduction)
+	}
+	if anyReduced || len(versions) != 1 {
+		t.Fatalf("repetition shift changed transaction: anyReduced=%t versions=%d", anyReduced, len(versions))
+	}
+}
+
+func TestCAppendActionCellReductionVersionsRejectsForeignPendingOwnership(t *testing.T) {
+	tests := []struct {
+		name  string
+		queue func(*Parser) *[]glrStack
+	}{
+		{name: "post-reduce queue", queue: func(p *Parser) *[]glrStack { return &p.pendingForkStacks }},
+		{name: "frontier queue", queue: func(p *Parser) *[]glrStack { return &p.pendingFrontierForkStacks }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parser := cActionCellTransactionParser()
+			queue := test.queue(parser)
+			*queue = append(*queue, newGLRStack(9))
+			arena := acquireNodeArena(arenaClassFull)
+			defer arena.Release()
+			start := cActionCellTransactionStart(arena)
+			nodeCount := 0
+
+			versions, lastReduction, terminalOrdinal, reason := parser.cAppendActionCellReductionVersions(
+				nil, []glrStack{start}, 0,
+				[]ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 1}},
+				Token{}, &nodeCount, arena, nil, nil, nil, nil, nil,
+			)
+			if reason != ParseStopInvariantViolation {
+				t.Fatalf("action-cell transaction stop reason = %v, want invariant violation", reason)
+			}
+			if lastReduction != -1 || terminalOrdinal != -1 || len(versions) != 1 {
+				t.Fatalf("rejected transaction changed result: reduction=%d terminal=%d versions=%d", lastReduction, terminalOrdinal, len(versions))
+			}
+			if len(*queue) != 1 {
+				t.Fatal("rejected transaction discarded a foreign pending fork")
+			}
+		})
+	}
+}
+
+func TestCompactPackedGSSActionCellRequiresTransaction(t *testing.T) {
+	tests := []struct {
+		name    string
+		actions []ParseAction
+		want    bool
+	}{
+		{name: "empty"},
+		{name: "single ordinary shift", actions: []ParseAction{{Type: ParseActionShift}}},
+		{name: "single accept", actions: []ParseAction{{Type: ParseActionAccept}}},
+		{name: "single reduction", actions: []ParseAction{{Type: ParseActionReduce}}, want: true},
+		{name: "single repetition shift", actions: []ParseAction{{Type: ParseActionShift, Repetition: true}}, want: true},
+		{name: "multiple terminals", actions: []ParseAction{{Type: ParseActionShift}, {Type: ParseActionAccept}}, want: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := compactPackedGSSActionCellRequiresTransaction(test.actions); got != test.want {
+				t.Fatalf("requires transaction = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
+func TestCompactPackedGSSDispatchVersionCount(t *testing.T) {
+	if got := compactPackedGSSDispatchVersionCount(false, 1, 3); got != 1 {
+		t.Fatalf("uncertified dispatch version count = %d, want round snapshot 1", got)
+	}
+	if got := compactPackedGSSDispatchVersionCount(true, 1, 3); got != 3 {
+		t.Fatalf("certified dispatch version count = %d, want current physical count 3", got)
+	}
+}
+
 func newCRecoverySyntheticReduceParser() *Parser {
 	lang := &Language{
 		TokenCount:  3,

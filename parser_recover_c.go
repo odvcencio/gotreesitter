@@ -3113,7 +3113,7 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 			var reason ParseStopReason
 			versions, actionReductionVersion, reason = p.cAppendReductionActionVersions(
 				source, versions, v, act, tok, nodeCount, arena, entryScratch,
-				gssScratch, tmpEntries, trackChildErrors, &singletonCandidate,
+				gssScratch, tmpEntries, trackChildErrors, &singletonCandidate, nil,
 			)
 			if reason != ParseStopNone {
 				return versions, canShift, reason
@@ -3162,7 +3162,7 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 
 func (p *Parser) cReductionCandidatesForAction(source []byte, start glrStack, act ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool) ([]glrStack, ParseStopReason) {
 	var singletonCandidate glrStack
-	candidates, hasSingletonCandidate, reason := p.cReductionCandidatesForActionInto(source, start, act, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, &singletonCandidate)
+	candidates, hasSingletonCandidate, reason := p.cReductionCandidatesForActionInto(source, start, act, tok, nodeCount, arena, entryScratch, gssScratch, tmpEntries, trackChildErrors, &singletonCandidate, nil)
 	if hasSingletonCandidate {
 		return []glrStack{singletonCandidate}, reason
 	}
@@ -3173,13 +3173,13 @@ func (p *Parser) cReductionCandidatesForAction(source []byte, start glrStack, ac
 // version. It appends every surviving pop result in C stack-version order and
 // merges each result into earlier compatible versions before the caller can
 // promote a result into the source slot.
-func (p *Parser) cAppendReductionActionVersions(source []byte, versions []glrStack, originalVersion int, act ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, singletonCandidate *glrStack) ([]glrStack, int, ParseStopReason) {
+func (p *Parser) cAppendReductionActionVersions(source []byte, versions []glrStack, originalVersion int, act ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, singletonCandidate *glrStack, anyReduced *bool) ([]glrStack, int, ParseStopReason) {
 	if originalVersion < 0 || originalVersion >= len(versions) || singletonCandidate == nil {
 		return versions, -1, ParseStopInvariantViolation
 	}
 	actionCandidates, hasSingletonCandidate, reason := p.cReductionCandidatesForActionInto(
 		source, versions[originalVersion], act, tok, nodeCount, arena,
-		entryScratch, gssScratch, tmpEntries, trackChildErrors, singletonCandidate,
+		entryScratch, gssScratch, tmpEntries, trackChildErrors, singletonCandidate, anyReduced,
 	)
 	if reason != ParseStopNone {
 		return versions, -1, reason
@@ -3199,9 +3199,57 @@ func (p *Parser) cAppendReductionActionVersions(source []byte, versions []glrSta
 	return versions, reductionVersion, ParseStopNone
 }
 
-func (p *Parser) cReductionCandidatesForActionInto(source []byte, start glrStack, act ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, singletonCandidate *glrStack) ([]glrStack, bool, ParseStopReason) {
+// cAppendActionCellReductionVersions applies the reductions in one parse-table
+// cell to an unchanged physical source slot. A repetition shift is a no-op.
+// The first ordinary shift, accept, or recover action owns the source slot and
+// stops the scan. Without a terminal action, the caller promotes the first
+// surviving result from the last successful reduction.
+func (p *Parser) cAppendActionCellReductionVersions(source []byte, versions []glrStack, originalVersion int, actions []ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, anyReduced *bool) ([]glrStack, int, int, ParseStopReason) {
+	if originalVersion < 0 || originalVersion >= len(versions) {
+		return versions, -1, -1, ParseStopInvariantViolation
+	}
+	if len(p.pendingForkStacks) != 0 || len(p.pendingFrontierForkStacks) != 0 {
+		return versions, -1, -1, ParseStopInvariantViolation
+	}
+	oldDisablePostReduceForkMerge := p.disablePostReduceForkMerge
+	p.disablePostReduceForkMerge = true
+	defer func() {
+		p.disablePostReduceForkMerge = oldDisablePostReduceForkMerge
+	}()
+
+	lastReductionVersion := -1
+	var singletonCandidate glrStack
+	for actionOrdinal, action := range actions {
+		switch action.Type {
+		case ParseActionReduce:
+			var reductionVersion int
+			var reason ParseStopReason
+			versions, reductionVersion, reason = p.cAppendReductionActionVersions(
+				source, versions, originalVersion, action, tok, nodeCount, arena,
+				entryScratch, gssScratch, tmpEntries, trackChildErrors, &singletonCandidate, anyReduced,
+			)
+			if reason != ParseStopNone {
+				return versions, lastReductionVersion, -1, reason
+			}
+			if reductionVersion >= 0 {
+				lastReductionVersion = reductionVersion
+			}
+		case ParseActionShift:
+			if action.Repetition {
+				continue
+			}
+			return versions, lastReductionVersion, actionOrdinal, ParseStopNone
+		case ParseActionAccept, ParseActionRecover:
+			return versions, lastReductionVersion, actionOrdinal, ParseStopNone
+		}
+	}
+	return versions, lastReductionVersion, -1, ParseStopNone
+}
+
+func (p *Parser) cReductionCandidatesForActionInto(source []byte, start glrStack, act ParseAction, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, tmpEntries *[]stackEntry, trackChildErrors *bool, singletonCandidate *glrStack, anyReduced *bool) ([]glrStack, bool, ParseStopReason) {
 	p.pendingForkStacks = p.pendingForkStacks[:0]
 	defer func() {
+		clear(p.pendingForkStacks)
 		p.pendingForkStacks = p.pendingForkStacks[:0]
 	}()
 	if reason := p.resultMaterializationStopReason(arena); resultMaterializationShouldStop(reason) {
@@ -3215,6 +3263,9 @@ func (p *Parser) cReductionCandidatesForActionInto(source []byte, start glrStack
 		localTmpEntries = *tmpEntries
 	}
 	p.applyAction(source, &fork, act, tok, &dummy, nodeCount, arena, entryScratch, gssScratch, &localTmpEntries, deferParentLinks, trackChildErrors)
+	if dummy && anyReduced != nil {
+		*anyReduced = true
+	}
 	if tmpEntries != nil {
 		if localTmpEntries != nil {
 			*tmpEntries = localTmpEntries[:0]
