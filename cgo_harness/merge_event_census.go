@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,8 +69,67 @@ import (
 const (
 	mergeCensusRuntimeModule  = "github.com/tree-sitter/go-tree-sitter"
 	mergeCensusDriverSchema   = "gts-merge-census-c/v1"
+	cTopologyDriverSchema     = "gts-topology-receipt-c/v1"
+	cTopologyReceiptSchema    = "gts-topology-receipt/v1"
+	cTopologyEventCapacity    = 4096
 	mergeCensusParseTimeoutUS = "30000000"
 )
+
+type cTopologyEvent struct {
+	EventID           uint64 `json:"event_id"`
+	Kind              uint64 `json:"kind"`
+	ActionID          uint64 `json:"action_id"`
+	ActionOrdinal     int64  `json:"action_ordinal"`
+	ActionType        uint64 `json:"action_type"`
+	State             uint64 `json:"state"`
+	LookaheadSymbol   uint64 `json:"lookahead_symbol"`
+	ByteOffset        uint64 `json:"byte_offset"`
+	VersionID         uint64 `json:"version_id"`
+	VersionIndex      uint64 `json:"version_index"`
+	SourceVersionID   uint64 `json:"source_version_id"`
+	SourceIndex       uint64 `json:"source_index"`
+	TargetVersionID   uint64 `json:"target_version_id"`
+	TargetIndex       uint64 `json:"target_index"`
+	SurvivorVersionID uint64 `json:"survivor_version_id"`
+	RemovedVersionID  uint64 `json:"removed_version_id"`
+	NodeID            uint64 `json:"node_id"`
+	PredecessorNodeID uint64 `json:"predecessor_node_id"`
+	LinkID            uint64 `json:"link_id"`
+	LinkOrdinal       uint64 `json:"link_ordinal"`
+	PopID             uint64 `json:"pop_id"`
+	PathOrdinal       uint64 `json:"path_ordinal"`
+	PopToNodeID       uint64 `json:"pop_to_node_id"`
+	ElectionID        uint64 `json:"election_id"`
+	IncumbentID       uint64 `json:"incumbent_id"`
+	CandidateID       uint64 `json:"candidate_id"`
+	SelectedID        uint64 `json:"selected_id"`
+	PayloadCount      uint64 `json:"payload_count"`
+	Flags             uint64 `json:"flags"`
+}
+
+type cTopologyReceipt struct {
+	Schema             string           `json:"schema"`
+	Capacity           uint32           `json:"capacity"`
+	EventsSeen         uint64           `json:"events_seen"`
+	EventsRetained     uint32           `json:"events_retained"`
+	EventsDropped      uint64           `json:"events_dropped"`
+	Truncated          bool             `json:"truncated"`
+	ArithmeticOverflow bool             `json:"arithmetic_overflow"`
+	IdentityCollision  bool             `json:"identity_collision"`
+	IdentityIncomplete bool             `json:"identity_incomplete"`
+	Events             []cTopologyEvent `json:"events"`
+}
+
+type cTopologyRow struct {
+	Schema         string           `json:"schema"`
+	Path           string           `json:"path"`
+	Status         string           `json:"status"`
+	SourceBytes    uint32           `json:"source_bytes"`
+	RootEndByte    uint32           `json:"root_end_byte"`
+	RootChildCount uint32           `json:"root_child_count"`
+	RootHasError   bool             `json:"root_has_error"`
+	Receipt        cTopologyReceipt `json:"receipt"`
+}
 
 // mergeCensusCRow is one reference-runtime measurement, decoded from the
 // driver's per-source JSON line.
@@ -430,6 +490,76 @@ func mergeCensusRunC(oracle *mergeCensusCOracle, language string, sources []a3Ce
 		rows[index] = row
 	}
 	return rows, nil
+}
+
+func mergeCensusRunCTopology(
+	oracle *mergeCensusCOracle,
+	language string,
+	source a3CertificationSweepSource,
+) (cTopologyRow, error) {
+	identity, err := COracleIdentity(language)
+	if err != nil {
+		return cTopologyRow{}, fmt.Errorf("resolve %s C oracle identity: %w", language, err)
+	}
+	symbols, err := mergeCensusCSymbols(language)
+	if err != nil {
+		return cTopologyRow{}, err
+	}
+
+	batchRoot, err := os.MkdirTemp("", "gts-c-topology-receipt-*")
+	if err != nil {
+		return cTopologyRow{}, fmt.Errorf("create C topology receipt root: %w", err)
+	}
+	defer os.RemoveAll(batchRoot)
+	sourcePath := filepath.Join(batchRoot, "000000.src")
+	if err := os.WriteFile(sourcePath, source.Source, 0o644); err != nil {
+		return cTopologyRow{}, fmt.Errorf("write C topology source: %w", err)
+	}
+	manifestPath := filepath.Join(batchRoot, "manifest.txt")
+	if err := os.WriteFile(manifestPath, []byte(sourcePath+"\n"), 0o644); err != nil {
+		return cTopologyRow{}, fmt.Errorf("write C topology manifest: %w", err)
+	}
+
+	command := exec.Command(
+		oracle.Binary, "--topology", identity.GrammarArtifactPath,
+		strings.Join(symbols, ","), manifestPath, mergeCensusParseTimeoutUS,
+	)
+	var stdout, stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		return cTopologyRow{}, fmt.Errorf(
+			"run C topology receipt for %s/%s: %w: %s",
+			language, source.Name, err, bytes.TrimSpace(stderr.Bytes()),
+		)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(stdout.Bytes()))
+	decoder.DisallowUnknownFields()
+	var row cTopologyRow
+	if err := decoder.Decode(&row); err != nil {
+		return cTopologyRow{}, fmt.Errorf("decode C topology receipt: %w", err)
+	}
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return cTopologyRow{}, fmt.Errorf("decode C topology receipt: trailing JSON value")
+		}
+		return cTopologyRow{}, fmt.Errorf("decode C topology receipt trailer: %w", err)
+	}
+	if row.Schema != cTopologyDriverSchema {
+		return cTopologyRow{}, fmt.Errorf("C topology row schema %q, want %q", row.Schema, cTopologyDriverSchema)
+	}
+	if row.Receipt.Schema != cTopologyReceiptSchema {
+		return cTopologyRow{}, fmt.Errorf(
+			"C topology receipt schema %q, want %q",
+			row.Receipt.Schema, cTopologyReceiptSchema,
+		)
+	}
+	if row.Path != sourcePath {
+		return cTopologyRow{}, fmt.Errorf("C topology row path %q, want %q", row.Path, sourcePath)
+	}
+	return row, nil
 }
 
 // mergeCensusRow is one source's full accounting: the reference runtime's
