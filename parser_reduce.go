@@ -801,9 +801,6 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 		currentReduceKey := makeReduceKey(reduce)
 		currentReduceEntry := frontier.entry(currentReduceKey, true)
 		appendTerminalFork := func(fork glrStack) {
-			if allocBranchOrder != nil {
-				fork.branchOrder = allocBranchOrder()
-			}
 			pendingBefore := len(p.pendingFrontierForkStacks)
 			p.pendingFrontierForkStacks = append(p.pendingFrontierForkStacks, fork)
 			workCountRecordPendingQueued(p, s, &fork, pendingBefore, len(p.pendingFrontierForkStacks), "conflict-frontier candidate queued")
@@ -819,6 +816,12 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 			case ParseActionShift:
 				fork := s.cloneWithScratch(gssScratch)
 				if p.guardRealShiftGap(source, &fork, tok) {
+					if allocBranchOrder != nil {
+						fork.branchOrder = allocBranchOrder()
+					}
+					if workCountInstrumentationEnabled {
+						workCountTopologyPrepareVersionCopy(s, &fork) // work-count-assembly: topology frontier-shift-copy seam
+					}
 					p.noteStopActionDiagnostic("conflict-frontier-fork-shift", &fork, tok, terminal, terminalOrdinal, len(actions), true, step, 0, false)
 					p.applyShiftAction(&fork, terminal, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
 					p.noteStopActionResult(&fork)
@@ -827,6 +830,12 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 				}
 			case ParseActionAccept:
 				fork := s.cloneWithScratch(gssScratch)
+				if allocBranchOrder != nil {
+					fork.branchOrder = allocBranchOrder()
+				}
+				if workCountInstrumentationEnabled {
+					workCountTopologyPrepareVersionCopy(s, &fork) // work-count-assembly: topology frontier-accept-copy seam
+				}
 				p.noteStopActionDiagnostic("conflict-frontier-fork-accept", &fork, tok, terminal, terminalOrdinal, len(actions), true, step, 0, false)
 				p.applyAcceptAction(&fork)
 				p.noteStopActionResult(&fork)
@@ -835,6 +844,12 @@ func (p *Parser) completeConflictReduceFrontier(source []byte, s *glrStack, tok 
 			case ParseActionRecover:
 				fork := s.cloneWithScratch(gssScratch)
 				if p.guardRealTokenAttachmentGap(source, &fork, tok, "conflict-frontier-fork-recover") {
+					if allocBranchOrder != nil {
+						fork.branchOrder = allocBranchOrder()
+					}
+					if workCountInstrumentationEnabled {
+						workCountTopologyPrepareVersionCopy(s, &fork) // work-count-assembly: topology frontier-recover-copy seam
+					}
 					p.noteStopActionDiagnostic("conflict-frontier-fork-recover", &fork, tok, terminal, terminalOrdinal, len(actions), true, step, 0, false)
 					p.applyRecoverAction(&fork, terminal, tok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
 					fork.shifted = true
@@ -3571,6 +3586,7 @@ func (p *Parser) selectedReduceWindowsFromGSSWithBudget(arena *nodeArena, act Pa
 	revPath := revBuf[:0]
 	work := 0
 	capped := false
+	pathOrdinal := uint64(0)
 
 	addFork := func(fork reduceFork) {
 		keep := true
@@ -3580,7 +3596,11 @@ func (p *Parser) selectedReduceWindowsFromGSSWithBudget(arena *nodeArena, act Pa
 				i++
 				continue
 			}
-			switch p.reduceForkWindowPreference(arena, act, fork, forks[i]) {
+			preference := p.reduceForkWindowPreference(arena, act, fork, forks[i])
+			if workCountInstrumentationEnabled && preference != 0 {
+				workCountTopologyRecordChildElection(s, forks[i], fork, preference) // work-count-assembly: topology child-election seam
+			}
+			switch preference {
 			case -1:
 				if insertAt < 0 {
 					insertAt = i
@@ -3628,6 +3648,10 @@ func (p *Parser) selectedReduceWindowsFromGSSWithBudget(arena *nodeArena, act Pa
 						window[j] = revPath[pathLen-1-j]
 					}
 					workCountObservePopWindow(window) // work-count-assembly: payload-census seam
+					if workCountInstrumentationEnabled {
+						workCountTopologyRecordPopPath(s, window, prev, pathOrdinal) // work-count-assembly: topology pop-path seam
+					}
+					pathOrdinal++
 					addFork(reduceFork{
 						window:   window,
 						topState: prev.entry.state,
@@ -4285,8 +4309,14 @@ func (p *Parser) applyReduceActionForked(source []byte, s *glrStack, act ParseAc
 
 	for i := 1; i < len(forks); i++ {
 		clone := base.cloneWithScratch(gssScratch)
+		if workCountInstrumentationEnabled {
+			workCountTopologyRecordVersionCopy(s, &clone) // work-count-assembly: topology reduce-copy seam
+		}
 		applyForkToStack(&clone, forks[i])
 		clone.score = base.score + int(act.DynamicPrecedence)
+		if workCountInstrumentationEnabled {
+			workCountTopologyCommitVersion(&clone) // work-count-assembly: topology reduce-copy-result seam
+		}
 		if !p.disablePostReduceForkMerge {
 			finalizationRisk := p.postReduceForkMergeHasFinalizationRisk(&clone, tok)
 			if finalizationRisk {

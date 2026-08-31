@@ -3446,7 +3446,12 @@ func tryGSSMainMergeForParser(p *Parser, a, b *glrStack) bool {
 	return merged
 }
 
-func tryGSSMainMergeForParserPhase(p *Parser, a, b *glrStack, phase string, recordDecision bool) bool {
+func tryGSSMainMergeForParserPhase(p *Parser, a, b *glrStack, phase string, recordDecision bool) (merged bool) {
+	if workCountInstrumentationEnabled && a != nil && b != nil {
+		defer func() {
+			workCountTopologyRecordMerge(a, b, merged) // work-count-assembly: topology parser-merge seam
+		}()
+	}
 	workCountRecordMergeAttempt()
 	if mergeCensusEnabled {
 		mergeCensusRecordAttempt()
@@ -3464,7 +3469,7 @@ func tryGSSMainMergeForParserPhase(p *Parser, a, b *glrStack, phase string, reco
 	if p != nil {
 		scratch = p.mergeScratch
 	}
-	merged := false
+	merged = false
 	if workCountInstrumentationEnabled {
 		merged = workCountMergeGSSObserved(p, scratch, phase, "GSS merge", a, b)
 	} else {
@@ -4661,6 +4666,11 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	}
 	if idx < 0 || idx >= len(result) || stack == nil {
 		return false, false
+	}
+	if workCountInstrumentationEnabled {
+		defer func() {
+			workCountTopologyRecordMerge(&result[idx], stack, merged) // work-count-assembly: topology boundary-merge seam
+		}()
 	}
 	if workCountInstrumentationEnabled {
 		workCountRecordPairCandidate(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, "boundary merge entered eligibility preflight", &result[idx], stack)

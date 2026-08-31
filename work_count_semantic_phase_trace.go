@@ -224,6 +224,12 @@ func semanticPhaseTraceRecordActionCell(p *Parser, stack *glrStack, state StateI
 }
 
 func semanticPhaseTraceRecordActionExecution(p *Parser, stack *glrStack, tok Token, action ParseAction, actionOrdinal int, phase string, cycle bool) {
+	// -2 is emitted only by the production deterministic-conflict seam. Keep
+	// uniqueness reconstruction entirely inside the diagnostic build.
+	if actionOrdinal == -2 && (activeDiagnosticTopology != nil || activeDiagnosticSemanticPhaseTrace != nil) && p != nil && stack != nil && stack.depth() != 0 {
+		actionOrdinal = semanticPhaseUniqueActionOrdinal(semanticPhaseActionsAt(p, stack.top().state, tok.Symbol), action)
+	}
+	workCountTopologyRecordAction(stack, tok, action, actionOrdinal)
 	if activeDiagnosticSemanticPhaseTrace == nil || p == nil || stack == nil || stack.depth() == 0 {
 		return
 	}
@@ -233,12 +239,6 @@ func semanticPhaseTraceRecordActionExecution(p *Parser, stack *glrStack, tok Tok
 	semanticPhaseAuditActionCell(actions, cellHash)
 	boundaryClass := semanticPhaseCoarseBoundaryClass(stack)
 	semanticPhaseAuditBoundary(stack, boundaryClass)
-	// -2 is emitted only by the production deterministic-conflict seam. Keep
-	// uniqueness reconstruction entirely inside the diagnostic build so an
-	// untagged parser executes no scan, call, or helper symbol for tracing.
-	if actionOrdinal == -2 {
-		actionOrdinal = semanticPhaseUniqueActionOrdinal(actions, action)
-	}
 	ordinal := int16(actionOrdinal)
 	if actionOrdinal < 0 {
 		ordinal = -1

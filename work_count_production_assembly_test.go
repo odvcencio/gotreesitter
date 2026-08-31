@@ -30,6 +30,16 @@ const (
 	gssAlternateAppendGrowMarker           = "work-count-assembly: alternate predecessor append-grow seam"
 	gssMutationAppendReuseMarker           = "work-count-assembly: GSS mutation append-reuse seam"
 	gssMutationAppendGrowMarker            = "work-count-assembly: GSS mutation append-grow seam"
+	topologyActionResultMarker             = "work-count-assembly: topology action-result seam"
+	topologyInitialVersionMarker           = "work-count-assembly: topology initial-version seam"
+	topologyConflictCopyMarker             = "work-count-assembly: topology conflict-copy seam"
+	topologyFrontierShiftCopyMarker        = "work-count-assembly: topology frontier-shift-copy seam"
+	topologyChildElectionMarker            = "work-count-assembly: topology child-election seam"
+	topologyPopPathMarker                  = "work-count-assembly: topology pop-path seam"
+	topologyReduceCopyMarker               = "work-count-assembly: topology reduce-copy seam"
+	topologyFirstAcceptMarker              = "work-count-assembly: topology first-accept seam"
+	topologyAcceptElectionMarker           = "work-count-assembly: topology accept-election seam"
+	topologyNodeAllocationMarker           = "work-count-assembly: topology primary-link seam"
 	semanticPhaseActionCellMarker          = "semantic-phase-assembly: action-cell seam"
 	semanticPhaseActionExecutionMarker     = "semantic-phase-assembly: action-execution seam"
 	semanticPhaseExtraShiftExecutionMarker = "semantic-phase-assembly: extra-shift-execution seam"
@@ -47,6 +57,9 @@ func TestWorkCountProductionAssemblyHasNoDiagnosticScaffolding(t *testing.T) {
 	}
 	if bytes.Contains(nm, []byte("github.com/odvcencio/gotreesitter.semanticPhaseTrace")) {
 		t.Fatal("untagged binary retains semantic-phase trace symbols")
+	}
+	if bytes.Contains(nm, []byte("github.com/odvcencio/gotreesitter.DiagnosticTopology")) {
+		t.Fatal("untagged binary retains diagnostic topology symbols")
 	}
 	for _, forbidden := range []string{
 		"gssMainCanMergeForParserPhase",
@@ -77,6 +90,8 @@ func TestWorkCountProductionAssemblyHasNoDiagnosticScaffolding(t *testing.T) {
 	assertNoAssemblyAtMarker(t, closures, "parser.go", convergenceIterationMarker)
 	parseInternalAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.\(\*Parser\)\.parseInternal$`, testBinary)
 	assertNoAssemblyAtMarker(t, parseInternalAssembly, "parser.go", resolvedActionCellMarker)
+	assertNoAssemblyAtMarker(t, parseInternalAssembly, "parser.go", topologyInitialVersionMarker)
+	assertNoAssemblyAtMarker(t, parseInternalAssembly, "parser.go", topologyConflictCopyMarker)
 	assertNoDiagnosticAssembly(t, parseInternalAssembly)
 	lexerScanAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.\(\*Lexer\)\.scan$`, testBinary)
 	assertNoAssemblyAtMarker(t, lexerScanAssembly, "lexer.go", rawMainLexerInvocationMarker)
@@ -90,11 +105,14 @@ func TestWorkCountProductionAssemblyHasNoDiagnosticScaffolding(t *testing.T) {
 	assertNoAssemblyAtMarker(t, eofAdvanceAssembly, "parser.go", semanticPhaseEOFActionCellMarker)
 	assertNoAssemblyAtMarker(t, eofAdvanceAssembly, "parser.go", semanticPhaseEOFActionExecutionMarker)
 	assertNoDiagnosticAssembly(t, eofAdvanceAssembly)
-	noteStopAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.\(\*Parser\)\.noteStopActionDiagnostic`, testBinary)
+	noteStopAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.\(\*Parser\)\.noteStopAction(?:Diagnostic|Result)`, testBinary)
 	assertNoAssemblyAtMarker(t, noteStopAssembly, "parser.go", semanticPhaseActionExecutionMarker)
+	assertNoAssemblyAtMarker(t, noteStopAssembly, "parser.go", topologyActionResultMarker)
 	assertNoDiagnosticAssembly(t, noteStopAssembly)
 	resultAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.\(\*Parser\)\.buildResultFromGLR`, testBinary)
 	assertNoAssemblyAtMarker(t, resultAssembly, "parser_result.go", convergenceFinalExpandMarker)
+	assertNoAssemblyAtMarker(t, resultAssembly, "parser_result.go", topologyFirstAcceptMarker)
+	assertNoAssemblyAtMarker(t, resultAssembly, "parser_result.go", topologyAcceptElectionMarker)
 	assertNoDiagnosticAssembly(t, resultAssembly)
 	gssAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.tryGSSMainMergeForParser`, testBinary)
 	assertNoAssemblyAtMarker(t, gssAssembly, "glr.go", convergenceGSSMarker)
@@ -108,7 +126,16 @@ func TestWorkCountProductionAssemblyHasNoDiagnosticScaffolding(t *testing.T) {
 	assertNoAssemblyAtMarker(t, gssMutationAssembly, "glr_gss.go", gssMutationAppendGrowMarker)
 	assertNoDiagnosticAssembly(t, gssMutationAssembly)
 	postReduceAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.(?:tryMergePostReduceFork|postReduceForkMergePreflight|\(\*Parser\)\.(?:applyReduceActionForked|applyReduceActionFromGSS))`, testBinary)
+	assertNoAssemblyAtMarker(t, postReduceAssembly, "parser_reduce.go", topologyReduceCopyMarker)
 	assertNoDiagnosticAssembly(t, postReduceAssembly)
+	frontierAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.\(\*Parser\)\.completeConflictReduceFrontier`, testBinary)
+	assertNoAssemblyAtMarker(t, frontierAssembly, "parser_reduce.go", topologyFrontierShiftCopyMarker)
+	assertNoDiagnosticAssembly(t, frontierAssembly)
+	assertNoAssemblyAtMarker(t, reduceAssembly, "parser_reduce.go", topologyChildElectionMarker)
+	assertNoAssemblyAtMarker(t, reduceAssembly, "parser_reduce.go", topologyPopPathMarker)
+	pushEntryAssembly := runGoTool(t, "objdump", "-s", `github.com/odvcencio/gotreesitter\.\(\*gssStack\)\.pushEntry`, testBinary)
+	assertNoAssemblyAtMarker(t, pushEntryAssembly, "glr_gss.go", topologyNodeAllocationMarker)
+	assertNoDiagnosticAssembly(t, pushEntryAssembly)
 	allSymbols := runGoTool(t, "nm", testBinary)
 	if bytes.Contains(allSymbols, []byte("uniqueActionOrdinal")) {
 		t.Fatalf("untagged binary retains action-ordinal reconstruction symbol:\n%s", allSymbols)
@@ -132,6 +159,8 @@ func assertNoDiagnosticAssembly(t *testing.T, assembly []byte) {
 		[]byte("work_count_hooks.go:"),
 		[]byte("semanticPhaseTrace"),
 		[]byte("work_count_semantic_phase_trace.go:"),
+		[]byte("DiagnosticTopology"),
+		[]byte("work_count_topology.go:"),
 	} {
 		if bytes.Contains(assembly, forbidden) {
 			t.Fatalf("untagged assembly retains diagnostic code %q:\n%s", forbidden, assembly)

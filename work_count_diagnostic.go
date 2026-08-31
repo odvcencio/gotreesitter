@@ -285,6 +285,7 @@ func workCountSetNextParseAttempt(logicalRung, operationCause string) {
 type workCountAttemptToken uint32
 
 func workCountBeginParseAttempt(maxStacks, maxNodes, maxMergePerKey int) workCountAttemptToken {
+	workCountTopologyBeginAttempt()
 	c := diagnosticAttemptLedger()
 	if c == nil {
 		return 0
@@ -485,6 +486,12 @@ func workCountRecordExplicitRecover() {
 // the point selectedReduceWindowsFromGSSWithBudget emits each concrete path.
 func workCountObserveReductionPop(s *glrStack, childCount int) {
 	if activeDiagnosticWorkCount == nil || s == nil || childCount < 0 {
+		if activeDiagnosticTopology == nil || s == nil || childCount < 0 {
+			return
+		}
+	}
+	workCountTopologyRecordDirectPop(s, childCount)
+	if activeDiagnosticWorkCount == nil {
 		return
 	}
 	if childCount == 0 {

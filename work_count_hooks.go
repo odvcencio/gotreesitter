@@ -77,6 +77,18 @@ func workCountRecordBoundaryCull(*Parser, int, int)                             
 func workCountRecordFinalExpand(*Parser, *glrStack, int, bool, bool)                {}
 func workCountRecordFinalExpansions(*Parser, []glrStack)                            {}
 func workCountRecordFinalSelect(*Parser, []glrStack, *glrStack)                     {}
+func workCountTopologyRecordActionResult(*glrStack)                                 {}
+func workCountTopologyRecordInitialVersion(*glrStack)                               {}
+func workCountTopologyPrepareVersionCopy(*glrStack, *glrStack)                      {}
+func workCountTopologyRecordVersionCopy(*glrStack, *glrStack)                       {}
+func workCountTopologyCommitVersion(*glrStack)                                      {}
+func workCountTopologyRecordNodeAllocation(*gssNode)                                {}
+func workCountTopologyRecordLinkInsert(*gssNode, *gssNode, int, bool)               {}
+func workCountTopologyRecordPopPath(*glrStack, []stackEntry, *gssNode, uint64)      {}
+func workCountTopologyRecordChildElection(*glrStack, reduceFork, reduceFork, int)   {}
+func workCountTopologyRecordMerge(*glrStack, *glrStack, bool)                       {}
+func workCountTopologyRecordAcceptElection(*glrStack, *glrStack, *glrStack, bool, bool) {
+}
 func workCountTryPostReduceMergeObserved(p *Parser, _ string, _ string, target, candidate *glrStack) bool {
 	return tryMergePostReduceFork(p, target, candidate)
 }

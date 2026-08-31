@@ -1312,6 +1312,9 @@ func (p *Parser) noteStopActionDiagnostic(phase string, s *glrStack, tok Token, 
 }
 
 func (p *Parser) noteStopActionResult(s *glrStack) {
+	if workCountInstrumentationEnabled {
+		workCountTopologyRecordActionResult(s) // work-count-assembly: topology action-result seam
+	}
 	if p == nil || p.stopActionDiag == nil || !p.stopActionDiag.captured || s == nil || s.depth() == 0 {
 		return
 	}
@@ -5297,6 +5300,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	}
 
 	stacks, maxStacksSeen = p.newInitialParseStacks(scratch, reuse, timing, len(source))
+	if workCountInstrumentationEnabled && len(stacks) != 0 {
+		workCountTopologyRecordInitialVersion(&stacks[0]) // work-count-assembly: topology initial-version seam
+	}
 	caps := p.configureParseCaps(source, reuse, arenaClass, scratch, maxStacksOverride, maxNodesOverride, maxMergePerKeyOverride)
 	workCountResolveParseAttempt(
 		workCountAttempt,
@@ -6574,6 +6580,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					fork.branchOrder = allocBranchOrder()
 					if actions[ai].Type != ParseActionShift || p.guardRealShiftGap(source, &fork, tok) {
 						if actions[ai].Type != ParseActionRecover || p.guardRealTokenAttachmentGap(source, &fork, tok, "recover") {
+							if workCountInstrumentationEnabled {
+								workCountTopologyPrepareVersionCopy(&base, &fork) // work-count-assembly: topology conflict-copy seam
+							}
 							setPendingTrace("conflict-fork", si, ai, len(actions), actions[ai])
 							p.noteStopActionDiagnostic("conflict-fork", &fork, tok, actions[ai], ai, len(actions), false, 0, 0, false)
 							actionBeforeState, actionBeforeByte, actionBeforeDepth := stackTraceState(&fork)
