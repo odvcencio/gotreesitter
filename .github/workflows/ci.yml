@@ -876,7 +876,7 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Merge-event census (stage M0 baseline and Foo[int](a) receipt)
+      - name: Merge-event census and C topology receipts
         run: |
           GTS_PARITY_MODE=smoke \
           bash cgo_harness/docker/run_parity_in_docker.sh \
@@ -891,7 +891,7 @@ jobs:
             --timeout 30m \
             -- "cd /workspace/cgo_harness && GOWORK=off go test \
               -tags 'cgo treesitter_c_parity gts_merge_census' \
-              -run '^TestMergeEventCensus' -count=1 -v -timeout 30m ."
+              -run '^(TestMergeEventCensus.*|TestCTopologyReceipt.*)$' -count=1 -v -timeout 30m ."
 
   parity-cgo:
     needs: exhaustive_parity_scope

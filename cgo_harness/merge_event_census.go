@@ -75,6 +75,29 @@ const (
 	mergeCensusParseTimeoutUS = "30000000"
 )
 
+// cTopologyEvent uses the shared receipt framing. Each kind owns only the
+// fields listed below. A zero value marks an unused identity or slot.
+//
+//   - Action owns its action context, parser state, lookahead, byte offset,
+//     version identity, and version slot.
+//   - VersionAdd owns its version, optional source, and node identities.
+//   - VersionCopy stores the new version in Version and its origin in Source.
+//     It does not use Target.
+//   - VersionRenumber stores the result in Version, the origin in Source, and
+//     the displaced version in Target.
+//   - Merge stores the survivor in Version, Source, and Survivor. It stores
+//     the removed version in Target and Removed.
+//   - LinkInsert owns the affected node state, both node identities, the link
+//     identity, and the link ordinal.
+//   - PopPath stores the output slice in Version and the input in Source. It
+//     also owns the node, pop, path, destination, and payload fields.
+//   - ChildElection stores the reduced symbol in State. It also owns the
+//     version, election, candidate, selection, and payload fields.
+//   - AcceptElection owns the version, election, candidate, selection, and
+//     payload fields.
+//
+// A contextual non-action event copies only ActionID, ActionOrdinal, and
+// ActionType. Its State, LookaheadSymbol, and ByteOffset fields remain local.
 type cTopologyEvent struct {
 	EventID           uint64 `json:"event_id"`
 	Kind              uint64 `json:"kind"`

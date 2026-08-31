@@ -284,3 +284,47 @@ func assertCTopologyReduceAnchor(
 		}
 	}
 }
+
+func TestCTopologyReceiptNonzeroRecoveryLookahead(t *testing.T) {
+	oracle := mergeCensusOracleForTest(t)
+	source := []byte("f() -> .")
+	if len(source) != 8 {
+		t.Fatalf("source bytes=%d, want 8", len(source))
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256(source)); got != "51e527d972591c23d8919f482a7d1d815c6d8173c9b1c51e56fbe622093974b1" {
+		t.Fatalf("source SHA-256=%s", got)
+	}
+	row, err := mergeCensusRunCTopology(oracle, "erlang", a3CertificationSweepSource{
+		Name:   "erlang_nonzero_recovery_lookahead",
+		Source: source,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.Status != "ok" || row.SourceBytes != 8 || row.RootEndByte != 8 || !row.RootHasError {
+		t.Fatalf(
+			"row status=%q source=%d root_end=%d root_has_error=%v",
+			row.Status, row.SourceBytes, row.RootEndByte, row.RootHasError,
+		)
+	}
+	if row.Receipt.Truncated || row.Receipt.ArithmeticOverflow || row.Receipt.IdentityCollision || row.Receipt.IdentityIncomplete {
+		t.Fatalf("incomplete receipt: %+v", row.Receipt)
+	}
+
+	found := false
+	for _, event := range row.Receipt.Events {
+		if event.Kind == cTopologyEventAction &&
+			event.ActionType == cTopologyActionReduce &&
+			event.ActionOrdinal == -1 &&
+			event.State == 414 &&
+			event.ByteOffset == 6 {
+			if event.LookaheadSymbol != 2 {
+				t.Fatalf("recovery lookahead=%d, want 2: %+v", event.LookaheadSymbol, event)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("missing state-414 recovery reduction at byte 6")
+	}
+}

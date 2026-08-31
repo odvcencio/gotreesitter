@@ -270,7 +270,7 @@ index 41a349d..c944b7a 100644
 +  TSParser *self,
 +  StackVersion version,
 +  TSStateId state,
-+  Subtree lookahead,
++  TSSymbol lookahead_symbol,
 +  int64_t ordinal,
 +  uint64_t type
 +) {
@@ -279,8 +279,8 @@ index 41a349d..c944b7a 100644
 +  gts_topology_record((GTSTopologyEvent) {
 +    .kind = GTSTopologyEventAction,
 +    .state = state,
-+    .lookahead_symbol = lookahead.ptr
-+      ? ts_subtree_leaf_symbol(lookahead)
++    .lookahead_symbol = lookahead_symbol
++      ? lookahead_symbol
 +      : ts_builtin_sym_end,
 +    .byte_offset = ts_stack_position(self->stack, version).bytes,
 +    .version_id = ts_stack_topology_version_id(self->stack, version),
@@ -427,7 +427,7 @@ index 41a349d..c944b7a 100644
        ReduceAction action = self->reduce_actions.contents[j];
 
 +      gts_topology_begin_parser_action(
-+        self, version, state, NULL_SUBTREE, -1, GTSTopologyActionReduce
++        self, version, state, lookahead_symbol, -1, GTSTopologyActionReduce
 +      );
        reduction_version = ts_parser__reduce(
          self, version, action.symbol, action.count,
@@ -455,7 +455,7 @@ index 41a349d..c944b7a 100644
          case TSParseActionTypeShift: {
            if (action.shift.repetition) break;
 +          gts_topology_begin_parser_action(
-+            self, version, state, lookahead, i, GTSTopologyActionShift
++            self, version, state, lookahead.ptr ? ts_subtree_leaf_symbol(lookahead) : ts_builtin_sym_end, i, GTSTopologyActionShift
 +          );
 +          gts_work_count_admit_action_arm(&admitted_action_arms, table_entry.action_count);
            TSStateId next_state;
@@ -471,7 +471,7 @@ index 41a349d..c944b7a 100644
 
          case TSParseActionTypeReduce: {
 +          gts_topology_begin_parser_action(
-+            self, version, state, lookahead, i, GTSTopologyActionReduce
++            self, version, state, lookahead.ptr ? ts_subtree_leaf_symbol(lookahead) : ts_builtin_sym_end, i, GTSTopologyActionReduce
 +          );
 +          gts_work_count_admit_action_arm(&admitted_action_arms, table_entry.action_count);
            bool is_fragile = table_entry.action_count > 1;
@@ -487,7 +487,7 @@ index 41a349d..c944b7a 100644
 
          case TSParseActionTypeAccept: {
 +          gts_topology_begin_parser_action(
-+            self, version, state, lookahead, i, GTSTopologyActionAccept
++            self, version, state, lookahead.ptr ? ts_subtree_leaf_symbol(lookahead) : ts_builtin_sym_end, i, GTSTopologyActionAccept
 +          );
 +          gts_work_count_admit_action_arm(&admitted_action_arms, table_entry.action_count);
            LOG("accept");
@@ -498,7 +498,7 @@ index 41a349d..c944b7a 100644
 
          case TSParseActionTypeRecover: {
 +          gts_topology_begin_parser_action(
-+            self, version, state, lookahead, i, GTSTopologyActionRecover
++            self, version, state, lookahead.ptr ? ts_subtree_leaf_symbol(lookahead) : ts_builtin_sym_end, i, GTSTopologyActionRecover
 +          );
 +          gts_work_count_admit_action_arm(&admitted_action_arms, table_entry.action_count);
 +          gts_work_count_add(&gts_work_count_current.explicit_recover_actions, 1);
