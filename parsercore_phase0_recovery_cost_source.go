@@ -111,11 +111,9 @@ func (s *diagnosticParserCoreRecoveryCostSource) rowAt(byteOffset uint32) uint32
 
 // RecoveryCostNode implements core.RecoveryCostSource.
 //
-// Children are COPIED, not aliased. MaterializationView documents its
-// Children slice as borrowed arena storage that must not be retained, and the
-// cost model holds a node's children across recursive calls that re-enter this
-// method. Copying is the cheap, obviously-correct response; this path runs at
-// a recovery decision point, never on the clean hot path.
+// Children and aliases are COPIED, not retained. MaterializationView documents
+// both slices as borrowed arena storage. The cost model holds them across
+// recursive calls that re-enter this method.
 func (s *diagnosticParserCoreRecoveryCostSource) RecoveryCostNode(id core.SubtreeID) (core.RecoveryCostNode, error) {
 	if s == nil || s.compact == nil {
 		return core.RecoveryCostNode{}, errors.New("parser-core phase zero: recovery cost source has no compact core")
@@ -139,6 +137,9 @@ func (s *diagnosticParserCoreRecoveryCostSource) RecoveryCostNode(id core.Subtre
 	}
 	if len(view.Children) != 0 {
 		node.Children = append(make([]core.SubtreeID, 0, len(view.Children)), view.Children...)
+	}
+	if len(view.Aliases) != 0 {
+		node.Aliases = append(make([]core.Symbol, 0, len(view.Aliases)), view.Aliases...)
 	}
 	return node, nil
 }

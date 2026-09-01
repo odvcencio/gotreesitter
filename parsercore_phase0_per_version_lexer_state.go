@@ -307,15 +307,12 @@ func (h *diagnosticParserCoreHeader) installVersionLexerSnapshot(snapshot *diagn
 	if h == nil {
 		return
 	}
-	region := h.recoveryRegion()
-	if snapshot == nil && region == nil {
-		h.versionState = nil
-		return
-	}
-	h.versionState = &diagnosticParserCoreVersionState{
-		s3Region:      region,
-		relexSnapshot: snapshot,
-	}
+	baseline, baselineSet := h.recoveryNodeBaseline()
+	h.publishVersionState(
+		h.recoveryRegion(), snapshot, 0,
+		h.recoveryGroupIdentity(), h.recoveryMissingGroupIdentity(),
+		baseline, baselineSet,
+	)
 }
 
 // publishVersionLexerSnapshot installs a private copy of an owned snapshot
@@ -375,12 +372,18 @@ func (h *diagnosticParserCoreHeader) clearVersionLexerSnapshot() {
 	if h == nil {
 		return
 	}
-	region := h.recoveryRegion()
-	if region == nil {
-		h.versionState = nil
-		return
+	baseline, baselineSet := h.recoveryNodeBaseline()
+	recoveryGroup := h.recoveryGroupIdentity()
+	missingGroup := h.recoveryMissingGroupIdentity()
+	if !h.isRecoveryLineage() && h.recoveryRegion() == nil {
+		recoveryGroup, missingGroup = 0, 0
+		baseline, baselineSet = 0, false
 	}
-	h.versionState = &diagnosticParserCoreVersionState{s3Region: region}
+	h.publishVersionState(
+		h.recoveryRegion(), nil, 0,
+		recoveryGroup, missingGroup,
+		baseline, baselineSet,
+	)
 }
 
 // restore applies the owned DFA state to a token source. The caller restores

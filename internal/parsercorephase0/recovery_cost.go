@@ -3,6 +3,7 @@ package parsercorephase0
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 // ---------------------------------------------------------------------------
@@ -63,6 +64,10 @@ const recoveryMaxCostDifference = 18 * RecoveryCostPerSkippedTree
 // constant (parser_api.go:997).
 const RecoveryErrorSymbol Symbol = 65535
 
+// RecoveryErrorRepeatSymbol is tree-sitter's hidden ERROR_REPEAT symbol. C
+// counts this intermediate node as progress even though it is not visible.
+const RecoveryErrorRepeatSymbol Symbol = RecoveryErrorSymbol - 1
+
 // RecoveryCostNode is the immutable, per-subtree view the cost model reads.
 // See the file doc comment above for why it carries two fields SubtreeView
 // does not.
@@ -75,6 +80,9 @@ type RecoveryCostNode struct {
 	StartRow  uint32
 	EndRow    uint32
 	Children  []SubtreeID
+	// Aliases is empty or has one symbol per child. A non-zero alias makes a
+	// non-extra child occurrence visible in C's cached descendant count.
+	Aliases []Symbol
 }
 
 // RecoveryCostSource resolves a SubtreeID to its cost-model view. Compact
@@ -120,8 +128,14 @@ func recoveryVisibleChildCount(symbols []SelectedSymbolPolicy, src RecoveryCostS
 	if err != nil {
 		return 0, fmt.Errorf("parser-core phase zero: recovery cost node %d: %w", id, err)
 	}
+	if len(node.Aliases) != 0 && len(node.Aliases) != len(node.Children) {
+		return 0, fmt.Errorf(
+			"parser-core phase zero: recovery cost node %d has %d aliases for %d children",
+			id, len(node.Aliases), len(node.Children),
+		)
+	}
 	count := 0
-	for _, childID := range node.Children {
+	for index, childID := range node.Children {
 		if childID == 0 {
 			continue
 		}
@@ -129,7 +143,8 @@ func recoveryVisibleChildCount(symbols []SelectedSymbolPolicy, src RecoveryCostS
 		if err != nil {
 			return 0, fmt.Errorf("parser-core phase zero: recovery cost node %d: %w", childID, err)
 		}
-		if RecoverySymbolVisible(symbols, child.Symbol) {
+		hasAlias := len(node.Aliases) != 0 && node.Aliases[index] != 0
+		if hasAlias && !child.Extra || RecoverySymbolVisible(symbols, child.Symbol) {
 			count++
 		} else if len(child.Children) > 0 {
 			sub, err := recoveryVisibleChildCount(symbols, src, childID)
@@ -138,6 +153,58 @@ func recoveryVisibleChildCount(symbols []SelectedSymbolPolicy, src RecoveryCostS
 			}
 			count += sub
 		}
+	}
+	return count, nil
+}
+
+// RecoveryNodeVisibleSubtreeCount is the compact equivalent of
+// stack__subtree_node_count. It counts each visible node in one subtree.
+// Production aliases relabel a child before C stores and counts that child.
+// The result uses C's uint32 node-count domain and fails closed on overflow.
+func RecoveryNodeVisibleSubtreeCount(symbols []SelectedSymbolPolicy, src RecoveryCostSource, id SubtreeID) (uint32, error) {
+	return recoveryNodeVisibleSubtreeCount(symbols, src, id, false, true)
+}
+
+func recoveryNodeVisibleSubtreeCount(
+	symbols []SelectedSymbolPolicy,
+	src RecoveryCostSource,
+	id SubtreeID,
+	hasAlias bool,
+	countErrorRepeat bool,
+) (uint32, error) {
+	if id == 0 {
+		return 0, nil
+	}
+	node, err := src.RecoveryCostNode(id)
+	if err != nil {
+		return 0, fmt.Errorf("parser-core phase zero: recovery cost node %d: %w", id, err)
+	}
+	if len(node.Aliases) != 0 && len(node.Aliases) != len(node.Children) {
+		return 0, fmt.Errorf(
+			"parser-core phase zero: recovery cost node %d has %d aliases for %d children",
+			id, len(node.Aliases), len(node.Children),
+		)
+	}
+	count := uint32(0)
+	if hasAlias && !node.Extra || RecoverySymbolVisible(symbols, node.Symbol) ||
+		countErrorRepeat && node.Symbol == RecoveryErrorRepeatSymbol {
+		count++
+	}
+	for index, childID := range node.Children {
+		childAlias := Symbol(0)
+		if len(node.Aliases) != 0 {
+			childAlias = node.Aliases[index]
+		}
+		childCount, childErr := recoveryNodeVisibleSubtreeCount(
+			symbols, src, childID, childAlias != 0, false,
+		)
+		if childErr != nil {
+			return 0, childErr
+		}
+		if math.MaxUint32-count < childCount {
+			return 0, errors.New("parser-core phase zero: recovery visible-node count overflow")
+		}
+		count += childCount
 	}
 	return count, nil
 }
@@ -225,6 +292,26 @@ func RecoveryNodeErrorCostMemo(symbols []SelectedSymbolPolicy, src RecoveryCostS
 	return recoveryNodeErrorCost(symbols, src, memo, id)
 }
 
+// RecoveryErrorRegionCost prices an open ERROR node that the scheduler owns
+// outside the compact arena. Its children are published subtree identifiers.
+// This is the live equivalent of RecoveryNodeErrorCost on an ERROR record.
+func RecoveryErrorRegionCost(
+	symbols []SelectedSymbolPolicy,
+	src RecoveryCostSource,
+	memo *RecoveryCostMemo,
+	startByte, startRow, endByte, endRow uint32,
+	children []SubtreeID,
+) (uint32, error) {
+	return recoveryCostNodeErrorCost(symbols, src, memo, RecoveryCostNode{
+		Symbol:    RecoveryErrorSymbol,
+		StartByte: startByte,
+		EndByte:   endByte,
+		StartRow:  startRow,
+		EndRow:    endRow,
+		Children:  children,
+	})
+}
+
 func recoveryNodeErrorCost(symbols []SelectedSymbolPolicy, src RecoveryCostSource, memo *RecoveryCostMemo, id SubtreeID) (uint32, error) {
 	if id == 0 {
 		return 0, nil
@@ -238,12 +325,24 @@ func recoveryNodeErrorCost(symbols []SelectedSymbolPolicy, src RecoveryCostSourc
 	if err != nil {
 		return 0, fmt.Errorf("parser-core phase zero: recovery cost node %d: %w", id, err)
 	}
+	cost, err := recoveryCostNodeErrorCost(symbols, src, memo, node)
+	if err != nil {
+		return 0, err
+	}
+	if memo != nil {
+		memo.store(id, cost)
+	}
+	return cost, nil
+}
+
+func recoveryCostNodeErrorCost(
+	symbols []SelectedSymbolPolicy,
+	src RecoveryCostSource,
+	memo *RecoveryCostMemo,
+	node RecoveryCostNode,
+) (uint32, error) {
 	if node.Missing && len(node.Children) == 0 {
-		cost := uint32(RecoveryCostPerMissingTree + RecoveryCostPerRecovery)
-		if memo != nil {
-			memo.store(id, cost)
-		}
-		return cost, nil
+		return uint32(RecoveryCostPerMissingTree + RecoveryCostPerRecovery), nil
 	}
 	var cost uint32
 	for _, childID := range node.Children {
@@ -266,6 +365,12 @@ func recoveryNodeErrorCost(symbols []SelectedSymbolPolicy, src RecoveryCostSourc
 		cost += childCost
 	}
 	if node.Symbol == RecoveryErrorSymbol {
+		if len(node.Aliases) != 0 && len(node.Aliases) != len(node.Children) {
+			return 0, fmt.Errorf(
+				"parser-core phase zero: recovery cost node has %d aliases for %d children",
+				len(node.Aliases), len(node.Children),
+			)
+		}
 		for _, childID := range node.Children {
 			if childID == 0 {
 				continue
@@ -297,9 +402,6 @@ func recoveryNodeErrorCost(symbols []SelectedSymbolPolicy, src RecoveryCostSourc
 		}
 		cost += RecoveryCostPerRecovery + RecoveryCostPerSkippedChar*spanBytes + RecoveryCostPerSkippedLine*spanRows
 	}
-	if memo != nil {
-		memo.store(id, cost)
-	}
 	return cost, nil
 }
 
@@ -318,12 +420,10 @@ type RecoveryErrorStatus struct {
 // The scheduler supplies paused state, node count, precedence, and open
 // recovery state. subtreeCost is the accumulated subtree cost for one head.
 //
-// cNodeVisibleSubtreeCount and cNodeCountSinceError
-// (parser_recover_c.go:1178-1214,2155-2166) are deliberately not ported
-// here: they accumulate a visible-node count across a live GLR stack since
-// an error baseline, which is per-head bookkeeping, not a property of one
-// compact subtree. The scheduler owns that bookkeeping, so NodeCount remains
-// an explicit input.
+// RecoveryNodeVisibleSubtreeCount prices one immutable subtree. The scheduler
+// sums those counts across one live graph path and subtracts its per-version
+// error baseline. NodeCount remains an explicit input because the baseline is
+// header state, not a subtree property.
 func RecoveryVersionStatus(subtreeCost uint32, paused bool, nodeCount int, dynPrec int, hasOpenRecovery bool) RecoveryErrorStatus {
 	cost := subtreeCost
 	if paused {

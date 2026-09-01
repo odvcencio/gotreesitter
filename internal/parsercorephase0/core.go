@@ -1122,9 +1122,9 @@ type SubtreeView struct {
 }
 
 // MaterializationSubtreeView is a callback-scoped borrowed view of one compact
-// subtree. Children aliases compact arena storage and must not be retained or
-// mutated by the visitor. The copying Subtree diagnostic API remains the
-// stable inspection surface.
+// subtree. Children and Aliases reference compact arena storage. A visitor
+// must not retain or mutate them. The copying Subtree diagnostic API remains
+// the stable inspection surface.
 type MaterializationSubtreeView struct {
 	Symbol            Symbol
 	ProductionID      uint16
@@ -1132,6 +1132,7 @@ type MaterializationSubtreeView struct {
 	StartByte         uint32
 	EndByte           uint32
 	Children          []SubtreeID
+	Aliases           []Symbol
 	Extra             bool
 	External          bool
 	Terminal          bool
@@ -5460,8 +5461,8 @@ func (c *Core) VisitMaterializationPostorder(
 // subtree id. It is the random-access companion to VisitMaterializationPostorder
 // used by ParseState-by-table-replay (Phase-3 Lane 2): the driver walks the
 // derivation top-down to reconstruct per-node parser states before the
-// postorder pass materializes public nodes. The returned Children slice
-// aliases compact arena storage and must not be retained or mutated.
+// postorder pass materializes public nodes. The returned Children and Aliases
+// slices reference compact arena storage and must not be retained or mutated.
 func (c *Core) MaterializationView(id SubtreeID) (MaterializationSubtreeView, error) {
 	record, err := c.subtree(id)
 	if err != nil {
@@ -5474,6 +5475,7 @@ func (c *Core) MaterializationView(id SubtreeID) (MaterializationSubtreeView, er
 		StartByte:         record.startByte,
 		EndByte:           record.endByte,
 		Children:          c.children[record.firstChild : record.firstChild+record.childCount],
+		Aliases:           c.aliases[record.firstAlias : record.firstAlias+record.aliasCount],
 		Extra:             record.extra,
 		External:          record.external,
 		Terminal:          record.terminal,
