@@ -33,6 +33,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Repository hygiene
+        run: bash scripts/repository_hygiene_test.sh
+
       - name: Build
         run: go build ./...
 

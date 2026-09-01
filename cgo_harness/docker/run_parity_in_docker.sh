@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+WORKTREE_PATH_GUARD="$SCRIPT_DIR/../../scripts/validate_worktree_path.sh"
 OUT_ROOT="$REPO_ROOT/harness_out/docker"
 LABEL=""
 
@@ -210,13 +211,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-REPO_ROOT="$(cd "$REPO_ROOT" && pwd)"
+if [[ ! -x "$WORKTREE_PATH_GUARD" ]]; then
+  echo "worktree path guard is not executable: $WORKTREE_PATH_GUARD" >&2
+  exit 2
+fi
+if ! REPO_ROOT="$("$WORKTREE_PATH_GUARD" "$REPO_ROOT")"; then
+  exit 2
+fi
 OUT_ROOT="${OUT_ROOT/#\~/$HOME}"
 if [[ ! -d "$REPO_ROOT" ]]; then
   echo "repo root does not exist: $REPO_ROOT" >&2
   exit 2
 fi
-mkdir -p "$OUT_ROOT"
+mkdir -p -- "$OUT_ROOT"
 
 require_positive_int() {
   local name="$1"

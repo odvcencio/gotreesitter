@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNNER="$SCRIPT_DIR/run_parity_in_docker.sh"
+WORKTREE_PATH_GUARD="$SCRIPT_DIR/../../scripts/validate_worktree_path.sh"
 
 IMAGE_TAG="gotreesitter/cgo-harness:go1.25-local"
 MEMORY_LIMIT="8g"
@@ -129,6 +130,21 @@ if ! [[ "$MAX_PARALLEL" =~ ^[1-9][0-9]*$ ]]; then
   echo "invalid --max-parallel: $MAX_PARALLEL" >&2
   exit 2
 fi
+
+if [[ ! -x "$WORKTREE_PATH_GUARD" ]]; then
+  echo "worktree path guard is not executable: $WORKTREE_PATH_GUARD" >&2
+  exit 2
+fi
+for exp in "${EXPERIMENTS[@]}"; do
+  label="${exp%%=*}"
+  repo="${exp#*=}"
+  if [[ -z "$label" || -z "$repo" || "$label" == "$exp" ]]; then
+    echo "invalid --experiment format: $exp (want <label>=<repo_root>)" >&2
+    exit 2
+  fi
+  repo="${repo/#\~/$HOME}"
+  "$WORKTREE_PATH_GUARD" "$repo" >/dev/null
+done
 
 docker_memory_limit_to_bytes() {
   local value="$1"
