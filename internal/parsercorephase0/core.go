@@ -1081,8 +1081,10 @@ type CondenseCandidate struct {
 	Head           Head
 	Checkpoint     CheckpointID
 	DropCohortRefs DropCohortRefSet
-	// ErrorCost is zero for the clean Stage 2 merge route. Recovery versions
-	// stay separate until a later stage can compare their complete C costs.
+	// ErrorCost is zero for the clean Stage 2 merge route. The production
+	// driver preserves a permanent recovery-costed marker and excludes those
+	// headers. Recovery versions stay separate until a later stage can compare
+	// their complete C costs.
 	ErrorCost     uint32
 	MergeIdentity uint16
 	Shifted       bool

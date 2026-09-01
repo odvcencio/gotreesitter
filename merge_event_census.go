@@ -129,6 +129,9 @@ type MergeEventCensusCounts struct {
 	CompactLinkUnionRecursiveChanged   uint64
 	CompactLinkUnionAlternateAppended  uint64
 	CompactLinkUnionRejected           uint64
+	CompactPhysicalHeadMergeAttempts   uint64
+	CompactPhysicalHeadMergeSuccesses  uint64
+	CompactPhysicalHeadMergeInputLinks uint64
 	CompactAcceptancesObserved         uint64
 }
 
@@ -297,7 +300,10 @@ func mergeCensusShallowEquivalent(a, b stackEntry) bool {
 // always-on link-union counters at a compact acceptance. The compact core
 // keeps cumulative per-parse totals, so the census stores the last observed
 // values rather than summing them.
-func mergeCensusRecordCompactLinkUnion(attempts, duplicate, precedence, recursive, alternate, rejected uint64) {
+func mergeCensusRecordCompactLinkUnion(
+	attempts, duplicate, precedence, recursive, alternate, rejected uint64,
+	physicalAttempts, physicalSuccesses, physicalInputLinks uint64,
+) {
 	mergeCensusState.mu.Lock()
 	counts := &mergeCensusState.counts
 	counts.CompactAcceptancesObserved++
@@ -307,5 +313,8 @@ func mergeCensusRecordCompactLinkUnion(attempts, duplicate, precedence, recursiv
 	counts.CompactLinkUnionRecursiveChanged = recursive
 	counts.CompactLinkUnionAlternateAppended = alternate
 	counts.CompactLinkUnionRejected = rejected
+	counts.CompactPhysicalHeadMergeAttempts = physicalAttempts
+	counts.CompactPhysicalHeadMergeSuccesses = physicalSuccesses
+	counts.CompactPhysicalHeadMergeInputLinks = physicalInputLinks
 	mergeCensusState.mu.Unlock()
 }

@@ -628,6 +628,9 @@ func runMergeEventCensusRow(
 		row.Go.CompactLinkUnionRecursiveChanged = compact.CompactLinkUnionRecursiveChanged
 		row.Go.CompactLinkUnionAlternateAppended = compact.CompactLinkUnionAlternateAppended
 		row.Go.CompactLinkUnionRejected = compact.CompactLinkUnionRejected
+		row.Go.CompactPhysicalHeadMergeAttempts = compact.CompactPhysicalHeadMergeAttempts
+		row.Go.CompactPhysicalHeadMergeSuccesses = compact.CompactPhysicalHeadMergeSuccesses
+		row.Go.CompactPhysicalHeadMergeInputLinks = compact.CompactPhysicalHeadMergeInputLinks
 		row.Go.CompactAcceptancesObserved = compact.CompactAcceptancesObserved
 	}
 	return row
@@ -669,11 +672,14 @@ type mergeCensusTotals struct {
 	LinkPayloadDeepWouldAccept    uint64
 	LinkPayloadPending            uint64
 
-	CompactAccepted     int
-	CompactUnionAttempt uint64
-	CompactUnionAppend  uint64
-	CompactUnionDup     uint64
-	CompactUnionReject  uint64
+	CompactAccepted           int
+	CompactUnionAttempt       uint64
+	CompactUnionAppend        uint64
+	CompactUnionDup           uint64
+	CompactUnionReject        uint64
+	CompactPhysicalAttempts   uint64
+	CompactPhysicalSuccesses  uint64
+	CompactPhysicalInputLinks uint64
 
 	// SourcesWhereGoOverMerges is the stop-the-line class of gate G6: a source
 	// where production collapses MORE versions than the reference runtime.
@@ -725,6 +731,9 @@ func (t *mergeCensusTotals) add(row mergeCensusRow) {
 		t.CompactUnionAppend += row.Go.CompactLinkUnionAlternateAppended
 		t.CompactUnionDup += row.Go.CompactLinkUnionDuplicateNoop
 		t.CompactUnionReject += row.Go.CompactLinkUnionRejected
+		t.CompactPhysicalAttempts += row.Go.CompactPhysicalHeadMergeAttempts
+		t.CompactPhysicalSuccesses += row.Go.CompactPhysicalHeadMergeSuccesses
+		t.CompactPhysicalInputLinks += row.Go.CompactPhysicalHeadMergeInputLinks
 	}
 
 	if row.Go.Successes > row.C.MergeSuccesses {

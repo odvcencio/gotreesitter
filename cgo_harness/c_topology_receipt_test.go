@@ -9,6 +9,7 @@ import (
 	"sort"
 	"testing"
 
+	gotreesitter "github.com/odvcencio/gotreesitter"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -90,6 +91,12 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 	if receipt.Truncated || receipt.ArithmeticOverflow || receipt.IdentityCollision || receipt.IdentityIncomplete || receipt.EventsDropped != 0 {
 		t.Fatalf("incomplete one-byte C topology receipt: %+v", receipt)
 	}
+	if receipt.EventsSeen != uint64(len(receipt.Events)) || receipt.EventsRetained != uint32(len(receipt.Events)) {
+		t.Fatalf(
+			"one-byte event accounting seen=%d retained=%d dropped=%d len=%d",
+			receipt.EventsSeen, receipt.EventsRetained, receipt.EventsDropped, len(receipt.Events),
+		)
+	}
 	if len(receipt.Events) != cTopologyErlangOneByteEventCount || cTopologyReceiptSHA256(receipt) != cTopologyErlangOneByteSHA256 {
 		t.Fatalf("one-byte C topology events=%d sha256=%s", len(receipt.Events), cTopologyReceiptSHA256(receipt))
 	}
@@ -135,6 +142,36 @@ func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
 		row.Accepts != 3 || row.ExplicitRecovers != 0 || row.LinkUnionAttempts != 4 ||
 		row.LinkUnionDuplicate != 1 || row.LinkUnionAppended != 3 || row.GraphLinkAdditions != 31 || row.Overflow {
 		t.Fatalf("one-byte C work receipt=%+v", row)
+	}
+
+	entry, ok := parityEntriesByName["erlang"]
+	if !ok {
+		t.Fatal("Erlang Go grammar is not registered")
+	}
+	goLanguage := entry.Language()
+	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
+	goParser := gotreesitter.NewParser(goLanguage)
+	goParser.SetAdmissionCandidateRoute(true)
+	goTree, err := goParser.Parse(source)
+	if err != nil {
+		t.Fatalf("one-byte routed Go parse: %v", err)
+	}
+	if goTree == nil || goTree.RootNode() == nil {
+		t.Fatal("one-byte routed Go parser returned no tree")
+	}
+	t.Cleanup(func() { goTree.Release() })
+	if diff := FirstDivergenceDumpV1(goTree.RootNode(), goLanguage, root); diff != nil {
+		t.Fatalf("one-byte routed Go tree diverges from C: %+v", diff)
+	}
+	if diff := firstLockedCTreeFlagDivergence(goTree.RootNode(), goLanguage, root, "/source_file"); diff != nil {
+		t.Fatalf("one-byte routed Go flags diverge from C: %v", diff)
+	}
+	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
+	if routedAfter != routedBefore || fallbackAfter != fallbackBefore+1 {
+		t.Fatalf(
+			"one-byte route delta=%d/%d, want 0/1 before recovery-through-ambiguity graduation",
+			routedAfter-routedBefore, fallbackAfter-fallbackBefore,
+		)
 	}
 }
 

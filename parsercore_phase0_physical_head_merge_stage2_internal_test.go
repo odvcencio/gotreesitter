@@ -60,8 +60,8 @@ func TestStage2PhysicalHeadMergePreservesDistinctErrorRegions(t *testing.T) {
 		},
 	}
 	headers := []diagnosticParserCoreHeader{
-		{head: left, shifted: true, versionState: leftState, recoveryCompetitor: true},
-		{head: right, shifted: true, versionState: rightState, recoveryCompetitor: true},
+		{head: left, shifted: true, versionState: leftState, recoveryFlags: diagnosticParserCoreRecoveryCompetitorFlag},
+		{head: right, shifted: true, versionState: rightState, recoveryFlags: diagnosticParserCoreRecoveryCompetitorFlag},
 	}
 	var scratch diagnosticParserCoreCanonicalScratch
 	out, err := scratch.canonicalizeRecovery(compact, headers)
@@ -80,8 +80,8 @@ func TestStage2PhysicalHeadMergePreservesDistinctErrorRegions(t *testing.T) {
 func TestStage2PhysicalHeadMergePreservesRecoveryLineage(t *testing.T) {
 	compact, left, right, _, _ := newStage2RecoveryHeadPair(t)
 	headers := []diagnosticParserCoreHeader{
-		{head: left, shifted: true, recoveryCompetitor: true},
-		{head: right, shifted: true, recoveryCompetitor: true},
+		{head: left, shifted: true, recoveryFlags: diagnosticParserCoreRecoveryCompetitorFlag},
+		{head: right, shifted: true, recoveryFlags: diagnosticParserCoreRecoveryCompetitorFlag},
 	}
 	var scratch diagnosticParserCoreCanonicalScratch
 	out, err := scratch.canonicalizeRecovery(compact, headers)
@@ -198,6 +198,104 @@ func TestStage2PhysicalHeadMergeCanonicalizationUnionsLineage(t *testing.T) {
 	}
 }
 
+func TestStage2PhysicalHeadMergeRunsThroughGenericReductionDispatch(t *testing.T) {
+	table := &genericConflictTable{
+		cells: map[genericConflictCell][]core.Action{
+			{state: 1, symbol: 3}: {{Type: core.ActionShift, State: 2}},
+			{state: 1, symbol: 4}: {{Type: core.ActionShift, State: 2}},
+			{state: 1, symbol: 5}: {{Type: core.ActionShift, State: 3}},
+			{state: 3, symbol: 9}: {{Type: core.ActionReduce, Symbol: 6, ChildCount: 1}},
+		},
+		gotos: map[genericConflictCell]core.StateID{{state: 1, symbol: 6}: 7},
+	}
+	compact, err := core.New(table, core.Limits{MaxDerivations: 8, MaxPopPaths: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	leftSeed, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := compact.Shift(leftSeed, 3, 0, core.Token{Symbol: 3, EndByte: 1}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := compact.BeginFrontier(); err != nil {
+		t.Fatal(err)
+	}
+	rightSeed, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := compact.Shift(rightSeed, 4, 0, core.Token{Symbol: 4, EndByte: 1}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceSeed, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := compact.Shift(sourceSeed, 5, 0, core.Token{Symbol: 5, EndByte: 1}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if left == right {
+		t.Fatal("fixture did not create two physical sibling heads")
+	}
+
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact: compact,
+		headers: []diagnosticParserCoreHeader{
+			{head: source, creationSeq: 1},
+			{head: left, creationSeq: 2},
+			{head: right, creationSeq: 3},
+		},
+		token: Token{Symbol: 9, StartByte: 1, EndByte: 2},
+		options: DiagnosticParserCorePrefixOptions{
+			MaxDispatches: 20,
+			ReceiptMode:   DiagnosticParserCoreReceiptSummary,
+		},
+		receipt: &DiagnosticParserCoreGenericScheduler{},
+	}
+	before, err := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := mustDiagnosticParserCoreGenericCell(t, compact, 0, scheduler.headers[0], 9)
+	workBefore := compact.Work()
+	if err := scheduler.applyGenericReduction(before, cell); err != nil {
+		t.Fatal(err)
+	}
+	workAfter := compact.Work()
+	if workAfter.PhysicalHeadMergeAttempts-workBefore.PhysicalHeadMergeAttempts != 1 ||
+		workAfter.PhysicalHeadMergeSuccesses-workBefore.PhysicalHeadMergeSuccesses != 1 ||
+		workAfter.PhysicalHeadMergeInputLinks-workBefore.PhysicalHeadMergeInputLinks != 1 {
+		t.Fatalf("generic reduction physical-merge telemetry before=%+v after=%+v", workBefore, workAfter)
+	}
+	canonical, ok := compact.CanonicalBoundary(2, 1, false, 0)
+	if !ok {
+		t.Fatal("generic reduction did not publish the merged sibling boundary")
+	}
+	derivations, err := compact.Derivations(canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(derivations) != 2 || len(derivations[0].Payloads) != 1 || len(derivations[1].Payloads) != 1 {
+		t.Fatalf("generic reduction merged derivations=%+v", derivations)
+	}
+	first, err := compact.Subtree(derivations[0].Payloads[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := compact.Subtree(derivations[1].Payloads[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Symbol != 3 || second.Symbol != 4 {
+		t.Fatalf("generic reduction changed stable sibling order: first=%+v second=%+v", first, second)
+	}
+}
+
 func TestStage2PhysicalHeadMergeCandidatesPreserveDistinctLexerVersionsForClassification(t *testing.T) {
 	compact, first, second := newDiagnosticParserCoreCanonicalTestCore(t)
 	sharedSnapshot := &diagnosticParserCoreVersionLexerSnapshot{}
@@ -207,13 +305,40 @@ func TestStage2PhysicalHeadMergeCandidatesPreserveDistinctLexerVersionsForClassi
 		{head: first, versionState: sharedState},
 		{head: second, versionState: sharedState},
 		{head: second, versionState: distinctState},
-		{head: second, versionState: sharedState, recoveryCompetitor: true},
+		{head: second, versionState: sharedState, recoveryFlags: diagnosticParserCoreRecoveryCompetitorFlag},
 		{head: second, versionState: sharedState, paused: true},
 		{head: second, versionState: sharedState, accepted: true},
 	}}
 	candidates := scheduler.collectCondenseCandidates(0)
 	if len(candidates) != 2 || candidates[0].Head != second || candidates[1].Head != second {
 		t.Fatalf("classification candidates=%+v, want both clean lexer versions", candidates)
+	}
+}
+
+func TestStage2PhysicalHeadMergeRejectsClearedRecoveryCostedLineage(t *testing.T) {
+	compact, first, second := newDiagnosticParserCoreCanonicalTestCore(t)
+	recovered := diagnosticParserCoreHeader{head: second}
+	recovered.markRecoveryLineage()
+	recovered.openRecoveryRegion(&diagnosticParserCoreS3Region{state: 2, startByte: 0, endByte: 1})
+	recovered.closeRecoveryRegion()
+	recovered.clearRecoveryLineage()
+	recovered.clearVersionLexerSnapshot()
+	if recovered.isRecoveryLineage() || !recovered.isRecoveryCosted() || recovered.versionState != nil {
+		t.Fatalf("cleared recovery header lost its permanent cost marker: %+v", recovered)
+	}
+
+	scheduler := diagnosticParserCoreGenericScheduler{compact: compact, headers: []diagnosticParserCoreHeader{
+		{head: first}, recovered,
+	}}
+	if candidates := scheduler.collectCondenseCandidates(0); len(candidates) != 0 {
+		t.Fatalf("recovery-costed candidate entered clean physical merge: %+v", candidates)
+	}
+	scheduler.headers[0], scheduler.headers[1] = scheduler.headers[1], scheduler.headers[0]
+	if candidates := scheduler.collectCondenseCandidates(0); len(candidates) != 0 {
+		t.Fatalf("recovery-costed source entered clean physical merge: %+v", candidates)
+	}
+	if work := compact.Work(); work.PhysicalHeadMergeAttempts != 0 || work.PhysicalHeadMergeSuccesses != 0 {
+		t.Fatalf("recovery-cost guard entered physical merge: %+v", work)
 	}
 }
 
