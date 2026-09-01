@@ -584,14 +584,18 @@ func TestDiagnosticParserCoreGenericConflictArbitraryNOrdering(t *testing.T) {
 		t.Fatalf("physical conflict order states=%v sequences=%v", states, sequences)
 	}
 	for index := range scheduler.headers {
-		if scheduler.headers[index].isRecoveryLineage() {
-			t.Fatalf("ordinary conflict output %d retained the recovery marker", index)
+		wantRecovery := index == 1 || index == 3 || index == 4
+		if scheduler.headers[index].isRecoveryLineage() != wantRecovery {
+			t.Fatalf("conflict output %d recovery marker=%t, want %t", index, scheduler.headers[index].isRecoveryLineage(), wantRecovery)
+		}
+		if wantRecovery && !scheduler.headers[index].isRecoveryCosted() {
+			t.Fatalf("conflict output %d lost recovery cost provenance", index)
 		}
 	}
 	if scheduler.branchOrder != 9 || scheduler.nextSeq != 12 || scheduler.dispatches != 1 || scheduler.work != (DiagnosticParserCoreGenericWork{
 		Dispatches: 1, Conflicts: 1, ConflictActions: 3, Forks: 2, ConflictHeads: 3,
 		ConflictActionArmsAdmitted: 3, CausalConflictForks: 2,
-		Canonicalizations: 1, PeakHeaders: 5,
+		RecoveryAmbiguityForks: 1, Canonicalizations: 1, PeakHeaders: 5,
 	}) {
 		t.Fatalf("scheduler allocation/work drift: order=%d seq=%d dispatches=%d work=%+v", scheduler.branchOrder, scheduler.nextSeq, scheduler.dispatches, scheduler.work)
 	}

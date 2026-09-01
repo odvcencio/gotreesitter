@@ -54,7 +54,7 @@ func newStackSummaryRecoveryForkScheduler(t *testing.T, armed bool) *diagnosticP
 	return &diagnosticParserCoreGenericScheduler{
 		compact: compact,
 		tokenSource: &dfaTokenSource{
-			language: &Language{TokenCount: 5},
+			language: &Language{TokenCount: 5, SymbolCount: 5},
 			lexer:    &Lexer{source: []byte("a?")},
 		},
 		headers: []diagnosticParserCoreHeader{{head: head, creationSeq: 3}},
@@ -97,6 +97,19 @@ func TestS4StackSummaryRecoveryForkPublishesBothLineages(t *testing.T) {
 		t.Fatalf("creation sequence=%d/%d next=%d, want 3/10 next 11",
 			scheduler.headers[0].creationSeq, scheduler.headers[1].creationSeq, scheduler.nextSeq)
 	}
+	if scheduler.headers[0].recoveryGroupIdentity() != 10 ||
+		scheduler.headers[1].recoveryGroupIdentity() != 0 ||
+		scheduler.headers[1].recoveryMissingGroupIdentity() != 0 {
+		t.Fatalf("S4 recovery groups absorb=%d recovered=%d/%d, want 10 and 0/0",
+			scheduler.headers[0].recoveryGroupIdentity(),
+			scheduler.headers[1].recoveryGroupIdentity(),
+			scheduler.headers[1].recoveryMissingGroupIdentity())
+	}
+	for index := range scheduler.headers {
+		if baseline, set := scheduler.headers[index].recoveryNodeBaseline(); !set || baseline != 1 {
+			t.Fatalf("S4 header %d baseline=%d/%t, want 1/true", index, baseline, set)
+		}
+	}
 	if scheduler.work.StackSummaryRecoveryForks != 1 {
 		t.Fatalf("stack-summary forks=%d, want 1", scheduler.work.StackSummaryRecoveryForks)
 	}
@@ -121,6 +134,20 @@ func TestS4StackSummaryRecoveryForkPublishesBothLineages(t *testing.T) {
 	}
 	if recovered.Symbol != core.Symbol(errorSymbol) || recovered.StartByte != 0 || recovered.EndByte != 1 || len(recovered.Children) != 1 {
 		t.Fatalf("recovered payload=%+v, want ERROR over bytes 0..1", recovered)
+	}
+}
+
+func TestS3ErrorEntryPublishesCurrentVisibleNodeBaseline(t *testing.T) {
+	scheduler := newStackSummaryRecoveryForkScheduler(t, true)
+	handled, err := scheduler.s3TryOpenErrorRegionWithAlternatives(0, true)
+	if err != nil {
+		t.Fatalf("s3TryOpenErrorRegionWithAlternatives: %v", err)
+	}
+	if !handled || scheduler.headers[0].recoveryRegion() == nil {
+		t.Fatal("standalone S3 did not open its error region")
+	}
+	if baseline, set := scheduler.headers[0].recoveryNodeBaseline(); !set || baseline != 1 {
+		t.Fatalf("S3 baseline=%d/%t, want one visible shifted node", baseline, set)
 	}
 }
 

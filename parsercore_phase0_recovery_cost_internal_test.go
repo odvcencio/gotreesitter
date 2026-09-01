@@ -167,6 +167,14 @@ func assertRecoveryCostNodeForNode(t *testing.T, trial int, lang *Language, symb
 	if gotMemo != want {
 		t.Fatalf("trial %d: compact memoized cost for id %d = %d, want %d (production)", trial, id, gotMemo, want)
 	}
+	gotVisible, err := core.RecoveryNodeVisibleSubtreeCount(symbols, fixture, id)
+	if err != nil {
+		t.Fatalf("trial %d: RecoveryNodeVisibleSubtreeCount(id=%d): %v", trial, id, err)
+	}
+	if wantVisible := cNodeVisibleSubtreeCountUncachedLang(lang, n); uint64(gotVisible) != uint64(wantVisible) {
+		t.Fatalf("trial %d: compact visible count for id %d = %d, want %d (production)",
+			trial, id, gotVisible, wantVisible)
+	}
 
 	for _, c := range n.children {
 		assertRecoveryCostNodeForNode(t, trial, lang, symbols, fixture, ids, c)
@@ -194,6 +202,65 @@ func TestRecoveryCostCompactMatchesProductionNodeForNode(t *testing.T) {
 
 		fixture, _, ids := compactifyRecoveryCostTree(root)
 		assertRecoveryCostNodeForNode(t, trial, lang, symbols, fixture, ids, root)
+	}
+}
+
+func TestRecoveryVisibleNodeCountMatchesProductionAliasRelabel(t *testing.T) {
+	lang := &Language{SymbolMetadata: make([]SymbolMetadata, 8)}
+	lang.SymbolMetadata[5] = SymbolMetadata{Visible: true, Named: true}
+	lang.SymbolMetadata[6] = SymbolMetadata{Visible: false}
+	lang.SymbolMetadata[7] = SymbolMetadata{Visible: true, Named: true}
+	symbols := make([]core.SelectedSymbolPolicy, len(lang.SymbolMetadata))
+	for index := range symbols {
+		symbols[index] = core.SelectedSymbolPolicy{
+			Visible: lang.SymbolMetadata[index].Visible,
+			Named:   lang.SymbolMetadata[index].Named,
+		}
+	}
+
+	production := NewParentNode(5, true, []*Node{
+		NewLeafNode(7, true, 0, 1, Point{}, Point{Column: 1}),
+	}, nil, 1)
+	fixture := compactRecoveryCostFixture{
+		1: {Symbol: 6, StartByte: 0, EndByte: 1},
+		2: {Symbol: 5, StartByte: 0, EndByte: 1, Children: []core.SubtreeID{1}, Aliases: []core.Symbol{7}},
+	}
+	got, err := core.RecoveryNodeVisibleSubtreeCount(symbols, fixture, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := cNodeVisibleSubtreeCountUncachedLang(lang, production)
+	if uint64(got) != uint64(want) {
+		t.Fatalf("alias-aware compact visible count=%d, want production count %d", got, want)
+	}
+}
+
+func TestRecoveryErrorRegionCostMatchesUnpublishedProductionNode(t *testing.T) {
+	const symbolCount = 8
+	lang := &Language{SymbolMetadata: make([]SymbolMetadata, symbolCount)}
+	symbols := make([]core.SelectedSymbolPolicy, symbolCount)
+	for index := range lang.SymbolMetadata {
+		lang.SymbolMetadata[index] = SymbolMetadata{Visible: true, Named: true}
+		symbols[index] = core.SelectedSymbolPolicy{Visible: true, Named: true}
+	}
+	children := []*Node{
+		NewLeafNode(2, true, 1, 3, Point{}, Point{}),
+		NewLeafNode(3, true, 3, 8, Point{}, Point{Row: 2}),
+	}
+	region := NewParentNode(errorSymbol, true, children, nil, 0)
+	fixture, _, ids := compactifyRecoveryCostTree(region)
+	childIDs := []core.SubtreeID{ids[children[0]], ids[children[1]]}
+	got, err := core.RecoveryErrorRegionCost(
+		symbols, fixture, nil,
+		region.startByte, region.startPoint.Row,
+		region.endByte, region.endPoint.Row,
+		childIDs,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := cNodeErrorCostLang(lang, region); got != want {
+		t.Fatalf("unpublished compact ERROR cost=%d, want production %d", got, want)
 	}
 }
 

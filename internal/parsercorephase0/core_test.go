@@ -156,6 +156,13 @@ func TestPinnedGoConflictAndReductionMetadata(t *testing.T) {
 	if !slices.Equal(view.Aliases, []Symbol{229}) {
 		t.Fatalf("aliases = %#v, want pinned [229]", view.Aliases)
 	}
+	borrowed, err := core.MaterializationView(paths[0].Payloads[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(borrowed.Aliases, []Symbol{229}) {
+		t.Fatalf("borrowed aliases = %#v, want pinned [229]", borrowed.Aliases)
+	}
 
 	// ParseActions[106].Actions[0] is the pinned real Go production-zero
 	// reduction from the conflict cell above. Production zero has no alias

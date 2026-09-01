@@ -46,7 +46,16 @@ func TestDiagnosticParserCoreGenericReductionPauseIsFinite(t *testing.T) {
 		compact: compact,
 		headers: []diagnosticParserCoreHeader{{head: source, creationSeq: 3}, {head: outputs[0].Head, creationSeq: 7}},
 		token:   Token{Symbol: 9, StartByte: 1, EndByte: 2},
-		options: DiagnosticParserCorePrefixOptions{MaxDispatches: 20},
+		tokenSource: &dfaTokenSource{language: &Language{
+			SymbolCount: 10,
+			SymbolMetadata: []SymbolMetadata{
+				8: {Visible: true, Named: true},
+			},
+		}},
+		options: DiagnosticParserCorePrefixOptions{
+			MaxDispatches:         20,
+			materializationSource: []byte("a?"),
+		},
 		receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	before, err := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
@@ -59,6 +68,9 @@ func TestDiagnosticParserCoreGenericReductionPauseIsFinite(t *testing.T) {
 	}
 	if !scheduler.headers[0].paused || scheduler.epochProgress || scheduler.work.ReductionPauses != 1 {
 		t.Fatalf("unchanged reduction did not pause: headers=%+v work=%+v progress=%t", scheduler.headers, scheduler.work, scheduler.epochProgress)
+	}
+	if baseline, set := scheduler.headers[0].recoveryNodeBaseline(); !set || baseline != 1 {
+		t.Fatalf("reduction pause baseline=%d/%t, want one visible shifted node", baseline, set)
 	}
 	if stop, err := scheduler.dispatchPass(); err != nil || stop != nil {
 		t.Fatalf("sibling shift pass stop=%+v err=%v", stop, err)
@@ -131,7 +143,7 @@ func TestDiagnosticParserCoreGenericReductionSequenceOverflowRollsBack(t *testin
 	}
 }
 
-func TestDiagnosticParserCoreRecoveryReductionForkClearsMarkers(t *testing.T) {
+func TestDiagnosticParserCoreRecoveryReductionForkPreservesMarkers(t *testing.T) {
 	table := &genericConflictTable{
 		cells: map[genericConflictCell][]core.Action{
 			{state: 1, symbol: 8}: {{Type: core.ActionShift, State: 3}},
@@ -168,8 +180,11 @@ func TestDiagnosticParserCoreRecoveryReductionForkClearsMarkers(t *testing.T) {
 		token:                Token{Symbol: 9, StartByte: 1, EndByte: 2},
 		nextSeq:              10,
 		nextCleanPathLineage: 1,
-		options:              DiagnosticParserCorePrefixOptions{MaxDispatches: 20},
-		receipt:              &DiagnosticParserCoreGenericScheduler{},
+		options: DiagnosticParserCorePrefixOptions{
+			MaxDispatches:                        20,
+			allowCompactRecoveryLineageSelection: true,
+		},
+		receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	scheduler.headers[0].markRecoveryLineage()
 	scheduler.recoveryIsolation = true
@@ -185,19 +200,18 @@ func TestDiagnosticParserCoreRecoveryReductionForkClearsMarkers(t *testing.T) {
 		t.Fatalf("reduction produced %d heads, want 2", len(scheduler.headers))
 	}
 	for index := range scheduler.headers {
-		if scheduler.headers[index].isRecoveryLineage() {
-			t.Fatalf("ordinary reduction output %d retained the recovery marker", index)
+		if !scheduler.headers[index].isRecoveryLineage() || !scheduler.headers[index].isRecoveryCosted() {
+			t.Fatalf("reduction output %d lost recovery competition provenance", index)
 		}
 	}
 	if !scheduler.recoveryIsolation {
-		t.Fatal("ordinary reduction disabled the fail-closed recovery guard")
+		t.Fatal("ordinary reduction disabled recovery competition")
 	}
-	unsupported, err := scheduler.dispatchPass()
-	if err != nil {
-		t.Fatalf("dispatchPass: %v", err)
+	if !scheduler.competingRecoveryFrontier() {
+		t.Fatal("ordinary reduction stopped the marked outputs from competing")
 	}
-	if unsupported == nil || unsupported.boundary != DiagnosticParserCoreRecovery {
-		t.Fatalf("unsupported=%+v, want recovery decline", unsupported)
+	if scheduler.work.RecoveryAmbiguityForks != 1 {
+		t.Fatalf("recovery ambiguity telemetry=%+v, want one reduction fork", scheduler.work)
 	}
 }
 

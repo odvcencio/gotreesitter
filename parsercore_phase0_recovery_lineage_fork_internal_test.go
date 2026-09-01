@@ -49,7 +49,7 @@ func newRecoveryLineageForkScheduler(t *testing.T, armed bool) *diagnosticParser
 	if err != nil {
 		t.Fatalf("Seed: %v", err)
 	}
-	lang := &Language{TokenCount: 5}
+	lang := &Language{TokenCount: 5, SymbolCount: 5}
 	return &diagnosticParserCoreGenericScheduler{
 		compact: compact,
 		tokenSource: &dfaTokenSource{
@@ -99,6 +99,17 @@ func TestS5MissingInsertionForkPublishesBothRecoveryLineages(t *testing.T) {
 		t.Fatalf("creation sequence=%d/%d next=%d, want 3/10 next 11",
 			scheduler.headers[0].creationSeq, scheduler.headers[1].creationSeq, scheduler.nextSeq)
 	}
+	if scheduler.headers[0].recoveryGroupIdentity() != 10 ||
+		scheduler.headers[1].recoveryMissingGroupIdentity() != 10 {
+		t.Fatalf("S5 recovery groups=%d/%d, want absorb/missing group 10",
+			scheduler.headers[0].recoveryGroupIdentity(), scheduler.headers[1].recoveryMissingGroupIdentity())
+	}
+	if baseline, set := scheduler.headers[0].recoveryNodeBaseline(); !set || baseline != 0 {
+		t.Fatalf("S5 absorb baseline=%d/%t, want 0/true", baseline, set)
+	}
+	if baseline, set := scheduler.headers[1].recoveryNodeBaseline(); !set || baseline != 0 {
+		t.Fatalf("S5 missing baseline=%d/%t, want 0/true", baseline, set)
+	}
 	if scheduler.s5MissingInsertions != 1 {
 		t.Fatalf("missing insertion count=%d, want 1", scheduler.s5MissingInsertions)
 	}
@@ -131,6 +142,23 @@ func TestS5MissingInsertionForkPublishesBothRecoveryLineages(t *testing.T) {
 	}
 	if absorbed.Symbol != 4 || absorbed.StartByte != 1 || absorbed.EndByte != 2 {
 		t.Fatalf("absorbed payload=%+v, want symbol 4 over bytes 1..2", absorbed)
+	}
+}
+
+func TestS5MissingInsertionClampsInheritedBaselineBeforeFork(t *testing.T) {
+	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.headers[0].publishRecoveryCondenseState(0, 0, 9, true)
+	handled, err := scheduler.s5TryMissingTokenInsertion(0)
+	if err != nil {
+		t.Fatalf("s5TryMissingTokenInsertion: %v", err)
+	}
+	if !handled || len(scheduler.headers) != 2 {
+		t.Fatalf("S5 clamp fixture did not fork: handled=%t headers=%d", handled, len(scheduler.headers))
+	}
+	for index := range scheduler.headers {
+		if baseline, set := scheduler.headers[index].recoveryNodeBaseline(); !set || baseline != 0 {
+			t.Fatalf("S5 header %d baseline=%d/%t, want clamped 0/true", index, baseline, set)
+		}
 	}
 }
 

@@ -31,6 +31,7 @@ type recoveryCostSpec struct {
 	end      uint32
 	startRow uint32
 	endRow   uint32
+	aliases  []Symbol
 	children []*recoveryCostSpec
 }
 
@@ -50,6 +51,7 @@ func publishRecoveryCostSpec(src fakeRecoveryCostSource, next *SubtreeID, spec *
 		StartRow:  spec.startRow,
 		EndRow:    spec.endRow,
 		Children:  children,
+		Aliases:   append([]Symbol(nil), spec.aliases...),
 	}
 	return id
 }
@@ -85,6 +87,97 @@ func TestRecoveryNodeErrorCostCleanTreeIsZero(t *testing.T) {
 	}
 	if got != 0 {
 		t.Fatalf("clean tree cost = %d, want 0", got)
+	}
+}
+
+func TestRecoveryNodeVisibleSubtreeCountIncludesVisibleDescendants(t *testing.T) {
+	src, root := newRecoveryCostFixture(&recoveryCostSpec{
+		symbol: ordinarySymbol,
+		children: []*recoveryCostSpec{
+			{symbol: ordinarySymbol},
+			{symbol: 6, children: []*recoveryCostSpec{{symbol: ordinarySymbol}}},
+			{symbol: RecoveryErrorSymbol},
+		},
+	})
+	got, err := RecoveryNodeVisibleSubtreeCount(visibleSymbols(), src, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 4 {
+		t.Fatalf("visible subtree count=%d, want root, two ordinary nodes, and ERROR", got)
+	}
+}
+
+func TestRecoveryNodeVisibleSubtreeCountAppliesProductionAliases(t *testing.T) {
+	symbols := visibleSymbols()
+	src, root := newRecoveryCostFixture(&recoveryCostSpec{
+		symbol:  ordinarySymbol,
+		aliases: []Symbol{7, 0},
+		children: []*recoveryCostSpec{
+			{symbol: 6},
+			{symbol: 6},
+		},
+	})
+	got, err := RecoveryNodeVisibleSubtreeCount(symbols, src, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 2 {
+		t.Fatalf("alias-aware visible subtree count=%d, want visible root and aliased first child", got)
+	}
+}
+
+func TestRecoveryNodeVisibleSubtreeCountIgnoresAliasOnExtraChild(t *testing.T) {
+	src, root := newRecoveryCostFixture(&recoveryCostSpec{
+		symbol:   6,
+		aliases:  []Symbol{7},
+		children: []*recoveryCostSpec{{symbol: 6, extra: true}},
+	})
+	got, err := RecoveryNodeVisibleSubtreeCount(visibleSymbols(), src, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 0 {
+		t.Fatalf("extra-child alias visible count=%d, want 0", got)
+	}
+}
+
+func TestRecoveryNodeVisibleSubtreeCountIncludesHiddenErrorRepeat(t *testing.T) {
+	src, root := newRecoveryCostFixture(&recoveryCostSpec{symbol: RecoveryErrorRepeatSymbol})
+	got, err := RecoveryNodeVisibleSubtreeCount(visibleSymbols(), src, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 1 {
+		t.Fatalf("ERROR_REPEAT visible count=%d, want progress count 1", got)
+	}
+}
+
+func TestRecoveryNodeVisibleSubtreeCountDoesNotCountNestedErrorRepeatWrapper(t *testing.T) {
+	src, root := newRecoveryCostFixture(&recoveryCostSpec{
+		symbol: ordinarySymbol,
+		children: []*recoveryCostSpec{{
+			symbol:   RecoveryErrorRepeatSymbol,
+			children: []*recoveryCostSpec{{symbol: ordinarySymbol}},
+		}},
+	})
+	got, err := RecoveryNodeVisibleSubtreeCount(visibleSymbols(), src, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 2 {
+		t.Fatalf("nested ERROR_REPEAT visible count=%d, want visible root and descendant", got)
+	}
+}
+
+func TestRecoveryNodeVisibleSubtreeCountRejectsMalformedAliasRow(t *testing.T) {
+	src, root := newRecoveryCostFixture(&recoveryCostSpec{
+		symbol:   ordinarySymbol,
+		aliases:  []Symbol{7, 6},
+		children: []*recoveryCostSpec{{symbol: ordinarySymbol}},
+	})
+	if _, err := RecoveryNodeVisibleSubtreeCount(visibleSymbols(), src, root); err == nil {
+		t.Fatal("malformed recovery alias row unexpectedly passed")
 	}
 }
 
@@ -172,6 +265,46 @@ func TestRecoveryNodeErrorCostErrorNodeSkippedChildren(t *testing.T) {
 		RecoveryCostPerRecovery + RecoveryCostPerSkippedChar*6 + RecoveryCostPerSkippedLine*2)
 	if got != want {
 		t.Fatalf("ERROR node cost = %d, want %d", got, want)
+	}
+}
+
+func TestRecoveryNodeErrorCostUsesAliasedGrandchildVisibility(t *testing.T) {
+	symbols := visibleSymbols()
+	src, root := newRecoveryCostFixture(&recoveryCostSpec{
+		symbol: RecoveryErrorSymbol,
+		children: []*recoveryCostSpec{{
+			symbol:   6,
+			aliases:  []Symbol{7},
+			children: []*recoveryCostSpec{{symbol: 6}},
+		}},
+	})
+	got, err := RecoveryNodeErrorCost(symbols, src, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := uint32(RecoveryCostPerSkippedTree + RecoveryCostPerRecovery)
+	if got != want {
+		t.Fatalf("alias-aware ERROR cost=%d, want %d", got, want)
+	}
+}
+
+func TestRecoveryErrorRegionCostPricesUnpublishedOpenNode(t *testing.T) {
+	symbols := visibleSymbols()
+	src, child := newRecoveryCostFixture(&recoveryCostSpec{
+		symbol: ordinarySymbol, start: 2, end: 9, startRow: 1, endRow: 3,
+	})
+	got, err := RecoveryErrorRegionCost(
+		symbols, src, nil,
+		2, 1, 9, 3,
+		[]SubtreeID{child},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := uint32(RecoveryCostPerSkippedTree + RecoveryCostPerRecovery +
+		RecoveryCostPerSkippedChar*7 + RecoveryCostPerSkippedLine*2)
+	if got != want {
+		t.Fatalf("open ERROR region cost=%d, want %d", got, want)
 	}
 }
 

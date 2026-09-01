@@ -313,4 +313,18 @@ func TestCollapseToRecoveryWinnerRecordsOnlyTheOriginalS5AbsorbLineage(t *testin
 	if missing.selectedRecoveryAbsorbLineage {
 		t.Fatal("the later missing lineage was recorded as the absorb winner")
 	}
+
+	reorderedAbsorb := newScheduler()
+	reorderedAbsorb.headers[0], reorderedAbsorb.headers[1] = reorderedAbsorb.headers[1], reorderedAbsorb.headers[0]
+	reorderedAbsorb.collapseToRecoveryWinner(1)
+	if !reorderedAbsorb.selectedRecoveryAbsorbLineage {
+		t.Fatal("cost ordering hid the earlier original S5 absorb winner")
+	}
+
+	reorderedMissing := newScheduler()
+	reorderedMissing.headers[0], reorderedMissing.headers[1] = reorderedMissing.headers[1], reorderedMissing.headers[0]
+	reorderedMissing.collapseToRecoveryWinner(0)
+	if reorderedMissing.selectedRecoveryAbsorbLineage {
+		t.Fatal("cost ordering changed the later missing lineage into the absorb winner")
+	}
 }

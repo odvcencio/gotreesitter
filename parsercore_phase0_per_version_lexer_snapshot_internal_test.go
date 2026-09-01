@@ -568,6 +568,7 @@ func TestDiagnosticParserCoreVersionLexerSnapshotRetirementClearsLoser(t *testin
 	headers[1] = diagnosticParserCoreHeader{head: loser, checkpoint: 0, creationSeq: 2, versionState: state}
 	headers[0].markRecoveryLineage()
 	headers[1].markRecoveryLineage()
+	survivorState := headers[0].versionState
 	scheduler := diagnosticParserCoreGenericScheduler{
 		compact:           compact,
 		headers:           headers,
@@ -584,8 +585,12 @@ func TestDiagnosticParserCoreVersionLexerSnapshotRetirementClearsLoser(t *testin
 	if err != nil || !retired {
 		t.Fatalf("retirement=%t err=%v, want true/nil", retired, err)
 	}
-	if len(scheduler.headers) != 1 || scheduler.headers[0].versionState != state {
-		t.Fatalf("survivor state changed during retirement: headers=%+v", scheduler.headers)
+	if len(scheduler.headers) != 1 || scheduler.headers[0].versionState == survivorState ||
+		scheduler.headers[0].versionLexerSnapshot() != snapshot || scheduler.headers[0].isRecoveryLineage() {
+		t.Fatalf("survivor state did not clear lineage while retaining lexer ownership: headers=%+v", scheduler.headers)
+	}
+	if baseline, set := scheduler.headers[0].recoveryNodeBaseline(); set || baseline != 0 {
+		t.Fatalf("retired survivor baseline=%d/%t, want cleared 0/false", baseline, set)
 	}
 	if headers[1].versionState != nil {
 		t.Fatal("retired loser retained its immutable version state")
