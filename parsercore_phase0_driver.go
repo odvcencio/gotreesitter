@@ -12356,6 +12356,13 @@ func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwnedWithMutation(own
 		if applied {
 			s.work.add(&s.work.RecoveryCondensePasses, 1)
 			s.work.add(&s.work.RecoveryVersionCapDrops, drops)
+			// C ends recovery competition when pairwise condensation leaves
+			// one active version. Clear the compact marker before the next
+			// dispatch, or the sole winner rejects itself as mixed ambiguity.
+			if len(headers) == 1 && !headers[0].accepted {
+				headers[0].clearRecoveryLineage()
+				s.recoveryIsolation = false
+			}
 		}
 	}
 	if expected != 0 && mutation != expected {

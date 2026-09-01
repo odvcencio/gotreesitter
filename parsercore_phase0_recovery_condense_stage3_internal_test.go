@@ -253,6 +253,18 @@ func TestStage3RecoveryCondenseUsesLiveNodeCountForTakeDecision(t *testing.T) {
 			if got := stage3RecoveryCondenseStates(t, scheduler); !reflect.DeepEqual(got, []StateID{test.want}) {
 				t.Fatalf("node-count recovery decision=%v, want [%d]", got, test.want)
 			}
+			if scheduler.recoveryIsolation || scheduler.headers[0].isRecoveryLineage() ||
+				!scheduler.headers[0].isRecoveryCosted() {
+				t.Fatalf("sole recovery winner retained active competition: isolation=%t header=%+v",
+					scheduler.recoveryIsolation, scheduler.headers[0])
+			}
+			if scheduler.headers[0].recoveryGroupIdentity() != 0 ||
+				scheduler.headers[0].recoveryMissingGroupIdentity() != 0 {
+				t.Fatalf("sole recovery winner retained group ownership: %+v", scheduler.headers[0].versionState)
+			}
+			if _, set := scheduler.headers[0].recoveryNodeBaseline(); set {
+				t.Fatalf("sole recovery winner retained its competition baseline: %+v", scheduler.headers[0].versionState)
+			}
 			if cap(scheduler.headers) > len(scheduler.headers) &&
 				scheduler.headers[:cap(scheduler.headers)][len(scheduler.headers)].versionState != nil {
 				t.Fatal("pairwise recovery drop retained loser ownership")
