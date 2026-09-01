@@ -21,13 +21,17 @@ const mergeCensusEnabled = false
 // census. The shipped build never does.
 func MergeEventCensusBuilt() bool { return false }
 
-func mergeCensusRecordAttempt()                                                        {}
-func mergeCensusRecordSuccess()                                                        {}
-func mergeCensusRecordMergeFailed()                                                    {}
-func mergeCensusRecordDistinctShapes()                                                 {}
-func mergeCensusRecordErrorCost()                                                      {}
-func mergeCensusRecordScorePreflight()                                                 {}
-func mergeCensusAttributeForParserRefusal(*Parser, *glrStack, *glrStack)               {}
-func mergeCensusRecordGateRefusal(*glrMergeScratch, *glrStack, *glrStack)              {}
-func mergeCensusRecordLinkPayload(stackEntry, stackEntry, bool)                        {}
-func mergeCensusRecordCompactLinkUnion(uint64, uint64, uint64, uint64, uint64, uint64) {}
+func mergeCensusRecordAttempt()                                           {}
+func mergeCensusRecordSuccess()                                           {}
+func mergeCensusRecordMergeFailed()                                       {}
+func mergeCensusRecordDistinctShapes()                                    {}
+func mergeCensusRecordErrorCost()                                         {}
+func mergeCensusRecordScorePreflight()                                    {}
+func mergeCensusAttributeForParserRefusal(*Parser, *glrStack, *glrStack)  {}
+func mergeCensusRecordGateRefusal(*glrMergeScratch, *glrStack, *glrStack) {}
+func mergeCensusRecordLinkPayload(stackEntry, stackEntry, bool)           {}
+func mergeCensusRecordCompactLinkUnion(
+	uint64, uint64, uint64, uint64, uint64, uint64,
+	uint64, uint64, uint64,
+) {
+}

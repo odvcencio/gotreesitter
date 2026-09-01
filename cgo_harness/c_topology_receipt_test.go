@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
 const (
@@ -34,7 +37,143 @@ const (
 
 	cTopologyErlangIssue984EventCount = 280
 	cTopologyErlangIssue984SHA256     = "f90b82a19bd52475a0b61376a631fe53b69ac827c89bec6802940e8302d77754"
+	cTopologyErlangOneByteEventCount  = 219
+	cTopologyErlangOneByteSHA256      = "eea03c73787e2353366ec29a90e0b051ca0e1c53db05625ef84ff3abc9c11f3e"
 )
+
+// TestCTopologyReceiptErlangOneBytePhysicalMerge locks the smallest C source
+// that performs a physical stack-version merge. It pins both the merge count
+// and the complete topology receipt before the compact implementation changes.
+func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
+	oracle := mergeCensusOracleForTest(t)
+	source := []byte("(")
+	if got := fmt.Sprintf("%x", sha256.Sum256(source)); got != "32ebb1abcc1c601ceb9c4e3c4faba0caa5b85bb98c4f1e6612c40faa528a91c9" {
+		t.Fatalf("source SHA-256=%s", got)
+	}
+	cLanguage, err := COracleLanguage("erlang")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cParser := sitter.NewParser()
+	t.Cleanup(cParser.Close)
+	if err := cParser.SetLanguage(cLanguage); err != nil {
+		t.Fatal(err)
+	}
+	cTree := cParser.Parse(source, nil)
+	if cTree == nil {
+		t.Fatal("one-byte C parse returned a nil tree")
+	}
+	t.Cleanup(cTree.Close)
+	root := cTree.RootNode()
+	if root.Kind() != "source_file" || !root.IsNamed() || root.StartByte() != 0 || root.EndByte() != 1 || root.ChildCount() != 1 || !root.HasError() {
+		t.Fatalf("one-byte C root:\n%s", dumpCTree(root, 0))
+	}
+	errorNode := root.Child(0)
+	if errorNode.Kind() != "ERROR" || !errorNode.IsNamed() || errorNode.StartByte() != 0 || errorNode.EndByte() != 1 || errorNode.ChildCount() != 1 || !errorNode.IsError() {
+		t.Fatalf("one-byte C error node:\n%s", dumpCTree(root, 0))
+	}
+	token := errorNode.Child(0)
+	if token.Kind() != "(" || token.IsNamed() || token.StartByte() != 0 || token.EndByte() != 1 || token.ChildCount() != 0 {
+		t.Fatalf("one-byte C token:\n%s", dumpCTree(root, 0))
+	}
+	topology, err := mergeCensusRunCTopology(oracle, "erlang", a3CertificationSweepSource{
+		Name:   "one_byte_open_paren",
+		Source: source,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if topology.Status != "ok" || topology.SourceBytes != 1 || topology.RootEndByte != 1 ||
+		topology.RootChildCount != 1 || !topology.RootHasError {
+		t.Fatalf("one-byte C tree receipt=%+v", topology)
+	}
+	receipt := topology.Receipt
+	if receipt.Truncated || receipt.ArithmeticOverflow || receipt.IdentityCollision || receipt.IdentityIncomplete || receipt.EventsDropped != 0 {
+		t.Fatalf("incomplete one-byte C topology receipt: %+v", receipt)
+	}
+	if receipt.EventsSeen != uint64(len(receipt.Events)) || receipt.EventsRetained != uint32(len(receipt.Events)) {
+		t.Fatalf(
+			"one-byte event accounting seen=%d retained=%d dropped=%d len=%d",
+			receipt.EventsSeen, receipt.EventsRetained, receipt.EventsDropped, len(receipt.Events),
+		)
+	}
+	if len(receipt.Events) != cTopologyErlangOneByteEventCount || cTopologyReceiptSHA256(receipt) != cTopologyErlangOneByteSHA256 {
+		t.Fatalf("one-byte C topology events=%d sha256=%s", len(receipt.Events), cTopologyReceiptSHA256(receipt))
+	}
+	var successfulMergeIDs []uint64
+	kindCounts := make(map[uint64]int)
+	for _, event := range receipt.Events {
+		kindCounts[event.Kind]++
+		if event.Kind == cTopologyEventMerge && event.Flags&cTopologyFlagSelected != 0 {
+			successfulMergeIDs = append(successfulMergeIDs, event.EventID)
+		}
+	}
+	if got, want := fmt.Sprint(successfulMergeIDs), "[47 173 181 188]"; got != want {
+		t.Fatalf("successful C merge events=%s, want %s", got, want)
+	}
+	wantKinds := map[uint64]int{
+		cTopologyEventAction: 17, cTopologyEventVersionAdd: 20,
+		cTopologyEventVersionCopy: 2, cTopologyEventVersionRenumber: 39,
+		cTopologyEventMerge: 82, cTopologyEventLinkInsert: 31,
+		cTopologyEventPopPath: 22, cTopologyEventAcceptElection: 6,
+	}
+	if len(kindCounts) != len(wantKinds) {
+		t.Fatalf("one-byte C topology kind counts=%v, want %v", kindCounts, wantKinds)
+	}
+	for kind, want := range wantKinds {
+		if kindCounts[kind] != want {
+			t.Fatalf("one-byte C topology kind %d=%d, want %d", kind, kindCounts[kind], want)
+		}
+	}
+
+	counts, err := mergeCensusRunC(oracle, "erlang", []a3CertificationSweepSource{{
+		Name:   "one_byte_open_paren",
+		Source: source,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(counts) != 1 {
+		t.Fatalf("one-byte C count rows=%d, want 1", len(counts))
+	}
+	row := counts[0]
+	if row.Status != "ok" || row.MergeAttempts != 82 || row.MergeSuccesses != 4 ||
+		row.VersionCreations != 23 || row.Shifts != 1 || row.Reductions != 15 ||
+		row.Accepts != 3 || row.ExplicitRecovers != 0 || row.LinkUnionAttempts != 4 ||
+		row.LinkUnionDuplicate != 1 || row.LinkUnionAppended != 3 || row.GraphLinkAdditions != 31 || row.Overflow {
+		t.Fatalf("one-byte C work receipt=%+v", row)
+	}
+
+	entry, ok := parityEntriesByName["erlang"]
+	if !ok {
+		t.Fatal("Erlang Go grammar is not registered")
+	}
+	goLanguage := entry.Language()
+	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
+	goParser := gotreesitter.NewParser(goLanguage)
+	goParser.SetAdmissionCandidateRoute(true)
+	goTree, err := goParser.Parse(source)
+	if err != nil {
+		t.Fatalf("one-byte routed Go parse: %v", err)
+	}
+	if goTree == nil || goTree.RootNode() == nil {
+		t.Fatal("one-byte routed Go parser returned no tree")
+	}
+	t.Cleanup(func() { goTree.Release() })
+	if diff := FirstDivergenceDumpV1(goTree.RootNode(), goLanguage, root); diff != nil {
+		t.Fatalf("one-byte routed Go tree diverges from C: %+v", diff)
+	}
+	if diff := firstLockedCTreeFlagDivergence(goTree.RootNode(), goLanguage, root, "/source_file"); diff != nil {
+		t.Fatalf("one-byte routed Go flags diverge from C: %v", diff)
+	}
+	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
+	if routedAfter != routedBefore || fallbackAfter != fallbackBefore+1 {
+		t.Fatalf(
+			"one-byte route delta=%d/%d, want 0/1 before recovery-through-ambiguity graduation",
+			routedAfter-routedBefore, fallbackAfter-fallbackBefore,
+		)
+	}
+}
 
 func TestCTopologyReceiptErlangIssue984(t *testing.T) {
 	oracle := mergeCensusOracleForTest(t)

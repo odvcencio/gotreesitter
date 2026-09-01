@@ -32,6 +32,32 @@ import (
 // test binary run.
 var mergeCensusOracleCache *mergeCensusCOracle
 
+func TestMergeCensusTotalsAggregatesPhysicalHeadMergeTelemetry(t *testing.T) {
+	totals := &mergeCensusTotals{}
+	totals.add(mergeCensusRow{
+		CompactAccepted: true,
+		Go: gotreesitter.MergeEventCensusCounts{
+			CompactPhysicalHeadMergeAttempts:   3,
+			CompactPhysicalHeadMergeSuccesses:  2,
+			CompactPhysicalHeadMergeInputLinks: 5,
+		},
+	})
+	totals.add(mergeCensusRow{
+		CompactAccepted: true,
+		Go: gotreesitter.MergeEventCensusCounts{
+			CompactPhysicalHeadMergeAttempts:   7,
+			CompactPhysicalHeadMergeSuccesses:  4,
+			CompactPhysicalHeadMergeInputLinks: 9,
+		},
+	})
+	if totals.CompactPhysicalAttempts != 10 || totals.CompactPhysicalSuccesses != 6 ||
+		totals.CompactPhysicalInputLinks != 14 {
+		t.Fatalf("physical merge totals=%d/%d/%d, want 10/6/14",
+			totals.CompactPhysicalAttempts, totals.CompactPhysicalSuccesses, totals.CompactPhysicalInputLinks,
+		)
+	}
+}
+
 func mergeCensusOracleForTest(t *testing.T) *mergeCensusCOracle {
 	t.Helper()
 	if mergeCensusOracleCache != nil {
@@ -234,15 +260,23 @@ func TestMergeEventCensusBaseline(t *testing.T) {
 			grand.SourcesWhereGoOverMerges,
 		)
 	}
+	if grand.CompactPhysicalAttempts != 0 || grand.CompactPhysicalSuccesses != 0 ||
+		grand.CompactPhysicalInputLinks != 0 {
+		t.Errorf(
+			"accepted corpus physical merges changed: attempts=%d successes=%d input-links=%d, want all zero",
+			grand.CompactPhysicalAttempts, grand.CompactPhysicalSuccesses, grand.CompactPhysicalInputLinks,
+		)
+	}
 }
 
 func mergeCensusFormatTotals(label string, t *mergeCensusTotals) string {
 	return fmt.Sprintf(
-		"%-22s sources=%3d M_c=%6d M_p=%6d ratio=%-8s c-attempts=%7d go-attempts=%7d over-merge-sources=%d c-merges-go-does-not=%d | refusals: %s | tier2: %s | compact: accepted=%d union-attempts=%d union-appends=%d",
+		"%-22s sources=%3d M_c=%6d M_p=%6d ratio=%-8s c-attempts=%7d go-attempts=%7d over-merge-sources=%d c-merges-go-does-not=%d | refusals: %s | tier2: %s | compact: accepted=%d union-attempts=%d union-appends=%d physical-attempts=%d physical-successes=%d physical-input-links=%d",
 		label, t.Sources, t.CMergeSuccesses, t.GoSuccesses, t.ratioText(),
 		t.CMergeAttempts, t.GoAttempts, t.SourcesWhereGoOverMerges, t.SourcesWhereCMergesAndGoDoesNot,
 		t.refusalLine(), t.linkPayloadLine(),
 		t.CompactAccepted, t.CompactUnionAttempt, t.CompactUnionAppend,
+		t.CompactPhysicalAttempts, t.CompactPhysicalSuccesses, t.CompactPhysicalInputLinks,
 	)
 }
 
@@ -256,13 +290,16 @@ func mergeCensusLogRow(t *testing.T, row mergeCensusRow) {
 		ratio = fmt.Sprintf("%.4f", value)
 	}
 	t.Logf(
-		"%s/%s: M_c=%d M_p=%d ratio=%s c-status=%s c-link-union(att=%d dup=%d prec=%d rec=%d app=%d rej=%d) go-refusals(score=%d shapes=%d clean=%d state=%d cost=%d) tier2-shallow-would-accept=%d",
+		"%s/%s: M_c=%d M_p=%d ratio=%s c-status=%s c-link-union(att=%d dup=%d prec=%d rec=%d app=%d rej=%d) go-refusals(score=%d shapes=%d clean=%d state=%d cost=%d) tier2-shallow-would-accept=%d compact-physical(att=%d ok=%d links=%d)",
 		row.Language, row.Name, row.C.MergeSuccesses, row.Go.Successes, ratio, row.C.Status,
 		row.C.LinkUnionAttempts, row.C.LinkUnionDuplicate, row.C.LinkUnionPrecedence,
 		row.C.LinkUnionRecursive, row.C.LinkUnionAppended, row.C.LinkUnionRejected,
 		row.Go.RefuseScoreOrShifted, row.Go.RefuseDistinctShapes, row.Go.RefuseCleanZero,
 		row.Go.RefuseStateOrOffset, row.Go.RefuseErrorCost,
 		row.Go.LinkPayloadShallowWouldAccept,
+		row.Go.CompactPhysicalHeadMergeAttempts,
+		row.Go.CompactPhysicalHeadMergeSuccesses,
+		row.Go.CompactPhysicalHeadMergeInputLinks,
 	)
 }
 

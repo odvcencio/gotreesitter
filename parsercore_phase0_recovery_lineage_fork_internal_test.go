@@ -83,6 +83,9 @@ func TestS5MissingInsertionForkPublishesBothRecoveryLineages(t *testing.T) {
 	if !scheduler.headers[0].isRecoveryLineage() || !scheduler.headers[1].isRecoveryLineage() {
 		t.Fatal("the fork did not mark both recovery lineages")
 	}
+	if !scheduler.headers[0].isRecoveryCosted() || !scheduler.headers[1].isRecoveryCosted() {
+		t.Fatal("the fork did not preserve recovery cost provenance")
+	}
 	if !scheduler.recoveryIsolation {
 		t.Fatal("the fork did not activate recovery isolation")
 	}
@@ -176,6 +179,49 @@ func TestS3RegionMarkerAllowsClosureOnlyRedispatch(t *testing.T) {
 	}
 	if state != 3 || !scheduler.s3RegionOpened {
 		t.Fatalf("closure-only state=%d marker=%t, want 3/true", state, scheduler.s3RegionOpened)
+	}
+	if scheduler.headers[0].isRecoveryCosted() {
+		t.Fatal("closure-only redispatch gained recovery cost provenance")
+	}
+}
+
+func TestS3AbsorbCostProvenanceSurvivesResumeAndRegionClose(t *testing.T) {
+	scheduler := newRecoveryLineageForkScheduler(t, true)
+	clean := scheduler.headers[0]
+
+	handled, err := scheduler.s3TryOpenErrorRegionWithAlternatives(0, true)
+	if err != nil {
+		t.Fatalf("s3TryOpenErrorRegionWithAlternatives: %v", err)
+	}
+	if !handled {
+		t.Fatal("standalone S3 absorb did not open a region")
+	}
+	recovered := &scheduler.headers[0]
+	region := recovered.recoveryRegion()
+	if region == nil || !recovered.isRecoveryCosted() || recovered.isRecoveryLineage() {
+		t.Fatalf("opened standalone S3 header=%+v region=%+v", *recovered, region)
+	}
+
+	resumed, err := scheduler.compact.ErrorRegionResume(
+		recovered.head, region.state, region.startByte, region.endByte, region.children,
+	)
+	if err != nil {
+		t.Fatalf("ErrorRegionResume: %v", err)
+	}
+	recovered.head = resumed
+	recovered.closeRecoveryRegion()
+	if recovered.recoveryRegion() != nil || recovered.versionState != nil || !recovered.isRecoveryCosted() {
+		t.Fatalf("closed standalone S3 header lost cost provenance: %+v", *recovered)
+	}
+
+	recoveredHeader := *recovered
+	scheduler.headers = []diagnosticParserCoreHeader{clean, recoveredHeader}
+	if candidates := scheduler.collectCondenseCandidates(0); len(candidates) != 0 {
+		t.Fatalf("recovery-costed candidate entered clean physical merge: %+v", candidates)
+	}
+	scheduler.headers[0], scheduler.headers[1] = scheduler.headers[1], scheduler.headers[0]
+	if candidates := scheduler.collectCondenseCandidates(0); len(candidates) != 0 {
+		t.Fatalf("recovery-costed source entered clean physical merge: %+v", candidates)
 	}
 }
 

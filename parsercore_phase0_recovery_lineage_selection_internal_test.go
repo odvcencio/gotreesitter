@@ -193,11 +193,8 @@ func TestSelectCompetingRecoveryLineageDeclinesSingleHead(t *testing.T) {
 	}
 }
 
-// TestRecoveryLineageMarkerDoesNotGrowTheHeader pins the reason the marker is
-// a single field placed before s3Region. Two fields, or one placed after the
-// pointer, take the header from 224 to 232 bytes -- measured -- and two
-// separate size ratchets pin 224. Asserting it here means a reader who splits
-// the field finds out from this test rather than from an unrelated ratchet.
+// TestRecoveryLineageMarkerDoesNotGrowTheHeader pins one byte of recovery
+// flags before versionState. A second field grows the header to 232 bytes.
 func TestRecoveryLineageMarkerDoesNotGrowTheHeader(t *testing.T) {
 	if got := unsafe.Sizeof(diagnosticParserCoreHeader{}); got != 224 {
 		t.Fatalf("scheduler header is %d bytes, want 224", got)
@@ -207,12 +204,12 @@ func TestRecoveryLineageMarkerDoesNotGrowTheHeader(t *testing.T) {
 		t.Fatal("a zero header reported itself as a recovery lineage")
 	}
 	header.markRecoveryLineage()
-	if !header.isRecoveryLineage() {
+	if !header.isRecoveryLineage() || !header.isRecoveryCosted() {
 		t.Fatal("marking did not take")
 	}
 	header.clearRecoveryLineage()
-	if header.isRecoveryLineage() {
-		t.Fatal("clearing did not demote the header")
+	if header.isRecoveryLineage() || !header.isRecoveryCosted() {
+		t.Fatal("lineage clearing changed permanent cost provenance")
 	}
 }
 

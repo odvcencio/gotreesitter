@@ -1249,11 +1249,9 @@ type diagnosticParserCoreHeader struct {
 	// witness (section 5).
 	blended              bool
 	lastPersistedBlended bool
-	// recoveryCompetitor marks a header that a native recovery mechanism
-	// created or advanced, and so may compete at acceptance. It sits before
-	// versionState so it lands in the one padding byte the header already had
-	// (offset 215); placed after the pointer it would grow every header from
-	// 224 to 232 bytes, which two size ratchets pin.
+	// recoveryFlags records recovery competition and permanent cost provenance.
+	// It sits before versionState in the padding byte at offset 215. Placing it
+	// after the pointer would grow each header from 224 to 232 bytes.
 	//
 	// A frontier that merely forked on ordinary grammar ambiguity must NOT be
 	// marked. Error cost answers "which recovery is cheaper", which is not the
@@ -1263,7 +1261,7 @@ type diagnosticParserCoreHeader struct {
 	// It is derived from live header state at pricing time -- see
 	// recoveryOpenSegments. Ordinary paths write paused, while region paths
 	// publish versionState. A stored copy could drift from either value.
-	recoveryCompetitor bool
+	recoveryFlags diagnosticParserCoreRecoveryFlags
 	// versionState carries optional state owned by this parser version. It is
 	// nil on the single-version fast path. The pointed-to state is immutable.
 	// Accessors publish a fresh wrapper or clear the pointer. A by-value header
@@ -1283,6 +1281,13 @@ type diagnosticParserCoreVersionState struct {
 	// they publish the request's after snapshot.
 	lexerRequest uint32
 }
+
+type diagnosticParserCoreRecoveryFlags uint8
+
+const (
+	diagnosticParserCoreRecoveryCompetitorFlag diagnosticParserCoreRecoveryFlags = 1 << iota
+	diagnosticParserCoreRecoveryCostedFlag
+)
 
 // recoveryRegion returns the optional open strategy-2 region.
 func (h diagnosticParserCoreHeader) recoveryRegion() *diagnosticParserCoreS3Region {
@@ -1306,6 +1311,10 @@ func (h diagnosticParserCoreHeader) versionLexerRequestReference() uint32 {
 		return 0
 	}
 	return h.versionState.lexerRequest
+}
+
+func (h diagnosticParserCoreHeader) isRecoveryCosted() bool {
+	return h.recoveryFlags&diagnosticParserCoreRecoveryCostedFlag != 0
 }
 
 // openRecoveryRegion publishes an open strategy-2 region for this header.
@@ -1344,10 +1353,24 @@ func (h *diagnosticParserCoreHeader) closeRecoveryRegion() {
 }
 
 // isRecoveryLineage reports whether this header may compete at acceptance.
-func (h *diagnosticParserCoreHeader) isRecoveryLineage() bool { return h.recoveryCompetitor }
+func (h *diagnosticParserCoreHeader) isRecoveryLineage() bool {
+	return h != nil && h.recoveryFlags&diagnosticParserCoreRecoveryCompetitorFlag != 0
+}
 
-// markRecoveryLineage marks this header as a competing recovery lineage.
-func (h *diagnosticParserCoreHeader) markRecoveryLineage() { h.recoveryCompetitor = true }
+// markRecoveryLineage marks a competing recovery lineage with cost provenance.
+func (h *diagnosticParserCoreHeader) markRecoveryLineage() {
+	if h == nil {
+		return
+	}
+	h.recoveryFlags |= diagnosticParserCoreRecoveryCompetitorFlag | diagnosticParserCoreRecoveryCostedFlag
+}
+
+// markRecoveryCosted records recovery work without creating a competition.
+func (h *diagnosticParserCoreHeader) markRecoveryCosted() {
+	if h != nil {
+		h.recoveryFlags |= diagnosticParserCoreRecoveryCostedFlag
+	}
+}
 
 // clearRecoveryLineage demotes this header out of the competition.
 //
@@ -1355,7 +1378,11 @@ func (h *diagnosticParserCoreHeader) markRecoveryLineage() { h.recoveryCompetito
 // head produces marked children. A fork on ORDINARY grammar ambiguity must
 // call this on its replacements, or acceptance would decide that frontier by
 // error cost -- a different decision procedure than the one C applies to it.
-func (h *diagnosticParserCoreHeader) clearRecoveryLineage() { h.recoveryCompetitor = false }
+func (h *diagnosticParserCoreHeader) clearRecoveryLineage() {
+	if h != nil {
+		h.recoveryFlags &^= diagnosticParserCoreRecoveryCompetitorFlag
+	}
+}
 
 // competingRecoveryFrontier reports whether every live version belongs to
 // one recovery competition. Such versions can accept independently at EOF.
@@ -9500,6 +9527,7 @@ func (s *diagnosticParserCoreGenericScheduler) s3TryOpenErrorRegionWithAlternati
 		endByte:   s.token.EndByte,
 		children:  []core.SubtreeID{leafID},
 	})
+	header.markRecoveryCosted()
 	s.s3RegionOpened = true
 	header.shifted = true
 	return true, nil
@@ -9866,6 +9894,9 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 			compactWork.PredecessorLinkUnionRecursiveChanged,
 			compactWork.PredecessorLinkUnionAlternateAppended,
 			compactWork.PredecessorLinkUnionRejected,
+			compactWork.PhysicalHeadMergeAttempts,
+			compactWork.PhysicalHeadMergeSuccesses,
+			compactWork.PhysicalHeadMergeInputLinks,
 		)
 	}
 	s.publishTotals()
@@ -11084,42 +11115,74 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 
 // reindexCondenseCandidatesOwned retains only active sibling versions.
 // Tree-sitter C does not merge a new reduction into its source version.
+// Stage 2 also requires a never-recovered lineage. This makes every supplied
+// ErrorCost zero an authenticated fact instead of a struct default.
 func (s *diagnosticParserCoreGenericScheduler) reindexCondenseCandidatesOwned(owner core.SchedulerTransactionToken, source int) error {
 	return s.compact.ReindexCondenseCandidatesOwned(owner, s.collectCondenseCandidates(source))
 }
 
 func (s *diagnosticParserCoreGenericScheduler) collectCondenseCandidates(source int) []core.CondenseCandidate {
 	candidates := s.condenseCandidates[:0]
+	if source >= 0 && source < len(s.headers) {
+		sourceHeader := &s.headers[source]
+		if sourceHeader.accepted || sourceHeader.paused ||
+			sourceHeader.isRecoveryLineage() || sourceHeader.recoveryRegion() != nil ||
+			sourceHeader.isRecoveryCosted() {
+			s.condenseCandidates = candidates
+			return candidates
+		}
+	}
 	if !s.recoveryIsolation {
 		for index, header := range s.headers {
-			if index == source || header.accepted || header.paused {
+			if index == source || header.accepted || header.paused ||
+				header.isRecoveryLineage() || header.recoveryRegion() != nil ||
+				header.isRecoveryCosted() {
 				continue
 			}
 			candidates = append(candidates, core.CondenseCandidate{
 				Head: header.head, DropCohortRefs: header.dropCohortRefs,
-				Shifted: header.shifted, Checkpoint: header.checkpoint,
+				Shifted: header.shifted, Checkpoint: header.checkpoint, ErrorCost: 0,
+				MergeIdentity: s.condenseCandidateMergeIdentity(index),
 			})
 		}
 		s.condenseCandidates = candidates
 		return candidates
 	}
-	sourceRecovery := source >= 0 && source < len(s.headers) && s.headers[source].isRecoveryLineage()
 	for index, header := range s.headers {
 		if index == source || header.accepted || header.paused {
 			continue
 		}
 		// Marked recovery versions must remain separate until acceptance can
 		// price them. Ordinary unmarked versions retain normal condensation.
-		if sourceRecovery || header.isRecoveryLineage() {
+		if header.isRecoveryLineage() || header.recoveryRegion() != nil || header.isRecoveryCosted() {
 			continue
 		}
 		candidates = append(candidates, core.CondenseCandidate{
 			Head: header.head, DropCohortRefs: header.dropCohortRefs,
-			Shifted: header.shifted, Checkpoint: header.checkpoint,
+			Shifted: header.shifted, Checkpoint: header.checkpoint, ErrorCost: 0,
+			MergeIdentity: s.condenseCandidateMergeIdentity(index),
 		})
 	}
 	s.condenseCandidates = candidates
 	return candidates
+}
+
+// condenseCandidateMergeIdentity partitions exact immutable lexer ownership
+// without removing a candidate from reduction freshness classification.
+func (s *diagnosticParserCoreGenericScheduler) condenseCandidateMergeIdentity(index int) uint16 {
+	if s == nil || index < 0 || index >= len(s.headers) {
+		return 0
+	}
+	state := s.headers[index].versionState
+	if state == nil {
+		return 0
+	}
+	for prior := 0; prior < index; prior++ {
+		if s.headers[prior].versionState == state {
+			return uint16(prior + 1)
+		}
+	}
+	return uint16(index + 1)
 }
 
 // adoptUpdatedReductionSibling updates an already-active canonical sibling in
