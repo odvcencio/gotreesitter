@@ -120,12 +120,13 @@ func TestResetDiagnosticParserCoreGenericSchedulerRejectsActiveScratch(t *testin
 
 func TestResetDiagnosticParserCoreGenericSchedulerClearsRecoveryState(t *testing.T) {
 	scheduler := diagnosticParserCoreGenericScheduler{
-		s5MissingInsertions: 7,
-		s3RegionOpened:      true,
-		s3ResumeState:       11,
-		s3ResumeSymbol:      12,
-		s3ResumeCount:       1,
-		recoveryIsolation:   true,
+		s5MissingInsertions:      7,
+		s3RegionOpened:           true,
+		s3ResumeState:            11,
+		s3ResumeSymbol:           12,
+		s3ResumeCount:            1,
+		recoveryIsolation:        true,
+		acceptedRootFinalization: diagnosticParserCoreFinalizeRecoverEOF,
 	}
 	if err := resetDiagnosticParserCoreGenericScheduler(&scheduler); err != nil {
 		t.Fatal(err)
@@ -142,6 +143,35 @@ func TestResetDiagnosticParserCoreGenericSchedulerClearsRecoveryState(t *testing
 	}
 	if scheduler.recoveryIsolation {
 		t.Fatal("recovery isolation remained active after reset")
+	}
+	if scheduler.acceptedRootFinalization != diagnosticParserCoreFinalizeDefault {
+		t.Fatalf("accepted root finalization=%v, want default after reset", scheduler.acceptedRootFinalization)
+	}
+}
+
+func TestParserCoreFreshFullRunnerClearsRecoverEOFFinalizationBeforeOrdinaryAcceptance(t *testing.T) {
+	runner, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runner.scheduler.acceptedRootFinalization = diagnosticParserCoreFinalizeRecoverEOF
+	ordinary, err := runner.parse([]byte("package p\n"))
+	if err != nil {
+		t.Fatalf("ordinary parse after stale recover-eof finalization: %v", err)
+	}
+	if ordinary == nil || ordinary.RootNode() == nil {
+		if ordinary != nil {
+			ordinary.Release()
+		}
+		t.Fatal("ordinary parse returned no root")
+	}
+	defer ordinary.Release()
+	if ordinary.RootNode().IsError() || ordinary.RootNode().HasError() {
+		t.Fatalf("ordinary parse retained stale error state: type=%s", ordinary.RootNode().Type(runner.lang))
+	}
+	if runner.scheduler.acceptedRootFinalization != diagnosticParserCoreFinalizeDefault {
+		t.Fatalf("ordinary finalization=%v, want default", runner.scheduler.acceptedRootFinalization)
 	}
 }
 

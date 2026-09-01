@@ -1158,6 +1158,37 @@ func (b *resultRootBuild) finishTree(root *Node, wireParentLinks, extendTrailing
 	return tree
 }
 
+// finishRecoverEOFTree publishes the selected C recover_eof root without the
+// language result-compatibility or root-span rewrites used by ordinary trees.
+// The compact scheduler has already authenticated this synthetic ERROR root;
+// only parent links and the error summary remain materialization work.
+func (b *resultRootBuild) finishRecoverEOFTree(root *Node, wireParentLinks bool) *Tree {
+	if root == nil {
+		return nil
+	}
+	root.setFlag(nodeFlagCompactRecoverEOF, true)
+	errorSummary := resultErrorSummaryUnknown
+	if wireParentLinks {
+		if !wireParentLinksWithScratchUntil(root, b.linkScratch, b.parser, &errorSummary) && root.ownerArena != nil {
+			root.ownerArena.deferParentLinks(root)
+		}
+	} else if root.IsError() || root.hasError() {
+		errorSummary = resultErrorSummaryPresent
+	} else {
+		errorSummary = resultErrorSummaryClean
+	}
+	borrowed := b.borrowedArenas()
+	if b.parser != nil {
+		borrowed = append(borrowed, b.parser.takeCompatibilityBorrowedArenas()...)
+	}
+	tree := newTreeWithArenas(root, b.source, b.lang, b.arena, borrowed)
+	tree.resultErrorSummary = errorSummary
+	// The root is already the locked-C result. Mark compatibility complete so
+	// later public accessors do not normalize it into a grammar-root tree.
+	tree.resultCompatibilityApplied = true
+	return tree
+}
+
 func (b *resultRootBuild) finalizeRoot(root *Node, wireParentLinks, extendTrailing bool) (resultErrorSummary, bool) {
 	return b.parser.finalizeResultRoot(root, b.source, b.linkScratch, wireParentLinks, extendTrailing, b.incrementalResultCompatibilityRanges(root))
 }

@@ -18,6 +18,7 @@ func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) 
 		nodeCheckpoints:                   make([]CheckpointID, 2),
 		links:                             make([]linkRecord, 3),
 		subtrees:                          make([]subtreeRecord, 4),
+		eofRecoveryRoots:                  []SubtreeID{2},
 		externalProvenance:                make([]externalPayloadProvenance, 1),
 		lexerSkippedPrefixes:              make([]lexerSkippedPrefixProvenance, 2),
 		children:                          make([]SubtreeID, 5),
@@ -46,6 +47,7 @@ func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) 
 		uint64(2)*coreCheckpointIDBytes +
 		uint64(3)*coreLinkRecordBytes +
 		uint64(4)*coreSubtreeRecordBytes +
+		coreSubtreeIDBytes +
 		coreExternalProvenanceBytes +
 		uint64(2)*coreLexerSkippedPrefixBytes +
 		uint64(5)*coreChildRecordBytes +
@@ -55,7 +57,7 @@ func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) 
 		9 +
 		uint64(8)*coreBoundarySlotBytes +
 		uint64(10)*coreUint32Bytes
-	wantAppend := coreSubtreeRecordBytes + uint64(len(payloads))*coreChildRecordBytes
+	wantAppend := coreSubtreeRecordBytes + uint64(len(payloads))*coreChildRecordBytes + coreSubtreeIDBytes
 	wantTemporary := uint64(len(payloads)) * coreUint16Bytes
 	wantPeak := uint64(unsafe.Sizeof(Core{})) + wantCopied + wantAppend + wantTemporary + providerWrapperBytes
 	if plan.coreHeaderBytes != uint64(unsafe.Sizeof(Core{})) ||
@@ -81,6 +83,66 @@ func TestDiagnosticEOFRecoveryClonePlanRejectsRetainedState(t *testing.T) {
 	live.checkpoints.buckets = nil
 	if _, err := planDiagnosticEOFRecoveryClone(live, []SubtreeID{1}, 0); err == nil || !strings.Contains(err.Error(), "provider wrapper storage") {
 		t.Fatalf("unaccounted provider wrapper error=%v", err)
+	}
+}
+
+func TestDiagnosticEOFRecoveryCopiedArenasEqualRejectsPartialRootSidecar(t *testing.T) {
+	live := &Core{eofRecoveryRoots: []SubtreeID{1, 2}}
+	shadow := &Core{eofRecoveryRoots: []SubtreeID{1}}
+	if diagnosticEOFRecoveryCopiedArenasEqual(live, shadow) {
+		t.Fatal("partial EOF recovery root sidecar was accepted")
+	}
+}
+
+func TestDiagnosticEOFRecoveryCloneClearsUnaccountedMutableDropCohortState(t *testing.T) {
+	live := &Core{
+		checkpoints: checkpointInterner{
+			buckets: map[[32]byte]CheckpointID{{1}: 1},
+		},
+		reductionScratch: reductionOutputScratch{
+			boundaryByKey: map[boundaryKey]int{{state: 1}: 1},
+		},
+		dropCohortLinkRefIndexes:       []uint32{1},
+		dropCohortLinkRefJournal:       []dropCohortLinkRefMutation{{}},
+		dropCohortDerivationIntern:     []dropCohortDerivationInternEntry{{}},
+		dropCohortCertificateRefs:      []DropCohortRef{{}},
+		dropCohortMapStore:             []dropCohortMapEntry{{}},
+		dropCohortJournalStore:         []dropCohortJournalStoreEntry{{}},
+		dropCohortFrontiers:            []dropCohortFrontierRecord{{}},
+		dropCohortFrontierParticipants: []dropCohortFrontierParticipant{{}},
+		dropCohortFrontierMembers:      []dropCohortFrontierMember{{}},
+		dropCohortFrontierJournal:      []dropCohortFrontierMutation{{}},
+		dropCohortDerivationScratch:    []byte{1},
+		dropCohortPathScratch:          []dropCohortPathStep{{}},
+		dropCohortJournal:              []dropCohortMutation{{}},
+		dropCohortReservations:         []dropCohortReservation{{actionsHeader: []dropCohortActionIdentity{{}}}},
+	}
+	shadow := cloneDiagnosticEOFRecoveryCore(live, 1, diagnosticEOFRecoveryValidationDemand{})
+	if shadow.checkpoints.buckets != nil || shadow.reductionScratch.boundaryByKey != nil {
+		t.Fatal("clone retained mutable map state")
+	}
+	for name, length := range map[string]int{
+		"link ref indexes":      len(shadow.dropCohortLinkRefIndexes),
+		"link ref journal":      len(shadow.dropCohortLinkRefJournal),
+		"derivation interner":   len(shadow.dropCohortDerivationIntern),
+		"certificate refs":      len(shadow.dropCohortCertificateRefs),
+		"map store":             len(shadow.dropCohortMapStore),
+		"journal store":         len(shadow.dropCohortJournalStore),
+		"frontiers":             len(shadow.dropCohortFrontiers),
+		"frontier participants": len(shadow.dropCohortFrontierParticipants),
+		"frontier members":      len(shadow.dropCohortFrontierMembers),
+		"frontier journal":      len(shadow.dropCohortFrontierJournal),
+		"derivation scratch":    len(shadow.dropCohortDerivationScratch),
+		"path scratch":          len(shadow.dropCohortPathScratch),
+		"journal":               len(shadow.dropCohortJournal),
+		"reservations":          len(shadow.dropCohortReservations),
+	} {
+		if length != 0 {
+			t.Fatalf("clone retained %s length %d", name, length)
+		}
+	}
+	if !diagnosticEOFRecoveryStorageDisjoint(live, shadow) {
+		t.Fatal("clone storage was not disjoint after clearing unused state")
 	}
 }
 

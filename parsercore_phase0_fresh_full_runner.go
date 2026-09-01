@@ -59,9 +59,9 @@ type parserCoreFreshFullRunner struct {
 }
 
 func newParserCoreFreshFullRunner(scanner ExternalScanner, options DiagnosticParserCorePrefixOptions) (*parserCoreFreshFullRunner, error) {
-	// S3 supplies the base recovery mechanism. S5 separately requires its
-	// insertion and acceptance-selection gates.
-	if (options.Recovery && !options.allowCompactStrategy2ErrorRegion) ||
+	// S3 supplies the base recovery mechanism. A dedicated recover_eof route
+	// has its own artifact gate and does not imply S3, S4, or S5.
+	if (options.Recovery && !options.allowCompactStrategy2ErrorRegion && !options.allowCompactRecoverEOF) ||
 		options.Retry || options.Incremental || options.IncludedRanges || options.GenericStopAtClosedByte != nil {
 		return nil, &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreRoute,
@@ -303,6 +303,14 @@ func (r *parserCoreFreshFullRunner) s3AllowErrorRoot() bool {
 	return r != nil && r.options.Recovery && r.options.allowCompactStrategy2ErrorRegion
 }
 
+func (r *parserCoreFreshFullRunner) recoverEOFFinalizationAdmitted(
+	scheduler *diagnosticParserCoreGenericScheduler,
+) bool {
+	return r != nil && scheduler != nil && r.options.Recovery &&
+		r.options.allowCompactRecoverEOF &&
+		scheduler.acceptedRootFinalization == diagnosticParserCoreFinalizeRecoverEOF
+}
+
 func (r *parserCoreFreshFullRunner) compactRecoveryTerminalAliasSymbol(
 	scheduler *diagnosticParserCoreGenericScheduler,
 ) (Symbol, bool) {
@@ -354,7 +362,13 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 	}
 	r.scratch.recoveryTerminalAliasSymbol, r.scratch.recoveryTerminalAliasCertified =
 		r.compactRecoveryTerminalAliasSymbol(scheduler)
-	tree, err := materializeDiagnosticParserCoreAcceptedSelection(
+	rootFinalization := diagnosticParserCoreFinalizeDefault
+	allowErrorRoot := r.s3AllowErrorRoot()
+	if r.recoverEOFFinalizationAdmitted(scheduler) {
+		rootFinalization = diagnosticParserCoreFinalizeRecoverEOF
+		allowErrorRoot = true
+	}
+	tree, err := materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(
 		compact,
 		scheduler.acceptedHead,
 		scheduler.acceptedPayloads,
@@ -362,7 +376,8 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		source,
 		&r.scratch,
 		r.replayParseStates,
-		r.s3AllowErrorRoot(),
+		allowErrorRoot,
+		rootFinalization,
 	)
 	if err != nil && gated {
 		scheduler.failCompactEOFRecoveryConstruction(err)
@@ -378,6 +393,9 @@ func (r *parserCoreFreshFullRunner) materializeSelectedStoreSelection(
 ) (*core.SelectedStore, error) {
 	if r == nil || compact == nil || scheduler == nil {
 		return nil, errors.New("parser-core fresh-full selected-store construction is incomplete")
+	}
+	if scheduler.acceptedRootFinalization == diagnosticParserCoreFinalizeRecoverEOF {
+		return nil, errors.New("parser-core fresh-full selected-store does not support recover_eof roots")
 	}
 	gated, err := scheduler.beginCompactEOFRecoveryConstruction(
 		source,
@@ -430,7 +448,8 @@ func (r *parserCoreFreshFullRunner) parseWithObserver(
 			err = errors.Join(err, fmt.Errorf("parser-core fresh-full runner: reset after decline: %w", resetErr))
 		}
 	}()
-	recoveryEnabled := r.options.Recovery && r.options.allowCompactStrategy2ErrorRegion
+	recoveryEnabled := r.options.Recovery &&
+		(r.options.allowCompactStrategy2ErrorRegion || r.options.allowCompactRecoverEOF)
 	if r.recoveryPlainFirst && recoveryEnabled {
 		tree, err = r.parseWithObserverAndErrorRuns(source, observer, false, false)
 		if err == nil {
@@ -441,7 +460,8 @@ func (r *parserCoreFreshFullRunner) parseWithObserver(
 		}
 		return r.parseWithObserverAndErrorRuns(source, observer, true, true)
 	}
-	return r.parseWithObserverAndErrorRuns(source, observer, recoveryEnabled, recoveryEnabled)
+	forceErrorRuns := recoveryEnabled && r.options.allowCompactStrategy2ErrorRegion
+	return r.parseWithObserverAndErrorRuns(source, observer, recoveryEnabled, forceErrorRuns)
 }
 
 func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
@@ -452,6 +472,7 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 ) (*Tree, error) {
 	savedRecovery := r.options.Recovery
 	savedErrorRegion := r.options.allowCompactStrategy2ErrorRegion
+	savedRecoverEOF := r.options.allowCompactRecoverEOF
 	savedStackSummary := r.options.allowCompactStackSummaryRecovery
 	savedMissingInsertion := r.options.allowCompactMissingTokenInsertion
 	savedLineageSelection := r.options.allowCompactRecoveryLineageSelection
@@ -460,6 +481,7 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 	if !recoveryEnabled {
 		r.options.Recovery = false
 		r.options.allowCompactStrategy2ErrorRegion = false
+		r.options.allowCompactRecoverEOF = false
 		r.options.allowCompactStackSummaryRecovery = false
 		r.options.allowCompactMissingTokenInsertion = false
 		r.options.allowCompactRecoveryLineageSelection = false
@@ -469,6 +491,7 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 	defer func() {
 		r.options.Recovery = savedRecovery
 		r.options.allowCompactStrategy2ErrorRegion = savedErrorRegion
+		r.options.allowCompactRecoverEOF = savedRecoverEOF
 		r.options.allowCompactStackSummaryRecovery = savedStackSummary
 		r.options.allowCompactMissingTokenInsertion = savedMissingInsertion
 		r.options.allowCompactRecoveryLineageSelection = savedLineageSelection
