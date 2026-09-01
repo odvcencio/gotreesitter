@@ -815,8 +815,8 @@ func assertCompactT3Outcome(t *testing.T, witness compactT3Witness, route string
 // compactT3StructuralDivergence is one node-level structural mismatch found
 // while walking a Go tree against the pinned C oracle tree in lockstep. The
 // compared axes are exactly the B3 stage S1 obligation: deep-tree shape
-// (type, child count), byte and point spans, the Missing flag, HasError, and
-// child field names.
+// (type, child count), byte and point spans, named and extra flags, the
+// Missing flag, direct and propagated error flags, and child field names.
 type compactT3StructuralDivergence struct {
 	Path     string
 	Category string
@@ -862,6 +862,18 @@ func compactT3WalkStructuralDivergences(goNode *gotreesitter.Node, goLang *gotre
 		*out = append(*out, compactT3StructuralDivergence{
 			Path: path, Category: "named",
 			GoValue: fmt.Sprintf("%v", goNode.IsNamed()), CValue: fmt.Sprintf("%v", cNode.IsNamed()),
+		})
+	}
+	if goNode.IsExtra() != cNode.IsExtra() {
+		*out = append(*out, compactT3StructuralDivergence{
+			Path: path, Category: "extra",
+			GoValue: fmt.Sprintf("%v", goNode.IsExtra()), CValue: fmt.Sprintf("%v", cNode.IsExtra()),
+		})
+	}
+	if goNode.IsError() != cNode.IsError() {
+		*out = append(*out, compactT3StructuralDivergence{
+			Path: path, Category: "error",
+			GoValue: fmt.Sprintf("%v", goNode.IsError()), CValue: fmt.Sprintf("%v", cNode.IsError()),
 		})
 	}
 	if goNode.IsMissing() != cNode.IsMissing() {

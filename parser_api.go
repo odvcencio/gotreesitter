@@ -101,6 +101,9 @@ func (p *Parser) normalizeReturnedIncrementalTree(tree, oldTree *Tree, source []
 	if !shouldNormalizeIncrementalReturnedTree(tree, oldTree) {
 		return
 	}
+	if compactRecoverEOFRootSpanPreserved(tree) {
+		return
+	}
 	if tree.hasDeferredResultCompatibility() {
 		finalizeDeferredReturnedTreeTruncation(tree, source)
 		return
@@ -134,6 +137,9 @@ func shouldNormalizeReturnedTree(tree *Tree) bool {
 
 func (p *Parser) normalizeReturnedTreeForParse(tree *Tree, source []byte) {
 	if !shouldNormalizeReturnedTree(tree) {
+		return
+	}
+	if compactRecoverEOFRootSpanPreserved(tree) {
 		return
 	}
 	if tree.hasDeferredResultCompatibility() {
@@ -176,17 +182,30 @@ func finalizeDeferredReturnedTreeTruncation(tree *Tree, _ []byte) {
 }
 
 const (
-	forestIncrementalReuseUnsupportedReason  = "old tree was built by GSS forest fast path"
-	compactIncrementalReuseUnsupportedReason = "old tree was compact-materialized without a scanner-quiescence proof"
+	forestIncrementalReuseUnsupportedReason            = "old tree was built by GSS forest fast path"
+	compactIncrementalReuseUnsupportedReason           = "old tree was compact-materialized without a scanner-quiescence proof"
+	compactRecoverEOFIncrementalReuseUnsupportedReason = "old tree carried a compact recover_eof EOF runtime"
 )
 
 const forestRecoveryFallbackReuseReason = "forest_recovery_fallback"
 
 func oldTreeDisablesIncrementalReuse(oldTree *Tree) bool {
-	return oldTree != nil && oldTree.incrementalReuseDisabled
+	return oldTree != nil && (oldTree.incrementalReuseDisabled || compactRecoverEOFTreeMarked(oldTree))
+}
+
+// compactRecoverEOFTreeMarked identifies the one compact tree whose root
+// carries raw recover_eof framing. Its scanner runtime describes the old
+// source's end-of-file boundary, so incremental reuse must not trust it after
+// an edit until a fresh parse rebuilds that runtime.
+func compactRecoverEOFTreeMarked(tree *Tree) bool {
+	return tree != nil && tree.compactMaterialized && tree.root != nil &&
+		tree.root.hasFlag(nodeFlagCompactRecoverEOF)
 }
 
 func incrementalReuseUnsupportedReasonForTree(oldTree *Tree) string {
+	if compactRecoverEOFTreeMarked(oldTree) {
+		return compactRecoverEOFIncrementalReuseUnsupportedReason
+	}
 	if oldTree != nil && oldTree.compactMaterialized {
 		return compactIncrementalReuseUnsupportedReason
 	}
@@ -408,6 +427,9 @@ func finalizeReturnedTreeRootSpan(tree *Tree, source []byte) {
 	if tree == nil {
 		return
 	}
+	if compactRecoverEOFRootSpanPreserved(tree) {
+		return
+	}
 	root := rawRootOrNil(tree)
 	if root == nil {
 		return
@@ -428,6 +450,23 @@ func finalizeReturnedTreeRootSpan(tree *Tree, source []byte) {
 	}
 	markTruncatedTreeHasError(rt, root)
 	tree.setParseRuntime(rt)
+}
+
+// compactRecoverEOFRootSpanPreserved identifies the one compact result whose
+// raw C root intentionally ends before a clean source tail. The shape is
+// deliberately exact: ordinary compact ERROR roots and edited trees do not
+// bypass the normal root-span finalizer.
+func compactRecoverEOFRootSpanPreserved(tree *Tree) bool {
+	if tree == nil || !tree.compactMaterialized || tree.language == nil ||
+		!tree.language.CompactRecoverEOFCertified || tree.root == nil ||
+		!tree.root.IsError() || !tree.root.HasError() ||
+		!tree.root.hasFlag(nodeFlagCompactRecoverEOF) {
+		return false
+	}
+	rt := tree.parseRuntime
+	return rt.StopReason == ParseStopAccepted && rt.LastTokenWasEOF &&
+		rt.ExpectedEOFByte > rt.RootEndByte &&
+		rt.LastTokenEndByte == rt.ExpectedEOFByte
 }
 
 // markTruncatedTreeHasError repairs the wave2b SILENT-TRUNCATION contract: a

@@ -472,6 +472,40 @@ const (
 	ResultCompatibilityNativeRecoveredStructure ResultCompatibilityCapability = 1 << 6
 )
 
+// CompactRecoverEOFArtifactReceipt is the locked-C certification data for one
+// compact recover_eof boundary. A zero BlobSHA256 disables this route. The
+// receipt binds the exact grammar artifact to the terminal, parser boundary,
+// and compact scheduler facts for the locked-C-certified witness.
+//
+// The work fields are intentionally explicit. They prevent a Boolean grant
+// from admitting a parse after an unmodeled shift, reduction, conflict, fork,
+// or recovery operation changes the pre-EOF lineage.
+type CompactRecoverEOFArtifactReceipt struct {
+	BlobSHA256        [32]byte
+	TerminalSymbol    Symbol
+	EOFState          StateID
+	EOFByteOffset     uint32
+	Passes            uint64
+	Elections         uint64
+	ActionLookups     uint64
+	Dispatches        uint64
+	OrdinaryShifts    uint64
+	OrdinaryCohorts   uint64
+	ExtraShifts       uint64
+	ExtraCohorts      uint64
+	Reductions        uint64
+	Conflicts         uint64
+	ConflictActions   uint64
+	Forks             uint64
+	RepetitionFolds   uint64
+	RecoveryWork      uint64
+	NoActionDrops     uint64
+	ReductionPauses   uint64
+	Accepts           uint64
+	Canonicalizations uint64
+	PeakHeaders       uint64
+}
+
 // Language holds all data needed to parse a specific language.
 // It mirrors tree-sitter's TSLanguage C struct, translated into
 // idiomatic Go types with slice-based tables instead of raw pointers.
@@ -822,6 +856,18 @@ type Language struct {
 	// no-action point exactly as before this stage landed.
 	CompactStrategy2ErrorRegionCertified bool
 
+	// CompactRecoverEOFCertified permits one exact EOF no-action lineage to
+	// publish tree-sitter's non-extra ERROR root from recover_eof. It is a
+	// compatibility marker. The compact route also requires the explicit,
+	// artifact-bound CompactRecoverEOFArtifactReceipt below.
+	CompactRecoverEOFCertified bool
+
+	// CompactRecoverEOFArtifactReceipt carries locked-C boundary and scheduler
+	// facts for the one recover_eof route certified on this language artifact.
+	// Its zero value disables the route, including when the compatibility marker
+	// above is set by an older caller.
+	CompactRecoverEOFArtifactReceipt CompactRecoverEOFArtifactReceipt
+
 	// CompactStackSummaryRecoveryCertified permits the compact fresh-full
 	// route to scan C's bounded stack summary at a no-action point. A
 	// successful scan forks the head into an ancestor-recovered lineage and
@@ -1124,6 +1170,18 @@ func (l *Language) GrammarBlobSHA256() ([32]byte, bool) {
 		return [32]byte{}, false
 	}
 	return l.grammarBlobSHA256, true
+}
+
+func compactRecoverEOFArtifactConfigured(l *Language) bool {
+	if l == nil || !l.CompactRecoverEOFCertified {
+		return false
+	}
+	receipt := l.CompactRecoverEOFArtifactReceipt
+	if receipt.BlobSHA256 == ([32]byte{}) {
+		return false
+	}
+	blob, ok := l.GrammarBlobSHA256()
+	return ok && blob == receipt.BlobSHA256
 }
 
 var nextCompactTableIdentity atomic.Uint64

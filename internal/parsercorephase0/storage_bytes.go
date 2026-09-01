@@ -63,6 +63,7 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.links))*coreLinkRecordBytes +
 		uint64(len(c.dropCohortLinkRefIndexes))*coreUint32Bytes +
 		uint64(len(c.subtrees))*coreSubtreeRecordBytes +
+		uint64(len(c.eofRecoveryRoots))*coreSubtreeIDBytes +
 		uint64(len(c.children))*coreChildRecordBytes +
 		uint64(len(c.fields))*coreFieldRecordBytes +
 		uint64(len(c.aliases))*coreAliasRecordBytes +
@@ -150,6 +151,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total := uint64(cap(c.nodes))*coreNodeRecordBytes +
 		uint64(cap(c.links))*coreLinkRecordBytes +
 		uint64(cap(c.subtrees))*coreSubtreeRecordBytes +
+		uint64(cap(c.eofRecoveryRoots))*coreSubtreeIDBytes +
 		uint64(cap(c.children))*coreChildRecordBytes +
 		uint64(cap(c.fields))*coreFieldRecordBytes +
 		uint64(cap(c.aliases))*coreAliasRecordBytes
@@ -313,6 +315,7 @@ func (c *Core) releaseRecordArenaReserve() {
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = nil
+	c.eofRecoveryRoots = nil
 	c.children = nil
 	c.dropCohortRefSpill = nil
 	c.dropCohortActions = nil
@@ -344,6 +347,7 @@ func (c *Core) releaseOversizedRetention() {
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = nil
+	c.eofRecoveryRoots = nil
 	c.externalProvenance = nil
 	c.lexerSkippedPrefixes = nil
 	c.children = nil

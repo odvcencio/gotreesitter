@@ -14,6 +14,40 @@ func TestSnapshotTokenSourceStateUnsupportedType(t *testing.T) {
 	}
 }
 
+func TestTokenInvariantLeafEditRejectsMarkedCompactRecoverEOF(t *testing.T) {
+	lang := &Language{
+		Name:                       "yaml",
+		CompactRecoverEOFCertified: true,
+		SymbolNames:                []string{"ERROR", "string_scalar"},
+	}
+	child := &Node{symbol: 1, startByte: 0, endByte: 1}
+	root := &Node{
+		symbol:    errorSymbol,
+		startByte: 0,
+		endByte:   1,
+		children:  []*Node{child},
+		flags:     nodeFlagHasError | nodeFlagCompactRecoverEOF,
+	}
+	child.parent = root
+	oldTree := &Tree{
+		root:                root,
+		source:              []byte("a\n"),
+		language:            lang,
+		lastEditedLeaf:      child,
+		compactMaterialized: true,
+		edits: []InputEdit{{
+			StartByte: 0, OldEndByte: 1, NewEndByte: 1,
+		}},
+	}
+	p := &Parser{language: lang}
+	if reused, ok := p.tryTokenInvariantLeafEdit([]byte("b\n"), oldTree, nil, nil); ok || reused != nil {
+		if reused != nil {
+			reused.Release()
+		}
+		t.Fatal("marked compact recover_eof tree entered token-invariant reuse")
+	}
+}
+
 func TestYAMLPlainScalarKind(t *testing.T) {
 	for _, tc := range []struct {
 		text string

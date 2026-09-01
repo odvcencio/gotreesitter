@@ -71,6 +71,57 @@ func TestHTMLProfileCertifiesCompleteCompactRecovery(t *testing.T) {
 	}
 }
 
+func TestYAMLProfileCertifiesOnlyExactRecoverEOFArtifact(t *testing.T) {
+	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+	lang := YamlLanguage()
+	if !lang.CompactRecoverEOFCertified {
+		t.Fatal("the YAML profile did not attach recover_eof certification")
+	}
+	wantArtifact := gotreesitter.CompactRecoverEOFArtifactReceipt{
+		BlobSHA256:        mustRuntimeProfileSHA256("9ac37a326be7a4f4297efa6e43ba00317c5959e7b4909c9262043d408f284b30"),
+		TerminalSymbol:    26,
+		EOFState:          189,
+		EOFByteOffset:     1,
+		Passes:            2,
+		Elections:         2,
+		ActionLookups:     2,
+		Dispatches:        1,
+		OrdinaryShifts:    1,
+		OrdinaryCohorts:   0,
+		ExtraShifts:       0,
+		ExtraCohorts:      0,
+		Reductions:        0,
+		Conflicts:         0,
+		ConflictActions:   0,
+		Forks:             0,
+		RepetitionFolds:   0,
+		RecoveryWork:      0,
+		NoActionDrops:     0,
+		ReductionPauses:   0,
+		Accepts:           0,
+		Canonicalizations: 1,
+		PeakHeaders:       1,
+	}
+	if lang.CompactRecoverEOFArtifactReceipt != wantArtifact {
+		t.Fatalf("YAML recover_eof artifact receipt=%+v, want %+v", lang.CompactRecoverEOFArtifactReceipt, wantArtifact)
+	}
+	if lang.CompactStrategy2ErrorRegionCertified || lang.CompactStackSummaryRecoveryCertified ||
+		lang.CompactMissingTokenInsertionCertified {
+		t.Fatal("the YAML recover_eof profile enabled another recovery mechanism")
+	}
+	stale := &gotreesitter.Language{}
+	if attachBuiltinLanguageRuntimeProfile("yaml", sha256.Sum256([]byte("stale yaml blob")), stale) ||
+		stale.CompactRecoverEOFCertified {
+		t.Fatal("a stale YAML blob received recover_eof certification")
+	}
+	exact := &gotreesitter.Language{}
+	blob := BlobByName("yaml")
+	if len(blob) == 0 || !attachBuiltinLanguageRuntimeProfile("yaml", sha256.Sum256(blob), exact) ||
+		!exact.CompactRecoverEOFCertified || exact.CompactRecoverEOFArtifactReceipt != wantArtifact {
+		t.Fatal("the exact YAML blob did not receive recover_eof certification")
+	}
+}
+
 func TestJavaScriptProfileCertifiesCompactRecoveryFrontier(t *testing.T) {
 	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
 	lang := JavascriptLanguage()
@@ -140,7 +191,8 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// skipped-prefix evidence for compact reduce tiling.
 	// 50 = the prior 49 plus the Markdown inline entry. It certifies four exact
 	// compact conflict rows while production parsing ignores them.
-	if got, want := len(builtinLanguageRuntimeProfiles), 50; got != want {
+	// 51 = the prior 50 plus the irreducible YAML recover_eof EOF-root entry.
+	if got, want := len(builtinLanguageRuntimeProfiles), 51; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}
@@ -176,6 +228,9 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	}
 	if lang.CompactPackedGSSVersionOrderCertified {
 		t.Fatal("unknown runtime profile enabled packed GSS version ordering")
+	}
+	if lang.CompactRecoverEOFCertified {
+		t.Fatal("unknown runtime profile enabled recover_eof acceptance")
 	}
 	if lang.CompactRecoveryPlainFirstCertified {
 		t.Fatal("unknown runtime profile enabled compact plain-first recovery")

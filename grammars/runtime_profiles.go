@@ -29,6 +29,7 @@ type builtinLanguageRuntimeProfile struct {
 	exactStackNodeEquivalence           bool
 	compactPackedGSSVersionOrder        bool
 	compactStrategy2ErrorRegion         bool
+	compactRecoverEOFArtifact           gotreesitter.CompactRecoverEOFArtifactReceipt
 	compactStackSummaryRecovery         bool
 	compactMissingTokenInsertion        bool
 	compactRecoveryTrailingRetirement   bool
@@ -67,6 +68,37 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	"go": {
 		blobSHA256:                 mustRuntimeProfileSHA256("9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"),
 		compactConvergedSplitDrops: true,
+	},
+	// YAML's irreducible flow opener has one direct no-action EOF lineage whose
+	// C result is the recover_eof ERROR root. Keep this gate independent from
+	// S3, S4, and S5.
+	"yaml": {
+		blobSHA256: mustRuntimeProfileSHA256("9ac37a326be7a4f4297efa6e43ba00317c5959e7b4909c9262043d408f284b30"),
+		compactRecoverEOFArtifact: gotreesitter.CompactRecoverEOFArtifactReceipt{
+			BlobSHA256:        mustRuntimeProfileSHA256("9ac37a326be7a4f4297efa6e43ba00317c5959e7b4909c9262043d408f284b30"),
+			TerminalSymbol:    26,
+			EOFState:          189,
+			EOFByteOffset:     1,
+			Passes:            2,
+			Elections:         2,
+			ActionLookups:     2,
+			Dispatches:        1,
+			OrdinaryShifts:    1,
+			OrdinaryCohorts:   0,
+			ExtraShifts:       0,
+			ExtraCohorts:      0,
+			Reductions:        0,
+			Conflicts:         0,
+			ConflictActions:   0,
+			Forks:             0,
+			RepetitionFolds:   0,
+			RecoveryWork:      0,
+			NoActionDrops:     0,
+			ReductionPauses:   0,
+			Accepts:           0,
+			Canonicalizations: 1,
+			PeakHeaders:       1,
+		},
 	},
 	"erlang": {
 		blobSHA256:                   mustRuntimeProfileSHA256("355deb34ae4b9d8e0bf649c1c36096929d5e403107fa3c8b9c2ee82b138dfdc5"),
@@ -731,6 +763,16 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	if profile.compactStrategy2ErrorRegion && !lang.CompactStrategy2ErrorRegionCertified {
 		lang.CompactStrategy2ErrorRegionCertified = true
 		changed = true
+	}
+	if profile.compactRecoverEOFArtifact.BlobSHA256 != ([32]byte{}) {
+		if lang.CompactRecoverEOFArtifactReceipt != profile.compactRecoverEOFArtifact {
+			lang.CompactRecoverEOFArtifactReceipt = profile.compactRecoverEOFArtifact
+			changed = true
+		}
+		if !lang.CompactRecoverEOFCertified {
+			lang.CompactRecoverEOFCertified = true
+			changed = true
+		}
 	}
 	if profile.compactStackSummaryRecovery && !lang.CompactStackSummaryRecoveryCertified {
 		lang.CompactStackSummaryRecoveryCertified = true

@@ -522,6 +522,175 @@ func (*genericConflictTable) ProductionAliases(uint16, int) ([]core.Symbol, erro
 	return nil, nil
 }
 
+func TestDiagnosticParserCoreRecoverEOFAcceptHeaderTopologyRejectsUnsupportedProvenance(t *testing.T) {
+	base := diagnosticParserCoreHeader{}
+	if !recoverEOFAcceptHeaderTopologyEligible(base) {
+		t.Fatal("plain singleton header was rejected")
+	}
+	tests := []struct {
+		name   string
+		mutate func(*diagnosticParserCoreHeader)
+	}{
+		{name: "accepted", mutate: func(header *diagnosticParserCoreHeader) { header.accepted = true }},
+		{name: "shifted", mutate: func(header *diagnosticParserCoreHeader) { header.shifted = true }},
+		{name: "paused", mutate: func(header *diagnosticParserCoreHeader) { header.paused = true }},
+		{name: "alternative-set", mutate: func(header *diagnosticParserCoreHeader) { header.altSet = core.NewAlternativeSetMember(7, 0) }},
+		{name: "converged-split", mutate: func(header *diagnosticParserCoreHeader) { header.convergedReductionSplit = true }},
+		{name: "resurrection-unproved", mutate: func(header *diagnosticParserCoreHeader) { header.resurrectionUnproved = true }},
+		{name: "blended", mutate: func(header *diagnosticParserCoreHeader) { header.blended = true }},
+		{name: "recovery-lineage", mutate: func(header *diagnosticParserCoreHeader) { header.markRecoveryLineage() }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			header := base
+			test.mutate(&header)
+			if recoverEOFAcceptHeaderTopologyEligible(header) {
+				t.Fatalf("unsupported header topology was admitted: %+v", header)
+			}
+		})
+	}
+}
+
+func TestDiagnosticParserCoreRecoverEOFAcceptPayloadShapeAdmitsSingletonAndRejectsFragile(t *testing.T) {
+	plainTable := &genericConflictTable{cells: map[genericConflictCell][]core.Action{
+		{state: 1, symbol: 1}: {{Type: core.ActionShift, State: 2}},
+	}}
+	plain, err := core.New(plainTable, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := plain.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plainHead, err := plain.Shift(seed, 1, 0, core.Token{Symbol: 1, StartByte: 0, EndByte: 1}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plainPaths, err := plain.Derivations(plainHead)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plainPaths) != 1 || len(plainPaths[0].Payloads) != 1 {
+		t.Fatalf("plain singleton derivations=%+v", plainPaths)
+	}
+	if _, ok, err := recoverEOFAcceptPayloadShapeEligible(plain, plainPaths[0].Payloads[0]); err != nil || !ok {
+		t.Fatalf("plain singleton shape eligible=%t err=%v", ok, err)
+	}
+
+	fragileTable := &genericConflictTable{
+		cells: map[genericConflictCell][]core.Action{
+			{state: 1, symbol: 1}: {{Type: core.ActionShift, State: 2}},
+			{state: 2, symbol: 2}: {{Type: core.ActionShift, State: 3}},
+			{state: 3, symbol: 9}: {{Type: core.ActionReduce, Symbol: 4, ChildCount: 2, ProductionID: 1}},
+		},
+		gotos: map[genericConflictCell]core.StateID{{state: 1, symbol: 4}: 4},
+	}
+	fragile, err := core.New(fragileTable, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fragileSeed, err := fragile.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fragileHead, err := fragile.Shift(fragileSeed, 1, 0, core.Token{Symbol: 1, StartByte: 0, EndByte: 1}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fragileHead, err = fragile.Shift(fragileHead, 2, 0, core.Token{Symbol: 2, StartByte: 1, EndByte: 2}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fragile.SetReduceConflictContext(true)
+	fragileFrontier, err := fragile.Reduce(fragileHead, 9, 0, core.ForkOrder{})
+	fragile.SetReduceConflictContext(false)
+	if err != nil || len(fragileFrontier) != 1 {
+		t.Fatalf("fragile reduction frontier=%v err=%v", fragileFrontier, err)
+	}
+	fragilePaths, err := fragile.Derivations(fragileFrontier[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fragilePaths) != 1 || len(fragilePaths[0].Payloads) != 1 {
+		t.Fatalf("fragile derivations=%+v", fragilePaths)
+	}
+	fragileView, err := fragile.MaterializationView(fragilePaths[0].Payloads[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !fragileView.Fragile {
+		t.Fatalf("fixture reduction was not fragile: %+v", fragileView)
+	}
+	if _, ok, err := recoverEOFAcceptPayloadShapeEligible(fragile, fragilePaths[0].Payloads[0]); err != nil || ok {
+		t.Fatalf("fragile payload shape eligible=%t err=%v", ok, err)
+	}
+}
+
+func TestDiagnosticParserCoreRecoverEOFAcceptPriorityFreeProbesAreReadOnly(t *testing.T) {
+	tests := []struct {
+		name      string
+		cells     map[genericConflictCell][]core.Action
+		gotos     map[genericConflictCell]core.StateID
+		shiftHead bool
+		wantAdmit bool
+	}{
+		{name: "no-earlier-mechanism", wantAdmit: true},
+		{name: "any-lookahead-reduction", cells: map[genericConflictCell][]core.Action{
+			{state: 1, symbol: 2}: {{Type: core.ActionReduce, Symbol: 4, ChildCount: 1}},
+		}},
+		{name: "missing-token-opportunity", cells: map[genericConflictCell][]core.Action{
+			{state: 1, symbol: 2}: {{Type: core.ActionShift, State: 3}},
+			{state: 3, symbol: 9}: {{Type: core.ActionReduce, Symbol: 4, ChildCount: 1}},
+		}},
+		{name: "ancestor-eof-action", cells: map[genericConflictCell][]core.Action{
+			{state: 1, symbol: 0}: {{Type: core.ActionShift, State: 4}},
+			{state: 1, symbol: 1}: {{Type: core.ActionShift, State: 2}},
+		}, shiftHead: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			compact, err := core.New(&genericConflictTable{cells: test.cells, gotos: test.gotos}, core.Limits{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			head, err := compact.Seed(1, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.shiftHead {
+				head, err = compact.Shift(head, 1, 0, core.Token{Symbol: 1, StartByte: 0, EndByte: 1}, core.ForkOrder{})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, err := compact.Stats(head)
+			if err != nil {
+				t.Fatal(err)
+			}
+			scheduler := &diagnosticParserCoreGenericScheduler{
+				compact:     compact,
+				tokenSource: &dfaTokenSource{language: &Language{TokenCount: 4}},
+				token:       Token{Symbol: 9, StartByte: 1, EndByte: 1},
+			}
+			got, err := scheduler.recoverEOFAcceptPriorityFree(head)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != test.wantAdmit {
+				t.Fatalf("priority-free=%t, want %t", got, test.wantAdmit)
+			}
+			after, err := compact.Stats(head)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if after != before {
+				t.Fatalf("priority probes mutated Core: before=%+v after=%+v", before, after)
+			}
+		})
+	}
+}
+
 func TestDiagnosticParserCoreGenericConflictArbitraryNOrdering(t *testing.T) {
 	actions := []core.Action{
 		{Type: core.ActionShift, State: 2},

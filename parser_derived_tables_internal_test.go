@@ -180,6 +180,8 @@ func TestParserDerivedTablesReadOnlyPostLoadMutableFields(t *testing.T) {
 	derived := lang.acquireParserDerivedTables()
 
 	restoreErrorRegion := lang.CompactStrategy2ErrorRegionCertified
+	restoreRecoverEOF := lang.CompactRecoverEOFCertified
+	restoreRecoverEOFReceipt := lang.CompactRecoverEOFArtifactReceipt
 	restoreStackSummary := lang.CompactStackSummaryRecoveryCertified
 	restoreStructuralElection := lang.CompactAcceptanceStructuralElectionCertified
 	restoreLexerSkippedPrefix := lang.CompactLexerSkippedPrefixTilingCertified
@@ -189,6 +191,8 @@ func TestParserDerivedTablesReadOnlyPostLoadMutableFields(t *testing.T) {
 	restoreScanner := lang.ExternalScanner
 	t.Cleanup(func() {
 		lang.CompactStrategy2ErrorRegionCertified = restoreErrorRegion
+		lang.CompactRecoverEOFCertified = restoreRecoverEOF
+		lang.CompactRecoverEOFArtifactReceipt = restoreRecoverEOFReceipt
 		lang.CompactStackSummaryRecoveryCertified = restoreStackSummary
 		lang.CompactAcceptanceStructuralElectionCertified = restoreStructuralElection
 		lang.CompactLexerSkippedPrefixTilingCertified = restoreLexerSkippedPrefix
@@ -198,6 +202,8 @@ func TestParserDerivedTablesReadOnlyPostLoadMutableFields(t *testing.T) {
 		lang.ExternalScanner = restoreScanner
 	})
 	lang.CompactStrategy2ErrorRegionCertified = !restoreErrorRegion
+	lang.CompactRecoverEOFCertified = !restoreRecoverEOF
+	lang.CompactRecoverEOFArtifactReceipt.EOFByteOffset++
 	lang.CompactStackSummaryRecoveryCertified = !restoreStackSummary
 	lang.CompactAcceptanceStructuralElectionCertified = !restoreStructuralElection
 	lang.CompactLexerSkippedPrefixTilingCertified = !restoreLexerSkippedPrefix

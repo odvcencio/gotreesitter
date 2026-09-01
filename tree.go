@@ -91,6 +91,10 @@ const (
 	// survive materialization.
 	nodeFlagFragileLeft
 	nodeFlagFragileRight
+	// nodeFlagCompactRecoverEOF marks the one compact recover_eof root whose
+	// raw C span must survive public result finalization. It is runtime-only
+	// provenance and fits the existing uint16 flag budget.
+	nodeFlagCompactRecoverEOF
 )
 
 func (n *Node) hasFlag(flag nodeFlags) bool {

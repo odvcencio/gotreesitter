@@ -1228,12 +1228,16 @@ type Core struct {
 	children             []SubtreeID
 	fields               []FieldMapEntry
 	aliases              []Symbol
-	frontier             uint64
-	checkpoint           CheckpointID
-	checkpoints          checkpointInterner
-	boundaries           boundaryIndex
-	boundaryJournal      []boundaryMutation
-	nodeLineageJournal   []nodeLineageMutation
+	// eofRecoveryRoots records synthetic non-extra ERROR roots published by
+	// RecoverEOFAcceptOwned. Keep this provenance outside subtreeRecord: that
+	// record is size-pinned at 44 bytes for every compact payload.
+	eofRecoveryRoots   []SubtreeID
+	frontier           uint64
+	checkpoint         CheckpointID
+	checkpoints        checkpointInterner
+	boundaries         boundaryIndex
+	boundaryJournal    []boundaryMutation
+	nodeLineageJournal []nodeLineageMutation
 	// alternativeSpillArena backs every AlternativeSet beyond
 	// alternativeSetInlineCapacity members, shared by nodeLineages and every
 	// diagnosticParserCoreHeader.altSet (parsercore_phase0_driver.go). It
@@ -1399,6 +1403,7 @@ type checkpoint struct {
 	nodes, nodeLineages, nodeCheckpoints, links, subtrees, externalProvenance int
 	lexerSkippedPrefixes                                                      int
 	children, fields, aliases                                                 int
+	eofRecoveryRoots                                                          int
 	dropCohortLinkRefIndexes                                                  int
 	dropCohortLinkRefJournal                                                  int
 	frontier                                                                  uint64
@@ -1517,6 +1522,7 @@ func (c *Core) markInto(mark *checkpoint) {
 		externalProvenance:   len(c.externalProvenance),
 		lexerSkippedPrefixes: len(c.lexerSkippedPrefixes),
 		children:             len(c.children), fields: len(c.fields), aliases: len(c.aliases),
+		eofRecoveryRoots: len(c.eofRecoveryRoots),
 
 		dropCohortLinkRefIndexes: len(c.dropCohortLinkRefIndexes),
 		dropCohortLinkRefJournal: len(c.dropCohortLinkRefJournal),
@@ -1623,6 +1629,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.nodeCheckpoints = c.nodeCheckpoints[:mark.nodeCheckpoints]
 	c.links = c.links[:mark.links]
 	c.subtrees = c.subtrees[:mark.subtrees]
+	c.eofRecoveryRoots = c.eofRecoveryRoots[:mark.eofRecoveryRoots]
 	c.externalProvenance = c.externalProvenance[:mark.externalProvenance]
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:mark.lexerSkippedPrefixes]
 	c.children = c.children[:mark.children]
@@ -2120,6 +2127,7 @@ func (c *Core) Reset() error {
 	clear(c.dropCohortLinkRefIndexes)
 	c.dropCohortLinkRefIndexes = c.dropCohortLinkRefIndexes[:0]
 	c.subtrees = c.subtrees[:0]
+	c.eofRecoveryRoots = c.eofRecoveryRoots[:0]
 	c.externalProvenance = c.externalProvenance[:0]
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:0]
 	c.children = c.children[:0]
@@ -5502,6 +5510,13 @@ func (c *Core) validateMaterializationMetadata(id SubtreeID, record subtreeRecor
 	// materialization adds no evidence. The flag is Core-scoped so subtreeRecord
 	// remains byte-for-byte unchanged on the scheduler's hot equality/copy path.
 	if c.metadataConstructionAuthenticated {
+		return nil
+	}
+	if c.isRecoverEOFAcceptRoot(id) {
+		if record.symbol != ErrorRegionSymbol || record.extra || record.terminal ||
+			record.fieldCount != 0 || record.aliasCount != 0 {
+			return errors.New("parser-core phase zero: malformed recover_eof root provenance")
+		}
 		return nil
 	}
 	return c.validateGenericMaterializationMetadata(id, record)

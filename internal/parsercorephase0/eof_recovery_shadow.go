@@ -189,6 +189,7 @@ func ForkDiagnosticEOFRecovery(
 	if err != nil {
 		return nil, 0, receipt, err
 	}
+	shadow.eofRecoveryRoots = append(shadow.eofRecoveryRoots, root)
 	receipt.Steps = 1
 	receipt.SubtreesAfter = uint32(len(shadow.subtrees))
 	receipt.ChildrenAfter = uint32(len(shadow.children))
@@ -291,6 +292,7 @@ func planDiagnosticEOFRecoveryClone(live *Core, payloads []SubtreeID, providerWr
 		{len(live.nodeCheckpoints), coreCheckpointIDBytes},
 		{len(live.links), coreLinkRecordBytes},
 		{len(live.subtrees), coreSubtreeRecordBytes},
+		{len(live.eofRecoveryRoots), coreSubtreeIDBytes},
 		{len(live.externalProvenance), coreExternalProvenanceBytes},
 		{len(live.lexerSkippedPrefixes), coreLexerSkippedPrefixBytes},
 		{len(live.children), coreChildRecordBytes},
@@ -314,6 +316,9 @@ func planDiagnosticEOFRecoveryClone(live *Core, payloads []SubtreeID, providerWr
 	}
 	if !diagnosticEOFRecoveryAdd(&plan.appendReserveBytes, coreSubtreeRecordBytes) {
 		return plan, errors.New("parser-core phase zero: EOF recovery subtree reserve overflow")
+	}
+	if !diagnosticEOFRecoveryAdd(&plan.appendReserveBytes, coreSubtreeIDBytes) {
+		return plan, errors.New("parser-core phase zero: EOF recovery root marker reserve overflow")
 	}
 	childReserve, ok := diagnosticEOFRecoveryMul(uint64(len(payloads)), coreChildRecordBytes)
 	if !ok || !diagnosticEOFRecoveryAdd(&plan.appendReserveBytes, childReserve) {
@@ -452,6 +457,7 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.nodeCheckpoints = cloneDiagnosticSlice(live.nodeCheckpoints, 0)
 	shadow.links = cloneDiagnosticSlice(live.links, 0)
 	shadow.subtrees = cloneDiagnosticSlice(live.subtrees, 1)
+	shadow.eofRecoveryRoots = cloneDiagnosticSlice(live.eofRecoveryRoots, 1)
 	shadow.externalProvenance = cloneDiagnosticSlice(live.externalProvenance, 0)
 	shadow.lexerSkippedPrefixes = cloneDiagnosticSlice(live.lexerSkippedPrefixes, 0)
 	shadow.children = cloneDiagnosticSlice(live.children, payloadCount)
@@ -468,6 +474,21 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.dropCohortMembers = cloneDiagnosticSlice(live.dropCohortMembers, 0)
 	shadow.dropCohortDerivations = cloneDiagnosticSlice(live.dropCohortDerivations, 0)
 	shadow.dropCohortDerivationBytes = cloneDiagnosticSlice(live.dropCohortDerivationBytes, 0)
+
+	// The EOF recovery append path does not read or mutate these drop-cohort
+	// families. Clear them after the shallow Core copy so no omitted sidecar,
+	// nested reservation header, or map can alias live mutable state.
+	shadow.dropCohortLinkRefIndexes = nil
+	shadow.dropCohortLinkRefJournal = nil
+	shadow.dropCohortDerivationIntern = nil
+	shadow.dropCohortCertificateRefs = nil
+	shadow.dropCohortMapStore = nil
+	shadow.dropCohortJournalStore = nil
+	shadow.dropCohortFrontiers = nil
+	shadow.dropCohortFrontierParticipants = nil
+	shadow.dropCohortFrontierMembers = nil
+	shadow.dropCohortFrontierJournal = nil
+	shadow.dropCohortReservations = nil
 
 	// One append does not use live journals, schedulers, or retained builders.
 	shadow.boundaryJournal = nil
@@ -520,7 +541,9 @@ func cloneDiagnosticSlice[T any](source []T, extraCapacity int) []T {
 }
 
 func diagnosticEOFRecoveryCopiedArenasEqual(live, shadow *Core) bool {
-	if live == nil || shadow == nil || len(shadow.subtrees) < len(live.subtrees) || len(shadow.children) < len(live.children) {
+	if live == nil || shadow == nil || len(shadow.subtrees) < len(live.subtrees) ||
+		len(shadow.eofRecoveryRoots) < len(live.eofRecoveryRoots) ||
+		len(shadow.children) < len(live.children) {
 		return false
 	}
 	return equalDiagnosticSlice(live.nodes, shadow.nodes) &&
@@ -528,6 +551,7 @@ func diagnosticEOFRecoveryCopiedArenasEqual(live, shadow *Core) bool {
 		equalDiagnosticSlice(live.nodeCheckpoints, shadow.nodeCheckpoints) &&
 		equalDiagnosticSlice(live.links, shadow.links) &&
 		equalDiagnosticSlice(live.subtrees, shadow.subtrees[:len(live.subtrees)]) &&
+		equalDiagnosticSlice(live.eofRecoveryRoots, shadow.eofRecoveryRoots[:len(live.eofRecoveryRoots)]) &&
 		equalDiagnosticSlice(live.externalProvenance, shadow.externalProvenance) &&
 		equalDiagnosticSlice(live.lexerSkippedPrefixes, shadow.lexerSkippedPrefixes) &&
 		equalDiagnosticSlice(live.children, shadow.children[:len(live.children)]) &&
@@ -582,6 +606,7 @@ func diagnosticEOFRecoveryStorageDisjoint(live, shadow *Core) bool {
 		disjointDiagnosticSlice(live.nodeCheckpoints, shadow.nodeCheckpoints) &&
 		disjointDiagnosticSlice(live.links, shadow.links) &&
 		disjointDiagnosticSlice(live.subtrees, shadow.subtrees) &&
+		disjointDiagnosticSlice(live.eofRecoveryRoots, shadow.eofRecoveryRoots) &&
 		disjointDiagnosticSlice(live.externalProvenance, shadow.externalProvenance) &&
 		disjointDiagnosticSlice(live.lexerSkippedPrefixes, shadow.lexerSkippedPrefixes) &&
 		disjointDiagnosticSlice(live.children, shadow.children) &&

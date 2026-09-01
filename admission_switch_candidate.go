@@ -46,6 +46,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 	if p == nil || p.language == nil {
 		return nil, errors.New("admission candidate route: parser has no language")
 	}
+	allowRecoverEOF := compactRecoverEOFArtifactConfigured(p.language)
 	options := DiagnosticParserCorePrefixOptions{
 		ReceiptMode:                    DiagnosticParserCoreReceiptSummary,
 		MaxTokens:                      1 << 24,
@@ -62,10 +63,12 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		allowCompactAcceptanceStructuralElection: p.language.CompactAcceptanceStructuralElectionCertified,
 		allowConvergedSplitDropArtifact:          p.language.CompactConvergedReductionSplitDropsCertified,
 		captureLexerSkippedPrefixProvenance:      p.language.CompactLexerSkippedPrefixTilingCertified,
-		// Recovery admits the certified S3 base mechanism. S4 and S5 also need
-		// their fork gate and the lineage-selection gate.
-		Recovery:                          p.language.CompactStrategy2ErrorRegionCertified,
+		// Recovery admits either the certified S3 base mechanism or the
+		// dedicated recover_eof root route. The latter does not enable S3, S4,
+		// or S5.
+		Recovery:                          p.language.CompactStrategy2ErrorRegionCertified || allowRecoverEOF,
 		allowCompactStrategy2ErrorRegion:  p.language.CompactStrategy2ErrorRegionCertified,
+		allowCompactRecoverEOF:            allowRecoverEOF,
 		allowCompactStackSummaryRecovery:  p.language.CompactStackSummaryRecoveryCertified,
 		allowCompactMissingTokenInsertion: p.language.CompactMissingTokenInsertionCertified,
 		allowCompactRecoveryLineageSelection: p.language.CompactStrategy2ErrorRegionCertified &&
@@ -303,6 +306,9 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 //     claim; see docs/compat-tail-elision.md.
 func (p *Parser) finalizeCompactReturnedTreeForParse(tree *Tree, source []byte) {
 	if !shouldNormalizeReturnedTree(tree) {
+		return
+	}
+	if compactRecoverEOFRootSpanPreserved(tree) {
 		return
 	}
 	if tree.hasDeferredResultCompatibility() {
