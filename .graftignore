@@ -1,6 +1,23 @@
 .git
 .graft
 .claude
+.codex/
+.agents/
+.gts/
+.tiller/
+.canopy/
+.golden/
+.parity_seed/
+/tmp/
+/nul
+/benchgate
+/Preparing worktree (detached HEAD *
+docs/blog-outlines/
+docs/plans/
+docs/superpowers/
+cgo_harness/bench/runs/
+cgo_harness/grammar_seed/
+cgo_harness/real_corpus_bench_report
 *.exe
 *.dll
 *.so
