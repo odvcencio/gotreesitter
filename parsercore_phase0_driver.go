@@ -11090,36 +11090,64 @@ func (s *diagnosticParserCoreGenericScheduler) reindexCondenseCandidatesOwned(ow
 
 func (s *diagnosticParserCoreGenericScheduler) collectCondenseCandidates(source int) []core.CondenseCandidate {
 	candidates := s.condenseCandidates[:0]
+	if source >= 0 && source < len(s.headers) {
+		sourceHeader := &s.headers[source]
+		if sourceHeader.accepted || sourceHeader.paused ||
+			sourceHeader.isRecoveryLineage() || sourceHeader.recoveryRegion() != nil {
+			s.condenseCandidates = candidates
+			return candidates
+		}
+	}
 	if !s.recoveryIsolation {
 		for index, header := range s.headers {
-			if index == source || header.accepted || header.paused {
+			if index == source || header.accepted || header.paused ||
+				header.isRecoveryLineage() || header.recoveryRegion() != nil {
 				continue
 			}
 			candidates = append(candidates, core.CondenseCandidate{
 				Head: header.head, DropCohortRefs: header.dropCohortRefs,
 				Shifted: header.shifted, Checkpoint: header.checkpoint,
+				MergeIdentity: s.condenseCandidateMergeIdentity(index),
 			})
 		}
 		s.condenseCandidates = candidates
 		return candidates
 	}
-	sourceRecovery := source >= 0 && source < len(s.headers) && s.headers[source].isRecoveryLineage()
 	for index, header := range s.headers {
 		if index == source || header.accepted || header.paused {
 			continue
 		}
 		// Marked recovery versions must remain separate until acceptance can
 		// price them. Ordinary unmarked versions retain normal condensation.
-		if sourceRecovery || header.isRecoveryLineage() {
+		if header.isRecoveryLineage() || header.recoveryRegion() != nil {
 			continue
 		}
 		candidates = append(candidates, core.CondenseCandidate{
 			Head: header.head, DropCohortRefs: header.dropCohortRefs,
 			Shifted: header.shifted, Checkpoint: header.checkpoint,
+			MergeIdentity: s.condenseCandidateMergeIdentity(index),
 		})
 	}
 	s.condenseCandidates = candidates
 	return candidates
+}
+
+// condenseCandidateMergeIdentity partitions exact immutable lexer ownership
+// without removing a candidate from reduction freshness classification.
+func (s *diagnosticParserCoreGenericScheduler) condenseCandidateMergeIdentity(index int) uint16 {
+	if s == nil || index < 0 || index >= len(s.headers) {
+		return 0
+	}
+	state := s.headers[index].versionState
+	if state == nil {
+		return 0
+	}
+	for prior := 0; prior < index; prior++ {
+		if s.headers[prior].versionState == state {
+			return uint16(prior + 1)
+		}
+	}
+	return uint16(index + 1)
 }
 
 // adoptUpdatedReductionSibling updates an already-active canonical sibling in

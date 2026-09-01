@@ -1079,9 +1079,13 @@ type Head struct {
 // output can merge into. The scheduler excludes the source version.
 type CondenseCandidate struct {
 	Head           Head
-	DropCohortRefs DropCohortRefSet
-	Shifted        bool
 	Checkpoint     CheckpointID
+	DropCohortRefs DropCohortRefSet
+	// ErrorCost is zero for the clean Stage 2 merge route. Recovery versions
+	// stay separate until a later stage can compare their complete C costs.
+	ErrorCost     uint32
+	MergeIdentity uint16
+	Shifted       bool
 }
 
 // Derivation is one retained exact root-to-head path after local shallow-link
@@ -1166,6 +1170,9 @@ type Work struct {
 	ReductionPopRequests                   uint64
 	EmittedPopPaths                        uint64
 	EmittedPopPayloads                     uint64
+	PhysicalHeadMergeAttempts              uint64
+	PhysicalHeadMergeSuccesses             uint64
+	PhysicalHeadMergeInputLinks            uint64
 	PredecessorLinkUnionAttempts           uint64
 	PredecessorLinkUnionDuplicateNoop      uint64
 	PredecessorLinkUnionPrecedenceReplaced uint64
@@ -2202,6 +2209,7 @@ func (c *Core) ResetReleasingRetention() error {
 	if err := c.Reset(); err != nil {
 		return err
 	}
+	c.condenseCandidates = nil
 	c.releaseRecordArenaReserve()
 	c.releaseOversizedRetention()
 	return nil
@@ -3905,6 +3913,9 @@ func (c *Core) mergePredecessorsBounded(leftID, rightID NodeID, depth int, folde
 		changed = changed || inserted
 	}
 	if len(links) == 0 && !changed {
+		if err := c.mergeNodeLineageMetadata(leftID, rightID, leftID); err != nil {
+			return 0, false, err
+		}
 		return leftID, false, nil
 	}
 	// C updates the containing node's maximum even when the incoming edge is
@@ -3918,10 +3929,16 @@ func (c *Core) mergePredecessorsBounded(leftID, rightID NodeID, depth int, folde
 		changed = true
 	}
 	if !changed {
+		if err := c.mergeNodeLineageMetadata(leftID, rightID, leftID); err != nil {
+			return 0, false, err
+		}
 		return leftID, false, nil
 	}
 	merged, err := c.appendAdjacencyNodeAtWithPrecedence(left.state, left.byteOffset, leftCheckpoint, links, *folded)
 	if err != nil {
+		return 0, false, err
+	}
+	if err := c.mergeNodeLineageMetadata(leftID, rightID, merged); err != nil {
 		return 0, false, err
 	}
 	return merged, true, nil

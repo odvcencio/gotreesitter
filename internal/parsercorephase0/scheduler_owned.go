@@ -294,42 +294,105 @@ func (c *Core) recordNodeLineageMember(head Head, event, branch uint16) error {
 	return nil
 }
 
-// enterLiveCondenseCandidates installs the live condense-candidate scope:
-// reject nesting, reject two candidates that would collide on one boundary,
-// then publish the scope fields (condenseCandidates, condenseNewNode,
-// condenseScopeActive) that condenseNodeIsLive reads during the dispatch that
-// follows. It is the non-closure setup half of runLiveCondenseCandidates,
-// factored out so the hot shift/reduce/cohort dispatch paths below can call
-// it directly instead of threading a fn func() error parameter through two
-// extra wrapper layers.
+// enterLiveCondenseCandidates installs the live condense-candidate scope. It
+// first merges clean, scheduler-proved equivalents that occupy one boundary.
+// The normalized scope then contains one immutable physical head per boundary.
+// It is the non-closure setup half of runLiveCondenseCandidates, factored out
+// so the hot shift/reduce/cohort dispatch paths can call it directly.
 func (c *Core) enterLiveCondenseCandidates(candidates []CondenseCandidate) error {
 	if c.condenseScopeActive {
 		return errors.New("parser-core phase zero: nested live condense candidate scope")
 	}
-	for index, candidate := range candidates {
+	if !c.schedulerFrame.active {
+		return errors.New("parser-core phase zero: live condense candidate scope requires a scheduler transaction")
+	}
+	owned := append(c.condenseCandidates[:0], candidates...)
+	normalized, err := c.mergeLiveCondenseCandidatesUncheckpointed(owned)
+	if err != nil {
+		clear(c.condenseCandidates)
+		c.condenseCandidates = c.condenseCandidates[:0]
+		return err
+	}
+	c.condenseCandidates = normalized
+	c.condenseNewNode = NodeID(len(c.nodes) + 1)
+	c.condenseScopeActive = true
+	return nil
+}
+
+func (c *Core) mergeLiveCondenseCandidatesUncheckpointed(candidates []CondenseCandidate) ([]CondenseCandidate, error) {
+	write := 0
+	for _, candidate := range candidates {
+		if candidate.ErrorCost != 0 {
+			return nil, errors.New("parser-core phase zero: physical head merge requires zero error cost")
+		}
+		if err := c.recordNodeLineageRefs(candidate.Head, candidate.DropCohortRefs); err != nil {
+			return nil, err
+		}
 		node, err := c.node(candidate.Head.Node)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		for prior := 0; prior < index; prior++ {
+		match := -1
+		for prior := 0; prior < write; prior++ {
 			other := candidates[prior]
 			otherNode, err := c.node(other.Head.Node)
 			if err != nil {
-				return err
+				return nil, err
 			}
+			candidateNodeCheckpoint, candidateNodeExact := c.nodeScannerCheckpoint(candidate.Head.Node)
+			otherNodeCheckpoint, otherNodeExact := c.nodeScannerCheckpoint(other.Head.Node)
 			if node.state == otherNode.state &&
 				node.byteOffset == otherNode.byteOffset &&
 				candidate.Shifted == other.Shifted &&
 				candidate.Checkpoint == other.Checkpoint &&
-				candidate.Head.Node != other.Head.Node {
-				return errors.New("parser-core phase zero: distinct condense candidates share one boundary")
+				candidate.MergeIdentity == other.MergeIdentity &&
+				candidateNodeExact && otherNodeExact &&
+				candidateNodeCheckpoint == otherNodeCheckpoint {
+				match = prior
+				break
 			}
 		}
+		if match < 0 {
+			candidates[write] = candidate
+			write++
+			continue
+		}
+		group := &candidates[match]
+		if group.Head != candidate.Head {
+			key := boundaryKey{
+				frontier: c.frontier, state: node.state, byteOffset: node.byteOffset,
+				shifted: candidate.Shifted, checkpoint: candidate.Checkpoint,
+			}
+			probe, existing := c.boundaries.probe(boundaryIdentityFromKey(key))
+			switch {
+			case !probe.found:
+				if err := c.publishBoundary(probe, group.Head.Node); err != nil {
+					return nil, err
+				}
+			case existing == candidate.Head.Node:
+				if err := c.publishBoundary(probe, group.Head.Node); err != nil {
+					return nil, err
+				}
+			case existing != group.Head.Node:
+				// A live scope can observe an older entry from the same parser
+				// frontier. Keep both current candidates separate. The next
+				// authenticated reindex establishes a fresh boundary generation.
+				candidates[write] = candidate
+				write++
+				continue
+			}
+			merged, err := c.mergeEquivalentHeadsAtBoundaryUncheckpointed(key, group.Head, candidate.Head)
+			if err != nil {
+				return nil, err
+			}
+			group.Head = merged
+		}
+		if _, err := c.dropCohortRefUnion(&group.DropCohortRefs, candidate.DropCohortRefs); err != nil {
+			return nil, err
+		}
 	}
-	c.condenseCandidates = candidates
-	c.condenseNewNode = NodeID(len(c.nodes) + 1)
-	c.condenseScopeActive = true
-	return nil
+	clear(candidates[write:])
+	return candidates[:write], nil
 }
 
 // runLiveCondenseCandidates keeps the closure-taking shape used directly by
@@ -352,17 +415,46 @@ func (c *Core) clearLiveCondenseCandidates() {
 	if c == nil {
 		return
 	}
-	c.condenseCandidates = nil
+	clear(c.condenseCandidates)
+	c.condenseCandidates = c.condenseCandidates[:0]
 	c.condenseNewNode = 0
 	c.condenseScopeActive = false
 }
 
 func (c *Core) reindexCondenseCandidatesUncheckpointed(candidates []CondenseCandidate) error {
 	c.boundaries.advanceGeneration()
-	for _, candidate := range candidates {
+	for index, candidate := range candidates {
+		if candidate.ErrorCost != 0 {
+			return errors.New("parser-core phase zero: physical head merge requires zero error cost")
+		}
+		if err := c.recordNodeLineageRefs(candidate.Head, candidate.DropCohortRefs); err != nil {
+			return err
+		}
 		node, err := c.node(candidate.Head.Node)
 		if err != nil {
 			return err
+		}
+		candidateNodeCheckpoint, candidateNodeExact := c.nodeScannerCheckpoint(candidate.Head.Node)
+		if !candidateNodeExact {
+			return errors.New("parser-core phase zero: physical head merge has inexact scanner provenance")
+		}
+		for prior := 0; prior < index; prior++ {
+			other := candidates[prior]
+			otherNode, err := c.node(other.Head.Node)
+			if err != nil {
+				return err
+			}
+			if node.state != otherNode.state || node.byteOffset != otherNode.byteOffset ||
+				candidate.Shifted != other.Shifted || candidate.Checkpoint != other.Checkpoint {
+				continue
+			}
+			if candidate.MergeIdentity != other.MergeIdentity {
+				return errors.New("parser-core phase zero: physical heads have different lexer ownership")
+			}
+			otherNodeCheckpoint, otherNodeExact := c.nodeScannerCheckpoint(other.Head.Node)
+			if !otherNodeExact || candidateNodeCheckpoint != otherNodeCheckpoint {
+				return errors.New("parser-core phase zero: physical heads have different scanner provenance")
+			}
 		}
 		key := boundaryKey{
 			frontier: c.frontier, state: node.state, byteOffset: node.byteOffset,
@@ -371,7 +463,11 @@ func (c *Core) reindexCondenseCandidatesUncheckpointed(candidates []CondenseCand
 		probe, existing := c.boundaries.probe(boundaryIdentityFromKey(key))
 		if probe.found {
 			if existing != candidate.Head.Node {
-				return errors.New("parser-core phase zero: distinct condense candidates share one boundary")
+				if _, err := c.mergeEquivalentHeadsAtBoundaryUncheckpointed(
+					key, Head{Node: existing}, candidate.Head,
+				); err != nil {
+					return err
+				}
 			}
 			continue
 		}
@@ -380,6 +476,180 @@ func (c *Core) reindexCondenseCandidatesUncheckpointed(candidates []CondenseCand
 		}
 	}
 	return nil
+}
+
+// mergeEquivalentHeadsAtBoundaryUncheckpointed ports ts_stack_merge for two
+// clean scheduler versions. It keeps the incumbent adjacency first, applies
+// C's bounded link insertion rules to the incoming adjacency, then publishes
+// one immutable replacement at the same authenticated boundary. Capacity
+// rejection rolls back the merge. C removes the incoming version after that
+// rejection, but this bounded route fails closed to preserve its memory limit.
+//
+// Header-owned recovery state and lexer ownership are outside Core. The
+// scheduler must prove those identities before it supplies candidates here.
+func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointed(
+	key boundaryKey,
+	incumbent Head,
+	incoming Head,
+) (Head, error) {
+	if key.frontier != c.frontier {
+		return Head{}, errors.New("parser-core phase zero: physical head merge frontier mismatch")
+	}
+	if incumbent == incoming {
+		return incumbent, nil
+	}
+	left, err := c.node(incumbent.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	right, err := c.node(incoming.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	if left.state != key.state || right.state != key.state ||
+		left.byteOffset != key.byteOffset || right.byteOffset != key.byteOffset {
+		return Head{}, errors.New("parser-core phase zero: physical heads are not boundary-equivalent")
+	}
+	leftCheckpoint, leftExact := c.nodeScannerCheckpoint(incumbent.Node)
+	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(incoming.Node)
+	if !leftExact || !rightExact || leftCheckpoint != rightCheckpoint {
+		return Head{}, errors.New("parser-core phase zero: physical heads have different scanner provenance")
+	}
+	related, err := c.nodesAncestryRelated(incumbent.Node, incoming.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	if related {
+		return Head{}, errors.New("parser-core phase zero: physical heads are ancestry-related")
+	}
+
+	var leftInline [inlineAdjacencyCapacity]linkRecord
+	links, err := c.publishedNodeLinksInto(leftInline[:0], *left)
+	if err != nil {
+		return Head{}, err
+	}
+	var rightInline [inlineAdjacencyCapacity]linkRecord
+	incomingLinks, err := c.publishedNodeLinksInto(rightInline[:0], *right)
+	if err != nil {
+		return Head{}, err
+	}
+	// Count only pairs that pass the clean boundary and scanner predicates.
+	// C's wider attempt counter also includes pairs that fail those predicates.
+	c.addWork(&c.work.PhysicalHeadMergeAttempts, 1)
+	c.addWork(&c.work.PhysicalHeadMergeInputLinks, uint64(len(incomingLinks)))
+	leftMaximum, err := c.nodePrecedenceMaximum(incumbent.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	folded := precedenceMaximumWitness{seed: leftMaximum.value, hasSeed: true}
+	changed := false
+	for _, link := range incomingLinks {
+		var inserted bool
+		links, inserted, err = c.insertLinkBounded(key.state, key.byteOffset, links, link, 0, &folded)
+		if err != nil {
+			return Head{}, err
+		}
+		changed = changed || inserted
+	}
+	maximum, err := c.computePrecedenceMaximum(links, folded)
+	if err != nil {
+		return Head{}, err
+	}
+	if !changed && maximum.value <= leftMaximum.value {
+		if err := c.mergeNodeLineageMetadata(incumbent.Node, incoming.Node, incumbent.Node); err != nil {
+			return Head{}, err
+		}
+		c.addWork(&c.work.PhysicalHeadMergeSuccesses, 1)
+		return incumbent, nil
+	}
+	// key.checkpoint authenticates the current lookahead boundary. The graph
+	// node checkpoint authenticates the last consumed external scanner state.
+	// Keep the source node checkpoint when those two identities differ.
+	merged, err := c.appendAdjacencyNodeAtWithPrecedence(
+		key.state, key.byteOffset, leftCheckpoint, links, folded,
+	)
+	if err != nil {
+		return Head{}, err
+	}
+	if err := c.mergeNodeLineageMetadata(incumbent.Node, incoming.Node, merged); err != nil {
+		return Head{}, err
+	}
+	probe, existing := c.boundaries.probe(boundaryIdentityFromKey(key))
+	if !probe.found || existing != incumbent.Node {
+		return Head{}, errors.New("parser-core phase zero: physical head merge lost its incumbent boundary")
+	}
+	if err := c.publishBoundary(probe, merged); err != nil {
+		return Head{}, err
+	}
+	c.addWork(&c.work.PhysicalHeadMergeSuccesses, 1)
+	return Head{Node: merged}, nil
+}
+
+// mergeNodeLineageMetadata preserves the histories represented by a physical
+// graph merge. A new merged node has no scheduler owner until canonicalization
+// elects its surviving header. An unchanged incumbent keeps its current owner.
+func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error {
+	left, err := c.nodeLineage(leftID)
+	if err != nil {
+		return err
+	}
+	right, err := c.nodeLineage(rightID)
+	if err != nil {
+		return err
+	}
+	target, err := c.nodeLineage(targetID)
+	if err != nil {
+		return err
+	}
+	before := *target
+	merged := nodeLineageRecord{}
+	if targetID == leftID {
+		merged.owner = left.owner
+	}
+	merged.dropCohortRefs = left.dropCohortRefs
+	if _, err := c.dropCohortRefUnion(&merged.dropCohortRefs, right.dropCohortRefs); err != nil {
+		return err
+	}
+	merged.set = left.set
+	merged.blended = left.blended || right.blended || c.AlternativeSetIncomparable(left.set, right.set)
+	c.alternativeSetUnion(&merged.set, right.set)
+	merged.rank, merged.lineage = mergeNodeLineageScalars(
+		left.rank, left.lineage, right.rank, right.lineage,
+	)
+	merged.converged = left.converged || right.converged
+	if *target == merged {
+		return nil
+	}
+	if targetID == leftID && len(c.transactions) != 0 {
+		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
+			node: targetID, owner: before.owner, dropCohortRefs: before.dropCohortRefs,
+			setCount: before.set.count, setFlags: before.set.flags, setSpillRef: before.set.spillRef,
+			lineage: before.lineage, rank: before.rank, converged: before.converged, blended: before.blended,
+		})
+	}
+	*target = merged
+	return nil
+}
+
+func mergeNodeLineageScalars(
+	leftRank CleanPathRankSelection,
+	leftLineage uint16,
+	rightRank CleanPathRankSelection,
+	rightLineage uint16,
+) (CleanPathRankSelection, uint16) {
+	if leftRank == CleanPathRankUnknown || rightRank == CleanPathRankUnknown {
+		return CleanPathRankUnknown, 0
+	}
+	if leftRank == CleanPathRankNotApplicable || leftLineage == 0 {
+		return rightRank, rightLineage
+	}
+	if rightRank == CleanPathRankNotApplicable || rightLineage == 0 {
+		return leftRank, leftLineage
+	}
+	if leftLineage != rightLineage {
+		return CleanPathRankUnknown, 0
+	}
+	return mergeCleanPathRank(leftRank, rightRank), leftLineage
 }
 
 // ShiftClassifiedOwned authenticates the scheduler owner, then delegates to
