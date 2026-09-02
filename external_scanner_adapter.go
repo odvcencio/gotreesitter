@@ -73,6 +73,17 @@ func (a *externalScannerOrderAdapter) UsesExternalScannerCheckpoints() bool {
 	return ok && checkpointed.UsesExternalScannerCheckpoints()
 }
 
+// CheckpointIdentity preserves the inner scanner identity across external
+// symbol-order adaptation. The target language remains bound by the snapshot
+// language pointer and parser table identity.
+func (a *externalScannerOrderAdapter) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	provider, ok := a.optionalInner().(ExternalScannerCheckpointIdentityProvider)
+	if !ok || !provider.UsesExternalScannerCheckpoints() {
+		return ExternalScannerCheckpointIdentity{}, false
+	}
+	return provider.CheckpointIdentity()
+}
+
 func (a *externalScannerOrderAdapter) RequiresIncrementalPrefixFrontierProof() bool {
 	prefixSensitive, ok := a.optionalInner().(IncrementalPrefixFrontierExternalScanner)
 	return ok && prefixSensitive.RequiresIncrementalPrefixFrontierProof()

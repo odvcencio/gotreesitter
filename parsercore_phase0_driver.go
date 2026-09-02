@@ -5059,9 +5059,16 @@ func (s *diagnosticParserCoreGenericScheduler) equivalentVersionLexerSnapshot(
 	if s == nil {
 		return nil
 	}
+	identity, identityRequired, identityValid := diagnosticParserCoreVersionLexerCheckpointIdentity(nil)
+	if s.tokenSource != nil {
+		identity, identityRequired, identityValid = diagnosticParserCoreVersionLexerCheckpointIdentity(s.tokenSource.language)
+	}
 	matches := func(snapshot *diagnosticParserCoreVersionLexerSnapshot) bool {
 		return snapshot != nil && snapshot.beforeCheckpoint == beforeID &&
-			snapshot.afterCheckpoint == afterID && snapshot.dfa.equal(dfa)
+			snapshot.afterCheckpoint == afterID && snapshot.dfa.equal(dfa) &&
+			snapshot.checkpointIdentityRequired == identityRequired &&
+			snapshot.checkpointIdentityValid == identityValid &&
+			(!identityRequired || (identityValid && snapshot.checkpointIdentity == identity))
 	}
 	for index := range s.headers {
 		if snapshot := s.headers[index].versionLexerSnapshot(); matches(snapshot) {

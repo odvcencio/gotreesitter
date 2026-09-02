@@ -29,7 +29,15 @@ type diagnosticParserCoreVersionLexerSnapshot struct {
 	coreGeneration uint64
 	language       *Language
 	scanner        diagnosticParserCoreVersionLexerScannerContract
-	dfa            dfaRelexSnapshot
+	// checkpointIdentity authenticates the scanner and grammar that produced
+	// this snapshot when the scanner exposes the identity-bearing checkpoint
+	// capability. Keep this optional for legacy checkpointed scanners: those
+	// scanners still use the legacy scheduler path, but existing internal DFA
+	// ownership does not need a new grammar identity.
+	checkpointIdentity         [32]byte
+	checkpointIdentityRequired bool
+	checkpointIdentityValid    bool
+	dfa                        dfaRelexSnapshot
 
 	beforeCheckpoint      core.CheckpointID
 	afterCheckpoint       core.CheckpointID
@@ -87,6 +95,26 @@ func diagnosticParserCoreVersionLexerScannerContractForLanguage(language *Langua
 	return contract, nil
 }
 
+// diagnosticParserCoreVersionLexerCheckpointIdentity reports the stable
+// scanner-and-grammar identity for a checkpoint-capable language. The second
+// result reports whether the language requires the identity capability. The
+// third result reports whether the current identity is complete.
+func diagnosticParserCoreVersionLexerCheckpointIdentity(language *Language) ([32]byte, bool, bool) {
+	if language == nil || language.ExternalScanner == nil ||
+		!languageUsesExternalScannerCheckpoints(language) {
+		return [32]byte{}, false, false
+	}
+	provider, required := externalScannerCheckpointIdentityProviderForScanner(language.ExternalScanner)
+	if !required {
+		return [32]byte{}, false, false
+	}
+	identity, ok := provider.CheckpointIdentity()
+	if !ok || !identity.complete() {
+		return [32]byte{}, true, false
+	}
+	return parserCoreExternalScannerIdentityFingerprint(identity), true, true
+}
+
 func (s diagnosticParserCoreVersionLexerScannerContract) equal(other diagnosticParserCoreVersionLexerScannerContract) bool {
 	return s == other
 }
@@ -127,17 +155,20 @@ func (s *diagnosticParserCoreVersionLexerSnapshot) clone() *diagnosticParserCore
 		return nil
 	}
 	return &diagnosticParserCoreVersionLexerSnapshot{
-		compact:               s.compact,
-		coreGeneration:        s.coreGeneration,
-		language:              s.language,
-		scanner:               s.scanner,
-		dfa:                   cloneDiagnosticParserCoreDFARelexSnapshot(s.dfa),
-		beforeCheckpoint:      s.beforeCheckpoint,
-		afterCheckpoint:       s.afterCheckpoint,
-		beforeCheckpointBytes: cloneBytesForDiagnosticParserCoreVersion(s.beforeCheckpointBytes),
-		afterCheckpointBytes:  cloneBytesForDiagnosticParserCoreVersion(s.afterCheckpointBytes),
-		beforeCheckpointInfo:  s.beforeCheckpointInfo,
-		afterCheckpointInfo:   s.afterCheckpointInfo,
+		compact:                    s.compact,
+		coreGeneration:             s.coreGeneration,
+		language:                   s.language,
+		scanner:                    s.scanner,
+		checkpointIdentity:         s.checkpointIdentity,
+		checkpointIdentityRequired: s.checkpointIdentityRequired,
+		checkpointIdentityValid:    s.checkpointIdentityValid,
+		dfa:                        cloneDiagnosticParserCoreDFARelexSnapshot(s.dfa),
+		beforeCheckpoint:           s.beforeCheckpoint,
+		afterCheckpoint:            s.afterCheckpoint,
+		beforeCheckpointBytes:      cloneBytesForDiagnosticParserCoreVersion(s.beforeCheckpointBytes),
+		afterCheckpointBytes:       cloneBytesForDiagnosticParserCoreVersion(s.afterCheckpointBytes),
+		beforeCheckpointInfo:       s.beforeCheckpointInfo,
+		afterCheckpointInfo:        s.afterCheckpointInfo,
 	}
 }
 
@@ -209,18 +240,25 @@ func newDiagnosticParserCoreVersionLexerSnapshot(
 	if generation == 0 {
 		return nil, errors.New("parser-core phase zero: version lexer snapshot requires an authenticated reset generation")
 	}
+	checkpointIdentity, checkpointIdentityRequired, checkpointIdentityValid := diagnosticParserCoreVersionLexerCheckpointIdentity(language)
+	if checkpointIdentityRequired && !checkpointIdentityValid {
+		return nil, errors.New("parser-core phase zero: version lexer snapshot requires a complete checkpoint identity")
+	}
 	return &diagnosticParserCoreVersionLexerSnapshot{
-		compact:               compact,
-		coreGeneration:        generation,
-		language:              language,
-		scanner:               scanner,
-		dfa:                   cloneDiagnosticParserCoreDFARelexSnapshot(dfa),
-		beforeCheckpoint:      beforeCheckpoint,
-		afterCheckpoint:       afterCheckpoint,
-		beforeCheckpointBytes: beforeBytes,
-		afterCheckpointBytes:  afterBytes,
-		beforeCheckpointInfo:  beforeInfo,
-		afterCheckpointInfo:   afterInfo,
+		compact:                    compact,
+		coreGeneration:             generation,
+		language:                   language,
+		scanner:                    scanner,
+		checkpointIdentity:         checkpointIdentity,
+		checkpointIdentityRequired: checkpointIdentityRequired,
+		checkpointIdentityValid:    checkpointIdentityValid,
+		dfa:                        cloneDiagnosticParserCoreDFARelexSnapshot(dfa),
+		beforeCheckpoint:           beforeCheckpoint,
+		afterCheckpoint:            afterCheckpoint,
+		beforeCheckpointBytes:      beforeBytes,
+		afterCheckpointBytes:       afterBytes,
+		beforeCheckpointInfo:       beforeInfo,
+		afterCheckpointInfo:        afterInfo,
 	}, nil
 }
 
@@ -250,6 +288,14 @@ func (s *diagnosticParserCoreVersionLexerSnapshot) validateDestination(compact *
 	}
 	if !s.scanner.equal(scanner) {
 		return errors.New("parser-core phase zero: version lexer snapshot scanner contract changed")
+	}
+	identity, identityRequired, identityValid := diagnosticParserCoreVersionLexerCheckpointIdentity(language)
+	if s.checkpointIdentityRequired != identityRequired {
+		return errors.New("parser-core phase zero: version lexer snapshot checkpoint capability changed")
+	}
+	if s.checkpointIdentityRequired &&
+		(!s.checkpointIdentityValid || !identityValid || identity != s.checkpointIdentity) {
+		return errors.New("parser-core phase zero: version lexer snapshot checkpoint identity changed")
 	}
 	if err := s.validateGeneration(); err != nil {
 		return err

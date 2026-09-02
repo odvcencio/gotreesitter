@@ -678,6 +678,86 @@ func TestDiagnosticParserCoreVersionLexerSnapshotRejectsScannerReplacement(t *te
 	}
 }
 
+func TestDiagnosticParserCoreVersionLexerSnapshotBindsCheckpointIdentity(t *testing.T) {
+	compact, before, after := newDiagnosticParserCoreVersionLexerTestCore(t)
+	scanner := newC26lCheckpointScanner()
+	language := &Language{Name: "checkpoint-identity-snapshot-test", ExternalScanner: scanner}
+	dfa := diagnosticParserCoreVersionLexerTestDFA()
+	dfa.externalScannerPresent = true
+	dfa.externalPayload = []byte{1, 2, 3}
+	var snapshot *diagnosticParserCoreVersionLexerSnapshot
+	if err := compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+		var err error
+		snapshot, err = newDiagnosticParserCoreVersionLexerSnapshot(compact, language, owner, dfa, before, after)
+		return err
+	}); err != nil {
+		t.Fatalf("construct identity-bound snapshot: %v", err)
+	}
+	if snapshot == nil || !snapshot.checkpointIdentityValid || snapshot.checkpointIdentity == ([32]byte{}) {
+		t.Fatalf("snapshot identity=%x/%t, want a non-zero authenticated identity", snapshot.checkpointIdentity, snapshot.checkpointIdentityValid)
+	}
+	if !snapshot.checkpointIdentityRequired {
+		t.Fatal("snapshot did not record that its scanner requires checkpoint identity")
+	}
+	clone := snapshot.clone()
+	if clone == nil || clone.checkpointIdentity != snapshot.checkpointIdentity ||
+		!clone.checkpointIdentityRequired || !clone.checkpointIdentityValid {
+		t.Fatal("snapshot clone lost checkpoint identity")
+	}
+
+	target := &dfaTokenSource{
+		lexer:              &Lexer{source: []byte("abc"), pos: 4, row: 5, col: 6},
+		language:           language,
+		hasExternalScanner: true,
+		externalPayload:    scanner.Create(),
+	}
+	beforeTarget := target.snapshotRelexState()
+	scanner.grammarID = []byte("checkpoint-identity-drift")
+	if err := snapshot.restore(compact, target); err == nil {
+		t.Fatal("restore accepted a changed checkpoint identity")
+	}
+	if got := target.snapshotRelexState(); !got.equal(beforeTarget) {
+		t.Fatalf("identity-mismatch restore mutated target state: got=%+v want=%+v", got, beforeTarget)
+	}
+
+	scanner.grammarID = []byte("grammar-c26l")
+	if err := snapshot.restore(compact, target); err != nil {
+		t.Fatalf("restore rejected the original checkpoint identity: %v", err)
+	}
+
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact:     compact,
+		tokenSource: &dfaTokenSource{language: language},
+		headers: []diagnosticParserCoreHeader{{
+			versionState: &diagnosticParserCoreVersionState{relexSnapshot: snapshot},
+		}},
+	}
+	if got := scheduler.equivalentVersionLexerSnapshot(snapshot.dfa, before, after); got != snapshot {
+		t.Fatalf("equivalent snapshot lookup = %p, want %p", got, snapshot)
+	}
+	scanner.grammarID = []byte("checkpoint-identity-drift-again")
+	if got := scheduler.equivalentVersionLexerSnapshot(snapshot.dfa, before, after); got != nil {
+		t.Fatalf("equivalent snapshot lookup reused identity-drifted snapshot %p", got)
+	}
+}
+
+func TestDiagnosticParserCoreVersionLexerSnapshotRejectsIncompleteCheckpointIdentity(t *testing.T) {
+	compact, before, after := newDiagnosticParserCoreVersionLexerTestCore(t)
+	scanner := newC26lCheckpointScanner()
+	scanner.identityOK = false
+	language := &Language{Name: "incomplete-checkpoint-identity-snapshot-test", ExternalScanner: scanner}
+	dfa := diagnosticParserCoreVersionLexerTestDFA()
+	dfa.externalScannerPresent = true
+	dfa.externalPayload = []byte{1, 2, 3}
+	err := compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+		_, err := newDiagnosticParserCoreVersionLexerSnapshot(compact, language, owner, dfa, before, after)
+		return err
+	})
+	if err == nil {
+		t.Fatal("snapshot accepted an incomplete checkpoint identity")
+	}
+}
+
 func TestDiagnosticParserCoreVersionLexerSnapshotRejectsUnrepresentableScannerState(t *testing.T) {
 	compact, before, after := newDiagnosticParserCoreVersionLexerTestCore(t)
 	dfa := diagnosticParserCoreVersionLexerTestDFA()

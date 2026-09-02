@@ -16,11 +16,34 @@ type ExternalScannerCheckpointIdentity struct {
 // checkpointed scanner. CheckpointIdentity must return stable identifiers for
 // the scanner implementation and the exact grammar blob.
 //
-// The production parser consumes this capability only at the checkpoint-aware
-// incremental reuse boundary. It does not alter GLR scheduling or recovery.
+// The production parser consumes this capability at checkpoint-aware
+// incremental reuse and per-version lexer ownership boundaries. It does not
+// alter GLR scheduling or recovery election.
 type ExternalScannerCheckpointIdentityProvider interface {
 	CheckpointedExternalScanner
 	CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool)
+}
+
+// externalScannerCheckpointIdentityProviderForScanner finds an identity
+// provider without promoting a legacy order adapter to the identity contract.
+// Adapters forward a provider from their inner scanner when one exists.
+func externalScannerCheckpointIdentityProviderForScanner(
+	scanner ExternalScanner,
+) (ExternalScannerCheckpointIdentityProvider, bool) {
+	if scanner == nil {
+		return nil, false
+	}
+	if adapter, ok := scanner.(*externalScannerOrderAdapter); ok {
+		if adapter == nil {
+			return nil, false
+		}
+		return externalScannerCheckpointIdentityProviderForScanner(adapter.optionalInner())
+	}
+	provider, ok := scanner.(ExternalScannerCheckpointIdentityProvider)
+	if !ok || !provider.UsesExternalScannerCheckpoints() {
+		return nil, false
+	}
+	return provider, true
 }
 
 // externalScannerCheckpointIdentityState stores one immutable identity for an
@@ -115,8 +138,8 @@ func externalScannerCheckpointIdentityStatus(lang *Language) (ExternalScannerChe
 	if lang == nil || lang.ExternalScanner == nil {
 		return ExternalScannerCheckpointIdentity{}, false, true
 	}
-	provider, ok := lang.ExternalScanner.(ExternalScannerCheckpointIdentityProvider)
-	if !ok || !provider.UsesExternalScannerCheckpoints() {
+	provider, required := externalScannerCheckpointIdentityProviderForScanner(lang.ExternalScanner)
+	if !required {
 		return ExternalScannerCheckpointIdentity{}, false, true
 	}
 	identity, ok := provider.CheckpointIdentity()
@@ -221,8 +244,8 @@ func captureExternalScannerCheckpointRecord(
 	if scanner == nil || tokenStartByte > tokenEndByte {
 		return externalScannerCheckpointRecord{}, false
 	}
-	provider, ok := scanner.(ExternalScannerCheckpointIdentityProvider)
-	if !ok || !provider.UsesExternalScannerCheckpoints() {
+	provider, ok := externalScannerCheckpointIdentityProviderForScanner(scanner)
+	if !ok {
 		return externalScannerCheckpointRecord{}, false
 	}
 	identity, ok := provider.CheckpointIdentity()
@@ -255,8 +278,8 @@ func (r externalScannerCheckpointRecord) restore(scanner ExternalScanner, payloa
 	if scanner == nil || !r.complete() {
 		return false
 	}
-	provider, ok := scanner.(ExternalScannerCheckpointIdentityProvider)
-	if !ok || !provider.UsesExternalScannerCheckpoints() {
+	provider, ok := externalScannerCheckpointIdentityProviderForScanner(scanner)
+	if !ok {
 		return false
 	}
 	identity, ok := provider.CheckpointIdentity()

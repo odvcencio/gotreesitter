@@ -39,6 +39,12 @@ func (*capabilityExternalScanner) SupportsIncrementalReuse() bool { return true 
 func (*capabilityExternalScanner) UsesExternalScannerCheckpoints() bool {
 	return true
 }
+func (*capabilityExternalScanner) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	return ExternalScannerCheckpointIdentity{
+		Scanner: []byte("adapter-test-scanner-v1"),
+		Grammar: []byte("adapter-test-grammar-v1"),
+	}, true
+}
 func (*capabilityExternalScanner) RequiresIncrementalPrefixFrontierProof() bool {
 	return true
 }
@@ -75,6 +81,12 @@ func TestExternalScannerOrderAdapterPreservesOptionalCapabilities(t *testing.T) 
 	if checkpointed, ok := adapted.(CheckpointedExternalScanner); !ok || !checkpointed.UsesExternalScannerCheckpoints() {
 		t.Fatal("checkpoint capability was not preserved")
 	}
+	if identityProvider, ok := adapted.(ExternalScannerCheckpointIdentityProvider); !ok {
+		t.Fatal("checkpoint identity capability was not preserved")
+	} else if got, valid := identityProvider.CheckpointIdentity(); !valid ||
+		string(got.Scanner) != "adapter-test-scanner-v1" || string(got.Grammar) != "adapter-test-grammar-v1" {
+		t.Fatalf("adapted checkpoint identity = %+v/%t, want the inner identity", got, valid)
+	}
 	if prefixSensitive, ok := adapted.(IncrementalPrefixFrontierExternalScanner); !ok || !prefixSensitive.RequiresIncrementalPrefixFrontierProof() {
 		t.Fatal("incremental prefix-frontier capability was not preserved")
 	}
@@ -89,6 +101,22 @@ func TestExternalScannerOrderAdapterPreservesOptionalCapabilities(t *testing.T) 
 	}
 	if retaining, ok := adapted.(FailureStateRetainingExternalScanner); !ok || retaining.RetainsStateOnScanFailure() {
 		t.Fatal("adapter reported failure retention for a preserving scanner")
+	}
+}
+
+func TestExternalScannerOrderAdapterKeepsLegacyCheckpointIdentityOptional(t *testing.T) {
+	sourceLang := &Language{
+		ExternalSymbols: []Symbol{1},
+		ExternalScanner: c26qLegacyCheckpointScanner{},
+	}
+	targetLang := &Language{ExternalSymbols: []Symbol{2}}
+	adapted, ok := AdaptExternalScannerByExternalOrder(sourceLang, targetLang)
+	if !ok {
+		t.Fatal("adapter not created")
+	}
+	identity, required, valid := externalScannerCheckpointIdentityStatus(&Language{ExternalScanner: adapted})
+	if required || !valid || len(identity.Scanner) != 0 || len(identity.Grammar) != 0 {
+		t.Fatalf("legacy adapted identity status = %+v/%t/%t, want optional and valid", identity, required, valid)
 	}
 }
 
