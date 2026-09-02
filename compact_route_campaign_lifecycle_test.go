@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "0d6683a465c6d20477c6a16b6b1f70ac2a90e87b"
+	compactRouteLifecycleSourceRevision               = "b10e071e441f9163ffa6486aba389840428bdccf"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -45,12 +45,16 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"pr:#1018": "9f9e903940655da46fb8c976fa2e08139153df0f",
 	"parsercore_phase0_recovery_lineage_fork_internal_test.go#TestS5MissingInsertionForkPublishesBothRecoveryLineages": "9f9e903940655da46fb8c976fa2e08139153df0f",
 	"pr:#1019": "0beb95d399655d200e687e0912d3265b1c9562e9",
+	"pr:#1028": "90f60a65c61d87768b1221b78cb0f66d25aff8ec",
 	"cgo_harness/eof_recovery_admission_oracle_test.go#TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree":       "2ebeb6c64632163622691786a71ac6da76a14929",
 	"incremental_invariant_gate_test.go#TestIncrementalInvariantGatePython":                                             "bf7ab0567122e863ef831e8aa56dbee93127ad93",
 	"w5_editor_latency_gate_test.go#TestW5EditorLatencyGate":                                                            "e734c93543654818082e8d3ae3721cdb6fe9e4a5",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5CompactPythonScannerCheckpointReuse":                      "5070ffd4594a819e8ebe78fa2bf651c197cbdce4",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonWideIndentTransitionParity":                         "5070ffd4594a819e8ebe78fa2bf651c197cbdce4",
 	"parser_external_scanner_prefix_frontier_test.go#TestCheckpointedScannerWithoutPrefixFrontierRequirementKeepsReuse": "e1de4484b5655ab11057f70d9dc7b1245972d03f",
+	"parser_external_scanner_prefix_frontier_test.go#TestCheckpointedScannerPrefixFrontierAllowsSoleChildReuse":         "90f60a65c61d87768b1221b78cb0f66d25aff8ec",
+	"cgo_harness/stage5_sole_child_padding_probe_test.go#TestStage5SoleChildHorizontalPaddingProbe":                     "90f60a65c61d87768b1221b78cb0f66d25aff8ec",
+	"cgo_harness/stage6_typescript_compact_certification_test.go#TestStage6TypeScriptCompactCertification":              "b10e071e441f9163ffa6486aba389840428bdccf",
 	"external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots":            "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity":                    "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"parser_external_scanner_incremental_test.go#TestPythonSameSymbolScannerStateEditFallsBack":                         "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
@@ -64,7 +68,8 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 }
 
 var compactRouteLifecycleKnownCorpusTreeSHA256 = map[string]string{
-	"scala-owned-width": "81dc569b1ad3d567ed158aea75fd30a388ec1f4d3e1cbdd08c29a6535bd456d3",
+	"scala-owned-width":        "81dc569b1ad3d567ed158aea75fd30a388ec1f4d3e1cbdd08c29a6535bd456d3",
+	"typescript-compact-smoke": "840eb4cf52faf1b944dacf47bb13591a5fd61fbfe33f196172094d4b4acab907",
 }
 
 type compactRouteLifecycleRegistry struct {
@@ -332,6 +337,35 @@ func TestCompactRouteLifecycleStrictModeRejectsShallowRepository(t *testing.T) {
 func TestCompactRouteLifecycleStrictModeRequiresGitRepository(t *testing.T) {
 	if _, err := compactRouteLifecycleDecideHistoricalProofMode(true, false, false); err == nil {
 		t.Fatal("strict historical proof mode accepted an unavailable repository")
+	}
+}
+
+func TestCompactRouteLifecycleAllowsStaleReceiptOutsideCurrentLineage(t *testing.T) {
+	registry := loadCompactRouteLifecycleRegistry(t)
+	root, err := compactRouteLifecycleRepositoryRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mode, err := compactRouteLifecycleHistoricalProofModeForRepository(root)
+	if err != nil {
+		t.Skipf("strict stale-receipt proof requires a full Git repository: %v", err)
+	}
+	if mode.Shallow {
+		t.Skip("strict stale-receipt proof requires a non-shallow Git repository")
+	}
+	var stale compactRouteLifecycleReceipt
+	for _, receipt := range registry.Entries[4].ProofReceipts {
+		if receipt.Status == "stale" {
+			stale = receipt
+			break
+		}
+	}
+	if stale.Ref == "" {
+		t.Fatal("stage 5 has no stale receipt")
+	}
+	strictMode := compactRouteLifecycleHistoricalProofMode{Strict: true, GitAvailable: true}
+	if err := compactRouteLifecycleProofRepositoryErrorAtMode(root, registry.SourceRevision, stale, strictMode); err != nil {
+		t.Fatalf("stale receipt outside current lineage was rejected: %v", err)
 	}
 }
 
@@ -622,8 +656,8 @@ func validateCompactRouteLifecycleFunnel(t *testing.T, registry compactRouteLife
 	if !equalCompactRouteLifecycleInts(registry.Funnel.OrderedStages, wantStages) {
 		t.Errorf("ordered_stages = %v, want %v", registry.Funnel.OrderedStages, wantStages)
 	}
-	if registry.Funnel.ActiveCoreStage != 5 {
-		t.Errorf("active_core_stage = %d, want 5", registry.Funnel.ActiveCoreStage)
+	if registry.Funnel.ActiveCoreStage != 6 {
+		t.Errorf("active_core_stage = %d, want 6", registry.Funnel.ActiveCoreStage)
 	}
 	if strings.TrimSpace(registry.Funnel.CoreRule) == "" {
 		t.Error("funnel core_rule is empty")
@@ -862,8 +896,8 @@ func validateCompactRouteLifecycleEntries(t *testing.T, registry compactRouteLif
 		2: {"stage-2-physical-graph-head-merge", "graduated", "graph_head_lifecycle", "preserve_receipt"},
 		3: {"stage-3-recovery-through-ambiguity", "graduated", "derivation_election_selection", "preserve_receipt"},
 		4: {"stage-4-end-of-file-recovery", "graduated", "scheduler_action_semantics", "preserve_receipt"},
-		5: {"stage-5-incremental-integration", "active", "incremental_edit_reuse", "keep_stable_telemetry"},
-		6: {"stage-6-grammar-certification", "planned", "oracle_certification", "preserve_receipt"},
+		5: {"stage-5-incremental-integration", "graduated", "incremental_edit_reuse", "preserve_receipt"},
+		6: {"stage-6-grammar-certification", "active", "oracle_certification", "preserve_receipt"},
 		7: {"stage-7-performance-and-release", "planned", "performance_release", "keep_emergency_fallback"},
 	}
 	seenStages := make(map[int]bool)
@@ -1416,14 +1450,16 @@ func compactRouteLifecycleProofRepositoryErrorAtMode(root, registrySourceRevisio
 		if err := compactRouteLifecycleRequireCommit(root, receipt.SourceRevision, fmt.Sprintf("proof receipt %q", receipt.Ref)); err != nil {
 			return err
 		}
-		if _, err := compactRouteLifecycleGitOutput(root, "merge-base", "--is-ancestor", receipt.SourceRevision, registrySourceRevision); err != nil {
-			return fmt.Errorf("proof receipt %q revision %s is not an ancestor of registry source %s: %w", receipt.Ref, receipt.SourceRevision, registrySourceRevision, err)
+		if receipt.Status != "stale" && receipt.Status != "historical" {
+			if _, err := compactRouteLifecycleGitOutput(root, "merge-base", "--is-ancestor", receipt.SourceRevision, registrySourceRevision); err != nil {
+				return fmt.Errorf("proof receipt %q revision %s is not an ancestor of registry source %s: %w", receipt.Ref, receipt.SourceRevision, registrySourceRevision, err)
+			}
 		}
 	} else {
 		if !compactRouteLifecycleCommitObjectAvailable(root, receipt.SourceRevision) {
 			return nil
 		}
-		if compactRouteLifecycleCommitObjectAvailable(root, registrySourceRevision) {
+		if receipt.Status != "stale" && receipt.Status != "historical" && compactRouteLifecycleCommitObjectAvailable(root, registrySourceRevision) {
 			if _, err := compactRouteLifecycleGitOutput(root, "merge-base", "--is-ancestor", receipt.SourceRevision, registrySourceRevision); err != nil {
 				return fmt.Errorf("proof receipt %q revision %s is not an ancestor of registry source %s: %w", receipt.Ref, receipt.SourceRevision, registrySourceRevision, err)
 			}
