@@ -340,6 +340,28 @@ func TestCompactRouteLifecycleStrictModeRequiresGitRepository(t *testing.T) {
 	}
 }
 
+func TestCompactRouteLifecycleAllowsStaleReceiptOutsideCurrentLineage(t *testing.T) {
+	registry := loadCompactRouteLifecycleRegistry(t)
+	root, err := compactRouteLifecycleRepositoryRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stale compactRouteLifecycleReceipt
+	for _, receipt := range registry.Entries[4].ProofReceipts {
+		if receipt.Status == "stale" {
+			stale = receipt
+			break
+		}
+	}
+	if stale.Ref == "" {
+		t.Fatal("stage 5 has no stale receipt")
+	}
+	strictMode := compactRouteLifecycleHistoricalProofMode{Strict: true, GitAvailable: true}
+	if err := compactRouteLifecycleProofRepositoryErrorAtMode(root, registry.SourceRevision, stale, strictMode); err != nil {
+		t.Fatalf("stale receipt outside current lineage was rejected: %v", err)
+	}
+}
+
 func TestCompactRouteLifecycleHistoricalProofEnvironmentContract(t *testing.T) {
 	t.Setenv(compactRouteLifecycleHistoricalProofEnv, "1")
 	strictMode, err := compactRouteLifecycleDecideHistoricalProofMode(os.Getenv(compactRouteLifecycleHistoricalProofEnv) == "1", true, true)
@@ -1421,14 +1443,16 @@ func compactRouteLifecycleProofRepositoryErrorAtMode(root, registrySourceRevisio
 		if err := compactRouteLifecycleRequireCommit(root, receipt.SourceRevision, fmt.Sprintf("proof receipt %q", receipt.Ref)); err != nil {
 			return err
 		}
-		if _, err := compactRouteLifecycleGitOutput(root, "merge-base", "--is-ancestor", receipt.SourceRevision, registrySourceRevision); err != nil {
-			return fmt.Errorf("proof receipt %q revision %s is not an ancestor of registry source %s: %w", receipt.Ref, receipt.SourceRevision, registrySourceRevision, err)
+		if receipt.Status != "stale" && receipt.Status != "historical" {
+			if _, err := compactRouteLifecycleGitOutput(root, "merge-base", "--is-ancestor", receipt.SourceRevision, registrySourceRevision); err != nil {
+				return fmt.Errorf("proof receipt %q revision %s is not an ancestor of registry source %s: %w", receipt.Ref, receipt.SourceRevision, registrySourceRevision, err)
+			}
 		}
 	} else {
 		if !compactRouteLifecycleCommitObjectAvailable(root, receipt.SourceRevision) {
 			return nil
 		}
-		if compactRouteLifecycleCommitObjectAvailable(root, registrySourceRevision) {
+		if receipt.Status != "stale" && receipt.Status != "historical" && compactRouteLifecycleCommitObjectAvailable(root, registrySourceRevision) {
 			if _, err := compactRouteLifecycleGitOutput(root, "merge-base", "--is-ancestor", receipt.SourceRevision, registrySourceRevision); err != nil {
 				return fmt.Errorf("proof receipt %q revision %s is not an ancestor of registry source %s: %w", receipt.Ref, receipt.SourceRevision, registrySourceRevision, err)
 			}
