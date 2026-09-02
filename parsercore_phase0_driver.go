@@ -3,7 +3,6 @@
 package gotreesitter
 
 import (
-	"bytes"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/binary"
@@ -986,6 +985,24 @@ func parserCoreCheckpoint(bytes []byte) DiagnosticParserCoreScannerCheckpoint {
 		return parserCoreEmptyCheckpoint
 	}
 	return DiagnosticParserCoreScannerCheckpoint{Length: len(bytes), SHA256: sha256.Sum256(bytes)}
+}
+
+// parserCoreExternalScannerIdentityFingerprint binds one election snapshot to
+// the scanner and grammar identity that produced its serialized state. Length
+// prefixes keep distinct identifier pairs distinct without allocating on the
+// election hot path.
+func parserCoreExternalScannerIdentityFingerprint(identity ExternalScannerCheckpointIdentity) [32]byte {
+	var encoded [8 + 2*externalScannerCheckpointIdentityMaxBytes]byte
+	offset := 0
+	binary.LittleEndian.PutUint16(encoded[offset:], uint16(len(identity.Scanner)))
+	offset += 2
+	copy(encoded[offset:], identity.Scanner)
+	offset += len(identity.Scanner)
+	binary.LittleEndian.PutUint16(encoded[offset:], uint16(len(identity.Grammar)))
+	offset += 2
+	copy(encoded[offset:], identity.Grammar)
+	offset += len(identity.Grammar)
+	return sha256.Sum256(encoded[:offset])
 }
 
 func diagnosticParserCoreInternCheckpoint(compact *core.Core, bytes []byte) (core.CheckpointID, DiagnosticParserCoreScannerCheckpoint, error) {
@@ -2712,22 +2729,24 @@ type diagnosticParserCoreVersionLexerRequest struct {
 }
 
 type diagnosticParserCoreGenericScheduler struct {
-	compact                      *core.Core
-	tokenSource                  *dfaTokenSource
-	scannerScratch               *[]byte
-	headers                      []diagnosticParserCoreHeader
-	token                        Token
-	checkpoint                   DiagnosticParserCoreScannerCheckpoint
-	checkpointBeforeID           core.CheckpointID
-	checkpointID                 core.CheckpointID
-	currentElection              DiagnosticParserCoreElection
-	tokenCell                    diagnosticParserCoreTokenCell
-	versionLexerBefore           dfaRelexSnapshot
-	versionLexerBeforeScratch    dfaRelexSnapshotScratch
-	versionLexerBeforeValid      bool
-	versionLexerBeforeElection   int
-	versionLexerBeforeCheckpoint core.CheckpointID
-	versionLexerRequests         []diagnosticParserCoreVersionLexerRequest
+	compact                         *core.Core
+	tokenSource                     *dfaTokenSource
+	scannerScratch                  *[]byte
+	headers                         []diagnosticParserCoreHeader
+	token                           Token
+	checkpoint                      DiagnosticParserCoreScannerCheckpoint
+	checkpointBeforeID              core.CheckpointID
+	checkpointID                    core.CheckpointID
+	currentElection                 DiagnosticParserCoreElection
+	tokenCell                       diagnosticParserCoreTokenCell
+	versionLexerBefore              dfaRelexSnapshot
+	versionLexerBeforeScratch       dfaRelexSnapshotScratch
+	versionLexerBeforeValid         bool
+	versionLexerBeforeIdentity      [32]byte
+	versionLexerBeforeIdentityValid bool
+	versionLexerBeforeElection      int
+	versionLexerBeforeCheckpoint    core.CheckpointID
+	versionLexerRequests            []diagnosticParserCoreVersionLexerRequest
 	// versionLexerOwnershipActive marks the ragged election that switched this
 	// scheduler from its shared-token fast path to owned per-header cursors.
 	// versionLexerOwnershipActive keeps each live header on its own DFA and
@@ -4241,6 +4260,8 @@ func clearDiagnosticParserCoreGenericSchedulerVersionState(scheduler *diagnostic
 	}
 	scheduler.versionLexerBefore = dfaRelexSnapshot{}
 	scheduler.versionLexerBeforeValid = false
+	scheduler.versionLexerBeforeIdentity = [32]byte{}
+	scheduler.versionLexerBeforeIdentityValid = false
 	scheduler.versionLexerBeforeElection = 0
 	scheduler.versionLexerBeforeCheckpoint = 0
 	scheduler.versionLexerOwnershipActive = false
@@ -4680,12 +4701,14 @@ func diagnosticParserCoreConflictPolicyOrdinal(
 // relexTokenForState mirrors production's per-stack lexer: each no-action
 // header re-lexes at its own byte position under its own current state's
 // lex mode, exactly like a live C stack version, instead of trusting the
-// shared election's tokenization. The probe accepts any genuine internal-
-// DFA token that starts where the shared election started; it may differ
-// in Symbol and/or EndByte/EndPoint from the shared token. The caller alone
-// decides what to do with a different EndByte. dispatchPassActive switches
-// that shape to owned per-header requests before any shared action executes.
-// This probe only decides whether a same-start token exists at all.
+// shared election's tokenization. Internal-DFA tokens use a scratch lexer.
+// Checkpointed external scanners use the election-start snapshot and compare
+// the complete post-scan cursor state. The probe accepts any genuine token
+// that starts where the shared election started; it may differ in Symbol,
+// scanner state, or EndByte/EndPoint. The caller alone decides what to do
+// with a different EndByte. dispatchPassActive switches that shape to owned
+// per-header requests before any shared action executes. This probe only
+// decides whether a same-start token exists at all.
 //
 // DisablePerHeaderSpanUnlockedRelex restores the pre-D2-1 span-locked
 // probe: only an exact-span (same StartByte and EndByte) relex is eligible.
@@ -4779,6 +4802,11 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	if !ok || !identity.complete() || !s.versionLexerBefore.externalScannerPresent || len(s.versionLexerBefore.externalPayload) == 0 {
 		return shared, false
 	}
+	if s.compact != nil {
+		if !s.versionLexerBeforeIdentityValid || parserCoreExternalScannerIdentityFingerprint(identity) != s.versionLexerBeforeIdentity {
+			return shared, false
+		}
+	}
 	if int(state) >= len(lang.LexModes) {
 		return shared, false
 	}
@@ -4817,8 +4845,7 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	// ownership for the next election.
 	candidateAfter := d.snapshotRelexState()
 	sharedAfter := prior
-	if candidate.Symbol == shared.Symbol && candidate.StartByte == shared.StartByte &&
-		candidate.EndByte == shared.EndByte && bytes.Equal(candidateAfter.externalPayload, sharedAfter.externalPayload) {
+	if tokensSameLex(candidate, shared) && candidateAfter.equal(sharedAfter) {
 		return shared, false
 	}
 	return candidate, true
@@ -5252,6 +5279,16 @@ func (s *diagnosticParserCoreGenericScheduler) captureSharedElectionSnapshotFrom
 
 func (s *diagnosticParserCoreGenericScheduler) finishSharedElectionSnapshotCapture() error {
 	s.versionLexerBeforeValid = true
+	s.versionLexerBeforeIdentity = [32]byte{}
+	s.versionLexerBeforeIdentityValid = false
+	if s.tokenSource != nil && s.tokenSource.language != nil && languageUsesExternalScannerCheckpoints(s.tokenSource.language) {
+		if provider, ok := s.tokenSource.language.ExternalScanner.(ExternalScannerCheckpointIdentityProvider); ok {
+			if identity, ok := provider.CheckpointIdentity(); ok && identity.complete() {
+				s.versionLexerBeforeIdentity = parserCoreExternalScannerIdentityFingerprint(identity)
+				s.versionLexerBeforeIdentityValid = true
+			}
+		}
+	}
 	s.versionLexerBeforeElection = s.electionIndex + 1
 	s.versionLexerBeforeCheckpoint = s.checkpointID
 	return nil
