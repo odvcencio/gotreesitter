@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "7f0c7661deceabe70ea303099a2af10ce9f8dfe9"
+	compactRouteLifecycleSourceRevision               = "9ec95dbcbc9a18071b697ce260e49189c0966036"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -57,7 +57,7 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"cgo_harness/stage6_typescript_compact_certification_test.go#TestStage6TypeScriptCompactCertification":              "0df3c2ab3b33fcd3374cf426ad7ea2a18ea33411",
 	"cgo_harness/stage6_python_compact_certification_test.go#TestStage6PythonCompactCertification":                      "8c6a8e1fe472ade08462b91a2ba00624ab437d61",
 	"cgo_harness/stage6_javascript_compact_certification_test.go#TestStage6JavaScriptCompactCertification":              "2455af16a52e4a886ae5a32842a98bb623f6671c",
-	"cgo_harness/stage6_go_compact_certification_test.go#TestStage6GoCompactCertification":                              "7f0c7661deceabe70ea303099a2af10ce9f8dfe9",
+	"cgo_harness/stage6_go_compact_certification_test.go#TestStage6GoCompactCertification":                              "9ec95dbcbc9a18071b697ce260e49189c0966036",
 	"external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots":            "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity":                    "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"parser_external_scanner_incremental_test.go#TestPythonSameSymbolScannerStateEditFallsBack":                         "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
