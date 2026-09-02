@@ -79,9 +79,21 @@ type reuseCursor struct {
 	// for certified stateless-scanner languages, whose every boundary is
 	// proven quiescent. See the Parser.ReuseRejectScannerUnquiescent field.
 	rejectScannerUnquiescent uint64
-	forestFastPath           bool
-	languageName             string // cached for language-specific reuse safety policies
-	strictTopLevelOwnership  bool   // forest trees and certified stateless scanners require the recorded normal-dispatch frontier
+	// rejectFrontierProofUnavailable counts compact-materialized non-leaf
+	// candidates that have exact scanner bytes but no proof that the recorded
+	// reduction owned the live parser frontier. Leaves use their independent
+	// shift and checkpoint checks; non-leaves stay barred until that proof exists.
+	rejectFrontierProofUnavailable uint64
+	forestFastPath                 bool
+	// compactMaterialized marks old trees whose node states came from compact
+	// replay. Checkpoint snapshots authenticate scanner state, but they do not
+	// prove the parser frontier after a non-leaf reduction. Keep compact
+	// checkpoint reuse at independently revalidated leaves until that ownership
+	// proof exists.
+	compactMaterialized        bool
+	compactCheckpointedScanner bool
+	languageName               string // cached for language-specific reuse safety policies
+	strictTopLevelOwnership    bool   // forest trees and certified stateless scanners require the recorded normal-dispatch frontier
 }
 
 // reuseScratch holds reusable buffers for incremental reuse traversal.
@@ -129,7 +141,10 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.rejectStaleNonLeafBoundary = 0
 	c.rejectFragileNonLeaf = 0
 	c.rejectScannerUnquiescent = 0
+	c.rejectFrontierProofUnavailable = 0
 	c.forestFastPath = oldTree.forestFastPath
+	c.compactMaterialized = oldTree.compactMaterialized
+	c.compactCheckpointedScanner = c.compactMaterialized && languageUsesExternalScannerCheckpoints(oldTree.language)
 	c.languageName = ""
 	// Every forest node records the GSS state that owned its original reduce.
 	// A compatible goto alone cannot transfer that ownership after an edit, so
@@ -223,6 +238,8 @@ func (c *reuseCursor) releaseNodeRefs() {
 	c.newSource = nil
 	c.edits = nil
 	c.forestFastPath = false
+	c.compactMaterialized = false
+	c.compactCheckpointedScanner = false
 	c.languageName = ""
 	if cap(c.stack) > 0 {
 		clear(c.stack[:cap(c.stack)])
@@ -354,6 +371,13 @@ func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
 			}
 			n := nodeChildAtForReason(c.topLevelParent, c.topLevelIndex-1, materializeForEdit)
 			if n != nil {
+				if c.compactCheckpointedScanner && n.ChildCount() > 0 {
+					// A clean compact sibling may carry exact scanner bytes while
+					// its reduction frontier remains unproven. Leave it for the
+					// parser and keep scanning later siblings on the next request.
+					c.rejectFrontierProofUnavailable++
+					continue
+				}
 				c.cached = append(c.cached, n)
 			}
 		}
@@ -622,6 +646,10 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 	state := s.top().state
 	for _, n := range candidates {
 		if n.ChildCount() > 0 {
+			if idx.compactCheckpointedScanner {
+				idx.rejectFrontierProofUnavailable++
+				continue
+			}
 			// Preserve full-root reuse on undo when bytes are identical.
 			fullRootUndo := n.startByte == 0 &&
 				n.endByte == idx.sourceLen &&
@@ -676,6 +704,16 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 	const maxNonLeafReuseSpan = 1 << 20
 	for _, n := range candidates {
 		if n == nil || n.ChildCount() == 0 || n.parent == nil {
+			continue
+		}
+		// Compact replay records exact scanner snapshots, but a checkpoint at a
+		// reduction boundary does not identify the parser state for the next
+		// token. A length-changing indentation edit can keep that snapshot equal
+		// while changing whether the next statement belongs to the reduction.
+		// Reuse leaves, whose shift state and token span are independently checked;
+		// reparse compact non-leaf reductions until frontier ownership is recorded.
+		if idx.compactCheckpointedScanner {
+			idx.rejectFrontierProofUnavailable++
 			continue
 		}
 		span := n.EndByte() - n.StartByte()

@@ -9,12 +9,10 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// TestStatefulScannerCompactLeafReauthenticationFailsClosed exercises the real
-// compact candidate route. Python's scanner retains indentation and delimiter
-// stacks, so its compact tree remains reuse-disabled until scanner checkpoint
-// restoration is certified. A same-length leaf edit must therefore decline the
-// compact reauthentication route and return the exact forced-production tree.
-func TestStatefulScannerCompactLeafReauthenticationFailsClosed(t *testing.T) {
+// TestStatefulScannerCompactLeafReauthentication exercises the real compact
+// candidate route. Python's scanner retains indentation and delimiter stacks,
+// so a same-length leaf edit must pass the checkpoint reauthentication gate.
+func TestStatefulScannerCompactLeafReauthentication(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		source []byte
@@ -74,8 +72,8 @@ func TestStatefulScannerCompactLeafReauthenticationFailsClosed(t *testing.T) {
 				t.Fatalf("incremental parse: %v", err)
 			}
 			defer incremental.Release()
-			if !profile.ReuseUnsupported || profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 || profile.ReparseNanos == 0 {
-				t.Fatalf("stateful compact tree entered reuse despite missing proof: %+v", profile)
+			if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
+				t.Fatalf("stateful compact tree did not reauthenticate scanner checkpoints: %+v", profile)
 			}
 
 			freshParser := gotreesitter.NewParser(lang)

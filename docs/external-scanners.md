@@ -305,7 +305,8 @@ numbering, use the public remapper:
   declare true only if reusing subtrees across edits is safe for your
   state. Stateless scanners: yes. Returning false is an explicit opt-out;
   not implementing the interface is also treated as uncertified and fails
-  closed. Python, Mojo, and Starlark currently return false.
+  closed. Python returns true after complete checkpoint restoration; Mojo and
+  Starlark still return false.
 - `CheckpointedExternalScanner` (`UsesExternalScannerCheckpoints() bool`):
   declare true only when every non-empty `Serialize` result is a complete,
   collision-free encoding of the payload values that can affect a later scan.
@@ -313,11 +314,16 @@ numbering, use the public remapper:
   zero means "checkpoint absent" and reuse fails closed at that boundary. The
   empty payload itself must have a non-empty encoding so it is distinguishable
   from absence. Reuse compares the live start state and restores the recorded
-  end state. SQL, CMake, and HTML use this route; Python, Mojo, and Starlark
+  end state. SQL, CMake, HTML, and Python use this route; Mojo and Starlark
   record checkpoints but still opt out of reuse. The shared HTML-family tag
   encoding is exact and fails closed when depth, custom-name length, or buffer
   capacity cannot represent the complete state; Svelte still opts out pending
   certification of its additional raw-text and expression-block behavior.
+  Python counts indentation with the `uint16` counter used by the locked
+  `tree-sitter-python` commit `26855eabccb19c6abf499fbc5b8dc7cc9ab8bc64`.
+  Its checkpoint bytes are ephemeral snapshots; compact materialization copies
+  them into tree sidecars before the parser-core store is released. Do not
+  retain checkpoint IDs or buffer pointers across that boundary.
 - `ErrorTreeIncrementalReuseExternalScanner`
   (`SupportsIncrementalReuseFromErrorTree() bool`): an optional narrower gate
   for a scanner whose clean-tree checkpoints are certified but whose recovery
@@ -369,8 +375,8 @@ The token-invariant leaf exception is intentionally narrow: on a production
 tree, a same-length edit that independently reauthenticates the same leaf
 token may return before the scanner gate. That is not certification for
 general scanner-dependent subtree reuse. Likewise, scanner checkpoints do
-not certify a scanner by themselves: CMake, SQL, and HTML opt in, while Python,
-Mojo, Starlark, and Svelte explicitly opt out. Custom
+not certify a scanner by themselves: CMake, SQL, HTML, and Python opt in,
+while Mojo, Starlark, and Svelte explicitly opt out. Custom
 `TokenSource` implementations have their own
 `IncrementalReuseTokenSource` contract and are outside this registry matrix.
 The Markdown scanner is certified for incremental reuse. The Markdown Inline
@@ -557,7 +563,7 @@ silently widening HTML admission.
 | `properties` | fallback (uncertified) |
 | `pug` | fallback (uncertified) |
 | `purescript` | fallback (uncertified) |
-| `python` | fallback (explicit opt-out) |
+| `python` | certified reuse |
 | `r` | fallback (uncertified) |
 | `racket` | certified reuse |
 | `rescript` | fallback (uncertified) |

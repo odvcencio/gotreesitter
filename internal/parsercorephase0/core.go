@@ -1136,6 +1136,13 @@ type MaterializationSubtreeView struct {
 	Extra             bool
 	External          bool
 	Terminal          bool
+	// ExternalScannerCheckpointStart and ExternalScannerCheckpointEnd identify
+	// the serialized scanner states before and after this external terminal.
+	// They are zero when the subtree has no authenticated external-token
+	// provenance. The materializer copies the bytes into its own arena.
+	ExternalScannerCheckpointStart CheckpointID
+	ExternalScannerCheckpointEnd   CheckpointID
+	ExternalScannerCheckpointExact bool
 	// Fragile mirrors subtreeRecord.fragile: the record was produced by a
 	// reduce/conflict-arm decision that ran under ambiguity (multiPop or an
 	// authenticated >=2-action conflict). Threaded to the public materializer so
@@ -5489,6 +5496,13 @@ func (c *Core) MaterializationView(id SubtreeID) (MaterializationSubtreeView, er
 		Terminal:          record.terminal,
 		Fragile:           record.fragile,
 		Missing:           record.missing,
+	}
+	if record.external && record.terminal {
+		if provenance, ok := c.externalPayloadScannerProvenance(id); ok {
+			view.ExternalScannerCheckpointStart = provenance.start
+			view.ExternalScannerCheckpointEnd = provenance.end
+			view.ExternalScannerCheckpointExact = true
+		}
 	}
 	view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(id)
 	return view, nil

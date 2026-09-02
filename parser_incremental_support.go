@@ -58,6 +58,7 @@ func (t *incrementalParseTiming) toProfile() IncrementalParseProfile {
 		ReuseRejectFragileNonLeaf:           t.reuseRejectFragileNonLeaf,
 		BlockSpliceSteps:                    t.blockSpliceSteps,
 		ReuseRejectScannerUnquiescent:       t.reuseRejectScannerUnquiescent,
+		ReuseRejectFrontierProofUnavailable: t.reuseRejectFrontierProofUnavailable,
 		RecoverSearches:                     t.recoverSearches,
 		RecoverStateChecks:                  t.recoverStateChecks,
 		RecoverStateSkips:                   t.recoverStateSkips,
@@ -166,6 +167,7 @@ func (t *incrementalParseTiming) addAttempt(other *incrementalParseTiming) {
 	t.reuseRejectFragileNonLeaf += other.reuseRejectFragileNonLeaf
 	t.blockSpliceSteps += other.blockSpliceSteps
 	t.reuseRejectScannerUnquiescent += other.reuseRejectScannerUnquiescent
+	t.reuseRejectFrontierProofUnavailable += other.reuseRejectFrontierProofUnavailable
 	t.recoverSearches += other.recoverSearches
 	t.recoverStateChecks += other.recoverStateChecks
 	t.recoverStateSkips += other.recoverStateSkips

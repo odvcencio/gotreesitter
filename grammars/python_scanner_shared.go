@@ -51,48 +51,82 @@ func (s *pythonScannerState) syncInsideInterpolatedString() {
 	}
 }
 
+// Python scanner checkpoints use a compact, self-delimiting wire format:
+// one flag byte, one delimiter-count byte, the delimiter stack, one
+// little-endian indent-count word, and the indent stack as little-endian
+// words. Keep the delimiter count byte as part of the current prefix shape,
+// but treat the payload as ephemeral and version-local, not backward-compatible.
+const (
+	pythonScannerCheckpointHeaderBytes = 1 + 1 + 2
+	maxPythonScannerDelimiterCount     = int(^uint8(0))
+	maxPythonScannerIndentCount        = int(^uint16(0))
+)
+
+func pythonScannerCheckpointSize(delimiterCount, indentCount int) (int, bool) {
+	if delimiterCount < 0 || delimiterCount > maxPythonScannerDelimiterCount ||
+		indentCount < 0 || indentCount > maxPythonScannerIndentCount {
+		return 0, false
+	}
+	size := pythonScannerCheckpointHeaderBytes + delimiterCount
+	maxInt := int(^uint(0) >> 1)
+	if indentCount > (maxInt-size)/2 {
+		return 0, false
+	}
+	return size + indentCount*2, true
+}
+
 func serializePythonScannerState(s *pythonScannerState, buf []byte) int {
-	if len(buf) == 0 {
+	if s == nil {
 		return 0
 	}
 	s.syncInsideInterpolatedString()
 
-	size := 0
+	indentCount := 0
+	if len(s.indents) > 0 {
+		// indents[0] is the scanner's root sentinel and is not serialized.
+		indentCount = len(s.indents) - 1
+	}
+	size, ok := pythonScannerCheckpointSize(len(s.delimiters), indentCount)
+	if !ok || len(buf) < size {
+		// Never publish a prefix. A zero return tells the parser that this
+		// boundary has no usable checkpoint and forces the safe fallback.
+		return 0
+	}
+
+	write := 0
+	// Always write the flag. Scanner checkpoint buffers are reused between
+	// tokens, so leaving a false flag untouched would leak a prior f-string
+	// state into the next checkpoint.
+	buf[write] = 0
 	if s.insideInterpolatedString {
-		buf[size] = 1
+		buf[write] = 1
 	}
-	size++
-	if size >= len(buf) {
-		return size
+	write++
+	buf[write] = byte(len(s.delimiters))
+	write++
+	for _, delimiter := range s.delimiters {
+		buf[write] = byte(delimiter)
+		write++
 	}
-
-	delimCount := len(s.delimiters)
-	if delimCount > 255 {
-		delimCount = 255
-	}
-	buf[size] = byte(delimCount)
-	size++
-	if size >= len(buf) {
-		return size
-	}
-
-	for i := 0; i < delimCount && size < len(buf); i++ {
-		buf[size] = byte(s.delimiters[i])
-		size++
-	}
+	buf[write] = byte(indentCount)
+	buf[write+1] = byte(indentCount >> 8)
+	write += 2
 
 	// Skip indents[0] (sentinel), serialize from index 1.
-	for i := 1; i < len(s.indents) && size+1 < len(buf); i++ {
+	for i := 1; i < len(s.indents); i++ {
 		v := s.indents[i]
-		buf[size] = byte(v & 0xFF)
-		buf[size+1] = byte((v >> 8) & 0xFF)
-		size += 2
+		buf[write] = byte(v)
+		buf[write+1] = byte(v >> 8)
+		write += 2
 	}
 
-	return size
+	return write
 }
 
 func deserializePythonScannerState(s *pythonScannerState, buf []byte) {
+	if s == nil {
+		return
+	}
 	s.delimiters = s.delimiters[:0]
 	s.indents = s.indents[:0]
 	s.indents = append(s.indents, 0)
@@ -101,25 +135,41 @@ func deserializePythonScannerState(s *pythonScannerState, buf []byte) {
 	if len(buf) == 0 {
 		return
 	}
-
-	size := 0
-	s.insideInterpolatedString = buf[size] != 0
-	size++
-	if size >= len(buf) {
+	if len(buf) < pythonScannerCheckpointHeaderBytes {
 		return
 	}
 
-	delimCount := int(buf[size])
-	size++
-	for i := 0; i < delimCount && size < len(buf); i++ {
-		s.delimiters = append(s.delimiters, pyDelimiter(buf[size]))
-		size++
+	encodedInside := buf[0] != 0
+	delimCount := int(buf[1])
+	indentCountOffset := 2 + delimCount
+	if indentCountOffset+2 > len(buf) {
+		return
 	}
-	s.syncInsideInterpolatedString()
+	indentCount := int(buf[indentCountOffset]) | int(buf[indentCountOffset+1])<<8
+	required, ok := pythonScannerCheckpointSize(delimCount, indentCount)
+	if !ok || len(buf) != required {
+		// Reject both truncated and trailing data. Leave the reset sentinel in
+		// place so a malformed checkpoint cannot partially restore scanner state.
+		return
+	}
 
-	for size+1 < len(buf) {
+	inside := false
+	for i := 0; i < delimCount; i++ {
+		delimiter := pyDelimiter(buf[2+i])
+		s.delimiters = append(s.delimiters, delimiter)
+		inside = inside || delimiter.isFormat()
+	}
+	if encodedInside != inside {
+		// The flag is redundant, but an inconsistent checkpoint is not a
+		// complete state representation. Fail closed instead of guessing.
+		s.delimiters = s.delimiters[:0]
+		return
+	}
+	size := indentCountOffset + 2
+	for i := 0; i < indentCount; i++ {
 		v := uint16(buf[size]) | uint16(buf[size+1])<<8
 		s.indents = append(s.indents, v)
 		size += 2
 	}
+	s.insideInterpolatedString = inside
 }

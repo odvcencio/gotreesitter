@@ -6750,6 +6750,32 @@ func diagnosticParserCoreGapIsToleratedWithPoll(gap []byte, poll func() error) (
 	return true, nil
 }
 
+// materializeCompactExternalScannerCheckpoint copies the core-owned scanner
+// snapshots into the public arena. Core checkpoint IDs are not valid after
+// materialization, so retain only byte copies in the node sidecar.
+// It returns false unless the complete scanner provenance pair is attached.
+func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *nodeArena, node *Node, view core.MaterializationSubtreeView) bool {
+	if compact == nil || arena == nil || node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact ||
+		view.ExternalScannerCheckpointStart == 0 || view.ExternalScannerCheckpointEnd == 0 {
+		return false
+	}
+	start, startOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointStart, nil)
+	end, endOK := compact.CopyCheckpointBytes(view.ExternalScannerCheckpointEnd, nil)
+	if !startOK || !endOK {
+		return false
+	}
+	checkpoint := arena.recordExternalScannerCompactCheckpoint(start, end)
+	if !externalScannerCheckpointRefComplete(checkpoint) {
+		return false
+	}
+	if arena.setExternalScannerCheckpoint(node, checkpoint) {
+		arena.externalScannerCheckpointLeafNodes++
+		arena.externalScannerCheckpointRecords++
+		return true
+	}
+	return false
+}
+
 // materializeDiagnosticParserCoreAcceptedSelection materializes the accepted
 // compact derivation into a public tree. When scratch is non-nil the runner's
 // reusable buffers back the transient materialization storage, so the warm
@@ -6788,6 +6814,16 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	}
 
 	arena := acquireNodeArena(arenaClassFull)
+	// Compact external-token provenance is transferred into this arena below.
+	// Set the language identity before publishing the first checkpoint so the
+	// incremental reuse gate can authenticate the copied snapshots.
+	scannerProvenanceTransferProven := true
+	if languageUsesExternalScannerCheckpoints(parser.language) {
+		_, identityRequired, identityValid := externalScannerCheckpointIdentityStatus(parser.language)
+		if identityRequired {
+			scannerProvenanceTransferProven = identityValid && arena.setExternalScannerCheckpointIdentityForLanguage(parser.language)
+		}
+	}
 	owned := true
 	defer func() {
 		if owned {
@@ -6943,6 +6979,10 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 					arena, Symbol(view.Symbol), named, view.StartByte, view.EndByte,
 					points.point(view.StartByte), points.point(view.EndByte),
 				)
+				if languageUsesExternalScannerCheckpoints(parser.language) && view.External && view.Terminal &&
+					!materializeCompactExternalScannerCheckpoint(compact, arena, node, view) {
+					scannerProvenanceTransferProven = false
+				}
 				node.setExtra(view.Extra)
 				node.setExternalScannerToken(view.External)
 				// S5 recovery: a recovery-inserted MISSING terminal
@@ -7276,11 +7316,23 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	}
 	// A recover_eof result carries an EOF runtime for the original source.
 	// Never let an edited copy enter incremental reuse with that stale boundary.
-	tree.incrementalReuseDisabled = rootFinalization == diagnosticParserCoreFinalizeRecoverEOF || !incrementalReuseProven
+	tree.incrementalReuseDisabled = rootFinalization == diagnosticParserCoreFinalizeRecoverEOF ||
+		!incrementalReuseProven || !scannerProvenanceTransferProven
 	tree.compactMaterialized = true
 	tree.setParseRuntime(ParseRuntime{
-		StopReason: ParseStopAccepted, SourceLen: sourceLen, ExpectedEOFByte: sourceLen,
-		RootEndByte: root.endByte, LastTokenEndByte: sourceLen, LastTokenSymbol: 0, LastTokenWasEOF: true,
+		StopReason:                                     ParseStopAccepted,
+		SourceLen:                                      sourceLen,
+		ExpectedEOFByte:                                sourceLen,
+		RootEndByte:                                    root.endByte,
+		LastTokenEndByte:                               sourceLen,
+		LastTokenSymbol:                                0,
+		LastTokenWasEOF:                                true,
+		ExternalScannerCheckpointRecords:               arena.externalScannerCheckpointRecords,
+		ExternalScannerCheckpointSlotsAllocated:        arena.externalScannerCheckpointSlotsAllocated(),
+		ExternalScannerCheckpointBytesAllocated:        arena.externalScannerCheckpointBytesAllocated(),
+		ExternalScannerSnapshotBytesAllocated:          arena.externalScannerSnapshotPayloadBytes,
+		ExternalScannerCheckpointLeafNodes:             arena.externalScannerCheckpointLeafNodes,
+		CompactExternalScannerCheckpointTransferProven: scannerProvenanceTransferProven,
 	})
 	return tree, nil
 }

@@ -1245,11 +1245,15 @@ type ParseRuntime struct {
 	ReduceTiming                                  *ParseReduceTiming
 	ActionTiming                                  *ParseActionTiming
 
-	ExternalScannerCheckpointRecords                 uint64
-	ExternalScannerCheckpointSlotsAllocated          uint64
-	ExternalScannerCheckpointBytesAllocated          int64
-	ExternalScannerSnapshotBytesAllocated            uint64
-	ExternalScannerCheckpointLeafNodes               uint64
+	ExternalScannerCheckpointRecords        uint64
+	ExternalScannerCheckpointSlotsAllocated uint64
+	ExternalScannerCheckpointBytesAllocated int64
+	ExternalScannerSnapshotBytesAllocated   uint64
+	ExternalScannerCheckpointLeafNodes      uint64
+	// CompactExternalScannerCheckpointTransferProven reports whether compact
+	// materialization transferred every required scanner checkpoint into node
+	// sidecars. A false value disables later subtree reuse for that tree.
+	CompactExternalScannerCheckpointTransferProven   bool
 	CompactFullLeafCreated                           uint64
 	CompactFullLeafMaterialized                      uint64
 	CompactFullLeafMaterializedForParentReduce       uint64

@@ -232,7 +232,7 @@ func replaceExternalScannerWitness(t *testing.T, source, oldText, replacement []
 	}
 }
 
-func TestPythonDerivedSameLengthTokenChangeDeclinesScannerReuse(t *testing.T) {
+func TestExternalScannerDerivedSameLengthTokenChangeInvalidatesScannerReuse(t *testing.T) {
 	for _, languageCase := range pythonDerivedIncrementalCases() {
 		languageCase := languageCase
 		t.Run(languageCase.name, func(t *testing.T) {
@@ -255,6 +255,7 @@ func TestPythonDerivedSameLengthTokenChangeDeclinesScannerReuse(t *testing.T) {
 
 					lang := languageCase.lang()
 					parser := gotreesitter.NewParser(lang)
+					parser.SetAdmissionCandidateRoute(false)
 					if route.includedRanges {
 						parser.SetIncludedRanges([]gotreesitter.Range{{
 							StartByte: 0,
@@ -281,11 +282,17 @@ func TestPythonDerivedSameLengthTokenChangeDeclinesScannerReuse(t *testing.T) {
 						t.Fatal(err)
 					}
 					defer incremental.Release()
-					if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" {
-						t.Fatalf("same-length token change did not preserve %s scanner refusal: %+v", languageCase.name, profile)
-					}
-					if profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
-						t.Fatalf("same-length token change reused old %s syntax: %+v", languageCase.name, profile)
+					if languageCase.name == "python" {
+						if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" {
+							t.Fatalf("same-length token change rejected authenticated Python scanner reuse: %+v", profile)
+						}
+					} else {
+						if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" {
+							t.Fatalf("same-length token change did not preserve %s scanner refusal: %+v", languageCase.name, profile)
+						}
+						if profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+							t.Fatalf("same-length token change reused old %s syntax: %+v", languageCase.name, profile)
+						}
 					}
 					if profile.TokensConsumed == 0 || profile.NewNodesAllocated == 0 {
 						t.Fatalf("same-length token change did not execute a full parse: %+v", profile)
@@ -327,9 +334,9 @@ func TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback(t *testing.
 					lang := languageCase.lang()
 					parser := gotreesitter.NewParser(lang)
 					// This test locks the legacy production-tree contract: a
-					// token-invariant leaf edit is reauthenticated before the scanner
-					// opt-out fallback. Reuse-disabled compact stateful scanners are
-					// covered by TestStatefulScannerCompactLeafReauthenticationFailsClosed.
+					// token-invariant leaf edit is reauthenticated before any broader
+					// scanner-state reuse. Compact stateful scanner coverage lives in
+					// TestStatefulScannerCompactLeafReauthentication.
 					parser.SetAdmissionCandidateRoute(false)
 					if route.includedRanges {
 						parser.SetIncludedRanges([]gotreesitter.Range{{

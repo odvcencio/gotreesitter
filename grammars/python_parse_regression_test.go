@@ -151,28 +151,108 @@ func TestPythonScannerSerializationRecomputesInterpolatedStringState(t *testing.
 	scanner := PythonExternalScanner{}
 	buf := make([]byte, 256)
 
-	plain := &pythonScannerState{
-		indents:                  []uint16{0},
-		delimiters:               []pyDelimiter{pyDelimDoubleQuote},
-		insideInterpolatedString: true,
-	}
-	n := scanner.Serialize(plain, buf)
-	var restoredPlain pythonScannerState
-	scanner.Deserialize(&restoredPlain, buf[:n])
-	if restoredPlain.insideInterpolatedString {
-		t.Fatal("plain string checkpoint restored insideInterpolatedString=true, want false")
-	}
-
 	formatted := &pythonScannerState{
 		indents:                  []uint16{0},
 		delimiters:               []pyDelimiter{pyDelimDoubleQuote | pyDelimFormat},
 		insideInterpolatedString: false,
 	}
-	n = scanner.Serialize(formatted, buf)
+	n := scanner.Serialize(formatted, buf)
 	var restoredFormatted pythonScannerState
 	scanner.Deserialize(&restoredFormatted, buf[:n])
 	if !restoredFormatted.insideInterpolatedString {
 		t.Fatal("f-string checkpoint restored insideInterpolatedString=false, want true")
+	}
+
+	// Reuse the same buffer after a formatted checkpoint. A false flag must
+	// overwrite the old byte, or later reuse gates see a stale f-string state.
+	plain := &pythonScannerState{
+		indents:                  []uint16{0},
+		delimiters:               []pyDelimiter{pyDelimDoubleQuote},
+		insideInterpolatedString: true,
+	}
+	n = scanner.Serialize(plain, buf)
+	if n == 0 || buf[0] != 0 {
+		t.Fatalf("plain checkpoint flag=%d, want 0 after formatted serialization", buf[0])
+	}
+	var restoredPlain pythonScannerState
+	scanner.Deserialize(&restoredPlain, buf[:n])
+	if restoredPlain.insideInterpolatedString {
+		t.Fatal("plain string checkpoint restored insideInterpolatedString=true, want false")
+	}
+}
+
+func TestPythonScannerSerializationFailsClosed(t *testing.T) {
+	scanner := PythonExternalScanner{}
+
+	state := &pythonScannerState{
+		indents:    []uint16{0, 4, 8, 12},
+		delimiters: []pyDelimiter{pyDelimSingleQuote | pyDelimFormat},
+	}
+	full := make([]byte, 256)
+	n := scanner.Serialize(state, full)
+	if n == 0 {
+		t.Fatal("representable scanner state did not serialize")
+	}
+	if got, want := n, 4+1+3*2; got != want {
+		t.Fatalf("serialized checkpoint length=%d, want %d", got, want)
+	}
+
+	short := make([]byte, n-1)
+	for i := range short {
+		short[i] = 0xA5
+	}
+	if got := scanner.Serialize(state, short); got != 0 {
+		t.Fatalf("undersized checkpoint serialized %d bytes, want 0", got)
+	}
+	for i, b := range short {
+		if b != 0xA5 {
+			t.Fatalf("undersized checkpoint wrote byte %d before rejecting", i)
+		}
+	}
+
+	var partial pythonScannerState
+	partial.delimiters = []pyDelimiter{pyDelimDoubleQuote}
+	partial.indents = []uint16{0, 20}
+	scanner.Deserialize(&partial, full[:n-1])
+	if len(partial.delimiters) != 0 || len(partial.indents) != 1 || partial.indents[0] != 0 || partial.insideInterpolatedString {
+		t.Fatalf("partial checkpoint restored scanner state: %+v", partial)
+	}
+
+	malformedFlag := append([]byte(nil), full[:n]...)
+	malformedFlag[0] = 0
+	var inconsistent pythonScannerState
+	scanner.Deserialize(&inconsistent, malformedFlag)
+	if len(inconsistent.delimiters) != 0 || len(inconsistent.indents) != 1 || inconsistent.indents[0] != 0 || inconsistent.insideInterpolatedString {
+		t.Fatalf("inconsistent checkpoint restored scanner state: %+v", inconsistent)
+	}
+
+	malformedTrailing := append(append([]byte(nil), full[:n]...), 0x00)
+	var trailing pythonScannerState
+	scanner.Deserialize(&trailing, malformedTrailing)
+	if len(trailing.delimiters) != 0 || len(trailing.indents) != 1 || trailing.indents[0] != 0 || trailing.insideInterpolatedString {
+		t.Fatalf("trailing checkpoint bytes restored scanner state: %+v", trailing)
+	}
+
+	// Checkpoint bytes are ephemeral and version-local. Reject the former
+	// delimiter-only shape instead of treating it as a complete state.
+	legacyShape := []byte{1, 1, byte(pyDelimSingleQuote | pyDelimFormat)}
+	var legacy pythonScannerState
+	scanner.Deserialize(&legacy, legacyShape)
+	if len(legacy.delimiters) != 0 || len(legacy.indents) != 1 || legacy.indents[0] != 0 || legacy.insideInterpolatedString {
+		t.Fatalf("legacy checkpoint shape restored scanner state: %+v", legacy)
+	}
+
+	tooManyDelimiters := &pythonScannerState{delimiters: make([]pyDelimiter, maxPythonScannerDelimiterCount+1)}
+	if got := scanner.Serialize(tooManyDelimiters, make([]byte, 4096)); got != 0 {
+		t.Fatalf("unrepresentable delimiter stack serialized %d bytes, want 0", got)
+	}
+
+	// A deeply nested indentation stack needs more than the runtime checkpoint
+	// buffer. The serializer must reject the complete state rather than publish
+	// a prefix that could restore a shallower stack.
+	deep := &pythonScannerState{indents: make([]uint16, 3000)}
+	if got := scanner.Serialize(deep, make([]byte, 4096)); got != 0 {
+		t.Fatalf("deep indentation stack serialized %d bytes, want fail-closed 0", got)
 	}
 }
 

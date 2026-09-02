@@ -48,8 +48,9 @@ package gotreesitter_test
 //     language holdback: direct fresh-oracle byte sweeps prove the generic
 //     fragility, byte-identity, and scanner gates are sufficient for this
 //     family. Their mid-file counters are now the same small constants at
-//     20KB and 137KB. python still declines reuse entirely (W4 indent-stack
-//     proof open).
+//     20KB and 137KB. Python now reuses checkpoint-authenticated middle and
+//     trailing siblings; a first-child length change still uses the
+//     conservative frontier fallback.
 //  2. ReusedBytes / len(editedSource), unlike the rejection counter, IS
 //     input-deterministic AND size-independent when position is expressed
 //     as a FRACTION of the file (not an absolute byte offset): a "middle"
@@ -103,7 +104,7 @@ package gotreesitter_test
 //	typescript  | 24 / 24 / 24  (measured 15-16 flat)          | 90 / 90 / 90  (measured ~97 flat)
 //	tsx         | 24 / 24 / 24  (measured 15-16 flat)          | 90 / 90 / 90  (measured ~97 flat)
 //	css         | 12 / 12 / 12  (measured 3-7 flat)            | 90 / 90 / 90  (measured ~96 flat)
-//	python      | 8  / -  / -   (declines reuse, W4 open)      | 0  / 0  / 0   (measured 0 -- see below)
+//	python      | 8  / 16 / 16  (first-child frontier fallback) | 0  / 90 / 90  (middle and trailing reuse)
 //
 // A "-" mid/bot ceiling means the cell's reject counter still scales with file
 // size (that language is not flattened), so no fixed bound is asserted there.
@@ -129,30 +130,23 @@ package gotreesitter_test
 //     the same fixture -- both are comfortably >= 95). This is the tracked
 //     "add a committed W1 measurement assertion" follow-up from that
 //     review, now enforced in CI instead of only recorded in a comment.
-//   - javascript, typescript, python: measured on this box via this harness;
-//     no campaign-recorded prior figure exists for these fixture cells.
-//     JavaScript/TypeScript leading reuse is fresh-oracle certified by #429,
-//     while Python's W4 indent-stack scanner-quiescence proof remains open.
-//   - python: MinByteReusePercent=0 at every position for insert/delete is
-//     an intentional "honest negative", not a placeholder. Measurement
-//     shows Python's insert/delete incremental parses currently take the
-//     oldTreeDisablesIncrementalReuse fresh-parse-fallback route
-//     unconditionally (ReusedBytes=0, NewNodesAllocated exactly equal to a
-//     full parse's node count, regardless of edit position) -- consistent
-//     with the campaign Status/W4 text listing "Python indent stack" as a
-//     still-open scanner-quiescence proof obligation: a column-shifting
-//     length-changing edit cannot yet be proven not to perturb the
-//     indent/dedent stack, so the parser conservatively declines reuse
-//     entirely rather than risk unsound splicing. Oracle equality (checked
-//     unconditionally, same as every other cell) is what actually protects
-//     Python today; this floor will ratchet upward as a natural follow-on
-//     once W4 lands for Python.
+//   - javascript, typescript, and python: measured on this box via this
+//     harness; no campaign-recorded prior figure exists for these fixture
+//     cells. JavaScript and TypeScript leading reuse is fresh-oracle certified
+//     by #429. Python's complete scanner checkpoints certify unaffected middle
+//     and trailing siblings. A first-child length change still lacks a generic
+//     parser-frontier proof, so it takes a fresh parse.
+//   - python: MinByteReusePercent=0 at the top position for insert/delete is
+//     an intentional conservative floor, not a placeholder. The early
+//     external_scanner_prefix_frontier_unproven fallback protects a changed
+//     first child from stale reduction ownership. Middle and trailing cells
+//     now use the 90% floor after checkpoint-authenticated reuse passed the
+//     focused Python and locked-C parity proofs.
 //   - Every language's REPLACE (same-length substitution) class measures
-//     ReusedBytes at ~100% universally, INCLUDING python: a same-length
-//     edit that does not change token boundaries or classification hits an
-//     unconditional single-token in-place substitution fast path before
-//     the reuse cursor / scanner-quiescence question is even reached. See
-//     w5ReplaceMinByteReusePercent.
+//     ReusedBytes at ~100% universally: a same-length edit that does not
+//     change token boundaries or classification hits an unconditional
+//     single-token in-place substitution fast path before the reuse cursor or
+//     scanner-quiescence question is reached. See w5ReplaceMinByteReusePercent.
 //
 // # Follow-ups this gate closes
 //
@@ -441,7 +435,8 @@ type w5Sample struct {
 }
 
 // w5ProductionParser keeps this incremental reuse gate on its certified route.
-// Compact-tree incremental reuse remains barred by decision 0008.
+// W5 pins fresh and incremental parses to production; compact checkpoint
+// admission has a separate first-child frontier gate.
 func w5ProductionParser(lang *gts.Language) *gts.Parser {
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(false)
@@ -634,8 +629,8 @@ type w5Ceiling struct {
 // floor for the REPLACE edit class: a same-length substitution that does
 // not change a token's boundaries or classification hits an unconditional
 // single-token in-place fast path (measured ~100% on every gate language,
-// including python, where insert/delete currently measure 0 -- see the
-// file doc comment).
+// while Python's top-position insert/delete lane uses the frontier fallback
+// described in the file comment.
 const w5ReplaceMinByteReusePercent = 95
 
 // w5Ceilings is the committed ratchet: today's achieved level per
@@ -695,16 +690,13 @@ var w5Ceilings = map[string]w5Ceiling{
 		Middle:                     w5PositionCeiling{MinByteReusePercent: 90, MaxRootNonLeafChanged: 12},
 		Bottom:                     w5PositionCeiling{MinByteReusePercent: 90, MaxRootNonLeafChanged: 12},
 	},
-	// python: an honest negative, not a placeholder -- see the file doc
-	// comment's python bullet. Insert/delete measure 0% byte reuse today
-	// (the W4 Python indent-stack scanner-quiescence proof is still open),
-	// so the floor is 0 at every position; oracle equality is what actually
-	// protects Python here, and it is still checked unconditionally.
+	// python: first-child length edits use the conservative frontier fallback;
+	// middle and trailing edits reuse checkpoint-authenticated siblings.
 	"python": {
 		MaxRootNonLeafChangedAtTop: 8,
 		Top:                        w5PositionCeiling{MinByteReusePercent: 0},
-		Middle:                     w5PositionCeiling{MinByteReusePercent: 0},
-		Bottom:                     w5PositionCeiling{MinByteReusePercent: 0},
+		Middle:                     w5PositionCeiling{MinByteReusePercent: 90, MaxRootNonLeafChanged: 16},
+		Bottom:                     w5PositionCeiling{MinByteReusePercent: 90, MaxRootNonLeafChanged: 16},
 	},
 }
 

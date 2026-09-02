@@ -86,7 +86,6 @@ func (a *nodeArena) recordExternalScannerCompactCheckpoint(start, end []byte) ex
 	if !bytes.Equal(start, end) {
 		endRef = a.copyExternalScannerSnapshotRef(end)
 	}
-	a.externalScannerCheckpointRecords++
 	return externalScannerCheckpointRef{
 		start: startRef,
 		end:   endRef,

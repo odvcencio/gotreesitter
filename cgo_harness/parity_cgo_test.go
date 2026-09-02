@@ -1170,7 +1170,7 @@ func TestParityPythonIncrementalDedentCheckpointFallback(t *testing.T) {
 	}
 }
 
-func TestParityPythonDerivedScannerFallback(t *testing.T) {
+func TestParityPythonDerivedScannerIncremental(t *testing.T) {
 	cases := []struct {
 		name   string
 		lang   func() *gotreesitter.Language
@@ -1211,7 +1211,11 @@ func TestParityPythonDerivedScannerFallback(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer releaseGoTree(goTree)
-			if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" ||
+			if tc.name == "python" {
+				if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" {
+					t.Fatalf("%s authenticated scanner reuse declined: %+v", tc.name, profile)
+				}
+			} else if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" ||
 				profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
 				t.Fatalf("%s scanner fallback profile is not fail-closed: %+v", tc.name, profile)
 			}

@@ -15,10 +15,9 @@ import (
 // newProductionBig3Parser returns a parser pinned to the production route.
 // These incremental-correctness tests compare production incremental reparse
 // against production fresh parse and observe production-engine reuse profiles.
-// A compact-materialized base tree is hard-barred from incremental reuse
-// (decision 0008), so the base and fresh parses must stay on production; the
-// compact route's fresh-parse correctness is covered by the tagged scorecard
-// suite. Reuse-bar lift is the follow-on campaign.
+// The base and fresh parses stay on production so these tests isolate that
+// engine. Compact scanner-checkpoint reuse is covered by the tagged Stage 5
+// suite.
 func newProductionBig3Parser(lang *gotreesitter.Language) *gotreesitter.Parser {
 	p := gotreesitter.NewParser(lang)
 	p.SetAdmissionCandidateRoute(false)
@@ -114,7 +113,7 @@ func TestPythonIncrementalSingleByteDeleteSweepMatchesFresh(t *testing.T) {
 	}
 }
 
-func TestPythonLengthChangingEditFallsBackUntilDedentCheckpointsAreCertified(t *testing.T) {
+func TestPythonLengthChangingEditUsesDedentCheckpoints(t *testing.T) {
 	source, err := os.ReadFile("cgo_harness/corpus_structural/python_sample.py")
 	if err != nil {
 		t.Fatal(err)
@@ -144,11 +143,11 @@ func TestPythonLengthChangingEditFallsBackUntilDedentCheckpointsAreCertified(t *
 		t.Fatal(err)
 	}
 	defer incremental.Release()
-	if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" {
-		t.Fatalf("Python length-changing edit did not use the conservative scanner fallback: %+v", profile)
+	if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute {
+		t.Fatalf("Python length-changing edit did not use authenticated scanner reuse: %+v", profile)
 	}
-	if profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
-		t.Fatalf("Python scanner fallback reported old-tree reuse: %+v", profile)
+	if profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 || profile.ReuseRejectScannerUnquiescent == 0 {
+		t.Fatalf("Python length-changing edit did not preserve reuse or report invalidated scanner boundaries: %+v", profile)
 	}
 
 	fresh, err := newProductionBig3Parser(lang).Parse(edited)
@@ -156,7 +155,7 @@ func TestPythonLengthChangingEditFallsBackUntilDedentCheckpointsAreCertified(t *
 		t.Fatal(err)
 	}
 	defer fresh.Release()
-	requireCompleteParse(t, incremental, edited, lang, "incremental fallback")
+	requireCompleteParse(t, incremental, edited, lang, "incremental")
 	requireCompleteParse(t, fresh, edited, lang, "fresh")
 	incrementalInspection, err := benchfixtures.InspectGoTree(incremental.RootNode(), lang)
 	if err != nil {
@@ -167,7 +166,7 @@ func TestPythonLengthChangingEditFallsBackUntilDedentCheckpointsAreCertified(t *
 		t.Fatal(err)
 	}
 	if incrementalInspection.SHA256 != freshInspection.SHA256 {
-		t.Fatalf("Python conservative fallback differs from fresh parse: incremental=%s fresh=%s", incrementalInspection.SHA256, freshInspection.SHA256)
+		t.Fatalf("Python authenticated incremental parse differs from fresh parse: incremental=%s fresh=%s", incrementalInspection.SHA256, freshInspection.SHA256)
 	}
 }
 
