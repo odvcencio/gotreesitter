@@ -3339,7 +3339,10 @@ func TestTryGSSMainMergeResultMixedDistinctShapesRejectWithoutMutation(t *testin
 	candidateNode := makeShape(12)
 	packed, flat, owner := mixedGSSMergeProducerFixture(candidateNode)
 	flat.entries[1] = newStackEntryNode(7, incumbentNode)
-	lang := &Language{ExactStackNodeEquivalenceCertified: true}
+	lang := &Language{
+		ExactStackNodeEquivalenceCertified: true,
+		CompactMixedGSSMergeCertified:      true,
+	}
 	scratch := glrMergeScratch{gssOwner: &owner, language: lang, arena: arena}
 	scratch.beginEquivEpoch()
 	if !gssStacksHaveDistinctMaterializingShapesWithScratch(&scratch, &flat, &packed) {
