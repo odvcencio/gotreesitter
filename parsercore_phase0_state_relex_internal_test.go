@@ -2,7 +2,251 @@
 
 package gotreesitter
 
-import "testing"
+import (
+	"testing"
+
+	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+)
+
+type phase0OwnedExternalScanner struct {
+	sameSymbol bool
+	fail       bool
+}
+
+type phase0MismatchedExternalScanner struct{ phase0OwnedExternalScanner }
+
+func (phase0MismatchedExternalScanner) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	return ExternalScannerCheckpointIdentity{
+		Scanner: []byte("phase0-mismatched-external-scanner-v1"),
+		Grammar: []byte("phase0-mismatched-external-grammar-v1"),
+	}, true
+}
+
+type phase0OwnedExternalScannerState struct {
+	value byte
+}
+
+func (phase0OwnedExternalScanner) Create() any {
+	return &phase0OwnedExternalScannerState{}
+}
+
+func (phase0OwnedExternalScanner) Destroy(any) {}
+
+func (phase0OwnedExternalScanner) Serialize(payload any, buf []byte) int {
+	if len(buf) == 0 {
+		return 0
+	}
+	buf[0] = payload.(*phase0OwnedExternalScannerState).value
+	return 1
+}
+
+func (phase0OwnedExternalScanner) Deserialize(payload any, buf []byte) {
+	state := payload.(*phase0OwnedExternalScannerState)
+	if len(buf) == 0 {
+		state.value = 0
+		return
+	}
+	state.value = buf[0]
+}
+
+func (phase0OwnedExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
+
+func (phase0OwnedExternalScanner) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	return ExternalScannerCheckpointIdentity{
+		Scanner: []byte("phase0-owned-external-scanner-v1"),
+		Grammar: []byte("phase0-owned-external-grammar-v1"),
+	}, true
+}
+
+func (scanner phase0OwnedExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	if lexer.Lookahead() != 'x' {
+		return false
+	}
+	state := payload.(*phase0OwnedExternalScannerState)
+	if scanner.fail {
+		state.value = 9
+		return false
+	}
+	switch {
+	case len(valid) > 0 && valid[0]:
+		state.value = 1
+		lexer.Advance(false)
+		lexer.MarkEnd()
+		lexer.SetResultSymbol(Symbol(11))
+		return true
+	case len(valid) > 1 && valid[1]:
+		state.value = 2
+		lexer.Advance(false)
+		lexer.MarkEnd()
+		if scanner.sameSymbol {
+			lexer.SetResultSymbol(Symbol(11))
+		} else {
+			lexer.SetResultSymbol(Symbol(12))
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func phase0OwnedExternalLanguage() *Language {
+	return phase0OwnedExternalLanguageWithScanner(phase0OwnedExternalScanner{})
+}
+
+func phase0OwnedExternalLanguageWithScanner(scanner phase0OwnedExternalScanner) *Language {
+	return &Language{
+		Name:               "phase0-owned-external",
+		SymbolCount:        13,
+		TokenCount:         13,
+		ExternalTokenCount: 2,
+		SymbolNames:        make([]string, 13),
+		LexModes: []LexMode{
+			{ExternalLexState: 1},
+			{ExternalLexState: 2},
+		},
+		LexStates:       []LexState{{}},
+		ExternalScanner: scanner,
+		ExternalSymbols: []Symbol{11, 12},
+		ExternalLexStates: [][]bool{
+			{false, false},
+			{true, false},
+			{false, true},
+		},
+	}
+}
+
+func TestDiagnosticParserCoreExternalVersionRelexOwnsCheckpoint(t *testing.T) {
+	lang := phase0OwnedExternalLanguage()
+	source := []byte("x")
+	lookup := func(StateID, Symbol) uint16 { return 1 }
+	tokenSource := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, lookup, nil, nil, nil)
+	defer tokenSource.Close()
+	tokenSource.SetParserState(0)
+	before := tokenSource.snapshotRelexState()
+	shared := tokenSource.Next()
+	if shared.Symbol != Symbol(11) || !shared.ExternalScannerToken || shared.StartByte != 0 || shared.EndByte != 1 {
+		t.Fatalf("shared external token = %+v, want symbol 11 at 0..1", shared)
+	}
+	sharedState := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value
+	if sharedState != 1 {
+		t.Fatalf("shared scanner state = %d, want 1", sharedState)
+	}
+
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		tokenSource:             tokenSource,
+		versionLexerBefore:      before,
+		versionLexerBeforeValid: true,
+	}
+	candidate, ok := scheduler.relexTokenForState(1, shared)
+	if !ok {
+		t.Fatal("external per-version relex = false, want a divergent scanner token")
+	}
+	if candidate.Symbol != Symbol(12) || !candidate.ExternalScannerToken || candidate.StartByte != 0 || candidate.EndByte != 1 {
+		t.Fatalf("candidate external token = %+v, want symbol 12 at 0..1", candidate)
+	}
+	if got := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value; got != sharedState {
+		t.Fatalf("shared scanner payload after probe = %d, want restored %d", got, sharedState)
+	}
+	if got := tokenSource.lexer.pos; got != 1 {
+		t.Fatalf("shared lexer position after probe = %d, want 1", got)
+	}
+}
+
+func TestDiagnosticParserCoreExternalVersionRelexDetectsStateOnlyDivergence(t *testing.T) {
+	lang := phase0OwnedExternalLanguageWithScanner(phase0OwnedExternalScanner{sameSymbol: true})
+	source := []byte("x")
+	lookup := func(StateID, Symbol) uint16 { return 1 }
+	tokenSource := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, lookup, nil, nil, nil)
+	defer tokenSource.Close()
+	tokenSource.SetParserState(0)
+	before := tokenSource.snapshotRelexState()
+	shared := tokenSource.Next()
+	if shared.Symbol != Symbol(11) || !shared.ExternalScannerToken || shared.StartByte != 0 || shared.EndByte != 1 {
+		t.Fatalf("shared external token = %+v, want symbol 11 at 0..1", shared)
+	}
+	sharedState := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value
+	candidate, ok := (&diagnosticParserCoreGenericScheduler{
+		tokenSource:             tokenSource,
+		versionLexerBefore:      before,
+		versionLexerBeforeValid: true,
+	}).relexTokenForState(1, shared)
+	if !ok {
+		t.Fatal("external per-version relex = false, want a scanner-state witness")
+	}
+	if candidate.Symbol != shared.Symbol || candidate.StartByte != shared.StartByte || candidate.EndByte != shared.EndByte {
+		t.Fatalf("state-only candidate = %+v, want same symbol and span as shared %+v", candidate, shared)
+	}
+	if got := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value; got != sharedState {
+		t.Fatalf("shared scanner payload after state-only probe = %d, want restored %d", got, sharedState)
+	}
+	if got := tokenSource.lexer.pos; got != 1 {
+		t.Fatalf("shared lexer position after state-only probe = %d, want 1", got)
+	}
+}
+
+func TestDiagnosticParserCoreExternalVersionRelexRestoresAfterFailedScan(t *testing.T) {
+	lang := phase0OwnedExternalLanguage()
+	source := []byte("x")
+	lookup := func(StateID, Symbol) uint16 { return 1 }
+	tokenSource := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, lookup, nil, nil, nil)
+	defer tokenSource.Close()
+	tokenSource.SetParserState(0)
+	before := tokenSource.snapshotRelexState()
+	shared := tokenSource.Next()
+	if shared.Symbol != Symbol(11) {
+		t.Fatalf("successful shared token = %+v, want symbol 11", shared)
+	}
+	lang.ExternalScanner = phase0OwnedExternalScanner{fail: true}
+	// Keep the token source's payload and switch only the scanner behavior. The
+	// failing implementation mutates the payload before it returns false.
+	sharedState := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value
+	candidate, ok := (&diagnosticParserCoreGenericScheduler{
+		tokenSource:             tokenSource,
+		versionLexerBefore:      before,
+		versionLexerBeforeValid: true,
+	}).relexTokenForState(1, shared)
+	if ok || candidate != shared {
+		t.Fatalf("failed external probe = %+v/%t, want shared token/false", candidate, ok)
+	}
+	if got := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value; got != sharedState {
+		t.Fatalf("shared scanner payload after failed probe = %d, want restored %d", got, sharedState)
+	}
+	if got := tokenSource.lexer.pos; got != 1 {
+		t.Fatalf("shared lexer position after failed probe = %d, want 1", got)
+	}
+}
+
+func TestDiagnosticParserCoreExternalVersionRelexRejectsIdentityDrift(t *testing.T) {
+	lang := phase0OwnedExternalLanguage()
+	source := []byte("x")
+	lookup := func(StateID, Symbol) uint16 { return 1 }
+	tokenSource := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, lookup, nil, nil, nil)
+	defer tokenSource.Close()
+	tokenSource.SetParserState(0)
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact:     &core.Core{},
+		tokenSource: tokenSource,
+	}
+	if err := scheduler.captureSharedElectionSnapshot(); err != nil {
+		t.Fatalf("capture election snapshot: %v", err)
+	}
+	shared := tokenSource.Next()
+	if shared.Symbol != Symbol(11) || !scheduler.versionLexerBeforeIdentityValid {
+		t.Fatalf("shared token=%+v identity-valid=%t, want symbol 11 and captured identity", shared, scheduler.versionLexerBeforeIdentityValid)
+	}
+	sharedState := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value
+	lang.ExternalScanner = phase0MismatchedExternalScanner{}
+	candidate, ok := scheduler.relexTokenForState(1, shared)
+	if ok || candidate != shared {
+		t.Fatalf("identity-drift probe = %+v/%t, want shared token/false", candidate, ok)
+	}
+	if got := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value; got != sharedState {
+		t.Fatalf("shared scanner payload after identity drift = %d, want %d", got, sharedState)
+	}
+	if got := tokenSource.lexer.pos; got != 1 {
+		t.Fatalf("shared lexer position after identity drift = %d, want 1", got)
+	}
+}
 
 func TestDiagnosticParserCoreSameSpanRelexReconstructsExactToken(t *testing.T) {
 	shared := Token{
@@ -138,11 +382,10 @@ func DiagnosticParserCoreSameSpanRelexForTest(shared, relexed Token) (Token, boo
 // external test package can pin the probe's own contract (D2-1 Phase 1
 // item 2) against a real witness, independent of dispatchPassActive's own
 // caller-side ragged-end decline (covered separately by
-// RunStateDependentRelexSchedulerForTest). checkpointLength only needs to
-// be non-zero for a language with an external scanner: the probe reads
-// nothing else from the checkpoint (Lexer.scan only needs DFA fields), so
-// any non-zero value satisfies the "this header owns checkpoint identity"
-// guard without a real serialized scanner snapshot.
+// RunStateDependentRelexSchedulerForTest). checkpointLength only needs to be
+// non-zero for the internal-DFA fallback. The external-scanner path requires
+// a real election snapshot and an identity-bearing checkpointed scanner;
+// direct tests that omit that state remain on the legacy internal-DFA probe.
 func RelexTokenForStateForTest(
 	lang *Language, source []byte, checkpointLength int,
 	options DiagnosticParserCorePrefixOptions, state StateID, tok Token,
