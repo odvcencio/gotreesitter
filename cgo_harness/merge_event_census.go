@@ -649,8 +649,10 @@ type mergeCensusTotals struct {
 	CLinkUnionAppended,
 	CLinkUnionRejected uint64
 
-	GoAttempts  uint64
-	GoSuccesses uint64
+	GoAttempts                   uint64
+	GoSuccesses                  uint64
+	MixedRepresentationAttempts  uint64
+	MixedRepresentationSuccesses uint64
 
 	RefuseNoGSSHead      uint64
 	RefuseNoGSSHeadBoth  uint64
@@ -704,6 +706,8 @@ func (t *mergeCensusTotals) add(row mergeCensusRow) {
 
 	t.GoAttempts += row.Go.Attempts
 	t.GoSuccesses += row.Go.Successes
+	t.MixedRepresentationAttempts += row.Go.MixedRepresentationMergeAttempts
+	t.MixedRepresentationSuccesses += row.Go.MixedRepresentationMergeSuccesses
 
 	t.RefuseNoGSSHead += row.Go.RefuseNoGSSHead
 	t.RefuseNoGSSHeadBoth += row.Go.RefuseNoGSSHeadBoth

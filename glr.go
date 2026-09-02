@@ -5071,6 +5071,9 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	if mixedMergeCertified &&
 		((left.gss.head == nil) != (right.gss.head == nil)) {
 		mixedRepresentation = true
+		if mergeCensusEnabled {
+			mergeCensusRecordMixedRepresentationAttempt()
+		}
 		// Preserve the GSS gate order without allocating staging nodes. The
 		// score and recovery-cost gates ran above, so check the remaining
 		// status, position, and clean-zero conditions here.
@@ -5117,9 +5120,6 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 			gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, left, right) {
 			if workCountInstrumentationEnabled {
 				workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", left, right)
-			}
-			if mergeCensusEnabled {
-				mergeCensusRecordDistinctShapes()
 			}
 			return false, true
 		}
@@ -5220,7 +5220,11 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		}
 		workCountRecordMergeSuccess()
 		if mergeCensusEnabled {
-			mergeCensusRecordSuccess()
+			if mixedRepresentation {
+				mergeCensusRecordMixedRepresentationSuccess()
+			} else {
+				mergeCensusRecordSuccess()
+			}
 		}
 		if scratch != nil {
 			// A successful main merge can rewrite link 0 (prev/entry) of surviving

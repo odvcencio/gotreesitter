@@ -46,6 +46,12 @@ type MergeEventCensusCounts struct {
 	// returned true (merge_successes_proxy). Successes divided by the
 	// reference runtime's successes is the lane's progress ratio.
 	Successes uint64
+	// MixedRepresentationMergeAttempts and MixedRepresentationMergeSuccesses
+	// count certified flat/GSS representation joins separately. These joins
+	// remove duplicate Go stack representations; the C runtime has no
+	// corresponding version merge, so they do not enter Successes.
+	MixedRepresentationMergeAttempts  uint64
+	MixedRepresentationMergeSuccesses uint64
 
 	// RefuseNoGSSHead counts pairs where at least one side carried no packed
 	// head. A glrStack packs lazily (ensureGSS, glr.go:466-471), so a nil head
@@ -54,7 +60,9 @@ type MergeEventCensusCounts struct {
 	// version is a stack-node chain from creation, so this whole class is a
 	// refusal with no counterpart. RefuseNoGSSHeadBoth and RefuseNoGSSHeadOne
 	// split it, because "neither side was packed" and "one side was packed"
-	// need different work in stage M1.
+	// need different work in stage M1. A certified mixed-representation join
+	// increments the one-flat counter as a baseline gate observation, while its
+	// separate fields record the successful representation join.
 	RefuseNoGSSHead     uint64
 	RefuseNoGSSHeadBoth uint64
 	RefuseNoGSSHeadOne  uint64
@@ -170,6 +178,18 @@ func mergeCensusAdd(field *uint64, delta uint64) {
 func mergeCensusRecordAttempt() { mergeCensusAdd(&mergeCensusState.counts.Attempts, 1) }
 
 func mergeCensusRecordSuccess() { mergeCensusAdd(&mergeCensusState.counts.Successes, 1) }
+
+func mergeCensusRecordMixedRepresentationAttempt() {
+	mergeCensusState.mu.Lock()
+	mergeCensusState.counts.MixedRepresentationMergeAttempts++
+	mergeCensusState.counts.RefuseNoGSSHead++
+	mergeCensusState.counts.RefuseNoGSSHeadOne++
+	mergeCensusState.mu.Unlock()
+}
+
+func mergeCensusRecordMixedRepresentationSuccess() {
+	mergeCensusAdd(&mergeCensusState.counts.MixedRepresentationMergeSuccesses, 1)
+}
 
 func mergeCensusRecordMergeFailed() { mergeCensusAdd(&mergeCensusState.counts.RefuseMergeFailed, 1) }
 
