@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "6946ea8e626f259f3befa2d750e4234436a8d5e2"
+	compactRouteLifecycleSourceRevision               = "87b36c280ccd8b4ecafa17ba76a7255614be9d78"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -70,6 +70,7 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"cgo_harness/stage6_dot_compact_certification_test.go#TestStage6DotCompactCertification":                            "a8fe2517f01989d8c509416a7960ea37e428fe85",
 	"cgo_harness/stage6_git_config_compact_certification_test.go#TestStage6GitConfigCompactCertification":               "5e03f98cf1c272fd32b3a4d932ec14c2a41870a3",
 	"cgo_harness/stage6_pem_compact_certification_test.go#TestStage6PEMCompactCertification":                            "6946ea8e626f259f3befa2d750e4234436a8d5e2",
+	"cgo_harness/stage6_forth_compact_certification_test.go#TestStage6ForthCompactCertification":                        "87b36c280ccd8b4ecafa17ba76a7255614be9d78",
 	"external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots":            "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity":                    "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"parser_external_scanner_incremental_test.go#TestPythonSameSymbolScannerStateEditFallsBack":                         "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
@@ -100,6 +101,7 @@ var compactRouteLifecycleKnownCorpusTreeSHA256 = map[string]string{
 	"dot-compact-smoke":        "03102896b4bdd72288ad5db8c80a35d7a81dd76d950a0805121ebe050e7172e7",
 	"git-config-compact-smoke": "268737056e942dc56ebd44fa5970556bf48bde4e59c5ad293f8273c0d52c75a3",
 	"pem-compact-smoke":        "5fd2abf117233cfbda17feb34a4bddd443138bc85450e6b2f55b2cec71521899",
+	"forth-compact-smoke":      "a840aad80bc4e13696593a2f17a393c23be833339caf911ea5dd1289f8f546cc",
 }
 
 type compactRouteLifecycleRegistry struct {
