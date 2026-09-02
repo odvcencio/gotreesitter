@@ -15,10 +15,18 @@
 // from the repo root after adding/removing a grammar blob:
 //
 //	go run ./cmd/gen_subset_blob_embeds
+//
+// Check the checked-in generated set without changing files:
+//
+//	go run ./cmd/gen_subset_blob_embeds -check
 package main
 
 import (
+	"bytes"
+	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -50,46 +58,359 @@ func init() { registerSubsetEmbeddedBlob("%[1]s.bin", subsetBlobFS_%[1]s) }
 var identRE = regexp.MustCompile(`^[a-z0-9_]+$`)
 
 func main() {
-	entries, err := os.ReadDir(blobDir)
+	check := flag.Bool("check", false, "check generated files without writing or removing files")
+	flag.Parse()
+
+	langs, err := discoverBlobLanguages(blobDir)
 	if err != nil {
 		fail(err)
 	}
-	var langs []string
+
+	if *check {
+		if err := validateGeneratedOutputs(outDir, langs); err != nil {
+			fail(err)
+		}
+		fmt.Printf("checked %d %s<lang>.go files\n", len(langs), prefix)
+		return
+	}
+
+	if err := writeGeneratedEmbeds(outDir, langs); err != nil {
+		fail(err)
+	}
+	fmt.Printf("generated %d %s<lang>.go files\n", len(langs), prefix)
+}
+
+func discoverBlobLanguages(dir string) ([]string, error) {
+	if err := requireDirectory(dir, "blob directory"); err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	langs := make([]string, 0, len(entries))
 	for _, e := range entries {
 		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, ".bin") {
+		if !strings.HasSuffix(name, ".bin") {
 			continue
+		}
+		path := filepath.Join(dir, name)
+		info, err := os.Lstat(path)
+		if err != nil {
+			return nil, fmt.Errorf("inspect blob %q: %w", name, err)
+		}
+		if err := requireRegularFile(path, "blob", info); err != nil {
+			return nil, err
 		}
 		lang := strings.TrimSuffix(name, ".bin")
 		if !identRE.MatchString(lang) {
-			fail(fmt.Errorf("blob %q yields invalid build-tag/identifier suffix %q", name, lang))
+			return nil, fmt.Errorf("blob %q yields invalid build-tag/identifier suffix %q", name, lang)
 		}
 		langs = append(langs, lang)
 	}
 	sort.Strings(langs)
-
-	// Remove stale generated files (blobs that no longer exist).
-	existing, _ := filepath.Glob(filepath.Join(outDir, prefix+"*.go"))
-	want := make(map[string]bool, len(langs))
-	for _, l := range langs {
-		want[filepath.Join(outDir, prefix+l+".go")] = true
+	if len(langs) == 0 {
+		return nil, fmt.Errorf("blob directory %q contains no regular .bin grammar blobs", dir)
 	}
-	for _, f := range existing {
-		if !want[f] {
-			if err := os.Remove(f); err != nil {
-				fail(err)
-			}
-			fmt.Printf("removed stale %s\n", f)
+	return langs, nil
+}
+
+func discoverGeneratedOutputs(dir string) (map[string]string, []string, error) {
+	if err := requireDirectory(dir, "generated output directory"); err != nil {
+		return nil, nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nil, err
+	}
+	paths := make(map[string]string)
+	langs := make([]string, 0, len(entries))
+	var problems []string
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		path := filepath.Join(dir, name)
+		info, err := os.Lstat(path)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("inspect generated file %q: %v", path, err))
+			continue
+		}
+		if err := requireRegularFile(path, "generated file", info); err != nil {
+			problems = append(problems, err.Error())
+			continue
+		}
+		lang, err := generatedLanguageFromName(name)
+		if err != nil {
+			problems = append(problems, err.Error())
+			continue
+		}
+		if err := validateOwnedGeneratedFile(path, lang, info); err != nil {
+			problems = append(problems, err.Error())
+			continue
+		}
+		paths[lang] = path
+		langs = append(langs, lang)
+	}
+	sort.Strings(langs)
+	if len(problems) != 0 {
+		return nil, nil, errors.New(strings.Join(problems, "\n"))
+	}
+	return paths, langs, nil
+}
+
+func requireDirectory(path, role string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("inspect %s %q: %w", role, path, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("%s %q is a symlink", role, path)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s %q is not a directory", role, path)
+	}
+	return nil
+}
+
+func requireRegularFile(path, role string, info os.FileInfo) error {
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("%s %q is a symlink", role, path)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("%s %q is a directory", role, path)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%s %q is not a regular file (mode %s)", role, path, info.Mode())
+	}
+	return nil
+}
+
+func generatedLanguageFromName(name string) (string, error) {
+	if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, ".go") {
+		return "", fmt.Errorf("generated file %q has invalid name; want %s<lang>.go", name, prefix)
+	}
+	lang := strings.TrimSuffix(strings.TrimPrefix(name, prefix), ".go")
+	if !identRE.MatchString(lang) {
+		return "", fmt.Errorf("generated file %q yields invalid build-tag/identifier suffix %q", name, lang)
+	}
+	return lang, nil
+}
+
+func validateOwnedGeneratedFile(path, lang string, info os.FileInfo) error {
+	if err := requireRegularFile(path, "generated file", info); err != nil {
+		return err
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("cannot read generated file %q: %w", path, err)
+	}
+	if !bytes.Equal(got, []byte(renderGeneratedFile(lang))) {
+		return fmt.Errorf("generated file %q does not match the generator template", path)
+	}
+	return nil
+}
+
+func renderGeneratedFile(lang string) string {
+	return fmt.Sprintf(fileTmpl, lang)
+}
+
+func validateGeneratedOutputs(outDir string, langs []string) error {
+	paths, outputLangs, err := discoverGeneratedOutputs(outDir)
+	if err != nil {
+		return err
+	}
+
+	expectedLangs := append([]string(nil), langs...)
+	sort.Strings(expectedLangs)
+	want := make(map[string]struct{}, len(langs))
+	var problems []string
+	for _, lang := range expectedLangs {
+		want[lang] = struct{}{}
+		_, ok := paths[lang]
+		if !ok {
+			problems = append(problems, fmt.Sprintf("missing generated file %q", filepath.Join(outDir, prefix+lang+".go")))
+		}
+	}
+	for _, lang := range outputLangs {
+		if _, ok := want[lang]; !ok {
+			problems = append(problems, fmt.Sprintf("stale generated file %q has no matching grammar blob", paths[lang]))
+		}
+	}
+	if len(problems) != 0 {
+		return errors.New(strings.Join(problems, "\n"))
+	}
+	return nil
+}
+
+type stagedGeneratedFile struct {
+	lang        string
+	temporary   string
+	destination string
+}
+
+type generatedFileStager func(dir, lang string, contents []byte) (string, error)
+
+func writeGeneratedEmbeds(dir string, langs []string) error {
+	return writeGeneratedEmbedsWithStager(dir, langs, stageGeneratedFile)
+}
+
+func writeGeneratedEmbedsWithStager(dir string, langs []string, stager generatedFileStager) error {
+	if len(langs) == 0 {
+		return fmt.Errorf("refusing to generate %s<lang>.go files without any grammar blobs", prefix)
+	}
+	expectedLangs := append([]string(nil), langs...)
+	sort.Strings(expectedLangs)
+	want := make(map[string]struct{}, len(expectedLangs))
+	for _, lang := range expectedLangs {
+		if !identRE.MatchString(lang) {
+			return fmt.Errorf("language %q yields invalid build-tag/identifier suffix", lang)
+		}
+		want[lang] = struct{}{}
+	}
+
+	// Prove every existing same-prefix output before creating any replacement.
+	if _, _, err := discoverGeneratedOutputs(dir); err != nil {
+		return err
+	}
+
+	staged := make([]stagedGeneratedFile, 0, len(expectedLangs))
+	cleanup := func() { cleanupStagedFiles(staged) }
+	for _, lang := range expectedLangs {
+		destination := filepath.Join(dir, prefix+lang+".go")
+		temporary, err := stager(dir, lang, []byte(renderGeneratedFile(lang)))
+		if filepath.Clean(temporary) == filepath.Clean(destination) {
+			cleanup()
+			return fmt.Errorf("staged generated file %q reused its destination", destination)
+		}
+		if temporary != "" && filepath.Clean(filepath.Dir(temporary)) == filepath.Clean(dir) {
+			staged = append(staged, stagedGeneratedFile{
+				lang:        lang,
+				temporary:   temporary,
+				destination: destination,
+			})
+		}
+		if err != nil {
+			cleanup()
+			return fmt.Errorf("stage generated file %q: %w", destination, err)
+		}
+		if err := validateStagedGeneratedFile(dir, temporary, lang); err != nil {
+			cleanup()
+			return err
 		}
 	}
 
-	for _, lang := range langs {
-		out := filepath.Join(outDir, prefix+lang+".go")
-		if err := os.WriteFile(out, []byte(fmt.Sprintf(fileTmpl, lang)), 0o644); err != nil {
-			fail(err)
+	// Re-prove destinations after staging, before the first replacement.
+	for _, file := range staged {
+		if err := validateReplacementTarget(file.destination, file.lang); err != nil {
+			cleanup()
+			return err
 		}
 	}
-	fmt.Printf("generated %d %s<lang>.go files\n", len(langs), prefix)
+	// Renames can fail after an earlier replacement; stale cleanup remains deferred.
+	for _, file := range staged {
+		if err := os.Rename(file.temporary, file.destination); err != nil {
+			cleanup()
+			return fmt.Errorf("replace generated file %q: %w", file.destination, err)
+		}
+	}
+
+	// Revalidate the directory after all replacements. Delete only proven stale files.
+	currentPaths, currentLangs, err := discoverGeneratedOutputs(dir)
+	if err != nil {
+		return fmt.Errorf("refusing stale generated-file cleanup: %w", err)
+	}
+	for _, lang := range expectedLangs {
+		if _, ok := currentPaths[lang]; !ok {
+			return fmt.Errorf("generated file %q disappeared before stale cleanup", filepath.Join(dir, prefix+lang+".go"))
+		}
+	}
+	for _, lang := range currentLangs {
+		if _, ok := want[lang]; ok {
+			continue
+		}
+		path := currentPaths[lang]
+		if err := validateReplacementTarget(path, lang); err != nil {
+			return fmt.Errorf("refusing to remove unproved generated file %q: %w", path, err)
+		}
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("remove stale generated file %q: %w", path, err)
+		}
+		fmt.Printf("removed stale %s\n", path)
+	}
+	return nil
+}
+
+func stageGeneratedFile(dir, lang string, contents []byte) (path string, err error) {
+	f, err := os.CreateTemp(dir, "."+prefix+"*.tmp")
+	if err != nil {
+		return "", err
+	}
+	path = f.Name()
+	closed := false
+	defer func() {
+		if !closed {
+			_ = f.Close()
+		}
+		if err != nil {
+			_ = os.Remove(path)
+		}
+	}()
+	if _, err = io.Copy(f, bytes.NewReader(contents)); err != nil {
+		return path, err
+	}
+	if err = f.Chmod(0o644); err != nil {
+		return path, err
+	}
+	if err = f.Sync(); err != nil {
+		return path, err
+	}
+	if err = f.Close(); err != nil {
+		return path, err
+	}
+	closed = true
+	return path, nil
+}
+
+func validateStagedGeneratedFile(dir, path, lang string) error {
+	if filepath.Clean(filepath.Dir(path)) != filepath.Clean(dir) {
+		return fmt.Errorf("staged generated file %q is not in output directory %q", path, dir)
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("inspect staged generated file %q: %w", path, err)
+	}
+	if err := requireRegularFile(path, "staged generated file", info); err != nil {
+		return err
+	}
+	if err := validateOwnedGeneratedFile(path, lang, info); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateReplacementTarget(path, lang string) error {
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect replacement target %q: %w", path, err)
+	}
+	return validateOwnedGeneratedFile(path, lang, info)
+}
+
+func cleanupStagedFiles(files []stagedGeneratedFile) {
+	for _, file := range files {
+		info, err := os.Lstat(file.temporary)
+		if err != nil {
+			continue
+		}
+		if info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			_ = os.Remove(file.temporary)
+		}
+	}
 }
 
 func fail(err error) {
