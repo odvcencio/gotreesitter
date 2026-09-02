@@ -830,6 +830,13 @@ type Language struct {
 	// Custom, adapted, and stale artifacts retain the false default.
 	CompactAcceptanceStructuralElectionCertified bool
 
+	// CompactMixedGSSMergeCertified permits one boundary merge to join flat
+	// and graph-structured stack forms with C's physical receiver ownership.
+	// Exact built-in profiles set this only after locked C parity proves the
+	// mixed representation path for that grammar artifact. Custom, adapted,
+	// and stale artifacts retain the false default.
+	CompactMixedGSSMergeCertified bool
+
 	// CompactLexerSkippedPrefixTilingCertified permits an internal compact
 	// reduction gap when the next accepted terminal carries exact DFA evidence
 	// for the complete skipped prefix. Exact built-in profiles set this only

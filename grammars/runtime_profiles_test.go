@@ -372,7 +372,8 @@ func TestBuiltinCompactAcceptanceProfilesRequireExactBlobIdentity(t *testing.T) 
 			name: "python", load: PythonLanguage,
 			want: func(lang *gotreesitter.Language) bool {
 				return lang.CompactPrimaryAcceptanceDerivationCertified &&
-					lang.CompactAcceptanceStructuralElectionCertified
+					lang.CompactAcceptanceStructuralElectionCertified &&
+					lang.CompactMixedGSSMergeCertified
 			},
 		},
 		{

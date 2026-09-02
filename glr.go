@@ -5066,7 +5066,9 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	var promoted glrStack
 	mixedRepresentation := false
 	candidateGSSReceiver := false
-	if scratch != nil && scratch.gssOwner != nil &&
+	mixedMergeCertified := scratch != nil && scratch.gssOwner != nil &&
+		(scratch.language == nil || scratch.language.CompactMixedGSSMergeCertified)
+	if mixedMergeCertified &&
 		((left.gss.head == nil) != (right.gss.head == nil)) {
 		mixedRepresentation = true
 		// Preserve the GSS gate order without allocating staging nodes. The
