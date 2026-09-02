@@ -258,7 +258,7 @@ func TestD2SpanUnlockedSameSpanRelexOnRealJavaScriptDivisionRegexWitness(t *test
 // Gated behind GTS_ADMISSION_REAL_CORPUS=1 like every other
 // cgo_harness/corpus_real consumer in this package
 // (admission_real_corpus_matrix_test.go): that directory is git-ignored and
-// no CI job provisions it (docs/ci-gate-coverage.md), so this test must
+// no CI job provisions it (the CI gate coverage record (Hyphae space m31labs/gotreesitter)), so this test must
 // skip cleanly, not fail, when it is absent. F3's CI-covered anchor below
 // pins the same-span accept contract the shift path depends on over an
 // embedded-grammar fixture; no CI test drives the shift itself.

@@ -16,7 +16,7 @@ import (
 // This file is campaign v7 tranche C0 measurement infrastructure (attribution
 // board). It changes no parser code, routing, or shipped behavior: it only
 // captures CPU profiles of the existing compact lane for offline attribution.
-// See docs/perf-attribution.md and cgo_harness/attribution for the one
+// See the perf-attribution record (Hyphae space m31labs/gotreesitter) and cgo_harness/attribution for the one
 // documented command that drives it end to end.
 
 // attributionCaptureRow is one profiled sample series: either the diagnostic

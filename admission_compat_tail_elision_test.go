@@ -19,7 +19,7 @@ import (
 // admission_switch_candidate.go's tryCompactFullParseRoute skips the
 // C-recovery-swallow resolver and the final-tree compaction pass for a
 // registry-eligible language (see result_compat_elision.go and
-// docs/compat-tail-elision.md). Every test here parses the SAME source
+// the compat-tail elision record (Hyphae space m31labs/gotreesitter)). Every test here parses the SAME source
 // through the SAME compact route twice -- once with elision forced off
 // (SetResultCompatibilityElisionForceDisabledForTest), once with it left at
 // its registry-computed default -- and requires a byte-identical
@@ -303,7 +303,7 @@ type compatTailElisionCorpusEntry struct {
 //
 // This gate does NOT run in CI: cgo_harness/corpus_real is git-ignored and no
 // CI job provisions it, so GTS_ADMISSION_REAL_CORPUS is never set there (see
-// docs/ci-gate-coverage.md). A prior PR cited this test's results as merge
+// the CI gate coverage record (Hyphae space m31labs/gotreesitter)). A prior PR cited this test's results as merge
 // evidence despite that -- both skip paths below print directly to stderr in
 // addition to t.Skip's own message, so the reason is captured verbatim by
 // `go test -json` (which race_root_shards/race_root_isolated already run
@@ -312,7 +312,7 @@ type compatTailElisionCorpusEntry struct {
 // repeat silently.
 func TestCompatTailElisionEquivalenceRealCorpus(t *testing.T) {
 	if os.Getenv("GTS_ADMISSION_REAL_CORPUS") != "1" {
-		reason := "SKIP " + t.Name() + ": GTS_ADMISSION_REAL_CORPUS is not set to 1; this gate requires cgo_harness/corpus_real, which is git-ignored and NOT provisioned by any CI job (see docs/ci-gate-coverage.md) -- its results are not CI evidence"
+		reason := "SKIP " + t.Name() + ": GTS_ADMISSION_REAL_CORPUS is not set to 1; this gate requires cgo_harness/corpus_real, which is git-ignored and NOT provisioned by any CI job (see the CI gate coverage record (Hyphae space m31labs/gotreesitter)) -- its results are not CI evidence"
 		fmt.Fprintln(os.Stderr, reason)
 		t.Skip(reason)
 	}
@@ -378,7 +378,7 @@ var compatTailElisionRaceLanguages = []string{"html", "zig"}
 // normalizeReturnedTreeForParse's own "!tree.resultCompatibilityApplied"
 // guard let an unrelated cancellation, observed strictly AFTER the compact
 // route already produced a complete, accepted tree, discard that good tree
-// instead of returning it. See docs/compat-tail-elision.md's "Corrected
+// instead of returning it. See the compat-tail elision record's "Corrected
 // finding" section.
 //
 // Every trial races a background goroutine's cancellation-flag flip against

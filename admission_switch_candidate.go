@@ -227,7 +227,7 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 	// no live result-compatibility arm (resultCompatibilityElisionActive, see
 	// result_compat_elision.go), two of the three steps below
 	// (resolveCRecoverySwallowedError, maybeCompactReturnedFullTree) are
-	// provably no-ops on THIS route -- see docs/compat-tail-elision.md for the
+	// provably no-ops on THIS route -- see the compat-tail elision record (Hyphae space m31labs/gotreesitter) for the
 	// per-step proof -- so an eligible language skips them. The third step
 	// (normalizeReturnedTreeForParse) is NOT skipped, and its own dispatch
 	// switch (runLanguageResultCompatibility) and error-summary walk
@@ -243,7 +243,7 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 	// is control-flow-identical to normalizeReturnedTreeForParse; it exists
 	// as its own function only so this route's benchmarks and profiles can
 	// name it and so the two no-op steps stay skipped for an eligible
-	// language. See docs/compat-tail-elision.md.
+	// language. See the compat-tail elision record (Hyphae space m31labs/gotreesitter).
 	if resultCompatibilityElisionActive(p.language) {
 		p.finalizeCompactReturnedTreeForParse(tree, source)
 		return tree, true, ""
@@ -259,7 +259,7 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 // compact fresh path. It is NOT a reduced version of that control flow: an
 // earlier version of this function skipped the
 // "!tree.resultCompatibilityApplied" guard's terminal-stop-reason check
-// unconditionally, which was wrong -- see docs/compat-tail-elision.md's
+// unconditionally, which was wrong -- see the compat-tail elision record's
 // "Corrected finding" section for the measured, cross-worktree-verified bug
 // report and the fix below.
 //
@@ -286,7 +286,7 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 // tree that the unmodified tail would have returned successfully.
 //
 // What the elision actually removes for an eligible language, then, is not
-// an O(nodes) walk (see docs/compat-tail-elision.md for why that premise did
+// an O(nodes) walk (see the compat-tail elision record (Hyphae space m31labs/gotreesitter) for why that premise did
 // not hold) but exactly two full-tail calls that are unconditional no-ops on
 // this route regardless of language:
 //
@@ -303,7 +303,7 @@ func (p *Parser) tryCompactFullParseRoute(source []byte) (*Tree, bool, string) {
 //     largest retained arena measured across every real-corpus file this
 //     campaign has for an eligible language is 47.45 MiB
 //     (zig/large__x86.zig) -- an 11x margin below the floor, not a general
-//     claim; see docs/compat-tail-elision.md.
+//     claim; see the compat-tail elision record (Hyphae space m31labs/gotreesitter).
 func (p *Parser) finalizeCompactReturnedTreeForParse(tree *Tree, source []byte) {
 	if !shouldNormalizeReturnedTree(tree) {
 		return

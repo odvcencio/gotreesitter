@@ -4,7 +4,7 @@ import "strings"
 
 // Component is one leaf of the campaign v7 C0 attribution tree. The set is
 // mutually exclusive and collectively exhaustive: classify assigns exactly
-// one component to every CPU-profile sample. See docs/perf-attribution.md for
+// one component to every CPU-profile sample. See the perf-attribution record (Hyphae space m31labs/gotreesitter) for
 // the prose methodology this table implements.
 type Component string
 
@@ -21,7 +21,7 @@ const (
 	// recovery election over compact subtrees. Added in tranche B3 stage S1,
 	// before any recovery engine code exists, per gate G5 ("classifier
 	// first... so recovery cost can never hide in other",
-	// docs/perf-attribution.md). It owns no functions yet -- compact has no
+	// the perf-attribution record (Hyphae space m31labs/gotreesitter)). It owns no functions yet -- compact has no
 	// recovery implementation (B3 stages S2-S5 add error-cost, absorb/
 	// condense-resume, election, and missing-token code class by class) -- so
 	// it reads 0.0% on every clean canonical fixture today, exactly like
@@ -55,7 +55,7 @@ var ComponentOrder = []Component{
 // matches anywhere, the sample lands in ComponentOther).
 //
 // This function is the single source of truth for the attribution boundary
-// rules. docs/perf-attribution.md names the primary anchors in prose; this
+// rules. the perf-attribution record (Hyphae space m31labs/gotreesitter) names the primary anchors in prose; this
 // table is the byte-exact implementation.
 func classifyFunction(fn pbFrame) (Component, bool) {
 	name := fn.Function
@@ -146,7 +146,7 @@ func lookupFunctionOverride(name string) (Component, bool) {
 // by more than one component, so a sample resting in its own frames should be
 // attributed to whichever specific caller reached it instead.
 //
-// Worked examples (see docs/perf-attribution.md):
+// Worked examples (see the perf-attribution record (Hyphae space m31labs/gotreesitter)):
 //   - condense / condenseWithOutcome / condenseWithOutcomeAtomic run from both
 //     Shift (scheduler-dispatch) and reduction-output application
 //     (reductions-and-pops); the walk finds the caller's frame instead.

@@ -886,7 +886,7 @@ jobs:
   # census that counts stack-merge events on both sides and breaks production's
   # refusals down by gate. Every cgo parity lane in this file runs a FIXED
   # --run regex, so a new cgo test runs nowhere unless it is named here; see
-  # docs/ci-gate-coverage.md. This lane names it.
+  # the CI gate coverage record (Hyphae space m31labs/gotreesitter). This lane names it.
   #
   # The census needs its own build tags, so it uses the docker runner's custom
   # command form rather than --run: gts_merge_census compiles the production
@@ -943,7 +943,7 @@ jobs:
         # also named explicitly so their blocker receipt remains executable.
         # Every cgo parity lane in this file runs a FIXED --run regex, so a
         # new cgo test runs nowhere unless it is named here; see
-        # docs/ci-gate-coverage.md. Its CoreNine subtest hard-gates the nine
+        # the CI gate coverage record (Hyphae space m31labs/gotreesitter). Its CoreNine subtest hard-gates the nine
         # core languages; its FleetCensus subtest only logs a census row, so
         # naming the whole test is safe.
         run: |

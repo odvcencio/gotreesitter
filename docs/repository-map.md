@@ -27,7 +27,7 @@ The result-compatibility tier has its own retirement rules in
 [root-normalization-retirement.md](root-normalization-retirement.md). External
 scanner certification and fallback policy live in
 [external-scanners.md](external-scanners.md). Compact admission breadth is
-tracked in [compact-route-coverage-census.md](compact-route-coverage-census.md).
+tracked in the compact-route campaign lifecycle registry under `testdata/`.
 
 ## Package and tool directories
 

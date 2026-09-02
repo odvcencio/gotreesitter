@@ -92,7 +92,7 @@ type Receipt struct {
 	CostPerEventNote string                   `json:"cost_per_event_note"`
 }
 
-const attributionTolerancePP = 0.2 // percentage points; see docs/perf-attribution.md.
+const attributionTolerancePP = 0.2 // percentage points; see the perf-attribution record (Hyphae space m31labs/gotreesitter).
 
 func buildReceipt(cfg config, capture *captureManifest, workcounts map[string]workCountResult, noise []noiseSample) (*Receipt, error) {
 	receipt := &Receipt{

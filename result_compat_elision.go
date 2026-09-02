@@ -9,7 +9,7 @@ import (
 
 // This file computes compat-tail elision eligibility (spec.campaign.v7
 // tranche A5/C1) for the compact fresh path (admission_switch_candidate.go's
-// tryCompactFullParseRoute). See docs/compat-tail-elision.md for the full
+// tryCompactFullParseRoute). See the compat-tail elision record (Hyphae space m31labs/gotreesitter) for the full
 // eligibility mechanism and the equivalence proof for each elided step.
 
 // resultCompatOwnershipRegistryForElision embeds the exact registry file
@@ -99,7 +99,7 @@ func computeResultCompatibilityElisionSet() {
 // tryCompactFullParseRoute, admission_switch_candidate.go): true only when
 // the registry records no live dispatcher arm, dispatcher predicate, or
 // generic pass naming it. This is a computed set, not a maintained list: see
-// computeResultCompatibilityElisionSet and docs/compat-tail-elision.md.
+// computeResultCompatibilityElisionSet and the compat-tail elision record (Hyphae space m31labs/gotreesitter).
 func resultCompatibilityElisionEligible(lang *Language) bool {
 	if lang == nil {
 		return false

@@ -5,7 +5,7 @@
 //
 // It produces one boundary-defined attribution receipt (a markdown table and
 // a JSON file) over the compact parser core's fresh-full-parse CPU, plus a
-// noise floor and a cost-per-event join. See docs/perf-attribution.md for the
+// noise floor and a cost-per-event join. See the perf-attribution record (Hyphae space m31labs/gotreesitter) for the
 // methodology this tool implements and the first published receipt.
 //
 // Usage (from the repository root):
