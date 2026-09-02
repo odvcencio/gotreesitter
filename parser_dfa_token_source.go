@@ -5261,12 +5261,6 @@ func (d *dfaTokenSource) priorGLRState(limit int, state StateID) bool {
 	return false
 }
 
-// parseIterations returns the iteration limit scaled to input size.
-// A correctly-parsed file needs roughly (tokens * grammar_depth) iterations.
-// For typical source (~5 bytes/token, ~10 reduce depth), that's sourceLen*2.
-// We use sourceLen*20 as a generous upper bound that still prevents runaway
-// parsing from OOMing the machine.
-
 // externalScannerQuiescent reports whether the external scanner currently holds
 // no serialized state. By the tree-sitter external-scanner contract, Serialize
 // must persist every bit of scanner state that can change a later scan(); a

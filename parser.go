@@ -2486,21 +2486,13 @@ func (p *Parser) rejectUndrainedPendingForkStacks(s *glrStack) bool {
 	return true
 }
 
-// findRecoverWithMissingAfterReductions extends findRecoverWithMissingShift
+// findRecoverWithMissingAfterReductionsAtStates extends the missing-shift scan
 // with C's handle_error ordering: ts_parser__do_all_potential_reductions runs
 // BEFORE missing-token insertion, so a missing terminal that only becomes
 // shiftable after pending reductions (jq's `?` after `if … end`) is still
 // found. It chases the chain of reduce actions available for ANY lookahead at
 // the current state (bounded), re-running the missing-shift scan after each
 // step, and returns the reduce chain to apply plus the discovered candidate.
-func (p *Parser) findRecoverWithMissingAfterReductions(s *glrStack, state StateID, lookahead Symbol) ([]ParseAction, Symbol, ParseAction, bool) {
-	if p == nil || p.language == nil || s == nil {
-		return nil, 0, ParseAction{}, false
-	}
-	baseStates := p.collectStackStates(s)
-	return p.findRecoverWithMissingAfterReductionsAtStates(baseStates, state, lookahead, nil, nil)
-}
-
 func (p *Parser) findRecoverWithMissingAfterReductionsAtStates(baseStates []StateID, state StateID, lookahead Symbol, reduceScratch, simScratch *[]StateID) ([]ParseAction, Symbol, ParseAction, bool) {
 	if len(baseStates) == 0 {
 		return nil, 0, ParseAction{}, false
@@ -2572,8 +2564,8 @@ func (p *Parser) anyLookaheadReduceAction(state StateID) (ParseAction, bool) {
 	return found, have
 }
 
-// findRecoverWithMissingShiftAtStates is findRecoverWithMissingShift's scan
-// over an explicit (simulated) state chain instead of the live stack.
+// findRecoverWithMissingShiftAtStates scans an explicit (simulated) state chain
+// instead of the live stack.
 func (p *Parser) findRecoverWithMissingShiftAtStates(baseStates []StateID, state StateID, lookahead Symbol) (Symbol, ParseAction, bool) {
 	return p.findRecoverWithMissingShiftAtStatesScratch(baseStates, state, lookahead, nil)
 }
@@ -2617,28 +2609,6 @@ func (p *Parser) findRecoverWithMissingShiftAtStatesScratch(baseStates []StateID
 		}
 	}
 	return 0, ParseAction{}, false
-}
-
-// findRecoverWithMissingShift mirrors tree-sitter's ts_parser__recover_with_missing
-// (lib/src/parser.c). It walks terminal symbols in ascending id order; for each it
-// computes the shift target (ts_language_next_state) and checks that the target
-// state has a leading reduce action on the real lookahead (ts_language_has_reduce_action).
-// The candidate is then confirmed by simulating ts_parser__do_all_potential_reductions:
-// the missing terminal is only accepted when, after applying every available
-// reduction, some reachable state can SHIFT the real lookahead. The first symbol
-// that passes wins, exactly matching the C runtime's lowest-id selection.
-func (p *Parser) findRecoverWithMissingShift(s *glrStack, state StateID, lookahead Symbol) (Symbol, ParseAction, bool) {
-	if p == nil || p.language == nil || s == nil {
-		return 0, ParseAction{}, false
-	}
-	// Materialize the current stack's state chain once; the per-candidate
-	// reduction simulation works on a scratch copy so the real stack is never
-	// mutated.
-	baseStates := p.collectStackStates(s)
-	if len(baseStates) == 0 {
-		return 0, ParseAction{}, false
-	}
-	return p.findRecoverWithMissingShiftAtStates(baseStates, state, lookahead)
 }
 
 // collectStackStates returns the chain of parser states for s, bottom-to-top.
@@ -8013,11 +7983,6 @@ func (p *Parser) traceStackActions(stackIndex int, state StateID, symbol Symbol,
 	}
 }
 
-func deterministicExternalConflictAction(actions []ParseAction) ParseAction {
-	chosen, _, _ := deterministicExternalConflictActionAt(actions)
-	return chosen
-}
-
 func deterministicExternalConflictActionAt(actions []ParseAction) (ParseAction, int, bool) {
 	if len(actions) == 0 {
 		return ParseAction{}, -1, false
@@ -8729,20 +8694,6 @@ func typeScriptContextualKeywordHasFollowingOperand(tok Token, source []byte) bo
 	default:
 		return true
 	}
-}
-
-func allReducesHaveSymbol(lang *Language, actions []ParseAction, name string) bool {
-	found := false
-	for _, act := range actions {
-		if act.Type != ParseActionReduce {
-			continue
-		}
-		if !symbolHasName(lang, act.Symbol, name) {
-			return false
-		}
-		found = true
-	}
-	return found
 }
 
 func symbolHasName(lang *Language, sym Symbol, name string) bool {
