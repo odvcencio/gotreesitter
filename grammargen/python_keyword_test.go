@@ -151,6 +151,39 @@ func TestPythonGenerateLanguageEmitsReservedWords(t *testing.T) {
 	}
 }
 
+func TestPythonGeneratedBooleanKeywordsAreLeafTokens(t *testing.T) {
+	gram := loadPythonGrammarJSONForTest(t)
+	ng, err := Normalize(gram)
+	if err != nil {
+		t.Fatalf("normalize Python grammar: %v", err)
+	}
+	for _, name := range []string{"true", "false", "none"} {
+		if got := symbolKind(t, ng, name); got != SymbolNamedToken {
+			t.Fatalf("%s kind = %v, want SymbolNamedToken", name, got)
+		}
+	}
+
+	lang, err := GenerateLanguage(gram)
+	if err != nil {
+		t.Fatalf("GenerateLanguage: %v", err)
+	}
+	tree, err := gotreesitter.NewParser(lang).Parse([]byte("True\nFalse\nNone\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	defer tree.Release()
+	root := tree.RootNode()
+	if root.HasError() || root.ChildCount() != 3 {
+		t.Fatalf("tree = %s, want three clean children", root.SExpr(lang))
+	}
+	for i := 0; i < root.ChildCount(); i++ {
+		child := root.Child(i)
+		if got := child.ChildCount(); got != 0 {
+			t.Fatalf("child %d (%s) has %d children, want leaf; tree=%s", i, child.Type(lang), got, root.SExpr(lang))
+		}
+	}
+}
+
 func TestPythonGeneratedLanguageEnablesCRecoveryCostCompetitionByDefault(t *testing.T) {
 	gram := loadPythonGrammarJSONForTest(t)
 	lang, err := GenerateLanguage(gram)
