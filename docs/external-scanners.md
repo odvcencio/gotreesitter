@@ -576,7 +576,7 @@ silently widening HTML admission.
 | `ron` | certified reuse |
 | `rst` | fallback (uncertified) |
 | `ruby` | fallback (uncertified) |
-| `rust` | fallback (uncertified) |
+| `rust` | certified reuse |
 | `scala` | fallback (uncertified) |
 | `scss` | certified reuse |
 | `sql` | certified reuse |
