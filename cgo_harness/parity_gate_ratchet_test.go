@@ -43,6 +43,7 @@ var javascriptParityRegressionCITests = []string{
 // Update these thresholds only when intentionally tightening/loosening policy.
 func TestParityGateCoverageRatchet(t *testing.T) {
 	assertJavaScriptRegressionWorkflowCoverage(t)
+	assertRequiredBuildFreshness(t)
 
 	if got := len(curatedStructuralLanguages); got < minCuratedStructuralLanguages {
 		t.Fatalf("curatedStructuralLanguages shrank: got=%d min=%d", got, minCuratedStructuralLanguages)
@@ -77,6 +78,54 @@ func TestParityGateCoverageRatchet(t *testing.T) {
 	if got := len(paritySkips); got > maxParitySkips {
 		t.Fatalf("paritySkips grew: got=%d max=%d", got, maxParitySkips)
 	}
+}
+
+func assertRequiredBuildFreshness(t *testing.T) {
+	t.Helper()
+
+	workflow, err := os.ReadFile("../.github/workflows/ci.yml")
+	if err != nil {
+		t.Fatalf("read CI workflow: %v", err)
+	}
+	build := workflowJobBlock(string(workflow), "build")
+	if build == "" {
+		t.Fatal("CI workflow is missing the build job")
+	}
+
+	for _, required := range []string{
+		"      - freshness",
+		"          FRESHNESS_RESULT: ${{ needs.freshness.result }}",
+		`          require_success "freshness" "$FRESHNESS_RESULT"`,
+	} {
+		if !strings.Contains(build, required) {
+			t.Errorf("CI build aggregate is missing freshness contract %q", required)
+		}
+	}
+}
+
+func workflowJobBlock(workflow, job string) string {
+	lines := strings.Split(workflow, "\n")
+	header := "  " + job + ":"
+	start := -1
+	for i, line := range lines {
+		if line == header {
+			start = i
+			break
+		}
+	}
+	if start < 0 {
+		return ""
+	}
+
+	end := len(lines)
+	for i := start + 1; i < len(lines); i++ {
+		line := lines[i]
+		if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "    ") && strings.HasSuffix(line, ":") {
+			end = i
+			break
+		}
+	}
+	return strings.Join(lines[start:end], "\n")
 }
 
 func assertJavaScriptRegressionWorkflowCoverage(t *testing.T) {

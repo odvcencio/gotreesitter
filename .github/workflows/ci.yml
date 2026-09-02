@@ -546,6 +546,7 @@ jobs:
       - compact-t3-oracle-cgo
       - merge-event-census-cgo
       - parity-cgo-exhaustive
+      - freshness
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -568,6 +569,7 @@ jobs:
           COMPACT_T3_ORACLE_CGO_RESULT: ${{ needs.compact-t3-oracle-cgo.result }}
           MERGE_EVENT_CENSUS_CGO_RESULT: ${{ needs.merge-event-census-cgo.result }}
           EXHAUSTIVE_PARITY_RESULT: ${{ needs.parity-cgo-exhaustive.result }}
+          FRESHNESS_RESULT: ${{ needs.freshness.result }}
         run: |
           set -euo pipefail
           failed=0
@@ -596,6 +598,7 @@ jobs:
             exit 1
           fi
 
+          require_success "freshness" "$FRESHNESS_RESULT"
           require_success "compile" "$COMPILE_RESULT"
           require_success "selected_store_admission" "$SELECTED_STORE_ADMISSION_RESULT"
           require_success "compact_admission_ratchet" "$COMPACT_ADMISSION_RATCHET_RESULT"
