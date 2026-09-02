@@ -832,6 +832,12 @@ func (p *Parser) scanTokenInvariantEditedLeaf(source []byte, ts TokenSource, lea
 	if ok {
 		return tok, true
 	}
+	if p != nil && languageUsesExternalScannerCheckpoints(p.language) {
+		// The checkpoint scan authenticates both scanner boundary states. A
+		// fresh scanner can reproduce the token symbol and span while ending in
+		// different state. Do not replace a failed checkpoint proof with it.
+		return Token{}, false
+	}
 	if tok, ok = p.scanLeafTokenWithFreshSource(source, leaf, tokenSourceHasDFABase(ts)); ok {
 		return tok, true
 	}
@@ -942,6 +948,9 @@ func scanLeafTokenWithoutMutatingSource(ts TokenSource, leaf *Node) (Token, bool
 		if !ok {
 			return Token{}, false
 		}
+		if languageUsesExternalScannerCheckpoints(base.language) {
+			return scanIncludedRangeLeafTokenWithExternalCheckpoint(typed, base, leaf)
+		}
 		snapshot, ok := prepareDFALeafScan(base, leaf)
 		if !ok {
 			return Token{}, false
@@ -954,6 +963,37 @@ func scanLeafTokenWithoutMutatingSource(ts TokenSource, leaf *Node) (Token, bool
 	default:
 		return Token{}, false
 	}
+}
+
+func scanIncludedRangeLeafTokenWithExternalCheckpoint(ts *includedRangeTokenSource, dts *dfaTokenSource, leaf *Node) (Token, bool) {
+	if ts == nil || dts == nil || dts.lexer == nil || leaf == nil {
+		return Token{}, false
+	}
+	cp, ok := externalScannerCheckpointForNode(leaf)
+	if !ok {
+		return Token{}, false
+	}
+	snapshot, ok := snapshotDFATokenSourceState(dts)
+	if !ok {
+		return Token{}, false
+	}
+	idx := ts.idx
+	defer func() {
+		restoreDFATokenSourceState(dts, snapshot)
+		ts.idx = idx
+	}()
+
+	dts.state = leaf.preGotoState
+	dts.glrStates = nil
+	dts.restoreExternalScannerState(cp.start)
+	tok := ts.SkipToByteWithPoint(leaf.startByte, leaf.startPoint)
+	if tok.Symbol != leaf.symbol || tok.StartByte != leaf.startByte || tok.EndByte != leaf.endByte {
+		return Token{}, false
+	}
+	if !dts.externalScannerStateMatches(cp.end) {
+		return Token{}, false
+	}
+	return tok, true
 }
 
 func scanDFALeafTokenWithoutMutatingSource(dts *dfaTokenSource, leaf *Node) (Token, bool) {

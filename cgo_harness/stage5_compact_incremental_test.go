@@ -233,38 +233,38 @@ func TestStage5CompactPythonScannerCheckpointReuse(t *testing.T) {
 
 // TestStage5PythonSameLengthScannerDelimiterParity proves the conservative
 // same-length scanner-state lane against both C fresh and C incremental trees.
-// It changes a regular string with literal braces into a real f-string
-// interpolation without changing the byte span. The changed token cannot use
-// the one-leaf authentication path, so the prefix guard must parse fresh.
+// It changes only the u prefix to f. Both scans produce the same string_start
+// token and span, but only the f prefix enables interpolation. The checkpoint
+// end state must reject leaf reuse and send the compact route to a fresh parse.
 func TestStage5PythonSameLengthScannerDelimiterParity(t *testing.T) {
 	source := []byte("def first(value):\n    return u\"{x}\"\n\ndef second(value):\n    return \"unchanged\"\n")
-	oldText := []byte("u\"{x}\"")
-	replacement := []byte("f'{x}'")
-	offset := bytes.Index(source, oldText)
-	if offset < 0 || len(oldText) != len(replacement) {
-		t.Fatalf("same-length delimiter witness is malformed: offset=%d old=%d new=%d", offset, len(oldText), len(replacement))
+	marker := []byte("u\"{x}\"")
+	offset := bytes.Index(source, marker)
+	if offset < 0 {
+		t.Fatalf("same-length delimiter witness is malformed: offset=%d", offset)
 	}
-	edited := make([]byte, 0, len(source))
-	edited = append(edited, source[:offset]...)
-	edited = append(edited, replacement...)
-	edited = append(edited, source[offset+len(oldText):]...)
+	edited := append([]byte(nil), source...)
+	edited[offset] = 'f'
 	edit := gotreesitter.InputEdit{
 		StartByte:   uint32(offset),
-		OldEndByte:  uint32(offset + len(oldText)),
-		NewEndByte:  uint32(offset + len(replacement)),
+		OldEndByte:  uint32(offset + 1),
+		NewEndByte:  uint32(offset + 1),
 		StartPoint:  pointAtOffset(source, offset),
-		OldEndPoint: pointAtOffset(source, offset+len(oldText)),
-		NewEndPoint: pointAtOffset(edited, offset+len(replacement)),
+		OldEndPoint: pointAtOffset(source, offset+1),
+		NewEndPoint: pointAtOffset(edited, offset+1),
 	}
 
 	goLang := grammars.PythonLanguage()
 	goParser := gotreesitter.NewParser(goLang)
-	goParser.SetAdmissionCandidateRoute(false)
+	goParser.SetAdmissionCandidateRoute(true)
 	goOld, err := goParser.Parse(source)
 	if err != nil {
 		t.Fatalf("Go same-length old parse: %v", err)
 	}
 	t.Cleanup(goOld.Release)
+	if !goOld.ParseRuntime().CompactExternalScannerCheckpointTransferProven {
+		t.Fatalf("Go same-length old parse did not use the compact checkpoint route: %+v", goOld.ParseRuntime())
+	}
 	goOld.Edit(edit)
 	goIncremental, profile, err := goParser.ParseIncrementalProfiled(edited, goOld)
 	if err != nil {

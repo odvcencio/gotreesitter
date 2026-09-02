@@ -313,6 +313,86 @@ func TestExternalScannerDerivedSameLengthTokenChangeInvalidatesScannerReuse(t *t
 	}
 }
 
+// TestPythonSameSymbolScannerStateEditFallsBack proves that token identity and
+// width do not authenticate an external-scanner transition. Python scans both
+// prefixes as string_start, but only the f prefix enables interpolation.
+func TestPythonSameSymbolScannerStateEditFallsBack(t *testing.T) {
+	source := []byte("def first(value):\n    return u\"{x}\"\n\ndef second(value):\n    return \"unchanged\"\n")
+	marker := []byte("u\"{x}\"")
+	offset := bytes.Index(source, marker)
+	if offset < 0 {
+		t.Fatal("locked Python scanner-state witness is malformed")
+	}
+	edited := append([]byte(nil), source...)
+	edited[offset] = 'f'
+	edit := gotreesitter.InputEdit{
+		StartByte:   uint32(offset),
+		OldEndByte:  uint32(offset + 1),
+		NewEndByte:  uint32(offset + 1),
+		StartPoint:  pointForOffset(source, offset),
+		OldEndPoint: pointForOffset(source, offset+1),
+		NewEndPoint: pointForOffset(edited, offset+1),
+	}
+
+	for _, route := range []struct {
+		name           string
+		includedRanges bool
+	}{
+		{name: "direct"},
+		{name: "included_range", includedRanges: true},
+	} {
+		route := route
+		t.Run(route.name, func(t *testing.T) {
+			lang := grammars.PythonLanguage()
+			parser := gotreesitter.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(false)
+			if route.includedRanges {
+				parser.SetIncludedRanges([]gotreesitter.Range{{
+					StartByte: 0,
+					EndByte:   uint32(len(source)),
+					EndPoint:  pointForOffset(source, len(source)),
+				}})
+			}
+			oldTree, err := parser.Parse(source)
+			if err != nil {
+				t.Fatalf("old parse: %v", err)
+			}
+			defer oldTree.Release()
+			oldTree.Edit(edit)
+			incremental, profile, err := parser.ParseIncrementalProfiled(edited, oldTree)
+			if err != nil {
+				t.Fatalf("incremental parse: %v", err)
+			}
+			if incremental != oldTree {
+				defer incremental.Release()
+			}
+			if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_prefix_frontier_unproven" ||
+				profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+				t.Fatalf("same-symbol scanner-state edit bypassed prefix fallback: %+v", profile)
+			}
+			if profile.TokensConsumed == 0 || profile.NewNodesAllocated == 0 {
+				t.Fatalf("same-symbol scanner-state edit did not execute a fresh parse: %+v", profile)
+			}
+
+			freshParser := gotreesitter.NewParser(lang)
+			freshParser.SetAdmissionCandidateRoute(false)
+			if route.includedRanges {
+				freshParser.SetIncludedRanges([]gotreesitter.Range{{
+					StartByte: 0,
+					EndByte:   uint32(len(edited)),
+					EndPoint:  pointForOffset(edited, len(edited)),
+				}})
+			}
+			fresh, err := freshParser.Parse(edited)
+			if err != nil {
+				t.Fatalf("fresh parse: %v", err)
+			}
+			defer fresh.Release()
+			requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
+		})
+	}
+}
+
 func TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback(t *testing.T) {
 	for _, languageCase := range pythonDerivedIncrementalCases() {
 		languageCase := languageCase
