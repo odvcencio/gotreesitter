@@ -1,6 +1,6 @@
 {
   "schema": "gotreesitter/compact-route-campaign-inventory/v1",
-  "source_revision": "2455af16a52e4a886ae5a32842a98bb623f6671c",
+  "source_revision": "7f0c7661deceabe70ea303099a2af10ce9f8dfe9",
   "scope": "Graduation-critical build tags and environment controls.",
   "entries": [
     {"id":"build-parsercorephase0","kind":"build_tag","identifier":"gts_parsercorephase0","owner":"graph_head_lifecycle","stage":2,"status":"graduated","lifecycle_control":"build.phase0.internal","gate":"Equivalent physical heads retain every node, error region, lineage, and checkpoint.","final_receipt":"stage-2-physical-graph-head-merge","deletion_condition":"Delete the diagnostic build tag after the physical-head topology receipt is current."},
