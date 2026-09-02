@@ -1,11 +1,16 @@
 {
   "schema": "gts-locked-static-c-timing-build-recipe/v3",
   "status": "source_only_unbuilt",
-  "variant_note": "The strict-boundary Confidential Space image uses this ten-second driver. The wrapper sets GTS_TIMING_ORACLE_MIN_ELAPSED_NS and includes the canonical implementation. The canonical driver keeps the 750-millisecond default. The build recipe records the wrapper and its source hash.",
+  "variant_note": "The strict-boundary Confidential Space image uses this ten-second driver. The wrapper sets GTS_TIMING_ORACLE_MIN_ELAPSED_NS and includes the canonical implementation. The canonical driver keeps the 750-millisecond default. The build recipe records the wrapper hash and the complete source closure.",
   "target": "linux/amd64",
   "driver": {
     "path": "cgo_harness/pure_c/go_timing_oracle_10s.c",
-    "sha256": "0871c45d4c77b0488b67bd171374b5ac318304f04cb95655dc1a01863edb8d27"
+    "sha256": "0871c45d4c77b0488b67bd171374b5ac318304f04cb95655dc1a01863edb8d27",
+    "source_closure": [
+      {"path": "cgo_harness/pure_c/go_timing_oracle.c", "sha256": "e1f9b2b98babe1710136471ab32c66edf6a7e7559090562b15341c85497a5c01"},
+      {"path": "cgo_harness/pure_c/go_timing_oracle_10s.c", "sha256": "0871c45d4c77b0488b67bd171374b5ac318304f04cb95655dc1a01863edb8d27"}
+    ],
+    "source_closure_sha256": "3957bfdd67c789f88fd024eb1806d40ac267d67f7d03091c874b069307521942"
   },
   "runtime": {
     "commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",

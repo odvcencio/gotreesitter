@@ -103,6 +103,9 @@ func TestFrozenRecipeParsesAndPassesStaticPolicy(t *testing.T) {
 	if err := verifyRecipe(&recipe); err != nil {
 		t.Fatalf("verify recipe: %v", err)
 	}
+	if err := verifyDriverSourceClosure(filepath.Join("..", "..", ".."), recipe.Driver); err != nil {
+		t.Fatalf("verify recipe source closure: %v", err)
+	}
 	driver, err := os.ReadFile("../../pure_c/go_timing_oracle.c")
 	if err != nil {
 		t.Fatal(err)
@@ -153,10 +156,101 @@ func TestTimingOracleTenSecondWrapperSharesCanonicalImplementation(t *testing.T)
 	if err := verifyRecipe(&recipe); err != nil {
 		t.Fatalf("verify ten-second recipe: %v", err)
 	}
+	if err := verifyDriverSourceClosure(filepath.Join("..", "..", ".."), recipe.Driver); err != nil {
+		t.Fatalf("verify ten-second source closure: %v", err)
+	}
 	if recipe.Driver.Path != "cgo_harness/pure_c/go_timing_oracle_10s.c" {
 		t.Fatalf("ten-second recipe driver path = %q", recipe.Driver.Path)
 	}
 	if got := hashBytes(tenSecond); got != recipe.Driver.SHA256 {
 		t.Fatalf("ten-second recipe driver hash = %s, source hash = %s", recipe.Driver.SHA256, got)
+	}
+}
+
+func TestTimingOracleSourceClosureRejectsIncludedSourceMutation(t *testing.T) {
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3_enclave_10s.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode ten-second recipe: %v", err)
+	}
+	sourceBase := t.TempDir()
+	repoRoot := filepath.Join("..", "..", "..")
+	for _, binding := range recipe.Driver.SourceClosure {
+		data, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(binding.Path)))
+		if err != nil {
+			t.Fatalf("read %s: %v", binding.Path, err)
+		}
+		path := filepath.Join(sourceBase, filepath.FromSlash(binding.Path))
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	canonicalPath := filepath.Join(sourceBase, filepath.FromSlash("cgo_harness/pure_c/go_timing_oracle.c"))
+	canonical, err := os.ReadFile(canonicalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical = append(canonical, '\n')
+	if err := os.WriteFile(canonicalPath, canonical, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyDriverSourceClosure(sourceBase, recipe.Driver); err == nil {
+		t.Fatal("source closure accepted a mutation to the included canonical source")
+	}
+}
+
+func TestTimingOracleSourceClosureRejectsClosureHashMutation(t *testing.T) {
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3_enclave_10s.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode ten-second recipe: %v", err)
+	}
+	recipe.Driver.SourceClosureSHA256 = strings.Repeat("a", 64)
+	if err := verifyRecipe(&recipe); err == nil {
+		t.Fatal("recipe accepted a mutated source closure hash")
+	}
+}
+
+func TestArtifactSourceClosureRejectsClosureHashMutation(t *testing.T) {
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3_enclave_10s.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode ten-second recipe: %v", err)
+	}
+	inputs := buildInputs{
+		SourceClosure:       recipe.Driver.SourceClosure,
+		SourceClosureSHA256: recipe.Driver.SourceClosureSHA256,
+	}
+	inputs.SourceClosureSHA256 = strings.Repeat("b", 64)
+	if err := verifyBuildSourceClosure(inputs, recipe.Driver); err == nil {
+		t.Fatal("artifact inputs accepted a mutated source closure hash")
+	}
+}
+
+func TestRecipeRejectsMissingSourceClosure(t *testing.T) {
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode recipe: %v", err)
+	}
+	recipe.Driver.SourceClosure = nil
+	recipe.Driver.SourceClosureSHA256 = ""
+	if err := verifyRecipe(&recipe); err == nil {
+		t.Fatal("recipe accepted missing source closure binding")
 	}
 }

@@ -4,7 +4,11 @@
   "target": "linux/amd64",
   "driver": {
     "path": "cgo_harness/pure_c/go_timing_oracle.c",
-    "sha256": "e1f9b2b98babe1710136471ab32c66edf6a7e7559090562b15341c85497a5c01"
+    "sha256": "e1f9b2b98babe1710136471ab32c66edf6a7e7559090562b15341c85497a5c01",
+    "source_closure": [
+      {"path": "cgo_harness/pure_c/go_timing_oracle.c", "sha256": "e1f9b2b98babe1710136471ab32c66edf6a7e7559090562b15341c85497a5c01"}
+    ],
+    "source_closure_sha256": "675602eeea7ee6923bd91f7cf128c8bb4fb19d468618338c16260aae303b2178"
   },
   "runtime": {
     "commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",
