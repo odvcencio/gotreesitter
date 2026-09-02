@@ -198,6 +198,63 @@ func TestCheckpointedScannerWithoutPrefixFrontierRequirementKeepsReuse(t *testin
 	requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
 }
 
+// TestCheckpointedScannerPrefixFrontierAllowsSoleChildReuse proves that a
+// prefix-sensitive scanner can reuse unchanged leaves when the old root has
+// one structural child. There is no later top-level reduction whose ownership
+// can cross the edit, so the ordinary parser-state and scanner checkpoints are
+// sufficient.
+func TestCheckpointedScannerPrefixFrontierAllowsSoleChildReuse(t *testing.T) {
+	source := []byte("def classify(value):\n    if value:\n        return \"present\"\n    return \"missing\"\n")
+	const offset = 60
+	if offset >= len(source) || source[offset] != ' ' {
+		t.Fatalf("sole-child witness changed at byte %d: got %q", offset, source[offset])
+	}
+	edited := append(append([]byte(nil), source[:offset]...), append([]byte("    "), source[offset:]...)...)
+	edit := gts.InputEdit{
+		StartByte:   offset,
+		OldEndByte:  offset,
+		NewEndByte:  offset + 4,
+		StartPoint:  pointForOffset(source, offset),
+		OldEndPoint: pointForOffset(source, offset),
+		NewEndPoint: pointForOffset(edited, offset+4),
+	}
+
+	lang := grammars.PythonLanguage()
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	oldTree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatalf("old parse: %v", err)
+	}
+	defer oldTree.Release()
+	if got := oldTree.RootNode().ChildCount(); got != 1 {
+		t.Fatalf("sole-child witness root children=%d, want 1", got)
+	}
+	oldTree.Edit(edit)
+	incremental, profile, err := parser.ParseIncrementalProfiled(edited, oldTree)
+	if err != nil {
+		t.Fatalf("incremental parse: %v", err)
+	}
+	defer incremental.Release()
+	if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute {
+		t.Fatalf("sole-child edit did not stay on reuse route: %+v", profile)
+	}
+	if profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
+		t.Fatalf("sole-child edit lost unchanged-leaf reuse: %+v", profile)
+	}
+
+	freshParser := gts.NewParser(lang)
+	freshParser.SetAdmissionCandidateRoute(false)
+	fresh, err := freshParser.Parse(edited)
+	if err != nil {
+		t.Fatalf("fresh parse: %v", err)
+	}
+	defer fresh.Release()
+	requireCompleteParse(t, incremental, edited, lang, "incremental")
+	requireCompleteParse(t, fresh, edited, lang, "fresh")
+	requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
+}
+
 // TestCheckpointedScannerPrefixFrontierCatchesSuffixDelete covers the
 // post-edit boundary case where a deletion moves the first child end to the
 // edit start. The old raw-coordinate check treated that boundary as clean.
