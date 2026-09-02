@@ -40,6 +40,8 @@ func TestMergeCensusTotalsAggregatesPhysicalHeadMergeTelemetry(t *testing.T) {
 			CompactPhysicalHeadMergeAttempts:   3,
 			CompactPhysicalHeadMergeSuccesses:  2,
 			CompactPhysicalHeadMergeInputLinks: 5,
+			MixedRepresentationMergeAttempts:   4,
+			MixedRepresentationMergeSuccesses:  1,
 		},
 	})
 	totals.add(mergeCensusRow{
@@ -48,12 +50,16 @@ func TestMergeCensusTotalsAggregatesPhysicalHeadMergeTelemetry(t *testing.T) {
 			CompactPhysicalHeadMergeAttempts:   7,
 			CompactPhysicalHeadMergeSuccesses:  4,
 			CompactPhysicalHeadMergeInputLinks: 9,
+			MixedRepresentationMergeAttempts:   6,
+			MixedRepresentationMergeSuccesses:  3,
 		},
 	})
 	if totals.CompactPhysicalAttempts != 10 || totals.CompactPhysicalSuccesses != 6 ||
-		totals.CompactPhysicalInputLinks != 14 {
-		t.Fatalf("physical merge totals=%d/%d/%d, want 10/6/14",
+		totals.CompactPhysicalInputLinks != 14 || totals.MixedRepresentationAttempts != 10 ||
+		totals.MixedRepresentationSuccesses != 4 {
+		t.Fatalf("merge totals physical=%d/%d/%d mixed=%d/%d, want physical=10/6/14 mixed=10/4",
 			totals.CompactPhysicalAttempts, totals.CompactPhysicalSuccesses, totals.CompactPhysicalInputLinks,
+			totals.MixedRepresentationAttempts, totals.MixedRepresentationSuccesses,
 		)
 	}
 }
@@ -121,7 +127,7 @@ var mergeCensusBaselineConstructed = map[string]struct {
 	// Clean-suffix reset removes four redundant Kotlin merges. Exact C tree
 	// parity remains pinned by TestKotlinRecoverySuffixSourcesMatchC.
 	"kotlin": {Sources: 13, CMergeSuccesses: 54, GoSuccesses: 8, RefuseNoGSSHead: 2, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 8, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 3},
-	"python": {Sources: 26, CMergeSuccesses: 2, GoSuccesses: 0, RefuseNoGSSHead: 9, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 2},
+	"python": {Sources: 30, CMergeSuccesses: 2, GoSuccesses: 0, RefuseNoGSSHead: 9, RefuseScoreOrShifted: 0, RefuseDistinctShapes: 0, LinkPayloadShallowWouldAccept: 0, SourcesWhereGoOverMerges: 0, SourcesWhereCMergesAndGoDoesNot: 2},
 }
 
 // The M0 pinned aggregate over the five A3 sweep corpora's constructed
@@ -133,8 +139,8 @@ const (
 	mergeCensusBaselineCMerges  uint64 = 191
 	mergeCensusBaselineGoMerges uint64 = 11
 	// mergeCensusBaselineSources is the constructed-source denominator, the
-	// same 104 sources D0 measures.
-	mergeCensusBaselineSources = 104
+	// same 108 sources D0 measures.
+	mergeCensusBaselineSources = 108
 )
 
 // TestMergeEventCensusBaseline publishes the M0 baseline: how many merges the
@@ -271,9 +277,10 @@ func TestMergeEventCensusBaseline(t *testing.T) {
 
 func mergeCensusFormatTotals(label string, t *mergeCensusTotals) string {
 	return fmt.Sprintf(
-		"%-22s sources=%3d M_c=%6d M_p=%6d ratio=%-8s c-attempts=%7d go-attempts=%7d over-merge-sources=%d c-merges-go-does-not=%d | refusals: %s | tier2: %s | compact: accepted=%d union-attempts=%d union-appends=%d physical-attempts=%d physical-successes=%d physical-input-links=%d",
+		"%-22s sources=%3d M_c=%6d M_p=%6d ratio=%-8s c-attempts=%7d go-attempts=%7d over-merge-sources=%d c-merges-go-does-not=%d | mixed=%d/%d | refusals: %s | tier2: %s | compact: accepted=%d union-attempts=%d union-appends=%d physical-attempts=%d physical-successes=%d physical-input-links=%d",
 		label, t.Sources, t.CMergeSuccesses, t.GoSuccesses, t.ratioText(),
 		t.CMergeAttempts, t.GoAttempts, t.SourcesWhereGoOverMerges, t.SourcesWhereCMergesAndGoDoesNot,
+		t.MixedRepresentationAttempts, t.MixedRepresentationSuccesses,
 		t.refusalLine(), t.linkPayloadLine(),
 		t.CompactAccepted, t.CompactUnionAttempt, t.CompactUnionAppend,
 		t.CompactPhysicalAttempts, t.CompactPhysicalSuccesses, t.CompactPhysicalInputLinks,

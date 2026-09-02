@@ -25,6 +25,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactEOFAcceptNoActionSiblings    bool
 	compactPrimaryAcceptDerivation      bool
 	compactAcceptanceStructuralElection bool
+	compactMixedGSSMerge                bool
 	compactLexerSkippedPrefixTiling     bool
 	exactStackNodeEquivalence           bool
 	compactPackedGSSVersionOrder        bool
@@ -351,16 +352,21 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 		},
 	},
-	// Python's tied tuple-assignment election matches the C oracle once the
-	// compact route selects the sole primary derivation. Full-corpus
-	// field-aware C-oracle verification certifies this mechanism for this
-	// exact blob, alongside the existing converged-path split-drop
-	// certification (A3 certification workstream, spec.campaign.v7).
+	// Python's tuple-assignment and f-string interpolation ties match the C
+	// oracle when the compact route applies C's raw subtree ordering. The
+	// selection is clean-only and has no recovery authority. Full-corpus,
+	// field-aware C-oracle verification certifies this exact blob for the
+	// structural election and the existing converged-path split-drop and
+	// primary-acceptance mechanisms (A3 certification workstream,
+	// spec.campaign.v7). The mixed flat/GSS receiver path is also certified
+	// for this exact artifact.
 	"python": {
-		blobSHA256:                     mustRuntimeProfileSHA256("cde4a67dc6af6e1232dbbd1eab8618478d1d73727020e8a8002542390a452d37"),
-		externalScannerFullParseRetry:  gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
-		compactConvergedSplitDrops:     true,
-		compactPrimaryAcceptDerivation: true,
+		blobSHA256:                          mustRuntimeProfileSHA256("cde4a67dc6af6e1232dbbd1eab8618478d1d73727020e8a8002542390a452d37"),
+		externalScannerFullParseRetry:       gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
+		compactConvergedSplitDrops:          true,
+		compactPrimaryAcceptDerivation:      true,
+		compactAcceptanceStructuralElection: true,
+		compactMixedGSSMerge:                true,
 	},
 	// Perl's tied push-list election matches the C oracle once the compact
 	// route accepts after a converged-path split drop and selects the sole
@@ -746,6 +752,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactAcceptanceStructuralElection && !lang.CompactAcceptanceStructuralElectionCertified {
 		lang.CompactAcceptanceStructuralElectionCertified = true
+		changed = true
+	}
+	if profile.compactMixedGSSMerge && !lang.CompactMixedGSSMergeCertified {
+		lang.CompactMixedGSSMergeCertified = true
 		changed = true
 	}
 	if profile.compactLexerSkippedPrefixTiling && !lang.CompactLexerSkippedPrefixTilingCertified {

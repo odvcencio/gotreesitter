@@ -14,31 +14,12 @@ import (
 
 // TestPythonSchedulerActionLoadBearingCOracleParity is an A3
 // (spec.campaign.v7, Workstream A tranche A3) adversarial probe for the
-// dispatch.python arm (parser_result_python.go,
-// normalizePythonCompatibilityWithParser). It pins the one rewrite the
-// real-corpus dispatcher census observed firing: the assignment-right
-// expression-list rewrite inside normalizePythonFusedPreorder
-// (cgo_harness/corpus_real/python/large__python3.8_grammar.py, "xyz = x, y,
-// z"). Each witness is proven load-bearing two ways: the RAW production
-// tree (result-compatibility tail off) diverges from the locked C oracle,
-// and the NORMALIZED tree (compat tail on) matches it exactly.
+// Python result path. It covers the assignment-list witness from the real
+// corpus and two smaller comma-tuple witnesses. The raw producer tree and
+// the normal parse must both match the locked C oracle.
 //
-// dispatch.python cannot retire yet: this is the arm's uniform retirement
-// condition (testdata/result_compat_ownership_v1.json) failing on the
-// authoritative owner (scheduler_action_semantics). The root cause is a
-// grammar/scheduler derivation-election tie-break: for an unparenthesized
-// comma-tuple on the right-hand side of a plain assignment (`x = a, b`),
-// gotreesitter's runtime elects the same shape (pattern_list) the grammar
-// uses for assignment *targets* and for-loop/except/with targets, where the
-// C reference elects expression_list. See
-// TestPythonSchedulerActionKnownGapCOracleParity for a sibling shape (the
-// identical pattern_list/expression_list tie inside f-string interpolation)
-// where no existing sub-pass reaches the fix. Fixing the tie generally in
-// the scheduler risks every other pattern_list/expression_list consumer
-// (for, except, with, del, match targets) across all grammars, so this is
-// not a small language-neutral change; this pins the arm as
-// blocked-with-mechanism per spec.campaign.v7 workstream A3 rather than
-// forcing a root fix.
+// The scheduler now elects expression_list for assignment-right tuples. The
+// compatibility arm remains observable, but it must not change these trees.
 func TestPythonSchedulerActionLoadBearingCOracleParity(t *testing.T) {
 	goLang := grammars.PythonLanguage()
 	cLang, err := COracleLanguage("python")
@@ -107,37 +88,20 @@ func TestPythonSchedulerActionLoadBearingCOracleParity(t *testing.T) {
 			compareNodes(rawTree.RootNode(), goLang, cTree.RootNode(), "root", &rawVsC)
 			compareNodes(normTree.RootNode(), goLang, cTree.RootNode(), "root", &normVsC)
 
-			if len(rawVsC) == 0 {
-				t.Fatalf(
-					"raw tree now matches the C oracle for %q; the upstream grammar/scheduler election "+
-						"defect this arm patches around may be fixed -- investigate dispatch.python "+
-						"retirement before accepting this as passing",
-					test.name,
-				)
+			if len(rawVsC) != 0 {
+				t.Fatalf("raw tree diverges from the C oracle: %s", strings.Join(rawVsC, " | "))
 			}
 			if len(normVsC) != 0 {
-				t.Fatalf("normalized (dispatch.python-corrected) tree diverges from the C oracle: %s", strings.Join(normVsC, " | "))
+				t.Fatalf("normal tree diverges from the C oracle: %s", strings.Join(normVsC, " | "))
 			}
 		})
 	}
 }
 
-// TestPythonSchedulerActionKnownGapCOracleParity pins the same
-// pattern_list/expression_list election tie
-// (TestPythonSchedulerActionLoadBearingCOracleParity's doc comment) inside
-// f-string interpolation, where normalizePythonInterpolationPatterns
-// (parser_result_python.go) does not reach it: that sub-pass only rewrites
-// an already-expression_list node found under "interpolation" into
-// pattern_list, but raw gotreesitter output for a bare tuple inside an
-// f-string interpolation is already pattern_list (the same election as the
-// uncorrected assignment case), so the sub-pass's precondition never
-// matches -- it converts the opposite direction from the one this witness
-// needs. dispatch.python's overall arm remains blocked (see
-// TestPythonSchedulerActionLoadBearingCOracleParity), so no route/registry
-// disposition changes here; this is evidence for a spore finding.
-//
-// wantDivergence stays true for every case: if one flips to false, the same
-// grammar/scheduler defect has been fixed upstream for that shape.
+// TestPythonSchedulerActionKnownGapCOracleParity pins the former
+// pattern_list/expression_list election gap inside f-string interpolation.
+// Both the bare tuple and the splat tuple must now match locked C before and
+// after the result compatibility path.
 func TestPythonSchedulerActionKnownGapCOracleParity(t *testing.T) {
 	goLang := grammars.PythonLanguage()
 	cLang, err := COracleLanguage("python")
@@ -146,19 +110,16 @@ func TestPythonSchedulerActionKnownGapCOracleParity(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		source         string
-		wantDivergence bool
+		name   string
+		source string
 	}{
 		{
-			name:           "fstring_interpolation_bare_tuple_uncovered",
-			source:         "x = 1\ny = 2\nz = f\"{x, y}\"\n",
-			wantDivergence: true,
+			name:   "fstring_interpolation_bare_tuple_uncovered",
+			source: "x = 1\ny = 2\nz = f\"{x, y}\"\n",
 		},
 		{
-			name:           "fstring_interpolation_splat_uncovered",
-			source:         "xs = [1, 2]\nz = f\"{*xs,}\"\n",
-			wantDivergence: true,
+			name:   "fstring_interpolation_splat_uncovered",
+			source: "xs = [1, 2]\nz = f\"{*xs,}\"\n",
 		},
 	}
 
@@ -189,18 +150,6 @@ func TestPythonSchedulerActionKnownGapCOracleParity(t *testing.T) {
 
 			var mismatches []string
 			compareNodes(rawTree.RootNode(), goLang, cTree.RootNode(), "root", &mismatches)
-			if test.wantDivergence {
-				if len(mismatches) == 0 {
-					t.Fatalf(
-						"expected %q to diverge from the C oracle, but the raw tree now matches; the "+
-							"underlying scheduler-election defect may be fixed -- flip wantDivergence to "+
-							"false and re-verify before treating dispatch.python as retirable for this shape",
-						test.name,
-					)
-				}
-				t.Skipf("known scheduler-action gap, not covered by any dispatch.python sub-pass today:\n%s", strings.Join(mismatches, "\n"))
-				return
-			}
 			if len(mismatches) != 0 {
 				t.Fatalf("raw and C trees differ:\n%s", strings.Join(mismatches, "\n"))
 			}
@@ -251,6 +200,12 @@ func TestPythonSchedulerActionNeutralSubpassCOracleParity(t *testing.T) {
 		{name: "for_target_tuple_negative_control", source: "pairs = [(1, 2)]\nfor a, b in pairs:\n    pass\n"},
 		{name: "chained_assignment_lhs_negative_control", source: "a, b = c, d = 1, 2\n"},
 		{name: "del_tuple_negative_control", source: "a = 1\nb = 2\ndel a, b\n"},
+		{name: "with_multiple_as_targets", source: "with context() as a, other() as b:\n    pass\n"},
+		{name: "except_multiple_as_targets", source: "try:\n    pass\nexcept E as a, F as b:\n    pass\n"},
+		{name: "star_target_assignment", source: "first, *rest = seq\n"},
+		{name: "fstring_call_arguments", source: "s = f\"{foo(a, b)}\"\n"},
+		{name: "fstring_parenthesized_tuple", source: "s = f\"{(x, y)}\"\n"},
+		{name: "fstring_conversion_format", source: "s = f\"{name!r:>{10}}\"\n"},
 	}
 
 	for _, test := range tests {

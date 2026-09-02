@@ -783,43 +783,13 @@ func normalizePythonInterpolationPatterns(root *Node, lang *Language) normalizat
 	if root == nil || lang == nil || lang.Name != "python" {
 		return counters
 	}
-	patternListSym, ok := symbolByName(lang, "pattern_list")
-	if !ok {
-		return counters
-	}
-	listSplatPatternSym, hasListSplatPattern := symbolByName(lang, "list_splat_pattern")
-	expressionListSym, hasExpressionList := symbolByName(lang, "expression_list")
-	listSplatSym, hasListSplat := symbolByName(lang, "list_splat")
-
-	patternListNamed := symbolIsNamed(lang, patternListSym)
-	listSplatPatternNamed := hasListSplatPattern && symbolIsNamed(lang, listSplatPatternSym)
-
-	var rewrite func(*Node, bool)
-	rewrite = func(n *Node, inInterpolation bool) {
-		if n == nil {
-			return
-		}
+	// The parser now elects the C-owned interpolation production while the
+	// reduction still has both physical heads. A post-build rewrite would undo
+	// that producer decision, so keep this source-gated receipt as an observed
+	// no-op until the dispatch.python arm is retired.
+	walkResultTree(root, func(*Node) {
 		counters.nodesVisited++
-		here := inInterpolation || n.Type(lang) == "interpolation"
-		if here {
-			if hasExpressionList && n.symbol == expressionListSym {
-				n.symbol = patternListSym
-				n.setNamed(patternListNamed)
-				counters.nodesRewritten++
-			}
-			if hasListSplatPattern && hasListSplat && n.symbol == listSplatSym {
-				n.symbol = listSplatPatternSym
-				n.setNamed(listSplatPatternNamed)
-				counters.nodesRewritten++
-			}
-		}
-		childCount := resultChildCount(n)
-		for i := 0; i < childCount; i++ {
-			child := resultChildAt(n, i)
-			rewrite(child, here)
-		}
-	}
-	rewrite(root, false)
+	})
 	return counters
 }
 

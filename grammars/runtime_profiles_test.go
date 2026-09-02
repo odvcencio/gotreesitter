@@ -363,14 +363,17 @@ func TestBuiltinCompactAcceptanceProfilesRequireExactBlobIdentity(t *testing.T) 
 		// spec.campaign.v7, finding
 		// tied-election-family-compact-retirement): full-corpus field-aware
 		// C-oracle verification certifies primary-acceptance-derivation
-		// selection for all five languages. Kotlin's grant lands under
+		// selection for all five languages. Python also certifies C's raw
+		// subtree ordering for clean ties. Kotlin's grant lands under
 		// selectCompactAcceptanceDerivation's materiality gate
 		// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous);
 		// see the runtime_profiles.go "kotlin" entry comment.
 		{
 			name: "python", load: PythonLanguage,
 			want: func(lang *gotreesitter.Language) bool {
-				return lang.CompactPrimaryAcceptanceDerivationCertified
+				return lang.CompactPrimaryAcceptanceDerivationCertified &&
+					lang.CompactAcceptanceStructuralElectionCertified &&
+					lang.CompactMixedGSSMergeCertified
 			},
 		},
 		{

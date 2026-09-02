@@ -14,10 +14,10 @@ import (
 // certification-workstream (spec.campaign.v7, finding
 // tied-election-family-compact-retirement) full-corpus verification receipt
 // for Python. Python already shipped CompactConvergedReductionSplitDropsCertified;
-// this sweep gates the added CompactPrimaryAcceptanceDerivationCertified
-// grant (grammars/runtime_profiles.go) on zero unadjudicated compact-vs-C
-// divergence across the real corpus plus the tied-election and known-gap
-// tuple/f-string witnesses (python_scheduler_action_local_parity_test.go).
+// this sweep gates the added compact acceptance grants
+// (grammars/runtime_profiles.go) on zero unadjudicated compact-vs-C divergence
+// across the real corpus plus the tied-election tuple/f-string witnesses
+// (python_scheduler_action_local_parity_test.go).
 func TestPythonA3CompactCertificationFullCorpusSweep(t *testing.T) {
 	lang := grammars.PythonLanguage()
 	if !lang.CompactPrimaryAcceptanceDerivationCertified {
@@ -63,30 +63,17 @@ func TestPythonA3CompactCertificationFullCorpusSweep(t *testing.T) {
 // at all. The stale-entry ratchet in a3ReportSweep enforces this: it fails
 // the sweep if a remaining entry stops matching a live divergence.
 //
-// The two f-string entries are family D (a first-class declared
-// pattern_list/expression_list ambiguity; Go's reduceForkWindowPreference
-// disagrees with C's ts_parser__select_tree on which side to keep). Not
-// tied elections, not this gate's scope; repair lanes are tracked
-// separately.
-var pythonA3KnownDivergences = []a3KnownDivergence{
-	{
-		Witness:   "fstring_interpolation_bare_tuple",
-		FirstPath: "/module/assignment[2]/string[2]/interpolation[1]/pattern_list[1]",
-		GoValue:   "pattern_list", CValue: "expression_list", Family: "D",
-	},
-	{
-		Witness:   "fstring_interpolation_splat",
-		FirstPath: "/module/assignment[1]/string[2]/interpolation[1]/pattern_list[1]",
-		GoValue:   "pattern_list", CValue: "expression_list", Family: "D",
-	},
-}
+// The two former f-string entries were family D (a first-class declared
+// pattern_list/expression_list ambiguity). C-ordered clean-tie selection now
+// emits expression_list for the exact Python artifact, so these entries are
+// retired from the active known-divergence list. The historical values remain
+// in docs/root-normalization-retirement.md and the blocker receipt.
+var pythonA3KnownDivergences = []a3KnownDivergence{}
 
-// pythonA3AdversarialSources gathers Python's tied-election witness (the
-// bare-tuple assignment right-hand side) plus its known-gap and neutral
-// control sources
-// (python_scheduler_action_local_parity_test.go), all already vetted as
-// conflict-heavy shapes for this grammar's pattern_list/expression_list
-// election.
+// pythonA3AdversarialSources gathers Python's tied-election witnesses, the
+// former f-string blocker shapes, and neutral controls
+// (python_scheduler_action_local_parity_test.go). These sources exercise
+// conflict-heavy pattern_list/expression_list choices for this grammar.
 func pythonA3AdversarialSources() []a3CertificationSweepSource {
 	return []a3CertificationSweepSource{
 		{Name: "assignment_bare_tuple_real_corpus_witness", Source: []byte("x, y, z = 1, 2, 3\nxyz = x, y, z\n")},
@@ -109,10 +96,14 @@ func pythonA3AdversarialSources() []a3CertificationSweepSource {
 		{Name: "for_target_tuple_negative_control", Source: []byte("pairs = [(1, 2)]\nfor a, b in pairs:\n    pass\n")},
 		{Name: "chained_assignment_lhs_negative_control", Source: []byte("a, b = c, d = 1, 2\n")},
 		{Name: "del_tuple_negative_control", Source: []byte("a = 1\nb = 2\ndel a, b\n")},
+		{Name: "with_multiple_as_targets", Source: []byte("with context() as a, other() as b:\n    pass\n")},
+		{Name: "except_multiple_as_targets", Source: []byte("try:\n    pass\nexcept E as a, F as b:\n    pass\n")},
 		{Name: "walrus_in_comprehension", Source: []byte("data = [1, 2, 3]\nresult = [y for x in data if (y := x * 2) > 2]\n")},
 		{Name: "decorated_async_def", Source: []byte("import functools\n\n@functools.wraps\nasync def f(x, *, y=1, **kw):\n    return x, y\n")},
 		{Name: "star_expr_unpack", Source: []byte("first, *rest = [1, 2, 3]\n")},
 		{Name: "lambda_tuple_return", Source: []byte("f = lambda x, y: (x, y)\n")},
+		{Name: "fstring_call_arguments", Source: []byte("s = f\"{foo(a, b)}\"\n")},
+		{Name: "fstring_parenthesized_tuple", Source: []byte("s = f\"{(x, y)}\"\n")},
 		{Name: "nested_fstring_conversion", Source: []byte("name = \"world\"\ns = f\"{name!r:>{10}}\"\n")},
 	}
 }

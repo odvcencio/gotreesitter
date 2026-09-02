@@ -3268,6 +3268,146 @@ func TestTryGSSMainMergeResultClearsMaterializingCache(t *testing.T) {
 	}
 }
 
+func mixedGSSMergeProducerFixture(node *Node) (packed, flat glrStack, owner gssScratch) {
+	packedEntries := []stackEntry{{state: 2}, newStackEntryNode(7, node)}
+	flatEntries := []stackEntry{{state: 1}, newStackEntryNode(7, node)}
+	packed = glrStack{
+		gss:        buildGSSStack(packedEntries, &owner),
+		byteOffset: 5,
+	}
+	flat = glrStack{
+		entries:    flatEntries,
+		byteOffset: 5,
+	}
+	return packed, flat, owner
+}
+
+func TestTryGSSMainMergeResultMixedKeepsProducerPathsAndIncumbentOrder(t *testing.T) {
+	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	packed, flat, owner := mixedGSSMergeProducerFixture(node)
+	packed.branchOrder = 22
+	flat.branchOrder = 11
+	packedHead := packed.gss.head
+
+	scratch := glrMergeScratch{gssOwner: &owner}
+	result := []glrStack{flat}
+	merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &packed)
+	if !attempted || !merged {
+		t.Fatalf("mixed producer merge attempted=%v merged=%v, want true/true", attempted, merged)
+	}
+	if result[0].gss.head != packedHead || result[0].entries != nil {
+		t.Fatalf("mixed merge receiver = head:%p entries:%d, want packed candidate head and no flat entries", result[0].gss.head, len(result[0].entries))
+	}
+	if got := result[0].branchOrder; got != flat.branchOrder {
+		t.Fatalf("mixed logical survivor branch order=%d, want incumbent order=%d", got, flat.branchOrder)
+	}
+	if got := result[0].gss.head.linkCount(); got != 2 {
+		t.Fatalf("mixed producer link count=%d, want two distinct paths", got)
+	}
+	seenStates := make(map[StateID]bool, result[0].gss.head.linkCount())
+	for i := 0; i < result[0].gss.head.linkCount(); i++ {
+		prev, _ := result[0].gss.head.link(i)
+		if prev == nil {
+			t.Fatalf("mixed producer link %d has no predecessor", i)
+		}
+		seenStates[prev.entry.state] = true
+	}
+	if !seenStates[StateID(1)] || !seenStates[StateID(2)] {
+		t.Fatalf("mixed producer predecessor states=%v, want states 1 and 2", seenStates)
+	}
+}
+
+func TestTryGSSMainMergeResultMixedDistinctShapesRejectWithoutMutation(t *testing.T) {
+	arena := newNodeArena(arenaClassFull)
+	parser := &Parser{}
+	makeShape := func(childSymbol Symbol) *Node {
+		child := NewLeafNode(childSymbol, true, 0, 5, Point{}, Point{Column: 5})
+		parent := NewParentNode(300, true, []*Node{child}, nil, 0)
+		parent.parseState = 7
+		parent.rawShape = parser.captureRawShape(
+			nil,
+			arena,
+			parent.symbol,
+			parent.productionID,
+			[]stackEntry{newStackEntryNode(parent.parseState, child)},
+			0,
+			1,
+		)
+		return parent
+	}
+	incumbentNode := makeShape(11)
+	candidateNode := makeShape(12)
+	packed, flat, owner := mixedGSSMergeProducerFixture(candidateNode)
+	flat.entries[1] = newStackEntryNode(7, incumbentNode)
+	lang := &Language{
+		ExactStackNodeEquivalenceCertified: true,
+		CompactMixedGSSMergeCertified:      true,
+	}
+	scratch := glrMergeScratch{gssOwner: &owner, language: lang, arena: arena}
+	scratch.beginEquivEpoch()
+	if !gssStacksHaveDistinctMaterializingShapesWithScratch(&scratch, &flat, &packed) {
+		t.Fatal("test setup did not produce distinct materializing shapes")
+	}
+	incumbentEntries := append([]stackEntry(nil), flat.entries...)
+	packedHead := packed.gss.head
+	packedLinks := packedHead.linkCount()
+	result := []glrStack{flat}
+	merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &packed)
+	if merged || !attempted {
+		t.Fatalf("distinct mixed shapes merge=%v attempted=%v, want false/true", merged, attempted)
+	}
+	if result[0].gss.head != nil || len(result[0].entries) != len(incumbentEntries) {
+		t.Fatalf("flat incumbent representation changed: head=%p entries=%d", result[0].gss.head, len(result[0].entries))
+	}
+	for i := range incumbentEntries {
+		if result[0].entries[i] != incumbentEntries[i] {
+			t.Fatalf("flat incumbent entry %d changed", i)
+		}
+	}
+	if packed.gss.head != packedHead || packedHead.linkCount() != packedLinks {
+		t.Fatal("packed candidate changed after distinct-shape rejection")
+	}
+}
+
+func TestTryGSSMainMergeResultMixedORsEverErroredBothDirections(t *testing.T) {
+	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	tests := []struct {
+		name             string
+		resultPacked     bool
+		incumbentErrored bool
+		candidateErrored bool
+	}{
+		{name: "flat-incumbent-candidate-history", incumbentErrored: false, candidateErrored: true},
+		{name: "flat-incumbent-history", incumbentErrored: true, candidateErrored: false},
+		{name: "packed-incumbent-candidate-history", resultPacked: true, incumbentErrored: false, candidateErrored: true},
+		{name: "packed-incumbent-history", resultPacked: true, incumbentErrored: true, candidateErrored: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			packed, flat, owner := mixedGSSMergeProducerFixture(node)
+			packed.cEverErrored = test.resultPacked && test.incumbentErrored || !test.resultPacked && test.candidateErrored
+			flat.cEverErrored = test.resultPacked && test.candidateErrored || !test.resultPacked && test.incumbentErrored
+			var result []glrStack
+			var candidate *glrStack
+			if test.resultPacked {
+				result = []glrStack{packed}
+				candidate = &flat
+			} else {
+				result = []glrStack{flat}
+				candidate = &packed
+			}
+			scratch := glrMergeScratch{gssOwner: &owner}
+			merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, candidate)
+			if !attempted || !merged {
+				t.Fatalf("mixed merge attempted=%v merged=%v, want true/true", attempted, merged)
+			}
+			if !result[0].cEverErrored {
+				t.Fatal("mixed merge lost the sticky error history")
+			}
+		})
+	}
+}
+
 func TestCertifiedMaterializingShapeHashIncludesRawDescendants(t *testing.T) {
 	arena := newNodeArena(arenaClassFull)
 	parser := &Parser{}

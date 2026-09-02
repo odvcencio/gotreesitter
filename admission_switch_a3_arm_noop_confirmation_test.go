@@ -22,21 +22,19 @@ import (
 // on compact-origin trees for that witness -- the retirement precondition
 // follow-up arm-deletion PRs need.
 //
-// RESULT, corrected from the finding: only Apex's witness confirms as a
-// no-op. Perl, Python, and Ada's compat arms still perform real,
-// load-bearing tree reshaping on compact-origin trees even after A3
-// certification lands, on their own tied-election witnesses. The finding's
-// "compact-raw equals compact-tailed on all six witnesses" claim does not
-// reproduce for four of those six (perl push-list; python tuple assignment;
-// both ada aggregates). It reproduces for the fifth, apex class-literal.
+// RESULT, corrected from the finding: Python's tuple-assignment witnesses now
+// confirm as no-op after C-ordered clean-tie selection moves the choice into
+// the producer. Perl and Ada still perform load-bearing reshaping on their
+// tied-election witnesses. Apex has a separate material-election decline.
 //
 // This is consistent with the arm taxonomy (spec.campaign.v7): apex's arm
 // is a fixed derivation relabel that A3's primary-acceptance-derivation
 // certification already subsumes at the scheduler level, so there is
-// nothing left for the arm to do. Perl and Python's arms are
-// scheduler-action arms that perform source-text-scanning list regrouping
-// (ambiguous_function_call_expression / pattern_list-vs-expression_list) --
-// a materially stronger transformation than picking among tied derivations.
+// nothing left for the arm to do. Perl's arm is a scheduler-action arm that
+// performs source-text-scanning list regrouping
+// (ambiguous_function_call_expression). Python's former
+// pattern_list-vs-expression_list rewrite is now an observed no-op on the
+// certified tuple witnesses because the producer makes the C choice.
 // Ada's arms (materialization-owned) relabel one aggregate production into
 // another via a similar structural scan. None of these three
 // transformations are subsumed by the admission-time election flags this
@@ -154,7 +152,7 @@ func TestA3ArmNoOpConfirmationPerlDoesNotConfirm(t *testing.T) {
 	}
 }
 
-func TestA3ArmNoOpConfirmationPythonDoesNotConfirm(t *testing.T) {
+func TestA3ArmNoOpConfirmationPythonConfirms(t *testing.T) {
 	lang := grammars.PythonLanguage()
 	if !lang.CompactPrimaryAcceptanceDerivationCertified || !lang.CompactConvergedReductionSplitDropsCertified {
 		t.Fatal("python did not receive its A3 certification")
@@ -163,7 +161,7 @@ func TestA3ArmNoOpConfirmationPythonDoesNotConfirm(t *testing.T) {
 		{"assignment_bare_tuple", "x, y, z = 1, 2, 3\nxyz = x, y, z\n"},
 		{"assignment_bare_pair", "a = 1\nb = 2\npair = a, b\n"},
 	} {
-		assertA3ArmNoOp(t, "python/"+tt.name, lang, []byte(tt.source), false)
+		assertA3ArmNoOp(t, "python/"+tt.name, lang, []byte(tt.source), true)
 	}
 }
 

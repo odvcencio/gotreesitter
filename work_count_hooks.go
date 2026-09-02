@@ -106,6 +106,7 @@ func workCountTopologyRecordChildElection(*glrStack, reduceFork, reduceFork, int
 func workCountTopologyRecordMerge(*glrStack, *glrStack, bool)                     {}
 func workCountTopologyRecordMergeBeforeMutation(*glrStack, *glrStack)             {}
 func workCountTopologyCommitMerge(*glrStack)                                      {}
+func workCountTopologyClearVersion(*glrStack)                                     {}
 func workCountTopologyRequireMergeSuccess(bool)                                   {}
 func workCountTopologyRetireVersion(*glrStack)                                    {}
 func workCountTopologyRetireVersionIfActive(*glrStack)                            {}

@@ -23,6 +23,8 @@ func MergeEventCensusBuilt() bool { return false }
 
 func mergeCensusRecordAttempt()                                           {}
 func mergeCensusRecordSuccess()                                           {}
+func mergeCensusRecordMixedRepresentationAttempt()                        {}
+func mergeCensusRecordMixedRepresentationSuccess()                        {}
 func mergeCensusRecordMergeFailed()                                       {}
 func mergeCensusRecordDistinctShapes()                                    {}
 func mergeCensusRecordErrorCost()                                         {}

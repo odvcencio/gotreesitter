@@ -33,6 +33,8 @@ type pythonDispatchBlockerWitness struct {
 	wantCDigest        string
 	wantRawDiff        *DumpV1Divergence
 	wantRouteDiff      *DumpV1Divergence
+	wantForestDigest   string
+	wantForestDiff     *DumpV1Divergence
 	wantCompactMode    string
 	wantRoutedBefore   uint64
 	wantFallbackBefore uint64
@@ -63,38 +65,37 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 
 	witnesses := []pythonDispatchBlockerWitness{
 		{
-			name:          "assignment_bare_tuple_positive",
-			source:        []byte("x, y, z = 1, 2, 3\nxyz = x, y, z\n"),
-			wantSourceSHA: "6a1661337725eea3d5f3e26c38c3c3536f2c9fbfb66e04ae73f2dcc1a1afdd03",
-			wantRawDigest: "1ee859d4c1d2489f24dd57e0671a1832480b1c43afb960c10f798ce9f71f9759",
-			wantGoDigest:  "577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622",
-			wantCDigest:   "577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622",
-			wantRawDiff: pythonDispatchExpectedDivergence(
-				"/module/assignment[1]/pattern_list[2]", "type", "pattern_list", "expression_list",
-			),
+			name:               "assignment_bare_tuple_positive",
+			source:             []byte("x, y, z = 1, 2, 3\nxyz = x, y, z\n"),
+			wantSourceSHA:      "6a1661337725eea3d5f3e26c38c3c3536f2c9fbfb66e04ae73f2dcc1a1afdd03",
+			wantRawDigest:      "577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622",
+			wantGoDigest:       "577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622",
+			wantCDigest:        "577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622",
+			wantRawDiff:        nil,
+			wantRouteDiff:      nil,
+			wantForestDigest:   "577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622",
+			wantForestDiff:     nil,
 			wantCompactMode:    "accepted",
 			wantRoutedBefore:   0,
 			wantFallbackBefore: 0,
 			wantRoutedAfter:    1,
 			wantFallbackAfter:  0,
-			wantProduction:     pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 24, rewritten: 1},
+			wantProduction:     pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 24, rewritten: 0},
 			wantCompact:        pythonDispatchPassExpectation{},
 			wantForest:         pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 24},
-			wantIncremental:    pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 24, rewritten: 1},
+			wantIncremental:    pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 24, rewritten: 0},
 		},
 		{
-			name:          "fstring_interpolation_bare_tuple_recovery_gap",
-			source:        []byte("x = 1\ny = 2\nz = f\"{x, y}\"\n"),
-			wantSourceSHA: "7d0029944fcffb700144302da9b1b80b03da8f89d716772b3a207dca9ba543a7",
-			wantRawDigest: "89ca835ae4fb5cf19d38e40b6ae4f09c99c66987ca77d8b4921aa9f593aaa641",
-			wantGoDigest:  "89ca835ae4fb5cf19d38e40b6ae4f09c99c66987ca77d8b4921aa9f593aaa641",
-			wantCDigest:   "84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07",
-			wantRawDiff: pythonDispatchExpectedDivergence(
-				"/module/assignment[2]/string[2]/interpolation[1]/pattern_list[1]", "type", "pattern_list", "expression_list",
-			),
-			wantRouteDiff: pythonDispatchExpectedDivergence(
-				"/module/assignment[2]/string[2]/interpolation[1]/pattern_list[1]", "type", "pattern_list", "expression_list",
-			),
+			name:               "fstring_interpolation_bare_tuple_recovery_gap",
+			source:             []byte("x = 1\ny = 2\nz = f\"{x, y}\"\n"),
+			wantSourceSHA:      "7d0029944fcffb700144302da9b1b80b03da8f89d716772b3a207dca9ba543a7",
+			wantRawDigest:      "84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07",
+			wantGoDigest:       "84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07",
+			wantCDigest:        "84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07",
+			wantRawDiff:        nil,
+			wantRouteDiff:      nil,
+			wantForestDigest:   "84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07",
+			wantForestDiff:     nil,
 			wantCompactMode:    "accepted",
 			wantRoutedBefore:   1,
 			wantFallbackBefore: 0,
@@ -102,20 +103,20 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 			wantFallbackAfter:  0,
 			wantProduction:     pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 22},
 			wantCompact:        pythonDispatchPassExpectation{},
-			wantForest:         pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 22, rewritten: 1},
+			wantForest:         pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 22, rewritten: 0},
 			wantIncremental:    pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 22},
 		},
 		{
-			name:          "fstring_interpolation_splat_recovery_gap",
-			source:        []byte("xs = [1, 2]\nz = f\"{*xs,}\"\n"),
-			wantSourceSHA: "660a9ed55b63e6b98cfc70db1776895ec9046a16c906c33b3d273bee496a121d",
-			wantRawDigest: "102ebedd10a3864a2640cb293f541e42f63b4f1ce3d60c9f219d7088b4f484c6",
-			wantGoDigest:  "102ebedd10a3864a2640cb293f541e42f63b4f1ce3d60c9f219d7088b4f484c6",
-			wantCDigest:   "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
-			wantRawDiff: pythonDispatchExpectedDivergence(
-				"/module/assignment[1]/string[2]/interpolation[1]/pattern_list[1]", "type", "pattern_list", "expression_list",
-			),
-			wantRouteDiff: pythonDispatchExpectedDivergence(
+			name:             "fstring_interpolation_splat_recovery_gap",
+			source:           []byte("xs = [1, 2]\nz = f\"{*xs,}\"\n"),
+			wantSourceSHA:    "660a9ed55b63e6b98cfc70db1776895ec9046a16c906c33b3d273bee496a121d",
+			wantRawDigest:    "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
+			wantGoDigest:     "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
+			wantCDigest:      "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
+			wantRawDiff:      nil,
+			wantRouteDiff:    nil,
+			wantForestDigest: "102ebedd10a3864a2640cb293f541e42f63b4f1ce3d60c9f219d7088b4f484c6",
+			wantForestDiff: pythonDispatchExpectedDivergence(
 				"/module/assignment[1]/string[2]/interpolation[1]/pattern_list[1]", "type", "pattern_list", "expression_list",
 			),
 			wantCompactMode:    "accepted",
@@ -211,8 +212,8 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 			}
 			defer forest.Release()
 			forestDiff := pythonDispatchAssertReceipt(t, "forest", forest, language, cTree, cDigest)
-			pythonDispatchCheckDigest(t, "forest", forest, language, witness.wantGoDigest)
-			pythonDispatchCheckDivergence(t, "forest", forestDiff, witness.wantRouteDiff)
+			pythonDispatchCheckDigest(t, "forest", forest, language, witness.wantForestDigest)
+			pythonDispatchCheckDivergence(t, "forest", forestDiff, witness.wantForestDiff)
 			pythonDispatchCheckPass(t, "forest", forest, witness.wantForest)
 			pythonDispatchCheckNativeAuthority(t, "forest", forest)
 
@@ -263,6 +264,19 @@ func TestPythonDispatchBlockerReceiptDocument(t *testing.T) {
 	}
 	document := strings.Join(strings.Fields(string(doc)), " ")
 	for _, marker := range []string{
+		"## 2026-09-02 Python dispatcher certification update",
+		"Status: `PARTIAL-GO`. The compact route matches locked C on all three current blocker witnesses. Keep `dispatch.python` live.",
+		"Candidate base commit: `06afb3c881d4064bf367f970614e5120ec0abbfd`.",
+		"This update adds mixed physical graph-head merging and C-ordered clean-tie selection for the exact Python grammar artifact.",
+		"The compact counters advance by `1/0` for each witness. No compact fallback occurs.",
+		"The forest splat result remains a `pattern_list` instead of C's `expression_list`.",
+		"This forest-only gap stays outside the compact route gate.",
+		"Incremental parsing now preserves authenticated scanner reuse on all three witnesses.",
+		"Each route reports `reuse=true` and no unsupported reason.",
+		"The generated Python corpus from the pinned grammar source also passes the A3 sweep: `real=3`, `constructed=30`, `total=33`, with zero divergences.",
+		"The external corpus-source lock remains unavailable, so this is not a release certification receipt.",
+		"Keep the historical 2026-08-24 receipt below unchanged.",
+		"Reopen the retirement review after the forest splat tie has a separate proof, the authenticated corpus becomes available, and every route passes again.",
 		"## 2026-08-24 Python dispatcher blocker receipt",
 		"Status: `NO-GO`. Keep `dispatch.python` live.",
 		"Base commit: `14f6692fac65eab817f65af8cc6072e423ca6563`.",
