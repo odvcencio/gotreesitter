@@ -1,6 +1,6 @@
 {
   "schema": "gotreesitter/compact-route-campaign-lifecycle/v1",
-  "source_revision": "e1de4484b5655ab11057f70d9dc7b1245972d03f",
+  "source_revision": "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
   "scope": "Compact parser graduation stages, proof lanes, controls, corpus identity, and receipt retirement.",
   "authority": [
     "spec.parser-graduation.v1#8.1",
@@ -970,16 +970,22 @@
       "control_ids": ["build.default", "build.compact.default", "build.incremental.phase0", "build.selectedstore.onepass", "build.parity.cgo", "env.GTS_CANONICAL_GO_INCREMENTAL", "env.GTS_CANONICAL_INCREMENTAL_RECEIPT_OUT", "env.GOT_PARSE_MEMORY_BUDGET_MB", "env.GOT_PARSE_PROGRESS"],
       "paths": [
         {"path": "incremental.go", "role": "implementation", "build_expression": "default", "symbol": "tryReuseSubtree"},
+        {"path": "external_scanner_adapter.go", "role": "implementation", "build_expression": "default", "symbol": "RequiresIncrementalPrefixFrontierProof"},
+        {"path": "external_scanner_checkpoints.go", "role": "implementation", "build_expression": "default", "symbol": "rebuildExternalScannerCheckpointForNode"},
         {"path": "language.go", "role": "implementation", "build_expression": "default", "symbol": "IncrementalPrefixFrontierExternalScanner"},
         {"path": "parser_api.go", "role": "implementation", "build_expression": "default", "symbol": "checkpointedScannerPrefixFrontierUnproven"},
         {"path": "parser_result_incremental_range.go", "role": "implementation", "build_expression": "default", "symbol": "incrementalReparsedTopLevelRanges"},
         {"path": "external_scanner_checkpoints_test.go", "role": "proof", "build_expression": "default", "symbol": "TestExternalScannerCheckpointCapabilitiesAreBehaviorBased"},
+        {"path": "external_scanner_checkpoints_test.go", "role": "proof", "build_expression": "default", "symbol": "TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots"},
+        {"path": "external_scanner_adapter_test.go", "role": "proof", "build_expression": "default", "symbol": "TestExternalScannerOrderAdapterPreservesOptionalCapabilities"},
         {"path": "grammars/python_parse_regression_test.go", "role": "proof", "build_expression": "default", "symbol": "TestPythonScannerSerializationFailsClosed"},
         {"path": "incremental_invariant_gate_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestIncrementalInvariantGatePython"},
         {"path": "w1_block_splice_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestW1BlockSpliceOracleEquality"},
         {"path": "w1_leading_splice_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestLeadingSpliceOracleEqualityMiddleBottom"},
         {"path": "w1b_reduce_settle_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestW1BSettleUnlocksGoTopLevelSiblingSplice"},
         {"path": "parser_go_scanner_quiescence_test.go", "role": "adversarial_test", "build_expression": "default", "symbol": "TestGoScannerQuiescenceOracleSweep"},
+        {"path": "issue728_incremental_reuse_regression_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestIssue728IncrementalReuseMeasurement"},
+        {"path": "parser_external_scanner_incremental_test.go", "role": "adversarial_test", "build_expression": "default", "symbol": "TestExternalScannerDerivedSameLengthTokenChangeInvalidatesScannerReuse"},
         {"path": "parser_external_scanner_prefix_frontier_test.go", "role": "adversarial_test", "build_expression": "default", "symbol": "TestCheckpointedScannerPrefixFrontierFallback"},
         {"path": "parser_external_scanner_prefix_frontier_compact_test.go", "role": "adversarial_test", "build_expression": "gts_parsercorephase0", "symbol": "TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk"},
         {"path": "w5_editor_latency_gate_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestW5EditorLatencyGate"},
@@ -987,12 +993,15 @@
         {"path": "parsercore_phase0_checkpoint_transfer_test.go", "role": "proof", "build_expression": "!gts_no_parsercorephase0", "symbol": "TestCompactExternalScannerCheckpointTransferFailsClosed"},
         {"path": "scanner_closure_external_test.go", "role": "proof", "build_expression": "gts_parsercorephase0", "symbol": "TestStatefulScannerCompactLeafReauthentication"},
         {"path": "cgo_harness/benchmark_go_canonical_incremental_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity", "symbol": "TestCanonicalGoIncrementalParity"},
-        {"path": "cgo_harness/stage5_compact_incremental_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity && !gts_no_parsercorephase0", "symbol": "TestStage5CompactPythonScannerCheckpointReuse"}
+        {"path": "cgo_harness/stage5_compact_incremental_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity && !gts_no_parsercorephase0", "symbol": "TestStage5CompactPythonScannerCheckpointReuse"},
+        {"path": "cgo_harness/stage5_compact_incremental_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity && !gts_no_parsercorephase0", "symbol": "TestStage5PythonPrefixFrontierAdversarialParity"}
       ],
       "test_commands": [
         {"name": "incremental invariant gate", "command": "go test -run '^TestIncrementalInvariantGate(Python|JavaScript|JSON|Go|Rust|CSS|C)$' -count=1 .", "working_dir": ".", "isolation": "local"},
         {"name": "O(edit) splice proofs", "command": "go test -run '^(TestW1|TestW1B|TestLeadingSplice|TestGoScannerQuiescenceOracleSweep|TestW5)' -count=1 .", "working_dir": ".", "isolation": "local"},
         {"name": "compact ParseState replay", "command": "go test -tags 'gts_parsercorephase0' -run '^TestParseStateReplayCompactDifferential$' -count=1 .", "working_dir": ".", "isolation": "local"},
+        {"name": "scanner frontier safety", "command": "go test . -run '^(TestExternalScannerOrderAdapterPreservesOptionalCapabilities|TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots|TestCheckpointedScannerPrefixFrontierFallback|TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback|TestExternalScannerDerivedSameLengthTokenChangeInvalidatesScannerReuse)$' -count=1", "working_dir": ".", "isolation": "docker"},
+        {"name": "SQL scanner reuse preservation", "command": "go test . -run '^TestIssue728IncrementalReuseMeasurement$/^sql/' -count=1", "working_dir": ".", "isolation": "docker"},
         {"name": "Python scanner serialization", "command": "go test ./grammars -run '^TestPythonScannerSerialization(RecomputesInterpolatedStringState|FailsClosed)$' -count=1", "working_dir": ".", "isolation": "docker"},
         {"name": "compact scanner ownership proofs", "command": "go test -tags 'gts_parsercorephase0' -run '^(TestCompactExternalScannerCheckpointTransferFailsClosed|TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk|TestStatefulScannerCompactLeafReauthentication)$' -count=1 .", "working_dir": ".", "isolation": "docker"},
         {"name": "locked four-way incremental parity", "command": "go test . -tags 'cgo treesitter_c_parity' -run '^TestCanonicalGoIncrementalParity$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"},
@@ -1010,7 +1019,7 @@
         {"id": "python-scanner-wide-indent", "kind": "synthetic_fixture", "path": "cgo_harness/stage5_compact_incremental_test.go", "source": "Python indentation widths 65535, 65536, and 131072 with forward and reverse edits.", "lock_or_digest": "exact locked-C trees, ranges, errors, reuse routes, and fallback telemetry at 5070ffd4594a819e8ebe78fa2bf651c197cbdce4"},
         {"id": "incremental-allowlist", "kind": "policy_lock", "path": "testdata/incremental_allowlist.json", "source_sha256": "58e96c69a23675b1b666789306e93fe3ce3756b2976cfb32fea9fc544229b810", "lock_or_digest": "ratchet entries must reproduce or be removed after confirmed fixes"}
       ],
-      "gates": ["fresh and incremental trees are structurally identical", "edits invalidate the correct version state", "scanner boundaries remain quiescent or fail closed", "unrelated certified scanners retain reuse", "reuse counters remain deterministic and nonzero where expected", "hot Parser and ParseRuntime layouts do not grow", "incremental memory and fallback budgets pass"],
+      "gates": ["fresh and incremental trees are structurally identical", "edits invalidate the correct version state", "scanner boundaries remain quiescent or fail closed", "rebuilt checkpoints copy snapshots into the destination arena", "unrelated certified scanners retain reuse", "reuse counters remain deterministic and nonzero where expected", "hot Parser and ParseRuntime layouts do not grow", "incremental memory and fallback budgets pass"],
       "telemetry": ["IncrementalParseProfile.ReusedBytes", "NewNodesAllocated", "ReuseRejectRootNonLeafChanged", "ReuseRejectScannerUnquiescent", "ReuseRejectFrontierProofUnavailable", "CompactExternalScannerCheckpointTransferProven", "BlockSpliceSteps", "ParseState replay receipt"],
       "plan_refs": [],
       "proof_receipts": [
@@ -1019,6 +1028,8 @@
         {"ref": "cgo_harness/stage5_compact_incremental_test.go#TestStage5CompactPythonScannerCheckpointReuse", "kind": "test", "source_revision": "5070ffd4594a819e8ebe78fa2bf651c197cbdce4", "status": "current"},
         {"ref": "cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonWideIndentTransitionParity", "kind": "test", "source_revision": "5070ffd4594a819e8ebe78fa2bf651c197cbdce4", "status": "current"},
         {"ref": "parser_external_scanner_prefix_frontier_test.go#TestCheckpointedScannerWithoutPrefixFrontierRequirementKeepsReuse", "kind": "test", "source_revision": "e1de4484b5655ab11057f70d9dc7b1245972d03f", "status": "current"},
+        {"ref": "external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots", "kind": "test", "source_revision": "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a", "status": "current"},
+        {"ref": "cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity", "kind": "test", "source_revision": "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a", "status": "current"},
         {"ref": "testdata/incremental_allowlist.json", "kind": "policy", "source_revision": "95a1d13156b82e2221415342c9ac8048f2caf644", "status": "current"}
       ],
       "deletion_condition": "Delete temporary O(edit) experiments only after canonical C parity, edit invalidation, exact tree, reuse, race, and memory receipts pass.",

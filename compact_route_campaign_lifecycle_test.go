@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "e1de4484b5655ab11057f70d9dc7b1245972d03f"
+	compactRouteLifecycleSourceRevision               = "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -51,6 +51,8 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5CompactPythonScannerCheckpointReuse":                      "5070ffd4594a819e8ebe78fa2bf651c197cbdce4",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonWideIndentTransitionParity":                         "5070ffd4594a819e8ebe78fa2bf651c197cbdce4",
 	"parser_external_scanner_prefix_frontier_test.go#TestCheckpointedScannerWithoutPrefixFrontierRequirementKeepsReuse": "e1de4484b5655ab11057f70d9dc7b1245972d03f",
+	"external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots":            "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
+	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity":                    "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"testdata/incremental_allowlist.json":                                                                               "95a1d13156b82e2221415342c9ac8048f2caf644",
 	"docs/compact-route-real-corpus-matrix.md#Current compact-graduation matrix":                                        "41af6afa6da47c9f8b55b3156fd88fb56686373f",
 	"docs/compact-route-coverage-census.md":                                                                             "38d86d417fc6209228b8b175bc2aa7bb9700b8d3",
