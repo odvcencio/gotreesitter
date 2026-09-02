@@ -1,11 +1,11 @@
 {
   "schema": "gts-locked-static-c-timing-build-recipe/v3",
   "status": "source_only_unbuilt",
-  "variant_note": "10s-elapsed-floor driver variant used by the strict-boundary Confidential Space enclave image (gts-cs-bench-harness/cs-image-build), matching the run6 methodology. Identical to static_build_recipe_v3.json except driver.path/sha256 (k_min_elapsed_ns=10s instead of 750ms) -- see cgo_harness/pure_c/go_timing_oracle_10s.c for the single-constant diff against the canonical 750ms driver. Prior to image v6, this exact source (sha256 4512710e99d36d161145113ce980d740bf1668470219140be0c15df5ce9ce58c) existed only as an attested-only local file inside the enclave build context, not in any git history; this file closes that gap by giving the 10s variant the same git-tracked, reproducible status as the 750ms variant.",
+  "variant_note": "The strict-boundary Confidential Space image uses this ten-second driver. The wrapper sets GTS_TIMING_ORACLE_MIN_ELAPSED_NS and includes the canonical implementation. The canonical driver keeps the 750-millisecond default. The build recipe records the wrapper and its source hash.",
   "target": "linux/amd64",
   "driver": {
     "path": "cgo_harness/pure_c/go_timing_oracle_10s.c",
-    "sha256": "4512710e99d36d161145113ce980d740bf1668470219140be0c15df5ce9ce58c"
+    "sha256": "0871c45d4c77b0488b67bd171374b5ac318304f04cb95655dc1a01863edb8d27"
   },
   "runtime": {
     "commit": "f5afe475deb7c0bae6407fb776c76824f717bb61",

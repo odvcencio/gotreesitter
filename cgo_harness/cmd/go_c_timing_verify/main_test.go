@@ -111,3 +111,55 @@ func TestFrozenRecipeParsesAndPassesStaticPolicy(t *testing.T) {
 		t.Fatalf("recipe driver hash = %s, source hash = %s", recipe.Driver.SHA256, got)
 	}
 }
+
+func TestTimingOracleTenSecondWrapperSharesCanonicalImplementation(t *testing.T) {
+	canonical, err := os.ReadFile("../../pure_c/go_timing_oracle.c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tenSecond, err := os.ReadFile("../../pure_c/go_timing_oracle_10s.c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonicalText := string(canonical)
+	tenSecondText := string(tenSecond)
+	const durationMacro = "GTS_TIMING_ORACLE_MIN_ELAPSED_NS"
+	if !strings.Contains(canonicalText, "#define "+durationMacro+" UINT64_C(750000000)") {
+		t.Fatal("canonical timing oracle lost its 750-millisecond default")
+	}
+	if !strings.Contains(canonicalText, "k_min_elapsed_ns = "+durationMacro) {
+		t.Fatal("canonical timing oracle does not use the configurable duration")
+	}
+	if !strings.Contains(tenSecondText, "#define "+durationMacro+" UINT64_C(10000000000)") {
+		t.Fatal("ten-second timing oracle lost its ten-second duration")
+	}
+	if !strings.Contains(tenSecondText, "#include \"go_timing_oracle.c\"") {
+		t.Fatal("ten-second timing oracle does not include the canonical implementation")
+	}
+	for _, marker := range []string{"static const fixture_t k_fixtures[]", "int main("} {
+		if strings.Contains(tenSecondText, marker) {
+			t.Fatalf("ten-second timing oracle contains duplicated implementation marker %q", marker)
+		}
+	}
+
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3_enclave_10s.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe struct {
+		staticBuildRecipe
+		VariantNote string `json:"variant_note"`
+	}
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode ten-second recipe: %v", err)
+	}
+	if err := verifyRecipe(&recipe.staticBuildRecipe); err != nil {
+		t.Fatalf("verify ten-second recipe: %v", err)
+	}
+	if recipe.Driver.Path != "cgo_harness/pure_c/go_timing_oracle_10s.c" {
+		t.Fatalf("ten-second recipe driver path = %q", recipe.Driver.Path)
+	}
+	if got := hashBytes(tenSecond); got != recipe.Driver.SHA256 {
+		t.Fatalf("ten-second recipe driver hash = %s, source hash = %s", recipe.Driver.SHA256, got)
+	}
+}

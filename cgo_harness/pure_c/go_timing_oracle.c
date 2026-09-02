@@ -23,7 +23,11 @@ enum {
   EXIT_INTERNAL = 70,
 };
 
-static const uint64_t k_min_elapsed_ns = UINT64_C(750000000);
+#ifndef GTS_TIMING_ORACLE_MIN_ELAPSED_NS
+#define GTS_TIMING_ORACLE_MIN_ELAPSED_NS UINT64_C(750000000)
+#endif
+
+static const uint64_t k_min_elapsed_ns = GTS_TIMING_ORACLE_MIN_ELAPSED_NS;
 static const uint64_t k_max_iterations = UINT64_C(1000000000);
 static const uint64_t k_fnv_offset = UINT64_C(14695981039346656037);
 static const uint64_t k_fnv_prime = UINT64_C(1099511628211);
