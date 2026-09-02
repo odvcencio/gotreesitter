@@ -98,7 +98,7 @@ func newParserCoreFreshFullRunner(scanner ExternalScanner, options DiagnosticPar
 	if err != nil {
 		return nil, err
 	}
-	certifyParserCoreExternalPayloadQuiescence(compact, lang)
+	configureParserCoreScannerProvenance(compact, lang)
 	return &parserCoreFreshFullRunner{
 		lang: lang, parser: parser, tables: tables, compact: compact, options: options,
 		allowConvergedReductionSplitDrops: true,

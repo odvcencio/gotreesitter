@@ -52,8 +52,8 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 	if language.ExternalScanner == nil {
 		t.Fatal("Python language has no registered external scanner")
 	}
-	if reusable, ok := language.ExternalScanner.(gotreesitter.IncrementalReuseExternalScanner); ok && reusable.SupportsIncrementalReuse() {
-		t.Fatal("Python external scanner unexpectedly supports incremental reuse")
+	if reusable, ok := language.ExternalScanner.(gotreesitter.IncrementalReuseExternalScanner); !ok || !reusable.SupportsIncrementalReuse() {
+		t.Fatal("Python external scanner does not expose authenticated incremental reuse")
 	}
 	cLanguage, err := COracleLanguage("python")
 	if err != nil {
@@ -242,8 +242,8 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 			pythonDispatchCheckDivergence(t, "incremental", incrementalDiff, witness.wantRouteDiff)
 			pythonDispatchCheckPass(t, "incremental", incremental, witness.wantIncremental)
 			pythonDispatchCheckNativeAuthority(t, "incremental", incremental)
-			if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" || profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
-				t.Fatalf("incremental reuse changed: unsupported=%t reason=%q old_tree=%t subtrees=%d bytes=%d", profile.ReuseUnsupported, profile.ReuseUnsupportedReason, profile.OldTreeReuseRoute, profile.ReusedSubtrees, profile.ReusedBytes)
+			if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" {
+				t.Fatalf("incremental authenticated scanner reuse declined: unsupported=%t reason=%q old_tree=%t subtrees=%d bytes=%d", profile.ReuseUnsupported, profile.ReuseUnsupportedReason, profile.OldTreeReuseRoute, profile.ReusedSubtrees, profile.ReusedBytes)
 			}
 
 			t.Logf("route-summary compact=%s raw=%s production=%s forest=%s incremental=%s reuse=%t unsupported=%t reason=%q", compactMode, pythonDispatchPassSummary(raw), pythonDispatchPassSummary(production), pythonDispatchPassSummary(forest), pythonDispatchPassSummary(incremental), profile.OldTreeReuseRoute, profile.ReuseUnsupported, profile.ReuseUnsupportedReason)

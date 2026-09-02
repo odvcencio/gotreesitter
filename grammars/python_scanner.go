@@ -106,13 +106,17 @@ func (PythonExternalScanner) Deserialize(payload any, buf []byte) {
 	deserializePythonScannerState(payload.(*pythonScannerState), buf)
 }
 
-// SupportsIncrementalReuse remains disabled until checkpoint restoration can
-// prove that indentation stacks preserve every class-closing DEDENT. The
-// token-invariant leaf fast path is validated before this capability check and
-// remains available for edits that do not depend on scanner state.
-func (PythonExternalScanner) SupportsIncrementalReuse() bool { return false }
+// SupportsIncrementalReuse enables checkpoint-authenticated subtree reuse.
+// Python serializes its complete indentation and string-delimiter state, so a
+// reused boundary is accepted only after the live scanner matches its start
+// checkpoint and restores its end checkpoint.
+func (PythonExternalScanner) SupportsIncrementalReuse() bool { return true }
 
 func (PythonExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
+
+// RequiresIncrementalPrefixFrontierProof prevents a changed indentation
+// prefix from transferring a reduction that belongs to the old source.
+func (PythonExternalScanner) RequiresIncrementalPrefixFrontierProof() bool { return true }
 
 func (PythonExternalScanner) PreservesStateOnScanFailure() bool { return true }
 

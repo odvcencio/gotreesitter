@@ -134,6 +134,13 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 				Extra:    record.extra, External: record.external, Terminal: record.terminal,
 				Fragile: record.fragile, Missing: record.missing,
 			}
+			if record.terminal {
+				if provenance, ok := c.externalPayloadScannerProvenance(top.id); ok {
+					view.ExternalScannerCheckpointStart = provenance.start
+					view.ExternalScannerCheckpointEnd = provenance.end
+					view.ExternalScannerCheckpointExact = true
+				}
+			}
 			view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(top.id)
 			if err := visit(top.id, view); err != nil {
 				return err

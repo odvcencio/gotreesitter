@@ -832,6 +832,12 @@ func (p *Parser) scanTokenInvariantEditedLeaf(source []byte, ts TokenSource, lea
 	if ok {
 		return tok, true
 	}
+	if p != nil && languageUsesExternalScannerCheckpoints(p.language) {
+		// The checkpoint scan authenticates both scanner boundary states. A
+		// fresh scanner can reproduce the token symbol and span while ending in
+		// different state. Do not replace a failed checkpoint proof with it.
+		return Token{}, false
+	}
 	if tok, ok = p.scanLeafTokenWithFreshSource(source, leaf, tokenSourceHasDFABase(ts)); ok {
 		return tok, true
 	}
@@ -942,6 +948,9 @@ func scanLeafTokenWithoutMutatingSource(ts TokenSource, leaf *Node) (Token, bool
 		if !ok {
 			return Token{}, false
 		}
+		if languageUsesExternalScannerCheckpoints(base.language) {
+			return scanIncludedRangeLeafTokenWithExternalCheckpoint(typed, base, leaf)
+		}
 		snapshot, ok := prepareDFALeafScan(base, leaf)
 		if !ok {
 			return Token{}, false
@@ -954,6 +963,37 @@ func scanLeafTokenWithoutMutatingSource(ts TokenSource, leaf *Node) (Token, bool
 	default:
 		return Token{}, false
 	}
+}
+
+func scanIncludedRangeLeafTokenWithExternalCheckpoint(ts *includedRangeTokenSource, dts *dfaTokenSource, leaf *Node) (Token, bool) {
+	if ts == nil || dts == nil || dts.lexer == nil || leaf == nil {
+		return Token{}, false
+	}
+	cp, ok := externalScannerCheckpointForNode(leaf)
+	if !ok {
+		return Token{}, false
+	}
+	snapshot, ok := snapshotDFATokenSourceState(dts)
+	if !ok {
+		return Token{}, false
+	}
+	idx := ts.idx
+	defer func() {
+		restoreDFATokenSourceState(dts, snapshot)
+		ts.idx = idx
+	}()
+
+	dts.state = leaf.preGotoState
+	dts.glrStates = nil
+	dts.restoreExternalScannerState(cp.start)
+	tok := ts.SkipToByteWithPoint(leaf.startByte, leaf.startPoint)
+	if tok.Symbol != leaf.symbol || tok.StartByte != leaf.startByte || tok.EndByte != leaf.endByte {
+		return Token{}, false
+	}
+	if !dts.externalScannerStateMatches(cp.end) {
+		return Token{}, false
+	}
+	return tok, true
 }
 
 func scanDFALeafTokenWithoutMutatingSource(dts *dfaTokenSource, leaf *Node) (Token, bool) {
@@ -997,16 +1037,21 @@ func scanDFALeafTokenWithExternalCheckpoint(dts *dfaTokenSource, leaf *Node) (To
 }
 
 type dfaLeafScanSnapshot struct {
-	state                  StateID
-	glrStates              []StateID
-	lexer                  Lexer
-	lastExternalTokenStart uint32
-	lastExternalTokenEnd   uint32
-	lastExternalTokenValid bool
-	extZeroPos             int
-	extZeroState           StateID
-	zeroWidthPos           int
-	zeroWidthCount         int
+	state                       StateID
+	glrStates                   []StateID
+	lexer                       Lexer
+	lastExternalTokenStart      uint32
+	lastExternalTokenEnd        uint32
+	lastExternalTokenValid      bool
+	lastExternalTokenWasExtra   bool
+	externalTokenEndSameAsStart bool
+	lastTokenStart              uint32
+	lastTokenEnd                uint32
+	lastTokenValid              bool
+	extZeroPos                  int
+	extZeroState                StateID
+	zeroWidthPos                int
+	zeroWidthCount              int
 }
 
 func prepareDFALeafScan(dts *dfaTokenSource, leaf *Node) (dfaLeafScanSnapshot, bool) {
@@ -1017,16 +1062,21 @@ func prepareDFALeafScan(dts *dfaTokenSource, leaf *Node) (dfaLeafScanSnapshot, b
 		return dfaLeafScanSnapshot{}, false
 	}
 	snapshot := dfaLeafScanSnapshot{
-		state:                  dts.state,
-		glrStates:              dts.glrStates,
-		lexer:                  *dts.lexer,
-		lastExternalTokenStart: dts.lastExternalTokenStartByte,
-		lastExternalTokenEnd:   dts.lastExternalTokenEndByte,
-		lastExternalTokenValid: dts.lastExternalTokenValid,
-		extZeroPos:             dts.extZeroPos,
-		extZeroState:           dts.extZeroState,
-		zeroWidthPos:           dts.zeroWidthPos,
-		zeroWidthCount:         dts.zeroWidthCount,
+		state:                       dts.state,
+		glrStates:                   dts.glrStates,
+		lexer:                       *dts.lexer,
+		lastExternalTokenStart:      dts.lastExternalTokenStartByte,
+		lastExternalTokenEnd:        dts.lastExternalTokenEndByte,
+		lastExternalTokenValid:      dts.lastExternalTokenValid,
+		lastExternalTokenWasExtra:   dts.lastExternalTokenWasExtra,
+		externalTokenEndSameAsStart: dts.externalTokenEndSameAsStart,
+		lastTokenStart:              dts.lastTokenStartByte,
+		lastTokenEnd:                dts.lastTokenEndByte,
+		lastTokenValid:              dts.lastTokenValid,
+		extZeroPos:                  dts.extZeroPos,
+		extZeroState:                dts.extZeroState,
+		zeroWidthPos:                dts.zeroWidthPos,
+		zeroWidthCount:              dts.zeroWidthCount,
 	}
 	dts.state = leaf.preGotoState
 	dts.glrStates = nil
@@ -1040,6 +1090,11 @@ func restoreDFALeafScan(dts *dfaTokenSource, snapshot dfaLeafScanSnapshot) {
 	dts.lastExternalTokenStartByte = snapshot.lastExternalTokenStart
 	dts.lastExternalTokenEndByte = snapshot.lastExternalTokenEnd
 	dts.lastExternalTokenValid = snapshot.lastExternalTokenValid
+	dts.lastExternalTokenWasExtra = snapshot.lastExternalTokenWasExtra
+	dts.externalTokenEndSameAsStart = snapshot.externalTokenEndSameAsStart
+	dts.lastTokenStartByte = snapshot.lastTokenStart
+	dts.lastTokenEndByte = snapshot.lastTokenEnd
+	dts.lastTokenValid = snapshot.lastTokenValid
 	dts.extZeroPos = snapshot.extZeroPos
 	dts.extZeroState = snapshot.extZeroState
 	dts.zeroWidthPos = snapshot.zeroWidthPos
@@ -1047,27 +1102,32 @@ func restoreDFALeafScan(dts *dfaTokenSource, snapshot dfaLeafScanSnapshot) {
 }
 
 type dfaTokenSourceStateSnapshot struct {
-	state                  StateID
-	glrStates              []StateID
-	lexer                  Lexer
-	hasLexer               bool
-	externalValid          []bool
-	extZeroTried           []bool
-	externalTokenStart     []byte
-	externalTokenEnd       []byte
-	externalSnapshot       []byte
-	externalRetrySnap      []byte
-	externalCompare        []byte
-	externalScannerState   []byte
-	externalLexer          ExternalLexer
-	externalRetryLexer     ExternalLexer
-	lastExternalTokenStart uint32
-	lastExternalTokenEnd   uint32
-	lastExternalTokenValid bool
-	extZeroPos             int
-	extZeroState           StateID
-	zeroWidthPos           int
-	zeroWidthCount         int
+	state                       StateID
+	glrStates                   []StateID
+	lexer                       Lexer
+	hasLexer                    bool
+	externalValid               []bool
+	extZeroTried                []bool
+	externalTokenStart          []byte
+	externalTokenEnd            []byte
+	externalSnapshot            []byte
+	externalRetrySnap           []byte
+	externalCompare             []byte
+	externalScannerState        []byte
+	externalLexer               ExternalLexer
+	externalRetryLexer          ExternalLexer
+	lastExternalTokenStart      uint32
+	lastExternalTokenEnd        uint32
+	lastExternalTokenValid      bool
+	lastExternalTokenWasExtra   bool
+	externalTokenEndSameAsStart bool
+	lastTokenStart              uint32
+	lastTokenEnd                uint32
+	lastTokenValid              bool
+	extZeroPos                  int
+	extZeroState                StateID
+	zeroWidthPos                int
+	zeroWidthCount              int
 }
 
 func snapshotTokenSourceState(ts TokenSource) (func(), bool) {
@@ -1100,24 +1160,29 @@ func snapshotDFATokenSourceState(dts *dfaTokenSource) (dfaTokenSourceStateSnapsh
 		return dfaTokenSourceStateSnapshot{}, false
 	}
 	state := dfaTokenSourceStateSnapshot{
-		state:                  dts.state,
-		glrStates:              append([]StateID(nil), dts.glrStates...),
-		externalValid:          append([]bool(nil), dts.externalValid...),
-		extZeroTried:           append([]bool(nil), dts.extZeroTried...),
-		externalTokenStart:     append([]byte(nil), dts.externalTokenStart...),
-		externalTokenEnd:       append([]byte(nil), dts.externalTokenEnd...),
-		externalSnapshot:       append([]byte(nil), dts.externalSnapshot...),
-		externalRetrySnap:      append([]byte(nil), dts.externalRetrySnap...),
-		externalCompare:        append([]byte(nil), dts.externalCompare...),
-		externalLexer:          dts.externalLexer,
-		externalRetryLexer:     dts.externalRetryLexer,
-		lastExternalTokenStart: dts.lastExternalTokenStartByte,
-		lastExternalTokenEnd:   dts.lastExternalTokenEndByte,
-		lastExternalTokenValid: dts.lastExternalTokenValid,
-		extZeroPos:             dts.extZeroPos,
-		extZeroState:           dts.extZeroState,
-		zeroWidthPos:           dts.zeroWidthPos,
-		zeroWidthCount:         dts.zeroWidthCount,
+		state:                       dts.state,
+		glrStates:                   append([]StateID(nil), dts.glrStates...),
+		externalValid:               append([]bool(nil), dts.externalValid...),
+		extZeroTried:                append([]bool(nil), dts.extZeroTried...),
+		externalTokenStart:          append([]byte(nil), dts.externalTokenStart...),
+		externalTokenEnd:            append([]byte(nil), dts.externalTokenEnd...),
+		externalSnapshot:            append([]byte(nil), dts.externalSnapshot...),
+		externalRetrySnap:           append([]byte(nil), dts.externalRetrySnap...),
+		externalCompare:             append([]byte(nil), dts.externalCompare...),
+		externalLexer:               dts.externalLexer,
+		externalRetryLexer:          dts.externalRetryLexer,
+		lastExternalTokenStart:      dts.lastExternalTokenStartByte,
+		lastExternalTokenEnd:        dts.lastExternalTokenEndByte,
+		lastExternalTokenValid:      dts.lastExternalTokenValid,
+		lastExternalTokenWasExtra:   dts.lastExternalTokenWasExtra,
+		externalTokenEndSameAsStart: dts.externalTokenEndSameAsStart,
+		lastTokenStart:              dts.lastTokenStartByte,
+		lastTokenEnd:                dts.lastTokenEndByte,
+		lastTokenValid:              dts.lastTokenValid,
+		extZeroPos:                  dts.extZeroPos,
+		extZeroState:                dts.extZeroState,
+		zeroWidthPos:                dts.zeroWidthPos,
+		zeroWidthCount:              dts.zeroWidthCount,
 	}
 	if dts.language != nil && dts.language.ExternalScanner != nil {
 		buf := make([]byte, 0, externalScannerSerializationBufferSize)
@@ -1156,6 +1221,11 @@ func restoreDFATokenSourceState(dts *dfaTokenSource, state dfaTokenSourceStateSn
 	dts.lastExternalTokenStartByte = state.lastExternalTokenStart
 	dts.lastExternalTokenEndByte = state.lastExternalTokenEnd
 	dts.lastExternalTokenValid = state.lastExternalTokenValid
+	dts.lastExternalTokenWasExtra = state.lastExternalTokenWasExtra
+	dts.externalTokenEndSameAsStart = state.externalTokenEndSameAsStart
+	dts.lastTokenStartByte = state.lastTokenStart
+	dts.lastTokenEndByte = state.lastTokenEnd
+	dts.lastTokenValid = state.lastTokenValid
 	dts.extZeroPos = state.extZeroPos
 	dts.extZeroState = state.extZeroState
 	dts.zeroWidthPos = state.zeroWidthPos

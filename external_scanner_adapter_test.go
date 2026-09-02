@@ -39,6 +39,9 @@ func (*capabilityExternalScanner) SupportsIncrementalReuse() bool { return true 
 func (*capabilityExternalScanner) UsesExternalScannerCheckpoints() bool {
 	return true
 }
+func (*capabilityExternalScanner) RequiresIncrementalPrefixFrontierProof() bool {
+	return true
+}
 func (*capabilityExternalScanner) AllowsIncrementalReuseWithoutCheckpoint() bool {
 	return true
 }
@@ -71,6 +74,9 @@ func TestExternalScannerOrderAdapterPreservesOptionalCapabilities(t *testing.T) 
 	}
 	if checkpointed, ok := adapted.(CheckpointedExternalScanner); !ok || !checkpointed.UsesExternalScannerCheckpoints() {
 		t.Fatal("checkpoint capability was not preserved")
+	}
+	if prefixSensitive, ok := adapted.(IncrementalPrefixFrontierExternalScanner); !ok || !prefixSensitive.RequiresIncrementalPrefixFrontierProof() {
+		t.Fatal("incremental prefix-frontier capability was not preserved")
 	}
 	if checkpointless, ok := adapted.(CheckpointlessExternalScannerReuse); !ok || !checkpointless.AllowsIncrementalReuseWithoutCheckpoint() {
 		t.Fatal("checkpointless capability was not preserved")

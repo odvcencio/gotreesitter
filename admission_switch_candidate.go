@@ -93,7 +93,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 	if err != nil {
 		return nil, err
 	}
-	certifyParserCoreExternalPayloadQuiescence(compact, p.language)
+	configureParserCoreScannerProvenance(compact, p.language)
 	return &parserCoreFreshFullRunner{
 		lang: p.language, parser: p, tables: tables, compact: compact, options: options,
 		// Incremental reuse is admitted only when materialization can attach the

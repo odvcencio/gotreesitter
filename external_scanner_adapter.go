@@ -73,6 +73,11 @@ func (a *externalScannerOrderAdapter) UsesExternalScannerCheckpoints() bool {
 	return ok && checkpointed.UsesExternalScannerCheckpoints()
 }
 
+func (a *externalScannerOrderAdapter) RequiresIncrementalPrefixFrontierProof() bool {
+	prefixSensitive, ok := a.optionalInner().(IncrementalPrefixFrontierExternalScanner)
+	return ok && prefixSensitive.RequiresIncrementalPrefixFrontierProof()
+}
+
 func (a *externalScannerOrderAdapter) AllowsIncrementalReuseWithoutCheckpoint() bool {
 	checkpointless, ok := a.optionalInner().(CheckpointlessExternalScannerReuse)
 	return ok && checkpointless.AllowsIncrementalReuseWithoutCheckpoint()

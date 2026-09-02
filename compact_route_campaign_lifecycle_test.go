@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "72afa041e9ec2f02872724bbdce17694d89955d8"
+	compactRouteLifecycleSourceRevision               = "0d6683a465c6d20477c6a16b6b1f70ac2a90e87b"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -45,13 +45,22 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"pr:#1018": "9f9e903940655da46fb8c976fa2e08139153df0f",
 	"parsercore_phase0_recovery_lineage_fork_internal_test.go#TestS5MissingInsertionForkPublishesBothRecoveryLineages": "9f9e903940655da46fb8c976fa2e08139153df0f",
 	"pr:#1019": "0beb95d399655d200e687e0912d3265b1c9562e9",
-	"cgo_harness/eof_recovery_admission_oracle_test.go#TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree": "2ebeb6c64632163622691786a71ac6da76a14929",
-	"incremental_invariant_gate_test.go#TestIncrementalInvariantGatePython":                                       "bf7ab0567122e863ef831e8aa56dbee93127ad93",
-	"w5_editor_latency_gate_test.go#TestW5EditorLatencyGate":                                                      "e734c93543654818082e8d3ae3721cdb6fe9e4a5",
-	"testdata/incremental_allowlist.json":                                                                         "95a1d13156b82e2221415342c9ac8048f2caf644",
-	"docs/compact-route-real-corpus-matrix.md#Current compact-graduation matrix":                                  "41af6afa6da47c9f8b55b3156fd88fb56686373f",
-	"docs/compact-route-coverage-census.md":                                                                       "38d86d417fc6209228b8b175bc2aa7bb9700b8d3",
-	"docs/a8-derivation-divergence-certificate-v1.md":                                                             "acccb81d20128e337a35ee274a2e3e3631b73b1a",
+	"cgo_harness/eof_recovery_admission_oracle_test.go#TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree":       "2ebeb6c64632163622691786a71ac6da76a14929",
+	"incremental_invariant_gate_test.go#TestIncrementalInvariantGatePython":                                             "bf7ab0567122e863ef831e8aa56dbee93127ad93",
+	"w5_editor_latency_gate_test.go#TestW5EditorLatencyGate":                                                            "e734c93543654818082e8d3ae3721cdb6fe9e4a5",
+	"cgo_harness/stage5_compact_incremental_test.go#TestStage5CompactPythonScannerCheckpointReuse":                      "5070ffd4594a819e8ebe78fa2bf651c197cbdce4",
+	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonWideIndentTransitionParity":                         "5070ffd4594a819e8ebe78fa2bf651c197cbdce4",
+	"parser_external_scanner_prefix_frontier_test.go#TestCheckpointedScannerWithoutPrefixFrontierRequirementKeepsReuse": "e1de4484b5655ab11057f70d9dc7b1245972d03f",
+	"external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots":            "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
+	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity":                    "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
+	"parser_external_scanner_incremental_test.go#TestPythonSameSymbolScannerStateEditFallsBack":                         "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
+	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonSameLengthScannerDelimiterParity":                   "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
+	"incremental_leaf_fastpath_test.go#TestIncludedRangeCheckpointLeafProbeRestoresTokenProvenance":                     "425ffdc2eb919b82b38484a0b3a2107d5c7341f1",
+	"internal/parsercorephase0/recursive_insert_test.go#TestAuthenticatedTerminalScannerProvenanceCoversOrdinaryLeaf":   "0d6683a465c6d20477c6a16b6b1f70ac2a90e87b",
+	"testdata/incremental_allowlist.json":                                        "95a1d13156b82e2221415342c9ac8048f2caf644",
+	"docs/compact-route-real-corpus-matrix.md#Current compact-graduation matrix": "41af6afa6da47c9f8b55b3156fd88fb56686373f",
+	"docs/compact-route-coverage-census.md":                                      "38d86d417fc6209228b8b175bc2aa7bb9700b8d3",
+	"docs/a8-derivation-divergence-certificate-v1.md":                            "acccb81d20128e337a35ee274a2e3e3631b73b1a",
 }
 
 var compactRouteLifecycleKnownCorpusTreeSHA256 = map[string]string{

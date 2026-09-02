@@ -1409,19 +1409,23 @@ type IncrementalParseProfile struct {
 	// (external_scanner_quiescence.go). A nonzero count marks boundaries where
 	// scanner state, not fragility or byte drift, is the binding constraint.
 	ReuseRejectScannerUnquiescent uint64
-	RecoverSearches               uint64
-	RecoverStateChecks            uint64
-	RecoverStateSkips             uint64
-	RecoverSymbolSkips            uint64
-	RecoverLookups                uint64
-	RecoverHits                   uint64
-	MaxStacksSeen                 int
-	EntryScratchPeak              uint64
-	StopReason                    ParseStopReason
-	TokensConsumed                uint64
-	LastTokenEndByte              uint32
-	ExpectedEOFByte               uint32
-	ArenaBytesAllocated           int64
+	// ReuseRejectFrontierProofUnavailable counts compact-materialized non-leaf
+	// candidates rejected because exact scanner bytes do not prove the parser
+	// frontier that owned the original reduction.
+	ReuseRejectFrontierProofUnavailable uint64
+	RecoverSearches                     uint64
+	RecoverStateChecks                  uint64
+	RecoverStateSkips                   uint64
+	RecoverSymbolSkips                  uint64
+	RecoverLookups                      uint64
+	RecoverHits                         uint64
+	MaxStacksSeen                       int
+	EntryScratchPeak                    uint64
+	StopReason                          ParseStopReason
+	TokensConsumed                      uint64
+	LastTokenEndByte                    uint32
+	ExpectedEOFByte                     uint32
+	ArenaBytesAllocated                 int64
 	// ArenaBaselineBytes sums retained arena capacity before each attempt.
 	// Subtract it from ArenaBytesAllocated to measure total operation growth.
 	ArenaBaselineBytes    int64
@@ -1492,29 +1496,30 @@ type IncrementalParseProfile struct {
 }
 
 type incrementalParseTiming struct {
-	totalNanos                         int64
-	reuseNanos                         int64
-	reusedSubtrees                     uint64
-	reusedBytes                        uint64
-	newNodes                           uint64
-	reuseUnsupported                   bool
-	reuseUnsupportedReason             string
-	acceptedErrorRetryAttempts         uint8
-	acceptedErrorRetryAdopted          bool
-	acceptedErrorRetryMergePerKey      int
-	acceptedErrorRetryCause            IncrementalRetryCause
-	oldTreeReuseRoute                  bool
-	reuseRejectDirty                   uint64
-	reuseRejectAncestorDirtyBeforeEdit uint64
-	reuseRejectHasError                uint64
-	reuseRejectInvalidSpan             uint64
-	reuseRejectOutOfBounds             uint64
-	reuseRejectRootNonLeafChanged      uint64
-	reuseObservedPreGotoStateMismatch  uint64
-	reuseRejectLargeNonLeaf            uint64
-	reuseRejectStaleNonLeafBoundary    uint64
-	reuseRejectFragileNonLeaf          uint64
-	reuseRejectScannerUnquiescent      uint64
+	totalNanos                          int64
+	reuseNanos                          int64
+	reusedSubtrees                      uint64
+	reusedBytes                         uint64
+	newNodes                            uint64
+	reuseUnsupported                    bool
+	reuseUnsupportedReason              string
+	acceptedErrorRetryAttempts          uint8
+	acceptedErrorRetryAdopted           bool
+	acceptedErrorRetryMergePerKey       int
+	acceptedErrorRetryCause             IncrementalRetryCause
+	oldTreeReuseRoute                   bool
+	reuseRejectDirty                    uint64
+	reuseRejectAncestorDirtyBeforeEdit  uint64
+	reuseRejectHasError                 uint64
+	reuseRejectInvalidSpan              uint64
+	reuseRejectOutOfBounds              uint64
+	reuseRejectRootNonLeafChanged       uint64
+	reuseObservedPreGotoStateMismatch   uint64
+	reuseRejectLargeNonLeaf             uint64
+	reuseRejectStaleNonLeafBoundary     uint64
+	reuseRejectFragileNonLeaf           uint64
+	reuseRejectScannerUnquiescent       uint64
+	reuseRejectFrontierProofUnavailable uint64
 	// blockSpliceSteps counts top-level sibling reuses taken inside the W1
 	// block-splice composition loop (spec.campaign.oedit) -- one per sibling
 	// spliced without returning to the main parse-loop iteration. It is O(edit)
@@ -3260,6 +3265,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectStaleNonLeafBoundary += reuse.rejectStaleNonLeafBoundary
 			timing.reuseRejectFragileNonLeaf += reuse.rejectFragileNonLeaf
 			timing.reuseRejectScannerUnquiescent += reuse.rejectScannerUnquiescent
+			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
 		}
 		if timing != nil {
 			reuseStart := time.Now()

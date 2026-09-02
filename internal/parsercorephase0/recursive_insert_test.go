@@ -707,6 +707,63 @@ func TestSubtreeExternalProvenanceUsesPackedCache(t *testing.T) {
 	}
 }
 
+func TestAuthenticatedTerminalScannerProvenanceCoversOrdinaryLeaf(t *testing.T) {
+	compact := newTinyCoreWithLimits(t, Limits{})
+	start := mustInternCheckpoint(t, compact, []byte{1})
+	end := mustInternCheckpoint(t, compact, []byte{2})
+	if err := compact.SetPhaseExternalTokenScannerCheckpoints(start, end); err != nil {
+		t.Fatal(err)
+	}
+
+	withoutCapability, err := compact.appendAuthenticatedTerminal(subtreeRecord{
+		symbol: 10, terminal: true,
+	}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := compact.externalPayloadScannerProvenance(withoutCapability); ok {
+		t.Fatal("ordinary terminal retained scanner checkpoints without the language capability")
+	}
+
+	compact.EnableTerminalScannerCheckpointProvenance()
+	ordinary, err := compact.appendAuthenticatedTerminal(subtreeRecord{
+		symbol: 11, terminal: true,
+	}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := compact.subtrees[ordinary-1].externalProvenanceState; got != subtreeExternalProvenanceExactNoExternal {
+		t.Fatalf("ordinary terminal changed external provenance state: %d", got)
+	}
+	provenance, ok := compact.externalPayloadScannerProvenance(ordinary)
+	if !ok || provenance.start != start || provenance.end != end {
+		t.Fatalf("ordinary terminal scanner provenance = %+v, %t", provenance, ok)
+	}
+
+	view, err := compact.MaterializationView(ordinary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !view.ExternalScannerCheckpointExact || view.ExternalScannerCheckpointStart != start || view.ExternalScannerCheckpointEnd != end {
+		t.Fatalf("ordinary terminal materialization checkpoint = %+v", view)
+	}
+
+	var visited MaterializationSubtreeView
+	var scratch MaterializationPostorderScratch
+	if err := compact.VisitMaterializationPostorderWithScratch(
+		[]SubtreeID{ordinary}, nil, &scratch,
+		func(_ SubtreeID, got MaterializationSubtreeView) error {
+			visited = got
+			return nil
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if !visited.ExternalScannerCheckpointExact || visited.ExternalScannerCheckpointStart != start || visited.ExternalScannerCheckpointEnd != end {
+		t.Fatalf("ordinary terminal postorder checkpoint = %+v", visited)
+	}
+}
+
 func TestRecursiveInsertKeepsScannerCheckpointMismatchSeparate(t *testing.T) {
 	core := newTinyCoreWithLimits(t, Limits{MaxDerivations: 8, MaxPopPaths: 8})
 	start := mustInternCheckpoint(t, core, []byte{1})

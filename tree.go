@@ -1006,6 +1006,10 @@ type ParseRuntime struct {
 	// usually discarded) against their own corpora, e.g. by walking a tree of
 	// known-valid source files and counting how often this is true.
 	CRecoverySwallowedErrorFallbackAttempted bool
+	// CompactExternalScannerCheckpointTransferProven reports whether compact
+	// materialization transferred every required terminal scanner checkpoint
+	// into node sidecars. A false value disables later subtree reuse.
+	CompactExternalScannerCheckpointTransferProven bool
 	// CRecoverReductionCandidateCeilingHits and CRecoverMissingTokenCeilingHits
 	// count how many times this parse's cDoAllPotentialReductions /
 	// cHandleError missing-token search hit the

@@ -184,6 +184,7 @@ func finalizeDeferredReturnedTreeTruncation(tree *Tree, _ []byte) {
 const (
 	forestIncrementalReuseUnsupportedReason            = "old tree was built by GSS forest fast path"
 	compactIncrementalReuseUnsupportedReason           = "old tree was compact-materialized without a scanner-quiescence proof"
+	checkpointedScannerPrefixFrontierUnsupportedReason = "external_scanner_prefix_frontier_unproven"
 	compactRecoverEOFIncrementalReuseUnsupportedReason = "old tree carried a compact recover_eof EOF runtime"
 )
 
@@ -210,6 +211,101 @@ func incrementalReuseUnsupportedReasonForTree(oldTree *Tree) string {
 		return compactIncrementalReuseUnsupportedReason
 	}
 	return forestIncrementalReuseUnsupportedReason
+}
+
+// checkpointedScannerPrefixFrontierUnproven reports the smallest prefix case
+// that a prefix-sensitive scanner cannot transfer safely. A clean
+// predecessor gives the parser a known frontier; an edit before the second
+// top-level child does not. Keep the check generic across checkpointed
+// tree producers, and leave other certified scanners on their existing reuse
+// contracts. Compact trees need this early guard as well: their exact scanner
+// snapshots do not prove reduction ownership, and waiting for reuseCursor
+// would walk every compact candidate before rejecting it.
+func checkpointedScannerPrefixFrontierUnproven(oldTree *Tree) bool {
+	if oldTree == nil || !languageUsesExternalScannerCheckpoints(oldTree.language) ||
+		!languageRequiresExternalScannerPrefixFrontierProof(oldTree.language) ||
+		len(oldTree.edits) == 0 || oldTree.root == nil {
+		return false
+	}
+	childCount := nodeChildCountNoMaterialize(oldTree.root)
+	foundFirst := false
+	foundSecond := false
+	boundary := uint32(0)
+	for index := 0; index < childCount; index++ {
+		entry, ok := nodeChildEntryAtNoMaterialize(oldTree.root, index)
+		if !ok || !stackEntryHasNode(entry) || stackEntryNodeIsExtra(entry) {
+			continue
+		}
+		if !foundFirst {
+			foundFirst = true
+			continue
+		}
+		boundary = stackEntryNodeStartByte(entry)
+		foundSecond = true
+		break
+	}
+	if !foundFirst {
+		return false
+	}
+	if !foundSecond {
+		// With no later sibling, the root end is the conservative frontier.
+		boundary = oldTree.root.endByte
+	}
+	for editIndex := len(oldTree.edits) - 1; editIndex >= 0; editIndex-- {
+		edit := oldTree.edits[editIndex]
+		// Map the boundary from the coordinate space after this edit back to
+		// the space before it. An edit that reaches the boundary is unsafe.
+		boundaryBefore := boundary
+		switch {
+		case boundary < edit.StartByte:
+			// The edit starts after the frontier. The frontier is unchanged.
+		case boundary >= edit.NewEndByte:
+			delta := int64(edit.OldEndByte) - int64(edit.NewEndByte)
+			mapped := int64(boundary) + delta
+			if mapped < 0 {
+				mapped = 0
+			} else if mapped > int64(^uint32(0)) {
+				mapped = int64(^uint32(0))
+			}
+			boundaryBefore = uint32(mapped)
+		default:
+			return true
+		}
+		if edit.StartByte <= boundaryBefore {
+			return true
+		}
+		boundary = boundaryBefore
+	}
+	return false
+}
+
+// tryTokenInvariantReuseBeforePrefixFrontierFallback permits only the narrow
+// leaf path to bypass a prefix-sensitive scanner fallback. The leaf scan must
+// authenticate the new token under the recorded parser and scanner boundary.
+// A failed authentication returns control to the fresh-parse fallback.
+func (p *Parser) tryTokenInvariantReuseBeforePrefixFrontierFallback(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
+	if oldTreeDisablesIncrementalReuse(oldTree) {
+		return nil, false
+	}
+	if _, _, ok := p.tokenInvariantLeafEditCandidate(source, oldTree); !ok {
+		return nil, false
+	}
+	if p.checkDFALexer() != nil {
+		return nil, false
+	}
+	prevFactory := p.reparseFactory
+	p.reparseFactory = nil
+	defer func() {
+		p.reparseFactory = prevFactory
+	}()
+	ts := p.acquireParserDFATokenSource(source)
+	defer ts.Close()
+	tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, p.wrapIncludedRanges(ts), timing)
+	if !ok {
+		return nil, false
+	}
+	p.normalizeReturnedIncrementalTree(tree, oldTree, source)
+	return tree, true
 }
 
 func (p *Parser) tryTokenInvariantReuseForDisabledOldTree(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
@@ -391,6 +487,9 @@ func profileFreshParseFallback(start time.Time, tree *Tree, reason string) Incre
 	copyParseRuntimeToTiming(timing, *tree.rawParseRuntime())
 	profile = timing.toProfile()
 	profile.ReparseNanos = time.Since(start).Nanoseconds()
+	// A fresh fallback has no incremental arena delta for the timing defer to
+	// report. Publish the fallback tree's total node count explicitly instead.
+	profile.NewNodesAllocated = uint64(tree.rawParseRuntime().NodesAllocated)
 	profile.ReuseUnsupported = true
 	profile.ReuseUnsupportedReason = reason
 	return profile
@@ -1583,6 +1682,12 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 		// A compact tree needs the incremental token-source fallback below so
 		// scanner refusal and full-reparse work retain normal attribution.
 	}
+	if checkpointedScannerPrefixFrontierUnproven(oldTree) {
+		if tree, ok := p.tryTokenInvariantReuseBeforePrefixFrontierFallback(source, oldTree, nil); ok {
+			return tree, nil
+		}
+		return p.Parse(source)
+	}
 	if err := p.checkDFALexer(); err != nil {
 		return nil, err
 	}
@@ -1765,6 +1870,15 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 		}
 		// Continue through the token-source path so a compact-tree decline keeps
 		// the same scanner reason and work attribution as an ordinary fallback.
+	}
+	if checkpointedScannerPrefixFrontierUnproven(oldTree) {
+		timing := &incrementalParseTiming{}
+		if tree, ok := p.tryTokenInvariantReuseBeforePrefixFrontierFallback(source, oldTree, timing); ok {
+			return tree, timing.toProfile(), nil
+		}
+		start := time.Now()
+		tree, err := p.Parse(source)
+		return tree, profileFreshParseFallback(start, tree, checkpointedScannerPrefixFrontierUnsupportedReason), err
 	}
 	if err := p.checkDFALexer(); err != nil {
 		return nil, IncrementalParseProfile{}, err

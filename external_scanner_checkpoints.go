@@ -39,6 +39,14 @@ func languageUsesExternalScannerCheckpoints(lang *Language) bool {
 	return ok && checkpointed.UsesExternalScannerCheckpoints()
 }
 
+func languageRequiresExternalScannerPrefixFrontierProof(lang *Language) bool {
+	if lang == nil || lang.ExternalScanner == nil {
+		return false
+	}
+	prefixSensitive, ok := lang.ExternalScanner.(IncrementalPrefixFrontierExternalScanner)
+	return ok && prefixSensitive.RequiresIncrementalPrefixFrontierProof()
+}
+
 func languageAllowsCheckpointlessExternalReuse(lang *Language) bool {
 	if lang == nil || lang.ExternalScanner == nil {
 		return false
@@ -86,7 +94,6 @@ func (a *nodeArena) recordExternalScannerCompactCheckpoint(start, end []byte) ex
 	if !bytes.Equal(start, end) {
 		endRef = a.copyExternalScannerSnapshotRef(end)
 	}
-	a.externalScannerCheckpointRecords++
 	return externalScannerCheckpointRef{
 		start: startRef,
 		end:   endRef,
@@ -137,7 +144,9 @@ func externalScannerCheckpointRefForNode(node *Node) (externalScannerCheckpointR
 		return externalScannerCheckpointRef{}, false
 	}
 	cp, ok := set.lookup(idx)
-	if !ok || !externalScannerCheckpointRefComplete(cp) {
+	if !ok || !externalScannerCheckpointRefComplete(cp) ||
+		!node.ownerArena.externalScannerSnapshotRefValid(cp.start) ||
+		!node.ownerArena.externalScannerSnapshotRefValid(cp.end) {
 		return externalScannerCheckpointRef{}, false
 	}
 	return cp, true
@@ -233,26 +242,29 @@ func rebuildExternalScannerCheckpointForNode(n *Node) (externalScannerCheckpoint
 	if n == nil || n.ownerArena == nil {
 		return externalScannerCheckpointRef{}, false
 	}
+	if cp, ok := externalScannerCheckpointRefForNode(n); ok {
+		return cp, true
+	}
 	childCount := nodeChildCountNoMaterialize(n)
 	if childCount == 0 {
-		return externalScannerCheckpointRefForNode(n)
+		return externalScannerCheckpointRef{}, false
 	}
-	var startRef externalScannerSnapshotRef
-	var endRef externalScannerSnapshotRef
+	var startBytes []byte
+	var endBytes []byte
 	startOK := false
 	endOK := false
 	for i := 0; i < childCount; i++ {
-		cp, ok := externalScannerCheckpointRefForChild(n, i)
+		cp, ok := externalScannerCheckpointForChild(n, i)
 		if ok {
-			startRef = cp.start
+			startBytes = cp.start
 			startOK = true
 			break
 		}
 	}
 	for i := childCount - 1; i >= 0; i-- {
-		cp, ok := externalScannerCheckpointRefForChild(n, i)
+		cp, ok := externalScannerCheckpointForChild(n, i)
 		if ok {
-			endRef = cp.end
+			endBytes = cp.end
 			endOK = true
 			break
 		}
@@ -260,74 +272,96 @@ func rebuildExternalScannerCheckpointForNode(n *Node) (externalScannerCheckpoint
 	if !startOK || !endOK {
 		return externalScannerCheckpointRef{}, false
 	}
+	startRef := n.ownerArena.copyExternalScannerSnapshotRef(startBytes)
+	endRef := startRef
+	if !bytes.Equal(startBytes, endBytes) {
+		endRef = n.ownerArena.copyExternalScannerSnapshotRef(endBytes)
+	}
 	cp := externalScannerCheckpointRef{start: startRef, end: endRef}
-	n.ownerArena.setExternalScannerCheckpoint(n, cp)
+	if !externalScannerCheckpointRefComplete(cp) ||
+		!n.ownerArena.externalScannerSnapshotRefValid(cp.start) ||
+		!n.ownerArena.externalScannerSnapshotRefValid(cp.end) ||
+		!n.ownerArena.setExternalScannerCheckpoint(n, cp) {
+		return externalScannerCheckpointRef{}, false
+	}
+	n.ownerArena.externalScannerCheckpointRecords++
 	return cp, true
 }
 
-func externalScannerCheckpointRefForChild(parent *Node, childIndex int) (externalScannerCheckpointRef, bool) {
+func externalScannerCheckpointForChild(parent *Node, childIndex int) (externalScannerCheckpoint, bool) {
 	if parent == nil || parent.ownerArena == nil {
-		return externalScannerCheckpointRef{}, false
+		return externalScannerCheckpoint{}, false
 	}
 	entry, ok := nodeChildEntryAtNoMaterialize(parent, childIndex)
 	if !ok {
 		child := nodeChildAtForReason(parent, childIndex, materializeForCheckpointRebuild)
-		return rebuildExternalScannerCheckpointForNode(child)
+		if _, ok := rebuildExternalScannerCheckpointForNode(child); !ok {
+			return externalScannerCheckpoint{}, false
+		}
+		return externalScannerCheckpointForNode(child)
 	}
-	return externalScannerCheckpointRefForStackEntry(parent.ownerArena, entry)
+	return externalScannerCheckpointForStackEntry(parent.ownerArena, entry)
 }
 
-func externalScannerCheckpointRefForStackEntry(arena *nodeArena, entry stackEntry) (externalScannerCheckpointRef, bool) {
+func externalScannerCheckpointForStackEntry(arena *nodeArena, entry stackEntry) (externalScannerCheckpoint, bool) {
 	if !stackEntryHasNode(entry) {
-		return externalScannerCheckpointRef{}, false
+		return externalScannerCheckpoint{}, false
 	}
 	if node := stackEntryNode(entry); node != nil {
-		return rebuildExternalScannerCheckpointForNode(node)
+		if _, ok := rebuildExternalScannerCheckpointForNode(node); !ok {
+			return externalScannerCheckpoint{}, false
+		}
+		return externalScannerCheckpointForNode(node)
 	}
 	if leaf := stackEntryCompactFullLeaf(entry); leaf != nil {
-		if !leaf.hasCheckpoint {
-			return externalScannerCheckpointRef{}, false
+		if !leaf.hasCheckpoint || arena == nil ||
+			!arena.externalScannerSnapshotRefValid(leaf.checkpoint.start) ||
+			!arena.externalScannerSnapshotRefValid(leaf.checkpoint.end) {
+			return externalScannerCheckpoint{}, false
 		}
-		return leaf.checkpoint, true
+		return externalScannerCheckpoint{
+			start: arena.externalScannerSnapshotBytes(leaf.checkpoint.start),
+			end:   arena.externalScannerSnapshotBytes(leaf.checkpoint.end),
+		}, true
 	}
 	if parent := stackEntryPendingParent(entry); parent != nil {
-		return externalScannerCheckpointRefForPendingParent(arena, parent)
+		return externalScannerCheckpointForPendingParent(arena, parent)
 	}
-	return externalScannerCheckpointRef{}, false
+	return externalScannerCheckpoint{}, false
 }
 
-func externalScannerCheckpointRefForPendingParent(arena *nodeArena, parent *pendingParent) (externalScannerCheckpointRef, bool) {
+func externalScannerCheckpointForPendingParent(arena *nodeArena, parent *pendingParent) (externalScannerCheckpoint, bool) {
 	if arena == nil || parent == nil {
-		return externalScannerCheckpointRef{}, false
+		return externalScannerCheckpoint{}, false
 	}
 	childCount := parent.childEntryCount()
 	if childCount == 0 {
-		return externalScannerCheckpointRef{}, false
+		return externalScannerCheckpoint{}, false
 	}
-	var startRef externalScannerSnapshotRef
-	var endRef externalScannerSnapshotRef
+	var startBytes []byte
+	var endBytes []byte
 	startOK := false
 	endOK := false
 	for i := 0; i < childCount; i++ {
-		cp, ok := externalScannerCheckpointRefForStackEntry(arena, parent.childEntry(arena, i))
+		cp, ok := externalScannerCheckpointForStackEntry(arena, parent.childEntry(arena, i))
 		if ok {
-			startRef = cp.start
+			startBytes = cp.start
 			startOK = true
 			break
 		}
 	}
 	for i := childCount - 1; i >= 0; i-- {
-		cp, ok := externalScannerCheckpointRefForStackEntry(arena, parent.childEntry(arena, i))
+		cp, ok := externalScannerCheckpointForStackEntry(arena, parent.childEntry(arena, i))
 		if ok {
-			endRef = cp.end
+			endBytes = cp.end
 			endOK = true
 			break
 		}
 	}
 	if !startOK || !endOK {
-		return externalScannerCheckpointRef{}, false
+		return externalScannerCheckpoint{}, false
 	}
-	return externalScannerCheckpointRef{start: startRef, end: endRef}, true
+	return externalScannerCheckpoint{start: startBytes, end: endBytes}, true
 }
 
 func rebuildExternalScannerCheckpointForMaterializedParent(n *Node, reason materializeReason) {

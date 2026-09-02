@@ -643,9 +643,10 @@ func materializeStackEntryCompactFullLeafEntry(arena *nodeArena, entry stackEntr
 	node.productionID = leaf.productionID
 	node.rawShape = leaf.rawShape
 	node.dynamicPrecedence = leaf.dynamicPrecedence
-	if leaf.hasCheckpoint && arena != nil {
+	if leaf.hasCheckpoint && arena != nil && externalScannerCheckpointRefComplete(leaf.checkpoint) {
 		if arena.setExternalScannerCheckpoint(node, leaf.checkpoint) {
 			arena.externalScannerCheckpointLeafNodes++
+			arena.externalScannerCheckpointRecords++
 			if arena.checkpointLeafFullNodesAvoided > 0 {
 				arena.checkpointLeafFullNodesAvoided--
 			}

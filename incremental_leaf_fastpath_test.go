@@ -702,6 +702,113 @@ func TestScanLeafTokenWithoutMutatingRejectsExternalScanner(t *testing.T) {
 	}
 }
 
+func TestIncludedRangeCheckpointLeafProbeRestoresTokenProvenance(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		corruptEnd  bool
+		wantSuccess bool
+	}{
+		{name: "success", wantSuccess: true},
+		{name: "failed_end_state", corruptEnd: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang := *buildArithmeticLanguage()
+			lang.ExternalScanner = checkpointByteExternalScanner{}
+			parser := NewParser(&lang)
+			oldSource := []byte("1+2")
+			newSource := []byte("1+3")
+			tree := mustParse(t, parser, oldSource)
+			defer tree.Release()
+			tree.Edit(InputEdit{
+				StartByte:   2,
+				OldEndByte:  3,
+				NewEndByte:  3,
+				StartPoint:  Point{Row: 0, Column: 2},
+				OldEndPoint: Point{Row: 0, Column: 3},
+				NewEndPoint: Point{Row: 0, Column: 3},
+			})
+			leaf := tree.lastEditedLeaf
+			if leaf == nil {
+				t.Fatal("expected edited leaf to be tracked")
+			}
+			if leaf.ownerArena == nil || !leaf.ownerArena.recordExternalScannerLeafCheckpoint(leaf, []byte{0}, []byte{0}) {
+				t.Fatal("failed to attach the scanner checkpoint")
+			}
+			checkpoint, ok := externalScannerCheckpointForNode(leaf)
+			if !ok {
+				t.Fatal("expected edited leaf to retain a scanner checkpoint")
+			}
+			if tc.corruptEnd && !leaf.ownerArena.recordExternalScannerLeafCheckpoint(leaf, checkpoint.start, []byte{9}) {
+				t.Fatal("failed to replace the scanner end checkpoint")
+			}
+
+			base := newDFATokenSourceDirect(NewLexer(lang.LexStates, newSource), &lang, parser.lookupActionIndex, parser.hasKeywordState, parser.externalValidByState, parser.externalValidMaskByState)
+			defer base.Close()
+			wrapped := &includedRangeTokenSource{
+				base: base,
+				ranges: []Range{{
+					StartByte: 0,
+					EndByte:   uint32(len(newSource)),
+					EndPoint:  Point{Row: 0, Column: uint32(len(newSource))},
+				}},
+			}
+			base.lastExternalTokenWasExtra = true
+			base.externalTokenEndSameAsStart = true
+			base.lastTokenStartByte = 91
+			base.lastTokenEndByte = 97
+			base.lastTokenValid = true
+			beforeSnapshot, ok := snapshotDFATokenSourceState(base)
+			if !ok {
+				t.Fatal("failed to snapshot the token source")
+			}
+			beforeProvenance := struct {
+				lastExternalTokenWasExtra   bool
+				externalTokenEndSameAsStart bool
+				lastTokenStartByte          uint32
+				lastTokenEndByte            uint32
+				lastTokenValid              bool
+			}{
+				lastExternalTokenWasExtra:   base.lastExternalTokenWasExtra,
+				externalTokenEndSameAsStart: base.externalTokenEndSameAsStart,
+				lastTokenStartByte:          base.lastTokenStartByte,
+				lastTokenEndByte:            base.lastTokenEndByte,
+				lastTokenValid:              base.lastTokenValid,
+			}
+
+			tok, success := scanIncludedRangeLeafTokenWithExternalCheckpoint(wrapped, base, leaf)
+			if success != tc.wantSuccess {
+				t.Fatalf("checkpoint leaf probe success=%t, want %t; token=%+v", success, tc.wantSuccess, tok)
+			}
+			if wrapped.idx != 0 {
+				t.Fatalf("included range index=%d, want 0", wrapped.idx)
+			}
+			afterSnapshot, ok := snapshotDFATokenSourceState(base)
+			if !ok {
+				t.Fatal("failed to snapshot the restored token source")
+			}
+			if !reflect.DeepEqual(afterSnapshot, beforeSnapshot) {
+				t.Fatalf("checkpoint leaf probe changed captured token-source state:\n before=%+v\n after=%+v", beforeSnapshot, afterSnapshot)
+			}
+			afterProvenance := struct {
+				lastExternalTokenWasExtra   bool
+				externalTokenEndSameAsStart bool
+				lastTokenStartByte          uint32
+				lastTokenEndByte            uint32
+				lastTokenValid              bool
+			}{
+				lastExternalTokenWasExtra:   base.lastExternalTokenWasExtra,
+				externalTokenEndSameAsStart: base.externalTokenEndSameAsStart,
+				lastTokenStartByte:          base.lastTokenStartByte,
+				lastTokenEndByte:            base.lastTokenEndByte,
+				lastTokenValid:              base.lastTokenValid,
+			}
+			if afterProvenance != beforeProvenance {
+				t.Fatalf("checkpoint leaf probe changed token provenance: before=%+v after=%+v", beforeProvenance, afterProvenance)
+			}
+		})
+	}
+}
+
 func TestScanLeafTokenWithoutMutatingRejectsSyntheticExternalSymbols(t *testing.T) {
 	lang := *buildArithmeticLanguage()
 	lang.ExternalSymbols = []Symbol{1}

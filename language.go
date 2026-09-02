@@ -234,6 +234,16 @@ type CheckpointedExternalScanner interface {
 	UsesExternalScannerCheckpoints() bool
 }
 
+// IncrementalPrefixFrontierExternalScanner is an optional refinement for a
+// checkpointed scanner whose state can depend on reductions before the next
+// top-level sibling. A changed-length or changed-point edit before that
+// sibling must take the fresh-parse fallback unless the parser can prove the
+// old reduction frontier. Python uses this gate for indentation ownership.
+type IncrementalPrefixFrontierExternalScanner interface {
+	ExternalScanner
+	RequiresIncrementalPrefixFrontierProof() bool
+}
+
 // CheckpointlessExternalScannerReuse is implemented by checkpointed scanners
 // that can additionally prove subtree reuse safe when a candidate node has no
 // scanner checkpoint. Most stateful scanners must not implement this: absence
