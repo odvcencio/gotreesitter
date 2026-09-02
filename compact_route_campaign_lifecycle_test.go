@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "72afa041e9ec2f02872724bbdce17694d89955d8"
+	compactRouteLifecycleSourceRevision               = "5070ffd4594a819e8ebe78fa2bf651c197cbdce4"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -48,6 +48,8 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"cgo_harness/eof_recovery_admission_oracle_test.go#TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree": "2ebeb6c64632163622691786a71ac6da76a14929",
 	"incremental_invariant_gate_test.go#TestIncrementalInvariantGatePython":                                       "bf7ab0567122e863ef831e8aa56dbee93127ad93",
 	"w5_editor_latency_gate_test.go#TestW5EditorLatencyGate":                                                      "e734c93543654818082e8d3ae3721cdb6fe9e4a5",
+	"cgo_harness/stage5_compact_incremental_test.go#TestStage5CompactPythonScannerCheckpointReuse":                "5070ffd4594a819e8ebe78fa2bf651c197cbdce4",
+	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonWideIndentTransitionParity":                   "5070ffd4594a819e8ebe78fa2bf651c197cbdce4",
 	"testdata/incremental_allowlist.json":                                                                         "95a1d13156b82e2221415342c9ac8048f2caf644",
 	"docs/compact-route-real-corpus-matrix.md#Current compact-graduation matrix":                                  "41af6afa6da47c9f8b55b3156fd88fb56686373f",
 	"docs/compact-route-coverage-census.md":                                                                       "38d86d417fc6209228b8b175bc2aa7bb9700b8d3",
