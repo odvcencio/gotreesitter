@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "030eeb6af96005367d4e4eb9ad92f204c72aa1d4"
+	compactRouteLifecycleSourceRevision               = "5f6c67f40ebfbc36798023462cf3eb97c4d0e43e"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -62,6 +62,7 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"cgo_harness/stage6_json_compact_certification_test.go#TestStage6JSONCompactCertification":                          "f737578353f60bee8de5f6413b9534cc8713cc51",
 	"cgo_harness/stage6_c_compact_certification_test.go#TestStage6CCompactCertification":                                "f5fc2537b3d8126bc1bdaeed6f42c0f21f139ffa",
 	"cgo_harness/stage6_css_compact_certification_test.go#TestStage6CSSCompactCertification":                            "030eeb6af96005367d4e4eb9ad92f204c72aa1d4",
+	"cgo_harness/stage6_json5_compact_certification_test.go#TestStage6JSON5CompactCertification":                        "5f6c67f40ebfbc36798023462cf3eb97c4d0e43e",
 	"external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots":            "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity":                    "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"parser_external_scanner_incremental_test.go#TestPythonSameSymbolScannerStateEditFallsBack":                         "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
@@ -84,6 +85,7 @@ var compactRouteLifecycleKnownCorpusTreeSHA256 = map[string]string{
 	"json-compact-smoke":       "a6a9ea2b18c6a1299d3b6c92150ac65bb6bdb4d3e5471835bf6a8ceabe37e36e",
 	"c-compact-smoke":          "b35547117f044e74311e70eeb45bd3967598fdca38a963937e2eeaad29bed7b7",
 	"css-compact-smoke":        "1363ea554c5d75bffc553bce1514068e02eb934c204f585e452ddc9211ea4af0",
+	"json5-compact-smoke":      "84634d0f446a4af1d216bd534c2456006827b71c13a99f0fdfc4f71c76d19dc8",
 }
 
 type compactRouteLifecycleRegistry struct {
