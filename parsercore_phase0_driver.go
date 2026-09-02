@@ -3,6 +3,7 @@
 package gotreesitter
 
 import (
+	"bytes"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/binary"
@@ -4697,10 +4698,18 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 	if lang == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
 		return tok, false
 	}
-	// A stateless external scanner has no checkpoint identity for this probe.
-	// Keep that route unchanged until each header can own its scanner state.
-	if lang.ExternalScanner != nil && s.checkpoint.Length == 0 {
-		return tok, false
+	// An external scanner can only enter the per-version probe when its
+	// checkpoint is complete and identity-bearing. Restore the election-start
+	// payload before the scan, then restore the shared post-election payload on
+	// every exit. A stateful scanner without this contract keeps the old,
+	// internal-DFA-only behavior and fails closed.
+	if lang.ExternalScanner != nil {
+		if relexed, ok := s.relexExternalTokenForState(state, tok); ok {
+			return relexed, true
+		}
+		if s.checkpoint.Length == 0 {
+			return tok, false
+		}
 	}
 	if tok.Symbol == 0 || tok.Symbol == errorSymbol || tok.Missing || tok.NoLookahead ||
 		tok.StartByte >= tok.EndByte || int(tok.StartByte) >= len(source) {
@@ -4747,6 +4756,72 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		return tok, false
 	}
 	return relexed, true
+}
+
+// relexExternalTokenForState probes one parser state's external scanner from
+// the shared election-start checkpoint. It returns a witness when the token
+// identity or the serialized scanner state differs from the shared election.
+// The token source is restored before the caller can dispatch another header.
+func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state StateID, shared Token) (Token, bool) {
+	if s == nil || s.tokenSource == nil || s.tokenSource.lexer == nil || !s.versionLexerBeforeValid {
+		return shared, false
+	}
+	d := s.tokenSource
+	lang := d.language
+	if lang == nil || lang.ExternalScanner == nil || !languageUsesExternalScannerCheckpoints(lang) {
+		return shared, false
+	}
+	provider, ok := lang.ExternalScanner.(ExternalScannerCheckpointIdentityProvider)
+	if !ok || !provider.UsesExternalScannerCheckpoints() {
+		return shared, false
+	}
+	identity, ok := provider.CheckpointIdentity()
+	if !ok || !identity.complete() || !s.versionLexerBefore.externalScannerPresent || len(s.versionLexerBefore.externalPayload) == 0 {
+		return shared, false
+	}
+	if int(state) >= len(lang.LexModes) {
+		return shared, false
+	}
+	// Keep the source exactly as the shared election left it. The snapshot
+	// restore below may call Deserialize, so capture the current state first.
+	prior := d.snapshotRelexState()
+	priorState := d.state
+	priorGLRStates := d.glrStates
+	defer func() {
+		prior.restore(d)
+		d.SetParserState(priorState)
+		d.SetGLRStates(priorGLRStates)
+	}()
+
+	// A production scheduler has an authenticated compact core. The direct
+	// helper tests use the same snapshot type without a core, so retain the
+	// raw DFA restore as a test-only fallback after the capability checks above.
+	if s.compact != nil {
+		length, digest, ok := s.compact.CheckpointReceipt(s.checkpointBeforeID)
+		beforeInfo := parserCoreCheckpoint(s.versionLexerBefore.externalPayload)
+		if !ok || uint64(len(s.versionLexerBefore.externalPayload)) != uint64(length) ||
+			digest != beforeInfo.SHA256 {
+			return shared, false
+		}
+	}
+	s.versionLexerBefore.restore(d)
+	d.SetParserState(state)
+	d.SetGLRStates(nil)
+	candidate := d.Next()
+	if candidate.Symbol == 0 || candidate.NoLookahead || candidate.Missing ||
+		!candidate.ExternalScannerToken || candidate.StartByte != shared.StartByte {
+		return shared, false
+	}
+	// Compare the scanner payload after the state-specific scan. Equal token
+	// bytes can still leave different scanner states, which must also activate
+	// ownership for the next election.
+	candidateAfter := d.snapshotRelexState()
+	sharedAfter := prior
+	if candidate.Symbol == shared.Symbol && candidate.StartByte == shared.StartByte &&
+		candidate.EndByte == shared.EndByte && bytes.Equal(candidateAfter.externalPayload, sharedAfter.externalPayload) {
+		return shared, false
+	}
+	return candidate, true
 }
 
 // withVersionLexerOwner runs one snapshot publication under the scheduler's
@@ -8595,6 +8670,13 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			if len(s.headers) > 1 {
 				relexed, ok := s.relexTokenForState(state, s.token)
 				if ok {
+					// External scanner output carries mutable state beyond the
+					// token span. Keep the entire frontier on owned requests,
+					// even when the scanner produced the same-width token, so a
+					// later election cannot observe a sibling's payload.
+					if relexed.ExternalScannerToken {
+						return s.activateVersionLexerOwnershipAtRagged(index)
+					}
 					if relexed.EndByte != s.token.EndByte {
 						if raggedRelexNoActionHeads == 0 {
 							raggedRelexWitness = relexed

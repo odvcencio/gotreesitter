@@ -4,6 +4,126 @@ package gotreesitter
 
 import "testing"
 
+type phase0OwnedExternalScanner struct{}
+
+type phase0OwnedExternalScannerState struct {
+	value byte
+}
+
+func (phase0OwnedExternalScanner) Create() any {
+	return &phase0OwnedExternalScannerState{}
+}
+
+func (phase0OwnedExternalScanner) Destroy(any) {}
+
+func (phase0OwnedExternalScanner) Serialize(payload any, buf []byte) int {
+	if len(buf) == 0 {
+		return 0
+	}
+	buf[0] = payload.(*phase0OwnedExternalScannerState).value
+	return 1
+}
+
+func (phase0OwnedExternalScanner) Deserialize(payload any, buf []byte) {
+	state := payload.(*phase0OwnedExternalScannerState)
+	if len(buf) == 0 {
+		state.value = 0
+		return
+	}
+	state.value = buf[0]
+}
+
+func (phase0OwnedExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
+
+func (phase0OwnedExternalScanner) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	return ExternalScannerCheckpointIdentity{
+		Scanner: []byte("phase0-owned-external-scanner-v1"),
+		Grammar: []byte("phase0-owned-external-grammar-v1"),
+	}, true
+}
+
+func (phase0OwnedExternalScanner) Scan(payload any, lexer *ExternalLexer, valid []bool) bool {
+	if lexer.Lookahead() != 'x' {
+		return false
+	}
+	state := payload.(*phase0OwnedExternalScannerState)
+	switch {
+	case len(valid) > 0 && valid[0]:
+		state.value = 1
+		lexer.Advance(false)
+		lexer.MarkEnd()
+		lexer.SetResultSymbol(Symbol(11))
+		return true
+	case len(valid) > 1 && valid[1]:
+		state.value = 2
+		lexer.Advance(false)
+		lexer.MarkEnd()
+		lexer.SetResultSymbol(Symbol(12))
+		return true
+	default:
+		return false
+	}
+}
+
+func phase0OwnedExternalLanguage() *Language {
+	return &Language{
+		Name:               "phase0-owned-external",
+		SymbolCount:        13,
+		TokenCount:         13,
+		ExternalTokenCount: 2,
+		SymbolNames:        make([]string, 13),
+		LexModes: []LexMode{
+			{ExternalLexState: 1},
+			{ExternalLexState: 2},
+		},
+		LexStates:       []LexState{{}},
+		ExternalScanner: phase0OwnedExternalScanner{},
+		ExternalSymbols: []Symbol{11, 12},
+		ExternalLexStates: [][]bool{
+			{false, false},
+			{true, false},
+			{false, true},
+		},
+	}
+}
+
+func TestDiagnosticParserCoreExternalVersionRelexOwnsCheckpoint(t *testing.T) {
+	lang := phase0OwnedExternalLanguage()
+	source := []byte("x")
+	lookup := func(StateID, Symbol) uint16 { return 1 }
+	tokenSource := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, lookup, nil, nil, nil)
+	defer tokenSource.Close()
+	tokenSource.SetParserState(0)
+	before := tokenSource.snapshotRelexState()
+	shared := tokenSource.Next()
+	if shared.Symbol != Symbol(11) || !shared.ExternalScannerToken || shared.StartByte != 0 || shared.EndByte != 1 {
+		t.Fatalf("shared external token = %+v, want symbol 11 at 0..1", shared)
+	}
+	sharedState := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value
+	if sharedState != 1 {
+		t.Fatalf("shared scanner state = %d, want 1", sharedState)
+	}
+
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		tokenSource:             tokenSource,
+		versionLexerBefore:      before,
+		versionLexerBeforeValid: true,
+	}
+	candidate, ok := scheduler.relexTokenForState(1, shared)
+	if !ok {
+		t.Fatal("external per-version relex = false, want a divergent scanner token")
+	}
+	if candidate.Symbol != Symbol(12) || !candidate.ExternalScannerToken || candidate.StartByte != 0 || candidate.EndByte != 1 {
+		t.Fatalf("candidate external token = %+v, want symbol 12 at 0..1", candidate)
+	}
+	if got := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value; got != sharedState {
+		t.Fatalf("shared scanner payload after probe = %d, want restored %d", got, sharedState)
+	}
+	if got := tokenSource.lexer.pos; got != 1 {
+		t.Fatalf("shared lexer position after probe = %d, want 1", got)
+	}
+}
+
 func TestDiagnosticParserCoreSameSpanRelexReconstructsExactToken(t *testing.T) {
 	shared := Token{
 		Symbol:                   3,
