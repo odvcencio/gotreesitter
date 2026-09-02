@@ -1,0 +1,1087 @@
+{
+  "schema": "gotreesitter/compact-route-campaign-lifecycle/v1",
+  "source_revision": "72afa041e9ec2f02872724bbdce17694d89955d8",
+  "scope": "Compact parser graduation stages, proof lanes, controls, corpus identity, and receipt retirement.",
+  "authority": [
+    "spec.parser-graduation.v1#8.1",
+    "spec.campaign.v7",
+    "spec.campaign.v6.7",
+    "spec.campaign.oedit"
+  ],
+  "campaign_identifiers": [
+    "spec.parser-graduation.v1#8.1",
+    "spec.campaign.v7",
+    "spec.campaign.v6.7",
+    "spec.campaign.oedit",
+    "spec.campaign.post-admission-frontier",
+    "spec.compact-recovery-ownership.v1",
+    "spec.b4b-alternative-set.v1",
+    "spec.b4b-alternative-set.v2",
+    "spec.c4-bytecode-isa.v1",
+    "spec.derivation-set-equivalence.v1",
+    "spec.merge-time-election.v1",
+    "spec.forest-coalescer-dedup-generalization.v1",
+    "spec.recovery-strategy1-linearization-v2",
+    "spec.a2-election-table-parity",
+    "spec.outline-api.v1"
+  ],
+  "funnel": {
+    "ordered_stages": [1, 2, 3, 4, 5, 6, 7],
+    "active_core_stage": 5,
+    "core_rule": "Keep one core implementation stage active. Run the other lanes around it.",
+    "parallel_lanes": ["adversarial", "certification", "performance"],
+    "correctness_precedes_performance": true
+  },
+  "core_pr_gate": {
+      "required_fields": [
+        "smallest_c_oracle_falsifier",
+        "focused_implementation",
+        "one_core_implementation_stage_active",
+        "exact_tree_range_error_assertions",
+      "one_grammar_docker_parity",
+      "cleanup_and_ownership_checks",
+      "intended_path_telemetry",
+      "no_unrelated_performance_work"
+    ],
+    "performance_rule": "Run randomized performance after correctness evidence passes."
+  },
+  "graduation_definition": [
+    "Supported grammars match the locked C tree output.",
+    "Recovery and ambiguity match C.",
+    "Incremental edits preserve parity and reuse.",
+    "Memory, race, fallback, and retention gates pass.",
+    "Performance evidence meets release safety requirements.",
+    "The compact route can become the default without hidden exceptions."
+  ],
+  "history_policy": {
+    "preserve_entries": true,
+    "preserve_receipt_refs": true,
+    "preserve_plan_refs": true,
+    "retirement_rule": "Keep retired and superseded entries with their source revisions and receipts.",
+    "stale_rule": "Mark stale evidence before replacement. Do not delete it from the registry.",
+    "state_policy": {
+      "current_receipt_required": ["active", "graduated"],
+      "historical_only": ["retired", "superseded"],
+      "receipts_optional": ["planned", "experimental", "diagnostic", "blocked", "retirement_pending", "emergency_fallback", "stale_evidence"]
+    }
+  },
+  "vocabularies": {
+    "owners": [
+      "scheduler_action_semantics",
+      "derivation_election_selection",
+      "materialization",
+      "scanner_checkpoint_state",
+      "incremental_edit_reuse",
+      "public_compatibility",
+      "graph_head_lifecycle",
+      "oracle_certification",
+      "performance_release",
+      "release_safety"
+    ],
+    "statuses": [
+      "planned",
+      "active",
+      "experimental",
+      "diagnostic",
+      "blocked",
+      "graduated",
+      "superseded",
+      "retirement_pending",
+      "emergency_fallback",
+      "stale_evidence",
+      "retired"
+    ],
+    "receipt_statuses": ["current", "stale", "historical"],
+    "plan_statuses": ["active", "planned", "stale", "historical"],
+    "retention": [
+      "preserve_receipt",
+      "keep_stable_telemetry",
+      "delete_after_receipt",
+      "keep_emergency_fallback"
+    ],
+    "lanes": ["core", "adversarial", "certification", "performance"],
+    "control_kinds": ["build_expression", "environment"],
+    "path_roles": [
+      "implementation",
+      "proof",
+      "adversarial_test",
+      "c_oracle",
+      "incremental_test",
+      "certification",
+      "performance",
+      "runbook",
+      "corpus_policy"
+    ]
+  },
+  "controls": [
+    {
+      "id": "build.default",
+      "kind": "build_expression",
+      "expression": "default",
+      "scope": "production",
+      "read_sites": [
+        {"path": "incremental.go", "symbol": "tryReuseSubtree", "line": 612},
+        {"path": "incremental_invariant_gate_test.go", "symbol": "TestIncrementalInvariantGate", "line": 192}
+      ]
+    },
+    {
+      "id": "build.compact.default",
+      "kind": "build_expression",
+      "expression": "!gts_no_parsercorephase0",
+      "scope": "production",
+      "read_sites": [
+        {"path": "admission_switch_candidate.go", "symbol": "tryCompactFullParseRoute", "line": 204},
+        {"path": "parsercore_phase0_driver.go", "symbol": "DiagnosticParserCoreGenericScheduler", "line": 603},
+        {"path": "parsercore_phase0_fresh_full_runner.go", "symbol": "parserCoreFreshFullRunner", "line": 27}
+      ]
+    },
+    {
+      "id": "build.compact.proof",
+      "kind": "build_expression",
+      "expression": "gts_parsercorephase0 && !gts_no_parsercorephase0",
+      "scope": "test",
+      "read_sites": [
+        {"path": "parsercore_phase0_per_version_lexer_adversarial_internal_test.go", "symbol": "TestPhase0PerVersionLexerVersionsOwnWidths", "line": 35}
+      ]
+    },
+    {
+      "id": "build.compact.emergency",
+      "kind": "build_expression",
+      "expression": "gts_no_parsercorephase0",
+      "scope": "production",
+      "read_sites": [
+        {"path": "admission_switch_stub.go", "symbol": "tryCompactFullParseRoute", "line": 12}
+      ]
+    },
+    {
+      "id": "build.compact.emergency.proof",
+      "kind": "build_expression",
+      "expression": "gts_no_parsercorephase0 && !gts_workcount",
+      "scope": "test",
+      "read_sites": [
+        {"path": "parsercore_phase0_compileout_test.go", "symbol": "TestParserCorePhaseZeroDriverCompilesOutOfEmergencyBuild", "line": 15}
+      ]
+    },
+    {
+      "id": "build.phase0.internal",
+      "kind": "build_expression",
+      "expression": "gts_parsercorephase0",
+      "scope": "test",
+      "read_sites": [
+        {"path": "parsercore_phase0_physical_head_merge_stage2_internal_test.go", "symbol": "TestStage2PhysicalHeadMergePreservesDistinctErrorRegions", "line": 50},
+        {"path": "parsercore_phase0_recovery_condense_stage3_internal_test.go", "symbol": "TestStage3RecoveryCondenseOrdersBeforeSixVersionCap", "line": 73}
+      ]
+    },
+    {
+      "id": "build.merge.census",
+      "kind": "build_expression",
+      "expression": "gts_merge_census",
+      "scope": "test",
+      "read_sites": [
+        {"path": "merge_event_census.go", "symbol": "MergeEventCensusSnapshot", "line": 157}
+      ]
+    },
+    {
+      "id": "build.merge.cgo",
+      "kind": "build_expression",
+      "expression": "cgo && treesitter_c_parity && gts_merge_census",
+      "scope": "harness",
+      "read_sites": [
+        {"path": "cgo_harness/merge_event_census_test.go", "symbol": "TestMergeEventCensusBaseline", "line": 146}
+      ]
+    },
+    {
+      "id": "build.derivation.census",
+      "kind": "build_expression",
+      "expression": "!gts_no_parsercorephase0 && gts_derivation_set_census",
+      "scope": "test",
+      "read_sites": [
+        {"path": "parsercore_phase0_derivation_set_census.go", "symbol": "DerivationSetCensusSnapshot", "line": 132},
+        {"path": "cgo_harness/derivation_set_differential_test.go", "symbol": "TestDerivationSetDifferentialWitnessReproduction", "line": 42}
+      ]
+    },
+    {
+      "id": "build.eof.metadata",
+      "kind": "build_expression",
+      "expression": "!gts_no_parsercorephase0 && gts_eof_recovery_admission_contract",
+      "scope": "test",
+      "read_sites": [
+        {"path": "parsercore_phase0_eof_recovery_admission_contract.go", "symbol": "EOFRecoveryAdmissionCensusSnapshot", "line": 75},
+        {"path": "parsercore_phase0_eof_recovery_metadata_contract_test.go", "symbol": "TestCompactEOFRecoveryMetadataProducerDerivesEventsWithoutMutation", "line": 481}
+      ]
+    },
+    {
+      "id": "build.eof.history",
+      "kind": "build_expression",
+      "expression": "!gts_no_parsercorephase0 && gts_eof_history_census",
+      "scope": "test",
+      "read_sites": [
+        {"path": "parsercore_phase0_eof_history_census.go", "symbol": "EOFAcceptHistoryCensusSnapshot", "line": 138},
+        {"path": "cgo_harness/eof_history_differential_test.go", "symbol": "TestEOFAcceptHistoryDifferential", "line": 20}
+      ]
+    },
+    {
+      "id": "build.eof.shadow",
+      "kind": "build_expression",
+      "expression": "!gts_no_parsercorephase0 && gts_eof_history_census && gts_eof_recovery_shadow",
+      "scope": "test",
+      "read_sites": [
+        {"path": "parsercore_phase0_eof_recovery_shadow.go", "symbol": "censusEOFRecoveryShadow", "line": 50},
+        {"path": "internal/parsercorephase0/eof_recovery_shadow.go", "symbol": "ForkDiagnosticEOFRecovery", "line": 106}
+      ]
+    },
+    {
+      "id": "build.eof.cgo.admission",
+      "kind": "build_expression",
+      "expression": "cgo && treesitter_c_parity && gts_derivation_set_census && gts_eof_history_census && gts_eof_recovery_shadow && gts_eof_recovery_admission_contract",
+      "scope": "harness",
+      "read_sites": [
+        {"path": "cgo_harness/eof_recovery_admission_oracle_test.go", "symbol": "TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree", "line": 14}
+      ]
+    },
+    {
+      "id": "build.eof.cgo.regression",
+      "kind": "build_expression",
+      "expression": "cgo && treesitter_c_parity && !gts_no_parsercorephase0",
+      "scope": "harness",
+      "read_sites": [
+        {"path": "cgo_harness/yaml_eof_recovery_compact_regression_test.go", "symbol": "TestYAMLEOFRecoverWrapCompactRoute", "line": 16}
+      ]
+    },
+    {
+      "id": "build.incremental.phase0",
+      "kind": "build_expression",
+      "expression": "gts_parsercorephase0",
+      "scope": "test",
+      "read_sites": [
+        {"path": "parsestate_replay_compact_diff_test.go", "symbol": "TestParseStateReplayCompactDifferential", "line": 23}
+      ]
+    },
+    {
+      "id": "build.parity.cgo",
+      "kind": "build_expression",
+      "expression": "cgo && treesitter_c_parity",
+      "scope": "harness",
+      "read_sites": [
+        {"path": "cgo_harness/parity_cgo_test.go", "symbol": "TestParityFreshParse", "line": 814}
+      ]
+    },
+    {
+      "id": "build.parity.perf",
+      "kind": "build_expression",
+      "expression": "cgo && treesitter_c_parity && treesitter_c_perfscan",
+      "scope": "harness",
+      "read_sites": [
+        {"path": "cgo_harness/work_count_board_test.go", "symbol": "TestAuthenticatedFourFixtureWorkCountBoard", "line": 284}
+      ]
+    },
+    {
+      "id": "build.recovery.telemetry",
+      "kind": "build_expression",
+      "expression": "gts_recovery_telemetry",
+      "scope": "test",
+      "read_sites": [
+        {"path": "recovery_runtime_detailed_enabled.go", "symbol": "detailedRecoveryRuntimeState", "line": 10}
+      ]
+    },
+    {
+      "id": "build.selectedstore.onepass",
+      "kind": "build_expression",
+      "expression": "gts_parsercorephase0_selectedstore_onepass",
+      "scope": "test",
+      "read_sites": [
+        {"path": "internal/parsercorephase0/selected_store_builder_onepass.go", "symbol": "BuildSelectedStore", "line": 16}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_CANDIDATE",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_CANDIDATE",
+      "scope": "production",
+      "default": "enabled unless explicitly set to 0, false, off, or no",
+      "read_sites": [
+        {"path": "admission_switch.go", "symbol": "admissionCandidateEnvEnabled", "line": 82}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_CENSUS",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_CENSUS",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "admission_census.go", "symbol": "admissionCensusEnabled", "line": 189}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_CENSUS_RECOVERY_SHAPE",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_CENSUS_RECOVERY_SHAPE",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "admission_census.go", "symbol": "admissionCensusRecoveryShapeEnabled", "line": 175}
+      ]
+    },
+    {
+      "id": "env.GTS_B4B_SHADOW_CENSUS",
+      "kind": "environment",
+      "name": "GTS_B4B_SHADOW_CENSUS",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parsercore_phase0_alternative_set_census.go", "symbol": "diagnosticParserCoreShadowCensusEnabled", "line": 329},
+        {"path": "internal/parsercorephase0/core.go", "symbol": "cleanPathRankWalkEnabled", "line": 671}
+      ]
+    },
+    {
+      "id": "env.GTS_C4_CORRIDOR",
+      "kind": "environment",
+      "name": "GTS_C4_CORRIDOR",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parsercore_c4_vm.go", "symbol": "parserCoreCorridorEnabled", "line": 48}
+      ]
+    },
+    {
+      "id": "env.GTS_C4_REDUCE_CHAIN",
+      "kind": "environment",
+      "name": "GTS_C4_REDUCE_CHAIN",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parsercore_c4_program.go", "symbol": "corridorReduceChainEnabled", "line": 203}
+      ]
+    },
+    {
+      "id": "env.GTS_C4_REDUCE_SHIFT",
+      "kind": "environment",
+      "name": "GTS_C4_REDUCE_SHIFT",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parsercore_c4_program.go", "symbol": "corridorReduceShiftEnabled", "line": 214}
+      ]
+    },
+    {
+      "id": "env.GTS_REPLAY_PARSESTATE",
+      "kind": "environment",
+      "name": "GTS_REPLAY_PARSESTATE",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parsestate_replay_compact.go", "symbol": "parserCoreReplayParseStatesEnabled", "line": 26}
+      ]
+    },
+    {
+      "id": "env.GOT_PARSE_PROGRESS",
+      "kind": "environment",
+      "name": "GOT_PARSE_PROGRESS",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "admission_switch.go", "symbol": "hasActiveParseObservability", "line": 247},
+        {"path": "parse_progress_telemetry.go", "symbol": "newParseProgressTelemetry", "line": 25}
+      ]
+    },
+    {
+      "id": "env.GTS_DISPATCHER_CENSUS",
+      "kind": "environment",
+      "name": "GTS_DISPATCHER_CENSUS",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parser_result_compat.go", "symbol": "dispatcherCensusEnabled", "line": 325}
+      ]
+    },
+    {
+      "id": "env.GTS_DISPATCHER_TRANSCRIPT",
+      "kind": "environment",
+      "name": "GTS_DISPATCHER_TRANSCRIPT",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parser_result_dispatcher_transcript.go", "symbol": "dispatcherTranscriptEnabled", "line": 69}
+      ]
+    },
+    {
+      "id": "env.GTS_DISPATCHER_TRANSCRIPT_OUT",
+      "kind": "environment",
+      "name": "GTS_DISPATCHER_TRANSCRIPT_OUT",
+      "scope": "production",
+      "default": "unset",
+      "read_sites": [
+        {"path": "parser_result_dispatcher_transcript.go", "symbol": "dispatcherTranscriptOutputPath", "line": 81}
+      ]
+    },
+    {
+      "id": "env.GOT_GLR_FOREST",
+      "kind": "environment",
+      "name": "GOT_GLR_FOREST",
+      "scope": "production",
+      "default": "enabled unless set to 0",
+      "read_sites": [
+        {"path": "glr_forest.go", "symbol": "glrForestEnabled", "line": 45}
+      ]
+    },
+    {
+      "id": "env.GOT_GLR_FOREST_RECOVER",
+      "kind": "environment",
+      "name": "GOT_GLR_FOREST_RECOVER",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "glr_forest.go", "symbol": "glrForestRecover", "line": 99}
+      ]
+    },
+    {
+      "id": "env.GOT_GLR_MAX_STACKS",
+      "kind": "environment",
+      "name": "GOT_GLR_MAX_STACKS",
+      "scope": "production",
+      "default": "compiled stack cap",
+      "read_sites": [
+        {"path": "parser_config.go", "symbol": "parseMaxGLRStacksValue", "line": 108}
+      ]
+    },
+    {
+      "id": "env.GOT_GLR_MAX_MERGE_PER_KEY",
+      "kind": "environment",
+      "name": "GOT_GLR_MAX_MERGE_PER_KEY",
+      "scope": "production",
+      "default": "compiled merge cap",
+      "read_sites": [
+        {"path": "parser_config.go", "symbol": "parseMaxMergePerKeyValue", "line": 124}
+      ]
+    },
+    {
+      "id": "env.GOT_PARSE_NODE_LIMIT_SCALE",
+      "kind": "environment",
+      "name": "GOT_PARSE_NODE_LIMIT_SCALE",
+      "scope": "production",
+      "default": "1",
+      "read_sites": [
+        {"path": "parser_config.go", "symbol": "parseNodeLimitScaleFactor", "line": 87}
+      ]
+    },
+    {
+      "id": "env.GOT_PARSE_MEMORY_BUDGET_MB",
+      "kind": "environment",
+      "name": "GOT_PARSE_MEMORY_BUDGET_MB",
+      "scope": "production",
+      "default": "512",
+      "read_sites": [
+        {"path": "parser_config.go", "symbol": "parseMemoryBudgetMB", "line": 333}
+      ]
+    },
+    {
+      "id": "env.GOT_PARSE_MEMORY_HARD_CEILING_MB",
+      "kind": "environment",
+      "name": "GOT_PARSE_MEMORY_HARD_CEILING_MB",
+      "scope": "production",
+      "default": "2048",
+      "read_sites": [
+        {"path": "parser_config.go", "symbol": "parseMemoryHardCeilingMB", "line": 357}
+      ]
+    },
+    {
+      "id": "env.GOT_C_RECOVERY",
+      "kind": "environment",
+      "name": "GOT_C_RECOVERY",
+      "scope": "production",
+      "default": "language profile policy",
+      "read_sites": [
+        {"path": "parser_recover_c.go", "symbol": "errorCostCompetitionLanguage", "line": 234},
+        {"path": "parser_recover_c.go", "symbol": "cRecoveryGateReason", "line": 282},
+        {"path": "parser_recover_c.go", "symbol": "cRecoveryGateReason", "line": 289}
+      ]
+    },
+    {
+      "id": "env.GOT_PARSE_PHASE_TIMING",
+      "kind": "environment",
+      "name": "GOT_PARSE_PHASE_TIMING",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parser_config.go", "symbol": "parsePhaseTimingEnabled", "line": 215}
+      ]
+    },
+    {
+      "id": "env.GOT_PARSE_REDUCE_TIMING",
+      "kind": "environment",
+      "name": "GOT_PARSE_REDUCE_TIMING",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parser_config.go", "symbol": "parseReduceTimingEnabled", "line": 223}
+      ]
+    },
+    {
+      "id": "env.GOT_PARSE_ACTION_TIMING",
+      "kind": "environment",
+      "name": "GOT_PARSE_ACTION_TIMING",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "parser_config.go", "symbol": "parseActionTimingEnabled", "line": 231}
+      ]
+    },
+    {
+      "id": "env.GOT_GLR_RAW_SHAPE_DIAG",
+      "kind": "environment",
+      "name": "GOT_GLR_RAW_SHAPE_DIAG",
+      "scope": "production",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "raw_shape_diag.go", "symbol": "rawShapeDiagEnabled", "line": 13}
+      ]
+    },
+    {
+      "id": "env.GOT_GLR_RAW_SHAPE_DIAG_CHILD_LIMIT",
+      "kind": "environment",
+      "name": "GOT_GLR_RAW_SHAPE_DIAG_CHILD_LIMIT",
+      "scope": "production",
+      "default": "40",
+      "read_sites": [
+        {"path": "raw_shape_diag.go", "symbol": "rawShapeDiagChildLimit", "line": 18}
+      ]
+    },
+    {
+      "id": "env.GOT_GLR_RAW_SHAPE_DIAG_DEPTH",
+      "kind": "environment",
+      "name": "GOT_GLR_RAW_SHAPE_DIAG_DEPTH",
+      "scope": "production",
+      "default": "3",
+      "read_sites": [
+        {"path": "raw_shape_diag.go", "symbol": "rawShapeDiagDepthLimit", "line": 28}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_SCORECARD",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_SCORECARD",
+      "scope": "test",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "admission_scorecard_test.go", "symbol": "TestAdmissionCandidateScorecard206", "line": 105}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_SCORECARD_STRICT",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_SCORECARD_STRICT",
+      "scope": "test",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "admission_scorecard_test.go", "symbol": "GTS_ADMISSION_SCORECARD_STRICT", "line": 139}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_SCORECARD_RATCHET",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_SCORECARD_RATCHET",
+      "scope": "test",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "admission_scorecard_test.go", "symbol": "GTS_ADMISSION_SCORECARD_RATCHET", "line": 144}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_REAL_CORPUS",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_REAL_CORPUS",
+      "scope": "test",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "admission_real_corpus_matrix_test.go", "symbol": "TestAdmissionCandidateRealCorpusMatrix", "line": 37}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_REAL_CORPUS_MANIFEST",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_REAL_CORPUS_MANIFEST",
+      "scope": "test",
+      "default": "cgo_harness/corpus_real/manifest.json",
+      "read_sites": [
+        {"path": "admission_real_corpus_matrix_test.go", "symbol": "TestAdmissionCandidateRealCorpusMatrix", "line": 42}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_REAL_CORPUS_LANGS",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_REAL_CORPUS_LANGS",
+      "scope": "test",
+      "default": "all",
+      "read_sites": [
+        {"path": "admission_real_corpus_matrix_test.go", "symbol": "admissionRealCorpusFilter", "line": 59}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_REAL_CORPUS_EXCLUDE_LANGS",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_REAL_CORPUS_EXCLUDE_LANGS",
+      "scope": "test",
+      "default": "none",
+      "read_sites": [
+        {"path": "admission_real_corpus_matrix_test.go", "symbol": "admissionRealCorpusFilter", "line": 60}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_REAL_CORPUS_BUCKETS",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_REAL_CORPUS_BUCKETS",
+      "scope": "test",
+      "default": "all",
+      "read_sites": [
+        {"path": "admission_real_corpus_matrix_test.go", "symbol": "admissionRealCorpusFilter", "line": 61}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_REAL_CORPUS_MAX_BYTES",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_REAL_CORPUS_MAX_BYTES",
+      "scope": "test",
+      "default": "unbounded",
+      "read_sites": [
+        {"path": "admission_real_corpus_matrix_test.go", "symbol": "GTS_ADMISSION_REAL_CORPUS_MAX_BYTES", "line": 63}
+      ]
+    },
+    {
+      "id": "env.GTS_ADMISSION_REAL_CORPUS_RATCHET",
+      "kind": "environment",
+      "name": "GTS_ADMISSION_REAL_CORPUS_RATCHET",
+      "scope": "test",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "admission_real_corpus_matrix_test.go", "symbol": "GTS_ADMISSION_REAL_CORPUS_RATCHET", "line": 211}
+      ]
+    },
+    {
+      "id": "env.GTS_CANONICAL_GO_INCREMENTAL",
+      "kind": "environment",
+      "name": "GTS_CANONICAL_GO_INCREMENTAL",
+      "scope": "harness",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "cgo_harness/benchmark_go_canonical_incremental_test.go", "symbol": "TestCanonicalGoIncrementalParity", "line": 182}
+      ]
+    },
+    {
+      "id": "env.GTS_CANONICAL_INCREMENTAL_RECEIPT_OUT",
+      "kind": "environment",
+      "name": "GTS_CANONICAL_INCREMENTAL_RECEIPT_OUT",
+      "scope": "harness",
+      "default": "unset",
+      "read_sites": [
+        {"path": "cgo_harness/benchmark_go_canonical_incremental_test.go", "symbol": "prepareCanonicalIncrementalReceiptOutput", "line": 796}
+      ]
+    },
+    {
+      "id": "env.GTS_PARITY_MODE",
+      "kind": "environment",
+      "name": "GTS_PARITY_MODE",
+      "scope": "harness",
+      "default": "smoke",
+      "read_sites": [
+        {"path": "cgo_harness/parity_cgo_test.go", "symbol": "parityMode", "line": 193}
+      ]
+    },
+    {
+      "id": "env.GTS_PARITY_ALLOW_HOST",
+      "kind": "environment",
+      "name": "GTS_PARITY_ALLOW_HOST",
+      "scope": "harness",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "cgo_harness/testmain_cgo_test.go", "symbol": "TestMain", "line": 19}
+      ]
+    },
+    {
+      "id": "env.GTS_PARITY_REPO_CACHE",
+      "kind": "environment",
+      "name": "GTS_PARITY_REPO_CACHE",
+      "scope": "harness",
+      "default": "unset",
+      "read_sites": [
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityRepoCacheDir", "line": 746}
+      ]
+    },
+    {
+      "id": "env.GTS_PARITY_REPO_ROOT",
+      "kind": "environment",
+      "name": "GTS_PARITY_REPO_ROOT",
+      "scope": "harness",
+      "default": "unset",
+      "read_sites": [
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityLocalRepoDir", "line": 613}
+      ]
+    },
+    {
+      "id": "env.GTS_PARITY_C_REF_BUILD_CACHE",
+      "kind": "environment",
+      "name": "GTS_PARITY_C_REF_BUILD_CACHE",
+      "scope": "harness",
+      "default": "automatic cache path",
+      "read_sites": [
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityDefaultCBuildCacheDir", "line": 459}
+      ]
+    },
+    {
+      "id": "env.GTS_PARITY_C_REF_BUILD_JOBS",
+      "kind": "environment",
+      "name": "GTS_PARITY_C_REF_BUILD_JOBS",
+      "scope": "harness",
+      "default": "1",
+      "read_sites": [
+        {"path": "cgo_harness/parity_c_loader_cgo.go", "symbol": "parityCBuildJobs", "line": 447}
+      ]
+    },
+    {
+      "id": "env.GTS_WORK_COUNT_BOARD",
+      "kind": "environment",
+      "name": "GTS_WORK_COUNT_BOARD",
+      "scope": "harness",
+      "default": "disabled",
+      "read_sites": [
+        {"path": "cgo_harness/work_count_board_test.go", "symbol": "TestAuthenticatedFourFixtureWorkCountBoard", "line": 285}
+      ]
+    },
+    {
+      "id": "env.GTS_WORK_COUNT_BOARD_RECEIPT",
+      "kind": "environment",
+      "name": "GTS_WORK_COUNT_BOARD_RECEIPT",
+      "scope": "harness",
+      "default": "unset",
+      "read_sites": [
+        {"path": "cgo_harness/work_count_security_test.go", "symbol": "workCountPrepareBoardReceiptPath", "line": 316}
+      ]
+    },
+    {
+      "id": "env.GOT_CORPUS_SOURCES_ROOT",
+      "kind": "environment",
+      "name": "GOT_CORPUS_SOURCES_ROOT",
+      "scope": "production",
+      "default": "sibling gotreesitter-corpora checkout",
+      "read_sites": [
+        {"path": "grammars/outline_census.go", "symbol": "outlineResolveRealCorpusRoot", "line": 114}
+      ]
+    },
+    {
+      "id": "env.GTS_OUTLINE_CENSUS_OUT",
+      "kind": "environment",
+      "name": "GTS_OUTLINE_CENSUS_OUT",
+      "scope": "test",
+      "default": "unset",
+      "read_sites": [
+        {"path": "grammars/outline_census_test.go", "symbol": "GTS_OUTLINE_CENSUS_OUT", "line": 97}
+      ]
+    },
+    {
+      "id": "env.GOTREESITTER_GRAMMARGEN_BLOB_DIR",
+      "kind": "environment",
+      "name": "GOTREESITTER_GRAMMARGEN_BLOB_DIR",
+      "scope": "production",
+      "default": "unset",
+      "read_sites": [
+        {"path": "grammars/grammargen_blob_override.go", "symbol": "preferredLanguageOverridePath", "line": 75}
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "stage-1-per-version-lexer",
+      "stage": 1,
+      "lane": "core",
+      "status": "graduated",
+      "owner": "scanner_checkpoint_state",
+      "campaigns": ["spec.parser-graduation.v1#8.1", "spec.campaign.v7"],
+      "purpose": "Give each parser version its own lexer cursor, width, scanner checkpoint, and rollback state.",
+      "build_expressions": [
+        "!gts_no_parsercorephase0",
+        "gts_parsercorephase0 && !gts_no_parsercorephase0",
+        "cgo && treesitter_c_parity && gts_parsercorephase0 && !gts_no_parsercorephase0"
+      ],
+      "control_ids": [
+        "build.compact.default",
+        "build.compact.proof",
+        "build.parity.cgo",
+        "env.GTS_ADMISSION_CANDIDATE",
+        "env.GOT_PARSE_PROGRESS"
+      ],
+      "paths": [
+        {"path": "parsercore_phase0_per_version_lexer_state.go", "role": "implementation", "build_expression": "!gts_no_parsercorephase0", "symbol": "diagnosticParserCoreVersionLexerSnapshot"},
+        {"path": "parsercore_phase0_per_version_lexer_adversarial_internal_test.go", "role": "adversarial_test", "build_expression": "gts_parsercorephase0 && !gts_no_parsercorephase0", "symbol": "TestPhase0PerVersionLexerVersionsOwnWidths"},
+        {"path": "parsercore_phase0_per_version_lexer_scheduler_test.go", "role": "proof", "build_expression": "gts_parsercorephase0 && !gts_no_parsercorephase0", "symbol": "TestDiagnosticParserCoreVersionLexerRequestsOwnRaggedSpans"},
+        {"path": "cgo_harness/parity_compact_per_version_lexer_scala_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity && gts_parsercorephase0 && !gts_no_parsercorephase0", "symbol": "TestCompactPerVersionLexerScalaCOracle"}
+      ],
+      "test_commands": [
+        {"name": "owned-width witness", "command": "go test -tags 'gts_parsercorephase0' -run '^TestPhase0PerVersionLexerVersionsOwnWidths$' -count=1 .", "working_dir": ".", "isolation": "local"},
+        {"name": "Scala locked-C oracle", "command": "go test . -tags 'cgo treesitter_c_parity gts_parsercorephase0' -run '^TestCompactPerVersionLexerScalaCOracle$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
+      ],
+      "corpus": [
+        {"id": "scala-owned-width", "kind": "locked_fixture", "path": "cgo_harness/parity_compact_per_version_lexer_scala_test.go", "source": "(y)->", "source_sha256": "59b8f8c8f7f235973d07ac90f3089939e92da41ee23dcb496bc5c880f9577068", "tree_sha256": "81dc569b1ad3d567ed158aea75fd30a388ec1f4d3e1cbdd08c29a6535bd456d3", "lock_or_digest": "grammar 97aead18d97708190a51d4f551ea9b05b60641c9; runtime f5afe475deb7c0bae6407fb776c76824f717bb61; artifact c981583f2f5fa3acc4973b79ea7c43caa46e861179fe1323f12608bff5a21459"}
+      ],
+      "gates": ["different token widths select the C-equivalent tree", "exact root range and zero error flags", "owned lexer telemetry records two versions and accepted ragged spans", "no shared-cursor decline"],
+      "telemetry": ["PerVersionLexRequests", "PerVersionLexAcceptedRaggedSpans", "PerVersionLexViabilityDrops", "accepted C-equivalent tree"],
+      "plan_refs": [],
+      "proof_receipts": [
+        {"ref": "pr:#1016", "kind": "merge", "source_revision": "8bb49959d95fce0cf8bea5468d86e30978ccf393", "status": "current"},
+        {"ref": "cgo_harness/parity_compact_per_version_lexer_scala_test.go#TestCompactPerVersionLexerScalaCOracle", "kind": "test", "source_revision": "8bb49959d95fce0cf8bea5468d86e30978ccf393", "status": "current"}
+      ],
+      "deletion_condition": "Delete the tagged lexer census only after all registered width witnesses pass exact tree, range, error, checkpoint, and incremental receipts.",
+      "retention": "preserve_receipt",
+      "history_preserved": true
+    },
+    {
+      "id": "stage-2-physical-graph-head-merge",
+      "stage": 2,
+      "lane": "core",
+      "status": "graduated",
+      "owner": "graph_head_lifecycle",
+      "campaigns": ["spec.parser-graduation.v1#8.1", "spec.merge-time-election.v1", "spec.compact-recovery-ownership.v1"],
+      "purpose": "Merge equivalent physical heads while retaining graph nodes, errors, recovery lineage, scanner checkpoints, and ownership.",
+      "build_expressions": ["default", "gts_parsercorephase0", "gts_merge_census", "cgo && treesitter_c_parity && gts_merge_census"],
+      "control_ids": ["build.phase0.internal", "build.merge.census", "build.merge.cgo", "build.parity.cgo", "env.GOT_GLR_MAX_MERGE_PER_KEY", "env.GTS_B4B_SHADOW_CENSUS"],
+      "paths": [
+        {"path": "internal/parsercorephase0/core.go", "role": "implementation", "build_expression": "default", "symbol": "condenseWithOutcome"},
+        {"path": "internal/parsercorephase0/physical_head_merge_stage2_test.go", "role": "proof", "build_expression": "gts_parsercorephase0", "symbol": "TestStage2PhysicalHeadMergeUnionsEquivalentDistinctNodes"},
+        {"path": "parsercore_phase0_physical_head_merge_stage2_internal_test.go", "role": "adversarial_test", "build_expression": "gts_parsercorephase0", "symbol": "TestStage2PhysicalHeadMergePreservesDistinctErrorRegions"},
+        {"path": "merge_event_census.go", "role": "proof", "build_expression": "gts_merge_census", "symbol": "MergeEventCensusSnapshot"},
+        {"path": "cgo_harness/merge_event_census_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity && gts_merge_census", "symbol": "TestMergeEventCensusBaseline"}
+      ],
+      "test_commands": [
+        {"name": "physical-head proofs", "command": "go test -tags 'gts_parsercorephase0' -run '^TestStage2PhysicalHeadMerge' -count=1 . ./internal/parsercorephase0", "working_dir": ".", "isolation": "local"},
+        {"name": "merge census parity", "command": "go test . -tags 'cgo treesitter_c_parity gts_merge_census' -run '^TestMergeEventCensus(Baseline|TotalsAggregatesPhysicalHeadMergeTelemetry)$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
+      ],
+      "corpus": [
+        {"id": "six-version-head-boundary", "kind": "synthetic_fixture", "path": "internal/parsercorephase0/physical_head_merge_stage2_test.go", "source": "six distinct physical paths at one boundary", "lock_or_digest": "test source and expected path census at merge revision"}
+      ],
+      "gates": ["equivalent heads union every distinct node path", "different error regions remain separate", "lineage and candidate ownership survive", "scanner and node checkpoints remain distinct", "capacity failure rolls back"],
+      "telemetry": ["MergeEventCensusCounts.Attempts", "MergeEventCensusCounts.Successes", "refusal causes", "current exact paths and derivation count"],
+      "plan_refs": [],
+      "proof_receipts": [
+        {"ref": "pr:#1017", "kind": "merge", "source_revision": "865d03b07ffd74ee44163a4cfa2f7ddc057134e6", "status": "current"},
+        {"ref": "internal/parsercorephase0/physical_head_merge_stage2_test.go#TestStage2PhysicalHeadMergeAtSixVersionBoundaryRetainsEveryPath", "kind": "test", "source_revision": "865d03b07ffd74ee44163a4cfa2f7ddc057134e6", "status": "current"}
+      ],
+      "deletion_condition": "Delete merge-only census code after a locked-C topology receipt proves node, error, lineage, checkpoint, and rollback equivalence.",
+      "retention": "preserve_receipt",
+      "history_preserved": true
+    },
+    {
+      "id": "stage-3-recovery-through-ambiguity",
+      "stage": 3,
+      "lane": "core",
+      "status": "graduated",
+      "owner": "derivation_election_selection",
+      "campaigns": ["spec.parser-graduation.v1#8.1", "spec.campaign.v7", "spec.b4b-alternative-set.v1", "spec.b4b-alternative-set.v2", "spec.compact-recovery-ownership.v1"],
+      "purpose": "Keep ordinary ambiguity grammar-driven while pricing and selecting competing recovery lineages by C error cost.",
+      "build_expressions": ["!gts_no_parsercorephase0", "gts_parsercorephase0", "gts_parsercorephase0 && !gts_no_parsercorephase0"],
+      "control_ids": ["build.compact.default", "build.phase0.internal", "build.derivation.census", "build.recovery.telemetry", "env.GTS_ADMISSION_CENSUS", "env.GTS_ADMISSION_CENSUS_RECOVERY_SHAPE", "env.GTS_B4B_SHADOW_CENSUS", "env.GOT_C_RECOVERY"],
+      "paths": [
+        {"path": "parsercore_phase0_recovery_condense.go", "role": "implementation", "build_expression": "!gts_no_parsercorephase0", "symbol": "condenseRecoveryVersions"},
+        {"path": "parsercore_phase0_recovery_condense_stage3_internal_test.go", "role": "proof", "build_expression": "gts_parsercorephase0", "symbol": "TestStage3RecoveryCondenseOrdersBeforeSixVersionCap"},
+        {"path": "parsercore_phase0_recovery_lineage_fork_internal_test.go", "role": "adversarial_test", "build_expression": "!gts_no_parsercorephase0", "symbol": "TestS5MissingInsertionForkPublishesBothRecoveryLineages"},
+        {"path": "parsercore_phase0_recovery_lineage_selection_internal_test.go", "role": "proof", "build_expression": "!gts_no_parsercorephase0", "symbol": "TestCompleteAcceptancePricesRecoveryFrontierBeforeCollapse"},
+        {"path": "parsercore_phase0_generic_conflict_internal_test.go", "role": "proof", "build_expression": "gts_parsercorephase0", "symbol": "TestDiagnosticParserCoreGenericConflictArbitraryNOrdering"}
+      ],
+      "test_commands": [
+        {"name": "six-version recovery cap", "command": "go test -tags 'gts_parsercorephase0' -run '^TestStage3RecoveryCondense' -count=1 .", "working_dir": ".", "isolation": "local"},
+        {"name": "recovery lineage competition", "command": "go test -tags 'gts_parsercorephase0' -run '^(TestS5MissingInsertionFork|TestSelectCompetingRecoveryLineage|TestCompleteAcceptancePricesRecoveryFrontier)' -count=1 .", "working_dir": ".", "isolation": "local"},
+        {"name": "derivation-set C differential", "command": "go test . -tags 'cgo treesitter_c_parity gts_derivation_set_census' -run '^TestDerivationSetDifferential' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
+      ],
+      "corpus": [
+        {"id": "recovery-six-version-cap", "kind": "synthetic_fixture", "path": "parsercore_phase0_recovery_condense_stage3_internal_test.go", "source": "seven recovery versions with six retained keys", "lock_or_digest": "expected C cost order and recovery version cap"},
+        {"id": "recovery-fork-ambiguity", "kind": "synthetic_fixture", "path": "parsercore_phase0_recovery_lineage_fork_internal_test.go", "source": "missing insertion plus error absorption", "lock_or_digest": "both marked lineages and ordinary ambiguity isolation"}
+      ],
+      "gates": ["condense before the six-version cap", "recoveries retain cost provenance", "missing and absorb lineages compete", "ordinary ambiguity does not use recovery cost", "selection resolves before collapse and clears losers"],
+      "telemetry": ["RecoveryCondensePasses", "RecoveryVersionCapDrops", "recovery lineage markers", "selected and declined recovery reasons"],
+      "plan_refs": [],
+      "proof_receipts": [
+        {"ref": "pr:#1018", "kind": "merge", "source_revision": "9f9e903940655da46fb8c976fa2e08139153df0f", "status": "current"},
+        {"ref": "parsercore_phase0_recovery_lineage_fork_internal_test.go#TestS5MissingInsertionForkPublishesBothRecoveryLineages", "kind": "test", "source_revision": "9f9e903940655da46fb8c976fa2e08139153df0f", "status": "current"}
+      ],
+      "deletion_condition": "Delete recovery-condense diagnostics only after ordinary ambiguity and recovery competition match C across exact tree and error receipts.",
+      "retention": "preserve_receipt",
+      "history_preserved": true
+    },
+    {
+      "id": "stage-4-end-of-file-recovery",
+      "stage": 4,
+      "lane": "core",
+      "status": "graduated",
+      "owner": "scheduler_action_semantics",
+      "campaigns": ["spec.parser-graduation.v1#8.1", "spec.campaign.v7", "spec.recovery-strategy1-linearization-v2", "spec.compact-recovery-ownership.v1"],
+      "purpose": "Match C end-of-file recovery for missing insertions, unfinished reductions, error tails, and authenticated root publication.",
+      "build_expressions": [
+        "default",
+        "!gts_no_parsercorephase0",
+        "!gts_no_parsercorephase0 && gts_eof_recovery_admission_contract",
+        "!gts_no_parsercorephase0 && gts_eof_history_census && gts_eof_recovery_shadow",
+        "gts_eof_recovery_shadow",
+        "cgo && treesitter_c_parity && gts_derivation_set_census && gts_eof_history_census && gts_eof_recovery_shadow && gts_eof_recovery_admission_contract",
+        "cgo && treesitter_c_parity && !gts_no_parsercorephase0"
+      ],
+      "control_ids": ["build.compact.default", "build.eof.metadata", "build.eof.history", "build.eof.shadow", "build.eof.cgo.admission", "build.eof.cgo.regression", "env.GTS_ADMISSION_CANDIDATE", "env.GOT_GLR_FOREST"],
+      "paths": [
+        {"path": "internal/parsercorephase0/eof_recovery_live.go", "role": "implementation", "build_expression": "default", "symbol": "RecoverEOFAcceptOwned"},
+        {"path": "parsercore_phase0_eof_recovery_admission_contract.go", "role": "proof", "build_expression": "!gts_no_parsercorephase0 && gts_eof_recovery_admission_contract", "symbol": "EOFRecoveryAdmissionCensusSnapshot"},
+        {"path": "parsercore_phase0_eof_recovery_metadata_contract_test.go", "role": "proof", "build_expression": "!gts_no_parsercorephase0 && gts_eof_recovery_admission_contract", "symbol": "TestCompactEOFRecoveryMetadataUsesRealSchedulerAndConstructionPaths"},
+        {"path": "internal/parsercorephase0/eof_recovery_live_test.go", "role": "adversarial_test", "build_expression": "default", "symbol": "TestRecoverEOFAcceptOwnedRollsBackPartialPublication"},
+        {"path": "internal/parsercorephase0/eof_recovery_shadow.go", "role": "proof", "build_expression": "gts_eof_recovery_shadow", "symbol": "ForkDiagnosticEOFRecovery"},
+        {"path": "cgo_harness/eof_recovery_admission_oracle_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity && gts_derivation_set_census && gts_eof_history_census && gts_eof_recovery_shadow && gts_eof_recovery_admission_contract", "symbol": "TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree"},
+        {"path": "cgo_harness/yaml_eof_recovery_compact_regression_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity && !gts_no_parsercorephase0", "symbol": "TestYAMLEOFRecoverWrapCompactRoute"}
+      ],
+      "test_commands": [
+        {"name": "EOF metadata contract", "command": "go test -tags 'gts_eof_recovery_admission_contract' -run '^TestCompactEOFRecoveryMetadata' -count=1 .", "working_dir": ".", "isolation": "local"},
+        {"name": "YAML EOF C regression", "command": "go test . -tags 'cgo treesitter_c_parity' -run '^TestYAMLEOFRecoverWrapCompactRoute$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"},
+        {"name": "EOF admission oracle", "command": "go test . -tags 'cgo treesitter_c_parity gts_derivation_set_census gts_eof_history_census gts_eof_recovery_shadow gts_eof_recovery_admission_contract' -run '^TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
+      ],
+      "corpus": [
+        {"id": "yaml-open-sequence", "kind": "locked_fixture", "path": "cgo_harness/yaml_eof_recovery_compact_regression_test.go", "source": "[\n", "source_sha256": "95d2b1934931691669cc35a87619518015336213dda0a60fe1b09f9b8e3e993d", "lock_or_digest": "locked C root shape and exact 0..1 range in TestYAMLEOFRecoverWrapCompactRoute"},
+        {"id": "yaml-unfinished-mapping", "kind": "locked_fixture", "path": "cgo_harness/yaml_eof_recovery_compact_regression_test.go", "source": "a: [1\n", "source_sha256": "18b06c413ddca5348d118edfbc58a2b8be7ce796bdf53479f8a0063ed92f4f02", "lock_or_digest": "fail-closed compact admission and production/C tree equality"}
+      ],
+      "gates": ["one exact EOF derivation", "missing insertion publishes the C root", "unfinished reductions fall back safely", "root range, child ranges, error flags, and release lifecycle match", "shadow storage is disjoint and bounded"],
+      "telemetry": ["EOFRecoveryAdmissionReceipt", "EOF accept-history frontier", "recover_eof accepted event", "publication and fallback counters"],
+      "plan_refs": [],
+      "proof_receipts": [
+        {"ref": "pr:#1019", "kind": "merge", "source_revision": "0beb95d399655d200e687e0912d3265b1c9562e9", "status": "current"},
+        {"ref": "cgo_harness/eof_recovery_admission_oracle_test.go#TestEOFRecoveryAdmissionUsesLockedCEventsAndPublishedTree", "kind": "test", "source_revision": "2ebeb6c64632163622691786a71ac6da76a14929", "status": "current"}
+      ],
+      "deletion_condition": "Delete EOF shadow and admission diagnostics only after every supported EOF shape has exact C tree, range, error, incremental, and retention receipts.",
+      "retention": "preserve_receipt",
+      "history_preserved": true
+    },
+    {
+      "id": "stage-5-incremental-integration",
+      "stage": 5,
+      "lane": "core",
+      "status": "active",
+      "owner": "incremental_edit_reuse",
+      "campaigns": ["spec.campaign.oedit", "spec.campaign.post-admission-frontier", "spec.parser-graduation.v1#8.1"],
+      "purpose": "Invalidate the correct version state after edits while preserving exact trees, scanner safety, reuse, and deterministic counters.",
+      "build_expressions": ["default", "!gts_no_parsercorephase0", "gts_parsercorephase0", "cgo && treesitter_c_parity"],
+      "control_ids": ["build.default", "build.compact.default", "build.incremental.phase0", "build.selectedstore.onepass", "build.parity.cgo", "env.GTS_CANONICAL_GO_INCREMENTAL", "env.GTS_CANONICAL_INCREMENTAL_RECEIPT_OUT", "env.GOT_PARSE_MEMORY_BUDGET_MB", "env.GOT_PARSE_PROGRESS"],
+      "paths": [
+        {"path": "incremental.go", "role": "implementation", "build_expression": "default", "symbol": "tryReuseSubtree"},
+        {"path": "parser_result_incremental_range.go", "role": "implementation", "build_expression": "default", "symbol": "incrementalReparsedTopLevelRanges"},
+        {"path": "incremental_invariant_gate_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestIncrementalInvariantGatePython"},
+        {"path": "w1_block_splice_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestW1BlockSpliceOracleEquality"},
+        {"path": "w1_leading_splice_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestLeadingSpliceOracleEqualityMiddleBottom"},
+        {"path": "w1b_reduce_settle_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestW1BSettleUnlocksGoTopLevelSiblingSplice"},
+        {"path": "parser_go_scanner_quiescence_test.go", "role": "adversarial_test", "build_expression": "default", "symbol": "TestGoScannerQuiescenceOracleSweep"},
+        {"path": "w5_editor_latency_gate_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestW5EditorLatencyGate"},
+        {"path": "parsestate_replay_compact_diff_test.go", "role": "proof", "build_expression": "gts_parsercorephase0", "symbol": "TestParseStateReplayCompactDifferential"}
+      ],
+      "test_commands": [
+        {"name": "incremental invariant gate", "command": "go test -run '^TestIncrementalInvariantGate(Python|JavaScript|JSON|Go|Rust|CSS|C)$' -count=1 .", "working_dir": ".", "isolation": "local"},
+        {"name": "O(edit) splice proofs", "command": "go test -run '^(TestW1|TestW1B|TestLeadingSplice|TestGoScannerQuiescenceOracleSweep|TestW5)' -count=1 .", "working_dir": ".", "isolation": "local"},
+        {"name": "compact ParseState replay", "command": "go test -tags 'gts_parsercorephase0' -run '^TestParseStateReplayCompactDifferential$' -count=1 .", "working_dir": ".", "isolation": "local"},
+        {"name": "locked four-way incremental parity", "command": "go test . -tags 'cgo treesitter_c_parity' -run '^TestCanonicalGoIncrementalParity$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
+      ],
+      "corpus": [
+        {"id": "python", "kind": "incremental_fixture", "path": "testdata/incremental_gate/python_setup.py", "lock_or_digest": "source tree at 72afa041e9ec2f02872724bbdce17694d89955d8"},
+        {"id": "python-large-indent", "kind": "incremental_fixture", "path": "testdata/incremental_gate/python_large_indent.py", "lock_or_digest": "source tree at 72afa041e9ec2f02872724bbdce17694d89955d8"},
+        {"id": "javascript", "kind": "incremental_fixture", "path": "testdata/incremental_gate/javascript_grammar.js", "lock_or_digest": "source tree at 72afa041e9ec2f02872724bbdce17694d89955d8"},
+        {"id": "json", "kind": "incremental_fixture", "path": "testdata/incremental_gate/json_contract.json", "lock_or_digest": "source tree at 72afa041e9ec2f02872724bbdce17694d89955d8"},
+        {"id": "go", "kind": "incremental_fixture", "path": "testdata/incremental_gate/go_print.go", "lock_or_digest": "source tree at 72afa041e9ec2f02872724bbdce17694d89955d8"},
+        {"id": "rust", "kind": "incremental_fixture", "path": "testdata/incremental_gate/rust_ast.rs", "lock_or_digest": "source tree at 72afa041e9ec2f02872724bbdce17694d89955d8"},
+        {"id": "css", "kind": "incremental_fixture", "path": "testdata/incremental_gate/css_stylesheet.css", "lock_or_digest": "source tree at 72afa041e9ec2f02872724bbdce17694d89955d8"},
+        {"id": "c", "kind": "incremental_fixture", "path": "testdata/incremental_gate/c_repeated_functions.c", "lock_or_digest": "source tree at 72afa041e9ec2f02872724bbdce17694d89955d8"},
+        {"id": "incremental-allowlist", "kind": "policy_lock", "path": "testdata/incremental_allowlist.json", "source_sha256": "58e96c69a23675b1b666789306e93fe3ce3756b2976cfb32fea9fc544229b810", "lock_or_digest": "ratchet entries must reproduce or be removed after confirmed fixes"}
+      ],
+      "gates": ["fresh and incremental trees are structurally identical", "edits invalidate the correct version state", "scanner boundaries remain quiescent or fail closed", "reuse counters remain deterministic and nonzero where expected", "incremental memory and fallback budgets pass"],
+      "telemetry": ["IncrementalParseProfile.ReusedBytes", "NewNodesAllocated", "ReuseRejectRootNonLeafChanged", "ReuseRejectScannerUnquiescent", "BlockSpliceSteps", "ParseState replay receipt"],
+      "plan_refs": [],
+      "proof_receipts": [
+        {"ref": "incremental_invariant_gate_test.go#TestIncrementalInvariantGatePython", "kind": "test", "source_revision": "bf7ab0567122e863ef831e8aa56dbee93127ad93", "status": "current"},
+        {"ref": "w5_editor_latency_gate_test.go#TestW5EditorLatencyGate", "kind": "test", "source_revision": "e734c93543654818082e8d3ae3721cdb6fe9e4a5", "status": "current"},
+        {"ref": "testdata/incremental_allowlist.json", "kind": "policy", "source_revision": "95a1d13156b82e2221415342c9ac8048f2caf644", "status": "current"}
+      ],
+      "deletion_condition": "Delete temporary O(edit) experiments only after canonical C parity, edit invalidation, exact tree, reuse, race, and memory receipts pass.",
+      "retention": "keep_stable_telemetry",
+      "history_preserved": true
+    },
+    {
+      "id": "stage-6-grammar-certification",
+      "stage": 6,
+      "lane": "core",
+      "status": "planned",
+      "owner": "oracle_certification",
+      "campaigns": ["spec.parser-graduation.v1#8.1", "spec.campaign.v7", "spec.derivation-set-equivalence.v1", "spec.outline-api.v1"],
+      "purpose": "Certify exact trees, ranges, errors, and incremental results against the locked C baseline, one grammar at a time.",
+      "build_expressions": ["default", "gts_parsercorephase0", "cgo && treesitter_c_parity", "cgo && treesitter_c_parity && gts_derivation_set_census", "!gts_no_parsercorephase0 && gts_derivation_set_census"],
+      "control_ids": ["build.phase0.internal", "build.parity.cgo", "build.derivation.census", "env.GTS_ADMISSION_SCORECARD", "env.GTS_ADMISSION_SCORECARD_STRICT", "env.GTS_ADMISSION_SCORECARD_RATCHET", "env.GTS_ADMISSION_REAL_CORPUS", "env.GTS_ADMISSION_REAL_CORPUS_MANIFEST", "env.GTS_ADMISSION_REAL_CORPUS_LANGS", "env.GTS_ADMISSION_REAL_CORPUS_EXCLUDE_LANGS", "env.GTS_ADMISSION_REAL_CORPUS_BUCKETS", "env.GTS_ADMISSION_REAL_CORPUS_MAX_BYTES", "env.GTS_ADMISSION_REAL_CORPUS_RATCHET", "env.GTS_PARITY_MODE", "env.GTS_PARITY_ALLOW_HOST", "env.GOT_CORPUS_SOURCES_ROOT", "env.GTS_OUTLINE_CENSUS_OUT"],
+      "paths": [
+        {"path": "admission_scorecard_test.go", "role": "certification", "build_expression": "gts_parsercorephase0", "symbol": "TestAdmissionCandidateScorecard206"},
+        {"path": "admission_real_corpus_matrix_test.go", "role": "certification", "build_expression": "gts_parsercorephase0", "symbol": "TestAdmissionCandidateRealCorpusMatrix"},
+        {"path": "cgo_harness/parity_cgo_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity", "symbol": "TestParityFreshParse"},
+        {"path": "cgo_harness/derivation_set_differential_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity && gts_derivation_set_census", "symbol": "TestDerivationSetDifferentialBaselineCensus"},
+        {"path": "cgo_harness/docker/run_single_grammar_parity.sh", "role": "certification", "build_expression": "default", "symbol": "run_single_grammar_parity.sh"},
+        {"path": "cgo_harness/docker/run_grammargen_focus_targets.sh", "role": "certification", "build_expression": "default", "symbol": "run_grammargen_focus_targets.sh"},
+        {"path": "docs/compact-route-real-corpus-matrix.md", "role": "corpus_policy", "build_expression": "default", "symbol": "Current compact-graduation matrix"}
+      ],
+      "test_commands": [
+        {"name": "206-language scorecard", "command": "GTS_ADMISSION_SCORECARD=1 go test -tags 'gts_parsercorephase0' -run '^TestAdmissionCandidateScorecard206$' -count=1 -v .", "working_dir": ".", "isolation": "docker"},
+        {"name": "one-grammar parity", "command": "bash cgo_harness/docker/run_single_grammar_parity.sh typescript", "working_dir": ".", "isolation": "docker"},
+        {"name": "real-corpus focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode real-corpus --langs typescript", "working_dir": ".", "isolation": "docker"},
+        {"name": "C focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode cgo --langs typescript", "working_dir": ".", "isolation": "docker"}
+      ],
+      "corpus": [
+        {"id": "real-corpus-matrix", "kind": "authenticated_external_manifest", "path": "cgo_harness/corpus_real/manifest.json", "source": "External manifest is not present in this worktree.", "availability": "unavailable", "lock_status": "unlocked", "plan": "Acquire the authenticated manifest in an isolated certification run before Stage 6.", "lock_or_digest": ""},
+        {"id": "grammar-lock", "kind": "grammar_lock", "path": "grammars/languages.lock", "lock_or_digest": "grammar lock file is tracked; verify each source and generated artifact identity"}
+      ],
+      "gates": ["exact tree shape and node fields", "exact ranges and error or missing flags", "exact C and Go grammar identities", "incremental result parity", "one grammar per isolated Docker run", "zero silent divergence and explicit fallback accounting"],
+      "telemetry": ["PASS/FALLBACK/DIVERGE/SKIP/ERROR scorecard rows", "deep-tree digest", "exact mismatch path and field", "fallback reason", "derivation-set receipt"],
+      "plan_refs": [
+        {"ref": "cgo_harness/parity_cgo_test.go", "kind": "plan", "source_revision": "72afa041e9ec2f02872724bbdce17694d89955d8", "status": "active"}
+      ],
+      "proof_receipts": [
+        {"ref": "docs/compact-route-real-corpus-matrix.md#Current compact-graduation matrix", "kind": "document", "source_revision": "41af6afa6da47c9f8b55b3156fd88fb56686373f", "status": "stale"},
+        {"ref": "docs/compact-route-coverage-census.md", "kind": "document", "source_revision": "38d86d417fc6209228b8b175bc2aa7bb9700b8d3", "status": "stale"},
+        {"ref": "docs/a8-derivation-divergence-certificate-v1.md", "kind": "document", "source_revision": "acccb81d20128e337a35ee274a2e3e3631b73b1a", "status": "stale"}
+      ],
+      "deletion_condition": "Delete certification scaffolding only after every supported grammar has a current locked-C receipt for trees, fields, ranges, errors, and incremental edits.",
+      "retention": "preserve_receipt",
+      "history_preserved": true
+    },
+    {
+      "id": "stage-7-performance-and-release",
+      "stage": 7,
+      "lane": "core",
+      "status": "planned",
+      "owner": "performance_release",
+      "campaigns": ["spec.parser-graduation.v1#8.1", "spec.campaign.v6.7", "spec.campaign.v7"],
+      "purpose": "Pass memory, race, fallback, benchmark, and release safety gates before making compact parsing the default without exceptions.",
+      "build_expressions": ["default", "gts_parsercorephase0", "gts_no_parsercorephase0", "gts_no_parsercorephase0 && !gts_workcount", "cgo && treesitter_c_parity && treesitter_c_perfscan", "gts_recovery_telemetry"],
+      "control_ids": ["build.incremental.phase0", "build.parity.perf", "build.recovery.telemetry", "build.compact.emergency", "build.compact.emergency.proof", "env.GTS_ADMISSION_CANDIDATE", "env.GOT_PARSE_MEMORY_BUDGET_MB", "env.GOT_PARSE_MEMORY_HARD_CEILING_MB", "env.GTS_WORK_COUNT_BOARD", "env.GTS_WORK_COUNT_BOARD_RECEIPT", "env.GTS_PARITY_C_REF_BUILD_CACHE", "env.GTS_PARITY_C_REF_BUILD_JOBS"],
+      "paths": [
+        {"path": "scripts/run_randomized_benchmarks.sh", "role": "performance", "build_expression": "default", "symbol": "run_randomized_benchmarks.sh"},
+        {"path": "cgo_harness/work_count_board_test.go", "role": "performance", "build_expression": "cgo && treesitter_c_parity && treesitter_c_perfscan", "symbol": "TestAuthenticatedFourFixtureWorkCountBoard"},
+        {"path": "docs/v10-gcp-fleet-measurement-runbook.md", "role": "runbook", "build_expression": "default", "symbol": "runbook.v10-gcp-fleet-measurement"},
+        {"path": "docs/releasing.md", "role": "runbook", "build_expression": "default", "symbol": "Release checklist"}
+      ],
+      "test_commands": [
+        {"name": "randomized benchmark loop", "command": "bash scripts/run_randomized_benchmarks.sh --output harness_out/randomized-bench.txt", "working_dir": ".", "isolation": "quiet_host"},
+        {"name": "authenticated work-count board", "command": "GTS_WORK_COUNT_BOARD=1 GTS_WORK_COUNT_BOARD_RECEIPT=harness_out/work-count-board.json go test . -tags 'treesitter_c_parity treesitter_c_perfscan' -run '^TestAuthenticatedFourFixtureWorkCountBoard$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
+      ],
+      "corpus": [
+        {"id": "canonical-four-fixture-board", "kind": "locked_fixture_set", "path": "cgo_harness/work_count/reference_atlas_event_schema_v1.json", "source": "rewrite, query_compile, language, grammargen_lr", "lock_or_digest": "reference runtime tree-sitter-c 0.25.1 at f5afe475deb7c0bae6407fb776c76824f717bb61"},
+        {"id": "full-fleet-source-lock", "kind": "authenticated_external_lock", "path": "cgo_harness/corpus_real/corpus_sources.lock", "source": "External source lock is not present in this worktree.", "availability": "unavailable", "lock_status": "unlocked", "plan": "Provision the authenticated 206-language source lock on the isolated performance worker before Stage 7.", "lock_or_digest": ""}
+      ],
+      "gates": ["no crash, out-of-memory, or runaway retention", "memory-budget contracts remain intact", "race suite passes in an isolated container", "fallback telemetry stays within the agreed limit", "benchmark trio meets release safety targets", "clean source and reproducible receipt identity"],
+      "telemetry": ["ns/op", "B/op", "allocs/op", "maximum resident set size", "fallback count and reason", "work-count completeness and audit", "race and timeout outcome"],
+      "plan_refs": [
+        {"ref": "scripts/run_randomized_benchmarks.sh", "kind": "plan", "source_revision": "72afa041e9ec2f02872724bbdce17694d89955d8", "status": "active"},
+        {"ref": "cgo_harness/work_count_board_test.go#TestAuthenticatedFourFixtureWorkCountBoard", "kind": "plan", "source_revision": "4f281e3cbc1bfcefa94145710dd49858fa38faa3", "status": "active"},
+        {"ref": "docs/v10-gcp-fleet-measurement-runbook.md#Provision the VM", "kind": "runbook", "source_revision": "33a7101948ffd30efba0256ebf6928347f5a10d1", "status": "active"},
+        {"ref": "docs/v10-gcp-fleet-measurement-runbook.md#Stage the authenticated corpus", "kind": "runbook", "source_revision": "33a7101948ffd30efba0256ebf6928347f5a10d1", "status": "active"},
+        {"ref": "docs/phase3-admission-timing-runbook.md", "kind": "runbook", "source_revision": "98323ffb1af20c7db40f7de589814f0293589224", "status": "stale"}
+      ],
+      "proof_receipts": [],
+      "deletion_condition": "Delete temporary benchmark and VM artifacts after a complete release receipt. Retain scripts, stable telemetry, and the emergency fallback path.",
+      "retention": "keep_emergency_fallback",
+      "history_preserved": true
+    }
+  ]
+}

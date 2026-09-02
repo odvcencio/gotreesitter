@@ -96,9 +96,26 @@ func assertRequiredBuildFreshness(t *testing.T) {
 		"      - freshness",
 		"          FRESHNESS_RESULT: ${{ needs.freshness.result }}",
 		`          require_success "freshness" "$FRESHNESS_RESULT"`,
+		"      - compact-route-lifecycle-history",
+		"          COMPACT_ROUTE_LIFECYCLE_HISTORY_RESULT: ${{ needs.compact-route-lifecycle-history.result }}",
+		`          require_success "compact-route-lifecycle-history" "$COMPACT_ROUTE_LIFECYCLE_HISTORY_RESULT"`,
 	} {
 		if !strings.Contains(build, required) {
-			t.Errorf("CI build aggregate is missing freshness contract %q", required)
+			t.Errorf("CI build aggregate is missing required gate contract %q", required)
+		}
+	}
+
+	history := workflowJobBlock(string(workflow), "compact-route-lifecycle-history")
+	if history == "" {
+		t.Fatal("CI workflow is missing the compact-route-lifecycle-history job")
+	}
+	for _, required := range []string{
+		"          fetch-depth: 0",
+		"          GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF: \"1\"",
+		"go test . -run '^TestCompactRouteCampaignLifecycleRegistry$' -count=1",
+	} {
+		if !strings.Contains(history, required) {
+			t.Errorf("CI historical lifecycle job is missing contract %q", required)
 		}
 	}
 }
