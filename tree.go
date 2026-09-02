@@ -1007,8 +1007,8 @@ type ParseRuntime struct {
 	// known-valid source files and counting how often this is true.
 	CRecoverySwallowedErrorFallbackAttempted bool
 	// CompactExternalScannerCheckpointTransferProven reports whether compact
-	// materialization transferred every required scanner checkpoint into node
-	// sidecars. A false value disables later subtree reuse for that tree.
+	// materialization transferred every required terminal scanner checkpoint
+	// into node sidecars. A false value disables later subtree reuse.
 	CompactExternalScannerCheckpointTransferProven bool
 	// CRecoverReductionCandidateCeilingHits and CRecoverMissingTokenCeilingHits
 	// count how many times this parse's cDoAllPotentialReductions /

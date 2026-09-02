@@ -583,6 +583,7 @@ func diagnosticEOFRecoveryCopiedHeadersEqual(live, shadow *Core) bool {
 		live.reduceConflictContext == shadow.reduceConflictContext &&
 		live.reduceNoLookaheadContext == shadow.reduceNoLookaheadContext &&
 		live.externalPayloadsQuiescent == shadow.externalPayloadsQuiescent &&
+		live.terminalScannerCheckpointProvenance == shadow.terminalScannerCheckpointProvenance &&
 		live.externalTokenScannerStart == shadow.externalTokenScannerStart &&
 		live.externalTokenScannerEnd == shadow.externalTokenScannerEnd &&
 		live.externalTokenScannerExact == shadow.externalTokenScannerExact

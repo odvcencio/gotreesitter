@@ -999,9 +999,15 @@ func diagnosticParserCoreInternCheckpoint(compact *core.Core, bytes []byte) (cor
 	return id, DiagnosticParserCoreScannerCheckpoint{Length: int(length), SHA256: digest}, nil
 }
 
-func certifyParserCoreExternalPayloadQuiescence(compact *core.Core, lang *Language) {
-	if compact != nil && classifyExternalScannerQuiescence(lang) == scannerQuiescenceProven {
+func configureParserCoreScannerProvenance(compact *core.Core, lang *Language) {
+	if compact == nil {
+		return
+	}
+	if classifyExternalScannerQuiescence(lang) == scannerQuiescenceProven {
 		compact.CertifyExternalPayloadsQuiescent()
+	}
+	if languageUsesExternalScannerCheckpoints(lang) {
+		compact.EnableTerminalScannerCheckpointProvenance()
 	}
 }
 
@@ -1044,7 +1050,7 @@ func DiagnosticParseParserCorePrefix(scanner ExternalScanner, source []byte, opt
 	if err != nil {
 		return result, err
 	}
-	certifyParserCoreExternalPayloadQuiescence(compact, lang)
+	configureParserCoreScannerProvenance(compact, lang)
 	tokenSource := parser.acquireParserDFATokenSource(source)
 	if tokenSource == nil {
 		return result, errors.New("parser-core phase zero: production DFA unavailable")
@@ -6750,9 +6756,9 @@ func diagnosticParserCoreGapIsToleratedWithPoll(gap []byte, poll func() error) (
 	return true, nil
 }
 
-// materializeCompactExternalScannerCheckpoint copies the core-owned scanner
-// snapshots into the public arena. Core checkpoint IDs are not valid after
-// materialization, so retain only byte copies in the node sidecar.
+// materializeCompactExternalScannerCheckpoint copies one terminal's core-owned
+// scanner snapshots into the public arena. Core checkpoint IDs are not valid
+// after materialization, so retain only byte copies in the node sidecar.
 // It returns false unless the complete scanner provenance pair is attached.
 func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *nodeArena, node *Node, view core.MaterializationSubtreeView) bool {
 	if compact == nil || arena == nil || node == nil || node.ownerArena != arena || !view.ExternalScannerCheckpointExact ||
@@ -6979,7 +6985,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 					arena, Symbol(view.Symbol), named, view.StartByte, view.EndByte,
 					points.point(view.StartByte), points.point(view.EndByte),
 				)
-				if languageUsesExternalScannerCheckpoints(parser.language) && view.External && view.Terminal &&
+				if languageUsesExternalScannerCheckpoints(parser.language) && view.Terminal &&
 					!materializeCompactExternalScannerCheckpoint(compact, arena, node, view) {
 					scannerProvenanceTransferProven = false
 				}

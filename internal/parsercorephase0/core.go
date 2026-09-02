@@ -1000,8 +1000,10 @@ type subtreeRecord struct {
 	fragile bool
 }
 
-// externalPayloadProvenance stores the exact scanner states for one external
-// terminal. Sparse storage preserves the compact subtree record size.
+// externalPayloadProvenance stores the exact scanner states for one
+// authenticated terminal. External-token identity and compact leaf
+// reauthentication share this sparse sidecar so subtree records stay small.
+// The historical type name remains internal.
 type externalPayloadProvenance struct {
 	payload SubtreeID
 	start   CheckpointID
@@ -1137,9 +1139,9 @@ type MaterializationSubtreeView struct {
 	External          bool
 	Terminal          bool
 	// ExternalScannerCheckpointStart and ExternalScannerCheckpointEnd identify
-	// the serialized scanner states before and after this external terminal.
-	// They are zero when the subtree has no authenticated external-token
-	// provenance. The materializer copies the bytes into its own arena.
+	// the serialized scanner states before and after this terminal. They are
+	// zero when the subtree has no authenticated scanner provenance. The
+	// materializer copies the bytes into its own arena.
 	ExternalScannerCheckpointStart CheckpointID
 	ExternalScannerCheckpointEnd   CheckpointID
 	ExternalScannerCheckpointExact bool
@@ -1343,9 +1345,14 @@ type Core struct {
 	// certifies that external payload identity does not depend on scanner state.
 	// Reset retains it because the property is stable for this core's tables.
 	externalPayloadsQuiescent bool
+	// terminalScannerCheckpointProvenance is a one-way language capability.
+	// It records the scanner pair for every shifted terminal, including a DFA
+	// terminal. Compact materialization needs both states to reauthenticate an
+	// edited leaf without trusting a fresh scanner payload.
+	terminalScannerCheckpointProvenance bool
 	// externalTokenScannerStart and externalTokenScannerEnd authenticate one
-	// elected token. Only an authenticated external shift copies this pair into
-	// its immutable terminal payload.
+	// elected token. A checkpoint-capable language copies this pair into each
+	// immutable terminal payload.
 	externalTokenScannerStart CheckpointID
 	externalTokenScannerEnd   CheckpointID
 	externalTokenScannerExact bool
@@ -1395,6 +1402,19 @@ func (c *Core) CertifyExternalPayloadsQuiescent() {
 		return
 	}
 	c.externalPayloadsQuiescent = true
+}
+
+// EnableTerminalScannerCheckpointProvenance records the exact scanner pair on
+// every authenticated terminal. Call this only for a language that declares
+// complete external-scanner checkpoints.
+//
+// The capability is permanent for the Core. Reset retains it because Reset
+// also retains the authenticated language tables.
+func (c *Core) EnableTerminalScannerCheckpointProvenance() {
+	if c == nil {
+		return
+	}
+	c.terminalScannerCheckpointProvenance = true
 }
 
 // inlineAdjacencyCapacity covers the production default without forcing a
@@ -5497,7 +5517,7 @@ func (c *Core) MaterializationView(id SubtreeID) (MaterializationSubtreeView, er
 		Fragile:           record.fragile,
 		Missing:           record.missing,
 	}
-	if record.external && record.terminal {
+	if record.terminal {
 		if provenance, ok := c.externalPayloadScannerProvenance(id); ok {
 			view.ExternalScannerCheckpointStart = provenance.start
 			view.ExternalScannerCheckpointEnd = provenance.end
@@ -5759,13 +5779,13 @@ func (c *Core) appendAuthenticatedTerminal(
 	if err != nil {
 		return 0, err
 	}
-	if r.external && c.externalTokenScannerExact {
+	if (r.external || c.terminalScannerCheckpointProvenance) && c.externalTokenScannerExact {
 		c.externalProvenance = append(c.externalProvenance, externalPayloadProvenance{
 			payload: payload,
 			start:   c.externalTokenScannerStart,
 			end:     c.externalTokenScannerEnd,
 		})
-		if !c.externalPayloadsQuiescent {
+		if r.external && !c.externalPayloadsQuiescent {
 			c.subtrees[payload-1].externalProvenanceState = subtreeExternalProvenanceExactHasExternal
 		}
 	}

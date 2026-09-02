@@ -134,7 +134,7 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 				Extra:    record.extra, External: record.external, Terminal: record.terminal,
 				Fragile: record.fragile, Missing: record.missing,
 			}
-			if record.external && record.terminal {
+			if record.terminal {
 				if provenance, ok := c.externalPayloadScannerProvenance(top.id); ok {
 					view.ExternalScannerCheckpointStart = provenance.start
 					view.ExternalScannerCheckpointEnd = provenance.end
