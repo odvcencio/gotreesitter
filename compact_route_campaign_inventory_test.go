@@ -61,6 +61,9 @@ func TestCompactRouteCampaignInventory(t *testing.T) {
 	}
 
 	registry := loadCompactRouteLifecycleRegistry(t)
+	if inventory.SourceRevision != compactRouteLifecycleSourceRevision || inventory.SourceRevision != registry.SourceRevision {
+		t.Fatalf("inventory source_revision = %q, want lifecycle source revision %q", inventory.SourceRevision, registry.SourceRevision)
+	}
 	controls := make(map[string]compactRouteLifecycleControl, len(registry.Controls))
 	for _, control := range registry.Controls {
 		controls[control.ID] = control
