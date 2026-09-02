@@ -346,6 +346,13 @@ func TestCompactRouteLifecycleAllowsStaleReceiptOutsideCurrentLineage(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
+	mode, err := compactRouteLifecycleHistoricalProofModeForRepository(root)
+	if err != nil {
+		t.Skipf("strict stale-receipt proof requires a full Git repository: %v", err)
+	}
+	if mode.Shallow {
+		t.Skip("strict stale-receipt proof requires a non-shallow Git repository")
+	}
 	var stale compactRouteLifecycleReceipt
 	for _, receipt := range registry.Entries[4].ProofReceipts {
 		if receipt.Status == "stale" {
