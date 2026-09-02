@@ -2,11 +2,24 @@
 
 package gotreesitter
 
-import "testing"
+import (
+	"testing"
+
+	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+)
 
 type phase0OwnedExternalScanner struct {
 	sameSymbol bool
 	fail       bool
+}
+
+type phase0MismatchedExternalScanner struct{ phase0OwnedExternalScanner }
+
+func (phase0MismatchedExternalScanner) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	return ExternalScannerCheckpointIdentity{
+		Scanner: []byte("phase0-mismatched-external-scanner-v1"),
+		Grammar: []byte("phase0-mismatched-external-grammar-v1"),
+	}, true
 }
 
 type phase0OwnedExternalScannerState struct {
@@ -200,6 +213,38 @@ func TestDiagnosticParserCoreExternalVersionRelexRestoresAfterFailedScan(t *test
 	}
 	if got := tokenSource.lexer.pos; got != 1 {
 		t.Fatalf("shared lexer position after failed probe = %d, want 1", got)
+	}
+}
+
+func TestDiagnosticParserCoreExternalVersionRelexRejectsIdentityDrift(t *testing.T) {
+	lang := phase0OwnedExternalLanguage()
+	source := []byte("x")
+	lookup := func(StateID, Symbol) uint16 { return 1 }
+	tokenSource := newDFATokenSourceDirect(NewLexer(lang.LexStates, source), lang, lookup, nil, nil, nil)
+	defer tokenSource.Close()
+	tokenSource.SetParserState(0)
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact:     &core.Core{},
+		tokenSource: tokenSource,
+	}
+	if err := scheduler.captureSharedElectionSnapshot(); err != nil {
+		t.Fatalf("capture election snapshot: %v", err)
+	}
+	shared := tokenSource.Next()
+	if shared.Symbol != Symbol(11) || !scheduler.versionLexerBeforeIdentityValid {
+		t.Fatalf("shared token=%+v identity-valid=%t, want symbol 11 and captured identity", shared, scheduler.versionLexerBeforeIdentityValid)
+	}
+	sharedState := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value
+	lang.ExternalScanner = phase0MismatchedExternalScanner{}
+	candidate, ok := scheduler.relexTokenForState(1, shared)
+	if ok || candidate != shared {
+		t.Fatalf("identity-drift probe = %+v/%t, want shared token/false", candidate, ok)
+	}
+	if got := tokenSource.externalPayload.(*phase0OwnedExternalScannerState).value; got != sharedState {
+		t.Fatalf("shared scanner payload after identity drift = %d, want %d", got, sharedState)
+	}
+	if got := tokenSource.lexer.pos; got != 1 {
+		t.Fatalf("shared lexer position after identity drift = %d, want 1", got)
 	}
 }
 

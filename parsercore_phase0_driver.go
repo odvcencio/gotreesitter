@@ -992,6 +992,9 @@ func parserCoreCheckpoint(bytes []byte) DiagnosticParserCoreScannerCheckpoint {
 // prefixes keep distinct identifier pairs distinct without allocating on the
 // election hot path.
 func parserCoreExternalScannerIdentityFingerprint(identity ExternalScannerCheckpointIdentity) [32]byte {
+	if !identity.complete() {
+		return [32]byte{}
+	}
 	var encoded [8 + 2*externalScannerCheckpointIdentityMaxBytes]byte
 	offset := 0
 	binary.LittleEndian.PutUint16(encoded[offset:], uint16(len(identity.Scanner)))
