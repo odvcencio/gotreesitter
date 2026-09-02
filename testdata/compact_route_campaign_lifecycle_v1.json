@@ -1155,7 +1155,7 @@
         {"name": "PEM C focus", "command": "bash cgo_harness/docker/run_grammargen_c_parity.sh --langs pem", "working_dir": ".", "isolation": "docker"},
         {"name": "PEM compact candidate C parity", "command": "go test . -tags 'cgo treesitter_c_parity gts_parsercorephase0' -run '^TestStage6PEMCompactCertification$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"},
         {"name": "Forth one-grammar parity", "command": "bash cgo_harness/docker/run_single_grammar_parity.sh forth", "working_dir": ".", "isolation": "docker"},
-        {"name": "Forth real-corpus focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode real-corpus --langs forth", "working_dir": ".", "isolation": "docker"},
+        {"name": "Forth real-corpus focus", "command": "bash cgo_harness/docker/run_single_grammar_parity.sh --require-parity forth", "working_dir": ".", "isolation": "docker"},
         {"name": "Forth C focus", "command": "bash cgo_harness/docker/run_grammargen_c_parity.sh --langs forth", "working_dir": ".", "isolation": "docker"},
         {"name": "Forth compact candidate C parity", "command": "go test . -tags 'cgo treesitter_c_parity gts_parsercorephase0' -run '^TestStage6ForthCompactCertification$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
       ],
