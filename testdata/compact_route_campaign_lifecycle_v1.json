@@ -1,6 +1,6 @@
 {
   "schema": "gotreesitter/compact-route-campaign-lifecycle/v1",
-  "source_revision": "f5fc2537b3d8126bc1bdaeed6f42c0f21f139ffa",
+  "source_revision": "030eeb6af96005367d4e4eb9ad92f204c72aa1d4",
   "scope": "Compact parser graduation stages, proof lanes, controls, corpus identity, and receipt retirement.",
   "authority": [
     "spec.parser-graduation.v1#8.1",
@@ -1074,6 +1074,7 @@
         {"path": "cgo_harness/stage6_rust_compact_certification_test.go", "role": "certification", "build_expression": "cgo && treesitter_c_parity && gts_parsercorephase0", "symbol": "TestStage6RustCompactCertification"},
         {"path": "cgo_harness/stage6_json_compact_certification_test.go", "role": "certification", "build_expression": "cgo && treesitter_c_parity && gts_parsercorephase0", "symbol": "TestStage6JSONCompactCertification"},
         {"path": "cgo_harness/stage6_c_compact_certification_test.go", "role": "certification", "build_expression": "cgo && treesitter_c_parity && gts_parsercorephase0", "symbol": "TestStage6CCompactCertification"},
+        {"path": "cgo_harness/stage6_css_compact_certification_test.go", "role": "certification", "build_expression": "cgo && treesitter_c_parity && gts_parsercorephase0", "symbol": "TestStage6CSSCompactCertification"},
         {"path": "cgo_harness/docker/run_single_grammar_parity.sh", "role": "certification", "build_expression": "default", "symbol": "run_single_grammar_parity.sh"},
         {"path": "cgo_harness/docker/run_grammargen_focus_targets.sh", "role": "certification", "build_expression": "default", "symbol": "run_grammargen_focus_targets.sh"},
         {"path": "docs/compact-route-real-corpus-matrix.md", "role": "corpus_policy", "build_expression": "default", "symbol": "Current compact-graduation matrix"}
@@ -1107,7 +1108,11 @@
         {"name": "C one-grammar parity", "command": "bash cgo_harness/docker/run_single_grammar_parity.sh c", "working_dir": ".", "isolation": "docker"},
         {"name": "C real-corpus focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode real-corpus --langs c", "working_dir": ".", "isolation": "docker"},
         {"name": "C C focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode cgo --langs c", "working_dir": ".", "isolation": "docker"},
-        {"name": "C compact candidate C parity", "command": "go test . -tags 'cgo treesitter_c_parity gts_parsercorephase0' -run '^TestStage6CCompactCertification$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
+        {"name": "C compact candidate C parity", "command": "go test . -tags 'cgo treesitter_c_parity gts_parsercorephase0' -run '^TestStage6CCompactCertification$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"},
+        {"name": "CSS one-grammar parity", "command": "bash cgo_harness/docker/run_single_grammar_parity.sh css", "working_dir": ".", "isolation": "docker"},
+        {"name": "CSS real-corpus focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode real-corpus --langs css", "working_dir": ".", "isolation": "docker"},
+        {"name": "CSS C focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode cgo --langs css", "working_dir": ".", "isolation": "docker"},
+        {"name": "CSS compact candidate C parity", "command": "go test . -tags 'cgo treesitter_c_parity gts_parsercorephase0' -run '^TestStage6CSSCompactCertification$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
       ],
       "corpus": [
         {"id": "real-corpus-matrix", "kind": "authenticated_external_manifest", "path": "cgo_harness/corpus_real/manifest.json", "source": "External manifest is not present in this worktree.", "availability": "unavailable", "lock_status": "unlocked", "plan": "Acquire the authenticated manifest in an isolated certification run before Stage 6.", "lock_or_digest": ""},
@@ -1118,7 +1123,8 @@
         {"id": "go-compact-smoke", "kind": "synthetic_fixture", "path": "grammars/smoke_samples.go", "source": "package main\n\nfunc main() {\n\tprintln(1)\n}\n", "source_sha256": "0496c51d052fc6f7fa761b9b317e16a3e15073cbe271f56163db4b61bf2e8220", "tree_sha256": "94fcf4849cea5bcccc24ae0a1e70ee06218e0daad96434b74c27864db9fe0c81", "availability": "available", "lock_status": "locked", "plan": "Keep the Go clean, recovery, and incremental fixtures as the next current Stage 6 compact-route certificate.", "lock_or_digest": "grammar lock plus locked-C exact tree digest at 9ec95dbcbc9a18071b697ce260e49189c0966036"},
         {"id": "rust-compact-smoke", "kind": "synthetic_fixture", "path": "grammars/smoke_samples.go", "source": "fn main() { let x = 1; }\n", "source_sha256": "5ea70a939eaf182a1d392818bc49b8f25a74334f1002a409865050305a1abf5e", "tree_sha256": "f7120d52d2861af7fe4dc6b6d7f0073404236fe8cc6f812f9e40a16253521c63", "availability": "available", "lock_status": "locked", "plan": "Keep the Rust clean, recovery, raw-string, and incremental fixtures as the next current Stage 6 compact-route certificate.", "lock_or_digest": "grammar lock plus locked-C exact tree digest at 80c9ed104785d46acd84a88c6df225836c876a32"},
         {"id": "json-compact-smoke", "kind": "synthetic_fixture", "path": "grammars/smoke_samples.go", "source": "{\"a\": 1}\n", "source_sha256": "e8c628edc9968ef0c668f54e0ba2636b35503357eb1aca0ddc828aeace432f67", "tree_sha256": "a6a9ea2b18c6a1299d3b6c92150ac65bb6bdb4d3e5471835bf6a8ceabe37e36e", "availability": "available", "lock_status": "locked", "plan": "Keep the JSON clean, recovery, and incremental fixtures as the next current Stage 6 compact-route certificate.", "lock_or_digest": "grammar lock plus locked-C exact tree digest at f737578353f60bee8de5f6413b9534cc8713cc51"},
-        {"id": "c-compact-smoke", "kind": "synthetic_fixture", "path": "grammars/smoke_samples.go", "source": "int main(void) { return 0; }\n", "source_sha256": "2ad75d95660563887d8d3f1d0ae1dcf18c2379cbd83a5c72f5ab276351ee6949", "tree_sha256": "b35547117f044e74311e70eeb45bd3967598fdca38a963937e2eeaad29bed7b7", "availability": "available", "lock_status": "locked", "plan": "Keep the C clean, declaration, recovery, and incremental fixtures as the next current Stage 6 compact-route certificate.", "lock_or_digest": "grammar lock plus locked-C exact tree digest at f5fc2537b3d8126bc1bdaeed6f42c0f21f139ffa"}
+        {"id": "c-compact-smoke", "kind": "synthetic_fixture", "path": "grammars/smoke_samples.go", "source": "int main(void) { return 0; }\n", "source_sha256": "2ad75d95660563887d8d3f1d0ae1dcf18c2379cbd83a5c72f5ab276351ee6949", "tree_sha256": "b35547117f044e74311e70eeb45bd3967598fdca38a963937e2eeaad29bed7b7", "availability": "available", "lock_status": "locked", "plan": "Keep the C clean, declaration, recovery, and incremental fixtures as the next current Stage 6 compact-route certificate.", "lock_or_digest": "grammar lock plus locked-C exact tree digest at f5fc2537b3d8126bc1bdaeed6f42c0f21f139ffa"},
+        {"id": "css-compact-smoke", "kind": "synthetic_fixture", "path": "grammars/smoke_samples.go", "source": "body { color: red; }\n", "source_sha256": "9767e91e9d4b0334e59a1d389e9801bc6a2c5c4a5500a3c2c7915687965b2c16", "tree_sha256": "1363ea554c5d75bffc553bce1514068e02eb934c204f585e452ddc9211ea4af0", "availability": "available", "lock_status": "locked", "plan": "Keep the CSS clean, recovery, and incremental fixtures as the next current Stage 6 compact-route certificate.", "lock_or_digest": "grammar lock plus locked-C exact tree digest at 030eeb6af96005367d4e4eb9ad92f204c72aa1d4"}
       ],
       "gates": ["exact tree shape and node fields", "exact ranges and error or missing flags", "exact C and Go grammar identities", "incremental result parity", "one grammar per isolated Docker run", "zero silent divergence and explicit fallback accounting"],
       "telemetry": ["PASS/FALLBACK/DIVERGE/SKIP/ERROR scorecard rows", "deep-tree digest", "exact mismatch path and field", "fallback reason", "derivation-set receipt"],
@@ -1135,7 +1141,8 @@
         {"ref": "cgo_harness/stage6_go_compact_certification_test.go#TestStage6GoCompactCertification", "kind": "test", "source_revision": "9ec95dbcbc9a18071b697ce260e49189c0966036", "status": "current"},
         {"ref": "cgo_harness/stage6_rust_compact_certification_test.go#TestStage6RustCompactCertification", "kind": "test", "source_revision": "80c9ed104785d46acd84a88c6df225836c876a32", "status": "current"},
         {"ref": "cgo_harness/stage6_json_compact_certification_test.go#TestStage6JSONCompactCertification", "kind": "test", "source_revision": "f737578353f60bee8de5f6413b9534cc8713cc51", "status": "current"},
-        {"ref": "cgo_harness/stage6_c_compact_certification_test.go#TestStage6CCompactCertification", "kind": "test", "source_revision": "f5fc2537b3d8126bc1bdaeed6f42c0f21f139ffa", "status": "current"}
+        {"ref": "cgo_harness/stage6_c_compact_certification_test.go#TestStage6CCompactCertification", "kind": "test", "source_revision": "f5fc2537b3d8126bc1bdaeed6f42c0f21f139ffa", "status": "current"},
+        {"ref": "cgo_harness/stage6_css_compact_certification_test.go#TestStage6CSSCompactCertification", "kind": "test", "source_revision": "030eeb6af96005367d4e4eb9ad92f204c72aa1d4", "status": "current"}
       ],
       "deletion_condition": "Delete certification scaffolding only after every supported grammar has a current locked-C receipt for trees, fields, ranges, errors, and incremental edits.",
       "retention": "preserve_receipt",
