@@ -28,7 +28,7 @@ func TestIssue728IncrementalReuseMeasurement(t *testing.T) {
 		{name: "tsx", lang: grammars.TsxLanguage, source: issue728TypeScriptSource, marker: []byte("export function f"), insert: 'f', wantReuse: true},
 		{name: "toml", lang: grammars.TomlLanguage, source: issue728TOMLSource, marker: []byte("key"), insert: 'k', wantReuse: true},
 		{name: "cmake", lang: grammars.CmakeLanguage, source: issue728CMakeSource, marker: []byte("VAR"), insert: 'X', wantReuse: true},
-		{name: "sql", lang: grammars.SqlLanguage, source: issue728SQLSource, marker: []byte("AS value_"), insert: 'x', wantReuse: false},
+		{name: "sql", lang: grammars.SqlLanguage, source: issue728SQLSource, marker: []byte("AS value_"), insert: 'x', wantReuse: true},
 		{name: "ini", lang: grammars.IniLanguage, source: issue728INISource, marker: []byte("key"), insert: 'x', wantReuse: true},
 		{name: "go", lang: grammars.GoLanguage, source: issue728GoSource, marker: []byte("func f"), insert: 'f', wantReuse: true},
 	}

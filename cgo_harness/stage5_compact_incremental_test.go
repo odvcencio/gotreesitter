@@ -234,8 +234,8 @@ func TestStage5CompactPythonScannerCheckpointReuse(t *testing.T) {
 // TestStage5PythonSameLengthScannerDelimiterParity proves the conservative
 // same-length scanner-state lane against both C fresh and C incremental trees.
 // It changes a regular string with literal braces into a real f-string
-// interpolation without changing the byte span, then checks the following
-// top-level child.
+// interpolation without changing the byte span. The changed token cannot use
+// the one-leaf authentication path, so the prefix guard must parse fresh.
 func TestStage5PythonSameLengthScannerDelimiterParity(t *testing.T) {
 	source := []byte("def first(value):\n    return u\"{x}\"\n\ndef second(value):\n    return \"unchanged\"\n")
 	oldText := []byte("u\"{x}\"")
@@ -288,10 +288,7 @@ func TestStage5PythonSameLengthScannerDelimiterParity(t *testing.T) {
 	if goIncremental.RootNode().HasError() != goFresh.RootNode().HasError() {
 		t.Fatalf("Go same-length error state differs from fresh: incremental=%t fresh=%t", goIncremental.RootNode().HasError(), goFresh.RootNode().HasError())
 	}
-	if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute ||
-		profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
-		t.Fatalf("Go same-length scanner-state edit did not use authenticated reuse: %+v", profile)
-	}
+	assertStage5PythonPrefixFallback(t, profile, "same-length scanner delimiter")
 
 	cLang, err := ParityCLanguage("python")
 	if err != nil {
@@ -331,6 +328,82 @@ func TestStage5PythonSameLengthScannerDelimiterParity(t *testing.T) {
 	t.Logf("same-length scanner delimiter parity: reuse=%t unsupported=%t reason=%q reused=%d bytes=%d", profile.OldTreeReuseRoute, profile.ReuseUnsupported, profile.ReuseUnsupportedReason, profile.ReusedSubtrees, profile.ReusedBytes)
 }
 
+// TestStage5PythonPrefixFrontierAdversarialParity proves that byte-width
+// equality and leading extras cannot move the first structural frontier.
+func TestStage5PythonPrefixFrontierAdversarialParity(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		source      []byte
+		needle      []byte
+		replacement []byte
+	}{
+		{
+			name:        "same_length_indentation_state",
+			source:      []byte("def first():\n        value = 1\n        return value\n\ndef second():\n    return 2\n"),
+			needle:      []byte("        return value"),
+			replacement: []byte("\t       return value"),
+		},
+		{
+			name:        "leading_comment_extra",
+			source:      []byte("# leading extra\n\ndef first():\n    return 1\n\ndef second():\n    return 2\n"),
+			needle:      []byte("return 1"),
+			replacement: []byte("return 19"),
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			edited, edit := stage5PythonReplace(t, tc.source, tc.needle, tc.replacement)
+			goLang := grammars.PythonLanguage()
+			goParser := gotreesitter.NewParser(goLang)
+			goParser.SetAdmissionCandidateRoute(false)
+			goOld, err := goParser.Parse(tc.source)
+			if err != nil {
+				t.Fatalf("Go old parse: %v", err)
+			}
+			t.Cleanup(goOld.Release)
+			goOld.Edit(edit)
+			goIncremental, profile, err := goParser.ParseIncrementalProfiled(edited, goOld)
+			if err != nil {
+				t.Fatalf("Go incremental parse: %v", err)
+			}
+			if goIncremental != goOld {
+				t.Cleanup(goIncremental.Release)
+			}
+			assertStage5PythonPrefixFallback(t, profile, tc.name)
+
+			cLang, err := ParityCLanguage("python")
+			if err != nil {
+				t.Fatal(err)
+			}
+			cParser := sitter.NewParser()
+			t.Cleanup(cParser.Close)
+			if err := cParser.SetLanguage(cLang); err != nil {
+				t.Fatal(err)
+			}
+			cFresh := cParser.Parse(edited, nil)
+			if cFresh == nil || cFresh.RootNode() == nil {
+				t.Fatal("locked C fresh parse returned no root")
+			}
+			t.Cleanup(cFresh.Close)
+			cOld := cParser.Parse(tc.source, nil)
+			if cOld == nil || cOld.RootNode() == nil {
+				t.Fatal("locked C old parse returned no root")
+			}
+			cEdit := realCorpusCInputEdit(edit)
+			cOld.Edit(&cEdit)
+			cIncremental := cParser.Parse(edited, cOld)
+			cOld.Close()
+			if cIncremental == nil || cIncremental.RootNode() == nil {
+				t.Fatal("locked C incremental parse returned no root")
+			}
+			t.Cleanup(cIncremental.Close)
+			assertStage5PythonGoCParity(t, goIncremental, goLang, cFresh.RootNode(), tc.name+" fresh C")
+			assertStage5PythonGoCParity(t, goIncremental, goLang, cIncremental.RootNode(), tc.name+" incremental C")
+			assertStage5PythonRootRange(t, goIncremental, cIncremental.RootNode(), tc.name)
+		})
+	}
+}
+
 // TestStage5PythonWideIndentBoundaryParity proves the uint16 indentation
 // counter used by the locked Python commit 26855eab. Each bounded case
 // compares fresh, forward-incremental, and reverse-incremental Go trees with
@@ -341,19 +414,22 @@ func TestStage5PythonWideIndentBoundaryParity(t *testing.T) {
 		t.Run(fmt.Sprintf("spaces_%d", width), func(t *testing.T) {
 			source := stage5PythonWideIndentSource(width)
 			const oldReturn = "return 2"
+			const newReturn = "return 20"
 			offset := bytes.LastIndex(source, []byte(oldReturn))
 			if offset < 0 {
 				t.Fatalf("wide-indent fixture has no second return marker")
 			}
-			edited := append([]byte(nil), source...)
-			edited[offset+len(oldReturn)-1] = '3'
+			edited := make([]byte, 0, len(source)+len(newReturn)-len(oldReturn))
+			edited = append(edited, source[:offset]...)
+			edited = append(edited, newReturn...)
+			edited = append(edited, source[offset+len(oldReturn):]...)
 			edit := gotreesitter.InputEdit{
-				StartByte:   uint32(offset + len(oldReturn) - 1),
+				StartByte:   uint32(offset),
 				OldEndByte:  uint32(offset + len(oldReturn)),
-				NewEndByte:  uint32(offset + len(oldReturn)),
-				StartPoint:  pointAtOffset(source, offset+len(oldReturn)-1),
+				NewEndByte:  uint32(offset + len(newReturn)),
+				StartPoint:  pointAtOffset(source, offset),
 				OldEndPoint: pointAtOffset(source, offset+len(oldReturn)),
-				NewEndPoint: pointAtOffset(edited, offset+len(oldReturn)),
+				NewEndPoint: pointAtOffset(edited, offset+len(newReturn)),
 			}
 			reverseEdit := gotreesitter.InputEdit{
 				StartByte:   edit.StartByte,
@@ -428,6 +504,7 @@ func TestStage5PythonWideIndentBoundaryParity(t *testing.T) {
 			assertStage5PythonGoCParity(t, goForward, goLang, cForwardFresh.RootNode(), "wide-indent forward fresh C")
 			assertStage5PythonGoCParity(t, goForward, goLang, cForward.RootNode(), "wide-indent forward incremental C")
 			assertStage5PythonRootRange(t, goForward, cForward.RootNode(), "wide-indent forward")
+			assertStage5PythonReuseRoute(t, forwardProfile, "wide-indent forward")
 
 			cReverseOld := cParser.Parse(edited, nil)
 			if cReverseOld == nil {
@@ -453,6 +530,7 @@ func TestStage5PythonWideIndentBoundaryParity(t *testing.T) {
 			assertStage5PythonGoCParity(t, goReverse, goLang, cBase.RootNode(), "wide-indent reverse fresh C")
 			assertStage5PythonGoCParity(t, goReverse, goLang, cReverse.RootNode(), "wide-indent reverse incremental C")
 			assertStage5PythonRootRange(t, goReverse, cReverse.RootNode(), "wide-indent reverse")
+			assertStage5PythonReuseRoute(t, reverseProfile, "wide-indent reverse")
 			t.Logf("wide-indent spaces=%d source=%d base_stop=%s base_end=%d forward_profile=%+v reverse_profile=%+v", width, len(source), goBaseRuntime.StopReason, goBaseRuntime.RootEndByte, forwardProfile, reverseProfile)
 		})
 	}
@@ -616,6 +694,27 @@ func stage5PythonWideIndentTransition(oldWidth, newWidth int) ([]byte, []byte, g
 	return source, edited, forward, reverse
 }
 
+func stage5PythonReplace(t *testing.T, source, needle, replacement []byte) ([]byte, gotreesitter.InputEdit) {
+	t.Helper()
+	offset := bytes.Index(source, needle)
+	if offset < 0 {
+		t.Fatalf("Python edit fixture has no marker %q", needle)
+	}
+	oldEnd := offset + len(needle)
+	edited := make([]byte, 0, len(source)-len(needle)+len(replacement))
+	edited = append(edited, source[:offset]...)
+	edited = append(edited, replacement...)
+	edited = append(edited, source[oldEnd:]...)
+	return edited, gotreesitter.InputEdit{
+		StartByte:   uint32(offset),
+		OldEndByte:  uint32(oldEnd),
+		NewEndByte:  uint32(offset + len(replacement)),
+		StartPoint:  pointAtOffset(source, offset),
+		OldEndPoint: pointAtOffset(source, oldEnd),
+		NewEndPoint: pointAtOffset(edited, offset+len(replacement)),
+	}
+}
+
 func assertStage5PythonRootRange(t *testing.T, tree *gotreesitter.Tree, cRoot *sitter.Node, label string) {
 	t.Helper()
 	if tree == nil || tree.RootNode() == nil || cRoot == nil {
@@ -656,6 +755,15 @@ func assertStage5PythonPrefixFallback(t *testing.T, profile gotreesitter.Increme
 		!profile.ReuseUnsupported || profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 ||
 		profile.ReusedBytes != 0 || profile.ReuseCursorNanos != 0 {
 		t.Fatalf("%s did not fail closed before candidate scanning: %+v", label, profile)
+	}
+}
+
+func assertStage5PythonReuseRoute(t *testing.T, profile gotreesitter.IncrementalParseProfile, label string) {
+	t.Helper()
+	if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute ||
+		profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 || profile.NewNodesAllocated == 0 ||
+		profile.TokensConsumed == 0 {
+		t.Fatalf("%s did not use the scanner-aware old-tree route: %+v", label, profile)
 	}
 }
 

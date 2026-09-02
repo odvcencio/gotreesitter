@@ -275,6 +275,45 @@ func TestExternalScannerCheckpointSurvivesShapingCloneAndParent(t *testing.T) {
 	}
 }
 
+func TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots(t *testing.T) {
+	sourceArena := acquireNodeArena(arenaClassFull)
+	defer sourceArena.Release()
+	targetArena := acquireNodeArena(arenaClassIncremental)
+	defer targetArena.Release()
+
+	left := newLeafNodeInArena(sourceArena, 1, true, 0, 1, Point{}, Point{Column: 1})
+	sourceArena.recordExternalScannerLeafCheckpoint(left, []byte{1}, []byte{2})
+	right := newLeafNodeInArena(sourceArena, 1, true, 1, 2, Point{Column: 1}, Point{Column: 2})
+	sourceArena.recordExternalScannerLeafCheckpoint(right, []byte{3}, []byte{4})
+
+	// Occupy the same destination offsets with unrelated bytes. A borrowed
+	// reference stored without copying would silently resolve to these values.
+	targetArena.recordExternalScannerCompactCheckpoint([]byte{9}, []byte{8})
+	parent := targetArena.allocNode()
+	parent.ownerArena = targetArena
+	parent.children = []*Node{left, right}
+
+	recordsBefore := targetArena.externalScannerCheckpointRecords
+	rebuildExternalScannerCheckpoints(parent, &Language{Name: "arbitrary", ExternalScanner: checkpointTestScanner{}})
+	got, ok := externalScannerCheckpointForNode(parent)
+	if !ok || !bytes.Equal(got.start, []byte{1}) || !bytes.Equal(got.end, []byte{4}) {
+		t.Fatalf("rebuilt borrowed checkpoint = (%v, %v, %v), want ([1], [4], true)", got.start, got.end, ok)
+	}
+	if gotRecords := targetArena.externalScannerCheckpointRecords - recordsBefore; gotRecords != 1 {
+		t.Fatalf("rebuilt checkpoint records = %d, want 1", gotRecords)
+	}
+
+	payloadAfter := targetArena.externalScannerSnapshotPayloadBytes
+	recordsAfter := targetArena.externalScannerCheckpointRecords
+	rebuildExternalScannerCheckpoints(parent, &Language{Name: "arbitrary", ExternalScanner: checkpointTestScanner{}})
+	if targetArena.externalScannerCheckpointRecords != recordsAfter {
+		t.Fatalf("repeat rebuild changed checkpoint records: got %d, want %d", targetArena.externalScannerCheckpointRecords, recordsAfter)
+	}
+	if targetArena.externalScannerSnapshotPayloadBytes != payloadAfter {
+		t.Fatalf("repeat rebuild changed snapshot payload: got %d, want %d", targetArena.externalScannerSnapshotPayloadBytes, payloadAfter)
+	}
+}
+
 func TestRebuildExternalScannerCheckpointsUsesLazyFinalChildRefs(t *testing.T) {
 	arena := newNodeArena(arenaClassFull)
 	arena.finalChildRefs = true

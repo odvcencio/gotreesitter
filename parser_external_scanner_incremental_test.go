@@ -283,8 +283,11 @@ func TestExternalScannerDerivedSameLengthTokenChangeInvalidatesScannerReuse(t *t
 					}
 					defer incremental.Release()
 					if languageCase.name == "python" {
-						if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" {
-							t.Fatalf("same-length token change rejected authenticated Python scanner reuse: %+v", profile)
+						if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_prefix_frontier_unproven" {
+							t.Fatalf("same-length Python token-class change bypassed prefix fallback: %+v", profile)
+						}
+						if profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+							t.Fatalf("same-length Python token-class change reused old syntax: %+v", profile)
 						}
 					} else {
 						if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" {

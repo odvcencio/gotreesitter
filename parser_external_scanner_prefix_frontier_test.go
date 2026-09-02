@@ -10,7 +10,7 @@ import (
 
 // TestCheckpointedScannerPrefixFrontierFallback covers production trees.
 // Checkpoint bytes prove scanner state, but they do not prove the reduction
-// frontier after a length-changing edit inside the first top-level child.
+// frontier after an edit inside the first structural top-level child.
 func TestCheckpointedScannerPrefixFrontierFallback(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -32,6 +32,20 @@ func TestCheckpointedScannerPrefixFrontierFallback(t *testing.T) {
 			source:  []byte("def first():\n    return 111\n\ndef second():\n    return 2\n"),
 			needle:  []byte("return 111"),
 			replace: []byte("return 11"),
+		},
+		{
+			name:    "python_same_length_indent_state",
+			lang:    grammars.PythonLanguage,
+			source:  []byte("def first():\n        value = 1\n        return value\n\ndef second():\n    return 2\n"),
+			needle:  []byte("        return value"),
+			replace: []byte("\t       return value"),
+		},
+		{
+			name:    "python_leading_comment_extra",
+			lang:    grammars.PythonLanguage,
+			source:  []byte("# leading extra\n\ndef first():\n    return 1\n\ndef second():\n    return 2\n"),
+			needle:  []byte("return 1"),
+			replace: []byte("return 19"),
 		},
 	}
 
