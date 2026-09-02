@@ -220,8 +220,10 @@ func incrementalReuseUnsupportedReasonForTree(oldTree *Tree) string {
 // tree producers, and leave other certified scanners on their existing reuse
 // contracts. Compact trees need this early guard as well: their exact scanner
 // snapshots do not prove reduction ownership, and waiting for reuseCursor
-// would walk every compact candidate before rejecting it.
-func checkpointedScannerPrefixFrontierUnproven(oldTree *Tree) bool {
+// would walk every compact candidate before rejecting it. source is the
+// edited source; the sole-child exception accepts one horizontal-padding edit
+// only when its old and new spans remain at a line start.
+func checkpointedScannerPrefixFrontierUnproven(source []byte, oldTree *Tree) bool {
 	if oldTree == nil || !languageUsesExternalScannerCheckpoints(oldTree.language) ||
 		!languageRequiresExternalScannerPrefixFrontierProof(oldTree.language) ||
 		len(oldTree.edits) == 0 || oldTree.root == nil {
@@ -248,7 +250,13 @@ func checkpointedScannerPrefixFrontierUnproven(oldTree *Tree) bool {
 		return false
 	}
 	if !foundSecond {
-		// With no later sibling, the root end is the conservative frontier.
+		// With no later sibling, a single edit that changes only horizontal
+		// padding at a line start cannot cross a later top-level reduction.
+		// Scanner checkpoints and the normal node-state gates still guard reuse
+		// inside the sole child. Keep all other sole-child edits conservative.
+		if len(oldTree.edits) == 1 && checkpointedScannerSoleChildPaddingEdit(oldTree.Source(), source, oldTree.edits[0]) {
+			return false
+		}
 		boundary = oldTree.root.endByte
 	}
 	for editIndex := len(oldTree.edits) - 1; editIndex >= 0; editIndex-- {
@@ -277,6 +285,41 @@ func checkpointedScannerPrefixFrontierUnproven(oldTree *Tree) bool {
 		boundary = boundaryBefore
 	}
 	return false
+}
+
+// checkpointedScannerSoleChildPaddingEdit recognizes the only edit that can
+// move a sole child's indentation frontier without changing a token's bytes.
+// Keep the proof narrow: a later newline, comment, or token change remains on
+// the conservative fallback path.
+func checkpointedScannerSoleChildPaddingEdit(oldSource, newSource []byte, edit InputEdit) bool {
+	if edit.StartByte > edit.OldEndByte || int(edit.OldEndByte) > len(oldSource) {
+		return false
+	}
+	if edit.NewEndByte < edit.StartByte || int(edit.NewEndByte) > len(newSource) {
+		return false
+	}
+	start := int(edit.StartByte)
+	end := int(edit.OldEndByte)
+	for _, b := range oldSource[start:end] {
+		if b != ' ' && b != '\t' {
+			return false
+		}
+	}
+	for _, b := range newSource[start:int(edit.NewEndByte)] {
+		if b != ' ' && b != '\t' {
+			return false
+		}
+	}
+	lineStart := start
+	for lineStart > 0 && oldSource[lineStart-1] != '\n' {
+		lineStart--
+	}
+	for _, b := range oldSource[lineStart:start] {
+		if b != ' ' && b != '\t' {
+			return false
+		}
+	}
+	return true
 }
 
 // tryTokenInvariantReuseBeforePrefixFrontierFallback permits only the narrow
@@ -1682,7 +1725,7 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 		// A compact tree needs the incremental token-source fallback below so
 		// scanner refusal and full-reparse work retain normal attribution.
 	}
-	if checkpointedScannerPrefixFrontierUnproven(oldTree) {
+	if checkpointedScannerPrefixFrontierUnproven(source, oldTree) {
 		if tree, ok := p.tryTokenInvariantReuseBeforePrefixFrontierFallback(source, oldTree, nil); ok {
 			return tree, nil
 		}
@@ -1871,7 +1914,7 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 		// Continue through the token-source path so a compact-tree decline keeps
 		// the same scanner reason and work attribution as an ordinary fallback.
 	}
-	if checkpointedScannerPrefixFrontierUnproven(oldTree) {
+	if checkpointedScannerPrefixFrontierUnproven(source, oldTree) {
 		timing := &incrementalParseTiming{}
 		if tree, ok := p.tryTokenInvariantReuseBeforePrefixFrontierFallback(source, oldTree, timing); ok {
 			return tree, timing.toProfile(), nil
