@@ -3383,11 +3383,9 @@ func isPlainVisibleNamedLeafStringLiteral(g *Grammar, ruleName, s string) bool {
 	// minimal, targeted extension, not the full ownership rule: a
 	// uniquely-owned rule whose value differs from an identifier only by
 	// case, like "True" (see TestCapitalizedPlainStringRuleStaysWrapper),
-	// would also collapse under real tree-sitter's shape-irrelevant
-	// ownership rule, but grammargen still keeps it wrapped — a
-	// pre-existing gap, predating this change and not fixed by it, tracked
-	// separately from the punctuation/identifier shape buckets extended
-	// here.
+	// also collapses under real tree-sitter's shape-irrelevant ownership rule
+	// when a word token owns the keyword. Keep the no-word case unchanged so
+	// ordinary capitalized string rules retain their established wrapper.
 	if isSafePlainPunctuationLiteral(s) || isBackslashEscapedNamedLeafLiteral(s) {
 		return true
 	}
@@ -3417,6 +3415,7 @@ func isPlainVisibleNamedLeafStringLiteral(g *Grammar, ruleName, s string) bool {
 		if ruleName == "" || !symbolNameReferencedElsewhere(g, ruleName) {
 			return false
 		}
+		return isIdentifierLikeKeywordLiteral(s)
 	}
 	return isLowercaseIdentifierLikeKeywordLiteral(s)
 }
