@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "425ffdc2eb919b82b38484a0b3a2107d5c7341f1"
+	compactRouteLifecycleSourceRevision               = "0d6683a465c6d20477c6a16b6b1f70ac2a90e87b"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -56,10 +56,11 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"parser_external_scanner_incremental_test.go#TestPythonSameSymbolScannerStateEditFallsBack":                         "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonSameLengthScannerDelimiterParity":                   "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
 	"incremental_leaf_fastpath_test.go#TestIncludedRangeCheckpointLeafProbeRestoresTokenProvenance":                     "425ffdc2eb919b82b38484a0b3a2107d5c7341f1",
-	"testdata/incremental_allowlist.json":                                                                               "95a1d13156b82e2221415342c9ac8048f2caf644",
-	"docs/compact-route-real-corpus-matrix.md#Current compact-graduation matrix":                                        "41af6afa6da47c9f8b55b3156fd88fb56686373f",
-	"docs/compact-route-coverage-census.md":                                                                             "38d86d417fc6209228b8b175bc2aa7bb9700b8d3",
-	"docs/a8-derivation-divergence-certificate-v1.md":                                                                   "acccb81d20128e337a35ee274a2e3e3631b73b1a",
+	"internal/parsercorephase0/recursive_insert_test.go#TestAuthenticatedTerminalScannerProvenanceCoversOrdinaryLeaf":   "0d6683a465c6d20477c6a16b6b1f70ac2a90e87b",
+	"testdata/incremental_allowlist.json":                                        "95a1d13156b82e2221415342c9ac8048f2caf644",
+	"docs/compact-route-real-corpus-matrix.md#Current compact-graduation matrix": "41af6afa6da47c9f8b55b3156fd88fb56686373f",
+	"docs/compact-route-coverage-census.md":                                      "38d86d417fc6209228b8b175bc2aa7bb9700b8d3",
+	"docs/a8-derivation-divergence-certificate-v1.md":                            "acccb81d20128e337a35ee274a2e3e3631b73b1a",
 }
 
 var compactRouteLifecycleKnownCorpusTreeSHA256 = map[string]string{
