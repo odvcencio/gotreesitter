@@ -443,6 +443,7 @@ type artifactSchemaMetadata struct {
 type staticBuildRecipe struct {
 	Schema            string                  `json:"schema"`
 	Status            string                  `json:"status"`
+	VariantNote       string                  `json:"variant_note,omitempty"`
 	Target            string                  `json:"target"`
 	Driver            recipeDriver            `json:"driver"`
 	Runtime           recipeRuntime           `json:"runtime"`
@@ -457,8 +458,10 @@ type staticBuildRecipe struct {
 }
 
 type recipeDriver struct {
-	Path   string `json:"path"`
-	SHA256 string `json:"sha256"`
+	Path                string        `json:"path"`
+	SHA256              string        `json:"sha256"`
+	SourceClosure       []fileBinding `json:"source_closure"`
+	SourceClosureSHA256 string        `json:"source_closure_sha256"`
 }
 type recipeRuntime struct {
 	Commit        string `json:"commit"`
@@ -512,12 +515,14 @@ type buildEpoch struct {
 	SysrootManifestSHA256   string `json:"sysroot_manifest_sha256"`
 }
 type buildInputs struct {
-	NormalizedSnapshotSHA256 string `json:"normalized_snapshot_sha256"`
-	DriverSHA256             string `json:"driver_sha256"`
-	RuntimeTreeOID           string `json:"runtime_tree_oid"`
-	RuntimeSHA256            string `json:"runtime_sha256"`
-	GrammarTreeOID           string `json:"grammar_tree_oid"`
-	GrammarSHA256            string `json:"grammar_sha256"`
+	NormalizedSnapshotSHA256 string        `json:"normalized_snapshot_sha256"`
+	DriverSHA256             string        `json:"driver_sha256"`
+	SourceClosure            []fileBinding `json:"source_closure"`
+	SourceClosureSHA256      string        `json:"source_closure_sha256"`
+	RuntimeTreeOID           string        `json:"runtime_tree_oid"`
+	RuntimeSHA256            string        `json:"runtime_sha256"`
+	GrammarTreeOID           string        `json:"grammar_tree_oid"`
+	GrammarSHA256            string        `json:"grammar_sha256"`
 }
 type buildArtifact struct {
 	SHA256  string `json:"sha256"`
@@ -720,6 +725,9 @@ func verifyManifest(manifest *boardManifest, base, trustedAuthorityPublicKey str
 	}
 	if err := verifyRecipe(&recipe); err != nil {
 		return err
+	}
+	if err := verifyDriverSourceClosure(base, recipe.Driver); err != nil {
+		return fmt.Errorf("build recipe source closure: %w", err)
 	}
 	if manifest.Authority.Status != "restricted" ||
 		manifest.Authority.OperatorRootEquivalent ||
@@ -990,12 +998,116 @@ func verifyArtifact(base, key string, artifact artifactBinding, recipe *staticBu
 	return nil
 }
 
+// Hash the compact JSON array to bind entry order, paths, and source hashes.
+func sourceClosureHash(entries []fileBinding) string {
+	encoded, err := json.Marshal(entries)
+	if err != nil {
+		return ""
+	}
+	return hashBytes(encoded)
+}
+
+func verifySourceClosureBindings(entries []fileBinding, closureSHA256 string) error {
+	if len(entries) == 0 {
+		return errors.New("source closure must contain at least one file")
+	}
+	if err := requireHash(closureSHA256, "source closure sha256"); err != nil {
+		return err
+	}
+	if got := sourceClosureHash(entries); got != closureSHA256 {
+		return fmt.Errorf("source closure sha256=%s, want %s", got, closureSHA256)
+	}
+	previous := ""
+	for index, binding := range entries {
+		if binding.Path == "" || filepath.IsAbs(binding.Path) || filepath.Clean(binding.Path) != binding.Path ||
+			binding.Path == "." || binding.Path == ".." || strings.HasPrefix(binding.Path, "../") || strings.Contains(binding.Path, "\\") {
+			return fmt.Errorf("source closure entry %d has an unsafe relative path %q", index+1, binding.Path)
+		}
+		if index > 0 && binding.Path <= previous {
+			return errors.New("source closure paths must be unique and sorted")
+		}
+		if err := requireHash(binding.SHA256, "source closure "+binding.Path); err != nil {
+			return err
+		}
+		previous = binding.Path
+	}
+	return nil
+}
+
+func verifyRecipeDriver(driver recipeDriver) error {
+	if driver.Path == "" || filepath.IsAbs(driver.Path) || filepath.Clean(driver.Path) != driver.Path ||
+		driver.Path == "." || driver.Path == ".." || strings.HasPrefix(driver.Path, "../") || strings.Contains(driver.Path, "\\") {
+		return fmt.Errorf("recipe driver has an unsafe relative path %q", driver.Path)
+	}
+	if err := requireHash(driver.SHA256, "recipe driver"); err != nil {
+		return err
+	}
+	if err := verifySourceClosureBindings(driver.SourceClosure, driver.SourceClosureSHA256); err != nil {
+		return err
+	}
+	for _, binding := range driver.SourceClosure {
+		if binding.Path == driver.Path {
+			if binding.SHA256 != driver.SHA256 {
+				return errors.New("recipe driver hash differs from its source closure entry")
+			}
+			return nil
+		}
+	}
+	return errors.New("recipe source closure does not include the compiled driver")
+}
+
+func verifyDriverSourceClosure(base string, driver recipeDriver) error {
+	if err := verifyRecipeDriver(driver); err != nil {
+		return err
+	}
+	for _, binding := range driver.SourceClosure {
+		if _, err := readBoundFile(base, binding); err != nil {
+			return fmt.Errorf("source closure %s: %w", binding.Path, err)
+		}
+	}
+	return nil
+}
+
+func verifyBuildSourceClosure(inputs buildInputs, driver recipeDriver) error {
+	if err := verifySourceClosureBindings(inputs.SourceClosure, inputs.SourceClosureSHA256); err != nil {
+		return err
+	}
+	if inputs.SourceClosureSHA256 != driver.SourceClosureSHA256 || !equalFileBindings(inputs.SourceClosure, driver.SourceClosure) {
+		return errors.New("artifact source closure does not match the locked recipe")
+	}
+	return nil
+}
+
+func equalFileBindings(a, b []fileBinding) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for index := range a {
+		if a[index] != b[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func lockedStaticBuildCommands(driverPath string) [][]string {
+	return [][]string{
+		{"/usr/bin/cc", "-O2", "-DNDEBUG", "-std=c11", "-D_POSIX_C_SOURCE=200809L", "-D_DEFAULT_SOURCE", "-fno-pie", "-I<runtime>/lib/include", "-I<runtime>/lib/src", "-c", "<runtime>/lib/src/lib.c", "-o", "runtime.o"},
+		{"/usr/bin/cc", "-O2", "-DNDEBUG", "-std=c11", "-fno-pie", "-I<runtime>/lib/include", "-c", "<grammar>/src/parser.c", "-o", "grammar.o"},
+		{"/usr/bin/cc", "-O2", "-DNDEBUG", "-std=c11", "-D_POSIX_C_SOURCE=200809L", "-fno-pie", "-I<runtime>/lib/include", "-c", driverPath, "-o", "driver.o"},
+		{"/usr/bin/cc", "-static", "-no-pie", "-O2", "-Wl,-Map=go_timing_oracle.map", "driver.o", "grammar.o", "runtime.o", "-o", "go_timing_oracle"},
+	}
+}
+
 func verifyRecipe(recipe *staticBuildRecipe) error {
 	if recipe.Schema != "gts-locked-static-c-timing-build-recipe/v3" ||
 		recipe.Status != "source_only_unbuilt" || recipe.Target != "linux/amd64" ||
 		recipe.Network != "none" || recipe.InputMount != "read_only_normalized_snapshot" ||
 		recipe.EnvironmentPolicy.Inherit != "none" {
 		return errors.New("build recipe lifecycle/target/isolation policy drifted")
+	}
+	if err := verifyRecipeDriver(recipe.Driver); err != nil {
+		return err
 	}
 	wantEnvironment := map[string]string{
 		"LANG": "C", "LC_ALL": "C", "TZ": "UTC", "SOURCE_DATE_EPOCH": "0",
@@ -1007,6 +1119,9 @@ func verifyRecipe(recipe *staticBuildRecipe) error {
 	}
 	if len(recipe.Commands) != 4 {
 		return errors.New("recipe must contain exactly four commands")
+	}
+	if !equalCommandLists(recipe.Commands, lockedStaticBuildCommands(recipe.Driver.Path)) {
+		return errors.New("recipe commands must exactly match the locked v3 source and link commands")
 	}
 	for index := 0; index < 3; index++ {
 		command := recipe.Commands[index]
@@ -1062,6 +1177,9 @@ func verifyRecipe(recipe *staticBuildRecipe) error {
 func verifyCBuildManifest(data []byte, base string, artifact artifactBinding, recipe *staticBuildRecipe, board *boardManifest) error {
 	var build artifactBuildManifest
 	if err := decodeStrict(data, &build); err != nil {
+		return err
+	}
+	if err := verifyBuildSourceClosure(build.Inputs, recipe.Driver); err != nil {
 		return err
 	}
 	if build.Schema != "gts-locked-static-c-timing-artifact/v3" ||

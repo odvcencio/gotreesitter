@@ -28,10 +28,12 @@
     },
     "inputs": {
       "type": "object", "additionalProperties": false,
-      "required": ["normalized_snapshot_sha256", "driver_sha256", "runtime_tree_oid", "runtime_sha256", "grammar_tree_oid", "grammar_sha256"],
+      "required": ["normalized_snapshot_sha256", "driver_sha256", "source_closure", "source_closure_sha256", "runtime_tree_oid", "runtime_sha256", "grammar_tree_oid", "grammar_sha256"],
       "properties": {
         "normalized_snapshot_sha256": {"$ref": "#/$defs/sha256"},
         "driver_sha256": {"$ref": "#/$defs/sha256"},
+        "source_closure": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/file_binding"}},
+        "source_closure_sha256": {"$ref": "#/$defs/sha256"},
         "runtime_tree_oid": {"$ref": "#/$defs/git_oid"},
         "runtime_sha256": {"$ref": "#/$defs/sha256"},
         "grammar_tree_oid": {"$ref": "#/$defs/git_oid"},

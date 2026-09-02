@@ -103,6 +103,9 @@ func TestFrozenRecipeParsesAndPassesStaticPolicy(t *testing.T) {
 	if err := verifyRecipe(&recipe); err != nil {
 		t.Fatalf("verify recipe: %v", err)
 	}
+	if err := verifyDriverSourceClosure(filepath.Join("..", "..", ".."), recipe.Driver); err != nil {
+		t.Fatalf("verify recipe source closure: %v", err)
+	}
 	driver, err := os.ReadFile("../../pure_c/go_timing_oracle.c")
 	if err != nil {
 		t.Fatal(err)
@@ -110,4 +113,265 @@ func TestFrozenRecipeParsesAndPassesStaticPolicy(t *testing.T) {
 	if got := hashBytes(driver); got != recipe.Driver.SHA256 {
 		t.Fatalf("recipe driver hash = %s, source hash = %s", recipe.Driver.SHA256, got)
 	}
+}
+
+func TestTimingOracleTenSecondWrapperSharesCanonicalImplementation(t *testing.T) {
+	canonical, err := os.ReadFile("../../pure_c/go_timing_oracle.c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tenSecond, err := os.ReadFile("../../pure_c/go_timing_oracle_10s.c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonicalText := string(canonical)
+	tenSecondText := string(tenSecond)
+	const durationMacro = "GTS_TIMING_ORACLE_MIN_ELAPSED_NS"
+	if !strings.Contains(canonicalText, "#define "+durationMacro+" UINT64_C(750000000)") {
+		t.Fatal("canonical timing oracle lost its 750-millisecond default")
+	}
+	if !strings.Contains(canonicalText, "k_min_elapsed_ns = "+durationMacro) {
+		t.Fatal("canonical timing oracle does not use the configurable duration")
+	}
+	if !strings.Contains(tenSecondText, "#define "+durationMacro+" UINT64_C(10000000000)") {
+		t.Fatal("ten-second timing oracle lost its ten-second duration")
+	}
+	if !strings.Contains(tenSecondText, "#include \"go_timing_oracle.c\"") {
+		t.Fatal("ten-second timing oracle does not include the canonical implementation")
+	}
+	for _, marker := range []string{"static const fixture_t k_fixtures[]", "int main("} {
+		if strings.Contains(tenSecondText, marker) {
+			t.Fatalf("ten-second timing oracle contains duplicated implementation marker %q", marker)
+		}
+	}
+
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3_enclave_10s.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode ten-second recipe: %v", err)
+	}
+	if err := verifyRecipe(&recipe); err != nil {
+		t.Fatalf("verify ten-second recipe: %v", err)
+	}
+	if err := verifyDriverSourceClosure(filepath.Join("..", "..", ".."), recipe.Driver); err != nil {
+		t.Fatalf("verify ten-second source closure: %v", err)
+	}
+	if recipe.Driver.Path != "cgo_harness/pure_c/go_timing_oracle_10s.c" {
+		t.Fatalf("ten-second recipe driver path = %q", recipe.Driver.Path)
+	}
+	if got := hashBytes(tenSecond); got != recipe.Driver.SHA256 {
+		t.Fatalf("ten-second recipe driver hash = %s, source hash = %s", recipe.Driver.SHA256, got)
+	}
+}
+
+func TestTimingOracleSourceClosureRejectsIncludedSourceMutation(t *testing.T) {
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3_enclave_10s.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode ten-second recipe: %v", err)
+	}
+	sourceBase := t.TempDir()
+	repoRoot := filepath.Join("..", "..", "..")
+	for _, binding := range recipe.Driver.SourceClosure {
+		data, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(binding.Path)))
+		if err != nil {
+			t.Fatalf("read %s: %v", binding.Path, err)
+		}
+		path := filepath.Join(sourceBase, filepath.FromSlash(binding.Path))
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	canonicalPath := filepath.Join(sourceBase, filepath.FromSlash("cgo_harness/pure_c/go_timing_oracle.c"))
+	canonical, err := os.ReadFile(canonicalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical = append(canonical, '\n')
+	if err := os.WriteFile(canonicalPath, canonical, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyDriverSourceClosure(sourceBase, recipe.Driver); err == nil {
+		t.Fatal("source closure accepted a mutation to the included canonical source")
+	}
+}
+
+func TestTimingOracleSourceClosureRejectsClosureHashMutation(t *testing.T) {
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3_enclave_10s.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode ten-second recipe: %v", err)
+	}
+	recipe.Driver.SourceClosureSHA256 = strings.Repeat("a", 64)
+	if err := verifyRecipe(&recipe); err == nil {
+		t.Fatal("recipe accepted a mutated source closure hash")
+	}
+}
+
+func TestArtifactSourceClosureRejectsClosureHashMutation(t *testing.T) {
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3_enclave_10s.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode ten-second recipe: %v", err)
+	}
+	inputs := buildInputs{
+		SourceClosure:       recipe.Driver.SourceClosure,
+		SourceClosureSHA256: recipe.Driver.SourceClosureSHA256,
+	}
+	inputs.SourceClosureSHA256 = strings.Repeat("b", 64)
+	if err := verifyBuildSourceClosure(inputs, recipe.Driver); err == nil {
+		t.Fatal("artifact inputs accepted a mutated source closure hash")
+	}
+}
+
+func TestRecipeRejectsMissingSourceClosure(t *testing.T) {
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode recipe: %v", err)
+	}
+	recipe.Driver.SourceClosure = nil
+	recipe.Driver.SourceClosureSHA256 = ""
+	if err := verifyRecipe(&recipe); err == nil {
+		t.Fatal("recipe accepted missing source closure binding")
+	}
+}
+
+func TestRecipeRejectsDriverOptionOperandsAndExtraSources(t *testing.T) {
+	tests := []struct {
+		name        string
+		option      string
+		keepSource  bool
+		extraSource bool
+	}{
+		{name: "imacros driver with another source", option: "-imacros"},
+		{name: "include driver with another source", option: "-include"},
+		{name: "include driver with expected source", option: "-include", keepSource: true},
+		{name: "extra C source", extraSource: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recipe := loadStaticBuildRecipe(t)
+			command := append([]string(nil), recipe.Commands[2]...)
+			compileIndex := commandArgumentIndex(command, "-c")
+			sourceIndex := commandArgumentIndex(command, recipe.Driver.Path)
+			outputIndex := commandArgumentIndex(command, "-o")
+			if compileIndex < 0 || sourceIndex < 0 || outputIndex < 0 {
+				t.Fatalf("unexpected driver command: %v", command)
+			}
+			if test.extraSource {
+				command = insertCommandArguments(command, outputIndex, "extra.c")
+			} else {
+				if !test.keepSource {
+					command[sourceIndex] = "unbound.c"
+				}
+				command = insertCommandArguments(command, compileIndex, test.option, recipe.Driver.Path)
+			}
+			recipe.Commands[2] = command
+			if err := verifyRecipe(&recipe); err == nil {
+				t.Fatalf("recipe accepted %s: %v", test.name, command)
+			}
+		})
+	}
+}
+
+func TestRecipeRejectsAlternativeTranslationUnitForEveryCompileCommand(t *testing.T) {
+	tests := []struct {
+		name   string
+		index  int
+		source string
+	}{
+		{name: "runtime", index: 0, source: "<runtime>/lib/src/lib.c"},
+		{name: "grammar", index: 1, source: "<grammar>/src/parser.c"},
+		{name: "driver", index: 2, source: "cgo_harness/pure_c/go_timing_oracle.c"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recipe := loadStaticBuildRecipe(t)
+			command := append([]string(nil), recipe.Commands[test.index]...)
+			sourceIndex := commandArgumentIndex(command, test.source)
+			if sourceIndex < 0 {
+				t.Fatalf("source %q is absent from command %v", test.source, command)
+			}
+			command[sourceIndex] = "unbound.c"
+			recipe.Commands[test.index] = command
+			if err := verifyRecipe(&recipe); err == nil {
+				t.Fatalf("recipe accepted an alternative %s translation unit: %v", test.name, command)
+			}
+		})
+	}
+}
+
+func TestRecipeRejectsUnexpectedOutputForEveryCompileCommand(t *testing.T) {
+	tests := []struct {
+		name  string
+		index int
+	}{
+		{name: "runtime", index: 0},
+		{name: "grammar", index: 1},
+		{name: "driver", index: 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recipe := loadStaticBuildRecipe(t)
+			command := append([]string(nil), recipe.Commands[test.index]...)
+			outputIndex := commandArgumentIndex(command, "-o")
+			if outputIndex < 0 || outputIndex+1 >= len(command) {
+				t.Fatalf("output operand is absent from command %v", command)
+			}
+			command[outputIndex+1] = "unexpected.o"
+			recipe.Commands[test.index] = command
+			if err := verifyRecipe(&recipe); err == nil {
+				t.Fatalf("recipe accepted an unexpected %s compile output: %v", test.name, command)
+			}
+		})
+	}
+}
+
+func loadStaticBuildRecipe(t *testing.T) staticBuildRecipe {
+	t.Helper()
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode recipe: %v", err)
+	}
+	return recipe
+}
+
+func commandArgumentIndex(command []string, want string) int {
+	for index, argument := range command {
+		if argument == want {
+			return index
+		}
+	}
+	return -1
+}
+
+func insertCommandArguments(command []string, index int, arguments ...string) []string {
+	result := make([]string, 0, len(command)+len(arguments))
+	result = append(result, command[:index]...)
+	result = append(result, arguments...)
+	result = append(result, command[index:]...)
+	return result
 }
