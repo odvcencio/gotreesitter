@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "8c6a8e1fe472ade08462b91a2ba00624ab437d61"
+	compactRouteLifecycleSourceRevision               = "2455af16a52e4a886ae5a32842a98bb623f6671c"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -56,6 +56,7 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"cgo_harness/stage5_sole_child_padding_probe_test.go#TestStage5SoleChildHorizontalPaddingProbe":                     "90f60a65c61d87768b1221b78cb0f66d25aff8ec",
 	"cgo_harness/stage6_typescript_compact_certification_test.go#TestStage6TypeScriptCompactCertification":              "0df3c2ab3b33fcd3374cf426ad7ea2a18ea33411",
 	"cgo_harness/stage6_python_compact_certification_test.go#TestStage6PythonCompactCertification":                      "8c6a8e1fe472ade08462b91a2ba00624ab437d61",
+	"cgo_harness/stage6_javascript_compact_certification_test.go#TestStage6JavaScriptCompactCertification":              "2455af16a52e4a886ae5a32842a98bb623f6671c",
 	"external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots":            "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity":                    "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"parser_external_scanner_incremental_test.go#TestPythonSameSymbolScannerStateEditFallsBack":                         "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
@@ -72,6 +73,7 @@ var compactRouteLifecycleKnownCorpusTreeSHA256 = map[string]string{
 	"scala-owned-width":        "81dc569b1ad3d567ed158aea75fd30a388ec1f4d3e1cbdd08c29a6535bd456d3",
 	"typescript-compact-smoke": "840eb4cf52faf1b944dacf47bb13591a5fd61fbfe33f196172094d4b4acab907",
 	"python-compact-smoke":     "7d857f4d100cc7c7bf61bd1e77845066add55e2fd4f82e60309203ceb8569543",
+	"javascript-compact-smoke": "ed169501f3515f625f9337c18ffe3f67ba41b1573df02e07cc54d85a26978501",
 }
 
 type compactRouteLifecycleRegistry struct {
