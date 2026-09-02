@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "fd0a0aaaeb0db1cb18b31f9bc1994f784a085de4"
+	compactRouteLifecycleSourceRevision               = "080491a0d7bef8efc3293ef91a3b1e613aeb390d"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -65,6 +65,7 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"cgo_harness/stage6_json5_compact_certification_test.go#TestStage6JSON5CompactCertification":                        "5f6c67f40ebfbc36798023462cf3eb97c4d0e43e",
 	"cgo_harness/stage6_graphql_compact_certification_test.go#TestStage6GraphQLCompactCertification":                    "95f6a662cde03046c951fad083ea1ce31f58987a",
 	"cgo_harness/stage6_gomod_compact_certification_test.go#TestStage6GomodCompactCertification":                        "fd0a0aaaeb0db1cb18b31f9bc1994f784a085de4",
+	"cgo_harness/stage6_todotxt_compact_certification_test.go#TestStage6TodotxtCompactCertification":                    "080491a0d7bef8efc3293ef91a3b1e613aeb390d",
 	"external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots":            "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity":                    "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"parser_external_scanner_incremental_test.go#TestPythonSameSymbolScannerStateEditFallsBack":                         "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
@@ -90,6 +91,7 @@ var compactRouteLifecycleKnownCorpusTreeSHA256 = map[string]string{
 	"json5-compact-smoke":      "84634d0f446a4af1d216bd534c2456006827b71c13a99f0fdfc4f71c76d19dc8",
 	"graphql-compact-smoke":     "6f9260d83a72d90ec6bc009dfb7cad8d9c3be34daa4168884d539de31ea5f094",
 	"gomod-compact-smoke":       "eab97016de62bfda36b75049cfcb0753639b518ec065590f1f5e64a4dc2132b3",
+	"todotxt-compact-smoke":     "15665e03ab3a66f0dd188960881f6ec2c13bd4ac912746490c7e9cae8a72aac5",
 }
 
 type compactRouteLifecycleRegistry struct {
