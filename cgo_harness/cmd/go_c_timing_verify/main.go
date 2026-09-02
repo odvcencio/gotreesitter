@@ -1090,6 +1090,15 @@ func equalFileBindings(a, b []fileBinding) bool {
 	return true
 }
 
+func lockedStaticBuildCommands(driverPath string) [][]string {
+	return [][]string{
+		{"/usr/bin/cc", "-O2", "-DNDEBUG", "-std=c11", "-D_POSIX_C_SOURCE=200809L", "-D_DEFAULT_SOURCE", "-fno-pie", "-I<runtime>/lib/include", "-I<runtime>/lib/src", "-c", "<runtime>/lib/src/lib.c", "-o", "runtime.o"},
+		{"/usr/bin/cc", "-O2", "-DNDEBUG", "-std=c11", "-fno-pie", "-I<runtime>/lib/include", "-c", "<grammar>/src/parser.c", "-o", "grammar.o"},
+		{"/usr/bin/cc", "-O2", "-DNDEBUG", "-std=c11", "-D_POSIX_C_SOURCE=200809L", "-fno-pie", "-I<runtime>/lib/include", "-c", driverPath, "-o", "driver.o"},
+		{"/usr/bin/cc", "-static", "-no-pie", "-O2", "-Wl,-Map=go_timing_oracle.map", "driver.o", "grammar.o", "runtime.o", "-o", "go_timing_oracle"},
+	}
+}
+
 func verifyRecipe(recipe *staticBuildRecipe) error {
 	if recipe.Schema != "gts-locked-static-c-timing-build-recipe/v3" ||
 		recipe.Status != "source_only_unbuilt" || recipe.Target != "linux/amd64" ||
@@ -1111,8 +1120,8 @@ func verifyRecipe(recipe *staticBuildRecipe) error {
 	if len(recipe.Commands) != 4 {
 		return errors.New("recipe must contain exactly four commands")
 	}
-	if !contains(recipe.Commands[2], recipe.Driver.Path) {
-		return errors.New("recipe driver path is absent from the driver compile command")
+	if !equalCommandLists(recipe.Commands, lockedStaticBuildCommands(recipe.Driver.Path)) {
+		return errors.New("recipe commands must exactly match the locked v3 source and link commands")
 	}
 	for index := 0; index < 3; index++ {
 		command := recipe.Commands[index]

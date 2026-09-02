@@ -254,3 +254,124 @@ func TestRecipeRejectsMissingSourceClosure(t *testing.T) {
 		t.Fatal("recipe accepted missing source closure binding")
 	}
 }
+
+func TestRecipeRejectsDriverOptionOperandsAndExtraSources(t *testing.T) {
+	tests := []struct {
+		name        string
+		option      string
+		keepSource  bool
+		extraSource bool
+	}{
+		{name: "imacros driver with another source", option: "-imacros"},
+		{name: "include driver with another source", option: "-include"},
+		{name: "include driver with expected source", option: "-include", keepSource: true},
+		{name: "extra C source", extraSource: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recipe := loadStaticBuildRecipe(t)
+			command := append([]string(nil), recipe.Commands[2]...)
+			compileIndex := commandArgumentIndex(command, "-c")
+			sourceIndex := commandArgumentIndex(command, recipe.Driver.Path)
+			outputIndex := commandArgumentIndex(command, "-o")
+			if compileIndex < 0 || sourceIndex < 0 || outputIndex < 0 {
+				t.Fatalf("unexpected driver command: %v", command)
+			}
+			if test.extraSource {
+				command = insertCommandArguments(command, outputIndex, "extra.c")
+			} else {
+				if !test.keepSource {
+					command[sourceIndex] = "unbound.c"
+				}
+				command = insertCommandArguments(command, compileIndex, test.option, recipe.Driver.Path)
+			}
+			recipe.Commands[2] = command
+			if err := verifyRecipe(&recipe); err == nil {
+				t.Fatalf("recipe accepted %s: %v", test.name, command)
+			}
+		})
+	}
+}
+
+func TestRecipeRejectsAlternativeTranslationUnitForEveryCompileCommand(t *testing.T) {
+	tests := []struct {
+		name   string
+		index  int
+		source string
+	}{
+		{name: "runtime", index: 0, source: "<runtime>/lib/src/lib.c"},
+		{name: "grammar", index: 1, source: "<grammar>/src/parser.c"},
+		{name: "driver", index: 2, source: "cgo_harness/pure_c/go_timing_oracle.c"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recipe := loadStaticBuildRecipe(t)
+			command := append([]string(nil), recipe.Commands[test.index]...)
+			sourceIndex := commandArgumentIndex(command, test.source)
+			if sourceIndex < 0 {
+				t.Fatalf("source %q is absent from command %v", test.source, command)
+			}
+			command[sourceIndex] = "unbound.c"
+			recipe.Commands[test.index] = command
+			if err := verifyRecipe(&recipe); err == nil {
+				t.Fatalf("recipe accepted an alternative %s translation unit: %v", test.name, command)
+			}
+		})
+	}
+}
+
+func TestRecipeRejectsUnexpectedOutputForEveryCompileCommand(t *testing.T) {
+	tests := []struct {
+		name  string
+		index int
+	}{
+		{name: "runtime", index: 0},
+		{name: "grammar", index: 1},
+		{name: "driver", index: 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recipe := loadStaticBuildRecipe(t)
+			command := append([]string(nil), recipe.Commands[test.index]...)
+			outputIndex := commandArgumentIndex(command, "-o")
+			if outputIndex < 0 || outputIndex+1 >= len(command) {
+				t.Fatalf("output operand is absent from command %v", command)
+			}
+			command[outputIndex+1] = "unexpected.o"
+			recipe.Commands[test.index] = command
+			if err := verifyRecipe(&recipe); err == nil {
+				t.Fatalf("recipe accepted an unexpected %s compile output: %v", test.name, command)
+			}
+		})
+	}
+}
+
+func loadStaticBuildRecipe(t *testing.T) staticBuildRecipe {
+	t.Helper()
+	raw, err := os.ReadFile("../../go_c_timing/static_build_recipe_v3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recipe staticBuildRecipe
+	if err := decodeStrict(raw, &recipe); err != nil {
+		t.Fatalf("decode recipe: %v", err)
+	}
+	return recipe
+}
+
+func commandArgumentIndex(command []string, want string) int {
+	for index, argument := range command {
+		if argument == want {
+			return index
+		}
+	}
+	return -1
+}
+
+func insertCommandArguments(command []string, index int, arguments ...string) []string {
+	result := make([]string, 0, len(command)+len(arguments))
+	result = append(result, command[:index]...)
+	result = append(result, arguments...)
+	result = append(result, command[index:]...)
+	return result
+}
