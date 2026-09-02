@@ -16,7 +16,7 @@ import (
 
 const (
 	compactRouteLifecycleRegistryPath                 = "testdata/compact_route_campaign_lifecycle_v1.json"
-	compactRouteLifecycleSourceRevision               = "5e03f98cf1c272fd32b3a4d932ec14c2a41870a3"
+	compactRouteLifecycleSourceRevision               = "6946ea8e626f259f3befa2d750e4234436a8d5e2"
 	compactRouteLifecycleHistoricalProofEnv           = "GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF"
 	compactRouteLifecycleReceiptPolicyCurrentRequired = "current_required"
 	compactRouteLifecycleReceiptPolicyHistoricalOnly  = "historical_only"
@@ -67,8 +67,9 @@ var compactRouteLifecycleKnownProofRevisions = map[string]string{
 	"cgo_harness/stage6_gomod_compact_certification_test.go#TestStage6GomodCompactCertification":                        "fd0a0aaaeb0db1cb18b31f9bc1994f784a085de4",
 	"cgo_harness/stage6_todotxt_compact_certification_test.go#TestStage6TodotxtCompactCertification":                    "080491a0d7bef8efc3293ef91a3b1e613aeb390d",
 	"cgo_harness/stage6_cpon_compact_certification_test.go#TestStage6CponCompactCertification":                          "fa6600c27f8115ab69e417d0c1210344e2a3ca8b",
-	"cgo_harness/stage6_dot_compact_certification_test.go#TestStage6DotCompactCertification":                             "a8fe2517f01989d8c509416a7960ea37e428fe85",
-	"cgo_harness/stage6_git_config_compact_certification_test.go#TestStage6GitConfigCompactCertification":                "5e03f98cf1c272fd32b3a4d932ec14c2a41870a3",
+	"cgo_harness/stage6_dot_compact_certification_test.go#TestStage6DotCompactCertification":                            "a8fe2517f01989d8c509416a7960ea37e428fe85",
+	"cgo_harness/stage6_git_config_compact_certification_test.go#TestStage6GitConfigCompactCertification":               "5e03f98cf1c272fd32b3a4d932ec14c2a41870a3",
+	"cgo_harness/stage6_pem_compact_certification_test.go#TestStage6PEMCompactCertification":                            "6946ea8e626f259f3befa2d750e4234436a8d5e2",
 	"external_scanner_checkpoints_test.go#TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots":            "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonPrefixFrontierAdversarialParity":                    "b4833798bb7d934bcb8d280a7cd5937d34fa2c9a",
 	"parser_external_scanner_incremental_test.go#TestPythonSameSymbolScannerStateEditFallsBack":                         "9bd3e9a971b323e2cdeed302aa045af174ffe53c",
@@ -92,12 +93,13 @@ var compactRouteLifecycleKnownCorpusTreeSHA256 = map[string]string{
 	"c-compact-smoke":          "b35547117f044e74311e70eeb45bd3967598fdca38a963937e2eeaad29bed7b7",
 	"css-compact-smoke":        "1363ea554c5d75bffc553bce1514068e02eb934c204f585e452ddc9211ea4af0",
 	"json5-compact-smoke":      "84634d0f446a4af1d216bd534c2456006827b71c13a99f0fdfc4f71c76d19dc8",
-	"graphql-compact-smoke":     "6f9260d83a72d90ec6bc009dfb7cad8d9c3be34daa4168884d539de31ea5f094",
-	"gomod-compact-smoke":       "eab97016de62bfda36b75049cfcb0753639b518ec065590f1f5e64a4dc2132b3",
-	"todotxt-compact-smoke":     "15665e03ab3a66f0dd188960881f6ec2c13bd4ac912746490c7e9cae8a72aac5",
-	"cpon-compact-smoke":        "0ac7f03dc4d2a0f6de4148930841e6340ce0b97b129342f2dc07cbe2026dc5a9",
-	"dot-compact-smoke":         "03102896b4bdd72288ad5db8c80a35d7a81dd76d950a0805121ebe050e7172e7",
-	"git-config-compact-smoke":  "268737056e942dc56ebd44fa5970556bf48bde4e59c5ad293f8273c0d52c75a3",
+	"graphql-compact-smoke":    "6f9260d83a72d90ec6bc009dfb7cad8d9c3be34daa4168884d539de31ea5f094",
+	"gomod-compact-smoke":      "eab97016de62bfda36b75049cfcb0753639b518ec065590f1f5e64a4dc2132b3",
+	"todotxt-compact-smoke":    "15665e03ab3a66f0dd188960881f6ec2c13bd4ac912746490c7e9cae8a72aac5",
+	"cpon-compact-smoke":       "0ac7f03dc4d2a0f6de4148930841e6340ce0b97b129342f2dc07cbe2026dc5a9",
+	"dot-compact-smoke":        "03102896b4bdd72288ad5db8c80a35d7a81dd76d950a0805121ebe050e7172e7",
+	"git-config-compact-smoke": "268737056e942dc56ebd44fa5970556bf48bde4e59c5ad293f8273c0d52c75a3",
+	"pem-compact-smoke":        "5fd2abf117233cfbda17feb34a4bddd443138bc85450e6b2f55b2cec71521899",
 }
 
 type compactRouteLifecycleRegistry struct {
