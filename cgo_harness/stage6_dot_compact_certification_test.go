@@ -78,7 +78,7 @@ func TestStage6DotCompactCertification(t *testing.T) {
 		source := []byte("digraph G { a -> b; }\n\n")
 		offset := bytes.LastIndexByte(source, '\n')
 		if offset < 0 {
-			t.Fatal("DOT smoke source has no node edit witness")
+			t.Fatal("DOT incremental source has no whitespace edit witness")
 		}
 		edited := append([]byte(nil), source...)
 		edited[offset] = ' '
