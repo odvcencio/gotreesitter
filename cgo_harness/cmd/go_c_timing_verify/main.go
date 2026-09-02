@@ -443,6 +443,7 @@ type artifactSchemaMetadata struct {
 type staticBuildRecipe struct {
 	Schema            string                  `json:"schema"`
 	Status            string                  `json:"status"`
+	VariantNote       string                  `json:"variant_note,omitempty"`
 	Target            string                  `json:"target"`
 	Driver            recipeDriver            `json:"driver"`
 	Runtime           recipeRuntime           `json:"runtime"`

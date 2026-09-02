@@ -146,14 +146,11 @@ func TestTimingOracleTenSecondWrapperSharesCanonicalImplementation(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var recipe struct {
-		staticBuildRecipe
-		VariantNote string `json:"variant_note"`
-	}
+	var recipe staticBuildRecipe
 	if err := decodeStrict(raw, &recipe); err != nil {
 		t.Fatalf("decode ten-second recipe: %v", err)
 	}
-	if err := verifyRecipe(&recipe.staticBuildRecipe); err != nil {
+	if err := verifyRecipe(&recipe); err != nil {
 		t.Fatalf("verify ten-second recipe: %v", err)
 	}
 	if recipe.Driver.Path != "cgo_harness/pure_c/go_timing_oracle_10s.c" {
