@@ -547,6 +547,7 @@ jobs:
       - merge-event-census-cgo
       - parity-cgo-exhaustive
       - freshness
+      - compact-route-lifecycle-history
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -570,6 +571,7 @@ jobs:
           MERGE_EVENT_CENSUS_CGO_RESULT: ${{ needs.merge-event-census-cgo.result }}
           EXHAUSTIVE_PARITY_RESULT: ${{ needs.parity-cgo-exhaustive.result }}
           FRESHNESS_RESULT: ${{ needs.freshness.result }}
+          COMPACT_ROUTE_LIFECYCLE_HISTORY_RESULT: ${{ needs.compact-route-lifecycle-history.result }}
         run: |
           set -euo pipefail
           failed=0
@@ -599,6 +601,7 @@ jobs:
           fi
 
           require_success "freshness" "$FRESHNESS_RESULT"
+          require_success "compact-route-lifecycle-history" "$COMPACT_ROUTE_LIFECYCLE_HISTORY_RESULT"
           require_success "compile" "$COMPILE_RESULT"
           require_success "selected_store_admission" "$SELECTED_STORE_ADMISSION_RESULT"
           require_success "compact_admission_ratchet" "$COMPACT_ADMISSION_RATCHET_RESULT"
@@ -759,6 +762,25 @@ jobs:
             echo "::error::Count mismatch — lock: $lock_count, blobs: $blob_count, gen: $gen_count"
             exit 1
           fi
+
+  compact-route-lifecycle-history:
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Validate compact route campaign lifecycle history
+        env:
+          GTS_REQUIRE_HISTORICAL_RECEIPT_PROOF: "1"
+        run: go test . -run '^TestCompactRouteCampaignLifecycleRegistry$' -count=1
 
   # apidiff compares the public API of package `gotreesitter` (the module
   # root only, not the full module) between the last released tag and this
