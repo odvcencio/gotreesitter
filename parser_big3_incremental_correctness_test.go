@@ -468,7 +468,7 @@ func TestMalformedGoIncrementalRunsOneBaseMergeRetryAndKeepsFirstResult(t *testi
 	}
 }
 
-func TestMalformedRustUnsupportedReuseDoesNotRunBaseMergeRetry(t *testing.T) {
+func TestMalformedRustIncrementalRunsOneBaseMergeRetryAndKeepsFirstResult(t *testing.T) {
 	lang := grammars.RustLanguage()
 	original := []byte("fn main() { let x = 1; }\n")
 	offset := bytes.LastIndexByte(original, '}')
@@ -504,10 +504,26 @@ func TestMalformedRustUnsupportedReuseDoesNotRunBaseMergeRetry(t *testing.T) {
 		incremental.RootNode().HasError() != fresh.RootNode().HasError() {
 		t.Fatalf("malformed Rust incremental/fresh mismatch incremental=%s fresh=%s", incremental.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang))
 	}
+	incrementalInspection, err := benchfixtures.InspectGoTree(incremental.RootNode(), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	freshInspection, err := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if incrementalInspection.SHA256 != freshInspection.SHA256 {
+		t.Fatalf("malformed Rust deep digest incremental=%s fresh=%s", incrementalInspection.SHA256, freshInspection.SHA256)
+	}
 	rt := incremental.ParseRuntime()
-	if !profile.ReuseUnsupported || profile.OldTreeReuseRoute || rt.IncrementalOldTreeReuseRoute ||
-		profile.AcceptedErrorRetryAttempts != 0 || rt.IncrementalAcceptedErrorRetryAttempts != 0 {
-		t.Fatalf("malformed Rust unsupported route profile=%+v runtime=%+v", profile, rt)
+	if profile.AcceptedErrorRetryAttempts != 1 || rt.IncrementalAcceptedErrorRetryAttempts != 1 ||
+		profile.AcceptedErrorRetryAdopted || rt.IncrementalAcceptedErrorRetryAdopted ||
+		profile.AcceptedErrorRetryMergePerKey != 1 || !profile.OldTreeReuseRoute || !rt.IncrementalOldTreeReuseRoute {
+		t.Fatalf("malformed Rust retry profile=%+v runtime=%+v", profile, rt)
+	}
+	incremental.Release()
+	if oldTree.RootNode() == nil || oldTree.RootNode().HasError() {
+		t.Fatal("releasing retained first Rust incremental result invalidated caller-owned old tree")
 	}
 }
 

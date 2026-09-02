@@ -148,6 +148,14 @@ func (RustExternalScanner) Deserialize(payload any, buf []byte) {
 	}
 }
 
+// SupportsIncrementalReuse reports that the Rust scanner can restore its
+// complete serialized state at a reused subtree boundary.
+func (RustExternalScanner) SupportsIncrementalReuse() bool { return true }
+
+// UsesExternalScannerCheckpoints requires reuse to authenticate the raw-string
+// hash count before it resumes scanning after a reused subtree.
+func (RustExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
+
 func (scanner RustExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	var semanticValid [rustTokenCount]bool
 	validSymbols = scanner.remapValidSymbols(validSymbols, &semanticValid)
