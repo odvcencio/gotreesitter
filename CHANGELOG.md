@@ -7,6 +7,137 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-09-02
+
+### Highlights
+
+- Incremental subtree reuse is restored on the compact-tree route for
+  admitted external scanners. Since v0.49.0, a changed edit on CSS, SCSS,
+  TOML, TypeScript, TSX, INI, CMake, and SQL trees ran a full reparse with
+  zero reuse. These languages reuse subtrees again
+  ([issue #728](https://github.com/odvcencio/gotreesitter/issues/728),
+  [PR #734](https://github.com/odvcencio/gotreesitter/pull/734)).
+- The Go, C, JSON, and Rust compact routes are certified against the locked
+  C oracle in Stage 6 of the compact-route campaign. The Rust external
+  scanner is certified for checkpointed incremental reuse.
+- `NewParser` reuses six derived parser tables per `Language`. A consumer
+  that parses many files of one language builds those tables once.
+- Seven result-compatibility arms are retired: Swift ternary, JavaScript
+  dynamic import, Kotlin interpolated call, Bash generated-command
+  assignment, Ninja, Ledger, and JSDoc. Native parsing owns each shape.
+- The compact route graduates recursive precedence, Markdown inline
+  parsing, Meson acceptance election, JSDoc prefix tiling, JavaScript
+  error-mode keyword recovery, and YAML end-of-file recovery.
+- Correctness fixes cover a C enum defect, highlighter query caching,
+  injection parsing, `Query.CaptureNames`, Swift field projection, Python
+  keyword leaves, Python clean-tie election, and Erlang version order.
+- `BoundTree` exposes stop reasons, runtime diagnostics, fact extraction,
+  and outline projection without a second parse.
+
+### Added
+
+- `BoundTree` now exposes parse stop reasons and runtime diagnostics.
+  `FactProgram` extracts facts from a `BoundTree`. `Outliner` projects
+  symbols from a `BoundTree`. Callers that receive bound trees from grammar
+  gateways no longer parse twice
+  ([PR #979](https://github.com/odvcencio/gotreesitter/pull/979)).
+- Detailed recovery telemetry is available behind the opt-in
+  `gts_recovery_telemetry` build tag. Production builds store no detailed
+  state and return `nil`
+  ([PR #737](https://github.com/odvcencio/gotreesitter/pull/737)).
+- The Rust external scanner declares safe incremental reuse. Reused subtrees
+  restore the raw-string hash count from scanner checkpoints. A Stage 6
+  certificate covers clean, recovery, raw-string, and incremental trees
+  ([PR #1034](https://github.com/odvcencio/gotreesitter/pull/1034)).
+- Stage 6 certificates compare the Go, C, and JSON compact routes with the
+  locked C oracle. Each certificate requires compact admission for clean
+  cases, explicit recovery fallback, and exact symbols, fields, spans,
+  flags, errors, and deep digests
+  ([PR #1033](https://github.com/odvcencio/gotreesitter/pull/1033),
+  [PR #1035](https://github.com/odvcencio/gotreesitter/pull/1035),
+  [PR #1036](https://github.com/odvcencio/gotreesitter/pull/1036)).
+- A versioned compact-route campaign lifecycle registry records each stage,
+  owner, gate, proof receipt, corpus, and deletion condition. A required
+  full-history CI job authenticates every receipt
+  ([PR #1022](https://github.com/odvcencio/gotreesitter/pull/1022)).
+- A shared, locked-C exception manifest gates the two exact Erlang inputs
+  from issue #984. The gate permits only the compact digest while the
+  production route differs, and it fails if the source, identity, or digest
+  changes ([PR #1001](https://github.com/odvcencio/gotreesitter/pull/1001)).
+
+### Fixed
+
+- Restore incremental subtree reuse on the compact-tree route for admitted
+  external scanners. Reuse is rejected only when the scanner classifier
+  refutes quiescence. The language admission gate now applies to compact
+  trees. Compact-tree and forest-path refusal reasons are reported
+  separately. Python and Starlark reuse stays fail-closed. Regression
+  coverage spans nine languages at 63, 65, and 137 KiB
+  ([issue #728](https://github.com/odvcencio/gotreesitter/issues/728)).
+- A sole top-level parser child now reuses scanner checkpoints after one
+  line-start spaces or tabs edit. Nested Python indentation edits inside the
+  only top-level definition reuse instead of forcing a full parse. Token
+  changes, comments, newlines, and multi-edit histories keep the
+  conservative fallback
+  ([PR #1028](https://github.com/odvcencio/gotreesitter/pull/1028)).
+- C no longer invents a zero-width comma inside a three-enumerator enum such
+  as `typedef enum { A = 0, B = 1, C = MAX } t;`. Differential testing over
+  1,567 files found this as the only clean-oracle divergence. The parser now
+  follows the C runtime and never executes a repetition shift at a conflict
+  cell ([PR #739](https://github.com/odvcencio/gotreesitter/pull/739)).
+- The highlighter keys injected child queries by their exact query source.
+  Two query sources that share one language key no longer collide in the
+  cache ([PR #951](https://github.com/odvcencio/gotreesitter/pull/951)).
+- Byte-oriented injection incremental parsing falls back to an initial parse
+  when no prior result is supplied. It previously panicked
+  ([PR #957](https://github.com/odvcencio/gotreesitter/pull/957)).
+- `Query.CaptureNames` returns a caller-owned copy. Mutating the returned
+  slice no longer changes later capture lookups or query execution
+  ([PR #958](https://github.com/odvcencio/gotreesitter/pull/958)).
+- Repeated direct field assignments on flattened spans are preserved.
+  Inherited projection no longer replaces a resolved direct field. Focused
+  Swift witnesses cover issues #590 and #591
+  ([PR #736](https://github.com/odvcencio/gotreesitter/pull/736)).
+- grammargen emits Python `True`, `False`, and `None` as named leaf tokens,
+  which matches the C leaf shape. When a word token owns a reachable plain
+  string rule, every identifier-like spelling is a named leaf
+  ([PR #1032](https://github.com/odvcencio/gotreesitter/pull/1032)).
+- Compact acceptance for Python clean ties that arrive as a flat stack and a
+  packed graph stack now follows C version-head ownership. The former Python
+  interpolation rewrite is a counted no-op
+  ([PR #1026](https://github.com/odvcencio/gotreesitter/pull/1026)).
+- The built-in Erlang grammar uses C packed version order. Same-pop
+  reductions group before publication and condense in C physical order. The
+  exact issue #984 witness matches C with and without a trailing newline.
+  Uncertified grammars keep the linear recovery route
+  ([PR #1012](https://github.com/odvcencio/gotreesitter/pull/1012)).
+
+### Performance
+
+- `NewParser` no longer rebuilds six derived tables on every call. Each
+  `Language` builds `smallTokenLookup`, `smallLookup`, `classifiedActions`,
+  `eagerDefaultReduces`, and its sibling tables once and shares them
+  read-only ([PR #990](https://github.com/odvcencio/gotreesitter/pull/990)).
+
+### Changed
+
+- The compact route graduates Meson acceptance election. A locked C raw
+  subtree comparator elects clean, tied acceptance frontiers for the exact
+  Meson grammar artifact. Meson moves from FALLBACK to PASS in the admission
+  scorecard ([PR #998](https://github.com/odvcencio/gotreesitter/pull/998)).
+- The compact route graduates JSDoc prefix tiling. Exact skipped-prefix
+  evidence at every live shift seam admits interior reduce gaps for the
+  built-in JSDoc blob. The admission scorecard moves from 199/2/5 to 200/1/5
+  ([PR #999](https://github.com/odvcencio/gotreesitter/pull/999)).
+- The compact route graduates JavaScript error-mode keyword recovery for the
+  exact certified JavaScript grammar artifact. All eight pinned JavaScript
+  recovery witnesses route with exact C parity
+  ([PR #997](https://github.com/odvcencio/gotreesitter/pull/997)).
+- The compact route certifies end-of-file recovery for one exact YAML
+  witness. It publishes the same non-extra `ERROR` root as the locked C
+  oracle and blocks incremental reuse for the marked runtime
+  ([PR #1019](https://github.com/odvcencio/gotreesitter/pull/1019)).
+
 ### Performance
 
 - Bound temporary conflict-frontier growth with the maximum of the resolved
@@ -1285,6 +1416,21 @@ for tags and release notes while still in `0.x`.
 - Record the P24a memo-probe benchmark as a NO-GO. The single-byte edit lane is
   0.93% slower with p<0.001. Do not ship the two-file candidate. See
   `docs/perf-attribution.md` for the receipt.
+
+### Open work
+
+The following items remain open:
+
+- [Issue #454](https://github.com/odvcencio/gotreesitter/issues/454) tracks
+  downstream field reports.
+- [Issue #576](https://github.com/odvcencio/gotreesitter/issues/576) tracks
+  Swift recovery divergence.
+- [Issue #984](https://github.com/odvcencio/gotreesitter/issues/984) tracks
+  the production GLR version topology on an Erlang clean parse.
+- [Issue #1053](https://github.com/odvcencio/gotreesitter/issues/1053) tracks
+  compact S5 reduction before a missing end-of-file token.
+- [Issue #1054](https://github.com/odvcencio/gotreesitter/issues/1054) tracks
+  Scala external scanner incremental reuse certification.
 
 ## [0.51.0] - 2026-08-16
 
@@ -5999,7 +6145,8 @@ Warm-reuse throughput ~10 % higher. 206-grammar parity green under `GTS_PARITY_M
 - Initial standalone pure-Go runtime module.
 - External scanner VM foundation and base parser/lexer/tree infrastructure.
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.51.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.52.0...HEAD
+[0.52.0]: https://github.com/odvcencio/gotreesitter/compare/v0.51.0...v0.52.0
 [0.51.0]: https://github.com/odvcencio/gotreesitter/compare/v0.50.1...v0.51.0
 [0.50.1]: https://github.com/odvcencio/gotreesitter/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/odvcencio/gotreesitter/compare/v0.49.0...v0.50.0

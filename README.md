@@ -540,7 +540,7 @@ All shipped highlight and tags queries compile (`156/156` highlight, `69/69` tag
 
 ## Repository layout note: the compat tier
 
-The root package carries roughly 180 `parser_result_<language>*.go` files — the
+The root package carries 68 `parser_result_<language>*.go` files — the
 C-faithful result-normalization tier that reshapes raw GLR output into the
 exact tree the C runtime selects. It is internal plumbing, oracle-gated per
 witness, and it shrinks as certified engine mechanisms subsume shims. See
@@ -554,13 +554,11 @@ The ordered, receipt-driven cleanup program is documented in
 
 ## Known limitations
 
-- **Full-parse throughput**: the strict materialized real-Go production
-  receipt at the v0.40.0 tag target `1935a42c` measures public
-  `Parser.Parse` at **4.851050x C** by equal-fixture geomean and
-  **5.472406x C** by fixed-suite sum of medians against the exact static
-  `-O2` oracle (see [BENCH.md](BENCH.md)); its worst fixture is
-  **5.608320x C**. The compact candidate's lower diagnostic ratio is not
-  a public-parser claim. The former ~2.1x row used a straight-LR
+- **Full-parse throughput**: the sealed v9 hardware-attested receipt in
+  [BENCH.md](BENCH.md) measures public `Parser.Parse` at **4.815x C** by
+  equal-fixture geomean on the locked real-Go matrix; its worst fixture is
+  **6.065x C**. The compact route's **3.986x C** geomean is a candidate
+  diagnostic, not a public-parser claim. The former ~2.1x row used a straight-LR
   synthetic and a different Go grammar, so it stays historical only. The
   locked incremental matrix validates correctness and classifies work,
   but general incremental Go/C performance has no current
@@ -797,15 +795,15 @@ Test suite covers: smoke tests (206 grammars), golden S-expression snapshots, hi
 
 ## Roadmap
 
-The current release is **v0.51.0**.
+The current release is **v0.52.0**.
 
-This release adds strict pooled file parsing and strict one-shot tagging. It
-also bounds generalized LR (GLR) recovery state retention and resets recovery
-state across parser lifecycle boundaries.
-
-The project merged [pull request #732](https://github.com/odvcencio/gotreesitter/pull/732).
-Its continuous-integration-only change separates query-fleet smoke tests from
-regular shards and is not part of this release.
+This release restores incremental subtree reuse on the compact-tree route for
+admitted external scanners, which returns CSS, SCSS, TOML, TypeScript, TSX,
+INI, CMake, and SQL to reuse on changed edits. It certifies the Go, C, JSON,
+and Rust compact routes against the locked C oracle, retires seven
+result-compatibility arms, and reuses derived parser tables per language. It
+also fixes C enum, highlighter cache, injection, query capture, Swift field,
+Python leaf, and Erlang version-order defects.
 
 Detailed shipped evidence lives in [CHANGELOG.md](CHANGELOG.md). Standard minor
 releases may ship on any day after the exact commit on `main` passes the full
