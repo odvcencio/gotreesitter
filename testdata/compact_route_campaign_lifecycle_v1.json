@@ -1,6 +1,6 @@
 {
   "schema": "gotreesitter/compact-route-campaign-lifecycle/v1",
-  "source_revision": "0d6683a465c6d20477c6a16b6b1f70ac2a90e87b",
+  "source_revision": "b10e071e441f9163ffa6486aba389840428bdccf",
   "scope": "Compact parser graduation stages, proof lanes, controls, corpus identity, and receipt retirement.",
   "authority": [
     "spec.parser-graduation.v1#8.1",
@@ -27,7 +27,7 @@
   ],
   "funnel": {
     "ordered_stages": [1, 2, 3, 4, 5, 6, 7],
-    "active_core_stage": 5,
+    "active_core_stage": 6,
     "core_rule": "Keep one core implementation stage active. Run the other lanes around it.",
     "parallel_lanes": ["adversarial", "certification", "performance"],
     "correctness_precedes_performance": true
@@ -956,7 +956,7 @@
       "id": "stage-5-incremental-integration",
       "stage": 5,
       "lane": "core",
-      "status": "active",
+      "status": "graduated",
       "owner": "incremental_edit_reuse",
       "campaigns": ["spec.campaign.oedit", "spec.campaign.post-admission-frontier", "spec.parser-graduation.v1#8.1"],
       "purpose": "Invalidate the correct version state after edits while preserving exact trees, scanner safety, reuse, and deterministic counters.",
@@ -1043,27 +1043,31 @@
         {"ref": "cgo_harness/stage5_compact_incremental_test.go#TestStage5PythonSameLengthScannerDelimiterParity", "kind": "test", "source_revision": "9bd3e9a971b323e2cdeed302aa045af174ffe53c", "status": "current"},
         {"ref": "incremental_leaf_fastpath_test.go#TestIncludedRangeCheckpointLeafProbeRestoresTokenProvenance", "kind": "test", "source_revision": "425ffdc2eb919b82b38484a0b3a2107d5c7341f1", "status": "current"},
         {"ref": "internal/parsercorephase0/recursive_insert_test.go#TestAuthenticatedTerminalScannerProvenanceCoversOrdinaryLeaf", "kind": "test", "source_revision": "0d6683a465c6d20477c6a16b6b1f70ac2a90e87b", "status": "current"},
-        {"ref": "testdata/incremental_allowlist.json", "kind": "policy", "source_revision": "95a1d13156b82e2221415342c9ac8048f2caf644", "status": "current"}
+        {"ref": "testdata/incremental_allowlist.json", "kind": "policy", "source_revision": "95a1d13156b82e2221415342c9ac8048f2caf644", "status": "current"},
+        {"ref": "pr:#1028", "kind": "merge", "source_revision": "90f60a65c61d87768b1221b78cb0f66d25aff8ec", "status": "current"},
+        {"ref": "parser_external_scanner_prefix_frontier_test.go#TestCheckpointedScannerPrefixFrontierAllowsSoleChildReuse", "kind": "test", "source_revision": "90f60a65c61d87768b1221b78cb0f66d25aff8ec", "status": "current"},
+        {"ref": "cgo_harness/stage5_sole_child_padding_probe_test.go#TestStage5SoleChildHorizontalPaddingProbe", "kind": "test", "source_revision": "90f60a65c61d87768b1221b78cb0f66d25aff8ec", "status": "current"}
       ],
       "deletion_condition": "Delete temporary O(edit) experiments only after canonical C parity, edit invalidation, exact tree, reuse, race, and memory receipts pass.",
-      "retention": "keep_stable_telemetry",
+      "retention": "preserve_receipt",
       "history_preserved": true
     },
     {
       "id": "stage-6-grammar-certification",
       "stage": 6,
       "lane": "core",
-      "status": "planned",
+      "status": "active",
       "owner": "oracle_certification",
       "campaigns": ["spec.parser-graduation.v1#8.1", "spec.campaign.v7", "spec.derivation-set-equivalence.v1", "spec.outline-api.v1"],
       "purpose": "Certify exact trees, ranges, errors, and incremental results against the locked C baseline, one grammar at a time.",
-      "build_expressions": ["default", "gts_parsercorephase0", "cgo && treesitter_c_parity", "cgo && treesitter_c_parity && gts_derivation_set_census", "!gts_no_parsercorephase0 && gts_derivation_set_census"],
+      "build_expressions": ["default", "gts_parsercorephase0", "cgo && treesitter_c_parity", "cgo && treesitter_c_parity && gts_parsercorephase0", "cgo && treesitter_c_parity && gts_derivation_set_census", "!gts_no_parsercorephase0 && gts_derivation_set_census"],
       "control_ids": ["build.phase0.internal", "build.parity.cgo", "build.derivation.census", "env.GTS_ADMISSION_SCORECARD", "env.GTS_ADMISSION_SCORECARD_STRICT", "env.GTS_ADMISSION_SCORECARD_RATCHET", "env.GTS_ADMISSION_REAL_CORPUS", "env.GTS_ADMISSION_REAL_CORPUS_MANIFEST", "env.GTS_ADMISSION_REAL_CORPUS_LANGS", "env.GTS_ADMISSION_REAL_CORPUS_EXCLUDE_LANGS", "env.GTS_ADMISSION_REAL_CORPUS_BUCKETS", "env.GTS_ADMISSION_REAL_CORPUS_MAX_BYTES", "env.GTS_ADMISSION_REAL_CORPUS_RATCHET", "env.GTS_PARITY_MODE", "env.GTS_PARITY_ALLOW_HOST", "env.GOT_CORPUS_SOURCES_ROOT", "env.GTS_OUTLINE_CENSUS_OUT"],
       "paths": [
         {"path": "admission_scorecard_test.go", "role": "certification", "build_expression": "gts_parsercorephase0", "symbol": "TestAdmissionCandidateScorecard206"},
         {"path": "admission_real_corpus_matrix_test.go", "role": "certification", "build_expression": "gts_parsercorephase0", "symbol": "TestAdmissionCandidateRealCorpusMatrix"},
         {"path": "cgo_harness/parity_cgo_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity", "symbol": "TestParityFreshParse"},
         {"path": "cgo_harness/derivation_set_differential_test.go", "role": "c_oracle", "build_expression": "cgo && treesitter_c_parity && gts_derivation_set_census", "symbol": "TestDerivationSetDifferentialBaselineCensus"},
+        {"path": "cgo_harness/stage6_typescript_compact_certification_test.go", "role": "certification", "build_expression": "cgo && treesitter_c_parity && gts_parsercorephase0", "symbol": "TestStage6TypeScriptCompactCertification"},
         {"path": "cgo_harness/docker/run_single_grammar_parity.sh", "role": "certification", "build_expression": "default", "symbol": "run_single_grammar_parity.sh"},
         {"path": "cgo_harness/docker/run_grammargen_focus_targets.sh", "role": "certification", "build_expression": "default", "symbol": "run_grammargen_focus_targets.sh"},
         {"path": "docs/compact-route-real-corpus-matrix.md", "role": "corpus_policy", "build_expression": "default", "symbol": "Current compact-graduation matrix"}
@@ -1072,11 +1076,13 @@
         {"name": "206-language scorecard", "command": "GTS_ADMISSION_SCORECARD=1 go test -tags 'gts_parsercorephase0' -run '^TestAdmissionCandidateScorecard206$' -count=1 -v .", "working_dir": ".", "isolation": "docker"},
         {"name": "one-grammar parity", "command": "bash cgo_harness/docker/run_single_grammar_parity.sh typescript", "working_dir": ".", "isolation": "docker"},
         {"name": "real-corpus focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode real-corpus --langs typescript", "working_dir": ".", "isolation": "docker"},
-        {"name": "C focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode cgo --langs typescript", "working_dir": ".", "isolation": "docker"}
+        {"name": "C focus", "command": "bash cgo_harness/docker/run_grammargen_focus_targets.sh --mode cgo --langs typescript", "working_dir": ".", "isolation": "docker"},
+        {"name": "TypeScript compact candidate C parity", "command": "go test . -tags 'cgo treesitter_c_parity gts_parsercorephase0' -run '^TestStage6TypeScriptCompactCertification$' -count=1 -v", "working_dir": "cgo_harness", "isolation": "docker"}
       ],
       "corpus": [
         {"id": "real-corpus-matrix", "kind": "authenticated_external_manifest", "path": "cgo_harness/corpus_real/manifest.json", "source": "External manifest is not present in this worktree.", "availability": "unavailable", "lock_status": "unlocked", "plan": "Acquire the authenticated manifest in an isolated certification run before Stage 6.", "lock_or_digest": ""},
-        {"id": "grammar-lock", "kind": "grammar_lock", "path": "grammars/languages.lock", "lock_or_digest": "grammar lock file is tracked; verify each source and generated artifact identity"}
+        {"id": "grammar-lock", "kind": "grammar_lock", "path": "grammars/languages.lock", "lock_or_digest": "grammar lock file is tracked; verify each source and generated artifact identity"},
+        {"id": "typescript-compact-smoke", "kind": "synthetic_fixture", "path": "grammars/smoke_samples.go", "source": "function f(): number { return 1; }\n", "source_sha256": "091455371625186f6b1d8c33589e90d8ef478563db392e55faf79e184d4efc72", "tree_sha256": "840eb4cf52faf1b944dacf47bb13591a5fd61fbfe33f196172094d4b4acab907", "availability": "available", "lock_status": "locked", "plan": "Keep the smoke fixture as the first current Stage 6 compact-route certificate.", "lock_or_digest": "grammar lock plus locked-C exact tree digest at b10e071e441f9163ffa6486aba389840428bdccf"}
       ],
       "gates": ["exact tree shape and node fields", "exact ranges and error or missing flags", "exact C and Go grammar identities", "incremental result parity", "one grammar per isolated Docker run", "zero silent divergence and explicit fallback accounting"],
       "telemetry": ["PASS/FALLBACK/DIVERGE/SKIP/ERROR scorecard rows", "deep-tree digest", "exact mismatch path and field", "fallback reason", "derivation-set receipt"],
@@ -1086,7 +1092,8 @@
       "proof_receipts": [
         {"ref": "docs/compact-route-real-corpus-matrix.md#Current compact-graduation matrix", "kind": "document", "source_revision": "41af6afa6da47c9f8b55b3156fd88fb56686373f", "status": "stale"},
         {"ref": "docs/compact-route-coverage-census.md", "kind": "document", "source_revision": "38d86d417fc6209228b8b175bc2aa7bb9700b8d3", "status": "stale"},
-        {"ref": "docs/a8-derivation-divergence-certificate-v1.md", "kind": "document", "source_revision": "acccb81d20128e337a35ee274a2e3e3631b73b1a", "status": "stale"}
+        {"ref": "docs/a8-derivation-divergence-certificate-v1.md", "kind": "document", "source_revision": "acccb81d20128e337a35ee274a2e3e3631b73b1a", "status": "stale"},
+        {"ref": "cgo_harness/stage6_typescript_compact_certification_test.go#TestStage6TypeScriptCompactCertification", "kind": "test", "source_revision": "b10e071e441f9163ffa6486aba389840428bdccf", "status": "current"}
       ],
       "deletion_condition": "Delete certification scaffolding only after every supported grammar has a current locked-C receipt for trees, fields, ranges, errors, and incremental edits.",
       "retention": "preserve_receipt",
