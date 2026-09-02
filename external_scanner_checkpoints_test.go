@@ -13,6 +13,12 @@ type checkpointlessTestScanner struct{ checkpointTestScanner }
 
 func (checkpointlessTestScanner) AllowsIncrementalReuseWithoutCheckpoint() bool { return true }
 
+type prefixFrontierCheckpointTestScanner struct{ checkpointTestScanner }
+
+func (prefixFrontierCheckpointTestScanner) RequiresIncrementalPrefixFrontierProof() bool {
+	return true
+}
+
 func TestExternalScannerCheckpointCapabilitiesAreBehaviorBased(t *testing.T) {
 	if languageUsesExternalScannerCheckpoints(&Language{Name: "python", ExternalScanner: parserTestSafeExternalScanner{}}) {
 		t.Fatal("language name enabled checkpoints without a capability")
@@ -25,6 +31,12 @@ func TestExternalScannerCheckpointCapabilitiesAreBehaviorBased(t *testing.T) {
 	}
 	if !languageAllowsCheckpointlessExternalReuse(&Language{Name: "not-an-allowlisted-name", ExternalScanner: checkpointlessTestScanner{}}) {
 		t.Fatal("checkpointless capability was ignored for an arbitrary language name")
+	}
+	if languageRequiresExternalScannerPrefixFrontierProof(&Language{Name: "python", ExternalScanner: checkpointTestScanner{}}) {
+		t.Fatal("language name enabled prefix-frontier proof without a capability")
+	}
+	if !languageRequiresExternalScannerPrefixFrontierProof(&Language{Name: "not-an-allowlisted-name", ExternalScanner: prefixFrontierCheckpointTestScanner{}}) {
+		t.Fatal("prefix-frontier capability was ignored for an arbitrary language name")
 	}
 }
 

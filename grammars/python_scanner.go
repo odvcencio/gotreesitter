@@ -114,6 +114,10 @@ func (PythonExternalScanner) SupportsIncrementalReuse() bool { return true }
 
 func (PythonExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
 
+// RequiresIncrementalPrefixFrontierProof prevents a changed indentation
+// prefix from transferring a reduction that belongs to the old source.
+func (PythonExternalScanner) RequiresIncrementalPrefixFrontierProof() bool { return true }
+
 func (PythonExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
 func (p PythonExternalScanner) symbolTable() *[pyTokenCount]gotreesitter.Symbol {

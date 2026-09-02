@@ -128,11 +128,7 @@ func TestSwiftTernaryRetirementRoutes(t *testing.T) {
 				t.Fatalf("incremental parse: %v", err)
 			}
 			t.Cleanup(incremental.Release)
-			reuseClassified := profile.OldTreeReuseRoute && !profile.ReuseUnsupported
-			fallbackClassified := !profile.OldTreeReuseRoute && profile.ReuseUnsupported &&
-				(profile.ReuseUnsupportedReason == "external_scanner_unsupported" ||
-					profile.ReuseUnsupportedReason == "external_scanner_prefix_frontier_unproven")
-			if !reuseClassified && !fallbackClassified {
+			if !profile.OldTreeReuseRoute && (!profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported") {
 				t.Fatalf("incremental route receipt is not classified: %+v", profile)
 			}
 			if got := requireSwiftTernaryRetirementTree(t, "incremental", incremental, language, source); got != wantDigest {

@@ -214,15 +214,16 @@ func incrementalReuseUnsupportedReasonForTree(oldTree *Tree) string {
 }
 
 // checkpointedScannerPrefixFrontierUnproven reports the smallest prefix case
-// that cannot transfer a scanner-dependent reduction safely. A clean
+// that a prefix-sensitive scanner cannot transfer safely. A clean
 // predecessor gives the parser a known frontier; an edit before the second
 // top-level child does not. Keep the check generic across checkpointed
-// scanners and tree producers, and leave later siblings on the ordinary reuse
-// path. Compact trees need this early guard as well: their exact scanner
+// tree producers, and leave other certified scanners on their existing reuse
+// contracts. Compact trees need this early guard as well: their exact scanner
 // snapshots do not prove reduction ownership, and waiting for reuseCursor
 // would walk every compact candidate before rejecting it.
 func checkpointedScannerPrefixFrontierUnproven(oldTree *Tree) bool {
 	if oldTree == nil || !languageUsesExternalScannerCheckpoints(oldTree.language) ||
+		!languageRequiresExternalScannerPrefixFrontierProof(oldTree.language) ||
 		len(oldTree.edits) == 0 || oldTree.root == nil {
 		return false
 	}

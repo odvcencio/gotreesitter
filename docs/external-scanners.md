@@ -324,6 +324,12 @@ numbering, use the public remapper:
   Its checkpoint bytes are ephemeral snapshots; compact materialization copies
   them into tree sidecars before the parser-core store is released. Do not
   retain checkpoint IDs or buffer pointers across that boundary.
+- `IncrementalPrefixFrontierExternalScanner`
+  (`RequiresIncrementalPrefixFrontierProof() bool`): require a fresh parse
+  after a changed-length or changed-point edit before the second top-level
+  sibling. Use this only when scanner state depends on the old reduction
+  frontier. Python enables it for indentation ownership. Other certified
+  checkpoint scanners keep their existing reuse contracts.
 - `ErrorTreeIncrementalReuseExternalScanner`
   (`SupportsIncrementalReuseFromErrorTree() bool`): an optional narrower gate
   for a scanner whose clean-tree checkpoints are certified but whose recovery

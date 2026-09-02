@@ -3265,7 +3265,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 			timing.reuseRejectStaleNonLeafBoundary += reuse.rejectStaleNonLeafBoundary
 			timing.reuseRejectFragileNonLeaf += reuse.rejectFragileNonLeaf
 			timing.reuseRejectScannerUnquiescent += reuse.rejectScannerUnquiescent
-			timing.reuseRejectFrontierProofUnavailable += reuse.rejectFrontierProofUnavailable
+			timing.reuseRejectFrontierProofUnavailable += uint64(reuse.rejectFrontierProofUnavailable)
 		}
 		if timing != nil {
 			reuseStart := time.Now()

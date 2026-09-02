@@ -18,7 +18,6 @@ func TestCheckpointedScannerPrefixFrontierFallback(t *testing.T) {
 		source  []byte
 		needle  []byte
 		replace []byte
-		isSQL   bool
 	}{
 		{
 			name:    "python_insert_first_child",
@@ -34,22 +33,6 @@ func TestCheckpointedScannerPrefixFrontierFallback(t *testing.T) {
 			needle:  []byte("return 111"),
 			replace: []byte("return 11"),
 		},
-		{
-			name:    "sql_insert_first_child",
-			lang:    grammars.SqlLanguage,
-			source:  []byte("SELECT $q$first$q$ AS first;\nSELECT $q$second$q$ AS second;\n"),
-			needle:  []byte("first"),
-			replace: []byte("firstx"),
-			isSQL:   true,
-		},
-		{
-			name:    "sql_delete_first_child",
-			lang:    grammars.SqlLanguage,
-			source:  []byte("SELECT $q$firstx$q$ AS first;\nSELECT $q$second$q$ AS second;\n"),
-			needle:  []byte("firstx"),
-			replace: []byte("first"),
-			isSQL:   true,
-		},
 	}
 
 	for _, tc := range cases {
@@ -64,9 +47,6 @@ func TestCheckpointedScannerPrefixFrontierFallback(t *testing.T) {
 			}
 			defer oldTree.Release()
 			requireCompleteParse(t, oldTree, tc.source, lang, "old")
-			if tc.isSQL {
-				requireSQLAcceptedEOF(t, oldTree, tc.source, "old")
-			}
 
 			edited, edit := replacePrefixFrontierWitness(t, tc.source, tc.needle, tc.replace)
 			oldTree.Edit(edit)
@@ -76,9 +56,6 @@ func TestCheckpointedScannerPrefixFrontierFallback(t *testing.T) {
 			}
 			defer incremental.Release()
 			requireCompleteParse(t, incremental, edited, lang, "incremental")
-			if tc.isSQL {
-				requireSQLAcceptedEOF(t, incremental, edited, "incremental")
-			}
 			if profile.ReuseUnsupportedReason != "external_scanner_prefix_frontier_unproven" {
 				t.Fatalf("fallback reason = %q, want external_scanner_prefix_frontier_unproven: %+v", profile.ReuseUnsupportedReason, profile)
 			}
@@ -100,9 +77,6 @@ func TestCheckpointedScannerPrefixFrontierFallback(t *testing.T) {
 			}
 			defer fresh.Release()
 			requireCompleteParse(t, fresh, edited, lang, "fresh")
-			if tc.isSQL {
-				requireSQLAcceptedEOF(t, fresh, edited, "fresh")
-			}
 			requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
 		})
 	}
@@ -115,7 +89,6 @@ func TestCheckpointedScannerPrefixFrontierAllowsLaterSiblingReuse(t *testing.T) 
 		source  []byte
 		needle  []byte
 		replace []byte
-		isSQL   bool
 	}{
 		{
 			name:    "python_insert_second_child",
@@ -131,14 +104,6 @@ func TestCheckpointedScannerPrefixFrontierAllowsLaterSiblingReuse(t *testing.T) 
 			needle:  []byte("return 222"),
 			replace: []byte("return 22"),
 		},
-		{
-			name:    "sql_insert_second_child",
-			lang:    grammars.SqlLanguage,
-			source:  []byte("SELECT $q$first$q$ AS first;\nSELECT $q$second$q$ AS second;\n"),
-			needle:  []byte("$q$second$q$"),
-			replace: []byte("$q$secondx$q$"),
-			isSQL:   true,
-		},
 	}
 
 	for _, tc := range cases {
@@ -152,9 +117,6 @@ func TestCheckpointedScannerPrefixFrontierAllowsLaterSiblingReuse(t *testing.T) 
 			}
 			defer oldTree.Release()
 			requireCompleteParse(t, oldTree, tc.source, lang, "old")
-			if tc.isSQL {
-				requireSQLAcceptedEOF(t, oldTree, tc.source, "old")
-			}
 
 			edited, edit := replacePrefixFrontierWitness(t, tc.source, tc.needle, tc.replace)
 			oldTree.Edit(edit)
@@ -164,9 +126,6 @@ func TestCheckpointedScannerPrefixFrontierAllowsLaterSiblingReuse(t *testing.T) 
 			}
 			defer incremental.Release()
 			requireCompleteParse(t, incremental, edited, lang, "incremental")
-			if tc.isSQL {
-				requireSQLAcceptedEOF(t, incremental, edited, "incremental")
-			}
 			if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute {
 				t.Fatalf("later-sibling edit did not stay on reuse route: %+v", profile)
 			}
@@ -182,12 +141,47 @@ func TestCheckpointedScannerPrefixFrontierAllowsLaterSiblingReuse(t *testing.T) 
 			}
 			defer fresh.Release()
 			requireCompleteParse(t, fresh, edited, lang, "fresh")
-			if tc.isSQL {
-				requireSQLAcceptedEOF(t, fresh, edited, "fresh")
-			}
 			requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
 		})
 	}
+}
+
+// TestCheckpointedScannerWithoutPrefixFrontierRequirementKeepsReuse proves
+// that Python's ownership guard does not reduce other scanner certifications.
+func TestCheckpointedScannerWithoutPrefixFrontierRequirementKeepsReuse(t *testing.T) {
+	source := []byte("SELECT $q$first$q$ AS first;\nSELECT $q$second$q$ AS second;\n")
+	lang := grammars.SqlLanguage()
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	oldTree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatalf("old SQL parse: %v", err)
+	}
+	defer oldTree.Release()
+	requireSQLAcceptedEOF(t, oldTree, source, "old")
+
+	edited, edit := replacePrefixFrontierWitness(t, source, []byte("first"), []byte("firstx"))
+	oldTree.Edit(edit)
+	incremental, profile, err := parser.ParseIncrementalProfiled(edited, oldTree)
+	if err != nil {
+		t.Fatalf("incremental SQL parse: %v", err)
+	}
+	defer incremental.Release()
+	if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute ||
+		profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
+		t.Fatalf("SQL prefix edit lost certified reuse: %+v", profile)
+	}
+	requireSQLAcceptedEOF(t, incremental, edited, "incremental")
+
+	freshParser := gts.NewParser(lang)
+	freshParser.SetAdmissionCandidateRoute(false)
+	fresh, err := freshParser.Parse(edited)
+	if err != nil {
+		t.Fatalf("fresh SQL parse: %v", err)
+	}
+	defer fresh.Release()
+	requireSQLAcceptedEOF(t, fresh, edited, "fresh")
+	requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
 }
 
 // TestCheckpointedScannerPrefixFrontierCatchesSuffixDelete covers the

@@ -39,6 +39,14 @@ func languageUsesExternalScannerCheckpoints(lang *Language) bool {
 	return ok && checkpointed.UsesExternalScannerCheckpoints()
 }
 
+func languageRequiresExternalScannerPrefixFrontierProof(lang *Language) bool {
+	if lang == nil || lang.ExternalScanner == nil {
+		return false
+	}
+	prefixSensitive, ok := lang.ExternalScanner.(IncrementalPrefixFrontierExternalScanner)
+	return ok && prefixSensitive.RequiresIncrementalPrefixFrontierProof()
+}
+
 func languageAllowsCheckpointlessExternalReuse(lang *Language) bool {
 	if lang == nil || lang.ExternalScanner == nil {
 		return false

@@ -1006,6 +1006,10 @@ type ParseRuntime struct {
 	// usually discarded) against their own corpora, e.g. by walking a tree of
 	// known-valid source files and counting how often this is true.
 	CRecoverySwallowedErrorFallbackAttempted bool
+	// CompactExternalScannerCheckpointTransferProven reports whether compact
+	// materialization transferred every required scanner checkpoint into node
+	// sidecars. A false value disables later subtree reuse for that tree.
+	CompactExternalScannerCheckpointTransferProven bool
 	// CRecoverReductionCandidateCeilingHits and CRecoverMissingTokenCeilingHits
 	// count how many times this parse's cDoAllPotentialReductions /
 	// cHandleError missing-token search hit the
@@ -1245,15 +1249,11 @@ type ParseRuntime struct {
 	ReduceTiming                                  *ParseReduceTiming
 	ActionTiming                                  *ParseActionTiming
 
-	ExternalScannerCheckpointRecords        uint64
-	ExternalScannerCheckpointSlotsAllocated uint64
-	ExternalScannerCheckpointBytesAllocated int64
-	ExternalScannerSnapshotBytesAllocated   uint64
-	ExternalScannerCheckpointLeafNodes      uint64
-	// CompactExternalScannerCheckpointTransferProven reports whether compact
-	// materialization transferred every required scanner checkpoint into node
-	// sidecars. A false value disables later subtree reuse for that tree.
-	CompactExternalScannerCheckpointTransferProven   bool
+	ExternalScannerCheckpointRecords                 uint64
+	ExternalScannerCheckpointSlotsAllocated          uint64
+	ExternalScannerCheckpointBytesAllocated          int64
+	ExternalScannerSnapshotBytesAllocated            uint64
+	ExternalScannerCheckpointLeafNodes               uint64
 	CompactFullLeafCreated                           uint64
 	CompactFullLeafMaterialized                      uint64
 	CompactFullLeafMaterializedForParentReduce       uint64

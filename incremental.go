@@ -83,7 +83,7 @@ type reuseCursor struct {
 	// candidates that have exact scanner bytes but no proof that the recorded
 	// reduction owned the live parser frontier. Leaves use their independent
 	// shift and checkpoint checks; non-leaves stay barred until that proof exists.
-	rejectFrontierProofUnavailable uint64
+	rejectFrontierProofUnavailable uint32
 	forestFastPath                 bool
 	// compactMaterialized marks old trees whose node states came from compact
 	// replay. Checkpoint snapshots authenticate scanner state, but they do not
