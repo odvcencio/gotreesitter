@@ -609,6 +609,24 @@ func (s *glrStack) ensureGSS(scratch *gssScratch) {
 	}
 }
 
+// ensureGSSForMergeStaging builds a temporary graph without topology hooks.
+// Mixed-representation preflight may reject the pair, so staging must not
+// publish a promotion for a stack that remains flat after the call.
+func (s *glrStack) ensureGSSForMergeStaging(scratch *gssScratch) {
+	if s == nil || s.gss.head != nil || len(s.entries) == 0 {
+		return
+	}
+	var staged gssStack
+	for i, entry := range s.entries {
+		depth := uint32(i + 1)
+		if depth == 0 {
+			panic("glrStack.ensureGSSForMergeStaging: stack depth overflow")
+		}
+		staged.head = scratch.allocNode(entry, staged.head, depth)
+	}
+	s.gss = staged
+}
+
 // conflictForkBase promotes the live stack before it copies the fork base.
 // The original and each clone share one head until their first mutation.
 func (s *glrStack) conflictForkBase(scratch *gssScratch) glrStack {
@@ -3546,6 +3564,28 @@ func gssMainCanMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
 }
 
+// gssStackCleanZeroErrorAllLinksWithScratch applies the GSS clean-zero gate
+// to either representation. The flat path scans entries without allocating
+// staging nodes, so rejected mixed pairs do not consume GSS scratch capacity.
+func gssStackCleanZeroErrorAllLinksWithScratch(scratch *glrMergeScratch, stack *glrStack) bool {
+	if stack == nil {
+		return false
+	}
+	if stack.gss.head != nil {
+		return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, stack.gss.head)
+	}
+	if scratch != nil && scratch.provesNoChildErrors() {
+		return true
+	}
+	for _, entry := range stack.entries {
+		if stackEntryHasNode(entry) &&
+			(stackEntryNodeHasError(entry) || stackEntryNodeIsMissing(entry) || stackEntryNodeSymbol(entry) == errorSymbol) {
+			return false
+		}
+	}
+	return true
+}
+
 func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, phase string) bool {
 	if a.gss.head == nil || b.gss.head == nil {
 		workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), phase, workCountConvergenceReasonNotGSS, "GSS merge requires packed heads", a, b)
@@ -5009,24 +5049,125 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		}
 		return false, false
 	}
-	if workCountInstrumentationEnabled {
-		if !gssMainCanMergeWithScratchPhase(scratch, &result[idx], stack, workCountConvergencePhaseBoundaryGSS) {
+	incumbentHeader := result[idx]
+	candidateHeader := *stack
+	// The physical GSS receiver can differ from the logical C survivor when
+	// the incumbent remains flat and the incoming candidate is already packed.
+	// Keep topology events in logical version order even when graph mutation
+	// uses the candidate as its receiver.
+	logicalTarget := &incumbentHeader
+	logicalCandidate := &candidateHeader
+	// Boundary merge candidates can arrive in different physical forms: one
+	// stack may still use contiguous entries while the other already owns a
+	// graph-structured stack (GSS). Check the mixed pair before staging it.
+	// A distinct-shape rejection must not mutate the flat survivor or publish a
+	// topology identity.
+	left, right := &result[idx], stack
+	var promoted glrStack
+	mixedRepresentation := false
+	candidateGSSReceiver := false
+	if scratch != nil && scratch.gssOwner != nil &&
+		((left.gss.head == nil) != (right.gss.head == nil)) {
+		mixedRepresentation = true
+		// Preserve the GSS gate order without allocating staging nodes. The
+		// score and recovery-cost gates ran above, so check the remaining
+		// status, position, and clean-zero conditions here.
+		if left.dead || right.dead || left.accepted != right.accepted {
+			if workCountInstrumentationEnabled {
+				workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, workCountConvergenceReasonStatus, "GSS merge status differs", left, right)
+			}
 			if mergeCensusEnabled {
-				mergeCensusRecordGateRefusal(scratch, &result[idx], stack)
+				mergeCensusRecordGateRefusal(scratch, left, right)
 			}
 			return false, false
 		}
-	} else if !gssMainCanMergeWithScratch(scratch, &result[idx], stack) {
+		if left.shifted != right.shifted {
+			if workCountInstrumentationEnabled {
+				workCountRecordGSSScoreShiftReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, left, right)
+			}
+			if mergeCensusEnabled {
+				mergeCensusRecordGateRefusal(scratch, left, right)
+			}
+			return false, false
+		}
+		if left.top().state != right.top().state || left.byteOffset != right.byteOffset {
+			if workCountInstrumentationEnabled {
+				workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, workCountConvergenceReasonStatus, "GSS merge state or byte differs", left, right)
+			}
+			if mergeCensusEnabled {
+				mergeCensusRecordGateRefusal(scratch, left, right)
+			}
+			return false, false
+		}
+		clean := gssStackCleanZeroErrorAllLinksWithScratch(scratch, left) &&
+			gssStackCleanZeroErrorAllLinksWithScratch(scratch, right)
+		if workCountInstrumentationEnabled {
+			workCountRecordGSSCleanReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, left, right, clean)
+		}
+		if !clean {
+			if mergeCensusEnabled {
+				mergeCensusRecordGateRefusal(scratch, left, right)
+			}
+			return false, false
+		}
+		if !compactPackedGSSVersionOrderEnabledForMerge(scratch) &&
+			(scratch == nil || scratch.perKeyCap != 1) &&
+			gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, left, right) {
+			if workCountInstrumentationEnabled {
+				workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", left, right)
+			}
+			if mergeCensusEnabled {
+				mergeCensusRecordDistinctShapes()
+			}
+			return false, true
+		}
+		// Promote the flat side once. Tagged builds use topology hooks here;
+		// production builds use an unbound graph because no receipt is active.
+		if left.gss.head == nil {
+			promoted = *left
+			if workCountInstrumentationEnabled {
+				promoted.ensureGSS(scratch.gssOwner)
+			} else {
+				promoted.ensureGSSForMergeStaging(scratch.gssOwner)
+			}
+			promoted.entries = nil
+			promoted.cacheEntries = false
+			// The incoming GSS head is the parser's already-packed ownership
+			// when the incumbent still has a flat representation. Keep it as
+			// the merge receiver, matching C's version-head ownership.
+			left, right = right, &promoted
+			candidateGSSReceiver = true
+		} else {
+			promoted = *right
+			if workCountInstrumentationEnabled {
+				promoted.ensureGSS(scratch.gssOwner)
+			} else {
+				promoted.ensureGSSForMergeStaging(scratch.gssOwner)
+			}
+			promoted.entries = nil
+			promoted.cacheEntries = false
+			right = &promoted
+		}
+	}
+	if workCountInstrumentationEnabled {
+		if !gssMainCanMergeWithScratchPhase(scratch, left, right, workCountConvergencePhaseBoundaryGSS) {
+			if mergeCensusEnabled {
+				mergeCensusRecordGateRefusal(scratch, left, right)
+			}
+			return false, false
+		}
+	} else if !gssMainCanMergeWithScratch(scratch, left, right) {
 		if mergeCensusEnabled {
-			mergeCensusRecordGateRefusal(scratch, &result[idx], stack)
+			mergeCensusRecordGateRefusal(scratch, left, right)
 		}
 		return false, false
 	}
-	if !compactPackedGSSVersionOrderEnabledForMerge(scratch) &&
+	if !mixedRepresentation &&
+		!compactPackedGSSVersionOrderEnabledForMerge(scratch) &&
 		(scratch == nil || scratch.perKeyCap != 1) &&
-		gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, &result[idx], stack) {
+		gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, left, right) {
 		if workCountInstrumentationEnabled {
-			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", &result[idx], stack)
+			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", left, right)
 		}
 		if mergeCensusEnabled {
 			mergeCensusRecordDistinctShapes()
@@ -5034,23 +5175,51 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		return false, true
 	}
 	if workCountInstrumentationEnabled {
-		workCountTopologyRecordMergeBeforeMutation(&result[idx], stack) // work-count-assembly: topology boundary-merge success seam
+		workCountTopologyRecordMergeBeforeMutation(logicalTarget, logicalCandidate) // work-count-assembly: topology boundary-merge success seam
 		topologyRecorded = true
-		merged = workCountMergeGSSObserved(workCountParserFromMergeScratch(scratch), scratch, workCountConvergencePhaseBoundaryGSS, "boundary merge", &result[idx], stack)
+		detail := "boundary merge"
+		if mixedRepresentation {
+			detail = "boundary mixed-representation merge"
+		}
+		merged = workCountMergeGSSObserved(workCountParserFromMergeScratch(scratch), scratch, workCountConvergencePhaseBoundaryGSS, detail, left, right)
 		workCountTopologyRequireMergeSuccess(merged)
-		workCountTopologyCommitMerge(stack)
+		if merged {
+			// Commit the logical candidate removal. The physical receiver may be
+			// the candidate GSS stack, but the incumbent version remains the result.
+			workCountTopologyCommitMerge(logicalCandidate)
+			// The caller drops this candidate after a successful merge. Clear its
+			// stack token too, so later cleanup cannot resolve a retired version.
+			workCountTopologyClearVersion(stack)
+		}
 	} else {
-		merged = gssMainMergeWithScratch(scratch, &result[idx], stack)
+		merged = gssMainMergeWithScratch(scratch, left, right)
 	}
 	if merged {
+		if candidateGSSReceiver {
+			// The physical candidate supplied the graph receiver, but C keeps the
+			// incumbent stack metadata and version slot as the logical survivor.
+			result[idx] = incumbentHeader
+			result[idx].gss = left.gss
+			// Keep one authoritative physical representation. The incoming GSS
+			// stack may retain a mirror entry cache, but it belongs to the absorbed
+			// producer path rather than the incumbent logical survivor.
+			result[idx].entries = nil
+			result[idx].cacheEntries = false
+			result[idx].byteOffset = left.byteOffset
+			result[idx].invalidateCEntryAgg()
+			result[idx].cEverErrored = incumbentHeader.cEverErrored || candidateHeader.cEverErrored
+			if workCountInstrumentationEnabled {
+				// Rebind the surviving logical version to the physical graph receiver.
+				// The merge event uses the flat incumbent header before mutation.
+				workCountTopologyCommitVersion(&result[idx])
+			}
+		} else {
+			result[idx].cEverErrored = incumbentHeader.cEverErrored || candidateHeader.cEverErrored
+		}
 		workCountRecordMergeSuccess()
 		if mergeCensusEnabled {
 			mergeCensusRecordSuccess()
 		}
-		// result[idx] survives and absorbs stack, so OR the sticky wreckage bit:
-		// a clean survivor that merges a recovered-wreckage lineage must inherit
-		// its error history (see glrStack.cEverErrored / tryGSSMainMergeForParser).
-		result[idx].cEverErrored = result[idx].cEverErrored || stack.cEverErrored
 		if scratch != nil {
 			// A successful main merge can rewrite link 0 (prev/entry) of surviving
 			// nodes (setGSSMainLink), so every cached spine prefix may be stale.
@@ -5209,7 +5378,8 @@ func mergeStacksSmallForLanguage(alive []glrStack, scratch *glrMergeScratch, lan
 			if mergeKeyForStack(&result[j]) != key {
 				continue
 			}
-			if merged, attempted := tryGSSMainMergeResult(scratch, result, j, &stack); attempted {
+			merged, attempted := tryGSSMainMergeResult(scratch, result, j, &stack)
+			if attempted {
 				if merged {
 					traceCRecoverMergeDecision(scratch, "small", "gss-merged", &result[j], &stack)
 					duplicateIndex = j

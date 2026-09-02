@@ -1102,6 +1102,37 @@ Reopen retirement only after all of these conditions pass:
 
 Keep the registry entry unchanged until every condition passes.
 
+## 2026-09-02 Python dispatcher certification update
+
+Status: `PARTIAL-GO`. The compact route matches locked C on all three current blocker witnesses. Keep `dispatch.python` live.
+
+Candidate base commit: `06afb3c881d4064bf367f970614e5120ec0abbfd`.
+This update adds mixed physical graph-head merging and C-ordered clean-tie
+selection for the exact Python grammar artifact.
+
+| Witness | Raw | Production | Compact | Incremental | Forest |
+| --- | --- | --- | --- | --- | --- |
+| `assignment_bare_tuple_positive` | `577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622` | `577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622` | `577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622` | `577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622` | `577a8b7b9281fa12c48dfa239a977c82f3a94e3d248253663c4a6fafc9121622` |
+| `fstring_interpolation_bare_tuple_recovery_gap` | `84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07` | `84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07` | `84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07` | `84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07` | `84c987ddc73cc06bcc63e0cc860ecaa58560a46db882c775815ecb8867f95c07` |
+| `fstring_interpolation_splat_recovery_gap` | `e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9` | `e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9` | `e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9` | `e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9` | `102ebedd10a3864a2640cb293f541e42f63b4f1ce3d60c9f219d7088b4f484c6` |
+
+The compact counters advance by `1/0` for each witness. No compact fallback occurs.
+The forest splat result remains a `pattern_list` instead of C's `expression_list`.
+This forest-only gap stays outside the compact route gate.
+
+Incremental parsing now preserves authenticated scanner reuse on all three
+witnesses. Each route reports `reuse=true` and no unsupported reason.
+
+The generated Python corpus from the pinned grammar source also passes the A3
+sweep: `real=3`, `constructed=30`, `total=33`, with zero divergences. The
+external corpus-source lock remains unavailable, so this is not a release
+certification receipt.
+
+Keep the historical 2026-08-24 receipt below unchanged.
+
+Reopen the retirement review after the forest splat tie has a separate proof,
+the authenticated corpus becomes available, and every route passes again.
+
 ## 2026-08-24 Python dispatcher blocker receipt
 
 Status: `NO-GO`. Keep `dispatch.python` live.

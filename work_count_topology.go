@@ -1935,6 +1935,12 @@ func workCountTopologyCommitMerge(candidate *glrStack) {
 	candidate.diagnosticTopology.versionID = 0
 }
 
+func workCountTopologyClearVersion(stack *glrStack) {
+	if stack != nil {
+		stack.diagnosticTopology.versionID = 0
+	}
+}
+
 func workCountTopologyRequireMergeSuccess(merged bool) {
 	if s := activeDiagnosticTopology; s != nil && !merged {
 		s.receipt.IdentityIncomplete = true

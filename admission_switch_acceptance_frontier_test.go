@@ -12,7 +12,10 @@ import (
 )
 
 func TestAdmissionCandidateCertifiedAcceptanceFrontiers(t *testing.T) {
-	for _, name := range []string{"http", "meson", "robot"} {
+	// Meson has an artifact-certified C structural election. Its compact tree
+	// intentionally differs from Go's historical production tree and is
+	// covered by the locked-C parity test in cgo_harness.
+	for _, name := range []string{"http", "robot"} {
 		t.Run(name, func(t *testing.T) {
 			entry := grammars.DetectLanguageByName(name)
 			if entry == nil {

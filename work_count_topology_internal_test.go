@@ -3,6 +3,7 @@
 package gotreesitter
 
 import (
+	"strings"
 	"testing"
 	"unsafe"
 )
@@ -27,6 +28,212 @@ func TestDiagnosticTopologyReceiptBoundsChronologicalPrefix(t *testing.T) {
 	firstDigest, secondDigest := receipt.SHA256(), receipt.SHA256()
 	if firstDigest == "" || firstDigest != secondDigest {
 		t.Fatal("receipt digest is empty or unstable")
+	}
+}
+
+func TestDiagnosticTopologyMixedBoundaryMergeKeepsLogicalSurvivor(t *testing.T) {
+	BeginDiagnosticWorkCount()
+	BeginDiagnosticTopologyReceipt()
+	token := workCountBeginParseAttempt(6, 1024, 6)
+	if token == 0 {
+		t.Fatal("zero parse-attempt token")
+	}
+
+	node := NewLeafNode(11, true, 0, 5, Point{}, Point{Column: 5})
+	entries := []stackEntry{{state: 1}, newStackEntryNode(7, node)}
+	incumbent := glrStack{entries: append([]stackEntry(nil), entries...), byteOffset: 5}
+	candidate := glrStack{entries: append([]stackEntry(nil), entries...), byteOffset: 5}
+	workCountTopologyRecordInitialVersion(&incumbent)
+	workCountTopologyRecordVersionCopy(&incumbent, &candidate)
+	incumbentID := incumbent.diagnosticTopology.versionID
+	candidateID := candidate.diagnosticTopology.versionID
+	if incumbentID == 0 || candidateID == 0 || incumbentID >= candidateID {
+		t.Fatalf("logical version IDs = %d/%d, want incumbent before candidate", incumbentID, candidateID)
+	}
+
+	var owner gssScratch
+	candidate.ensureGSS(&owner)
+	candidate.entries = nil
+	candidate.cacheEntries = false
+	if candidate.gss.head == nil || candidate.entries != nil {
+		t.Fatalf("candidate did not enter the packed representation: head=%p entries=%d", candidate.gss.head, len(candidate.entries))
+	}
+	ownerUsedBefore := owner.usedTotal
+	graphLinksBefore := activeDiagnosticWorkCount.GraphLinkAdditionsProxy
+
+	scratch := glrMergeScratch{gssOwner: &owner}
+	scratch.beginEquivEpoch()
+	result := []glrStack{incumbent}
+	merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &candidate)
+	if !attempted || !merged {
+		t.Fatalf("mixed boundary merge attempted=%v merged=%v, want true/true", attempted, merged)
+	}
+	if got := result[0].diagnosticTopology.versionID; got != incumbentID {
+		t.Fatalf("physical receiver replaced logical survivor: result version=%d, want %d", got, incumbentID)
+	}
+	if candidate.diagnosticTopology.versionID != 0 {
+		t.Fatalf("absorbed candidate retained a retired stack token: version=%d", candidate.diagnosticTopology.versionID)
+	}
+	if _, ok := activeDiagnosticTopology.versions[candidateID]; ok {
+		t.Fatalf("absorbed candidate version %d remains active", candidateID)
+	}
+	if _, ok := activeDiagnosticTopology.versions[incumbentID]; !ok {
+		t.Fatalf("logical incumbent version %d was retired", incumbentID)
+	}
+	if got := activeDiagnosticTopology.versions[incumbentID].head; got != result[0].gss.head {
+		t.Fatalf("logical incumbent version head=%p, want physical receiver=%p", got, result[0].gss.head)
+	}
+	if got, want := owner.usedTotal, ownerUsedBefore+len(entries); got != want {
+		t.Fatalf("successful mixed promotion used=%d GSS nodes, want one flat-depth allocation: %d", got, want)
+	}
+
+	workCountResolveParseAttempt(token, 6, false, 6, 6, 1024, 1024)
+	workCountBeginFinalizeParseAttempt(token)
+	workCountEndFinalizeParseAttempt(token, ParseStopAccepted, nil)
+	counts := EndDiagnosticWorkCount()
+	receipt := EndDiagnosticTopologyReceipt()
+	if !receipt.Complete() {
+		t.Fatalf("mixed boundary topology receipt is incomplete: %+v", receipt)
+	}
+	var mergeEvent *DiagnosticTopologyEvent
+	for i := range receipt.Events {
+		event := &receipt.Events[i]
+		if event.Kind == DiagnosticTopologyEventMerge {
+			mergeEvent = event
+			break
+		}
+	}
+	if mergeEvent == nil || mergeEvent.SourceVersionID != incumbentID || mergeEvent.TargetVersionID != candidateID || mergeEvent.RemovedVersionID != candidateID || mergeEvent.SurvivorVersionID != incumbentID {
+		t.Fatalf("mixed boundary logical merge event = %+v, want incumbent %d absorbing candidate %d", mergeEvent, incumbentID, candidateID)
+	}
+	foundMixedTelemetry := false
+	for _, event := range counts.Convergence.Events {
+		if strings.Contains(event.Detail, "boundary mixed-representation merge") && event.Outcome == workCountConvergenceOutcomePacked {
+			foundMixedTelemetry = true
+			break
+		}
+	}
+	if !foundMixedTelemetry {
+		t.Fatalf("mixed boundary convergence telemetry missing: %+v", counts.Convergence.Events)
+	}
+	if got, want := counts.GraphLinkAdditionsProxy-graphLinksBefore, uint64(1); got != want {
+		t.Fatalf("successful mixed promotion graph-link work=%d, want one promotion link", got)
+	}
+}
+
+func TestDiagnosticTopologyMixedDistinctShapeRejectDoesNotPromote(t *testing.T) {
+	BeginDiagnosticWorkCount()
+	BeginDiagnosticTopologyReceipt()
+	finished := false
+	defer func() {
+		if finished {
+			return
+		}
+		if activeDiagnosticWorkCount != nil {
+			workCountResolveParseAttempt(1, 2, false, 2, 2, 1, 1024)
+			workCountBeginFinalizeParseAttempt(1)
+			workCountEndFinalizeParseAttempt(1, ParseStopAccepted, nil)
+			_ = EndDiagnosticWorkCount()
+		}
+		if activeDiagnosticTopology != nil {
+			_ = EndDiagnosticTopologyReceipt()
+		}
+	}()
+	token := workCountBeginParseAttempt(2, 1024, 2)
+	if token == 0 {
+		t.Fatal("zero parse-attempt token")
+	}
+
+	arena := newNodeArena(arenaClassFull)
+	parser := &Parser{}
+	makeShape := func(childSymbol Symbol) *Node {
+		child := NewLeafNode(childSymbol, true, 0, 5, Point{}, Point{Column: 5})
+		parent := NewParentNode(300, true, []*Node{child}, nil, 0)
+		parent.parseState = 7
+		parent.rawShape = parser.captureRawShape(
+			nil,
+			arena,
+			parent.symbol,
+			parent.productionID,
+			[]stackEntry{newStackEntryNode(parent.parseState, child)},
+			0,
+			1,
+		)
+		return parent
+	}
+	incumbentNode := makeShape(11)
+	candidateNode := makeShape(12)
+	incumbentEntries := []stackEntry{{state: 1}, newStackEntryNode(7, incumbentNode)}
+	candidateEntries := []stackEntry{{state: 2}, newStackEntryNode(7, candidateNode)}
+	incumbent := glrStack{entries: incumbentEntries, byteOffset: 5, branchOrder: 11}
+	candidate := glrStack{entries: candidateEntries, byteOffset: 5, branchOrder: 22}
+	workCountTopologyRecordInitialVersion(&incumbent)
+	workCountTopologyRecordVersionCopy(&incumbent, &candidate)
+	incumbentID := incumbent.diagnosticTopology.versionID
+	candidateID := candidate.diagnosticTopology.versionID
+	if incumbentID == 0 || candidateID == 0 {
+		t.Fatalf("logical version IDs = %d/%d, want nonzero IDs", incumbentID, candidateID)
+	}
+
+	var owner gssScratch
+	candidate.ensureGSS(&owner)
+	candidate.entries = nil
+	candidate.cacheEntries = false
+	candidateHead := candidate.gss.head
+	if candidateHead == nil {
+		t.Fatal("candidate did not enter the packed representation")
+	}
+	nodeCountBefore := len(activeDiagnosticTopology.nodeIDs)
+	ownerUsedBefore := owner.usedTotal
+	versionHeadBefore := activeDiagnosticTopology.versions[candidateID].head
+	promotionBefore := activeDiagnosticTopology.promotion
+	if promotionBefore.versionID != 0 {
+		t.Fatalf("candidate promotion remained staged: %+v", promotionBefore)
+	}
+
+	lang := &Language{ExactStackNodeEquivalenceCertified: true}
+	scratch := glrMergeScratch{gssOwner: &owner, language: lang, arena: arena}
+	scratch.beginEquivEpoch()
+	result := []glrStack{incumbent}
+	merged, attempted := tryGSSMainMergeResult(&scratch, result, 0, &candidate)
+	if merged || !attempted {
+		t.Fatalf("distinct mixed shapes merge=%v attempted=%v, want false/true", merged, attempted)
+	}
+	if result[0].gss.head != nil || len(result[0].entries) != len(incumbentEntries) {
+		t.Fatalf("flat incumbent representation changed: head=%p entries=%d", result[0].gss.head, len(result[0].entries))
+	}
+	for i := range incumbentEntries {
+		if result[0].entries[i] != incumbentEntries[i] {
+			t.Fatalf("flat incumbent entry %d changed", i)
+		}
+	}
+	if candidate.gss.head != candidateHead || candidateHead.linkCount() != 1 {
+		t.Fatalf("packed candidate changed: head=%p links=%d", candidate.gss.head, candidateHead.linkCount())
+	}
+	if owner.usedTotal != ownerUsedBefore {
+		t.Fatalf("rejected mixed staging consumed GSS scratch nodes: used=%d/%d", owner.usedTotal, ownerUsedBefore)
+	}
+	if len(activeDiagnosticTopology.nodeIDs) != nodeCountBefore || activeDiagnosticTopology.promotion.versionID != 0 {
+		t.Fatalf("rejected mixed staging changed topology allocation state: nodes=%d/%d promotion=%+v", len(activeDiagnosticTopology.nodeIDs), nodeCountBefore, activeDiagnosticTopology.promotion)
+	}
+	if activeDiagnosticTopology.versions[candidateID].head != versionHeadBefore {
+		t.Fatal("rejected mixed staging rebound the candidate version head")
+	}
+	if incumbent.diagnosticTopology.versionID != incumbentID || candidate.diagnosticTopology.versionID != candidateID || result[0].diagnosticTopology.versionID != incumbentID {
+		t.Fatalf("rejected mixed staging changed version identities: incumbent=%d candidate=%d result=%d", incumbent.diagnosticTopology.versionID, candidate.diagnosticTopology.versionID, result[0].diagnosticTopology.versionID)
+	}
+	if activeDiagnosticTopology.receipt.IdentityIncomplete || activeDiagnosticTopology.receipt.IdentityCollision {
+		t.Fatalf("rejected mixed staging damaged topology identity: incomplete=%v collision=%v", activeDiagnosticTopology.receipt.IdentityIncomplete, activeDiagnosticTopology.receipt.IdentityCollision)
+	}
+
+	workCountResolveParseAttempt(token, 2, false, 2, 2, 1, 1024)
+	workCountBeginFinalizeParseAttempt(token)
+	workCountEndFinalizeParseAttempt(token, ParseStopAccepted, nil)
+	_ = EndDiagnosticWorkCount()
+	receipt := EndDiagnosticTopologyReceipt()
+	finished = true
+	if !receipt.Complete() {
+		t.Fatalf("distinct-shape rejection receipt is incomplete: %+v", receipt)
 	}
 }
 
