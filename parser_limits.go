@@ -5,10 +5,6 @@ import (
 	"sync/atomic"
 )
 
-func parseIterations(sourceLen int) int {
-	return max(10_000, sourceLen*30)
-}
-
 func parseIterationsForLanguage(sourceLen int, lang *Language) int {
 	perByte := 30
 	if lang != nil {
