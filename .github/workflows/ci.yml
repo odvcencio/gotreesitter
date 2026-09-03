@@ -107,6 +107,375 @@ jobs:
             -run '^(TestAdmissionCandidateScorecard206|TestAdmissionSwitchRoutePrecedenceRatchet|TestAdmissionCandidateYAMLZeroWidthDepth|TestAdmissionCandidateRepresentativeDepthRatchet|TestAdmissionCompactTreeCarriesIncrementalReuseProof|TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape|TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite|TestCompatTailElisionEquivalenceSmokeExhaustive)$' \
             -count=1 -timeout 10m
 
+  phase0_tagged_suite:
+    # gts_parsercorephase0-tagged root-package tests reachable by no other
+    # CI lane. docs/ci-gate-coverage.md (2026-08-02) found 277 tagged
+    # top-level functions with only about a dozen executed by the two narrow
+    # -run allow-lists above (selected_store_admission,
+    # compact_admission_ratchet) plus the compact-per-version-lexer-scala
+    # docker lane. This job runs most of the remainder (issue #1052).
+    needs: exhaustive_parity_scope
+    if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Tagged root-package tests outside the narrow allow-lists
+        # The 322 names below passed, or skipped on a missing fixture or
+        # env var, in a full-set local measurement (1 process, 86.6s wall,
+        # 1.5 GiB max RSS). One name per line keeps the diff reviewable; the
+        # script below joins them into one anchored -run regex at run time,
+        # the same allow-list convention the two lanes above use. -timeout
+        # is set to roughly twice the measured wall time.
+        #
+        # 12 tagged tests are excluded, not fixed here (out of scope for
+        # this maintenance lane; see docs/ci-gate-coverage.md Part 4):
+        #   TestAdmissionCandidateElmHighlightDirect: digest mismatch (Elm highlight)
+        #   TestAdmissionCandidateExactExternalPayloadCorpus: kotlin/perl blocker-text mismatch
+        #   TestDiagnosticParserCoreConflictAllUnchangedPauses: conflict creation sequence overflow
+        #   TestDiagnosticParserCoreConflictFiltersUnchangedArm: conflict creation sequence overflow
+        #   TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing: no_action drop coverage mismatch (before-accept)
+        #   TestDiagnosticParserCoreGenericSchedulerClosesAtRequestedByte: scheduler work-counter mismatch
+        #   TestDiagnosticParserCoreGenericSchedulerContinuesToNextRequestedClosedByte: continuation-result mismatch
+        #   TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort: brace-baseline mismatch
+        #   TestDiagnosticParserCoreGenericSchedulerCrossesReductionFreshnessCycle: byte-closure mismatch
+        #   TestDiagnosticParserCoreStateDependentRelexKeepsExactSpanBranch: no_action drop coverage mismatch
+        #   TestG18DropPathRejectsForeignInlineRED: RED — foreign inline lineage certified a current-arena drop
+        #   TestG18D6aProducerTelemetry: order-dependent — fails only inside this full set (D3 pool baseline drift)
+        run: |
+          set -euo pipefail
+          tests='
+          TestAdmissionCandidateBoundedRecursiveInsertionCorpus
+          TestAdmissionCandidateCooklangSmokeRatchet
+          TestAdmissionCandidateDFASmokeMatchesPreferredTokenSource
+          TestAdmissionCandidateGraphQLRootFieldsDirect
+          TestAdmissionCandidateNoLookaheadSmokeRatchet
+          TestAdmissionCandidateRealCorpusMatrix
+          TestAdmissionCandidateScorecardExactDenominator
+          TestAdmissionCandidateSvelteButtonDirect
+          TestAdmissionCandidateTokenSourceEntriesExposeDFASmoke
+          TestAdmissionRouteEqualitySwiftCloseAngleDeferralWitnessesStillFallBack
+          TestAdmissionScorecardLabelsProductionErrorTree
+          TestAdmissionSwitchCandidateDigestMatchesProduction
+          TestAdmissionSwitchEligibilityFailsClosedForReuse
+          TestAdmissionSwitchGrammargenLRRoutesCompactByDefault
+          TestAdmissionSwitchParseIncrementalNeverRoutes
+          TestAdmissionSwitchParseProductionWhenOff
+          TestAdmissionSwitchParseRoutesCandidateWhenOn
+          TestAdmissionSwitchRecoveryDoesNotLeakCompactTree
+          TestB4bV2OptInDeciderDifferentialCanonicalFixtures
+          TestB4bV2OptInDeciderDifferentialCertifiedLanguages
+          TestB4bV2OptInDeciderDifferentialErlangProbes
+          TestB4bV2OptInDeciderDifferentialKotlinWitness
+          TestB4bV2OptInDeciderDifferentialSmokeCorpus
+          TestCompactCheckpointedScannerPrefixFrontierFallbackAvoidsCandidateWalk
+          TestCompactJavaScriptErrorModeKeywordCaptureRequiresArtifact
+          TestCompactJavaScriptErrorModeKeywordCaptureSelectsAbsorbLineage
+          TestCompactJavaScriptRetiresTrailingRecoveryLineage
+          TestCompactJavaScriptSelectedAbsorbAliasRequiresRule
+          TestCompactJavaScriptTrailingRecoveryRetirementRequiresArtifact
+          TestCompactMaterializedFragileBitReachesPublicNode
+          TestCompactMaterializedTreeBarsIncrementalReuse
+          TestCompactRouteSwiftShiftComparisonGapIsNotATilingDefect
+          TestCompactSchedulerDeclinesContextualCloseAngleDeferralWithDistinctDetail
+          TestD2SpanUnlockedDisableOptionMatchesLegacyBehavior
+          TestD2SpanUnlockedRaggedRelexDeclineDetailCarriesWiderTokenSpan
+          TestD2SpanUnlockedRelexTokenForStateFindsRaggedEndOnRealBashWitness
+          TestD2SpanUnlockedSameSpanRelexOnRealJavaScriptDivisionRegexWitness
+          TestD2SpanUnlockedSameSpanRelexStillShiftsRealBashInstallWitness
+          TestD2SpanUnlockedSchedulerActivatesOwnedLexerRequests
+          TestDiagnosticParserCoreB4bShadowCensusCanonicalReport
+          TestDiagnosticParserCoreB4bShadowCensusSmokeCorpusReport
+          TestDiagnosticParserCoreBoundaryIndexCensus
+          TestDiagnosticParserCoreCanonicalAdmissions
+          TestDiagnosticParserCoreCanonicalClearsDiscardedVersionStateTail
+          TestDiagnosticParserCoreCanonicalGroupsReleaseSnapshotKeysOnNarrowPaths
+          TestDiagnosticParserCoreCanonicalKeyAndGroupSnapshotsAreAccounted
+          TestDiagnosticParserCoreCanonicalScratchCollapsesCanonicalHeads
+          TestDiagnosticParserCoreCanonicalScratchDoesNotAliasPublishedOutput
+          TestDiagnosticParserCoreCanonicalScratchFreshRunnableDominance
+          TestDiagnosticParserCoreCanonicalScratchMappedSpillPreservesSemantics
+          TestDiagnosticParserCoreCanonicalScratchPreservesLaterWinnerOrder
+          TestDiagnosticParserCoreCanonicalScratchSingleHeaderFailureDoesNotPublish
+          TestDiagnosticParserCoreCanonicalScratchSingleHeaderRemapsAndPublishesFresh
+          TestDiagnosticParserCoreCanonicalScratchSteadyStateDoesNotAllocate
+          TestDiagnosticParserCoreCanonicalScratchSteadyStateSingleHeaderDoesNotAllocate
+          TestDiagnosticParserCoreCanonicalVersionLexerSnapshotIdentity
+          TestDiagnosticParserCoreCanonicalizeRunnableDominatesPaused
+          TestDiagnosticParserCoreCheckpointCompactLayoutsAMD64
+          TestDiagnosticParserCoreConflictPostExecutionFailureRollsBack
+          TestDiagnosticParserCoreConflictScratchClearsDiscardedVersionStateTail
+          TestDiagnosticParserCoreConflictSecondaryUpdateAdoptsActiveSibling
+          TestDiagnosticParserCoreConflictUpdatedOutputPreservesSuffixIdentity
+          TestDiagnosticParserCoreConvergedCoverageDropsV1OverflowedDroppedFailsClosed
+          TestDiagnosticParserCoreConvergedCoverageDropsV1Proof
+          TestDiagnosticParserCoreConvergedCoverageDropsV1ProofAllocations
+          TestDiagnosticParserCoreConvergedCoverageDropsV2BlendedVetoFiredDetail
+          TestDiagnosticParserCoreConvergedCoverageDropsV2OverflowedDroppedFailsClosed
+          TestDiagnosticParserCoreConvergedCoverageDropsV2Proof
+          TestDiagnosticParserCoreConvergedCoverageDropsV2ProofAllocations
+          TestDiagnosticParserCoreDescriptorAdmitsZeroWidthOrdinaryShift
+          TestDiagnosticParserCoreDescriptorPreservesUnsupportedOrdinalOrdering
+          TestDiagnosticParserCoreDescriptorValidatesCompleteFrontierBeforeDispatch
+          TestDiagnosticParserCoreDispatchScratchCleansAfterConflictRollback
+          TestDiagnosticParserCoreDispatchScratchCleansAfterPanicAndRetries
+          TestDiagnosticParserCoreDispatchScratchCleansNoActionReturn
+          TestDiagnosticParserCoreDispatchScratchDoesNotAliasFullReceipts
+          TestDiagnosticParserCoreDispatchScratchKeepsGroupElectionPauseAsNoAction
+          TestDiagnosticParserCoreDispatchScratchRejectsReentryBeforeCountersAndRetries
+          TestDiagnosticParserCoreDispatchScratchSteadyStateDoesNotAllocate
+          TestDiagnosticParserCoreElectionPreservesInvalidCheckpointDeclines
+          TestDiagnosticParserCoreElectionSummaryMatchesFullReceipt
+          TestDiagnosticParserCoreExternalShiftCarriesAlternativeSet
+          TestDiagnosticParserCoreExternalShiftInvalidatesLineage
+          TestDiagnosticParserCoreExternalVersionRelexDetectsStateOnlyDivergence
+          TestDiagnosticParserCoreExternalVersionRelexOwnsCheckpoint
+          TestDiagnosticParserCoreExternalVersionRelexRejectsIdentityDrift
+          TestDiagnosticParserCoreExternalVersionRelexRestoresAfterFailedScan
+          TestDiagnosticParserCoreGenericAcceptRequiresSoleFrontierBeforeMutation
+          TestDiagnosticParserCoreGenericConflictArbitraryNOrdering
+          TestDiagnosticParserCoreGenericConflictArenaCapsRollback
+          TestDiagnosticParserCoreGenericConflictIgnoresNoArmsWhenRepetitionDeclinesCell
+          TestDiagnosticParserCoreGenericConflictMultiOutputSequencing
+          TestDiagnosticParserCoreGenericConflictPolicyRequiresExactRow
+          TestDiagnosticParserCoreGenericConflictPolicySelectsRepetitionReduce
+          TestDiagnosticParserCoreGenericConflictPolicySelectsRepetitionShift
+          TestDiagnosticParserCoreGenericConflictRejectsUnsupportedArmBeforeMutation
+          TestDiagnosticParserCoreGenericExtraConflictFailsPreflight
+          TestDiagnosticParserCoreGenericExtraPostExecutionFailureRollsBack
+          TestDiagnosticParserCoreGenericExtraRejectsMixedFrontier
+          TestDiagnosticParserCoreGenericMultiHeadExtraSharesPayload
+          TestDiagnosticParserCoreGenericReductionPauseIsFinite
+          TestDiagnosticParserCoreGenericReductionSequenceOverflowRollsBack
+          TestDiagnosticParserCoreGenericReductionUnchangedDistinctLexerSnapshotFailsClosedBeforePhysicalMerge
+          TestDiagnosticParserCoreGenericReductionUnchangedEqualSnapshotDoesNotDuplicatePhysicalHead
+          TestDiagnosticParserCoreGenericRepetitionFoldMatchesProductionScope
+          TestDiagnosticParserCoreGenericRepetitionFoldReducesWithoutFork
+          TestDiagnosticParserCoreGenericRepetitionForkMatchesProductionOptOut
+          TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite
+          TestDiagnosticParserCoreGenericSchedulerCrossesFirstShallowLinkCap
+          TestDiagnosticParserCoreGenericSchedulerRejectsOvershotClosedByte
+          TestDiagnosticParserCoreGenericSeedConstructorFailsClosed
+          TestDiagnosticParserCoreGenericSingleExtraPreservesPayloadAndState
+          TestDiagnosticParserCoreGenericWorkSaturatesCausalCounters
+          TestDiagnosticParserCoreGenericZeroWidthExternalExtraAdvancesCheckpoint
+          TestDiagnosticParserCoreGenericZeroWidthExtraRequiresProgress
+          TestDiagnosticParserCoreHeaderPathsMarksBoundedObservation
+          TestDiagnosticParserCoreHeaderRollbackScratchRestoresAndReuses
+          TestDiagnosticParserCoreMappedCanonicalErrorReleasesVersionStateKeys
+          TestDiagnosticParserCoreMaterializationScratchPreservesCanonicalMetadataAndReuse
+          TestDiagnosticParserCoreMaterializationScratchPreservesUnaryCollapse
+          TestDiagnosticParserCoreMaterializationScratchRestoresParserAfterError
+          TestDiagnosticParserCoreMaterializationScratchReusesVaryingWidths
+          TestDiagnosticParserCoreNoActionClearsDiscardedVersionStateTail
+          TestDiagnosticParserCoreOwnedLexerActivationRollsBackAfterPanic
+          TestDiagnosticParserCoreOwnedLexerBindingRestoresAfterErrorAndPanic
+          TestDiagnosticParserCoreOwnedLexerDropsAuthenticatedPausedVersion
+          TestDiagnosticParserCoreOwnedLexerElectionEnforcesNoLookaheadCap
+          TestDiagnosticParserCoreOwnedLexerElectionEnforcesPostReductionEOF
+          TestDiagnosticParserCoreOwnedLexerNoLookaheadRequiresOneRunnableHead
+          TestDiagnosticParserCoreOwnedLexerRejoinRejectsMissingTokenSource
+          TestDiagnosticParserCoreOwnedLexerRejoinRestoresTokenSourceOnPhaseFailure
+          TestDiagnosticParserCoreOwnedLexerZeroWidthExtraRequiresProgress
+          TestDiagnosticParserCorePerVersionStateCloseDoesNotMutateSnapshot
+          TestDiagnosticParserCorePerVersionStateKeepsHeaderSize
+          TestDiagnosticParserCorePerVersionStatePublishesImmutableCopies
+          TestDiagnosticParserCorePerVersionStateRollbackRestoresCopy
+          TestDiagnosticParserCorePerVersionStateSetNilCloses
+          TestDiagnosticParserCorePointIndexCachesExactArbitraryOffsets
+          TestDiagnosticParserCorePointIndexPollsBeforeScanning
+          TestDiagnosticParserCorePointIndexRejectsCollidingOffset
+          TestDiagnosticParserCoreRecoverEOFAcceptHeaderTopologyRejectsUnsupportedProvenance
+          TestDiagnosticParserCoreRecoverEOFAcceptPayloadShapeAdmitsSingletonAndRejectsFragile
+          TestDiagnosticParserCoreRecoverEOFAcceptPriorityFreeProbesAreReadOnly
+          TestDiagnosticParserCoreRecoveryCollapseClearsDiscardedVersionStateTail
+          TestDiagnosticParserCoreRecoveryReductionForkPreservesMarkers
+          TestDiagnosticParserCoreReductionReplacementResetClearsStaleTail
+          TestDiagnosticParserCoreReductionSiblingAdoptionRequiresVersionLexerSnapshotIdentity
+          TestDiagnosticParserCoreReductionUnchangedDistinctLexerSnapshotIsRetained
+          TestDiagnosticParserCoreReplacementClearsDiscardedVersionStateTail
+          TestDiagnosticParserCoreRollbackClearsDiscardedVersionStateTail
+          TestDiagnosticParserCoreSameSpanRelexReconstructsExactToken
+          TestDiagnosticParserCoreSameSpanRelexRejectsTokenFieldChanges
+          TestDiagnosticParserCoreSchedulerFootprintCountsWideSharedVersionStates
+          TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden
+          TestDiagnosticParserCoreSeedPublicationRejectsMaterializationTransactionally
+          TestDiagnosticParserCoreSelectedLineageDropProof
+          TestDiagnosticParserCoreSelectedLineageProofAllocations
+          TestDiagnosticParserCoreSelectedStoreQueryMissingDeclines
+          TestDiagnosticParserCoreSelectedStoreQueryTraversalAllocations
+          TestDiagnosticParserCoreSummaryAcceptsExactQueryCompile
+          TestDiagnosticParserCoreSummaryConflictFailureRollsBack
+          TestDiagnosticParserCoreSummaryFailurePublishesNothing
+          TestDiagnosticParserCoreTokenCellDirectInvalidationLeavesStaleFieldsUntouched
+          TestDiagnosticParserCoreTokenCellMatchesElectedTokenAndCheckpoints
+          TestDiagnosticParserCoreTokenCellStartsInvalidAfterConstruction
+          TestDiagnosticParserCoreUpdatedReductionAdoptsActiveSibling
+          TestDiagnosticParserCoreVersionLexerElectionCaptureReusesScratch
+          TestDiagnosticParserCoreVersionLexerElectionReusesCheckpointSerialization
+          TestDiagnosticParserCoreVersionLexerElectionScratchFootprintAndReset
+          TestDiagnosticParserCoreVersionLexerElectionScratchPreservesZeroPayload
+          TestDiagnosticParserCoreVersionLexerProductionActivation
+          TestDiagnosticParserCoreVersionLexerRequestsOwnRaggedSpans
+          TestDiagnosticParserCoreVersionLexerSidecarFootprintAndReset
+          TestDiagnosticParserCoreVersionLexerSnapshotAcceptsEmptyCheckpointIDs
+          TestDiagnosticParserCoreVersionLexerSnapshotAcceptsSameContractIDZero
+          TestDiagnosticParserCoreVersionLexerSnapshotCloneDoesNotAlias
+          TestDiagnosticParserCoreVersionLexerSnapshotCopiesAllMutableState
+          TestDiagnosticParserCoreVersionLexerSnapshotFootprintDeduplicatesHeaderCopies
+          TestDiagnosticParserCoreVersionLexerSnapshotInterleavedErrorRunRestoration
+          TestDiagnosticParserCoreVersionLexerSnapshotPublicationCopiesPublishedState
+          TestDiagnosticParserCoreVersionLexerSnapshotPublicationPreservesRecoveryRegion
+          TestDiagnosticParserCoreVersionLexerSnapshotRejectsCrossCoreDestination
+          TestDiagnosticParserCoreVersionLexerSnapshotRejectsCrossLanguageDestination
+          TestDiagnosticParserCoreVersionLexerSnapshotRejectsScannerReplacement
+          TestDiagnosticParserCoreVersionLexerSnapshotRejectsUnrepresentableScannerState
+          TestDiagnosticParserCoreVersionLexerSnapshotRequiresOwnedCheckpointAccess
+          TestDiagnosticParserCoreVersionLexerSnapshotResetClearsRetainedHeaderBuffers
+          TestDiagnosticParserCoreVersionLexerSnapshotRestoreRestoresScannerAndGuards
+          TestDiagnosticParserCoreVersionLexerSnapshotRetirementClearsLoser
+          TestDiagnosticParserCoreVersionLexerSnapshotRollbackRestoresImmutablePointer
+          TestDiagnosticParserCoreVersionLexerSnapshotSurvivesPhaseChangesAndRejectsReset
+          TestDiagnosticParserCoreWarmBenchmarkPreflight
+          TestDispatchTokenClearsIsKeywordOnRelexedSymbolOverride
+          TestDispatchTokenPreservesIsKeywordWithoutRelexedSymbolOverride
+          TestG18AuthenticGenericReductionEstablishesProducerCohort
+          TestG18AuthenticProducerCanonicalizationCounters
+          TestG18CertificateActivationCachedParseBoundary
+          TestG18CertificateActivationDefaultOffAndNilSafe
+          TestG18CertificateActivationEligibilityIsolation
+          TestG18CertificateActivationIgnoresProductionRoute
+          TestG18CertificateActivationNestedOutOfOrderRestore
+          TestG18CertificateActivationRestoreIsolation
+          TestG18CertificateActivationRestoresCachedRunner
+          TestG18CertificateAdmissionOptionAdapterCompileContract
+          TestG18CurrentAdoptionAndConflictProducerPaths
+          TestG18CurrentCanonicalizerProducerPaths
+          TestG18D6aIncompletePublicationPreservesNaturalNoActionDecline
+          TestG18D6aKotlinControlsRemainNonCandidate
+          TestG18D6bDriverConsumesSyntheticValidFrontier
+          TestG18D6bDriverRejectsMutatedPublishedToken
+          TestG18D6bDriverRejectsQueryCompileIncompleteFrontier
+          TestG18D6bDriverRejectsZeroAndMixedSequences
+          TestG18D6bDriverVerificationIsDefaultOff
+          TestG18D6bGrammargenLRNoCommonDerivationFallsBack
+          TestG18D6cGrammargenLRFrontierDeclinesOnStateAndPublicProjectionMismatch
+          TestG18DropCohortFrontierDefaultOffHasNoAllocationOrStorage
+          TestG18DropPathRejectsBlendedSurvivor
+          TestG18DropPathRejectsForeignSpill
+          TestG18DropPathRejectsResetStaleSpill
+          TestG18DropPathRejectsUnprovedHistoricalImport
+          TestG18FrontierHeaderReplacementAndRollbackPropagation
+          TestG18FutureAdoptionCertificateTelemetryRED
+          TestG18FutureAtomicPreflightForEveryStoreRED
+          TestG18FutureCanonicalizerCertificateTelemetryRED
+          TestG18FutureConcurrentArenaOwnerAllocationRED
+          TestG18FutureDerivationFullRecordEqualityRED
+          TestG18FutureEveryActionIdentityFieldRED
+          TestG18FutureExactStorageAndFootprintRED
+          TestG18FutureInternalAPICompileContract
+          TestG18FutureRealAtomicEpochWrapRED
+          TestG18FutureRealAtomicOwnerWrapRED
+          TestG18FutureRealAtomicSequenceWrapRED
+          TestG18FutureRealCertificateLifecycleRED
+          TestG18FutureRealDefaultDropCohortMembersRED
+          TestG18FutureRealMaxDropCohortMembersCapOverflowRED
+          TestG18FutureRealMaxDropCohortsCapOverflowRED
+          TestG18FutureRealVerifierAllocationsRED
+          TestG18FutureRealVerifierArenaIdentityRED
+          TestG18FutureRealVerifierCertificateStateReasonsRED
+          TestG18FutureReductionEstablishmentTelemetryRED
+          TestG18FutureSequentialAndNestedCohortsRED
+          TestG18GenericReductionLeavesDropCohortsInertByDefault
+          TestG18RefSetCanonicalGroupsBucketGrowthBoundaries
+          TestG18RefSetCanonicalGroupsDuplicateHintRetention
+          TestG18RefSetHeaderAndCanonicalPropagation
+          TestG18RefSetHeaderPersistenceSiblingAdoptionAndConflictReconciliation
+          TestG18RefSetPoolClearing
+          TestG18RefSetSchedulerMemoryBudgetAccounting
+          TestG18RefSetSchedulerRecordSizeRatchets
+          TestG18ReferenceArenaLifecycleAndAccounting
+          TestG18ReferenceArenaOwnerIdentityInlineAndSpill
+          TestG18ReferenceCompatibleCohortMerge
+          TestG18ReferenceFinalizationAndTerminalStates
+          TestG18ReferencePreflightIsAtomicForEveryStore
+          TestG18ReferenceSequentialAndNestedCohorts
+          TestG18ReferenceVerifierAllocations
+          TestG18ReferenceVerifierIdentityAndImportRules
+          TestParseStateReplayCompactDifferential
+          TestParserCoreActionConversionIsExhaustiveAndLossless
+          TestParserCoreAttributionCapture
+          TestParserCoreCheckpointIDsOwnStatefulScannerScratch
+          TestParserCoreCheckpointPreservesExactEmptyAndNonEmptyIdentity
+          TestParserCoreCorridorCellExhaustiveness
+          TestParserCoreCorridorCompilerIsDeterministic
+          TestParserCoreCorridorDecodeBackPerState
+          TestParserCoreCorridorDefaultOff
+          TestParserCoreCorridorFleetTableShapeReceipt
+          TestParserCoreCorridorPassMixReceipt
+          TestParserCoreCorridorReduceChainIncrementalReceipt
+          TestParserCoreCorridorReduceShiftIncrementalReceipt
+          TestParserCoreCorridorRuntimeEquivalence
+          TestParserCoreCorridorStreamValidation
+          TestParserCoreCorridorTableShapeReceipt
+          TestParserCoreFreshFullAcceptedTailRequiresParserPadding
+          TestParserCoreFreshFullPublicRouteIsSelectedStoreFree
+          TestParserCoreFreshFullRunnerClearsRecoverEOFFinalizationBeforeOrdinaryAcceptance
+          TestParserCoreFreshFullRunnerFailsClosedAtConstruction
+          TestParserCoreFreshFullRunnerRepeatedCanonicalLifecycle
+          TestParserCoreFreshFullRunnerResetsAfterCap
+          TestParserCoreFreshFullRunnerReusesSchedulerStorage
+          TestParserCoreFreshFullRunnerScratchDoesNotAliasLiveTree
+          TestParserCoreFreshFullSelectedStorePollsCancellation
+          TestParserCoreLanguageTablesCacheSharesAcrossParsers
+          TestParserCoreLanguageTablesFootprint
+          TestParserCoreReplayRejectsLanguageTableSwap
+          TestParserCoreRootTablesCacheImmutableConvertedRows
+          TestParserCoreRootTablesIdentityUsesLanguageBlobHash
+          TestParserCoreRootTablesRejectInvalidActionWhileCaching
+          TestParserCoreRootlessTablesRemainUsableWithoutSelectedStorePolicy
+          TestParserCoreSameLookaheadGuardsDeclineBeforeMutation
+          TestPhase0PerVersionLexerScalaOracleWitness
+          TestPhase0PerVersionLexerVersionsOwnWidths
+          TestResetDiagnosticParserCoreGenericSchedulerClearsRecoveryState
+          TestResetDiagnosticParserCoreGenericSchedulerRejectsActiveScratch
+          TestResetDiagnosticParserCoreRetainedSliceBoundsAndClears
+          TestStage2PhysicalHeadMergeCandidatesPreserveDistinctLexerVersionsForClassification
+          TestStage2PhysicalHeadMergeCanonicalizationUnionsLineage
+          TestStage2PhysicalHeadMergeFailsClosedAcrossDistinctLexerOwnership
+          TestStage2PhysicalHeadMergePreservesDistinctErrorRegions
+          TestStage2PhysicalHeadMergePreservesDistinctLexerSnapshots
+          TestStage2PhysicalHeadMergePreservesRecoveryLineage
+          TestStage2PhysicalHeadMergeRejectsClearedRecoveryCostedLineage
+          TestStage2PhysicalHeadMergeRunsThroughGenericReductionDispatch
+          TestStage3OpenRegionVisibleNodeCountRequiresOneAbsorbedChild
+          TestStage3RecoveryCondenseAppendsAcceptedVersionsAfterActivePool
+          TestStage3RecoveryCondenseClampsBaselineAfterGraphPop
+          TestStage3RecoveryCondenseDifferentScoresShareOneVersionKey
+          TestStage3RecoveryCondenseDropsOnlyExcessKeyAfterDuplicate
+          TestStage3RecoveryCondenseEquivalentKeyUsesMergedNodeCountAndPrecedence
+          TestStage3RecoveryCondenseErrorRollsBackConflictAndOwnership
+          TestStage3RecoveryCondenseKeepsSixDistinctVersions
+          TestStage3RecoveryCondenseKeyIgnoresDynamicPrecedence
+          TestStage3RecoveryCondenseOrdersBeforeSixVersionCap
+          TestStage3RecoveryCondensePairwiseDeletesClearlyWorseVersion
+          TestStage3RecoveryCondensePreservesAbsorbBeforeItsMissingSibling
+          TestStage3RecoveryCondenseRetainsDuplicateHistoryOfKeptKey
+          TestStage3RecoveryCondenseScratchIsCountedAndClearedOnReset
+          TestStage3RecoveryCondenseSkipsCostCompetitionWithinRecoveryGroup
+          TestStage3RecoveryCondenseUsesLiveNodeCountForTakeDecision
+          TestStage3RecoveryCondenseUsesScannerCheckpointInsteadOfSnapshotPointer
+          TestStage3RecoveryMetadataSurvivesLexerStateUpdates
+          TestStatefulScannerCompactLeafReauthentication
+          '
+          pattern="^($(printf '%s' "$tests" | tr -s '[:space:]' '\n' | sed '/^$/d' | paste -sd'|'))\$"
+          GOMAXPROCS=1 go test -tags gts_parsercorephase0 . -run "$pattern" -count=1 -timeout 3m
+
   admission_route_equality_fuzz:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
