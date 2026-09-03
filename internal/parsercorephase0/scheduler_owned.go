@@ -147,6 +147,7 @@ func (c *Core) recordNodeLineage(head Head, rank CleanPathRankSelection, lineage
 			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
 			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			storedErrorCost: node.storedErrorCost,
 		})
 	}
 	node.rank = nextRank
@@ -176,11 +177,49 @@ func (c *Core) RecordHeadOwnerOwned(owner SchedulerTransactionToken, head Head, 
 				node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
 				setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 				lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+				storedErrorCost: node.storedErrorCost,
 			})
 		}
 		node.owner = lineage
 		return nil
 	})
+}
+
+// RecordHeadStoredErrorCostOwned publishes the exact C stack-node error cost
+// carried by one recovery head. The cost is lineage metadata, so nodeRecord
+// remains compact and all updates stay rollback-safe.
+func (c *Core) RecordHeadStoredErrorCostOwned(owner SchedulerTransactionToken, head Head, cost uint32) error {
+	return c.RunSchedulerOwned(owner, func() error {
+		return c.recordNodeStoredErrorCost(head, cost)
+	})
+}
+
+func (c *Core) recordNodeStoredErrorCost(head Head, cost uint32) error {
+	node, err := c.nodeLineage(head.Node)
+	if err != nil {
+		return err
+	}
+	if node.storedErrorCost == cost {
+		return nil
+	}
+	frame := &c.schedulerFrame
+	if !frame.active || len(c.transactions) == 0 ||
+		c.transactions[len(c.transactions)-1] != frame.mark.transaction {
+		return errors.New("parser-core phase zero: stored recovery cost requires a nested scheduler speculation")
+	}
+	if uint64(head.Node) <= uint64(frame.mark.nodeLineages) {
+		return errors.New("parser-core phase zero: stored recovery cost cannot rewrite a published node")
+	}
+	if len(c.transactions) != 0 {
+		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
+			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
+			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
+			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			storedErrorCost: node.storedErrorCost,
+		})
+	}
+	node.storedErrorCost = cost
+	return nil
 }
 
 // RecordHeadLineageSetOwned unions set into one compact head's node record.
@@ -222,6 +261,7 @@ func (c *Core) recordNodeLineageSet(head Head, set AlternativeSet, setBlended bo
 			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
 			setCount: before.count, setFlags: before.flags, setSpillRef: before.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: beforeBlended,
+			storedErrorCost: node.storedErrorCost,
 		})
 	}
 	node.blended = nextBlended
@@ -258,6 +298,7 @@ func (c *Core) recordNodeLineageRefs(head Head, refs DropCohortRefSet) error {
 			node: head.Node, owner: node.owner, dropCohortRefs: before,
 			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			storedErrorCost: node.storedErrorCost,
 		})
 	}
 	return nil
@@ -289,6 +330,7 @@ func (c *Core) recordNodeLineageMember(head Head, event, branch uint16) error {
 			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
 			setCount: before.count, setFlags: before.flags, setSpillRef: before.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			storedErrorCost: node.storedErrorCost,
 		})
 	}
 	return nil
@@ -300,6 +342,12 @@ func (c *Core) recordNodeLineageMember(head Head, event, branch uint16) error {
 // It is the non-closure setup half of runLiveCondenseCandidates, factored out
 // so the hot shift/reduce/cohort dispatch paths can call it directly.
 func (c *Core) enterLiveCondenseCandidates(candidates []CondenseCandidate) error {
+	return c.enterLiveCondenseCandidatesWithCost(candidates, false)
+}
+
+// enterLiveCondenseCandidatesWithCost installs a live candidate scope and
+// optionally admits equal authenticated recovery costs.
+func (c *Core) enterLiveCondenseCandidatesWithCost(candidates []CondenseCandidate, allowNonzeroCost bool) error {
 	if c.condenseScopeActive {
 		return errors.New("parser-core phase zero: nested live condense candidate scope")
 	}
@@ -307,7 +355,7 @@ func (c *Core) enterLiveCondenseCandidates(candidates []CondenseCandidate) error
 		return errors.New("parser-core phase zero: live condense candidate scope requires a scheduler transaction")
 	}
 	owned := append(c.condenseCandidates[:0], candidates...)
-	normalized, err := c.mergeLiveCondenseCandidatesUncheckpointed(owned)
+	normalized, err := c.mergeLiveCondenseCandidatesUncheckpointedWithCost(owned, allowNonzeroCost)
 	if err != nil {
 		clear(c.condenseCandidates)
 		c.condenseCandidates = c.condenseCandidates[:0]
@@ -320,9 +368,20 @@ func (c *Core) enterLiveCondenseCandidates(candidates []CondenseCandidate) error
 }
 
 func (c *Core) mergeLiveCondenseCandidatesUncheckpointed(candidates []CondenseCandidate) ([]CondenseCandidate, error) {
+	return c.mergeLiveCondenseCandidatesUncheckpointedWithCost(candidates, false)
+}
+
+func (c *Core) mergeLiveCondenseCandidatesUncheckpointedWithCost(candidates []CondenseCandidate, allowNonzeroCost bool) ([]CondenseCandidate, error) {
 	write := 0
 	for _, candidate := range candidates {
-		if candidate.ErrorCost != 0 {
+		lineage, err := c.nodeLineage(candidate.Head.Node)
+		if err != nil {
+			return nil, err
+		}
+		if candidate.ErrorCost != lineage.storedErrorCost {
+			return nil, errors.New("parser-core phase zero: condense candidate error cost does not match its head")
+		}
+		if candidate.ErrorCost != 0 && !allowNonzeroCost {
 			return nil, errors.New("parser-core phase zero: physical head merge requires zero error cost")
 		}
 		if err := c.recordNodeLineageRefs(candidate.Head, candidate.DropCohortRefs); err != nil {
@@ -381,7 +440,7 @@ func (c *Core) mergeLiveCondenseCandidatesUncheckpointed(candidates []CondenseCa
 				write++
 				continue
 			}
-			merged, err := c.mergeEquivalentHeadsAtBoundaryUncheckpointed(key, group.Head, candidate.Head)
+			merged, err := c.mergeEquivalentHeadsAtBoundaryUncheckpointedWithCost(key, group.Head, candidate.Head, allowNonzeroCost)
 			if err != nil {
 				return nil, err
 			}
@@ -424,6 +483,13 @@ func (c *Core) clearLiveCondenseCandidates() {
 func (c *Core) reindexCondenseCandidatesUncheckpointed(candidates []CondenseCandidate) error {
 	c.boundaries.advanceGeneration()
 	for index, candidate := range candidates {
+		lineage, err := c.nodeLineage(candidate.Head.Node)
+		if err != nil {
+			return err
+		}
+		if candidate.ErrorCost != lineage.storedErrorCost {
+			return errors.New("parser-core phase zero: condense candidate error cost does not match its head")
+		}
 		if candidate.ErrorCost != 0 {
 			return errors.New("parser-core phase zero: physical head merge requires zero error cost")
 		}
@@ -492,6 +558,19 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointed(
 	incumbent Head,
 	incoming Head,
 ) (Head, error) {
+	return c.mergeEquivalentHeadsAtBoundaryUncheckpointedWithCost(key, incumbent, incoming, false)
+}
+
+// mergeEquivalentHeadsAtBoundaryUncheckpointedWithCost merges equivalent
+// heads after the caller authenticates their complete stored cost. Recovery
+// reductions use the cost-enabled form because equal nonzero paths remain
+// physically mergeable in the C stack.
+func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointedWithCost(
+	key boundaryKey,
+	incumbent Head,
+	incoming Head,
+	allowNonzeroCost bool,
+) (Head, error) {
 	if key.frontier != c.frontier {
 		return Head{}, errors.New("parser-core phase zero: physical head merge frontier mismatch")
 	}
@@ -515,6 +594,20 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointed(
 	if !leftExact || !rightExact || leftCheckpoint != rightCheckpoint {
 		return Head{}, errors.New("parser-core phase zero: physical heads have different scanner provenance")
 	}
+	leftLineage, err := c.nodeLineage(incumbent.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	rightLineage, err := c.nodeLineage(incoming.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	if leftLineage.storedErrorCost != rightLineage.storedErrorCost {
+		return Head{}, errors.New("parser-core phase zero: physical heads have different stored recovery costs")
+	}
+	if leftLineage.storedErrorCost != 0 && !allowNonzeroCost {
+		return Head{}, errors.New("parser-core phase zero: physical head merge requires zero error cost")
+	}
 	related, err := c.nodesAncestryRelated(incumbent.Node, incoming.Node)
 	if err != nil {
 		return Head{}, err
@@ -532,6 +625,16 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointed(
 	incomingLinks, err := c.publishedNodeLinksInto(rightInline[:0], *right)
 	if err != nil {
 		return Head{}, err
+	}
+	for _, link := range links {
+		if link.isRecoveryDiscontinuity() {
+			return Head{}, errors.New("parser-core phase zero: recovery discontinuity requires its dedicated merge seam")
+		}
+	}
+	for _, link := range incomingLinks {
+		if link.isRecoveryDiscontinuity() {
+			return Head{}, errors.New("parser-core phase zero: recovery discontinuity requires its dedicated merge seam")
+		}
 	}
 	// Count only pairs that pass the clean boundary and scanner predicates.
 	// C's wider attempt counter also includes pairs that fail those predicates.
@@ -565,8 +668,9 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointed(
 	// key.checkpoint authenticates the current lookahead boundary. The graph
 	// node checkpoint authenticates the last consumed external scanner state.
 	// Keep the source node checkpoint when those two identities differ.
-	merged, err := c.appendAdjacencyNodeAtWithPrecedence(
+	merged, err := c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
 		key.state, key.byteOffset, leftCheckpoint, links, folded,
+		leftLineage.storedErrorCost, true,
 	)
 	if err != nil {
 		return Head{}, err
@@ -585,6 +689,57 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointed(
 	return Head{Node: merged}, nil
 }
 
+// MergeEquivalentHeadsOwned merges two clean scheduler heads under one
+// authenticated owner. The scheduler supplies the complete boundary key.
+// Recovery-costed heads use a separate pricing route and cannot enter this
+// clean merge seam.
+func (c *Core) MergeEquivalentHeadsOwned(
+	owner SchedulerTransactionToken,
+	state StateID,
+	byteOffset uint32,
+	checkpoint CheckpointID,
+	shifted bool,
+	incumbent Head,
+	incoming Head,
+) (out Head, err error) {
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return out, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	key := boundaryKey{
+		frontier: c.frontier, state: state, byteOffset: byteOffset,
+		shifted: shifted, checkpoint: checkpoint,
+	}
+	out, err = c.mergeEquivalentHeadsAtBoundaryUncheckpointed(key, incumbent, incoming)
+	return out, c.finishSchedulerOwned(owner, err)
+}
+
+// MergeEquivalentHeadsWithStoredErrorCostOwned merges equal-cost scheduler
+// heads under one authenticated owner. The Core checks the stored cost before
+// it emits merge work or graph links.
+func (c *Core) MergeEquivalentHeadsWithStoredErrorCostOwned(
+	owner SchedulerTransactionToken,
+	state StateID,
+	byteOffset uint32,
+	checkpoint CheckpointID,
+	shifted bool,
+	incumbent Head,
+	incoming Head,
+) (out Head, err error) {
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return out, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	key := boundaryKey{
+		frontier: c.frontier, state: state, byteOffset: byteOffset,
+		shifted: shifted, checkpoint: checkpoint,
+	}
+	out, err = c.mergeEquivalentHeadsAtBoundaryUncheckpointedWithCost(
+		key, incumbent, incoming, true,
+	)
+	return out, c.finishSchedulerOwned(owner, err)
+}
+
 // mergeNodeLineageMetadata preserves the histories represented by a physical
 // graph merge. A new merged node has no scheduler owner until canonicalization
 // elects its surviving header. An unchanged incumbent keeps its current owner.
@@ -597,12 +752,16 @@ func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error 
 	if err != nil {
 		return err
 	}
+	if left.storedErrorCost != right.storedErrorCost {
+		return errors.New("parser-core phase zero: merged heads have different stored recovery costs")
+	}
 	target, err := c.nodeLineage(targetID)
 	if err != nil {
 		return err
 	}
 	before := *target
 	merged := nodeLineageRecord{}
+	merged.storedErrorCost = left.storedErrorCost
 	if targetID == leftID {
 		merged.owner = left.owner
 	}
@@ -625,6 +784,7 @@ func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error 
 			node: targetID, owner: before.owner, dropCohortRefs: before.dropCohortRefs,
 			setCount: before.set.count, setFlags: before.set.flags, setSpillRef: before.set.spillRef,
 			lineage: before.lineage, rank: before.rank, converged: before.converged, blended: before.blended,
+			storedErrorCost: before.storedErrorCost,
 		})
 	}
 	*target = merged
@@ -688,6 +848,40 @@ func (c *Core) ErrorRegionResumeWithLiveCondenseCandidatesOwned(
 	}
 	defer c.clearLiveCondenseCandidates()
 	out, err = c.ErrorRegionResume(preErrorHead, preErrorState, startByte, endByte, children)
+	return out, c.finishSchedulerOwned(owner, err)
+}
+
+// ErrorRegionResumeWithLiveCondenseCandidatesAndCostOwned publishes one
+// recovery ERROR region with an authenticated cumulative cost while keeping
+// unrelated live candidates outside its condensation scope.
+func (c *Core) ErrorRegionResumeWithLiveCondenseCandidatesAndCostOwned(
+	owner SchedulerTransactionToken,
+	candidates []CondenseCandidate,
+	preErrorHead Head,
+	preErrorState StateID,
+	startByte, endByte uint32,
+	children []SubtreeID,
+	cost ReductionOutputCostFunc,
+) (out Head, err error) {
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return out, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	if err = c.enterLiveCondenseCandidatesWithCost(candidates, true); err != nil {
+		return out, c.finishSchedulerOwned(owner, err)
+	}
+	if cost == nil {
+		err = errors.New("parser-core phase zero: error-region cost callback is required")
+		c.clearLiveCondenseCandidates()
+		return out, c.finishSchedulerOwned(owner, err)
+	}
+	if c.schedulerFrame.fresh {
+		out, err = c.ErrorRegionResumeWithCost(preErrorHead, preErrorState, startByte, endByte, children, cost)
+		c.clearLiveCondenseCandidates()
+		return out, c.finishSchedulerOwned(owner, err)
+	}
+	defer c.clearLiveCondenseCandidates()
+	out, err = c.ErrorRegionResumeWithCost(preErrorHead, preErrorState, startByte, endByte, children, cost)
 	return out, c.finishSchedulerOwned(owner, err)
 }
 
@@ -1076,13 +1270,36 @@ func (c *Core) shiftExtraClassifiedCohortUncheckpointed(boundaries []ClassifiedB
 // ReduceOutputsClassifiedIntoOwned authenticates the scheduler owner, then
 // delegates to the standalone reduction's uncheckpointed implementation.
 func (c *Core) ReduceOutputsClassifiedIntoOwned(owner SchedulerTransactionToken, dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder) (frontier []ReductionOutput, err error) {
-	return c.reduceOutputsClassifiedIntoMaybeLiveScopedOwned(owner, nil, false, dst, boundary, actionOrdinal, fork)
+	return c.reduceOutputsClassifiedIntoMaybeLiveScopedOwned(owner, nil, false, dst, boundary, actionOrdinal, fork, nil)
 }
 
 // ReduceOutputsClassifiedIntoWithLiveCondenseCandidatesOwned scopes the condense candidates
 // and reduces under one scheduler ownership check.
 func (c *Core) ReduceOutputsClassifiedIntoWithLiveCondenseCandidatesOwned(owner SchedulerTransactionToken, candidates []CondenseCandidate, dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder) (frontier []ReductionOutput, err error) {
-	return c.reduceOutputsClassifiedIntoMaybeLiveScopedOwned(owner, candidates, true, dst, boundary, actionOrdinal, fork)
+	return c.reduceOutputsClassifiedIntoMaybeLiveScopedOwned(owner, candidates, true, dst, boundary, actionOrdinal, fork, nil)
+}
+
+// ReduceOutputsClassifiedIntoWithLiveCondenseCandidatesAndCostOwned applies
+// one reduction while authenticating output costs before any boundary can
+// fold or publish.
+func (c *Core) ReduceOutputsClassifiedIntoWithLiveCondenseCandidatesAndCostOwned(
+	owner SchedulerTransactionToken,
+	candidates []CondenseCandidate,
+	dst []ReductionOutput,
+	boundary ClassifiedBoundary,
+	actionOrdinal int,
+	fork ForkOrder,
+	cost ReductionOutputCostFunc,
+) (frontier []ReductionOutput, err error) {
+	if cost == nil {
+		if err = c.beginSchedulerOwned(owner); err != nil {
+			return frontier, err
+		}
+		return frontier, c.finishSchedulerOwned(owner, errors.New("parser-core phase zero: reduction cost callback is required"))
+	}
+	return c.reduceOutputsClassifiedIntoMaybeLiveScopedOwned(
+		owner, candidates, true, dst, boundary, actionOrdinal, fork, cost,
+	)
 }
 
 // ReduceOutputsCorridorClassifiedIntoWithLiveCondenseCandidatesOwned applies
@@ -1113,33 +1330,66 @@ func (c *Core) ReduceOutputsCorridorClassifiedIntoWithLiveCondenseCandidatesOwne
 	return frontier, c.finishSchedulerOwned(owner, err)
 }
 
+// ReduceOutputsCorridorClassifiedIntoWithLiveCondenseCandidatesAndCostOwned
+// is the corridor form of the authenticated reduction-cost seam.
+func (c *Core) ReduceOutputsCorridorClassifiedIntoWithLiveCondenseCandidatesAndCostOwned(
+	owner SchedulerTransactionToken,
+	candidates []CondenseCandidate,
+	dst []ReductionOutput,
+	boundary ClassifiedBoundary,
+	fork ForkOrder,
+	cost ReductionOutputCostFunc,
+) (frontier []ReductionOutput, err error) {
+	if cost == nil {
+		if err = c.beginSchedulerOwned(owner); err != nil {
+			return frontier, err
+		}
+		return frontier, c.finishSchedulerOwned(owner, errors.New("parser-core phase zero: reduction cost callback is required"))
+	}
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return frontier, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	if err = c.enterLiveCondenseCandidatesWithCost(candidates, true); err != nil {
+		return frontier, c.finishSchedulerOwned(owner, err)
+	}
+	if c.schedulerFrame.fresh {
+		frontier, err = c.reduceOutputsCorridorClassifiedIntoUncheckpointedWithCost(owner, dst, boundary, fork, cost)
+		c.clearLiveCondenseCandidates()
+		return frontier, c.finishSchedulerOwned(owner, err)
+	}
+	defer c.clearLiveCondenseCandidates()
+	frontier, err = c.reduceOutputsCorridorClassifiedIntoUncheckpointedWithCost(owner, dst, boundary, fork, cost)
+	return frontier, c.finishSchedulerOwned(owner, err)
+}
+
 // reduceOutputsClassifiedIntoMaybeLiveScopedOwned inlines the former
 // runSchedulerMaybeLiveScopedOwned/runLiveCondenseCandidates closure chain;
 // see shiftClassifiedMaybeLiveScopedOwned's doc comment for the equivalence
 // argument, which applies identically here.
-func (c *Core) reduceOutputsClassifiedIntoMaybeLiveScopedOwned(owner SchedulerTransactionToken, candidates []CondenseCandidate, liveScoped bool, dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder) (frontier []ReductionOutput, err error) {
+func (c *Core) reduceOutputsClassifiedIntoMaybeLiveScopedOwned(owner SchedulerTransactionToken, candidates []CondenseCandidate, liveScoped bool, dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder, cost ReductionOutputCostFunc) (frontier []ReductionOutput, err error) {
 	if err = c.beginSchedulerOwned(owner); err != nil {
 		return frontier, err
 	}
 	defer c.recoverSchedulerOwnedPanic(owner)
 	if !liveScoped {
-		frontier, err = c.reduceOutputsClassifiedIntoUncheckpointed(owner, dst, boundary, actionOrdinal, fork)
+		frontier, err = c.reduceOutputsClassifiedIntoUncheckpointed(owner, dst, boundary, actionOrdinal, fork, cost)
 		return frontier, c.finishSchedulerOwned(owner, err)
 	}
-	if err = c.enterLiveCondenseCandidates(candidates); err != nil {
+	if err = c.enterLiveCondenseCandidatesWithCost(candidates, cost != nil); err != nil {
 		return frontier, c.finishSchedulerOwned(owner, err)
 	}
 	if c.schedulerFrame.fresh {
-		frontier, err = c.reduceOutputsClassifiedIntoUncheckpointed(owner, dst, boundary, actionOrdinal, fork)
+		frontier, err = c.reduceOutputsClassifiedIntoUncheckpointed(owner, dst, boundary, actionOrdinal, fork, cost)
 		c.clearLiveCondenseCandidates()
 		return frontier, c.finishSchedulerOwned(owner, err)
 	}
 	defer c.clearLiveCondenseCandidates()
-	frontier, err = c.reduceOutputsClassifiedIntoUncheckpointed(owner, dst, boundary, actionOrdinal, fork)
+	frontier, err = c.reduceOutputsClassifiedIntoUncheckpointed(owner, dst, boundary, actionOrdinal, fork, cost)
 	return frontier, c.finishSchedulerOwned(owner, err)
 }
 
-func (c *Core) reduceOutputsClassifiedIntoUncheckpointed(owner SchedulerTransactionToken, dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder) ([]ReductionOutput, error) {
+func (c *Core) reduceOutputsClassifiedIntoUncheckpointed(owner SchedulerTransactionToken, dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder, cost ReductionOutputCostFunc) ([]ReductionOutput, error) {
 	frontier := dst[:0]
 	if c.popScratch.busy {
 		return nil, errors.New("parser-core phase zero: reentrant reduction while pop scratch is active")
@@ -1151,7 +1401,7 @@ func (c *Core) reduceOutputsClassifiedIntoUncheckpointed(owner SchedulerTransact
 	defer c.popScratch.resetLogical()
 	c.reductionScratch.begin()
 	defer c.reductionScratch.finish()
-	return c.reduceOutputsClassifiedIntoActive(owner, frontier, boundary, actionOrdinal, fork, false)
+	return c.reduceOutputsClassifiedIntoActive(owner, frontier, boundary, actionOrdinal, fork, false, cost)
 }
 
 func (c *Core) historicalImportEnvelope(owner SchedulerTransactionToken, refs DropCohortRefSet, historicalNode NodeID) (int, bool) {
@@ -1244,6 +1494,10 @@ func (c *Core) authenticateHistoricalDropCohortImport(
 }
 
 func (c *Core) reduceOutputsCorridorClassifiedIntoUncheckpointed(owner SchedulerTransactionToken, dst []ReductionOutput, boundary ClassifiedBoundary, fork ForkOrder) ([]ReductionOutput, error) {
+	return c.reduceOutputsCorridorClassifiedIntoUncheckpointedWithCost(owner, dst, boundary, fork, nil)
+}
+
+func (c *Core) reduceOutputsCorridorClassifiedIntoUncheckpointedWithCost(owner SchedulerTransactionToken, dst []ReductionOutput, boundary ClassifiedBoundary, fork ForkOrder, cost ReductionOutputCostFunc) ([]ReductionOutput, error) {
 	frontier := dst[:0]
 	if c.popScratch.busy {
 		return nil, errors.New("parser-core phase zero: reentrant reduction while pop scratch is active")
@@ -1252,10 +1506,10 @@ func (c *Core) reduceOutputsCorridorClassifiedIntoUncheckpointed(owner Scheduler
 	defer c.popScratch.resetLogical()
 	c.reductionScratch.begin()
 	defer c.reductionScratch.finish()
-	return c.reduceOutputsClassifiedIntoActive(owner, frontier, boundary, 0, fork, true)
+	return c.reduceOutputsClassifiedIntoActive(owner, frontier, boundary, 0, fork, true, cost)
 }
 
-func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken, frontier []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder, corridorTrusted bool) ([]ReductionOutput, error) {
+func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken, frontier []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder, corridorTrusted bool, cost ReductionOutputCostFunc) ([]ReductionOutput, error) {
 	var act *Action
 	var err error
 	if corridorTrusted {
@@ -1353,6 +1607,14 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 			return nil, err
 		}
 		parentLink := linkInput{prev: path.prev, payload: payload, scoreDelta: scoreDelta, order: order}
+		if cost != nil {
+			storedErrorCost, costErr := cost(path.prev, payload)
+			if costErr != nil {
+				return nil, costErr
+			}
+			parentLink.storedErrorCost = storedErrorCost
+			parentLink.hasStoredErrorCost = true
+		}
 		phase0AObserveReductionOccurrence(c, parentLink, key)
 		var out Head
 		var outcome condenseOutcome
@@ -1372,6 +1634,14 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 			}
 			key = c.boundaryKey(gotoState, extra.endByte)
 			extraLink := linkInput{prev: out.Node, payload: trailing.payload, scoreDelta: trailing.scoreDelta}
+			if cost != nil {
+				storedErrorCost, costErr := cost(out.Node, trailing.payload)
+				if costErr != nil {
+					return nil, costErr
+				}
+				extraLink.storedErrorCost = storedErrorCost
+				extraLink.hasStoredErrorCost = true
+			}
 			if phase0AEnabled {
 				phase0AObserveTrailingExtraMigration(c, uint32(index), key, extraLink)
 			}

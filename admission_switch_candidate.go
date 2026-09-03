@@ -71,6 +71,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		allowCompactRecoverEOF:            allowRecoverEOF,
 		allowCompactStackSummaryRecovery:  p.language.CompactStackSummaryRecoveryCertified,
 		allowCompactMissingTokenInsertion: p.language.CompactMissingTokenInsertionCertified,
+		allowCompactFaithfulS5Recovery:    p.language.CompactFaithfulS5RecoveryCertified,
 		allowCompactRecoveryLineageSelection: p.language.CompactStrategy2ErrorRegionCertified &&
 			(p.language.CompactStackSummaryRecoveryCertified || p.language.CompactMissingTokenInsertionCertified),
 		allowCompactRecoveryTrailingLineageRetirement: p.language.CompactRecoveryTrailingLineageRetirementCertified,

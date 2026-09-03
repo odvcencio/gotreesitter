@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 )
 
 // ---------------------------------------------------------------------------
@@ -486,4 +487,261 @@ func RecoveryCompareVersions(a, b RecoveryErrorStatus) RecoveryComparison {
 		return RecoveryComparisonPreferRight
 	}
 	return RecoveryComparisonNone
+}
+
+// RecoveryGraphAggregate summarizes every physical path below one compact
+// graph head. It keeps the stored precedence certificate separate from the
+// path pricing values so recovery selection can apply both rules exactly.
+type RecoveryGraphAggregate struct {
+	MaximumVisibleCount     uint32
+	MinimumErrorCost        uint32
+	MaximumErrorCost        uint32
+	StoredPrecedenceMaximum int64
+	PathCount               uint64
+}
+
+// RecoveryGraphAggregateLimitError reports a graph aggregate that exceeds a
+// Core traversal limit. The aggregate never calls Derivations before it stops.
+var RecoveryGraphAggregateLimitError = errors.New("parser-core phase zero: recovery graph aggregate limit")
+
+type recoveryGraphAggregateNode struct {
+	maximumVisible uint32
+	minimumCost    uint32
+	maximumCost    uint32
+	pathCount      uint64
+	supported      bool
+	valid          bool
+}
+
+// RecoveryCostNode exposes one immutable compact subtree through the recovery
+// pricing interface. Core stores no row spans, so it rejects published ERROR
+// records and exposes only row-free clean and missing records.
+func (c *Core) RecoveryCostNode(id SubtreeID) (RecoveryCostNode, error) {
+	record, err := c.subtree(id)
+	if err != nil {
+		return RecoveryCostNode{}, err
+	}
+	if record.symbol == RecoveryErrorSymbol {
+		return RecoveryCostNode{}, errors.New("parser-core phase zero: compact ERROR subtree has no authenticated row spans")
+	}
+	childStart, childEnd := uint64(record.firstChild), uint64(record.firstChild)+uint64(record.childCount)
+	if childEnd > uint64(len(c.children)) {
+		return RecoveryCostNode{}, errors.New("parser-core phase zero: recovery cost child range is outside the arena")
+	}
+	aliasStart, aliasEnd := uint64(record.firstAlias), uint64(record.firstAlias)+uint64(record.aliasCount)
+	if aliasEnd > uint64(len(c.aliases)) {
+		return RecoveryCostNode{}, errors.New("parser-core phase zero: recovery cost alias range is outside the arena")
+	}
+	return RecoveryCostNode{
+		Symbol:    record.symbol,
+		Extra:     record.extra,
+		Missing:   record.missing,
+		StartByte: record.startByte,
+		EndByte:   record.endByte,
+		Children:  c.children[childStart:childEnd],
+		Aliases:   c.aliases[aliasStart:aliasEnd],
+	}, nil
+}
+
+func checkedRecoveryAggregateAdd(left, right uint32) (uint32, error) {
+	if math.MaxUint32-left < right {
+		return 0, errors.New("parser-core phase zero: recovery graph aggregate arithmetic overflow")
+	}
+	return left + right, nil
+}
+
+// RecoveryGraphAggregateForHead computes bounded pricing facts with dynamic
+// programming over decreasing NodeIDs. A false supported result means paths
+// have unequal error costs and the caller must decline aggregate pricing.
+func (c *Core) RecoveryGraphAggregateForHead(
+	head Head,
+	symbols []SelectedSymbolPolicy,
+	source RecoveryCostSource,
+) (result RecoveryGraphAggregate, supported bool, err error) {
+	if c == nil {
+		return result, false, errors.New("parser-core phase zero: recovery graph aggregate on nil core")
+	}
+	if source == nil {
+		return result, false, errors.New("parser-core phase zero: recovery graph aggregate requires an exact cost source")
+	}
+	if head.Node == 0 || uint64(head.Node) > uint64(len(c.nodes)) {
+		return result, false, errors.New("parser-core phase zero: recovery graph aggregate head is unavailable")
+	}
+	// NodeIDs are dense and every graph edge points to a lower ID. First mark
+	// the reachable nodes, then run the increasing-ID dynamic program only on
+	// that induced graph. Unrelated historical nodes cannot consume this call's
+	// traversal limits or cause unrelated malformed records to reject it.
+	reachable := make(map[NodeID]struct{})
+	reachableIDs := make([]NodeID, 0, 16)
+	stack := []NodeID{head.Node}
+	defer func() {
+		clear(reachable)
+		clear(reachableIDs)
+		clear(stack)
+	}()
+	var reachableNodes uint64
+	var reachableLinks uint64
+	for len(stack) != 0 {
+		last := len(stack) - 1
+		id := stack[last]
+		stack = stack[:last]
+		if id == 0 || id > head.Node {
+			return result, false, errors.New("parser-core phase zero: recovery graph aggregate predecessor is invalid")
+		}
+		if _, ok := reachable[id]; ok {
+			continue
+		}
+		reachable[id] = struct{}{}
+		reachableIDs = append(reachableIDs, id)
+		reachableNodes++
+		if reachableNodes > uint64(c.limits.MaxNodes) {
+			return result, false, fmt.Errorf("%w: reachable node graph", RecoveryGraphAggregateLimitError)
+		}
+		node := c.nodes[id-1]
+		if node.linkCount == 0 {
+			if node.firstLink != 0 {
+				return result, false, errors.New("parser-core phase zero: recovery graph aggregate empty node has a link")
+			}
+			continue
+		}
+		if uint64(node.linkCount) > uint64(c.limits.MaxLinksPerBoundary) || uint64(node.linkCount) > uint64(c.limits.MaxLinks) {
+			return result, false, fmt.Errorf("%w: boundary links", RecoveryGraphAggregateLimitError)
+		}
+		var inline [inlineAdjacencyCapacity]linkRecord
+		links, linkErr := c.publishedNodeLinksInto(inline[:0], node)
+		if linkErr != nil {
+			return result, false, linkErr
+		}
+		reachableLinks += uint64(len(links))
+		if reachableLinks > uint64(c.limits.MaxLinks) {
+			return result, false, fmt.Errorf("%w: reachable link graph", RecoveryGraphAggregateLimitError)
+		}
+		for _, link := range links {
+			if err := link.validateShape(); err != nil {
+				return result, false, err
+			}
+			if link.prev == 0 || link.prev >= id {
+				return result, false, errors.New("parser-core phase zero: recovery graph aggregate predecessor is invalid")
+			}
+			stack = append(stack, link.prev)
+		}
+	}
+
+	// NodeIDs decrease along every edge. Sort only the reachable IDs, then use
+	// a map for the dynamic-programming values so numeric arena gaps stay free.
+	slices.Sort(reachableIDs)
+	dp := make(map[NodeID]recoveryGraphAggregateNode, len(reachableIDs))
+	defer func() { clear(dp) }()
+	memo := &RecoveryCostMemo{}
+	defer memo.Reset()
+	supported = true
+	for _, rawID := range reachableIDs {
+		node := c.nodes[rawID-1]
+		current := recoveryGraphAggregateNode{supported: true}
+		if node.linkCount == 0 {
+			if node.firstLink != 0 || node.pathCount != 1 {
+				return result, false, errors.New("parser-core phase zero: recovery graph aggregate malformed seed")
+			}
+			current.minimumCost = 0
+			current.maximumCost = 0
+			current.pathCount = 1
+			current.valid = true
+			dp[rawID] = current
+			continue
+		}
+		var inline [inlineAdjacencyCapacity]linkRecord
+		links, linkErr := c.publishedNodeLinksInto(inline[:0], node)
+		if linkErr != nil {
+			return result, false, linkErr
+		}
+		if uint64(len(links)) > uint64(c.limits.MaxLinksPerBoundary) || uint64(len(links)) > uint64(c.limits.MaxLinks) {
+			return result, false, fmt.Errorf("%w: boundary links", RecoveryGraphAggregateLimitError)
+		}
+		for _, link := range links {
+			if err := link.validateShape(); err != nil {
+				return result, false, err
+			}
+			prefix, prefixOK := dp[link.prev]
+			if link.prev == 0 || link.prev >= rawID || !prefixOK || !prefix.valid {
+				return result, false, errors.New("parser-core phase zero: recovery graph aggregate predecessor is invalid")
+			}
+			candidateVisible := prefix.maximumVisible
+			candidateMinCost := prefix.minimumCost
+			candidateMaxCost := prefix.maximumCost
+			candidateSupported := prefix.supported
+			if !link.isRecoveryDiscontinuity() {
+				visible, visibleErr := RecoveryNodeVisibleSubtreeCount(symbols, source, link.payload)
+				if visibleErr != nil {
+					return result, false, visibleErr
+				}
+				cost, costErr := RecoveryNodeErrorCostMemo(symbols, source, memo, link.payload)
+				if costErr != nil {
+					return result, false, costErr
+				}
+				candidateVisible, err = checkedRecoveryAggregateAdd(prefix.maximumVisible, visible)
+				if err != nil {
+					return result, false, err
+				}
+				candidateMinCost, err = checkedRecoveryAggregateAdd(prefix.minimumCost, cost)
+				if err != nil {
+					return result, false, err
+				}
+				candidateMaxCost, err = checkedRecoveryAggregateAdd(prefix.maximumCost, cost)
+				if err != nil {
+					return result, false, err
+				}
+			}
+			if !current.valid || candidateVisible > current.maximumVisible {
+				current.maximumVisible = candidateVisible
+			}
+			if !current.valid || current.pathCount == 0 {
+				current.minimumCost = candidateMinCost
+				current.maximumCost = candidateMaxCost
+			} else {
+				if candidateMinCost < current.minimumCost {
+					current.minimumCost = candidateMinCost
+				}
+				if candidateMaxCost > current.maximumCost {
+					current.maximumCost = candidateMaxCost
+				}
+			}
+			current.pathCount = saturatingAddPaths(current.pathCount, prefix.pathCount)
+			if current.pathCount > uint64(c.limits.MaxDerivations) {
+				return result, false, fmt.Errorf("%w: derivation paths", RecoveryGraphAggregateLimitError)
+			}
+			current.supported = current.supported && candidateSupported
+			current.valid = true
+		}
+		if current.pathCount == 0 {
+			return result, false, errors.New("parser-core phase zero: recovery graph aggregate has no paths")
+		}
+		if node.pathCount != math.MaxUint64 && node.pathCount != current.pathCount {
+			return result, false, fmt.Errorf("parser-core phase zero: recovery graph aggregate path-count mismatch: computed %d, recorded %d", current.pathCount, node.pathCount)
+		}
+		current.supported = current.supported && current.minimumCost == current.maximumCost
+		dp[rawID] = current
+	}
+
+	aggregate, aggregateOK := dp[head.Node]
+	if !aggregateOK || !aggregate.valid {
+		return result, false, errors.New("parser-core phase zero: recovery graph aggregate head is unreachable")
+	}
+	result = RecoveryGraphAggregate{
+		MaximumVisibleCount:     aggregate.maximumVisible,
+		MinimumErrorCost:        aggregate.minimumCost,
+		MaximumErrorCost:        aggregate.maximumCost,
+		StoredPrecedenceMaximum: c.nodes[head.Node-1].precedenceMax,
+		PathCount:               aggregate.pathCount,
+	}
+	return result, aggregate.supported, nil
+}
+
+// RecoveryGraphAggregate keeps a concise receiver-first spelling for callers
+// that already use the exported aggregate name as their operation.
+func (c *Core) RecoveryGraphAggregate(
+	symbols []SelectedSymbolPolicy,
+	source RecoveryCostSource,
+	head Head,
+) (RecoveryGraphAggregate, bool, error) {
+	return c.RecoveryGraphAggregateForHead(head, symbols, source)
 }

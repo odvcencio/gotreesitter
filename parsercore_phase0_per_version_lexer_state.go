@@ -3,6 +3,7 @@
 package gotreesitter
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -111,6 +112,81 @@ func diagnosticParserCoreVersionLexerCheckpointIdentity(language *Language) ([32
 
 func (s diagnosticParserCoreVersionLexerScannerContract) equal(other diagnosticParserCoreVersionLexerScannerContract) bool {
 	return s == other
+}
+
+// diagnosticParserCoreVersionLexerSnapshotEqual compares the complete
+// immutable identity of two owned lexer snapshots. Do not use pointer
+// identity here. A scheduler rollback can publish an equivalent copy.
+func diagnosticParserCoreVersionLexerSnapshotEqual(
+	left, right *diagnosticParserCoreVersionLexerSnapshot,
+) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.compact == right.compact &&
+		left.coreGeneration == right.coreGeneration &&
+		left.language == right.language &&
+		left.scanner.equal(right.scanner) &&
+		left.checkpointIdentity == right.checkpointIdentity &&
+		left.checkpointIdentityRequired == right.checkpointIdentityRequired &&
+		left.checkpointIdentityValid == right.checkpointIdentityValid &&
+		left.dfa.equal(right.dfa) &&
+		left.beforeCheckpoint == right.beforeCheckpoint &&
+		left.afterCheckpoint == right.afterCheckpoint &&
+		bytes.Equal(left.beforeCheckpointBytes, right.beforeCheckpointBytes) &&
+		bytes.Equal(left.afterCheckpointBytes, right.afterCheckpointBytes) &&
+		left.beforeCheckpointInfo == right.beforeCheckpointInfo &&
+		left.afterCheckpointInfo == right.afterCheckpointInfo
+}
+
+// diagnosticParserCoreVersionLexerRequestEqual compares lexer request state,
+// excluding scheduler lifecycle provenance such as election and creation IDs.
+func diagnosticParserCoreVersionLexerRequestEqual(
+	left, right *diagnosticParserCoreVersionLexerRequest,
+) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.state == right.state &&
+		tokensSameLex(left.token, right.token) &&
+		diagnosticParserCoreVersionLexerSnapshotEqual(left.before, right.before) &&
+		left.beforeCheckpoint == right.beforeCheckpoint &&
+		diagnosticParserCoreVersionLexerSnapshotEqual(left.after, right.after) &&
+		left.afterCheckpoint == right.afterCheckpoint &&
+		left.beforeID == right.beforeID &&
+		left.afterID == right.afterID &&
+		left.raggedSpan == right.raggedSpan &&
+		left.valid == right.valid
+}
+
+// versionLexerStateEqual compares scheduler ownership. Snapshot pointers and
+// recovery regions identify graph owners. Resolve request references only
+// after the owner identities match.
+func (s *diagnosticParserCoreGenericScheduler) versionLexerStateEqual(
+	left, right *diagnosticParserCoreVersionState,
+) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	if left.s3Region != right.s3Region ||
+		left.relexSnapshot != right.relexSnapshot ||
+		left.recoveryGroup != right.recoveryGroup ||
+		left.missingGroup != right.missingGroup ||
+		left.recoveryNodeBaseline != right.recoveryNodeBaseline ||
+		left.recoveryNodeBaselineSet != right.recoveryNodeBaselineSet {
+		return false
+	}
+	if left.lexerRequest == 0 || right.lexerRequest == 0 {
+		return left.lexerRequest == right.lexerRequest
+	}
+	if s == nil || int(left.lexerRequest) > len(s.versionLexerRequests) ||
+		int(right.lexerRequest) > len(s.versionLexerRequests) {
+		return false
+	}
+	return diagnosticParserCoreVersionLexerRequestEqual(
+		&s.versionLexerRequests[left.lexerRequest-1],
+		&s.versionLexerRequests[right.lexerRequest-1],
+	)
 }
 
 // cloneBytesForDiagnosticParserCoreVersion copies a byte slice while

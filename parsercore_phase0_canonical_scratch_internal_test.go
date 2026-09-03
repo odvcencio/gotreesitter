@@ -4,6 +4,7 @@ package gotreesitter
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"runtime"
 	"testing"
@@ -412,6 +413,93 @@ func TestDiagnosticParserCoreCanonicalScratchMappedSpillPreservesSemantics(t *te
 	last := out[len(out)-1]
 	if last.head != heads[0] || last.creationSeq != 99 || last.paused || last.freshness != 0 || last.checkpoint != checkpoint {
 		t.Fatalf("mapped spill duplicate winner=%+v", last)
+	}
+}
+
+func TestDiagnosticParserCoreCanonicalScratchPreservesLexerSnapshotOwners(t *testing.T) {
+	for _, count := range []int{2, 9} {
+		for _, changed := range []bool{false, true} {
+			name := fmt.Sprintf("count-%d", count)
+			if changed {
+				name += "-semantic-change"
+			}
+			t.Run(name, func(t *testing.T) {
+				compact, head, _ := newDiagnosticParserCoreCanonicalTestCore(t)
+				snapshot := &diagnosticParserCoreVersionLexerSnapshot{
+					compact: compact, coreGeneration: compact.ResetGeneration(),
+					language: &Language{Name: "canonical-test"},
+				}
+				leftRequest := diagnosticParserCoreVersionLexerRequest{
+					electionIndex: 1, headerCreationSeq: 2, state: 3,
+					token:  Token{Symbol: 7, StartByte: 4, EndByte: 5, isKeyword: true},
+					before: snapshot, after: snapshot.clone(),
+					beforeCheckpoint: snapshot.beforeCheckpointInfo,
+					afterCheckpoint:  snapshot.afterCheckpointInfo,
+					beforeID:         snapshot.beforeCheckpoint, afterID: snapshot.afterCheckpoint,
+					raggedSpan: true, valid: true,
+				}
+				rightRequest := leftRequest
+				rightRequest.electionIndex = 19
+				rightRequest.headerCreationSeq = 23
+				rightRequest.token.isKeyword = false
+				rightRequest.before = snapshot.clone()
+				rightRequest.after = snapshot.clone()
+				scheduler := &diagnosticParserCoreGenericScheduler{
+					compact: compact,
+					versionLexerRequests: []diagnosticParserCoreVersionLexerRequest{
+						leftRequest, rightRequest,
+					},
+				}
+				leftState := &diagnosticParserCoreVersionState{
+					relexSnapshot: snapshot, lexerRequest: 1,
+				}
+				rightState := &diagnosticParserCoreVersionState{
+					relexSnapshot: snapshot.clone(), lexerRequest: 2,
+				}
+				if changed {
+					rightState.recoveryGroup = 1
+				}
+				scratch := diagnosticParserCoreCanonicalScratch{
+					versionStateEqual: scheduler.versionLexerStateEqual,
+				}
+				headers := make([]diagnosticParserCoreHeader, count)
+				for index := range headers {
+					state := leftState
+					if index != 0 {
+						state = rightState
+					}
+					headers[index] = diagnosticParserCoreHeader{
+						head: head, creationSeq: uint64(index + 1),
+						freshness: func() core.ReductionFreshness {
+							if index == 0 {
+								return 0
+							}
+							return core.ReductionNew
+						}(),
+						versionState: state,
+					}
+				}
+				out, err := scratch.canonicalize(compact, headers)
+				if err != nil {
+					t.Fatal(err)
+				}
+				want := 2
+				if len(out) != want {
+					t.Fatalf("owner keys produced %d headers, want %d: %+v", len(out), want, out)
+				}
+				seenLeft, seenRight := false, false
+				for _, header := range out {
+					seenLeft = seenLeft || header.versionState == leftState
+					seenRight = seenRight || header.versionState == rightState
+				}
+				if !seenLeft || !seenRight {
+					t.Fatalf("canonical output lost a lexer snapshot owner: %+v", out)
+				}
+				if count > diagnosticParserCoreLinearCanonicalLimit && scratch.groups == nil {
+					t.Fatal("mapped canonicalization did not allocate its group map")
+				}
+			})
+		}
 	}
 }
 

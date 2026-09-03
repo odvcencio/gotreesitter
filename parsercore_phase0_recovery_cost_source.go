@@ -4,6 +4,7 @@ package gotreesitter
 
 import (
 	"errors"
+	"math"
 	"sort"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
@@ -246,46 +247,40 @@ type diagnosticParserCoreLineageInput struct {
 var errDiagnosticParserCoreLineageTie = errors.New("parser-core phase zero: competing recovery lineages tie beyond the modeled selection ladder")
 
 // diagnosticParserCorePriceLineages prices each candidate head so the
-// selection ladder can order them. It refuses any head that does not carry
-// exactly one derivation, for the reason diagnosticParserCoreLineageErrorCost
-// already states: the comparison is defined on one lineage.
+// selection ladder can order them. A physically merged head is one stack
+// version, not several recovery competitors. The graph aggregate admits it
+// only when every physical path has the same authenticated recovery cost.
 func diagnosticParserCorePriceLineages(
 	inputs []diagnosticParserCoreLineageInput,
 	symbols []core.SelectedSymbolPolicy,
 	src *diagnosticParserCoreRecoveryCostSource,
-	memo *core.RecoveryCostMemo,
+	_ *core.RecoveryCostMemo,
 ) ([]diagnosticParserCoreLineage, error) {
 	if src == nil || src.compact == nil {
 		return nil, errors.New("parser-core phase zero: lineage pricing requires a bound cost source")
 	}
 	out := make([]diagnosticParserCoreLineage, 0, len(inputs))
 	for _, in := range inputs {
-		// One Derivations call per head: pricing needs the payloads and
-		// ordering needs the Score. The Core comes from src, so the
-		// derivations and the arena they are priced against cannot disagree.
-		derivations, err := src.compact.Derivations(in.Head)
+		aggregate, supported, err := src.compact.RecoveryGraphAggregateForHead(in.Head, symbols, src)
 		if err != nil {
-			if errors.Is(err, core.ErrDerivationEnumerationCap) {
-				// A head with more paths than the enumeration cap is the most
-				// ambiguous shape there is. Report it as the same decline every
-				// other ambiguous head gets, not as a hard failure.
+			if errors.Is(err, core.RecoveryGraphAggregateLimitError) {
 				return nil, diagnosticParserCoreLineageCostUnavailable
 			}
 			return nil, err
 		}
-		if len(derivations) != 1 {
+		if !supported {
 			return nil, diagnosticParserCoreLineageCostUnavailable
-		}
-		cost, err := diagnosticParserCoreDerivationErrorCost(symbols, src, memo, derivations[0])
-		if err != nil {
-			return nil, err
 		}
 		if in.OpenRecoverySegments < 0 {
 			return nil, errors.New("parser-core phase zero: negative open-recovery segment count")
 		}
-		cost += uint32(core.RecoveryCostPerRecovery) * uint32(in.OpenRecoverySegments)
+		openCost := uint64(in.OpenRecoverySegments) * uint64(core.RecoveryCostPerRecovery)
+		if openCost > math.MaxUint32 || uint64(aggregate.MinimumErrorCost)+openCost > math.MaxUint32 {
+			return nil, errors.New("parser-core phase zero: recovery lineage cost overflow")
+		}
+		cost := aggregate.MinimumErrorCost + uint32(openCost)
 		out = append(out, diagnosticParserCoreLineage{
-			Head: in.Head, Cost: cost, Score: derivations[0].Score,
+			Head: in.Head, Cost: cost, Score: aggregate.StoredPrecedenceMaximum,
 		})
 	}
 	return out, nil

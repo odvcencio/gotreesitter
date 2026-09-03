@@ -906,6 +906,11 @@ type Language struct {
 	// Custom and adapted languages retain the false default.
 	CompactMissingTokenInsertionCertified bool
 
+	// CompactFaithfulS5RecoveryCertified permits the complete S5 scan
+	// to merge equivalent physical recovery heads. The legacy bounded S5 path
+	// remains active without this exact artifact capability.
+	CompactFaithfulS5RecoveryCertified bool
+
 	// CompactRecoveryTrailingLineageRetirementCertified permits the compact
 	// scheduler to retire one trailing no-action missing lineage after the
 	// earlier error-absorb lineage consumed the same elected token. This is the

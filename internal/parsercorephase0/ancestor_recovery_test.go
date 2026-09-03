@@ -596,3 +596,57 @@ func TestRecoverToAncestorStateRepushesTrailingExtrasOutsideError(t *testing.T) 
 		t.Fatalf("recovery storage delta=%+v -> %+v, want N+3/L+3/S+1/C+1", before, after)
 	}
 }
+
+func TestRecoverToAncestorStateWithCostAccumulatesTrailingExtras(t *testing.T) {
+	const lookahead = Symbol(9)
+	tables := &fakeTable{actions: map[tableCell][]Action{
+		{state: 1, symbol: lookahead}: {{Type: ActionShift, State: 2}},
+	}}
+	compact := newAncestorRecoveryTestCore(t, tables, Limits{})
+	seed, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compact.nodeLineages[seed.Node-1].storedErrorCost = 9
+	child := appendAncestorRecoveryPayload(t, compact, 1, 0, 1, false)
+	firstExtra := appendAncestorRecoveryPayload(t, compact, 2, 1, 2, true)
+	secondExtra := appendAncestorRecoveryPayload(t, compact, 3, 2, 3, true)
+	head := appendAncestorRecoveryHead(t, compact, seed, 2, child)
+	head = appendAncestorRecoveryHead(t, compact, head, 3, firstExtra)
+	head = appendAncestorRecoveryHead(t, compact, head, 4, secondExtra)
+	candidates, err := compact.StackSummaryCandidates(head, 3)
+	if err != nil || len(candidates) != 3 {
+		t.Fatalf("candidates=%+v err=%v, want three summary entries", candidates, err)
+	}
+	candidate := ancestorRecoveryCandidateForState(t, candidates, 1)
+	cost := func(prev NodeID, payload SubtreeID) (uint32, error) {
+		prefix, prefixErr := compact.RecoveryStoredErrorCost(Head{Node: prev})
+		if prefixErr != nil {
+			return 0, prefixErr
+		}
+		record, recordErr := compact.subtree(payload)
+		if recordErr != nil {
+			return 0, recordErr
+		}
+		increment := uint32(1)
+		if record.symbol == ErrorRegionSymbol {
+			increment = 100
+		}
+		return prefix + increment, nil
+	}
+	var recovered Head
+	err = compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		recovered, err = compact.RecoverToAncestorStateWithCostOwned(owner, candidate, cost)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("RecoverToAncestorStateWithCostOwned: %v", err)
+	}
+	got, err := compact.RecoveryStoredErrorCost(recovered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 111 {
+		t.Fatalf("recovered stored cost=%d, want 111", got)
+	}
+}

@@ -175,13 +175,20 @@ func TestDiagnosticParserCoreRecoveryReductionForkPreservesMarkers(t *testing.T)
 		t.Fatal(err)
 	}
 	scheduler := &diagnosticParserCoreGenericScheduler{
-		compact:              compact,
+		compact: compact,
+		tokenSource: &dfaTokenSource{language: &Language{
+			SymbolCount: 10,
+			SymbolMetadata: []SymbolMetadata{
+				8: {Visible: true, Named: true},
+			},
+		}},
 		headers:              []diagnosticParserCoreHeader{{head: head, creationSeq: 3}},
 		token:                Token{Symbol: 9, StartByte: 1, EndByte: 2},
 		nextSeq:              10,
 		nextCleanPathLineage: 1,
 		options: DiagnosticParserCorePrefixOptions{
 			MaxDispatches:                        20,
+			materializationSource:                []byte("a?"),
 			allowCompactRecoveryLineageSelection: true,
 		},
 		receipt: &DiagnosticParserCoreGenericScheduler{},

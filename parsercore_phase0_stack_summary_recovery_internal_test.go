@@ -62,6 +62,7 @@ func newStackSummaryRecoveryForkScheduler(t *testing.T, armed bool) *diagnosticP
 		nextSeq: 10,
 		options: DiagnosticParserCorePrefixOptions{
 			Recovery:                             true,
+			materializationSource:                []byte("a?"),
 			allowCompactStrategy2ErrorRegion:     true,
 			allowCompactStackSummaryRecovery:     armed,
 			allowCompactRecoveryLineageSelection: true,

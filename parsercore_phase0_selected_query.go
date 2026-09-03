@@ -39,9 +39,13 @@ func (r selectedStoreQueryReader) IsNamed(id core.SelectedNodeID) bool {
 	return named
 }
 
-// The selected clean-full route cannot contain recovery-inserted nodes. Query
-// admission rejects MISSING patterns before the matcher reaches this reader.
-func (selectedStoreQueryReader) IsMissing(core.SelectedNodeID) bool { return false }
+func (r selectedStoreQueryReader) IsMissing(id core.SelectedNodeID) bool {
+	if r.store == nil {
+		return false
+	}
+	record, ok := r.store.Record(id)
+	return ok && record.Missing()
+}
 
 func (r selectedStoreQueryReader) Type(id core.SelectedNodeID, lang *Language) string {
 	symbol := r.Symbol(id)

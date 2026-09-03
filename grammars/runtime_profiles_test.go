@@ -63,6 +63,9 @@ func TestHTMLProfileCertifiesCompleteCompactRecovery(t *testing.T) {
 	if lang.CompactRecoveryPlainFirstCertified {
 		t.Fatal("the HTML profile unexpectedly enabled plain-first recovery")
 	}
+	if lang.CompactFaithfulS5RecoveryCertified {
+		t.Fatal("the HTML profile unexpectedly enabled the Scala S5 route")
+	}
 	uncertified := &gotreesitter.Language{}
 	if attachBuiltinLanguageRuntimeProfile("html", sha256.Sum256([]byte("wrong html blob")), uncertified) ||
 		uncertified.CompactStrategy2ErrorRegionCertified || uncertified.CompactMissingTokenInsertionCertified ||
@@ -130,6 +133,9 @@ func TestJavaScriptProfileCertifiesCompactRecoveryFrontier(t *testing.T) {
 		!lang.CompactRecoveryErrorModeKeywordCaptureCertified {
 		t.Fatal("the JavaScript profile did not attach its compact recovery capabilities")
 	}
+	if lang.CompactFaithfulS5RecoveryCertified {
+		t.Fatal("the JavaScript profile unexpectedly enabled the Scala S5 route")
+	}
 	wantAliases := []gotreesitter.CompactRecoveryTerminalAliasRule{
 		{ResumeState: 20, ResumeSymbol: 54, AliasSymbol: 261},
 		{ResumeState: 231, ResumeSymbol: 85, AliasSymbol: 261},
@@ -146,6 +152,33 @@ func TestJavaScriptProfileCertifiesCompactRecoveryFrontier(t *testing.T) {
 		uncertified.CompactRecoveryErrorModeKeywordCaptureCertified ||
 		len(uncertified.CompactRecoveryTerminalAliasRules) != 0 {
 		t.Fatal("a mismatched JavaScript blob received compact recovery certification")
+	}
+}
+
+func TestScalaProfileCertifiesPackageTwoRecovery(t *testing.T) {
+	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+	lang := ScalaLanguage()
+	if !lang.CompactStrategy2ErrorRegionCertified || !lang.CompactMissingTokenInsertionCertified ||
+		!lang.CompactFaithfulS5RecoveryCertified ||
+		!lang.CompactPrimaryAcceptanceDerivationCertified ||
+		!lang.CompactAcceptanceStructuralElectionCertified ||
+		!lang.CompactRecoveryTrailingLineageRetirementCertified ||
+		!lang.CompactRecoveryErrorModeKeywordCaptureCertified {
+		t.Fatal("the Scala profile did not attach its package-two recovery capabilities")
+	}
+	if lang.CompactStackSummaryRecoveryCertified || lang.CompactRecoverEOFCertified {
+		t.Fatal("the Scala package-two profile enabled a later recovery package")
+	}
+	uncertified := &gotreesitter.Language{}
+	if attachBuiltinLanguageRuntimeProfile("scala", sha256.Sum256([]byte("wrong scala blob")), uncertified) ||
+		uncertified.CompactStrategy2ErrorRegionCertified ||
+		uncertified.CompactMissingTokenInsertionCertified ||
+		uncertified.CompactFaithfulS5RecoveryCertified ||
+		uncertified.CompactPrimaryAcceptanceDerivationCertified ||
+		uncertified.CompactAcceptanceStructuralElectionCertified ||
+		uncertified.CompactRecoveryTrailingLineageRetirementCertified ||
+		uncertified.CompactRecoveryErrorModeKeywordCaptureCertified {
+		t.Fatal("a mismatched Scala blob received package-two recovery certification")
 	}
 }
 
@@ -192,7 +225,8 @@ func TestBuiltinRuntimeProfilesStayNarrow(t *testing.T) {
 	// 50 = the prior 49 plus the Markdown inline entry. It certifies four exact
 	// compact conflict rows while production parsing ignores them.
 	// 51 = the prior 50 plus the irreducible YAML recover_eof EOF-root entry.
-	if got, want := len(builtinLanguageRuntimeProfiles), 51; got != want {
+	// 52 = the prior 51 plus the certified Scala package-two recovery entry.
+	if got, want := len(builtinLanguageRuntimeProfiles), 52; got != want {
 		t.Fatalf("builtinLanguageRuntimeProfiles has %d entries, want %d", got, want)
 	}
 	lang := &gotreesitter.Language{ExternalScanner: KotlinExternalScanner{}}

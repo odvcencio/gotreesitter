@@ -1267,6 +1267,22 @@ jobs:
             --timeout 20m \
             -- "cd /workspace && go test . -tags gts_parsercorephase0 -run '^(TestDiagnosticParserCoreVersionLexerSnapshot(BindsCheckpointIdentity|RejectsIncompleteCheckpointIdentity)|TestDiagnosticParserCoreOwnedLexer(SeedingSkipsAcceptedHeader|ActivationRejectsOpenRecoveryRegion)|TestExternalScannerOrderAdapter(PreservesOptionalCapabilities|KeepsLegacyCheckpointIdentityOptional|RequiresTargetGrammarCheckpointIdentity|BindsAuthenticatedTargetAcrossNestedAdapters))$' -count=1 -parallel 1 -timeout 20m -v && cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestCompactPerVersionLexerScalaCOracle$' -count=1 -parallel 1 -timeout 20m -v"
 
+      - name: Compact physical graph-head package-two witnesses
+        run: |
+          GTS_PARITY_MODE=smoke \
+          GTS_PARITY_C_REF_BUILD_CACHE=0 \
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-compact-physical-head-scala \
+            --memory 8g \
+            --cpus 2 \
+            --pids 4096 \
+            --gomemlimit 6GiB \
+            --goflags -p=1 \
+            --test-parallel 1 \
+            --c-ref-build-jobs 1 \
+            --timeout 20m \
+            -- "cd /workspace && go test -tags gts_parsercorephase0 ./internal/parsercorephase0 -run '^(TestS5RecoveryDiscontinuityLinkValidation|TestS5DiscontinuityReaderSemantics|TestS5SixHeadPhysicalMergeRetainsPaths)$' -count=1 -parallel 1 -timeout 20m -v && go test . -tags gts_parsercorephase0 -run '^TestPackage2ScalaStrictReceipt(Composition)?$' -count=1 -parallel 1 -timeout 20m -v && cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestPackage2Scala(Falsifier(PhysicalMergeMinimal|OwnedLexerComposition|NoSummaryEOF|TrueEOFComposition)|IncrementalCleanMissingTransitions)$' -count=1 -parallel 1 -timeout 20m -v"
+
   # merge-event-census-cgo runs stage M0 of spec.merge-time-election.v1: the
   # census that counts stack-merge events on both sides and breaks production's
   # refusals down by gate. Every cgo parity lane in this file runs a FIXED

@@ -2,6 +2,10 @@ package parsercorephase0
 
 import "errors"
 
+// compactMissingLeafStoredErrorCost is the pinned C cost of one missing
+// terminal: one recovery plus one missing-tree term.
+const compactMissingLeafStoredErrorCost uint32 = 610
+
 // ---------------------------------------------------------------------------
 // missing_leaf.go -- compact support for C's recovery-inserted MISSING
 // terminal.
@@ -63,14 +67,18 @@ import "errors"
 // Materialization validates reduction metadata, not this. The scheduler
 // caller must authenticate the symbol against its state before publishing.
 func (c *Core) MissingLeaf(symbol Symbol, atByte uint32) (id SubtreeID, err error) {
+	mark := c.mark()
+	defer c.completeTransaction(mark, &err)
+	return c.missingLeafUncheckpointed(symbol, atByte)
+}
+
+func (c *Core) missingLeafUncheckpointed(symbol Symbol, atByte uint32) (SubtreeID, error) {
 	if symbol == 0 {
 		return 0, errors.New("parser-core phase zero: missing leaf requires a real terminal symbol")
 	}
 	if symbol == ErrorRegionSymbol {
 		return 0, errors.New("parser-core phase zero: missing leaf cannot carry the ERROR symbol")
 	}
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
 	return c.appendSubtree(subtreeRecord{
 		symbol:    symbol,
 		startByte: atByte,
@@ -103,16 +111,44 @@ func (c *Core) ShiftMissingLeaf(head Head, targetState StateID, symbol Symbol, a
 	}
 	mark := c.mark()
 	defer c.completeTransaction(mark, &err)
+	return c.shiftMissingLeafUncheckpointed(head, targetState, symbol, atByte)
+}
+
+// ShiftMissingLeafOwned attaches one authenticated missing leaf without
+// opening a nested ordinary checkpoint. Scheduler recovery uses this seam
+// inside a speculative transaction.
+func (c *Core) ShiftMissingLeafOwned(owner SchedulerTransactionToken, head Head, targetState StateID, symbol Symbol, atByte uint32) (out Head, err error) {
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return out, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	out, err = c.shiftMissingLeafUncheckpointed(head, targetState, symbol, atByte)
+	return out, c.finishSchedulerOwned(owner, err)
+}
+
+func (c *Core) shiftMissingLeafUncheckpointed(head Head, targetState StateID, symbol Symbol, atByte uint32) (out Head, err error) {
+	if targetState == 0 {
+		return Head{}, errors.New("parser-core phase zero: missing leaf shift requires a real target state")
+	}
 	if _, err := c.node(head.Node); err != nil {
 		return Head{}, err
 	}
-	payload, err := c.MissingLeaf(symbol, atByte)
+	payload, err := c.missingLeafUncheckpointed(symbol, atByte)
 	if err != nil {
 		return Head{}, err
 	}
-	return c.condense(c.shiftedBoundaryKey(targetState, atByte), linkInput{
-		prev: head.Node, payload: payload,
+	lineage, err := c.nodeLineage(head.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	if ^uint32(0)-lineage.storedErrorCost < compactMissingLeafStoredErrorCost {
+		return Head{}, errors.New("parser-core phase zero: missing leaf stored recovery cost overflow")
+	}
+	storedErrorCost := lineage.storedErrorCost + compactMissingLeafStoredErrorCost
+	outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(targetState, atByte), linkInput{
+		prev: head.Node, payload: payload, storedErrorCost: storedErrorCost, hasStoredErrorCost: true,
 	})
+	return outcome.head, err
 }
 
 // UniqueStateSpine returns the state stack below head, from the seed to head.
@@ -146,7 +182,10 @@ func (c *Core) UniqueStateSpine(head Head, maxDepth int) ([]StateID, bool, error
 			return nil, false, errors.New("parser-core phase zero: state spine adjacency is out of range")
 		}
 		link := c.links[linkID-1]
-		if link.prev == 0 {
+		if err := link.validateShape(); err != nil {
+			return nil, false, err
+		}
+		if link.prev == 0 || link.prev >= id {
 			return nil, false, errors.New("parser-core phase zero: state spine link has no predecessor")
 		}
 		id = link.prev

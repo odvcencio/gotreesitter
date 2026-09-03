@@ -103,73 +103,82 @@ func TestStage2PhysicalHeadMergeUnionsEquivalentDistinctNodes(t *testing.T) {
 	}
 }
 
-func TestStage2PhysicalHeadMergeAtSixVersionBoundaryRetainsEveryPath(t *testing.T) {
-	compact := newTinyCoreWithLimits(t, Limits{MaxDerivations: 16, MaxPopPaths: 16})
-	headCount := 6
-	candidates := make([]CondenseCandidate, 0, headCount)
-	wantPayloads := make(map[SubtreeID]bool, headCount)
-	for index := 0; index < headCount; index++ {
-		root, err := compact.Seed(StateID(index+1), 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		payload, err := compact.appendSubtree(subtreeRecord{
-			symbol: Symbol(index + 10), startByte: 0, endByte: 1, terminal: true,
-		}, nil, nil, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		link := compact.appendGraphLink(linkRecord{prev: root.Node, payload: payload})
-		node, err := compact.appendNode(nodeRecord{
-			state: 7, byteOffset: 1, firstLink: uint32(link), linkCount: 1, pathCount: 1,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		head := Head{Node: node}
-		candidates = append(candidates, CondenseCandidate{Head: head})
-		wantPayloads[payload] = true
-	}
+func TestStage2PhysicalHeadMergeAtAndPastSixVersionBoundaryRetainsEveryPath(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		headCount int
+	}{
+		{name: "at_boundary", headCount: 6},
+		{name: "past_boundary", headCount: 7},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			compact := newTinyCoreWithLimits(t, Limits{MaxDerivations: 16, MaxPopPaths: 16})
+			candidates := make([]CondenseCandidate, 0, test.headCount)
+			wantPayloads := make(map[SubtreeID]bool, test.headCount)
+			for index := 0; index < test.headCount; index++ {
+				root, err := compact.Seed(StateID(index+1), 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				payload, err := compact.appendSubtree(subtreeRecord{
+					symbol: Symbol(index + 10), startByte: 0, endByte: 1, terminal: true,
+				}, nil, nil, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				link := compact.appendGraphLink(linkRecord{prev: root.Node, payload: payload})
+				node, err := compact.appendNode(nodeRecord{
+					state: 7, byteOffset: 1, firstLink: uint32(link), linkCount: 1, pathCount: 1,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				head := Head{Node: node}
+				candidates = append(candidates, CondenseCandidate{Head: head})
+				wantPayloads[payload] = true
+			}
 
-	before := compact.Work()
-	err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
-		return compact.ReindexCondenseCandidatesOwned(owner, candidates)
-	})
-	if err != nil {
-		t.Fatalf("ReindexCondenseCandidatesOwned: %v", err)
-	}
-	canonical, ok := compact.CanonicalBoundary(7, 1, false, 0)
-	if !ok {
-		t.Fatal("six-version condense did not publish a canonical boundary")
-	}
-	stats, err := compact.Stats(canonical)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stats.CurrentExactPaths != uint64(headCount) {
-		t.Fatalf("six-version physical head paths=%d, want %d", stats.CurrentExactPaths, headCount)
-	}
-	derivations, err := compact.Derivations(canonical)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(derivations) != headCount {
-		t.Fatalf("six-version derivations=%d, want %d", len(derivations), headCount)
-	}
-	for _, derivation := range derivations {
-		if len(derivation.Payloads) != 1 || !wantPayloads[derivation.Payloads[0]] {
-			t.Fatalf("six-version derivation=%+v lost a path", derivation)
-		}
-		delete(wantPayloads, derivation.Payloads[0])
-	}
-	if len(wantPayloads) != 0 {
-		t.Fatalf("six-version merge lost payloads=%v", wantPayloads)
-	}
-	after := compact.Work()
-	if after.PhysicalHeadMergeAttempts-before.PhysicalHeadMergeAttempts != uint64(headCount-1) ||
-		after.PhysicalHeadMergeSuccesses-before.PhysicalHeadMergeSuccesses != uint64(headCount-1) ||
-		after.PhysicalHeadMergeInputLinks-before.PhysicalHeadMergeInputLinks != uint64(headCount-1) {
-		t.Fatalf("six-version merge telemetry=%+v before=%+v", after, before)
+			before := compact.Work()
+			err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+				return compact.ReindexCondenseCandidatesOwned(owner, candidates)
+			})
+			if err != nil {
+				t.Fatalf("ReindexCondenseCandidatesOwned: %v", err)
+			}
+			canonical, ok := compact.CanonicalBoundary(7, 1, false, 0)
+			if !ok {
+				t.Fatal("condense did not publish a canonical boundary")
+			}
+			stats, err := compact.Stats(canonical)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stats.CurrentExactPaths != uint64(test.headCount) {
+				t.Fatalf("physical head paths=%d, want %d", stats.CurrentExactPaths, test.headCount)
+			}
+			derivations, err := compact.Derivations(canonical)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(derivations) != test.headCount {
+				t.Fatalf("derivations=%d, want %d", len(derivations), test.headCount)
+			}
+			for _, derivation := range derivations {
+				if len(derivation.Payloads) != 1 || !wantPayloads[derivation.Payloads[0]] {
+					t.Fatalf("derivation=%+v lost a path", derivation)
+				}
+				delete(wantPayloads, derivation.Payloads[0])
+			}
+			if len(wantPayloads) != 0 {
+				t.Fatalf("merge lost payloads=%v", wantPayloads)
+			}
+			after := compact.Work()
+			if after.PhysicalHeadMergeAttempts-before.PhysicalHeadMergeAttempts != uint64(test.headCount-1) ||
+				after.PhysicalHeadMergeSuccesses-before.PhysicalHeadMergeSuccesses != uint64(test.headCount-1) ||
+				after.PhysicalHeadMergeInputLinks-before.PhysicalHeadMergeInputLinks != uint64(test.headCount-1) {
+				t.Fatalf("merge telemetry=%+v before=%+v", after, before)
+			}
+		})
 	}
 }
 
@@ -384,6 +393,8 @@ func TestStage2PhysicalHeadMergeRollsBackCapacityFailure(t *testing.T) {
 
 func TestStage2PhysicalHeadMergeRejectsRecoveryCost(t *testing.T) {
 	compact, left, right, _, _ := newStage2PhysicalHeadPair(t)
+	compact.nodeLineages[left.Node-1].storedErrorCost = 610
+	compact.nodeLineages[right.Node-1].storedErrorCost = 610
 	beforeNodes, beforeLinks := len(compact.nodes), len(compact.links)
 	beforeBoundaries := compact.BoundaryIndexStats()
 	beforeWork := compact.Work()
@@ -398,6 +409,64 @@ func TestStage2PhysicalHeadMergeRejectsRecoveryCost(t *testing.T) {
 	if len(compact.nodes) != beforeNodes || len(compact.links) != beforeLinks ||
 		compact.BoundaryIndexStats() != beforeBoundaries || compact.Work() != beforeWork {
 		t.Fatal("recovery-cost rejection changed compact state")
+	}
+}
+
+func TestRecursiveMergeUsesTargetCostForMixedLinkSplits(t *testing.T) {
+	compact := newTinyCoreWithLimits(t, Limits{MaxNodes: 32, MaxLinks: 32, MaxSubtrees: 16})
+	leftBase, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightBase, err := compact.appendNode(nodeRecord{state: 1, byteOffset: 0, pathCount: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compact.nodeLineages[rightBase-1].storedErrorCost = 5
+	payload, err := compact.appendSubtree(subtreeRecord{symbol: 9, endByte: 1, terminal: true}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leftLink := compact.appendGraphLink(linkRecord{prev: leftBase.Node, payload: payload})
+	leftNode, err := compact.appendNode(nodeRecord{
+		state: 3, byteOffset: 1, firstLink: uint32(leftLink), linkCount: 1, pathCount: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightLink := compact.appendGraphLink(linkRecord{prev: rightBase, payload: payload})
+	rightNode, err := compact.appendNode(nodeRecord{
+		state: 3, byteOffset: 1, firstLink: uint32(rightLink), linkCount: 1, pathCount: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The two top heads have the same cumulative cost. Their lower
+	// predecessors have different cost splits, so recursive insertion must
+	// retain both links and publish the authenticated target cost.
+	compact.nodeLineages[leftNode-1].storedErrorCost = 10
+	compact.nodeLineages[rightNode-1].storedErrorCost = 10
+	folded := precedenceMaximumWitness{}
+	merged, changed, err := compact.mergePredecessorsBounded(leftNode, rightNode, 0, &folded)
+	if err != nil {
+		t.Fatalf("mergePredecessorsBounded: %v", err)
+	}
+	if !changed {
+		t.Fatal("mixed link split did not publish a merged predecessor")
+	}
+	cost, err := compact.RecoveryStoredErrorCost(Head{Node: merged})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cost != 10 {
+		t.Fatalf("merged target cost=%d, want authenticated cost 10", cost)
+	}
+	mergedNode, err := compact.node(merged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mergedNode.linkCount != 2 {
+		t.Fatalf("merged link count=%d, want both mixed-split links", mergedNode.linkCount)
 	}
 }
 

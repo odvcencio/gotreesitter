@@ -224,24 +224,19 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryCondenseEntry(
 	src *diagnosticParserCoreRecoveryCostSource,
 	memo *core.RecoveryCostMemo,
 ) (diagnosticParserCoreRecoveryCondenseEntry, bool, error) {
-	derivations, err := s.compact.Derivations(header.head)
-	if err != nil {
-		if errors.Is(err, core.ErrDerivationEnumerationCap) {
-			return diagnosticParserCoreRecoveryCondenseEntry{}, false, nil
-		}
-		return diagnosticParserCoreRecoveryCondenseEntry{}, false, err
-	}
-	if len(derivations) != 1 {
-		return diagnosticParserCoreRecoveryCondenseEntry{}, false, nil
-	}
-	derivation := derivations[0]
-	if int64(int(derivation.Score)) != derivation.Score {
-		return diagnosticParserCoreRecoveryCondenseEntry{}, false, nil
-	}
-	stackCost, err := diagnosticParserCoreDerivationErrorCost(symbols, src, memo, derivation)
+	// Recovery heads can contain several physical paths after the S5 marker
+	// merge. Price the graph aggregate directly, instead of enumerating paths.
+	// The aggregate rejects unequal path costs and reports the maximum visible
+	// count needed by C's node-count tie band.
+	aggregate, supported, err := s.compact.RecoveryGraphAggregateForHead(header.head, symbols, src)
 	if err != nil {
 		return diagnosticParserCoreRecoveryCondenseEntry{}, false, err
 	}
+	if !supported {
+		return diagnosticParserCoreRecoveryCondenseEntry{}, false, nil
+	}
+	stackCost := aggregate.MinimumErrorCost
+	currentCount := aggregate.MaximumVisibleCount
 	state, byteOffset, err := s.compact.Boundary(header.head)
 	if err != nil {
 		return diagnosticParserCoreRecoveryCondenseEntry{}, false, err
@@ -260,21 +255,29 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryCondenseEntry(
 			if regionErr != nil {
 				return diagnosticParserCoreRecoveryCondenseEntry{}, false, regionErr
 			}
+			if math.MaxUint32-stackCost < regionCost {
+				return diagnosticParserCoreRecoveryCondenseEntry{}, false, errors.New("parser-core phase zero: recovery condense cost overflow")
+			}
 			stackCost += regionCost
+			regionCount, countErr := diagnosticParserCoreOpenRegionVisibleNodeCount(symbols, src, region)
+			if countErr != nil {
+				return diagnosticParserCoreRecoveryCondenseEntry{}, false, countErr
+			}
+			if math.MaxUint32-currentCount < regionCount {
+				return diagnosticParserCoreRecoveryCondenseEntry{}, false, errors.New("parser-core phase zero: recovery condense visible-node count overflow")
+			}
+			currentCount += regionCount
 		}
 	}
 	openSegments := header.recoveryOpenSegments()
 	if openSegments < 0 {
 		return diagnosticParserCoreRecoveryCondenseEntry{}, false, errors.New("parser-core phase zero: negative recovery segment count")
 	}
-	stackCost += uint32(openSegments) * uint32(core.RecoveryCostPerRecovery)
-
-	currentCount, err := diagnosticParserCoreRecoveryCumulativeVisibleNodeCount(
-		derivation, region, symbols, src,
-	)
-	if err != nil {
-		return diagnosticParserCoreRecoveryCondenseEntry{}, false, err
+	openCost := uint64(openSegments) * uint64(core.RecoveryCostPerRecovery)
+	if openCost > math.MaxUint32 || stackCost > math.MaxUint32-uint32(openCost) {
+		return diagnosticParserCoreRecoveryCondenseEntry{}, false, errors.New("parser-core phase zero: recovery condense open-segment cost overflow")
 	}
+	stackCost += uint32(openCost)
 	baseline, baselineSet := header.recoveryNodeBaseline()
 	if !baselineSet {
 		return diagnosticParserCoreRecoveryCondenseEntry{}, false, nil
@@ -290,10 +293,13 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryCondenseEntry(
 	if uint64(nodeCount) > uint64(math.MaxInt) {
 		return diagnosticParserCoreRecoveryCondenseEntry{}, false, nil
 	}
+	if aggregate.StoredPrecedenceMaximum > int64(math.MaxInt) || aggregate.StoredPrecedenceMaximum < -int64(math.MaxInt)-1 {
+		return diagnosticParserCoreRecoveryCondenseEntry{}, false, nil
+	}
 	return diagnosticParserCoreRecoveryCondenseEntry{
 		header: header,
 		status: core.RecoveryVersionStatus(
-			stackCost, header.paused, int(nodeCount), int(derivation.Score), region != nil,
+			stackCost, header.paused, int(nodeCount), int(aggregate.StoredPrecedenceMaximum), region != nil,
 		),
 		key: diagnosticParserCoreRecoveryCondenseKey{
 			state: state, byteOffset: byteOffset, cost: stackCost,

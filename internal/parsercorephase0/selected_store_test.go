@@ -69,6 +69,88 @@ func TestSelectedStoreElidesHiddenParentsBeforeSeal(t *testing.T) {
 	}
 }
 
+func TestSelectedStorePropagatesHiddenMissingErrors(t *testing.T) {
+	for _, test := range []struct {
+		name           string
+		nested         bool
+		visibleMissing bool
+	}{
+		{name: "hidden"},
+		{name: "nested-hidden", nested: true},
+		{name: "visible", visibleMissing: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			compact, err := New(&fakeTable{}, Limits{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			missing, err := compact.appendSubtree(subtreeRecord{
+				symbol: 3, terminal: true, missing: true,
+			}, nil, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			child := missing
+			if test.nested {
+				child, err = compact.appendSubtree(subtreeRecord{symbol: 4}, []SubtreeID{missing}, nil, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			root, err := compact.appendSubtree(subtreeRecord{symbol: 2}, []SubtreeID{child}, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			visible := []Symbol{2}
+			if test.visibleMissing {
+				visible = append(visible, 3)
+			}
+			store, err := compact.BuildSelectedStore([]SubtreeID{root}, selectedStoreTestPolicy(t, visible...), nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer store.Release()
+			rootRecord, ok := store.Record(store.Root())
+			if !ok || !rootRecord.HasError() || rootRecord.Missing() {
+				t.Fatalf("root=%+v, want an ordinary root with error content", rootRecord)
+			}
+			wantChildren := uint16(0)
+			if test.visibleMissing {
+				wantChildren = 1
+			}
+			if rootRecord.ChildCount != wantChildren {
+				t.Fatalf("root children=%d, want %d", rootRecord.ChildCount, wantChildren)
+			}
+			if test.visibleMissing {
+				childID, childOK := store.Child(rootRecord, 0)
+				childRecord, recordOK := store.Record(childID)
+				if !childOK || !recordOK || !childRecord.Missing() || !childRecord.HasError() {
+					t.Fatalf("visible missing child=%+v child_ok=%t record_ok=%t", childRecord, childOK, recordOK)
+				}
+			}
+		})
+	}
+}
+
+func TestSelectedBuildScratchCountsAndReleasesErrorFlags(t *testing.T) {
+	core, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := core.FootprintBytes()
+	core.selectedBuild.resultHasError = make([]bool, 0, 17)
+	want := uint64(cap(core.selectedBuild.resultHasError)) * uint64(unsafe.Sizeof(bool(false)))
+	if got := core.FootprintBytes() - before; got != want {
+		t.Fatalf("error-flag scratch footprint=%d, want %d", got, want)
+	}
+
+	core.selectedBuild.resultHasError = make([]bool, coreRetentionCapBytes+1)
+	core.releaseOversizedRetention()
+	if core.selectedBuild.resultHasError != nil {
+		t.Fatal("retention release kept oversized selected-build error flags")
+	}
+}
+
 func TestSelectedStoreRetainsCompiledAliasChildOccurrence(t *testing.T) {
 	for _, folded := range []bool{false, true} {
 		name := "nonfolded"

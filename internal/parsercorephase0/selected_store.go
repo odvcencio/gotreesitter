@@ -158,6 +158,7 @@ const (
 	// public tree sets the node's missing and has-error bits, the projection
 	// would report an ordinary zero-width token.
 	selectedNodeFlagMissing
+	selectedNodeFlagHasError
 )
 
 // SelectedNodeRecord is one immutable logical occurrence after hidden-parent
@@ -184,6 +185,9 @@ func (r SelectedNodeRecord) Terminal() bool { return r.flags&selectedNodeFlagTer
 // Missing reports a recovery-inserted zero-width terminal (C ts_subtree_missing).
 func (r SelectedNodeRecord) Missing() bool { return r.flags&selectedNodeFlagMissing != 0 }
 
+// HasError reports recovery content on this occurrence or its descendants.
+func (r SelectedNodeRecord) HasError() bool { return r.flags&selectedNodeFlagHasError != 0 }
+
 // SelectedStore is the sealed, pointer-free selected syntax backing store.
 // IDs are occurrence identities; repeated compact SubtreeIDs remain distinct.
 type SelectedStore struct {
@@ -200,20 +204,22 @@ type selectedStoreBacking struct {
 }
 
 type selectedStoreBuildScratch struct {
-	raw         []selectedRawOccurrence
-	rawChildren []uint32
-	rawRoots    []uint32
-	results     []SelectedNodeID
-	precedence  []int32
-	collect     []uint32
-	logical     []SelectedNodeID
-	rootIDs     []SelectedNodeID
-	stack       []selectedOccurrenceFrame
+	raw            []selectedRawOccurrence
+	rawChildren    []uint32
+	rawRoots       []uint32
+	results        []SelectedNodeID
+	resultHasError []bool
+	precedence     []int32
+	collect        []uint32
+	logical        []SelectedNodeID
+	rootIDs        []SelectedNodeID
+	stack          []selectedOccurrenceFrame
 }
 
 type selectedOccurrenceFrame struct {
 	occurrence uint32
 	next       uint32
+	hasError   bool
 }
 
 func (s *SelectedStore) Root() SelectedNodeID {
@@ -483,6 +489,8 @@ func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStoreP
 	}
 	results := resizeSelectedScratch(c.selectedBuild.results, len(raw))
 	c.selectedBuild.results = results
+	resultHasError := resizeSelectedScratch(c.selectedBuild.resultHasError, len(raw))
+	c.selectedBuild.resultHasError = resultHasError
 	wantRetained := uint64(len(raw)+retainedAliasCount)*uint64(unsafe.Sizeof(SelectedNodeRecord{})) +
 		uint64(len(raw)-len(roots)+retainedAliasCount)*uint64(unsafe.Sizeof(SelectedNodeID(0)))
 	if wantRetained > c.limits.MaxSelectedBytes {
@@ -526,9 +534,13 @@ func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStoreP
 		if !ok {
 			return nil, fmt.Errorf("parser-core phase zero: selected symbol %d is outside policy", symbol)
 		}
+		hasError := record.missing || record.symbol == ErrorRegionSymbol
 		logical = logical[:0]
 		for childIndex := uint32(0); childIndex < uint32(occ.childCount); childIndex++ {
 			rawChild := rawChildren[occ.firstChild+childIndex]
+			if resultHasError[rawChild] {
+				hasError = true
+			}
 			start := len(logical)
 			collect = append(collect[:0], rawChild)
 			for len(collect) != 0 {
@@ -554,13 +566,16 @@ func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStoreP
 			child := &store.records[childID-1]
 			rule := policy.unary(record.symbol, child.Symbol)
 			if !child.Extra() && (rule == SelectedUnaryPass || rule == SelectedUnaryRenameLeaf && child.ChildCount == 0) {
+				if hasError {
+					child.flags |= selectedNodeFlagHasError
+				}
 				if rule == SelectedUnaryRenameLeaf {
 					child.Symbol = record.symbol
-					child.flags = selectedFlags(policy.Symbols[record.symbol], child.Extra(), child.External(), child.Terminal(), child.Missing())
+					child.flags = selectedFlags(policy.Symbols[record.symbol], child.Extra(), child.External(), child.Terminal(), child.Missing(), child.HasError())
 				}
 				if occ.alias != 0 && !retainAliasChild {
 					child.Symbol = occ.alias
-					child.flags = selectedFlags(meta, child.Extra(), child.External(), child.Terminal(), child.Missing())
+					child.flags = selectedFlags(meta, child.Extra(), child.External(), child.Terminal(), child.Missing(), child.HasError())
 				}
 				child.ProductionID = record.productionID
 				delta, err := checkedSelectedPrecedence(precedenceDeltas[childID-1], int32(record.dynamicPrecedence))
@@ -578,11 +593,13 @@ func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStoreP
 					}
 				}
 				results[index] = childID
+				resultHasError[index] = hasError
 				continue
 			}
 		}
 
 		if !meta.Visible && !record.extra {
+			resultHasError[index] = hasError
 			continue
 		}
 		if len(logical) > math.MaxUint16 || uint64(len(store.children))+uint64(len(logical)) > math.MaxUint32 || uint64(len(store.records)) >= math.MaxUint32 {
@@ -591,7 +608,7 @@ func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStoreP
 		id := SelectedNodeID(uint64(len(store.records)) + 1)
 		first := uint32(len(store.children))
 		store.children = append(store.children, logical...)
-		flags := selectedFlags(meta, record.extra, record.external, record.terminal, record.missing)
+		flags := selectedFlags(meta, record.extra, record.external, record.terminal, record.missing, hasError)
 		startByte, endByte := record.startByte, record.endByte
 		if len(logical) != 0 {
 			firstChild := store.records[logical[0]-1]
@@ -625,6 +642,7 @@ func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStoreP
 			}
 		}
 		results[index] = id
+		resultHasError[index] = hasError
 	}
 
 	rootIDs := c.selectedBuild.rootIDs[:0]
@@ -685,6 +703,8 @@ func (c *Core) finishSelectedBuildScratch() {
 	c.selectedBuild.rawRoots = c.selectedBuild.rawRoots[:0]
 	clear(c.selectedBuild.results)
 	c.selectedBuild.results = c.selectedBuild.results[:0]
+	clear(c.selectedBuild.resultHasError)
+	c.selectedBuild.resultHasError = c.selectedBuild.resultHasError[:0]
 	c.selectedBuild.precedence = c.selectedBuild.precedence[:0]
 	c.selectedBuild.collect = c.selectedBuild.collect[:0]
 	c.selectedBuild.logical = c.selectedBuild.logical[:0]
@@ -918,7 +938,7 @@ func (s *SelectedStore) normalizeCaseBoundary(current *SelectedNodeRecord, nextS
 	}
 }
 
-func selectedFlags(meta SelectedSymbolPolicy, extra, external, terminal, missing bool) uint8 {
+func selectedFlags(meta SelectedSymbolPolicy, extra, external, terminal, missing, hasError bool) uint8 {
 	var flags uint8
 	if meta.Named {
 		flags |= selectedNodeFlagNamed
@@ -934,6 +954,9 @@ func selectedFlags(meta SelectedSymbolPolicy, extra, external, terminal, missing
 	}
 	if missing {
 		flags |= selectedNodeFlagMissing
+	}
+	if hasError {
+		flags |= selectedNodeFlagHasError
 	}
 	return flags
 }
@@ -964,7 +987,7 @@ func appendSelectedRetainedAliasWrapper(
 	store.records = append(store.records, SelectedNodeRecord{
 		FirstChild: first, StartByte: child.StartByte, EndByte: child.EndByte,
 		Symbol: alias, Field: field, ProductionID: productionID, ChildCount: 1,
-		flags: selectedFlags(meta, false, false, false, false),
+		flags: selectedFlags(meta, false, false, false, false, child.HasError()),
 	})
 	precedenceDeltas = append(precedenceDeltas, 0)
 	child = &store.records[childID-1]

@@ -191,6 +191,45 @@ func TestDiagnosticParserCoreVersionLexerSnapshotCloneDoesNotAlias(t *testing.T)
 	}
 }
 
+func TestDiagnosticParserCoreVersionLexerCloneEqualityPreservesDistinctOwners(t *testing.T) {
+	compact, snapshot := newDiagnosticParserCoreVersionLexerTestSnapshot(t)
+	clone := snapshot.clone()
+	if !diagnosticParserCoreVersionLexerSnapshotEqual(snapshot, clone) {
+		t.Fatal("equivalent lexer snapshots did not compare equal")
+	}
+	left := diagnosticParserCoreVersionLexerRequest{
+		electionIndex: 4, headerCreationSeq: 9, state: 3,
+		token:  Token{Symbol: 7, StartByte: 12, EndByte: 17, isKeyword: true},
+		before: snapshot, after: snapshot.clone(),
+		beforeCheckpoint: snapshot.beforeCheckpointInfo,
+		afterCheckpoint:  snapshot.afterCheckpointInfo,
+		beforeID:         snapshot.beforeCheckpoint, afterID: snapshot.afterCheckpoint,
+		raggedSpan: true, valid: true,
+	}
+	right := left
+	right.electionIndex = 11
+	right.headerCreationSeq = 19
+	right.token.isKeyword = false
+	right.before = snapshot.clone()
+	right.after = snapshot.clone()
+	if !diagnosticParserCoreVersionLexerRequestEqual(&left, &right) {
+		t.Fatal("semantically equal lexer requests did not compare equal")
+	}
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact:              compact,
+		versionLexerRequests: []diagnosticParserCoreVersionLexerRequest{left, right},
+	}
+	leftState := &diagnosticParserCoreVersionState{relexSnapshot: snapshot, lexerRequest: 1}
+	rightState := &diagnosticParserCoreVersionState{relexSnapshot: clone, lexerRequest: 2}
+	if scheduler.versionLexerStateEqual(leftState, rightState) {
+		t.Fatal("distinct lexer snapshot owners compared equal")
+	}
+	right.token.EndByte++
+	if diagnosticParserCoreVersionLexerRequestEqual(&left, &right) {
+		t.Fatal("different lexer request span compared equal")
+	}
+}
+
 func TestDiagnosticParserCoreVersionLexerSnapshotInterleavedErrorRunRestoration(t *testing.T) {
 	states := []LexState{
 		{

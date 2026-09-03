@@ -126,13 +126,14 @@ type ActionRow struct {
 // another core or after Reset/BeginFrontier has invalidated its arena/frontier
 // identity. The action row remains immutable.
 type ClassifiedBoundary struct {
-	owner      *Core
-	actions    ActionRow
-	phase      uint64
-	head       Head
-	state      StateID
-	byteOffset uint32
-	lookahead  Symbol
+	owner       *Core
+	actions     ActionRow
+	phase       uint64
+	transaction uint32
+	head        Head
+	state       StateID
+	byteOffset  uint32
+	lookahead   Symbol
 }
 
 // Head returns the compact head authenticated by this classification.
@@ -490,9 +491,13 @@ type precedenceMaximumWitness struct {
 }
 
 type nodeLineageRecord struct {
-	owner          uint32
-	dropCohortRefs DropCohortRefSet
-	set            AlternativeSet
+	owner uint32
+	// storedErrorCost is the exact C stack-node error cost carried by this
+	// graph node. Recovery discontinuity merges compare it before they add a
+	// null edge. Keep it in lineage metadata so nodeRecord stays size-stable.
+	storedErrorCost uint32
+	dropCohortRefs  DropCohortRefSet
+	set             AlternativeSet
 	// transition only, deleted at stage 3 cleanup (spec.b4b-alternative-set.v1
 	// section 3.2):
 	lineage   uint16
@@ -513,16 +518,17 @@ type nodeLineageRecord struct {
 // nodeLineageJournal append already names every field, so this reorder is
 // layout-only and touches no call site).
 type nodeLineageMutation struct {
-	node           NodeID
-	owner          uint32
-	dropCohortRefs DropCohortRefSet
-	setSpillRef    uint32
-	setCount       uint8
-	setFlags       uint8
-	lineage        uint16
-	rank           CleanPathRankSelection
-	converged      bool
-	blended        bool
+	node            NodeID
+	owner           uint32
+	dropCohortRefs  DropCohortRefSet
+	setSpillRef     uint32
+	setCount        uint8
+	setFlags        uint8
+	lineage         uint16
+	rank            CleanPathRankSelection
+	converged       bool
+	blended         bool
+	storedErrorCost uint32
 }
 
 // alternativeSetInlineCapacity is the fixed inline member width of
@@ -733,9 +739,40 @@ type linkRecord struct {
 	flags      uint32
 }
 
-const linkFlagHasOrder uint32 = 1 << iota
+const (
+	linkFlagHasOrder uint32 = 1 << iota
+	linkFlagRecoveryDiscontinuity
+)
+
+const linkKnownFlags = linkFlagHasOrder | linkFlagRecoveryDiscontinuity
 
 func (l linkRecord) hasOrder() bool { return l.flags&linkFlagHasOrder != 0 }
+
+func (l linkRecord) isRecoveryDiscontinuity() bool {
+	return l.flags&linkFlagRecoveryDiscontinuity != 0
+}
+
+func (l linkRecord) validateShape() error {
+	if l.flags&^linkKnownFlags != 0 {
+		return errors.New("parser-core phase zero: link has unknown flags")
+	}
+	if l.isRecoveryDiscontinuity() {
+		if l.payload != 0 {
+			return errors.New("parser-core phase zero: recovery discontinuity has a payload")
+		}
+		if l.scoreDelta != 0 {
+			return errors.New("parser-core phase zero: recovery discontinuity has a score delta")
+		}
+		if l.hasOrder() || l.order != 0 {
+			return errors.New("parser-core phase zero: recovery discontinuity has branch order")
+		}
+		return nil
+	}
+	if l.payload == 0 {
+		return errors.New("parser-core phase zero: ordinary link has no payload")
+	}
+	return nil
+}
 
 func (c *Core) nodePrecedenceMaximum(id NodeID) (precedenceCandidate, error) {
 	node, err := c.node(id)
@@ -746,9 +783,15 @@ func (c *Core) nodePrecedenceMaximum(id NodeID) (precedenceCandidate, error) {
 }
 
 func (c *Core) linkPrecedenceMaximum(link linkRecord) (precedenceCandidate, error) {
+	if err := link.validateShape(); err != nil {
+		return precedenceCandidate{}, err
+	}
 	predecessor, err := c.nodePrecedenceMaximum(link.prev)
 	if err != nil {
 		return precedenceCandidate{}, err
+	}
+	if link.isRecoveryDiscontinuity() {
+		return predecessor, nil
 	}
 	contribution, err := c.effectivePayloadPrecedence(link.payload, link.scoreDelta)
 	if err != nil {
@@ -1430,6 +1473,7 @@ type checkpoint struct {
 	nodes, nodeLineages, nodeCheckpoints, links, subtrees, externalProvenance int
 	lexerSkippedPrefixes                                                      int
 	children, fields, aliases                                                 int
+	alternativeSpillArena                                                     int
 	eofRecoveryRoots                                                          int
 	dropCohortLinkRefIndexes                                                  int
 	dropCohortLinkRefJournal                                                  int
@@ -1549,7 +1593,8 @@ func (c *Core) markInto(mark *checkpoint) {
 		externalProvenance:   len(c.externalProvenance),
 		lexerSkippedPrefixes: len(c.lexerSkippedPrefixes),
 		children:             len(c.children), fields: len(c.fields), aliases: len(c.aliases),
-		eofRecoveryRoots: len(c.eofRecoveryRoots),
+		alternativeSpillArena: len(c.alternativeSpillArena),
+		eofRecoveryRoots:      len(c.eofRecoveryRoots),
 
 		dropCohortLinkRefIndexes: len(c.dropCohortLinkRefIndexes),
 		dropCohortLinkRefJournal: len(c.dropCohortLinkRefJournal),
@@ -1662,6 +1707,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.children = c.children[:mark.children]
 	c.fields = c.fields[:mark.fields]
 	c.aliases = c.aliases[:mark.aliases]
+	c.alternativeSpillArena = c.alternativeSpillArena[:mark.alternativeSpillArena]
 	c.frontier = mark.frontier
 	c.checkpoint = mark.checkpoint
 	c.work = mark.work
@@ -1683,6 +1729,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 			continue
 		}
 		c.nodeLineages[nodeIndex].owner = mutation.owner
+		c.nodeLineages[nodeIndex].storedErrorCost = mutation.storedErrorCost
 		c.nodeLineages[nodeIndex].dropCohortRefs = mutation.dropCohortRefs
 		c.nodeLineages[nodeIndex].set.count = mutation.setCount
 		c.nodeLineages[nodeIndex].set.flags = mutation.setFlags
@@ -2028,6 +2075,121 @@ func (c *Core) ApplySchedulerAtomic(fn func(SchedulerTransactionToken) error) (e
 	}()
 	err = fn(token)
 	return err
+}
+
+// ApplySchedulerSpeculation runs one authenticated nested scheduler trial.
+// A declined trial rolls back its Core checkpoint without poisoning the outer
+// session. An operation error poisons that session and blocks its commit.
+// Nested trials must complete in last-in-first-out order.
+func (c *Core) ApplySchedulerSpeculation(
+	parent SchedulerTransactionToken,
+	fn func(SchedulerTransactionToken) (bool, error),
+) (err error) {
+	if c == nil {
+		return errors.New("parser-core phase zero: scheduler speculation on nil core")
+	}
+	if fn == nil {
+		return c.poisonSchedulerTransaction(parent, errors.New("parser-core phase zero: nil scheduler speculation"))
+	}
+	if err = c.validateSchedulerSpeculationParent(parent); err != nil {
+		return c.poisonSchedulerTransaction(parent, err)
+	}
+	frame := &c.schedulerFrame
+	outerMark := frame.mark
+	outerPoison := frame.poisoned
+	outerClassificationPhase := c.classificationPhase
+	if c.nextTransaction == math.MaxUint64 {
+		return c.poisonSchedulerTransaction(parent, errors.New("parser-core phase zero: scheduler speculation identity overflow"))
+	}
+	var mark checkpoint
+	c.markInto(&mark)
+	frame.mark = mark
+	child := SchedulerTransactionToken{owner: c, epoch: frame.epoch, transaction: mark.transaction}
+	var speculationCommitResult bool
+	defer func() {
+		recovered := recover()
+		if recovered != nil {
+			phase0ASetRollbackCause(c, Phase0ARollbackPanic)
+			c.restoreCheckpoint(&mark)
+			c.classificationPhase = outerClassificationPhase
+			frame.mark = outerMark
+			cause := fmt.Errorf("parser-core phase zero: scheduler speculation panicked: %v", recovered)
+			if frame.poisoned == nil {
+				frame.poisoned = outerPoison
+				if outerPoison == nil {
+					frame.poisoned = cause
+				}
+			}
+			panic(recovered)
+		}
+		if err != nil {
+			// The callback error is returned after restoring the child checkpoint.
+			// Preserve an earlier poison, but report a new callback poison when
+			// the owned operation supplied one.
+			phase0ASetRollbackCause(c, Phase0ARollbackReturnedError)
+			c.restoreCheckpoint(&mark)
+			c.classificationPhase = outerClassificationPhase
+			frame.mark = outerMark
+			cause := err
+			if outerPoison == nil && frame.poisoned != nil {
+				cause = frame.poisoned
+			}
+			if outerPoison == nil {
+				frame.poisoned = cause
+			}
+			err = cause
+			return
+		}
+		// A callback that ignored an owned-operation failure leaves the child
+		// frame poisoned even when it returned no error. Roll it back and carry
+		// that failure to the outer owner.
+		if outerPoison == nil && frame.poisoned != nil {
+			cause := frame.poisoned
+			phase0ASetRollbackCause(c, Phase0ARollbackSchedulerPoison)
+			c.restoreCheckpoint(&mark)
+			c.classificationPhase = outerClassificationPhase
+			frame.mark = outerMark
+			if outerPoison == nil {
+				frame.poisoned = cause
+			}
+			err = cause
+			return
+		}
+		if !speculationCommitResult {
+			phase0ASetRollbackCause(c, Phase0ARollbackReturnedError)
+			c.restoreCheckpoint(&mark)
+			c.classificationPhase = outerClassificationPhase
+			frame.mark = outerMark
+			return
+		}
+		c.commit(mark)
+		frame.mark = outerMark
+	}()
+	speculationCommitResult, err = fn(child)
+	return err
+}
+
+// validateSchedulerSpeculationParent authenticates a scheduler parent while
+// allowing internal transaction marks below it. Only the speculation seam may
+// use this ancestor check; ordinary owned operations still require the exact
+// top transaction.
+func (c *Core) validateSchedulerSpeculationParent(token SchedulerTransactionToken) error {
+	frame := &c.schedulerFrame
+	if token.owner != c {
+		return errors.New("parser-core phase zero: scheduler transaction token belongs to a different core")
+	}
+	if !frame.active || token.epoch == 0 || token.epoch != frame.epoch || token.transaction != frame.mark.transaction {
+		return errors.New("parser-core phase zero: stale scheduler transaction token")
+	}
+	if frame.fresh {
+		return nil
+	}
+	for _, transaction := range c.transactions {
+		if transaction == token.transaction {
+			return nil
+		}
+	}
+	return errors.New("parser-core phase zero: scheduler transaction token is not an active ancestor")
 }
 
 func (c *Core) writeBoundary(key boundaryKey, id NodeID) error {
@@ -2504,9 +2666,14 @@ func (c *Core) ClassifyBoundary(head Head, lookahead Symbol) (ClassifiedBoundary
 	if err != nil {
 		return ClassifiedBoundary{}, err
 	}
+	transaction, err := c.currentClassificationTransaction()
+	if err != nil {
+		return ClassifiedBoundary{}, err
+	}
 	return ClassifiedBoundary{
 		owner: c, actions: actions, phase: c.classificationPhase,
-		head: head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
+		transaction: transaction,
+		head:        head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
 	}, nil
 }
 
@@ -2531,10 +2698,26 @@ func (c *Core) ClassifyBoundaryWithRow(head Head, lookahead Symbol, actions Acti
 	if err != nil {
 		return ClassifiedBoundary{}, err
 	}
+	transaction, err := c.currentClassificationTransaction()
+	if err != nil {
+		return ClassifiedBoundary{}, err
+	}
 	return ClassifiedBoundary{
 		owner: c, actions: actions, phase: c.classificationPhase,
-		head: head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
+		transaction: transaction,
+		head:        head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
 	}, nil
+}
+
+func (c *Core) currentClassificationTransaction() (uint32, error) {
+	if c == nil || len(c.transactions) == 0 {
+		return 0, nil
+	}
+	transaction := c.transactions[len(c.transactions)-1]
+	if transaction > math.MaxUint32 {
+		return 0, errors.New("parser-core phase zero: classification transaction exceeds compact capability range")
+	}
+	return uint32(transaction), nil
 }
 
 func (c *Core) validateClassification(boundary ClassifiedBoundary) error {
@@ -2543,6 +2726,14 @@ func (c *Core) validateClassification(boundary ClassifiedBoundary) error {
 	}
 	if boundary.phase == 0 || boundary.phase != c.classificationPhase {
 		return errors.New("parser-core phase zero: classified boundary is stale")
+	}
+	if boundary.transaction != 0 {
+		for _, transaction := range c.transactions {
+			if transaction == uint64(boundary.transaction) {
+				return nil
+			}
+		}
+		return errors.New("parser-core phase zero: classified boundary transaction is stale")
 	}
 	return nil
 }
@@ -2906,7 +3097,7 @@ func (c *Core) ReduceOutputsInto(dst []ReductionOutput, head Head, lookahead Sym
 func (c *Core) ReduceOutputsClassifiedInto(dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder) (frontier []ReductionOutput, err error) {
 	mark := c.mark()
 	defer c.completeTransaction(mark, &err)
-	return c.reduceOutputsClassifiedIntoUncheckpointed(SchedulerTransactionToken{}, dst, boundary, actionOrdinal, fork)
+	return c.reduceOutputsClassifiedIntoUncheckpointed(SchedulerTransactionToken{}, dst, boundary, actionOrdinal, fork, nil)
 }
 
 func (c *Core) reductionParentForPath(
@@ -3156,6 +3347,29 @@ func reductionParentIdentityEqual(
 	return left == right && slices.Equal(leftChildren, rightChildren) && slices.Equal(leftFields, rightFields) && slices.Equal(leftAliases, rightAliases)
 }
 
+// inheritedStoredErrorCost returns the prefix cost used by a single-link
+// publication. Multi-link publications must supply their authenticated target
+// cost because alternate links can split cost between predecessor and payload.
+func (c *Core) inheritedStoredErrorCost(links []linkRecord) (uint32, error) {
+	if len(links) == 0 {
+		return 0, nil
+	}
+	first, err := c.nodeLineage(links[0].prev)
+	if err != nil {
+		return 0, err
+	}
+	return first.storedErrorCost, nil
+}
+
+func (c *Core) publishInheritedStoredErrorCost(head Head, cost uint32) error {
+	lineage, err := c.nodeLineage(head.Node)
+	if err != nil {
+		return err
+	}
+	lineage.storedErrorCost = cost
+	return nil
+}
+
 // appendPrivate adds one exact single-link node without publishing an
 // intermediate boundary for cross-path condensation. Reduction paths with
 // trailing extras use it so only their final (state, byte) boundary merges.
@@ -3165,6 +3379,10 @@ func (c *Core) appendPrivate(state StateID, byteOffset uint32, in linkInput) (He
 		return Head{}, err
 	}
 	if _, err := c.subtree(in.payload); err != nil {
+		return Head{}, err
+	}
+	storedErrorCost, err := c.storedErrorCostForLink(in)
+	if err != nil {
 		return Head{}, err
 	}
 	maximum, err := c.linkPrecedenceMaximum(linkRecord{
@@ -3195,6 +3413,9 @@ func (c *Core) appendPrivate(state StateID, byteOffset uint32, in linkInput) (He
 	if err != nil {
 		return Head{}, err
 	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
+		return Head{}, err
+	}
 	if phase0AEnabled {
 		phase0AObservePrivatePublication(c, state, byteOffset, in, linkID, id)
 	}
@@ -3217,10 +3438,31 @@ func (c *Core) action(head Head, lookahead Symbol, ordinal int) (Action, error) 
 }
 
 type linkInput struct {
-	prev       NodeID
-	payload    SubtreeID
-	scoreDelta int64
-	order      ForkOrder
+	prev               NodeID
+	payload            SubtreeID
+	scoreDelta         int64
+	order              ForkOrder
+	storedErrorCost    uint32
+	hasStoredErrorCost bool
+}
+
+// ReductionOutputCostFunc computes the complete stored recovery cost for one
+// reduction output before Core publishes or condenses its boundary. The
+// scheduler owns the cost model. Core only authenticates the resulting value.
+type ReductionOutputCostFunc func(prev NodeID, payload SubtreeID) (uint32, error)
+
+func (c *Core) storedErrorCostForLink(in linkInput) (uint32, error) {
+	lineage, err := c.nodeLineage(in.prev)
+	if err != nil {
+		return 0, err
+	}
+	if in.hasStoredErrorCost {
+		if in.storedErrorCost < lineage.storedErrorCost {
+			return 0, errors.New("parser-core phase zero: expected stored recovery cost is below its predecessor")
+		}
+		return in.storedErrorCost, nil
+	}
+	return c.inheritedStoredErrorCost([]linkRecord{{prev: in.prev}})
 }
 
 type condenseChange uint8
@@ -3280,6 +3522,10 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if _, err := c.subtree(in.payload); err != nil {
 		return condenseOutcome{}, err
 	}
+	storedErrorCost, err := c.storedErrorCostForLink(in)
+	if err != nil {
+		return condenseOutcome{}, err
+	}
 	probe, oldID := c.boundaries.probe(boundaryIdentityFromKey(key))
 	if !probe.found {
 		// No incumbent has ever published this boundary in the current
@@ -3299,7 +3545,16 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		// function depends on is untouched -- this function still cannot
 		// prove a caller can never roll back past this append, so it does
 		// not weaken that contract.
-		return c.condenseDirectAppend(key, probe, prev.pathCount, in)
+		return c.condenseDirectAppend(key, probe, prev.pathCount, in, storedErrorCost)
+	}
+	if c.condenseNodeIsLive(oldID) {
+		oldLineage, lineageErr := c.nodeLineage(oldID)
+		if lineageErr != nil {
+			return condenseOutcome{}, lineageErr
+		}
+		if oldLineage.storedErrorCost != storedErrorCost {
+			return condenseOutcome{}, errors.New("parser-core phase zero: condense heads have different stored recovery costs")
+		}
 	}
 	historicalBoundarySplit := false
 	var historicalCleanPathRank CleanPathRankSelection
@@ -3459,7 +3714,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 					if phase0AEnabled {
 						phase0ABeginReplacement(c, key, in, oldID, incumbent)
 					}
-					head, err := c.replaceBoundaryLink(key, probe, old, oldLinks, incumbent, in)
+					head, err := c.replaceBoundaryLink(key, probe, oldID, old, oldLinks, incumbent, in)
 					if err != nil {
 						c.recordLinkUnionRejected()
 					} else {
@@ -3576,6 +3831,9 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if err != nil {
 		return condenseOutcome{}, err
 	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
+		return condenseOutcome{}, err
+	}
 	if err := c.publishBoundary(probe, id); err != nil {
 		if oldID != 0 {
 			c.recordLinkUnionRejected()
@@ -3603,7 +3861,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 // condenseOutcome shape (change: condenseNew, every historical* field at its
 // zero value). publishBoundary keeps deciding journal writes from
 // len(c.transactions) unchanged; this helper does not touch that contract.
-func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPathCount uint64, in linkInput) (condenseOutcome, error) {
+func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPathCount uint64, in linkInput, storedErrorCost uint32) (condenseOutcome, error) {
 	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || uint64(len(c.links)) >= math.MaxUint32 {
 		return condenseOutcome{}, errors.New("parser-core phase zero: link arena cap")
 	}
@@ -3632,6 +3890,9 @@ func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPa
 	if err != nil {
 		return condenseOutcome{}, err
 	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
+		return condenseOutcome{}, err
+	}
 	if err := c.publishBoundary(probe, id); err != nil {
 		return condenseOutcome{}, err
 	}
@@ -3642,6 +3903,9 @@ func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPa
 }
 
 func (c *Core) linkEqualInput(link linkRecord, in linkInput) (bool, error) {
+	if err := link.validateShape(); err != nil {
+		return false, err
+	}
 	return link.prev == in.prev && link.payload == in.payload && link.scoreDelta == in.scoreDelta &&
 		link.hasOrder() == in.order.Present && (!link.hasOrder() || link.order == in.order.Value), nil
 }
@@ -3694,15 +3958,21 @@ func (c *Core) graphVersionIsDeterministic(root NodeID) (bool, error) {
 				return false, errors.New("parser-core phase zero: historical forest has an invalid link")
 			}
 			link := c.links[linkID-1]
+			if err := link.validateShape(); err != nil {
+				return false, err
+			}
+			if link.prev == 0 || link.prev >= id {
+				return false, errors.New("parser-core phase zero: historical forest predecessor is not earlier than its node")
+			}
+			if link.isRecoveryDiscontinuity() {
+				return false, nil
+			}
 			payload, err := c.subtree(link.payload)
 			if err != nil {
 				return false, err
 			}
 			if payload.fragile {
 				return false, nil
-			}
-			if link.prev >= id {
-				return false, errors.New("parser-core phase zero: historical forest predecessor is not earlier than its node")
 			}
 			stack = append(stack, link.prev)
 			linkID = link.next
@@ -3759,6 +4029,9 @@ func (c *Core) effectivePayloadPrecedence(payloadID SubtreeID, aggregate int64) 
 // node-level precedence that C updates for the shallow non-exact case.
 func (c *Core) factorExactPredecessor(key boundaryKey, probe boundaryProbe, oldID NodeID, oldLinks []linkRecord, in linkInput, folded *precedenceMaximumWitness) (out condenseOutcome, handled bool, err error) {
 	for index, incumbent := range oldLinks {
+		if incumbent.isRecoveryDiscontinuity() {
+			continue
+		}
 		if incumbent.prev == in.prev {
 			continue
 		}
@@ -3871,7 +4144,14 @@ func (c *Core) factorExactPredecessorMerge(key boundaryKey, probe boundaryProbe,
 	if phase0AEnabled {
 		phase0APrepareFactorOuter(c, key, in, oldID, index, merged)
 	}
-	id, appendErr := c.appendAdjacencyNodeAtWithPrecedence(key.state, key.byteOffset, key.checkpoint, rebuilt, *folded)
+	oldLineage, appendErr := c.nodeLineage(oldID)
+	if appendErr != nil {
+		return condenseOutcome{}, true, appendErr
+	}
+	id, appendErr := c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+		key.state, key.byteOffset, key.checkpoint, rebuilt, *folded,
+		oldLineage.storedErrorCost, true,
+	)
 	if appendErr != nil {
 		return condenseOutcome{}, true, appendErr
 	}
@@ -3919,8 +4199,17 @@ func (c *Core) mergePredecessorsBounded(leftID, rightID NodeID, depth int, folde
 	*folded = precedenceMaximumWitness{seed: leftMaximum.value, hasSeed: true}
 	leftCheckpoint, leftExact := c.nodeScannerCheckpoint(leftID)
 	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(rightID)
+	leftLineage, err := c.nodeLineage(leftID)
+	if err != nil {
+		return 0, false, err
+	}
+	rightLineage, err := c.nodeLineage(rightID)
+	if err != nil {
+		return 0, false, err
+	}
 	if left.state != right.state || left.byteOffset != right.byteOffset ||
-		!leftExact || !rightExact || leftCheckpoint != rightCheckpoint {
+		!leftExact || !rightExact || leftCheckpoint != rightCheckpoint ||
+		leftLineage.storedErrorCost != rightLineage.storedErrorCost {
 		return 0, false, errors.New("parser-core phase zero: recursive predecessors are not boundary-equivalent")
 	}
 	related, err := c.nodesAncestryRelated(leftID, rightID)
@@ -3972,7 +4261,10 @@ func (c *Core) mergePredecessorsBounded(leftID, rightID NodeID, depth int, folde
 		}
 		return leftID, false, nil
 	}
-	merged, err := c.appendAdjacencyNodeAtWithPrecedence(left.state, left.byteOffset, leftCheckpoint, links, *folded)
+	merged, err := c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+		left.state, left.byteOffset, leftCheckpoint, links, *folded,
+		leftLineage.storedErrorCost, true,
+	)
 	if err != nil {
 		return 0, false, err
 	}
@@ -4006,16 +4298,98 @@ func (c *Core) insertLinkBounded(state StateID, byteOffset uint32, links []linkR
 		return append(slices.Clone(links), incoming), true, nil
 	}
 	c.recordLinkUnionAttempt()
-	_, incomingExact, err := c.subtreeExternalProvenance(incoming.payload)
-	if err != nil {
-		c.recordLinkUnionRejected()
-		return nil, false, err
-	}
-	if !incomingExact {
-		c.recordLinkUnionRejected()
-		return nil, false, errors.New("parser-core phase zero: recursive insertion declined inexact external payload provenance")
+	incomingDiscontinuity := incoming.isRecoveryDiscontinuity()
+	if !incomingDiscontinuity {
+		_, incomingExact, err := c.subtreeExternalProvenance(incoming.payload)
+		if err != nil {
+			c.recordLinkUnionRejected()
+			return nil, false, err
+		}
+		if !incomingExact {
+			c.recordLinkUnionRejected()
+			return nil, false, errors.New("parser-core phase zero: recursive insertion declined inexact external payload provenance")
+		}
 	}
 	for index, incumbent := range links {
+		if err := incumbent.validateShape(); err != nil {
+			c.recordLinkUnionRejected()
+			return nil, false, err
+		}
+		incumbentDiscontinuity := incumbent.isRecoveryDiscontinuity()
+		if incomingDiscontinuity || incumbentDiscontinuity {
+			if !incomingDiscontinuity || !incumbentDiscontinuity {
+				continue
+			}
+			if c.linkRecordsEqual(incumbent, incoming) {
+				c.recordLinkUnionDuplicateNoop()
+				if phase0AEnabled {
+					phase0AMergeDecision(c, index, phase0ATransitionDuplicateDrop)
+				}
+				return links, false, nil
+			}
+			mergeable, err := c.predecessorBoundariesMatch(incumbent.prev, incoming.prev)
+			if err != nil {
+				c.recordLinkUnionRejected()
+				return nil, false, err
+			}
+			if !mergeable {
+				continue
+			}
+			related, err := c.nodesAncestryRelated(incumbent.prev, incoming.prev)
+			if err != nil {
+				c.recordLinkUnionRejected()
+				return nil, false, err
+			}
+			if related {
+				// C keeps a NULL edge when the two predecessors cannot form a
+				// distinct recursive merge, including an ancestry-related pair.
+				continue
+			}
+			if !c.linkEdgesEqual(incumbent, incoming) {
+				c.recordLinkUnionRejected()
+				return nil, false, errors.New("parser-core phase zero: recursive insertion declined non-exact discontinuity edge")
+			}
+			if depth >= maxRecursiveInsertDepth {
+				c.recordLinkUnionRejected()
+				return nil, false, errors.New("parser-core phase zero: recursive insertion depth limit")
+			}
+			if phase0AEnabled {
+				phase0ABeginPredecessorMerge(c, incumbent.prev, incoming.prev)
+			}
+			nestedFolded := precedenceMaximumWitness{}
+			merged, changed, err := c.mergePredecessorsBounded(incumbent.prev, incoming.prev, depth+1, &nestedFolded)
+			if err != nil {
+				if phase0AEnabled {
+					phase0AAbortPredecessorMerge(c)
+				}
+				c.recordLinkUnionRejected()
+				return nil, false, err
+			}
+			if !changed {
+				if err := c.observeDiscardedLink(folded, incoming); err != nil {
+					c.recordLinkUnionRejected()
+					return nil, false, err
+				}
+				if phase0AEnabled {
+					phase0AAbortPredecessorMerge(c)
+					phase0AMergeDecision(c, index, phase0ATransitionDuplicateDrop)
+				}
+				c.recordLinkUnionDuplicateNoop()
+				return links, false, nil
+			}
+			if phase0AEnabled {
+				phase0AObserveAdjacencyPublished(c, merged)
+				phase0AMergeRecursiveDecision(c, index, merged)
+			}
+			if err := c.observeDiscardedLink(folded, incoming); err != nil {
+				c.recordLinkUnionRejected()
+				return nil, false, err
+			}
+			updated := slices.Clone(links)
+			updated[index].prev = merged
+			c.recordLinkUnionRecursiveChanged()
+			return updated, true, nil
+		}
 		_, incumbentExact, err := c.subtreeExternalProvenance(incumbent.payload)
 		if err != nil {
 			c.recordLinkUnionRejected()
@@ -4321,10 +4695,19 @@ func (c *Core) predecessorBoundariesMatch(leftID, rightID NodeID) (bool, error) 
 	}
 	leftCheckpoint, leftExact := c.nodeScannerCheckpoint(leftID)
 	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(rightID)
+	leftLineage, leftLineageErr := c.nodeLineage(leftID)
+	rightLineage, rightLineageErr := c.nodeLineage(rightID)
+	if leftLineageErr != nil {
+		return false, leftLineageErr
+	}
+	if rightLineageErr != nil {
+		return false, rightLineageErr
+	}
 	return left.state == right.state &&
 		left.byteOffset == right.byteOffset &&
 		leftExact && rightExact &&
-		leftCheckpoint == rightCheckpoint, nil
+		leftCheckpoint == rightCheckpoint &&
+		leftLineage.storedErrorCost == rightLineage.storedErrorCost, nil
 }
 
 func (c *Core) nodeScannerCheckpoint(id NodeID) (CheckpointID, bool) {
@@ -4356,12 +4739,12 @@ func (c *Core) shallowPayloadsEqual(leftPrev NodeID, leftPayload SubtreeID, righ
 }
 
 func (c *Core) linkEdgeEqualInput(link linkRecord, in linkInput) bool {
-	return link.payload == in.payload && link.scoreDelta == in.scoreDelta &&
+	return !link.isRecoveryDiscontinuity() && link.payload == in.payload && link.scoreDelta == in.scoreDelta &&
 		link.hasOrder() == in.order.Present && (!link.hasOrder() || link.order == in.order.Value)
 }
 
 func (c *Core) linkEdgesEqual(left, right linkRecord) bool {
-	return left.payload == right.payload && left.scoreDelta == right.scoreDelta &&
+	return left.flags == right.flags && left.payload == right.payload && left.scoreDelta == right.scoreDelta &&
 		left.hasOrder() == right.hasOrder() && (!left.hasOrder() || left.order == right.order)
 }
 
@@ -4423,7 +4806,9 @@ func (c *Core) appendAdjacencyNode(state StateID, byteOffset uint32, links []lin
 }
 
 func (c *Core) appendAdjacencyNodeAt(state StateID, byteOffset uint32, checkpoint CheckpointID, links []linkRecord) (NodeID, error) {
-	return c.appendAdjacencyNodeAtWithPrecedence(state, byteOffset, checkpoint, links, precedenceMaximumWitness{})
+	return c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+		state, byteOffset, checkpoint, links, precedenceMaximumWitness{}, 0, false,
+	)
 }
 
 // appendAdjacencyNodeAtWithPrecedence publishes an adjacency with its folded
@@ -4433,6 +4818,23 @@ func (c *Core) appendAdjacencyNodeAt(state StateID, byteOffset uint32, checkpoin
 // Neither shape verifies the value against outside evidence; the C rule
 // table in the precedence rule-table tests is the behavioral contract.
 func (c *Core) appendAdjacencyNodeAtWithPrecedence(state StateID, byteOffset uint32, checkpoint CheckpointID, links []linkRecord, folded precedenceMaximumWitness) (NodeID, error) {
+	return c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+		state, byteOffset, checkpoint, links, folded, 0, false,
+	)
+}
+
+// appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost publishes an adjacency
+// with an authenticated cumulative recovery cost. The target cost belongs to
+// the merged node, not to any one predecessor link.
+func (c *Core) appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+	state StateID,
+	byteOffset uint32,
+	checkpoint CheckpointID,
+	links []linkRecord,
+	folded precedenceMaximumWitness,
+	storedErrorCost uint32,
+	storedErrorCostAuthenticated bool,
+) (NodeID, error) {
 	if len(links) == 0 {
 		return 0, errors.New("parser-core phase zero: recursive insertion produced empty adjacency")
 	}
@@ -4457,6 +4859,13 @@ func (c *Core) appendAdjacencyNodeAtWithPrecedence(state StateID, byteOffset uin
 		}
 		pathCount = saturatingAddPaths(pathCount, prev.pathCount)
 	}
+	if !storedErrorCostAuthenticated {
+		inherited, err := c.inheritedStoredErrorCost(links)
+		if err != nil {
+			return 0, err
+		}
+		storedErrorCost = inherited
+	}
 	maximum, err := c.computePrecedenceMaximum(links, folded)
 	if err != nil {
 		return 0, err
@@ -4469,10 +4878,17 @@ func (c *Core) appendAdjacencyNodeAtWithPrecedence(state StateID, byteOffset uin
 		c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 		first = LinkID(len(c.links))
 	}
-	return c.appendNodeAtWithMaximum(nodeRecord{
+	id, err := c.appendNodeAtWithMaximum(nodeRecord{
 		state: state, byteOffset: byteOffset, firstLink: uint32(first),
 		linkCount: uint32(len(links)), pathCount: pathCount,
 	}, checkpoint, maximum.value)
+	if err != nil {
+		return 0, err
+	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 // subtreesStructurallyEqual reports whether two compact payload subtrees are the
@@ -4603,9 +5019,20 @@ func (c *Core) shallowPayloadClass(prevID NodeID, payloadID SubtreeID) (shallowP
 // historical head and every link reachable from it immutable. oldLinks are in
 // stable insertion order, so rebuilding them through prepends preserves the
 // order observed by nodeLinks.
-func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, old nodeRecord, oldLinks []linkRecord, candidate int, in linkInput) (Head, error) {
+func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, oldID NodeID, old nodeRecord, oldLinks []linkRecord, candidate int, in linkInput) (Head, error) {
 	if candidate < 0 || candidate >= len(oldLinks) || uint32(len(oldLinks)) != old.linkCount {
 		return Head{}, errors.New("parser-core phase zero: invalid shallow-fold candidate")
+	}
+	incomingCost, err := c.storedErrorCostForLink(in)
+	if err != nil {
+		return Head{}, err
+	}
+	oldLineage, err := c.nodeLineage(oldID)
+	if err != nil {
+		return Head{}, err
+	}
+	if oldLineage.storedErrorCost != incomingCost {
+		return Head{}, errors.New("parser-core phase zero: replacement heads have different stored recovery costs")
 	}
 	if uint64(len(c.links))+uint64(len(oldLinks)) > uint64(c.limits.MaxLinks) || uint64(len(c.links))+uint64(len(oldLinks)) > math.MaxUint32 {
 		return Head{}, errors.New("parser-core phase zero: link arena cap")
@@ -4651,6 +5078,9 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, old nod
 		}
 		return Head{}, err
 	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, incomingCost); err != nil {
+		return Head{}, err
+	}
 	if err := c.publishBoundary(probe, id); err != nil {
 		return Head{}, err
 	}
@@ -4661,14 +5091,15 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, old nod
 }
 
 type popPath struct {
-	prev          NodeID
-	cleanPathRank CleanPathRankSelection
-	children      []SubtreeID
-	trailing      []pathPayload
-	score         int64
-	order         ForkOrder
-	startByte     uint32
-	structuralEnd uint32
+	prev                  NodeID
+	cleanPathRank         CleanPathRankSelection
+	recoveryDiscontinuity bool
+	children              []SubtreeID
+	trailing              []pathPayload
+	score                 int64
+	order                 ForkOrder
+	startByte             uint32
+	structuralEnd         uint32
 }
 
 type pathPayload struct {
@@ -4804,6 +5235,10 @@ func (c *Core) markCleanProductionRank(paths []popPath) {
 	var rank cleanPathRankAccumulator
 	for index := range paths {
 		path := &paths[index]
+		if path.recoveryDiscontinuity {
+			markCleanPathRankUnknown(paths)
+			return
+		}
 		for _, payload := range path.children {
 			hasExternal, err := c.cleanPathPayloadHasExternal(payload)
 			if err != nil || hasExternal {
@@ -4921,6 +5356,12 @@ descend:
 			if link.next != 0 {
 				return false, errors.New("parser-core phase zero: clean path single link has a successor")
 			}
+			if err := link.validateShape(); err != nil {
+				return false, err
+			}
+			if link.isRecoveryDiscontinuity() {
+				return false, nil
+			}
 			hasExternal, err := c.cleanPathPayloadHasExternal(link.payload)
 			if err != nil || hasExternal {
 				return false, err
@@ -4973,6 +5414,12 @@ descend:
 		link := frame[cursor]
 		scratch.revOrders[frameIndex].Value++
 		var err error
+		if err := link.validateShape(); err != nil {
+			return false, err
+		}
+		if link.isRecoveryDiscontinuity() {
+			return false, nil
+		}
 		hasExternal, err := c.cleanPathPayloadHasExternal(link.payload)
 		if err != nil || hasExternal {
 			return false, err
@@ -5052,14 +5499,63 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 			// Every published graph edge points to an older node. The strict local
 			// decrease proves acyclicity without a traversal map while still
 			// rejecting corrupted diagnostic arena records before recursion.
+			if err := link.validateShape(); err != nil {
+				return err
+			}
 			if link.prev == 0 || link.prev >= id {
 				return errors.New("parser-core phase zero: graph predecessor does not decrease")
+			}
+			linkOrder := ForkOrder{Value: link.order, Present: link.hasOrder()}
+			if link.isRecoveryDiscontinuity() {
+				scratch.rev = append(scratch.rev, 0)
+				scratch.revScores = append(scratch.revScores, 0)
+				scratch.revOrders = append(scratch.revOrders, ForkOrder{})
+				next := remaining - 1
+				if next == 0 {
+					if uint64(len(scratch.paths)) >= c.limits.MaxPopPaths {
+						return errors.New("parser-core phase zero: pop enumeration cap")
+					}
+					path := scratch.nextPath()
+					path.prev = link.prev
+					for i := len(scratch.rev) - 1; i >= 0; i-- {
+						if scratch.rev[i] == 0 {
+							path.recoveryDiscontinuity = true
+							continue
+						}
+						path.children = append(path.children, scratch.rev[i])
+						path.score, err = checkedAddScore(path.score, scratch.revScores[i])
+						if err != nil {
+							return err
+						}
+						if scratch.revOrders[i].Present {
+							path.order = scratch.revOrders[i]
+						}
+					}
+					if path.prev != 0 {
+						previous, nodeErr := c.node(path.prev)
+						if nodeErr != nil {
+							return nodeErr
+						}
+						path.startByte, path.structuralEnd = previous.byteOffset, previous.byteOffset
+					}
+					for i := len(scratch.trailing) - 1; i >= 0; i-- {
+						path.trailing = append(path.trailing, scratch.trailing[i])
+						if scratch.trailing[i].order.Present {
+							path.order = scratch.trailing[i].order
+						}
+					}
+				} else if err := walk(link.prev, next, false, structuralEnd, depth+1); err != nil {
+					return err
+				}
+				scratch.rev = scratch.rev[:len(scratch.rev)-1]
+				scratch.revScores = scratch.revScores[:len(scratch.revScores)-1]
+				scratch.revOrders = scratch.revOrders[:len(scratch.revOrders)-1]
+				continue
 			}
 			payload, err := c.subtree(link.payload)
 			if err != nil {
 				return err
 			}
-			linkOrder := ForkOrder{Value: link.order, Present: link.hasOrder()}
 			if payload.extra && peelingTrailing {
 				scratch.trailing = append(scratch.trailing, pathPayload{payload: link.payload, scoreDelta: link.scoreDelta, order: linkOrder})
 				if err := walk(link.prev, remaining, true, structuralEnd, depth+1); err != nil {
@@ -5094,9 +5590,24 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 				}
 				path := scratch.nextPath()
 				path.prev = link.prev
-				path.startByte = payload.startByte
 				path.structuralEnd = nextStructuralEnd
+				haveStartByte := false
 				for i := len(scratch.rev) - 1; i >= 0; i-- {
+					if scratch.rev[i] == 0 {
+						path.recoveryDiscontinuity = true
+						continue
+					}
+					payloadRecord, payloadErr := c.subtree(scratch.rev[i])
+					if payloadErr != nil {
+						return payloadErr
+					}
+					if !payloadRecord.extra && !haveStartByte {
+						path.startByte = payloadRecord.startByte
+						haveStartByte = true
+						if path.structuralEnd == 0 {
+							path.structuralEnd = payloadRecord.endByte
+						}
+					}
 					path.children = append(path.children, scratch.rev[i])
 					path.score, err = checkedAddScore(path.score, scratch.revScores[i])
 					if err != nil {
@@ -5105,6 +5616,13 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 					if scratch.revOrders[i].Present {
 						path.order = scratch.revOrders[i]
 					}
+				}
+				if !haveStartByte && path.prev != 0 {
+					previous, nodeErr := c.node(path.prev)
+					if nodeErr != nil {
+						return nodeErr
+					}
+					path.startByte, path.structuralEnd = previous.byteOffset, previous.byteOffset
 				}
 				for i := len(scratch.trailing) - 1; i >= 0; i-- {
 					path.trailing = append(path.trailing, scratch.trailing[i])
@@ -5166,6 +5684,54 @@ func (c *Core) popSingleLinkPath(head NodeID, childCount int, scratch *popEnumer
 		if link.prev == 0 || link.prev >= id {
 			return false, errors.New("parser-core phase zero: graph predecessor does not decrease")
 		}
+		if err := link.validateShape(); err != nil {
+			return false, err
+		}
+		if link.isRecoveryDiscontinuity() {
+			scratch.rev = append(scratch.rev, 0)
+			scratch.revScores = append(scratch.revScores, 0)
+			scratch.revOrders = append(scratch.revOrders, ForkOrder{})
+			peelingTrailing = false
+			remaining--
+			if remaining != 0 {
+				id = link.prev
+				continue
+			}
+			if uint64(len(scratch.paths)) >= c.limits.MaxPopPaths {
+				return false, errors.New("parser-core phase zero: pop enumeration cap")
+			}
+			path := scratch.nextPath()
+			path.prev = link.prev
+			path.recoveryDiscontinuity = true
+			for index := len(scratch.rev) - 1; index >= 0; index-- {
+				if scratch.rev[index] == 0 {
+					path.recoveryDiscontinuity = true
+					continue
+				}
+				path.children = append(path.children, scratch.rev[index])
+				path.score, err = checkedAddScore(path.score, scratch.revScores[index])
+				if err != nil {
+					return false, err
+				}
+				if scratch.revOrders[index].Present {
+					path.order = scratch.revOrders[index]
+				}
+			}
+			if path.prev != 0 {
+				previous, nodeErr := c.node(path.prev)
+				if nodeErr != nil {
+					return false, nodeErr
+				}
+				path.startByte, path.structuralEnd = previous.byteOffset, previous.byteOffset
+			}
+			for index := len(scratch.trailing) - 1; index >= 0; index-- {
+				path.trailing = append(path.trailing, scratch.trailing[index])
+				if scratch.trailing[index].order.Present {
+					path.order = scratch.trailing[index].order
+				}
+			}
+			return true, nil
+		}
 		payload, err := c.subtree(link.payload)
 		if err != nil {
 			return false, err
@@ -5197,9 +5763,24 @@ func (c *Core) popSingleLinkPath(head NodeID, childCount int, scratch *popEnumer
 		}
 		path := scratch.nextPath()
 		path.prev = link.prev
-		path.startByte = payload.startByte
 		path.structuralEnd = structuralEnd
+		haveStartByte := false
 		for index := len(scratch.rev) - 1; index >= 0; index-- {
+			if scratch.rev[index] == 0 {
+				path.recoveryDiscontinuity = true
+				continue
+			}
+			payloadRecord, payloadErr := c.subtree(scratch.rev[index])
+			if payloadErr != nil {
+				return false, payloadErr
+			}
+			if !payloadRecord.extra && !haveStartByte {
+				path.startByte = payloadRecord.startByte
+				haveStartByte = true
+				if path.structuralEnd == 0 {
+					path.structuralEnd = payloadRecord.endByte
+				}
+			}
 			path.children = append(path.children, scratch.rev[index])
 			path.score, err = checkedAddScore(path.score, scratch.revScores[index])
 			if err != nil {
@@ -5208,6 +5789,13 @@ func (c *Core) popSingleLinkPath(head NodeID, childCount int, scratch *popEnumer
 			if scratch.revOrders[index].Present {
 				path.order = scratch.revOrders[index]
 			}
+		}
+		if !haveStartByte && path.prev != 0 {
+			previous, nodeErr := c.node(path.prev)
+			if nodeErr != nil {
+				return false, nodeErr
+			}
+			path.startByte, path.structuralEnd = previous.byteOffset, previous.byteOffset
 		}
 		for index := len(scratch.trailing) - 1; index >= 0; index-- {
 			path.trailing = append(path.trailing, scratch.trailing[index])
@@ -5260,6 +5848,9 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 			return nil, err
 		}
 		for _, link := range links {
+			if err := link.validateShape(); err != nil {
+				return nil, err
+			}
 			prefixes, err := walk(link.prev)
 			if err != nil {
 				return nil, err
@@ -5274,7 +5865,9 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 				}
 				path := Derivation{Score: score}
 				path.Payloads = append(path.Payloads, prefix.Payloads...)
-				path.Payloads = append(path.Payloads, link.payload)
+				if link.payload != 0 {
+					path.Payloads = append(path.Payloads, link.payload)
+				}
 				path.BranchOrder = prefix.BranchOrder
 				path.HasBranchOrder = prefix.HasBranchOrder
 				if link.hasOrder() {
@@ -5325,6 +5918,9 @@ func (c *Core) singleDerivation(id NodeID) (Derivation, bool, error) {
 			return Derivation{}, true, errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[linkID-1]
+		if err := link.validateShape(); err != nil {
+			return Derivation{}, true, err
+		}
 		if link.next != 0 {
 			if link.next == linkID {
 				return Derivation{}, true, errors.New("parser-core phase zero: adjacency cycle")
@@ -5341,7 +5937,7 @@ func (c *Core) singleDerivation(id NodeID) (Derivation, bool, error) {
 		id = link.prev
 	}
 
-	path := Derivation{Payloads: make([]SubtreeID, len(reverseLinks))}
+	path := Derivation{Payloads: make([]SubtreeID, 0, len(reverseLinks))}
 	for reverseIndex := len(reverseLinks) - 1; reverseIndex >= 0; reverseIndex-- {
 		link := c.links[reverseLinks[reverseIndex]-1]
 		score, err := checkedAddScore(path.Score, link.scoreDelta)
@@ -5349,7 +5945,9 @@ func (c *Core) singleDerivation(id NodeID) (Derivation, bool, error) {
 			return Derivation{}, true, err
 		}
 		path.Score = score
-		path.Payloads[len(reverseLinks)-1-reverseIndex] = link.payload
+		if link.payload != 0 {
+			path.Payloads = append(path.Payloads, link.payload)
+		}
 		if link.hasOrder() {
 			path.BranchOrder = link.order
 			path.HasBranchOrder = true
@@ -5702,7 +6300,7 @@ func (c *Core) appendNodeRecord(r nodeRecord, checkpoint CheckpointID) (NodeID, 
 		}
 	}
 	next := NodeID(uint64(len(c.nodes)) + 1)
-	if err := c.validatePublishedNodeDAG(r, next); err != nil {
+	if err := c.validatePublishedNodeDAGAt(r, next, checkpoint); err != nil {
 		return 0, err
 	}
 	c.nodes = append(c.nodes, r)
@@ -5719,6 +6317,10 @@ func (c *Core) appendNodeRecord(r nodeRecord, checkpoint CheckpointID) (NodeID, 
 // cycle. The bounded adjacency walk also keeps malformed internal/diagnostic
 // records fail closed without a hash table.
 func (c *Core) validatePublishedNodeDAG(r nodeRecord, next NodeID) error {
+	return c.validatePublishedNodeDAGAt(r, next, c.checkpoint)
+}
+
+func (c *Core) validatePublishedNodeDAGAt(r nodeRecord, next NodeID, checkpoint CheckpointID) error {
 	count := uint64(r.linkCount)
 	if count == 0 {
 		if r.firstLink != 0 {
@@ -5741,8 +6343,27 @@ func (c *Core) validatePublishedNodeDAG(r nodeRecord, next NodeID) error {
 			return errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[id-1]
+		if err := link.validateShape(); err != nil {
+			return err
+		}
 		if link.prev == 0 || link.prev >= next {
 			return fmt.Errorf("parser-core phase zero: graph predecessor %d must be lower than new node %d", link.prev, next)
+		}
+		if link.isRecoveryDiscontinuity() {
+			if r.state != 0 {
+				return errors.New("parser-core phase zero: recovery discontinuity must target ERROR_STATE")
+			}
+			previous, err := c.node(link.prev)
+			if err != nil {
+				return err
+			}
+			if previous.byteOffset != r.byteOffset {
+				return errors.New("parser-core phase zero: recovery discontinuity must be zero-width")
+			}
+			previousCheckpoint, exact := c.nodeScannerCheckpoint(link.prev)
+			if !exact || previousCheckpoint != checkpoint {
+				return errors.New("parser-core phase zero: recovery discontinuity scanner checkpoint is not exact")
+			}
 		}
 		id = link.next
 	}
@@ -6174,6 +6795,9 @@ func (c *Core) nodeLinks(n nodeRecord) ([]linkRecord, error) {
 			return nil, errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[id-1]
+		if err := link.validateShape(); err != nil {
+			return nil, err
+		}
 		links = append(links, link)
 		if uint64(len(links)) > uint64(n.linkCount) {
 			return nil, errors.New("parser-core phase zero: adjacency exceeds recorded link count")
@@ -6230,6 +6854,9 @@ func (c *Core) nodeLinksIntoBounded(dst []linkRecord, n nodeRecord, maxCount uin
 			return dst, errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[id-1]
+		if err := link.validateShape(); err != nil {
+			return dst, err
+		}
 		dst[index] = link
 		id = link.next
 	}

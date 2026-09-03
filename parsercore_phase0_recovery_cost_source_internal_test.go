@@ -134,6 +134,54 @@ func TestRecoveryCostSourcePricesErrorRegionSpanAndRows(t *testing.T) {
 	}
 }
 
+// TestRecoveryCostSourcePublishesResumedHeadCost proves that the authenticated
+// ERROR cost reaches the new head before its boundary is published.
+func TestRecoveryCostSourcePublishesResumedHeadCost(t *testing.T) {
+	compact, src := newRecoveryCostFixture(t, "ab\ncd\nef")
+	child, err := compact.ErrorRegionLeaf(core.Symbol(5), 0, 7, false)
+	if err != nil {
+		t.Fatalf("ErrorRegionLeaf: %v", err)
+	}
+	seed, err := compact.Seed(core.StateID(1), 0)
+	if err != nil {
+		t.Fatalf("Seed: %v", err)
+	}
+	var memo core.RecoveryCostMemo
+	cost := func(prev core.NodeID, payload core.SubtreeID) (uint32, error) {
+		prefix, prefixErr := compact.RecoveryStoredErrorCost(core.Head{Node: prev})
+		if prefixErr != nil {
+			return 0, prefixErr
+		}
+		payloadCost, payloadErr := core.RecoveryNodeErrorCostMemo(
+			visibleSymbols(8), src, &memo, payload,
+		)
+		if payloadErr != nil {
+			return 0, payloadErr
+		}
+		return prefix + payloadCost, nil
+	}
+	head, err := compact.ErrorRegionResumeWithCost(
+		seed, core.StateID(1), 0, 7, []core.SubtreeID{child}, cost,
+	)
+	if err != nil {
+		t.Fatalf("ErrorRegionResumeWithCost: %v", err)
+	}
+	got, err := compact.RecoveryStoredErrorCost(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = core.RecoveryCostPerRecovery +
+		core.RecoveryCostPerSkippedChar*7 +
+		core.RecoveryCostPerSkippedLine*2 +
+		core.RecoveryCostPerSkippedTree
+	if got != want {
+		t.Fatalf("resumed head stored cost=%d, want %d", got, want)
+	}
+	if got != 667 {
+		t.Fatalf("resumed head stored cost=%d, want locked value 667", got)
+	}
+}
+
 // TestRecoveryCostSourceRowsTrackNewlines pins the row computation the ERROR
 // formula depends on.
 func TestRecoveryCostSourceRowsTrackNewlines(t *testing.T) {
@@ -371,10 +419,10 @@ func TestSelectRecoveryLineageSingletonAndEmpty(t *testing.T) {
 	}
 }
 
-// TestPriceLineagesRefusesAmbiguousHead proves pricing carries the
-// single-lineage requirement through to the selection entry point, rather than
-// silently pricing one arbitrary path of an ambiguous head.
-func TestPriceLineagesRefusesAmbiguousHead(t *testing.T) {
+// TestPriceLineagesAcceptsEqualCostPhysicalHead proves a merged graph head
+// remains one recovery version. Pricing admits it only because every path has
+// the same complete recovery cost.
+func TestPriceLineagesAcceptsEqualCostPhysicalHead(t *testing.T) {
 	compact, src := newRecoveryCostFixture(t, "abcdef")
 	seedA, err := compact.Seed(core.StateID(1), 0)
 	if err != nil {
@@ -399,8 +447,14 @@ func TestPriceLineagesRefusesAmbiguousHead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ErrorRegionResume: %v", err)
 	}
-	if _, err := diagnosticParserCorePriceLineages([]diagnosticParserCoreLineageInput{{Head: ambiguous}}, visibleSymbols(8), src, nil); !errors.Is(err, diagnosticParserCoreLineageCostUnavailable) {
-		t.Fatalf("pricing an ambiguous head returned %v, want a refusal", err)
+	priced, err := diagnosticParserCorePriceLineages(
+		[]diagnosticParserCoreLineageInput{{Head: ambiguous}}, visibleSymbols(8), src, nil,
+	)
+	if err != nil {
+		t.Fatalf("price equal-cost physical head: %v", err)
+	}
+	if len(priced) != 1 || priced[0].Cost != 603 || priced[0].Score != 0 {
+		t.Fatalf("priced physical head=%+v, want one cost-603 lineage", priced)
 	}
 }
 

@@ -208,14 +208,19 @@ func (c *Core) VisitEOFAdmissionExactPath(
 		if link.prev == 0 || link.prev >= id {
 			return result, fmt.Errorf("%w: predecessor does not decrease", ErrEOFAdmissionMalformed)
 		}
-		if link.payload == 0 || uint64(link.payload) > uint64(len(c.subtrees)) {
+		if err := link.validateShape(); err != nil {
+			return result, fmt.Errorf("%w: %v", ErrEOFAdmissionMalformed, err)
+		}
+		if link.isRecoveryDiscontinuity() {
+			return result, fmt.Errorf("%w: recovery discontinuity requires a recovery-aware visitor", ErrEOFAdmissionMalformed)
+		}
+		if link.payload != 0 && uint64(link.payload) > uint64(len(c.subtrees)) {
 			return result, fmt.Errorf("%w: payload is outside its arena", ErrEOFAdmissionMalformed)
 		}
 		reverse[result.Links] = linkID
 		result.Links++
 		id = link.prev
 	}
-	result.Payloads = result.Links
 	for reverseIndex := int(result.Links) - 1; reverseIndex >= 0; reverseIndex-- {
 		link := c.links[reverse[reverseIndex]-1]
 		score, err := checkedAddScore(result.Score, link.scoreDelta)
@@ -227,9 +232,12 @@ func (c *Core) VisitEOFAdmissionExactPath(
 			result.BranchOrder = link.order
 			result.HasBranchOrder = true
 		}
-		ordinal := result.Links - 1 - uint32(reverseIndex)
-		if err := visit(ordinal, link.payload); err != nil {
-			return result, err
+		if link.payload != 0 {
+			ordinal := result.Payloads
+			result.Payloads++
+			if err := visit(ordinal, link.payload); err != nil {
+				return result, err
+			}
 		}
 		if err := c.checkEOFAdmissionGeneration(generation); err != nil {
 			return result, err

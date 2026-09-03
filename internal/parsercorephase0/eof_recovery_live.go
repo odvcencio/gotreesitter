@@ -40,11 +40,51 @@ func (c *Core) RecoverEOFAcceptOwned(
 	return out, root, nil
 }
 
+// RecoverEOFAcceptWithCostOwned publishes the synthetic ERROR root with its
+// authenticated cumulative cost. The root replaces the old path, so its cost
+// does not inherit the predecessor path cost.
+func (c *Core) RecoverEOFAcceptWithCostOwned(
+	owner SchedulerTransactionToken,
+	head Head,
+	payloads []SubtreeID,
+	startByte uint32,
+	endByte uint32,
+	cost ReductionOutputCostFunc,
+) (out Head, root SubtreeID, err error) {
+	if c == nil {
+		return Head{}, 0, errors.New("parser-core phase zero: recover_eof accept on nil core")
+	}
+	err = c.RunSchedulerOwned(owner, func() error {
+		if cost == nil {
+			return errors.New("parser-core phase zero: recover_eof cost callback is required")
+		}
+		var operationErr error
+		out, root, operationErr = c.recoverEOFAcceptUncheckpointedWithCost(
+			head, payloads, startByte, endByte, cost,
+		)
+		return operationErr
+	})
+	if err != nil {
+		return Head{}, 0, err
+	}
+	return out, root, nil
+}
+
 func (c *Core) recoverEOFAcceptUncheckpointed(
 	head Head,
 	payloads []SubtreeID,
 	startByte uint32,
 	endByte uint32,
+) (Head, SubtreeID, error) {
+	return c.recoverEOFAcceptUncheckpointedWithCost(head, payloads, startByte, endByte, nil)
+}
+
+func (c *Core) recoverEOFAcceptUncheckpointedWithCost(
+	head Head,
+	payloads []SubtreeID,
+	startByte uint32,
+	endByte uint32,
+	cost ReductionOutputCostFunc,
 ) (Head, SubtreeID, error) {
 	if head.Node == 0 {
 		return Head{}, 0, errors.New("parser-core phase zero: recover_eof accept requires a head")
@@ -92,6 +132,19 @@ func (c *Core) recoverEOFAcceptUncheckpointed(
 	if err != nil {
 		return Head{}, 0, err
 	}
+	var storedErrorCost uint32
+	if cost != nil {
+		computed, costErr := cost(base, root)
+		if costErr != nil {
+			return Head{}, 0, costErr
+		}
+		storedErrorCost, costErr = c.storedErrorCostForLink(linkInput{
+			prev: base, payload: root, storedErrorCost: computed, hasStoredErrorCost: true,
+		})
+		if costErr != nil {
+			return Head{}, 0, costErr
+		}
+	}
 	linkID := c.appendGraphLink(linkRecord{prev: base, payload: root})
 	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	newNode, err := c.appendNodeAt(nodeRecord{
@@ -100,6 +153,11 @@ func (c *Core) recoverEOFAcceptUncheckpointed(
 	}, c.checkpoint)
 	if err != nil {
 		return Head{}, 0, err
+	}
+	if cost != nil {
+		if err := c.publishInheritedStoredErrorCost(Head{Node: newNode}, storedErrorCost); err != nil {
+			return Head{}, 0, err
+		}
 	}
 	return Head{Node: newNode}, root, nil
 }

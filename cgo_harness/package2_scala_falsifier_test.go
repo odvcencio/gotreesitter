@@ -15,12 +15,9 @@ import (
 )
 
 // Package-two adversarial lane witnesses (issue #1063; supports #1057 and
-// #1053). Package two -- physical GSS merging through a nullable recovery
-// discontinuity edge -- is not implemented yet. These tests lock the
-// minimal falsifiers as regression tests before implementation starts, so
-// an implementation attempt cannot silently regress the Go production route
-// or silently start diverging from the locked C oracle on the compact
-// route. All four witnesses use the locked Scala grammar.
+// #1053). These tests lock the smallest physical GSS merge cases through a
+// nullable recovery discontinuity edge. The first three witnesses require the
+// compact route to publish the locked C result. All four use locked Scala.
 //
 // Every witness runs the same four checks, in order:
 //
@@ -28,8 +25,8 @@ import (
 //     the missing-leaf position the issue names, and the deep digest.
 //  2. The Go production route (candidate route forced off) against the
 //     same fields.
-//  3. The Go compact route (candidate route forced on): an exact match, or
-//     an explicit fallback recorded through the admission counters.
+//  3. The Go compact route (candidate route forced on): an exact match for
+//     strict witnesses, or an explicit fallback for transitional witnesses.
 //  4. One incremental edit: insert one space at byte 1, apply the edit to
 //     the old Go tree, reparse incrementally, and compare against a fresh
 //     Go parse and a fresh C parse of the edited source.
@@ -68,11 +65,8 @@ type package2ScalaFalsifierWitness struct {
 	wantProductionMatchesC bool
 
 	// wantCompactExact records whether the Go compact route (the candidate
-	// route forced on) is expected to match C exactly today. Package two is
-	// not implemented, so every locked witness here expects fallback
-	// (false). The assertion below accepts either outcome explicitly so the
-	// test keeps passing once package two makes the route exact, and logs
-	// which outcome occurred.
+	// route forced on) must match C exactly. The certified package-two
+	// witnesses are strict: generic recovery fallback is not accepted.
 	wantCompactExact bool
 	// wantCompactFallbackReasonPart, when wantCompactExact is false, must be
 	// a substring of the recorded fallback reason. Silent divergence
@@ -105,8 +99,7 @@ func TestPackage2ScalaFalsifierPhysicalMergeMinimal(t *testing.T) {
 		wantMissingByte:                 2,
 		wantDeepDigest:                  "06d2d9f6b02599ec5be0808330bf1c62e49b8cb0b146d094ceaa28b9185c79b6",
 		wantProductionMatchesC:          true,
-		wantCompactExact:                false,
-		wantCompactFallbackReasonPart:   "recovery",
+		wantCompactExact:                true,
 		wantEditedMissingByte:           3,
 		wantIncrementalReuseUnsupported: true,
 	})
@@ -128,8 +121,7 @@ func TestPackage2ScalaFalsifierOwnedLexerComposition(t *testing.T) {
 		wantMissingByte:                 6,
 		wantDeepDigest:                  "c0de79617c3e1bdac71c1686e5d6a3d4b2fb375aca9f69902aee974c5ca9f852",
 		wantProductionMatchesC:          true,
-		wantCompactExact:                false,
-		wantCompactFallbackReasonPart:   "recovery",
+		wantCompactExact:                true,
 		wantEditedMissingByte:           7,
 		wantIncrementalReuseUnsupported: true,
 	})
@@ -150,8 +142,7 @@ func TestPackage2ScalaFalsifierNoSummaryEOF(t *testing.T) {
 		wantMissingByte:                 2,
 		wantDeepDigest:                  "c32aa60988eb48fd8de48b59f40125eb648ecf9507cc7cf06651e3e153d59b1b",
 		wantProductionMatchesC:          true,
-		wantCompactExact:                false,
-		wantCompactFallbackReasonPart:   "recovery",
+		wantCompactExact:                true,
 		wantEditedMissingByte:           3,
 		wantIncrementalReuseUnsupported: true,
 	})
@@ -181,6 +172,147 @@ func TestPackage2ScalaFalsifierTrueEOFComposition(t *testing.T) {
 		wantEditedMissingByte:           7,
 		wantIncrementalReuseUnsupported: true,
 	})
+}
+
+// TestPackage2ScalaIncrementalCleanMissingTransitions proves both invalidation
+// directions around the smallest package-two recovery point. Scala scanner
+// reuse still fails closed, so package five must later replace this full reparse
+// with authenticated reuse without changing either result.
+func TestPackage2ScalaIncrementalCleanMissingTransitions(t *testing.T) {
+	clean := []byte("(y); ")
+	missing := []byte("(y; ")
+	entry := grammars.DetectLanguageByName("scala")
+	if entry == nil || entry.Language() == nil {
+		t.Fatal("Scala Go grammar is unavailable")
+	}
+	goLanguage := entry.Language()
+	cLanguage, err := ParityCLanguage("scala")
+	if err != nil {
+		t.Fatalf("load locked Scala C language: %v", err)
+	}
+
+	parser := gotreesitter.NewParser(goLanguage)
+	parser.SetAdmissionCandidateRoute(false)
+	cleanTree, err := parser.Parse(clean)
+	if err != nil {
+		t.Fatalf("parse clean source: %v", err)
+	}
+	t.Cleanup(cleanTree.Release)
+
+	deleteClose := gotreesitter.InputEdit{
+		StartByte: 2, OldEndByte: 3, NewEndByte: 2,
+		StartPoint:  pointAtOffset(clean, 2),
+		OldEndPoint: pointAtOffset(clean, 3),
+		NewEndPoint: pointAtOffset(missing, 2),
+	}
+	cleanTree.Edit(deleteClose)
+	missingTree, missingProfile, err := parser.ParseIncrementalProfiled(missing, cleanTree)
+	if err != nil {
+		t.Fatalf("delete closing parenthesis: %v", err)
+	}
+	t.Cleanup(missingTree.Release)
+	if !missingProfile.ReuseUnsupported || missingProfile.ReuseUnsupportedReason == "" {
+		t.Fatalf("delete profile=%+v, want explicit scanner reuse decline", missingProfile)
+	}
+	assertPackage2ScalaTransitionEndpoint(t, goLanguage, cLanguage, missing, missingTree, true, 1)
+
+	insertClose := gotreesitter.InputEdit{
+		StartByte: 2, OldEndByte: 2, NewEndByte: 3,
+		StartPoint:  pointAtOffset(missing, 2),
+		OldEndPoint: pointAtOffset(missing, 2),
+		NewEndPoint: pointAtOffset(clean, 3),
+	}
+	missingTree.Edit(insertClose)
+	restoredTree, restoredProfile, err := parser.ParseIncrementalProfiled(clean, missingTree)
+	if err != nil {
+		t.Fatalf("restore closing parenthesis: %v", err)
+	}
+	t.Cleanup(restoredTree.Release)
+	if !restoredProfile.ReuseUnsupported || restoredProfile.ReuseUnsupportedReason == "" {
+		t.Fatalf("restore profile=%+v, want explicit scanner reuse decline", restoredProfile)
+	}
+	assertPackage2ScalaTransitionEndpoint(t, goLanguage, cLanguage, clean, restoredTree, false, 0)
+}
+
+func assertPackage2ScalaTransitionEndpoint(
+	t *testing.T,
+	goLanguage *gotreesitter.Language,
+	cLanguage *sitter.Language,
+	source []byte,
+	incremental *gotreesitter.Tree,
+	wantError bool,
+	wantMissing int,
+) {
+	t.Helper()
+	cParser := sitter.NewParser()
+	t.Cleanup(cParser.Close)
+	if err := cParser.SetLanguage(cLanguage); err != nil {
+		t.Fatalf("set locked Scala C language: %v", err)
+	}
+	cTree := cParser.Parse(source, nil)
+	if cTree == nil || cTree.RootNode() == nil {
+		t.Fatal("locked Scala C parser returned no endpoint tree")
+	}
+	t.Cleanup(cTree.Close)
+	cRoot := cTree.RootNode()
+	if cRoot.HasError() != wantError || len(findMissingCNodes(cRoot)) != wantMissing {
+		t.Fatalf("locked C endpoint error/missing=%t/%d, want %t/%d", cRoot.HasError(), len(findMissingCNodes(cRoot)), wantError, wantMissing)
+	}
+
+	assertGoEndpoint := func(label string, tree *gotreesitter.Tree) {
+		t.Helper()
+		root := tree.RootNode()
+		if diff := FirstDivergenceDumpV1(root, goLanguage, cRoot); diff != nil {
+			t.Fatalf("%s endpoint diverges from locked C: %+v", label, *diff)
+		}
+		if diff := firstLockedCTreeFlagDivergence(root, goLanguage, cRoot, "/"+root.Type(goLanguage)); diff != nil {
+			t.Fatalf("%s endpoint flags diverge from locked C: %v", label, diff)
+		}
+		if root.HasError() != wantError || len(findMissingGoNodes(root, goLanguage)) != wantMissing {
+			t.Fatalf("%s endpoint error/missing=%t/%d, want %t/%d", label, root.HasError(), len(findMissingGoNodes(root, goLanguage)), wantError, wantMissing)
+		}
+	}
+	assertGoEndpoint("incremental", incremental)
+
+	freshParser := gotreesitter.NewParser(goLanguage)
+	freshParser.SetAdmissionCandidateRoute(false)
+	freshTree, err := freshParser.Parse(source)
+	if err != nil {
+		t.Fatalf("fresh endpoint parse: %v", err)
+	}
+	t.Cleanup(freshTree.Release)
+	assertGoEndpoint("fresh production", freshTree)
+
+	beforeRouted, beforeFallback := gotreesitter.AdmissionCandidateCounters()
+	compactParser := gotreesitter.NewParser(goLanguage)
+	compactParser.SetAdmissionCandidateRoute(true)
+	compactTree, err := compactParser.Parse(source)
+	if err != nil {
+		t.Fatalf("compact endpoint parse: %v", err)
+	}
+	t.Cleanup(compactTree.Release)
+	routed, fallback := gotreesitter.AdmissionCandidateCounters()
+	if routed-beforeRouted != 1 || fallback-beforeFallback != 0 {
+		t.Fatalf("compact endpoint routed/fallback=%d/%d, want 1/0; reason=%q", routed-beforeRouted, fallback-beforeFallback, gotreesitter.AdmissionCandidateLastFallbackReason())
+	}
+	assertGoEndpoint("fresh compact", compactTree)
+
+	cDigest, err := COracleDeepDigest(cTree)
+	if err != nil {
+		t.Fatalf("inspect locked C endpoint: %v", err)
+	}
+	for _, candidate := range []struct {
+		name string
+		tree *gotreesitter.Tree
+	}{{"incremental", incremental}, {"fresh production", freshTree}, {"fresh compact", compactTree}} {
+		inspection, err := benchfixtures.InspectGoTree(candidate.tree.RootNode(), goLanguage)
+		if err != nil {
+			t.Fatalf("inspect %s endpoint: %v", candidate.name, err)
+		}
+		if inspection.SHA256 != cDigest {
+			t.Fatalf("%s endpoint digest=%s, want locked C %s", candidate.name, inspection.SHA256, cDigest)
+		}
+	}
 }
 
 func runPackage2ScalaFalsifierWitness(t *testing.T, w package2ScalaFalsifierWitness) {
@@ -279,10 +411,9 @@ func runPackage2ScalaFalsifierWitness(t *testing.T, w package2ScalaFalsifierWitn
 	}
 	t.Logf("%s: Go production route matches locked C exactly (digest %s)", w.name, prodInspection.SHA256)
 
-	// Step 3: the Go compact route (candidate route forced on). Package two
-	// is not implemented, so an explicit fallback is expected today. Either
-	// outcome must be recorded explicitly through the admission counters --
-	// silent divergence fails the test.
+	// Step 3: the Go compact route, with the candidate route forced on. The
+	// certified package-two witnesses require an exact route. The true EOF
+	// witness still requires an explicit fallback. Silent divergence fails.
 	beforeRouted, beforeFallback := gotreesitter.AdmissionCandidateCounters()
 	compactParser := gotreesitter.NewParser(goLanguage)
 	compactParser.SetAdmissionCandidateRoute(true)
@@ -318,6 +449,10 @@ func runPackage2ScalaFalsifierWitness(t *testing.T, w package2ScalaFalsifierWitn
 			t.Logf("%s: compact route matches locked C exactly (digest %s)", w.name, compactInspection.SHA256)
 		}
 	case routedDelta == 0 && fallbackDelta == 1:
+		if w.wantCompactExact {
+			t.Fatalf("%s: compact route used generic recovery fallback, want the exact compact route (routed=%d fallback=%d reason=%q)",
+				w.name, routedDelta, fallbackDelta, reason)
+		}
 		if w.wantCompactFallbackReasonPart != "" && !strings.Contains(reason, w.wantCompactFallbackReasonPart) {
 			t.Fatalf("%s: compact route fallback reason=%q, want substring %q", w.name, reason, w.wantCompactFallbackReasonPart)
 		}
