@@ -184,6 +184,18 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		},
 		compactRecoveryPlainFirst: true,
 	},
+	// The locked Scala artifact certifies S5 missing insertion through a
+	// physical graph-head merge and a per-version lexer split. The profile
+	// excludes stack-summary and EOF recovery, which remain separate packages.
+	"scala": {
+		blobSHA256:                          mustRuntimeProfileSHA256("8bc4a20f983ea8c8873c28430f089ba2bbbf00a995dd29f575bf2bc598d29dfa"),
+		compactStrategy2ErrorRegion:         true,
+		compactMissingTokenInsertion:        true,
+		compactPrimaryAcceptDerivation:      true,
+		compactAcceptanceStructuralElection: true,
+		compactRecoveryTrailingRetirement:   true,
+		compactRecoveryErrorModeKeyword:     true,
+	},
 	// These scanner-backed grammars have certified the first retry ladder's
 	// selected accepted-error tree as authoritative. Repeating the whole ladder
 	// does not improve the selected tree and imposes a full additional parse.

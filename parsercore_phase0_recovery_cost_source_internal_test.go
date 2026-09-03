@@ -419,10 +419,10 @@ func TestSelectRecoveryLineageSingletonAndEmpty(t *testing.T) {
 	}
 }
 
-// TestPriceLineagesRefusesAmbiguousHead proves pricing carries the
-// single-lineage requirement through to the selection entry point, rather than
-// silently pricing one arbitrary path of an ambiguous head.
-func TestPriceLineagesRefusesAmbiguousHead(t *testing.T) {
+// TestPriceLineagesAcceptsEqualCostPhysicalHead proves a merged graph head
+// remains one recovery version. Pricing admits it only because every path has
+// the same complete recovery cost.
+func TestPriceLineagesAcceptsEqualCostPhysicalHead(t *testing.T) {
 	compact, src := newRecoveryCostFixture(t, "abcdef")
 	seedA, err := compact.Seed(core.StateID(1), 0)
 	if err != nil {
@@ -447,8 +447,14 @@ func TestPriceLineagesRefusesAmbiguousHead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ErrorRegionResume: %v", err)
 	}
-	if _, err := diagnosticParserCorePriceLineages([]diagnosticParserCoreLineageInput{{Head: ambiguous}}, visibleSymbols(8), src, nil); !errors.Is(err, diagnosticParserCoreLineageCostUnavailable) {
-		t.Fatalf("pricing an ambiguous head returned %v, want a refusal", err)
+	priced, err := diagnosticParserCorePriceLineages(
+		[]diagnosticParserCoreLineageInput{{Head: ambiguous}}, visibleSymbols(8), src, nil,
+	)
+	if err != nil {
+		t.Fatalf("price equal-cost physical head: %v", err)
+	}
+	if len(priced) != 1 || priced[0].Cost != 603 || priced[0].Score != 0 {
+		t.Fatalf("priced physical head=%+v, want one cost-603 lineage", priced)
 	}
 }
 

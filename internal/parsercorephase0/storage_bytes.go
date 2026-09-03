@@ -116,6 +116,7 @@ var (
 	coreBoundaryKeyEntryBytes     = uint64(unsafe.Sizeof(boundaryKey{})) + uint64(unsafe.Sizeof(int(0)))
 	coreUint16Bytes               = uint64(unsafe.Sizeof(uint16(0)))
 	coreDropCohortRefBytes        = uint64(unsafe.Sizeof(DropCohortRef{}))
+	coreBoolBytes                 = uint64(unsafe.Sizeof(bool(false)))
 )
 
 // FootprintBytes returns a cheap, deterministic, O(1) estimate of the compact
@@ -197,6 +198,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += c.boundaries.footprintBytes()
 	total += c.popScratch.footprintBytes()
 	total += c.reductionScratch.footprintBytes()
+	total += uint64(cap(c.selectedBuild.resultHasError)) * coreBoolBytes
 	total += selectedStoreRetainedBytes(cap(c.selectedPool.records), cap(c.selectedPool.children))
 
 	return total
@@ -384,6 +386,7 @@ func (c *Core) releaseOversizedRetention() {
 	c.boundaries.dropOversized()
 	c.popScratch.dropOversized()
 	c.reductionScratch.dropOversized()
+	c.selectedBuild.resultHasError = nil
 	c.selectedPool = selectedStoreBacking{}
 }
 

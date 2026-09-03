@@ -103,73 +103,82 @@ func TestStage2PhysicalHeadMergeUnionsEquivalentDistinctNodes(t *testing.T) {
 	}
 }
 
-func TestStage2PhysicalHeadMergeAtSixVersionBoundaryRetainsEveryPath(t *testing.T) {
-	compact := newTinyCoreWithLimits(t, Limits{MaxDerivations: 16, MaxPopPaths: 16})
-	headCount := 6
-	candidates := make([]CondenseCandidate, 0, headCount)
-	wantPayloads := make(map[SubtreeID]bool, headCount)
-	for index := 0; index < headCount; index++ {
-		root, err := compact.Seed(StateID(index+1), 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		payload, err := compact.appendSubtree(subtreeRecord{
-			symbol: Symbol(index + 10), startByte: 0, endByte: 1, terminal: true,
-		}, nil, nil, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		link := compact.appendGraphLink(linkRecord{prev: root.Node, payload: payload})
-		node, err := compact.appendNode(nodeRecord{
-			state: 7, byteOffset: 1, firstLink: uint32(link), linkCount: 1, pathCount: 1,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		head := Head{Node: node}
-		candidates = append(candidates, CondenseCandidate{Head: head})
-		wantPayloads[payload] = true
-	}
+func TestStage2PhysicalHeadMergeAtAndPastSixVersionBoundaryRetainsEveryPath(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		headCount int
+	}{
+		{name: "at_boundary", headCount: 6},
+		{name: "past_boundary", headCount: 7},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			compact := newTinyCoreWithLimits(t, Limits{MaxDerivations: 16, MaxPopPaths: 16})
+			candidates := make([]CondenseCandidate, 0, test.headCount)
+			wantPayloads := make(map[SubtreeID]bool, test.headCount)
+			for index := 0; index < test.headCount; index++ {
+				root, err := compact.Seed(StateID(index+1), 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				payload, err := compact.appendSubtree(subtreeRecord{
+					symbol: Symbol(index + 10), startByte: 0, endByte: 1, terminal: true,
+				}, nil, nil, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				link := compact.appendGraphLink(linkRecord{prev: root.Node, payload: payload})
+				node, err := compact.appendNode(nodeRecord{
+					state: 7, byteOffset: 1, firstLink: uint32(link), linkCount: 1, pathCount: 1,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				head := Head{Node: node}
+				candidates = append(candidates, CondenseCandidate{Head: head})
+				wantPayloads[payload] = true
+			}
 
-	before := compact.Work()
-	err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
-		return compact.ReindexCondenseCandidatesOwned(owner, candidates)
-	})
-	if err != nil {
-		t.Fatalf("ReindexCondenseCandidatesOwned: %v", err)
-	}
-	canonical, ok := compact.CanonicalBoundary(7, 1, false, 0)
-	if !ok {
-		t.Fatal("six-version condense did not publish a canonical boundary")
-	}
-	stats, err := compact.Stats(canonical)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stats.CurrentExactPaths != uint64(headCount) {
-		t.Fatalf("six-version physical head paths=%d, want %d", stats.CurrentExactPaths, headCount)
-	}
-	derivations, err := compact.Derivations(canonical)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(derivations) != headCount {
-		t.Fatalf("six-version derivations=%d, want %d", len(derivations), headCount)
-	}
-	for _, derivation := range derivations {
-		if len(derivation.Payloads) != 1 || !wantPayloads[derivation.Payloads[0]] {
-			t.Fatalf("six-version derivation=%+v lost a path", derivation)
-		}
-		delete(wantPayloads, derivation.Payloads[0])
-	}
-	if len(wantPayloads) != 0 {
-		t.Fatalf("six-version merge lost payloads=%v", wantPayloads)
-	}
-	after := compact.Work()
-	if after.PhysicalHeadMergeAttempts-before.PhysicalHeadMergeAttempts != uint64(headCount-1) ||
-		after.PhysicalHeadMergeSuccesses-before.PhysicalHeadMergeSuccesses != uint64(headCount-1) ||
-		after.PhysicalHeadMergeInputLinks-before.PhysicalHeadMergeInputLinks != uint64(headCount-1) {
-		t.Fatalf("six-version merge telemetry=%+v before=%+v", after, before)
+			before := compact.Work()
+			err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+				return compact.ReindexCondenseCandidatesOwned(owner, candidates)
+			})
+			if err != nil {
+				t.Fatalf("ReindexCondenseCandidatesOwned: %v", err)
+			}
+			canonical, ok := compact.CanonicalBoundary(7, 1, false, 0)
+			if !ok {
+				t.Fatal("condense did not publish a canonical boundary")
+			}
+			stats, err := compact.Stats(canonical)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stats.CurrentExactPaths != uint64(test.headCount) {
+				t.Fatalf("physical head paths=%d, want %d", stats.CurrentExactPaths, test.headCount)
+			}
+			derivations, err := compact.Derivations(canonical)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(derivations) != test.headCount {
+				t.Fatalf("derivations=%d, want %d", len(derivations), test.headCount)
+			}
+			for _, derivation := range derivations {
+				if len(derivation.Payloads) != 1 || !wantPayloads[derivation.Payloads[0]] {
+					t.Fatalf("derivation=%+v lost a path", derivation)
+				}
+				delete(wantPayloads, derivation.Payloads[0])
+			}
+			if len(wantPayloads) != 0 {
+				t.Fatalf("merge lost payloads=%v", wantPayloads)
+			}
+			after := compact.Work()
+			if after.PhysicalHeadMergeAttempts-before.PhysicalHeadMergeAttempts != uint64(test.headCount-1) ||
+				after.PhysicalHeadMergeSuccesses-before.PhysicalHeadMergeSuccesses != uint64(test.headCount-1) ||
+				after.PhysicalHeadMergeInputLinks-before.PhysicalHeadMergeInputLinks != uint64(test.headCount-1) {
+				t.Fatalf("merge telemetry=%+v before=%+v", after, before)
+			}
+		})
 	}
 }
 

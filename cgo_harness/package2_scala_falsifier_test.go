@@ -271,10 +271,9 @@ func runPackage2ScalaFalsifierWitness(t *testing.T, w package2ScalaFalsifierWitn
 	}
 	t.Logf("%s: Go production route matches locked C exactly (digest %s)", w.name, prodInspection.SHA256)
 
-	// Step 3: the Go compact route (candidate route forced on). Package two
-	// is not implemented, so an explicit fallback is expected today. Either
-	// outcome must be recorded explicitly through the admission counters --
-	// silent divergence fails the test.
+	// Step 3: the Go compact route, with the candidate route forced on. The
+	// package-two witnesses require an exact route. Later EOF witnesses still
+	// require an explicit fallback. Silent divergence fails the test.
 	beforeRouted, beforeFallback := gotreesitter.AdmissionCandidateCounters()
 	compactParser := gotreesitter.NewParser(goLanguage)
 	compactParser.SetAdmissionCandidateRoute(true)

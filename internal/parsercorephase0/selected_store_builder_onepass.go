@@ -150,19 +150,23 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 				return nil, fmt.Errorf("parser-core phase zero: selected symbol %d is outside policy", symbol)
 			}
 
+			hasError := frame.hasError || record.missing || record.symbol == ErrorRegionSymbol
 			folded := false
 			if !record.terminal && record.childCount == 1 && record.fieldCount == 0 && record.aliasCount == 0 && len(logical)-logicalStart == 1 {
 				childID := logical[logicalStart]
 				child := &store.records[childID-1]
 				rule := policy.unary(record.symbol, child.Symbol)
 				if !child.Extra() && (rule == SelectedUnaryPass || rule == SelectedUnaryRenameLeaf && child.ChildCount == 0) {
+					if hasError {
+						child.flags |= selectedNodeFlagHasError
+					}
 					if rule == SelectedUnaryRenameLeaf {
 						child.Symbol = record.symbol
-						child.flags = selectedFlags(policy.Symbols[record.symbol], child.Extra(), child.External(), child.Terminal(), child.Missing())
+						child.flags = selectedFlags(policy.Symbols[record.symbol], child.Extra(), child.External(), child.Terminal(), child.Missing(), child.HasError())
 					}
 					if alias != 0 && !retainAliasChild {
 						child.Symbol = alias
-						child.flags = selectedFlags(meta, child.Extra(), child.External(), child.Terminal(), child.Missing())
+						child.flags = selectedFlags(meta, child.Extra(), child.External(), child.Terminal(), child.Missing(), child.HasError())
 					}
 					child.ProductionID = record.productionID
 					delta, err := checkedSelectedPrecedence(precedenceDeltas[childID-1], int32(record.dynamicPrecedence))
@@ -203,7 +207,7 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 				first := uint32(len(store.children))
 				children := logical[logicalStart:]
 				store.children = append(store.children, children...)
-				flags := selectedFlags(meta, record.extra, record.external, record.terminal, record.missing)
+				flags := selectedFlags(meta, record.extra, record.external, record.terminal, record.missing, hasError)
 				startByte, endByte := record.startByte, record.endByte
 				if len(children) != 0 {
 					firstChild := store.records[children[0]-1]
@@ -246,6 +250,9 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 			}
 			if field != 0 && !retainAliasChild {
 				store.applyDirectField(logical[logicalStart:], field)
+			}
+			if frameIndex > 0 && hasError {
+				stack[frameIndex-1].hasError = true
 			}
 			stack = stack[:frameIndex]
 			payloads = payloads[:frameIndex]

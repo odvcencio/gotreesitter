@@ -376,8 +376,8 @@ func TestStage2PhysicalHeadMergeFailsClosedAcrossDistinctLexerOwnership(t *testi
 	}
 	scheduler := diagnosticParserCoreGenericScheduler{compact: compact, headers: []diagnosticParserCoreHeader{
 		{head: source},
-		{head: left, versionState: &diagnosticParserCoreVersionState{relexSnapshot: &diagnosticParserCoreVersionLexerSnapshot{}}},
-		{head: right, versionState: &diagnosticParserCoreVersionState{relexSnapshot: &diagnosticParserCoreVersionLexerSnapshot{}}},
+		{head: left, versionState: &diagnosticParserCoreVersionState{relexSnapshot: &diagnosticParserCoreVersionLexerSnapshot{coreGeneration: 1}}},
+		{head: right, versionState: &diagnosticParserCoreVersionState{relexSnapshot: &diagnosticParserCoreVersionLexerSnapshot{coreGeneration: 2}}},
 	}}
 	before := compact.Work()
 	err = compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
