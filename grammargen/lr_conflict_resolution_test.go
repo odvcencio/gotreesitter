@@ -1654,6 +1654,155 @@ func TestPreferredMixedLeftAssociativeReduceRequiresStrictPrefixFamily(t *testin
 	}
 }
 
+func TestResolveShiftReducePrefersAnnotationTypeBeforeArguments(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Symbols: []SymbolInfo{
+			{Name: "(", Kind: SymbolTerminal},
+			{Name: "identifier", Kind: SymbolTerminal},
+			{Name: "arguments", Kind: SymbolNonterminal, Visible: true, Named: true},
+			{Name: "_simple_type", Kind: SymbolNonterminal},
+			{Name: "_type_identifier", Kind: SymbolNonterminal},
+		},
+		Productions: []Production{
+			{LHS: 3, RHS: []int{1}},
+			{LHS: 4, RHS: []int{1}},
+		},
+	}
+	actions := []lrAction{
+		{kind: lrReduce, prodIdx: 0},
+		{kind: lrReduce, prodIdx: 1},
+		{kind: lrShift, state: 7, lhsSym: 2, templateAnnotationContext: true},
+	}
+
+	got, err := resolveActionConflict(0, actions, ng)
+	if err != nil {
+		t.Fatalf("resolveActionConflict: %v", err)
+	}
+	if len(got) != 1 || got[0].kind != lrReduce || got[0].prodIdx != 0 {
+		t.Fatalf("resolved actions = %+v, want annotation type reduction", got)
+	}
+
+	actions[2].templateAnnotationContext = false
+	got, err = resolveActionConflict(0, actions, ng)
+	if err != nil {
+		t.Fatalf("resolveActionConflict control: %v", err)
+	}
+	if len(got) != 1 || got[0].kind != lrShift {
+		t.Fatalf("control actions = %+v, want constructor argument shift", got)
+	}
+
+	actions[2].templateAnnotationContext = true
+	t.Run("explicit shift precedence", func(t *testing.T) {
+		guardActions := append([]lrAction(nil), actions...)
+		guardActions[2].hasPrec = true
+		if shouldPreferTemplateAnnotationTypeReduce(0, guardActions[2:], guardActions[:2], ng) {
+			t.Fatal("annotation rule overrode explicit shift precedence")
+		}
+	})
+	t.Run("explicit reduce precedence", func(t *testing.T) {
+		guardGrammar := *ng
+		guardGrammar.Productions = append([]Production(nil), ng.Productions...)
+		guardGrammar.Productions[1].HasExplicitPrec = true
+		got, err := resolveActionConflict(0, actions, &guardGrammar)
+		if err != nil {
+			t.Fatalf("resolve explicit reduce precedence: %v", err)
+		}
+		if len(got) != 1 || got[0].kind != lrReduce || got[0].prodIdx != 1 {
+			t.Fatalf("resolved actions = %+v, want the explicit reduction", got)
+		}
+	})
+	t.Run("dynamic reduce precedence", func(t *testing.T) {
+		guardGrammar := *ng
+		guardGrammar.Productions = append([]Production(nil), ng.Productions...)
+		guardGrammar.Productions[1].DynPrec = 1
+		got, err := resolveActionConflict(0, actions, &guardGrammar)
+		if err != nil {
+			t.Fatalf("resolve dynamic reduce precedence: %v", err)
+		}
+		if len(got) != 1 || got[0].kind != lrReduce || got[0].prodIdx != 1 {
+			t.Fatalf("resolved actions = %+v, want the dynamic-precedence reduction", got)
+		}
+	})
+}
+
+func TestMergeShiftContributorsPreservesAnnotationContext(t *testing.T) {
+	left := lrAction{kind: lrShift, lhsSym: 1}
+	right := lrAction{kind: lrShift, lhsSym: 2, templateAnnotationContext: true}
+
+	left.mergeShiftContributors(right)
+
+	if !left.templateAnnotationContext {
+		t.Fatal("merged shift lost its annotation context")
+	}
+}
+
+func TestAddActionPreservesAnnotationContextFromExtraShift(t *testing.T) {
+	tables := &LRTables{ActionTable: map[int]map[int][]lrAction{0: {}}}
+	tables.addAction(0, 1, lrAction{kind: lrShift, state: 2})
+	tables.addAction(0, 1, lrAction{
+		kind:                      lrShift,
+		state:                     2,
+		isExtra:                   true,
+		templateAnnotationContext: true,
+	})
+
+	actions := tables.ActionTable[0][1]
+	if len(actions) != 1 {
+		t.Fatalf("actions = %+v, want one merged shift", actions)
+	}
+	if actions[0].isExtra {
+		t.Fatal("an extra shift replaced the normal shift")
+	}
+	if !actions[0].templateAnnotationContext {
+		t.Fatal("the normal shift lost the annotation context from the extra shift")
+	}
+}
+
+func TestTemplateContextTagPropagatesIntoAnnotationTypeContinuation(t *testing.T) {
+	productions := make([]Production, 2000)
+	productions[1998] = Production{LHS: 4, RHS: []int{1}}
+	productions[1999] = Production{LHS: 3, RHS: []int{1, 2}}
+	ng := &NormalizedGrammar{
+		Symbols: []SymbolInfo{
+			{Name: "end", Kind: SymbolTerminal},
+			{Name: "identifier", Kind: SymbolTerminal},
+			{Name: "arguments", Kind: SymbolNonterminal, Visible: true, Named: true},
+			{Name: "applied_constructor_type", Kind: SymbolNonterminal, Visible: true, Named: true},
+			{Name: "unrelated", Kind: SymbolNonterminal, Visible: true, Named: true},
+		},
+		Productions: productions,
+	}
+	ctx := &lrContext{
+		ng:                        ng,
+		annotationArgumentsSym:    2,
+		appliedConstructorTypeSym: 3,
+		bracedTemplateBodySym:     -1,
+		bracedTemplateBody1Sym:    -1,
+		bracedTemplateBody2Sym:    -1,
+		itemSets: []lrItemSet{{
+			annotationArgTag: templateContextPendingTag,
+			cores:            []coreEntry{{prodIdx: 1999, dot: 0}},
+		}},
+	}
+	continuation := &lrItemSet{cores: []coreEntry{{prodIdx: 1999, dot: 1}}}
+
+	if got := ctx.templateContextTagForTransition(0, 1, continuation); got != templateContextPendingTag {
+		t.Fatalf("continuation tag = %d, want %d", got, templateContextPendingTag)
+	}
+	ctx.itemSets[0].cores = []coreEntry{{prodIdx: 1998, dot: 0}}
+	nonContinuation := &lrItemSet{cores: []coreEntry{{prodIdx: 1999, dot: 0}}}
+	if got := ctx.templateContextTagForTransition(0, 1, nonContinuation); got != 0 {
+		t.Fatalf("non-continuation tag = %d, want 0", got)
+	}
+	mixedTarget := &lrItemSet{cores: []coreEntry{
+		{prodIdx: 1998, dot: 1},
+		{prodIdx: 1999, dot: 1},
+	}}
+	if got := ctx.templateContextTagForTransition(0, 1, mixedTarget); got != 0 {
+		t.Fatalf("unrelated transition tag = %d, want 0", got)
+	}
+}
+
 func TestResolveShiftReduceUsesArithmeticExpressionReducePrecedence(t *testing.T) {
 	ng := &NormalizedGrammar{
 		Symbols: []SymbolInfo{

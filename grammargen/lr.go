@@ -183,20 +183,21 @@ func sameSortedLR0CoreEntries(a, b []lr0CoreEntry) bool {
 
 // lrAction is a parse table action.
 type lrAction struct {
-	kind                 lrActionKind
-	state                int   // shift target / goto target
-	prodIdx              int   // reduce production index
-	prec                 int   // for shift: precedence of the item's production
-	hasPrec              bool  // production had an explicit compile-time precedence wrapper
-	assoc                Assoc // for shift: associativity of the item's production
-	lhsSym               int   // LHS nonterminal of the production (for conflict detection)
-	lhsSyms              []int // additional LHS symbols (when shifts from multiple rules merge)
-	shiftContributors    []lrShiftContributor
-	conflictContributors []lrShiftContributor
-	isExtra              bool  // true if this action comes from a nonterminal extra production
-	repeat               bool  // true if this shift continues a recursive repeat wrapper
-	repeatLHS            int   // generated repeat-helper LHS continued by this shift, or 0 when unknown
-	repeatLHSSyms        []int // additional generated repeat-helper LHS symbols for merged shifts
+	kind                      lrActionKind
+	state                     int   // shift target / goto target
+	prodIdx                   int   // reduce production index
+	prec                      int   // for shift: precedence of the item's production
+	hasPrec                   bool  // production had an explicit compile-time precedence wrapper
+	assoc                     Assoc // for shift: associativity of the item's production
+	lhsSym                    int   // LHS nonterminal of the production (for conflict detection)
+	lhsSyms                   []int // additional LHS symbols (when shifts from multiple rules merge)
+	shiftContributors         []lrShiftContributor
+	conflictContributors      []lrShiftContributor
+	isExtra                   bool  // true if this action comes from a nonterminal extra production
+	repeat                    bool  // true if this shift continues a recursive repeat wrapper
+	repeatLHS                 int   // generated repeat-helper LHS continued by this shift, or 0 when unknown
+	repeatLHSSyms             []int // additional generated repeat-helper LHS symbols for merged shifts
+	templateAnnotationContext bool
 }
 
 type lrShiftContributor struct {
@@ -310,6 +311,7 @@ func (a *lrAction) mergeShiftContributors(other lrAction) {
 	for _, contributor := range other.conflictContributors {
 		a.addConflictContributor(contributor.lhsSym, contributor.prec, contributor.hasPrec, contributor.assoc)
 	}
+	a.templateAnnotationContext = a.templateAnnotationContext || other.templateAnnotationContext
 }
 
 type lrActionKind int
@@ -409,6 +411,8 @@ func buildLRTablesInternal(bgCtx context.Context, ng *NormalizedGrammar, trackPr
 		ctx.annotationDefSym = -1
 		ctx.annotationOpenParenSym = -1
 		ctx.annotationCloseParenSym = -1
+		ctx.annotationArgumentsSym = -1
+		ctx.appliedConstructorTypeSym = -1
 		ctx.bracedTemplateBodySym = -1
 		ctx.bracedTemplateBody1Sym = -1
 		ctx.bracedTemplateBody2Sym = -1
@@ -524,6 +528,10 @@ func buildLRTablesInternal(bgCtx context.Context, ng *NormalizedGrammar, trackPr
 				ctx.annotationOpenParenSym = i
 			case ")":
 				ctx.annotationCloseParenSym = i
+			case "arguments":
+				ctx.annotationArgumentsSym = i
+			case "applied_constructor_type":
+				ctx.appliedConstructorTypeSym = i
 			case "_braced_template_body":
 				ctx.bracedTemplateBodySym = i
 			case "_braced_template_body1":
@@ -695,13 +703,14 @@ func buildLRTablesInternal(bgCtx context.Context, ng *NormalizedGrammar, trackPr
 					}
 					repeatLHSs := ctx.repetitionShiftHelperLHSSyms(stateIdx, nextSym, targetState)
 					action := lrAction{
-						kind:    lrShift,
-						state:   targetState,
-						prec:    shiftPrec,
-						hasPrec: prod.HasExplicitPrec,
-						assoc:   shiftAssoc,
-						lhsSym:  prod.LHS,
-						isExtra: prod.IsExtra,
+						kind:                      lrShift,
+						state:                     targetState,
+						prec:                      shiftPrec,
+						hasPrec:                   prod.HasExplicitPrec,
+						assoc:                     shiftAssoc,
+						lhsSym:                    prod.LHS,
+						isExtra:                   prod.IsExtra,
+						templateAnnotationContext: itemSet.annotationArgTag&templateContextPendingTag != 0,
 					}
 					if ce.dot > 0 {
 						action.addConflictContributor(prod.LHS, prod.Prec, prod.HasExplicitPrec, prod.Assoc)
@@ -946,6 +955,8 @@ func (t *LRTables) addAction(state, sym int, action lrAction) {
 				// for legacy callers, but retain per-LHS contributors so conflict
 				// resolution can compare the reduce against the local shift source.
 				if !a.isExtra && action.isExtra {
+					existing[i].templateAnnotationContext =
+						existing[i].templateAnnotationContext || action.templateAnnotationContext
 					return // existing non-extra wins
 				}
 				if a.isExtra && !action.isExtra {
@@ -1042,6 +1053,8 @@ type lrContext struct {
 	annotationDefSym                int
 	annotationOpenParenSym          int
 	annotationCloseParenSym         int
+	annotationArgumentsSym          int
+	appliedConstructorTypeSym       int
 	bracedTemplateBodySym           int
 	bracedTemplateBody1Sym          int
 	bracedTemplateBody2Sym          int
@@ -2712,6 +2725,35 @@ func (ctx *lrContext) conditionalTypeContextTagForTransition(sourceState, sym in
 	return 0
 }
 
+func (ctx *lrContext) isTemplateAnnotationTypeContinuationItem(prodIdx, dot int) bool {
+	if ctx == nil || ctx.ng == nil || prodIdx < 0 || prodIdx >= len(ctx.ng.Productions) ||
+		ctx.appliedConstructorTypeSym < 0 || ctx.annotationArgumentsSym < 0 {
+		return false
+	}
+	prod := &ctx.ng.Productions[prodIdx]
+	return prod.LHS == ctx.appliedConstructorTypeSym && dot == 1 && len(prod.RHS) == 2 &&
+		prod.RHS[1] == ctx.annotationArgumentsSym
+}
+
+func (ctx *lrContext) entersTemplateAnnotationTypeContinuation(sourceState, sym int) bool {
+	if ctx == nil || ctx.ng == nil || sourceState < 0 || sourceState >= len(ctx.itemSets) {
+		return false
+	}
+	for _, ce := range ctx.itemSets[sourceState].cores {
+		prodIdx := int(ce.prodIdx)
+		dot := int(ce.dot)
+		if prodIdx < 0 || prodIdx >= len(ctx.ng.Productions) {
+			continue
+		}
+		prod := &ctx.ng.Productions[prodIdx]
+		if dot < len(prod.RHS) && prod.RHS[dot] == sym &&
+			ctx.isTemplateAnnotationTypeContinuationItem(prodIdx, dot+1) {
+			return true
+		}
+	}
+	return false
+}
+
 func (ctx *lrContext) templateContextTagForTransition(sourceState, sym int, closedSet *lrItemSet) uint32 {
 	if os.Getenv("GOT_LR_DISABLE_CONTEXT_TAGS") == "1" {
 		return 0
@@ -2726,6 +2768,9 @@ func (ctx *lrContext) templateContextTagForTransition(sourceState, sym int, clos
 		ctx.isTemplateDefinitionCarrierSet(closedSet)
 
 	srcTag := ctx.itemSets[sourceState].annotationArgTag & templateContextTagMask
+	if srcTag == templateContextPendingTag && ctx.entersTemplateAnnotationTypeContinuation(sourceState, sym) {
+		return srcTag
+	}
 	if srcTag != 0 && ctx.isCompletedRepeatWrapperForSymbol(closedSet, sym) {
 		return srcTag
 	}
@@ -3640,6 +3685,12 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 		if shouldPreserveDerivedKeywordIdentifierShiftReduce(lookaheadSym, reduces, ng) {
 			return actions, nil
 		}
+		if shouldPreferTemplateAnnotationTypeReduce(lookaheadSym, shifts, reduces, ng) {
+			if len(reduces) == 1 {
+				return []lrAction{reduces[0]}, nil
+			}
+			return resolveReduceReduceLegacy(lookaheadSym, reduces, ng, cache)
+		}
 		if preferred, ok := preferredVisibleSiblingAlternativeContinuationShift(lookaheadSym, shifts, reduces, ng, cache); ok {
 			return []lrAction{preferred}, nil
 		}
@@ -3920,6 +3971,36 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 	}
 
 	return actions, nil
+}
+
+// shouldPreferTemplateAnnotationTypeReduce keeps annotation arguments as
+// siblings of their type. Constructor types outside annotation contexts keep
+// their ordinary argument shift.
+func shouldPreferTemplateAnnotationTypeReduce(lookaheadSym int, shifts, reduces []lrAction, ng *NormalizedGrammar) bool {
+	if ng == nil || len(shifts) != 1 || len(reduces) == 0 || !symbolIsParenthesisOpener(lookaheadSym, ng) {
+		return false
+	}
+	shift := shifts[0]
+	if !shift.templateAnnotationContext || !shiftLHSIncludesName(shift, ng, "arguments") {
+		return false
+	}
+	if shift.prec != 0 || shift.hasPrec || shift.assoc != AssocNone {
+		return false
+	}
+	for _, reduce := range reduces {
+		if reduce.kind != lrReduce || reduce.prodIdx < 0 || reduce.prodIdx >= len(ng.Productions) {
+			return false
+		}
+		lhs := ng.Productions[reduce.prodIdx].LHS
+		if lhs < 0 || lhs >= len(ng.Symbols) {
+			return false
+		}
+		name := ng.Symbols[lhs].Name
+		if name != "_simple_type" && name != "_type_identifier" {
+			return false
+		}
+	}
+	return true
 }
 
 // highestNumericReducePrecedenceTie removes lower numeric precedences when at

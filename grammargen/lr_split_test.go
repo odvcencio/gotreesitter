@@ -45,6 +45,19 @@ func TestSplitKernelLookaheadsForTransitionKeepsInheritedLookaheads(t *testing.T
 	}
 }
 
+func TestSplitShiftActionPreservesAnnotationContext(t *testing.T) {
+	prod := &Production{LHS: 3, Prec: 2, HasExplicitPrec: true, Assoc: AssocRight}
+	action := splitShiftAction(prod, 7, true)
+
+	if !action.templateAnnotationContext {
+		t.Fatal("the rebuilt shift lost its annotation context")
+	}
+	withoutContext := splitShiftAction(prod, 7, false)
+	if splitActionSignature([]lrAction{action}) == splitActionSignature([]lrAction{withoutContext}) {
+		t.Fatal("the split signature did not preserve the annotation context")
+	}
+}
+
 func TestLocalLR1Rebuild(t *testing.T) {
 	// Create a grammar known to have LALR merge pathology.
 	// Two rules that share a common prefix but diverge:

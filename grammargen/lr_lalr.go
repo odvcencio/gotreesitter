@@ -246,8 +246,23 @@ func (ctx *lrContext) buildLR0() {
 			if contextTagsEnabled {
 				targetTemplateCarrier := false
 				targetConditionalCarrier := false
+				entersAnnotationTypeContinuation := false
+				for _, ce := range itemSet.cores {
+					prodIdx := int(ce.prodIdx())
+					dot := int(ce.dot())
+					if prodIdx < 0 || prodIdx >= len(ng.Productions) {
+						continue
+					}
+					prod := &ng.Productions[prodIdx]
+					if dot < len(prod.RHS) && prod.RHS[dot] == sym &&
+						ctx.isTemplateAnnotationTypeContinuationItem(prodIdx, dot+1) {
+						entersAnnotationTypeContinuation = true
+						break
+					}
+				}
 				for _, ce := range closedSet.cores {
-					lhs := ng.Productions[int(ce.prodIdx())].LHS
+					prod := &ng.Productions[int(ce.prodIdx())]
+					lhs := prod.LHS
 					if !targetTemplateCarrier {
 						switch lhs {
 						case ctx.bracedTemplateBodySym, ctx.bracedTemplateBody1Sym, ctx.bracedTemplateBody2Sym:
@@ -269,7 +284,9 @@ func (ctx *lrContext) buildLR0() {
 					}
 				}
 				srcTemplateTag := itemSet.annotationArgTag & templateContextTagMask
-				if srcTemplateTag != 0 && targetRepeatWrapperLHS >= 0 {
+				if srcTemplateTag == templateContextPendingTag && entersAnnotationTypeContinuation {
+					closedSet.annotationArgTag = srcTemplateTag
+				} else if srcTemplateTag != 0 && targetRepeatWrapperLHS >= 0 {
 					closedSet.annotationArgTag = srcTemplateTag
 				} else if sourceTemplateCarrier || targetTemplateCarrier {
 					if ctx.annotationAtSym >= 0 && sym == ctx.annotationAtSym && targetTemplateCarrier {
