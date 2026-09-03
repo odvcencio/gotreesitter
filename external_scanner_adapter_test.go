@@ -39,6 +39,9 @@ type staleResultExternalScanner struct {
 type capabilityExternalScanner struct{ recordingExternalScanner }
 
 func (*capabilityExternalScanner) SupportsIncrementalReuse() bool { return true }
+func (*capabilityExternalScanner) SupportsIncrementalReuseFromErrorTree() bool {
+	return false
+}
 func (*capabilityExternalScanner) UsesExternalScannerCheckpoints() bool {
 	return true
 }
@@ -83,6 +86,10 @@ func TestExternalScannerOrderAdapterPreservesOptionalCapabilities(t *testing.T) 
 	}
 	if reusable, ok := adapted.(IncrementalReuseExternalScanner); !ok || !reusable.SupportsIncrementalReuse() {
 		t.Fatal("incremental-reuse capability was not preserved")
+	}
+	if errorTreeReusable, ok := adapted.(ErrorTreeIncrementalReuseExternalScanner); !ok ||
+		errorTreeReusable.SupportsIncrementalReuseFromErrorTree() {
+		t.Fatal("error-tree incremental reuse restriction was not preserved")
 	}
 	if checkpointed, ok := adapted.(CheckpointedExternalScanner); !ok || !checkpointed.UsesExternalScannerCheckpoints() {
 		t.Fatal("checkpoint capability was not preserved")

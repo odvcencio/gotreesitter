@@ -70,6 +70,11 @@ func (a *externalScannerOrderAdapter) SupportsIncrementalReuse() bool {
 	return ok && reusable.SupportsIncrementalReuse()
 }
 
+func (a *externalScannerOrderAdapter) SupportsIncrementalReuseFromErrorTree() bool {
+	reusable, ok := a.optionalInner().(ErrorTreeIncrementalReuseExternalScanner)
+	return ok && reusable.SupportsIncrementalReuseFromErrorTree()
+}
+
 func (a *externalScannerOrderAdapter) UsesExternalScannerCheckpoints() bool {
 	checkpointed, ok := a.optionalInner().(CheckpointedExternalScanner)
 	return ok && checkpointed.UsesExternalScannerCheckpoints()

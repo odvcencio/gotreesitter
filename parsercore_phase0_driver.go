@@ -4797,8 +4797,8 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	if lang == nil || lang.ExternalScanner == nil || !languageUsesExternalScannerCheckpoints(lang) {
 		return shared, false
 	}
-	provider, ok := lang.ExternalScanner.(ExternalScannerCheckpointIdentityProvider)
-	if !ok || !provider.UsesExternalScannerCheckpoints() {
+	provider, ok := externalScannerCheckpointIdentityProviderForScanner(lang.ExternalScanner)
+	if !ok {
 		return shared, false
 	}
 	identity, ok := provider.CheckpointIdentity()
@@ -5295,7 +5295,7 @@ func (s *diagnosticParserCoreGenericScheduler) finishSharedElectionSnapshotCaptu
 	s.versionLexerBeforeIdentity = [32]byte{}
 	s.versionLexerBeforeIdentityValid = false
 	if s.tokenSource != nil && s.tokenSource.language != nil && languageUsesExternalScannerCheckpoints(s.tokenSource.language) {
-		if provider, ok := s.tokenSource.language.ExternalScanner.(ExternalScannerCheckpointIdentityProvider); ok {
+		if provider, ok := externalScannerCheckpointIdentityProviderForScanner(s.tokenSource.language.ExternalScanner); ok {
 			if identity, ok := provider.CheckpointIdentity(); ok && identity.complete() {
 				s.versionLexerBeforeIdentity = parserCoreExternalScannerIdentityFingerprint(identity)
 				s.versionLexerBeforeIdentityValid = true
