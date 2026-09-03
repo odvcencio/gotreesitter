@@ -324,3 +324,49 @@ citation was traced during this audit — the `gts_parsercorephase0` and
 `gts_workcount` findings above are coverage gaps, not confirmed cases of a
 specific cited claim, but given their scale they carry the same risk and are
 flagged at High/Medium severity above rather than left implicit.
+
+## Part 4: `phase0_tagged_suite` lane (2026-09-03, issue #1052)
+
+A review of PR #1051 found that two of its new tests never ran in CI. The
+two existing tagged lanes (`selected_store_admission`,
+`compact_admission_ratchet`) each use a fixed, narrow `-run` allow-list, the
+same pattern the "Headline finding" above already named at scale. This
+section closes most of that gap with one new job.
+
+Counts, root package, `-tags gts_parsercorephase0` against the default
+(untagged) build:
+
+- Tag-exclusive top-level functions (`go test -tags gts_parsercorephase0 .
+  -list '.*'` minus the untagged `-list '.*'`): 361 — 349 `Test` functions,
+  12 `Benchmark` functions.
+- The 12 `Benchmark` functions stay out of scope: `-run` (what every tagged
+  lane in this file uses) never selects a benchmark; only `-bench` executes
+  one. They need their own gate design, not this lane.
+- Of the 349 tag-exclusive `Test` functions, 15 already ran, matched by the
+  three existing `-run` allow-lists (`selected_store_admission`,
+  `compact_admission_ratchet`, and the `compact-t3-oracle-cgo` job's
+  per-version-lexer-Scala Docker step). 334 did not run anywhere: set U.
+- `phase0_tagged_suite` now runs 322 of the 334. Measured together, in one
+  process, GOMAXPROCS=1: 86.6s wall, 1.5 GiB max RSS.
+- 12 of the 334 are excluded, by name, with a one-line reason in the job's
+  YAML comment:
+  - 11 fail today on `main`, each with a genuine assertion mismatch (for
+    example, `TestAdmissionCandidateElmHighlightDirect`: digest mismatch;
+    `TestG18DropPathRejectsForeignInlineRED`: "RED: foreign inline lineage
+    certified a current-arena drop"). These are pre-existing defects, not
+    caused by this lane; fixing them is out of scope for this maintenance
+    change.
+  - 1 (`TestG18D6aProducerTelemetry`) passes alone but fails when run with
+    the other 321: it compares a captured D3 runtime pool baseline against
+    one carried over from earlier tests in the same process, so it is
+    order-dependent on accumulated global state. Excluded rather than
+    reordered, since reordering risks moving the same defect onto a
+    different test.
+- After this change: 337 of 349 tag-exclusive `Test` functions run in CI
+  (15 previously wired plus 322 new), up from 15. 12 remain excluded for the
+  reasons above.
+
+This does not close the `cgo_harness` module's own version of the same
+finding (Part 2d, "unquantified"), and it does not touch the `gts_workcount`
+or `gts_derivation_set_census` tags, or the `gts_no_parsercorephase0`
+emergency stub build — all still in the backlog above.
