@@ -230,7 +230,27 @@ func (c *Core) RecoverToAncestorStateOwned(owner SchedulerTransactionToken, cand
 		return out, err
 	}
 	defer c.recoverSchedulerOwnedPanic(owner)
-	out, err = c.recoverToAncestorStateUncheckpointed(candidate)
+	out, err = c.recoverToAncestorStateUncheckpointed(candidate, nil)
+	return out, c.finishSchedulerOwned(owner, err)
+}
+
+// RecoverToAncestorStateWithCostOwned publishes the complete cumulative cost
+// of the ERROR link and each trailing extra link before boundary publication.
+// The callback must return the authenticated cost for its complete output.
+func (c *Core) RecoverToAncestorStateWithCostOwned(
+	owner SchedulerTransactionToken,
+	candidate StackSummaryCandidate,
+	cost ReductionOutputCostFunc,
+) (out Head, err error) {
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return out, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	if cost == nil {
+		err = errors.New("parser-core phase zero: ancestor recovery cost callback is required")
+		return out, c.finishSchedulerOwned(owner, err)
+	}
+	out, err = c.recoverToAncestorStateUncheckpointed(candidate, cost)
 	return out, c.finishSchedulerOwned(owner, err)
 }
 
@@ -254,7 +274,7 @@ func (c *Core) StackSummaryCandidateRecoverable(candidate StackSummaryCandidate)
 	return true, nil
 }
 
-func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandidate) (Head, error) {
+func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandidate, cost ReductionOutputCostFunc) (Head, error) {
 	if candidate.owner != c {
 		return Head{}, errors.New("parser-core phase zero: stack-summary candidate belongs to a different core")
 	}
@@ -328,6 +348,14 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 
 	out := Head{Node: target}
 	errorLink := linkInput{prev: target, payload: errorPayload, scoreDelta: score, order: order}
+	if cost != nil {
+		storedErrorCost, costErr := cost(errorLink.prev, errorLink.payload)
+		if costErr != nil {
+			return Head{}, costErr
+		}
+		errorLink.storedErrorCost = storedErrorCost
+		errorLink.hasStoredErrorCost = true
+	}
 	if trailing == 0 {
 		outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(candidate.state, last.endByte), errorLink)
 		return outcome.head, err
@@ -348,6 +376,14 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 		input := linkInput{prev: out.Node, payload: link.payload, scoreDelta: link.scoreDelta}
 		if link.hasOrder() {
 			input.order = ForkOrder{Present: true, Value: link.order}
+		}
+		if cost != nil {
+			storedErrorCost, costErr := cost(input.prev, input.payload)
+			if costErr != nil {
+				return Head{}, costErr
+			}
+			input.storedErrorCost = storedErrorCost
+			input.hasStoredErrorCost = true
 		}
 		if index == 0 {
 			outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(candidate.state, payload.endByte), input)

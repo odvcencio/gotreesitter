@@ -118,12 +118,16 @@ func (c *Core) ErrorRegionLeaf(symbol Symbol, startByte, endByte uint32, extra b
 // resuming before absorbing one -- would need this split reproduced (or an
 // explicit decline guarding it) before certifying; do not assume this gap
 // is closed by extrapolation from html's own witnesses.
-func (c *Core) ErrorRegionResume(preErrorHead Head, preErrorState StateID, startByte, endByte uint32, children []SubtreeID) (out Head, err error) {
+func (c *Core) errorRegionResumeUncheckpointed(
+	preErrorHead Head,
+	preErrorState StateID,
+	startByte, endByte uint32,
+	children []SubtreeID,
+	cost ReductionOutputCostFunc,
+) (out Head, err error) {
 	if len(children) == 0 {
 		return Head{}, errors.New("parser-core phase zero: error region resume has no absorbed children")
 	}
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
 	if _, err := c.node(preErrorHead.Node); err != nil {
 		return Head{}, err
 	}
@@ -147,7 +151,39 @@ func (c *Core) ErrorRegionResume(preErrorHead Head, preErrorState StateID, start
 	if err != nil {
 		return Head{}, err
 	}
-	return c.condense(c.shiftedBoundaryKey(preErrorState, endByte), linkInput{
-		prev: preErrorHead.Node, payload: payload,
-	})
+	in := linkInput{prev: preErrorHead.Node, payload: payload}
+	if cost != nil {
+		storedErrorCost, costErr := cost(in.prev, in.payload)
+		if costErr != nil {
+			return Head{}, costErr
+		}
+		in.storedErrorCost = storedErrorCost
+		in.hasStoredErrorCost = true
+	}
+	return c.condense(c.shiftedBoundaryKey(preErrorState, endByte), in)
+}
+
+// ErrorRegionResume publishes one ERROR container over the region's existing
+// children. It keeps the historical no-cost wrapper for clean callers.
+func (c *Core) ErrorRegionResume(preErrorHead Head, preErrorState StateID, startByte, endByte uint32, children []SubtreeID) (out Head, err error) {
+	mark := c.mark()
+	defer c.completeTransaction(mark, &err)
+	return c.errorRegionResumeUncheckpointed(preErrorHead, preErrorState, startByte, endByte, children, nil)
+}
+
+// ErrorRegionResumeWithCost publishes the authenticated cumulative recovery
+// cost before the new ERROR boundary can condense or publish.
+func (c *Core) ErrorRegionResumeWithCost(
+	preErrorHead Head,
+	preErrorState StateID,
+	startByte, endByte uint32,
+	children []SubtreeID,
+	cost ReductionOutputCostFunc,
+) (out Head, err error) {
+	if cost == nil {
+		return Head{}, errors.New("parser-core phase zero: error-region cost callback is required")
+	}
+	mark := c.mark()
+	defer c.completeTransaction(mark, &err)
+	return c.errorRegionResumeUncheckpointed(preErrorHead, preErrorState, startByte, endByte, children, cost)
 }

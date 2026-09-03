@@ -777,6 +777,40 @@ func (c *Core) ErrorRegionResumeWithLiveCondenseCandidatesOwned(
 	return out, c.finishSchedulerOwned(owner, err)
 }
 
+// ErrorRegionResumeWithLiveCondenseCandidatesAndCostOwned publishes one
+// recovery ERROR region with an authenticated cumulative cost while keeping
+// unrelated live candidates outside its condensation scope.
+func (c *Core) ErrorRegionResumeWithLiveCondenseCandidatesAndCostOwned(
+	owner SchedulerTransactionToken,
+	candidates []CondenseCandidate,
+	preErrorHead Head,
+	preErrorState StateID,
+	startByte, endByte uint32,
+	children []SubtreeID,
+	cost ReductionOutputCostFunc,
+) (out Head, err error) {
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return out, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	if err = c.enterLiveCondenseCandidates(candidates); err != nil {
+		return out, c.finishSchedulerOwned(owner, err)
+	}
+	if cost == nil {
+		err = errors.New("parser-core phase zero: error-region cost callback is required")
+		c.clearLiveCondenseCandidates()
+		return out, c.finishSchedulerOwned(owner, err)
+	}
+	if c.schedulerFrame.fresh {
+		out, err = c.ErrorRegionResumeWithCost(preErrorHead, preErrorState, startByte, endByte, children, cost)
+		c.clearLiveCondenseCandidates()
+		return out, c.finishSchedulerOwned(owner, err)
+	}
+	defer c.clearLiveCondenseCandidates()
+	out, err = c.ErrorRegionResumeWithCost(preErrorHead, preErrorState, startByte, endByte, children, cost)
+	return out, c.finishSchedulerOwned(owner, err)
+}
+
 // ShiftDirectWithLiveCondenseCandidatesOwned applies a corridor-proven shift
 // without rebuilding a ClassifiedBoundary or running the generic shift path.
 // The caller must validate the action shape from the immutable corridor program.

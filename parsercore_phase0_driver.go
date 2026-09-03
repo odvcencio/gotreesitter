@@ -2172,6 +2172,10 @@ type diagnosticParserCoreCanonicalScratch struct {
 	groupsBucketCount   uint64
 	groupsBucketBytes   uint64
 	groupsRetainedBytes uint64
+	// versionStateEqual selects a prior semantic representative for each
+	// canonical key. The representative keeps the comparable key compact and
+	// avoids hashing mutable snapshot slices.
+	versionStateEqual func(left, right *diagnosticParserCoreVersionState) bool
 }
 
 const (
@@ -2374,6 +2378,15 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeWithMutation(
 			// Preserve the pre-ownership canonical key. Recovery isolation keeps
 			// region-bearing versions separate when that distinction matters.
 			versionState = nil
+		}
+		if versionState != nil && s.versionStateEqual != nil {
+			for prior := 0; prior < index; prior++ {
+				representative := s.keys[prior].versionState
+				if representative != nil && s.versionStateEqual(representative, versionState) {
+					versionState = representative
+					break
+				}
+			}
 		}
 		key := diagnosticParserCorePhaseHead{
 			head: header.head, shifted: header.shifted, accepted: header.accepted,
@@ -4283,6 +4296,7 @@ func clearDiagnosticParserCoreGenericSchedulerVersionState(scheduler *diagnostic
 	clearDiagnosticParserCorePhaseHeadBacking(scheduler.canonicalScratch.keys)
 	clearDiagnosticParserCorePhaseHeadBacking(scheduler.canonicalScratch.inlineKeys[:])
 	clear(scheduler.canonicalScratch.groups)
+	scheduler.canonicalScratch.versionStateEqual = nil
 	if cap(scheduler.versionLexerRequests) != 0 {
 		clear(scheduler.versionLexerRequests[:cap(scheduler.versionLexerRequests)])
 	}
@@ -8670,13 +8684,18 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				// compact equivalent of cRecoverToState's
 				// pushStackNode(fork, goal, errNode, ...)), then fall through
 				// to ordinary classification below using the refreshed head.
+				recoveryCost, recoveryCostMemo, costErr := s.recoveryOutputCostFunc()
+				if costErr != nil {
+					return nil, costErr
+				}
+				defer recoveryCostMemo.Reset()
 				var newHead core.Head
 				var resumeErr error
 				if s.recoveryIsolation {
 					resume := func(owner core.SchedulerTransactionToken) error {
-						newHead, resumeErr = s.compact.ErrorRegionResumeWithLiveCondenseCandidatesOwned(
+						newHead, resumeErr = s.compact.ErrorRegionResumeWithLiveCondenseCandidatesAndCostOwned(
 							owner, s.collectCondenseCandidates(index), header.head, region.state,
-							region.startByte, region.endByte, region.children,
+							region.startByte, region.endByte, region.children, recoveryCost,
 						)
 						return resumeErr
 					}
@@ -8686,8 +8705,9 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 						resumeErr = s.compact.ApplySchedulerAtomic(resume)
 					}
 				} else {
-					newHead, resumeErr = s.compact.ErrorRegionResume(
+					newHead, resumeErr = s.compact.ErrorRegionResumeWithCost(
 						header.head, region.state, region.startByte, region.endByte, region.children,
+						recoveryCost,
 					)
 				}
 				if resumeErr != nil {
@@ -9466,12 +9486,17 @@ func (s *diagnosticParserCoreGenericScheduler) tryRecoverEOFAccept(index int) (b
 	if err := s.reserveDispatches(1); err != nil {
 		return false, err
 	}
+	recoveryCost, recoveryCostMemo, costErr := s.recoveryOutputCostFunc()
+	if costErr != nil {
+		return false, costErr
+	}
+	defer recoveryCostMemo.Reset()
 	var recovered core.Head
 	var root core.SubtreeID
 	apply := func(owner core.SchedulerTransactionToken) error {
 		var applyErr error
-		recovered, root, applyErr = s.compact.RecoverEOFAcceptOwned(
-			owner, selectedHead, payloads, startByte, endByte,
+		recovered, root, applyErr = s.compact.RecoverEOFAcceptWithCostOwned(
+			owner, selectedHead, payloads, startByte, endByte, recoveryCost,
 		)
 		return applyErr
 	}
@@ -9915,11 +9940,17 @@ func (s *diagnosticParserCoreGenericScheduler) s4TryStackSummaryRecovery(index i
 		restore()
 		return false, nil
 	}
+	recoveryCost, recoveryCostMemo, costErr := s.recoveryOutputCostFunc()
+	if costErr != nil {
+		restore()
+		return false, costErr
+	}
+	defer recoveryCostMemo.Reset()
 
 	var recoveredHead core.Head
 	recover := func(owner core.SchedulerTransactionToken) error {
 		var recoverErr error
-		recoveredHead, recoverErr = s.compact.RecoverToAncestorStateOwned(owner, elected)
+		recoveredHead, recoverErr = s.compact.RecoverToAncestorStateWithCostOwned(owner, elected, recoveryCost)
 		return recoverErr
 	}
 	if s.freshSessionOwner != nil {
@@ -11554,6 +11585,38 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []Di
 	})
 }
 
+// recoveryOutputCostFunc binds the row-aware recovery cost source for one
+// scheduler operation. Core receives the complete prefix-plus-payload cost.
+func (s *diagnosticParserCoreGenericScheduler) recoveryOutputCostFunc() (core.ReductionOutputCostFunc, *core.RecoveryCostMemo, error) {
+	if s == nil || s.compact == nil || s.tokenSource == nil || s.tokenSource.language == nil {
+		return nil, nil, errors.New("parser-core phase zero: recovery cost source is unavailable")
+	}
+	if len(s.options.materializationSource) == 0 {
+		return nil, nil, errors.New("parser-core phase zero: recovery cost source requires non-empty materialization source")
+	}
+	source, err := newDiagnosticParserCoreRecoveryCostSource(s.compact, s.options.materializationSource)
+	if err != nil {
+		return nil, nil, err
+	}
+	symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
+	memo := new(core.RecoveryCostMemo)
+	cost := func(prev core.NodeID, payload core.SubtreeID) (uint32, error) {
+		prefix, prefixErr := s.compact.RecoveryStoredErrorCost(core.Head{Node: prev})
+		if prefixErr != nil {
+			return 0, prefixErr
+		}
+		payloadCost, payloadErr := core.RecoveryNodeErrorCostMemo(symbols, source, memo, payload)
+		if payloadErr != nil {
+			return 0, payloadErr
+		}
+		if math.MaxUint32-prefix < payloadCost {
+			return 0, errors.New("parser-core phase zero: recovery output cost overflow")
+		}
+		return prefix + payloadCost, nil
+	}
+	return cost, memo, nil
+}
+
 func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner core.SchedulerTransactionToken, before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) error {
 	header := s.headers[cell.headerIndex]
 	recoveryAmbiguitySource := header.isRecoveryLineage()
@@ -11593,33 +11656,12 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		_ = s.compact.SetDropCohortSelectionContextOwned(owner, core.DropCohortSelectionNone)
 	}()
 	var reductionCost core.ReductionOutputCostFunc
-	var reductionCostMemo core.RecoveryCostMemo
-	if recoveryCostRequired && len(s.options.materializationSource) == 0 {
-		return errors.New("parser-core phase zero: recovery reduction requires a bound materialization source")
-	}
+	var reductionCostMemo *core.RecoveryCostMemo
 	if recoveryCostRequired {
-		costSource, costErr := newDiagnosticParserCoreRecoveryCostSource(
-			s.compact, s.options.materializationSource,
-		)
+		var costErr error
+		reductionCost, reductionCostMemo, costErr = s.recoveryOutputCostFunc()
 		if costErr != nil {
 			return costErr
-		}
-		symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
-		reductionCost = func(prev core.NodeID, payload core.SubtreeID) (uint32, error) {
-			prefix, prefixErr := s.compact.RecoveryStoredErrorCost(core.Head{Node: prev})
-			if prefixErr != nil {
-				return 0, prefixErr
-			}
-			payloadCost, payloadErr := core.RecoveryNodeErrorCostMemo(
-				symbols, costSource, &reductionCostMemo, payload,
-			)
-			if payloadErr != nil {
-				return 0, payloadErr
-			}
-			if math.MaxUint32-prefix < payloadCost {
-				return 0, errors.New("parser-core phase zero: reduction recovery cost overflow")
-			}
-			return prefix + payloadCost, nil
 		}
 		defer reductionCostMemo.Reset()
 	}
@@ -12999,6 +13041,11 @@ func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwned(owner core.Sche
 }
 
 func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwnedWithMutation(owner core.SchedulerTransactionToken, expected core.DropCohortProducerMutation) error {
+	previousVersionStateEqual := s.canonicalScratch.versionStateEqual
+	s.canonicalScratch.versionStateEqual = s.versionLexerStateEqual
+	defer func() {
+		s.canonicalScratch.versionStateEqual = previousVersionStateEqual
+	}()
 	var headers []diagnosticParserCoreHeader
 	var mutation core.DropCohortProducerMutation
 	var err error

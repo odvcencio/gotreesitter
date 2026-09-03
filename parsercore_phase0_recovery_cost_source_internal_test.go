@@ -134,6 +134,54 @@ func TestRecoveryCostSourcePricesErrorRegionSpanAndRows(t *testing.T) {
 	}
 }
 
+// TestRecoveryCostSourcePublishesResumedHeadCost proves that the authenticated
+// ERROR cost reaches the new head before its boundary is published.
+func TestRecoveryCostSourcePublishesResumedHeadCost(t *testing.T) {
+	compact, src := newRecoveryCostFixture(t, "ab\ncd\nef")
+	child, err := compact.ErrorRegionLeaf(core.Symbol(5), 0, 7, false)
+	if err != nil {
+		t.Fatalf("ErrorRegionLeaf: %v", err)
+	}
+	seed, err := compact.Seed(core.StateID(1), 0)
+	if err != nil {
+		t.Fatalf("Seed: %v", err)
+	}
+	var memo core.RecoveryCostMemo
+	cost := func(prev core.NodeID, payload core.SubtreeID) (uint32, error) {
+		prefix, prefixErr := compact.RecoveryStoredErrorCost(core.Head{Node: prev})
+		if prefixErr != nil {
+			return 0, prefixErr
+		}
+		payloadCost, payloadErr := core.RecoveryNodeErrorCostMemo(
+			visibleSymbols(8), src, &memo, payload,
+		)
+		if payloadErr != nil {
+			return 0, payloadErr
+		}
+		return prefix + payloadCost, nil
+	}
+	head, err := compact.ErrorRegionResumeWithCost(
+		seed, core.StateID(1), 0, 7, []core.SubtreeID{child}, cost,
+	)
+	if err != nil {
+		t.Fatalf("ErrorRegionResumeWithCost: %v", err)
+	}
+	got, err := compact.RecoveryStoredErrorCost(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = core.RecoveryCostPerRecovery +
+		core.RecoveryCostPerSkippedChar*7 +
+		core.RecoveryCostPerSkippedLine*2 +
+		core.RecoveryCostPerSkippedTree
+	if got != want {
+		t.Fatalf("resumed head stored cost=%d, want %d", got, want)
+	}
+	if got != 667 {
+		t.Fatalf("resumed head stored cost=%d, want locked value 667", got)
+	}
+}
+
 // TestRecoveryCostSourceRowsTrackNewlines pins the row computation the ERROR
 // formula depends on.
 func TestRecoveryCostSourceRowsTrackNewlines(t *testing.T) {

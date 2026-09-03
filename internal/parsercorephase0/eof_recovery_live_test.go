@@ -100,6 +100,50 @@ func TestRecoverEOFAcceptOwnedPublishesExactNonExtraRoot(t *testing.T) {
 	}
 }
 
+func TestRecoverEOFAcceptWithCostPublishesSyntheticRootCost(t *testing.T) {
+	fixture := newRecoverEOFAcceptFixture(t)
+	fixture.core.nodeLineages[fixture.head.Node-1].storedErrorCost = 99
+	var recovered Head
+	var root SubtreeID
+	err := fixture.core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		var operationErr error
+		recovered, root, operationErr = fixture.core.RecoverEOFAcceptWithCostOwned(
+			owner, fixture.head, fixture.payload, 0, 2,
+			func(prev NodeID, payload SubtreeID) (uint32, error) {
+				prefix, prefixErr := fixture.core.RecoveryStoredErrorCost(Head{Node: prev})
+				if prefixErr != nil {
+					return 0, prefixErr
+				}
+				if prefix != 0 {
+					return 0, errors.New("recover_eof cost callback inherited the replaced path")
+				}
+				view, viewErr := fixture.core.Subtree(payload)
+				if viewErr != nil {
+					return 0, viewErr
+				}
+				if view.Symbol != ErrorRegionSymbol {
+					return 0, errors.New("recover_eof cost callback received a non-ERROR root")
+				}
+				return 77, nil
+			},
+		)
+		return operationErr
+	})
+	if err != nil {
+		t.Fatalf("RecoverEOFAcceptWithCostOwned: %v", err)
+	}
+	if root == 0 || recovered.Node == 0 {
+		t.Fatalf("recover_eof returned recovered=%+v root=%d", recovered, root)
+	}
+	got, err := fixture.core.RecoveryStoredErrorCost(recovered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 77 {
+		t.Fatalf("recover_eof stored cost=%d, want 77", got)
+	}
+}
+
 func TestRecoverEOFAcceptOwnedRejectsForeignOwnerWithoutMutation(t *testing.T) {
 	fixture := newRecoverEOFAcceptFixture(t)
 	foreign := newRecoverEOFAcceptFixture(t)
