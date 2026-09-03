@@ -882,7 +882,7 @@ jobs:
             --timeout 20m \
             --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestCompactRouteLockedCExceptions)$'
 
-      - name: Compact per-version lexer Scala C-oracle witness
+      - name: Compact per-version lexer package-one witnesses
         run: |
           GTS_PARITY_MODE=smoke \
           GTS_PARITY_C_REF_BUILD_CACHE=0 \
@@ -896,7 +896,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestCompactPerVersionLexerScalaCOracle$' -count=1 -parallel 1 -timeout 20m -v"
+            -- "cd /workspace && go test . -tags gts_parsercorephase0 -run '^(TestDiagnosticParserCoreVersionLexerSnapshot(BindsCheckpointIdentity|RejectsIncompleteCheckpointIdentity)|TestDiagnosticParserCoreOwnedLexer(SeedingSkipsAcceptedHeader|ActivationRejectsOpenRecoveryRegion)|TestExternalScannerOrderAdapter(PreservesOptionalCapabilities|KeepsLegacyCheckpointIdentityOptional|RequiresTargetGrammarCheckpointIdentity|BindsAuthenticatedTargetAcrossNestedAdapters))$' -count=1 -parallel 1 -timeout 20m -v && cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestCompactPerVersionLexerScalaCOracle$' -count=1 -parallel 1 -timeout 20m -v"
 
   # merge-event-census-cgo runs stage M0 of spec.merge-time-election.v1: the
   # census that counts stack-merge events on both sides and breaks production's

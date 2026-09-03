@@ -24,9 +24,31 @@ type ExternalScannerCheckpointIdentityProvider interface {
 	CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool)
 }
 
+// externalScannerCheckpointIdentitySourceProviderForScanner unwraps order
+// adapters to find the scanner implementation identity they preserve.
+func externalScannerCheckpointIdentitySourceProviderForScanner(
+	scanner ExternalScanner,
+) (ExternalScannerCheckpointIdentityProvider, bool) {
+	if scanner == nil {
+		return nil, false
+	}
+	if adapter, ok := scanner.(*externalScannerOrderAdapter); ok {
+		if adapter == nil {
+			return nil, false
+		}
+		return externalScannerCheckpointIdentitySourceProviderForScanner(adapter.optionalInner())
+	}
+	provider, ok := scanner.(ExternalScannerCheckpointIdentityProvider)
+	if !ok || !provider.UsesExternalScannerCheckpoints() {
+		return nil, false
+	}
+	return provider, true
+}
+
 // externalScannerCheckpointIdentityProviderForScanner finds an identity
 // provider without promoting a legacy order adapter to the identity contract.
-// Adapters forward a provider from their inner scanner when one exists.
+// An identity-bearing order adapter remains required even when its target
+// grammar identity is unavailable, so callers fail closed.
 func externalScannerCheckpointIdentityProviderForScanner(
 	scanner ExternalScanner,
 ) (ExternalScannerCheckpointIdentityProvider, bool) {
@@ -37,13 +59,13 @@ func externalScannerCheckpointIdentityProviderForScanner(
 		if adapter == nil {
 			return nil, false
 		}
-		return externalScannerCheckpointIdentityProviderForScanner(adapter.optionalInner())
+		_, required := externalScannerCheckpointIdentitySourceProviderForScanner(adapter.optionalInner())
+		if !required {
+			return nil, false
+		}
+		return adapter, true
 	}
-	provider, ok := scanner.(ExternalScannerCheckpointIdentityProvider)
-	if !ok || !provider.UsesExternalScannerCheckpoints() {
-		return nil, false
-	}
-	return provider, true
+	return externalScannerCheckpointIdentitySourceProviderForScanner(scanner)
 }
 
 // externalScannerCheckpointIdentityState stores one immutable identity for an

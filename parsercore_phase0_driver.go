@@ -5133,6 +5133,9 @@ func (s *diagnosticParserCoreGenericScheduler) seedVersionLexerOwnership() error
 	states := make(map[seedStateKey]*diagnosticParserCoreVersionState)
 	for index := range s.headers {
 		header := &s.headers[index]
+		if header.accepted {
+			continue
+		}
 		baseline, baselineSet := header.recoveryNodeBaseline()
 		key := seedStateKey{
 			region: header.recoveryRegion(), recoveryGroup: header.recoveryGroupIdentity(),
@@ -5329,6 +5332,18 @@ func (s *diagnosticParserCoreGenericScheduler) activateVersionLexerOwnershipAtRa
 			detail:      diagnosticParserCoreOwnedDispatchPendingDetail + ": ownership is already active",
 			headerIndex: raggedHeaderIndex,
 		}, nil
+	}
+	// An open recovery region owns its scanner and parser frontier as one
+	// recovery lineage. Do not mix a new lexer-ownership tranche into any
+	// sibling until the recovery region closes.
+	for index, header := range s.headers {
+		if header.recoveryRegion() != nil {
+			return &diagnosticParserCoreGenericUnsupported{
+				boundary:    DiagnosticParserCoreRoute,
+				detail:      diagnosticParserCoreOwnedDispatchPendingDetail + ": ragged ownership has an open recovery region",
+				headerIndex: index,
+			}, nil
+		}
 	}
 	// A shifted header already consumed the shared token and therefore cannot
 	// be seeded at this election's token start. Keep this activation slice
