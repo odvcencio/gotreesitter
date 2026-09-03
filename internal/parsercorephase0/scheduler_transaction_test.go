@@ -296,6 +296,85 @@ func TestFreshSchedulerSessionRejectsRetainedToken(t *testing.T) {
 	}
 }
 
+func TestSchedulerSpeculationRollsBackFreshAndOrdinarySessions(t *testing.T) {
+	t.Run("ordinary", func(t *testing.T) {
+		compact, _, boundary := newSchedulerTransactionShiftFixture(t)
+		before := captureSchedulerTransactionState(compact)
+		err := compact.ApplySchedulerAtomic(func(outer SchedulerTransactionToken) error {
+			if err := compact.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
+				if _, err := compact.ShiftClassifiedOwned(inner, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); err != nil {
+					return false, err
+				}
+				return false, nil
+			}); err != nil {
+				return err
+			}
+			if got := captureSchedulerTransactionState(compact); !reflect.DeepEqual(got, before) {
+				t.Fatalf("ordinary declined speculation changed state: got=%+v want=%+v", got, before)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("ordinary speculation err=%v", err)
+		}
+		if got := captureSchedulerTransactionState(compact); !reflect.DeepEqual(got, before) {
+			t.Fatalf("ordinary outer commit changed declined state: got=%+v want=%+v", got, before)
+		}
+	})
+
+	t.Run("fresh", func(t *testing.T) {
+		compact, _, boundary := newSchedulerTransactionShiftFixture(t)
+		before := captureSchedulerTransactionState(compact)
+		err := compact.RunFreshSchedulerSession(func(outer SchedulerTransactionToken) error {
+			return compact.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
+				if _, err := compact.ShiftClassifiedOwned(inner, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); err != nil {
+					return false, err
+				}
+				return false, nil
+			})
+		})
+		if err != nil {
+			t.Fatalf("fresh speculation err=%v", err)
+		}
+		if got := captureSchedulerTransactionState(compact); !reflect.DeepEqual(got, before) {
+			t.Fatalf("fresh declined speculation changed state: got=%+v want=%+v", got, before)
+		}
+	})
+}
+
+func TestSchedulerSpeculationIgnoredErrorPoisonsOuter(t *testing.T) {
+	compact, _, boundary := newSchedulerTransactionShiftFixture(t)
+	before := captureSchedulerTransactionState(compact)
+	err := compact.ApplySchedulerAtomic(func(outer SchedulerTransactionToken) error {
+		return compact.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
+			_, _ = compact.ShiftClassifiedOwned(inner, boundary, 1, Token{Symbol: 9, EndByte: 1}, ForkOrder{})
+			return false, nil
+		})
+	})
+	if err == nil {
+		t.Fatalf("ignored speculative error did not poison outer: %v", err)
+	}
+	if got := captureSchedulerTransactionState(compact); !reflect.DeepEqual(got, before) {
+		t.Fatalf("poisoned speculation changed state: got=%+v want=%+v", got, before)
+	}
+}
+
+func TestSchedulerSpeculationRejectsOuterTokenDuringChild(t *testing.T) {
+	compact, _, boundary := newSchedulerTransactionShiftFixture(t)
+	err := compact.ApplySchedulerAtomic(func(outer SchedulerTransactionToken) error {
+		return compact.ApplySchedulerSpeculation(outer, func(SchedulerTransactionToken) (bool, error) {
+			_, err := compact.ShiftClassifiedOwned(outer, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{})
+			if err == nil || !strings.Contains(err.Error(), "stale") {
+				return false, errors.New("outer token was accepted during child speculation")
+			}
+			return false, nil
+		})
+	})
+	if err == nil {
+		t.Fatalf("outer-token misuse did not poison session: %v", err)
+	}
+}
+
 func TestSchedulerTransactionInsideStandaloneOwner(t *testing.T) {
 	t.Run("outer-rollback", func(t *testing.T) {
 		compact, _, boundary := newSchedulerTransactionShiftFixture(t)

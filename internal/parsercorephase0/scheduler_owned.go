@@ -147,6 +147,7 @@ func (c *Core) recordNodeLineage(head Head, rank CleanPathRankSelection, lineage
 			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
 			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			storedErrorCost: node.storedErrorCost,
 		})
 	}
 	node.rank = nextRank
@@ -176,11 +177,41 @@ func (c *Core) RecordHeadOwnerOwned(owner SchedulerTransactionToken, head Head, 
 				node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
 				setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 				lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+				storedErrorCost: node.storedErrorCost,
 			})
 		}
 		node.owner = lineage
 		return nil
 	})
+}
+
+// RecordHeadStoredErrorCostOwned publishes the exact C stack-node error cost
+// carried by one recovery head. The cost is lineage metadata, so nodeRecord
+// remains compact and all updates stay rollback-safe.
+func (c *Core) RecordHeadStoredErrorCostOwned(owner SchedulerTransactionToken, head Head, cost uint32) error {
+	return c.RunSchedulerOwned(owner, func() error {
+		return c.recordNodeStoredErrorCost(head, cost)
+	})
+}
+
+func (c *Core) recordNodeStoredErrorCost(head Head, cost uint32) error {
+	node, err := c.nodeLineage(head.Node)
+	if err != nil {
+		return err
+	}
+	if node.storedErrorCost == cost {
+		return nil
+	}
+	if len(c.transactions) != 0 {
+		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
+			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
+			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
+			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			storedErrorCost: node.storedErrorCost,
+		})
+	}
+	node.storedErrorCost = cost
+	return nil
 }
 
 // RecordHeadLineageSetOwned unions set into one compact head's node record.
@@ -222,6 +253,7 @@ func (c *Core) recordNodeLineageSet(head Head, set AlternativeSet, setBlended bo
 			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
 			setCount: before.count, setFlags: before.flags, setSpillRef: before.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: beforeBlended,
+			storedErrorCost: node.storedErrorCost,
 		})
 	}
 	node.blended = nextBlended
@@ -258,6 +290,7 @@ func (c *Core) recordNodeLineageRefs(head Head, refs DropCohortRefSet) error {
 			node: head.Node, owner: node.owner, dropCohortRefs: before,
 			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			storedErrorCost: node.storedErrorCost,
 		})
 	}
 	return nil
@@ -289,6 +322,7 @@ func (c *Core) recordNodeLineageMember(head Head, event, branch uint16) error {
 			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
 			setCount: before.count, setFlags: before.flags, setSpillRef: before.spillRef,
 			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			storedErrorCost: node.storedErrorCost,
 		})
 	}
 	return nil
@@ -607,12 +641,16 @@ func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error 
 	if err != nil {
 		return err
 	}
+	if left.storedErrorCost != right.storedErrorCost {
+		return errors.New("parser-core phase zero: merged heads have different stored recovery costs")
+	}
 	target, err := c.nodeLineage(targetID)
 	if err != nil {
 		return err
 	}
 	before := *target
 	merged := nodeLineageRecord{}
+	merged.storedErrorCost = left.storedErrorCost
 	if targetID == leftID {
 		merged.owner = left.owner
 	}
@@ -635,6 +673,7 @@ func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error 
 			node: targetID, owner: before.owner, dropCohortRefs: before.dropCohortRefs,
 			setCount: before.set.count, setFlags: before.set.flags, setSpillRef: before.set.spillRef,
 			lineage: before.lineage, rank: before.rank, converged: before.converged, blended: before.blended,
+			storedErrorCost: before.storedErrorCost,
 		})
 	}
 	*target = merged

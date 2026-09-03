@@ -13,6 +13,16 @@ type RecoveryDiscontinuityContext struct {
 	Checkpoint CheckpointID
 }
 
+// RecoveryStoredErrorCost returns the authenticated C stack-node error cost
+// stored on one graph head. It supports scheduler pricing and merge audits.
+func (c *Core) RecoveryStoredErrorCost(head Head) (uint32, error) {
+	lineage, err := c.nodeLineage(head.Node)
+	if err != nil {
+		return 0, err
+	}
+	return lineage.storedErrorCost, nil
+}
+
 func (c *Core) validateRecoveryDiscontinuityContext(
 	predecessor Head,
 	context RecoveryDiscontinuityContext,
@@ -147,6 +157,17 @@ func (c *Core) mergeRecoveryDiscontinuityHeadsUncheckpointed(
 	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(incoming.Node)
 	if !leftExact || !rightExact || leftCheckpoint != context.Checkpoint || rightCheckpoint != context.Checkpoint {
 		return Head{}, errors.New("parser-core phase zero: recovery discontinuity heads have different scanner checkpoints")
+	}
+	leftLineage, err := c.nodeLineage(incumbent.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	rightLineage, err := c.nodeLineage(incoming.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	if leftLineage.storedErrorCost != rightLineage.storedErrorCost {
+		return Head{}, errors.New("parser-core phase zero: recovery discontinuity heads have different stored recovery costs")
 	}
 	c.addWork(&c.work.PhysicalHeadMergeAttempts, 1)
 	c.addWork(&c.work.PhysicalHeadMergeInputLinks, uint64(len(rightLinks)))

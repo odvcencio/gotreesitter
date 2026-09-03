@@ -490,9 +490,13 @@ type precedenceMaximumWitness struct {
 }
 
 type nodeLineageRecord struct {
-	owner          uint32
-	dropCohortRefs DropCohortRefSet
-	set            AlternativeSet
+	owner uint32
+	// storedErrorCost is the exact C stack-node error cost carried by this
+	// graph node. Recovery discontinuity merges compare it before they add a
+	// null edge. Keep it in lineage metadata so nodeRecord stays size-stable.
+	storedErrorCost uint32
+	dropCohortRefs  DropCohortRefSet
+	set             AlternativeSet
 	// transition only, deleted at stage 3 cleanup (spec.b4b-alternative-set.v1
 	// section 3.2):
 	lineage   uint16
@@ -513,16 +517,17 @@ type nodeLineageRecord struct {
 // nodeLineageJournal append already names every field, so this reorder is
 // layout-only and touches no call site).
 type nodeLineageMutation struct {
-	node           NodeID
-	owner          uint32
-	dropCohortRefs DropCohortRefSet
-	setSpillRef    uint32
-	setCount       uint8
-	setFlags       uint8
-	lineage        uint16
-	rank           CleanPathRankSelection
-	converged      bool
-	blended        bool
+	node            NodeID
+	owner           uint32
+	dropCohortRefs  DropCohortRefSet
+	setSpillRef     uint32
+	setCount        uint8
+	setFlags        uint8
+	lineage         uint16
+	rank            CleanPathRankSelection
+	converged       bool
+	blended         bool
+	storedErrorCost uint32
 }
 
 // alternativeSetInlineCapacity is the fixed inline member width of
@@ -1723,6 +1728,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 			continue
 		}
 		c.nodeLineages[nodeIndex].owner = mutation.owner
+		c.nodeLineages[nodeIndex].storedErrorCost = mutation.storedErrorCost
 		c.nodeLineages[nodeIndex].dropCohortRefs = mutation.dropCohortRefs
 		c.nodeLineages[nodeIndex].set.count = mutation.setCount
 		c.nodeLineages[nodeIndex].set.flags = mutation.setFlags
@@ -2067,6 +2073,93 @@ func (c *Core) ApplySchedulerAtomic(fn func(SchedulerTransactionToken) error) (e
 		frame.clearInactive()
 	}()
 	err = fn(token)
+	return err
+}
+
+// ApplySchedulerSpeculation runs one authenticated nested scheduler trial.
+// A declined trial rolls back its Core checkpoint without poisoning the outer
+// session. An operation error poisons that session and blocks its commit.
+// Nested trials must complete in last-in-first-out order.
+func (c *Core) ApplySchedulerSpeculation(
+	parent SchedulerTransactionToken,
+	fn func(SchedulerTransactionToken) (bool, error),
+) (err error) {
+	if c == nil {
+		return errors.New("parser-core phase zero: scheduler speculation on nil core")
+	}
+	if fn == nil {
+		return c.poisonSchedulerTransaction(parent, errors.New("parser-core phase zero: nil scheduler speculation"))
+	}
+	if err = c.validateSchedulerTransaction(parent); err != nil {
+		return c.poisonSchedulerTransaction(parent, err)
+	}
+	frame := &c.schedulerFrame
+	outerMark := frame.mark
+	outerPoison := frame.poisoned
+	if c.nextTransaction == math.MaxUint64 {
+		return c.poisonSchedulerTransaction(parent, errors.New("parser-core phase zero: scheduler speculation identity overflow"))
+	}
+	var mark checkpoint
+	c.markInto(&mark)
+	frame.mark = mark
+	child := SchedulerTransactionToken{owner: c, epoch: frame.epoch, transaction: mark.transaction}
+	var speculationCommitResult bool
+	defer func() {
+		recovered := recover()
+		if recovered != nil {
+			phase0ASetRollbackCause(c, Phase0ARollbackPanic)
+			c.restoreCheckpoint(&mark)
+			frame.mark = outerMark
+			cause := fmt.Errorf("parser-core phase zero: scheduler speculation panicked: %v", recovered)
+			if frame.poisoned == nil {
+				frame.poisoned = outerPoison
+				if outerPoison == nil {
+					frame.poisoned = cause
+				}
+			}
+			panic(recovered)
+		}
+		if err != nil {
+			// The callback error is returned after restoring the child checkpoint.
+			// Preserve an earlier poison, but report a new callback poison when
+			// the owned operation supplied one.
+			phase0ASetRollbackCause(c, Phase0ARollbackReturnedError)
+			c.restoreCheckpoint(&mark)
+			frame.mark = outerMark
+			cause := err
+			if outerPoison == nil && frame.poisoned != nil {
+				cause = frame.poisoned
+			}
+			if outerPoison == nil {
+				frame.poisoned = cause
+			}
+			err = cause
+			return
+		}
+		// A callback that ignored an owned-operation failure leaves the child
+		// frame poisoned even when it returned no error. Roll it back and carry
+		// that failure to the outer owner.
+		if outerPoison == nil && frame.poisoned != nil {
+			cause := frame.poisoned
+			phase0ASetRollbackCause(c, Phase0ARollbackSchedulerPoison)
+			c.restoreCheckpoint(&mark)
+			frame.mark = outerMark
+			if outerPoison == nil {
+				frame.poisoned = cause
+			}
+			err = cause
+			return
+		}
+		if !speculationCommitResult {
+			phase0ASetRollbackCause(c, Phase0ARollbackReturnedError)
+			c.restoreCheckpoint(&mark)
+			frame.mark = outerMark
+			return
+		}
+		c.commit(mark)
+		frame.mark = outerMark
+	}()
+	speculationCommitResult, err = fn(child)
 	return err
 }
 
@@ -4455,10 +4548,19 @@ func (c *Core) predecessorBoundariesMatch(leftID, rightID NodeID) (bool, error) 
 	}
 	leftCheckpoint, leftExact := c.nodeScannerCheckpoint(leftID)
 	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(rightID)
+	leftLineage, leftLineageErr := c.nodeLineage(leftID)
+	rightLineage, rightLineageErr := c.nodeLineage(rightID)
+	if leftLineageErr != nil {
+		return false, leftLineageErr
+	}
+	if rightLineageErr != nil {
+		return false, rightLineageErr
+	}
 	return left.state == right.state &&
 		left.byteOffset == right.byteOffset &&
 		leftExact && rightExact &&
-		leftCheckpoint == rightCheckpoint, nil
+		leftCheckpoint == rightCheckpoint &&
+		leftLineage.storedErrorCost == rightLineage.storedErrorCost, nil
 }
 
 func (c *Core) nodeScannerCheckpoint(id NodeID) (CheckpointID, bool) {

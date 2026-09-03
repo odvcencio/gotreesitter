@@ -350,3 +350,55 @@ func TestRecoveryDiscontinuityMergeRollbackRestoresLineageSpill(t *testing.T) {
 		t.Fatalf("rollback changed nodes=%d/%d links=%d/%d spill=%v/%v lineages equal=%t work=%+v/%+v", len(core.nodes), beforeNodes, len(core.links), beforeLinks, core.alternativeSpillArena, beforeSpill, reflect.DeepEqual(core.nodeLineages, beforeLineages), core.Work(), beforeWork)
 	}
 }
+
+func TestRecoveryDiscontinuityMergeRejectsDifferentStoredCostsBeforeMutation(t *testing.T) {
+	core := newTinyCoreWithLimits(t, Limits{MaxNodes: 64, MaxLinks: 64, MaxDerivations: 8, MaxPopPaths: 8})
+	leftSeed, err := core.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightSeed, err := core.Seed(2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		if err := core.RecordHeadStoredErrorCostOwned(owner, leftSeed, 7); err != nil {
+			return err
+		}
+		return core.RecordHeadStoredErrorCostOwned(owner, rightSeed, 8)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var left, right Head
+	context := RecoveryDiscontinuityContext{ByteOffset: 0}
+	if err := core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		var appendErr error
+		left, appendErr = core.AppendRecoveryDiscontinuityOwned(owner, leftSeed, context)
+		if appendErr != nil {
+			return appendErr
+		}
+		right, appendErr = core.AppendRecoveryDiscontinuityOwned(owner, rightSeed, context)
+		return appendErr
+	}); err != nil {
+		t.Fatal(err)
+	}
+	leftCost, err := core.RecoveryStoredErrorCost(left)
+	if err != nil || leftCost != 7 {
+		t.Fatalf("left marker stored cost=%d err=%v, want 7", leftCost, err)
+	}
+	rightCost, err := core.RecoveryStoredErrorCost(right)
+	if err != nil || rightCost != 8 {
+		t.Fatalf("right marker stored cost=%d err=%v, want 8", rightCost, err)
+	}
+	beforeNodes, beforeLinks, beforeWork := len(core.nodes), len(core.links), core.Work()
+	err = core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		_, mergeErr := core.MergeRecoveryDiscontinuityHeadsOwned(owner, context, left, right)
+		return mergeErr
+	})
+	if err == nil {
+		t.Fatal("different stored costs unexpectedly merged")
+	}
+	if len(core.nodes) != beforeNodes || len(core.links) != beforeLinks || core.Work() != beforeWork {
+		t.Fatalf("rejected merge mutated graph or telemetry: nodes=%d/%d links=%d/%d work=%+v/%+v", len(core.nodes), beforeNodes, len(core.links), beforeLinks, core.Work(), beforeWork)
+	}
+}
