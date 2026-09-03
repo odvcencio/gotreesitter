@@ -280,19 +280,31 @@ script. Reproduce the driver and oracle sources from git `492cd600` on
 ### Superseded epochs and receipts (index)
 
 Each superseded receipt below stays a valid historical claim. Its full
-section lives in this file's Git history and in CHANGELOG.md at the named
-version. This index keeps the claim; it does not repeat the method.
+section is addressable at the exact commit linked in the table, which is
+the last `main` commit that carried the section. Where CHANGELOG.md also
+records the receipt, the version section is named.
 
-| Receipt | Geomean or headline | Where |
+| Receipt | Headline | Exact location |
 |---|---|---|
-| Sealed epoch v8 | production 4.575x C, compact 3.681x C | commit `3325e0b1` |
-| Sealed epoch v0.45.0 | production 5.526x C, compact 2.9975x C | v0.45.0 |
-| Sealed epoch run6 | first 10-second-floor enclave run | v0.45.0 series |
-| v0.40.0 production baseline | 4.851050x C geomean | v0.40.0 |
-| v0.39.0 production baseline | historical straight-LR control | v0.39.0 |
-| v0.27.0 combined receipt | withdrawn 1.895x C ratio | v0.27.0 |
-| Same-host C calibration | withdrawn, oracle mismatch | v0.24.1 audit |
-| Compact candidate, selected-store, work-count receipts | diagnostic lanes, never public claims | CHANGELOG v0.41.0 to v0.48.0 |
+| Sealed epoch v8 | production 4.575x C, compact 3.681x C | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#sealed-epoch--v8-hardware-attested-historical-superseded) |
+| Sealed epoch v0.45.0 (run v6) | production 5.526x C, compact 2.9975x C | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#sealed-epoch--v0450-hardware-attested-historical-superseded); CHANGELOG [0.46.0] |
+| Sealed epoch run6 | first 10-second-floor enclave run | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#sealed-epoch--run6-hardware-attested-historical-superseded) |
+| First locked-oracle publication receipt | first exact static-oracle publication | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#first-locked-oracle-publication-receipt) |
+| v0.39.0 production baseline | historical straight-LR control | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#v0390-production-code-baseline-historical); CHANGELOG [0.39.0] |
+| v0.40.0 production baseline | 4.851050x C equal-fixture geomean at 1935a42c | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#v0400-production-code-baseline-historical-superseded) |
+| v0.27.0 combined receipt | withdrawn 1.895x C ratio | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#v0270-combined-receipt); CHANGELOG [0.37.0] |
+| Same-host C calibration | withdrawn, oracle mismatch | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#withdrawn-same-host-c-calibration); CHANGELOG [0.27.0] |
+| Post-fusion compact-candidate receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#exact-revision-production-and-post-fusion-compact-candidate-receipt); CHANGELOG [0.41.0] |
+| Compact candidate action-row dispatch receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#compact-candidate-action-row-dispatch-receipt) |
+| Compact candidate point-cache receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#compact-candidate-point-cache-receipt) |
+| Construction-authenticated compact receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#exact-revision-production-and-construction-authenticated-compact-receipt-historical-superseded) |
+| Direct selected-store boundary receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#direct-selected-store-boundary-receipt) |
+| Single-link compact reduction publication | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#single-link-compact-reduction-publication) |
+| Fresh compact scheduler session publication | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#fresh-compact-scheduler-session-publication) |
+| Diagnostic workload-regime receipt | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#diagnostic-workload-regime-receipt) |
+| Authenticated work-count diagnostic harness | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#authenticated-work-count-diagnostic-harness) |
+| Four-fixture work-count board backends | diagnostic lane | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#four-fixture-work-count-board-backends) |
+| Forest-routing screen and confirmation | fleet screen | [BENCH.md at `6b6d4934`](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/BENCH.md#forest-routing-screen-and-confirmation) |
 
 ## Go-vs-C fleet scoreboard (full parse, real corpora)
 
