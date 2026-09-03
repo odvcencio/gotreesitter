@@ -211,7 +211,7 @@ for tags and release notes while still in `0.x`.
   witnesses still differ from locked C. The 20-seed repair comparison found no
   significant primary timing change. Bytes and allocations stayed unchanged.
   One warmed large-witness sample decreased 0.113090 percent. Keep issue #576
-  open. See `docs/swift-576-compact-correctness-blocker.md`.
+  open. See [the Swift #576 blocker receipt](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/docs/swift-576-compact-correctness-blocker.md).
 
 - Recorded the unreceipted `dispatch.julia` blocker at base
   `b35b86cb84d620305515abf970d5598c9573a48b`. The focused Docker receipt
@@ -1091,7 +1091,7 @@ for tags and release notes while still in `0.x`.
   first `bar` mismatch. The corpus target region remains an `ERROR` span from
   `6828` to `6984`, with `MutableSpan` at `6828..6839`. No parser or grammar
   code ships. Keep issue #576 open. See the
-  [Swift compact-parser blocker receipt](docs/swift-576-compact-correctness-blocker.md)
+  [Swift compact-parser blocker receipt](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/docs/swift-576-compact-correctness-blocker.md)
   for the full provenance probe and reopening condition.
 
 ### Removed
@@ -1337,7 +1337,7 @@ The following items remain open:
 - [Issue #586](https://github.com/odvcencio/gotreesitter/issues/586) tracks
   shared GLR error-cost bounds.
 
-- The [Swift #586 compact-parser receipt](docs/swift-586-compact-correctness-blocker.md)
+- The [Swift #586 compact-parser receipt](https://github.com/odvcencio/gotreesitter/blob/6b6d49341699df9314b77d52ea92dc950e7364e4/docs/swift-586-compact-correctness-blocker.md)
   records a NO-GO recovery-cost and token-producer blocker. Keep the issue open.
 
 - [Issue #728](https://github.com/odvcencio/gotreesitter/issues/728) tracks

@@ -841,7 +841,7 @@ func renderMarkdown(doc *manifest) string {
 	fmt.Fprintf(&b, "- Full files evaluated: %d\n", doc.Source.HardGate.FullFilesEvaluated)
 	fmt.Fprintf(&b, "- Failure records: %d\n", doc.Source.HardGate.FailureRecords)
 	fmt.Fprintf(&b, "\n## Reproduce\n\n")
-	fmt.Fprintf(&b, "Run `go run ./cgo_harness/cmd/perf_scan_manifest -scoreboard <v10-scoreboard.json> -expected-languages %d -expected-rows %d -timer-threshold-ns %d -clean-ratio-threshold %.1f -out-json docs/v10-fleet-manifest.json -out-md docs/v10-fleet-manifest.md`.\n", doc.Validation.ActualLanguages, doc.Validation.ActualRows, doc.Policy.TimerThresholdNS, doc.Policy.CleanRatioThreshold)
+	fmt.Fprintf(&b, "Run `go run ./cgo_harness/cmd/perf_scan_manifest -scoreboard <v10-scoreboard.json> -expected-languages %d -expected-rows %d -timer-threshold-ns %d -clean-ratio-threshold %.1f -out-json cgo_harness/perf_scan/out/<epoch>/manifest.json -out-md cgo_harness/perf_scan/out/<epoch>/manifest.md`.\n", doc.Validation.ActualLanguages, doc.Validation.ActualRows, doc.Policy.TimerThresholdNS, doc.Policy.CleanRatioThreshold)
 	return b.String()
 }
 
