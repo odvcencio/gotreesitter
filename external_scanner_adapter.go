@@ -11,6 +11,8 @@ type externalScannerOrderAdapter struct {
 	sourceCount          int   // len(sourceExt), for sizing sourceValid in Scan
 	sourceSymbolToIndex  map[Symbol]int
 	sourceResultToTarget map[Symbol]Symbol
+	targetGrammar        [32]byte
+	targetGrammarValid   bool
 }
 
 type externalScannerOrderAdapterPayload struct {
@@ -68,9 +70,32 @@ func (a *externalScannerOrderAdapter) SupportsIncrementalReuse() bool {
 	return ok && reusable.SupportsIncrementalReuse()
 }
 
+func (a *externalScannerOrderAdapter) SupportsIncrementalReuseFromErrorTree() bool {
+	reusable, ok := a.optionalInner().(ErrorTreeIncrementalReuseExternalScanner)
+	return ok && reusable.SupportsIncrementalReuseFromErrorTree()
+}
+
 func (a *externalScannerOrderAdapter) UsesExternalScannerCheckpoints() bool {
 	checkpointed, ok := a.optionalInner().(CheckpointedExternalScanner)
 	return ok && checkpointed.UsesExternalScannerCheckpoints()
+}
+
+// CheckpointIdentity preserves the inner scanner implementation identity and
+// binds it to the target language's exact grammar blob. An identity-bearing
+// source scanner cannot authenticate an adapted target without that blob.
+func (a *externalScannerOrderAdapter) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	provider, required := externalScannerCheckpointIdentitySourceProviderForScanner(a.optionalInner())
+	if !required || !a.targetGrammarValid {
+		return ExternalScannerCheckpointIdentity{}, false
+	}
+	identity, ok := provider.CheckpointIdentity()
+	if !ok || !identity.complete() {
+		return ExternalScannerCheckpointIdentity{}, false
+	}
+	return ExternalScannerCheckpointIdentity{
+		Scanner: append([]byte(nil), identity.Scanner...),
+		Grammar: append([]byte(nil), a.targetGrammar[:]...),
+	}, true
 }
 
 func (a *externalScannerOrderAdapter) RequiresIncrementalPrefixFrontierProof() bool {
@@ -202,6 +227,7 @@ func AdaptExternalScannerByExternalOrder(sourceLang, targetLang *Language) (Exte
 	nSource := len(sourceExt)
 	mapping := buildExternalScannerOrderMapping(sourceLang, targetLang)
 	adaptExternalLexStatesByExternalOrder(sourceLang, targetLang, mapping.targetToSource)
+	targetGrammar, targetGrammarValid := targetLang.GrammarBlobSHA256()
 
 	return &externalScannerOrderAdapter{
 		inner:                sourceLang.ExternalScanner,
@@ -209,6 +235,8 @@ func AdaptExternalScannerByExternalOrder(sourceLang, targetLang *Language) (Exte
 		sourceCount:          nSource,
 		sourceSymbolToIndex:  buildExternalSymbolIndex(sourceExt),
 		sourceResultToTarget: mapping.sourceResultToTarget,
+		targetGrammar:        targetGrammar,
+		targetGrammarValid:   targetGrammarValid,
 	}, true
 }
 

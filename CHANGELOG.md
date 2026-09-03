@@ -100,6 +100,12 @@ for tags and release notes while still in `0.x`.
 
 ### Correctness
 
+- Bind identity-bearing external scanner checkpoints to compact per-version
+  lexer snapshots. Reject incomplete identities before publication. Reject
+  changed identities before restore or owned snapshot publication. Do not
+  share an equivalent sidecar after identity drift. Forward identities through
+  scanner order adapters. Preserve legacy scanner behavior.
+
 - Graduated the Markdown inline smoke route with four exact, compact-only
   conflict policies bound to the built-in grammar blob. Three repetition
   reductions require at least two live compact headers. The HTML entry row

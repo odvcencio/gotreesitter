@@ -68,6 +68,105 @@ func newDiagnosticParserCoreOwnedLexerRequest(
 	}
 }
 
+func TestDiagnosticParserCoreOwnedLexerSeedingSkipsAcceptedHeader(t *testing.T) {
+	compact, err := core.New(&genericConflictTable{}, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	acceptedHead, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	liveHead, err := compact.Seed(2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	language := &Language{Name: "owned-lexer-accepted-seed-test"}
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact:     compact,
+		tokenSource: newDFATokenSourceDirect(NewLexer(nil, nil), language, nil, nil, nil, nil),
+		headers: []diagnosticParserCoreHeader{
+			{head: acceptedHead, accepted: true},
+			{head: liveHead},
+		},
+		versionLexerBefore:           dfaRelexSnapshot{},
+		versionLexerBeforeValid:      true,
+		versionLexerBeforeElection:   5,
+		versionLexerBeforeCheckpoint: 0,
+		checkpointBeforeID:           0,
+		checkpointID:                 0,
+		electionIndex:                5,
+	}
+	if err := scheduler.seedVersionLexerOwnership(); err != nil {
+		t.Fatalf("seed owned lexer frontier: %v", err)
+	}
+	if scheduler.headers[0].versionState != nil || scheduler.headers[0].versionLexerSnapshot() != nil ||
+		scheduler.headers[0].versionLexerRequestReference() != 0 {
+		t.Fatalf("seeding populated accepted header: %+v", scheduler.headers[0])
+	}
+	if scheduler.headers[1].versionLexerSnapshot() == nil || scheduler.headers[1].versionLexerRequestReference() != 0 {
+		t.Fatalf("seeding did not publish the live header cursor: %+v", scheduler.headers[1])
+	}
+	if scheduler.work.PerVersionLexPublications != 1 {
+		t.Fatalf("seed publications=%d, want one live header", scheduler.work.PerVersionLexPublications)
+	}
+}
+
+func TestDiagnosticParserCoreOwnedLexerActivationRejectsOpenRecoveryRegion(t *testing.T) {
+	compact, err := core.New(&genericConflictTable{}, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recoveryHead, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordinaryHead, err := compact.Seed(2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	language := &Language{Name: "owned-lexer-open-recovery-activation-test"}
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact:     compact,
+		tokenSource: newDFATokenSourceDirect(NewLexer(nil, nil), language, nil, nil, nil, nil),
+		headers: []diagnosticParserCoreHeader{
+			{
+				head: recoveryHead,
+				versionState: &diagnosticParserCoreVersionState{
+					s3Region: &diagnosticParserCoreS3Region{state: 1},
+				},
+			},
+			{head: ordinaryHead},
+		},
+		versionLexerBefore:           dfaRelexSnapshot{},
+		versionLexerBeforeValid:      true,
+		versionLexerBeforeElection:   5,
+		versionLexerBeforeCheckpoint: 0,
+		checkpointBeforeID:           0,
+		checkpointID:                 0,
+		electionIndex:                5,
+		receipt:                      &DiagnosticParserCoreGenericScheduler{},
+	}
+	beforeHeaders := append([]diagnosticParserCoreHeader(nil), scheduler.headers...)
+	stop, err := scheduler.activateVersionLexerOwnershipAtRagged(1)
+	if err != nil {
+		t.Fatalf("activate owned lexer frontier: %v", err)
+	}
+	if stop == nil || stop.boundary != DiagnosticParserCoreRoute ||
+		!strings.Contains(stop.detail, "open recovery region") || stop.headerIndex != 0 {
+		t.Fatalf("open recovery activation stop=%+v", stop)
+	}
+	if scheduler.versionLexerOwnershipActive || len(scheduler.versionLexerRequests) != 0 ||
+		!reflect.DeepEqual(scheduler.headers, beforeHeaders) || scheduler.work != (DiagnosticParserCoreGenericWork{}) {
+		t.Fatalf("blocked activation mutated state: active=%t requests=%d headers=%+v work=%+v",
+			scheduler.versionLexerOwnershipActive,
+			len(scheduler.versionLexerRequests),
+			scheduler.headers,
+			scheduler.work,
+		)
+	}
+}
+
 func TestDiagnosticParserCoreOwnedLexerBindingRestoresAfterErrorAndPanic(t *testing.T) {
 	table := &genericConflictTable{cells: map[genericConflictCell][]core.Action{
 		{state: 1, symbol: 9}: {{Type: core.ActionShift, State: 2}},

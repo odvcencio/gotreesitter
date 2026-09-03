@@ -4797,8 +4797,8 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	if lang == nil || lang.ExternalScanner == nil || !languageUsesExternalScannerCheckpoints(lang) {
 		return shared, false
 	}
-	provider, ok := lang.ExternalScanner.(ExternalScannerCheckpointIdentityProvider)
-	if !ok || !provider.UsesExternalScannerCheckpoints() {
+	provider, ok := externalScannerCheckpointIdentityProviderForScanner(lang.ExternalScanner)
+	if !ok {
 		return shared, false
 	}
 	identity, ok := provider.CheckpointIdentity()
@@ -5059,9 +5059,18 @@ func (s *diagnosticParserCoreGenericScheduler) equivalentVersionLexerSnapshot(
 	if s == nil {
 		return nil
 	}
+	var identity [32]byte
+	identityRequired := false
+	identityValid := false
+	if s.tokenSource != nil {
+		identity, identityRequired, identityValid = diagnosticParserCoreVersionLexerCheckpointIdentity(s.tokenSource.language)
+	}
 	matches := func(snapshot *diagnosticParserCoreVersionLexerSnapshot) bool {
 		return snapshot != nil && snapshot.beforeCheckpoint == beforeID &&
-			snapshot.afterCheckpoint == afterID && snapshot.dfa.equal(dfa)
+			snapshot.afterCheckpoint == afterID && snapshot.dfa.equal(dfa) &&
+			snapshot.checkpointIdentityRequired == identityRequired &&
+			snapshot.checkpointIdentityValid == identityValid &&
+			(!identityRequired || (identityValid && snapshot.checkpointIdentity == identity))
 	}
 	for index := range s.headers {
 		if snapshot := s.headers[index].versionLexerSnapshot(); matches(snapshot) {
@@ -5126,6 +5135,9 @@ func (s *diagnosticParserCoreGenericScheduler) seedVersionLexerOwnership() error
 	states := make(map[seedStateKey]*diagnosticParserCoreVersionState)
 	for index := range s.headers {
 		header := &s.headers[index]
+		if header.accepted {
+			continue
+		}
 		baseline, baselineSet := header.recoveryNodeBaseline()
 		key := seedStateKey{
 			region: header.recoveryRegion(), recoveryGroup: header.recoveryGroupIdentity(),
@@ -5285,7 +5297,7 @@ func (s *diagnosticParserCoreGenericScheduler) finishSharedElectionSnapshotCaptu
 	s.versionLexerBeforeIdentity = [32]byte{}
 	s.versionLexerBeforeIdentityValid = false
 	if s.tokenSource != nil && s.tokenSource.language != nil && languageUsesExternalScannerCheckpoints(s.tokenSource.language) {
-		if provider, ok := s.tokenSource.language.ExternalScanner.(ExternalScannerCheckpointIdentityProvider); ok {
+		if provider, ok := externalScannerCheckpointIdentityProviderForScanner(s.tokenSource.language.ExternalScanner); ok {
 			if identity, ok := provider.CheckpointIdentity(); ok && identity.complete() {
 				s.versionLexerBeforeIdentity = parserCoreExternalScannerIdentityFingerprint(identity)
 				s.versionLexerBeforeIdentityValid = true
@@ -5322,6 +5334,18 @@ func (s *diagnosticParserCoreGenericScheduler) activateVersionLexerOwnershipAtRa
 			detail:      diagnosticParserCoreOwnedDispatchPendingDetail + ": ownership is already active",
 			headerIndex: raggedHeaderIndex,
 		}, nil
+	}
+	// An open recovery region owns its scanner and parser frontier as one
+	// recovery lineage. Do not mix a new lexer-ownership tranche into any
+	// sibling until the recovery region closes.
+	for index, header := range s.headers {
+		if header.recoveryRegion() != nil {
+			return &diagnosticParserCoreGenericUnsupported{
+				boundary:    DiagnosticParserCoreRoute,
+				detail:      diagnosticParserCoreOwnedDispatchPendingDetail + ": ragged ownership has an open recovery region",
+				headerIndex: index,
+			}, nil
+		}
 	}
 	// A shifted header already consumed the shared token and therefore cannot
 	// be seeded at this election's token start. Keep this activation slice

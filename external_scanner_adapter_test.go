@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "testing"
+import (
+	"crypto/sha256"
+	"testing"
+)
 
 type recordingExternalScanner struct {
 	seen [][]bool
@@ -36,8 +39,17 @@ type staleResultExternalScanner struct {
 type capabilityExternalScanner struct{ recordingExternalScanner }
 
 func (*capabilityExternalScanner) SupportsIncrementalReuse() bool { return true }
+func (*capabilityExternalScanner) SupportsIncrementalReuseFromErrorTree() bool {
+	return false
+}
 func (*capabilityExternalScanner) UsesExternalScannerCheckpoints() bool {
 	return true
+}
+func (*capabilityExternalScanner) CheckpointIdentity() (ExternalScannerCheckpointIdentity, bool) {
+	return ExternalScannerCheckpointIdentity{
+		Scanner: []byte("adapter-test-scanner-v1"),
+		Grammar: []byte("adapter-test-grammar-v1"),
+	}, true
 }
 func (*capabilityExternalScanner) RequiresIncrementalPrefixFrontierProof() bool {
 	return true
@@ -65,6 +77,9 @@ func TestExternalScannerOrderAdapterPreservesOptionalCapabilities(t *testing.T) 
 		SymbolNames:     []string{"", "", "a"},
 		ExternalSymbols: []Symbol{2},
 	}
+	targetGrammar := sha256.Sum256([]byte("adapter-target-grammar-v1"))
+	targetLang.grammarBlobSHA256 = targetGrammar
+	targetLang.grammarBlobSHA256Valid = true
 	adapted, ok := AdaptExternalScannerByExternalOrder(sourceLang, targetLang)
 	if !ok {
 		t.Fatal("adapter not created")
@@ -72,8 +87,18 @@ func TestExternalScannerOrderAdapterPreservesOptionalCapabilities(t *testing.T) 
 	if reusable, ok := adapted.(IncrementalReuseExternalScanner); !ok || !reusable.SupportsIncrementalReuse() {
 		t.Fatal("incremental-reuse capability was not preserved")
 	}
+	if errorTreeReusable, ok := adapted.(ErrorTreeIncrementalReuseExternalScanner); !ok ||
+		errorTreeReusable.SupportsIncrementalReuseFromErrorTree() {
+		t.Fatal("error-tree incremental reuse restriction was not preserved")
+	}
 	if checkpointed, ok := adapted.(CheckpointedExternalScanner); !ok || !checkpointed.UsesExternalScannerCheckpoints() {
 		t.Fatal("checkpoint capability was not preserved")
+	}
+	if identityProvider, ok := adapted.(ExternalScannerCheckpointIdentityProvider); !ok {
+		t.Fatal("checkpoint identity capability was not preserved")
+	} else if got, valid := identityProvider.CheckpointIdentity(); !valid ||
+		string(got.Scanner) != "adapter-test-scanner-v1" || string(got.Grammar) != string(targetGrammar[:]) {
+		t.Fatalf("adapted checkpoint identity = %+v/%t, want the inner scanner and target grammar", got, valid)
 	}
 	if prefixSensitive, ok := adapted.(IncrementalPrefixFrontierExternalScanner); !ok || !prefixSensitive.RequiresIncrementalPrefixFrontierProof() {
 		t.Fatal("incremental prefix-frontier capability was not preserved")
@@ -89,6 +114,83 @@ func TestExternalScannerOrderAdapterPreservesOptionalCapabilities(t *testing.T) 
 	}
 	if retaining, ok := adapted.(FailureStateRetainingExternalScanner); !ok || retaining.RetainsStateOnScanFailure() {
 		t.Fatal("adapter reported failure retention for a preserving scanner")
+	}
+}
+
+func TestExternalScannerOrderAdapterRequiresTargetGrammarCheckpointIdentity(t *testing.T) {
+	sourceLang := &Language{
+		SymbolNames:     []string{"", "a"},
+		ExternalSymbols: []Symbol{1},
+		ExternalScanner: &capabilityExternalScanner{},
+	}
+	targetLang := &Language{
+		SymbolNames:     []string{"", "", "a"},
+		ExternalSymbols: []Symbol{2},
+	}
+	adapted, ok := AdaptExternalScannerByExternalOrder(sourceLang, targetLang)
+	if !ok {
+		t.Fatal("adapter not created")
+	}
+	provider, ok := adapted.(ExternalScannerCheckpointIdentityProvider)
+	if !ok {
+		t.Fatal("identity-bearing source did not produce an identity-bearing adapter")
+	}
+	if identity, valid := provider.CheckpointIdentity(); valid || identity.complete() {
+		t.Fatalf("unauthenticated target identity = %+v/%t, want incomplete and invalid", identity, valid)
+	}
+	identity, required, valid := externalScannerCheckpointIdentityStatus(&Language{ExternalScanner: adapted})
+	if !required || valid || identity.complete() {
+		t.Fatalf("unauthenticated target status = %+v/%t/%t, want required and invalid", identity, required, valid)
+	}
+}
+
+func TestExternalScannerOrderAdapterBindsAuthenticatedTargetAcrossNestedAdapters(t *testing.T) {
+	sourceLang := &Language{
+		SymbolNames:     []string{"", "a"},
+		ExternalSymbols: []Symbol{1},
+		ExternalScanner: &capabilityExternalScanner{},
+	}
+	intermediate := &Language{
+		SymbolNames:     []string{"", "", "a"},
+		ExternalSymbols: []Symbol{2},
+	}
+	adapted, ok := AdaptExternalScannerByExternalOrder(sourceLang, intermediate)
+	if !ok {
+		t.Fatal("intermediate adapter not created")
+	}
+	intermediate.ExternalScanner = adapted
+
+	targetGrammar := sha256.Sum256([]byte("nested-adapter-target-grammar-v1"))
+	target := &Language{
+		SymbolNames:            []string{"", "", "", "a"},
+		ExternalSymbols:        []Symbol{3},
+		grammarBlobSHA256:      targetGrammar,
+		grammarBlobSHA256Valid: true,
+	}
+	adapted, ok = AdaptExternalScannerByExternalOrder(intermediate, target)
+	if !ok {
+		t.Fatal("target adapter not created")
+	}
+	identity, required, valid := externalScannerCheckpointIdentityStatus(&Language{ExternalScanner: adapted})
+	if !required || !valid || string(identity.Scanner) != "adapter-test-scanner-v1" ||
+		string(identity.Grammar) != string(targetGrammar[:]) {
+		t.Fatalf("nested target status = %+v/%t/%t, want the source scanner and target grammar", identity, required, valid)
+	}
+}
+
+func TestExternalScannerOrderAdapterKeepsLegacyCheckpointIdentityOptional(t *testing.T) {
+	sourceLang := &Language{
+		ExternalSymbols: []Symbol{1},
+		ExternalScanner: c26qLegacyCheckpointScanner{},
+	}
+	targetLang := &Language{ExternalSymbols: []Symbol{2}}
+	adapted, ok := AdaptExternalScannerByExternalOrder(sourceLang, targetLang)
+	if !ok {
+		t.Fatal("adapter not created")
+	}
+	identity, required, valid := externalScannerCheckpointIdentityStatus(&Language{ExternalScanner: adapted})
+	if required || !valid || len(identity.Scanner) != 0 || len(identity.Grammar) != 0 {
+		t.Fatalf("legacy adapted identity status = %+v/%t/%t, want optional and valid", identity, required, valid)
 	}
 }
 
