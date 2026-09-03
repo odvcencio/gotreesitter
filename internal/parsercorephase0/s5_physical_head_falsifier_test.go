@@ -31,7 +31,7 @@ func newS5DiscontinuityFixture(t *testing.T) (*Core, Head, Head, linkRecord) {
 		t.Fatal(err)
 	}
 	link := linkRecord{prev: seed.Node, flags: s5RecoveryDiscontinuityFlag}
-	node, linkID := appendS5SyntheticNode(t, core, 31, 1, link, 1)
+	node, linkID := appendS5SyntheticNode(t, core, 0, 0, link, 1)
 	return core, seed, Head{Node: node}, core.links[linkID-1]
 }
 
@@ -108,7 +108,7 @@ func TestS5RecoveryDiscontinuityLinkValidation(t *testing.T) {
 			linkID := core.appendGraphLink(link)
 			next := NodeID(len(core.nodes) + 1)
 			err = core.validatePublishedNodeDAG(nodeRecord{
-				state: 31, byteOffset: 1, firstLink: uint32(linkID), linkCount: 1, pathCount: 1,
+				state: 0, byteOffset: 0, firstLink: uint32(linkID), linkCount: 1, pathCount: 1,
 			}, next)
 			if test.wantError && err == nil {
 				t.Fatalf("link=%+v was accepted", link)
@@ -203,7 +203,7 @@ func newS5SixHeadCandidates(t *testing.T) (*Core, []CondenseCandidate, map[Subtr
 		if err != nil {
 			t.Fatal(err)
 		}
-		head, _ := appendS5SyntheticNode(t, core, 500, 1, linkRecord{
+		head, _ := appendS5SyntheticNode(t, core, 0, 0, linkRecord{
 			prev: predecessor, flags: s5RecoveryDiscontinuityFlag,
 		}, 1)
 		candidates = append(candidates, CondenseCandidate{
@@ -237,53 +237,51 @@ func TestS5SixHeadPhysicalMergeRetainsPaths(t *testing.T) {
 	before := core.Work()
 	err := core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
 		return core.RunSchedulerOwned(owner, func() error {
-			return core.runLiveCondenseCandidates(candidates, func() error {
-				if len(core.condenseCandidates) != 2 {
-					return &s5AssertionError{message: "live scope did not keep the absorber and missing lineages separate"}
-				}
-				var absorber, missing Head
-				for _, candidate := range core.condenseCandidates {
-					stats, err := core.Stats(candidate.Head)
-					if err != nil {
-						return err
-					}
-					switch stats.CurrentExactPaths {
-					case 6:
-						absorber = candidate.Head
-					case 1:
-						missing = candidate.Head
-					default:
-						return &s5AssertionError{message: "unexpected physical path count in live scope"}
-					}
-				}
-				if absorber.Node == 0 || missing.Node == 0 {
-					return &s5AssertionError{message: "live scope lost one recovery lineage"}
-				}
-				derivations, err := core.Derivations(absorber)
+			context := RecoveryDiscontinuityContext{ErrorState: 0, ByteOffset: 0, Checkpoint: 0}
+			absorber := candidates[0].Head
+			for index := 1; index < 6; index++ {
+				merged, err := core.MergeRecoveryDiscontinuityHeadsOwned(owner, context, absorber, candidates[index].Head)
 				if err != nil {
 					return err
 				}
-				if len(derivations) != 6 {
-					return &s5AssertionError{message: "absorber derivation count is not six"}
+				absorber = merged
+			}
+			missing := candidates[6].Head
+			absorberStats, err := core.Stats(absorber)
+			if err != nil {
+				return err
+			}
+			missingStats, err := core.Stats(missing)
+			if err != nil {
+				return err
+			}
+			if absorberStats.CurrentExactPaths != 6 || missingStats.CurrentExactPaths != 1 {
+				return &s5AssertionError{message: "recovery merge lost one lineage"}
+			}
+			derivations, err := core.Derivations(absorber)
+			if err != nil {
+				return err
+			}
+			if len(derivations) != 6 {
+				return &s5AssertionError{message: "absorber derivation count is not six"}
+			}
+			for _, derivation := range derivations {
+				if len(derivation.Payloads) != 1 || !wantPayloads[derivation.Payloads[0]] {
+					return &s5AssertionError{message: "absorber lost a predecessor payload or exposed subtree zero"}
 				}
-				for _, derivation := range derivations {
-					if len(derivation.Payloads) != 1 || !wantPayloads[derivation.Payloads[0]] {
-						return &s5AssertionError{message: "absorber lost a predecessor payload or exposed subtree zero"}
-					}
-					delete(wantPayloads, derivation.Payloads[0])
-				}
-				if len(wantPayloads) != 0 {
-					return &s5AssertionError{message: "absorber lost one of six predecessor paths"}
-				}
-				missingDerivations, err := core.Derivations(missing)
-				if err != nil {
-					return err
-				}
-				if len(missingDerivations) != 1 || len(missingDerivations[0].Payloads) != 1 || missingDerivations[0].Payloads[0] != missingPayload {
-					return &s5AssertionError{message: "missing lineage did not remain separate"}
-				}
-				return nil
-			})
+				delete(wantPayloads, derivation.Payloads[0])
+			}
+			if len(wantPayloads) != 0 {
+				return &s5AssertionError{message: "absorber lost one of six predecessor paths"}
+			}
+			missingDerivations, err := core.Derivations(missing)
+			if err != nil {
+				return err
+			}
+			if len(missingDerivations) != 1 || len(missingDerivations[0].Payloads) != 1 || missingDerivations[0].Payloads[0] != missingPayload {
+				return &s5AssertionError{message: "missing lineage did not remain separate"}
+			}
+			return nil
 		})
 	})
 	if err != nil {

@@ -387,6 +387,9 @@ func phase0AStableLinkIDs(core *Core, id NodeID) ([]LinkID, bool) {
 		if next == 0 || uint64(next) > uint64(len(core.links)) {
 			return nil, false
 		}
+		if err := core.links[next-1].validateShape(); err != nil {
+			return nil, false
+		}
 		ids[index] = next
 		next = core.links[next-1].next
 	}

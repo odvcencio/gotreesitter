@@ -533,6 +533,16 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointed(
 	if err != nil {
 		return Head{}, err
 	}
+	for _, link := range links {
+		if link.isRecoveryDiscontinuity() {
+			return Head{}, errors.New("parser-core phase zero: recovery discontinuity requires its dedicated merge seam")
+		}
+	}
+	for _, link := range incomingLinks {
+		if link.isRecoveryDiscontinuity() {
+			return Head{}, errors.New("parser-core phase zero: recovery discontinuity requires its dedicated merge seam")
+		}
+	}
 	// Count only pairs that pass the clean boundary and scanner predicates.
 	// C's wider attempt counter also includes pairs that fail those predicates.
 	c.addWork(&c.work.PhysicalHeadMergeAttempts, 1)

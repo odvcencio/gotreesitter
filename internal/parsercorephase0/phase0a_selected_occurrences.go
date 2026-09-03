@@ -857,7 +857,12 @@ func phase0ABuildSelectedOccurrenceSnapshotLocked(core *Core, observer *phase0AO
 	active := make(map[phase0AOccurrenceJoin]struct{})
 	seen := make(map[phase0AOccurrenceJoin]struct{})
 	var snapshot Phase0ASelectedOccurrenceSnapshot
-	snapshot.Namespace, snapshot.Generation, snapshot.RootCount = observer.run, generation, uint32(len(accepted))
+	snapshot.Namespace, snapshot.Generation = observer.run, generation
+	for _, root := range accepted {
+		if !root.RecoveryDiscontinuity && root.Payload != 0 {
+			snapshot.RootCount++
+		}
+	}
 	var visit func(ConstructionOccurrenceKey, IncomingEdgeKey, SubtreeID, LinkID, LinkID, uint64, uint32, uint32) error
 	visit = func(occurrence ConstructionOccurrenceKey, edge IncomingEdgeKey, payload SubtreeID, sourceLink, selectedLower LinkID, parent uint64, childOrdinal, depth uint32) error {
 		if uint64(depth) > depthLimit {
@@ -953,6 +958,7 @@ func phase0ABuildSelectedOccurrenceSnapshotLocked(core *Core, observer *phase0AO
 			}
 			lower := selectedLower
 			var previousNode NodeID
+			selectedChildren := uint32(0)
 			for index := uint32(0); index < route.LinkCount; index++ {
 				row, err := phase0AExactRouteLinkLocked(observer, route, index)
 				if err != nil {
@@ -975,6 +981,9 @@ func phase0ABuildSelectedOccurrenceSnapshotLocked(core *Core, observer *phase0AO
 					}
 					continue
 				}
+				if row.RecoveryDiscontinuity {
+					continue
+				}
 				if row.Segment != Phase0APopRouteRetained || row.SegmentOrdinal != index {
 					return &Phase0AError{Kind: Phase0AErrorCrossBoundary, Namespace: observer.run, Detail: "selected retained route segment identity drifted"}
 				}
@@ -988,12 +997,13 @@ func phase0ABuildSelectedOccurrenceSnapshotLocked(core *Core, observer *phase0AO
 				if err := visit(direct.Occurrence, direct.Edge, row.Payload, row.Link, resolvedLower, ordinal, index, depth+1); err != nil {
 					return err
 				}
+				selectedChildren++
 				lower = row.Link
 			}
 			if previousNode != route.Head {
 				return &Phase0AError{Kind: Phase0AErrorCrossBoundary, Namespace: observer.run, Detail: "selected reduction route ends at another head"}
 			}
-			records[ordinal-1].ChildCount = route.RetainedLinkCount
+			records[ordinal-1].ChildCount = selectedChildren
 			return nil
 		default:
 			return &Phase0AError{Kind: Phase0AErrorStaleReference, Namespace: observer.run, Detail: "selected occurrence has unknown construction kind"}
@@ -1001,9 +1011,15 @@ func phase0ABuildSelectedOccurrenceSnapshotLocked(core *Core, observer *phase0AO
 	}
 
 	for index, root := range accepted {
+		if root.RecoveryDiscontinuity || root.Payload == 0 {
+			continue
+		}
 		lower := LinkID(0)
-		if index > 0 {
-			lower = accepted[index-1].Link
+		for prior := index - 1; prior >= 0; prior-- {
+			if !accepted[prior].RecoveryDiscontinuity && accepted[prior].Payload != 0 {
+				lower = accepted[prior].Link
+				break
+			}
 		}
 		if root.ResolvedLowerLink != lower && root.BoundExpression == root.ResolvedExpression {
 			return Phase0ASelectedOccurrenceSnapshot{}, nil, &Phase0AError{Kind: Phase0AErrorStaleReference, Namespace: observer.run, Detail: "direct accepted link changed resolved lower identity"}

@@ -113,19 +113,29 @@ func (c *Core) StackSummaryCandidates(head Head, maxDepth int) ([]StackSummaryCa
 				return nil, err
 			}
 			for _, link := range links {
+				if err := link.validateShape(); err != nil {
+					return nil, err
+				}
 				if link.prev == 0 || link.prev >= item.node {
 					return nil, errors.New("parser-core phase zero: stack-summary predecessor does not decrease")
 				}
-				payload, err := c.subtree(link.payload)
-				if err != nil {
-					return nil, err
-				}
 				nextDepth := depth
-				if !payload.extra {
+				if link.isRecoveryDiscontinuity() {
 					if depth == maxDepth {
 						continue
 					}
 					nextDepth++
+				} else {
+					payload, err := c.subtree(link.payload)
+					if err != nil {
+						return nil, err
+					}
+					if !payload.extra {
+						if depth == maxDepth {
+							continue
+						}
+						nextDepth++
+					}
 				}
 				if item.linkDepth == math.MaxUint16 {
 					return nil, errors.New("parser-core phase zero: stack-summary link depth overflow")
@@ -177,6 +187,12 @@ func (c *Core) AncestorStateWithActionExists(head Head, lookahead Symbol, maxDep
 					return false, errors.New("parser-core phase zero: ancestor adjacency out of range")
 				}
 				link := c.links[linkID-1]
+				if err := link.validateShape(); err != nil {
+					return false, err
+				}
+				if link.prev == 0 || link.prev >= id {
+					return false, errors.New("parser-core phase zero: ancestor predecessor does not decrease")
+				}
 				if link.prev != 0 && !visited[link.prev] {
 					visited[link.prev] = true
 					if len(visited) > maxVisitedNodes {
@@ -259,6 +275,9 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 	depth := len(links)
 	trailing := 0
 	for trailing < depth {
+		if links[trailing].isRecoveryDiscontinuity() {
+			break
+		}
 		payload, err := c.subtree(links[trailing].payload)
 		if err != nil {
 			return Head{}, err
@@ -277,6 +296,9 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 	var order ForkOrder
 	for index := depth - 1; index >= trailing; index-- {
 		link := links[index]
+		if link.isRecoveryDiscontinuity() {
+			continue
+		}
 		children = append(children, link.payload)
 		score, err = checkedAddScore(score, link.scoreDelta)
 		if err != nil {
@@ -285,6 +307,9 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 		if link.hasOrder() {
 			order = ForkOrder{Present: true, Value: link.order}
 		}
+	}
+	if len(children) == 0 {
+		return Head{}, errors.New("parser-core phase zero: ancestor recovery path has no ERROR payload")
 	}
 	first, err := c.subtree(children[0])
 	if err != nil {
@@ -313,6 +338,9 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 	}
 	for index := trailing - 1; index >= 0; index-- {
 		link := links[index]
+		if link.isRecoveryDiscontinuity() {
+			continue
+		}
 		payload, err := c.subtree(link.payload)
 		if err != nil {
 			return Head{}, err
@@ -381,19 +409,29 @@ func (c *Core) uniqueAncestorRecoveryPath(candidate StackSummaryCandidate) ([]li
 			return err
 		}
 		for _, link := range links {
+			if err := link.validateShape(); err != nil {
+				return err
+			}
 			if link.prev == 0 || link.prev >= id {
 				return errors.New("parser-core phase zero: ancestor recovery predecessor does not decrease")
 			}
-			payload, err := c.subtree(link.payload)
-			if err != nil {
-				return err
-			}
 			nextDepth := depth
-			if !payload.extra {
+			if link.isRecoveryDiscontinuity() {
 				if depth == wantDepth {
 					continue
 				}
 				nextDepth++
+			} else {
+				payload, err := c.subtree(link.payload)
+				if err != nil {
+					return err
+				}
+				if !payload.extra {
+					if depth == wantDepth {
+						continue
+					}
+					nextDepth++
+				}
 			}
 			steps++
 			if steps > maxSteps {

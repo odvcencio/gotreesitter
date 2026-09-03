@@ -948,15 +948,16 @@ func (c *Core) AbandonDropCohortOwned(owner SchedulerTransactionToken, cohort Dr
 }
 
 const (
-	dropCohortDerivationFormatVersion uint32 = 2
-	dropCohortTagRecordBegin                 = 0xD2
-	dropCohortTagRecordEnd                   = 0xD3
-	dropCohortTagPathBegin                   = 0xB0
-	dropCohortTagPathEnd                     = 0xB1
-	dropCohortTagBoundary                    = 0xA0
-	dropCohortTagEdge                        = 0xA1
-	dropCohortTagSubtreeBegin                = 0xC0
-	dropCohortTagSubtreeEnd                  = 0xC1
+	dropCohortDerivationFormatVersion  uint32 = 2
+	dropCohortTagRecordBegin                  = 0xD2
+	dropCohortTagRecordEnd                    = 0xD3
+	dropCohortTagPathBegin                    = 0xB0
+	dropCohortTagPathEnd                      = 0xB1
+	dropCohortTagBoundary                     = 0xA0
+	dropCohortTagEdge                         = 0xA1
+	dropCohortTagRecoveryDiscontinuity        = 0xA2
+	dropCohortTagSubtreeBegin                 = 0xC0
+	dropCohortTagSubtreeEnd                   = 0xC1
 )
 
 // dropCohortPathStep keeps arena identities only while traversing one graph.
@@ -1481,6 +1482,21 @@ func (c *Core) dropCohortCompareBoundary(left, right NodeID) (int, error) {
 }
 
 func (c *Core) dropCohortCompareLinks(left, right linkRecord) (int, error) {
+	if err := left.validateShape(); err != nil {
+		return 0, err
+	}
+	if err := right.validateShape(); err != nil {
+		return 0, err
+	}
+	if left.isRecoveryDiscontinuity() != right.isRecoveryDiscontinuity() {
+		if !left.isRecoveryDiscontinuity() {
+			return -1, nil
+		}
+		return 1, nil
+	}
+	if left.isRecoveryDiscontinuity() {
+		return c.dropCohortCompareBoundary(left.prev, right.prev)
+	}
 	if left.scoreDelta != right.scoreDelta {
 		if left.scoreDelta < right.scoreDelta {
 			return -1, nil
@@ -1621,6 +1637,9 @@ func (c *Core) dropCohortSortedLinks(id NodeID) (result dropCohortSortedLinksRes
 		}
 		seen[len(seen)-1] = linkID
 		link := c.links[linkID-1]
+		if err := link.validateShape(); err != nil {
+			return result, err
+		}
 		if link.prev == 0 || link.prev >= id || uint64(link.next) > uint64(len(c.links)) {
 			return result, errors.New("parser-core phase zero: drop-cohort derivation graph is invalid")
 		}
@@ -1746,6 +1765,15 @@ func (c *Core) dropCohortEncodeAllPaths(e *dropCohortEncoder, id NodeID, path []
 		}
 		for index := len(path) - 1; index >= 0; index-- {
 			step := path[index]
+			if step.payload == 0 {
+				if err := e.u8(dropCohortTagRecoveryDiscontinuity); err != nil {
+					return path, err
+				}
+				if err := c.dropCohortEncodeBoundary(e, step.node); err != nil {
+					return path, err
+				}
+				continue
+			}
 			if err := e.u8(dropCohortTagEdge); err != nil {
 				return path, err
 			}
@@ -1780,6 +1808,9 @@ func (c *Core) dropCohortEncodeAllPaths(e *dropCohortEncoder, id NodeID, path []
 		return path, nil
 	}
 	for _, link := range links.links {
+		if err := link.validateShape(); err != nil {
+			return path, err
+		}
 		childOrder := order
 		if link.hasOrder() {
 			childOrder = ForkOrder{Value: link.order, Present: true}

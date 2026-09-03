@@ -37,21 +37,22 @@ const (
 )
 
 type Phase0APopRouteLinkRecord struct {
-	Route               uint64
-	TransactionID       uint64
-	Ordinal             uint32
-	Segment             Phase0APopRouteSegment
-	SegmentOrdinal      uint32
-	Link                LinkID
-	Node                NodeID
-	Predecessor         NodeID
-	Payload             SubtreeID
-	ScoreDelta          int64
-	Order               uint64
-	HasOrder            bool
-	RolledBack          bool
-	RollbackTransaction uint64
-	RollbackCause       Phase0ARollbackCause
+	Route                 uint64
+	TransactionID         uint64
+	Ordinal               uint32
+	Segment               Phase0APopRouteSegment
+	SegmentOrdinal        uint32
+	Link                  LinkID
+	Node                  NodeID
+	Predecessor           NodeID
+	Payload               SubtreeID
+	ScoreDelta            int64
+	Order                 uint64
+	HasOrder              bool
+	RecoveryDiscontinuity bool
+	RolledBack            bool
+	RollbackTransaction   uint64
+	RollbackCause         Phase0ARollbackCause
 }
 
 // Phase0AAcceptedSelectionRecord freezes the unique physical root-to-head
@@ -84,16 +85,17 @@ type Phase0ASelectionCapabilityRecord struct {
 // ResolvedLowerLink is the final source-adjacency lower link after applying
 // every selector-route translation; it is zero only at the graph seed.
 type Phase0AAcceptedLinkRecord struct {
-	Namespace          CoreRunNamespace
-	Generation         uint64
-	Ordinal            uint32
-	Link               LinkID
-	Payload            SubtreeID
-	BoundExpression    Phase0AExpressionID
-	ResolvedExpression Phase0AExpressionID
-	ResolvedLowerLink  LinkID
-	Occurrence         ConstructionOccurrenceKey
-	Edge               IncomingEdgeKey
+	Namespace             CoreRunNamespace
+	Generation            uint64
+	Ordinal               uint32
+	Link                  LinkID
+	Payload               SubtreeID
+	RecoveryDiscontinuity bool
+	BoundExpression       Phase0AExpressionID
+	ResolvedExpression    Phase0AExpressionID
+	ResolvedLowerLink     LinkID
+	Occurrence            ConstructionOccurrenceKey
+	Edge                  IncomingEdgeKey
 }
 
 type phase0ARouteObserver struct {
@@ -267,6 +269,9 @@ func phase0AStablePhysicalLinks(core *Core, id NodeID) ([]phase0APhysicalLink, e
 			return nil, errors.New("parser-core phase zero A: physical adjacency is unavailable")
 		}
 		link := core.links[next-1]
+		if err := link.validateShape(); err != nil {
+			return nil, err
+		}
 		out[index] = phase0APhysicalLink{id: next, node: id, record: link}
 		next = link.next
 	}
@@ -308,14 +313,90 @@ func phase0AEnumeratePopRoutes(core *Core, head NodeID, childCount int) ([]phase
 		}
 		for _, physical := range links {
 			link := physical.record
+			if err := link.validateShape(); err != nil {
+				return err
+			}
 			if link.prev == 0 || link.prev >= id {
 				return errors.New("parser-core phase zero A: physical pop predecessor does not decrease")
+			}
+			order := ForkOrder{Value: link.order, Present: link.hasOrder()}
+			if link.isRecoveryDiscontinuity() {
+				revLinks = append(revLinks, physical.id)
+				revNodes = append(revNodes, physical.node)
+				revPrevs = append(revPrevs, link.prev)
+				revPayloads = append(revPayloads, 0)
+				revScores = append(revScores, 0)
+				revOrders = append(revOrders, ForkOrder{})
+				next := remaining - 1
+				if next == 0 {
+					if uint64(len(out)) >= core.limits.MaxPopPaths {
+						return errors.New("parser-core phase zero A: physical pop enumeration cap")
+					}
+					path := phase0APhysicalPopPath{prev: link.prev, structuralEnd: structuralEnd}
+					haveStartByte := false
+					for index := len(revLinks) - 1; index >= 0; index-- {
+						path.links = append(path.links, revLinks[index])
+						path.linkNodes = append(path.linkNodes, revNodes[index])
+						path.linkPrevs = append(path.linkPrevs, revPrevs[index])
+						path.linkScores = append(path.linkScores, revScores[index])
+						path.linkOrders = append(path.linkOrders, revOrders[index])
+						if revPayloads[index] == 0 {
+							continue
+						}
+						path.children = append(path.children, revPayloads[index])
+						payloadRecord, payloadErr := core.subtree(revPayloads[index])
+						if payloadErr != nil {
+							return payloadErr
+						}
+						if !payloadRecord.extra && !haveStartByte {
+							path.startByte, haveStartByte = payloadRecord.startByte, true
+							if path.structuralEnd == 0 {
+								path.structuralEnd = payloadRecord.endByte
+							}
+						}
+						path.score, err = checkedAddScore(path.score, revScores[index])
+						if err != nil {
+							return err
+						}
+						if revOrders[index].Present {
+							path.order = revOrders[index]
+						}
+					}
+					if !haveStartByte && path.prev != 0 {
+						previous, nodeErr := core.node(path.prev)
+						if nodeErr != nil {
+							return nodeErr
+						}
+						path.startByte, path.structuralEnd = previous.byteOffset, previous.byteOffset
+					}
+					path.retainedCount = uint32(len(path.links))
+					for index := len(trailingLinks) - 1; index >= 0; index-- {
+						path.links = append(path.links, trailingLinks[index])
+						path.linkNodes = append(path.linkNodes, trailingNodes[index])
+						path.linkPrevs = append(path.linkPrevs, trailingPrevs[index])
+						path.linkScores = append(path.linkScores, trailingScores[index])
+						path.linkOrders = append(path.linkOrders, trailingOrders[index])
+						path.trailing = append(path.trailing, trailingPayloads[index])
+						if trailingOrders[index].Present {
+							path.order = trailingOrders[index]
+						}
+					}
+					out = append(out, path)
+				} else if err := walk(link.prev, next, false, structuralEnd); err != nil {
+					return err
+				}
+				revLinks = revLinks[:len(revLinks)-1]
+				revNodes = revNodes[:len(revNodes)-1]
+				revPrevs = revPrevs[:len(revPrevs)-1]
+				revPayloads = revPayloads[:len(revPayloads)-1]
+				revScores = revScores[:len(revScores)-1]
+				revOrders = revOrders[:len(revOrders)-1]
+				continue
 			}
 			payload, err := core.subtree(link.payload)
 			if err != nil {
 				return err
 			}
-			order := ForkOrder{Value: link.order, Present: link.hasOrder()}
 			if payload.extra && peelingTrailing {
 				trailingLinks = append(trailingLinks, physical.id)
 				trailingNodes = append(trailingNodes, physical.node)
@@ -359,7 +440,9 @@ func phase0AEnumeratePopRoutes(core *Core, head NodeID, childCount int) ([]phase
 					path.linkPrevs = append(path.linkPrevs, revPrevs[index])
 					path.linkScores = append(path.linkScores, revScores[index])
 					path.linkOrders = append(path.linkOrders, revOrders[index])
-					path.children = append(path.children, revPayloads[index])
+					if revPayloads[index] != 0 {
+						path.children = append(path.children, revPayloads[index])
+					}
 					path.score, err = checkedAddScore(path.score, revScores[index])
 					if err != nil {
 						return err
@@ -440,7 +523,7 @@ func phase0AObservePopRoutes(core *Core, head NodeID, childCount int, production
 			wantTrailing[trailingIndex] = want.trailing[trailingIndex].payload
 		}
 		if len(got.links) != len(got.linkNodes) || len(got.links) != len(got.linkPrevs) || len(got.links) != len(got.linkScores) || len(got.links) != len(got.linkOrders) || uint64(got.retainedCount) > uint64(len(got.links)) ||
-			uint64(got.retainedCount) != uint64(len(want.children)) || uint64(len(got.links))-uint64(got.retainedCount) != uint64(len(want.trailing)) ||
+			uint64(len(got.children)) != uint64(len(want.children)) || uint64(len(got.links))-uint64(got.retainedCount) != uint64(len(want.trailing)) ||
 			got.prev != want.prev || got.score != want.score || got.order != want.order || got.startByte != want.startByte || got.structuralEnd != want.structuralEnd || !phase0ASameSubtrees(got.children, want.children) || !phase0ASameSubtrees(got.trailing, wantTrailing) {
 			phase0AStickyLocked(observer, &Phase0AError{Kind: Phase0AErrorAmbiguousReference, Namespace: observer.run, Detail: "physical pop path does not exactly match production ordinal"})
 			return
@@ -484,6 +567,7 @@ func phase0AObservePopRoutes(core *Core, head NodeID, childCount int, production
 				Route: id, TransactionID: pending.transaction, Ordinal: uint32(ordinal), Segment: segment, SegmentOrdinal: segmentOrdinal,
 				Link: linkID, Node: route.linkNodes[ordinal], Predecessor: route.linkPrevs[ordinal], Payload: link.payload,
 				ScoreDelta: route.linkScores[ordinal], Order: route.linkOrders[ordinal].Value, HasOrder: route.linkOrders[ordinal].Present,
+				RecoveryDiscontinuity: link.payload == 0,
 			})
 		}
 	}
@@ -568,7 +652,7 @@ func phase0AValidateCurrentRouteLink(core *Core, observer *phase0AObserver, row 
 		}
 		matches++
 		link := candidate.record
-		if link.prev != row.Predecessor || link.payload != row.Payload || link.scoreDelta != row.ScoreDelta || link.hasOrder() != row.HasOrder || (row.HasOrder && link.order != row.Order) {
+		if link.prev != row.Predecessor || link.payload != row.Payload || link.scoreDelta != row.ScoreDelta || link.hasOrder() != row.HasOrder || (row.HasOrder && link.order != row.Order) || link.isRecoveryDiscontinuity() != row.RecoveryDiscontinuity {
 			return &Phase0AError{Kind: Phase0AErrorStaleReference, Namespace: observer.run, Detail: "source trailing physical link changed identity"}
 		}
 	}
@@ -833,6 +917,9 @@ func phase0AEnumeratePhysicalDerivations(core *Core, head Head) ([]phase0APhysic
 		}
 		var out []phase0APhysicalDerivation
 		for _, physical := range links {
+			if err := physical.record.validateShape(); err != nil {
+				return nil, err
+			}
 			if physical.record.prev == 0 || physical.record.prev >= id {
 				return nil, errors.New("parser-core phase zero A: accepted physical predecessor does not decrease")
 			}
@@ -852,7 +939,9 @@ func phase0AEnumeratePhysicalDerivations(core *Core, head Head) ([]phase0APhysic
 				path.links = append(path.links, prefix.links...)
 				path.links = append(path.links, physical.id)
 				path.payloads = append(path.payloads, prefix.payloads...)
-				path.payloads = append(path.payloads, physical.record.payload)
+				if physical.record.payload != 0 {
+					path.payloads = append(path.payloads, physical.record.payload)
+				}
 				if physical.record.hasOrder() {
 					path.branchOrder, path.hasBranchOrder = physical.record.order, true
 				}
@@ -1159,14 +1248,24 @@ func (core *Core) ObservePhase0AAcceptedSelection(capability Phase0AAcceptedSele
 	}()
 	selectedIndex := phase0ABuildSelectedIndex(observer)
 	resolved := make([]Phase0AAcceptedLinkRecord, len(got.links))
+	payloadIndex := 0
+	selectedLower := LinkID(0)
 	for index, link := range got.links {
+		if core.links[link-1].isRecoveryDiscontinuity() {
+			resolved[index] = Phase0AAcceptedLinkRecord{
+				Ordinal: uint32(index), Link: link, RecoveryDiscontinuity: true,
+				ResolvedLowerLink: selectedLower,
+			}
+			continue
+		}
+		if payloadIndex >= len(got.payloads) {
+			return phase0AStickyLocked(observer, &Phase0AError{Kind: Phase0AErrorCrossBoundary, Namespace: observer.run, Detail: "accepted physical payload census is incomplete"})
+		}
+		payload := got.payloads[payloadIndex]
+		payloadIndex++
 		bound, err := phase0ASelectedLookupError(observer, selectedIndex.bindings[link], "accepted root binding is unavailable or non-unique")
 		if err != nil {
 			return phase0AStickyLocked(observer, err.(*Phase0AError))
-		}
-		selectedLower := LinkID(0)
-		if index > 0 {
-			selectedLower = got.links[index-1]
 		}
 		direct, resolvedLower, err := phase0AResolveSelectedExpressionLocked(core, observer, selectedIndex, bound, selectedLower)
 		if err != nil {
@@ -1179,9 +1278,10 @@ func (core *Core) ObservePhase0AAcceptedSelection(capability Phase0AAcceptedSele
 			return phase0AStickyLocked(observer, err.(*Phase0AError))
 		}
 		resolved[index] = Phase0AAcceptedLinkRecord{
-			Ordinal: uint32(index), Link: link, Payload: got.payloads[index], BoundExpression: bound,
+			Ordinal: uint32(index), Link: link, Payload: payload, BoundExpression: bound,
 			ResolvedExpression: direct.ID, ResolvedLowerLink: resolvedLower, Occurrence: direct.Occurrence, Edge: direct.Edge,
 		}
+		selectedLower = link
 	}
 	generation := observer.route.nextSelection + 1
 	selectedTree, selectedOccurrences, err := phase0ABuildSelectedOccurrenceSnapshotLocked(core, observer, selectedIndex, generation, resolved)

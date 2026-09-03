@@ -733,9 +733,40 @@ type linkRecord struct {
 	flags      uint32
 }
 
-const linkFlagHasOrder uint32 = 1 << iota
+const (
+	linkFlagHasOrder uint32 = 1 << iota
+	linkFlagRecoveryDiscontinuity
+)
+
+const linkKnownFlags = linkFlagHasOrder | linkFlagRecoveryDiscontinuity
 
 func (l linkRecord) hasOrder() bool { return l.flags&linkFlagHasOrder != 0 }
+
+func (l linkRecord) isRecoveryDiscontinuity() bool {
+	return l.flags&linkFlagRecoveryDiscontinuity != 0
+}
+
+func (l linkRecord) validateShape() error {
+	if l.flags&^linkKnownFlags != 0 {
+		return errors.New("parser-core phase zero: link has unknown flags")
+	}
+	if l.isRecoveryDiscontinuity() {
+		if l.payload != 0 {
+			return errors.New("parser-core phase zero: recovery discontinuity has a payload")
+		}
+		if l.scoreDelta != 0 {
+			return errors.New("parser-core phase zero: recovery discontinuity has a score delta")
+		}
+		if l.hasOrder() || l.order != 0 {
+			return errors.New("parser-core phase zero: recovery discontinuity has branch order")
+		}
+		return nil
+	}
+	if l.payload == 0 {
+		return errors.New("parser-core phase zero: ordinary link has no payload")
+	}
+	return nil
+}
 
 func (c *Core) nodePrecedenceMaximum(id NodeID) (precedenceCandidate, error) {
 	node, err := c.node(id)
@@ -746,9 +777,15 @@ func (c *Core) nodePrecedenceMaximum(id NodeID) (precedenceCandidate, error) {
 }
 
 func (c *Core) linkPrecedenceMaximum(link linkRecord) (precedenceCandidate, error) {
+	if err := link.validateShape(); err != nil {
+		return precedenceCandidate{}, err
+	}
 	predecessor, err := c.nodePrecedenceMaximum(link.prev)
 	if err != nil {
 		return precedenceCandidate{}, err
+	}
+	if link.isRecoveryDiscontinuity() {
+		return predecessor, nil
 	}
 	contribution, err := c.effectivePayloadPrecedence(link.payload, link.scoreDelta)
 	if err != nil {
@@ -1430,6 +1467,7 @@ type checkpoint struct {
 	nodes, nodeLineages, nodeCheckpoints, links, subtrees, externalProvenance int
 	lexerSkippedPrefixes                                                      int
 	children, fields, aliases                                                 int
+	alternativeSpillArena                                                     int
 	eofRecoveryRoots                                                          int
 	dropCohortLinkRefIndexes                                                  int
 	dropCohortLinkRefJournal                                                  int
@@ -1549,7 +1587,8 @@ func (c *Core) markInto(mark *checkpoint) {
 		externalProvenance:   len(c.externalProvenance),
 		lexerSkippedPrefixes: len(c.lexerSkippedPrefixes),
 		children:             len(c.children), fields: len(c.fields), aliases: len(c.aliases),
-		eofRecoveryRoots: len(c.eofRecoveryRoots),
+		alternativeSpillArena: len(c.alternativeSpillArena),
+		eofRecoveryRoots:      len(c.eofRecoveryRoots),
 
 		dropCohortLinkRefIndexes: len(c.dropCohortLinkRefIndexes),
 		dropCohortLinkRefJournal: len(c.dropCohortLinkRefJournal),
@@ -1662,6 +1701,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.children = c.children[:mark.children]
 	c.fields = c.fields[:mark.fields]
 	c.aliases = c.aliases[:mark.aliases]
+	c.alternativeSpillArena = c.alternativeSpillArena[:mark.alternativeSpillArena]
 	c.frontier = mark.frontier
 	c.checkpoint = mark.checkpoint
 	c.work = mark.work
@@ -3642,6 +3682,9 @@ func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPa
 }
 
 func (c *Core) linkEqualInput(link linkRecord, in linkInput) (bool, error) {
+	if err := link.validateShape(); err != nil {
+		return false, err
+	}
 	return link.prev == in.prev && link.payload == in.payload && link.scoreDelta == in.scoreDelta &&
 		link.hasOrder() == in.order.Present && (!link.hasOrder() || link.order == in.order.Value), nil
 }
@@ -3694,15 +3737,21 @@ func (c *Core) graphVersionIsDeterministic(root NodeID) (bool, error) {
 				return false, errors.New("parser-core phase zero: historical forest has an invalid link")
 			}
 			link := c.links[linkID-1]
+			if err := link.validateShape(); err != nil {
+				return false, err
+			}
+			if link.prev == 0 || link.prev >= id {
+				return false, errors.New("parser-core phase zero: historical forest predecessor is not earlier than its node")
+			}
+			if link.isRecoveryDiscontinuity() {
+				return false, nil
+			}
 			payload, err := c.subtree(link.payload)
 			if err != nil {
 				return false, err
 			}
 			if payload.fragile {
 				return false, nil
-			}
-			if link.prev >= id {
-				return false, errors.New("parser-core phase zero: historical forest predecessor is not earlier than its node")
 			}
 			stack = append(stack, link.prev)
 			linkID = link.next
@@ -3759,6 +3808,9 @@ func (c *Core) effectivePayloadPrecedence(payloadID SubtreeID, aggregate int64) 
 // node-level precedence that C updates for the shallow non-exact case.
 func (c *Core) factorExactPredecessor(key boundaryKey, probe boundaryProbe, oldID NodeID, oldLinks []linkRecord, in linkInput, folded *precedenceMaximumWitness) (out condenseOutcome, handled bool, err error) {
 	for index, incumbent := range oldLinks {
+		if incumbent.isRecoveryDiscontinuity() {
+			continue
+		}
 		if incumbent.prev == in.prev {
 			continue
 		}
@@ -4006,16 +4058,98 @@ func (c *Core) insertLinkBounded(state StateID, byteOffset uint32, links []linkR
 		return append(slices.Clone(links), incoming), true, nil
 	}
 	c.recordLinkUnionAttempt()
-	_, incomingExact, err := c.subtreeExternalProvenance(incoming.payload)
-	if err != nil {
-		c.recordLinkUnionRejected()
-		return nil, false, err
-	}
-	if !incomingExact {
-		c.recordLinkUnionRejected()
-		return nil, false, errors.New("parser-core phase zero: recursive insertion declined inexact external payload provenance")
+	incomingDiscontinuity := incoming.isRecoveryDiscontinuity()
+	if !incomingDiscontinuity {
+		_, incomingExact, err := c.subtreeExternalProvenance(incoming.payload)
+		if err != nil {
+			c.recordLinkUnionRejected()
+			return nil, false, err
+		}
+		if !incomingExact {
+			c.recordLinkUnionRejected()
+			return nil, false, errors.New("parser-core phase zero: recursive insertion declined inexact external payload provenance")
+		}
 	}
 	for index, incumbent := range links {
+		if err := incumbent.validateShape(); err != nil {
+			c.recordLinkUnionRejected()
+			return nil, false, err
+		}
+		incumbentDiscontinuity := incumbent.isRecoveryDiscontinuity()
+		if incomingDiscontinuity || incumbentDiscontinuity {
+			if !incomingDiscontinuity || !incumbentDiscontinuity {
+				continue
+			}
+			if c.linkRecordsEqual(incumbent, incoming) {
+				c.recordLinkUnionDuplicateNoop()
+				if phase0AEnabled {
+					phase0AMergeDecision(c, index, phase0ATransitionDuplicateDrop)
+				}
+				return links, false, nil
+			}
+			mergeable, err := c.predecessorBoundariesMatch(incumbent.prev, incoming.prev)
+			if err != nil {
+				c.recordLinkUnionRejected()
+				return nil, false, err
+			}
+			if !mergeable {
+				continue
+			}
+			related, err := c.nodesAncestryRelated(incumbent.prev, incoming.prev)
+			if err != nil {
+				c.recordLinkUnionRejected()
+				return nil, false, err
+			}
+			if related {
+				// C keeps a NULL edge when the two predecessors cannot form a
+				// distinct recursive merge, including an ancestry-related pair.
+				continue
+			}
+			if !c.linkEdgesEqual(incumbent, incoming) {
+				c.recordLinkUnionRejected()
+				return nil, false, errors.New("parser-core phase zero: recursive insertion declined non-exact discontinuity edge")
+			}
+			if depth >= maxRecursiveInsertDepth {
+				c.recordLinkUnionRejected()
+				return nil, false, errors.New("parser-core phase zero: recursive insertion depth limit")
+			}
+			if phase0AEnabled {
+				phase0ABeginPredecessorMerge(c, incumbent.prev, incoming.prev)
+			}
+			nestedFolded := precedenceMaximumWitness{}
+			merged, changed, err := c.mergePredecessorsBounded(incumbent.prev, incoming.prev, depth+1, &nestedFolded)
+			if err != nil {
+				if phase0AEnabled {
+					phase0AAbortPredecessorMerge(c)
+				}
+				c.recordLinkUnionRejected()
+				return nil, false, err
+			}
+			if !changed {
+				if err := c.observeDiscardedLink(folded, incoming); err != nil {
+					c.recordLinkUnionRejected()
+					return nil, false, err
+				}
+				if phase0AEnabled {
+					phase0AAbortPredecessorMerge(c)
+					phase0AMergeDecision(c, index, phase0ATransitionDuplicateDrop)
+				}
+				c.recordLinkUnionDuplicateNoop()
+				return links, false, nil
+			}
+			if phase0AEnabled {
+				phase0AObserveAdjacencyPublished(c, merged)
+				phase0AMergeRecursiveDecision(c, index, merged)
+			}
+			if err := c.observeDiscardedLink(folded, incoming); err != nil {
+				c.recordLinkUnionRejected()
+				return nil, false, err
+			}
+			updated := slices.Clone(links)
+			updated[index].prev = merged
+			c.recordLinkUnionRecursiveChanged()
+			return updated, true, nil
+		}
 		_, incumbentExact, err := c.subtreeExternalProvenance(incumbent.payload)
 		if err != nil {
 			c.recordLinkUnionRejected()
@@ -4356,12 +4490,12 @@ func (c *Core) shallowPayloadsEqual(leftPrev NodeID, leftPayload SubtreeID, righ
 }
 
 func (c *Core) linkEdgeEqualInput(link linkRecord, in linkInput) bool {
-	return link.payload == in.payload && link.scoreDelta == in.scoreDelta &&
+	return !link.isRecoveryDiscontinuity() && link.payload == in.payload && link.scoreDelta == in.scoreDelta &&
 		link.hasOrder() == in.order.Present && (!link.hasOrder() || link.order == in.order.Value)
 }
 
 func (c *Core) linkEdgesEqual(left, right linkRecord) bool {
-	return left.payload == right.payload && left.scoreDelta == right.scoreDelta &&
+	return left.flags == right.flags && left.payload == right.payload && left.scoreDelta == right.scoreDelta &&
 		left.hasOrder() == right.hasOrder() && (!left.hasOrder() || left.order == right.order)
 }
 
@@ -4661,14 +4795,15 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, old nod
 }
 
 type popPath struct {
-	prev          NodeID
-	cleanPathRank CleanPathRankSelection
-	children      []SubtreeID
-	trailing      []pathPayload
-	score         int64
-	order         ForkOrder
-	startByte     uint32
-	structuralEnd uint32
+	prev                  NodeID
+	cleanPathRank         CleanPathRankSelection
+	recoveryDiscontinuity bool
+	children              []SubtreeID
+	trailing              []pathPayload
+	score                 int64
+	order                 ForkOrder
+	startByte             uint32
+	structuralEnd         uint32
 }
 
 type pathPayload struct {
@@ -4804,6 +4939,10 @@ func (c *Core) markCleanProductionRank(paths []popPath) {
 	var rank cleanPathRankAccumulator
 	for index := range paths {
 		path := &paths[index]
+		if path.recoveryDiscontinuity {
+			markCleanPathRankUnknown(paths)
+			return
+		}
 		for _, payload := range path.children {
 			hasExternal, err := c.cleanPathPayloadHasExternal(payload)
 			if err != nil || hasExternal {
@@ -4921,6 +5060,12 @@ descend:
 			if link.next != 0 {
 				return false, errors.New("parser-core phase zero: clean path single link has a successor")
 			}
+			if err := link.validateShape(); err != nil {
+				return false, err
+			}
+			if link.isRecoveryDiscontinuity() {
+				return false, nil
+			}
 			hasExternal, err := c.cleanPathPayloadHasExternal(link.payload)
 			if err != nil || hasExternal {
 				return false, err
@@ -4973,6 +5118,12 @@ descend:
 		link := frame[cursor]
 		scratch.revOrders[frameIndex].Value++
 		var err error
+		if err := link.validateShape(); err != nil {
+			return false, err
+		}
+		if link.isRecoveryDiscontinuity() {
+			return false, nil
+		}
 		hasExternal, err := c.cleanPathPayloadHasExternal(link.payload)
 		if err != nil || hasExternal {
 			return false, err
@@ -5052,14 +5203,63 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 			// Every published graph edge points to an older node. The strict local
 			// decrease proves acyclicity without a traversal map while still
 			// rejecting corrupted diagnostic arena records before recursion.
+			if err := link.validateShape(); err != nil {
+				return err
+			}
 			if link.prev == 0 || link.prev >= id {
 				return errors.New("parser-core phase zero: graph predecessor does not decrease")
+			}
+			linkOrder := ForkOrder{Value: link.order, Present: link.hasOrder()}
+			if link.isRecoveryDiscontinuity() {
+				scratch.rev = append(scratch.rev, 0)
+				scratch.revScores = append(scratch.revScores, 0)
+				scratch.revOrders = append(scratch.revOrders, ForkOrder{})
+				next := remaining - 1
+				if next == 0 {
+					if uint64(len(scratch.paths)) >= c.limits.MaxPopPaths {
+						return errors.New("parser-core phase zero: pop enumeration cap")
+					}
+					path := scratch.nextPath()
+					path.prev = link.prev
+					for i := len(scratch.rev) - 1; i >= 0; i-- {
+						if scratch.rev[i] == 0 {
+							path.recoveryDiscontinuity = true
+							continue
+						}
+						path.children = append(path.children, scratch.rev[i])
+						path.score, err = checkedAddScore(path.score, scratch.revScores[i])
+						if err != nil {
+							return err
+						}
+						if scratch.revOrders[i].Present {
+							path.order = scratch.revOrders[i]
+						}
+					}
+					if path.prev != 0 {
+						previous, nodeErr := c.node(path.prev)
+						if nodeErr != nil {
+							return nodeErr
+						}
+						path.startByte, path.structuralEnd = previous.byteOffset, previous.byteOffset
+					}
+					for i := len(scratch.trailing) - 1; i >= 0; i-- {
+						path.trailing = append(path.trailing, scratch.trailing[i])
+						if scratch.trailing[i].order.Present {
+							path.order = scratch.trailing[i].order
+						}
+					}
+				} else if err := walk(link.prev, next, false, structuralEnd, depth+1); err != nil {
+					return err
+				}
+				scratch.rev = scratch.rev[:len(scratch.rev)-1]
+				scratch.revScores = scratch.revScores[:len(scratch.revScores)-1]
+				scratch.revOrders = scratch.revOrders[:len(scratch.revOrders)-1]
+				continue
 			}
 			payload, err := c.subtree(link.payload)
 			if err != nil {
 				return err
 			}
-			linkOrder := ForkOrder{Value: link.order, Present: link.hasOrder()}
 			if payload.extra && peelingTrailing {
 				scratch.trailing = append(scratch.trailing, pathPayload{payload: link.payload, scoreDelta: link.scoreDelta, order: linkOrder})
 				if err := walk(link.prev, remaining, true, structuralEnd, depth+1); err != nil {
@@ -5094,9 +5294,24 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 				}
 				path := scratch.nextPath()
 				path.prev = link.prev
-				path.startByte = payload.startByte
 				path.structuralEnd = nextStructuralEnd
+				haveStartByte := false
 				for i := len(scratch.rev) - 1; i >= 0; i-- {
+					if scratch.rev[i] == 0 {
+						path.recoveryDiscontinuity = true
+						continue
+					}
+					payloadRecord, payloadErr := c.subtree(scratch.rev[i])
+					if payloadErr != nil {
+						return payloadErr
+					}
+					if !payloadRecord.extra && !haveStartByte {
+						path.startByte = payloadRecord.startByte
+						haveStartByte = true
+						if path.structuralEnd == 0 {
+							path.structuralEnd = payloadRecord.endByte
+						}
+					}
 					path.children = append(path.children, scratch.rev[i])
 					path.score, err = checkedAddScore(path.score, scratch.revScores[i])
 					if err != nil {
@@ -5105,6 +5320,13 @@ func (c *Core) popPaths(head NodeID, childCount int) (out []popPath, err error) 
 					if scratch.revOrders[i].Present {
 						path.order = scratch.revOrders[i]
 					}
+				}
+				if !haveStartByte && path.prev != 0 {
+					previous, nodeErr := c.node(path.prev)
+					if nodeErr != nil {
+						return nodeErr
+					}
+					path.startByte, path.structuralEnd = previous.byteOffset, previous.byteOffset
 				}
 				for i := len(scratch.trailing) - 1; i >= 0; i-- {
 					path.trailing = append(path.trailing, scratch.trailing[i])
@@ -5166,6 +5388,54 @@ func (c *Core) popSingleLinkPath(head NodeID, childCount int, scratch *popEnumer
 		if link.prev == 0 || link.prev >= id {
 			return false, errors.New("parser-core phase zero: graph predecessor does not decrease")
 		}
+		if err := link.validateShape(); err != nil {
+			return false, err
+		}
+		if link.isRecoveryDiscontinuity() {
+			scratch.rev = append(scratch.rev, 0)
+			scratch.revScores = append(scratch.revScores, 0)
+			scratch.revOrders = append(scratch.revOrders, ForkOrder{})
+			peelingTrailing = false
+			remaining--
+			if remaining != 0 {
+				id = link.prev
+				continue
+			}
+			if uint64(len(scratch.paths)) >= c.limits.MaxPopPaths {
+				return false, errors.New("parser-core phase zero: pop enumeration cap")
+			}
+			path := scratch.nextPath()
+			path.prev = link.prev
+			path.recoveryDiscontinuity = true
+			for index := len(scratch.rev) - 1; index >= 0; index-- {
+				if scratch.rev[index] == 0 {
+					path.recoveryDiscontinuity = true
+					continue
+				}
+				path.children = append(path.children, scratch.rev[index])
+				path.score, err = checkedAddScore(path.score, scratch.revScores[index])
+				if err != nil {
+					return false, err
+				}
+				if scratch.revOrders[index].Present {
+					path.order = scratch.revOrders[index]
+				}
+			}
+			if path.prev != 0 {
+				previous, nodeErr := c.node(path.prev)
+				if nodeErr != nil {
+					return false, nodeErr
+				}
+				path.startByte, path.structuralEnd = previous.byteOffset, previous.byteOffset
+			}
+			for index := len(scratch.trailing) - 1; index >= 0; index-- {
+				path.trailing = append(path.trailing, scratch.trailing[index])
+				if scratch.trailing[index].order.Present {
+					path.order = scratch.trailing[index].order
+				}
+			}
+			return true, nil
+		}
 		payload, err := c.subtree(link.payload)
 		if err != nil {
 			return false, err
@@ -5197,9 +5467,24 @@ func (c *Core) popSingleLinkPath(head NodeID, childCount int, scratch *popEnumer
 		}
 		path := scratch.nextPath()
 		path.prev = link.prev
-		path.startByte = payload.startByte
 		path.structuralEnd = structuralEnd
+		haveStartByte := false
 		for index := len(scratch.rev) - 1; index >= 0; index-- {
+			if scratch.rev[index] == 0 {
+				path.recoveryDiscontinuity = true
+				continue
+			}
+			payloadRecord, payloadErr := c.subtree(scratch.rev[index])
+			if payloadErr != nil {
+				return false, payloadErr
+			}
+			if !payloadRecord.extra && !haveStartByte {
+				path.startByte = payloadRecord.startByte
+				haveStartByte = true
+				if path.structuralEnd == 0 {
+					path.structuralEnd = payloadRecord.endByte
+				}
+			}
 			path.children = append(path.children, scratch.rev[index])
 			path.score, err = checkedAddScore(path.score, scratch.revScores[index])
 			if err != nil {
@@ -5208,6 +5493,13 @@ func (c *Core) popSingleLinkPath(head NodeID, childCount int, scratch *popEnumer
 			if scratch.revOrders[index].Present {
 				path.order = scratch.revOrders[index]
 			}
+		}
+		if !haveStartByte && path.prev != 0 {
+			previous, nodeErr := c.node(path.prev)
+			if nodeErr != nil {
+				return false, nodeErr
+			}
+			path.startByte, path.structuralEnd = previous.byteOffset, previous.byteOffset
 		}
 		for index := len(scratch.trailing) - 1; index >= 0; index-- {
 			path.trailing = append(path.trailing, scratch.trailing[index])
@@ -5260,6 +5552,9 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 			return nil, err
 		}
 		for _, link := range links {
+			if err := link.validateShape(); err != nil {
+				return nil, err
+			}
 			prefixes, err := walk(link.prev)
 			if err != nil {
 				return nil, err
@@ -5274,7 +5569,9 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 				}
 				path := Derivation{Score: score}
 				path.Payloads = append(path.Payloads, prefix.Payloads...)
-				path.Payloads = append(path.Payloads, link.payload)
+				if link.payload != 0 {
+					path.Payloads = append(path.Payloads, link.payload)
+				}
 				path.BranchOrder = prefix.BranchOrder
 				path.HasBranchOrder = prefix.HasBranchOrder
 				if link.hasOrder() {
@@ -5325,6 +5622,9 @@ func (c *Core) singleDerivation(id NodeID) (Derivation, bool, error) {
 			return Derivation{}, true, errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[linkID-1]
+		if err := link.validateShape(); err != nil {
+			return Derivation{}, true, err
+		}
 		if link.next != 0 {
 			if link.next == linkID {
 				return Derivation{}, true, errors.New("parser-core phase zero: adjacency cycle")
@@ -5341,7 +5641,7 @@ func (c *Core) singleDerivation(id NodeID) (Derivation, bool, error) {
 		id = link.prev
 	}
 
-	path := Derivation{Payloads: make([]SubtreeID, len(reverseLinks))}
+	path := Derivation{Payloads: make([]SubtreeID, 0, len(reverseLinks))}
 	for reverseIndex := len(reverseLinks) - 1; reverseIndex >= 0; reverseIndex-- {
 		link := c.links[reverseLinks[reverseIndex]-1]
 		score, err := checkedAddScore(path.Score, link.scoreDelta)
@@ -5349,7 +5649,9 @@ func (c *Core) singleDerivation(id NodeID) (Derivation, bool, error) {
 			return Derivation{}, true, err
 		}
 		path.Score = score
-		path.Payloads[len(reverseLinks)-1-reverseIndex] = link.payload
+		if link.payload != 0 {
+			path.Payloads = append(path.Payloads, link.payload)
+		}
 		if link.hasOrder() {
 			path.BranchOrder = link.order
 			path.HasBranchOrder = true
@@ -5702,7 +6004,7 @@ func (c *Core) appendNodeRecord(r nodeRecord, checkpoint CheckpointID) (NodeID, 
 		}
 	}
 	next := NodeID(uint64(len(c.nodes)) + 1)
-	if err := c.validatePublishedNodeDAG(r, next); err != nil {
+	if err := c.validatePublishedNodeDAGAt(r, next, checkpoint); err != nil {
 		return 0, err
 	}
 	c.nodes = append(c.nodes, r)
@@ -5719,6 +6021,10 @@ func (c *Core) appendNodeRecord(r nodeRecord, checkpoint CheckpointID) (NodeID, 
 // cycle. The bounded adjacency walk also keeps malformed internal/diagnostic
 // records fail closed without a hash table.
 func (c *Core) validatePublishedNodeDAG(r nodeRecord, next NodeID) error {
+	return c.validatePublishedNodeDAGAt(r, next, c.checkpoint)
+}
+
+func (c *Core) validatePublishedNodeDAGAt(r nodeRecord, next NodeID, checkpoint CheckpointID) error {
 	count := uint64(r.linkCount)
 	if count == 0 {
 		if r.firstLink != 0 {
@@ -5741,8 +6047,27 @@ func (c *Core) validatePublishedNodeDAG(r nodeRecord, next NodeID) error {
 			return errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[id-1]
+		if err := link.validateShape(); err != nil {
+			return err
+		}
 		if link.prev == 0 || link.prev >= next {
 			return fmt.Errorf("parser-core phase zero: graph predecessor %d must be lower than new node %d", link.prev, next)
+		}
+		if link.isRecoveryDiscontinuity() {
+			if r.state != 0 {
+				return errors.New("parser-core phase zero: recovery discontinuity must target ERROR_STATE")
+			}
+			previous, err := c.node(link.prev)
+			if err != nil {
+				return err
+			}
+			if previous.byteOffset != r.byteOffset {
+				return errors.New("parser-core phase zero: recovery discontinuity must be zero-width")
+			}
+			previousCheckpoint, exact := c.nodeScannerCheckpoint(link.prev)
+			if !exact || previousCheckpoint != checkpoint {
+				return errors.New("parser-core phase zero: recovery discontinuity scanner checkpoint is not exact")
+			}
 		}
 		id = link.next
 	}
@@ -6174,6 +6499,9 @@ func (c *Core) nodeLinks(n nodeRecord) ([]linkRecord, error) {
 			return nil, errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[id-1]
+		if err := link.validateShape(); err != nil {
+			return nil, err
+		}
 		links = append(links, link)
 		if uint64(len(links)) > uint64(n.linkCount) {
 			return nil, errors.New("parser-core phase zero: adjacency exceeds recorded link count")
@@ -6230,6 +6558,9 @@ func (c *Core) nodeLinksIntoBounded(dst []linkRecord, n nodeRecord, maxCount uin
 			return dst, errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[id-1]
+		if err := link.validateShape(); err != nil {
+			return dst, err
+		}
 		dst[index] = link
 		id = link.next
 	}
