@@ -15,12 +15,9 @@ import (
 )
 
 // Package-two adversarial lane witnesses (issue #1063; supports #1057 and
-// #1053). Package two -- physical GSS merging through a nullable recovery
-// discontinuity edge -- is not implemented yet. These tests lock the
-// minimal falsifiers as regression tests before implementation starts, so
-// an implementation attempt cannot silently regress the Go production route
-// or silently start diverging from the locked C oracle on the compact
-// route. All four witnesses use the locked Scala grammar.
+// #1053). These tests lock the smallest physical GSS merge cases through a
+// nullable recovery discontinuity edge. The first two witnesses require the
+// compact route to publish the locked C result. All four use locked Scala.
 //
 // Every witness runs the same four checks, in order:
 //
@@ -28,8 +25,8 @@ import (
 //     the missing-leaf position the issue names, and the deep digest.
 //  2. The Go production route (candidate route forced off) against the
 //     same fields.
-//  3. The Go compact route (candidate route forced on): an exact match, or
-//     an explicit fallback recorded through the admission counters.
+//  3. The Go compact route (candidate route forced on): an exact match for
+//     strict witnesses, or an explicit fallback for transitional witnesses.
 //  4. One incremental edit: insert one space at byte 1, apply the edit to
 //     the old Go tree, reparse incrementally, and compare against a fresh
 //     Go parse and a fresh C parse of the edited source.
@@ -68,11 +65,8 @@ type package2ScalaFalsifierWitness struct {
 	wantProductionMatchesC bool
 
 	// wantCompactExact records whether the Go compact route (the candidate
-	// route forced on) is expected to match C exactly today. Package two is
-	// not implemented, so every locked witness here expects fallback
-	// (false). The assertion below accepts either outcome explicitly so the
-	// test keeps passing once package two makes the route exact, and logs
-	// which outcome occurred.
+	// route forced on) must match C exactly. The two package-two witnesses
+	// below are strict: generic recovery fallback is not an accepted result.
 	wantCompactExact bool
 	// wantCompactFallbackReasonPart, when wantCompactExact is false, must be
 	// a substring of the recorded fallback reason. Silent divergence
@@ -105,8 +99,7 @@ func TestPackage2ScalaFalsifierPhysicalMergeMinimal(t *testing.T) {
 		wantMissingByte:                 2,
 		wantDeepDigest:                  "06d2d9f6b02599ec5be0808330bf1c62e49b8cb0b146d094ceaa28b9185c79b6",
 		wantProductionMatchesC:          true,
-		wantCompactExact:                false,
-		wantCompactFallbackReasonPart:   "recovery",
+		wantCompactExact:                true,
 		wantEditedMissingByte:           3,
 		wantIncrementalReuseUnsupported: true,
 	})
@@ -128,8 +121,7 @@ func TestPackage2ScalaFalsifierOwnedLexerComposition(t *testing.T) {
 		wantMissingByte:                 6,
 		wantDeepDigest:                  "c0de79617c3e1bdac71c1686e5d6a3d4b2fb375aca9f69902aee974c5ca9f852",
 		wantProductionMatchesC:          true,
-		wantCompactExact:                false,
-		wantCompactFallbackReasonPart:   "recovery",
+		wantCompactExact:                true,
 		wantEditedMissingByte:           7,
 		wantIncrementalReuseUnsupported: true,
 	})
@@ -318,6 +310,10 @@ func runPackage2ScalaFalsifierWitness(t *testing.T, w package2ScalaFalsifierWitn
 			t.Logf("%s: compact route matches locked C exactly (digest %s)", w.name, compactInspection.SHA256)
 		}
 	case routedDelta == 0 && fallbackDelta == 1:
+		if w.wantCompactExact {
+			t.Fatalf("%s: compact route used generic recovery fallback, want the exact compact route (routed=%d fallback=%d reason=%q)",
+				w.name, routedDelta, fallbackDelta, reason)
+		}
 		if w.wantCompactFallbackReasonPart != "" && !strings.Contains(reason, w.wantCompactFallbackReasonPart) {
 			t.Fatalf("%s: compact route fallback reason=%q, want substring %q", w.name, reason, w.wantCompactFallbackReasonPart)
 		}
