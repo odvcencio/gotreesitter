@@ -33,6 +33,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactRecoverEOFArtifact           gotreesitter.CompactRecoverEOFArtifactReceipt
 	compactStackSummaryRecovery         bool
 	compactMissingTokenInsertion        bool
+	compactFaithfulS5Recovery           bool
 	compactRecoveryTrailingRetirement   bool
 	compactRecoveryErrorModeKeyword     bool
 	compactRecoveryTerminalAliases      []compactRecoveryTerminalAliasProfile
@@ -191,6 +192,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                          mustRuntimeProfileSHA256("8bc4a20f983ea8c8873c28430f089ba2bbbf00a995dd29f575bf2bc598d29dfa"),
 		compactStrategy2ErrorRegion:         true,
 		compactMissingTokenInsertion:        true,
+		compactFaithfulS5Recovery:           true,
 		compactPrimaryAcceptDerivation:      true,
 		compactAcceptanceStructuralElection: true,
 		compactRecoveryTrailingRetirement:   true,
@@ -802,6 +804,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactMissingTokenInsertion && !lang.CompactMissingTokenInsertionCertified {
 		lang.CompactMissingTokenInsertionCertified = true
+		changed = true
+	}
+	if profile.compactFaithfulS5Recovery && !lang.CompactFaithfulS5RecoveryCertified {
+		lang.CompactFaithfulS5RecoveryCertified = true
 		changed = true
 	}
 	if profile.compactRecoveryTrailingRetirement && !lang.CompactRecoveryTrailingLineageRetirementCertified {

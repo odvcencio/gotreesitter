@@ -191,7 +191,7 @@ func TestDiagnosticParserCoreVersionLexerSnapshotCloneDoesNotAlias(t *testing.T)
 	}
 }
 
-func TestDiagnosticParserCoreVersionLexerSemanticEqualityIgnoresCloneAndKeywordPath(t *testing.T) {
+func TestDiagnosticParserCoreVersionLexerCloneEqualityPreservesDistinctOwners(t *testing.T) {
 	compact, snapshot := newDiagnosticParserCoreVersionLexerTestSnapshot(t)
 	clone := snapshot.clone()
 	if !diagnosticParserCoreVersionLexerSnapshotEqual(snapshot, clone) {
@@ -221,8 +221,8 @@ func TestDiagnosticParserCoreVersionLexerSemanticEqualityIgnoresCloneAndKeywordP
 	}
 	leftState := &diagnosticParserCoreVersionState{relexSnapshot: snapshot, lexerRequest: 1}
 	rightState := &diagnosticParserCoreVersionState{relexSnapshot: clone, lexerRequest: 2}
-	if !scheduler.versionLexerStateEqual(leftState, rightState) {
-		t.Fatal("equivalent requests with distinct references did not compare equal")
+	if scheduler.versionLexerStateEqual(leftState, rightState) {
+		t.Fatal("distinct lexer snapshot owners compared equal")
 	}
 	right.token.EndByte++
 	if diagnosticParserCoreVersionLexerRequestEqual(&left, &right) {

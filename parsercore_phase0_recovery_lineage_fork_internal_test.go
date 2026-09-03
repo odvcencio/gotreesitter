@@ -113,6 +113,7 @@ func newRecoveryLineageForkSchedulerWithTable(
 			Recovery:                             true,
 			allowCompactStrategy2ErrorRegion:     true,
 			allowCompactMissingTokenInsertion:    true,
+			allowCompactFaithfulS5Recovery:       true,
 			allowCompactRecoveryLineageSelection: armed,
 		},
 	}

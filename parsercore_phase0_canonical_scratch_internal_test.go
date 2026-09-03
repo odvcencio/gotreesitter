@@ -416,7 +416,7 @@ func TestDiagnosticParserCoreCanonicalScratchMappedSpillPreservesSemantics(t *te
 	}
 }
 
-func TestDiagnosticParserCoreCanonicalScratchUsesSemanticVersionStateIdentity(t *testing.T) {
+func TestDiagnosticParserCoreCanonicalScratchPreservesLexerSnapshotOwners(t *testing.T) {
 	for _, count := range []int{2, 9} {
 		for _, changed := range []bool{false, true} {
 			name := fmt.Sprintf("count-%d", count)
@@ -483,15 +483,17 @@ func TestDiagnosticParserCoreCanonicalScratchUsesSemanticVersionStateIdentity(t 
 				if err != nil {
 					t.Fatal(err)
 				}
-				want := 1
-				if changed {
-					want = 2
-				}
+				want := 2
 				if len(out) != want {
-					t.Fatalf("semantic keys produced %d headers, want %d: %+v", len(out), want, out)
+					t.Fatalf("owner keys produced %d headers, want %d: %+v", len(out), want, out)
 				}
-				if !changed && out[0].versionState != leftState {
-					t.Fatalf("canonical winner did not retain the first header version state: got=%p want=%p", out[0].versionState, leftState)
+				seenLeft, seenRight := false, false
+				for _, header := range out {
+					seenLeft = seenLeft || header.versionState == leftState
+					seenRight = seenRight || header.versionState == rightState
+				}
+				if !seenLeft || !seenRight {
+					t.Fatalf("canonical output lost a lexer snapshot owner: %+v", out)
 				}
 				if count > diagnosticParserCoreLinearCanonicalLimit && scratch.groups == nil {
 					t.Fatal("mapped canonicalization did not allocate its group map")

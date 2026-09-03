@@ -114,6 +114,9 @@ type DiagnosticParserCorePrefixOptions struct {
 	// no-action head into missing-token and error-absorb recovery lineages.
 	// Language.CompactMissingTokenInsertionCertified is its artifact gate.
 	allowCompactMissingTokenInsertion bool
+	// allowCompactFaithfulS5Recovery selects the complete S5 physical
+	// graph-head scan. Uncertified artifacts retain the bounded legacy scan.
+	allowCompactFaithfulS5Recovery bool
 	// allowCompactRecoveryLineageSelection permits completeAcceptance to
 	// resolve MORE THAN ONE accepted head by pricing the competing recovery
 	// lineages and publishing the cheaper tree, instead of declining.
@@ -10082,10 +10085,13 @@ func (s *diagnosticParserCoreGenericScheduler) s4TryStackSummaryRecovery(index i
 	return true, nil
 }
 
-// s5TryMissingTokenInsertion runs the complete scheduler-level S5 recovery
-// competition. The implementation lives in parsercore_phase0_s5.go.
+// s5TryMissingTokenInsertion selects the artifact-certified S5 implementation.
+// Other artifacts retain their previously certified bounded recovery path.
 func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertion(index int) (handled bool, err error) {
-	return s.s5TryMissingTokenInsertionFaithful(index)
+	if s.options.allowCompactFaithfulS5Recovery {
+		return s.s5TryMissingTokenInsertionFaithful(index)
+	}
+	return s.s5TryMissingTokenInsertionLegacy(index)
 }
 
 // s3TryOpenErrorRegion attempts to open (and immediately begin absorbing

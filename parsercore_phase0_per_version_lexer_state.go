@@ -159,9 +159,9 @@ func diagnosticParserCoreVersionLexerRequestEqual(
 		left.valid == right.valid
 }
 
-// versionLexerStateEqual compares scheduler state without treating a request
-// reference as semantic identity. Resolve both nonzero references before
-// comparing them. Recovery regions remain pointer-identified graph owners.
+// versionLexerStateEqual compares scheduler ownership. Snapshot pointers and
+// recovery regions identify graph owners. Resolve request references only
+// after the owner identities match.
 func (s *diagnosticParserCoreGenericScheduler) versionLexerStateEqual(
 	left, right *diagnosticParserCoreVersionState,
 ) bool {
@@ -169,7 +169,7 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerStateEqual(
 		return left == right
 	}
 	if left.s3Region != right.s3Region ||
-		!diagnosticParserCoreVersionLexerSnapshotEqual(left.relexSnapshot, right.relexSnapshot) ||
+		left.relexSnapshot != right.relexSnapshot ||
 		left.recoveryGroup != right.recoveryGroup ||
 		left.missingGroup != right.missingGroup ||
 		left.recoveryNodeBaseline != right.recoveryNodeBaseline ||

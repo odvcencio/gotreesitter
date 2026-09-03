@@ -131,7 +131,7 @@
       "scope": "production",
       "read_sites": [
         {"path": "admission_switch_candidate.go", "symbol": "tryCompactFullParseRoute", "line": 204},
-        {"path": "parsercore_phase0_driver.go", "symbol": "DiagnosticParserCoreGenericScheduler", "line": 603},
+        {"path": "parsercore_phase0_driver.go", "symbol": "DiagnosticParserCoreGenericScheduler", "line": 619},
         {"path": "parsercore_phase0_fresh_full_runner.go", "symbol": "parserCoreFreshFullRunner", "line": 27}
       ]
     },
