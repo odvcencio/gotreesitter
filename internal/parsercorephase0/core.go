@@ -129,7 +129,7 @@ type ClassifiedBoundary struct {
 	owner       *Core
 	actions     ActionRow
 	phase       uint64
-	transaction uint64
+	transaction uint32
 	head        Head
 	state       StateID
 	byteOffset  uint32
@@ -2666,9 +2666,13 @@ func (c *Core) ClassifyBoundary(head Head, lookahead Symbol) (ClassifiedBoundary
 	if err != nil {
 		return ClassifiedBoundary{}, err
 	}
+	transaction, err := c.currentClassificationTransaction()
+	if err != nil {
+		return ClassifiedBoundary{}, err
+	}
 	return ClassifiedBoundary{
 		owner: c, actions: actions, phase: c.classificationPhase,
-		transaction: c.currentClassificationTransaction(),
+		transaction: transaction,
 		head:        head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
 	}, nil
 }
@@ -2694,18 +2698,26 @@ func (c *Core) ClassifyBoundaryWithRow(head Head, lookahead Symbol, actions Acti
 	if err != nil {
 		return ClassifiedBoundary{}, err
 	}
+	transaction, err := c.currentClassificationTransaction()
+	if err != nil {
+		return ClassifiedBoundary{}, err
+	}
 	return ClassifiedBoundary{
 		owner: c, actions: actions, phase: c.classificationPhase,
-		transaction: c.currentClassificationTransaction(),
+		transaction: transaction,
 		head:        head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
 	}, nil
 }
 
-func (c *Core) currentClassificationTransaction() uint64 {
+func (c *Core) currentClassificationTransaction() (uint32, error) {
 	if c == nil || len(c.transactions) == 0 {
-		return 0
+		return 0, nil
 	}
-	return c.transactions[len(c.transactions)-1]
+	transaction := c.transactions[len(c.transactions)-1]
+	if transaction > math.MaxUint32 {
+		return 0, errors.New("parser-core phase zero: classification transaction exceeds compact capability range")
+	}
+	return uint32(transaction), nil
 }
 
 func (c *Core) validateClassification(boundary ClassifiedBoundary) error {
@@ -2717,7 +2729,7 @@ func (c *Core) validateClassification(boundary ClassifiedBoundary) error {
 	}
 	if boundary.transaction != 0 {
 		for _, transaction := range c.transactions {
-			if transaction == boundary.transaction {
+			if transaction == uint64(boundary.transaction) {
 				return nil
 			}
 		}

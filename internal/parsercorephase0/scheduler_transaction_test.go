@@ -3,6 +3,7 @@ package parsercorephase0
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -397,6 +398,15 @@ func TestNestedSchedulerSpeculationPreservesOuterClassification(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("nested speculation err=%v", err)
+	}
+}
+
+func TestClassificationRejectsTransactionBeyondCompactCapabilityRange(t *testing.T) {
+	compact, seed, _ := newSchedulerTransactionShiftFixture(t)
+	compact.transactions = []uint64{math.MaxUint32 + 1}
+	if _, err := compact.ClassifyBoundary(seed, 9); err == nil ||
+		!strings.Contains(err.Error(), "classification transaction exceeds compact capability range") {
+		t.Fatalf("oversized classification transaction error=%v", err)
 	}
 }
 

@@ -3971,7 +3971,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyCompactEOFRecoveryAdmission(
 	}
 	siblings := make([]int, 0, len(s.headers)-1)
 	for index := range s.headers {
-		if index != cell.headerIndex {
+		if index != int(cell.headerIndex) {
 			siblings = append(siblings, index)
 		}
 	}
@@ -3984,7 +3984,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyCompactEOFRecoveryAdmission(
 	// Census the complete frontier at the safe pre-apply point. Applying the
 	// accept can mutate the compact head and retire its sibling, so later reads
 	// cannot reconstruct this admission history without observing live state.
-	s.censusEOFAcceptHistoryFrontier(cell.headerIndex, siblings)
+	s.censusEOFAcceptHistoryFrontier(int(cell.headerIndex), siblings)
 	if applyErr := s.applyGenericAccept(before, cell); applyErr != nil {
 		return rollback(applyErr)
 	}
@@ -4547,9 +4547,9 @@ const (
 )
 
 type diagnosticParserCoreGenericCell struct {
-	headerIndex     int
 	boundary        core.ClassifiedBoundary
-	selectedOrdinal int
+	headerIndex     int32
+	selectedOrdinal int32
 	// versionLexerRequest is a one-based index into the scheduler's request
 	// sidecar. Zero keeps the shared-election fast path.
 	versionLexerRequest uint32
@@ -4616,7 +4616,7 @@ func (cell *diagnosticParserCoreGenericCell) descriptor() core.ActionRowDescript
 }
 func (cell *diagnosticParserCoreGenericCell) kind() core.ActionRowKind {
 	if cell.selectedBy == diagnosticParserCoreCellSelectionConflictPolicy {
-		switch cell.actions().At(cell.selectedOrdinal).Type {
+		switch cell.actions().At(int(cell.selectedOrdinal)).Type {
 		case core.ActionShift:
 			return core.ActionRowShift
 		case core.ActionReduce:
@@ -4633,7 +4633,7 @@ func (cell *diagnosticParserCoreGenericCell) kind() core.ActionRowKind {
 }
 func (cell *diagnosticParserCoreGenericCell) selectedActionOrdinal() int {
 	if cell.selectedBy != diagnosticParserCoreCellSelectionNone {
-		return cell.selectedOrdinal
+		return int(cell.selectedOrdinal)
 	}
 	return 0
 }
@@ -4993,7 +4993,7 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerRequestForCell(
 	if s == nil || requestIndex < 0 || requestIndex >= len(s.versionLexerRequests) {
 		return nil, errors.New("parser-core phase zero: version lexer cell request is out of range")
 	}
-	if cell.headerIndex < 0 || cell.headerIndex >= len(s.headers) {
+	if cell.headerIndex < 0 || int(cell.headerIndex) >= len(s.headers) {
 		return nil, errors.New("parser-core phase zero: version lexer cell header is out of range")
 	}
 	request := &s.versionLexerRequests[requestIndex]
@@ -8392,7 +8392,7 @@ func (s *diagnosticParserCoreGenericScheduler) classifyVersionLexerCell(
 		return diagnosticParserCoreGenericCell{}, true, nil, nil
 	}
 	cell := diagnosticParserCoreGenericCell{
-		headerIndex: index, boundary: boundary, versionLexerRequest: requestReference,
+		headerIndex: int32(index), boundary: boundary, versionLexerRequest: requestReference,
 	}
 	if ordinal, ok := diagnosticParserCoreConflictPolicyOrdinal(
 		s.tokenSource.language,
@@ -8401,13 +8401,13 @@ func (s *diagnosticParserCoreGenericScheduler) classifyVersionLexerCell(
 		actions,
 		len(s.headers),
 	); ok {
-		cell.selectedOrdinal = ordinal
+		cell.selectedOrdinal = int32(ordinal)
 		cell.selectedBy = diagnosticParserCoreCellSelectionConflictPolicy
 	}
 	if cell.selectedBy == diagnosticParserCoreCellSelectionNone &&
 		actions.Descriptor().Kind() == core.ActionRowUnsupported {
 		if ordinal, ok := diagnosticParserCoreRepetitionFoldOrdinal(s.tokenSource.language, actions); ok {
-			cell.selectedOrdinal = ordinal
+			cell.selectedOrdinal = int32(ordinal)
 			cell.selectedBy = diagnosticParserCoreCellSelectionRepetitionFold
 		} else if _, ok := diagnosticParserCoreSingleReduceRepetitionShiftOrdinal(actions); ok &&
 			cRepetitionSkipOptOut[s.tokenSource.language.Name] {
@@ -8571,7 +8571,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 			s.headers[cells[acceptCell].headerIndex].isRecoveryLineage()
 		if !competingRecoveryAccept && (len(s.headers) != 1 || len(cells) != 1 || len(noActionIndices) != 0) {
 			return &diagnosticParserCoreGenericUnsupported{
-				boundary: DiagnosticParserCoreAccept, detail: "generic scheduler owned lexer accept requires one live version", headerIndex: cells[acceptCell].headerIndex,
+				boundary: DiagnosticParserCoreAccept, detail: "generic scheduler owned lexer accept requires one live version", headerIndex: int(cells[acceptCell].headerIndex),
 			}, nil
 		}
 		selected, operation = acceptCell, core.ActionRowAccept
@@ -8593,7 +8593,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 			boundary: DiagnosticParserCoreRoute, detail: "generic scheduler owned lexer dispatch found no supported action",
 		}, nil
 	}
-	selectedHeader := cells[selected].headerIndex
+	selectedHeader := int(cells[selected].headerIndex)
 	cell, noAction, unsupported, err := s.classifyVersionLexerCell(selectedHeader, false)
 	if err != nil || unsupported != nil {
 		return unsupported, err
@@ -8964,7 +8964,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			}
 		}
 		cell := diagnosticParserCoreGenericCell{
-			headerIndex:   index,
+			headerIndex:   int32(index),
 			boundary:      boundary,
 			relexedSymbol: relexedSymbol,
 		}
@@ -8976,13 +8976,13 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				actions,
 				len(s.headers),
 			); ok {
-				cell.selectedOrdinal = ordinal
+				cell.selectedOrdinal = int32(ordinal)
 				cell.selectedBy = diagnosticParserCoreCellSelectionConflictPolicy
 			}
 			if cell.selectedBy == diagnosticParserCoreCellSelectionNone &&
 				actions.Descriptor().Kind() == core.ActionRowUnsupported {
 				if ordinal, ok := diagnosticParserCoreRepetitionFoldOrdinal(s.tokenSource.language, actions); ok {
-					cell.selectedOrdinal = ordinal
+					cell.selectedOrdinal = int32(ordinal)
 					cell.selectedBy = diagnosticParserCoreCellSelectionRepetitionFold
 				} else if _, ok := diagnosticParserCoreSingleReduceRepetitionShiftOrdinal(actions); ok &&
 					cRepetitionSkipOptOut[s.tokenSource.language.Name] {
@@ -9028,7 +9028,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 		// still need the token (ExtraShift, Accept) or are never supported
 		// (Empty, Unsupported) keep paying the full per-pass call unchanged.
 		if cell.selectedBy == diagnosticParserCoreCellSelectionNone && !descriptor.DispatchSupported() {
-			if unsupported := diagnosticParserCoreGenericUnsupportedCellDescriptor(cell.headerIndex, cell.dispatchToken(s.token), cell.actions(), descriptor); unsupported != nil {
+			if unsupported := diagnosticParserCoreGenericUnsupportedCellDescriptor(int(cell.headerIndex), cell.dispatchToken(s.token), cell.actions(), descriptor); unsupported != nil {
 				return unsupported, nil
 			}
 		}
@@ -9217,7 +9217,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				return &diagnosticParserCoreGenericUnsupported{
 					boundary:    DiagnosticParserCoreAccept,
 					detail:      s.eofRecoveryAdmission.declineReason,
-					headerIndex: cell.headerIndex,
+					headerIndex: int(cell.headerIndex),
 				}, nil
 			}
 		}
@@ -9229,14 +9229,14 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 		competingRecoveryAccept := recoveryCompetition && s.headers[cell.headerIndex].isRecoveryLineage()
 		if !soleAccept && !certifiedAcceptWithDeadSiblings && !competingRecoveryAccept {
 			return &diagnosticParserCoreGenericUnsupported{
-				boundary: DiagnosticParserCoreAccept, detail: "generic scheduler requires a sole homogeneous accept frontier", headerIndex: cell.headerIndex,
+				boundary: DiagnosticParserCoreAccept, detail: "generic scheduler requires a sole homogeneous accept frontier", headerIndex: int(cell.headerIndex),
 			}, nil
 		}
 		if certifiedAcceptWithDeadSiblings {
 			// The G2 EOF-history census observes the complete frontier before
 			// acceptance canonicalization removes its no-action siblings. The
 			// default build supplies an empty inlined stub.
-			s.censusEOFAcceptHistoryFrontier(cell.headerIndex, noActionIndices)
+			s.censusEOFAcceptHistoryFrontier(int(cell.headerIndex), noActionIndices)
 		}
 		if err := s.applyGenericAccept(before, cell); err != nil {
 			return nil, err
@@ -9274,14 +9274,14 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 	if extraCells != 0 {
 		if extraCells != len(cells) || len(cells) != len(s.headers) || len(noActionIndices) != 0 {
 			return &diagnosticParserCoreGenericUnsupported{
-				boundary: DiagnosticParserCoreExtra, detail: "generic scheduler requires a homogeneous all-runnable extra cohort", headerIndex: cells[0].headerIndex,
+				boundary: DiagnosticParserCoreExtra, detail: "generic scheduler requires a homogeneous all-runnable extra cohort", headerIndex: int(cells[0].headerIndex),
 			}, nil
 		}
 		for index := 1; index < len(cells); index++ {
 			cell := &cells[index]
 			if cell.dispatchToken(s.token) != cells[0].dispatchToken(s.token) {
 				return &diagnosticParserCoreGenericUnsupported{
-					boundary: DiagnosticParserCoreExtra, detail: "generic scheduler extra cohort requires one tokenization", headerIndex: cell.headerIndex,
+					boundary: DiagnosticParserCoreExtra, detail: "generic scheduler extra cohort requires one tokenization", headerIndex: int(cell.headerIndex),
 				}, nil
 			}
 		}
@@ -10281,7 +10281,7 @@ func (s *diagnosticParserCoreGenericScheduler) zeroWidthExtraShiftWithoutProgres
 			return &diagnosticParserCoreGenericUnsupported{
 				boundary:    DiagnosticParserCoreRoute,
 				detail:      "generic scheduler zero-width extra shift has no scanner or parser-state progress",
-				headerIndex: cell.headerIndex,
+				headerIndex: int(cell.headerIndex),
 			}
 		}
 	}
@@ -10339,7 +10339,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericAcceptOwned(owner cor
 		s.receipt.Rounds = append(s.receipt.Rounds, DiagnosticParserCoreDispatchRound{
 			Index: len(s.receipt.Rounds), Before: before,
 			Actions: []DiagnosticParserCoreRoundAction{{
-				HeaderIndex: cell.headerIndex, State: StateID(cell.boundary.State()), ByteOffset: cell.boundary.ByteOffset(),
+				HeaderIndex: int(cell.headerIndex), State: StateID(cell.boundary.State()), ByteOffset: cell.boundary.ByteOffset(),
 				Ordinal: 0, Action: rootParserCoreAction(cell.actions().At(0)),
 			}},
 			After: after,
@@ -11596,7 +11596,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		s.condenseCandidates = s.condenseCandidates[:0]
 		candidates = s.condenseCandidates
 	} else {
-		candidates = s.collectCondenseCandidates(cell.headerIndex)
+		candidates = s.collectCondenseCandidates(int(cell.headerIndex))
 	}
 	ordinal := cell.selectedActionOrdinal()
 	if cell.selectsConflictReduction() {
@@ -11799,7 +11799,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 			// the physical-head merge package.
 			adopted, err := s.adoptUpdatedReductionSiblingOwned(
 				owner,
-				cell.headerIndex,
+				int(cell.headerIndex),
 				output.Head,
 				rank,
 				lineage,
@@ -11829,7 +11829,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		if output.Freshness == core.ReductionUpdated {
 			adopted, err := s.adoptUpdatedReductionSiblingOwned(
 				owner,
-				cell.headerIndex,
+				int(cell.headerIndex),
 				output.Head,
 				rank,
 				lineage,
@@ -11901,7 +11901,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 	} else if len(replacements) == 1 {
 		s.headers[cell.headerIndex] = replacements[0]
 	} else {
-		s.headers = replaceDiagnosticParserCoreHeader(s.headers, cell.headerIndex, replacements)
+		s.headers = replaceDiagnosticParserCoreHeader(s.headers, int(cell.headerIndex), replacements)
 	}
 	if madeFreshProgress {
 		s.epochProgress = true
@@ -11928,7 +11928,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		s.receipt.Rounds = append(s.receipt.Rounds, DiagnosticParserCoreDispatchRound{
 			Index: len(s.receipt.Rounds), Before: before,
 			Actions: []DiagnosticParserCoreRoundAction{{
-				HeaderIndex: cell.headerIndex, State: StateID(cell.boundary.State()), ByteOffset: cell.boundary.ByteOffset(),
+				HeaderIndex: int(cell.headerIndex), State: StateID(cell.boundary.State()), ByteOffset: cell.boundary.ByteOffset(),
 				Ordinal: ordinal, Action: rootParserCoreAction(cell.actions().At(ordinal)),
 			}},
 			After: after,
@@ -12276,7 +12276,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 	if err = s.reserveDispatches(1); err != nil {
 		return err
 	}
-	if err = s.reindexCondenseCandidatesOwned(owner, cell.headerIndex); err != nil {
+	if err = s.reindexCondenseCandidatesOwned(owner, int(cell.headerIndex)); err != nil {
 		return err
 	}
 	externalStatsBefore, err := s.genericExternalStats(affectedHead, token)
@@ -12289,7 +12289,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 	}
 	defer s.conflictScratch.finish()
 	execution, err := executeDiagnosticParserCoreGenericConflictDetailed(
-		s.compact, owner, s.headers[cell.headerIndex], cell.headerIndex, token, cell.boundary,
+		s.compact, owner, s.headers[cell.headerIndex], int(cell.headerIndex), token, cell.boundary,
 		s.branchOrder, &s.nextCleanPathLineage,
 		s.options.captureLexerSkippedPrefixProvenance,
 		cell.selectedBy == diagnosticParserCoreCellSelectionRepetitionFork,
@@ -12316,7 +12316,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 	}
 	for ordinal := range execution.armRanges {
 		arm := execution.arm(ordinal)
-		kept, adopted, reconcileErr := s.reconcileGenericConflictOutputs(owner, cell.headerIndex, arm)
+		kept, adopted, reconcileErr := s.reconcileGenericConflictOutputs(owner, int(cell.headerIndex), arm)
 		if reconcileErr != nil {
 			return reconcileErr
 		}
@@ -12467,7 +12467,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		roundIndex = round.Index
 		s.receipt.Rounds = append(s.receipt.Rounds, round)
 		conflict := DiagnosticParserCoreGenericConflict{
-			ElectionIndex: s.electionIndex, Token: token, HeaderIndex: cell.headerIndex,
+			ElectionIndex: s.electionIndex, Token: token, HeaderIndex: int(cell.headerIndex),
 			BranchOrderBefore: branchOrderBefore, BranchOrderAfter: s.branchOrder,
 			NextCreationSeqBefore: nextSeqBefore, NextCreationSeqAfter: s.nextSeq,
 			Round: round, Prefix: prefixReceipts,
@@ -12590,7 +12590,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 				LexerSkippedPrefixLength: diagnosticParserCoreLexerSkippedPrefixLength(token, s.options.captureLexerSkippedPrefixProvenance),
 			}
 			head, err := s.compact.ShiftClassifiedWithLiveCondenseCandidatesOwned(
-				owner, s.collectCondenseCandidates(cell.headerIndex),
+				owner, s.collectCondenseCandidates(int(cell.headerIndex)),
 				cell.boundary, ordinal, shifted, core.ForkOrder{},
 			)
 			if err != nil {
@@ -12625,7 +12625,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 			cell := &cells[index]
 			ordinal := cell.selectedActionOrdinal()
 			actions[index] = DiagnosticParserCoreRoundAction{
-				HeaderIndex: cell.headerIndex, State: StateID(cell.boundary.State()), ByteOffset: cell.boundary.ByteOffset(),
+				HeaderIndex: int(cell.headerIndex), State: StateID(cell.boundary.State()), ByteOffset: cell.boundary.ByteOffset(),
 				Ordinal: ordinal, Action: rootParserCoreAction(cell.actions().At(ordinal)),
 			}
 		}
@@ -12706,7 +12706,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 					}
 				}
 				head, shiftErr := s.compact.ShiftClassifiedWithLiveCondenseCandidatesOwned(
-					owner, s.collectCondenseCandidates(cell.headerIndex), cell.boundary, 0,
+					owner, s.collectCondenseCandidates(int(cell.headerIndex)), cell.boundary, 0,
 					core.Token{
 						Symbol: core.Symbol(token.Symbol), StartByte: token.StartByte, EndByte: token.EndByte,
 						Extra: true, External: token.ExternalScannerToken,
@@ -12789,7 +12789,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 			for index := range cells {
 				cell := &cells[index]
 				actions[index] = DiagnosticParserCoreRoundAction{
-					HeaderIndex: cell.headerIndex, State: StateID(cell.boundary.State()), ByteOffset: cell.boundary.ByteOffset(),
+					HeaderIndex: int(cell.headerIndex), State: StateID(cell.boundary.State()), ByteOffset: cell.boundary.ByteOffset(),
 					Ordinal: 0, Action: rootParserCoreAction(cell.actions().At(0)),
 				}
 			}

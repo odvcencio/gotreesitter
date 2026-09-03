@@ -15,7 +15,7 @@ func mustDiagnosticParserCoreGenericCell(t testing.TB, compact *core.Core, heade
 	if err != nil {
 		t.Fatal(err)
 	}
-	return diagnosticParserCoreGenericCell{headerIndex: headerIndex, boundary: boundary}
+	return diagnosticParserCoreGenericCell{headerIndex: int32(headerIndex), boundary: boundary}
 }
 
 func TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape(t *testing.T) {
