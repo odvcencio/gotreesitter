@@ -182,6 +182,22 @@ no source errors. The sparse Git clones can use substantial disk space.
 Keep at least 40 GB free after materializing the corpus. Increase the boot
 disk size when the host has less free space.
 
+Extract the languages whose fixtures are embedded inside another syntax. The
+fleet runner reads them from `.gts-extracted/<language>` directories, and
+`real_corpus_sources` does not create those directories:
+
+~~~sh
+cd /srv/gotreesitter-perf/gotreesitter/cgo_harness
+GOWORK=off go run ./cmd/real_corpus_extract \
+  --root /srv/gotreesitter-perf/corpus_sources \
+  --langs comment,doxygen,gitcommit,jsdoc,markdown_inline
+~~~
+
+Confirm that each of the five directories exists before the scan. A missing
+directory produces a `no_corpus` coverage finding for that language and
+removes its rows from the fleet denominator. The 2026-08-30 run lost 12 rows
+this way.
+
 ## Run the authoritative full fleet
 
 Build the pinned local Docker image and run the scan from the checked-out
@@ -354,3 +370,8 @@ gcloud compute instances delete "$VM_NAME" \
 
 If the VM terminates before the output is copied, mark the run incomplete.
 Do not merge incomplete artifacts into the authoritative fleet scoreboard.
+
+Delete the instance in the same session as the harvest. A stopped instance
+still bills its boot disk, and a running one bills the machine until spot
+preemption. Confirm with `gcloud compute instances list` that no `gts-v10-*`
+instance remains.
