@@ -3592,6 +3592,17 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 
 	// Shift/reduce conflict.
 	if len(shifts) > 0 && len(reduces) > 0 {
+		if filtered, ok := highestNumericReducePrecedenceTie(reduces, ng, cache); ok {
+			reduces = filtered
+			filteredActions := make([]lrAction, 0, len(actions))
+			for _, action := range actions {
+				if action.kind == lrReduce && !lrActionListHasReduce(reduces, action.prodIdx) {
+					continue
+				}
+				filteredActions = append(filteredActions, action)
+			}
+			actions = filteredActions
+		}
 		if repeated, ok := repetitionShiftActions(lookaheadSym, shifts, reduces, ng, cache); ok {
 			return repeated, nil
 		}
@@ -3607,6 +3618,9 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 
 		shift := shifts[0]
 		reduce := reduces[0]
+		if preferred, ok := preferredMixedLeftAssociativeReduce(reduces, ng); ok {
+			reduce = preferred
+		}
 		prod := &ng.Productions[reduce.prodIdx]
 		shiftMeta := shiftMetadataForReduce(shift, prod.LHS, ng, cache)
 		reduceMeta := reduceMetadataForShiftConflict(reduce, shift, ng, cache)
@@ -3908,6 +3922,86 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 	return actions, nil
 }
 
+// highestNumericReducePrecedenceTie removes lower numeric precedences when at
+// least two top reductions remain. Tree-sitter filters lower reductions before
+// it resolves shift/reduce associativity. The survivor guard preserves
+// ambiguities that this generator needs because it flattens repeat helpers.
+func highestNumericReducePrecedenceTie(reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) ([]lrAction, bool) {
+	if len(reduces) < 2 || ng == nil {
+		return reduces, false
+	}
+	if reduces[0].kind != lrReduce || reduces[0].prodIdx < 0 || reduces[0].prodIdx >= len(ng.Productions) {
+		return reduces, false
+	}
+	maxPrecedence := ng.Productions[reduces[0].prodIdx].Prec
+	for _, reduce := range reduces[1:] {
+		if reduce.kind != lrReduce || reduce.prodIdx < 0 || reduce.prodIdx >= len(ng.Productions) {
+			return reduces, false
+		}
+		if precedence := ng.Productions[reduce.prodIdx].Prec; precedence > maxPrecedence {
+			maxPrecedence = precedence
+		}
+	}
+	filtered := make([]lrAction, 0, len(reduces))
+	for _, reduce := range reduces {
+		if ng.Productions[reduce.prodIdx].Prec == maxPrecedence {
+			filtered = append(filtered, reduce)
+		} else if isRepeatHelperReduce(reduce, ng, cache) {
+			return reduces, false
+		}
+	}
+	if len(filtered) < 2 || len(filtered) == len(reduces) {
+		return reduces, false
+	}
+	return filtered, true
+}
+
+func preferredMixedLeftAssociativeReduce(reduces []lrAction, ng *NormalizedGrammar) (lrAction, bool) {
+	if len(reduces) < 2 || ng == nil {
+		return lrAction{}, false
+	}
+	first := reduces[0]
+	if first.kind != lrReduce || first.prodIdx < 0 || first.prodIdx >= len(ng.Productions) {
+		return lrAction{}, false
+	}
+	base := &ng.Productions[first.prodIdx]
+	if base.Assoc != AssocLeft || len(base.RHS) == 0 {
+		return lrAction{}, false
+	}
+	best := first
+	uniqueLongest := true
+	for _, candidate := range reduces[1:] {
+		if candidate.kind != lrReduce || candidate.prodIdx < 0 || candidate.prodIdx >= len(ng.Productions) {
+			return lrAction{}, false
+		}
+		production := &ng.Productions[candidate.prodIdx]
+		if production.Prec != base.Prec || production.DynPrec != base.DynPrec || production.Assoc != AssocLeft || len(production.RHS) == 0 {
+			return lrAction{}, false
+		}
+		bestProduction := &ng.Productions[best.prodIdx]
+		if len(production.RHS) > len(bestProduction.RHS) {
+			best = candidate
+			uniqueLongest = true
+		} else if len(production.RHS) == len(bestProduction.RHS) {
+			uniqueLongest = false
+		}
+	}
+	if !uniqueLongest {
+		return lrAction{}, false
+	}
+	bestRHS := ng.Productions[best.prodIdx].RHS
+	for _, candidate := range reduces {
+		if candidate.prodIdx == best.prodIdx {
+			continue
+		}
+		candidateRHS := ng.Productions[candidate.prodIdx].RHS
+		if len(candidateRHS) >= len(bestRHS) || !rhsHasPrefix(bestRHS, candidateRHS) {
+			return lrAction{}, false
+		}
+	}
+	return best, true
+}
+
 func shiftActionMatchesReduceLHSFamily(shift lrAction, reduceLHS int, ng *NormalizedGrammar, cache *conflictResolutionCache) bool {
 	if reduceLHS < 0 || ng == nil || reduceLHS >= len(ng.Symbols) {
 		return false
@@ -4154,6 +4248,12 @@ func preferredRightAssocFinalOperandContinuationShift(lookaheadSym int, shifts, 
 	reduceProd := &ng.Productions[reduce.prodIdx]
 	if reduceProd.Assoc != AssocRight || len(reduceProd.RHS) == 0 {
 		return lrAction{}, false
+	}
+	if !symbolIsPostfixOpener(lookaheadSym, ng) {
+		shiftMeta := shiftMetadataForReduce(shift, reduceProd.LHS, ng, cache)
+		if reduceProd.Prec > shiftMeta.prec {
+			return lrAction{}, false
+		}
 	}
 	targets := shiftContinuationTargets(shift, len(ng.Symbols))
 	if len(targets) == 0 {

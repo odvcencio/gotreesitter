@@ -3,6 +3,7 @@ package grammargen
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -1305,6 +1306,33 @@ func TestResolveShiftReducePrefersRightAssocFinalOperandPostfixContinuation(t *t
 	}
 }
 
+func TestResolveShiftReduceDoesNotTreatLowerPrecedenceRepeatMarkerAsPostfixContinuation(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Symbols: []SymbolInfo{
+			{Name: "*", Kind: SymbolTerminal, Visible: true},
+			{Name: "@", Kind: SymbolTerminal, Visible: true},
+			{Name: "pattern", Kind: SymbolNonterminal},
+			{Name: "capture_pattern", Kind: SymbolNonterminal},
+			{Name: "repeat_pattern", Kind: SymbolNonterminal},
+		},
+		Productions: []Production{
+			{LHS: 3, RHS: []int{2, 1, 2}, Prec: 8, HasExplicitPrec: true, Assoc: AssocRight},
+			{LHS: 4, RHS: []int{2, 0}, HasExplicitPrec: true, Assoc: AssocRight},
+		},
+	}
+
+	got, err := resolveActionConflict(0, []lrAction{
+		{kind: lrShift, state: 17, lhsSym: 4, hasPrec: true, assoc: AssocRight},
+		{kind: lrReduce, prodIdx: 0, lhsSym: 3, prec: 8, hasPrec: true, assoc: AssocRight},
+	}, ng)
+	if err != nil {
+		t.Fatalf("resolveActionConflict: %v", err)
+	}
+	if len(got) != 1 || got[0].kind != lrReduce || got[0].prodIdx != 0 {
+		t.Fatalf("resolved actions = %+v, want higher-precedence capture reduce", got)
+	}
+}
+
 func TestResolveShiftReducePrefersRightAssocSameLHSOptionalPostfixContinuation(t *testing.T) {
 	ng := &NormalizedGrammar{
 		Symbols: []SymbolInfo{
@@ -1467,6 +1495,162 @@ func TestResolveShiftReducePrefersArithmeticCloseDelimiter(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].kind != lrShift {
 		t.Fatalf("resolved actions = %+v, want close-delimiter shift", got)
+	}
+}
+
+func TestResolveShiftReduceFiltersLowerPrecedenceBeforeLeftAssociativity(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Symbols: []SymbolInfo{
+			{Name: "operator", Kind: SymbolTerminal},
+			{Name: "operand", Kind: SymbolNonterminal},
+			{Name: "lower_wrapper", Kind: SymbolNonterminal},
+			{Name: "choice", Kind: SymbolNonterminal},
+			{Name: "infix", Kind: SymbolNonterminal},
+		},
+		Productions: []Production{
+			{LHS: 2, RHS: []int{1}},
+			{LHS: 3, RHS: []int{1}, Prec: 6, HasExplicitPrec: true, Assoc: AssocLeft},
+			{LHS: 4, RHS: []int{1, 0, 1}, Prec: 6, HasExplicitPrec: true, Assoc: AssocLeft},
+		},
+	}
+
+	got, err := resolveActionConflict(0, []lrAction{
+		{kind: lrReduce, prodIdx: 0, lhsSym: 2},
+		{kind: lrReduce, prodIdx: 1, lhsSym: 3},
+		{kind: lrReduce, prodIdx: 2, lhsSym: 4},
+		{kind: lrShift, state: 9, lhsSym: 4, prec: 6, hasPrec: true, assoc: AssocLeft},
+	}, ng)
+	if err != nil {
+		t.Fatalf("resolveActionConflict: %v", err)
+	}
+	if len(got) != 1 || got[0].kind != lrReduce || got[0].prodIdx != 2 {
+		t.Fatalf("resolved actions = %+v, want completed left-associative infix reduce", got)
+	}
+}
+
+func TestResolveShiftReducePreservesActionOrderAfterReductionFiltering(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Symbols: []SymbolInfo{
+			{Name: "operator", Kind: SymbolTerminal},
+			{Name: "operand", Kind: SymbolNonterminal},
+			{Name: "lower_wrapper", Kind: SymbolNonterminal},
+			{Name: "short_choice", Kind: SymbolNonterminal},
+			{Name: "long_choice", Kind: SymbolNonterminal},
+			{Name: "continuation", Kind: SymbolNonterminal},
+		},
+		Productions: []Production{
+			{LHS: 2, RHS: []int{1}},
+			{LHS: 3, RHS: []int{1}, Prec: 6, HasExplicitPrec: true, Assoc: AssocLeft},
+			{LHS: 4, RHS: []int{1, 0, 1}, Prec: 6, HasExplicitPrec: true, Assoc: AssocLeft},
+		},
+		Conflicts: [][]int{{3, 4, 5}},
+	}
+	shift := lrAction{kind: lrShift, state: 9, lhsSym: 5, prec: 6, hasPrec: true, assoc: AssocLeft}
+	shortReduce := lrAction{kind: lrReduce, prodIdx: 1, lhsSym: 3, prec: 6, hasPrec: true, assoc: AssocLeft}
+	longReduce := lrAction{kind: lrReduce, prodIdx: 2, lhsSym: 4, prec: 6, hasPrec: true, assoc: AssocLeft}
+
+	got, err := resolveActionConflict(0, []lrAction{
+		shift,
+		{kind: lrReduce, prodIdx: 0, lhsSym: 2},
+		shortReduce,
+		longReduce,
+	}, ng)
+	if err != nil {
+		t.Fatalf("resolveActionConflict: %v", err)
+	}
+	want := []lrAction{shift, shortReduce, longReduce}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("resolved actions = %+v, want shift-first order %+v", got, want)
+	}
+}
+
+func TestHighestNumericReducePrecedenceTieRequiresTwoSurvivors(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Productions: []Production{
+			{Prec: 0},
+			{Prec: 7, HasExplicitPrec: true, Assoc: AssocLeft},
+		},
+	}
+	reduces := []lrAction{
+		{kind: lrReduce, prodIdx: 0},
+		{kind: lrReduce, prodIdx: 1},
+	}
+
+	got, ok := highestNumericReducePrecedenceTie(reduces, ng, getConflictResolutionCache(ng))
+	if ok {
+		t.Fatalf("highestNumericReducePrecedenceTie returned ok for one survivor: %+v", got)
+	}
+	if len(got) != len(reduces) {
+		t.Fatalf("reduces = %+v, want the original ambiguity", got)
+	}
+}
+
+func TestHighestNumericReducePrecedenceTiePreservesLowerRepeatHelper(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Symbols: []SymbolInfo{
+			{Name: "operator", Kind: SymbolTerminal},
+			{Name: "item", Kind: SymbolNonterminal},
+			{Name: "items_repeat1", Kind: SymbolNonterminal, GeneratedRepeatAux: true},
+			{Name: "short_choice", Kind: SymbolNonterminal},
+			{Name: "long_choice", Kind: SymbolNonterminal},
+			{Name: "continuation", Kind: SymbolNonterminal},
+		},
+		Productions: []Production{
+			{LHS: 2, RHS: []int{1}},
+			{LHS: 2, RHS: []int{2, 1}},
+			{LHS: 3, RHS: []int{1}, Prec: 6, HasExplicitPrec: true, Assoc: AssocLeft},
+			{LHS: 4, RHS: []int{1, 0, 1}, Prec: 6, HasExplicitPrec: true, Assoc: AssocLeft},
+		},
+	}
+	reduces := []lrAction{
+		{kind: lrReduce, prodIdx: 1},
+		{kind: lrReduce, prodIdx: 2},
+		{kind: lrReduce, prodIdx: 3},
+	}
+
+	got, ok := highestNumericReducePrecedenceTie(reduces, ng, getConflictResolutionCache(ng))
+	if ok {
+		t.Fatalf("highestNumericReducePrecedenceTie removed a repeat helper: %+v", got)
+	}
+	if !reflect.DeepEqual(got, reduces) {
+		t.Fatalf("reduces = %+v, want the original repeat ambiguity %+v", got, reduces)
+	}
+
+	resolved, err := resolveActionConflict(0, append([]lrAction{
+		{kind: lrShift, state: 9, lhsSym: 5, prec: 6, hasPrec: true, assoc: AssocLeft},
+	}, reduces...), ng)
+	if err != nil {
+		t.Fatalf("resolveActionConflict: %v", err)
+	}
+	if len(resolved) != 1 || resolved[0].kind != lrShift {
+		t.Fatalf("resolved actions = %+v, want the unchanged shift result after the repeat-filter veto", resolved)
+	}
+}
+
+func TestPreferredMixedLeftAssociativeReduceRequiresStrictPrefixFamily(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Productions: []Production{
+			{RHS: []int{1}, Prec: 6, DynPrec: 2, Assoc: AssocLeft},
+			{RHS: []int{1, 0, 1}, Prec: 6, DynPrec: 2, Assoc: AssocLeft},
+			{RHS: []int{1, 2}, Prec: 6, DynPrec: 2, Assoc: AssocLeft},
+		},
+	}
+	reduces := []lrAction{
+		{kind: lrReduce, prodIdx: 0},
+		{kind: lrReduce, prodIdx: 1},
+		{kind: lrReduce, prodIdx: 2},
+	}
+
+	if got, ok := preferredMixedLeftAssociativeReduce(reduces, ng); ok {
+		t.Fatalf("preferredMixedLeftAssociativeReduce selected unrelated reduction %+v", got)
+	}
+
+	ng.Productions[2].RHS = []int{3, 2}
+	if got, ok := preferredMixedLeftAssociativeReduce(reduces[:2], ng); !ok || got.prodIdx != 1 {
+		t.Fatalf("preferredMixedLeftAssociativeReduce = (%+v, %t), want strict-prefix production 1", got, ok)
+	}
+	if got, ok := preferredMixedLeftAssociativeReduce([]lrAction{reduces[0], reduces[2]}, ng); ok {
+		t.Fatalf("preferredMixedLeftAssociativeReduce selected different-prefix reduction %+v", got)
 	}
 }
 
