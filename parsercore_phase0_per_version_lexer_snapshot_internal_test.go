@@ -5,6 +5,7 @@ package gotreesitter
 import (
 	"bytes"
 	"reflect"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -693,7 +694,10 @@ func TestDiagnosticParserCoreVersionLexerSnapshotBindsCheckpointIdentity(t *test
 	}); err != nil {
 		t.Fatalf("construct identity-bound snapshot: %v", err)
 	}
-	if snapshot == nil || !snapshot.checkpointIdentityValid || snapshot.checkpointIdentity == ([32]byte{}) {
+	if snapshot == nil {
+		t.Fatal("constructed checkpoint identity snapshot is nil")
+	}
+	if !snapshot.checkpointIdentityValid || snapshot.checkpointIdentity == ([32]byte{}) {
 		t.Fatalf("snapshot identity=%x/%t, want a non-zero authenticated identity", snapshot.checkpointIdentity, snapshot.checkpointIdentityValid)
 	}
 	if !snapshot.checkpointIdentityRequired {
@@ -718,6 +722,13 @@ func TestDiagnosticParserCoreVersionLexerSnapshotBindsCheckpointIdentity(t *test
 	}
 	if got := target.snapshotRelexState(); !got.equal(beforeTarget) {
 		t.Fatalf("identity-mismatch restore mutated target state: got=%+v want=%+v", got, beforeTarget)
+	}
+	var header diagnosticParserCoreHeader
+	if err := header.publishVersionLexerSnapshot(compact, language, snapshot); err == nil {
+		t.Fatal("publication accepted a changed checkpoint identity")
+	}
+	if header.versionState != nil {
+		t.Fatal("failed identity-drift publication installed version state")
 	}
 
 	scanner.grammarID = []byte("grammar-c26l")
@@ -753,8 +764,8 @@ func TestDiagnosticParserCoreVersionLexerSnapshotRejectsIncompleteCheckpointIden
 		_, err := newDiagnosticParserCoreVersionLexerSnapshot(compact, language, owner, dfa, before, after)
 		return err
 	})
-	if err == nil {
-		t.Fatal("snapshot accepted an incomplete checkpoint identity")
+	if err == nil || !strings.Contains(err.Error(), "requires a complete checkpoint identity") {
+		t.Fatalf("incomplete checkpoint identity error=%v, want the identity rejection", err)
 	}
 }
 

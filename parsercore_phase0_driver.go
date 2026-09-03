@@ -5059,7 +5059,9 @@ func (s *diagnosticParserCoreGenericScheduler) equivalentVersionLexerSnapshot(
 	if s == nil {
 		return nil
 	}
-	identity, identityRequired, identityValid := diagnosticParserCoreVersionLexerCheckpointIdentity(nil)
+	var identity [32]byte
+	identityRequired := false
+	identityValid := false
 	if s.tokenSource != nil {
 		identity, identityRequired, identityValid = diagnosticParserCoreVersionLexerCheckpointIdentity(s.tokenSource.language)
 	}

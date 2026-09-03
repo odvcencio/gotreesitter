@@ -31,12 +31,11 @@ type diagnosticParserCoreVersionLexerSnapshot struct {
 	scanner        diagnosticParserCoreVersionLexerScannerContract
 	// checkpointIdentity authenticates the scanner and grammar that produced
 	// this snapshot when the scanner exposes the identity-bearing checkpoint
-	// capability. Keep this optional for legacy checkpointed scanners: those
-	// scanners still use the legacy scheduler path, but existing internal DFA
-	// ownership does not need a new grammar identity.
+	// capability. Legacy checkpointed scanners keep this optional because
+	// internal DFA ownership does not require a grammar identity.
 	checkpointIdentity         [32]byte
 	checkpointIdentityRequired bool
-	checkpointIdentityValid    bool
+	checkpointIdentityValid    bool // Published snapshots set this exactly when required.
 	dfa                        dfaRelexSnapshot
 
 	beforeCheckpoint      core.CheckpointID
@@ -100,16 +99,11 @@ func diagnosticParserCoreVersionLexerScannerContractForLanguage(language *Langua
 // result reports whether the language requires the identity capability. The
 // third result reports whether the current identity is complete.
 func diagnosticParserCoreVersionLexerCheckpointIdentity(language *Language) ([32]byte, bool, bool) {
-	if language == nil || language.ExternalScanner == nil ||
-		!languageUsesExternalScannerCheckpoints(language) {
-		return [32]byte{}, false, false
-	}
-	provider, required := externalScannerCheckpointIdentityProviderForScanner(language.ExternalScanner)
+	identity, required, valid := externalScannerCheckpointIdentityStatus(language)
 	if !required {
 		return [32]byte{}, false, false
 	}
-	identity, ok := provider.CheckpointIdentity()
-	if !ok || !identity.complete() {
+	if !valid {
 		return [32]byte{}, true, false
 	}
 	return parserCoreExternalScannerIdentityFingerprint(identity), true, true
@@ -154,22 +148,11 @@ func (s *diagnosticParserCoreVersionLexerSnapshot) clone() *diagnosticParserCore
 	if s == nil {
 		return nil
 	}
-	return &diagnosticParserCoreVersionLexerSnapshot{
-		compact:                    s.compact,
-		coreGeneration:             s.coreGeneration,
-		language:                   s.language,
-		scanner:                    s.scanner,
-		checkpointIdentity:         s.checkpointIdentity,
-		checkpointIdentityRequired: s.checkpointIdentityRequired,
-		checkpointIdentityValid:    s.checkpointIdentityValid,
-		dfa:                        cloneDiagnosticParserCoreDFARelexSnapshot(s.dfa),
-		beforeCheckpoint:           s.beforeCheckpoint,
-		afterCheckpoint:            s.afterCheckpoint,
-		beforeCheckpointBytes:      cloneBytesForDiagnosticParserCoreVersion(s.beforeCheckpointBytes),
-		afterCheckpointBytes:       cloneBytesForDiagnosticParserCoreVersion(s.afterCheckpointBytes),
-		beforeCheckpointInfo:       s.beforeCheckpointInfo,
-		afterCheckpointInfo:        s.afterCheckpointInfo,
-	}
+	out := *s
+	out.dfa = cloneDiagnosticParserCoreDFARelexSnapshot(s.dfa)
+	out.beforeCheckpointBytes = cloneBytesForDiagnosticParserCoreVersion(s.beforeCheckpointBytes)
+	out.afterCheckpointBytes = cloneBytesForDiagnosticParserCoreVersion(s.afterCheckpointBytes)
+	return &out
 }
 
 // copyDiagnosticParserCoreVersionCheckpoint obtains a complete private copy
