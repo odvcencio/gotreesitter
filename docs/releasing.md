@@ -36,6 +36,9 @@ Keep release planning and campaign notes in the private
 10. Checkpoint the version, commit hash, gate results, and any intentionally
    deferred work in Hyphae. Close campaign issues only when the release
    contains their documented acceptance evidence.
+11. Bump the documentation site. In the `gotreesitter-docs` repository, pin the
+   new module version, refresh the embedded release catalog, and deploy the
+   new image. The site skips a release when this step is skipped.
 
 Tags are immutable. If a release is wrong, preserve its tag and publish a
 follow-up version.
