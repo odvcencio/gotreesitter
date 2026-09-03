@@ -126,13 +126,14 @@ type ActionRow struct {
 // another core or after Reset/BeginFrontier has invalidated its arena/frontier
 // identity. The action row remains immutable.
 type ClassifiedBoundary struct {
-	owner      *Core
-	actions    ActionRow
-	phase      uint64
-	head       Head
-	state      StateID
-	byteOffset uint32
-	lookahead  Symbol
+	owner       *Core
+	actions     ActionRow
+	phase       uint64
+	transaction uint64
+	head        Head
+	state       StateID
+	byteOffset  uint32
+	lookahead   Symbol
 }
 
 // Head returns the compact head authenticated by this classification.
@@ -2090,12 +2091,13 @@ func (c *Core) ApplySchedulerSpeculation(
 	if fn == nil {
 		return c.poisonSchedulerTransaction(parent, errors.New("parser-core phase zero: nil scheduler speculation"))
 	}
-	if err = c.validateSchedulerTransaction(parent); err != nil {
+	if err = c.validateSchedulerSpeculationParent(parent); err != nil {
 		return c.poisonSchedulerTransaction(parent, err)
 	}
 	frame := &c.schedulerFrame
 	outerMark := frame.mark
 	outerPoison := frame.poisoned
+	outerClassificationPhase := c.classificationPhase
 	if c.nextTransaction == math.MaxUint64 {
 		return c.poisonSchedulerTransaction(parent, errors.New("parser-core phase zero: scheduler speculation identity overflow"))
 	}
@@ -2109,6 +2111,7 @@ func (c *Core) ApplySchedulerSpeculation(
 		if recovered != nil {
 			phase0ASetRollbackCause(c, Phase0ARollbackPanic)
 			c.restoreCheckpoint(&mark)
+			c.classificationPhase = outerClassificationPhase
 			frame.mark = outerMark
 			cause := fmt.Errorf("parser-core phase zero: scheduler speculation panicked: %v", recovered)
 			if frame.poisoned == nil {
@@ -2125,6 +2128,7 @@ func (c *Core) ApplySchedulerSpeculation(
 			// the owned operation supplied one.
 			phase0ASetRollbackCause(c, Phase0ARollbackReturnedError)
 			c.restoreCheckpoint(&mark)
+			c.classificationPhase = outerClassificationPhase
 			frame.mark = outerMark
 			cause := err
 			if outerPoison == nil && frame.poisoned != nil {
@@ -2143,6 +2147,7 @@ func (c *Core) ApplySchedulerSpeculation(
 			cause := frame.poisoned
 			phase0ASetRollbackCause(c, Phase0ARollbackSchedulerPoison)
 			c.restoreCheckpoint(&mark)
+			c.classificationPhase = outerClassificationPhase
 			frame.mark = outerMark
 			if outerPoison == nil {
 				frame.poisoned = cause
@@ -2153,6 +2158,7 @@ func (c *Core) ApplySchedulerSpeculation(
 		if !speculationCommitResult {
 			phase0ASetRollbackCause(c, Phase0ARollbackReturnedError)
 			c.restoreCheckpoint(&mark)
+			c.classificationPhase = outerClassificationPhase
 			frame.mark = outerMark
 			return
 		}
@@ -2161,6 +2167,29 @@ func (c *Core) ApplySchedulerSpeculation(
 	}()
 	speculationCommitResult, err = fn(child)
 	return err
+}
+
+// validateSchedulerSpeculationParent authenticates a scheduler parent while
+// allowing internal transaction marks below it. Only the speculation seam may
+// use this ancestor check; ordinary owned operations still require the exact
+// top transaction.
+func (c *Core) validateSchedulerSpeculationParent(token SchedulerTransactionToken) error {
+	frame := &c.schedulerFrame
+	if token.owner != c {
+		return errors.New("parser-core phase zero: scheduler transaction token belongs to a different core")
+	}
+	if !frame.active || token.epoch == 0 || token.epoch != frame.epoch || token.transaction != frame.mark.transaction {
+		return errors.New("parser-core phase zero: stale scheduler transaction token")
+	}
+	if frame.fresh {
+		return nil
+	}
+	for _, transaction := range c.transactions {
+		if transaction == token.transaction {
+			return nil
+		}
+	}
+	return errors.New("parser-core phase zero: scheduler transaction token is not an active ancestor")
 }
 
 func (c *Core) writeBoundary(key boundaryKey, id NodeID) error {
@@ -2639,7 +2668,8 @@ func (c *Core) ClassifyBoundary(head Head, lookahead Symbol) (ClassifiedBoundary
 	}
 	return ClassifiedBoundary{
 		owner: c, actions: actions, phase: c.classificationPhase,
-		head: head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
+		transaction: c.currentClassificationTransaction(),
+		head:        head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
 	}, nil
 }
 
@@ -2666,8 +2696,16 @@ func (c *Core) ClassifyBoundaryWithRow(head Head, lookahead Symbol, actions Acti
 	}
 	return ClassifiedBoundary{
 		owner: c, actions: actions, phase: c.classificationPhase,
-		head: head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
+		transaction: c.currentClassificationTransaction(),
+		head:        head, state: node.state, byteOffset: node.byteOffset, lookahead: lookahead,
 	}, nil
+}
+
+func (c *Core) currentClassificationTransaction() uint64 {
+	if c == nil || len(c.transactions) == 0 {
+		return 0
+	}
+	return c.transactions[len(c.transactions)-1]
 }
 
 func (c *Core) validateClassification(boundary ClassifiedBoundary) error {
@@ -2676,6 +2714,14 @@ func (c *Core) validateClassification(boundary ClassifiedBoundary) error {
 	}
 	if boundary.phase == 0 || boundary.phase != c.classificationPhase {
 		return errors.New("parser-core phase zero: classified boundary is stale")
+	}
+	if boundary.transaction != 0 {
+		for _, transaction := range c.transactions {
+			if transaction == boundary.transaction {
+				return nil
+			}
+		}
+		return errors.New("parser-core phase zero: classified boundary transaction is stale")
 	}
 	return nil
 }
@@ -3039,7 +3085,7 @@ func (c *Core) ReduceOutputsInto(dst []ReductionOutput, head Head, lookahead Sym
 func (c *Core) ReduceOutputsClassifiedInto(dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder) (frontier []ReductionOutput, err error) {
 	mark := c.mark()
 	defer c.completeTransaction(mark, &err)
-	return c.reduceOutputsClassifiedIntoUncheckpointed(SchedulerTransactionToken{}, dst, boundary, actionOrdinal, fork)
+	return c.reduceOutputsClassifiedIntoUncheckpointed(SchedulerTransactionToken{}, dst, boundary, actionOrdinal, fork, nil)
 }
 
 func (c *Core) reductionParentForPath(
@@ -3289,6 +3335,29 @@ func reductionParentIdentityEqual(
 	return left == right && slices.Equal(leftChildren, rightChildren) && slices.Equal(leftFields, rightFields) && slices.Equal(leftAliases, rightAliases)
 }
 
+// inheritedStoredErrorCost returns the prefix cost used by a single-link
+// publication. Multi-link publications must supply their authenticated target
+// cost because alternate links can split cost between predecessor and payload.
+func (c *Core) inheritedStoredErrorCost(links []linkRecord) (uint32, error) {
+	if len(links) == 0 {
+		return 0, nil
+	}
+	first, err := c.nodeLineage(links[0].prev)
+	if err != nil {
+		return 0, err
+	}
+	return first.storedErrorCost, nil
+}
+
+func (c *Core) publishInheritedStoredErrorCost(head Head, cost uint32) error {
+	lineage, err := c.nodeLineage(head.Node)
+	if err != nil {
+		return err
+	}
+	lineage.storedErrorCost = cost
+	return nil
+}
+
 // appendPrivate adds one exact single-link node without publishing an
 // intermediate boundary for cross-path condensation. Reduction paths with
 // trailing extras use it so only their final (state, byte) boundary merges.
@@ -3298,6 +3367,10 @@ func (c *Core) appendPrivate(state StateID, byteOffset uint32, in linkInput) (He
 		return Head{}, err
 	}
 	if _, err := c.subtree(in.payload); err != nil {
+		return Head{}, err
+	}
+	storedErrorCost, err := c.storedErrorCostForLink(in)
+	if err != nil {
 		return Head{}, err
 	}
 	maximum, err := c.linkPrecedenceMaximum(linkRecord{
@@ -3328,6 +3401,9 @@ func (c *Core) appendPrivate(state StateID, byteOffset uint32, in linkInput) (He
 	if err != nil {
 		return Head{}, err
 	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
+		return Head{}, err
+	}
 	if phase0AEnabled {
 		phase0AObservePrivatePublication(c, state, byteOffset, in, linkID, id)
 	}
@@ -3350,10 +3426,31 @@ func (c *Core) action(head Head, lookahead Symbol, ordinal int) (Action, error) 
 }
 
 type linkInput struct {
-	prev       NodeID
-	payload    SubtreeID
-	scoreDelta int64
-	order      ForkOrder
+	prev               NodeID
+	payload            SubtreeID
+	scoreDelta         int64
+	order              ForkOrder
+	storedErrorCost    uint32
+	hasStoredErrorCost bool
+}
+
+// ReductionOutputCostFunc computes the complete stored recovery cost for one
+// reduction output before Core publishes or condenses its boundary. The
+// scheduler owns the cost model. Core only authenticates the resulting value.
+type ReductionOutputCostFunc func(prev NodeID, payload SubtreeID) (uint32, error)
+
+func (c *Core) storedErrorCostForLink(in linkInput) (uint32, error) {
+	lineage, err := c.nodeLineage(in.prev)
+	if err != nil {
+		return 0, err
+	}
+	if in.hasStoredErrorCost {
+		if in.storedErrorCost < lineage.storedErrorCost {
+			return 0, errors.New("parser-core phase zero: expected stored recovery cost is below its predecessor")
+		}
+		return in.storedErrorCost, nil
+	}
+	return c.inheritedStoredErrorCost([]linkRecord{{prev: in.prev}})
 }
 
 type condenseChange uint8
@@ -3413,6 +3510,10 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if _, err := c.subtree(in.payload); err != nil {
 		return condenseOutcome{}, err
 	}
+	storedErrorCost, err := c.storedErrorCostForLink(in)
+	if err != nil {
+		return condenseOutcome{}, err
+	}
 	probe, oldID := c.boundaries.probe(boundaryIdentityFromKey(key))
 	if !probe.found {
 		// No incumbent has ever published this boundary in the current
@@ -3432,7 +3533,16 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		// function depends on is untouched -- this function still cannot
 		// prove a caller can never roll back past this append, so it does
 		// not weaken that contract.
-		return c.condenseDirectAppend(key, probe, prev.pathCount, in)
+		return c.condenseDirectAppend(key, probe, prev.pathCount, in, storedErrorCost)
+	}
+	if c.condenseNodeIsLive(oldID) {
+		oldLineage, lineageErr := c.nodeLineage(oldID)
+		if lineageErr != nil {
+			return condenseOutcome{}, lineageErr
+		}
+		if oldLineage.storedErrorCost != storedErrorCost {
+			return condenseOutcome{}, errors.New("parser-core phase zero: condense heads have different stored recovery costs")
+		}
 	}
 	historicalBoundarySplit := false
 	var historicalCleanPathRank CleanPathRankSelection
@@ -3592,7 +3702,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 					if phase0AEnabled {
 						phase0ABeginReplacement(c, key, in, oldID, incumbent)
 					}
-					head, err := c.replaceBoundaryLink(key, probe, old, oldLinks, incumbent, in)
+					head, err := c.replaceBoundaryLink(key, probe, oldID, old, oldLinks, incumbent, in)
 					if err != nil {
 						c.recordLinkUnionRejected()
 					} else {
@@ -3709,6 +3819,9 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if err != nil {
 		return condenseOutcome{}, err
 	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
+		return condenseOutcome{}, err
+	}
 	if err := c.publishBoundary(probe, id); err != nil {
 		if oldID != 0 {
 			c.recordLinkUnionRejected()
@@ -3736,7 +3849,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 // condenseOutcome shape (change: condenseNew, every historical* field at its
 // zero value). publishBoundary keeps deciding journal writes from
 // len(c.transactions) unchanged; this helper does not touch that contract.
-func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPathCount uint64, in linkInput) (condenseOutcome, error) {
+func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPathCount uint64, in linkInput, storedErrorCost uint32) (condenseOutcome, error) {
 	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || uint64(len(c.links)) >= math.MaxUint32 {
 		return condenseOutcome{}, errors.New("parser-core phase zero: link arena cap")
 	}
@@ -3763,6 +3876,9 @@ func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPa
 		firstLink: uint32(linkID), linkCount: 1, pathCount: prevPathCount,
 	}, key.checkpoint, maximum.value)
 	if err != nil {
+		return condenseOutcome{}, err
+	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
 		return condenseOutcome{}, err
 	}
 	if err := c.publishBoundary(probe, id); err != nil {
@@ -4016,7 +4132,14 @@ func (c *Core) factorExactPredecessorMerge(key boundaryKey, probe boundaryProbe,
 	if phase0AEnabled {
 		phase0APrepareFactorOuter(c, key, in, oldID, index, merged)
 	}
-	id, appendErr := c.appendAdjacencyNodeAtWithPrecedence(key.state, key.byteOffset, key.checkpoint, rebuilt, *folded)
+	oldLineage, appendErr := c.nodeLineage(oldID)
+	if appendErr != nil {
+		return condenseOutcome{}, true, appendErr
+	}
+	id, appendErr := c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+		key.state, key.byteOffset, key.checkpoint, rebuilt, *folded,
+		oldLineage.storedErrorCost, true,
+	)
 	if appendErr != nil {
 		return condenseOutcome{}, true, appendErr
 	}
@@ -4064,8 +4187,17 @@ func (c *Core) mergePredecessorsBounded(leftID, rightID NodeID, depth int, folde
 	*folded = precedenceMaximumWitness{seed: leftMaximum.value, hasSeed: true}
 	leftCheckpoint, leftExact := c.nodeScannerCheckpoint(leftID)
 	rightCheckpoint, rightExact := c.nodeScannerCheckpoint(rightID)
+	leftLineage, err := c.nodeLineage(leftID)
+	if err != nil {
+		return 0, false, err
+	}
+	rightLineage, err := c.nodeLineage(rightID)
+	if err != nil {
+		return 0, false, err
+	}
 	if left.state != right.state || left.byteOffset != right.byteOffset ||
-		!leftExact || !rightExact || leftCheckpoint != rightCheckpoint {
+		!leftExact || !rightExact || leftCheckpoint != rightCheckpoint ||
+		leftLineage.storedErrorCost != rightLineage.storedErrorCost {
 		return 0, false, errors.New("parser-core phase zero: recursive predecessors are not boundary-equivalent")
 	}
 	related, err := c.nodesAncestryRelated(leftID, rightID)
@@ -4117,7 +4249,10 @@ func (c *Core) mergePredecessorsBounded(leftID, rightID NodeID, depth int, folde
 		}
 		return leftID, false, nil
 	}
-	merged, err := c.appendAdjacencyNodeAtWithPrecedence(left.state, left.byteOffset, leftCheckpoint, links, *folded)
+	merged, err := c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+		left.state, left.byteOffset, leftCheckpoint, links, *folded,
+		leftLineage.storedErrorCost, true,
+	)
 	if err != nil {
 		return 0, false, err
 	}
@@ -4659,7 +4794,9 @@ func (c *Core) appendAdjacencyNode(state StateID, byteOffset uint32, links []lin
 }
 
 func (c *Core) appendAdjacencyNodeAt(state StateID, byteOffset uint32, checkpoint CheckpointID, links []linkRecord) (NodeID, error) {
-	return c.appendAdjacencyNodeAtWithPrecedence(state, byteOffset, checkpoint, links, precedenceMaximumWitness{})
+	return c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+		state, byteOffset, checkpoint, links, precedenceMaximumWitness{}, 0, false,
+	)
 }
 
 // appendAdjacencyNodeAtWithPrecedence publishes an adjacency with its folded
@@ -4669,6 +4806,23 @@ func (c *Core) appendAdjacencyNodeAt(state StateID, byteOffset uint32, checkpoin
 // Neither shape verifies the value against outside evidence; the C rule
 // table in the precedence rule-table tests is the behavioral contract.
 func (c *Core) appendAdjacencyNodeAtWithPrecedence(state StateID, byteOffset uint32, checkpoint CheckpointID, links []linkRecord, folded precedenceMaximumWitness) (NodeID, error) {
+	return c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+		state, byteOffset, checkpoint, links, folded, 0, false,
+	)
+}
+
+// appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost publishes an adjacency
+// with an authenticated cumulative recovery cost. The target cost belongs to
+// the merged node, not to any one predecessor link.
+func (c *Core) appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
+	state StateID,
+	byteOffset uint32,
+	checkpoint CheckpointID,
+	links []linkRecord,
+	folded precedenceMaximumWitness,
+	storedErrorCost uint32,
+	storedErrorCostAuthenticated bool,
+) (NodeID, error) {
 	if len(links) == 0 {
 		return 0, errors.New("parser-core phase zero: recursive insertion produced empty adjacency")
 	}
@@ -4693,6 +4847,13 @@ func (c *Core) appendAdjacencyNodeAtWithPrecedence(state StateID, byteOffset uin
 		}
 		pathCount = saturatingAddPaths(pathCount, prev.pathCount)
 	}
+	if !storedErrorCostAuthenticated {
+		inherited, err := c.inheritedStoredErrorCost(links)
+		if err != nil {
+			return 0, err
+		}
+		storedErrorCost = inherited
+	}
 	maximum, err := c.computePrecedenceMaximum(links, folded)
 	if err != nil {
 		return 0, err
@@ -4705,10 +4866,17 @@ func (c *Core) appendAdjacencyNodeAtWithPrecedence(state StateID, byteOffset uin
 		c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 		first = LinkID(len(c.links))
 	}
-	return c.appendNodeAtWithMaximum(nodeRecord{
+	id, err := c.appendNodeAtWithMaximum(nodeRecord{
 		state: state, byteOffset: byteOffset, firstLink: uint32(first),
 		linkCount: uint32(len(links)), pathCount: pathCount,
 	}, checkpoint, maximum.value)
+	if err != nil {
+		return 0, err
+	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 // subtreesStructurallyEqual reports whether two compact payload subtrees are the
@@ -4839,9 +5007,20 @@ func (c *Core) shallowPayloadClass(prevID NodeID, payloadID SubtreeID) (shallowP
 // historical head and every link reachable from it immutable. oldLinks are in
 // stable insertion order, so rebuilding them through prepends preserves the
 // order observed by nodeLinks.
-func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, old nodeRecord, oldLinks []linkRecord, candidate int, in linkInput) (Head, error) {
+func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, oldID NodeID, old nodeRecord, oldLinks []linkRecord, candidate int, in linkInput) (Head, error) {
 	if candidate < 0 || candidate >= len(oldLinks) || uint32(len(oldLinks)) != old.linkCount {
 		return Head{}, errors.New("parser-core phase zero: invalid shallow-fold candidate")
+	}
+	incomingCost, err := c.storedErrorCostForLink(in)
+	if err != nil {
+		return Head{}, err
+	}
+	oldLineage, err := c.nodeLineage(oldID)
+	if err != nil {
+		return Head{}, err
+	}
+	if oldLineage.storedErrorCost != incomingCost {
+		return Head{}, errors.New("parser-core phase zero: replacement heads have different stored recovery costs")
 	}
 	if uint64(len(c.links))+uint64(len(oldLinks)) > uint64(c.limits.MaxLinks) || uint64(len(c.links))+uint64(len(oldLinks)) > math.MaxUint32 {
 		return Head{}, errors.New("parser-core phase zero: link arena cap")
@@ -4885,6 +5064,9 @@ func (c *Core) replaceBoundaryLink(key boundaryKey, probe boundaryProbe, old nod
 		if c.dropCohortLinkRefIndexes != nil {
 			c.dropCohortLinkRefIndexes = c.dropCohortLinkRefIndexes[:linkRefMark]
 		}
+		return Head{}, err
+	}
+	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, incomingCost); err != nil {
 		return Head{}, err
 	}
 	if err := c.publishBoundary(probe, id); err != nil {

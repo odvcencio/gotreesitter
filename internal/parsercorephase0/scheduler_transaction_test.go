@@ -2,6 +2,7 @@ package parsercorephase0
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -312,34 +313,148 @@ func TestSchedulerSpeculationRollsBackFreshAndOrdinarySessions(t *testing.T) {
 			if got := captureSchedulerTransactionState(compact); !reflect.DeepEqual(got, before) {
 				t.Fatalf("ordinary declined speculation changed state: got=%+v want=%+v", got, before)
 			}
+			if _, err := compact.ShiftClassified(boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); err != nil {
+				return err
+			}
 			return nil
 		})
 		if err != nil {
 			t.Fatalf("ordinary speculation err=%v", err)
 		}
-		if got := captureSchedulerTransactionState(compact); !reflect.DeepEqual(got, before) {
-			t.Fatalf("ordinary outer commit changed declined state: got=%+v want=%+v", got, before)
+		if compact.Work().Shifts != 1 {
+			t.Fatalf("ordinary outer shift after decline work=%+v", compact.Work())
 		}
 	})
 
 	t.Run("fresh", func(t *testing.T) {
 		compact, _, boundary := newSchedulerTransactionShiftFixture(t)
-		before := captureSchedulerTransactionState(compact)
 		err := compact.RunFreshSchedulerSession(func(outer SchedulerTransactionToken) error {
-			return compact.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
+			if err := compact.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
 				if _, err := compact.ShiftClassifiedOwned(inner, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); err != nil {
 					return false, err
 				}
 				return false, nil
-			})
+			}); err != nil {
+				return err
+			}
+			_, err := compact.ShiftClassified(boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{})
+			return err
 		})
 		if err != nil {
 			t.Fatalf("fresh speculation err=%v", err)
 		}
-		if got := captureSchedulerTransactionState(compact); !reflect.DeepEqual(got, before) {
-			t.Fatalf("fresh declined speculation changed state: got=%+v want=%+v", got, before)
+		if compact.Work().Shifts != 1 {
+			t.Fatalf("fresh outer shift after decline work=%+v", compact.Work())
 		}
 	})
+}
+
+func TestSchedulerSpeculationAuthenticatesOrdinaryAncestorBelowAtomicMark(t *testing.T) {
+	for _, commit := range []bool{false, true} {
+		t.Run(fmt.Sprintf("commit_%t", commit), func(t *testing.T) {
+			compact, _, boundary := newSchedulerTransactionShiftFixture(t)
+			err := compact.ApplySchedulerAtomic(func(outer SchedulerTransactionToken) error {
+				return compact.ApplyAtomic(func() error {
+					return compact.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
+						if _, err := compact.ShiftClassifiedOwned(inner, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); err != nil {
+							return false, err
+						}
+						return commit, nil
+					})
+				})
+			})
+			if err != nil {
+				t.Fatalf("speculation below internal transaction failed: %v", err)
+			}
+			wantShifts := uint64(0)
+			if commit {
+				wantShifts = 1
+			}
+			if compact.Work().Shifts != wantShifts {
+				t.Fatalf("shifts=%d, want %d", compact.Work().Shifts, wantShifts)
+			}
+		})
+	}
+}
+
+func TestNestedSchedulerSpeculationPreservesOuterClassification(t *testing.T) {
+	compact, _, boundary := newSchedulerTransactionShiftFixture(t)
+	err := compact.ApplySchedulerAtomic(func(outer SchedulerTransactionToken) error {
+		return compact.ApplySchedulerSpeculation(outer, func(first SchedulerTransactionToken) (bool, error) {
+			if err := compact.ApplySchedulerSpeculation(first, func(second SchedulerTransactionToken) (bool, error) {
+				if _, err := compact.ShiftClassifiedOwned(second, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); err != nil {
+					return false, err
+				}
+				return false, nil
+			}); err != nil {
+				return false, err
+			}
+			if _, err := compact.ShiftClassifiedOwned(first, boundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{}); err != nil {
+				return false, err
+			}
+			return false, nil
+		})
+	})
+	if err != nil {
+		t.Fatalf("nested speculation err=%v", err)
+	}
+}
+
+func TestSchedulerSpeculationInvalidatesChildClassificationOnly(t *testing.T) {
+	for _, fresh := range []bool{false, true} {
+		t.Run(fmt.Sprintf("fresh_%t", fresh), func(t *testing.T) {
+			compact, _, outerBoundary := newSchedulerTransactionShiftFixture(t)
+			var childBoundary ClassifiedBoundary
+			run := func(outer SchedulerTransactionToken) error {
+				if err := compact.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
+					childHead, err := compact.ShiftClassifiedOwned(inner, outerBoundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{})
+					if err != nil {
+						return false, err
+					}
+					childBoundary, err = compact.ClassifyBoundary(childHead, 9)
+					return false, err
+				}); err != nil {
+					return err
+				}
+				if err := compact.validateClassification(childBoundary); err == nil || !strings.Contains(err.Error(), "transaction is stale") {
+					return fmt.Errorf("child classification after decline: %v", err)
+				}
+				_, err := compact.ShiftClassifiedOwned(outer, outerBoundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{})
+				return err
+			}
+			var err error
+			if fresh {
+				err = compact.RunFreshSchedulerSession(run)
+			} else {
+				err = compact.ApplySchedulerAtomic(run)
+			}
+			if err != nil {
+				t.Fatalf("speculation classification isolation: %v", err)
+			}
+		})
+	}
+
+	compact, _, outerBoundary := newSchedulerTransactionShiftFixture(t)
+	var childBoundary ClassifiedBoundary
+	err := compact.ApplySchedulerAtomic(func(outer SchedulerTransactionToken) error {
+		if err := compact.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
+			childHead, err := compact.ShiftClassifiedOwned(inner, outerBoundary, 0, Token{Symbol: 9, EndByte: 1}, ForkOrder{})
+			if err != nil {
+				return false, err
+			}
+			childBoundary, err = compact.ClassifyBoundary(childHead, 9)
+			return true, err
+		}); err != nil {
+			return err
+		}
+		if err := compact.validateClassification(childBoundary); err == nil || !strings.Contains(err.Error(), "transaction is stale") {
+			return fmt.Errorf("child classification after commit: %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("committed speculation classification isolation: %v", err)
+	}
 }
 
 func TestSchedulerSpeculationIgnoredErrorPoisonsOuter(t *testing.T) {

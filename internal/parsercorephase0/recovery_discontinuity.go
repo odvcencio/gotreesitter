@@ -55,11 +55,15 @@ func (c *Core) appendRecoveryDiscontinuityUncheckpointed(
 	if err != nil {
 		return Head{}, err
 	}
+	previousLineage, err := c.nodeLineage(predecessor.Node)
+	if err != nil {
+		return Head{}, err
+	}
 	link := linkRecord{prev: predecessor.Node, flags: linkFlagRecoveryDiscontinuity}
 	maximum := precedenceMaximumWitness{seed: previous.precedenceMax, hasSeed: true}
-	node, err := c.appendAdjacencyNodeAtWithPrecedence(
+	node, err := c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
 		context.ErrorState, context.ByteOffset, context.Checkpoint,
-		[]linkRecord{link}, maximum,
+		[]linkRecord{link}, maximum, previousLineage.storedErrorCost, true,
 	)
 	if err != nil {
 		return Head{}, err
@@ -197,9 +201,9 @@ func (c *Core) mergeRecoveryDiscontinuityHeadsUncheckpointed(
 		c.addWork(&c.work.PhysicalHeadMergeSuccesses, 1)
 		return incumbent, nil
 	}
-	merged, err := c.appendAdjacencyNodeAtWithPrecedence(
+	merged, err := c.appendAdjacencyNodeAtWithPrecedenceAndStoredErrorCost(
 		context.ErrorState, context.ByteOffset, context.Checkpoint,
-		links, folded,
+		links, folded, leftLineage.storedErrorCost, true,
 	)
 	if err != nil {
 		return Head{}, err

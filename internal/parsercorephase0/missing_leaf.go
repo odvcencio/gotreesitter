@@ -2,6 +2,10 @@ package parsercorephase0
 
 import "errors"
 
+// compactMissingLeafStoredErrorCost is the pinned C cost of one missing
+// terminal: one recovery plus one missing-tree term.
+const compactMissingLeafStoredErrorCost uint32 = 610
+
 // ---------------------------------------------------------------------------
 // missing_leaf.go -- compact support for C's recovery-inserted MISSING
 // terminal.
@@ -110,8 +114,16 @@ func (c *Core) ShiftMissingLeaf(head Head, targetState StateID, symbol Symbol, a
 	if err != nil {
 		return Head{}, err
 	}
+	lineage, err := c.nodeLineage(head.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	if ^uint32(0)-lineage.storedErrorCost < compactMissingLeafStoredErrorCost {
+		return Head{}, errors.New("parser-core phase zero: missing leaf stored recovery cost overflow")
+	}
+	storedErrorCost := lineage.storedErrorCost + compactMissingLeafStoredErrorCost
 	return c.condense(c.shiftedBoundaryKey(targetState, atByte), linkInput{
-		prev: head.Node, payload: payload,
+		prev: head.Node, payload: payload, storedErrorCost: storedErrorCost, hasStoredErrorCost: true,
 	})
 }
 

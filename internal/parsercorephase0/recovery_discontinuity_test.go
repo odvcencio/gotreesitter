@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -361,14 +362,8 @@ func TestRecoveryDiscontinuityMergeRejectsDifferentStoredCostsBeforeMutation(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
-		if err := core.RecordHeadStoredErrorCostOwned(owner, leftSeed, 7); err != nil {
-			return err
-		}
-		return core.RecordHeadStoredErrorCostOwned(owner, rightSeed, 8)
-	}); err != nil {
-		t.Fatal(err)
-	}
+	core.nodeLineages[leftSeed.Node-1].storedErrorCost = 7
+	core.nodeLineages[rightSeed.Node-1].storedErrorCost = 8
 	var left, right Head
 	context := RecoveryDiscontinuityContext{ByteOffset: 0}
 	if err := core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
@@ -400,5 +395,54 @@ func TestRecoveryDiscontinuityMergeRejectsDifferentStoredCostsBeforeMutation(t *
 	}
 	if len(core.nodes) != beforeNodes || len(core.links) != beforeLinks || core.Work() != beforeWork {
 		t.Fatalf("rejected merge mutated graph or telemetry: nodes=%d/%d links=%d/%d work=%+v/%+v", len(core.nodes), beforeNodes, len(core.links), beforeLinks, core.Work(), beforeWork)
+	}
+}
+
+func TestRecordHeadStoredErrorCostRequiresFreshSpeculationPublication(t *testing.T) {
+	core := newTinyCoreWithLimits(t, Limits{MaxNodes: 64, MaxLinks: 64, MaxDerivations: 8, MaxPopPaths: 8})
+	seed, err := core.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	core.nodeLineages[seed.Node-1].storedErrorCost = 7
+	if err := core.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		if err := core.RecordHeadStoredErrorCostOwned(owner, seed, 7); err != nil {
+			return err
+		}
+		return core.RecordHeadStoredErrorCostOwned(owner, seed, 8)
+	}); err == nil || !strings.Contains(err.Error(), "published node") {
+		t.Fatalf("published node rewrite error=%v", err)
+	}
+	if got, err := core.RecoveryStoredErrorCost(seed); err != nil || got != 7 {
+		t.Fatalf("published node cost=%d err=%v, want 7", got, err)
+	}
+	err = core.ApplySchedulerAtomic(func(outer SchedulerTransactionToken) error {
+		return core.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
+			return false, core.RecordHeadStoredErrorCostOwned(inner, seed, 8)
+		})
+	})
+	if err == nil || !strings.Contains(err.Error(), "published node") {
+		t.Fatalf("speculative published node rewrite error=%v", err)
+	}
+
+	var fresh Head
+	err = core.ApplySchedulerAtomic(func(outer SchedulerTransactionToken) error {
+		return core.ApplySchedulerSpeculation(outer, func(inner SchedulerTransactionToken) (bool, error) {
+			var appendErr error
+			fresh, appendErr = core.AppendRecoveryDiscontinuityOwned(inner, seed, RecoveryDiscontinuityContext{ByteOffset: 0})
+			if appendErr != nil {
+				return false, appendErr
+			}
+			if appendErr = core.RecordHeadStoredErrorCostOwned(inner, fresh, 9); appendErr != nil {
+				return false, appendErr
+			}
+			return true, nil
+		})
+	})
+	if err != nil {
+		t.Fatalf("fresh speculative publication err=%v", err)
+	}
+	if got, err := core.RecoveryStoredErrorCost(fresh); err != nil || got != 9 {
+		t.Fatalf("fresh node cost=%d err=%v, want 9", got, err)
 	}
 }

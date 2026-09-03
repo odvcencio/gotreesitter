@@ -384,6 +384,8 @@ func TestStage2PhysicalHeadMergeRollsBackCapacityFailure(t *testing.T) {
 
 func TestStage2PhysicalHeadMergeRejectsRecoveryCost(t *testing.T) {
 	compact, left, right, _, _ := newStage2PhysicalHeadPair(t)
+	compact.nodeLineages[left.Node-1].storedErrorCost = 610
+	compact.nodeLineages[right.Node-1].storedErrorCost = 610
 	beforeNodes, beforeLinks := len(compact.nodes), len(compact.links)
 	beforeBoundaries := compact.BoundaryIndexStats()
 	beforeWork := compact.Work()
@@ -398,6 +400,64 @@ func TestStage2PhysicalHeadMergeRejectsRecoveryCost(t *testing.T) {
 	if len(compact.nodes) != beforeNodes || len(compact.links) != beforeLinks ||
 		compact.BoundaryIndexStats() != beforeBoundaries || compact.Work() != beforeWork {
 		t.Fatal("recovery-cost rejection changed compact state")
+	}
+}
+
+func TestRecursiveMergeUsesTargetCostForMixedLinkSplits(t *testing.T) {
+	compact := newTinyCoreWithLimits(t, Limits{MaxNodes: 32, MaxLinks: 32, MaxSubtrees: 16})
+	leftBase, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightBase, err := compact.appendNode(nodeRecord{state: 1, byteOffset: 0, pathCount: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compact.nodeLineages[rightBase-1].storedErrorCost = 5
+	payload, err := compact.appendSubtree(subtreeRecord{symbol: 9, endByte: 1, terminal: true}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leftLink := compact.appendGraphLink(linkRecord{prev: leftBase.Node, payload: payload})
+	leftNode, err := compact.appendNode(nodeRecord{
+		state: 3, byteOffset: 1, firstLink: uint32(leftLink), linkCount: 1, pathCount: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightLink := compact.appendGraphLink(linkRecord{prev: rightBase, payload: payload})
+	rightNode, err := compact.appendNode(nodeRecord{
+		state: 3, byteOffset: 1, firstLink: uint32(rightLink), linkCount: 1, pathCount: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The two top heads have the same cumulative cost. Their lower
+	// predecessors have different cost splits, so recursive insertion must
+	// retain both links and publish the authenticated target cost.
+	compact.nodeLineages[leftNode-1].storedErrorCost = 10
+	compact.nodeLineages[rightNode-1].storedErrorCost = 10
+	folded := precedenceMaximumWitness{}
+	merged, changed, err := compact.mergePredecessorsBounded(leftNode, rightNode, 0, &folded)
+	if err != nil {
+		t.Fatalf("mergePredecessorsBounded: %v", err)
+	}
+	if !changed {
+		t.Fatal("mixed link split did not publish a merged predecessor")
+	}
+	cost, err := compact.RecoveryStoredErrorCost(Head{Node: merged})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cost != 10 {
+		t.Fatalf("merged target cost=%d, want authenticated cost 10", cost)
+	}
+	mergedNode, err := compact.node(merged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mergedNode.linkCount != 2 {
+		t.Fatalf("merged link count=%d, want both mixed-split links", mergedNode.linkCount)
 	}
 }
 
