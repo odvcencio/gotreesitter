@@ -119,6 +119,7 @@ func localLR1Rebuild(
 		if stateIdx >= len(ctx.itemSets) {
 			continue
 		}
+
 		// Find all predecessor states with transitions into this state.
 		trans := ctx.transitions
 		type predInfo struct {
