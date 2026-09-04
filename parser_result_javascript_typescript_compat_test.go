@@ -158,6 +158,104 @@ func TestTreeRootNodeAppliesDeferredTypeScriptCompatibility(t *testing.T) {
 	}
 }
 
+func TestDeferredTypeScriptCompatibilityInvalidatesCompactReuseProof(t *testing.T) {
+	t.Run("unchanged compact tree", func(t *testing.T) {
+		lang, _, _ := newDeferredCompatDynamicImportFixture()
+		arena := newNodeArena(arenaClassFull)
+		identifier := newLeafNodeInArena(arena, 12, true, 0, 3, Point{}, Point{Column: 3})
+		root := newParentNodeInArena(arena, 1, true, []*Node{identifier}, nil, 0)
+		for _, node := range []*Node{root, identifier} {
+			node.setCompactMaterialized(true)
+			node.setCompactParseStateProof(true)
+			if node.ChildCount() > 0 {
+				node.setCompactPreGotoStateProof(true)
+			}
+		}
+		tree := newTreeWithArenas(root, []byte("foo"), lang, arena, nil)
+		tree.deferResultCompatibility()
+
+		_ = tree.RootNode()
+		if tree.incrementalReuseDisabled {
+			t.Fatal("unchanged deferred compatibility disabled compact reuse")
+		}
+	})
+
+	t.Run("pure compact tree", func(t *testing.T) {
+		lang, root, stmt := newDeferredCompatDynamicImportFixture()
+		root.setCompactMaterialized(true)
+		root.setCompactParseStateProof(true)
+		root.setCompactPreGotoStateProof(true)
+		stmt.setCompactMaterialized(true)
+		stmt.setCompactParseStateProof(true)
+		tree := newTreeWithArenas(root, []byte("import"), lang, root.ownerArena, nil)
+		tree.deferResultCompatibility()
+
+		if !compactTreeIncrementalReuseProven(root) {
+			t.Fatal("fixture lacks compact reuse proof before compatibility")
+		}
+		_ = tree.RootNode()
+		if !tree.incrementalReuseDisabled {
+			t.Fatal("deferred compatibility kept stale compact reuse proof")
+		}
+		if compactTreeIncrementalReuseProven(root) {
+			t.Fatal("compatibility rewrite unexpectedly retained compact reuse proof")
+		}
+	})
+
+	t.Run("mixed incremental lineage", func(t *testing.T) {
+		lang, root, stmt := newDeferredCompatDynamicImportFixture()
+		stmt.setCompactMaterialized(true)
+		stmt.setCompactParseStateProof(true)
+		tree := newTreeWithArenas(root, []byte("import"), lang, root.ownerArena, nil)
+		tree.deferResultCompatibility()
+
+		if !compactTreeContainsMaterializedNode(root) {
+			t.Fatal("fixture lacks inherited compact descendant")
+		}
+		if tree.incrementalReuseDisabled {
+			t.Fatal("fixture disabled incremental reuse before compatibility")
+		}
+		_ = tree.RootNode()
+		if !tree.incrementalReuseDisabled {
+			t.Fatal("deferred compatibility kept mixed compact lineage reusable")
+		}
+	})
+
+	t.Run("in-place child removal", func(t *testing.T) {
+		lang, _, _ := newDeferredCompatDynamicImportFixture()
+		arena := newNodeArena(arenaClassFull)
+		keyword := newLeafNodeInArena(arena, 2, false, 0, 6, Point{}, Point{Column: 6})
+		identifier := newParentNodeInArena(arena, 12, true, []*Node{keyword}, nil, 0)
+		root := newParentNodeInArena(arena, 1, true, []*Node{identifier}, nil, 0)
+		for _, node := range []*Node{root, identifier, keyword} {
+			node.setCompactMaterialized(true)
+			node.setCompactParseStateProof(true)
+			if node.ChildCount() > 0 {
+				node.setCompactPreGotoStateProof(true)
+			}
+		}
+		tree := newTreeWithArenas(root, []byte("import"), lang, arena, nil)
+		tree.deferResultCompatibility()
+
+		if !compactTreeIncrementalReuseProven(root) {
+			t.Fatal("fixture lacks compact reuse proof before compatibility")
+		}
+		if got := resultChildCount(identifier); got != 1 {
+			t.Fatalf("identifier child count before compatibility=%d, want 1", got)
+		}
+		_ = tree.RootNode()
+		if got := resultChildCount(identifier); got != 0 {
+			t.Fatalf("identifier child count after compatibility=%d, want 0", got)
+		}
+		if !compactTreeIncrementalReuseProven(root) {
+			t.Fatal("in-place rewrite unexpectedly cleared the stale proof bits")
+		}
+		if !tree.incrementalReuseDisabled {
+			t.Fatal("in-place compatibility rewrite kept compact lineage reusable")
+		}
+	})
+}
+
 func TestTreeUTF16DescendantAppliesDeferredTypeScriptCompatibility(t *testing.T) {
 	lang, root, stmt := newDeferredCompatDynamicImportFixture()
 	source, sourceMap := encodeUTF16ToUTF8WithMap([]uint16{'i', 'm', 'p', 'o', 'r', 't'})

@@ -37,6 +37,7 @@ func TestRealParseFragileGateCounterFiresOnAmbiguousGoTopLevelDecls(t *testing.T
 	oldSrc := src.Bytes()
 
 	parser := gotreesitter.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
 	oldTree, err := parser.Parse(oldSrc)
 	if err != nil {
 		t.Fatalf("base parse: %v", err)

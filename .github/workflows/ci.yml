@@ -104,7 +104,7 @@ jobs:
           GTS_COMPAT_TAIL_ELISION_EXHAUSTIVE=1 \
           GOMAXPROCS=1 \
           go test -tags gts_parsercorephase0 . \
-            -run '^(TestAdmissionCandidateScorecard206|TestAdmissionSwitchRoutePrecedenceRatchet|TestAdmissionCandidateYAMLZeroWidthDepth|TestAdmissionCandidateRepresentativeDepthRatchet|TestAdmissionCompactTreeCarriesIncrementalReuseProof|TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape|TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite|TestCompatTailElisionEquivalenceSmokeExhaustive)$' \
+            -run '^(TestAdmissionCandidateScorecard206|TestAdmissionSwitchRoutePrecedenceRatchet|TestAdmissionCandidateYAMLZeroWidthDepth|TestAdmissionCandidateRepresentativeDepthRatchet|TestAdmissionCompactTreeCarriesIncrementalReuseProof|TestCompactJavaScriptRecoveryIncrementalReuse|TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape|TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite|TestCompatTailElisionEquivalenceSmokeExhaustive)$' \
             -count=1 -timeout 10m
 
   phase0_tagged_suite:
@@ -1250,6 +1250,38 @@ jobs:
             --c-ref-build-jobs 1 \
             --timeout 20m \
             --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestCompactRouteLockedCExceptions)$'
+
+      - name: Compact recovery incremental JavaScript witnesses
+        run: |
+          GTS_PARITY_MODE=smoke \
+          GTS_PARITY_C_REF_BUILD_CACHE=0 \
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-compact-recovery-incremental-javascript \
+            --memory 8g \
+            --cpus 2 \
+            --pids 4096 \
+            --gomemlimit 6GiB \
+            --goflags -p=1 \
+            --test-parallel 1 \
+            --c-ref-build-jobs 1 \
+            --timeout 20m \
+            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestCompactRecoveryJavaScriptIncrementalCOracle|TestCompactRecoveryJavaScriptInsertionRegression)$' -count=1 -parallel 1 -timeout 20m -v"
+
+      - name: Compact recovery incremental YAML witness
+        run: |
+          GTS_PARITY_MODE=smoke \
+          GTS_PARITY_C_REF_BUILD_CACHE=0 \
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-compact-recovery-incremental-yaml \
+            --memory 8g \
+            --cpus 2 \
+            --pids 4096 \
+            --gomemlimit 6GiB \
+            --goflags -p=1 \
+            --test-parallel 1 \
+            --c-ref-build-jobs 1 \
+            --timeout 20m \
+            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestCompactRecoveryYAMLRecoverEOFIncrementalCOracle$' -count=1 -parallel 1 -timeout 20m -v"
 
       - name: Compact per-version lexer package-one witnesses
         run: |

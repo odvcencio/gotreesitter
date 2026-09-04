@@ -95,6 +95,12 @@ const (
 	// raw C span must survive public result finalization. It is runtime-only
 	// provenance and fits the existing uint16 flag budget.
 	nodeFlagCompactRecoverEOF
+	// nodeFlagCompactMaterialized marks nodes whose parser-state metadata came
+	// from compact materialization. The remaining two bits record which state
+	// fields were authenticated by table replay. These flags are runtime-only.
+	nodeFlagCompactMaterialized
+	nodeFlagCompactParseStateProven
+	nodeFlagCompactPreGotoStateProven
 )
 
 func (n *Node) hasFlag(flag nodeFlags) bool {
@@ -121,6 +127,111 @@ func (n *Node) isExternalScannerToken() bool {
 	return n != nil && n.hasFlag(nodeFlagExternalScannerToken)
 }
 func (n *Node) setExternalScannerToken(v bool) { n.setFlag(nodeFlagExternalScannerToken, v) }
+
+func (n *Node) isCompactMaterialized() bool {
+	return n != nil && n.hasFlag(nodeFlagCompactMaterialized)
+}
+
+func (n *Node) setCompactMaterialized(v bool) {
+	if n != nil {
+		n.setFlag(nodeFlagCompactMaterialized, v)
+	}
+}
+
+func (n *Node) hasCompactParseStateProof() bool {
+	return n != nil && n.hasFlag(nodeFlagCompactParseStateProven)
+}
+
+func (n *Node) setCompactParseStateProof(v bool) {
+	if n != nil {
+		n.setFlag(nodeFlagCompactParseStateProven, v)
+	}
+}
+
+func (n *Node) hasCompactPreGotoStateProof() bool {
+	return n != nil && n.hasFlag(nodeFlagCompactPreGotoStateProven)
+}
+
+func (n *Node) setCompactPreGotoStateProof(v bool) {
+	if n != nil {
+		n.setFlag(nodeFlagCompactPreGotoStateProven, v)
+	}
+}
+
+func compactNodeRecoveryBearing(n *Node) bool {
+	if n == nil {
+		return false
+	}
+	if n.hasError() || n.isMissing() || n.symbol == errorSymbol || n.isFragile() {
+		return true
+	}
+	// A clean leaf nested below an explicit recovery node has no independent
+	// parser-frontier proof. Keep it with the recovery region so the cursor
+	// descends to a clean sibling instead of splicing part of that region.
+	for parent := n.parent; parent != nil; parent = parent.parent {
+		if parent.isMissing() || parent.symbol == errorSymbol || parent.isFragile() {
+			return true
+		}
+	}
+	return false
+}
+
+func compactNodeStateProofAvailable(n *Node) bool {
+	if n == nil || !n.isCompactMaterialized() {
+		return true
+	}
+	if !n.hasCompactParseStateProof() {
+		return false
+	}
+	return n.ChildCount() == 0 || n.hasCompactPreGotoStateProof()
+}
+
+// compactNodeMayBeReused reports whether a compact node has enough
+// authenticated metadata for the incremental parser to splice it.
+// Recovery-bearing nodes remain barred because the cursor must descend into
+// them and rebuild their unstable region.
+func compactNodeMayBeReused(n *Node) bool {
+	if n == nil {
+		return false
+	}
+	if !n.isCompactMaterialized() {
+		return true
+	}
+	if compactNodeRecoveryBearing(n) {
+		return false
+	}
+	return compactNodeStateProofAvailable(n)
+}
+
+// compactTreeIncrementalReuseProven checks the visible nodes that can reach
+// the reuse cursor. Error, missing, and fragile nodes are intentionally
+// excluded because C rejects them before descending to clean descendants.
+func compactTreeIncrementalReuseProven(root *Node) bool {
+	if root == nil {
+		return false
+	}
+	stack := []*Node{root}
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		n := stack[last]
+		stack = stack[:last]
+		if n == nil {
+			continue
+		}
+		if !compactNodeRecoveryBearing(n) {
+			if !n.isCompactMaterialized() || !compactNodeStateProofAvailable(n) {
+				return false
+			}
+		}
+		for i := nodeChildCountNoMaterialize(n) - 1; i >= 0; i-- {
+			child := nodeChildAtForReason(n, i, materializeForEdit)
+			if child != nil {
+				stack = append(stack, child)
+			}
+		}
+	}
+	return true
+}
 
 func (n *Node) setLexerSkippedPrefixAtSourceStart(v bool) {
 	n.setFlag(nodeFlagLexerSkippedPrefixAtSourceStart, v)
@@ -2666,11 +2777,14 @@ func (t *Tree) ensureResultCompatibility() {
 		if t.root == nil || t.language == nil {
 			return
 		}
+		hadCompactLineage := t.compactMaterialized || compactTreeContainsMaterializedNode(t.root)
+		compatibilitySnapshot := snapshotCompactCompatibilityTree(t.root, hadCompactLineage)
 		if !parsePhaseTimingEnabled() {
 			parser := &Parser{language: t.language}
 			result := normalizeResultCompatibility(t.root, t.source, parser, nil)
 			t.resultErrorSummary = result.errorSummary
 			t.resultCompatibilityApplied = !parseStopReasonIsActive(result.stopReason)
+			t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 			// Diagnostic-only, mirrors the timing-enabled branch below: without
 			// this, every deferred-compatibility language (typescript/tsx by
 			// default, see shouldDeferResultCompatibility) would
@@ -2691,10 +2805,161 @@ func (t *Tree) ensureResultCompatibility() {
 		result := normalizeResultCompatibility(t.root, t.source, parser, nil)
 		t.resultErrorSummary = result.errorSummary
 		t.resultCompatibilityApplied = !parseStopReasonIsActive(result.stopReason)
+		t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 		timing.addResultCompatibility(start)
 		t.parseRuntime.ResultCompatibilityNanos += timing.resultCompatibilityNanos
 		parser.copyNormalizationStats(&t.parseRuntime)
 	})
+}
+
+func (t *Tree) disableIncrementalReuseAfterCompactCompatibility(snapshot *compactCompatibilityTreeSnapshot) {
+	if t != nil && snapshot != nil && !snapshot.matches(t.root) {
+		t.incrementalReuseDisabled = true
+	}
+}
+
+type compactCompatibilityNodeSnapshot struct {
+	node              *Node
+	children          []*Node
+	fieldIDs          []FieldID
+	fieldSources      []uint8
+	startPoint        Point
+	endPoint          Point
+	startByte         uint32
+	endByte           uint32
+	parseState        StateID
+	preGotoState      StateID
+	equivVersion      uint32
+	dynamicPrecedence int32
+	symbol            Symbol
+	productionID      uint16
+	semanticFlags     nodeFlags
+}
+
+type compactCompatibilityTreeSnapshot struct {
+	root  *Node
+	nodes []compactCompatibilityNodeSnapshot
+}
+
+func snapshotCompactCompatibilityTree(root *Node, enabled bool) *compactCompatibilityTreeSnapshot {
+	if !enabled || root == nil {
+		return nil
+	}
+	snapshot := &compactCompatibilityTreeSnapshot{root: root}
+	stack := []*Node{root}
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		node := stack[last]
+		stack = stack[:last]
+		if node == nil {
+			continue
+		}
+		children := append([]*Node(nil), nodeChildrenForReason(node, materializeForEdit)...)
+		snapshot.nodes = append(snapshot.nodes, compactCompatibilityNodeSnapshot{
+			node:              node,
+			children:          children,
+			fieldIDs:          append([]FieldID(nil), node.fieldIDs()...),
+			fieldSources:      append([]uint8(nil), node.fieldSources()...),
+			startPoint:        node.startPoint,
+			endPoint:          node.endPoint,
+			startByte:         node.startByte,
+			endByte:           node.endByte,
+			parseState:        node.parseState,
+			preGotoState:      node.preGotoState,
+			equivVersion:      node.equivVersion,
+			dynamicPrecedence: node.dynamicPrecedence,
+			symbol:            node.symbol,
+			productionID:      node.productionID,
+			semanticFlags:     node.flags &^ (nodeFlagFieldIDCacheComputed | nodeFlagFieldIDCacheHasFieldIDs),
+		})
+		for i := len(children) - 1; i >= 0; i-- {
+			stack = append(stack, children[i])
+		}
+	}
+	return snapshot
+}
+
+func (s *compactCompatibilityTreeSnapshot) matches(root *Node) bool {
+	if s == nil || s.root != root {
+		return false
+	}
+	for _, before := range s.nodes {
+		node := before.node
+		if node == nil ||
+			node.startPoint != before.startPoint || node.endPoint != before.endPoint ||
+			node.startByte != before.startByte || node.endByte != before.endByte ||
+			node.parseState != before.parseState || node.preGotoState != before.preGotoState ||
+			node.equivVersion != before.equivVersion || node.dynamicPrecedence != before.dynamicPrecedence ||
+			node.symbol != before.symbol || node.productionID != before.productionID ||
+			node.flags&^(nodeFlagFieldIDCacheComputed|nodeFlagFieldIDCacheHasFieldIDs) != before.semanticFlags ||
+			!sameNodePointers(node.children, before.children) ||
+			!sameFieldIDs(node.fieldIDs(), before.fieldIDs) ||
+			!sameBytes(node.fieldSources(), before.fieldSources) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameNodePointers(left, right []*Node) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func sameFieldIDs(left, right []FieldID) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func sameBytes(left, right []uint8) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func compactTreeContainsMaterializedNode(root *Node) bool {
+	if root == nil {
+		return false
+	}
+	stack := []*Node{root}
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		node := stack[last]
+		stack = stack[:last]
+		if node == nil {
+			continue
+		}
+		if node.isCompactMaterialized() {
+			return true
+		}
+		for i := nodeChildCountNoMaterialize(node) - 1; i >= 0; i-- {
+			child := nodeChildAtForReason(node, i, materializeForEdit)
+			if child != nil {
+				stack = append(stack, child)
+			}
+		}
+	}
+	return false
 }
 
 func newParentNode(arena *nodeArena, sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {

@@ -220,6 +220,9 @@ func requireCompactIncrementalStateProof(t *testing.T, tree *Tree) {
 		last := len(stack) - 1
 		node := stack[last]
 		stack = stack[:last]
+		if !node.isCompactMaterialized() || !compactNodeStateProofAvailable(node) {
+			t.Fatalf("proof-carrying node %s %d..%d lacks authenticated compact state", node.Type(tree.language), node.startByte, node.endByte)
+		}
 		children := node.ChildCount()
 		if children == 0 {
 			if node.parseState == 0 {

@@ -120,7 +120,6 @@
       "expression": "default",
       "scope": "production",
       "read_sites": [
-        {"path": "incremental.go", "symbol": "tryReuseSubtree", "line": 636},
         {"path": "incremental_invariant_gate_test.go", "symbol": "TestIncrementalInvariantGate", "line": 192}
       ]
     },

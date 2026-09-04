@@ -1608,6 +1608,7 @@ type incrementalParseTiming struct {
 type parseReuseState struct {
 	reusedAny bool
 	arenaRefs []*nodeArena
+	arenaWalk []*Node
 }
 
 // NewParser creates a new Parser for the given language.
@@ -3149,7 +3150,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = incrementalReuseUnsupportedReasonForTree(oldTree)
-			if oldTree != nil && oldTree.compactMaterialized && !compactRecoverEOFTreeMarked(oldTree) {
+			if oldTree != nil && oldTree.compactMaterialized {
 				if reason := incrementalReuseUnavailableReason(ts); reason != "" {
 					timing.reuseUnsupportedReason = reason
 				}

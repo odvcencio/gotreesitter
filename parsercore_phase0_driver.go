@@ -7242,8 +7242,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		}
 		defer replayStates.release()
 	}
-	incrementalReuseProven := replayStates != nil && compactIncrementalReuseProvenForLanguage(parser.language)
-	stamp := func(id core.SubtreeID, node *Node, terminal bool) {
+	stamp := func(id core.SubtreeID, node *Node) {
 		// Stamp the reconstructed state for THIS derivation id onto the node
 		// that materializes it. For a unary collapse chain the driver visits the
 		// ids inner-to-outer (postorder) and reuses one node object, so the last
@@ -7260,21 +7259,27 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		// parseState is the "unknown -> recompute" sentinel (incremental
 		// self-healing), which is strictly safer than stamping a known-wrong but
 		// trusted non-zero state (Phase-3 Lane 3 review amendment 1).
+		if node != nil {
+			// A visible node can represent several compact ids when unary
+			// reductions collapse during materialization. Clear every stamped
+			// field before applying the outermost id, so an inner proof cannot
+			// survive an outer abstention.
+			node.setCompactMaterialized(true)
+			node.setCompactParseStateProof(false)
+			node.setCompactPreGotoStateProof(false)
+			node.parseState = 0
+			node.preGotoState = 0
+		}
 		if replayStates != nil && node != nil {
 			pre, ps, preOk, psOk := replayStates.get(id)
-			if terminal {
-				incrementalReuseProven = incrementalReuseProven && psOk
-			} else {
-				incrementalReuseProven = incrementalReuseProven && preOk
-			}
 			if psOk {
 				node.parseState = ps
+				node.setCompactParseStateProof(true)
 			}
 			if preOk {
 				node.preGotoState = pre
+				node.setCompactPreGotoStateProof(true)
 			}
-		} else {
-			incrementalReuseProven = false
 		}
 		nodesByID[id] = node
 	}
@@ -7382,7 +7387,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 				// (subtreeRecord.fragile is only ever set on reductions), so a
 				// terminal record is never fragile. The reduce branches below
 				// carry the bit.
-				stamp(id, node, true)
+				stamp(id, node)
 				return nil
 			}
 
@@ -7488,7 +7493,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 				parent.setHasError(true)
 				hasErrorByID[id] = true
 				markFragile(parent, view.Fragile)
-				stamp(id, parent, false)
+				stamp(id, parent)
 				return nil
 			}
 			action := ParseAction{
@@ -7503,7 +7508,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 					child.setHasError(true)
 				}
 				hasErrorByID[id] = subtreeHasError
-				stamp(id, child, false)
+				stamp(id, child)
 				return nil
 			}
 			children, fieldIDs, fieldSources, _ := parser.buildReduceChildrenWithPath(
@@ -7523,7 +7528,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 					child.setHasError(true)
 				}
 				hasErrorByID[id] = subtreeHasError
-				stamp(id, child, false)
+				stamp(id, child)
 				return nil
 			}
 			parent := newParentNodeInArenaWithFieldSources(
@@ -7540,7 +7545,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			}
 			hasErrorByID[id] = subtreeHasError
 			markFragile(parent, view.Fragile)
-			stamp(id, parent, false)
+			stamp(id, parent)
 			return nil
 		}
 		if scratch != nil {
@@ -7696,11 +7701,15 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			),
 		})
 	}
-	// A recover_eof result carries an EOF runtime for the original source.
-	// Never let an edited copy enter incremental reuse with that stale boundary.
-	tree.incrementalReuseDisabled = rootFinalization == diagnosticParserCoreFinalizeRecoverEOF ||
-		!incrementalReuseProven || !scannerProvenanceTransferProven
 	tree.compactMaterialized = true
+	// Compact trees remain eligible only when replay authenticated every
+	// potentially reusable visible node and the scanner transfer is proven.
+	// Recovery-bearing nodes stay excluded by the reuse cursor, which descends
+	// to clean siblings while preserving the ordinary scanner gate.
+	compactIncrementalReuseProven := replayStates != nil &&
+		compactIncrementalReuseProvenForLanguage(parser.language) &&
+		scannerProvenanceTransferProven && compactTreeIncrementalReuseProven(root)
+	tree.incrementalReuseDisabled = !compactIncrementalReuseProven
 	tree.setParseRuntime(ParseRuntime{
 		StopReason:                                     ParseStopAccepted,
 		SourceLen:                                      sourceLen,
