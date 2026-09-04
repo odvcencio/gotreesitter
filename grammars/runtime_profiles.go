@@ -33,6 +33,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactRecoverEOFArtifact           gotreesitter.CompactRecoverEOFArtifactReceipt
 	compactStackSummaryRecovery         bool
 	compactMissingTokenInsertion        bool
+	compactS5EOFMissingInsertion        bool
 	compactFaithfulS5Recovery           bool
 	compactRecoveryTrailingRetirement   bool
 	compactRecoveryErrorModeKeyword     bool
@@ -186,12 +187,14 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		compactRecoveryPlainFirst: true,
 	},
 	// The locked Scala artifact certifies S5 missing insertion through a
-	// physical graph-head merge and a per-version lexer split. The profile
-	// excludes stack-summary and EOF recovery, which remain separate packages.
+	// physical graph-head merge and a per-version lexer split. It also certifies
+	// S5 reductions before one missing insertion at EOF. The profile excludes
+	// stack-summary recovery and the distinct recover_eof ERROR-root route.
 	"scala": {
 		blobSHA256:                          mustRuntimeProfileSHA256("8bc4a20f983ea8c8873c28430f089ba2bbbf00a995dd29f575bf2bc598d29dfa"),
 		compactStrategy2ErrorRegion:         true,
 		compactMissingTokenInsertion:        true,
+		compactS5EOFMissingInsertion:        true,
 		compactFaithfulS5Recovery:           true,
 		compactPrimaryAcceptDerivation:      true,
 		compactAcceptanceStructuralElection: true,
@@ -804,6 +807,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactMissingTokenInsertion && !lang.CompactMissingTokenInsertionCertified {
 		lang.CompactMissingTokenInsertionCertified = true
+		changed = true
+	}
+	if profile.compactS5EOFMissingInsertion && !lang.CompactS5EOFMissingInsertionCertified {
+		lang.CompactS5EOFMissingInsertionCertified = true
 		changed = true
 	}
 	if profile.compactFaithfulS5Recovery && !lang.CompactFaithfulS5RecoveryCertified {

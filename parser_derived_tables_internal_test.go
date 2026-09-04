@@ -186,6 +186,7 @@ func TestParserDerivedTablesReadOnlyPostLoadMutableFields(t *testing.T) {
 	restoreStructuralElection := lang.CompactAcceptanceStructuralElectionCertified
 	restoreLexerSkippedPrefix := lang.CompactLexerSkippedPrefixTilingCertified
 	restoreMissingInsertion := lang.CompactMissingTokenInsertionCertified
+	restoreS5EOFInsertion := lang.CompactS5EOFMissingInsertionCertified
 	restoreErrorModeKeyword := lang.CompactRecoveryErrorModeKeywordCaptureCertified
 	restoreSplitDrops := lang.CompactConvergedReductionSplitDropsCertified
 	restoreScanner := lang.ExternalScanner
@@ -197,6 +198,7 @@ func TestParserDerivedTablesReadOnlyPostLoadMutableFields(t *testing.T) {
 		lang.CompactAcceptanceStructuralElectionCertified = restoreStructuralElection
 		lang.CompactLexerSkippedPrefixTilingCertified = restoreLexerSkippedPrefix
 		lang.CompactMissingTokenInsertionCertified = restoreMissingInsertion
+		lang.CompactS5EOFMissingInsertionCertified = restoreS5EOFInsertion
 		lang.CompactRecoveryErrorModeKeywordCaptureCertified = restoreErrorModeKeyword
 		lang.CompactConvergedReductionSplitDropsCertified = restoreSplitDrops
 		lang.ExternalScanner = restoreScanner
@@ -208,6 +210,7 @@ func TestParserDerivedTablesReadOnlyPostLoadMutableFields(t *testing.T) {
 	lang.CompactAcceptanceStructuralElectionCertified = !restoreStructuralElection
 	lang.CompactLexerSkippedPrefixTilingCertified = !restoreLexerSkippedPrefix
 	lang.CompactMissingTokenInsertionCertified = !restoreMissingInsertion
+	lang.CompactS5EOFMissingInsertionCertified = !restoreS5EOFInsertion
 	lang.CompactRecoveryErrorModeKeywordCaptureCertified = !restoreErrorModeKeyword
 	lang.CompactConvergedReductionSplitDropsCertified = !restoreSplitDrops
 	lang.ExternalScanner = nil

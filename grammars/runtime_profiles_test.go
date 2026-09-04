@@ -60,6 +60,9 @@ func TestHTMLProfileCertifiesCompleteCompactRecovery(t *testing.T) {
 	if !lang.CompactStrategy2ErrorRegionCertified || !lang.CompactMissingTokenInsertionCertified {
 		t.Fatal("the HTML profile did not attach both compact recovery capabilities")
 	}
+	if lang.CompactS5EOFMissingInsertionCertified {
+		t.Fatal("the HTML profile unexpectedly enabled EOF S5 missing insertion")
+	}
 	if lang.CompactRecoveryPlainFirstCertified {
 		t.Fatal("the HTML profile unexpectedly enabled plain-first recovery")
 	}
@@ -136,6 +139,9 @@ func TestJavaScriptProfileCertifiesCompactRecoveryFrontier(t *testing.T) {
 	if lang.CompactFaithfulS5RecoveryCertified {
 		t.Fatal("the JavaScript profile unexpectedly enabled the Scala S5 route")
 	}
+	if lang.CompactS5EOFMissingInsertionCertified {
+		t.Fatal("the JavaScript profile unexpectedly enabled EOF S5 missing insertion")
+	}
 	wantAliases := []gotreesitter.CompactRecoveryTerminalAliasRule{
 		{ResumeState: 20, ResumeSymbol: 54, AliasSymbol: 261},
 		{ResumeState: 231, ResumeSymbol: 85, AliasSymbol: 261},
@@ -159,6 +165,7 @@ func TestScalaProfileCertifiesPackageTwoRecovery(t *testing.T) {
 	t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
 	lang := ScalaLanguage()
 	if !lang.CompactStrategy2ErrorRegionCertified || !lang.CompactMissingTokenInsertionCertified ||
+		!lang.CompactS5EOFMissingInsertionCertified ||
 		!lang.CompactFaithfulS5RecoveryCertified ||
 		!lang.CompactPrimaryAcceptanceDerivationCertified ||
 		!lang.CompactAcceptanceStructuralElectionCertified ||
@@ -173,6 +180,7 @@ func TestScalaProfileCertifiesPackageTwoRecovery(t *testing.T) {
 	if attachBuiltinLanguageRuntimeProfile("scala", sha256.Sum256([]byte("wrong scala blob")), uncertified) ||
 		uncertified.CompactStrategy2ErrorRegionCertified ||
 		uncertified.CompactMissingTokenInsertionCertified ||
+		uncertified.CompactS5EOFMissingInsertionCertified ||
 		uncertified.CompactFaithfulS5RecoveryCertified ||
 		uncertified.CompactPrimaryAcceptanceDerivationCertified ||
 		uncertified.CompactAcceptanceStructuralElectionCertified ||

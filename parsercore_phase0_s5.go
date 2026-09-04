@@ -267,6 +267,8 @@ func (s *diagnosticParserCoreGenericScheduler) s5CollectReductionActions(
 				if !action.Extra && !action.Repetition {
 					hasShift = true
 				}
+			case core.ActionAccept:
+				hasShift = true
 			case core.ActionReduce:
 				if action.ChildCount == 0 {
 					continue
@@ -768,7 +770,13 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingCandidateOwned(
 		if err := s.s5ShiftMissingLeafOwned(trialOwner, 0, targetState, missing, byteOffset); err != nil {
 			return false, err
 		}
-		canShift, err := s.s5RunReductionFrontierOwned(trialOwner, 0, diagnosticParserCoreS5ExactToken, core.Symbol(s.token.Symbol), staged)
+		mode := diagnosticParserCoreS5ExactToken
+		if s.token.Symbol == 0 {
+			// Native tree-sitter treats symbol zero as the any-lookahead
+			// sentinel during the EOF missing-token trial.
+			mode = diagnosticParserCoreS5AnyTerminal
+		}
+		canShift, err := s.s5RunReductionFrontierOwned(trialOwner, 0, mode, core.Symbol(s.token.Symbol), staged)
 		if err != nil {
 			return false, err
 		}
@@ -899,8 +907,11 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 		s.s5MissingInsertions >= maxDiagnosticParserCoreMissingInsertions {
 		return false, nil
 	}
-	if s.token.Missing || s.token.NoLookahead || s.token.Symbol == errorSymbol || s.token.Symbol == 0 ||
+	if s.token.Missing || s.token.NoLookahead || s.token.Symbol == errorSymbol ||
 		s.tokenSource == nil || s.tokenSource.language == nil || s.headers[index].recoveryRegion() != nil {
+		return false, nil
+	}
+	if s.token.Symbol == 0 && !s.options.allowCompactS5EOFMissingInsertion {
 		return false, nil
 	}
 	tokenCount := core.Symbol(s.tokenSource.language.TokenCount)
@@ -987,6 +998,36 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 	if len(missingHeaders) == 0 {
 		return false, nil
 	}
+	if s.token.Symbol == 0 {
+		missingBaseline, missingBaselineSet := original.recoveryNodeBaseline()
+		if !missingBaselineSet {
+			missingBaselineSet = true
+		}
+		for index := range missingHeaders {
+			missingHeaders[index].publishRecoveryCondenseState(0, missingGroup, missingBaseline, missingBaselineSet)
+			missingHeaders[index].paused = false
+			missingHeaders[index].shifted = false
+			missingHeaders[index].markRecoveryCosted()
+			missingHeaders[index].markRecoveryLineage()
+		}
+		s.invalidateVerifierHeaderBinding()
+		clear(s.headers)
+		s.headers = append(s.headers[:0], missingHeaders...)
+		s.recoveryIsolation = true
+		s.epochProgress = true
+		s.s5MissingInsertions++
+		staged.missingTokenCommits++
+		if err := s.canonicalizeOwned(owner); err != nil {
+			return false, err
+		}
+		if err := s.persistHeaderLineageOwned(owner); err != nil {
+			return false, err
+		}
+		if uint64(len(s.headers)) > s.work.PeakLiveVersions {
+			s.work.PeakLiveVersions = uint64(len(s.headers))
+		}
+		return true, nil
+	}
 	baseline, baselineOK, err := s.s5RecoveryBaseline(anyHeaders)
 	if err != nil {
 		return false, err
@@ -1056,8 +1097,11 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertionFaithfu
 		len(s.headers) != 1 || index != 0 ||
 		s.s5MissingInsertions >= maxDiagnosticParserCoreMissingInsertions ||
 		s.token.Missing || s.token.NoLookahead || s.token.Symbol == errorSymbol ||
-		s.token.Symbol == 0 || s.tokenSource == nil || s.tokenSource.language == nil ||
+		s.tokenSource == nil || s.tokenSource.language == nil ||
 		s.headers[0].recoveryRegion() != nil {
+		return false, nil
+	}
+	if s.token.Symbol == 0 && !s.options.allowCompactS5EOFMissingInsertion {
 		return false, nil
 	}
 	snapshot := captureDiagnosticParserCoreS5Scheduler(s)

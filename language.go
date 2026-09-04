@@ -906,6 +906,15 @@ type Language struct {
 	// Custom and adapted languages retain the false default.
 	CompactMissingTokenInsertionCertified bool
 
+	// CompactS5EOFMissingInsertionCertified permits the compact fresh-full
+	// route to run S5 reductions and missing-token insertion when the elected
+	// token is EOF. This is distinct from CompactRecoverEOFCertified: S5
+	// publishes a grammar root with a missing leaf, not a recover_eof ERROR
+	// root. Exact built-in profiles set this only after locked-C parity proves
+	// the complete EOF competition. Custom and adapted languages retain the
+	// false default.
+	CompactS5EOFMissingInsertionCertified bool
+
 	// CompactFaithfulS5RecoveryCertified permits the complete S5 scan
 	// to merge equivalent physical recovery heads. The legacy bounded S5 path
 	// remains active without this exact artifact capability.

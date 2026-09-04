@@ -16,7 +16,7 @@ import (
 
 // Package-two adversarial lane witnesses (issue #1063; supports #1057 and
 // #1053). These tests lock the smallest physical GSS merge cases through a
-// nullable recovery discontinuity edge. The first three witnesses require the
+// nullable recovery discontinuity edge. All four witnesses require the
 // compact route to publish the locked C result. All four use locked Scala.
 //
 // Every witness runs the same four checks, in order:
@@ -167,8 +167,7 @@ func TestPackage2ScalaFalsifierTrueEOFComposition(t *testing.T) {
 		wantNoErrorNode:                 true,
 		wantDeepDigest:                  "03a458abd5832f6326e03b833a3890ea8d48ca43eb91ada1951bb020871f49a6",
 		wantProductionMatchesC:          true,
-		wantCompactExact:                false,
-		wantCompactFallbackReasonPart:   "recovery",
+		wantCompactExact:                true,
 		wantEditedMissingByte:           7,
 		wantIncrementalReuseUnsupported: true,
 	})
@@ -179,8 +178,21 @@ func TestPackage2ScalaFalsifierTrueEOFComposition(t *testing.T) {
 // reuse still fails closed, so package five must later replace this full reparse
 // with authenticated reuse without changing either result.
 func TestPackage2ScalaIncrementalCleanMissingTransitions(t *testing.T) {
-	clean := []byte("(y); ")
-	missing := []byte("(y; ")
+	runPackage2ScalaIncrementalCleanMissingTransitions(t, []byte("(y); "), []byte("(y; "), 2)
+}
+
+// TestPackage2ScalaIncrementalEOFCompositionCleanMissingTransitions locks the
+// clean control and both edit directions for the true EOF composition witness.
+func TestPackage2ScalaIncrementalEOFCompositionCleanMissingTransitions(t *testing.T) {
+	runPackage2ScalaIncrementalCleanMissingTransitions(t, []byte("((y)->)"), []byte("((y)->"), 6)
+}
+
+func runPackage2ScalaIncrementalCleanMissingTransitions(
+	t *testing.T,
+	clean, missing []byte,
+	closeByte int,
+) {
+	t.Helper()
 	entry := grammars.DetectLanguageByName("scala")
 	if entry == nil || entry.Language() == nil {
 		t.Fatal("Scala Go grammar is unavailable")
@@ -200,10 +212,10 @@ func TestPackage2ScalaIncrementalCleanMissingTransitions(t *testing.T) {
 	t.Cleanup(cleanTree.Release)
 
 	deleteClose := gotreesitter.InputEdit{
-		StartByte: 2, OldEndByte: 3, NewEndByte: 2,
-		StartPoint:  pointAtOffset(clean, 2),
-		OldEndPoint: pointAtOffset(clean, 3),
-		NewEndPoint: pointAtOffset(missing, 2),
+		StartByte: uint32(closeByte), OldEndByte: uint32(closeByte + 1), NewEndByte: uint32(closeByte),
+		StartPoint:  pointAtOffset(clean, closeByte),
+		OldEndPoint: pointAtOffset(clean, closeByte+1),
+		NewEndPoint: pointAtOffset(missing, closeByte),
 	}
 	cleanTree.Edit(deleteClose)
 	missingTree, missingProfile, err := parser.ParseIncrementalProfiled(missing, cleanTree)
@@ -217,10 +229,10 @@ func TestPackage2ScalaIncrementalCleanMissingTransitions(t *testing.T) {
 	assertPackage2ScalaTransitionEndpoint(t, goLanguage, cLanguage, missing, missingTree, true, 1)
 
 	insertClose := gotreesitter.InputEdit{
-		StartByte: 2, OldEndByte: 2, NewEndByte: 3,
-		StartPoint:  pointAtOffset(missing, 2),
-		OldEndPoint: pointAtOffset(missing, 2),
-		NewEndPoint: pointAtOffset(clean, 3),
+		StartByte: uint32(closeByte), OldEndByte: uint32(closeByte), NewEndByte: uint32(closeByte + 1),
+		StartPoint:  pointAtOffset(missing, closeByte),
+		OldEndPoint: pointAtOffset(missing, closeByte),
+		NewEndPoint: pointAtOffset(clean, closeByte+1),
 	}
 	missingTree.Edit(insertClose)
 	restoredTree, restoredProfile, err := parser.ParseIncrementalProfiled(clean, missingTree)
@@ -412,8 +424,8 @@ func runPackage2ScalaFalsifierWitness(t *testing.T, w package2ScalaFalsifierWitn
 	t.Logf("%s: Go production route matches locked C exactly (digest %s)", w.name, prodInspection.SHA256)
 
 	// Step 3: the Go compact route, with the candidate route forced on. The
-	// certified package-two witnesses require an exact route. The true EOF
-	// witness still requires an explicit fallback. Silent divergence fails.
+	// certified package-two witnesses require an exact route. Silent divergence
+	// fails.
 	beforeRouted, beforeFallback := gotreesitter.AdmissionCandidateCounters()
 	compactParser := gotreesitter.NewParser(goLanguage)
 	compactParser.SetAdmissionCandidateRoute(true)
