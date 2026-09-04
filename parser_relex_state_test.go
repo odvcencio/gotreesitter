@@ -106,8 +106,8 @@ func TestDFARelexSnapshotRestoresExternalLookaheadFrontier(t *testing.T) {
 
 	d.externalLookaheadEndByte = 31
 	changed := d.snapshotRelexState()
-	if snapshot.equal(changed) {
-		t.Fatal("snapshots with different external frontiers compare equal")
+	if !snapshot.equal(changed) {
+		t.Fatal("transient external frontiers changed semantic snapshot equality")
 	}
 	snapshot.restore(d)
 	if got, want := d.externalLookaheadEndByte, uint32(17); got != want {

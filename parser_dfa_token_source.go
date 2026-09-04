@@ -2996,11 +2996,14 @@ func (d *dfaTokenSource) CanRelexFromTokenStart(tok Token) bool {
 }
 
 type dfaRelexSnapshot struct {
-	lexerPos                 int
-	lexerRow                 uint32
-	lexerCol                 uint32
-	lexerRangeIdx            int
-	externalScannerPresent   bool
+	lexerPos               int
+	lexerRow               uint32
+	lexerCol               uint32
+	lexerRangeIdx          int
+	externalScannerPresent bool
+	// externalLookaheadEndByte is the aggregate for the current C-style
+	// lex call. Capture and restore it for rollback, but exclude it from
+	// equal because it is not persistent scanner state.
 	externalLookaheadEndByte uint32
 
 	// Lexer.scan records the beginning of its most recent failed token
@@ -3036,7 +3039,6 @@ func (s dfaRelexSnapshot) equal(other dfaRelexSnapshot) bool {
 	return s.lexerPos == other.lexerPos && s.lexerRow == other.lexerRow &&
 		s.lexerCol == other.lexerCol && s.lexerRangeIdx == other.lexerRangeIdx &&
 		s.externalScannerPresent == other.externalScannerPresent &&
-		s.externalLookaheadEndByte == other.externalLookaheadEndByte &&
 		s.failTokenStartPos == other.failTokenStartPos &&
 		s.failTokenStartRow == other.failTokenStartRow &&
 		s.failTokenStartCol == other.failTokenStartCol &&
