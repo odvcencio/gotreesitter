@@ -283,6 +283,9 @@ func TestMultiGrammarImportRealCorpusParity(t *testing.T) {
 
 			genParser := gotreesitter.NewParser(genLang)
 			refParser := gotreesitter.NewParser(refLang)
+			// Compare grammar tables without compact routing changes.
+			genParser.SetAdmissionCandidateRoute(false)
+			refParser.SetAdmissionCandidateRoute(false)
 			if parseTimeoutMicros > 0 {
 				genParser.SetTimeoutMicros(parseTimeoutMicros)
 				refParser.SetTimeoutMicros(parseTimeoutMicros)

@@ -1,8 +1,190 @@
 package grammargen
 
 import (
+	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/odvcencio/gotreesitter"
 )
+
+func TestFlattenHiddenMixedPassthroughPreservesReductionPrecedence(t *testing.T) {
+	tests := []struct {
+		name string
+		wrap func(*Rule) *Rule
+	}{
+		{"static", func(r *Rule) *Rule { return Prec(7, r) }},
+		{"explicit_zero", func(r *Rule) *Rule { return Prec(0, r) }},
+		{"negative", func(r *Rule) *Rule { return Prec(-1, r) }},
+		{"left", func(r *Rule) *Rule { return PrecLeft(0, r) }},
+		{"right", func(r *Rule) *Rule { return PrecRight(0, r) }},
+		{"dynamic", func(r *Rule) *Rule { return PrecDynamic(3, r) }},
+		{"dynamic_zero", func(r *Rule) *Rule { return PrecDynamic(0, r) }},
+		{"field", func(r *Rule) *Rule { return Field("value", PrecLeft(7, r)) }},
+		{"alias", func(r *Rule) *Rule { return Alias(PrecLeft(7, r), "value", true) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, outer := range []bool{false, true} {
+				g := NewGrammar("preserve_reduction_precedence")
+				g.Define("document", Seq(Sym("_value"), Str("!")))
+				compound := Seq(Str("("), Sym("number"), Str(")"))
+				rule := Choice(tt.wrap(Sym("number")), compound)
+				if outer {
+					rule = tt.wrap(Choice(Sym("number"), compound))
+				}
+				g.Define("_value", rule)
+				g.Define("number", Pat(`[0-9]+`))
+				want := cloneRule(g.Rules["_value"])
+				wantDocument := cloneRule(g.Rules["document"])
+
+				got := flattenHiddenChoiceAlts(g, nil)
+				if !reflect.DeepEqual(got.Rules["_value"], want) {
+					t.Errorf("outer=%t: changed the precedence-bearing reduction", outer)
+				}
+				if !reflect.DeepEqual(got.Rules["document"], wantDocument) {
+					t.Errorf("outer=%t: bypassed the precedence-bearing reduction", outer)
+				}
+			}
+		})
+	}
+}
+
+func TestFlattenHiddenPrecedenceRetainsChildReductions(t *testing.T) {
+	g := NewGrammar("preserve_child_reductions")
+	g.Define("document", Sym("_wrapper"))
+	g.Define("_wrapper", PrecLeft(7, Choice(Sym("_retained"), Sym("_replaced"), Seq(Str("("), Str(")")))))
+	g.Define("_retained", PrecRight(0, Choice(Sym("a"), Sym("b"))))
+	g.Define("_replaced", Choice(Sym("c"), Seq(Str("["), Sym("c"), Str("]"))))
+	for _, name := range []string{"a", "b", "c"} {
+		g.Define(name, Str(name))
+	}
+	got := flattenHiddenChoiceAlts(g, nil)
+	refs := map[string]bool{}
+	for _, alt := range getTopLevelChoiceAlts(got.Rules["_wrapper"]) {
+		if name, ok := directSymbolRefName(alt); ok {
+			refs[name] = true
+		}
+	}
+	want := map[string]bool{"_retained": true, "_replaced": true}
+	if !reflect.DeepEqual(refs, want) {
+		t.Fatalf("wrapper references = %v, want %v", refs, want)
+	}
+}
+
+func TestFlattenHiddenPrecedencePreservesChildClosureBeforeSkip(t *testing.T) {
+	for _, name := range []string{"wide_choice", "configured_preserve", "cyclic_child", "generated_bridge"} {
+		t.Run(name, func(t *testing.T) {
+			g := NewGrammar("preserve_child_closure")
+			g.Define("document", Sym("_root"))
+			alts := []*Rule{PrecLeft(7, Sym("_child")), Seq(Str("("), Str(")"))}
+			if name == "wide_choice" {
+				for i := 1; i <= 8; i++ {
+					alts = append(alts, Str(strings.Repeat("x", i)))
+				}
+			}
+			g.Define("_root", Choice(alts...))
+			g.Define("_child", Choice(Sym("a"), Seq(Str("["), Str("]"))))
+			g.Define("a", Str("a"))
+			if name == "configured_preserve" {
+				g.PreserveHiddenChoicePassthrough = []string{"_root"}
+			}
+			if name == "cyclic_child" {
+				g.Define("_child", Choice(Sym("_cycle"), Seq(Str("["), Str("]"))))
+				g.Define("_cycle", Choice(Sym("_child"), Sym("a")))
+			}
+			var generated map[string]bool
+			if name == "generated_bridge" {
+				g.Define("_root", Choice(PrecLeft(7, Sym("repeat_aux")), Seq(Str("("), Str(")"))))
+				g.Define("repeat_aux", Sym("_child"))
+				generated = map[string]bool{"repeat_aux": true}
+			}
+			wantRoot, wantChild := cloneRule(g.Rules["_root"]), cloneRule(g.Rules["_child"])
+			got := flattenHiddenChoiceAlts(g, generated)
+			if !reflect.DeepEqual(got.Rules["_root"], wantRoot) || !reflect.DeepEqual(got.Rules["_child"], wantChild) {
+				t.Fatal("flattening bypassed a protected child reduction")
+			}
+		})
+	}
+}
+
+func TestHiddenMixedPassthroughPrecedenceMatchesC(t *testing.T) {
+	// Tree-sitter v0.24.7 reduces _app before '&'. Both competing actions
+	// have precedence 7 and left associativity. The result has no compound.
+	g := NewGrammar("hidden_passthrough_precedence")
+	g.Define("source_file", Sym("_apps"))
+	g.Define("_apps", PrecLeft(0, Choice(
+		Seq(Sym("_app"), Repeat(Seq(Str(","), Sym("_app")))),
+		Seq(Sym("_app"), Repeat(Seq(Str("&"), Sym("_app")))),
+	)))
+	g.Define("_app", PrecLeft(7, Choice(
+		Sym("_atom"), Sym("compound"), Seq(Sym("_atom"), Str("("), Str(")")),
+	)))
+	g.Define("_atom", Sym("identifier"))
+	g.Define("compound", PrecLeft(7, Seq(Sym("_atom"), Repeat1(Seq(Str("&"), Sym("_atom"))))))
+	g.Define("identifier", Pat(`[A-Z]`))
+	ng, err := Normalize(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundReduction := false
+	for _, prod := range ng.Productions {
+		lhs := ng.Symbols[prod.LHS].Name
+		if lhs == "_app" && len(prod.RHS) == 1 && ng.Symbols[prod.RHS[0]].Name == "_atom" {
+			foundReduction = true
+			if prod.Prec != 7 || prod.Assoc != AssocLeft || !prod.HasExplicitPrec {
+				t.Errorf("_app reduction lost its precedence: %+v", prod)
+			}
+		}
+		if lhs == "_apps" || strings.HasPrefix(lhs, "_apps_repeat") {
+			for _, id := range prod.RHS {
+				if name := ng.Symbols[id].Name; name == "_atom" || name == "compound" {
+					t.Errorf("%s bypasses the _app reduction with %s", lhs, name)
+				}
+			}
+		}
+	}
+	if !foundReduction {
+		t.Fatal("normalization removed _app -> _atom")
+	}
+	lang, err := GenerateLanguage(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range []string{"A", "A&B", "A,B", "A&B&C"} {
+		t.Run(source, func(t *testing.T) {
+			parser := gotreesitter.NewParser(lang)
+			parser.SetAdmissionCandidateRoute(false)
+			tree, err := parser.Parse([]byte(source))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			root := tree.RootNode()
+			if root.Type(lang) != "source_file" || root.HasError() || root.StartByte() != 0 || root.EndByte() != uint32(len(source)) ||
+				root.StartPoint() != (gotreesitter.Point{}) || root.EndPoint() != (gotreesitter.Point{Column: uint32(len(source))}) {
+				t.Fatalf("unexpected root: %s, range [%d,%d)", root.SExpr(lang), root.StartByte(), root.EndByte())
+			}
+			if root.ChildCount() != len(source) {
+				t.Fatalf("child count = %d, want %d: %s", root.ChildCount(), len(source), root.SExpr(lang))
+			}
+			for i := 0; i < len(source); i++ {
+				child := root.Child(i)
+				wantType := "identifier"
+				if i%2 != 0 {
+					wantType = source[i : i+1]
+				}
+				if child.Type(lang) != wantType || child.IsNamed() != (i%2 == 0) ||
+					child.StartByte() != uint32(i) || child.EndByte() != uint32(i+1) ||
+					child.StartPoint() != (gotreesitter.Point{Column: uint32(i)}) ||
+					child.EndPoint() != (gotreesitter.Point{Column: uint32(i + 1)}) ||
+					child.ChildCount() != 0 || child.IsMissing() || child.HasError() {
+					t.Errorf("child %d = %s [%d,%d), want %s [%d,%d)", i, child.SExpr(lang), child.StartByte(), child.EndByte(), wantType, i, i+1)
+				}
+			}
+		})
+	}
+}
 
 // TestFlattenHiddenPassthrough verifies that cc=1 productions of hidden
 // nonterminals are removed and distributed into parent productions.
