@@ -208,6 +208,10 @@ gate0() {
 set -eo pipefail
 cd /workspace
 
+if ! timeout --signal=TERM --kill-after=5s 90s bash grammargen/testdata/grammar_parity_setup.sh; then
+  echo "WARNING: Markdown corpus setup failed; import parity may skip missing fixtures." >&2
+fi
+
 echo "--- Gate 0a: grammargen unit tests ---"
 go test ./grammargen -run '^Test(JSON|Calc|GLR|Keyword|Ext|AliasSuper|Parity|MultiGrammarImportPipeline)' \
   -count=1 -v -timeout 10m 2>&1
@@ -242,6 +246,10 @@ gate1() {
   read -r -d '' cmd <<'GATE1_CMD' || true
 set -eo pipefail
 cd /workspace
+
+if ! timeout --signal=TERM --kill-after=5s 90s bash grammargen/testdata/grammar_parity_setup.sh; then
+  echo "WARNING: Markdown corpus setup failed; import parity may skip missing fixtures." >&2
+fi
 
 echo "--- Gate 1a: full unit test suite ---"
 go test ./... -count=1 -timeout 15m 2>&1

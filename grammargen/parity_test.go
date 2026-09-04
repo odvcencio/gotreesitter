@@ -25,7 +25,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
@@ -34,25 +33,6 @@ import (
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
-
-// TestMain ensures the out-of-tree tree-sitter-markdown corpus required by the
-// markdown / markdown_inline parity entries is present before any tests run.
-// If the pinned corpus is missing, it invokes testdata/grammar_parity_setup.sh
-// to clone and check out the pinned upstream SHA. Failures here are warnings,
-// not fatal — individual tests that need the corpus can skip themselves.
-func TestMain(m *testing.M) {
-	const corpusMarker = "/tmp/grammar_parity/markdown/tree-sitter-markdown-inline/src/grammar.json"
-	if _, err := os.Stat(corpusMarker); os.IsNotExist(err) {
-		cmd := exec.Command("bash", "testdata/grammar_parity_setup.sh")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: grammar parity corpus setup failed: %v\n", err)
-			// Don't fail TestMain — let individual tests skip if they need the corpus.
-		}
-	}
-	os.Exit(m.Run())
-}
 
 // ── Node-by-node tree comparison infrastructure ─────────────────────────────
 

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Sets up the out-of-tree grammar.json corpus needed by parity_test.go's
-# markdown / markdown_inline entries. Idempotent — does nothing if already
-# set up. Pins the upstream tree-sitter-markdown to a specific SHA so the
-# parity corpus is reproducible across checkouts.
+# Provision the pinned Markdown corpus before an explicit import parity run.
+# Unit tests do not download this corpus.
 
 set -euo pipefail
 
@@ -10,9 +8,20 @@ PINNED_SHA="c3570720f7f7bbad22fe96603f106276618e0cf5"
 UPSTREAM_URL="https://github.com/tree-sitter-grammars/tree-sitter-markdown"
 TARGET_DIR="/tmp/grammar_parity/markdown"
 
+verify_corpus() {
+  local grammar
+  for grammar in tree-sitter-markdown tree-sitter-markdown-inline; do
+    if [[ ! -s "$TARGET_DIR/$grammar/src/grammar.json" ]]; then
+      echo "missing pinned corpus: $TARGET_DIR/$grammar/src/grammar.json" >&2
+      return 1
+    fi
+  done
+}
+
 if [ -d "$TARGET_DIR/.git" ]; then
   current_sha=$(git -C "$TARGET_DIR" rev-parse HEAD)
   if [ "$current_sha" = "$PINNED_SHA" ]; then
+    verify_corpus
     exit 0
   fi
   echo "tree-sitter-markdown at $TARGET_DIR is at $current_sha, expected $PINNED_SHA; resyncing..."
@@ -23,6 +32,7 @@ if [ -d "$TARGET_DIR/.git" ]; then
   # Use reset --hard rather than checkout so a dirty working tree (which is
   # disposable scratch under /tmp/grammar_parity) doesn't make resync fail.
   git -C "$TARGET_DIR" reset --hard "$PINNED_SHA"
+  verify_corpus
   exit 0
 fi
 
@@ -41,3 +51,4 @@ fi
 mkdir -p "$(dirname "$TARGET_DIR")"
 git clone "$UPSTREAM_URL" "$TARGET_DIR"
 git -C "$TARGET_DIR" checkout "$PINNED_SHA"
+verify_corpus
