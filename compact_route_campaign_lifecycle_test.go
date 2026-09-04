@@ -520,11 +520,23 @@ func TestCompactRouteLifecycleRejectsStaleReadSite(t *testing.T) {
 	}
 	site := registry.Controls[0].ReadSites[0]
 	t.Run("stale line", func(t *testing.T) {
-		stale := site
-		stale.Line = 1
-		if err := compactRouteLifecycleReadSiteError(root, "negative", stale); err == nil {
-			t.Fatal("stale read-site line was accepted")
+		resolved, err := compactRouteLifecycleResolvePath(root, site.Path, true)
+		if err != nil {
+			t.Fatal(err)
 		}
+		data, err := os.ReadFile(resolved)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lineCount := len(strings.Split(string(data), "\n"))
+		for line := 1; line <= lineCount; line++ {
+			stale := site
+			stale.Line = line
+			if compactRouteLifecycleReadSiteError(root, "negative", stale) != nil {
+				return
+			}
+		}
+		t.Fatal("could not construct a stale in-range read-site line")
 	})
 	t.Run("stale symbol", func(t *testing.T) {
 		stale := site
