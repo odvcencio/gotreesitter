@@ -1277,9 +1277,13 @@ type Core struct {
 	subtrees             []subtreeRecord
 	externalProvenance   []externalPayloadProvenance
 	lexerSkippedPrefixes []lexerSkippedPrefixProvenance
-	children             []SubtreeID
-	fields               []FieldMapEntry
-	aliases              []Symbol
+	// recoveryDiscontinuityReductions records parents whose stack pop crossed
+	// a null recovery edge. C counts that edge for the pop depth, but it does
+	// not add a child to the materialized subtree.
+	recoveryDiscontinuityReductions []recoveryDiscontinuityReduction
+	children                        []SubtreeID
+	fields                          []FieldMapEntry
+	aliases                         []Symbol
 	// eofRecoveryRoots records synthetic non-extra ERROR roots published by
 	// RecoverEOFAcceptOwned. Keep this provenance outside subtreeRecord: that
 	// record is size-pinned at 44 bytes for every compact payload.
@@ -1472,6 +1476,7 @@ type diagnosticOptions struct {
 type checkpoint struct {
 	nodes, nodeLineages, nodeCheckpoints, links, subtrees, externalProvenance int
 	lexerSkippedPrefixes                                                      int
+	recoveryDiscontinuityReductions                                           int
 	children, fields, aliases                                                 int
 	alternativeSpillArena                                                     int
 	eofRecoveryRoots                                                          int
@@ -1589,10 +1594,11 @@ func (c *Core) markInto(mark *checkpoint) {
 	*mark = checkpoint{
 		nodes: len(c.nodes), nodeLineages: len(c.nodeLineages),
 		links: len(c.links), subtrees: len(c.subtrees),
-		nodeCheckpoints:      len(c.nodeCheckpoints),
-		externalProvenance:   len(c.externalProvenance),
-		lexerSkippedPrefixes: len(c.lexerSkippedPrefixes),
-		children:             len(c.children), fields: len(c.fields), aliases: len(c.aliases),
+		nodeCheckpoints:                 len(c.nodeCheckpoints),
+		externalProvenance:              len(c.externalProvenance),
+		lexerSkippedPrefixes:            len(c.lexerSkippedPrefixes),
+		recoveryDiscontinuityReductions: len(c.recoveryDiscontinuityReductions),
+		children:                        len(c.children), fields: len(c.fields), aliases: len(c.aliases),
 		alternativeSpillArena: len(c.alternativeSpillArena),
 		eofRecoveryRoots:      len(c.eofRecoveryRoots),
 
@@ -1704,6 +1710,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.eofRecoveryRoots = c.eofRecoveryRoots[:mark.eofRecoveryRoots]
 	c.externalProvenance = c.externalProvenance[:mark.externalProvenance]
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:mark.lexerSkippedPrefixes]
+	c.recoveryDiscontinuityReductions = c.recoveryDiscontinuityReductions[:mark.recoveryDiscontinuityReductions]
 	c.children = c.children[:mark.children]
 	c.fields = c.fields[:mark.fields]
 	c.aliases = c.aliases[:mark.aliases]
@@ -2319,6 +2326,7 @@ func (c *Core) Reset() error {
 	c.eofRecoveryRoots = c.eofRecoveryRoots[:0]
 	c.externalProvenance = c.externalProvenance[:0]
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:0]
+	c.recoveryDiscontinuityReductions = c.recoveryDiscontinuityReductions[:0]
 	c.children = c.children[:0]
 	c.fields = c.fields[:0]
 	c.aliases = c.aliases[:0]
@@ -3109,7 +3117,15 @@ func (c *Core) reductionParentForPath(
 	multiPop bool,
 	scratch *reductionOutputScratch,
 ) (SubtreeID, int64, ForkOrder, error) {
-	fields, aliases, err := c.remapReductionPlan(path.children, plan, scratch)
+	materializationPlan := plan
+	if path.recoveryDiscontinuity {
+		adjusted, err := truncateReductionPlanForRecoveryDiscontinuity(c, path.children, plan)
+		if err != nil {
+			return 0, 0, ForkOrder{}, err
+		}
+		materializationPlan = &adjusted
+	}
+	fields, aliases, err := c.remapReductionPlan(path.children, materializationPlan, scratch)
 	if err != nil {
 		return 0, 0, ForkOrder{}, err
 	}
@@ -3182,7 +3198,62 @@ func (c *Core) reductionParentForPath(
 			rec.fragile = true
 		}
 	}
+	if path.recoveryDiscontinuity {
+		c.recordRecoveryDiscontinuityReduction(payload, act.ChildCount)
+	}
 	return payload, scoreDelta, order, nil
+}
+
+type recoveryDiscontinuityReduction struct {
+	payload       SubtreeID
+	popChildCount uint8
+}
+
+func truncateReductionPlanForRecoveryDiscontinuity(c *Core, children []SubtreeID, plan *ReductionPlan) (ReductionPlan, error) {
+	if plan == nil {
+		return ReductionPlan{}, errors.New("parser-core phase zero: nil recovery-discontinuity reduction plan")
+	}
+	structuralCount := 0
+	for _, child := range children {
+		payload, err := c.subtree(child)
+		if err != nil {
+			return ReductionPlan{}, err
+		}
+		if !payload.extra {
+			structuralCount++
+		}
+	}
+	fields := make([]FieldMapEntry, 0, len(plan.fields))
+	for _, field := range plan.fields {
+		if int(field.ChildIndex) < structuralCount {
+			fields = append(fields, field)
+		}
+	}
+	aliases := plan.aliases
+	if len(aliases) > structuralCount {
+		aliases = aliases[:structuralCount]
+	}
+	return NewReductionPlan(plan.productionID, structuralCount, fields, aliases)
+}
+
+func (c *Core) recordRecoveryDiscontinuityReduction(payload SubtreeID, popChildCount uint8) {
+	for _, provenance := range c.recoveryDiscontinuityReductions {
+		if provenance.payload == payload {
+			return
+		}
+	}
+	c.recoveryDiscontinuityReductions = append(c.recoveryDiscontinuityReductions, recoveryDiscontinuityReduction{
+		payload: payload, popChildCount: popChildCount,
+	})
+}
+
+func (c *Core) recoveryDiscontinuityReductionPopCount(payload SubtreeID) (uint8, bool) {
+	for _, provenance := range c.recoveryDiscontinuityReductions {
+		if provenance.payload == payload {
+			return provenance.popChildCount, true
+		}
+	}
+	return 0, false
 }
 
 func (c *Core) reductionPlan(act Action) (ReductionPlan, error) {
@@ -3450,6 +3521,10 @@ type linkInput struct {
 // reduction output before Core publishes or condenses its boundary. The
 // scheduler owns the cost model. Core only authenticates the resulting value.
 type ReductionOutputCostFunc func(prev NodeID, payload SubtreeID) (uint32, error)
+
+// PayloadErrorPresenceFunc reports whether one payload carries a positive
+// recovery error cost. The scheduler owns the recovery pricing model.
+type PayloadErrorPresenceFunc func(payload SubtreeID) (bool, error)
 
 func (c *Core) storedErrorCostForLink(in linkInput) (uint32, error) {
 	lineage, err := c.nodeLineage(in.prev)
@@ -3996,6 +4071,52 @@ type shallowPayloadClass struct {
 	external   bool
 }
 
+type recoveryMergeEquivalenceContext struct {
+	payloadHasError PayloadErrorPresenceFunc
+}
+
+func (c *Core) recoveryMergePayloadsEquivalent(
+	leftPrev NodeID,
+	leftPayload SubtreeID,
+	rightPrev NodeID,
+	rightPayload SubtreeID,
+	context *recoveryMergeEquivalenceContext,
+) (bool, error) {
+	if leftPayload == rightPayload {
+		return true, nil
+	}
+	if context == nil || context.payloadHasError == nil {
+		return false, errors.New("parser-core phase zero: recovery merge equivalence context is unavailable")
+	}
+	left, err := c.subtree(leftPayload)
+	if err != nil {
+		return false, err
+	}
+	right, err := c.subtree(rightPayload)
+	if err != nil {
+		return false, err
+	}
+	if left.symbol != right.symbol {
+		return false, nil
+	}
+	leftHasError, err := context.payloadHasError(leftPayload)
+	if err != nil {
+		return false, err
+	}
+	rightHasError, err := context.payloadHasError(rightPayload)
+	if err != nil {
+		return false, err
+	}
+	if leftHasError && rightHasError {
+		return true, nil
+	}
+	shallow, err := c.shallowPayloadsEqual(leftPrev, leftPayload, rightPrev, rightPayload)
+	if err != nil || !shallow {
+		return shallow, err
+	}
+	return c.subtreeScannerStatePairsEqual(leftPayload, rightPayload)
+}
+
 func (c *Core) shallowPayloadClassEqual(link linkRecord, in linkInput) (bool, error) {
 	if link.prev != in.prev {
 		return false, nil
@@ -4173,6 +4294,15 @@ func (c *Core) factorExactPredecessorMerge(key boundaryKey, probe boundaryProbe,
 const maxRecursiveInsertDepth = 16
 
 func (c *Core) mergePredecessorsBounded(leftID, rightID NodeID, depth int, folded *precedenceMaximumWitness) (NodeID, bool, error) {
+	return c.mergePredecessorsBoundedWithRecovery(leftID, rightID, depth, folded, nil)
+}
+
+func (c *Core) mergePredecessorsBoundedWithRecovery(
+	leftID, rightID NodeID,
+	depth int,
+	folded *precedenceMaximumWitness,
+	recovery *recoveryMergeEquivalenceContext,
+) (NodeID, bool, error) {
 	if depth > maxRecursiveInsertDepth {
 		return 0, false, errors.New("parser-core phase zero: recursive insertion depth limit")
 	}
@@ -4233,7 +4363,9 @@ func (c *Core) mergePredecessorsBounded(leftID, rightID NodeID, depth int, folde
 	changed := false
 	for _, incoming := range rightLinks {
 		var inserted bool
-		links, inserted, err = c.insertLinkBounded(left.state, left.byteOffset, links, incoming, depth, folded)
+		links, inserted, err = c.insertLinkBoundedWithRecovery(
+			left.state, left.byteOffset, links, incoming, depth, folded, recovery,
+		)
 		if err != nil {
 			return 0, false, err
 		}
@@ -4281,6 +4413,18 @@ func (c *Core) mergePredecessorsBounded(leftID, rightID NodeID, depth int, folde
 // predecessors recurse only when their complete outer edges are exact.
 
 func (c *Core) insertLinkBounded(state StateID, byteOffset uint32, links []linkRecord, incoming linkRecord, depth int, folded *precedenceMaximumWitness) ([]linkRecord, bool, error) {
+	return c.insertLinkBoundedWithRecovery(state, byteOffset, links, incoming, depth, folded, nil)
+}
+
+func (c *Core) insertLinkBoundedWithRecovery(
+	state StateID,
+	byteOffset uint32,
+	links []linkRecord,
+	incoming linkRecord,
+	depth int,
+	folded *precedenceMaximumWitness,
+	recovery *recoveryMergeEquivalenceContext,
+) ([]linkRecord, bool, error) {
 	if folded == nil {
 		c.recordLinkUnionRejected()
 		return nil, false, errors.New("parser-core phase zero: missing folded precedence maximum witness")
@@ -4357,7 +4501,9 @@ func (c *Core) insertLinkBounded(state StateID, byteOffset uint32, links []linkR
 				phase0ABeginPredecessorMerge(c, incumbent.prev, incoming.prev)
 			}
 			nestedFolded := precedenceMaximumWitness{}
-			merged, changed, err := c.mergePredecessorsBounded(incumbent.prev, incoming.prev, depth+1, &nestedFolded)
+			merged, changed, err := c.mergePredecessorsBoundedWithRecovery(
+				incumbent.prev, incoming.prev, depth+1, &nestedFolded, recovery,
+			)
 			if err != nil {
 				if phase0AEnabled {
 					phase0AAbortPredecessorMerge(c)
@@ -4413,7 +4559,17 @@ func (c *Core) insertLinkBounded(state StateID, byteOffset uint32, links []linkR
 			c.recordLinkUnionRejected()
 			return nil, false, err
 		}
-		if !shallow {
+		equivalent := shallow
+		if recovery != nil {
+			equivalent, err = c.recoveryMergePayloadsEquivalent(
+				incumbent.prev, incumbent.payload, incoming.prev, incoming.payload, recovery,
+			)
+			if err != nil {
+				c.recordLinkUnionRejected()
+				return nil, false, err
+			}
+		}
+		if !equivalent {
 			continue
 		}
 		if incumbent.prev == incoming.prev {
@@ -4458,7 +4614,7 @@ func (c *Core) insertLinkBounded(state StateID, byteOffset uint32, links []linkR
 		if !mergeable {
 			continue
 		}
-		if !c.linkEdgesEqual(incumbent, incoming) {
+		if recovery == nil && !c.linkEdgesEqual(incumbent, incoming) {
 			c.recordLinkUnionRejected()
 			return nil, false, errors.New("parser-core phase zero: recursive insertion declined non-exact nested edge")
 		}
@@ -4470,7 +4626,9 @@ func (c *Core) insertLinkBounded(state StateID, byteOffset uint32, links []linkR
 			phase0ABeginPredecessorMerge(c, incumbent.prev, incoming.prev)
 		}
 		nestedFolded := precedenceMaximumWitness{}
-		merged, changed, err := c.mergePredecessorsBounded(incumbent.prev, incoming.prev, depth+1, &nestedFolded)
+		merged, changed, err := c.mergePredecessorsBoundedWithRecovery(
+			incumbent.prev, incoming.prev, depth+1, &nestedFolded, recovery,
+		)
 		if err != nil {
 			if phase0AEnabled {
 				phase0AAbortPredecessorMerge(c)
@@ -6174,9 +6332,19 @@ func (c *Core) validateGenericMaterializationMetadata(id SubtreeID, record subtr
 			structuralCount++
 		}
 	}
-	plan, err := c.reductionPlanForPair(record.productionID, structuralCount)
+	planChildCount := structuralCount
+	if popChildCount, ok := c.recoveryDiscontinuityReductionPopCount(id); ok {
+		planChildCount = int(popChildCount)
+	}
+	plan, err := c.reductionPlanForPair(record.productionID, planChildCount)
 	if err != nil {
 		return err
+	}
+	if planChildCount != structuralCount {
+		plan, err = truncateReductionPlanForRecoveryDiscontinuity(c, children, &plan)
+		if err != nil {
+			return err
+		}
 	}
 	fields, aliases, err := c.remapReductionPlan(children, &plan, &c.reductionScratch)
 	if err != nil {

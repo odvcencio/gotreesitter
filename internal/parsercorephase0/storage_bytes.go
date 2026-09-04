@@ -64,6 +64,7 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.dropCohortLinkRefIndexes))*coreUint32Bytes +
 		uint64(len(c.subtrees))*coreSubtreeRecordBytes +
 		uint64(len(c.eofRecoveryRoots))*coreSubtreeIDBytes +
+		uint64(len(c.recoveryDiscontinuityReductions))*coreRecoveryDiscontinuityReductionBytes +
 		uint64(len(c.children))*coreChildRecordBytes +
 		uint64(len(c.fields))*coreFieldRecordBytes +
 		uint64(len(c.aliases))*coreAliasRecordBytes +
@@ -91,32 +92,33 @@ func (c *Core) StorageBytes() uint64 {
 // checkpoint interner, the boundary index, producer scratch, and scheduler
 // scratch buffers.
 var (
-	coreNodeLineageRecordBytes    = uint64(unsafe.Sizeof(nodeLineageRecord{}))
-	coreCheckpointIDBytes         = uint64(unsafe.Sizeof(CheckpointID(0)))
-	coreExternalProvenanceBytes   = uint64(unsafe.Sizeof(externalPayloadProvenance{}))
-	coreLexerSkippedPrefixBytes   = uint64(unsafe.Sizeof(lexerSkippedPrefixProvenance{}))
-	coreCheckpointRecordBytes     = uint64(unsafe.Sizeof(checkpointRecord{}))
-	coreCheckpointBucketBytes     = uint64(unsafe.Sizeof([32]byte{})) + uint64(unsafe.Sizeof(CheckpointID(0)))
-	coreBoundarySlotBytes         = uint64(unsafe.Sizeof(boundarySlot{}))
-	coreBoundaryMutationBytes     = uint64(unsafe.Sizeof(boundaryMutation{}))
-	coreNodeLineageMutationBytes  = uint64(unsafe.Sizeof(nodeLineageMutation{}))
-	coreUint32Bytes               = uint64(unsafe.Sizeof(uint32(0)))
-	coreCondenseCandidateBytes    = uint64(unsafe.Sizeof(CondenseCandidate{}))
-	coreUint64Bytes               = uint64(unsafe.Sizeof(uint64(0)))
-	coreNodeIDBytes               = uint64(unsafe.Sizeof(NodeID(0)))
-	coreHeadBytes                 = uint64(unsafe.Sizeof(Head{}))
-	coreLinkRecordSliceBytes      = uint64(unsafe.Sizeof([]linkRecord(nil)))
-	coreSubtreeIDBytes            = uint64(unsafe.Sizeof(SubtreeID(0)))
-	coreDropCohortPathStepBytes   = uint64(unsafe.Sizeof(dropCohortPathStep{}))
-	coreInt64Bytes                = uint64(unsafe.Sizeof(int64(0)))
-	coreForkOrderBytes            = uint64(unsafe.Sizeof(ForkOrder{}))
-	corePathPayloadBytes          = uint64(unsafe.Sizeof(pathPayload{}))
-	corePopPathBytes              = uint64(unsafe.Sizeof(popPath{}))
-	coreReductionBoundaryOutBytes = uint64(unsafe.Sizeof(reductionBoundaryOutput{}))
-	coreBoundaryKeyEntryBytes     = uint64(unsafe.Sizeof(boundaryKey{})) + uint64(unsafe.Sizeof(int(0)))
-	coreUint16Bytes               = uint64(unsafe.Sizeof(uint16(0)))
-	coreDropCohortRefBytes        = uint64(unsafe.Sizeof(DropCohortRef{}))
-	coreBoolBytes                 = uint64(unsafe.Sizeof(bool(false)))
+	coreNodeLineageRecordBytes              = uint64(unsafe.Sizeof(nodeLineageRecord{}))
+	coreCheckpointIDBytes                   = uint64(unsafe.Sizeof(CheckpointID(0)))
+	coreExternalProvenanceBytes             = uint64(unsafe.Sizeof(externalPayloadProvenance{}))
+	coreLexerSkippedPrefixBytes             = uint64(unsafe.Sizeof(lexerSkippedPrefixProvenance{}))
+	coreRecoveryDiscontinuityReductionBytes = uint64(unsafe.Sizeof(recoveryDiscontinuityReduction{}))
+	coreCheckpointRecordBytes               = uint64(unsafe.Sizeof(checkpointRecord{}))
+	coreCheckpointBucketBytes               = uint64(unsafe.Sizeof([32]byte{})) + uint64(unsafe.Sizeof(CheckpointID(0)))
+	coreBoundarySlotBytes                   = uint64(unsafe.Sizeof(boundarySlot{}))
+	coreBoundaryMutationBytes               = uint64(unsafe.Sizeof(boundaryMutation{}))
+	coreNodeLineageMutationBytes            = uint64(unsafe.Sizeof(nodeLineageMutation{}))
+	coreUint32Bytes                         = uint64(unsafe.Sizeof(uint32(0)))
+	coreCondenseCandidateBytes              = uint64(unsafe.Sizeof(CondenseCandidate{}))
+	coreUint64Bytes                         = uint64(unsafe.Sizeof(uint64(0)))
+	coreNodeIDBytes                         = uint64(unsafe.Sizeof(NodeID(0)))
+	coreHeadBytes                           = uint64(unsafe.Sizeof(Head{}))
+	coreLinkRecordSliceBytes                = uint64(unsafe.Sizeof([]linkRecord(nil)))
+	coreSubtreeIDBytes                      = uint64(unsafe.Sizeof(SubtreeID(0)))
+	coreDropCohortPathStepBytes             = uint64(unsafe.Sizeof(dropCohortPathStep{}))
+	coreInt64Bytes                          = uint64(unsafe.Sizeof(int64(0)))
+	coreForkOrderBytes                      = uint64(unsafe.Sizeof(ForkOrder{}))
+	corePathPayloadBytes                    = uint64(unsafe.Sizeof(pathPayload{}))
+	corePopPathBytes                        = uint64(unsafe.Sizeof(popPath{}))
+	coreReductionBoundaryOutBytes           = uint64(unsafe.Sizeof(reductionBoundaryOutput{}))
+	coreBoundaryKeyEntryBytes               = uint64(unsafe.Sizeof(boundaryKey{})) + uint64(unsafe.Sizeof(int(0)))
+	coreUint16Bytes                         = uint64(unsafe.Sizeof(uint16(0)))
+	coreDropCohortRefBytes                  = uint64(unsafe.Sizeof(DropCohortRef{}))
+	coreBoolBytes                           = uint64(unsafe.Sizeof(bool(false)))
 )
 
 // FootprintBytes returns a cheap, deterministic, O(1) estimate of the compact
@@ -153,6 +155,7 @@ func (c *Core) FootprintBytes() uint64 {
 		uint64(cap(c.links))*coreLinkRecordBytes +
 		uint64(cap(c.subtrees))*coreSubtreeRecordBytes +
 		uint64(cap(c.eofRecoveryRoots))*coreSubtreeIDBytes +
+		uint64(cap(c.recoveryDiscontinuityReductions))*coreRecoveryDiscontinuityReductionBytes +
 		uint64(cap(c.children))*coreChildRecordBytes +
 		uint64(cap(c.fields))*coreFieldRecordBytes +
 		uint64(cap(c.aliases))*coreAliasRecordBytes
@@ -318,6 +321,7 @@ func (c *Core) releaseRecordArenaReserve() {
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = nil
 	c.eofRecoveryRoots = nil
+	c.recoveryDiscontinuityReductions = nil
 	c.children = nil
 	c.dropCohortRefSpill = nil
 	c.dropCohortActions = nil
@@ -350,6 +354,7 @@ func (c *Core) releaseOversizedRetention() {
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = nil
 	c.eofRecoveryRoots = nil
+	c.recoveryDiscontinuityReductions = nil
 	c.externalProvenance = nil
 	c.lexerSkippedPrefixes = nil
 	c.children = nil

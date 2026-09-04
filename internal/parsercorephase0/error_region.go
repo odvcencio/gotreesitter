@@ -82,7 +82,12 @@ func (c *Core) ErrorRegionLeaf(symbol Symbol, startByte, endByte uint32, extra b
 // preErrorHead at preErrorState, publishing the resumed head strategy 2's
 // absorb-then-resume step produces (the compact equivalent of production's
 // pushStackNode(fork, goal, errNode, ...), cRecoverToState,
-// parser_recover_c.go:3743). The resumed head is keyed as a shift boundary
+// parser_recover_c.go:3743). When preErrorHead is an S5 recovery
+// discontinuity, this operation replaces that null marker with the ERROR
+// subtree on every predecessor that matches the requested recovery state.
+// Other marker predecessors remain recovery candidates for different states;
+// they are not derivations of this resumed head. The resumed head is keyed as
+// a shift boundary
 // (shiftedBoundaryKey), matching the shape of every other terminal-carrying
 // attachment onto a head (scheduler_owned.go's shiftClassifiedUncheckpointed):
 // the ERROR container is, from the boundary index's point of view, one more
@@ -150,6 +155,47 @@ func (c *Core) errorRegionResumeUncheckpointed(
 	}, children, nil, nil)
 	if err != nil {
 		return Head{}, err
+	}
+	preErrorNode, err := c.node(preErrorHead.Node)
+	if err != nil {
+		return Head{}, err
+	}
+	if preErrorNode.state == 0 {
+		_, links, markerErr := c.recoveryDiscontinuityHeadLinks(preErrorHead)
+		if markerErr != nil {
+			return Head{}, markerErr
+		}
+		if preErrorNode.byteOffset > startByte {
+			return Head{}, errors.New("parser-core phase zero: recovery discontinuity resume starts before its marker")
+		}
+		var resumed Head
+		for _, link := range links {
+			predecessor, predecessorErr := c.node(link.prev)
+			if predecessorErr != nil {
+				return Head{}, predecessorErr
+			}
+			if predecessor.state != preErrorState {
+				continue
+			}
+			in := linkInput{prev: link.prev, payload: payload}
+			if cost != nil {
+				storedErrorCost, costErr := cost(in.prev, in.payload)
+				if costErr != nil {
+					return Head{}, costErr
+				}
+				in.storedErrorCost = storedErrorCost
+				in.hasStoredErrorCost = true
+			}
+			outcome, condenseErr := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(preErrorState, endByte), in)
+			if condenseErr != nil {
+				return Head{}, condenseErr
+			}
+			resumed = outcome.head
+		}
+		if resumed.Node == 0 {
+			return Head{}, errors.New("parser-core phase zero: recovery discontinuity has no matching resume predecessor")
+		}
+		return resumed, nil
 	}
 	in := linkInput{prev: preErrorHead.Node, payload: payload}
 	if cost != nil {

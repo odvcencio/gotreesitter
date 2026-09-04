@@ -815,7 +815,6 @@ func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
 		return diagnosticParserCoreHeader{}, err
 	}
 	context := core.RecoveryDiscontinuityContext{ErrorState: 0, ByteOffset: byteOffset, Checkpoint: checkpoint}
-	markers := make([]core.Head, 0, len(anyHeaders))
 	for _, header := range anyHeaders {
 		_, candidateByte, err := s.compact.Boundary(header.head)
 		if err != nil {
@@ -834,6 +833,9 @@ func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
 		if !s.versionLexerStateEqual(anyHeaders[0].versionState, header.versionState) {
 			return diagnosticParserCoreHeader{}, nil
 		}
+	}
+	markers := make([]core.Head, 0, len(anyHeaders))
+	for _, header := range anyHeaders {
 		marker, err := s.compact.AppendRecoveryDiscontinuityOwned(owner, header.head, context)
 		if err != nil {
 			return diagnosticParserCoreHeader{}, err

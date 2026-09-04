@@ -571,6 +571,18 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointedWithCost(
 	incoming Head,
 	allowNonzeroCost bool,
 ) (Head, error) {
+	return c.mergeEquivalentHeadsAtBoundaryUncheckpointedWithRecovery(
+		key, incumbent, incoming, allowNonzeroCost, nil,
+	)
+}
+
+func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointedWithRecovery(
+	key boundaryKey,
+	incumbent Head,
+	incoming Head,
+	allowNonzeroCost bool,
+	recovery *recoveryMergeEquivalenceContext,
+) (Head, error) {
 	if key.frontier != c.frontier {
 		return Head{}, errors.New("parser-core phase zero: physical head merge frontier mismatch")
 	}
@@ -648,7 +660,9 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointedWithCost(
 	changed := false
 	for _, link := range incomingLinks {
 		var inserted bool
-		links, inserted, err = c.insertLinkBounded(key.state, key.byteOffset, links, link, 0, &folded)
+		links, inserted, err = c.insertLinkBoundedWithRecovery(
+			key.state, key.byteOffset, links, link, 0, &folded, recovery,
+		)
 		if err != nil {
 			return Head{}, err
 		}
@@ -736,6 +750,40 @@ func (c *Core) MergeEquivalentHeadsWithStoredErrorCostOwned(
 	}
 	out, err = c.mergeEquivalentHeadsAtBoundaryUncheckpointedWithCost(
 		key, incumbent, incoming, true,
+	)
+	return out, c.finishSchedulerOwned(owner, err)
+}
+
+// MergeEquivalentRecoveryHeadsOwned merges equal-cost recovery heads with
+// C's positive-error subtree equivalence rule. The scheduler supplies the
+// recovery pricing decision through a callback.
+func (c *Core) MergeEquivalentRecoveryHeadsOwned(
+	owner SchedulerTransactionToken,
+	state StateID,
+	byteOffset uint32,
+	checkpoint CheckpointID,
+	shifted bool,
+	incumbent Head,
+	incoming Head,
+	payloadHasError PayloadErrorPresenceFunc,
+) (out Head, err error) {
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return out, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	if payloadHasError == nil {
+		return out, c.finishSchedulerOwned(
+			owner,
+			errors.New("parser-core phase zero: recovery head merge pricing context is unavailable"),
+		)
+	}
+	key := boundaryKey{
+		frontier: c.frontier, state: state, byteOffset: byteOffset,
+		shifted: shifted, checkpoint: checkpoint,
+	}
+	context := recoveryMergeEquivalenceContext{payloadHasError: payloadHasError}
+	out, err = c.mergeEquivalentHeadsAtBoundaryUncheckpointedWithRecovery(
+		key, incumbent, incoming, true, &context,
 	)
 	return out, c.finishSchedulerOwned(owner, err)
 }
@@ -1271,6 +1319,27 @@ func (c *Core) shiftExtraClassifiedCohortUncheckpointed(boundaries []ClassifiedB
 // delegates to the standalone reduction's uncheckpointed implementation.
 func (c *Core) ReduceOutputsClassifiedIntoOwned(owner SchedulerTransactionToken, dst []ReductionOutput, boundary ClassifiedBoundary, actionOrdinal int, fork ForkOrder) (frontier []ReductionOutput, err error) {
 	return c.reduceOutputsClassifiedIntoMaybeLiveScopedOwned(owner, nil, false, dst, boundary, actionOrdinal, fork, nil)
+}
+
+// ReduceOutputsClassifiedIntoWithCostOwned applies one standalone reduction
+// and authenticates its cumulative recovery cost before publication.
+func (c *Core) ReduceOutputsClassifiedIntoWithCostOwned(
+	owner SchedulerTransactionToken,
+	dst []ReductionOutput,
+	boundary ClassifiedBoundary,
+	actionOrdinal int,
+	fork ForkOrder,
+	cost ReductionOutputCostFunc,
+) (frontier []ReductionOutput, err error) {
+	if cost == nil {
+		if err = c.beginSchedulerOwned(owner); err != nil {
+			return frontier, err
+		}
+		return frontier, c.finishSchedulerOwned(owner, errors.New("parser-core phase zero: reduction cost callback is required"))
+	}
+	return c.reduceOutputsClassifiedIntoMaybeLiveScopedOwned(
+		owner, nil, false, dst, boundary, actionOrdinal, fork, cost,
+	)
 }
 
 // ReduceOutputsClassifiedIntoWithLiveCondenseCandidatesOwned scopes the condense candidates

@@ -234,6 +234,72 @@ func TestS5MissingInsertionForkPublishesBothRecoveryLineages(t *testing.T) {
 	}
 }
 
+func TestS5AbsorberPreservesMixedParserStatesForRecoverySelection(t *testing.T) {
+	scheduler := newRecoveryLineageForkScheduler(t, true)
+	other, err := scheduler.compact.Seed(core.StateID(3), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headers := []diagnosticParserCoreHeader{
+		scheduler.headers[0],
+		{head: other, creationSeq: 4},
+	}
+	staged := diagnosticParserCoreS5Work{}
+	var absorb diagnosticParserCoreHeader
+	err = scheduler.compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+		var absorbErr error
+		absorb, absorbErr = scheduler.s5AppendAndMergeAbsorberOwned(owner, headers, 0, 1, &staged)
+		return absorbErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if absorb.head.Node == 0 {
+		t.Fatal("mixed-state absorber did not publish a recovery marker")
+	}
+	stats, err := scheduler.compact.Stats(absorb.head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.CurrentExactPaths != 2 || staged.recoveryDiscontinuityMerges != 1 {
+		t.Fatalf("mixed-state absorber stats=%+v work=%+v, want two paths and one marker merge", stats, staged)
+	}
+	region := absorb.recoveryRegion()
+	if region == nil || region.state != 1 {
+		t.Fatalf("mixed-state recovery region=%+v, want first recovery state 1", region)
+	}
+}
+
+func TestS5AbsorberPreservesLexerGapBeforeErrorRegion(t *testing.T) {
+	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.token.StartByte = 2
+	scheduler.token.EndByte = 3
+	staged := diagnosticParserCoreS5Work{}
+	var absorb diagnosticParserCoreHeader
+	err := scheduler.compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+		var absorbErr error
+		absorb, absorbErr = scheduler.s5AppendAndMergeAbsorberOwned(owner, scheduler.headers, 0, 1, &staged)
+		return absorbErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if absorb.head.Node == 0 {
+		t.Fatal("lexer-gap absorber did not publish a recovery marker")
+	}
+	state, byteOffset, err := scheduler.compact.Boundary(absorb.head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state != 0 || byteOffset != 1 {
+		t.Fatalf("lexer-gap marker=%d@%d, want ERROR_STATE at byte 1", state, byteOffset)
+	}
+	region := absorb.recoveryRegion()
+	if region == nil || region.state != 1 || region.startByte != 2 || region.endByte != 3 || len(region.children) != 1 {
+		t.Fatalf("lexer-gap region=%+v, want state 1 over bytes 2..3", region)
+	}
+}
+
 func TestS5MissingInsertionClampsInheritedBaselineBeforeFork(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
 	scheduler.headers[0].publishRecoveryCondenseState(0, 0, 9, true)

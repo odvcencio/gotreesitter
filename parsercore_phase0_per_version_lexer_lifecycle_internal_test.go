@@ -59,13 +59,197 @@ func newDiagnosticParserCoreOwnedLexerRequest(
 	after *diagnosticParserCoreVersionLexerSnapshot,
 ) diagnosticParserCoreVersionLexerRequest {
 	return diagnosticParserCoreVersionLexerRequest{
-		electionIndex: electionIndex,
-		state:         state,
-		token:         token,
-		before:        before,
-		after:         after,
-		valid:         true,
+		electionIndex:    electionIndex,
+		state:            state,
+		token:            token,
+		before:           before,
+		after:            after,
+		beforeCheckpoint: before.afterCheckpointInfo,
+		afterCheckpoint:  after.afterCheckpointInfo,
+		beforeID:         before.afterCheckpoint,
+		afterID:          after.afterCheckpoint,
+		valid:            true,
 	}
+}
+
+func TestDiagnosticParserCoreOwnedLexerRequestSurvivesReducedHeadStart(t *testing.T) {
+	table := &genericConflictTable{cells: map[genericConflictCell][]core.Action{
+		{state: 7, symbol: 9}: {{Type: core.ActionShift, State: 8}},
+	}}
+	compact, err := core.New(table, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Seed(7, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	language := &Language{Name: "owned-lexer-reduced-head-start-test"}
+	before := newDiagnosticParserCoreOwnedLexerSnapshot(t, compact, language, 15)
+	after := newDiagnosticParserCoreOwnedLexerSnapshot(t, compact, language, 18)
+	request := newDiagnosticParserCoreOwnedLexerRequest(
+		4,
+		7,
+		Token{Symbol: 9, StartByte: 16, EndByte: 18},
+		before,
+		after,
+	)
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact: compact,
+		tokenSource: &dfaTokenSource{
+			lexer:    &Lexer{},
+			language: language,
+		},
+		headers: []diagnosticParserCoreHeader{{
+			head: head,
+			versionState: &diagnosticParserCoreVersionState{
+				relexSnapshot: before,
+				lexerRequest:  1,
+			},
+		}},
+		electionIndex:        4,
+		versionLexerRequests: []diagnosticParserCoreVersionLexerRequest{request},
+	}
+	if got := scheduler.versionLexerRequestForHeader(0); got != &scheduler.versionLexerRequests[0] {
+		t.Fatalf("request for reduced head=%p, want %p", got, &scheduler.versionLexerRequests[0])
+	}
+	boundary, err := compact.ClassifyBoundary(head, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := diagnosticParserCoreGenericCell{headerIndex: 0, boundary: boundary, versionLexerRequest: 1}
+	if got, err := scheduler.versionLexerRequestForCell(cell); err != nil || got != &scheduler.versionLexerRequests[0] {
+		t.Fatalf("cell request=%p err=%v, want %p", got, err, &scheduler.versionLexerRequests[0])
+	}
+	reducedHead, err := compact.Seed(8, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduler.headers[0].head = reducedHead
+	if got := scheduler.versionLexerRequestForHeader(0); got != &scheduler.versionLexerRequests[0] {
+		t.Fatalf("request after parser-state reduction=%p, want %p", got, &scheduler.versionLexerRequests[0])
+	}
+	reducedBoundary, err := compact.ClassifyBoundary(reducedHead, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reducedCell := diagnosticParserCoreGenericCell{headerIndex: 0, boundary: reducedBoundary, versionLexerRequest: 1}
+	if got, err := scheduler.versionLexerRequestForCell(reducedCell); err != nil || got != &scheduler.versionLexerRequests[0] {
+		t.Fatalf("reduced cell request=%p err=%v, want %p", got, err, &scheduler.versionLexerRequests[0])
+	}
+}
+
+func TestDiagnosticParserCoreOwnedLexerRequestRejectsTokenBeforeCurrentBoundary(t *testing.T) {
+	table := &genericConflictTable{cells: map[genericConflictCell][]core.Action{
+		{state: 7, symbol: 9}: {{Type: core.ActionShift, State: 8}},
+	}}
+	compact, err := core.New(table, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Seed(7, 17)
+	if err != nil {
+		t.Fatal(err)
+	}
+	language := &Language{Name: "owned-lexer-later-boundary-test"}
+	before := newDiagnosticParserCoreOwnedLexerSnapshot(t, compact, language, 15)
+	after := newDiagnosticParserCoreOwnedLexerSnapshot(t, compact, language, 18)
+	request := newDiagnosticParserCoreOwnedLexerRequest(
+		4,
+		7,
+		Token{Symbol: 9, StartByte: 16, EndByte: 18},
+		before,
+		after,
+	)
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact: compact,
+		tokenSource: &dfaTokenSource{
+			lexer:    &Lexer{},
+			language: language,
+		},
+		headers: []diagnosticParserCoreHeader{{
+			head: head,
+			versionState: &diagnosticParserCoreVersionState{
+				relexSnapshot: before,
+				lexerRequest:  1,
+			},
+		}},
+		electionIndex:        4,
+		versionLexerRequests: []diagnosticParserCoreVersionLexerRequest{request},
+	}
+	if got := scheduler.versionLexerRequestForHeader(0); got != nil {
+		t.Fatalf("request before current boundary=%+v, want nil", got)
+	}
+	boundary, err := compact.ClassifyBoundary(head, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := diagnosticParserCoreGenericCell{headerIndex: 0, boundary: boundary, versionLexerRequest: 1}
+	if got, err := scheduler.versionLexerRequestForCell(cell); got != nil || err == nil || !strings.Contains(err.Error(), "stale") {
+		t.Fatalf("cell request=%p err=%v, want stale rejection", got, err)
+	}
+}
+
+func TestDiagnosticParserCoreOwnedLexerRequestRejectsInvalidSnapshots(t *testing.T) {
+	table := &genericConflictTable{cells: map[genericConflictCell][]core.Action{
+		{state: 7, symbol: 9}: {{Type: core.ActionShift, State: 8}},
+	}}
+	compact, err := core.New(table, core.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Seed(7, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	language := &Language{Name: "owned-lexer-invalid-snapshot-test"}
+	before := newDiagnosticParserCoreOwnedLexerSnapshot(t, compact, language, 9)
+	after := newDiagnosticParserCoreOwnedLexerSnapshot(t, compact, language, 10)
+	request := newDiagnosticParserCoreOwnedLexerRequest(
+		4,
+		7,
+		Token{Symbol: 9, StartByte: 9, EndByte: 10},
+		before,
+		after,
+	)
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact: compact,
+		tokenSource: &dfaTokenSource{
+			lexer:    &Lexer{},
+			language: language,
+		},
+		headers: []diagnosticParserCoreHeader{{
+			head: head,
+			versionState: &diagnosticParserCoreVersionState{
+				relexSnapshot: before,
+				lexerRequest:  1,
+			},
+		}},
+		electionIndex:        4,
+		versionLexerRequests: []diagnosticParserCoreVersionLexerRequest{request},
+	}
+	boundary, err := compact.ClassifyBoundary(head, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := diagnosticParserCoreGenericCell{headerIndex: 0, boundary: boundary, versionLexerRequest: 1}
+
+	t.Run("reset generation", func(t *testing.T) {
+		before.coreGeneration++
+		if got := scheduler.versionLexerRequestForHeader(0); got != nil {
+			t.Fatalf("request with stale generation=%+v, want nil", got)
+		}
+		before.coreGeneration--
+	})
+
+	t.Run("nil after snapshot", func(t *testing.T) {
+		saved := scheduler.versionLexerRequests[0].after
+		scheduler.versionLexerRequests[0].after = nil
+		if got, err := scheduler.versionLexerRequestForCell(cell); got != nil || err == nil || !strings.Contains(err.Error(), "stale") {
+			t.Fatalf("malformed cell request=%p err=%v, want stale rejection", got, err)
+		}
+		scheduler.versionLexerRequests[0].after = saved
+	})
 }
 
 func TestDiagnosticParserCoreOwnedLexerSeedingSkipsAcceptedHeader(t *testing.T) {
