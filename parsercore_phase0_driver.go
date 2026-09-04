@@ -114,6 +114,9 @@ type DiagnosticParserCorePrefixOptions struct {
 	// no-action head into missing-token and error-absorb recovery lineages.
 	// Language.CompactMissingTokenInsertionCertified is its artifact gate.
 	allowCompactMissingTokenInsertion bool
+	// allowCompactS5EOFMissingInsertion permits S5 only when the elected token
+	// is EOF. The admission route binds it from an exact artifact capability.
+	allowCompactS5EOFMissingInsertion bool
 	// allowCompactFaithfulS5Recovery selects the complete S5 physical
 	// graph-head scan. Uncertified artifacts retain the bounded legacy scan.
 	allowCompactFaithfulS5Recovery bool
@@ -9114,6 +9117,23 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 		}
 	}
 	if len(cells) == 0 {
+		if recoveryCompetition && s.options.allowCompactS5EOFMissingInsertion &&
+			s.s5MissingInsertions != 0 &&
+			s.token.Symbol == 0 &&
+			s.token.StartByte == s.token.EndByte && !s.token.Missing &&
+			!s.token.NoLookahead && !s.token.ExternalScannerToken &&
+			pausedNoActionHeads == 0 && deferredNoActionHeads == 0 &&
+			raggedRelexNoActionHeads == 0 {
+			accepted := 0
+			for index := range s.headers {
+				if s.headers[index].accepted {
+					accepted++
+				}
+			}
+			if accepted != 0 && accepted+len(noActionIndices) == len(s.headers) {
+				return nil, s.completeAcceptance()
+			}
+		}
 		if !s.recoveryIsolation && diagnosticParserCoreGenericNoActionDropEligible(s.headers, noActionIndices, s.epochProgress) {
 			if s.options.recordDropCohortFrontiers {
 				if err := s.publishDropCohortFrontierOwned(noActionIndices); err != nil {
