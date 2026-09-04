@@ -4279,10 +4279,12 @@ func deduplicateProductions(prods []Production) []Production {
 //	_H → Seq(P, Q)                   (only compound alts kept)
 //	A → Choice(_H, X, Y, Z)          (pass-through alts inlined)
 //
-// This matches tree-sitter C's flatten_grammar.cc behavior.
+// Preserve precedence-bearing mixed reductions and their unary child reductions.
+// All-pass-through rules otherwise retain the existing closure approximation.
 func flattenHiddenChoiceAlts(g *Grammar, generatedHiddenRules map[string]bool) *Grammar {
 	// 1. Identify hidden nonterminals with mixed pass-through and compound alts.
 	flattenMap := make(map[string]*flattenInfo)
+	preserveReduction := make(map[string]bool)
 	preservePassthrough := stringSetFromSlice(g.PreserveHiddenChoicePassthrough)
 	aliasReferenced := hiddenSymbolsReferencedUnderAlias(g, generatedHiddenRules)
 	continuationFirsts := continuationFirstsByHiddenSymbol(g, generatedHiddenRules)
@@ -4316,11 +4318,12 @@ func flattenHiddenChoiceAlts(g *Grammar, generatedHiddenRules map[string]bool) *
 		}
 
 		var pt, compound []*Rule
+		preservePrecedence := false
 		for _, alt := range alts {
 			if isSingleSymRef(alt) {
-				// PREC belongs to the hidden rule's own productions, not to
-				// consumer rules that inline its alternatives — leaking it
-				// breaks shift/reduce resolution at the call site.
+				if passthroughHasPrecedence(alt) {
+					preservePrecedence = true
+				}
 				pt = append(pt, stripTopPrec(alt))
 			} else {
 				compound = append(compound, alt)
@@ -4328,6 +4331,12 @@ func flattenHiddenChoiceAlts(g *Grammar, generatedHiddenRules map[string]bool) *
 		}
 
 		if len(pt) == 0 {
+			continue
+		}
+		// Mixed choices lose their unary productions during flattening.
+		// Precedence belongs to those reductions, not to their callers.
+		if preservePrecedence && len(compound) > 0 {
+			preserveReduction[name] = true
 			continue
 		}
 
@@ -4463,6 +4472,31 @@ func flattenHiddenChoiceAlts(g *Grammar, generatedHiddenRules map[string]bool) *
 		}
 	}
 
+	// Preserve the unary child reductions that feed precedence-sensitive rules.
+	// A sibling must not bypass those reductions and compete at a different state.
+	var pending []string
+	for _, name := range g.RuleOrder {
+		if preserveReduction[name] {
+			pending = append(pending, name)
+		}
+	}
+	for i := 0; i < len(pending); i++ {
+		rule := g.Rules[pending[i]]
+		alts := getTopLevelChoiceAlts(rule)
+		if alts == nil {
+			alts = []*Rule{rule}
+		}
+		for _, alt := range alts {
+			name, ok := directSymbolRefName(alt)
+			if !ok || preserveReduction[name] || g.Rules[name] == nil ||
+				(!strings.HasPrefix(name, "_") && !generatedHiddenRules[name]) {
+				continue
+			}
+			preserveReduction[name] = true
+			delete(flattenMap, name)
+			pending = append(pending, name)
+		}
+	}
 	if len(flattenMap) == 0 {
 		return g
 	}
@@ -4904,6 +4938,23 @@ func isSingleSymRef(r *Rule) bool {
 	}
 	// A single symbol, pattern, or string literal all produce cc=1 productions.
 	return r.Kind == RuleSymbol || r.Kind == RulePattern || r.Kind == RuleString
+}
+
+func passthroughHasPrecedence(r *Rule) bool {
+	for r != nil {
+		switch r.Kind {
+		case RulePrec, RulePrecLeft, RulePrecRight, RulePrecDynamic:
+			return true
+		case RuleAlias, RuleField:
+			if len(r.Children) == 0 {
+				return false
+			}
+			r = r.Children[0]
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 func directSymbolRefName(r *Rule) (string, bool) {

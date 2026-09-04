@@ -6,7 +6,7 @@ import (
 	"github.com/odvcencio/gotreesitter"
 )
 
-func TestScalaAnnotationArgumentsMatchLockedC(t *testing.T) {
+func TestScalaConstructorOwnershipMatchesLockedC(t *testing.T) {
 	generated, reference := loadImportedParityLanguages(t, "scala")
 	tests := []struct {
 		name     string
@@ -38,16 +38,48 @@ func TestScalaAnnotationArgumentsMatchLockedC(t *testing.T) {
 			name:   "annotated_class_template_constructor_control",
 			source: "class A@a() { val c: C(42) = value }\n",
 		},
+		{
+			name:     "two_parents_with_template",
+			source:   "class F extends A with B {}\n",
+			expected: "(compilation_unit (class_definition (identifier) (extends_clause (type_identifier) (type_identifier)) (template_body)))",
+		},
+		{
+			name:     "two_parents_without_template",
+			source:   "class F extends A with B\n",
+			expected: "(compilation_unit (class_definition (identifier) (extends_clause (type_identifier) (type_identifier))))",
+		},
+		{
+			name:     "one_parent_control",
+			source:   "class F extends A {}\n",
+			expected: "(compilation_unit (class_definition (identifier) (extends_clause (type_identifier)) (template_body)))",
+		},
+		{
+			name:     "qualified_parents",
+			source:   "class F extends a.A with b.B {}\n",
+			expected: "(compilation_unit (class_definition (identifier) (extends_clause (stable_type_identifier (identifier) (type_identifier)) (stable_type_identifier (identifier) (type_identifier))) (template_body)))",
+		},
+		{
+			name:   "generic_parent",
+			source: "class A extends B[C] {}\n",
+		},
+		{
+			name:   "qualified_generic_parent",
+			source: "class A extends B.C[D, E] {}\n",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			data := []byte(test.source)
-			generatedTree, err := gotreesitter.NewParser(generated).Parse(data)
+			generatedParser := gotreesitter.NewParser(generated)
+			generatedParser.SetAdmissionCandidateRoute(false)
+			generatedTree, err := generatedParser.Parse(data)
 			if err != nil {
 				t.Fatalf("generated parse: %v", err)
 			}
 			defer generatedTree.Release()
-			referenceTree, err := gotreesitter.NewParser(reference).Parse(data)
+			referenceParser := gotreesitter.NewParser(reference)
+			referenceParser.SetAdmissionCandidateRoute(false)
+			referenceTree, err := referenceParser.Parse(data)
 			if err != nil {
 				t.Fatalf("locked C parse: %v", err)
 			}
