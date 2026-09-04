@@ -25,6 +25,7 @@ func TestExternalScannerDocumentationCertificationsMatchAttachedRuntimeRegistry(
 		entry, ok := ordinaryRegistry[name]
 		if !ok || entry.Language == nil {
 			t.Errorf("runtime external scanner %q has no ordinary language-registry loader", name)
+			continue
 		}
 
 		probe := &gts.Language{Name: name}
@@ -32,7 +33,12 @@ func TestExternalScannerDocumentationCertificationsMatchAttachedRuntimeRegistry(
 			t.Errorf("runtime external scanner %q did not attach through the embedded-loader path", name)
 			continue
 		}
-		want := externalScannerCertification(probe.ExternalScanner)
+		lang := entry.Language()
+		if lang == nil || lang.ExternalScanner == nil {
+			t.Errorf("runtime external scanner %q did not attach to its ordinary language", name)
+			continue
+		}
+		want := externalScannerCertification(lang.ExternalScanner)
 		got, ok := certifications[name]
 		if !ok {
 			t.Errorf("scanner matrix is missing runtime language %q", name)

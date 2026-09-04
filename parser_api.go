@@ -224,6 +224,9 @@ func checkpointedScannerPrefixFrontierUnproven(source []byte, oldTree *Tree) boo
 		len(oldTree.edits) == 0 || oldTree.root == nil {
 		return false
 	}
+	if oldTree.root.hasError() && !languageSupportsIncrementalReuseFromErrorTree(oldTree.language) {
+		return false
+	}
 	childCount := nodeChildCountNoMaterialize(oldTree.root)
 	foundFirst := false
 	foundSecond := false
@@ -1710,6 +1713,9 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	// the reuse-disabled fresh-parse fallback to Parse below, on production.
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
+	if oldTree != nil && oldTree.language != p.language {
+		return p.Parse(source)
+	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		if tree, ok := p.tryTokenInvariantReuseForDisabledOldTree(source, oldTree, nil); ok {
 			return tree, nil
@@ -1896,6 +1902,11 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	// production so ParseIncremental never publishes a compact tree.
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
+	if oldTree != nil && oldTree.language != p.language {
+		start := time.Now()
+		tree, err := p.Parse(source)
+		return tree, profileFreshParseFallback(start, tree, "old_tree_language_mismatch"), err
+	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		timing := &incrementalParseTiming{}
 		if tree, ok := p.tryTokenInvariantReuseForDisabledOldTree(source, oldTree, timing); ok {

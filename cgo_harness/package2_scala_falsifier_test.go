@@ -3,6 +3,7 @@
 package cgoharness
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"strings"
@@ -174,23 +175,226 @@ func TestPackage2ScalaFalsifierTrueEOFComposition(t *testing.T) {
 }
 
 // TestPackage2ScalaIncrementalCleanMissingTransitions proves both invalidation
-// directions around the smallest package-two recovery point. Scala scanner
-// reuse still fails closed, so package five must later replace this full reparse
-// with authenticated reuse without changing either result.
+// directions around the smallest package-two recovery point. The certified
+// scanner fails closed because each edit changes width.
 func TestPackage2ScalaIncrementalCleanMissingTransitions(t *testing.T) {
-	runPackage2ScalaIncrementalCleanMissingTransitions(t, []byte("(y); "), []byte("(y; "), 2)
+	runPackage2ScalaIncrementalCleanMissingTransitions(t, []byte("(y); "), []byte("(y; "), 2, "", "")
 }
 
 // TestPackage2ScalaIncrementalEOFCompositionCleanMissingTransitions locks the
 // clean control and both edit directions for the true EOF composition witness.
 func TestPackage2ScalaIncrementalEOFCompositionCleanMissingTransitions(t *testing.T) {
-	runPackage2ScalaIncrementalCleanMissingTransitions(t, []byte("((y)->)"), []byte("((y)->"), 6)
+	runPackage2ScalaIncrementalCleanMissingTransitions(
+		t,
+		[]byte("((y)->)"),
+		[]byte("((y)->"),
+		6,
+		"5e44dd6eed19285e0430c21c6ff85828340ed44e89534bde49f6e2e336e9acf4",
+		"03a458abd5832f6326e03b833a3890ea8d48ca43eb91ada1951bb020871f49a6",
+	)
+}
+
+func TestPackage2ScalaIncrementalScannerStateEdits(t *testing.T) {
+	tests := []struct {
+		name               string
+		before             []byte
+		oldText            []byte
+		newText            []byte
+		wantFallbackReason string
+	}{
+		{
+			name:               "token invariant number",
+			before:             []byte("object Prelude:\n  val fixed = 0\n\nobject A:\n  val value = 2\n  val sibling = 3\n"),
+			oldText:            []byte("2"),
+			newText:            []byte("4"),
+			wantFallbackReason: "",
+		},
+		{
+			name:               "before indentation state",
+			before:             []byte("object A:\n  def value =\n    1\n  def sibling = 2\n"),
+			oldText:            []byte("A"),
+			newText:            []byte("B"),
+			wantFallbackReason: "external_scanner_unsupported",
+		},
+		{
+			name:               "before interpolation state",
+			before:             []byte("object A:\n  val prefix = 1\n  val name = \"x\"\n  val greeting = s\"hello $name\"\n"),
+			oldText:            []byte("1"),
+			newText:            []byte("2"),
+			wantFallbackReason: "",
+		},
+		{
+			name:               "indentation width",
+			before:             []byte("object A:\n  def value =\n    1\n  def sibling = 2\n"),
+			oldText:            []byte("    1"),
+			newText:            []byte("      1"),
+			wantFallbackReason: "external_scanner_unsupported",
+		},
+		{
+			name:               "interpolation identifier",
+			before:             []byte("object Prelude:\n  val fixed = 0\n\nobject A:\n  val name = \"x\"\n  val greeting = s\"hello $name\"\n  val sibling = 2\n"),
+			oldText:            []byte("$name"),
+			newText:            []byte("$game"),
+			wantFallbackReason: "external_scanner_unsupported",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			forward := replacePackage2ScalaEditText(t, test.before, test.oldText, test.newText)
+			directions := []struct {
+				name, oldText, newText string
+				before, after          []byte
+			}{
+				{name: "forward", oldText: string(test.oldText), newText: string(test.newText), before: test.before, after: forward},
+				{name: "reverse", oldText: string(test.newText), newText: string(test.oldText), before: forward, after: test.before},
+			}
+			for _, direction := range directions {
+				t.Run(direction.name, func(t *testing.T) {
+					for _, compactOldTree := range []bool{false, true} {
+						routeName := "production-old-tree"
+						if compactOldTree {
+							routeName = "compact-old-tree"
+						}
+						t.Run(routeName, func(t *testing.T) {
+							oldText := []byte(direction.oldText)
+							newText := []byte(direction.newText)
+							offset := bytes.Index(direction.before, oldText)
+							if offset < 0 {
+								t.Fatal("Scala scanner-state edit site is missing")
+							}
+							edit := gotreesitter.InputEdit{
+								StartByte:   uint32(offset),
+								OldEndByte:  uint32(offset + len(oldText)),
+								NewEndByte:  uint32(offset + len(newText)),
+								StartPoint:  pointAtOffset(direction.before, offset),
+								OldEndPoint: pointAtOffset(direction.before, offset+len(oldText)),
+								NewEndPoint: pointAtOffset(direction.after, offset+len(newText)),
+							}
+							runPackage2ScalaScannerStateEdit(
+								t, direction.before, direction.after, edit,
+								test.wantFallbackReason, compactOldTree,
+							)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func replacePackage2ScalaEditText(t *testing.T, source, oldText, newText []byte) []byte {
+	t.Helper()
+	offset := bytes.Index(source, oldText)
+	if offset < 0 {
+		t.Fatal("Scala scanner-state edit site is missing")
+	}
+	after := make([]byte, 0, len(source)-len(oldText)+len(newText))
+	after = append(after, source[:offset]...)
+	after = append(after, newText...)
+	after = append(after, source[offset+len(oldText):]...)
+	return after
+}
+
+func runPackage2ScalaScannerStateEdit(
+	t *testing.T,
+	before, after []byte,
+	edit gotreesitter.InputEdit,
+	wantFallbackReason string,
+	compactOldTree bool,
+) {
+	t.Helper()
+	goLanguage := grammars.ScalaLanguage()
+	cLanguage, err := ParityCLanguage("scala")
+	if err != nil {
+		t.Fatalf("load locked Scala C language: %v", err)
+	}
+	assertPackage2ScalaCIncrementalTransition(t, cLanguage, before, after, edit)
+
+	parser := gotreesitter.NewParser(goLanguage)
+	parser.SetAdmissionCandidateRoute(compactOldTree)
+	beforeRouted, beforeFallback := gotreesitter.AdmissionCandidateCounters()
+	oldTree, err := parser.Parse(before)
+	if err != nil {
+		t.Fatalf("parse Scala scanner-state source: %v", err)
+	}
+	t.Cleanup(oldTree.Release)
+	if oldTree.RootNode() == nil || oldTree.RootNode().HasError() {
+		t.Fatalf("Scala scanner-state source is not clean: %v", oldTree.RootNode())
+	}
+	if compactOldTree {
+		routed, fallback := gotreesitter.AdmissionCandidateCounters()
+		if routed-beforeRouted != 1 || fallback-beforeFallback != 0 ||
+			!oldTree.ParseRuntime().CompactExternalScannerCheckpointTransferProven {
+			t.Fatalf("compact Scala old-tree route=%d/%d transfer=%t, want 1/0/true",
+				routed-beforeRouted, fallback-beforeFallback,
+				oldTree.ParseRuntime().CompactExternalScannerCheckpointTransferProven)
+		}
+	}
+	assertPackage2ScalaTransitionEndpoint(t, goLanguage, cLanguage, before, oldTree, false, 0, "")
+	oldTree.Edit(edit)
+	incremental, profile, err := parser.ParseIncrementalProfiled(after, oldTree)
+	if err != nil {
+		t.Fatalf("incremental Scala scanner-state parse: %v", err)
+	}
+	t.Cleanup(incremental.Release)
+	effectiveFallbackReason := wantFallbackReason
+	if compactOldTree && effectiveFallbackReason == "" {
+		effectiveFallbackReason = "external_scanner_unsupported"
+	}
+	if effectiveFallbackReason != "" {
+		if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != effectiveFallbackReason ||
+			profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+			t.Fatalf("Scala scanner-state fallback profile=%+v", profile)
+		}
+	} else if profile.ReuseUnsupported || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
+		t.Fatalf("Scala scanner-state edit did not reuse authenticated syntax: %+v", profile)
+	}
+
+	fresh, err := gotreesitter.NewParser(goLanguage).Parse(after)
+	if err != nil {
+		t.Fatalf("fresh Scala scanner-state parse: %v", err)
+	}
+	t.Cleanup(fresh.Release)
+	cParser := sitter.NewParser()
+	t.Cleanup(cParser.Close)
+	if err := cParser.SetLanguage(cLanguage); err != nil {
+		t.Fatalf("set locked Scala C language: %v", err)
+	}
+	cFresh := cParser.Parse(after, nil)
+	if cFresh == nil || cFresh.RootNode() == nil {
+		t.Fatal("locked Scala C parser returned no scanner-state tree")
+	}
+	t.Cleanup(cFresh.Close)
+	for _, candidate := range []struct {
+		name string
+		tree *gotreesitter.Tree
+	}{{"incremental", incremental}, {"fresh", fresh}} {
+		root := candidate.tree.RootNode()
+		if diff := FirstDivergenceDumpV1(root, goLanguage, cFresh.RootNode()); diff != nil {
+			t.Fatalf("%s Scala scanner-state tree diverges from locked C: %+v", candidate.name, *diff)
+		}
+		if diff := firstLockedCTreeFlagDivergence(root, goLanguage, cFresh.RootNode(), "/"+root.Type(goLanguage)); diff != nil {
+			t.Fatalf("%s Scala scanner-state flags diverge from locked C: %v", candidate.name, diff)
+		}
+		inspection, err := benchfixtures.InspectGoTree(root, goLanguage)
+		if err != nil {
+			t.Fatalf("inspect %s Scala scanner-state tree: %v", candidate.name, err)
+		}
+		cDigest, err := COracleDeepDigest(cFresh)
+		if err != nil {
+			t.Fatalf("inspect locked C Scala scanner-state tree: %v", err)
+		}
+		if inspection.SHA256 != cDigest {
+			t.Fatalf("%s Scala scanner-state digest=%s, want locked C %s", candidate.name, inspection.SHA256, cDigest)
+		}
+	}
 }
 
 func runPackage2ScalaIncrementalCleanMissingTransitions(
 	t *testing.T,
 	clean, missing []byte,
 	closeByte int,
+	wantCleanDigest, wantMissingDigest string,
 ) {
 	t.Helper()
 	entry := grammars.DetectLanguageByName("scala")
@@ -217,16 +421,18 @@ func runPackage2ScalaIncrementalCleanMissingTransitions(
 		OldEndPoint: pointAtOffset(clean, closeByte+1),
 		NewEndPoint: pointAtOffset(missing, closeByte),
 	}
+	assertPackage2ScalaCIncrementalTransition(t, cLanguage, clean, missing, deleteClose)
 	cleanTree.Edit(deleteClose)
 	missingTree, missingProfile, err := parser.ParseIncrementalProfiled(missing, cleanTree)
 	if err != nil {
 		t.Fatalf("delete closing parenthesis: %v", err)
 	}
 	t.Cleanup(missingTree.Release)
-	if !missingProfile.ReuseUnsupported || missingProfile.ReuseUnsupportedReason == "" {
-		t.Fatalf("delete profile=%+v, want explicit scanner reuse decline", missingProfile)
+	if !missingProfile.ReuseUnsupported ||
+		missingProfile.ReuseUnsupportedReason != "external_scanner_unsupported" {
+		t.Fatalf("delete profile=%+v, want the general scanner fallback", missingProfile)
 	}
-	assertPackage2ScalaTransitionEndpoint(t, goLanguage, cLanguage, missing, missingTree, true, 1)
+	assertPackage2ScalaTransitionEndpoint(t, goLanguage, cLanguage, missing, missingTree, true, 1, wantMissingDigest)
 
 	insertClose := gotreesitter.InputEdit{
 		StartByte: uint32(closeByte), OldEndByte: uint32(closeByte), NewEndByte: uint32(closeByte + 1),
@@ -234,16 +440,60 @@ func runPackage2ScalaIncrementalCleanMissingTransitions(
 		OldEndPoint: pointAtOffset(missing, closeByte),
 		NewEndPoint: pointAtOffset(clean, closeByte+1),
 	}
+	assertPackage2ScalaCIncrementalTransition(t, cLanguage, missing, clean, insertClose)
 	missingTree.Edit(insertClose)
 	restoredTree, restoredProfile, err := parser.ParseIncrementalProfiled(clean, missingTree)
 	if err != nil {
 		t.Fatalf("restore closing parenthesis: %v", err)
 	}
 	t.Cleanup(restoredTree.Release)
-	if !restoredProfile.ReuseUnsupported || restoredProfile.ReuseUnsupportedReason == "" {
-		t.Fatalf("restore profile=%+v, want explicit scanner reuse decline", restoredProfile)
+	if !restoredProfile.ReuseUnsupported ||
+		restoredProfile.ReuseUnsupportedReason != "external_scanner_error_tree_unsupported" {
+		t.Fatalf("restore profile=%+v, want the recovery-tree fallback", restoredProfile)
 	}
-	assertPackage2ScalaTransitionEndpoint(t, goLanguage, cLanguage, clean, restoredTree, false, 0)
+	assertPackage2ScalaTransitionEndpoint(t, goLanguage, cLanguage, clean, restoredTree, false, 0, wantCleanDigest)
+}
+
+func assertPackage2ScalaCIncrementalTransition(
+	t *testing.T,
+	cLanguage *sitter.Language,
+	before, after []byte,
+	edit gotreesitter.InputEdit,
+) {
+	t.Helper()
+	parser := sitter.NewParser()
+	t.Cleanup(parser.Close)
+	if err := parser.SetLanguage(cLanguage); err != nil {
+		t.Fatalf("set locked Scala C language: %v", err)
+	}
+	oldTree := parser.Parse(before, nil)
+	if oldTree == nil || oldTree.RootNode() == nil {
+		t.Fatal("locked Scala C parser returned no old tree")
+	}
+	cEdit := realCorpusCInputEdit(edit)
+	oldTree.Edit(&cEdit)
+	incremental := parser.Parse(after, oldTree)
+	oldTree.Close()
+	if incremental == nil || incremental.RootNode() == nil {
+		t.Fatal("locked Scala C parser returned no incremental tree")
+	}
+	t.Cleanup(incremental.Close)
+	fresh := parser.Parse(after, nil)
+	if fresh == nil || fresh.RootNode() == nil {
+		t.Fatal("locked Scala C parser returned no fresh tree")
+	}
+	t.Cleanup(fresh.Close)
+	incrementalDigest, err := COracleDeepDigest(incremental)
+	if err != nil {
+		t.Fatalf("inspect locked Scala C incremental tree: %v", err)
+	}
+	freshDigest, err := COracleDeepDigest(fresh)
+	if err != nil {
+		t.Fatalf("inspect locked Scala C fresh tree: %v", err)
+	}
+	if incrementalDigest != freshDigest {
+		t.Fatalf("locked Scala C incremental digest=%s, want fresh %s", incrementalDigest, freshDigest)
+	}
 }
 
 func assertPackage2ScalaTransitionEndpoint(
@@ -254,6 +504,7 @@ func assertPackage2ScalaTransitionEndpoint(
 	incremental *gotreesitter.Tree,
 	wantError bool,
 	wantMissing int,
+	wantDigest string,
 ) {
 	t.Helper()
 	cParser := sitter.NewParser()
@@ -312,6 +563,9 @@ func assertPackage2ScalaTransitionEndpoint(
 	cDigest, err := COracleDeepDigest(cTree)
 	if err != nil {
 		t.Fatalf("inspect locked C endpoint: %v", err)
+	}
+	if wantDigest != "" && cDigest != wantDigest {
+		t.Fatalf("locked C endpoint digest=%s, want %s", cDigest, wantDigest)
 	}
 	for _, candidate := range []struct {
 		name string

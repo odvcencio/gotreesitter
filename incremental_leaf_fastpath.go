@@ -27,6 +27,10 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	if node == nil || !node.containsByteRange(edit.StartByte, edit.OldEndByte) {
 		node = root.DescendantForByteRange(edit.StartByte, edit.OldEndByte)
 	}
+	if node == nil || node.ownerArena == nil ||
+		!node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language) {
+		return nil, false
+	}
 	start := time.Time{}
 	if timing != nil {
 		start = time.Now()
@@ -969,6 +973,9 @@ func scanIncludedRangeLeafTokenWithExternalCheckpoint(ts *includedRangeTokenSour
 	if ts == nil || dts == nil || dts.lexer == nil || leaf == nil {
 		return Token{}, false
 	}
+	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerLeafCheckpointIdentityMatches(dts.language) {
+		return Token{}, false
+	}
 	cp, ok := externalScannerCheckpointForNode(leaf)
 	if !ok {
 		return Token{}, false
@@ -1011,6 +1018,9 @@ func scanDFALeafTokenWithoutMutatingSource(dts *dfaTokenSource, leaf *Node) (Tok
 
 func scanDFALeafTokenWithExternalCheckpoint(dts *dfaTokenSource, leaf *Node) (Token, bool) {
 	if dts == nil || dts.lexer == nil || leaf == nil {
+		return Token{}, false
+	}
+	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerLeafCheckpointIdentityMatches(dts.language) {
 		return Token{}, false
 	}
 	cp, ok := externalScannerCheckpointForNode(leaf)

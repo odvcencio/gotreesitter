@@ -13,6 +13,7 @@ import (
 // caller-constructed and adapted languages retain conservative zero defaults.
 type builtinLanguageRuntimeProfile struct {
 	blobSHA256                          [32]byte
+	externalScannerCheckpointReuse      bool
 	externalScannerFullParseRetry       gotreesitter.ExternalScannerFullParseRetryPolicy
 	fullParseAcceptedErrorRetryProfile  gotreesitter.FullParseAcceptedErrorRetryProfile
 	automaticForestMemoryAllowance      int64
@@ -192,6 +193,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// stack-summary recovery and the distinct recover_eof ERROR-root route.
 	"scala": {
 		blobSHA256:                          mustRuntimeProfileSHA256("8bc4a20f983ea8c8873c28430f089ba2bbbf00a995dd29f575bf2bc598d29dfa"),
+		externalScannerCheckpointReuse:      true,
 		compactStrategy2ErrorRegion:         true,
 		compactMissingTokenInsertion:        true,
 		compactS5EOFMissingInsertion:        true,
@@ -700,6 +702,10 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	},
 }
 
+type exactRuntimeProfileExternalScanner interface {
+	externalScannerForExactRuntimeProfile() gotreesitter.ExternalScanner
+}
+
 func mustRuntimeProfileSHA256(raw string) (sum [32]byte) {
 	decoded, err := hex.DecodeString(raw)
 	if err != nil || len(decoded) != len(sum) {
@@ -718,6 +724,12 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 		return false
 	}
 	changed := false
+	if profile.externalScannerCheckpointReuse {
+		if certifier, ok := lang.ExternalScanner.(exactRuntimeProfileExternalScanner); ok {
+			lang.ExternalScanner = certifier.externalScannerForExactRuntimeProfile()
+			changed = true
+		}
+	}
 	if profile.externalScannerFullParseRetry != gotreesitter.ExternalScannerFullParseRetryDefault &&
 		lang.ExternalScanner != nil &&
 		lang.ExternalScannerFullParseRetryPolicy != profile.externalScannerFullParseRetry {

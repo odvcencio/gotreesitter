@@ -134,9 +134,7 @@ func TestScalaSpanOwnershipRoutes(t *testing.T) {
 		profile := receipt.incrementalProfile
 		if !profile.ReuseUnsupported ||
 			profile.ReuseUnsupportedReason != "external_scanner_unsupported" ||
-			profile.OldTreeReuseRoute ||
-			profile.ReusedSubtrees != 0 ||
-			profile.ReusedBytes != 0 {
+			profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
 			t.Fatalf("incremental Scala reuse receipt = %+v", profile)
 		}
 	}

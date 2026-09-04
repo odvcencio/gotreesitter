@@ -3132,6 +3132,16 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 	if canReuseUnchangedTree(source, oldTree, p.language) {
 		return oldTree
 	}
+	// Parser states, symbols, and scanner checkpoints belong to one Language
+	// instance. Never interpret an edited tree through another instance, even
+	// when both languages report the same name or grammar digest.
+	if oldTree != nil && oldTree.language != p.language {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = "old_tree_language_mismatch"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
 	if tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, ts, timing); ok {
 		return tree
 	}
@@ -3166,7 +3176,6 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
-
 	// Subtree reuse is safe for DFA token sources without external scanners
 	// and for custom token sources that explicitly opt in.
 	if !tokenSourceSupportsIncrementalReuse(ts) {
