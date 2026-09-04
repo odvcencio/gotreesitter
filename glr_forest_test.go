@@ -326,20 +326,27 @@ func TestReduceOverForestLinearPrefixForkedWithExtra(t *testing.T) {
 }
 
 // TestCoalesceForestSharesNode proves coalesceForest dedups by (state,byteOffset)
-// into one node with multiple links — the O(1), no-deep-compare mechanism.
+// into one node and grows its link storage only when a second path arrives.
 func TestCoalesceForestSharesNode(t *testing.T) {
+	const linkCap = 2
 	var idx gssForestIndex
 	idx.init(0)
 	slab := &gssForestNodeSlab{}
 	base := &gssForestNode{state: 0}
 	// Two distinct parses reach (state=5, byteOffset=42).
-	a := coalesceForest(&idx, slab, 5, 42, base, stackEntry{state: 100}, 3, 0, forestMaxLinksPerNode)
-	b := coalesceForest(&idx, slab, 5, 42, base, stackEntry{state: 101}, 7, 0, forestMaxLinksPerNode)
+	a := coalesceForest(&idx, slab, 5, 42, base, stackEntry{state: 100}, 3, 0, linkCap)
+	if got := cap(a.links); got != 1 {
+		t.Fatalf("first link capacity = %d, want 1", got)
+	}
+	b := coalesceForest(&idx, slab, 5, 42, base, stackEntry{state: 101}, 7, 0, linkCap)
 	if a != b {
 		t.Fatal("coalesceForest created two nodes for the same (state,byteOffset)")
 	}
 	if len(a.links) != 2 {
 		t.Fatalf("want 2 links on the coalesced node, got %d", len(a.links))
+	}
+	if got := cap(a.links); got != linkCap {
+		t.Fatalf("promoted link capacity = %d, want %d", got, linkCap)
 	}
 	if a.noExtraDepth != 1 {
 		t.Fatalf("want no-extra depth 1, got %d", a.noExtraDepth)
@@ -351,7 +358,7 @@ func TestCoalesceForestSharesNode(t *testing.T) {
 		t.Fatalf("want best link score 7, got %v", best)
 	}
 	// A different (state,byteOffset) is a separate node.
-	c := coalesceForest(&idx, slab, 6, 42, base, stackEntry{state: 102}, 1, 0, forestMaxLinksPerNode)
+	c := coalesceForest(&idx, slab, 6, 42, base, stackEntry{state: 102}, 1, 0, linkCap)
 	if c == a {
 		t.Fatal("distinct (state,byteOffset) coalesced into the same node")
 	}
@@ -715,14 +722,15 @@ func TestGSSForestIndexLookupCacheClearsOnReset(t *testing.T) {
 }
 
 func TestGSSForestNodeSlabReleaseClearsPointers(t *testing.T) {
+	var index gssForestIndex
+	index.init(0)
 	slab := &gssForestNodeSlab{}
-	base := slab.alloc(1, 0, 0, 0)
-	node := slab.alloc(2, 1, 0, 0)
-	nodeLinkStart := slab.linkIdx - forestMaxLinksPerNode
-	node.links = append(node.links, gssLink{
-		prev:    base,
-		subtree: stackEntry{state: 3},
-	})
+	base := &gssForestNode{state: 1}
+	secondBase := &gssForestNode{state: 2}
+	coalesceForest(&index, slab, 2, 1, base, stackEntry{state: 3}, 0, 0, forestMaxLinksPerNode)
+	nodeLinkStart := slab.linkIdx - 1
+	coalesceForest(&index, slab, 2, 1, secondBase, stackEntry{state: 4}, 0, 0, forestMaxLinksPerNode)
+	promotedLinkStart := slab.linkIdx - forestMaxLinksPerNode
 
 	if len(slab.nodeBatches) == 0 || len(slab.linkBatches) == 0 {
 		t.Fatal("expected slab batches to be allocated")
@@ -730,12 +738,18 @@ func TestGSSForestNodeSlabReleaseClearsPointers(t *testing.T) {
 	if got := slab.linkBatches[0][nodeLinkStart].prev; got != base {
 		t.Fatalf("test setup failed: link batch prev = %p, want %p", got, base)
 	}
+	if got := slab.linkBatches[0][promotedLinkStart+1].prev; got != secondBase {
+		t.Fatalf("test setup failed: promoted link prev = %p, want %p", got, secondBase)
+	}
 	slab.resetForRelease()
 	if got := slab.nodeBatches[0][0].links; got != nil {
 		t.Fatalf("node batch retained stale links slice: %v", got)
 	}
 	if got := slab.linkBatches[0][nodeLinkStart].prev; got != nil {
 		t.Fatalf("link batch retained stale prev pointer: %p", got)
+	}
+	if got := slab.linkBatches[0][promotedLinkStart+1].prev; got != nil {
+		t.Fatalf("promoted link batch retained stale prev pointer: %p", got)
 	}
 }
 

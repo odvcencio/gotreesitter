@@ -1564,6 +1564,13 @@ func coalesceForestWithRawAndAlternatives(p *Parser, arena *nodeArena, index *gs
 		return node
 	}
 	firstLink := len(node.links) == 0
+	// Most nodes have one link. Reserve the full language cap only when a
+	// second distinct path proves that this node needs it.
+	if len(node.links) == cap(node.links) {
+		grown := slab.linkSlice(linkCap)
+		grown = append(grown, node.links...)
+		node.links = grown
+	}
 	node.links = append(node.links, gssLink{prev: prev, prevDirty: forestNodeDirty(prev), subtree: entry, score: score, errorCost: errorCost})
 	forestRecordAlternative(alternatives, entry, node)
 	forestRecordMinLinkScore(node, firstLink, score)
@@ -3180,7 +3187,7 @@ func (s *gssForestNodeSlab) alloc(state StateID, byteOffset uint32, _ int, error
 	n.byteOffset = byteOffset
 	n.errorCost = errorCost
 	n.minLinkScore = 0
-	n.links = s.linkSlice()
+	n.links = s.linkSlice(1)
 	n.dirty = 0
 	n.processedEpoch = 0
 	n.processedDirty = 0
@@ -3201,14 +3208,12 @@ func (s *gssForestNodeSlab) alloc(state StateID, byteOffset uint32, _ int, error
 	return n
 }
 
-// linkSlice hands out a zero-length slice backed by the shared link buffer with
-// enough capacity for the capped forest fan-out. The pooled slab makes this a
-// retained scratch cost and avoids per-node append growth on ambiguous states.
-func (s *gssForestNodeSlab) linkSlice() []gssLink {
-	const initCap = forestMaxLinksPerNode
+// linkSlice hands out a zero-length slice with the requested capacity from the
+// shared link buffer. The pooled slab keeps link growth in retained scratch.
+func (s *gssForestNodeSlab) linkSlice(capacity int) []gssLink {
 	if len(s.linkBatches) == 0 {
 		s.linkBatches = append(s.linkBatches, make([]gssLink, gssForestLinkBatchCap))
-	} else if s.linkIdx+initCap > len(s.linkBatches[s.linkBatch]) {
+	} else if s.linkIdx+capacity > len(s.linkBatches[s.linkBatch]) {
 		s.linkBatch++
 		s.linkIdx = 0
 		if s.linkBatch >= len(s.linkBatches) {
@@ -3216,8 +3221,8 @@ func (s *gssForestNodeSlab) linkSlice() []gssLink {
 		}
 	}
 	buf := s.linkBatches[s.linkBatch]
-	sl := buf[s.linkIdx : s.linkIdx : s.linkIdx+initCap]
-	s.linkIdx += initCap
+	sl := buf[s.linkIdx : s.linkIdx : s.linkIdx+capacity]
+	s.linkIdx += capacity
 	return sl
 }
 
