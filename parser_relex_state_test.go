@@ -90,6 +90,31 @@ func TestSameSurfaceRelexTokenRequiresSameSpanAndSurface(t *testing.T) {
 	}
 }
 
+func TestDFARelexSnapshotRestoresExternalLookaheadFrontier(t *testing.T) {
+	d := &dfaTokenSource{
+		lexer: NewLexer([]LexState{{Default: -1, EOF: -1}}, []byte("x")),
+	}
+	d.externalLookaheadEndByte = 17
+	snapshot := d.snapshotRelexState()
+	if got, want := snapshot.externalLookaheadEndByte, uint32(17); got != want {
+		t.Fatalf("snapshot frontier = %d, want %d", got, want)
+	}
+	scratchSnapshot := d.snapshotRelexStateWithScratch(&dfaRelexSnapshotScratch{})
+	if got, want := scratchSnapshot.externalLookaheadEndByte, uint32(17); got != want {
+		t.Fatalf("scratch snapshot frontier = %d, want %d", got, want)
+	}
+
+	d.externalLookaheadEndByte = 31
+	changed := d.snapshotRelexState()
+	if snapshot.equal(changed) {
+		t.Fatal("snapshots with different external frontiers compare equal")
+	}
+	snapshot.restore(d)
+	if got, want := d.externalLookaheadEndByte, uint32(17); got != want {
+		t.Fatalf("restored frontier = %d, want %d", got, want)
+	}
+}
+
 func TestNoLiveStackCanAcceptLookaheadRequiresEveryEligibleVersionToReject(t *testing.T) {
 	lang := &Language{
 		StateCount:  4,
