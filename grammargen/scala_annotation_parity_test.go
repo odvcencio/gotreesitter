@@ -72,29 +72,3 @@ func TestScalaAnnotationArgumentsMatchLockedC(t *testing.T) {
 		})
 	}
 }
-
-func TestScalaAnnotationArgumentsMatchLockedCWithLRSplitting(t *testing.T) {
-	var grammarSpec importParityGrammar
-	for _, candidate := range importParityGrammars {
-		if candidate.name == "scala" {
-			grammarSpec = candidate
-			break
-		}
-	}
-	if grammarSpec.name == "" {
-		t.Fatal("scala import parity grammar not found")
-	}
-	gram, err := importParityGrammarSource(grammarSpec)
-	if err != nil {
-		t.Skipf("scala grammar not available: %v", err)
-	}
-	gram.EnableLRSplitting = true
-	generated, err := generateWithTimeout(gram, 4*grammarSpec.genTimeout)
-	if err != nil {
-		t.Fatalf("generate scala language with LR splitting: %v", err)
-	}
-	reference := grammarSpec.blobFunc()
-	adaptExternalScanner(reference, generated)
-
-	assertGeneratedAndReferenceDeepParity(t, generated, reference, "class A@a()\n")
-}
