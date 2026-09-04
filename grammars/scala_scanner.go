@@ -3,10 +3,18 @@
 package grammars
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"unicode"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
 )
+
+// scalaExternalScannerLocalPortSHA256 identifies the marked scanner port.
+// A focused test requires an identity update when the implementation changes.
+const scalaExternalScannerLocalPortSHA256 = "d0e7b147cdcfc7a28b30da296ea8d510ea85aa6262739fa9375e474e6ef1f782"
+
+// SCALA_EXTERNAL_SCANNER_LOCAL_PORT_BEGIN
 
 // External token indexes for the Scala grammar.
 const (
@@ -30,6 +38,7 @@ const (
 	scaTokDerives                 = 17
 	scaTokWith                    = 18
 	scaTokErrorSentinel           = 19
+	scaTokenCount                 = 20
 )
 
 const (
@@ -48,6 +57,54 @@ const (
 	scaSymMultilineStringEnd      gotreesitter.Symbol = 116
 )
 
+var scaDefaultSymTable = [scaTokenCount]gotreesitter.Symbol{
+	scaSymAutoSemicolon,
+	scaSymIndent,
+	scaSymOutdent,
+	scaSymSimpleStringStart,
+	scaSymSimpleStringMiddle,
+	scaSymSimpleMultiStringStart,
+	scaSymInterpStringMiddle,
+	scaSymInterpMultiStringMiddle,
+	scaSymRawStringStart,
+	scaSymRawStringMiddle,
+	scaSymRawMultiStringMiddle,
+	scaSymSingleLineStringEnd,
+	scaSymMultilineStringEnd,
+}
+
+var scalaExternalScannerSpec = ExternalScannerSpec{
+	Language:       "scala",
+	UpstreamRepo:   "https://github.com/tree-sitter/tree-sitter-scala",
+	UpstreamCommit: "97aead18d97708190a51d4f551ea9b05b60641c9",
+	Externals: []string{
+		"automatic_semicolon",
+		"indent",
+		"outdent",
+		"simple_string_start",
+		"simple_string_middle",
+		"simple_multiline_string_start",
+		"interpolated_string_middle",
+		"interpolated_multiline_string_middle",
+		"raw_string_start",
+		"raw_string_middle",
+		"raw_multiline_string_middle",
+		"single_line_string_end",
+		"multiline_string_end",
+		"else",
+		"catch",
+		"finally",
+		"extends",
+		"derives",
+		"with",
+		"error_sentinel",
+	},
+}
+
+func init() {
+	RegisterExternalScannerSpec(scalaExternalScannerSpec)
+}
+
 type scalaState struct {
 	indents             []int16
 	lastIndentationSize int16
@@ -56,7 +113,90 @@ type scalaState struct {
 }
 
 // ScalaExternalScanner handles auto-semicolons, indent/outdent, and string scanning for Scala.
-type ScalaExternalScanner struct{}
+// The raw scanner remains conservative. The exact built-in runtime profile
+// wraps it with incremental checkpoint capabilities after it verifies the blob.
+type ScalaExternalScanner struct {
+	symbols                [scaTokenCount]gotreesitter.Symbol
+	externalToToken        []int
+	grammarBlobSHA256      [32]byte
+	grammarIdentityPresent bool
+}
+
+func (ScalaExternalScanner) ExternalScannerForLanguage(lang *gotreesitter.Language) gotreesitter.ExternalScanner {
+	scanner := ScalaExternalScanner{symbols: scaDefaultSymTable}
+	scanner.externalToToken = bindExternalScannerSpec(lang, scalaExternalScannerSpec, func(tokenIdx int, sym gotreesitter.Symbol) {
+		scanner.symbols[tokenIdx] = sym
+	})
+	if lang != nil {
+		if sum, ok := lang.GrammarBlobSHA256(); ok {
+			scanner.grammarBlobSHA256 = sum
+			scanner.grammarIdentityPresent = true
+		}
+	}
+	return scanner
+}
+
+func (s ScalaExternalScanner) externalScannerForExactRuntimeProfile() gotreesitter.ExternalScanner {
+	return scalaCertifiedExternalScanner{ScalaExternalScanner: s}
+}
+
+type scalaCertifiedExternalScanner struct {
+	ScalaExternalScanner
+}
+
+const (
+	scalaScannerCheckpointMagic    = 0x53
+	scalaScannerCheckpointVersion  = 1
+	scalaScannerCheckpointHeader   = 10
+	scalaExternalScannerABIVersion = "gotreesitter/scala-external-scanner/v1"
+	scalaExternalScannerSemantics  = "state=indents,last-indentation-size,last-newline-count,last-column;codec=framed-le-v1;failure=eager-restore;error-tree=reject"
+)
+
+func (s scalaCertifiedExternalScanner) CheckpointIdentity() (gotreesitter.ExternalScannerCheckpointIdentity, bool) {
+	if !s.grammarIdentityPresent {
+		return gotreesitter.ExternalScannerCheckpointIdentity{}, false
+	}
+	return gotreesitter.ExternalScannerCheckpointIdentity{
+		Scanner: append([]byte(nil), scalaExternalScannerIdentity[:]...),
+		Grammar: append([]byte(nil), s.grammarBlobSHA256[:]...),
+	}, true
+}
+
+// Scala permits the checkpoint-authenticated token-invariant leaf fast path.
+// Keep general subtree reuse closed. Interpolation edits can invalidate
+// reduction ownership even when every serialized scanner checkpoint matches.
+func (scalaCertifiedExternalScanner) SupportsIncrementalReuse() bool { return false }
+
+func (scalaCertifiedExternalScanner) SupportsIncrementalReuseFromErrorTree() bool { return false }
+
+func (scalaCertifiedExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
+
+func (s ScalaExternalScanner) symbolTable() *[scaTokenCount]gotreesitter.Symbol {
+	if s.symbols == ([scaTokenCount]gotreesitter.Symbol{}) {
+		return &scaDefaultSymTable
+	}
+	return &s.symbols
+}
+
+func (s ScalaExternalScanner) remapValidSymbols(
+	validSymbols []bool,
+	semanticValid *[scaTokenCount]bool,
+) []bool {
+	if len(s.externalToToken) == 0 {
+		return validSymbols
+	}
+	*semanticValid = [scaTokenCount]bool{}
+	for externalIndex, valid := range validSymbols {
+		if !valid || externalIndex >= len(s.externalToToken) {
+			continue
+		}
+		tokenIndex := s.externalToToken[externalIndex]
+		if tokenIndex >= 0 && tokenIndex < scaTokenCount {
+			semanticValid[tokenIndex] = true
+		}
+	}
+	return semanticValid[:]
+}
 
 func (ScalaExternalScanner) Create() any {
 	return &scalaState{
@@ -68,23 +208,23 @@ func (ScalaExternalScanner) Destroy(payload any) {}
 
 func (ScalaExternalScanner) Serialize(payload any, buf []byte) int {
 	s := payload.(*scalaState)
-	needed := (len(s.indents) + 3) * 2
-	if needed > len(buf) {
+	if len(buf) < scalaScannerCheckpointHeader ||
+		len(s.indents) > (len(buf)-scalaScannerCheckpointHeader)/2 {
 		return 0
 	}
-	size := 0
-	putI16 := func(v int16) {
-		buf[size] = byte(v)
-		buf[size+1] = byte(v >> 8)
+	needed := scalaScannerCheckpointHeader + len(s.indents)*2
+	buf[0] = scalaScannerCheckpointMagic
+	buf[1] = scalaScannerCheckpointVersion
+	binary.LittleEndian.PutUint16(buf[2:4], uint16(len(s.indents)))
+	binary.LittleEndian.PutUint16(buf[4:6], uint16(s.lastIndentationSize))
+	binary.LittleEndian.PutUint16(buf[6:8], uint16(s.lastNewlineCount))
+	binary.LittleEndian.PutUint16(buf[8:10], uint16(s.lastColumn))
+	size := scalaScannerCheckpointHeader
+	for _, v := range s.indents {
+		binary.LittleEndian.PutUint16(buf[size:size+2], uint16(v))
 		size += 2
 	}
-	putI16(s.lastIndentationSize)
-	putI16(s.lastNewlineCount)
-	putI16(s.lastColumn)
-	for _, v := range s.indents {
-		putI16(v)
-	}
-	return size
+	return needed
 }
 
 func (ScalaExternalScanner) Deserialize(payload any, buf []byte) {
@@ -94,25 +234,32 @@ func (ScalaExternalScanner) Deserialize(payload any, buf []byte) {
 	s.lastColumn = -1
 	s.lastNewlineCount = 0
 
-	if len(buf) == 0 {
+	if len(buf) < scalaScannerCheckpointHeader ||
+		buf[0] != scalaScannerCheckpointMagic ||
+		buf[1] != scalaScannerCheckpointVersion {
 		return
 	}
-	size := 0
-	getI16 := func() int16 {
-		v := int16(buf[size]) | int16(buf[size+1])<<8
-		size += 2
-		return v
+	count := int(binary.LittleEndian.Uint16(buf[2:4]))
+	if scalaScannerCheckpointHeader+count*2 != len(buf) {
+		return
 	}
-	s.lastIndentationSize = getI16()
-	s.lastNewlineCount = getI16()
-	s.lastColumn = getI16()
-	for size+1 < len(buf) {
-		s.indents = append(s.indents, getI16())
+	s.lastIndentationSize = int16(binary.LittleEndian.Uint16(buf[4:6]))
+	s.lastNewlineCount = int16(binary.LittleEndian.Uint16(buf[6:8]))
+	s.lastColumn = int16(binary.LittleEndian.Uint16(buf[8:10]))
+	s.indents = make([]int16, count)
+	for index := range s.indents {
+		offset := scalaScannerCheckpointHeader + index*2
+		s.indents[index] = int16(binary.LittleEndian.Uint16(buf[offset : offset+2]))
 	}
 }
 
-func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
+func (scanner ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*scalaState)
+	symbols := scanner.symbolTable()
+	if len(scanner.externalToToken) > 0 {
+		var semanticValid [scaTokenCount]bool
+		validSymbols = scanner.remapValidSymbols(validSymbols, &semanticValid)
+	}
 
 	isValid := func(idx int) bool {
 		return idx < len(validSymbols) && validSymbols[idx]
@@ -148,7 +295,7 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if len(s.indents) > 0 {
 			s.indents = s.indents[:len(s.indents)-1]
 		}
-		lexer.SetResultSymbol(scaSymOutdent)
+		lexer.SetResultSymbol(symbols[scaTokOutdent])
 		return true
 	}
 	s.lastIndentationSize = -1
@@ -160,7 +307,7 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			return false
 		}
 		s.indents = append(s.indents, indentSize)
-		lexer.SetResultSymbol(scaSymIndent)
+		lexer.SetResultSymbol(symbols[scaTokIndent])
 		return true
 	}
 
@@ -171,7 +318,7 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 		if len(s.indents) > 0 {
 			s.indents = s.indents[:len(s.indents)-1]
 		}
-		lexer.SetResultSymbol(scaSymOutdent)
+		lexer.SetResultSymbol(symbols[scaTokOutdent])
 		s.lastIndentationSize = indentSize
 		s.lastNewlineCount = newlineCount
 		if lexer.Lookahead() == 0 {
@@ -193,7 +340,7 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 	// Auto-semicolon
 	if isValid(scaTokAutoSemicolon) && newlineCount > 0 {
 		lexer.MarkEnd()
-		lexer.SetResultSymbol(scaSymAutoSemicolon)
+		lexer.SetResultSymbol(symbols[scaTokAutoSemicolon])
 
 		if lexer.Lookahead() == '.' {
 			return false
@@ -266,12 +413,12 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 			lexer.Advance(false)
 			if lexer.Lookahead() == '"' {
 				lexer.Advance(false)
-				lexer.SetResultSymbol(scaSymSimpleMultiStringStart)
+				lexer.SetResultSymbol(symbols[scaTokSimpleMultiStringStart])
 				lexer.MarkEnd()
 				return true
 			}
 		}
-		lexer.SetResultSymbol(scaSymSimpleStringStart)
+		lexer.SetResultSymbol(symbols[scaTokSimpleStringStart])
 		return true
 	}
 
@@ -284,7 +431,7 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 				lexer.Advance(false)
 				if lexer.Lookahead() == '"' {
 					lexer.MarkEnd()
-					lexer.SetResultSymbol(scaSymRawStringStart)
+					lexer.SetResultSymbol(symbols[scaTokRawStringStart])
 					return true
 				}
 			}
@@ -293,22 +440,22 @@ func (ScalaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer,
 
 	// String content scanning
 	if isValid(scaTokSimpleStringMiddle) {
-		return scaScanStringContent(lexer, false, scaStringSimple)
+		return scaScanStringContent(lexer, false, scaStringSimple, symbols)
 	}
 	if isValid(scaTokInterpStringMiddle) {
-		return scaScanStringContent(lexer, false, scaStringInterp)
+		return scaScanStringContent(lexer, false, scaStringInterp, symbols)
 	}
 	if isValid(scaTokRawStringMiddle) {
-		return scaScanStringContent(lexer, false, scaStringRaw)
+		return scaScanStringContent(lexer, false, scaStringRaw, symbols)
 	}
 	if isValid(scaTokRawMultiStringMiddle) {
-		return scaScanStringContent(lexer, true, scaStringRaw)
+		return scaScanStringContent(lexer, true, scaStringRaw, symbols)
 	}
 	if isValid(scaTokInterpMultiStringMiddle) {
-		return scaScanStringContent(lexer, true, scaStringInterp)
+		return scaScanStringContent(lexer, true, scaStringInterp, symbols)
 	}
 	if isValid(scaTokMultilineStringEnd) {
-		return scaScanStringContent(lexer, true, scaStringSimple)
+		return scaScanStringContent(lexer, true, scaStringSimple, symbols)
 	}
 
 	return false
@@ -322,19 +469,24 @@ const (
 	scaStringRaw
 )
 
-func scaScanStringContent(lexer *gotreesitter.ExternalLexer, isMultiline bool, mode scaStringMode) bool {
+func scaScanStringContent(
+	lexer *gotreesitter.ExternalLexer,
+	isMultiline bool,
+	mode scaStringMode,
+	symbols *[scaTokenCount]gotreesitter.Symbol,
+) bool {
 	closingQuotes := uint32(0)
 	for {
 		if lexer.Lookahead() == '"' {
 			lexer.Advance(false)
 			closingQuotes++
 			if !isMultiline {
-				lexer.SetResultSymbol(scaSymSingleLineStringEnd)
+				lexer.SetResultSymbol(symbols[scaTokSingleLineStringEnd])
 				lexer.MarkEnd()
 				return true
 			}
 			if closingQuotes >= 3 && lexer.Lookahead() != '"' {
-				lexer.SetResultSymbol(scaSymMultilineStringEnd)
+				lexer.SetResultSymbol(symbols[scaTokMultilineStringEnd])
 				lexer.MarkEnd()
 				return true
 			}
@@ -342,15 +494,15 @@ func scaScanStringContent(lexer *gotreesitter.ExternalLexer, isMultiline bool, m
 			switch mode {
 			case scaStringInterp:
 				if isMultiline {
-					lexer.SetResultSymbol(scaSymInterpMultiStringMiddle)
+					lexer.SetResultSymbol(symbols[scaTokInterpMultiStringMiddle])
 				} else {
-					lexer.SetResultSymbol(scaSymInterpStringMiddle)
+					lexer.SetResultSymbol(symbols[scaTokInterpStringMiddle])
 				}
 			case scaStringRaw:
 				if isMultiline {
-					lexer.SetResultSymbol(scaSymRawMultiStringMiddle)
+					lexer.SetResultSymbol(symbols[scaTokRawMultiStringMiddle])
 				} else {
-					lexer.SetResultSymbol(scaSymRawStringMiddle)
+					lexer.SetResultSymbol(symbols[scaTokRawStringMiddle])
 				}
 			}
 			lexer.MarkEnd()
@@ -366,9 +518,9 @@ func scaScanStringContent(lexer *gotreesitter.ExternalLexer, isMultiline bool, m
 					}
 				} else {
 					if mode == scaStringSimple {
-						lexer.SetResultSymbol(scaSymSimpleStringMiddle)
+						lexer.SetResultSymbol(symbols[scaTokSimpleStringMiddle])
 					} else {
-						lexer.SetResultSymbol(scaSymInterpStringMiddle)
+						lexer.SetResultSymbol(symbols[scaTokInterpStringMiddle])
 					}
 					lexer.MarkEnd()
 					return true
@@ -404,3 +556,13 @@ func scaScanWord(lexer *gotreesitter.ExternalLexer, word string) bool {
 	}
 	return !unicode.IsLetter(lexer.Lookahead()) && !unicode.IsDigit(lexer.Lookahead())
 }
+
+// SCALA_EXTERNAL_SCANNER_LOCAL_PORT_END
+
+var scalaExternalScannerIdentity = sha256.Sum256([]byte(
+	scalaExternalScannerABIVersion + "\x00" +
+		"local-port=" + scalaExternalScannerLocalPortSHA256 + "\x00" +
+		scalaExternalScannerSpec.UpstreamRepo + "\x00" +
+		scalaExternalScannerSpec.UpstreamCommit + "\x00" +
+		scalaExternalScannerSemantics,
+))

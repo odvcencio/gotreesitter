@@ -969,6 +969,9 @@ func scanIncludedRangeLeafTokenWithExternalCheckpoint(ts *includedRangeTokenSour
 	if ts == nil || dts == nil || dts.lexer == nil || leaf == nil {
 		return Token{}, false
 	}
+	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerCheckpointIdentityMatches(dts.language) {
+		return Token{}, false
+	}
 	cp, ok := externalScannerCheckpointForNode(leaf)
 	if !ok {
 		return Token{}, false
@@ -1011,6 +1014,9 @@ func scanDFALeafTokenWithoutMutatingSource(dts *dfaTokenSource, leaf *Node) (Tok
 
 func scanDFALeafTokenWithExternalCheckpoint(dts *dfaTokenSource, leaf *Node) (Token, bool) {
 	if dts == nil || dts.lexer == nil || leaf == nil {
+		return Token{}, false
+	}
+	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerCheckpointIdentityMatches(dts.language) {
 		return Token{}, false
 	}
 	cp, ok := externalScannerCheckpointForNode(leaf)

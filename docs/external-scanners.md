@@ -577,7 +577,7 @@ silently widening HTML admission.
 | `rst` | fallback (uncertified) |
 | `ruby` | fallback (uncertified) |
 | `rust` | certified reuse |
-| `scala` | fallback (uncertified) |
+| `scala` | fallback (explicit opt-out) |
 | `scss` | certified reuse |
 | `sql` | certified reuse |
 | `squirrel` | certified reuse |
@@ -601,6 +601,11 @@ silently widening HTML admission.
 | `xml` | fallback (uncertified) |
 | `yaml` | fallback (uncertified) |
 | `yuck` | certified reuse |
+
+Scala attaches exact checkpoints only to the built-in grammar blob.
+It authenticates token-invariant leaf edits before the general opt-out.
+It uses a fresh parse for every edit that this leaf check cannot authenticate.
+This includes scanner-state edits and recovery edits.
 
 ## Hard-learned behavioral contracts
 
