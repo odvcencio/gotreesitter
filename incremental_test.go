@@ -365,6 +365,42 @@ func TestParseIncrementalReleaseKeepsBorrowedNodesAlive(t *testing.T) {
 	}
 }
 
+func TestParseReuseStateRetainsTransitiveBorrowedArenaLifecycle(t *testing.T) {
+	inherited := acquireNodeArena(arenaClassFull)
+	child := newLeafNodeInArena(inherited, 1, true, 0, 1, Point{}, Point{Column: 1})
+	oldest := newTreeWithArenas(child, []byte("x"), nil, inherited, nil)
+
+	direct := acquireNodeArena(arenaClassIncremental)
+	parent := newParentNodeInArena(direct, 2, true, []*Node{child}, nil, 0)
+	inherited.Retain()
+	old := newTreeWithArenas(parent, []byte("x"), nil, direct, []*nodeArena{inherited})
+
+	primary := acquireNodeArena(arenaClassIncremental)
+	state := parseReuseState{}
+	state.markReused(parent, primary)
+	newest := newTreeWithArenas(parent, []byte("x"), nil, primary, state.retainBorrowed(primary))
+	if len(newest.borrowedArena) != 2 {
+		t.Fatalf("newest tree borrowed arenas=%d, want two reachable owners", len(newest.borrowedArena))
+	}
+
+	oldest.Release()
+	old.Release()
+	if got := child.EndByte(); got != 1 {
+		t.Fatalf("transitively borrowed child end byte=%d after prior releases, want 1", got)
+	}
+	if got := child.Type(&Language{SymbolNames: []string{"EOF", "child"}}); got != "child" {
+		t.Fatalf("transitively borrowed child type=%q after prior releases, want child", got)
+	}
+	if direct.refs.Load() != 1 || inherited.refs.Load() != 1 {
+		t.Fatalf("newest tree refs direct=%d inherited=%d, want 1/1", direct.refs.Load(), inherited.refs.Load())
+	}
+
+	newest.Release()
+	if direct.refs.Load() != 0 || inherited.refs.Load() != 0 || primary.refs.Load() != 0 {
+		t.Fatalf("released refs direct=%d inherited=%d primary=%d, want 0/0/0", direct.refs.Load(), inherited.refs.Load(), primary.refs.Load())
+	}
+}
+
 func assertTreeHasNoDirtyNodes(t *testing.T, root *Node) {
 	t.Helper()
 	if root == nil {

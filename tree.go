@@ -2777,11 +2777,14 @@ func (t *Tree) ensureResultCompatibility() {
 		if t.root == nil || t.language == nil {
 			return
 		}
+		hadCompactLineage := t.compactMaterialized || compactTreeContainsMaterializedNode(t.root)
+		compatibilitySnapshot := snapshotCompactCompatibilityTree(t.root, hadCompactLineage)
 		if !parsePhaseTimingEnabled() {
 			parser := &Parser{language: t.language}
 			result := normalizeResultCompatibility(t.root, t.source, parser, nil)
 			t.resultErrorSummary = result.errorSummary
 			t.resultCompatibilityApplied = !parseStopReasonIsActive(result.stopReason)
+			t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 			// Diagnostic-only, mirrors the timing-enabled branch below: without
 			// this, every deferred-compatibility language (typescript/tsx by
 			// default, see shouldDeferResultCompatibility) would
@@ -2802,10 +2805,161 @@ func (t *Tree) ensureResultCompatibility() {
 		result := normalizeResultCompatibility(t.root, t.source, parser, nil)
 		t.resultErrorSummary = result.errorSummary
 		t.resultCompatibilityApplied = !parseStopReasonIsActive(result.stopReason)
+		t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 		timing.addResultCompatibility(start)
 		t.parseRuntime.ResultCompatibilityNanos += timing.resultCompatibilityNanos
 		parser.copyNormalizationStats(&t.parseRuntime)
 	})
+}
+
+func (t *Tree) disableIncrementalReuseAfterCompactCompatibility(snapshot *compactCompatibilityTreeSnapshot) {
+	if t != nil && snapshot != nil && !snapshot.matches(t.root) {
+		t.incrementalReuseDisabled = true
+	}
+}
+
+type compactCompatibilityNodeSnapshot struct {
+	node              *Node
+	children          []*Node
+	fieldIDs          []FieldID
+	fieldSources      []uint8
+	startPoint        Point
+	endPoint          Point
+	startByte         uint32
+	endByte           uint32
+	parseState        StateID
+	preGotoState      StateID
+	equivVersion      uint32
+	dynamicPrecedence int32
+	symbol            Symbol
+	productionID      uint16
+	semanticFlags     nodeFlags
+}
+
+type compactCompatibilityTreeSnapshot struct {
+	root  *Node
+	nodes []compactCompatibilityNodeSnapshot
+}
+
+func snapshotCompactCompatibilityTree(root *Node, enabled bool) *compactCompatibilityTreeSnapshot {
+	if !enabled || root == nil {
+		return nil
+	}
+	snapshot := &compactCompatibilityTreeSnapshot{root: root}
+	stack := []*Node{root}
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		node := stack[last]
+		stack = stack[:last]
+		if node == nil {
+			continue
+		}
+		children := append([]*Node(nil), nodeChildrenForReason(node, materializeForEdit)...)
+		snapshot.nodes = append(snapshot.nodes, compactCompatibilityNodeSnapshot{
+			node:              node,
+			children:          children,
+			fieldIDs:          append([]FieldID(nil), node.fieldIDs()...),
+			fieldSources:      append([]uint8(nil), node.fieldSources()...),
+			startPoint:        node.startPoint,
+			endPoint:          node.endPoint,
+			startByte:         node.startByte,
+			endByte:           node.endByte,
+			parseState:        node.parseState,
+			preGotoState:      node.preGotoState,
+			equivVersion:      node.equivVersion,
+			dynamicPrecedence: node.dynamicPrecedence,
+			symbol:            node.symbol,
+			productionID:      node.productionID,
+			semanticFlags:     node.flags &^ (nodeFlagFieldIDCacheComputed | nodeFlagFieldIDCacheHasFieldIDs),
+		})
+		for i := len(children) - 1; i >= 0; i-- {
+			stack = append(stack, children[i])
+		}
+	}
+	return snapshot
+}
+
+func (s *compactCompatibilityTreeSnapshot) matches(root *Node) bool {
+	if s == nil || s.root != root {
+		return false
+	}
+	for _, before := range s.nodes {
+		node := before.node
+		if node == nil ||
+			node.startPoint != before.startPoint || node.endPoint != before.endPoint ||
+			node.startByte != before.startByte || node.endByte != before.endByte ||
+			node.parseState != before.parseState || node.preGotoState != before.preGotoState ||
+			node.equivVersion != before.equivVersion || node.dynamicPrecedence != before.dynamicPrecedence ||
+			node.symbol != before.symbol || node.productionID != before.productionID ||
+			node.flags&^(nodeFlagFieldIDCacheComputed|nodeFlagFieldIDCacheHasFieldIDs) != before.semanticFlags ||
+			!sameNodePointers(node.children, before.children) ||
+			!sameFieldIDs(node.fieldIDs(), before.fieldIDs) ||
+			!sameBytes(node.fieldSources(), before.fieldSources) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameNodePointers(left, right []*Node) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func sameFieldIDs(left, right []FieldID) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func sameBytes(left, right []uint8) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func compactTreeContainsMaterializedNode(root *Node) bool {
+	if root == nil {
+		return false
+	}
+	stack := []*Node{root}
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		node := stack[last]
+		stack = stack[:last]
+		if node == nil {
+			continue
+		}
+		if node.isCompactMaterialized() {
+			return true
+		}
+		for i := nodeChildCountNoMaterialize(node) - 1; i >= 0; i-- {
+			child := nodeChildAtForReason(node, i, materializeForEdit)
+			if child != nil {
+				stack = append(stack, child)
+			}
+		}
+	}
+	return false
 }
 
 func newParentNode(arena *nodeArena, sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {

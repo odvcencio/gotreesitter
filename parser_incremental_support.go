@@ -8,11 +8,28 @@ func (s *parseReuseState) markReused(node *Node, primary *nodeArena) {
 	if node == nil {
 		return
 	}
-	s.arenaRefs = appendUniqueArenaRef(s.arenaRefs, node.ownerArena, primary)
+	s.arenaWalk = append(s.arenaWalk[:0], node)
+	for len(s.arenaWalk) > 0 {
+		last := len(s.arenaWalk) - 1
+		current := s.arenaWalk[last]
+		s.arenaWalk = s.arenaWalk[:last]
+		if current == nil {
+			continue
+		}
+		s.arenaRefs = appendUniqueArenaRef(s.arenaRefs, current.ownerArena, primary)
+		for i := nodeChildCountNoMaterialize(current) - 1; i >= 0; i-- {
+			child := nodeChildAtForReason(current, i, materializeForEdit)
+			if child != nil {
+				s.arenaWalk = append(s.arenaWalk, child)
+			}
+		}
+	}
+	clear(s.arenaWalk)
+	s.arenaWalk = s.arenaWalk[:0]
 }
 
 func (s *parseReuseState) retainBorrowed(primary *nodeArena) []*nodeArena {
-	if s == nil || !s.reusedAny || len(s.arenaRefs) == 0 {
+	if s == nil || !s.reusedAny {
 		return nil
 	}
 	uniq := uniqueArenas(s.arenaRefs, primary)

@@ -1608,6 +1608,7 @@ type incrementalParseTiming struct {
 type parseReuseState struct {
 	reusedAny bool
 	arenaRefs []*nodeArena
+	arenaWalk []*Node
 }
 
 // NewParser creates a new Parser for the given language.
