@@ -77,6 +77,10 @@ func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryCondenseEn
 	} else if canonical != incumbent {
 		return false, nil
 	}
+	payloadHasError := func(payload core.SubtreeID) (bool, error) {
+		cost, err := core.RecoveryNodeErrorCostMemo(symbols, source, memo, payload)
+		return cost > 0, err
+	}
 	merged, err := s.compact.MergeEquivalentRecoveryHeadsOwned(
 		owner,
 		target.key.state,
@@ -85,9 +89,7 @@ func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryCondenseEn
 		target.key.shifted,
 		incumbent,
 		incoming,
-		symbols,
-		source,
-		memo,
+		payloadHasError,
 	)
 	if err != nil {
 		return false, err

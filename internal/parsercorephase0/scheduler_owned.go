@@ -755,8 +755,8 @@ func (c *Core) MergeEquivalentHeadsWithStoredErrorCostOwned(
 }
 
 // MergeEquivalentRecoveryHeadsOwned merges equal-cost recovery heads with
-// C's positive-error subtree equivalence rule. The caller supplies the exact
-// symbol policy and the row-aware source used for recovery pricing.
+// C's positive-error subtree equivalence rule. The scheduler supplies the
+// recovery pricing decision through a callback.
 func (c *Core) MergeEquivalentRecoveryHeadsOwned(
 	owner SchedulerTransactionToken,
 	state StateID,
@@ -765,15 +765,13 @@ func (c *Core) MergeEquivalentRecoveryHeadsOwned(
 	shifted bool,
 	incumbent Head,
 	incoming Head,
-	symbols []SelectedSymbolPolicy,
-	source RecoveryCostSource,
-	memo *RecoveryCostMemo,
+	payloadHasError PayloadErrorPresenceFunc,
 ) (out Head, err error) {
 	if err = c.beginSchedulerOwned(owner); err != nil {
 		return out, err
 	}
 	defer c.recoverSchedulerOwnedPanic(owner)
-	if len(symbols) == 0 || source == nil {
+	if payloadHasError == nil {
 		return out, c.finishSchedulerOwned(
 			owner,
 			errors.New("parser-core phase zero: recovery head merge pricing context is unavailable"),
@@ -783,7 +781,7 @@ func (c *Core) MergeEquivalentRecoveryHeadsOwned(
 		frontier: c.frontier, state: state, byteOffset: byteOffset,
 		shifted: shifted, checkpoint: checkpoint,
 	}
-	context := recoveryMergeEquivalenceContext{symbols: symbols, source: source, memo: memo}
+	context := recoveryMergeEquivalenceContext{payloadHasError: payloadHasError}
 	out, err = c.mergeEquivalentHeadsAtBoundaryUncheckpointedWithRecovery(
 		key, incumbent, incoming, true, &context,
 	)

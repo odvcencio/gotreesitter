@@ -5568,8 +5568,8 @@ func (s *diagnosticParserCoreGenericScheduler) activateVersionLexerOwnershipAtRa
 }
 
 // recoveryAmbiguityNeedsOwnedLexer admits a recovery frontier after an
-// ordinary grammar fork. Shifted arms own the shared after cursor. The
-// no-action witness relexes from the shared before cursor.
+// ordinary grammar fork. Dispatch classifies every header before it executes
+// any shift, so each admitted header must still own the shared before cursor.
 func (s *diagnosticParserCoreGenericScheduler) recoveryAmbiguityNeedsOwnedLexer(witnessIndex int) bool {
 	if s == nil || witnessIndex < 0 || witnessIndex >= len(s.headers) ||
 		s.work.RecoveryAmbiguityForks == 0 || !s.competingRecoveryFrontier() ||
@@ -5577,17 +5577,14 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryAmbiguityNeedsOwnedLexer(
 		s.headers[witnessIndex].recoveryRegion() != nil {
 		return false
 	}
-	shifted := 0
 	for index := range s.headers {
 		header := &s.headers[index]
-		if header.accepted || header.paused || header.checkpoint != s.checkpointID {
+		if header.shifted || header.accepted || header.paused ||
+			header.checkpoint != s.checkpointID || header.recoveryRegion() != nil {
 			return false
 		}
-		if header.shifted {
-			shifted++
-		}
 	}
-	return shifted != 0
+	return true
 }
 
 func (s *diagnosticParserCoreGenericScheduler) bindVersionLexerRequest(
@@ -9004,8 +9001,20 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 						continue
 					}
 					if relexed.Symbol != 0 && relexed.Symbol != s.token.Symbol &&
-						relexed.StartByte == s.token.StartByte && relexed.EndByte == s.token.EndByte {
+						relexed.StartByte == s.token.StartByte && relexed.EndByte == s.token.EndByte &&
+						s.recoveryAmbiguityNeedsOwnedLexer(index) {
 						return s.activateVersionLexerOwnershipAtRagged(index)
+					}
+					if verified, ok := diagnosticParserCoreSameSpanRelex(s.token, relexed); ok {
+						relexedSymbol = verified.Symbol
+						cellToken = verified
+						boundary, err = s.compact.ClassifyBoundary(header.head, core.Symbol(cellToken.Symbol))
+						if err != nil {
+							return nil, err
+						}
+						s.work.ActionLookups++
+						actions = boundary.Actions()
+						workCountRecordResolvedActionCell(actions.Len())
 					}
 				}
 			}

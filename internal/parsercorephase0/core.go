@@ -3522,6 +3522,10 @@ type linkInput struct {
 // scheduler owns the cost model. Core only authenticates the resulting value.
 type ReductionOutputCostFunc func(prev NodeID, payload SubtreeID) (uint32, error)
 
+// PayloadErrorPresenceFunc reports whether one payload carries a positive
+// recovery error cost. The scheduler owns the recovery pricing model.
+type PayloadErrorPresenceFunc func(payload SubtreeID) (bool, error)
+
 func (c *Core) storedErrorCostForLink(in linkInput) (uint32, error) {
 	lineage, err := c.nodeLineage(in.prev)
 	if err != nil {
@@ -4068,9 +4072,7 @@ type shallowPayloadClass struct {
 }
 
 type recoveryMergeEquivalenceContext struct {
-	symbols []SelectedSymbolPolicy
-	source  RecoveryCostSource
-	memo    *RecoveryCostMemo
+	payloadHasError PayloadErrorPresenceFunc
 }
 
 func (c *Core) recoveryMergePayloadsEquivalent(
@@ -4083,7 +4085,7 @@ func (c *Core) recoveryMergePayloadsEquivalent(
 	if leftPayload == rightPayload {
 		return true, nil
 	}
-	if context == nil || context.source == nil || len(context.symbols) == 0 {
+	if context == nil || context.payloadHasError == nil {
 		return false, errors.New("parser-core phase zero: recovery merge equivalence context is unavailable")
 	}
 	left, err := c.subtree(leftPayload)
@@ -4097,15 +4099,15 @@ func (c *Core) recoveryMergePayloadsEquivalent(
 	if left.symbol != right.symbol {
 		return false, nil
 	}
-	leftCost, err := RecoveryNodeErrorCostMemo(context.symbols, context.source, context.memo, leftPayload)
+	leftHasError, err := context.payloadHasError(leftPayload)
 	if err != nil {
 		return false, err
 	}
-	rightCost, err := RecoveryNodeErrorCostMemo(context.symbols, context.source, context.memo, rightPayload)
+	rightHasError, err := context.payloadHasError(rightPayload)
 	if err != nil {
 		return false, err
 	}
-	if leftCost > 0 && rightCost > 0 {
+	if leftHasError && rightHasError {
 		return true, nil
 	}
 	shallow, err := c.shallowPayloadsEqual(leftPrev, leftPayload, rightPrev, rightPayload)
