@@ -46,6 +46,84 @@ func diagnosticParserCoreMergeEquivalentRecoveryStatus(
 	}
 }
 
+func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryCondenseEntriesOwned(
+	owner core.SchedulerTransactionToken,
+	target *diagnosticParserCoreRecoveryCondenseEntry,
+	candidate diagnosticParserCoreRecoveryCondenseEntry,
+	symbols []core.SelectedSymbolPolicy,
+	source core.RecoveryCostSource,
+	memo *core.RecoveryCostMemo,
+) (bool, error) {
+	if s == nil || s.compact == nil || target == nil || target.header.accepted ||
+		candidate.header.accepted || target.header.paused || candidate.header.paused ||
+		target.header.recoveryRegion() != nil || candidate.header.recoveryRegion() != nil ||
+		target.key != candidate.key ||
+		!s.versionLexerStateEqual(target.header.versionState, candidate.header.versionState) {
+		return false, nil
+	}
+	incumbent := target.header.head
+	incoming := candidate.header.head
+	canonical, ok := s.compact.CanonicalBoundary(
+		target.key.state,
+		target.key.byteOffset,
+		target.key.shifted,
+		target.key.checkpoint,
+	)
+	if !ok {
+		return false, nil
+	}
+	if canonical == incoming {
+		incumbent, incoming = incoming, incumbent
+	} else if canonical != incumbent {
+		return false, nil
+	}
+	merged, err := s.compact.MergeEquivalentRecoveryHeadsOwned(
+		owner,
+		target.key.state,
+		target.key.byteOffset,
+		target.key.checkpoint,
+		target.key.shifted,
+		incumbent,
+		incoming,
+		symbols,
+		source,
+		memo,
+	)
+	if err != nil {
+		return false, err
+	}
+	target.header.head = merged
+	target.header.recoveryFlags |= candidate.header.recoveryFlags
+	target.header.frontierSequence = mergeDiagnosticParserCoreFrontier(
+		target.header.frontierSequence,
+		candidate.header.frontierSequence,
+	)
+	target.header.cleanPathRank, target.header.cleanPathLineage = mergeDiagnosticParserCoreCleanPathLineage(
+		target.header.cleanPathRank,
+		target.header.cleanPathLineage,
+		candidate.header.cleanPathRank,
+		candidate.header.cleanPathLineage,
+	)
+	target.header.convergedReductionSplit = target.header.convergedReductionSplit || candidate.header.convergedReductionSplit
+	target.header.resurrectionUnproved = target.header.resurrectionUnproved || candidate.header.resurrectionUnproved
+	if candidate.header.altSet.Len() != 0 {
+		incomparable := s.compact.AlternativeSetIncomparable(target.header.altSet, candidate.header.altSet)
+		s.compact.UnionAlternativeSet(&target.header.altSet, candidate.header.altSet)
+		target.header.blended = target.header.blended || candidate.header.blended || incomparable
+	}
+	if !candidate.header.dropCohortRefs.Empty() || candidate.header.dropCohortRefs.Overflowed() || candidate.header.dropCohortRefs.Blended() {
+		if _, err := s.compact.UnionDropCohortRefsChecked(
+			&target.header.dropCohortRefs,
+			candidate.header.dropCohortRefs,
+		); err != nil {
+			return false, err
+		}
+	}
+	diagnosticParserCoreMergeEquivalentRecoveryStatus(target, candidate)
+	s.invalidateVerifierHeaderBinding()
+	return true, nil
+}
+
 func diagnosticParserCoreRecoveryCondenseSameGroup(
 	left, right diagnosticParserCoreRecoveryCondenseEntry,
 ) bool {
@@ -315,6 +393,7 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryCondenseEntry(
 // it keeps the first six distinct merge keys. Accepted versions stay outside
 // the competition and retain their acceptance order.
 func (s *diagnosticParserCoreGenericScheduler) condenseRecoveryVersions(
+	owner core.SchedulerTransactionToken,
 	headers []diagnosticParserCoreHeader,
 ) ([]diagnosticParserCoreHeader, uint64, bool, error) {
 	if s == nil || s.compact == nil || !s.recoveryIsolation ||
@@ -369,17 +448,33 @@ func (s *diagnosticParserCoreGenericScheduler) condenseRecoveryVersions(
 			clearScratch()
 			return headers, 0, false, nil
 		}
-		scratch = append(scratch, entry)
-		representative := true
-		for prior := 0; prior < len(scratch)-1; prior++ {
+		representative := -1
+		for prior := range scratch {
 			if scratch[prior].key == entry.key {
-				representative = false
-				diagnosticParserCoreMergeEquivalentRecoveryStatus(&scratch[prior], entry)
+				representative = prior
 				break
 			}
 		}
-		if representative {
+		if representative < 0 {
+			scratch = append(scratch, entry)
 			order = append(order, len(scratch)-1)
+			continue
+		}
+		merged, mergeErr := s.mergeEquivalentRecoveryCondenseEntriesOwned(
+			owner,
+			&scratch[representative],
+			entry,
+			symbols,
+			src,
+			&memo,
+		)
+		if mergeErr != nil {
+			clearScratch()
+			return headers, 0, false, mergeErr
+		}
+		if !merged {
+			scratch = append(scratch, entry)
+			diagnosticParserCoreMergeEquivalentRecoveryStatus(&scratch[representative], entry)
 		}
 	}
 	activeEntries := len(scratch)

@@ -146,6 +146,361 @@ func TestRecoveryDiscontinuityOwnedCopiesAndUnionsLineage(t *testing.T) {
 	}
 }
 
+func TestErrorRegionResumeReplacesRecoveryDiscontinuity(t *testing.T) {
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{
+			{state: 1, symbol: 30}: {{Type: ActionShift, State: 2}},
+			{state: 2, symbol: 31}: {{Type: ActionShift, State: 3}},
+			{state: 3, symbol: 32}: {{Type: ActionShift, State: 4}},
+			{state: 4, symbol: 9}:  {{Type: ActionReduce, Symbol: 20, ChildCount: 3, ProductionID: 5}},
+		},
+		gotos: map[tableCell]StateID{{state: 1, symbol: 20}: 5},
+	}
+	compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = compact.Shift(head, 30, 0, Token{Symbol: 30, StartByte: 0, EndByte: 1}, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		var appendErr error
+		head, appendErr = compact.AppendRecoveryDiscontinuityOwned(owner, head, RecoveryDiscontinuityContext{ByteOffset: 1})
+		return appendErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	marker := head
+	regionChild, err := compact.ErrorRegionLeaf(99, 1, 2, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = compact.ErrorRegionResumeWithCost(head, 2, 1, 2, []SubtreeID{regionChild},
+		func(NodeID, SubtreeID) (uint32, error) { return 7, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if head == marker {
+		t.Fatal("error-region resume retained the recovery discontinuity marker")
+	}
+	if canonical, ok := compact.CanonicalBoundary(2, 2, true, 0); !ok || canonical != head {
+		t.Fatalf("resumed canonical boundary=%+v/%t, want %+v", canonical, ok, head)
+	}
+	if cost, err := compact.RecoveryStoredErrorCost(head); err != nil || cost != 7 {
+		t.Fatalf("resumed recovery cost=%d err=%v, want 7", cost, err)
+	}
+	if cost, err := compact.RecoveryStoredErrorCost(marker); err != nil || cost != 0 {
+		t.Fatalf("marker recovery cost=%d err=%v, want zero", cost, err)
+	}
+	markerNode, err := compact.node(marker.Node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if markerNode.state != 0 || markerNode.byteOffset != 1 {
+		t.Fatalf("source marker=%+v, want ERROR_STATE at byte 1", markerNode)
+	}
+	if work := compact.Work(); work.PhysicalHeadMergeAttempts != 0 ||
+		work.PhysicalHeadMergeInputLinks != 0 || work.PhysicalHeadMergeSuccesses != 0 {
+		t.Fatalf("single marker resume reported a physical merge: %+v", work)
+	}
+	paths, err := compact.Derivations(head)
+	if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 2 {
+		t.Fatalf("resumed derivations=%+v err=%v, want one path with shift and ERROR", paths, err)
+	}
+	resumedError, err := compact.Subtree(paths[0].Payloads[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resumedError.Symbol != ErrorRegionSymbol || !resumedError.Extra ||
+		resumedError.StartByte != 1 || resumedError.EndByte != 2 ||
+		!slices.Equal(resumedError.Children, []SubtreeID{regionChild}) {
+		t.Fatalf("resumed ERROR=%+v", resumedError)
+	}
+
+	head, err = compact.Shift(head, 31, 0, Token{Symbol: 31, StartByte: 2, EndByte: 3}, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = compact.Shift(head, 32, 0, Token{Symbol: 32, StartByte: 3, EndByte: 4}, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontier, err := compact.Reduce(head, 9, 0, ForkOrder{})
+	if err != nil || len(frontier) != 1 {
+		t.Fatalf("reduce frontier=%v err=%v", frontier, err)
+	}
+	state, byteOffset, err := compact.Boundary(frontier[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state != 5 || byteOffset != 4 {
+		t.Fatalf("reduced boundary=%d@%d, want 5@4", state, byteOffset)
+	}
+}
+
+func TestErrorRegionResumeReplacesMergedRecoveryDiscontinuities(t *testing.T) {
+	compact := newTinyCoreWithLimits(t, Limits{MaxNodes: 64, MaxLinks: 64, MaxSubtrees: 64, MaxDerivations: 8, MaxPopPaths: 8})
+	leftSeed, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightSeed, err := compact.Seed(2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leftPayload, err := compact.appendSubtree(subtreeRecord{symbol: 10, terminal: true}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightPayload, err := compact.appendSubtree(subtreeRecord{symbol: 11, terminal: true}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leftNode, err := compact.appendAdjacencyNode(7, 0, []linkRecord{{prev: leftSeed.Node, payload: leftPayload}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rightNode, err := compact.appendAdjacencyNode(7, 0, []linkRecord{{prev: rightSeed.Node, payload: rightPayload}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	context := RecoveryDiscontinuityContext{ByteOffset: 0}
+	var mergedMarker Head
+	err = compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		left, appendErr := compact.AppendRecoveryDiscontinuityOwned(owner, Head{Node: leftNode}, context)
+		if appendErr != nil {
+			return appendErr
+		}
+		right, appendErr := compact.AppendRecoveryDiscontinuityOwned(owner, Head{Node: rightNode}, context)
+		if appendErr != nil {
+			return appendErr
+		}
+		mergedMarker, appendErr = compact.MergeRecoveryDiscontinuityHeadsOwned(owner, context, left, right)
+		return appendErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	regionChild, err := compact.ErrorRegionLeaf(99, 0, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumed, err := compact.ErrorRegionResumeWithCost(mergedMarker, 7, 0, 1, []SubtreeID{regionChild},
+		func(NodeID, SubtreeID) (uint32, error) { return 7, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumedNode, err := compact.node(resumed.Node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	links, err := compact.nodeLinks(*resumedNode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(links) != 1 || links[0].isRecoveryDiscontinuity() || links[0].payload == 0 || links[0].prev == mergedMarker.Node {
+		t.Fatalf("resumed links=%+v, want one ERROR link over a merged predecessor", links)
+	}
+	paths, err := compact.Derivations(resumed)
+	if err != nil || len(paths) != 2 {
+		t.Fatalf("resumed derivations=%+v err=%v, want two", paths, err)
+	}
+	firstPayloads := make([]SubtreeID, 0, len(paths))
+	for _, path := range paths {
+		if len(path.Payloads) != 2 || path.Payloads[1] != links[0].payload {
+			t.Fatalf("resumed derivation=%+v, want predecessor payload plus shared ERROR", path)
+		}
+		firstPayloads = append(firstPayloads, path.Payloads[0])
+	}
+	slices.Sort(firstPayloads)
+	wantFirstPayloads := []SubtreeID{leftPayload, rightPayload}
+	slices.Sort(wantFirstPayloads)
+	if !slices.Equal(firstPayloads, wantFirstPayloads) {
+		t.Fatalf("resumed predecessor payloads=%v, want %v", firstPayloads, wantFirstPayloads)
+	}
+	if cost, err := compact.RecoveryStoredErrorCost(resumed); err != nil || cost != 7 {
+		t.Fatalf("resumed recovery cost=%d err=%v, want 7", cost, err)
+	}
+}
+
+func TestErrorRegionResumeSelectsMatchingMixedMarkerState(t *testing.T) {
+	compact := newTinyCoreWithLimits(t, Limits{MaxNodes: 64, MaxLinks: 64, MaxSubtrees: 64, MaxDerivations: 8, MaxPopPaths: 8})
+	left, err := compact.Seed(7, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := compact.Seed(8, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	context := RecoveryDiscontinuityContext{ByteOffset: 0}
+	var merged Head
+	err = compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		leftMarker, appendErr := compact.AppendRecoveryDiscontinuityOwned(owner, left, context)
+		if appendErr != nil {
+			return appendErr
+		}
+		rightMarker, appendErr := compact.AppendRecoveryDiscontinuityOwned(owner, right, context)
+		if appendErr != nil {
+			return appendErr
+		}
+		merged, appendErr = compact.MergeRecoveryDiscontinuityHeadsOwned(owner, context, leftMarker, rightMarker)
+		return appendErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, err := compact.ErrorRegionLeaf(99, 0, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumed, err := compact.ErrorRegionResume(merged, 7, 0, 1, []SubtreeID{child})
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths, err := compact.Derivations(resumed)
+	if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 1 || paths[0].Payloads[0] == 0 {
+		t.Fatalf("mixed-state resumed derivations=%+v err=%v, want one matching path", paths, err)
+	}
+	resumedNode, err := compact.node(resumed.Node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	links, err := compact.nodeLinks(*resumedNode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(links) != 1 || links[0].prev != left.Node || links[0].prev == right.Node {
+		t.Fatalf("mixed-state resumed links=%+v, want only state-7 predecessor %d", links, left.Node)
+	}
+}
+
+func TestErrorRegionResumePreservesGapBeforeFirstErrorToken(t *testing.T) {
+	compact := newTinyCoreWithLimits(t, Limits{MaxNodes: 32, MaxLinks: 32, MaxSubtrees: 32, MaxDerivations: 4, MaxPopPaths: 4})
+	seed, err := compact.Seed(7, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var marker Head
+	err = compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		var appendErr error
+		marker, appendErr = compact.AppendRecoveryDiscontinuityOwned(owner, seed, RecoveryDiscontinuityContext{ByteOffset: 0})
+		return appendErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, err := compact.ErrorRegionLeaf(99, 1, 2, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumed, err := compact.ErrorRegionResume(marker, 7, 1, 2, []SubtreeID{child})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, byteOffset, err := compact.Boundary(resumed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state != 7 || byteOffset != 2 {
+		t.Fatalf("gap resume boundary=%d@%d, want 7@2", state, byteOffset)
+	}
+	paths, err := compact.Derivations(resumed)
+	if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 1 {
+		t.Fatalf("gap resume derivations=%+v err=%v", paths, err)
+	}
+	region, err := compact.Subtree(paths[0].Payloads[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if region.StartByte != 1 || region.EndByte != 2 || !slices.Equal(region.Children, []SubtreeID{child}) {
+		t.Fatalf("gap resume ERROR=%+v", region)
+	}
+}
+
+func TestRecoveryDiscontinuityReductionCompactsChildrenLikeC(t *testing.T) {
+	tables := &fakeTable{
+		actions: map[tableCell][]Action{
+			{state: 1, symbol: 30}: {{Type: ActionShift, State: 2}},
+			{state: 0, symbol: 31}: {{Type: ActionShift, State: 3}},
+			{state: 3, symbol: 9}:  {{Type: ActionReduce, Symbol: 20, ChildCount: 3, ProductionID: 5}},
+		},
+		gotos: map[tableCell]StateID{{state: 1, symbol: 20}: 4},
+		fields: map[uint16][]FieldMapEntry{5: {
+			{FieldID: 1, ChildIndex: 0},
+			{FieldID: 2, ChildIndex: 1},
+			{FieldID: 3, ChildIndex: 2},
+		}},
+		aliases: map[productionKey][]Symbol{{productionID: 5, childCount: 3}: {101, 102, 103}},
+	}
+	compact, err := New(tables, Limits{MaxDerivations: 4, MaxPopPaths: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = compact.Shift(head, 30, 0, Token{Symbol: 30, StartByte: 0, EndByte: 1}, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		var appendErr error
+		head, appendErr = compact.AppendRecoveryDiscontinuityOwned(owner, head, RecoveryDiscontinuityContext{ByteOffset: 1})
+		return appendErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err = compact.Shift(head, 31, 0, Token{Symbol: 31, StartByte: 1, EndByte: 2}, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	storageBefore := compact.StorageBytes()
+	frontier, err := compact.Reduce(head, 9, 0, ForkOrder{})
+	if err != nil || len(frontier) != 1 {
+		t.Fatalf("reduce frontier=%v err=%v", frontier, err)
+	}
+	paths, err := compact.Derivations(frontier[0])
+	if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 1 {
+		t.Fatalf("reduced derivations=%v err=%v", paths, err)
+	}
+	parent, err := compact.Subtree(paths[0].Payloads[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parent.Children) != 2 || !reflect.DeepEqual(parent.Fields, []FieldMapEntry{
+		{FieldID: 1, ChildIndex: 0},
+		{FieldID: 2, ChildIndex: 1},
+	}) || !slices.Equal(parent.Aliases, []Symbol{101, 102}) {
+		t.Fatalf("compacted recovery parent=%+v", parent)
+	}
+	if len(compact.recoveryDiscontinuityReductions) != 1 ||
+		compact.recoveryDiscontinuityReductions[0] != (recoveryDiscontinuityReduction{payload: paths[0].Payloads[0], popChildCount: 3}) {
+		t.Fatalf("recovery reduction provenance=%+v", compact.recoveryDiscontinuityReductions)
+	}
+	if got := compact.StorageBytes() - storageBefore; got < coreRecoveryDiscontinuityReductionBytes {
+		t.Fatalf("storage growth=%d, want at least provenance size %d", got, coreRecoveryDiscontinuityReductionBytes)
+	}
+	compact.metadataConstructionAuthenticated = false
+	if _, err := compact.MaterializationView(paths[0].Payloads[0]); err != nil {
+		t.Fatalf("validate compacted metadata: %v", err)
+	}
+	if err := compact.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if len(compact.recoveryDiscontinuityReductions) != 0 {
+		t.Fatalf("reset retained recovery reduction provenance: %+v", compact.recoveryDiscontinuityReductions)
+	}
+}
+
 func TestRecoveryDiscontinuityRejectsUnauthenticatedContextAndOrdinaryNullableLink(t *testing.T) {
 	core := newTinyCoreWithLimits(t, Limits{MaxNodes: 32, MaxLinks: 32, MaxSubtrees: 32, MaxDerivations: 8, MaxPopPaths: 8})
 	seed, err := core.Seed(3, 0)

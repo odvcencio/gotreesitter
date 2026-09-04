@@ -735,6 +735,8 @@ func TestDiagnosticParserCoreGenericConflictArbitraryNOrdering(t *testing.T) {
 		},
 		receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
+	scheduler.tokenSource = &dfaTokenSource{language: &Language{TokenCount: 10}}
+	scheduler.options.materializationSource = []byte("x")
 	cell := mustDiagnosticParserCoreGenericCell(t, compact, 2, headers[2], 9)
 	if err := scheduler.applyGenericConflict(before, cell); err != nil {
 		t.Fatal(err)
@@ -789,6 +791,75 @@ func TestDiagnosticParserCoreGenericConflictArbitraryNOrdering(t *testing.T) {
 			payload.ProductionID != 0 || payload.DynamicPrecedence != 0 || len(payload.Children) != 0 || len(payload.Fields) != 0 || len(payload.Aliases) != 0 ||
 			!payload.Terminal || !payload.External || payload.Extra {
 			t.Fatalf("external conflict payload %d=%+v", index, payload)
+		}
+	}
+}
+
+func TestDiagnosticParserCoreRecoveryConflictPricesReductionBeforePublication(t *testing.T) {
+	table := &genericConflictTable{
+		cells: map[genericConflictCell][]core.Action{
+			{state: 3, symbol: 10}: {
+				{Type: core.ActionReduce, Symbol: 7, ChildCount: 1},
+				{Type: core.ActionShift, State: 11},
+			},
+		},
+		gotos: map[genericConflictCell]core.StateID{{state: 1, symbol: 7}: 4},
+	}
+	compact, err := core.New(table, core.Limits{MaxDerivations: 4, MaxPopPaths: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := compact.Seed(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := compact.ShiftMissingLeaf(seed, 3, 5, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	header := diagnosticParserCoreHeader{head: head, creationSeq: 1}
+	header.markRecoveryLineage()
+	scheduler := &diagnosticParserCoreGenericScheduler{
+		compact: compact,
+		headers: []diagnosticParserCoreHeader{header},
+		token:   Token{Symbol: 10, StartByte: 0, EndByte: 1},
+		tokenSource: &dfaTokenSource{language: &Language{
+			TokenCount: 11,
+			SymbolMetadata: []SymbolMetadata{
+				{}, {}, {}, {}, {}, {Visible: true},
+			},
+		}},
+		branchOrder: 1,
+		nextSeq:     2,
+		options: DiagnosticParserCorePrefixOptions{
+			MaxDispatches:         10,
+			materializationSource: []byte("x"),
+		},
+		receipt: &DiagnosticParserCoreGenericScheduler{},
+	}
+	before, err := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := mustDiagnosticParserCoreGenericCell(t, compact, 0, header, 10)
+	if err := scheduler.applyGenericConflict(before, cell); err != nil {
+		t.Fatal(err)
+	}
+	if len(scheduler.headers) != 2 {
+		t.Fatalf("recovery conflict headers=%d, want two", len(scheduler.headers))
+	}
+	for index, output := range scheduler.headers {
+		cost, costErr := compact.RecoveryStoredErrorCost(output.head)
+		if costErr != nil {
+			t.Fatal(costErr)
+		}
+		if cost != core.RecoveryCostPerMissingTree+core.RecoveryCostPerRecovery ||
+			!output.isRecoveryLineage() || !output.isRecoveryCosted() {
+			state, _, boundaryErr := compact.Boundary(output.head)
+			if boundaryErr != nil {
+				t.Fatal(boundaryErr)
+			}
+			t.Fatalf("output %d state=%d cost=%d recovery=%t costed=%t", index, state, cost, output.isRecoveryLineage(), output.isRecoveryCosted())
 		}
 	}
 }

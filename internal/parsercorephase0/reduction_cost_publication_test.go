@@ -40,8 +40,8 @@ func TestReductionCostCallbackPublishesCumulativeMissingCost(t *testing.T) {
 	callbackCalls := 0
 	err := compact.RunFreshSchedulerSession(func(owner SchedulerTransactionToken) error {
 		var err error
-		outputs, err = compact.ReduceOutputsClassifiedIntoWithLiveCondenseCandidatesAndCostOwned(
-			owner, nil, nil, boundary, 0, ForkOrder{},
+		outputs, err = compact.ReduceOutputsClassifiedIntoWithCostOwned(
+			owner, nil, boundary, 0, ForkOrder{},
 			func(prev NodeID, payload SubtreeID) (uint32, error) {
 				callbackCalls++
 				view, viewErr := compact.Subtree(payload)
@@ -83,18 +83,20 @@ func TestReductionCostCallbackPublishesCumulativeMissingCost(t *testing.T) {
 }
 
 func TestCostAwareReductionRejectsNilCallbackBeforeMutation(t *testing.T) {
-	for _, corridor := range []bool{false, true} {
-		name := "generic"
-		if corridor {
-			name = "corridor"
-		}
-		t.Run(name, func(t *testing.T) {
+	for _, mode := range []string{"generic", "generic-live", "corridor"} {
+		t.Run(mode, func(t *testing.T) {
 			compact, boundary := newReductionCostPublicationFixture(t)
 			before := captureSchedulerTransactionState(compact)
 			err := compact.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
-				if corridor {
+				if mode == "corridor" {
 					_, _ = compact.ReduceOutputsCorridorClassifiedIntoWithLiveCondenseCandidatesAndCostOwned(
 						owner, nil, nil, boundary, ForkOrder{}, nil,
+					)
+					return nil
+				}
+				if mode == "generic" {
+					_, _ = compact.ReduceOutputsClassifiedIntoWithCostOwned(
+						owner, nil, boundary, 0, ForkOrder{}, nil,
 					)
 					return nil
 				}
