@@ -95,6 +95,7 @@ var (
 	coreNodeLineageRecordBytes              = uint64(unsafe.Sizeof(nodeLineageRecord{}))
 	coreCheckpointIDBytes                   = uint64(unsafe.Sizeof(CheckpointID(0)))
 	coreExternalProvenanceBytes             = uint64(unsafe.Sizeof(externalPayloadProvenance{}))
+	coreMissingLeafProvenanceBytes          = uint64(unsafe.Sizeof(missingLeafProvenance{}))
 	coreLexerSkippedPrefixBytes             = uint64(unsafe.Sizeof(lexerSkippedPrefixProvenance{}))
 	coreRecoveryDiscontinuityReductionBytes = uint64(unsafe.Sizeof(recoveryDiscontinuityReduction{}))
 	coreCheckpointRecordBytes               = uint64(unsafe.Sizeof(checkpointRecord{}))
@@ -163,6 +164,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += uint64(cap(c.nodeLineages)) * coreNodeLineageRecordBytes
 	total += uint64(cap(c.nodeCheckpoints)) * coreCheckpointIDBytes
 	total += uint64(cap(c.externalProvenance)) * coreExternalProvenanceBytes
+	total += uint64(cap(c.missingLeafProvenance)) * coreMissingLeafProvenanceBytes
 	total += uint64(cap(c.lexerSkippedPrefixes)) * coreLexerSkippedPrefixBytes
 	total += uint64(cap(c.boundaryJournal)) * coreBoundaryMutationBytes
 	total += uint64(cap(c.nodeLineageJournal)) * coreNodeLineageMutationBytes
@@ -322,6 +324,7 @@ func (c *Core) releaseRecordArenaReserve() {
 	c.subtrees = nil
 	c.eofRecoveryRoots = nil
 	c.recoveryDiscontinuityReductions = nil
+	c.missingLeafProvenance = nil
 	c.children = nil
 	c.dropCohortRefSpill = nil
 	c.dropCohortActions = nil
@@ -356,6 +359,7 @@ func (c *Core) releaseOversizedRetention() {
 	c.eofRecoveryRoots = nil
 	c.recoveryDiscontinuityReductions = nil
 	c.externalProvenance = nil
+	c.missingLeafProvenance = nil
 	c.lexerSkippedPrefixes = nil
 	c.children = nil
 	c.fields = nil

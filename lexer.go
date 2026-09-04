@@ -23,6 +23,14 @@ type Token struct {
 	StartPoint Point
 	EndPoint   Point
 	Missing    bool
+	// lexerLookaheadEndByte is the farthest byte inspected while selecting a
+	// lexed token. Synthetic missing tokens retain that token's frontier.
+	lexerLookaheadEndByte uint32
+	// missingStack identifies the stack position before padding for a
+	// synthetic recovery token. It is never set on lexed input.
+	missingStackByte       uint32
+	missingStackPoint      Point
+	missingDependencyExact bool
 	// NoLookahead marks a synthetic EOF used to force EOF-table reductions
 	// without consuming input, matching tree-sitter's lex_state = -1.
 	NoLookahead bool
@@ -122,6 +130,13 @@ func (l *Lexer) NextWithErrorRuns(startState uint32) Token {
 }
 
 func (l *Lexer) next(startState uint32, emitErrorRuns bool) Token {
+	return l.nextWithFrontier(startState, emitErrorRuns, 0)
+}
+
+// nextWithFrontier carries the largest lexer frontier observed by every
+// attempt in one C-style lex call. C updates lookahead_end_byte after each
+// internal, external, and error-mode attempt, including attempts that fail.
+func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookaheadEndByte uint32) Token {
 	l.normalizeIncludedPosition()
 	l.skipLeadingBOM()
 	// C ts_parser__lex resets to the lex call's start position (before any
@@ -133,11 +148,13 @@ func (l *Lexer) next(startState uint32, emitErrorRuns bool) Token {
 	for {
 		// EOF check.
 		if l.atLogicalEOF() {
+			lookaheadEndByte = maxUint32(lookaheadEndByte, l.lookaheadEndByteAt(l.pos, false))
 			return Token{
-				StartByte:  uint32(l.pos),
-				EndByte:    uint32(l.pos),
-				StartPoint: Point{Row: l.row, Column: l.col},
-				EndPoint:   Point{Row: l.row, Column: l.col},
+				StartByte:             uint32(l.pos),
+				EndByte:               uint32(l.pos),
+				StartPoint:            Point{Row: l.row, Column: l.col},
+				EndPoint:              Point{Row: l.row, Column: l.col},
+				lexerLookaheadEndByte: lookaheadEndByte,
 			}
 		}
 
@@ -146,6 +163,7 @@ func (l *Lexer) next(startState uint32, emitErrorRuns bool) Token {
 		tokenStartCol := l.col
 
 		tok, ok := l.scan(startState, tokenStartPos, tokenStartRow, tokenStartCol)
+		lookaheadEndByte = maxUint32(lookaheadEndByte, tok.lexerLookaheadEndByte)
 		if ok {
 			if tok.Symbol == 0 {
 				// Skip token (whitespace). Verify the lexer actually
@@ -163,6 +181,7 @@ func (l *Lexer) next(startState uint32, emitErrorRuns bool) Token {
 				tok.lexerSkippedPrefix = true
 				tok.lexerSkippedPrefixStart = uint32(callStartPos)
 			}
+			tok.lexerLookaheadEndByte = lookaheadEndByte
 			return tok
 		}
 		skippedPrefix = false
@@ -176,10 +195,10 @@ func (l *Lexer) next(startState uint32, emitErrorRuns bool) Token {
 			// the error-run branch below on failure instead of recursing.
 			l.pos, l.row, l.col = callStartPos, callStartRow, callStartCol
 			l.includedRangeIdx = callStartRangeIdx
-			return l.next(l.errorRunLexState, true)
+			return l.nextWithFrontier(l.errorRunLexState, true, lookaheadEndByte)
 		}
-		if emitErrorRuns && l.hasErrorRunLexState && !l.canLexAt(l.errorRunLexState, tokenStartPos, tokenStartRow, tokenStartCol) {
-			return l.errorRunToken()
+		if emitErrorRuns && l.hasErrorRunLexState && !l.canLexAt(l.errorRunLexState, tokenStartPos, tokenStartRow, tokenStartCol, &lookaheadEndByte) {
+			return l.errorRunToken(&lookaheadEndByte)
 		}
 		// No accepting state was found. Skip one rune as error recovery.
 		l.skipOneRune()
@@ -196,10 +215,13 @@ func (l *Lexer) skipLeadingBOM() {
 
 // canLexAt reports whether the DFA can lex a token (or whitespace skip)
 // starting at the given position, without moving the lexer.
-func (l *Lexer) canLexAt(lexState uint32, pos int, row, col uint32) bool {
+func (l *Lexer) canLexAt(lexState uint32, pos int, row, col uint32, frontier *uint32) bool {
 	savedPos, savedRow, savedCol := l.pos, l.row, l.col
 	savedRangeIdx := l.includedRangeIdx
-	_, ok := l.scan(lexState, pos, row, col)
+	tok, ok := l.scan(lexState, pos, row, col)
+	if frontier != nil {
+		*frontier = maxUint32(*frontier, tok.lexerLookaheadEndByte)
+	}
 	l.pos, l.row, l.col = savedPos, savedRow, savedCol
 	l.includedRangeIdx = savedRangeIdx
 	return ok
@@ -210,7 +232,7 @@ func (l *Lexer) canLexAt(lexState uint32, pos int, row, col uint32) bool {
 // it as an errorSymbol token. The run ends at the first position where the
 // error-mode lex state can lex again, matching C's character-by-character
 // error skipping.
-func (l *Lexer) errorRunToken() Token {
+func (l *Lexer) errorRunToken(frontier *uint32) Token {
 	// Position the lexer at the real error start: scan records where the
 	// token attempt began after consuming skip (whitespace) transitions.
 	if l.failTokenStartPos > l.pos && l.failTokenStartPos <= len(l.source) {
@@ -222,29 +244,37 @@ func (l *Lexer) errorRunToken() Token {
 	l.normalizeIncludedPosition()
 	if l.atLogicalEOF() {
 		// Only whitespace remained: this is end-of-input, not an error run.
+		if frontier != nil {
+			*frontier = maxUint32(*frontier, l.lookaheadEndByteAt(l.pos, false))
+		}
 		return Token{
-			StartByte:  uint32(l.pos),
-			EndByte:    uint32(l.pos),
-			StartPoint: Point{Row: l.row, Column: l.col},
-			EndPoint:   Point{Row: l.row, Column: l.col},
+			StartByte:             uint32(l.pos),
+			EndByte:               uint32(l.pos),
+			StartPoint:            Point{Row: l.row, Column: l.col},
+			EndPoint:              Point{Row: l.row, Column: l.col},
+			lexerLookaheadEndByte: frontierValue(frontier),
 		}
 	}
 	startPos, startRow, startCol := l.pos, l.row, l.col
 
 	l.skipOneRune()
 	for !l.atLogicalEOF() {
-		if l.canLexAt(l.errorRunLexState, l.pos, l.row, l.col) {
+		if l.canLexAt(l.errorRunLexState, l.pos, l.row, l.col, frontier) {
 			break
 		}
 		l.skipOneRune()
 	}
+	if frontier != nil {
+		*frontier = maxUint32(*frontier, l.lookaheadEndByteAt(l.pos, false))
+	}
 	return Token{
-		Symbol:     errorSymbol,
-		Text:       l.tokenText(startPos, l.pos),
-		StartByte:  uint32(startPos),
-		EndByte:    uint32(l.pos),
-		StartPoint: Point{Row: startRow, Column: startCol},
-		EndPoint:   Point{Row: l.row, Column: l.col},
+		Symbol:                errorSymbol,
+		Text:                  l.tokenText(startPos, l.pos),
+		StartByte:             uint32(startPos),
+		EndByte:               uint32(l.pos),
+		StartPoint:            Point{Row: startRow, Column: startCol},
+		EndPoint:              Point{Row: l.row, Column: l.col},
+		lexerLookaheadEndByte: frontierValue(frontier),
 	}
 }
 
@@ -410,12 +440,17 @@ func (l *Lexer) scanContiguous(startState uint32, startPos int, startRow, startC
 		acceptSkip = true
 	}
 
+	lookaheadEndByte := l.lookaheadEndByteAt(scanPos, true)
+	if lookaheadEndByte < uint32(maxInt(acceptPos, 0)) {
+		lookaheadEndByte = uint32(maxInt(acceptPos, 0))
+	}
+
 	if acceptPos < 0 {
 		l.failTokenStartPos = tokenStartPos
 		l.failTokenStartRow = tokenStartRow
 		l.failTokenStartCol = tokenStartCol
 		l.failTokenStartRangeIdx = 0
-		return Token{}, false
+		return Token{lexerLookaheadEndByte: lookaheadEndByte}, false
 	}
 
 	// Rewind (or advance) to the accept position.
@@ -432,6 +467,7 @@ func (l *Lexer) scanContiguous(startState uint32, startPos int, startRow, startC
 			EndPoint:                Point{Row: acceptRow, Column: acceptCol},
 			lexerSkippedPrefix:      skippedPrefix,
 			lexerSkippedPrefixStart: uint32(startPos),
+			lexerLookaheadEndByte:   lookaheadEndByte,
 		}, true
 	}
 
@@ -445,7 +481,49 @@ func (l *Lexer) scanContiguous(startState uint32, startPos int, startRow, startC
 		lexerSkippedPrefix:      skippedPrefix,
 		lexerSkippedPrefixStart: uint32(startPos),
 		lexerInternalDFALexed:   true,
+		lexerLookaheadEndByte:   lookaheadEndByte,
 	}, true
+}
+
+func tokenLookaheadEndByte(token Token) uint32 {
+	if token.lexerLookaheadEndByte > token.EndByte {
+		return token.lexerLookaheadEndByte
+	}
+	return token.EndByte
+}
+
+func maxUint32(left, right uint32) uint32 {
+	if left >= right {
+		return left
+	}
+	return right
+}
+
+func frontierValue(frontier *uint32) uint32 {
+	if frontier == nil {
+		return 0
+	}
+	return *frontier
+}
+
+// lookaheadEndByteAt mirrors ts_lexer_finish. The C lexer records one byte
+// beyond the current cursor, plus four bytes when the current lookahead is an
+// invalid UTF-8 sequence. Included-range EOF must not inspect the source gap.
+func (l *Lexer) lookaheadEndByteAt(pos int, inspectInvalid bool) uint32 {
+	if pos < 0 {
+		pos = 0
+	}
+	frontier := uint64(pos) + 1
+	if inspectInvalid && pos < len(l.source) {
+		r, size := utf8.DecodeRune(l.source[pos:])
+		if r == utf8.RuneError && size == 1 && l.source[pos] >= utf8.RuneSelf {
+			frontier += 4
+		}
+	}
+	if frontier > uint64(^uint32(0)) {
+		return ^uint32(0)
+	}
+	return uint32(frontier)
 }
 
 // skipOneRune advances the lexer position by one rune, updating row/column.

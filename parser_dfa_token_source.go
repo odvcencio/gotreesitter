@@ -33,6 +33,7 @@ type dfaTokenSource struct {
 	externalCompare             []byte
 	externalLexer               ExternalLexer
 	externalRetryLexer          ExternalLexer
+	externalLookaheadEndByte    uint32
 	lastExternalTokenStartByte  uint32
 	lastExternalTokenEndByte    uint32
 	lastExternalTokenValid      bool
@@ -413,6 +414,7 @@ func (d *dfaTokenSource) Reset(source []byte) {
 	d.lastExternalTokenStartByte = 0
 	d.lastExternalTokenEndByte = 0
 	d.lastExternalTokenValid = false
+	d.externalLookaheadEndByte = 0
 	d.lastExternalTokenWasExtra = false
 	d.externalTokenEndSameAsStart = false
 	d.lastTokenStartByte = 0
@@ -469,6 +471,7 @@ func (d *dfaTokenSource) Close() {
 	d.lastExternalTokenStartByte = 0
 	d.lastExternalTokenEndByte = 0
 	d.lastExternalTokenValid = false
+	d.externalLookaheadEndByte = 0
 	d.lastExternalTokenWasExtra = false
 	d.externalTokenEndSameAsStart = false
 	d.lastTokenStartByte = 0
@@ -485,6 +488,11 @@ func (d *dfaTokenSource) Close() {
 var DebugDFA atomic.Bool
 
 func (d *dfaTokenSource) Next() Token {
+	if d != nil {
+		// A token-source read mirrors one C ts_parser__lex call. Preserve the
+		// maximum frontier only across attempts within this read.
+		d.externalLookaheadEndByte = 0
+	}
 	if d != nil && d.lexer != nil {
 		d.lexer.skipLeadingBOM()
 	}
@@ -511,6 +519,7 @@ func (d *dfaTokenSource) Next() Token {
 		}
 		if d.shouldForceEOFLookahead() {
 			tok := d.syntheticEOFLookaheadToken()
+			tok = d.attachTokenLookaheadFrontier(tok, true)
 			d.lastTokenValid = false
 			d.lastExternalTokenValid = false
 			d.lastExternalTokenWasExtra = false
@@ -659,6 +668,7 @@ func (d *dfaTokenSource) Next() Token {
 			d.zeroWidthPos = -1
 			d.zeroWidthCount = 0
 		}
+		tok = d.attachTokenLookaheadFrontier(tok, !tokenFromExternal && !tok.lexerInternalDFALexed)
 
 		if perfCountersEnabled {
 			consumed := d.lexer.pos - startPos
@@ -721,6 +731,28 @@ func (d *dfaTokenSource) Next() Token {
 			(!d.hasExternalScanner || d.usesExternalCheckpoints)
 		return tok
 	}
+}
+
+// attachTokenLookaheadFrontier preserves the largest external-scanner
+// frontier observed during this token-source read. Synthetic replacements do
+// not have a scanner token, so derive their frontier from their resulting end.
+func (d *dfaTokenSource) attachTokenLookaheadFrontier(tok Token, synthetic bool) Token {
+	if d == nil {
+		return tok
+	}
+	frontier := maxUint32(tok.lexerLookaheadEndByte, d.externalLookaheadEndByte)
+	if synthetic && d.lexer != nil {
+		endPos := uint64(tok.EndByte)
+		if endPos > uint64(len(d.lexer.source)) {
+			endPos = uint64(len(d.lexer.source))
+		}
+		frontier = maxUint32(frontier, d.lexer.lookaheadEndByteAt(int(endPos), true))
+	}
+	if frontier < tok.EndByte {
+		frontier = tok.EndByte
+	}
+	tok.lexerLookaheadEndByte = frontier
+	return tok
 }
 
 func (d *dfaTokenSource) SetParserState(state StateID) {
@@ -1016,6 +1048,7 @@ func (d *dfaTokenSource) SeekTokenFrontier(pos uint32, pt Point) {
 	d.lexer.col = pt.Column
 	d.lexer.includedRangeIdx = 0
 	d.lexer.normalizeIncludedPosition()
+	d.externalLookaheadEndByte = 0
 }
 
 // tokensSameLex compares tokenization identity, not the lex path that
@@ -3302,6 +3335,7 @@ func (d *dfaTokenSource) beginRelexAt(target int, pt Point) {
 	d.lastTokenStartByte = 0
 	d.lastTokenEndByte = 0
 	d.lastTokenValid = false
+	d.externalLookaheadEndByte = 0
 	if len(d.externalTokenEnd) > 0 {
 		d.externalTokenEnd = d.externalTokenEnd[:0]
 	}
@@ -3496,6 +3530,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 		if !ok {
 			return Token{}, false
 		}
+		tok = d.attachTokenLookaheadFrontier(tok, true)
 		d.trackZeroWidthExternalToken(tok)
 		d.lexer.pos = int(tok.EndByte)
 		d.lexer.row = tok.EndPoint.Row
@@ -3511,6 +3546,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 				if DebugDFA.Load() {
 					fmt.Printf("  EXT synthetic %s %d %d state=%d\n", d.symbolName(tok.Symbol), tok.StartByte, tok.EndByte, d.state)
 				}
+				tok = d.attachTokenLookaheadFrontier(tok, true)
 				d.trackZeroWidthExternalToken(tok)
 				d.lexer.pos = int(tok.EndByte)
 				d.lexer.row = tok.EndPoint.Row
@@ -3527,9 +3563,11 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	if !ok {
 		return Token{}, false
 	}
+	tok = d.attachTokenLookaheadFrontier(tok, false)
 	tok.ExternalScannerToken = true
 	tok.ExternalScannerStartByte = uint32(d.lexer.pos)
 	if splitTok, endPos, endRow, endCol, ok := d.splitSwiftWideCloseAngleToken(tok, states); ok {
+		splitTok = d.attachTokenLookaheadFrontier(splitTok, false)
 		d.lexer.pos = endPos
 		d.lexer.row = endRow
 		d.lexer.col = endCol
@@ -3537,6 +3575,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	}
 
 	if dfaTok, endPos, endRow, endCol, ok := d.preferDFASemicolonOverJSXText(tok, states); ok {
+		dfaTok = d.attachTokenLookaheadFrontier(dfaTok, false)
 		d.lexer.pos = endPos
 		d.lexer.row = endRow
 		d.lexer.col = endCol
@@ -3548,6 +3587,7 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	d.lexer.pos = int(tok.EndByte)
 	d.lexer.row = tok.EndPoint.Row
 	d.lexer.col = tok.EndPoint.Column
+	tok = d.attachTokenLookaheadFrontier(tok, false)
 	return tok, true
 }
 
@@ -4152,6 +4192,14 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 	if d == nil || d.language == nil || d.language.ExternalScanner == nil || el == nil {
 		return false
 	}
+	recordFrontier := func(scannerLexer *ExternalLexer) {
+		if scannerLexer == nil {
+			return
+		}
+		scannerLexer.lookaheadEndByte = maxUint32(scannerLexer.lookaheadEndByte, scannerLexer.lookaheadEndByteAtCursor())
+		d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, scannerLexer.lookaheadEndByte)
+		scannerLexer.lookaheadEndByte = maxUint32(scannerLexer.lookaheadEndByte, d.externalLookaheadEndByte)
+	}
 	var snapshot []byte
 	retainFailureState := d.externalScannerRetainsStateOnScanFailure()
 	// Retention takes precedence if a scanner reports both capabilities.
@@ -4163,7 +4211,9 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		}
 	}
 	if preserveFailureState {
-		if RunExternalScanner(d.language, d.externalPayload, el, valid) {
+		foundToken := RunExternalScanner(d.language, d.externalPayload, el, valid)
+		recordFrontier(el)
+		if foundToken {
 			return true
 		}
 		if !el.hasResult {
@@ -4173,7 +4223,9 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		snapshot = d.captureExternalScannerStateInto(&d.externalRetrySnap)
 	} else {
 		snapshot = d.captureExternalScannerStateInto(&d.externalRetrySnap)
-		if RunExternalScanner(d.language, d.externalPayload, el, valid) {
+		foundToken := RunExternalScanner(d.language, d.externalPayload, el, valid)
+		recordFrontier(el)
+		if foundToken {
 			return true
 		}
 		if !el.hasResult {
@@ -4211,7 +4263,9 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		d.restoreExternalScannerState(snapshot)
 		retryLexer := &d.externalRetryLexer
 		retryLexer.reset(d.lexer.source, d.lexer.pos, d.lexer.row, d.lexer.col)
-		if RunExternalScanner(d.language, d.externalPayload, retryLexer, masked) {
+		foundToken := RunExternalScanner(d.language, d.externalPayload, retryLexer, masked)
+		recordFrontier(retryLexer)
+		if foundToken {
 			*el = *retryLexer
 			return true
 		}

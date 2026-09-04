@@ -141,6 +141,9 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 					view.ExternalScannerCheckpointExact = true
 				}
 			}
+			if record.missing {
+				view.MissingDependency, view.MissingDependencyExact = c.missingLeafDependency(top.id)
+			}
 			view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(top.id)
 			if err := visit(top.id, view); err != nil {
 				return err

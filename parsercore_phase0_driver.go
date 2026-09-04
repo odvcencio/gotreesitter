@@ -7120,6 +7120,20 @@ func materializeCompactExternalScannerCheckpoint(compact *core.Core, arena *node
 	return false
 }
 
+func materializeCompactMissingNodeDependency(arena *nodeArena, node *Node, view core.MaterializationSubtreeView) bool {
+	if arena == nil || node == nil || node.ownerArena != arena || !view.Missing || !view.MissingDependencyExact {
+		return false
+	}
+	stackPoint := Point{Row: view.MissingDependency.StackRow, Column: view.MissingDependency.StackColumn}
+	return arena.setMissingNodeDependency(node, missingNodeDependency{
+		stackByte:      view.MissingDependency.StackByte,
+		stackPoint:     stackPoint,
+		paddingBytes:   view.MissingDependency.PaddingBytes,
+		paddingExtent:  Point{Row: view.MissingDependency.PaddingRows, Column: view.MissingDependency.PaddingColumn},
+		lookaheadBytes: view.MissingDependency.LookaheadBytes,
+	})
+}
+
 // materializeDiagnosticParserCoreAcceptedSelection materializes the accepted
 // compact derivation into a public tree. When scratch is non-nil the runner's
 // reusable buffers back the transient materialization storage, so the warm
@@ -7359,6 +7373,9 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 				if view.Missing {
 					node.setMissing(true)
 					node.setHasError(true)
+					if !materializeCompactMissingNodeDependency(arena, node, view) {
+						return fmt.Errorf("parser-core phase zero: missing leaf dependency transfer failed: node=%d@%+v dependency=%+v", node.startByte, node.startPoint, view.MissingDependency)
+					}
 				}
 				hasErrorByID[id] = view.Missing || Symbol(view.Symbol) == errorSymbol
 				// No markFragile here: fragile is a reduce/conflict-arm property
@@ -7699,6 +7716,10 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		ExternalScannerCheckpointLeafNodes:             arena.externalScannerCheckpointLeafNodes,
 		CompactExternalScannerCheckpointTransferProven: scannerProvenanceTransferProven,
 	})
+	if arena.breakdownEnabled {
+		breakdown := arena.collectArenaBreakdown()
+		tree.setArenaBreakdown(breakdown)
+	}
 	return tree, nil
 }
 

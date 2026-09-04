@@ -124,6 +124,7 @@ type nodeArena struct {
 	compactCheckpointLeafSlabs      []compactCheckpointLeafSlab
 	compactCheckpointLeafSlabCursor int
 	finalChildSidecars              []finalChildSidecar
+	missingNodeDependencies         []missingNodeDependencyEntry
 	nodeFieldMetadataSlabs          []nodeFieldMetadataSlab
 	nodeFieldMetadataSlabCursor     int
 
@@ -556,6 +557,7 @@ func (a *nodeArena) reset() {
 	a.resetRawShapeChildSlabs()
 	a.resetRawShapeHashCache()
 	a.resetFinalChildSidecars()
+	a.resetMissingNodeDependencies()
 	a.resetCompactCheckpointLeafSlabs()
 	a.resetNodeFieldMetadataSlabs()
 	a.resetChildSlabs()
@@ -1880,6 +1882,7 @@ func (a *nodeArena) recomputeAllocatedBytes() {
 		a.rawShapeChildBytesAllocated() +
 		a.rawShapeHashCacheBytesAllocated() +
 		a.finalChildSidecarBytesAllocated() +
+		missingNodeDependencyEntryBytesForCap(cap(a.missingNodeDependencies)) +
 		a.compactCheckpointLeafBytesAllocated() +
 		a.childSliceBytesAllocated() +
 		a.fieldIDBytesAllocated() +
@@ -2240,7 +2243,9 @@ func (a *nodeArena) collectArenaBreakdown() *ArenaBreakdown {
 		RawShapeChildBytesAllocated:         a.rawShapeChildBytesAllocated(),
 		RawShapeHashCacheBytesAllocated:     a.rawShapeHashCacheBytesAllocated(),
 		FinalChildSidecarBytesAllocated:     a.finalChildSidecarBytesAllocated(),
+		MissingNodeDependencyBytesAllocated: missingNodeDependencyEntryBytesForCap(cap(a.missingNodeDependencies)),
 		CompactCheckpointLeafBytesAllocated: a.compactCheckpointLeafBytesAllocated(),
+		MissingNodeDependencyCount:          uint64(len(a.missingNodeDependencies)),
 		PendingChildEntriesAllocated:        a.pendingChildEntriesAllocated,
 		PendingChildEntryCapacity:           a.pendingChildEntryCapacity(),
 		PendingChildEntryWaste:              a.pendingChildEntryWaste(),

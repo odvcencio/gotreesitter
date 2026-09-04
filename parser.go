@@ -2383,19 +2383,9 @@ func (p *Parser) tryInsertMissingSingleShift(source []byte, s *glrStack, tok Tok
 	}
 
 	p.markCRecoveryCostCompetitionRelevant() // missing-token insertion makes costs relevant
-	missingTok := Token{
-		Symbol:     candidateSym,
-		StartByte:  tok.StartByte,
-		EndByte:    tok.StartByte,
-		StartPoint: tok.StartPoint,
-		EndPoint:   tok.StartPoint,
-		Missing:    true,
-	}
-	if top := s.top(); stackEntryHasNode(top) && stackEntryNodeEndByte(top) <= tok.StartByte {
-		missingTok.StartByte = stackEntryNodeEndByte(top)
-		missingTok.EndByte = stackEntryNodeEndByte(top)
-		missingTok.StartPoint = stackEntryNodeEndPoint(top)
-		missingTok.EndPoint = stackEntryNodeEndPoint(top)
+	missingTok, exact := p.recoveryMissingToken(source, s, candidateSym, tok)
+	if !exact {
+		return false
 	}
 	p.applyAction(source, s, candidateAct, missingTok, new(bool), nodeCount, arena, entryScratch, gssScratch, nil, false, trackChildErrors)
 	if p.rejectUndrainedPendingForkStacks(s) {
@@ -2890,7 +2880,7 @@ func (p *Parser) tryAdvanceEOFOnSingleStack(s *glrStack, tok Token, expectedEOFB
 	return false
 }
 
-func (p *Parser) tryInsertMissingSingleShiftAtEOF(s *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch) bool {
+func (p *Parser) tryInsertMissingSingleShiftAtEOF(source []byte, s *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch) bool {
 	if p == nil || p.language == nil || s == nil || s.dead || tok.NoLookahead || tok.Symbol != 0 || tok.StartByte != tok.EndByte {
 		return false
 	}
@@ -2936,15 +2926,11 @@ func (p *Parser) tryInsertMissingSingleShiftAtEOF(s *glrStack, tok Token, nodeCo
 	}
 
 	p.markCRecoveryCostCompetitionRelevant() // missing-token insertion makes costs relevant
-	missingTok := Token{
-		Symbol:     candidateSym,
-		StartByte:  tok.StartByte,
-		EndByte:    tok.StartByte,
-		StartPoint: tok.StartPoint,
-		EndPoint:   tok.StartPoint,
-		Missing:    true,
+	missingTok, exact := p.recoveryMissingToken(source, s, candidateSym, tok)
+	if !exact {
+		return false
 	}
-	p.applyAction(nil, s, candidateAct, missingTok, new(bool), nodeCount, arena, entryScratch, gssScratch, nil, false, nil)
+	p.applyAction(source, s, candidateAct, missingTok, new(bool), nodeCount, arena, entryScratch, gssScratch, nil, false, nil)
 	if p.rejectUndrainedPendingForkStacks(s) {
 		return false
 	}
@@ -3062,7 +3048,7 @@ func (p *Parser) advanceTrailingEOFPrefix(prefix *glrStack, prefixEOF Token, exp
 	if p.tryAdvanceEOFOnSingleStack(prefix, prefixEOF, expectedEOFByte, source, nodeCount, arena, entryScratch, gssScratch, tmpEntries) {
 		return false, true
 	}
-	if !p.tryInsertMissingSingleShiftAtEOF(prefix, prefixEOF, nodeCount, arena, entryScratch, gssScratch) {
+	if !p.tryInsertMissingSingleShiftAtEOF(source, prefix, prefixEOF, nodeCount, arena, entryScratch, gssScratch) {
 		return false, false
 	}
 	if !p.tryAdvanceEOFOnSingleStack(prefix, prefixEOF, expectedEOFByte, source, nodeCount, arena, entryScratch, gssScratch, tmpEntries) {
@@ -8258,6 +8244,12 @@ func (p *Parser) applyExtraShiftAction(s *glrStack, currentState StateID, act Pa
 	if isMissing {
 		leaf.setMissing(true)
 		leaf.setHasError(true)
+		if tok.missingDependencyExact {
+			dependency, exact := missingNodeDependencyFromToken(tok)
+			if !exact || !arena.setMissingNodeDependency(leaf, dependency) {
+				leaf.setDirty(true)
+			}
+		}
 		if trackChildErrors != nil {
 			*trackChildErrors = true
 		}

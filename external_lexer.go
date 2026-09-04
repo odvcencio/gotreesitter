@@ -24,6 +24,10 @@ type ExternalLexer struct {
 
 	resultSymbol Symbol
 	hasResult    bool
+
+	// lookaheadEndByte records the largest lexer frontier observed while this
+	// scanner attempt ran. The token source carries it across scanner retries.
+	lookaheadEndByte uint32
 }
 
 func (l *ExternalLexer) reset(source []byte, pos int, row, col uint32) {
@@ -39,6 +43,7 @@ func (l *ExternalLexer) reset(source []byte, pos int, row, col uint32) {
 	l.advancedContent = false
 	l.resultSymbol = 0
 	l.hasResult = false
+	l.lookaheadEndByte = 0
 }
 
 func newExternalLexer(source []byte, pos int, row, col uint32) *ExternalLexer {
@@ -180,6 +185,30 @@ func (l *ExternalLexer) SetResultSymbol(sym Symbol) {
 	l.hasResult = true
 }
 
+// lookaheadEndByteAtCursor mirrors ts_lexer_finish for an external scanner.
+// Tree-sitter records one byte beyond the current cursor, plus four bytes when
+// the current lookahead is an invalid UTF-8 sequence.
+func (l *ExternalLexer) lookaheadEndByteAtCursor() uint32 {
+	if l == nil {
+		return 0
+	}
+	pos := l.pos
+	if pos < 0 {
+		pos = 0
+	}
+	frontier := uint64(pos) + 1
+	if pos < len(l.source) {
+		r, size := utf8.DecodeRune(l.source[pos:])
+		if r == utf8.RuneError && size == 1 && l.source[pos] >= utf8.RuneSelf {
+			frontier += 4
+		}
+	}
+	if frontier > uint64(^uint32(0)) {
+		return ^uint32(0)
+	}
+	return uint32(frontier)
+}
+
 // Column returns the current column (0-based) at the scanner cursor.
 func (l *ExternalLexer) Column() uint32 {
 	return l.point.Column
@@ -231,21 +260,31 @@ func (l *ExternalLexer) token() (Token, bool) {
 	// skipped bytes are re-encountered on the next scan, matching C
 	// tree-sitter semantics.
 	if endPos < l.startPos {
+		lookaheadEndByte := maxUint32(l.lookaheadEndByte, l.lookaheadEndByteAtCursor())
+		if lookaheadEndByte < uint32(endPos) {
+			lookaheadEndByte = uint32(endPos)
+		}
 		return Token{
-			Symbol:     l.resultSymbol,
-			StartByte:  uint32(endPos),
-			EndByte:    uint32(endPos),
-			StartPoint: endPoint,
-			EndPoint:   endPoint,
+			Symbol:                l.resultSymbol,
+			StartByte:             uint32(endPos),
+			EndByte:               uint32(endPos),
+			StartPoint:            endPoint,
+			EndPoint:              endPoint,
+			lexerLookaheadEndByte: lookaheadEndByte,
 		}, true
 	}
 
+	lookaheadEndByte := maxUint32(l.lookaheadEndByte, l.lookaheadEndByteAtCursor())
+	if lookaheadEndByte < uint32(endPos) {
+		lookaheadEndByte = uint32(endPos)
+	}
 	return Token{
-		Symbol:     l.resultSymbol,
-		Text:       bytesToStringNoCopy(l.source[l.startPos:endPos]),
-		StartByte:  uint32(l.startPos),
-		EndByte:    uint32(endPos),
-		StartPoint: l.startPoint,
-		EndPoint:   endPoint,
+		Symbol:                l.resultSymbol,
+		Text:                  bytesToStringNoCopy(l.source[l.startPos:endPos]),
+		StartByte:             uint32(l.startPos),
+		EndByte:               uint32(endPos),
+		StartPoint:            l.startPoint,
+		EndPoint:              endPoint,
+		lexerLookaheadEndByte: lookaheadEndByte,
 	}, true
 }

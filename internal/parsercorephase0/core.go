@@ -1197,10 +1197,33 @@ type MaterializationSubtreeView struct {
 	// terminal (C ts_subtree_missing). Threaded to the public materializer so
 	// it can set the public node's own missing and has-error bits.
 	Missing bool
+	// MissingDependency carries C's sparse missing-leaf padding and lookahead
+	// metadata. It is valid only when MissingDependencyExact is true.
+	MissingDependency      MissingLeafDependency
+	MissingDependencyExact bool
 	// LexerSkippedPrefix is exact terminal provenance from the internal DFA.
 	// It is false for reductions, external tokens, and synthetic terminals.
 	LexerSkippedPrefix      bool
 	LexerSkippedPrefixStart uint32
+}
+
+// MissingLeafDependency preserves the source dependency of one zero-width
+// recovery insertion. Stack identifies the parser position before included-
+// range padding. Padding positions the visible leaf. LookaheadBytes extends
+// the edit dependency beyond the zero-width content.
+type MissingLeafDependency struct {
+	StackByte      uint32
+	StackRow       uint32
+	StackColumn    uint32
+	PaddingBytes   uint32
+	PaddingRows    uint32
+	PaddingColumn  uint32
+	LookaheadBytes uint32
+}
+
+type missingLeafProvenance struct {
+	payload    SubtreeID
+	dependency MissingLeafDependency
 }
 
 // Stats reports physical storage separately from semantic path counts. It is
@@ -1274,9 +1297,10 @@ type Core struct {
 	dropCohortLinkRefIndexes []uint32
 	dropCohortLinkRefJournal []dropCohortLinkRefMutation
 
-	subtrees             []subtreeRecord
-	externalProvenance   []externalPayloadProvenance
-	lexerSkippedPrefixes []lexerSkippedPrefixProvenance
+	subtrees              []subtreeRecord
+	externalProvenance    []externalPayloadProvenance
+	missingLeafProvenance []missingLeafProvenance
+	lexerSkippedPrefixes  []lexerSkippedPrefixProvenance
 	// recoveryDiscontinuityReductions records parents whose stack pop crossed
 	// a null recovery edge. C counts that edge for the pop depth, but it does
 	// not add a child to the materialized subtree.
@@ -1475,6 +1499,7 @@ type diagnosticOptions struct {
 
 type checkpoint struct {
 	nodes, nodeLineages, nodeCheckpoints, links, subtrees, externalProvenance int
+	missingLeafProvenance                                                     int
 	lexerSkippedPrefixes                                                      int
 	recoveryDiscontinuityReductions                                           int
 	children, fields, aliases                                                 int
@@ -1596,6 +1621,7 @@ func (c *Core) markInto(mark *checkpoint) {
 		links: len(c.links), subtrees: len(c.subtrees),
 		nodeCheckpoints:                 len(c.nodeCheckpoints),
 		externalProvenance:              len(c.externalProvenance),
+		missingLeafProvenance:           len(c.missingLeafProvenance),
 		lexerSkippedPrefixes:            len(c.lexerSkippedPrefixes),
 		recoveryDiscontinuityReductions: len(c.recoveryDiscontinuityReductions),
 		children:                        len(c.children), fields: len(c.fields), aliases: len(c.aliases),
@@ -1709,6 +1735,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.subtrees = c.subtrees[:mark.subtrees]
 	c.eofRecoveryRoots = c.eofRecoveryRoots[:mark.eofRecoveryRoots]
 	c.externalProvenance = c.externalProvenance[:mark.externalProvenance]
+	c.missingLeafProvenance = c.missingLeafProvenance[:mark.missingLeafProvenance]
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:mark.lexerSkippedPrefixes]
 	c.recoveryDiscontinuityReductions = c.recoveryDiscontinuityReductions[:mark.recoveryDiscontinuityReductions]
 	c.children = c.children[:mark.children]
@@ -2325,6 +2352,7 @@ func (c *Core) Reset() error {
 	c.subtrees = c.subtrees[:0]
 	c.eofRecoveryRoots = c.eofRecoveryRoots[:0]
 	c.externalProvenance = c.externalProvenance[:0]
+	c.missingLeafProvenance = c.missingLeafProvenance[:0]
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:0]
 	c.recoveryDiscontinuityReductions = c.recoveryDiscontinuityReductions[:0]
 	c.children = c.children[:0]
@@ -4063,12 +4091,14 @@ func (c *Core) graphVersionIsDeterministic(root NodeID) (bool, error) {
 }
 
 type shallowPayloadClass struct {
-	symbol     Symbol
-	padding    uint32
-	size       uint32
-	childCount uint32
-	extra      bool
-	external   bool
+	symbol                 Symbol
+	padding                uint32
+	size                   uint32
+	childCount             uint32
+	missingDependency      MissingLeafDependency
+	missingDependencyExact bool
+	extra                  bool
+	external               bool
 }
 
 type recoveryMergeEquivalenceContext struct {
@@ -5104,6 +5134,16 @@ func (c *Core) subtreesStructurallyEqual(left, right SubtreeID) (bool, error) {
 			return false, nil
 		}
 	}
+	if l.missing {
+		leftDependency, leftExact := c.missingLeafDependency(left)
+		rightDependency, rightExact := c.missingLeafDependency(right)
+		if !leftExact || !rightExact {
+			return false, errors.New("parser-core phase zero: missing payload structural comparison lacks exact dependency provenance")
+		}
+		if leftDependency != rightDependency {
+			return false, nil
+		}
+	}
 	if !slices.Equal(
 		c.fields[l.firstField:l.firstField+l.fieldCount],
 		c.fields[r.firstField:r.firstField+r.fieldCount],
@@ -5166,11 +5206,18 @@ func (c *Core) shallowPayloadClass(prevID NodeID, payloadID SubtreeID) (shallowP
 	if payload.startByte < prev.byteOffset || payload.endByte < payload.startByte {
 		return shallowPayloadClass{}, false, errors.New("parser-core phase zero: invalid shallow payload extent")
 	}
-	return shallowPayloadClass{
+	class := shallowPayloadClass{
 		symbol: payload.symbol, padding: payload.startByte - prev.byteOffset,
 		size: payload.endByte - payload.startByte, childCount: payload.childCount,
 		extra: payload.extra, external: payload.external,
-	}, true, nil
+	}
+	if payload.missing {
+		class.missingDependency, class.missingDependencyExact = c.missingLeafDependency(payloadID)
+		if !class.missingDependencyExact {
+			return shallowPayloadClass{}, false, errors.New("parser-core phase zero: missing shallow payload lacks exact dependency provenance")
+		}
+	}
+	return class, true, nil
 }
 
 // replaceBoundaryLink publishes a new canonical adjacency while leaving the
@@ -6280,6 +6327,9 @@ func (c *Core) MaterializationView(id SubtreeID) (MaterializationSubtreeView, er
 			view.ExternalScannerCheckpointExact = true
 		}
 	}
+	if record.missing {
+		view.MissingDependency, view.MissingDependencyExact = c.missingLeafDependency(id)
+	}
 	view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(id)
 	return view, nil
 }
@@ -6295,6 +6345,13 @@ func (c *Core) SubtreeArenaLen() int {
 }
 
 func (c *Core) validateMaterializationMetadata(id SubtreeID, record subtreeRecord) error {
+	if record.missing {
+		dependency, ok := c.missingLeafDependency(id)
+		positionedByte, addOK := addUint32Checked(dependency.StackByte, dependency.PaddingBytes)
+		if !ok || !addOK || record.startByte != positionedByte || record.endByte != positionedByte {
+			return errors.New("parser-core phase zero: missing leaf dependency provenance is stale")
+		}
+	}
 	// Production construction authenticates every terminal and reduction before
 	// publication. Compact arenas are immutable, so repeating the table remap at
 	// materialization adds no evidence. The flag is Core-scoped so subtreeRecord

@@ -1212,6 +1212,7 @@ func assertParseRuntimeArenaBreakdown(t *testing.T, tree *Tree, rt ParseRuntime)
 		arenaBreakdown.RawShapeChildBytesAllocated +
 		arenaBreakdown.RawShapeHashCacheBytesAllocated +
 		arenaBreakdown.FinalChildSidecarBytesAllocated +
+		arenaBreakdown.MissingNodeDependencyBytesAllocated +
 		arenaBreakdown.CompactCheckpointLeafBytesAllocated +
 		arenaBreakdown.ChildSliceBytesAllocated +
 		arenaBreakdown.FieldIDBytesAllocated +
