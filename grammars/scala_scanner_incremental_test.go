@@ -79,6 +79,29 @@ func TestScalaScannerCheckpointCodecIsInjective(t *testing.T) {
 	}
 }
 
+func TestScalaScannerCheckpointRestoreReusesIndentCapacity(t *testing.T) {
+	original := scalaState{
+		indents:             []int16{0, 2, 4, 6},
+		lastIndentationSize: 8,
+		lastNewlineCount:    2,
+		lastColumn:          12,
+	}
+	buffer := make([]byte, 4096)
+	scanner := ScalaExternalScanner{}
+	size := scanner.Serialize(&original, buffer)
+	restored := scalaState{indents: make([]int16, 0, len(original.indents))}
+
+	allocations := testing.AllocsPerRun(1000, func() {
+		scanner.Deserialize(&restored, buffer[:size])
+	})
+	if allocations != 0 {
+		t.Fatalf("steady-state checkpoint restore allocations = %v, want zero", allocations)
+	}
+	if !scalaStatesEqual(restored, original) {
+		t.Fatalf("restored state = %+v, want %+v", restored, original)
+	}
+}
+
 func TestScalaScannerMalformedCheckpointResetsWithoutPanic(t *testing.T) {
 	validState := scalaState{indents: []int16{2}, lastIndentationSize: 3, lastNewlineCount: 4, lastColumn: 5}
 	valid := make([]byte, 4096)

@@ -27,6 +27,10 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	if node == nil || !node.containsByteRange(edit.StartByte, edit.OldEndByte) {
 		node = root.DescendantForByteRange(edit.StartByte, edit.OldEndByte)
 	}
+	if node == nil || node.ownerArena == nil ||
+		!node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language) {
+		return nil, false
+	}
 	start := time.Time{}
 	if timing != nil {
 		start = time.Now()
@@ -62,9 +66,6 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	}
 	leaf := node
 	if leaf == nil || leaf.ChildCount() != 0 || leaf.hasError() || leaf.isMissing() {
-		return nil, false
-	}
-	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language) {
 		return nil, false
 	}
 	requireScannerCheckpoint := false

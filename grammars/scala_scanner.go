@@ -246,7 +246,11 @@ func (ScalaExternalScanner) Deserialize(payload any, buf []byte) {
 	s.lastIndentationSize = int16(binary.LittleEndian.Uint16(buf[4:6]))
 	s.lastNewlineCount = int16(binary.LittleEndian.Uint16(buf[6:8]))
 	s.lastColumn = int16(binary.LittleEndian.Uint16(buf[8:10]))
-	s.indents = make([]int16, count)
+	if count > cap(s.indents) {
+		s.indents = make([]int16, count)
+	} else {
+		s.indents = s.indents[:count]
+	}
 	for index := range s.indents {
 		offset := scalaScannerCheckpointHeader + index*2
 		s.indents[index] = int16(binary.LittleEndian.Uint16(buf[offset : offset+2]))
