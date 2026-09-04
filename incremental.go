@@ -85,15 +85,10 @@ type reuseCursor struct {
 	// shift and checkpoint checks; non-leaves stay barred until that proof exists.
 	rejectFrontierProofUnavailable uint32
 	forestFastPath                 bool
-	// compactMaterialized marks old trees whose node states came from compact
-	// replay. Checkpoint snapshots authenticate scanner state, but they do not
-	// prove the parser frontier after a non-leaf reduction. Keep compact
-	// checkpoint reuse at independently revalidated leaves until that ownership
-	// proof exists.
-	compactMaterialized        bool
-	compactCheckpointedScanner bool
-	languageName               string // cached for language-specific reuse safety policies
-	strictTopLevelOwnership    bool   // forest trees and certified stateless scanners require the recorded normal-dispatch frontier
+	compactRecovery                bool
+	compactCheckpointedScanner     bool
+	languageName                   string // cached for language-specific reuse safety policies
+	strictTopLevelOwnership        bool   // forest trees and certified stateless scanners require the recorded normal-dispatch frontier
 }
 
 // reuseScratch holds reusable buffers for incremental reuse traversal.
@@ -143,13 +138,14 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.rejectScannerUnquiescent = 0
 	c.rejectFrontierProofUnavailable = 0
 	c.forestFastPath = oldTree.forestFastPath
-	c.compactMaterialized = oldTree.compactMaterialized
-	c.compactCheckpointedScanner = c.compactMaterialized && languageUsesExternalScannerCheckpoints(oldTree.language)
+	compactMaterialized := oldTree.compactMaterialized
+	c.compactRecovery = compactMaterialized && oldTree.root != nil && oldTree.root.hasError()
+	c.compactCheckpointedScanner = compactMaterialized && languageUsesExternalScannerCheckpoints(oldTree.language)
 	c.languageName = ""
 	// Every forest node records the GSS state that owned its original reduce.
 	// A compatible goto alone cannot transfer that ownership after an edit, so
 	// forest-built top-level candidates always require an exact pre-goto match.
-	c.strictTopLevelOwnership = c.forestFastPath
+	c.strictTopLevelOwnership = c.forestFastPath || c.compactRecovery
 	if oldTree.language != nil {
 		c.languageName = oldTree.language.Name
 		if stateless, ok := oldTree.language.ExternalScanner.(StatelessExternalScanner); ok {
@@ -167,14 +163,32 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	childCount := nodeChildCountNoMaterialize(root)
 	if c.hasEdits && root != nil && childCount > 0 {
 		firstAffected := -1
-		for i := 0; i < childCount; i++ {
-			entry, ok := nodeChildEntryAtNoMaterialize(root, i)
-			if !ok {
-				continue
+		if c.compactRecovery {
+			// Tree.Edit can clamp a dirty child that lies in a deleted recovery
+			// region to zero width. Prefer that direct dirty child before the
+			// historical end-byte probe, or the first clean suffix sibling becomes
+			// the apparent edited item and loses its reuse boundary.
+			for i := 0; i < childCount; i++ {
+				entry, ok := nodeChildEntryAtNoMaterialize(root, i)
+				if !ok {
+					continue
+				}
+				if stackEntryNodeDirty(entry) && stackEntryNodeStartByte(entry) <= c.minEditAt {
+					firstAffected = i
+					break
+				}
 			}
-			if stackEntryNodeEndByte(entry) > c.minEditAt {
-				firstAffected = i
-				break
+		}
+		if firstAffected < 0 {
+			for i := 0; i < childCount; i++ {
+				entry, ok := nodeChildEntryAtNoMaterialize(root, i)
+				if !ok {
+					continue
+				}
+				if stackEntryNodeEndByte(entry) > c.minEditAt {
+					firstAffected = i
+					break
+				}
 			}
 		}
 		if firstAffected >= 0 {
@@ -238,7 +252,7 @@ func (c *reuseCursor) releaseNodeRefs() {
 	c.newSource = nil
 	c.edits = nil
 	c.forestFastPath = false
-	c.compactMaterialized = false
+	c.compactRecovery = false
 	c.compactCheckpointedScanner = false
 	c.languageName = ""
 	if cap(c.stack) > 0 {
@@ -333,6 +347,15 @@ func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
 	if c == nil || c.topLevelParent == nil || c.topLevelIndex >= c.topLevelEnd {
 		return false
 	}
+	// C rejects an error-bearing parent and then descends into its children.
+	// The indexed top-level path has no child fallback, so disable it for a
+	// recovery root and let advance perform that descent.
+	if c.compactRecovery && c.topLevelParent.hasError() {
+		// Keep the parent so direct clean siblings can still pass the ordinary
+		// ownership and frontier checks after the indexed scan is disabled.
+		c.topLevelIndex = c.topLevelEnd
+		return false
+	}
 	for c.topLevelIndex < c.topLevelEnd {
 		entry, ok := nodeChildEntryAtNoMaterialize(c.topLevelParent, c.topLevelIndex)
 		if !ok || !stackEntryHasNode(entry) {
@@ -371,7 +394,8 @@ func (c *reuseCursor) collectTopLevelCandidates(start uint32) bool {
 			}
 			n := nodeChildAtForReason(c.topLevelParent, c.topLevelIndex-1, materializeForEdit)
 			if n != nil {
-				if c.compactCheckpointedScanner && n.ChildCount() > 0 {
+				if c.compactCheckpointedScanner && n.ChildCount() > 0 &&
+					!(n.isCompactMaterialized() && compactNodeStateProofAvailable(n)) {
 					// A clean compact sibling may carry exact scanner bytes while
 					// its reduction frontier remains unproven. Leave it for the
 					// parser and keep scanning later siblings on the next request.
@@ -411,6 +435,14 @@ func (c *reuseCursor) reusableIndexedEntry(entry stackEntry) bool {
 	if stackEntryNodeHasError(entry) {
 		c.rejectHasError++
 		return false
+	}
+	if n := stackEntryNode(entry); n != nil && n.isCompactMaterialized() {
+		if compactNodeRecoveryBearing(n) {
+			return false
+		}
+		if !compactNodeStateProofAvailable(n) {
+			return false
+		}
 	}
 	if end <= start {
 		c.rejectInvalidSpan++
@@ -498,6 +530,14 @@ func (c *reuseCursor) advance() *Node {
 		if cur.hasError() {
 			c.rejectHasError++
 			continue
+		}
+		if cur.isCompactMaterialized() {
+			if compactNodeRecoveryBearing(cur) {
+				continue
+			}
+			if !compactNodeStateProofAvailable(cur) {
+				continue
+			}
 		}
 		if cur.endByte <= cur.startByte {
 			c.rejectInvalidSpan++
@@ -645,8 +685,12 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 
 	state := s.top().state
 	for _, n := range candidates {
+		if n != nil && n.isCompactMaterialized() && !compactNodeMayBeReused(n) {
+			continue
+		}
 		if n.ChildCount() > 0 {
-			if idx.compactCheckpointedScanner {
+			if idx.compactCheckpointedScanner &&
+				!(n.isCompactMaterialized() && compactNodeStateProofAvailable(n)) {
 				idx.rejectFrontierProofUnavailable++
 				continue
 			}
@@ -665,7 +709,7 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 			// compatible-goto contract.
 			if !fullRootUndo && !topLevelCandidateOwnsCurrentFrontier(n, state) {
 				idx.observedPreGotoStateMismatch++
-				if idx.strictTopLevelOwnership || idx.topLevelSpliceLeading {
+				if idx.strictTopLevelOwnership || idx.topLevelSpliceLeading || n.isCompactMaterialized() {
 					continue
 				}
 			}
@@ -706,13 +750,17 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 		if n == nil || n.ChildCount() == 0 || n.parent == nil {
 			continue
 		}
+		if n.isCompactMaterialized() && !compactNodeMayBeReused(n) {
+			continue
+		}
 		// Compact replay records exact scanner snapshots, but a checkpoint at a
 		// reduction boundary does not identify the parser state for the next
 		// token. A length-changing indentation edit can keep that snapshot equal
 		// while changing whether the next statement belongs to the reduction.
 		// Reuse leaves, whose shift state and token span are independently checked;
 		// reparse compact non-leaf reductions until frontier ownership is recorded.
-		if idx.compactCheckpointedScanner {
+		if idx.compactCheckpointedScanner &&
+			!(n.isCompactMaterialized() && compactNodeStateProofAvailable(n)) {
 			idx.rejectFrontierProofUnavailable++
 			continue
 		}

@@ -185,28 +185,23 @@ const (
 	forestIncrementalReuseUnsupportedReason            = "old tree was built by GSS forest fast path"
 	compactIncrementalReuseUnsupportedReason           = "old tree was compact-materialized without a scanner-quiescence proof"
 	checkpointedScannerPrefixFrontierUnsupportedReason = "external_scanner_prefix_frontier_unproven"
-	compactRecoverEOFIncrementalReuseUnsupportedReason = "old tree carried a compact recover_eof EOF runtime"
 )
 
 const forestRecoveryFallbackReuseReason = "forest_recovery_fallback"
 
 func oldTreeDisablesIncrementalReuse(oldTree *Tree) bool {
-	return oldTree != nil && (oldTree.incrementalReuseDisabled || compactRecoverEOFTreeMarked(oldTree))
+	return oldTree != nil && oldTree.incrementalReuseDisabled
 }
 
 // compactRecoverEOFTreeMarked identifies the one compact tree whose root
-// carries raw recover_eof framing. Its scanner runtime describes the old
-// source's end-of-file boundary, so incremental reuse must not trust it after
-// an edit until a fresh parse rebuilds that runtime.
+// carries raw recover_eof framing. The marker remains useful for result-span
+// finalization, but it is no longer a permanent incremental-reuse bar.
 func compactRecoverEOFTreeMarked(tree *Tree) bool {
 	return tree != nil && tree.compactMaterialized && tree.root != nil &&
 		tree.root.hasFlag(nodeFlagCompactRecoverEOF)
 }
 
 func incrementalReuseUnsupportedReasonForTree(oldTree *Tree) string {
-	if compactRecoverEOFTreeMarked(oldTree) {
-		return compactRecoverEOFIncrementalReuseUnsupportedReason
-	}
 	if oldTree != nil && oldTree.compactMaterialized {
 		return compactIncrementalReuseUnsupportedReason
 	}

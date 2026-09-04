@@ -51,7 +51,11 @@ func newResultRootBuild(p *Parser, source []byte, arena *nodeArena, oldTree *Tre
 			build.hasExpectedRoot = true
 		}
 	}
-	if oldTree != nil && oldTree.RootNode() != nil {
+	// A compact recover_eof tree deliberately exposes its C ERROR root rather
+	// than the grammar result root. Do not use that transient symbol to frame a
+	// fresh incremental result, or the normal grammar root becomes nested under
+	// a stale recovery wrapper after the EOF edit is repaired.
+	if oldTree != nil && oldTree.RootNode() != nil && !compactRecoverEOFTreeMarked(oldTree) {
 		build.expectedRootSymbol = oldTree.RootNode().symbol
 		build.hasExpectedRoot = true
 	}

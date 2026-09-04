@@ -3,7 +3,6 @@
 package gotreesitter_test
 
 import (
-	"strings"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -140,7 +139,7 @@ func TestAdmissionRecoverEOFPayloadCountFallsBackForUnfinishedYAML(t *testing.T)
 	}
 }
 
-func TestAdmissionRecoverEOFIncrementalMarkerForcesFreshTree(t *testing.T) {
+func TestAdmissionRecoverEOFIncrementalMarkerFallsBackForUncertifiedScanner(t *testing.T) {
 	lang := grammars.YamlLanguage()
 	parser := gts.NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
@@ -183,12 +182,26 @@ func TestAdmissionRecoverEOFIncrementalMarkerForcesFreshTree(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer want.Release()
-	if got.RootNode().SExpr(lang) != want.RootNode().SExpr(lang) {
-		t.Fatalf("incremental marker tree=%s want fresh=%s", got.RootNode().SExpr(lang), want.RootNode().SExpr(lang))
+	gotRoot, wantRoot := got.RootNode(), want.RootNode()
+	if gotRoot.SExpr(lang) != wantRoot.SExpr(lang) || gotRoot.Range() != wantRoot.Range() {
+		t.Fatalf("incremental marker fallback tree=%s range=%+v want fresh=%s range=%+v",
+			gotRoot.SExpr(lang), gotRoot.Range(), wantRoot.SExpr(lang), wantRoot.Range())
 	}
-	if profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 ||
-		!profile.ReuseUnsupported || !strings.Contains(profile.ReuseUnsupportedReason, "compact") {
-		t.Fatalf("recover_eof marker reused old tree: %+v", profile)
+	requireIncrementalDeepTreeMatchesFresh(t, got, want, lang)
+	if profile.ReuseUnsupportedReason == "old tree carried a compact recover_eof EOF runtime" {
+		t.Fatalf("recover_eof marker reported the obsolete permanent bar: %+v", profile)
+	}
+	if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" ||
+		profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+		t.Fatalf("recover_eof marker did not fail closed for the uncertified scanner: %+v", profile)
+	}
+	runtime := got.ParseRuntime()
+	if runtime.StopReason != gts.ParseStopAccepted || !runtime.LastTokenWasEOF ||
+		runtime.SourceLen != uint32(len(newSource)) || runtime.LastTokenEndByte != uint32(len(newSource)) ||
+		runtime.ExpectedEOFByte != uint32(len(newSource)) || runtime.RootEndByte != uint32(len(newSource)) ||
+		runtime.RootEndByte != got.RootNode().EndByte() ||
+		runtime.IncrementalOldTreeReuseRoute {
+		t.Fatalf("recover_eof fallback runtime=%+v, want fresh EOF at %d", runtime, len(newSource))
 	}
 }
 

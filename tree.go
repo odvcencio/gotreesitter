@@ -95,6 +95,12 @@ const (
 	// raw C span must survive public result finalization. It is runtime-only
 	// provenance and fits the existing uint16 flag budget.
 	nodeFlagCompactRecoverEOF
+	// nodeFlagCompactMaterialized marks nodes whose parser-state metadata came
+	// from compact materialization. The remaining two bits record which state
+	// fields were authenticated by table replay. These flags are runtime-only.
+	nodeFlagCompactMaterialized
+	nodeFlagCompactParseStateProven
+	nodeFlagCompactPreGotoStateProven
 )
 
 func (n *Node) hasFlag(flag nodeFlags) bool {
@@ -121,6 +127,111 @@ func (n *Node) isExternalScannerToken() bool {
 	return n != nil && n.hasFlag(nodeFlagExternalScannerToken)
 }
 func (n *Node) setExternalScannerToken(v bool) { n.setFlag(nodeFlagExternalScannerToken, v) }
+
+func (n *Node) isCompactMaterialized() bool {
+	return n != nil && n.hasFlag(nodeFlagCompactMaterialized)
+}
+
+func (n *Node) setCompactMaterialized(v bool) {
+	if n != nil {
+		n.setFlag(nodeFlagCompactMaterialized, v)
+	}
+}
+
+func (n *Node) hasCompactParseStateProof() bool {
+	return n != nil && n.hasFlag(nodeFlagCompactParseStateProven)
+}
+
+func (n *Node) setCompactParseStateProof(v bool) {
+	if n != nil {
+		n.setFlag(nodeFlagCompactParseStateProven, v)
+	}
+}
+
+func (n *Node) hasCompactPreGotoStateProof() bool {
+	return n != nil && n.hasFlag(nodeFlagCompactPreGotoStateProven)
+}
+
+func (n *Node) setCompactPreGotoStateProof(v bool) {
+	if n != nil {
+		n.setFlag(nodeFlagCompactPreGotoStateProven, v)
+	}
+}
+
+func compactNodeRecoveryBearing(n *Node) bool {
+	if n == nil {
+		return false
+	}
+	if n.hasError() || n.isMissing() || n.symbol == errorSymbol || n.isFragile() {
+		return true
+	}
+	// A clean leaf nested below an explicit recovery node has no independent
+	// parser-frontier proof. Keep it with the recovery region so the cursor
+	// descends to a clean sibling instead of splicing part of that region.
+	for parent := n.parent; parent != nil; parent = parent.parent {
+		if parent.isMissing() || parent.symbol == errorSymbol || parent.isFragile() {
+			return true
+		}
+	}
+	return false
+}
+
+func compactNodeStateProofAvailable(n *Node) bool {
+	if n == nil || !n.isCompactMaterialized() {
+		return true
+	}
+	if !n.hasCompactParseStateProof() {
+		return false
+	}
+	return n.ChildCount() == 0 || n.hasCompactPreGotoStateProof()
+}
+
+// compactNodeMayBeReused reports whether a compact node has enough
+// authenticated metadata for the incremental parser to splice it.
+// Recovery-bearing nodes remain barred because the cursor must descend into
+// them and rebuild their unstable region.
+func compactNodeMayBeReused(n *Node) bool {
+	if n == nil {
+		return false
+	}
+	if !n.isCompactMaterialized() {
+		return true
+	}
+	if compactNodeRecoveryBearing(n) {
+		return false
+	}
+	return compactNodeStateProofAvailable(n)
+}
+
+// compactTreeIncrementalReuseProven checks the visible nodes that can reach
+// the reuse cursor. Error, missing, and fragile nodes are intentionally
+// excluded because C rejects them before descending to clean descendants.
+func compactTreeIncrementalReuseProven(root *Node) bool {
+	if root == nil {
+		return false
+	}
+	stack := []*Node{root}
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		n := stack[last]
+		stack = stack[:last]
+		if n == nil {
+			continue
+		}
+		if !compactNodeRecoveryBearing(n) {
+			if !n.isCompactMaterialized() || !compactNodeStateProofAvailable(n) {
+				return false
+			}
+		}
+		for i := nodeChildCountNoMaterialize(n) - 1; i >= 0; i-- {
+			child := nodeChildAtForReason(n, i, materializeForEdit)
+			if child != nil {
+				stack = append(stack, child)
+			}
+		}
+	}
+	return true
+}
 
 func (n *Node) setLexerSkippedPrefixAtSourceStart(v bool) {
 	n.setFlag(nodeFlagLexerSkippedPrefixAtSourceStart, v)
