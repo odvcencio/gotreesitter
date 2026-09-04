@@ -62,6 +62,8 @@ func TestScalaTokenInvariantLeafRejectsCheckpointIdentityDrift(t *testing.T) {
 	for _, field := range []string{"scanner", "grammar"} {
 		t.Run(field, func(t *testing.T) {
 			lang := grammars.ScalaLanguage()
+			originalScanner := lang.ExternalScanner
+			t.Cleanup(func() { lang.ExternalScanner = originalScanner })
 			provider, ok := lang.ExternalScanner.(gts.ExternalScannerCheckpointIdentityProvider)
 			if !ok {
 				t.Fatalf("exact Scala scanner has no checkpoint identity: %T", lang.ExternalScanner)
@@ -116,6 +118,45 @@ func TestScalaTokenInvariantLeafRejectsCheckpointIdentityDrift(t *testing.T) {
 			requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
 		})
 	}
+}
+
+func TestScalaTokenInvariantLeafRejectsCheckpointCapabilityRemoval(t *testing.T) {
+	lang := grammars.ScalaLanguage()
+	originalScanner := lang.ExternalScanner
+	t.Cleanup(func() { lang.ExternalScanner = originalScanner })
+	parser := gts.NewParser(lang)
+	source := []byte("object A { def value = 1 }\n")
+	oldTree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatalf("parse Scala capability source: %v", err)
+	}
+	defer oldTree.Release()
+	lang.ExternalScanner = (grammars.ScalaExternalScanner{}).ExternalScannerForLanguage(lang)
+	edited := bytes.Replace(source, []byte("1"), []byte("2"), 1)
+	offset := bytes.Index(source, []byte("1"))
+	oldTree.Edit(gts.InputEdit{
+		StartByte:   uint32(offset),
+		OldEndByte:  uint32(offset + 1),
+		NewEndByte:  uint32(offset + 1),
+		StartPoint:  pointForOffset(source, offset),
+		OldEndPoint: pointForOffset(source, offset+1),
+		NewEndPoint: pointForOffset(edited, offset+1),
+	})
+	incremental, profile, err := parser.ParseIncrementalProfiled(edited, oldTree)
+	if err != nil {
+		t.Fatalf("parse Scala capability-removal edit: %v", err)
+	}
+	defer incremental.Release()
+	if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" ||
+		profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 || profile.OldTreeReuseRoute {
+		t.Fatalf("checkpoint capability removal did not fail closed: %+v", profile)
+	}
+	fresh, err := gts.NewParser(lang).Parse(edited)
+	if err != nil {
+		t.Fatalf("fresh Scala capability-removal parse: %v", err)
+	}
+	defer fresh.Release()
+	requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
 }
 
 func TestScalaChangedWidthEditUsesGeneralScannerFallback(t *testing.T) {

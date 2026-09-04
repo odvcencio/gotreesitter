@@ -210,6 +210,20 @@ func TestPackage2ScalaIncrementalScannerStateEdits(t *testing.T) {
 			wantFallbackReason: "",
 		},
 		{
+			name:               "before indentation state",
+			before:             []byte("object A:\n  def value =\n    1\n  def sibling = 2\n"),
+			oldText:            []byte("A"),
+			newText:            []byte("B"),
+			wantFallbackReason: "external_scanner_unsupported",
+		},
+		{
+			name:               "before interpolation state",
+			before:             []byte("object A:\n  val prefix = 1\n  val name = \"x\"\n  val greeting = s\"hello $name\"\n"),
+			oldText:            []byte("1"),
+			newText:            []byte("2"),
+			wantFallbackReason: "",
+		},
+		{
 			name:               "indentation width",
 			before:             []byte("object A:\n  def value =\n    1\n  def sibling = 2\n"),
 			oldText:            []byte("    1"),

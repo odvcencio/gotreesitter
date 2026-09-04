@@ -203,6 +203,23 @@ func (a *nodeArena) externalScannerCheckpointIdentityMatches(lang *Language) boo
 	return valid && a != nil && a.externalScannerCheckpointIdentity.matches(identity)
 }
 
+// externalScannerLeafCheckpointIdentityMatches also rejects capability loss.
+// An identity-bearing old arena cannot become a legacy checkpoint source only
+// because the current language no longer exposes its identity provider.
+func (a *nodeArena) externalScannerLeafCheckpointIdentityMatches(lang *Language) bool {
+	if a == nil {
+		return false
+	}
+	identity, required, valid := externalScannerCheckpointIdentityStatus(lang)
+	if a.externalScannerCheckpointIdentity.valid || a.externalScannerCheckpointIdentity.conflict {
+		return required && valid && a.externalScannerCheckpointIdentity.matches(identity)
+	}
+	if !required {
+		return true
+	}
+	return valid && a.externalScannerCheckpointIdentity.matches(identity)
+}
+
 type externalScannerCheckpointRecord struct {
 	identity         ExternalScannerCheckpointIdentity
 	sourceByte       uint32

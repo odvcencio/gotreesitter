@@ -64,6 +64,9 @@ func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts Toke
 	if leaf == nil || leaf.ChildCount() != 0 || leaf.hasError() || leaf.isMissing() {
 		return nil, false
 	}
+	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language) {
+		return nil, false
+	}
 	requireScannerCheckpoint := false
 	if oldTree.compactMaterialized && oldTree.incrementalReuseDisabled {
 		// Keep the scanner-proof closure local to the primitive as well as at
@@ -969,7 +972,7 @@ func scanIncludedRangeLeafTokenWithExternalCheckpoint(ts *includedRangeTokenSour
 	if ts == nil || dts == nil || dts.lexer == nil || leaf == nil {
 		return Token{}, false
 	}
-	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerCheckpointIdentityMatches(dts.language) {
+	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerLeafCheckpointIdentityMatches(dts.language) {
 		return Token{}, false
 	}
 	cp, ok := externalScannerCheckpointForNode(leaf)
@@ -1016,7 +1019,7 @@ func scanDFALeafTokenWithExternalCheckpoint(dts *dfaTokenSource, leaf *Node) (To
 	if dts == nil || dts.lexer == nil || leaf == nil {
 		return Token{}, false
 	}
-	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerCheckpointIdentityMatches(dts.language) {
+	if leaf.ownerArena == nil || !leaf.ownerArena.externalScannerLeafCheckpointIdentityMatches(dts.language) {
 		return Token{}, false
 	}
 	cp, ok := externalScannerCheckpointForNode(leaf)
