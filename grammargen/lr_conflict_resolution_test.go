@@ -1564,7 +1564,7 @@ func TestResolveShiftReducePreservesActionOrderAfterReductionFiltering(t *testin
 	}
 }
 
-func TestHighestNumericReducePrecedenceTieRequiresTwoSurvivors(t *testing.T) {
+func TestHighestStaticReducePrecedenceTieRequiresTwoSurvivors(t *testing.T) {
 	ng := &NormalizedGrammar{
 		Productions: []Production{
 			{Prec: 0},
@@ -1576,16 +1576,56 @@ func TestHighestNumericReducePrecedenceTieRequiresTwoSurvivors(t *testing.T) {
 		{kind: lrReduce, prodIdx: 1},
 	}
 
-	got, ok := highestNumericReducePrecedenceTie(reduces, ng, getConflictResolutionCache(ng))
+	got, ok := highestStaticReducePrecedenceTie(reduces, ng, getConflictResolutionCache(ng))
 	if ok {
-		t.Fatalf("highestNumericReducePrecedenceTie returned ok for one survivor: %+v", got)
+		t.Fatalf("highestStaticReducePrecedenceTie returned ok for one survivor: %+v", got)
 	}
 	if len(got) != len(reduces) {
 		t.Fatalf("reduces = %+v, want the original ambiguity", got)
 	}
 }
 
-func TestHighestNumericReducePrecedenceTiePreservesLowerRepeatHelper(t *testing.T) {
+func TestHighestStaticReducePrecedenceTieKeepsSymbolWinner(t *testing.T) {
+	ng := &NormalizedGrammar{
+		Symbols: []SymbolInfo{
+			{Name: "lookahead", Kind: SymbolTerminal},
+			{Name: "named_a", Kind: SymbolNonterminal},
+			{Name: "named_b", Kind: SymbolNonterminal},
+			{Name: "symbol_winner", Kind: SymbolNonterminal},
+			{Name: "shift", Kind: SymbolNonterminal},
+		},
+		Productions: []Production{
+			{LHS: 1, RHS: []int{0}, Prec: 13, HasExplicitPrec: true},
+			{LHS: 2, RHS: []int{0}, Prec: 13, HasExplicitPrec: true},
+			{LHS: 3, RHS: []int{0}},
+		},
+		PrecedenceOrder: &precOrderTable{
+			symbolPositions:    map[string]int{"symbol_winner": 2},
+			symbolLevels:       map[string]int{"symbol_winner": 0},
+			namedPrecPositions: map[int]int{13: 1},
+		},
+	}
+	reduces := []lrAction{
+		{kind: lrReduce, prodIdx: 0, lhsSym: 1},
+		{kind: lrReduce, prodIdx: 1, lhsSym: 2},
+		{kind: lrReduce, prodIdx: 2, lhsSym: 3},
+	}
+
+	filtered, ok := highestStaticReducePrecedenceTie(reduces, ng, getConflictResolutionCache(ng))
+	if !ok || len(filtered) != 1 || filtered[0].prodIdx != 2 {
+		t.Fatalf("static precedence filter = %+v, %t, want symbol winner", filtered, ok)
+	}
+	actions := append([]lrAction{{kind: lrShift, state: 9, lhsSym: 4, prec: 13, hasPrec: true}}, reduces...)
+	resolved, err := resolveActionConflict(0, actions, ng)
+	if err != nil {
+		t.Fatalf("resolveActionConflict: %v", err)
+	}
+	if len(resolved) != 1 || resolved[0].kind != lrReduce || resolved[0].prodIdx != 2 {
+		t.Fatalf("resolved actions = %+v, want symbol-precedence reduce", resolved)
+	}
+}
+
+func TestHighestStaticReducePrecedenceTiePreservesLowerRepeatHelper(t *testing.T) {
 	ng := &NormalizedGrammar{
 		Symbols: []SymbolInfo{
 			{Name: "operator", Kind: SymbolTerminal},
@@ -1608,7 +1648,7 @@ func TestHighestNumericReducePrecedenceTiePreservesLowerRepeatHelper(t *testing.
 		{kind: lrReduce, prodIdx: 3},
 	}
 
-	got, ok := highestNumericReducePrecedenceTie(reduces, ng, getConflictResolutionCache(ng))
+	got, ok := highestStaticReducePrecedenceTie(reduces, ng, getConflictResolutionCache(ng))
 	if ok {
 		t.Fatalf("highestNumericReducePrecedenceTie removed a repeat helper: %+v", got)
 	}

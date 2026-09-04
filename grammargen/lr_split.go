@@ -73,25 +73,12 @@ func splitActionSignature(actions []lrAction) string {
 		if i > 0 {
 			b.WriteByte('|')
 		}
-		fmt.Fprintf(&b, "%d/%d/%d/%d/%d/%t/%t/%t/", act.kind, act.state, act.prodIdx, act.prec, act.assoc, act.isExtra, act.repeat, act.templateAnnotationContext)
+		fmt.Fprintf(&b, "%d/%d/%d/%d/%d/%t/%t/", act.kind, act.state, act.prodIdx, act.prec, act.assoc, act.isExtra, act.repeat)
 		for _, lhs := range act.lhsSyms {
 			fmt.Fprintf(&b, "%d,", lhs)
 		}
 	}
 	return b.String()
-}
-
-func splitShiftAction(prod *Production, target int, templateAnnotationContext bool) lrAction {
-	return lrAction{
-		kind:                      lrShift,
-		state:                     target,
-		prec:                      prod.Prec,
-		hasPrec:                   prod.HasExplicitPrec,
-		assoc:                     prod.Assoc,
-		lhsSym:                    prod.LHS,
-		isExtra:                   prod.IsExtra,
-		templateAnnotationContext: templateAnnotationContext,
-	}
 }
 
 // localLR1Rebuild splits nominated LALR states into canonical LR(1) states
@@ -132,9 +119,6 @@ func localLR1Rebuild(
 		if stateIdx >= len(ctx.itemSets) {
 			continue
 		}
-		templateAnnotationContext :=
-			ctx.itemSets[stateIdx].annotationArgTag&templateContextPendingTag != 0
-
 		// Find all predecessor states with transitions into this state.
 		trans := ctx.transitions
 		type predInfo struct {
@@ -252,8 +236,15 @@ func localLR1Rebuild(
 					nextSym := prod.RHS[ce.dot]
 					if nextSym < tokenCount {
 						if target, ok := ctx.transitionTarget(stateIdx, nextSym); ok {
-							actions[nextSym] = append(actions[nextSym],
-								splitShiftAction(prod, target, templateAnnotationContext))
+							actions[nextSym] = append(actions[nextSym], lrAction{
+								kind:    lrShift,
+								state:   target,
+								prec:    prod.Prec,
+								hasPrec: prod.HasExplicitPrec,
+								assoc:   prod.Assoc,
+								lhsSym:  prod.LHS,
+								isExtra: prod.IsExtra,
+							})
 						}
 					}
 				}

@@ -3637,7 +3637,7 @@ func resolveActionConflict(lookaheadSym int, actions []lrAction, ng *NormalizedG
 
 	// Shift/reduce conflict.
 	if len(shifts) > 0 && len(reduces) > 0 {
-		if filtered, ok := highestNumericReducePrecedenceTie(reduces, ng, cache); ok {
+		if filtered, ok := highestStaticReducePrecedenceTie(reduces, ng, cache); ok {
 			reduces = filtered
 			filteredActions := make([]lrAction, 0, len(actions))
 			for _, action := range actions {
@@ -4003,35 +4003,42 @@ func shouldPreferTemplateAnnotationTypeReduce(lookaheadSym int, shifts, reduces 
 	return true
 }
 
-// highestNumericReducePrecedenceTie removes lower numeric precedences when at
-// least two top reductions remain. Tree-sitter filters lower reductions before
-// it resolves shift/reduce associativity. The survivor guard preserves
+// highestStaticReducePrecedenceTie removes lower static precedences before
+// shift and reduce arbitration. Numeric-only filtering requires two survivors.
+// A unique grammar-order winner is sufficient. The survivor guard preserves
 // ambiguities that this generator needs because it flattens repeat helpers.
-func highestNumericReducePrecedenceTie(reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) ([]lrAction, bool) {
+func highestStaticReducePrecedenceTie(reduces []lrAction, ng *NormalizedGrammar, cache *conflictResolutionCache) ([]lrAction, bool) {
 	if len(reduces) < 2 || ng == nil {
 		return reduces, false
 	}
 	if reduces[0].kind != lrReduce || reduces[0].prodIdx < 0 || reduces[0].prodIdx >= len(ng.Productions) {
 		return reduces, false
 	}
-	maxPrecedence := ng.Productions[reduces[0].prodIdx].Prec
+	best := reduces[0]
 	for _, reduce := range reduces[1:] {
 		if reduce.kind != lrReduce || reduce.prodIdx < 0 || reduce.prodIdx >= len(ng.Productions) {
 			return reduces, false
 		}
-		if precedence := ng.Productions[reduce.prodIdx].Prec; precedence > maxPrecedence {
-			maxPrecedence = precedence
+		if compareReduceStaticPrecedence(reduce, best, ng) > 0 {
+			best = reduce
 		}
 	}
 	filtered := make([]lrAction, 0, len(reduces))
 	for _, reduce := range reduces {
-		if ng.Productions[reduce.prodIdx].Prec == maxPrecedence {
+		if compareReduceStaticPrecedence(reduce, best, ng) == 0 {
 			filtered = append(filtered, reduce)
 		} else if isRepeatHelperReduce(reduce, ng, cache) {
 			return reduces, false
 		}
 	}
-	if len(filtered) < 2 || len(filtered) == len(reduces) {
+	if len(filtered) == 1 {
+		for _, reduce := range reduces {
+			if reduce.prodIdx != best.prodIdx && compareReduceGrammarPrecedence(best, reduce, ng) <= 0 {
+				return reduces, false
+			}
+		}
+	}
+	if len(filtered) == 0 || len(filtered) == len(reduces) {
 		return reduces, false
 	}
 	return filtered, true
@@ -6918,6 +6925,44 @@ func hasDistinctVisibleReduceFamilies(reduces []lrAction, ng *NormalizedGrammar)
 }
 
 func compareReduceConflictRank(a, b lrAction, ng *NormalizedGrammar) int {
+	if cmp := compareReduceStaticPrecedence(a, b, ng); cmp != 0 {
+		return cmp
+	}
+	aProd := &ng.Productions[a.prodIdx]
+	bProd := &ng.Productions[b.prodIdx]
+	if aProd.DynPrec != bProd.DynPrec {
+		if aProd.DynPrec > bProd.DynPrec {
+			return 1
+		}
+		return -1
+	}
+	aExplicit := aProd.HasExplicitPrec || aProd.Assoc != AssocNone
+	bExplicit := bProd.HasExplicitPrec || bProd.Assoc != AssocNone
+	if aExplicit != bExplicit {
+		if aExplicit {
+			return 1
+		}
+		return -1
+	}
+	return 0
+}
+
+func compareReduceStaticPrecedence(a, b lrAction, ng *NormalizedGrammar) int {
+	aProd := &ng.Productions[a.prodIdx]
+	bProd := &ng.Productions[b.prodIdx]
+	if cmp := compareReduceGrammarPrecedence(a, b, ng); cmp != 0 {
+		return cmp
+	}
+	if aProd.Prec != bProd.Prec {
+		if aProd.Prec > bProd.Prec {
+			return 1
+		}
+		return -1
+	}
+	return 0
+}
+
+func compareReduceGrammarPrecedence(a, b lrAction, ng *NormalizedGrammar) int {
 	aProd := &ng.Productions[a.prodIdx]
 	bProd := &ng.Productions[b.prodIdx]
 	if ng.PrecedenceOrder != nil {
@@ -6941,26 +6986,6 @@ func compareReduceConflictRank(a, b lrAction, ng *NormalizedGrammar) int {
 				return cmp
 			}
 		}
-	}
-	if aProd.Prec != bProd.Prec {
-		if aProd.Prec > bProd.Prec {
-			return 1
-		}
-		return -1
-	}
-	if aProd.DynPrec != bProd.DynPrec {
-		if aProd.DynPrec > bProd.DynPrec {
-			return 1
-		}
-		return -1
-	}
-	aExplicit := aProd.HasExplicitPrec || aProd.Assoc != AssocNone
-	bExplicit := bProd.HasExplicitPrec || bProd.Assoc != AssocNone
-	if aExplicit != bExplicit {
-		if aExplicit {
-			return 1
-		}
-		return -1
 	}
 	return 0
 }
