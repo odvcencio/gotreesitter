@@ -12,7 +12,7 @@ import (
 
 // scalaExternalScannerLocalPortSHA256 identifies the marked scanner port.
 // A focused test requires an identity update when the implementation changes.
-const scalaExternalScannerLocalPortSHA256 = "d0e7b147cdcfc7a28b30da296ea8d510ea85aa6262739fa9375e474e6ef1f782"
+const scalaExternalScannerLocalPortSHA256 = "ea880fd6cf68b28323eccb98e92828e8cf094cfc1e17d8691c97bf5a9eb5d91c"
 
 // SCALA_EXTERNAL_SCANNER_LOCAL_PORT_BEGIN
 
