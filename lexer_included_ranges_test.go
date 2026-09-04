@@ -4,6 +4,46 @@ import "testing"
 
 var includedRangeLexerTokenSink Token
 
+func TestLexerIncludedRangesNormalizeAtExactStartUsesCustomPoint(t *testing.T) {
+	lex := NewLexer(nil, []byte("xabc"))
+	lex.setIncludedRanges([]Range{{
+		StartByte:  1,
+		EndByte:    4,
+		StartPoint: Point{Row: 7, Column: 9},
+		EndPoint:   Point{Row: 7, Column: 12},
+	}})
+	cursor := includedLexerCursor{pos: 1, row: 0, col: 1, rangeIdx: 0}
+	lex.normalizeIncludedCursor(&cursor)
+	if cursor.pos != 1 || cursor.row != 7 || cursor.col != 9 {
+		t.Fatalf("cursor at included start = %+v, want byte 1 at row 7 column 9", cursor)
+	}
+}
+
+func TestLexerIncludedRangesLogicalPointAtPositionUsesRangeCoordinates(t *testing.T) {
+	lex := NewLexer(nil, []byte("xabc_yz"))
+	lex.setIncludedRanges([]Range{
+		{StartByte: 1, EndByte: 3, StartPoint: Point{Row: 7, Column: 9}, EndPoint: Point{Row: 7, Column: 11}},
+		{StartByte: 5, EndByte: 7, StartPoint: Point{Row: 10, Column: 4}, EndPoint: Point{Row: 10, Column: 6}},
+	})
+	tests := []struct {
+		pos  int
+		want Point
+	}{
+		{pos: 1, want: Point{Row: 7, Column: 9}},
+		{pos: 2, want: Point{Row: 7, Column: 10}},
+		{pos: 3, want: Point{Row: 7, Column: 11}},
+		{pos: 4, want: Point{Row: 7, Column: 11}},
+		{pos: 5, want: Point{Row: 10, Column: 4}},
+		{pos: 6, want: Point{Row: 10, Column: 5}},
+	}
+	for _, test := range tests {
+		got, ok := lex.includedPointAtPosition(test.pos)
+		if !ok || got != test.want {
+			t.Fatalf("logical point at byte %d = %+v exact=%t, want %+v", test.pos, got, ok, test.want)
+		}
+	}
+}
+
 func TestLexerIncludedRangesRespectTokenBoundaries(t *testing.T) {
 	lex := NewLexer(buildIdentNumberWSDFA(), []byte("xxalpha"))
 	lex.setIncludedRanges([]Range{{
@@ -24,6 +64,36 @@ func TestLexerIncludedRangesRespectTokenBoundaries(t *testing.T) {
 	eof := lex.Next(0)
 	if eof.Symbol != 0 || eof.StartByte != 5 || eof.EndByte != 5 {
 		t.Fatalf("EOF = %+v, want byte 5", eof)
+	}
+}
+
+func TestLexerIncludedRangesPreserveInspectedLookaheadEnd(t *testing.T) {
+	states := []LexState{
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '=', Hi: '=', NextState: 1}}},
+		{AcceptToken: 1, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'i', Hi: 'i', NextState: 2}}},
+		{Default: -1, EOF: -1},
+	}
+	lex := NewLexer(states, []byte("\n=i"))
+	lex.setIncludedRanges([]Range{{
+		StartByte: 1, EndByte: 3,
+		StartPoint: Point{Row: 1}, EndPoint: Point{Row: 1, Column: 2},
+	}})
+	token := lex.Next(0)
+	if token.StartByte != 1 || token.EndByte != 2 || tokenLookaheadEndByte(token) != 4 {
+		t.Fatalf("token bytes=%d..%d lookahead_end=%d, want 1..2 and 4", token.StartByte, token.EndByte, tokenLookaheadEndByte(token))
+	}
+}
+
+func TestLexerIncludedRangesAddsInvalidUTF8Lookahead(t *testing.T) {
+	states := []LexState{
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 1}}},
+		{AcceptToken: 1, Default: -1, EOF: -1},
+	}
+	lex := NewLexer(states, []byte{'a', 0xff})
+	lex.setIncludedRanges([]Range{{StartByte: 0, EndByte: 2}})
+	token := lex.Next(0)
+	if token.Symbol != 1 || token.StartByte != 0 || token.EndByte != 1 || tokenLookaheadEndByte(token) != 6 {
+		t.Fatalf("token=%+v lookahead_end=%d, want invalid UTF-8 frontier 6", token, tokenLookaheadEndByte(token))
 	}
 }
 

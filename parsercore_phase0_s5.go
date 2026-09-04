@@ -722,6 +722,51 @@ func (s *diagnosticParserCoreGenericScheduler) s5RecoveryBaseline(headers []diag
 	return maximum, true, nil
 }
 
+// s5MissingLeafDependency reproduces the lexer reset and mark-end sequence
+// that C uses before it publishes a missing leaf. The compact boundary stores
+// the parser position before padding, so included-range normalization must run
+// against a copy of the lexer cursor and must not mutate the live token source.
+func s5MissingLeafDependency(lexer *Lexer, source []byte, stackByte, lookaheadEndByte uint32) (core.MissingLeafDependency, error) {
+	if uint64(stackByte) > uint64(len(source)) || lookaheadEndByte < stackByte {
+		return core.MissingLeafDependency{}, errors.New("parser-core phase zero: S5 missing dependency is outside source")
+	}
+	stackPoint := advancePointByBytes(Point{}, source[:stackByte])
+	positionedByte := stackByte
+	positionedPoint := stackPoint
+	if lexer != nil && len(lexer.includedRanges) != 0 {
+		if logicalPoint, ok := lexer.includedPointAtPosition(int(stackByte)); ok {
+			stackPoint = logicalPoint
+		}
+		cursor := includedLexerCursor{
+			pos:      int(stackByte),
+			row:      stackPoint.Row,
+			col:      stackPoint.Column,
+			rangeIdx: lexer.includedRangeIndexForPosition(int(stackByte)),
+		}
+		lexer.normalizeIncludedCursor(&cursor)
+		positionedByte = uint32(cursor.pos)
+		positionedPoint = Point{Row: cursor.row, Column: cursor.col}
+	}
+
+	var paddingBytes uint32
+	if positionedByte >= stackByte {
+		paddingBytes = positionedByte - stackByte
+	}
+	paddingExtent := Point{}
+	if extent, ok := pointExtentBetween(stackPoint, positionedPoint); ok && positionedByte >= stackByte {
+		paddingExtent = extent
+	}
+	return core.MissingLeafDependency{
+		StackByte:      stackByte,
+		StackRow:       stackPoint.Row,
+		StackColumn:    stackPoint.Column,
+		PaddingBytes:   paddingBytes,
+		PaddingRows:    paddingExtent.Row,
+		PaddingColumn:  paddingExtent.Column,
+		LookaheadBytes: lookaheadEndByte - stackByte,
+	}, nil
+}
+
 func (s *diagnosticParserCoreGenericScheduler) s5ShiftMissingLeafOwned(
 	owner core.SchedulerTransactionToken,
 	headerIndex int,
@@ -732,7 +777,20 @@ func (s *diagnosticParserCoreGenericScheduler) s5ShiftMissingLeafOwned(
 	if headerIndex < 0 || headerIndex >= len(s.headers) {
 		return errors.New("parser-core phase zero: S5 missing header index is out of range")
 	}
-	head, err := s.compact.ShiftMissingLeafOwned(owner, s.headers[headerIndex].head, targetState, symbol, byteOffset)
+	source := s.options.materializationSource
+	if source == nil && s.tokenSource != nil && s.tokenSource.lexer != nil {
+		source = s.tokenSource.lexer.source
+	}
+	lookaheadEndByte := tokenLookaheadEndByte(s.token)
+	lexer := (*Lexer)(nil)
+	if s.tokenSource != nil {
+		lexer = s.tokenSource.lexer
+	}
+	dependency, err := s5MissingLeafDependency(lexer, source, byteOffset, lookaheadEndByte)
+	if err != nil {
+		return err
+	}
+	head, err := s.compact.ShiftMissingLeafWithDependencyOwned(owner, s.headers[headerIndex].head, targetState, symbol, dependency)
 	if err != nil {
 		return err
 	}

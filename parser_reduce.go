@@ -2622,7 +2622,11 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 			flags |= nodeFlagLexerSkippedPrefixAtSourceStart
 		}
 		substituteActive := internLeavesSubstituteEnabled || (p != nil && p.leafInternByLang)
-		if substituteActive {
+		// Missing leaves carry recovery padding and lookahead provenance in a
+		// sparse sidecar. The visible leaf key cannot represent that provenance,
+		// so never substitute or store a missing leaf in the canonical table.
+		// This also keeps a failed sidecar write from publishing an unsafe entry.
+		if substituteActive && !isMissing {
 			key := internKey{
 				symbol:       uint32(tok.Symbol),
 				flags:        internedLeafFlags(flags),
@@ -2662,6 +2666,12 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 		if isMissing {
 			leaf.setMissing(true)
 			leaf.setHasError(true)
+			if tok.missingDependencyExact {
+				dependency, exact := missingNodeDependencyFromToken(tok)
+				if !exact || arena == nil || !arena.setMissingNodeDependency(leaf, dependency) {
+					leaf.setDirty(true)
+				}
+			}
 			if trackChildErrors != nil {
 				*trackChildErrors = true
 			}
@@ -2681,7 +2691,7 @@ func (p *Parser) applyShiftAction(s *glrStack, act ParseAction, tok Token, nodeC
 				observeLeafInternFull(arena, leaf)
 			}
 		}
-		if substituteActive {
+		if substituteActive && !isMissing {
 			storeCanonicalLeaf(arena, leaf)
 		}
 		p.pushStackNode(s, targetState, leaf, entryScratch, gssScratch)
@@ -9005,6 +9015,7 @@ func aliasedNodeInArena(arena *nodeArena, lang *Language, n *Node, alias Symbol)
 		cloned.setNamed(lang.SymbolMetadata[alias].Named)
 	}
 	cloned.ownerArena = arena
+	copyMissingNodeDependencyForClone(cloned, n)
 	copyExternalScannerCheckpointToNode(cloned, n)
 	return cloned
 }
@@ -9185,6 +9196,7 @@ func cloneNodeInArena(arena *nodeArena, n *Node) *Node {
 	cloned.errorRankCache = 0
 	cloned.ownerArena = arena
 	cloneNodeFieldMetadataHeaderInto(cloned, n, arena)
+	copyMissingNodeDependencyForClone(cloned, n)
 	copyExternalScannerCheckpointToNode(cloned, n)
 	if nodeHasFinalChildRefs(n) {
 		childCount := nodeChildCountNoMaterialize(n)
@@ -9198,6 +9210,17 @@ func cloneNodeInArena(arena *nodeArena, n *Node) *Node {
 		cloned.childIndex = -1
 	}
 	return cloned
+}
+
+// copyMissingNodeDependencyForClone carries recovery provenance to a clone.
+// A stale or rejected receipt makes the clone dirty so reuse cannot skip it.
+func copyMissingNodeDependencyForClone(dst, src *Node) {
+	if copyMissingNodeDependency(dst, src, nil) {
+		return
+	}
+	if _, present := missingNodeDependencyEntryForNode(src); present {
+		dst.setDirty(true)
+	}
 }
 
 func materializeHiddenNodeForAlias(arena *nodeArena, lang *Language, n *Node) *Node {

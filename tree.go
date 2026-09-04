@@ -1431,7 +1431,9 @@ type ArenaBreakdown struct {
 	RawShapeChildBytesAllocated         int64
 	RawShapeHashCacheBytesAllocated     int64
 	FinalChildSidecarBytesAllocated     int64
+	MissingNodeDependencyBytesAllocated int64
 	CompactCheckpointLeafBytesAllocated int64
+	MissingNodeDependencyCount          uint64
 	PendingChildEntriesAllocated        uint64
 	PendingChildEntryCapacity           uint64
 	PendingChildEntryWaste              uint64
@@ -3614,6 +3616,11 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	dst.parent = nil
 	dst.childIndex = -1
 	dst.ownerArena = arena
+	if !copyMissingNodeDependency(dst, src, offset) {
+		if _, present := missingNodeDependencyEntryForNode(src); present {
+			dst.setDirty(true)
+		}
+	}
 	if arena != nil && src.ownerArena != nil {
 		arena.inheritExternalScannerCheckpointIdentity(src.ownerArena)
 	}
@@ -4177,6 +4184,52 @@ func inputEditIsNoop(edit InputEdit) bool {
 		edit.OldEndPoint == edit.NewEndPoint
 }
 
+func subtractPointDelta(a, b Point) Point {
+	if a.Row > b.Row {
+		return Point{Row: a.Row - b.Row, Column: a.Column}
+	}
+	column := uint32(0)
+	if a.Column >= b.Column {
+		column = a.Column - b.Column
+	}
+	return Point{Column: column}
+}
+
+func (t *Tree) editIncludedRanges(edit InputEdit) {
+	if t == nil {
+		return
+	}
+	for i := range t.includedRanges {
+		range_ := &t.includedRanges[i]
+		if range_.EndByte >= edit.OldEndByte {
+			if range_.EndByte != ^uint32(0) {
+				range_.EndByte = edit.NewEndByte + (range_.EndByte - edit.OldEndByte)
+				range_.EndPoint = addPointDelta(edit.NewEndPoint,
+					subtractPointDelta(range_.EndPoint, edit.OldEndPoint))
+				if range_.EndByte < edit.NewEndByte {
+					range_.EndByte = ^uint32(0)
+					range_.EndPoint = Point{Row: ^uint32(0), Column: ^uint32(0)}
+				}
+			}
+		} else if range_.EndByte > edit.StartByte {
+			range_.EndByte = edit.StartByte
+			range_.EndPoint = edit.StartPoint
+		}
+		if range_.StartByte >= edit.OldEndByte {
+			range_.StartByte = edit.NewEndByte + (range_.StartByte - edit.OldEndByte)
+			range_.StartPoint = addPointDelta(edit.NewEndPoint,
+				subtractPointDelta(range_.StartPoint, edit.OldEndPoint))
+			if range_.StartByte < edit.NewEndByte {
+				range_.StartByte = ^uint32(0)
+				range_.StartPoint = Point{Row: ^uint32(0), Column: ^uint32(0)}
+			}
+		} else if range_.StartByte > edit.StartByte {
+			range_.StartByte = edit.StartByte
+			range_.StartPoint = edit.StartPoint
+		}
+	}
+}
+
 func inputEditIsSingleByteReplacement(edit InputEdit) bool {
 	return edit.NewEndByte == edit.OldEndByte &&
 		edit.OldEndByte > edit.StartByte &&
@@ -4198,6 +4251,7 @@ func (t *Tree) Edit(edit InputEdit) {
 	}
 	t.edits = append(t.edits, edit)
 	t.lastEditedLeaf = nil
+	t.editIncludedRanges(edit)
 	if t.root != nil {
 		if inputEditIsSingleByteReplacement(edit) {
 			editNodeSingleByteReplacement(t.root, edit, &t.lastEditedLeaf)
@@ -4291,7 +4345,16 @@ func addUint32Delta(value uint32, delta int64) uint32 {
 
 // editNodeSingleByteReplacement marks the affected path without recomputing unchanged spans.
 func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
-	if n.endByte <= edit.StartByte || n.startByte >= edit.OldEndByte {
+	if editMissingNodeDependency(n, edit, 0, 0) {
+		if leafHint != nil {
+			*leafHint = n
+		}
+		return
+	}
+	if missingNodeDependencyNoopAtEnd(n, edit) {
+		return
+	}
+	if nodeEndsBeforeEditDependency(n, edit.StartByte) || n.startByte >= edit.OldEndByte {
 		return
 	}
 	if nodeHasFinalChildRefs(n) {
@@ -4307,7 +4370,7 @@ func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
 
 	descended := false
 	for _, child := range n.children {
-		if child.endByte <= edit.StartByte {
+		if nodeEndsBeforeEditDependency(child, edit.StartByte) {
 			continue
 		}
 		if child.startByte >= edit.OldEndByte {
@@ -4322,8 +4385,17 @@ func editNodeSingleByteReplacement(n *Node, edit InputEdit, leafHint **Node) {
 }
 
 func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTailShift bool, shiftScratch *[]*Node, leafHint **Node) {
+	if editMissingNodeDependency(n, edit, byteDelta, rowDelta) {
+		if leafHint != nil {
+			*leafHint = n
+		}
+		return
+	}
+	if missingNodeDependencyNoopAtEnd(n, edit) {
+		return
+	}
 	// If the node ends before the edit starts, it's completely unaffected.
-	if n.endByte <= edit.StartByte {
+	if nodeEndsBeforeEditDependency(n, edit.StartByte) {
 		return
 	}
 
@@ -4332,10 +4404,18 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 		if !hasTailShift {
 			return
 		}
+		dependency, hasMissingDependency := missingNodeDependencyForNode(n)
 		n.startByte = addUint32Delta(n.startByte, byteDelta)
 		n.endByte = addUint32Delta(n.endByte, byteDelta)
 		n.startPoint = shiftPointAfterEdit(n.startPoint, edit, rowDelta)
 		n.endPoint = shiftPointAfterEdit(n.endPoint, edit, rowDelta)
+		if hasMissingDependency {
+			dependency.stackByte = addUint32Delta(dependency.stackByte, byteDelta)
+			dependency.stackPoint = shiftPointAfterEdit(dependency.stackPoint, edit, rowDelta)
+			if !n.ownerArena.setMissingNodeDependency(n, dependency) {
+				n.setDirty(true)
+			}
+		}
 		shiftNodeChildrenAfterEdit(n, edit, byteDelta, rowDelta, shiftScratch)
 		return
 	}
@@ -4364,7 +4444,7 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 	childCount := nodeChildCountNoMaterialize(n)
 	if !nodeHasFinalChildRefs(n) {
 		for _, c := range n.children {
-			if c.endByte <= edit.StartByte {
+			if nodeEndsBeforeEditDependency(c, edit.StartByte) {
 				continue
 			}
 			if c.startByte >= edit.OldEndByte {
@@ -4383,7 +4463,7 @@ func editNodeWithDelta(n *Node, edit InputEdit, byteDelta, rowDelta int64, hasTa
 			if ok && perfCountersEnabled {
 				perfRecordNodeEditCompactRef()
 			}
-			if !ok || stackEntryNodeEndByte(entry) <= edit.StartByte {
+			if !ok || stackEntryEndsBeforeEditDependency(n.ownerArena, entry, edit.StartByte) {
 				continue
 			}
 			if stackEntryNodeStartByte(entry) >= edit.OldEndByte {
@@ -4407,7 +4487,7 @@ func editStackEntryWithDelta(arena *nodeArena, entry stackEntry, edit InputEdit,
 		editNodeWithDelta(node, edit, byteDelta, rowDelta, hasTailShift, shiftScratch, leafHint)
 		return
 	}
-	if !stackEntryHasNode(entry) || stackEntryNodeEndByte(entry) <= edit.StartByte {
+	if !stackEntryHasNode(entry) || stackEntryEndsBeforeEditDependency(arena, entry, edit.StartByte) {
 		return
 	}
 	if stackEntryNodeStartByte(entry) >= edit.OldEndByte {
@@ -4439,7 +4519,7 @@ func editStackEntryWithDelta(arena *nodeArena, entry stackEntry, edit InputEdit,
 	childCount := parent.childEntryCount()
 	for i := 0; i < childCount; i++ {
 		child := parent.childEntry(arena, i)
-		if !stackEntryHasNode(child) || stackEntryNodeEndByte(child) <= edit.StartByte {
+		if !stackEntryHasNode(child) || stackEntryEndsBeforeEditDependency(arena, child, edit.StartByte) {
 			continue
 		}
 		if stackEntryNodeStartByte(child) >= edit.OldEndByte {
@@ -4550,12 +4630,20 @@ func shiftSubtreeAfterEdit(roots []*Node, edit InputEdit, byteDelta, rowDelta in
 	for len(stack) > 0 {
 		n := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
+		dependency, hasMissingDependency := missingNodeDependencyForNode(n)
 
 		n.startByte = addUint32Delta(n.startByte, byteDelta)
 		n.endByte = addUint32Delta(n.endByte, byteDelta)
 
 		n.startPoint = shiftPointAfterEdit(n.startPoint, edit, rowDelta)
 		n.endPoint = shiftPointAfterEdit(n.endPoint, edit, rowDelta)
+		if hasMissingDependency {
+			dependency.stackByte = addUint32Delta(dependency.stackByte, byteDelta)
+			dependency.stackPoint = shiftPointAfterEdit(dependency.stackPoint, edit, rowDelta)
+			if !n.ownerArena.setMissingNodeDependency(n, dependency) {
+				n.setDirty(true)
+			}
+		}
 
 		if !nodeHasFinalChildRefs(n) {
 			stack = append(stack, n.children...)

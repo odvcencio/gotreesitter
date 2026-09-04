@@ -145,9 +145,13 @@ func TestSelectedBuildScratchCountsAndReleasesErrorFlags(t *testing.T) {
 	}
 
 	core.selectedBuild.resultHasError = make([]bool, coreRetentionCapBytes+1)
+	core.missingLeafProvenance = make([]missingLeafProvenance, 0, 1)
 	core.releaseOversizedRetention()
 	if core.selectedBuild.resultHasError != nil {
 		t.Fatal("retention release kept oversized selected-build error flags")
+	}
+	if core.missingLeafProvenance != nil {
+		t.Fatal("retention release kept missing-leaf provenance")
 	}
 }
 

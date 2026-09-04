@@ -174,7 +174,20 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertionLegacy(
 		return false, nil
 	}
 
-	missingHead, insertErr := s.compact.ShiftMissingLeaf(scanHead, targetState, core.Symbol(missing), byteOffset)
+	source := s.options.materializationSource
+	var lexer *Lexer
+	if s.tokenSource != nil {
+		lexer = s.tokenSource.lexer
+		if source == nil && lexer != nil {
+			source = lexer.source
+		}
+	}
+	dependency, dependencyErr := s5MissingLeafDependency(lexer, source, byteOffset, tokenLookaheadEndByte(s.token))
+	if dependencyErr != nil {
+		restore()
+		return false, dependencyErr
+	}
+	missingHead, insertErr := s.compact.ShiftMissingLeafWithDependency(scanHead, targetState, core.Symbol(missing), dependency)
 	if insertErr != nil {
 		restore()
 		return false, insertErr

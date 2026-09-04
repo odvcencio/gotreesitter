@@ -1,6 +1,10 @@
 package parsercorephase0
 
-import "errors"
+import (
+	"errors"
+	"math"
+	"sort"
+)
 
 // compactMissingLeafStoredErrorCost is the pinned C cost of one missing
 // terminal: one recovery plus one missing-tree term.
@@ -21,19 +25,18 @@ const compactMissingLeafStoredErrorCost uint32 = 610
 // that stage.
 // ---------------------------------------------------------------------------
 
-// MissingLeaf publishes one zero-width recovery-inserted terminal.
+// MissingLeaf publishes one zero-width recovery-inserted terminal with no
+// padding or lookahead dependency. Recovery callers that have a live
+// lookahead must use MissingLeafWithDependency.
 //
 // C constructs the same object with ts_subtree_new_missing_leaf
 // (subtree.c:534-546): a leaf whose size is length_zero() and whose
 // is_missing bit is set. Two consequences of that construction are
 // reproduced here and must not be "simplified" away:
 //
-//   - The leaf is ZERO WIDTH. atByte is both its start and its end. C
-//     positions it at the stack's current byte offset: ts_parser__handle_error
-//     resets the lexer to the stack position and immediately marks the end
-//     (parser.c), so the computed padding is zero and the leaf carries no
-//     source text at all. A caller that passes a span here is describing
-//     something that is not a missing token.
+//   - The leaf is ZERO WIDTH. Included-range padding can position that empty
+//     content after the stack boundary. The sparse dependency receipt keeps
+//     the stack position, padding extent, and lookahead bytes separate.
 //
 //   - The leaf is NOT extra and NOT external. C passes false for external
 //     tokens and builds the leaf outside the scanner entirely; it is a
@@ -67,25 +70,77 @@ const compactMissingLeafStoredErrorCost uint32 = 610
 // Materialization validates reduction metadata, not this. The scheduler
 // caller must authenticate the symbol against its state before publishing.
 func (c *Core) MissingLeaf(symbol Symbol, atByte uint32) (id SubtreeID, err error) {
-	mark := c.mark()
-	defer c.completeTransaction(mark, &err)
-	return c.missingLeafUncheckpointed(symbol, atByte)
+	return c.MissingLeafWithDependency(symbol, MissingLeafDependency{StackByte: atByte})
 }
 
-func (c *Core) missingLeafUncheckpointed(symbol Symbol, atByte uint32) (SubtreeID, error) {
+// MissingLeafWithDependency publishes one missing terminal with C-equivalent
+// padding and lookahead metadata.
+func (c *Core) MissingLeafWithDependency(symbol Symbol, dependency MissingLeafDependency) (id SubtreeID, err error) {
+	mark := c.mark()
+	defer c.completeTransaction(mark, &err)
+	return c.missingLeafUncheckpointed(symbol, dependency)
+}
+
+func addUint32Checked(left, right uint32) (uint32, bool) {
+	if math.MaxUint32-left < right {
+		return 0, false
+	}
+	return left + right, true
+}
+
+func validateMissingLeafDependency(dependency MissingLeafDependency) (uint32, error) {
+	positionedByte, ok := addUint32Checked(dependency.StackByte, dependency.PaddingBytes)
+	if !ok {
+		return 0, errors.New("parser-core phase zero: missing leaf padding byte overflow")
+	}
+	if _, ok := addUint32Checked(positionedByte, dependency.LookaheadBytes); !ok {
+		return 0, errors.New("parser-core phase zero: missing leaf lookahead byte overflow")
+	}
+	if dependency.PaddingRows == 0 {
+		if _, ok := addUint32Checked(dependency.StackColumn, dependency.PaddingColumn); !ok {
+			return 0, errors.New("parser-core phase zero: missing leaf padding column overflow")
+		}
+	} else if _, ok := addUint32Checked(dependency.StackRow, dependency.PaddingRows); !ok {
+		return 0, errors.New("parser-core phase zero: missing leaf padding row overflow")
+	}
+	return positionedByte, nil
+}
+
+func (c *Core) missingLeafUncheckpointed(symbol Symbol, dependency MissingLeafDependency) (SubtreeID, error) {
 	if symbol == 0 {
 		return 0, errors.New("parser-core phase zero: missing leaf requires a real terminal symbol")
 	}
 	if symbol == ErrorRegionSymbol {
 		return 0, errors.New("parser-core phase zero: missing leaf cannot carry the ERROR symbol")
 	}
-	return c.appendSubtree(subtreeRecord{
+	positionedByte, err := validateMissingLeafDependency(dependency)
+	if err != nil {
+		return 0, err
+	}
+	payload, err := c.appendSubtree(subtreeRecord{
 		symbol:    symbol,
-		startByte: atByte,
-		endByte:   atByte,
+		startByte: positionedByte,
+		endByte:   positionedByte,
 		terminal:  true,
 		missing:   true,
 	}, nil, nil, nil)
+	if err != nil {
+		return 0, err
+	}
+	c.missingLeafProvenance = append(c.missingLeafProvenance, missingLeafProvenance{
+		payload: payload, dependency: dependency,
+	})
+	return payload, nil
+}
+
+func (c *Core) missingLeafDependency(payload SubtreeID) (MissingLeafDependency, bool) {
+	index := sort.Search(len(c.missingLeafProvenance), func(index int) bool {
+		return c.missingLeafProvenance[index].payload >= payload
+	})
+	if index >= len(c.missingLeafProvenance) || c.missingLeafProvenance[index].payload != payload {
+		return MissingLeafDependency{}, false
+	}
+	return c.missingLeafProvenance[index].dependency, true
 }
 
 // ShiftMissingLeaf publishes one missing terminal and attaches it to head at
@@ -106,34 +161,46 @@ func (c *Core) missingLeafUncheckpointed(symbol Symbol, atByte uint32) (SubtreeI
 // because the caller has already read the action row to find it and to run
 // C's reduce-action test on the result.
 func (c *Core) ShiftMissingLeaf(head Head, targetState StateID, symbol Symbol, atByte uint32) (out Head, err error) {
+	return c.ShiftMissingLeafWithDependency(head, targetState, symbol, MissingLeafDependency{StackByte: atByte})
+}
+
+// ShiftMissingLeafWithDependency attaches a missing terminal and its exact
+// source dependency.
+func (c *Core) ShiftMissingLeafWithDependency(head Head, targetState StateID, symbol Symbol, dependency MissingLeafDependency) (out Head, err error) {
 	if targetState == 0 {
 		return Head{}, errors.New("parser-core phase zero: missing leaf shift requires a real target state")
 	}
 	mark := c.mark()
 	defer c.completeTransaction(mark, &err)
-	return c.shiftMissingLeafUncheckpointed(head, targetState, symbol, atByte)
+	return c.shiftMissingLeafUncheckpointed(head, targetState, symbol, dependency)
 }
 
 // ShiftMissingLeafOwned attaches one authenticated missing leaf without
 // opening a nested ordinary checkpoint. Scheduler recovery uses this seam
 // inside a speculative transaction.
 func (c *Core) ShiftMissingLeafOwned(owner SchedulerTransactionToken, head Head, targetState StateID, symbol Symbol, atByte uint32) (out Head, err error) {
+	return c.ShiftMissingLeafWithDependencyOwned(owner, head, targetState, symbol, MissingLeafDependency{StackByte: atByte})
+}
+
+// ShiftMissingLeafWithDependencyOwned attaches one authenticated missing leaf
+// and its exact source dependency inside a scheduler transaction.
+func (c *Core) ShiftMissingLeafWithDependencyOwned(owner SchedulerTransactionToken, head Head, targetState StateID, symbol Symbol, dependency MissingLeafDependency) (out Head, err error) {
 	if err = c.beginSchedulerOwned(owner); err != nil {
 		return out, err
 	}
 	defer c.recoverSchedulerOwnedPanic(owner)
-	out, err = c.shiftMissingLeafUncheckpointed(head, targetState, symbol, atByte)
+	out, err = c.shiftMissingLeafUncheckpointed(head, targetState, symbol, dependency)
 	return out, c.finishSchedulerOwned(owner, err)
 }
 
-func (c *Core) shiftMissingLeafUncheckpointed(head Head, targetState StateID, symbol Symbol, atByte uint32) (out Head, err error) {
+func (c *Core) shiftMissingLeafUncheckpointed(head Head, targetState StateID, symbol Symbol, dependency MissingLeafDependency) (out Head, err error) {
 	if targetState == 0 {
 		return Head{}, errors.New("parser-core phase zero: missing leaf shift requires a real target state")
 	}
 	if _, err := c.node(head.Node); err != nil {
 		return Head{}, err
 	}
-	payload, err := c.missingLeafUncheckpointed(symbol, atByte)
+	payload, err := c.missingLeafUncheckpointed(symbol, dependency)
 	if err != nil {
 		return Head{}, err
 	}
@@ -145,7 +212,11 @@ func (c *Core) shiftMissingLeafUncheckpointed(head Head, targetState StateID, sy
 		return Head{}, errors.New("parser-core phase zero: missing leaf stored recovery cost overflow")
 	}
 	storedErrorCost := lineage.storedErrorCost + compactMissingLeafStoredErrorCost
-	outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(targetState, atByte), linkInput{
+	positionedByte, err := validateMissingLeafDependency(dependency)
+	if err != nil {
+		return Head{}, err
+	}
+	outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(targetState, positionedByte), linkInput{
 		prev: head.Node, payload: payload, storedErrorCost: storedErrorCost, hasStoredErrorCost: true,
 	})
 	return outcome.head, err

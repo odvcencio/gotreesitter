@@ -295,6 +295,7 @@ func planDiagnosticEOFRecoveryClone(live *Core, payloads []SubtreeID, providerWr
 		{len(live.eofRecoveryRoots), coreSubtreeIDBytes},
 		{len(live.recoveryDiscontinuityReductions), coreRecoveryDiscontinuityReductionBytes},
 		{len(live.externalProvenance), coreExternalProvenanceBytes},
+		{len(live.missingLeafProvenance), coreMissingLeafProvenanceBytes},
 		{len(live.lexerSkippedPrefixes), coreLexerSkippedPrefixBytes},
 		{len(live.children), coreChildRecordBytes},
 		{len(live.fields), coreFieldRecordBytes},
@@ -461,6 +462,7 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.eofRecoveryRoots = cloneDiagnosticSlice(live.eofRecoveryRoots, 1)
 	shadow.recoveryDiscontinuityReductions = cloneDiagnosticSlice(live.recoveryDiscontinuityReductions, 0)
 	shadow.externalProvenance = cloneDiagnosticSlice(live.externalProvenance, 0)
+	shadow.missingLeafProvenance = cloneDiagnosticSlice(live.missingLeafProvenance, 0)
 	shadow.lexerSkippedPrefixes = cloneDiagnosticSlice(live.lexerSkippedPrefixes, 0)
 	shadow.children = cloneDiagnosticSlice(live.children, payloadCount)
 	shadow.fields = cloneDiagnosticSlice(live.fields, 0)
@@ -557,6 +559,7 @@ func diagnosticEOFRecoveryCopiedArenasEqual(live, shadow *Core) bool {
 		equalDiagnosticSlice(live.eofRecoveryRoots, shadow.eofRecoveryRoots[:len(live.eofRecoveryRoots)]) &&
 		equalDiagnosticSlice(live.recoveryDiscontinuityReductions, shadow.recoveryDiscontinuityReductions) &&
 		equalDiagnosticSlice(live.externalProvenance, shadow.externalProvenance) &&
+		equalDiagnosticSlice(live.missingLeafProvenance, shadow.missingLeafProvenance) &&
 		equalDiagnosticSlice(live.lexerSkippedPrefixes, shadow.lexerSkippedPrefixes) &&
 		equalDiagnosticSlice(live.children, shadow.children[:len(live.children)]) &&
 		equalDiagnosticSlice(live.fields, shadow.fields) &&
@@ -614,6 +617,7 @@ func diagnosticEOFRecoveryStorageDisjoint(live, shadow *Core) bool {
 		disjointDiagnosticSlice(live.eofRecoveryRoots, shadow.eofRecoveryRoots) &&
 		disjointDiagnosticSlice(live.recoveryDiscontinuityReductions, shadow.recoveryDiscontinuityReductions) &&
 		disjointDiagnosticSlice(live.externalProvenance, shadow.externalProvenance) &&
+		disjointDiagnosticSlice(live.missingLeafProvenance, shadow.missingLeafProvenance) &&
 		disjointDiagnosticSlice(live.lexerSkippedPrefixes, shadow.lexerSkippedPrefixes) &&
 		disjointDiagnosticSlice(live.children, shadow.children) &&
 		disjointDiagnosticSlice(live.fields, shadow.fields) &&

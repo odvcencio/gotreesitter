@@ -334,6 +334,9 @@ func buildKeyFromNode(n *Node) internKey {
 // parseState-aware hit rates and quantify how many "duplicates" are
 // only artifacts of the blind measurement.
 func observeLeafInternFull(arena *nodeArena, n *Node) {
+	if arena == nil || n == nil || n.isMissing() {
+		return
+	}
 	if arena.internLeavesFull == nil {
 		arena.internLeavesFull = newInternTable()
 	}
@@ -350,6 +353,9 @@ func observeLeafInternFull(arena *nodeArena, n *Node) {
 // On miss, returns nil; the caller allocates and calls storeCanonicalLeaf
 // afterward.
 func lookupCanonicalLeafKey(arena *nodeArena, key internKey) *Node {
+	if arena == nil || key.flags&nodeFlagMissing != 0 {
+		return nil
+	}
 	if arena.internLeavesFull == nil {
 		arena.internLeavesFull = newInternTable()
 		return nil
@@ -373,6 +379,9 @@ func lookupCanonicalLeafKey(arena *nodeArena, key internKey) *Node {
 // the canonical entry for its key so subsequent shifts with the same
 // shape collapse to this pointer.
 func storeCanonicalLeaf(arena *nodeArena, leaf *Node) {
+	if arena == nil || leaf == nil || leaf.isMissing() {
+		return
+	}
 	if arena.internLeavesFull == nil {
 		arena.internLeavesFull = newInternTable()
 	}
@@ -383,7 +392,7 @@ func storeCanonicalLeaf(arena *nodeArena, leaf *Node) {
 // Caller must also pass the child slice for collision verification (two
 // distinct child slices could in principle hash equal).
 func (t *internTable) lookup(key internKey, children []*Node) *Node {
-	if t == nil || len(t.entries) == 0 {
+	if t == nil || len(t.entries) == 0 || key.flags&nodeFlagMissing != 0 {
 		return nil
 	}
 	t.lookups++
@@ -409,7 +418,7 @@ func (t *internTable) lookup(key internKey, children []*Node) *Node {
 // matching key, the existing node is preserved (first-wins) — callers
 // should look up before allocating.
 func (t *internTable) store(key internKey, node *Node) {
-	if t == nil || node == nil {
+	if t == nil || node == nil || key.flags&nodeFlagMissing != 0 || node.isMissing() {
 		return
 	}
 	if float64(t.occupied+1)/float64(len(t.entries)) > internTableMaxLoadFactor {

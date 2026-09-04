@@ -3742,19 +3742,9 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 				}
 				cand.cRec = nil
 				cand.cRecoverMissingGroup = nil
-				missingTok := Token{
-					Symbol:     ms,
-					StartByte:  tok.StartByte,
-					EndByte:    tok.StartByte,
-					StartPoint: tok.StartPoint,
-					EndPoint:   tok.StartPoint,
-					Missing:    true,
-				}
-				if top := cand.top(); stackEntryHasNode(top) && stackEntryNodeEndByte(top) <= tok.StartByte {
-					missingTok.StartByte = stackEntryNodeEndByte(top)
-					missingTok.EndByte = stackEntryNodeEndByte(top)
-					missingTok.StartPoint = stackEntryNodeEndPoint(top)
-					missingTok.EndPoint = stackEntryNodeEndPoint(top)
+				missingTok, exact := p.recoveryMissingToken(source, &cand, ms, tok)
+				if !exact {
+					continue
 				}
 				var dummy bool
 				p.applyAction(source, &cand, shiftAct, missingTok, &dummy, nodeCount, arena, entryScratch, gssScratch, nil, false, trackChildErrors)

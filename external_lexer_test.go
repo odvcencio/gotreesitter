@@ -32,6 +32,35 @@ func TestExternalLexerDefaultEndWithoutMarkEnd(t *testing.T) {
 	}
 }
 
+func TestExternalLexerCarriesCurrentLookaheadFrontier(t *testing.T) {
+	l := newExternalLexer([]byte{'a', 0xff}, 0, 0, 0)
+	l.Advance(false)
+	l.MarkEnd()
+	l.SetResultSymbol(1)
+
+	tok, ok := l.token()
+	if !ok {
+		t.Fatal("token() returned !ok")
+	}
+	if got, want := tokenLookaheadEndByte(tok), uint32(6); got != want {
+		t.Fatalf("lookahead end = %d, want invalid UTF-8 frontier %d", got, want)
+	}
+}
+
+func TestExternalLexerCarriesEOFLookaheadFrontier(t *testing.T) {
+	l := newExternalLexer([]byte("a"), 0, 0, 0)
+	l.Advance(false)
+	l.SetResultSymbol(1)
+
+	tok, ok := l.token()
+	if !ok {
+		t.Fatal("token() returned !ok")
+	}
+	if got, want := tokenLookaheadEndByte(tok), uint32(2); got != want {
+		t.Fatalf("lookahead end = %d, want EOF frontier %d", got, want)
+	}
+}
+
 func TestExternalLexerAdvanceSpacesSkip(t *testing.T) {
 	l := newExternalLexer([]byte("   x"), 0, 2, 4)
 	if got := l.AdvanceSpaces(true); got != 3 {

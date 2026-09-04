@@ -328,6 +328,8 @@ func TestCompactRouteDeclinesRetiredRecoveryWithoutAliasRule(t *testing.T) {
 
 func TestCompactRouteCompetesMissingInsertionWithErrorAbsorb(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
+	gts.EnableArenaBreakdown(true)
+	t.Cleanup(func() { gts.EnableArenaBreakdown(false) })
 	lang := grammars.HtmlLanguage()
 	if !lang.CompactStrategy2ErrorRegionCertified || !lang.CompactMissingTokenInsertionCertified {
 		t.Fatal("the HTML artifact lacks complete compact recovery certification")
@@ -351,6 +353,10 @@ func TestCompactRouteCompetesMissingInsertionWithErrorAbsorb(t *testing.T) {
 	}
 	if !routeEqualityTreeContainsMissing(tree.RootNode()) {
 		t.Fatal("the selected recovery tree contains no missing terminal")
+	}
+	breakdown, recorded := tree.ArenaBreakdown()
+	if !recorded || breakdown.MissingNodeDependencyCount == 0 || breakdown.MissingNodeDependencyBytesAllocated == 0 {
+		t.Fatalf("compact recovery did not materialize missing-dependency telemetry: recorded=%t breakdown=%+v", recorded, breakdown)
 	}
 }
 

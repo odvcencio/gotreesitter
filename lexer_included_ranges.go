@@ -52,7 +52,7 @@ func (l *Lexer) normalizeIncludedCursor(cursor *includedLexerCursor) {
 			cursor.rangeIdx++
 			continue
 		}
-		if cursor.pos < start {
+		if cursor.pos <= start {
 			r := l.includedRanges[cursor.rangeIdx]
 			cursor.pos = start
 			cursor.row = r.StartPoint.Row
@@ -69,6 +69,42 @@ func (l *Lexer) normalizeIncludedCursor(cursor *includedLexerCursor) {
 	cursor.pos = endPos
 	cursor.row = endPoint.Row
 	cursor.col = endPoint.Column
+}
+
+// includedPointAtPosition returns the logical point for a source byte. It
+// applies the configured range points and uses the previous range endpoint for
+// a gap between ranges. The boolean is false before the first range.
+func (l *Lexer) includedPointAtPosition(pos int) (Point, bool) {
+	if l == nil || len(l.includedRanges) == 0 || pos < 0 || pos > len(l.source) {
+		return Point{}, false
+	}
+	var previousEnd Point
+	hasPrevious := false
+	for i := range l.includedRanges {
+		range_ := l.includedRanges[i]
+		start, end := l.includedRangeBounds(i)
+		if end <= start {
+			continue
+		}
+		if pos < start {
+			if hasPrevious {
+				return previousEnd, true
+			}
+			return Point{}, false
+		}
+		if pos == start {
+			return range_.StartPoint, true
+		}
+		if pos < end {
+			return advancePointByBytes(range_.StartPoint, l.source[start:pos]), true
+		}
+		previousEnd = range_.EndPoint
+		hasPrevious = true
+	}
+	if hasPrevious {
+		return previousEnd, true
+	}
+	return Point{}, false
 }
 
 func (l *Lexer) includedRangeBounds(index int) (int, int) {
@@ -369,12 +405,17 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 		acceptSkip = true
 	}
 
+	lookaheadEndByte := l.lookaheadEndByteAt(scanCursor.pos, scanCursor.rangeIdx < len(l.includedRanges))
+	if lookaheadEndByte < uint32(maxInt(acceptPos, 0)) {
+		lookaheadEndByte = uint32(maxInt(acceptPos, 0))
+	}
+
 	if acceptPos < 0 {
 		l.failTokenStartPos = tokenStart.pos
 		l.failTokenStartRow = tokenStart.row
 		l.failTokenStartCol = tokenStart.col
 		l.failTokenStartRangeIdx = tokenStart.rangeIdx
-		return Token{}, false
+		return Token{lexerLookaheadEndByte: lookaheadEndByte}, false
 	}
 
 	l.pos = acceptPos
@@ -390,6 +431,7 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 			EndPoint:                Point{Row: acceptRow, Column: acceptCol},
 			lexerSkippedPrefix:      skippedPrefix,
 			lexerSkippedPrefixStart: uint32(startPos),
+			lexerLookaheadEndByte:   lookaheadEndByte,
 		}, true
 	}
 
@@ -403,5 +445,6 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 		lexerSkippedPrefix:      skippedPrefix,
 		lexerSkippedPrefixStart: uint32(startPos),
 		lexerInternalDFALexed:   true,
+		lexerLookaheadEndByte:   lookaheadEndByte,
 	}, true
 }

@@ -1,6 +1,10 @@
 package parsercorephase0
 
-import "testing"
+import (
+	"errors"
+	"testing"
+	"unsafe"
+)
 
 // MissingLeaf is the compact representation of C's
 // ts_subtree_new_missing_leaf (subtree.c:534-546). These tests drive the Core
@@ -105,6 +109,127 @@ func TestMissingLeafSurfacesThroughMaterializationView(t *testing.T) {
 	}
 	if ordinaryView.Missing {
 		t.Fatal("an ordinary published terminal reported the missing bit")
+	}
+}
+
+func TestMissingLeafPreservesPaddingAndLookaheadDependency(t *testing.T) {
+	compact := newMissingLeafTestCore(t)
+	want := MissingLeafDependency{
+		StackByte: 4, StackRow: 1, StackColumn: 2,
+		PaddingBytes: 7, PaddingRows: 2, PaddingColumn: 3,
+		LookaheadBytes: 5,
+	}
+	id, err := compact.MissingLeafWithDependency(Symbol(3), want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := compact.MaterializationView(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.StartByte != 11 || view.EndByte != 11 || !view.MissingDependencyExact || view.MissingDependency != want {
+		t.Fatalf("materialization view=%+v, want zero-width byte 11 and dependency %+v", view, want)
+	}
+	if got := unsafe.Sizeof(subtreeRecord{}); got != 44 {
+		t.Fatalf("subtreeRecord size=%d, want 44", got)
+	}
+	if got := unsafe.Sizeof(missingLeafProvenance{}); got != 32 {
+		t.Fatalf("missing-leaf provenance size=%d, want 32", got)
+	}
+}
+
+func TestMissingLeafDependencyRollsBackWithTransaction(t *testing.T) {
+	compact := newMissingLeafTestCore(t)
+	before := compact.FootprintBytes()
+	sentinel := errors.New("rollback missing dependency")
+	err := compact.ApplyAtomic(func() error {
+		if _, err := compact.MissingLeafWithDependency(Symbol(3), MissingLeafDependency{
+			StackByte: 2, PaddingBytes: 3, LookaheadBytes: 4,
+		}); err != nil {
+			return err
+		}
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("rollback error=%v, want %v", err, sentinel)
+	}
+	if len(compact.subtrees) != 0 || len(compact.missingLeafProvenance) != 0 {
+		t.Fatalf("rollback retained subtrees=%d dependencies=%d", len(compact.subtrees), len(compact.missingLeafProvenance))
+	}
+	if compact.FootprintBytes() < before {
+		t.Fatalf("rollback footprint=%d, want retained capacity at least %d", compact.FootprintBytes(), before)
+	}
+}
+
+func TestMissingLeafDependencyRejectsOverflow(t *testing.T) {
+	compact := newMissingLeafTestCore(t)
+	for name, dependency := range map[string]MissingLeafDependency{
+		"padding-byte":   {StackByte: ^uint32(0), PaddingBytes: 1},
+		"lookahead-byte": {StackByte: ^uint32(0) - 1, PaddingBytes: 1, LookaheadBytes: 1},
+		"padding-row":    {StackRow: ^uint32(0), PaddingRows: 1},
+		"padding-column": {StackColumn: ^uint32(0), PaddingColumn: 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := compact.MissingLeafWithDependency(Symbol(3), dependency); err == nil {
+				t.Fatal("overflow dependency was accepted")
+			}
+		})
+	}
+}
+
+func TestMissingLeafDependencyRejectsStaleSidecar(t *testing.T) {
+	compact := newMissingLeafTestCore(t)
+	id, err := compact.MissingLeafWithDependency(Symbol(3), MissingLeafDependency{
+		StackByte: 2, StackColumn: 2, PaddingBytes: 3, PaddingColumn: 3, LookaheadBytes: 4,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compact.missingLeafProvenance[0].payload = id + 1
+	err = compact.VisitMaterializationPostorder([]SubtreeID{id}, func() error { return nil }, func(SubtreeID, MaterializationSubtreeView) error { return nil })
+	if err == nil {
+		t.Fatal("materialization accepted a stale missing dependency sidecar")
+	}
+}
+
+func TestMissingLeafDependencySurfacesThroughPostorderVisitor(t *testing.T) {
+	compact := newMissingLeafTestCore(t)
+	want := MissingLeafDependency{
+		StackByte: 2, StackRow: 1, StackColumn: 4,
+		PaddingBytes: 3, PaddingRows: 2, PaddingColumn: 1, LookaheadBytes: 4,
+	}
+	id, err := compact.MissingLeafWithDependency(Symbol(3), want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got MissingLeafDependency
+	var exact bool
+	err = compact.VisitMaterializationPostorder([]SubtreeID{id}, func() error { return nil }, func(_ SubtreeID, view MaterializationSubtreeView) error {
+		got, exact = view.MissingDependency, view.MissingDependencyExact
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exact || got != want {
+		t.Fatalf("postorder dependency=%+v exact=%t, want %+v", got, exact, want)
+	}
+}
+
+func TestMissingLeafDependencyReleasesDeclinedReserve(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := compact.MissingLeafWithDependency(Symbol(3), MissingLeafDependency{StackByte: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := compact.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	compact.releaseRecordArenaReserve()
+	if compact.missingLeafProvenance != nil {
+		t.Fatal("decline release retained missing-leaf provenance")
 	}
 }
 
@@ -224,6 +349,39 @@ func TestMissingLeafIsNotStructurallyEqualToCleanPayload(t *testing.T) {
 	}
 	if !equal {
 		t.Fatal("two identical clean payloads stopped comparing equal; the missing bit over-separated them")
+	}
+}
+
+func TestMissingLeafDependenciesPreventDuplicateFold(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := compact.Seed(StateID(1), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := compact.MissingLeafWithDependency(Symbol(3), MissingLeafDependency{StackByte: 1, LookaheadBytes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := compact.MissingLeafWithDependency(Symbol(3), MissingLeafDependency{StackByte: 1, LookaheadBytes: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	equal, err := compact.subtreesStructurallyEqual(left, right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if equal {
+		t.Fatal("missing leaves with different lookahead dependencies compared equal")
+	}
+	equal, err = compact.shallowPayloadsEqual(seed.Node, left, seed.Node, right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if equal {
+		t.Fatal("missing leaves with different lookahead dependencies shared a shallow fold class")
 	}
 }
 

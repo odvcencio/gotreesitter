@@ -114,6 +114,49 @@ func TestBasicTokens(t *testing.T) {
 	}
 }
 
+func TestLexerPreservesInspectedLookaheadEnd(t *testing.T) {
+	states := []LexState{
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '=', Hi: '=', NextState: 1}}},
+		{AcceptToken: 1, Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'i', Hi: 'i', NextState: 2}}},
+		{Default: -1, EOF: -1},
+	}
+	lex := NewLexer(states, []byte("=i"))
+	token := lex.Next(0)
+	if token.StartByte != 0 || token.EndByte != 1 || tokenLookaheadEndByte(token) != 3 {
+		t.Fatalf("token bytes=%d..%d lookahead_end=%d, want 0..1 and 3", token.StartByte, token.EndByte, tokenLookaheadEndByte(token))
+	}
+}
+
+func TestLexerPreservesFailedAttemptFrontierAcrossErrorRetry(t *testing.T) {
+	states := []LexState{
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '=', Hi: '=', NextState: 1}}},
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'i', Hi: 'i', NextState: 2}}},
+		{Default: -1, EOF: -1},
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: '=', Hi: '=', NextState: 4}}},
+		{AcceptToken: 1, Default: -1, EOF: -1},
+	}
+	lex := NewLexer(states, []byte("=i"))
+	lex.hasErrorRunLexState = true
+	lex.errorRunLexState = 3
+	lex.errorModeRetry = true
+	token := lex.NextWithErrorRuns(0)
+	if token.Symbol != 1 || token.StartByte != 0 || token.EndByte != 1 || tokenLookaheadEndByte(token) != 3 {
+		t.Fatalf("token=%+v lookahead_end=%d, want retried token 0..1 with failed-attempt frontier 3", token, tokenLookaheadEndByte(token))
+	}
+}
+
+func TestLexerAddsInvalidUTF8Lookahead(t *testing.T) {
+	states := []LexState{
+		{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 1}}},
+		{AcceptToken: 1, Default: -1, EOF: -1},
+	}
+	lex := NewLexer(states, []byte{'a', 0xff})
+	token := lex.Next(0)
+	if token.Symbol != 1 || token.StartByte != 0 || token.EndByte != 1 || tokenLookaheadEndByte(token) != 6 {
+		t.Fatalf("token=%+v lookahead_end=%d, want invalid UTF-8 frontier 6", token, tokenLookaheadEndByte(token))
+	}
+}
+
 // TestPositionTracking verifies that row/column positions are correctly
 // tracked across newlines.
 func TestPositionTracking(t *testing.T) {

@@ -379,6 +379,49 @@ func TestS5MissingInsertionUsesFixedRecoveryPosition(t *testing.T) {
 	}
 }
 
+func TestS5MissingLeafDependencyUsesIncludedRangeReset(t *testing.T) {
+	source := []byte("\n=i")
+	lexer := NewLexer(nil, source)
+	lexer.setIncludedRanges([]Range{{
+		StartByte: 1, EndByte: 3,
+		StartPoint: Point{Row: 1}, EndPoint: Point{Row: 1, Column: 2},
+	}})
+	dependency, err := s5MissingLeafDependency(lexer, source, 0, 4)
+	if err != nil {
+		t.Fatalf("s5MissingLeafDependency: %v", err)
+	}
+	want := core.MissingLeafDependency{
+		StackByte: 0, StackRow: 0, StackColumn: 0,
+		PaddingBytes: 1, PaddingRows: 1, PaddingColumn: 0,
+		LookaheadBytes: 4,
+	}
+	if dependency != want {
+		t.Fatalf("dependency=%+v, want %+v", dependency, want)
+	}
+}
+
+func TestS5MissingLeafDependencyUsesLogicalIncludedRangeStartPoint(t *testing.T) {
+	source := []byte("xabc")
+	lexer := NewLexer(nil, source)
+	lexer.setIncludedRanges([]Range{{
+		StartByte:  1,
+		EndByte:    4,
+		StartPoint: Point{Row: 7, Column: 9},
+		EndPoint:   Point{Row: 7, Column: 12},
+	}})
+	dependency, err := s5MissingLeafDependency(lexer, source, 1, 2)
+	if err != nil {
+		t.Fatalf("s5MissingLeafDependency: %v", err)
+	}
+	want := core.MissingLeafDependency{
+		StackByte: 1, StackRow: 7, StackColumn: 9,
+		LookaheadBytes: 1,
+	}
+	if dependency != want {
+		t.Fatalf("dependency=%+v, want %+v", dependency, want)
+	}
+}
+
 func TestS3SecondIndependentErrorRegionDeclines(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
 	scheduler.s3RegionOpened = true
