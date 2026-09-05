@@ -4671,11 +4671,7 @@ func (p *Parser) cAbsorbTokenIntoError(v *glrStack, tok Token, nodeCount *int, a
 		if !clearLeafError && tok.Symbol != errorSymbol {
 			leaf.setHasError(true)
 		}
-		// C gives a raw unlexable run no child error cost. Its ERROR wrapper
-		// carries the error, even when a checkpointless scanner is installed.
-		lexicalError := (tok.lexerErrorRunLexed || tok.lexerErrorModeLexed) &&
-			!tok.ExternalScannerToken && !tok.Missing && !tok.NoLookahead
-		if tok.Symbol == errorSymbol && !lexicalError {
+		if tok.Symbol == errorSymbol && !tok.lexerErrorModeLexed {
 			leaf.setHasError(true)
 		}
 		// C: if the token shifts as extra in state 1, mark it extra so it is
