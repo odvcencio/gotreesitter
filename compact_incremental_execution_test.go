@@ -147,6 +147,193 @@ func TestCompactIncrementalExecutionLanguageMismatch(t *testing.T) {
 	}
 }
 
+func TestCompactIncrementalExecutionSameWidth(t *testing.T) {
+	for _, replacement := range []string{"x", "2"} {
+		t.Run(replacement, func(t *testing.T) {
+			parser := newAdmissionCandidateGoParser(t)
+			parser.SetAdmissionCandidateRoute(true)
+			source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
+			old, err := parser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !old.compactMaterialized {
+				old.Release()
+				t.Fatal("initial tree is not compact")
+			}
+			oldRoot := old.RootNode()
+			bStart := uint32(bytes.Index(source, []byte("func b")))
+			oldB := compactExecutionNode(oldRoot, parser.language, "function_declaration", bStart)
+			if oldB == nil {
+				old.Release()
+				t.Fatal("initial tree has no function b")
+			}
+			offset := bytes.IndexByte(source, '1')
+			edited, edit := compactExecutionEdit(source, offset, offset+1, replacement)
+			old.Edit(edit)
+			runner := parser.admissionCandidateRunner.(*parserCoreFreshFullRunner)
+			legacyRuns := runner.legacyParseRuns
+			routed, fallback := AdmissionCandidateCounters()
+			parser.fullParseRetryPassesTaken = 3
+			next, profile, err := parser.ParseIncrementalProfiled(edited, old)
+			old.Release()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer next.Release()
+			if parser.fullParseRetryPassesTaken != 0 {
+				t.Fatal("incremental parse retained the previous retry count")
+			}
+			if r, f := AdmissionCandidateCounters(); r != routed || f != fallback {
+				t.Fatal("incremental parse changed full admission counters")
+			}
+			if got := compactExecutionNode(next.RootNode(), parser.language, "function_declaration", bStart); got != oldB {
+				t.Fatal("same-width edit lost the borrowed function b")
+			}
+			if next.RootNode().HasError() {
+				t.Fatal("same-width edit produced an error")
+			}
+			if replacement == "2" {
+				if next.RootNode() != oldRoot || profile.ReparseNanos != 0 || profile.NewNodesAllocated != 0 {
+					t.Fatalf("token-invariant shortcut regressed: same_root=%t profile=%+v", next.RootNode() == oldRoot, profile)
+				}
+				if profile.ReusedBytes != uint64(len(edited)) || next.ParseRuntime().CompactIncrementalReuseRoute {
+					t.Fatalf("token-invariant edit entered a reparse route: %+v", profile)
+				}
+				return
+			}
+			if changed := compactExecutionNode(next.RootNode(), parser.language, "identifier", uint32(offset)); changed == nil || changed.Text(edited) != "x" {
+				t.Fatal("same-width kind change did not produce an identifier")
+			}
+			if runner.legacyParseRuns != legacyRuns {
+				t.Errorf("same-width kind change invoked the legacy parser: calls=%d", runner.legacyParseRuns-legacyRuns)
+			}
+			if !next.compactMaterialized || !next.ParseRuntime().CompactIncrementalReuseRoute {
+				t.Errorf("same-width kind change skipped compact execution: compact=%t route=%t decline=%q", next.compactMaterialized, next.ParseRuntime().CompactIncrementalReuseRoute, next.ParseRuntime().CompactIncrementalFallbackReason)
+			}
+		})
+	}
+}
+
+func TestCompactIncrementalExecutionSameWidthCopyLifetime(t *testing.T) {
+	parser := newAdmissionCandidateGoParser(t)
+	parser.SetAdmissionCandidateRoute(true)
+	source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
+	original, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer original.Release()
+	if !original.compactMaterialized {
+		t.Fatal("initial tree is not compact")
+	}
+	snapshot := original.Copy()
+	defer snapshot.Release()
+	current := original.Copy()
+	defer func() { current.Release() }()
+	bStart := uint32(bytes.Index(source, []byte("func b")))
+	borrowedB := compactExecutionNode(current.RootNode(), parser.language, "function_declaration", bStart)
+	if borrowedB == nil || borrowedB == compactExecutionNode(original.RootNode(), parser.language, "function_declaration", bStart) {
+		t.Fatal("copy did not isolate function b")
+	}
+	offset := bytes.IndexByte(source, '1')
+	for _, replacement := range []string{"x", "3", "y"} {
+		edited, edit := compactExecutionEdit(source, offset, offset+1, replacement)
+		current.Edit(edit)
+		compactExecutionEqual(t, original.RootNode(), snapshot.RootNode(), parser.language)
+		if len(original.Edits()) != 0 {
+			t.Fatal("editing a copy changed the original edit list")
+		}
+		runner := parser.admissionCandidateRunner.(*parserCoreFreshFullRunner)
+		before := runner.legacyParseRuns
+		routed, fallback := AdmissionCandidateCounters()
+		next, _, err := parser.ParseIncrementalProfiled(edited, current)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if next == current {
+			t.Fatal("kind change returned the old tree")
+		}
+		current.Release()
+		current = next
+		if r, f := AdmissionCandidateCounters(); r != routed || f != fallback {
+			t.Fatal("incremental parse changed full admission counters")
+		}
+		if got := compactExecutionNode(next.RootNode(), parser.language, "function_declaration", bStart); got != borrowedB {
+			t.Fatalf("edit to %q lost the borrowed sibling", replacement)
+		}
+		if next.RootNode().HasError() || borrowedB.Text(edited) != "func b() { _ = 2 }" {
+			t.Fatal("released tree damaged its successor")
+		}
+		compactExecutionEqual(t, original.RootNode(), snapshot.RootNode(), parser.language)
+		if runner.legacyParseRuns != before {
+			t.Errorf("edit to %q invoked legacy parsing %d times", replacement, runner.legacyParseRuns-before)
+		}
+		if !next.compactMaterialized || !next.ParseRuntime().CompactIncrementalReuseRoute {
+			t.Errorf("edit to %q skipped compact execution: %q", replacement, next.ParseRuntime().CompactIncrementalFallbackReason)
+		}
+		source = edited
+	}
+}
+
+func TestCompactIncrementalExecutionSameWidthUnsupported(t *testing.T) {
+	for _, test := range []struct {
+		name, replacement string
+		mismatch          bool
+	}{
+		{"recovery", "}", false},
+		{"language_mismatch", "x", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			parser := newAdmissionCandidateGoParser(t)
+			parser.SetAdmissionCandidateRoute(true)
+			source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
+			old, err := parser.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer old.Release()
+			offset := bytes.IndexByte(source, '1')
+			oldLeaf := compactExecutionNode(old.RootNode(), parser.language, "int_literal", uint32(offset))
+			if oldLeaf == nil {
+				t.Fatal("initial tree has no edited leaf")
+			}
+			edited, edit := compactExecutionEdit(source, offset, offset+1, test.replacement)
+			old.Edit(edit)
+			if test.mismatch {
+				language := *parser.language
+				parser = NewParser(&language)
+				parser.SetAdmissionCandidateRoute(true)
+			}
+			next, profile, err := parser.ParseIncrementalProfiled(edited, old)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer next.Release()
+			if next.ParseRuntime().CompactIncrementalReuseRoute {
+				t.Fatal("unsupported edit published compact reuse")
+			}
+			if compactExecutionContains(next.RootNode(), oldLeaf) {
+				t.Fatal("unsupported edit reused the changed leaf")
+			}
+			if test.mismatch && profile.ReusedSubtrees != 0 {
+				t.Fatal("language mismatch reused old nodes")
+			}
+			if !test.mismatch && !next.RootNode().HasError() {
+				t.Fatal("malformed edit produced no recovery error")
+			}
+			freshParser := NewParser(parser.language)
+			freshParser.SetAdmissionCandidateRoute(false)
+			fresh, err := freshParser.Parse(edited)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			compactExecutionEqual(t, next.RootNode(), fresh.RootNode(), parser.language)
+		})
+	}
+}
+
 // This test checks recovery fallback against production. It does not certify C parity.
 func TestCompactIncrementalExecutionMissingBraceRejectsWrongSplice(t *testing.T) {
 	parser := newAdmissionCandidateGoParser(t)
