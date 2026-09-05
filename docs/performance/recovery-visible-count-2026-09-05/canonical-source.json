@@ -1,0 +1,14 @@
+{
+  "baseline": {
+    "path": "/tmp/gts-current-performance-baseline-7db6e20a",
+    "revision": "7db6e20ad88ac7f79228979899d5c55578818f49",
+    "tree": "1544db204a27537469286ff79e981c9e1feac400",
+    "status": ""
+  },
+  "candidate": {
+    "path": "/home/draco/work/gts-clean-recovery-baseline-20260905",
+    "revision": "bc34a57e549da5a077a5045927ae65bda8f285e2",
+    "tree": "3fb6e4388acb482fc0b58e5109b9dc2e2838bd2a",
+    "status": ""
+  }
+}

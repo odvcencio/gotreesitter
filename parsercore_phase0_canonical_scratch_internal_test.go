@@ -372,6 +372,162 @@ func TestDiagnosticParserCoreCanonicalScratchSteadyStateSingleHeaderDoesNotAlloc
 	}
 }
 
+func TestDiagnosticParserCoreCanonicalOwnedSteadyStateDoesNotAllocate(t *testing.T) {
+	for _, count := range []int{1, 2} {
+		t.Run(fmt.Sprintf("headers-%d", count), func(t *testing.T) {
+			compact, first, second := newDiagnosticParserCoreCanonicalTestCore(t)
+			snapshot := &diagnosticParserCoreVersionLexerSnapshot{compact: compact}
+			request := diagnosticParserCoreVersionLexerRequest{token: Token{Symbol: 7}, valid: true}
+			scheduler := diagnosticParserCoreGenericScheduler{
+				compact: compact,
+				headers: []diagnosticParserCoreHeader{
+					{head: first, creationSeq: 3, versionState: &diagnosticParserCoreVersionState{relexSnapshot: snapshot, lexerRequest: 1}},
+					{head: second, creationSeq: 5, versionState: &diagnosticParserCoreVersionState{relexSnapshot: snapshot, lexerRequest: 2}},
+				},
+				versionLexerRequests: []diagnosticParserCoreVersionLexerRequest{request, request},
+			}
+			scheduler.headers = scheduler.headers[:count]
+			var allocs float64
+			if err := compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+				for range 4 {
+					if err := scheduler.canonicalizeOwned(owner); err != nil {
+						return err
+					}
+				}
+				var runErr error
+				allocs = testing.AllocsPerRun(1000, func() {
+					runErr = scheduler.canonicalizeOwned(owner)
+				})
+				return runErr
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if allocs != 0 {
+				t.Fatalf("owned canonicalization allocs=%v, want zero", allocs)
+			}
+			if len(scheduler.headers) != count || scheduler.canonicalScratch.versionStateOwner != nil {
+				t.Fatalf("owned canonicalization headers=%d owner=%p", len(scheduler.headers), scheduler.canonicalScratch.versionStateOwner)
+			}
+		})
+	}
+}
+
+func TestDiagnosticParserCoreCanonicalOwnedUsesScopedVersionStateOwner(t *testing.T) {
+	for _, count := range []int{2, 9} {
+		for _, changed := range []bool{false, true} {
+			t.Run(fmt.Sprintf("headers-%d-request-changed-%t", count, changed), func(t *testing.T) {
+				compact, head, _ := newDiagnosticParserCoreCanonicalTestCore(t)
+				snapshot := &diagnosticParserCoreVersionLexerSnapshot{compact: compact}
+				leftRequest := diagnosticParserCoreVersionLexerRequest{token: Token{Symbol: 7}, valid: true}
+				rightRequest := leftRequest
+				if changed {
+					rightRequest.token.Symbol = 8
+				}
+				leftState := &diagnosticParserCoreVersionState{relexSnapshot: snapshot, lexerRequest: 1}
+				rightState := &diagnosticParserCoreVersionState{relexSnapshot: snapshot, lexerRequest: 2}
+				previousOwner := &diagnosticParserCoreGenericScheduler{}
+				scheduler := diagnosticParserCoreGenericScheduler{
+					compact:              compact,
+					headers:              make([]diagnosticParserCoreHeader, count),
+					canonicalScratch:     diagnosticParserCoreCanonicalScratch{versionStateOwner: previousOwner},
+					versionLexerRequests: []diagnosticParserCoreVersionLexerRequest{leftRequest, rightRequest},
+				}
+				for index := range scheduler.headers {
+					scheduler.headers[index] = diagnosticParserCoreHeader{
+						head: head, creationSeq: uint64(index + 1), versionState: rightState, freshness: core.ReductionNew,
+					}
+				}
+				scheduler.headers[0].versionState = leftState
+				scheduler.headers[0].freshness = 0
+				if err := compact.ApplySchedulerAtomic(scheduler.canonicalizeOwned); err != nil {
+					t.Fatal(err)
+				}
+				want := 1
+				if changed {
+					want = 2
+				}
+				if len(scheduler.headers) != want || scheduler.headers[0].versionState != leftState {
+					t.Fatalf("scoped owner produced %d headers, want %d: %+v", len(scheduler.headers), want, scheduler.headers)
+				}
+				if changed && scheduler.headers[1].versionState != rightState {
+					t.Fatalf("canonicalization lost the changed request owner: %+v", scheduler.headers)
+				}
+				if scheduler.canonicalScratch.versionStateOwner != previousOwner {
+					t.Fatal("canonicalization did not restore the previous owner")
+				}
+				if count > diagnosticParserCoreLinearCanonicalLimit && scheduler.canonicalScratch.groups == nil {
+					t.Fatal("canonicalization did not exercise the group map")
+				}
+			})
+		}
+	}
+}
+
+func TestDiagnosticParserCoreCanonicalOwnedRestoresVersionStateOwnerAfterFailure(t *testing.T) {
+	for _, failure := range []string{"invalid-head", "mutation-class", "panic"} {
+		t.Run(failure, func(t *testing.T) {
+			compact, head, _ := newDiagnosticParserCoreCanonicalTestCore(t)
+			previousOwner := &diagnosticParserCoreGenericScheduler{}
+			input := []diagnosticParserCoreHeader{{head: head, creationSeq: 3, freshness: core.ReductionNew}}
+			scheduler := diagnosticParserCoreGenericScheduler{
+				compact: compact, headers: input,
+				canonicalScratch: diagnosticParserCoreCanonicalScratch{versionStateOwner: previousOwner},
+			}
+			var expected core.DropCohortProducerMutation
+			switch failure {
+			case "invalid-head":
+				input[0].head = core.Head{Node: 1 << 30}
+			case "mutation-class":
+				expected = core.DropCohortProducerLinearCanonicalization
+			case "panic":
+				// A missing core forces a panic after the wrapper binds its owner.
+				scheduler.compact = nil
+			}
+			before := input[0]
+			var runErr error
+			var recovered any
+			func() {
+				defer func() { recovered = recover() }()
+				runErr = compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+					return scheduler.canonicalizeOwnedWithMutation(owner, expected)
+				})
+			}()
+			if failure == "panic" {
+				if recovered == nil {
+					t.Fatal("canonicalization did not panic")
+				}
+			} else if runErr == nil || recovered != nil {
+				t.Fatalf("canonicalization err=%v panic=%v", runErr, recovered)
+			}
+			if scheduler.canonicalScratch.versionStateOwner != previousOwner {
+				t.Fatal("failed canonicalization did not restore the previous owner")
+			}
+			if len(scheduler.headers) != 1 || &scheduler.headers[0] != &input[0] || scheduler.headers[0] != before {
+				t.Fatalf("failed canonicalization published headers: %+v", scheduler.headers)
+			}
+			if scheduler.work.Canonicalizations != 0 {
+				t.Fatalf("failed canonicalization published work: %d", scheduler.work.Canonicalizations)
+			}
+		})
+	}
+}
+
+func TestDiagnosticParserCoreCanonicalOwnerCleanup(t *testing.T) {
+	scheduler := &diagnosticParserCoreGenericScheduler{}
+	scheduler.canonicalScratch.versionStateOwner = scheduler
+	clearDiagnosticParserCoreGenericSchedulerVersionState(scheduler)
+	if scheduler.canonicalScratch.versionStateOwner != nil {
+		t.Fatal("version-state cleanup retained the canonicalization owner")
+	}
+	scheduler.canonicalScratch.versionStateOwner = scheduler
+	if err := resetDiagnosticParserCoreGenericScheduler(scheduler); err != nil {
+		t.Fatal(err)
+	}
+	if scheduler.canonicalScratch.versionStateOwner != nil {
+		t.Fatal("scheduler reset retained the canonicalization owner")
+	}
+}
+
 func TestDiagnosticParserCoreCanonicalScratchMappedSpillPreservesSemantics(t *testing.T) {
 	compact, err := core.New(&genericConflictTable{}, core.Limits{})
 	if err != nil {
@@ -460,7 +616,7 @@ func TestDiagnosticParserCoreCanonicalScratchPreservesLexerSnapshotOwners(t *tes
 					rightState.recoveryGroup = 1
 				}
 				scratch := diagnosticParserCoreCanonicalScratch{
-					versionStateEqual: scheduler.versionLexerStateEqual,
+					versionStateOwner: scheduler,
 				}
 				headers := make([]diagnosticParserCoreHeader, count)
 				for index := range headers {

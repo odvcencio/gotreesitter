@@ -195,7 +195,7 @@ func diagnosticParserCoreDerivationVisibleNodeCount(
 ) (uint32, error) {
 	var total uint32
 	for _, payload := range derivation.Payloads {
-		count, err := core.RecoveryNodeVisibleSubtreeCount(symbols, src, payload)
+		count, err := src.compact.CachedVisibleSubtreeCount(symbols, payload)
 		if err != nil {
 			return 0, err
 		}
@@ -217,7 +217,7 @@ func diagnosticParserCoreOpenRegionVisibleNodeCount(
 	}
 	total := uint32(1)
 	for _, child := range region.children {
-		count, err := core.RecoveryNodeVisibleSubtreeCount(symbols, src, child)
+		count, err := src.compact.CachedVisibleSubtreeCount(symbols, child)
 		if err != nil {
 			return 0, err
 		}

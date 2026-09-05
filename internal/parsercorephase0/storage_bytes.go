@@ -9,6 +9,7 @@ var (
 	coreNodeRecordBytes                    = uint64(unsafe.Sizeof(nodeRecord{}))
 	coreLinkRecordBytes                    = uint64(unsafe.Sizeof(linkRecord{}))
 	coreSubtreeRecordBytes                 = uint64(unsafe.Sizeof(subtreeRecord{}))
+	coreRecoveryVisibleCountBytes          = uint64(unsafe.Sizeof(recoveryVisibleCount{}))
 	coreChildRecordBytes                   = uint64(unsafe.Sizeof(SubtreeID(0)))
 	coreFieldRecordBytes                   = uint64(unsafe.Sizeof(FieldMapEntry{}))
 	coreAliasRecordBytes                   = uint64(unsafe.Sizeof(Symbol(0)))
@@ -63,6 +64,8 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.links))*coreLinkRecordBytes +
 		uint64(len(c.dropCohortLinkRefIndexes))*coreUint32Bytes +
 		uint64(len(c.subtrees))*coreSubtreeRecordBytes +
+		uint64(len(c.recoveryVisibleCounts))*coreRecoveryVisibleCountBytes +
+		uint64(len(c.recoveryVisibleSymbols))*coreBoolBytes +
 		uint64(len(c.reusedSubtrees))*coreReusedSubtreeBytes +
 		uint64(len(c.eofRecoveryRoots))*coreSubtreeIDBytes +
 		uint64(len(c.recoveryDiscontinuityReductions))*coreRecoveryDiscontinuityReductionBytes +
@@ -157,6 +160,8 @@ func (c *Core) FootprintBytes() uint64 {
 	total := uint64(cap(c.nodes))*coreNodeRecordBytes +
 		uint64(cap(c.links))*coreLinkRecordBytes +
 		uint64(cap(c.subtrees))*coreSubtreeRecordBytes +
+		uint64(cap(c.recoveryVisibleCounts))*coreRecoveryVisibleCountBytes +
+		uint64(cap(c.recoveryVisibleSymbols))*coreBoolBytes +
 		uint64(cap(c.eofRecoveryRoots))*coreSubtreeIDBytes +
 		uint64(cap(c.recoveryDiscontinuityReductions))*coreRecoveryDiscontinuityReductionBytes +
 		uint64(cap(c.children))*coreChildRecordBytes +
@@ -325,6 +330,8 @@ func (c *Core) releaseRecordArenaReserve() {
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = nil
+	c.recoveryVisibleCounts = nil
+	c.recoveryVisibleSymbols = nil
 	c.reusedSubtrees = nil
 	c.eofRecoveryRoots = nil
 	c.recoveryDiscontinuityReductions = nil
@@ -360,6 +367,8 @@ func (c *Core) releaseOversizedRetention() {
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = nil
+	c.recoveryVisibleCounts = nil
+	c.recoveryVisibleSymbols = nil
 	c.reusedSubtrees = nil
 	c.eofRecoveryRoots = nil
 	c.recoveryDiscontinuityReductions = nil

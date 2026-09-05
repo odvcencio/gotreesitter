@@ -1,0 +1,19 @@
+{
+  "baseline": {
+    "host_path": "/tmp/gts-current-performance-baseline-7db6e20a",
+    "revision": "7db6e20ad88ac7f79228979899d5c55578818f49",
+    "tree": "1544db204a27537469286ff79e981c9e1feac400",
+    "status": ""
+  },
+  "candidate": {
+    "host_path": "/home/draco/work/gts-clean-recovery-baseline-20260905",
+    "revision": "7db6e20ad88ac7f79228979899d5c55578818f49",
+    "tree": "1544db204a27537469286ff79e981c9e1feac400",
+    "status": "M  internal/parsercorephase0/core.go\nM  internal/parsercorephase0/eof_recovery_shadow.go\nM  internal/parsercorephase0/eof_recovery_shadow_test.go\nA  internal/parsercorephase0/recovery_visible_count.go\nA  internal/parsercorephase0/recovery_visible_count_test.go\nM  internal/parsercorephase0/storage_bytes.go\nM  parsercore_phase0_recovery_condense.go"
+  },
+  "candidate_patch_sha256": "000bf744ce30a774e8841573a71219a6dbcf5f03bdaba481ee5515a737ab819c",
+  "limitations": [
+    "The runner cannot read Git metadata in its container mount paths. These are companion host observations.",
+    "This is a local development comparison, not a sealed fleet epoch."
+  ]
+}

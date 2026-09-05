@@ -1,0 +1,121 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                                  │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                  │                           sec/op                           │               sec/op                vs base                │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                  56.30m ±  3%                         19.13m ±  9%  -66.02% (p=0.000 n=20)
+ParityGoCanonicalFull/query_compile/tree-sitter-c                                                 5.238m ± 11%                         5.159m ±  8%        ~ (p=0.355 n=20)
+ParityGoCanonicalFull/rewrite/gotreesitter                                                        5.197m ± 16%                         4.155m ±  8%  -20.05% (p=0.000 n=20)
+ParityGoCanonicalFull/rewrite/tree-sitter-c                                                       1.069m ± 12%                         1.040m ± 16%        ~ (p=0.640 n=20)
+ParityGoCanonicalFull/language/gotreesitter                                                      109.01m ± 10%                         20.08m ± 11%  -81.58% (p=0.000 n=20)
+ParityGoCanonicalFull/language/tree-sitter-c                                                      5.376m ±  9%                         5.480m ±  7%        ~ (p=0.883 n=20)
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                 5687.3m ±  6%                         203.5m ±  4%  -96.42% (p=0.000 n=20)
+ParityGoCanonicalFull/grammargen_lr/tree-sitter-c                                                 57.56m ±  9%                         56.04m ± 13%        ~ (p=0.678 n=20)
+geomean                                                                                           27.36m                               12.33m        -54.93%
+
+                                                  │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                  │                            B/s                             │               B/s                 vs base                  │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                 351.6Ki ±  3%                     1030.3Ki ±  9%   +193.06% (p=0.000 n=20)
+ParityGoCanonicalFull/query_compile/tree-sitter-c                                                3.672Mi ± 10%                      3.729Mi ±  8%          ~ (p=0.358 n=20)
+ParityGoCanonicalFull/rewrite/gotreesitter                                                       961.9Ki ± 14%                     1206.1Ki ±  8%    +25.38% (p=0.000 n=20)
+ParityGoCanonicalFull/rewrite/tree-sitter-c                                                      4.568Mi ± 11%                      4.692Mi ± 14%          ~ (p=0.654 n=20)
+ParityGoCanonicalFull/language/gotreesitter                                                      371.1Ki ± 11%                     2011.7Ki ± 10%   +442.11% (p=0.000 n=20)
+ParityGoCanonicalFull/language/tree-sitter-c                                                     7.343Mi ±  8%                      7.200Mi ±  7%          ~ (p=0.889 n=20)
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                 39.06Ki ±  0%                    1132.81Ki ±  4%  +2800.00% (p=0.000 n=20)
+ParityGoCanonicalFull/grammargen_lr/tree-sitter-c                                                3.901Mi ±  8%                      4.010Mi ± 12%          ~ (p=0.673 n=20)
+geomean                                                                                          1.100Mi                            2.451Mi         +122.81%
+
+                                                 │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                 │                         arena_B/op                         │            arena_B/op              vs base                 │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/rewrite/gotreesitter                                                       0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/language/gotreesitter                                                      0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                     ²                                      +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                 │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                 │                         max_stacks                         │            max_stacks              vs base                 │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/rewrite/gotreesitter                                                       0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/language/gotreesitter                                                      0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                     ²                                      +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                 │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                 │                       multi_iters/op                       │          multi_iters/op            vs base                 │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/rewrite/gotreesitter                                                       0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/language/gotreesitter                                                      0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                     ²                                      +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                 │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                 │                      multi_tokens/op                       │          multi_tokens/op           vs base                 │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/rewrite/gotreesitter                                                       0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/language/gotreesitter                                                      0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                     ²                                      +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                 │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                 │                          nodes/op                          │             nodes/op               vs base                 │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                  11.47k ± 0%                         11.47k ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/rewrite/gotreesitter                                                        2.262k ± 0%                         2.262k ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/language/gotreesitter                                                       10.97k ± 0%                         10.97k ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                  109.8k ± 0%                         109.8k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                           13.30k                              13.30k       +0.00%
+¹ all samples are equal
+
+                                                 │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                 │                         peak_depth                         │            peak_depth              vs base                 │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/rewrite/gotreesitter                                                       0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/language/gotreesitter                                                      0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                 0.000 ± 0%                            0.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                                     ²                                      +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                                 │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                 │                         tokens/op                          │             tokens/op              vs base                 │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                  5.126k ± 0%                         5.126k ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/rewrite/gotreesitter                                                        1.036k ± 0%                         1.036k ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/language/gotreesitter                                                       5.058k ± 0%                         5.058k ± 0%       ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                  49.91k ± 0%                         49.91k ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                           6.051k                              6.051k       +0.00%
+¹ all samples are equal
+
+                                                  │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                  │                            B/op                            │               B/op                vs base                  │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                 3333.7Ki ± 0%                       309.6Ki ± 0%  -90.71% (p=0.000 n=20)
+ParityGoCanonicalFull/query_compile/tree-sitter-c                                                 20.20Ki ± 0%                       20.20Ki ± 0%        ~ (p=0.231 n=20)
+ParityGoCanonicalFull/rewrite/gotreesitter                                                        294.6Ki ± 0%                       205.5Ki ± 0%  -30.24% (p=0.000 n=20)
+ParityGoCanonicalFull/rewrite/tree-sitter-c                                                       5.453Ki ± 0%                       5.453Ki ± 0%        ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/language/gotreesitter                                                      7585.8Ki ± 0%                       684.4Ki ± 0%  -90.98% (p=0.000 n=20)
+ParityGoCanonicalFull/language/tree-sitter-c                                                      48.20Ki ± 0%                       48.20Ki ± 0%        ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                413.905Mi ± 0%                       5.967Mi ± 0%  -98.56% (p=0.000 n=20)
+ParityGoCanonicalFull/grammargen_lr/tree-sitter-c                                                 232.2Ki ± 0%                       232.2Ki ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                           499.8Ki                            154.7Ki       -69.05%
+¹ all samples are equal
+
+                                                  │ /tmp/gts-performance-evidence-loop/memo-canonical-base.txt │ /tmp/gts-performance-evidence-loop/memo-canonical-head.txt │
+                                                  │                         allocs/op                          │            allocs/op              vs base                  │
+ParityGoCanonicalFull/query_compile/gotreesitter                                                  388.97k ± 0%                        13.73k ± 0%  -96.47% (p=0.000 n=20)
+ParityGoCanonicalFull/query_compile/tree-sitter-c                                                   8.000 ± 0%                         8.000 ± 0%        ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/rewrite/gotreesitter                                                        16.319k ± 0%                        5.349k ± 0%  -67.22% (p=0.000 n=20)
+ParityGoCanonicalFull/rewrite/tree-sitter-c                                                         8.000 ± 0%                         8.000 ± 0%        ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/language/gotreesitter                                                       885.52k ± 0%                        19.72k ± 0%  -97.77% (p=0.000 n=20)
+ParityGoCanonicalFull/language/tree-sitter-c                                                        8.000 ± 0%                         8.000 ± 0%        ~ (p=1.000 n=20) ¹
+ParityGoCanonicalFull/grammargen_lr/gotreesitter                                                 52741.2k ± 0%                        186.2k ± 0%  -99.65% (p=0.000 n=20)
+ParityGoCanonicalFull/grammargen_lr/tree-sitter-c                                                   8.000 ± 0%                         8.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                            2.430k                              427.0       -82.43%
+¹ all samples are equal
