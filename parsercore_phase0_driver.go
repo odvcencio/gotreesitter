@@ -12359,6 +12359,8 @@ func (s *diagnosticParserCoreGenericScheduler) adoptUpdatedReductionSibling(
 	}
 	sourceFrontier := s.headers[source].frontierSequence
 	sourceVersionState := s.headers[source].versionState
+	sourceAlternatives := s.headers[source].altSet
+	sourceBlended := s.headers[source].blended
 	var dropCohortRefs core.DropCohortRefSet
 	var convergedReductionSplit, resurrectionUnproved bool
 	switch len(compat) {
@@ -12414,23 +12416,28 @@ func (s *diagnosticParserCoreGenericScheduler) adoptUpdatedReductionSibling(
 		s.headers[index].head = head
 		s.headers[index].paused = false
 		s.headers[index].convergedReductionSplit =
-			s.headers[index].convergedReductionSplit || convergedReductionSplit
+			s.headers[index].convergedReductionSplit || s.headers[source].convergedReductionSplit || convergedReductionSplit
 		s.headers[index].resurrectionUnproved =
-			s.headers[index].resurrectionUnproved || resurrectionUnproved
+			s.headers[index].resurrectionUnproved || s.headers[source].resurrectionUnproved || resurrectionUnproved
 		s.headers[index].frontierSequence = mergeDiagnosticParserCoreFrontier(
 			s.headers[index].frontierSequence,
 			sourceFrontier,
 		)
 		applyDiagnosticParserCoreCleanPathOutput(&s.headers[index], rank, lineage)
 		dst := &s.headers[index]
-		if set.Len() != 0 {
+		// The reduction extends the source history before its output joins
+		// the canonical sibling. Transfer both histories with the graph paths.
+		incoming := sourceAlternatives
+		s.compact.UnionAlternativeSet(&incoming, set)
+		if incoming.Len() != 0 || incoming.Overflowed() {
 			// Fold-class union (spec.b4b-alternative-set.v2 section 3.4):
 			// index is a genuinely different, independently tracked header
 			// from source -- this is a joint-resolution merge, not a single
 			// thread's own uniform extension.
-			incomparable := s.compact.AlternativeSetIncomparable(dst.altSet, set)
-			s.compact.UnionAlternativeSet(&dst.altSet, set)
-			dst.blended = dst.blended || setBlended || incomparable
+			incomparable := s.compact.AlternativeSetIncomparable(dst.altSet, set) ||
+				s.compact.AlternativeSetIncomparable(dst.altSet, incoming)
+			s.compact.UnionAlternativeSet(&dst.altSet, incoming)
+			dst.blended = dst.blended || sourceBlended || setBlended || incomparable
 		}
 		if !dropCohortRefs.Empty() || dropCohortRefs.Overflowed() || dropCohortRefs.Blended() {
 			if _, err := s.compact.UnionDropCohortRefsChecked(&dst.dropCohortRefs, dropCohortRefs); err != nil {
