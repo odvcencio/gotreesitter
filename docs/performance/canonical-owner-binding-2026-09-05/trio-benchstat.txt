@@ -1,0 +1,49 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                          │ /tmp/gts-go-toolchain-performance/owner-trio-base.txt │ /tmp/gts-go-toolchain-performance/owner-trio-head.txt │
+                                          │                        sec/op                         │             sec/op              vs base               │
+AdmissionCandidateGoQueryCompileWarmRoute                                            19.18m ± 14%                     19.60m ± 11%       ~ (p=0.799 n=20)
+GoParseIncrementalSingleByteEditDFA                                                  1.623µ ± 14%                     1.519µ ± 15%       ~ (p=0.805 n=20)
+GoParseFullDFA                                                                       18.00m ± 19%                     18.05m ±  9%       ~ (p=0.495 n=20)
+GoParseIncrementalNoEditDFA                                                          3.401n ± 15%                     3.084n ± 13%       ~ (p=0.640 n=20)
+geomean                                                                              37.15µ                           35.88µ        -3.43%
+
+                                          │ /tmp/gts-go-toolchain-performance/owner-trio-base.txt │ /tmp/gts-go-toolchain-performance/owner-trio-head.txt │
+                                          │                          B/s                          │              B/s                vs base               │
+AdmissionCandidateGoQueryCompileWarmRoute                                          1025.4Ki ± 13%                   1005.9Ki ± 12%       ~ (p=0.794 n=20)
+GoParseIncrementalSingleByteEditDFA                                                 11.07Gi ± 16%                    11.83Gi ± 13%       ~ (p=0.820 n=20)
+GoParseFullDFA                                                                      1.025Mi ± 16%                    1.020Mi ± 10%       ~ (p=0.542 n=20)
+GoParseIncrementalNoEditDFA                                                         5.159Ti ± 17%                    5.691Ti ± 12%       ~ (p=0.640 n=20)
+geomean                                                                             501.0Mi                          518.8Mi        +3.56%
+
+                                          │ /tmp/gts-go-toolchain-performance/owner-trio-base.txt │ /tmp/gts-go-toolchain-performance/owner-trio-head.txt │
+                                          │                candidate-fallbacks/op                 │      candidate-fallbacks/op        vs base            │
+AdmissionCandidateGoQueryCompileWarmRoute                                              0.000 ± 0%                          0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                          │ /tmp/gts-go-toolchain-performance/owner-trio-base.txt │ /tmp/gts-go-toolchain-performance/owner-trio-head.txt │
+                                          │                  candidate-routes/op                  │        candidate-routes/op         vs base            │
+AdmissionCandidateGoQueryCompileWarmRoute                                              1.000 ± 0%                          1.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                          │ /tmp/gts-go-toolchain-performance/owner-trio-base.txt │ /tmp/gts-go-toolchain-performance/owner-trio-head.txt │
+                                          │                         B/op                          │            B/op              vs base                  │
+AdmissionCandidateGoQueryCompileWarmRoute                                          309.6Ki ± 0%                    116.3Ki ± 0%  -62.43% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                                  0.000 ± 0%                      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                     547.5Ki ± 5%                    294.5Ki ± 6%  -46.21% (p=0.000 n=20)
+GoParseIncrementalNoEditDFA                                                          0.000 ± 0%                      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                         ²                                -32.95%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                          │ /tmp/gts-go-toolchain-performance/owner-trio-base.txt │ /tmp/gts-go-toolchain-performance/owner-trio-head.txt │
+                                          │                       allocs/op                       │          allocs/op           vs base                  │
+AdmissionCandidateGoQueryCompileWarmRoute                                          13.731k ± 0%                     1.360k ± 0%  -90.10% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                                  0.000 ± 0%                      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                    15548.50 ± 0%                      42.00 ± 2%  -99.73% (p=0.000 n=20)
+GoParseIncrementalNoEditDFA                                                          0.000 ± 0%                      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                         ²                                -87.21%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

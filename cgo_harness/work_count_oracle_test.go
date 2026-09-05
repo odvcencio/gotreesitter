@@ -514,7 +514,7 @@ func TestAuthenticatedWorkCountOracle(t *testing.T) {
 	t.Log("build: ordinary untagged Go admission child")
 	goAdmissionArtifact, goAdmissionIdentity, goAdmissionRecheck := workCountBuildGo(t, sourceSnapshot, tempRoot, goEnvironment, false)
 	t.Log("admission: ordinary untagged Go child")
-	uninstGo := workCountRunGoAdmission(t, goAdmissionArtifact, fixture.Fixture.ID, sourcePath, tempRoot, goEnvironment)
+	uninstGo := workCountRunGoAdmission(t, sourceSnapshot.Root, goAdmissionArtifact, fixture.Fixture.ID, sourcePath, tempRoot, goEnvironment)
 	workCountValidateGoChild(t, "ordinary Go admission", workCountGoAdmissionChildSchema, "go-production-glr-untagged", uninstGo, fixture)
 	t.Log("admission: unmodified static C")
 	uninstC := workCountUninstrumentedCAdmission(t, fixture, sourcePath, tempRoot)
@@ -531,7 +531,7 @@ func TestAuthenticatedWorkCountOracle(t *testing.T) {
 	t.Log("run: instrumented static C child")
 	cResult := workCountRunC(t, cBuild.Artifact, sourcePath, tempRoot)
 	t.Log("run: tagged diagnostic Go child")
-	goResult := workCountRunGo(t, goArtifact, fixture.Fixture.ID, sourcePath, tempRoot, goEnvironment)
+	goResult := workCountRunGo(t, sourceSnapshot.Root, goArtifact, fixture.Fixture.ID, sourcePath, tempRoot, goEnvironment)
 	workCountValidateCChild(t, "static C", "static-c-instrumented-glr", cResult, fixture, uninstC)
 	workCountValidateGoChild(t, "tagged Go", workCountTaggedGoChildSchema, "go-production-glr-tagged-diagnostic", goResult.workCountGoChildResult, fixture)
 	workCountValidateGoCounters(t, "tagged Go", goResult.Counters, uint32(len(fixture.Source)))
@@ -1212,10 +1212,10 @@ func workCountRunC(t *testing.T, artifact, sourcePath, tempRoot string) workCoun
 	return result
 }
 
-func workCountRunGoAdmission(t *testing.T, artifact, fixtureID, sourcePath, tempRoot string, environment workCountEnvironment) workCountGoChildResult {
+func workCountRunGoAdmission(t *testing.T, sourceRoot, artifact, fixtureID, sourcePath, tempRoot string, environment workCountEnvironment) workCountGoChildResult {
 	t.Helper()
 	resultPath := filepath.Join(tempRoot, "go-admission.json")
-	workCountRunGoChild(t, artifact, "^TestWorkCountAdmissionChild$", fixtureID, sourcePath, resultPath, environment)
+	workCountRunGoChild(t, sourceRoot, artifact, "^TestWorkCountAdmissionChild$", fixtureID, sourcePath, resultPath, environment)
 	data, err := os.ReadFile(resultPath)
 	if err != nil {
 		t.Fatal(err)
@@ -1223,10 +1223,10 @@ func workCountRunGoAdmission(t *testing.T, artifact, fixtureID, sourcePath, temp
 	return workCountDecodeGoChild(t, data)
 }
 
-func workCountRunGo(t *testing.T, artifact, fixtureID, sourcePath, tempRoot string, environment workCountEnvironment) workCountTaggedChildResult {
+func workCountRunGo(t *testing.T, sourceRoot, artifact, fixtureID, sourcePath, tempRoot string, environment workCountEnvironment) workCountTaggedChildResult {
 	t.Helper()
 	resultPath := filepath.Join(tempRoot, "go-work-count.json")
-	workCountRunGoChild(t, artifact, "^TestDiagnosticWorkCountChild$", fixtureID, sourcePath, resultPath, environment)
+	workCountRunGoChild(t, sourceRoot, artifact, "^TestDiagnosticWorkCountChild$", fixtureID, sourcePath, resultPath, environment)
 	data, err := os.ReadFile(resultPath)
 	if err != nil {
 		t.Fatal(err)
@@ -1234,8 +1234,11 @@ func workCountRunGo(t *testing.T, artifact, fixtureID, sourcePath, tempRoot stri
 	return workCountDecodeTaggedGoChild(t, data)
 }
 
-func workCountRunGoChild(t *testing.T, artifact, testPattern, fixtureID, sourcePath, resultPath string, environment workCountEnvironment) {
+func workCountRunGoChild(t *testing.T, sourceRoot, artifact, testPattern, fixtureID, sourcePath, resultPath string, environment workCountEnvironment) {
 	t.Helper()
+	if !filepath.IsAbs(sourceRoot) {
+		t.Fatal("Go child source root must be an absolute snapshot path")
+	}
 	if strings.TrimSpace(fixtureID) == "" {
 		t.Fatal("Go child fixture ID is empty")
 	}
@@ -1247,7 +1250,9 @@ func workCountRunGoChild(t *testing.T, artifact, testPattern, fixtureID, sourceP
 		"GTS_WORK_COUNT_SOURCE": sourcePath,
 		"GTS_WORK_COUNT_RESULT": resultPath,
 	})
-	stdout, stderr, err := workCountRunCaptured("", runtimeEnv, workCountTimeout+staticCPerfWallGrace, artifact, "-test.run", testPattern, "-test.count=1")
+	// Package initialization can read fixtures before the selected test starts.
+	// Resolve those files inside the authenticated source snapshot.
+	stdout, stderr, err := workCountRunCaptured(sourceRoot, runtimeEnv, workCountTimeout+staticCPerfWallGrace, artifact, "-test.run", testPattern, "-test.count=1")
 	if err != nil {
 		t.Fatalf("Go child: %v: stdout=%s stderr=%s", err, strings.TrimSpace(string(stdout)), strings.TrimSpace(string(stderr)))
 	}

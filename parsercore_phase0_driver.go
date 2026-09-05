@@ -2186,10 +2186,9 @@ type diagnosticParserCoreCanonicalScratch struct {
 	groupsBucketCount   uint64
 	groupsBucketBytes   uint64
 	groupsRetainedBytes uint64
-	// versionStateEqual selects a prior semantic representative for each
-	// canonical key. The representative keeps the comparable key compact and
-	// avoids hashing mutable snapshot slices.
-	versionStateEqual func(left, right *diagnosticParserCoreVersionState) bool
+	// versionStateOwner resolves prior semantic representatives for canonical
+	// keys without constructing a bound method value for each canonicalization.
+	versionStateOwner *diagnosticParserCoreGenericScheduler
 }
 
 const (
@@ -2393,10 +2392,10 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeWithMutation(
 			// region-bearing versions separate when that distinction matters.
 			versionState = nil
 		}
-		if versionState != nil && s.versionStateEqual != nil {
+		if versionState != nil && s.versionStateOwner != nil {
 			for prior := 0; prior < index; prior++ {
 				representative := s.keys[prior].versionState
-				if representative != nil && s.versionStateEqual(representative, versionState) {
+				if representative != nil && s.versionStateOwner.versionLexerStateEqual(representative, versionState) {
 					versionState = representative
 					break
 				}
@@ -4312,7 +4311,7 @@ func clearDiagnosticParserCoreGenericSchedulerVersionState(scheduler *diagnostic
 	clearDiagnosticParserCorePhaseHeadBacking(scheduler.canonicalScratch.keys)
 	clearDiagnosticParserCorePhaseHeadBacking(scheduler.canonicalScratch.inlineKeys[:])
 	clear(scheduler.canonicalScratch.groups)
-	scheduler.canonicalScratch.versionStateEqual = nil
+	scheduler.canonicalScratch.versionStateOwner = nil
 	if cap(scheduler.versionLexerRequests) != 0 {
 		clear(scheduler.versionLexerRequests[:cap(scheduler.versionLexerRequests)])
 	}
@@ -13358,10 +13357,10 @@ func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwned(owner core.Sche
 }
 
 func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwnedWithMutation(owner core.SchedulerTransactionToken, expected core.DropCohortProducerMutation) error {
-	previousVersionStateEqual := s.canonicalScratch.versionStateEqual
-	s.canonicalScratch.versionStateEqual = s.versionLexerStateEqual
+	previousVersionStateOwner := s.canonicalScratch.versionStateOwner
+	s.canonicalScratch.versionStateOwner = s
 	defer func() {
-		s.canonicalScratch.versionStateEqual = previousVersionStateEqual
+		s.canonicalScratch.versionStateOwner = previousVersionStateOwner
 	}()
 	var headers []diagnosticParserCoreHeader
 	var mutation core.DropCohortProducerMutation

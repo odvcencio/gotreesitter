@@ -1,0 +1,109 @@
+File: memo-residual-query.test
+Build ID: bca6c75837af61a7bcf81ae932641d1f1e78d9cf
+Type: cpu
+Time: 2026-09-05 01:02:20 PDT
+Duration: 13.94s, Total samples = 12.74s (91.39%)
+Showing nodes accounting for 7.41s, 58.16% of 12.74s total
+Dropped 334 nodes (cum <= 0.06s)
+Showing top 100 nodes out of 161
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     12.69s 99.61%  github.com/odvcencio/gotreesitter_test.BenchmarkAdmissionCandidateGoQueryCompileWarmRoute
+         0     0%     0%     12.69s 99.61%  testing.(*B).runN
+         0     0%     0%     12.62s 99.06%  github.com/odvcencio/gotreesitter.(*Parser).Parse
+         0     0%     0%     12.62s 99.06%  github.com/odvcencio/gotreesitter.(*Parser).attemptAdmissionCandidateFullParse
+         0     0%     0%     12.62s 99.06%  github.com/odvcencio/gotreesitter.(*Parser).tryCompactFullParseRoute
+         0     0%     0%     12.61s 98.98%  github.com/odvcencio/gotreesitter.(*parserCoreFreshFullRunner).parse (inline)
+         0     0%     0%     12.61s 98.98%  github.com/odvcencio/gotreesitter.(*parserCoreFreshFullRunner).parseWithObserver
+         0     0%     0%     12.61s 98.98%  github.com/odvcencio/gotreesitter.(*parserCoreFreshFullRunner).parseWithObserverAndErrorRuns
+         0     0%     0%     12.60s 98.90%  testing.(*B).launch
+         0     0%     0%     10.96s 86.03%  github.com/odvcencio/gotreesitter.(*parserCoreFreshFullRunner).executeSchedulerOpenWithObserverAndErrorRuns
+         0     0%     0%     10.96s 86.03%  github.com/odvcencio/gotreesitter.executeDiagnosticParserCoreGenericSchedulerFromSeedInto
+     0.07s  0.55%  0.55%     10.95s 85.95%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).run
+         0     0%  0.55%     10.95s 85.95%  github.com/odvcencio/gotreesitter.executeDiagnosticParserCoreGenericSchedulerFromSeedInto.func1
+         0     0%  0.55%     10.95s 85.95%  github.com/odvcencio/gotreesitter.executeDiagnosticParserCoreGenericSchedulerFromSeedInto.func1.1
+         0     0%  0.55%     10.95s 85.95%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).RunFreshSchedulerSession
+     0.02s  0.16%  0.71%      7.09s 55.65%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).dispatchPass
+     0.41s  3.22%  3.92%      7.05s 55.34%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).dispatchPassActive
+     0.02s  0.16%  4.08%      3.73s 29.28%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).applyGenericReduction
+     0.21s  1.65%  5.73%      3.68s 28.89%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).applyGenericReductionOwned
+     0.09s  0.71%  6.44%      2.35s 18.45%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).elect
+     2.20s 17.27% 23.70%      2.20s 17.27%  runtime.duffcopy
+     0.02s  0.16% 23.86%      2.18s 17.11%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).reduceOutputsClassifiedIntoMaybeLiveScopedOwned
+     0.02s  0.16% 24.02%      2.07s 16.25%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).reduceOutputsClassifiedIntoUncheckpointed
+     0.25s  1.96% 25.98%      2.04s 16.01%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).reduceOutputsClassifiedIntoActive
+     0.01s 0.078% 26.06%      1.86s 14.60%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).ReduceOutputsClassifiedIntoWithLiveCondenseCandidatesOwned (inline)
+     0.03s  0.24% 26.30%      1.69s 13.27%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).Next
+         0     0% 26.30%      1.65s 12.95%  github.com/odvcencio/gotreesitter.(*parserCoreFreshFullRunner).materializeSelection
+         0     0% 26.30%      1.65s 12.95%  github.com/odvcencio/gotreesitter.materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization
+     0.04s  0.31% 26.61%      1.56s 12.24%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).applyGenericShifts
+     0.17s  1.33% 27.94%      1.50s 11.77%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).applyGenericShiftsOwned
+     0.02s  0.16% 28.10%      1.40s 10.99%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).pollStopControl
+         0     0% 28.10%      1.36s 10.68%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).stopControlMemoryBudgetReasonWithAdditionalBytes
+     0.02s  0.16% 28.26%      1.36s 10.68%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).stopControlMemoryBudgetReasonWithAdditionalBytes.func1 (inline)
+         0     0% 28.26%      1.35s 10.60%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).stopControlMemoryBudgetReason (inline)
+     0.31s  2.43% 30.69%      1.34s 10.52%  github.com/odvcencio/gotreesitter.diagnosticParserCoreSchedulerFootprintBytes
+     0.10s  0.78% 31.48%      1.19s  9.34%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).RunSchedulerOwned
+     0.01s 0.078% 31.55%      1.14s  8.95%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).scanPreferredTokenForState
+     0.10s  0.78% 32.34%      1.12s  8.79%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).scanDFATokenForState
+         0     0% 32.34%      0.96s  7.54%  github.com/odvcencio/gotreesitter.materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization.func6
+         0     0% 32.34%      0.96s  7.54%  github.com/odvcencio/gotreesitter.withProvidedMaterializationScratch
+     0.12s  0.94% 33.28%      0.96s  7.54%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).VisitMaterializationPostorderWithScratch
+     0.08s  0.63% 33.91%      0.93s  7.30%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).condenseWithOutcomeAtomic
+     0.01s 0.078% 33.99%      0.89s  6.99%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).nextDFAToken
+         0     0% 33.99%      0.84s  6.59%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).applyGenericConflict
+     0.07s  0.55% 34.54%      0.84s  6.59%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).applyGenericConflictOwned
+     0.09s  0.71% 35.24%      0.77s  6.04%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).persistHeaderLineageOwned
+         0     0% 35.24%      0.75s  5.89%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).canonicalizeOwned (inline)
+     0.05s  0.39% 35.64%      0.75s  5.89%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).canonicalizeOwnedWithMutation
+     0.08s  0.63% 36.26%      0.59s  4.63%  github.com/odvcencio/gotreesitter.materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization.func6.2
+     0.02s  0.16% 36.42%      0.54s  4.24%  github.com/odvcencio/gotreesitter.executeDiagnosticParserCoreGenericConflictDetailed
+     0.01s 0.078% 36.50%      0.54s  4.24%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).RecordHeadLineageOwned (inline)
+     0.17s  1.33% 37.83%      0.51s  4.00%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreCanonicalScratch).canonicalizeWithMutation
+         0     0% 37.83%      0.50s  3.92%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).nextTokenForLexState
+     0.05s  0.39% 38.23%      0.50s  3.92%  github.com/odvcencio/gotreesitter.executeDiagnosticParserCoreGenericConflictDetailed.func2
+         0     0% 38.23%      0.48s  3.77%  github.com/odvcencio/gotreesitter.(*Lexer).NextWithErrorRuns (inline)
+         0     0% 38.23%      0.48s  3.77%  github.com/odvcencio/gotreesitter.(*Lexer).next (inline)
+     0.03s  0.24% 38.46%      0.48s  3.77%  github.com/odvcencio/gotreesitter.(*Lexer).nextWithFrontier
+     0.01s 0.078% 38.54%      0.48s  3.77%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).condenseDirectAppend
+     0.08s  0.63% 39.17%      0.44s  3.45%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).persistHeaderLineageOwned.(*Core).RecordHeadLineageOwned.func2
+     0.05s  0.39% 39.56%      0.44s  3.45%  github.com/odvcencio/gotreesitter.applyParserCoreConflictActionInto
+         0     0% 39.56%      0.43s  3.38%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).shiftClassifiedMaybeLiveScopedOwned
+     0.02s  0.16% 39.72%      0.42s  3.30%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).nextGLRUnionDFAToken
+     0.01s 0.078% 39.80%      0.41s  3.22%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).ShiftClassifiedWithLiveCondenseCandidatesOwned (inline)
+     0.02s  0.16% 39.95%      0.41s  3.22%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).shiftClassifiedUncheckpointed
+     0.03s  0.24% 40.19%      0.40s  3.14%  github.com/odvcencio/gotreesitter.(*Lexer).scan
+     0.08s  0.63% 40.82%      0.37s  2.90%  github.com/odvcencio/gotreesitter.(*Parser).replayCompactDerivation
+     0.30s  2.35% 43.17%      0.35s  2.75%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.linkRecord.validateShape
+     0.16s  1.26% 44.43%      0.34s  2.67%  github.com/odvcencio/gotreesitter.appendDiagnosticParserCoreHeaderFootprintRefs
+     0.01s 0.078% 44.51%      0.34s  2.67%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).ReduceOutputsClassifiedIntoOwned (inline)
+     0.03s  0.24% 44.74%      0.33s  2.59%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).popPaths
+     0.30s  2.35% 47.10%      0.31s  2.43%  github.com/odvcencio/gotreesitter.(*Lexer).scanContiguous
+     0.01s 0.078% 47.17%      0.30s  2.35%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).glrUnionScanForState
+     0.11s  0.86% 48.04%      0.29s  2.28%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).reductionParentForPath
+     0.08s  0.63% 48.67%      0.28s  2.20%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).ClassifyBoundary
+     0.18s  1.41% 50.08%      0.27s  2.12%  github.com/odvcencio/gotreesitter.diagnosticParserCoreSchedulerFootprintBytes.func2 (inline)
+     0.01s 0.078% 50.16%      0.26s  2.04%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).captureSharedElectionSnapshotFromExternalPayload
+         0     0% 50.16%      0.25s  1.96%  github.com/odvcencio/gotreesitter.(*Parser).buildResultFromNodes
+         0     0% 50.16%      0.25s  1.96%  github.com/odvcencio/gotreesitter.(*Parser).finalizeResultRoot
+     0.11s  0.86% 51.02%      0.25s  1.96%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).nextExternalToken
+         0     0% 51.02%      0.25s  1.96%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).recoveryNodeBaselineForHead
+         0     0% 51.02%      0.25s  1.96%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).resetRecoveryNodeBaseline
+         0     0% 51.02%      0.25s  1.96%  github.com/odvcencio/gotreesitter.(*resultRootBuild).buildSingleRootTree
+         0     0% 51.02%      0.25s  1.96%  github.com/odvcencio/gotreesitter.(*resultRootBuild).finalizeRoot
+         0     0% 51.02%      0.25s  1.96%  github.com/odvcencio/gotreesitter.(*resultRootBuild).finishTree
+         0     0% 51.02%      0.24s  1.88%  github.com/odvcencio/gotreesitter.(*Parser).buildReduceChildrenWithPath
+         0     0% 51.02%      0.23s  1.81%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).recoveryCumulativeVisibleNodeCount
+     0.04s  0.31% 51.33%      0.22s  1.73%  github.com/odvcencio/gotreesitter.(*dfaTokenSource).snapshotRelexStateWithScratchFromExternalPayload
+     0.21s  1.65% 52.98%      0.22s  1.73%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).FootprintBytes
+     0.22s  1.73% 54.71%      0.22s  1.73%  runtime.duffzero
+         0     0% 54.71%      0.21s  1.65%  github.com/odvcencio/gotreesitter.applyResultCompatibility
+         0     0% 54.71%      0.21s  1.65%  github.com/odvcencio/gotreesitter.applyResultCompatibilityForParentLinkSummary (inline)
+         0     0% 54.71%      0.21s  1.65%  github.com/odvcencio/gotreesitter.dispatcherArmSubpassCensus
+         0     0% 54.71%      0.21s  1.65%  github.com/odvcencio/gotreesitter.materializationSubpassCensus.run
+         0     0% 54.71%      0.21s  1.65%  github.com/odvcencio/gotreesitter.normalizeGoReturnedTreeCompatibilityWithCensus
+         0     0% 54.71%      0.21s  1.65%  github.com/odvcencio/gotreesitter.runLanguageResultCompatibility
+         0     0% 54.71%      0.21s  1.65%  github.com/odvcencio/gotreesitter.runLanguageResultCompatibility.func14
+     0.20s  1.57% 56.28%      0.21s  1.65%  github.com/odvcencio/gotreesitter/internal/parsercorephase0.(*Core).appendSubtreeRecord
+     0.01s 0.078% 56.36%      0.21s  1.65%  runtime.mallocgc
+     0.13s  1.02% 57.38%      0.20s  1.57%  github.com/odvcencio/gotreesitter.(*diagnosticParserCoreGenericScheduler).collectCondenseCandidates
+     0.10s  0.78% 58.16%      0.20s  1.57%  github.com/odvcencio/gotreesitter.(*parserCoreRootTables).Actions

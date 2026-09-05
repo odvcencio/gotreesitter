@@ -1,0 +1,362 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# working directory: /baseline/cgo_harness
+# repository root: unavailable
+# revision: unavailable
+# dirty: unknown
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-05T07:47:29Z
+# package: .
+# bench regex: ^BenchmarkParityGoCanonicalFull$
+# required benchmarks: BenchmarkParityGoCanonicalFull/query_compile/gotreesitter,BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c,BenchmarkParityGoCanonicalFull/rewrite/gotreesitter,BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c,BenchmarkParityGoCanonicalFull/language/gotreesitter,BenchmarkParityGoCanonicalFull/language/tree-sitter-c,BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter,BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c
+# build tags: treesitter_c_parity,gts_parsercorephase0
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      15	  51248422 ns/op	   0.39 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413681 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     176	   4967147 ns/op	   4.06 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     172	   6230673 ns/op	   0.82 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301609 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     768	   1379791 ns/op	   3.71 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	 106408689 ns/op	   0.39 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767917 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     162	   4901639 ns/op	   8.44 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5428739569 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434011544 B/op	52741158 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      14	  57848686 ns/op	   4.07 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	29.565s
+# completed seed: 1; at: 2026-09-05T07:48:37Z
+# seed: 2; position: 2
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      15	  58178065 ns/op	   0.35 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413680 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     154	   5600759 ns/op	   3.60 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     177	   5006088 ns/op	   1.02 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301639 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     771	   1098829 ns/op	   4.66 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	 105788966 ns/op	   0.39 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767917 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     152	   5772337 ns/op	   7.17 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5767614500 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010904 B/op	52741154 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      14	  57955605 ns/op	   4.07 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	27.329s
+# completed seed: 2; at: 2026-09-05T07:49:16Z
+# seed: 3; position: 1
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      15	  54415678 ns/op	   0.37 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413683 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     187	   4829081 ns/op	   4.18 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     178	   4908905 ns/op	   1.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301608 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     867	    994032 ns/op	   5.15 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	 100681042 ns/op	   0.41 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767864 B/op	  885522 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     190	   4828009 ns/op	   8.57 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	6283299694 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434012120 B/op	52741158 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      15	  54157717 ns/op	   4.35 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	26.693s
+# completed seed: 3; at: 2026-09-05T07:49:55Z
+# seed: 4; position: 2
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      15	  56037877 ns/op	   0.36 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413680 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     169	   5503937 ns/op	   3.66 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     165	   4720859 ns/op	   1.08 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301654 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     931	    984219 ns/op	   5.20 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	 119729401 ns/op	   0.35 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767917 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     146	   5383034 ns/op	   7.69 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5658165150 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010264 B/op	52741152 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      18	  55940993 ns/op	   4.21 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	26.642s
+# completed seed: 4; at: 2026-09-05T07:50:33Z
+# seed: 5; position: 1
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      16	  57883794 ns/op	   0.35 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413675 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     183	   5064510 ns/op	   3.98 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     186	   5077381 ns/op	   1.01 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301620 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     831	   1039378 ns/op	   4.92 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	 100874683 ns/op	   0.41 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767864 B/op	  885522 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     158	   5476298 ns/op	   7.56 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5823154159 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010312 B/op	52741152 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      12	  62510823 ns/op	   3.77 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	25.937s
+# completed seed: 5; at: 2026-09-05T07:51:09Z
+# seed: 6; position: 2
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      15	  58095195 ns/op	   0.35 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413681 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     160	   5838639 ns/op	   3.45 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     141	   6404351 ns/op	   0.80 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301646 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     693	   1305006 ns/op	   3.92 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       6	 130474596 ns/op	   0.32 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767901 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     126	   6524858 ns/op	   6.34 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	7032239345 ns/op	   0.03 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010664 B/op	52741155 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      12	  73378918 ns/op	   3.21 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	29.560s
+# completed seed: 6; at: 2026-09-05T07:51:50Z
+# seed: 7; position: 1
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      12	  69026026 ns/op	   0.29 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413665 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     151	   6178817 ns/op	   3.26 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     139	   6141836 ns/op	   0.83 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301638 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     720	   1263019 ns/op	   4.05 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       6	 127726798 ns/op	   0.32 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767898 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     132	   6819859 ns/op	   6.07 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	7573496342 ns/op	   0.03 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434012104 B/op	52741158 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      12	  74143312 ns/op	   3.18 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	31.471s
+# completed seed: 7; at: 2026-09-05T07:52:37Z
+# seed: 8; position: 2
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      15	  60428346 ns/op	   0.33 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413681 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     189	   4888339 ns/op	   4.13 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     168	   5224971 ns/op	   0.98 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301635 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     871	   1018831 ns/op	   5.02 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	 115255546 ns/op	   0.36 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767921 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     171	   5682765 ns/op	   7.28 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5716432822 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434011208 B/op	52741156 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      18	  51317402 ns/op	   4.59 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	30.396s
+# completed seed: 8; at: 2026-09-05T07:53:20Z
+# seed: 9; position: 1
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      16	  54468444 ns/op	   0.37 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413678 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     177	   5121256 ns/op	   3.94 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     172	   5169987 ns/op	   0.99 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301616 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     994	    953129 ns/op	   5.37 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	  98727486 ns/op	   0.42 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767864 B/op	  885522 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     176	   5007734 ns/op	   8.26 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5976781834 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434012424 B/op	52741160 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      13	  67557174 ns/op	   3.49 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	25.646s
+# completed seed: 9; at: 2026-09-05T07:53:58Z
+# seed: 10; position: 2
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      14	  55947712 ns/op	   0.36 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413692 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     182	   5345831 ns/op	   3.77 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     152	   6022074 ns/op	   0.85 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301616 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     847	   1126961 ns/op	   4.54 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       7	 120113168 ns/op	   0.34 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767877 B/op	  885522 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     142	   7063381 ns/op	   5.86 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	6886869166 ns/op	   0.03 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434011784 B/op	52741158 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      12	  65420368 ns/op	   3.60 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	30.624s
+# completed seed: 10; at: 2026-09-05T07:54:38Z
+# seed: 11; position: 1
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      12	  67095679 ns/op	   0.30 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413669 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     144	   6075750 ns/op	   3.32 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     138	   5761438 ns/op	   0.89 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301616 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     744	   1197120 ns/op	   4.27 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       7	 121550657 ns/op	   0.34 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767877 B/op	  885522 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     148	   6321911 ns/op	   6.55 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	6013162724 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434011496 B/op	52741156 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      14	  62581392 ns/op	   3.77 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	29.229s
+# completed seed: 11; at: 2026-09-05T07:55:23Z
+# seed: 12; position: 2
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      14	  60066052 ns/op	   0.34 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413689 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     140	   7052480 ns/op	   2.86 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     127	   7528811 ns/op	   0.68 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301615 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     506	   1625916 ns/op	   3.15 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       6	 147833264 ns/op	   0.28 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767901 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	      90	   8654365 ns/op	   4.78 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	7475092567 ns/op	   0.03 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434011176 B/op	52741156 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      14	  64755703 ns/op	   3.64 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	31.362s
+# completed seed: 12; at: 2026-09-05T07:56:06Z
+# seed: 13; position: 1
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      14	  56556965 ns/op	   0.36 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413686 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     166	   4888167 ns/op	   4.13 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     178	   5169792 ns/op	   0.99 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301619 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     884	   1033562 ns/op	   4.95 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       7	 115072031 ns/op	   0.36 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767882 B/op	  885522 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     172	   5174218 ns/op	   8.00 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5256338632 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434011816 B/op	52741158 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      18	  57266264 ns/op	   4.11 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	26.944s
+# completed seed: 13; at: 2026-09-05T07:56:44Z
+# seed: 14; position: 2
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      12	  68986786 ns/op	   0.29 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413669 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     148	   6052398 ns/op	   3.33 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     147	   5861295 ns/op	   0.87 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301617 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     758	   1126587 ns/op	   4.54 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       7	 110827292 ns/op	   0.37 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767880 B/op	  885522 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     163	   5321824 ns/op	   7.78 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5370436080 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010248 B/op	52741152 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      16	  52887092 ns/op	   4.46 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	27.147s
+# completed seed: 14; at: 2026-09-05T07:57:24Z
+# seed: 15; position: 1
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      16	  53709144 ns/op	   0.38 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413677 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     141	   5965718 ns/op	   3.38 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     147	   6006375 ns/op	   0.85 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301623 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     700	   1302305 ns/op	   3.93 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       6	 126215384 ns/op	   0.33 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767901 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     157	   5833726 ns/op	   7.09 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5571124937 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010872 B/op	52741154 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      16	  54105314 ns/op	   4.35 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	26.124s
+# completed seed: 15; at: 2026-09-05T07:58:02Z
+# seed: 16; position: 2
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      16	  53796940 ns/op	   0.37 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413679 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     204	   4580408 ns/op	   4.40 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     188	   4668471 ns/op	   1.10 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301633 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     998	    964027 ns/op	   5.31 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	  99994805 ns/op	   0.41 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767917 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     175	   4977550 ns/op	   8.31 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5270450616 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010280 B/op	52741152 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      15	  53470758 ns/op	   4.41 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.627s
+# completed seed: 16; at: 2026-09-05T07:58:35Z
+# seed: 17; position: 1
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      14	  55488878 ns/op	   0.36 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413686 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     188	   5027556 ns/op	   4.01 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     168	   4660300 ns/op	   1.10 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301628 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	    1015	   1019930 ns/op	   5.02 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	 104789193 ns/op	   0.39 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767919 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     168	   5082910 ns/op	   8.14 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5537652828 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434011496 B/op	52741156 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      16	  51463996 ns/op	   4.58 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	26.228s
+# completed seed: 17; at: 2026-09-05T07:59:13Z
+# seed: 18; position: 2
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      16	  52148837 ns/op	   0.39 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413675 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     158	   5601941 ns/op	   3.60 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     171	   5553726 ns/op	   0.92 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301624 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     720	   1168922 ns/op	   4.38 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	 103592202 ns/op	   0.40 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767862 B/op	  885522 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     165	   5369690 ns/op	   7.71 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5141499497 ns/op	   0.05 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010600 B/op	52741154 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      15	  60505760 ns/op	   3.89 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.675s
+# completed seed: 18; at: 2026-09-05T07:59:49Z
+# seed: 19; position: 1
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      15	  50448997 ns/op	   0.40 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413681 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     187	   4746478 ns/op	   4.25 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     187	   4799239 ns/op	   1.07 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301617 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     934	    957479 ns/op	   5.34 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	  98750275 ns/op	   0.42 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767919 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     170	   5195571 ns/op	   7.97 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5361855079 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010280 B/op	52741152 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      18	  50546376 ns/op	   4.66 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	24.839s
+# completed seed: 19; at: 2026-09-05T08:00:25Z
+# seed: 20; position: 2
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/query_compile/gotreesitter         	      14	  58159945 ns/op	   0.35 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     11474 nodes/op	         0 peak_depth	      5126 tokens/op	 3413687 B/op	  388966 allocs/op
+BenchmarkParityGoCanonicalFull/query_compile/tree-sitter-c        	     177	   5129370 ns/op	   3.93 MB/s	   20688 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/gotreesitter               	     187	   4847964 ns/op	   1.06 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	      2262 nodes/op	         0 peak_depth	      1036 tokens/op	  301626 B/op	   16319 allocs/op
+BenchmarkParityGoCanonicalFull/rewrite/tree-sitter-c              	     799	    991049 ns/op	   5.16 MB/s	    5584 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/language/gotreesitter              	       8	 107192428 ns/op	   0.39 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	     10975 nodes/op	         0 peak_depth	      5058 tokens/op	 7767919 B/op	  885523 allocs/op
+BenchmarkParityGoCanonicalFull/language/tree-sitter-c             	     172	   5112162 ns/op	   8.10 MB/s	   49360 B/op	       8 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	5523393282 ns/op	   0.04 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	434010920 B/op	52741154 allocs/op
+BenchmarkParityGoCanonicalFull/grammargen_lr/tree-sitter-c        	      16	  54296980 ns/op	   4.34 MB/s	  237776 B/op	       8 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	25.609s
+# completed seed: 20; at: 2026-09-05T08:01:02Z
+# repository root at end: unavailable
+# revision at end: unavailable
+# dirty at end: unknown
+# completed runs: 20
+# status: complete

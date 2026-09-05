@@ -1,0 +1,29 @@
+{
+  "baseline": {
+    "path": "/home/draco/work/gts-clean-recovery-baseline-20260905",
+    "head": "2f72bae21f30f17fb7638a236b2414fa499a1998",
+    "status": ""
+  },
+  "candidate": {
+    "path": "/home/draco/work/gts-canonical-owner-binding-20260905",
+    "head": "b471e9224cc66dc32068e4494ca658a29da77bd0",
+    "status": ""
+  },
+  "driver": {
+    "path": "/home/draco/work/gts-performance-evidence-loop-20260905",
+    "head": "4e8d780c0dfecfff2b14850bc750e22b8ab15fa0",
+    "status": ""
+  },
+  "protocol": {
+    "gomaxprocs": 1,
+    "seeds": 20,
+    "seed_start": 1,
+    "benchtime": "750ms",
+    "tags": "gts_parsercorephase0",
+    "docker_memory": "4g",
+    "go_memory_limit": "3GiB",
+    "cpu_set": "2",
+    "go_toolchain": "go1.25.14",
+    "host_shared": true
+  }
+}

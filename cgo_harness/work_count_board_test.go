@@ -21,7 +21,7 @@ const (
 	workCountBoardGoBackendEnv            = "GTS_WORK_COUNT_GO_BACKEND"
 	workCountBoardGoProduction            = "production"
 	workCountBoardGoParserCore            = "parsercore_phase0"
-	workCountBoardParserCoreChildSchema   = "gts-work-count-parsercore-child/v4"
+	workCountBoardParserCoreChildSchema   = "gts-work-count-parsercore-child/v5"
 	workCountBoardParserCoreEngine        = "go-compact-parsercore-phase0-tagged-diagnostic"
 	workCountBoardSchema                  = "gts-work-count-board/v5"
 	workCountBoardContractSchema          = "gts-work-count-board-contract/v3"
@@ -140,6 +140,9 @@ type workCountBoardParserCoreWork struct {
 }
 
 type workCountBoardParserCoreScheduler struct {
+	Passes                     uint64 `json:"passes"`
+	SingleHeaderPasses         uint64 `json:"single_header_passes"`
+	CorridorPasses             uint64 `json:"corridor_passes"`
 	ActionLookups              uint64 `json:"action_lookups"`
 	Accepts                    uint64 `json:"accepts"`
 	Elections                  uint64 `json:"elections"`
@@ -359,7 +362,7 @@ func TestAuthenticatedFourFixtureWorkCountBoard(t *testing.T) {
 			PublicationTimingArtifact:         "ordinary untagged Go plus locked uninstrumented static C only",
 			GoBackend:                         goBackend,
 			UntaggedAssemblyTest:              "TestWorkCountProductionAssemblyHasNoDiagnosticScaffolding",
-			SchedulingFields:                  []string{"production: max_stacks_seen/multi_stack_iterations/multi_stack_tokens", "parsercore_phase0: action_lookups/accepts/elections/forks/conflicts/conflict_actions/canonicalizations/peak_headers"},
+			SchedulingFields:                  []string{"production: max_stacks_seen/multi_stack_iterations/multi_stack_tokens", "parsercore_phase0: passes/single_header_passes/corridor_passes/action_lookups/accepts/elections/forks/conflicts/conflict_actions/canonicalizations/peak_headers"},
 		},
 		Rows: make([]workCountBoardRow, 0, len(fixtures)),
 	}
@@ -378,7 +381,7 @@ func TestAuthenticatedFourFixtureWorkCountBoard(t *testing.T) {
 				t.Fatalf("source snapshot sha=%s want=%s", got, fixture.Fixture.SHA256)
 			}
 
-			uninstGo := workCountRunGoAdmission(t, goAdmissionArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, goEnvironment)
+			uninstGo := workCountRunGoAdmission(t, sourceSnapshot.Root, goAdmissionArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, goEnvironment)
 			workCountValidateGoChild(t, "ordinary Go admission", workCountGoAdmissionChildSchema, "go-production-glr-untagged", uninstGo, fixture)
 			uninstC := workCountUninstrumentedCAdmission(t, fixture, sourcePath, fixtureTemp)
 			if uninstGo.DeepTreeSHA256 != uninstC || uninstC != fixture.Fixture.DeepTreeSHA256 {
@@ -391,7 +394,7 @@ func TestAuthenticatedFourFixtureWorkCountBoard(t *testing.T) {
 			untaggedScheduling := workCountScheduling(uninstGo)
 			switch goBackend {
 			case workCountBoardGoProduction:
-				goResult := workCountRunGo(t, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, goEnvironment)
+				goResult := workCountRunGo(t, sourceSnapshot.Root, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, goEnvironment)
 				workCountValidateGoChild(t, "tagged Go", workCountTaggedGoChildSchema, "go-production-glr-tagged-diagnostic", goResult.workCountGoChildResult, fixture)
 				workCountValidateGoBoardCounters(t, goResult.Counters, uint32(len(fixture.Source)))
 				if cResult.DeepTreeSHA256 != goResult.DeepTreeSHA256 {
@@ -410,8 +413,8 @@ func TestAuthenticatedFourFixtureWorkCountBoard(t *testing.T) {
 					Metrics: metrics,
 				})
 			case workCountBoardGoParserCore:
-				first := workCountRunParserCoreGo(t, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, "first", goEnvironment)
-				second := workCountRunParserCoreGo(t, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, "repeat", goEnvironment)
+				first := workCountRunParserCoreGo(t, sourceSnapshot.Root, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, "first", goEnvironment)
+				second := workCountRunParserCoreGo(t, sourceSnapshot.Root, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, "repeat", goEnvironment)
 				workCountValidateParserCoreChild(t, first, fixture)
 				workCountValidateParserCoreChild(t, second, fixture)
 				if !reflect.DeepEqual(first, second) {
@@ -578,10 +581,10 @@ func workCountBuildParserCoreGo(t *testing.T, source workCountSourceSnapshot, te
 	}
 }
 
-func workCountRunParserCoreGo(t *testing.T, artifact, fixtureID, sourcePath, tempRoot, pass string, environment workCountEnvironment) workCountBoardParserCoreChildResult {
+func workCountRunParserCoreGo(t *testing.T, sourceRoot, artifact, fixtureID, sourcePath, tempRoot, pass string, environment workCountEnvironment) workCountBoardParserCoreChildResult {
 	t.Helper()
 	resultPath := filepath.Join(tempRoot, "go-parsercore-work-count-"+pass+".json")
-	workCountRunGoChild(t, artifact, "^TestParserCoreWorkCountChild$", fixtureID, sourcePath, resultPath, environment)
+	workCountRunGoChild(t, sourceRoot, artifact, "^TestParserCoreWorkCountChild$", fixtureID, sourcePath, resultPath, environment)
 	data, err := os.ReadFile(resultPath)
 	if err != nil {
 		t.Fatal(err)
@@ -596,9 +599,47 @@ func workCountRunParserCoreGo(t *testing.T, artifact, fixtureID, sourcePath, tem
 		"candidate_fallbacks", "board_direct", "core_work", "scheduler_work", "selected_census", "raw_selected_internal_census",
 	})
 	workCountValidateBoardDirectObject(t, raw["board_direct"])
+	if err := workCountValidateParserCoreSchedulerObject(raw["scheduler_work"]); err != nil {
+		t.Fatalf("parser-core scheduler protocol: %v", err)
+	}
 	var result workCountBoardParserCoreChildResult
 	workCountDecodeExact(t, data, &result)
 	return result
+}
+
+var workCountParserCoreSchedulerFields = []string{
+	"passes", "single_header_passes", "corridor_passes", "action_lookups", "accepts", "elections",
+	"forks", "conflicts", "conflict_actions", "conflict_action_arms_admitted", "causal_conflict_forks",
+	"canonicalizations", "peak_headers", "overflow",
+}
+
+func workCountValidateParserCoreSchedulerObject(data json.RawMessage) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("decode scheduler object: %w", err)
+	}
+	if len(raw) != len(workCountParserCoreSchedulerFields) {
+		return fmt.Errorf("scheduler field count=%d want=%d", len(raw), len(workCountParserCoreSchedulerFields))
+	}
+	for _, field := range workCountParserCoreSchedulerFields {
+		value, exists := raw[field]
+		if !exists || strings.TrimSpace(string(value)) == "null" {
+			return fmt.Errorf("scheduler field %q is absent or null", field)
+		}
+	}
+	var scheduler workCountBoardParserCoreScheduler
+	if err := json.Unmarshal(data, &scheduler); err != nil {
+		return fmt.Errorf("decode scheduler counters: %w", err)
+	}
+	return workCountValidateParserCorePassMix(scheduler)
+}
+
+func workCountValidateParserCorePassMix(scheduler workCountBoardParserCoreScheduler) error {
+	if scheduler.Passes == 0 || scheduler.SingleHeaderPasses == 0 ||
+		scheduler.SingleHeaderPasses > scheduler.Passes || scheduler.CorridorPasses > scheduler.SingleHeaderPasses {
+		return fmt.Errorf("invalid scheduler pass partition: passes=%d single_header=%d corridor=%d", scheduler.Passes, scheduler.SingleHeaderPasses, scheduler.CorridorPasses)
+	}
+	return nil
 }
 
 func workCountValidateParserCoreChild(t *testing.T, result workCountBoardParserCoreChildResult, fixture benchfixtures.LoadedFixture) {
@@ -646,6 +687,9 @@ func workCountValidateParserCoreChild(t *testing.T, result workCountBoardParserC
 func workCountValidateParserCoreCounterEnvelope(result workCountBoardParserCoreChildResult) error {
 	if result.CoreWork.Overflow || result.SchedulerWork.Overflow || result.RawSelected.Overflow {
 		return fmt.Errorf("counter overflow: core=%t scheduler=%t raw=%t", result.CoreWork.Overflow, result.SchedulerWork.Overflow, result.RawSelected.Overflow)
+	}
+	if err := workCountValidateParserCorePassMix(result.SchedulerWork); err != nil {
+		return err
 	}
 	if result.CoreWork.LeafConstructionsProxy < result.RawSelected.Leaves || result.CoreWork.ParentConstructionsProxy < result.RawSelected.Parents {
 		return fmt.Errorf("construction surplus underflow: core=%+v raw=%+v", result.CoreWork, result.RawSelected)
@@ -935,6 +979,9 @@ func workCountValidateBoard(t *testing.T, contract workCountBoardContract, board
 			if row.TaggedGoScheduling != nil || row.ParserCoreScheduler == nil || !row.RepeatIdenticalCounts || row.ParserCoreScheduler.Accepts != 1 || row.ParserCoreScheduler.ActionLookups == 0 {
 				t.Fatalf("parser-core row scheduling proof invalid: %+v", row)
 			}
+			if err := workCountValidateParserCorePassMix(*row.ParserCoreScheduler); err != nil {
+				t.Fatalf("parser-core row pass partition: %v", err)
+			}
 		default:
 			t.Fatalf("unknown row backend: %+v", row)
 		}
@@ -1061,7 +1108,7 @@ func TestWorkCountBoardMetricStatusAndRatios(t *testing.T) {
 			PredecessorLinkUnionAttempts: 3, PredecessorLinkUnionDuplicateNoop: 1,
 			PredecessorLinkUnionAlternateAppended: 2,
 		},
-		SchedulerWork: workCountBoardParserCoreScheduler{ActionLookups: 12, Accepts: 1, Elections: 7, Forks: 4, Conflicts: 3, ConflictActionArmsAdmitted: 4, CausalConflictForks: 1},
+		SchedulerWork: workCountBoardParserCoreScheduler{Passes: 10, SingleHeaderPasses: 8, ActionLookups: 12, Accepts: 1, Elections: 7, Forks: 4, Conflicts: 3, ConflictActionArmsAdmitted: 4, CausalConflictForks: 1},
 		Selected:      workCountBoardSelectedCensus{Nodes: 3, Parents: 1, Leaves: 2},
 		RawSelected:   workCountBoardRawSelectedCensus{Nodes: 3, Parents: 1, Leaves: 2},
 	}
@@ -1171,7 +1218,10 @@ func TestWorkCountPerVersionCLexRequestCannotSatisfyUnionFrontierContract(t *tes
 		t.Fatalf("%s lacks lexer_elections metric", label)
 	}
 	assertUnavailable("production", workCountBuildBoardMetrics(t, contract, counts, counts, goDirect, cDirect))
-	candidate := workCountBoardParserCoreChildResult{BoardDirect: goDirect}
+	candidate := workCountBoardParserCoreChildResult{
+		BoardDirect:   goDirect,
+		SchedulerWork: workCountBoardParserCoreScheduler{Passes: 1, SingleHeaderPasses: 1},
+	}
 	assertUnavailable("parsercore", workCountBuildParserCoreBoardMetrics(t, contract, candidate, counts, cDirect))
 }
 
@@ -1195,5 +1245,88 @@ func TestWorkCountParserCoreChildSchedulerOverflowProtocol(t *testing.T) {
 	}
 	if err := workCountValidateParserCoreCounterEnvelope(got); err == nil || !strings.Contains(err.Error(), "scheduler=true") {
 		t.Fatalf("scheduler overflow protocol did not fail closed: %v", err)
+	}
+}
+
+func TestWorkCountParserCoreChildSchedulerV5Protocol(t *testing.T) {
+	want := workCountBoardParserCoreChildResult{
+		Schema: workCountBoardParserCoreChildSchema,
+		SchedulerWork: workCountBoardParserCoreScheduler{
+			Passes: 100, SingleHeaderPasses: 80, CorridorPasses: 60,
+			ActionLookups: 140, Accepts: 1, Elections: 40, PeakHeaders: 8,
+		},
+	}
+	data, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got workCountBoardParserCoreChildResult
+	workCountDecodeExact(t, data, &got)
+	if got.Schema != "gts-work-count-parsercore-child/v5" || got.SchedulerWork != want.SchedulerWork {
+		t.Fatalf("scheduler v5 protocol drifted: %+v", got)
+	}
+	schedulerData, err := json.Marshal(got.SchedulerWork)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := workCountValidateParserCoreSchedulerObject(schedulerData); err != nil {
+		t.Fatalf("valid scheduler v5 object: %v", err)
+	}
+	if err := workCountValidateParserCoreCounterEnvelope(got); err != nil {
+		t.Fatalf("valid scheduler v5 envelope: %v", err)
+	}
+	got.SchedulerWork.CorridorPasses = 0
+	if err := workCountValidateParserCorePassMix(got.SchedulerWork); err != nil {
+		t.Fatalf("disabled corridor failed admission: %v", err)
+	}
+
+	for _, field := range workCountParserCoreSchedulerFields {
+		for _, corruption := range []string{"missing", "null"} {
+			t.Run(field+"/"+corruption, func(t *testing.T) {
+				var raw map[string]json.RawMessage
+				if err := json.Unmarshal(schedulerData, &raw); err != nil {
+					t.Fatal(err)
+				}
+				if corruption == "missing" {
+					delete(raw, field)
+				} else {
+					raw[field] = json.RawMessage("null")
+				}
+				data, err := json.Marshal(raw)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := workCountValidateParserCoreSchedulerObject(data); err == nil {
+					t.Fatalf("scheduler admitted %s field %q", corruption, field)
+				}
+			})
+		}
+	}
+	for _, tc := range []struct {
+		name, field, value string
+	}{
+		{"unknown", "future_counter", "0"},
+		{"wrong_type", "single_header_passes", `"80"`},
+		{"negative", "passes", "-1"},
+		{"overflow", "passes", "18446744073709551616"},
+		{"zero_passes", "passes", "0"},
+		{"zero_single", "single_header_passes", "0"},
+		{"single_exceeds_total", "single_header_passes", "101"},
+		{"corridor_exceeds_single", "corridor_passes", "81"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var raw map[string]json.RawMessage
+			if err := json.Unmarshal(schedulerData, &raw); err != nil {
+				t.Fatal(err)
+			}
+			raw[tc.field] = json.RawMessage(tc.value)
+			data, err := json.Marshal(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := workCountValidateParserCoreSchedulerObject(data); err == nil {
+				t.Fatalf("scheduler admitted %s", tc.name)
+			}
+		})
 	}
 }

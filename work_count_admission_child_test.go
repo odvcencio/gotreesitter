@@ -19,6 +19,8 @@ func TestWorkCountAdmissionChild(t *testing.T) {
 		t.Fatal(err)
 	}
 	parser := gotreesitter.NewParser(input.lang)
+	parser.SetAdmissionCandidateRoute(false)
+	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	tree, parseErr := parser.Parse(input.source)
 	if parseErr != nil {
 		if tree != nil {
@@ -27,6 +29,10 @@ func TestWorkCountAdmissionChild(t *testing.T) {
 		t.Fatalf("parse: %v", parseErr)
 	}
 	defer tree.Release()
+	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
+	if routedAfter != routedBefore || fallbackAfter != fallbackBefore {
+		t.Fatalf("production admission attempted compact parsing: routed=%d->%d fallback=%d->%d", routedBefore, routedAfter, fallbackBefore, fallbackAfter)
+	}
 	result, err := authenticateWorkCountTree(input, tree)
 	if err != nil {
 		t.Fatal(err)
@@ -35,4 +41,8 @@ func TestWorkCountAdmissionChild(t *testing.T) {
 	if err := writeWorkCountChildResult(result); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestWorkCountAdmissionChildUsesProductionRoute(t *testing.T) {
+	runWorkCountProductionRouteRegression(t, TestWorkCountAdmissionChild, workCountGoChildSchema, workCountAdmissionEngine)
 }

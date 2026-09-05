@@ -1,0 +1,6 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter/cgo_harness
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkParityGoCanonicalFull/grammargen_lr/gotreesitter         	       1	 195519200 ns/op	   1.21 MB/s	         0 arena_B/op	         0 max_stacks	         0 multi_iters/op	         0 multi_tokens/op	    109769 nodes/op	         0 peak_depth	     49912 tokens/op	 6259072 B/op	  186192 allocs/op
+PASS
