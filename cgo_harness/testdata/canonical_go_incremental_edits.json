@@ -29,8 +29,8 @@
       "new_text": "1",
       "source_sha256": "938253936e03230126ab1aa1f78ccd919a51e20f7207f0199704144636fe5b9a",
       "edited_sha256": "f6993788c45b23a3584d971316d7493ec20cf063e393629a215e13c6322d1820",
-      "forward_classification": "same_length_leaf_validation",
-      "reverse_classification": "same_length_leaf_validation",
+      "forward_classification": "compact_incremental_reparse",
+      "reverse_classification": "compact_incremental_reparse",
       "forward_outcome": "parity",
       "reverse_outcome": "parity",
       "timing_eligible": true

@@ -370,17 +370,16 @@ the built-in registry. It is derived from the registration files under
 - **fallback (explicit opt-out)** means the scanner implements the
   interface and returns false.
 - **fallback (uncertified)** means the scanner does not implement the
-  interface. For either fallback status, once the preliminary
-  token-invariant leaf fast path declines, `ParseIncremental` ignores the
+  interface. For either fallback status, `ParseIncremental` ignores the
   old tree and runs the same production full-parse and retry path as
   `Parse`. `ParseIncrementalProfiled` reports `ReuseUnsupported=true`,
   `ReuseUnsupportedReason="external_scanner_unsupported"`, no old-tree
   reuse route, and no reused bytes or subtrees.
 
-The token-invariant leaf exception is intentionally narrow: on a production
-tree, a same-length edit that independently reauthenticates the same leaf
-token may return before the scanner gate. That is not certification for
-general scanner-dependent subtree reuse. Likewise, scanner checkpoints do
+Version 0.52.0 disables the unsafe same-width token-invariant shortcut.
+Edited parses must use certified ordinary reuse or the full-parse fallback.
+No-edit reuse remains available. Restoring the shortcut requires complete
+lexical dependency proofs under issue #1087. Scanner checkpoints do
 not certify a scanner by themselves: CMake, SQL, HTML, and Python opt in,
 while Mojo, Starlark, and Svelte explicitly opt out. Custom
 `TokenSource` implementations have their own
@@ -603,9 +602,9 @@ silently widening HTML admission.
 | `yuck` | certified reuse |
 
 Scala attaches exact checkpoints only to the built-in grammar blob.
-It authenticates token-invariant leaf edits before the general opt-out.
-It uses a fresh parse for every edit that this leaf check cannot authenticate.
-This includes scanner-state edits and recovery edits.
+Version 0.52.0 disables the token-invariant exception to its general opt-out.
+Edited parses use a fresh parse, including scanner-state and recovery edits.
+No-edit reuse remains available.
 
 ## Hard-learned behavioral contracts
 

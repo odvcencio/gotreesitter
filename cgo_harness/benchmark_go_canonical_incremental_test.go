@@ -227,6 +227,68 @@ func TestCanonicalIncrementalClassificationRejectsFallback(t *testing.T) {
 	}
 }
 
+func TestCanonicalIncrementalClassificationCompactReparse(t *testing.T) {
+	profile := gotreesitter.IncrementalParseProfile{
+		OldTreeReuseRoute: true, ReparseNanos: 1, TokensConsumed: 8,
+		NewNodesAllocated: 12, ReusedSubtrees: 1, ReusedBytes: 14,
+	}
+	runtime := gotreesitter.ParseRuntime{
+		StopReason: gotreesitter.ParseStopAccepted, IncrementalOldTreeReuseRoute: true,
+		CompactIncrementalReuseRoute: true, CompactIncrementalReusedSubtrees: 1,
+		CompactIncrementalReusedBytes: 14, TokensConsumed: 8, NodesAllocated: 12,
+	}
+	if got := classifyCanonicalIncrementalDirection(true, false, profile, runtime, false); got != "compact_incremental_reparse" {
+		t.Fatalf("compact classification=%q", got)
+	}
+	for _, mutate := range []func(*gotreesitter.ParseRuntime){
+		func(r *gotreesitter.ParseRuntime) { r.CompactIncrementalReuseRoute = false },
+		func(r *gotreesitter.ParseRuntime) { r.CompactIncrementalReusedBytes++ },
+		func(r *gotreesitter.ParseRuntime) { r.NodesAllocated = 0 },
+		func(r *gotreesitter.ParseRuntime) { r.CompactIncrementalFullRecoveryRoute = true },
+	} {
+		changed := runtime
+		mutate(&changed)
+		if got := classifyCanonicalIncrementalDirection(true, false, profile, changed, false); got == "compact_incremental_reparse" {
+			t.Fatalf("incomplete compact proof accepted: %+v", changed)
+		}
+	}
+}
+
+func TestCanonicalIncrementalClassificationSingleStackReparse(t *testing.T) {
+	profile := gotreesitter.IncrementalParseProfile{
+		OldTreeReuseRoute: true, ReparseNanos: 1, TokensConsumed: 3,
+		NewNodesAllocated: 2, ReusedSubtrees: 2, ReusedBytes: 4,
+		MaxStacksSeen: 1, SingleStackIterations: 3,
+	}
+	runtime := gotreesitter.ParseRuntime{
+		StopReason: gotreesitter.ParseStopAccepted, IncrementalOldTreeReuseRoute: true,
+		MaxStacksSeen: 1, SingleStackIterations: 3,
+	}
+	if got := classifyCanonicalIncrementalDirection(true, false, profile, runtime, false); got != "single_stack_incremental_reparse" {
+		t.Fatalf("classification=%q", got)
+	}
+	for _, mutate := range []func(*gotreesitter.IncrementalParseProfile){
+		func(p *gotreesitter.IncrementalParseProfile) { p.NewNodesAllocated = 0 },
+		func(p *gotreesitter.IncrementalParseProfile) { p.ReparseNanos = 0 },
+		func(p *gotreesitter.IncrementalParseProfile) { p.OldTreeReuseRoute = false },
+		func(p *gotreesitter.IncrementalParseProfile) { p.ReusedSubtrees = 0 },
+	} {
+		changed := profile
+		mutate(&changed)
+		if got := classifyCanonicalIncrementalDirection(true, false, changed, runtime, false); got == "single_stack_incremental_reparse" {
+			t.Fatalf("incomplete work proof classified as reparse: %+v", changed)
+		}
+	}
+	profile.MaxStacksSeen = 2
+	profile.MultiStackIterations = 1
+	if got := classifyCanonicalIncrementalDirection(true, false, profile, runtime, false); got != "genuine_incremental_glr" {
+		t.Fatalf("multi-stack classification=%q", got)
+	}
+	if got := classifyCanonicalIncrementalDirection(false, true, gotreesitter.IncrementalParseProfile{}, runtime, false); got != "unchanged_snapshot_identity" {
+		t.Fatalf("no-edit classification=%q", got)
+	}
+}
+
 func TestCanonicalIncrementalClassificationRecognizesAcceptedErrorRetry(t *testing.T) {
 	profile := gotreesitter.IncrementalParseProfile{
 		AcceptedErrorRetryAttempts:    1,
@@ -675,9 +737,8 @@ func classifyCanonicalIncrementalDirection(appliedEdit, returnedOldTree bool, pr
 	if !appliedEdit && returnedOldTree && canonicalIncrementalProfileIsZero(profile) {
 		return "unchanged_snapshot_identity"
 	}
-	if appliedEdit && !returnedOldTree && profile.ReusedSubtrees == 1 && profile.NewNodesAllocated == 0 &&
-		profile.TokensConsumed <= 1 && profile.MaxStacksSeen == 1 && profile.MultiStackIterations == 0 {
-		return "same_length_leaf_validation"
+	if appliedEdit && !returnedOldTree && !rootHasError && canonicalCompactReparseProof(profile, runtime) {
+		return "compact_incremental_reparse"
 	}
 	if appliedEdit && !returnedOldTree && !rootHasError &&
 		profile.AcceptedErrorRetryAttempts == 1 && profile.AcceptedErrorRetryAdopted &&
@@ -700,7 +761,34 @@ func classifyCanonicalIncrementalDirection(appliedEdit, returnedOldTree bool, pr
 		(profile.MultiStackIterations > 0 || profile.MaxStacksSeen > 1) {
 		return "genuine_incremental_glr"
 	}
+	if appliedEdit && !returnedOldTree && !rootHasError && canonicalSingleStackReparseProof(profile, runtime) {
+		return "single_stack_incremental_reparse"
+	}
 	return "unclassified"
+}
+
+func canonicalCompactReparseProof(profile gotreesitter.IncrementalParseProfile, runtime gotreesitter.ParseRuntime) bool {
+	return runtime.CompactIncrementalReuseRoute && !runtime.CompactIncrementalFullRecoveryRoute &&
+		!profile.ReuseUnsupported && profile.OldTreeReuseRoute && runtime.IncrementalOldTreeReuseRoute &&
+		profile.ReparseNanos > 0 && profile.TokensConsumed > 1 && profile.NewNodesAllocated > 0 &&
+		profile.ReusedSubtrees > 0 && profile.ReusedBytes > 0 &&
+		runtime.CompactIncrementalReusedSubtrees == profile.ReusedSubtrees && runtime.CompactIncrementalReusedBytes == profile.ReusedBytes &&
+		runtime.TokensConsumed == profile.TokensConsumed && runtime.NodesAllocated > 0 && uint64(runtime.NodesAllocated) == profile.NewNodesAllocated &&
+		runtime.StopReason == gotreesitter.ParseStopAccepted && !runtime.CRecoveryEnteredErrorState &&
+		!runtime.Truncated && !runtime.TokenSourceEOFEarly && profile.AcceptedErrorRetryAttempts == 0 &&
+		profile.RecoverSearches == 0 && profile.RecoverStateChecks == 0 && profile.RecoverHits == 0
+}
+
+func canonicalSingleStackReparseProof(profile gotreesitter.IncrementalParseProfile, runtime gotreesitter.ParseRuntime) bool {
+	return !profile.ReuseUnsupported && profile.OldTreeReuseRoute && runtime.IncrementalOldTreeReuseRoute &&
+		!runtime.CompactIncrementalReuseRoute &&
+		profile.ReparseNanos > 0 && profile.TokensConsumed > 1 && profile.NewNodesAllocated > 0 &&
+		profile.ReusedSubtrees > 0 && profile.ReusedBytes > 0 &&
+		profile.MaxStacksSeen == 1 && profile.SingleStackIterations > 0 && profile.MultiStackIterations == 0 &&
+		runtime.MaxStacksSeen == 1 && runtime.SingleStackIterations > 0 && runtime.MultiStackIterations == 0 &&
+		runtime.StopReason == gotreesitter.ParseStopAccepted && !runtime.CRecoveryEnteredErrorState &&
+		!runtime.Truncated && !runtime.TokenSourceEOFEarly && profile.AcceptedErrorRetryAttempts == 0 &&
+		profile.RecoverSearches == 0 && profile.RecoverStateChecks == 0 && profile.RecoverHits == 0
 }
 
 func canonicalIncrementalProfileIsZero(profile gotreesitter.IncrementalParseProfile) bool {
@@ -742,11 +830,15 @@ func requireCanonicalIncrementalClassification(tb testing.TB, label string, dire
 		if direction.applyEdit || !returnedOldTree || !canonicalIncrementalProfileIsZero(profile) {
 			tb.Fatalf("%s identity classification lacks pointer/profile proof", label)
 		}
-	case "same_length_leaf_validation":
-		if !direction.applyEdit || returnedOldTree || profile.TokensConsumed != 1 || profile.ReusedSubtrees != 1 ||
-			profile.ReusedBytes != uint64(len(direction.to)) || profile.NewNodesAllocated != 0 ||
-			profile.MaxStacksSeen != 1 || profile.MultiStackIterations != 0 {
-			tb.Fatalf("%s leaf validation lacks one-token whole-tree reuse proof: %+v", label, profile)
+	case "compact_incremental_reparse":
+		if !direction.applyEdit || returnedOldTree || rootHasError || !canonicalCompactReparseProof(profile, runtime) ||
+			profile.ReusedBytes >= uint64(len(direction.to)) {
+			tb.Fatalf("%s compact reparse lacks authenticated work and partial reuse: %+v runtime=%s", label, profile, runtime.Summary())
+		}
+	case "single_stack_incremental_reparse":
+		if !direction.applyEdit || returnedOldTree || rootHasError || !canonicalSingleStackReparseProof(profile, runtime) ||
+			profile.ReusedBytes >= uint64(len(direction.to)) {
+			tb.Fatalf("%s single-stack reparse lacks partial reuse and real work proof: %+v runtime=%s", label, profile, runtime.Summary())
 		}
 	case "genuine_incremental_glr":
 		if !direction.applyEdit || returnedOldTree || profile.TokensConsumed <= 1 || profile.NewNodesAllocated == 0 ||

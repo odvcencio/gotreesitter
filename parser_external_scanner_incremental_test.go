@@ -458,7 +458,11 @@ func TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback(t *testing.
 					}
 					defer incremental.Release()
 					requireReleaseSameWidthReparse(t, profile)
-					if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_prefix_frontier_unproven" {
+					wantReason := "external_scanner_unsupported"
+					if languageCase.name == "python" {
+						wantReason = "external_scanner_prefix_frontier_unproven"
+					}
+					if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != wantReason {
 						t.Fatalf("expected scanner fallback: %+v", profile)
 					}
 
