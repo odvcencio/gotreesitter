@@ -7,6 +7,14 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Compact parser correctness
+
+- Preserve inherited alternative history when a reduction joins an active sibling.
+- Retain convergence and resurrection restrictions after adoption. Preserve existing blended-history rejection checks.
+- Parse `foo<A00>(2);` through compact without fallback, with exact locked-C tree parity.
+  Malformed TypeScript recovery remains unfinished.
+- Preserve numeric-edit reuse for newly admitted TypeScript trees after authenticating lexer dependencies and scanner equivalence.
+
 ### Incremental correctness
 
 - Restore bounded token-invariant reuse after authenticating earlier lexical
