@@ -1076,6 +1076,14 @@ type ParseRuntime struct {
 	// IncrementalOldTreeReuseRoute reports whether this result was produced by
 	// an actual old-tree reuse parse rather than an internal fresh fallback.
 	IncrementalOldTreeReuseRoute bool
+	// CompactIncrementalReuseRoute records execution with borrowed compact subtrees.
+	CompactIncrementalReuseRoute     bool
+	CompactIncrementalReusedSubtrees uint64
+	CompactIncrementalReusedBytes    uint64
+	// CompactIncrementalFallbackReason records an attempted compact reparse decline.
+	CompactIncrementalFallbackReason string
+	// CompactReductions counts reductions executed by the compact scheduler.
+	CompactReductions uint64
 	// CRecoveryEnteredErrorState is true when the faithful C error-recovery
 	// port (parser_recover_c.go) actually ran ts_parser__handle_error at
 	// least once while producing this specific tree — i.e. some no-action

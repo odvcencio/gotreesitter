@@ -1068,6 +1068,8 @@ const (
 	subtreeExternalProvenanceExactNoExternal
 	subtreeExternalProvenanceExactHasExternal
 	subtreeExternalProvenanceInexactHasExternal
+	// Borrowed descendants remain opaque. This marker supplies no scanner provenance.
+	subtreeExternalProvenanceReusedOpaque
 )
 
 // pathMeta is stored on a graph link. ScoreDelta includes the contributions
@@ -1148,7 +1150,8 @@ type Derivation struct {
 type SubtreeView struct {
 	Symbol            Symbol
 	ProductionID      uint16
-	DynamicPrecedence int16
+	DynamicPrecedence int32
+	ReusedKey         uint32
 	StartByte         uint32
 	EndByte           uint32
 	Children          []SubtreeID
@@ -1171,16 +1174,18 @@ type SubtreeView struct {
 // must not retain or mutate them. The copying Subtree diagnostic API remains
 // the stable inspection surface.
 type MaterializationSubtreeView struct {
-	Symbol            Symbol
-	ProductionID      uint16
-	DynamicPrecedence int16
-	StartByte         uint32
-	EndByte           uint32
-	Children          []SubtreeID
-	Aliases           []Symbol
-	Extra             bool
-	External          bool
-	Terminal          bool
+	Symbol                          Symbol
+	ProductionID                    uint16
+	DynamicPrecedence               int32
+	ReusedKey                       uint32
+	ReusedPreGotoState, ReusedState StateID
+	StartByte                       uint32
+	EndByte                         uint32
+	Children                        []SubtreeID
+	Aliases                         []Symbol
+	Extra                           bool
+	External                        bool
+	Terminal                        bool
 	// ExternalScannerCheckpointStart and ExternalScannerCheckpointEnd identify
 	// the serialized scanner states before and after this terminal. They are
 	// zero when the subtree has no authenticated scanner provenance. The
@@ -1301,6 +1306,8 @@ type Core struct {
 	externalProvenance    []externalPayloadProvenance
 	missingLeafProvenance []missingLeafProvenance
 	lexerSkippedPrefixes  []lexerSkippedPrefixProvenance
+	reusedSubtrees        []reusedSubtreeProvenance
+	reuseProof            reuseValidationProof
 	// recoveryDiscontinuityReductions records parents whose stack pop crossed
 	// a null recovery edge. C counts that edge for the pop depth, but it does
 	// not add a child to the materialized subtree.
@@ -1501,6 +1508,8 @@ type checkpoint struct {
 	nodes, nodeLineages, nodeCheckpoints, links, subtrees, externalProvenance int
 	missingLeafProvenance                                                     int
 	lexerSkippedPrefixes                                                      int
+	reusedSubtrees                                                            int
+	reuseProof                                                                reuseValidationProof
 	recoveryDiscontinuityReductions                                           int
 	children, fields, aliases                                                 int
 	alternativeSpillArena                                                     int
@@ -1623,6 +1632,8 @@ func (c *Core) markInto(mark *checkpoint) {
 		externalProvenance:              len(c.externalProvenance),
 		missingLeafProvenance:           len(c.missingLeafProvenance),
 		lexerSkippedPrefixes:            len(c.lexerSkippedPrefixes),
+		reusedSubtrees:                  len(c.reusedSubtrees),
+		reuseProof:                      c.reuseProof,
 		recoveryDiscontinuityReductions: len(c.recoveryDiscontinuityReductions),
 		children:                        len(c.children), fields: len(c.fields), aliases: len(c.aliases),
 		alternativeSpillArena: len(c.alternativeSpillArena),
@@ -1737,6 +1748,11 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.externalProvenance = c.externalProvenance[:mark.externalProvenance]
 	c.missingLeafProvenance = c.missingLeafProvenance[:mark.missingLeafProvenance]
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:mark.lexerSkippedPrefixes]
+	c.reusedSubtrees = c.reusedSubtrees[:mark.reusedSubtrees]
+	c.reuseProof.subtrees = mark.reuseProof.subtrees
+	c.reuseProof.nodes = mark.reuseProof.nodes
+	// Invalidation remains sticky because published fragility changes can survive rollback.
+	c.reuseProof.invalid = c.reuseProof.invalid || mark.reuseProof.invalid
 	c.recoveryDiscontinuityReductions = c.recoveryDiscontinuityReductions[:mark.recoveryDiscontinuityReductions]
 	c.children = c.children[:mark.children]
 	c.fields = c.fields[:mark.fields]
@@ -2354,6 +2370,8 @@ func (c *Core) Reset() error {
 	c.externalProvenance = c.externalProvenance[:0]
 	c.missingLeafProvenance = c.missingLeafProvenance[:0]
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:0]
+	c.reusedSubtrees = c.reusedSubtrees[:0]
+	c.reuseProof = reuseValidationProof{}
 	c.recoveryDiscontinuityReductions = c.recoveryDiscontinuityReductions[:0]
 	c.children = c.children[:0]
 	c.fields = c.fields[:0]
@@ -3222,9 +3240,7 @@ func (c *Core) reductionParentForPath(
 		// is fragile, since the ambiguous derivation proves the shape was
 		// not uniquely determined. Monotone set-only, safe on a shared
 		// record (see the field doc comment).
-		if rec, err := c.subtree(payload); err == nil && rec != nil && !rec.fragile {
-			rec.fragile = true
-		}
+		c.markSubtreeFragile(payload)
 	}
 	if path.recoveryDiscontinuity {
 		c.recordRecoveryDiscontinuityReduction(payload, act.ChildCount)
@@ -3466,6 +3482,7 @@ func (c *Core) publishInheritedStoredErrorCost(head Head, cost uint32) error {
 		return err
 	}
 	lineage.storedErrorCost = cost
+	c.invalidateReusedLineageProof(head.Node, *lineage)
 	return nil
 }
 
@@ -4167,7 +4184,7 @@ func (c *Core) effectivePayloadPrecedence(payloadID SubtreeID, aggregate int64) 
 	if err != nil {
 		return 0, err
 	}
-	if payload.childCount == 0 {
+	if payload.childCount == 0 && payload.externalProvenanceState != subtreeExternalProvenanceReusedOpaque {
 		return 0, nil
 	}
 	return aggregate, nil
@@ -4717,6 +4734,7 @@ func (c *Core) insertLinkBoundedWithRecovery(
 
 // subtreeExternalProvenance reports whether a payload contains an external
 // terminal and whether every such terminal has an exact scanner-state pair.
+// A language quiescence certificate removes scanner obligations without proving that external tokens are absent.
 func (c *Core) subtreeExternalProvenance(root SubtreeID) (hasExternal, exact bool, err error) {
 	record, err := c.subtree(root)
 	if err != nil {
@@ -4790,6 +4808,9 @@ func (c *Core) subtreeScannerStatePairsEqual(left, right SubtreeID) (bool, error
 		if err != nil {
 			return 0, err
 		}
+		if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+			return 0, errors.New("parser-core phase zero: reused subtree has no transferred scanner-state proof")
+		}
 		if !record.external || !record.terminal {
 			return 0, nil
 		}
@@ -4819,6 +4840,9 @@ func (state subtreeExternalProvenanceState) result() (hasExternal, exact, cached
 	switch state {
 	case subtreeExternalProvenanceExactNoExternal:
 		return false, true, true
+	case subtreeExternalProvenanceReusedOpaque:
+		// Hidden descendants may contain external tokens without transferred checkpoints.
+		return true, false, true
 	case subtreeExternalProvenanceExactHasExternal:
 		return true, true, true
 	case subtreeExternalProvenanceInexactHasExternal:
@@ -5112,6 +5136,11 @@ func (c *Core) subtreesStructurallyEqual(left, right SubtreeID) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	leftReuse, leftOpaque := c.reusedSubtree(left)
+	rightReuse, rightOpaque := c.reusedSubtree(right)
+	if leftOpaque || rightOpaque {
+		return leftOpaque && rightOpaque && leftReuse == rightReuse, nil
+	}
 	if l.symbol != r.symbol || l.productionID != r.productionID || l.dynamicPrecedence != r.dynamicPrecedence ||
 		l.startByte != r.startByte || l.endByte != r.endByte || l.childCount != r.childCount ||
 		l.fieldCount != r.fieldCount || l.aliasCount != r.aliasCount ||
@@ -5178,6 +5207,9 @@ func (c *Core) shallowPayloadClass(prevID NodeID, payloadID SubtreeID) (shallowP
 	payload, err := c.subtree(payloadID)
 	if err != nil {
 		return shallowPayloadClass{}, false, err
+	}
+	if payload.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+		return shallowPayloadClass{}, false, nil
 	}
 	// This class is the compact port of C's stack__subtree_is_equivalent
 	// (stack.c:181-197), MINUS one clause. C tests, in order: same pointer;
@@ -6174,11 +6206,14 @@ func (c *Core) Subtree(id SubtreeID) (SubtreeView, error) {
 		return SubtreeView{}, err
 	}
 	view := SubtreeView{
-		Symbol: r.symbol, ProductionID: r.productionID, DynamicPrecedence: r.dynamicPrecedence,
+		Symbol: r.symbol, ProductionID: r.productionID, DynamicPrecedence: int32(r.dynamicPrecedence),
 		StartByte: r.startByte, EndByte: r.endByte, Extra: r.extra, External: r.external, Terminal: r.terminal,
 		Missing: r.missing,
 	}
 	view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(id)
+	if reused, ok := c.reusedSubtree(id); ok {
+		view.ReusedKey, view.DynamicPrecedence = reused.Key, reused.DynamicPrecedence
+	}
 	view.Children = append(view.Children, c.children[r.firstChild:r.firstChild+r.childCount]...)
 	view.Fields = append(view.Fields, c.fields[r.firstField:r.firstField+r.fieldCount]...)
 	view.Aliases = append(view.Aliases, c.aliases[r.firstAlias:r.firstAlias+r.aliasCount]...)
@@ -6216,6 +6251,10 @@ func (c *Core) MaterializationOrder(roots []SubtreeID, poll func() error) ([]Sub
 		next uint32
 	}
 	order := make([]SubtreeID, 0, len(c.subtrees))
+	var reusedOwners map[uint32]SubtreeID
+	if len(c.reusedSubtrees) != 0 {
+		reusedOwners = make(map[uint32]SubtreeID)
+	}
 	var work uint64
 	pollWork := func() error {
 		work++
@@ -6267,6 +6306,9 @@ func (c *Core) MaterializationOrder(roots []SubtreeID, poll func() error) ([]Sub
 			if err := c.validateMaterializationMetadata(top.id, *record); err != nil {
 				return nil, err
 			}
+			if err := c.claimReusedOwnership(top.id, reusedOwners); err != nil {
+				return nil, err
+			}
 			colors[top.id] = 2
 			order = append(order, top.id)
 			stack = stack[:len(stack)-1]
@@ -6309,7 +6351,7 @@ func (c *Core) MaterializationView(id SubtreeID) (MaterializationSubtreeView, er
 	view := MaterializationSubtreeView{
 		Symbol:            record.symbol,
 		ProductionID:      record.productionID,
-		DynamicPrecedence: record.dynamicPrecedence,
+		DynamicPrecedence: int32(record.dynamicPrecedence),
 		StartByte:         record.startByte,
 		EndByte:           record.endByte,
 		Children:          c.children[record.firstChild : record.firstChild+record.childCount],
@@ -6331,6 +6373,7 @@ func (c *Core) MaterializationView(id SubtreeID) (MaterializationSubtreeView, er
 		view.MissingDependency, view.MissingDependencyExact = c.missingLeafDependency(id)
 	}
 	view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(id)
+	c.applyReusedMaterializationView(id, &view)
 	return view, nil
 }
 
@@ -6345,6 +6388,9 @@ func (c *Core) SubtreeArenaLen() int {
 }
 
 func (c *Core) validateMaterializationMetadata(id SubtreeID, record subtreeRecord) error {
+	if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+		return c.validateReusedRecord(id, record)
+	}
 	if record.missing {
 		dependency, ok := c.missingLeafDependency(id)
 		positionedByte, addOK := addUint32Checked(dependency.StackByte, dependency.PaddingBytes)
@@ -6473,6 +6519,9 @@ func (c *Core) RawSelectedSubtreeCensus(roots []SubtreeID) (RawSelectedCensus, e
 		active[item.id] = true
 		stack = append(stack, frame{id: item.id, exit: true})
 		record := c.subtrees[item.id-1]
+		if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+			return RawSelectedCensus{}, errors.New("parser-core phase zero: raw census cannot inspect a reused subtree")
+		}
 		if err := add(&census.Nodes); err != nil {
 			return census, err
 		}
@@ -7004,7 +7053,13 @@ func (c *Core) subtree(id SubtreeID) (*subtreeRecord, error) {
 	if id == 0 || uint64(id) > uint64(len(c.subtrees)) {
 		return nil, fmt.Errorf("parser-core phase zero: invalid subtree id %d", id)
 	}
-	return &c.subtrees[id-1], nil
+	record := &c.subtrees[id-1]
+	if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+		if err := c.validateReusedRecord(id, *record); err != nil {
+			return nil, err
+		}
+	}
+	return record, nil
 }
 
 func (c *Core) nodeLinks(n nodeRecord) ([]linkRecord, error) {

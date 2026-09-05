@@ -23,6 +23,9 @@ func (c *Core) BuildSelectedStore(roots []SubtreeID, policy SelectedStorePolicy,
 // stack carries next-child/logical-window state, collect carries payload IDs,
 // and rawRoots carries packed alias/field provenance.
 func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStorePolicy, source []byte, poll func() error) (*SelectedStore, error) {
+	if c != nil && len(c.reusedSubtrees) != 0 {
+		return nil, errors.New("parser-core phase zero: selected store cannot expand reused subtrees")
+	}
 	if c == nil || len(roots) == 0 {
 		return nil, errors.New("parser-core phase zero: selected store requires accepted roots")
 	}

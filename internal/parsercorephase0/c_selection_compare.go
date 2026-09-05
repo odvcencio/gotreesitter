@@ -48,6 +48,14 @@ func (c *Core) CompareCSelectionSubtrees(left, right SubtreeID) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		leftReuse, leftOpaque := c.reusedSubtree(pair.left)
+		rightReuse, rightOpaque := c.reusedSubtree(pair.right)
+		if leftOpaque || rightOpaque {
+			if leftOpaque && rightOpaque && leftReuse == rightReuse {
+				continue
+			}
+			return 0, errors.New("parser-core phase zero: C selection cannot inspect an opaque reused subtree")
+		}
 		if leftRecord.symbol < rightRecord.symbol {
 			return -1, nil
 		}

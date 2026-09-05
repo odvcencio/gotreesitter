@@ -459,6 +459,9 @@ type selectedRawOccurrence struct {
 }
 
 func (c *Core) buildSelectedStoreStaged(roots []SubtreeID, policy SelectedStorePolicy, source []byte, poll func() error) (*SelectedStore, error) {
+	if c != nil && len(c.reusedSubtrees) != 0 {
+		return nil, errors.New("parser-core phase zero: selected store cannot expand reused subtrees")
+	}
 	if c == nil || len(roots) == 0 {
 		return nil, errors.New("parser-core phase zero: selected store requires accepted roots")
 	}

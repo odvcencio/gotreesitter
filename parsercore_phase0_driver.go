@@ -50,10 +50,12 @@ const (
 )
 
 type DiagnosticParserCorePrefixOptions struct {
-	Recovery       bool
-	Retry          bool
-	Incremental    bool
-	IncludedRanges bool
+	// compactIncrementalReuse belongs to one public incremental attempt.
+	compactIncrementalReuse *compactIncrementalReuseSession
+	Recovery                bool
+	Retry                   bool
+	Incremental             bool
+	IncludedRanges          bool
 	// GenericStopAtClosedByte publishes a successful closed-frontier receipt
 	// when every authenticated scheduler head closes at this byte. Nil is
 	// unbounded. The boundary is checked before another scanner election.
@@ -2687,7 +2689,7 @@ func canonicalizeDiagnosticParserCoreHeaders(compact *core.Core, headers []diagn
 func diagnosticParserCoreTerminalPayloadView(id uint32, view core.SubtreeView) DiagnosticParserCoreTerminalPayloadView {
 	converted := DiagnosticParserCoreTerminalPayloadView{
 		ID: id, Symbol: Symbol(view.Symbol), ProductionID: view.ProductionID,
-		DynamicPrecedence: view.DynamicPrecedence, StartByte: view.StartByte, EndByte: view.EndByte,
+		DynamicPrecedence: int16(view.DynamicPrecedence), StartByte: view.StartByte, EndByte: view.EndByte,
 		Extra: view.Extra, External: view.External, Terminal: view.Terminal,
 	}
 	for _, child := range view.Children {
@@ -6174,9 +6176,10 @@ const parserCoreMaxRetainedLineStarts = 256 * 1024
 // arena reuse: the warm steady state stops re-allocating the public-tree
 // scratch on every parse.
 type parserCoreRunnerScratch struct {
-	materialization diagnosticParserCoreMaterializationScratch
-	postorder       core.MaterializationPostorderScratch
-	acceptedLeaves  diagnosticParserCoreAcceptedLeafCoverageScratch
+	materialization  diagnosticParserCoreMaterializationScratch
+	postorder        core.MaterializationPostorderScratch
+	acceptedLeaves   diagnosticParserCoreAcceptedLeafCoverageScratch
+	incrementalReuse *compactIncrementalReuseSession
 	// recoveryTerminalAliasSymbol is valid only when the exact artifact rule
 	// also set recoveryTerminalAliasCertified for this materialization.
 	recoveryTerminalAliasSymbol    Symbol
@@ -6198,6 +6201,7 @@ type diagnosticParserCoreAcceptedLeafSpan struct {
 	startByte uint32
 	endByte   uint32
 	hidden    bool
+	borrowed  *Node
 }
 
 type diagnosticParserCoreAcceptedLeafCoverageScratch struct {
@@ -6335,7 +6339,7 @@ func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) hasVisibleTermin
 	})
 	for index < len(scratch.spans) && scratch.spans[index].startByte == startByte {
 		span := scratch.spans[index]
-		if !span.hidden && span.endByte == endByte && uint64(span.id) < uint64(len(nodesByID)) && nodesByID[span.id] == node {
+		if !span.hidden && span.borrowed == nil && span.endByte == endByte && uint64(span.id) < uint64(len(nodesByID)) && nodesByID[span.id] == node {
 			return true
 		}
 		index++
@@ -6447,6 +6451,7 @@ func (s *parserCoreRunnerScratch) resetTreeBuffers() {
 	}
 	s.postorder.Reset()
 	s.acceptedLeaves.reset()
+	s.incrementalReuse = nil
 	s.recoveryTerminalAliasSymbol = 0
 	s.recoveryTerminalAliasCertified = false
 	s.nodesByID = clearNodeScratch(s.nodesByID)
@@ -6794,6 +6799,15 @@ func diagnosticParserCoreAcceptedTreeLeafCoverageGap(root *Node, source []byte, 
 			if err := poll(); err != nil {
 				return err
 			}
+		}
+		if coverage.hasBorrowedSubtree(n) {
+			if n.startByte > cur {
+				if ok, gapErr := acceptGap(cur, n.startByte); gapErr != nil || !ok {
+					return gapErr
+				}
+			}
+			cur = max(cur, n.endByte)
+			return nil
 		}
 		count := n.ChildCount()
 		if count == 0 {
@@ -7157,14 +7171,19 @@ const (
 // the default path unchanged. A tagged diagnostic caller can request the
 // locked-C recover_eof root rule.
 func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compact *core.Core, head core.Head, payloads []core.SubtreeID, parser *Parser, source []byte, scratch *parserCoreRunnerScratch, forceReplayParseStates bool, allowErrorRoot bool, rootFinalization diagnosticParserCoreRootFinalization) (*Tree, error) {
+	var incrementalReuse *compactIncrementalReuseSession
+	if scratch != nil {
+		incrementalReuse = scratch.incrementalReuse
+		defer scratch.resetTreeBuffers()
+	}
 	if compact == nil || parser == nil || parser.language == nil || head.Node == 0 || len(payloads) == 0 {
 		return nil, errors.New("parser-core phase zero: incomplete accepted-tree selection input")
 	}
 	if rootFinalization != diagnosticParserCoreFinalizeDefault && rootFinalization != diagnosticParserCoreFinalizeRecoverEOF {
 		return nil, errors.New("parser-core phase zero: unknown accepted-root finalization")
 	}
-	if scratch != nil {
-		defer scratch.resetTreeBuffers()
+	if incrementalReuse != nil && (allowErrorRoot || rootFinalization != diagnosticParserCoreFinalizeDefault) {
+		return nil, compactIncrementalMaterializationDecline("borrowed subtrees require clean default root finalization")
 	}
 	stats, err := compact.Stats(head)
 	if err != nil {
@@ -7183,13 +7202,24 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		}
 	}
 	owned := true
+	allocationRecorded := false
+	recordAllocation := func() {
+		if !allocationRecorded && incrementalReuse != nil && incrementalReuse.timing != nil {
+			incrementalReuse.timing.newNodes += uint64(arena.used)
+		}
+		allocationRecorded = true
+	}
 	defer func() {
+		recordAllocation()
 		if owned {
 			arena.Release()
 		}
 	}()
 	poll := func() error {
 		reason := parser.resultMaterializationStopReason(arena)
+		if !resultMaterializationShouldStop(reason) && incrementalReuse != nil && incrementalReuse.scheduler != nil {
+			reason = incrementalReuse.scheduler.stopControlMemoryBudgetReasonWithAdditionalBytes(arenaAllocatedVolume(arena))
+		}
 		if !resultMaterializationShouldStop(reason) {
 			return nil
 		}
@@ -7235,7 +7265,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	// pass elides hidden nodes and applies aliases. Gated so it can be A/B'd
 	// against the states-free compact route.
 	var replayStates *compactReplayStates
-	if forceReplayParseStates || parserCoreReplayParseStatesEnabled() {
+	if incrementalReuse != nil || forceReplayParseStates || parserCoreReplayParseStatesEnabled() {
 		replayStates, err = parser.replayCompactDerivation(compact, payloads)
 		if err != nil {
 			return nil, err
@@ -7304,7 +7334,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		acceptedLeaves = &scratch.acceptedLeaves
 	}
 	allowLexerSkippedPrefix := parser.language.CompactLexerSkippedPrefixTilingCertified
-	if !allowErrorRoot && !allowLexerSkippedPrefix {
+	if !allowErrorRoot && !allowLexerSkippedPrefix && incrementalReuse == nil {
 		acceptedLeaves = nil
 	} else if allowLexerSkippedPrefix {
 		acceptedLeaves.prepareLexerSkippedPrefixes(int(stats.Subtrees))
@@ -7314,15 +7344,36 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		recoveryTerminalAlias = scratch.recoveryTerminalAliasSymbol
 	}
 	materializeVisit := func(materializationScratch *diagnosticParserCoreMaterializationScratch) error {
+		makeParent := func(symbol Symbol, named bool, children []*Node, fields []FieldID, fieldSources []uint8, productionID uint16) *Node {
+			if incrementalReuse != nil {
+				return newParentNodeInArenaNoLinksWithFieldSources(arena, symbol, named, children, fields, fieldSources, productionID, true)
+			}
+			return newParentNodeInArenaWithFieldSources(arena, symbol, named, children, fields, fieldSources, productionID)
+		}
 		visit := func(id core.SubtreeID, view core.MaterializationSubtreeView) error {
 			if view.EndByte < view.StartByte || view.EndByte > uint32(len(source)) {
 				return errors.New("parser-core phase zero: compact subtree extent is outside source")
+			}
+			if view.ReusedKey != 0 {
+				node, err := incrementalReuse.materializeBorrowed(parser, id, view, replayStates, &points)
+				if err != nil {
+					return err
+				}
+				if err := acceptedLeaves.appendBorrowed(id, node, uint32(len(source))); err != nil {
+					return err
+				}
+				if languageUsesExternalScannerCheckpoints(parser.language) {
+					scannerProvenanceTransferProven = false
+				}
+				incrementalReuse.reuseState.markReused(node, arena)
+				nodesByID[id] = node
+				return nil
 			}
 			if acceptedLeaves != nil && view.Terminal {
 				if allowLexerSkippedPrefix {
 					acceptedLeaves.recordLexerSkippedPrefix(id, view)
 				}
-				if allowErrorRoot {
+				if allowErrorRoot || incrementalReuse != nil {
 					hidden := !parser.isVisibleSymbol(Symbol(view.Symbol))
 					if view.Symbol == core.RecoveryErrorSymbol {
 						hidden = false
@@ -7407,6 +7458,11 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 					structuralChildren++
 				}
 			}
+			if incrementalReuse != nil {
+				if err := validateCompactBorrowedReduceInputs(parser, entries, view.ProductionID, arena); err != nil {
+					return err
+				}
+			}
 			// isDerivationRootReduce is true only for the one reduce, per parse,
 			// whose symbol is this language's own inferred grammar root symbol
 			// (parser.rootSymbol / hasRootSymbol -- inferRootSymbol, parser.go: a
@@ -7469,8 +7525,8 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 						parser, entries, children, view.ProductionID, recoveryTerminalAlias, nodesByID,
 					)
 				}
-				parent := newParentNodeInArenaWithFieldSources(
-					arena, Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
+				parent := makeParent(
+					Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
 				)
 				parent.dynamicPrecedence += int32(view.DynamicPrecedence)
 				parent.startByte = view.StartByte
@@ -7498,7 +7554,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			}
 			action := ParseAction{
 				Type: ParseActionReduce, Symbol: Symbol(view.Symbol), ChildCount: uint8(structuralChildren),
-				DynamicPrecedence: view.DynamicPrecedence, ProductionID: view.ProductionID,
+				DynamicPrecedence: int16(view.DynamicPrecedence), ProductionID: view.ProductionID,
 			}
 			if child := parser.collapsibleRawUnarySelfReduction(action, Token{}, arena, entries, 0, len(entries)); child != nil {
 				child.productionID = view.ProductionID
@@ -7515,6 +7571,11 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 				entries, 0, len(entries), structuralChildren,
 				Symbol(view.Symbol), view.ProductionID, arena,
 			)
+			if incrementalReuse != nil {
+				if err := validateCompactBorrowedReduceProjectionWithScratch(parser, entries, children, arena, &incrementalReuse.projection, poll); err != nil {
+					return fmt.Errorf("reduce symbol=%d production=%d: %w", view.Symbol, view.ProductionID, err)
+				}
+			}
 			if recoveryTerminalAlias != 0 {
 				acceptedLeaves.authenticateDirectTerminalAliases(
 					parser, entries, children, view.ProductionID, recoveryTerminalAlias, nodesByID,
@@ -7531,8 +7592,8 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 				stamp(id, child)
 				return nil
 			}
-			parent := newParentNodeInArenaWithFieldSources(
-				arena, Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
+			parent := makeParent(
+				Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
 			)
 			parent.dynamicPrecedence += int32(view.DynamicPrecedence)
 			parent.startByte = view.StartByte
@@ -7614,6 +7675,16 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		defer func() { parser.goCompatFrames = previousGoCompatFrames }()
 	}
 	var tree *Tree
+	var oldTree *Tree
+	var reuseState *parseReuseState
+	if incrementalReuse != nil {
+		oldTree, reuseState = incrementalReuse.oldTree, &incrementalReuse.reuseState
+		for _, node := range nodes {
+			if node.ownerArena != arena {
+				return nil, compactIncrementalMaterializationDecline("accepted root cannot be a borrowed subtree")
+			}
+		}
+	}
 	if rootFinalization == diagnosticParserCoreFinalizeRecoverEOF {
 		if len(nodes) != 1 || nodes[0] == nil || !nodes[0].IsError() {
 			return nil, errors.New("parser-core phase zero: recover_eof finalization requires one ERROR payload")
@@ -7624,13 +7695,19 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		builder := newResultRootBuild(parser, source, arena, nil, nil, linkScratch)
 		tree = builder.finishRecoverEOFTree(nodes[0], builder.shouldWireParentLinks)
 	} else {
-		tree = parser.buildResultFromNodes(nodes, source, arena, nil, nil, linkScratch)
+		tree = parser.buildResultFromNodes(nodes, source, arena, oldTree, reuseState, linkScratch)
 	}
 	if tree != nil {
 		owned = false // The result tree owns the materialization arena.
+		if incrementalReuse != nil && tree.root != nil {
+			// Incremental builders normally inherit links from parent construction.
+			// This path constructs parents without links to preserve borrowed nodes.
+			arena.deferParentLinks(tree.root)
+		}
 	}
 	rejectTree := func(err error) (*Tree, error) {
 		if tree != nil {
+			recordAllocation()
 			tree.Release()
 		}
 		return nil, err
@@ -7712,6 +7789,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	tree.incrementalReuseDisabled = !compactIncrementalReuseProven
 	tree.setParseRuntime(ParseRuntime{
 		StopReason:                                     ParseStopAccepted,
+		NodesAllocated:                                 arena.used,
 		SourceLen:                                      sourceLen,
 		ExpectedEOFByte:                                sourceLen,
 		RootEndByte:                                    root.endByte,
@@ -7725,6 +7803,14 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		ExternalScannerCheckpointLeafNodes:             arena.externalScannerCheckpointLeafNodes,
 		CompactExternalScannerCheckpointTransferProven: scannerProvenanceTransferProven,
 	})
+	if incrementalReuse != nil {
+		runtime := *tree.rawParseRuntime()
+		runtime.IncrementalOldTreeReuseRoute = true
+		runtime.CompactIncrementalReuseRoute = true
+		runtime.CompactIncrementalReusedSubtrees = incrementalReuse.reusedSubtrees
+		runtime.CompactIncrementalReusedBytes = incrementalReuse.reusedBytes
+		tree.setParseRuntime(runtime)
+	}
 	if arena.breakdownEnabled {
 		breakdown := arena.collectArenaBreakdown()
 		tree.setArenaBreakdown(breakdown)
@@ -7995,6 +8081,7 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 		}
 		addBytes(countBytes * sizeBytes)
 	}
+	addBytes(s.options.compactIncrementalReuse.footprintBytes())
 	// Header copies share immutable version-state pointers. Count each owned
 	// wrapper, region, and lexer snapshot once across the active frontier,
 	// canonical keys/groups, and retained header scratch. The scheduler-owned
@@ -8116,6 +8203,11 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 // gap this gauge still has, and why closing it further is left as an owner
 // decision rather than a silent default change.
 func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReason() ParseStopReason {
+	return s.stopControlMemoryBudgetReasonWithAdditionalBytes(0)
+}
+
+// stopControlMemoryBudgetReasonWithAdditionalBytes includes the new materialization arena during incremental execution.
+func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWithAdditionalBytes(additional uint64) ParseStopReason {
 	if s == nil {
 		return ParseStopNone
 	}
@@ -8127,6 +8219,11 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReason() P
 		}
 		if !haveFootprint {
 			footprint = diagnosticParserCoreSchedulerFootprintBytes(s)
+			if additional > math.MaxUint64-footprint {
+				footprint = math.MaxUint64
+			} else {
+				footprint += additional
+			}
 			haveFootprint = true
 		}
 		ratio := uint64(stopControlFootprintChurnRatio)
@@ -8300,6 +8397,15 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 			}
 			continue
 		}
+		if s.options.compactIncrementalReuse != nil {
+			progressed, err := s.tryCompactIncrementalReuse()
+			if err != nil {
+				return err
+			}
+			if progressed {
+				continue
+			}
+		}
 		// C4 corridor: when the frontier is the deterministic single-header
 		// shape the bytecode lane owns, run the compiled program instead of
 		// the interpreted dispatch pass. The corridor executes
@@ -8307,7 +8413,7 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 		// it never produces a decline of its own, so the generic pass below
 		// still owns every boundary verbatim (spec.c4-bytecode-isa.v1
 		// section 6.2).
-		if s.corridorEligible() {
+		if s.options.compactIncrementalReuse == nil && s.corridorEligible() {
 			progressed, err := s.dispatchCorridor()
 			if err != nil {
 				return err

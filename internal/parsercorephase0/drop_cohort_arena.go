@@ -1166,6 +1166,9 @@ func dropCohortSliceBounds(first, count uint32, length int) (int, int, error) {
 }
 
 func (c *Core) dropCohortEncodeSubtree(e *dropCohortEncoder, payload SubtreeID, depth uint64) (Symbol, error) {
+	if _, opaque := c.reusedSubtree(payload); opaque {
+		return 0, errors.New("parser-core phase zero: drop-cohort encoding cannot inspect a reused subtree")
+	}
 	if depth >= uint64(c.limits.MaxSubtrees) {
 		return 0, errors.New("parser-core phase zero: drop-cohort subtree depth cap")
 	}
@@ -1299,6 +1302,14 @@ func (c *Core) dropCohortCompareCheckpoint(left, right CheckpointID) (int, error
 func (c *Core) dropCohortCompareSubtree(left, right SubtreeID) (int, error) {
 	if left == right {
 		return 0, nil
+	}
+	leftReuse, leftOpaque := c.reusedSubtree(left)
+	rightReuse, rightOpaque := c.reusedSubtree(right)
+	if leftOpaque || rightOpaque {
+		if leftOpaque && rightOpaque && leftReuse == rightReuse {
+			return 0, nil
+		}
+		return 0, errors.New("parser-core phase zero: drop-cohort comparison cannot inspect a reused subtree")
 	}
 	l, err := c.subtree(left)
 	if err != nil {

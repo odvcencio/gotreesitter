@@ -202,10 +202,8 @@ func TestAdmissionSwitchEligibilityFailsClosedForReuse(t *testing.T) {
 	}
 }
 
-// TestAdmissionSwitchParseIncrementalNeverRoutes proves that even with the
-// switch forced on, ParseIncremental stays on production: the candidate route's
-// routed counter never moves across an incremental reparse.
-func TestAdmissionSwitchParseIncrementalNeverRoutes(t *testing.T) {
+// Incremental attempts must not change counters reserved for full parsing.
+func TestAdmissionSwitchParseIncrementalDoesNotCountFullRoute(t *testing.T) {
 	resetAdmissionCandidateCounters()
 	p := newAdmissionCandidateGoParser(t)
 	p.SetAdmissionCandidateRoute(true)
@@ -238,10 +236,10 @@ func TestAdmissionSwitchParseIncrementalNeverRoutes(t *testing.T) {
 	}
 	routedAfterIncremental, _ := AdmissionCandidateCounters()
 	if routedAfterIncremental != routedAfterFresh {
-		t.Fatalf("ParseIncremental routed to the candidate: routed %d -> %d", routedAfterFresh, routedAfterIncremental)
+		t.Fatalf("ParseIncremental changed full-route counts: %d -> %d", routedAfterFresh, routedAfterIncremental)
 	}
-	if newTree != nil && newTree.compactMaterialized {
-		t.Fatal("ParseIncremental produced a compact-materialized tree")
+	if newTree != nil && newTree.compactMaterialized && !newTree.rawParseRuntime().CompactIncrementalReuseRoute {
+		t.Fatal("ParseIncremental published a compact tree without incremental execution")
 	}
 }
 

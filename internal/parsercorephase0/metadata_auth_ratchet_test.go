@@ -12,9 +12,10 @@ import (
 
 func TestMetadataAuthenticationLexicalProvenanceRatchet(t *testing.T) {
 	allowedRawAppenders := map[string]int{
-		"appendAuthenticatedTerminal": 0,
-		"appendSubtree":               0,
-		"reductionParentForPath":      0,
+		"PushReusedSubtreeOwnedWithPoll": 0,
+		"appendAuthenticatedTerminal":    0,
+		"appendSubtree":                  0,
+		"reductionParentForPath":         0,
 	}
 	allowedTerminalCallers := map[string]int{
 		"appendDiagnosticPayload":                     0,

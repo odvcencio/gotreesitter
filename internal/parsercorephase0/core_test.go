@@ -147,7 +147,7 @@ func TestPinnedGoConflictAndReductionMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.Symbol != wantReduce.Symbol || view.ProductionID != wantReduce.ProductionID || view.DynamicPrecedence != wantReduce.DynamicPrecedence {
+	if view.Symbol != wantReduce.Symbol || view.ProductionID != wantReduce.ProductionID || view.DynamicPrecedence != int32(wantReduce.DynamicPrecedence) {
 		t.Fatalf("reduction identity = (%d,%d,%d), want (%d,%d,%d)", view.Symbol, view.ProductionID, view.DynamicPrecedence, wantReduce.Symbol, wantReduce.ProductionID, wantReduce.DynamicPrecedence)
 	}
 	if len(view.Fields) != 0 {

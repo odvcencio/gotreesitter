@@ -3158,10 +3158,11 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	if got, want := unsafe.Sizeof(Parser{}), uintptr(2224); got != want {
 		t.Fatalf("Parser size = %d, want %d", got, want)
 	}
-	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3040); got != want {
+	// Compact incremental results add 48 bytes of route, reuse, and work telemetry.
+	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3088); got != want {
 		t.Fatalf("ParseRuntime size = %d, want %d", got, want)
 	}
-	if got, want := unsafe.Sizeof(Tree{}), uintptr(3240); got != want {
+	if got, want := unsafe.Sizeof(Tree{}), uintptr(3288); got != want {
 		t.Fatalf("Tree size = %d, want %d", got, want)
 	}
 	if got, want := unsafe.Offsetof(Parser{}.cNodeMemoPeakTier), unsafe.Offsetof(Parser{}.crecoveryCostCompetitionRelevant)+2; got != want {

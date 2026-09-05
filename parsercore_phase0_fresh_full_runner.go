@@ -10,21 +10,15 @@ import (
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
-// parserCoreFreshFullRunner owns the reusable state for the authenticated,
-// fresh UTF-8 compact-parser route. It is deliberately build-tagged and does
-// not participate in Parser.parseInternal: callers must opt into this exact
-// diagnostic route and handle a fail-closed decline themselves.
-//
-// The only admitted identity is the certified embedded Go blob and exact Go
-// external scanner. The route is fresh UTF-8 only and declines recovery,
-// missing/no-lookahead tokens, repetition shifts, extra chains, and any EOF
-// frontier other than one accepted head with one exact derivation.
-//
-// The runner is stateful and not safe for concurrent use. A successful parse
-// returns a caller-owned tree. Every call resets the compact arenas before
-// acquiring a production DFA token source, so a declined or capped parse
-// cannot publish state into the next call.
+// parserCoreFreshFullRunner owns reusable state for compact UTF-8 parsing.
+// Admission configures the language, scanner, and supported recovery paths.
+// Incremental callers can supply an authenticated subtree reuse session.
+// Each call starts a fresh core generation, independent of Parser.parseInternal.
+// Callers must process declines before publishing a tree.
+// The runner is not safe for concurrent use. Successful results belong to the caller.
 type parserCoreFreshFullRunner struct {
+	// legacyParseRuns verifies legacy entries without growing the Parser layout.
+	legacyParseRuns                   uint64
 	lang                              *Language
 	parser                            *Parser
 	tables                            *parserCoreRootTables
@@ -511,6 +505,10 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 			tree.Release()
 		}
 		return nil, materializeErr
+	}
+	if tree != nil {
+		tree.parseRuntime.TokensConsumed = scheduler.tokens
+		tree.parseRuntime.CompactReductions = scheduler.work.Reductions
 	}
 	return tree, nil
 }

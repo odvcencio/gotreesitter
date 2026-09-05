@@ -171,7 +171,10 @@ func (p *Parser) replayCompactDerivation(compact *core.Core, roots []core.Subtre
 		if err != nil {
 			return fail(err)
 		}
-		rootParseState, rootStateKnown := p.replayTransition(seed, Symbol(view.Symbol), view.Terminal)
+		rootParseState, rootStateKnown, err := p.replayCompactMaterializationTransition(seed, view)
+		if err != nil {
+			return fail(err)
+		}
 		if rootStateKnown && uint64(root) < uint64(len(states.parseState)) {
 			states.parseState[root] = rootParseState
 			states.psKnown[root] = true
@@ -205,7 +208,10 @@ func (p *Parser) replayCompactDerivation(compact *core.Core, roots []core.Subtre
 			if err != nil {
 				return fail(err)
 			}
-			childParseState, childStateKnown := p.replayTransition(childPreGoto, Symbol(cview.Symbol), cview.Terminal)
+			childParseState, childStateKnown, err := p.replayCompactMaterializationTransition(childPreGoto, cview)
+			if err != nil {
+				return fail(err)
+			}
 			top.cursor = childParseState
 			if childStateKnown && uint64(child) < uint64(len(states.parseState)) {
 				// Record only authoritative transitions. A failed transition
@@ -225,4 +231,16 @@ func (p *Parser) replayCompactDerivation(compact *core.Core, roots []core.Subtre
 	// Retain the cleared worklist backing store for the next parse.
 	states.frames = stack[:0]
 	return states, nil
+}
+
+func (p *Parser) replayCompactMaterializationTransition(pre StateID, view core.MaterializationReplayView) (StateID, bool, error) {
+	state, known := p.replayTransition(pre, Symbol(view.Symbol), view.Terminal)
+	if view.ReusedKey == 0 {
+		return state, known, nil
+	}
+	if view.Terminal || view.Extra || view.Children.Len() != 0 || !known ||
+		pre != StateID(view.ReusedPreGotoState) || state != StateID(view.ReusedState) {
+		return 0, false, compactIncrementalMaterializationDecline("borrowed replay transition does not match the parser tables")
+	}
+	return StateID(view.ReusedState), true, nil
 }

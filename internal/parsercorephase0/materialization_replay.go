@@ -28,10 +28,12 @@ func (c *Core) MaterializationReplayChild(children MaterializationReplayChildren
 // MaterializationReplayView exposes only the compact fields that parse-state
 // replay consumes.
 type MaterializationReplayView struct {
-	Symbol   Symbol
-	Children MaterializationReplayChildren
-	Extra    bool
-	Terminal bool
+	ReusedKey                       uint32
+	ReusedPreGotoState, ReusedState StateID
+	Symbol                          Symbol
+	Children                        MaterializationReplayChildren
+	Extra                           bool
+	Terminal                        bool
 }
 
 // MaterializationReplayView returns one borrowed parse-state replay view.
@@ -40,7 +42,7 @@ func (c *Core) MaterializationReplayView(id SubtreeID) (MaterializationReplayVie
 	if err != nil {
 		return MaterializationReplayView{}, err
 	}
-	return MaterializationReplayView{
+	view := MaterializationReplayView{
 		Symbol: record.symbol,
 		Children: MaterializationReplayChildren{
 			first: record.firstChild,
@@ -48,5 +50,10 @@ func (c *Core) MaterializationReplayView(id SubtreeID) (MaterializationReplayVie
 		},
 		Extra:    record.extra,
 		Terminal: record.terminal,
-	}, nil
+	}
+	if reused, ok := c.reusedSubtree(id); ok {
+		view.ReusedKey = reused.Key
+		view.ReusedPreGotoState, view.ReusedState = reused.PreGotoState, reused.State
+	}
+	return view, nil
 }
