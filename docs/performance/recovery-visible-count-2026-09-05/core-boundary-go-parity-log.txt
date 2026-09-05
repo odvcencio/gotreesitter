@@ -1,0 +1,23 @@
+=== RUN   TestCanonicalGoBenchmarkPreflight
+--- PASS: TestCanonicalGoBenchmarkPreflight (0.68s)
+=== RUN   TestStage6GoCompactCertification
+=== RUN   TestStage6GoCompactCertification/smoke
+    stage6_go_compact_certification_test.go:60: route=1/0 reason=""
+    stage6_go_compact_certification_test.go:66: Go compact smoke: exact symbols, fields, spans, points, flags, and deep digest 94fcf4849cea5bcccc24ae0a1e70ee06218e0daad96434b74c27864db9fe0c81
+    stage6_go_compact_certification_test.go:105: incremental profile={ReuseCursorNanos:8672 ReparseNanos:0 ReusedSubtrees:1 ReusedBytes:42 NewNodesAllocated:0 ReuseUnsupported:false ReuseUnsupportedReason: AcceptedErrorRetryAttempts:0 AcceptedErrorRetryAdopted:false AcceptedErrorRetryMergePerKey:0 AcceptedErrorRetryCause:0 OldTreeReuseRoute:false ReuseRejectDirty:0 ReuseRejectAncestorDirtyBeforeEdit:0 ReuseRejectHasError:0 ReuseRejectInvalidSpan:0 ReuseRejectOutOfBounds:0 ReuseRejectRootNonLeafChanged:0 ReuseObservedPreGotoStateMismatch:0 ReuseRejectLargeNonLeaf:0 ReuseRejectStaleNonLeafBoundary:0 ReuseRejectFragileNonLeaf:0 BlockSpliceSteps:0 ReuseRejectScannerUnquiescent:0 ReuseRejectFrontierProofUnavailable:0 RecoverSearches:0 RecoverStateChecks:0 RecoverStateSkips:0 RecoverSymbolSkips:0 RecoverLookups:0 RecoverHits:0 MaxStacksSeen:1 EntryScratchPeak:0 StopReason:accepted TokensConsumed:1 LastTokenEndByte:38 ExpectedEOFByte:42 ArenaBytesAllocated:0 ArenaBaselineBytes:0 ScratchBytesAllocated:0 ScratchBaselineBytes:0 EntryScratchBytesAllocated:0 GSSBytesAllocated:0 SingleStackIterations:1 MultiStackIterations:0 SingleStackTokens:1 MultiStackTokens:0 SingleStackGSSNodes:0 MultiStackGSSNodes:0 GSSNodesAllocated:0 GSSNodesRetained:0 GSSNodesDroppedSameToken:0 ParentNodesAllocated:0 ParentNodesRetained:0 ParentNodesDroppedSameToken:0 LeafNodesAllocated:0 LeafNodesRetained:0 LeafNodesDroppedSameToken:0 MergeStacksIn:0 MergeStacksOut:0 MergeSlotsUsed:0 GlobalCullStacksIn:0 GlobalCullStacksOut:0 ParserLoopNanos:0 TokenNextNanos:0 ActionDispatchNanos:0 ActionLookupNanos:0 GLRMergeNanos:0 GLRCullNanos:0 ResultSelectionNanos:0 TransientParentMaterializationNanos:0 ResultTreeBuildNanos:0 TransientChildMaterializationNanos:0 ResultPythonKeywordRepairNanos:0 ResultPythonRootRepairNanos:0 ResultFinalizeRootNanos:0 ResultExtendTrailingNanos:0 ResultNormalizeRootStartNanos:0 ResultCompatibilityNanos:0 ResultParentLinkNanos:0 ReduceRangeNanos:0 ReducePendingParentNanos:0 ReduceChildBuildNanos:0 ReduceParentBuildNanos:0 ReduceSpanNanos:0 ReduceStackPushNanos:0 ReduceNoTreeBuildNanos:0 ActionExtraShiftNanos:0 ActionNoActionNanos:0 ActionNoActionRelexNanos:0 ActionNoActionMissingNanos:0 ActionNoActionRecoverNanos:0 ActionNoActionErrorNanos:0 ActionConflictChoiceNanos:0 ActionConflictForkNanos:0 ActionSingleShiftNanos:0 ActionSingleReduceNanos:0 ActionSingleAcceptNanos:0 ActionSingleRecoverNanos:0 ActionSingleOtherNanos:0 NormalizationNanos:0}
+    stage6_go_compact_certification_test.go:114: Go compact incremental: exact symbols, fields, spans, points, flags, and deep digest 94fcf4849cea5bcccc24ae0a1e70ee06218e0daad96434b74c27864db9fe0c81
+=== RUN   TestStage6GoCompactCertification/method_and_composite
+    stage6_go_compact_certification_test.go:60: route=1/0 reason=""
+    stage6_go_compact_certification_test.go:66: Go compact method_and_composite: exact symbols, fields, spans, points, flags, and deep digest 1d8c6f3a8e12e75170087137f26b0253fed88317ad4f46e04c7bfca4ea23d065
+=== RUN   TestStage6GoCompactCertification/type_switch
+    stage6_go_compact_certification_test.go:60: route=1/0 reason=""
+    stage6_go_compact_certification_test.go:66: Go compact type_switch: exact symbols, fields, spans, points, flags, and deep digest cd5cf50ce1a4c1dc4e3feb3e8ef2943e41894076623de3ead47007b9bd64f700
+=== RUN   TestStage6GoCompactCertification/recovery
+    stage6_go_compact_certification_test.go:60: route=0/1 reason="compact route declined at recovery [mechanism=recovery-entered]: did not accept EOF: owned recovery currently requires EOF after the first absorb"
+--- PASS: TestStage6GoCompactCertification (0.01s)
+    --- PASS: TestStage6GoCompactCertification/smoke (0.00s)
+    --- PASS: TestStage6GoCompactCertification/method_and_composite (0.00s)
+    --- PASS: TestStage6GoCompactCertification/type_switch (0.00s)
+    --- PASS: TestStage6GoCompactCertification/recovery (0.00s)
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	0.694s
