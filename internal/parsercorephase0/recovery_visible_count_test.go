@@ -55,17 +55,17 @@ func TestCoreRecoveryVisibleCountPreservesOccurrenceContexts(t *testing.T) {
 		for pass := 0; pass < 2; pass++ {
 			for _, id := range ids {
 				want, referenceErr := RecoveryNodeVisibleSubtreeCount(symbols, recoveryVisibleMaterializationSource{c}, id)
-				got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, id)
+				got, err := c.CachedVisibleSubtreeCount(symbols, id)
 				if err != nil || referenceErr != nil || got != want {
 					t.Fatalf("parent_first=%t pass=%d id=%d count=%d/%v, reference=%d/%v", parentFirst, pass, id, got, err, want, referenceErr)
 				}
 			}
 		}
-		if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, parent); err != nil || got != 6 {
+		if got, err := c.CachedVisibleSubtreeCount(symbols, parent); err != nil || got != 6 {
 			t.Fatalf("parent count=%d/%v, want 6", got, err)
 		}
 		c.markSubtreeFragile(parent)
-		if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, parent); err != nil || got != 6 {
+		if got, err := c.CachedVisibleSubtreeCount(symbols, parent); err != nil || got != 6 {
 			t.Fatalf("fragile parent count=%d/%v, want 6", got, err)
 		}
 	}
@@ -81,11 +81,11 @@ func TestCoreRecoveryVisibleCountMemoSuppressesRepeatedDescendants(t *testing.T)
 		root = appendRecoveryVisibleFixture(t, c, ordinarySymbol, false, false, []SubtreeID{root, root}, nil)
 	}
 	const want = uint32(1<<31 - 1)
-	if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, root); err != nil || got != want {
+	if got, err := c.CachedVisibleSubtreeCount(symbols, root); err != nil || got != want {
 		t.Fatalf("shared count=%d/%v, want %d", got, err, want)
 	}
 	allocations := testing.AllocsPerRun(50, func() {
-		if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, root); err != nil || got != want {
+		if got, err := c.CachedVisibleSubtreeCount(symbols, root); err != nil || got != want {
 			t.Fatalf("repeated count=%d/%v, want %d", got, err, want)
 		}
 	})
@@ -93,27 +93,27 @@ func TestCoreRecoveryVisibleCountMemoSuppressesRepeatedDescendants(t *testing.T)
 		t.Fatalf("warm count allocations=%g, want zero", allocations)
 	}
 	root = appendRecoveryVisibleFixture(t, c, ordinarySymbol, false, false, []SubtreeID{root, root}, nil)
-	if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, root); err != nil || got != math.MaxUint32 {
+	if got, err := c.CachedVisibleSubtreeCount(symbols, root); err != nil || got != math.MaxUint32 {
 		t.Fatalf("maximum count=%d/%v, want %d", got, err, uint32(math.MaxUint32))
 	}
 	hidden := appendRecoveryVisibleFixture(t, c, 6, false, false, []SubtreeID{root}, nil)
-	if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, hidden); err != nil || got != math.MaxUint32 {
+	if got, err := c.CachedVisibleSubtreeCount(symbols, hidden); err != nil || got != math.MaxUint32 {
 		t.Fatalf("hidden maximum count=%d/%v, want %d", got, err, uint32(math.MaxUint32))
 	}
 	aliased := appendRecoveryVisibleFixture(t, c, 6, false, false, []SubtreeID{hidden}, []Symbol{ordinarySymbol})
-	if _, err := c.RecoveryNodeVisibleSubtreeCount(symbols, aliased); err == nil {
+	if _, err := c.CachedVisibleSubtreeCount(symbols, aliased); err == nil {
 		t.Fatal("alias adjustment overflow succeeded")
 	}
 	repeat := appendRecoveryVisibleFixture(t, c, RecoveryErrorRepeatSymbol, false, false, []SubtreeID{root}, nil)
-	if _, err := c.RecoveryNodeVisibleSubtreeCount(symbols, repeat); err == nil {
+	if _, err := c.CachedVisibleSubtreeCount(symbols, repeat); err == nil {
 		t.Fatal("ERROR_REPEAT root adjustment overflow succeeded")
 	}
 	nestedRepeat := appendRecoveryVisibleFixture(t, c, 6, false, false, []SubtreeID{repeat}, nil)
-	if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, nestedRepeat); err != nil || got != math.MaxUint32 {
+	if got, err := c.CachedVisibleSubtreeCount(symbols, nestedRepeat); err != nil || got != math.MaxUint32 {
 		t.Fatalf("nested ERROR_REPEAT count=%d/%v, want %d", got, err, uint32(math.MaxUint32))
 	}
 	root = appendRecoveryVisibleFixture(t, c, ordinarySymbol, false, false, []SubtreeID{root}, nil)
-	if _, err := c.RecoveryNodeVisibleSubtreeCount(symbols, root); err == nil {
+	if _, err := c.CachedVisibleSubtreeCount(symbols, root); err == nil {
 		t.Fatal("overflowing count succeeded")
 	}
 }
@@ -128,11 +128,11 @@ func TestCoreRecoveryVisibleCountRebindsMutablePolicy(t *testing.T) {
 		if visible {
 			want = 1
 		}
-		if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, leaf); err != nil || got != want {
+		if got, err := c.CachedVisibleSubtreeCount(symbols, leaf); err != nil || got != want {
 			t.Fatalf("visible=%t count=%d/%v, want %d", visible, got, err, want)
 		}
 	}
-	if got, err := c.RecoveryNodeVisibleSubtreeCount(nil, leaf); err != nil || got != 0 {
+	if got, err := c.CachedVisibleSubtreeCount(nil, leaf); err != nil || got != 0 {
 		t.Fatalf("empty policy count=%d/%v, want zero", got, err)
 	}
 }
@@ -141,14 +141,14 @@ func TestCoreRecoveryVisibleCountRollbackInvalidatesReusedID(t *testing.T) {
 	c := newRecoveryVisibleCore(t)
 	symbols := visibleSymbols()
 	keep := appendRecoveryVisibleFixture(t, c, ordinarySymbol, false, false, nil, nil)
-	if _, err := c.RecoveryNodeVisibleSubtreeCount(symbols, keep); err != nil {
+	if _, err := c.CachedVisibleSubtreeCount(symbols, keep); err != nil {
 		t.Fatal(err)
 	}
 	rollback := errors.New("visible count rollback")
 	var discarded SubtreeID
 	err := c.ApplySchedulerAtomic(func(SchedulerTransactionToken) error {
 		discarded = appendRecoveryVisibleFixture(t, c, ordinarySymbol, false, false, []SubtreeID{keep}, nil)
-		if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, discarded); err != nil || got != 2 {
+		if got, err := c.CachedVisibleSubtreeCount(symbols, discarded); err != nil || got != 2 {
 			t.Fatalf("provisional count=%d/%v, want 2", got, err)
 		}
 		return rollback
@@ -156,17 +156,17 @@ func TestCoreRecoveryVisibleCountRollbackInvalidatesReusedID(t *testing.T) {
 	if !errors.Is(err, rollback) {
 		t.Fatalf("rollback error=%v", err)
 	}
-	if _, err := c.RecoveryNodeVisibleSubtreeCount(symbols, discarded); err == nil {
+	if _, err := c.CachedVisibleSubtreeCount(symbols, discarded); err == nil {
 		t.Fatal("discarded ID remained readable")
 	}
 	replacement := appendRecoveryVisibleFixture(t, c, 6, false, false, nil, nil)
 	if replacement != discarded {
 		t.Fatalf("replacement ID=%d, want %d", replacement, discarded)
 	}
-	if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, replacement); err != nil || got != 0 {
+	if got, err := c.CachedVisibleSubtreeCount(symbols, replacement); err != nil || got != 0 {
 		t.Fatalf("replacement count=%d/%v, want zero", got, err)
 	}
-	if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, keep); err != nil || got != 1 {
+	if got, err := c.CachedVisibleSubtreeCount(symbols, keep); err != nil || got != 1 {
 		t.Fatalf("retained count=%d/%v, want one", got, err)
 	}
 }
@@ -176,7 +176,7 @@ func TestCoreRecoveryVisibleCountResetAndAccounting(t *testing.T) {
 	symbols := visibleSymbols()
 	leaf := appendRecoveryVisibleFixture(t, c, ordinarySymbol, false, false, nil, nil)
 	storageBefore, footprintBefore := c.StorageBytes(), c.FootprintBytes()
-	if _, err := c.RecoveryNodeVisibleSubtreeCount(symbols, leaf); err != nil {
+	if _, err := c.CachedVisibleSubtreeCount(symbols, leaf); err != nil {
 		t.Fatal(err)
 	}
 	wantStorage := uint64(len(c.recoveryVisibleCounts))*coreRecoveryVisibleCountBytes + uint64(len(c.recoveryVisibleSymbols))*coreBoolBytes
@@ -195,7 +195,7 @@ func TestCoreRecoveryVisibleCountResetAndAccounting(t *testing.T) {
 		t.Fatalf("reset storage=%d footprint=%d counts=%d/%d policy=%d", c.StorageBytes(), c.FootprintBytes(), len(c.recoveryVisibleCounts), cap(c.recoveryVisibleCounts), len(c.recoveryVisibleSymbols))
 	}
 	leaf = appendRecoveryVisibleFixture(t, c, 6, false, false, nil, nil)
-	if got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, leaf); err != nil || got != 0 {
+	if got, err := c.CachedVisibleSubtreeCount(symbols, leaf); err != nil || got != 0 {
 		t.Fatalf("reset replacement count=%d/%v, want zero", got, err)
 	}
 	if err := c.ResetReleasingRetention(); err != nil {
@@ -220,7 +220,7 @@ func TestCoreRecoveryVisibleCountMatchesReusedMaterialization(t *testing.T) {
 	symbols[reused.Symbol].Visible = true
 	for pass := 0; pass < 2; pass++ {
 		want, referenceErr := RecoveryNodeVisibleSubtreeCount(symbols, recoveryVisibleMaterializationSource{c}, payload)
-		got, err := c.RecoveryNodeVisibleSubtreeCount(symbols, payload)
+		got, err := c.CachedVisibleSubtreeCount(symbols, payload)
 		if err != nil || referenceErr != nil || got != want || got != 1 {
 			t.Fatalf("reused count=%d/%v, reference=%d/%v", got, err, want, referenceErr)
 		}
@@ -244,7 +244,7 @@ func TestCoreRecoveryVisibleCountRejectsMalformedMetadata(t *testing.T) {
 			case "cycle":
 				c.children[0] = root
 			}
-			if _, err := c.RecoveryNodeVisibleSubtreeCount(visibleSymbols(), root); err == nil {
+			if _, err := c.CachedVisibleSubtreeCount(visibleSymbols(), root); err == nil {
 				t.Fatal("malformed metadata was counted")
 			}
 		})

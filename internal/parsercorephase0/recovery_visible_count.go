@@ -20,10 +20,10 @@ const (
 	recoveryVisibleCountErrorRepeat
 )
 
-// RecoveryNodeVisibleSubtreeCount counts visible occurrences in one compact subtree.
-// It preserves RecoveryNodeVisibleSubtreeCount semantics and caches immutable subtree totals.
+// CachedVisibleSubtreeCount counts visible occurrences in one compact subtree.
+// It preserves occurrence-specific visibility and caches immutable subtree totals.
 // The visibility policy is copied and checked before each call. Named bits do not affect counts.
-func (c *Core) RecoveryNodeVisibleSubtreeCount(symbols []SelectedSymbolPolicy, id SubtreeID) (uint32, error) {
+func (c *Core) CachedVisibleSubtreeCount(symbols []SelectedSymbolPolicy, id SubtreeID) (uint32, error) {
 	if id == 0 {
 		return 0, nil
 	}
@@ -31,7 +31,7 @@ func (c *Core) RecoveryNodeVisibleSubtreeCount(symbols []SelectedSymbolPolicy, i
 		return 0, errors.New("parser-core phase zero: recovery visible-node count on nil core")
 	}
 	if uint64(id) > uint64(len(c.subtrees)) {
-		return 0, ErrRecoveryCostNodeMissing
+		return 0, fmt.Errorf("parser-core phase zero: invalid subtree id %d", id)
 	}
 	c.bindRecoveryVisibleSymbols(symbols)
 	if len(c.recoveryVisibleCounts) < len(c.subtrees) {
@@ -84,7 +84,7 @@ func (c *Core) recoveryVisibleSubtreeCount(id SubtreeID, hasAlias, countErrorRep
 				id, record.aliasCount, record.childCount)
 		}
 		entry.flags = recoveryVisibleCountValid
-		if record.symbol == RecoveryErrorSymbol ||
+		if record.symbol == ErrorRegionSymbol ||
 			int(record.symbol) < len(c.recoveryVisibleSymbols) && c.recoveryVisibleSymbols[record.symbol] {
 			entry.count = 1
 			entry.flags |= recoveryVisibleCountRootVisible
@@ -92,7 +92,8 @@ func (c *Core) recoveryVisibleSubtreeCount(id SubtreeID, hasAlias, countErrorRep
 		if record.extra {
 			entry.flags |= recoveryVisibleCountExtra
 		}
-		if record.symbol == RecoveryErrorRepeatSymbol {
+		// ERROR_REPEAT precedes ERROR in the built-in symbol range.
+		if record.symbol == ErrorRegionSymbol-1 {
 			entry.flags |= recoveryVisibleCountErrorRepeat
 		}
 		children := c.children[record.firstChild:childEnd]

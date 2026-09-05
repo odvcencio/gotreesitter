@@ -5,6 +5,11 @@ Baseline: `7db6e20ad88ac7f79228979899d5c55578818f49`.
 Candidate: `bc34a57e549da5a077a5045927ae65bda8f285e2`.
 Benchmark driver: `4e8d780c0dfecfff2b14850bc750e22b8ab15fa0`, from pull request #1089.
 
+The pull request includes a later correction to the core dependency boundary.
+It renames the cache API to `CachedVisibleSubtreeCount` and uses existing core symbol constants.
+Malformed identifiers receive the core invalid-subtree error.
+Valid-input counting remains unchanged. The recorded timing identities still refer to the measured candidate above.
+
 ## Result
 
 The cache reduces time across all four frozen Go fixtures.
@@ -76,6 +81,12 @@ Each grammar runs separately with one CPU and a four GiB memory limit.
 
 Independent source review found no actionable correctness defect.
 These controls do not constitute complete grammar certification or a broad race sweep.
+
+Continuous integration subsequently found a reference-model dependency violation in the new cache.
+The correction preserves the existing architecture check and removes those references.
+Both complete compact-core package variants pass race tests in Docker after the correction.
+The diagnostic clone and count controls also pass.
+Independent review confirms unchanged counting behavior for valid input.
 
 A broader historical diagnostic selection fails seven tests on unchanged `7db6e20a`.
 Those failures concern conflict sequence overflow and old scheduler receipts.
@@ -154,7 +165,7 @@ Residual observations include:
 | Structure copying through `runtime.duffcopy`, flat | 17.27% |
 | Scheduler footprint accounting, cumulative | 10.52% |
 | DFA token scan, cumulative | 8.79% |
-| Canonicalization, cumulative | 4.00% |
+| Canonicalization with its scheduler wrapper, cumulative | 5.89% |
 
 These shares overlap. Do not add them.
 The allocation profile includes setup and assigns 48.83 percent of sampled bytes to canonicalization.

@@ -13,7 +13,7 @@ func TestDiagnosticEOFRecoveryCloneDetachesVisibleCountMemo(t *testing.T) {
 	live := newRecoveryVisibleCore(t)
 	leaf := appendRecoveryVisibleFixture(t, live, ordinarySymbol, false, false, nil, nil)
 	symbols := visibleSymbols()
-	if got, err := live.RecoveryNodeVisibleSubtreeCount(symbols, leaf); err != nil || got != 1 {
+	if got, err := live.CachedVisibleSubtreeCount(symbols, leaf); err != nil || got != 1 {
 		t.Fatalf("live count=%d/%v, want one", got, err)
 	}
 	shadow := cloneDiagnosticEOFRecoveryCore(live, 0, diagnosticEOFRecoveryValidationDemand{})
@@ -21,7 +21,7 @@ func TestDiagnosticEOFRecoveryCloneDetachesVisibleCountMemo(t *testing.T) {
 		t.Fatal("shadow retained the live visible-count cache")
 	}
 	symbols[ordinarySymbol].Visible = false
-	if got, err := shadow.RecoveryNodeVisibleSubtreeCount(symbols, leaf); err != nil || got != 0 {
+	if got, err := shadow.CachedVisibleSubtreeCount(symbols, leaf); err != nil || got != 0 {
 		t.Fatalf("shadow count=%d/%v, want zero", got, err)
 	}
 	if live.recoveryVisibleCounts[leaf-1].count != 1 || !live.recoveryVisibleSymbols[ordinarySymbol] {
