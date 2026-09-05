@@ -29,6 +29,8 @@ func TestDiagnosticWorkCountChild(t *testing.T) {
 	}
 
 	parser := gotreesitter.NewParser(input.lang)
+	parser.SetAdmissionCandidateRoute(false)
+	routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
 	gotreesitter.BeginDiagnosticWorkCount()
 	tree, parseErr := parser.Parse(input.source)
 	counts := gotreesitter.EndDiagnosticWorkCount()
@@ -45,6 +47,10 @@ func TestDiagnosticWorkCountChild(t *testing.T) {
 		t.Fatal("parse returned no root")
 	}
 	defer tree.Release()
+	routedAfter, fallbackAfter := gotreesitter.AdmissionCandidateCounters()
+	if routedAfter != routedBefore || fallbackAfter != fallbackBefore {
+		t.Fatalf("production diagnostic attempted compact parsing: routed=%d->%d fallback=%d->%d", routedBefore, routedAfter, fallbackBefore, fallbackAfter)
+	}
 
 	base, err := authenticateWorkCountTree(input, tree)
 	if err != nil {
@@ -59,6 +65,10 @@ func TestDiagnosticWorkCountChild(t *testing.T) {
 	if err := writeWorkCountChildResult(result); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestDiagnosticWorkCountChildUsesProductionRoute(t *testing.T) {
+	runWorkCountProductionRouteRegression(t, TestDiagnosticWorkCountChild, workCountTaggedGoChildSchema, workCountTaggedEngine)
 }
 
 func countSelectedGoNodes(root *gotreesitter.Node, counts *gotreesitter.DiagnosticWorkCount) error {

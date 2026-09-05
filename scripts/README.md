@@ -43,11 +43,41 @@ export GTS_RECOVERY_CORPUS_FILE=/absolute/path/to/corpus-file
 export GTS_RECOVERY_CORPUS_LANG=elixir
 ```
 
-Run both checkouts with the same seed range. Alternate checkout order between
-seed batches when the host cannot stay thermally stable.
+Run a paired comparison from the candidate checkout. Supply the baseline
+checkout and a separate output path.
 
 ```sh
-bash scripts/run_randomized_benchmarks.sh --output /tmp/gts-base.txt
-bash scripts/run_randomized_benchmarks.sh --output /tmp/gts-head.txt
+bash scripts/run_randomized_benchmarks.sh \
+  --baseline-root /absolute/path/to/baseline \
+  --baseline-output /tmp/gts-base.txt \
+  --output /tmp/gts-head.txt
 benchstat /tmp/gts-base.txt /tmp/gts-head.txt
 ```
+
+Each pair uses the same shuffle seed. The driver reverses checkout order for
+each successive seed and holds one lock across the complete campaign.
+Each process uses `GOMAXPROCS=1`, `-count=1`, and `-benchmem`.
+The defaults remain 20 seeds and a 750 millisecond benchmark duration.
+
+The current driver runs both checkouts. The baseline does not need to contain
+this script. Each output records the checkout identity, settings, and seed
+boundaries. Dirty checkout metadata identifies development runs; it does not
+authenticate their source contents.
+
+Require `# status: complete` as the final line in both outputs before comparing
+them. A failed or interrupted process leaves the campaign incomplete.
+Output paths must differ and must not already exist.
+
+Use `--require-benchmarks` with comma-separated names to require those timing
+rows in every process. The driver removes Go's CPU suffix before matching.
+Continuous integration requires each member of the primary trio for every
+seed. A partial sample set cannot pass as a complete comparison.
+
+Set the same build tags and fixture controls for both checkouts. Use
+`--tags ''` to measure the ordinary build. Keep instrumented diagnostics
+separate from timing evidence. Paired order reduces drift bias but does not
+establish a quiet host or certify grammar parity.
+
+Continuous integration uses paired runs for its advisory Go benchmark trio.
+It retains the separate memory probe and reports interrupted campaigns as
+inconclusive. Use certified corpus and fleet runs for language-wide claims.
