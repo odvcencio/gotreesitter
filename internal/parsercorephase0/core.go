@@ -1302,12 +1302,16 @@ type Core struct {
 	dropCohortLinkRefIndexes []uint32
 	dropCohortLinkRefJournal []dropCohortLinkRefMutation
 
-	subtrees              []subtreeRecord
-	externalProvenance    []externalPayloadProvenance
-	missingLeafProvenance []missingLeafProvenance
-	lexerSkippedPrefixes  []lexerSkippedPrefixProvenance
-	reusedSubtrees        []reusedSubtreeProvenance
-	reuseProof            reuseValidationProof
+	subtrees []subtreeRecord
+	// Visible counts depend on immutable symbols, children, aliases, and extra bits.
+	// Fragility and scanner provenance updates do not change these counts.
+	recoveryVisibleCounts  []recoveryVisibleCount
+	recoveryVisibleSymbols []bool
+	externalProvenance     []externalPayloadProvenance
+	missingLeafProvenance  []missingLeafProvenance
+	lexerSkippedPrefixes   []lexerSkippedPrefixProvenance
+	reusedSubtrees         []reusedSubtreeProvenance
+	reuseProof             reuseValidationProof
 	// recoveryDiscontinuityReductions records parents whose stack pop crossed
 	// a null recovery edge. C counts that edge for the pop depth, but it does
 	// not add a child to the materialized subtree.
@@ -1744,6 +1748,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.nodeCheckpoints = c.nodeCheckpoints[:mark.nodeCheckpoints]
 	c.links = c.links[:mark.links]
 	c.subtrees = c.subtrees[:mark.subtrees]
+	c.truncateRecoveryVisibleCounts(mark.subtrees)
 	c.eofRecoveryRoots = c.eofRecoveryRoots[:mark.eofRecoveryRoots]
 	c.externalProvenance = c.externalProvenance[:mark.externalProvenance]
 	c.missingLeafProvenance = c.missingLeafProvenance[:mark.missingLeafProvenance]
@@ -2366,6 +2371,8 @@ func (c *Core) Reset() error {
 	clear(c.dropCohortLinkRefIndexes)
 	c.dropCohortLinkRefIndexes = c.dropCohortLinkRefIndexes[:0]
 	c.subtrees = c.subtrees[:0]
+	c.truncateRecoveryVisibleCounts(0)
+	c.recoveryVisibleSymbols = c.recoveryVisibleSymbols[:0]
 	c.eofRecoveryRoots = c.eofRecoveryRoots[:0]
 	c.externalProvenance = c.externalProvenance[:0]
 	c.missingLeafProvenance = c.missingLeafProvenance[:0]

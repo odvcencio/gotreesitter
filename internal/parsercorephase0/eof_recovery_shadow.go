@@ -459,6 +459,9 @@ func cloneDiagnosticEOFRecoveryCore(
 	shadow.nodeCheckpoints = cloneDiagnosticSlice(live.nodeCheckpoints, 0)
 	shadow.links = cloneDiagnosticSlice(live.links, 0)
 	shadow.subtrees = cloneDiagnosticSlice(live.subtrees, 1)
+	// Recompute optional counts without retaining mutable caches from the live core.
+	shadow.recoveryVisibleCounts = nil
+	shadow.recoveryVisibleSymbols = nil
 	shadow.eofRecoveryRoots = cloneDiagnosticSlice(live.eofRecoveryRoots, 1)
 	shadow.recoveryDiscontinuityReductions = cloneDiagnosticSlice(live.recoveryDiscontinuityReductions, 0)
 	shadow.externalProvenance = cloneDiagnosticSlice(live.externalProvenance, 0)
@@ -614,6 +617,8 @@ func diagnosticEOFRecoveryStorageDisjoint(live, shadow *Core) bool {
 		disjointDiagnosticSlice(live.nodeCheckpoints, shadow.nodeCheckpoints) &&
 		disjointDiagnosticSlice(live.links, shadow.links) &&
 		disjointDiagnosticSlice(live.subtrees, shadow.subtrees) &&
+		disjointDiagnosticSlice(live.recoveryVisibleCounts, shadow.recoveryVisibleCounts) &&
+		disjointDiagnosticSlice(live.recoveryVisibleSymbols, shadow.recoveryVisibleSymbols) &&
 		disjointDiagnosticSlice(live.eofRecoveryRoots, shadow.eofRecoveryRoots) &&
 		disjointDiagnosticSlice(live.recoveryDiscontinuityReductions, shadow.recoveryDiscontinuityReductions) &&
 		disjointDiagnosticSlice(live.externalProvenance, shadow.externalProvenance) &&

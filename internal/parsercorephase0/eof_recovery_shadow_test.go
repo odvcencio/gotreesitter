@@ -9,6 +9,29 @@ import (
 	"unsafe"
 )
 
+func TestDiagnosticEOFRecoveryCloneDetachesVisibleCountMemo(t *testing.T) {
+	live := newRecoveryVisibleCore(t)
+	leaf := appendRecoveryVisibleFixture(t, live, ordinarySymbol, false, false, nil, nil)
+	symbols := visibleSymbols()
+	if got, err := live.RecoveryNodeVisibleSubtreeCount(symbols, leaf); err != nil || got != 1 {
+		t.Fatalf("live count=%d/%v, want one", got, err)
+	}
+	shadow := cloneDiagnosticEOFRecoveryCore(live, 0, diagnosticEOFRecoveryValidationDemand{})
+	if shadow.recoveryVisibleCounts != nil || shadow.recoveryVisibleSymbols != nil {
+		t.Fatal("shadow retained the live visible-count cache")
+	}
+	symbols[ordinarySymbol].Visible = false
+	if got, err := shadow.RecoveryNodeVisibleSubtreeCount(symbols, leaf); err != nil || got != 0 {
+		t.Fatalf("shadow count=%d/%v, want zero", got, err)
+	}
+	if live.recoveryVisibleCounts[leaf-1].count != 1 || !live.recoveryVisibleSymbols[ordinarySymbol] {
+		t.Fatal("shadow counting changed the live cache")
+	}
+	if !diagnosticEOFRecoveryStorageDisjoint(live, shadow) {
+		t.Fatal("shadow retained shared mutable storage")
+	}
+}
+
 func TestDiagnosticEOFRecoveryClonePlanAccountsEveryRequestedByte(t *testing.T) {
 	live := &Core{
 		metadataConstructionAuthenticated: true,
