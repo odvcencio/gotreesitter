@@ -193,14 +193,15 @@ func TestCompactIncrementalExecutionSameWidth(t *testing.T) {
 			if next.RootNode().HasError() {
 				t.Fatal("same-width edit produced an error")
 			}
-			if profile.ReparseNanos <= 0 || profile.NewNodesAllocated == 0 || next.RootNode() == oldRoot {
-				t.Fatalf("same-width edit bypassed compact reparsing: %+v", profile)
-			}
 			if replacement == "2" {
-				if !next.ParseRuntime().CompactIncrementalReuseRoute {
-					t.Fatal("numeric edit lost ordinary compact reuse")
+				if profile.TokenInvariantDependencyChecks != 1 || profile.ReparseNanos != 0 ||
+					profile.NewNodesAllocated != 0 || next.RootNode() != oldRoot || profile.ReusedSubtrees == 0 {
+					t.Fatalf("numeric edit lost authenticated whole-tree reuse: %+v", profile)
 				}
 				return
+			}
+			if profile.ReparseNanos <= 0 || profile.NewNodesAllocated == 0 || next.RootNode() == oldRoot {
+				t.Fatalf("token-kind change bypassed compact reparsing: %+v", profile)
 			}
 			if changed := compactExecutionNode(next.RootNode(), parser.language, "identifier", uint32(offset)); changed == nil || changed.Text(edited) != "x" {
 				t.Fatal("same-width kind change did not produce an identifier")
