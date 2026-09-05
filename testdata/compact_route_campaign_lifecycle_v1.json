@@ -673,7 +673,7 @@
       "scope": "harness",
       "default": "unset",
       "read_sites": [
-        {"path": "cgo_harness/benchmark_go_canonical_incremental_test.go", "symbol": "prepareCanonicalIncrementalReceiptOutput", "line": 796}
+        {"path": "cgo_harness/benchmark_go_canonical_incremental_test.go", "symbol": "prepareCanonicalIncrementalReceiptOutput", "line": 888}
       ]
     },
     {

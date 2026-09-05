@@ -76,11 +76,13 @@ func TestSQLTextInvariantLeafRejectsCheckpointIdentityDowngrade(t *testing.T) {
 			}
 			defer incremental.Release()
 			usedShortcut := profile.TokensConsumed == 0 && profile.ReusedBytes == uint64(len(source))
-			if mode == "baseline" && !usedShortcut {
-				t.Fatalf("SQL witness did not enter the text-invariant shortcut: %+v", profile)
+			requireReleaseSameWidthReparse(t, profile)
+			if profile.NewNodesAllocated == 0 || usedShortcut {
+				t.Fatalf("SQL edit bypassed actual reparsing: %+v", profile)
 			}
-			if mode != "baseline" && usedShortcut {
-				t.Fatalf("SQL identity downgrade entered the text-invariant shortcut: %+v", profile)
+			if mode == "baseline" && (profile.ReuseUnsupported || !profile.OldTreeReuseRoute ||
+				profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 || profile.ReusedBytes >= uint64(len(source))) {
+				t.Fatalf("SQL witness lost ordinary partial reuse: %+v", profile)
 			}
 			fresh, err := gts.NewParser(lang).Parse(edited)
 			if err != nil {

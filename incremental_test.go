@@ -122,9 +122,7 @@ func TestHighlightIncremental(t *testing.T) {
 func TestParseIncrementalReusesUnchangedLeaf(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	parser := NewParser(lang)
-	// Pin to production: a compact-materialized base tree is hard-barred from
-	// incremental reuse (decision 0008), so the reuse assertion needs a
-	// production base tree. Reuse-bar lift is the follow-on campaign.
+	// Exercise ordinary production reuse and its borrowed arena ownership.
 	parser.SetAdmissionCandidateRoute(false)
 
 	oldSource := []byte("1+2+3")
@@ -332,12 +330,15 @@ func TestParseIncrementalReleaseKeepsBorrowedNodesAlive(t *testing.T) {
 	if oldArena.refs.Load() < 2 {
 		t.Fatalf("expected borrowed arena to be retained by new tree, refs=%d", oldArena.refs.Load())
 	}
-	if newTree.arena != oldArena {
-		t.Fatalf("expected new tree to retain reused node arena as primary arena, got %p want %p", newTree.arena, oldArena)
+	if newTree.arena == nil || newTree.arena == oldArena || newTree.RootNode() == oldRoot {
+		t.Fatal("expected the reparse to allocate a new primary arena and root")
 	}
-	if len(newTree.borrowedArena) != 0 {
-		t.Fatalf("new tree borrowed arenas = %d, want 0 for primary arena reuse", len(newTree.borrowedArena))
+	if len(newTree.borrowedArena) != 1 || newTree.borrowedArena[0] != oldArena {
+		t.Fatalf("expected the reused leaf arena as the sole borrowed owner, got %v", newTree.borrowedArena)
 	}
+	fresh := mustParse(t, parser, newSrc)
+	defer fresh.Release()
+	assertReleaseRootTreeEqual(t, newTree.RootNode(), fresh.RootNode(), lang)
 
 	oldTree.Release()
 	oldTree.Release() // idempotent
