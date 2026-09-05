@@ -473,14 +473,7 @@ func TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback(t *testing.
 						t.Fatal(err)
 					}
 					defer incremental.Release()
-					if languageCase.name == "python" {
-						requireAuthenticatedTokenInvariantReuse(t, profile)
-					} else {
-						requireReleaseSameWidthReparse(t, profile)
-						if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" {
-							t.Fatalf("expected scanner fallback: %+v", profile)
-						}
-					}
+					requireAuthenticatedTokenInvariantReuse(t, profile)
 
 					fresh, err := parser.Parse(next)
 					if err != nil {
@@ -595,7 +588,11 @@ func TestExternalScannerTokenInvariantLeafReuse(t *testing.T) {
 			}
 			defer newTree.Release()
 			requireCompleteParse(t, newTree, next, lang, "incremental")
-			requireReleaseSameWidthReparse(t, profile)
+			if tc.name == "julia line comment" {
+				requireAuthenticatedTokenInvariantReuse(t, profile)
+			} else {
+				requireReleaseSameWidthReparse(t, profile)
+			}
 			requireIncrementalDeepTreeMatchesFresh(t, newTree, fresh, lang)
 			if got, want := newTree.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang); got != want {
 				t.Fatalf("incremental tree diverged from fresh parse\n got: %s\nwant: %s", got, want)

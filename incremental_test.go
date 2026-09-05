@@ -289,9 +289,7 @@ func TestTreeEditNodesAfterEdit(t *testing.T) {
 func TestParseIncrementalReleaseKeepsBorrowedNodesAlive(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	parser := NewParser(lang)
-	// Pin to production: a compact-materialized base tree is hard-barred from
-	// incremental reuse (decision 0008), so the reuse assertion needs a
-	// production base tree. Reuse-bar lift is the follow-on campaign.
+	// Exercise distinct primary and borrowed arenas in the legacy reparse.
 	parser.SetAdmissionCandidateRoute(false)
 
 	oldSrc := []byte("1+2+3")
@@ -309,16 +307,17 @@ func TestParseIncrementalReleaseKeepsBorrowedNodesAlive(t *testing.T) {
 		t.Fatal("expected reused leaf to have an owning arena")
 	}
 
+	// Change width so whole-tree token-invariant reuse cannot bypass this test.
 	oldTree.Edit(InputEdit{
 		StartByte:   2,
 		OldEndByte:  3,
-		NewEndByte:  3,
+		NewEndByte:  4,
 		StartPoint:  Point{0, 2},
 		OldEndPoint: Point{0, 3},
-		NewEndPoint: Point{0, 3},
+		NewEndPoint: Point{0, 4},
 	})
 
-	newSrc := []byte("1+4+3")
+	newSrc := []byte("1+44+3")
 	newTree := mustParseIncremental(t, parser, newSrc, oldTree)
 	newRight := newTree.RootNode().Child(2)
 	if newRight == nil {
