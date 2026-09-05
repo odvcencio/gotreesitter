@@ -1,0 +1,19 @@
+Command arguments:
+go
+tool
+pprof
+-alloc_space
+-nodefraction=0
+-edgefraction=0
+-list
+canonicalizeOwnedWithMutation
+-trim_path
+/workspace
+-source_path
+/home/draco/work/gts-canonical-owner-binding-20260905
+/tmp/gts-go-toolchain-performance/owner-residual-query.test
+/tmp/gts-go-toolchain-performance/owner-residual-query.mem
+
+Exit code: 2
+
+no matches found for regexp: canonicalizeOwnedWithMutation
