@@ -46,6 +46,9 @@ type Token struct {
 	// lexerErrorModeLexed proves that the active DFA source produced this
 	// recovery token while parser state zero selected the error lex mode.
 	lexerErrorModeLexed bool
+	// lexerErrorRunLexed identifies bytes that no internal error-mode token
+	// could consume. It does not certify the external scanner's state.
+	lexerErrorRunLexed bool
 	// lexerInternalDFALexed proves that Lexer.scan accepted this token from
 	// the internal DFA. External, generated, missing, and EOF tokens omit it.
 	lexerInternalDFALexed bool
@@ -269,6 +272,7 @@ func (l *Lexer) errorRunToken(frontier *uint32) Token {
 	}
 	return Token{
 		Symbol:                errorSymbol,
+		lexerErrorRunLexed:    true,
 		Text:                  l.tokenText(startPos, l.pos),
 		StartByte:             uint32(startPos),
 		EndByte:               uint32(l.pos),
