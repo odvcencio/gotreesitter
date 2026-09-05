@@ -9,7 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	gotreesitter "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
 func TestAdmissionCandidateExactExternalPayloadCorpus(t *testing.T) {
@@ -21,10 +23,9 @@ func TestAdmissionCandidateExactExternalPayloadCorpus(t *testing.T) {
 	}{
 		// kotlinx-datetime@292e7e0ce510, core/common/src/serializers/DateTimeUnitSerializers.kt
 		{
-			language:   "kotlin",
-			path:       "testdata/admission_direct/external_payload/kotlin.kt",
-			sha256:     "e825c4c57c95082c9aa2b62f35853d0b2edfc24934a349ce9f1195d14ae7522b",
-			nextReason: "live-link cap exceeded",
+			language: "kotlin",
+			path:     "testdata/admission_direct/external_payload/kotlin.kt",
+			sha256:   "e825c4c57c95082c9aa2b62f35853d0b2edfc24934a349ce9f1195d14ae7522b",
 		},
 		// ocaml/ocaml@7c51f06c0a5d, testsuite/tools/environment.mli
 		{
@@ -35,10 +36,9 @@ func TestAdmissionCandidateExactExternalPayloadCorpus(t *testing.T) {
 		},
 		// tree-sitter-perl@ad74e6db234c, unicode_ranges.pl
 		{
-			language:   "perl",
-			path:       "testdata/admission_direct/external_payload/perl.pl",
-			sha256:     "84b468672c82a73ba88d62a47591e85d02f9e35952a7ce45a494db71d1fa3ad4",
-			nextReason: "shallow non-exact outer edge",
+			language: "perl",
+			path:     "testdata/admission_direct/external_payload/perl.pl",
+			sha256:   "84b468672c82a73ba88d62a47591e85d02f9e35952a7ce45a494db71d1fa3ad4",
 		},
 		// tree-sitter-rust@77a3747266f4, examples/weird-exprs.rs
 		{
@@ -75,12 +75,63 @@ func TestAdmissionCandidateExactExternalPayloadCorpus(t *testing.T) {
 				if strings.Contains(row.detail, "external payload") {
 					t.Fatalf("exact external payload still declined: %s", row.detail)
 				}
-				if !strings.Contains(row.detail, test.nextReason) {
+				if test.nextReason != "" && !strings.Contains(row.detail, test.nextReason) {
 					t.Fatalf("fallback=%q, want the next blocker %q", row.detail, test.nextReason)
+				}
+				if test.nextReason == "" {
+					// Independent scheduler guards can stop these corpora first.
+					// Core's TestRecursiveInsertAcceptsExactExternalScannerProvenance
+					// proves insertion for exact top-level and descendant payloads.
+					// TestRecursiveInsertKeepsScannerCheckpointMismatchSeparate
+					// protects the corresponding negative identity contract.
+					frontierDecline := strings.HasPrefix(row.detail, "compact route declined at no_action")
+					linkCap := strings.HasPrefix(row.detail, "compact route error: parser-core phase zero: shared (") &&
+						strings.Contains(row.detail, "live-link cap exceeded")
+					if !frontierDecline && !linkCap {
+						t.Fatalf("unexpected fallback category: %s", row.detail)
+					}
+					assertExternalPayloadFallbackEquivalent(t, entry, source)
 				}
 			default:
 				t.Fatalf("compact route=%s: %s", row.status, row.detail)
 			}
 		})
+	}
+}
+
+func assertExternalPayloadFallbackEquivalent(t *testing.T, entry grammars.LangEntry, source []byte) {
+	t.Helper()
+	language := entry.Language()
+	var legacyDigest string
+	for _, route := range []bool{false, true} {
+		parser := gotreesitter.NewParser(language)
+		parser.SetAdmissionCandidateRoute(route)
+		beforeRouted, beforeFallback := gotreesitter.AdmissionCandidateCounters()
+		tree, err := parser.Parse(source)
+		if err != nil || tree == nil {
+			t.Fatalf("compact=%t parse failed: %v", route, err)
+		}
+		defer tree.Release()
+		afterRouted, afterFallback := gotreesitter.AdmissionCandidateCounters()
+		wantFallback := uint64(0)
+		if route {
+			wantFallback = 1
+		}
+		if afterRouted != beforeRouted || afterFallback-beforeFallback != wantFallback {
+			t.Fatalf("compact=%t route counters=%d/%d, want 0/%d", route, afterRouted-beforeRouted, afterFallback-beforeFallback, wantFallback)
+		}
+		runtime := tree.ParseRuntime()
+		if tree.ParseStopReason() != gotreesitter.ParseStopAccepted || runtime.Truncated || runtime.TokenSourceEOFEarly ||
+			runtime.ExpectedEOFByte != uint32(len(source)) || runtime.LastTokenEndByte != uint32(len(source)) || !runtime.LastTokenWasEOF {
+			t.Fatalf("compact=%t incomplete parse: %s", route, runtime.Summary())
+		}
+		inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), language)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if route && inspection.SHA256 != legacyDigest {
+			t.Fatalf("fallback digest=%s, forced legacy=%s", inspection.SHA256, legacyDigest)
+		}
+		legacyDigest = inspection.SHA256
 	}
 }

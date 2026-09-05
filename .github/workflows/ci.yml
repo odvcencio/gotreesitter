@@ -133,10 +133,9 @@ jobs:
         # the same allow-list convention the two lanes above use. -timeout
         # is set to roughly twice the measured wall time.
         #
-        # 12 tagged tests are excluded, not fixed here (out of scope for
+        # Elm and external-payload contracts run in isolated grammar steps below.
+        # 10 tagged tests are excluded, not fixed here (out of scope for
         # this maintenance lane; see docs/ci-gate-coverage.md Part 4):
-        #   TestAdmissionCandidateElmHighlightDirect: digest mismatch (Elm highlight)
-        #   TestAdmissionCandidateExactExternalPayloadCorpus: kotlin/perl blocker-text mismatch
         #   TestDiagnosticParserCoreConflictAllUnchangedPauses: conflict creation sequence overflow
         #   TestDiagnosticParserCoreConflictFiltersUnchangedArm: conflict creation sequence overflow
         #   TestDiagnosticParserCoreGenericSchedulerCapsPublishNothing: no_action drop coverage mismatch (before-accept)
@@ -1252,6 +1251,29 @@ jobs:
             --c-ref-build-jobs 1 \
             --timeout 20m \
             --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestCompactRouteLockedCExceptions)$'
+
+      - name: Elm admission contract against locked C
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-admission-elm-contract \
+            --memory 4g \
+            --cpus 2 \
+            --gomemlimit 3GiB \
+            --wall-timeout 5m \
+            -- "cd /workspace && go test . -tags gts_parsercorephase0 -run '^TestAdmissionCandidateElmHighlightDirect$' -count=1 -timeout 2m && cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestAdmissionCandidateElmHighlightCOracle$' -count=1 -timeout 2m -v"
+
+      - name: External payload contracts by grammar
+        run: |
+          set -euo pipefail
+          for grammar in kotlin ocaml perl rust; do
+            bash cgo_harness/docker/run_parity_in_docker.sh \
+              --label "ci-admission-external-payload-${grammar}" \
+              --memory 4g \
+              --cpus 2 \
+              --gomemlimit 3GiB \
+              --wall-timeout 5m \
+              -- "cd /workspace && go test . -tags gts_parsercorephase0 -run '^TestAdmissionCandidateExactExternalPayloadCorpus$/${grammar}$' -count=1 -timeout 2m -v"
+          done
 
       - name: Compact incremental Go execution
         run: |
