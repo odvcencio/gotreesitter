@@ -7,6 +7,20 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Incremental correctness
+
+- Restore bounded token-invariant reuse after authenticating earlier lexical
+  dependencies and the edited token. Unknown coverage requires reparsing.
+- Retain examined-byte coverage through failed scans, rollback, and accepted
+  tree ownership. Include UTF-8 continuation bytes beyond token boundaries.
+- Add optional scanner byte-equivalence declarations. These declarations do
+  not authorize general subtree reuse or replace scanner checkpoints.
+- Check repeated edits against locked C trees for Go, CSS, SCSS, TypeScript,
+  and Julia. Keep malformed and unsupported cases on their existing fallback paths.
+
+Performance validation remains in progress. These changes do not complete
+compact parser graduation or retire the legacy parser.
+
 ## [0.52.0] - 2026-09-05
 
 ### Release overview

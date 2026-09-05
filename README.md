@@ -265,6 +265,9 @@ The v0.52.0 release disables the unsafe same-length token-invariant shortcut.
 Ordinary subtree reuse and no-edit reuse remain available. Restoring the shortcut
 requires complete lexical dependency proofs under
 [issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
+The unreleased implementation restores bounded reuse after authenticating earlier
+lexical reads and the edited token. Unknown coverage or an exhausted proof
+budget requires reparsing. Performance validation remains in progress.
 External scanners need certification for general old-tree reuse. Unsupported
 cases use the legacy full-parse fallback. See the
 [per-language incremental scanner matrix](docs/external-scanners.md#incremental-reuse-certification-matrix).
