@@ -1,6 +1,0 @@
-completed baseline RSS probe 1
-completed candidate RSS probe 1
-completed candidate RSS probe 2
-completed baseline RSS probe 2
-completed baseline RSS probe 3
-completed candidate RSS probe 3

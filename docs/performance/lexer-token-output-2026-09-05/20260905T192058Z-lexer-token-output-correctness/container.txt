@@ -1,2 +1,0 @@
-completed baseline correctness controls
-completed candidate correctness controls

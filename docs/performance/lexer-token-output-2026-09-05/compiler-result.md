@@ -91,6 +91,5 @@ The contiguous scanner frame grows because its output literals now use local sto
 
 ## Raw evidence
 
-The `compiler-*.txt` files beside this report contain bounded, single-symbol disassembly.
-The `compiler-baseline-*` files preserve the five baseline methods.
-The remaining files preserve the five candidate methods and `runtime.duffcopy`.
+The full durable archive contains the `compiler-*.txt` and `compiler-baseline-*` disassembly files.
+Read [the archive record](ARCHIVE.md) for its locations and original commit.

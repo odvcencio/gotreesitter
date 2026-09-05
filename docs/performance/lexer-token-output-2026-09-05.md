@@ -92,13 +92,13 @@ All eight Docker stages completed without a memory failure or timeout.
 Every tracked file hash matched afterward: 2,955 baseline files and 2,956 candidate files.
 The runtime commit reproduces the measured patch exactly.
 
-Read the adjacent run scripts, source records, and container metadata for the exact commands and limits.
+Read the [recorded commands](lexer-token-output-2026-09-05/commands.md), source identities, and compact stage receipts for the exact settings.
 Use a fresh artifact directory and update worktree paths before reproduction.
-Regenerate summaries with `summarize.py` and `summarize-macro.py`.
 Run `benchstat` on each corresponding pair of raw outputs.
 Verify the published evidence with `sha256sum -c SHA256SUMS`.
 Compiled binaries and the C reference build cache are excluded.
-Full source inventories remain in the local durable evidence archive.
+The [archive record](lexer-token-output-2026-09-05/ARCHIVE.md) identifies the full durable evidence, including source inventories, preflight source, and disassembly.
+The compact bundle omits expanded samples and duplicate logs.
 
 The human-authored workload reports 47,976 of 49,912 tokens on the path for multiple parser stacks, or 96.12 percent.
 Both sources report the same work counters across every sample.
