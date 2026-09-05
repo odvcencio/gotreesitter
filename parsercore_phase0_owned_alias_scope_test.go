@@ -7,13 +7,14 @@ import (
 	"testing"
 )
 
-func TestCompactRecoveryProductionAliasScope(t *testing.T) {
+func TestCompactRecoveryProductionAliasDoesNotRequireOwnedCertificate(t *testing.T) {
 	p := newCompactRecoveryVersionTurnGoParser(t)
 	source := []byte("package p\nfunc f(){}\nfunc g(){}+")
 	tree, routed, reason := p.tryCompactFullParseRoute(source)
 	if !routed || tree == nil {
 		t.Fatalf("owned recovery declined: %s", reason)
 	}
+	want := tree.RootNode().SExpr(p.language)
 	tree.Release()
 	runner := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)
 	for _, mode := range []string{"default_finalization", "uncertified_language"} {
@@ -30,11 +31,21 @@ func TestCompactRecoveryProductionAliasScope(t *testing.T) {
 				runner.compact, runner.scheduler.acceptedHead, runner.scheduler.acceptedPayloads,
 				NewParser(&language), source, &scratch, false, true, finalization,
 			)
-			if tree != nil {
-				tree.Release()
+			if mode == "default_finalization" {
+				if tree != nil {
+					tree.Release()
+				}
+				if err == nil || !strings.Contains(err.Error(), "accepted compact root carries an error-bearing trailing extra payload") {
+					t.Fatalf("default finalization must retain its trailing-error guard: %v", err)
+				}
+				return
 			}
-			if err == nil || !strings.Contains(err.Error(), "leaves do not tile") {
-				t.Fatalf("uncertified production alias materialization err=%v", err)
+			if err != nil || tree == nil {
+				t.Fatalf("authenticated production alias materialization err=%v", err)
+			}
+			defer tree.Release()
+			if got := tree.RootNode().SExpr(&language); got != want {
+				t.Fatalf("alias projection=%s, want %s", got, want)
 			}
 		})
 	}

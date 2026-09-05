@@ -279,6 +279,12 @@ func TestDiagnosticParserCoreAcceptedLeafCoverageProductionAliases(t *testing.T)
 			if got := coverage.hasAuthenticatedAlias(clone); got != (name == "valid") {
 				t.Fatalf("production alias authenticated=%t", got)
 			}
+			if name == "valid" || name == "wrong_production" || name == "unmatched_raw" || name == "duplicate_clone" {
+				_, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(clone, []byte("x"), 0, 1, 100, &coverage, nodesByID, nil)
+				if err != nil || gapped != (name != "valid") {
+					t.Fatalf("public alias coverage gap=%t err=%v", gapped, err)
+				}
+			}
 			// Authentication belongs to the exact projected node, not its range.
 			if coverage.hasAuthenticatedAlias(parser.aliasedNodeInArena(arena, raw, 101)) {
 				t.Fatal("an unrelated clone inherited production authentication")

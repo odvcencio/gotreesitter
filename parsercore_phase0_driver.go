@@ -6646,7 +6646,7 @@ func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source [
 				return fmt.Errorf("parser-core phase zero: accepted compact derivation leaf coverage: %w", err)
 			} else if gapped {
 				return fmt.Errorf(
-					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: gap=%d..%d root=%d..%d",
+					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: coverage=derivation gap=%d..%d root=%d..%d",
 					gapStart, gapEnd, root.startByte, root.endByte,
 				)
 			}
@@ -6654,7 +6654,7 @@ func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source [
 				return fmt.Errorf("parser-core phase zero: accepted compact public-tree leaf coverage: %w", err)
 			} else if gapped {
 				return fmt.Errorf(
-					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: gap=%d..%d root=%d..%d",
+					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: coverage=public-tree gap=%d..%d root=%d..%d",
 					gapStart, gapEnd, root.startByte, root.endByte,
 				)
 			}
@@ -7638,16 +7638,11 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 					return fmt.Errorf("reduce symbol=%d production=%d: %w", view.Symbol, view.ProductionID, err)
 				}
 			}
-			// Production alias authentication belongs to native owned recovery.
-			// Existing shared recovery keeps its artifact-specific admission.
-			if allowErrorRoot && parser.language.CompactOwnedEOFRecoveryCertified &&
-				rootFinalization != diagnosticParserCoreFinalizeDefault {
+			// Authenticate terminal aliases at their exact grammar reduction.
+			// Shared recovery needs the same raw-terminal and clone proof.
+			if allowErrorRoot {
 				acceptedLeaves.authenticateDirectTerminalAliases(
 					parser, entries, children, view.ProductionID, 0, nodesByID,
-				)
-			} else if recoveryTerminalAlias != 0 {
-				acceptedLeaves.authenticateDirectTerminalAliases(
-					parser, entries, children, view.ProductionID, recoveryTerminalAlias, nodesByID,
 				)
 			}
 			if child := parser.collapsibleUnarySelfReduction(action, Token{}, arena, entries, 0, len(entries), children, fieldIDs); child != nil {

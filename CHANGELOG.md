@@ -9,6 +9,7 @@ for tags and release notes while still in `0.x`.
 
 ### Compact parser correctness
 
+- Authenticate terminal aliases at ordinary grammar reductions during recovery. Preserve separate rules for synthetic ERROR reductions and retain span coverage checks.
 - Preserve inherited alternative history when a reduction joins an active sibling.
 - Retain convergence and resurrection restrictions after adoption. Preserve existing blended-history rejection checks.
 - Parse `foo<A00>(2);` through compact without fallback, with exact locked-C tree parity.
