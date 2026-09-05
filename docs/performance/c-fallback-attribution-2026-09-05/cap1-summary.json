@@ -1,0 +1,62 @@
+{
+  "diagnostic_setting": "GOT_GLR_MAX_MERGE_PER_KEY=1",
+  "rows": [
+    {
+      "functions": 1,
+      "source_bytes": 40,
+      "default_reported_new_nodes": 130,
+      "cap1_reported_new_nodes": 63,
+      "cap1_fallback": "",
+      "digest": "528580d4bcced18fc0d9188b7a7b52b5bef0084069efcee699b7c4fbc87cd34e"
+    },
+    {
+      "functions": 4,
+      "source_bytes": 160,
+      "default_reported_new_nodes": 826,
+      "cap1_reported_new_nodes": 297,
+      "cap1_fallback": "",
+      "digest": "eb03db0bea255bdb162e77419e04b759f21892b6897e395787af1b9a6a9c16a4"
+    },
+    {
+      "functions": 16,
+      "source_bytes": 664,
+      "default_reported_new_nodes": 5394,
+      "cap1_reported_new_nodes": 1508,
+      "cap1_fallback": "",
+      "digest": "1d02890d0e3d33acd13c350ae7afab928e5b8984d67d445d494778f28a34d010"
+    },
+    {
+      "functions": 64,
+      "source_bytes": 2776,
+      "default_reported_new_nodes": 35250,
+      "cap1_reported_new_nodes": 9284,
+      "cap1_fallback": "",
+      "digest": "097043e1a0d461eaa78b8af2b7f05699fca5484a3d14dc29dc0d27c24b1b896e"
+    },
+    {
+      "functions": 256,
+      "source_bytes": 11848,
+      "default_reported_new_nodes": 338994,
+      "cap1_reported_new_nodes": 86468,
+      "cap1_fallback": "",
+      "digest": "b1f2fb250e0c59a7a7543a53165a3efa3f06c5d536e5e85331665ff96e1fee86"
+    },
+    {
+      "functions": 1024,
+      "source_bytes": 48808,
+      "default_reported_new_nodes": 2561571,
+      "cap1_reported_new_nodes": 1146143,
+      "cap1_fallback": "",
+      "digest": "0be15cc53d0cb59cf7cde16e9b6d26e1410d3113ae6a87a45eac674a6e4e1730"
+    },
+    {
+      "functions": 2048,
+      "source_bytes": 102056,
+      "default_reported_new_nodes": 3213594,
+      "cap1_reported_new_nodes": 3242452,
+      "cap1_fallback": "incremental_parse_memory_budget_full_retry",
+      "digest": "961b15cb801143fa8e4bc4210ee7a1b7b645d8d55859ddee84bd0d3f2e2552b0"
+    }
+  ],
+  "conclusion": "Narrowing the merge cap reduces some work but does not resolve superlinear growth or the memory-budget fallback. No default change."
+}

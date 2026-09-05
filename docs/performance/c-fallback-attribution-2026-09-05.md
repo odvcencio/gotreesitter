@@ -111,3 +111,18 @@ Apply `c664-oracle.patch` to the recorded baseline in an isolated checkout.
 Run `TestIssue454C664ByteLockedCDiagnostic` under `cgo_harness` with the `treesitter_c_parity` tag in Docker.
 The container completed without memory failure or timeout.
 Read the adjacent `c664-oracle.txt` receipt.
+
+## Merge-cap diagnostic
+
+A separate run set `GOT_GLR_MAX_MERGE_PER_KEY=1` for the size series.
+All seven edited digests match the saved default-run digests.
+
+At 664 bytes, reported incremental nodes decrease from 5,394 to 1,508.
+At 48,808 bytes, the diagnostic still allocates 1,146,143 incremental nodes against 75,768 fresh result nodes.
+At 102,056 bytes, the memory-budget fallback remains and reports 3,242,452 incremental nodes.
+
+The wider cap contributes cost, but narrowing it does not resolve the growth mechanism.
+Do not propose a universal cap change from this result.
+Use the reduced witness to inspect retained paths and invalid reuse before changing parser policy.
+Read the [counterfactual receipt](c-fallback-attribution-2026-09-05/cap1-summary.json).
+The Docker run completed without memory failure or timeout. No default setting changed.
