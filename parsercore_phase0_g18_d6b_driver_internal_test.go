@@ -34,6 +34,8 @@ func newG18D6bDriverTestRunner(t *testing.T) *parserCoreFreshFullRunner {
 		t.Fatal(err)
 	}
 	lang.CompactConvergedReductionSplitDropsCertified = false
+	// These frontier proofs inspect one candidate attempt, without recovery retries.
+	lang.CompactOwnedEOFRecoveryCertified = false
 	parser := NewParser(lang)
 	parser.SetAdmissionCandidateRoute(true)
 	runner, err := newAdmissionCandidateRunner(parser)

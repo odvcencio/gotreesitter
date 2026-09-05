@@ -920,6 +920,13 @@ type Language struct {
 	// remains active without this exact artifact capability.
 	CompactFaithfulS5RecoveryCertified bool
 
+	// CompactOwnedEOFRecoveryCertified permits the bounded owned EOF route.
+	// The admission runner binds its required mechanisms as one bundle.
+	// Publication requires executed version-owned EOF recovery, without prior
+	// shared recovery or sibling drops. Other recovery grants remain separate.
+	// Custom, adapted, and stale artifacts retain the false default.
+	CompactOwnedEOFRecoveryCertified bool
+
 	// CompactRecoveryTrailingLineageRetirementCertified permits the compact
 	// scheduler to retire one trailing no-action missing lineage after the
 	// earlier error-absorb lineage consumed the same elected token. This is the

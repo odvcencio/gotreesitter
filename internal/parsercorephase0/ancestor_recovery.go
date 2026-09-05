@@ -254,6 +254,33 @@ func (c *Core) RecoverToAncestorStateWithCostOwned(
 	return out, c.finishSchedulerOwned(owner, err)
 }
 
+// RecoverToAncestorStateWithOpenRegionAndCostOwned folds absorbed region contents
+// after the elected path's payloads into one extra ERROR. Children are region
+// contents, not separate trailing stack extras. Their extra flags stay unchanged.
+// Every failure poisons the surrounding scheduler transaction.
+func (c *Core) RecoverToAncestorStateWithOpenRegionAndCostOwned(
+	owner SchedulerTransactionToken, candidate StackSummaryCandidate,
+	startByte, endByte uint32, children []SubtreeID, cost ReductionOutputCostFunc,
+) (out Head, err error) {
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return out, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	if cost == nil || len(children) == 0 || endByte < startByte {
+		err = errors.New("parser-core phase zero: invalid open-region ancestor recovery")
+		return out, c.finishSchedulerOwned(owner, err)
+	}
+	out, err = c.recoverToAncestorStateWithRegionUncheckpointed(candidate, cost, &ancestorRecoveryOpenRegion{
+		startByte: startByte, endByte: endByte, children: children,
+	})
+	return out, c.finishSchedulerOwned(owner, err)
+}
+
+type ancestorRecoveryOpenRegion struct {
+	startByte, endByte uint32
+	children           []SubtreeID
+}
+
 // StackSummaryCandidateRecoverable reports whether one authenticated summary
 // entry identifies exactly one mutable pop path. Summary deduplication can
 // retain an observational entry that is not safe to mutate.
@@ -275,6 +302,10 @@ func (c *Core) StackSummaryCandidateRecoverable(candidate StackSummaryCandidate)
 }
 
 func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandidate, cost ReductionOutputCostFunc) (Head, error) {
+	return c.recoverToAncestorStateWithRegionUncheckpointed(candidate, cost, nil)
+}
+
+func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSummaryCandidate, cost ReductionOutputCostFunc, region *ancestorRecoveryOpenRegion) (Head, error) {
 	if candidate.owner != c {
 		return Head{}, errors.New("parser-core phase zero: stack-summary candidate belongs to a different core")
 	}
@@ -287,14 +318,93 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 	if _, err := c.node(candidate.source); err != nil {
 		return Head{}, err
 	}
+	if region != nil {
+		source, _ := c.node(candidate.source)
+		if region.startByte < source.byteOffset || uint64(len(region.children)) > uint64(c.limits.MaxChildren) {
+			return Head{}, errors.New("parser-core phase zero: open region precedes its source or exceeds child limit")
+		}
+		previous := region.startByte
+		for _, id := range region.children {
+			child, err := c.subtree(id)
+			if err != nil {
+				return Head{}, err
+			}
+			if child.startByte < previous || child.endByte < child.startByte || child.endByte > region.endByte {
+				return Head{}, errors.New("parser-core phase zero: invalid open-region child span")
+			}
+			previous = child.endByte
+		}
+	}
 
 	links, target, err := c.uniqueAncestorRecoveryPath(candidate)
 	if err != nil {
 		return Head{}, err
 	}
+	var priorChildren []SubtreeID
+	var priorStart uint32
+	var priorScore int64
+	var priorOrder ForkOrder
+	if region != nil {
+		targetNode, err := c.node(target)
+		if err != nil {
+			return Head{}, err
+		}
+		var inline [inlineAdjacencyCapacity]linkRecord
+		targetLinks, err := c.publishedNodeLinksInto(inline[:0], *targetNode)
+		if err != nil {
+			return Head{}, err
+		}
+		for _, link := range targetLinks {
+			if err := link.validateShape(); err != nil {
+				return Head{}, err
+			}
+			if link.isRecoveryDiscontinuity() {
+				continue
+			}
+			prior, err := c.subtree(link.payload)
+			if err != nil {
+				return Head{}, err
+			}
+			if prior.symbol != ErrorRegionSymbol {
+				continue
+			}
+			// C pops one immediately preceding ERROR before it constructs the
+			// replacement. Ambiguous paths need a separate ownership proof.
+			if len(targetLinks) != 1 || prior.missing || prior.childCount == 0 ||
+				link.prev == 0 || link.prev >= target || prior.endByte > candidate.byteOffset ||
+				prior.startByte > prior.endByte || uint64(prior.firstChild)+uint64(prior.childCount) > uint64(len(c.children)) {
+				return Head{}, errors.New("parser-core phase zero: prior ERROR lacks a unique bounded pop proof")
+			}
+			predecessor, err := c.node(link.prev)
+			if err != nil {
+				return Head{}, err
+			}
+			if predecessor.byteOffset > prior.startByte {
+				return Head{}, errors.New("parser-core phase zero: prior ERROR overlaps its predecessor")
+			}
+			priorChildren = c.children[prior.firstChild : prior.firstChild+prior.childCount]
+			previous := prior.startByte
+			for _, id := range priorChildren {
+				child, err := c.subtree(id)
+				if err != nil {
+					return Head{}, err
+				}
+				if child.startByte < previous || child.endByte < child.startByte || child.endByte > prior.endByte {
+					return Head{}, errors.New("parser-core phase zero: invalid prior ERROR child span")
+				}
+				previous = child.endByte
+			}
+			priorStart, priorScore = prior.startByte, link.scoreDelta
+			if link.hasOrder() {
+				priorOrder = ForkOrder{Present: true, Value: link.order}
+			}
+			target = link.prev
+			break
+		}
+	}
 	depth := len(links)
 	trailing := 0
-	for trailing < depth {
+	for region == nil && trailing < depth {
 		if links[trailing].isRecoveryDiscontinuity() {
 			break
 		}
@@ -312,8 +422,7 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 	}
 
 	children := make([]SubtreeID, 0, depth-trailing)
-	var score int64
-	var order ForkOrder
+	score, order := priorScore, priorOrder
 	for index := depth - 1; index >= trailing; index-- {
 		link := links[index]
 		if link.isRecoveryDiscontinuity() {
@@ -328,6 +437,28 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 			order = ForkOrder{Present: true, Value: link.order}
 		}
 	}
+	if region != nil {
+		previous := candidate.byteOffset
+		for _, id := range children {
+			child, err := c.subtree(id)
+			if err != nil {
+				return Head{}, err
+			}
+			if child.startByte < previous || child.endByte < child.startByte || child.endByte > region.startByte {
+				return Head{}, errors.New("parser-core phase zero: invalid popped open-region child span")
+			}
+			previous = child.endByte
+		}
+		if uint64(len(c.children))+uint64(len(priorChildren))+uint64(len(children))+uint64(len(region.children)) > uint64(c.limits.MaxChildren) {
+			return Head{}, errors.New("parser-core phase zero: open-region recovery child limit")
+		}
+		if len(priorChildren) != 0 {
+			combined := make([]SubtreeID, 0, len(priorChildren)+len(children)+len(region.children))
+			combined = append(combined, priorChildren...)
+			children = append(combined, children...)
+		}
+		children = append(children, region.children...)
+	}
 	if len(children) == 0 {
 		return Head{}, errors.New("parser-core phase zero: ancestor recovery path has no ERROR payload")
 	}
@@ -339,8 +470,18 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 	if err != nil {
 		return Head{}, err
 	}
+	startByte, endByte := first.startByte, last.endByte
+	if region != nil {
+		endByte = region.endByte
+		if len(priorChildren) != 0 {
+			startByte = priorStart
+		}
+		if region.startByte < startByte {
+			startByte = region.startByte
+		}
+	}
 	errorPayload, err := c.appendSubtree(subtreeRecord{
-		symbol: ErrorRegionSymbol, startByte: first.startByte, endByte: last.endByte, extra: true,
+		symbol: ErrorRegionSymbol, startByte: startByte, endByte: endByte, extra: true,
 	}, children, nil, nil)
 	if err != nil {
 		return Head{}, err
@@ -357,7 +498,7 @@ func (c *Core) recoverToAncestorStateUncheckpointed(candidate StackSummaryCandid
 		errorLink.hasStoredErrorCost = true
 	}
 	if trailing == 0 {
-		outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(candidate.state, last.endByte), errorLink)
+		outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(candidate.state, endByte), errorLink)
 		return outcome.head, err
 	}
 	out, err = c.appendPrivate(candidate.state, last.endByte, errorLink)

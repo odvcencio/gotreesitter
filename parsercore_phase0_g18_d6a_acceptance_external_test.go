@@ -419,6 +419,8 @@ func TestG18D6bGrammargenLRNoCommonDerivationFallsBack(t *testing.T) {
 
 	language := g18D6aCloneLanguage(grammars.GoLanguage())
 	language.CompactConvergedReductionSplitDropsCertified = false
+	// Inspect one candidate frontier and fallback, without recovery retries.
+	language.CompactOwnedEOFRecoveryCertified = false
 	parser := gts.NewParser(language)
 	parser.SetAdmissionCandidateRoute(true)
 	gts.ResetAdmissionCandidateCountersForTest()

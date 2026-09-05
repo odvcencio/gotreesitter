@@ -1701,8 +1701,11 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
-	tree, reason := p.attemptCompactIncrementalParse(source, oldTree, nil)
+	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, nil)
 	if tree != nil {
+		return tree, nil
+	}
+	if tree = p.attemptCompactIncrementalRecoveryFullParse(source, reason, recoveryDeclined, nil); tree != nil {
 		return tree, nil
 	}
 	tree, err := p.parseIncrementalChanged(source, oldTree)
@@ -1898,9 +1901,18 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
 	var compactTiming incrementalParseTiming
-	tree, reason := p.attemptCompactIncrementalParse(source, oldTree, &compactTiming)
+	tree, reason, recoveryDeclined := p.attemptCompactIncrementalParse(source, oldTree, &compactTiming)
 	if tree != nil {
 		return tree, compactTiming.toProfile(), nil
+	}
+	fallbackStarted := time.Now()
+	if tree = p.attemptCompactIncrementalRecoveryFullParse(source, reason, recoveryDeclined, &compactTiming); tree != nil {
+		profile := profileFreshParseFallback(fallbackStarted, tree, "compact_incremental_full_recovery")
+		profile.ReuseCursorNanos += compactTiming.reuseNanos
+		profile.ReparseNanos += max(int64(0), compactTiming.totalNanos-compactTiming.reuseNanos)
+		profile.TokensConsumed += compactTiming.tokensConsumed
+		profile.NewNodesAllocated += compactTiming.newNodes
+		return tree, profile, nil
 	}
 	tree, profile, err := p.parseIncrementalChangedProfiled(source, oldTree)
 	profile.ReuseCursorNanos += compactTiming.reuseNanos

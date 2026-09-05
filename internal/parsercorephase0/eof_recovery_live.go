@@ -111,7 +111,15 @@ func (c *Core) recoverEOFAcceptUncheckpointedWithCost(
 	if err := c.validateRecoverEOFAcceptPayloads(payloads, startByte, endByte); err != nil {
 		return Head{}, 0, err
 	}
+	return c.publishRecoverEOFAcceptUncheckpointed(payloads, startByte, endByte, 0, cost)
+}
 
+func (c *Core) publishRecoverEOFAcceptUncheckpointed(
+	payloads []SubtreeID,
+	startByte, endByte uint32,
+	score int64,
+	cost ReductionOutputCostFunc,
+) (Head, SubtreeID, error) {
 	root, err := c.appendSubtree(subtreeRecord{
 		symbol:    ErrorRegionSymbol,
 		startByte: startByte,
@@ -145,7 +153,7 @@ func (c *Core) recoverEOFAcceptUncheckpointedWithCost(
 			return Head{}, 0, costErr
 		}
 	}
-	linkID := c.appendGraphLink(linkRecord{prev: base, payload: root})
+	linkID := c.appendGraphLink(linkRecord{prev: base, payload: root, scoreDelta: score})
 	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	newNode, err := c.appendNodeAt(nodeRecord{
 		state: 1, byteOffset: endByte,

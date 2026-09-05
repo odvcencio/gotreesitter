@@ -146,16 +146,24 @@ func diagnosticParserCoreRecoveryCondensePairwise(
 	entries []diagnosticParserCoreRecoveryCondenseEntry,
 	order []int,
 ) []int {
+	return diagnosticParserCoreRecoveryCondensePairwiseMode(entries, order, false)
+}
+
+func diagnosticParserCoreRecoveryCondensePairwiseMode(
+	entries []diagnosticParserCoreRecoveryCondenseEntry,
+	order []int,
+	ownedTurns bool,
+) []int {
 	for i := 1; i < len(order); i++ {
 		removedCurrent := false
 		for j := 0; j < i; j++ {
 			left := entries[order[j]]
 			right := entries[order[i]]
 			if diagnosticParserCoreRecoveryCondenseSameGroup(left, right) ||
-				diagnosticParserCoreRecoveryCondenseShouldStayBefore(left, right) {
+				(!ownedTurns && diagnosticParserCoreRecoveryCondenseShouldStayBefore(left, right)) {
 				continue
 			}
-			if diagnosticParserCoreRecoveryCondenseShouldStayBefore(right, left) {
+			if !ownedTurns && diagnosticParserCoreRecoveryCondenseShouldStayBefore(right, left) {
 				order[i], order[j] = order[j], order[i]
 				continue
 			}
@@ -485,7 +493,7 @@ func (s *diagnosticParserCoreGenericScheduler) condenseRecoveryVersions(
 			scratch = append(scratch, diagnosticParserCoreRecoveryCondenseEntry{header: headers[index]})
 		}
 	}
-	order = diagnosticParserCoreRecoveryCondensePairwise(scratch, order)
+	order = diagnosticParserCoreRecoveryCondensePairwiseMode(scratch, order, s.recoveryTurns.active)
 
 	var drops uint64
 	if len(order) > diagnosticParserCoreRecoveryVersionLimit {

@@ -93,7 +93,7 @@ func TestDiagnosticParserCoreAcceptedLeafCoverageScratchResetsAndReuses(t *testi
 	if err := coverage.append(1, core.MaterializationSubtreeView{StartByte: 0, EndByte: 1, Terminal: true}, 2, false); err != nil {
 		t.Fatal(err)
 	}
-	coverage.authenticatedAliases = append(coverage.authenticatedAliases, &Node{})
+	coverage.recordAuthenticatedAlias(&Node{})
 	coverage.reset()
 	if len(coverage.spans) != 0 || len(coverage.authenticatedAliases) != 0 {
 		t.Fatalf("reset retained %d spans and %d aliases", len(coverage.spans), len(coverage.authenticatedAliases))
@@ -103,6 +103,43 @@ func TestDiagnosticParserCoreAcceptedLeafCoverageScratchResetsAndReuses(t *testi
 	}
 	if len(coverage.spans) != 1 || coverage.spans[0].startByte != 1 {
 		t.Fatalf("reused spans=%v", coverage.spans)
+	}
+}
+
+func TestDiagnosticParserCoreAcceptedAliasSetAccountingAndReset(t *testing.T) {
+	var coverage diagnosticParserCoreAcceptedLeafCoverageScratch
+	if coverage.footprintBytes() != 0 || coverage.hasAuthenticatedAlias(&Node{}) {
+		t.Fatal("empty coverage has storage or authentication")
+	}
+	nodes := make([]Node, 4096)
+	for index := range nodes {
+		coverage.recordAuthenticatedAlias(&nodes[index])
+	}
+	before := coverage.footprintBytes()
+	if before < uint64(len(nodes))*64 {
+		t.Fatalf("alias footprint=%d does not include live storage", before)
+	}
+	for index := range nodes {
+		if !coverage.hasAuthenticatedAlias(&nodes[index]) {
+			t.Fatalf("alias %d lost authentication", index)
+		}
+		coverage.recordAuthenticatedAlias(&nodes[index])
+	}
+	if coverage.footprintBytes() != before || len(coverage.authenticatedAliases) != len(nodes) {
+		t.Fatal("duplicate aliases increased storage")
+	}
+	scheduler := &diagnosticParserCoreGenericScheduler{}
+	scheduler.options.stopControlMemoryBudgetBytes = int64(before - 1)
+	if reason := scheduler.stopControlMemoryBudgetReasonWithAdditionalBytes(before); reason != ParseStopMemoryBudget {
+		t.Fatalf("alias storage did not trip memory budget: %s", reason)
+	}
+	coverage.reset()
+	if coverage.authenticatedAliases != nil || coverage.footprintBytes() != 0 || coverage.hasAuthenticatedAlias(&nodes[0]) {
+		t.Fatal("reset retained alias storage or authentication")
+	}
+	coverage.recordAuthenticatedAlias(&nodes[0])
+	if !coverage.hasAuthenticatedAlias(&nodes[0]) || coverage.hasAuthenticatedAlias(&nodes[1]) {
+		t.Fatal("reuse retained stale alias authentication")
 	}
 }
 
@@ -199,6 +236,54 @@ func TestDiagnosticParserCoreAcceptedLeafCoverageRejectsUnrelatedTerminalAlias(t
 	)
 	if _, _, gapped, err := diagnosticParserCoreAcceptedTreeLeafCoverageGap(unrelated, []byte("x"), 0, 1, 100, &coverage, nodesByID, nil); err != nil || !gapped {
 		t.Fatalf("unrelated terminal alias audit err=%v gapped=%t, want gapped", err, gapped)
+	}
+}
+
+func TestDiagnosticParserCoreAcceptedLeafCoverageProductionAliases(t *testing.T) {
+	for _, name := range []string{"valid", "zero_alias", "wrong_range", "nonterminal", "unmatched_raw", "extra", "duplicate_clone", "wrong_production"} {
+		t.Run(name, func(t *testing.T) {
+			arena := acquireNodeArena(arenaClassFull)
+			defer arena.Release()
+			parser := &Parser{
+				language:       &Language{TokenCount: 100, SymbolMetadata: make([]SymbolMetadata, 103)},
+				reduceAliasSeq: [][]Symbol{nil, {101}},
+			}
+			raw := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+			clone := parser.aliasedNodeInArena(arena, raw, 101)
+			children := []*Node{clone}
+			production := uint16(1)
+			nodesByID := []*Node{nil, raw}
+			var coverage diagnosticParserCoreAcceptedLeafCoverageScratch
+			if err := coverage.append(1, core.MaterializationSubtreeView{
+				Symbol: 1, StartByte: 0, EndByte: 1, Terminal: true,
+			}, 2, false); err != nil {
+				t.Fatal(err)
+			}
+			switch name {
+			case "zero_alias":
+				parser.reduceAliasSeq[1][0] = 0
+			case "wrong_range":
+				clone.endByte = 2
+			case "nonterminal":
+				raw.symbol = 102
+			case "unmatched_raw":
+				nodesByID[1] = cloneNodeInArena(arena, raw)
+			case "extra":
+				raw.setExtra(true)
+			case "duplicate_clone":
+				children = append(children, parser.aliasedNodeInArena(arena, raw, 101))
+			case "wrong_production":
+				production = 0
+			}
+			coverage.authenticateDirectTerminalAliases(parser, []stackEntry{newStackEntryNode(0, raw)}, children, production, 0, nodesByID)
+			if got := coverage.hasAuthenticatedAlias(clone); got != (name == "valid") {
+				t.Fatalf("production alias authenticated=%t", got)
+			}
+			// Authentication belongs to the exact projected node, not its range.
+			if coverage.hasAuthenticatedAlias(parser.aliasedNodeInArena(arena, raw, 101)) {
+				t.Fatal("an unrelated clone inherited production authentication")
+			}
+		})
 	}
 }
 

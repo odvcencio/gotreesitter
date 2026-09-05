@@ -1171,6 +1171,15 @@ func (b *resultRootBuild) finishRecoverEOFTree(root *Node, wireParentLinks bool)
 		return nil
 	}
 	root.setFlag(nodeFlagCompactRecoverEOF, true)
+	return b.finishNativeAcceptedTree(root, wireParentLinks)
+}
+
+// finishNativeAcceptedTree publishes a root that already follows C acceptance.
+// It wires parents without applying language compatibility rewrites.
+func (b *resultRootBuild) finishNativeAcceptedTree(root *Node, wireParentLinks bool) *Tree {
+	if root == nil {
+		return nil
+	}
 	errorSummary := resultErrorSummaryUnknown
 	if wireParentLinks {
 		if !wireParentLinksWithScratchUntil(root, b.linkScratch, b.parser, &errorSummary) && root.ownerArena != nil {
