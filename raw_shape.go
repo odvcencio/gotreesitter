@@ -270,9 +270,8 @@ func (a *nodeArena) rawShapeForRef(ref rawShapeRef) (*rawShape, bool) {
 }
 
 func rawShapeHashCacheIndex(ref rawShapeRef) int {
-	// Multiplication spreads sequential references across the direct-mapped
-	// cache while keeping lookup to one integer operation.
-	return int((uint32(ref) * 2654435761) & (rawShapeHashCacheSize - 1))
+	// Use the high product bits so slab identity contributes to the index.
+	return int((uint32(ref) * 2654435761) >> (32 - 15))
 }
 
 func (a *nodeArena) ensureRawShapeHashCache() {

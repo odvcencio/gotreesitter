@@ -1,0 +1,10 @@
+=== RUN   TestIssue454CIncrementalDeleteMatchesFresh
+=== RUN   TestIssue454CIncrementalDeleteMatchesFresh/replace
+=== RUN   TestIssue454CIncrementalDeleteMatchesFresh/insert
+=== RUN   TestIssue454CIncrementalDeleteMatchesFresh/delete
+--- PASS: TestIssue454CIncrementalDeleteMatchesFresh (29.49s)
+    --- PASS: TestIssue454CIncrementalDeleteMatchesFresh/replace (0.57s)
+    --- PASS: TestIssue454CIncrementalDeleteMatchesFresh/insert (0.58s)
+    --- PASS: TestIssue454CIncrementalDeleteMatchesFresh/delete (27.73s)
+PASS
+ok  	github.com/odvcencio/gotreesitter/grammars	29.551s

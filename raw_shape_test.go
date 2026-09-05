@@ -55,11 +55,19 @@ func TestRawShapeHashCacheRecomputesAfterEviction(t *testing.T) {
 		t.Fatal("rawShapeHash failed before eviction")
 	}
 
-	// Consecutive references cover every slot because the cache multiplier is
-	// odd. Use references outside the arena so no real shape is overwritten.
-	const fakeRefBase = rawShapeRef(2 << 20)
-	for i := 0; i < rawShapeHashCacheSize; i++ {
-		arena.storeRawShapeHash(fakeRefBase+rawShapeRef(i), uint64(i+1))
+	// Find a colliding reference outside the arena and replace the cached hash.
+	const fakeRefBase = rawShapeRef(2 << rawShapeRefIndexBits)
+	evicted := false
+	for i := 0; i < 1<<rawShapeRefIndexBits; i++ {
+		fakeRef := fakeRefBase + rawShapeRef(i)
+		if rawShapeHashCacheIndex(fakeRef) == rawShapeHashCacheIndex(ref) {
+			arena.storeRawShapeHash(fakeRef, want^1)
+			evicted = true
+			break
+		}
+	}
+	if !evicted {
+		t.Fatal("no cache collision found")
 	}
 	got, ok := arena.rawShapeHash(ref)
 	if !ok {
@@ -1492,5 +1500,22 @@ func TestRawShapeRebuiltAcceptRootUsesSplicedChildren(t *testing.T) {
 	}
 	if got := shape.childCount(); got != 2 {
 		t.Fatalf("rebuilt root raw child count = %d, want 2", got)
+	}
+}
+
+func TestRawShapeHashCacheUsesSlabIdentity(t *testing.T) {
+	arena := acquireNodeArena(arenaClassIncremental)
+	defer arena.Release()
+	// Equal offsets from separate slabs must remain cached together.
+	var refs [16]rawShapeRef
+	for i := range refs {
+		refs[i] = rawShapeRef((i + 1) << rawShapeRefIndexBits)
+		arena.storeRawShapeHash(refs[i], uint64(i+1))
+	}
+	for i, ref := range refs {
+		got, ok := arena.rawShapeHash(ref)
+		if !ok || got != uint64(i+1) {
+			t.Fatalf("slab %d cached hash = %d, %v; want %d, true", i, got, ok, i+1)
+		}
 	}
 }

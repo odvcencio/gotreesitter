@@ -1,0 +1,48 @@
+=== RUN   TestRawShapeElisionDifferentialRecoveryFromSingleStackPrefix
+--- PASS: TestRawShapeElisionDifferentialRecoveryFromSingleStackPrefix (0.01s)
+=== RUN   TestRawShapeElisionDifferentialPureSingleStack
+--- PASS: TestRawShapeElisionDifferentialPureSingleStack (0.00s)
+=== RUN   TestRawShapeElisionDifferentialPrefixThenFork
+--- PASS: TestRawShapeElisionDifferentialPrefixThenFork (0.00s)
+=== RUN   TestRawShapeElisionDifferentialPrefixThenForkSharedRootSymbol
+--- PASS: TestRawShapeElisionDifferentialPrefixThenForkSharedRootSymbol (0.00s)
+=== RUN   TestRawShapeElisionAbstractComparisonFallbackCanFlipSign
+--- PASS: TestRawShapeElisionAbstractComparisonFallbackCanFlipSign (0.00s)
+=== RUN   TestReclaimRawShapeStorageClearsArenaPayloadRefs
+--- PASS: TestReclaimRawShapeStorageClearsArenaPayloadRefs (0.00s)
+=== RUN   TestCaptureRawShapeZeroCountPrecedesElision
+--- PASS: TestCaptureRawShapeZeroCountPrecedesElision (0.00s)
+=== RUN   TestCaptureRawShapeCountOverflowFailsClosed
+--- PASS: TestCaptureRawShapeCountOverflowFailsClosed (0.00s)
+=== RUN   TestParseReclaimsRawShapeStorageAfterAccounting
+--- PASS: TestParseReclaimsRawShapeStorageAfterAccounting (0.00s)
+=== RUN   TestParseReclaimsRawShapeStorageAccountsForZeroOnSingleStackParse
+--- PASS: TestParseReclaimsRawShapeStorageAccountsForZeroOnSingleStackParse (0.00s)
+=== RUN   TestIncrementalParseAfterRawShapeReclamationMatchesFresh
+--- PASS: TestIncrementalParseAfterRawShapeReclamationMatchesFresh (0.00s)
+=== RUN   TestRawShapeHeaderLayoutStaysCompact
+--- PASS: TestRawShapeHeaderLayoutStaysCompact (0.00s)
+=== RUN   TestRawShapeChildPacksShapeRefAndRestoresCurrentState
+--- PASS: TestRawShapeChildPacksShapeRefAndRestoresCurrentState (0.00s)
+=== RUN   TestRawShapeHashCacheRecomputesAfterEviction
+--- PASS: TestRawShapeHashCacheRecomputesAfterEviction (0.00s)
+=== RUN   TestRawErrorCostUsesCapturedZeroShapeReference
+--- PASS: TestRawErrorCostUsesCapturedZeroShapeReference (0.00s)
+=== RUN   TestRawShapeCompareDistinguishesHiddenFlattenedPublicShape
+--- PASS: TestRawShapeCompareDistinguishesHiddenFlattenedPublicShape (0.00s)
+=== RUN   TestAcceptedStackSelectionUsesRawShapeBeforeBranchOrder
+--- PASS: TestAcceptedStackSelectionUsesRawShapeBeforeBranchOrder (0.00s)
+=== RUN   TestAcceptedStackRawShapeDoesNotOverrideDistinctMaterializedRoot
+--- PASS: TestAcceptedStackRawShapeDoesNotOverrideDistinctMaterializedRoot (0.00s)
+=== RUN   TestAcceptedStackSelectionUsesDynamicPrecedenceBeforeRawShape
+--- PASS: TestAcceptedStackSelectionUsesDynamicPrecedenceBeforeRawShape (0.00s)
+=== RUN   TestAcceptedStackSelectionPrefersSharedPrefixSpliceBeforeRawShape
+--- PASS: TestAcceptedStackSelectionPrefersSharedPrefixSpliceBeforeRawShape (0.00s)
+=== RUN   TestRawShapePropagatesThroughNoTreeAndCollapsedUnary
+--- PASS: TestRawShapePropagatesThroughNoTreeAndCollapsedUnary (0.00s)
+=== RUN   TestRawShapeRebuiltAcceptRootUsesSplicedChildren
+--- PASS: TestRawShapeRebuiltAcceptRootUsesSplicedChildren (0.00s)
+=== RUN   TestRawShapeHashCacheUsesSlabIdentity
+--- PASS: TestRawShapeHashCacheUsesSlabIdentity (0.00s)
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.028s

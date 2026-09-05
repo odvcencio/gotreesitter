@@ -643,6 +643,14 @@ func TestTransientScratchCheckpointRetargetsNestedRawShapeNodesBeforeSlabReuse(t
 	liveParent.rawShape = parser.captureRawShape(nil, arena, Symbol(4), 0, []stackEntry{
 		newStackEntryNode(3, rawChild),
 	}, 0, 1)
+	wantHashes := make(map[rawShapeRef]uint64)
+	for _, ref := range []rawShapeRef{rawGrandchild.rawShape, rawChild.rawShape, liveParent.rawShape} {
+		hash, ok := arena.rawShapeHash(ref)
+		if !ok {
+			t.Fatalf("raw shape %d has no hash before materialization", ref)
+		}
+		wantHashes[ref] = hash
+	}
 	wantRootChildShape := rawChild.rawShape
 	wantNestedChildShape := rawGrandchild.rawShape
 	stack := glrStack{entries: []stackEntry{newStackEntryNode(4, liveParent)}, cacheEntries: true, byteOffset: 1}
@@ -704,4 +712,13 @@ func TestTransientScratchCheckpointRetargetsNestedRawShapeNodesBeforeSlabReuse(t
 	} else if got.symbol != Symbol(2) {
 		t.Fatalf("nested raw-shape child symbol after slab reuse = %d, want 2", got.symbol)
 	}
+	// Recompute each hash after materialization and reuse of the source storage.
+	for ref, want := range wantHashes {
+		clear(arena.rawShapeHashCache)
+		got, ok := arena.rawShapeHash(ref)
+		if !ok || got != want {
+			t.Fatalf("raw shape %d hash after materialization = %#x, %v; want %#x, true", ref, got, ok, want)
+		}
+	}
+
 }
