@@ -1543,6 +1543,8 @@ func (p reduceChildPath) valid() bool {
 // ArenaBreakdown captures optional arena/materialization attribution. It is
 // populated only when EnableArenaBreakdown(true) is set before parsing.
 type ArenaBreakdown struct {
+	CompactReuseDependencyBytesAllocated int64
+
 	NodeStructBytesAllocated            int64
 	NodeFieldMetadataBytesAllocated     int64
 	NoTreeNodeBytesAllocated            int64
@@ -3892,6 +3894,7 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	dst.parent = nil
 	dst.childIndex = -1
 	dst.ownerArena = arena
+	copyCompactReuseDependency(dst, src)
 	if !copyMissingNodeDependency(dst, src, offset) {
 		if _, present := missingNodeDependencyEntryForNode(src); present {
 			dst.setDirty(true)
@@ -4519,6 +4522,7 @@ func inputEditIsSingleByteReplacement(edit InputEdit) bool {
 // what to re-parse.
 func (t *Tree) Edit(edit InputEdit) {
 	t.ensureResultCompatibility()
+	t.editCompactReuseDependencies(edit)
 	if perfCountersEnabled {
 		perfRecordNodeEditCall()
 		if inputEditIsNoop(edit) {
@@ -4601,6 +4605,7 @@ func coalesceRanges(in []Range) []Range {
 // editNode recursively adjusts a node's byte/point spans for an edit and
 // marks nodes that overlap the edited region as dirty.
 func editNode(n *Node, edit InputEdit) {
+	editCompactReuseDependenciesFromNode(n, edit)
 	byteDelta := int64(edit.NewEndByte) - int64(edit.OldEndByte)
 	rowDelta := int64(edit.NewEndPoint.Row) - int64(edit.OldEndPoint.Row)
 	hasTailShift := byteDelta != 0 || edit.NewEndPoint != edit.OldEndPoint

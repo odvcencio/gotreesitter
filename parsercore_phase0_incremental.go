@@ -150,16 +150,8 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 	}
 	p := s.options.materializationParser
 	for _, node := range session.cursor.candidates(s.token.StartByte) {
-		if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
-			node.dirty() || node.isFragile() || !compactNodeMayBeReused(node) ||
-			!compactNodeStateProofAvailable(node) || node.PreGotoState() != StateID(state) ||
-			!session.cursor.topLevelSiblingBlockSpliceEligible(node) ||
-			!session.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
-			!reuseSubtreeGapIsParserPadding(session.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
-			continue
-		}
-		next, ok := p.reuseTargetState(StateID(state), node, s.token)
-		if !ok || next != node.parseState || s.freshSessionOwner == nil ||
+		next, ok := session.candidateState(p, node, StateID(state), offset, s.token)
+		if !ok || s.freshSessionOwner == nil ||
 			s.tokenSource == nil || s.tokenSource.lexer == nil ||
 			!s.tokenSource.externalScannerQuiescent() ||
 			int(node.EndByte()) < s.tokenSource.lexer.pos || node.EndByte() > uint32(len(session.cursor.newSource)) {
@@ -169,7 +161,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		if key == 0 {
 			return false, errors.New("compact incremental subtree keys exhausted")
 		}
-		head, _, err := s.compact.PushReusedSubtreeOwnedWithPoll(*s.freshSessionOwner, header.head, core.ReusedSubtree{
+		head, payload, err := s.compact.PushReusedSubtreeOwnedWithPoll(*s.freshSessionOwner, header.head, core.ReusedSubtree{
 			Key: key, Symbol: core.Symbol(node.Symbol()), PreGotoState: state, State: core.StateID(next),
 			StartByte: node.StartByte(), EndByte: node.EndByte(), DynamicPrecedence: node.dynamicPrecedence,
 		}, s.pollStopControl)
@@ -180,6 +172,9 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		session.reusedSubtrees++
 		session.reusedBytes += uint64(node.EndByte() - node.StartByte())
 		header.head = head
+		if err := s.importCompactReuseDependency(payload, node); err != nil {
+			return false, err
+		}
 		header.shifted = true
 		s.epochProgress = true
 		// Match SkipToByteWithPoint positioning without consuming the next token.
@@ -193,6 +188,36 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		return true, nil
 	}
 	return false, nil
+}
+
+func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, state StateID, offset uint32, lookahead Token) (StateID, bool) {
+	if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
+		node.dirty() || node.isFragile() || !compactNodeMayBeReused(node) ||
+		!compactNodeStateProofAvailable(node) || node.PreGotoState() != state ||
+		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) ||
+		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
+		!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
+		return 0, false
+	}
+	next, ok := p.reuseTargetState(state, node, lookahead)
+	return next, ok && next == node.parseState
+}
+
+// Admit only a direct child of the edited top-level item. The fresh token
+// proves the left boundary. The retained dependency also covers lexer probes
+// and the reduction lookahead beyond the subtree's physical right boundary.
+// Materialization still authenticates ownership and rejects changed projections.
+func (s *compactIncrementalReuseSession) nestedCandidateScopeEligible(p *Parser, node *Node, lookahead Token) bool {
+	if s.oldTree == nil || node.parent == nil || node.parent.parent != s.oldTree.root ||
+		!node.parent.dirty() || !node.isCompactMaterialized() ||
+		uint32(node.symbol) < p.language.TokenCount || !p.isVisibleSymbol(node.symbol) ||
+		s.cursor.rightBoundaryTouchedByEdit(node.EndByte()) || !s.nestedDependencyUnchanged(node) {
+		return false
+	}
+	leaf := leftmostLeaf(node)
+	return leaf != nil && uint32(leaf.symbol) < p.language.TokenCount &&
+		leaf.symbol == lookahead.Symbol && leaf.StartByte() == lookahead.StartByte &&
+		leaf.EndByte() == lookahead.EndByte
 }
 
 func (s *compactIncrementalReuseSession) footprintBytes() uint64 {

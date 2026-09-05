@@ -2808,6 +2808,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// scanner cursor until one version remains and rejoins shared election.
 	versionLexerOwnershipActive bool
 	recoveryTurns               diagnosticParserCoreRecoveryTurns
+	reuseDependencies           compactReuseDependencies
 	// versionLexerNoActionProof is true only during one exact C-style drop:
 	// owned versions shared a token start, at least one shifted, and the
 	// remaining versions exhausted reductions without an action.
@@ -4351,7 +4352,9 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 	acceptedPayloads := resetDiagnosticParserCoreRetainedSlice(scheduler.acceptedPayloads)
 	versionLexerRequests := resetDiagnosticParserCoreRetainedSlice(scheduler.versionLexerRequests)
 	versionLexerBeforeScratch := resetDiagnosticParserCoreDFARelexSnapshotScratch(scheduler.versionLexerBeforeScratch)
+	reuseDependencies := scheduler.reuseDependencies.reset()
 	*scheduler = diagnosticParserCoreGenericScheduler{
+		reuseDependencies:    reuseDependencies,
 		summaryHeaderScratch: summaryHeaders,
 		dispatchScratch: diagnosticParserCoreDispatchScratch{
 			cells: dispatchCells, noActionIndices: noActionIndices,
@@ -7859,6 +7862,11 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		compactIncrementalReuseProvenForLanguage(parser.language) &&
 		scannerProvenanceTransferProven && compactTreeIncrementalReuseProven(root)
 	tree.incrementalReuseDisabled = !compactIncrementalReuseProven
+	if compactIncrementalReuseProven && budgetScheduler != nil {
+		if err := budgetScheduler.publishCompactReuseDependencies(parser, root, arena, nodesByID, compact.MaterializationView, &points, acceptedLeaves.footprintBytes(), poll); err != nil {
+			return rejectTree(err)
+		}
+	}
 	tree.setParseRuntime(ParseRuntime{
 		StopReason:                                     ParseStopAccepted,
 		NodesAllocated:                                 arena.used,
@@ -8130,7 +8138,7 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	if s == nil {
 		return 0
 	}
-	total := uint64(0)
+	total := uint64(cap(s.reuseDependencies.ends)) * 4
 	addBytes := func(bytes uint64) {
 		if total == math.MaxUint64 || bytes == 0 {
 			return
@@ -11832,6 +11840,8 @@ func (s *diagnosticParserCoreGenericScheduler) DiagnosticDropGenericNoActionHead
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(cell.dispatchToken(s.token))
+	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	if s.freshSessionOwner != nil {
 		return s.applyGenericReductionOwned(*s.freshSessionOwner, before, cell)
 	}
@@ -12548,6 +12558,7 @@ func (s *diagnosticParserCoreGenericScheduler) reconcileGenericConflictOutputsOw
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []DiagnosticParserCoreHeaderReceipt, cell diagnosticParserCoreGenericCell) (err error) {
+	s.reuseDependencies.invalidate()
 	if s.freshSessionOwner != nil {
 		return s.applyGenericConflictOwned(*s.freshSessionOwner, before, cell)
 	}
@@ -12827,6 +12838,12 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) (err error) {
+	dependencyToken := s.token
+	if len(cells) == 1 {
+		dependencyToken = cells[0].dispatchToken(s.token)
+	}
+	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(dependencyToken)
+	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	if s.freshSessionOwner != nil {
 		return s.applyGenericShiftsOwned(*s.freshSessionOwner, before, cells)
 	}
@@ -12985,6 +13002,12 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 }
 
 func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []DiagnosticParserCoreHeaderReceipt, cells []diagnosticParserCoreGenericCell) (err error) {
+	dependencyToken := s.token
+	if len(cells) == 1 {
+		dependencyToken = cells[0].dispatchToken(s.token)
+	}
+	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(dependencyToken)
+	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	if err := s.headerRollbackScratch.begin(s.headers); err != nil {
 		return err
 	}
