@@ -1,0 +1,10 @@
+=== RUN   TestParityFreshParse
+=== RUN   TestParityFreshParse/javascript
+--- PASS: TestParityFreshParse (1.36s)
+    --- PASS: TestParityFreshParse/javascript (1.36s)
+=== RUN   TestParityIncrementalParse
+=== RUN   TestParityIncrementalParse/javascript
+--- PASS: TestParityIncrementalParse (0.03s)
+    --- PASS: TestParityIncrementalParse/javascript (0.03s)
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.395s

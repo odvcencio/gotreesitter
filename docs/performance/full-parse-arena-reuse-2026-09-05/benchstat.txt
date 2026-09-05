@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                    │ /tmp/gts-general-full-parse-20260905/baseline-trio.txt │ /tmp/gts-general-full-parse-20260905/candidate-trio.txt │
+                                    │                         sec/op                         │              sec/op               vs base               │
+GoParseIncrementalNoEditDFA                                                      4.047n ± 3%                        3.946n ± 5%       ~ (p=0.268 n=20)
+GoParseFullDFA                                                                   21.75m ± 6%                        21.64m ± 4%       ~ (p=0.968 n=20)
+GoParseIncrementalSingleByteEditDFA                                              206.4µ ± 6%                        196.8µ ± 4%       ~ (p=0.081 n=20)
+geomean                                                                          26.29µ                             25.61µ       -2.56%
+
+                                    │ /tmp/gts-general-full-parse-20260905/baseline-trio.txt │ /tmp/gts-general-full-parse-20260905/candidate-trio.txt │
+                                    │                          B/s                           │               B/s                 vs base               │
+GoParseIncrementalNoEditDFA                                                     4.336Ti ± 3%                       4.448Ti ± 5%       ~ (p=0.277 n=20)
+GoParseFullDFA                                                                  869.1Ki ± 6%                       869.1Ki ± 4%       ~ (p=0.984 n=20)
+GoParseIncrementalSingleByteEditDFA                                             89.16Mi ± 7%                       93.47Mi ± 4%       ~ (p=0.081 n=20)
+geomean                                                                         700.7Mi                            717.9Mi       +2.45%
+
+                                    │ /tmp/gts-general-full-parse-20260905/baseline-trio.txt │ /tmp/gts-general-full-parse-20260905/candidate-trio.txt │
+                                    │                          B/op                          │              B/op               vs base                 │
+GoParseIncrementalNoEditDFA                                                     0.000 ± 0%                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                336.6Ki ± 4%                       327.7Ki ± 6%       ~ (p=0.952 n=20)
+GoParseIncrementalSingleByteEditDFA                                             124.0 ± 1%                         123.0 ± 1%  -0.81% (p=0.017 n=20)
+geomean                                                                                    ²                                   -1.16%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ /tmp/gts-general-full-parse-20260905/baseline-trio.txt │ /tmp/gts-general-full-parse-20260905/candidate-trio.txt │
+                                    │                       allocs/op                        │           allocs/op             vs base                 │
+GoParseIncrementalNoEditDFA                                                     0.000 ± 0%                         0.000 ± 0%       ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                  43.00 ± 0%                         43.00 ± 0%       ~ (p=0.369 n=20)
+GoParseIncrementalSingleByteEditDFA                                             3.000 ± 0%                         3.000 ± 0%       ~ (p=1.000 n=20) ¹
+geomean                                                                                    ²                                   +0.00%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

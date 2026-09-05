@@ -1449,6 +1449,25 @@ func (a *nodeArena) ensureNodeCapacity(min int) {
 	a.recomputeAllocatedBytes()
 }
 
+// ensureFullParseNodeCapacity reuses retained slabs before it grows the primary storage.
+// Full parsing can allocate nodes across slabs. Final tree cloning requires contiguous storage.
+func (a *nodeArena) ensureFullParseNodeCapacity(min int) {
+	if a == nil || min <= len(a.nodes) {
+		return
+	}
+	if a.used > 0 {
+		panic("nodeArena.ensureFullParseNodeCapacity called after allocation started")
+	}
+	remaining := min - len(a.nodes)
+	for i := range a.nodeSlabs {
+		if len(a.nodeSlabs[i].data) >= remaining {
+			return
+		}
+		remaining -= len(a.nodeSlabs[i].data)
+	}
+	a.ensureExactNodeCapacity(min)
+}
+
 func (a *nodeArena) ensureExactNodeCapacity(min int) {
 	if a == nil || min <= len(a.nodes) {
 		return

@@ -1,0 +1,27 @@
+{
+  "created": "2026-09-05T20:08:52.443731+00:00",
+  "comparison": "236ca848 vs the same commit plus the recorded four-file patch",
+  "sources": {
+    "baseline": {
+      "path": "/home/draco/work/gts-full-parse-general-baseline-20260905",
+      "head": "236ca848239679221715b386115fc2910f6cf4e1",
+      "status": "",
+      "tracked_files": 2956,
+      "source_manifest_sha256": "e4ca96b6b946cb590da0f477d2780a8b0b4e57f524853e98e918d852d3b253fe"
+    },
+    "candidate": {
+      "path": "/home/draco/work/gts-full-parse-arena-reuse-20260905",
+      "head": "236ca848239679221715b386115fc2910f6cf4e1",
+      "status": " M arena.go\n A arena_full_parse_capacity_test.go\n M parser.go\n A parser_full_parse_ownership_test.go\n",
+      "tracked_files": 2958,
+      "source_manifest_sha256": "5c6a32c275795c429b070d6f96036920c4f45c8facc639deab10415c686e0d3d"
+    }
+  },
+  "patch_sha256": "0908989d08d8ea53018a30242a0ff4f56e6d8f179c98f2667324f71e0e124922",
+  "changed_files": [
+    "arena.go",
+    "arena_full_parse_capacity_test.go",
+    "parser.go",
+    "parser_full_parse_ownership_test.go"
+  ]
+}

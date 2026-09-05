@@ -1,0 +1,62 @@
+=== RUN   TestGoTokenInvariantLookaheadNumericRepairLockedC
+=== RUN   TestGoTokenInvariantLookaheadNumericRepairLockedC/forced_legacy
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:95: replacement=1 reparse_ns=171056 new_nodes=18
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:95: replacement=2 reparse_ns=44633 new_nodes=18
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:95: replacement=3 reparse_ns=25133 new_nodes=18
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+=== RUN   TestGoTokenInvariantLookaheadNumericRepairLockedC/compact_enabled
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:95: replacement=1 reparse_ns=32066 new_nodes=18
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:95: replacement=2 reparse_ns=37591 new_nodes=18
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:95: replacement=3 reparse_ns=23508 new_nodes=18
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 8aee5ba05b6a5045700a36b49d4c044224b31cc9b6211b2dcbfa83b4805b8602
+--- PASS: TestGoTokenInvariantLookaheadNumericRepairLockedC (0.99s)
+    --- PASS: TestGoTokenInvariantLookaheadNumericRepairLockedC/forced_legacy (0.99s)
+    --- PASS: TestGoTokenInvariantLookaheadNumericRepairLockedC/compact_enabled (0.00s)
+=== RUN   TestGoTokenInvariantLookaheadNumericReuseLockedC
+=== RUN   TestGoTokenInvariantLookaheadNumericReuseLockedC/forced_legacy
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:95: replacement=2 reparse_ns=0 new_nodes=0
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:95: replacement=3 reparse_ns=0 new_nodes=0
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:95: replacement=1 reparse_ns=0 new_nodes=0
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+=== RUN   TestGoTokenInvariantLookaheadNumericReuseLockedC/compact_enabled
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:95: replacement=2 reparse_ns=0 new_nodes=0
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:95: replacement=3 reparse_ns=0 new_nodes=0
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:94: fresh numeric edit: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:95: replacement=1 reparse_ns=0 new_nodes=0
+    go_token_invariant_lookahead_test.go:96: incremental versus C fresh: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+    go_token_invariant_lookahead_test.go:97: incremental versus C incremental: exact symbols, fields, spans, points, flags, and deep digest 29a88cc274edcccd7bafab4848094af00701ed842ef75d395ed62b205916a44e
+--- PASS: TestGoTokenInvariantLookaheadNumericReuseLockedC (0.01s)
+    --- PASS: TestGoTokenInvariantLookaheadNumericReuseLockedC/forced_legacy (0.00s)
+    --- PASS: TestGoTokenInvariantLookaheadNumericReuseLockedC/compact_enabled (0.00s)
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.005s

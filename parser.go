@@ -7387,7 +7387,7 @@ func (p *Parser) ensureFullParseInitialCapacity(source []byte, arena *nodeArena,
 		target = parseNoTreeArenaNodeCapacity(len(source))
 		checkpointCapacityTarget = target
 	}
-	arena.ensureExactNodeCapacity(target)
+	arena.ensureFullParseNodeCapacity(target)
 	if p.noTreeBenchmarkOnly && !p.noTreeCheckpointBenchmarkOnly {
 		arena.dropExternalScannerCheckpointStorage()
 	}

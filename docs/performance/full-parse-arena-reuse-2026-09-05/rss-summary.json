@@ -1,0 +1,17 @@
+{
+  "fixture": "grammargen_lr",
+  "route": "forced legacy",
+  "scope": "Process peak includes fixture admission, warm-up, and one full parse; three alternating pairs. Not long-run retention.",
+  "observations_kib": {
+    "baseline": [
+      176344,
+      166652,
+      151708
+    ],
+    "candidate": [
+      143728,
+      117736,
+      121260
+    ]
+  }
+}

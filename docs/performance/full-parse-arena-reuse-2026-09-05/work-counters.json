@@ -1,0 +1,60 @@
+{
+  "baseline": {
+    "arena_B/op": [
+      56434672.0
+    ],
+    "max_stacks": [
+      18.0
+    ],
+    "nodes/op": [
+      330334.0
+    ],
+    "tokens/op": [
+      49912.0
+    ],
+    "multi_iters/op": [
+      53125.0
+    ],
+    "multi_tokens/op": [
+      47976.0
+    ],
+    "peak_depth": [
+      58.0
+    ],
+    "forest_fast_path": [
+      0.0
+    ],
+    "normalization_runs/op": [
+      0.0
+    ]
+  },
+  "candidate": {
+    "arena_B/op": [
+      56654840.0
+    ],
+    "max_stacks": [
+      18.0
+    ],
+    "nodes/op": [
+      330334.0
+    ],
+    "tokens/op": [
+      49912.0
+    ],
+    "multi_iters/op": [
+      53125.0
+    ],
+    "multi_tokens/op": [
+      47976.0
+    ],
+    "peak_depth": [
+      58.0
+    ],
+    "forest_fast_path": [
+      0.0
+    ],
+    "normalization_runs/op": [
+      0.0
+    ]
+  }
+}

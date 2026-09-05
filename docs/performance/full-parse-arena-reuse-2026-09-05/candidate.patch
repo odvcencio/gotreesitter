@@ -1,0 +1,155 @@
+diff --git a/arena.go b/arena.go
+index 30fa65ea..c5cebb6e 100644
+--- a/arena.go
++++ b/arena.go
+@@ -1449,6 +1449,25 @@ func (a *nodeArena) ensureNodeCapacity(min int) {
+ 	a.recomputeAllocatedBytes()
+ }
+ 
++// ensureFullParseNodeCapacity reuses retained slabs before it grows the primary storage.
++// Full parsing can allocate nodes across slabs. Final tree cloning requires contiguous storage.
++func (a *nodeArena) ensureFullParseNodeCapacity(min int) {
++	if a == nil || min <= len(a.nodes) {
++		return
++	}
++	if a.used > 0 {
++		panic("nodeArena.ensureFullParseNodeCapacity called after allocation started")
++	}
++	remaining := min - len(a.nodes)
++	for i := range a.nodeSlabs {
++		if len(a.nodeSlabs[i].data) >= remaining {
++			return
++		}
++		remaining -= len(a.nodeSlabs[i].data)
++	}
++	a.ensureExactNodeCapacity(min)
++}
++
+ func (a *nodeArena) ensureExactNodeCapacity(min int) {
+ 	if a == nil || min <= len(a.nodes) {
+ 		return
+diff --git a/arena_full_parse_capacity_test.go b/arena_full_parse_capacity_test.go
+new file mode 100644
+index 00000000..c774e94f
+--- /dev/null
++++ b/arena_full_parse_capacity_test.go
+@@ -0,0 +1,57 @@
++package gotreesitter
++
++import "testing"
++
++func TestFullParseNodeCapacityReusesFragmentedStorage(t *testing.T) {
++	a := newNodeArena(arenaClassFull)
++	target := len(a.nodes) + 17
++	for i := 0; i < target; i++ {
++		a.allocNode().startByte = uint32(i + 1)
++	}
++	a.reset()
++	primary := &a.nodes[0]
++	overflow := &a.nodeSlabs[0].data[0]
++	bytes := a.allocatedBytes
++	a.ensureFullParseNodeCapacity(target)
++	if &a.nodes[0] != primary || len(a.nodeSlabs) != 1 || &a.nodeSlabs[0].data[0] != overflow {
++		t.Fatal("reservation replaced retained node storage")
++	}
++	for i := 0; i < target; i++ {
++		if n := a.allocNode(); n.startByte != 0 {
++			t.Fatalf("node %d retained data from the previous parse", i)
++		}
++	}
++	if a.allocatedBytes != bytes {
++		t.Fatalf("reservation or allocation grew storage: %d -> %d", bytes, a.allocatedBytes)
++	}
++}
++
++func TestFullParseNodeCapacityGrowsInsufficientStorage(t *testing.T) {
++	a := newNodeArena(arenaClassFull)
++	a.nodeSlabs = []nodeSlab{{data: make([]Node, 17)}}
++	a.recomputeAllocatedBytes()
++	target := len(a.nodes) + 18
++	a.ensureFullParseNodeCapacity(target)
++	if len(a.nodes) != target || len(a.nodeSlabs) != 0 {
++		t.Fatalf("insufficient reservation: primary=%d slabs=%d", len(a.nodes), len(a.nodeSlabs))
++	}
++	bytes := a.allocatedBytes
++	for i := 0; i < target; i++ {
++		a.allocNode()
++	}
++	if a.allocatedBytes != bytes {
++		t.Fatal("allocation exceeded reserved storage")
++	}
++}
++
++func TestFullParseNodeCapacityRejectsUsedFragmentedStorage(t *testing.T) {
++	a := newNodeArena(arenaClassFull)
++	a.nodeSlabs = []nodeSlab{{data: make([]Node, 17)}}
++	a.allocNode()
++	defer func() {
++		if recover() == nil {
++			t.Fatal("reservation accepted an arena with live nodes")
++		}
++	}()
++	a.ensureFullParseNodeCapacity(len(a.nodes) + 1)
++}
+diff --git a/parser.go b/parser.go
+index c2df525c..03188287 100644
+--- a/parser.go
++++ b/parser.go
+@@ -7387,7 +7387,7 @@ func (p *Parser) ensureFullParseInitialCapacity(source []byte, arena *nodeArena,
+ 		target = parseNoTreeArenaNodeCapacity(len(source))
+ 		checkpointCapacityTarget = target
+ 	}
+-	arena.ensureExactNodeCapacity(target)
++	arena.ensureFullParseNodeCapacity(target)
+ 	if p.noTreeBenchmarkOnly && !p.noTreeCheckpointBenchmarkOnly {
+ 		arena.dropExternalScannerCheckpointStorage()
+ 	}
+diff --git a/parser_full_parse_ownership_test.go b/parser_full_parse_ownership_test.go
+new file mode 100644
+index 00000000..fcb57a0b
+--- /dev/null
++++ b/parser_full_parse_ownership_test.go
+@@ -0,0 +1,43 @@
++package gotreesitter_test
++
++import (
++	"testing"
++
++	"github.com/odvcencio/gotreesitter"
++	"github.com/odvcencio/gotreesitter/grammars"
++)
++
++func TestGoFullParseRepeatedParserPreservesLiveTree(t *testing.T) {
++	gotreesitter.DrainArenaPools()
++	defer gotreesitter.DrainArenaPools()
++	lang := grammars.GoLanguage()
++	p := gotreesitter.NewParser(lang)
++	p.SetAdmissionCandidateRoute(false)
++	source := makeGoBenchmarkSource(500)
++	parse := func() *gotreesitter.Tree {
++		t.Helper()
++		tree, err := p.Parse(source)
++		if err != nil {
++			t.Fatal(err)
++		}
++		if tree.RootNode().HasError() || tree.RootNode().EndByte() != uint32(len(source)) {
++			tree.Release()
++			t.Fatal("full parse returned an incomplete tree")
++		}
++		return tree
++	}
++	live := parse()
++	defer live.Release()
++	want := live.RootNode().SExpr(lang)
++	for i := 0; i < 4; i++ {
++		tree := parse()
++		if got := tree.RootNode().SExpr(lang); got != want {
++			tree.Release()
++			t.Fatalf("parse %d changed the tree", i)
++		}
++		tree.Release()
++		if got := live.RootNode().SExpr(lang); got != want {
++			t.Fatalf("parse %d changed the retained tree", i)
++		}
++	}
++}
