@@ -173,3 +173,45 @@ func TestLoadWorkCountChildInputSelectsEveryCanonicalFixture(t *testing.T) {
 		})
 	}
 }
+
+func runWorkCountProductionRouteRegression(t *testing.T, child func(*testing.T), schema, engine string) {
+	t.Helper()
+	fixtures, err := benchfixtures.LoadGoFullParseFixtures()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture benchfixtures.LoadedFixture
+	for _, candidate := range fixtures {
+		if candidate.Fixture.ID == "rewrite" {
+			fixture = candidate
+			break
+		}
+	}
+	if fixture.Fixture.ID == "" {
+		t.Fatal("rewrite fixture is absent")
+	}
+	root := t.TempDir()
+	sourcePath := filepath.Join(root, "rewrite.go")
+	resultPath := filepath.Join(root, "result.json")
+	if err := os.WriteFile(sourcePath, fixture.Source, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(workCountFixtureIDEnv, fixture.Fixture.ID)
+	t.Setenv(workCountSourcePathEnv, sourcePath)
+	t.Setenv(workCountResultPathEnv, resultPath)
+	previousDefault := gotreesitter.AdmissionCandidateRouteDefault()
+	gotreesitter.SetAdmissionCandidateRouteDefault(true)
+	t.Cleanup(func() { gotreesitter.SetAdmissionCandidateRouteDefault(previousDefault) })
+	child(t)
+	data, err := os.ReadFile(resultPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result workCountGoChildResult
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Schema != schema || result.Engine != engine || result.DeepTreeSHA256 != fixture.Fixture.DeepTreeSHA256 {
+		t.Fatalf("production child identity=%q/%q tree=%s want=%q/%q/%s", result.Schema, result.Engine, result.DeepTreeSHA256, schema, engine, fixture.Fixture.DeepTreeSHA256)
+	}
+}
