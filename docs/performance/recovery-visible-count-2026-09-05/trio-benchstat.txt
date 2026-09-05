@@ -1,0 +1,49 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                          │ /tmp/gts-performance-evidence-loop/memo-trio-base.txt │ /tmp/gts-performance-evidence-loop/memo-trio-head.txt │
+                                          │                        sec/op                         │            sec/op              vs base                │
+AdmissionCandidateGoQueryCompileWarmRoute                                            57.29m ± 10%                    18.67m ±  6%  -67.41% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                                  1.475µ ± 11%                    1.462µ ±  6%        ~ (p=0.570 n=20)
+GoParseFullDFA                                                                       17.03m ± 14%                    17.00m ± 11%        ~ (p=0.398 n=20)
+GoParseIncrementalNoEditDFA                                                          3.204n ± 10%                    3.175n ±  3%        ~ (p=0.425 n=20)
+geomean                                                                              46.33µ                          34.84µ        -24.81%
+
+                                          │ /tmp/gts-performance-evidence-loop/memo-trio-base.txt │ /tmp/gts-performance-evidence-loop/memo-trio-head.txt │
+                                          │                          B/s                          │             B/s               vs base                 │
+AdmissionCandidateGoQueryCompileWarmRoute                                           346.7Ki ± 10%                 1054.7Ki ±  6%  +204.23% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                                 12.19Gi ± 10%                  12.30Gi ±  6%         ~ (p=0.583 n=20)
+GoParseFullDFA                                                                      1.078Mi ± 12%                  1.082Mi ± 10%         ~ (p=0.394 n=20)
+GoParseIncrementalNoEditDFA                                                         5.478Ti ±  9%                  5.528Ti ±  3%         ~ (p=0.429 n=20)
+geomean                                                                             402.2Mi                        534.1Mi         +32.81%
+
+                                          │ /tmp/gts-performance-evidence-loop/memo-trio-base.txt │ /tmp/gts-performance-evidence-loop/memo-trio-head.txt │
+                                          │                candidate-fallbacks/op                 │      candidate-fallbacks/op        vs base            │
+AdmissionCandidateGoQueryCompileWarmRoute                                              0.000 ± 0%                          0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                          │ /tmp/gts-performance-evidence-loop/memo-trio-base.txt │ /tmp/gts-performance-evidence-loop/memo-trio-head.txt │
+                                          │                  candidate-routes/op                  │        candidate-routes/op         vs base            │
+AdmissionCandidateGoQueryCompileWarmRoute                                              1.000 ± 0%                          1.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                          │ /tmp/gts-performance-evidence-loop/memo-trio-base.txt │ /tmp/gts-performance-evidence-loop/memo-trio-head.txt │
+                                          │                         B/op                          │            B/op              vs base                  │
+AdmissionCandidateGoQueryCompileWarmRoute                                         3333.7Ki ± 0%                    309.6Ki ± 0%  -90.71% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                                  0.000 ± 0%                      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                     539.7Ki ± 2%                    538.2Ki ± 1%        ~ (p=0.941 n=20)
+GoParseIncrementalNoEditDFA                                                          0.000 ± 0%                      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                         ²                                -44.83%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                          │ /tmp/gts-performance-evidence-loop/memo-trio-base.txt │ /tmp/gts-performance-evidence-loop/memo-trio-head.txt │
+                                          │                       allocs/op                       │          allocs/op           vs base                  │
+AdmissionCandidateGoQueryCompileWarmRoute                                          388.97k ± 0%                     13.73k ± 0%  -96.47% (p=0.000 n=20)
+GoParseIncrementalSingleByteEditDFA                                                  0.000 ± 0%                      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+GoParseFullDFA                                                                      15.55k ± 0%                     15.55k ± 0%        ~ (p=1.000 n=20)
+GoParseIncrementalNoEditDFA                                                          0.000 ± 0%                      0.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                         ²                                -56.65%                ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean

@@ -1,0 +1,85 @@
+{
+  "baseline_commit": "7db6e20ad88ac7f79228979899d5c55578818f49",
+  "candidate_commit": "bc34a57e549da5a077a5045927ae65bda8f285e2",
+  "samples_per_side": 20,
+  "ratio_definition": "median of Go/C time ratios within each process",
+  "scope": "four locked clean Go fixtures; warm public compact full parse versus cgo C",
+  "rows": [
+    {
+      "fixture": "query_compile",
+      "base": {
+        "ns_op": 56297421.0,
+        "bytes_op": 3413680.5,
+        "allocs_op": 388966.0,
+        "c_ns_op": 5237600.5,
+        "go_over_c": 10.836353826049404
+      },
+      "head": {
+        "ns_op": 19130058.0,
+        "bytes_op": 317042.0,
+        "allocs_op": 13731.0,
+        "c_ns_op": 5159143.5,
+        "go_over_c": 3.766476234234383
+      },
+      "speedup": 2.9428776954047917,
+      "time_reduction_percent": 66.01965479022564
+    },
+    {
+      "fixture": "rewrite",
+      "base": {
+        "ns_op": 5197479.0,
+        "bytes_op": 301621.5,
+        "allocs_op": 16319.0,
+        "c_ns_op": 1069103.5,
+        "go_over_c": 4.873920136721263
+      },
+      "head": {
+        "ns_op": 4155427.5,
+        "bytes_op": 210411.0,
+        "allocs_op": 5349.0,
+        "c_ns_op": 1040241.0,
+        "go_over_c": 3.992332856657421
+      },
+      "speedup": 1.2507687837171988,
+      "time_reduction_percent": 20.04917191584612
+    },
+    {
+      "fixture": "language",
+      "base": {
+        "ns_op": 109009860.0,
+        "bytes_op": 7767901.0,
+        "allocs_op": 885523.0,
+        "c_ns_op": 5376362.0,
+        "go_over_c": 20.042851587421097
+      },
+      "head": {
+        "ns_op": 20078706.0,
+        "bytes_op": 700859.5,
+        "allocs_op": 19720.0,
+        "c_ns_op": 5479663.5,
+        "go_over_c": 3.7134128266636486
+      },
+      "speedup": 5.429127753551449,
+      "time_reduction_percent": 81.5808349813494
+    },
+    {
+      "fixture": "grammargen_lr",
+      "base": {
+        "ns_op": 5687298986.0,
+        "bytes_op": 434011048.0,
+        "allocs_op": 52741155.5,
+        "c_ns_op": 57557475.0,
+        "go_over_c": 101.34527420338031
+      },
+      "head": {
+        "ns_op": 203548823.0,
+        "bytes_op": 6257339.0,
+        "allocs_op": 186185.0,
+        "c_ns_op": 56043525.0,
+        "go_over_c": 3.651415920821722
+      },
+      "speedup": 27.940711727917975,
+      "time_reduction_percent": 96.42099310233098
+    }
+  ]
+}
