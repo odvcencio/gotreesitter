@@ -105,3 +105,12 @@ Both sources report the same work counters across every sample.
 Profile that parsing and tree-construction work next, before choosing another shared optimization.
 The counters establish work volume, not elapsed-time attribution.
 A matched C timing campaign remains necessary to measure progress toward the two-times-C target.
+
+## Integration on merged main
+
+The publication branch applies this runtime change to main `40e93f74`, which includes the compact sibling-adoption correction.
+All three changed Go files remain byte-identical to the measured source.
+Separate Docker gates passed the Go lexer and C checks, then the TypeScript proof, adoption, and C checks.
+The TypeScript gate includes numeric reuse, syntax rejection, and clean sibling adoption without skips.
+Read the [integration receipt](lexer-token-output-2026-09-05/integration.json) for tested identities and counts.
+These integration checks establish correctness on that main revision; they do not repeat the original timing campaign.

@@ -1,0 +1,63 @@
+{
+  "base": "40e93f74b0f62dcb6fc6126d577311b95a77fb9b",
+  "head": "ccf7828b303dcee4927e7493464e2928bf8339aa",
+  "files": [
+    {
+      "path": "lexer.go",
+      "sha256": "dccf79db43a6fcc25be51dfbd8f53f41d9c2e6d501c711aca24aa49e86580f44",
+      "matches_measured_source": true
+    },
+    {
+      "path": "token_invariant_lexical_proof.go",
+      "sha256": "3332eef568ae410f620e9fa17a80211b01c541568f8bfa54bc55aed8ab4c12f6",
+      "matches_measured_source": true
+    },
+    {
+      "path": "lexer_token_output_test.go",
+      "sha256": "f5fe6bf658faeedb77f33ed8dd8d95244de0359a81a8239ce196347af34e7b88",
+      "matches_measured_source": true
+    }
+  ],
+  "timing_scope": "Original paired measurements remain on the recorded baseline and candidate. This integration gate checks correctness only.",
+  "controls": {
+    "go-controls.txt": {
+      "top_level_passes": 60,
+      "sha256": "1b139586a45ffbbcdad90ce200d63ffa05948347f9cded39ceedb392d1720516",
+      "skips": 0
+    },
+    "go-c-parity.txt": {
+      "top_level_passes": 2,
+      "sha256": "5dc58f1e263f7fa795c5551cee8d4727e0386dd701f895f9efb1216a1e6ade8f",
+      "skips": 0
+    },
+    "typescript-controls.txt": {
+      "top_level_passes": 7,
+      "sha256": "e89fd5be38b220e906b3d6999b1d0871813554e3915ef362309d2a03ba72e340",
+      "skips": 0
+    },
+    "typescript-c-parity.txt": {
+      "top_level_passes": 3,
+      "sha256": "391e633f8b595a20e83d2dff681411d265d80ac5215d52256df3eb5210cc3488",
+      "skips": 0
+    }
+  },
+  "containers": [
+    {
+      "label": "lexer-token-output-integration-go",
+      "run_start_utc": "2026-09-05T20:30:48Z",
+      "run_end_utc": "2026-09-05T20:32:29Z",
+      "exit_code": "0",
+      "oom_killed": "false",
+      "wall_timed_out": "false"
+    },
+    {
+      "label": "lexer-token-output-integration-typescript",
+      "run_start_utc": "2026-09-05T20:32:29Z",
+      "run_end_utc": "2026-09-05T20:33:23Z",
+      "exit_code": "0",
+      "oom_killed": "false",
+      "wall_timed_out": "false"
+    }
+  ],
+  "raw_receipts": "/home/draco/work/gts-authenticated-edit-optimization-evidence-20260905/token-output/integration"
+}
