@@ -1,0 +1,5 @@
+=== RUN   TestIssue454C664ByteLockedCDiagnostic
+    issue454_c_compact_blocker_parity_test.go:66: known locked-C divergence: path=/translation_unit/function_definition[0]/compound_statement[2]/ERROR[2]/number_literal[0] category=error Go=true C=false
+--- PASS: TestIssue454C664ByteLockedCDiagnostic (1.90s)
+PASS
+ok  	github.com/odvcencio/gotreesitter/cgo_harness	1.907s

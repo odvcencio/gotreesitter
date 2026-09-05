@@ -92,3 +92,22 @@ Read [the reduced source](c-fallback-attribution-2026-09-05/c-delete-16-function
 Delete the first character of `x0` to reproduce the edit.
 Apply `reduction-test.patch` after `diagnostic.patch` and run `TestCDeleteFallbackReductionDiagnostic` with the same Docker limits.
 The run completed without memory failure or timeout. Locked-C verification remains separate.
+
+## Locked-C check for the reduced witness
+
+A separate C container checked the 664-byte witness against locked C.
+It preserves the known first divergence from the 1 KiB issue #454 ratchet:
+
+- Path: `/translation_unit/function_definition[0]/compound_statement[2]/ERROR[2]/number_literal[0]`.
+- Category: `error`.
+- Go value: `true`.
+- C value: `false`.
+
+The test passed by preserving that known difference. It does not establish parity.
+Keep this difference explicit when validating the next optimization.
+The reduced source is a work regression, not a completed correctness certificate.
+
+Apply `c664-oracle.patch` to the recorded baseline in an isolated checkout.
+Run `TestIssue454C664ByteLockedCDiagnostic` under `cgo_harness` with the `treesitter_c_parity` tag in Docker.
+The container completed without memory failure or timeout.
+Read the adjacent `c664-oracle.txt` receipt.
