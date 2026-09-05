@@ -1,0 +1,222 @@
+# status: incomplete
+# protocol: paired-alternating-seeds
+# role: baseline
+# working directory: /baseline
+# repository root: /baseline
+# revision: da1150c6d6a2d581ce31f44ba4c5b8241ec431ae
+# dirty: false
+# source metadata: informational; no source snapshot authentication
+# started: 2026-09-05T19:34:56Z
+# package: .
+# bench regex: ^BenchmarkGoParseWarmRealDFA$/^grammargen_lr$
+# required benchmarks: BenchmarkGoParseWarmRealDFA/grammargen_lr
+# build tags: gts_parsercorephase0
+# seeds: 1..20
+# benchtime: 750ms
+# GOMAXPROCS: 1
+# count per process: 1
+# seed: 1; position: 1
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 207222429 ns/op	   1.14 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.702s
+# completed seed: 1; at: 2026-09-05T19:35:11Z
+# seed: 2; position: 2
+-test.shuffle 2
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       3	 259140265 ns/op	   0.91 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	13100125 B/op	     172 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.600s
+# completed seed: 2; at: 2026-09-05T19:35:25Z
+# seed: 3; position: 1
+-test.shuffle 3
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       3	 257278019 ns/op	   0.92 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	13087645 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.549s
+# completed seed: 3; at: 2026-09-05T19:35:43Z
+# seed: 4; position: 2
+-test.shuffle 4
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 239259679 ns/op	   0.98 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.857s
+# completed seed: 4; at: 2026-09-05T19:35:58Z
+# seed: 5; position: 1
+-test.shuffle 5
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 224759138 ns/op	   1.05 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.680s
+# completed seed: 5; at: 2026-09-05T19:36:14Z
+# seed: 6; position: 2
+-test.shuffle 6
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       3	 269624881 ns/op	   0.87 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	13087645 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.976s
+# completed seed: 6; at: 2026-09-05T19:36:30Z
+# seed: 7; position: 1
+-test.shuffle 7
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       3	 261177684 ns/op	   0.90 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	13087645 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.427s
+# completed seed: 7; at: 2026-09-05T19:36:48Z
+# seed: 8; position: 2
+-test.shuffle 8
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 252973614 ns/op	   0.93 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.022s
+# completed seed: 8; at: 2026-09-05T19:37:05Z
+# seed: 9; position: 1
+-test.shuffle 9
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 227737566 ns/op	   1.03 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.731s
+# completed seed: 9; at: 2026-09-05T19:37:24Z
+# seed: 10; position: 2
+-test.shuffle 10
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       3	 299620604 ns/op	   0.79 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	13087661 B/op	     171 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.338s
+# completed seed: 10; at: 2026-09-05T19:37:38Z
+# seed: 11; position: 1
+-test.shuffle 11
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 225523320 ns/op	   1.04 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.286s
+# completed seed: 11; at: 2026-09-05T19:37:52Z
+# seed: 12; position: 2
+-test.shuffle 12
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 238026714 ns/op	   0.99 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.976s
+# completed seed: 12; at: 2026-09-05T19:38:13Z
+# seed: 13; position: 1
+-test.shuffle 13
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       3	 278715251 ns/op	   0.85 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	13087645 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.656s
+# completed seed: 13; at: 2026-09-05T19:38:30Z
+# seed: 14; position: 2
+-test.shuffle 14
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 227057343 ns/op	   1.04 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.687s
+# completed seed: 14; at: 2026-09-05T19:38:50Z
+# seed: 15; position: 1
+-test.shuffle 15
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       3	 303344805 ns/op	   0.78 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	13087645 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.597s
+# completed seed: 15; at: 2026-09-05T19:39:05Z
+# seed: 16; position: 2
+-test.shuffle 16
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       3	 256351700 ns/op	   0.92 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	13087645 B/op	     170 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.630s
+# completed seed: 16; at: 2026-09-05T19:39:22Z
+# seed: 17; position: 1
+-test.shuffle 17
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 234223249 ns/op	   1.01 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.065s
+# completed seed: 17; at: 2026-09-05T19:39:40Z
+# seed: 18; position: 2
+-test.shuffle 18
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 262936435 ns/op	   0.90 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	5.209s
+# completed seed: 18; at: 2026-09-05T19:39:56Z
+# seed: 19; position: 1
+-test.shuffle 19
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 239863013 ns/op	   0.98 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	4.710s
+# completed seed: 19; at: 2026-09-05T19:40:15Z
+# seed: 20; position: 2
+-test.shuffle 20
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       4	 202741178 ns/op	   1.16 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	 9821702 B/op	     169 allocs/op
+PASS
+ok  	github.com/odvcencio/gotreesitter	3.275s
+# completed seed: 20; at: 2026-09-05T19:40:29Z
+# repository root at end: /baseline
+# revision at end: da1150c6d6a2d581ce31f44ba4c5b8241ec431ae
+# dirty at end: false
+# completed runs: 20
+# status: complete

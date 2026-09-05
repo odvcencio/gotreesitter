@@ -1,0 +1,26 @@
+{
+  "created": "2026-09-05T19:40:42.662516+00:00",
+  "comparison": "da1150c6 vs the same commit plus the recorded three-file patch",
+  "sources": {
+    "baseline": {
+      "path": "/home/draco/work/gts-token-invariant-perf-candidate-20260905",
+      "head": "da1150c6d6a2d581ce31f44ba4c5b8241ec431ae",
+      "status": "",
+      "tracked_files": 2955,
+      "source_manifest_sha256": "bfc082a5db04f9d723c27abcad186ba398cec40c3aa83e11a6ee185a10b7cc21"
+    },
+    "candidate": {
+      "path": "/home/draco/work/gts-lexer-token-output-20260905",
+      "head": "da1150c6d6a2d581ce31f44ba4c5b8241ec431ae",
+      "status": " M lexer.go\n A lexer_token_output_test.go\n M token_invariant_lexical_proof.go\n",
+      "tracked_files": 2956,
+      "source_manifest_sha256": "e4ca96b6b946cb590da0f477d2780a8b0b4e57f524853e98e918d852d3b253fe"
+    }
+  },
+  "patch_sha256": "a29502ed1f6b0ba8fd63533c5fb8ada39228bf0fd4310deafaca45951eeadc7f",
+  "changed_files": [
+    "lexer.go",
+    "lexer_token_output_test.go",
+    "token_invariant_lexical_proof.go"
+  ]
+}

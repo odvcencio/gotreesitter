@@ -1,0 +1,66 @@
+[
+  {
+    "directory": "20260905T192058Z-lexer-token-output-correctness",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T19:20:58Z",
+    "end_utc": "2026-09-05T19:21:56Z"
+  },
+  {
+    "directory": "20260905T192209Z-lexer-token-output-go-oracle",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T19:22:09Z",
+    "end_utc": "2026-09-05T19:22:48Z"
+  },
+  {
+    "directory": "20260905T192248Z-lexer-token-output-json-oracle",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T19:22:48Z",
+    "end_utc": "2026-09-05T19:22:51Z"
+  },
+  {
+    "directory": "20260905T192251Z-lexer-token-output-javascript-oracle",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T19:22:51Z",
+    "end_utc": "2026-09-05T19:22:54Z"
+  },
+  {
+    "directory": "20260905T192254Z-lexer-token-output-preflight",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T19:22:54Z",
+    "end_utc": "2026-09-05T19:23:00Z"
+  },
+  {
+    "directory": "20260905T192952Z-lexer-token-output-paired",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T19:29:52Z",
+    "end_utc": "2026-09-05T19:34:55Z"
+  },
+  {
+    "directory": "20260905T193455Z-lexer-token-output-macro-paired",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T19:34:55Z",
+    "end_utc": "2026-09-05T19:40:30Z"
+  },
+  {
+    "directory": "20260905T194030Z-lexer-token-output-rss",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T19:40:30Z",
+    "end_utc": "2026-09-05T19:40:36Z"
+  }
+]

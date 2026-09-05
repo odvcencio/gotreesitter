@@ -662,8 +662,10 @@ nonterminals with authenticated compact dependency proofs. Length or point chang
 still require coordinate updates in affected trailing subtrees. This is not an
 absolute `O(edit)` guarantee. The v0.52.0 release disables the unsafe same-length
 token-invariant shortcut while preserving ordinary subtree reuse and no-edit reuse.
-Its proof work remains open in
+The unreleased implementation restores this shortcut with authenticated lexical dependencies.
+[Pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093) closed
 [issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
+Read the [restoration report](docs/performance/token-invariant-restoration-2026-09-05.md) for correctness and performance evidence.
 General reuse with external scanners requires explicit certification, with
 boundary checkpoints where configured. Uncertified cases use the legacy
 full-parse fallback documented in the
@@ -838,14 +840,15 @@ for unsupported cases. This release adds bounded compact incremental reuse,
 including authenticated nested nonterminals, and bounded Go end-of-file recovery.
 These changes do not complete compact parser graduation.
 
-The same-width lexical-lookahead defect in
-[issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087) remains open.
-This release disables the unsafe shortcut as a temporary mitigation.
+The v0.52.0 release disables the unsafe shortcut as a temporary mitigation for
+[issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
 Ordinary subtree reuse and no-edit reuse remain available.
 The owner approved the temporary slowdown. The measured single-byte edit rises
 from 1.706 us to 3,350.460 us. Full-parse and no-edit timing changes are not
 significant. See the [release performance report](docs/performance/release-v0.52.0-2026-09-05.md).
-Restoring the shortcut requires complete lexical dependency proofs.
+The unreleased implementation restores the shortcut with authenticated lexical dependency proofs.
+[Pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093) closed that issue.
+Read the [restoration report](docs/performance/token-invariant-restoration-2026-09-05.md) for the separate measurements.
 Lexical error-leaf flags and TypeScript recovery divergences remain graduation work.
 
 Recovery count caching improves the measured Go workloads. Canonicalization

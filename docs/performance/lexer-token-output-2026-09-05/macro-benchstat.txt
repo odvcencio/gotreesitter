@@ -1,0 +1,64 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                 │ baseline-macro.txt │      candidate-macro.txt      │
+                                 │       sec/op       │   sec/op     vs base          │
+GoParseWarmRealDFA/grammargen_lr          246.4m ± 8%   240.2m ± 7%  ~ (p=0.265 n=20)
+
+                                 │ baseline-macro.txt │      candidate-macro.txt       │
+                                 │        B/s         │     B/s       vs base          │
+GoParseWarmRealDFA/grammargen_lr         932.6Ki ± 8%   961.9Ki ± 7%  ~ (p=0.256 n=20)
+
+                                 │ baseline-macro.txt │       candidate-macro.txt       │
+                                 │     arena_B/op     │ arena_B/op   vs base            │
+GoParseWarmRealDFA/grammargen_lr          56.43M ± 0%   56.43M ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ baseline-macro.txt │         candidate-macro.txt          │
+                                 │  forest_fast_path  │ forest_fast_path  vs base            │
+GoParseWarmRealDFA/grammargen_lr           0.000 ± 0%         0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ baseline-macro.txt │      candidate-macro.txt       │
+                                 │     max_stacks     │ max_stacks  vs base            │
+GoParseWarmRealDFA/grammargen_lr           18.00 ± 0%   18.00 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ baseline-macro.txt │        candidate-macro.txt         │
+                                 │   multi_iters/op   │ multi_iters/op  vs base            │
+GoParseWarmRealDFA/grammargen_lr          53.12k ± 0%      53.12k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ baseline-macro.txt │         candidate-macro.txt         │
+                                 │  multi_tokens/op   │ multi_tokens/op  vs base            │
+GoParseWarmRealDFA/grammargen_lr          47.98k ± 0%       47.98k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ baseline-macro.txt │       candidate-macro.txt       │
+                                 │      nodes/op      │  nodes/op    vs base            │
+GoParseWarmRealDFA/grammargen_lr          330.3k ± 0%   330.3k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │  baseline-macro.txt   │            candidate-macro.txt            │
+                                 │ normalization_runs/op │ normalization_runs/op  vs base            │
+GoParseWarmRealDFA/grammargen_lr              0.000 ± 0%              0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ baseline-macro.txt │      candidate-macro.txt       │
+                                 │     peak_depth     │ peak_depth  vs base            │
+GoParseWarmRealDFA/grammargen_lr           58.00 ± 0%   58.00 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ baseline-macro.txt │       candidate-macro.txt       │
+                                 │     tokens/op      │  tokens/op   vs base            │
+GoParseWarmRealDFA/grammargen_lr          49.91k ± 0%   49.91k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ baseline-macro.txt │      candidate-macro.txt       │
+                                 │        B/op        │     B/op      vs base          │
+GoParseWarmRealDFA/grammargen_lr        9.367Mi ± 33%   9.367Mi ± 0%  ~ (p=0.862 n=20)
+
+                                 │ baseline-macro.txt │     candidate-macro.txt      │
+                                 │     allocs/op      │ allocs/op   vs base          │
+GoParseWarmRealDFA/grammargen_lr           169.0 ± 1%   169.0 ± 1%  ~ (p=0.851 n=20)

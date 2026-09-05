@@ -167,7 +167,8 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 		tokenStartRow := l.row
 		tokenStartCol := l.col
 
-		tok, ok := l.scan(startState, tokenStartPos, tokenStartRow, tokenStartCol)
+		var tok Token
+		ok := l.scanInto(startState, tokenStartPos, tokenStartRow, tokenStartCol, &tok)
 		lookaheadEndByte = maxUint32(lookaheadEndByte, tok.lexerLookaheadEndByte)
 		if ok {
 			if tok.Symbol == 0 {
@@ -223,7 +224,8 @@ func (l *Lexer) skipLeadingBOM() {
 func (l *Lexer) canLexAt(lexState uint32, pos int, row, col uint32, frontier *uint32) bool {
 	savedPos, savedRow, savedCol := l.pos, l.row, l.col
 	savedRangeIdx := l.includedRangeIdx
-	tok, ok := l.scan(lexState, pos, row, col)
+	var tok Token
+	ok := l.scanInto(lexState, pos, row, col, &tok)
 	if frontier != nil {
 		*frontier = maxUint32(*frontier, tok.lexerLookaheadEndByte)
 	}
@@ -288,16 +290,22 @@ func (l *Lexer) errorRunToken(frontier *uint32) Token {
 // On a skip (whitespace) match, it returns a zero-Symbol token and true.
 func (l *Lexer) scan(startState uint32, startPos int, startRow, startCol uint32) (Token, bool) {
 	var tok Token
+	ok := l.scanInto(startState, startPos, startRow, startCol, &tok)
+	return tok, ok
+}
+
+// scanInto replaces the complete output token, including when the scan fails.
+func (l *Lexer) scanInto(startState uint32, startPos int, startRow, startCol uint32, tok *Token) bool {
 	var ok bool
 	if len(l.includedRanges) != 0 {
-		tok, ok = l.scanIncluded(startState, startPos, startRow, startCol)
+		*tok, ok = l.scanIncluded(startState, startPos, startRow, startCol)
 	} else {
-		tok, ok = l.scanContiguous(startState, startPos, startRow, startCol)
+		ok = l.scanContiguousInto(startState, startPos, startRow, startCol, tok)
 	}
 	if l.tokenInvariantReadSpanMax != nil {
 		recordTokenInvariantReadSpan(l.tokenInvariantReadSpanMax, startPos, tokenInvariantExaminedEnd(l.source, tok.lexerLookaheadEndByte))
 	}
-	return tok, ok
+	return ok
 }
 
 // C frontiers identify the first byte of valid lookahead. Dependency checks
@@ -321,11 +329,18 @@ func recordTokenInvariantReadSpan(maximum *uint32, start int, frontier uint32) {
 }
 
 func (l *Lexer) scanContiguous(startState uint32, startPos int, startRow, startCol uint32) (Token, bool) {
+	var tok Token
+	ok := l.scanContiguousInto(startState, startPos, startRow, startCol, &tok)
+	return tok, ok
+}
+
+func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, startCol uint32, tok *Token) bool {
 	// work-count-assembly: raw main-lexer invocation seam
 	workCountRecordRawMainLexerInvocation()
 	curState := int32(startState)
 	if curState < 0 || int(curState) >= len(l.states) {
-		return Token{}, false
+		*tok = Token{}
+		return false
 	}
 
 	scanPos := startPos
@@ -482,7 +497,8 @@ func (l *Lexer) scanContiguous(startState uint32, startPos int, startRow, startC
 		l.failTokenStartRow = tokenStartRow
 		l.failTokenStartCol = tokenStartCol
 		l.failTokenStartRangeIdx = 0
-		return Token{lexerLookaheadEndByte: lookaheadEndByte}, false
+		*tok = Token{lexerLookaheadEndByte: lookaheadEndByte}
+		return false
 	}
 
 	// Rewind (or advance) to the accept position.
@@ -492,7 +508,7 @@ func (l *Lexer) scanContiguous(startState uint32, startPos int, startRow, startC
 
 	if acceptSkip {
 		// Return a zero-Symbol token to signal "skip".
-		return Token{
+		*tok = Token{
 			StartByte:               uint32(acceptStartPos),
 			EndByte:                 uint32(acceptPos),
 			StartPoint:              Point{Row: acceptStartRow, Column: acceptStartCol},
@@ -500,10 +516,11 @@ func (l *Lexer) scanContiguous(startState uint32, startPos int, startRow, startC
 			lexerSkippedPrefix:      skippedPrefix,
 			lexerSkippedPrefixStart: uint32(startPos),
 			lexerLookaheadEndByte:   lookaheadEndByte,
-		}, true
+		}
+		return true
 	}
 
-	return Token{
+	*tok = Token{
 		Symbol:                  acceptSymbol,
 		Text:                    bytesToStringNoCopy(l.source[acceptStartPos:acceptPos]),
 		StartByte:               uint32(acceptStartPos),
@@ -514,7 +531,8 @@ func (l *Lexer) scanContiguous(startState uint32, startPos int, startRow, startC
 		lexerSkippedPrefixStart: uint32(startPos),
 		lexerInternalDFALexed:   true,
 		lexerLookaheadEndByte:   lookaheadEndByte,
-	}, true
+	}
+	return true
 }
 
 func tokenLookaheadEndByte(token Token) uint32 {
