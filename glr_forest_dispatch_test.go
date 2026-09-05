@@ -780,8 +780,8 @@ func TestForestTreeIncrementalEditCSharpStringLiteralStillFallsBack(t *testing.T
 
 // TestForestTreeIncrementalEditCSSTokenInvariantLeafReuseIsCorrect verifies the
 // safe reuse path for css forest trees that are otherwise demoted from general
-// forest-incremental reuse. Same-length edits inside a leaf can reuse the old
-// tree when rescanning the edited leaf preserves token kind and span.
+// forest-incremental reuse. Authenticate earlier dependencies and the edited
+// token before reusing the old tree for a same-length edit.
 func TestForestTreeIncrementalEditCSSTokenInvariantLeafReuseIsCorrect(t *testing.T) {
 	gts.SetGLRForestEnabled(true)
 	defer gts.SetGLRForestEnabled(true)
@@ -822,7 +822,10 @@ func TestForestTreeIncrementalEditCSSTokenInvariantLeafReuseIsCorrect(t *testing
 	if got, want := newTree.RootNode().EndByte(), uint32(len(edited)); got != want {
 		t.Fatalf("incremental root end = %d, want %d", got, want)
 	}
-	requireReleaseSameWidthReparse(t, profile)
+	if profile.TokenInvariantDependencyChecks == 0 || profile.ReparseNanos != 0 ||
+		profile.NewNodesAllocated != 0 || profile.ReusedSubtrees == 0 {
+		t.Fatalf("numeric edit did not use authenticated reuse: %+v", profile)
+	}
 	freshTree, err := parser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse: %v", err)
@@ -875,7 +878,10 @@ func TestForestTreeIncrementalEditSCSSTokenInvariantLeafReuseIsCorrect(t *testin
 	if got, want := newTree.RootNode().EndByte(), uint32(len(edited)); got != want {
 		t.Fatalf("incremental root end = %d, want %d", got, want)
 	}
-	requireReleaseSameWidthReparse(t, profile)
+	if profile.TokenInvariantDependencyChecks == 0 || profile.ReparseNanos != 0 ||
+		profile.NewNodesAllocated != 0 || profile.ReusedSubtrees == 0 {
+		t.Fatalf("numeric edit did not use authenticated reuse: %+v", profile)
+	}
 	freshTree, err := parser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse: %v", err)

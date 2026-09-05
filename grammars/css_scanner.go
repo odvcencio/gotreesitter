@@ -41,6 +41,9 @@ func (CssExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (CssExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (CssExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// Scan reads only forward source bytes and the valid-symbol set. It stores no state.
+func (CssExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 func (CssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	// Error recovery sentinel — always decline.
 	if cssValid(validSymbols, cssTokErrorRecovery) {

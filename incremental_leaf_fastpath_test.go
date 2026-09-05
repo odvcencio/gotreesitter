@@ -908,13 +908,12 @@ func TestReuseTreeWithNewSourceKeepsPrimaryArena(t *testing.T) {
 func TestTokenInvariantLeafEditAllowsExtraLeaf(t *testing.T) {
 	lang := buildArithmeticExtraCommentLanguage()
 	parser := NewParser(lang)
-	// Pin to production: the base tree must support incremental leaf reuse.
-	// A compact-materialized base tree is hard-barred from reuse (decision 0008),
-	// so routing it would force a full reparse instead of the one-token fast path.
+	// Exercise the legacy producer with authenticated extra-token reuse.
 	parser.SetAdmissionCandidateRoute(false)
 	oldSource := []byte("1#2012\n+2")
 	newSource := []byte("1#2013\n+2")
 	tree := mustParse(t, parser, oldSource)
+	defer tree.Release()
 
 	tree.Edit(InputEdit{
 		StartByte:   5,
@@ -932,13 +931,18 @@ func TestTokenInvariantLeafEditAllowsExtraLeaf(t *testing.T) {
 		t.Fatalf("edited leaf extra = false, want true; leaf=%s", leaf.Type(lang))
 	}
 
-	reused := mustParseIncremental(t, parser, newSource, tree)
+	reused, profile, err := parser.ParseIncrementalProfiled(newSource, tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reused.Release()
 	rt := reused.ParseRuntime()
 	if rt.StopReason != ParseStopAccepted {
 		t.Fatalf("incremental stop reason = %q, want %q (%s)", rt.StopReason, ParseStopAccepted, rt.Summary())
 	}
-	if rt.TokensConsumed <= 1 {
-		t.Fatalf("real edit bypassed reparsing: %s", rt.Summary())
+	if rt.TokensConsumed != 1 || profile.TokenInvariantDependencyChecks != 1 ||
+		profile.NewNodesAllocated != 0 || profile.ReparseNanos != 0 {
+		t.Fatalf("extra leaf did not use authenticated reuse: %+v", profile)
 	}
 	fresh, err := parser.Parse(newSource)
 	if err != nil {
@@ -952,13 +956,44 @@ func TestTokenInvariantLeafEditAllowsExtraLeaf(t *testing.T) {
 }
 
 func TestTokenInvariantLeafEditUsesFreshCustomTokenSource(t *testing.T) {
+	testTokenInvariantCustomSourceRequiresCoverage(t, false)
+}
+
+func TestTokenInvariantLeafEditRejectsCustomPriorLookahead(t *testing.T) {
+	testTokenInvariantCustomSourceRequiresCoverage(t, true)
+}
+
+func testTokenInvariantCustomSourceRequiresCoverage(t *testing.T, priorLookahead bool) {
+	t.Helper()
 	lang := buildArithmeticExtraCommentLanguage()
 	parser := NewParser(lang)
 	oldSource := []byte("1#2012\n+2")
 	newSource := []byte("1#2013\n+2")
-	oldTree, err := parser.ParseWithTokenSource(oldSource, newArithmeticExtraCommentTokenSource(oldSource))
+	makeSource := func(source []byte) TokenSource {
+		base := newArithmeticExtraCommentTokenSource(source)
+		if priorLookahead {
+			return &arithmeticPriorLookaheadTokenSource{base}
+		}
+		return base
+	}
+	if priorLookahead {
+		oldFirst, newFirst := makeSource(oldSource).Next(), makeSource(newSource).Next()
+		if oldFirst.EndByte != 1 || newFirst.EndByte != 6 {
+			t.Fatal("prior-lookahead fixture lost its growing first token")
+		}
+		oldComment := makeSource(oldSource).(*arithmeticPriorLookaheadTokenSource).SkipToByte(1)
+		newComment := makeSource(newSource).(*arithmeticPriorLookaheadTokenSource).SkipToByte(1)
+		if oldComment.Symbol != newComment.Symbol || oldComment.StartByte != newComment.StartByte || oldComment.EndByte != newComment.EndByte {
+			t.Fatal("edited leaf no longer appears token invariant in isolation")
+		}
+	}
+	oldTree, err := parser.ParseWithTokenSource(oldSource, makeSource(oldSource))
 	if err != nil {
 		t.Fatalf("ParseWithTokenSource failed: %v", err)
+	}
+	defer oldTree.Release()
+	if oldTree.tokenInvariantReadSpan != 0 {
+		t.Fatal("custom source unexpectedly supplied global dependency coverage")
 	}
 
 	oldTree.Edit(InputEdit{
@@ -969,23 +1004,76 @@ func TestTokenInvariantLeafEditUsesFreshCustomTokenSource(t *testing.T) {
 		OldEndPoint: Point{Row: 0, Column: 6},
 		NewEndPoint: Point{Row: 0, Column: 6},
 	})
-	newTree, err := parser.ParseIncrementalWithTokenSource(newSource, oldTree, newArithmeticExtraCommentTokenSource(newSource))
+	newTree, profile, err := parser.ParseIncrementalWithTokenSourceProfiled(newSource, oldTree, makeSource(newSource))
 	if err != nil {
 		t.Fatalf("ParseIncrementalWithTokenSource failed: %v", err)
 	}
+	defer newTree.Release()
 	rt := newTree.ParseRuntime()
 	if rt.StopReason != ParseStopAccepted {
 		t.Fatalf("incremental stop reason = %q, want %q (%s)", rt.StopReason, ParseStopAccepted, rt.Summary())
 	}
-	if rt.TokensConsumed <= 1 {
-		t.Fatalf("real edit bypassed reparsing: %s", rt.Summary())
+	if profile.ReparseNanos <= 0 || profile.NewNodesAllocated == 0 {
+		t.Fatalf("unknown custom-source coverage bypassed reparse: %+v", profile)
 	}
-	fresh, err := parser.ParseWithTokenSource(newSource, newArithmeticExtraCommentTokenSource(newSource))
+	// Exercise the source factory independently of the unsafe leaf shortcut.
+	rebuilder := makeSource(oldSource).(interface {
+		RebuildTokenSource([]byte, *Language) (TokenSource, error)
+	})
+	freshSource, err := rebuilder.RebuildTokenSource(newSource, lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := NewParser(lang).ParseWithTokenSource(newSource, freshSource)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer fresh.Release()
-	assertReleaseRootTreeEqual(t, newTree.RootNode(), fresh.RootNode(), lang)
+	if newTree.RootNode().HasError() || fresh.RootNode().HasError() {
+		t.Fatal("custom-source fixture did not produce valid trees")
+	}
+	var compare func(*Node, *Node)
+	compare = func(got, want *Node) {
+		t.Helper()
+		if got == nil || want == nil {
+			if got != want {
+				t.Fatal("tree contains a different nil child")
+			}
+			return
+		}
+		if got.Symbol() != want.Symbol() || got.Range() != want.Range() || got.ChildCount() != want.ChildCount() ||
+			got.IsNamed() != want.IsNamed() || got.IsExtra() != want.IsExtra() || got.IsError() != want.IsError() ||
+			got.HasError() != want.HasError() || got.IsMissing() != want.IsMissing() {
+			t.Fatalf("custom source differs from fresh: got=%s %v want=%s %v", got.SExpr(lang), got.Range(), want.SExpr(lang), want.Range())
+		}
+		for i := 0; i < got.ChildCount(); i++ {
+			if got.FieldNameForChild(i, lang) != want.FieldNameForChild(i, lang) {
+				t.Fatal("custom source changed a child field")
+			}
+			compare(got.Child(i), want.Child(i))
+		}
+	}
+	compare(newTree.RootNode(), fresh.RootNode())
+}
+
+// This source deliberately inspects byte 5 before returning its first token.
+// Rebuilding the edited comment alone cannot authenticate that earlier read.
+type arithmeticPriorLookaheadTokenSource struct {
+	*arithmeticExtraCommentTokenSource
+}
+
+func (ts *arithmeticPriorLookaheadTokenSource) RebuildTokenSource(source []byte, _ *Language) (TokenSource, error) {
+	return &arithmeticPriorLookaheadTokenSource{newArithmeticExtraCommentTokenSource(source)}, nil
+}
+
+func (ts *arithmeticPriorLookaheadTokenSource) Next() Token {
+	if ts.pos == 0 && len(ts.src) > 5 && ts.src[5] == '3' {
+		for ts.pos < 6 {
+			ts.advance()
+		}
+		return Token{Symbol: 1, StartByte: 0, EndByte: 6, StartPoint: Point{}, EndPoint: Point{Column: 6}, Text: string(ts.src[:6])}
+	}
+	return ts.arithmeticExtraCommentTokenSource.Next()
 }
 
 type arithmeticExtraCommentTokenSource struct {

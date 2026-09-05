@@ -54,8 +54,16 @@ func (JuliaExternalScanner) Deserialize(payload any, buf []byte)   {}
 // The scanner carries no payload and derives every result from local
 // lookahead plus validSymbols, so every incremental boundary is quiescent and
 // failed scans cannot mutate persistent state.
-func (JuliaExternalScanner) SupportsIncrementalReuse() bool    { return true }
-func (JuliaExternalScanner) ExternalScannerIsStateless() bool  { return true }
+func (JuliaExternalScanner) SupportsIncrementalReuse() bool   { return true }
+func (JuliaExternalScanner) ExternalScannerIsStateless() bool { return true }
+
+// These bytes follow the same branch in every scanner, including failed scans.
+func (JuliaExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
+	if b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' || b == '_' {
+		return 1
+	}
+	return 0
+}
 func (JuliaExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
 func (JuliaExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {

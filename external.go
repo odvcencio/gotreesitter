@@ -12,5 +12,17 @@ func RunExternalScanner(lang *Language, payload any, lexer *ExternalLexer, valid
 	if lang.ExternalScanner == nil {
 		return false
 	}
-	return lang.ExternalScanner.Scan(payload, lexer, validSymbols)
+	if lexer == nil {
+		return lang.ExternalScanner.Scan(payload, lexer, validSymbols)
+	}
+	// Retain one observer per scratch lexer, outside its value-copy state.
+	// A scanner can restore its cursor after a speculative read.
+	if lexer.readFrontier == nil {
+		lexer.readFrontier = new(externalReadFrontier)
+	}
+	observer := lexer.readFrontier
+	*observer = externalReadFrontier{lookahead: lexer.lookaheadEndByte, examined: tokenInvariantExaminedEnd(lexer.source, lexer.lookaheadEndByte)}
+	accepted := lang.ExternalScanner.Scan(payload, lexer, validSymbols)
+	lexer.lookaheadEndByte = maxUint32(lexer.lookaheadEndByte, observer.lookahead)
+	return accepted
 }

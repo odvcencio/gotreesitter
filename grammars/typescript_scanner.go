@@ -111,6 +111,15 @@ func (TypeScriptExternalScanner) Serialize(payload any, buf []byte) int { return
 func (TypeScriptExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (TypeScriptExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// All ASCII digits follow identical branches, including failed speculative scans.
+// Grammar bindings change symbols and masks, not character classification.
+func (TypeScriptExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
+	if b >= '0' && b <= '9' {
+		return 1
+	}
+	return 0
+}
+
 // symbolTable returns the per-Language-bound result-symbol table, falling
 // back to the pinned defaults when Scan is invoked on an unbound scanner
 // value (s.symbols is still its zero value).

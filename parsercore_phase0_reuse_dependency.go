@@ -29,23 +29,6 @@ func (d *compactReuseDependencies) reset() compactReuseDependencies {
 	return compactReuseDependencies{ends: d.ends[:0]}
 }
 
-// Forward frontiers cannot authenticate prefix reads or contextual repairs.
-// StatelessExternalScanner's existing contract requires local lookahead plus
-// valid symbols and forbids prefix reads; see external_scanner_quiescence.go.
-func (d *dfaTokenSource) compactReuseForwardDependenciesOnly() bool {
-	if d == nil || d.language == nil || d.isBash || d.isBashGenerated || d.isComment ||
-		d.isFortran || d.isScheme || d.isSwift || d.hasZeroWidthSentinelSymbol || supportsCompactCloseAngleSplit(d.language.Name) {
-		return false
-	}
-	// hasZeroWidthTokens/hasZeroWidthStartAccept make table-only choices.
-	// The token gate rejects their synthetic results without DFA provenance.
-	if d.hasExternalSymbols || d.hasExternalScanner || d.language.ExternalScanner != nil {
-		scanner, ok := d.language.ExternalScanner.(StatelessExternalScanner)
-		return d.hasExternalScanner && ok && scanner.ExternalScannerIsStateless()
-	}
-	return true
-}
-
 func (d *compactReuseDependencies) invalidate() {
 	if !d.disabled {
 		clear(d.ends)
@@ -91,7 +74,10 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactReuseDependency(token
 		d.invalidate()
 		return 0, false
 	}
-	d.frontier = maxUint32(d.frontier, tokenLookaheadEndByte(token))
+	// A C frontier can stop at a valid rune's first byte. A dependency
+	// receipt must also include the continuation bytes used to decode it.
+	examinedEnd := tokenInvariantExaminedEnd(s.tokenSource.lexer.source, tokenLookaheadEndByte(token))
+	d.frontier = maxUint32(d.frontier, examinedEnd)
 	return stats.Subtrees, true
 }
 

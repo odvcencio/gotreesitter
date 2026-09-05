@@ -1,11 +1,133 @@
 package gotreesitter
 
-// Disable whole-tree token-invariant reuse until earlier lexer dependencies
-// are authenticated. Matching one leaf cannot prove that preceding tokens
-// retain their boundaries. Keep ordinary incremental and no-edit reuse active.
-// See issue #1087. This release mitigation has no unsafe opt-in.
+import "time"
+
+// Authenticate earlier lexical dependencies before reusing the edited tree.
+// Matching one leaf does not prove that preceding tokens retain their boundaries.
+// Unknown coverage or an exhausted proof budget requires an ordinary reparse.
 func (p *Parser) tryTokenInvariantLeafEdit(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming) (*Tree, bool) {
-	return nil, false
+	if p == nil || oldTree == nil || oldTree.RootNode() == nil || oldTree.language != p.language {
+		return nil, false
+	}
+	if compactRecoverEOFTreeMarked(oldTree) {
+		return nil, false
+	}
+	if len(oldTree.edits) != 1 {
+		return nil, false
+	}
+	edit := oldTree.edits[0]
+	if edit.NewEndByte-edit.StartByte != edit.OldEndByte-edit.StartByte {
+		return nil, false
+	}
+	if edit.NewEndPoint != edit.OldEndPoint || edit.OldEndByte <= edit.StartByte {
+		return nil, false
+	}
+	if len(source) != len(oldTree.source) {
+		return nil, false
+	}
+	root := oldTree.RootNode()
+	node := oldTree.lastEditedLeaf
+	if node == nil || !node.containsByteRange(edit.StartByte, edit.OldEndByte) {
+		node = root.DescendantForByteRange(edit.StartByte, edit.OldEndByte)
+	}
+	if node == nil || node.ownerArena == nil ||
+		!node.ownerArena.externalScannerLeafCheckpointIdentityMatches(p.language) {
+		return nil, false
+	}
+	start := time.Time{}
+	if timing != nil {
+		start = time.Now()
+	}
+	readSpan, proven := p.tokenInvariantEditDependencies(source, oldTree, node, edit, ts, timing)
+	if !proven {
+		return nil, false
+	}
+	if p.canReuseLanguageTextInvariantNode(source, oldTree, node, edit) {
+		tree := reuseTreeWithNewSource(oldTree, source, node, true)
+		if tree == nil || tree.root == nil {
+			return nil, false
+		}
+		tree.tokenInvariantReadSpan = readSpan
+		tree.setParseRuntime(ParseRuntime{
+			StopReason:       ParseStopAccepted,
+			SourceLen:        uint32(len(source)),
+			TokensConsumed:   0,
+			LastTokenEndByte: node.endByte,
+			LastTokenSymbol:  node.symbol,
+			ExpectedEOFByte:  uint32(len(source)),
+			RootEndByte:      tree.root.EndByte(),
+			MaxStacksSeen:    1,
+		})
+		if timing != nil {
+			timing.reuseNanos += time.Since(start).Nanoseconds()
+			timing.reusedSubtrees++
+			timing.reusedBytes += uint64(len(source))
+			timing.maxStacksSeen = 1
+			timing.stopReason = ParseStopAccepted
+			timing.tokensConsumed = 0
+			timing.lastTokenEndByte = node.endByte
+			timing.expectedEOFByte = uint32(len(source))
+			timing.singleStackIterations = 1
+			timing.singleStackTokens = 0
+		}
+		return tree, true
+	}
+	leaf := node
+	if leaf == nil || leaf.ChildCount() != 0 || leaf.hasError() || leaf.isMissing() {
+		return nil, false
+	}
+	requireScannerCheckpoint := false
+	if oldTree.compactMaterialized && oldTree.incrementalReuseDisabled {
+		// Keep the scanner-proof closure local to the primitive as well as at
+		// admission. Direct callers must not bypass the compact-tree gate and
+		// reauthenticate a leaf with a newly-created stateful scanner payload.
+		if leaf.preGotoState == 0 || !compactLeafScannerReauthenticationProven(p.language, leaf) {
+			return nil, false
+		}
+		requireScannerCheckpoint = compactLeafScannerCheckpointRequired(p.language)
+	}
+	var tok Token
+	var ok bool
+	if requireScannerCheckpoint {
+		// This is intentionally a terminal path: a compact tree whose scanner
+		// proof depends on a checkpoint must authenticate that checkpoint during
+		// the scan. Failure may not fall through to a fresh scanner payload or a
+		// generic token-source skip.
+		tok, ok = scanCompactLeafWithRequiredScannerCheckpoint(ts, leaf)
+	} else {
+		tok, ok = p.scanTokenInvariantEditedLeaf(source, ts, leaf)
+	}
+	if !ok || tok.Symbol != leaf.symbol || tok.StartByte != leaf.startByte || tok.EndByte != leaf.endByte {
+		return nil, false
+	}
+	tree := reuseTreeWithNewSource(oldTree, source, leaf, false)
+	if tree == nil || tree.root == nil {
+		return nil, false
+	}
+	tree.tokenInvariantReadSpan = readSpan
+	tree.setParseRuntime(ParseRuntime{
+		StopReason:       ParseStopAccepted,
+		SourceLen:        uint32(len(source)),
+		TokensConsumed:   1,
+		LastTokenEndByte: tok.EndByte,
+		LastTokenSymbol:  tok.Symbol,
+		ExpectedEOFByte:  uint32(len(source)),
+		RootEndByte:      tree.root.EndByte(),
+		MaxStacksSeen:    1,
+	})
+	if timing != nil {
+		timing.reuseNanos += time.Since(start).Nanoseconds()
+		timing.reusedSubtrees++
+		timing.reusedBytes += uint64(len(source))
+		timing.maxStacksSeen = 1
+		timing.stopReason = ParseStopAccepted
+		timing.tokensConsumed = 1
+		timing.lastTokenEndByte = tok.EndByte
+		timing.expectedEOFByte = uint32(len(source))
+		timing.singleStackIterations = 1
+		timing.singleStackTokens = 1
+	}
+	return tree, true
 }
 
 func (p *Parser) canReuseLanguageTextInvariantNode(source []byte, oldTree *Tree, node *Node, edit InputEdit) bool {
@@ -1152,6 +1274,7 @@ func reuseTreeWithNewSource(oldTree *Tree, source []byte, dirtyNode *Node, clear
 	tree.compactMaterialized = oldTree.compactMaterialized
 	tree.resultErrorSummary = oldTree.resultErrorSummary
 	tree.resultCompatibilityApplied = oldTree.resultCompatibilityApplied
+	tree.tokenInvariantReadSpan = oldTree.tokenInvariantReadSpan
 	// This tree shares the old root, so shouldNormalizeIncrementalReturnedTree
 	// skips result normalization for it (same root). Even if a range-limited
 	// pass ever ran here, incrementalReparsedTopLevelRanges would read this

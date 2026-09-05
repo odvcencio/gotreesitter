@@ -386,7 +386,8 @@ func (p *Parser) parseForestExperimental(source []byte) (*Tree, bool) {
 	// these checkpoints incrementally. Avoid allocating checkpoint storage for
 	// a diagnostic success or decline that is guaranteed to disable reuse.
 	captureExternalCheckpoints := incrementalReuseProven && languageUsesExternalScannerCheckpoints(p.language)
-	root, ok := p.parseForest(arena, source, captureExternalCheckpoints, parseMemoryBudgetForParser(p, len(source)))
+	var lexicalReadSpan uint32
+	root, ok := p.parseForest(arena, source, captureExternalCheckpoints, parseMemoryBudgetForParser(p, len(source)), &lexicalReadSpan)
 	if !ok || root == nil {
 		arena.Release()
 		return nil, false
@@ -411,6 +412,7 @@ func (p *Parser) parseForestExperimental(source []byte) (*Tree, bool) {
 	// dispatcherArmCensus), so this is a no-op field copy in every ordinary
 	// parse.
 	p.copyNormalizationStats(tree.rawParseRuntime())
+	tree.captureTokenInvariantReadSpanValue(lexicalReadSpan)
 	tree.forestFastPath = true
 	if !incrementalReuseProven {
 		tree.incrementalReuseDisabled = true
@@ -701,7 +703,8 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	}
 	operationBudget := parseMemoryBudgetForParser(p, len(source))
 	forestBudget := automaticForestMemoryBudget(p, operationBudget)
-	root, ok := p.parseForest(arena, source, captureExternalCheckpoints, forestBudget)
+	var lexicalReadSpan uint32
+	root, ok := p.parseForest(arena, source, captureExternalCheckpoints, forestBudget, &lexicalReadSpan)
 	if progress.enabled {
 		progress.endDetail(time.Now(), "forest_parse_call_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, fmt.Sprintf("ok=%t root_present=%t decline_reason=%s", ok, root != nil, p.forestDeclineReason))
 	}
@@ -769,6 +772,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 		progress.beginDetail(time.Now(), "forest_normalize_begin", "forest_normalize_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, "")
 	}
 	p.normalizeReturnedTreeForParse(tree, source)
+	tree.captureTokenInvariantReadSpanValue(lexicalReadSpan)
 	// Diagnostic-only: see the matching comment in ParseForestExperimental.
 	// finalizeForestRoot (above, via finalizeResultRoot) and
 	// normalizeReturnedTreeForParse (immediately above) can each run the
@@ -3268,7 +3272,10 @@ func (s *gssForestNodeSlab) retainedBytes() int {
 // returned, or (nil,false) if the parse dies. This is the forest path the
 // GOT_GLR_FOREST flag dispatches into; parity-iteration (extras, recovery,
 // external scanners, full GLR-lexing) is layered on this core.
-func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64) (*Node, bool) {
+func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32) (*Node, bool) {
+	if lexicalReadSpan != nil {
+		*lexicalReadSpan = 0
+	}
 	lang := p.language
 	// Treat capture as a request, not a capability assertion. Internal
 	// diagnostic callers may request capture for any grammar; only a scanner
@@ -3986,6 +3993,11 @@ func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalChe
 				progress.emit(time.Now(), "forest_return", iter, tokens, tok, true, nil, 0, 0, 0, false, 0, 0,
 					forestProgressExtra(frontier, work, nextFrontier, curIndex, nextIndex, processEpoch, recoverCount, reducer, accepted,
 						fmt.Sprintf("ok=true root_end=%d extras_len=%d", root.EndByte(), len(extras))))
+			}
+			// Export only this clean attempt, before Close clears its tracker.
+			// Normalization cannot turn an error attempt into lexical evidence.
+			if lexicalReadSpan != nil && !root.hasError() && recoverCount == 0 {
+				*lexicalReadSpan = ts.tokenInvariantReadSpan()
 			}
 			return root, true
 		}

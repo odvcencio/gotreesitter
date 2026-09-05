@@ -3154,8 +3154,8 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	if unsafe.Sizeof(uintptr(0)) != 8 {
 		t.Skip("amd64 layout ratchet")
 	}
-	// The internal range cursor adds one range slice and two indexes: 40 bytes.
-	if got, want := unsafe.Sizeof(Parser{}), uintptr(2224); got != want {
+	// The scratch lexer shares an eight-byte dependency observer pointer.
+	if got, want := unsafe.Sizeof(Parser{}), uintptr(2232); got != want {
 		t.Fatalf("Parser size = %d, want %d", got, want)
 	}
 	// Compact incremental results add 48 bytes of route, reuse, and work telemetry.
@@ -3168,7 +3168,7 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	if got, want := unsafe.Offsetof(Parser{}.cNodeMemoPeakTier), unsafe.Offsetof(Parser{}.crecoveryCostCompetitionRelevant)+2; got != want {
 		t.Fatalf("Parser memo peak offset = %d, want %d", got, want)
 	}
-	if got, want := unsafe.Offsetof(Parser{}.fullParseRetryPassesTaken), uintptr(1024); got != want {
+	if got, want := unsafe.Offsetof(Parser{}.fullParseRetryPassesTaken), uintptr(1032); got != want {
 		t.Fatalf("Parser full-parse retry offset = %d, want %d", got, want)
 	}
 	if got, want := unsafe.Offsetof(Tree{}.recoveryNodeMemoPeakTier), unsafe.Offsetof(Tree{}.released)+1; got != want {

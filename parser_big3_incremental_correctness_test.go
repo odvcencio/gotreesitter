@@ -355,9 +355,9 @@ func TestTokenInvariantGoLeafDoesNotEnterAcceptedErrorRetryRoute(t *testing.T) {
 	}
 	defer fresh.Release()
 	requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
-	requireReleaseSameWidthReparse(t, profile)
-	if incremental.RootNode().HasError() || profile.NewNodesAllocated == 0 {
-		t.Fatalf("clean edit did not reparse cleanly: profile=%+v runtime=%s", profile, rt.Summary())
+	if incremental.RootNode().HasError() || profile.TokenInvariantDependencyChecks != 1 ||
+		profile.ReparseNanos != 0 || profile.NewNodesAllocated != 0 || profile.ReusedSubtrees == 0 {
+		t.Fatalf("clean edit did not authenticate whole-tree reuse: profile=%+v runtime=%s", profile, rt.Summary())
 	}
 	if profile.AcceptedErrorRetryAttempts != 0 || rt.IncrementalAcceptedErrorRetryAttempts != 0 ||
 		profile.AcceptedErrorRetryAdopted || rt.IncrementalAcceptedErrorRetryAdopted {

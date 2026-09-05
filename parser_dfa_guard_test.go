@@ -1299,7 +1299,7 @@ func TestDeferContextualCloseAngleActionSharesShapeGateWithPreCheck(t *testing.T
 	if !tokenMaybeContextualCloseAngle(lang, valid) {
 		t.Fatal("the valid narrow \">\" token unexpectedly failed the shape gate")
 	}
-	if !deferContextualCloseAngleAction(lang, source, state, valid, nil, probe) {
+	if !deferContextualCloseAngleAction(lang, source, state, valid, nil, probe, nil) {
 		t.Fatal("the valid narrow \">\" token unexpectedly did not defer")
 	}
 
@@ -1318,7 +1318,7 @@ func TestDeferContextualCloseAngleActionSharesShapeGateWithPreCheck(t *testing.T
 		if tokenMaybeContextualCloseAngle(lang, tok) {
 			t.Fatalf("token %+v unexpectedly passed the shape gate", tok)
 		}
-		if deferContextualCloseAngleAction(lang, source, state, tok, nil, probe) {
+		if deferContextualCloseAngleAction(lang, source, state, tok, nil, probe, nil) {
 			t.Fatalf("token %+v unexpectedly deferred despite failing the shared shape gate", tok)
 		}
 	}

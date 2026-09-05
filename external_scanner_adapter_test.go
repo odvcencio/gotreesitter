@@ -58,6 +58,12 @@ func (*capabilityExternalScanner) AllowsIncrementalReuseWithoutCheckpoint() bool
 	return true
 }
 func (*capabilityExternalScanner) ExternalScannerIsStateless() bool { return true }
+func (*capabilityExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
+	if b >= '0' && b <= '9' {
+		return 7
+	}
+	return 0
+}
 func (*capabilityExternalScanner) PreservesStateOnScanFailure() bool {
 	return true
 }
@@ -108,6 +114,12 @@ func TestExternalScannerOrderAdapterPreservesOptionalCapabilities(t *testing.T) 
 	}
 	if stateless, ok := adapted.(StatelessExternalScanner); !ok || !stateless.ExternalScannerIsStateless() {
 		t.Fatal("stateless capability was not preserved")
+	}
+	if invariant, ok := adapted.(ASCIIEquivalenceExternalScanner); !ok || invariant.ExternalScannerASCIIEquivalenceClass('1') != 7 || invariant.ExternalScannerASCIIEquivalenceClass('x') != 0 {
+		t.Fatal("digit-equivalence capability was not preserved")
+	}
+	if (&externalScannerOrderAdapter{inner: &recordingExternalScanner{}}).ExternalScannerASCIIEquivalenceClass('1') != 0 {
+		t.Fatal("adapter invented digit equivalence for an uncertified scanner")
 	}
 	if preserving, ok := adapted.(FailurePreservingExternalScanner); !ok || !preserving.PreservesStateOnScanFailure() {
 		t.Fatal("failure-preserving capability was not preserved")

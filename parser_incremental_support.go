@@ -55,6 +55,7 @@ func (t *incrementalParseTiming) toProfile() IncrementalParseProfile {
 		ReparseNanos:                        reparse,
 		ReusedSubtrees:                      t.reusedSubtrees,
 		ReusedBytes:                         t.reusedBytes,
+		TokenInvariantDependencyChecks:      t.tokenInvariantDependencyChecks,
 		NewNodesAllocated:                   t.newNodes,
 		ReuseUnsupported:                    t.reuseUnsupported,
 		ReuseUnsupportedReason:              t.reuseUnsupportedReason,

@@ -270,6 +270,21 @@ type StatelessExternalScanner interface {
 	ExternalScannerIsStateless() bool
 }
 
+// ASCIIEquivalenceExternalScanner classifies interchangeable ASCII bytes.
+// Zero means unknown. Equal nonzero classes certify substitutions between bytes.
+// For every payload and valid-symbol set, each
+// Scan must preserve its outcome, cursor, marks, result symbol, and final
+// scanner state, including state omitted from serialization. The maximum
+// examined position must also remain equal. This includes failed scans and
+// substitutions outside the returned token. The guarantee applies at every
+// scan origin and in every surrounding source. It does not certify
+// statelessness or subtree reuse. The classification must be pure and immutable
+// for each scanner binding. Bytes outside ASCII must return zero.
+type ASCIIEquivalenceExternalScanner interface {
+	ExternalScanner
+	ExternalScannerASCIIEquivalenceClass(byte) uint8
+}
+
 // FailurePreservingExternalScanner is implemented by external scanners whose
 // Scan method does not mutate serialized scanner payload state before returning
 // false. The token source can defer snapshotting until retry is actually needed.

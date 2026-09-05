@@ -320,14 +320,58 @@ func checkpointedScannerSoleChildPaddingEdit(oldSource, newSource []byte, edit I
 	return true
 }
 
-// The v0.52.0 mitigation disables leaf-only reuse before scanner creation.
-// Earlier lexer dependencies must be authenticated before this route returns.
+// Authenticate the edited leaf and earlier lexical dependencies before reuse.
 func (p *Parser) tryTokenInvariantReuseWithDFA(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
-	return nil, false
+	if oldTreeDisablesIncrementalReuse(oldTree) {
+		return nil, false
+	}
+	if _, _, ok := p.tokenInvariantLeafEditCandidate(source, oldTree); !ok {
+		return nil, false
+	}
+	if p.checkDFALexer() != nil {
+		return nil, false
+	}
+	prevFactory := p.reparseFactory
+	p.reparseFactory = nil
+	defer func() {
+		p.reparseFactory = prevFactory
+	}()
+	ts := p.acquireParserDFATokenSource(source)
+	defer ts.Close()
+	tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, p.wrapIncludedRanges(ts), timing)
+	if !ok {
+		return nil, false
+	}
+	p.normalizeReturnedIncrementalTree(tree, oldTree, source)
+	return tree, true
 }
 
 func (p *Parser) tryTokenInvariantReuseForDisabledOldTree(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
-	return nil, false
+	if !oldTreeDisablesIncrementalReuse(oldTree) {
+		return nil, false
+	}
+	if p == nil || p.language == nil {
+		return nil, false
+	}
+	if !p.disabledOldTreeTokenInvariantLeafAllowed(source, oldTree) {
+		return nil, false
+	}
+	if p.checkDFALexer() != nil {
+		return nil, false
+	}
+	prevFactory := p.reparseFactory
+	p.reparseFactory = nil
+	defer func() {
+		p.reparseFactory = prevFactory
+	}()
+	ts := p.acquireParserDFATokenSource(source)
+	defer ts.Close()
+	tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, p.wrapIncludedRanges(ts), timing)
+	if !ok {
+		return nil, false
+	}
+	p.normalizeReturnedIncrementalTree(tree, oldTree, source)
+	return tree, true
 }
 
 func (p *Parser) disabledOldTreeTokenInvariantLeafAllowed(source []byte, oldTree *Tree) bool {
@@ -1866,6 +1910,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 		profile.ReuseCursorNanos += compactTiming.reuseNanos
 		profile.ReparseNanos += max(int64(0), compactTiming.totalNanos-compactTiming.reuseNanos)
 		profile.TokensConsumed += compactTiming.tokensConsumed
+		profile.TokenInvariantDependencyChecks += compactTiming.tokenInvariantDependencyChecks
 		profile.NewNodesAllocated += compactTiming.newNodes
 		return tree, profile, nil
 	}
@@ -1875,6 +1920,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	profile.ReusedSubtrees += compactTiming.reusedSubtrees
 	profile.ReusedBytes += compactTiming.reusedBytes
 	profile.TokensConsumed += compactTiming.tokensConsumed
+	profile.TokenInvariantDependencyChecks += compactTiming.tokenInvariantDependencyChecks
 	profile.NewNodesAllocated += compactTiming.newNodes
 	if tree != nil && tree != oldTree {
 		tree.parseRuntime.CompactIncrementalFallbackReason = reason
