@@ -1,0 +1,159 @@
+=== RUN   TestPreferredTokenRetainsDiscardedProbeFrontier
+--- PASS: TestPreferredTokenRetainsDiscardedProbeFrontier (0.00s)
+=== RUN   TestLexerIncludedRangesNormalizeAtExactStartUsesCustomPoint
+--- PASS: TestLexerIncludedRangesNormalizeAtExactStartUsesCustomPoint (0.00s)
+=== RUN   TestLexerIncludedRangesLogicalPointAtPositionUsesRangeCoordinates
+--- PASS: TestLexerIncludedRangesLogicalPointAtPositionUsesRangeCoordinates (0.00s)
+=== RUN   TestLexerIncludedRangesRespectTokenBoundaries
+--- PASS: TestLexerIncludedRangesRespectTokenBoundaries (0.00s)
+=== RUN   TestLexerIncludedRangesPreserveInspectedLookaheadEnd
+--- PASS: TestLexerIncludedRangesPreserveInspectedLookaheadEnd (0.00s)
+=== RUN   TestLexerIncludedRangesAddsInvalidUTF8Lookahead
+--- PASS: TestLexerIncludedRangesAddsInvalidUTF8Lookahead (0.00s)
+=== RUN   TestLexerIncludedRangesEndTokenBeforeNextRange
+--- PASS: TestLexerIncludedRangesEndTokenBeforeNextRange (0.00s)
+=== RUN   TestLexerIncludedRangesBuildLogicalCrossRangeText
+--- PASS: TestLexerIncludedRangesBuildLogicalCrossRangeText (0.00s)
+=== RUN   TestLexerIncludedRangesUseUTF8PointsAcrossRanges
+--- PASS: TestLexerIncludedRangesUseUTF8PointsAcrossRanges (0.00s)
+=== RUN   TestLexerIncludedRangesClampPastSourceToEOF
+--- PASS: TestLexerIncludedRangesClampPastSourceToEOF (0.00s)
+=== RUN   TestLexerIncludedRangesIgnorePastSourceRangeAfterValidRange
+--- PASS: TestLexerIncludedRangesIgnorePastSourceRangeAfterValidRange (0.00s)
+=== RUN   TestLexerIncludedRangesBuildLogicalErrorRun
+--- PASS: TestLexerIncludedRangesBuildLogicalErrorRun (0.00s)
+=== RUN   TestLexerNoIncludedRangesKeepsNextAllocationFree
+--- PASS: TestLexerNoIncludedRangesKeepsNextAllocationFree (0.00s)
+=== RUN   TestDFATokenSourceIncludedRangesResetAndRelexRestoreCursor
+--- PASS: TestDFATokenSourceIncludedRangesResetAndRelexRestoreCursor (0.00s)
+=== RUN   TestDFATokenSourceIncludedRangesRestoreGLRScans
+--- PASS: TestDFATokenSourceIncludedRangesRestoreGLRScans (0.00s)
+=== RUN   TestLexerReadSpanSurvivesSnapshotRollback
+--- PASS: TestLexerReadSpanSurvivesSnapshotRollback (0.00s)
+=== RUN   TestLexerReadSpanFailedPrimitiveAndKeyword
+--- PASS: TestLexerReadSpanFailedPrimitiveAndKeyword (0.00s)
+=== RUN   TestLexerReadSpanSourceCloseAndPoolReset
+--- PASS: TestLexerReadSpanSourceCloseAndPoolReset (0.00s)
+=== RUN   TestLexerReadSpanFailedExternalSkip
+--- PASS: TestLexerReadSpanFailedExternalSkip (0.00s)
+=== RUN   TestLexerReadSpanFailedLegacyRelex
+--- PASS: TestLexerReadSpanFailedLegacyRelex (0.00s)
+=== RUN   TestBasicTokens
+--- PASS: TestBasicTokens (0.00s)
+=== RUN   TestLexerPreservesInspectedLookaheadEnd
+--- PASS: TestLexerPreservesInspectedLookaheadEnd (0.00s)
+=== RUN   TestLexerPreservesFailedAttemptFrontierAcrossErrorRetry
+--- PASS: TestLexerPreservesFailedAttemptFrontierAcrossErrorRetry (0.00s)
+=== RUN   TestLexerAddsInvalidUTF8Lookahead
+--- PASS: TestLexerAddsInvalidUTF8Lookahead (0.00s)
+=== RUN   TestPositionTracking
+--- PASS: TestPositionTracking (0.00s)
+=== RUN   TestPositionTrackingUsesByteColumnsForUTF8
+--- PASS: TestPositionTrackingUsesByteColumnsForUTF8 (0.00s)
+=== RUN   TestEOF
+--- PASS: TestEOF (0.00s)
+=== RUN   TestWhitespaceSkipping
+--- PASS: TestWhitespaceSkipping (0.00s)
+=== RUN   TestErrorRecovery
+--- PASS: TestErrorRecovery (0.00s)
+=== RUN   TestLongestMatch
+--- PASS: TestLongestMatch (0.00s)
+=== RUN   TestAcceptPriorityBeatsLongerMatch
+--- PASS: TestAcceptPriorityBeatsLongerMatch (0.00s)
+=== RUN   TestEqualAcceptPriorityUsesLongestMatch
+--- PASS: TestEqualAcceptPriorityUsesLongestMatch (0.00s)
+=== RUN   TestNewLexerFields
+--- PASS: TestNewLexerFields (0.00s)
+=== RUN   TestMultipleNewlines
+--- PASS: TestMultipleNewlines (0.00s)
+=== RUN   TestDefaultTransition
+--- PASS: TestDefaultTransition (0.00s)
+=== RUN   TestErrorInMiddle
+--- PASS: TestErrorInMiddle (0.00s)
+=== RUN   TestOnlyWhitespace
+--- PASS: TestOnlyWhitespace (0.00s)
+=== RUN   TestRejectsAccidentalZeroWidthVisibleAccept
+--- PASS: TestRejectsAccidentalZeroWidthVisibleAccept (0.00s)
+=== RUN   TestTokenInvariantExternalRollbackUTF8Continuation
+--- PASS: TestTokenInvariantExternalRollbackUTF8Continuation (0.00s)
+=== RUN   TestTokenInvariantExternalObserverPoolOwnership
+--- PASS: TestTokenInvariantExternalObserverPoolOwnership (0.00s)
+=== RUN   TestTokenInvariantExternalRollbackRetainsReads
+=== RUN   TestTokenInvariantExternalRollbackRetainsReads/abbbbd;
+=== RUN   TestTokenInvariantExternalRollbackRetainsReads/abbbbc;
+--- PASS: TestTokenInvariantExternalRollbackRetainsReads (0.00s)
+    --- PASS: TestTokenInvariantExternalRollbackRetainsReads/abbbbd; (0.00s)
+    --- PASS: TestTokenInvariantExternalRollbackRetainsReads/abbbbc; (0.00s)
+=== RUN   TestTokenInvariantExternalRollbackRejectsChangedDependency
+--- PASS: TestTokenInvariantExternalRollbackRejectsChangedDependency (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofSharesEqualKeywordSlicesAcrossModes
+--- PASS: TestTokenInvariantPrimitiveProofSharesEqualKeywordSlicesAcrossModes (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofUnreachableWideModeDoesNotInflateSpan
+--- PASS: TestTokenInvariantPrimitiveProofUnreachableWideModeDoesNotInflateSpan (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofLeadingBOM
+--- PASS: TestTokenInvariantPrimitiveProofLeadingBOM (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofWhitespacePrefixBoundary
+--- PASS: TestTokenInvariantPrimitiveProofWhitespacePrefixBoundary (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofAnonymousLiteralSignature
+--- PASS: TestTokenInvariantPrimitiveProofAnonymousLiteralSignature (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofChecksRetrySubsetsAndEmptyMask
+--- PASS: TestTokenInvariantPrimitiveProofChecksRetrySubsetsAndEmptyMask (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofKeywordPrefilterBoundary
+--- PASS: TestTokenInvariantPrimitiveProofKeywordPrefilterBoundary (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofExternalMaskBudget
+--- PASS: TestTokenInvariantPrimitiveProofExternalMaskBudget (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofRejectsEarlierLongerToken
+--- PASS: TestTokenInvariantPrimitiveProofRejectsEarlierLongerToken (0.00s)
+=== RUN   TestTokenInvariantPrimitiveProofDigitControlAndBudget
+--- PASS: TestTokenInvariantPrimitiveProofDigitControlAndBudget (0.00s)
+=== RUN   TestTokenInvariantLookaheadGoControl
+=== RUN   TestTokenInvariantLookaheadGoControl/legacy
+=== RUN   TestTokenInvariantLookaheadGoControl/compact
+--- PASS: TestTokenInvariantLookaheadGoControl (0.09s)
+    --- PASS: TestTokenInvariantLookaheadGoControl/legacy (0.05s)
+    --- PASS: TestTokenInvariantLookaheadGoControl/compact (0.05s)
+=== RUN   TestTokenInvariantLookaheadGoFloatControl
+=== RUN   TestTokenInvariantLookaheadGoFloatControl/legacy
+=== RUN   TestTokenInvariantLookaheadGoFloatControl/compact
+--- PASS: TestTokenInvariantLookaheadGoFloatControl (0.08s)
+    --- PASS: TestTokenInvariantLookaheadGoFloatControl/legacy (0.04s)
+    --- PASS: TestTokenInvariantLookaheadGoFloatControl/compact (0.04s)
+=== RUN   TestGoFullParseBenchmarkFixturesParseClean
+--- PASS: TestGoFullParseBenchmarkFixturesParseClean (0.51s)
+=== RUN   TestTokenInvariantLookaheadLongestMatch
+=== RUN   TestTokenInvariantLookaheadLongestMatch/grouped
+=== RUN   TestTokenInvariantLookaheadLongestMatch/grouped/legacy
+=== RUN   TestTokenInvariantLookaheadLongestMatch/grouped/compact
+=== RUN   TestTokenInvariantLookaheadLongestMatch/grouped/forest
+=== RUN   TestTokenInvariantLookaheadLongestMatch/flat
+=== RUN   TestTokenInvariantLookaheadLongestMatch/flat/legacy
+=== RUN   TestTokenInvariantLookaheadLongestMatch/flat/compact
+=== RUN   TestTokenInvariantLookaheadLongestMatch/flat/forest
+--- PASS: TestTokenInvariantLookaheadLongestMatch (0.00s)
+    --- PASS: TestTokenInvariantLookaheadLongestMatch/grouped (0.00s)
+        --- PASS: TestTokenInvariantLookaheadLongestMatch/grouped/legacy (0.00s)
+        --- PASS: TestTokenInvariantLookaheadLongestMatch/grouped/compact (0.00s)
+        --- PASS: TestTokenInvariantLookaheadLongestMatch/grouped/forest (0.00s)
+    --- PASS: TestTokenInvariantLookaheadLongestMatch/flat (0.00s)
+        --- PASS: TestTokenInvariantLookaheadLongestMatch/flat/legacy (0.00s)
+        --- PASS: TestTokenInvariantLookaheadLongestMatch/flat/compact (0.00s)
+        --- PASS: TestTokenInvariantLookaheadLongestMatch/flat/forest (0.00s)
+=== RUN   TestTokenInvariantUnicodeLookaheadContinuation
+=== RUN   TestTokenInvariantUnicodeLookaheadContinuation/flat
+=== RUN   TestTokenInvariantUnicodeLookaheadContinuation/flat/legacy
+=== RUN   TestTokenInvariantUnicodeLookaheadContinuation/flat/compact
+=== RUN   TestTokenInvariantUnicodeLookaheadContinuation/flat/forest
+=== RUN   TestTokenInvariantUnicodeLookaheadContinuation/grouped
+=== RUN   TestTokenInvariantUnicodeLookaheadContinuation/grouped/legacy
+=== RUN   TestTokenInvariantUnicodeLookaheadContinuation/grouped/compact
+=== RUN   TestTokenInvariantUnicodeLookaheadContinuation/grouped/forest
+--- PASS: TestTokenInvariantUnicodeLookaheadContinuation (0.00s)
+    --- PASS: TestTokenInvariantUnicodeLookaheadContinuation/flat (0.00s)
+        --- PASS: TestTokenInvariantUnicodeLookaheadContinuation/flat/legacy (0.00s)
+        --- PASS: TestTokenInvariantUnicodeLookaheadContinuation/flat/compact (0.00s)
+        --- PASS: TestTokenInvariantUnicodeLookaheadContinuation/flat/forest (0.00s)
+    --- PASS: TestTokenInvariantUnicodeLookaheadContinuation/grouped (0.00s)
+        --- PASS: TestTokenInvariantUnicodeLookaheadContinuation/grouped/legacy (0.00s)
+        --- PASS: TestTokenInvariantUnicodeLookaheadContinuation/grouped/compact (0.00s)
+        --- PASS: TestTokenInvariantUnicodeLookaheadContinuation/grouped/forest (0.00s)
+PASS

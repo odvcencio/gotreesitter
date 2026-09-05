@@ -1,0 +1,7 @@
+{
+  "runtime_commit": "236ca848239679221715b386115fc2910f6cf4e1",
+  "measured_patch_sha256": "a29502ed1f6b0ba8fd63533c5fb8ada39228bf0fd4310deafaca45951eeadc7f",
+  "retention": "retain as a measured Go edit optimization",
+  "commit_flow": "Buckley with explicit model and push disabled; generated message amended to describe performance intent. Runtime patch unchanged.",
+  "prior_experiments": "Both remain isolated and unaccepted."
+}

@@ -1,0 +1,164 @@
+{
+  "protocol": "20 alternating paired seeds; 750ms; count1 per process; GOMAXPROCS1",
+  "metric_summary": {
+    "BenchmarkGoParseFullDFA": {
+      "ns/op": {
+        "medians": {
+          "baseline": 19931740.0,
+          "candidate": 19348169.0
+        },
+        "median_change_percent": -2.927847744351475,
+        "ranges": {
+          "baseline": [
+            15876551.0,
+            26498954.0
+          ],
+          "candidate": [
+            16938009.0,
+            25487887.0
+          ]
+        }
+      },
+      "B/op": {
+        "medians": {
+          "baseline": 325124.5,
+          "candidate": 321309.0
+        },
+        "median_change_percent": -1.1735504399083996,
+        "ranges": {
+          "baseline": [
+            289616.0,
+            379102.0
+          ],
+          "candidate": [
+            300144.0,
+            379102.0
+          ]
+        }
+      },
+      "allocs/op": {
+        "medians": {
+          "baseline": 43.0,
+          "candidate": 43.0
+        },
+        "median_change_percent": 0.0,
+        "ranges": {
+          "baseline": [
+            42.0,
+            44.0
+          ],
+          "candidate": [
+            42.0,
+            44.0
+          ]
+        }
+      }
+    },
+    "BenchmarkGoParseIncrementalSingleByteEditDFA": {
+      "ns/op": {
+        "medians": {
+          "baseline": 210830.5,
+          "candidate": 180894.5
+        },
+        "median_change_percent": -14.199084098363379,
+        "ranges": {
+          "baseline": [
+            176228.0,
+            261554.0
+          ],
+          "candidate": [
+            150485.0,
+            221043.0
+          ]
+        }
+      },
+      "B/op": {
+        "medians": {
+          "baseline": 124.0,
+          "candidate": 122.0
+        },
+        "median_change_percent": -1.6129032258064502,
+        "ranges": {
+          "baseline": [
+            122.0,
+            128.0
+          ],
+          "candidate": [
+            120.0,
+            125.0
+          ]
+        }
+      },
+      "allocs/op": {
+        "medians": {
+          "baseline": 3.0,
+          "candidate": 3.0
+        },
+        "median_change_percent": 0.0,
+        "ranges": {
+          "baseline": [
+            3.0,
+            3.0
+          ],
+          "candidate": [
+            3.0,
+            3.0
+          ]
+        }
+      }
+    },
+    "BenchmarkGoParseIncrementalNoEditDFA": {
+      "ns/op": {
+        "medians": {
+          "baseline": 3.776,
+          "candidate": 3.9185
+        },
+        "median_change_percent": 3.7738347457627164,
+        "ranges": {
+          "baseline": [
+            3.073,
+            5.109
+          ],
+          "candidate": [
+            3.214,
+            4.548
+          ]
+        }
+      },
+      "B/op": {
+        "medians": {
+          "baseline": 0.0,
+          "candidate": 0.0
+        },
+        "median_change_percent": null,
+        "ranges": {
+          "baseline": [
+            0.0,
+            0.0
+          ],
+          "candidate": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "allocs/op": {
+        "medians": {
+          "baseline": 0.0,
+          "candidate": 0.0
+        },
+        "median_change_percent": null,
+        "ranges": {
+          "baseline": [
+            0.0,
+            0.0
+          ],
+          "candidate": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    }
+  }
+}

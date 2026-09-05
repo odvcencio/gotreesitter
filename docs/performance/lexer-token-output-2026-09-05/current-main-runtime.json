@@ -1,0 +1,13 @@
+{
+  "observed_utc": "2026-09-05T19:32:40.671871+00:00",
+  "frozen_baseline": "da1150c6d6a2d581ce31f44ba4c5b8241ec431ae",
+  "observed_main": "d9916dbaa1f3469397bd85ce27286ee98e16074a",
+  "changed_go_files": [
+    "compact_incremental_execution_test.go",
+    "incremental_test.go",
+    "parser_external_scanner_incremental_test.go",
+    "scanner_closure_external_test.go"
+  ],
+  "runtime_go_changes": [],
+  "scope": "Read-only source comparison. This is not a combined-tree test or timing campaign on main."
+}

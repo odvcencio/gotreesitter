@@ -1,0 +1,18 @@
+{
+  "fixture": "grammargen_lr",
+  "bytes": 235626,
+  "route": "forced legacy",
+  "scope": "Full parse process peak RSS includes admission, validation, and warm-up. It measures one legacy full parse and exercises the shared lexer. It does not isolate temporary proof stack space. It does not establish retention or compact memory behavior.",
+  "observations_kib": {
+    "baseline": [
+      166976,
+      149640,
+      168512
+    ],
+    "candidate": [
+      170652,
+      168448,
+      168800
+    ]
+  }
+}

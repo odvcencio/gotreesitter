@@ -1,0 +1,103 @@
+TEXT github.com/odvcencio/gotreesitter.(*Lexer).scanInto(SB) /workspace/lexer.go
+  lexer.go:298		0x6e63a0		4c8d6424a0		LEAQ -0x60(SP), R12							
+  lexer.go:298		0x6e63a5		4d3b6610		CMPQ R12, 0x10(R14)							
+  lexer.go:298		0x6e63a9		0f8697010000		JBE 0x6e6546								
+  lexer.go:298		0x6e63af		55			PUSHQ BP								
+  lexer.go:298		0x6e63b0		4889e5			MOVQ SP, BP								
+  lexer.go:298		0x6e63b3		4881ecd8000000		SUBQ $0xd8, SP								
+  lexer.go:300		0x6e63ba		48898424e8000000	MOVQ AX, 0xe8(SP)							
+  lexer.go:300		0x6e63c2		48898c24f8000000	MOVQ CX, 0xf8(SP)							
+  lexer.go:300		0x6e63ca		4c89842408010000	MOVQ R8, 0x108(SP)							
+  lexer.go:300		0x6e63d2		4883786800		CMPQ 0x68(AX), $0x0							
+  lexer.go:300		0x6e63d7		0f84f8000000		JE 0x6e64d5								
+  lexer.go:301		0x6e63dd		440f11bc2480000000	MOVUPS X15, 0x80(SP)							
+  lexer.go:300		0x6e63e6		89fa			MOVL DI, DX								
+  lexer.go:301		0x6e63e8		488dbc2488000000	LEAQ 0x88(SP), DI							
+  lexer.go:301		0x6e63f0		488d7fd0		LEAQ -0x30(DI), DI							
+  lexer.go:301		0x6e63f4		660f1f840000000000	NOPW 0(AX)(AX*1)							
+  lexer.go:301		0x6e63fd		0f1f00			NOPL 0(AX)								
+  lexer.go:301		0x6e6400		48896c24f0		MOVQ BP, -0x10(SP)							
+  lexer.go:301		0x6e6405		488d6c24f0		LEAQ -0x10(SP), BP							
+  lexer.go:301		0x6e640a		e8a1d1d9ff		CALL 0x4835b0								
+  lexer.go:301		0x6e640f		488b6d00		MOVQ 0(BP), BP								
+  lexer.go:301		0x6e6413		89d7			MOVL DX, DI								
+  lexer.go:301		0x6e6415		e8061c0000		CALL github.com/odvcencio/gotreesitter.(*Lexer).scanIncluded(SB)	
+  lexer.go:301		0x6e641a		488b1424		MOVQ 0(SP), DX								
+  lexer.go:301		0x6e641e		4889942480000000	MOVQ DX, 0x80(SP)							
+  lexer.go:301		0x6e6426		488dbc2488000000	LEAQ 0x88(SP), DI							
+  lexer.go:301		0x6e642e		488d742408		LEAQ 0x8(SP), SI							
+  lexer.go:301		0x6e6433		660f1f840000000000	NOPW 0(AX)(AX*1)							
+  lexer.go:301		0x6e643c		0f1f4000		NOPL 0(AX)								
+  lexer.go:301		0x6e6440		48896c24f0		MOVQ BP, -0x10(SP)							
+  lexer.go:301		0x6e6445		488d6c24f0		LEAQ -0x10(SP), BP							
+  lexer.go:301		0x6e644a		e8cbd4d9ff		CALL 0x48391a								
+  lexer.go:301		0x6e644f		488b6d00		MOVQ 0(BP), BP								
+  lexer.go:301		0x6e6453		488bbc2408010000	MOVQ 0x108(SP), DI							
+  lexer.go:301		0x6e645b		8407			TESTB AL, 0(DI)								
+  lexer.go:301		0x6e645d		833d8cc97b0200		CMPL runtime.writeBarrier(SB), $0x0					
+  lexer.go:301		0x6e6464		742c			JE 0x6e6492								
+  lexer.go:301		0x6e6466		8844247f		MOVB AL, 0x7f(SP)							
+  lexer.go:301		0x6e646a		488d050ff2b600		LEAQ 0xb6f20f(IP), AX							
+  lexer.go:301		0x6e6471		4889fb			MOVQ DI, BX								
+  lexer.go:301		0x6e6474		488d8c2480000000	LEAQ 0x80(SP), CX							
+  lexer.go:301		0x6e647c		0f1f4000		NOPL 0(AX)								
+  lexer.go:301		0x6e6480		e87b37d3ff		CALL runtime.wbMove(SB)							
+  lexer.go:308		0x6e6485		0fb644247f		MOVZX 0x7f(SP), AX							
+  lexer.go:301		0x6e648a		488bbc2408010000	MOVQ 0x108(SP), DI							
+  lexer.go:301		0x6e6492		488b942480000000	MOVQ 0x80(SP), DX							
+  lexer.go:301		0x6e649a		488917			MOVQ DX, 0(DI)								
+  lexer.go:301		0x6e649d		488d5708		LEAQ 0x8(DI), DX							
+  lexer.go:301		0x6e64a1		488db42488000000	LEAQ 0x88(SP), SI							
+  lexer.go:300		0x6e64a9		4889f9			MOVQ DI, CX								
+  lexer.go:301		0x6e64ac		4889d7			MOVQ DX, DI								
+  lexer.go:301		0x6e64af		660f1f840000000000	NOPW 0(AX)(AX*1)							
+  lexer.go:301		0x6e64b8		0f1f840000000000	NOPL 0(AX)(AX*1)							
+  lexer.go:301		0x6e64c0		48896c24f0		MOVQ BP, -0x10(SP)							
+  lexer.go:301		0x6e64c5		488d6c24f0		LEAQ -0x10(SP), BP							
+  lexer.go:301		0x6e64ca		e84bd4d9ff		CALL 0x48391a								
+  lexer.go:301		0x6e64cf		488b6d00		MOVQ 0(BP), BP								
+  lexer.go:301		0x6e64d3		eb0d			JMP 0x6e64e2								
+  lexer.go:303		0x6e64d5		e886010000		CALL github.com/odvcencio/gotreesitter.(*Lexer).scanContiguousInto(SB)	
+  lexer.go:306		0x6e64da		488b8c2408010000	MOVQ 0x108(SP), CX							
+  lexer.go:305		0x6e64e2		488b9424e8000000	MOVQ 0xe8(SP), DX							
+  lexer.go:305		0x6e64ea		48833a00		CMPQ 0(DX), $0x0							
+  lexer.go:305		0x6e64ee		744d			JE 0x6e653d								
+  lexer.go:308		0x6e64f0		8844247f		MOVB AL, 0x7f(SP)							
+  lexer.go:306		0x6e64f4		488b4238		MOVQ 0x38(DX), AX							
+  lexer.go:306		0x6e64f8		488b5a40		MOVQ 0x40(DX), BX							
+  lexer.go:306		0x6e64fc		488b5248		MOVQ 0x48(DX), DX							
+  lexer.go:306		0x6e6500		8b7934			MOVL 0x34(CX), DI							
+  lexer.go:306		0x6e6503		4889d1			MOVQ DX, CX								
+  lexer.go:306		0x6e6506		e895000000		CALL github.com/odvcencio/gotreesitter.tokenInvariantExaminedEnd(SB)	
+  lexer.go:306		0x6e650b		488b9424e8000000	MOVQ 0xe8(SP), DX							
+  lexer.go:306		0x6e6513		488b12			MOVQ 0(DX), DX								
+  lexer.go:322		0x6e6516		4885d2			TESTQ DX, DX								
+  lexer.go:322		0x6e6519		741d			JE 0x6e6538								
+  lexer.go:322		0x6e651b		488b8c24f8000000	MOVQ 0xf8(SP), CX							
+  lexer.go:322		0x6e6523		4885c9			TESTQ CX, CX								
+  lexer.go:322		0x6e6526		7c10			JL 0x6e6538								
+  lexer.go:322		0x6e6528		89c3			MOVL AX, BX								
+  lexer.go:322		0x6e652a		4839d9			CMPQ CX, BX								
+  lexer.go:322		0x6e652d		7309			JAE 0x6e6538								
+  lexer.go:325		0x6e652f		4829cb			SUBQ CX, BX								
+  lexer.go:326		0x6e6532		391a			CMPL 0(DX), BX								
+  lexer.go:326		0x6e6534		7302			JAE 0x6e6538								
+  lexer.go:327		0x6e6536		891a			MOVL BX, 0(DX)								
+  lexer.go:308		0x6e6538		0fb644247f		MOVZX 0x7f(SP), AX							
+  lexer.go:308		0x6e653d		4881c4d8000000		ADDQ $0xd8, SP								
+  lexer.go:308		0x6e6544		5d			POPQ BP									
+  lexer.go:308		0x6e6545		c3			RET									
+  lexer.go:298		0x6e6546		4889442408		MOVQ AX, 0x8(SP)							
+  lexer.go:298		0x6e654b		895c2410		MOVL BX, 0x10(SP)							
+  lexer.go:298		0x6e654f		48894c2418		MOVQ CX, 0x18(SP)							
+  lexer.go:298		0x6e6554		897c2420		MOVL DI, 0x20(SP)							
+  lexer.go:298		0x6e6558		89742424		MOVL SI, 0x24(SP)							
+  lexer.go:298		0x6e655c		4c89442428		MOVQ R8, 0x28(SP)							
+  lexer.go:298		0x6e6561		e83aacd9ff		CALL runtime.morestack_noctxt.abi0(SB)					
+  lexer.go:298		0x6e6566		488b442408		MOVQ 0x8(SP), AX							
+  lexer.go:298		0x6e656b		8b5c2410		MOVL 0x10(SP), BX							
+  lexer.go:298		0x6e656f		488b4c2418		MOVQ 0x18(SP), CX							
+  lexer.go:298		0x6e6574		8b7c2420		MOVL 0x20(SP), DI							
+  lexer.go:298		0x6e6578		8b742424		MOVL 0x24(SP), SI							
+  lexer.go:298		0x6e657c		4c8b442428		MOVQ 0x28(SP), R8							
+  lexer.go:298		0x6e6581		e91afeffff		JMP github.com/odvcencio/gotreesitter.(*Lexer).scanInto(SB)		

@@ -1,0 +1,236 @@
+TEXT github.com/odvcencio/gotreesitter.(*dfaTokenSource).tokenInvariantProbeDFALimited(SB) /baseline/token_invariant_lexical_proof.go
+  token_invariant_lexical_proof.go:331	0x9d9aa0		4c8da42470feffff		LEAQ 0xfffffe70(SP), R12									
+  token_invariant_lexical_proof.go:331	0x9d9aa8		4d3b6610			CMPQ R12, 0x10(R14)										
+  token_invariant_lexical_proof.go:331	0x9d9aac		0f8604040000			JBE 0x9d9eb6											
+  token_invariant_lexical_proof.go:331	0x9d9ab2		55				PUSHQ BP											
+  token_invariant_lexical_proof.go:331	0x9d9ab3		4889e5				MOVQ SP, BP											
+  token_invariant_lexical_proof.go:331	0x9d9ab6		4881ec08020000			SUBQ $0x208, SP											
+  token_invariant_lexical_proof.go:331	0x9d9abd		48899c2450030000		MOVQ BX, 0x350(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9ac5		440f11bc2420020000		MOVUPS X15, 0x220(SP)										
+  token_invariant_lexical_proof.go:332	0x9d9ace		4889fa				MOVQ DI, DX											
+  token_invariant_lexical_proof.go:331	0x9d9ad1		488dbc2428020000		LEAQ 0x228(SP), DI										
+  token_invariant_lexical_proof.go:331	0x9d9ad9		488d7fd0			LEAQ -0x30(DI), DI										
+  token_invariant_lexical_proof.go:331	0x9d9add		0f1f00				NOPL 0(AX)											
+  token_invariant_lexical_proof.go:331	0x9d9ae0		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9ae5		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:331	0x9d9aea		e8c19aaaff			CALL 0x4835b0											
+  token_invariant_lexical_proof.go:331	0x9d9aef		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:331	0x9d9af3		488dbc2478020000		LEAQ 0x278(SP), DI										
+  token_invariant_lexical_proof.go:331	0x9d9afb		488d7fd0			LEAQ -0x30(DI), DI										
+  token_invariant_lexical_proof.go:331	0x9d9aff		90				NOPL												
+  token_invariant_lexical_proof.go:331	0x9d9b00		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9b05		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:331	0x9d9b0a		e8739aaaff			CALL 0x483582											
+  token_invariant_lexical_proof.go:331	0x9d9b0f		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:332	0x9d9b13		41837b0400			CMPL 0x4(R11), $0x0										
+  token_invariant_lexical_proof.go:332	0x9d9b18		740b				JE 0x9d9b25											
+  token_invariant_lexical_proof.go:332	0x9d9b1a		458b23				MOVL 0(R11), R12										
+  token_invariant_lexical_proof.go:332	0x9d9b1d		0f1f00				NOPL 0(AX)											
+  token_invariant_lexical_proof.go:332	0x9d9b20		4585e4				TESTL R12, R12											
+  token_invariant_lexical_proof.go:332	0x9d9b23		755c				JNE 0x9d9b81											
+  token_invariant_lexical_proof.go:333	0x9d9b25		440f11bc2420020000		MOVUPS X15, 0x220(SP)										
+  token_invariant_lexical_proof.go:333	0x9d9b2e		488dbc2428020000		LEAQ 0x228(SP), DI										
+  token_invariant_lexical_proof.go:333	0x9d9b36		488d7fd0			LEAQ -0x30(DI), DI										
+  token_invariant_lexical_proof.go:333	0x9d9b3a		660f1f440000			NOPW 0(AX)(AX*1)										
+  token_invariant_lexical_proof.go:333	0x9d9b40		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:333	0x9d9b45		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:333	0x9d9b4a		e8619aaaff			CALL 0x4835b0											
+  token_invariant_lexical_proof.go:333	0x9d9b4f		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:333	0x9d9b53		488dbc2478020000		LEAQ 0x278(SP), DI										
+  token_invariant_lexical_proof.go:333	0x9d9b5b		488d7fd0			LEAQ -0x30(DI), DI										
+  token_invariant_lexical_proof.go:333	0x9d9b5f		90				NOPL												
+  token_invariant_lexical_proof.go:333	0x9d9b60		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:333	0x9d9b65		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:333	0x9d9b6a		e8139aaaff			CALL 0x483582											
+  token_invariant_lexical_proof.go:333	0x9d9b6f		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:333	0x9d9b73		31c0				XORL AX, AX											
+  token_invariant_lexical_proof.go:333	0x9d9b75		89c3				MOVL AX, BX											
+  token_invariant_lexical_proof.go:333	0x9d9b77		4881c408020000			ADDQ $0x208, SP											
+  token_invariant_lexical_proof.go:333	0x9d9b7e		5d				POPQ BP												
+  token_invariant_lexical_proof.go:333	0x9d9b7f		90				NOPL												
+  token_invariant_lexical_proof.go:333	0x9d9b80		c3				RET												
+  token_invariant_lexical_proof.go:320	0x9d9b81		4189f5				MOVL SI, R13											
+  token_invariant_lexical_proof.go:320	0x9d9b84		4d01ec				ADDQ R13, R12											
+  token_invariant_lexical_proof.go:323	0x9d9b87		448bbc2418020000		MOVL 0x218(SP), R15										
+  token_invariant_lexical_proof.go:323	0x9d9b8f		4f8d2c2f			LEAQ 0(R15)(R13*1), R13										
+  token_invariant_lexical_proof.go:323	0x9d9b93		4d8d6d05			LEAQ 0x5(R13), R13										
+  token_invariant_lexical_proof.go:320	0x9d9b97		4c39e1				CMPQ CX, R12											
+  token_invariant_lexical_proof.go:320	0x9d9b9a		4889cf				MOVQ CX, DI											
+  token_invariant_lexical_proof.go:320	0x9d9b9d		490f47fc			CMOVA R12, DI											
+  token_invariant_lexical_proof.go:324	0x9d9ba1		4585ff				TESTL R15, R15											
+  token_invariant_lexical_proof.go:320	0x9d9ba4		740e				JE 0x9d9bb4											
+  token_invariant_lexical_proof.go:324	0x9d9ba6		4c39e9				CMPQ CX, R13											
+  token_invariant_lexical_proof.go:324	0x9d9ba9		7609				JBE 0x9d9bb4											
+  token_invariant_lexical_proof.go:324	0x9d9bab		4939fd				CMPQ R13, DI											
+  token_invariant_lexical_proof.go:324	0x9d9bae		410f92c4			SETB R12											
+  token_invariant_lexical_proof.go:324	0x9d9bb2		eb03				JMP 0x9d9bb7											
+  token_invariant_lexical_proof.go:324	0x9d9bb4		4531e4				XORL R12, R12											
+  token_invariant_lexical_proof.go:332	0x9d9bb7		89b42468030000			MOVL SI, 0x368(SP)										
+  token_invariant_lexical_proof.go:320	0x9d9bbe		4889bc2480000000		MOVQ DI, 0x80(SP)										
+  token_invariant_lexical_proof.go:335	0x9d9bc6		450fb6fc			MOVZX R12, R15											
+  token_invariant_lexical_proof.go:336	0x9d9bca		488b4008			MOVQ 0x8(AX), AX										
+  token_invariant_lexical_proof.go:336	0x9d9bce		8400				TESTB AL, 0(AX)											
+  token_invariant_lexical_proof.go:336	0x9d9bd0		488dbc24e0000000		LEAQ 0xe0(SP), DI										
+  token_invariant_lexical_proof.go:336	0x9d9bd8		4889c6				MOVQ AX, SI											
+  token_invariant_lexical_proof.go:336	0x9d9bdb		0f1f440000			NOPL 0(AX)(AX*1)										
+  token_invariant_lexical_proof.go:336	0x9d9be0		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:336	0x9d9be5		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:336	0x9d9bea		e8bb9caaff			CALL 0x4838aa											
+  token_invariant_lexical_proof.go:336	0x9d9bef		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:335	0x9d9bf3		4d85ff				TESTQ R15, R15											
+  token_invariant_lexical_proof.go:335	0x9d9bf6		4c8bbc2480000000		MOVQ 0x80(SP), R15										
+  token_invariant_lexical_proof.go:335	0x9d9bfe		4d0f45fd			CMOVNE R13, R15											
+  token_invariant_lexical_proof.go:337	0x9d9c02		4c39fa				CMPQ DX, R15											
+  token_invariant_lexical_proof.go:325	0x9d9c05		0f82a2020000			JB 0x9d9ead											
+  token_invariant_lexical_proof.go:332	0x9d9c0b		4c899c2478030000		MOVQ R11, 0x378(SP)										
+  token_invariant_lexical_proof.go:324	0x9d9c13		448864247e			MOVB R12, 0x7e(SP)										
+  token_invariant_lexical_proof.go:335	0x9d9c18		4c89bc2480000000		MOVQ R15, 0x80(SP)										
+  token_invariant_lexical_proof.go:332	0x9d9c20		48898c2458030000		MOVQ CX, 0x358(SP)										
+  token_invariant_lexical_proof.go:337	0x9d9c28		48899c2418010000		MOVQ BX, 0x118(SP)										
+  token_invariant_lexical_proof.go:337	0x9d9c30		4c89bc2420010000		MOVQ R15, 0x120(SP)										
+  token_invariant_lexical_proof.go:337	0x9d9c38		4889942428010000		MOVQ DX, 0x128(SP)										
+  token_invariant_lexical_proof.go:338	0x9d9c40		8b942468030000			MOVL 0x368(SP), DX										
+  token_invariant_lexical_proof.go:338	0x9d9c47		89d1				MOVL DX, CX											
+  token_invariant_lexical_proof.go:338	0x9d9c49		48898c2430010000		MOVQ CX, 0x130(SP)										
+  token_invariant_lexical_proof.go:338	0x9d9c51		4489842438010000		MOVL R8, 0x138(SP)										
+  token_invariant_lexical_proof.go:338	0x9d9c59		44898c243c010000		MOVL R9, 0x13c(SP)										
+  token_invariant_lexical_proof.go:339	0x9d9c61		48c78424e000000000000000	MOVQ $0x0, 0xe0(SP)										
+  token_invariant_lexical_proof.go:340	0x9d9c6d		440f11bc2490010000		MOVUPS X15, 0x190(SP)										
+  token_invariant_lexical_proof.go:340	0x9d9c76		48c78424a001000000000000	MOVQ $0x0, 0x1a0(SP)										
+  token_invariant_lexical_proof.go:341	0x9d9c82		440f11bc24b0010000		MOVUPS X15, 0x1b0(SP)										
+  token_invariant_lexical_proof.go:341	0x9d9c8b		488dbc24b8010000		LEAQ 0x1b8(SP), DI										
+  token_invariant_lexical_proof.go:341	0x9d9c93		488d7fd0			LEAQ -0x30(DI), DI										
+  token_invariant_lexical_proof.go:341	0x9d9c97		660f1f840000000000		NOPW 0(AX)(AX*1)										
+  token_invariant_lexical_proof.go:341	0x9d9ca0		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:341	0x9d9ca5		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:341	0x9d9caa		e80199aaff			CALL 0x4835b0											
+  token_invariant_lexical_proof.go:341	0x9d9caf		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:341	0x9d9cb3		488d8424e0000000		LEAQ 0xe0(SP), AX										
+  token_invariant_lexical_proof.go:341	0x9d9cbb		4489d3				MOVL R10, BX											
+  token_invariant_lexical_proof.go:341	0x9d9cbe		4489c7				MOVL R8, DI											
+  token_invariant_lexical_proof.go:341	0x9d9cc1		4489ce				MOVL R9, SI											
+  token_invariant_lexical_proof.go:341	0x9d9cc4		e8d7c7d0ff			CALL github.com/odvcencio/gotreesitter.(*Lexer).scan(SB)					
+  token_invariant_lexical_proof.go:341	0x9d9cc9		8844247f			MOVB AL, 0x7f(SP)										
+  token_invariant_lexical_proof.go:341	0x9d9ccd		488b1424			MOVQ 0(SP), DX											
+  token_invariant_lexical_proof.go:341	0x9d9cd1		48899424b0010000		MOVQ DX, 0x1b0(SP)										
+  token_invariant_lexical_proof.go:341	0x9d9cd9		488dbc24b8010000		LEAQ 0x1b8(SP), DI										
+  token_invariant_lexical_proof.go:341	0x9d9ce1		488d742408			LEAQ 0x8(SP), SI										
+  token_invariant_lexical_proof.go:341	0x9d9ce6		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:341	0x9d9ceb		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:341	0x9d9cf0		e8259caaff			CALL 0x48391a											
+  token_invariant_lexical_proof.go:341	0x9d9cf5		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:341	0x9d9cf9		488b9424b0010000		MOVQ 0x1b0(SP), DX										
+  token_invariant_lexical_proof.go:341	0x9d9d01		4889942488000000		MOVQ DX, 0x88(SP)										
+  token_invariant_lexical_proof.go:341	0x9d9d09		488dbc2490000000		LEAQ 0x90(SP), DI										
+  token_invariant_lexical_proof.go:341	0x9d9d11		488db424b8010000		LEAQ 0x1b8(SP), SI										
+  token_invariant_lexical_proof.go:341	0x9d9d19		0f1f8000000000			NOPL 0(AX)											
+  token_invariant_lexical_proof.go:341	0x9d9d20		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:341	0x9d9d25		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:341	0x9d9d2a		e8eb9baaff			CALL 0x48391a											
+  token_invariant_lexical_proof.go:341	0x9d9d2f		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:342	0x9d9d33		488b842418010000		MOVQ 0x118(SP), AX										
+  token_invariant_lexical_proof.go:342	0x9d9d3b		488b9c2420010000		MOVQ 0x120(SP), BX										
+  token_invariant_lexical_proof.go:342	0x9d9d43		488b8c2428010000		MOVQ 0x128(SP), CX										
+  token_invariant_lexical_proof.go:342	0x9d9d4b		8bbc24bc000000			MOVL 0xbc(SP), DI										
+  token_invariant_lexical_proof.go:342	0x9d9d52		e869cad0ff			CALL github.com/odvcencio/gotreesitter.tokenInvariantExaminedEnd(SB)				
+  token_invariant_lexical_proof.go:344	0x9d9d57		898424bc000000			MOVL AX, 0xbc(SP)										
+  token_invariant_lexical_proof.go:345	0x9d9d5e		8b942468030000			MOVL 0x368(SP), DX										
+  token_invariant_lexical_proof.go:345	0x9d9d65		39d0				CMPL AX, DX											
+  token_invariant_lexical_proof.go:345	0x9d9d67		7256				JB 0x9d9dbf											
+  token_invariant_lexical_proof.go:345	0x9d9d69		488b8c2458030000		MOVQ 0x358(SP), CX										
+  token_invariant_lexical_proof.go:345	0x9d9d71		4c8b842480000000		MOVQ 0x80(SP), R8										
+  token_invariant_lexical_proof.go:345	0x9d9d79		4c39c1				CMPQ CX, R8											
+  token_invariant_lexical_proof.go:345	0x9d9d7c		7610				JBE 0x9d9d8e											
+  token_invariant_lexical_proof.go:345	0x9d9d7e		89c1				MOVL AX, CX											
+  token_invariant_lexical_proof.go:345	0x9d9d80		4c39c1				CMPQ CX, R8											
+  token_invariant_lexical_proof.go:345	0x9d9d83		7209				JB 0x9d9d8e											
+  token_invariant_lexical_proof.go:324	0x9d9d85		0fb64c247e			MOVZX 0x7e(SP), CX										
+  token_invariant_lexical_proof.go:324	0x9d9d8a		84c9				TESTL CL, CL											
+  token_invariant_lexical_proof.go:345	0x9d9d8c		7431				JE 0x9d9dbf											
+  token_invariant_lexical_proof.go:12	0x9d9d8e		488b8c2478030000		MOVQ 0x378(SP), CX										
+  token_invariant_lexical_proof.go:12	0x9d9d96		448b4104			MOVL 0x4(CX), R8										
+  token_invariant_lexical_proof.go:345	0x9d9d9a		29d0				SUBL DX, AX											
+  token_invariant_lexical_proof.go:345	0x9d9d9c		0f1f4000			NOPL 0(AX)											
+  token_invariant_lexical_proof.go:12	0x9d9da0		4585c0				TESTL R8, R8											
+  token_invariant_lexical_proof.go:12	0x9d9da3		7404				JE 0x9d9da9											
+  token_invariant_lexical_proof.go:12	0x9d9da5		3901				CMPL 0(CX), AX											
+  token_invariant_lexical_proof.go:12	0x9d9da7		7304				JAE 0x9d9dad											
+  token_invariant_lexical_proof.go:12	0x9d9da9		31c0				XORL AX, AX											
+  token_invariant_lexical_proof.go:345	0x9d9dab		eb0e				JMP 0x9d9dbb											
+  token_invariant_lexical_proof.go:15	0x9d9dad		418d50ff			LEAL -0x1(R8), DX										
+  token_invariant_lexical_proof.go:15	0x9d9db1		895104				MOVL DX, 0x4(CX)										
+  token_invariant_lexical_proof.go:16	0x9d9db4		2901				SUBL AX, 0(CX)											
+  token_invariant_lexical_proof.go:16	0x9d9db6		b801000000			MOVL $0x1, AX											
+  token_invariant_lexical_proof.go:345	0x9d9dbb		84c0				TESTL AL, AL											
+  token_invariant_lexical_proof.go:345	0x9d9dbd		7562				JNE 0x9d9e21											
+  token_invariant_lexical_proof.go:346	0x9d9dbf		440f11bc2420020000		MOVUPS X15, 0x220(SP)										
+  token_invariant_lexical_proof.go:346	0x9d9dc8		488dbc2428020000		LEAQ 0x228(SP), DI										
+  token_invariant_lexical_proof.go:346	0x9d9dd0		488d7fd0			LEAQ -0x30(DI), DI										
+  token_invariant_lexical_proof.go:346	0x9d9dd4		660f1f840000000000		NOPW 0(AX)(AX*1)										
+  token_invariant_lexical_proof.go:346	0x9d9ddd		0f1f00				NOPL 0(AX)											
+  token_invariant_lexical_proof.go:346	0x9d9de0		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:346	0x9d9de5		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:346	0x9d9dea		e8c197aaff			CALL 0x4835b0											
+  token_invariant_lexical_proof.go:346	0x9d9def		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:346	0x9d9df3		488dbc2478020000		LEAQ 0x278(SP), DI										
+  token_invariant_lexical_proof.go:346	0x9d9dfb		488d7fd0			LEAQ -0x30(DI), DI										
+  token_invariant_lexical_proof.go:346	0x9d9dff		90				NOPL												
+  token_invariant_lexical_proof.go:346	0x9d9e00		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:346	0x9d9e05		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:346	0x9d9e0a		e87397aaff			CALL 0x483582											
+  token_invariant_lexical_proof.go:346	0x9d9e0f		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:346	0x9d9e13		31c0				XORL AX, AX											
+  token_invariant_lexical_proof.go:346	0x9d9e15		89c3				MOVL AX, BX											
+  token_invariant_lexical_proof.go:346	0x9d9e17		4881c408020000			ADDQ $0x208, SP											
+  token_invariant_lexical_proof.go:346	0x9d9e1e		5d				POPQ BP												
+  token_invariant_lexical_proof.go:346	0x9d9e1f		90				NOPL												
+  token_invariant_lexical_proof.go:346	0x9d9e20		c3				RET												
+  token_invariant_lexical_proof.go:348	0x9d9e21		488b8c2488000000		MOVQ 0x88(SP), CX										
+  token_invariant_lexical_proof.go:348	0x9d9e29		48898c2420020000		MOVQ CX, 0x220(SP)										
+  token_invariant_lexical_proof.go:348	0x9d9e31		488dbc2428020000		LEAQ 0x228(SP), DI										
+  token_invariant_lexical_proof.go:348	0x9d9e39		488db42490000000		LEAQ 0x90(SP), SI										
+  token_invariant_lexical_proof.go:348	0x9d9e41		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:348	0x9d9e46		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:348	0x9d9e4b		e8ca9aaaff			CALL 0x48391a											
+  token_invariant_lexical_proof.go:348	0x9d9e50		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:348	0x9d9e54		488dbc2478020000		LEAQ 0x278(SP), DI										
+  token_invariant_lexical_proof.go:348	0x9d9e5c		488db424e0000000		LEAQ 0xe0(SP), SI										
+  token_invariant_lexical_proof.go:348	0x9d9e64		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:348	0x9d9e69		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:348	0x9d9e6e		e8379aaaff			CALL 0x4838aa											
+  token_invariant_lexical_proof.go:348	0x9d9e73		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:348	0x9d9e77		488dbc2478020000		LEAQ 0x278(SP), DI										
+  token_invariant_lexical_proof.go:348	0x9d9e7f		488db424e0000000		LEAQ 0xe0(SP), SI										
+  token_invariant_lexical_proof.go:348	0x9d9e87		48896c24f0			MOVQ BP, -0x10(SP)										
+  token_invariant_lexical_proof.go:348	0x9d9e8c		488d6c24f0			LEAQ -0x10(SP), BP										
+  token_invariant_lexical_proof.go:348	0x9d9e91		e8149aaaff			CALL 0x4838aa											
+  token_invariant_lexical_proof.go:348	0x9d9e96		488b6d00			MOVQ 0(BP), BP											
+  token_invariant_lexical_proof.go:348	0x9d9e9a		0fb644247f			MOVZX 0x7f(SP), AX										
+  token_invariant_lexical_proof.go:348	0x9d9e9f		bb01000000			MOVL $0x1, BX											
+  token_invariant_lexical_proof.go:348	0x9d9ea4		4881c408020000			ADDQ $0x208, SP											
+  token_invariant_lexical_proof.go:348	0x9d9eab		5d				POPQ BP												
+  token_invariant_lexical_proof.go:348	0x9d9eac		c3				RET												
+  token_invariant_lexical_proof.go:337	0x9d9ead		4c89f9				MOVQ R15, CX											
+  token_invariant_lexical_proof.go:337	0x9d9eb0		e86b94aaff			CALL runtime.panicSliceAcap(SB)									
+  token_invariant_lexical_proof.go:337	0x9d9eb5		90				NOPL												
+  token_invariant_lexical_proof.go:331	0x9d9eb6		4889842438010000		MOVQ AX, 0x138(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9ebe		48899c2440010000		MOVQ BX, 0x140(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9ec6		48898c2448010000		MOVQ CX, 0x148(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9ece		4889bc2450010000		MOVQ DI, 0x150(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9ed6		89b42458010000			MOVL SI, 0x158(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9edd		448984245c010000		MOVL R8, 0x15c(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9ee5		44898c2460010000		MOVL R9, 0x160(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9eed		4489942464010000		MOVL R10, 0x164(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9ef5		4c899c2468010000		MOVQ R11, 0x168(SP)										
+  token_invariant_lexical_proof.go:331	0x9d9efd		0f1f00				NOPL 0(AX)											
+  token_invariant_lexical_proof.go:331	0x9d9f00		e89b72aaff			CALL runtime.morestack_noctxt.abi0(SB)								
+  token_invariant_lexical_proof.go:331	0x9d9f05		488b842438010000		MOVQ 0x138(SP), AX										
+  token_invariant_lexical_proof.go:331	0x9d9f0d		488b9c2440010000		MOVQ 0x140(SP), BX										
+  token_invariant_lexical_proof.go:331	0x9d9f15		488b8c2448010000		MOVQ 0x148(SP), CX										
+  token_invariant_lexical_proof.go:331	0x9d9f1d		488bbc2450010000		MOVQ 0x150(SP), DI										
+  token_invariant_lexical_proof.go:331	0x9d9f25		8bb42458010000			MOVL 0x158(SP), SI										
+  token_invariant_lexical_proof.go:331	0x9d9f2c		448b84245c010000		MOVL 0x15c(SP), R8										
+  token_invariant_lexical_proof.go:331	0x9d9f34		448b8c2460010000		MOVL 0x160(SP), R9										
+  token_invariant_lexical_proof.go:331	0x9d9f3c		448b942464010000		MOVL 0x164(SP), R10										
+  token_invariant_lexical_proof.go:331	0x9d9f44		4c8b9c2468010000		MOVQ 0x168(SP), R11										
+  token_invariant_lexical_proof.go:331	0x9d9f4c		e94ffbffff			JMP github.com/odvcencio/gotreesitter.(*dfaTokenSource).tokenInvariantProbeDFALimited(SB)	
