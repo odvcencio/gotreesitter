@@ -70,3 +70,18 @@ The runtime commit reproduces the measured patch exactly.
 Read the [recorded commands](full-parse-arena-reuse-2026-09-05/commands.md), raw paired outputs, source identities, and compact receipts.
 Run `sha256sum -c SHA256SUMS` inside the evidence directory to verify this sixteen-file bundle.
 The durable archive retains full logs, profiles, and source inventories outside the repository.
+
+## Integration on current main
+
+Integration baseline: `b3a5f9d4129cdb255e01053e6ebf5a7d188fe4b5`. Candidate: `6b988f74`.
+All four runtime and test files match the measured candidate exactly.
+The original fifteen evidence hashes verify.
+
+Fresh Docker checks passed 48 baseline controls and 52 candidate controls without a test overlay.
+Separate Go, JSON, and JavaScript containers passed the selected locked-C comparisons without skips.
+All four containers completed without memory failures or timeouts.
+These integration checks establish correctness on the new baseline.
+They do not update the historical timing comparison or establish universal parity.
+
+Read the [integration receipts](full-parse-arena-reuse-integration-2026-09-05/summary.json).
+The adjacent scripts, logs, container metadata, and SHA256SUMS preserve reproduction details.

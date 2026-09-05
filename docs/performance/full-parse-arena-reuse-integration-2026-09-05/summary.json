@@ -1,0 +1,17 @@
+{
+  "baseline": "b3a5f9d4129cdb255e01053e6ebf5a7d188fe4b5",
+  "candidate": "6b988f74",
+  "measured_runtime": "14f5bd4c238c07151b944f36cb20723992d62b68",
+  "runtime_files_identical": true,
+  "baseline_tests": 48,
+  "candidate_tests": 52,
+  "oracle_languages": [
+    "go",
+    "json",
+    "javascript"
+  ],
+  "skips": 0,
+  "oom": false,
+  "timeout": false,
+  "timing_rerun": false
+}

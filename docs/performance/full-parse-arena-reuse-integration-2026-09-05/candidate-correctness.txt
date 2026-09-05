@@ -1,0 +1,106 @@
+=== RUN   TestArenaMemoryBudgetExhaustedByNodeSlabGrowth
+--- PASS: TestArenaMemoryBudgetExhaustedByNodeSlabGrowth (0.00s)
+=== RUN   TestArenaMemoryBudgetExhaustedByChildSlabGrowth
+--- PASS: TestArenaMemoryBudgetExhaustedByChildSlabGrowth (0.00s)
+=== RUN   TestArenaMemoryBudgetExhaustedByFieldSlabGrowth
+--- PASS: TestArenaMemoryBudgetExhaustedByFieldSlabGrowth (0.00s)
+=== RUN   TestArenaMemoryBudgetExhaustedByFieldSourceSlabGrowth
+--- PASS: TestArenaMemoryBudgetExhaustedByFieldSourceSlabGrowth (0.00s)
+=== RUN   TestArenaMemoryBudgetUsesPerParseGrowth
+--- PASS: TestArenaMemoryBudgetUsesPerParseGrowth (0.00s)
+=== RUN   TestArenaResetRecomputesAllocatedBytes
+--- PASS: TestArenaResetRecomputesAllocatedBytes (0.00s)
+=== RUN   TestFullParseNodeCapacityReusesFragmentedStorage
+--- PASS: TestFullParseNodeCapacityReusesFragmentedStorage (0.00s)
+=== RUN   TestFullParseNodeCapacityGrowsInsufficientStorage
+--- PASS: TestFullParseNodeCapacityGrowsInsufficientStorage (0.00s)
+=== RUN   TestFullParseNodeCapacityRejectsUsedFragmentedStorage
+--- PASS: TestFullParseNodeCapacityRejectsUsedFragmentedStorage (0.00s)
+=== RUN   TestArenaOverflowSlabGrowthBounded
+--- PASS: TestArenaOverflowSlabGrowthBounded (0.05s)
+=== RUN   TestArenaCompactFullLeafOverflowBounded
+--- PASS: TestArenaCompactFullLeafOverflowBounded (0.01s)
+=== RUN   TestOversizedFullArenaReleaseClearsAllDuplicateCheckoutSlots
+--- PASS: TestOversizedFullArenaReleaseClearsAllDuplicateCheckoutSlots (0.00s)
+=== RUN   TestEnsureNodeCapacityPanicsAfterAllocationStarted
+--- PASS: TestEnsureNodeCapacityPanicsAfterAllocationStarted (0.00s)
+=== RUN   TestEnsureNodeCapacityPreallocationBeforeUse
+--- PASS: TestEnsureNodeCapacityPreallocationBeforeUse (0.00s)
+=== RUN   TestEnsureExactNodeCapacityDoesNotOverRound
+--- PASS: TestEnsureExactNodeCapacityDoesNotOverRound (0.00s)
+=== RUN   TestAllocNodeUsesOverflowSlabsWhenPrimaryExhausted
+--- PASS: TestAllocNodeUsesOverflowSlabsWhenPrimaryExhausted (0.00s)
+=== RUN   TestArenaResetRetainsOverflowWithinBudget
+--- PASS: TestArenaResetRetainsOverflowWithinBudget (0.00s)
+=== RUN   TestArenaResetRetainsChildSlabsWithinBudget
+--- PASS: TestArenaResetRetainsChildSlabsWithinBudget (0.02s)
+=== RUN   TestArenaResetRetainsFieldSlabsWithinBudget
+--- PASS: TestArenaResetRetainsFieldSlabsWithinBudget (0.00s)
+=== RUN   TestArenaResetTrimsFinalChildSidecarsWithinBudget
+--- PASS: TestArenaResetTrimsFinalChildSidecarsWithinBudget (0.00s)
+=== RUN   TestChildSlabStalePointersAfterReset
+--- PASS: TestChildSlabStalePointersAfterReset (0.00s)
+=== RUN   TestNodeRetentionCapRespectsByteLimit
+--- PASS: TestNodeRetentionCapRespectsByteLimit (0.00s)
+=== RUN   TestEvictionGuardPreventsOversizedArenaReuse
+--- PASS: TestEvictionGuardPreventsOversizedArenaReuse (0.00s)
+=== RUN   TestArenaByteBreakdownMatchesAllocatedBytes
+--- PASS: TestArenaByteBreakdownMatchesAllocatedBytes (0.00s)
+=== RUN   TestArenaNodeSlabClearsWrittenSlotsOnReset
+--- PASS: TestArenaNodeSlabClearsWrittenSlotsOnReset (0.00s)
+=== RUN   TestParseIncrementalReleaseKeepsBorrowedNodesAlive
+--- PASS: TestParseIncrementalReleaseKeepsBorrowedNodesAlive (0.02s)
+=== RUN   TestParseReuseStateRetainsTransitiveBorrowedArenaLifecycle
+--- PASS: TestParseReuseStateRetainsTransitiveBorrowedArenaLifecycle (0.00s)
+=== RUN   TestNodeFieldMetadataArenaPointerStableAcrossGrowth
+--- PASS: TestNodeFieldMetadataArenaPointerStableAcrossGrowth (0.00s)
+=== RUN   TestNodeFieldMetadataArenaResetClearsAndReuses
+--- PASS: TestNodeFieldMetadataArenaResetClearsAndReuses (0.00s)
+=== RUN   TestNodeFieldMetadataArenaAccountingAndBudget
+--- PASS: TestNodeFieldMetadataArenaAccountingAndBudget (0.00s)
+=== RUN   TestShouldNotRetryMemoryBudgetParse
+--- PASS: TestShouldNotRetryMemoryBudgetParse (0.00s)
+=== RUN   TestParseFullArenaNodeCapacityCapsStaleLargeHintBySourceSize
+--- PASS: TestParseFullArenaNodeCapacityCapsStaleLargeHintBySourceSize (0.00s)
+=== RUN   TestParseFullArenaNodeCapacityKeepsUsefulSameSizeHint
+--- PASS: TestParseFullArenaNodeCapacityKeepsUsefulSameSizeHint (0.00s)
+=== RUN   TestParseFullArenaInitialNodeCapacityScalesForLargeSources
+--- PASS: TestParseFullArenaInitialNodeCapacityScalesForLargeSources (0.00s)
+=== RUN   TestParseFullArenaNodeCapacityCapsLargeTypeScriptFourslashCommentFixture
+--- PASS: TestParseFullArenaNodeCapacityCapsLargeTypeScriptFourslashCommentFixture (0.00s)
+=== RUN   TestParseFullArenaNodeCapacityKeepsLargeSourceFloorForNonFourslash
+--- PASS: TestParseFullArenaNodeCapacityKeepsLargeSourceFloorForNonFourslash (0.00s)
+=== RUN   TestParseFullArenaNodeCapacityKeepsLargeSourceFloorForOtherLanguages
+--- PASS: TestParseFullArenaNodeCapacityKeepsLargeSourceFloorForOtherLanguages (0.00s)
+=== RUN   TestParseFullArenaInitialNodeCapacityPreallocatesMediumSources
+--- PASS: TestParseFullArenaInitialNodeCapacityPreallocatesMediumSources (0.00s)
+=== RUN   TestParseFullArenaHintHeadroomIsBoundedForLargeSources
+--- PASS: TestParseFullArenaHintHeadroomIsBoundedForLargeSources (0.00s)
+=== RUN   TestParseFullArenaHintHeadroomIsTighterForMediumSources
+--- PASS: TestParseFullArenaHintHeadroomIsTighterForMediumSources (0.00s)
+=== RUN   TestParserScratchBudgetIncludesMergePrefixPathGrowth
+--- PASS: TestParserScratchBudgetIncludesMergePrefixPathGrowth (0.00s)
+=== RUN   TestParserScratchMemoryBudgetExhaustedByEntrySlabGrowth
+--- PASS: TestParserScratchMemoryBudgetExhaustedByEntrySlabGrowth (0.00s)
+=== RUN   TestParserScratchMemoryBudgetExhaustedByGSSSlabGrowth
+--- PASS: TestParserScratchMemoryBudgetExhaustedByGSSSlabGrowth (0.00s)
+=== RUN   TestParserScratchMemoryBudgetExhaustedByMergeScratchGrowth
+--- PASS: TestParserScratchMemoryBudgetExhaustedByMergeScratchGrowth (0.00s)
+=== RUN   TestParserScratchBudgetUsesPerParseGrowth
+--- PASS: TestParserScratchBudgetUsesPerParseGrowth (0.00s)
+=== RUN   TestParserScratchBudgetCountsRecoveryStackEntryGrowth
+--- PASS: TestParserScratchBudgetCountsRecoveryStackEntryGrowth (0.00s)
+=== RUN   TestParserScratchReplayBudgetBaselineExemptsRetainedPages
+--- PASS: TestParserScratchReplayBudgetBaselineExemptsRetainedPages (0.00s)
+=== RUN   TestParserScratchReplayNestedBudgetScratchRestoresProductionScope
+--- PASS: TestParserScratchReplayNestedBudgetScratchRestoresProductionScope (0.00s)
+=== RUN   TestGoFullParseBenchmarkFixturesParseClean
+--- PASS: TestGoFullParseBenchmarkFixturesParseClean (0.40s)
+=== RUN   TestArenaGCRetentionAfterRelease
+--- PASS: TestArenaGCRetentionAfterRelease (0.09s)
+=== RUN   TestGoFullParseRepeatedParserPreservesLiveTree
+--- PASS: TestGoFullParseRepeatedParserPreservesLiveTree (0.04s)
+=== RUN   TestGoFullParseBenchmarkSourceStaysWithinDefaultNodeBudget
+--- PASS: TestGoFullParseBenchmarkSourceStaysWithinDefaultNodeBudget (0.02s)
+PASS
+ok  	github.com/odvcencio/gotreesitter	0.704s

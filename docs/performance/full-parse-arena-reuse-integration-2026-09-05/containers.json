@@ -1,0 +1,74 @@
+[
+  {
+    "receipt": "20260905T211209Z-arena-integration-correctness-inspect.json",
+    "sha256": "b719d730a615c06dfd698fc6b9a87d2771758a951ffe327c71a779f653357b90",
+    "state": {
+      "Status": "exited",
+      "ExitCode": 0,
+      "OOMKilled": false,
+      "StartedAt": "2026-09-05T21:12:10.156781374Z",
+      "FinishedAt": "2026-09-05T21:13:55.806411171Z"
+    },
+    "limits": {
+      "Memory": 4294967296,
+      "NanoCpus": 1000000000,
+      "CpusetCpus": "2",
+      "PidsLimit": 512
+    },
+    "image": "gotreesitter/cgo-harness:go1.25-local"
+  },
+  {
+    "receipt": "20260905T211918Z-arena-integration-go-inspect.json",
+    "sha256": "a67c89efc8740eadd92bda78276654c1375f154ffc9e62c32eea73de0f557b0c",
+    "state": {
+      "Status": "exited",
+      "ExitCode": 0,
+      "OOMKilled": false,
+      "StartedAt": "2026-09-05T21:19:18.303182653Z",
+      "FinishedAt": "2026-09-05T21:19:58.540956042Z"
+    },
+    "limits": {
+      "Memory": 4294967296,
+      "NanoCpus": 1000000000,
+      "CpusetCpus": "2",
+      "PidsLimit": 512
+    },
+    "image": "gotreesitter/cgo-harness:go1.25-local"
+  },
+  {
+    "receipt": "20260905T212006Z-arena-integration-json-inspect.json",
+    "sha256": "f218bb3c410028c751ec6398aecfee71e3168df55c4c1b2115dba0a803724d8f",
+    "state": {
+      "Status": "exited",
+      "ExitCode": 0,
+      "OOMKilled": false,
+      "StartedAt": "2026-09-05T21:20:06.237778759Z",
+      "FinishedAt": "2026-09-05T21:20:06.930843867Z"
+    },
+    "limits": {
+      "Memory": 4294967296,
+      "NanoCpus": 1000000000,
+      "CpusetCpus": "2",
+      "PidsLimit": 512
+    },
+    "image": "gotreesitter/cgo-harness:go1.25-local"
+  },
+  {
+    "receipt": "20260905T212040Z-arena-integration-javascript-inspect.json",
+    "sha256": "8f0bb56fe8d7afc9805d9fe37cc6d14895cfb35efb6833f422dc388a951833d6",
+    "state": {
+      "Status": "exited",
+      "ExitCode": 0,
+      "OOMKilled": false,
+      "StartedAt": "2026-09-05T21:20:40.195001335Z",
+      "FinishedAt": "2026-09-05T21:20:43.206654912Z"
+    },
+    "limits": {
+      "Memory": 4294967296,
+      "NanoCpus": 1000000000,
+      "CpusetCpus": "2",
+      "PidsLimit": 512
+    },
+    "image": "gotreesitter/cgo-harness:go1.25-local"
+  }
+]
