@@ -98,7 +98,8 @@ func TestAdmissionCandidateElmHighlightDirect(t *testing.T) {
 		// Its path is test/highlight/basic.elm.
 		sourceBytes  = 1231
 		sourceSHA256 = "8fca87bd8cc2735e83704acd8d06ffbc6cf04e386505de45596218d7fb72642c"
-		wantDetail   = "digest 67329ce8b319"
+		// TestAdmissionCandidateElmHighlightCOracle authenticates this digest.
+		wantDetail = "digest f9e33776ce39"
 	)
 
 	source, err := os.ReadFile(fixturePath)
