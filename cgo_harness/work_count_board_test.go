@@ -378,7 +378,7 @@ func TestAuthenticatedFourFixtureWorkCountBoard(t *testing.T) {
 				t.Fatalf("source snapshot sha=%s want=%s", got, fixture.Fixture.SHA256)
 			}
 
-			uninstGo := workCountRunGoAdmission(t, goAdmissionArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, goEnvironment)
+			uninstGo := workCountRunGoAdmission(t, sourceSnapshot.Root, goAdmissionArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, goEnvironment)
 			workCountValidateGoChild(t, "ordinary Go admission", workCountGoAdmissionChildSchema, "go-production-glr-untagged", uninstGo, fixture)
 			uninstC := workCountUninstrumentedCAdmission(t, fixture, sourcePath, fixtureTemp)
 			if uninstGo.DeepTreeSHA256 != uninstC || uninstC != fixture.Fixture.DeepTreeSHA256 {
@@ -391,7 +391,7 @@ func TestAuthenticatedFourFixtureWorkCountBoard(t *testing.T) {
 			untaggedScheduling := workCountScheduling(uninstGo)
 			switch goBackend {
 			case workCountBoardGoProduction:
-				goResult := workCountRunGo(t, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, goEnvironment)
+				goResult := workCountRunGo(t, sourceSnapshot.Root, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, goEnvironment)
 				workCountValidateGoChild(t, "tagged Go", workCountTaggedGoChildSchema, "go-production-glr-tagged-diagnostic", goResult.workCountGoChildResult, fixture)
 				workCountValidateGoBoardCounters(t, goResult.Counters, uint32(len(fixture.Source)))
 				if cResult.DeepTreeSHA256 != goResult.DeepTreeSHA256 {
@@ -410,8 +410,8 @@ func TestAuthenticatedFourFixtureWorkCountBoard(t *testing.T) {
 					Metrics: metrics,
 				})
 			case workCountBoardGoParserCore:
-				first := workCountRunParserCoreGo(t, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, "first", goEnvironment)
-				second := workCountRunParserCoreGo(t, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, "repeat", goEnvironment)
+				first := workCountRunParserCoreGo(t, sourceSnapshot.Root, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, "first", goEnvironment)
+				second := workCountRunParserCoreGo(t, sourceSnapshot.Root, goArtifact, fixture.Fixture.ID, sourcePath, fixtureTemp, "repeat", goEnvironment)
 				workCountValidateParserCoreChild(t, first, fixture)
 				workCountValidateParserCoreChild(t, second, fixture)
 				if !reflect.DeepEqual(first, second) {
@@ -578,10 +578,10 @@ func workCountBuildParserCoreGo(t *testing.T, source workCountSourceSnapshot, te
 	}
 }
 
-func workCountRunParserCoreGo(t *testing.T, artifact, fixtureID, sourcePath, tempRoot, pass string, environment workCountEnvironment) workCountBoardParserCoreChildResult {
+func workCountRunParserCoreGo(t *testing.T, sourceRoot, artifact, fixtureID, sourcePath, tempRoot, pass string, environment workCountEnvironment) workCountBoardParserCoreChildResult {
 	t.Helper()
 	resultPath := filepath.Join(tempRoot, "go-parsercore-work-count-"+pass+".json")
-	workCountRunGoChild(t, artifact, "^TestParserCoreWorkCountChild$", fixtureID, sourcePath, resultPath, environment)
+	workCountRunGoChild(t, sourceRoot, artifact, "^TestParserCoreWorkCountChild$", fixtureID, sourcePath, resultPath, environment)
 	data, err := os.ReadFile(resultPath)
 	if err != nil {
 		t.Fatal(err)

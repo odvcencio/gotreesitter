@@ -705,6 +705,60 @@ func TestWorkCountSanitizedEnvDropsParserAndGoOverrides(t *testing.T) {
 	}
 }
 
+func TestWorkCountGoChildUsesPrivateSourceDirectory(t *testing.T) {
+	const fixtureID = "private-source-directory-probe"
+	const witnessName = "work-count-child-directory.txt"
+	if os.Getenv(workCountFixtureEnv) == fixtureID {
+		data, err := os.ReadFile(filepath.Join("testdata", witnessName))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(os.Getenv("GTS_WORK_COUNT_RESULT"), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+
+	parentDirectory, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(sourceRoot, "testdata"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	witness := []byte("private snapshot fixture\n")
+	sourcePath := filepath.Join(sourceRoot, "testdata", witnessName)
+	if err := os.WriteFile(sourcePath, witness, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	beforeSHA, beforeFiles, err := workCountTreeSHA(sourceRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := workCountMakeTreeReadOnly(sourceRoot); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = workCountMakeTreeWritable(sourceRoot) })
+	artifact, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultPath := filepath.Join(t.TempDir(), "child-result.txt")
+	workCountRunGoChild(t, sourceRoot, artifact, "^TestWorkCountGoChildUsesPrivateSourceDirectory$",
+		fixtureID, sourcePath, resultPath, workCountChosenEnvironment())
+	got, err := os.ReadFile(resultPath)
+	if err != nil || !bytes.Equal(got, witness) {
+		t.Fatalf("child fixture=%q want=%q err=%v", got, witness, err)
+	}
+	if got, err := os.Getwd(); err != nil || got != parentDirectory {
+		t.Fatalf("parent directory=%q want=%q err=%v", got, parentDirectory, err)
+	}
+	if gotSHA, gotFiles, err := workCountTreeSHA(sourceRoot); err != nil || gotSHA != beforeSHA || gotFiles != beforeFiles {
+		t.Fatalf("private snapshot changed: sha=%s files=%d want=%s/%d err=%v", gotSHA, gotFiles, beforeSHA, beforeFiles, err)
+	}
+}
+
 func TestWorkCountRunCapturedKillsDescendantProcessGroup(t *testing.T) {
 	marker := filepath.Join(t.TempDir(), "descendant-escaped")
 	environment := workCountSanitizedEnv(os.Environ(), nil, map[string]string{
