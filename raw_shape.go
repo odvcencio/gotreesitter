@@ -43,7 +43,10 @@ type rawShapeHashCacheEntry struct {
 	hash uint64
 }
 
-const rawShapeHashCacheSize = 1 << 15
+const (
+	rawShapeHashCacheBits = 15
+	rawShapeHashCacheSize = 1 << rawShapeHashCacheBits
+)
 
 func rawShapeHashCacheBytesForCap(n int) int64 {
 	if n <= 0 {
@@ -271,7 +274,7 @@ func (a *nodeArena) rawShapeForRef(ref rawShapeRef) (*rawShape, bool) {
 
 func rawShapeHashCacheIndex(ref rawShapeRef) int {
 	// Use the high product bits so slab identity contributes to the index.
-	return int((uint32(ref) * 2654435761) >> (32 - 15))
+	return int((uint32(ref) * 2654435761) >> (32 - rawShapeHashCacheBits))
 }
 
 func (a *nodeArena) ensureRawShapeHashCache() {
