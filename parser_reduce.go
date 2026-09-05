@@ -9016,6 +9016,7 @@ func aliasedNodeInArena(arena *nodeArena, lang *Language, n *Node, alias Symbol)
 	}
 	cloned.ownerArena = arena
 	copyMissingNodeDependencyForClone(cloned, n)
+	copyCompactReuseDependency(cloned, n)
 	copyExternalScannerCheckpointToNode(cloned, n)
 	return cloned
 }
@@ -9197,6 +9198,7 @@ func cloneNodeInArena(arena *nodeArena, n *Node) *Node {
 	cloned.ownerArena = arena
 	cloneNodeFieldMetadataHeaderInto(cloned, n, arena)
 	copyMissingNodeDependencyForClone(cloned, n)
+	copyCompactReuseDependency(cloned, n)
 	copyExternalScannerCheckpointToNode(cloned, n)
 	if nodeHasFinalChildRefs(n) {
 		childCount := nodeChildCountNoMaterialize(n)

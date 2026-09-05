@@ -125,6 +125,11 @@ type nodeArena struct {
 	compactCheckpointLeafSlabCursor int
 	finalChildSidecars              []finalChildSidecar
 	missingNodeDependencies         []missingNodeDependencyEntry
+	compactReuseDependencyMu        sync.RWMutex
+	compactReuseDependencies        map[*Node]compactReuseDependency
+	compactReuseDependencyEntries   uint64
+	compactReuseDependencyIndex     []compactReuseDependencyIndexEntry
+	compactReuseDependencyIndexed   bool
 	nodeFieldMetadataSlabs          []nodeFieldMetadataSlab
 	nodeFieldMetadataSlabCursor     int
 
@@ -558,6 +563,10 @@ func (a *nodeArena) reset() {
 	a.resetRawShapeHashCache()
 	a.resetFinalChildSidecars()
 	a.resetMissingNodeDependencies()
+	a.compactReuseDependencies = nil
+	a.compactReuseDependencyEntries = 0
+	a.compactReuseDependencyIndex = nil
+	a.compactReuseDependencyIndexed = false
 	a.resetCompactCheckpointLeafSlabs()
 	a.resetNodeFieldMetadataSlabs()
 	a.resetChildSlabs()
@@ -1883,6 +1892,7 @@ func (a *nodeArena) recomputeAllocatedBytes() {
 		a.rawShapeHashCacheBytesAllocated() +
 		a.finalChildSidecarBytesAllocated() +
 		missingNodeDependencyEntryBytesForCap(cap(a.missingNodeDependencies)) +
+		a.compactReuseDependencyBytesAllocated() +
 		a.compactCheckpointLeafBytesAllocated() +
 		a.childSliceBytesAllocated() +
 		a.fieldIDBytesAllocated() +
@@ -2233,6 +2243,8 @@ func (a *nodeArena) collectArenaBreakdown() *ArenaBreakdown {
 		fieldSourceElements = 0
 	}
 	breakdown := &ArenaBreakdown{
+		CompactReuseDependencyBytesAllocated: a.compactReuseDependencyBytesAllocated(),
+
 		NodeStructBytesAllocated:            a.nodeStructBytesAllocated(),
 		NodeFieldMetadataBytesAllocated:     a.nodeFieldMetadataBytesAllocated(),
 		NoTreeNodeBytesAllocated:            a.noTreeNodeBytesAllocated(),

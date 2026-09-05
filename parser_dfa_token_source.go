@@ -1521,6 +1521,9 @@ func (d *dfaTokenSource) scanPreferredTokenForState(state StateID) (Token, int, 
 
 	baseTok, baseEndPos, baseEndRow, baseEndCol := d.scanDFATokenForState(state, mode.lexState)
 	afterTok, afterEndPos, afterEndRow, afterEndCol := d.scanDFATokenForState(state, mode.afterWhitespaceLexState)
+	// Selection observes both probes, including a discarded longer match.
+	frontier := maxUint32(tokenLookaheadEndByte(baseTok), tokenLookaheadEndByte(afterTok))
+	baseTok.lexerLookaheadEndByte, afterTok.lexerLookaheadEndByte = frontier, frontier
 	if d.shouldPreferBaseLexStateToken(baseTok, afterTok) {
 		return baseTok, baseEndPos, baseEndRow, baseEndCol
 	}
@@ -1624,6 +1627,8 @@ func (d *dfaTokenSource) scanRawPreferredTokenForState(state StateID) (Token, in
 
 	baseTok, baseEndPos, baseEndRow, baseEndCol := d.scanRawDFATokenForLexState(mode.lexState)
 	afterTok, afterEndPos, afterEndRow, afterEndCol := d.scanRawDFATokenForLexState(mode.afterWhitespaceLexState)
+	frontier := maxUint32(tokenLookaheadEndByte(baseTok), tokenLookaheadEndByte(afterTok))
+	baseTok.lexerLookaheadEndByte, afterTok.lexerLookaheadEndByte = frontier, frontier
 	if d.shouldPreferBaseLexStateToken(baseTok, afterTok) {
 		return baseTok, baseEndPos, baseEndRow, baseEndCol
 	}
