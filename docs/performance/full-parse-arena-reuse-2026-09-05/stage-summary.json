@@ -1,0 +1,74 @@
+[
+  {
+    "label": "general-full-parse-profile",
+    "run_start_utc": "2026-09-05T19:57:28Z",
+    "run_end_utc": "2026-09-05T19:57:59Z",
+    "exit_code": "0",
+    "oom_killed": "false",
+    "wall_timed_out": "false"
+  },
+  {
+    "label": "full-parse-arena-reuse-correctness",
+    "run_start_utc": "2026-09-05T20:10:07Z",
+    "run_end_utc": "2026-09-05T20:11:15Z",
+    "exit_code": "1",
+    "oom_killed": "false",
+    "wall_timed_out": "false"
+  },
+  {
+    "label": "full-parse-arena-reuse-correctness",
+    "run_start_utc": "2026-09-05T20:12:01Z",
+    "run_end_utc": "2026-09-05T20:13:46Z",
+    "exit_code": "0",
+    "oom_killed": "false",
+    "wall_timed_out": "false"
+  },
+  {
+    "label": "full-parse-arena-reuse-go-oracle",
+    "run_start_utc": "2026-09-05T20:13:55Z",
+    "run_end_utc": "2026-09-05T20:14:43Z",
+    "exit_code": "0",
+    "oom_killed": "false",
+    "wall_timed_out": "false"
+  },
+  {
+    "label": "full-parse-arena-reuse-json-oracle",
+    "run_start_utc": "2026-09-05T20:14:43Z",
+    "run_end_utc": "2026-09-05T20:14:46Z",
+    "exit_code": "0",
+    "oom_killed": "false",
+    "wall_timed_out": "false"
+  },
+  {
+    "label": "full-parse-arena-reuse-javascript-oracle",
+    "run_start_utc": "2026-09-05T20:14:46Z",
+    "run_end_utc": "2026-09-05T20:14:50Z",
+    "exit_code": "0",
+    "oom_killed": "false",
+    "wall_timed_out": "false"
+  },
+  {
+    "label": "full-parse-arena-reuse-paired",
+    "run_start_utc": "2026-09-05T20:14:57Z",
+    "run_end_utc": "2026-09-05T20:21:10Z",
+    "exit_code": "0",
+    "oom_killed": "false",
+    "wall_timed_out": "false"
+  },
+  {
+    "label": "full-parse-arena-reuse-macro-paired",
+    "run_start_utc": "2026-09-05T20:21:35Z",
+    "run_end_utc": "2026-09-05T20:26:33Z",
+    "exit_code": "0",
+    "oom_killed": "false",
+    "wall_timed_out": "false"
+  },
+  {
+    "label": "full-parse-arena-reuse-rss",
+    "run_start_utc": "2026-09-05T20:27:00Z",
+    "run_end_utc": "2026-09-05T20:27:17Z",
+    "exit_code": "0",
+    "oom_killed": "false",
+    "wall_timed_out": "false"
+  }
+]

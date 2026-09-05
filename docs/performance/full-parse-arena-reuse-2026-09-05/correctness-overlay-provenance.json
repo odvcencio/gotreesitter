@@ -1,0 +1,8 @@
+{
+  "source_commit": "d9916dbaa1f3469397bd85ce27286ee98e16074a",
+  "source_path": "incremental_test.go",
+  "sha256": "ab60c5e9a5b37c1916fde2324410ea60fc1beaf1a1b7f626a847b0769ea72246",
+  "reason": "The baseline ownership test used a same-width edit that now permits authenticated root reuse. The merged test uses a width-changing edit to exercise borrowed arena ownership.",
+  "original_failure": "baseline-correctness-original-failure.txt",
+  "scope": "Identical test-only overlay for baseline and candidate correctness. No timing overlay."
+}

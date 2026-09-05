@@ -1,0 +1,63 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                         sec/op                          │              sec/op                vs base               │
+GoParseWarmRealDFA/grammargen_lr                                               220.0m ± 6%                         205.8m ± 6%  -6.47% (p=0.004 n=20)
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                           B/s                           │                B/s                 vs base               │
+GoParseWarmRealDFA/grammargen_lr                                              1.025Mi ± 6%                        1.092Mi ± 7%  +6.51% (p=0.005 n=20)
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                       arena_B/op                        │            arena_B/op              vs base               │
+GoParseWarmRealDFA/grammargen_lr                                               56.43M ± 0%                         56.65M ± 0%  +0.39% (p=0.000 n=20)
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                    forest_fast_path                     │           forest_fast_path            vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                0.000 ± 0%                             0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                       max_stacks                        │              max_stacks               vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                18.00 ± 0%                             18.00 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                     multi_iters/op                      │            multi_iters/op             vs base            │
+GoParseWarmRealDFA/grammargen_lr                                               53.12k ± 0%                            53.12k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                     multi_tokens/op                     │           multi_tokens/op             vs base            │
+GoParseWarmRealDFA/grammargen_lr                                               47.98k ± 0%                            47.98k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                        nodes/op                         │               nodes/op                vs base            │
+GoParseWarmRealDFA/grammargen_lr                                               330.3k ± 0%                            330.3k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                  normalization_runs/op                  │        normalization_runs/op          vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                0.000 ± 0%                             0.000 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                       peak_depth                        │              peak_depth               vs base            │
+GoParseWarmRealDFA/grammargen_lr                                                58.00 ± 0%                             58.00 ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                        tokens/op                        │              tokens/op                vs base            │
+GoParseWarmRealDFA/grammargen_lr                                               49.91k ± 0%                            49.91k ± 0%  ~ (p=1.000 n=20) ¹
+¹ all samples are equal
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                          B/op                           │               B/op                vs base                │
+GoParseWarmRealDFA/grammargen_lr                                            9591.51Ki ± 0%                       23.31Ki ± 0%  -99.76% (p=0.000 n=20)
+
+                                 │ /tmp/gts-general-full-parse-20260905/baseline-macro.txt │ /tmp/gts-general-full-parse-20260905/candidate-macro.txt │
+                                 │                        allocs/op                        │             allocs/op              vs base               │
+GoParseWarmRealDFA/grammargen_lr                                                169.0 ± 0%                          166.0 ± 0%  -1.78% (p=0.000 n=20)
