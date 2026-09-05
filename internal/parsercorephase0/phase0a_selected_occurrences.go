@@ -1159,6 +1159,9 @@ func phase0ASelectedCompactWindows(core *Core, namespace CoreRunNamespace, id Su
 		return subtreeRecord{}, nil, nil, nil, &Phase0AError{Kind: Phase0AErrorStaleReference, Namespace: namespace, Detail: "selected compact record is unavailable"}
 	}
 	record := core.subtrees[id-1]
+	if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+		return subtreeRecord{}, nil, nil, nil, &Phase0AError{Kind: Phase0AErrorStaleReference, Namespace: namespace, Detail: "selected occurrence cannot inspect a reused subtree"}
+	}
 	childEnd := uint64(record.firstChild) + uint64(record.childCount)
 	fieldEnd := uint64(record.firstField) + uint64(record.fieldCount)
 	aliasEnd := uint64(record.firstAlias) + uint64(record.aliasCount)

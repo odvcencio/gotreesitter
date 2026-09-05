@@ -129,6 +129,9 @@ func (c *Core) VisitEOFAdmissionSubtree(
 	if record.startByte > record.endByte {
 		return fmt.Errorf("%w: subtree span is reversed", ErrEOFAdmissionMalformed)
 	}
+	if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
+		return fmt.Errorf("%w: recovery admission cannot inspect a reused subtree", ErrEOFAdmissionMalformed)
+	}
 	view := EOFAdmissionSubtreeView{
 		Generation:        generation,
 		Identity:          id,

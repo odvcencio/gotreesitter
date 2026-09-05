@@ -164,7 +164,9 @@ jobs:
           TestAdmissionSwitchCandidateDigestMatchesProduction
           TestAdmissionSwitchEligibilityFailsClosedForReuse
           TestAdmissionSwitchGrammargenLRRoutesCompactByDefault
-          TestAdmissionSwitchParseIncrementalNeverRoutes
+          TestAdmissionSwitchParseIncrementalDoesNotCountFullRoute
+          TestCompactIncrementalExecution.*
+          TestCompactBorrowed.*
           TestAdmissionSwitchParseProductionWhenOff
           TestAdmissionSwitchParseRoutesCandidateWhenOn
           TestAdmissionSwitchRecoveryDoesNotLeakCompactTree
@@ -1250,6 +1252,16 @@ jobs:
             --c-ref-build-jobs 1 \
             --timeout 20m \
             --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestCompactRouteLockedCExceptions)$'
+
+      - name: Compact incremental Go execution
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-compact-incremental-go-execution \
+            --memory 4g \
+            --cpus 2 \
+            --gomemlimit 3GiB \
+            --wall-timeout 10m \
+            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecutionParity|TestStage6GoCompactCertification)$' -count=1 -parallel 1 -timeout 5m -v"
 
       - name: Compact recovery incremental JavaScript witnesses
         run: |

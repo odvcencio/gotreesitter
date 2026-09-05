@@ -153,10 +153,8 @@ func TestAdmissionSwitchGlobalOnRoutesFreshParse(t *testing.T) {
 	}
 }
 
-// TestAdmissionSwitchParseIncrementalNeverConsultsCandidate proves that even
-// with the switch forced on, ParseIncremental never consults the candidate
-// route: it is a reuse-consuming path barred from compact trees.
-func TestAdmissionSwitchParseIncrementalNeverConsultsCandidate(t *testing.T) {
+// Incremental attempts must not change counters reserved for full parsing.
+func TestAdmissionSwitchParseIncrementalDoesNotCountFullCandidate(t *testing.T) {
 	restore := gts.AdmissionCandidateRouteDefault()
 	defer gts.SetAdmissionCandidateRouteDefault(restore)
 	gts.SetAdmissionCandidateRouteDefault(true)
@@ -189,7 +187,7 @@ func TestAdmissionSwitchParseIncrementalNeverConsultsCandidate(t *testing.T) {
 		defer newTree.Release()
 	}
 	if got := admissionRoutingEvents(t); got != before {
-		t.Fatalf("ParseIncremental consulted the candidate route: %d -> %d", before, got)
+		t.Fatalf("ParseIncremental changed full-route counts: %d -> %d", before, got)
 	}
 }
 

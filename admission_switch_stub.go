@@ -2,6 +2,10 @@
 
 package gotreesitter
 
+func (p *Parser) attemptCompactIncrementalParse(_ []byte, _ *Tree, _ *incrementalParseTiming) (*Tree, string) {
+	return nil, ""
+}
+
 // tryCompactFullParseRoute is the emergency-build stub for the compact
 // candidate route. Phase-3 admission promoted the compact engine into the
 // default build; the emergency opt-out tag gts_no_parsercorephase0 compiles the

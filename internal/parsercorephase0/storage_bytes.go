@@ -63,6 +63,7 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.links))*coreLinkRecordBytes +
 		uint64(len(c.dropCohortLinkRefIndexes))*coreUint32Bytes +
 		uint64(len(c.subtrees))*coreSubtreeRecordBytes +
+		uint64(len(c.reusedSubtrees))*coreReusedSubtreeBytes +
 		uint64(len(c.eofRecoveryRoots))*coreSubtreeIDBytes +
 		uint64(len(c.recoveryDiscontinuityReductions))*coreRecoveryDiscontinuityReductionBytes +
 		uint64(len(c.children))*coreChildRecordBytes +
@@ -97,6 +98,7 @@ var (
 	coreExternalProvenanceBytes             = uint64(unsafe.Sizeof(externalPayloadProvenance{}))
 	coreMissingLeafProvenanceBytes          = uint64(unsafe.Sizeof(missingLeafProvenance{}))
 	coreLexerSkippedPrefixBytes             = uint64(unsafe.Sizeof(lexerSkippedPrefixProvenance{}))
+	coreReusedSubtreeBytes                  = uint64(unsafe.Sizeof(reusedSubtreeProvenance{}))
 	coreRecoveryDiscontinuityReductionBytes = uint64(unsafe.Sizeof(recoveryDiscontinuityReduction{}))
 	coreCheckpointRecordBytes               = uint64(unsafe.Sizeof(checkpointRecord{}))
 	coreCheckpointBucketBytes               = uint64(unsafe.Sizeof([32]byte{})) + uint64(unsafe.Sizeof(CheckpointID(0)))
@@ -166,6 +168,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += uint64(cap(c.externalProvenance)) * coreExternalProvenanceBytes
 	total += uint64(cap(c.missingLeafProvenance)) * coreMissingLeafProvenanceBytes
 	total += uint64(cap(c.lexerSkippedPrefixes)) * coreLexerSkippedPrefixBytes
+	total += uint64(cap(c.reusedSubtrees)) * coreReusedSubtreeBytes
 	total += uint64(cap(c.boundaryJournal)) * coreBoundaryMutationBytes
 	total += uint64(cap(c.nodeLineageJournal)) * coreNodeLineageMutationBytes
 	total += uint64(cap(c.dropCohortLinkRefIndexes)) * coreUint32Bytes
@@ -322,6 +325,7 @@ func (c *Core) releaseRecordArenaReserve() {
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = nil
+	c.reusedSubtrees = nil
 	c.eofRecoveryRoots = nil
 	c.recoveryDiscontinuityReductions = nil
 	c.missingLeafProvenance = nil
@@ -356,6 +360,7 @@ func (c *Core) releaseOversizedRetention() {
 	c.dropCohortLinkRefIndexes = nil
 	c.dropCohortLinkRefJournal = nil
 	c.subtrees = nil
+	c.reusedSubtrees = nil
 	c.eofRecoveryRoots = nil
 	c.recoveryDiscontinuityReductions = nil
 	c.externalProvenance = nil

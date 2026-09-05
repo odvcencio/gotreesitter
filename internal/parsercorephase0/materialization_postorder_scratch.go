@@ -85,6 +85,10 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 	defer scratch.Reset()
 
 	colors := scratch.colors
+	var reusedOwners map[uint32]SubtreeID
+	if len(c.reusedSubtrees) != 0 {
+		reusedOwners = make(map[uint32]SubtreeID)
+	}
 	var visited, work uint64
 	for _, root := range roots {
 		record, err := c.subtree(root)
@@ -126,9 +130,12 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 			if err := c.validateMaterializationMetadata(top.id, *record); err != nil {
 				return err
 			}
+			if err := c.claimReusedOwnership(top.id, reusedOwners); err != nil {
+				return err
+			}
 			view := MaterializationSubtreeView{
 				Symbol: record.symbol, ProductionID: record.productionID,
-				DynamicPrecedence: record.dynamicPrecedence,
+				DynamicPrecedence: int32(record.dynamicPrecedence),
 				StartByte:         record.startByte, EndByte: record.endByte,
 				Children: c.children[record.firstChild : record.firstChild+record.childCount],
 				Extra:    record.extra, External: record.external, Terminal: record.terminal,
@@ -145,6 +152,7 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 				view.MissingDependency, view.MissingDependencyExact = c.missingLeafDependency(top.id)
 			}
 			view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(top.id)
+			c.applyReusedMaterializationView(top.id, &view)
 			if err := visit(top.id, view); err != nil {
 				return err
 			}

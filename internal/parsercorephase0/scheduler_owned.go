@@ -153,6 +153,7 @@ func (c *Core) recordNodeLineage(head Head, rank CleanPathRankSelection, lineage
 	node.rank = nextRank
 	node.lineage = nextLineage
 	node.converged = nextConverged
+	c.invalidateReusedLineageProof(head.Node, *node)
 	return nil
 }
 
@@ -219,6 +220,7 @@ func (c *Core) recordNodeStoredErrorCost(head Head, cost uint32) error {
 		})
 	}
 	node.storedErrorCost = cost
+	c.invalidateReusedLineageProof(head.Node, *node)
 	return nil
 }
 
@@ -265,6 +267,7 @@ func (c *Core) recordNodeLineageSet(head Head, set AlternativeSet, setBlended bo
 		})
 	}
 	node.blended = nextBlended
+	c.invalidateReusedLineageProof(head.Node, *node)
 	return nil
 }
 
@@ -325,6 +328,7 @@ func (c *Core) recordNodeLineageMember(head Head, event, branch uint16) error {
 	if !c.alternativeSetInsert(&node.set, packAlternativeSetMember(event, branch)) {
 		return nil
 	}
+	c.invalidateReusedLineageProof(head.Node, *node)
 	if len(c.transactions) != 0 {
 		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
 			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
@@ -836,6 +840,7 @@ func (c *Core) mergeNodeLineageMetadata(leftID, rightID, targetID NodeID) error 
 		})
 	}
 	*target = merged
+	c.invalidateReusedLineageProof(targetID, *target)
 	return nil
 }
 

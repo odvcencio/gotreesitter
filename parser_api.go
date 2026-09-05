@@ -1703,14 +1703,21 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
-	return p.parseIncrementalChanged(source, oldTree)
+	tree, reason := p.attemptCompactIncrementalParse(source, oldTree, nil)
+	if tree != nil {
+		return tree, nil
+	}
+	tree, err := p.parseIncrementalChanged(source, oldTree)
+	if tree != nil && tree != oldTree {
+		tree.parseRuntime.CompactIncrementalFallbackReason = reason
+	}
+	return tree, err
 }
 
 func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
-	// ParseIncremental is a reuse-consuming path: keep the whole call, including
-	// the reuse-disabled fresh-parse fallback to Parse below, on production.
+	// The compact attempt has declined. Keep this fallback on the legacy engine.
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
 	if oldTree != nil && oldTree.language != p.language {
@@ -1892,14 +1899,28 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
-	return p.parseIncrementalChangedProfiled(source, oldTree)
+	var compactTiming incrementalParseTiming
+	tree, reason := p.attemptCompactIncrementalParse(source, oldTree, &compactTiming)
+	if tree != nil {
+		return tree, compactTiming.toProfile(), nil
+	}
+	tree, profile, err := p.parseIncrementalChangedProfiled(source, oldTree)
+	profile.ReuseCursorNanos += compactTiming.reuseNanos
+	profile.ReparseNanos += max(int64(0), compactTiming.totalNanos-compactTiming.reuseNanos)
+	profile.ReusedSubtrees += compactTiming.reusedSubtrees
+	profile.ReusedBytes += compactTiming.reusedBytes
+	profile.TokensConsumed += compactTiming.tokensConsumed
+	profile.NewNodesAllocated += compactTiming.newNodes
+	if tree != nil && tree != oldTree {
+		tree.parseRuntime.CompactIncrementalFallbackReason = reason
+	}
+	return tree, profile, err
 }
 
 func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (*Tree, IncrementalParseProfile, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
-	// Reuse-consuming path: keep the reuse-disabled fresh-parse fallback below on
-	// production so ParseIncremental never publishes a compact tree.
+	// The compact attempt has declined. Keep this fallback on the legacy engine.
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
 	if oldTree != nil && oldTree.language != p.language {
