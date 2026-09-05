@@ -36,6 +36,9 @@ jobs:
       - name: Repository hygiene
         run: bash scripts/repository_hygiene_test.sh
 
+      - name: Randomized benchmark driver contracts
+        run: bash scripts/run_randomized_benchmarks_test.sh
+
       - name: Build
         run: go build ./...
 
@@ -1525,6 +1528,7 @@ jobs:
           set -euo pipefail
 
           BENCH_RE='^(BenchmarkGoParseFullDFA|BenchmarkGoParseIncrementalSingleByteEditDFA|BenchmarkGoParseIncrementalNoEditDFA)$'
+          BENCH_REQUIRED='BenchmarkGoParseFullDFA,BenchmarkGoParseIncrementalSingleByteEditDFA,BenchmarkGoParseIncrementalNoEditDFA'
           OUT_DIR="${RUNNER_TEMP}/bench-gate"
           BASE_TREE="${RUNNER_TEMP}/bench-base"
           mkdir -p "${OUT_DIR}"
@@ -1552,29 +1556,46 @@ jobs:
 
           git fetch --no-tags origin "${BASE_SHA}" "${GATE_BASE_SHA}"
           git worktree add "${BASE_TREE}" "${GATE_BASE_SHA}"
-          trap 'git worktree remove --force "${BASE_TREE}"' EXIT
+          PR_BASE_TREE=""
+          cleanup_bench_worktrees() {
+            if [ -n "${PR_BASE_TREE}" ]; then
+              git worktree remove --force "${PR_BASE_TREE}" || true
+            fi
+            git worktree remove --force "${BASE_TREE}"
+          }
+          trap cleanup_bench_worktrees EXIT
 
           export GOMAXPROCS=1
-          if [ -n "${BENCH_NODE_SCALE}" ]; then
-            (cd "${BASE_TREE}" && GOT_PARSE_NODE_LIMIT_SCALE="${BENCH_NODE_SCALE}" go test -run '^$' -bench "${BENCH_RE}" -benchmem -count=10 -benchtime=750ms .) > "${OUT_DIR}/base.txt"
-            GOT_PARSE_NODE_LIMIT_SCALE="${BENCH_NODE_SCALE}" go test -run '^$' -bench "${BENCH_RE}" -benchmem -count=10 -benchtime=750ms . > "${OUT_DIR}/head.txt"
-          else
-            (cd "${BASE_TREE}" && go test -run '^$' -bench "${BENCH_RE}" -benchmem -count=10 -benchtime=750ms .) > "${OUT_DIR}/base.txt"
-            go test -run '^$' -bench "${BENCH_RE}" -benchmem -count=10 -benchtime=750ms . > "${OUT_DIR}/head.txt"
-          fi
+          run_paired_comparison() {
+            local baseline_root=$1
+            local baseline_output=$2
+            local head_output=$3
+            local args=(
+              --baseline-root "${baseline_root}"
+              --baseline-output "${baseline_output}"
+              --output "${head_output}"
+              --runs 20 --seed-start 1 --benchtime 750ms
+              --bench-regex "${BENCH_RE}" --package . --tags ''
+              --require-benchmarks "${BENCH_REQUIRED}"
+            )
+            if [ -n "${BENCH_NODE_SCALE}" ]; then
+              GOT_PARSE_NODE_LIMIT_SCALE="${BENCH_NODE_SCALE}" \
+                bash scripts/run_randomized_benchmarks.sh "${args[@]}"
+            else
+              bash scripts/run_randomized_benchmarks.sh "${args[@]}"
+            fi
+          }
+          run_paired_comparison "${BASE_TREE}" "${OUT_DIR}/base.txt" "${OUT_DIR}/head.txt"
           if [ "${GATE_BASE_SHA}" != "${BASE_SHA}" ]; then
             PR_BASE_TREE="${RUNNER_TEMP}/bench-pr-base"
             git worktree add "${PR_BASE_TREE}" "${BASE_SHA}"
-            if [ -n "${BENCH_NODE_SCALE}" ]; then
-              (cd "${PR_BASE_TREE}" && GOT_PARSE_NODE_LIMIT_SCALE="${BENCH_NODE_SCALE}" go test -run '^$' -bench "${BENCH_RE}" -benchmem -count=10 -benchtime=750ms .) > "${OUT_DIR}/pr_base.txt"
-            else
-              (cd "${PR_BASE_TREE}" && go test -run '^$' -bench "${BENCH_RE}" -benchmem -count=10 -benchtime=750ms .) > "${OUT_DIR}/pr_base.txt"
-            fi
+            run_paired_comparison "${PR_BASE_TREE}" "${OUT_DIR}/pr_base.txt" "${OUT_DIR}/pr_head.txt"
             git worktree remove --force "${PR_BASE_TREE}"
+            PR_BASE_TREE=""
             echo "informational compare vs PR base (non-blocking):"
             if ! go run ./cmd/benchgate \
               -base "${OUT_DIR}/pr_base.txt" \
-              -head "${OUT_DIR}/head.txt" \
+              -head "${OUT_DIR}/pr_head.txt" \
               -max-ns-regression 10 \
               -max-bytes-regression 10 \
               -max-allocs-regression 10; then
@@ -1638,12 +1659,13 @@ jobs:
         run: |
           set -euo pipefail
           OUT_DIR="${RUNNER_TEMP}/bench-gate"
-          if [ ! -f "${OUT_DIR}/base.txt" ] || [ ! -f "${OUT_DIR}/head.txt" ]; then
+          if [ "$(tail -n 1 "${OUT_DIR}/base.txt" 2>/dev/null)" != '# status: complete' ] || \
+             [ "$(tail -n 1 "${OUT_DIR}/head.txt" 2>/dev/null)" != '# status: complete' ]; then
             {
               echo "### Perf Definitive Outcome"
               echo ""
               echo "- outcome: \`INCONCLUSIVE\`"
-              echo "- reason: benchmark artifacts missing"
+              echo "- reason: randomized benchmark campaign is missing or incomplete"
             } >> "${GITHUB_STEP_SUMMARY}"
             exit 0
           fi
