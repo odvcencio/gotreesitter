@@ -1,0 +1,40 @@
+--- a/grammars/c_issue454_regression_test.go
++++ b/grammars/c_issue454_regression_test.go
+@@ -3,6 +3,7 @@
+ import (
+ 	"bytes"
+  "encoding/json"
++ "fmt"
+  "time"
+ 	"testing"
+ 
+@@ -212,3 +213,29 @@
+ 		endByte:  root.EndByte(),
+ 	}
+ }
++
++func TestCDeleteFallbackReductionDiagnostic(t *testing.T) {
++ lang := grammars.CLanguage()
++ for _, count := range []int{1,4,16,64,256,1024,2048} {
++  hit := false
++  ok := t.Run(fmt.Sprint(count), func(t *testing.T) {
++   var source []byte
++   for i:=0;i<count;i++ {source=fmt.Appendf(source,"int f%d(void) { int x%d = %d; return x%d; }\n",i,i,i,i)}
++   site:=bytes.Index(source,[]byte("x0"))
++   edited:=append(append([]byte{},source[:site]...),source[site+1:]...)
++   old,err:=gotreesitter.NewParser(lang).Parse(source);if err!=nil{t.Fatal(err)};defer old.Release()
++   point:=issue454PointAt(source,site)
++   old.Edit(gotreesitter.InputEdit{StartByte:uint32(site),OldEndByte:uint32(site+1),NewEndByte:uint32(site),StartPoint:point,OldEndPoint:gotreesitter.Point{Row:point.Row,Column:point.Column+1},NewEndPoint:point})
++   started:=time.Now()
++   tree,profile,err:=gotreesitter.NewParser(lang).ParseIncrementalProfiled(edited,old);if err!=nil{t.Fatal(err)};defer tree.Release()
++   elapsed:=time.Since(started).Nanoseconds()
++   fresh,err:=gotreesitter.NewParser(lang).Parse(edited);if err!=nil{t.Fatal(err)};defer fresh.Release()
++   got,want:=issue454CTreeShape(t,lang,tree),issue454CTreeShape(t,lang,fresh)
++   receipt,_:=json.Marshal(map[string]any{"functions":count,"source_bytes":len(source),"wall_nanos":elapsed,"fallback":profile.ReuseUnsupportedReason,"new_nodes":profile.NewNodesAllocated,"final_nodes":tree.ParseRuntime().NodesAllocated,"tokens":profile.TokensConsumed,"fresh_nodes":fresh.ParseRuntime().NodesAllocated,"incremental_digest":got.digest,"fresh_digest":want.digest})
++   t.Logf("REDUCTION_RECEIPT %s",receipt)
++   if got!=want {t.Fatal("incremental tree differs from fresh")}
++   hit=profile.ReuseUnsupportedReason=="incremental_parse_memory_budget_full_retry"
++  })
++  if hit || !ok {break}
++ }
++}

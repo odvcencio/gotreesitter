@@ -1,0 +1,16 @@
+int f0(void) { int x0 = 0; return x0; }
+int f1(void) { int x1 = 1; return x1; }
+int f2(void) { int x2 = 2; return x2; }
+int f3(void) { int x3 = 3; return x3; }
+int f4(void) { int x4 = 4; return x4; }
+int f5(void) { int x5 = 5; return x5; }
+int f6(void) { int x6 = 6; return x6; }
+int f7(void) { int x7 = 7; return x7; }
+int f8(void) { int x8 = 8; return x8; }
+int f9(void) { int x9 = 9; return x9; }
+int f10(void) { int x10 = 10; return x10; }
+int f11(void) { int x11 = 11; return x11; }
+int f12(void) { int x12 = 12; return x12; }
+int f13(void) { int x13 = 13; return x13; }
+int f14(void) { int x14 = 14; return x14; }
+int f15(void) { int x15 = 15; return x15; }

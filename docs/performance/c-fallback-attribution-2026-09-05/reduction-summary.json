@@ -1,0 +1,91 @@
+{
+  "rows": [
+    {
+      "fallback": "",
+      "final_nodes": 69,
+      "fresh_digest": "528580d4bcced18fc0d9188b7a7b52b5bef0084069efcee699b7c4fbc87cd34e",
+      "fresh_nodes": 66,
+      "functions": 1,
+      "incremental_digest": "528580d4bcced18fc0d9188b7a7b52b5bef0084069efcee699b7c4fbc87cd34e",
+      "new_nodes": 130,
+      "source_bytes": 40,
+      "tokens": 32,
+      "wall_nanos": 3977339
+    },
+    {
+      "fallback": "",
+      "final_nodes": 531,
+      "fresh_digest": "eb03db0bea255bdb162e77419e04b759f21892b6897e395787af1b9a6a9c16a4",
+      "fresh_nodes": 288,
+      "functions": 4,
+      "incremental_digest": "eb03db0bea255bdb162e77419e04b759f21892b6897e395787af1b9a6a9c16a4",
+      "new_nodes": 826,
+      "source_bytes": 160,
+      "tokens": 122,
+      "wall_nanos": 1696820
+    },
+    {
+      "fallback": "",
+      "final_nodes": 3888,
+      "fresh_digest": "1d02890d0e3d33acd13c350ae7afab928e5b8984d67d445d494778f28a34d010",
+      "fresh_nodes": 1176,
+      "functions": 16,
+      "incremental_digest": "1d02890d0e3d33acd13c350ae7afab928e5b8984d67d445d494778f28a34d010",
+      "new_nodes": 5394,
+      "source_bytes": 664,
+      "tokens": 482,
+      "wall_nanos": 4649113
+    },
+    {
+      "fallback": "",
+      "final_nodes": 25968,
+      "fresh_digest": "097043e1a0d461eaa78b8af2b7f05699fca5484a3d14dc29dc0d27c24b1b896e",
+      "fresh_nodes": 4728,
+      "functions": 64,
+      "incremental_digest": "097043e1a0d461eaa78b8af2b7f05699fca5484a3d14dc29dc0d27c24b1b896e",
+      "new_nodes": 35250,
+      "source_bytes": 2776,
+      "tokens": 1922,
+      "wall_nanos": 32789379
+    },
+    {
+      "fallback": "",
+      "final_nodes": 252528,
+      "fresh_digest": "b1f2fb250e0c59a7a7543a53165a3efa3f06c5d536e5e85331665ff96e1fee86",
+      "fresh_nodes": 18936,
+      "functions": 256,
+      "incremental_digest": "b1f2fb250e0c59a7a7543a53165a3efa3f06c5d536e5e85331665ff96e1fee86",
+      "new_nodes": 338994,
+      "source_bytes": 11848,
+      "tokens": 7682,
+      "wall_nanos": 485975434
+    },
+    {
+      "fallback": "incremental_parse_full_retry",
+      "final_nodes": 75768,
+      "fresh_digest": "0be15cc53d0cb59cf7cde16e9b6d26e1410d3113ae6a87a45eac674a6e4e1730",
+      "fresh_nodes": 75768,
+      "functions": 1024,
+      "incremental_digest": "0be15cc53d0cb59cf7cde16e9b6d26e1410d3113ae6a87a45eac674a6e4e1730",
+      "new_nodes": 2561571,
+      "source_bytes": 48808,
+      "tokens": 15366,
+      "wall_nanos": 13403397520
+    },
+    {
+      "fallback": "incremental_parse_memory_budget_full_retry",
+      "final_nodes": 151544,
+      "fresh_digest": "961b15cb801143fa8e4bc4210ee7a1b7b645d8d55859ddee84bd0d3f2e2552b0",
+      "fresh_nodes": 151544,
+      "functions": 2048,
+      "incremental_digest": "961b15cb801143fa8e4bc4210ee7a1b7b645d8d55859ddee84bd0d3f2e2552b0",
+      "new_nodes": 3213594,
+      "source_bytes": 102056,
+      "tokens": 30726,
+      "wall_nanos": 18949770155
+    }
+  ],
+  "small_work_witness_sha256": "5ee6bf5086725ff69df89b106552b0947b25f14bc624f5034e40732c31c31bd4",
+  "small_work_witness_bytes": 664,
+  "note": "Size-series diagnostic; not randomized timing evidence. Node counters have the scope limitations in the report."
+}

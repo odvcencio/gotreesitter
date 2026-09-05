@@ -68,3 +68,27 @@ Run `TestIssue454CIncrementalDeleteMatchesFresh` in Docker with Go 1.25.14 and `
 Use one CPU, a 4 GiB container limit, `GOMEMLIMIT=3GiB`, and a four-minute test timeout.
 The original run used equivalent file overlays. The adjacent scripts preserve those paths.
 The full local archive is `/home/draco/work/gts-authenticated-edit-optimization-evidence-20260905/c-fallback-attribution`.
+
+## Reduced work witness
+
+A separate size-series diagnostic preserves complete functions and stops after the first memory-budget fallback.
+Every incremental digest matches fresh Go parsing.
+
+| Functions | Source bytes | Reported incremental new nodes | Fresh result allocated nodes | Fallback |
+| --- | ---: | ---: | ---: | --- |
+| 1 | 40 | 130 | 66 | none |
+| 4 | 160 | 826 | 288 | none |
+| 16 | 664 | 5,394 | 1,176 | none |
+| 64 | 2,776 | 35,250 | 4,728 | none |
+| 256 | 11,848 | 338,994 | 18,936 | none |
+| 1,024 | 48,808 | 2,561,571 | 75,768 | full retry |
+| 2,048 | 102,056 | 3,213,594 | 151,544 | memory-budget full retry |
+
+These counters retain the scope limitations described above.
+The 664-byte source provides a small regression for excessive work without reaching a memory limit.
+It is not the smallest possible witness. The 102,056-byte source retains the memory-budget fallback.
+
+Read [the reduced source](c-fallback-attribution-2026-09-05/c-delete-16-functions.c) and [size-series receipts](c-fallback-attribution-2026-09-05/reduction-summary.json).
+Delete the first character of `x0` to reproduce the edit.
+Apply `reduction-test.patch` after `diagnostic.patch` and run `TestCDeleteFallbackReductionDiagnostic` with the same Docker limits.
+The run completed without memory failure or timeout. Locked-C verification remains separate.
