@@ -783,6 +783,19 @@ func w5Check(t *testing.T, s w5Sample) {
 	if s.Class != w5Replace {
 		minReuse = int(ceiling.forPosition(s.Position).MinByteReusePercent)
 	}
+	// Python 20KB/replace/start and 137KB/replace/start previously used the disabled shortcut.
+	// Only Python start replacements use the existing start-position floor after this proof.
+	if s.Lang == "python" && s.Position == w5Top && s.Class == w5Replace {
+		p := s.Profile
+		if !p.ReuseUnsupported || p.ReuseUnsupportedReason != "external_scanner_prefix_frontier_unproven" ||
+			p.OldTreeReuseRoute || p.ReusedSubtrees != 0 || p.ReusedBytes != 0 ||
+			p.ReparseNanos <= 0 || p.NewNodesAllocated == 0 || p.TokensConsumed == 0 ||
+			p.StopReason != gts.ParseStopAccepted {
+			t.Fatalf("%s/%s/%s/%s: expected the authenticated prefix-frontier fallback: %+v",
+				s.Lang, s.Size, s.Class, s.Position, p)
+		}
+		minReuse = int(ceiling.forPosition(s.Position).MinByteReusePercent)
+	}
 	rate := w5ByteReusePercent(s.Profile, s.EditedLen)
 	if rate < float64(minReuse) {
 		t.Fatalf("%s/%s/%s/%s: byte reuse %.1f%% below floor %d%% (reusedBytes=%d editedLen=%d) -- O(edit) reuse regressed",

@@ -10,8 +10,8 @@ import (
 )
 
 // TestStatefulScannerCompactLeafReauthentication exercises the real compact
-// candidate route. Python's scanner retains indentation and delimiter stacks,
-// so a same-length leaf edit must pass the checkpoint reauthentication gate.
+// candidate route. Python's scanner retains indentation and delimiter stacks.
+// The release reparses these edits because leaf checkpoints cannot prove earlier lexer dependencies.
 func TestStatefulScannerCompactLeafReauthentication(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -72,8 +72,11 @@ func TestStatefulScannerCompactLeafReauthentication(t *testing.T) {
 				t.Fatalf("incremental parse: %v", err)
 			}
 			defer incremental.Release()
-			if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
-				t.Fatalf("stateful compact tree did not reauthenticate scanner checkpoints: %+v", profile)
+			requireReleaseSameWidthReparse(t, profile)
+			if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_prefix_frontier_unproven" ||
+				profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 || profile.OldTreeReuseRoute ||
+				profile.NewNodesAllocated == 0 || profile.TokensConsumed == 0 {
+				t.Fatalf("stateful compact tree did not use the scanner-proof fallback: %+v", profile)
 			}
 
 			freshParser := gotreesitter.NewParser(lang)

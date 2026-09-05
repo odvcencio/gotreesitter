@@ -51,10 +51,10 @@ object Third:
 		OldEndPoint: pointForOffset(source, offset+1),
 		NewEndPoint: pointForOffset(edited, offset+1),
 	})
-	if profile.ReuseUnsupported || profile.OldTreeReuseRoute ||
-		profile.ReusedSubtrees != 1 || profile.ReusedBytes != uint64(len(source)) ||
-		profile.NewNodesAllocated != 0 || profile.TokensConsumed != 1 {
-		t.Fatalf("certified Scala scanner did not reuse the unaffected suffix: %+v", profile)
+	requireReleaseSameWidthReparse(t, profile)
+	if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "external_scanner_unsupported" ||
+		profile.OldTreeReuseRoute || profile.NewNodesAllocated == 0 {
+		t.Fatalf("Scala edit did not use its certified fallback: %+v", profile)
 	}
 }
 

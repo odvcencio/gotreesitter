@@ -320,59 +320,14 @@ func checkpointedScannerSoleChildPaddingEdit(oldSource, newSource []byte, edit I
 	return true
 }
 
-// tryTokenInvariantReuseWithDFA authenticates an edited leaf before choosing a reparse route.
-// The scan must preserve the token at its recorded parser and scanner boundary.
+// The v0.52.0 mitigation disables leaf-only reuse before scanner creation.
+// Earlier lexer dependencies must be authenticated before this route returns.
 func (p *Parser) tryTokenInvariantReuseWithDFA(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
-	if oldTreeDisablesIncrementalReuse(oldTree) {
-		return nil, false
-	}
-	if _, _, ok := p.tokenInvariantLeafEditCandidate(source, oldTree); !ok {
-		return nil, false
-	}
-	if p.checkDFALexer() != nil {
-		return nil, false
-	}
-	prevFactory := p.reparseFactory
-	p.reparseFactory = nil
-	defer func() {
-		p.reparseFactory = prevFactory
-	}()
-	ts := p.acquireParserDFATokenSource(source)
-	defer ts.Close()
-	tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, p.wrapIncludedRanges(ts), timing)
-	if !ok {
-		return nil, false
-	}
-	p.normalizeReturnedIncrementalTree(tree, oldTree, source)
-	return tree, true
+	return nil, false
 }
 
 func (p *Parser) tryTokenInvariantReuseForDisabledOldTree(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
-	if !oldTreeDisablesIncrementalReuse(oldTree) {
-		return nil, false
-	}
-	if p == nil || p.language == nil {
-		return nil, false
-	}
-	if !p.disabledOldTreeTokenInvariantLeafAllowed(source, oldTree) {
-		return nil, false
-	}
-	if p.checkDFALexer() != nil {
-		return nil, false
-	}
-	prevFactory := p.reparseFactory
-	p.reparseFactory = nil
-	defer func() {
-		p.reparseFactory = prevFactory
-	}()
-	ts := p.acquireParserDFATokenSource(source)
-	defer ts.Close()
-	tree, ok := p.tryTokenInvariantLeafEdit(source, oldTree, p.wrapIncludedRanges(ts), timing)
-	if !ok {
-		return nil, false
-	}
-	p.normalizeReturnedIncrementalTree(tree, oldTree, source)
-	return tree, true
+	return nil, false
 }
 
 func (p *Parser) disabledOldTreeTokenInvariantLeafAllowed(source []byte, oldTree *Tree) bool {

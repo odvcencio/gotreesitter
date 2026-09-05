@@ -5,6 +5,27 @@ import (
 	"testing"
 )
 
+func assertReleaseRootTreeEqual(t *testing.T, got, want *Node, lang *Language) {
+	t.Helper()
+	if got == nil || want == nil {
+		if got != want {
+			t.Fatal("nil tree mismatch")
+		}
+		return
+	}
+	if got.Symbol() != want.Symbol() || got.StartByte() != want.StartByte() || got.EndByte() != want.EndByte() ||
+		got.StartPoint() != want.StartPoint() || got.EndPoint() != want.EndPoint() || got.HasError() != want.HasError() ||
+		got.IsError() != want.IsError() || got.IsMissing() != want.IsMissing() || got.IsNamed() != want.IsNamed() || got.IsExtra() != want.IsExtra() || got.ChildCount() != want.ChildCount() {
+		t.Fatalf("tree mismatch: got %s want %s", got.SExpr(lang), want.SExpr(lang))
+	}
+	for i := 0; i < got.ChildCount(); i++ {
+		if got.FieldNameForChild(i, lang) != want.FieldNameForChild(i, lang) {
+			t.Fatal("field mismatch")
+		}
+		assertReleaseRootTreeEqual(t, got.Child(i), want.Child(i), lang)
+	}
+}
+
 func TestSnapshotTokenSourceStateUnsupportedType(t *testing.T) {
 	ts := &stubTokenSource{}
 	restore, ok := snapshotTokenSourceState(ts)
@@ -916,9 +937,15 @@ func TestTokenInvariantLeafEditAllowsExtraLeaf(t *testing.T) {
 	if rt.StopReason != ParseStopAccepted {
 		t.Fatalf("incremental stop reason = %q, want %q (%s)", rt.StopReason, ParseStopAccepted, rt.Summary())
 	}
-	if rt.TokensConsumed != 1 {
-		t.Fatalf("tokens consumed = %d, want token-invariant fast path to consume 1", rt.TokensConsumed)
+	if rt.TokensConsumed <= 1 {
+		t.Fatalf("real edit bypassed reparsing: %s", rt.Summary())
 	}
+	fresh, err := parser.Parse(newSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	assertReleaseRootTreeEqual(t, reused.RootNode(), fresh.RootNode(), lang)
 	if got, want := reused.RootNode().EndByte(), uint32(len(newSource)); got != want {
 		t.Fatalf("root end byte = %d, want %d", got, want)
 	}
@@ -950,9 +977,15 @@ func TestTokenInvariantLeafEditUsesFreshCustomTokenSource(t *testing.T) {
 	if rt.StopReason != ParseStopAccepted {
 		t.Fatalf("incremental stop reason = %q, want %q (%s)", rt.StopReason, ParseStopAccepted, rt.Summary())
 	}
-	if rt.TokensConsumed != 1 {
-		t.Fatalf("tokens consumed = %d, want fresh custom-source fast path to consume 1", rt.TokensConsumed)
+	if rt.TokensConsumed <= 1 {
+		t.Fatalf("real edit bypassed reparsing: %s", rt.Summary())
 	}
+	fresh, err := parser.ParseWithTokenSource(newSource, newArithmeticExtraCommentTokenSource(newSource))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fresh.Release()
+	assertReleaseRootTreeEqual(t, newTree.RootNode(), fresh.RootNode(), lang)
 }
 
 type arithmeticExtraCommentTokenSource struct {

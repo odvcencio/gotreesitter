@@ -9,6 +9,17 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
+// The release disables the unsafe whole-root shortcut, not ordinary reuse.
+func requireReleaseSameWidthReparse(t *testing.T, profile gotreesitter.IncrementalParseProfile) {
+	t.Helper()
+	if profile.ReparseNanos <= 0 {
+		t.Fatalf("real edit bypassed reparsing: %+v", profile)
+	}
+	if profile.ReuseUnsupported && (profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0) {
+		t.Fatalf("unsupported reuse reported borrowed work: %+v", profile)
+	}
+}
+
 func TestExternalScannerIncrementalReusePolicy(t *testing.T) {
 	cases := []struct {
 		name           string
@@ -18,7 +29,6 @@ func TestExternalScannerIncrementalReusePolicy(t *testing.T) {
 		wantReuse      bool
 		wantReason     string
 		wantSubtreeMin uint64
-		wantNoReparse  bool
 	}{
 		{
 			name:           "typescript",
@@ -27,16 +37,13 @@ func TestExternalScannerIncrementalReusePolicy(t *testing.T) {
 			marker:         "const v = ",
 			wantReuse:      true,
 			wantSubtreeMin: 1,
-			wantNoReparse:  true,
 		},
 		{
-			name:           "python",
-			lang:           grammars.PythonLanguage,
-			source:         makePythonBenchmarkSource,
-			marker:         "v = ",
-			wantReuse:      true,
-			wantSubtreeMin: 1,
-			wantNoReparse:  true,
+			name:       "python",
+			lang:       grammars.PythonLanguage,
+			source:     makePythonBenchmarkSource,
+			marker:     "v = ",
+			wantReason: "external_scanner_prefix_frontier_unproven",
 		},
 		{
 			name:       "svelte",
@@ -88,15 +95,21 @@ func TestExternalScannerIncrementalReusePolicy(t *testing.T) {
 			if newTree.RootNode().HasError() {
 				t.Fatal("incremental parse produced error root")
 			}
+			defer oldTree.Release()
+			defer newTree.Release()
+			fresh, err := parser.Parse(next)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fresh.Release()
+			requireIncrementalDeepTreeMatchesFresh(t, newTree, fresh, lang)
+			requireReleaseSameWidthReparse(t, prof)
 			if tc.wantReuse {
 				if prof.ReuseUnsupported {
 					t.Fatalf("ReuseUnsupported = true, want false (reason=%q)", prof.ReuseUnsupportedReason)
 				}
 				if prof.ReusedSubtrees < tc.wantSubtreeMin {
 					t.Fatalf("ReusedSubtrees = %d, want >= %d", prof.ReusedSubtrees, tc.wantSubtreeMin)
-				}
-				if tc.wantNoReparse && prof.ReparseNanos != 0 {
-					t.Fatalf("ReparseNanos = %d, want 0 for token-invariant leaf edit", prof.ReparseNanos)
 				}
 				return
 			}
@@ -416,10 +429,7 @@ func TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback(t *testing.
 
 					lang := languageCase.lang()
 					parser := gotreesitter.NewParser(lang)
-					// This test locks the legacy production-tree contract: a
-					// token-invariant leaf edit is reauthenticated before any broader
-					// scanner-state reuse. Compact stateful scanner coverage lives in
-					// TestStatefulScannerCompactLeafReauthentication.
+					// The release reparses edits with uncertified stateful scanners.
 					parser.SetAdmissionCandidateRoute(false)
 					if route.includedRanges {
 						parser.SetIncludedRanges([]gotreesitter.Range{{
@@ -447,11 +457,13 @@ func TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback(t *testing.
 						t.Fatal(err)
 					}
 					defer incremental.Release()
-					if profile.ReuseUnsupported {
-						t.Fatalf("token-invariant edit fell through to %s scanner fallback: %+v", languageCase.name, profile)
+					requireReleaseSameWidthReparse(t, profile)
+					wantReason := "external_scanner_unsupported"
+					if languageCase.name == "python" {
+						wantReason = "external_scanner_prefix_frontier_unproven"
 					}
-					if profile.ReparseNanos != 0 || profile.ReusedSubtrees == 0 {
-						t.Fatalf("token-invariant edit did not reuse the old %s tree: %+v", languageCase.name, profile)
+					if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != wantReason {
+						t.Fatalf("expected scanner fallback: %+v", profile)
 					}
 
 					fresh, err := parser.Parse(next)
@@ -528,10 +540,7 @@ func TestExternalScannerTokenInvariantLeafReuse(t *testing.T) {
 				lang = explicitForestLanguage(t, lang)
 			}
 			parser := gotreesitter.NewParser(lang)
-			// Pin to production: this test asserts token-invariant incremental
-			// leaf reuse and the accepted forest runtime. A compact-materialized
-			// base tree is hard-barred from reuse (decision 0008), so the base and
-			// fresh parses must stay on the production engine.
+			// Preserve the original legacy and explicit forest input routes.
 			parser.SetAdmissionCandidateRoute(false)
 			fresh, err := parser.Parse(next)
 			if err != nil {
@@ -570,15 +579,8 @@ func TestExternalScannerTokenInvariantLeafReuse(t *testing.T) {
 			}
 			defer newTree.Release()
 			requireCompleteParse(t, newTree, next, lang, "incremental")
-			if profile.ReuseUnsupported {
-				t.Fatalf("token-invariant edit fell back to fresh parse: %s", profile.ReuseUnsupportedReason)
-			}
-			if profile.ReparseNanos != 0 {
-				t.Fatalf("ReparseNanos = %d, want 0 for token-invariant edit", profile.ReparseNanos)
-			}
-			if profile.ReusedSubtrees == 0 {
-				t.Fatalf("token-invariant edit reused no subtrees: %+v", profile)
-			}
+			requireReleaseSameWidthReparse(t, profile)
+			requireIncrementalDeepTreeMatchesFresh(t, newTree, fresh, lang)
 			if got, want := newTree.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang); got != want {
 				t.Fatalf("incremental tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 			}

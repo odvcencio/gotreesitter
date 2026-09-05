@@ -193,12 +193,12 @@ func TestCompactIncrementalExecutionSameWidth(t *testing.T) {
 			if next.RootNode().HasError() {
 				t.Fatal("same-width edit produced an error")
 			}
+			if profile.ReparseNanos <= 0 || profile.NewNodesAllocated == 0 || next.RootNode() == oldRoot {
+				t.Fatalf("same-width edit bypassed compact reparsing: %+v", profile)
+			}
 			if replacement == "2" {
-				if next.RootNode() != oldRoot || profile.ReparseNanos != 0 || profile.NewNodesAllocated != 0 {
-					t.Fatalf("token-invariant shortcut regressed: same_root=%t profile=%+v", next.RootNode() == oldRoot, profile)
-				}
-				if profile.ReusedBytes != uint64(len(edited)) || next.ParseRuntime().CompactIncrementalReuseRoute {
-					t.Fatalf("token-invariant edit entered a reparse route: %+v", profile)
+				if !next.ParseRuntime().CompactIncrementalReuseRoute {
+					t.Fatal("numeric edit lost ordinary compact reuse")
 				}
 				return
 			}

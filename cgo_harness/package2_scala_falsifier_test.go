@@ -207,7 +207,7 @@ func TestPackage2ScalaIncrementalScannerStateEdits(t *testing.T) {
 			before:             []byte("object Prelude:\n  val fixed = 0\n\nobject A:\n  val value = 2\n  val sibling = 3\n"),
 			oldText:            []byte("2"),
 			newText:            []byte("4"),
-			wantFallbackReason: "",
+			wantFallbackReason: "external_scanner_unsupported",
 		},
 		{
 			name:               "before indentation state",
@@ -221,7 +221,7 @@ func TestPackage2ScalaIncrementalScannerStateEdits(t *testing.T) {
 			before:             []byte("object A:\n  val prefix = 1\n  val name = \"x\"\n  val greeting = s\"hello $name\"\n"),
 			oldText:            []byte("1"),
 			newText:            []byte("2"),
-			wantFallbackReason: "",
+			wantFallbackReason: "external_scanner_unsupported",
 		},
 		{
 			name:               "indentation width",
@@ -343,7 +343,8 @@ func runPackage2ScalaScannerStateEdit(
 	}
 	if effectiveFallbackReason != "" {
 		if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != effectiveFallbackReason ||
-			profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 {
+			profile.OldTreeReuseRoute || profile.ReusedSubtrees != 0 || profile.ReusedBytes != 0 ||
+			profile.ReparseNanos <= 0 || profile.NewNodesAllocated == 0 || profile.TokensConsumed == 0 {
 			t.Fatalf("Scala scanner-state fallback profile=%+v", profile)
 		}
 	} else if profile.ReuseUnsupported || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
