@@ -222,26 +222,38 @@ func (tree *Tree) editCompactReuseDependencies(edit InputEdit) {
 	}
 }
 
-// Node.Edit has no Tree arena list. Visit the reachable nodes before editing.
+// Node.Edit has no Tree arena list. Visit public nodes through lazy entries
+// without materializing their children. Pending entries use the containing arena.
 func editCompactReuseDependenciesFromNode(root *Node, edit InputEdit) {
 	if root == nil || inputEditIsNoop(edit) {
 		return
 	}
 	seen := make(map[*nodeArena]struct{})
-	stack := []*Node{root}
+	type frame struct {
+		arena *nodeArena
+		entry stackEntry
+	}
+	stack := []frame{{root.ownerArena, newStackEntryNode(root.parseState, root)}}
 	for len(stack) != 0 {
 		last := len(stack) - 1
-		node := stack[last]
+		current := stack[last]
 		stack = stack[:last]
-		if node == nil {
+		if node := stackEntryNode(current.entry); node != nil {
+			if _, ok := seen[node.ownerArena]; !ok {
+				node.ownerArena.editCompactReuseDependencies(edit)
+				seen[node.ownerArena] = struct{}{}
+			}
+			for i := 0; i < nodeChildCountNoMaterialize(node); i++ {
+				if child, ok := nodeChildEntryAtNoMaterialize(node, i); ok {
+					stack = append(stack, frame{node.ownerArena, child})
+				}
+			}
 			continue
 		}
-		if _, ok := seen[node.ownerArena]; !ok {
-			node.ownerArena.editCompactReuseDependencies(edit)
-			seen[node.ownerArena] = struct{}{}
-		}
-		for i := 0; i < node.ChildCount(); i++ {
-			stack = append(stack, node.Child(i))
+		if parent := stackEntryPendingParent(current.entry); parent != nil {
+			for i := 0; i < parent.childEntryCount(); i++ {
+				stack = append(stack, frame{current.arena, parent.childEntry(current.arena, i)})
+			}
 		}
 	}
 }

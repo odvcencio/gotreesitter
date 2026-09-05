@@ -145,7 +145,7 @@ func (s *diagnosticParserCoreGenericScheduler) growCompactReuseDependencies(last
 		}
 		additional := (capacity - uint64(cap(d.ends))) * 4
 		if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(additional); resultMaterializationShouldStop(reason) {
-			return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "compact reuse dependency storage stopped: " + string(reason)}
+			return diagnosticParserCoreStopControlTripped(reason)
 		}
 		next := make([]uint32, int(want), int(capacity))
 		copy(next, d.ends)
