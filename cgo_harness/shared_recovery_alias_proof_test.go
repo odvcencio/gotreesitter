@@ -12,12 +12,20 @@ import (
 )
 
 func TestJavaScriptSharedRecoveryAliasWithoutArtifactGrantLockedC(t *testing.T) {
+	requireJavaScriptSharedRecoveryAliasLockedC(t, []byte(stage6JavaScriptRecoverySource))
+}
+
+func TestJavaScriptRetiredRecoveryAliasWithoutArtifactGrantLockedC(t *testing.T) {
+	requireJavaScriptSharedRecoveryAliasLockedC(t, []byte("const f = (a) =. + + 1;\nclass A { m() { return 1 } }\n\n"))
+}
+
+func requireJavaScriptSharedRecoveryAliasLockedC(t *testing.T, source []byte) {
+	t.Helper()
 	language := *grammars.JavascriptLanguage()
 	language.CompactRecoveryTerminalAliasRules = nil
 	if language.CompactOwnedEOFRecoveryCertified {
 		t.Fatal("fixture unexpectedly uses owned EOF recovery")
 	}
-	source := []byte(stage6JavaScriptRecoverySource)
 	cLanguage, err := ParityCLanguage("javascript")
 	if err != nil {
 		t.Fatal(err)

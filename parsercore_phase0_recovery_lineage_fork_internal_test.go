@@ -244,6 +244,8 @@ func TestS5AbsorberPreservesMixedParserStatesForRecoverySelection(t *testing.T) 
 		scheduler.headers[0],
 		{head: other, creationSeq: 4},
 	}
+	headers[0].altSet = core.NewAlternativeSetMember(1, 0)
+	headers[1].altSet = core.NewAlternativeSetMember(1, 1)
 	staged := diagnosticParserCoreS5Work{}
 	var absorb diagnosticParserCoreHeader
 	err = scheduler.compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
@@ -267,6 +269,9 @@ func TestS5AbsorberPreservesMixedParserStatesForRecoverySelection(t *testing.T) 
 	region := absorb.recoveryRegion()
 	if region == nil || region.state != 1 {
 		t.Fatalf("mixed-state recovery region=%+v, want first recovery state 1", region)
+	}
+	if !absorb.blended || absorb.altSet.Len() != 2 {
+		t.Fatalf("merged recovery lost incomparable histories: blended=%t alternatives=%d", absorb.blended, absorb.altSet.Len())
 	}
 }
 

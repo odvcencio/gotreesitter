@@ -587,8 +587,27 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointedWithRecovery(
 	allowNonzeroCost bool,
 	recovery *recoveryMergeEquivalenceContext,
 ) (Head, error) {
+	return c.mergeEquivalentHeadsAtBoundaryPreservingIncumbent(
+		key, incumbent, incoming, allowNonzeroCost, recovery, false,
+	)
+}
+
+func (c *Core) mergeEquivalentHeadsAtBoundaryPreservingIncumbent(
+	key boundaryKey,
+	incumbent Head,
+	incoming Head,
+	allowNonzeroCost bool,
+	recovery *recoveryMergeEquivalenceContext,
+	canonicalMayBeIncoming bool,
+) (Head, error) {
 	if key.frontier != c.frontier {
 		return Head{}, errors.New("parser-core phase zero: physical head merge frontier mismatch")
+	}
+	if canonicalMayBeIncoming {
+		probe, existing := c.boundaries.probe(boundaryIdentityFromKey(key))
+		if !probe.found || (existing != incumbent.Node && existing != incoming.Node) {
+			return Head{}, errors.New("parser-core phase zero: recovery sibling merge boundary belongs to neither operand")
+		}
 	}
 	if incumbent == incoming {
 		return incumbent, nil
@@ -680,6 +699,17 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointedWithRecovery(
 		if err := c.mergeNodeLineageMetadata(incumbent.Node, incoming.Node, incumbent.Node); err != nil {
 			return Head{}, err
 		}
+		if canonicalMayBeIncoming {
+			probe, existing := c.boundaries.probe(boundaryIdentityFromKey(key))
+			if !probe.found || (existing != incumbent.Node && existing != incoming.Node) {
+				return Head{}, errors.New("parser-core phase zero: recovery sibling merge lost its boundary")
+			}
+			if existing != incumbent.Node {
+				if err := c.publishBoundary(probe, incumbent.Node); err != nil {
+					return Head{}, err
+				}
+			}
+		}
 		c.addWork(&c.work.PhysicalHeadMergeSuccesses, 1)
 		return incumbent, nil
 	}
@@ -697,7 +727,7 @@ func (c *Core) mergeEquivalentHeadsAtBoundaryUncheckpointedWithRecovery(
 		return Head{}, err
 	}
 	probe, existing := c.boundaries.probe(boundaryIdentityFromKey(key))
-	if !probe.found || existing != incumbent.Node {
+	if !probe.found || (existing != incumbent.Node && (!canonicalMayBeIncoming || existing != incoming.Node)) {
 		return Head{}, errors.New("parser-core phase zero: physical head merge lost its incumbent boundary")
 	}
 	if err := c.publishBoundary(probe, merged); err != nil {
@@ -788,6 +818,38 @@ func (c *Core) MergeEquivalentRecoveryHeadsOwned(
 	context := recoveryMergeEquivalenceContext{payloadHasError: payloadHasError}
 	out, err = c.mergeEquivalentHeadsAtBoundaryUncheckpointedWithRecovery(
 		key, incumbent, incoming, true, &context,
+	)
+	return out, c.finishSchedulerOwned(owner, err)
+}
+
+// MergeEquivalentRecoverySiblingHeadsOwned preserves the supplied sibling as incumbent.
+// Either operand must own the current canonical boundary. Equal precedence
+// retains the sibling's equivalent payload, even when the reduction published last.
+// The scheduler must authenticate live sibling order and exact lexer ownership.
+func (c *Core) MergeEquivalentRecoverySiblingHeadsOwned(
+	owner SchedulerTransactionToken,
+	state StateID,
+	byteOffset uint32,
+	checkpoint CheckpointID,
+	shifted bool,
+	sibling Head,
+	reduction Head,
+	payloadHasError PayloadErrorPresenceFunc,
+) (out Head, err error) {
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return out, err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	if payloadHasError == nil {
+		return out, c.finishSchedulerOwned(owner, errors.New("parser-core phase zero: recovery sibling merge pricing context is unavailable"))
+	}
+	key := boundaryKey{
+		frontier: c.frontier, state: state, byteOffset: byteOffset,
+		shifted: shifted, checkpoint: checkpoint,
+	}
+	context := recoveryMergeEquivalenceContext{payloadHasError: payloadHasError}
+	out, err = c.mergeEquivalentHeadsAtBoundaryPreservingIncumbent(
+		key, sibling, reduction, true, &context, true,
 	)
 	return out, c.finishSchedulerOwned(owner, err)
 }
@@ -1189,6 +1251,13 @@ func (c *Core) shiftOrdinaryClassifiedCohortUncheckpointed(boundaries []Classifi
 			return nil, err
 		}
 		out[index] = outcome.head
+		// Earlier outputs with this target share the final merged boundary.
+		// Restrict replacement to this invocation, not historical boundary entries.
+		for prior := 0; prior < index; prior++ {
+			if targets[prior] == targets[index] {
+				out[prior] = outcome.head
+			}
+		}
 	}
 	c.addWork(&c.work.Shifts, uint64(len(boundaries)))
 	return out, nil
@@ -1315,6 +1384,13 @@ func (c *Core) shiftExtraClassifiedCohortUncheckpointed(boundaries []ClassifiedB
 			return nil, err
 		}
 		out[index] = outcome.head
+		// Earlier outputs with this target share the final merged boundary.
+		// Restrict replacement to this invocation, not historical boundary entries.
+		for prior := 0; prior < index; prior++ {
+			if targets[prior] == targets[index] {
+				out[prior] = outcome.head
+			}
+		}
 	}
 	c.addWork(&c.work.Shifts, uint64(len(boundaries)))
 	return out, nil
