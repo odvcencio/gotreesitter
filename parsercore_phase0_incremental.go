@@ -37,10 +37,22 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		!p.admissionCandidateFullParseEligible(nil, true) {
 		return nil, ""
 	}
+	p.fullParseRetryPassesTaken = 0
 	// Preserve the existing token-invariant fast path for same-width leaf edits.
-	// Width-changing edits cannot use that optimization.
+	// Reparse on the compact engine when the token proof fails.
 	if len(oldTree.edits) == 1 && oldTree.edits[0].OldEndByte == oldTree.edits[0].NewEndByte {
-		return nil, ""
+		var probeStarted time.Time
+		if timing != nil {
+			probeStarted = time.Now()
+		}
+		if tree, ok := p.tryTokenInvariantReuseWithDFA(source, oldTree, timing); ok {
+			return tree, ""
+		}
+		if timing != nil {
+			probeNanos := time.Since(probeStarted).Nanoseconds()
+			timing.totalNanos += probeNanos
+			timing.reuseNanos += probeNanos
+		}
 	}
 	if p.language.ExternalScanner != nil {
 		stateless, ok := p.language.ExternalScanner.(StatelessExternalScanner)

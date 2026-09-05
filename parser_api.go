@@ -320,11 +320,9 @@ func checkpointedScannerSoleChildPaddingEdit(oldSource, newSource []byte, edit I
 	return true
 }
 
-// tryTokenInvariantReuseBeforePrefixFrontierFallback permits only the narrow
-// leaf path to bypass a prefix-sensitive scanner fallback. The leaf scan must
-// authenticate the new token under the recorded parser and scanner boundary.
-// A failed authentication returns control to the fresh-parse fallback.
-func (p *Parser) tryTokenInvariantReuseBeforePrefixFrontierFallback(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
+// tryTokenInvariantReuseWithDFA authenticates an edited leaf before choosing a reparse route.
+// The scan must preserve the token at its recorded parser and scanner boundary.
+func (p *Parser) tryTokenInvariantReuseWithDFA(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, bool) {
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		return nil, false
 	}
@@ -1734,7 +1732,7 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 		// scanner refusal and full-reparse work retain normal attribution.
 	}
 	if checkpointedScannerPrefixFrontierUnproven(source, oldTree) {
-		if tree, ok := p.tryTokenInvariantReuseBeforePrefixFrontierFallback(source, oldTree, nil); ok {
+		if tree, ok := p.tryTokenInvariantReuseWithDFA(source, oldTree, nil); ok {
 			return tree, nil
 		}
 		return p.Parse(source)
@@ -1943,7 +1941,7 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	}
 	if checkpointedScannerPrefixFrontierUnproven(source, oldTree) {
 		timing := &incrementalParseTiming{}
-		if tree, ok := p.tryTokenInvariantReuseBeforePrefixFrontierFallback(source, oldTree, timing); ok {
+		if tree, ok := p.tryTokenInvariantReuseWithDFA(source, oldTree, timing); ok {
 			return tree, timing.toProfile(), nil
 		}
 		start := time.Now()

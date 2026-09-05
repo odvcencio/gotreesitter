@@ -1261,7 +1261,7 @@ jobs:
             --cpus 2 \
             --gomemlimit 3GiB \
             --wall-timeout 10m \
-            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecutionParity|TestStage6GoCompactCertification)$' -count=1 -parallel 1 -timeout 5m -v"
+            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecution.*Parity|TestStage6GoCompactCertification)$' -count=1 -parallel 1 -timeout 5m -v"
 
       - name: Compact recovery incremental JavaScript witnesses
         run: |

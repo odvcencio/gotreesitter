@@ -18,6 +18,7 @@ func TestGoCompactIncrementalExecutionParity(t *testing.T) {
 	}{
 		{"growth", "", "1", "1+3", true},
 		{"comment", "// between declarations\n", "1", "1+3", true},
+		{"same_width_kind_change", "", "1", "x", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source := []byte("package p\nfunc a() { _ = 1 }\n" + tc.separator + "func b() { _ = 2 }\n")
@@ -100,5 +101,74 @@ func TestGoCompactIncrementalExecutionParity(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGoCompactIncrementalExecutionRepeatedSameWidthParity(t *testing.T) {
+	source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
+	lang := grammars.GoLanguage()
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(true)
+	old, err := parser.Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { old.Release() }()
+	bStart := uint32(bytes.Index(source, []byte("func b")))
+	oldB := findGoNodeByTypeAndStart(old.RootNode(), lang, "function_declaration", bStart)
+	if oldB == nil {
+		t.Fatal("initial tree has no function b")
+	}
+	cLang, err := ParityCLanguage("go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp := sitter.NewParser()
+	defer cp.Close()
+	if err := cp.SetLanguage(cLang); err != nil {
+		t.Fatal(err)
+	}
+	cOld := cp.Parse(source, nil)
+	if cOld == nil {
+		t.Fatal("C parser returned no source tree")
+	}
+	defer func() { cOld.Close() }()
+	offset := bytes.IndexByte(source, '1')
+	for _, replacement := range []byte{'x', '3', 'y'} {
+		edited := append([]byte(nil), source...)
+		edited[offset] = replacement
+		edit := gts.InputEdit{StartByte: uint32(offset), OldEndByte: uint32(offset + 1), NewEndByte: uint32(offset + 1), StartPoint: pointAtOffset(source, offset), OldEndPoint: pointAtOffset(source, offset+1), NewEndPoint: pointAtOffset(edited, offset+1)}
+		old.Edit(edit)
+		next, err := parser.ParseIncremental(edited, old)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if next == old {
+			t.Fatal("kind change returned the old tree")
+		}
+		old.Release()
+		old = next
+		ce := realCorpusCInputEdit(edit)
+		cOld.Edit(&ce)
+		cNext := cp.Parse(edited, cOld)
+		if cNext == nil {
+			t.Fatal("C incremental parser returned no tree")
+		}
+		cOld.Close()
+		cOld = cNext
+		cFresh := cp.Parse(edited, nil)
+		if cFresh == nil {
+			t.Fatal("C fresh parser returned no tree")
+		}
+		assertLockedCTreeExact(t, string(replacement)+" versus fresh C", next, lang, cFresh)
+		cFresh.Close()
+		assertLockedCTreeExact(t, string(replacement)+" versus incremental C", next, lang, cNext)
+		if got := findGoNodeByTypeAndStart(next.RootNode(), lang, "function_declaration", bStart); got != oldB {
+			t.Fatal("repeated kind change lost function b identity")
+		}
+		if !next.ParseRuntime().CompactIncrementalReuseRoute {
+			t.Errorf("edit to %q skipped compact execution: %q", replacement, next.ParseRuntime().CompactIncrementalFallbackReason)
+		}
+		source = edited
 	}
 }
