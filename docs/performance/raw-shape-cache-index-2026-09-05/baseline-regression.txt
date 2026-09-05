@@ -1,6 +1,0 @@
-=== RUN   TestRawShapeHashCacheUsesSlabIdentity
-    raw_shape_test.go:1518: slab 0 cached hash = 0, false; want 1, true
---- FAIL: TestRawShapeHashCacheUsesSlabIdentity (0.00s)
-FAIL
-FAIL	github.com/odvcencio/gotreesitter	0.007s
-FAIL
