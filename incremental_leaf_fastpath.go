@@ -167,6 +167,11 @@ func (p *Parser) canReuseLanguageTextInvariantNode(source []byte, oldTree *Tree,
 		return node.Type(p.language) == "line_comment" && rustLineCommentTextInvariantEdit(source, oldTree.source, node, edit)
 	case "sql":
 		return sqlTextInvariantNodeEdit(source, oldTree.source, node, edit, p.language)
+	case "typescript":
+		// The caller authenticates raw lexer dependencies and scanner ASCII
+		// equivalence before reuse. Numeric text needs no checkpoint rescan.
+		return node.isNamed() && node.ChildCount() == 0 && !node.hasError() && !node.isMissing() &&
+			node.Type(p.language) == "number" && asciiDigitTextInvariantEdit(source, oldTree.source, edit)
 	case "yaml":
 		return yamlTextInvariantScalarEdit(source, oldTree.source, node, edit, node.Type(p.language))
 	default:

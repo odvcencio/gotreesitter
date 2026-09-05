@@ -1300,6 +1300,16 @@ jobs:
             --wall-timeout 10m \
             -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestGoCompactIncrementalExecution.*Parity|TestGoCompactNestedReuse.*LockedC|TestStage6GoCompactCertification|TestGoTokenInvariantLookaheadNumeric(Repair|Reuse)LockedC)$' -count=1 -parallel 1 -timeout 5m -v"
 
+      - name: Compact TypeScript adoption and incremental parity
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-compact-typescript-adoption-incremental \
+            --memory 4g \
+            --cpus 2 \
+            --gomemlimit 3GiB \
+            --wall-timeout 10m \
+            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestTypeScriptCleanSiblingAdoptionLockedC|TestTypeScriptTokenInvariant(Numeric|Syntax)LockedC|TestStage6TypeScriptCompactCertification)$' -count=1 -parallel 1 -timeout 5m -v"
+
       - name: Compact recovery incremental JavaScript witnesses
         run: |
           GTS_PARITY_MODE=smoke \
