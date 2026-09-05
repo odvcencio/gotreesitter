@@ -7,6 +7,54 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-09-05
+
+### Release overview
+
+- Eligible fresh parses use the compact parser by default. Unsupported cases
+  retain the legacy fallback. This release does not complete compact parser
+  graduation.
+- Compact incremental parsing now reuses authenticated unchanged subtrees.
+  The bounded route includes nested nonterminals with lexer dependency proofs.
+  Edits invalidate affected proofs, including dependencies on examined suffix bytes.
+- The authenticated Go profile supports bounded end-of-file recovery with
+  native error-tree construction. Unsupported recovery cases retain fallback.
+- The detailed entries below preserve the development history, including
+  rejected experiments, superseded measurements, and unresolved parity blockers.
+
+Issue [#1087](https://github.com/odvcencio/gotreesitter/issues/1087) remains open.
+This release temporarily disables the unsafe same-width token-invariant shortcut.
+Real edits reparse through the supported incremental or full-parse route.
+Ordinary subtree reuse and no-edit reuse remain available.
+Restore the shortcut only after complete lexical dependency proofs pass.
+The full correction remains deferred; this mitigation does not close the issue.
+The owner approved the temporary slowdown. The measured single-byte edit rises
+from 1.706 us to 3,350.460 us, with 184.4 KiB and 95 allocations per operation.
+Full-parse and no-edit timing changes are not significant. Full parsing reduces
+allocated bytes by 42.90 percent and allocations by 99.72 percent.
+See the [release performance report](docs/performance/release-v0.52.0-2026-09-05.md).
+
+Lexical error-leaf flags and TypeScript recovery divergences remain graduation work.
+The attempted flag correction changed AWK recovery selection and remains deferred.
+
+### Performance tooling and optimizations
+
+- Pull request [#1089](https://github.com/odvcencio/gotreesitter/pull/1089)
+  restores paired performance evidence and authenticated work counts.
+  The paired driver alternates execution order and rejects incomplete evidence.
+- Pull request [#1090](https://github.com/odvcencio/gotreesitter/pull/1090)
+  caches recovery visible-subtree counts and removes canonicalization callback
+  allocations. The cache reduces time across four frozen Go fixtures.
+  The callback change reduces allocations without a significant timing change.
+  Read the [recovery count report](docs/performance/recovery-visible-count-2026-09-05.md)
+  and [canonicalization report](docs/performance/canonical-owner-binding-2026-09-05.md)
+  for measured commits, paired results, and limits.
+  These measurements precede the temporary shortcut mitigation.
+
+The owner authorized a v0.52.0-only exception for an unsupported tag-creation
+actor rule. All other publication gates remain mandatory. See
+[the dated exception](docs/releasing.md#v0520-only-tag-creation-exception).
+
 ### Performance
 
 - Bound temporary conflict-frontier growth with the maximum of the resolved
@@ -6005,7 +6053,8 @@ Warm-reuse throughput ~10 % higher. 206-grammar parity green under `GTS_PARITY_M
 - Initial standalone pure-Go runtime module.
 - External scanner VM foundation and base parser/lexer/tree infrastructure.
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.51.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.52.0...HEAD
+[0.52.0]: https://github.com/odvcencio/gotreesitter/compare/v0.51.0...v0.52.0
 [0.51.0]: https://github.com/odvcencio/gotreesitter/compare/v0.50.1...v0.51.0
 [0.50.1]: https://github.com/odvcencio/gotreesitter/compare/v0.50.0...v0.50.1
 [0.50.0]: https://github.com/odvcencio/gotreesitter/compare/v0.49.0...v0.50.0

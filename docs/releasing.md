@@ -15,8 +15,9 @@ Keep release planning and campaign notes in the private
 
 ## Release checklist
 
-1. Freeze a coherent scope. Merge its pull requests and clear the pull-request
-   queue; do not release from a feature branch.
+1. Freeze a coherent scope. Merge the pull requests in that release scope.
+   Unrelated open pull requests do not block publication. Do not release from
+   a feature branch.
 2. Move the accumulated changelog entries from `Unreleased` into a dated
    version section. Update the comparison links and the README release status.
 3. Dispatch the full hosted `ci.yml` workflow for the exact commit on `main`.
@@ -82,3 +83,24 @@ controls:
 
 Treat an unsupported tag actor rule as an external blocker. Do not weaken the
 local workflow to compensate for it.
+
+### v0.52.0-only tag-creation exception
+
+On 2026-09-05, the owner authorized one exception for v0.52.0 publication.
+GitHub rejected the tag-creation rule for Actions integration `15368` with
+HTTP status `422`. No such rule was added.
+
+This exception permits v0.52.0 publication without the workflow-only tag-creation
+actor restriction. It does not permit manual publication or bypass another gate.
+Keep these requirements mandatory:
+
+- Publish from the exact candidate commit on protected `main`.
+- Require successful full hosted CI for that exact commit.
+- Require the protected release environment and owner approval.
+- Require the signed release receipt and governed workflow decision.
+- Preserve immutable tags, including rules that block updates and deletions.
+- Complete and record the required correctness and performance evidence.
+
+Keep publication pending until every remaining gate passes.
+This exception grants no authority for another version or future exception.
+It changes neither the validation code nor the release policy.
