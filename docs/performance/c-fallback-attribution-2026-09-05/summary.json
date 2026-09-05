@@ -1,0 +1,140 @@
+{
+  "baseline": "b3a5f9d4129cdb255e01053e6ebf5a7d188fe4b5",
+  "evidence_class": "single diagnostic run; not randomized performance comparison",
+  "edits": [
+    {
+      "edit": "replace",
+      "source_bytes": 140288,
+      "edited_bytes": 140288,
+      "tree_edit_nanos": 802098,
+      "incremental_wall_nanos": 178894042,
+      "fresh_wall_nanos": 146868626,
+      "incremental_digest": "3f51a3e4c10824342dd1a92eee794c94548d214c4cbbf295bec07ef734b9fbf3",
+      "fresh_digest": "3f51a3e4c10824342dd1a92eee794c94548d214c4cbbf295bec07ef734b9fbf3",
+      "nodes": 64010,
+      "profile": {
+        "ReuseCursorNanos": 14220056,
+        "ReparseNanos": 164307928,
+        "ReusedSubtrees": 2,
+        "ReusedBytes": 47,
+        "NewNodesAllocated": 102925,
+        "ReuseUnsupportedReason": "",
+        "TokensConsumed": 41729,
+        "ArenaBytesAllocated": 0,
+        "ScratchBytesAllocated": 0,
+        "ParserLoopNanos": 0
+      },
+      "incremental_runtime": {
+        "NodesAllocated": 102925,
+        "TokensConsumed": 41729,
+        "ArenaBytesAllocated": 0,
+        "ScratchBytesAllocated": 0,
+        "CompactIncrementalFallbackReason": ""
+      },
+      "fresh_runtime": {
+        "NodesAllocated": 102971,
+        "TokensConsumed": 41746,
+        "ArenaBytesAllocated": 0,
+        "ScratchBytesAllocated": 0,
+        "CompactIncrementalFallbackReason": ""
+      }
+    },
+    {
+      "edit": "insert",
+      "source_bytes": 140288,
+      "edited_bytes": 140289,
+      "tree_edit_nanos": 2062986,
+      "incremental_wall_nanos": 178020986,
+      "fresh_wall_nanos": 118815459,
+      "incremental_digest": "71624504e6f716880d16ab40e851069c4e960a083ce34b8283b4ff4401e4f6a4",
+      "fresh_digest": "71624504e6f716880d16ab40e851069c4e960a083ce34b8283b4ff4401e4f6a4",
+      "nodes": 64010,
+      "profile": {
+        "ReuseCursorNanos": 13441118,
+        "ReparseNanos": 164245335,
+        "ReusedSubtrees": 2,
+        "ReusedBytes": 47,
+        "NewNodesAllocated": 102925,
+        "ReuseUnsupportedReason": "",
+        "TokensConsumed": 41729,
+        "ArenaBytesAllocated": 0,
+        "ScratchBytesAllocated": 0,
+        "ParserLoopNanos": 0
+      },
+      "incremental_runtime": {
+        "NodesAllocated": 102925,
+        "TokensConsumed": 41729,
+        "ArenaBytesAllocated": 0,
+        "ScratchBytesAllocated": 0,
+        "CompactIncrementalFallbackReason": ""
+      },
+      "fresh_runtime": {
+        "NodesAllocated": 102971,
+        "TokensConsumed": 41746,
+        "ArenaBytesAllocated": 0,
+        "ScratchBytesAllocated": 0,
+        "CompactIncrementalFallbackReason": ""
+      }
+    },
+    {
+      "edit": "delete",
+      "source_bytes": 140288,
+      "edited_bytes": 140287,
+      "tree_edit_nanos": 1869286,
+      "incremental_wall_nanos": 16710467621,
+      "fresh_wall_nanos": 343772062,
+      "incremental_digest": "9c979bb436f92e7f96885454de81d9d95d2befff242145b1026addf5d9395c4d",
+      "fresh_digest": "9c979bb436f92e7f96885454de81d9d95d2befff242145b1026addf5d9395c4d",
+      "nodes": 64009,
+      "profile": {
+        "ReuseCursorNanos": 210925,
+        "ReparseNanos": 16706278923,
+        "ReusedSubtrees": 4,
+        "ReusedBytes": 18,
+        "NewNodesAllocated": 3165354,
+        "ReuseUnsupportedReason": "incremental_parse_memory_budget_full_retry",
+        "TokensConsumed": 41751,
+        "ArenaBytesAllocated": 39558952,
+        "ScratchBytesAllocated": 22812236,
+        "ParserLoopNanos": 0
+      },
+      "incremental_runtime": {
+        "NodesAllocated": 205934,
+        "TokensConsumed": 41746,
+        "ArenaBytesAllocated": 39558952,
+        "ScratchBytesAllocated": 22812236,
+        "CompactIncrementalFallbackReason": "parser-core fresh-full runner did not accept EOF"
+      },
+      "fresh_runtime": {
+        "NodesAllocated": 205934,
+        "TokensConsumed": 41746,
+        "ArenaBytesAllocated": 39558952,
+        "ScratchBytesAllocated": 22812236,
+        "CompactIncrementalFallbackReason": ""
+      }
+    }
+  ],
+  "abandoned": {
+    "StopReason": "memory_budget",
+    "NodesAllocated": 3165354,
+    "TokensConsumed": 15583,
+    "ArenaBytesAllocated": 539573680,
+    "ScratchBytesAllocated": 215488076,
+    "ParserLoopNanos": 16297714925
+  },
+  "retry_boundary_nanos": 350529769,
+  "compact_attempts": [
+    "COMPACT_ATTEMPT bytes=140288 accepted=true nanos=174763845 reason=\"\"",
+    "COMPACT_ATTEMPT bytes=140288 accepted=true nanos=143381061 reason=\"\"",
+    "COMPACT_ATTEMPT bytes=140288 accepted=true nanos=143004820 reason=\"\"",
+    "COMPACT_ATTEMPT bytes=140288 accepted=true nanos=147455033 reason=\"\"",
+    "COMPACT_ATTEMPT bytes=140288 accepted=true nanos=146414386 reason=\"\"",
+    "COMPACT_ATTEMPT bytes=140288 accepted=true nanos=118859226 reason=\"\"",
+    "COMPACT_ATTEMPT bytes=140289 accepted=true nanos=118377360 reason=\"\"",
+    "COMPACT_ATTEMPT bytes=140288 accepted=true nanos=131062727 reason=\"\"",
+    "COMPACT_ATTEMPT bytes=140287 accepted=false nanos=732115 reason=\"compact route error: parser-core fresh-full runner did not accept EOF\""
+  ],
+  "max_rss_kib": 1062712,
+  "rss_scope": "go test including build and all three edits",
+  "locked_c_parity_claimed": false
+}

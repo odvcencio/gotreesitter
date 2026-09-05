@@ -1,0 +1,111 @@
+--- a/parser_retry.go
++++ b/parser_retry.go
+@@ -1,6 +1,8 @@
+ package gotreesitter
+ 
+ import (
++ "encoding/json"
++ "fmt"
+ 	"sync/atomic"
+ 	"time"
+ )
+@@ -2135,6 +2137,10 @@
+ // completes with a root; otherwise the original (already-unsound) tree is
+ // returned unchanged rather than risk losing it to a second failed attempt.
+ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, tree *Tree, timing *incrementalParseTiming) *Tree {
++ diagnosticStarted := time.Now()
++ defer func() { fmt.Printf("RETRY_BOUNDARY_WALL %d\n", time.Since(diagnosticStarted).Nanoseconds()) }()
++ if tree != nil { receipt, _ := json.Marshal(tree.ParseRuntime()); fmt.Printf("RETRY_ABANDONED_RUNTIME %s\n", receipt) }
++
+ 	if tree == nil {
+ 		return tree
+ 	}
+--- a/admission_switch.go
++++ b/admission_switch.go
+@@ -1,6 +1,8 @@
+ package gotreesitter
+ 
+ import (
++ "fmt"
++ "time"
+ 	"os"
+ 	"strings"
+ 	"sync/atomic"
+@@ -312,7 +314,9 @@
+ 	if !p.admissionCandidateFullParseEligible(oldTree, usingProductionDFA) {
+ 		return nil, false
+ 	}
+-	tree, ok, reason := p.tryCompactFullParseRoute(source)
++	diagnosticStarted := time.Now()
++ tree, ok, reason := p.tryCompactFullParseRoute(source)
++ fmt.Printf("COMPACT_ATTEMPT bytes=%d accepted=%t nanos=%d reason=%q\n",len(source),ok,time.Since(diagnosticStarted).Nanoseconds(),reason)
+ 	if ok && tree != nil {
+ 		admissionCandidateRouted.Add(1)
+ 		return tree, true
+--- a/grammars/c_issue454_regression_test.go
++++ b/grammars/c_issue454_regression_test.go
+@@ -2,6 +2,8 @@
+ 
+ import (
+ 	"bytes"
++ "encoding/json"
++ "time"
+ 	"testing"
+ 
+ 	gotreesitter "github.com/odvcencio/gotreesitter"
+@@ -105,7 +107,8 @@
+ 			}
+ 			defer oldTree.Release()
+ 			point := issue454PointAt(source, site)
+-			oldTree.Edit(gotreesitter.InputEdit{
++			editStart := time.Now()
++ oldTree.Edit(gotreesitter.InputEdit{
+ 				StartByte:   uint32(site),
+ 				OldEndByte:  uint32(test.oldEnd),
+ 				NewEndByte:  uint32(test.newEnd),
+@@ -114,11 +117,14 @@
+ 				NewEndPoint: gotreesitter.Point{Row: point.Row, Column: point.Column + test.newCols},
+ 			})
+ 
+-			incremental, profile, err := gotreesitter.NewParser(lang).ParseIncrementalProfiled(test.edited, oldTree)
++			editNanos := time.Since(editStart).Nanoseconds()
++ parseStart := time.Now()
++ incremental, profile, err := gotreesitter.NewParser(lang).ParseIncrementalProfiled(test.edited, oldTree)
+ 			if err != nil {
+ 				t.Fatalf("ParseIncrementalProfiled: %v", err)
+ 			}
+ 			defer incremental.Release()
++ incrementalNanos := time.Since(parseStart).Nanoseconds()
+ 			if incremental.ParseStoppedEarly() {
+ 				t.Fatalf("incremental parse stopped early: %s", incremental.ParseRuntime().Summary())
+ 			}
+@@ -131,16 +137,26 @@
+ 				t.Fatalf("%s: expected genuine old-tree reuse, got none: profile = %+v", test.name, profile)
+ 			}
+ 
+-			fresh, err := gotreesitter.NewParser(lang).Parse(test.edited)
++			freshStart := time.Now()
++ fresh, err := gotreesitter.NewParser(lang).Parse(test.edited)
+ 			if err != nil {
+ 				t.Fatalf("fresh edited Parse: %v", err)
+ 			}
+ 			defer fresh.Release()
++ freshNanos := time.Since(freshStart).Nanoseconds()
+ 
+ 			got := issue454CTreeShape(t, lang, incremental)
+ 			want := issue454CTreeShape(t, lang, fresh)
+-			if got != want {
+-				t.Fatalf("incremental shape = %+v, fresh shape = %+v", got, want)
++			receipt, marshalErr := json.Marshal(map[string]any{
++"edit":test.name,"source_bytes":len(source),"edited_bytes":len(test.edited),
++"tree_edit_nanos":editNanos,"incremental_wall_nanos":incrementalNanos,"fresh_wall_nanos":freshNanos,
++"profile":profile,"incremental_runtime":incremental.ParseRuntime(),"fresh_runtime":fresh.ParseRuntime(),
++"incremental_digest":got.digest,"fresh_digest":want.digest,"nodes":got.nodes,
++})
++if marshalErr != nil {t.Fatal(marshalErr)}
++t.Logf("FALLBACK_RECEIPT %s",receipt)
++if got != want {
++                t.Fatalf("incremental shape = %+v, fresh shape = %+v", got, want)
+ 			}
+ 		})
+ 	}

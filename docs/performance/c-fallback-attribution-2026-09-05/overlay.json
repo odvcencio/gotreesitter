@@ -1,0 +1,7 @@
+{
+  "Replace": {
+    "/workspace/grammars/c_issue454_regression_test.go": "/evidence/c_issue454_regression_test.go",
+    "/workspace/parser_retry.go": "/evidence/parser_retry.go",
+    "/workspace/admission_switch.go": "/evidence/admission_switch.go"
+  }
+}
