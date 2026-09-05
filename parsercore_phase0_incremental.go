@@ -30,12 +30,12 @@ type compactIncrementalReuseSession struct {
 	reusedBytes    uint64
 }
 
-func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, string) {
+func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, string, bool) {
 	if oldTree == nil || oldTree.language != p.language || !oldTree.compactMaterialized ||
 		oldTree.incrementalReuseDisabled || len(oldTree.edits) == 0 ||
 		oldTree.root == nil || oldTree.root.HasError() || p.recoveryInitialOnly ||
 		!p.admissionCandidateFullParseEligible(nil, true) {
-		return nil, ""
+		return nil, "", false
 	}
 	p.fullParseRetryPassesTaken = 0
 	// Preserve the existing token-invariant fast path for same-width leaf edits.
@@ -46,7 +46,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 			probeStarted = time.Now()
 		}
 		if tree, ok := p.tryTokenInvariantReuseWithDFA(source, oldTree, timing); ok {
-			return tree, ""
+			return tree, "", false
 		}
 		if timing != nil {
 			probeNanos := time.Since(probeStarted).Nanoseconds()
@@ -57,7 +57,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	if p.language.ExternalScanner != nil {
 		stateless, ok := p.language.ExternalScanner.(StatelessExternalScanner)
 		if !ok || !stateless.ExternalScannerIsStateless() {
-			return nil, ""
+			return nil, "", false
 		}
 	}
 	started := time.Now()
@@ -68,7 +68,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	defer endBudget()
 	runner, err := p.acquireAdmissionCandidateRunner()
 	if err != nil {
-		return nil, err.Error()
+		return nil, err.Error(), false
 	}
 	oldTree.ensureParentLinks()
 	p.reuseMu.Lock()
@@ -97,6 +97,8 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		timing.tokensConsumed = runner.scheduler.tokens
 	}
 	if err != nil || tree == nil || session.reusedSubtrees == 0 {
+		recoveryDeclined := err != nil && runner.scheduler.options.compactIncrementalReuse == session &&
+			runner.scheduler.receipt != nil && runner.scheduler.receipt.Stop.Boundary == DiagnosticParserCoreRecovery
 		if tree != nil {
 			tree.Release()
 		}
@@ -104,7 +106,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		if err == nil {
 			err = errors.New("compact incremental parse found no authenticated subtree")
 		}
-		return nil, errors.Join(err, resetErr).Error()
+		return nil, errors.Join(err, resetErr).Error(), recoveryDeclined && resetErr == nil
 	}
 	// Publish parent links only after every decline check has passed.
 	// Borrowed nodes consult their old arena, so deferred new-arena links are insufficient.
@@ -114,7 +116,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 		timing.newNodes = uint64(tree.parseRuntime.NodesAllocated)
 		timing.selectResult(tree)
 	}
-	return tree, ""
+	return tree, "", false
 }
 
 // tryCompactIncrementalReuse runs before ordinary dispatch, after each reduction.

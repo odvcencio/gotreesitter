@@ -347,6 +347,13 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 	if r == nil || scheduler == nil {
 		return nil, errors.New("parser-core fresh-full selected materialization is incomplete")
 	}
+	if r.recoveryVersionTurnPublicationRequired(scheduler) &&
+		(!scheduler.recoveryTurns.active || scheduler.work.RecoverEOFAccepts == 0) {
+		return nil, &diagnosticParserCoreDecline{
+			boundary: DiagnosticParserCoreAccept,
+			detail:   "owned recovery publication requires an executed EOF turn",
+		}
+	}
 	gated, err := scheduler.beginCompactEOFRecoveryConstruction(
 		source,
 		compactEOFRecoveryAdmissionRoutePublicTree,
@@ -361,7 +368,13 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 	if r.recoverEOFFinalizationAdmitted(scheduler) {
 		rootFinalization = diagnosticParserCoreFinalizeRecoverEOF
 		allowErrorRoot = true
+	} else if r.options.allowCompactRecoveryVersionTurns && scheduler.recoveryTurns.active && allowErrorRoot {
+		rootFinalization = diagnosticParserCoreFinalizeOwnedRecovery
+		if scheduler.acceptedRootFinalization == diagnosticParserCoreFinalizeRecoverEOF {
+			rootFinalization = diagnosticParserCoreFinalizeRecoverEOF
+		}
 	}
+	r.scratch.materializationBudgetScheduler = scheduler
 	tree, err := materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(
 		compact,
 		scheduler.acceptedHead,
@@ -379,6 +392,13 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 	return tree, err
 }
 
+// The new route does not certify shared S3 recovery. Require its own execution
+// for recovery results, while leaving clean parsing and older routes unchanged.
+func (r *parserCoreFreshFullRunner) recoveryVersionTurnPublicationRequired(scheduler *diagnosticParserCoreGenericScheduler) bool {
+	return r.options.allowCompactRecoveryVersionTurns &&
+		(scheduler.s3RegionOpened || scheduler.recoveryTurns.active || scheduler.work.RecoverEOFAccepts != 0)
+}
+
 func (r *parserCoreFreshFullRunner) materializeSelectedStoreSelection(
 	source []byte,
 	compact *core.Core,
@@ -387,6 +407,9 @@ func (r *parserCoreFreshFullRunner) materializeSelectedStoreSelection(
 ) (*core.SelectedStore, error) {
 	if r == nil || compact == nil || scheduler == nil {
 		return nil, errors.New("parser-core fresh-full selected-store construction is incomplete")
+	}
+	if r.recoveryVersionTurnPublicationRequired(scheduler) {
+		return nil, errors.New("parser-core fresh-full selected-store does not support owned recovery roots")
 	}
 	if scheduler.acceptedRootFinalization == diagnosticParserCoreFinalizeRecoverEOF {
 		return nil, errors.New("parser-core fresh-full selected-store does not support recover_eof roots")
@@ -451,6 +474,9 @@ func (r *parserCoreFreshFullRunner) parseWithObserver(
 		}
 		if !compactRecoveryRetryAfterPlainEligible(err) {
 			return nil, err
+		}
+		if r.scratch.freshAttemptWork != nil {
+			r.scratch.freshAttemptWork.tokens += r.scheduler.tokens
 		}
 		return r.parseWithObserverAndErrorRuns(source, observer, true, true)
 	}

@@ -1077,9 +1077,12 @@ type ParseRuntime struct {
 	// an actual old-tree reuse parse rather than an internal fresh fallback.
 	IncrementalOldTreeReuseRoute bool
 	// CompactIncrementalReuseRoute records execution with borrowed compact subtrees.
-	CompactIncrementalReuseRoute     bool
-	CompactIncrementalReusedSubtrees uint64
-	CompactIncrementalReusedBytes    uint64
+	CompactIncrementalReuseRoute bool
+	// CompactIncrementalFullRecoveryRoute records a fresh compact recovery fallback.
+	// This route does not borrow old-tree nodes.
+	CompactIncrementalFullRecoveryRoute bool
+	CompactIncrementalReusedSubtrees    uint64
+	CompactIncrementalReusedBytes       uint64
 	// CompactIncrementalFallbackReason records an attempted compact reparse decline.
 	CompactIncrementalFallbackReason string
 	// CompactReductions counts reductions executed by the compact scheduler.

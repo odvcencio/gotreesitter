@@ -36,6 +36,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactMissingTokenInsertion        bool
 	compactS5EOFMissingInsertion        bool
 	compactFaithfulS5Recovery           bool
+	compactOwnedEOFRecovery             bool
 	compactRecoveryTrailingRetirement   bool
 	compactRecoveryErrorModeKeyword     bool
 	compactRecoveryTerminalAliases      []compactRecoveryTerminalAliasProfile
@@ -69,9 +70,11 @@ const (
 var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// The canonical compact corpus certifies Go's converged-path split drops
 	// against the production parser and the tree-sitter C oracle.
+	// The owned EOF bundle requires its executed recovery route before publication.
 	"go": {
 		blobSHA256:                 mustRuntimeProfileSHA256("9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"),
 		compactConvergedSplitDrops: true,
+		compactOwnedEOFRecovery:    true,
 	},
 	// YAML's irreducible flow opener has one direct no-action EOF lineage whose
 	// C result is the recover_eof ERROR root. Keep this gate independent from
@@ -827,6 +830,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactFaithfulS5Recovery && !lang.CompactFaithfulS5RecoveryCertified {
 		lang.CompactFaithfulS5RecoveryCertified = true
+		changed = true
+	}
+	if profile.compactOwnedEOFRecovery && !lang.CompactOwnedEOFRecoveryCertified {
+		lang.CompactOwnedEOFRecoveryCertified = true
 		changed = true
 	}
 	if profile.compactRecoveryTrailingRetirement && !lang.CompactRecoveryTrailingLineageRetirementCertified {

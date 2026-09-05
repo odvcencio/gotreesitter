@@ -1133,6 +1133,9 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 	s.epochProgress = true
 	s.s5MissingInsertions++
 	staged.missingTokenCommits++
+	if s.options.allowCompactRecoveryVersionTurns {
+		s.recoveryTurns = diagnosticParserCoreRecoveryTurns{active: true, lastByte: originalByte}
+	}
 	// Match ordinary scheduler publication. Canonicalization clears stale
 	// freshness and reconciles equivalent physical heads before ownership is
 	// persisted for the next dispatch.
@@ -1161,6 +1164,15 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertionFaithfu
 	}
 	if s.token.Symbol == 0 && !s.options.allowCompactS5EOFMissingInsertion {
 		return false, nil
+	}
+	// This route owns the first recovery episode. Earlier shared recovery or
+	// sibling drops require advance ordering that this route has not executed.
+	if s.options.allowCompactRecoveryVersionTurns &&
+		(s.s3RegionOpened || s.s3ResumeCount != 0 || s.work.NoActionDrops != 0) {
+		return false, &diagnosticParserCoreDecline{
+			boundary: DiagnosticParserCoreRecovery,
+			detail:   "owned recovery requires no prior shared recovery or no-action drops",
+		}
 	}
 	snapshot := captureDiagnosticParserCoreS5Scheduler(s)
 	staged := diagnosticParserCoreS5Work{}

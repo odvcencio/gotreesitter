@@ -4,8 +4,12 @@ package gotreesitter
 
 func (p *Parser) recordLegacyParserEntry() {}
 
-func (p *Parser) attemptCompactIncrementalParse(_ []byte, _ *Tree, _ *incrementalParseTiming) (*Tree, string) {
-	return nil, ""
+func (p *Parser) attemptCompactIncrementalParse(_ []byte, _ *Tree, _ *incrementalParseTiming) (*Tree, string, bool) {
+	return nil, "", false
+}
+
+func (p *Parser) attemptCompactIncrementalRecoveryFullParse(_ []byte, _ string, _ bool, _ *incrementalParseTiming) *Tree {
+	return nil
 }
 
 // tryCompactFullParseRoute is the emergency-build stub for the compact

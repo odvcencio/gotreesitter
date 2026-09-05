@@ -122,6 +122,9 @@ type DiagnosticParserCorePrefixOptions struct {
 	// allowCompactFaithfulS5Recovery selects the complete S5 physical
 	// graph-head scan. Uncertified artifacts retain the bounded legacy scan.
 	allowCompactFaithfulS5Recovery bool
+	// allowCompactRecoveryVersionTurns enables owned C advance rounds after S5.
+	// Artifact admission remains separate from this private runtime capability.
+	allowCompactRecoveryVersionTurns bool
 	// allowCompactRecoveryLineageSelection permits completeAcceptance to
 	// resolve MORE THAN ONE accepted head by pricing the competing recovery
 	// lineages and publishing the cheaper tree, instead of declining.
@@ -2804,6 +2807,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	// versionLexerOwnershipActive keeps each live header on its own DFA and
 	// scanner cursor until one version remains and rejoins shared election.
 	versionLexerOwnershipActive bool
+	recoveryTurns               diagnosticParserCoreRecoveryTurns
 	// versionLexerNoActionProof is true only during one exact C-style drop:
 	// owned versions shared a token start, at least one shifted, and the
 	// remaining versions exhausted reductions without an action.
@@ -5344,6 +5348,9 @@ func (s *diagnosticParserCoreGenericScheduler) requestVersionLexerHeader(index i
 	if existing := s.versionLexerRequestForHeader(index); existing != nil {
 		return nil
 	}
+	if s.recoveryTurns.active && s.tokens >= s.options.MaxTokens {
+		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "generic scheduler token cap"}
+	}
 	header := &s.headers[index]
 	base := header.versionLexerSnapshot()
 	if base == nil {
@@ -5368,6 +5375,9 @@ func (s *diagnosticParserCoreGenericScheduler) requestVersionLexerHeader(index i
 	state, _, err := s.compact.Boundary(header.head)
 	if err != nil {
 		return err
+	}
+	if s.recoveryTurns.active && header.recoveryRegion() != nil {
+		state = 0
 	}
 	s.tokenSource.SetParserState(StateID(state))
 	s.tokenSource.SetGLRStates(nil)
@@ -5422,6 +5432,9 @@ func (s *diagnosticParserCoreGenericScheduler) requestVersionLexerHeader(index i
 	header.checkpoint = afterID
 	s.work.add(&s.work.PerVersionLexPublications, 1) // the after snapshot is a sidecar publication
 	s.work.add(&s.work.PerVersionLexRequests, 1)
+	if s.recoveryTurns.active {
+		s.tokens++
+	}
 	if uint64(len(s.headers)) > s.work.PeakLiveVersions {
 		s.work.PeakLiveVersions = uint64(len(s.headers))
 	}
@@ -6176,10 +6189,14 @@ const parserCoreMaxRetainedLineStarts = 256 * 1024
 // arena reuse: the warm steady state stops re-allocating the public-tree
 // scratch on every parse.
 type parserCoreRunnerScratch struct {
-	materialization  diagnosticParserCoreMaterializationScratch
-	postorder        core.MaterializationPostorderScratch
-	acceptedLeaves   diagnosticParserCoreAcceptedLeafCoverageScratch
-	incrementalReuse *compactIncrementalReuseSession
+	materialization                diagnosticParserCoreMaterializationScratch
+	postorder                      core.MaterializationPostorderScratch
+	acceptedLeaves                 diagnosticParserCoreAcceptedLeafCoverageScratch
+	materializationBudgetScheduler *diagnosticParserCoreGenericScheduler
+	incrementalReuse               *compactIncrementalReuseSession
+	// freshAttemptWork spans fresh retries within one profiled operation.
+	// Its caller clears this pointer after all attempts finish.
+	freshAttemptWork *compactFreshAttemptWork
 	// recoveryTerminalAliasSymbol is valid only when the exact artifact rule
 	// also set recoveryTerminalAliasCertified for this materialization.
 	recoveryTerminalAliasSymbol    Symbol
@@ -6206,7 +6223,7 @@ type diagnosticParserCoreAcceptedLeafSpan struct {
 
 type diagnosticParserCoreAcceptedLeafCoverageScratch struct {
 	spans                           []diagnosticParserCoreAcceptedLeafSpan
-	authenticatedAliases            []*Node
+	authenticatedAliases            map[*Node]struct{}
 	leadingLexerSkippedPrefixStarts []uint32
 }
 
@@ -6220,18 +6237,36 @@ func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) reset() {
 		clear(scratch.spans)
 		scratch.spans = scratch.spans[:0]
 	}
-	if cap(scratch.authenticatedAliases) > parserCoreMaxRetainedAcceptedLeafSpans {
-		scratch.authenticatedAliases = nil
-	} else {
-		clear(scratch.authenticatedAliases)
-		scratch.authenticatedAliases = scratch.authenticatedAliases[:0]
-	}
+	// Recovery-only maps do not retain nodes or buckets between parses.
+	scratch.authenticatedAliases = nil
 	if cap(scratch.leadingLexerSkippedPrefixStarts) > parserCoreMaxRetainedAcceptedLeafSpans {
 		scratch.leadingLexerSkippedPrefixStarts = nil
 	} else {
 		clear(scratch.leadingLexerSkippedPrefixStarts)
 		scratch.leadingLexerSkippedPrefixStarts = scratch.leadingLexerSkippedPrefixStarts[:0]
 	}
+}
+
+// footprintBytes includes coverage buffers and a conservative live map estimate.
+func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) footprintBytes() uint64 {
+	if scratch == nil {
+		return 0
+	}
+	bytes := uint64(cap(scratch.spans))*uint64(unsafe.Sizeof(diagnosticParserCoreAcceptedLeafSpan{})) +
+		uint64(cap(scratch.leadingLexerSkippedPrefixStarts))*uint64(unsafe.Sizeof(uint32(0)))
+	if scratch.authenticatedAliases != nil {
+		// Include map metadata, spare capacity, and growth storage. This is
+		// an estimate, not a dependency on the Go runtime's map layout.
+		bytes += 256 + uint64(len(scratch.authenticatedAliases))*64
+	}
+	return bytes
+}
+
+func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) recordAuthenticatedAlias(node *Node) {
+	if scratch.authenticatedAliases == nil {
+		scratch.authenticatedAliases = make(map[*Node]struct{})
+	}
+	scratch.authenticatedAliases[node] = struct{}{}
 }
 
 func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) prepareLexerSkippedPrefixes(subtrees int) {
@@ -6351,12 +6386,8 @@ func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) hasAuthenticated
 	if scratch == nil {
 		return false
 	}
-	for _, alias := range scratch.authenticatedAliases {
-		if alias == node {
-			return true
-		}
-	}
-	return false
+	_, ok := scratch.authenticatedAliases[node]
+	return ok
 }
 
 func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) authenticateDirectTerminalAliases(
@@ -6367,7 +6398,7 @@ func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) authenticateDire
 	aliasSymbol Symbol,
 	nodesByID []*Node,
 ) {
-	if scratch == nil || parser == nil || parser.language == nil || aliasSymbol == 0 {
+	if scratch == nil || parser == nil || parser.language == nil {
 		return
 	}
 	aliases := parser.reduceAliasSequence(productionID)
@@ -6385,7 +6416,9 @@ func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) authenticateDire
 			alias = aliases[structuralChild]
 		}
 		structuralChild++
-		if alias != aliasSymbol || raw.symbol == alias ||
+		// A zero filter admits each nonzero alias from this production.
+		// The raw terminal and projected clone still require exact provenance.
+		if alias == 0 || (aliasSymbol != 0 && alias != aliasSymbol) || raw.symbol == alias ||
 			uint32(raw.symbol) >= parser.language.TokenCount ||
 			nodeChildCountNoMaterialize(raw) != 0 ||
 			!scratch.hasVisibleTerminalNode(raw.startByte, raw.endByte, raw, nodesByID) {
@@ -6405,7 +6438,7 @@ func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) authenticateDire
 			match = child
 		}
 		if match != nil {
-			scratch.authenticatedAliases = append(scratch.authenticatedAliases, match)
+			scratch.recordAuthenticatedAlias(match)
 		}
 	}
 }
@@ -6451,6 +6484,7 @@ func (s *parserCoreRunnerScratch) resetTreeBuffers() {
 	}
 	s.postorder.Reset()
 	s.acceptedLeaves.reset()
+	s.materializationBudgetScheduler = nil
 	s.incrementalReuse = nil
 	s.recoveryTerminalAliasSymbol = 0
 	s.recoveryTerminalAliasCertified = false
@@ -6565,6 +6599,10 @@ func materializeDiagnosticParserCoreAcceptedTree(compact *core.Core, head core.H
 // can complete -- the span-completeness half of the check (root must still
 // cover the whole source) stays in force unconditionally either way.
 func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node) error {
+	return finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root, source, sourceLen, allowErrorRoot, continuationEscape, poll, tokenCount, coverage, nodesByID, false)
+}
+
+func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node, nativeAcceptSplice bool) error {
 	expectedStart := firstNonTriviaByteStart(source)
 	clean := allowErrorRoot || (!root.IsError() && !root.HasError())
 	if root.startByte == expectedStart && root.endByte < sourceLen && clean {
@@ -6626,7 +6664,7 @@ func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sou
 			if err := poll(); err != nil {
 				return err
 			}
-			if diagnosticParserCoreAcceptedRootTrailingErrorExtraGap(root) {
+			if !nativeAcceptSplice && diagnosticParserCoreAcceptedRootTrailingErrorExtraGap(root) {
 				return fmt.Errorf(
 					"parser-core phase zero: accepted compact root carries an error-bearing trailing extra payload after its last non-extra child: root=%d..%d",
 					root.startByte, root.endByte,
@@ -7165,6 +7203,7 @@ type diagnosticParserCoreRootFinalization uint8
 const (
 	diagnosticParserCoreFinalizeDefault diagnosticParserCoreRootFinalization = iota
 	diagnosticParserCoreFinalizeRecoverEOF
+	diagnosticParserCoreFinalizeOwnedRecovery
 )
 
 // materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization keeps
@@ -7179,7 +7218,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	if compact == nil || parser == nil || parser.language == nil || head.Node == 0 || len(payloads) == 0 {
 		return nil, errors.New("parser-core phase zero: incomplete accepted-tree selection input")
 	}
-	if rootFinalization != diagnosticParserCoreFinalizeDefault && rootFinalization != diagnosticParserCoreFinalizeRecoverEOF {
+	if rootFinalization != diagnosticParserCoreFinalizeDefault && rootFinalization != diagnosticParserCoreFinalizeRecoverEOF && rootFinalization != diagnosticParserCoreFinalizeOwnedRecovery {
 		return nil, errors.New("parser-core phase zero: unknown accepted-root finalization")
 	}
 	if incrementalReuse != nil && (allowErrorRoot || rootFinalization != diagnosticParserCoreFinalizeDefault) {
@@ -7204,8 +7243,13 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	owned := true
 	allocationRecorded := false
 	recordAllocation := func() {
-		if !allocationRecorded && incrementalReuse != nil && incrementalReuse.timing != nil {
-			incrementalReuse.timing.newNodes += uint64(arena.used)
+		if !allocationRecorded {
+			if incrementalReuse != nil && incrementalReuse.timing != nil {
+				incrementalReuse.timing.newNodes += uint64(arena.used)
+			}
+			if scratch != nil && scratch.freshAttemptWork != nil {
+				scratch.freshAttemptWork.allocatedNodes += uint64(arena.used)
+			}
 		}
 		allocationRecorded = true
 	}
@@ -7215,10 +7259,25 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			arena.Release()
 		}
 	}()
+	var acceptedLeaves *diagnosticParserCoreAcceptedLeafCoverageScratch
+	var budgetScheduler *diagnosticParserCoreGenericScheduler
+	if scratch != nil {
+		budgetScheduler = scratch.materializationBudgetScheduler
+	}
+	if incrementalReuse != nil && incrementalReuse.scheduler != nil {
+		budgetScheduler = incrementalReuse.scheduler
+	}
 	poll := func() error {
 		reason := parser.resultMaterializationStopReason(arena)
-		if !resultMaterializationShouldStop(reason) && incrementalReuse != nil && incrementalReuse.scheduler != nil {
-			reason = incrementalReuse.scheduler.stopControlMemoryBudgetReasonWithAdditionalBytes(arenaAllocatedVolume(arena))
+		if !resultMaterializationShouldStop(reason) && budgetScheduler != nil {
+			additional := arenaAllocatedVolume(arena)
+			coverageBytes := acceptedLeaves.footprintBytes()
+			if math.MaxUint64-additional < coverageBytes {
+				additional = math.MaxUint64
+			} else {
+				additional += coverageBytes
+			}
+			reason = budgetScheduler.stopControlMemoryBudgetReasonWithAdditionalBytes(additional)
 		}
 		if !resultMaterializationShouldStop(reason) {
 			return nil
@@ -7328,7 +7387,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		node.setFragileRight(true)
 	}
 	var acceptedLeavesLocal diagnosticParserCoreAcceptedLeafCoverageScratch
-	acceptedLeaves := &acceptedLeavesLocal
+	acceptedLeaves = &acceptedLeavesLocal
 	if scratch != nil {
 		scratch.acceptedLeaves.reset()
 		acceptedLeaves = &scratch.acceptedLeaves
@@ -7576,7 +7635,14 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 					return fmt.Errorf("reduce symbol=%d production=%d: %w", view.Symbol, view.ProductionID, err)
 				}
 			}
-			if recoveryTerminalAlias != 0 {
+			// Production alias authentication belongs to native owned recovery.
+			// Existing shared recovery keeps its artifact-specific admission.
+			if allowErrorRoot && parser.language.CompactOwnedEOFRecoveryCertified &&
+				rootFinalization != diagnosticParserCoreFinalizeDefault {
+				acceptedLeaves.authenticateDirectTerminalAliases(
+					parser, entries, children, view.ProductionID, 0, nodesByID,
+				)
+			} else if recoveryTerminalAlias != 0 {
 				acceptedLeaves.authenticateDirectTerminalAliases(
 					parser, entries, children, view.ProductionID, recoveryTerminalAlias, nodesByID,
 				)
@@ -7694,6 +7760,12 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		// any language result-compatibility rewrite.
 		builder := newResultRootBuild(parser, source, arena, nil, nil, linkScratch)
 		tree = builder.finishRecoverEOFTree(nodes[0], builder.shouldWireParentLinks)
+	} else if rootFinalization == diagnosticParserCoreFinalizeOwnedRecovery {
+		var buildErr error
+		tree, buildErr = buildCompactOwnedRecoveryAcceptedTree(parser, nodes, source, arena, linkScratch)
+		if buildErr != nil {
+			return nil, buildErr
+		}
 	} else {
 		tree = parser.buildResultFromNodes(nodes, source, arena, oldTree, reuseState, linkScratch)
 	}
@@ -7749,7 +7821,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			))
 		}
 	} else {
-		if err := finalizeDiagnosticParserCoreAcceptedRootSpan(root, source, sourceLen, allowErrorRoot, parser.lineContinuationEscapeByte(), poll, parser.language.TokenCount, acceptedLeaves, nodesByID); err != nil {
+		if err := finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root, source, sourceLen, allowErrorRoot, parser.lineContinuationEscapeByte(), poll, parser.language.TokenCount, acceptedLeaves, nodesByID, rootFinalization == diagnosticParserCoreFinalizeOwnedRecovery); err != nil {
 			return rejectTree(err)
 		}
 	}
@@ -8167,6 +8239,7 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	add(len(s.seedHeaders), unsafe.Sizeof(diagnosticParserCoreHeader{}))
 	add(len(s.corridorCells), unsafe.Sizeof(diagnosticParserCoreGenericCell{}))
 	add(1, unsafe.Sizeof(s.tokenCell))
+	add(1, unsafe.Sizeof(s.recoveryTurns))
 	if s.compact != nil {
 		coreBytes := s.compact.FootprintBytes()
 		if math.MaxUint64-total < coreBytes {
@@ -8206,7 +8279,8 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReason() P
 	return s.stopControlMemoryBudgetReasonWithAdditionalBytes(0)
 }
 
-// stopControlMemoryBudgetReasonWithAdditionalBytes includes the new materialization arena during incremental execution.
+// stopControlMemoryBudgetReasonWithAdditionalBytes includes the materialization
+// arena and coverage scratch during fresh and incremental execution.
 func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWithAdditionalBytes(additional uint64) ParseStopReason {
 	if s == nil {
 		return ParseStopNone
@@ -8334,6 +8408,19 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 	for {
 		if err := s.pollStopControl(); err != nil {
 			return err
+		}
+		if s.recoveryTurns.active {
+			stop, err := s.dispatchRecoveryVersionTurn()
+			if err != nil {
+				return err
+			}
+			if stop != nil {
+				return s.finish(stop.boundary, stop.detail, stop.headerIndex)
+			}
+			if s.receipt != nil && (s.receipt.Acceptance != nil || s.receipt.Stop.Detail != "") {
+				return nil
+			}
+			continue
 		}
 		if uint64(len(s.headers)) > s.work.PeakHeaders {
 			s.work.PeakHeaders = uint64(len(s.headers))
@@ -8680,6 +8767,9 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 	noActionIndices := s.dispatchScratch.noActionIndices[:0]
 	acceptCell, extraCell, reductionCell, conflictCell, shiftCell := -1, -1, -1, -1, -1
 	for index := range s.headers {
+		if s.recoveryTurns.active && index != s.recoveryTurns.index {
+			continue
+		}
 		if s.headers[index].paused {
 			if s.headers[index].shifted || s.headers[index].accepted ||
 				s.versionLexerRequestForHeader(index) == nil {
@@ -8814,7 +8904,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() 
 			if err := s.applyGenericAccept(before, cell); err != nil {
 				return err
 			}
-			if competingRecoveryAccept {
+			if competingRecoveryAccept && !s.recoveryTurns.active {
 				return s.completeAcceptance()
 			}
 			return nil
@@ -10775,6 +10865,12 @@ func (s *diagnosticParserCoreGenericScheduler) completeAcceptance() (err error) 
 		return s.finish(DiagnosticParserCoreAccept, "generic scheduler requires one certified accepted derivation", 0)
 	}
 	path := selection.path
+	if s.recoveryTurns.active {
+		s.acceptedRootFinalization = diagnosticParserCoreFinalizeDefault
+		if len(path.Payloads) == 1 && s.compact.IsRecoverEOFAcceptRoot(path.Payloads[0]) {
+			s.acceptedRootFinalization = diagnosticParserCoreFinalizeRecoverEOF
+		}
+	}
 	materialityCertified := selection.materialityCertified
 	// The R1 materiality gate remains the fallback for tied frontiers without
 	// an exact structural-election capability. A certified primary or a
@@ -12119,6 +12215,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		s.work.ReductionPauses++
 	} else if len(replacements) == 1 {
 		s.headers[cell.headerIndex] = replacements[0]
+	} else if s.recoveryTurns.active {
+		s.headers[cell.headerIndex] = replacements[0]
+		s.headers = append(s.headers, replacements[1:]...)
 	} else {
 		s.headers = replaceDiagnosticParserCoreHeader(s.headers, int(cell.headerIndex), replacements)
 	}
@@ -13252,7 +13351,7 @@ func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwnedWithMutation(own
 	if err != nil {
 		return err
 	}
-	if s.recoveryIsolation {
+	if s.recoveryIsolation && (!s.recoveryTurns.active || s.recoveryTurns.condensing) {
 		var drops uint64
 		var applied bool
 		headers, drops, applied, err = s.condenseRecoveryVersions(owner, headers)
@@ -13571,6 +13670,7 @@ func authenticatedParserCoreGoLanguage(scanner ExternalScanner) (*Language, erro
 	decoded.Name = "go"
 	decoded.ExternalScanner = scanner
 	decoded.CompactConvergedReductionSplitDropsCertified = true
+	decoded.CompactOwnedEOFRecoveryCertified = true
 	CertifyCRecoveryCostCompetition(decoded)
 	return decoded, nil
 }

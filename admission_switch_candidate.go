@@ -47,6 +47,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		return nil, errors.New("admission candidate route: parser has no language")
 	}
 	allowRecoverEOF := compactRecoverEOFArtifactConfigured(p.language)
+	allowOwnedEOFRecovery := p.language.CompactOwnedEOFRecoveryCertified
 	options := DiagnosticParserCorePrefixOptions{
 		ReceiptMode:                    DiagnosticParserCoreReceiptSummary,
 		MaxTokens:                      1 << 24,
@@ -63,18 +64,18 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		allowCompactAcceptanceStructuralElection: p.language.CompactAcceptanceStructuralElectionCertified,
 		allowConvergedSplitDropArtifact:          p.language.CompactConvergedReductionSplitDropsCertified,
 		captureLexerSkippedPrefixProvenance:      p.language.CompactLexerSkippedPrefixTilingCertified,
-		// Recovery admits either the certified S3 base mechanism or the
-		// dedicated recover_eof root route. The latter does not enable S3, S4,
-		// or S5.
-		Recovery:                          p.language.CompactStrategy2ErrorRegionCertified || allowRecoverEOF,
-		allowCompactStrategy2ErrorRegion:  p.language.CompactStrategy2ErrorRegionCertified,
+		// Recovery binds the shared mechanism, the dedicated recover_eof route,
+		// or the owned EOF bundle. The bundle cannot publish shared recovery.
+		Recovery:                          p.language.CompactStrategy2ErrorRegionCertified || allowRecoverEOF || allowOwnedEOFRecovery,
+		allowCompactStrategy2ErrorRegion:  p.language.CompactStrategy2ErrorRegionCertified || allowOwnedEOFRecovery,
 		allowCompactRecoverEOF:            allowRecoverEOF,
 		allowCompactStackSummaryRecovery:  p.language.CompactStackSummaryRecoveryCertified,
-		allowCompactMissingTokenInsertion: p.language.CompactMissingTokenInsertionCertified,
+		allowCompactMissingTokenInsertion: p.language.CompactMissingTokenInsertionCertified || allowOwnedEOFRecovery,
 		allowCompactS5EOFMissingInsertion: p.language.CompactS5EOFMissingInsertionCertified,
-		allowCompactFaithfulS5Recovery:    p.language.CompactFaithfulS5RecoveryCertified,
-		allowCompactRecoveryLineageSelection: p.language.CompactStrategy2ErrorRegionCertified &&
-			(p.language.CompactStackSummaryRecoveryCertified || p.language.CompactMissingTokenInsertionCertified),
+		allowCompactFaithfulS5Recovery:    p.language.CompactFaithfulS5RecoveryCertified || allowOwnedEOFRecovery,
+		allowCompactRecoveryVersionTurns:  allowOwnedEOFRecovery,
+		allowCompactRecoveryLineageSelection: allowOwnedEOFRecovery || (p.language.CompactStrategy2ErrorRegionCertified &&
+			(p.language.CompactStackSummaryRecoveryCertified || p.language.CompactMissingTokenInsertionCertified)),
 		allowCompactRecoveryTrailingLineageRetirement: p.language.CompactRecoveryTrailingLineageRetirementCertified,
 		allowCompactRecoveryErrorModeKeywordCapture:   p.language.CompactRecoveryErrorModeKeywordCaptureCertified,
 		noLookaheadRootSymbol:                         p.rootSymbol,
@@ -104,7 +105,7 @@ func newAdmissionCandidateRunner(p *Parser) (*parserCoreFreshFullRunner, error) 
 		// for the proof and still fails closed per tree when it is incomplete.
 		replayParseStates:                 true,
 		allowConvergedReductionSplitDrops: p.language.CompactConvergedReductionSplitDropsCertified,
-		recoveryPlainFirst:                p.language.CompactRecoveryPlainFirstCertified,
+		recoveryPlainFirst:                p.language.CompactRecoveryPlainFirstCertified || allowOwnedEOFRecovery,
 	}, nil
 }
 
