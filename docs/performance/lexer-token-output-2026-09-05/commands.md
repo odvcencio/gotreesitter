@@ -1,6 +1,10 @@
 # Recorded commands
 
-Use separate worktrees at baseline `da1150c6` and runtime candidate `236ca848`.
+Create two worktrees at measured baseline `da1150c6d6a2d581ce31f44ba4c5b8241ec431ae`.
+Apply the adjacent `candidate.patch` to the candidate worktree with `git apply`.
+Keep the baseline worktree unchanged.
+The patch reconstructs the measured candidate without fetching local commit `236ca848`.
+The integration branch contains byte-identical versions of all three changed Go files.
 Copy these scripts into a fresh evidence directory.
 Update the absolute worktree and evidence paths before execution.
 Run one Docker stage at a time.
