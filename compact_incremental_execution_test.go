@@ -36,7 +36,8 @@ func TestCompactIncrementalExecutionLifetime(t *testing.T) {
 				}
 				old.Edit(edit)
 				routed, fallback := AdmissionCandidateCounters()
-				legacyRuns := parser.legacyParseRuns
+				runner := parser.admissionCandidateRunner.(*parserCoreFreshFullRunner)
+				legacyRuns := runner.legacyParseRuns
 				next, profile, err := parser.ParseIncrementalProfiled(edited, old)
 				if err != nil {
 					t.Fatal(err)
@@ -56,7 +57,7 @@ func TestCompactIncrementalExecutionLifetime(t *testing.T) {
 				if !next.compactMaterialized {
 					t.Fatalf("incremental tree is not compact: replacement=%q decline=%q", replacement, next.rawParseRuntime().CompactIncrementalFallbackReason)
 				}
-				if parser.legacyParseRuns != legacyRuns {
+				if runner.legacyParseRuns != legacyRuns {
 					t.Fatal("compact incremental parse invoked the legacy parser")
 				}
 				runtime := next.ParseRuntime()

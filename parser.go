@@ -17,8 +17,6 @@ import (
 // Parser is not safe for concurrent use. Use one parser per goroutine, a
 // ParserPool, or guard shared parser instances with external synchronization.
 type Parser struct {
-	// legacyParseRuns counts actual legacy engine entries for route verification.
-	legacyParseRuns     uint64
 	language            *Language
 	reuseCursor         reuseCursor
 	reuseScratch        reuseScratch
@@ -4597,7 +4595,7 @@ func compactPackedGSSVersionOrderActiveForParse(language *Language, reuse *reuse
 // Stacks that error out are dropped. Only duplicate stack versions are
 // merged; distinct alternatives are preserved.
 func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor, oldTree *Tree, arenaClass arenaClass, timing *incrementalParseTiming, maxStacksOverride int, maxNodesOverride int, maxMergePerKeyOverride int, deterministicExternalConflicts bool) *Tree {
-	p.legacyParseRuns++
+	p.recordLegacyParserEntry()
 	workCountAttempt := workCountBeginParseAttempt(maxStacksOverride, maxNodesOverride, maxMergePerKeyOverride)
 	parseStart := time.Now()
 	previousMemoryBudgetDiag := p.parseMemoryBudgetDiag

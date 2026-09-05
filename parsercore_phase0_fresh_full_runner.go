@@ -17,6 +17,8 @@ import (
 // Callers must process declines before publishing a tree.
 // The runner is not safe for concurrent use. Successful results belong to the caller.
 type parserCoreFreshFullRunner struct {
+	// legacyParseRuns verifies legacy entries without growing the Parser layout.
+	legacyParseRuns                   uint64
 	lang                              *Language
 	parser                            *Parser
 	tables                            *parserCoreRootTables

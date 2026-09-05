@@ -2,6 +2,8 @@
 
 package gotreesitter
 
+func (p *Parser) recordLegacyParserEntry() {}
+
 func (p *Parser) attemptCompactIncrementalParse(_ []byte, _ *Tree, _ *incrementalParseTiming) (*Tree, string) {
 	return nil, ""
 }

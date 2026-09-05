@@ -113,8 +113,12 @@ func w1bCleanGo(n int) []byte {
 }
 
 func w1bParseProfiled(t *testing.T, lang *gts.Language, src []byte, off int) (fresh, incr *gts.Node, profile gts.IncrementalParseProfile, edited []byte) {
+	return w1bParseProfiledWithParser(t, lang, src, off, gts.NewParser)
+}
+
+func w1bParseProfiledWithParser(t *testing.T, lang *gts.Language, src []byte, off int, newParser func(*gts.Language) *gts.Parser) (fresh, incr *gts.Node, profile gts.IncrementalParseProfile, edited []byte) {
 	t.Helper()
-	parser := gts.NewParser(lang)
+	parser := newParser(lang)
 	oldTree, err := parser.Parse(src)
 	if err != nil {
 		t.Fatalf("base parse: %v", err)
@@ -125,7 +129,7 @@ func w1bParseProfiled(t *testing.T, lang *gts.Language, src []byte, off int) (fr
 
 	edited, edit := w1bInsertByte(src, off)
 
-	freshParser := gts.NewParser(lang)
+	freshParser := newParser(lang)
 	freshTree, err := freshParser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse of edited: %v", err)

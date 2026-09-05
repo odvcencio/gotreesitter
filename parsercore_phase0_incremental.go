@@ -10,6 +10,12 @@ import (
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
+func (p *Parser) recordLegacyParserEntry() {
+	if runner, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner); ok {
+		runner.legacyParseRuns++
+	}
+}
+
 // compactIncrementalReuseSession owns references for one incremental attempt.
 // Keys start at one. The Core stores keys, never public node pointers.
 type compactIncrementalReuseSession struct {

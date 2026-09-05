@@ -1,5 +1,8 @@
 package gotreesitter_test
 
+// These tests explicitly select the legacy engine because BlockSpliceSteps measures its W1 loop.
+// The compact incremental execution tests verify compact reuse separately.
+
 // Campaign O(edit) workstream W1 block-splice composition (spec.campaign.oedit):
 // after the edited item settles, the whole run of following unchanged top-level
 // siblings is spliced inside one parse-loop iteration instead of one iteration
@@ -43,7 +46,7 @@ func TestW1BlockSpliceOracleEquality(t *testing.T) {
 	lang := grammars.GoLanguage()
 	src := w1BlockCleanGo(400)
 	off := bytes.Index(src, []byte("func B0(a")) + len("func B0(")
-	fresh, incr, profile, edited := w1bParseProfiled(t, lang, src, off)
+	fresh, incr, profile, edited := w1bParseProfiledWithParser(t, lang, src, off, w1BlockLegacyParser)
 
 	if incr.HasError() {
 		t.Fatal("incremental tree unexpectedly has errors")
@@ -69,8 +72,8 @@ func TestW1BlockSpliceFiresAndIsBounded(t *testing.T) {
 	offS := bytes.Index(small, []byte("func B0(a")) + len("func B0(")
 	offL := bytes.Index(large, []byte("func B0(a")) + len("func B0(")
 
-	_, incrS, profS, editedS := w1bParseProfiled(t, lang, small, offS)
-	_, incrL, profL, editedL := w1bParseProfiled(t, lang, large, offL)
+	_, incrS, profS, editedS := w1bParseProfiledWithParser(t, lang, small, offS, w1BlockLegacyParser)
+	_, incrL, profL, editedL := w1bParseProfiledWithParser(t, lang, large, offL, w1BlockLegacyParser)
 
 	if incrS.HasError() || incrL.HasError() {
 		t.Fatal("incremental tree unexpectedly has errors")
@@ -103,7 +106,7 @@ func TestW1BlockSpliceIsDeterministic(t *testing.T) {
 	edited, edit := w1bInsertByte(src, off)
 
 	run := func() (*gts.Node, uint64) {
-		p := gts.NewParser(lang)
+		p := w1BlockLegacyParser(lang)
 		old, err := p.Parse(src)
 		if err != nil {
 			t.Fatalf("base parse: %v", err)
@@ -170,7 +173,7 @@ func TestW1BlockSpliceConfinesUntypedParamAmbiguity(t *testing.T) {
 		StartPoint: w1bPointAt(src, bOff), OldEndPoint: w1bPointAt(src, bOff+2), NewEndPoint: w1bPointAt(src, bOff),
 	}
 
-	parser := gts.NewParser(lang)
+	parser := w1BlockLegacyParser(lang)
 	old, err := parser.Parse(src)
 	if err != nil {
 		t.Fatalf("base parse: %v", err)
@@ -180,7 +183,7 @@ func TestW1BlockSpliceConfinesUntypedParamAmbiguity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("incremental parse: %v", err)
 	}
-	freshTree, err := gts.NewParser(lang).Parse(edited)
+	freshTree, err := w1BlockLegacyParser(lang).Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse: %v", err)
 	}
@@ -213,4 +216,10 @@ func TestW1BlockSpliceConfinesUntypedParamAmbiguity(t *testing.T) {
 				i, fc.Type(lang), fc.StartByte(), fc.EndByte(), d)
 		}
 	}
+}
+
+func w1BlockLegacyParser(lang *gts.Language) *gts.Parser {
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	return parser
 }
