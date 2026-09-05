@@ -1,0 +1,21 @@
+{
+  "baseline_commit": "7db6e20ad88ac7f79228979899d5c55578818f49",
+  "baseline_tree": "1544db204a27537469286ff79e981c9e1feac400",
+  "baseline_clean": true,
+  "candidate_commit": "c85abaf6e21b94dc81704068e857389368927196",
+  "candidate_tree": "9d03e6475dafd1dd0f8115a2971d95dff27c91d2",
+  "candidate_clean": true,
+  "driver_commit": "4e8d780c0dfecfff2b14850bc750e22b8ab15fa0",
+  "image": "sha256:e717b652af60b717ce74dc77433d97b1db23ccd8368dea07ed24af67426b8593",
+  "cpu": 2,
+  "memory": "4g",
+  "gomemlimit": "3GiB",
+  "runs_per_revision": 20,
+  "seed_start": 1,
+  "benchtime": "750ms",
+  "gomaxprocs": 1,
+  "count_per_process": 1,
+  "order": "alternating same-seed pairs",
+  "host_lock": "/tmp/gotreesitter-run-randomized-benchmarks.lock",
+  "caveat": "Shared WSL development host; other release work uses read-only orchestration during measurement."
+}

@@ -255,7 +255,19 @@ tree2, _ := parser.ParseIncremental(src, tree)
 
 `ParseIncremental` walks the old tree's spine, identifies the edit region, and reuses unchanged content by reference. For an admitted clean edit, re-lex/reparse work can stay close to the invalidated region: reuse covers leaf nodes, the unchanged suffix, the untouched root, and unchanged top-level siblings after the edit. Admission for top-level sibling reuse is per node: a fragility bit plus byte-range equality, not a language allowlist.
 
-That parse reuse is not an absolute `O(edit)` guarantee. For a length- or point-changing edit, `Tree.Edit` must also update byte and point coordinates through affected trailing sibling subtrees. The measured cost model is therefore cheap edited-region parse work plus sibling-offset maintenance that grows linearly with the number of trailing nodes or compact entries whose coordinates move. Same-length edits whose points do not move avoid that tail shift. Interior, non-top-level subtree reuse does not ship yet; it stays on the roadmap. A production tree first gets one narrow, independently reauthenticated same-length token-invariant leaf fast path. If that path declines, a language with an external scanner enters general old-tree reuse only when the scanner is certified; otherwise it uses the production full-parse fallback. See the [per-language incremental scanner matrix](docs/external-scanners.md#incremental-reuse-certification-matrix).
+Parse reuse does not guarantee absolute `O(edit)` work. Length or point changes
+also require `Tree.Edit` to update coordinates in affected trailing subtrees.
+That maintenance grows with the number of trailing nodes or compact entries
+whose coordinates move. Same-length edits with unchanged points avoid that shift.
+The compact route also supports bounded nested nonterminal reuse when parser
+state, node provenance, and lexer dependency proofs permit it.
+The v0.52.0 release disables the unsafe same-length token-invariant shortcut.
+Ordinary subtree reuse and no-edit reuse remain available. Restoring the shortcut
+requires complete lexical dependency proofs under
+[issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
+External scanners need certification for general old-tree reuse. Unsupported
+cases use the legacy full-parse fallback. See the
+[per-language incremental scanner matrix](docs/external-scanners.md#incremental-reuse-certification-matrix).
 
 When no edit has occurred, `ParseIncremental` detects the nil-edit on a pointer check and returns in single-digit nanoseconds with zero allocations.
 
@@ -638,11 +650,27 @@ gotreesitter is a ground-up reimplementation of the tree-sitter runtime in Go. N
 
 **Parser** — Table-driven LR(1) with GLR fallback. When a `(state, symbol)` pair maps to multiple actions in the parse table, the parser forks the stack and explores all alternatives in parallel. Stack merging collapses equivalent paths. Safety limits (iteration count, stack depth, node count) scale with input size and prevent runaway exploration on ambiguous grammars.
 
-**Incremental engine** — Walks the edit region of the previous tree and reuses unchanged content by reference. Reuse covers leaf nodes, the unchanged suffix, the untouched root, and — on a clean old tree — unchanged top-level siblings after the edited node. Admission for top-level sibling reuse is per node: a fragility bit plus byte-range equality, not a language allowlist. On admitted clean edits, parse work can stay close to the invalidated region, but a length- or point-changing `Tree.Edit` still performs sibling-offset maintenance proportional to the trailing nodes or compact entries whose coordinates move. This measured model is not an absolute `O(edit)` guarantee. Interior, non-top-level subtree reuse does not ship yet; it stays on the roadmap. A production tree may first take the narrow independently reauthenticated same-length token-invariant leaf fast path. Once that path declines, external-scanner languages use general old-tree reuse only when their scanner explicitly certifies it, with boundary checkpoints where configured; uncertified scanners use the production full-parse fallback documented in the [scanner matrix](docs/external-scanners.md#incremental-reuse-certification-matrix).
+**Incremental engine** — Walks the previous tree and reuses unchanged content
+by reference. Reuse includes unchanged top-level siblings and bounded nested
+nonterminals with authenticated compact dependency proofs. Length or point changes
+still require coordinate updates in affected trailing subtrees. This is not an
+absolute `O(edit)` guarantee. The v0.52.0 release disables the unsafe same-length
+token-invariant shortcut while preserving ordinary subtree reuse and no-edit reuse.
+Its proof work remains open in
+[issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
+General reuse with external scanners requires explicit certification, with
+boundary checkpoints where configured. Uncertified cases use the legacy
+full-parse fallback documented in the
+[scanner matrix](docs/external-scanners.md#incremental-reuse-certification-matrix).
 
 **Lexer** — Two paths. `ts2go` generates a DFA lexer from the grammar's lex tables, and it handles most languages. For grammars where the DFA is not enough (for example, Go's automatic semicolons, or YAML's indentation-sensitive structure), hand-written Go token sources implement the `TokenSource` interface directly.
 
-**External scanners** — 119 registered grammars require external scanners for context-sensitive tokens (Python indentation, HTML implicit close tags, Rust raw string delimiters, Swift operator disambiguation, and similar cases). Each scanner is a hand-written Go implementation of the grammar's `ExternalScanner` interface: `Create`, `Serialize`, `Deserialize`, `Scan`. Certified checkpoint-enabled scanners snapshot state at external-token boundaries so incremental reuse can restore compatible state. After the narrow independently reauthenticated same-length token-invariant leaf path declines, an uncertified scanner fails closed to a fresh production parse; certification and fallback behavior are explicit in the [per-language matrix](docs/external-scanners.md#incremental-reuse-certification-matrix).
+**External scanners** — 119 registered grammars require external scanners for context-sensitive tokens.
+Each scanner implements the grammar's `ExternalScanner` interface: `Create`, `Serialize`, `Deserialize`, and `Scan`.
+Certified checkpoint-enabled scanners save state at external-token boundaries for incremental reuse.
+Uncertified changed-edit cases use a fresh production parse.
+The v0.52.0 release disables the former same-length token-invariant exception.
+See the [per-language matrix](docs/external-scanners.md#incremental-reuse-certification-matrix) for certification and fallback behavior.
 
 **Arena allocator** — Nodes are allocated from slab-based arenas to reduce GC pressure. Arenas are released in bulk when a tree is freed.
 
@@ -797,15 +825,33 @@ Test suite covers: smoke tests (206 grammars), golden S-expression snapshots, hi
 
 ## Roadmap
 
-The current release is **v0.51.0**.
+The current release is **v0.52.0**.
 
-This release adds strict pooled file parsing and strict one-shot tagging. It
-also bounds generalized LR (GLR) recovery state retention and resets recovery
-state across parser lifecycle boundaries.
+Eligible fresh parses use the compact parser by default, with legacy fallback
+for unsupported cases. This release adds bounded compact incremental reuse,
+including authenticated nested nonterminals, and bounded Go end-of-file recovery.
+These changes do not complete compact parser graduation.
 
-The project merged [pull request #732](https://github.com/odvcencio/gotreesitter/pull/732).
-Its continuous-integration-only change separates query-fleet smoke tests from
-regular shards and is not part of this release.
+The same-width lexical-lookahead defect in
+[issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087) remains open.
+This release disables the unsafe shortcut as a temporary mitigation.
+Ordinary subtree reuse and no-edit reuse remain available.
+The owner approved the temporary slowdown. The measured single-byte edit rises
+from 1.706 us to 3,350.460 us. Full-parse and no-edit timing changes are not
+significant. See the [release performance report](docs/performance/release-v0.52.0-2026-09-05.md).
+Restoring the shortcut requires complete lexical dependency proofs.
+Lexical error-leaf flags and TypeScript recovery divergences remain graduation work.
+
+Recovery count caching improves the measured Go workloads. Canonicalization
+changes reduce allocations without a significant timing change. Read the
+[recovery count report](docs/performance/recovery-visible-count-2026-09-05.md) and
+[canonicalization report](docs/performance/canonical-owner-binding-2026-09-05.md).
+Those measurements precede the temporary shortcut mitigation.
+
+Publication still requires the mandatory gates in
+[the release checklist](docs/releasing.md#release-checklist).
+The owner approved only the dated
+[v0.52.0 tag-creation exception](docs/releasing.md#v0520-only-tag-creation-exception).
 
 Detailed shipped evidence lives in [CHANGELOG.md](CHANGELOG.md). Standard minor
 releases may ship on any day after the exact commit on `main` passes the full

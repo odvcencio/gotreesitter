@@ -1,0 +1,35 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                                    │ /tmp/gts-release052-performance.bGnuOc/release-base.txt │ /tmp/gts-release052-performance.bGnuOc/release-head.txt │
+                                    │                         sec/op                          │           sec/op             vs base                    │
+GoParseIncrementalSingleByteEditDFA                                              1.706µ ± 11%               3350.460µ ± 18%  +196292.73% (p=0.000 n=20)
+GoParseFullDFA                                                                   19.79m ± 11%                  19.52m ± 11%            ~ (p=0.883 n=20)
+GoParseIncrementalNoEditDFA                                                      3.576n ± 18%                  3.619n ± 12%            ~ (p=1.000 n=20)
+geomean                                                                          4.943µ                        61.86µ          +1151.47%
+
+                                    │ /tmp/gts-release052-performance.bGnuOc/release-base.txt │ /tmp/gts-release052-performance.bGnuOc/release-head.txt │
+                                    │                           B/s                           │               B/s                vs base                │
+GoParseIncrementalSingleByteEditDFA                                         10788.088Mi ± 10%                     5.488Mi ± 15%  -99.95% (p=0.000 n=20)
+GoParseFullDFA                                                                  952.1Ki ± 12%                     966.8Ki ± 10%        ~ (p=0.867 n=20)
+GoParseIncrementalNoEditDFA                                                     4.907Ti ± 15%                     4.848Ti ± 10%        ~ (p=1.000 n=20)
+geomean                                                                         3.636Gi                           297.5Mi        -92.01%
+
+                                    │ /tmp/gts-release052-performance.bGnuOc/release-base.txt │ /tmp/gts-release052-performance.bGnuOc/release-head.txt │
+                                    │                          B/op                           │             B/op               vs base                  │
+GoParseIncrementalSingleByteEditDFA                                              0.0Ki ± 0%                      184.4Ki ± 0%        ? (p=0.000 n=20)
+GoParseFullDFA                                                                 556.1Ki ± 2%                      317.5Ki ± 6%  -42.90% (p=0.000 n=20)
+GoParseIncrementalNoEditDFA                                                      0.000 ± 0%                        0.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                     ²                                  ?                      ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+
+                                    │ /tmp/gts-release052-performance.bGnuOc/release-base.txt │ /tmp/gts-release052-performance.bGnuOc/release-head.txt │
+                                    │                        allocs/op                        │           allocs/op            vs base                  │
+GoParseIncrementalSingleByteEditDFA                                               0.00 ± 0%                        95.00 ± 0%        ? (p=0.000 n=20)
+GoParseFullDFA                                                                15549.00 ± 0%                        43.00 ± 2%  -99.72% (p=0.000 n=20)
+GoParseIncrementalNoEditDFA                                                      0.000 ± 0%                        0.000 ± 0%        ~ (p=1.000 n=20) ¹
+geomean                                                                                     ²                                  ?                      ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
