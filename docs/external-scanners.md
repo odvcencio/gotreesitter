@@ -608,6 +608,27 @@ No-edit reuse remains available.
 
 ## Hard-learned behavioral contracts
 
+### Unreleased byte-equivalence contract
+
+`ASCIIEquivalenceExternalScanner` declares interchangeable ASCII bytes for
+bounded token-invariant reuse. Zero means unknown. Equal nonzero classes certify
+substitutions in every surrounding source, at every scan origin.
+
+For every payload and valid-symbol mask, substitutions must preserve:
+
+- Scan success and failure.
+- Cursor positions, marks, and result symbols.
+- Final scanner state, including state absent from serialization.
+- The maximum examined source position.
+
+The classification must remain pure and immutable for each scanner binding.
+Return zero for non-ASCII bytes. This contract does not certify statelessness
+or general subtree reuse. The parser also authenticates internal lexer reads
+and source-sensitive parser rules before it permits token-invariant reuse.
+Unknown custom token-source coverage requires reparsing.
+
+### Token-source behavior
+
 These four contracts came out of this project's C-parity work. They apply
 mainly when you implement a **full custom `TokenSource`** (parser_api.go:
 `Next() Token`, returning a zero-`Symbol` token at EOF) instead of, or in

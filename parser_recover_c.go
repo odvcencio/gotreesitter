@@ -5567,7 +5567,7 @@ func (p *Parser) newRecoveryParentNodeInArena(arena *nodeArena, sym Symbol, name
 //     symbol, so a failed probe leaves the existing pause path untouched.
 //   - It runs the internal DFA only. The external scanner is never re-entered,
 //     so no scanner state is mutated or needs restoring.
-func (p *Parser) relexTokenForStackLexState(source []byte, state StateID, tok Token) (Token, bool) {
+func (p *Parser) relexTokenForStackLexState(source []byte, state StateID, tok Token, lexicalReadSpan *uint32) (Token, bool) {
 	lang := p.language
 	if lang == nil || len(lang.LexStates) == 0 || int(state) >= len(lang.LexModes) {
 		return tok, false
@@ -5605,6 +5605,7 @@ func (p *Parser) relexTokenForStackLexState(source []byte, state StateID, tok To
 		probe.setIncludedRanges(p.included)
 	}
 	relexed, ok := probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
+	recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
 	if !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol {
 		return tok, false
 	}

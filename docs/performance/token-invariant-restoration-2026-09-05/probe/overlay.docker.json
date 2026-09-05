@@ -1,0 +1,6 @@
+{
+  "Replace": {
+    "/workspace/token_invariant_benchmark_preflight_test.go": "/evidence/probe/token_invariant_benchmark_preflight_test.go.txt",
+    "/baseline/token_invariant_benchmark_preflight_test.go": "/evidence/probe/token_invariant_benchmark_preflight_test.go.txt"
+  }
+}

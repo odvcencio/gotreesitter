@@ -285,6 +285,8 @@ func (p *Parser) resetPendingStackBuffersAtBoundary() {
 }
 
 type glrMergeScratch struct {
+	// lexicalReadSpan belongs to the active token source, never the pool.
+	lexicalReadSpan             *uint32
 	result                      []glrStack
 	slots                       []glrMergeSlot
 	largeSlots                  []glrMergeLargeSlot
@@ -6322,6 +6324,7 @@ func (s *glrMergeScratch) reset() {
 	if s == nil {
 		return
 	}
+	s.lexicalReadSpan = nil
 	if cap(s.result) > maxRetainedMergeResultCap {
 		s.result = nil
 		s.resultBytes = 0

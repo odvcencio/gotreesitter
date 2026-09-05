@@ -124,7 +124,7 @@ func TestParseForestMemoryBudgetDeclines(t *testing.T) {
 	// this makes the regression sensitive to the forest's runtime-wide poll.
 	source := []byte("[" + strings.Repeat("0,", 40_000) + "0]")
 	arena := acquireNodeArena(arenaClassFull)
-	root, ok := parser.parseForest(arena, source, false, parseMemoryBudgetForParser(parser, len(source)))
+	root, ok := parser.parseForest(arena, source, false, parseMemoryBudgetForParser(parser, len(source)), nil)
 	arenaBudgetExhausted := arena.budgetExhausted()
 	arena.Release()
 	if ok || root != nil {

@@ -1,0 +1,14 @@
+/home/draco/go/bin/benchstat: go1.25.1
+	path	golang.org/x/perf/cmd/benchstat
+	mod	golang.org/x/perf	v0.0.0-20260709024250-82a0b07e230d	h1:mDNWm9XMiduP5opv8zcdZJixEU5+yBIj1hefXe09kSY=
+	dep	github.com/aclements/go-moremath	v0.0.0-20210112150236-f10218a38794	h1:xlwdaKcTNVW4PtpQb8aKA4Pjy0CdJHEqvFbAnvR5m2g=
+	build	-buildmode=exe
+	build	-compiler=gc
+	build	CGO_ENABLED=1
+	build	CGO_CFLAGS=
+	build	CGO_CPPFLAGS=
+	build	CGO_CXXFLAGS=
+	build	CGO_LDFLAGS=
+	build	GOARCH=amd64
+	build	GOOS=linux
+	build	GOAMD64=v1

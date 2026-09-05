@@ -114,6 +114,14 @@ func (PythonExternalScanner) SupportsIncrementalReuse() bool { return true }
 
 func (PythonExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
 
+// ASCII digits share every character branch, including string and comment scans.
+func (PythonExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
+	if b >= '0' && b <= '9' {
+		return 1
+	}
+	return 0
+}
+
 // RequiresIncrementalPrefixFrontierProof prevents a changed indentation
 // prefix from transferring a reduction that belongs to the old source.
 func (PythonExternalScanner) RequiresIncrementalPrefixFrontierProof() bool { return true }

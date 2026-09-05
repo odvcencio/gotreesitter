@@ -1,0 +1,7 @@
+-test.shuffle 1
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseWarmRealDFA/grammargen_lr         	       1	 188371450 ns/op	   1.25 MB/s	  56434672 arena_B/op	         0 forest_fast_path	        18.00 max_stacks	     53125 multi_iters/op	     47976 multi_tokens/op	    330334 nodes/op	         0 normalization_runs/op	        58.00 peak_depth	     49912 tokens/op	39214752 B/op	     174 allocs/op
+PASS

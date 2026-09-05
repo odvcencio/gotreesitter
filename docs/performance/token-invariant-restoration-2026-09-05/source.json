@@ -1,0 +1,29 @@
+{
+  "created": "2026-09-05T14:11:05.817828+00:00",
+  "sources": {
+    "candidate": {
+      "path": "/home/draco/work/gts-token-invariant-perf-candidate-20260905",
+      "commit": "da1150c6d6a2d581ce31f44ba4c5b8241ec431ae",
+      "status": "",
+      "tracked_files": 2955,
+      "manifest_sha256": "b4e8a085bad64390383de887204f0c66e670a789b049b8a837dfcb9866b88f45"
+    },
+    "release": {
+      "path": "/home/draco/work/gts-token-invariant-perf-release-20260905",
+      "commit": "2295871057f860598a006d6068588a6303fefb02",
+      "status": "",
+      "tracked_files": 2927,
+      "manifest_sha256": "e34539a48881d007feb15b6eed5d8152805b516329193f1e316dc193a5633604"
+    }
+  },
+  "source_controls": {
+    "GOMAXPROCS": "1",
+    "GOT_BENCH_FUNC_COUNT": "500",
+    "GOT_STATS": "unset",
+    "GTS_ADMISSION_CANDIDATE": "unset"
+  },
+  "benchmark_source": {
+    "bytes": 19294,
+    "sha256": "2e0f9d4676549c8560cebc3c53877932f921ab9d77c88518227f3018573af4b7"
+  }
+}

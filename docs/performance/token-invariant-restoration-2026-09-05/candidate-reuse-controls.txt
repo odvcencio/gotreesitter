@@ -1,0 +1,13 @@
+=== RUN   TestTokenInvariantLookaheadGoControl
+=== RUN   TestTokenInvariantLookaheadGoControl/legacy
+=== RUN   TestTokenInvariantLookaheadGoControl/compact
+--- PASS: TestTokenInvariantLookaheadGoControl (0.08s)
+    --- PASS: TestTokenInvariantLookaheadGoControl/legacy (0.04s)
+    --- PASS: TestTokenInvariantLookaheadGoControl/compact (0.03s)
+=== RUN   TestTokenInvariantLookaheadGoFloatControl
+=== RUN   TestTokenInvariantLookaheadGoFloatControl/legacy
+=== RUN   TestTokenInvariantLookaheadGoFloatControl/compact
+--- PASS: TestTokenInvariantLookaheadGoFloatControl (0.07s)
+    --- PASS: TestTokenInvariantLookaheadGoFloatControl/legacy (0.03s)
+    --- PASS: TestTokenInvariantLookaheadGoFloatControl/compact (0.04s)
+PASS

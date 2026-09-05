@@ -20,30 +20,42 @@ func requireReleaseSameWidthReparse(t *testing.T, profile gotreesitter.Increment
 	}
 }
 
+func requireAuthenticatedTokenInvariantReuse(t *testing.T, profile gotreesitter.IncrementalParseProfile) {
+	t.Helper()
+	if profile.ReuseUnsupported || profile.TokenInvariantDependencyChecks != 1 ||
+		profile.ReusedSubtrees == 0 || profile.ReparseNanos != 0 || profile.NewNodesAllocated != 0 {
+		t.Fatalf("edit did not use authenticated whole-tree reuse: %+v", profile)
+	}
+}
+
 func TestExternalScannerIncrementalReusePolicy(t *testing.T) {
 	cases := []struct {
-		name           string
-		lang           func() *gotreesitter.Language
-		source         func(int) []byte
-		marker         string
-		wantReuse      bool
-		wantReason     string
-		wantSubtreeMin uint64
+		name                   string
+		lang                   func() *gotreesitter.Language
+		source                 func(int) []byte
+		marker                 string
+		wantReuse              bool
+		wantReason             string
+		wantSubtreeMin         uint64
+		wantAuthenticatedReuse bool
 	}{
 		{
-			name:           "typescript",
-			lang:           grammars.TypescriptLanguage,
-			source:         makeTypeScriptBenchmarkSource,
-			marker:         "const v = ",
-			wantReuse:      true,
-			wantSubtreeMin: 1,
+			name:                   "typescript",
+			lang:                   grammars.TypescriptLanguage,
+			source:                 makeTypeScriptBenchmarkSource,
+			marker:                 "const v = ",
+			wantReuse:              true,
+			wantSubtreeMin:         1,
+			wantAuthenticatedReuse: true,
 		},
 		{
-			name:       "python",
-			lang:       grammars.PythonLanguage,
-			source:     makePythonBenchmarkSource,
-			marker:     "v = ",
-			wantReason: "external_scanner_prefix_frontier_unproven",
+			name:                   "python",
+			lang:                   grammars.PythonLanguage,
+			source:                 makePythonBenchmarkSource,
+			marker:                 "v = ",
+			wantReuse:              true,
+			wantSubtreeMin:         1,
+			wantAuthenticatedReuse: true,
 		},
 		{
 			name:       "svelte",
@@ -103,7 +115,11 @@ func TestExternalScannerIncrementalReusePolicy(t *testing.T) {
 			}
 			defer fresh.Release()
 			requireIncrementalDeepTreeMatchesFresh(t, newTree, fresh, lang)
-			requireReleaseSameWidthReparse(t, prof)
+			if tc.wantAuthenticatedReuse {
+				requireAuthenticatedTokenInvariantReuse(t, prof)
+			} else {
+				requireReleaseSameWidthReparse(t, prof)
+			}
 			if tc.wantReuse {
 				if prof.ReuseUnsupported {
 					t.Fatalf("ReuseUnsupported = true, want false (reason=%q)", prof.ReuseUnsupportedReason)
@@ -429,7 +445,7 @@ func TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback(t *testing.
 
 					lang := languageCase.lang()
 					parser := gotreesitter.NewParser(lang)
-					// The release reparses edits with uncertified stateful scanners.
+					// Keep this scanner policy test on the legacy producer.
 					parser.SetAdmissionCandidateRoute(false)
 					if route.includedRanges {
 						parser.SetIncludedRanges([]gotreesitter.Range{{
@@ -457,14 +473,7 @@ func TestPythonDerivedTokenInvariantLeafReusePrecedesScannerFallback(t *testing.
 						t.Fatal(err)
 					}
 					defer incremental.Release()
-					requireReleaseSameWidthReparse(t, profile)
-					wantReason := "external_scanner_unsupported"
-					if languageCase.name == "python" {
-						wantReason = "external_scanner_prefix_frontier_unproven"
-					}
-					if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != wantReason {
-						t.Fatalf("expected scanner fallback: %+v", profile)
-					}
+					requireAuthenticatedTokenInvariantReuse(t, profile)
 
 					fresh, err := parser.Parse(next)
 					if err != nil {
@@ -579,7 +588,11 @@ func TestExternalScannerTokenInvariantLeafReuse(t *testing.T) {
 			}
 			defer newTree.Release()
 			requireCompleteParse(t, newTree, next, lang, "incremental")
-			requireReleaseSameWidthReparse(t, profile)
+			if tc.name == "julia line comment" {
+				requireAuthenticatedTokenInvariantReuse(t, profile)
+			} else {
+				requireReleaseSameWidthReparse(t, profile)
+			}
 			requireIncrementalDeepTreeMatchesFresh(t, newTree, fresh, lang)
 			if got, want := newTree.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang); got != want {
 				t.Fatalf("incremental tree diverged from fresh parse\n got: %s\nwant: %s", got, want)

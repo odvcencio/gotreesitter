@@ -40,6 +40,10 @@ func (ScssExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
 func (ScssExternalScanner) Deserialize(payload any, buf []byte)   {}
 func (ScssExternalScanner) SupportsIncrementalReuse() bool        { return true }
 
+// The payload caches fixed grammar identity, not token history. Scan reads only
+// forward source bytes and the valid-symbol set. Serialization remains empty.
+func (ScssExternalScanner) ExternalScannerIsStateless() bool { return true }
+
 func (ScssExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	lang := scssScanLang(payload)
 

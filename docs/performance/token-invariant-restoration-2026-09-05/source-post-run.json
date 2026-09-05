@@ -1,0 +1,14 @@
+{
+  "release": {
+    "files_verified": 2927,
+    "failures": [],
+    "status": "",
+    "commit": "2295871057f860598a006d6068588a6303fefb02"
+  },
+  "candidate": {
+    "files_verified": 2955,
+    "failures": [],
+    "status": "",
+    "commit": "da1150c6d6a2d581ce31f44ba4c5b8241ec431ae"
+  }
+}

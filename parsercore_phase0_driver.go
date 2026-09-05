@@ -4844,6 +4844,7 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		zeroWidthTokens: lang.ZeroWidthTokens,
 	}
 	relexed, ok := probe.scan(uint32(lexState), probe.pos, probe.row, probe.col)
+	recordTokenInvariantReadSpan(&s.tokenSource.tokenInvariantMaxReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
 	if !ok || relexed.Symbol == 0 {
 		return tok, false
 	}
@@ -9196,6 +9197,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			}
 			if deferContextualCloseAngleAction(
 				s.tokenSource.language, s.tokenSource.lexer.source, StateID(boundary.State()), cellToken, nil, probe,
+				&s.tokenSource.tokenInvariantMaxReadSpan,
 			) {
 				workCountRecordResolvedActionCell(0)
 				s.dispatchScratch.noActionIndices = append(s.dispatchScratch.noActionIndices, index)

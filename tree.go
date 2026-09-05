@@ -2772,6 +2772,8 @@ func (t *Tree) deferResultCompatibility() {
 // values are reset or when Tree.Copy constructs a finalized clone.
 type treeResultCompatibilityFinalizer struct {
 	once sync.Once
+	// Keep the exact attempt's bound private until normalization completes.
+	tokenInvariantReadSpan uint32
 }
 
 func (t *Tree) hasDeferredResultCompatibility() bool {
@@ -2787,6 +2789,14 @@ func (t *Tree) ensureResultCompatibility() {
 		return
 	}
 	finalizer.once.Do(func() {
+		span := finalizer.tokenInvariantReadSpan
+		finalizer.tokenInvariantReadSpan = 0
+		t.tokenInvariantReadSpan = 0
+		defer func() {
+			if t.resultCompatibilityApplied && t.tokenInvariantReadSpanResultEligible() {
+				t.tokenInvariantReadSpan = span
+			}
+		}()
 		if t.root == nil || t.language == nil {
 			return
 		}
@@ -2796,7 +2806,7 @@ func (t *Tree) ensureResultCompatibility() {
 			parser := &Parser{language: t.language}
 			result := normalizeResultCompatibility(t.root, t.source, parser, nil)
 			t.resultErrorSummary = result.errorSummary
-			t.resultCompatibilityApplied = !parseStopReasonIsActive(result.stopReason)
+			t.resultCompatibilityApplied = !resultMaterializationShouldStop(result.stopReason)
 			t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 			// Diagnostic-only, mirrors the timing-enabled branch below: without
 			// this, every deferred-compatibility language (typescript/tsx by
@@ -2817,7 +2827,7 @@ func (t *Tree) ensureResultCompatibility() {
 		start := materializationTimingStart(timing)
 		result := normalizeResultCompatibility(t.root, t.source, parser, nil)
 		t.resultErrorSummary = result.errorSummary
-		t.resultCompatibilityApplied = !parseStopReasonIsActive(result.stopReason)
+		t.resultCompatibilityApplied = !resultMaterializationShouldStop(result.stopReason)
 		t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 		timing.addResultCompatibility(start)
 		t.parseRuntime.ResultCompatibilityNanos += timing.resultCompatibilityNanos
@@ -3304,9 +3314,12 @@ const (
 // Tree is safe for concurrent reads after construction. Edit and Release are
 // not safe for concurrent use.
 type Tree struct {
-	root                               *Node
-	source                             []byte
-	sourceEncoding                     InputEncoding
+	root           *Node
+	source         []byte
+	sourceEncoding InputEncoding
+	// Zero means unknown. A full DFA parse records the longest primitive read,
+	// including failed probes. Incremental reconstruction cannot infer this bound.
+	tokenInvariantReadSpan             uint32
 	sourceUTF16                        []uint16
 	utf16Map                           *utf16SourceMap
 	language                           *Language
@@ -3466,6 +3479,7 @@ func (t *Tree) Release() {
 	t.resultCompatibilityFinalizer = nil
 	t.recoveryNodeMemoPeakTier = RecoveryNodeMemoTierNone
 	t.recoveryNodeMemoCollisions = 0
+	t.tokenInvariantReadSpan = 0
 	treePool.Put(t)
 }
 
@@ -3722,6 +3736,7 @@ func (t *Tree) Copy() *Tree {
 		parseRuntime:               t.parseRuntime,
 		resultErrorSummary:         t.resultErrorSummary,
 		resultCompatibilityApplied: t.resultCompatibilityApplied,
+		tokenInvariantReadSpan:     t.tokenInvariantReadSpan,
 		// Reuse-provenance flags must survive Copy: cloneNodeHeaderInto keeps the
 		// per-node stamped/replayed states, so a copy that dropped these would
 		// become reuse-eligible on the standard DFA path and splice replayed or

@@ -525,6 +525,10 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 		return nil, err
 	}
 	tree, materializeErr := r.materializeSelection(source, r.compact, scheduler)
+	if materializeErr == nil && tree != nil && r.options.compactIncrementalReuse == nil &&
+		!scheduler.s3RegionOpened && !scheduler.recoveryIsolation {
+		tree.captureTokenInvariantReadSpan(tokenSource)
+	}
 	tokenSource.Close()
 	if materializeErr != nil {
 		if tree != nil {

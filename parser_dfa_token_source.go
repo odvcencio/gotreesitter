@@ -12,9 +12,11 @@ import (
 )
 
 type dfaTokenSource struct {
-	lexer    *Lexer
-	language *Language
-	state    StateID
+	// This field is not part of lexer transaction snapshots.
+	tokenInvariantMaxReadSpan uint32
+	lexer                     *Lexer
+	language                  *Language
+	state                     StateID
 	// Cached parser recovery gate. Parser-owned token sources pass this from
 	// Parser.errorCostCompetition so reset/reuse does not rescan grammar tables.
 	cRecoveryEnabled bool
@@ -195,6 +197,10 @@ func setLexerErrorRunLexStateEnabled(l *Lexer, language *Language, cRecoveryEnab
 }
 
 func initDFATokenSourceWithCRecovery(ts *dfaTokenSource, lexer *Lexer, language *Language, lookupActionIndex func(state StateID, sym Symbol) uint16, hasKeywordState []bool, externalValidByState [][]uint16, externalValidMaskByState []uint64, cRecoveryEnabled bool) {
+	ts.tokenInvariantMaxReadSpan = 0
+	if lexer != nil {
+		lexer.tokenInvariantReadSpanMax = &ts.tokenInvariantMaxReadSpan
+	}
 	ts.lexer = lexer
 	ts.language = language
 	ts.state = 0
@@ -282,6 +288,8 @@ func resetPooledDFATokenSource(ts *dfaTokenSource) {
 	savedExtZeroTried := ts.extZeroTried[:0]
 	savedOwnedLexer := ts.ownedLexer
 	savedRelexProbeLexer := ts.relexProbeLexer
+	savedExternalReads := ts.externalLexer.readFrontier
+	savedExternalRetryReads := ts.externalRetryLexer.readFrontier
 	var savedGLRUnionScanScratch []glrUnionDFAScan
 	if cap(ts.glrUnionScanScratch) > len(ts.glrUnionScanInline) {
 		// Close clears every Token before the source enters the pool. Preserve
@@ -296,6 +304,8 @@ func resetPooledDFATokenSource(ts *dfaTokenSource) {
 	}
 	ts.ownedLexer = savedOwnedLexer
 	ts.relexProbeLexer = savedRelexProbeLexer
+	ts.externalLexer.readFrontier = savedExternalReads
+	ts.externalRetryLexer.readFrontier = savedExternalRetryReads
 	ts.externalValid = savedExternalValid
 	ts.externalTokenStart = savedExternalTokenStart
 	ts.externalTokenEnd = savedExternalTokenEnd
@@ -382,6 +392,8 @@ func (d *dfaTokenSource) Reset(source []byte) {
 	if d.lexer == nil {
 		d.lexer = NewLexer(nil, source)
 	}
+	d.tokenInvariantMaxReadSpan = 0
+	d.lexer.tokenInvariantReadSpanMax = &d.tokenInvariantMaxReadSpan
 	d.lexer.source = source
 	d.lexer.pos = 0
 	d.lexer.row = 0
@@ -439,6 +451,12 @@ func (d *dfaTokenSource) setIncludedRanges(ranges []Range) bool {
 }
 
 func (d *dfaTokenSource) Close() {
+	if d.lexer != nil {
+		d.lexer.tokenInvariantReadSpanMax = nil
+	}
+	d.tokenInvariantMaxReadSpan = 0
+	d.externalLexer.clearSource()
+	d.externalRetryLexer.clearSource()
 	d.clearGLRUnionScanCache()
 	if d.language != nil && d.language.ExternalScanner != nil && d.externalPayload != nil {
 		d.language.ExternalScanner.Destroy(d.externalPayload)
@@ -2342,7 +2360,11 @@ func (p *Parser) contextualActionIndex(source []byte, state StateID, tok Token) 
 // reads an adjacent pair as one operator. Another live stack selected the
 // single close-angle prefix, so this stack must not consume that prefix.
 func (p *Parser) shouldDeferContextualCloseAngleAction(source []byte, state StateID, tok Token) bool {
-	return deferContextualCloseAngleAction(p.language, source, state, tok, p.included, &p.relexProbeLexer)
+	var lexicalReadSpan *uint32
+	if p.mergeScratch != nil {
+		lexicalReadSpan = p.mergeScratch.lexicalReadSpan
+	}
+	return deferContextualCloseAngleAction(p.language, source, state, tok, p.included, &p.relexProbeLexer, lexicalReadSpan)
 }
 
 // tokenMaybeContextualCloseAngle reports whether tok could possibly be the
@@ -2377,7 +2399,10 @@ func tokenMaybeContextualCloseAngle(lang *Language, tok Token) bool {
 // compact route declines any included-range parse outright before it ever
 // reaches here (admission_switch.go:208's own eligibility check) — there is
 // no included-range case for a compact caller to reuse.
-func deferContextualCloseAngleAction(lang *Language, source []byte, state StateID, tok Token, included []Range, probe *Lexer) bool {
+func deferContextualCloseAngleAction(lang *Language, source []byte, state StateID, tok Token, included []Range, probe *Lexer, lexicalReadSpan *uint32) bool {
+	if probe != nil {
+		defer func() { probe.tokenInvariantReadSpanMax = nil }()
+	}
 	if probe == nil || !tokenMaybeContextualCloseAngle(lang, tok) {
 		return false
 	}
@@ -2392,14 +2417,15 @@ func deferContextualCloseAngleAction(lang *Language, source []byte, state StateI
 	}
 
 	*probe = Lexer{
-		states:          lang.LexStates,
-		asciiTable:      lang.LexAsciiTable(),
-		source:          source,
-		pos:             start,
-		row:             tok.StartPoint.Row,
-		col:             tok.StartPoint.Column,
-		immediateTokens: lang.ImmediateTokens,
-		zeroWidthTokens: lang.ZeroWidthTokens,
+		tokenInvariantReadSpanMax: lexicalReadSpan,
+		states:                    lang.LexStates,
+		asciiTable:                lang.LexAsciiTable(),
+		source:                    source,
+		pos:                       start,
+		row:                       tok.StartPoint.Row,
+		col:                       tok.StartPoint.Column,
+		immediateTokens:           lang.ImmediateTokens,
+		zeroWidthTokens:           lang.ZeroWidthTokens,
 	}
 	if len(included) != 0 && lang.ExternalScanner == nil && len(lang.ExternalSymbols) == 0 {
 		probe.setIncludedRanges(included)
@@ -4232,11 +4258,17 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 	if d == nil || d.language == nil || d.language.ExternalScanner == nil || el == nil {
 		return false
 	}
-	recordFrontier := func(scannerLexer *ExternalLexer) {
+	attemptStart := el.pos
+	recordFrontier := func(scannerLexer *ExternalLexer, start int) {
 		if scannerLexer == nil {
 			return
 		}
 		scannerLexer.lookaheadEndByte = maxUint32(scannerLexer.lookaheadEndByte, scannerLexer.lookaheadEndByteAtCursor())
+		examinedEnd := tokenInvariantExaminedEnd(scannerLexer.source, scannerLexer.lookaheadEndByte)
+		if scannerLexer.readFrontier != nil {
+			examinedEnd = maxUint32(examinedEnd, scannerLexer.readFrontier.examined)
+		}
+		recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, start, examinedEnd)
 		d.externalLookaheadEndByte = maxUint32(d.externalLookaheadEndByte, scannerLexer.lookaheadEndByte)
 		scannerLexer.lookaheadEndByte = maxUint32(scannerLexer.lookaheadEndByte, d.externalLookaheadEndByte)
 	}
@@ -4252,7 +4284,7 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 	}
 	if preserveFailureState {
 		foundToken := RunExternalScanner(d.language, d.externalPayload, el, valid)
-		recordFrontier(el)
+		recordFrontier(el, attemptStart)
 		if foundToken {
 			return true
 		}
@@ -4264,7 +4296,7 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 	} else {
 		snapshot = d.captureExternalScannerStateInto(&d.externalRetrySnap)
 		foundToken := RunExternalScanner(d.language, d.externalPayload, el, valid)
-		recordFrontier(el)
+		recordFrontier(el, attemptStart)
 		if foundToken {
 			return true
 		}
@@ -4303,8 +4335,9 @@ func (d *dfaTokenSource) runExternalScannerWithRetry(el *ExternalLexer, valid []
 		d.restoreExternalScannerState(snapshot)
 		retryLexer := &d.externalRetryLexer
 		retryLexer.reset(d.lexer.source, d.lexer.pos, d.lexer.row, d.lexer.col)
+		retryStart := retryLexer.pos
 		foundToken := RunExternalScanner(d.language, d.externalPayload, retryLexer, masked)
-		recordFrontier(retryLexer)
+		recordFrontier(retryLexer, retryStart)
 		if foundToken {
 			*el = *retryLexer
 			return true
@@ -5269,6 +5302,8 @@ func (d *dfaTokenSource) lexKeywordSource(source []byte) (Token, bool) {
 	// len(source) rejects leftover trailing bytes that the keyword didn't
 	// consume — the captured span is a keyword only when it is "skippable
 	// prefix + exactly one literal", nothing more.
+	keywordView := Lexer{source: source}
+	recordTokenInvariantReadSpan(&d.tokenInvariantMaxReadSpan, 0, tokenInvariantExaminedEnd(source, keywordView.lookaheadEndByteAt(scanPos, true)))
 	if acceptSymbol == 0 || acceptSkip || acceptPos != len(source) {
 		return Token{}, false
 	}
@@ -5276,6 +5311,13 @@ func (d *dfaTokenSource) lexKeywordSource(source []byte) (Token, bool) {
 		Symbol:  acceptSymbol,
 		EndByte: uint32(acceptPos),
 	}, true
+}
+
+func (d *dfaTokenSource) tokenInvariantReadSpan() uint32 {
+	if d == nil {
+		return 0
+	}
+	return d.tokenInvariantMaxReadSpan
 }
 
 func (d *dfaTokenSource) sqlUppercaseKeywordSource(source []byte) ([]byte, bool) {

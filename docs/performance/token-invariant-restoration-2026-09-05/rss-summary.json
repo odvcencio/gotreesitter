@@ -1,0 +1,53 @@
+{
+  "fixture": "grammargen_lr",
+  "source_bytes": 235626,
+  "route": "explicit legacy production",
+  "scope": "process peak RSS includes fixture admission, pool draining, warm-up, and one full parse",
+  "comparison": "three descriptive fresh-process observations per commit; not a statistical speed comparison",
+  "roles": {
+    "release": {
+      "observations": [
+        {
+          "pair": 1,
+          "max_rss_kib": 169088,
+          "exit_status": 0
+        },
+        {
+          "pair": 2,
+          "max_rss_kib": 168608,
+          "exit_status": 0
+        },
+        {
+          "pair": 3,
+          "max_rss_kib": 150112,
+          "exit_status": 0
+        }
+      ],
+      "min_rss_kib": 150112,
+      "median_rss_kib": 168608,
+      "max_rss_kib": 169088
+    },
+    "candidate": {
+      "observations": [
+        {
+          "pair": 1,
+          "max_rss_kib": 167668,
+          "exit_status": 0
+        },
+        {
+          "pair": 2,
+          "max_rss_kib": 168436,
+          "exit_status": 0
+        },
+        {
+          "pair": 3,
+          "max_rss_kib": 169300,
+          "exit_status": 0
+        }
+      ],
+      "min_rss_kib": 167668,
+      "median_rss_kib": 168436,
+      "max_rss_kib": 169300
+    }
+  }
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "path": "candidate.test",
+    "bytes": 54600529,
+    "sha256": "41cff7e420c5325a5abe98113d6c43ff81f867f9697086cff1fce39b993c92e5"
+  },
+  {
+    "path": "release.test",
+    "bytes": 54204821,
+    "sha256": "b696dbab8c54c6ae9306df1c55be6125b615e834ad2a6e551f701cb6a8f3e42c"
+  },
+  {
+    "path": "probe/release-probe.test",
+    "bytes": 54235413,
+    "sha256": "41de4f571d49234d3f330a0cf11f780d526dc845a3716958489eb729a6eb1b64"
+  },
+  {
+    "path": "probe/candidate-probe.test",
+    "bytes": 54627753,
+    "sha256": "819b66c135c9dee007182a4aad516927795d81a7dd88657075b06219e3cca105"
+  }
+]

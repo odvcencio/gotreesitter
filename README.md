@@ -265,6 +265,12 @@ The v0.52.0 release disables the unsafe same-length token-invariant shortcut.
 Ordinary subtree reuse and no-edit reuse remain available. Restoring the shortcut
 requires complete lexical dependency proofs under
 [issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
+The unreleased implementation restores bounded reuse after authenticating earlier
+lexical reads and the edited token. Unknown coverage or an exhausted proof
+budget requires reparsing. The generated Go edit benchmark improves 16.65 times
+against v0.52.0, with a 1.68 percent full-parse regression. See the
+[paired performance report](docs/performance/token-invariant-restoration-2026-09-05.md)
+for the workload and limitations.
 External scanners need certification for general old-tree reuse. Unsupported
 cases use the legacy full-parse fallback. See the
 [per-language incremental scanner matrix](docs/external-scanners.md#incremental-reuse-certification-matrix).

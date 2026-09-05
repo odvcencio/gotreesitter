@@ -28,6 +28,21 @@ type ExternalLexer struct {
 	// lookaheadEndByte records the largest lexer frontier observed while this
 	// scanner attempt ran. The token source carries it across scanner retries.
 	lookaheadEndByte uint32
+	// A scan owns this observer. Value-copy rollback must not erase reads.
+	readFrontier *externalReadFrontier
+}
+
+type externalReadFrontier struct {
+	lookahead uint32
+	examined  uint32
+}
+
+func (l *ExternalLexer) clearSource() {
+	observer := l.readFrontier
+	if observer != nil {
+		*observer = externalReadFrontier{}
+	}
+	*l = ExternalLexer{readFrontier: observer}
 }
 
 func (l *ExternalLexer) reset(source []byte, pos int, row, col uint32) {
@@ -54,6 +69,7 @@ func newExternalLexer(source []byte, pos int, row, col uint32) *ExternalLexer {
 
 // Lookahead returns the current rune or 0 at EOF.
 func (l *ExternalLexer) Lookahead() rune {
+	l.recordReadFrontier()
 	if l.pos >= len(l.source) {
 		return 0
 	}
@@ -95,6 +111,7 @@ func (l *ExternalLexer) Previous() rune {
 // from the token span (scanner whitespace skipping behavior).
 func (l *ExternalLexer) Advance(skip bool) {
 	if l.pos >= len(l.source) {
+		l.recordReadFrontier()
 		return
 	}
 
@@ -105,6 +122,7 @@ func (l *ExternalLexer) Advance(skip bool) {
 		r, size = utf8.DecodeRune(l.source[l.pos:])
 	}
 	l.pos += size
+	l.recordReadFrontier()
 	if r == '\n' {
 		l.point.Row++
 		l.point.Column = 0
@@ -131,13 +149,18 @@ func (l *ExternalLexer) Advance(skip bool) {
 // a space, but avoids per-byte rune decoding in external scanners that skip
 // indentation runs.
 func (l *ExternalLexer) AdvanceSpaces(skip bool) int {
-	if l == nil || l.pos >= len(l.source) || l.source[l.pos] != ' ' {
+	if l == nil {
+		return 0
+	}
+	l.recordReadFrontier()
+	if l.pos >= len(l.source) || l.source[l.pos] != ' ' {
 		return 0
 	}
 	start := l.pos
 	for l.pos < len(l.source) && l.source[l.pos] == ' ' {
 		l.pos++
 	}
+	l.recordReadFrontier()
 	n := l.pos - start
 	l.point.Column += uint32(n)
 	if skip {
@@ -154,13 +177,18 @@ func (l *ExternalLexer) AdvanceSpaces(skip bool) int {
 // Column by the UTF-8 width, which is equal to the byte count for the whole
 // consumed span.
 func (l *ExternalLexer) AdvanceUntilNewline(skip bool) int {
-	if l == nil || l.pos >= len(l.source) || l.source[l.pos] == '\n' {
+	if l == nil {
+		return 0
+	}
+	l.recordReadFrontier()
+	if l.pos >= len(l.source) || l.source[l.pos] == '\n' {
 		return 0
 	}
 	start := l.pos
 	for l.pos < len(l.source) && l.source[l.pos] != '\n' {
 		l.pos++
 	}
+	l.recordReadFrontier()
 	n := l.pos - start
 	l.point.Column += uint32(n)
 	if skip {
@@ -207,6 +235,14 @@ func (l *ExternalLexer) lookaheadEndByteAtCursor() uint32 {
 		return ^uint32(0)
 	}
 	return uint32(frontier)
+}
+
+func (l *ExternalLexer) recordReadFrontier() {
+	if l.readFrontier != nil {
+		frontier := l.lookaheadEndByteAtCursor()
+		l.readFrontier.lookahead = maxUint32(l.readFrontier.lookahead, frontier)
+		l.readFrontier.examined = maxUint32(l.readFrontier.examined, tokenInvariantExaminedEnd(l.source, frontier))
+	}
 }
 
 // Column returns the current column (0-based) at the scanner cursor.

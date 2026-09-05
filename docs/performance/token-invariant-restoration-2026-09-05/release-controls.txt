@@ -1,0 +1,21 @@
+=== RUN   TestGoFullParseBenchmarkFixturesParseClean
+--- PASS: TestGoFullParseBenchmarkFixturesParseClean (0.41s)
+=== RUN   TestReleaseTokenInvariantFallbackLongestMatch
+=== RUN   TestReleaseTokenInvariantFallbackLongestMatch/grouped
+=== RUN   TestReleaseTokenInvariantFallbackLongestMatch/grouped/legacy
+=== RUN   TestReleaseTokenInvariantFallbackLongestMatch/grouped/compact
+=== RUN   TestReleaseTokenInvariantFallbackLongestMatch/grouped/forest
+=== RUN   TestReleaseTokenInvariantFallbackLongestMatch/flat
+=== RUN   TestReleaseTokenInvariantFallbackLongestMatch/flat/legacy
+=== RUN   TestReleaseTokenInvariantFallbackLongestMatch/flat/compact
+=== RUN   TestReleaseTokenInvariantFallbackLongestMatch/flat/forest
+--- PASS: TestReleaseTokenInvariantFallbackLongestMatch (0.00s)
+    --- PASS: TestReleaseTokenInvariantFallbackLongestMatch/grouped (0.00s)
+        --- PASS: TestReleaseTokenInvariantFallbackLongestMatch/grouped/legacy (0.00s)
+        --- PASS: TestReleaseTokenInvariantFallbackLongestMatch/grouped/compact (0.00s)
+        --- PASS: TestReleaseTokenInvariantFallbackLongestMatch/grouped/forest (0.00s)
+    --- PASS: TestReleaseTokenInvariantFallbackLongestMatch/flat (0.00s)
+        --- PASS: TestReleaseTokenInvariantFallbackLongestMatch/flat/legacy (0.00s)
+        --- PASS: TestReleaseTokenInvariantFallbackLongestMatch/flat/compact (0.00s)
+        --- PASS: TestReleaseTokenInvariantFallbackLongestMatch/flat/forest (0.00s)
+PASS

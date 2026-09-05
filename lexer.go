@@ -65,6 +65,10 @@ func bytesToStringNoCopy(b []byte) string {
 
 // Lexer tokenizes source text using a table-driven DFA.
 type Lexer struct {
+	// The source owns this aggregate. Lexer snapshots share it so rollback
+	// cannot erase reads from failed or discarded primitive scans.
+	tokenInvariantReadSpanMax *uint32
+
 	states           []LexState
 	asciiTable       [][128]int32 // ASCII fast-path transition table (nil = not available)
 	source           []byte
@@ -149,6 +153,7 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 		// EOF check.
 		if l.atLogicalEOF() {
 			lookaheadEndByte = maxUint32(lookaheadEndByte, l.lookaheadEndByteAt(l.pos, false))
+			recordTokenInvariantReadSpan(l.tokenInvariantReadSpanMax, l.pos, l.lookaheadEndByteAt(l.pos, false))
 			return Token{
 				StartByte:             uint32(l.pos),
 				EndByte:               uint32(l.pos),
@@ -282,10 +287,37 @@ func (l *Lexer) errorRunToken(frontier *uint32) Token {
 // a token and true if an accepting state was reached, or false if not.
 // On a skip (whitespace) match, it returns a zero-Symbol token and true.
 func (l *Lexer) scan(startState uint32, startPos int, startRow, startCol uint32) (Token, bool) {
+	var tok Token
+	var ok bool
 	if len(l.includedRanges) != 0 {
-		return l.scanIncluded(startState, startPos, startRow, startCol)
+		tok, ok = l.scanIncluded(startState, startPos, startRow, startCol)
+	} else {
+		tok, ok = l.scanContiguous(startState, startPos, startRow, startCol)
 	}
-	return l.scanContiguous(startState, startPos, startRow, startCol)
+	if l.tokenInvariantReadSpanMax != nil {
+		recordTokenInvariantReadSpan(l.tokenInvariantReadSpanMax, startPos, tokenInvariantExaminedEnd(l.source, tok.lexerLookaheadEndByte))
+	}
+	return tok, ok
+}
+
+// C frontiers identify the first byte of valid lookahead. Dependency checks
+// must include every byte decoded from that rune, including continuation bytes.
+func tokenInvariantExaminedEnd(source []byte, frontier uint32) uint32 {
+	if frontier == 0 || uint64(frontier) > uint64(len(source)) || source[frontier-1] < utf8.RuneSelf {
+		return frontier
+	}
+	_, width := utf8.DecodeRune(source[frontier-1:])
+	return uint32(min(uint64(^uint32(0)), uint64(frontier)+uint64(width-1)))
+}
+
+func recordTokenInvariantReadSpan(maximum *uint32, start int, frontier uint32) {
+	if maximum == nil || start < 0 || uint64(frontier) <= uint64(start) {
+		return
+	}
+	span := uint32(uint64(frontier) - uint64(start))
+	if span > *maximum {
+		*maximum = span
+	}
 }
 
 func (l *Lexer) scanContiguous(startState uint32, startPos int, startRow, startCol uint32) (Token, bool) {

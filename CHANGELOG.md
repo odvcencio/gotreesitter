@@ -7,6 +7,24 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Incremental correctness
+
+- Restore bounded token-invariant reuse after authenticating earlier lexical
+  dependencies and the edited token. Unknown coverage requires reparsing.
+- Retain examined-byte coverage through failed scans, rollback, and accepted
+  tree ownership. Include UTF-8 continuation bytes beyond token boundaries.
+- Add optional scanner byte-equivalence declarations. These declarations do
+  not authorize general subtree reuse or replace scanner checkpoints.
+- Check repeated edits against locked C trees for Go, CSS, SCSS, TypeScript,
+  and Julia. Keep malformed and unsupported cases on their existing fallback paths.
+
+Twenty paired benchmark samples compare this change with v0.52.0.
+Generated Go single-byte edits improve from 3,033.2 to 182.1 microseconds.
+Allocations decrease from 95 to 3 per edit. Full parsing regresses 1.68 percent.
+See the [performance report](docs/performance/token-invariant-restoration-2026-09-05.md)
+for raw results, workload limits, and memory observations.
+These changes do not complete compact parser graduation or retire the legacy parser.
+
 ## [0.52.0] - 2026-09-05
 
 ### Release overview

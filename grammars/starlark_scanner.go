@@ -59,6 +59,14 @@ func (StarlarkExternalScanner) SupportsIncrementalReuse() bool { return false }
 
 func (StarlarkExternalScanner) UsesExternalScannerCheckpoints() bool { return true }
 
+// ASCII digits share every character branch, including string and comment scans.
+func (StarlarkExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
+	if b >= '0' && b <= '9' {
+		return 1
+	}
+	return 0
+}
+
 func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*pythonScannerState)
 	if len(s.indents) == 0 {

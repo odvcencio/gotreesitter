@@ -1360,10 +1360,13 @@ const (
 // ReuseCursorNanos includes reuse-cursor setup and subtree-candidate checks.
 // ReparseNanos includes the remainder of incremental parsing/rebuild work.
 type IncrementalParseProfile struct {
-	ReuseCursorNanos                   int64
-	ReparseNanos                       int64
-	ReusedSubtrees                     uint64
-	ReusedBytes                        uint64
+	ReuseCursorNanos int64
+	ReparseNanos     int64
+	ReusedSubtrees   uint64
+	ReusedBytes      uint64
+	// TokenInvariantDependencyChecks counts bounded lexical comparisons.
+	// A comparison can reject reuse when an earlier token changes.
+	TokenInvariantDependencyChecks     uint64
 	NewNodesAllocated                  uint64
 	ReuseUnsupported                   bool
 	ReuseUnsupportedReason             string
@@ -1500,6 +1503,7 @@ type incrementalParseTiming struct {
 	reuseNanos                          int64
 	reusedSubtrees                      uint64
 	reusedBytes                         uint64
+	tokenInvariantDependencyChecks      uint64
 	newNodes                            uint64
 	reuseUnsupported                    bool
 	reuseUnsupportedReason              string
@@ -4596,6 +4600,10 @@ func compactPackedGSSVersionOrderActiveForParse(language *Language, reuse *reuse
 // merged; distinct alternatives are preserved.
 func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor, oldTree *Tree, arenaClass arenaClass, timing *incrementalParseTiming, maxStacksOverride int, maxNodesOverride int, maxMergePerKeyOverride int, deterministicExternalConflicts bool) *Tree {
 	p.recordLegacyParserEntry()
+	var lexicalReadSpan *uint32
+	if d := tokenInvariantDFASource(ts, p.included); d != nil {
+		lexicalReadSpan = &d.tokenInvariantMaxReadSpan
+	}
 	workCountAttempt := workCountBeginParseAttempt(maxStacksOverride, maxNodesOverride, maxMergePerKeyOverride)
 	parseStart := time.Now()
 	previousMemoryBudgetDiag := p.parseMemoryBudgetDiag
@@ -4630,6 +4638,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	prevGoCompatFrames := p.goCompatFrames
 	p.reduceScratch = &scratch.reduce
 	p.mergeScratch = &scratch.merge
+	scratch.merge.lexicalReadSpan = lexicalReadSpan
 	p.beginRecoveryRuntimeTelemetry()
 	p.beginRecoveryRuntimeTelemetryDetailed()
 	// budgetScratch is saved and restored, not just cleared, unlike its
@@ -4651,6 +4660,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		p.reduceScratch.transientChildren = &scratch.transientChildren
 	}
 	defer func() {
+		scratch.merge.lexicalReadSpan = nil
 		p.reduceScratch = prevReduceScratch
 		p.mergeScratch = prevMergeScratch
 		p.budgetScratch = prevBudgetScratch
@@ -5218,6 +5228,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		if tree != nil {
 			tree.setIncludedRanges(p.included)
 			tree.setParseRuntime(parseRuntime)
+			if reuse == nil && oldTree == nil {
+				tree.captureTokenInvariantReadSpan(ts)
+			}
 			tree.setRecoveryNodeMemoRuntime(memoRuntime)
 			if arenaBreakdown != nil {
 				tree.setArenaBreakdown(arenaBreakdown)
@@ -6319,7 +6332,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// loop stays in lockstep and the external scanner is never
 					// re-entered. Restored for the next stack at the top of the
 					// dispatch loop so the shared token never leaks sideways.
-					if reTok, ok := p.relexTokenForStackLexState(source, currentState, tok); ok {
+					if reTok, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan); ok {
 						if p.glrTrace {
 							fmt.Printf("  stack[%d] C-STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState)
@@ -6377,7 +6390,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// symbol at the identical byte span, so a stack that
 					// genuinely has no other reading is killed exactly as
 					// before.
-					if reTok, ok := p.relexTokenForStackLexState(source, currentState, tok); ok {
+					if reTok, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan); ok {
 						if p.glrTrace {
 							fmt.Printf("  stack[%d] STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState)

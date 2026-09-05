@@ -113,6 +113,14 @@ func (a *externalScannerOrderAdapter) ExternalScannerIsStateless() bool {
 	return ok && stateless.ExternalScannerIsStateless()
 }
 
+func (a *externalScannerOrderAdapter) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
+	invariant, ok := a.optionalInner().(ASCIIEquivalenceExternalScanner)
+	if !ok {
+		return 0
+	}
+	return invariant.ExternalScannerASCIIEquivalenceClass(b)
+}
+
 func (a *externalScannerOrderAdapter) PreservesStateOnScanFailure() bool {
 	preserving, ok := a.optionalInner().(FailurePreservingExternalScanner)
 	return ok && preserving.PreservesStateOnScanFailure()
