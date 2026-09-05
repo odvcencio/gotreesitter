@@ -1,0 +1,29 @@
+-test.shuffle 1
+STATS_CFG glr_max_stacks=6 default=6
+STATS edits=1 edit_ns=184383 reuse_ns=539507 parse_ns=3847548 reused_subtrees=501 reused_bytes=18760 new_nodes=1026 recover_searches=0 recover_state_checks=0 recover_state_skips=0 recover_lookups=0 recover_hits=0 max_stacks=0
+STATS recover_symbol_skips=0
+STATS arena_full_acquire=1 arena_full_new=1 arena_inc_acquire=0 arena_inc_new=0
+STATS scratch_peak_entries=0
+STATS_PERF merge_calls=0 merge_dead_pruned=0 merge_perkey_overflow=0 merge_replacements=0 stackeq_calls=0 stackeq_true=0 stackeq_hash_miss_skips=0 stackcmp_calls=0 forks=0 first_conflict_token=0 max_stacks=0 lex_bytes=0 lex_tokens=0 reuse_nodes_visited=0 reuse_nodes_pushed=0 reuse_nodes_popped=0 reuse_candidates=0 reuse_successes=0 reuse_leaf_successes=0 reuse_nonleaf_checks=0 reuse_nonleaf_successes=0 reuse_nonleaf_bytes=0 reuse_nonleaf_nogoto=0 reuse_nonleaf_nogoto_term=0 reuse_nonleaf_nogoto_nonterm=0 reuse_nonleaf_statemiss=0 reuse_nonleaf_statezero=0
+STATS_PERF merge_hash_zero=0 global_cap_culls=0 global_cap_cull_dropped=0
+STATS_PERF conflicts_rr=0 conflicts_rs=0 conflicts_other=0 reduce_chain_steps=0 reduce_chain_max_len=0 reduce_chain_break_multi=0 reduce_chain_break_shift=0 reduce_chain_break_accept=0
+STATS_PERF merge_in_hist=- merge_alive_hist=- merge_out_hist=- fork_actions_hist=-
+STATS_RUNTIME single_iters=0 multi_iters=0 single_tokens=0 multi_tokens=0 gss_single=0 gss_multi=0
+STATS_SURVIVOR gss_alloc=0 gss_retained=0 gss_dropped=0 parent_alloc=0 parent_retained=0 parent_dropped=0 leaf_alloc=0 leaf_retained=0 leaf_dropped=0 merge_in=0 merge_out=0 merge_slots=0 cull_in=0 cull_out=0
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+BenchmarkGoParseIncrementalSingleByteEditDFA 	STATS_CFG glr_max_stacks=6 default=6
+STATS edits=5 edit_ns=125449 reuse_ns=2647437 parse_ns=12690030 reused_subtrees=2505 reused_bytes=93800 new_nodes=5130 recover_searches=0 recover_state_checks=0 recover_state_skips=0 recover_lookups=0 recover_hits=0 max_stacks=0
+STATS recover_symbol_skips=0
+STATS arena_full_acquire=5 arena_full_new=1 arena_inc_acquire=0 arena_inc_new=0
+STATS scratch_peak_entries=0
+STATS_PERF merge_calls=0 merge_dead_pruned=0 merge_perkey_overflow=0 merge_replacements=0 stackeq_calls=0 stackeq_true=0 stackeq_hash_miss_skips=0 stackcmp_calls=0 forks=0 first_conflict_token=0 max_stacks=0 lex_bytes=0 lex_tokens=0 reuse_nodes_visited=0 reuse_nodes_pushed=0 reuse_nodes_popped=0 reuse_candidates=0 reuse_successes=0 reuse_leaf_successes=0 reuse_nonleaf_checks=0 reuse_nonleaf_successes=0 reuse_nonleaf_bytes=0 reuse_nonleaf_nogoto=0 reuse_nonleaf_nogoto_term=0 reuse_nonleaf_nogoto_nonterm=0 reuse_nonleaf_statemiss=0 reuse_nonleaf_statezero=0
+STATS_PERF merge_hash_zero=0 global_cap_culls=0 global_cap_cull_dropped=0
+STATS_PERF conflicts_rr=0 conflicts_rs=0 conflicts_other=0 reduce_chain_steps=0 reduce_chain_max_len=0 reduce_chain_break_multi=0 reduce_chain_break_shift=0 reduce_chain_break_accept=0
+STATS_PERF merge_in_hist=- merge_alive_hist=- merge_out_hist=- fork_actions_hist=-
+STATS_RUNTIME single_iters=0 multi_iters=0 single_tokens=0 multi_tokens=0 gss_single=0 gss_multi=0
+STATS_SURVIVOR gss_alloc=0 gss_retained=0 gss_dropped=0 parent_alloc=0 parent_retained=0 parent_dropped=0 leaf_alloc=0 leaf_retained=0 leaf_dropped=0 merge_in=0 merge_out=0 merge_slots=0 cull_in=0 cull_out=0
+       5	   3114662 ns/op	   6.19 MB/s	  810886 B/op	     108 allocs/op
+PASS

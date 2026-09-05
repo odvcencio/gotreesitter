@@ -1,0 +1,47 @@
+[
+  {
+    "path": "/tmp/gts-token-invariant-performance-20260905/20260905T141106Z-token-invariant-perf-controls",
+    "label": "token-invariant-perf-controls",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T14:11:06Z",
+    "end_utc": "2026-09-05T14:11:50Z"
+  },
+  {
+    "path": "/tmp/gts-token-invariant-performance-20260905/20260905T141301Z-token-invariant-perf-rss",
+    "label": "token-invariant-perf-rss",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T14:13:01Z",
+    "end_utc": "2026-09-05T14:13:06Z"
+  },
+  {
+    "path": "/tmp/gts-token-invariant-performance-20260905/20260905T141554Z-token-invariant-perf-probe",
+    "label": "token-invariant-perf-probe",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T14:15:54Z",
+    "end_utc": "2026-09-05T14:16:08Z"
+  },
+  {
+    "path": "/tmp/gts-token-invariant-performance-20260905/20260905T141640Z-token-invariant-perf-telemetry",
+    "label": "token-invariant-perf-telemetry",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T14:16:40Z",
+    "end_utc": "2026-09-05T14:16:40Z"
+  },
+  {
+    "path": "/tmp/gts-token-invariant-performance-20260905/20260905T142205Z-token-invariant-perf-paired",
+    "label": "token-invariant-perf-paired",
+    "exit_code": 0,
+    "oom_killed": false,
+    "wall_timed_out": false,
+    "start_utc": "2026-09-05T14:22:05Z",
+    "end_utc": "2026-09-05T14:26:26Z"
+  }
+]

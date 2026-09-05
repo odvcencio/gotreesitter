@@ -1,0 +1,214 @@
+//go:build gts_parsercorephase0 && !gts_no_parsercorephase0
+
+package gotreesitter_test
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"os"
+	"reflect"
+	"testing"
+
+	gotreesitter "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
+)
+
+const tokenInvariantBenchmarkSourceSHA256 = "2e0f9d4676549c8560cebc3c53877932f921ab9d77c88518227f3018573af4b7"
+
+type tokenInvariantBenchmarkEditReceipt struct {
+	Edit                   int                          `json:"edit"`
+	SourceSHA256           string                       `json:"source_sha256"`
+	DeepTreeSHA256         string                       `json:"deep_tree_sha256"`
+	FreshDeepTreeSHA256    string                       `json:"fresh_deep_tree_sha256"`
+	Complete               bool                         `json:"complete"`
+	SameRoot               bool                         `json:"same_root"`
+	DependencyFieldPresent bool                         `json:"dependency_field_present"`
+	DependencyChecks       uint64                       `json:"dependency_checks"`
+	ReparseNanos           int64                        `json:"reparse_nanos"`
+	NewNodesAllocated      uint64                       `json:"new_nodes_allocated"`
+	ReusedBytes            uint64                       `json:"reused_bytes"`
+	ReusedSubtrees         uint64                       `json:"reused_subtrees"`
+	StopReason             gotreesitter.ParseStopReason `json:"stop_reason"`
+	ReuseUnsupported       bool                         `json:"reuse_unsupported"`
+	ReuseUnsupportedReason string                       `json:"reuse_unsupported_reason"`
+}
+
+// The release profile has no dependency-check field. Read it without changing either revision.
+func tokenInvariantBenchmarkDependencyChecks(profile gotreesitter.IncrementalParseProfile) (uint64, bool) {
+	field := reflect.ValueOf(profile).FieldByName("TokenInvariantDependencyChecks")
+	if !field.IsValid() {
+		return 0, false
+	}
+	if field.Kind() != reflect.Uint64 {
+		panic("unexpected dependency counter type")
+	}
+	return field.Uint(), true
+}
+
+func tokenInvariantBenchmarkComplete(t *testing.T, tree *gotreesitter.Tree, source []byte, lang *gotreesitter.Language, label string) {
+	t.Helper()
+	root := requireCompleteParse(t, tree, source, lang, label)
+	runtime := tree.ParseRuntime()
+	if root.StartByte() != 0 || root.HasError() || runtime.Truncated || runtime.StopReason != gotreesitter.ParseStopAccepted ||
+		runtime.SourceLen != uint32(len(source)) || runtime.ExpectedEOFByte != uint32(len(source)) || runtime.RootEndByte != uint32(len(source)) {
+		t.Fatalf("%s incomplete tree: %s", label, runtime.Summary())
+	}
+}
+
+func TestTokenInvariantExactBenchmarkPreflight(t *testing.T) {
+	expectation := os.Getenv("GTS_EXPECT_TOKEN_INVARIANT_REUSE")
+	if expectation != "0" && expectation != "1" {
+		t.Fatal("set GTS_EXPECT_TOKEN_INVARIANT_REUSE to 0 or 1")
+	}
+	expectReuse := expectation == "1"
+	if os.Getenv("GOT_STATS") != "" || os.Getenv("GTS_ADMISSION_CANDIDATE") != "" {
+		t.Fatal("unset GOT_STATS and GTS_ADMISSION_CANDIDATE for the default-route preflight")
+	}
+	if count := os.Getenv("GOT_BENCH_FUNC_COUNT"); count != "" && count != "500" {
+		t.Fatal("GOT_BENCH_FUNC_COUNT must be unset or 500")
+	}
+	if err := verifyRealGoBenchmarkGrammarIdentity(); err != nil {
+		t.Fatal(err)
+	}
+	source := makeGoBenchmarkSource(500)
+	if len(source) != 19294 || fmt.Sprintf("%x", sha256.Sum256(source)) != tokenInvariantBenchmarkSourceSHA256 {
+		t.Fatalf("benchmark source changed: bytes=%d sha256=%x", len(source), sha256.Sum256(source))
+	}
+	editAt := bytes.Index(source, []byte("v := 0"))
+	if editAt < 0 {
+		t.Fatal("benchmark edit marker is missing")
+	}
+	editAt += len("v := ")
+	if editAt != 35 {
+		t.Fatalf("benchmark edit offset=%d want=35", editAt)
+	}
+	edit := gotreesitter.InputEdit{
+		StartByte: uint32(editAt), OldEndByte: uint32(editAt + 1), NewEndByte: uint32(editAt + 1),
+		StartPoint: pointAtOffset(source, editAt), OldEndPoint: pointAtOffset(source, editAt+1), NewEndPoint: pointAtOffset(source, editAt+1),
+	}
+	lang := grammars.GoLanguage()
+	parser := gotreesitter.NewParser(lang)
+	gotreesitter.ResetAdmissionCandidateCountersForTest()
+	tree, err := parser.Parse(source)
+	if err != nil {
+		releaseBenchmarkTree(tree)
+		t.Fatal(err)
+	}
+	defer func() { releaseBenchmarkTree(tree) }()
+	tokenInvariantBenchmarkComplete(t, tree, source, lang, "initial")
+	initialInspection, err := benchfixtures.InspectGoTree(tree.RootNode(), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initialRouted, initialFallback := gotreesitter.AdmissionCandidateCounters()
+	if initialRouted != 1 || initialFallback != 0 {
+		t.Fatalf("initial default route=%d fallback=%d reason=%q", initialRouted, initialFallback, gotreesitter.AdmissionCandidateLastFallbackReason())
+	}
+	scratch := make([]byte, len(source))
+	var receipts [5]tokenInvariantBenchmarkEditReceipt
+	for index := range receipts {
+		nextSource := prepareEditedBenchmarkSource(source, scratch, editAt)
+		old := tree
+		oldRoot := old.RootNode()
+		old.Edit(edit)
+		next, profile, err := parser.ParseIncrementalProfiled(nextSource, old)
+		if err != nil {
+			if next != old {
+				releaseBenchmarkTree(next)
+			}
+			t.Fatalf("edit %d parse: %v", index+1, err)
+		}
+		tree = next
+		if old != tree {
+			old.Release()
+		}
+		tokenInvariantBenchmarkComplete(t, tree, nextSource, lang, "incremental")
+		checks, fieldPresent := tokenInvariantBenchmarkDependencyChecks(profile)
+		if expectReuse {
+			if !fieldPresent || checks != 1 || profile.ReparseNanos != 0 || profile.NewNodesAllocated != 0 ||
+				profile.ReusedBytes != uint64(len(nextSource)) || profile.ReusedSubtrees == 0 || tree.RootNode() != oldRoot {
+				t.Fatalf("edit %d did not authenticate whole-tree reuse: checks=%d present=%t same_root=%t profile=%+v", index+1, checks, fieldPresent, tree.RootNode() == oldRoot, profile)
+			}
+		} else if profile.ReparseNanos <= 0 || profile.NewNodesAllocated == 0 {
+			t.Fatalf("edit %d did not use the release reparse path: %+v", index+1, profile)
+		}
+		freshParser := gotreesitter.NewParser(lang)
+		fresh, err := freshParser.Parse(nextSource)
+		if err != nil {
+			releaseBenchmarkTree(fresh)
+			t.Fatalf("edit %d fresh parse: %v", index+1, err)
+		}
+		func() {
+			defer fresh.Release()
+			tokenInvariantBenchmarkComplete(t, fresh, nextSource, lang, "fresh")
+			requireIncrementalDeepTreeMatchesFresh(t, tree, fresh, lang)
+			actual, err := benchfixtures.InspectGoTree(tree.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wanted, err := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
+			}
+			receipts[index] = tokenInvariantBenchmarkEditReceipt{
+				Edit: index + 1, SourceSHA256: fmt.Sprintf("%x", sha256.Sum256(nextSource)),
+				DeepTreeSHA256: actual.SHA256, FreshDeepTreeSHA256: wanted.SHA256,
+				Complete: true, SameRoot: tree.RootNode() == oldRoot,
+				DependencyFieldPresent: fieldPresent, DependencyChecks: checks,
+				ReparseNanos: profile.ReparseNanos, NewNodesAllocated: profile.NewNodesAllocated,
+				ReusedBytes: profile.ReusedBytes, ReusedSubtrees: profile.ReusedSubtrees,
+				StopReason: tree.ParseRuntime().StopReason, ReuseUnsupported: profile.ReuseUnsupported,
+				ReuseUnsupportedReason: profile.ReuseUnsupportedReason,
+			}
+		}()
+		source, scratch = nextSource, source
+	}
+	beforeNoEdit := tree
+	beforeNoEditRoot := tree.RootNode()
+	noEdit, err := parser.ParseIncremental(source, tree)
+	if err != nil {
+		if noEdit != tree {
+			releaseBenchmarkTree(noEdit)
+		}
+		t.Fatalf("no-edit parse: %v", err)
+	}
+	tree = noEdit
+	if beforeNoEdit != tree {
+		beforeNoEdit.Release()
+	}
+	tokenInvariantBenchmarkComplete(t, tree, source, lang, "no edit")
+	if tree.RootNode() != beforeNoEditRoot {
+		t.Fatal("no-edit parse did not reuse the old root")
+	}
+	noEditInspection, err := benchfixtures.InspectGoTree(tree.RootNode(), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if noEditInspection.SHA256 != receipts[len(receipts)-1].DeepTreeSHA256 {
+		t.Fatal("no-edit parse changed the deep-tree digest")
+	}
+	report := map[string]any{
+		"schema":                     "gts-token-invariant-exact-benchmark-preflight-v1",
+		"expect_authenticated_reuse": expectReuse, "complete": true, "comparison_timing": false,
+		"function_count": 500, "source_bytes": 19294, "initial_source_sha256": tokenInvariantBenchmarkSourceSHA256,
+		"initial_deep_tree_sha256": initialInspection.SHA256, "grammar_blob_sha256": benchfixtures.GoGrammarBlobSHA256,
+		"initial_routes": initialRouted, "initial_fallbacks": initialFallback,
+		"edit_offset": editAt, "edit_count": len(receipts), "edits": receipts,
+		"no_edit_complete": true, "no_edit_same_root": true, "no_edit_deep_tree_sha256": noEditInspection.SHA256,
+		"caveat": "Untimed diagnostic preflight. Deep inspection and fresh comparisons occur between edits. Reparse nanoseconds prove path execution only.",
+	}
+	encoded, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded = append(encoded, '\n')
+	if output := os.Getenv("GTS_TOKEN_INVARIANT_PREFLIGHT_OUTPUT"); output != "" {
+		if err := os.WriteFile(output, encoded, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fmt.Printf("TOKEN_INVARIANT_PREFLIGHT_JSON_BEGIN\n%sTOKEN_INVARIANT_PREFLIGHT_JSON_END\n", encoded)
+}

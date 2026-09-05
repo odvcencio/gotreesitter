@@ -1,0 +1,27 @@
+{
+  "scripts/run_randomized_benchmarks.sh": {
+    "candidate_sha256": "cc5838460a0b68a4d4c65b005f115880c9b6b3b55895d4899e4c50a366c7e6d3",
+    "release_sha256": "cc5838460a0b68a4d4c65b005f115880c9b6b3b55895d4899e4c50a366c7e6d3",
+    "identical": true
+  },
+  "benchmark_test.go": {
+    "candidate_sha256": "804c2bfddaaba678cf0ed28c7adaae76ddc272fe0d4f28abbfa95f1bb0c49f17",
+    "release_sha256": "804c2bfddaaba678cf0ed28c7adaae76ddc272fe0d4f28abbfa95f1bb0c49f17",
+    "identical": true
+  },
+  "benchmark_real_go_test.go": {
+    "candidate_sha256": "1410ef29bff2fbfa8904695f707c29bc0b03cfe697d47638b2c9712eef226831",
+    "release_sha256": "1410ef29bff2fbfa8904695f707c29bc0b03cfe697d47638b2c9712eef226831",
+    "identical": true
+  },
+  "internal/benchfixtures/go_fixtures.go": {
+    "candidate_sha256": "eb4eb1c0192565022b3fe2c0bd72fc134bb8a6f86a875de3e12f572e6be15624",
+    "release_sha256": "eb4eb1c0192565022b3fe2c0bd72fc134bb8a6f86a875de3e12f572e6be15624",
+    "identical": true
+  },
+  "grammars/languages.lock": {
+    "candidate_sha256": "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb",
+    "release_sha256": "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb",
+    "identical": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "release": {
+    "edits": 5,
+    "edit_ns": 125449,
+    "reuse_ns": 2647437,
+    "parse_ns": 12690030,
+    "reused_subtrees": 2505,
+    "reused_bytes": 93800,
+    "new_nodes": 5130,
+    "recover_searches": 0,
+    "recover_state_checks": 0,
+    "recover_state_skips": 0,
+    "recover_lookups": 0,
+    "recover_hits": 0,
+    "max_stacks": 0
+  },
+  "candidate": {
+    "edits": 5,
+    "edit_ns": 124259,
+    "reuse_ns": 1114530,
+    "parse_ns": 0,
+    "reused_subtrees": 5,
+    "reused_bytes": 96470,
+    "new_nodes": 0,
+    "recover_searches": 0,
+    "recover_state_checks": 0,
+    "recover_state_skips": 0,
+    "recover_lookups": 0,
+    "recover_hits": 0,
+    "max_stacks": 1
+  }
+}
