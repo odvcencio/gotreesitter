@@ -530,20 +530,13 @@ func TestForestTreeIncrementalEditCSharpNumericLiteralFastRescue(t *testing.T) {
 	}
 	defer newTree.Release()
 	requireCompleteParse(t, newTree, edited, lang, "incremental")
-	if profile.ReuseUnsupported {
-		t.Fatalf("C# numeric literal edit fell back to fresh parse: %s", profile.ReuseUnsupportedReason)
-	}
-	if profile.ReparseNanos != 0 {
-		t.Fatalf("ReparseNanos = %d, want 0 for token-invariant C# numeric literal edit", profile.ReparseNanos)
-	}
-	if profile.ReusedSubtrees != 1 || profile.ReusedBytes != uint64(len(edited)) {
-		t.Fatalf("reuse profile = subtrees %d bytes %d, want 1/%d", profile.ReusedSubtrees, profile.ReusedBytes, len(edited))
-	}
+	requireReleaseSameWidthReparse(t, profile)
 	freshTree, err := parser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse: %v", err)
 	}
 	defer freshTree.Release()
+	requireIncrementalDeepTreeMatchesFresh(t, newTree, freshTree, lang)
 	if got, want := newTree.RootNode().SExpr(lang), freshTree.RootNode().SExpr(lang); got != want {
 		t.Fatalf("incremental C# tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 	}
@@ -586,20 +579,13 @@ func TestForestTreeIncrementalEditAwkNumberFastRescue(t *testing.T) {
 	}
 	defer newTree.Release()
 	requireCompleteParse(t, newTree, edited, lang, "incremental")
-	if profile.ReuseUnsupported {
-		t.Fatalf("AWK number edit fell back to fresh parse: %s", profile.ReuseUnsupportedReason)
-	}
-	if profile.ReparseNanos != 0 {
-		t.Fatalf("ReparseNanos = %d, want 0 for token-invariant AWK number edit", profile.ReparseNanos)
-	}
-	if profile.ReusedSubtrees == 0 {
-		t.Fatalf("AWK number edit reused no subtrees: %+v", profile)
-	}
+	requireReleaseSameWidthReparse(t, profile)
 	freshTree, err := parser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse: %v", err)
 	}
 	defer freshTree.Release()
+	requireIncrementalDeepTreeMatchesFresh(t, newTree, freshTree, lang)
 	if got, want := newTree.RootNode().SExpr(lang), freshTree.RootNode().SExpr(lang); got != want {
 		t.Fatalf("incremental AWK tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 	}
@@ -656,18 +642,13 @@ record F<T1, T2> where T1 : I1, I2, new() where T2 : I2 { }
 			t.Fatalf("incremental parse %d: %v", i, err)
 		}
 		requireCompleteParse(t, newTree, next, lang, "incremental")
-		if profile.ReuseUnsupported {
-			leaf := tree.RootNode().DescendantForByteRange(uint32(offset), uint32(offset+1))
-			t.Fatalf("C# identifier edit %d fell back to fresh parse: %s leaf=%s text=%q", i, profile.ReuseUnsupportedReason, leaf.Type(lang), leaf.Text(current))
-		}
-		if profile.ReparseNanos != 0 {
-			t.Fatalf("ReparseNanos = %d, want 0 for token-invariant C# identifier edit %d", profile.ReparseNanos, i)
-		}
+		requireReleaseSameWidthReparse(t, profile)
 		freshTree, err := parser.Parse(next)
 		if err != nil {
 			newTree.Release()
 			t.Fatalf("fresh parse %d: %v", i, err)
 		}
+		requireIncrementalDeepTreeMatchesFresh(t, newTree, freshTree, lang)
 		if got, want := newTree.RootNode().SExpr(lang), freshTree.RootNode().SExpr(lang); got != want {
 			freshTree.Release()
 			newTree.Release()
@@ -841,27 +822,14 @@ func TestForestTreeIncrementalEditCSSTokenInvariantLeafReuseIsCorrect(t *testing
 	if got, want := newTree.RootNode().EndByte(), uint32(len(edited)); got != want {
 		t.Fatalf("incremental root end = %d, want %d", got, want)
 	}
-	if profile.ReuseUnsupported {
-		leaf := oldTree.RootNode().DescendantForByteRange(uint32(offset), uint32(offset+1))
-		leafType := "<nil>"
-		leafText := ""
-		leafChildren := 0
-		if leaf != nil {
-			leafType = leaf.Type(lang)
-			leafText = leaf.Text(src)
-			leafChildren = leaf.ChildCount()
-		}
-		t.Fatalf("css token-invariant leaf edit fell back to fresh parse: %s leaf=%s children=%d text=%q", profile.ReuseUnsupportedReason, leafType, leafChildren, leafText)
-	}
-	if profile.ReusedSubtrees == 0 {
-		t.Fatalf("css token-invariant leaf edit reused no subtrees: %+v", profile)
-	}
+	requireReleaseSameWidthReparse(t, profile)
 	freshTree, err := parser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse: %v", err)
 	}
 	defer freshTree.Release()
 	requireAcceptedForestRuntime(t, "fresh CSS parse", freshTree)
+	requireIncrementalDeepTreeMatchesFresh(t, newTree, freshTree, lang)
 	if got, want := newTree.RootNode().SExpr(lang), freshTree.RootNode().SExpr(lang); got != want {
 		t.Fatalf("incremental CSS tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 	}
@@ -907,27 +875,14 @@ func TestForestTreeIncrementalEditSCSSTokenInvariantLeafReuseIsCorrect(t *testin
 	if got, want := newTree.RootNode().EndByte(), uint32(len(edited)); got != want {
 		t.Fatalf("incremental root end = %d, want %d", got, want)
 	}
-	if profile.ReuseUnsupported {
-		leaf := oldTree.RootNode().DescendantForByteRange(uint32(offset), uint32(offset+1))
-		leafType := "<nil>"
-		leafText := ""
-		leafChildren := 0
-		if leaf != nil {
-			leafType = leaf.Type(lang)
-			leafText = leaf.Text(src)
-			leafChildren = leaf.ChildCount()
-		}
-		t.Fatalf("scss token-invariant leaf edit fell back to fresh parse: %s leaf=%s children=%d text=%q", profile.ReuseUnsupportedReason, leafType, leafChildren, leafText)
-	}
-	if profile.ReusedSubtrees == 0 {
-		t.Fatalf("scss token-invariant leaf edit reused no subtrees: %+v", profile)
-	}
+	requireReleaseSameWidthReparse(t, profile)
 	freshTree, err := parser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse: %v", err)
 	}
 	defer freshTree.Release()
 	requireAcceptedForestRuntime(t, "fresh SCSS parse", freshTree)
+	requireIncrementalDeepTreeMatchesFresh(t, newTree, freshTree, lang)
 	if got, want := newTree.RootNode().SExpr(lang), freshTree.RootNode().SExpr(lang); got != want {
 		t.Fatalf("incremental SCSS tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 	}
@@ -986,19 +941,7 @@ func TestYAMLIncrementalEditScalarTokenInvariantLeafReuseIsCorrect(t *testing.T)
 				t.Fatalf("incremental parse: %v", err)
 			}
 			defer newTree.Release()
-			if profile.ReuseUnsupported {
-				leaf := oldTree.RootNode().DescendantForByteRange(uint32(offset), uint32(offset+1))
-				leafType := "<nil>"
-				leafText := ""
-				if leaf != nil {
-					leafType = leaf.Type(lang)
-					leafText = leaf.Text(src)
-				}
-				t.Fatalf("yaml token-invariant leaf edit fell back to fresh parse: %s leaf=%s text=%q", profile.ReuseUnsupportedReason, leafType, leafText)
-			}
-			if profile.ReusedSubtrees == 0 {
-				t.Fatalf("yaml token-invariant leaf edit reused no subtrees: %+v", profile)
-			}
+			requireReleaseSameWidthReparse(t, profile)
 			if got, want := newTree.RootNode().EndByte(), uint32(len(edited)); got != want {
 				t.Fatalf("incremental root end = %d, want %d", got, want)
 			}
@@ -1007,6 +950,7 @@ func TestYAMLIncrementalEditScalarTokenInvariantLeafReuseIsCorrect(t *testing.T)
 				t.Fatalf("fresh parse: %v", err)
 			}
 			defer freshTree.Release()
+			requireIncrementalDeepTreeMatchesFresh(t, newTree, freshTree, lang)
 			if got, want := newTree.RootNode().SExpr(lang), freshTree.RootNode().SExpr(lang); got != want {
 				t.Fatalf("incremental YAML tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 			}
@@ -1066,21 +1010,7 @@ func TestPowerShellIncrementalEditTextInvariantLeafReuseIsCorrect(t *testing.T) 
 				t.Fatalf("incremental parse: %v", err)
 			}
 			defer newTree.Release()
-			if profile.ReuseUnsupported {
-				leaf := oldTree.RootNode().DescendantForByteRange(uint32(offset), uint32(offset+1))
-				leafType := "<nil>"
-				leafText := ""
-				leafChildren := 0
-				if leaf != nil {
-					leafType = leaf.Type(lang)
-					leafText = leaf.Text(src)
-					leafChildren = leaf.ChildCount()
-				}
-				t.Fatalf("powershell text-invariant edit fell back to fresh parse: %s leaf=%s children=%d text=%q", profile.ReuseUnsupportedReason, leafType, leafChildren, leafText)
-			}
-			if profile.ReusedSubtrees == 0 {
-				t.Fatalf("powershell text-invariant edit reused no subtrees: %+v", profile)
-			}
+			requireReleaseSameWidthReparse(t, profile)
 			requireCompleteParse(t, newTree, edited, lang, "incremental")
 			freshTree, err := parser.Parse(edited)
 			if err != nil {
@@ -1088,6 +1018,7 @@ func TestPowerShellIncrementalEditTextInvariantLeafReuseIsCorrect(t *testing.T) 
 			}
 			defer freshTree.Release()
 			requireCompleteParse(t, freshTree, edited, lang, "fresh")
+			requireIncrementalDeepTreeMatchesFresh(t, newTree, freshTree, lang)
 			if got, want := newTree.RootNode().SExpr(lang), freshTree.RootNode().SExpr(lang); got != want {
 				t.Fatalf("incremental PowerShell tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 			}
@@ -1153,27 +1084,13 @@ func TestHCLIncrementalEditDigitLeafReuseIsCorrect(t *testing.T) {
 				t.Fatalf("incremental parse: %v", err)
 			}
 			defer newTree.Release()
-			if profile.ReuseUnsupported {
-				leaf := oldTree.RootNode().DescendantForByteRange(uint32(offset), uint32(offset+1))
-				leafType := "<nil>"
-				leafText := ""
-				if leaf != nil {
-					leafType = leaf.Type(lang)
-					leafText = leaf.Text(src)
-				}
-				t.Fatalf("hcl digit leaf edit fell back to fresh parse: %s leaf=%s text=%q", profile.ReuseUnsupportedReason, leafType, leafText)
-			}
-			if profile.ReparseNanos != 0 {
-				t.Fatalf("ReparseNanos = %d, want 0 for HCL digit leaf edit", profile.ReparseNanos)
-			}
-			if profile.ReusedSubtrees == 0 {
-				t.Fatalf("hcl digit leaf edit reused no subtrees: %+v", profile)
-			}
+			requireReleaseSameWidthReparse(t, profile)
 			freshTree, err := parser.Parse(edited)
 			if err != nil {
 				t.Fatalf("fresh parse: %v", err)
 			}
 			defer freshTree.Release()
+			requireIncrementalDeepTreeMatchesFresh(t, newTree, freshTree, lang)
 			if got, want := newTree.RootNode().SExpr(lang), freshTree.RootNode().SExpr(lang); got != want {
 				t.Fatalf("incremental HCL tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 			}
@@ -1225,27 +1142,13 @@ func TestForestTreeIncrementalEditCMakeTextInvariantLeafReuseIsCorrect(t *testin
 	if got, want := newTree.RootNode().EndByte(), uint32(len(edited)); got != want {
 		t.Fatalf("incremental root end = %d, want %d", got, want)
 	}
-	if profile.ReuseUnsupported {
-		leaf := oldTree.RootNode().DescendantForByteRange(uint32(offset), uint32(offset+1))
-		leafType := "<nil>"
-		leafText := ""
-		if leaf != nil {
-			leafType = leaf.Type(&lang)
-			leafText = leaf.Text(src)
-		}
-		t.Fatalf("cmake text-invariant leaf edit fell back to fresh parse: %s leaf=%s text=%q", profile.ReuseUnsupportedReason, leafType, leafText)
-	}
-	if profile.ReparseNanos != 0 {
-		t.Fatalf("ReparseNanos = %d, want 0 for CMake text-invariant leaf edit", profile.ReparseNanos)
-	}
-	if profile.ReusedSubtrees == 0 {
-		t.Fatalf("cmake text-invariant leaf edit reused no subtrees: %+v", profile)
-	}
+	requireReleaseSameWidthReparse(t, profile)
 	freshTree, err := parser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse: %v", err)
 	}
 	defer freshTree.Release()
+	requireIncrementalDeepTreeMatchesFresh(t, newTree, freshTree, &lang)
 	if got, want := newTree.RootNode().SExpr(&lang), freshTree.RootNode().SExpr(&lang); got != want {
 		t.Fatalf("incremental CMake tree diverged from fresh parse\n got: %s\nwant: %s", got, want)
 	}

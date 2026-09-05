@@ -54,15 +54,9 @@ func TestRustLineCommentTextEditUsesInvariantReuse(t *testing.T) {
 	if result.Profile.ReuseUnsupported {
 		t.Fatalf("reuse unsupported: %s", result.Profile.ReuseUnsupportedReason)
 	}
-	if result.Profile.ReparseNanos != 0 {
-		t.Fatalf("reparse nanos = %d, want 0", result.Profile.ReparseNanos)
-	}
-	if result.Profile.ReusedSubtrees != 1 || result.Profile.ReusedBytes != uint64(len(newSource)) {
-		t.Fatalf("reuse profile subtrees=%d bytes=%d, want 1/%d",
-			result.Profile.ReusedSubtrees, result.Profile.ReusedBytes, len(newSource))
-	}
-	rt := result.Tree.ParseRuntime()
-	if rt.StopReason != gts.ParseStopAccepted || rt.TokensConsumed != 0 {
-		t.Fatalf("runtime = %s, want accepted token-free reuse", rt.Summary())
+	requireReleaseSameWidthReparse(t, result.Profile)
+	requireIncrementalDeepTreeMatchesFresh(t, result.Tree, fresh, lang)
+	if result.Profile.ReusedSubtrees == 0 {
+		t.Fatal("ordinary Rust reuse lost unchanged subtrees")
 	}
 }
