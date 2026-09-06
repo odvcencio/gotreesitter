@@ -858,17 +858,17 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingCandidateOwned(
 	return trialHeaders, true, trialSeq, nil
 }
 
-func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
+// s5MergeRecoveryMarkerOwned preserves the complete reduction frontier.
+// The caller owns token absorption and recovery competition publication.
+func (s *diagnosticParserCoreGenericScheduler) s5MergeRecoveryMarkerOwned(
 	owner core.SchedulerTransactionToken,
 	anyHeaders []diagnosticParserCoreHeader,
-	baseline uint32,
-	recoveryGroup uint64,
 	staged *diagnosticParserCoreS5Work,
 ) (diagnosticParserCoreHeader, error) {
 	if len(anyHeaders) == 0 {
 		return diagnosticParserCoreHeader{}, errors.New("parser-core phase zero: S5 absorber has no reduction heads")
 	}
-	state, byteOffset, err := s.compact.Boundary(anyHeaders[0].head)
+	_, byteOffset, err := s.compact.Boundary(anyHeaders[0].head)
 	if err != nil {
 		return diagnosticParserCoreHeader{}, err
 	}
@@ -917,25 +917,8 @@ func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
 		incumbent = merged
 		staged.recoveryDiscontinuityMerges++
 	}
-	tokenExtra, err := s3TokenIsExtraShift(s.compact, s.token.Symbol)
-	if err != nil {
-		return diagnosticParserCoreHeader{}, err
-	}
-	leaf, err := s.compact.ErrorRegionLeaf(core.Symbol(s.token.Symbol), s.token.StartByte, s.token.EndByte, tokenExtra)
-	if err != nil {
-		return diagnosticParserCoreHeader{}, err
-	}
 	absorb := anyHeaders[0]
 	absorb.head = incumbent
-	absorb.paused = false
-	absorb.shifted = true
-	absorb.accepted = false
-	absorb.openRecoveryRegion(&diagnosticParserCoreS3Region{
-		state: state, startByte: s.token.StartByte, endByte: s.token.EndByte,
-		children: []core.SubtreeID{leaf},
-	})
-	absorb.publishRecoveryCondenseState(recoveryGroup, 0, baseline, true)
-	absorb.markRecoveryCosted()
 	for _, header := range anyHeaders[1:] {
 		absorb.frontierSequence = mergeDiagnosticParserCoreFrontier(
 			absorb.frontierSequence, header.frontierSequence,
@@ -953,6 +936,41 @@ func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
 		s.compact.UnionAlternativeSet(&absorb.altSet, header.altSet)
 		absorb.blended = absorb.blended || header.blended || incomparable
 	}
+	return absorb, nil
+}
+
+func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
+	owner core.SchedulerTransactionToken,
+	anyHeaders []diagnosticParserCoreHeader,
+	baseline uint32,
+	recoveryGroup uint64,
+	staged *diagnosticParserCoreS5Work,
+) (diagnosticParserCoreHeader, error) {
+	absorb, err := s.s5MergeRecoveryMarkerOwned(owner, anyHeaders, staged)
+	if err != nil || absorb.head.Node == 0 {
+		return absorb, err
+	}
+	state, _, err := s.compact.Boundary(anyHeaders[0].head)
+	if err != nil {
+		return diagnosticParserCoreHeader{}, err
+	}
+	tokenExtra, err := s3TokenIsExtraShift(s.compact, s.token.Symbol)
+	if err != nil {
+		return diagnosticParserCoreHeader{}, err
+	}
+	leaf, err := s.compact.ErrorRegionLeaf(core.Symbol(s.token.Symbol), s.token.StartByte, s.token.EndByte, tokenExtra)
+	if err != nil {
+		return diagnosticParserCoreHeader{}, err
+	}
+	absorb.paused = false
+	absorb.shifted = true
+	absorb.accepted = false
+	absorb.openRecoveryRegion(&diagnosticParserCoreS3Region{
+		state: state, startByte: s.token.StartByte, endByte: s.token.EndByte,
+		children: []core.SubtreeID{leaf},
+	})
+	absorb.publishRecoveryCondenseState(recoveryGroup, 0, baseline, true)
+	absorb.markRecoveryCosted()
 	s.s3RegionOpened = true
 	return absorb, nil
 }

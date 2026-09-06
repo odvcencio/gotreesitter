@@ -212,6 +212,23 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchOwnedRecoveryRegion(
 		return nil, err
 	}
 	defer costMemo.Reset()
+	if err := s.advanceRecoveryEOF(index, original, candidate, recoverable, cost); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+// advanceRecoveryEOF publishes the recovery fork and EOF acceptance together.
+// The caller validates the region, EOF token, candidate, and version limit.
+// Restore scheduler state when the enclosing core transaction fails.
+func (s *diagnosticParserCoreGenericScheduler) advanceRecoveryEOF(
+	index int,
+	original diagnosticParserCoreHeader,
+	candidate core.StackSummaryCandidate,
+	recoverable bool,
+	cost core.ReductionOutputCostFunc,
+) (err error) {
+	region := original.recoveryRegion()
 	snapshot := captureDiagnosticParserCoreS5Scheduler(s)
 	defer func() {
 		if value := recover(); value != nil {
@@ -266,8 +283,5 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchOwnedRecoveryRegion(
 	} else {
 		err = s.compact.ApplySchedulerAtomic(run)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return err
 }
