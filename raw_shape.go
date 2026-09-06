@@ -43,7 +43,10 @@ type rawShapeHashCacheEntry struct {
 	hash uint64
 }
 
-const rawShapeHashCacheSize = 1 << 15
+const (
+	rawShapeHashCacheBits = 15
+	rawShapeHashCacheSize = 1 << rawShapeHashCacheBits
+)
 
 func rawShapeHashCacheBytesForCap(n int) int64 {
 	if n <= 0 {
@@ -270,9 +273,8 @@ func (a *nodeArena) rawShapeForRef(ref rawShapeRef) (*rawShape, bool) {
 }
 
 func rawShapeHashCacheIndex(ref rawShapeRef) int {
-	// Multiplication spreads sequential references across the direct-mapped
-	// cache while keeping lookup to one integer operation.
-	return int((uint32(ref) * 2654435761) & (rawShapeHashCacheSize - 1))
+	// Use the high product bits so slab identity contributes to the index.
+	return int((uint32(ref) * 2654435761) >> (32 - rawShapeHashCacheBits))
 }
 
 func (a *nodeArena) ensureRawShapeHashCache() {
