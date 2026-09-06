@@ -120,11 +120,10 @@ func TestCompactJavaScriptS5RecoveryMutationDifferential(t *testing.T) {
 			}
 		}
 	}
-	// Trailing-lineage retirement adds 15 exact routes to the prior 26-route
-	// S5 frontier. Error-mode keyword capture adds four more. The loop compares
-	// every expanded tree with C above.
-	if expanded != 45 || contracted != 0 {
-		t.Fatalf("S5 route delta expanded=%d contracted=%d, want 45/0 across %d cases", expanded, contracted, cases)
+	// Stateless external-scanner recovery adds 13 exact routes to the prior
+	// 45-route frontier. The loop compares every expanded tree with C above.
+	if expanded != 58 || contracted != 0 {
+		t.Fatalf("S5 route delta expanded=%d contracted=%d, want 58/0 across %d cases", expanded, contracted, cases)
 	}
 	t.Logf("JavaScript S5 mutation differential: cases=%d expanded=%d contracted=%d", cases, expanded, contracted)
 }

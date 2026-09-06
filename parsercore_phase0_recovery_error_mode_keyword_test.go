@@ -75,7 +75,7 @@ func TestCompactJavaScriptErrorModeKeywordCaptureRequiresArtifact(t *testing.T) 
 	}
 }
 
-func TestCompactJavaScriptSelectedAbsorbAliasRequiresRule(t *testing.T) {
+func TestCompactJavaScriptSelectedAbsorbAliasUsesProductionProof(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	lang := *grammars.JavascriptLanguage()
 	lang.CompactRecoveryTerminalAliasRules = nil
@@ -89,10 +89,7 @@ func TestCompactJavaScriptSelectedAbsorbAliasRequiresRule(t *testing.T) {
 	}
 	defer tree.Release()
 	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 0 || fallback != 1 {
-		t.Fatalf("route counters=%d/%d, want 0/1", routed, fallback)
-	}
-	if reason := gts.AdmissionCandidateLastFallbackReason(); !strings.Contains(reason, "accepted compact root leaves do not tile") {
-		t.Fatalf("fallback reason=%q, want an accepted-root leaf gap", reason)
+	if routed != 1 || fallback != 0 {
+		t.Fatalf("route counters=%d/%d, want 1/0; reason=%q", routed, fallback, gts.AdmissionCandidateLastFallbackReason())
 	}
 }

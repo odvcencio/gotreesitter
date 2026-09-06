@@ -244,6 +244,8 @@ func TestS5AbsorberPreservesMixedParserStatesForRecoverySelection(t *testing.T) 
 		scheduler.headers[0],
 		{head: other, creationSeq: 4},
 	}
+	headers[0].altSet = core.NewAlternativeSetMember(1, 0)
+	headers[1].altSet = core.NewAlternativeSetMember(1, 1)
 	staged := diagnosticParserCoreS5Work{}
 	var absorb diagnosticParserCoreHeader
 	err = scheduler.compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
@@ -267,6 +269,9 @@ func TestS5AbsorberPreservesMixedParserStatesForRecoverySelection(t *testing.T) 
 	region := absorb.recoveryRegion()
 	if region == nil || region.state != 1 {
 		t.Fatalf("mixed-state recovery region=%+v, want first recovery state 1", region)
+	}
+	if !absorb.blended || absorb.altSet.Len() != 2 {
+		t.Fatalf("merged recovery lost incomparable histories: blended=%t alternatives=%d", absorb.blended, absorb.altSet.Len())
 	}
 }
 
@@ -830,7 +835,19 @@ func TestRecoveryCanonicalizationKeepsMarkedOwnersSeparate(t *testing.T) {
 		headers[index].clearRecoveryLineage()
 		headers[index].shifted = true
 	}
-	ordinary, err := scratch.canonicalize(compact, headers)
+	costed, err := scratch.canonicalize(compact, headers)
+	if err != nil {
+		t.Fatalf("canonicalize costed: %v", err)
+	}
+	if len(costed) != 2 {
+		t.Fatalf("costed canonicalization retained %d heads, want 2", len(costed))
+	}
+
+	ordinaryHeaders := []diagnosticParserCoreHeader{
+		{head: left, creationSeq: 1, shifted: true},
+		{head: right, creationSeq: 2, shifted: true},
+	}
+	ordinary, err := scratch.canonicalize(compact, ordinaryHeaders)
 	if err != nil {
 		t.Fatalf("canonicalize ordinary: %v", err)
 	}

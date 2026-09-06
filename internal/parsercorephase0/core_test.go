@@ -1250,8 +1250,8 @@ func TestShiftOrdinaryCohortSharesOneTerminalPayload(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(paths) != index+1 {
-			t.Fatalf("shifted head %d paths=%d, want %d", index, len(paths), index+1)
+		if len(paths) != 2 {
+			t.Fatalf("shifted head %d paths=%d, want 2 final cohort paths", index, len(paths))
 		}
 		for _, path := range paths {
 			if len(path.Payloads) != 1 {

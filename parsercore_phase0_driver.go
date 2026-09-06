@@ -2352,7 +2352,8 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeWithMutation(
 			s.headerBuffers[target] = normalized[:0]
 			return nil, 0, err
 		}
-		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok {
+		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok &&
+			!header.isRecoveryLineage() && header.recoveryRegion() == nil && !header.isRecoveryCosted() {
 			header.head = canonical
 		}
 		header.freshness = 0
@@ -2383,7 +2384,8 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeWithMutation(
 			s.keys = s.keys[:0]
 			return nil, 0, err
 		}
-		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok {
+		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok &&
+			!header.isRecoveryLineage() && header.recoveryRegion() == nil && !header.isRecoveryCosted() {
 			header.head = canonical
 		}
 		versionState := header.versionState
@@ -4876,19 +4878,26 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	}
 	d := s.tokenSource
 	lang := d.language
-	if lang == nil || lang.ExternalScanner == nil || !languageUsesExternalScannerCheckpoints(lang) {
+	if lang == nil || lang.ExternalScanner == nil {
 		return shared, false
 	}
-	provider, ok := externalScannerCheckpointIdentityProviderForScanner(lang.ExternalScanner)
-	if !ok {
+	contract, contractErr := diagnosticParserCoreVersionLexerScannerContractForLanguage(lang)
+	if contractErr != nil || (!languageUsesExternalScannerCheckpoints(lang) && !contract.stateless) ||
+		!s.versionLexerBefore.externalScannerPresent ||
+		(len(s.versionLexerBefore.externalPayload) == 0 && !contract.stateless) {
 		return shared, false
 	}
-	identity, ok := provider.CheckpointIdentity()
-	if !ok || !identity.complete() || !s.versionLexerBefore.externalScannerPresent || len(s.versionLexerBefore.externalPayload) == 0 {
+	provider, providerOK := externalScannerCheckpointIdentityProviderForScanner(lang.ExternalScanner)
+	var identity ExternalScannerCheckpointIdentity
+	identityOK := false
+	if providerOK {
+		identity, identityOK = provider.CheckpointIdentity()
+	}
+	if !contract.stateless && (!identityOK || !identity.complete()) {
 		return shared, false
 	}
-	if s.compact != nil {
-		if !s.versionLexerBeforeIdentityValid || parserCoreExternalScannerIdentityFingerprint(identity) != s.versionLexerBeforeIdentity {
+	if s.compact != nil && !contract.stateless {
+		if !contract.stateless && (!s.versionLexerBeforeIdentityValid || parserCoreExternalScannerIdentityFingerprint(identity) != s.versionLexerBeforeIdentity) {
 			return shared, false
 		}
 	}
@@ -6646,7 +6655,7 @@ func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source [
 				return fmt.Errorf("parser-core phase zero: accepted compact derivation leaf coverage: %w", err)
 			} else if gapped {
 				return fmt.Errorf(
-					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: gap=%d..%d root=%d..%d",
+					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: coverage=derivation gap=%d..%d root=%d..%d",
 					gapStart, gapEnd, root.startByte, root.endByte,
 				)
 			}
@@ -6654,7 +6663,7 @@ func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source [
 				return fmt.Errorf("parser-core phase zero: accepted compact public-tree leaf coverage: %w", err)
 			} else if gapped {
 				return fmt.Errorf(
-					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: gap=%d..%d root=%d..%d",
+					"parser-core phase zero: accepted compact root leaves do not tile the accepted span: coverage=public-tree gap=%d..%d root=%d..%d",
 					gapStart, gapEnd, root.startByte, root.endByte,
 				)
 			}
@@ -7638,16 +7647,11 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 					return fmt.Errorf("reduce symbol=%d production=%d: %w", view.Symbol, view.ProductionID, err)
 				}
 			}
-			// Production alias authentication belongs to native owned recovery.
-			// Existing shared recovery keeps its artifact-specific admission.
-			if allowErrorRoot && parser.language.CompactOwnedEOFRecoveryCertified &&
-				rootFinalization != diagnosticParserCoreFinalizeDefault {
+			// Authenticate terminal aliases at their exact grammar reduction.
+			// Shared recovery needs the same raw-terminal and clone proof.
+			if allowErrorRoot {
 				acceptedLeaves.authenticateDirectTerminalAliases(
 					parser, entries, children, view.ProductionID, 0, nodesByID,
-				)
-			} else if recoveryTerminalAlias != 0 {
-				acceptedLeaves.authenticateDirectTerminalAliases(
-					parser, entries, children, view.ProductionID, recoveryTerminalAlias, nodesByID,
 				)
 			}
 			if child := parser.collapsibleUnarySelfReduction(action, Token{}, arena, entries, 0, len(entries), children, fieldIDs); child != nil {
@@ -9000,6 +9004,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			// witness (html_log_8) that needs this to avoid resuming one
 			// byte early.
 			resumeToken := s.token
+			stateRelexed := false
 			relexDisagreesUnmodeled := false
 			if relexed, relexOK := s.s3ErrorModeRelex(region.endByte); relexOK {
 				sharedIsRealContent := s.token.StartByte != s.token.EndByte
@@ -9039,6 +9044,16 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 					relexDisagreesUnmodeled = true
 				}
 			}
+			markerState, _, markerErr := s.compact.Boundary(header.head)
+			if markerErr != nil {
+				return nil, markerErr
+			}
+			if markerState == 0 {
+				if relexed, ok := s.relexTokenForState(StateID(region.state), resumeToken); ok {
+					resumeToken = relexed
+					stateRelexed = true
+				}
+			}
 			hasAction, actErr := s3RegionResumeAction(s.compact, region.state, Symbol(resumeToken.Symbol))
 			if actErr != nil {
 				return nil, actErr
@@ -9066,6 +9081,17 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 			}
 			switch {
 			case hasAction:
+				ordered, orderErr := s.lexicalErrorResumeMatchesSummary(*header, Symbol(resumeToken.Symbol))
+				if orderErr != nil {
+					return nil, orderErr
+				}
+				if !ordered {
+					return &diagnosticParserCoreGenericUnsupported{
+						boundary:    DiagnosticParserCoreRecovery,
+						detail:      "merged lexical recovery requires a different summary resume state",
+						headerIndex: index,
+					}, nil
+				}
 				if s.s3ResumeCount == math.MaxUint32 {
 					return nil, errors.New("parser-core phase zero: strategy-2 resume count overflow")
 				}
@@ -9109,6 +9135,9 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				}
 				s.headers[index].head = newHead
 				s.headers[index].closeRecoveryRegion()
+				if stateRelexed && resumeToken.ExternalScannerToken {
+					return s.activateVersionLexerOwnershipAtRagged(index)
+				}
 			case resumeToken.Symbol == 0:
 				// EOF while a region is open: cRecoverEOFAccept's whole-file
 				// wrap is out of S3 scope (s3TryOpenErrorRegion's doc
@@ -9422,6 +9451,13 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				// This foundation owns only the sole-header, sole-no-action shape.
 				// Unmodeled ambiguity falls through to the existing decline.
 				if len(s.headers) == 1 && len(noActionIndices) == 1 {
+					lexicalHandled, lexicalErr := s.tryLexicalErrorRecovery(noActionIndices[0])
+					if lexicalErr != nil {
+						return nil, lexicalErr
+					}
+					if lexicalHandled {
+						return nil, nil
+					}
 					handled, s5Err := s.s5TryMissingTokenInsertion(noActionIndices[0])
 					if s5Err != nil {
 						return nil, s5Err
@@ -10150,6 +10186,25 @@ const s3CloseInProgressProductionsMaxSteps = 64
 // changed reports whether at least one reduction actually ran (so the
 // caller knows to adopt the returned head instead of discarding it).
 func (s *diagnosticParserCoreGenericScheduler) s3CloseInProgressProductions(head core.Head) (out core.Head, changed bool, ok bool, err error) {
+	return s.s3CloseInProgressProductionsMode(head, false)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) s3MixedClosureStateAdmitted(state core.StateID) bool {
+	if s == nil || s.tokenSource == nil || s.tokenSource.language == nil {
+		return false
+	}
+	for _, certified := range s.tokenSource.language.CompactS3MixedShiftReduceClosureStates {
+		if core.StateID(certified) == state {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *diagnosticParserCoreGenericScheduler) s3CloseInProgressProductionsMode(
+	head core.Head,
+	rejectMixedShiftReduce bool,
+) (out core.Head, changed bool, ok bool, err error) {
 	if s.tokenSource == nil || s.tokenSource.language == nil {
 		return head, false, false, nil
 	}
@@ -10200,6 +10255,10 @@ func (s *diagnosticParserCoreGenericScheduler) s3CloseInProgressProductions(head
 			}
 		}
 		if hasShift {
+			if rejectMixedShiftReduce && (reduceCandidates != 0 || sawUnmodeledReduce) &&
+				!s.s3MixedClosureStateAdmitted(state) {
+				return current, changed, false, nil
+			}
 			// A real dispatchable action exists here regardless of what else
 			// this state also offers: stop closing, nothing more to do.
 			return current, changed, true, nil
@@ -10469,7 +10528,7 @@ func (s *diagnosticParserCoreGenericScheduler) s3TryOpenErrorRegionWithAlternati
 	// extra records this closure left behind. No dirty state escapes a
 	// decline; only tree records that are already immutable, unreferenced
 	// by anything the caller ultimately serves, and cheap.
-	closedHead, changed, ok, closeErr := s.s3CloseInProgressProductions(header.head)
+	closedHead, changed, ok, closeErr := s.s3CloseInProgressProductionsMode(header.head, !alternativesResolved)
 	if closeErr != nil {
 		return false, closeErr
 	}
@@ -12196,6 +12255,15 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		if !outputDropCohortRefs.Empty() || outputDropCohortRefs.Overflowed() || outputDropCohortRefs.Blended() {
 			if _, err := s.compact.UnionDropCohortRefsChecked(&replacement.dropCohortRefs, outputDropCohortRefs); err != nil {
 				return err
+			}
+		}
+		if recoveryCostRequired && !s.recoveryIsolation {
+			merged, err := s.mergeRecoveredReductionSiblingOwned(owner, int(cell.headerIndex), replacement)
+			if err != nil {
+				return err
+			}
+			if merged {
+				continue
 			}
 		}
 		if len(replacements) > 0 {

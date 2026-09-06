@@ -1324,7 +1324,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestCompactRecoveryJavaScriptIncrementalCOracle|TestCompactRecoveryJavaScriptInsertionRegression|TestJavaScriptCompactNestedReuseLookaheadLockedC)$' -count=1 -parallel 1 -timeout 20m -v"
+            -- "cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^(TestCompactRecoveryJavaScriptIncrementalCOracle|TestCompactRecoveryJavaScriptInsertionRegression|TestJavaScriptCompactNestedReuseLookaheadLockedC|TestJavaScriptSharedRecoveryAliasWithoutArtifactGrantLockedC)$' -count=1 -parallel 1 -timeout 20m -v"
 
       - name: Compact recovery incremental YAML witness
         run: |

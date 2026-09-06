@@ -499,9 +499,10 @@ func TestCompactT3JavaScriptRecoveryMutationDifferential(t *testing.T) {
 	if routed == 0 || fallback == 0 {
 		t.Fatalf("mutation differential lacked both route outcomes: cases=%d routed=%d fallback=%d", cases, routed, fallback)
 	}
-	// Trailing retirement adds 46 exact routes. Error-mode keyword capture and
-	// EOF pricing add 25 more. The loop compares each published tree with C.
-	const certifiedS5Expansions = 71
+	// Trailing retirement, keyword capture, and EOF pricing add 71 routes.
+	// Two more require S5 because standalone S3 rejects mixed shift/reduce
+	// closure states without an authenticated resume rule.
+	const certifiedS5Expansions = 73
 	if missingExpanded != certifiedS5Expansions || missingContracted != 0 {
 		t.Fatalf("T3 neighborhood S5 boundary: expanded=%d contracted=%d, want %d/0",
 			missingExpanded, missingContracted, certifiedS5Expansions)

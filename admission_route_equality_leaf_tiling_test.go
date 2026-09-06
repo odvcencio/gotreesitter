@@ -10,6 +10,7 @@ import (
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
 // compactT3RouteEqualityWitnessManifestPath is the manifest committed by PR
@@ -275,11 +276,9 @@ func TestCompactRouteAdjudicatesFalseCleanWitnesses(t *testing.T) {
 	}
 }
 
-// TestCompactRouteDeclinesUncertifiedRecoveryAliasResume pins a mutation
-// where the same property_identifier alias appears after a different resume.
-// The compact tree swallows the next class into the arrow expression. The
-// exact JavaScript artifact has no alias rule for that resume state.
-func TestCompactRouteDeclinesUncertifiedRecoveryAliasResume(t *testing.T) {
+// Recovery closes the arrow before it combines the class with the outer expression.
+// The digest comes from the locked C oracle, including ranges and error flags.
+func TestCompactRoutePreservesRecoverySiblingSelection(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	lang := grammars.JavascriptLanguage()
 	source := []byte("const f = (a) => a + 1#&\nclass A { m() { return 1 } }\n\n")
@@ -294,15 +293,16 @@ func TestCompactRouteDeclinesUncertifiedRecoveryAliasResume(t *testing.T) {
 	defer tree.Release()
 
 	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 0 || fallback != 1 {
-		t.Fatalf("route counters routed=%d fallback=%d, want 0/1", routed, fallback)
+	if routed != 1 || fallback != 0 {
+		t.Fatalf("route counters routed=%d fallback=%d, want 1/0", routed, fallback)
 	}
-	if reason := gts.AdmissionCandidateLastFallbackReason(); !strings.Contains(reason, "accepted compact root leaves do not tile the accepted span") {
-		t.Fatalf("fallback reason=%q, want an accepted-root leaf gap", reason)
+	inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), lang)
+	if err != nil || inspection.SHA256 != "a4e2303ba08955196c8a0bcbef55f2137530fb26aefeaa5d2986a4e71c70e5a9" {
+		t.Fatalf("locked C recovery digest=%s err=%v", inspection.SHA256, err)
 	}
 }
 
-func TestCompactRouteDeclinesRetiredRecoveryWithoutAliasRule(t *testing.T) {
+func TestCompactRouteAuthenticatesRecoveryAliasFromReduction(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
 	lang := *grammars.JavascriptLanguage()
 	lang.CompactRecoveryTerminalAliasRules = nil
@@ -318,11 +318,12 @@ func TestCompactRouteDeclinesRetiredRecoveryWithoutAliasRule(t *testing.T) {
 	defer tree.Release()
 
 	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 0 || fallback != 1 {
-		t.Fatalf("route counters routed=%d fallback=%d, want 0/1", routed, fallback)
+	if routed != 1 || fallback != 0 {
+		t.Fatalf("route counters routed=%d fallback=%d, want 1/0", routed, fallback)
 	}
-	if reason := gts.AdmissionCandidateLastFallbackReason(); !strings.Contains(reason, "accepted compact root leaves do not tile the accepted span") {
-		t.Fatalf("fallback reason=%q, want an accepted-root leaf gap", reason)
+	inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), &lang)
+	if err != nil || inspection.SHA256 != "b559b17af8e7096b4f5d62ff757e5ebc56ad9397c336bc9de5cd85f9833bf01f" {
+		t.Fatalf("locked C recovery alias digest=%s err=%v", inspection.SHA256, err)
 	}
 }
 

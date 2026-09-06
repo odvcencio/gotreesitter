@@ -54,6 +54,18 @@ func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryCondenseEn
 	source core.RecoveryCostSource,
 	memo *core.RecoveryCostMemo,
 ) (bool, error) {
+	return s.mergeEquivalentRecoveryEntriesOwned(owner, target, candidate, symbols, source, memo, false)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryEntriesOwned(
+	owner core.SchedulerTransactionToken,
+	target *diagnosticParserCoreRecoveryCondenseEntry,
+	candidate diagnosticParserCoreRecoveryCondenseEntry,
+	symbols []core.SelectedSymbolPolicy,
+	source core.RecoveryCostSource,
+	memo *core.RecoveryCostMemo,
+	preserveSibling bool,
+) (bool, error) {
 	if s == nil || s.compact == nil || target == nil || target.header.accepted ||
 		candidate.header.accepted || target.header.paused || candidate.header.paused ||
 		target.header.recoveryRegion() != nil || candidate.header.recoveryRegion() != nil ||
@@ -72,16 +84,20 @@ func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryCondenseEn
 	if !ok {
 		return false, nil
 	}
-	if canonical == incoming {
+	if canonical == incoming && !preserveSibling {
 		incumbent, incoming = incoming, incumbent
-	} else if canonical != incumbent {
+	} else if canonical != incumbent && canonical != incoming {
 		return false, nil
 	}
 	payloadHasError := func(payload core.SubtreeID) (bool, error) {
 		cost, err := core.RecoveryNodeErrorCostMemo(symbols, source, memo, payload)
 		return cost > 0, err
 	}
-	merged, err := s.compact.MergeEquivalentRecoveryHeadsOwned(
+	mergeHeads := s.compact.MergeEquivalentRecoveryHeadsOwned
+	if preserveSibling {
+		mergeHeads = s.compact.MergeEquivalentRecoverySiblingHeadsOwned
+	}
+	merged, err := mergeHeads(
 		owner,
 		target.key.state,
 		target.key.byteOffset,

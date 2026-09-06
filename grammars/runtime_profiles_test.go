@@ -136,6 +136,9 @@ func TestJavaScriptProfileCertifiesCompactRecoveryFrontier(t *testing.T) {
 		!lang.CompactRecoveryErrorModeKeywordCaptureCertified {
 		t.Fatal("the JavaScript profile did not attach its compact recovery capabilities")
 	}
+	if !slices.Equal(lang.CompactS3MixedShiftReduceClosureStates, []gotreesitter.StateID{1042}) {
+		t.Fatalf("mixed S3 closure states=%v, want [1042]", lang.CompactS3MixedShiftReduceClosureStates)
+	}
 	if lang.CompactFaithfulS5RecoveryCertified {
 		t.Fatal("the JavaScript profile unexpectedly enabled the Scala S5 route")
 	}
@@ -156,6 +159,7 @@ func TestJavaScriptProfileCertifiesCompactRecoveryFrontier(t *testing.T) {
 		uncertified.CompactStrategy2ErrorRegionCertified || uncertified.CompactMissingTokenInsertionCertified ||
 		uncertified.CompactRecoveryPlainFirstCertified || uncertified.CompactRecoveryTrailingLineageRetirementCertified ||
 		uncertified.CompactRecoveryErrorModeKeywordCaptureCertified ||
+		len(uncertified.CompactS3MixedShiftReduceClosureStates) != 0 ||
 		len(uncertified.CompactRecoveryTerminalAliasRules) != 0 {
 		t.Fatal("a mismatched JavaScript blob received compact recovery certification")
 	}

@@ -949,8 +949,9 @@ func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
 		if _, err := s.compact.UnionDropCohortRefsChecked(&absorb.dropCohortRefs, header.dropCohortRefs); err != nil {
 			return diagnosticParserCoreHeader{}, err
 		}
+		incomparable := s.compact.AlternativeSetIncomparable(absorb.altSet, header.altSet)
 		s.compact.UnionAlternativeSet(&absorb.altSet, header.altSet)
-		absorb.blended = absorb.blended || header.blended
+		absorb.blended = absorb.blended || header.blended || incomparable
 	}
 	s.s3RegionOpened = true
 	return absorb, nil
@@ -1152,14 +1153,21 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 }
 
 func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertionFaithful(index int) (handled bool, err error) {
+	return s.s5TryRecoveryTransaction(index, false)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) s5TryRecoveryTransaction(index int, lexicalError bool) (handled bool, err error) {
 	// Keep unsupported shapes on the cheap path. The full snapshot is reserved
 	// for an admitted sole header that can enter the S5 transaction.
-	if s == nil || s.compact == nil || !s.s5MissingTokenAdmitted() ||
+	if s == nil || s.compact == nil || (!lexicalError && !s.s5MissingTokenAdmitted()) ||
 		len(s.headers) != 1 || index != 0 ||
 		s.s5MissingInsertions >= maxDiagnosticParserCoreMissingInsertions ||
-		s.token.Missing || s.token.NoLookahead || s.token.Symbol == errorSymbol ||
+		s.token.Missing || s.token.NoLookahead ||
 		s.tokenSource == nil || s.tokenSource.language == nil ||
 		s.headers[0].recoveryRegion() != nil {
+		return false, nil
+	}
+	if !lexicalError && s.token.Symbol == errorSymbol {
 		return false, nil
 	}
 	if s.token.Symbol == 0 && !s.options.allowCompactS5EOFMissingInsertion {
@@ -1197,7 +1205,11 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingTokenInsertionFaithfu
 		var committed bool
 		if err := s.compact.ApplySchedulerSpeculation(parent, func(owner core.SchedulerTransactionToken) (bool, error) {
 			var runErr error
-			committed, runErr = s.s5RunOwned(owner, index, &staged)
+			if lexicalError {
+				committed, runErr = s.runLexicalErrorRecoveryOwned(owner, index, &staged)
+			} else {
+				committed, runErr = s.s5RunOwned(owner, index, &staged)
+			}
 			return committed, runErr
 		}); err != nil {
 			return err

@@ -31,6 +31,7 @@ type builtinLanguageRuntimeProfile struct {
 	exactStackNodeEquivalence           bool
 	compactPackedGSSVersionOrder        bool
 	compactStrategy2ErrorRegion         bool
+	compactS3MixedShiftReduceStates     []gotreesitter.StateID
 	compactRecoverEOFArtifact           gotreesitter.CompactRecoverEOFArtifactReceipt
 	compactStackSummaryRecovery         bool
 	compactMissingTokenInsertion        bool
@@ -173,12 +174,15 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// explicit forest parsing and non-certified languages keep the full budget.
 	//
 	// The same exact artifact certifies the complete pinned compact recovery
-	// frontier. All eight witnesses route with exact C parity.
+	// frontier. All eight witnesses route with exact C parity. State 1042 keeps
+	// its mixed closure because js_log_3 and its 2,954-case mutation sweep match
+	// C there. Other mixed states decline instead of losing reduction versions.
 	"javascript": {
 		blobSHA256:                        mustRuntimeProfileSHA256("6706f93890f24d8ea90d6a140df5dde29c02ec8a3213bae16e8cc4df37e33ee0"),
 		automaticForestMemoryAllowance:    javascriptAutomaticForestMemoryAllowance,
 		compactConvergedSplitDrops:        true,
 		compactStrategy2ErrorRegion:       true,
+		compactS3MixedShiftReduceStates:   []gotreesitter.StateID{1042},
 		compactMissingTokenInsertion:      true,
 		compactRecoveryTrailingRetirement: true,
 		compactRecoveryErrorModeKeyword:   true,
@@ -804,6 +808,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactStrategy2ErrorRegion && !lang.CompactStrategy2ErrorRegionCertified {
 		lang.CompactStrategy2ErrorRegionCertified = true
+		changed = true
+	}
+	if !slices.Equal(profile.compactS3MixedShiftReduceStates, lang.CompactS3MixedShiftReduceClosureStates) {
+		lang.CompactS3MixedShiftReduceClosureStates = slices.Clone(profile.compactS3MixedShiftReduceStates)
 		changed = true
 	}
 	if profile.compactRecoverEOFArtifact.BlobSHA256 != ([32]byte{}) {
