@@ -835,7 +835,19 @@ func TestRecoveryCanonicalizationKeepsMarkedOwnersSeparate(t *testing.T) {
 		headers[index].clearRecoveryLineage()
 		headers[index].shifted = true
 	}
-	ordinary, err := scratch.canonicalize(compact, headers)
+	costed, err := scratch.canonicalize(compact, headers)
+	if err != nil {
+		t.Fatalf("canonicalize costed: %v", err)
+	}
+	if len(costed) != 2 {
+		t.Fatalf("costed canonicalization retained %d heads, want 2", len(costed))
+	}
+
+	ordinaryHeaders := []diagnosticParserCoreHeader{
+		{head: left, creationSeq: 1, shifted: true},
+		{head: right, creationSeq: 2, shifted: true},
+	}
+	ordinary, err := scratch.canonicalize(compact, ordinaryHeaders)
 	if err != nil {
 		t.Fatalf("canonicalize ordinary: %v", err)
 	}

@@ -888,6 +888,11 @@ type Language struct {
 	// no-action point exactly as before this stage landed.
 	CompactStrategy2ErrorRegionCertified bool
 
+	// CompactS3MixedShiftReduceClosureStates permits standalone strategy-2
+	// recovery to stop its single-path closure at one certified state that has
+	// both shift and reduce actions across terminals. Other mixed states decline.
+	CompactS3MixedShiftReduceClosureStates []StateID
+
 	// CompactRecoverEOFCertified permits one exact EOF no-action lineage to
 	// publish tree-sitter's non-extra ERROR root from recover_eof. It is a
 	// compatibility marker. The compact route also requires the explicit,

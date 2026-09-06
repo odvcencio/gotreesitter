@@ -10186,6 +10186,25 @@ const s3CloseInProgressProductionsMaxSteps = 64
 // changed reports whether at least one reduction actually ran (so the
 // caller knows to adopt the returned head instead of discarding it).
 func (s *diagnosticParserCoreGenericScheduler) s3CloseInProgressProductions(head core.Head) (out core.Head, changed bool, ok bool, err error) {
+	return s.s3CloseInProgressProductionsMode(head, false)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) s3MixedClosureStateAdmitted(state core.StateID) bool {
+	if s == nil || s.tokenSource == nil || s.tokenSource.language == nil {
+		return false
+	}
+	for _, certified := range s.tokenSource.language.CompactS3MixedShiftReduceClosureStates {
+		if core.StateID(certified) == state {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *diagnosticParserCoreGenericScheduler) s3CloseInProgressProductionsMode(
+	head core.Head,
+	rejectMixedShiftReduce bool,
+) (out core.Head, changed bool, ok bool, err error) {
 	if s.tokenSource == nil || s.tokenSource.language == nil {
 		return head, false, false, nil
 	}
@@ -10236,6 +10255,10 @@ func (s *diagnosticParserCoreGenericScheduler) s3CloseInProgressProductions(head
 			}
 		}
 		if hasShift {
+			if rejectMixedShiftReduce && (reduceCandidates != 0 || sawUnmodeledReduce) &&
+				!s.s3MixedClosureStateAdmitted(state) {
+				return current, changed, false, nil
+			}
 			// A real dispatchable action exists here regardless of what else
 			// this state also offers: stop closing, nothing more to do.
 			return current, changed, true, nil
@@ -10505,7 +10528,7 @@ func (s *diagnosticParserCoreGenericScheduler) s3TryOpenErrorRegionWithAlternati
 	// extra records this closure left behind. No dirty state escapes a
 	// decline; only tree records that are already immutable, unreferenced
 	// by anything the caller ultimately serves, and cheap.
-	closedHead, changed, ok, closeErr := s.s3CloseInProgressProductions(header.head)
+	closedHead, changed, ok, closeErr := s.s3CloseInProgressProductionsMode(header.head, !alternativesResolved)
 	if closeErr != nil {
 		return false, closeErr
 	}
