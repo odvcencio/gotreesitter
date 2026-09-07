@@ -919,7 +919,8 @@ func TestNormalizeBashNewlineTokenSplitsBySymbolName(t *testing.T) {
 		EndPoint:   Point{Row: 2, Column: 0},
 		Text:       "\n\n",
 	}
-	got, endPos, endRow, endCol := ts.normalizeDFAToken(tok, 2, 2, 0)
+	got := tok
+	endPos, endRow, endCol := ts.normalizeDFAToken(&got, 2, 2, 0)
 	if got.EndByte != 1 || endPos != 1 || endRow != 1 || endCol != 0 || got.Text != "\n" {
 		t.Fatalf("split newline token = %+v end=(%d,%d,%d), want single newline", got, endPos, endRow, endCol)
 	}
@@ -956,7 +957,8 @@ func TestNormalizeBashGeneratedDFAOnlyNewlineToken(t *testing.T) {
 		EndPoint:   Point{Row: 2, Column: 0},
 		Text:       "\n\n",
 	}
-	got, endPos, endRow, endCol := ts.normalizeDFAToken(tok, 2, 2, 0)
+	got := tok
+	endPos, endRow, endCol := ts.normalizeDFAToken(&got, 2, 2, 0)
 	if got.Symbol != 1 || got.EndByte != 1 || endPos != 1 || endRow != 1 || endCol != 0 || got.Text != "\n" {
 		t.Fatalf("normalized DFA newline = %+v end=(%d,%d,%d), want active newline", got, endPos, endRow, endCol)
 	}

@@ -13,11 +13,14 @@ removed the 64 KiB size decline, so files above 64 KiB reached that route for
 the first time in v0.49.0.
 
 This change keeps the compact route as the default and repairs the route.
-It has three parts:
+It has five parts:
 
 1. Remove avoidable per-token work from the compact scheduler.
 2. Bound the recovery cost memo so compact error recovery stays linear.
 3. Restore incremental reuse for compact-materialized old trees.
+4. Return transient-error keystrokes to v0.48.1 parity.
+5. Cut the production engine's own drift since v0.48.1, which both routes
+   inherit.
 
 It also halts a production GLR stack at a no-action point when a sibling stack
 accepts the lookahead. That rule fixes a C++ regression from pull request #709
@@ -318,13 +321,116 @@ C delete is the memory-budget retry that the C fallback attribution work
 owns. Every row matched its fresh default-route parse by node count and
 S-expression.
 
-### Production-route residual
+## Part 5: production engine drift
 
-The production route itself runs 1.1 to 1.4 times v0.48.1 on 137 KiB
-fixtures. A bisect on hcl found a gradual drift rather than one commit, with
-the largest step at `e91b944f` (preserve missing-node edit dependencies),
-which added per-token lookahead bookkeeping to the external lexer and grew
-`Token`. The `Token` repack above recovers part of that cost on both routes.
+### Attribution
+
+The production route (`GTS_ADMISSION_CANDIDATE=0`) ran 1.1 to 1.4 times
+v0.48.1 on the 137 KiB fixtures before this part. A bisect on hcl found a
+gradual drift rather than one commit. A CPU profile diff against a v0.48.1
+build of the same harness attributes the gap to four sources:
+
+- Struct growth and by-value token passing. `Token` grew from 56 to 80
+  bytes, `Lexer` from 160 to 208, and `dfaTokenSource` from 1320 to 1568.
+  The new fields carry missing-node dependencies, the lookahead frontier,
+  the skipped-prefix start, and error-mode proofs. The token source passed
+  `Token` by value through a chain of per-token helpers, so every token paid
+  about ten 80-byte copies. `runtime.duffcopy` and `runtime.duffzero` were
+  the two largest positive entries in the diff: +110 ms of 1.7 s on Go and
+  +280 ms of 1.6 s on hcl.
+- Per-token lookahead-frontier bookkeeping from `e91b944f` (preserve
+  missing-node edit dependencies). Both lexers decoded a rune at the
+  frontier position for every token.
+- The contextual close-angle probe, which compared symbol names before it
+  looked at the token bytes.
+- Two interface assertions per external scan on the retry path, which asked
+  the scanner for its failure-mode capabilities every time.
+
+### Changes
+
+- Pass tokens by pointer through the per-token chain: `promoteKeyword`,
+  `promoteActiveLiteralForCurrentState`, `normalizeDFAToken`,
+  `splitCompactCloseAngleToken`, the three zero-width sentinel preferences,
+  `trackZeroWidthExternalToken`, `preferDFASemicolonOverJSXText`, and the
+  contextual close-angle helpers. `scanDFATokenForState`,
+  `scanPreferredTokenForState`, and `nextDFAToken` gain `Into` forms that
+  write the caller's slot. The by-value forms remain as wrappers for the
+  other callers.
+- Decode the frontier rune only for non-ASCII bytes in
+  `Lexer.lookaheadEndByteAt` and `ExternalLexer.lookaheadEndByteAtCursor`.
+- Check the token bytes before the symbol-name comparison in
+  `deferContextualCloseAngleAction`.
+- Answer the two external scanner failure-mode probes once per language.
+- Guard the Swift member-keyword demotion and the Swift wide close-angle
+  split with the cached language flag, so other grammars skip the calls.
+
+### Results, 137 KiB full parse, production route, milliseconds
+
+Minimum of 54 parses per cell, taken as paired runs of the three binaries
+on a quiet host. `85843f84` is the state before this part.
+
+| language | v0.48.1 | 85843f84 | this part | ratio before | ratio after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| go | 63.0 | 70.6 | 67.0 | 1.12 | 1.06 |
+| rust | 38.9 | 53.0 | 51.8 | 1.36 | 1.33 |
+| hcl | 54.9 | 65.7 | 62.8 | 1.20 | 1.14 |
+| toml | 34.4 | 39.2 | 38.7 | 1.14 | 1.12 |
+| cmake | 80.8 | 91.5 | 87.3 | 1.13 | 1.08 |
+| json | 39.4 | 45.1 | 43.1 | 1.14 | 1.09 |
+| css | 28.9 | 33.3 | 32.3 | 1.15 | 1.12 |
+| scala | 55.4 | 66.7 | 65.8 | 1.20 | 1.19 |
+| typescript | 40.8 | 50.0 | 47.8 | 1.22 | 1.17 |
+
+The same binaries on the default compact route, measured in the same
+session, give 1.7 to 2.2 times the v0.48.1 production numbers: Go 108.8 ms,
+Rust 87.6 ms, hcl 124.5 ms, TypeScript 77.9 ms. The compact route inherits
+the production cuts through the shared token source, and it gains about 3
+percent from this part.
+
+### What remains on the production route
+
+- Rust runs 1.33 times v0.48.1. Its remaining profile diff is the GLR merge
+  check `cStackEntryExternalScannerEndState`, which binary-searches the
+  external scanner checkpoint set for every merge candidate that ends in an
+  external leaf. v0.48.1 did not run that check in the merge.
+- hcl runs 1.14 times. Its external token path takes 13 percent of samples
+  against 7 percent at v0.48.1: the scanner itself, the retry wrapper's
+  state capture, and per-language guards that run for every grammar.
+- `Token` stays at 80 bytes. A 64-byte layout needs the missing-stack point
+  out of the token or the unexported flags packed into one byte. Both touch
+  the neighbors of exported fields, so they wait for a separate change.
+- Raw-shape capture and the transient scratch checkpoint run per reduction
+  and per iteration. Both serve the compact route's proofs and are new since
+  v0.48.1.
+
+## Graduation status
+
+The compact route serves fresh full parses by default, but it is not close
+to graduating as the only engine. The cost envelope specification
+(`spec.parser-cost-envelope.v1`) gates graduation on correctness against
+locked C, deterministic work, wall time, allocated bytes and count, live
+storage, retained heap, resident set size, incremental reuse and fallback
+rate, and static storage. The current evidence:
+
+- Correctness. The 206-grammar scorecard reports 201 PASS, 0 DIVERGE, 0
+  FALLBACK, and 5 SKIP. Fallback keeps output correct through the
+  production engine, so correctness is not the blocker.
+- Coverage. The real-corpus matrix reports 64 PASS, 25 FALLBACK, and 8 SKIP.
+  Markdown serves 15 files directly and falls back on 348. Every fallback
+  pays a discarded compact pass before the production parse.
+- Cost parity. A clean compact full parse costs 1.7 to 2.2 times the v0.48.1
+  production parse and 1.5 to 1.9 times the current production parse. The
+  wall-time and allocation gates fail by that margin.
+- Incremental. Compact-materialized old trees reuse through the production
+  incremental path at v0.48.1 rates. The compact borrow route itself reuses
+  nothing on the parity table rows, and transient-error keystrokes depend on
+  production reuse.
+- Recovery. Owned recovery publication requires an executed end-of-file
+  turn, and unpublishable shared recoveries decline to production.
+
+The remaining work is structural rather than a list of small cuts: the
+materialization double work, the condense and reduction path, lineage
+persistence, recovery coverage, and the compact incremental borrow route.
 
 ## Remaining items outside this change
 
@@ -336,8 +442,11 @@ which added per-token lookahead bookkeeping to the external lexer and grew
   request #613 added the memory-budget fail-closed retry; 64 ms at v0.48.1.
 - C transient-error delete at 137 KiB still explores about 3.2 million nodes
   before the memory-budget retry (2.9 s). The C fallback attribution work owns it.
-- Compact clean full parse stays 1.4 to 1.9 times production. The remaining
-  cost is the compact core's condense and reduction path plus materialization.
+- Compact clean full parse stays 1.5 to 1.9 times production, and 1.7 to 2.2
+  times v0.48.1 production. The remaining cost is the compact core's condense
+  and reduction path plus materialization.
+- The production route runs 1.06 to 1.19 times v0.48.1 after Part 5, and
+  Rust 1.33 times. Part 5 lists the remaining attributed costs.
 - Eight tagged scheduler tests fail identically on origin/main
   (`TestDiagnosticParserCoreGenericScheduler*`, `TestDiagnosticParserCoreConflict*`,
   `TestDiagnosticParserCoreStateDependentRelexKeepsExactSpanBranch`), as does

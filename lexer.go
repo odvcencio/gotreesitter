@@ -563,9 +563,11 @@ func (l *Lexer) lookaheadEndByteAt(pos int, inspectInvalid bool) uint32 {
 		pos = 0
 	}
 	frontier := uint64(pos) + 1
-	if inspectInvalid && pos < len(l.source) {
+	// Only a non-ASCII lead byte can be an invalid sequence; skip the decode
+	// for the ASCII case, which is every token boundary in most sources.
+	if inspectInvalid && pos < len(l.source) && l.source[pos] >= utf8.RuneSelf {
 		r, size := utf8.DecodeRune(l.source[pos:])
-		if r == utf8.RuneError && size == 1 && l.source[pos] >= utf8.RuneSelf {
+		if r == utf8.RuneError && size == 1 {
 			frontier += 4
 		}
 	}

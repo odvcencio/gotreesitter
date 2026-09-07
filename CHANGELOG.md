@@ -65,6 +65,15 @@ for tags and release notes while still in `0.x`.
   fingerprint per parse, and compute per-election checkpoint receipt digests
   only under full receipts. Scala and CMake compact full parses gain about
   another 12 percent.
+- Cut the production engine's drift since v0.48.1, which both routes
+  inherit. The token source passes tokens by pointer through its per-token
+  helper chain instead of copying 80 bytes about ten times per token, both
+  lexers decode the frontier rune only for non-ASCII bytes, the contextual
+  close-angle probe checks the token bytes before symbol names, and the
+  external scanner failure-mode probes are answered once per language.
+  Production full parses of 137 KiB fixtures move from 1.1 to 1.4 times
+  v0.48.1 to 1.06 to 1.19 times, with Rust at 1.33. The report attributes
+  the remaining gap and records the compact route's graduation status.
 
 ### Compact parser correctness
 

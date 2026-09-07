@@ -196,7 +196,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchCorridor() (progressed bo
 		// cannot livelock: progressed is a fresh local for this call, so the
 		// next dispatchCorridor call always starts it over at false.
 		if s.tokenSource != nil && s.tokenSource.lexer != nil &&
-			tokenMaybeContextualCloseAngle(s.tokenSource.language, s.token) {
+			tokenMaybeContextualCloseAngle(s.tokenSource.language, &s.token) {
 			corridorState, stateErr := s.corridorHeaderState()
 			if stateErr != nil {
 				return progressed, stateErr
@@ -207,7 +207,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchCorridor() (progressed bo
 				s.tokenSource.relexProbeLexer = probe
 			}
 			if deferContextualCloseAngleAction(
-				s.tokenSource.language, s.tokenSource.lexer.source, corridorState, s.token, nil, probe,
+				s.tokenSource.language, s.tokenSource.lexer.source, corridorState, &s.token, nil, probe,
 				&s.tokenSource.tokenInvariantMaxReadSpan,
 			) {
 				return progressed, nil

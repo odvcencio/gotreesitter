@@ -9315,7 +9315,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				s.tokenSource.relexProbeLexer = probe
 			}
 			if deferContextualCloseAngleAction(
-				s.tokenSource.language, s.tokenSource.lexer.source, StateID(boundary.State()), cellToken, nil, probe,
+				s.tokenSource.language, s.tokenSource.lexer.source, StateID(boundary.State()), &cellToken, nil, probe,
 				&s.tokenSource.tokenInvariantMaxReadSpan,
 			) {
 				workCountRecordResolvedActionCell(0)
@@ -10168,7 +10168,8 @@ func (s *diagnosticParserCoreGenericScheduler) s3ErrorModeRelex(startByte uint32
 		savedGLRStates := s.tokenSource.glrStates
 		s.tokenSource.state = 0
 		s.tokenSource.glrStates = nil
-		promoted, demoted := s.tokenSource.promoteKeyword(relexed)
+		promoted := relexed
+		demoted := s.tokenSource.promoteKeyword(&promoted)
 		s.tokenSource.state = savedState
 		s.tokenSource.glrStates = savedGLRStates
 		// C accepts only a keyword that owns the complete capture span. Keep the

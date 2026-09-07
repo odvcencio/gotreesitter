@@ -5815,7 +5815,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				result.lastReduceDepth = stopActionDiag.lastReduceStackDepth
 			}
 			if s != nil && !s.dead && !s.accepted && !s.shifted && s.depth() > 0 {
-				actionIdx := p.contextualActionIndex(source, s.top().state, tok)
+				actionIdx := p.contextualActionIndex(source, s.top().state, &tok)
 				if actionIdx != 0 && p.language != nil && int(actionIdx) < len(p.language.ParseActions) {
 					frontierActions := p.language.ParseActions[actionIdx].Actions
 					result.terminalCount = len(frontierActions)
@@ -6003,7 +6003,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			if phaseTiming {
 				actionStart = time.Now()
 			}
-			actionIdx := p.contextualActionIndex(source, currentState, tok)
+			actionIdx := p.contextualActionIndex(source, currentState, &tok)
 			var actions []ParseAction
 			if actionIdx != 0 && int(actionIdx) < len(parseActions) {
 				actions = parseActions[actionIdx].Actions
@@ -6984,7 +6984,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				if s.dead || s.accepted || s.shifted || s.cPaused || s.depth() == 0 {
 					continue
 				}
-				actionIdx := p.contextualActionIndex(source, s.top().state, tok)
+				actionIdx := p.contextualActionIndex(source, s.top().state, &tok)
 				if actionIdx == 0 || int(actionIdx) >= len(parseActions) {
 					terminalFrontierOK = false
 					break
