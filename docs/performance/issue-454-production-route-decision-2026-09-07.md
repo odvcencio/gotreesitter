@@ -1,18 +1,20 @@
-# Issue 454: production route decision
+# Issue 454: route decision
 
-Date: 2026-09-07.
+Date: 2026-09-07, revised 2026-09-08.
 
 ## Decision
 
-Fresh full parses use the production generalized-LR (GLR) engine by default.
-The compact core stays available as the graduation candidate lane. A process
-selects it with `GTS_ADMISSION_CANDIDATE=1`, with
-`SetAdmissionCandidateRouteDefault(true)`, or with the per-Parser override.
-The package test binaries opt in to the compact route when the variable is
-unset, so the certification and parity suites keep their coverage.
+The owner's direction on 2026-09-08: the production generalized-LR (GLR)
+engine retires, and the compact parser core must perform better than any
+other route. The compact route stays the default fresh full-parse route. The
+compact core is the engine to invest in; the production engine receives
+only the fixes that keep it safe while it still serves incremental,
+injection, included-range, and fallback parses.
 
-The owner asked for the smaller of two jobs: graduate the compact core, or
-fix the production engine. The evidence below selects the production engine.
+An earlier revision of this record proposed the opposite, fixing the
+production engine first, on the effort evidence below. The owner rejected
+that proposal. The evidence stays here because it measures the gap the
+compact core must close.
 
 ## Evidence
 
@@ -30,10 +32,7 @@ campaign v7 baseline. Fixtures are the 137 KiB issue #454 editor files.
 | Remaining cost, named | `Token` at 80 bytes, the external token path share, one merge check | the scheduler run alone exceeds a whole production parse; materialization replays the derivation |
 | Known deficits | 2.0 to 2.4 times C core work on GLR-heavy canonical fixtures (decision 0006); recovery cliffs, for example the C transient delete at 2.9 s | per-event cost, coverage, recovery ownership, incremental ownership |
 
-## Effort comparison
-
-Closing the production gap needs three named cuts and the recovery-cliff
-work. Each cut has a profile line behind it.
+## The gap the compact core must close
 
 Closing the compact gap needs all of these:
 
@@ -51,14 +50,21 @@ restored incremental reuse for compact trees, the early declines, and the
 parity gate. They keep the candidate lane healthy for graduation work. The
 production drift cuts in the same pull request stand on both routes.
 
-## Result
+## Interim measurements
 
-On the default route, the 137 KiB clean full parse returns to v0.48.1
-numbers in the same session: Go 62.8 ms against 63.0, hcl 59.5 against
-54.9, TypeScript 44.8 against 40.8. The compact route on the same binary
-parses Go in 99.1 ms.
+With production selected (`GTS_ADMISSION_CANDIDATE=0`) the 137 KiB clean
+full parse sits at v0.48.1 numbers in the same session: Go 62.8 ms against
+63.0, hcl 59.5 against 54.9, TypeScript 44.8 against 40.8. The compact route
+on the same binary parses Go in 99.1 ms. That 1.6 times is the first
+target; the compact core must then pass production and keep going.
 
-## First production tranche in this change
+## Production engine fixes kept until retirement
+
+These three fixes stay because production still serves the routes the
+compact core does not. Two of them, the scratch trim and the smaller token,
+also run on the compact route through the shared token source and scratch.
+
+### Scratch lifetime isolation
 
 Scratch lifetime isolation, the open finding in the cost envelope. A pooled
 parser scratch kept the transient parent and child slabs of the largest
@@ -70,7 +76,7 @@ times its own initial arena estimate before it starts.
 `TestParseScratchIsolationSmallLargeSmall` runs the envelope's
 small-large-small sequence and fails without the trim.
 
-## Second production tranche in this change
+### Token 80 to 64 bytes
 
 `Token` shrinks from 80 to 64 bytes. The five unexported provenance bits
 pack into one flag byte, and the stack position behind a synthetic missing
@@ -99,7 +105,7 @@ host, measured in one session.
 Seven of nine grammars now run within 1.10 times v0.48.1. Rust and Scala
 do not move; their remaining cost is the GLR merge work listed below.
 
-## Third production tranche in this change
+### Incremental reuse budget
 
 The incremental reuse budget. The issue #454 C single-byte delete turns
 `x0` into `0`, old-tree reuse resynchronizes nowhere, and the incremental
@@ -113,23 +119,29 @@ requires the fresh-parse tree with under 800 thousand nodes built. Ordinary
 keystrokes never reach the budget: they reuse most of the source long
 before the node count grows.
 
-## Next production tranches
+## Compact program
 
-1. Rust: replace the per-candidate binary search in the merge-time external
-   scanner checkpoint check.
-2. hcl: cut the external token path, which takes 13 percent of samples
-   against 7 percent at v0.48.1.
-3. Recovery cliffs: the C transient-error delete at 137 KiB explores about
-   3.2 million nodes before the memory-budget retry.
-4. Redundant GLR work on GLR-heavy fixtures, under
-   `spec.merge-time-election.v1`.
+The compact scheduler profile on Go at 137 KiB splits as: scheduler run 76
+percent (dispatch 53, of which reduction 24, election 16, shifts 15;
+stop-control poll 6, canonicalization 4, lineage 4) and materialization 21
+percent (postorder visit 10, derivation replay 5, result build 3). The
+scheduler run alone exceeds a whole production parse. The program, in
+order of expected return:
+
+1. A single-header advance path. Deterministic stretches are most of every
+   parse. When one header holds one plain shift or reduce, the scheduler
+   must not pay election receipts, checkpoint interning, canonicalization,
+   lineage journaling, or condense. The records it writes must stay
+   byte-identical to the general path.
+2. Parse states captured during the run, so materialization stops replaying
+   the derivation.
+3. Materialization straight into result nodes as reductions commit, so the
+   postorder visit disappears.
+4. Coverage, recovery ownership, and a compact incremental route, so
+   production can retire from the routes it still serves.
 
 ## Relation to campaign v7
 
-Campaign v7 names the compact core as the sole engine at its end state. This
-decision does not close that campaign. It changes the shipped default while
-the candidate lane stays behind its gates. The execution queue's technical
-direction, one C-order advance kernel extracted from the production
-per-version path with compact storage behind it, is consistent with fixing
-the production engine first. Owner ratification travels through a decision
-spore.
+Campaign v7 names the compact core as the sole engine at its end state.
+This decision affirms it. The production engine retires when the compact
+core serves every route and outperforms it on the sealed and field boards.

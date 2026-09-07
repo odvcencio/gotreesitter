@@ -7,18 +7,14 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
-### Production route default (issue #454)
+### Production engine fixes kept until retirement (issue #454)
 
-- Fresh full parses use the production engine by default. The compact route
-  is opt-in through `GTS_ADMISSION_CANDIDATE=1`,
-  `SetAdmissionCandidateRouteDefault(true)`, or the per-Parser override. See
-  the [decision record](docs/performance/issue-454-production-route-decision-2026-09-07.md).
-  On the 137 KiB issue #454 fixtures the default route now runs within 1.06
-  to 1.19 times v0.48.1, Rust 1.33, instead of 1.7 to 2.2 times.
-- Package test binaries opt in to the compact route when
-  `GTS_ADMISSION_CANDIDATE` is unset, so the certification and parity suites
-  keep their coverage. `GTS_ADMISSION_CANDIDATE=0` still pins a test run to
-  the production route.
+The compact route stays the default fresh full-parse route. The owner's
+direction is to retire the production engine once the compact core
+outperforms it; until then production still serves incremental, injection,
+included-range, and fallback parses, so these fixes stay. See the
+[route decision record](docs/performance/issue-454-production-route-decision-2026-09-07.md).
+
 - Isolate parser scratch lifetimes across parses. A pooled scratch kept the
   transient parent and child slabs of the largest earlier parse, up to 512K
   elements, and billed them to every later parse in the process: a 4 KiB
