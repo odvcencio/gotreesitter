@@ -3,6 +3,7 @@
 package gotreesitter
 
 import (
+	"bytes"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/binary"
@@ -2852,7 +2853,11 @@ type diagnosticParserCoreGenericScheduler struct {
 	// memory-budget poll can skip the per-token frontier walk while the
 	// footprint sits far below every armed threshold. See
 	// stopControlMemoryBudgetReasonWithAdditionalBytes.
-	footprintGauge               diagnosticParserCoreFootprintGauge
+	footprintGauge diagnosticParserCoreFootprintGauge
+	// identityFingerprint memoizes parserCoreExternalScannerIdentityFingerprint
+	// for the scanner identity seen at the previous election. The identity is
+	// stable across a parse, so the SHA-256 runs once instead of per token.
+	identityFingerprint          diagnosticParserCoreIdentityFingerprintMemo
 	dispatchScratch              diagnosticParserCoreDispatchScratch
 	conflictScratch              diagnosticParserCoreConflictScratch
 	reductionOutputs             []core.ReductionOutput
@@ -5516,7 +5521,7 @@ func (s *diagnosticParserCoreGenericScheduler) finishSharedElectionSnapshotCaptu
 	if s.tokenSource != nil && s.tokenSource.language != nil && languageUsesExternalScannerCheckpoints(s.tokenSource.language) {
 		if provider, ok := externalScannerCheckpointIdentityProviderForScanner(s.tokenSource.language.ExternalScanner); ok {
 			if identity, ok := provider.CheckpointIdentity(); ok && identity.complete() {
-				s.versionLexerBeforeIdentity = parserCoreExternalScannerIdentityFingerprint(identity)
+				s.versionLexerBeforeIdentity = s.identityFingerprint.fingerprintFor(identity)
 				s.versionLexerBeforeIdentityValid = true
 			}
 		}
@@ -8013,6 +8018,27 @@ const stopControlFootprintChurnRatio = 1
 // so the trip point near a budget is unchanged: every poll from half the
 // threshold upward runs the exact walk.
 const diagnosticParserCoreFootprintPollInterval = 64
+
+// diagnosticParserCoreIdentityFingerprintMemo caches one scanner identity
+// fingerprint. Scanner and grammar identifiers are copied so a provider that
+// reuses its buffers cannot alias the key.
+type diagnosticParserCoreIdentityFingerprintMemo struct {
+	scanner     []byte
+	grammar     []byte
+	fingerprint [32]byte
+	valid       bool
+}
+
+func (m *diagnosticParserCoreIdentityFingerprintMemo) fingerprintFor(identity ExternalScannerCheckpointIdentity) [32]byte {
+	if m.valid && bytes.Equal(m.scanner, identity.Scanner) && bytes.Equal(m.grammar, identity.Grammar) {
+		return m.fingerprint
+	}
+	m.scanner = append(m.scanner[:0], identity.Scanner...)
+	m.grammar = append(m.grammar[:0], identity.Grammar...)
+	m.fingerprint = parserCoreExternalScannerIdentityFingerprint(identity)
+	m.valid = true
+	return m.fingerprint
+}
 
 // diagnosticParserCoreFootprintGauge is the cached exact footprint and the
 // number of polls that reused it.
@@ -10697,7 +10723,27 @@ func (s *diagnosticParserCoreGenericScheduler) s3TryOpenErrorRegionWithAlternati
 	header.markRecoveryCosted()
 	s.s3RegionOpened = true
 	header.shifted = true
+	if err := s.declineUnpublishableSharedRecovery(); err != nil {
+		return false, err
+	}
 	return true, nil
+}
+
+// errCompactSharedRecoveryUnpublishable declines a shared recovery region as
+// soon as it opens on a language whose recovered trees publish only through an
+// owned end-of-file turn. That turn refuses to start after a shared region, so
+// the remainder of the parse could never publish; declining here returns the
+// source to production at the error instead of at end of file (issue #454:
+// a mid-file Go error paid a full compact recovery pass before the decline).
+// The message keeps the publication phrase that receipts and tests expect.
+var errCompactSharedRecoveryUnpublishable = errors.New(
+	"owned recovery publication requires an executed EOF turn; a shared recovery region opened first")
+
+func (s *diagnosticParserCoreGenericScheduler) declineUnpublishableSharedRecovery() error {
+	if s == nil || !s.options.allowCompactRecoveryVersionTurns || s.recoveryTurns.active {
+		return nil
+	}
+	return errCompactSharedRecoveryUnpublishable
 }
 
 func (s *diagnosticParserCoreGenericScheduler) zeroWidthExtraShiftWithoutProgress(cells []diagnosticParserCoreGenericCell) *diagnosticParserCoreGenericUnsupported {
@@ -13706,9 +13752,14 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 	election := DiagnosticParserCoreElection{
 		States: electionStates, Token: token, ScannerBefore: before, ScannerAfter: after,
 		CurrentCheckpointValid: currentValid,
-		CurrentCheckpointStart: parserCoreCheckpoint(current.start),
-		CurrentCheckpointEnd:   parserCoreCheckpoint(current.end),
 		CurrentCheckpointBytes: [2]uint32{currentStart, currentEnd},
+	}
+	// The current-checkpoint receipts are read only from retained full
+	// receipts. Each costs a SHA-256 of the scanner payload, so compute them
+	// only when this election is retained (issue #454).
+	if s.fullReceipts() {
+		election.CurrentCheckpointStart = parserCoreCheckpoint(current.start)
+		election.CurrentCheckpointEnd = parserCoreCheckpoint(current.end)
 	}
 	s.currentElection = election
 	if s.fullReceipts() {

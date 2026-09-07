@@ -197,6 +197,19 @@ func (s *diagnosticParserCoreGenericScheduler) finishRecoveryVersionRound() (sto
 		}, nil
 	}
 	if len(s.headers) == 1 && s.headers[0].shifted && s.headers[0].recoveryRegion() == nil {
+		// The recovery versions resolved before end of file and the survivor
+		// rejoins the shared lexer. Publication of an owned recovery tree
+		// requires an executed EOF turn, which ends here without one, so the
+		// remainder of the parse could never publish. Decline now instead of
+		// parsing to end of file and declining at materialization (issue
+		// #454: a mid-file Go error paid a full compact pass before falling
+		// back to production).
+		if s.options.allowCompactRecoveryVersionTurns && s.work.RecoverEOFAccepts == 0 {
+			return &diagnosticParserCoreGenericUnsupported{
+				boundary: DiagnosticParserCoreRecovery,
+				detail:   "owned recovery publication requires an executed EOF turn; recovery versions rejoined the shared lexer before end of file",
+			}, nil
+		}
 		if err := s.rejoinSharedLexerFromOwnedHeader(); err != nil {
 			return nil, err
 		}

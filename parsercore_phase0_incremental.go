@@ -60,6 +60,12 @@ var errCompactIncrementalReuseWindowExhausted = errors.New(
 // full compact parse per keystroke before this decline).
 const compactIncrementalReuseCandidateLimit = 8
 
+// compactIncrementalReuseCommitBytes is the reused-byte count below which an
+// attempt still counts as reusing nothing for the decline bounds above. A
+// single tiny borrowed subtree must not commit the attempt to a whole-file
+// compact reparse that production reuse would serve in a fraction of the time.
+const compactIncrementalReuseCommitBytes = 4 << 10
+
 var errCompactIncrementalReuseUnauthenticatedCandidates = errors.New(
 	"compact incremental reuse declined: in-scope candidates were offered but not authenticated")
 
@@ -168,7 +174,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		started := time.Now()
 		defer func() { session.timing.reuseNanos += time.Since(started).Nanoseconds() }()
 	}
-	if session.reusedSubtrees == 0 && s.token.StartByte > session.editEndByte &&
+	if session.reusedBytes < compactIncrementalReuseCommitBytes && s.token.StartByte > session.editEndByte &&
 		s.token.StartByte-session.editEndByte > compactIncrementalReuseDeclineWindowBytes {
 		return false, errCompactIncrementalReuseWindowExhausted
 	}
@@ -233,7 +239,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		lexer.normalizeIncludedPosition()
 		return true, nil
 	}
-	if unauthenticatedTopLevel && session.reusedSubtrees == 0 {
+	if unauthenticatedTopLevel && session.reusedBytes < compactIncrementalReuseCommitBytes {
 		session.unauthenticatedTopLevelCandidates++
 		if session.unauthenticatedTopLevelCandidates >= compactIncrementalReuseCandidateLimit {
 			return false, errCompactIncrementalReuseUnauthenticatedCandidates

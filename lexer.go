@@ -16,44 +16,43 @@ type Point struct {
 
 // Token is a lexed token with position info.
 type Token struct {
-	Symbol     Symbol
+	// Field order packs the eight boolean flags and the 16-bit symbol into one
+	// word so Token stays at 80 bytes. Tokens are copied by value on every
+	// election and dispatch, so the size shows up directly as copy cost.
 	Text       string
 	StartByte  uint32
 	EndByte    uint32
 	StartPoint Point
 	EndPoint   Point
-	Missing    bool
 	// lexerLookaheadEndByte is the farthest byte inspected while selecting a
 	// lexed token. Synthetic missing tokens retain that token's frontier.
 	lexerLookaheadEndByte uint32
 	// missingStack identifies the stack position before padding for a
 	// synthetic recovery token. It is never set on lexed input.
-	missingStackByte       uint32
-	missingStackPoint      Point
-	missingDependencyExact bool
+	missingStackByte  uint32
+	missingStackPoint Point
+	// ExternalScannerStartByte is the byte offset where that scanner call
+	// began, before scanner-side skip advances moved StartByte forward.
+	ExternalScannerStartByte uint32
+	lexerSkippedPrefixStart  uint32
+	Symbol                   Symbol
+	Missing                  bool
+	missingDependencyExact   bool
 	// NoLookahead marks a synthetic EOF used to force EOF-table reductions
 	// without consuming input, matching tree-sitter's lex_state = -1.
 	NoLookahead bool
 	// ExternalScannerToken marks tokens produced by an external scanner.
-	// ExternalScannerStartByte is the byte offset where that scanner call
-	// began, before scanner-side skip advances moved StartByte forward.
-	ExternalScannerToken     bool
-	ExternalScannerStartByte uint32
+	ExternalScannerToken bool
 	// lexerSkippedPrefix records that the DFA consumed one or more skip
 	// transitions before producing this token.
-	lexerSkippedPrefix      bool
-	lexerSkippedPrefixStart uint32
+	lexerSkippedPrefix bool
 	// lexerErrorModeLexed proves that the active DFA source produced this
 	// recovery token while parser state zero selected the error lex mode.
 	lexerErrorModeLexed bool
 	// lexerInternalDFALexed proves that Lexer.scan accepted this token from
 	// the internal DFA. External, generated, missing, and EOF tokens omit it.
 	lexerInternalDFALexed bool
-	// isKeyword mirrors C's Subtree.is_keyword bit (subtree.h:131): the
-	// keyword-capture word token was re-lexed as a keyword and the parser
-	// adopted that keyword symbol (parser.c:645-668). False for every other
-	// token, including a word token the keyword re-lex did not adopt.
-	isKeyword bool
+	isKeyword             bool
 }
 
 func bytesToStringNoCopy(b []byte) string {

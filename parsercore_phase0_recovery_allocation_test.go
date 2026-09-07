@@ -108,7 +108,7 @@ func TestCompactRecoveryDeclineReleasesAttemptWork(t *testing.T) {
 		t.Fatal("fixture requires a failed plain attempt")
 	}
 	var timing incrementalParseTiming
-	tree := p.attemptCompactIncrementalRecoveryFullParse(source, "recovery probe", true, &timing)
+	tree := p.attemptCompactIncrementalRecoveryFullParse(source, nil, "recovery probe", true, &timing)
 	if tree != nil {
 		tree.Release()
 		t.Fatal("unsupported lexical reentry unexpectedly succeeded")
@@ -141,7 +141,7 @@ func TestCompactRecoveryPanicReleasesAttemptWork(t *testing.T) {
 	func() {
 		defer func() { panicked = recover() == "compact recovery attempt probe" }()
 		var timing incrementalParseTiming
-		p.attemptCompactIncrementalRecoveryFullParse([]byte("func f(){}+"), "recovery probe", true, &timing)
+		p.attemptCompactIncrementalRecoveryFullParse([]byte("func f(){}+"), nil, "recovery probe", true, &timing)
 	}()
 	if !panicked || runner.scratch.freshAttemptWork != nil {
 		t.Fatalf("panic=%t retained attempt work=%t", panicked, runner.scratch.freshAttemptWork != nil)

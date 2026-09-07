@@ -11,8 +11,36 @@ type compactFreshAttemptWork struct {
 
 // attemptCompactIncrementalRecoveryFullParse runs after reuse cleanup.
 // Recovery requires complete descendants, so it starts a fresh compact graph.
-func (p *Parser) attemptCompactIncrementalRecoveryFullParse(source []byte, reason string, recoveryDeclined bool, timing *incrementalParseTiming) (result *Tree) {
-	if !recoveryDeclined || reason == "" || !p.admissionCandidateFullParseEligible(nil, true) {
+// compactIncrementalRecoveryEOFWindowBytes is the distance from the end of
+// the source within which an edit keeps the fresh compact recovery route.
+const compactIncrementalRecoveryEOFWindowBytes = 256
+
+// compactIncrementalRecoveryPreferred reports whether a recovery-declined
+// borrow attempt should run the fresh compact recovery parse instead of the
+// production incremental path.
+//
+// Production reuse serves a mid-file transient error in one local reparse and
+// returned the same tree as the fresh compact recovery parse on every
+// measured mid-file fixture, at a tenth of the cost or less for most grammars
+// (issue #454 repair report). That is the v0.48.1 keystroke mechanism. Edits
+// that reach the end of the source keep the compact route: its end-of-file
+// recovery is certified against C and can differ from production there. A
+// tree that production cannot reuse also keeps the compact route.
+func compactIncrementalRecoveryPreferred(source []byte, oldTree *Tree) bool {
+	if oldTree == nil || oldTreeDisablesIncrementalReuse(oldTree) {
+		return true
+	}
+	for _, edit := range oldTree.edits {
+		if uint64(edit.NewEndByte)+compactIncrementalRecoveryEOFWindowBytes >= uint64(len(source)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Parser) attemptCompactIncrementalRecoveryFullParse(source []byte, oldTree *Tree, reason string, recoveryDeclined bool, timing *incrementalParseTiming) (result *Tree) {
+	if !recoveryDeclined || reason == "" || !p.admissionCandidateFullParseEligible(nil, true) ||
+		!compactIncrementalRecoveryPreferred(source, oldTree) {
 		return nil
 	}
 	runner, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)

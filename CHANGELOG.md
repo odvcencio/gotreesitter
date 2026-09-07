@@ -44,6 +44,27 @@ for tags and release notes while still in `0.x`.
   selection with an ERROR node. Five C++ witnesses now match the compact route.
 - Add `cmd/issue454bench`, which reproduces the downstream measurements on
   synthetic fixtures with an optional CPU profile.
+- Serve a mid-file transient-error keystroke on a compact old tree with
+  production incremental reuse, the v0.48.1 mechanism, when the compact
+  borrow attempt declines at recovery. The fresh compact recovery route never
+  produced those trees; it declined after a whole-file pass. Edits within 256
+  bytes of end of file keep the compact recovery route. Go single-byte deletes
+  drop from 178 to 15 milliseconds at 137 KiB, and every measured tree equals
+  the fresh default-route parse except two pre-existing divergences that the
+  new parity gate documents.
+- Skip the fail-closed whole-file reparse after an incremental parse whose
+  errors sit inside top-level items covering at most a quarter of the source.
+  Pull request #613's wide-stack condition fired on TypeScript's ordinary GLR
+  ambiguity, so a single-byte delete at 137 KiB cost 296 milliseconds against
+  78 at v0.48.1; it now costs 75. Degenerate results still retry.
+- Decline an unpublishable compact recovery when its region commits instead
+  of after a whole-file pass. A fresh compact parse of a 137 KiB Go file with
+  a mid-file error drops from about 424 to 275 milliseconds; the production
+  parse alone costs 240.
+- Shrink `Token` from 88 to 80 bytes, memoize the scanner identity
+  fingerprint per parse, and compute per-election checkpoint receipt digests
+  only under full receipts. Scala and CMake compact full parses gain about
+  another 12 percent.
 
 ### Compact parser correctness
 

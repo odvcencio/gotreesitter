@@ -190,6 +190,142 @@ Every row matches the fresh parse by S-expression.
 `TestCompactOldTreeKeepsTopLevelIncrementalReuse` pins toml, ini, make, diff,
 and typescript on the compact route at 48 KiB.
 
+## Part 4: keystroke parity with v0.48.1
+
+### Transient-error keystrokes
+
+The first repair left a transient-error keystroke on the compact route at one
+fresh compact recovery parse (178 ms at 137 KiB for Go against 11 ms at
+v0.48.1). The measurement that decided the next step compared, for a delete
+that leaves a syntax error, the production incremental tree on a compact old
+tree against a fresh compact parse of the edited bytes:
+
+- Mid-file errors, 14 grammars at 137 KiB and 32 KiB: identical S-expressions
+  for 13. Scala differed because production's own fresh parse disagrees with
+  its incremental parse on that input, and both take 2.4 s.
+- Unbalanced mid-file edits (a deleted closing bracket): identical for all 12
+  measured grammars at 137 KiB.
+- Edits at end of file: identical for 13 of 14. JavaScript differed: the
+  compact route's certified end-of-file recovery keeps the trailing function
+  that production wraps in ERROR.
+- The compact recovery route never produced the tree for these inputs. It
+  declined after running to end of file, and production served the edit after
+  the discarded pass.
+
+The incremental entry point now serves a recovery-declined borrow attempt with
+production reuse, which is the v0.48.1 mechanism, unless the edit reaches
+within 256 bytes of the end of the source or the old tree cannot be reused.
+Those cases keep the fresh compact recovery route.
+
+| Go single-byte delete, compact route | before | after | v0.48.1 |
+| --- | ---: | ---: | ---: |
+| 4 KiB | 7 ms | 1.0 ms | 1.5 ms |
+| 16 KiB | 21 ms | 3.1 ms | 3.0 ms |
+| 64 KiB | 87 ms | 8.7 ms | |
+| 137 KiB | 178 ms | 15.4 ms | 11.4 ms |
+
+`TestCompactOldTreeTransientErrorEditsMatchFreshParse` pins the mid-file,
+unbalanced, and end-of-file classes for nine grammars against a fresh parse
+on the default route, and documents the two pre-existing divergences above.
+
+### The fail-closed reparse after a local error
+
+Pull request #613 extended the fresh-parse accepted-error retry ladder to the
+plain incremental entry points. Its wide-stack condition fires on ordinary
+GLR ambiguity (TypeScript runs four stacks), so every transient-error
+keystroke on such a grammar paid one whole-file production reparse that the
+ladder then discarded as quality-tied. The ladder now skips a tree that came
+from old-tree reuse when its errors sit inside top-level items covering at
+most a quarter of the source. Degenerate results still retry: an ERROR root,
+a single-child root, a tree without reuse, or wide error coverage.
+
+| 137 KiB single-byte delete | v0.48.1 | before | after |
+| --- | ---: | ---: | ---: |
+| typescript | 78 ms | 296 ms | 75 ms |
+| javascript | 169 ms | 161 ms | 164 ms |
+| go | 15 ms | 18 ms | 15 ms |
+
+Every tree still equals the fresh default-route parse.
+
+### Bounded compact incremental attempts
+
+The compact incremental attempt now also counts a single tiny borrowed subtree
+as reusing nothing (below 4 KiB), so it cannot commit a whole-file compact
+reparse that production reuse would serve in a fraction of the time.
+
+### Further scheduler cuts
+
+- `Token` shrinks from 88 to 80 bytes by packing its flags and 16-bit symbol
+  into one word. Tokens are copied by value at every election and dispatch on
+  both routes.
+- The scanner identity fingerprint, a SHA-256 of the scanner and grammar
+  identifiers, is memoized per parse instead of recomputed at every election.
+- The per-election current-checkpoint receipts, two SHA-256 digests of the
+  scanner payload, are computed only when full receipts are retained.
+
+| Grammar, 137 KiB full parse | compact before this part | compact after | production after | ratio |
+| --- | ---: | ---: | ---: | ---: |
+| go | 123.4 | 118.4 | 77.6 | 1.53 |
+| scala | 153.7 | 134.0 | 76.2 | 1.76 |
+| cmake | 184.2 | 162.5 | 97.4 | 1.67 |
+| hcl | 155.9 | 139.6 | 70.4 | 1.98 |
+
+### Fresh parses of error-bearing sources
+
+A fresh compact parse of a source with a syntax error declined only at
+materialization, after a whole-file pass, because a lexical error region
+never starts the recovery version turns that an owned-recovery language needs
+to publish. The route now declines when that region commits, when a shared
+region opens with turns inactive, and when recovery versions rejoin the shared
+lexer before end of file without an EOF accept. The fresh compact parse of the
+137 KiB Go fixture with a mid-file error drops from about 424 ms to 275 ms;
+the production parse alone costs 240 ms, so the discarded compact work fell
+from about 180 ms to about 35 ms. The decline message keeps the publication
+phrase that receipts and tests read. End-of-file errors still cost the clean
+prefix before the decline; the error is not known earlier.
+
+### Keystroke parity table
+
+Single-byte insert and delete at the first near-top identifier, 137 KiB, one
+process per row. v0.48.1 served every row on the production route; the repair
+serves the old tree on the compact route and the edit on production reuse.
+Reuse is reused bytes over the edited source.
+
+| Grammar | insert v0.48.1 | insert repair | delete v0.48.1 | delete repair |
+| --- | --- | --- | --- | --- |
+| go | 5.5 ms, 97% | 10.3 ms, 98% | 14.5 ms | 18.2 ms |
+| rust | 65.0 ms, 0% | 77.0 ms, 28% | 68.6 ms | 73.2 ms |
+| scala | 74.1 ms, 0% | 94.3 ms, 0% | 66.6 ms | 90.9 ms |
+| cmake | 17.5 ms, 88% | 31.1 ms, 88% | 20.9 ms | 21.4 ms |
+| toml | 3.3 ms, 100% | 3.4 ms, 100% | 2.4 ms | 4.6 ms |
+| make | 4.3 ms, 100% | 12.7 ms, 100% | 7.0 ms | 9.4 ms |
+| css | 3.3 ms, 95% | 6.4 ms, 95% | 3.8 ms | 4.8 ms |
+| scss | 3.0 ms, 95% | 4.4 ms, 95% | 3.8 ms | 4.2 ms |
+| typescript | 4.5 ms, 98% | 6.4 ms, 98% | 63.8 ms | 75.3 ms |
+| tsx | 4.1 ms, 98% | 8.0 ms, 98% | 70.0 ms | 86.6 ms |
+| ini | 9.6 ms, 97% | 13.2 ms, 97% | 10.5 ms | 13.9 ms |
+| diff | 2.2 ms, 100% | 2.5 ms, 100% | 1.5 ms | 3.4 ms |
+| json | 49.1 ms, 69% | 76.9 ms, 69% | 48.0 ms | 73.0 ms |
+| hcl | 91.3 ms, 0% | 98.7 ms, 0% | 80.1 ms | 77.3 ms |
+| javascript | 3.5 ms, 98% | 4.4 ms, 98% | 163.4 ms | 171.3 ms |
+| c | 5.3 ms, 98% | 8.8 ms, 98% | 1,891 ms | 3,023 ms |
+
+Reuse matches or exceeds v0.48.1 on every row. The remaining time gap on the
+small rows, 1 to 5 ms, is the production engine's own drift since v0.48.1,
+which the incremental path inherits; a compact old tree adds about one
+millisecond of admission work, and the compact borrow attempt under one. The
+C delete is the memory-budget retry that the C fallback attribution work
+owns. Every row matched its fresh default-route parse by node count and
+S-expression.
+
+### Production-route residual
+
+The production route itself runs 1.1 to 1.4 times v0.48.1 on 137 KiB
+fixtures. A bisect on hcl found a gradual drift rather than one commit, with
+the largest step at `e91b944f` (preserve missing-node edit dependencies),
+which added per-token lookahead bookkeeping to the external lexer and grew
+`Token`. The `Token` repack above recovers part of that cost on both routes.
+
 ## Remaining items outside this change
 
 - Transient-error keystrokes on the compact route cost one compact recovery
