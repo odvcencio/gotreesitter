@@ -7,6 +7,44 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Compact route repair (issue #454)
+
+- Keep the compact candidate route as the default for fresh full parses and
+  repair the three regressions that issue
+  [#454](https://github.com/odvcencio/gotreesitter/issues/454) measured on
+  137 KiB editor fixtures. See the
+  [repair report](docs/performance/issue-454-compact-route-repair-2026-09-07.md).
+- Compact error recovery scales linearly. The recovery cost memo grew to the
+  exact size on every store and was reallocated on every call, so a fresh
+  parse of a 16 KiB Go file with one syntax error took 4.9 seconds. The memo
+  now grows geometrically and lives for the whole parse. The same parse takes
+  49 milliseconds, and the 137 KiB single-byte delete completes in 178
+  milliseconds instead of never.
+- Compact-materialized old trees reuse top-level siblings under the same
+  compatible-goto contract as production trees. TOML insert reuse returns
+  from 62 percent to 100 percent, and TypeScript from 54 percent to 98 percent.
+- A synthesized root no longer disables reuse for the whole tree. INI files
+  that end in a blank line return from 0 percent to 97 percent reuse. The
+  unsupported-reuse reason now names the clause that failed.
+- The compact incremental attempt declines after eight unauthenticated
+  in-scope candidates or 32 KiB past the edit with zero reuse, so INI and
+  JSON no longer pay a discarded whole-file compact parse per keystroke.
+- The compact scheduler skips avoidable per-token work: the memory-budget
+  poll reuses its last exact footprint while far below every armed
+  threshold, the checkpoint interner compares against the last interned
+  record before hashing, the relex probe authenticates its payload by byte
+  comparison instead of SHA-256, and the materialization walk passes records
+  by pointer. Clean 137 KiB full parses move from 2.0 to 2.9 times production
+  to 1.4 to 1.9 times.
+- Halt a production GLR stack at a no-action point when a sibling stack
+  accepts the lookahead, before the previous-shift recovery runs. Pull
+  request [#709](https://github.com/odvcencio/gotreesitter/pull/709) added a
+  per-stack re-lex that kept the constructor-specifier fork of
+  `static inline void f(int *v) {}` alive, and the recovered fork won
+  selection with an ERROR node. Five C++ witnesses now match the compact route.
+- Add `cmd/issue454bench`, which reproduces the downstream measurements on
+  synthetic fixtures with an optional CPU profile.
+
 ### Compact parser correctness
 
 - Authenticate terminal aliases at ordinary grammar reductions during recovery. Preserve separate rules for synthetic ERROR reductions and retain span coverage checks.

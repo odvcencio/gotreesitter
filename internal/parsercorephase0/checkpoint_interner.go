@@ -35,6 +35,10 @@ type checkpointInterner struct {
 	maxIDs     uint32
 	maxBytes   uint64
 	collisions uint64
+	// lastInterned is the identity intern returned most recently. Scanner
+	// state rarely changes between consecutive tokens, so a byte comparison
+	// against that record answers most interns without a digest.
+	lastInterned CheckpointID
 }
 
 func newCheckpointInterner(maxIDs uint32, maxBytes uint64) checkpointInterner {
@@ -45,7 +49,21 @@ func (i *checkpointInterner) intern(serialized []byte) (CheckpointID, error) {
 	if len(serialized) == 0 {
 		return 0, nil
 	}
-	return i.internDigest(serialized, sha256.Sum256(serialized))
+	if id := i.lastInterned; id != 0 {
+		if record, ok := i.record(id); ok {
+			start := uint64(record.offset)
+			end := start + uint64(record.length)
+			if end <= uint64(len(i.bytes)) && bytes.Equal(i.bytes[start:end], serialized) {
+				return id, nil
+			}
+		}
+	}
+	id, err := i.internDigest(serialized, sha256.Sum256(serialized))
+	if err != nil {
+		return 0, err
+	}
+	i.lastInterned = id
+	return id, nil
 }
 
 // internDigest is the collision-test seam. Semantic identity always confirms
@@ -113,6 +131,26 @@ func (i *checkpointInterner) receipt(id CheckpointID) (uint32, [32]byte, bool) {
 	return record.length, record.digest, true
 }
 
+// matches reports whether serialized equals the retained bytes of id. It is
+// the byte-exact form of comparing a receipt digest against a fresh digest of
+// serialized, without computing that digest. Checkpoint zero matches only the
+// empty checkpoint.
+func (i *checkpointInterner) matches(id CheckpointID, serialized []byte) bool {
+	if id == 0 {
+		return len(serialized) == 0
+	}
+	record, ok := i.record(id)
+	if !ok {
+		return false
+	}
+	start := uint64(record.offset)
+	end := start + uint64(record.length)
+	if end < start || end > uint64(len(i.bytes)) {
+		return false
+	}
+	return bytes.Equal(i.bytes[start:end], serialized)
+}
+
 // copyBytes copies one exact serialized checkpoint into dst. It reuses dst's
 // backing array when its capacity is sufficient and never exposes i.bytes.
 // Checkpoint zero is the valid empty checkpoint; every other ID must resolve
@@ -147,6 +185,7 @@ func (i *checkpointInterner) stats() CheckpointInternerStats {
 func (i *checkpointInterner) reset() {
 	i.records = i.records[:0]
 	i.bytes = i.bytes[:0]
+	i.lastInterned = 0
 	clear(i.buckets)
 	i.collisions = 0
 }

@@ -127,7 +127,7 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 					return errors.New("parser-core phase zero: compact subtree has repeated public-tree ownership")
 				}
 			}
-			if err := c.validateMaterializationMetadata(top.id, *record); err != nil {
+			if err := c.validateMaterializationMetadata(top.id, record); err != nil {
 				return err
 			}
 			if err := c.claimReusedOwnership(top.id, reusedOwners); err != nil {

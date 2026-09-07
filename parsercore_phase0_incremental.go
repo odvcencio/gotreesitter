@@ -28,7 +28,40 @@ type compactIncrementalReuseSession struct {
 	cursor         reuseCursor
 	reusedSubtrees uint64
 	reusedBytes    uint64
+	// unauthenticatedTopLevelCandidates counts reuse boundaries where a clean,
+	// byte-unchanged in-scope candidate (a top-level sibling or a nested
+	// child of the edited item) was available and the compact route could
+	// not authenticate it. See compactIncrementalReuseCandidateLimit.
+	unauthenticatedTopLevelCandidates uint32
+	// editEndByte is the end of the last pending edit in new-source bytes.
+	// See compactIncrementalReuseDeclineWindowBytes.
+	editEndByte uint32
 }
+
+// compactIncrementalReuseDeclineWindowBytes bounds a compact incremental
+// attempt that has reused nothing and finds no in-scope candidate at all, for
+// example a JSON document whose single top-level array holds every edited
+// item. Once the shared token has advanced this far past the last edit with
+// zero reuse, the attempt declines so the production incremental path runs
+// instead of a whole-file compact reparse that is then discarded. This is a
+// bound on wasted work, not a reuse gate: an attempt that reuses one subtree
+// before the window closes is never cut short.
+const compactIncrementalReuseDeclineWindowBytes = 32 << 10
+
+var errCompactIncrementalReuseWindowExhausted = errors.New(
+	"compact incremental reuse declined: no subtree reused within the decline window past the edit")
+
+// compactIncrementalReuseCandidateLimit bounds a compact incremental attempt
+// that reuses nothing. Once this many clean in-scope candidates have been
+// offered and declined without a single reuse, the attempt declines so the
+// production incremental path, which reuses them under its established
+// compatible-goto contract, runs at once instead of after a whole-file
+// compact reparse that is then discarded (issue #454: INI and JSON paid a
+// full compact parse per keystroke before this decline).
+const compactIncrementalReuseCandidateLimit = 8
+
+var errCompactIncrementalReuseUnauthenticatedCandidates = errors.New(
+	"compact incremental reuse declined: in-scope candidates were offered but not authenticated")
 
 func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, timing *incrementalParseTiming) (*Tree, string, bool) {
 	if oldTree == nil || oldTree.language != p.language || !oldTree.compactMaterialized ||
@@ -74,6 +107,11 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	p.reuseMu.Lock()
 	defer p.reuseMu.Unlock()
 	session := &compactIncrementalReuseSession{oldTree: oldTree, timing: timing, scheduler: &runner.scheduler}
+	for _, edit := range oldTree.edits {
+		if edit.NewEndByte > session.editEndByte {
+			session.editEndByte = edit.NewEndByte
+		}
+	}
 	session.cursor.disableLeadingSplice = p.disableLeadingRunSplice
 	session.cursor.reset(oldTree, source, &p.reuseScratch)
 	runner.options.compactIncrementalReuse = session
@@ -130,6 +168,10 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		started := time.Now()
 		defer func() { session.timing.reuseNanos += time.Since(started).Nanoseconds() }()
 	}
+	if session.reusedSubtrees == 0 && s.token.StartByte > session.editEndByte &&
+		s.token.StartByte-session.editEndByte > compactIncrementalReuseDeclineWindowBytes {
+		return false, errCompactIncrementalReuseWindowExhausted
+	}
 	if len(s.headers) != 1 || s.versionLexerOwnershipActive || s.recoveryIsolation {
 		return false, errors.New("compact incremental reuse requires one clean shared-lexer version")
 	}
@@ -149,12 +191,16 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		return false, nil
 	}
 	p := s.options.materializationParser
+	unauthenticatedTopLevel := false
 	for _, node := range session.cursor.candidates(s.token.StartByte) {
 		next, ok := session.candidateState(p, node, StateID(state), offset, s.token)
 		if !ok || s.freshSessionOwner == nil ||
 			s.tokenSource == nil || s.tokenSource.lexer == nil ||
 			!s.tokenSource.externalScannerQuiescent() ||
 			int(node.EndByte()) < s.tokenSource.lexer.pos || node.EndByte() > uint32(len(session.cursor.newSource)) {
+			if !ok && session.candidateInScope(p, node, s.token) {
+				unauthenticatedTopLevel = true
+			}
 			continue
 		}
 		key := uint32(len(session.nodes) + 1)
@@ -187,7 +233,24 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		lexer.normalizeIncludedPosition()
 		return true, nil
 	}
+	if unauthenticatedTopLevel && session.reusedSubtrees == 0 {
+		session.unauthenticatedTopLevelCandidates++
+		if session.unauthenticatedTopLevelCandidates >= compactIncrementalReuseCandidateLimit {
+			return false, errCompactIncrementalReuseUnauthenticatedCandidates
+		}
+	}
 	return false, nil
+}
+
+// candidateInScope reports whether node is a clean, byte-unchanged candidate
+// that candidateState would splice if it could authenticate its state. It
+// separates structural eligibility from state authentication so the attempt
+// can count authentication failures (compactIncrementalReuseCandidateLimit).
+func (s *compactIncrementalReuseSession) candidateInScope(p *Parser, node *Node, lookahead Token) bool {
+	return node != nil && node.ChildCount() > 0 && !node.IsExtra() && !node.HasError() &&
+		!node.dirty() && !node.isFragile() &&
+		(s.cursor.topLevelSiblingBlockSpliceEligible(node) || s.nestedCandidateScopeEligible(p, node, lookahead)) &&
+		s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())
 }
 
 func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, state StateID, offset uint32, lookahead Token) (StateID, bool) {

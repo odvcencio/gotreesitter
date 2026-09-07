@@ -207,11 +207,10 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchOwnedRecoveryRegion(
 			}
 		}
 	}
-	cost, costMemo, err := s.recoveryOutputCostFunc()
+	cost, _, err := s.recoveryOutputCostFunc()
 	if err != nil {
 		return nil, err
 	}
-	defer costMemo.Reset()
 	snapshot := captureDiagnosticParserCoreS5Scheduler(s)
 	defer func() {
 		if value := recover(); value != nil {

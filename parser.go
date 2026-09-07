@@ -6361,7 +6361,19 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					continue
 				}
+				// Tree-sitter C halts a version at a no-action point when a
+				// better version exists (ts_parser__recover via
+				// ts_parser__better_version_exists). A sibling stack that
+				// accepts this lookahead is that better version, so the
+				// previous-shift recovery below must not keep this stack
+				// alive next to it: the recovered fork can later merge with
+				// the error-free sibling and win result selection with an
+				// ERROR the C oracle never produces. Witness: the
+				// constructor-specifier fork of `static inline void f() {}`
+				// after the per-stack re-lex reads `void` as an identifier
+				// (issue #454 follow-up).
 				if _, _, hasRecoverAction := p.findRecoverActionOnStack(s, tok.Symbol, timing); !hasRecoverAction &&
+					!p.glrSiblingAcceptsLookahead(stacks, s, tok) &&
 					p.tryRecoverPreviousShiftAsError(s, tok, &nodeCount, arena, &scratch.entries, trackChildErrors) {
 					anyReduced = true
 					needToken = false
@@ -8205,6 +8217,26 @@ func (p *Parser) tryRelexSingleParserState(tok Token, state StateID, ts TokenSou
 	// the live frontier before its next read, and same-pass re-lex paths set it.
 	scratch.releaseDFARelexSnapshot(retainedSnapshot)
 	return next, true
+}
+
+// glrSiblingAcceptsLookahead reports whether a live stack other than self
+// accepts tok in the current dispatch pass: it already shifted tok, it has
+// accepted the input, or its top state carries a real action for tok. Paused
+// C-recovery versions and dead or empty stacks are not better versions.
+func (p *Parser) glrSiblingAcceptsLookahead(stacks []glrStack, self *glrStack, tok Token) bool {
+	for stackIndex := range stacks {
+		candidate := &stacks[stackIndex]
+		if candidate == self || candidate.dead || candidate.cPaused || candidate.depth() == 0 {
+			continue
+		}
+		if candidate.accepted || candidate.shifted {
+			return true
+		}
+		if p.stateHasActionForSymbol(candidate.top().state, tok.Symbol) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Parser) noLiveStackCanAcceptLookahead(stacks []glrStack, tok Token) bool {

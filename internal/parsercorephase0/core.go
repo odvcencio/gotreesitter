@@ -2670,6 +2670,16 @@ func (c *Core) CheckpointReceiptOwned(owner SchedulerTransactionToken, id Checkp
 	return c.checkpoints.receipt(id)
 }
 
+// CheckpointMatches reports whether serialized equals the retained bytes of
+// id. It answers the same question as comparing CheckpointReceipt's digest
+// with a fresh digest of serialized, without hashing.
+func (c *Core) CheckpointMatches(id CheckpointID, serialized []byte) bool {
+	if c == nil {
+		return false
+	}
+	return c.checkpoints.matches(id, serialized)
+}
+
 // CopyCheckpointBytes copies one exact serialized checkpoint into dst. It
 // allows reads during transactions, reuses dst capacity, and returns no
 // retained interner storage to the caller.
@@ -6310,7 +6320,7 @@ func (c *Core) MaterializationOrder(roots []SubtreeID, poll func() error) ([]Sub
 				stack = append(stack, frame{id: child})
 				continue
 			}
-			if err := c.validateMaterializationMetadata(top.id, *record); err != nil {
+			if err := c.validateMaterializationMetadata(top.id, record); err != nil {
 				return nil, err
 			}
 			if err := c.claimReusedOwnership(top.id, reusedOwners); err != nil {
@@ -6394,9 +6404,12 @@ func (c *Core) SubtreeArenaLen() int {
 	return len(c.subtrees)
 }
 
-func (c *Core) validateMaterializationMetadata(id SubtreeID, record subtreeRecord) error {
+// validateMaterializationMetadata takes the record by pointer: the postorder
+// walk calls it once per subtree, and the authenticated fast path below
+// returns before reading most of the record.
+func (c *Core) validateMaterializationMetadata(id SubtreeID, record *subtreeRecord) error {
 	if record.externalProvenanceState == subtreeExternalProvenanceReusedOpaque {
-		return c.validateReusedRecord(id, record)
+		return c.validateReusedRecord(id, *record)
 	}
 	if record.missing {
 		dependency, ok := c.missingLeafDependency(id)
@@ -6419,7 +6432,7 @@ func (c *Core) validateMaterializationMetadata(id SubtreeID, record subtreeRecor
 		}
 		return nil
 	}
-	return c.validateGenericMaterializationMetadata(id, record)
+	return c.validateGenericMaterializationMetadata(id, *record)
 }
 
 func (c *Core) validateGenericMaterializationMetadata(id SubtreeID, record subtreeRecord) error {

@@ -248,15 +248,36 @@ func (m *RecoveryCostMemo) store(id SubtreeID, cost uint32) {
 		return
 	}
 	if idx > len(m.has) {
-		grownHas := make([]bool, idx)
-		copy(grownHas, m.has)
-		m.has = grownHas
-		grownCost := make([]uint32, idx)
-		copy(grownCost, m.cost)
-		m.cost = grownCost
+		m.grow(idx)
 	}
 	m.cost[idx-1] = cost
 	m.has[idx-1] = true
+}
+
+// grow ensures the memo's backing slices hold at least n slots, doubling
+// (with a small floor) instead of growing to the exact size needed.
+//
+// A compact fresh parse calls store with a monotonically increasing
+// SubtreeID on almost every token, since the arena is append-only
+// (recovery_cost.go's package doc). Growing to the exact id on every such
+// call reallocates and copies the whole table on nearly every store,
+// making one store O(current table size) and a full parse O(n^2) in file
+// size. Doubling amortizes that copy to O(1) per store.
+func (m *RecoveryCostMemo) grow(n int) {
+	newCap := len(m.has) * 2
+	if newCap < n {
+		newCap = n
+	}
+	const minCap = 64
+	if newCap < minCap {
+		newCap = minCap
+	}
+	grownHas := make([]bool, newCap)
+	copy(grownHas, m.has)
+	m.has = grownHas
+	grownCost := make([]uint32, newCap)
+	copy(grownCost, m.cost)
+	m.cost = grownCost
 }
 
 // Reset clears every memoized entry while retaining capacity, so one

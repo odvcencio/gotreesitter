@@ -2847,21 +2847,35 @@ type diagnosticParserCoreGenericScheduler struct {
 	canonicalScratch      diagnosticParserCoreCanonicalScratch
 	// footprintRefs is reusable poll scratch. It is cleared after every
 	// footprint calculation so the retained backing array owns no state.
-	footprintRefs                []diagnosticParserCoreFootprintRef
+	footprintRefs []diagnosticParserCoreFootprintRef
+	// footprintGauge caches the last exact scheduler footprint so the
+	// memory-budget poll can skip the per-token frontier walk while the
+	// footprint sits far below every armed threshold. See
+	// stopControlMemoryBudgetReasonWithAdditionalBytes.
+	footprintGauge               diagnosticParserCoreFootprintGauge
 	dispatchScratch              diagnosticParserCoreDispatchScratch
 	conflictScratch              diagnosticParserCoreConflictScratch
 	reductionOutputs             []core.ReductionOutput
 	reductionReplacements        []diagnosticParserCoreHeader
 	recoveryCondenseScratch      []diagnosticParserCoreRecoveryCondenseEntry
 	recoveryCondenseOrderScratch []int
-	classifiedBoundaries         []core.ClassifiedBoundary
-	condenseCandidates           []core.CondenseCandidate
-	electStates                  []StateID
-	electGLRStates               []StateID
-	work                         DiagnosticParserCoreGenericWork
-	epochProgress                bool
-	acceptedHead                 core.Head
-	acceptedPayloads             []core.SubtreeID
+	// recoveryCostMemo backs every call to recoveryOutputCostFunc and
+	// s5RecoveryOutputCostFunc for the life of one parse. A published
+	// compact SubtreeID's recovery cost never changes once computed
+	// (recovery_cost.go's RecoveryCostMemo doc), so this single memo is
+	// shared and left warm across every reduction step instead of being
+	// rebuilt per call. Rebuilding it per call used to force a full
+	// recursive re-walk of the priced subtree on almost every token,
+	// turning one fresh compact recovery parse quadratic in file size.
+	recoveryCostMemo     core.RecoveryCostMemo
+	classifiedBoundaries []core.ClassifiedBoundary
+	condenseCandidates   []core.CondenseCandidate
+	electStates          []StateID
+	electGLRStates       []StateID
+	work                 DiagnosticParserCoreGenericWork
+	epochProgress        bool
+	acceptedHead         core.Head
+	acceptedPayloads     []core.SubtreeID
 	// acceptedRootFinalization is a scheduler sidecar. Keeping it outside the
 	// fixed header preserves the 224-byte scheduler-header contract.
 	acceptedRootFinalization   diagnosticParserCoreRootFinalization
@@ -4354,8 +4368,13 @@ func resetDiagnosticParserCoreGenericScheduler(scheduler *diagnosticParserCoreGe
 	versionLexerRequests := resetDiagnosticParserCoreRetainedSlice(scheduler.versionLexerRequests)
 	versionLexerBeforeScratch := resetDiagnosticParserCoreDFARelexSnapshotScratch(scheduler.versionLexerBeforeScratch)
 	reuseDependencies := scheduler.reuseDependencies.reset()
+	// Retain the recovery cost memo's capacity across sessions. Reset clears
+	// every entry, so a new session never reads a cost from an earlier parse.
+	recoveryCostMemo := scheduler.recoveryCostMemo
+	recoveryCostMemo.Reset()
 	*scheduler = diagnosticParserCoreGenericScheduler{
 		reuseDependencies:    reuseDependencies,
+		recoveryCostMemo:     recoveryCostMemo,
 		summaryHeaderScratch: summaryHeaders,
 		dispatchScratch: diagnosticParserCoreDispatchScratch{
 			cells: dispatchCells, noActionIndices: noActionIndices,
@@ -4919,10 +4938,10 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	// helper tests use the same snapshot type without a core, so retain the
 	// raw DFA restore as a test-only fallback after the capability checks above.
 	if s.compact != nil {
-		length, digest, ok := s.compact.CheckpointReceipt(s.checkpointBeforeID)
-		beforeInfo := parserCoreCheckpoint(s.versionLexerBefore.externalPayload)
-		if !ok || uint64(len(s.versionLexerBefore.externalPayload)) != uint64(length) ||
-			digest != beforeInfo.SHA256 {
+		// Byte-exact authentication of the election-start payload against its
+		// interned checkpoint. This replaces a per-probe SHA-256 of the payload
+		// with the equivalent retained-bytes comparison (issue #454).
+		if !s.compact.CheckpointMatches(s.checkpointBeforeID, s.versionLexerBefore.externalPayload) {
 			return shared, false
 		}
 	}
@@ -7866,6 +7885,19 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		compactIncrementalReuseProvenForLanguage(parser.language) &&
 		scannerProvenanceTransferProven && compactTreeIncrementalReuseProven(root)
 	tree.incrementalReuseDisabled = !compactIncrementalReuseProven
+	tree.incrementalReuseUnsupportedClause = compactIncrementalReuseClauseScanner
+	if !compactIncrementalReuseProven {
+		// Name the failing clause. The scanner clauses keep the established
+		// scanner-quiescence reason; the replay and tree clauses report their
+		// own so an operator can tell a missing proof from a scanner gate.
+		switch {
+		case replayStates == nil:
+			tree.incrementalReuseUnsupportedClause = compactIncrementalReuseClauseReplay
+		case !compactIncrementalReuseProvenForLanguage(parser.language) || !scannerProvenanceTransferProven:
+		default:
+			tree.incrementalReuseUnsupportedClause = compactIncrementalReuseClauseTree
+		}
+	}
 	if compactIncrementalReuseProven && budgetScheduler != nil {
 		if err := budgetScheduler.publishCompactReuseDependencies(parser, root, arena, nodesByID, compact.MaterializationView, &points, acceptedLeaves.footprintBytes(), poll); err != nil {
 			return rejectTree(err)
@@ -7971,6 +8003,24 @@ func diagnosticParserCoreStopControlTripped(reason ParseStopReason) error {
 // reduce the scheduler's own per-token ephemeral allocation rate (out of
 // this tranche's scope). See the tranche's PR for the full witness table.
 const stopControlFootprintChurnRatio = 1
+
+// diagnosticParserCoreFootprintPollInterval bounds how many memory-budget
+// polls may reuse the last exact footprint. The exact walk over the live
+// frontier, canonical scratch, and every scheduler buffer costs about a tenth
+// of a clean compact full parse when it runs on every dispatch loop (issue
+// #454). The gauge reuses the last exact value only while that value, plus the
+// caller's additional bytes, stays below half of the smallest armed threshold,
+// so the trip point near a budget is unchanged: every poll from half the
+// threshold upward runs the exact walk.
+const diagnosticParserCoreFootprintPollInterval = 64
+
+// diagnosticParserCoreFootprintGauge is the cached exact footprint and the
+// number of polls that reused it.
+type diagnosticParserCoreFootprintGauge struct {
+	exact      uint64
+	haveExact  bool
+	pollsSince uint32
+}
 
 func diagnosticParserCoreSliceAliases[T any](items []T, inline []T) bool {
 	if cap(items) == 0 || len(inline) == 0 {
@@ -8297,34 +8347,46 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 	if s == nil {
 		return ParseStopNone
 	}
-	footprint := uint64(0)
-	haveFootprint := false
-	footprintAtLeast := func(bytes int64) bool {
-		if bytes <= 0 {
-			return false
-		}
-		if !haveFootprint {
-			footprint = diagnosticParserCoreSchedulerFootprintBytes(s)
-			if additional > math.MaxUint64-footprint {
-				footprint = math.MaxUint64
-			} else {
-				footprint += additional
-			}
-			haveFootprint = true
-		}
-		ratio := uint64(stopControlFootprintChurnRatio)
-		scaled := footprint
-		if ratio != 0 && footprint > math.MaxUint64/ratio {
-			scaled = math.MaxUint64
-		} else {
-			scaled = footprint * ratio
-		}
-		return scaled >= uint64(bytes)
+	budget := s.options.stopControlMemoryBudgetBytes
+	ceiling := s.options.stopControlHardCeilingBytes
+	if budget <= 0 && ceiling <= 0 {
+		return ParseStopNone
 	}
-	if footprintAtLeast(s.options.stopControlMemoryBudgetBytes) {
+	threshold := uint64(math.MaxUint64)
+	if budget > 0 {
+		threshold = uint64(budget)
+	}
+	if ceiling > 0 && uint64(ceiling) < threshold {
+		threshold = uint64(ceiling)
+	}
+	ratio := uint64(stopControlFootprintChurnRatio)
+	scaledFootprint := func(footprint uint64) uint64 {
+		if additional > math.MaxUint64-footprint {
+			footprint = math.MaxUint64
+		} else {
+			footprint += additional
+		}
+		if ratio != 0 && footprint > math.MaxUint64/ratio {
+			return math.MaxUint64
+		}
+		return footprint * ratio
+	}
+	gauge := &s.footprintGauge
+	if gauge.haveExact && gauge.pollsSince < diagnosticParserCoreFootprintPollInterval {
+		if scaledFootprint(gauge.exact) < threshold/2 {
+			gauge.pollsSince++
+			return ParseStopNone
+		}
+	}
+	exact := diagnosticParserCoreSchedulerFootprintBytes(s)
+	gauge.exact = exact
+	gauge.haveExact = true
+	gauge.pollsSince = 0
+	scaled := scaledFootprint(exact)
+	if budget > 0 && scaled >= uint64(budget) {
 		return ParseStopMemoryBudget
 	}
-	if footprintAtLeast(s.options.stopControlHardCeilingBytes) {
+	if ceiling > 0 && scaled >= uint64(ceiling) {
 		return ParseStopMemoryBudget
 	}
 	return ParseStopNone
@@ -8406,6 +8468,9 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 	if s != nil && s.receipt != nil &&
 		(s.receipt.Acceptance != nil || s.receipt.Completion != nil || s.receipt.Stop.Detail != "") {
 		return errDiagnosticParserCoreTerminalSchedulerResume
+	}
+	if s != nil {
+		s.footprintGauge = diagnosticParserCoreFootprintGauge{}
 	}
 	if err := s.pollStopControl(); err != nil {
 		return err
@@ -9104,11 +9169,10 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				// compact equivalent of cRecoverToState's
 				// pushStackNode(fork, goal, errNode, ...)), then fall through
 				// to ordinary classification below using the refreshed head.
-				recoveryCost, recoveryCostMemo, costErr := s.recoveryOutputCostFunc()
+				recoveryCost, _, costErr := s.recoveryOutputCostFunc()
 				if costErr != nil {
 					return nil, costErr
 				}
-				defer recoveryCostMemo.Reset()
 				var newHead core.Head
 				var resumeErr error
 				if s.recoveryIsolation {
@@ -9942,11 +10006,10 @@ func (s *diagnosticParserCoreGenericScheduler) tryRecoverEOFAccept(index int) (b
 	if err := s.reserveDispatches(1); err != nil {
 		return false, err
 	}
-	recoveryCost, recoveryCostMemo, costErr := s.recoveryOutputCostFunc()
+	recoveryCost, _, costErr := s.recoveryOutputCostFunc()
 	if costErr != nil {
 		return false, costErr
 	}
-	defer recoveryCostMemo.Reset()
 	var recovered core.Head
 	var root core.SubtreeID
 	apply := func(owner core.SchedulerTransactionToken) error {
@@ -10419,12 +10482,11 @@ func (s *diagnosticParserCoreGenericScheduler) s4TryStackSummaryRecovery(index i
 		restore()
 		return false, nil
 	}
-	recoveryCost, recoveryCostMemo, costErr := s.recoveryOutputCostFunc()
+	recoveryCost, _, costErr := s.recoveryOutputCostFunc()
 	if costErr != nil {
 		restore()
 		return false, costErr
 	}
-	defer recoveryCostMemo.Reset()
 
 	var recoveredHead core.Head
 	recover := func(owner core.SchedulerTransactionToken) error {
@@ -11931,6 +11993,14 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []Di
 
 // recoveryOutputCostFunc binds the row-aware recovery cost source for one
 // scheduler operation. Core receives the complete prefix-plus-payload cost.
+//
+// The returned memo is s.recoveryCostMemo, not a fresh allocation: it stays
+// warm across every reduction step in this parse (a published SubtreeID's
+// cost never changes -- RecoveryCostMemo's doc), so callers must not Reset
+// it after one use. Allocating and discarding a new memo per call used to
+// force a full recursive re-walk of the priced subtree on almost every
+// token, which made one fresh compact recovery parse quadratic in file
+// size.
 func (s *diagnosticParserCoreGenericScheduler) recoveryOutputCostFunc() (core.ReductionOutputCostFunc, *core.RecoveryCostMemo, error) {
 	if s == nil || s.compact == nil || s.tokenSource == nil || s.tokenSource.language == nil {
 		return nil, nil, errors.New("parser-core phase zero: recovery cost source is unavailable")
@@ -11943,7 +12013,7 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryOutputCostFunc() (core.Re
 		return nil, nil, err
 	}
 	symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
-	memo := new(core.RecoveryCostMemo)
+	memo := &s.recoveryCostMemo
 	cost := func(prev core.NodeID, payload core.SubtreeID) (uint32, error) {
 		prefix, prefixErr := s.compact.RecoveryStoredErrorCost(core.Head{Node: prev})
 		if prefixErr != nil {
@@ -12000,14 +12070,12 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		_ = s.compact.SetDropCohortSelectionContextOwned(owner, core.DropCohortSelectionNone)
 	}()
 	var reductionCost core.ReductionOutputCostFunc
-	var reductionCostMemo *core.RecoveryCostMemo
 	if recoveryCostRequired {
 		var costErr error
-		reductionCost, reductionCostMemo, costErr = s.recoveryOutputCostFunc()
+		reductionCost, _, costErr = s.recoveryOutputCostFunc()
 		if costErr != nil {
 			return costErr
 		}
-		defer reductionCostMemo.Reset()
 	}
 	var outputs []core.ReductionOutput
 	var err error
@@ -12676,13 +12744,11 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 	recoveryCostRequired := recoveryAmbiguitySource || header.recoveryRegion() != nil ||
 		header.isRecoveryCosted() || storedHeadCost != 0
 	var reductionCost core.ReductionOutputCostFunc
-	var reductionCostMemo *core.RecoveryCostMemo
 	if recoveryCostRequired {
-		reductionCost, reductionCostMemo, costErr = s.recoveryOutputCostFunc()
+		reductionCost, _, costErr = s.recoveryOutputCostFunc()
 		if costErr != nil {
 			return costErr
 		}
-		defer reductionCostMemo.Reset()
 	}
 	token := cell.dispatchToken(s.token)
 	scannerBefore, scannerAfter := s.currentElection.ScannerBefore, s.currentElection.ScannerAfter

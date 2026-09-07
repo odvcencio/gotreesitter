@@ -206,6 +206,13 @@ func compactNodeMayBeReused(n *Node) bool {
 // compactTreeIncrementalReuseProven checks the visible nodes that can reach
 // the reuse cursor. Error, missing, and fragile nodes are intentionally
 // excluded because C rejects them before descending to clean descendants.
+//
+// The root itself is exempt. The reuse cursor reuses the root only on a
+// byte-identical undo, which needs no state proof, and result building can
+// synthesize a fresh root when trailing extras follow the accepted root
+// payload (buildSyntheticRootTree). That synthesized root carries no compact
+// flags; treating it as unproven disabled reuse for every INI tree that ends
+// in a blank line (issue #454).
 func compactTreeIncrementalReuseProven(root *Node) bool {
 	if root == nil {
 		return false
@@ -218,7 +225,7 @@ func compactTreeIncrementalReuseProven(root *Node) bool {
 		if n == nil {
 			continue
 		}
-		if !compactNodeRecoveryBearing(n) {
+		if n != root && !compactNodeRecoveryBearing(n) {
 			if !n.isCompactMaterialized() || !compactNodeStateProofAvailable(n) {
 				return false
 			}
@@ -3333,6 +3340,10 @@ type Tree struct {
 	externalScannerCheckpointsDeferred bool
 	forestFastPath                     bool
 	incrementalReuseDisabled           bool
+	// incrementalReuseUnsupportedClause names the clause that disabled reuse
+	// for a compact-materialized tree. Zero selects the default
+	// scanner-quiescence reason; see incrementalReuseUnsupportedReasonForTree.
+	incrementalReuseUnsupportedClause uint8
 	// compactMaterialized marks a tree built by the phase-zero compact route
 	// (parsercore_phase0_driver.go). Such a tree carries table-REPLAYED per-node
 	// parser states (not the production parser's live-recorded ones): most are
@@ -3742,9 +3753,10 @@ func (t *Tree) Copy() *Tree {
 		// become reuse-eligible on the standard DFA path and splice replayed or
 		// abstained states into a live parse (Phase-3 Lane 3 review). Carry all
 		// three: forestFastPath, incrementalReuseDisabled, and compactMaterialized.
-		forestFastPath:           t.forestFastPath,
-		incrementalReuseDisabled: t.incrementalReuseDisabled,
-		compactMaterialized:      t.compactMaterialized,
+		forestFastPath:                    t.forestFastPath,
+		incrementalReuseDisabled:          t.incrementalReuseDisabled,
+		incrementalReuseUnsupportedClause: t.incrementalReuseUnsupportedClause,
+		compactMaterialized:               t.compactMaterialized,
 	}
 	if len(t.edits) > 0 {
 		out.edits = make([]InputEdit, len(t.edits))

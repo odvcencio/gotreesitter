@@ -201,8 +201,26 @@ func compactRecoverEOFTreeMarked(tree *Tree) bool {
 		tree.root.hasFlag(nodeFlagCompactRecoverEOF)
 }
 
+const (
+	compactIncrementalReuseReplayUnsupportedReason = "old tree was compact-materialized without a table-replay proof"
+	compactIncrementalReuseTreeUnsupportedReason   = "old tree was compact-materialized with an unproven visible node"
+)
+
+// Clause codes for Tree.incrementalReuseUnsupportedClause.
+const (
+	compactIncrementalReuseClauseScanner uint8 = iota
+	compactIncrementalReuseClauseReplay
+	compactIncrementalReuseClauseTree
+)
+
 func incrementalReuseUnsupportedReasonForTree(oldTree *Tree) string {
 	if oldTree != nil && oldTree.compactMaterialized {
+		switch oldTree.incrementalReuseUnsupportedClause {
+		case compactIncrementalReuseClauseReplay:
+			return compactIncrementalReuseReplayUnsupportedReason
+		case compactIncrementalReuseClauseTree:
+			return compactIncrementalReuseTreeUnsupportedReason
+		}
 		return compactIncrementalReuseUnsupportedReason
 	}
 	return forestIncrementalReuseUnsupportedReason
