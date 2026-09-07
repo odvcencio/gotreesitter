@@ -139,7 +139,7 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		if err != nil {
 			return err
 		}
-		if node.pathCount != 1 || node.linkCount > 1 || !reuseLineageClean(*lineage) {
+		if node.pathCount != 1 || node.linkCount > 1 || !reuseLineageClean(lineage) {
 			return errors.New("parser-core phase zero: reuse requires one clean exact corridor")
 		}
 		if node.linkCount == 0 {
@@ -164,7 +164,7 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 	return poll()
 }
 
-func reuseLineageClean(lineage nodeLineageRecord) bool {
+func reuseLineageClean(lineage *nodeLineageRecord) bool {
 	return lineage.storedErrorCost == 0 && !lineage.blended && !lineage.converged && lineage.set.count == 0 && lineage.lineage == 0
 }
 
@@ -181,7 +181,7 @@ func (c *Core) markSubtreeFragile(id SubtreeID) {
 	}
 }
 
-func (c *Core) invalidateReusedLineageProof(id NodeID, lineage nodeLineageRecord) {
+func (c *Core) invalidateReusedLineageProof(id NodeID, lineage *nodeLineageRecord) {
 	if id != 0 && uint64(id) <= uint64(c.reuseProof.nodes) && !reuseLineageClean(lineage) {
 		c.reuseProof.invalid = true
 	}

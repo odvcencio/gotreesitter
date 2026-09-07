@@ -403,6 +403,50 @@ percent from this part.
   and per iteration. Both serve the compact route's proofs and are new since
   v0.48.1.
 
+## Part 6: compact scheduler per-token cuts
+
+The compact scheduler profile after Part 5 (Go, 137 KiB, default route)
+splits as: scheduler run 76 percent, of which dispatch 53, reduction 24,
+election 16, shifts 15; materialization 21 percent, of which the postorder
+visit 10, the derivation replay 5, and the result build 3. Four per-token
+costs inside the scheduler were avoidable:
+
+- The cap-pressure poll called `Core.Stats` on every dispatch loop, which
+  validated the head node to report a node count. It now reads the node
+  count directly.
+- The per-state relex probe recomputed the scanner contract (reflection and
+  a fingerprint) on every call, re-fingerprinted the checkpoint identity, and
+  allocated four slices for its two transient snapshots. The scheduler now
+  caches the contract and the identity per language, and the two snapshots
+  use scheduler-owned scratch.
+- The election re-asked the order adapter for the checkpoint identity on
+  every token, and the adapter allocated two slices per answer. The election
+  reads the cached identity.
+- The reuse-proof invalidation copied a 104-byte lineage record at eight call
+  sites. It takes a pointer.
+
+### Results, 137 KiB full parse, default compact route, milliseconds
+
+Minimum of 54 parses per cell, paired runs against the Part 5 commit
+`0cf69ff3`.
+
+| language | 0cf69ff3 | this part | ratio |
+| --- | ---: | ---: | ---: |
+| go | 105.3 | 97.5 | 0.93 |
+| hcl | 123.1 | 123.3 | 1.00 |
+| rust | 87.2 | 87.2 | 1.00 |
+| typescript | 77.9 | 77.5 | 1.00 |
+| scala | 119.0 | 116.7 | 0.98 |
+| json | 71.4 | 70.9 | 0.99 |
+| toml | 64.5 | 63.4 | 0.98 |
+| cmake | 143.1 | 142.8 | 1.00 |
+| css | 57.0 | 57.1 | 1.00 |
+
+Go gains because its GLR stretches with an external scanner reach the relex
+probe. The other grammars rarely reach it, and their remaining cost sits in
+the core's reduction, condense, and materialization paths, which these cuts
+do not touch. The production route is unchanged.
+
 ## Graduation status
 
 The compact route serves fresh full parses by default, but it is not close

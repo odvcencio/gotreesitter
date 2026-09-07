@@ -3499,7 +3499,7 @@ func (c *Core) publishInheritedStoredErrorCost(head Head, cost uint32) error {
 		return err
 	}
 	lineage.storedErrorCost = cost
-	c.invalidateReusedLineageProof(head.Node, *lineage)
+	c.invalidateReusedLineageProof(head.Node, lineage)
 	return nil
 }
 
@@ -6397,6 +6397,16 @@ func (c *Core) MaterializationView(id SubtreeID) (MaterializationSubtreeView, er
 // SubtreeArenaLen returns the number of subtree records currently allocated,
 // used to size a per-id replay-state array (ids are 1-based, so callers size
 // SubtreeArenaLen()+1).
+// NodeCount reports the number of committed node records. The cap-pressure
+// poll reads it on every dispatch loop, so it avoids the head validation that
+// Stats performs.
+func (c *Core) NodeCount() int {
+	if c == nil {
+		return 0
+	}
+	return len(c.nodes)
+}
+
 func (c *Core) SubtreeArenaLen() int {
 	if c == nil {
 		return 0

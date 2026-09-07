@@ -88,7 +88,7 @@ func (c *Core) copyRecoveryDiscontinuityLineage(source, target NodeID) error {
 	}
 	*to = *from
 	to.owner = 0
-	c.invalidateReusedLineageProof(target, *to)
+	c.invalidateReusedLineageProof(target, to)
 	return nil
 }
 

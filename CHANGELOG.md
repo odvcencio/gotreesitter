@@ -74,6 +74,13 @@ for tags and release notes while still in `0.x`.
   Production full parses of 137 KiB fixtures move from 1.1 to 1.4 times
   v0.48.1 to 1.06 to 1.19 times, with Rust at 1.33. The report attributes
   the remaining gap and records the compact route's graduation status.
+- Remove four avoidable per-token costs from the compact scheduler: the
+  cap-pressure poll reads the node count without validating the head, the
+  per-state relex probe caches the scanner contract and identity and uses
+  scheduler-owned snapshot scratch, the election reads the cached checkpoint
+  identity instead of asking the order adapter, and the reuse-proof
+  invalidation takes the lineage record by pointer. Go compact full parses
+  gain 7 percent; the other grammars are within 2 percent.
 
 ### Compact parser correctness
 

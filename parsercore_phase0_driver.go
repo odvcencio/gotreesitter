@@ -2857,7 +2857,25 @@ type diagnosticParserCoreGenericScheduler struct {
 	// identityFingerprint memoizes parserCoreExternalScannerIdentityFingerprint
 	// for the scanner identity seen at the previous election. The identity is
 	// stable across a parse, so the SHA-256 runs once instead of per token.
-	identityFingerprint          diagnosticParserCoreIdentityFingerprintMemo
+	identityFingerprint diagnosticParserCoreIdentityFingerprintMemo
+	// versionLexerContract caches the scanner contract for the token source's
+	// language. The lookup uses reflection and a fingerprint, and the per-state
+	// relex probe asked for it on every call.
+	versionLexerContractLanguage *Language
+	versionLexerContractValid    bool
+	versionLexerContract         diagnosticParserCoreVersionLexerScannerContract
+	versionLexerContractErr      error
+	// relexPriorScratch and relexAfterScratch back the two transient snapshots
+	// of one per-state relex probe, so the probe allocates no slices.
+	relexPriorScratch dfaRelexSnapshotScratch
+	relexAfterScratch dfaRelexSnapshotScratch
+	// checkpointIdentity caches the scanner checkpoint identity for the token
+	// source's language. The provider contract requires a stable identity, and
+	// the order adapter allocates two slices on every call.
+	checkpointIdentityLanguage   *Language
+	checkpointIdentityCached     bool
+	checkpointIdentity           ExternalScannerCheckpointIdentity
+	checkpointIdentityOK         bool
 	dispatchScratch              diagnosticParserCoreDispatchScratch
 	conflictScratch              diagnosticParserCoreConflictScratch
 	reductionOutputs             []core.ReductionOutput
@@ -4905,23 +4923,18 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	if lang == nil || lang.ExternalScanner == nil {
 		return shared, false
 	}
-	contract, contractErr := diagnosticParserCoreVersionLexerScannerContractForLanguage(lang)
-	if contractErr != nil || (!languageUsesExternalScannerCheckpoints(lang) && !contract.stateless) ||
+	contract, contractErr := s.versionLexerScannerContract(lang)
+	if contractErr != nil || (!contract.usesCheckpoints && !contract.stateless) ||
 		!s.versionLexerBefore.externalScannerPresent ||
 		(len(s.versionLexerBefore.externalPayload) == 0 && !contract.stateless) {
 		return shared, false
 	}
-	provider, providerOK := externalScannerCheckpointIdentityProviderForScanner(lang.ExternalScanner)
-	var identity ExternalScannerCheckpointIdentity
-	identityOK := false
-	if providerOK {
-		identity, identityOK = provider.CheckpointIdentity()
-	}
+	identity, identityOK := s.checkpointIdentityForLanguage(lang)
 	if !contract.stateless && (!identityOK || !identity.complete()) {
 		return shared, false
 	}
 	if s.compact != nil && !contract.stateless {
-		if !contract.stateless && (!s.versionLexerBeforeIdentityValid || parserCoreExternalScannerIdentityFingerprint(identity) != s.versionLexerBeforeIdentity) {
+		if !contract.stateless && (!s.versionLexerBeforeIdentityValid || s.identityFingerprint.fingerprintFor(identity) != s.versionLexerBeforeIdentity) {
 			return shared, false
 		}
 	}
@@ -4930,7 +4943,7 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	}
 	// Keep the source exactly as the shared election left it. The snapshot
 	// restore below may call Deserialize, so capture the current state first.
-	prior := d.snapshotRelexState()
+	prior := d.snapshotRelexStateWithScratch(&s.relexPriorScratch)
 	priorState := d.state
 	priorGLRStates := d.glrStates
 	defer func() {
@@ -4961,12 +4974,40 @@ func (s *diagnosticParserCoreGenericScheduler) relexExternalTokenForState(state 
 	// Compare the scanner payload after the state-specific scan. Equal token
 	// bytes can still leave different scanner states, which must also activate
 	// ownership for the next election.
-	candidateAfter := d.snapshotRelexState()
+	candidateAfter := d.snapshotRelexStateWithScratch(&s.relexAfterScratch)
 	sharedAfter := prior
 	if tokensSameLex(candidate, shared) && candidateAfter.equal(sharedAfter) {
 		return shared, false
 	}
 	return candidate, true
+}
+
+// versionLexerScannerContract answers the scanner contract lookup once per
+// language and returns the cached answer on later probes.
+func (s *diagnosticParserCoreGenericScheduler) versionLexerScannerContract(lang *Language) (diagnosticParserCoreVersionLexerScannerContract, error) {
+	if !s.versionLexerContractValid || s.versionLexerContractLanguage != lang {
+		s.versionLexerContract, s.versionLexerContractErr = diagnosticParserCoreVersionLexerScannerContractForLanguage(lang)
+		s.versionLexerContractLanguage = lang
+		s.versionLexerContractValid = true
+	}
+	return s.versionLexerContract, s.versionLexerContractErr
+}
+
+// checkpointIdentityForLanguage answers the scanner checkpoint identity once
+// per language and returns the cached answer on later elections and probes.
+func (s *diagnosticParserCoreGenericScheduler) checkpointIdentityForLanguage(lang *Language) (ExternalScannerCheckpointIdentity, bool) {
+	if !s.checkpointIdentityCached || s.checkpointIdentityLanguage != lang {
+		s.checkpointIdentityLanguage = lang
+		s.checkpointIdentityCached = true
+		s.checkpointIdentity = ExternalScannerCheckpointIdentity{}
+		s.checkpointIdentityOK = false
+		if lang != nil {
+			if provider, ok := externalScannerCheckpointIdentityProviderForScanner(lang.ExternalScanner); ok {
+				s.checkpointIdentity, s.checkpointIdentityOK = provider.CheckpointIdentity()
+			}
+		}
+	}
+	return s.checkpointIdentity, s.checkpointIdentityOK
 }
 
 // withVersionLexerOwner runs one snapshot publication under the scheduler's
@@ -5518,9 +5559,9 @@ func (s *diagnosticParserCoreGenericScheduler) finishSharedElectionSnapshotCaptu
 	s.versionLexerBeforeValid = true
 	s.versionLexerBeforeIdentity = [32]byte{}
 	s.versionLexerBeforeIdentityValid = false
-	if s.tokenSource != nil && s.tokenSource.language != nil && languageUsesExternalScannerCheckpoints(s.tokenSource.language) {
-		if provider, ok := externalScannerCheckpointIdentityProviderForScanner(s.tokenSource.language.ExternalScanner); ok {
-			if identity, ok := provider.CheckpointIdentity(); ok && identity.complete() {
+	if s.tokenSource != nil && s.tokenSource.language != nil {
+		if contract, err := s.versionLexerScannerContract(s.tokenSource.language); err == nil && contract.usesCheckpoints {
+			if identity, ok := s.checkpointIdentityForLanguage(s.tokenSource.language); ok && identity.complete() {
 				s.versionLexerBeforeIdentity = s.identityFingerprint.fingerprintFor(identity)
 				s.versionLexerBeforeIdentityValid = true
 			}
@@ -8457,11 +8498,12 @@ func (s *diagnosticParserCoreGenericScheduler) observeCapPressure() error {
 	if !diagnosticParserCoreCapPressureSourceEligible(sourceBytes, maxNodes) {
 		return nil
 	}
-	stats, err := s.compact.Stats(s.headers[0].head)
-	if err != nil {
-		return err
+	nodeCount := s.compact.NodeCount()
+	if uint64(nodeCount) > uint64(^uint32(0)) {
+		return errors.New("parser-core phase zero: cap-pressure node count exceeds uint32")
 	}
-	if threshold := s.capPressure.nextThreshold(maxNodes); threshold == 0 || stats.Nodes < threshold {
+	nodes := uint32(nodeCount)
+	if threshold := s.capPressure.nextThreshold(maxNodes); threshold == 0 || nodes < threshold {
 		return nil
 	}
 	progress := s.token.EndByte
@@ -8475,13 +8517,13 @@ func (s *diagnosticParserCoreGenericScheduler) observeCapPressure() error {
 		}
 	}
 	prior := s.capPressure.priorProjectedNodes
-	decline, projected := s.capPressure.observe(stats.Nodes, progress, sourceBytes, maxNodes)
+	decline, projected := s.capPressure.observe(nodes, progress, sourceBytes, maxNodes)
 	if decline {
 		return &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreCap,
 			detail: fmt.Sprintf(
 				"scheduler projected node arena cap: nodes=%d progress=%d/%d projected=%d prior=%d cap=%d",
-				stats.Nodes, progress, sourceLen, projected, prior, maxNodes,
+				nodes, progress, sourceLen, projected, prior, maxNodes,
 			),
 		}
 	}
