@@ -24,7 +24,13 @@ for tags and release notes while still in `0.x`.
   elements, and billed them to every later parse in the process: a 4 KiB
   parse after a 315 KiB parse reported 35 MB of inherited scratch. Each parse
   now drops inherited transient slabs above four times its own initial arena
-  estimate before it starts. A new small-large-small test guards the bound.
+  estimate before it starts. A new small-large-small test guards the bound
+  through the new `ParseRuntime.TransientScratchBytesAllocated` counter.
+- Shrink `Token` from 80 to 64 bytes. The five unexported provenance bits
+  pack into one flag byte, and the stack position behind a synthetic missing
+  token moves to a parser-owned anchor table that the token indexes. Tokens
+  are copied by value on every election and dispatch, so the size shows up
+  directly as copy cost on both routes. The public fields are unchanged.
 
 ### Compact route repair (issue #454)
 

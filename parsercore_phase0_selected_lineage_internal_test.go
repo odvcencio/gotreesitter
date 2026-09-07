@@ -171,7 +171,9 @@ func TestDiagnosticParserCoreConvergedCoverageDropsV1Proof(t *testing.T) {
 	// only reads through scheduler.compact, so sharing it across subtests is
 	// safe, and it is required -- see alternativeSetPinMember's doc comment.
 	scheduler := newAlternativeSetPinScheduler(t)
-	member := func(members ...uint16) core.AlternativeSet { return alternativeSetPinMember(t, scheduler.compact, members...) }
+	member := func(members ...uint16) core.AlternativeSet {
+		return alternativeSetPinMember(t, scheduler.compact, members...)
+	}
 	tests := []struct {
 		name    string
 		headers []diagnosticParserCoreHeader
@@ -300,7 +302,9 @@ func TestDiagnosticParserCoreConvergedCoverageDropsV2Proof(t *testing.T) {
 	// TestDiagnosticParserCoreConvergedCoverageDropsV1Proof's identical setup
 	// and alternativeSetPinMember's doc comment.
 	scheduler := newAlternativeSetPinScheduler(t)
-	branchMember := func(pairs ...[2]uint16) core.AlternativeSet { return alternativeSetPinBranchMember(t, scheduler.compact, pairs...) }
+	branchMember := func(pairs ...[2]uint16) core.AlternativeSet {
+		return alternativeSetPinBranchMember(t, scheduler.compact, pairs...)
+	}
 	tests := []struct {
 		name    string
 		headers []diagnosticParserCoreHeader

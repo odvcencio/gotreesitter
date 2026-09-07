@@ -258,19 +258,46 @@ func copyMissingNodeDependency(dst, src *Node, offset *cloneOffset) bool {
 	return dst.ownerArena.setMissingNodeDependency(dst, dependency)
 }
 
-func missingNodeDependencyFromToken(token Token) (missingNodeDependency, bool) {
-	if !token.Missing || !token.missingDependencyExact || token.StartByte < token.missingStackByte {
+// missingStackAnchor is the stack position before padding for one synthetic
+// missing token. Token carries a one-based index into the parser's table, so
+// the anchor's twelve bytes stay out of every lexed token. A missing token is
+// shifted in the same step that creates it, so an anchor never outlives its
+// parse; parseInternal truncates the table on return.
+type missingStackAnchor struct {
+	stackByte  uint32
+	stackPoint Point
+}
+
+func (p *Parser) recordMissingStackAnchor(stackByte uint32, stackPoint Point) uint32 {
+	p.missingStackAnchors = append(p.missingStackAnchors, missingStackAnchor{stackByte: stackByte, stackPoint: stackPoint})
+	return uint32(len(p.missingStackAnchors))
+}
+
+func (p *Parser) missingStackAnchor(token Token) (missingStackAnchor, bool) {
+	ref := token.missingStackRef
+	if p == nil || ref == 0 || uint64(ref) > uint64(len(p.missingStackAnchors)) {
+		return missingStackAnchor{}, false
+	}
+	return p.missingStackAnchors[ref-1], true
+}
+
+func (p *Parser) missingNodeDependencyFromToken(token Token) (missingNodeDependency, bool) {
+	if !token.Missing || !token.missingDependencyExact() {
 		return missingNodeDependency{}, false
 	}
-	paddingExtent, ok := pointExtentBetween(token.missingStackPoint, token.StartPoint)
+	anchor, ok := p.missingStackAnchor(token)
+	if !ok || token.StartByte < anchor.stackByte {
+		return missingNodeDependency{}, false
+	}
+	paddingExtent, ok := pointExtentBetween(anchor.stackPoint, token.StartPoint)
 	lookaheadEndByte := tokenLookaheadEndByte(token)
-	if !ok || lookaheadEndByte < token.missingStackByte {
+	if !ok || lookaheadEndByte < anchor.stackByte {
 		return missingNodeDependency{}, false
 	}
 	dependency := missingNodeDependency{
-		stackByte: token.missingStackByte, stackPoint: token.missingStackPoint,
-		paddingBytes: token.StartByte - token.missingStackByte, paddingExtent: paddingExtent,
-		lookaheadBytes: lookaheadEndByte - token.missingStackByte,
+		stackByte: anchor.stackByte, stackPoint: anchor.stackPoint,
+		paddingBytes: token.StartByte - anchor.stackByte, paddingExtent: paddingExtent,
+		lookaheadBytes: lookaheadEndByte - anchor.stackByte,
 	}
 	positionedByte, byteOK := dependency.positionedByte()
 	positionedPoint, pointOK := dependency.positionedPoint()
@@ -373,6 +400,6 @@ func (p *Parser) recoveryMissingToken(source []byte, stack *glrStack, symbol Sym
 		Symbol: symbol, StartByte: positionedByte, EndByte: positionedByte,
 		StartPoint: positionedPoint, EndPoint: positionedPoint, Missing: true,
 		lexerLookaheadEndByte: tokenLookaheadEndByte(lookahead),
-		missingStackByte:      stackByte, missingStackPoint: stackPoint, missingDependencyExact: true,
+		missingStackRef:       p.recordMissingStackAnchor(stackByte, stackPoint), lexFlags: tokenFlagMissingDependencyExact,
 	}, true
 }

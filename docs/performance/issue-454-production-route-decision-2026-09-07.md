@@ -70,17 +70,44 @@ times its own initial arena estimate before it starts.
 `TestParseScratchIsolationSmallLargeSmall` runs the envelope's
 small-large-small sequence and fails without the trim.
 
+## Second production tranche in this change
+
+`Token` shrinks from 80 to 64 bytes. The five unexported provenance bits
+pack into one flag byte, and the stack position behind a synthetic missing
+token moves to a parser-owned anchor table that the token indexes with one
+`uint32`. A missing token is shifted in the same step that creates it, so an
+anchor never outlives its parse; nested parses append after the outer
+entries and truncate back on return. The public fields are unchanged.
+
+### Results, 137 KiB full parse, production route, milliseconds
+
+Minimum of 54 parses per cell, paired runs of the three binaries on a quiet
+host, measured in one session.
+
+| language | v0.48.1 | Token 80 bytes | Token 64 bytes | ratio before | ratio after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| go | 56.4 | 61.5 | 60.8 | 1.09 | 1.08 |
+| rust | 37.2 | 45.5 | 45.6 | 1.23 | 1.23 |
+| hcl | 51.5 | 59.0 | 56.5 | 1.15 | 1.10 |
+| toml | 31.6 | 35.6 | 32.2 | 1.13 | 1.02 |
+| cmake | 73.9 | 81.2 | 77.5 | 1.10 | 1.05 |
+| json | 37.6 | 39.5 | 37.6 | 1.05 | 1.00 |
+| css | 25.8 | 30.4 | 28.5 | 1.18 | 1.10 |
+| scala | 51.4 | 61.5 | 61.4 | 1.20 | 1.19 |
+| typescript | 39.7 | 44.3 | 41.0 | 1.12 | 1.03 |
+
+Seven of nine grammars now run within 1.10 times v0.48.1. Rust and Scala
+do not move; their remaining cost is the GLR merge work listed below.
+
 ## Next production tranches
 
-1. Shrink `Token` to 64 bytes. Move the missing-stack point out of the
-   token, or pack the unexported flags into one byte.
-2. Rust: replace the per-candidate binary search in the merge-time external
+1. Rust: replace the per-candidate binary search in the merge-time external
    scanner checkpoint check.
-3. hcl: cut the external token path, which takes 13 percent of samples
+2. hcl: cut the external token path, which takes 13 percent of samples
    against 7 percent at v0.48.1.
-4. Recovery cliffs: the C transient-error delete at 137 KiB explores about
+3. Recovery cliffs: the C transient-error delete at 137 KiB explores about
    3.2 million nodes before the memory-budget retry.
-5. Redundant GLR work on GLR-heavy fixtures, under
+4. Redundant GLR work on GLR-heavy fixtures, under
    `spec.merge-time-election.v1`.
 
 ## Relation to campaign v7

@@ -692,7 +692,7 @@ func (d *dfaTokenSource) Next() Token {
 			d.zeroWidthPos = -1
 			d.zeroWidthCount = 0
 		}
-		d.attachTokenLookaheadFrontier(&tok, !tokenFromExternal && !tok.lexerInternalDFALexed)
+		d.attachTokenLookaheadFrontier(&tok, !tokenFromExternal && !tok.lexerInternalDFALexed())
 
 		if perfCountersEnabled {
 			consumed := d.lexer.pos - startPos
@@ -751,8 +751,8 @@ func (d *dfaTokenSource) Next() Token {
 		}
 		// Record provenance only when this source selected the error lex mode.
 		// A checkpointless external scanner cannot prove the complete lex path.
-		tok.lexerErrorModeLexed = d.cRecoveryEnabled && d.state == cErrorState && !tokenFromExternal &&
-			(!d.hasExternalScanner || d.usesExternalCheckpoints)
+		tok.setLexFlag(tokenFlagErrorModeLexed, d.cRecoveryEnabled && d.state == cErrorState && !tokenFromExternal &&
+			(!d.hasExternalScanner || d.usesExternalCheckpoints))
 		return tok
 	}
 }
@@ -1084,7 +1084,8 @@ func (d *dfaTokenSource) SeekTokenFrontier(pos uint32, pt Point) {
 // frontier, not the lex path that produced the token. isKeyword records the
 // promotion path, so it must not take part in a same-tokenization test.
 func tokensSameLex(a, b Token) bool {
-	a.isKeyword, b.isKeyword = false, false
+	a.setLexFlag(tokenFlagKeyword, false)
+	b.setLexFlag(tokenFlagKeyword, false)
 	return a == b
 }
 
@@ -3365,7 +3366,7 @@ func (d *dfaTokenSource) relexFromTokenStartInTransaction(tok Token) (Token, boo
 // lexer-call start. It converts an aligned, invisible error-mode token only
 // when state zero cannot act on that token. The caller owns rollback.
 func (d *dfaTokenSource) relexRecoveryTokenFromSkippedPrefixInTransaction(tok Token, startByte uint32, startPoint Point) (Token, bool) {
-	if !d.canRelexFromSkippedPrefix(tok) || !tok.lexerSkippedPrefix ||
+	if !d.canRelexFromSkippedPrefix(tok) || !tok.lexerSkippedPrefix() ||
 		tok.lexerSkippedPrefixStart != startByte || startByte >= tok.StartByte ||
 		d.lexer.pos != int(tok.EndByte) || d.lexer.row != tok.EndPoint.Row || d.lexer.col != tok.EndPoint.Column {
 		return Token{}, false
@@ -3379,7 +3380,7 @@ func (d *dfaTokenSource) relexRecoveryTokenFromSkippedPrefixInTransaction(tok To
 		d.lexer.row != next.EndPoint.Row || d.lexer.col != next.EndPoint.Column {
 		return Token{}, false
 	}
-	next.lexerErrorModeLexed = true
+	next.setLexFlag(tokenFlagErrorModeLexed, true)
 	if next.Symbol != errorSymbol {
 		meta, known := d.symbolMetadata(next.Symbol)
 		if !known || meta.Visible || next.Symbol != tok.Symbol || next.ExternalScannerToken ||
@@ -4991,7 +4992,7 @@ func (d *dfaTokenSource) promoteKeyword(tok *Token) bool {
 		if !kwHasAction {
 			if altSym, ok := d.activeLiteralKeywordSymbol(*tok); ok {
 				tok.Symbol = altSym
-				tok.isKeyword = true
+				tok.setLexFlag(tokenFlagKeyword, true)
 				return false
 			}
 		}
@@ -5007,7 +5008,7 @@ func (d *dfaTokenSource) promoteKeyword(tok *Token) bool {
 	}
 
 	tok.Symbol = kwTok.Symbol
-	tok.isKeyword = true
+	tok.setLexFlag(tokenFlagKeyword, true)
 	return false
 }
 

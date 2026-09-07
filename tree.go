@@ -1486,6 +1486,10 @@ type ParseRuntime struct {
 	// The parser sets NativeRecoveredStructureAuthoritative when an exact
 	// grammar profile certifies the recovered tree before compatibility.
 	NativeRecoveredStructureAuthoritative bool
+	// TransientScratchBytesAllocated is the capacity of the transient parent
+	// and child slabs this parse held, including slabs inherited from the
+	// pool. The scratch lifetime isolation bound applies to this value.
+	TransientScratchBytesAllocated int64
 }
 
 type NormalizationPassRuntime struct {

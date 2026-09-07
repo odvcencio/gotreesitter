@@ -140,8 +140,8 @@ func TestIncrementalMultiEditSequenceMatchesFresh(t *testing.T) {
 		t.Fatalf("baseline parse failed: %v", err)
 	}
 	edits := []struct{ oldSub, newSub string }{
-		{"1234", "5"},   // shrink a literal (clamp)
-		{"aa", "alpha"}, // grow an identifier
+		{"1234", "5"},                          // shrink a literal (clamp)
+		{"aa", "alpha"},                        // grow an identifier
 		{"return f(10, 20)", "return f(1, 2)"}, // shrink args
 	}
 	cur := src

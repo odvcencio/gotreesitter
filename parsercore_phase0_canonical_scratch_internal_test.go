@@ -587,7 +587,7 @@ func TestDiagnosticParserCoreCanonicalScratchPreservesLexerSnapshotOwners(t *tes
 				}
 				leftRequest := diagnosticParserCoreVersionLexerRequest{
 					electionIndex: 1, headerCreationSeq: 2, state: 3,
-					token:  Token{Symbol: 7, StartByte: 4, EndByte: 5, isKeyword: true},
+					token:  Token{Symbol: 7, StartByte: 4, EndByte: 5, lexFlags: tokenFlagKeyword},
 					before: snapshot, after: snapshot.clone(),
 					beforeCheckpoint: snapshot.beforeCheckpointInfo,
 					afterCheckpoint:  snapshot.afterCheckpointInfo,
@@ -597,7 +597,7 @@ func TestDiagnosticParserCoreCanonicalScratchPreservesLexerSnapshotOwners(t *tes
 				rightRequest := leftRequest
 				rightRequest.electionIndex = 19
 				rightRequest.headerCreationSeq = 23
-				rightRequest.token.isKeyword = false
+				rightRequest.token.setLexFlag(tokenFlagKeyword, false)
 				rightRequest.before = snapshot.clone()
 				rightRequest.after = snapshot.clone()
 				scheduler := &diagnosticParserCoreGenericScheduler{

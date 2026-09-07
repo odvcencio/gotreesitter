@@ -57,7 +57,7 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactReuseDependency(token
 		s.headers[0].isRecoveryLineage() || s.headers[0].recoveryRegion() != nil ||
 		token.Missing || token.NoLookahead || token.EndByte < token.StartByte ||
 		(token.ExternalScannerToken && !s.tokenSource.hasExternalScanner) ||
-		(token.Symbol != 0 && !token.ExternalScannerToken && (!token.lexerInternalDFALexed || token.EndByte <= token.StartByte)) ||
+		(token.Symbol != 0 && !token.ExternalScannerToken && (!token.lexerInternalDFALexed() || token.EndByte <= token.StartByte)) ||
 		token.lexerLookaheadEndByte == 0 {
 		d.invalidate()
 		return 0, false

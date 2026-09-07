@@ -381,12 +381,12 @@ func TestCAbsorbErrorRunUsesLexerProvenanceForLeafErrorFlag(t *testing.T) {
 			parser.cAbsorbTokenIntoError(
 				&stack,
 				Token{
-					Symbol:              errorSymbol,
-					StartByte:           10,
-					EndByte:             18,
-					StartPoint:          Point{Column: 10},
-					EndPoint:            Point{Column: 18},
-					lexerErrorModeLexed: test.lexerProduced,
+					Symbol:     errorSymbol,
+					StartByte:  10,
+					EndByte:    18,
+					StartPoint: Point{Column: 10},
+					EndPoint:   Point{Column: 18},
+					lexFlags:   lexFlagIf(test.lexerProduced, tokenFlagErrorModeLexed),
 				},
 				&nodeCount,
 				arena,
@@ -467,7 +467,7 @@ func TestCRecoverResumeDFALookaheadRequiresLexedAlignedErrorToken(t *testing.T) 
 		if got.Symbol != errorSymbol || got.StartByte != tok.StartByte || got.EndByte != tok.EndByte {
 			t.Fatalf("replacement = %+v, want ERROR at %d..%d", got, tok.StartByte, tok.EndByte)
 		}
-		if !got.lexerErrorModeLexed {
+		if !got.lexerErrorModeLexed() {
 			t.Fatal("replacement lacks the lexer error-mode proof")
 		}
 		if ts.lexer.pos != int(got.EndByte) || ts.lexer.row != got.EndPoint.Row || ts.lexer.col != got.EndPoint.Column {
@@ -498,7 +498,7 @@ func TestCRecoverResumeDFALookaheadRequiresLexedAlignedErrorToken(t *testing.T) 
 		if !ok {
 			t.Fatal("aligned invisible error-mode token was rejected")
 		}
-		if got.Symbol != errorSymbol || !got.lexerErrorModeLexed {
+		if got.Symbol != errorSymbol || !got.lexerErrorModeLexed() {
 			t.Fatalf("replacement = %+v, want lexer-proven ERROR", got)
 		}
 		if !parser.cRecoverSharedTokenErrorModeLexed {
@@ -572,7 +572,7 @@ func TestCRecoverResumeDFARejectsAbsentExternalScannerCheckpoint(t *testing.T) {
 	*liveState = 0xff
 	ts.SetParserState(1)
 	tok := ts.Next()
-	if !tok.lexerSkippedPrefix || len(ts.externalTokenStart) != 0 {
+	if !tok.lexerSkippedPrefix() || len(ts.externalTokenStart) != 0 {
 		t.Fatalf("fixture token lacks the absent checkpoint proof: token=%+v checkpoint=%v", tok, ts.externalTokenStart)
 	}
 	if ts.CanRelexFromTokenStart(tok) || ts.canRelexFromSkippedPrefix(tok) {
@@ -642,7 +642,7 @@ func TestCRecoverResumeDFARejectsCheckpointlessExternalScanner(t *testing.T) {
 	defer ts.Close()
 	ts.SetParserState(1)
 	tok := ts.Next()
-	if !tok.lexerSkippedPrefix {
+	if !tok.lexerSkippedPrefix() {
 		t.Fatalf("fixture token lacks the skipped-prefix proof: token=%+v", tok)
 	}
 	if !ts.CanRelexFromTokenStart(tok) {
@@ -3155,14 +3155,18 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 		t.Skip("amd64 layout ratchet")
 	}
 	// The scratch lexer shares an eight-byte dependency observer pointer.
-	if got, want := unsafe.Sizeof(Parser{}), uintptr(2232); got != want {
+	// 2256: 2232 plus the missingStackAnchors slice header appended after
+	// every hot field, so no existing offset moved.
+	if got, want := unsafe.Sizeof(Parser{}), uintptr(2256); got != want {
 		t.Fatalf("Parser size = %d, want %d", got, want)
 	}
 	// Compact incremental results add 48 bytes of route, reuse, and work telemetry.
-	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3088); got != want {
+	// 3096: 3088 plus TransientScratchBytesAllocated appended at the end.
+	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3096); got != want {
 		t.Fatalf("ParseRuntime size = %d, want %d", got, want)
 	}
-	if got, want := unsafe.Sizeof(Tree{}), uintptr(3288); got != want {
+	// 3296: 3288 plus the ParseRuntime growth above.
+	if got, want := unsafe.Sizeof(Tree{}), uintptr(3296); got != want {
 		t.Fatalf("Tree size = %d, want %d", got, want)
 	}
 	if got, want := unsafe.Offsetof(Parser{}.cNodeMemoPeakTier), unsafe.Offsetof(Parser{}.crecoveryCostCompetitionRelevant)+2; got != want {

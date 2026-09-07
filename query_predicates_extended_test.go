@@ -313,10 +313,10 @@ func TestMatchPredicateIsExportedEmptyText(t *testing.T) {
 	// Build a tree where identifier has zero-length text.
 	source := []byte("func () { 42 }")
 
-	funcKw := leaf(Symbol(8), false, 0, 4)   // "func"
-	ident := leaf(Symbol(1), true, 5, 5)     // "" (empty)
-	lparen := leaf(Symbol(11), false, 5, 6)  // "("
-	rparen := leaf(Symbol(12), false, 6, 7)  // ")"
+	funcKw := leaf(Symbol(8), false, 0, 4)  // "func"
+	ident := leaf(Symbol(1), true, 5, 5)    // "" (empty)
+	lparen := leaf(Symbol(11), false, 5, 6) // "("
+	rparen := leaf(Symbol(12), false, 6, 7) // ")"
 	paramList := parent(Symbol(13), true,
 		[]*Node{lparen, rparen},
 		[]FieldID{0, 0})
@@ -347,10 +347,10 @@ func TestMatchPredicateIsExportedUnicode(t *testing.T) {
 	// Test with a Unicode uppercase letter (e.g. German sharp S uppercase: U+00D6 = "O")
 	source := []byte("func \xc3\x96ffnen() { 42 }")
 
-	funcKw := leaf(Symbol(8), false, 0, 4)      // "func"
-	ident := leaf(Symbol(1), true, 5, 12)        // "Offnen" (starts with O-umlaut, uppercase)
-	lparen := leaf(Symbol(11), false, 12, 13)    // "("
-	rparen := leaf(Symbol(12), false, 13, 14)    // ")"
+	funcKw := leaf(Symbol(8), false, 0, 4)    // "func"
+	ident := leaf(Symbol(1), true, 5, 12)     // "Offnen" (starts with O-umlaut, uppercase)
+	lparen := leaf(Symbol(11), false, 12, 13) // "("
+	rparen := leaf(Symbol(12), false, 13, 14) // ")"
 	paramList := parent(Symbol(13), true,
 		[]*Node{lparen, rparen},
 		[]FieldID{0, 0})

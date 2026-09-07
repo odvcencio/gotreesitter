@@ -196,8 +196,8 @@ func DiagnosticParserCoreVersionLexerRequestWitnessForTest(
 		if request.token.Symbol != expect.symbol || request.token.StartByte != 3 || request.token.EndByte != expect.endByte {
 			return nil, fmt.Errorf("state %d token=%+v, want symbol=%d span=3..%d", request.state, request.token, expect.symbol, expect.endByte)
 		}
-		if request.token.ExternalScannerToken != expect.external || request.token.lexerInternalDFALexed != expect.internalDFA {
-			return nil, fmt.Errorf("state %d token provenance external=%t internalDFA=%t, want external=%t internalDFA=%t", request.state, request.token.ExternalScannerToken, request.token.lexerInternalDFALexed, expect.external, expect.internalDFA)
+		if request.token.ExternalScannerToken != expect.external || request.token.lexerInternalDFALexed() != expect.internalDFA {
+			return nil, fmt.Errorf("state %d token provenance external=%t internalDFA=%t, want external=%t internalDFA=%t", request.state, request.token.ExternalScannerToken, request.token.lexerInternalDFALexed(), expect.external, expect.internalDFA)
 		}
 		if request.before == nil || request.after == nil || request.beforeCheckpoint.Length != 9 || request.afterCheckpoint.Length != 9 {
 			return nil, fmt.Errorf("state %d request lost owned scanner checkpoints: %+v", request.state, request)

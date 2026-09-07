@@ -461,6 +461,9 @@ type Parser struct {
 	// Parsers that use none of these features pay no sidecar allocation.
 	// Explicit ParseForestExperimental calls intentionally ignore this memo.
 	forestDeclineMemo *parserColdState
+	// missingStackAnchors holds the stack positions behind synthetic missing
+	// tokens for the parse in progress; see missingStackAnchor.
+	missingStackAnchors []missingStackAnchor
 	// cCondenseVersionKeyRanks is parser-owned scratch for the capped recovery
 	// version window. Parser is not safe for concurrent use, so this map needs no
 	// lock. cCondenseAndResume clears it before each qualifying pass and stores
@@ -3595,6 +3598,7 @@ func captureParseScratchStats(parseRuntime *ParseRuntime, scratch *parserScratch
 		return false
 	}
 	parseRuntime.ScratchBytesAllocated = scratch.allocatedBytes()
+	parseRuntime.TransientScratchBytesAllocated = scratch.transientParents.allocatedBytes + scratch.transientChildren.allocatedBytes
 	parseRuntime.ScratchBaselineBytes = scratch.budgetBaselineBytes
 	parseRuntime.EntryScratchBytesAllocated = scratch.entries.allocatedBytes
 	parseRuntime.EntryScratchPeak = uint64(scratch.entries.peakEntriesUsed())
@@ -3997,7 +4001,7 @@ func realTokenAttachmentGapIsParserPadding(source []byte, s *glrStack, tok Token
 	if tok.ExternalScannerToken && tok.ExternalScannerStartByte == s.byteOffset {
 		return true
 	}
-	if tok.lexerSkippedPrefix && tok.lexerSkippedPrefixStart == s.byteOffset {
+	if tok.lexerSkippedPrefix() && tok.lexerSkippedPrefixStart == s.byteOffset {
 		return true
 	}
 	if int(s.byteOffset) > len(source) || int(tok.StartByte) > len(source) {
@@ -4600,6 +4604,10 @@ func compactPackedGSSVersionOrderActiveForParse(language *Language, reuse *reuse
 // merged; distinct alternatives are preserved.
 func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor, oldTree *Tree, arenaClass arenaClass, timing *incrementalParseTiming, maxStacksOverride int, maxNodesOverride int, maxMergePerKeyOverride int, deterministicExternalConflicts bool) *Tree {
 	p.recordLegacyParserEntry()
+	// A nested parse on this parser appends its own anchors after the outer
+	// parse's entries and truncates back on return, so outer refs stay valid.
+	missingStackAnchorBase := len(p.missingStackAnchors)
+	defer func() { p.missingStackAnchors = p.missingStackAnchors[:missingStackAnchorBase] }()
 	var lexicalReadSpan *uint32
 	if d := tokenInvariantDFASource(ts, p.included); d != nil {
 		lexicalReadSpan = &d.tokenInvariantMaxReadSpan
@@ -8305,8 +8313,8 @@ func (p *Parser) applyExtraShiftAction(s *glrStack, currentState StateID, act Pa
 	if isMissing {
 		leaf.setMissing(true)
 		leaf.setHasError(true)
-		if tok.missingDependencyExact {
-			dependency, exact := missingNodeDependencyFromToken(tok)
+		if tok.missingDependencyExact() {
+			dependency, exact := p.missingNodeDependencyFromToken(tok)
 			if !exact || !arena.setMissingNodeDependency(leaf, dependency) {
 				leaf.setDirty(true)
 			}

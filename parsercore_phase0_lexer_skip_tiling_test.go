@@ -50,11 +50,11 @@ func TestCompactLexerSkippedPrefixTilingRequiresAlignedChildProof(t *testing.T) 
 }
 
 func TestCompactLexerSkippedPrefixLengthFailsClosedWhenUnbounded(t *testing.T) {
-	bounded := Token{StartByte: 65535, lexerSkippedPrefix: true, lexerSkippedPrefixStart: 0}
+	bounded := Token{StartByte: 65535, lexFlags: tokenFlagSkippedPrefix, lexerSkippedPrefixStart: 0}
 	if got := diagnosticParserCoreLexerSkippedPrefixLength(bounded, true); got != 65535 {
 		t.Fatalf("bounded prefix length=%d, want 65535", got)
 	}
-	unbounded := Token{StartByte: 65536, lexerSkippedPrefix: true, lexerSkippedPrefixStart: 0}
+	unbounded := Token{StartByte: 65536, lexFlags: tokenFlagSkippedPrefix, lexerSkippedPrefixStart: 0}
 	if got := diagnosticParserCoreLexerSkippedPrefixLength(unbounded, true); got != 0 {
 		t.Fatalf("unbounded prefix length=%d, want fail-closed zero", got)
 	}

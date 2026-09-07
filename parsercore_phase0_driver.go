@@ -213,7 +213,7 @@ type DiagnosticParserCorePrefixOptions struct {
 }
 
 func diagnosticParserCoreLexerSkippedPrefixLength(token Token, capture bool) uint16 {
-	if !capture || !token.lexerSkippedPrefix || token.lexerSkippedPrefixStart >= token.StartByte {
+	if !capture || !token.lexerSkippedPrefix() || token.lexerSkippedPrefixStart >= token.StartByte {
 		return 0
 	}
 	length := token.StartByte - token.lexerSkippedPrefixStart
@@ -4668,7 +4668,7 @@ func (cell *diagnosticParserCoreGenericCell) dispatchToken(shared Token) Token {
 		// clear it alongside the external-scanner fields above so a
 		// promoted keyword token's dispatch view is judged on the relexed
 		// symbol, not on which lex path produced the original.
-		shared.isKeyword = false
+		shared.setLexFlag(tokenFlagKeyword, false)
 	}
 	return shared
 }
@@ -4740,7 +4740,7 @@ func diagnosticParserCoreSameSpanRelex(shared, relexed Token) (Token, bool) {
 	// external-scanner fields above, so a promoted keyword token's relex
 	// probe is judged on tokenization identity, not on which lex path
 	// produced it.
-	candidate.isKeyword = false
+	candidate.setLexFlag(tokenFlagKeyword, false)
 	if candidate != relexed {
 		return Token{}, false
 	}
@@ -5518,7 +5518,7 @@ func (s *diagnosticParserCoreGenericScheduler) requestVersionLexerHeader(index i
 	if s.fullReceipts() {
 		s.receipt.VersionLexerRequests = append(s.receipt.VersionLexerRequests, DiagnosticParserCoreVersionLexerRequest{
 			ElectionIndex: s.electionIndex, HeaderCreationSeq: request.headerCreationSeq,
-			State: request.state, Token: request.token, InternalDFAToken: request.token.lexerInternalDFALexed,
+			State: request.state, Token: request.token, InternalDFAToken: request.token.lexerInternalDFALexed(),
 			ScannerBefore: request.beforeCheckpoint, ScannerAfter: request.afterCheckpoint,
 		})
 	}
@@ -10217,7 +10217,7 @@ func (s *diagnosticParserCoreGenericScheduler) s3ErrorModeRelex(startByte uint32
 		// C accepts only a keyword that owns the complete capture span. Keep the
 		// raw capture token if the shared promoter did not prove that exact
 		// result. The caller then reaches its existing disagreement decline.
-		if !demoted && promoted.isKeyword && promoted.Symbol != relexed.Symbol &&
+		if !demoted && promoted.isKeyword() && promoted.Symbol != relexed.Symbol &&
 			promoted.StartByte == relexed.StartByte && promoted.EndByte == relexed.EndByte &&
 			promoted.StartPoint == relexed.StartPoint && promoted.EndPoint == relexed.EndPoint {
 			relexed = promoted

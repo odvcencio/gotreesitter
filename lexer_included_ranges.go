@@ -429,7 +429,7 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 			EndByte:                 uint32(acceptPos),
 			StartPoint:              Point{Row: acceptStart.row, Column: acceptStart.col},
 			EndPoint:                Point{Row: acceptRow, Column: acceptCol},
-			lexerSkippedPrefix:      skippedPrefix,
+			lexFlags:                lexFlagIf(skippedPrefix, tokenFlagSkippedPrefix),
 			lexerSkippedPrefixStart: uint32(startPos),
 			lexerLookaheadEndByte:   lookaheadEndByte,
 		}, true
@@ -442,9 +442,8 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 		EndByte:                 uint32(acceptPos),
 		StartPoint:              Point{Row: acceptStart.row, Column: acceptStart.col},
 		EndPoint:                Point{Row: acceptRow, Column: acceptCol},
-		lexerSkippedPrefix:      skippedPrefix,
+		lexFlags:                lexFlagIf(skippedPrefix, tokenFlagSkippedPrefix) | tokenFlagInternalDFALexed,
 		lexerSkippedPrefixStart: uint32(startPos),
-		lexerInternalDFALexed:   true,
 		lexerLookaheadEndByte:   lookaheadEndByte,
 	}, true
 }

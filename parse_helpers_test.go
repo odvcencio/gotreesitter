@@ -19,4 +19,3 @@ func mustParseIncremental(t *testing.T, p *Parser, source []byte, oldTree *Tree)
 	}
 	return tree
 }
-
