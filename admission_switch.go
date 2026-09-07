@@ -29,14 +29,18 @@ import (
 //  2. the process-wide default set with SetAdmissionCandidateRouteDefault;
 //  3. the process-wide default seeded from the GTS_ADMISSION_CANDIDATE
 //     environment variable at package initialization;
-//  4. ON.
+//  4. OFF.
 //
-// Phase-3 admission flipped the default to ON: the compact route is now the
-// default full-parse route for eligible languages. Set GTS_ADMISSION_CANDIDATE=0
-// (or false/off/no) to force the production route -- the documented escape
-// hatch. An emergency build (-tags gts_no_parsercorephase0) compiles the
-// compact engine out entirely and every eligible full parse then falls back to
-// production.
+// The compact route is opt-in until it graduates. Phase-3 admission made it
+// the default full-parse route, and issue #454 then measured the cost on
+// 137 KiB editor fixtures: clean full parses ran 2 to 3 times slower than the
+// production route, materialized compact trees lost most incremental reuse,
+// and native Go error recovery grew superlinearly until a single-byte delete
+// no longer terminated. Set GTS_ADMISSION_CANDIDATE=1 (or true/on/yes), call
+// SetAdmissionCandidateRouteDefault(true), or use the per-Parser override to
+// select the compact route. An emergency build (-tags gts_no_parsercorephase0)
+// compiles the compact engine out entirely and every eligible full parse then
+// falls back to production.
 
 // admissionRouteMode is the per-Parser override state. The zero value follows
 // the process-wide default.
@@ -74,16 +78,17 @@ func init() {
 // admissionCandidateEnvEnabled resolves the process-wide default the switch
 // seeds from GTS_ADMISSION_CANDIDATE at package initialization.
 //
-// Phase-3 admission made the compact route the default full-parse route, so an
-// unset or unrecognized value resolves ON. Only an explicit off value
-// ("0", "false", "off", "no", any case) resolves OFF -- the documented escape
-// hatch that forces every eligible full parse back to the production route.
+// The compact route has not graduated, so an unset or unrecognized value
+// resolves OFF and every eligible full parse uses the production route. Only
+// an explicit on value ("1", "true", "on", "yes", any case) resolves ON. The
+// package tests opt in through SetAdmissionCandidateRouteDefault so the
+// certification and parity suites keep exercising the compact route.
 func admissionCandidateEnvEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("GTS_ADMISSION_CANDIDATE"))) {
-	case "0", "false", "off", "no":
-		return false
-	default:
+	case "1", "true", "on", "yes":
 		return true
+	default:
+		return false
 	}
 }
 

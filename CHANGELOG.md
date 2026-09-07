@@ -7,6 +7,42 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Fresh parse route default
+
+- Route eligible fresh full parses through the production engine by default.
+  The compact candidate route is now opt-in. Select it with
+  `GTS_ADMISSION_CANDIDATE=1`, `SetAdmissionCandidateRouteDefault(true)`, or
+  the per-Parser override. An unset or unrecognized value keeps the production route.
+- Issue [#454](https://github.com/odvcencio/gotreesitter/issues/454) compared
+  v0.52.0 with v0.48.1 on 137 KiB editor fixtures. Clean full parses ran 2 to
+  3 times slower on 41 of 48 grammars. Seven grammars lost most incremental
+  reuse. A single-byte Go delete did not terminate.
+- Pull request [#631](https://github.com/odvcencio/gotreesitter/pull/631)
+  removed the 64 KiB size decline, so large files reached the compact route
+  for the first time. The compact route was already the process default.
+- Forcing the production route restores v0.48.1-class results on every
+  reported item. On a 137 KiB Scala fixture, the full parse returns from
+  212 ms to 75 ms. On a 137 KiB TOML fixture, insert reuse returns from
+  62 percent to 100 percent. On a 137 KiB Go fixture, the single-byte delete
+  returns from no termination to 15 ms.
+  See the [route default report](docs/performance/issue-454-compact-route-default-2026-09-07.md).
+- The production route is also faster or equal on 4 KiB to 48 KiB fixtures,
+  which the compact route already served at v0.48.1. Compact-only conflict
+  policies, such as the Markdown inline route, and native compact error
+  recovery now apply only to processes that opt in.
+- The package tests still opt in to the compact route, so certification and
+  parity coverage does not change. This change does not alter compact parser
+  graduation status.
+- Halt a GLR stack at a no-action point when a sibling stack accepts the
+  lookahead, before the previous-shift recovery runs. Tree-sitter C halts a
+  version when a better version exists. Pull request
+  [#709](https://github.com/odvcencio/gotreesitter/pull/709) added a per-stack
+  re-lex that kept the constructor-specifier fork of
+  `static inline void f(int *v) {}` alive on the production route, and the
+  recovered fork then won selection with an ERROR node. The compact default had
+  masked this regression since v0.49.0. Five C++ witnesses now match the compact
+  route on the production route, and the Apex parity suite still passes.
+
 ### Compact parser correctness
 
 - Authenticate terminal aliases at ordinary grammar reductions during recovery. Preserve separate rules for synthetic ERROR reductions and retain span coverage checks.
