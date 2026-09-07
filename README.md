@@ -748,6 +748,16 @@ GOTREESITTER_GRAMMAR_STRING_INTERN_LIMIT=200000
 GOTREESITTER_GRAMMAR_TRANSITION_INTERN_LIMIT=20000
 ```
 
+**Compact parser route (opt-in)**:
+
+```sh
+GTS_ADMISSION_CANDIDATE=1  # route eligible fresh full parses through the compact parser
+```
+
+The production route is the default. The compact route stays opt-in until
+compact parser graduation completes. See the Roadmap section for the
+[issue #454](https://github.com/odvcencio/gotreesitter/issues/454) measurements.
+
 **GLR stack cap override**:
 
 ```sh
@@ -835,10 +845,16 @@ Test suite covers: smoke tests (206 grammars), golden S-expression snapshots, hi
 
 The current release is **v0.52.0**.
 
-Eligible fresh parses use the compact parser by default, with legacy fallback
-for unsupported cases. This release adds bounded compact incremental reuse,
-including authenticated nested nonterminals, and bounded Go end-of-file recovery.
-These changes do not complete compact parser graduation.
+The v0.52.0 release routed eligible fresh parses through the compact parser
+by default, with legacy fallback for unsupported cases. It added bounded
+compact incremental reuse, including authenticated nested nonterminals, and
+bounded Go end-of-file recovery. These changes do not complete compact parser
+graduation.
+
+After [issue #454](https://github.com/odvcencio/gotreesitter/issues/454), the
+compact route is opt-in on `main`. The production route serves fresh full
+parses unless a process sets `GTS_ADMISSION_CANDIDATE=1`, calls
+`SetAdmissionCandidateRouteDefault(true)`, or uses the per-Parser override.
 
 The v0.52.0 release disables the unsafe shortcut as a temporary mitigation for
 [issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).

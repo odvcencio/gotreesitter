@@ -10,7 +10,9 @@
 //
 //	go run ./cmd/issue454bench <lang> <sizeKB> <full|replace|insert|delete> [reps]
 //
-// Set ISSUE454_CPUPROFILE=<path> to write a CPU profile of the measured parses.
+// Set GTS_ADMISSION_CANDIDATE=1 to route fresh full parses through the compact
+// parser; the default is the production route. Set ISSUE454_CPUPROFILE=<path>
+// to write a CPU profile of the measured parses.
 package main
 
 import (

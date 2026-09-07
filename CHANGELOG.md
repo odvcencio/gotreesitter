@@ -7,10 +7,28 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Production route default (issue #454)
+
+- Fresh full parses use the production engine by default. The compact route
+  is opt-in through `GTS_ADMISSION_CANDIDATE=1`,
+  `SetAdmissionCandidateRouteDefault(true)`, or the per-Parser override. See
+  the [decision record](docs/performance/issue-454-production-route-decision-2026-09-07.md).
+  On the 137 KiB issue #454 fixtures the default route now runs within 1.06
+  to 1.19 times v0.48.1, Rust 1.33, instead of 1.7 to 2.2 times.
+- Package test binaries opt in to the compact route when
+  `GTS_ADMISSION_CANDIDATE` is unset, so the certification and parity suites
+  keep their coverage. `GTS_ADMISSION_CANDIDATE=0` still pins a test run to
+  the production route.
+- Isolate parser scratch lifetimes across parses. A pooled scratch kept the
+  transient parent and child slabs of the largest earlier parse, up to 512K
+  elements, and billed them to every later parse in the process: a 4 KiB
+  parse after a 315 KiB parse reported 35 MB of inherited scratch. Each parse
+  now drops inherited transient slabs above four times its own initial arena
+  estimate before it starts. A new small-large-small test guards the bound.
+
 ### Compact route repair (issue #454)
 
-- Keep the compact candidate route as the default for fresh full parses and
-  repair the three regressions that issue
+- Repair the three regressions on the compact candidate route that issue
   [#454](https://github.com/odvcencio/gotreesitter/issues/454) measured on
   137 KiB editor fixtures. See the
   [repair report](docs/performance/issue-454-compact-route-repair-2026-09-07.md).

@@ -408,6 +408,36 @@ func (s *transientParentScratch) recycleForParse() {
 	s.nodesMaterialized = nodesMaterialized
 }
 
+// transientParentRetainedCapForSource bounds the transient parent slabs a
+// parse may inherit from the pool. A parse of a large file leaves slabs sized
+// for that file. A later small parse must not carry them, or the pool bills
+// the large file's scratch to every small operation that follows it.
+func transientParentRetainedCapForSource(sourceLen int) int {
+	return max(defaultTransientParentSlabCap(), 4*parseFullArenaInitialNodeCapacity(sourceLen))
+}
+
+// trimForSource drops inherited slabs whose total capacity exceeds the bound
+// for this source. The slabs are already reset, so no live node points into
+// them. The next parse that needs more simply allocates.
+func (s *transientParentScratch) trimForSource(sourceLen int) {
+	if s == nil || len(s.slabs) == 0 {
+		return
+	}
+	totalCap := 0
+	for i := range s.slabs {
+		totalCap += len(s.slabs[i].data)
+	}
+	if totalCap <= transientParentRetainedCapForSource(sourceLen) {
+		return
+	}
+	for i := range s.slabs {
+		s.slabs[i] = transientParentSlab{}
+	}
+	s.slabs = nil
+	s.slabCursor = 0
+	s.allocatedBytes = 0
+}
+
 func (s *transientParentScratch) resetForRelease() {
 	if s == nil {
 		return

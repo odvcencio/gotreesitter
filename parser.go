@@ -7318,6 +7318,11 @@ func (p *Parser) restoreParseModeFlags(prev parseModeFlags) {
 }
 
 func (p *Parser) configureParseScratch(scratch *parserScratch, source []byte, reuse *reuseCursor, oldTree *Tree, arenaClass arenaClass, deferParentLinks bool) bool {
+	// Scratch lifetime isolation: a pooled scratch may carry transient slabs
+	// sized for a much larger earlier parse. Drop them before this parse
+	// starts, so a small operation is never billed for a large one.
+	scratch.transientParents.trimForSource(len(source))
+	scratch.transientChildren.trimForSource(len(source))
 	p.transientReduceChildren = p.shouldUseTransientReduceChildren(source, reuse, oldTree, arenaClass)
 	if p.transientReduceChildren {
 		p.transientChildren = &scratch.transientChildren

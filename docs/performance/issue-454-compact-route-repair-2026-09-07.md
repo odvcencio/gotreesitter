@@ -2,6 +2,11 @@
 
 Date: 2026-09-07.
 
+Route note, same day: the production engine is the default fresh route after
+this report. See the
+[production route decision](issue-454-production-route-decision-2026-09-07.md).
+The repairs below stand on the candidate lane.
+
 ## Summary
 
 Issue [#454](https://github.com/odvcencio/gotreesitter/issues/454) compared
