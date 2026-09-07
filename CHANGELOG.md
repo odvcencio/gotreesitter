@@ -31,6 +31,14 @@ for tags and release notes while still in `0.x`.
   token moves to a parser-owned anchor table that the token indexes. Tokens
   are copied by value on every election and dispatch, so the size shows up
   directly as copy cost on both routes. The public fields are unchanged.
+- Bound reuse-hostile incremental parses. An old-tree reuse parse that has
+  built four times the larger of the old tree's nodes and the fresh-parse
+  arena estimate while reusing under one eighth of the source now stops with
+  `ParseStopReuseBudget`, and the parser runs one plain full parse, the same
+  fail-closed retry the memory budget uses. The issue #454 C single-byte
+  delete built 3.2 million nodes before the memory budget stopped it; it now
+  stops near 370 thousand and returns the fresh-parse tree. The profile names
+  the retry `incremental_parse_reuse_budget_full_retry`.
 
 ### Compact route repair (issue #454)
 

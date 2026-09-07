@@ -65,7 +65,8 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 		oldCols uint32
 		newCols uint32
 		// wantFallbackReason is non-empty only for the edit class expected to
-		// trip the ParseStopMemoryBudget fail-closed fallback.
+		// trip a fail-closed plain full retry (the reuse budget, or the memory
+		// budget behind it).
 		wantFallbackReason string
 	}{
 		{
@@ -85,13 +86,15 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 			newCols: 1,
 		},
 		{
-			name:               "delete",
-			edited:             append(append([]byte(nil), source[:site]...), source[site+1:]...),
-			oldEnd:             site + 1,
-			newEnd:             site,
-			oldCols:            1,
-			newCols:            0,
-			wantFallbackReason: "incremental_parse_memory_budget_full_retry",
+			name:    "delete",
+			edited:  append(append([]byte(nil), source[:site]...), source[site+1:]...),
+			oldEnd:  site + 1,
+			newEnd:  site,
+			oldCols: 1,
+			newCols: 0,
+			// The incremental reuse budget now stops this attempt before the
+			// memory budget does; both take the same plain full retry.
+			wantFallbackReason: "incremental_parse_reuse_budget_full_retry",
 		},
 	}
 	tests[0].edited[site] = 'y'
@@ -125,7 +128,7 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 
 			if test.wantFallbackReason != "" {
 				if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != test.wantFallbackReason {
-					t.Fatalf("%s: expected the memory-budget fail-closed fallback to fire, profile = %+v", test.name, profile)
+					t.Fatalf("%s: expected the fail-closed plain full retry %q, profile = %+v", test.name, test.wantFallbackReason, profile)
 				}
 			} else if profile.ReusedSubtrees == 0 {
 				t.Fatalf("%s: expected genuine old-tree reuse, got none: profile = %+v", test.name, profile)

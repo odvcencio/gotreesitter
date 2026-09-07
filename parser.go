@@ -5384,6 +5384,14 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 	maxIter := caps.maxIter
 	maxDepth := caps.maxDepth
 	maxNodes := caps.maxNodes
+	// Incremental reuse budget (issue #454): an old-tree reuse parse that
+	// builds many times the old tree's nodes while reusing almost nothing is a
+	// reuse-hostile edit. Stop it there; the caller runs one plain full parse,
+	// which is the equality oracle for this route anyway.
+	reuseNodeBudget := 0
+	if reuse != nil && oldTree != nil {
+		reuseNodeBudget = incrementalReuseNodeBudget(oldTree, len(source))
+	}
 	// Select the larger of the resolved cull trigger and full-parse overflow window.
 	// Keep its historical zero-cap rule only when the trigger does not exceed
 	// maxStacks.
@@ -5477,6 +5485,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		}
 		if primaryDepth > maxDepth {
 			return finalize(stacks, ParseStopStackDepthLimit)
+		}
+		if reuseNodeBudget > 0 && nodeCount > reuseNodeBudget && incrementalReuseHostile(timing, len(source)) {
+			return finalize(stacks, ParseStopReuseBudget)
 		}
 		if nodeCount > maxNodes {
 			return finalize(stacks, ParseStopNodeLimit)
@@ -5643,6 +5654,10 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				}
 				if d := stacks[0].depth(); d > maxDepth {
 					blockStopReason, blockStopped = ParseStopStackDepthLimit, true
+					break
+				}
+				if reuseNodeBudget > 0 && nodeCount > reuseNodeBudget && incrementalReuseHostile(timing, len(source)) {
+					blockStopReason, blockStopped = ParseStopReuseBudget, true
 					break
 				}
 				if nodeCount > maxNodes {

@@ -99,6 +99,20 @@ host, measured in one session.
 Seven of nine grammars now run within 1.10 times v0.48.1. Rust and Scala
 do not move; their remaining cost is the GLR merge work listed below.
 
+## Third production tranche in this change
+
+The incremental reuse budget. The issue #454 C single-byte delete turns
+`x0` into `0`, old-tree reuse resynchronizes nowhere, and the incremental
+attempt built 3.2 million nodes for a 68 thousand node tree before the
+memory budget stopped it and the parser ran a plain full parse. The
+attempt now stops with `ParseStopReuseBudget` once it has built four times
+the larger of the old tree's nodes and the fresh-parse arena estimate while
+reusing under one eighth of the source. The same plain full parse follows.
+`TestIncrementalReuseBudgetDeclinesReuseHostileEdit` replays the delete and
+requires the fresh-parse tree with under 800 thousand nodes built. Ordinary
+keystrokes never reach the budget: they reuse most of the source long
+before the node count grows.
+
 ## Next production tranches
 
 1. Rust: replace the per-candidate binary search in the merge-time external
