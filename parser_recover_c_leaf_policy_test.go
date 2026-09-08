@@ -279,3 +279,43 @@ func TestCRecoverStateLeafPolicyKeepsSizeBudget(t *testing.T) {
 		t.Fatalf("cRecoverState size = %d, want 48", got)
 	}
 }
+
+func TestCRecoveryRegionAuthenticatesSkippedWhitespace(t *testing.T) {
+	parser, direct := recoveryLeafPolicyFixture(t)
+	skipped := direct
+	skipped.StartByte, skipped.EndByte = 1, 2
+	skipped.lexerSkippedPrefixStart = 0
+	skipped.setLexFlag(tokenFlagSkippedPrefix, true)
+	tests := []struct {
+		name   string
+		source string
+		tok    Token
+		prefix bool
+		want   bool
+	}{
+		{"space", " x", skipped, true, true},
+		{"tab", "\tx", skipped, true, true},
+		{"newline", "\nx", skipped, true, true},
+		{"non-whitespace", "?x", skipped, true, false},
+		{"mixed whitespace and invalid byte", " ?x", func() Token { v := skipped; v.StartByte = 2; v.EndByte = 3; return v }(), true, false},
+		{"out-of-bounds span", " x", func() Token { v := skipped; v.StartByte = 3; v.EndByte = 4; return v }(), true, false},
+		{"absent source", "", skipped, true, false},
+		{"no parsed prefix", " x", skipped, false, false},
+		{"empty skipped span", " x", func() Token { v := skipped; v.lexerSkippedPrefixStart = 1; return v }(), true, false},
+		{"reversed skipped span", " x", func() Token { v := skipped; v.lexerSkippedPrefixStart = 2; return v }(), true, false},
+		{"external token", " x", func() Token { v := skipped; v.ExternalScannerToken = true; return v }(), true, false},
+		{"error-mode token", " x", func() Token { v := skipped; v.setLexFlag(tokenFlagErrorModeLexed, true); return v }(), true, false},
+		{"unproven token", " x", func() Token { v := skipped; v.setLexFlag(tokenFlagInternalDFALexed, false); return v }(), true, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			before := tc.tok
+			if got := cRecoveryRegionClearsOrdinaryLeafErrorsWithSource(parser, tc.tok, tc.prefix, []byte(tc.source)); got != tc.want {
+				t.Fatalf("clear leaf error = %v, want %v", got, tc.want)
+			}
+			if tc.tok != before {
+				t.Fatal("source check changed the published token")
+			}
+		})
+	}
+}

@@ -3830,7 +3830,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 			summary: summary, group: group,
 			groupOrder: cPackRecoverGroupOrder(
 				uint64(vi),
-				cRecoveryRegionClearsOrdinaryLeafErrors(p, tok, hasParsedPrefix),
+				cRecoveryRegionClearsOrdinaryLeafErrorsWithSource(p, tok, hasParsedPrefix, source),
 			),
 		}
 		v.cRecoverMissingGroup = nil
@@ -3906,6 +3906,26 @@ func cRecoveryRegionClearsOrdinaryLeafErrors(p *Parser, tok Token, hasParsedPref
 	return p != nil && hasParsedPrefix && p.cSymbolVisible(tok.Symbol) &&
 		p.isNamedSymbol(tok.Symbol) && !tok.lexerSkippedPrefix() &&
 		cRecoveryTokenCanClearOrdinaryLeafError(tok)
+}
+
+// cRecoveryRegionClearsOrdinaryLeafErrorsWithSource authenticates skipped whitespace
+// before it applies the existing recovery leaf policy.
+func cRecoveryRegionClearsOrdinaryLeafErrorsWithSource(p *Parser, tok Token, hasParsedPrefix bool, source []byte) bool {
+	if tok.lexerSkippedPrefix() {
+		start, end := tok.lexerSkippedPrefixStart, tok.StartByte
+		if start >= end || uint64(end) > uint64(len(source)) {
+			return false
+		}
+		for _, b := range source[start:end] {
+			switch b {
+			case ' ', '\t', '\r', '\n', '\f', '\v':
+			default:
+				return false
+			}
+		}
+		tok.setLexFlag(tokenFlagSkippedPrefix, false)
+	}
+	return cRecoveryRegionClearsOrdinaryLeafErrors(p, tok, hasParsedPrefix)
 }
 
 // cRecoveryEntriesHaveParsedPrefix proves that recovery follows a clean,
