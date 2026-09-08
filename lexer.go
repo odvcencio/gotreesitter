@@ -123,6 +123,7 @@ type Lexer struct {
 	failTokenStartRow      uint32
 	failTokenStartCol      uint32
 	failTokenStartRangeIdx int
+	failTokenEnd           includedLexerCursor
 
 	// The grammar's most permissive lex state (LexModes[0], C's ERROR_STATE
 	// mode). NextWithErrorRuns only emits an error-run token when even this
@@ -300,12 +301,12 @@ func (l *Lexer) errorRunToken(frontier *uint32) Token {
 	}
 	startPos, startRow, startCol := l.pos, l.row, l.col
 
-	l.skipOneRune()
+	l.advanceFailedErrorAttempt()
 	for !l.atLogicalEOF() {
 		if l.canLexAt(l.errorRunLexState, l.pos, l.row, l.col, frontier) {
 			break
 		}
-		l.skipOneRune()
+		l.advanceFailedErrorAttempt()
 	}
 	if frontier != nil {
 		*frontier = maxUint32(*frontier, l.lookaheadEndByteAt(l.pos, false))
@@ -319,6 +320,17 @@ func (l *Lexer) errorRunToken(frontier *uint32) Token {
 		EndPoint:              Point{Row: l.row, Column: l.col},
 		lexerLookaheadEndByte: frontierValue(frontier),
 	}
+}
+
+// advanceFailedErrorAttempt preserves bytes consumed by a failed error-mode lex.
+// C skips one character only when the failed attempt made no progress.
+func (l *Lexer) advanceFailedErrorAttempt() {
+	if l.errorModeRetry && l.failTokenEnd.pos > l.pos {
+		l.pos, l.row, l.col = l.failTokenEnd.pos, l.failTokenEnd.row, l.failTokenEnd.col
+		l.includedRangeIdx = l.failTokenEnd.rangeIdx
+		return
+	}
+	l.skipOneRune()
 }
 
 // scan runs the DFA from the given start state and position. It returns
@@ -533,6 +545,7 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 		l.failTokenStartRow = tokenStartRow
 		l.failTokenStartCol = tokenStartCol
 		l.failTokenStartRangeIdx = 0
+		l.failTokenEnd = includedLexerCursor{pos: scanPos, row: scanRow, col: scanCol}
 		*tok = Token{lexerLookaheadEndByte: lookaheadEndByte}
 		return false
 	}

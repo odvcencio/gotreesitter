@@ -338,6 +338,7 @@ func (d *dfaTokenSource) tokenInvariantProbeDFALimited(source []byte, origin uin
 	probe.pos, probe.row, probe.col = int(origin), point.Row, point.Column
 	probe.tokenInvariantReadSpanMax = nil
 	probe.failTokenStartPos, probe.failTokenStartRow, probe.failTokenStartCol, probe.failTokenStartRangeIdx = 0, 0, 0, 0
+	probe.failTokenEnd = includedLexerCursor{}
 	var tok Token
 	accepted := probe.scanInto(mode, int(origin), point.Row, point.Column, &tok)
 	frontier := tokenInvariantExaminedEnd(probe.source, tok.lexerLookaheadEndByte)
