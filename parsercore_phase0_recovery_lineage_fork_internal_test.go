@@ -730,6 +730,8 @@ func TestS5MissingInsertionForkRestoresFullTransactionOnPanic(t *testing.T) {
 
 func TestRecoveryCompetitionDoesNotUseOrdinaryNoActionDrop(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
+	scheduler.options.MaxTokens = 100
 	scheduler.receipt = &DiagnosticParserCoreGenericScheduler{}
 	handled, err := scheduler.s5TryMissingTokenInsertion(0)
 	if err != nil || !handled {
@@ -756,6 +758,8 @@ func TestRecoveryCompetitionDoesNotUseOrdinaryNoActionDrop(t *testing.T) {
 
 func TestRecoveryCompetitionDeclinesAfterOrdinaryAmbiguity(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
+	scheduler.options.MaxTokens = 100
 	handled, err := scheduler.s5TryMissingTokenInsertion(0)
 	if err != nil || !handled {
 		t.Fatalf("fork: handled=%t err=%v", handled, err)
