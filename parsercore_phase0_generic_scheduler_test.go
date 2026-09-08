@@ -252,16 +252,16 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesFirstShallowLinkCap(t *testi
 		gotreesitter.DiagnosticParserCorePrefixOptions{GenericStopAtClosedByte: &target},
 	)
 	if routeErr != nil || !result.Completed || result.GenericScheduler == nil || result.GenericScheduler.Completion == nil {
-		t.Fatalf("state 46 byte 2440 closure result=%+v err=%v", result, routeErr)
+		t.Fatalf("byte 2440 closure result=%+v err=%v", result, routeErr)
 	}
 	completion := result.GenericScheduler.Completion
 	// Before shallow same-predecessor selection, condensation failed at the
-	// unshifted (state 46, byte 2440) boundary. Completing the authenticated
-	// token through shifted state 473 proves that boundary is now crossed.
-	if completion.TargetByte != target || completion.ElectionIndex != 485 || completion.LastToken.Symbol != 21 || completion.LastToken.StartByte != 2439 || completion.LastToken.EndByte != target ||
-		len(completion.Headers) != 1 || completion.Headers[0].Header.State != 473 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.ExactPaths != 2 ||
-		completion.Stats != (core.Stats{Nodes: 1313, Links: 1312, Subtrees: 1144, Children: 1170, CurrentExactPaths: 2}) {
-		t.Fatalf("state 46 byte 2440 closure drifted: %+v", completion)
+	// unshifted byte 2440 boundary. The migrated grammar reaches shifted
+	// state 253 with two exact paths after the same closing brace.
+	if completion.TargetByte != target || completion.ElectionIndex != 485 || completion.LastToken.Symbol != 24 || completion.LastToken.Text != "}" || completion.LastToken.StartByte != 2439 || completion.LastToken.EndByte != target ||
+		len(completion.Headers) != 1 || completion.Headers[0].Header.State != 253 || completion.Headers[0].Header.ByteOffset != target || !completion.Headers[0].Header.Shifted || completion.Headers[0].Header.ExactPaths != 2 ||
+		completion.Stats != (core.Stats{Nodes: 1335, Links: 1334, Subtrees: 1162, Children: 1186, CurrentExactPaths: 2}) {
+		t.Fatalf("byte 2440 closure drifted: %+v", completion)
 	}
 }
 
@@ -382,29 +382,29 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 	defer result.MaterializedTree.Release()
 	acceptance := result.GenericScheduler.Acceptance
 	if result.GenericScheduler.ReceiptMode != gotreesitter.DiagnosticParserCoreReceiptFull || len(result.GenericScheduler.StartHeaders) != 1 || result.GenericScheduler.StartCheckpoint != result.GenericScheduler.Elections[0].ScannerBefore || result.GenericScheduler.StartHeaders[0].Header.Checkpoint != result.GenericScheduler.StartCheckpoint.SHA256 ||
-		result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
-		result.Tokens != 1036 || result.Dispatches != 2685 || result.Dispatches != acceptance.Work.Dispatches || acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead ||
-		acceptance.Header.Header.CreationSeq != 233 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || acceptance.Header.Header.Shifted || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 ||
-		!reflect.DeepEqual(acceptance.Payloads, []uint32{2624}) || acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder ||
+		result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 1419 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
+		result.Tokens != 1036 || result.Dispatches != 2770 || result.Dispatches != acceptance.Work.Dispatches || acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead ||
+		acceptance.Header.Header.CreationSeq != 163 || acceptance.Header.Header.State != 1419 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || acceptance.Header.Header.Shifted || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 ||
+		!reflect.DeepEqual(acceptance.Payloads, []uint32{2653}) || acceptance.Score != -30 || acceptance.BranchOrder != 105 || !acceptance.HasBranchOrder ||
 		acceptance.Accepts != 1 || acceptance.SelectedNodes != 1524 || acceptance.SelectedParents != 572 || acceptance.SelectedLeaves != 952 || acceptance.SelectedParents+acceptance.SelectedLeaves != acceptance.SelectedNodes ||
-		acceptance.Stats != (core.Stats{Nodes: 3007, Links: 3006, Subtrees: 2624, Children: 2767, CurrentExactPaths: 1}) ||
+		acceptance.Stats != (core.Stats{Nodes: 3024, Links: 3023, Subtrees: 2653, Children: 2781, CurrentExactPaths: 1}) ||
 		acceptance.CoreWork != (core.Work{
-			Shifts: 1348, Reductions: 1504, ReductionPopRequests: 1504,
-			EmittedPopPaths: 1646, EmittedPopPayloads: 2993,
-			PredecessorLinkUnionAttempts: 174, PredecessorLinkUnionDuplicateNoop: 4,
-			PredecessorLinkUnionPrecedenceReplaced: 25, PredecessorLinkUnionAlternateAppended: 145,
-			GraphLinkAdditionsProxy: 3006, LeafConstructionsProxy: 1109,
-			ParentConstructionsProxy: 1515,
+			Shifts: 1328, Reductions: 1550, ReductionPopRequests: 1550,
+			EmittedPopPaths: 1665, EmittedPopPayloads: 2998,
+			PredecessorLinkUnionAttempts: 147, PredecessorLinkUnionDuplicateNoop: 2,
+			PredecessorLinkUnionPrecedenceReplaced: 26, PredecessorLinkUnionAlternateAppended: 119,
+			GraphLinkAdditionsProxy: 3023, LeafConstructionsProxy: 1101,
+			ParentConstructionsProxy: 1552,
 		}) ||
 		acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 2600, SingleHeaderPasses: 1567, ActionLookups: 3551, Dispatches: 2685,
-			Conflicts: 160, ConflictActions: 328, Forks: 168, ConflictHeads: 357,
-			ConflictActionArmsAdmitted: 328, CausalConflictForks: 168,
-			Reductions: 1259, OrdinaryShifts: 1238, OrdinaryCohorts: 215,
-			ExtraShifts: 27, ExtraCohorts: 1, Accepts: 1,
-			ReductionPauses: 31, NoActionDrops: 166, ConvergedReductionSplitDrops: 164, ConvergedCoverageDrops: 0, Elections: 1036,
-			Canonicalizations: 2446, PeakHeaders: 4,
-		}) || len(result.GenericScheduler.Elections) != 1036 || len(result.GenericScheduler.Rounds) != 2446 || len(result.GenericScheduler.NoActionDrops) != 166 || len(result.GenericScheduler.ExternalShifts) != 83 {
+			Passes: 2640, SingleHeaderPasses: 1756, ActionLookups: 3480, Dispatches: 2770,
+			Conflicts: 101, ConflictActions: 210, Forks: 109, ConflictHeads: 224,
+			ConflictActionArmsAdmitted: 210, CausalConflictForks: 109,
+			RepetitionFolds: 54, Reductions: 1406, OrdinaryShifts: 1236, OrdinaryCohorts: 205,
+			ExtraShifts: 26, ExtraCohorts: 0, Accepts: 1,
+			ReductionPauses: 31, NoActionDrops: 107, ConvergedReductionSplitDrops: 106, ConvergedCoverageDrops: 0, Elections: 1036,
+			Canonicalizations: 2543, PeakHeaders: 4,
+		}) || len(result.GenericScheduler.Elections) != 1036 || len(result.GenericScheduler.Rounds) != 2543 || len(result.GenericScheduler.NoActionDrops) != 107 || len(result.GenericScheduler.ExternalShifts) != 0 {
 		t.Fatalf("acceptance receipt drifted: result=%+v acceptance=%+v", result, acceptance)
 	}
 	inspection, err := benchfixtures.InspectGoTree(result.MaterializedTree.RootNode(), grammars.GoLanguage())
