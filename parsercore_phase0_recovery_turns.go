@@ -15,6 +15,27 @@ type diagnosticParserCoreRecoveryTurns struct {
 	index      int
 	lastByte   uint32
 	condensing bool
+	halted     [2]uint64
+}
+
+// recordRecoveryAcceptance retains event order in the finished-tree pool.
+// Condensation can move a runnable version before older accepted versions.
+// Keep physical slots unchanged while their action rows remain authenticated.
+func (s *diagnosticParserCoreGenericScheduler) recordRecoveryAcceptance(index int) error {
+	if (!s.recoveryTurns.active && !(s.options.allowCompactFaithfulS5Recovery && s.headers[index].isRecoveryCosted())) || !s.headers[index].accepted {
+		return nil
+	}
+	if s.work.Accepts == ^uint64(0) {
+		return errors.New("parser-core phase zero: recovery acceptance sequence overflow")
+	}
+	header := &s.headers[index]
+	state := diagnosticParserCoreVersionState{}
+	if header.versionState != nil {
+		state = *header.versionState
+	}
+	state.acceptanceSeq = s.work.Accepts + 1
+	header.versionState = &state
+	return nil
 }
 
 func (s *diagnosticParserCoreGenericScheduler) activateRecoveryVersionTurns() (err error) {
@@ -36,6 +57,36 @@ func (s *diagnosticParserCoreGenericScheduler) activateRecoveryVersionTurns() (e
 	}()
 	if err = s.seedVersionLexerOwnershipMode(true); err != nil {
 		return err
+	}
+	// EOF recovery can publish a finished tree before owned turns activate.
+	// Preserve its authenticated shared election without scanning again.
+	for index := range s.headers {
+		if !s.headers[index].accepted || s.headers[index].versionLexerSnapshot() != nil {
+			continue
+		}
+		if s.token.Symbol != 0 || s.token.StartByte != s.token.EndByte || s.token.NoLookahead {
+			return errors.New("parser-core phase zero: preaccepted recovery version lacks shared EOF")
+		}
+		err = s.withVersionLexerOwner(func(owner core.SchedulerTransactionToken) error {
+			before, err := s.newVersionLexerSnapshot(owner, s.versionLexerBefore, s.checkpointBeforeID, s.checkpointBeforeID)
+			if err != nil {
+				return err
+			}
+			after, err := s.newVersionLexerSnapshot(owner, s.tokenSource.snapshotRelexState(), s.checkpointID, s.checkpointID)
+			if err != nil {
+				return err
+			}
+			s.versionLexerRequests = append(s.versionLexerRequests, diagnosticParserCoreVersionLexerRequest{
+				electionIndex: s.electionIndex, headerCreationSeq: s.headers[index].creationSeq,
+				token: s.token, before: before, after: after,
+				beforeCheckpoint: before.afterCheckpointInfo, afterCheckpoint: after.afterCheckpointInfo,
+				beforeID: s.checkpointBeforeID, afterID: s.checkpointID, valid: true,
+			})
+			return s.publishVersionLexerRequestOwned(owner, index, before, uint32(len(s.versionLexerRequests)))
+		})
+		if err != nil {
+			return err
+		}
 	}
 	s.versionLexerOwnershipActive = true
 	return nil
@@ -86,7 +137,9 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchRecoveryVersionTurn() (*d
 	}
 	var stop *diagnosticParserCoreGenericUnsupported
 	var err error
-	if header.recoveryRegion() != nil {
+	if header.recoveryRegion() != nil && request.token.Symbol == errorSymbol {
+		err = s.pauseRecoveryVersion(index)
+	} else if header.recoveryRegion() != nil {
 		boundary, boundaryErr := s.compact.ClassifyBoundary(header.head, core.Symbol(request.token.Symbol))
 		if boundaryErr != nil {
 			return nil, boundaryErr
@@ -103,14 +156,9 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchRecoveryVersionTurn() (*d
 		stop, err = s.dispatchPass()
 		if err == nil && stop != nil && stop.boundary == DiagnosticParserCoreRecovery &&
 			stop.detail == diagnosticParserCoreNoTableActionDetail {
-			supported, baselineErr := s.resetRecoveryNodeBaseline(&s.headers[index])
-			if baselineErr != nil {
-				return nil, baselineErr
+			if err := s.pauseRecoveryVersion(index); err != nil {
+				return nil, err
 			}
-			if !supported {
-				return stop, nil
-			}
-			s.headers[index].paused = true
 			stop = nil
 		}
 	}
@@ -128,6 +176,17 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchRecoveryVersionTurn() (*d
 	if region := header.recoveryRegion(); region != nil {
 		position = region.endByte
 	}
+	s.completeRecoveryVersionOperation(index, *header, position)
+	return nil, nil
+}
+
+func (s *diagnosticParserCoreGenericScheduler) completeRecoveryVersionOperation(index int, header diagnosticParserCoreHeader, position uint32) {
+	// C completes the reduction chain before testing the round position.
+	// dispatchPass publishes one reduction, so retain this slot until its
+	// token operation completes. The dispatch budget bounds cyclic reductions.
+	if !header.shifted && !header.accepted && !header.paused {
+		return
+	}
 	// Match parser.c's advance-loop break condition after the operation.
 	if position > s.recoveryTurns.lastByte || (index > 0 && position == s.recoveryTurns.lastByte) {
 		s.recoveryTurns.lastByte = position
@@ -135,7 +194,6 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchRecoveryVersionTurn() (*d
 	} else if header.accepted || header.paused {
 		s.recoveryTurns.index++
 	}
-	return nil, nil
 }
 
 func (s *diagnosticParserCoreGenericScheduler) finishRecoveryVersionRound() (stop *diagnosticParserCoreGenericUnsupported, err error) {
@@ -149,12 +207,28 @@ func (s *diagnosticParserCoreGenericScheduler) finishRecoveryVersionRound() (sto
 			snapshot.restore(s)
 		}
 	}()
+	if s.recoveryTurns.halted != [2]uint64{} {
+		write := 0
+		for read, header := range s.headers {
+			if read < 128 && s.recoveryTurns.halted[read/64]&(uint64(1)<<uint(read%64)) != 0 {
+				continue
+			}
+			s.headers[write] = header
+			write++
+		}
+		clear(s.headers[write:])
+		s.headers = s.headers[:write]
+		s.recoveryTurns.halted = [2]uint64{}
+	}
 	s.recoveryTurns.condensing = true
 	err = s.withVersionLexerOwner(func(owner core.SchedulerTransactionToken) error {
 		return s.canonicalizeOwned(owner)
 	})
 	s.recoveryTurns.condensing = false
 	if err != nil {
+		return nil, err
+	}
+	if err := s.resumePausedRecovery(); err != nil {
 		return nil, err
 	}
 	accepted, runnable := 0, 0
@@ -196,26 +270,8 @@ func (s *diagnosticParserCoreGenericScheduler) finishRecoveryVersionRound() (sto
 			boundary: DiagnosticParserCoreRecovery, detail: "recovery turn requires a paused-version resume before acceptance",
 		}, nil
 	}
-	if len(s.headers) == 1 && s.headers[0].shifted && s.headers[0].recoveryRegion() == nil {
-		// The recovery versions resolved before end of file and the survivor
-		// rejoins the shared lexer. Publication of an owned recovery tree
-		// requires an executed EOF turn, which ends here without one, so the
-		// remainder of the parse could never publish. Decline now instead of
-		// parsing to end of file and declining at materialization (issue
-		// #454: a mid-file Go error paid a full compact pass before falling
-		// back to production).
-		if s.options.allowCompactRecoveryVersionTurns && s.work.RecoverEOFAccepts == 0 {
-			return &diagnosticParserCoreGenericUnsupported{
-				boundary: DiagnosticParserCoreRecovery,
-				detail:   "owned recovery publication requires an executed EOF turn; recovery versions rejoined the shared lexer before end of file",
-			}, nil
-		}
-		if err := s.rejoinSharedLexerFromOwnedHeader(); err != nil {
-			return nil, err
-		}
-		s.recoveryTurns = diagnosticParserCoreRecoveryTurns{}
-		return nil, nil
-	}
+	// Keep C's visit order after recovery closes. A later grammar fork can
+	// still produce equal-error trees whose acceptance order decides the tie.
 	if err := s.compact.BeginFrontier(); err != nil {
 		return nil, err
 	}

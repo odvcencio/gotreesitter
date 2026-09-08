@@ -352,7 +352,7 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		return nil, errors.New("parser-core fresh-full selected materialization is incomplete")
 	}
 	if r.recoveryVersionTurnPublicationRequired(scheduler) &&
-		(!scheduler.recoveryTurns.active || scheduler.work.RecoverEOFAccepts == 0) {
+		(!scheduler.recoveryTurns.active || (scheduler.work.RecoverEOFAccepts == 0 && !scheduler.hasOwnedOrdinaryEOFAcceptance(source))) {
 		return nil, &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreAccept,
 			detail:   "owned recovery publication requires an executed EOF turn",
@@ -372,7 +372,7 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 	if r.recoverEOFFinalizationAdmitted(scheduler) {
 		rootFinalization = diagnosticParserCoreFinalizeRecoverEOF
 		allowErrorRoot = true
-	} else if r.options.allowCompactRecoveryVersionTurns && scheduler.recoveryTurns.active && allowErrorRoot {
+	} else if scheduler.options.allowCompactRecoveryVersionTurns && scheduler.recoveryTurns.active && allowErrorRoot {
 		rootFinalization = diagnosticParserCoreFinalizeOwnedRecovery
 		if scheduler.acceptedRootFinalization == diagnosticParserCoreFinalizeRecoverEOF {
 			rootFinalization = diagnosticParserCoreFinalizeRecoverEOF
@@ -394,6 +394,36 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		scheduler.failCompactEOFRecoveryConstruction(err)
 	}
 	return tree, err
+}
+
+// hasOwnedOrdinaryEOFAcceptance authenticates a resumed recovery version that
+// finishes through the grammar's ordinary accept action.
+func (s *diagnosticParserCoreGenericScheduler) hasOwnedOrdinaryEOFAcceptance(source []byte) bool {
+	if s == nil || !s.versionLexerOwnershipActive || s.work.Accepts == 0 || s.receipt == nil || s.receipt.Acceptance == nil {
+		return false
+	}
+	for index := range s.headers {
+		header := &s.headers[index]
+		if !header.accepted || header.head != s.acceptedHead {
+			continue
+		}
+		state, position, err := s.compact.Boundary(header.head)
+		acceptance := s.receipt.Acceptance
+		acceptedHeader := acceptance.Header.Header
+		if err != nil || !acceptedHeader.Accepted || acceptedHeader.Paused ||
+			acceptedHeader.CreationSeq != header.creationSeq || acceptedHeader.State != StateID(state) || acceptedHeader.ByteOffset != position ||
+			acceptance.Accepts != s.work.Accepts || acceptance.Work.Accepts != s.work.Accepts {
+			return false
+		}
+		request := s.versionLexerRequestForHeader(index)
+		if request != nil && request.valid && request.token.Symbol == 0 &&
+			acceptance.ElectionIndex == request.electionIndex && acceptance.Token == request.token &&
+			!request.token.Missing && !request.token.NoLookahead &&
+			uint64(request.token.StartByte) == uint64(len(source)) && request.token.EndByte == request.token.StartByte {
+			return true
+		}
+	}
+	return false
 }
 
 // The new route does not certify shared S3 recovery. Require its own execution

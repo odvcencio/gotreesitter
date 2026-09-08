@@ -1371,6 +1371,8 @@ type diagnosticParserCoreVersionState struct {
 	// error entry. Current counts come from the live graph during condensation.
 	recoveryNodeBaseline    uint32
 	recoveryNodeBaselineSet bool
+	// acceptanceSeq records finished-tree publication order, not birth order.
+	acceptanceSeq uint64
 }
 
 type diagnosticParserCoreRecoveryFlags uint8
@@ -1436,8 +1438,12 @@ func (h *diagnosticParserCoreHeader) publishVersionState(
 	if h == nil {
 		return
 	}
+	var acceptanceSeq uint64
+	if h.versionState != nil {
+		acceptanceSeq = h.versionState.acceptanceSeq
+	}
 	if region == nil && snapshot == nil && request == 0 && recoveryGroup == 0 &&
-		missingGroup == 0 && !nodeBaselineSet {
+		missingGroup == 0 && !nodeBaselineSet && acceptanceSeq == 0 {
 		h.versionState = nil
 		return
 	}
@@ -1445,6 +1451,7 @@ func (h *diagnosticParserCoreHeader) publishVersionState(
 		s3Region: region, relexSnapshot: snapshot, lexerRequest: request,
 		recoveryGroup: recoveryGroup, missingGroup: missingGroup,
 		recoveryNodeBaseline: nodeBaseline, recoveryNodeBaselineSet: nodeBaselineSet,
+		acceptanceSeq: acceptanceSeq,
 	}
 }
 
@@ -5206,12 +5213,16 @@ func (s *diagnosticParserCoreGenericScheduler) installEquivalentVersionLexerStat
 	recoveryGroup := header.recoveryGroupIdentity()
 	missingGroup := header.recoveryMissingGroupIdentity()
 	baseline, baselineSet := header.recoveryNodeBaseline()
+	var acceptanceSeq uint64
+	if header.versionState != nil {
+		acceptanceSeq = header.versionState.acceptanceSeq
+	}
 	matches := func(state *diagnosticParserCoreVersionState) bool {
 		return state != nil && state.s3Region == region &&
 			diagnosticParserCoreVersionLexerSnapshotEqual(state.relexSnapshot, snapshot) &&
 			state.lexerRequest == requestReference && state.recoveryGroup == recoveryGroup &&
 			state.missingGroup == missingGroup && state.recoveryNodeBaseline == baseline &&
-			state.recoveryNodeBaselineSet == baselineSet
+			state.recoveryNodeBaselineSet == baselineSet && state.acceptanceSeq == acceptanceSeq
 	}
 	for index := range s.headers {
 		state := s.headers[index].versionState
@@ -10515,6 +10526,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericAcceptOwned(owner cor
 	}
 	s.headers[cell.headerIndex].accepted = true
 	s.headers[cell.headerIndex].paused = false
+	if err := s.recordRecoveryAcceptance(int(cell.headerIndex)); err != nil {
+		return err
+	}
 	s.epochProgress = true
 	s.work.Accepts++
 	s.work.Dispatches++
@@ -10552,8 +10566,16 @@ func (s *diagnosticParserCoreGenericScheduler) collapseToRecoveryWinner(winner i
 	s.selectedRecoveryAbsorbLineage = len(s.headers) == 2 &&
 		s.s5MissingInsertions == 1 && other >= 0 && other < len(s.headers) &&
 		s.headers[winner].creationSeq < s.headers[other].creationSeq
+	s.collapseToAcceptedWinner(winner)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) collapseToAcceptedWinner(winner int) {
+	if winner < 0 || winner >= len(s.headers) {
+		return
+	}
 	winnerHeader := s.headers[winner]
 	winnerHeader.clearRecoveryLineage()
+	winnerHeader.publishRecoveryCondenseState(0, 0, 0, false)
 	s.invalidateVerifierHeaderBinding()
 	clear(s.headers)
 	for target := range s.canonicalScratch.headerBuffers {
@@ -10617,6 +10639,17 @@ func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineageInd
 			return 0, false, nil
 		}
 		prior = index
+	}
+	if s.recoveryTurns.active {
+		indices = slices.Clone(indices)
+		for _, index := range indices {
+			if s.headers[index].versionState == nil || s.headers[index].versionState.acceptanceSeq == 0 {
+				return 0, false, nil
+			}
+		}
+		sort.SliceStable(indices, func(i, j int) bool {
+			return s.headers[indices[i]].versionState.acceptanceSeq < s.headers[indices[j]].versionState.acceptanceSeq
+		})
 	}
 	if s.tokenSource == nil || s.tokenSource.language == nil {
 		return 0, false, nil
@@ -12102,7 +12135,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 				return err
 			}
 		}
-		if recoveryCostRequired && !s.recoveryIsolation {
+		if recoveryCostRequired {
 			merged, err := s.mergeRecoveredReductionSiblingOwned(owner, int(cell.headerIndex), replacement)
 			if err != nil {
 				return err
@@ -12597,8 +12630,25 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		execution.armRanges[ordinal].end = execution.armRanges[ordinal].start + len(kept)
 		s.conflictScratch.adopted[ordinal] = adopted
 	}
+	primaryOrdinal := 0
+	if s.recoveryTurns.active {
+		// C appends reduction versions, then shifts the original version.
+		for ordinal := 0; ordinal < actions.Len(); ordinal++ {
+			if actions.At(ordinal).Type == core.ActionReduce && len(execution.arm(ordinal)) != 0 {
+				primaryOrdinal = ordinal
+			}
+			if action := actions.At(ordinal); action.Type == core.ActionShift && !action.Repetition {
+				primaryOrdinal = ordinal
+				break
+			}
+		}
+	}
+	preserveCreation := !s.recoveryTurns.active || actions.At(primaryOrdinal).Type == core.ActionShift
 	trialSeq := nextSeqBefore
-	for ordinal := 1; ordinal < len(execution.armRanges); ordinal++ {
+	for ordinal := 0; ordinal < len(execution.armRanges); ordinal++ {
+		if ordinal == primaryOrdinal && preserveCreation {
+			continue
+		}
 		arm := execution.arm(ordinal)
 		for output := range arm {
 			if trialSeq == math.MaxUint64 {
@@ -12608,8 +12658,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 			trialSeq++
 		}
 	}
-	primaries := execution.arm(0)
-	if len(primaries) != 0 {
+	primaries := execution.arm(primaryOrdinal)
+	if len(primaries) != 0 && preserveCreation {
 		primaries[0].creationSeq = s.headers[cell.headerIndex].creationSeq
 		for index := 1; index < len(primaries); index++ {
 			if trialSeq == math.MaxUint64 {
@@ -12641,7 +12691,10 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		headers = append(headers, primaries[0])
 	}
 	headers = append(headers, suffix...)
-	for ordinal := 1; ordinal < len(execution.armRanges); ordinal++ {
+	for ordinal := 0; ordinal < len(execution.armRanges); ordinal++ {
+		if ordinal == primaryOrdinal {
+			continue
+		}
 		headers = append(headers, execution.arm(ordinal)...)
 	}
 	if len(primaries) > 1 {
@@ -13328,8 +13381,13 @@ func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwnedWithMutation(own
 			// C ends recovery competition when pairwise condensation leaves
 			// one active version. Clear the compact marker before the next
 			// dispatch, or the sole winner rejects itself as mixed ambiguity.
-			if len(headers) == 1 && !headers[0].accepted {
+			if len(headers) == 1 && !headers[0].accepted &&
+				(!s.recoveryTurns.active || headers[0].recoveryRegion() == nil) {
+				baseline, baselineSet := headers[0].recoveryNodeBaseline()
 				headers[0].clearRecoveryLineage()
+				if s.recoveryTurns.active {
+					headers[0].publishRecoveryCondenseState(0, 0, baseline, baselineSet)
+				}
 				s.recoveryIsolation = false
 			}
 		}

@@ -729,7 +729,37 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 	// parser_recover_c.go), which never goes through the shared
 	// collapsibleRawUnarySelfReduction/collapsibleUnarySelfReduction
 	// path either.
-	if Symbol(view.Symbol) == errorSymbol {
+	if Symbol(view.Symbol) == errorSymbol || view.Symbol == core.RecoveryErrorRepeatSymbol {
+		// Authenticate the stored children before removing hidden containers.
+		// Each repeat node already contains its flattened descendants.
+		var flattened []stackEntry
+		for _, entry := range entries {
+			child := stackEntryNode(entry)
+			if child.symbol == Symbol(core.RecoveryErrorRepeatSymbol) {
+				if flattened == nil {
+					flattened = make([]stackEntry, 0, len(entries))
+				}
+			}
+		}
+		if flattened != nil {
+			structuralChildren = 0
+			for _, entry := range entries {
+				child := stackEntryNode(entry)
+				if child.symbol == Symbol(core.RecoveryErrorRepeatSymbol) {
+					for _, nested := range child.children {
+						flattened = append(flattened, newStackEntryNode(0, nested))
+					}
+				} else {
+					flattened = append(flattened, entry)
+				}
+			}
+			entries = flattened
+			for _, entry := range entries {
+				if !stackEntryNode(entry).isExtra() {
+					structuralChildren++
+				}
+			}
+		}
 		children, fieldIDs, fieldSources, _ := parser.buildReduceChildrenWithPath(
 			entries, 0, len(entries), structuralChildren,
 			Symbol(view.Symbol), view.ProductionID, arena,

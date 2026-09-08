@@ -123,13 +123,6 @@ func (s *diagnosticParserCoreGenericScheduler) ownedRecoverySummaryCandidate(
 		if row.Len() == 0 {
 			continue
 		}
-		recoverable, err := s.compact.StackSummaryCandidateRecoverable(candidate)
-		if err != nil {
-			return core.StackSummaryCandidate{}, false, err
-		}
-		if !recoverable {
-			return core.StackSummaryCandidate{}, false, diagnosticParserCoreLineageCostUnavailable
-		}
 		return candidate, true, nil
 	}
 	return core.StackSummaryCandidate{}, false, nil
@@ -146,7 +139,10 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchOwnedRecoveryRegion(
 	original := s.headers[index]
 	region := original.recoveryRegion()
 	request := s.versionLexerRequestForHeader(index)
-	if region == nil || len(region.children) == 0 || request == nil || request.state != 0 {
+	if region != nil && request != nil && s.token.Symbol != 0 {
+		return nil, s.advanceRecoveryToken(index)
+	}
+	if region == nil || request == nil || request.state != 0 {
 		return compactOwnedRecoveryDecline(index, "owned recovery requires an authenticated error-state token"), nil
 	}
 	if s.token != request.token || s.token.StartByte < region.endByte ||
@@ -182,35 +178,26 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchOwnedRecoveryRegion(
 	if recoverable && s.nextSeq == math.MaxUint64 {
 		return nil, errors.New("parser-core phase zero: owned recovery sequence overflow")
 	}
-	// C can halt the absorber before EOF acceptance after a seventh version
-	// appears. This bounded route declines before creating that frontier.
-	if recoverable && len(s.headers) >= diagnosticParserCoreRecoveryVersionLimit {
-		return compactOwnedRecoveryDecline(index, "owned EOF recovery requires an unmodeled version-cap transition"), nil
-	}
-	if s.token.Symbol == 0 {
-		paths, err := s.compact.Derivations(original.head)
-		if err != nil {
-			return nil, err
-		}
-		if len(paths) != 1 || len(paths[0].Payloads)+len(region.children) > core.EOFAdmissionMaxTopPayloads {
-			return compactOwnedRecoveryDecline(index, "owned recovery EOF needs one bounded path"), nil
-		}
-		for _, payloads := range [][]core.SubtreeID{paths[0].Payloads, region.children} {
-			for _, payload := range payloads {
-				view, err := s.compact.MaterializationView(payload)
-				if err != nil {
-					return nil, err
-				}
-				if view.Extra || view.Missing {
-					return compactOwnedRecoveryDecline(index, "owned recovery EOF has an unsupported extra or missing payload"), nil
-				}
-			}
-		}
-	}
 	cost, _, err := s.recoveryOutputCostFunc()
 	if err != nil {
 		return nil, err
 	}
+	if err := s.advanceRecoveryEOF(index, original, candidate, recoverable, cost); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+// advanceRecoveryEOF publishes the recovery fork and EOF acceptance together.
+// The caller validates the region, EOF token, candidate, and version limit.
+// Restore scheduler state when the enclosing core transaction fails.
+func (s *diagnosticParserCoreGenericScheduler) advanceRecoveryEOF(
+	index int,
+	original diagnosticParserCoreHeader,
+	candidate core.StackSummaryCandidate,
+	recoverable bool,
+	cost core.ReductionOutputCostFunc,
+) (err error) {
 	snapshot := captureDiagnosticParserCoreS5Scheduler(s)
 	defer func() {
 		if value := recover(); value != nil {
@@ -222,51 +209,12 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchOwnedRecoveryRegion(
 		}
 	}()
 	run := func(owner core.SchedulerTransactionToken) error {
-		if err := s.reserveDispatches(1); err != nil {
-			return err
-		}
-		if recoverable {
-			head, err := s.compact.RecoverToAncestorStateWithOpenRegionAndCostOwned(
-				owner, candidate, region.startByte, region.endByte, region.children, cost,
-			)
-			if err != nil {
-				return err
-			}
-			recovered := original
-			recovered.head = head
-			recovered.creationSeq = s.nextSeq
-			recovered.closeRecoveryRegion()
-			recovered.shifted, recovered.paused, recovered.accepted = false, false, false
-			recovered.markRecoveryLineage()
-			recovered.markRecoveryCosted()
-			s.nextSeq++
-			s.headers = append(s.headers, recovered)
-			s.work.add(&s.work.StackSummaryRecoveryForks, 1)
-		}
-		head, _, err := s.compact.RecoverEOFAcceptWithOpenRegionAndCostOwned(
-			owner, original.head, region.startByte, region.endByte, region.children, cost,
-		)
-		if err != nil {
-			return err
-		}
-		header := &s.headers[index]
-		header.head = head
-		header.closeRecoveryRegion()
-		header.accepted, header.shifted, header.paused = true, false, false
-		s.work.add(&s.work.Accepts, 1)
-		s.work.add(&s.work.RecoverEOFAccepts, 1)
-		s.invalidateVerifierHeaderBinding()
-		s.epochProgress = true
-		s.work.add(&s.work.Dispatches, 1)
-		return nil
+		return s.advanceRecoveryEOFOwned(owner, index, original, candidate, recoverable, cost)
 	}
 	if s.freshSessionOwner != nil {
 		err = run(*s.freshSessionOwner)
 	} else {
 		err = s.compact.ApplySchedulerAtomic(run)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return err
 }
