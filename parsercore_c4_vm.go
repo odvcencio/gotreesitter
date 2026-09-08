@@ -35,19 +35,23 @@ import (
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
-// parserCoreCorridorEnabled gates the corridor lane. Stage 2 ships it behind
-// an env gate, default off (spec section 8, stage 2 item 2d). Stage 3 flips
-// the default once the retain gates are green.
+// parserCoreCorridorEnabled gates the corridor lane. Stage 2 shipped it
+// behind an env gate, default off (spec section 8, stage 2 item 2d). Stage 3
+// flips the default on: once a fresh single-header node skips the
+// canonical-boundary probe, the lane runs the Go 137 KiB witness seven to
+// eleven percent faster than the generic pass, and the runtime equivalence
+// test keeps every work count and digest identical. GTS_C4_CORRIDOR=0 (or
+// false/off/no) turns the lane off, which is the A/B baseline.
 var (
 	parserCoreCorridorEnabledOnce sync.Once
-	parserCoreCorridorEnabledVal  bool
+	parserCoreCorridorEnabledVal  = true
 )
 
 func parserCoreCorridorEnabled() bool {
 	parserCoreCorridorEnabledOnce.Do(func() {
 		switch os.Getenv("GTS_C4_CORRIDOR") {
-		case "1", "true", "TRUE", "True", "on", "ON", "yes", "YES":
-			parserCoreCorridorEnabledVal = true
+		case "0", "false", "FALSE", "False", "off", "OFF", "no", "NO":
+			parserCoreCorridorEnabledVal = false
 		}
 	})
 	return parserCoreCorridorEnabledVal
@@ -535,10 +539,15 @@ func (s *diagnosticParserCoreGenericScheduler) corridorDirectApplyEligible(extra
 		(!extra || s.extraPostExecutionFault == nil)
 }
 
-func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint32, extra bool) (bool, error) {
+func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint32, extra bool) (handled bool, err error) {
 	if !s.corridorDirectApplyEligible(extra) {
 		return false, nil
 	}
+	// The generic shift records the reuse dependency of every token it
+	// shifts; nested incremental reuse authenticates subtrees through those
+	// records, so the direct shift keeps the same bookkeeping.
+	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(s.token)
+	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	s.corridorRecordClassification(1)
 	if err := s.reserveDispatches(1); err != nil {
 		return false, err
@@ -558,6 +567,9 @@ func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint
 			EndByte:   token.EndByte,
 			Extra:     extra,
 			External:  token.ExternalScannerToken,
+			// The generic shift carries the lexer skipped-prefix provenance;
+			// jsdoc's tiling proof reads it at materialization.
+			LexerSkippedPrefixLength: diagnosticParserCoreLexerSkippedPrefixLength(token, s.options.captureLexerSkippedPrefixProvenance),
 		},
 		core.ForkOrder{},
 	)
@@ -577,7 +589,13 @@ func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint
 		s.work.OrdinaryShifts++
 	}
 	s.work.Dispatches++
-	if err := s.canonicalize(); err != nil {
+	// A fresh node is the latest node of its phase identity, so the
+	// canonical-boundary probe would return the head the sole header holds.
+	if s.compact.LastShiftFresh() {
+		// The barrier still counts: the work vector records dispatch
+		// barriers, not probes.
+		s.work.Canonicalizations++
+	} else if err := s.canonicalize(); err != nil {
 		return false, err
 	}
 	if err := s.persistHeaderLineageOwned(*s.freshSessionOwner); err != nil {
