@@ -481,28 +481,28 @@ func TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite(t *testing.T) {
 			t.Fatalf("run %d summary retained detailed collections: %+v", run, generic)
 		}
 		if result.SourceSHA256 != sha256.Sum256(source) || result.Grammar != "go" || !result.ExactRootDFA || result.GrammarBlobSHA256 == ([32]byte{}) ||
-			result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
-			result.Tokens != 1036 || result.Dispatches != 2685 || generic.Tokens != result.Tokens || generic.Dispatches != result.Dispatches || generic.GlobalBranchOrder != 168 || generic.NextCreationSeq != 234 ||
-			acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead || acceptance.Header.Header.CreationSeq != 233 || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || !acceptance.Header.Header.Accepted || acceptance.Header.Header.ExactPaths != 1 ||
-			acceptance.Score != -30 || acceptance.BranchOrder != 168 || !acceptance.HasBranchOrder || acceptance.Accepts != 1 ||
+			result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 1419 || result.Lookahead.Symbol != 0 || result.Lookahead.StartByte != uint32(len(source)) || result.Lookahead.EndByte != uint32(len(source)) ||
+			result.Tokens != 1036 || result.Dispatches != 2770 || generic.Tokens != result.Tokens || generic.Dispatches != result.Dispatches || generic.GlobalBranchOrder != 109 || generic.NextCreationSeq != 169 ||
+			acceptance.ElectionIndex != 1035 || acceptance.Token != result.Lookahead || acceptance.Header.Header.CreationSeq != 163 || acceptance.Header.Header.State != 1419 || acceptance.Header.Header.ByteOffset != uint32(len(source)) || !acceptance.Header.Header.Accepted || acceptance.Header.Header.ExactPaths != 1 ||
+			acceptance.Score != -30 || acceptance.BranchOrder != 105 || !acceptance.HasBranchOrder || acceptance.Accepts != 1 ||
 			acceptance.SelectedNodes != 1524 || acceptance.SelectedParents != 572 || acceptance.SelectedLeaves != 952 || acceptance.SelectedParents+acceptance.SelectedLeaves != acceptance.SelectedNodes ||
-			acceptance.Stats != (core.Stats{Nodes: 3007, Links: 3006, Subtrees: 2624, Children: 2767, CurrentExactPaths: 1}) ||
+			acceptance.Stats != (core.Stats{Nodes: 3024, Links: 3023, Subtrees: 2653, Children: 2781, CurrentExactPaths: 1}) ||
 			acceptance.CoreWork != (core.Work{
-				Shifts: 1348, Reductions: 1504, ReductionPopRequests: 1504,
-				EmittedPopPaths: 1646, EmittedPopPayloads: 2993,
-				PredecessorLinkUnionAttempts: 174, PredecessorLinkUnionDuplicateNoop: 4,
-				PredecessorLinkUnionPrecedenceReplaced: 25, PredecessorLinkUnionAlternateAppended: 145,
-				GraphLinkAdditionsProxy: 3006, LeafConstructionsProxy: 1109,
-				ParentConstructionsProxy: 1515,
+				Shifts: 1328, Reductions: 1550, ReductionPopRequests: 1550,
+				EmittedPopPaths: 1665, EmittedPopPayloads: 2998,
+				PredecessorLinkUnionAttempts: 147, PredecessorLinkUnionDuplicateNoop: 2,
+				PredecessorLinkUnionPrecedenceReplaced: 26, PredecessorLinkUnionAlternateAppended: 119,
+				GraphLinkAdditionsProxy: 3023, LeafConstructionsProxy: 1101,
+				ParentConstructionsProxy: 1552,
 			}) ||
 			acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-				Passes: 2600, SingleHeaderPasses: 1567, ActionLookups: 3551, Dispatches: 2685,
-				Conflicts: 160, ConflictActions: 328, Forks: 168, ConflictHeads: 357,
-				ConflictActionArmsAdmitted: 328, CausalConflictForks: 168,
-				Reductions: 1259, OrdinaryShifts: 1238, OrdinaryCohorts: 215,
-				ExtraShifts: 27, ExtraCohorts: 1, Accepts: 1,
-				ReductionPauses: 31, NoActionDrops: 166, ConvergedReductionSplitDrops: 164, ConvergedCoverageDrops: 0, Elections: 1036,
-				Canonicalizations: 2446, PeakHeaders: 4,
+				Passes: 2640, SingleHeaderPasses: 1756, ActionLookups: 3480, Dispatches: 2770,
+				Conflicts: 101, ConflictActions: 210, Forks: 109, ConflictHeads: 224,
+				ConflictActionArmsAdmitted: 210, CausalConflictForks: 109,
+				RepetitionFolds: 54, Reductions: 1406, OrdinaryShifts: 1236, OrdinaryCohorts: 205,
+				ExtraShifts: 26, ExtraCohorts: 0, Accepts: 1,
+				ReductionPauses: 31, NoActionDrops: 107, ConvergedReductionSplitDrops: 106, ConvergedCoverageDrops: 0, Elections: 1036,
+				Canonicalizations: 2543, PeakHeaders: 4,
 			}) {
 			result.MaterializedTree.Release()
 			t.Fatalf("run %d summary aggregates drifted: result=%+v acceptance=%+v", run, result, acceptance)

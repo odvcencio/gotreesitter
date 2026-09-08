@@ -38,7 +38,7 @@ func TestDiagnosticParserCoreClassifiedBoundaryAndReductionPlanShape(t *testing.
 	if got := unsafe.Sizeof(diagnosticParserCoreGenericCell{}); got > 64 {
 		t.Fatalf("classified dispatch cell size=%d, want <=64", got)
 	}
-	if reduceActions != 335 || len(tables.reductionPlans) != 154 || tables.reductionPlanStride != 10 || len(tables.reductionPlanIndex) != 1340 || unsafe.Sizeof(tables.reductionPlanIndex[0])*uintptr(len(tables.reductionPlanIndex)) != 2680 {
+	if reduceActions != 545 || len(tables.reductionPlans) != 132 || tables.reductionPlanStride != 10 || len(tables.reductionPlanIndex) != 1110 || unsafe.Sizeof(tables.reductionPlanIndex[0])*uintptr(len(tables.reductionPlanIndex)) != 2220 {
 		t.Fatalf("authenticated reduction plan census actions=%d plans=%d stride=%d index=%d/%d bytes", reduceActions, len(tables.reductionPlans), tables.reductionPlanStride, len(tables.reductionPlanIndex), unsafe.Sizeof(tables.reductionPlanIndex[0])*uintptr(len(tables.reductionPlanIndex)))
 	}
 }
