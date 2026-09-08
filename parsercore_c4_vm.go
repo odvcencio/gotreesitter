@@ -94,7 +94,9 @@ func acquireParserCoreCorridorProgram(lang *Language) *ParserCoreCorridorProgram
 // which is inside the section 6.3 re-entry budget, but it is not free and it
 // is not hoisted.
 func (s *diagnosticParserCoreGenericScheduler) corridorEligible() bool {
-	if s.corridor == nil || s.corridorRows == nil || len(s.headers) != 1 {
+	// The corridor consumes the shared token. Owned lexer requests require
+	// version dispatch to bind and publish the correct token and checkpoint.
+	if s.corridor == nil || s.corridorRows == nil || len(s.headers) != 1 || s.versionLexerOwnershipActive {
 		return false
 	}
 	header := &s.headers[0]

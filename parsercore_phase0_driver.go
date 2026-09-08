@@ -2333,23 +2333,6 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeWithMutation(
 	}
 	clear(s.keys)
 	s.keys = s.keys[:0]
-	if len(headers) == 1 {
-		// One header needs only the canonical remap and the freshness reset,
-		// and the caller's slice can hold the result in place. The double
-		// buffer below exists for the multi-header aliasing contract, whose
-		// check on a later call still works against any slice this returns.
-		header := &headers[0]
-		state, byteOffset, err := compact.Boundary(header.head)
-		if err != nil {
-			return nil, 0, err
-		}
-		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok &&
-			!header.isRecoveryLineage() && header.recoveryRegion() == nil && !header.isRecoveryCosted() {
-			header.head = canonical
-		}
-		header.freshness = 0
-		return headers, 0, nil
-	}
 	target := int(s.nextBuffer & 1)
 	if len(headers) != 0 && cap(s.headerBuffers[target]) != 0 && &headers[0] == &s.headerBuffers[target][:1][0] {
 		target ^= 1

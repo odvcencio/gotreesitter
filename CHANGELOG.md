@@ -21,7 +21,7 @@ for tags and release notes while still in `0.x`.
   place.
 - Stop copying large records on the hot path: headers, reduction outputs,
   pop paths, boundary outputs, and canonical groups are read through
-  pointers; one header canonicalizes in place without the double buffer; the
+  pointers; the
   direct-append condense reads the predecessor it already resolved instead of
   validating a synthetic link and resolving it again; a zero stored cost no
   longer republishes a fresh node's lineage.
@@ -66,6 +66,10 @@ for tags and release notes while still in `0.x`.
   was faster on 14 of 15 grammars, but a JavaScript recovery mutation changed
   the C tree. Use `GTS_C4_CORRIDOR=1` only for controlled comparisons until
   the recovery handoff matches C.
+- Keep version-owned lexer requests on the generic dispatch path. The
+  corridor reads a shared token and cannot publish an owned request.
+- Preserve separate canonicalization output buffers for single headers.
+  Reusing the input slice changed earlier snapshots and broke rollback isolation.
 - Answer point lookups from the line of the previous answer or the next
   line before the hashed cache and the binary search: materialization asks
   for points in source order. Skip the scanner-provenance search for a
