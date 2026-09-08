@@ -47,6 +47,10 @@ type parserCoreFreshFullRunner struct {
 	// state from re-allocating the public-tree scratch on every parse.
 	scratch   parserCoreRunnerScratch
 	scheduler diagnosticParserCoreGenericScheduler
+	// eagerPreviousReduceScratch restores the parser's reduce scratch after
+	// an eager run installed the runner's own.
+	eagerPreviousReduceScratch  *reduceBuildScratch
+	eagerReduceScratchInstalled bool
 	// frontierPublishedObserver is populated only by the focused D6 test seam.
 	// The production route leaves it nil and keeps the observer allocation-free.
 	frontierPublishedObserver func(*diagnosticParserCoreGenericScheduler, core.SchedulerTransactionToken, []int) error
@@ -518,6 +522,8 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 		r.options.allowCompactRecoveryTrailingLineageRetirement = savedTrailingRetirement
 		r.options.allowCompactRecoveryErrorModeKeywordCapture = savedErrorModeKeyword
 	}()
+	r.beginEagerMaterialization(source)
+	defer r.endEagerMaterialization()
 	scheduler, tokenSource, err := r.executeSchedulerOpenWithObserverAndErrorRuns(
 		source, r.compact, true, observer, forceErrorRuns,
 	)
@@ -597,4 +603,39 @@ func requireParserCoreSelectedStoreCompleteness(store *core.SelectedStore, sourc
 		return nil, fmt.Errorf("parser-core fresh-full selected-store root is incomplete: %d..%d source=%d", root.StartByte, root.EndByte, sourceBytes)
 	}
 	return store, nil
+}
+
+// beginEagerMaterialization arms the eager materializer for one plain fresh
+// parse. Recovery runs, incremental sessions, and profiled attempt ladders
+// keep the postorder-only path. A failed arm leaves the run on that path.
+func (r *parserCoreFreshFullRunner) beginEagerMaterialization(source []byte) {
+	r.options.eagerMaterializer = nil
+	if !parserCoreEagerMaterializationEnabled() || r.options.Recovery ||
+		r.options.compactIncrementalReuse != nil || r.scratch.incrementalReuse != nil {
+		return
+	}
+	if err := r.scratch.materializer.beginEager(r.compact, r.parser, source, &r.scratch, r.replayParseStates); err != nil {
+		return
+	}
+	// The reduce-build scratch the accepted-tree pass installs must be live
+	// during the run, because eager reductions build parents through the
+	// same parser helpers.
+	r.eagerPreviousReduceScratch = r.parser.reduceScratch
+	r.parser.reduceScratch = &r.scratch.materialization.reduce
+	r.eagerReduceScratchInstalled = true
+	r.options.eagerMaterializer = &r.scratch.materializer
+}
+
+// endEagerMaterialization disarms the eager materializer after the run. A
+// declined run releases the nodes built so far; an accepted run already
+// handed them to the result tree.
+func (r *parserCoreFreshFullRunner) endEagerMaterialization() {
+	r.options.eagerMaterializer = nil
+	r.scheduler.options.eagerMaterializer = nil
+	if r.eagerReduceScratchInstalled {
+		r.parser.reduceScratch = r.eagerPreviousReduceScratch
+		r.eagerPreviousReduceScratch = nil
+		r.eagerReduceScratchInstalled = false
+	}
+	r.scratch.materializer.abandonEager()
 }

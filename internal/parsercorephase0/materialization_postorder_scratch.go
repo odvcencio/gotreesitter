@@ -29,7 +29,10 @@ type MaterializationReplayTransition func(pre StateID, view MaterializationRepla
 type MaterializationPostorderScratch struct {
 	colors []uint8
 	frames []materializationPostorderFrame
-	inUse  bool
+	// view is the visit argument. It lives in the scratch so the pointer
+	// visitor does not move a fresh view to the heap on every subtree.
+	view  MaterializationSubtreeView
+	inUse bool
 }
 
 // Reset clears traversal state while retaining the backing storage for reuse.
@@ -43,6 +46,7 @@ func (scratch *MaterializationPostorderScratch) Reset() {
 		clear(scratch.frames[:cap(scratch.frames)])
 	}
 	scratch.frames = scratch.frames[:0]
+	scratch.view = MaterializationSubtreeView{}
 	scratch.inUse = false
 }
 
@@ -92,6 +96,31 @@ func (c *Core) VisitMaterializationPostorderWithReplay(
 	transition MaterializationReplayTransition,
 	visit func(SubtreeID, MaterializationSubtreeView) error,
 ) error {
+	if visit == nil {
+		return errors.New("parser-core phase zero: materialization requires a visitor")
+	}
+	return c.VisitMaterializationPostorderPrebuilt(roots, poll, scratch, rootPre, transition, nil,
+		func(id SubtreeID, view *MaterializationSubtreeView) error { return visit(id, *view) })
+}
+
+// VisitMaterializationPostorderPrebuilt is VisitMaterializationPostorderWithReplay
+// for a derivation the eager materializer has partly built. prebuilt reports
+// whether a subtree already owns a public node. The traversal does not
+// descend into a prebuilt subtree and does not visit it: the eager builder
+// visited it, and its children, when the scheduler pushed them. The traversal
+// still claims the subtree's ownership color, so a repeated reference is an
+// error, and it still advances the replay cursor past the subtree, so a
+// later sibling receives the same pre-goto state as in a full traversal. A
+// nil prebuilt visits every subtree.
+func (c *Core) VisitMaterializationPostorderPrebuilt(
+	roots []SubtreeID,
+	poll func() error,
+	scratch *MaterializationPostorderScratch,
+	rootPre StateID,
+	transition MaterializationReplayTransition,
+	prebuilt func(SubtreeID) bool,
+	visit func(SubtreeID, *MaterializationSubtreeView) error,
+) error {
 	if c == nil || len(roots) == 0 {
 		return errors.New("parser-core phase zero: materialization requires at least one compact root")
 	}
@@ -129,6 +158,11 @@ func (c *Core) VisitMaterializationPostorderWithReplay(
 		if colors[root] != 0 {
 			return errors.New("parser-core phase zero: compact subtree has repeated public-tree ownership")
 		}
+		if prebuilt != nil && prebuilt(root) {
+			colors[root] = 2
+			visited++
+			continue
+		}
 		colors[root] = 1
 		rootFrame := materializationPostorderFrame{id: root, record: record}
 		if transition != nil {
@@ -159,6 +193,18 @@ func (c *Core) VisitMaterializationPostorderWithReplay(
 				}
 				switch colors[child] {
 				case 0:
+					if prebuilt != nil && prebuilt(child) {
+						colors[child] = 2
+						visited++
+						if transition != nil {
+							state, _, err := transition(top.cursor, c.materializationReplayViewForRecord(child, childRecord))
+							if err != nil {
+								return err
+							}
+							top.cursor = state
+						}
+						continue
+					}
 					colors[child] = 1
 					childFrame := materializationPostorderFrame{id: child, record: childRecord}
 					if transition != nil {
@@ -188,30 +234,12 @@ func (c *Core) VisitMaterializationPostorderWithReplay(
 			if err := c.claimReusedOwnership(top.id, reusedOwners); err != nil {
 				return err
 			}
-			view := MaterializationSubtreeView{
-				Symbol: record.symbol, ProductionID: record.productionID,
-				DynamicPrecedence: int32(record.dynamicPrecedence),
-				StartByte:         record.startByte, EndByte: record.endByte,
-				Children: c.children[record.firstChild : record.firstChild+record.childCount],
-				Extra:    record.extra, External: record.external, Terminal: record.terminal,
-				Fragile: record.fragile, Missing: record.missing,
-			}
-			if record.terminal {
-				if provenance, ok := c.externalPayloadScannerProvenance(top.id); ok {
-					view.ExternalScannerCheckpointStart = provenance.start
-					view.ExternalScannerCheckpointEnd = provenance.end
-					view.ExternalScannerCheckpointExact = true
-				}
-			}
-			if record.missing {
-				view.MissingDependency, view.MissingDependencyExact = c.missingLeafDependency(top.id)
-			}
-			view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(top.id)
+			view := &scratch.view
+			c.fillMaterializationSubtreeView(top.id, record, view)
 			if transition != nil {
 				view.ReplayPreGotoState, view.ReplayParseState = top.pre, top.state
 				view.ReplayPreGotoKnown, view.ReplayParseStateKnown = top.preKnown, top.stateKnown
 			}
-			c.applyReusedMaterializationView(top.id, &view)
 			if err := visit(top.id, view); err != nil {
 				return err
 			}

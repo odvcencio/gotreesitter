@@ -136,6 +136,25 @@ canonicalization, and the direct-append condense reading the predecessor it
 already holds. Result: about 6 percent on every measured grammar. The gap is
 structural from here.
 
+## Eager materialization lane
+
+The materializer is now a struct the scheduler can drive during the run.
+With `GTS_COMPACT_EAGER=1` every single-header shift and every in-place
+reduction builds its public node at once, and the postorder pass skips the
+subtrees that already own a node. On every Go witness the lane builds the
+whole tree before acceptance and publishes the same tree, the same replay
+stamps, and the same work as the postorder pass.
+
+Measured on the Go 137 KiB witness in four interleaved rounds (minimum of
+nine parses each, milliseconds): previous build 88.5 to 93.5, extraction
+with the lane off 88.3 to 93.4, lane on 97.8 to 104.8. The extraction is
+neutral. The lane alone costs about ten percent: construction interleaved
+with dispatch loses the locality of the batch pass, and the compact core
+still writes every subtree, link, and lineage record. The lane therefore
+stays off. It is the construction half of program item 3, and the gain
+arrives with item 1: once a single-header stretch builds public nodes
+directly, the core must stop writing the records those nodes replace.
+
 ## Compact program
 
 The compact scheduler profile on Go at 137 KiB splits as: scheduler run 76

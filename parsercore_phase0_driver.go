@@ -210,6 +210,10 @@ type DiagnosticParserCorePrefixOptions struct {
 	materializationSource                 []byte
 	materializationForceReplayParseStates bool
 	materializationContextSet             bool
+	// eagerMaterializer, when set, builds public nodes during the scheduler
+	// run (issue #454). The fresh-full runner arms it for a plain parse and
+	// clears it when the run returns.
+	eagerMaterializer *compactMaterializer
 }
 
 func diagnosticParserCoreLexerSkippedPrefixLength(token Token, capture bool) uint16 {
@@ -2929,7 +2933,8 @@ type diagnosticParserCoreGenericScheduler struct {
 	// (spec.c4-bytecode-isa.v1 section 6.2). corridorCells is the lane's own
 	// singleton dispatch-cell buffer, so the corridor never touches the
 	// generic pass's dispatch scratch.
-	corridor *ParserCoreCorridorProgram
+	eagerPolls uint32
+	corridor   *ParserCoreCorridorProgram
 	// corridorRows is the shared converted action-row table, indexed by the
 	// action-row index every executable corridor body carries. It is the same
 	// immutable slice the compact core's TableView reads, so the corridor and
@@ -6275,12 +6280,13 @@ type parserCoreRunnerScratch struct {
 	// also set recoveryTerminalAliasCertified for this materialization.
 	recoveryTerminalAliasSymbol    Symbol
 	recoveryTerminalAliasCertified bool
-	nodesByID                      []*Node
-	hasErrorByID                   []bool
-	nodes                          []*Node
-	linkScratch                    []*Node
-	lineStarts                     []uint32
-	goCompatFrames                 []goCompatSubtreeFrame
+	// materializer builds the public nodes. It retains the per-id node
+	// tables between parses and carries the eager state across a run.
+	materializer   compactMaterializer
+	nodes          []*Node
+	linkScratch    []*Node
+	lineStarts     []uint32
+	goCompatFrames []goCompatSubtreeFrame
 }
 
 // parserCoreMaxRetainedAcceptedLeafSpans bounds the caller-owned coverage
@@ -6562,13 +6568,7 @@ func (s *parserCoreRunnerScratch) resetTreeBuffers() {
 	s.incrementalReuse = nil
 	s.recoveryTerminalAliasSymbol = 0
 	s.recoveryTerminalAliasCertified = false
-	s.nodesByID = clearNodeScratch(s.nodesByID)
-	if cap(s.hasErrorByID) > parserCoreMaxRetainedNodeScratch {
-		s.hasErrorByID = nil
-	} else {
-		clear(s.hasErrorByID)
-		s.hasErrorByID = s.hasErrorByID[:0]
-	}
+	s.materializer.reset()
 	s.nodes = clearNodeScratch(s.nodes)
 	s.linkScratch = clearNodeScratch(s.linkScratch)
 	if cap(s.lineStarts) > parserCoreMaxRetainedLineStarts {
@@ -7303,96 +7303,6 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		return nil, err
 	}
 
-	arena := acquireNodeArena(arenaClassFull)
-	// Compact external-token provenance is transferred into this arena below.
-	// Set the language identity before publishing the first checkpoint so the
-	// incremental reuse gate can authenticate the copied snapshots.
-	scannerProvenanceTransferProven := true
-	if languageUsesExternalScannerCheckpoints(parser.language) {
-		_, identityRequired, identityValid := externalScannerCheckpointIdentityStatus(parser.language)
-		if identityRequired {
-			scannerProvenanceTransferProven = identityValid && arena.setExternalScannerCheckpointIdentityForLanguage(parser.language)
-		}
-	}
-	owned := true
-	allocationRecorded := false
-	recordAllocation := func() {
-		if !allocationRecorded {
-			if incrementalReuse != nil && incrementalReuse.timing != nil {
-				incrementalReuse.timing.newNodes += uint64(arena.used)
-			}
-			if scratch != nil && scratch.freshAttemptWork != nil {
-				scratch.freshAttemptWork.allocatedNodes += uint64(arena.used)
-			}
-		}
-		allocationRecorded = true
-	}
-	defer func() {
-		recordAllocation()
-		if owned {
-			arena.Release()
-		}
-	}()
-	var acceptedLeaves *diagnosticParserCoreAcceptedLeafCoverageScratch
-	var budgetScheduler *diagnosticParserCoreGenericScheduler
-	if scratch != nil {
-		budgetScheduler = scratch.materializationBudgetScheduler
-	}
-	if incrementalReuse != nil && incrementalReuse.scheduler != nil {
-		budgetScheduler = incrementalReuse.scheduler
-	}
-	poll := func() error {
-		reason := parser.resultMaterializationStopReason(arena)
-		if !resultMaterializationShouldStop(reason) && budgetScheduler != nil {
-			additional := arenaAllocatedVolume(arena)
-			coverageBytes := acceptedLeaves.footprintBytes()
-			if math.MaxUint64-additional < coverageBytes {
-				additional = math.MaxUint64
-			} else {
-				additional += coverageBytes
-			}
-			reason = budgetScheduler.stopControlMemoryBudgetReasonWithAdditionalBytes(additional)
-		}
-		if !resultMaterializationShouldStop(reason) {
-			return nil
-		}
-		return &diagnosticParserCoreDecline{boundary: DiagnosticParserCoreCap, detail: "accepted-tree materialization stopped: " + string(reason)}
-	}
-	var lineStartsBuf []uint32
-	if scratch != nil {
-		lineStartsBuf = scratch.lineStarts
-	}
-	points, err := newDiagnosticParserCorePointIndexInto(source, poll, lineStartsBuf)
-	if err != nil {
-		return nil, err
-	}
-	if scratch != nil {
-		scratch.lineStarts = points.lineStarts
-	}
-	// The visitor proves unique ownership, so this is a transient child-build
-	// table rather than a memoization or sharing mechanism: every populated
-	// compact ID owns exactly one public node in this tree.
-	nodesByIDLen := uint64(stats.Subtrees) + 1
-	var nodesByID []*Node
-	var hasErrorByID []bool
-	if scratch != nil && nodesByIDLen <= uint64(math.MaxInt) {
-		scratch.nodesByID = parserCoreNodeSlice(scratch.nodesByID, int(nodesByIDLen))
-		nodesByID = scratch.nodesByID
-		if cap(scratch.hasErrorByID) < int(nodesByIDLen) {
-			scratch.hasErrorByID = make([]bool, int(nodesByIDLen))
-		} else {
-			scratch.hasErrorByID = scratch.hasErrorByID[:int(nodesByIDLen)]
-			clear(scratch.hasErrorByID)
-		}
-		hasErrorByID = scratch.hasErrorByID
-	} else {
-		nodesByID = make([]*Node, nodesByIDLen)
-		hasErrorByID = make([]bool, nodesByIDLen)
-	}
-	if err := poll(); err != nil {
-		return nil, err
-	}
-
 	// Phase-3 Lane 2: reconstruct parser states by top-down table replay over
 	// the full derivation (real symbols + hidden nodes), before the postorder
 	// pass elides hidden nodes and applies aliases. Gated so it can be A/B'd
@@ -7402,78 +7312,50 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	// same transition rules replayCompactDerivation applies, so the tree needs
 	// no second full-derivation pass.
 	replayEnabled := incrementalReuse != nil || forceReplayParseStates || parserCoreReplayParseStatesEnabled()
-	var replayTransition core.MaterializationReplayTransition
-	replayRootPre := core.StateID(0)
-	if replayEnabled {
-		if !compact.TableIdentityMatches() {
-			return nil, &diagnosticParserCoreDecline{
-				boundary: DiagnosticParserCoreIdentity,
-				detail:   "compact parser table identity does not match the materialization parser",
-			}
-		}
-		replayRootPre = core.StateID(parser.replayRootPreGotoState())
-		replayTransition = func(pre core.StateID, view core.MaterializationReplayView) (core.StateID, bool, error) {
-			state, known, err := parser.replayCompactMaterializationTransition(StateID(pre), view)
-			return core.StateID(state), known, err
+	var local compactMaterializer
+	m := &local
+	if scratch != nil {
+		m = &scratch.materializer
+	}
+	// The eager driver may have built part of this derivation during the
+	// scheduler run. Adopt that state when the pass flags match the plain
+	// shape it assumed; otherwise release it and build from scratch.
+	adopted := m.eagerAdoptable(compact, parser, source, incrementalReuse, allowErrorRoot, rootFinalization, replayEnabled)
+	if !adopted {
+		m.abandonEager()
+		if err := m.begin(compact, parser, source, scratch, incrementalReuse, replayEnabled); err != nil {
+			m.releaseOwned()
+			return nil, err
 		}
 	}
-	stamp := func(id core.SubtreeID, node *Node, view *core.MaterializationSubtreeView) {
-		// Stamp the reconstructed state for THIS derivation id onto the node
-		// that materializes it. For a unary collapse chain the driver visits the
-		// ids inner-to-outer (postorder) and reuses one node object, so the last
-		// (outermost) stamp wins -- mirroring production's collapse, which
-		// overwrites parseState = goto(topState, outerSymbol) as each wrapper
-		// reduce fires.
-		//
-		// replayStates.get returns ok=false when the top-down replay could not
-		// find a table transition for this id (an extra/comment leaf whose
-		// floated stack position does not match a live shift, or any node whose
-		// production shape is not a plain shift/goto of its visible symbol). In
-		// that case the reconstructed state is NOT authoritative, so we ABSTAIN:
-		// leave parseState/preGotoState at their zero value. Downstream, a zero
-		// parseState is the "unknown -> recompute" sentinel (incremental
-		// self-healing), which is strictly safer than stamping a known-wrong but
-		// trusted non-zero state (Phase-3 Lane 3 review amendment 1).
-		if node != nil {
-			// A visible node can represent several compact ids when unary
-			// reductions collapse during materialization. Clear every stamped
-			// field before applying the outermost id, so an inner proof cannot
-			// survive an outer abstention.
-			node.setCompactMaterialized(true)
-			node.setCompactParseStateProof(false)
-			node.setCompactPreGotoStateProof(false)
-			node.parseState = 0
-			node.preGotoState = 0
-		}
-		if replayEnabled && node != nil {
-			pre, ps, preOk, psOk := StateID(view.ReplayPreGotoState), StateID(view.ReplayParseState), view.ReplayPreGotoKnown, view.ReplayParseStateKnown
-			if psOk {
-				node.parseState = ps
-				node.setCompactParseStateProof(true)
-			}
-			if preOk {
-				node.preGotoState = pre
-				node.setCompactPreGotoStateProof(true)
-			}
-		}
-		nodesByID[id] = node
+	m.eager = false
+	m.lastAdopted = adopted
+	arena := m.arena
+	defer m.releaseOwned()
+	var budgetScheduler *diagnosticParserCoreGenericScheduler
+	if scratch != nil {
+		budgetScheduler = scratch.materializationBudgetScheduler
 	}
-	// markFragile threads the compact record's ambiguity bit (subtreeRecord
-	// .fragile, exposed on MaterializationSubtreeView.Fragile) onto the public
-	// node so Lane-1's isFragile() reuse gate sees compact-materialized trees
-	// the same as production-built ones (Phase-3 Lane 3 review amendment 7). The
-	// compact record collapses production's fragileLeft/fragileRight into one
-	// conservative flag, so both edges are set. Set-only (never clears), matching
-	// the record's monotone contract on shared/deduped records.
-	markFragile := func(node *Node, fragile bool) {
-		if node == nil || !fragile {
-			return
-		}
-		node.setFragileLeft(true)
-		node.setFragileRight(true)
+	if incrementalReuse != nil && incrementalReuse.scheduler != nil {
+		budgetScheduler = incrementalReuse.scheduler
+	}
+	m.budgetScheduler = budgetScheduler
+	poll := m.poll
+	points := &m.points
+	nodesByIDLen := uint64(stats.Subtrees) + 1
+	if nodesByIDLen > uint64(math.MaxInt) {
+		return nil, errors.New("parser-core phase zero: compact subtree count exceeds the node table")
+	}
+	if adopted {
+		m.ensureTables(int(nodesByIDLen))
+	} else {
+		m.prepareTables(int(nodesByIDLen))
+	}
+	if err := poll(); err != nil {
+		return nil, err
 	}
 	var acceptedLeavesLocal diagnosticParserCoreAcceptedLeafCoverageScratch
-	acceptedLeaves = &acceptedLeavesLocal
+	acceptedLeaves := &acceptedLeavesLocal
 	if scratch != nil {
 		scratch.acceptedLeaves.reset()
 		acceptedLeaves = &scratch.acceptedLeaves
@@ -7484,282 +7366,26 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	} else if allowLexerSkippedPrefix {
 		acceptedLeaves.prepareLexerSkippedPrefixes(int(stats.Subtrees))
 	}
-	recoveryTerminalAlias := Symbol(0)
+	m.acceptedLeaves = acceptedLeaves
+	m.allowErrorRoot = allowErrorRoot
+	m.allowLexerSkippedPrefix = allowLexerSkippedPrefix
+	m.rootFinalization = rootFinalization
+	m.recoveryTerminalAlias = 0
 	if scratch != nil && scratch.recoveryTerminalAliasCertified {
-		recoveryTerminalAlias = scratch.recoveryTerminalAliasSymbol
+		m.recoveryTerminalAlias = scratch.recoveryTerminalAliasSymbol
+	}
+	var prebuilt func(core.SubtreeID) bool
+	if adopted {
+		prebuilt = m.prebuilt
 	}
 	materializeVisit := func(materializationScratch *diagnosticParserCoreMaterializationScratch) error {
-		makeParent := func(symbol Symbol, named bool, children []*Node, fields []FieldID, fieldSources []uint8, productionID uint16) *Node {
-			if incrementalReuse != nil {
-				return newParentNodeInArenaNoLinksWithFieldSources(arena, symbol, named, children, fields, fieldSources, productionID, true)
-			}
-			return newParentNodeInArenaWithFieldSources(arena, symbol, named, children, fields, fieldSources, productionID)
-		}
-		visit := func(id core.SubtreeID, view core.MaterializationSubtreeView) error {
-			if view.EndByte < view.StartByte || view.EndByte > uint32(len(source)) {
-				return errors.New("parser-core phase zero: compact subtree extent is outside source")
-			}
-			if view.ReusedKey != 0 {
-				node, err := incrementalReuse.materializeBorrowed(parser, id, view, &points)
-				if err != nil {
-					return err
-				}
-				if err := acceptedLeaves.appendBorrowed(id, node, uint32(len(source))); err != nil {
-					return err
-				}
-				if languageUsesExternalScannerCheckpoints(parser.language) {
-					scannerProvenanceTransferProven = false
-				}
-				incrementalReuse.reuseState.markReused(node, arena)
-				nodesByID[id] = node
-				return nil
-			}
-			if acceptedLeaves != nil && view.Terminal {
-				if allowLexerSkippedPrefix {
-					acceptedLeaves.recordLexerSkippedPrefix(id, view)
-				}
-				if allowErrorRoot || incrementalReuse != nil {
-					hidden := !parser.isVisibleSymbol(Symbol(view.Symbol))
-					if view.Symbol == core.RecoveryErrorSymbol {
-						hidden = false
-					}
-					if err := acceptedLeaves.append(id, view, uint32(len(source)), hidden); err != nil {
-						return err
-					}
-				}
-			}
-			named := parser.isNamedSymbol(Symbol(view.Symbol))
-			// B3 stage S3: the built-in ERROR symbol (65535) sits outside
-			// every real grammar's SymbolMetadata table, so isNamedSymbol's
-			// bounds check above always reads false for it. Tree-sitter
-			// treats ERROR as named unconditionally (visible in
-			// S-expressions and named-child traversal, matching the pinned
-			// C oracle's own "(ERROR ...)"/"(ERROR (UNEXPECTED 'x'))"
-			// rendering for both the container and a raw unlexable-byte
-			// leaf) -- force it here rather than teach the shared,
-			// grammar-table-driven isNamedSymbol about a symbol that is
-			// never a real grammar table entry.
-			if Symbol(view.Symbol) == errorSymbol {
-				named = true
-			}
-			if view.Terminal {
-				node := newLeafNodeInArena(
-					arena, Symbol(view.Symbol), named, view.StartByte, view.EndByte,
-					points.point(view.StartByte), points.point(view.EndByte),
-				)
-				if languageUsesExternalScannerCheckpoints(parser.language) && view.Terminal &&
-					!materializeCompactExternalScannerCheckpoint(compact, arena, node, view) {
-					scannerProvenanceTransferProven = false
-				}
-				node.setExtra(view.Extra)
-				node.setExternalScannerToken(view.External)
-				// S5 recovery: a recovery-inserted MISSING terminal
-				// (core.MissingLeaf) carries both public bits, matching the
-				// pinned C oracle and production's own port
-				// (parser.go's missing-shift path sets exactly this pair).
-				// has-error belongs on the missing node ITSELF, not only on
-				// its ancestors: C defines ts_node_has_error as
-				// error_cost > 0 (node.c:520-522), and ts_subtree_error_cost
-				// short-circuits on the missing bit to return
-				// ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY
-				// (subtree.h:331-337), which is 610, so C reports has-error
-				// true on the leaf. For a VISIBLE missing leaf, ordinary
-				// ancestor propagation (populateParentNode, tree.go) then ORs
-				// the flag up through every enclosing reduce with no
-				// additional code.
-				//
-				// Hidden missing leaves can disappear during parent construction.
-				// hasErrorByID carries their error state through that collapse. This
-				// matches production's explicit trackChildErrors signal.
-				if view.Missing {
-					node.setMissing(true)
-					node.setHasError(true)
-					if !materializeCompactMissingNodeDependency(arena, node, view) {
-						return fmt.Errorf("parser-core phase zero: missing leaf dependency transfer failed: node=%d@%+v dependency=%+v", node.startByte, node.startPoint, view.MissingDependency)
-					}
-				}
-				hasErrorByID[id] = view.Missing || Symbol(view.Symbol) == errorSymbol
-				// No markFragile here: fragile is a reduce/conflict-arm property
-				// (subtreeRecord.fragile is only ever set on reductions), so a
-				// terminal record is never fragile. The reduce branches below
-				// carry the bit.
-				stamp(id, node, &view)
-				return nil
-			}
-
-			entries := materializationScratch.entriesFor(len(view.Children))
-			subtreeHasError := Symbol(view.Symbol) == errorSymbol
-			structuralChildren := 0
-			for index, childID := range view.Children {
-				if uint64(childID) >= uint64(len(nodesByID)) || nodesByID[childID] == nil {
-					return errors.New("parser-core phase zero: compact materialization traversal omitted a child")
-				}
-				child := nodesByID[childID]
-				if hasErrorByID[childID] {
-					subtreeHasError = true
-				}
-				entries[index] = newStackEntryNode(0, child)
-				if !child.isExtra() {
-					structuralChildren++
-				}
-			}
-			if incrementalReuse != nil {
-				if err := validateCompactBorrowedReduceInputs(parser, entries, view.ProductionID, arena); err != nil {
-					return err
-				}
-			}
-			// isDerivationRootReduce is true only for the one reduce, per parse,
-			// whose symbol is this language's own inferred grammar root symbol
-			// (parser.rootSymbol / hasRootSymbol -- inferRootSymbol, parser.go: a
-			// grammar-derived property, computed from the language's own tables,
-			// not a per-language name check). It is exempted from this reduce's
-			// OWN tiling requirement for the same reason
-			// finalizeDiagnosticParserCoreAcceptedRootSpan already treats the
-			// root-to-sourceLen boundary as a separately governed special case
-			// (extendRootToAcceptedCleanTail, with its own, more lenient rule): the
-			// root reduce is the one construct with no enclosing reduce to ever
-			// re-validate its own declared span from the outside, so an over-wide
-			// root span (still exactly [expectedStart, sourceLen), already pinned
-			// by finalizeDiagnosticParserCoreAcceptedRootSpan's own checks) is a
-			// materially different, narrower risk than an internal gap anywhere
-			// below it, which every enclosing reduce's own tiling check still
-			// catches. This closes a jsdoc residual the retired
-			// bytesAreSingleByteDecorationTrivia predicate used to leave standing:
-			// javadoc/doxygen-style comments that close with "*/" (no leading
-			// space) put the decoration marker
-			// on the trailing edge of the root reduce's own gap, indistinguishable
-			// in isolation from a genuine drop. The exemption stays limited to the
-			// grammar root. Every internal reduce still passes the ordinary tiling
-			// check before materialization can publish it.
-			isDerivationRootReduce := rootFinalization == diagnosticParserCoreFinalizeDefault &&
-				parser.hasRootSymbol && Symbol(view.Symbol) == parser.rootSymbol
-			if allowLexerSkippedPrefix {
-				acceptedLeaves.propagateLeadingLexerSkippedPrefix(id, view.StartByte, view.Children, nodesByID)
-			}
-			if gapStart, gapEnd, gapped := diagnosticParserCoreReduceChildrenTilingGapWithLexerProvenance(
-				view.StartByte, view.EndByte, entries, view.Children, source, acceptedLeaves, nodesByID, allowLexerSkippedPrefix,
-			); !isDerivationRootReduce && gapped {
-				return &diagnosticParserCoreDecline{
-					boundary: DiagnosticParserCoreAccept,
-					detail: fmt.Sprintf(
-						"accepted-leaf-tiling-gap: compact subtree symbol=%d span=%d..%d has an unaccounted byte range %d..%d not covered by any child",
-						view.Symbol, view.StartByte, view.EndByte, gapStart, gapEnd,
-					),
-				}
-			}
-			// B3 stage S3: an ERROR-symbol reduce is a native recovery region
-			// (s3TryOpenErrorRegion/ErrorRegionResume), never a real grammar
-			// production. It always bypasses unary self-reduction collapse
-			// (errorSymbol's huge numeric value falls outside every real
-			// grammar's SymbolMetadata table, so the collapse checks below
-			// would either safely no-op or -- for the one case they would
-			// not, a childless absorbed leaf sharing the ERROR symbol itself
-			// -- wrongly elide the wrapper the C oracle keeps; skip them
-			// outright instead of relying on that bound check), matching
-			// production's own recovery construction (newRecoveryParentNodeInArena,
-			// parser_recover_c.go), which never goes through the shared
-			// collapsibleRawUnarySelfReduction/collapsibleUnarySelfReduction
-			// path either.
-			if Symbol(view.Symbol) == errorSymbol {
-				children, fieldIDs, fieldSources, _ := parser.buildReduceChildrenWithPath(
-					entries, 0, len(entries), structuralChildren,
-					Symbol(view.Symbol), view.ProductionID, arena,
-				)
-				if recoveryTerminalAlias != 0 {
-					acceptedLeaves.authenticateDirectTerminalAliases(
-						parser, entries, children, view.ProductionID, recoveryTerminalAlias, nodesByID,
-					)
-				}
-				parent := makeParent(
-					Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
-				)
-				parent.dynamicPrecedence += int32(view.DynamicPrecedence)
-				parent.startByte = view.StartByte
-				parent.endByte = view.EndByte
-				parent.startPoint = points.point(view.StartByte)
-				parent.endPoint = points.point(view.EndByte)
-				parent.setExtra(view.Extra)
-				// The ERROR container's own HasError is always true,
-				// regardless of what populateParentNode's children-OR
-				// propagation computed: matching the pinned C oracle, an
-				// absorbed leaf's own HasError stays false even when the
-				// leaf is itself an unlexable byte (ErrorRegionLeaf's doc
-				// comment; finding production-recovery-structural-divergence),
-				// so this explicit set is the only place HasError=true
-				// originates for the whole region. Every enclosing ordinary
-				// reduce above this one propagates it up for free through
-				// populateParentNode's existing, unmodified OR-of-children
-				// walk (tree.go) -- no further HasError code is needed
-				// anywhere else in this file.
-				parent.setHasError(true)
-				hasErrorByID[id] = true
-				markFragile(parent, view.Fragile)
-				stamp(id, parent, &view)
-				return nil
-			}
-			action := ParseAction{
-				Type: ParseActionReduce, Symbol: Symbol(view.Symbol), ChildCount: uint8(structuralChildren),
-				DynamicPrecedence: int16(view.DynamicPrecedence), ProductionID: view.ProductionID,
-			}
-			if child := parser.collapsibleRawUnarySelfReduction(action, Token{}, arena, entries, 0, len(entries)); child != nil {
-				child.productionID = view.ProductionID
-				child.dynamicPrecedence += int32(view.DynamicPrecedence)
-				markFragile(child, view.Fragile)
-				if subtreeHasError {
-					child.setHasError(true)
-				}
-				hasErrorByID[id] = subtreeHasError
-				stamp(id, child, &view)
-				return nil
-			}
-			children, fieldIDs, fieldSources, _ := parser.buildReduceChildrenWithPath(
-				entries, 0, len(entries), structuralChildren,
-				Symbol(view.Symbol), view.ProductionID, arena,
-			)
-			if incrementalReuse != nil {
-				if err := validateCompactBorrowedReduceProjectionWithScratch(parser, entries, children, arena, &incrementalReuse.projection, poll); err != nil {
-					return fmt.Errorf("reduce symbol=%d production=%d: %w", view.Symbol, view.ProductionID, err)
-				}
-			}
-			// Authenticate terminal aliases at their exact grammar reduction.
-			// Shared recovery needs the same raw-terminal and clone proof.
-			if allowErrorRoot {
-				acceptedLeaves.authenticateDirectTerminalAliases(
-					parser, entries, children, view.ProductionID, 0, nodesByID,
-				)
-			}
-			if child := parser.collapsibleUnarySelfReduction(action, Token{}, arena, entries, 0, len(entries), children, fieldIDs); child != nil {
-				child.productionID = view.ProductionID
-				child.dynamicPrecedence += int32(view.DynamicPrecedence)
-				markFragile(child, view.Fragile)
-				if subtreeHasError {
-					child.setHasError(true)
-				}
-				hasErrorByID[id] = subtreeHasError
-				stamp(id, child, &view)
-				return nil
-			}
-			parent := makeParent(
-				Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
-			)
-			parent.dynamicPrecedence += int32(view.DynamicPrecedence)
-			parent.startByte = view.StartByte
-			parent.endByte = view.EndByte
-			parent.startPoint = points.point(view.StartByte)
-			parent.endPoint = points.point(view.EndByte)
-			parent.setExtra(view.Extra)
-			if subtreeHasError {
-				parent.setHasError(true)
-			}
-			hasErrorByID[id] = subtreeHasError
-			markFragile(parent, view.Fragile)
-			stamp(id, parent, &view)
-			return nil
-		}
+		m.materializationScratch = materializationScratch
 		if scratch != nil {
-			return compact.VisitMaterializationPostorderWithReplay(payloads, poll, &scratch.postorder, replayRootPre, replayTransition, visit)
+			return compact.VisitMaterializationPostorderPrebuilt(payloads, poll, &scratch.postorder, m.replayRootPre, m.replayTransition, prebuilt, m.visit)
 		}
-		return compact.VisitMaterializationPostorder(payloads, poll, visit)
+		return compact.VisitMaterializationPostorder(payloads, poll, func(id core.SubtreeID, view core.MaterializationSubtreeView) error {
+			return m.visit(id, &view)
+		})
 	}
 	if scratch != nil {
 		err = withProvidedMaterializationScratch(parser, &scratch.materialization, materializeVisit)
@@ -7769,6 +7395,18 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	if err != nil {
 		return nil, err
 	}
+	if adopted {
+		// The postorder pass stamps every root from the root pre-goto state.
+		// The eager driver stamped a root that follows another root from the
+		// state after that root. Re-apply the root rule so both drivers
+		// publish the same states.
+		for _, payload := range payloads {
+			if err := m.restampRoot(payload); err != nil {
+				return nil, err
+			}
+		}
+	}
+	nodesByID := m.nodesByID
 
 	var nodes []*Node
 	if scratch != nil {
@@ -7851,7 +7489,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		tree = parser.buildResultFromNodes(nodes, source, arena, oldTree, reuseState, linkScratch)
 	}
 	if tree != nil {
-		owned = false // The result tree owns the materialization arena.
+		m.owned = false // The result tree owns the materialization arena.
 		if incrementalReuse != nil && tree.root != nil {
 			// Incremental builders normally inherit links from parent construction.
 			// This path constructs parents without links to preserve borrowed nodes.
@@ -7860,7 +7498,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	}
 	rejectTree := func(err error) (*Tree, error) {
 		if tree != nil {
-			recordAllocation()
+			m.recordAllocation()
 			tree.Release()
 		}
 		return nil, err
@@ -7938,7 +7576,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	// to clean siblings while preserving the ordinary scanner gate.
 	compactIncrementalReuseProven := replayEnabled &&
 		compactIncrementalReuseProvenForLanguage(parser.language) &&
-		scannerProvenanceTransferProven && compactTreeIncrementalReuseProven(root)
+		m.scannerProvenanceTransferProven && compactTreeIncrementalReuseProven(root)
 	tree.incrementalReuseDisabled = !compactIncrementalReuseProven
 	tree.incrementalReuseUnsupportedClause = compactIncrementalReuseClauseScanner
 	if !compactIncrementalReuseProven {
@@ -7948,13 +7586,13 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		switch {
 		case !replayEnabled:
 			tree.incrementalReuseUnsupportedClause = compactIncrementalReuseClauseReplay
-		case !compactIncrementalReuseProvenForLanguage(parser.language) || !scannerProvenanceTransferProven:
+		case !compactIncrementalReuseProvenForLanguage(parser.language) || !m.scannerProvenanceTransferProven:
 		default:
 			tree.incrementalReuseUnsupportedClause = compactIncrementalReuseClauseTree
 		}
 	}
 	if compactIncrementalReuseProven && budgetScheduler != nil {
-		if err := budgetScheduler.publishCompactReuseDependencies(parser, root, arena, nodesByID, compact.MaterializationView, &points, acceptedLeaves.footprintBytes(), poll); err != nil {
+		if err := budgetScheduler.publishCompactReuseDependencies(parser, root, arena, nodesByID, compact.MaterializationView, points, acceptedLeaves.footprintBytes(), poll); err != nil {
 			return rejectTree(err)
 		}
 	}
@@ -7972,7 +7610,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		ExternalScannerCheckpointBytesAllocated:        arena.externalScannerCheckpointBytesAllocated(),
 		ExternalScannerSnapshotBytesAllocated:          arena.externalScannerSnapshotPayloadBytes,
 		ExternalScannerCheckpointLeafNodes:             arena.externalScannerCheckpointLeafNodes,
-		CompactExternalScannerCheckpointTransferProven: scannerProvenanceTransferProven,
+		CompactExternalScannerCheckpointTransferProven: m.scannerProvenanceTransferProven,
 	})
 	if incrementalReuse != nil {
 		runtime := *tree.rawParseRuntime()
@@ -8474,17 +8112,56 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 // once per dispatch loop, and during an S5 terminal scan. Diagnostic callers
 // bind no Parser, so they do not run the predictor.
 func (s *diagnosticParserCoreGenericScheduler) pollStopControl() error {
-	if reason := s.stopControlMemoryBudgetReason(); reason != ParseStopNone {
+	// The eager materializer's arena is live storage of this run, so the
+	// memory budget charges it the way the accepted-tree pass does.
+	additional := uint64(0)
+	eager := s.eagerMaterializerActive()
+	if eager != nil {
+		additional = arenaAllocatedVolume(eager.arena)
+	}
+	if reason := s.stopControlMemoryBudgetReasonWithAdditionalBytes(additional); reason != ParseStopNone {
 		return diagnosticParserCoreStopControlTripped(reason)
 	}
 	parser := s.options.stopControlParser
 	if parser == nil {
 		return nil
 	}
+	if eager != nil {
+		// The accepted-tree pass polls the arena every 256 subtrees. Keep
+		// that cadence here instead of one poll per dispatch loop.
+		s.eagerPolls++
+		if s.eagerPolls&255 == 0 {
+			if reason := parser.resultMaterializationStopReason(eager.arena); resultMaterializationShouldStop(reason) {
+				return diagnosticParserCoreStopControlTripped(reason)
+			}
+		}
+	}
 	if reason := parser.activeParseStopReason(); parseStopReasonIsActive(reason) {
 		return diagnosticParserCoreStopControlTripped(reason)
 	}
 	return s.observeCapPressure()
+}
+
+// eagerMaterializerActive returns the armed eager materializer, or nil.
+func (s *diagnosticParserCoreGenericScheduler) eagerMaterializerActive() *compactMaterializer {
+	if s == nil {
+		return nil
+	}
+	if m := s.options.eagerMaterializer; m != nil && m.eager {
+		return m
+	}
+	return nil
+}
+
+// eagerAfterPush builds the subtree a single-header push just placed on
+// the frontier. Multi-header passes leave their subtrees to the postorder
+// pass: a subtree a dead branch reduced must never mutate a shared child.
+func (s *diagnosticParserCoreGenericScheduler) eagerAfterPush(head core.Head) error {
+	m := s.options.eagerMaterializer
+	if m == nil || !m.eager || len(s.headers) != 1 {
+		return nil
+	}
+	return m.eagerPush(head)
 }
 
 // observeCapPressure stops a compact attempt that is on a stable path to the
@@ -12312,6 +11989,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 			applyDiagnosticParserCoreCleanPathOutput(header, output.CleanPathRank, reductionLineage)
 			madeFreshProgress = true
 			appliedInPlace = true
+			if err := s.eagerAfterPush(output.Head); err != nil {
+				return err
+			}
 		}
 	}
 	for outputIndex := range outputs {
@@ -13214,6 +12894,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 					return err
 				}
 			}
+			if err := s.eagerAfterPush(head); err != nil {
+				return err
+			}
 		}
 	}
 	s.epochProgress = true
@@ -13370,6 +13053,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 					if err := s.publishVersionLexerShiftOnHeaderOwned(owner, &s.headers[cell.headerIndex], versionLexerRequest); err != nil {
 						return err
 					}
+				}
+				if err := s.eagerAfterPush(heads[index]); err != nil {
+					return err
 				}
 			}
 		}

@@ -35,6 +35,25 @@ for tags and release notes while still in `0.x`.
   compact route still runs 1.45 to 2.0 times the production route; the
   remaining gap is structural, and the route decision record lists the
   program.
+- Extract the accepted-tree visit into `compactMaterializer`, a struct the
+  scheduler can drive as well as the postorder pass. The postorder pass
+  now fills one scratch view in place and visits it through a pointer, and
+  it can skip subtrees that already own a public node
+  (`VisitMaterializationPostorderPrebuilt`). The extraction changes no
+  tree, no work count, and no wall time.
+- Add the eager materialization lane (`GTS_COMPACT_EAGER=1`). After each
+  single-header shift and each in-place reduction the scheduler builds the
+  new subtree's public node at once, and it builds the subtrees a
+  multi-header phase left pending as soon as a single header consumes them.
+  On every Go witness the lane builds the whole tree before acceptance and
+  publishes the same tree, the same replay stamps, and the same work as the
+  postorder pass (`TestCompactEagerMaterializationMatchesPostorder`). The
+  lane stays off by default: on the Go 137 KiB witness it costs about ten
+  percent more wall time, because construction interleaved with dispatch
+  loses the locality of the batch pass while the compact core still writes
+  every record. The lane is the construction half of the single-head kernel,
+  which will stop writing compact records for subtrees that already own a
+  public node.
 
 ### Production engine fixes kept until retirement (issue #454)
 

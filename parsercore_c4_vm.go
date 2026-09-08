@@ -567,6 +567,9 @@ func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint
 	s.headers[0].head = head
 	s.headers[0].shifted = true
 	markDiagnosticParserCoreExternalLineage(&s.headers[0], token)
+	if err := s.eagerAfterPush(head); err != nil {
+		return false, err
+	}
 	s.epochProgress = true
 	if extra {
 		s.work.ExtraShifts++

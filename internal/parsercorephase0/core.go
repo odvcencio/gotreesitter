@@ -6395,32 +6395,8 @@ func (c *Core) MaterializationView(id SubtreeID) (MaterializationSubtreeView, er
 	if err != nil {
 		return MaterializationSubtreeView{}, err
 	}
-	view := MaterializationSubtreeView{
-		Symbol:            record.symbol,
-		ProductionID:      record.productionID,
-		DynamicPrecedence: int32(record.dynamicPrecedence),
-		StartByte:         record.startByte,
-		EndByte:           record.endByte,
-		Children:          c.children[record.firstChild : record.firstChild+record.childCount],
-		Aliases:           c.aliases[record.firstAlias : record.firstAlias+record.aliasCount],
-		Extra:             record.extra,
-		External:          record.external,
-		Terminal:          record.terminal,
-		Fragile:           record.fragile,
-		Missing:           record.missing,
-	}
-	if record.terminal {
-		if provenance, ok := c.externalPayloadScannerProvenance(id); ok {
-			view.ExternalScannerCheckpointStart = provenance.start
-			view.ExternalScannerCheckpointEnd = provenance.end
-			view.ExternalScannerCheckpointExact = true
-		}
-	}
-	if record.missing {
-		view.MissingDependency, view.MissingDependencyExact = c.missingLeafDependency(id)
-	}
-	view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(id)
-	c.applyReusedMaterializationView(id, &view)
+	var view MaterializationSubtreeView
+	c.fillMaterializationSubtreeView(id, record, &view)
 	return view, nil
 }
 

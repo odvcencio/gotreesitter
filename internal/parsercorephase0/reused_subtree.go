@@ -215,6 +215,9 @@ func (c *Core) validateReusedRecord(id SubtreeID, r subtreeRecord) error {
 }
 
 func (c *Core) applyReusedMaterializationView(id SubtreeID, view *MaterializationSubtreeView) {
+	if len(c.reusedSubtrees) == 0 {
+		return
+	}
 	if reused, ok := c.reusedSubtree(id); ok {
 		view.ReusedKey = reused.Key
 		view.ReusedPreGotoState, view.ReusedState = reused.PreGotoState, reused.State

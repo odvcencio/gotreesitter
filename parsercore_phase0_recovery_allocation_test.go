@@ -37,7 +37,7 @@ func TestCompactRecoveryMaterializationCountsDiscardedNodes(t *testing.T) {
 		t.Fatalf("retry allocations=%d, want discarded %d plus successful %d", work.allocatedNodes, discarded, tree.parseRuntime.NodesAllocated)
 	}
 	scratch.freshAttemptWork = nil
-	if len(scratch.nodesByID) != 0 || len(scratch.nodes) != 0 {
+	if len(scratch.materializer.nodesByID) != 0 || len(scratch.nodes) != 0 {
 		t.Fatal("materialization retained tree pointers")
 	}
 }
