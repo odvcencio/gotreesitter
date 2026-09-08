@@ -150,6 +150,7 @@ type DiagnosticParserCoreSeedClosedGateForTest struct {
 // DiagnosticParserCoreSeedGoldenProbeForTest captures the immutable golden's
 // pre-dispatch election barrier and named closed-frontier gates.
 type DiagnosticParserCoreSeedGoldenProbeForTest struct {
+	GrammarSHA256    [32]byte
 	Receipt          *DiagnosticParserCoreGenericScheduler
 	Election         DiagnosticParserCoreElection
 	Headers          []DiagnosticParserCoreHeaderPathReceipt
@@ -235,7 +236,7 @@ func RunDiagnosticParserCoreSeedGoldenProbeForTest(scanner ExternalScanner, sour
 	defer tokenSource.Close()
 
 	wantedGates := map[uint32]bool{116: true, 580: true, 725: true, 732: true, 742: true}
-	probe := DiagnosticParserCoreSeedGoldenProbeForTest{}
+	probe := DiagnosticParserCoreSeedGoldenProbeForTest{GrammarSHA256: sha256.Sum256(parserCoreCertifiedGoBlob)}
 	var scannerScratch []byte
 	observer := diagnosticParserCoreSeedObserver{
 		beforeElection: func(s *diagnosticParserCoreGenericScheduler) error {

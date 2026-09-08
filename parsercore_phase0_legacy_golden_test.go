@@ -195,7 +195,7 @@ func legacyGoldenWorkFrom(work gotreesitter.DiagnosticParserCoreGenericWork) [18
 func legacyGoldenFromSeedProbe(source []byte, probe gotreesitter.DiagnosticParserCoreSeedGoldenProbeForTest) legacyGolden {
 	golden := legacyGolden{
 		Version: 1, SourceSHA256: legacyGoldenHash(sha256Sum(source)),
-		GrammarSHA256: "9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08",
+		GrammarSHA256: legacyGoldenHash(probe.GrammarSHA256),
 		Grammar:       "go", DefaultCheckpoint: legacyGoldenCheckpointFrom(gotreesitter.DiagnosticParserCoreScannerCheckpoint{SHA256: sha256.Sum256(nil)}),
 		EditsElection: legacyGoldenElectionFrom(probe.Election),
 		EditsFrontier: legacyGoldenPathsFrom(probe.Headers), EditsStats: legacyGoldenStatsFrom(probe.Stats),
@@ -223,6 +223,21 @@ func sha256Sum(data []byte) [32]byte {
 	return sha256.Sum256(data)
 }
 
+func TestDiagnosticParserCoreSeedGoldenGrammarProvenance(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	probe, err := gotreesitter.RunDiagnosticParserCoreSeedGoldenProbeForTest(grammars.GoExternalScanner{}, source)
+	if err != nil || probe.Receipt == nil {
+		t.Fatalf("seed golden probe: %v", err)
+	}
+	want := sha256.Sum256(grammars.BlobByName("go"))
+	if probe.GrammarSHA256 != want {
+		t.Fatalf("probe grammar=%x, want loaded blob=%x", probe.GrammarSHA256, want)
+	}
+	if got := legacyGoldenFromSeedProbe(source, probe).GrammarSHA256; got != legacyGoldenHash(want) {
+		t.Fatalf("serialized grammar=%s, want loaded blob=%x", got, want)
+	}
+}
+
 func TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden(t *testing.T) {
 	encoded, err := os.ReadFile("testdata/parsercore_phase0_legacy_first103.json")
 	if err != nil {
@@ -238,6 +253,9 @@ func TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden(t *testing.T) {
 		t.Fatalf("seed golden probe: probe=%+v err=%v", probe, err)
 	}
 	got := legacyGoldenFromSeedProbe(source, probe)
+	if got.GrammarSHA256 != want.GrammarSHA256 {
+		t.Fatalf("legacy golden grammar=%s differs from probe grammar=%s; do not compare cross-grammar scheduler identities", want.GrammarSHA256, got.GrammarSHA256)
+	}
 	if len(want.NoActions) != len(got.NoActions) {
 		t.Fatalf("golden no-action decisions=%d live=%d", len(want.NoActions), len(got.NoActions))
 	}
