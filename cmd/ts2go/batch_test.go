@@ -71,7 +71,10 @@ func TestSafeFileBase(t *testing.T) {
 }
 
 func TestGrammargenOwnedBlobSkipMessageUsesSafeEmitCommand(t *testing.T) {
-	for _, name := range []string{"go", "yaml"} {
+	if grammargenOwnedBlobs["go"] {
+		t.Fatal("Go must use the locked C-table extraction path")
+	}
+	for _, name := range []string{"yaml"} {
 		t.Run(name, func(t *testing.T) {
 			message := grammargenOwnedBlobSkipMessage(name)
 			want := "go run ./cmd/grammargen emit " + name + " -bin grammars/grammar_blobs/" + name + ".bin"

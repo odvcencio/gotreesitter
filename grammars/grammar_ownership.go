@@ -59,16 +59,3 @@ func GrammarOwnershipFor(name string) (GrammarOwnership, bool) {
 	ownership, ok := grammarOwnershipManifest[strings.ToLower(strings.TrimSpace(name))]
 	return ownership, ok
 }
-
-func applyGrammarOwnership(entry *LangEntry) {
-	if entry == nil {
-		return
-	}
-	ownership, ok := GrammarOwnershipFor(entry.Name)
-	if !ok || ownership.MaintenanceClass != GrammarMaintenanceOwn {
-		return
-	}
-	if entry.GrammarSource == GrammarSourceUnknown || entry.GrammarSource == GrammarSourceTS2GoBlob {
-		entry.GrammarSource = GrammarSourceGrammargenBlob
-	}
-}

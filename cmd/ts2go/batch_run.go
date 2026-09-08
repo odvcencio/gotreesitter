@@ -302,7 +302,6 @@ func loadHighlightQuery(repoDir string) (string, bool) {
 // not clobber these blobs or relabel their registry entries: they advertise
 // GrammarSourceGrammargenBlob in grammars/registry_builtin_gen.go.
 var grammargenOwnedBlobs = map[string]bool{
-	"go":    true,
 	"swift": true,
 	"yaml":  true,
 	"regex": true,
@@ -310,7 +309,7 @@ var grammargenOwnedBlobs = map[string]bool{
 
 // grammargenOwnedBlobSkipMessage returns the batch-skip log line for a
 // grammargen-owned blob, with a regeneration hint accurate for how that
-// specific language is actually built. "go", "swift", and "yaml" are
+// specific language is actually built. "swift" and "yaml" are
 // grammargen builtin grammar names (see builtinGrammars in
 // cmd/grammargen/main.go) and regenerate via the emit subcommand below.
 // "regex" is not a grammargen builtin name. It imports a resolved
@@ -319,7 +318,7 @@ var grammargenOwnedBlobs = map[string]bool{
 // See grammargen/regex_import_parity_test.go for the import path this blob
 // must remain parity-checked.
 func grammargenOwnedBlobSkipMessage(name string) string {
-	if name == "go" || name == "yaml" {
+	if name == "yaml" {
 		return fmt.Sprintf("skipped %s (grammargen-owned blob; regenerate with: go run ./cmd/grammargen emit %s -bin grammars/grammar_blobs/%s.bin)",
 			name, name, safeFileBase(name))
 	}
