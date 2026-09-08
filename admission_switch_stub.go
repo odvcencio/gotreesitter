@@ -8,7 +8,7 @@ func (p *Parser) attemptCompactIncrementalParse(_ []byte, _ *Tree, _ *incrementa
 	return nil, "", false
 }
 
-func (p *Parser) attemptCompactIncrementalRecoveryFullParse(_ []byte, _ string, _ bool, _ *incrementalParseTiming) *Tree {
+func (p *Parser) attemptCompactIncrementalRecoveryFullParse(_ []byte, _ *Tree, _ string, _ bool, _ *incrementalParseTiming) *Tree {
 	return nil
 }
 
