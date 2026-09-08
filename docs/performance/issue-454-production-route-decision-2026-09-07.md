@@ -131,10 +131,11 @@ copies at 12 percent, then link validation at 5 percent.
 The cuts in this round: the fused replay (one full-derivation pass fewer),
 the dead election record, narrow reuse-dependency accessors, in-place
 election and header updates, pointer reads for headers, reduction outputs,
-pop paths, boundary outputs, and canonical groups, in-place single-header
-canonicalization, and the direct-append condense reading the predecessor it
-already holds. Result: about 6 percent on every measured grammar. The gap is
-structural from here.
+pop paths, boundary outputs, and canonical groups, and the direct-append
+condense reading the predecessor it already holds. (An in-place
+single-header canonicalization was tried and reverted for the double-buffer
+copy; it is not part of the result.) Result: about 6 percent on every
+measured grammar. The gap is structural from here.
 
 ## Eager materialization lane
 
@@ -187,10 +188,21 @@ With the skip in place the C4 bytecode corridor (default off since stage
 | diff | 29.7 | 24.3 | 0.82 |
 
 These exploratory results do not satisfy the required randomized benchmark
-comparison. They predate the review fixes and the benchmark lifetime fix.
-A JavaScript recovery mutation also exposed a corridor tree mismatch.
-The corridor remains opt-in through `GTS_C4_CORRIDOR=1` pending broader
-correctness validation and new performance measurements.
+comparison. They predate the review fixes and the benchmark lifetime fix,
+and they stand only as the direction of the change.
+
+The corridor is on by default on parity evidence, not on these numbers. A
+JavaScript recovery mutation once changed the C tree while the corridor was
+on; the corridor now stays off while a version-owned lexer request is live.
+The evidence for the default: the runtime equivalence test keeps every
+scheduler and core work count, every digest, and every fork-boundary
+identity equal between the lanes; the exhaustive curated structural parity
+suite (fresh, incremental, and no-error) passes on every grammar with the
+corridor on; the pinned-oracle T3 recovery adjudication in the harness
+container matches C structurally on all ten html and eight JavaScript
+witnesses with the corridor on (the two Swift witnesses diverge outside the
+certified set in both modes); and the JavaScript recovery mutation
+differentials pass in both modes. `GTS_C4_CORRIDOR=0` is the A/B baseline.
 
 ## Recorded parse states: an open finding
 

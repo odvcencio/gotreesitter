@@ -856,6 +856,7 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingCandidateOwned(
 	var trialHeaders []diagnosticParserCoreHeader
 	var trialSeq uint64
 	viable := false
+	subtreesBefore := s.compact.SubtreeCount()
 	err := s.compact.ApplySchedulerSpeculation(owner, func(trialOwner core.SchedulerTransactionToken) (bool, error) {
 		s.headers = []diagnosticParserCoreHeader{anyHeaders[anyIndex]}
 		if s.nextSeq == math.MaxUint64 {
@@ -885,11 +886,15 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingCandidateOwned(
 		return true, nil
 	})
 	if err != nil {
+		s.recoveryCostMemo.TruncateAbove(subtreesBefore)
 		snapshot.restore(s)
 		*staged = stagedBefore
 		return nil, false, 0, err
 	}
 	if !viable {
+		// The declined trial rolled the arena back; drop the costs it
+		// memoized for ids the next publication will reuse.
+		s.recoveryCostMemo.TruncateAbove(subtreesBefore)
 		snapshot.restore(s)
 		*staged = stagedBefore
 		return nil, false, 0, nil
@@ -1252,6 +1257,7 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryRecoveryTransaction(index in
 	}()
 	run := func(parent core.SchedulerTransactionToken) error {
 		var committed bool
+		subtreesBefore := s.compact.SubtreeCount()
 		if err := s.compact.ApplySchedulerSpeculation(parent, func(owner core.SchedulerTransactionToken) (bool, error) {
 			var runErr error
 			if lexicalError {
@@ -1261,9 +1267,13 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryRecoveryTransaction(index in
 			}
 			return committed, runErr
 		}); err != nil {
+			s.recoveryCostMemo.TruncateAbove(subtreesBefore)
 			return err
 		}
 		if !committed {
+			// The declined speculation rolled the arena back; drop the costs
+			// it memoized for ids the next publication will reuse.
+			s.recoveryCostMemo.TruncateAbove(subtreesBefore)
 			return nil
 		}
 		s.commitS5Work(staged)

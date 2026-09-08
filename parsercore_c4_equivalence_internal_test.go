@@ -311,18 +311,17 @@ func TestParserCoreCorridorPassMixReceipt(t *testing.T) {
 	}
 }
 
-// TestParserCoreCorridorDefaultOff keeps the experimental lane outside the
-// normal parser path until recovery mutations match the C tree.
-func TestParserCoreCorridorDefaultOff(t *testing.T) {
+// TestParserCoreCorridorDefaultOn verifies the default route executes corridor passes.
+func TestParserCoreCorridorDefaultOn(t *testing.T) {
 	if os.Getenv("GTS_C4_CORRIDOR") != "" {
 		t.Skip("GTS_C4_CORRIDOR is set in this environment")
 	}
-	if parserCoreCorridorEnabled() {
-		t.Fatal("corridor lane is on by default")
+	if !parserCoreCorridorEnabled() {
+		t.Fatal("corridor lane is off by default")
 	}
 	observed := runCorridorFixture(t, diagnosticParserCoreCanonicalAdmissions[0].id)
-	if observed.SchedulerWork.CorridorPasses != 0 {
-		t.Fatalf("corridor executed %d passes with the default gate", observed.SchedulerWork.CorridorPasses)
+	if observed.SchedulerWork.CorridorPasses == 0 {
+		t.Fatal("corridor executed no passes with the default gate")
 	}
 }
 

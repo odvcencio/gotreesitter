@@ -44,8 +44,13 @@ type Pattern struct {
 
 // QueryStep is one matching instruction within a pattern.
 type QueryStep struct {
-	symbol       Symbol          // node type to match, or 0 for wildcard
-	field        FieldID         // required field on parent, or 0
+	symbol Symbol  // node type to match, or 0 for wildcard
+	field  FieldID // required field on parent, or 0
+	// supertype, when set, requires the node to sit under that hidden
+	// supertype (Node.hasSupertype). A supertype node pattern compiles to a
+	// wildcard step with supertype set, and `super/sub` keeps symbol = sub,
+	// as in the C query parser.
+	supertype    Symbol
 	absentFields []FieldID       // fields that must be absent on this node
 	captureIDs   []int           // all captures in declaration order
 	isNamed      bool            // whether we expect a named node
@@ -175,6 +180,8 @@ type alternativeSymbol struct {
 	symbol    Symbol
 	isNamed   bool
 	isMissing bool
+	// supertype mirrors QueryStep.supertype for a branch.
+	supertype Symbol
 	// field constrains this branch to a child with the given parent field ID.
 	// It is only evaluated when the alternation step is matched as a child.
 	field FieldID

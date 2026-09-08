@@ -31,6 +31,10 @@ func (r selectedStoreQueryReader) Symbol(id core.SelectedNodeID) Symbol {
 	return Symbol(symbol)
 }
 
+// SupertypeMask reports no hidden-supertype record: the selected store keeps
+// no elision provenance, so supertype patterns do not match through it.
+func (r selectedStoreQueryReader) SupertypeMask(core.SelectedNodeID) uint32 { return 0 }
+
 func (r selectedStoreQueryReader) IsNamed(id core.SelectedNodeID) bool {
 	if r.store == nil {
 		return false

@@ -368,6 +368,8 @@ func TestDiagnosticParserCoreGenericSchedulerCrossesMultiHeadExtraCohort(t *test
 }
 
 func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(t *testing.T) {
+	restoreCorridor := gotreesitter.SetParserCoreCorridorEnabledForTest(true)
+	defer restoreCorridor()
 	source := parserCoreGenericRewriteSource(t)
 	if !grammars.GoLanguage().CompactConvergedReductionSplitDropsCertified {
 		t.Fatal("authenticated Go diagnostic lost its exact-blob split-drop certificate")
@@ -397,7 +399,7 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 			ParentConstructionsProxy: 1552,
 		}) ||
 		acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-			Passes: 2640, SingleHeaderPasses: 1756, ActionLookups: 3480, Dispatches: 2770,
+			Passes: 2640, SingleHeaderPasses: 1756, CorridorPasses: 1621, ActionLookups: 3480, Dispatches: 2770,
 			Conflicts: 101, ConflictActions: 210, Forks: 109, ConflictHeads: 224,
 			ConflictActionArmsAdmitted: 210, CausalConflictForks: 109,
 			RepetitionFolds: 54, Reductions: 1406, OrdinaryShifts: 1236, OrdinaryCohorts: 205,
@@ -461,6 +463,8 @@ func TestDiagnosticParserCoreGenericSchedulerAcceptsAndMaterializesExactRewrite(
 }
 
 func TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite(t *testing.T) {
+	restoreCorridor := gotreesitter.SetParserCoreCorridorEnabledForTest(true)
+	defer restoreCorridor()
 	source := parserCoreGenericRewriteSource(t)
 	var first *gotreesitter.DiagnosticParserCoreGenericScheduler
 	for run := 0; run < 3; run++ {
@@ -496,7 +500,7 @@ func TestDiagnosticParserCoreSummaryReceiptPreservesExactRewrite(t *testing.T) {
 				ParentConstructionsProxy: 1552,
 			}) ||
 			acceptance.Work != (gotreesitter.DiagnosticParserCoreGenericWork{
-				Passes: 2640, SingleHeaderPasses: 1756, ActionLookups: 3480, Dispatches: 2770,
+				Passes: 2640, SingleHeaderPasses: 1756, CorridorPasses: 1621, ActionLookups: 3480, Dispatches: 2770,
 				Conflicts: 101, ConflictActions: 210, Forks: 109, ConflictHeads: 224,
 				ConflictActionArmsAdmitted: 210, CausalConflictForks: 109,
 				RepetitionFolds: 54, Reductions: 1406, OrdinaryShifts: 1236, OrdinaryCohorts: 205,

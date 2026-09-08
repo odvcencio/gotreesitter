@@ -291,6 +291,19 @@ func (m *RecoveryCostMemo) Reset() {
 	}
 }
 
+// TruncateAbove forgets every entry for a subtree id at or above count. A
+// declined scheduler speculation rolls the subtree arena back to its mark
+// and later publications reuse those ids for different records, so the
+// costs memoized inside the trial must not survive it.
+func (m *RecoveryCostMemo) TruncateAbove(count int) {
+	if m == nil || count < 0 {
+		return
+	}
+	for i := count; i < len(m.has); i++ {
+		m.has[i] = false
+	}
+}
+
 // Len reports the memo's current slot capacity (test/diagnostic use only).
 func (m *RecoveryCostMemo) Len() int {
 	if m == nil {

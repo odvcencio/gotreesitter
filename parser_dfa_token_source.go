@@ -1641,7 +1641,7 @@ func (d *dfaTokenSource) scanDFATokenForStateInto(state StateID, lexState uint32
 	if !keywordDemoted {
 		d.promoteActiveLiteralForCurrentState(tok, savedPos, savedRow, savedCol)
 	}
-	if d.language.Name == "swift" {
+	if d.language != nil && d.language.Name == "swift" {
 		*tok = d.demoteSwiftMemberKeyword(*tok)
 	}
 	endPos, endRow, endCol := d.normalizeDFAToken(tok, d.lexer.pos, d.lexer.row, d.lexer.col)
@@ -4925,29 +4925,10 @@ func (d *dfaTokenSource) promoteKeyword(tok *Token) bool {
 		}
 	}
 
-	// ABI 15: Check if keyword is reserved in this parse state.
-	if len(d.language.ReservedWords) > 0 && d.language.MaxReservedWordSetSize > 0 {
-		if int(d.state) < len(d.language.LexModes) {
-			rwSetID := d.language.LexModes[d.state].ReservedWordSetID
-			if rwSetID > 0 {
-				stride := int(d.language.MaxReservedWordSetSize)
-				start := int(rwSetID) * stride
-				end := start + stride
-				if end > len(d.language.ReservedWords) {
-					end = len(d.language.ReservedWords)
-				}
-				for i := start; i < end; i++ {
-					if d.language.ReservedWords[i] == 0 {
-						break
-					}
-					if d.language.ReservedWords[i] == kwTok.Symbol {
-						tok.Symbol = kwTok.Symbol
-						tok.setLexFlag(tokenFlagKeyword, true)
-						return false
-					}
-				}
-			}
-		}
+	// Reserved keywords retain their keyword symbol without a state action.
+	if d.keywordReservedInState(d.state, kwTok.Symbol) {
+		tok.Symbol = kwTok.Symbol
+		return false
 	}
 
 	// Context-aware promotion: only use the keyword symbol if any active
@@ -4982,6 +4963,11 @@ func (d *dfaTokenSource) promoteKeyword(tok *Token) bool {
 				tok.setLexFlag(tokenFlagKeyword, true)
 				return false
 			}
+			// C keeps the word token when no active state has an action
+			// for the keyword, whether or not the word token itself has
+			// one (ts_parser__lex); the parser then reports the error on
+			// the word token, as C does.
+			return true
 		}
 		if !kwHasAction {
 			return true // C retains the capture token without an action or reserved-word grant.
@@ -5452,4 +5438,32 @@ func (d *dfaTokenSource) externalScannerQuiescent() bool {
 		return true
 	}
 	return len(d.captureExternalScannerStateInto(&d.externalCompare)) == 0
+}
+
+// keywordReservedInState reports whether the ABI 15 reserved-word set of the
+// parse state names the keyword (ts_language_is_reserved_word).
+func (d *dfaTokenSource) keywordReservedInState(state StateID, keyword Symbol) bool {
+	lang := d.language
+	if lang == nil || len(lang.ReservedWords) == 0 || lang.MaxReservedWordSetSize == 0 || int(state) >= len(lang.LexModes) {
+		return false
+	}
+	rwSetID := lang.LexModes[state].ReservedWordSetID
+	if rwSetID == 0 {
+		return false
+	}
+	stride := int(lang.MaxReservedWordSetSize)
+	start := int(rwSetID) * stride
+	end := start + stride
+	if end > len(lang.ReservedWords) {
+		end = len(lang.ReservedWords)
+	}
+	for i := start; i < end; i++ {
+		if lang.ReservedWords[i] == 0 {
+			break
+		}
+		if lang.ReservedWords[i] == keyword {
+			return true
+		}
+	}
+	return false
 }

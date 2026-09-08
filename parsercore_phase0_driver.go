@@ -1566,6 +1566,27 @@ func (s *diagnosticParserCoreGenericScheduler) competingRecoveryFrontier() bool 
 
 // invalidateVerifierHeaderBinding drops the test-only pointer whenever a
 // frontier mutation can replace or compact its backing array.
+// singleHeaderProbeIsIdentity reports whether the canonical-boundary probe
+// would change nothing for the frontier: one header, outside recovery
+// isolation (the recovery canonicalizer condenses versions), and with no
+// pending freshness, which the probe would otherwise reset. Under these
+// conditions the probe returns the head the header already holds.
+func (s *diagnosticParserCoreGenericScheduler) singleHeaderProbeIsIdentity() bool {
+	return len(s.headers) == 1 && !s.recoveryIsolation && s.headers[0].freshness == 0
+}
+
+// skipCanonicalProbe records a dispatch barrier without the probe and keeps
+// the bookkeeping the probe path performs: the barrier count, the header
+// peak, and the verifier binding, so every work vector and receipt matches
+// the probed path.
+func (s *diagnosticParserCoreGenericScheduler) skipCanonicalProbe() {
+	s.work.Canonicalizations++
+	if uint64(len(s.headers)) > s.work.PeakHeaders {
+		s.work.PeakHeaders = uint64(len(s.headers))
+	}
+	s.invalidateVerifierHeaderBinding()
+}
+
 func (s *diagnosticParserCoreGenericScheduler) invalidateVerifierHeaderBinding() {
 	if s == nil {
 		return
@@ -12230,10 +12251,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 	// probe would return the head it already holds. The no-lookahead shape
 	// keeps the probe because its header identity moves to the consumed
 	// phase.
-	if appliedInPlace && len(s.headers) == 1 && !token.NoLookahead {
-		// The barrier still counts: the work vector records dispatch
-		// barriers, not probes.
-		s.work.Canonicalizations++
+	if appliedInPlace && !token.NoLookahead && s.singleHeaderProbeIsIdentity() {
+		s.skipCanonicalProbe()
 	} else if err := s.canonicalizeOwned(owner); err != nil {
 		return err
 	}
@@ -12983,11 +13002,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShiftsOwned(owner cor
 	// A single header that just published a fresh node holds the latest
 	// node of its phase identity, so the canonical-boundary probe would
 	// return that same node. Skip the probe on that shape.
-	if len(cells) == 1 && len(s.headers) == 1 && !ordinaryCohort &&
-		cells[0].versionLexerRequest == 0 && s.compact.LastShiftFresh() {
-		// The barrier still counts: the work vector records dispatch
-		// barriers, not probes.
-		s.work.Canonicalizations++
+	if len(cells) == 1 && !ordinaryCohort && cells[0].versionLexerRequest == 0 &&
+		s.compact.LastShiftFresh() && s.singleHeaderProbeIsIdentity() {
+		s.skipCanonicalProbe()
 	} else if err := s.canonicalizeOwned(owner); err != nil {
 		return err
 	}

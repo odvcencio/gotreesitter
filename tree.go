@@ -41,6 +41,31 @@ type Node struct {
 	subtreeHeight     uint8 // forest dedup tie-break cache (0 = uncomputed); see nodeCachedHeight
 }
 
+// supertypeMask returns the bit set of hidden supertype ancestors recorded
+// for the node, one bit per supertype symbol (Language.supertypeBit).
+func (n *Node) supertypeMask() uint32 {
+	if n == nil || n.ownerArena == nil {
+		return 0
+	}
+	return n.ownerArena.nodeSupertypeMask(n)
+}
+
+// addSupertypeMask records further hidden supertype ancestors on the node.
+// A node owned by another arena (a borrowed subtree) keeps its own record.
+func (n *Node) addSupertypeMask(arena *nodeArena, mask uint32) {
+	if n == nil || mask == 0 || arena == nil || n.ownerArena != arena {
+		return
+	}
+	arena.setNodeSupertypeMask(n, n.supertypeMask()|mask)
+}
+
+// hasSupertype reports whether supertype is among the node's recorded
+// hidden supertype ancestors.
+func (n *Node) hasSupertype(lang *Language, supertype Symbol) bool {
+	bit := lang.supertypeBit(supertype)
+	return bit != 0 && n.supertypeMask()&bit != 0
+}
+
 // nodeFlags is uint16, not uint8: Node has exactly one byte of trailing
 // padding under the 104-byte layout budget (TestNodeLayoutSizeBudget), and
 // the original 8 flag bits below were already fully packed. Widening by one
@@ -3934,6 +3959,9 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	dst.parent = nil
 	dst.childIndex = -1
 	dst.ownerArena = arena
+	if mask := src.supertypeMask(); mask != 0 && arena != nil {
+		arena.setNodeSupertypeMask(dst, mask)
+	}
 	copyCompactReuseDependency(dst, src)
 	if !copyMissingNodeDependency(dst, src, offset) {
 		if _, present := missingNodeDependencyEntryForNode(src); present {

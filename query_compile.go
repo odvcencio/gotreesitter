@@ -2,6 +2,7 @@ package gotreesitter
 
 import (
 	"fmt"
+	"unicode"
 )
 
 type queryParser struct {
@@ -45,6 +46,7 @@ func (p *queryParser) parse() error {
 			if err != nil {
 				return err
 			}
+			applyWildcardRootSkip(pat)
 			pat.startByte = startByte
 			pat.endByte = uint32(p.pos)
 			p.q.patterns = append(p.q.patterns, *pat)
@@ -64,6 +66,19 @@ func (p *queryParser) parse() error {
 			// Top-level string match: "func" @keyword
 			startByte := uint32(p.pos)
 			pat, err := p.parseStringPattern(0)
+			if err != nil {
+				return err
+			}
+			pat.startByte = startByte
+			pat.endByte = uint32(p.pos)
+			p.q.patterns = append(p.q.patterns, *pat)
+
+		case ch == '_' && !p.identifierContinuesAt(p.pos+1):
+			// Top-level bare wildcard: _ @node matches any node, named or
+			// anonymous, as in the C query parser.
+			startByte := uint32(p.pos)
+			p.pos++
+			pat, err := p.parseIdentifierPatternFromName(0, "_")
 			if err != nil {
 				return err
 			}
@@ -603,6 +618,7 @@ func (p *queryParser) parseAlternationBranch(depth int, parentSymbolHint Symbol)
 		symbol:    root.symbol,
 		isNamed:   root.isNamed,
 		isMissing: root.isMissing,
+		supertype: root.supertype,
 		field:     altField,
 		textMatch: root.textMatch,
 	}
@@ -706,15 +722,16 @@ func (p *queryParser) stepFromIdentifierName(depth int, name string) (QueryStep,
 		return p.stepFromMissingKeyword(depth)
 	}
 
-	sym, isNamed, err := p.resolveSymbol(name)
+	sym, isNamed, supertype, err := p.resolveNodePattern(name)
 	if err != nil {
 		return QueryStep{}, err
 	}
 
 	return QueryStep{
-		symbol:  sym,
-		isNamed: isNamed,
-		depth:   depth,
+		symbol:    sym,
+		isNamed:   isNamed,
+		supertype: supertype,
+		depth:     depth,
 	}, nil
 }
 
@@ -819,4 +836,51 @@ func (p *queryParser) validatePatternPredicates(pat *Pattern) error {
 	// Keep validation permissive. Runtime predicate evaluation rejects matches
 	// when required captures are missing.
 	return nil
+}
+
+// applyWildcardRootSkip ports the wildcard-root rule of the C query compiler
+// (ts_query_new: "If a pattern has a wildcard at its root, but it has a
+// non-wildcard child, then optimize the matching process by skipping matching
+// the wildcard"). The C cursor keys such a pattern on its first child step
+// and never tests the root step: the root only has to exist and not be an
+// ERROR node, and its captures take the child's parent. A supertype root is a
+// wildcard step, so `(expression (identifier) @i)` matches every identifier
+// whose parent is not an ERROR node, whatever the parent is.
+func applyWildcardRootSkip(pat *Pattern) {
+	if pat == nil || len(pat.steps) < 2 {
+		return
+	}
+	root := &pat.steps[0]
+	if root.symbol != 0 || root.textMatch != "" || len(root.alternatives) > 0 ||
+		root.field != 0 || root.depth != 0 || root.synthetic || root.isMissing {
+		return
+	}
+	second := &pat.steps[1]
+	if second.depth != 1 || second.anchorBefore || !stepKeysOnSymbol(second) {
+		return
+	}
+	root.isNamed = false
+	root.supertype = 0
+	root.absentFields = nil
+}
+
+// stepKeysOnSymbol reports whether the C compiler sees a non-wildcard symbol
+// in the step: a concrete node type or a string literal, or, for an
+// alternation, in its first branch.
+func stepKeysOnSymbol(step *QueryStep) bool {
+	if len(step.alternatives) > 0 {
+		alt := &step.alternatives[0]
+		return alt.symbol != 0 || alt.textMatch != ""
+	}
+	return step.symbol != 0 || step.textMatch != ""
+}
+
+// identifierContinuesAt reports whether an identifier character sits at pos,
+// so that a bare `_` is not the start of a longer name.
+func (p *queryParser) identifierContinuesAt(pos int) bool {
+	if pos >= len(p.input) {
+		return false
+	}
+	ch := rune(p.input[pos])
+	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' || ch == '.' || ch == '-' || ch == '/'
 }

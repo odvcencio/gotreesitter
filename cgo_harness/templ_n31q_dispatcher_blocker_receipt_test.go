@@ -21,7 +21,7 @@ const (
 	templN31qGrammarCommit          = "1c6db04effbcd7773c826bded9783cbc3061bd55"
 	templN31qGrammarLockSHA256      = "9ddb6324afd014f6ecdd1cae3dd1ba238f1e62ce03d126e6d8b267ce34d72ecb"
 	templN31qBlobSHA256             = "78f20ce45f9a4df12c458aadfbe9a98c80572bb13e0e2d01ffc43060e8d04701"
-	templN31qA0ManifestSHA256       = "215df59aa56d28caa403f799733ef915db1c4ac07eb2bc96a9402f80cf67f80a"
+	templN31qA0ManifestSHA256       = "999117555688ff15089c02f926a077e809ab4bd221daf622e3b2ba118d3adbba"
 	templN31qCorpusSidecarSHA256    = "2b2209597d1701ccc813bd35d1685b5b13730e6ebd285e66485ce812e35877cf"
 	templN31qCorpusLockSHA256       = "41c744279c8b1d7c9fe7b1b8e26fba733423e77cd48efea46927309c22d163ea"
 	templN31qCArtifactSHA256        = "91e455a6392a736912a481f0322c67bf571896c067ad0c7fba4ce4e9a7038081"

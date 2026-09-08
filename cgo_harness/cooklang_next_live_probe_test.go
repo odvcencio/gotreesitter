@@ -256,23 +256,23 @@ func cooklangNextWitnesses(t *testing.T) []cooklangNextWitness {
 			name: "a0-medium-complex", source: mustCooklangFile(t, "../testdata/dispatcher_census_a0/cooklang/medium__complex_test_recipe.cook"),
 			sourceSHA: "6120e9cafce48a745c0f5dade752499883bc2b07230cae93d6a452a788c7ba74", cDigest: "17c3be167109ab72b919cfc700715330f5b0c33e3fdea559ef25f01ae8ad7a1f",
 			routes: allRoutes(
-				divergent("edc7662c358880c8fd35c182092aa7a15547f9d624bdcb7f31ed30fee1248e36", true, div("/recipe", "shape", "children=22", "children=42"), nil),
-				divergent("585034f453f485b2c3ccc7cf20e204d0dd210465e871d3e449fe1547e5684d87", true, div("/recipe", "shape", "children=23", "children=42"), pass(442)),
+				divergent("a3d68deb706b92d41744bf7c4d9e4e7b31d58245998e7feef1004350d2a0502f", true, div("/recipe", "shape", "children=22", "children=42"), nil),
+				divergent("231ed2f2460fe3e0a78b7cdece9c206926f319029f542b53d56175d809bffb15", true, div("/recipe", "shape", "children=23", "children=42"), pass(442)),
 			), cExpectation: "fallback", forest: "declined",
 		},
 		{
 			name: "a0-medium-frontmatter", source: mustCooklangFile(t, "../testdata/dispatcher_census_a0/cooklang/medium__frontmatter_test_recipe.cook"),
 			sourceSHA: "956fcaf1c14e0e915efded324450789cb5d9a896cf60e4feafb71b918c8e621a", cDigest: "cc2dc5fd1f73c2def6c0f7370a431c795a229506d9ad7e762243382f95cf8327",
 			routes: allRoutes(
-				divergent("76560c38e365ea67b8f84f4f2c5b36b760df71daa880803c4a1f610ce797d7fc", true, div("/recipe", "shape", "children=36", "children=47"), nil),
-				divergent("3f433923a14de13456e84914cab679db1e59bc5c7e6cb6e13e2ec9168b4f5eaf", true, div("/recipe", "shape", "children=35", "children=47"), pass(287)),
+				divergent("1c65416fad9cc7106dbbf7d5b25f524731f2ea78238bed9d16a20a3a66102a88", true, div("/recipe", "shape", "children=36", "children=47"), nil),
+				divergent("b7dce0fe99815ecde6939fad6547b1c00e2bddf3327cb474ebfa5fe915ed4bee", true, div("/recipe", "shape", "children=35", "children=47"), pass(287)),
 			), cExpectation: "fallback", forest: "declined",
 		},
 		{
 			name: "a0-medium-recipe", source: mustCooklangFile(t, "../testdata/dispatcher_census_a0/cooklang/medium__test_recipe.cook"),
 			sourceSHA: "1acb11626700218ebc8ff8b7d445e1a257b12af35dea7dbc0fcef0587a79468f", cDigest: "ff61d92143c45498b4db19a499414be137894e6c3d5b71c6917140edc8eb3b0b",
 			routes: allRoutes(
-				divergent("f2992b217d2bef245959891d67abbca56b91252f683f3f64170eecda9e85ee94", true, div("/recipe", "shape", "children=34", "children=43"), nil),
+				divergent("c8b112f030122446e727cb746064740568ca96ae0c2f7244df6475e166230aba", true, div("/recipe", "shape", "children=34", "children=43"), nil),
 				divergent("83a5757e3dc00f198115e21f8a34b368a3f4da118764ba899300fe47bce23189", false, div("/recipe", "error", "false", "true"), pass(292)),
 			), cExpectation: "fallback", forest: "declined",
 		},
@@ -280,7 +280,7 @@ func cooklangNextWitnesses(t *testing.T) []cooklangNextWitness {
 			name: "pr793-punctuation", source: []byte("Add @salt{1%tsp}.\n"),
 			sourceSHA: "8dd8b584db0c0ef919fdcc229645c2cb5d7697c7f555624b3c075e7f1a4eb53a", cDigest: "c6e4535b725516550ca7a0ee4c69974799c2d2d10fed4e5f1ba6b71e43c5ba8a",
 			routes: allRoutes(
-				divergent("0e6880ec4902576c2a6de014424c3cba7eef99cdc5fd8fded8ceb6382a6df9cd", true, div("/recipe", "error", "true", "false"), nil),
+				divergent("cab8c8e6c3d19cd86bbed655fe0c9a17720997d0248381464cca2b72f3fa868a", true, div("/recipe", "error", "true", "false"), nil),
 				exact("c6e4535b725516550ca7a0ee4c69974799c2d2d10fed4e5f1ba6b71e43c5ba8a", pass(4)),
 			), cExpectation: "fallback", forest: "declined",
 		},
@@ -288,15 +288,15 @@ func cooklangNextWitnesses(t *testing.T) []cooklangNextWitness {
 			name: "pr793-recovered", source: []byte("---\nservings: 4\nemoji: 🥟\ntags: warm, fried, starter\n---\n\nServe hot.\n"),
 			sourceSHA: "8fefd1eb97742b1ef8349e9e51b5260c28295ed0d583d12eb5fbc04db579ce8a", cDigest: "3ae5ffba70cd0922976d24ed3e4d254cbb9d356639e8485b8b4b3abdc2667133",
 			routes: allRoutes(
-				divergent("896d9f79d941c3869dca7b855bae45738392d02519f0fbe3ac45cc2623fcfa2f", true, div("/recipe", "shape", "children=6", "children=7"), nil),
-				divergent("814240a8aff9c3e253b37ce1ff535ff2cd96510c6afea40680a270405699967f", true, div("/recipe", "shape", "children=5", "children=7"), pass(18)),
+				divergent("25665d13cdbac2ffa581c12e69d3407653f8d6a312fd87a675a9a21c706d1699", true, div("/recipe", "shape", "children=6", "children=7"), nil),
+				divergent("3966cf7552a8a9363bf0d578793be7ab87020bbcca40941fb522da8843b427cd", true, div("/recipe", "shape", "children=5", "children=7"), pass(18)),
 			), cExpectation: "fallback", forest: "declined",
 		},
 		{
 			name: "pr793-without-newline", source: []byte("Add @salt{1%tsp}."),
 			sourceSHA: "6d60ac3d4e9155e84ead7b1f9e751728dcebafe03d6561d913f3f18f58a14297", cDigest: "dd3692a1a0e9145af9f2d082126a1e798d60cbe74942427746d3f0e83bd31e1c",
 			routes: allRoutes(
-				divergent("f49ca1a85a0b2ee7ed7f07993d6bc8b103d66311f83d4a026e085cf2013a69ec", true, div("/recipe", "error", "true", "false"), nil),
+				divergent("ba559b1d32c08534e063112eb327c18bd1370faf2b2d671e4b323f17ca5b7665", true, div("/recipe", "error", "true", "false"), nil),
 				exact("dd3692a1a0e9145af9f2d082126a1e798d60cbe74942427746d3f0e83bd31e1c", pass(4)),
 			), cExpectation: "fallback", forest: "declined",
 		},
@@ -316,7 +316,7 @@ func cooklangNextWitnesses(t *testing.T) []cooklangNextWitness {
 			name: "malformed-frontmatter", source: []byte("---\nservings:\n---\nServe hot.\n"),
 			sourceSHA: "f2c2b1b02d9b3497d42c1cc53b94373974bd7b525af438d7dcf73391725f3615", cDigest: "b7b9d810d3d03756017e082edb333785c5fa196fe46a2f69d34191eeec6b9cf0",
 			routes: allRoutes(
-				divergent("21557aa2d5b8757be18c010fb673b8611171dcd7232784565b11113c741e3092", true, div("/recipe", "error", "true", "false"), nil),
+				divergent("1198320d78c60620a03746f300dbbf6341618d8b82005b5caa990b776e604ba8", true, div("/recipe", "error", "true", "false"), nil),
 				exact("b7b9d810d3d03756017e082edb333785c5fa196fe46a2f69d34191eeec6b9cf0", pass(11)),
 			), cExpectation: "fallback", forest: "declined",
 		},

@@ -7,6 +7,62 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### C parity program, round one: query semantics
+
+- Resolve node types in query patterns the way the C query compiler does:
+  only a visible or supertype named symbol is a node type. A hidden rule
+  name or an anonymous token in a node pattern is now a compile error, as in
+  C. The inferred tags queries use the same lookup, so a grammar whose
+  `call` is a keyword no longer receives a call pattern.
+- Compile a supertype node pattern such as `(expression)` into a wildcard
+  step that requires the supertype among the node's hidden ancestors, and
+  support the `super/sub` form with the C subtype check. Nodes record the
+  hidden supertype wrappers that reduction elided in a parallel arena table
+  (`Node` stays 104 bytes); the record survives final tree compaction and
+  incremental clones.
+- Port the C wildcard-root rule: a pattern whose root is a wildcard (a
+  supertype counts) and whose first child is a concrete node type never
+  tests the root. `(expression (identifier) @i)` matches every identifier
+  whose parent is not an ERROR node, as it does in C.
+- Wildcard steps never match ERROR nodes, and a top-level bare `_` pattern
+  compiles.
+- `TestParityQuerySemantics` runs 103 query cases on both engines: 101
+  agree, 2 carry a named divergence (an aliased subtype in the grammargen
+  supertype map, and a hidden wrapper lost inside a compact error region).
+  Highlight parity holds on 204 of 206 languages with no tolerance entry;
+  hare and luau, the last two tolerated languages, now match C.
+- `TestParitySupertypeMap` compares every grammar's ABI 15 supertype map
+  with the C runtime: 40 languages agree, 29 diverge. The board is
+  informational until the grammargen map is rebuilt.
+
+### C parity program, round two: recovery
+
+- Add `TestParityRecoveryBoard`: 78 malformed sources in eight languages
+  parsed on the C oracle and on every Go route, compared node by node. The
+  default route agrees on 36 (29 before this round); with the C recovery
+  port forced on for JavaScript, 46.
+- An absorbed leaf inside an ERROR region carries no error bit, as in C,
+  where only a missing leaf has an error cost. The region proof that used
+  to decide when a leaf could stay clean is gone.
+- The A0 dispatcher census receipts for cobol and wgsl, and the cooklang
+  witness digests, now pin the trees without leaf error bits. The cobol
+  `MBANK30.cpy` fixture matches the C oracle exactly.
+- Keyword capture follows `ts_parser__lex`: a keyword stays a keyword when
+  the parse state has an action for it or reserves it; otherwise the lexer
+  returns the word token. The reserved-word rule was inverted before.
+- A missing leaf takes an inherited field, as a relevant child does in C.
+- cpp, html, javascript, and julia stay on the legacy recovery path behind
+  measured witnesses recorded in `docs/c-parity-boards.md`.
+- An accepted GLR version stays out of the stack merge, as C removes it
+  from the version pool, so a recovery fork created at end of input still
+  competes as its own tree. An ERROR node keeps the fields a hidden child
+  gave its spliced children. The recovery board moves to 36 of 78.
+- The incremental invariant gate records its first two entries: python
+  `setup.py` byte 1241 (delete and replace) parses without an error bit on
+  both routes while C reports an ERROR, and the fresh and incremental
+  parses keep a different number of GLR stacks after the site. The C
+  keyword rule exposed the site; the divergence itself is older.
+
 ### Compact core cost, round two (issue #454)
 
 - Fuse the top-down parse-state replay into the postorder materialization
@@ -38,7 +94,7 @@ for tags and release notes while still in `0.x`.
   now fills one scratch view in place and visits it through a pointer, and
   it can skip subtrees that already own a public node
   (`VisitMaterializationPostorderPrebuilt`). The extraction changes no
-  tree, no work count, and no wall time.
+  tree and no work count.
 - Add the eager materialization lane (`GTS_COMPACT_EAGER=1`). After each
   single-header shift and each in-place reduction the scheduler builds the
   new subtree's public node at once, and it builds the subtrees a
@@ -56,14 +112,22 @@ for tags and release notes while still in `0.x`.
   dispatch just published: a fresh node is the latest node of its phase
   identity, so the probe would return the head the header already holds.
   The generic shift, the in-place reduction, and the corridor direct shift
-  all take the skip; the `Canonicalizations` work count still records the
-  barrier, so every work vector stays identical. Parents take their span
+  all take the skip when the header sits outside recovery isolation with no
+  pending freshness; the skip records the barrier, the header peak, and the
+  verifier binding, so every work vector and receipt stays identical. Parents take their span
   from the point index only when their visible children do not tile the
   record, and a reduction sums its pop payload work once.
-- Keep the C4 bytecode corridor opt-in. The 137 KiB full-parse comparison
-  was faster on 14 of 15 grammars, but a JavaScript recovery mutation changed
-  the C tree. Use `GTS_C4_CORRIDOR=1` only for controlled comparisons until
-  the recovery handoff matches C.
+- Turn the C4 bytecode corridor on by default (stage 3 of
+  spec.c4-bytecode-isa.v1). The 137 KiB full-parse comparison is faster on
+  14 of 15 grammars. A JavaScript recovery mutation once changed the C tree
+  with the lane on; the lane now stays off while a version-owned lexer
+  request is live, and the evidence for the default is: the runtime
+  equivalence test keeps every work count and digest equal; the exhaustive
+  curated structural parity suite (fresh, incremental, no-error) passes on
+  every grammar with the lane on; the pinned-oracle T3 recovery adjudication
+  in the harness container matches C on every html and JavaScript witness
+  with the lane on; and the JavaScript recovery mutation differentials pass
+  in both modes. `GTS_C4_CORRIDOR=0` turns the lane off.
 - Keep version-owned lexer requests on the generic dispatch path. The
   corridor reads a shared token and cannot publish an owned request.
 - Preserve separate canonicalization output buffers for single headers.

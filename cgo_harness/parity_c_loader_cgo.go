@@ -70,6 +70,7 @@ type parityLockEntry struct {
 
 type parityCRef struct {
 	lang   *sitter.Language
+	raw    unsafe.Pointer // the TSLanguage the shared object returned
 	handle unsafe.Pointer
 	soPath string
 }
@@ -1191,9 +1192,25 @@ func loadParitySharedLanguage(soPath, symbol string) (*parityCRef, error) {
 
 	return &parityCRef{
 		lang:   lang,
+		raw:    unsafe.Pointer(langPtr),
 		handle: handle,
 		soPath: soPath,
 	}, nil
+}
+
+// cOracleRawLanguage returns the TSLanguage pointer of a loaded C oracle
+// grammar for direct runtime calls the binding does not expose.
+func cOracleRawLanguage(name string) (unsafe.Pointer, error) {
+	if _, err := COracleLanguage(name); err != nil {
+		return nil, err
+	}
+	parityCRefState.mu.Lock()
+	ref := parityCRefState.refs[name]
+	parityCRefState.mu.Unlock()
+	if ref == nil || ref.raw == nil {
+		return nil, fmt.Errorf("C oracle %q has no loaded reference", name)
+	}
+	return ref.raw, nil
 }
 
 func parityDLError() string {

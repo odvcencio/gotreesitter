@@ -109,9 +109,14 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		if err != nil {
 			return err
 		}
-		// A freshly reduced prefix can be fragile after a deterministic fold.
-		// Its metadata remains intact; the graph checks below still require one
-		// exact lineage. This does not certify the borrowed candidate itself.
+		// Fragility of a freshly reduced prefix does not block reuse: C keys
+		// reuse on the version's state and on the candidate subtree's own
+		// metadata, never on how the prefix was reduced. A fragile terminal
+		// payload still blocks reuse; no production path marks a terminal
+		// fragile today (reductionParentForPath and markSubtreeFragile only
+		// touch reduce parents), so that clause is the rule the fixture in
+		// TestReusedSubtreeCleanExternalAncestorRequiresQuiescence encodes.
+		// The graph checks below still require one exact lineage.
 		if r.missing || (r.fragile && r.terminal) || r.symbol >= ErrorRegionSymbol-1 {
 			return errors.New("parser-core phase zero: reused head contains an unclean payload")
 		}

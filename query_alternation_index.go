@@ -34,7 +34,7 @@ func buildAlternationIndicesForSteps(steps []QueryStep) {
 			if len(alt.steps) > 0 {
 				buildAlternationIndicesForSteps(alt.steps)
 			}
-			if alt.isMissing {
+			if alt.isMissing || alt.supertype != 0 {
 				hasMissing = true
 			}
 			switch {
