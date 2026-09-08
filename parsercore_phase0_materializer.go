@@ -537,6 +537,23 @@ func (m *compactMaterializer) markFragile(node *Node, fragile bool) {
 	node.setFragileRight(true)
 }
 
+// setParentSpan pins a parent to its record's span. Parent construction
+// already copied the span and the points from the first and last visible
+// children, which is the record's span whenever the children tile it. Only
+// a parent whose visible children do not reach the record's edges (an
+// absorbed hidden edge child, or the exempt derivation root) needs the
+// point index.
+func (m *compactMaterializer) setParentSpan(parent *Node, view *core.MaterializationSubtreeView) {
+	if parent.startByte != view.StartByte {
+		parent.startByte = view.StartByte
+		parent.startPoint = m.points.point(view.StartByte)
+	}
+	if parent.endByte != view.EndByte {
+		parent.endByte = view.EndByte
+		parent.endPoint = m.points.point(view.EndByte)
+	}
+}
+
 func (m *compactMaterializer) makeParent(symbol Symbol, named bool, children []*Node, fields []FieldID, fieldSources []uint8, productionID uint16) *Node {
 	if m.incrementalReuse != nil {
 		return newParentNodeInArenaNoLinksWithFieldSources(m.arena, symbol, named, children, fields, fieldSources, productionID, true)
@@ -726,10 +743,7 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 			Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
 		)
 		parent.dynamicPrecedence += int32(view.DynamicPrecedence)
-		parent.startByte = view.StartByte
-		parent.endByte = view.EndByte
-		parent.startPoint = m.points.point(view.StartByte)
-		parent.endPoint = m.points.point(view.EndByte)
+		m.setParentSpan(parent, view)
 		parent.setExtra(view.Extra)
 		// The ERROR container's own HasError is always true,
 		// regardless of what populateParentNode's children-OR
@@ -795,10 +809,7 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 		Symbol(view.Symbol), named, children, fieldIDs, fieldSources, view.ProductionID,
 	)
 	parent.dynamicPrecedence += int32(view.DynamicPrecedence)
-	parent.startByte = view.StartByte
-	parent.endByte = view.EndByte
-	parent.startPoint = m.points.point(view.StartByte)
-	parent.endPoint = m.points.point(view.EndByte)
+	m.setParentSpan(parent, view)
 	parent.setExtra(view.Extra)
 	if subtreeHasError {
 		parent.setHasError(true)
