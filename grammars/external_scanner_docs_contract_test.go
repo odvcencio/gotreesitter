@@ -28,14 +28,25 @@ func TestExternalScannerDocumentationCertificationsMatchAttachedRuntimeRegistry(
 			continue
 		}
 
-		probe := &gts.Language{Name: name}
-		if !attachExternalScannerForLanguage(name, probe) || probe.ExternalScanner == nil {
-			t.Errorf("runtime external scanner %q did not attach through the embedded-loader path", name)
+		lang := entry.Language()
+		if lang == nil {
+			t.Errorf("runtime external scanner %q has no ordinary language", name)
 			continue
 		}
-		lang := entry.Language()
-		if lang == nil || lang.ExternalScanner == nil {
-			t.Errorf("runtime external scanner %q did not attach to its ordinary language", name)
+		probe := &gts.Language{Name: name, ExternalSymbols: lang.ExternalSymbols}
+		attached := attachExternalScannerForLanguage(name, probe)
+		if lang.ExternalScanner == nil {
+			_, languageBound := externalScannerRegistry[name].(languageBoundExternalScanner)
+			if !languageBound || len(lang.ExternalSymbols) != 0 || attached || probe.ExternalScanner != nil {
+				t.Errorf("runtime external scanner %q did not attach to its ordinary language", name)
+			}
+			if certifications[name] != "legacy grammar only" {
+				t.Errorf("scanner matrix must identify %q as legacy grammar only", name)
+			}
+			continue
+		}
+		if !attached || probe.ExternalScanner == nil {
+			t.Errorf("runtime external scanner %q did not attach through the embedded-loader path", name)
 			continue
 		}
 		want := externalScannerCertification(lang.ExternalScanner)
