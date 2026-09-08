@@ -350,7 +350,7 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 			name:             "cooklang_punctuation_recipe",
 			language:         grammars.CooklangLanguage,
 			source:           "Add @salt{1%tsp}.\n",
-			wantRawDigest:    "0e6880ec4902576c2a6de014424c3cba7eef99cdc5fd8fded8ceb6382a6df9cd",
+			wantRawDigest:    "cab8c8e6c3d19cd86bbed655fe0c9a17720997d0248381464cca2b72f3fa868a",
 			wantResultDigest: "c6e4535b725516550ca7a0ee4c69974799c2d2d10fed4e5f1ba6b71e43c5ba8a",
 			expectedSubpasses: []string{
 				"dispatch.cooklang",
@@ -370,8 +370,8 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 				"tags: warm, fried, starter\n" +
 				"---\n\n" +
 				"Serve hot.\n",
-			wantRawDigest:    "896d9f79d941c3869dca7b855bae45738392d02519f0fbe3ac45cc2623fcfa2f",
-			wantResultDigest: "814240a8aff9c3e253b37ce1ff535ff2cd96510c6afea40680a270405699967f",
+			wantRawDigest:    "25665d13cdbac2ffa581c12e69d3407653f8d6a312fd87a675a9a21c706d1699",
+			wantResultDigest: "3966cf7552a8a9363bf0d578793be7ab87020bbcca40941fb522da8843b427cd",
 			expectedSubpasses: []string{
 				"dispatch.cooklang",
 				"dispatch.cooklang.recovered-recipe",
@@ -385,7 +385,7 @@ func materializationSubpassProbes() []materializationSubpassProbe {
 			name:             "cooklang_recovered_recipe_without_newline",
 			language:         grammars.CooklangLanguage,
 			source:           "Add @salt{1%tsp}.",
-			wantRawDigest:    "f49ca1a85a0b2ee7ed7f07993d6bc8b103d66311f83d4a026e085cf2013a69ec",
+			wantRawDigest:    "ba559b1d32c08534e063112eb327c18bd1370faf2b2d671e4b323f17ca5b7665",
 			wantResultDigest: "dd3692a1a0e9145af9f2d082126a1e798d60cbe74942427746d3f0e83bd31e1c",
 			expectedSubpasses: []string{
 				"dispatch.cooklang",

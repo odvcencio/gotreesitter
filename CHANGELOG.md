@@ -44,6 +44,9 @@ for tags and release notes while still in `0.x`.
 - An absorbed leaf inside an ERROR region carries no error bit, as in C,
   where only a missing leaf has an error cost. The region proof that used
   to decide when a leaf could stay clean is gone.
+- The A0 dispatcher census receipts for cobol and wgsl, and the cooklang
+  witness digests, now pin the trees without leaf error bits. The cobol
+  `MBANK30.cpy` fixture matches the C oracle exactly.
 - Keyword capture follows `ts_parser__lex`: a keyword stays a keyword when
   the parse state has an action for it or reserves it; otherwise the lexer
   returns the word token. The reserved-word rule was inverted before.
