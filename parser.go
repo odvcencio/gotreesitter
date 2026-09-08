@@ -6021,6 +6021,16 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			noteStopDiagnosticStack(s)
 			packedVersionReductionSteps := 0
 		retryAction:
+			// Recovered versions re-lex captured keywords in their own state.
+			if s.cEverErrored && tok.isKeyword() && tok.Symbol == p.language.KeywordCaptureToken {
+				if reTok, ok := p.relexTokenForStackLexState(source, currentState, tok, lexicalReadSpan); ok {
+					if !stackRelexActive {
+						stackRelexRestoreTok = tok
+					}
+					stackRelexActive = true
+					tok = reTok
+				}
+			}
 			if packedVersionOrder {
 				// A transaction can append reduction versions and then remove its
 				// promoted source before this retry. Recompute both live C signals;
@@ -6367,7 +6377,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 							fmt.Printf("  stack[%d] C-STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState)
 						}
-						stackRelexRestoreTok = tok
+						if !stackRelexActive {
+							stackRelexRestoreTok = tok
+						}
 						stackRelexActive = true
 						tok = reTok
 						if actionTiming != nil {
@@ -6437,7 +6449,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 							fmt.Printf("  stack[%d] STACK-RELEX: sym=%d -> sym=%d [%d-%d] in state=%d\n",
 								si, tok.Symbol, reTok.Symbol, reTok.StartByte, reTok.EndByte, currentState)
 						}
-						stackRelexRestoreTok = tok
+						if !stackRelexActive {
+							stackRelexRestoreTok = tok
+						}
 						stackRelexActive = true
 						tok = reTok
 						if actionTiming != nil {
@@ -7027,6 +7041,13 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				s := &stacks[i]
 				if s.dead || s.accepted || s.shifted || s.cPaused || s.depth() == 0 {
 					continue
+				}
+				// Defer this frontier when a recovered version needs another token identity.
+				if s.cEverErrored && tok.isKeyword() && tok.Symbol == p.language.KeywordCaptureToken {
+					if _, ok := p.relexTokenForStackLexState(source, s.top().state, tok, lexicalReadSpan); ok {
+						terminalFrontierOK = false
+						break
+					}
 				}
 				actionIdx := p.contextualActionIndex(source, s.top().state, &tok)
 				if actionIdx == 0 || int(actionIdx) >= len(parseActions) {

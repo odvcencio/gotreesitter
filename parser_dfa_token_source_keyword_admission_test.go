@@ -34,6 +34,21 @@ func TestStackRelexPreservesKeywordAdmission(t *testing.T) {
 	}
 }
 
+func TestStackRelexPromotesKeywordWithValidCaptureAction(t *testing.T) {
+	lang := keywordAdoptionLanguage()
+	lang.TokenCount = 3
+	lang.StateCount = 1
+	lang.LargeStateCount = 1
+	lang.ParseTable = [][]uint16{{0, 1, 1}}
+	lang.ParseActions = []ParseActionEntry{{}, {Actions: []ParseAction{{Type: ParseActionShift}}}}
+	parser := NewParser(lang)
+	original := Token{Symbol: 1, EndByte: 2, EndPoint: Point{Column: 2}}
+	got, replaced := parser.relexTokenForStackLexState([]byte("if"), 0, original, nil)
+	if !replaced || got.Symbol != 2 || !got.isKeyword() {
+		t.Fatalf("keyword must take precedence over a valid capture action: %+v, replaced=%v", got, replaced)
+	}
+}
+
 func TestPromoteKeywordMatchesCStateAdmission(t *testing.T) {
 	for _, tc := range []struct {
 		name                                             string
