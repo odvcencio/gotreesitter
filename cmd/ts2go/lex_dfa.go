@@ -21,6 +21,7 @@ type SymbolID = gotreesitter.Symbol
 
 // LexState is one node in the extracted lexer DFA.
 type LexState struct {
+	eofResolved bool
 	Transitions []LexTransition
 	Accept      SymbolID
 	HasAccept   bool
@@ -137,6 +138,8 @@ func ExtractLexDFA(source string) (*LexDFA, error) {
 	kwStates, err := extractLexFunctionStates(source, "ts_lex_keywords", enumValues, charSets)
 	if err == nil {
 		dfa.KeywordStates = kwStates
+	} else if _, _, present := findFunctionBody(source, "ts_lex_keywords"); present {
+		return nil, err
 	}
 
 	if sym, ok := extractKeywordCaptureToken(source, enumValues); ok {
@@ -694,7 +697,40 @@ func extractLexFunctionStates(source, funcName string, enums map[string]int, cha
 	for id, st := range statesByID {
 		states[id] = st
 	}
+	if err := validateLexEOFChains(states, statesByID); err != nil {
+		return nil, fmt.Errorf("%s: %w", funcName, err)
+	}
 	return states, nil
+}
+
+// Validate EOF paths before conversion removes acceptance for symbol zero.
+func validateLexEOFChains(states []LexState, present map[int]LexState) error {
+	for start, state := range states {
+		if state.EOF < 0 {
+			continue
+		}
+		accepted := false
+		seen := make(map[int]bool)
+		for current := start; ; {
+			st, exists := present[current]
+			if !exists {
+				return fmt.Errorf("EOF chain from state %d reaches missing state %d", start, current)
+			}
+			if seen[current] {
+				return fmt.Errorf("EOF chain from state %d contains a cycle", start)
+			}
+			seen[current] = true
+			accepted = accepted || st.HasAccept
+			if st.EOF < 0 {
+				break
+			}
+			current = st.EOF
+		}
+		if !accepted {
+			return fmt.Errorf("EOF chain from state %d has no acceptance", start)
+		}
+	}
+	return nil
 }
 
 func findSwitchBody(body string) (string, bool) {
@@ -749,11 +785,16 @@ func parseLexCaseBlock(block string, enums map[string]int, charSets map[string][
 			st.Accept = SymbolID(sym)
 			st.HasAccept = true
 		case lexActionAdvance:
-			addTransition(&st, conditionResult{nonEOF: universeRanges()}, action.next, false)
+			addTransition(&st, conditionResult{nonEOF: universeRanges(), eof: true}, action.next, false)
 		case lexActionSkip:
-			addTransition(&st, conditionResult{nonEOF: universeRanges()}, action.next, true)
+			if !st.eofResolved {
+				return st, fmt.Errorf("unsupported SKIP at EOF")
+			}
+			addTransition(&st, conditionResult{nonEOF: universeRanges(), eof: true}, action.next, true)
 		case lexActionAdvanceMap:
-			st.Transitions = append(st.Transitions, action.mapTransitions...)
+			for _, tr := range action.mapTransitions {
+				addTransition(&st, conditionResult{nonEOF: []lexRange{{lo: tr.Lo, hi: tr.Hi}}, eof: tr.Lo <= 0 && tr.Hi >= 0}, tr.Next, tr.Skip)
+			}
 		case lexActionEndState:
 			return st, nil
 		}
@@ -789,7 +830,15 @@ func parseConditionalTransition(block string, start int, st *LexState, charSets 
 	case lexActionAdvance:
 		addTransition(st, cond, action.next, false)
 	case lexActionSkip:
+		if cond.eof && !st.eofResolved {
+			return start + 1, fmt.Errorf("unsupported SKIP at EOF")
+		}
 		addTransition(st, cond, action.next, true)
+	case lexActionEndState:
+		if len(cond.nonEOF) != 0 {
+			return start + 1, fmt.Errorf("unsupported END_STATE condition outside EOF")
+		}
+		addTransition(st, cond, -1, false)
 	default:
 		return start + 1, fmt.Errorf("unsupported conditional action %q", action.kind)
 	}
@@ -797,8 +846,9 @@ func parseConditionalTransition(block string, start int, st *LexState, charSets 
 }
 
 func addTransition(st *LexState, cond conditionResult, next int, skip bool) {
-	if cond.eof && st.EOF < 0 {
+	if cond.eof && !st.eofResolved {
 		st.EOF = next
+		st.eofResolved = true
 	}
 	for _, r := range cond.nonEOF {
 		st.Transitions = append(st.Transitions, LexTransition{
@@ -1229,7 +1279,7 @@ func (p *condParser) parseAtom() (condOperand, error) {
 					kind: operandCondition,
 					condition: conditionResult{
 						nonEOF: ranges,
-						eof:    false,
+						eof:    lexRangesContainZero(ranges),
 					},
 				}, nil
 			}
@@ -1303,7 +1353,7 @@ func (p *condParser) parseSetContains() (condOperand, error) {
 		kind: operandCondition,
 		condition: conditionResult{
 			nonEOF: ranges,
-			eof:    false,
+			eof:    lexRangesContainZero(ranges),
 		},
 	}, nil
 }
@@ -1330,7 +1380,7 @@ func compareOperands(left condOperand, op cTokenKind, right condOperand) (condit
 
 	return conditionResult{
 		nonEOF: ranges,
-		eof:    false,
+		eof:    lexRangesContainZero(ranges),
 	}, nil
 }
 
@@ -1604,4 +1654,14 @@ func isDigit(b byte) bool {
 
 func isHex(b byte) bool {
 	return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f') || (b >= 'A' && b <= 'F')
+}
+
+// C exposes a zero lookahead at EOF and for a source NUL byte.
+func lexRangesContainZero(ranges []lexRange) bool {
+	for _, r := range ranges {
+		if r.lo <= 0 && r.hi >= 0 {
+			return true
+		}
+	}
+	return false
 }
