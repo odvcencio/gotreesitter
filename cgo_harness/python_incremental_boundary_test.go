@@ -74,3 +74,33 @@ func TestPythonIncrementalBoundaryLockedC(t *testing.T) {
 		})
 	}
 }
+
+func TestPythonAdjacentIdentifiersLockedC(t *testing.T) {
+	lang := grammars.PythonLanguage()
+	cl, err := ParityCLanguage("python")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp := sitter.NewParser()
+	defer cp.Close()
+	if err := cp.SetLanguage(cl); err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range []string{"z return x\n", "z x\n"} {
+		t.Run(source, func(t *testing.T) {
+			p := gts.NewParser(lang)
+			p.SetAdmissionCandidateRoute(false)
+			tree, err := p.Parse([]byte(source))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			oracle := cp.Parse([]byte(source), nil)
+			if oracle == nil {
+				t.Fatal("nil C tree")
+			}
+			defer oracle.Close()
+			assertG18LockedCExact(t, "adjacent identifiers", tree, lang, oracle)
+		})
+	}
+}
