@@ -4826,13 +4826,7 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 	if reason := checkStop(); reason != ParseStopNone {
 		return stacks, false, tok, reason
 	}
-	relevant := p.compactPackedGSSVersionOrderEnabled() && len(stacks) > 1
-	for i := range stacks {
-		if stacks[i].cPaused || stacks[i].cRec != nil || stacks[i].cRecoverMissingGroup != nil {
-			relevant = true
-			break
-		}
-	}
+	relevant := p.cRecoveryCondenseRelevant(stacks)
 	if debugRecoveryCycleChecks && relevant {
 		for i := range stacks {
 			if reason := checkStop(); reason != ParseStopNone {

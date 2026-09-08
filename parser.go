@@ -1086,6 +1086,13 @@ func cRecoveryRelevantStack(stacks []glrStack) bool {
 	return false
 }
 
+// cRecoveryCondenseRelevant keeps recovered versions in cost competition.
+// Their error costs still matter after the active recovery markers clear.
+func (p *Parser) cRecoveryCondenseRelevant(stacks []glrStack) bool {
+	return cRecoveryRelevantStack(stacks) ||
+		(len(stacks) > 1 && (p.compactPackedGSSVersionOrderEnabled() || p.crecoveryCostCompetitionRelevant))
+}
+
 func (p *Parser) markCRecoveryCostCompetitionRelevant() {
 	if p == nil {
 		return
@@ -6933,12 +6940,12 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// Faithful C recovery port: ts_parser__condense_stack runs after each
 		// completed dispatch pass — prune versions by error cost, resume the
 		// best paused version (ts_parser__handle_error), remove the rest.
-		// Only touches passes where some stack is paused or absorbing, so
-		// clean parses are unaffected.
+		// Recovered versions keep competing after their recovery markers clear.
+		// Previously excluded clean parses remain outside this work.
 		condenseErrorCostEnabled := p.errorCostCompetitionEnabled()
 		condenseAnyReduced := anyReduced
 		condenseRelevant := condenseErrorCostEnabled &&
-			(cRecoveryRelevantStack(stacks) || (packedVersionOrder && len(stacks) > 1))
+			p.cRecoveryCondenseRelevant(stacks)
 		condenseEOFRecovery := condenseRelevant && tok.Symbol == 0 && tok.StartByte == tok.EndByte && !tok.NoLookahead
 		condenseShiftedRecovery := condenseRelevant && anyReduced && !tok.NoLookahead && allLiveUnacceptedStacksShifted(stacks)
 		condenseRan := false

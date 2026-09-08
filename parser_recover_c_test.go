@@ -4292,3 +4292,43 @@ func TestCRecoveryPauseResetsInheritedProgress(t *testing.T) {
 		t.Fatal("repeated pause retained progress or changed the source")
 	}
 }
+
+func TestCCondenseRecoveredVersionsAfterPauseProgress(t *testing.T) {
+	p := cRecoveryElectionTestParser()
+	clean := makeCCondenseMissingGroupTestStack(7, 40, false)
+	missing := makeCCondenseMissingGroupTestStack(7, 40, true)
+	for _, stack := range []*glrStack{&clean, &missing} {
+		p.cPauseRecovery(stack)
+		stack.cPaused = false
+	}
+	stacks := []glrStack{missing, clean}
+	if cRecoveryRelevantStack(stacks) || p.cRecoveryCondenseRelevant(stacks) {
+		t.Fatal("marker-free stacks enabled recovery without a history")
+	}
+	p.markCRecoveryCostCompetitionRelevant()
+	if !p.cRecoveryCondenseRelevant(stacks) {
+		t.Fatal("recovered versions lost cost competition")
+	}
+	for i := range stacks {
+		for j := 0; j < 20; j++ {
+			start := uint32(40 + j)
+			n := NewLeafNode(1, true, start, start+1, Point{Column: start}, Point{Column: start + 1})
+			stacks[i].push(7, n, nil, nil)
+		}
+		if got := p.cNodeCountSinceError(&stacks[i]); got != 20 {
+			t.Fatalf("post-pause progress=%d, want 20", got)
+		}
+	}
+	if p.cStackErrorCost(&stacks[0]) <= p.cStackErrorCost(&stacks[1]) {
+		t.Fatal("fixture lost its unequal recovery costs")
+	}
+	var nodes int
+	trackErrors := true
+	condensed, resumed, _, reason := p.cCondenseAndResume(stacks, nil, nil, Token{Symbol: 1}, &nodes, nil, nil, nil, nil, nil, &trackErrors)
+	if reason != ParseStopNone || resumed || len(condensed) != 1 {
+		t.Fatalf("recovered competition: versions=%d resumed=%v reason=%v", len(condensed), resumed, reason)
+	}
+	if p.cStackErrorCost(&condensed[0]) != 0 {
+		t.Fatal("recovered competition retained the costly version")
+	}
+}
