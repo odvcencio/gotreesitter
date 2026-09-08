@@ -355,17 +355,19 @@ func TestParseOperationBoundaryResetsRetainedRecoveryMemoSize(t *testing.T) {
 	}
 }
 
-// TestCAbsorbErrorRunLeafCarriesNoErrorBit: an absorbed unlexable-run leaf
-// has no error cost in C (ts_subtree_new_error builds a plain leaf), so the
-// ERROR container is the only erroneous node.
-func TestCAbsorbErrorRunLeafCarriesNoErrorBit(t *testing.T) {
+// Lexer-produced error runs follow C's leaf policy. Synthetic tokens retain errors.
+func TestCAbsorbErrorRunLeafPreservesProvenance(t *testing.T) {
 	for _, test := range []struct {
 		name           string
 		lexerProduced  bool
+		missing        bool
+		noLookahead    bool
 		wantChildError bool
 	}{
 		{name: "lexer-produced", lexerProduced: true},
-		{name: "unproven"},
+		{name: "unproven", wantChildError: true},
+		{name: "missing", lexerProduced: true, missing: true, wantChildError: true},
+		{name: "no-lookahead", lexerProduced: true, noLookahead: true, wantChildError: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			parser := cRecoveryElectionTestParser()
@@ -384,12 +386,14 @@ func TestCAbsorbErrorRunLeafCarriesNoErrorBit(t *testing.T) {
 			parser.cAbsorbTokenIntoError(
 				&stack,
 				Token{
-					Symbol:     errorSymbol,
-					StartByte:  10,
-					EndByte:    18,
-					StartPoint: Point{Column: 10},
-					EndPoint:   Point{Column: 18},
-					lexFlags:   lexFlagIf(test.lexerProduced, tokenFlagErrorModeLexed),
+					Symbol:      errorSymbol,
+					StartByte:   10,
+					EndByte:     18,
+					StartPoint:  Point{Column: 10},
+					EndPoint:    Point{Column: 18},
+					lexFlags:    lexFlagIf(test.lexerProduced, tokenFlagErrorModeLexed),
+					Missing:     test.missing,
+					NoLookahead: test.noLookahead,
 				},
 				&nodeCount,
 				arena,
@@ -410,6 +414,12 @@ func TestCAbsorbErrorRunLeafCarriesNoErrorBit(t *testing.T) {
 			}
 			if got := child.HasError(); got != test.wantChildError {
 				t.Fatalf("absorbed ERROR leaf HasError = %t, want %t", got, test.wantChildError)
+			}
+			if child.IsMissing() != test.missing {
+				t.Fatalf("absorbed leaf missing = %t, want %t", child.IsMissing(), test.missing)
+			}
+			if !openErr.HasError() {
+				t.Fatal("absorption cleared the container error")
 			}
 		})
 	}
