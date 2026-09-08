@@ -15,6 +15,7 @@ type materializationPostorderFrame struct {
 	state      StateID
 	preKnown   bool
 	stateKnown bool
+	prebuilt   bool
 }
 
 // MaterializationReplayTransition computes the parse state reached after one
@@ -106,12 +107,10 @@ func (c *Core) VisitMaterializationPostorderWithReplay(
 // VisitMaterializationPostorderPrebuilt is VisitMaterializationPostorderWithReplay
 // for a derivation the eager materializer has partly built. prebuilt reports
 // whether a subtree already owns a public node. The traversal does not
-// descend into a prebuilt subtree and does not visit it: the eager builder
-// visited it, and its children, when the scheduler pushed them. The traversal
-// still claims the subtree's ownership color, so a repeated reference is an
-// error, and it still advances the replay cursor past the subtree, so a
-// later sibling receives the same pre-goto state as in a full traversal. A
-// nil prebuilt visits every subtree.
+// visit prebuilt subtrees or their descendants. It still traverses them to
+// validate metadata and exclusive ownership across the complete accepted tree.
+// The traversal advances the replay cursor so later siblings receive the
+// same pre-goto state as in a full traversal. A nil prebuilt visits every subtree.
 func (c *Core) VisitMaterializationPostorderPrebuilt(
 	roots []SubtreeID,
 	poll func() error,
@@ -158,13 +157,8 @@ func (c *Core) VisitMaterializationPostorderPrebuilt(
 		if colors[root] != 0 {
 			return errors.New("parser-core phase zero: compact subtree has repeated public-tree ownership")
 		}
-		if prebuilt != nil && prebuilt(root) {
-			colors[root] = 2
-			visited++
-			continue
-		}
 		colors[root] = 1
-		rootFrame := materializationPostorderFrame{id: root, record: record}
+		rootFrame := materializationPostorderFrame{id: root, record: record, prebuilt: prebuilt != nil && prebuilt(root)}
 		if transition != nil {
 			state, known, err := transition(rootPre, c.materializationReplayViewForRecord(root, record))
 			if err != nil {
@@ -193,20 +187,9 @@ func (c *Core) VisitMaterializationPostorderPrebuilt(
 				}
 				switch colors[child] {
 				case 0:
-					if prebuilt != nil && prebuilt(child) {
-						colors[child] = 2
-						visited++
-						if transition != nil {
-							state, _, err := transition(top.cursor, c.materializationReplayViewForRecord(child, childRecord))
-							if err != nil {
-								return err
-							}
-							top.cursor = state
-						}
-						continue
-					}
 					colors[child] = 1
-					childFrame := materializationPostorderFrame{id: child, record: childRecord}
+					childFrame := materializationPostorderFrame{id: child, record: childRecord,
+						prebuilt: top.prebuilt || (prebuilt != nil && prebuilt(child))}
 					if transition != nil {
 						childPre := top.cursor
 						state, known, err := transition(childPre, c.materializationReplayViewForRecord(child, childRecord))
@@ -233,6 +216,12 @@ func (c *Core) VisitMaterializationPostorderPrebuilt(
 			}
 			if err := c.claimReusedOwnership(top.id, reusedOwners); err != nil {
 				return err
+			}
+			if top.prebuilt {
+				colors[top.id] = 2
+				visited++
+				scratch.frames = scratch.frames[:len(scratch.frames)-1]
+				continue
 			}
 			view := &scratch.view
 			c.fillMaterializationSubtreeView(top.id, record, view)
