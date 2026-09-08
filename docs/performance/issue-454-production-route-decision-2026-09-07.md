@@ -209,6 +209,37 @@ recorded state is not a drop-in replacement. Item 2 needs a decision on
 which state a node inside a merge should carry before it can land; the
 trial is not in the tree.
 
+## Result after this round
+
+The 137 KiB full parse, minimum of nine parses over two rounds, on the
+same host and load: the compact route at the start of this round (commit
+88d3f926), the compact route at the landed head (f4cf343b), and the
+production route in the landed binary.
+
+| Grammar | Start, ms | Now, ms | Production, ms | Now / start | Now / production |
+| --- | --- | --- | --- | --- | --- |
+| Go | 88.4 | 79.5 | 63.6 | 0.90 | 1.25 |
+| C | 69.3 | 64.2 | 99.7 | 0.93 | 0.64 |
+| hcl | 113.6 | 103.0 | 60.4 | 0.91 | 1.71 |
+| TypeScript | 71.8 | 62.9 | 44.3 | 0.88 | 1.42 |
+| JSON | 65.9 | 57.6 | 41.7 | 0.87 | 1.38 |
+| TOML | 60.8 | 53.6 | 33.6 | 0.88 | 1.59 |
+| Python | 130.1 | 113.5 | 157.2 | 0.87 | 0.72 |
+| Rust | 75.6 | 67.7 | 49.4 | 0.90 | 1.37 |
+| INI | 45.1 | 37.0 | 28.5 | 0.82 | 1.30 |
+| Scala | 111.4 | 101.3 | 62.4 | 0.91 | 1.63 |
+| CSS | 52.3 | 46.4 | 30.0 | 0.89 | 1.54 |
+| Make | 56.5 | 48.7 | 33.7 | 0.86 | 1.45 |
+| CMake | 141.4 | 120.0 | 83.6 | 0.85 | 1.44 |
+| Haskell | 86.2 | 80.8 | 77.8 | 0.94 | 1.04 |
+| diff | 31.6 | 25.6 | 17.6 | 0.81 | 1.45 |
+
+The compact route is 6 to 19 percent faster than at the start of the
+round on every grammar. It beats production on C and Python, matches it
+on Haskell, and runs 1.25 to 1.71 times production elsewhere. The
+remaining gap is the record graph the core writes and then reads again
+at materialization; program item 1 is the next step.
+
 ## Compact program
 
 The compact scheduler profile on Go at 137 KiB splits as: scheduler run 76
