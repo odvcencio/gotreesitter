@@ -6671,11 +6671,18 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 					continue
 				}
+				primaryActionIndex := 0
+				if p.errorCostCompetitionEnabled() {
+					primaryActionIndex = cShiftConflictPrimaryIndex(actions)
+				}
 				base := *s
 				if p.glrTrace {
 					p.traceParseFork(currentState, actions)
 				}
-				for ai := 1; ai < len(actions); ai++ {
+				for ai := 0; ai < len(actions); ai++ {
+					if ai == primaryActionIndex {
+						continue
+					}
 					fork := base.cloneWithScratch(&scratch.gss)
 					fork.branchOrder = allocBranchOrder()
 					if actions[ai].Type != ParseActionShift || p.guardRealShiftGap(source, &fork, tok) {
@@ -6724,23 +6731,23 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 				}
 				s = &stacks[si]
-				if actions[0].Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
+				if actions[primaryActionIndex].Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
 					continue
 				}
-				if actions[0].Type == ParseActionRecover && !p.guardRealTokenAttachmentGap(source, s, tok, "recover") {
+				if actions[primaryActionIndex].Type == ParseActionRecover && !p.guardRealTokenAttachmentGap(source, s, tok, "recover") {
 					continue
 				}
-				traceVisit(si, s, "conflict-original", 0, len(actions), actions[0])
-				setPendingTrace("conflict-original", si, 0, len(actions), actions[0])
-				p.noteStopActionDiagnostic("conflict-original", s, tok, actions[0], 0, len(actions), false, 0, 0, false)
+				traceVisit(si, s, "conflict-original", primaryActionIndex, len(actions), actions[primaryActionIndex])
+				setPendingTrace("conflict-original", si, primaryActionIndex, len(actions), actions[primaryActionIndex])
+				p.noteStopActionDiagnostic("conflict-original", s, tok, actions[primaryActionIndex], primaryActionIndex, len(actions), false, 0, 0, false)
 				actionBeforeState, actionBeforeByte, actionBeforeDepth := stackTraceState(s)
-				p.applyAction(source, s, actions[0], tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
+				p.applyAction(source, s, actions[primaryActionIndex], tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
 				p.noteStopActionResult(s)
 				actionAfterState, actionAfterByte, actionAfterDepth := stackTraceState(s)
 				traceAfterPrimary(si, s)
-				if actions[0].Type == ParseActionReduce {
+				if actions[primaryActionIndex].Type == ParseActionReduce {
 					p.completeConflictReduceFrontier(source, s, tok, conflictReduceFrontierSeed{
-						action:      actions[0],
+						action:      actions[primaryActionIndex],
 						beforeState: actionBeforeState,
 						beforeByte:  actionBeforeByte,
 						beforeDepth: actionBeforeDepth,
@@ -6751,8 +6758,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					traceFrontier(si, s, traceFrontierResult(actionAfterState, actionAfterByte, actionAfterDepth, s))
 				}
 				if p.glrTrace {
-					fmt.Printf("[GLR] orig[%d] after action[0]: st=%d dead=%v shift=%v dep=%d byte=%d\n",
-						si, s.top().state, s.dead, s.shifted, s.depth(), s.byteOffset)
+					fmt.Printf("[GLR] orig[%d] after action[%d]: st=%d dead=%v shift=%v dep=%d byte=%d\n",
+						si, primaryActionIndex, s.top().state, s.dead, s.shifted, s.depth(), s.byteOffset)
 				}
 				drainPendingForkStacks()
 				drainPendingFrontierForkStacks()
@@ -7941,6 +7948,22 @@ func (p *Parser) tryReuseCurrentParseSubtree(s *glrStack, tok Token, ts TokenSou
 	timing.reusedBytes += uint64(reusedBytes)
 	reuseState.markReused(stackEntryNode(s.top()), arena)
 	return nextTok, true
+}
+
+// cShiftConflictPrimaryIndex preserves C's existing version for a terminal shift.
+// Reductions before that shift create versions in table order.
+// Reduction-only cells require result-dependent selection and keep their existing path.
+func cShiftConflictPrimaryIndex(actions []ParseAction) int {
+	last := len(actions) - 1
+	if last < 1 || actions[last].Type != ParseActionShift || actions[last].Repetition {
+		return 0
+	}
+	for _, action := range actions[:last] {
+		if action.Type != ParseActionReduce {
+			return 0
+		}
+	}
+	return last
 }
 
 func (p *Parser) traceParseIteration(iter int, tok Token, stacks []glrStack, needToken bool) {
