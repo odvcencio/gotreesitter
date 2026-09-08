@@ -13,6 +13,7 @@ import (
 // ExtractedGrammar holds all data extracted from a tree-sitter parser.c file.
 type ExtractedGrammar struct {
 	Name               string
+	LanguageVersion    int
 	StateCount         int
 	LargeStateCount    int
 	SymbolCount        int
@@ -269,6 +270,7 @@ func extractFieldMaps(source string, g *ExtractedGrammar) error {
 // extractConstants finds #define constants in the parser.c source.
 func extractConstants(source string, g *ExtractedGrammar) error {
 	defs := map[string]*int{
+		"LANGUAGE_VERSION":          &g.LanguageVersion,
 		"STATE_COUNT":               &g.StateCount,
 		"LARGE_STATE_COUNT":         &g.LargeStateCount,
 		"SYMBOL_COUNT":              &g.SymbolCount,
@@ -1836,23 +1838,40 @@ func extractLexStates(source string, g *ExtractedGrammar) error {
 // Returns nil (not error) if the array is not found (ABI < 15).
 func extractReservedWords(source string, g *ExtractedGrammar) error {
 	// Find the array declaration to extract dimensions.
-	dimRe := regexp.MustCompile(`ts_reserved_words\[(\d+)\]\[(\d+)\]`)
+	dimRe := regexp.MustCompile(`ts_reserved_words\s*\[\s*(\w+)\s*\]\s*\[\s*(\w+)\s*\]`)
 	dm := dimRe.FindStringSubmatch(source)
 	if dm == nil {
+		for _, mode := range g.LexModes {
+			if mode.ReservedWordSetID != 0 {
+				return errors.New("reserved-word set reference has no table dimensions")
+			}
+		}
 		// Not an ABI 15 grammar — gracefully skip.
 		return nil
 	}
-	setCount, _ := strconv.Atoi(dm[1])
-	setSize, _ := strconv.Atoi(dm[2])
-	if setCount == 0 || setSize == 0 {
-		return nil
+	constants := extractEnum(source)
+	for _, match := range regexp.MustCompile(`(?m)^\s*#define\s+(\w+)\s+(\d+)\s*$`).FindAllStringSubmatch(source, -1) {
+		value, err := strconv.Atoi(match[2])
+		if err == nil {
+			constants[match[1]] = value
+		}
+	}
+	setCount, countOK := resolveIndexedName(dm[1], constants)
+	setSize, sizeOK := resolveIndexedName(dm[2], constants)
+	if !countOK || !sizeOK || setCount <= 0 || setSize <= 0 ||
+		setCount > 65536 || setSize > 65535 || setCount > (1<<24)/setSize {
+		return fmt.Errorf("invalid reserved-word dimensions %s by %s", dm[1], dm[2])
 	}
 	g.MaxReservedWordSetSize = setSize
+	for _, mode := range g.LexModes {
+		if mode.ReservedWordSetID < 0 || mode.ReservedWordSetID >= setCount {
+			return fmt.Errorf("reserved-word mode index %d exceeds %d sets", mode.ReservedWordSetID, setCount)
+		}
+	}
 
 	body, err := findArrayBody(source, "ts_reserved_words")
 	if err != nil {
-		// Array declared but body not found — skip gracefully.
-		return nil
+		return fmt.Errorf("reserved-word table: %w", err)
 	}
 
 	// Allocate flat array: setCount * setSize, zero-filled.
@@ -1866,7 +1885,7 @@ func extractReservedWords(source string, g *ExtractedGrammar) error {
 		name := body[loc[2]:loc[3]]
 		setIdx, ok := resolveIndexedName(name, g.enumValues)
 		if !ok || setIdx < 0 || setIdx >= setCount {
-			continue
+			return fmt.Errorf("reserved-word set index %s exceeds %d sets", name, setCount)
 		}
 
 		// Find matching closing brace.
@@ -1892,11 +1911,11 @@ func extractReservedWords(source string, g *ExtractedGrammar) error {
 		offset := setIdx * setSize
 		for i, t := range toks {
 			if i >= setSize {
-				break
+				return fmt.Errorf("reserved-word set %d exceeds stride %d", setIdx, setSize)
 			}
 			sym, ok := resolveIndexedName(t[1], g.enumValues)
-			if !ok {
-				continue
+			if !ok || sym < 0 || sym > 65535 {
+				return fmt.Errorf("invalid reserved-word symbol %s", t[1])
 			}
 			flat[offset+i] = uint16(sym)
 		}
