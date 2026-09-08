@@ -38,6 +38,7 @@ func TestGoCompactIncludedRangesLockedC(t *testing.T) {
 		{"short", "package p\n!excluded", [][2]int{{0, 10}}},
 		{"disjoint", "package p\n!excluded!\nvar x = 1\n", [][2]int{{0, 10}, {21, 31}}},
 		{"offset", "!!!package p\n!excluded", [][2]int{{3, 13}}},
+		{"excluded_close_angle", "package p\nvar x = a >> b\n", [][2]int{{0, 21}, {22, 25}}},
 		{"reset", "package q\n", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

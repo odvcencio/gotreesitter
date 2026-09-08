@@ -2431,12 +2431,8 @@ func tokenMaybeContextualCloseAngle(lang *Language, tok *Token) bool {
 // prefix. The check is symbol-shape based (an adjacent run of `>` bytes),
 // not tied to any one language, so both the production stack route and the
 // compact admission route can share it. included and probe let the
-// production route reuse its own included-range handling and scratch
-// lexer; the compact callers (parsercore_c4_vm.go, parsercore_phase0_driver.go)
-// always pass included=nil and their own scratch lexer instead, because the
-// compact route declines any included-range parse outright before it ever
-// reaches here (admission_switch.go:208's own eligibility check) — there is
-// no included-range case for a compact caller to reuse.
+// caller reuse its configured ranges and scratch lexer. Compact probes
+// use the ranges bound to their current scheduler session.
 func deferContextualCloseAngleAction(lang *Language, source []byte, state StateID, tok *Token, included []Range, probe *Lexer, lexicalReadSpan *uint32) bool {
 	// This runs on every action cell. Reject the common case from the source
 	// bytes before the symbol-name compare and before registering the defer.

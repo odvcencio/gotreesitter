@@ -209,7 +209,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchCorridor() (progressed bo
 				s.tokenSource.relexProbeLexer = probe
 			}
 			if deferContextualCloseAngleAction(
-				s.tokenSource.language, s.tokenSource.lexer.source, corridorState, &s.token, nil, probe,
+				s.tokenSource.language, s.tokenSource.lexer.source, corridorState, &s.token, s.options.includedRanges, probe,
 				&s.tokenSource.tokenInvariantMaxReadSpan,
 			) {
 				return progressed, nil

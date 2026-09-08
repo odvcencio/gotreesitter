@@ -4881,6 +4881,7 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		immediateTokens: lang.ImmediateTokens,
 		zeroWidthTokens: lang.ZeroWidthTokens,
 	}
+	probe.setIncludedRanges(s.options.includedRanges)
 	relexed, ok := probe.scan(uint32(lexState), probe.pos, probe.row, probe.col)
 	recordTokenInvariantReadSpan(&s.tokenSource.tokenInvariantMaxReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
 	if !ok || relexed.Symbol == 0 {
@@ -9058,7 +9059,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				s.tokenSource.relexProbeLexer = probe
 			}
 			if deferContextualCloseAngleAction(
-				s.tokenSource.language, s.tokenSource.lexer.source, StateID(boundary.State()), &cellToken, nil, probe,
+				s.tokenSource.language, s.tokenSource.lexer.source, StateID(boundary.State()), &cellToken, s.options.includedRanges, probe,
 				&s.tokenSource.tokenInvariantMaxReadSpan,
 			) {
 				workCountRecordResolvedActionCell(0)
@@ -9901,6 +9902,7 @@ func (s *diagnosticParserCoreGenericScheduler) s3ErrorModeRelex(startByte uint32
 		errorRunLexState:    ls,
 		hasErrorRunLexState: true,
 	}
+	lx.setIncludedRanges(s.options.includedRanges)
 	relexed := lx.NextWithErrorRuns(ls)
 	if relexed.Symbol == 0 && relexed.StartByte == relexed.EndByte {
 		return Token{}, false
