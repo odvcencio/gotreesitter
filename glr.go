@@ -3574,8 +3574,9 @@ func gssMainCanMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	if a.top().state != b.top().state || a.byteOffset != b.byteOffset {
 		return false
 	}
-	return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
-		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
+	return (gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
+		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)) ||
+		gssRecoveryStacksCanMerge(scratch, a, b)
 }
 
 // gssStackCleanZeroErrorAllLinksWithScratch applies the GSS clean-zero gate
@@ -3619,6 +3620,7 @@ func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, p
 	}
 	clean := gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
 		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
+	clean = clean || gssRecoveryStacksCanMerge(scratch, a, b)
 	workCountRecordGSSCleanReject(workCountParserFromMergeScratch(scratch), phase, a, b, clean)
 	return clean
 }
@@ -3649,8 +3651,8 @@ func gssNodesCanMergeWithScratch(scratch *glrMergeScratch, a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
-		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b) {
+	if (!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
+		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b)) && !gssRecoveryCostsEqual(scratch, nil, a, b) {
 		return false
 	}
 	aOffset, aOK := gssNodeUniformByteOffset(a, make(map[*gssNode]bool))
@@ -4157,7 +4159,7 @@ func stackEntryNodesEquivalentIgnoringDynamic(a, b *Node) bool {
 
 func setGSSMainLink(n *gssNode, i int, prev *gssNode, entry stackEntry) {
 	if i == 0 {
-		// Recovery-prefix aggregates depend only on the link-0 predecessor and
+		// Recovery-prefix aggregates depend on each predecessor and
 		// the full-Node payload's error-cost / visible-count contribution. A
 		// same-predecessor rewrite of the exact same Node (or of two compact
 		// entries, which both contribute zero here) changes parser metadata but
@@ -4685,7 +4687,7 @@ func (p *gssMainPreflight) nodesCanMerge(a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if !p.cleanZeroErrorAllLinks(a) || !p.cleanZeroErrorAllLinks(b) {
+	if (!p.cleanZeroErrorAllLinks(a) || !p.cleanZeroErrorAllLinks(b)) && !gssRecoveryCostsEqual(p.scratch, p, a, b) {
 		return false
 	}
 	aOffset, aOK := p.uniformByteOffset(a, p.acquireOffsetSeen())

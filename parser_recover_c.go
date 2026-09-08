@@ -2269,22 +2269,16 @@ func (p *Parser) cNodeErrorCostAndVisibleSubtreeCount(n *Node) (uint32, int) {
 // dominates error-region parses even with warm per-node memos.
 //
 // The on-node aggregates below (gssNode.aggGen/aggCost/aggVis/aggValid)
-// restore C's shape: per gssNode, the cumulative aggregates of the prev-chain
-// prefix root..node inclusive. gssNode prev/entry links are write-once at
-// allocation except setGSSMainLink (link-0 rewrite), and node payload
-// contents mutate only through nodeBumpEquivVersion call sites; both choke
-// points invalidate gssPrefixAggGen whenever recovery contributions can
-// change, so an aggregate with a matching generation is exactly the full-walk
-// answer. Metadata-only node changes and identity-preserving link rewrites do
-// not affect these aggregates. allocNode zeroes the gens on every (possibly
+// retain the primary path's error cost and the maximum visible count across paths.
+// Link additions, link rewrites, and published payload changes invalidate the generation.
+// Metadata-only changes and identity-preserving rewrites keep the cache valid. allocNode zeroes the gens on every (possibly
 // slab-recycled) node and the generation counter starts at 1, so stale or
 // fresh nodes can never validate.
 // ---------------------------------------------------------------------------
 
 // gssPrefixAggGen is the global invalidation generation for the GSS prefix
 // aggregates stored on gssNode (aggGen/aggCost/aggVis/aggValid). Bumped by
-// recovery-relevant nodeBumpEquivVersion mutations (tree.go) and link-0
-// rewrites that change the predecessor or full-Node payload (glr.go). Global
+// recovery-relevant payload mutations, link additions, and link rewrites. Global
 // rather than per-parser because nodeBumpEquivVersion has no parser in scope;
 // cross-parser over-invalidation only costs a rebuild, never staleness.
 // Initialized to 1 so the zero value of gssNode.aggGen (fresh or slab-cleared
@@ -2309,40 +2303,61 @@ func resetGSSPrefixPath(path *[]*gssNode) {
 	*path = (*path)[:0]
 }
 
-// cStackPrefixAgg returns the cumulative (error cost, visible subtree count)
-// of head's prev chain, filling the on-node aggregates bottom-up from the
-// deepest still-valid node — O(new or invalidated suffix), O(1) steady-state.
+// cStackPrefixAgg retains the primary error cost and the maximum visible count.
+// It fills every predecessor before its parent and reuses the existing path scratch.
 func (p *Parser) cStackPrefixAgg(head *gssNode) (uint32, int) {
-	gen := gssPrefixAggGen.Load()
-	var cost uint32
-	var vis int32
-	path := p.cPrefixPath[:0]
-	gn := head
-	for gn != nil {
-		if gn.aggGen == gen && gn.aggValid&(gssAggCostValid|gssAggVisValid) == (gssAggCostValid|gssAggVisValid) {
-			cost, vis = gn.aggCost, gn.aggVis
-			break
-		}
-		path = append(path, gn)
-		gn = gn.prev
+	if head == nil {
+		return 0, 0
 	}
-	for i := len(path) - 1; i >= 0; i-- {
-		gn := path[i]
-		if n := stackEntryNode(gn.entry); n != nil {
-			nodeCost, nodeVisible := p.cNodeErrorCostAndVisibleSubtreeCount(n)
-			cost += nodeCost
-			vis += int32(nodeVisible)
+	gen := gssPrefixAggGen.Load()
+	const valid = gssAggCostValid | gssAggVisValid
+	path := append(p.cPrefixPath[:0], head)
+	for len(path) > 0 {
+		node := path[len(path)-1]
+		if node.aggGen == gen && node.aggValid&valid == valid {
+			path[len(path)-1] = nil
+			path = path[:len(path)-1]
+			continue
 		}
-		if gn.aggGen != gen {
-			gn.cleanZeroState = gssCleanZeroUnknown
+		pending := false
+		for i := 0; i < node.linkCount(); i++ {
+			prev, _ := node.link(i)
+			if prev != nil && (prev.aggGen != gen || prev.aggValid&valid != valid) {
+				path = append(path, prev)
+				pending = true
+				break
+			}
 		}
-		gn.aggGen = gen
-		gn.aggValid = gssAggCostValid | gssAggVisValid
-		gn.aggCost = cost
-		gn.aggVis = vis
+		if pending {
+			continue
+		}
+		var cost uint32
+		var visible int32
+		for i := 0; i < node.linkCount(); i++ {
+			prev, entry := node.link(i)
+			var prefixCost uint32
+			var prefixVisible int32
+			if prev != nil {
+				prefixCost, prefixVisible = prev.aggCost, prev.aggVis
+			}
+			ownCost, ownVisible := p.cNodeErrorCostAndVisibleSubtreeCount(stackEntryNode(entry))
+			if i == 0 {
+				cost = prefixCost + ownCost
+			}
+			if count := prefixVisible + int32(ownVisible); count > visible {
+				visible = count
+			}
+		}
+		if node.aggGen != gen {
+			node.cleanZeroState = gssCleanZeroUnknown
+		}
+		node.aggGen, node.aggValid = gen, valid
+		node.aggCost, node.aggVis = cost, visible
+		path[len(path)-1] = nil
+		path = path[:len(path)-1]
 	}
 	p.cPrefixPath = path
-	return cost, int(vis)
+	return head.aggCost, int(head.aggVis)
 }
 
 // cStackPrefixCostForMerge is the merge-scratch twin of cStackPrefixAgg. It
@@ -2404,30 +2419,37 @@ func (p *Parser) debugCheckStackPrefixAgg(head *gssNode, gotCost uint32, gotVis 
 	debugCheckStackPrefixVisLang(p.language, head, gotVis, "parser")
 }
 
-// debugCheckStackPrefixVisLang is the visible-subtree-count twin of
-// debugCheckStackPrefixCostLang: it re-derives the cumulative visible node
-// count of head's prev chain without any cache (via the uncached per-node walk
-// so a poisoned cNodeMemoCache cannot mask itself) and compares it against the
-// memoized aggVis the same way the cost check guards aggCost. A divergence here
-// means cStackCumulativeNodeCount / cNodeCountSinceError — and thus the php
-// baseline gate — would read a corrupt count.
-// (GOT_DEBUG_RECOVERY_INCREMENTAL_COST=1 only.)
+// debugCheckStackPrefixVisLang checks the graph maximum without the production cache.
 func debugCheckStackPrefixVisLang(lang *Language, head *gssNode, got int, label string) {
 	debugRecoveryIncrementalCostChecks++
-	var want int
-	for gn := head; gn != nil; gn = gn.prev {
-		if n := stackEntryNode(gn.entry); n != nil {
-			want += cNodeVisibleSubtreeCountUncachedLang(lang, n)
+	memo := make(map[*gssNode]int)
+	var count func(*gssNode) int
+	count = func(node *gssNode) int {
+		if node == nil {
+			return 0
 		}
+		if value, ok := memo[node]; ok {
+			return value
+		}
+		maximum := 0
+		for i := 0; i < node.linkCount(); i++ {
+			prev, entry := node.link(i)
+			value := count(prev) + cNodeVisibleSubtreeCountUncachedLang(lang, stackEntryNode(entry))
+			if value > maximum {
+				maximum = value
+			}
+		}
+		memo[node] = maximum
+		return maximum
 	}
+	want := count(head)
 	if want == got {
 		return
 	}
 	debugRecoveryIncrementalCostDivergences++
 	if debugRecoveryIncrementalCostReportsLeft > 0 {
 		debugRecoveryIncrementalCostReportsLeft--
-		fmt.Fprintf(os.Stderr,
-			"RECOVERY-PREFIX-AGG-VIS divergence (%s): head=%p cached=%d full=%d\n", label, head, got, want)
+		fmt.Fprintf(os.Stderr, "RECOVERY-PREFIX-AGG-VIS divergence (%s): head=%p cached=%d full=%d\n", label, head, got, want)
 	}
 }
 
@@ -2556,12 +2578,19 @@ func cStackErrorCostForMergeWithScratch(scratch *glrMergeScratch, lang *Language
 }
 
 // cStackCumulativeNodeCount mirrors C StackNode.node_count at the stack head:
-// the sum of stack__subtree_node_count over every subtree on the stack. The
-// engine's open ERROR region node plays the role of the C error_repeat chain
-// (its own visible +1 matches the chain's single error_repeat bonus).
+// Use the maximum visible subtree count across all graph paths.
+// The open ERROR region contributes the single error_repeat bonus.
 func (p *Parser) cStackCumulativeNodeCount(s *glrStack) int {
 	if s == nil {
 		return 0
+	}
+	// A materialized entries slice describes only the primary graph path.
+	if p != nil && s.gss.head != nil {
+		cost, count := p.cStackPrefixAgg(s.gss.head)
+		if debugRecoveryIncrementalCost {
+			p.debugCheckStackPrefixAgg(s.gss.head, cost, count)
+		}
+		return count
 	}
 	count := 0
 	if len(s.entries) > 0 {
@@ -2573,16 +2602,6 @@ func (p *Parser) cStackCumulativeNodeCount(s *glrStack) int {
 					count += p.cNodeVisibleSubtreeCount(n)
 				}
 			}
-		}
-		return count
-	}
-	if p != nil && len(p.cNodeMemoCache) != 0 && s.gss.head != nil {
-		var cost uint32
-		cost, count = p.cStackPrefixAgg(s.gss.head)
-		if debugRecoveryIncrementalCost {
-			// Verify the memoized aggVis (this cumulative-count path is where the
-			// php baseline gate ultimately reads it) against a full uncached walk.
-			p.debugCheckStackPrefixAgg(s.gss.head, cost, count)
 		}
 		return count
 	}

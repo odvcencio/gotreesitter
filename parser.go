@@ -5980,7 +5980,8 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 		// never handed a token it cannot use.
 		stackRelexRestoreTok := Token{}
 		stackRelexActive := false
-		packedVersionOrder := p.compactPackedGSSVersionOrderEnabled()
+		// Recovery reductions must merge their graph paths before promoting a result.
+		packedVersionOrder := p.compactPackedGSSVersionOrderEnabled() || (p.errorCostCompetitionEnabled() && p.crecoveryCostCompetitionRelevant)
 		for si := 0; si < numStacks || (packedVersionOrder && si < len(stacks)); si++ {
 			s := &stacks[si]
 			if stackRelexActive {
