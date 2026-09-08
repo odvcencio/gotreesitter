@@ -4315,6 +4315,7 @@ func cSortRecoverMembersByGroupOrder(stacks []glrStack, members []int) {
 func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) {
 	entries := cStackEntriesTopFirst(v, gssScratch)
 	children := make([]*Node, 0, len(entries))
+	var fields []FieldID
 	openErr := (*Node)(nil)
 	if v.cRec != nil {
 		openErr = v.cRec.openErr
@@ -4335,13 +4336,15 @@ func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena
 		if n == openErr {
 			// Open-region children were visible-spliced at absorb time.
 			children = append(children, n.children...)
+			fields = appendZeroFields(fields, len(n.children))
 			continue
 		}
 		// C parity: recover_eof/accept keep closed ERROR subtrees as-is;
 		// only invisible (hidden-symbol) subtrees flatten.
-		children = p.cAppendVisibleSplice(children, n)
+		children, fields = p.cAppendVisibleSpliceWithFields(children, fields, n, 0)
 	}
 	root := p.newRecoveryParentNodeInArena(arena, errorSymbol, true, children, 0)
+	setRecoveryFieldMetadata(root, fields)
 	if rawFirst != nil {
 		cSetNodeSpan(root, rawFirst.startByte, rawLast.endByte, rawFirst.startPoint, rawLast.endPoint)
 	} else {
@@ -4496,6 +4499,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 	// engine's reduce does. The raw popped extent pins the ERROR span (C
 	// error regions cover invisible subtrees too).
 	children := make([]*Node, 0, len(wrapped)+2)
+	var fields []FieldID
 	openErr := (*cRecoverState)(nil)
 	if v.cRec != nil {
 		openErr = v.cRec
@@ -4509,12 +4513,13 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 		if openErr != nil && n == openErr.openErr {
 			// Open-region children were visible-spliced at absorb time.
 			children = append(children, n.children...)
+			fields = appendZeroFields(fields, len(n.children))
 			continue
 		}
 		// C parity: popped closed subtrees (ERROR carriers included) keep
 		// their identity inside the new ERROR; only invisible subtrees
 		// flatten.
-		children = p.cAppendVisibleSplice(children, n)
+		children, fields = p.cAppendVisibleSpliceWithFields(children, fields, n, 0)
 	}
 
 	fork := v.cloneWithScratch(gssScratch)
@@ -4545,6 +4550,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 		prev := top
 		if fork.truncate(fork.depth() - 1) {
 			children = append(append(make([]*Node, 0, len(prev.children)+len(children)), prev.children...), children...)
+			fields = append(appendZeroFields(nil, len(prev.children)), fields...)
 			if rawFirst == nil {
 				rawLast = prev
 			}
@@ -4554,6 +4560,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 
 	if rawFirst != nil {
 		errNode := p.newRecoveryParentNodeInArena(arena, errorSymbol, true, children, 0)
+		setRecoveryFieldMetadata(errNode, fields)
 		cSetNodeSpan(errNode, rawFirst.startByte, rawLast.endByte, rawFirst.startPoint, rawLast.endPoint)
 		errNode.setHasError(true)
 		errNode.setExtra(true)
@@ -5580,4 +5587,49 @@ func (p *Parser) stateHasActionForSymbol(state StateID, sym Symbol) bool {
 		return false
 	}
 	return len(parseActions[idx].Actions) > 0
+}
+
+// cAppendVisibleSpliceWithFields splices like cAppendVisibleSplice and
+// records the field each spliced child carries: the field its hidden parent
+// gives it, or the field the hidden parent itself carried when the child has
+// none. This is what ts_node_field_name_for_child reports when it descends
+// through a hidden child of an ERROR node.
+func (p *Parser) cAppendVisibleSpliceWithFields(dst []*Node, fields []FieldID, n *Node, inherited FieldID) ([]*Node, []FieldID) {
+	if n == nil {
+		return dst, fields
+	}
+	if n.symbol == errorSymbol || n.isMissing() || p.cSymbolVisible(n.symbol) {
+		return append(dst, n), append(fields, inherited)
+	}
+	ids := n.fieldIDs()
+	for i, c := range n.children {
+		field := inherited
+		if i < len(ids) && ids[i] != 0 {
+			field = ids[i]
+		}
+		dst, fields = p.cAppendVisibleSpliceWithFields(dst, fields, c, field)
+	}
+	return dst, fields
+}
+
+// appendZeroFields pads a field list for children that carry no field.
+func appendZeroFields(fields []FieldID, n int) []FieldID {
+	for i := 0; i < n; i++ {
+		fields = append(fields, 0)
+	}
+	return fields
+}
+
+// setRecoveryFieldMetadata attaches the spliced fields to a recovery-built
+// ERROR node when any child carries one.
+func setRecoveryFieldMetadata(n *Node, fields []FieldID) {
+	if n == nil || len(fields) != len(n.children) {
+		return
+	}
+	for _, f := range fields {
+		if f != 0 {
+			n.setFieldMetadata(fields, nil)
+			return
+		}
+	}
 }

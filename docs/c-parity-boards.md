@@ -75,8 +75,8 @@ the trees node by node. `GTS_PARITY_RECOVERY_STRICT=1` fails the test on any
 divergence of the default route. The compact route delegates recovery to the
 production port on every case, so the three route columns agree.
 
-Counts on 2026-09-08: 78 cases, 35 agree on the default route (29 before
-this round). With `GOT_C_RECOVERY=all`, 45 agree; the difference is
+Counts on 2026-09-08: 78 cases, 36 agree on the default route (29 before
+this round). With `GOT_C_RECOVERY=all`, 46 agree; the difference is
 JavaScript, which stays on the legacy path (see below).
 
 | Language | Cases | Agree |
@@ -85,7 +85,7 @@ JavaScript, which stays on the legacy path (see below).
 | go | 10 | 6 |
 | java | 8 | 5 |
 | javascript | 16 | 1 (11 with the C recovery port) |
-| json | 6 | 5 |
+| json | 6 | 6 |
 | python | 14 | 5 |
 | rust | 10 | 5 |
 | typescript | 6 | 3 |
@@ -102,6 +102,14 @@ Rules the port now shares with C:
 - A missing leaf is a relevant child and takes an inherited field
   (`ts_node_field_name_for_child` skips extras only).
 - html joins the languages that run the C recovery port by default.
+- An accepted version stays out of the stack merge. C removes an accepted
+  version from the pool, so a strategy-1 fork that reaches the same state
+  and position at end of input still acts on the end symbol and competes
+  as its own tree (json `[1, 2,` keeps the `extra` bit on its ERROR).
+- An ERROR node keeps the field a hidden child gave its spliced children
+  (`ts_node_field_name_for_child` descends through hidden nodes), so c
+  `int f( { return 1; }` reports `type:` on the primitive type inside the
+  ERROR.
 
 Languages that stay on the legacy recovery path, each behind a measured
 witness:
@@ -114,23 +122,36 @@ witness:
 
 Divergence classes that remain, in burn-down order:
 
-1. The result root builder (`parser_result_root_build.go`) rebuilds the
-   root with its own extra-folding rules. C's accept keeps the topmost
-   non-extra subtree as the root and splices every other stack subtree in
-   order, so a strategy-1 ERROR node keeps its `extra` bit and its wrapper.
-   Witnesses: json `[1, 2,` (extra bit lost), python `return\n)\n` (the
-   ERROR wrapper around `)` dissolves).
-2. Version order and tie-breaks. C keeps tied erroneous versions apart until
+1. The python root repair (`repairPythonRootNode`,
+   `collapsePythonRootFragments`) dissolves an extra ERROR wrapper. The
+   result nodes that reach the root builder for `return\n)\n` are
+   `module(return_statement, ERROR[extra](")"))`, which is the C tree; the
+   published tree has a bare `)`.
+2. The stack summary after `do_all_potential_reductions` differs. For rust
+   `fn f() { foo(1 2); }` C records state 1442 at depth 1 (the state after
+   `foo(1` once `1` is reduced with any lookahead) and elects it for `)`,
+   which wraps only `2`. The port's summary holds state 139 at depth 2 or
+   state 1507 at depth 1, so it wraps `1` or picks another state. The same
+   class decides c, java, and javascript `foo(1 2)`. The C parser logger
+   (`Parser.SetLogger` in the Go binding) prints C's choices
+   (`recover_to_previous state:1442, depth:2`); use it beside the Go GLR
+   trace.
+3. Version order and tie-breaks. C keeps tied erroneous versions apart until
    accept and then prefers the later one (`ts_parser__select_tree`), and a
-   merged head resolves the tie at the next reduce the same way. The port
-   picks the earlier fork. Witnesses: javascript `foo(1 2);`, python
-   `print(1, 2`.
-3. Version merging after recovery. C merges forks that reach the same state
+   merged head resolves the tie at the next reduce the same way. Witness:
+   python `print(1, 2` (C keeps the `print` keyword path, the port keeps
+   the identifier path).
+4. Nested recovery at end of input. For typescript `type T = { a: ;` C
+   recovers the skip version to state 1 at depth 8 and builds one flat
+   ERROR (cost 1215, extra). The port elects from a resumed version at
+   depth 6 and nests the earlier `a :` ERROR inside (cost 1716), so the
+   flat end-of-input wrap without the extra bit wins.
+5. Version merging after recovery. C merges forks that reach the same state
    and position, which bounds the work after an error; the port keeps them
    apart, which is the JavaScript W5 cost.
-4. Strategy selection with missing tokens (cpp witness above) and the
+6. Strategy selection with missing tokens (cpp witness above) and the
    remaining shape divergences in go, rust, and typescript.
-5. Silent recovery. Some malformed sources parse on the Go routes with no
+7. Silent recovery. Some malformed sources parse on the Go routes with no
    ERROR node and no error bit (python `[...] ifsystem() != "Windows"`
    builds a `call` with a stray identifier child). C reports an ERROR.
    The incremental invariant gate records two such sites in

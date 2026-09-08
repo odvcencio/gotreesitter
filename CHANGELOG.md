@@ -39,8 +39,8 @@ for tags and release notes while still in `0.x`.
 
 - Add `TestParityRecoveryBoard`: 78 malformed sources in eight languages
   parsed on the C oracle and on every Go route, compared node by node. The
-  default route agrees on 35 (29 before this round); with the C recovery
-  port forced on for JavaScript, 45.
+  default route agrees on 36 (29 before this round); with the C recovery
+  port forced on for JavaScript, 46.
 - An absorbed leaf inside an ERROR region carries no error bit, as in C,
   where only a missing leaf has an error cost. The region proof that used
   to decide when a leaf could stay clean is gone.
@@ -51,6 +51,10 @@ for tags and release notes while still in `0.x`.
 - html runs the C recovery port by default. cpp, javascript, and julia stay
   on the legacy path behind measured witnesses recorded in
   `docs/c-parity-boards.md`.
+- An accepted GLR version stays out of the stack merge, as C removes it
+  from the version pool, so a recovery fork created at end of input still
+  competes as its own tree. An ERROR node keeps the fields a hidden child
+  gave its spliced children. The recovery board moves to 36 of 78.
 - The incremental invariant gate records its first two entries: python
   `setup.py` byte 1241 (delete and replace) parses without an error bit on
   both routes while C reports an ERROR, and the fresh and incremental
