@@ -184,3 +184,24 @@ func TestRecoveryOwnedEpisodeAdmissionPreservesSharedGuards(t *testing.T) {
 		})
 	}
 }
+
+func TestRecoveryAcceptanceSequencePartitionsMergeIdentity(t *testing.T) {
+	s := &diagnosticParserCoreGenericScheduler{}
+	s.headers = []diagnosticParserCoreHeader{
+		{accepted: true, versionState: &diagnosticParserCoreVersionState{acceptanceSeq: 1}},
+		{accepted: true, versionState: &diagnosticParserCoreVersionState{acceptanceSeq: 2}},
+	}
+	if s.versionLexerStateEqual(s.headers[0].versionState, s.headers[1].versionState) {
+		t.Fatal("different acceptance orders compared equal")
+	}
+	if s.condenseCandidateMergeIdentity(0) == s.condenseCandidateMergeIdentity(1) {
+		t.Fatal("different acceptance orders share a merge identity")
+	}
+	s.headers[1].versionState.acceptanceSeq = 1
+	if !s.versionLexerStateEqual(s.headers[0].versionState, s.headers[1].versionState) {
+		t.Fatal("equal acceptance orders did not compare equal")
+	}
+	if s.condenseCandidateMergeIdentity(0) != s.condenseCandidateMergeIdentity(1) {
+		t.Fatal("equal acceptance orders have different merge identities")
+	}
+}
