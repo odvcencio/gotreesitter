@@ -6454,6 +6454,20 @@ func (c *Core) validateMaterializationMetadata(id SubtreeID, record *subtreeReco
 }
 
 func (c *Core) validateGenericMaterializationMetadata(id SubtreeID, record subtreeRecord) error {
+	if record.symbol == RecoveryErrorRepeatSymbol {
+		if record.terminal || record.extra || record.missing || record.childCount == 0 || record.productionID != 0 || record.dynamicPrecedence != 0 || record.fieldCount != 0 || record.aliasCount != 0 {
+			return errors.New("parser-core phase zero: recovery ERROR_REPEAT has invalid structure or metadata")
+		}
+		return nil
+	}
+	// A resumed ERROR is a built-in container, not a grammar reduction.
+	// Its child count cannot authenticate a production-table entry.
+	if record.symbol == ErrorRegionSymbol && !record.terminal && record.extra {
+		if record.missing || record.productionID != 0 || record.dynamicPrecedence != 0 || record.fieldCount != 0 || record.aliasCount != 0 {
+			return errors.New("parser-core phase zero: recovery ERROR carries grammar metadata")
+		}
+		return nil
+	}
 	children := c.children[record.firstChild : record.firstChild+record.childCount]
 	storedFields := c.fields[record.firstField : record.firstField+record.fieldCount]
 	storedAliases := c.aliases[record.firstAlias : record.firstAlias+record.aliasCount]

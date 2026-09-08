@@ -89,6 +89,9 @@ func (p *SelectedStorePolicy) SetGoCompatibility(semicolon, semicolonNUL Symbol,
 }
 
 func (p SelectedStorePolicy) symbol(symbol Symbol) (SelectedSymbolPolicy, bool) {
+	if symbol == RecoveryErrorRepeatSymbol {
+		return SelectedSymbolPolicy{}, true
+	}
 	if int(symbol) >= len(p.Symbols) {
 		return SelectedSymbolPolicy{}, false
 	}

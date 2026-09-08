@@ -65,10 +65,6 @@ const recoveryMaxCostDifference = 18 * RecoveryCostPerSkippedTree
 // constant (parser_api.go:997).
 const RecoveryErrorSymbol Symbol = 65535
 
-// RecoveryErrorRepeatSymbol is tree-sitter's hidden ERROR_REPEAT symbol. C
-// counts this intermediate node as progress even though it is not visible.
-const RecoveryErrorRepeatSymbol Symbol = RecoveryErrorSymbol - 1
-
 // RecoveryCostNode is the immutable, per-subtree view the cost model reads.
 // See the file doc comment above for why it carries two fields SubtreeView
 // does not.
@@ -108,6 +104,9 @@ var ErrRecoveryCostNodeMissing = errors.New("parser-core phase zero: recovery co
 // identical Language.SymbolMetadata[...].Visible signal
 // (parsercore_phase0_driver.go:486-489), not an approximation of it.
 func RecoverySymbolVisible(symbols []SelectedSymbolPolicy, sym Symbol) bool {
+	if sym == RecoveryErrorRepeatSymbol {
+		return false
+	}
 	if sym == RecoveryErrorSymbol {
 		return true
 	}
@@ -334,6 +333,46 @@ func RecoveryErrorRegionCost(
 	})
 }
 
+// RecoveryErrorRepeatRegionCost prices C's repeated absorption tree without
+// publishing its hidden ERROR_REPEAT containers. After the second token, each
+// token belongs to a hidden child container. Their visible child counts include
+// lexical ERROR leaves, unlike a direct child of the final ERROR container.
+func RecoveryErrorRepeatRegionCost(
+	symbols []SelectedSymbolPolicy,
+	src RecoveryCostSource,
+	memo *RecoveryCostMemo,
+	startByte, startRow, endByte, endRow uint32,
+	children []SubtreeID,
+) (uint32, error) {
+	cost, err := RecoveryErrorRegionCost(symbols, src, memo, startByte, startRow, endByte, endRow, children)
+	if err != nil || len(children) < 2 {
+		return cost, err
+	}
+	for _, id := range children {
+		child, err := src.RecoveryCostNode(id)
+		if err != nil {
+			return 0, err
+		}
+		if child.Extra || (child.Symbol == RecoveryErrorSymbol && len(child.Children) == 0) {
+			var visible int
+			if RecoverySymbolVisible(symbols, child.Symbol) {
+				visible = 1
+			} else if len(child.Children) > 0 {
+				visible, err = recoveryVisibleChildCount(symbols, src, id)
+				if err != nil {
+					return 0, err
+				}
+			}
+			charge := uint64(visible) * RecoveryCostPerSkippedTree
+			if uint64(cost)+charge > math.MaxUint32 {
+				return 0, errors.New("parser-core phase zero: recovery repeat cost overflow")
+			}
+			cost += uint32(charge)
+		}
+	}
+	return cost, nil
+}
+
 func recoveryNodeErrorCost(symbols []SelectedSymbolPolicy, src RecoveryCostSource, memo *RecoveryCostMemo, id SubtreeID) (uint32, error) {
 	if id == 0 {
 		return 0, nil
@@ -375,9 +414,9 @@ func recoveryCostNodeErrorCost(
 		if err != nil {
 			return 0, fmt.Errorf("parser-core phase zero: recovery cost node %d: %w", childID, err)
 		}
-		if child.Symbol == RecoveryErrorSymbol && len(child.Children) == 0 {
-			// Compact mirror of the C ERROR-leaf rule: subtree error_cost is
-			// 0 for a childless ERROR node (parser_recover_c.go:1243-1246).
+		if child.Symbol == RecoveryErrorRepeatSymbol || (child.Symbol == RecoveryErrorSymbol && len(child.Children) == 0) {
+			// C excludes repeat-container costs from the parent sum.
+			// A childless ERROR also contributes no child cost.
 			continue
 		}
 		childCost, err := recoveryNodeErrorCost(symbols, src, memo, childID)
@@ -386,7 +425,7 @@ func recoveryCostNodeErrorCost(
 		}
 		cost += childCost
 	}
-	if node.Symbol == RecoveryErrorSymbol {
+	if node.Symbol == RecoveryErrorSymbol || node.Symbol == RecoveryErrorRepeatSymbol {
 		if len(node.Aliases) != 0 && len(node.Aliases) != len(node.Children) {
 			return 0, fmt.Errorf(
 				"parser-core phase zero: recovery cost node has %d aliases for %d children",
@@ -401,7 +440,7 @@ func recoveryCostNodeErrorCost(
 			if err != nil {
 				return 0, fmt.Errorf("parser-core phase zero: recovery cost node %d: %w", childID, err)
 			}
-			if child.Extra {
+			if child.Extra || (child.Symbol == RecoveryErrorSymbol && len(child.Children) == 0) {
 				continue
 			}
 			if RecoverySymbolVisible(symbols, child.Symbol) {
@@ -542,7 +581,7 @@ func (c *Core) RecoveryCostNode(id SubtreeID) (RecoveryCostNode, error) {
 	if err != nil {
 		return RecoveryCostNode{}, err
 	}
-	if record.symbol == RecoveryErrorSymbol {
+	if record.symbol == RecoveryErrorSymbol || record.symbol == RecoveryErrorRepeatSymbol {
 		return RecoveryCostNode{}, errors.New("parser-core phase zero: compact ERROR subtree has no authenticated row spans")
 	}
 	childStart, childEnd := uint64(record.firstChild), uint64(record.firstChild)+uint64(record.childCount)
