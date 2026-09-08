@@ -141,6 +141,7 @@ func measureIncludedRangesRoots(
 	cLang *sitter.Language,
 	goLang *gts.Language,
 	spans [2][2]int,
+	compactRoute ...bool,
 ) (includedRangesRootObservation, includedRangesRootObservation, uint64) {
 	t.Helper()
 	cRanges := make([]sitter.Range, 0, len(spans))
@@ -182,6 +183,9 @@ func measureIncludedRangesRoots(
 	cRoot := cTree.RootNode()
 
 	goParser := gts.NewParser(goLang)
+	if len(compactRoute) != 0 {
+		goParser.SetAdmissionCandidateRoute(compactRoute[0])
+	}
 	goParser.SetIncludedRanges(goRanges)
 	routedBefore, fallbackBefore := gts.AdmissionCandidateCounters()
 	goTree, err := goParser.Parse(src)
@@ -192,6 +196,8 @@ func measureIncludedRangesRoots(
 		t.Fatal("go parse returned no tree")
 	}
 	defer goTree.Release()
+	routedAfter, fallbackAfter := gts.AdmissionCandidateCounters()
+	t.Logf("route=%d fallback=%d", routedAfter-routedBefore, fallbackAfter-fallbackBefore)
 	goRoot := goTree.RootNode()
 	if diff := g18LockedCExactError(goTree, goLang, cTree); diff != nil {
 		routedAfter, fallbackAfter := gts.AdmissionCandidateCounters()
@@ -241,6 +247,18 @@ func loadIncludedRangesGoFixture(t *testing.T) []byte {
 		t.Fatalf("read included-ranges fixture: %v", err)
 	}
 	return src
+}
+
+func TestIncludedRangesGoExplicitRoutesLockedC(t *testing.T) {
+	source := loadIncludedRangesGoFixture(t)
+	cLanguage := loadCanonicalGoCLanguage(t)
+	for _, compact := range []bool{false, true} {
+		for _, geometry := range includedRangesGoGeometries {
+			t.Run(fmt.Sprintf("compact=%t/%s", compact, geometry.name), func(t *testing.T) {
+				measureIncludedRangesRoots(t, source, cLanguage, grammars.GoLanguage(), geometry.spans, compact)
+			})
+		}
+	}
 }
 
 // TestIncludedRangesGoRootParity checks complete trees and pinned C root observations.
