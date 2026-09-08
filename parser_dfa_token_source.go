@@ -4898,7 +4898,7 @@ func (d *dfaTokenSource) promoteKeyword(tok *Token) bool {
 	if tok.EndByte <= tok.StartByte {
 		return false
 	}
-	if len(d.hasKeywordState) > 0 {
+	if len(d.hasKeywordState) > 0 && len(d.language.ReservedWords) == 0 {
 		anyHasKeyword := false
 		state := int(d.state)
 		if state >= 0 && state < len(d.hasKeywordState) && d.hasKeywordState[state] {
@@ -4963,7 +4963,9 @@ func (d *dfaTokenSource) promoteKeyword(tok *Token) bool {
 						break
 					}
 					if d.language.ReservedWords[i] == kwTok.Symbol {
-						return true // reserved - don't promote
+						tok.Symbol = kwTok.Symbol
+						tok.setLexFlag(tokenFlagKeyword, true)
+						return false
 					}
 				}
 			}
@@ -5003,8 +5005,8 @@ func (d *dfaTokenSource) promoteKeyword(tok *Token) bool {
 				return false
 			}
 		}
-		if !kwHasAction && idHasAction {
-			return true // no active stack needs the keyword
+		if !kwHasAction {
+			return true // C retains the capture token without an action or reserved-word grant.
 		}
 		if d.shouldPreferJavaScriptTypeScriptContextualIdentifier(*tok, kwTok, kwHasAction, idHasAction) {
 			return true
