@@ -382,17 +382,49 @@ func diagnosticParserCoreLineageReplaces(incumbent, candidate diagnosticParserCo
 // Getting either wrong drops RecoveryCostPerSkippedTree (100) per absorbed
 // visible child. The measured php arbitration turns on a single point, so an
 // under-counted child inverts it and the route publishes a tree C would not.
+// The returned policy is shared and read-only. Its cache belongs to Language,
+// so it cannot keep an otherwise unreachable grammar alive.
 func diagnosticParserCoreRecoverySymbolPolicy(lang *Language) []core.SelectedSymbolPolicy {
 	if lang == nil {
 		return nil
 	}
-	width := max(len(lang.SymbolMetadata), len(lang.SymbolNames), int(lang.SymbolCount))
+	metadata := lang.SymbolMetadata
+	width := max(len(metadata), len(lang.SymbolNames), int(lang.SymbolCount))
+	// A valid Symbol addresses at most 65536 entries. Preserve the previous
+	// projection for wider metadata, but do not retain that oversized policy.
+	if width > int(^Symbol(0))+1 {
+		lang.compactRecoverySymbols.Store(nil)
+		return buildDiagnosticParserCoreRecoverySymbolPolicy(metadata, width)
+	}
+	var first *SymbolMetadata
+	if len(metadata) != 0 {
+		first = &metadata[0]
+	}
+	var next *compactRecoverySymbolPolicyCacheEntry
+	for {
+		cached := lang.compactRecoverySymbols.Load()
+		if cached != nil && cached.metadata == first && cached.metadataLen == len(metadata) && cached.width == width {
+			return cached.policy.([]core.SelectedSymbolPolicy)
+		}
+		if next == nil {
+			next = &compactRecoverySymbolPolicyCacheEntry{
+				metadata: first, metadataLen: len(metadata), width: width,
+				policy: buildDiagnosticParserCoreRecoverySymbolPolicy(metadata, width),
+			}
+		}
+		if lang.compactRecoverySymbols.CompareAndSwap(cached, next) {
+			return next.policy.([]core.SelectedSymbolPolicy)
+		}
+	}
+}
+
+func buildDiagnosticParserCoreRecoverySymbolPolicy(metadata []SymbolMetadata, width int) []core.SelectedSymbolPolicy {
 	out := make([]core.SelectedSymbolPolicy, width)
 	for index := range out {
 		visible, named := true, false
-		if index < len(lang.SymbolMetadata) {
-			visible = lang.SymbolMetadata[index].Visible
-			named = lang.SymbolMetadata[index].Named
+		if index < len(metadata) {
+			visible = metadata[index].Visible
+			named = metadata[index].Named
 		}
 		out[index] = core.SelectedSymbolPolicy{Visible: visible, Named: named}
 	}

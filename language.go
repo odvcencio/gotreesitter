@@ -153,6 +153,15 @@ type SymbolMetadata struct {
 	GeneratedRepeatAux bool
 }
 
+// compactRecoverySymbolPolicyCacheEntry owns one immutable metadata projection.
+// policy holds []core.SelectedSymbolPolicy under the default compact build.
+type compactRecoverySymbolPolicyCacheEntry struct {
+	metadata    *SymbolMetadata
+	metadataLen int
+	width       int
+	policy      any
+}
+
 // FieldMapEntry maps a child index to a field name.
 type FieldMapEntry struct {
 	FieldID    FieldID
@@ -764,6 +773,11 @@ type Language struct {
 	// Language for the same retention reason as compactTables above.
 	parserDerivedOnce sync.Once
 	parserDerived     *parserDerivedTables
+
+	// Recovery pricing shares this projection across parsers of one Language.
+	// Replacing SymbolMetadata or changing the symbol width invalidates it.
+	// Metadata cells remain immutable after decode, as for parserDerived.
+	compactRecoverySymbols atomic.Pointer[compactRecoverySymbolPolicyCacheEntry]
 
 	// NonTerminalAliasMap mirrors tree-sitter C's ts_non_terminal_alias_map.
 	// Rows are indexed by nonterminal symbol and contain aliases that require
