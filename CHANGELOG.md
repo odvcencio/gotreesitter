@@ -61,10 +61,17 @@ for tags and release notes while still in `0.x`.
   verifier binding, so every work vector and receipt stays identical. Parents take their span
   from the point index only when their visible children do not tile the
   record, and a reduction sums its pop payload work once.
-- Keep the C4 bytecode corridor opt-in. The 137 KiB full-parse comparison
-  was faster on 14 of 15 grammars, but a JavaScript recovery mutation changed
-  the C tree. Use `GTS_C4_CORRIDOR=1` only for controlled comparisons until
-  the recovery handoff matches C.
+- Turn the C4 bytecode corridor on by default (stage 3 of
+  spec.c4-bytecode-isa.v1). The 137 KiB full-parse comparison is faster on
+  14 of 15 grammars. A JavaScript recovery mutation once changed the C tree
+  with the lane on; the lane now stays off while a version-owned lexer
+  request is live, and the evidence for the default is: the runtime
+  equivalence test keeps every work count and digest equal; the exhaustive
+  curated structural parity suite (fresh, incremental, no-error) passes on
+  every grammar with the lane on; the pinned-oracle T3 recovery adjudication
+  in the harness container matches C on every html and JavaScript witness
+  with the lane on; and the JavaScript recovery mutation differentials pass
+  in both modes. `GTS_C4_CORRIDOR=0` turns the lane off.
 - Keep version-owned lexer requests on the generic dispatch path. The
   corridor reads a shared token and cannot publish an owned request.
 - Preserve separate canonicalization output buffers for single headers.

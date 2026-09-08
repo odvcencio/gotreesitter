@@ -35,19 +35,27 @@ import (
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
-// parserCoreCorridorEnabled gates the corridor lane. It stays opt-in until
-// recovery mutations prove that its generic handoffs preserve C tree output.
-// Set GTS_C4_CORRIDOR=1 (or true/on/yes) to enable the lane for a comparison.
+// parserCoreCorridorEnabled gates the corridor lane. Stage 2 shipped it
+// behind an env gate, default off (spec section 8, stage 2 item 2d). Stage 3
+// turns the default on. The evidence: with the canonical-boundary probe
+// skip the lane runs the 137 KiB full parse faster than the generic pass on
+// 14 of 15 bench grammars; the runtime equivalence test keeps every work
+// count and digest equal; the exhaustive curated structural parity suite
+// (fresh, incremental, no-error) passes on every grammar with the lane on;
+// and the pinned-oracle T3 recovery adjudication and the JavaScript recovery
+// mutation differentials pass with the lane on. The lane stays off while a
+// version-owned lexer request is live. GTS_C4_CORRIDOR=0 (or false/off/no)
+// turns the lane off, which is the A/B baseline.
 var (
 	parserCoreCorridorEnabledOnce sync.Once
-	parserCoreCorridorEnabledVal  bool
+	parserCoreCorridorEnabledVal  = true
 )
 
 func parserCoreCorridorEnabled() bool {
 	parserCoreCorridorEnabledOnce.Do(func() {
 		switch os.Getenv("GTS_C4_CORRIDOR") {
-		case "1", "true", "TRUE", "True", "on", "ON", "yes", "YES":
-			parserCoreCorridorEnabledVal = true
+		case "0", "false", "FALSE", "False", "off", "OFF", "no", "NO":
+			parserCoreCorridorEnabledVal = false
 		}
 	})
 	return parserCoreCorridorEnabledVal
