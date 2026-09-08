@@ -594,6 +594,10 @@ func TestAdmissionCandidateStorageReleasedOnAcceptanceGateDecline(t *testing.T) 
 		t.Fatalf("candidate engine accepted instead of declining at the acceptance gate (reason=%q); "+
 			"re-verify TestAdmissionCandidateGoTypeConversionFailsClosed's witness still forks this conflict", reason)
 	}
+	if strings.Contains(reason, "compiled out") {
+		requireCompactFootprintReleased(t, parser, "compiled-out route")
+		t.Skip("the compact acceptance gate is excluded by this build")
+	}
 	if !strings.Contains(reason, "did not accept EOF") {
 		t.Fatalf("decline reason = %q, want the acceptance-gate \"did not accept EOF\" class "+
 			"(a different decline no longer exercises this path; this test needs a new acceptance-gate witness)", reason)
