@@ -11,6 +11,10 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+func TestGoCompactGenericConflictNativeLockedC(t *testing.T) {
+	runGoCleanConflictOrderLockedC(t, true)
+}
+
 func TestGoCompactIncrementalExecutionParity(t *testing.T) {
 	for _, tc := range []struct {
 		name, separator, before, after string

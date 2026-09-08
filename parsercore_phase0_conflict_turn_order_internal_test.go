@@ -25,55 +25,90 @@ func TestRecoveryTurnConflictPhysicalOrder(t *testing.T) {
 		{"reduce_reduce", []core.Action{reduce7, reduce8}, []core.StateID{6, 4}, []uint64{3, 2}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, rollback := range []bool{false, true} {
-				table := &genericConflictTable{cells: map[genericConflictCell][]core.Action{{state: 3, symbol: 10}: tc.actions}, gotos: map[genericConflictCell]core.StateID{{state: 1, symbol: 7}: 4, {state: 1, symbol: 8}: 6}}
-				compact, err := core.New(table, core.Limits{MaxDerivations: 8, MaxPopPaths: 8})
-				if err != nil {
-					t.Fatal(err)
-				}
-				seed, err := compact.Seed(1, 0)
-				if err != nil {
-					t.Fatal(err)
-				}
-				head, err := compact.ShiftMissingLeaf(seed, 3, 5, 0)
-				if err != nil {
-					t.Fatal(err)
-				}
-				header := diagnosticParserCoreHeader{head: head, creationSeq: 1}
-				header.markRecoveryLineage()
-				s := &diagnosticParserCoreGenericScheduler{compact: compact, headers: []diagnosticParserCoreHeader{header}, token: Token{Symbol: 10, EndByte: 1}, tokenSource: &dfaTokenSource{language: &Language{TokenCount: 11, SymbolMetadata: []SymbolMetadata{{}, {}, {}, {}, {}, {Visible: true}}}}, branchOrder: 1, nextSeq: 2, options: DiagnosticParserCorePrefixOptions{MaxDispatches: 10, materializationSource: []byte("x")}, receipt: &DiagnosticParserCoreGenericScheduler{}}
-				s.recoveryTurns.active = true
-				s.recoveryIsolation = true
-				before, err := diagnosticParserCoreHeaderReceipts(compact, s.headers)
-				if err != nil {
-					t.Fatal(err)
-				}
-				fault := errors.New("conflict rollback")
-				if rollback {
-					s.conflictPostExecutionFault = func() error { return fault }
-				}
-				err = s.applyGenericConflict(before, mustDiagnosticParserCoreGenericCell(t, compact, 0, header, 10))
-				if rollback {
-					if !errors.Is(err, fault) || len(s.headers) != 1 || s.headers[0].head != head || s.headers[0].creationSeq != 1 || s.nextSeq != 2 {
-						t.Fatalf("rollback: err=%v headers=%+v next=%d", err, s.headers, s.nextSeq)
-					}
-					continue
-				}
-				if err != nil {
-					t.Fatal(err)
-				}
-				var states []core.StateID
-				var sequences []uint64
-				for _, h := range s.headers {
-					state, _, err := compact.Boundary(h.head)
+			for _, recovery := range []bool{false, true} {
+				for _, rollback := range []bool{false, true} {
+					table := &genericConflictTable{cells: map[genericConflictCell][]core.Action{{state: 1, symbol: 5}: {{Type: core.ActionShift, State: 3}}, {state: 3, symbol: 10}: tc.actions}, gotos: map[genericConflictCell]core.StateID{{state: 1, symbol: 7}: 4, {state: 1, symbol: 8}: 6}}
+					compact, err := core.New(table, core.Limits{MaxDerivations: 8, MaxPopPaths: 8})
 					if err != nil {
 						t.Fatal(err)
 					}
-					states = append(states, state)
-					sequences = append(sequences, h.creationSeq)
-				}
-				if !reflect.DeepEqual(states, tc.states) || !reflect.DeepEqual(sequences, tc.sequences) {
-					t.Fatalf("states=%v sequences=%v; want %v %v", states, sequences, tc.states, tc.sequences)
+					seed, err := compact.Seed(1, 0)
+					if err != nil {
+						t.Fatal(err)
+					}
+					var head core.Head
+					if recovery {
+						head, err = compact.ShiftMissingLeaf(seed, 3, 5, 0)
+					} else {
+						head, err = compact.Shift(seed, 5, 0, core.Token{Symbol: 5, EndByte: 1}, core.ForkOrder{})
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+					header := diagnosticParserCoreHeader{head: head, creationSeq: 1}
+					if recovery {
+						header.markRecoveryLineage()
+					}
+					s := &diagnosticParserCoreGenericScheduler{compact: compact, headers: []diagnosticParserCoreHeader{header}, token: Token{Symbol: 10, EndByte: 1}, tokenSource: &dfaTokenSource{language: &Language{TokenCount: 11, SymbolMetadata: []SymbolMetadata{{}, {}, {}, {}, {}, {Visible: true}}}}, branchOrder: 1, nextSeq: 2, options: DiagnosticParserCorePrefixOptions{MaxDispatches: 10, materializationSource: []byte("x")}, receipt: &DiagnosticParserCoreGenericScheduler{}}
+					if !recovery {
+						s.token.StartByte, s.token.EndByte = 1, 2
+						s.options.materializationSource = []byte("xy")
+					}
+					s.recoveryTurns.active = recovery
+					s.recoveryIsolation = recovery
+					before, err := diagnosticParserCoreHeaderReceipts(compact, s.headers)
+					if err != nil {
+						t.Fatal(err)
+					}
+					fault := errors.New("conflict rollback")
+					if rollback {
+						s.conflictPostExecutionFault = func() error { return fault }
+					}
+					err = s.applyGenericConflict(before, mustDiagnosticParserCoreGenericCell(t, compact, 0, header, 10))
+					if rollback {
+						if !errors.Is(err, fault) || len(s.headers) != 1 || s.headers[0].head != head || s.headers[0].creationSeq != 1 || s.nextSeq != 2 {
+							t.Fatalf("rollback: err=%v headers=%+v next=%d", err, s.headers, s.nextSeq)
+						}
+						continue
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+					var states []core.StateID
+					var sequences []uint64
+					for _, h := range s.headers {
+						state, _, err := compact.Boundary(h.head)
+						if err != nil {
+							t.Fatal(err)
+						}
+						states = append(states, state)
+						sequences = append(sequences, h.creationSeq)
+					}
+					if !reflect.DeepEqual(states, tc.states) || !reflect.DeepEqual(sequences, tc.sequences) {
+						t.Fatalf("recovery=%t states=%v sequences=%v; want %v %v", recovery, states, sequences, tc.states, tc.sequences)
+					}
+					conflict := s.receipt.Conflicts[0]
+					if conflict.PrimaryOutput.State != StateID(tc.states[0]) || conflict.PrimaryPaused || conflict.PrimaryAdopted {
+						t.Fatalf("recovery=%t primary receipt=%+v", recovery, conflict)
+					}
+					for _, arm := range conflict.SecondaryArms {
+						wantOrder := uint64(0)
+						if arm.Ordinal != 0 {
+							wantOrder = uint64(arm.Ordinal + 1)
+						}
+						if arm.Ordinal == len(tc.actions)-1 || arm.BranchOrder != wantOrder || arm.Paused || arm.Adopted {
+							t.Fatalf("recovery=%t secondary receipt=%+v", recovery, arm)
+						}
+					}
+					for ordinal, action := range s.receipt.Conflicts[0].Round.Actions {
+						wantOrder := uint64(0)
+						if ordinal != 0 {
+							wantOrder = uint64(ordinal + 1)
+						}
+						if action.Ordinal != ordinal || action.BranchOrder != wantOrder {
+							t.Fatalf("recovery=%t action %d=%+v, want order %d", recovery, ordinal, action, wantOrder)
+						}
+					}
 				}
 			}
 		})

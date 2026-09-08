@@ -13,6 +13,10 @@ import (
 )
 
 func TestGoCleanConflictOrderLockedC(t *testing.T) {
+	runGoCleanConflictOrderLockedC(t, false)
+}
+
+func runGoCleanConflictOrderLockedC(t *testing.T, requireNativeGeneric bool) {
 	full, err := os.ReadFile("../testdata/incremental_gate/go_print.go")
 	if err != nil {
 		t.Fatal(err)
@@ -78,6 +82,9 @@ func TestGoCleanConflictOrderLockedC(t *testing.T) {
 						}
 						if routedAfter-routedBefore+fallbackAfter-fallbackBefore != 1 {
 							t.Fatal("compact parse must report one route decision")
+						}
+						if requireNativeGeneric && (fixture.name == "generic_minimal" || fixture.name == "generic_nested") && (routedAfter-routedBefore != 1 || fallbackAfter != fallbackBefore) {
+							t.Fatal("generic parse must use native compact execution")
 						}
 					}
 					if tree == nil || tree.RootNode() == nil {

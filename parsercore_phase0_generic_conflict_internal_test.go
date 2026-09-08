@@ -771,8 +771,8 @@ func TestDiagnosticParserCoreGenericConflictArbitraryNOrdering(t *testing.T) {
 		t.Fatalf("scheduler allocation/work drift: order=%d seq=%d dispatches=%d work=%+v", scheduler.branchOrder, scheduler.nextSeq, scheduler.dispatches, scheduler.work)
 	}
 	conflict := scheduler.receipt.Conflicts[0]
-	if len(conflict.Round.Actions) != 3 || conflict.Round.Actions[0].Ordinal != 1 || conflict.Round.Actions[0].BranchOrder != 8 ||
-		conflict.Round.Actions[1].Ordinal != 2 || conflict.Round.Actions[1].BranchOrder != 9 || conflict.Round.Actions[2].Ordinal != 0 ||
+	if len(conflict.Round.Actions) != 3 || conflict.Round.Actions[0].Ordinal != 0 || conflict.Round.Actions[0].BranchOrder != 0 ||
+		conflict.Round.Actions[1].Ordinal != 1 || conflict.Round.Actions[1].BranchOrder != 8 || conflict.Round.Actions[2].Ordinal != 2 || conflict.Round.Actions[2].BranchOrder != 9 ||
 		len(conflict.Prefix) != 2 || conflict.PrimaryOutput.State != 2 || len(conflict.OriginalSuffix) != 1 ||
 		len(conflict.SecondaryArms) != 2 || len(conflict.SecondaryArms[0].Outputs) != 1 || len(conflict.SecondaryArms[1].Outputs) != 1 ||
 		len(conflict.AdditionalPrimaryOutputs) != 0 || len(conflict.After) != 5 {
@@ -989,14 +989,15 @@ func TestDiagnosticParserCoreGenericConflictMultiOutputSequencing(t *testing.T) 
 		states = append(states, receipt.State)
 		sequences = append(sequences, receipt.CreationSeq)
 	}
-	if !reflect.DeepEqual(states, []StateID{9, 4, 8, 11, 6, 7, 5}) ||
+	if !reflect.DeepEqual(states, []StateID{9, 11, 8, 4, 5, 6, 7}) ||
 		!reflect.DeepEqual(sequences, []uint64{2, 4, 6, 10, 11, 12, 13}) {
 		t.Fatalf("multi-output order states=%v sequences=%v", states, sequences)
 	}
 	conflict := scheduler.receipt.Conflicts[0]
-	if scheduler.branchOrder != 9 || scheduler.nextSeq != 14 || conflict.PrimaryOutput.State != 4 || len(conflict.AdditionalPrimaryOutputs) != 1 || conflict.AdditionalPrimaryOutputs[0].State != 5 ||
-		len(conflict.SecondaryArms) != 2 || len(conflict.SecondaryArms[0].Outputs) != 1 || len(conflict.SecondaryArms[1].Outputs) != 2 ||
-		len(conflict.Round.Actions) != 3 || conflict.Round.Actions[0].Ordinal != 1 || conflict.Round.Actions[1].Ordinal != 2 || conflict.Round.Actions[2].Ordinal != 0 {
+	if scheduler.branchOrder != 9 || scheduler.nextSeq != 14 || conflict.PrimaryOutput.State != 11 || len(conflict.AdditionalPrimaryOutputs) != 0 ||
+		len(conflict.SecondaryArms) != 2 || len(conflict.SecondaryArms[0].Outputs) != 2 || len(conflict.SecondaryArms[1].Outputs) != 2 ||
+		conflict.SecondaryArms[0].Ordinal != 0 || conflict.SecondaryArms[0].BranchOrder != 0 || conflict.SecondaryArms[1].Ordinal != 2 || conflict.SecondaryArms[1].BranchOrder != 9 ||
+		len(conflict.Round.Actions) != 3 || conflict.Round.Actions[0].Ordinal != 0 || conflict.Round.Actions[1].Ordinal != 1 || conflict.Round.Actions[2].Ordinal != 2 {
 		t.Fatalf("multi-output conflict allocation drifted: order=%d seq=%d receipt=%+v", scheduler.branchOrder, scheduler.nextSeq, conflict)
 	}
 }

@@ -2083,13 +2083,18 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 	trialOrder := branchOrder
 	var receipts []DiagnosticParserCoreRoundAction
 	err := compact.RunSchedulerOwned(owner, func() error {
-		for ordinal := 1; ordinal < actions.Len(); ordinal++ {
+		// Publish action outputs in table order. Fork order remains arm metadata.
+		for ordinal := 0; ordinal < actions.Len(); ordinal++ {
 			action := actions.At(ordinal)
-			trialOrder++
+			fork := core.ForkOrder{}
+			if ordinal != 0 {
+				trialOrder++
+				fork = core.ForkOrder{Present: true, Value: trialOrder}
+			}
 			var applyErr error
 			scratch.actionOutputs, scratch.reductionOutputs, applyErr = applyParserCoreConflictActionInto(
 				scratch.actionOutputs[:0], scratch.reductionOutputs[:0], compact, owner, classified, token,
-				action, ordinal, core.ForkOrder{Present: true, Value: trialOrder}, nextCleanPathLineage,
+				action, ordinal, fork, nextCleanPathLineage,
 				captureLexerSkippedPrefixProvenance,
 				reductionCost,
 			)
@@ -2098,83 +2103,41 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 			}
 			start := len(scratch.outputs)
 			for _, output := range scratch.actionOutputs {
-				secondary := incoming
-				secondary.head = output.head
-				secondary.shifted = action.Type == core.ActionShift
-				secondary.freshness = output.freshness
-				secondary.convergedReductionSplit = secondary.convergedReductionSplit || output.cleanPathLineage != 0
-				applyDiagnosticParserCoreCleanPathOutput(&secondary, output.cleanPathRank, output.cleanPathLineage)
+				outputHeader := incoming
+				outputHeader.head = output.head
+				outputHeader.shifted = action.Type == core.ActionShift
+				outputHeader.freshness = output.freshness
+				outputHeader.convergedReductionSplit = outputHeader.convergedReductionSplit || output.cleanPathLineage != 0
+				applyDiagnosticParserCoreCleanPathOutput(&outputHeader, output.cleanPathRank, output.cleanPathLineage)
 				if output.cleanPathSet.Len() != 0 {
 					// Conflict-arm application is fold-class (spec.b4b-
-					// alternative-set.v2 section 3.4): secondary starts as a
+					// alternative-set.v2 section 3.4): each output starts as a
 					// copy of incoming's own already-accumulated history,
 					// and output.cleanPathSet is this mutually exclusive
 					// arm's own independently established set -- two
 					// separately tracked histories, not one popped cone's
 					// uniform extension.
-					incomparable := compact.AlternativeSetIncomparable(secondary.altSet, output.cleanPathSet)
-					compact.UnionAlternativeSet(&secondary.altSet, output.cleanPathSet)
-					secondary.blended = secondary.blended || output.cleanPathBlended || incomparable
+					incomparable := compact.AlternativeSetIncomparable(outputHeader.altSet, output.cleanPathSet)
+					compact.UnionAlternativeSet(&outputHeader.altSet, output.cleanPathSet)
+					outputHeader.blended = outputHeader.blended || output.cleanPathBlended || incomparable
 				}
 				if !output.dropCohortRefs.Empty() || output.dropCohortRefs.Overflowed() || output.dropCohortRefs.Blended() {
-					if _, err := compact.UnionDropCohortRefsChecked(&secondary.dropCohortRefs, output.dropCohortRefs); err != nil {
+					if _, err := compact.UnionDropCohortRefsChecked(&outputHeader.dropCohortRefs, output.dropCohortRefs); err != nil {
 						return err
 					}
 				}
 				if action.Type == core.ActionShift {
-					markDiagnosticParserCoreExternalLineage(&secondary, token)
+					markDiagnosticParserCoreExternalLineage(&outputHeader, token)
 				}
-				scratch.outputs = append(scratch.outputs, secondary)
+				scratch.outputs = append(scratch.outputs, outputHeader)
 			}
 			scratch.armRanges[ordinal] = diagnosticParserCoreConflictArmRange{start: start, end: len(scratch.outputs)}
 			if collectReceipts {
 				receipts = append(receipts, DiagnosticParserCoreRoundAction{
 					HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
-					Ordinal: ordinal, Action: rootParserCoreAction(action), BranchOrder: trialOrder,
+					Ordinal: ordinal, Action: rootParserCoreAction(action), BranchOrder: fork.Value,
 				})
 			}
-		}
-		primaryAction := actions.At(0)
-		var applyErr error
-		scratch.actionOutputs, scratch.reductionOutputs, applyErr = applyParserCoreConflictActionInto(
-			scratch.actionOutputs[:0], scratch.reductionOutputs[:0], compact, owner, classified, token,
-			primaryAction, 0, core.ForkOrder{}, nextCleanPathLineage,
-			captureLexerSkippedPrefixProvenance,
-			reductionCost,
-		)
-		if applyErr != nil {
-			return applyErr
-		}
-		start := len(scratch.outputs)
-		for _, output := range scratch.actionOutputs {
-			primary := incoming
-			primary.head = output.head
-			primary.shifted = primaryAction.Type == core.ActionShift
-			primary.freshness = output.freshness
-			primary.convergedReductionSplit = primary.convergedReductionSplit || output.cleanPathLineage != 0
-			applyDiagnosticParserCoreCleanPathOutput(&primary, output.cleanPathRank, output.cleanPathLineage)
-			if output.cleanPathSet.Len() != 0 {
-				// See the secondary loop's identical fold-class comment above.
-				incomparable := compact.AlternativeSetIncomparable(primary.altSet, output.cleanPathSet)
-				compact.UnionAlternativeSet(&primary.altSet, output.cleanPathSet)
-				primary.blended = primary.blended || output.cleanPathBlended || incomparable
-			}
-			if !output.dropCohortRefs.Empty() || output.dropCohortRefs.Overflowed() || output.dropCohortRefs.Blended() {
-				if _, err := compact.UnionDropCohortRefsChecked(&primary.dropCohortRefs, output.dropCohortRefs); err != nil {
-					return err
-				}
-			}
-			if primaryAction.Type == core.ActionShift {
-				markDiagnosticParserCoreExternalLineage(&primary, token)
-			}
-			scratch.outputs = append(scratch.outputs, primary)
-		}
-		scratch.armRanges[0] = diagnosticParserCoreConflictArmRange{start: start, end: len(scratch.outputs)}
-		if collectReceipts {
-			receipts = append(receipts, DiagnosticParserCoreRoundAction{
-				HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
-				Ordinal: 0, Action: rootParserCoreAction(primaryAction),
-			})
 		}
 		return nil
 	})
@@ -12684,19 +12647,18 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		s.conflictScratch.adopted[ordinal] = adopted
 	}
 	primaryOrdinal := 0
-	if s.recoveryTurns.active {
-		// C appends reduction versions, then shifts the original version.
-		for ordinal := 0; ordinal < actions.Len(); ordinal++ {
-			if actions.At(ordinal).Type == core.ActionReduce && len(execution.arm(ordinal)) != 0 {
-				primaryOrdinal = ordinal
-			}
-			if action := actions.At(ordinal); action.Type == core.ActionShift && !action.Repetition {
-				primaryOrdinal = ordinal
-				break
-			}
+	// C appends reduction versions, then shifts the original version.
+	// Without a shift, the last surviving reduction takes the source slot.
+	for ordinal := 0; ordinal < actions.Len(); ordinal++ {
+		if actions.At(ordinal).Type == core.ActionReduce && len(execution.arm(ordinal)) != 0 {
+			primaryOrdinal = ordinal
+		}
+		if action := actions.At(ordinal); action.Type == core.ActionShift && !action.Repetition {
+			primaryOrdinal = ordinal
+			break
 		}
 	}
-	preserveCreation := !s.recoveryTurns.active || actions.At(primaryOrdinal).Type == core.ActionShift
+	preserveCreation := actions.At(primaryOrdinal).Type == core.ActionShift
 	trialSeq := nextSeqBefore
 	for ordinal := 0; ordinal < len(execution.armRanges); ordinal++ {
 		if ordinal == primaryOrdinal && preserveCreation {
@@ -12823,18 +12785,21 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		if err != nil {
 			return err
 		}
-		secondaryArms := make([]DiagnosticParserCoreGenericConflictArm, actions.Len()-1)
-		for ordinal := 1; ordinal < actions.Len(); ordinal++ {
+		secondaryArms := make([]DiagnosticParserCoreGenericConflictArm, 0, actions.Len()-1)
+		for ordinal := 0; ordinal < actions.Len(); ordinal++ {
+			if ordinal == primaryOrdinal {
+				continue
+			}
 			arm := execution.arm(ordinal)
 			outputs, receiptErr := diagnosticParserCoreHeaderReceipts(s.compact, arm)
 			if receiptErr != nil {
 				return receiptErr
 			}
-			secondaryArms[ordinal-1] = DiagnosticParserCoreGenericConflictArm{
-				Ordinal: ordinal, BranchOrder: execution.round.Actions[ordinal-1].BranchOrder,
+			secondaryArms = append(secondaryArms, DiagnosticParserCoreGenericConflictArm{
+				Ordinal: ordinal, BranchOrder: execution.round.Actions[ordinal].BranchOrder,
 				Outputs: outputs, Paused: len(outputs) == 0 && s.conflictScratch.adopted[ordinal] == 0,
 				Adopted: s.conflictScratch.adopted[ordinal] != 0,
-			}
+			})
 		}
 		after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
 		if err != nil {
@@ -12851,7 +12816,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 			BranchOrderBefore: branchOrderBefore, BranchOrderAfter: s.branchOrder,
 			NextCreationSeqBefore: nextSeqBefore, NextCreationSeqAfter: s.nextSeq,
 			Round: round, Prefix: prefixReceipts,
-			PrimaryPaused: len(primaryReceipts) == 0 && s.conflictScratch.adopted[0] == 0, PrimaryAdopted: s.conflictScratch.adopted[0] != 0,
+			PrimaryPaused: len(primaryReceipts) == 0 && s.conflictScratch.adopted[primaryOrdinal] == 0, PrimaryAdopted: s.conflictScratch.adopted[primaryOrdinal] != 0,
 			OriginalSuffix: suffixReceipts,
 			SecondaryArms:  secondaryArms, After: after,
 		}
