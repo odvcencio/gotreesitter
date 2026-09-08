@@ -38,7 +38,7 @@ for tags and release notes while still in `0.x`.
   now fills one scratch view in place and visits it through a pointer, and
   it can skip subtrees that already own a public node
   (`VisitMaterializationPostorderPrebuilt`). The extraction changes no
-  tree, no work count, and no wall time.
+  tree and no work count.
 - Add the eager materialization lane (`GTS_COMPACT_EAGER=1`). After each
   single-header shift and each in-place reduction the scheduler builds the
   new subtree's public node at once, and it builds the subtrees a
@@ -56,8 +56,9 @@ for tags and release notes while still in `0.x`.
   dispatch just published: a fresh node is the latest node of its phase
   identity, so the probe would return the head the header already holds.
   The generic shift, the in-place reduction, and the corridor direct shift
-  all take the skip; the `Canonicalizations` work count still records the
-  barrier, so every work vector stays identical. Parents take their span
+  all take the skip when the header sits outside recovery isolation with no
+  pending freshness; the skip records the barrier, the header peak, and the
+  verifier binding, so every work vector and receipt stays identical. Parents take their span
   from the point index only when their visible children do not tile the
   record, and a reduction sums its pop payload work once.
 - Keep the C4 bytecode corridor opt-in. The 137 KiB full-parse comparison

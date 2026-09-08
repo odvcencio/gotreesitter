@@ -589,10 +589,8 @@ func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint
 	s.work.Dispatches++
 	// A fresh node is the latest node of its phase identity, so the
 	// canonical-boundary probe would return the head the sole header holds.
-	if s.compact.LastShiftFresh() {
-		// The barrier still counts: the work vector records dispatch
-		// barriers, not probes.
-		s.work.Canonicalizations++
+	if s.compact.LastShiftFresh() && s.singleHeaderProbeIsIdentity() {
+		s.skipCanonicalProbe()
 	} else if err := s.canonicalize(); err != nil {
 		return false, err
 	}

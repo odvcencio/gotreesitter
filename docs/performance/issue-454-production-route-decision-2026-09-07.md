@@ -131,10 +131,11 @@ copies at 12 percent, then link validation at 5 percent.
 The cuts in this round: the fused replay (one full-derivation pass fewer),
 the dead election record, narrow reuse-dependency accessors, in-place
 election and header updates, pointer reads for headers, reduction outputs,
-pop paths, boundary outputs, and canonical groups, in-place single-header
-canonicalization, and the direct-append condense reading the predecessor it
-already holds. Result: about 6 percent on every measured grammar. The gap is
-structural from here.
+pop paths, boundary outputs, and canonical groups, and the direct-append
+condense reading the predecessor it already holds. (An in-place
+single-header canonicalization was tried and reverted for the double-buffer
+copy; it is not part of the result.) Result: about 6 percent on every
+measured grammar. The gap is structural from here.
 
 ## Eager materialization lane
 

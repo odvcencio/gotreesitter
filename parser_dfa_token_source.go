@@ -1641,7 +1641,7 @@ func (d *dfaTokenSource) scanDFATokenForStateInto(state StateID, lexState uint32
 	if !keywordDemoted {
 		d.promoteActiveLiteralForCurrentState(tok, savedPos, savedRow, savedCol)
 	}
-	if d.language.Name == "swift" {
+	if d.language != nil && d.language.Name == "swift" {
 		*tok = d.demoteSwiftMemberKeyword(*tok)
 	}
 	endPos, endRow, endCol := d.normalizeDFAToken(tok, d.lexer.pos, d.lexer.row, d.lexer.col)
