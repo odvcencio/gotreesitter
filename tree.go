@@ -3797,6 +3797,7 @@ func (t *Tree) Copy() *Tree {
 		incrementalReuseUnsupportedClause: t.incrementalReuseUnsupportedClause,
 		compactMaterialized:               t.compactMaterialized,
 	}
+	out.setIncludedRanges(t.includedRanges)
 	if len(t.edits) > 0 {
 		out.edits = make([]InputEdit, len(t.edits))
 		copy(out.edits, t.edits)

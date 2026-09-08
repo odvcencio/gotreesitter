@@ -7634,7 +7634,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithIncludedRecovery(compac
 	// potentially reusable visible node and the scanner transfer is proven.
 	// Recovery-bearing nodes stay excluded by the reuse cursor, which descends
 	// to clean siblings while preserving the ordinary scanner gate.
-	compactIncrementalReuseProven := len(parser.included) == 0 && replayEnabled &&
+	compactIncrementalReuseProven := replayEnabled &&
 		compactIncrementalReuseProvenForLanguage(parser.language) &&
 		m.scannerProvenanceTransferProven && compactTreeIncrementalReuseProven(root)
 	tree.incrementalReuseDisabled = !compactIncrementalReuseProven

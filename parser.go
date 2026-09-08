@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -3143,16 +3144,15 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 
 func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int) *Tree {
 	// Fast path: unchanged source and no recorded edits.
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if p.canReuseUnchangedTree(source, oldTree) {
 		return oldTree
 	}
-	// Parser states, symbols, and scanner checkpoints belong to one Language
-	// instance. Never interpret an edited tree through another instance, even
-	// when both languages report the same name or grammar digest.
-	if oldTree != nil && oldTree.language != p.language {
+	// Parser states, symbols, and scanner checkpoints belong to one Language instance.
+	// Reuse also requires matching included ranges after tree edits.
+	if reason := p.oldTreeReuseContextMismatch(oldTree); reason != "" {
 		if timing != nil {
 			timing.reuseUnsupported = true
-			timing.reuseUnsupportedReason = "old_tree_language_mismatch"
+			timing.reuseUnsupportedReason = reason
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
@@ -3471,8 +3471,21 @@ func (p *Parser) currentExternalCompactFullLeafCheckpointRef(arena *nodeArena, t
 	return cp, true
 }
 
-func canReuseUnchangedTree(source []byte, oldTree *Tree, lang *Language) bool {
-	if oldTree == nil || oldTree.language != lang || len(oldTree.edits) != 0 {
+func (p *Parser) oldTreeReuseContextMismatch(oldTree *Tree) string {
+	if oldTree == nil {
+		return ""
+	}
+	if oldTree.language != p.language {
+		return "old_tree_language_mismatch"
+	}
+	if !slices.Equal(oldTree.includedRanges, p.included) {
+		return "old_tree_included_ranges_changed"
+	}
+	return ""
+}
+
+func (p *Parser) canReuseUnchangedTree(source []byte, oldTree *Tree) bool {
+	if oldTree == nil || len(oldTree.edits) != 0 || p.oldTreeReuseContextMismatch(oldTree) != "" {
 		return false
 	}
 	oldSource := oldTree.source

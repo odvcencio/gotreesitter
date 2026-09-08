@@ -6,6 +6,8 @@ package cgoharness
 // Keep the historical geometries that exposed root normalization defects.
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +16,88 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
+
+func TestIncludedRangesGoIncrementalLockedC(t *testing.T) {
+	for _, mode := range []string{"leaf_edit", "prefix_insert", "range_change"} {
+		for _, compact := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/compact=%t", mode, compact), func(t *testing.T) {
+				source := []byte("// host\npackage first\nvar a = 1\n// gap\npackage second\nvar b = 2\n")
+				start := bytes.Index(source, []byte("package first"))
+				end := bytes.Index(source, []byte("// gap"))
+				language := grammars.GoLanguage()
+				parser := gts.NewParser(language)
+				parser.SetAdmissionCandidateRoute(compact)
+				oracle := sitter.NewParser()
+				defer oracle.Close()
+				if err := oracle.SetLanguage(loadCanonicalGoCLanguage(t)); err != nil {
+					t.Fatal(err)
+				}
+				setRanges := func(data []byte, first, last int) {
+					sp, ep := pointAtOffset(data, first), pointAtOffset(data, last)
+					parser.SetIncludedRanges([]gts.Range{{StartByte: uint32(first), EndByte: uint32(last), StartPoint: sp, EndPoint: ep}})
+					if err := oracle.SetIncludedRanges([]sitter.Range{{StartByte: uint(first), EndByte: uint(last), StartPoint: sitter.Point{Row: uint(sp.Row), Column: uint(sp.Column)}, EndPoint: sitter.Point{Row: uint(ep.Row), Column: uint(ep.Column)}}}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				setRanges(source, start, end)
+				old, err := parser.Parse(source)
+				if err != nil || old == nil {
+					t.Fatalf("old parse: %v", err)
+				}
+				defer old.Release()
+				cOld := oracle.Parse(source, nil)
+				if cOld == nil {
+					t.Fatal("C returned no old tree")
+				}
+				defer cOld.Close()
+				assertG18LockedCExact(t, "old included tree", old, language, cOld)
+				edited := append([]byte(nil), source...)
+				if mode == "range_change" {
+					start, end = bytes.Index(source, []byte("package second")), len(source)
+				} else {
+					at, oldEnd, replacement := bytes.Index(source, []byte("1\n")), 0, "3"
+					oldEnd = at + 1
+					if mode == "prefix_insert" {
+						at, oldEnd, replacement = 0, 0, "// added\n"
+						start += len(replacement)
+						end += len(replacement)
+					}
+					edited = append(append(append([]byte(nil), source[:at]...), replacement...), source[oldEnd:]...)
+					edit := gts.InputEdit{StartByte: uint32(at), OldEndByte: uint32(oldEnd), NewEndByte: uint32(at + len(replacement)), StartPoint: pointAtOffset(source, at), OldEndPoint: pointAtOffset(source, oldEnd), NewEndPoint: pointAtOffset(edited, at+len(replacement))}
+					old.Edit(edit)
+					cEdit := realCorpusCInputEdit(edit)
+					cOld.Edit(&cEdit)
+				}
+				setRanges(edited, start, end)
+				next, profile, err := parser.ParseIncrementalProfiled(edited, old)
+				if next != nil && next != old {
+					defer next.Release()
+				}
+				if err != nil || next == nil {
+					t.Fatalf("incremental parse: %v", err)
+				}
+				cNext := oracle.Parse(edited, cOld)
+				if cNext == nil {
+					t.Fatal("C returned no incremental tree")
+				}
+				defer cNext.Close()
+				cFresh := oracle.Parse(edited, nil)
+				if cFresh == nil {
+					t.Fatal("C returned no fresh tree")
+				}
+				defer cFresh.Close()
+				assertG18LockedCExact(t, "incremental C", next, language, cNext)
+				assertG18LockedCExact(t, "fresh C", next, language, cFresh)
+				if mode != "range_change" && (profile.ReuseUnsupported || profile.ReusedSubtrees == 0) {
+					t.Fatalf("stable ranges lost reuse: %+v", profile)
+				}
+				if mode == "range_change" && (!profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "old_tree_included_ranges_changed") {
+					t.Fatalf("range change attribution: %+v", profile)
+				}
+			})
+		}
+	}
+}
 
 func includedRangesPointAt(src []byte, off int) (uint, uint) {
 	var row, col uint
