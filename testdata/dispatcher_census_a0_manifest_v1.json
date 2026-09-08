@@ -496,7 +496,7 @@
       "checked": 3,
       "run": 3,
       "nodes_visited": 1441,
-      "nodes_rewritten": 1315,
+      "nodes_rewritten": 8,
       "error_roots": 3,
       "parse_errors": 0
     },
@@ -584,7 +584,7 @@
       "checked": 3,
       "run": 3,
       "nodes_visited": 2630,
-      "nodes_rewritten": 171,
+      "nodes_rewritten": 28,
       "error_roots": 2,
       "parse_errors": 0
     },

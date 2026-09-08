@@ -107,7 +107,10 @@ func TestSwiftUnsafeWitnessKeepsCurrentGoTreeAcrossRecoveryProbe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("inspect Swift unsafe witness: %v", err)
 	}
-	const wantDigest = "7cb588c1f7b44cf490d8fcddd11adb0cc56238e891156687c26660568a7f7447"
+	// Digest of the current Go tree. It moved when absorbed leaves stopped
+	// carrying the error bit and ERROR children kept their hidden-parent
+	// fields (both C rules); the tree shape is unchanged.
+	const wantDigest = "00085f672ac6595ed7182fe74369701e8547cfad2a8a5cb0326c9caf5e98e39d"
 	if inspection.SHA256 != wantDigest {
 		t.Fatalf("Swift unsafe witness digest = %s, want %s", inspection.SHA256, wantDigest)
 	}

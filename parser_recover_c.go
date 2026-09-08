@@ -599,6 +599,18 @@ func generatedCRecoveryDefaultSafe(lang *Language) bool {
 }
 
 func cRecoveryDefaultOptOut(name string) bool {
+	// The C recovery port is the only path that can reproduce the C oracle's
+	// recovered trees, so a language stays on the legacy path only while a
+	// measured witness blocks the switch (docs/c-parity-boards.md, Recovery):
+	//   - cpp: the port inserts a MISSING `::` where C skips a token
+	//     (TestCppMalformedClassFunctionDefinitionRecovery).
+	//   - javascript: the port exceeds the W5 incremental replace ceilings
+	//     by about 2.8 times (TestW5JavaScriptFamilyTransientErrorGate).
+	//   - julia: the scanner emits a zero-width identifier that hides the
+	//     error C reports (TestJuliaTrailingCommaAssignmentTupleCompatibility).
+	//   - html: the external lex election ledger keeps it opted out
+	//     (TestExternalLexStatesRecoveryElectionOptOutInventory); no board
+	//     case measures html yet.
 	switch name {
 	case "cpp", "html", "javascript", "julia":
 		return true
@@ -1293,8 +1305,7 @@ type cRecoverState struct {
 	// state — the C "ERROR_STATE head with NULL subtree" shape, which costs an
 	// extra ERROR_COST_PER_RECOVERY in ts_stack_error_cost.
 	openErr *Node
-	// groupOrder preserves the path order in its low bits. The reserved high
-	// bit stores the recovery-leaf policy. Read the order through groupOrderValue.
+	// groupOrder preserves the path order. Read it through groupOrderValue.
 	groupOrder uint32
 	// extraRecoveries counts the additional error segments C opens while this
 	// version keeps absorbing: an unlexable-run (ERROR-token) lookahead has no
@@ -1311,23 +1322,15 @@ type cRecoverState struct {
 	extraRecoveries uint32
 }
 
-const (
-	cRecoverGroupOrderLeafClearBit uint32 = 1 << 31
-	cRecoverGroupOrderValueMask           = cRecoverGroupOrderLeafClearBit - 1
-)
+const cRecoverGroupOrderValueMask uint32 = 1<<31 - 1
 
-// cPackRecoverGroupOrder packs the path order and recovery-leaf policy. Current
-// recovery ceilings keep vi below the reserved bit. The uint64 input checks a
-// future larger value before narrowing. Invalid input saturates and clears policy.
-func cPackRecoverGroupOrder(order uint64, clearOrdinaryLeafErrors bool) uint32 {
+// cPackRecoverGroupOrder narrows the path order. Current recovery ceilings
+// keep vi far below the mask; a larger value saturates.
+func cPackRecoverGroupOrder(order uint64) uint32 {
 	if order > uint64(cRecoverGroupOrderValueMask) {
 		return cRecoverGroupOrderValueMask
 	}
-	packed := uint32(order)
-	if clearOrdinaryLeafErrors {
-		return packed | cRecoverGroupOrderLeafClearBit
-	}
-	return packed
+	return uint32(order)
 }
 
 func (r *cRecoverState) groupOrderValue() uint32 {
@@ -1335,10 +1338,6 @@ func (r *cRecoverState) groupOrderValue() uint32 {
 		return 0
 	}
 	return r.groupOrder & cRecoverGroupOrderValueMask
-}
-
-func (r *cRecoverState) clearsOrdinaryLeafErrors() bool {
-	return r != nil && r.groupOrder&cRecoverGroupOrderLeafClearBit != 0
 }
 
 var cRecoverStateCloneObserver func()
@@ -3812,7 +3811,6 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		}
 		v := &versions[vi]
 		entries := cStackEntriesTopFirst(v, gssScratch)
-		hasParsedPrefix := cRecoveryEntriesHaveParsedPrefix(entries, tok.StartByte)
 		if debugRecoveryCycleChecks {
 			for ei := range entries {
 				if entries[ei].node != nil {
@@ -3828,10 +3826,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		// before narrowing so the packer fails closed if a future path exceeds it.
 		v.cRec = &cRecoverState{
 			summary: summary, group: group,
-			groupOrder: cPackRecoverGroupOrder(
-				uint64(vi),
-				cRecoveryRegionClearsOrdinaryLeafErrors(p, tok, hasParsedPrefix),
-			),
+			groupOrder: cPackRecoverGroupOrder(uint64(vi)),
 		}
 		v.cRecoverMissingGroup = nil
 	}
@@ -3897,45 +3892,6 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	}
 	p.recordRecoveryLiveVersions(*stacks)
 	return outcome, needsRedispatch, ParseStopNone
-}
-
-// cRecoveryRegionClearsOrdinaryLeafErrors reports whether C would keep
-// ordinary visible leaves clean in this recovery region. The predicate uses
-// token provenance, symbol metadata, and a source-bearing stack prefix.
-func cRecoveryRegionClearsOrdinaryLeafErrors(p *Parser, tok Token, hasParsedPrefix bool) bool {
-	return p != nil && hasParsedPrefix && p.cSymbolVisible(tok.Symbol) &&
-		p.isNamedSymbol(tok.Symbol) && !tok.lexerSkippedPrefix() &&
-		cRecoveryTokenCanClearOrdinaryLeafError(tok)
-}
-
-// cRecoveryEntriesHaveParsedPrefix proves that recovery follows a clean,
-// source-bearing stack node at or before the current token. The error
-// discontinuity and the base state do not provide this proof.
-func cRecoveryEntriesHaveParsedPrefix(entries []stackEntry, tokenStartByte uint32) bool {
-	for _, entry := range entries {
-		if entry.node == nil || entry.state == cErrorState || entry.kind == stackEntryKindPendingParent ||
-			(entry.kind != stackEntryKindNode && entry.kind != stackEntryKindNoTreeNode && entry.kind != stackEntryKindCompactFullLeaf) ||
-			stackEntryNodeSymbol(entry) == 0 || stackEntryNodeSymbol(entry) == errorSymbol ||
-			stackEntryNodeParseState(entry) != entry.state || stackEntryNodeIsMissing(entry) ||
-			stackEntryNodeHasError(entry) || stackEntryNodeDirty(entry) {
-			continue
-		}
-		startByte := stackEntryNodeStartByte(entry)
-		endByte := stackEntryNodeEndByte(entry)
-		if endByte > startByte && endByte <= tokenStartByte {
-			return true
-		}
-	}
-	return false
-}
-
-// cRecoveryTokenCanClearOrdinaryLeafError requires positive internal-DFA
-// provenance for each absorbed token. A region proof cannot authorize a
-// later external, generated, error-mode, zero-width, or EOF token.
-func cRecoveryTokenCanClearOrdinaryLeafError(tok Token) bool {
-	return tok.Symbol != 0 && tok.Symbol != errorSymbol && tok.EndByte > tok.StartByte &&
-		tok.lexerInternalDFALexed() && !tok.ExternalScannerToken &&
-		!tok.lexerErrorModeLexed() && !tok.Missing && !tok.NoLookahead
 }
 
 // ---------------------------------------------------------------------------
@@ -4362,6 +4318,7 @@ func cSortRecoverMembersByGroupOrder(stacks []glrStack, members []int) {
 func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena *nodeArena, entryScratch *glrEntryScratch, gssScratch *gssScratch, trackChildErrors *bool) {
 	entries := cStackEntriesTopFirst(v, gssScratch)
 	children := make([]*Node, 0, len(entries))
+	var fields []FieldID
 	openErr := (*Node)(nil)
 	if v.cRec != nil {
 		openErr = v.cRec.openErr
@@ -4382,13 +4339,15 @@ func (p *Parser) cRecoverEOFAccept(v *glrStack, tok Token, nodeCount *int, arena
 		if n == openErr {
 			// Open-region children were visible-spliced at absorb time.
 			children = append(children, n.children...)
+			fields = appendZeroFields(fields, len(n.children))
 			continue
 		}
 		// C parity: recover_eof/accept keep closed ERROR subtrees as-is;
 		// only invisible (hidden-symbol) subtrees flatten.
-		children = p.cAppendVisibleSplice(children, n)
+		children, fields = p.cAppendVisibleSpliceWithFields(children, fields, n, 0)
 	}
 	root := p.newRecoveryParentNodeInArena(arena, errorSymbol, true, children, 0)
+	setRecoveryFieldMetadata(root, fields)
 	if rawFirst != nil {
 		cSetNodeSpan(root, rawFirst.startByte, rawLast.endByte, rawFirst.startPoint, rawLast.endPoint)
 	} else {
@@ -4543,6 +4502,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 	// engine's reduce does. The raw popped extent pins the ERROR span (C
 	// error regions cover invisible subtrees too).
 	children := make([]*Node, 0, len(wrapped)+2)
+	var fields []FieldID
 	openErr := (*cRecoverState)(nil)
 	if v.cRec != nil {
 		openErr = v.cRec
@@ -4556,12 +4516,13 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 		if openErr != nil && n == openErr.openErr {
 			// Open-region children were visible-spliced at absorb time.
 			children = append(children, n.children...)
+			fields = appendZeroFields(fields, len(n.children))
 			continue
 		}
 		// C parity: popped closed subtrees (ERROR carriers included) keep
 		// their identity inside the new ERROR; only invisible subtrees
 		// flatten.
-		children = p.cAppendVisibleSplice(children, n)
+		children, fields = p.cAppendVisibleSpliceWithFields(children, fields, n, 0)
 	}
 
 	fork := v.cloneWithScratch(gssScratch)
@@ -4592,6 +4553,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 		prev := top
 		if fork.truncate(fork.depth() - 1) {
 			children = append(append(make([]*Node, 0, len(prev.children)+len(children)), prev.children...), children...)
+			fields = append(appendZeroFields(nil, len(prev.children)), fields...)
 			if rawFirst == nil {
 				rawLast = prev
 			}
@@ -4601,6 +4563,7 @@ func (p *Parser) cRecoverToState(v *glrStack, depth int, goal StateID, arena *no
 
 	if rawFirst != nil {
 		errNode := p.newRecoveryParentNodeInArena(arena, errorSymbol, true, children, 0)
+		setRecoveryFieldMetadata(errNode, fields)
 		cSetNodeSpan(errNode, rawFirst.startByte, rawLast.endByte, rawFirst.startPoint, rawLast.endPoint)
 		errNode.setHasError(true)
 		errNode.setExtra(true)
@@ -4664,16 +4627,10 @@ func (p *Parser) cAbsorbTokenIntoError(v *glrStack, tok Token, nodeCount *int, a
 		leaf = newLeafNodeInArena(arena, tok.Symbol, tok.Symbol == errorSymbol || p.isNamedSymbol(tok.Symbol),
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
-		// C marks the enclosing ERROR node as erroneous. Keep ordinary leaves
-		// clean when the region has direct internal-lexer provenance.
-		clearLeafError := v.cRec.clearsOrdinaryLeafErrors() &&
-			cRecoveryTokenCanClearOrdinaryLeafError(tok)
-		if !clearLeafError && tok.Symbol != errorSymbol {
-			leaf.setHasError(true)
-		}
-		if tok.Symbol == errorSymbol && !tok.lexerErrorModeLexed() {
-			leaf.setHasError(true)
-		}
+		// C marks the enclosing ERROR node as erroneous, never the absorbed
+		// leaf: a leaf's error cost is zero unless the leaf is missing
+		// (ts_subtree_error_cost), and that holds for an unlexable-byte
+		// ERROR leaf too (ts_subtree_new_error).
 		// C: if the token shifts as extra in state 1, mark it extra so it is
 		// not counted in error cost calculations.
 		if idx := p.lookupActionIndex(1, tok.Symbol); idx != 0 && int(idx) < len(p.language.ParseActions) {
@@ -5633,4 +5590,49 @@ func (p *Parser) stateHasActionForSymbol(state StateID, sym Symbol) bool {
 		return false
 	}
 	return len(parseActions[idx].Actions) > 0
+}
+
+// cAppendVisibleSpliceWithFields splices like cAppendVisibleSplice and
+// records the field each spliced child carries: the field its hidden parent
+// gives it, or the field the hidden parent itself carried when the child has
+// none. This is what ts_node_field_name_for_child reports when it descends
+// through a hidden child of an ERROR node.
+func (p *Parser) cAppendVisibleSpliceWithFields(dst []*Node, fields []FieldID, n *Node, inherited FieldID) ([]*Node, []FieldID) {
+	if n == nil {
+		return dst, fields
+	}
+	if n.symbol == errorSymbol || n.isMissing() || p.cSymbolVisible(n.symbol) {
+		return append(dst, n), append(fields, inherited)
+	}
+	ids := n.fieldIDs()
+	for i, c := range n.children {
+		field := inherited
+		if i < len(ids) && ids[i] != 0 {
+			field = ids[i]
+		}
+		dst, fields = p.cAppendVisibleSpliceWithFields(dst, fields, c, field)
+	}
+	return dst, fields
+}
+
+// appendZeroFields pads a field list for children that carry no field.
+func appendZeroFields(fields []FieldID, n int) []FieldID {
+	for i := 0; i < n; i++ {
+		fields = append(fields, 0)
+	}
+	return fields
+}
+
+// setRecoveryFieldMetadata attaches the spliced fields to a recovery-built
+// ERROR node when any child carries one.
+func setRecoveryFieldMetadata(n *Node, fields []FieldID) {
+	if n == nil || len(fields) != len(n.children) {
+		return
+	}
+	for _, f := range fields {
+		if f != 0 {
+			n.setFieldMetadata(fields, nil)
+			return
+		}
+	}
 }

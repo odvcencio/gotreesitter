@@ -63,23 +63,7 @@ type highlightTolerance struct {
 // knownDegradedHighlight is the "no new degradations" list for non-curated
 // languages. Each entry records the maximum tolerated (cMissing, goOnly).
 // This list can shrink (as fixes land) but must not grow (regressions block).
-var knownDegradedHighlight = map[string]highlightTolerance{
-	"bicep":        {goOnly: 1},
-	"cairo":        {cMissing: 2},
-	"enforce":      {cMissing: 3},
-	"glsl":         {cMissing: 2},
-	"hare":         {cMissing: 3, goOnly: 1},
-	"jsonnet":      {cMissing: 1},
-	"kconfig":      {cMissing: 2},
-	"linkerscript": {cMissing: 2},
-	"luau":         {cMissing: 2},
-	"odin":         {cMissing: 2},
-	"purescript":   {goOnly: 1},
-	"smithy":       {goOnly: 1},
-	"squirrel":     {cMissing: 3},
-	"thrift":       {cMissing: 1},
-	"uxntal":       {cMissing: 4},
-}
+var knownDegradedHighlight = map[string]highlightTolerance{}
 
 // collectGoHighlightCaptures runs a highlight query against a Go parse tree
 // and returns sorted, deduplicated captures.

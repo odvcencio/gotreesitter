@@ -355,14 +355,17 @@ func TestParseOperationBoundaryResetsRetainedRecoveryMemoSize(t *testing.T) {
 	}
 }
 
-func TestCAbsorbErrorRunUsesLexerProvenanceForLeafErrorFlag(t *testing.T) {
+// TestCAbsorbErrorRunLeafCarriesNoErrorBit: an absorbed unlexable-run leaf
+// has no error cost in C (ts_subtree_new_error builds a plain leaf), so the
+// ERROR container is the only erroneous node.
+func TestCAbsorbErrorRunLeafCarriesNoErrorBit(t *testing.T) {
 	for _, test := range []struct {
 		name           string
 		lexerProduced  bool
 		wantChildError bool
 	}{
 		{name: "lexer-produced", lexerProduced: true},
-		{name: "unproven", wantChildError: true},
+		{name: "unproven"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			parser := cRecoveryElectionTestParser()

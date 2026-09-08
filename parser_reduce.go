@@ -6284,7 +6284,7 @@ func fieldSourceAt(fieldSources []uint8, i int) uint8 {
 func countEligibleNamedFieldTargets(children []*Node, fieldIDs []FieldID, start, end int) int {
 	count := 0
 	for i := start; i < end; i++ {
-		if children[i] == nil || children[i].isExtra() || children[i].isMissing() || !children[i].isNamed() || fieldIDs[i] != 0 {
+		if children[i] == nil || children[i].isExtra() || !children[i].isNamed() || fieldIDs[i] != 0 {
 			continue
 		}
 		count++
@@ -6295,7 +6295,7 @@ func countEligibleNamedFieldTargets(children []*Node, fieldIDs []FieldID, start,
 func countEligibleFieldTargets(children []*Node, fieldIDs []FieldID, start, end int) int {
 	count := 0
 	for i := start; i < end; i++ {
-		if children[i] == nil || children[i].isExtra() || children[i].isMissing() || fieldIDs[i] != 0 {
+		if children[i] == nil || children[i].isExtra() || fieldIDs[i] != 0 {
 			continue
 		}
 		count++
@@ -6432,33 +6432,42 @@ func (s *reduceBuildScratch) recordRepeatedField(epoch uint32, fid FieldID, sour
 	s.repeatSource[idx] = source
 }
 
-func appendFlattenedHiddenChildrenToScratch(scratch *reduceBuildScratch, n *Node, symbolMeta []SymbolMetadata, preservedHidden []bool) {
+// appendFlattenedHiddenChildrenToScratch splices the visible descendants of
+// hidden node n into scratch. mask carries the hidden supertype ancestors
+// above n (Language.supertypeBit bits); every visible descendant records the
+// mask it is reached through, which is the provenance C's tree cursor
+// reports for supertype query patterns.
+func appendFlattenedHiddenChildrenToScratch(scratch *reduceBuildScratch, n *Node, symbolMeta []SymbolMetadata, preservedHidden []bool, lang *Language, arena *nodeArena, mask uint32) {
 	if scratch == nil || n == nil {
 		return
 	}
 	if symbolStructuralForHiddenFlattening(n.symbol, symbolMeta, preservedHidden) {
+		n.addSupertypeMask(arena, mask)
 		scratch.appendNode(n)
 		return
 	}
+	mask |= lang.supertypeBit(n.symbol)
 	paddingStartByte := n.startByte
 	paddingStartPoint := n.startPoint
 	paddingSource := n
 	for _, child := range n.children {
 		before := len(scratch.nodes)
-		appendFlattenedHiddenChildrenToScratch(scratch, child, symbolMeta, preservedHidden)
+		appendFlattenedHiddenChildrenToScratch(scratch, child, symbolMeta, preservedHidden, lang, arena, mask)
 		paddingStartByte, paddingStartPoint = absorbFlattenedHiddenPaddingScratch(scratch, before, paddingStartByte, paddingStartPoint, paddingSource, nil, symbolMeta)
 		paddingSource = child
 	}
 }
 
-func appendFlattenedHiddenChildrenWithFieldScratch(scratch *reduceBuildScratch, n *Node, symbolMeta []SymbolMetadata, preservedHidden []bool) {
+func appendFlattenedHiddenChildrenWithFieldScratch(scratch *reduceBuildScratch, n *Node, symbolMeta []SymbolMetadata, preservedHidden []bool, lang *Language, arena *nodeArena, mask uint32) {
 	if scratch == nil || n == nil {
 		return
 	}
 	if symbolStructuralForHiddenFlattening(n.symbol, symbolMeta, preservedHidden) {
+		n.addSupertypeMask(arena, mask)
 		scratch.appendNode(n)
 		return
 	}
+	mask |= lang.supertypeBit(n.symbol)
 
 	nodeStart := len(scratch.nodes)
 	repeatEpoch := scratch.nextRepeatEpoch()
@@ -6470,7 +6479,7 @@ func appendFlattenedHiddenChildrenWithFieldScratch(scratch *reduceBuildScratch, 
 	fieldSources := n.fieldSources()
 	for i, child := range n.children {
 		spanStart := len(scratch.nodes)
-		appendFlattenedHiddenChildrenWithFieldScratch(scratch, child, symbolMeta, preservedHidden)
+		appendFlattenedHiddenChildrenWithFieldScratch(scratch, child, symbolMeta, preservedHidden, lang, arena, mask)
 		spanEnd := len(scratch.nodes)
 		paddingStartByte, paddingStartPoint = absorbFlattenedHiddenPaddingScratch(scratch, spanStart, paddingStartByte, paddingStartPoint, paddingSource, nil, symbolMeta)
 		paddingSource = child
@@ -6802,7 +6811,7 @@ func (p *Parser) buildReduceChildrenNoAliasNoFieldsPlanned(entries []stackEntry,
 		}
 		if parentVisible {
 			before := len(scratch.nodes)
-			appendFlattenedHiddenChildrenToScratch(scratch, n, symbolMeta, nil)
+			appendFlattenedHiddenChildrenToScratch(scratch, n, symbolMeta, nil, p.language, arena, 0)
 			after := len(scratch.nodes)
 			pendingPaddingStart, pendingPaddingPoint, havePendingPadding = flattenedHiddenEntryPadding(n, scratch.nodes, before, after)
 			pendingPaddingSource = n
@@ -6912,9 +6921,9 @@ func (p *Parser) appendReduceChildItemToScratch(scratch *reduceBuildScratch, ite
 
 	spanStart := len(scratch.nodes)
 	if hiddenTreeHasFieldIDs(n) {
-		appendFlattenedHiddenChildrenWithFieldScratch(scratch, n, symbolMeta, nil)
+		appendFlattenedHiddenChildrenWithFieldScratch(scratch, n, symbolMeta, nil, p.language, arena, 0)
 	} else {
-		appendFlattenedHiddenChildrenToScratch(scratch, n, symbolMeta, nil)
+		appendFlattenedHiddenChildrenToScratch(scratch, n, symbolMeta, nil, p.language, arena, 0)
 	}
 	if item.fieldID == 0 {
 		return spanStart, len(scratch.nodes)
@@ -7506,7 +7515,7 @@ func applyDirectFieldToUnassignedFlattenedSpan(children []*Node, fieldIDs []Fiel
 
 func assignFirstInheritedFieldToFlattenedSpan(children []*Node, fieldIDs []FieldID, fieldSources []uint8, start, end int, fid FieldID, source uint8, preferNamed, inherited bool) {
 	for j := start; j < end; j++ {
-		if fieldIDs[j] != 0 || children[j] == nil || children[j].isExtra() || children[j].isMissing() {
+		if fieldIDs[j] != 0 || children[j] == nil || children[j].isExtra() {
 			continue
 		}
 		if preferNamed && !children[j].isNamed() {
@@ -7539,8 +7548,11 @@ func assignAllUnassignedFlattenedFields(children []*Node, fieldIDs []FieldID, fi
 	}
 }
 
+// flattenedFieldTargetEligible reports whether a flattened child can take an
+// inherited field. A missing leaf is a relevant child in C
+// (ts_node_field_name_for_child skips extras only), so it takes the field.
 func flattenedFieldTargetEligible(child *Node, requireNamed bool) bool {
-	return child != nil && !child.isExtra() && !child.isMissing() && (!requireNamed || child.isNamed())
+	return child != nil && !child.isExtra() && (!requireNamed || child.isNamed())
 }
 
 func assignFlattenedField(fieldIDs []FieldID, fieldSources []uint8, idx int, fid FieldID, source uint8) {
@@ -8637,6 +8649,9 @@ func (p *Parser) collapsibleUnarySelfReduction(act ParseAction, tok Token, arena
 func (p *Parser) collapseUnaryChildForReductionWithRule(act ParseAction, arena *nodeArena, child *Node) (*Node, collapseUnaryRule) {
 	if child.symbol != act.Symbol {
 		if p.canCollapseInvisibleUnaryWrapper(act.Symbol, child) {
+			// The hidden wrapper is elided; its supertype provenance stays on
+			// the child, as C's tree cursor reports it for supertype patterns.
+			child.addSupertypeMask(arena, p.language.supertypeBit(act.Symbol))
 			return child, collapseUnaryRuleInvisibleWrapper
 		}
 		if child.ChildCount() != 0 || !p.canCollapseNamedLeafWrapper(act.Symbol, child.symbol) {
@@ -9010,6 +9025,9 @@ func aliasedNodeInArena(arena *nodeArena, lang *Language, n *Node, alias Symbol)
 	*cloned = *n
 	cloned.errorRankCache = 0
 	cloneNodeFieldMetadataHeaderInto(cloned, n, arena)
+	if mask := n.supertypeMask(); mask != 0 {
+		arena.setNodeSupertypeMask(cloned, mask)
+	}
 	cloned.symbol = alias
 	if lang != nil && int(alias) < len(lang.SymbolMetadata) {
 		cloned.setNamed(lang.SymbolMetadata[alias].Named)
@@ -9196,6 +9214,9 @@ func cloneNodeInArena(arena *nodeArena, n *Node) *Node {
 	*cloned = *n
 	cloned.errorRankCache = 0
 	cloned.ownerArena = arena
+	if mask := n.supertypeMask(); mask != 0 {
+		arena.setNodeSupertypeMask(cloned, mask)
+	}
 	cloneNodeFieldMetadataHeaderInto(cloned, n, arena)
 	copyMissingNodeDependencyForClone(cloned, n)
 	copyCompactReuseDependency(cloned, n)

@@ -697,6 +697,8 @@ type Language struct {
 	// through to the full lookup — so the filter can never change results.
 	anonTokenNameFirstByteMask [4]uint64
 	anonTokenNameLenMask       uint64
+	supertypeBits              []uint32          // symbol -> provenance mask bit; 0 when not a supertype
+	queryNamedSymbolMap        map[string]Symbol // query node type -> canonical named symbol (visible or supertype)
 
 	symbolMapOnce sync.Once
 	fieldMapOnce  sync.Once
@@ -1533,8 +1535,10 @@ func (l *Language) PublicSymbolForNamedness(sym Symbol, named bool) Symbol {
 
 func (l *Language) buildSymbolMaps() {
 	l.symbolMapOnce.Do(func() {
+		l.buildSupertypeBits()
 		l.symbolNameMap = make(map[string]Symbol, len(l.SymbolNames))
 		l.symbolNameNamedMap = make(map[symbolNameNamedKey]Symbol, len(l.SymbolNames))
+		l.queryNamedSymbolMap = make(map[string]Symbol, len(l.SymbolNames))
 		l.visibleSymbolNameMap = make(map[symbolNameNamedKey]Symbol, len(l.SymbolNames))
 		l.tokenSymbolNameMap = make(map[string][]Symbol)
 		l.publicSymbolMap = make([]Symbol, len(l.SymbolNames))
@@ -1565,6 +1569,11 @@ func (l *Language) buildSymbolMaps() {
 			key := symbolNameNamedKey{name: sn, named: named}
 			if _, exists := l.symbolNameNamedMap[key]; !exists {
 				l.symbolNameNamedMap[key] = sym
+			}
+			if named && i < len(l.SymbolMetadata) && (l.SymbolMetadata[i].Visible || l.SymbolMetadata[i].Supertype) {
+				if _, exists := l.queryNamedSymbolMap[sn]; !exists {
+					l.queryNamedSymbolMap[sn] = sym
+				}
 			}
 			if i < len(l.SymbolMetadata) && l.SymbolMetadata[i].Visible {
 				if _, exists := l.visibleSymbolNameMap[key]; !exists {
@@ -1606,12 +1615,98 @@ func (l *Language) buildSymbolMaps() {
 	})
 }
 
+// supertypeBit returns the bit that stands for sym in a node's supertype
+// mask: one bit per supertype symbol in symbol order, or 0 when sym is not
+// a supertype or its ordinal does not fit the 32-bit mask.
+func (l *Language) supertypeBit(sym Symbol) uint32 {
+	if l == nil {
+		return 0
+	}
+	l.buildSymbolMaps()
+	if int(sym) >= len(l.supertypeBits) {
+		return 0
+	}
+	return l.supertypeBits[sym]
+}
+
+// QuerySymbolByName resolves a node type the way a query pattern does. It
+// follows ts_language_symbol_for_name for a named lookup: the first symbol,
+// in symbol order, that is visible or a supertype, is named, and has that
+// name. Hidden non-supertype rules and anonymous tokens are not query node
+// types. The result is the canonical public symbol for that name.
+func (l *Language) QuerySymbolByName(name string) (Symbol, bool) {
+	return l.querySymbolByName(name)
+}
+
+func (l *Language) querySymbolByName(name string) (Symbol, bool) {
+	if l == nil {
+		return 0, false
+	}
+	l.buildSymbolMaps()
+	sym, ok := l.queryNamedSymbolMap[name]
+	if !ok {
+		return 0, false
+	}
+	if int(sym) < len(l.publicNamedSymbolMap) {
+		return l.publicNamedSymbolMap[sym], true
+	}
+	return sym, true
+}
+
+// symbolIsSupertype reports whether sym is a supertype in the sense the C
+// query compiler uses: the symbol metadata carries the supertype flag. The
+// ABI 15 supertype list is a subset of those symbols; grammars generated at
+// an older ABI carry the flag without the list.
+func (l *Language) symbolIsSupertype(sym Symbol) bool {
+	if l == nil {
+		return false
+	}
+	if int(sym) < len(l.SymbolMetadata) && l.SymbolMetadata[sym].Supertype {
+		return true
+	}
+	return l.IsSupertype(sym)
+}
+
+// buildSupertypeBits assigns one mask bit per supertype symbol, in symbol
+// order. A grammar with more than 32 supertypes (none shipped today; the
+// largest has 28) records no provenance for the excess.
+func (l *Language) buildSupertypeBits() {
+	bits := make([]uint32, len(l.SymbolNames))
+	ordinal := 0
+	for i := range bits {
+		sym := Symbol(i)
+		if !((i < len(l.SymbolMetadata) && l.SymbolMetadata[i].Supertype) || slices.Contains(l.SupertypeSymbols, sym)) {
+			continue
+		}
+		if ordinal < 32 {
+			bits[i] = 1 << uint(ordinal)
+		}
+		ordinal++
+	}
+	l.supertypeBits = bits
+}
+
 // IsSupertype reports whether sym is a supertype symbol.
 func (l *Language) IsSupertype(sym Symbol) bool {
 	if l == nil {
 		return false
 	}
 	return slices.Contains(l.SupertypeSymbols, sym)
+}
+
+// supertypeHasSubtype reports whether sub is listed in the ABI 15 supertype
+// map of super, comparing canonical public symbols as the query compiler
+// resolves them.
+func (l *Language) supertypeHasSubtype(super, sub Symbol) bool {
+	for _, candidate := range l.SupertypeChildren(super) {
+		if candidate == sub {
+			return true
+		}
+		if int(candidate) < len(l.publicNamedSymbolMap) && l.publicNamedSymbolMap[candidate] == sub {
+			return true
+		}
+	}
+	return false
 }
 
 // SupertypeChildren returns the subtype symbols for a given supertype.
