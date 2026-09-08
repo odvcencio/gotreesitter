@@ -1522,3 +1522,20 @@ func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
 		t.Fatalf("stale F# unary-wrapper rules = %v, want none", stale.NativeUnaryWrapperFlattening)
 	}
 }
+
+func TestBuiltinGoIncludedEOFRecoveryRequiresExactBlob(t *testing.T) {
+	profile := builtinLanguageRuntimeProfiles["go"]
+	exact := &gotreesitter.Language{Name: "go"}
+	if !attachBuiltinLanguageRuntimeProfile("go", profile.blobSHA256, exact) || !exact.CompactIncludedRangeEOFRecoveryCertified {
+		t.Fatal("exact Go blob lacks included EOF recovery certification")
+	}
+	stale := &gotreesitter.Language{Name: "go"}
+	if attachBuiltinLanguageRuntimeProfile("go", sha256.Sum256([]byte("stale Go blob")), stale) || stale.CompactIncludedRangeEOFRecoveryCertified {
+		t.Fatal("stale Go blob received included EOF recovery certification")
+	}
+	custom := &gotreesitter.Language{Name: "go"}
+	AttachLanguageSupport("go", custom)
+	if custom.CompactIncludedRangeEOFRecoveryCertified {
+		t.Fatal("custom Go grammar received included EOF recovery certification")
+	}
+}

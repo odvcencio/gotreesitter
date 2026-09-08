@@ -244,7 +244,7 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserverAndErrorRuns
 }
 
 func requireParserCoreFreshFullAcceptance(scheduler *diagnosticParserCoreGenericScheduler, source []byte, allowConvergedReductionSplitDrops bool, continuationEscape byte) error {
-	if scheduler != nil && len(scheduler.options.includedRanges) > 0 && (scheduler.s3RegionOpened || scheduler.recoveryTurns.active || scheduler.work.RecoverEOFAccepts != 0 || scheduler.s5MissingInsertions != 0) {
+	if scheduler != nil && len(scheduler.options.includedRanges) > 0 && (scheduler.s3RegionOpened || scheduler.recoveryTurns.active || scheduler.work.RecoverEOFAccepts != 0 || scheduler.s5MissingInsertions != 0) && !scheduler.includedRangeEOFRecoveryAdmitted(source) {
 		return errors.New("compact included-range recovery is not certified")
 	}
 	if scheduler == nil || scheduler.receipt == nil || scheduler.receipt.Acceptance == nil || scheduler.acceptedHead.Node == 0 {
@@ -402,7 +402,7 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		}
 	}
 	r.scratch.materializationBudgetScheduler = scheduler
-	tree, err := materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(
+	tree, err := materializeDiagnosticParserCoreAcceptedSelectionWithIncludedRecovery(
 		compact,
 		scheduler.acceptedHead,
 		scheduler.acceptedPayloads,
@@ -412,11 +412,19 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		r.replayParseStates,
 		allowErrorRoot,
 		rootFinalization,
+		scheduler.includedRangeEOFRecoveryAdmitted(source),
 	)
 	if err != nil && gated {
 		scheduler.failCompactEOFRecoveryConstruction(err)
 	}
 	return tree, err
+}
+
+// Included ranges require the exact artifact grant and the current owned EOF turn.
+func (s *diagnosticParserCoreGenericScheduler) includedRangeEOFRecoveryAdmitted(source []byte) bool {
+	return s != nil && s.options.allowCompactIncludedRangeEOFRecovery &&
+		s.options.allowCompactRecoveryVersionTurns && len(s.options.includedRanges) > 0 &&
+		s.recoveryTurns.active && (s.work.RecoverEOFAccepts != 0 || s.hasOwnedOrdinaryEOFAcceptance(source))
 }
 
 // hasOwnedOrdinaryEOFAcceptance authenticates a resumed recovery version that

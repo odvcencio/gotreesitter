@@ -127,6 +127,8 @@ type DiagnosticParserCorePrefixOptions struct {
 	// allowCompactRecoveryVersionTurns enables owned C advance rounds after S5.
 	// Artifact admission remains separate from this private runtime capability.
 	allowCompactRecoveryVersionTurns bool
+	// Included ranges require a separate artifact grant and an executed owned EOF turn.
+	allowCompactIncludedRangeEOFRecovery bool
 	// allowCompactRecoveryLineageSelection permits completeAcceptance to
 	// resolve MORE THAN ONE accepted head by pricing the competing recovery
 	// lineages and publishing the cheaper tree, instead of declining.
@@ -7310,6 +7312,10 @@ const (
 // the default path unchanged. A tagged diagnostic caller can request the
 // locked-C recover_eof root rule.
 func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compact *core.Core, head core.Head, payloads []core.SubtreeID, parser *Parser, source []byte, scratch *parserCoreRunnerScratch, forceReplayParseStates bool, allowErrorRoot bool, rootFinalization diagnosticParserCoreRootFinalization) (*Tree, error) {
+	return materializeDiagnosticParserCoreAcceptedSelectionWithIncludedRecovery(compact, head, payloads, parser, source, scratch, forceReplayParseStates, allowErrorRoot, rootFinalization, false)
+}
+
+func materializeDiagnosticParserCoreAcceptedSelectionWithIncludedRecovery(compact *core.Core, head core.Head, payloads []core.SubtreeID, parser *Parser, source []byte, scratch *parserCoreRunnerScratch, forceReplayParseStates bool, allowErrorRoot bool, rootFinalization diagnosticParserCoreRootFinalization, allowIncludedRecovery bool) (*Tree, error) {
 	var incrementalReuse *compactIncrementalReuseSession
 	if scratch != nil {
 		incrementalReuse = scratch.incrementalReuse
@@ -7555,7 +7561,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 		return rejectTree(rangeErr)
 	}
 	root := tree.root
-	if len(parser.included) > 0 && (root.IsError() || root.HasError()) {
+	if len(parser.included) > 0 && (root.IsError() || root.HasError()) && !allowIncludedRecovery {
 		return rejectTree(errors.New("compact included-range recovery is not certified"))
 	}
 	if rootFinalization == diagnosticParserCoreFinalizeRecoverEOF {

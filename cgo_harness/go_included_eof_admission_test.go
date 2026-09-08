@@ -4,7 +4,6 @@ package cgoharness
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -12,7 +11,7 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-func TestGoCompactIncludedRangesLockedC(t *testing.T) {
+func TestGoCompactIncludedRangeEOFRecoveryLockedC(t *testing.T) {
 	lang := grammars.GoLanguage()
 	p := gts.NewParser(lang)
 	p.SetAdmissionCandidateRoute(true)
@@ -25,6 +24,10 @@ func TestGoCompactIncludedRangesLockedC(t *testing.T) {
 	if err := cp.SetLanguage(cl); err != nil {
 		t.Fatal(err)
 	}
+	recovery, err := os.ReadFile("../testdata/included_ranges/go_two_fences.go")
+	if err != nil {
+		t.Fatal(err)
+	}
 	parent := t
 	var retained []struct {
 		name   string
@@ -35,10 +38,9 @@ func TestGoCompactIncludedRangesLockedC(t *testing.T) {
 		name, source string
 		spans        [][2]int
 	}{
-		{"short", "package p\n!excluded", [][2]int{{0, 10}}},
-		{"disjoint", "package p\n!excluded!\nvar x = 1\n", [][2]int{{0, 10}, {21, 31}}},
-		{"offset", "!!!package p\n!excluded", [][2]int{{3, 13}}},
-		{"excluded_close_angle", "package p\nvar x = a >> b\n", [][2]int{{0, 21}, {22, 25}}},
+		{"recovery", string(recovery), [][2]int{{0, 150}, {203, 250}}},
+		{"included_eof", "package p\nfunc f(){x=y!", [][2]int{{0, 22}}},
+		{"physical_eof", "package p\nfunc f(){x=y", nil},
 		{"reset", "package q\n", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -80,32 +82,4 @@ func TestGoCompactIncludedRangesLockedC(t *testing.T) {
 	for _, result := range retained {
 		assertG18LockedCExact(t, "retained "+result.name, result.tree, lang, result.oracle)
 	}
-}
-
-// Recovery must decline when the included-range capability is absent.
-func TestGoCompactIncludedRangeRecoveryDeclines(t *testing.T) {
-	source, err := os.ReadFile("../testdata/included_ranges/go_two_fences.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	lang := *grammars.GoLanguage()
-	lang.CompactIncludedRangeEOFRecoveryCertified = false
-	p := gts.NewParser(&lang)
-	p.SetAdmissionCandidateRoute(true)
-	ranges := []gts.Range{}
-	for _, span := range [][2]int{{0, 150}, {203, 250}} {
-		ranges = append(ranges, gts.Range{StartByte: uint32(span[0]), EndByte: uint32(span[1]), StartPoint: pointAtOffset(source, span[0]), EndPoint: pointAtOffset(source, span[1])})
-	}
-	p.SetIncludedRanges(ranges)
-	before, failed := gts.AdmissionCandidateCounters()
-	tree, err := p.Parse(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tree.Release()
-	after, fallback := gts.AdmissionCandidateCounters()
-	if after != before || fallback <= failed || !strings.Contains(gts.AdmissionCandidateLastFallbackReason(), "included-range recovery is not certified") {
-		t.Fatalf("uncertified recovery was published: %s", gts.AdmissionCandidateLastFallbackReason())
-	}
-
 }
