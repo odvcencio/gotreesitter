@@ -116,6 +116,17 @@ func TestS5RecoveryDiscontinuityLinkValidation(t *testing.T) {
 			if !test.wantError && err != nil {
 				t.Fatalf("link=%+v was rejected: %v", link, err)
 			}
+			before := len(core.nodes)
+			published, publishErr := core.appendNodeAtWithMaximum(nodeRecord{
+				state: 0, byteOffset: 0, firstLink: uint32(linkID), linkCount: 1, pathCount: 1,
+			}, 0, 0)
+			if test.wantError {
+				if publishErr == nil || published != 0 || len(core.nodes) != before {
+					t.Fatalf("malformed link published node=%d nodes=%d/%d err=%v", published, len(core.nodes), before, publishErr)
+				}
+			} else if publishErr != nil || published != next {
+				t.Fatalf("sanctioned link publication=%d want=%d err=%v", published, next, publishErr)
+			}
 		})
 	}
 }

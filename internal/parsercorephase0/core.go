@@ -5972,8 +5972,7 @@ func (c *Core) popSingleLinkPath(head NodeID, childCount int, scratch *popEnumer
 		if link.prev == 0 || link.prev >= id {
 			return false, errors.New("parser-core phase zero: graph predecessor does not decrease")
 		}
-		// Link shape is validated once at the append (appendGraphLinkChecked);
-		// records never change afterwards.
+		// Node publication validates link shape. Published records are immutable.
 		if link.isRecoveryDiscontinuity() {
 			scratch.rev = append(scratch.rev, 0)
 			scratch.revScores = append(scratch.revScores, 0)
@@ -6676,6 +6675,9 @@ func (c *Core) validatePublishedNodeDAGAt(r nodeRecord, next NodeID, checkpoint 
 			return errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[id-1]
+		if err := link.validateShape(); err != nil {
+			return err
+		}
 		if link.prev == 0 || link.prev >= next {
 			return fmt.Errorf("parser-core phase zero: graph predecessor %d must be lower than new node %d", link.prev, next)
 		}

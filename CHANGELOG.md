@@ -25,9 +25,9 @@ for tags and release notes while still in `0.x`.
   direct-append condense reads the predecessor it already resolved instead of
   validating a synthetic link and resolving it again; a zero stored cost no
   longer republishes a fresh node's lineage.
-- Validate link records once at the append. Links never change afterwards,
-  so pop enumeration and node publication no longer re-validate every link
-  they read. The relex payload scratch no longer clears its whole buffer on
+- Validate link records at node publication, including copied adjacencies.
+  Single-link pop enumeration can trust immutable published records.
+  The relex payload scratch no longer clears its whole buffer on
   every election, the head owner record runs without a closure per dispatch,
   and a single fresh reduction output updates its header in place.
 - Together with the earlier round these cuts move the 137 KiB compact full
