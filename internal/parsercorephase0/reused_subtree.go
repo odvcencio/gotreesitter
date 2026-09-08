@@ -32,7 +32,8 @@ func (c *Core) PushReusedSubtreeOwned(owner SchedulerTransactionToken, head Head
 }
 
 // PushReusedSubtreeOwnedWithPoll checks cancellation while validating newly allocated records.
-// Keys must increase strictly. The complete allocated corridor must remain clean.
+// Keys must increase strictly. The allocated corridor must remain error-free
+// and unambiguous. Fresh nonterminal fragility does not certify an old candidate.
 func (c *Core) PushReusedSubtreeOwnedWithPoll(owner SchedulerTransactionToken, head Head, reused ReusedSubtree, poll func() error) (out Head, payload SubtreeID, err error) {
 	err = c.RunSchedulerOwned(owner, func() error {
 		node, err := c.node(head.Node)
@@ -108,7 +109,10 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		if err != nil {
 			return err
 		}
-		if r.missing || r.fragile || r.symbol >= ErrorRegionSymbol-1 {
+		// A freshly reduced prefix can be fragile after a deterministic fold.
+		// Its metadata remains intact; the graph checks below still require one
+		// exact lineage. This does not certify the borrowed candidate itself.
+		if r.missing || (r.fragile && r.terminal) || r.symbol >= ErrorRegionSymbol-1 {
 			return errors.New("parser-core phase zero: reused head contains an unclean payload")
 		}
 		if r.external && (!r.terminal || !c.externalPayloadsQuiescent) {
