@@ -57,6 +57,7 @@ type DiagnosticParserCorePrefixOptions struct {
 	Retry                   bool
 	Incremental             bool
 	IncludedRanges          bool
+	includedRanges          []Range
 	// GenericStopAtClosedByte publishes a successful closed-frontier receipt
 	// when every authenticated scheduler head closes at this byte. Nil is
 	// unbounded. The boundary is checked before another scanner election.
@@ -6293,6 +6294,7 @@ type diagnosticParserCoreAcceptedLeafSpan struct {
 }
 
 type diagnosticParserCoreAcceptedLeafCoverageScratch struct {
+	includedRanges                  []Range
 	spans                           []diagnosticParserCoreAcceptedLeafSpan
 	authenticatedAliases            map[*Node]struct{}
 	leadingLexerSkippedPrefixStarts []uint32
@@ -6308,6 +6310,7 @@ func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) reset() {
 		clear(scratch.spans)
 		scratch.spans = scratch.spans[:0]
 	}
+	scratch.includedRanges = nil
 	// Recovery-only maps do not retain nodes or buckets between parses.
 	scratch.authenticatedAliases = nil
 	if cap(scratch.leadingLexerSkippedPrefixStarts) > parserCoreMaxRetainedAcceptedLeafSpans {
@@ -6682,11 +6685,21 @@ func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sou
 	return finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root, source, sourceLen, allowErrorRoot, continuationEscape, poll, tokenCount, coverage, nodesByID, false)
 }
 
-func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node, nativeAcceptSplice bool) error {
-	expectedStart := firstNonTriviaByteStart(source)
+func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node, nativeAcceptSplice bool, included ...[]Range) error {
+	var ranges []Range
+	if len(included) > 0 {
+		ranges = included[0]
+	}
+	expectedStart, _, boundsErr := compactRangeBounds(source, ranges)
+	if boundsErr != nil {
+		return boundsErr
+	}
+	if coverage != nil {
+		coverage.includedRanges = ranges
+	}
 	clean := allowErrorRoot || (!root.IsError() && !root.HasError())
 	if root.startByte == expectedStart && root.endByte < sourceLen && clean {
-		extendRootToAcceptedCleanTail(root, source, sourceLen, nil, continuationEscape)
+		extendRootToAcceptedCleanTail(root, source, sourceLen, ranges, continuationEscape)
 	}
 	if root.startByte == expectedStart && root.endByte == sourceLen && clean {
 		if allowErrorRoot {
@@ -6787,7 +6800,7 @@ func diagnosticParserCoreAcceptedDerivationLeafCoverageGap(coverage *diagnosticP
 			return 0, 0, false, fmt.Errorf("terminal subtree span=%d..%d is outside source length %d", span.startByte, span.endByte, sourceLen)
 		}
 		if span.startByte > cur {
-			tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:span.startByte], poll)
+			tolerated, gapErr := compactRangeGap(source, cur, span.startByte, coverage.includedRanges, poll)
 			if gapErr != nil {
 				return 0, 0, false, gapErr
 			}
@@ -6800,7 +6813,7 @@ func diagnosticParserCoreAcceptedDerivationLeafCoverageGap(coverage *diagnosticP
 		}
 	}
 	if cur < sourceLen {
-		tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:sourceLen], poll)
+		tolerated, gapErr := compactRangeGap(source, cur, sourceLen, coverage.includedRanges, poll)
 		if gapErr != nil {
 			return 0, 0, false, gapErr
 		}
@@ -6840,7 +6853,7 @@ func diagnosticParserCoreAcceptedHiddenLeafCovers(coverage *diagnosticParserCore
 			continue
 		}
 		if span.startByte > cur {
-			tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:min(span.startByte, endByte)], poll)
+			tolerated, gapErr := compactRangeGap(source, cur, min(span.startByte, endByte), coverage.includedRanges, poll)
 			if gapErr != nil {
 				return false, gapErr
 			}
@@ -6858,7 +6871,7 @@ func diagnosticParserCoreAcceptedHiddenLeafCovers(coverage *diagnosticParserCore
 		}
 	}
 	if cur < endByte {
-		tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:endByte], poll)
+		tolerated, gapErr := compactRangeGap(source, cur, endByte, coverage.includedRanges, poll)
 		if gapErr != nil {
 			return false, gapErr
 		}
@@ -6887,7 +6900,7 @@ func diagnosticParserCoreAcceptedTreeLeafCoverageGap(root *Node, source []byte, 
 		if startByte > endByte || endByte > sourceLen {
 			return false, fmt.Errorf("public leaf gap=%d..%d is outside source length %d", startByte, endByte, sourceLen)
 		}
-		tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[startByte:endByte], poll)
+		tolerated, gapErr := compactRangeGap(source, startByte, endByte, coverage.includedRanges, poll)
 		if gapErr != nil {
 			return false, gapErr
 		}
@@ -7125,14 +7138,20 @@ func diagnosticParserCoreReduceChildrenTilingGapWithLexerProvenance(
 	coverage *diagnosticParserCoreAcceptedLeafCoverageScratch,
 	nodesByID []*Node,
 	allowLexerSkippedPrefix bool,
+	included ...[]Range,
 ) (gapStart, gapEnd uint32, gapped bool) {
+	var ranges []Range
+	if len(included) > 0 {
+		ranges = included[0]
+	}
+	gapOK := func(a, b uint32) bool { ok, err := compactRangeGap(source, a, b, ranges, nil); return err == nil && ok }
 	lastEnd := startByte
 	for index, entry := range entries {
 		child := stackEntryNode(entry)
 		if child == nil {
 			continue
 		}
-		if child.startByte > lastEnd && !diagnosticParserCoreGapIsTolerated(source[lastEnd:child.startByte]) {
+		if child.startByte > lastEnd && !gapOK(lastEnd, child.startByte) {
 			var childID core.SubtreeID
 			if index < len(childIDs) {
 				childID = childIDs[index]
@@ -7145,7 +7164,7 @@ func diagnosticParserCoreReduceChildrenTilingGapWithLexerProvenance(
 			lastEnd = child.endByte
 		}
 	}
-	if lastEnd < endByte && !diagnosticParserCoreGapIsTolerated(source[lastEnd:endByte]) {
+	if lastEnd < endByte && !gapOK(lastEnd, endByte) {
 		return lastEnd, endByte, true
 	}
 	return 0, 0, false
@@ -7530,12 +7549,18 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	if err := poll(); err != nil {
 		return rejectTree(err)
 	}
-	sourceLen := uint32(len(source))
+	expectedRangeStart, sourceLen, rangeErr := compactRangeBounds(source, parser.included)
+	if rangeErr != nil {
+		return rejectTree(rangeErr)
+	}
 	root := tree.root
+	if len(parser.included) > 0 && (root.IsError() || root.HasError()) {
+		return rejectTree(errors.New("compact included-range recovery is not certified"))
+	}
 	if rootFinalization == diagnosticParserCoreFinalizeRecoverEOF {
-		expectedStart := firstNonTriviaByteStart(source)
+		expectedStart := expectedRangeStart
 		tailClean := root.endByte <= sourceLen && parserTailAllowsCleanAcceptance(
-			source, root.endByte, sourceLen, nil, parser.lineContinuationEscapeByte(),
+			source, root.endByte, sourceLen, parser.included, parser.lineContinuationEscapeByte(),
 		)
 		if !allowErrorRoot || !root.IsError() || !root.HasError() ||
 			root.startByte != expectedStart || root.startByte != acceptedRootSpanStart ||
@@ -7546,7 +7571,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			))
 		}
 	} else {
-		if err := finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root, source, sourceLen, allowErrorRoot, parser.lineContinuationEscapeByte(), poll, parser.language.TokenCount, acceptedLeaves, nodesByID, rootFinalization == diagnosticParserCoreFinalizeOwnedRecovery); err != nil {
+		if err := finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root, source, sourceLen, allowErrorRoot, parser.lineContinuationEscapeByte(), poll, parser.language.TokenCount, acceptedLeaves, nodesByID, rootFinalization == diagnosticParserCoreFinalizeOwnedRecovery, parser.included); err != nil {
 			return rejectTree(err)
 		}
 	}
@@ -7566,7 +7591,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	// elision assumption launder it into a clean tree. Conservative by
 	// design: a genuine legitimately-elided leading extra also declines here
 	// and falls back to production, which still serves it correctly.
-	if expectedStart := firstNonTriviaByteStart(source); acceptedRootSpanStart > expectedStart {
+	if expectedStart := expectedRangeStart; acceptedRootSpanStart > expectedStart {
 		return rejectTree(&diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreAccept,
 			detail: fmt.Sprintf(
@@ -7575,12 +7600,13 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			),
 		})
 	}
+	tree.setIncludedRanges(parser.included)
 	tree.compactMaterialized = true
 	// Compact trees remain eligible only when replay authenticated every
 	// potentially reusable visible node and the scanner transfer is proven.
 	// Recovery-bearing nodes stay excluded by the reuse cursor, which descends
 	// to clean siblings while preserving the ordinary scanner gate.
-	compactIncrementalReuseProven := replayEnabled &&
+	compactIncrementalReuseProven := len(parser.included) == 0 && replayEnabled &&
 		compactIncrementalReuseProvenForLanguage(parser.language) &&
 		m.scannerProvenanceTransferProven && compactTreeIncrementalReuseProven(root)
 	tree.incrementalReuseDisabled = !compactIncrementalReuseProven

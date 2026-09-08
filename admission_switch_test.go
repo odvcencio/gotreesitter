@@ -227,10 +227,8 @@ func TestAdmissionSwitchCustomTokenSourceNeverConsultsCandidate(t *testing.T) {
 	}
 }
 
-// TestAdmissionSwitchDeclinesWhenIncludedRangesSet proves the candidate route
-// declines when included ranges are configured: the compact runner lexes the
-// whole source and cannot honor ranges, so the parse stays on production.
-func TestAdmissionSwitchDeclinesWhenIncludedRangesSet(t *testing.T) {
+// TestAdmissionSwitchAdmitsIncludedRanges checks the internal DFA route.
+func TestAdmissionSwitchAdmitsIncludedRanges(t *testing.T) {
 	restore := gts.AdmissionCandidateRouteDefault()
 	defer gts.SetAdmissionCandidateRouteDefault(restore)
 	gts.SetAdmissionCandidateRouteDefault(true)
@@ -244,8 +242,8 @@ func TestAdmissionSwitchDeclinesWhenIncludedRangesSet(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	defer tree.Release()
-	if got := admissionRoutingEvents(t); got != before {
-		t.Fatalf("included ranges must keep the parse on production: %d -> %d", before, got)
+	if got := admissionRoutingEvents(t); got != before+1 {
+		t.Fatalf("included ranges did not use compact parsing: %d -> %d", before, got)
 	}
 }
 

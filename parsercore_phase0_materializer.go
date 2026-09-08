@@ -708,7 +708,7 @@ func (m *compactMaterializer) visit(id core.SubtreeID, view *core.Materializatio
 		acceptedLeaves.propagateLeadingLexerSkippedPrefix(id, view.StartByte, view.Children, nodesByID)
 	}
 	if gapStart, gapEnd, gapped := diagnosticParserCoreReduceChildrenTilingGapWithLexerProvenance(
-		view.StartByte, view.EndByte, entries, view.Children, source, acceptedLeaves, nodesByID, m.allowLexerSkippedPrefix,
+		view.StartByte, view.EndByte, entries, view.Children, source, acceptedLeaves, nodesByID, m.allowLexerSkippedPrefix, parser.included,
 	); !isDerivationRootReduce && gapped {
 		return &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreAccept,

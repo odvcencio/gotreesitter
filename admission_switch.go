@@ -95,7 +95,7 @@ func admissionCandidateEnvEnabled() bool {
 // regardless of size, is eligible to attempt the candidate route. An explicit
 // timeout, cancellation flag, or the scheduler's own memory-budget poll
 // (tranche B8) is honored on the candidate route itself, with a compatible
-// stop receipt, falling back to production when it trips; included ranges and
+// stop receipt, falling back to production when it trips; external-scanner ranges and
 // observability hooks still keep a parse on production.
 func SetAdmissionCandidateRouteDefault(enabled bool) {
 	admissionCandidateRouteDefault.Store(enabled)
@@ -110,7 +110,7 @@ func AdmissionCandidateRouteDefault() bool {
 // over the process-wide default. enabled=true forces the candidate route on for
 // eligible full parses; enabled=false forces the production route.
 //
-// enabled=true still respects every remaining eligibility decline: included
+// enabled=true still respects every remaining eligibility decline: external-scanner
 // ranges and observability hooks keep a parse on production. Source length no
 // longer declines eligibility (tranche B9); a large input attempts the
 // candidate route and either completes there or trips the scheduler's
@@ -202,10 +202,9 @@ func (p *Parser) admissionCandidateFullParseEligible(oldTree *Tree, usingProduct
 	if !p.admissionCandidateRouteEnabled() {
 		return false
 	}
-	// The compact runner lexes the whole source with its own DFA token source and
-	// does not apply included ranges, so decline when a caller set any. Production
-	// then honors the ranges exactly.
-	if len(p.included) > 0 {
+	// The internal DFA supports included ranges. External scanner ranges
+	// require a separate token source contract.
+	if len(p.included) > 0 && (p.language.ExternalScanner != nil || len(p.language.ExternalSymbols) > 0) {
 		return false
 	}
 	// An explicit timeout or cancellation flag no longer declines eligibility
