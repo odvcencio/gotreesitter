@@ -373,7 +373,15 @@ func TestDiagnosticParserCoreNoActionClearsDiscardedVersionStateTail(t *testing.
 }
 
 func TestDiagnosticParserCoreRecoveryCollapseClearsDiscardedVersionStateTail(t *testing.T) {
-	keep := &diagnosticParserCoreVersionState{}
+	keep := &diagnosticParserCoreVersionState{
+		relexSnapshot: &diagnosticParserCoreVersionLexerSnapshot{}, lexerRequest: 3,
+		acceptanceSeq: 7, recoveryGroup: 5, missingGroup: 6,
+		recoveryNodeBaseline: 8, recoveryNodeBaselineSet: true,
+	}
+	before := *keep
+	want := before
+	want.recoveryGroup, want.missingGroup = 0, 0
+	want.recoveryNodeBaseline, want.recoveryNodeBaselineSet = 0, false
 	discarded := &diagnosticParserCoreVersionState{}
 	active := make([]diagnosticParserCoreHeader, 2, 4)
 	active[0].versionState = keep
@@ -394,8 +402,11 @@ func TestDiagnosticParserCoreRecoveryCollapseClearsDiscardedVersionStateTail(t *
 		},
 	}
 	scheduler.collapseToRecoveryWinner(0)
-	if len(scheduler.headers) != 1 || scheduler.headers[0].versionState != keep {
+	if len(scheduler.headers) != 1 || scheduler.headers[0].versionState == nil || *scheduler.headers[0].versionState != want {
 		t.Fatalf("recovery collapse changed the winner: %+v", scheduler.headers)
+	}
+	if *keep != before {
+		t.Fatal("recovery collapse mutated the published winner state")
 	}
 	if active[:cap(active)][1].versionState != nil {
 		t.Fatal("recovery collapse retained a discarded active state")
@@ -408,6 +419,16 @@ func TestDiagnosticParserCoreRecoveryCollapseClearsDiscardedVersionStateTail(t *
 	if len(scheduler.canonicalScratch.keys) != 0 || len(scheduler.canonicalScratch.groups) != 0 {
 		t.Fatalf("recovery collapse retained canonical keys/groups=%d/%d",
 			len(scheduler.canonicalScratch.keys), len(scheduler.canonicalScratch.groups))
+	}
+}
+
+func TestDiagnosticParserCoreRecoveryCollapseReleasesEmptyWinnerState(t *testing.T) {
+	scheduler := diagnosticParserCoreGenericScheduler{
+		headers: []diagnosticParserCoreHeader{{versionState: &diagnosticParserCoreVersionState{}}},
+	}
+	scheduler.collapseToRecoveryWinner(0)
+	if len(scheduler.headers) != 1 || scheduler.headers[0].versionState != nil {
+		t.Fatal("recovery collapse retained an empty winner state")
 	}
 }
 
