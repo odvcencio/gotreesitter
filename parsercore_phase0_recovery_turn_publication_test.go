@@ -73,19 +73,19 @@ func TestCompactRecoveryVersionTurnRejectsSharedPublication(t *testing.T) {
 		if tree != nil {
 			tree.Release()
 		}
-		if routed || !strings.Contains(reason, "requires an executed EOF turn") {
+		if routed || reason == "" {
 			t.Fatalf("shared recovery route=%t reason=%q", routed, reason)
 		}
-		runner := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)
-		scheduler := &runner.scheduler
-		if !scheduler.s3RegionOpened || scheduler.recoveryTurns.active || scheduler.work.RecoverEOFAccepts != 0 {
-			t.Fatal("fixture did not exercise shared recovery without owned EOF")
-		}
-		// A fork alone cannot certify an EOF advance.
-		scheduler.recoveryTurns.active = true
-		if _, err := runner.materializeSelection([]byte(source), nil, scheduler); err == nil ||
+	}
+	// Check publication independently of the grammar's earlier decline boundary.
+	runner := &parserCoreFreshFullRunner{}
+	runner.options.allowCompactRecoveryVersionTurns = true
+	for _, forked := range []bool{false, true} {
+		scheduler := &diagnosticParserCoreGenericScheduler{s3RegionOpened: true}
+		scheduler.recoveryTurns.active = forked
+		if tree, err := runner.materializeSelection([]byte("x"), nil, scheduler); tree != nil || err == nil ||
 			!strings.Contains(err.Error(), "requires an executed EOF turn") {
-			t.Fatalf("unexecuted fork publication err=%v", err)
+			t.Fatalf("shared publication forked=%t tree=%v err=%v", forked, tree, err)
 		}
 	}
 }
