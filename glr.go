@@ -3369,6 +3369,18 @@ func stackCompareMerge(a, b *glrStack) int {
 	return 0
 }
 
+// Keep C's physical incumbent when duplicate histories have equal parser ranks.
+// Grammar branch order ranks distinct histories, not equivalent link replacements.
+func stackMergeDuplicateShouldReplace(scratch *glrMergeScratch, candidate, incumbent *glrStack) bool {
+	if scratch != nil && scratch.parser != nil && scratch.parser.errorCostCompetitionEnabled() &&
+		candidate.accepted == incumbent.accepted && candidate.score == incumbent.score &&
+		candidate.shifted == incumbent.shifted && candidate.depth() == incumbent.depth() &&
+		candidate.byteOffset == incumbent.byteOffset {
+		return false
+	}
+	return stackCompareMerge(candidate, incumbent) >= 0
+}
+
 func stackCompareMergeSmallCapOne(scratch *glrMergeScratch, a, b *glrStack) int {
 	if perfCountersEnabled {
 		perfRecordStackCompare()
@@ -5434,7 +5446,7 @@ func mergeStacksSmallForLanguage(alive []glrStack, scratch *glrMergeScratch, lan
 		if mergedByGSS {
 			continue
 		}
-		if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+		if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 			traceCRecoverMergeDecision(scratch, "small", "replace-duplicate", &result[duplicateIndex], &stack)
 			if workCountInstrumentationEnabled {
 				workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
@@ -5521,7 +5533,7 @@ func mergeStacksSmallDeferExact(alive []glrStack, scratch *glrMergeScratch, lang
 		if mergedByGSS {
 			continue
 		}
-		if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+		if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 			traceCRecoverMergeDecision(scratch, "small-defer", "replace-duplicate", &result[duplicateIndex], &stack)
 			if workCountInstrumentationEnabled {
 				workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
@@ -5753,16 +5765,14 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 			perfRecordStackEquivalentHashMissSkip()
 		}
 		if duplicateIndex >= 0 {
-			// Equal-ranked duplicates should not preserve the first-inserted
-			// branch by accident. Let later survivors replace ties so
-			// post-reduce reprocessing can keep the branch that stayed viable.
+			// Preserve the route's duplicate election after the GSS merge check.
 			if merged, attempted := tryGSSMainMergeResult(scratch, result, duplicateIndex, &stack); attempted {
 				if !merged {
 					_ = preserveCapOneStackInSlot(&result, slot, stack, hash)
 				}
 				continue
 			}
-			if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+			if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 				if workCountInstrumentationEnabled {
 					workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
 				}
@@ -5957,7 +5967,7 @@ func mergeStacksWithScratchDeferExact(alive []glrStack, scratch *glrMergeScratch
 				}
 				continue
 			}
-			if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+			if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 				if workCountInstrumentationEnabled {
 					workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
 				}
@@ -6127,10 +6137,8 @@ func mergeStacksWithScratchLargeCap(alive []glrStack, scratch *glrMergeScratch, 
 			perfRecordStackEquivalentHashMissSkip()
 		}
 		if duplicateIndex >= 0 {
-			// Equal-ranked duplicates should not preserve the first-inserted
-			// branch by accident. Let later survivors replace ties so
-			// post-reduce reprocessing can keep the branch that stayed viable.
-			if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+			// Preserve the route's duplicate election for large-cap buckets.
+			if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 				if workCountInstrumentationEnabled {
 					workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
 				}

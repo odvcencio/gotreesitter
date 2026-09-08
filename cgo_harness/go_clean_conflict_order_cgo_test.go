@@ -21,6 +21,7 @@ func TestGoCleanConflictOrderLockedC(t *testing.T) {
 		source []byte
 	}{
 		{"minimal", []byte("package p\nfunc f(){ g(reflect.ValueOf(v)) }\n")},
+		{"generic_instantiation", []byte("package p\n\ntype Foo[T any] struct {\n\tV T\n}\n\nfunc f() {\n\ta := Foo[int]{}\n\tb := Foo[int](a)\n\t_ = a\n\t_ = b\n}\n")},
 		{"full", full},
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
