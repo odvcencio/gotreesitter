@@ -6691,7 +6691,11 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						continue
 					}
 					fork := base.cloneWithScratch(&scratch.gss)
-					fork.branchOrder = allocBranchOrder()
+					// Keep grammar rank separate from the physical version slot.
+					// The first action inherits rank even when the shift keeps the slot.
+					if ai != 0 {
+						fork.branchOrder = allocBranchOrder()
+					}
 					if actions[ai].Type != ParseActionShift || p.guardRealShiftGap(source, &fork, tok) {
 						if actions[ai].Type != ParseActionRecover || p.guardRealTokenAttachmentGap(source, &fork, tok, "recover") {
 							if workCountInstrumentationEnabled {
@@ -6738,6 +6742,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					}
 				}
 				s = &stacks[si]
+				if primaryActionIndex != 0 {
+					s.branchOrder = allocBranchOrder()
+				}
 				if actions[primaryActionIndex].Type == ParseActionShift && !p.guardRealShiftGap(source, s, tok) {
 					continue
 				}
@@ -8918,7 +8925,8 @@ func transientFrontierPopulationCap(maxStacks, maxStackCullTrigger int, noResult
 }
 
 func (p *Parser) promotePrimaryStack(stacks []glrStack) {
-	if len(stacks) <= 1 {
+	// C scheduling owns version order. Grammar rank must not reorder it.
+	if len(stacks) <= 1 || p.errorCostCompetitionEnabled() {
 		return
 	}
 	best := 0

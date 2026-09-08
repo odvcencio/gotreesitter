@@ -2,6 +2,28 @@ package gotreesitter
 
 import "testing"
 
+func TestPrimaryPromotionPreservesCVersionOrder(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		parser := &Parser{errorCostCompetition: enabled}
+		shift := newGLRStack(1)
+		shift.branchOrder = 2
+		reduce := newGLRStack(1)
+		reduce.branchOrder = 1
+		stacks := []glrStack{shift, reduce}
+		parser.promotePrimaryStack(stacks)
+		want := uint64(1)
+		if enabled {
+			want = 2
+		}
+		if stacks[0].branchOrder != want {
+			t.Fatalf("C competition=%t: primary rank=%d, want %d", enabled, stacks[0].branchOrder, want)
+		}
+		if stackComparePtr(&reduce, &shift) <= 0 {
+			t.Fatal("grammar rank no longer prefers the earlier action")
+		}
+	}
+}
+
 func TestCShiftConflictPrimaryIndex(t *testing.T) {
 	reduce := ParseAction{Type: ParseActionReduce}
 	shift := ParseAction{Type: ParseActionShift}
