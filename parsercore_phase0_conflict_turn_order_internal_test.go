@@ -114,3 +114,79 @@ func TestRecoveryTurnConflictPhysicalOrder(t *testing.T) {
 		})
 	}
 }
+
+func TestReductionMultipleOutputsPreserveExistingSuffixOrder(t *testing.T) {
+	for _, recovery := range []bool{false, true} {
+		t.Run(map[bool]string{false: "clean", true: "recovery"}[recovery], func(t *testing.T) {
+			table := &genericConflictTable{
+				cells: map[genericConflictCell][]core.Action{
+					{state: 1, symbol: 9}:  {{Type: core.ActionShift, State: 3}},
+					{state: 2, symbol: 9}:  {{Type: core.ActionShift, State: 3}},
+					{state: 3, symbol: 10}: {{Type: core.ActionReduce, Symbol: 7, ChildCount: 1}},
+				},
+				gotos: map[genericConflictCell]core.StateID{
+					{state: 1, symbol: 7}: 236,
+					{state: 2, symbol: 7}: 240,
+				},
+			}
+			compact, err := core.New(table, core.Limits{MaxDerivations: 8, MaxPopPaths: 8})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var head core.Head
+			for _, state := range []core.StateID{1, 2} {
+				seed, err := compact.Seed(state, 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				head, err = compact.Shift(seed, 9, 0, core.Token{Symbol: 9, EndByte: 1}, core.ForkOrder{Present: true, Value: uint64(state)})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := compact.BeginFrontier(); err != nil {
+				t.Fatal(err)
+			}
+			suffix, err := compact.Seed(320, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			header := diagnosticParserCoreHeader{head: head, creationSeq: 2}
+			if recovery {
+				header.markRecoveryLineage()
+			}
+			s := &diagnosticParserCoreGenericScheduler{
+				compact: compact, headers: []diagnosticParserCoreHeader{header, {head: suffix, creationSeq: 5}},
+				token: Token{Symbol: 10, StartByte: 1, EndByte: 2}, nextSeq: 6, nextCleanPathLineage: 1,
+				tokenSource: &dfaTokenSource{language: &Language{TokenCount: 11, SymbolMetadata: make([]SymbolMetadata, 11)}},
+				options:     DiagnosticParserCorePrefixOptions{MaxDispatches: 10, materializationSource: []byte("xy")},
+				receipt:     &DiagnosticParserCoreGenericScheduler{},
+			}
+			s.recoveryTurns.active = recovery
+			s.recoveryIsolation = recovery
+			before, err := diagnosticParserCoreHeaderReceipts(compact, s.headers)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.applyGenericReduction(before, mustDiagnosticParserCoreGenericCell(t, compact, 0, header, 10)); err != nil {
+				t.Fatal(err)
+			}
+			var states []core.StateID
+			var sequences []uint64
+			for _, h := range s.headers {
+				state, _, err := compact.Boundary(h.head)
+				if err != nil {
+					t.Fatal(err)
+				}
+				states = append(states, state)
+				sequences = append(sequences, h.creationSeq)
+			}
+			if !reflect.DeepEqual(states, []core.StateID{236, 320, 240}) || !reflect.DeepEqual(sequences, []uint64{2, 5, 6}) {
+				t.Fatalf("states=%v sequences=%v, want [236 320 240] and [2 5 6]", states, sequences)
+			}
+			if s.headers[1].head != suffix || s.nextSeq != 7 {
+				t.Fatalf("suffix or allocation changed: headers=%+v next=%d", s.headers, s.nextSeq)
+			}
+		})
+	}
+}

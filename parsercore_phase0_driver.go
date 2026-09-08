@@ -12192,11 +12192,10 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		s.work.ReductionPauses++
 	} else if len(replacements) == 1 {
 		s.headers[cell.headerIndex] = replacements[0]
-	} else if s.recoveryTurns.active {
+	} else {
+		// Keep the source slot and append new versions after existing siblings.
 		s.headers[cell.headerIndex] = replacements[0]
 		s.headers = append(s.headers, replacements[1:]...)
-	} else {
-		s.headers = replaceDiagnosticParserCoreHeader(s.headers, int(cell.headerIndex), replacements)
 	}
 	if madeFreshProgress {
 		s.epochProgress = true
