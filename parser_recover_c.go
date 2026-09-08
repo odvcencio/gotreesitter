@@ -1293,8 +1293,7 @@ type cRecoverState struct {
 	// state — the C "ERROR_STATE head with NULL subtree" shape, which costs an
 	// extra ERROR_COST_PER_RECOVERY in ts_stack_error_cost.
 	openErr *Node
-	// groupOrder preserves the path order in its low bits. The reserved high
-	// bit stores the recovery-leaf policy. Read the order through groupOrderValue.
+	// groupOrder preserves the path order within the recovery group.
 	groupOrder uint32
 	// extraRecoveries counts the additional error segments C opens while this
 	// version keeps absorbing: an unlexable-run (ERROR-token) lookahead has no
@@ -1311,34 +1310,11 @@ type cRecoverState struct {
 	extraRecoveries uint32
 }
 
-const (
-	cRecoverGroupOrderLeafClearBit uint32 = 1 << 31
-	cRecoverGroupOrderValueMask           = cRecoverGroupOrderLeafClearBit - 1
-)
-
-// cPackRecoverGroupOrder packs the path order and recovery-leaf policy. Current
-// recovery ceilings keep vi below the reserved bit. The uint64 input checks a
-// future larger value before narrowing. Invalid input saturates and clears policy.
-func cPackRecoverGroupOrder(order uint64, clearOrdinaryLeafErrors bool) uint32 {
-	if order > uint64(cRecoverGroupOrderValueMask) {
-		return cRecoverGroupOrderValueMask
-	}
-	packed := uint32(order)
-	if clearOrdinaryLeafErrors {
-		return packed | cRecoverGroupOrderLeafClearBit
-	}
-	return packed
-}
-
 func (r *cRecoverState) groupOrderValue() uint32 {
 	if r == nil {
 		return 0
 	}
-	return r.groupOrder & cRecoverGroupOrderValueMask
-}
-
-func (r *cRecoverState) clearsOrdinaryLeafErrors() bool {
-	return r != nil && r.groupOrder&cRecoverGroupOrderLeafClearBit != 0
+	return r.groupOrder
 }
 
 var cRecoverStateCloneObserver func()
@@ -3818,7 +3794,6 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		}
 		v := &versions[vi]
 		entries := cStackEntriesTopFirst(v, gssScratch)
-		hasParsedPrefix := cRecoveryEntriesHaveParsedPrefix(entries, tok.StartByte)
 		if debugRecoveryCycleChecks {
 			for ei := range entries {
 				if entries[ei].node != nil {
@@ -3830,14 +3805,10 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		if reason != ParseStopNone {
 			return cRecHalted, false, reason
 		}
-		// Ordinary recovery caps versions near cRecoverMaxVersionCount. Pass vi
-		// before narrowing so the packer fails closed if a future path exceeds it.
+		// Recovery bounds the version count before it assigns the path order.
 		v.cRec = &cRecoverState{
 			summary: summary, group: group,
-			groupOrder: cPackRecoverGroupOrder(
-				uint64(vi),
-				cRecoveryRegionClearsOrdinaryLeafErrorsWithSource(p, tok, hasParsedPrefix, source),
-			),
+			groupOrder: uint32(vi),
 		}
 		v.cRecoverMissingGroup = nil
 	}
@@ -3903,74 +3874,6 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 	}
 	p.recordRecoveryLiveVersions(*stacks)
 	return outcome, needsRedispatch, ParseStopNone
-}
-
-// cRecoveryRegionClearsOrdinaryLeafErrors reports whether C would keep
-// ordinary visible leaves clean in this recovery region. The predicate uses
-// token provenance, symbol metadata, and a source-bearing stack prefix.
-func cRecoveryRegionClearsOrdinaryLeafErrors(p *Parser, tok Token, hasParsedPrefix bool) bool {
-	return p != nil && hasParsedPrefix && p.cSymbolVisible(tok.Symbol) &&
-		p.isNamedSymbol(tok.Symbol) && !tok.lexerSkippedPrefix() &&
-		cRecoveryTokenCanClearOrdinaryLeafError(tok)
-}
-
-// cRecoveryRegionClearsOrdinaryLeafErrorsWithSource authenticates skipped whitespace
-// before it applies the existing recovery leaf policy.
-func cRecoveryRegionClearsOrdinaryLeafErrorsWithSource(p *Parser, tok Token, hasParsedPrefix bool, source []byte) bool {
-	if tok.lexerSkippedPrefix() {
-		start, end := tok.lexerSkippedPrefixStart, tok.StartByte
-		if start >= end || uint64(end) > uint64(len(source)) {
-			return false
-		}
-		for _, b := range source[start:end] {
-			switch b {
-			case ' ', '\t', '\r', '\n', '\f', '\v':
-			default:
-				return false
-			}
-		}
-		tok.setLexFlag(tokenFlagSkippedPrefix, false)
-	}
-	if cRecoveryRegionClearsOrdinaryLeafErrors(p, tok, hasParsedPrefix) {
-		return true
-	}
-	// Ordinary punctuation remains clean in C when the lexer accepted it.
-	return p != nil && p.language != nil && hasParsedPrefix &&
-		int(tok.Symbol) < len(p.language.SymbolMetadata) && int(tok.Symbol) < len(p.language.SymbolNames) &&
-		p.language.SymbolMetadata[tok.Symbol].Visible && !p.language.SymbolMetadata[tok.Symbol].Named &&
-		p.language.SymbolNames[tok.Symbol] == tok.Text && cRecoveryTokenCanClearOrdinaryLeafError(tok) &&
-		uint64(tok.EndByte) <= uint64(len(source)) &&
-		tok.Text == string(source[tok.StartByte:tok.EndByte])
-}
-
-// cRecoveryEntriesHaveParsedPrefix proves that recovery follows a clean,
-// source-bearing stack node at or before the current token. The error
-// discontinuity and the base state do not provide this proof.
-func cRecoveryEntriesHaveParsedPrefix(entries []stackEntry, tokenStartByte uint32) bool {
-	for _, entry := range entries {
-		if entry.node == nil || entry.state == cErrorState || entry.kind == stackEntryKindPendingParent ||
-			(entry.kind != stackEntryKindNode && entry.kind != stackEntryKindNoTreeNode && entry.kind != stackEntryKindCompactFullLeaf) ||
-			stackEntryNodeSymbol(entry) == 0 || stackEntryNodeSymbol(entry) == errorSymbol ||
-			stackEntryNodeParseState(entry) != entry.state || stackEntryNodeIsMissing(entry) ||
-			stackEntryNodeHasError(entry) || stackEntryNodeDirty(entry) {
-			continue
-		}
-		startByte := stackEntryNodeStartByte(entry)
-		endByte := stackEntryNodeEndByte(entry)
-		if endByte > startByte && endByte <= tokenStartByte {
-			return true
-		}
-	}
-	return false
-}
-
-// cRecoveryTokenCanClearOrdinaryLeafError requires positive internal-DFA
-// provenance for each absorbed token. A region proof cannot authorize a
-// later external, generated, error-mode, zero-width, or EOF token.
-func cRecoveryTokenCanClearOrdinaryLeafError(tok Token) bool {
-	return tok.Symbol != 0 && tok.Symbol != errorSymbol && tok.EndByte > tok.StartByte &&
-		tok.lexerInternalDFALexed() && !tok.ExternalScannerToken &&
-		!tok.lexerErrorModeLexed() && !tok.Missing && !tok.NoLookahead
 }
 
 // ---------------------------------------------------------------------------
@@ -4699,11 +4602,13 @@ func (p *Parser) cAbsorbTokenIntoError(v *glrStack, tok Token, nodeCount *int, a
 		leaf = newLeafNodeInArena(arena, tok.Symbol, tok.Symbol == errorSymbol || p.isNamedSymbol(tok.Symbol),
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
-		// C marks the enclosing ERROR node as erroneous. Keep ordinary leaves
-		// clean when the region has direct internal-lexer provenance.
-		clearLeafError := v.cRec.clearsOrdinaryLeafErrors() &&
-			cRecoveryTokenCanClearOrdinaryLeafError(tok)
-		if !clearLeafError && tok.Symbol != errorSymbol {
+		// C wraps the lookahead without marking ordinary token leaves erroneous.
+		// Preserve missing-token errors and the legacy synthetic-sentinel guard.
+		if tok.Missing {
+			leaf.setMissing(true)
+			leaf.setHasError(true)
+		}
+		if tok.NoLookahead {
 			leaf.setHasError(true)
 		}
 		if tok.Symbol == errorSymbol && !tok.lexerErrorModeLexed() {
