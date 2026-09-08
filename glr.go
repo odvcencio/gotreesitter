@@ -4771,6 +4771,8 @@ func stackLinkPayloadsEquivalentWithScratch(scratch *glrMergeScratch, aPrev *gss
 	return cStackLinkPayloadsEquivalentAtOffsets(scratch, a, b, aOffset, aOK, bOffset, bOK)
 }
 
+const maxCLinkCollapseNodes = 128
+
 // Prove that every incoming link collapses into an existing equivalent link.
 // Unlike general preflight, this proof never accepts a capacity-policy drop.
 // Distinct alternatives remain separate versions when this bounded proof declines.
@@ -4780,7 +4782,7 @@ func cGSSCompleteLinkCollapse(scratch *glrMergeScratch, a, b *gssNode) bool {
 	}
 	// Bound the complete graph before invoking existing reachability and offset
 	// helpers. Every later walk stays inside this shared, fixed-size envelope.
-	var seen [128]*gssNode
+	var seen [maxCLinkCollapseNodes]*gssNode
 	count := 0
 	if !cGSSCollapseGraphFits(a, &seen, &count) || !cGSSCollapseGraphFits(b, &seen, &count) ||
 		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
@@ -4791,7 +4793,7 @@ func cGSSCompleteLinkCollapse(scratch *glrMergeScratch, a, b *gssNode) bool {
 	return cGSSCompleteLinkCollapseWalk(scratch, a, b, 0, &remaining)
 }
 
-func cGSSCollapseGraphFits(node *gssNode, seen *[128]*gssNode, count *int) bool {
+func cGSSCollapseGraphFits(node *gssNode, seen *[maxCLinkCollapseNodes]*gssNode, count *int) bool {
 	if node == nil {
 		return true
 	}
@@ -4818,7 +4820,7 @@ func cGSSCompleteLinkCollapseWalk(scratch *glrMergeScratch, a, b *gssNode, depth
 	if a == b {
 		return true
 	}
-	if a == nil || b == nil || depth >= 128 || *remaining <= 0 {
+	if a == nil || b == nil || depth >= maxCLinkCollapseNodes || *remaining <= 0 {
 		return false
 	}
 	*remaining--
@@ -5213,10 +5215,10 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		if flat.gss.head != nil {
 			flat = right
 		}
-		var staged [128]gssNode
-		if len(flat.entries) == 0 || len(flat.entries) > len(staged) {
+		if len(flat.entries) == 0 || len(flat.entries) > maxCLinkCollapseNodes {
 			return false, true
 		}
+		staged := make([]gssNode, len(flat.entries))
 		for i, entry := range flat.entries {
 			staged[i].entry, staged[i].depth = entry, uint32(i+1)
 			if i > 0 {
