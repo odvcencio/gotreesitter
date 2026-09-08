@@ -62,7 +62,7 @@ func TestCompactRecoveryVersionTurnRejectsPriorSharedHistory(t *testing.T) {
 	}
 }
 
-func TestCompactRecoveryVersionTurnRejectsSharedPublication(t *testing.T) {
+func TestCompactRecoveryVersionTurnPublishesOwnedRecovery(t *testing.T) {
 	for _, source := range []string{
 		"package/p\nfunc a() { aa := 12; _ = aa + 1 }\nfunc b() { _ = 2 }\n",
 		"package p\nfunc a() { aa := 12; _ = aa + 1'}\nfunc b() { _ = 2 }\n",
@@ -73,10 +73,18 @@ func TestCompactRecoveryVersionTurnRejectsSharedPublication(t *testing.T) {
 		if tree != nil {
 			tree.Release()
 		}
-		if routed || reason == "" {
-			t.Fatalf("shared recovery source=%q route=%t reason=%q", source, routed, reason)
+		if !routed || tree == nil || reason != "" {
+			t.Fatalf("owned recovery source=%q route=%t reason=%q", source, routed, reason)
+		}
+		runner := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)
+		if !runner.scheduler.recoveryTurns.active {
+			t.Fatalf("recovery source=%q did not execute owned recovery", source)
 		}
 	}
+
+}
+
+func TestCompactRecoveryVersionTurnRejectsSharedPublication(t *testing.T) {
 	// Check publication independently of the grammar's earlier decline boundary.
 	runner := &parserCoreFreshFullRunner{}
 	runner.options.allowCompactRecoveryVersionTurns = true
