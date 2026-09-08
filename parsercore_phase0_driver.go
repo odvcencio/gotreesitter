@@ -2839,11 +2839,6 @@ type diagnosticParserCoreGenericScheduler struct {
 	// footprintRefs is reusable poll scratch. It is cleared after every
 	// footprint calculation so the retained backing array owns no state.
 	footprintRefs []diagnosticParserCoreFootprintRef
-	// footprintGauge caches the last exact scheduler footprint so the
-	// memory-budget poll can skip the per-token frontier walk while the
-	// footprint sits far below every armed threshold. See
-	// stopControlMemoryBudgetReasonWithAdditionalBytes.
-	footprintGauge diagnosticParserCoreFootprintGauge
 	// identityFingerprint memoizes parserCoreExternalScannerIdentityFingerprint
 	// for the scanner identity seen at the previous election. The identity is
 	// stable across a parse, so the SHA-256 runs once instead of per token.
@@ -7697,16 +7692,6 @@ func diagnosticParserCoreStopControlTripped(reason ParseStopReason) error {
 // this tranche's scope). See the tranche's PR for the full witness table.
 const stopControlFootprintChurnRatio = 1
 
-// diagnosticParserCoreFootprintPollInterval bounds how many memory-budget
-// polls may reuse the last exact footprint. The exact walk over the live
-// frontier, canonical scratch, and every scheduler buffer costs about a tenth
-// of a clean compact full parse when it runs on every dispatch loop (issue
-// #454). The gauge reuses the last exact value only while that value, plus the
-// caller's additional bytes, stays below half of the smallest armed threshold,
-// so the trip point near a budget is unchanged: every poll from half the
-// threshold upward runs the exact walk.
-const diagnosticParserCoreFootprintPollInterval = 64
-
 // diagnosticParserCoreIdentityFingerprintMemo caches one scanner identity
 // fingerprint. Scanner and grammar identifiers are copied so a provider that
 // reuses its buffers cannot alias the key.
@@ -7726,14 +7711,6 @@ func (m *diagnosticParserCoreIdentityFingerprintMemo) fingerprintFor(identity Ex
 	m.fingerprint = parserCoreExternalScannerIdentityFingerprint(identity)
 	m.valid = true
 	return m.fingerprint
-}
-
-// diagnosticParserCoreFootprintGauge is the cached exact footprint and the
-// number of polls that reused it.
-type diagnosticParserCoreFootprintGauge struct {
-	exact      uint64
-	haveExact  bool
-	pollsSince uint32
 }
 
 func diagnosticParserCoreSliceAliases[T any](items []T, inline []T) bool {
@@ -8065,13 +8042,6 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 	if budget <= 0 && ceiling <= 0 {
 		return ParseStopNone
 	}
-	threshold := uint64(math.MaxUint64)
-	if budget > 0 {
-		threshold = uint64(budget)
-	}
-	if ceiling > 0 && uint64(ceiling) < threshold {
-		threshold = uint64(ceiling)
-	}
 	ratio := uint64(stopControlFootprintChurnRatio)
 	scaledFootprint := func(footprint uint64) uint64 {
 		if additional > math.MaxUint64-footprint {
@@ -8084,17 +8054,9 @@ func (s *diagnosticParserCoreGenericScheduler) stopControlMemoryBudgetReasonWith
 		}
 		return footprint * ratio
 	}
-	gauge := &s.footprintGauge
-	if gauge.haveExact && gauge.pollsSince < diagnosticParserCoreFootprintPollInterval {
-		if scaledFootprint(gauge.exact) < threshold/2 {
-			gauge.pollsSince++
-			return ParseStopNone
-		}
-	}
+	// Recompute after every scheduler operation. A prior small footprint does
+	// not bound capacity growth before the next poll.
 	exact := diagnosticParserCoreSchedulerFootprintBytes(s)
-	gauge.exact = exact
-	gauge.haveExact = true
-	gauge.pollsSince = 0
 	scaled := scaledFootprint(exact)
 	if budget > 0 && scaled >= uint64(budget) {
 		return ParseStopMemoryBudget
@@ -8221,9 +8183,6 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 	if s != nil && s.receipt != nil &&
 		(s.receipt.Acceptance != nil || s.receipt.Completion != nil || s.receipt.Stop.Detail != "") {
 		return errDiagnosticParserCoreTerminalSchedulerResume
-	}
-	if s != nil {
-		s.footprintGauge = diagnosticParserCoreFootprintGauge{}
 	}
 	if err := s.pollStopControl(); err != nil {
 		return err

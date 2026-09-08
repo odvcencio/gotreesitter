@@ -127,13 +127,15 @@ included-range, and fallback parses, so these fixes stay. See the
 - The compact incremental attempt declines after eight unauthenticated
   in-scope candidates or 32 KiB past the edit with zero reuse, so INI and
   JSON no longer pay a discarded whole-file compact parse per keystroke.
-- The compact scheduler skips avoidable per-token work: the memory-budget
-  poll reuses its last exact footprint while far below every armed
-  threshold, the checkpoint interner compares against the last interned
+- The compact scheduler checks its current footprint at every memory-budget
+  poll. A cached small footprint did not detect subsequent storage growth.
+  Regression tests cover both the memory budget and the hard ceiling.
+- The compact scheduler skips avoidable per-token work: the checkpoint
+  interner compares against the last interned
   record before hashing, the relex probe authenticates its payload by byte
   comparison instead of SHA-256, and the materialization walk passes records
-  by pointer. Clean 137 KiB full parses move from 2.0 to 2.9 times production
-  to 1.4 to 1.9 times.
+  by pointer. Earlier performance measurements predate the review fixes.
+  Run randomized comparisons before reporting gains for the corrected code.
 - Halt a production GLR stack at a no-action point when a sibling stack
   accepts the lookahead, before the previous-shift recovery runs. Pull
   request [#709](https://github.com/odvcencio/gotreesitter/pull/709) added a
