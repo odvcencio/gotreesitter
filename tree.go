@@ -2083,7 +2083,12 @@ func (n *Node) Type(lang *Language) string {
 		return "ERROR"
 	}
 	if int(n.symbol) < len(lang.SymbolNames) {
-		return unescapePunctuationSymbolName(lang.SymbolNames[n.symbol])
+		name := lang.SymbolNames[n.symbol]
+		// C exposes symbol names as NUL-terminated strings.
+		if end := strings.IndexByte(name, 0); end >= 0 {
+			name = name[:end]
+		}
+		return unescapePunctuationSymbolName(name)
 	}
 	return ""
 }
