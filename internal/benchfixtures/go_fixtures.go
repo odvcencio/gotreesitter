@@ -22,7 +22,7 @@ const (
 	// GoGrammarCommit is the tree-sitter-go revision pinned by languages.lock.
 	GoGrammarCommit = "2346a3ab1bb3857b48b29d779a1ef9799a248cd7"
 	// GoGrammarBlobSHA256 identifies the exact gotreesitter Go grammar blob.
-	GoGrammarBlobSHA256 = "9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"
+	GoGrammarBlobSHA256 = "864193dee42e5daf477a7be75a98b376e9325abc13a004cea9b96d0b045625f5"
 )
 
 var goFixtureRequiredNodeKinds = [...]string{

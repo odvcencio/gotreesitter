@@ -13588,7 +13588,7 @@ func (s *diagnosticParserCoreGenericScheduler) publishTotals() {
 }
 
 func authenticatedParserCoreGoLanguage(scanner ExternalScanner) (*Language, error) {
-	const goBlobSHA256 = "9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"
+	const goBlobSHA256 = "864193dee42e5daf477a7be75a98b376e9325abc13a004cea9b96d0b045625f5"
 	if fmt.Sprintf("%x", sha256.Sum256(parserCoreCertifiedGoBlob)) != goBlobSHA256 {
 		return nil, errors.New("parser-core phase zero: certified Go grammar identity mismatch")
 	}
@@ -13601,7 +13601,9 @@ func authenticatedParserCoreGoLanguage(scanner ExternalScanner) (*Language, erro
 		return nil, fmt.Errorf("parser-core phase zero: decode embedded Go blob: %w", err)
 	}
 	decoded.Name = "go"
-	decoded.ExternalScanner = scanner
+	if len(decoded.ExternalSymbols) != 0 {
+		decoded.ExternalScanner = scanner
+	}
 	decoded.CompactConvergedReductionSplitDropsCertified = true
 	decoded.CompactOwnedEOFRecoveryCertified = true
 	CertifyCRecoveryCostCompetition(decoded)

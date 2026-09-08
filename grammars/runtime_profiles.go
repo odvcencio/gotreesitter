@@ -73,7 +73,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// against the production parser and the tree-sitter C oracle.
 	// The owned EOF bundle requires its executed recovery route before publication.
 	"go": {
-		blobSHA256:                 mustRuntimeProfileSHA256("9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"),
+		blobSHA256:                 mustRuntimeProfileSHA256("864193dee42e5daf477a7be75a98b376e9325abc13a004cea9b96d0b045625f5"),
 		compactConvergedSplitDrops: true,
 		compactOwnedEOFRecovery:    true,
 	},
