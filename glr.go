@@ -4203,6 +4203,7 @@ type gssMainPreflight struct {
 	reachGeneration      uint32
 	reachCacheGeneration uint32
 	reachCache           []gssReachCacheEntry
+	reachCacheWrites     int
 	reachSeen            map[*gssNode]bool
 	reachStack           []*gssNode
 	reachVisit           []*gssNode
@@ -4259,8 +4260,9 @@ func (p *gssMainPreflight) clearGSSPointersForReuse() {
 }
 
 const (
-	maxGSSPreflightReachCacheEntries = 32768
-	gssPreflightReachCacheSetCount   = maxGSSPreflightReachCacheEntries / 2
+	initialGSSPreflightReachCacheEntries = 64
+	maxGSSPreflightReachCacheEntries     = 32768
+	gssPreflightReachCacheSetCount       = maxGSSPreflightReachCacheEntries / 2
 )
 
 type gssReachCacheEntry struct {
@@ -4315,6 +4317,7 @@ func (p *gssMainPreflight) resetReachCacheGeneration() {
 		p.reachCacheGeneration++
 	}
 	p.reachCache = p.reachCache[:0]
+	p.reachCacheWrites = 0
 }
 
 // acquirePreflightForScratch returns the scratch's pooled preflight, reset to
@@ -4431,7 +4434,7 @@ func (p *gssMainPreflight) cachedReach(from, target *gssNode) (bool, bool) {
 	}
 	fromPtr := uintptr(unsafe.Pointer(from))
 	targetPtr := uintptr(unsafe.Pointer(target))
-	idx := gssPreflightReachCacheIndex(fromPtr, targetPtr)
+	idx := gssPreflightReachCacheIndex(fromPtr, targetPtr) & (len(p.reachCache) - 1)
 	for i := 0; i < 2; i++ {
 		entry := p.reachCache[idx+i]
 		if entry.generation != p.reachCacheGeneration || entry.from != fromPtr || entry.target != targetPtr {
@@ -4452,10 +4455,10 @@ func (p *gssMainPreflight) cacheReach(from, target *gssNode, reachable bool) {
 		return
 	}
 	if len(p.reachCache) == 0 {
-		if cap(p.reachCache) < maxGSSPreflightReachCacheEntries {
-			p.reachCache = make([]gssReachCacheEntry, maxGSSPreflightReachCacheEntries)
+		if cap(p.reachCache) < initialGSSPreflightReachCacheEntries {
+			p.reachCache = make([]gssReachCacheEntry, initialGSSPreflightReachCacheEntries)
 		} else {
-			p.reachCache = p.reachCache[:maxGSSPreflightReachCacheEntries]
+			p.reachCache = p.reachCache[:cap(p.reachCache)]
 		}
 		if p.scratch != nil {
 			p.scratch.preflightReachCacheBytes = int64(cap(p.reachCache)) * int64(unsafe.Sizeof(gssReachCacheEntry{}))
@@ -4463,15 +4466,39 @@ func (p *gssMainPreflight) cacheReach(from, target *gssNode, reachable bool) {
 	}
 	fromPtr := uintptr(unsafe.Pointer(from))
 	targetPtr := uintptr(unsafe.Pointer(target))
-	idx := gssPreflightReachCacheIndex(fromPtr, targetPtr)
-	p.reachCache[idx+1] = p.reachCache[idx]
-	p.reachCache[idx] = gssReachCacheEntry{
+	idx := gssPreflightReachCacheIndex(fromPtr, targetPtr) & (len(p.reachCache) - 1)
+	entry := gssReachCacheEntry{
 		from:       fromPtr,
 		target:     targetPtr,
 		generation: p.reachCacheGeneration,
 		epoch:      p.reachEpoch,
 		reachable:  reachable,
 	}
+	for i := 0; i < 2; i++ {
+		cached := &p.reachCache[idx+i]
+		if cached.generation == p.reachCacheGeneration && cached.from == fromPtr && cached.target == targetPtr {
+			*cached = entry
+			return
+		}
+	}
+	// Grow only after sustained inserts collide with a full set.
+	if len(p.reachCache) < maxGSSPreflightReachCacheEntries &&
+		p.reachCacheWrites >= len(p.reachCache)/2 &&
+		p.reachCache[idx].generation == p.reachCacheGeneration &&
+		p.reachCache[idx+1].generation == p.reachCacheGeneration {
+		// Discard cached answers. Cache misses still run the complete graph proof.
+		p.reachCache = make([]gssReachCacheEntry, len(p.reachCache)*2)
+		p.reachCacheWrites = 0
+		if p.scratch != nil {
+			p.scratch.preflightReachCacheBytes = int64(cap(p.reachCache)) * int64(unsafe.Sizeof(gssReachCacheEntry{}))
+		}
+		idx = gssPreflightReachCacheIndex(fromPtr, targetPtr) & (len(p.reachCache) - 1)
+	}
+	if p.reachCacheWrites < len(p.reachCache) {
+		p.reachCacheWrites++
+	}
+	p.reachCache[idx+1] = p.reachCache[idx]
+	p.reachCache[idx] = entry
 }
 
 func (p *gssMainPreflight) denseReachMark(n *gssNode) (*uint32, bool) {
