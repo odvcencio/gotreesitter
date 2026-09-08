@@ -18,6 +18,14 @@ func TestHTMLRecoveryTrailingTextLockedC(t *testing.T) {
 	testHTMLRecoverySelectionLockedC(t, []byte("<html><body>Hello /bod></html>\n"))
 }
 
+func TestHTMLRecoveryCommentTailLockedC(t *testing.T) {
+	for _, source := range []string{"<!--c-->>", "<!-- c -->>", "<!--c--> >", "<!--c-->>>", "<!--c--><!--d-->>"} {
+		t.Run(source, func(t *testing.T) {
+			testHTMLRecoverySelectionLockedC(t, []byte(source))
+		})
+	}
+}
+
 func testHTMLRecoverySelectionLockedC(t *testing.T, source []byte) {
 	t.Helper()
 	lang := grammars.HtmlLanguage()
