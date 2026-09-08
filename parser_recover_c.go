@@ -608,8 +608,11 @@ func cRecoveryDefaultOptOut(name string) bool {
 	//     by about 2.8 times (TestW5JavaScriptFamilyTransientErrorGate).
 	//   - julia: the scanner emits a zero-width identifier that hides the
 	//     error C reports (TestJuliaTrailingCommaAssignmentTupleCompatibility).
+	//   - html: the external lex election ledger keeps it opted out
+	//     (TestExternalLexStatesRecoveryElectionOptOutInventory); no board
+	//     case measures html yet.
 	switch name {
-	case "cpp", "javascript", "julia":
+	case "cpp", "html", "javascript", "julia":
 		return true
 	default:
 		return false

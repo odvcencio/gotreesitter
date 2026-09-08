@@ -48,9 +48,8 @@ for tags and release notes while still in `0.x`.
   the parse state has an action for it or reserves it; otherwise the lexer
   returns the word token. The reserved-word rule was inverted before.
 - A missing leaf takes an inherited field, as a relevant child does in C.
-- html runs the C recovery port by default. cpp, javascript, and julia stay
-  on the legacy path behind measured witnesses recorded in
-  `docs/c-parity-boards.md`.
+- cpp, html, javascript, and julia stay on the legacy recovery path behind
+  measured witnesses recorded in `docs/c-parity-boards.md`.
 - An accepted GLR version stays out of the stack merge, as C removes it
   from the version pool, so a recovery fork created at end of input still
   competes as its own tree. An ERROR node keeps the fields a hidden child

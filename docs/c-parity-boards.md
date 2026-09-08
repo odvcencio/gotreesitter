@@ -101,7 +101,6 @@ Rules the port now shares with C:
   the error on the word token, as C does.
 - A missing leaf is a relevant child and takes an inherited field
   (`ts_node_field_name_for_child` skips extras only).
-- html joins the languages that run the C recovery port by default.
 - An accepted version stays out of the stack merge. C removes an accepted
   version from the pool, so a strategy-1 fork that reaches the same state
   and position at end of input still acts on the end symbol and competes
@@ -119,6 +118,7 @@ witness:
 | cpp | `TestCppMalformedClassFunctionDefinitionRecovery` | The port inserts a MISSING `::` where C skips a token; C's skip costs 601, the missing leaf 610. |
 | javascript | `TestW5JavaScriptFamilyTransientErrorGate` | The port exceeds the incremental replace ceiling at the start of a 20 KiB file by about 2.8 times (81244 new nodes against 29400); the forks created after the error do not merge again. |
 | julia | `TestJuliaTrailingCommaAssignmentTupleCompatibility` | The scanner emits a zero-width identifier that hides the error C reports. |
+| html | `TestExternalLexStatesRecoveryElectionOptOutInventory` | The external lex election ledger keeps html opted out; no board case measures html yet. |
 
 Divergence classes that remain, in burn-down order:
 
