@@ -243,12 +243,9 @@ func TestAdmissionSwitchParseIncrementalDoesNotCountFullRoute(t *testing.T) {
 	}
 }
 
-// TestAdmissionSwitchRecoveryDoesNotLeakCompactTree drives malformed input
-// through the real compact route with the switch forced on. The compact route
-// declines the malformed parse and production recovery runs, so the returned
-// tree must be a production (non-compact) tree, and the pinned recovery
-// sub-parser must never publish a compact fragment.
-func TestAdmissionSwitchRecoveryDoesNotLeakCompactTree(t *testing.T) {
+// Compact recovery must publish the complete C tree, not a recovered fragment.
+// TestGoMissingOperandCompactAdmissionLockedC verifies this digest against C.
+func TestAdmissionSwitchRecoveryPublishesCompleteCompactTree(t *testing.T) {
 	lang, err := authenticatedParserCoreGoLanguage(parserCoreWarmGoScanner)
 	if err != nil {
 		t.Fatalf("authenticate certified Go language: %v", err)
@@ -261,11 +258,19 @@ func TestAdmissionSwitchRecoveryDoesNotLeakCompactTree(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 	defer tree.Release()
-	if tree.compactMaterialized {
-		t.Fatal("malformed/recovery parse leaked a compact-materialized tree")
+	if !tree.compactMaterialized {
+		t.Fatal("supported recovery did not publish a compact tree")
 	}
 	if root := tree.RootNode(); root == nil || !root.HasError() {
-		t.Fatal("malformed input should recover into an error-bearing production tree")
+		t.Fatal("malformed input must produce an error-bearing tree")
+	}
+	runtime := tree.ParseRuntime()
+	if runtime.StopReason != ParseStopAccepted || runtime.Truncated || tree.RootNode().EndByte() != uint32(len(malformed)) {
+		t.Fatal("compact recovery published an incomplete tree")
+	}
+	const want = "0c1ad0ab6415c9fd6a3d31ecc7589b8e4bcc92eab7a8c75afcb41d6027231976"
+	if digest := requireDiagnosticParserCoreCanonicalTreeDigest(t, tree, lang); digest != want {
+		t.Fatalf("recovery digest=%s want=%s", digest, want)
 	}
 }
 
