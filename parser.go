@@ -6711,6 +6711,13 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				if p.errorCostCompetitionEnabled() {
 					primaryActionIndex = cShiftConflictPrimaryIndex(actions)
 				}
+				// C executes reductions in table order and promotes the last successful result.
+				// Restrict this order to clean conflicts; keep the existing recovery path.
+				orderedReductions := p.errorCostCompetitionEnabled() && !p.crecoveryEnteredErrorState && !s.cEverErrored && cAllReductionConflict(actions)
+				if orderedReductions {
+					primaryActionIndex = len(actions) - 1
+				}
+				lastReductionVersion := -1
 				base := *s
 				if p.glrTrace {
 					p.traceParseFork(currentState, actions)
@@ -6720,6 +6727,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						continue
 					}
 					fork := base.cloneWithScratch(&scratch.gss)
+					immediateReductionVersion := -1
 					// Keep grammar rank separate from the physical version slot.
 					// The first action inherits rank even when the shift keeps the slot.
 					if ai != 0 {
@@ -6733,7 +6741,11 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 							setPendingTrace("conflict-fork", si, ai, len(actions), actions[ai])
 							p.noteStopActionDiagnostic("conflict-fork", &fork, tok, actions[ai], ai, len(actions), false, 0, 0, false)
 							actionBeforeState, actionBeforeByte, actionBeforeDepth := stackTraceState(&fork)
+							pendingReductionStart := len(p.pendingForkStacks)
 							p.applyAction(source, &fork, actions[ai], tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
+							if orderedReductions {
+								immediateReductionVersion = immediateConflictReductionVersion(&fork, p.pendingForkStacks, pendingReductionStart, faithfulCapOneMergeEnabled(p.mergeScratch))
+							}
 							p.noteStopActionResult(&fork)
 							actionAfterState, actionAfterByte, actionAfterDepth := stackTraceState(&fork)
 							if actions[ai].Type == ParseActionReduce {
@@ -6761,6 +6773,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						fmt.Printf("[GLR] fork[%d] after action[%d]: st=%d dead=%v shift=%v dep=%d byte=%d\n",
 							len(stacks), ai, fork.top().state, fork.dead, fork.shifted, fork.depth(), fork.byteOffset)
 					}
+					forkStart := len(stacks)
 					stacks = append(stacks, fork)
 					if !progress.enabled {
 						drainPendingForkStacks()
@@ -6768,6 +6781,9 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					} else {
 						drainPendingForkStacks()
 						drainPendingFrontierForkStacks()
+					}
+					if orderedReductions && immediateReductionVersion >= 0 {
+						lastReductionVersion = forkStart + immediateReductionVersion
 					}
 				}
 				s = &stacks[si]
@@ -6784,7 +6800,12 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				setPendingTrace("conflict-original", si, primaryActionIndex, len(actions), actions[primaryActionIndex])
 				p.noteStopActionDiagnostic("conflict-original", s, tok, actions[primaryActionIndex], primaryActionIndex, len(actions), false, 0, 0, false)
 				actionBeforeState, actionBeforeByte, actionBeforeDepth := stackTraceState(s)
+				pendingReductionStart := len(p.pendingForkStacks)
 				p.applyAction(source, s, actions[primaryActionIndex], tok, &anyReduced, &nodeCount, arena, &scratch.entries, &scratch.gss, &scratch.tmpEntries, deferParentLinks, trackChildErrors)
+				primaryImmediateVersion := -1
+				if orderedReductions {
+					primaryImmediateVersion = immediateConflictReductionVersion(s, p.pendingForkStacks, pendingReductionStart, faithfulCapOneMergeEnabled(p.mergeScratch))
+				}
 				p.noteStopActionResult(s)
 				actionAfterState, actionAfterByte, actionAfterDepth := stackTraceState(s)
 				traceAfterPrimary(si, s)
@@ -6804,8 +6825,20 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					fmt.Printf("[GLR] orig[%d] after action[%d]: st=%d dead=%v shift=%v dep=%d byte=%d\n",
 						si, primaryActionIndex, s.top().state, s.dead, s.shifted, s.depth(), s.byteOffset)
 				}
+				primaryForkStart := len(stacks)
 				drainPendingForkStacks()
 				drainPendingFrontierForkStacks()
+				if orderedReductions && primaryImmediateVersion != 0 {
+					if primaryImmediateVersion > 0 {
+						lastReductionVersion = primaryForkStart + primaryImmediateVersion - 1
+					}
+					if lastReductionVersion >= 0 {
+						if workCountInstrumentationEnabled {
+							workCountTopologyRenumberVersion(&stacks[lastReductionVersion], &stacks[si])
+						}
+						stacks, _ = cRenumberReductionVersion(stacks, lastReductionVersion, si)
+					}
+				}
 				if actionTiming != nil {
 					ns := time.Since(conflictStart).Nanoseconds()
 					actionTiming.actionConflictForkNanos += ns
@@ -8014,6 +8047,42 @@ func cShiftConflictPrimaryIndex(actions []ParseAction) int {
 		}
 	}
 	return last
+}
+
+func cAllReductionConflict(actions []ParseAction) bool {
+	if len(actions) < 2 {
+		return false
+	}
+	for _, action := range actions {
+		if action.Type != ParseActionReduce {
+			return false
+		}
+	}
+	return true
+}
+
+func firstLiveConflictReductionVersion(stacks []glrStack, start int) int {
+	for index := start; index < len(stacks); index++ {
+		if !stacks[index].dead {
+			return index
+		}
+	}
+	return -1
+}
+
+// Record the reduction result before its continuation can retire that version.
+// Zero identifies the source; positive values identify pending reduction outputs.
+func immediateConflictReductionVersion(source *glrStack, pending []glrStack, pendingStart int, willDrain bool) int {
+	if !source.dead {
+		return 0
+	}
+	if !willDrain || pendingStart < 0 || pendingStart > len(pending) {
+		return -1
+	}
+	if index := firstLiveConflictReductionVersion(pending, pendingStart); index >= 0 {
+		return index + 1
+	}
+	return -1
 }
 
 func (p *Parser) traceParseIteration(iter int, tok Token, stacks []glrStack, needToken bool) {
