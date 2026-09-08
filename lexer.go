@@ -16,9 +16,10 @@ type Point struct {
 
 // Token is a lexed token with position info.
 type Token struct {
-	// Field order packs the eight boolean flags and the 16-bit symbol into one
-	// word so Token stays at 80 bytes. Tokens are copied by value on every
-	// election and dispatch, so the size shows up directly as copy cost.
+	// Field order packs the three exported flags, the lex flag byte, and the
+	// 16-bit symbol into one word so Token stays at 64 bytes. Tokens are
+	// copied by value on every election and dispatch, so the size shows up
+	// directly as copy cost.
 	Text       string
 	StartByte  uint32
 	EndByte    uint32
@@ -27,33 +28,69 @@ type Token struct {
 	// lexerLookaheadEndByte is the farthest byte inspected while selecting a
 	// lexed token. Synthetic missing tokens retain that token's frontier.
 	lexerLookaheadEndByte uint32
-	// missingStack identifies the stack position before padding for a
-	// synthetic recovery token. It is never set on lexed input.
-	missingStackByte  uint32
-	missingStackPoint Point
+	// missingStackRef is a one-based index into the parser's missing-stack
+	// anchor table, which records the stack position before padding for a
+	// synthetic recovery token. Lexed input leaves it zero, so the anchor's
+	// twelve bytes stay out of every lexed token.
+	missingStackRef uint32
 	// ExternalScannerStartByte is the byte offset where that scanner call
 	// began, before scanner-side skip advances moved StartByte forward.
 	ExternalScannerStartByte uint32
 	lexerSkippedPrefixStart  uint32
 	Symbol                   Symbol
 	Missing                  bool
-	missingDependencyExact   bool
 	// NoLookahead marks a synthetic EOF used to force EOF-table reductions
 	// without consuming input, matching tree-sitter's lex_state = -1.
 	NoLookahead bool
 	// ExternalScannerToken marks tokens produced by an external scanner.
 	ExternalScannerToken bool
-	// lexerSkippedPrefix records that the DFA consumed one or more skip
-	// transitions before producing this token.
-	lexerSkippedPrefix bool
-	// lexerErrorModeLexed proves that the active DFA source produced this
-	// recovery token while parser state zero selected the error lex mode.
-	lexerErrorModeLexed bool
-	// lexerInternalDFALexed proves that Lexer.scan accepted this token from
-	// the internal DFA. External, generated, missing, and EOF tokens omit it.
-	lexerInternalDFALexed bool
-	isKeyword             bool
+	// lexFlags packs the five unexported provenance bits; see tokenLexFlags.
+	lexFlags tokenLexFlags
 }
+
+// tokenLexFlags packs the unexported Token provenance bits into one byte so
+// Token stays at 64 bytes.
+type tokenLexFlags uint8
+
+const (
+	// tokenFlagMissingDependencyExact marks a synthetic missing token whose
+	// missing-stack anchor is exact.
+	tokenFlagMissingDependencyExact tokenLexFlags = 1 << iota
+	// tokenFlagSkippedPrefix records that the DFA consumed one or more skip
+	// transitions before producing this token.
+	tokenFlagSkippedPrefix
+	// tokenFlagErrorModeLexed proves that the active DFA source produced this
+	// recovery token while parser state zero selected the error lex mode.
+	tokenFlagErrorModeLexed
+	// tokenFlagInternalDFALexed proves that Lexer.scan accepted this token
+	// from the internal DFA. External, generated, missing, and EOF tokens
+	// omit it.
+	tokenFlagInternalDFALexed
+	// tokenFlagKeyword records the keyword promotion path.
+	tokenFlagKeyword
+)
+
+// lexFlagIf returns flag when on is true and zero otherwise.
+func lexFlagIf(on bool, flag tokenLexFlags) tokenLexFlags {
+	if on {
+		return flag
+	}
+	return 0
+}
+
+func (t *Token) setLexFlag(flag tokenLexFlags, on bool) {
+	if on {
+		t.lexFlags |= flag
+	} else {
+		t.lexFlags &^= flag
+	}
+}
+
+func (t Token) missingDependencyExact() bool { return t.lexFlags&tokenFlagMissingDependencyExact != 0 }
+func (t Token) lexerSkippedPrefix() bool     { return t.lexFlags&tokenFlagSkippedPrefix != 0 }
+func (t Token) lexerErrorModeLexed() bool    { return t.lexFlags&tokenFlagErrorModeLexed != 0 }
+func (t Token) lexerInternalDFALexed() bool  { return t.lexFlags&tokenFlagInternalDFALexed != 0 }
+func (t Token) isKeyword() bool              { return t.lexFlags&tokenFlagKeyword != 0 }
 
 func bytesToStringNoCopy(b []byte) string {
 	if len(b) == 0 {
@@ -86,6 +123,7 @@ type Lexer struct {
 	failTokenStartRow      uint32
 	failTokenStartCol      uint32
 	failTokenStartRangeIdx int
+	failTokenEnd           includedLexerCursor
 
 	// The grammar's most permissive lex state (LexModes[0], C's ERROR_STATE
 	// mode). NextWithErrorRuns only emits an error-run token when even this
@@ -183,7 +221,7 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 				continue
 			}
 			if skippedPrefix {
-				tok.lexerSkippedPrefix = true
+				tok.setLexFlag(tokenFlagSkippedPrefix, true)
 				tok.lexerSkippedPrefixStart = uint32(callStartPos)
 			}
 			tok.lexerLookaheadEndByte = lookaheadEndByte
@@ -263,12 +301,12 @@ func (l *Lexer) errorRunToken(frontier *uint32) Token {
 	}
 	startPos, startRow, startCol := l.pos, l.row, l.col
 
-	l.skipOneRune()
+	l.advanceFailedErrorAttempt()
 	for !l.atLogicalEOF() {
 		if l.canLexAt(l.errorRunLexState, l.pos, l.row, l.col, frontier) {
 			break
 		}
-		l.skipOneRune()
+		l.advanceFailedErrorAttempt()
 	}
 	if frontier != nil {
 		*frontier = maxUint32(*frontier, l.lookaheadEndByteAt(l.pos, false))
@@ -282,6 +320,17 @@ func (l *Lexer) errorRunToken(frontier *uint32) Token {
 		EndPoint:              Point{Row: l.row, Column: l.col},
 		lexerLookaheadEndByte: frontierValue(frontier),
 	}
+}
+
+// advanceFailedErrorAttempt preserves bytes consumed by a failed error-mode lex.
+// C skips one character only when the failed attempt made no progress.
+func (l *Lexer) advanceFailedErrorAttempt() {
+	if l.errorModeRetry && l.failTokenEnd.pos > l.pos {
+		l.pos, l.row, l.col = l.failTokenEnd.pos, l.failTokenEnd.row, l.failTokenEnd.col
+		l.includedRangeIdx = l.failTokenEnd.rangeIdx
+		return
+	}
+	l.skipOneRune()
 }
 
 // scan runs the DFA from the given start state and position. It returns
@@ -496,6 +545,7 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 		l.failTokenStartRow = tokenStartRow
 		l.failTokenStartCol = tokenStartCol
 		l.failTokenStartRangeIdx = 0
+		l.failTokenEnd = includedLexerCursor{pos: scanPos, row: scanRow, col: scanCol}
 		*tok = Token{lexerLookaheadEndByte: lookaheadEndByte}
 		return false
 	}
@@ -512,7 +562,7 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 			EndByte:                 uint32(acceptPos),
 			StartPoint:              Point{Row: acceptStartRow, Column: acceptStartCol},
 			EndPoint:                Point{Row: acceptRow, Column: acceptCol},
-			lexerSkippedPrefix:      skippedPrefix,
+			lexFlags:                lexFlagIf(skippedPrefix, tokenFlagSkippedPrefix),
 			lexerSkippedPrefixStart: uint32(startPos),
 			lexerLookaheadEndByte:   lookaheadEndByte,
 		}
@@ -526,9 +576,8 @@ func (l *Lexer) scanContiguousInto(startState uint32, startPos int, startRow, st
 		EndByte:                 uint32(acceptPos),
 		StartPoint:              Point{Row: acceptStartRow, Column: acceptStartCol},
 		EndPoint:                Point{Row: acceptRow, Column: acceptCol},
-		lexerSkippedPrefix:      skippedPrefix,
+		lexFlags:                lexFlagIf(skippedPrefix, tokenFlagSkippedPrefix) | tokenFlagInternalDFALexed,
 		lexerSkippedPrefixStart: uint32(startPos),
-		lexerInternalDFALexed:   true,
 		lexerLookaheadEndByte:   lookaheadEndByte,
 	}
 	return true

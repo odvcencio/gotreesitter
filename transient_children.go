@@ -160,6 +160,35 @@ func (s *transientChildScratch) recycleForParse() {
 	s.pointersMaterialized = pointersMaterialized
 }
 
+// transientChildRetainedCapForSource bounds the transient child slabs a
+// parse may inherit from the pool, in child pointers. See
+// transientParentRetainedCapForSource.
+func transientChildRetainedCapForSource(sourceLen int) int {
+	return max(defaultChildSliceCap(arenaClassFull), 4*parseFullArenaInitialNodeCapacity(sourceLen))
+}
+
+// trimForSource drops inherited slabs whose total capacity exceeds the bound
+// for this source. The slabs are already reset, so no live slice points into
+// them.
+func (s *transientChildScratch) trimForSource(sourceLen int) {
+	if s == nil || len(s.slabs) == 0 {
+		return
+	}
+	totalCap := 0
+	for i := range s.slabs {
+		totalCap += len(s.slabs[i].data)
+	}
+	if totalCap <= transientChildRetainedCapForSource(sourceLen) {
+		return
+	}
+	for i := range s.slabs {
+		s.slabs[i] = childSliceSlab{}
+	}
+	s.slabs = nil
+	s.slabCursor = 0
+	s.allocatedBytes = 0
+}
+
 func (s *transientChildScratch) resetForRelease() {
 	if s == nil {
 		return

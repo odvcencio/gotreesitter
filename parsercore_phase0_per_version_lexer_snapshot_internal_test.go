@@ -199,7 +199,7 @@ func TestDiagnosticParserCoreVersionLexerCloneEqualityPreservesDistinctOwners(t 
 	}
 	left := diagnosticParserCoreVersionLexerRequest{
 		electionIndex: 4, headerCreationSeq: 9, state: 3,
-		token:  Token{Symbol: 7, StartByte: 12, EndByte: 17, isKeyword: true},
+		token:  Token{Symbol: 7, StartByte: 12, EndByte: 17, lexFlags: tokenFlagKeyword},
 		before: snapshot, after: snapshot.clone(),
 		beforeCheckpoint: snapshot.beforeCheckpointInfo,
 		afterCheckpoint:  snapshot.afterCheckpointInfo,
@@ -209,7 +209,7 @@ func TestDiagnosticParserCoreVersionLexerCloneEqualityPreservesDistinctOwners(t 
 	right := left
 	right.electionIndex = 11
 	right.headerCreationSeq = 19
-	right.token.isKeyword = false
+	right.token.setLexFlag(tokenFlagKeyword, false)
 	right.before = snapshot.clone()
 	right.after = snapshot.clone()
 	if !diagnosticParserCoreVersionLexerRequestEqual(&left, &right) {

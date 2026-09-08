@@ -35,9 +35,9 @@ import (
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
 
-// parserCoreCorridorEnabled gates the corridor lane. Stage 2 ships it behind
-// an env gate, default off (spec section 8, stage 2 item 2d). Stage 3 flips
-// the default once the retain gates are green.
+// parserCoreCorridorEnabled gates the corridor lane. It stays opt-in until
+// recovery mutations prove that its generic handoffs preserve C tree output.
+// Set GTS_C4_CORRIDOR=1 (or true/on/yes) to enable the lane for a comparison.
 var (
 	parserCoreCorridorEnabledOnce sync.Once
 	parserCoreCorridorEnabledVal  bool
@@ -94,7 +94,9 @@ func acquireParserCoreCorridorProgram(lang *Language) *ParserCoreCorridorProgram
 // which is inside the section 6.3 re-entry budget, but it is not free and it
 // is not hoisted.
 func (s *diagnosticParserCoreGenericScheduler) corridorEligible() bool {
-	if s.corridor == nil || s.corridorRows == nil || len(s.headers) != 1 {
+	// The corridor consumes the shared token. Owned lexer requests require
+	// version dispatch to bind and publish the correct token and checkpoint.
+	if s.corridor == nil || s.corridorRows == nil || len(s.headers) != 1 || s.versionLexerOwnershipActive {
 		return false
 	}
 	header := &s.headers[0]
@@ -535,10 +537,15 @@ func (s *diagnosticParserCoreGenericScheduler) corridorDirectApplyEligible(extra
 		(!extra || s.extraPostExecutionFault == nil)
 }
 
-func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint32, extra bool) (bool, error) {
+func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint32, extra bool) (handled bool, err error) {
 	if !s.corridorDirectApplyEligible(extra) {
 		return false, nil
 	}
+	// The generic shift records the reuse dependency of every token it
+	// shifts; nested incremental reuse authenticates subtrees through those
+	// records, so the direct shift keeps the same bookkeeping.
+	dependencyBefore, dependencyActive := s.beginCompactReuseDependency(s.token)
+	defer s.endCompactReuseDependency(dependencyBefore, dependencyActive, &err)
 	s.corridorRecordClassification(1)
 	if err := s.reserveDispatches(1); err != nil {
 		return false, err
@@ -558,6 +565,9 @@ func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint
 			EndByte:   token.EndByte,
 			Extra:     extra,
 			External:  token.ExternalScannerToken,
+			// The generic shift carries the lexer skipped-prefix provenance;
+			// jsdoc's tiling proof reads it at materialization.
+			LexerSkippedPrefixLength: diagnosticParserCoreLexerSkippedPrefixLength(token, s.options.captureLexerSkippedPrefixProvenance),
 		},
 		core.ForkOrder{},
 	)
@@ -567,6 +577,9 @@ func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint
 	s.headers[0].head = head
 	s.headers[0].shifted = true
 	markDiagnosticParserCoreExternalLineage(&s.headers[0], token)
+	if err := s.eagerAfterPush(head); err != nil {
+		return false, err
+	}
 	s.epochProgress = true
 	if extra {
 		s.work.ExtraShifts++
@@ -574,7 +587,11 @@ func (s *diagnosticParserCoreGenericScheduler) corridorDirectShift(rowIndex uint
 		s.work.OrdinaryShifts++
 	}
 	s.work.Dispatches++
-	if err := s.canonicalize(); err != nil {
+	// A fresh node is the latest node of its phase identity, so the
+	// canonical-boundary probe would return the head the sole header holds.
+	if s.compact.LastShiftFresh() && s.singleHeaderProbeIsIdentity() {
+		s.skipCanonicalProbe()
+	} else if err := s.canonicalize(); err != nil {
 		return false, err
 	}
 	if err := s.persistHeaderLineageOwned(*s.freshSessionOwner); err != nil {

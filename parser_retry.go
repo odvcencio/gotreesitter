@@ -209,7 +209,20 @@ func shouldRetryIncrementalMemoryBudgetAsPlainFull(tree *Tree, sourceLen int) bo
 	if sourceLen <= 0 || sourceLen > fullParseRetryMaxSourceBytes {
 		return false
 	}
-	return tree.rawParseStopReason() == ParseStopMemoryBudget
+	switch tree.rawParseStopReason() {
+	case ParseStopMemoryBudget, ParseStopReuseBudget:
+		return true
+	}
+	return false
+}
+
+// incrementalPlainFullRetryReason names the fail-closed plain full retry by
+// the stop that caused it.
+func incrementalPlainFullRetryReason(stop ParseStopReason) string {
+	if stop == ParseStopReuseBudget {
+		return "incremental_parse_reuse_budget_full_retry"
+	}
+	return "incremental_parse_memory_budget_full_retry"
 }
 
 func shouldRetryIncrementalParseAsFull(tree *Tree, sourceLen int, initialMaxStacks int) bool {
@@ -2189,13 +2202,14 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, t
 		p.recordRecoveryRuntimeSelectedTreeDetailed(tree)
 		return tree
 	}
+	stop := tree.rawParseStopReason()
 	tree.Release()
 	p.recordRecoveryRuntimeSelectedTree(full)
 	p.recordRecoveryRuntimeSelectedTreeDetailed(full)
 	if timing != nil {
 		timing.totalNanos += time.Since(retryStart).Nanoseconds()
 		timing.reuseUnsupported = true
-		timing.reuseUnsupportedReason = "incremental_parse_memory_budget_full_retry"
+		timing.reuseUnsupportedReason = incrementalPlainFullRetryReason(stop)
 		copyParseRuntimeToTiming(timing, *full.rawParseRuntime())
 	}
 	return full
@@ -2228,13 +2242,14 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithTokenSource(source [
 		p.recordRecoveryRuntimeSelectedTreeDetailed(tree)
 		return tree
 	}
+	stop := tree.rawParseStopReason()
 	tree.Release()
 	p.recordRecoveryRuntimeSelectedTree(full)
 	p.recordRecoveryRuntimeSelectedTreeDetailed(full)
 	if timing != nil {
 		timing.totalNanos += time.Since(retryStart).Nanoseconds()
 		timing.reuseUnsupported = true
-		timing.reuseUnsupportedReason = "incremental_parse_memory_budget_full_retry"
+		timing.reuseUnsupportedReason = incrementalPlainFullRetryReason(stop)
 		copyParseRuntimeToTiming(timing, *full.rawParseRuntime())
 	}
 	return full

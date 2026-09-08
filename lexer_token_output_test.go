@@ -7,11 +7,11 @@ func poisonedLexerOutputToken() Token {
 		Symbol: 91, Text: "previous token", StartByte: 92, EndByte: 93,
 		StartPoint: Point{Row: 94, Column: 95}, EndPoint: Point{Row: 96, Column: 97},
 		Missing: true, lexerLookaheadEndByte: 98,
-		missingStackByte: 99, missingStackPoint: Point{Row: 100, Column: 101},
-		missingDependencyExact: true, NoLookahead: true,
+		missingStackRef:      99,
+		NoLookahead:          true,
 		ExternalScannerToken: true, ExternalScannerStartByte: 102,
-		lexerSkippedPrefix: true, lexerSkippedPrefixStart: 103,
-		lexerErrorModeLexed: true, lexerInternalDFALexed: true, isKeyword: true,
+		lexerSkippedPrefixStart: 103,
+		lexFlags:                tokenFlagMissingDependencyExact | tokenFlagSkippedPrefix | tokenFlagErrorModeLexed | tokenFlagInternalDFALexed | tokenFlagKeyword,
 	}
 }
 
@@ -31,7 +31,7 @@ func TestLexerScanIntoReplacesPoisonedOutput(t *testing.T) {
 		{
 			name: "accepted", source: "ab!", accepted: true, position: 2, readSpan: 3,
 			want: Token{Symbol: 1, Text: "ab", EndByte: 2, EndPoint: Point{Column: 2},
-				lexerInternalDFALexed: true, lexerLookaheadEndByte: 3},
+				lexFlags: tokenFlagInternalDFALexed, lexerLookaheadEndByte: 3},
 		},
 		{
 			name: "skip", source: " ab!", accepted: true, position: 1, readSpan: 2,
@@ -46,18 +46,18 @@ func TestLexerScanIntoReplacesPoisonedOutput(t *testing.T) {
 		{
 			name: "unicode_frontier", source: "abé", accepted: true, position: 2, readSpan: 4,
 			want: Token{Symbol: 1, Text: "ab", EndByte: 2, EndPoint: Point{Column: 2},
-				lexerInternalDFALexed: true, lexerLookaheadEndByte: 3},
+				lexFlags: tokenFlagInternalDFALexed, lexerLookaheadEndByte: 3},
 		},
 		{
 			name: "invalid_unicode_frontier", source: "ab\xff", accepted: true, position: 2, readSpan: 7,
 			want: Token{Symbol: 1, Text: "ab", EndByte: 2, EndPoint: Point{Column: 2},
-				lexerInternalDFALexed: true, lexerLookaheadEndByte: 7},
+				lexFlags: tokenFlagInternalDFALexed, lexerLookaheadEndByte: 7},
 		},
 		{
 			name: "accepted_after_skip", source: " ab!", skipPrefix: true, accepted: true, position: 3, readSpan: 4,
 			want: Token{Symbol: 1, Text: "ab", StartByte: 1, EndByte: 3,
 				StartPoint: Point{Column: 1}, EndPoint: Point{Column: 3},
-				lexerSkippedPrefix: true, lexerInternalDFALexed: true, lexerLookaheadEndByte: 4},
+				lexFlags: tokenFlagSkippedPrefix | tokenFlagInternalDFALexed, lexerLookaheadEndByte: 4},
 		},
 		{
 			name: "failed_after_skip", source: " !", skipPrefix: true, failed: true, failure: 1, readSpan: 2,
@@ -119,7 +119,7 @@ func TestLexerScanIntoReusesOutputAcrossRangeGap(t *testing.T) {
 	want := Token{
 		Symbol: 1, Text: "ab", EndByte: 4,
 		StartPoint: Point{Row: 4, Column: 2}, EndPoint: Point{Row: 7, Column: 10},
-		lexerInternalDFALexed: true, lexerLookaheadEndByte: 5,
+		lexFlags: tokenFlagInternalDFALexed, lexerLookaheadEndByte: 5,
 	}
 	if !lex.scanInto(0, 0, 4, 2, &output) || output != want {
 		t.Fatalf("cross-range token=%+v, want %+v", output, want)

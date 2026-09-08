@@ -7,10 +7,107 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Compact core cost, round two (issue #454)
+
+- Fuse the top-down parse-state replay into the postorder materialization
+  visit. The visit computes each subtree's pre-goto and parse state at push
+  time with the same transition rules, so the tree needs no second
+  full-derivation pass and no arena-length replay tables.
+  `TestCompactFusedReplayMatchesTopDownReplay` proves the states equal the
+  separate replay on every subtree.
+- Remove the dead `tokenCell` election record and its five save-and-restore
+  sites, read the reuse-dependency subtree count and head path count through
+  narrow accessors instead of `Core.Stats`, and build the election record in
+  place.
+- Stop copying large records on the hot path: headers, reduction outputs,
+  pop paths, boundary outputs, and canonical groups are read through
+  pointers; the
+  direct-append condense reads the predecessor it already resolved instead of
+  validating a synthetic link and resolving it again; a zero stored cost no
+  longer republishes a fresh node's lineage.
+- Validate link records at node publication, including copied adjacencies.
+  Single-link pop enumeration can trust immutable published records.
+  The relex payload scratch no longer clears its whole buffer on
+  every election, the head owner record runs without a closure per dispatch,
+  and a single fresh reduction output updates its header in place.
+- Earlier exploratory measurements predate the correctness review and
+  benchmark lifetime fixes. They do not establish current performance gains.
+  The route decision record retains them as historical measurements.
+- Extract the accepted-tree visit into `compactMaterializer`, a struct the
+  scheduler can drive as well as the postorder pass. The postorder pass
+  now fills one scratch view in place and visits it through a pointer, and
+  it can skip subtrees that already own a public node
+  (`VisitMaterializationPostorderPrebuilt`). The extraction changes no
+  tree and no work count.
+- Add the eager materialization lane (`GTS_COMPACT_EAGER=1`). After each
+  single-header shift and each in-place reduction the scheduler builds the
+  new subtree's public node at once, and it builds the subtrees a
+  multi-header phase left pending as soon as a single header consumes them.
+  On every Go witness the lane builds the whole tree before acceptance and
+  publishes the same tree, the same replay stamps, and the same work as the
+  postorder pass (`TestCompactEagerMaterializationMatchesPostorder`). The
+  lane stays off by default: on the Go 137 KiB witness it costs about ten
+  percent more wall time, because construction interleaved with dispatch
+  loses the locality of the batch pass while the compact core still writes
+  every record. The lane is the construction half of the single-head kernel,
+  which will stop writing compact records for subtrees that already own a
+  public node.
+- Skip the canonical-boundary probe when a single header holds a node the
+  dispatch just published: a fresh node is the latest node of its phase
+  identity, so the probe would return the head the header already holds.
+  The generic shift, the in-place reduction, and the corridor direct shift
+  all take the skip when the header sits outside recovery isolation with no
+  pending freshness; the skip records the barrier, the header peak, and the
+  verifier binding, so every work vector and receipt stays identical. Parents take their span
+  from the point index only when their visible children do not tile the
+  record, and a reduction sums its pop payload work once.
+- Keep the C4 bytecode corridor opt-in. The 137 KiB full-parse comparison
+  was faster on 14 of 15 grammars, but a JavaScript recovery mutation changed
+  the C tree. Use `GTS_C4_CORRIDOR=1` only for controlled comparisons until
+  the recovery handoff matches C.
+- Keep version-owned lexer requests on the generic dispatch path. The
+  corridor reads a shared token and cannot publish an owned request.
+- Preserve separate canonicalization output buffers for single headers.
+  Reusing the input slice changed earlier snapshots and broke rollback isolation.
+- Answer point lookups from the line of the previous answer or the next
+  line before the hashed cache and the binary search: materialization asks
+  for points in source order. Skip the scanner-provenance search for a
+  terminal that cannot carry an entry, and the skipped-prefix search when
+  no prefix was recorded. Together about 3 percent on the Go 137 KiB
+  witness.
+
+### Production engine fixes kept until retirement (issue #454)
+
+The compact route stays the default fresh full-parse route. The owner's
+direction is to retire the production engine once the compact core
+outperforms it; until then production still serves incremental, injection,
+included-range, and fallback parses, so these fixes stay. See the
+[route decision record](docs/performance/issue-454-production-route-decision-2026-09-07.md).
+
+- Isolate parser scratch lifetimes across parses. A pooled scratch kept the
+  transient parent and child slabs of the largest earlier parse, up to 512K
+  elements, and billed them to every later parse in the process: a 4 KiB
+  parse after a 315 KiB parse reported 35 MB of inherited scratch. Each parse
+  now drops inherited transient slabs above four times its own initial arena
+  estimate before it starts. A new small-large-small test guards the bound
+  through the new `ParseRuntime.TransientScratchBytesAllocated` counter.
+- Shrink `Token` from 80 to 64 bytes. The five unexported provenance bits
+  pack into one flag byte, and the stack position behind a synthetic missing
+  token moves to a parser-owned anchor table that the token indexes. Tokens
+  are copied by value on every election and dispatch, so the size shows up
+  directly as copy cost on both routes. The public fields are unchanged.
+- Bound reuse-hostile incremental parses. An old-tree reuse parse that has
+  built four times the larger of the old tree's nodes and the fresh-parse
+  arena estimate while reusing under one eighth of the source now stops with
+  `ParseStopReuseBudget`, and the parser runs one plain full parse, the same
+  fail-closed retry the memory budget uses. The issue #454 C single-byte
+  delete built 3.2 million nodes before the memory budget stopped it; it now
+  stops near 370 thousand and returns the fresh-parse tree. The profile names
+  the retry `incremental_parse_reuse_budget_full_retry`.
+
 ### Compact route repair (issue #454)
 
-- Keep the compact candidate route as the default for fresh full parses and
-  repair the three regressions that issue
+- Repair the three regressions on the compact candidate route that issue
   [#454](https://github.com/odvcencio/gotreesitter/issues/454) measured on
   137 KiB editor fixtures. See the
   [repair report](docs/performance/issue-454-compact-route-repair-2026-09-07.md).
@@ -29,13 +126,15 @@ for tags and release notes while still in `0.x`.
 - The compact incremental attempt declines after eight unauthenticated
   in-scope candidates or 32 KiB past the edit with zero reuse, so INI and
   JSON no longer pay a discarded whole-file compact parse per keystroke.
-- The compact scheduler skips avoidable per-token work: the memory-budget
-  poll reuses its last exact footprint while far below every armed
-  threshold, the checkpoint interner compares against the last interned
+- The compact scheduler checks its current footprint at every memory-budget
+  poll. A cached small footprint did not detect subsequent storage growth.
+  Regression tests cover both the memory budget and the hard ceiling.
+- The compact scheduler skips avoidable per-token work: the checkpoint
+  interner compares against the last interned
   record before hashing, the relex probe authenticates its payload by byte
   comparison instead of SHA-256, and the materialization walk passes records
-  by pointer. Clean 137 KiB full parses move from 2.0 to 2.9 times production
-  to 1.4 to 1.9 times.
+  by pointer. Earlier performance measurements predate the review fixes.
+  Run randomized comparisons before reporting gains for the corrected code.
 - Halt a production GLR stack at a no-action point when a sibling stack
   accepts the lookahead, before the previous-shift recovery runs. Pull
   request [#709](https://github.com/odvcencio/gotreesitter/pull/709) added a

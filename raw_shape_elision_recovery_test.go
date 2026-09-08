@@ -44,12 +44,12 @@ func buildArithmeticRecoveryGarbageLanguage() *Language {
 		FieldNames: []string{""},
 
 		ParseActions: []ParseActionEntry{
-			{Actions: nil},                                                                                  // 0
-			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},                                    // 1: S1 col NUMBER
+			{Actions: nil}, // 0
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 2}}},                                   // 1: S1 col NUMBER
 			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 1, ProductionID: 0}}}, // 2: S2 reduce expr->NUMBER
-			{Actions: []ParseAction{{Type: ParseActionAccept}}},                                             // 3: S3 col EOF
-			{Actions: []ParseAction{{Type: ParseActionShift, State: 4}}},                                    // 4: S3 col +
-			{Actions: []ParseAction{{Type: ParseActionShift, State: 5}}},                                    // 5: S4 col NUMBER
+			{Actions: []ParseAction{{Type: ParseActionAccept}}},                                            // 3: S3 col EOF
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 4}}},                                   // 4: S3 col +
+			{Actions: []ParseAction{{Type: ParseActionShift, State: 5}}},                                   // 5: S4 col NUMBER
 			{Actions: []ParseAction{{Type: ParseActionReduce, Symbol: 4, ChildCount: 3, ProductionID: 1}}}, // 6: S5 reduce expr->expr+NUMBER
 		},
 

@@ -11,6 +11,7 @@ import (
 func BuildLanguage(g *ExtractedGrammar) *gotreesitter.Language {
 	lang := &gotreesitter.Language{
 		Name:                                     g.Name,
+		LanguageVersion:                          uint32(g.LanguageVersion),
 		SymbolCount:                              uint32(g.SymbolCount),
 		TokenCount:                               uint32(g.TokenCount),
 		ExternalTokenCount:                       uint32(g.ExternalTokenCount),

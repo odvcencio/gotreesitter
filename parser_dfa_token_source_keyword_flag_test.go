@@ -63,7 +63,7 @@ func TestPromoteKeywordSetsIsKeywordOnAdoption(t *testing.T) {
 	if tok.Symbol != 2 {
 		t.Fatalf("token symbol = %d, want 2 (if keyword — adopted)", tok.Symbol)
 	}
-	if !tok.isKeyword {
+	if !tok.isKeyword() {
 		t.Fatal("adopted keyword token: IsKeyword = false, want true")
 	}
 }
@@ -84,7 +84,7 @@ func TestPromoteKeywordLeavesIsKeywordFalseForNonKeywordWord(t *testing.T) {
 	if tok.Symbol != 1 {
 		t.Fatalf("token symbol = %d, want 1 (identifier — not adopted)", tok.Symbol)
 	}
-	if tok.isKeyword {
+	if tok.isKeyword() {
 		t.Fatal("non-keyword word token: IsKeyword = true, want false")
 	}
 }
@@ -106,7 +106,7 @@ func TestPromoteKeywordIsKeywordFalseWithoutKeywordCapture(t *testing.T) {
 	if tok.Symbol != 1 {
 		t.Fatalf("token symbol = %d, want 1 (identifier — no keyword capture)", tok.Symbol)
 	}
-	if tok.isKeyword {
+	if tok.isKeyword() {
 		t.Fatal("language without keyword capture: IsKeyword = true, want false")
 	}
 }
@@ -333,7 +333,7 @@ func TestNextGLRUnionDFATokenElectsMergedKeywordOverCompetingDecoy(t *testing.T)
 	if tok.Symbol != 2 {
 		t.Fatalf("elected symbol = %d, want 2 (if keyword — the merged keyword pair must outscore the decoy pair)", tok.Symbol)
 	}
-	if !tok.isKeyword {
+	if !tok.isKeyword() {
 		t.Fatal("elected keyword token: isKeyword = false, want true (elected via the identifier-capture path's own promotion)")
 	}
 	if tok.StartByte != 0 || tok.EndByte != 2 {

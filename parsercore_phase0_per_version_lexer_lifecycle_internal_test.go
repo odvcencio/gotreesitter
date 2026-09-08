@@ -381,7 +381,6 @@ func TestDiagnosticParserCoreOwnedLexerBindingRestoresAfterErrorAndPanic(t *test
 	}
 	priorToken := Token{Symbol: 7, StartByte: 3, EndByte: 4}
 	priorElection := DiagnosticParserCoreElection{Token: priorToken}
-	priorCell := diagnosticParserCoreTokenCell{token: priorToken, state: 7, valid: true}
 	scheduler := &diagnosticParserCoreGenericScheduler{
 		compact: compact,
 		tokenSource: &dfaTokenSource{
@@ -391,7 +390,6 @@ func TestDiagnosticParserCoreOwnedLexerBindingRestoresAfterErrorAndPanic(t *test
 		headers:              []diagnosticParserCoreHeader{header},
 		token:                priorToken,
 		currentElection:      priorElection,
-		tokenCell:            priorCell,
 		electionIndex:        4,
 		versionLexerRequests: []diagnosticParserCoreVersionLexerRequest{request},
 	}
@@ -407,8 +405,8 @@ func TestDiagnosticParserCoreOwnedLexerBindingRestoresAfterErrorAndPanic(t *test
 	}
 	assertRestored := func() {
 		t.Helper()
-		if scheduler.token != priorToken || !reflect.DeepEqual(scheduler.currentElection, priorElection) || scheduler.tokenCell != priorCell {
-			t.Fatalf("request binding leaked scheduler state: token=%+v election=%+v cell=%+v", scheduler.token, scheduler.currentElection, scheduler.tokenCell)
+		if scheduler.token != priorToken || !reflect.DeepEqual(scheduler.currentElection, priorElection) {
+			t.Fatalf("request binding leaked scheduler state: token=%+v election=%+v", scheduler.token, scheduler.currentElection)
 		}
 		_, start, end, exact := compact.PhaseScannerCheckpoints()
 		if start != 0 || end != 0 || exact {

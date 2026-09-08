@@ -20,7 +20,7 @@ func recoveryLeafPolicyFixture(t *testing.T) (*Parser, Token) {
 		{AcceptToken: 1, Default: -1, EOF: -1},
 	}, []byte("x"))
 	tok := lexer.Next(0)
-	if !tok.lexerInternalDFALexed {
+	if !tok.lexerInternalDFALexed() {
 		t.Fatal("fixture token lacks positive internal-DFA provenance")
 	}
 	return &Parser{language: language}, tok
@@ -35,17 +35,17 @@ func TestCRecoveryRegionClearsOrdinaryLeafErrors(t *testing.T) {
 	}{
 		{name: "direct named internal-DFA token", tok: direct, want: true},
 		{name: "unproven token", tok: Token{Symbol: 1, StartByte: 0, EndByte: 1}},
-		{name: "end-of-input symbol", tok: Token{Symbol: 0, EndByte: 1, lexerInternalDFALexed: true}},
-		{name: "synthetic zero-width token", tok: Token{Symbol: 1, lexerInternalDFALexed: true}},
+		{name: "end-of-input symbol", tok: Token{Symbol: 0, EndByte: 1, lexFlags: tokenFlagInternalDFALexed}},
+		{name: "synthetic zero-width token", tok: Token{Symbol: 1, lexFlags: tokenFlagInternalDFALexed}},
 		{name: "generated token", tok: Token{Symbol: 1, StartByte: 0, EndByte: 1}},
 		{name: "anonymous internal-DFA token", tok: func() Token { tok := direct; tok.Symbol = 2; return tok }()},
 		{name: "invisible named internal-DFA token", tok: func() Token { tok := direct; tok.Symbol = 3; return tok }()},
-		{name: "skipped-prefix first token", tok: func() Token { tok := direct; tok.lexerSkippedPrefix = true; return tok }()},
+		{name: "skipped-prefix first token", tok: func() Token { tok := direct; tok.setLexFlag(tokenFlagSkippedPrefix, true); return tok }()},
 		{name: "external scanner token", tok: func() Token { tok := direct; tok.ExternalScannerToken = true; return tok }()},
-		{name: "lexer error-mode token", tok: func() Token { tok := direct; tok.lexerErrorModeLexed = true; return tok }()},
+		{name: "lexer error-mode token", tok: func() Token { tok := direct; tok.setLexFlag(tokenFlagErrorModeLexed, true); return tok }()},
 		{name: "missing token", tok: func() Token { tok := direct; tok.Missing = true; return tok }()},
 		{name: "no-lookahead token", tok: func() Token { tok := direct; tok.NoLookahead = true; return tok }()},
-		{name: "error token", tok: Token{Symbol: errorSymbol, StartByte: 0, EndByte: 1, lexerInternalDFALexed: true}},
+		{name: "error token", tok: Token{Symbol: errorSymbol, StartByte: 0, EndByte: 1, lexFlags: tokenFlagInternalDFALexed}},
 	}
 
 	for _, test := range tests {
@@ -137,7 +137,7 @@ func TestCRecoveryManualResumeMarksVisibleErrorModeToken(t *testing.T) {
 	parser.cRecoverCustomSourceEligible = true
 	stack := newGLRStack(1)
 	tok, replaced := parser.cRecoverResumeLookahead(&recoveryLeafPolicyTokenSource{}, source, &stack, Token{Symbol: 2, EndByte: 1}, nil)
-	if !replaced || !parser.cSymbolVisible(tok.Symbol) || !tok.lexerErrorModeLexed {
+	if !replaced || !parser.cSymbolVisible(tok.Symbol) || !tok.lexerErrorModeLexed() {
 		t.Fatalf("manual resume token = %+v, replaced = %t", tok, replaced)
 	}
 	if cRecoveryTokenCanClearOrdinaryLeafError(tok) {
@@ -151,7 +151,7 @@ func TestCRecoveryInternalErrorModeMarksVisibleToken(t *testing.T) {
 	stack.pushEntry(stackEntry{state: cErrorState}, nil, nil)
 	stack.cRec = &cRecoverState{group: &cRecGroup{}}
 	tok, ok := parser.cRecoverInternalErrorModeToken(&recoveryLeafPolicyTokenSource{}, []glrStack{stack}, source)
-	if !ok || !parser.cSymbolVisible(tok.Symbol) || !tok.lexerErrorModeLexed {
+	if !ok || !parser.cSymbolVisible(tok.Symbol) || !tok.lexerErrorModeLexed() {
 		t.Fatalf("internal error-mode token = %+v, ok = %t", tok, ok)
 	}
 	if cRecoveryTokenCanClearOrdinaryLeafError(tok) {
@@ -167,14 +167,14 @@ func TestCRecoveryTokenCanClearOrdinaryLeafError(t *testing.T) {
 		want bool
 	}{
 		{name: "later direct internal-DFA token", tok: direct, want: true},
-		{name: "later skipped-prefix internal-DFA token", tok: func() Token { tok := direct; tok.lexerSkippedPrefix = true; return tok }(), want: true},
+		{name: "later skipped-prefix internal-DFA token", tok: func() Token { tok := direct; tok.setLexFlag(tokenFlagSkippedPrefix, true); return tok }(), want: true},
 		{name: "later external scanner token", tok: func() Token { tok := direct; tok.ExternalScannerToken = true; return tok }()},
 		{name: "later missing token", tok: func() Token { tok := direct; tok.Missing = true; return tok }()},
 		{name: "later no-lookahead token", tok: func() Token { tok := direct; tok.NoLookahead = true; return tok }()},
-		{name: "later lexer error-mode token", tok: func() Token { tok := direct; tok.lexerErrorModeLexed = true; return tok }()},
-		{name: "later error token", tok: Token{Symbol: errorSymbol, StartByte: 0, EndByte: 1, lexerInternalDFALexed: true}},
-		{name: "later end-of-input token", tok: Token{Symbol: 0, StartByte: 1, EndByte: 1, lexerInternalDFALexed: true}},
-		{name: "later synthetic zero-width token", tok: Token{Symbol: 1, lexerInternalDFALexed: true}},
+		{name: "later lexer error-mode token", tok: func() Token { tok := direct; tok.setLexFlag(tokenFlagErrorModeLexed, true); return tok }()},
+		{name: "later error token", tok: Token{Symbol: errorSymbol, StartByte: 0, EndByte: 1, lexFlags: tokenFlagInternalDFALexed}},
+		{name: "later end-of-input token", tok: Token{Symbol: 0, StartByte: 1, EndByte: 1, lexFlags: tokenFlagInternalDFALexed}},
+		{name: "later synthetic zero-width token", tok: Token{Symbol: 1, lexFlags: tokenFlagInternalDFALexed}},
 		{name: "later generated token", tok: Token{Symbol: 1, StartByte: 0, EndByte: 1}},
 	}
 
@@ -197,13 +197,13 @@ func TestCAbsorbOrdinaryLeafChecksEveryTokenProvenance(t *testing.T) {
 	}{
 		{name: "no region proof", tok: direct, wantChildError: true},
 		{name: "direct internal-DFA token", tok: direct, regionProof: true},
-		{name: "skipped-prefix internal-DFA token", tok: func() Token { tok := direct; tok.lexerSkippedPrefix = true; return tok }(), regionProof: true},
+		{name: "skipped-prefix internal-DFA token", tok: func() Token { tok := direct; tok.setLexFlag(tokenFlagSkippedPrefix, true); return tok }(), regionProof: true},
 		{name: "external scanner token", tok: func() Token { tok := direct; tok.ExternalScannerToken = true; return tok }(), regionProof: true, wantChildError: true},
 		{name: "missing token", tok: func() Token { tok := direct; tok.Missing = true; return tok }(), regionProof: true, wantChildError: true},
 		{name: "no-lookahead token", tok: func() Token { tok := direct; tok.NoLookahead = true; return tok }(), regionProof: true, wantChildError: true},
-		{name: "lexer error-mode token", tok: func() Token { tok := direct; tok.lexerErrorModeLexed = true; return tok }(), regionProof: true, wantChildError: true},
-		{name: "error-symbol token", tok: Token{Symbol: errorSymbol, EndByte: 1, lexerInternalDFALexed: true}, regionProof: true, wantChildError: true},
-		{name: "synthetic zero-width token", tok: Token{Symbol: 1, lexerInternalDFALexed: true}, regionProof: true, wantChildError: true},
+		{name: "lexer error-mode token", tok: func() Token { tok := direct; tok.setLexFlag(tokenFlagErrorModeLexed, true); return tok }(), regionProof: true, wantChildError: true},
+		{name: "error-symbol token", tok: Token{Symbol: errorSymbol, EndByte: 1, lexFlags: tokenFlagInternalDFALexed}, regionProof: true, wantChildError: true},
+		{name: "synthetic zero-width token", tok: Token{Symbol: 1, lexFlags: tokenFlagInternalDFALexed}, regionProof: true, wantChildError: true},
 		{name: "generated token", tok: Token{Symbol: 1, EndByte: 1}, regionProof: true, wantChildError: true},
 	}
 
@@ -232,7 +232,7 @@ func TestCAbsorbOrdinaryLeafChecksEveryTokenProvenance(t *testing.T) {
 }
 
 func TestCRecoveryRegionClearsOrdinaryLeafErrorsNilParser(t *testing.T) {
-	if cRecoveryRegionClearsOrdinaryLeafErrors(nil, Token{Symbol: 1, StartByte: 0, EndByte: 1, lexerInternalDFALexed: true}, true) {
+	if cRecoveryRegionClearsOrdinaryLeafErrors(nil, Token{Symbol: 1, StartByte: 0, EndByte: 1, lexFlags: tokenFlagInternalDFALexed}, true) {
 		t.Fatal("predicate accepted a nil parser")
 	}
 }

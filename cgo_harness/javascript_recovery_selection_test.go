@@ -15,7 +15,16 @@ func TestJavaScriptRecoverySiblingSelectionLockedC(t *testing.T) {
 }
 
 func TestJavaScriptClassBodyRecoverySelectionLockedC(t *testing.T) {
-	requireJavaScriptRecoverySelectionLockedC(t, []byte("const f = (a) => a + 1;\nclass  A { m() { return 1 }?)}\n"))
+	for _, mode := range []struct {
+		name    string
+		enabled bool
+	}{{"generic", false}, {"corridor", true}} {
+		t.Run(mode.name, func(t *testing.T) {
+			restore := gts.SetParserCoreCorridorEnabledForTest(mode.enabled)
+			defer restore()
+			requireJavaScriptRecoverySelectionLockedC(t, []byte("const f = (a) => a + 1;\nclass  A { m() { return 1 }?)}\n"))
+		})
+	}
 }
 
 func TestJavaScriptClosingParenRecoveryDeclinesLossyClosure(t *testing.T) {

@@ -153,7 +153,10 @@ func (c *Core) publishRecoverEOFAcceptUncheckpointed(
 			return Head{}, 0, costErr
 		}
 	}
-	linkID := c.appendGraphLink(linkRecord{prev: base, payload: root, scoreDelta: score})
+	linkID, err := c.appendGraphLinkChecked(linkRecord{prev: base, payload: root, scoreDelta: score})
+	if err != nil {
+		return Head{}, 0, err
+	}
 	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	newNode, err := c.appendNodeAt(nodeRecord{
 		state: 1, byteOffset: endByte,

@@ -104,10 +104,10 @@ func TestRecoveryMissingTokenUsesEmptyStackPosition(t *testing.T) {
 	})
 	if !exact || !token.Missing || token.StartByte != 1 || token.EndByte != 1 ||
 		token.StartPoint != (Point{Row: 1}) || token.EndPoint != (Point{Row: 1}) ||
-		!token.missingDependencyExact {
+		!token.missingDependencyExact() {
 		t.Fatalf("missing token=%+v exact=%t", token, exact)
 	}
-	dependency, dependencyExact := missingNodeDependencyFromToken(token)
+	dependency, dependencyExact := parser.missingNodeDependencyFromToken(token)
 	if !dependencyExact || dependency.lookaheadBytes != 3 {
 		t.Fatalf("token dependency=%+v exact=%t", dependency, dependencyExact)
 	}

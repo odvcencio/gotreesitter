@@ -923,7 +923,7 @@ func (p *Parser) cRecoverResumeLookahead(ts TokenSource, source []byte, s *glrSt
 		lx.setIncludedRanges(p.included)
 	}
 	relexed := lx.NextWithErrorRuns(uint32(errLS))
-	relexed.lexerErrorModeLexed = true
+	relexed.setLexFlag(tokenFlagErrorModeLexed, true)
 	if relexed.Symbol == tok.Symbol && relexed.StartByte == tok.StartByte && relexed.EndByte == tok.EndByte {
 		return tok, false
 	}
@@ -943,7 +943,7 @@ func (p *Parser) cRecoverResumeDFALookahead(ts TokenSource, source []byte, s *gl
 		tok.ExternalScannerToken || p.cSymbolVisible(tok.Symbol) ||
 		p.lookupActionIndex(cErrorState, tok.Symbol) != 0 ||
 		!dts.canRelexFromSkippedPrefix(tok) ||
-		!tok.lexerSkippedPrefix || tok.lexerSkippedPrefixStart != s.byteOffset ||
+		!tok.lexerSkippedPrefix() || tok.lexerSkippedPrefixStart != s.byteOffset ||
 		tok.StartByte <= s.byteOffset || tok.EndByte <= tok.StartByte ||
 		int(tok.EndByte) > len(source) || len(dts.lexer.source) != len(source) {
 		return Token{}, false
@@ -965,7 +965,7 @@ func (p *Parser) cRecoverResumeDFALookahead(ts TokenSource, source []byte, s *gl
 	dts.SetParserState(cErrorState)
 	dts.SetGLRStates(nil)
 	relexed, relexedOK := dts.relexRecoveryTokenFromSkippedPrefixInTransaction(tok, s.byteOffset, startPoint)
-	if !relexedOK || !relexed.lexerErrorModeLexed || relexed.Symbol != errorSymbol || relexed.ExternalScannerToken ||
+	if !relexedOK || !relexed.lexerErrorModeLexed() || relexed.Symbol != errorSymbol || relexed.ExternalScannerToken ||
 		relexed.StartByte != tok.StartByte || relexed.EndByte != tok.EndByte ||
 		relexed.StartPoint != tok.StartPoint || relexed.EndPoint != tok.EndPoint ||
 		dts.lexer.pos != int(relexed.EndByte) || dts.lexer.row != relexed.EndPoint.Row ||
@@ -1048,7 +1048,7 @@ func (p *Parser) cRecoverInternalErrorModeToken(ts TokenSource, stacks []glrStac
 		lx.setIncludedRanges(p.included)
 	}
 	tok := lx.NextWithErrorRuns(uint32(ls))
-	tok.lexerErrorModeLexed = true
+	tok.setLexFlag(tokenFlagErrorModeLexed, true)
 	// The shared token now carries the C error-mode identity; the election
 	// can trust it directly.
 	p.cRecoverSharedTokenErrorModeLexed = true
@@ -3904,7 +3904,7 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 // token provenance, symbol metadata, and a source-bearing stack prefix.
 func cRecoveryRegionClearsOrdinaryLeafErrors(p *Parser, tok Token, hasParsedPrefix bool) bool {
 	return p != nil && hasParsedPrefix && p.cSymbolVisible(tok.Symbol) &&
-		p.isNamedSymbol(tok.Symbol) && !tok.lexerSkippedPrefix &&
+		p.isNamedSymbol(tok.Symbol) && !tok.lexerSkippedPrefix() &&
 		cRecoveryTokenCanClearOrdinaryLeafError(tok)
 }
 
@@ -3934,8 +3934,8 @@ func cRecoveryEntriesHaveParsedPrefix(entries []stackEntry, tokenStartByte uint3
 // later external, generated, error-mode, zero-width, or EOF token.
 func cRecoveryTokenCanClearOrdinaryLeafError(tok Token) bool {
 	return tok.Symbol != 0 && tok.Symbol != errorSymbol && tok.EndByte > tok.StartByte &&
-		tok.lexerInternalDFALexed && !tok.ExternalScannerToken &&
-		!tok.lexerErrorModeLexed && !tok.Missing && !tok.NoLookahead
+		tok.lexerInternalDFALexed() && !tok.ExternalScannerToken &&
+		!tok.lexerErrorModeLexed() && !tok.Missing && !tok.NoLookahead
 }
 
 // ---------------------------------------------------------------------------
@@ -4671,7 +4671,7 @@ func (p *Parser) cAbsorbTokenIntoError(v *glrStack, tok Token, nodeCount *int, a
 		if !clearLeafError && tok.Symbol != errorSymbol {
 			leaf.setHasError(true)
 		}
-		if tok.Symbol == errorSymbol && !tok.lexerErrorModeLexed {
+		if tok.Symbol == errorSymbol && !tok.lexerErrorModeLexed() {
 			leaf.setHasError(true)
 		}
 		// C: if the token shifts as extra in state 1, mark it extra so it is

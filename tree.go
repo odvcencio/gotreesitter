@@ -824,16 +824,20 @@ func nodeFieldIDAt(n *Node, i int) FieldID {
 type ParseStopReason string
 
 const (
-	ParseStopNone               ParseStopReason = "none"
-	ParseStopAccepted           ParseStopReason = "accepted"
-	ParseStopNoStacksAlive      ParseStopReason = "no_stacks_alive"
-	ParseStopTokenSourceEOF     ParseStopReason = "token_source_eof"
-	ParseStopTimeout            ParseStopReason = "timeout"
-	ParseStopCancelled          ParseStopReason = "cancelled"
-	ParseStopIterationLimit     ParseStopReason = "iteration_limit"
-	ParseStopStackDepthLimit    ParseStopReason = "stack_depth_limit"
-	ParseStopNodeLimit          ParseStopReason = "node_limit"
-	ParseStopMemoryBudget       ParseStopReason = "memory_budget"
+	ParseStopNone            ParseStopReason = "none"
+	ParseStopAccepted        ParseStopReason = "accepted"
+	ParseStopNoStacksAlive   ParseStopReason = "no_stacks_alive"
+	ParseStopTokenSourceEOF  ParseStopReason = "token_source_eof"
+	ParseStopTimeout         ParseStopReason = "timeout"
+	ParseStopCancelled       ParseStopReason = "cancelled"
+	ParseStopIterationLimit  ParseStopReason = "iteration_limit"
+	ParseStopStackDepthLimit ParseStopReason = "stack_depth_limit"
+	ParseStopNodeLimit       ParseStopReason = "node_limit"
+	ParseStopMemoryBudget    ParseStopReason = "memory_budget"
+	// ParseStopReuseBudget stops an old-tree reuse parse that built many
+	// times the old tree's nodes while reusing almost nothing. The caller
+	// runs one plain full parse instead.
+	ParseStopReuseBudget        ParseStopReason = "reuse_budget"
 	ParseStopInvariantViolation ParseStopReason = "invariant_violation"
 )
 
@@ -1486,6 +1490,10 @@ type ParseRuntime struct {
 	// The parser sets NativeRecoveredStructureAuthoritative when an exact
 	// grammar profile certifies the recovered tree before compatibility.
 	NativeRecoveredStructureAuthoritative bool
+	// TransientScratchBytesAllocated is the capacity of the transient parent
+	// and child slabs this parse held, including slabs inherited from the
+	// pool. The scratch lifetime isolation bound applies to this value.
+	TransientScratchBytesAllocated int64
 }
 
 type NormalizationPassRuntime struct {
@@ -4284,7 +4292,7 @@ func (t *Tree) rawParseStopReason() ParseStopReason {
 // It intentionally does not initiate deferred result compatibility.
 func (t *Tree) rawParseStoppedEarly() bool {
 	switch t.rawParseStopReason() {
-	case ParseStopIterationLimit, ParseStopStackDepthLimit, ParseStopNodeLimit, ParseStopMemoryBudget, ParseStopTokenSourceEOF, ParseStopTimeout, ParseStopCancelled, ParseStopInvariantViolation:
+	case ParseStopIterationLimit, ParseStopStackDepthLimit, ParseStopNodeLimit, ParseStopMemoryBudget, ParseStopReuseBudget, ParseStopTokenSourceEOF, ParseStopTimeout, ParseStopCancelled, ParseStopInvariantViolation:
 		return true
 	default:
 		return false
