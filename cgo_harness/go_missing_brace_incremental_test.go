@@ -12,6 +12,16 @@ import (
 )
 
 func TestGoMissingBraceIncrementalLockedC(t *testing.T) {
+	for _, compactOld := range []bool{false, true} {
+		name := "production_old"
+		if compactOld {
+			name = "compact_old"
+		}
+		t.Run(name, func(t *testing.T) { testGoMissingBraceIncrementalLockedC(t, compactOld) })
+	}
+}
+
+func testGoMissingBraceIncrementalLockedC(t *testing.T, compactOld bool) {
 	source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
 	start := bytes.IndexByte(source, '}')
 	edited := bytes.Replace(source, []byte("}"), nil, 1)
@@ -21,7 +31,7 @@ func TestGoMissingBraceIncrementalLockedC(t *testing.T) {
 	}
 	lang := grammars.GoLanguage()
 	p := gts.NewParser(lang)
-	p.SetAdmissionCandidateRoute(true)
+	p.SetAdmissionCandidateRoute(compactOld)
 	old, err := p.Parse(source)
 	if err != nil {
 		t.Fatal(err)
