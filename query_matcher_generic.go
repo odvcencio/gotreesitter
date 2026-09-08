@@ -283,10 +283,10 @@ func matchChildStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](
 			namedPositions[i] = -1
 		}
 	}
-	matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, namedPosition-1, steps, childSteps, 0, 0, false, -1, lang, source, predicates, captures, budget, reader, emit)
+	matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, namedPosition-1, steps, childSteps, 0, 0, childStepPrevMatch{lastIdx: -1}, lang, source, predicates, captures, budget, reader, emit)
 }
 
-func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, namedPositions []int, parentLastNamedPos int, steps []QueryStep, childSteps []queryChildStepInfo, childPos, nextChildIdx int, prevHasNamed bool, prevLastNamedPos int, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C)) {
+func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, namedPositions []int, parentLastNamedPos int, steps []QueryStep, childSteps []queryChildStepInfo, childPos, nextChildIdx int, prev childStepPrevMatch, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C)) {
 	if childPos >= len(childSteps) {
 		emit(captures)
 		return
@@ -314,21 +314,16 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 		if step.quantifier != queryQuantifierOne {
 			emitForCount = func(next []C) { emittedForCount = true; emit(next) }
 		}
-		var combinations func(int, int, int, bool, int, int, []C)
-		combinations = func(candidatePos, chosen, nextIdx int, hasNamed bool, firstNamed, lastNamed int, current []C) {
+		var combinations func(int, int, int, childStepNamedSpan, []C)
+		combinations = func(candidatePos, chosen, nextIdx int, span childStepNamedSpan, current []C) {
 			if !budget.charge() {
 				return
 			}
 			if chosen == count {
-				if count > 0 && !q.stepAnchorsSatisfied(step, childPos, hasNamed, firstNamed, lastNamed, prevHasNamed, prevLastNamedPos, parentLastNamedPos) {
+				if count > 0 && !q.stepAnchorsSatisfied(step, namedPositions, span, prev, parentLastNamedPos) {
 					return
 				}
-				nextHasNamed := prevHasNamed || hasNamed
-				nextLastNamed := prevLastNamedPos
-				if hasNamed {
-					nextLastNamed = lastNamed
-				}
-				matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos+1, nextIdx, nextHasNamed, nextLastNamed, lang, source, predicates, current, budget, reader, emitForCount)
+				matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos+1, nextIdx, advancePrevMatch(prev, step, namedPositions, span), lang, source, predicates, current, budget, reader, emitForCount)
 				return
 			}
 			remaining := count - chosen
@@ -340,19 +335,13 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 					continue
 				}
 				nextIdxForChoice := maxInt(nextIdx, childIdx+1)
-				hasNamedForChoice, firstNamedForChoice, lastNamedForChoice := hasNamed, firstNamed, lastNamed
-				if named := namedPositions[childIdx]; named >= 0 {
-					if !hasNamedForChoice {
-						hasNamedForChoice, firstNamedForChoice = true, named
-					}
-					lastNamedForChoice = named
-				}
+				spanForChoice := span.withChild(childIdx, namedPositions[childIdx])
 				matchStepsAllWithReader(q, steps, cs.stepIdx, child, parent, childIdx, lang, source, predicates, current, budget, reader, func(next []C) {
-					combinations(i+1, chosen+1, nextIdxForChoice, hasNamedForChoice, firstNamedForChoice, lastNamedForChoice, next)
+					combinations(i+1, chosen+1, nextIdxForChoice, spanForChoice, next)
 				})
 			}
 		}
-		combinations(0, 0, nextChildIdx, false, -1, -1, captures)
+		combinations(0, 0, nextChildIdx, emptyChildStepNamedSpan(), captures)
 		if budget.tripped() || (step.quantifier != queryQuantifierOne && emittedForCount) {
 			return
 		}
