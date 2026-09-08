@@ -160,6 +160,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                   mustRuntimeProfileSHA256("76d3d788ec44b5eaeaa0b3b0069bf52ffc4b125791059ff743301b9938dffd3d"),
 		compactStrategy2ErrorRegion:  true,
 		compactMissingTokenInsertion: true,
+		compactFaithfulS5Recovery:     true,
 	},
 	// Objective-C keeps parity-relevant alternatives below the bounded stack
 	// comparison frontier. Exact comparison preserves them until generic result

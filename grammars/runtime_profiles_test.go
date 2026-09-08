@@ -66,13 +66,13 @@ func TestHTMLProfileCertifiesCompleteCompactRecovery(t *testing.T) {
 	if lang.CompactRecoveryPlainFirstCertified {
 		t.Fatal("the HTML profile unexpectedly enabled plain-first recovery")
 	}
-	if lang.CompactFaithfulS5RecoveryCertified {
-		t.Fatal("the HTML profile unexpectedly enabled the Scala S5 route")
+	if !lang.CompactFaithfulS5RecoveryCertified {
+		t.Fatal("the HTML profile did not enable owned recovery competition")
 	}
 	uncertified := &gotreesitter.Language{}
 	if attachBuiltinLanguageRuntimeProfile("html", sha256.Sum256([]byte("wrong html blob")), uncertified) ||
 		uncertified.CompactStrategy2ErrorRegionCertified || uncertified.CompactMissingTokenInsertionCertified ||
-		uncertified.CompactRecoveryPlainFirstCertified {
+		uncertified.CompactRecoveryPlainFirstCertified || uncertified.CompactFaithfulS5RecoveryCertified {
 		t.Fatal("a mismatched HTML blob received compact recovery certification")
 	}
 }

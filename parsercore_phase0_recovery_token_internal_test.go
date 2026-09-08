@@ -4,6 +4,7 @@ package gotreesitter
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
@@ -155,6 +156,59 @@ func TestRecoveryTokenSixVersionTransition(t *testing.T) {
 				}
 			} else if s.headers[0].paused || s.recoveryTurns.halted[0] != 0 || s.headers[0].recoveryRegion().endByte != 3 || len(region.children) != 1 {
 				t.Fatal("six-version frontier did not retain a separate growing absorber")
+			}
+		})
+	}
+}
+
+func TestRecoveryZeroWidthTokenResumesBeforeAbsorption(t *testing.T) {
+	for _, scannerChanged := range []bool{false, true} {
+		t.Run(fmt.Sprint(scannerChanged), func(t *testing.T) {
+			s := newRecoveryLineageForkScheduler(t, true)
+			s.options.MaxDispatches = 100
+			s.options.materializationSource = []byte("a++")
+			seed, err := s.compact.Seed(3, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.headers[0].head = seed
+			var absorber diagnosticParserCoreHeader
+			if err := s.compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+				var err error
+				absorber, err = s.s5AppendAndMergeAbsorberOwned(owner, s.headers, 0, 0, &diagnosticParserCoreS5Work{})
+				return err
+			}); err != nil {
+				t.Fatal(err)
+			}
+			s.headers[0] = absorber
+			s.token = Token{Symbol: 4, StartByte: 2, EndByte: 2, ExternalScannerToken: true}
+			if scannerChanged {
+				s.checkpointID, err = s.compact.InternCheckpoint([]byte("after scanner transition"))
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			before := captureDiagnosticParserCoreS5Scheduler(s)
+			stats, err := s.compact.Stats(absorber.head)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = s.advanceRecoveryToken(0)
+			if !scannerChanged {
+				afterStats, statsErr := s.compact.Stats(absorber.head)
+				if err == nil || !reflect.DeepEqual(s.headers, before.value.headers) || s.work != before.value.work || statsErr != nil || afterStats != stats {
+					t.Fatalf("zero-width absorption did not roll back: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(s.headers) != 2 || s.work.StackSummaryRecoveryForks != 1 || !s.headers[0].paused || s.recoveryTurns.halted[0] != 1 {
+				t.Fatalf("scanner transition did not resume and halt: headers=%d forks=%d", len(s.headers), s.work.StackSummaryRecoveryForks)
+			}
+			if s.headers[0].recoveryRegion() != absorber.recoveryRegion() || s.headers[1].recoveryRegion() != nil || s.headers[1].shifted {
+				t.Fatal("zero-width resume consumed the lookahead or changed the error region")
 			}
 		})
 	}

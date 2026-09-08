@@ -45,8 +45,7 @@ func (s *diagnosticParserCoreGenericScheduler) advanceRecoveryTokenOwned(owner c
 	original := s.headers[index]
 	region := original.recoveryRegion()
 	request := s.versionLexerRequestForHeader(index)
-	if region == nil || s.token.Symbol == 0 || s.token.EndByte < s.token.StartByte || s.token.StartByte < region.endByte ||
-		s.token.EndByte == s.token.StartByte {
+	if region == nil || s.token.Symbol == 0 || s.token.EndByte < s.token.StartByte || s.token.StartByte < region.endByte {
 		return errors.New("parser-core phase zero: recovery advance requires a real token after its region")
 	}
 	source, err := s.s5RecoverySource()
@@ -107,6 +106,11 @@ func (s *diagnosticParserCoreGenericScheduler) advanceRecoveryTokenOwned(owner c
 		if len(outputs) != 0 && (len(s.headers) > diagnosticParserCoreRecoveryVersionLimit || scannerChanged) {
 			return s.haltRecoveryTokenVersion(index)
 		}
+	}
+	// A scanner transition can resume an ancestor without consuming bytes.
+	// Reject unsupported absorption only after that recovery opportunity.
+	if s.token.EndByte == s.token.StartByte {
+		return errors.New("parser-core phase zero: recovery advance requires a real token after its region")
 	}
 	newCost := uint64(current.status.Cost) + core.RecoveryCostPerSkippedTree +
 		uint64(s.token.EndByte-region.endByte)*core.RecoveryCostPerSkippedChar +

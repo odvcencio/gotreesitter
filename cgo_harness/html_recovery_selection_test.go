@@ -11,7 +11,15 @@ import (
 )
 
 func TestHTMLRecoverySelectionLockedC(t *testing.T) {
-	source := []byte("<html><bodyHello</body></html>\n")
+	testHTMLRecoverySelectionLockedC(t, []byte("<html><bodyHello</body></html>\n"))
+}
+
+func TestHTMLRecoveryTrailingTextLockedC(t *testing.T) {
+	testHTMLRecoverySelectionLockedC(t, []byte("<html><body>Hello /bod></html>\n"))
+}
+
+func testHTMLRecoverySelectionLockedC(t *testing.T, source []byte) {
+	t.Helper()
 	lang := grammars.HtmlLanguage()
 	cl, err := ParityCLanguage("html")
 	if err != nil {
@@ -42,6 +50,7 @@ func TestHTMLRecoverySelectionLockedC(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tree.Release()
+			t.Logf("fallback: %s", gts.AdmissionCandidateLastFallbackReason())
 			t.Logf("Go tree: %s", tree.RootNode().SExpr(lang))
 			assertG18LockedCExact(t, name, tree, lang, oracle)
 			routed, fallback := gts.AdmissionCandidateCounters()
