@@ -35,6 +35,28 @@ for tags and release notes while still in `0.x`.
   with the C runtime: 40 languages agree, 29 diverge. The board is
   informational until the grammargen map is rebuilt.
 
+### C parity program, round two: recovery
+
+- Add `TestParityRecoveryBoard`: 78 malformed sources in eight languages
+  parsed on the C oracle and on every Go route, compared node by node. The
+  default route agrees on 35 (29 before this round); with the C recovery
+  port forced on for JavaScript, 45.
+- An absorbed leaf inside an ERROR region carries no error bit, as in C,
+  where only a missing leaf has an error cost. The region proof that used
+  to decide when a leaf could stay clean is gone.
+- Keyword capture follows `ts_parser__lex`: a keyword stays a keyword when
+  the parse state has an action for it or reserves it; otherwise the lexer
+  returns the word token. The reserved-word rule was inverted before.
+- A missing leaf takes an inherited field, as a relevant child does in C.
+- html runs the C recovery port by default. cpp, javascript, and julia stay
+  on the legacy path behind measured witnesses recorded in
+  `docs/c-parity-boards.md`.
+- The incremental invariant gate records its first two entries: python
+  `setup.py` byte 1241 (delete and replace) parses without an error bit on
+  both routes while C reports an ERROR, and the fresh and incremental
+  parses keep a different number of GLR stacks after the site. The C
+  keyword rule exposed the site; the divergence itself is older.
+
 ### Compact core cost, round two (issue #454)
 
 - Fuse the top-down parse-state replay into the postorder materialization

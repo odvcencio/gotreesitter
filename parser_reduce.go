@@ -6284,7 +6284,7 @@ func fieldSourceAt(fieldSources []uint8, i int) uint8 {
 func countEligibleNamedFieldTargets(children []*Node, fieldIDs []FieldID, start, end int) int {
 	count := 0
 	for i := start; i < end; i++ {
-		if children[i] == nil || children[i].isExtra() || children[i].isMissing() || !children[i].isNamed() || fieldIDs[i] != 0 {
+		if children[i] == nil || children[i].isExtra() || !children[i].isNamed() || fieldIDs[i] != 0 {
 			continue
 		}
 		count++
@@ -6295,7 +6295,7 @@ func countEligibleNamedFieldTargets(children []*Node, fieldIDs []FieldID, start,
 func countEligibleFieldTargets(children []*Node, fieldIDs []FieldID, start, end int) int {
 	count := 0
 	for i := start; i < end; i++ {
-		if children[i] == nil || children[i].isExtra() || children[i].isMissing() || fieldIDs[i] != 0 {
+		if children[i] == nil || children[i].isExtra() || fieldIDs[i] != 0 {
 			continue
 		}
 		count++
@@ -7515,7 +7515,7 @@ func applyDirectFieldToUnassignedFlattenedSpan(children []*Node, fieldIDs []Fiel
 
 func assignFirstInheritedFieldToFlattenedSpan(children []*Node, fieldIDs []FieldID, fieldSources []uint8, start, end int, fid FieldID, source uint8, preferNamed, inherited bool) {
 	for j := start; j < end; j++ {
-		if fieldIDs[j] != 0 || children[j] == nil || children[j].isExtra() || children[j].isMissing() {
+		if fieldIDs[j] != 0 || children[j] == nil || children[j].isExtra() {
 			continue
 		}
 		if preferNamed && !children[j].isNamed() {
@@ -7548,8 +7548,11 @@ func assignAllUnassignedFlattenedFields(children []*Node, fieldIDs []FieldID, fi
 	}
 }
 
+// flattenedFieldTargetEligible reports whether a flattened child can take an
+// inherited field. A missing leaf is a relevant child in C
+// (ts_node_field_name_for_child skips extras only), so it takes the field.
 func flattenedFieldTargetEligible(child *Node, requireNamed bool) bool {
-	return child != nil && !child.isExtra() && !child.isMissing() && (!requireNamed || child.isNamed())
+	return child != nil && !child.isExtra() && (!requireNamed || child.isNamed())
 }
 
 func assignFlattenedField(fieldIDs []FieldID, fieldSources []uint8, idx int, fid FieldID, source uint8) {

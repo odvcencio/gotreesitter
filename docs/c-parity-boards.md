@@ -68,12 +68,70 @@ own change.
 
 ## Recovery
 
-Test: `cgo_harness/compact_t3_oracle_adjudication_test.go` and the T3
-witness set. The compact route matches the html and JavaScript witnesses;
-production diverges on all 20.
+Test: `cgo_harness/parity_recovery_board_test.go`
+(`TestParityRecoveryBoard`). Each case parses one malformed source on the C
+oracle and on the Go default, compact, and production routes, then compares
+the trees node by node. `GTS_PARITY_RECOVERY_STRICT=1` fails the test on any
+divergence of the default route. The compact route delegates recovery to the
+production port on every case, so the three route columns agree.
 
-A probe on 2026-09-08 showed the wider state: of 12 malformed JavaScript
-sources, 1 built the same tree on both engines; of 9 malformed Python
-sources, 3 did. C keeps the subtrees it reduced before the error inside the
-ERROR node, and the Go routes absorb terminals or reduce differently. This
-board is the next burn-down target.
+Counts on 2026-09-08: 78 cases, 35 agree on the default route (29 before
+this round). With `GOT_C_RECOVERY=all`, 45 agree; the difference is
+JavaScript, which stays on the legacy path (see below).
+
+| Language | Cases | Agree |
+| --- | --- | --- |
+| c | 8 | 5 |
+| go | 10 | 6 |
+| java | 8 | 5 |
+| javascript | 16 | 1 (11 with the C recovery port) |
+| json | 6 | 5 |
+| python | 14 | 5 |
+| rust | 10 | 5 |
+| typescript | 6 | 3 |
+
+Rules the port now shares with C:
+
+- An absorbed leaf carries no error bit. C gives a leaf an error cost only
+  when it is missing (`ts_subtree_error_cost`), and that holds for an
+  unlexable-byte ERROR leaf too. Only the ERROR container is erroneous.
+- A keyword stays a keyword when the parse state has an action for it or
+  reserves it; otherwise the lexer returns the word token, whether or not
+  the word token has an action (`ts_parser__lex`). The parser then reports
+  the error on the word token, as C does.
+- A missing leaf is a relevant child and takes an inherited field
+  (`ts_node_field_name_for_child` skips extras only).
+- html joins the languages that run the C recovery port by default.
+
+Languages that stay on the legacy recovery path, each behind a measured
+witness:
+
+| Language | Witness | Cause |
+| --- | --- | --- |
+| cpp | `TestCppMalformedClassFunctionDefinitionRecovery` | The port inserts a MISSING `::` where C skips a token; C's skip costs 601, the missing leaf 610. |
+| javascript | `TestW5JavaScriptFamilyTransientErrorGate` | The port exceeds the incremental replace ceiling at the start of a 20 KiB file by about 2.8 times (81244 new nodes against 29400); the forks created after the error do not merge again. |
+| julia | `TestJuliaTrailingCommaAssignmentTupleCompatibility` | The scanner emits a zero-width identifier that hides the error C reports. |
+
+Divergence classes that remain, in burn-down order:
+
+1. The result root builder (`parser_result_root_build.go`) rebuilds the
+   root with its own extra-folding rules. C's accept keeps the topmost
+   non-extra subtree as the root and splices every other stack subtree in
+   order, so a strategy-1 ERROR node keeps its `extra` bit and its wrapper.
+   Witnesses: json `[1, 2,` (extra bit lost), python `return\n)\n` (the
+   ERROR wrapper around `)` dissolves).
+2. Version order and tie-breaks. C keeps tied erroneous versions apart until
+   accept and then prefers the later one (`ts_parser__select_tree`), and a
+   merged head resolves the tie at the next reduce the same way. The port
+   picks the earlier fork. Witnesses: javascript `foo(1 2);`, python
+   `print(1, 2`.
+3. Version merging after recovery. C merges forks that reach the same state
+   and position, which bounds the work after an error; the port keeps them
+   apart, which is the JavaScript W5 cost.
+4. Strategy selection with missing tokens (cpp witness above) and the
+   remaining shape divergences in go, rust, and typescript.
+5. Silent recovery. Some malformed sources parse on the Go routes with no
+   ERROR node and no error bit (python `[...] ifsystem() != "Windows"`
+   builds a `call` with a stray identifier child). C reports an ERROR.
+   The incremental invariant gate records two such sites in
+   `testdata/incremental_allowlist.json`.
