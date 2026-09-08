@@ -348,6 +348,7 @@ jobs:
           TestDiagnosticParserCoreVersionLexerSnapshotRollbackRestoresImmutablePointer
           TestDiagnosticParserCoreVersionLexerSnapshotSurvivesPhaseChangesAndRejectsReset
           TestDiagnosticParserCoreWarmBenchmarkPreflight
+          TestDiagnosticParserCoreWarmBenchmarkRejectsWorkDrift
           TestDispatchTokenClearsIsKeywordOnRelexedSymbolOverride
           TestDispatchTokenPreservesIsKeywordWithoutRelexedSymbolOverride
           TestG18AuthenticGenericReductionEstablishesProducerCohort
