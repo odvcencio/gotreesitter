@@ -51,6 +51,14 @@ const goSymAutoSemicolon gotreesitter.Symbol = 94
 // `_automatic_semicolon` for the JS/TS grammars in this package.
 type GoExternalScanner struct{}
 
+// ExternalScannerForLanguage omits the legacy scanner when the grammar uses only DFA tokens.
+func (s GoExternalScanner) ExternalScannerForLanguage(language *gotreesitter.Language) gotreesitter.ExternalScanner {
+	if language == nil || len(language.ExternalSymbols) == 0 {
+		return nil
+	}
+	return s
+}
+
 func (GoExternalScanner) Create() any                           { return nil }
 func (GoExternalScanner) Destroy(payload any)                   {}
 func (GoExternalScanner) Serialize(payload any, buf []byte) int { return 0 }
