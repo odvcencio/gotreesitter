@@ -14,6 +14,19 @@ func TestExtractReservedWordDimensions(t *testing.T) {
 		{"product", "", "65536", "65535", "", false},
 		{"index", "", "2", "2", "[2] = {1}", false},
 		{"row_width", "", "2", "2", "[1] = {1, 2, 3}", false},
+		{"negative_symbol", "", "2", "2", "[1] = {-1, 0}", false},
+		{"symbol_expression", "", "2", "2", "[1] = {1+2}", false},
+		{"negative_index", "", "2", "2", "[-1] = {1}", false},
+		{"index_expression", "", "2", "2", "[0+1] = {1}", false},
+		{"positional_row", "", "2", "2", "{0}, {1}", false},
+		{"mixed_positional_row", "", "2", "2", "[0] = {0}, {1}", false},
+		{"duplicate_row", "", "2", "2", "[1] = {1}, [1] = {0}", false},
+		{"missing_row_comma", "", "2", "2", "[0] = {0} [1] = {1}", false},
+		{"comment_not_concatenation", "", "2", "2", "[1] = {1/**/2}", false},
+		{"trailing_junk", "", "2", "2", "[1] = {1};", false},
+		{"comments", "", "2", "2", "/* before */ [/* index */1] /* equals */ = {1, // next value\n 0,}, /* after */", true},
+		{"comment_braces", "", "2", "2", "[1] = {1, /* } [bad] = { */ 0}", true},
+		{"named_row", "#define ROW 1\n", "2", "2", "[ROW] = {1, 0}", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source := tc.defines + "static const TSSymbol ts_reserved_words[" + tc.rows + "][" + tc.width + "] = {" + tc.body + "};"
