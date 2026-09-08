@@ -1046,6 +1046,14 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwnedWithRemainder(
 		return false, nil
 	}
 	original := s.headers[index]
+	// The direct recovery path skips C's pause call. Record its baseline before
+	// potential reductions so missing versions count only progress after this error.
+	pauseBaseline, pauseBaselineOK, err := s.s5RecoveryBaseline(s.headers[index : index+1])
+	if err != nil || !pauseBaselineOK {
+		return false, err
+	}
+	original.publishRecoveryCondenseState(original.recoveryGroupIdentity(), original.recoveryMissingGroupIdentity(), pauseBaseline, true)
+	s.headers[index] = original
 	originalRequest := s.versionLexerRequestForHeader(index)
 	_, originalByte, err := s.compact.Boundary(original.head)
 	if err != nil {

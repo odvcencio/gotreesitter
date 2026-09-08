@@ -306,6 +306,34 @@ func TestS5AbsorberPreservesLexerGapBeforeErrorRegion(t *testing.T) {
 	}
 }
 
+func TestS5MissingInsertionResetsBaselineAfterVisiblePrefix(t *testing.T) {
+	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
+	head, err := scheduler.compact.Shift(scheduler.headers[0].head, 3, 0,
+		core.Token{Symbol: 3, StartByte: 1, EndByte: 2, Extra: true}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduler.headers[0].head = head
+	scheduler.headers[0].publishRecoveryCondenseState(0, 0, 0, true)
+	scheduler.token.StartByte, scheduler.token.EndByte = 2, 3
+	scheduler.tokenSource.lexer.source = []byte("a ?")
+	scheduler.tokenSource.lexer.pos, scheduler.tokenSource.lexer.col = 3, 3
+	scheduler.versionLexerBefore.lexerPos, scheduler.versionLexerBefore.lexerCol = 2, 2
+	want, supported, err := scheduler.s5RecoveryBaseline(scheduler.headers)
+	if err != nil || !supported || want == 0 {
+		t.Fatalf("visible prefix baseline=%d supported=%t err=%v", want, supported, err)
+	}
+	handled, err := scheduler.s5TryMissingTokenInsertion(0)
+	if err != nil || !handled || len(scheduler.headers) != 2 {
+		t.Fatalf("missing fork handled=%t headers=%d err=%v", handled, len(scheduler.headers), err)
+	}
+	missing := scheduler.headers[1]
+	if baseline, set := missing.recoveryNodeBaseline(); !set || baseline != want {
+		t.Fatalf("missing baseline=%d/%t, want pre-reduction count %d", baseline, set, want)
+	}
+}
+
 func TestS5MissingInsertionClampsInheritedBaselineBeforeFork(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
 	scheduler.options.MaxDispatches = 100
