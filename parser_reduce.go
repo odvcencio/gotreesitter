@@ -590,7 +590,22 @@ func (p *Parser) applyActionWithReduceChain(source []byte, s *glrStack, act Pars
 	if tok.NoLookahead || s == nil || s.dead || s.accepted || s.shifted {
 		return false
 	}
-	return p.chainSingleReduceActions(source, s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+	advance := p.chainSingleReduceActions(source, s, tok, anyReduced, nodeCount, arena, entryScratch, gssScratch, tmpEntries, deferParentLinks, trackChildErrors)
+	// C accepts a completed EOF reduction chain before the boundary merge.
+	// Its finished trees compete through tree selection, not link equivalence.
+	if !advance && p.errorCostCompetitionEnabled() && !tok.NoLookahead && tok.Symbol == 0 && tok.StartByte == tok.EndByte &&
+		!s.dead && !s.accepted && !s.shifted && s.depth() > 0 {
+		index := p.lookupActionIndex(s.top().state, tok.Symbol)
+		if index != 0 && int(index) < len(p.language.ParseActions) {
+			actions := p.language.ParseActions[index].Actions
+			if len(actions) == 1 && actions[0].Type == ParseActionAccept {
+				p.noteStopActionDiagnostic("reduce-chain-accept", s, tok, actions[0], 0, 1, true, 0, 0, false)
+				p.applyAcceptAction(s)
+				p.noteStopActionResult(s)
+			}
+		}
+	}
+	return advance
 }
 
 type conflictReduceFrontierSeed struct {

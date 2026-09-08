@@ -217,3 +217,16 @@ func TestCLinkMixedDeclineDoesNotAllocateGraphNodes(t *testing.T) {
 		t.Fatal("declined mixed probe allocated graph nodes or changed the incumbent")
 	}
 }
+
+func TestCLinkAcceptedRootsDoNotCollapse(t *testing.T) {
+	f, a, b := cleanCLinkCollapseFixture()
+	incumbent, candidate := a.entry.node, b.entry.node
+	result := []glrStack{{gss: gssStack{head: a}, byteOffset: 8, accepted: true}}
+	incoming := glrStack{gss: gssStack{head: b}, byteOffset: 8, accepted: true}
+	if merged, attempted := tryGSSMainMergeResult(f.scratch, result, 0, &incoming); merged || !attempted {
+		t.Fatalf("accepted roots merged=%t attempted=%t", merged, attempted)
+	}
+	if a.entry.node != incumbent || b.entry.node != candidate || a.linkCount() != 1 || b.linkCount() != 1 {
+		t.Fatal("accepted-root rejection changed either graph")
+	}
+}

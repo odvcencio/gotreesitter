@@ -5160,6 +5160,15 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	if workCountInstrumentationEnabled {
 		workCountRecordPairCandidate(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryGSS, "boundary merge entered eligibility preflight", &result[idx], stack)
 	}
+	// C stores accepted trees outside its active stack. Keep them separate
+	// until result selection can compare their complete trees.
+	if scratch != nil && scratch.parser != nil && scratch.parser.errorCostCompetitionEnabled() &&
+		(result[idx].accepted || stack.accepted) {
+		if workCountInstrumentationEnabled {
+			workCountRecordGSSReject(scratch.parser, workCountConvergencePhaseBoundaryGSS, workCountConvergenceReasonStatus, "accepted trees require result selection", &result[idx], stack)
+		}
+		return false, true
+	}
 	// Score is an unconditional GSS merge identity component (see
 	// gssMainCanMergeWithScratch). Reject it before recovery-cost attribution
 	// and deeper graph/equivalence work: on ambiguity-heavy parses most

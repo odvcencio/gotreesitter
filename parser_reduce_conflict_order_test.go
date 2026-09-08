@@ -112,3 +112,51 @@ func TestOrdinaryReductionConflictFailedFinalArmParse(t *testing.T) {
 		t.Fatal("parse did not dispatch the two-reduction conflict")
 	}
 }
+
+func TestOrdinaryReductionChainAcceptsBeforeBoundaryMerge(t *testing.T) {
+	for _, mode := range []string{"classified", "unclassified", "profiled"} {
+		for _, tc := range []struct {
+			name     string
+			token    Token
+			enabled  bool
+			accepted bool
+		}{
+			{"eof", Token{StartByte: 1, EndByte: 1}, true, true},
+			{"next_token", Token{Symbol: 2, StartByte: 1, EndByte: 2}, true, false},
+			{"no_lookahead", Token{NoLookahead: true, StartByte: 1, EndByte: 1}, true, false},
+			{"nonempty_eof", Token{StartByte: 1, EndByte: 2}, true, false},
+			{"mode_off", Token{StartByte: 1, EndByte: 1}, false, false},
+		} {
+			t.Run(mode+"/"+tc.name, func(t *testing.T) {
+				lang := buildArithmeticRecoveryGarbageLanguage()
+				p := NewParser(lang)
+				p.SetAdmissionCandidateRoute(false)
+				p.errorCostCompetition = tc.enabled
+				if mode == "unclassified" {
+					p.classifiedActions = nil
+				}
+				if mode == "profiled" {
+					p.SetAmbiguityProfile(NewAmbiguityProfile())
+				}
+				arena := acquireNodeArena(arenaClassFull)
+				defer arena.Release()
+				var entries glrEntryScratch
+				var graph gssScratch
+				var temporary []stackEntry
+				stack := newGLRStack(lang.InitialState)
+				leaf := newLeafNodeInArena(arena, 1, true, 0, 1, Point{}, Point{Column: 1})
+				stack.push(2, leaf, &entries, &graph)
+				reduced, childErrors := false, false
+				nodes := 1
+				advance := p.applyActionWithReduceChain([]byte("1"), &stack, lang.ParseActions[2].Actions[0], tc.token,
+					&reduced, &nodes, arena, &entries, &graph, &temporary, true, &childErrors)
+				if advance || !reduced || stack.dead || stack.accepted != tc.accepted {
+					t.Fatalf("advance=%t reduced=%t dead=%t accepted=%t, want accepted=%t", advance, reduced, stack.dead, stack.accepted, tc.accepted)
+				}
+				if stack.top().state != 3 || stackEntryNodeSymbol(stack.top()) != 4 {
+					t.Fatal("acceptance changed the completed reduction")
+				}
+			})
+		}
+	}
+}

@@ -68,7 +68,9 @@ func TestMesonAcceptanceElectionLockedCParity(t *testing.T) {
 			}
 			defer productionTree.Release()
 			if test.wantProductionExact {
-				assertLockedCTreeExact(t, "Meson production", productionTree, language, cTree)
+				t.Run("production", func(t *testing.T) {
+					assertLockedCTreeExact(t, "Meson production", productionTree, language, cTree)
+				})
 			}
 
 			routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
