@@ -3895,8 +3895,14 @@ func compactPackedGSSVersionOrderEnabledForMerge(scratch *glrMergeScratch) bool 
 		scratch.packedGSSVersionOrderActive
 }
 
+// C link equivalence does not grant physical version order or a larger link limit.
+func cStackLinkEquivalenceEnabled(scratch *glrMergeScratch) bool {
+	return compactPackedGSSVersionOrderEnabledForMerge(scratch) ||
+		(scratch != nil && scratch.parser != nil && scratch.parser.errorCostCompetitionEnabled())
+}
+
 func cStackLinkPayloadsEquivalentAtOffsets(scratch *glrMergeScratch, a, b stackEntry, aPrevOffset uint32, aOffsetOK bool, bPrevOffset uint32, bOffsetOK bool) bool {
-	if !compactPackedGSSVersionOrderEnabledForMerge(scratch) {
+	if !cStackLinkEquivalenceEnabled(scratch) {
 		return stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch, a, b)
 	}
 	if a.node == b.node && a.kind == b.kind {
@@ -4735,7 +4741,7 @@ func (p *gssMainPreflight) acquireOffsetSeen() map[*gssNode]bool {
 }
 
 func (p *gssMainPreflight) linkPayloadsEquivalent(aPrev *gssNode, a stackEntry, bPrev *gssNode, b stackEntry) bool {
-	if p == nil || !compactPackedGSSVersionOrderEnabledForMerge(p.scratch) {
+	if p == nil || !cStackLinkEquivalenceEnabled(p.scratch) {
 		var scratch *glrMergeScratch
 		if p != nil {
 			scratch = p.scratch
@@ -4748,7 +4754,7 @@ func (p *gssMainPreflight) linkPayloadsEquivalent(aPrev *gssNode, a stackEntry, 
 }
 
 func stackLinkPayloadsEquivalentWithScratch(scratch *glrMergeScratch, aPrev *gssNode, a stackEntry, bPrev *gssNode, b stackEntry) bool {
-	if !compactPackedGSSVersionOrderEnabledForMerge(scratch) {
+	if !cStackLinkEquivalenceEnabled(scratch) {
 		return stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch, a, b)
 	}
 	var seen map[*gssNode]bool
@@ -4763,6 +4769,89 @@ func stackLinkPayloadsEquivalentWithScratch(scratch *glrMergeScratch, aPrev *gss
 	}
 	bOffset, bOK := gssNodeUniformByteOffset(bPrev, seen)
 	return cStackLinkPayloadsEquivalentAtOffsets(scratch, a, b, aOffset, aOK, bOffset, bOK)
+}
+
+// Prove that every incoming link collapses into an existing equivalent link.
+// Unlike general preflight, this proof never accepts a capacity-policy drop.
+// Distinct alternatives remain separate versions when this bounded proof declines.
+func cGSSCompleteLinkCollapse(scratch *glrMergeScratch, a, b *gssNode) bool {
+	if !cStackLinkEquivalenceEnabled(scratch) || a == nil || b == nil {
+		return false
+	}
+	// Bound the complete graph before invoking existing reachability and offset
+	// helpers. Every later walk stays inside this shared, fixed-size envelope.
+	var seen [128]*gssNode
+	count := 0
+	if !cGSSCollapseGraphFits(a, &seen, &count) || !cGSSCollapseGraphFits(b, &seen, &count) ||
+		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
+		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b) {
+		return false
+	}
+	remaining := 4096
+	return cGSSCompleteLinkCollapseWalk(scratch, a, b, 0, &remaining)
+}
+
+func cGSSCollapseGraphFits(node *gssNode, seen *[128]*gssNode, count *int) bool {
+	if node == nil {
+		return true
+	}
+	for _, existing := range seen[:*count] {
+		if existing == node {
+			return true
+		}
+	}
+	if *count == len(seen) {
+		return false
+	}
+	seen[*count] = node
+	*count++
+	for i := 0; i < node.linkCount(); i++ {
+		prev, _ := node.link(i)
+		if !cGSSCollapseGraphFits(prev, seen, count) {
+			return false
+		}
+	}
+	return true
+}
+
+func cGSSCompleteLinkCollapseWalk(scratch *glrMergeScratch, a, b *gssNode, depth int, remaining *int) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil || depth >= 128 || *remaining <= 0 {
+		return false
+	}
+	*remaining--
+	for i := 0; i < b.linkCount(); i++ {
+		prev, entry := b.link(i)
+		matched := false
+		for j := 0; j < a.linkCount(); j++ {
+			if *remaining <= 0 {
+				return false
+			}
+			*remaining--
+			existingPrev, existingEntry := a.link(j)
+			if !stackLinkPayloadsEquivalentWithScratch(scratch, existingPrev, existingEntry, prev, entry) {
+				continue
+			}
+			if existingPrev == prev {
+				matched = true
+				break
+			}
+			if gssNodesCanMergeWithScratch(scratch, existingPrev, prev) {
+				// Match the first recursive merge selected by the mutation phase.
+				if !cGSSCompleteLinkCollapseWalk(scratch, existingPrev, prev, depth+1, remaining) {
+					return false
+				}
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
 }
 
 func gssMainCanAddLinkSeen(n *gssNode, prev *gssNode, entry stackEntry, seen map[gssMergePair]bool) bool {
@@ -4854,7 +4943,9 @@ func gssMainAddLinkSeenMutate(scratch *glrMergeScratch, n *gssNode, prev *gssNod
 		}
 		if gssNodesCanMergeWithScratch(scratch, existingPrev, prev) {
 			merged := gssMainMergeNodesSeenMutate(scratch, existingPrev, prev, seen)
-			if merged && stackEntryDynamicPrecedence(entry) > stackEntryDynamicPrecedence(existingEntry) {
+			// C replaces a payload only when predecessor pointers already match.
+			// Recursive merging preserves this payload and updates graph aggregates.
+			if merged && !cStackLinkEquivalenceEnabled(scratch) && stackEntryDynamicPrecedence(entry) > stackEntryDynamicPrecedence(existingEntry) {
 				setGSSMainLink(n, i, existingPrev, entry)
 			}
 			n.hash = 0
@@ -5109,8 +5200,60 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	var promoted glrStack
 	mixedRepresentation := false
 	candidateGSSReceiver := false
+	incumbentGSSPromoted := false
 	mixedMergeCertified := scratch != nil && scratch.gssOwner != nil &&
 		(scratch.language == nil || scratch.language.CompactMixedGSSMergeCertified)
+	if !mixedMergeCertified && scratch != nil && scratch.gssOwner != nil &&
+		cStackLinkEquivalenceEnabled(scratch) && !left.cEverErrored && !right.cEverErrored &&
+		left.cRec == nil && right.cRec == nil && !left.cPaused && !right.cPaused &&
+		!left.accepted && !right.accepted && ((left.gss.head == nil) != (right.gss.head == nil)) {
+		// Prove collapse with temporary headers before allocating graph nodes.
+		// The logical incumbent must also receive the physical C link merge.
+		flat := left
+		if flat.gss.head != nil {
+			flat = right
+		}
+		var staged [128]gssNode
+		if len(flat.entries) == 0 || len(flat.entries) > len(staged) {
+			return false, true
+		}
+		for i, entry := range flat.entries {
+			staged[i].entry, staged[i].depth = entry, uint32(i+1)
+			if i > 0 {
+				staged[i].prev = &staged[i-1]
+			}
+		}
+		probe := *flat
+		probe.gss.head = &staged[len(flat.entries)-1]
+		probe.entries = nil
+		probeLeft, probeRight := left, right
+		if flat == left {
+			probeLeft = &probe
+		} else {
+			probeRight = &probe
+		}
+		// Do not retain temporary node addresses in the parser's scratch caches.
+		probeScratch := glrMergeScratch{language: scratch.language, arena: scratch.arena, parser: scratch.parser}
+		if !cGSSCompleteLinkCollapse(&probeScratch, probeLeft.gss.head, probeRight.gss.head) ||
+			!gssMainCanMergeWithScratch(&probeScratch, probeLeft, probeRight) {
+			return false, true
+		}
+		promoted = *flat
+		if workCountInstrumentationEnabled {
+			promoted.ensureGSS(scratch.gssOwner)
+		} else {
+			promoted.ensureGSSForMergeStaging(scratch.gssOwner)
+		}
+		promoted.entries = nil
+		promoted.cacheEntries = false
+		if flat == left {
+			left = &promoted
+			incumbentGSSPromoted = true
+		} else {
+			right = &promoted
+		}
+		mixedRepresentation = true
+	}
 	if mixedMergeCertified &&
 		((left.gss.head == nil) != (right.gss.head == nil)) {
 		mixedRepresentation = true
@@ -5210,7 +5353,8 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	if !mixedRepresentation &&
 		!compactPackedGSSVersionOrderEnabledForMerge(scratch) &&
 		(scratch == nil || scratch.perKeyCap != 1) &&
-		gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, left, right) {
+		gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, left, right) &&
+		!cGSSCompleteLinkCollapse(scratch, left.gss.head, right.gss.head) {
 		if workCountInstrumentationEnabled {
 			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", left, right)
 		}
@@ -5240,9 +5384,9 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		merged = gssMainMergeWithScratch(scratch, left, right)
 	}
 	if merged {
-		if candidateGSSReceiver {
-			// The physical candidate supplied the graph receiver, but C keeps the
-			// incumbent stack metadata and version slot as the logical survivor.
+		if candidateGSSReceiver || incumbentGSSPromoted {
+			// Transfer the selected graph receiver into the incumbent version slot.
+			// Preserve the incumbent metadata when either side supplied the graph.
 			result[idx] = incumbentHeader
 			result[idx].gss = left.gss
 			// Keep one authoritative physical representation. The incoming GSS

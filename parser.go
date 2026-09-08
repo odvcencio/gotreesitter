@@ -4601,7 +4601,8 @@ func (p *Parser) compactPackedGSSVersionOrderEnabled() bool {
 }
 
 func (p *Parser) stampCompactPackedGSSZeroChildReceipt(ref *rawShapeRef) {
-	if ref != nil && p.compactPackedGSSVersionOrderEnabled() {
+	// Call only after creating a token leaf, before any unary reduction.
+	if ref != nil && *ref == 0 && (p.compactPackedGSSVersionOrderEnabled() || (p != nil && p.errorCostCompetitionEnabled())) {
 		*ref = rawShapeZeroChildRef
 	}
 }
