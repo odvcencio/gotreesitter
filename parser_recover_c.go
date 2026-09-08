@@ -5565,6 +5565,17 @@ func (p *Parser) relexTokenForStackLexState(source []byte, state StateID, tok To
 	}
 	relexed, ok := probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
 	recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+	if ok && relexed.Symbol == lang.KeywordCaptureToken && len(lang.KeywordLexStates) != 0 {
+		// C recognizes keywords within the token span before checking state admission.
+		// Do not run contextual probes that read beyond this token's recorded span.
+		keywordProbe := dfaTokenSource{language: lang}
+		if keyword, matched := keywordProbe.lexKeywordSource(source[relexed.StartByte:relexed.EndByte]); matched {
+			relexed.setLexFlag(tokenFlagKeyword, true)
+			if p.stateHasActionForSymbol(state, keyword.Symbol) || keywordProbe.keywordReservedInState(state, keyword.Symbol) {
+				relexed.Symbol = keyword.Symbol
+			}
+		}
+	}
 	if !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol {
 		return tok, false
 	}
