@@ -1,6 +1,8 @@
 package gotreesitter
 
 import (
+	"runtime"
+	"runtime/debug"
 	"strings"
 	"testing"
 )
@@ -124,6 +126,12 @@ func TestParseForestMemoryBudgetDeclines(t *testing.T) {
 	// this makes the regression sensitive to the forest's runtime-wide poll.
 	source := []byte("[" + strings.Repeat("0,", 40_000) + "0]")
 	arena := acquireNodeArena(arenaClassFull)
+	// This assertion needs live heap growth from the forest itself. Finish
+	// earlier collection and sweeping, then prevent automatic collection from
+	// subtracting unrelated garbage during the measured parse.
+	runtime.GC()
+	previousGCPercent := debug.SetGCPercent(-1)
+	defer debug.SetGCPercent(previousGCPercent)
 	root, ok := parser.parseForest(arena, source, false, parseMemoryBudgetForParser(parser, len(source)), nil)
 	arenaBudgetExhausted := arena.budgetExhausted()
 	arena.Release()
