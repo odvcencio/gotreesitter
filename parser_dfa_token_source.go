@@ -3044,6 +3044,7 @@ type dfaRelexSnapshot struct {
 	failTokenStartRow      uint32
 	failTokenStartCol      uint32
 	failTokenStartRangeIdx int
+	failTokenEnd           includedLexerCursor
 
 	externalPayload []byte
 
@@ -3074,6 +3075,7 @@ func (s dfaRelexSnapshot) equal(other dfaRelexSnapshot) bool {
 		s.failTokenStartRow == other.failTokenStartRow &&
 		s.failTokenStartCol == other.failTokenStartCol &&
 		s.failTokenStartRangeIdx == other.failTokenStartRangeIdx &&
+		s.failTokenEnd == other.failTokenEnd &&
 		bytes.Equal(s.externalPayload, other.externalPayload) &&
 		s.lastExternalTokenStartByte == other.lastExternalTokenStartByte &&
 		s.lastExternalTokenEndByte == other.lastExternalTokenEndByte &&
@@ -3165,6 +3167,7 @@ func (d *dfaTokenSource) snapshotRelexStateIntoScratch(scratch *dfaRelexSnapshot
 		failTokenStartRow:           d.lexer.failTokenStartRow,
 		failTokenStartCol:           d.lexer.failTokenStartCol,
 		failTokenStartRangeIdx:      d.lexer.failTokenStartRangeIdx,
+		failTokenEnd:                d.lexer.failTokenEnd,
 		lastExternalTokenStartByte:  d.lastExternalTokenStartByte,
 		lastExternalTokenEndByte:    d.lastExternalTokenEndByte,
 		lastExternalTokenValid:      d.lastExternalTokenValid,
@@ -3225,6 +3228,7 @@ func (d *dfaTokenSource) snapshotRelexStateWithExternalBuffer(buf []byte) (dfaRe
 		failTokenStartRow:           d.lexer.failTokenStartRow,
 		failTokenStartCol:           d.lexer.failTokenStartCol,
 		failTokenStartRangeIdx:      d.lexer.failTokenStartRangeIdx,
+		failTokenEnd:                d.lexer.failTokenEnd,
 		lastExternalTokenStartByte:  d.lastExternalTokenStartByte,
 		lastExternalTokenEndByte:    d.lastExternalTokenEndByte,
 		lastExternalTokenValid:      d.lastExternalTokenValid,
@@ -3267,6 +3271,7 @@ func (s dfaRelexSnapshot) restore(d *dfaTokenSource) {
 	d.lexer.failTokenStartRow = s.failTokenStartRow
 	d.lexer.failTokenStartCol = s.failTokenStartCol
 	d.lexer.failTokenStartRangeIdx = s.failTokenStartRangeIdx
+	d.lexer.failTokenEnd = s.failTokenEnd
 	d.externalLookaheadEndByte = s.externalLookaheadEndByte
 	if d.hasExternalScanner && d.language != nil && d.language.ExternalScanner != nil {
 		d.language.ExternalScanner.Deserialize(d.externalPayload, s.externalPayload)

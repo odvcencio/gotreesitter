@@ -415,6 +415,7 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 		l.failTokenStartRow = tokenStart.row
 		l.failTokenStartCol = tokenStart.col
 		l.failTokenStartRangeIdx = tokenStart.rangeIdx
+		l.failTokenEnd = scanCursor
 		return Token{lexerLookaheadEndByte: lookaheadEndByte}, false
 	}
 
