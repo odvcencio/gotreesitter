@@ -56,9 +56,15 @@ type dfaTokenSource struct {
 	isComment                   bool
 	isFortran                   bool
 	isScheme                    bool
-	isSwift                     bool
-	hasZeroWidthTokens          bool
-	hasZeroWidthStartAccept     bool
+	// externalFailureModeLanguage records the language whose external scanner
+	// answered the two failure-mode capability probes below. The probes are
+	// interface assertions that every scan attempt repeated before this cache.
+	externalFailureModeLanguage   *Language
+	externalRetainsFailureState   bool
+	externalPreservesFailureState bool
+	isSwift                       bool
+	hasZeroWidthTokens            bool
+	hasZeroWidthStartAccept       bool
 
 	// maskedScratch is a reusable buffer for runExternalScannerWithRetry,
 	// avoiding a per-call heap allocation when masking already-tried symbols.
@@ -537,7 +543,7 @@ func (d *dfaTokenSource) Next() Token {
 		}
 		if d.shouldForceEOFLookahead() {
 			tok := d.syntheticEOFLookaheadToken()
-			tok = d.attachTokenLookaheadFrontier(tok, true)
+			d.attachTokenLookaheadFrontier(&tok, true)
 			d.lastTokenValid = false
 			d.lastExternalTokenValid = false
 			d.lastExternalTokenWasExtra = false
@@ -590,7 +596,7 @@ func (d *dfaTokenSource) Next() Token {
 				}
 			}
 			if tok.Symbol == 0 {
-				tok = d.nextDFAToken()
+				d.nextDFATokenInto(&tok)
 			}
 		}
 		if !tokenFromExternal && d.hasExternalScanner &&
@@ -686,7 +692,7 @@ func (d *dfaTokenSource) Next() Token {
 			d.zeroWidthPos = -1
 			d.zeroWidthCount = 0
 		}
-		tok = d.attachTokenLookaheadFrontier(tok, !tokenFromExternal && !tok.lexerInternalDFALexed)
+		d.attachTokenLookaheadFrontier(&tok, !tokenFromExternal && !tok.lexerInternalDFALexed())
 
 		if perfCountersEnabled {
 			consumed := d.lexer.pos - startPos
@@ -745,8 +751,8 @@ func (d *dfaTokenSource) Next() Token {
 		}
 		// Record provenance only when this source selected the error lex mode.
 		// A checkpointless external scanner cannot prove the complete lex path.
-		tok.lexerErrorModeLexed = d.cRecoveryEnabled && d.state == cErrorState && !tokenFromExternal &&
-			(!d.hasExternalScanner || d.usesExternalCheckpoints)
+		tok.setLexFlag(tokenFlagErrorModeLexed, d.cRecoveryEnabled && d.state == cErrorState && !tokenFromExternal &&
+			(!d.hasExternalScanner || d.usesExternalCheckpoints))
 		return tok
 	}
 }
@@ -754,9 +760,9 @@ func (d *dfaTokenSource) Next() Token {
 // attachTokenLookaheadFrontier preserves the largest external-scanner
 // frontier observed during this token-source read. Synthetic replacements do
 // not have a scanner token, so derive their frontier from their resulting end.
-func (d *dfaTokenSource) attachTokenLookaheadFrontier(tok Token, synthetic bool) Token {
-	if d == nil {
-		return tok
+func (d *dfaTokenSource) attachTokenLookaheadFrontier(tok *Token, synthetic bool) {
+	if d == nil || tok == nil {
+		return
 	}
 	frontier := maxUint32(tok.lexerLookaheadEndByte, d.externalLookaheadEndByte)
 	if synthetic && d.lexer != nil {
@@ -770,7 +776,6 @@ func (d *dfaTokenSource) attachTokenLookaheadFrontier(tok Token, synthetic bool)
 		frontier = tok.EndByte
 	}
 	tok.lexerLookaheadEndByte = frontier
-	return tok
 }
 
 func (d *dfaTokenSource) SetParserState(state StateID) {
@@ -806,15 +811,21 @@ func (d *dfaTokenSource) setExternalScannerCheckpointsEnabled(enabled bool) {
 	d.externalTokenEnd = d.externalTokenEnd[:0]
 }
 
-func (d *dfaTokenSource) nextDFAToken() Token {
+func (d *dfaTokenSource) nextDFATokenInto(tok *Token) {
 	if d == nil || d.lexer == nil || d.language == nil {
-		return Token{}
+		*tok = Token{}
+		return
 	}
-	tok, endPos, endRow, endCol := d.scanPreferredTokenForState(d.state)
+	endPos, endRow, endCol := d.scanPreferredTokenForStateInto(d.state, tok)
 	d.lexer.pos = endPos
 	d.lexer.row = endRow
 	d.lexer.col = endCol
 	d.lexer.includedRangeIdx = d.lexer.includedRangeIndexForPosition(endPos)
+}
+
+func (d *dfaTokenSource) nextDFAToken() Token {
+	var tok Token
+	d.nextDFATokenInto(&tok)
 	return tok
 }
 
@@ -1073,7 +1084,8 @@ func (d *dfaTokenSource) SeekTokenFrontier(pos uint32, pt Point) {
 // frontier, not the lex path that produced the token. isKeyword records the
 // promotion path, so it must not take part in a same-tokenization test.
 func tokensSameLex(a, b Token) bool {
-	a.isKeyword, b.isKeyword = false, false
+	a.setLexFlag(tokenFlagKeyword, false)
+	b.setLexFlag(tokenFlagKeyword, false)
 	return a == b
 }
 
@@ -1521,36 +1533,49 @@ func (d *dfaTokenSource) lexStateForState(state StateID) uint32 {
 	return mode.lexState
 }
 
-func (d *dfaTokenSource) scanPreferredTokenForState(state StateID) (Token, int, uint32, uint32) {
+func (d *dfaTokenSource) scanPreferredTokenForStateInto(state StateID, tok *Token) (int, uint32, uint32) {
 	if d == nil || d.lexer == nil {
-		return Token{}, 0, 0, 0
+		*tok = Token{}
+		return 0, 0, 0
 	}
 	lexModes := d.lexModeStartRows()
 	if int(state) >= len(lexModes) {
-		return Token{}, d.lexer.pos, d.lexer.row, d.lexer.col
+		*tok = Token{}
+		return d.lexer.pos, d.lexer.row, d.lexer.col
 	}
 	mode := lexModes[state]
 	if mode.afterWhitespaceLexState == 0 {
-		return d.scanDFATokenForState(state, mode.lexState)
+		return d.scanDFATokenForStateInto(state, mode.lexState, tok)
 	}
 	if !d.isAtWhitespacePosition() && !d.isAfterWhitespacePosition() {
-		return d.scanDFATokenForState(state, mode.lexState)
+		return d.scanDFATokenForStateInto(state, mode.lexState, tok)
 	}
 
-	baseTok, baseEndPos, baseEndRow, baseEndCol := d.scanDFATokenForState(state, mode.lexState)
-	afterTok, afterEndPos, afterEndRow, afterEndCol := d.scanDFATokenForState(state, mode.afterWhitespaceLexState)
+	baseEndPos, baseEndRow, baseEndCol := d.scanDFATokenForStateInto(state, mode.lexState, tok)
+	var afterTok Token
+	afterEndPos, afterEndRow, afterEndCol := d.scanDFATokenForStateInto(state, mode.afterWhitespaceLexState, &afterTok)
 	// Selection observes both probes, including a discarded longer match.
-	frontier := maxUint32(tokenLookaheadEndByte(baseTok), tokenLookaheadEndByte(afterTok))
-	baseTok.lexerLookaheadEndByte, afterTok.lexerLookaheadEndByte = frontier, frontier
-	if d.shouldPreferBaseLexStateToken(baseTok, afterTok) {
-		return baseTok, baseEndPos, baseEndRow, baseEndCol
+	frontier := maxUint32(tokenLookaheadEndByte(*tok), tokenLookaheadEndByte(afterTok))
+	tok.lexerLookaheadEndByte, afterTok.lexerLookaheadEndByte = frontier, frontier
+	if d.shouldPreferBaseLexStateToken(*tok, afterTok) {
+		return baseEndPos, baseEndRow, baseEndCol
 	}
-	return afterTok, afterEndPos, afterEndRow, afterEndCol
+	*tok = afterTok
+	return afterEndPos, afterEndRow, afterEndCol
 }
 
-func (d *dfaTokenSource) scanDFATokenForState(state StateID, lexState uint32) (Token, int, uint32, uint32) {
+// scanPreferredTokenForState is the by-value form of
+// scanPreferredTokenForStateInto for callers that do not own a token slot.
+func (d *dfaTokenSource) scanPreferredTokenForState(state StateID) (Token, int, uint32, uint32) {
+	var tok Token
+	endPos, endRow, endCol := d.scanPreferredTokenForStateInto(state, &tok)
+	return tok, endPos, endRow, endCol
+}
+
+func (d *dfaTokenSource) scanDFATokenForStateInto(state StateID, lexState uint32, tok *Token) (int, uint32, uint32) {
 	if d == nil || d.lexer == nil {
-		return Token{}, 0, 0, 0
+		*tok = Token{}
+		return 0, 0, 0
 	}
 	savedPos := d.lexer.pos
 	savedRow := d.lexer.row
@@ -1559,16 +1584,16 @@ func (d *dfaTokenSource) scanDFATokenForState(state StateID, lexState uint32) (T
 	savedState := d.state
 
 	d.state = state
-	tok := d.nextTokenForLexState(lexState)
+	*tok = d.nextTokenForLexState(lexState)
 	if realTok, ok := d.preferSameLineTokenOverGeneratedZeroWidthSentinel(state, lexState, tok, savedPos, savedRow, savedCol); ok {
-		tok = realTok
+		*tok = realTok
 	}
 	if d.isScheme && !d.lexer.errorModeRetry {
 		// With the faithful C recovery port gated on, the lexer's error-mode
 		// retry replaces scheme's dedicated run heuristic: failed lexes
 		// surface real error-mode tokens (or errorSymbol runs) exactly like
 		// C, and re-deriving a wider run here would mask them.
-		if errTok, ok := d.schemeErrorRunToken(savedPos, savedRow, savedCol, tok); ok {
+		if errTok, ok := d.schemeErrorRunToken(savedPos, savedRow, savedCol, *tok); ok {
 			d.lexer.pos = savedPos
 			d.lexer.row = savedRow
 			d.lexer.col = savedCol
@@ -1577,11 +1602,12 @@ func (d *dfaTokenSource) scanDFATokenForState(state StateID, lexState uint32) (T
 			if DebugDFA.Load() {
 				fmt.Printf("  SCHEME-ERR run %d-%d state=%d\n", errTok.StartByte, errTok.EndByte, state)
 			}
-			return errTok, int(errTok.EndByte), errTok.EndPoint.Row, errTok.EndPoint.Column
+			*tok = errTok
+			return int(errTok.EndByte), errTok.EndPoint.Row, errTok.EndPoint.Column
 		}
 	}
 	if zeroTok, ok := d.preferGeneratedZeroWidthSentinelForState(state, tok, savedPos, savedRow, savedCol); ok {
-		tok = zeroTok
+		*tok = zeroTok
 		d.lexer.pos = savedPos
 		d.lexer.row = savedRow
 		d.lexer.col = savedCol
@@ -1599,11 +1625,11 @@ func (d *dfaTokenSource) scanDFATokenForState(state StateID, lexState uint32) (T
 		if DebugDFA.Load() {
 			fmt.Printf("  LEX-ERR run %d-%d state=%d\n", tok.StartByte, tok.EndByte, state)
 		}
-		return tok, int(tok.EndByte), tok.EndPoint.Row, tok.EndPoint.Column
+		return int(tok.EndByte), tok.EndPoint.Row, tok.EndPoint.Column
 	}
 	if d.hasZeroWidthStartAccept {
 		if zeroTok, ok := d.preferZeroWidthStartAcceptForState(state, lexState, tok, savedPos, savedRow, savedCol); ok {
-			tok = zeroTok
+			*tok = zeroTok
 			d.lexer.pos = savedPos
 			d.lexer.row = savedRow
 			d.lexer.col = savedCol
@@ -1611,12 +1637,14 @@ func (d *dfaTokenSource) scanDFATokenForState(state StateID, lexState uint32) (T
 		}
 	}
 	var keywordDemoted bool
-	tok, keywordDemoted = d.promoteKeyword(tok)
+	keywordDemoted = d.promoteKeyword(tok)
 	if !keywordDemoted {
-		tok = d.promoteActiveLiteralForCurrentState(tok, savedPos, savedRow, savedCol)
+		d.promoteActiveLiteralForCurrentState(tok, savedPos, savedRow, savedCol)
 	}
-	tok = d.demoteSwiftMemberKeyword(tok)
-	tok, endPos, endRow, endCol := d.normalizeDFAToken(tok, d.lexer.pos, d.lexer.row, d.lexer.col)
+	if d.language != nil && d.language.Name == "swift" {
+		*tok = d.demoteSwiftMemberKeyword(*tok)
+	}
+	endPos, endRow, endCol := d.normalizeDFAToken(tok, d.lexer.pos, d.lexer.row, d.lexer.col)
 
 	d.lexer.pos = savedPos
 	d.lexer.row = savedRow
@@ -1624,6 +1652,14 @@ func (d *dfaTokenSource) scanDFATokenForState(state StateID, lexState uint32) (T
 	d.lexer.includedRangeIdx = savedRangeIdx
 	d.state = savedState
 
+	return endPos, endRow, endCol
+}
+
+// scanDFATokenForState is the by-value form of scanDFATokenForStateInto for
+// callers that do not own a token slot.
+func (d *dfaTokenSource) scanDFATokenForState(state StateID, lexState uint32) (Token, int, uint32, uint32) {
+	var tok Token
+	endPos, endRow, endCol := d.scanDFATokenForStateInto(state, lexState, &tok)
 	return tok, endPos, endRow, endCol
 }
 
@@ -1674,7 +1710,7 @@ func (d *dfaTokenSource) scanRawDFATokenForLexState(lexState uint32) (Token, int
 	return tok, endPos, endRow, endCol
 }
 
-func (d *dfaTokenSource) preferSameLineTokenOverGeneratedZeroWidthSentinel(state StateID, lexState uint32, tok Token, startPos int, startRow, startCol uint32) (Token, bool) {
+func (d *dfaTokenSource) preferSameLineTokenOverGeneratedZeroWidthSentinel(state StateID, lexState uint32, tok *Token, startPos int, startRow, startCol uint32) (Token, bool) {
 	if d == nil || d.lexer == nil || !d.hasZeroWidthSentinelSymbol || tok.Symbol != d.zeroWidthSentinelSymbol {
 		return Token{}, false
 	}
@@ -1723,7 +1759,7 @@ scanReal:
 	// falls through to the zero-width sentinel, letting the parser close
 	// off the enclosing construct (if_statement) one token too early and
 	// treat the keyword text as a bare identifier from then on.
-	realTok = d.promoteActiveLiteralForCurrentState(realTok, pos, row, col)
+	d.promoteActiveLiteralForCurrentState(&realTok, pos, row, col)
 	if !d.hasActionForStateSymbol(state, realTok.Symbol) {
 		d.lexer.pos = startPos
 		d.lexer.row = startRow
@@ -1785,7 +1821,7 @@ func (d *dfaTokenSource) shouldPreferZeroWidthBaseLexStateToken(baseTok, afterTo
 	return d.hasActionForStateSymbol(d.state, baseTok.Symbol)
 }
 
-func (d *dfaTokenSource) preferZeroWidthStartAcceptForState(state StateID, lexState uint32, tok Token, startPos int, startRow, startCol uint32) (Token, bool) {
+func (d *dfaTokenSource) preferZeroWidthStartAcceptForState(state StateID, lexState uint32, tok *Token, startPos int, startRow, startCol uint32) (Token, bool) {
 	if d == nil || d.language == nil || lexState == noLookaheadLexState || int(lexState) >= len(d.language.LexStates) {
 		return Token{}, false
 	}
@@ -1823,7 +1859,7 @@ func (d *dfaTokenSource) isZeroWidthSymbol(sym Symbol) bool {
 	return d.hasZeroWidthSentinelSymbol && sym == d.zeroWidthSentinelSymbol
 }
 
-func (d *dfaTokenSource) preferGeneratedZeroWidthSentinelForState(state StateID, tok Token, startPos int, startRow, startCol uint32) (Token, bool) {
+func (d *dfaTokenSource) preferGeneratedZeroWidthSentinelForState(state StateID, tok *Token, startPos int, startRow, startCol uint32) (Token, bool) {
 	if d == nil || d.language == nil || d.lexer == nil || !d.hasZeroWidthSentinelSymbol || d.zeroWidthSentinelSymbol == 0 {
 		return Token{}, false
 	}
@@ -1973,29 +2009,31 @@ func sourcePositionFollowsWhitespace(source []byte, pos int) bool {
 	return unicode.IsSpace(r)
 }
 
-func (d *dfaTokenSource) normalizeDFAToken(tok Token, endPos int, endRow, endCol uint32) (Token, int, uint32, uint32) {
+func (d *dfaTokenSource) normalizeDFAToken(tok *Token, endPos int, endRow, endCol uint32) (int, uint32, uint32) {
 	if d == nil || d.language == nil || d.lexer == nil {
-		return tok, endPos, endRow, endCol
+		return endPos, endRow, endCol
 	}
 	if d.isBashGenerated {
-		if nlTok, nlEndPos, nlEndRow, nlEndCol, ok := d.bashGeneratedDFAOnlyNewlineToken(tok); ok {
-			return nlTok, nlEndPos, nlEndRow, nlEndCol
+		if nlTok, nlEndPos, nlEndRow, nlEndCol, ok := d.bashGeneratedDFAOnlyNewlineToken(*tok); ok {
+			*tok = nlTok
+			return nlEndPos, nlEndRow, nlEndCol
 		}
 	}
-	if splitTok, splitEndPos, splitEndRow, splitEndCol, ok := d.splitCompactCloseAngleToken(tok); ok {
-		return splitTok, splitEndPos, splitEndRow, splitEndCol
+	if splitEndPos, splitEndRow, splitEndCol, ok := d.splitCompactCloseAngleToken(tok); ok {
+		return splitEndPos, splitEndRow, splitEndCol
 	}
 	if d.isBashGenerated {
-		if splitTok, splitEndPos, splitEndRow, splitEndCol, ok := d.splitBashGeneratedDoubleCloseParenToken(tok); ok {
-			return splitTok, splitEndPos, splitEndRow, splitEndCol
+		if splitTok, splitEndPos, splitEndRow, splitEndCol, ok := d.splitBashGeneratedDoubleCloseParenToken(*tok); ok {
+			*tok = splitTok
+			return splitEndPos, splitEndRow, splitEndCol
 		}
 	}
 	if !d.isBash || d.symbolName(tok.Symbol) != "\\n" || tok.EndByte <= tok.StartByte+1 {
-		return tok, endPos, endRow, endCol
+		return endPos, endRow, endCol
 	}
 	start := int(tok.StartByte)
 	if start < 0 || start >= len(d.lexer.source) || d.lexer.source[start] != '\n' {
-		return tok, endPos, endRow, endCol
+		return endPos, endRow, endCol
 	}
 	limit := int(tok.EndByte)
 	if limit > len(d.lexer.source) {
@@ -2003,7 +2041,7 @@ func (d *dfaTokenSource) normalizeDFAToken(tok Token, endPos int, endRow, endCol
 	}
 	for i := start + 1; i < limit; i++ {
 		if d.lexer.source[i] != '\n' {
-			return tok, endPos, endRow, endCol
+			return endPos, endRow, endCol
 		}
 	}
 	tok.EndByte = tok.StartByte + 1
@@ -2011,7 +2049,7 @@ func (d *dfaTokenSource) normalizeDFAToken(tok Token, endPos int, endRow, endCol
 	if len(tok.Text) > 1 {
 		tok.Text = tok.Text[:1]
 	}
-	return tok, start + 1, tok.StartPoint.Row + 1, 0
+	return start + 1, tok.StartPoint.Row + 1, 0
 }
 
 func (d *dfaTokenSource) bashGeneratedDFAOnlyNewlineToken(tok Token) (Token, int, uint32, uint32, bool) {
@@ -2307,27 +2345,27 @@ func (d *dfaTokenSource) bashGeneratedShouldPreferDFATokenOverConcat(tok Token) 
 	}
 }
 
-func (d *dfaTokenSource) splitCompactCloseAngleToken(tok Token) (Token, int, uint32, uint32, bool) {
+func (d *dfaTokenSource) splitCompactCloseAngleToken(tok *Token) (int, uint32, uint32, bool) {
 	if d == nil || d.language == nil || d.lookupActionIndex == nil {
-		return tok, 0, 0, 0, false
+		return 0, 0, 0, false
 	}
 	if !supportsCompactCloseAngleSplit(d.language.Name) {
-		return tok, 0, 0, 0, false
+		return 0, 0, 0, false
 	}
 	if d.symbolName(tok.Symbol) != ">>" {
-		return tok, 0, 0, 0, false
+		return 0, 0, 0, false
 	}
 
 	gtSym, ok := d.bestActiveSymbolByName(">")
 	if !ok {
-		return tok, 0, 0, 0, false
+		return 0, 0, 0, false
 	}
 	shiftSym, shiftOK := d.bestActiveSymbolByName(">>")
-	if !d.shouldSplitCompactCloseAngleToken(tok, gtSym, shiftSym, shiftOK) {
-		return tok, 0, 0, 0, false
+	if !d.shouldSplitCompactCloseAngleToken(*tok, gtSym, shiftSym, shiftOK) {
+		return 0, 0, 0, false
 	}
 	if tok.EndByte != tok.StartByte+2 || tok.EndPoint.Row != tok.StartPoint.Row {
-		return tok, 0, 0, 0, false
+		return 0, 0, 0, false
 	}
 
 	tok.Symbol = gtSym
@@ -2336,7 +2374,7 @@ func (d *dfaTokenSource) splitCompactCloseAngleToken(tok Token) (Token, int, uin
 	if len(tok.Text) > 1 {
 		tok.Text = tok.Text[:1]
 	}
-	return tok, int(tok.EndByte), tok.EndPoint.Row, tok.EndPoint.Column, true
+	return int(tok.EndByte), tok.EndPoint.Row, tok.EndPoint.Column, true
 }
 
 func supportsCompactCloseAngleSplit(languageName string) bool {
@@ -2348,7 +2386,7 @@ func supportsCompactCloseAngleSplit(languageName string) bool {
 	}
 }
 
-func (p *Parser) contextualActionIndex(source []byte, state StateID, tok Token) uint16 {
+func (p *Parser) contextualActionIndex(source []byte, state StateID, tok *Token) uint16 {
 	actionIdx := p.lookupActionIndex(state, tok.Symbol)
 	if actionIdx != 0 && p.shouldDeferContextualCloseAngleAction(source, state, tok) {
 		return 0
@@ -2359,7 +2397,7 @@ func (p *Parser) contextualActionIndex(source []byte, state StateID, tok Token) 
 // shouldDeferContextualCloseAngleAction reports that this stack's lex mode
 // reads an adjacent pair as one operator. Another live stack selected the
 // single close-angle prefix, so this stack must not consume that prefix.
-func (p *Parser) shouldDeferContextualCloseAngleAction(source []byte, state StateID, tok Token) bool {
+func (p *Parser) shouldDeferContextualCloseAngleAction(source []byte, state StateID, tok *Token) bool {
 	var lexicalReadSpan *uint32
 	if p.mergeScratch != nil {
 		lexicalReadSpan = p.mergeScratch.lexicalReadSpan
@@ -2377,7 +2415,7 @@ func (p *Parser) shouldDeferContextualCloseAngleAction(source []byte, state Stat
 // deferContextualCloseAngleAction is still the single source of truth for
 // the full predicate: it calls this helper for its own first guard rather
 // than re-deriving it.
-func tokenMaybeContextualCloseAngle(lang *Language, tok Token) bool {
+func tokenMaybeContextualCloseAngle(lang *Language, tok *Token) bool {
 	if lang == nil || int(tok.Symbol) >= len(lang.SymbolNames) {
 		return false
 	}
@@ -2399,16 +2437,16 @@ func tokenMaybeContextualCloseAngle(lang *Language, tok Token) bool {
 // compact route declines any included-range parse outright before it ever
 // reaches here (admission_switch.go:208's own eligibility check) — there is
 // no included-range case for a compact caller to reuse.
-func deferContextualCloseAngleAction(lang *Language, source []byte, state StateID, tok Token, included []Range, probe *Lexer, lexicalReadSpan *uint32) bool {
-	if probe != nil {
-		defer func() { probe.tokenInvariantReadSpanMax = nil }()
-	}
-	if probe == nil || !tokenMaybeContextualCloseAngle(lang, tok) {
+func deferContextualCloseAngleAction(lang *Language, source []byte, state StateID, tok *Token, included []Range, probe *Lexer, lexicalReadSpan *uint32) bool {
+	// This runs on every action cell. Reject the common case from the source
+	// bytes before the symbol-name compare and before registering the defer.
+	start := int(tok.StartByte)
+	if probe == nil || tok.EndByte != tok.StartByte+1 || start < 0 || start+1 >= len(source) ||
+		source[start] != '>' || source[start+1] != '>' {
 		return false
 	}
-	start := int(tok.StartByte)
-	if start < 0 || start+1 >= len(source) || source[start] != '>' || source[start+1] != '>' ||
-		int(state) >= len(lang.LexModes) {
+	defer func() { probe.tokenInvariantReadSpanMax = nil }()
+	if !tokenMaybeContextualCloseAngle(lang, tok) || int(state) >= len(lang.LexModes) {
 		return false
 	}
 	lexState := lang.LexModes[state].LexStateIndex()
@@ -3044,6 +3082,7 @@ type dfaRelexSnapshot struct {
 	failTokenStartRow      uint32
 	failTokenStartCol      uint32
 	failTokenStartRangeIdx int
+	failTokenEnd           includedLexerCursor
 
 	externalPayload []byte
 
@@ -3074,6 +3113,7 @@ func (s dfaRelexSnapshot) equal(other dfaRelexSnapshot) bool {
 		s.failTokenStartRow == other.failTokenStartRow &&
 		s.failTokenStartCol == other.failTokenStartCol &&
 		s.failTokenStartRangeIdx == other.failTokenStartRangeIdx &&
+		s.failTokenEnd == other.failTokenEnd &&
 		bytes.Equal(s.externalPayload, other.externalPayload) &&
 		s.lastExternalTokenStartByte == other.lastExternalTokenStartByte &&
 		s.lastExternalTokenEndByte == other.lastExternalTokenEndByte &&
@@ -3165,6 +3205,7 @@ func (d *dfaTokenSource) snapshotRelexStateIntoScratch(scratch *dfaRelexSnapshot
 		failTokenStartRow:           d.lexer.failTokenStartRow,
 		failTokenStartCol:           d.lexer.failTokenStartCol,
 		failTokenStartRangeIdx:      d.lexer.failTokenStartRangeIdx,
+		failTokenEnd:                d.lexer.failTokenEnd,
 		lastExternalTokenStartByte:  d.lastExternalTokenStartByte,
 		lastExternalTokenEndByte:    d.lastExternalTokenEndByte,
 		lastExternalTokenValid:      d.lastExternalTokenValid,
@@ -3200,8 +3241,10 @@ func prepareDFARelexExternalPayloadScratch(scratch *dfaRelexSnapshotScratch) []b
 		}
 		scratch.externalPayload = make([]byte, externalScannerSerializationBufferSize)
 	} else {
+		// Every reader uses the serialized prefix [:n] the caller sets, so the
+		// buffer beyond it never needs clearing on reuse (issue #454: this
+		// clear ran once per election).
 		scratch.externalPayload = scratch.externalPayload[:externalScannerSerializationBufferSize]
-		clear(scratch.externalPayload)
 	}
 	return scratch.externalPayload
 }
@@ -3225,6 +3268,7 @@ func (d *dfaTokenSource) snapshotRelexStateWithExternalBuffer(buf []byte) (dfaRe
 		failTokenStartRow:           d.lexer.failTokenStartRow,
 		failTokenStartCol:           d.lexer.failTokenStartCol,
 		failTokenStartRangeIdx:      d.lexer.failTokenStartRangeIdx,
+		failTokenEnd:                d.lexer.failTokenEnd,
 		lastExternalTokenStartByte:  d.lastExternalTokenStartByte,
 		lastExternalTokenEndByte:    d.lastExternalTokenEndByte,
 		lastExternalTokenValid:      d.lastExternalTokenValid,
@@ -3267,6 +3311,7 @@ func (s dfaRelexSnapshot) restore(d *dfaTokenSource) {
 	d.lexer.failTokenStartRow = s.failTokenStartRow
 	d.lexer.failTokenStartCol = s.failTokenStartCol
 	d.lexer.failTokenStartRangeIdx = s.failTokenStartRangeIdx
+	d.lexer.failTokenEnd = s.failTokenEnd
 	d.externalLookaheadEndByte = s.externalLookaheadEndByte
 	if d.hasExternalScanner && d.language != nil && d.language.ExternalScanner != nil {
 		d.language.ExternalScanner.Deserialize(d.externalPayload, s.externalPayload)
@@ -3328,7 +3373,7 @@ func (d *dfaTokenSource) relexFromTokenStartInTransaction(tok Token) (Token, boo
 // lexer-call start. It converts an aligned, invisible error-mode token only
 // when state zero cannot act on that token. The caller owns rollback.
 func (d *dfaTokenSource) relexRecoveryTokenFromSkippedPrefixInTransaction(tok Token, startByte uint32, startPoint Point) (Token, bool) {
-	if !d.canRelexFromSkippedPrefix(tok) || !tok.lexerSkippedPrefix ||
+	if !d.canRelexFromSkippedPrefix(tok) || !tok.lexerSkippedPrefix() ||
 		tok.lexerSkippedPrefixStart != startByte || startByte >= tok.StartByte ||
 		d.lexer.pos != int(tok.EndByte) || d.lexer.row != tok.EndPoint.Row || d.lexer.col != tok.EndPoint.Column {
 		return Token{}, false
@@ -3342,7 +3387,7 @@ func (d *dfaTokenSource) relexRecoveryTokenFromSkippedPrefixInTransaction(tok To
 		d.lexer.row != next.EndPoint.Row || d.lexer.col != next.EndPoint.Column {
 		return Token{}, false
 	}
-	next.lexerErrorModeLexed = true
+	next.setLexFlag(tokenFlagErrorModeLexed, true)
 	if next.Symbol != errorSymbol {
 		meta, known := d.symbolMetadata(next.Symbol)
 		if !known || meta.Visible || next.Symbol != tok.Symbol || next.ExternalScannerToken ||
@@ -3596,8 +3641,8 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 		if !ok {
 			return Token{}, false
 		}
-		tok = d.attachTokenLookaheadFrontier(tok, true)
-		d.trackZeroWidthExternalToken(tok)
+		d.attachTokenLookaheadFrontier(&tok, true)
+		d.trackZeroWidthExternalToken(&tok)
 		d.lexer.pos = int(tok.EndByte)
 		d.lexer.row = tok.EndPoint.Row
 		d.lexer.col = tok.EndPoint.Column
@@ -3612,8 +3657,8 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 				if DebugDFA.Load() {
 					fmt.Printf("  EXT synthetic %s %d %d state=%d\n", d.symbolName(tok.Symbol), tok.StartByte, tok.EndByte, d.state)
 				}
-				tok = d.attachTokenLookaheadFrontier(tok, true)
-				d.trackZeroWidthExternalToken(tok)
+				d.attachTokenLookaheadFrontier(&tok, true)
+				d.trackZeroWidthExternalToken(&tok)
 				d.lexer.pos = int(tok.EndByte)
 				d.lexer.row = tok.EndPoint.Row
 				d.lexer.col = tok.EndPoint.Column
@@ -3629,31 +3674,33 @@ func (d *dfaTokenSource) nextExternalToken() (Token, bool) {
 	if !ok {
 		return Token{}, false
 	}
-	tok = d.attachTokenLookaheadFrontier(tok, false)
+	d.attachTokenLookaheadFrontier(&tok, false)
 	tok.ExternalScannerToken = true
 	tok.ExternalScannerStartByte = uint32(d.lexer.pos)
-	if splitTok, endPos, endRow, endCol, ok := d.splitSwiftWideCloseAngleToken(tok, states); ok {
-		splitTok = d.attachTokenLookaheadFrontier(splitTok, false)
-		d.lexer.pos = endPos
-		d.lexer.row = endRow
-		d.lexer.col = endCol
-		return splitTok, true
+	if d.isSwift {
+		if splitTok, endPos, endRow, endCol, ok := d.splitSwiftWideCloseAngleToken(tok, states); ok {
+			d.attachTokenLookaheadFrontier(&splitTok, false)
+			d.lexer.pos = endPos
+			d.lexer.row = endRow
+			d.lexer.col = endCol
+			return splitTok, true
+		}
 	}
 
-	if dfaTok, endPos, endRow, endCol, ok := d.preferDFASemicolonOverJSXText(tok, states); ok {
-		dfaTok = d.attachTokenLookaheadFrontier(dfaTok, false)
+	if dfaTok, endPos, endRow, endCol, ok := d.preferDFASemicolonOverJSXText(&tok, states); ok {
+		d.attachTokenLookaheadFrontier(&dfaTok, false)
 		d.lexer.pos = endPos
 		d.lexer.row = endRow
 		d.lexer.col = endCol
 		return dfaTok, true
 	}
 
-	d.trackZeroWidthExternalToken(tok)
+	d.trackZeroWidthExternalToken(&tok)
 
 	d.lexer.pos = int(tok.EndByte)
 	d.lexer.row = tok.EndPoint.Row
 	d.lexer.col = tok.EndPoint.Column
-	tok = d.attachTokenLookaheadFrontier(tok, false)
+	d.attachTokenLookaheadFrontier(&tok, false)
 	return tok, true
 }
 
@@ -3866,7 +3913,7 @@ func (d *dfaTokenSource) bashGeneratedLongerHeredocOperatorAt(pos int) bool {
 	}
 }
 
-func (d *dfaTokenSource) preferDFASemicolonOverJSXText(tok Token, states []StateID) (Token, int, uint32, uint32, bool) {
+func (d *dfaTokenSource) preferDFASemicolonOverJSXText(tok *Token, states []StateID) (Token, int, uint32, uint32, bool) {
 	if d == nil || d.lexer == nil || d.language == nil || d.lookupActionIndex == nil {
 		return Token{}, 0, 0, 0, false
 	}
@@ -3975,7 +4022,7 @@ func (d *dfaTokenSource) canRetryAfterUnusableZeroWidthExternal(tok Token) bool 
 		idx < len(d.extZeroTried) && d.extZeroTried[idx] {
 		return false
 	}
-	d.trackZeroWidthExternalToken(tok)
+	d.trackZeroWidthExternalToken(&tok)
 	return true
 }
 
@@ -4172,7 +4219,7 @@ func (d *dfaTokenSource) nextGLRScoredExternalToken(states []StateID) (Token, bo
 	tok.ExternalScannerToken = true
 	tok.ExternalScannerStartByte = uint32(startPos)
 
-	d.trackZeroWidthExternalToken(tok)
+	d.trackZeroWidthExternalToken(&tok)
 	d.lexer.pos = int(tok.EndByte)
 	d.lexer.row = tok.EndPoint.Row
 	d.lexer.col = tok.EndPoint.Column
@@ -4354,16 +4401,30 @@ func (d *dfaTokenSource) externalScannerPreservesStateOnScanFailure() bool {
 	if d == nil || d.language == nil || d.language.ExternalScanner == nil {
 		return false
 	}
-	preserving, ok := d.language.ExternalScanner.(FailurePreservingExternalScanner)
-	return ok && preserving.PreservesStateOnScanFailure()
+	d.refreshExternalFailureModeCache()
+	return d.externalPreservesFailureState
 }
 
 func (d *dfaTokenSource) externalScannerRetainsStateOnScanFailure() bool {
 	if d == nil || d.language == nil || d.language.ExternalScanner == nil {
 		return false
 	}
+	d.refreshExternalFailureModeCache()
+	return d.externalRetainsFailureState
+}
+
+// refreshExternalFailureModeCache answers the scanner failure-mode probes once
+// per language. The cache keys on the language pointer, so a token source that
+// changes language recomputes the answers on its next scan.
+func (d *dfaTokenSource) refreshExternalFailureModeCache() {
+	if d.externalFailureModeLanguage == d.language {
+		return
+	}
+	d.externalFailureModeLanguage = d.language
+	preserving, ok := d.language.ExternalScanner.(FailurePreservingExternalScanner)
+	d.externalPreservesFailureState = ok && preserving.PreservesStateOnScanFailure()
 	retaining, ok := d.language.ExternalScanner.(FailureStateRetainingExternalScanner)
-	return ok && retaining.RetainsStateOnScanFailure()
+	d.externalRetainsFailureState = ok && retaining.RetainsStateOnScanFailure()
 }
 
 func (d *dfaTokenSource) captureExternalScannerStateInto(dst *[]byte) []byte {
@@ -4450,7 +4511,7 @@ func (d *dfaTokenSource) externalSymbolIndex(sym Symbol) int {
 	return -1
 }
 
-func (d *dfaTokenSource) trackZeroWidthExternalToken(tok Token) {
+func (d *dfaTokenSource) trackZeroWidthExternalToken(tok *Token) {
 	if d == nil || d.language == nil {
 		return
 	}
@@ -4818,24 +4879,24 @@ func (d *dfaTokenSource) syntheticJSXText(sym Symbol) (Token, bool) {
 	}, true
 }
 
-func (d *dfaTokenSource) promoteKeyword(tok Token) (Token, bool) {
+func (d *dfaTokenSource) promoteKeyword(tok *Token) bool {
 	if d.language == nil {
-		return tok, false
+		return false
 	}
 	if tok.Symbol == 0 {
-		return tok, false
+		return false
 	}
 	if len(d.language.KeywordLexStates) == 0 {
-		return tok, false
+		return false
 	}
 	if d.language.KeywordCaptureToken == 0 {
-		return tok, false
+		return false
 	}
 	if tok.Symbol != d.language.KeywordCaptureToken {
-		return tok, false
+		return false
 	}
 	if tok.EndByte <= tok.StartByte {
-		return tok, false
+		return false
 	}
 	if len(d.hasKeywordState) > 0 {
 		anyHasKeyword := false
@@ -4853,20 +4914,20 @@ func (d *dfaTokenSource) promoteKeyword(tok Token) (Token, bool) {
 			}
 		}
 		if !anyHasKeyword {
-			return tok, false
+			return false
 		}
 	}
 
 	start := int(tok.StartByte)
 	end := int(tok.EndByte)
 	if start < 0 || end < start || end > len(d.lexer.source) {
-		return tok, false
+		return false
 	}
 	keywordSource := d.lexer.source[start:end]
 	if !d.language.keywordLexCouldMatch(d.lexer.source, start, end) {
 		upper, ok := d.sqlUppercaseKeywordSource(keywordSource)
 		if !ok || !d.language.keywordLexCouldMatch(upper, 0, len(upper)) {
-			return tok, false
+			return false
 		}
 		keywordSource = upper
 	}
@@ -4878,35 +4939,20 @@ func (d *dfaTokenSource) promoteKeyword(tok Token) (Token, bool) {
 		}
 	}
 	if !ok {
-		return tok, false
+		return false
 	}
 	if d.language.Name == "rust" && int(kwTok.Symbol) < len(d.language.SymbolNames) && d.language.SymbolNames[kwTok.Symbol] == "default" {
 		if end < len(d.lexer.source) && d.lexer.source[end] == ':' {
-			return tok, true
+			return true
 		}
 	}
 
-	// ABI 15: Check if keyword is reserved in this parse state.
-	if len(d.language.ReservedWords) > 0 && d.language.MaxReservedWordSetSize > 0 {
-		if int(d.state) < len(d.language.LexModes) {
-			rwSetID := d.language.LexModes[d.state].ReservedWordSetID
-			if rwSetID > 0 {
-				stride := int(d.language.MaxReservedWordSetSize)
-				start := int(rwSetID) * stride
-				end := start + stride
-				if end > len(d.language.ReservedWords) {
-					end = len(d.language.ReservedWords)
-				}
-				for i := start; i < end; i++ {
-					if d.language.ReservedWords[i] == 0 {
-						break
-					}
-					if d.language.ReservedWords[i] == kwTok.Symbol {
-						return tok, true // reserved - don't promote
-					}
-				}
-			}
-		}
+	// ABI 15: a keyword the parse state reserves stays a keyword even when
+	// the state has no action for it (ts_parser__lex:
+	// ts_language_is_reserved_word), so the parse fails on it instead of
+	// reading it as the word token.
+	if d.keywordReservedInState(d.state, kwTok.Symbol) {
+		return false
 	}
 
 	// Context-aware promotion: only use the keyword symbol if any active
@@ -4936,42 +4982,45 @@ func (d *dfaTokenSource) promoteKeyword(tok Token) (Token, bool) {
 			}
 		}
 		if !kwHasAction {
-			if altSym, ok := d.activeLiteralKeywordSymbol(tok); ok {
+			if altSym, ok := d.activeLiteralKeywordSymbol(*tok); ok {
 				tok.Symbol = altSym
-				tok.isKeyword = true
-				return tok, false
+				tok.setLexFlag(tokenFlagKeyword, true)
+				return false
 			}
+			// C keeps the word token when no active state has an action
+			// for the keyword, whether or not the word token itself has
+			// one (ts_parser__lex); the parser then reports the error on
+			// the word token, as C does.
+			return true
 		}
-		if !kwHasAction && idHasAction {
-			return tok, true // no active stack needs the keyword
+		_ = idHasAction
+		if d.shouldPreferJavaScriptTypeScriptContextualIdentifier(*tok, kwTok, kwHasAction, idHasAction) {
+			return true
 		}
-		if d.shouldPreferJavaScriptTypeScriptContextualIdentifier(tok, kwTok, kwHasAction, idHasAction) {
-			return tok, true
-		}
-		if d.shouldPreferSwiftMemberIdentifier(tok, kwTok) {
-			return tok, true
+		if d.shouldPreferSwiftMemberIdentifier(*tok, kwTok) {
+			return true
 		}
 	}
 
 	tok.Symbol = kwTok.Symbol
-	tok.isKeyword = true
-	return tok, false
+	tok.setLexFlag(tokenFlagKeyword, true)
+	return false
 }
 
-func (d *dfaTokenSource) promoteActiveLiteralForCurrentState(tok Token, scanStartPos int, scanStartRow, scanStartCol uint32) Token {
+func (d *dfaTokenSource) promoteActiveLiteralForCurrentState(tok *Token, scanStartPos int, scanStartRow, scanStartCol uint32) {
 	if d == nil || d.language == nil || d.lexer == nil || d.lookupActionIndex == nil || tok.Symbol == 0 {
-		return tok
+		return
 	}
 	meta, ok := d.symbolMetadata(tok.Symbol)
 	if ok && !meta.Named {
-		return tok
+		return
 	}
 	text := tok.Text
 	if text == "" {
 		start := int(tok.StartByte)
 		end := int(tok.EndByte)
 		if start < 0 || end <= start || end > len(d.lexer.source) {
-			return tok
+			return
 		}
 		text = bytesToStringNoCopy(d.lexer.source[start:end])
 	}
@@ -4981,10 +5030,10 @@ func (d *dfaTokenSource) promoteActiveLiteralForCurrentState(tok Token, scanStar
 	// first byte and length, that is impossible, so skip the per-token
 	// string-map lookup — the dominant cost for ordinary identifiers.
 	if !d.language.anonymousTokenNameShapePossible(text) {
-		return tok
+		return
 	}
 	if text == "" || !isIdentifierLikeLiteralText(text) || d.symbolName(tok.Symbol) == text {
-		return tok
+		return
 	}
 	for _, sym := range d.language.TokenSymbolsByName(text) {
 		if sym == 0 || sym == tok.Symbol || d.symbolName(sym) != text {
@@ -4993,13 +5042,13 @@ func (d *dfaTokenSource) promoteActiveLiteralForCurrentState(tok Token, scanStar
 		if symMeta, ok := d.symbolMetadata(sym); ok && symMeta.Named {
 			continue
 		}
-		if !d.activeStateCanPromoteLiteral(tok, sym, scanStartPos, scanStartRow, scanStartCol) {
+		if !d.activeStateCanPromoteLiteral(*tok, sym, scanStartPos, scanStartRow, scanStartCol) {
 			continue
 		}
 		tok.Symbol = sym
-		return tok
+		return
 	}
-	return tok
+	return
 }
 
 func (d *dfaTokenSource) activeStateCanPromoteLiteral(tok Token, sym Symbol, scanStartPos int, scanStartRow, scanStartCol uint32) bool {
@@ -5411,4 +5460,32 @@ func (d *dfaTokenSource) externalScannerQuiescent() bool {
 		return true
 	}
 	return len(d.captureExternalScannerStateInto(&d.externalCompare)) == 0
+}
+
+// keywordReservedInState reports whether the ABI 15 reserved-word set of the
+// parse state names the keyword (ts_language_is_reserved_word).
+func (d *dfaTokenSource) keywordReservedInState(state StateID, keyword Symbol) bool {
+	lang := d.language
+	if lang == nil || len(lang.ReservedWords) == 0 || lang.MaxReservedWordSetSize == 0 || int(state) >= len(lang.LexModes) {
+		return false
+	}
+	rwSetID := lang.LexModes[state].ReservedWordSetID
+	if rwSetID == 0 {
+		return false
+	}
+	stride := int(lang.MaxReservedWordSetSize)
+	start := int(rwSetID) * stride
+	end := start + stride
+	if end > len(lang.ReservedWords) {
+		end = len(lang.ReservedWords)
+	}
+	for i := start; i < end; i++ {
+		if lang.ReservedWords[i] == 0 {
+			break
+		}
+		if lang.ReservedWords[i] == keyword {
+			return true
+		}
+	}
+	return false
 }

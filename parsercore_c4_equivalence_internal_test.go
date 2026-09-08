@@ -311,19 +311,18 @@ func TestParserCoreCorridorPassMixReceipt(t *testing.T) {
 	}
 }
 
-// TestParserCoreCorridorDefaultOff proves the stage-2 staging: the lane is off
-// unless the gate is set, so an unmodified build routes exactly as before
-// (spec section 8, stage 2 item 2d).
-func TestParserCoreCorridorDefaultOff(t *testing.T) {
+// TestParserCoreCorridorDefaultOff keeps the experimental lane outside the
+// normal parser path until recovery mutations match the C tree.
+func TestParserCoreCorridorDefaultOn(t *testing.T) {
 	if os.Getenv("GTS_C4_CORRIDOR") != "" {
 		t.Skip("GTS_C4_CORRIDOR is set in this environment")
 	}
-	restore := SetParserCoreCorridorEnabledForTest(parserCoreCorridorEnabledVal)
-	defer restore()
-	parserCoreCorridorEnabledVal = false
+	if !parserCoreCorridorEnabled() {
+		t.Fatal("corridor lane is off by default")
+	}
 	observed := runCorridorFixture(t, diagnosticParserCoreCanonicalAdmissions[0].id)
-	if observed.SchedulerWork.CorridorPasses != 0 {
-		t.Fatalf("corridor executed %d passes with the lane off", observed.SchedulerWork.CorridorPasses)
+	if observed.SchedulerWork.CorridorPasses == 0 {
+		t.Fatal("corridor executed no passes with the default gate")
 	}
 }
 

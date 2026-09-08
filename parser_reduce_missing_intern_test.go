@@ -18,14 +18,14 @@ func TestMissingLeafShiftDoesNotInternDependencyProvenance(t *testing.T) {
 	first := applyMissingLeafInternTestShift(t, parser, arena, act, Token{
 		Symbol: 1, StartByte: 3, EndByte: 3,
 		StartPoint: Point{Column: 3}, EndPoint: Point{Column: 3}, Missing: true,
-		missingStackByte: 0, missingStackPoint: Point{},
-		lexerLookaheadEndByte: 5, missingDependencyExact: true,
+		missingStackRef:       parser.recordMissingStackAnchor(0, Point{}),
+		lexerLookaheadEndByte: 5, lexFlags: tokenFlagMissingDependencyExact,
 	})
 	second := applyMissingLeafInternTestShift(t, parser, arena, act, Token{
 		Symbol: 1, StartByte: 3, EndByte: 3,
 		StartPoint: Point{Column: 3}, EndPoint: Point{Column: 3}, Missing: true,
-		missingStackByte: 1, missingStackPoint: Point{Column: 1},
-		lexerLookaheadEndByte: 6, missingDependencyExact: true,
+		missingStackRef:       parser.recordMissingStackAnchor(1, Point{Column: 1}),
+		lexerLookaheadEndByte: 6, lexFlags: tokenFlagMissingDependencyExact,
 	})
 	if first == second {
 		t.Fatal("missing leaves with different dependency provenance were canonicalized")
@@ -58,8 +58,8 @@ func TestMissingLeafShiftSetterFailureDoesNotPublishCanonicalEntry(t *testing.T)
 	invalid := applyMissingLeafInternTestShift(t, parser, arena, ParseAction{Type: ParseActionShift, State: 1}, Token{
 		Symbol: 1, StartByte: 3, EndByte: 3,
 		StartPoint: Point{Column: 3}, EndPoint: Point{Column: 3}, Missing: true,
-		missingStackByte: 4, missingStackPoint: Point{Column: 4},
-		lexerLookaheadEndByte: 5, missingDependencyExact: true,
+		missingStackRef:       parser.recordMissingStackAnchor(4, Point{Column: 4}),
+		lexerLookaheadEndByte: 5, lexFlags: tokenFlagMissingDependencyExact,
 	})
 	if !invalid.dirty() {
 		t.Fatal("failed missing dependency write did not mark the leaf dirty")

@@ -209,7 +209,20 @@ func shouldRetryIncrementalMemoryBudgetAsPlainFull(tree *Tree, sourceLen int) bo
 	if sourceLen <= 0 || sourceLen > fullParseRetryMaxSourceBytes {
 		return false
 	}
-	return tree.rawParseStopReason() == ParseStopMemoryBudget
+	switch tree.rawParseStopReason() {
+	case ParseStopMemoryBudget, ParseStopReuseBudget:
+		return true
+	}
+	return false
+}
+
+// incrementalPlainFullRetryReason names the fail-closed plain full retry by
+// the stop that caused it.
+func incrementalPlainFullRetryReason(stop ParseStopReason) string {
+	if stop == ParseStopReuseBudget {
+		return "incremental_parse_reuse_budget_full_retry"
+	}
+	return "incremental_parse_memory_budget_full_retry"
 }
 
 func shouldRetryIncrementalParseAsFull(tree *Tree, sourceLen int, initialMaxStacks int) bool {
@@ -217,8 +230,47 @@ func shouldRetryIncrementalParseAsFull(tree *Tree, sourceLen int, initialMaxStac
 		return false
 	}
 	return shouldRetryFullParse(tree, sourceLen) ||
-		shouldRetryAcceptedErrorParse(tree, sourceLen, initialMaxStacks) ||
+		(shouldRetryAcceptedErrorParse(tree, sourceLen, initialMaxStacks) &&
+			!incrementalAcceptedErrorIsLocal(tree, sourceLen)) ||
 		shouldRetryNodeLimitParse(tree, sourceLen)
+}
+
+// incrementalAcceptedErrorIsLocal reports whether an accepted error tree from
+// an old-tree reuse parse confines its errors to top-level items that cover at
+// most a quarter of the source. That is the ordinary transient-error
+// keystroke: reuse resynchronized after the edit, and the wide-stack fresh
+// reparse that the fail-closed ladder would run returns a quality-tied tree
+// that the ladder then discards (issue #454: a TypeScript single-byte delete
+// paid a whole-file reparse per keystroke). Degenerate results still retry: an
+// ERROR root, a root with fewer than two children, a tree that did not come
+// from old-tree reuse, or error coverage above a quarter of the source.
+func incrementalAcceptedErrorIsLocal(tree *Tree, sourceLen int) bool {
+	if tree == nil || sourceLen <= 0 {
+		return false
+	}
+	rt := tree.rawParseRuntime()
+	if !rt.IncrementalOldTreeReuseRoute {
+		return false
+	}
+	root := rawRootOrNil(tree)
+	if root == nil || root.IsError() {
+		return false
+	}
+	children := resultChildCount(root)
+	if children < 2 {
+		return false
+	}
+	var errorSpan uint64
+	for i := 0; i < children; i++ {
+		child := resultChildAt(root, i)
+		if child == nil || !(child.IsError() || child.HasError()) {
+			continue
+		}
+		if child.EndByte() > child.StartByte() {
+			errorSpan += uint64(child.EndByte() - child.StartByte())
+		}
+	}
+	return errorSpan*4 <= uint64(sourceLen)
 }
 
 // incrementalAcceptedErrorBaseMergeCap returns the ordinary full-parse merge
@@ -2150,13 +2202,14 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, t
 		p.recordRecoveryRuntimeSelectedTreeDetailed(tree)
 		return tree
 	}
+	stop := tree.rawParseStopReason()
 	tree.Release()
 	p.recordRecoveryRuntimeSelectedTree(full)
 	p.recordRecoveryRuntimeSelectedTreeDetailed(full)
 	if timing != nil {
 		timing.totalNanos += time.Since(retryStart).Nanoseconds()
 		timing.reuseUnsupported = true
-		timing.reuseUnsupportedReason = "incremental_parse_memory_budget_full_retry"
+		timing.reuseUnsupportedReason = incrementalPlainFullRetryReason(stop)
 		copyParseRuntimeToTiming(timing, *full.rawParseRuntime())
 	}
 	return full
@@ -2189,13 +2242,14 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithTokenSource(source [
 		p.recordRecoveryRuntimeSelectedTreeDetailed(tree)
 		return tree
 	}
+	stop := tree.rawParseStopReason()
 	tree.Release()
 	p.recordRecoveryRuntimeSelectedTree(full)
 	p.recordRecoveryRuntimeSelectedTreeDetailed(full)
 	if timing != nil {
 		timing.totalNanos += time.Since(retryStart).Nanoseconds()
 		timing.reuseUnsupported = true
-		timing.reuseUnsupportedReason = "incremental_parse_memory_budget_full_retry"
+		timing.reuseUnsupportedReason = incrementalPlainFullRetryReason(stop)
 		copyParseRuntimeToTiming(timing, *full.rawParseRuntime())
 	}
 	return full

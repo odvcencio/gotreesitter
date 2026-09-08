@@ -139,14 +139,14 @@ func TestLookaheadSmallStateZeroAction(t *testing.T) {
 		3, // sym 3
 	}
 	lang := &Language{
-		Name:            "zero_action_test",
-		SymbolCount:     5,
-		StateCount:      2,
-		LargeStateCount: 1,
-		ParseTable:      [][]uint16{{0, 0, 0, 0, 0}}, // state 0: no actions
-		SmallParseTable: smallTable,
+		Name:               "zero_action_test",
+		SymbolCount:        5,
+		StateCount:         2,
+		LargeStateCount:    1,
+		ParseTable:         [][]uint16{{0, 0, 0, 0, 0}}, // state 0: no actions
+		SmallParseTable:    smallTable,
 		SmallParseTableMap: []uint32{0},
-		SymbolNames:     []string{"end", "a", "b", "c", "d"},
+		SymbolNames:        []string{"end", "a", "b", "c", "d"},
 		ParseActions: []ParseActionEntry{
 			{},
 			{Actions: []ParseAction{{Type: ParseActionShift, State: 1}}},

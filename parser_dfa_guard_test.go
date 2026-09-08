@@ -178,7 +178,7 @@ func TestTrackZeroWidthExternalRepeatableSymbolClearsLoopGuard(t *testing.T) {
 		extZeroTried: []bool{true},
 	}
 
-	d.trackZeroWidthExternalToken(Token{Symbol: 1, StartByte: 5, EndByte: 5})
+	d.trackZeroWidthExternalToken(&Token{Symbol: 1, StartByte: 5, EndByte: 5})
 
 	if got := d.extZeroPos; got != -1 {
 		t.Fatalf("extZeroPos = %d, want -1", got)
@@ -1186,7 +1186,7 @@ func TestContextualActionDefersUnsignedShiftLineageAfterSingleCloseElection(t *t
 		StartPoint: Point{},
 		EndPoint:   Point{Column: 1},
 	}
-	if !parser.shouldDeferContextualCloseAngleAction([]byte(">>>"), 1, tok) {
+	if !parser.shouldDeferContextualCloseAngleAction([]byte(">>>"), 1, &tok) {
 		t.Fatal("unsigned-shift lineage accepted the elected single close angle")
 	}
 }
@@ -1205,28 +1205,28 @@ func TestTokenMaybeContextualCloseAngleShapeGate(t *testing.T) {
 		EndPoint:   Point{Row: 2, Column: 2},
 	}
 
-	if !tokenMaybeContextualCloseAngle(lang, sameRowNarrowClose) {
+	if !tokenMaybeContextualCloseAngle(lang, &sameRowNarrowClose) {
 		t.Fatal("a same-row, single-byte \">\" token must pass the shape gate")
 	}
-	if tokenMaybeContextualCloseAngle(nil, sameRowNarrowClose) {
+	if tokenMaybeContextualCloseAngle(nil, &sameRowNarrowClose) {
 		t.Fatal("a nil language must fail the shape gate")
 	}
-	if tokenMaybeContextualCloseAngle(lang, Token{Symbol: 99, StartByte: 0, EndByte: 1}) {
+	if tokenMaybeContextualCloseAngle(lang, &Token{Symbol: 99, StartByte: 0, EndByte: 1}) {
 		t.Fatal("a symbol outside the language's SymbolNames must fail the shape gate")
 	}
 	wideClose := sameRowNarrowClose
 	wideClose.Symbol = 2 // ">>"
-	if tokenMaybeContextualCloseAngle(lang, wideClose) {
+	if tokenMaybeContextualCloseAngle(lang, &wideClose) {
 		t.Fatal("a token whose symbol name is not exactly \">\" must fail the shape gate")
 	}
 	wideSpan := sameRowNarrowClose
 	wideSpan.EndByte = sameRowNarrowClose.StartByte + 2
-	if tokenMaybeContextualCloseAngle(lang, wideSpan) {
+	if tokenMaybeContextualCloseAngle(lang, &wideSpan) {
 		t.Fatal("a \">\" token wider than one byte must fail the shape gate")
 	}
 	crossRow := sameRowNarrowClose
 	crossRow.EndPoint.Row++
-	if tokenMaybeContextualCloseAngle(lang, crossRow) {
+	if tokenMaybeContextualCloseAngle(lang, &crossRow) {
 		t.Fatal("a \">\" token crossing a line must fail the shape gate")
 	}
 }
@@ -1296,10 +1296,10 @@ func TestDeferContextualCloseAngleActionSharesShapeGateWithPreCheck(t *testing.T
 	// The valid, well-formed token this exact fixture defers for (sanity
 	// control: proves the fixture and probe are wired correctly).
 	valid := Token{Symbol: 1, StartByte: 0, EndByte: 1, StartPoint: Point{}, EndPoint: Point{Column: 1}}
-	if !tokenMaybeContextualCloseAngle(lang, valid) {
+	if !tokenMaybeContextualCloseAngle(lang, &valid) {
 		t.Fatal("the valid narrow \">\" token unexpectedly failed the shape gate")
 	}
-	if !deferContextualCloseAngleAction(lang, source, state, valid, nil, probe, nil) {
+	if !deferContextualCloseAngleAction(lang, source, state, &valid, nil, probe, nil) {
 		t.Fatal("the valid narrow \">\" token unexpectedly did not defer")
 	}
 
@@ -1315,10 +1315,10 @@ func TestDeferContextualCloseAngleActionSharesShapeGateWithPreCheck(t *testing.T
 		{Symbol: 1, StartByte: 0, EndByte: 1, StartPoint: Point{}, EndPoint: Point{Row: 1}},
 	}
 	for _, tok := range rejectedShapes {
-		if tokenMaybeContextualCloseAngle(lang, tok) {
+		if tokenMaybeContextualCloseAngle(lang, &tok) {
 			t.Fatalf("token %+v unexpectedly passed the shape gate", tok)
 		}
-		if deferContextualCloseAngleAction(lang, source, state, tok, nil, probe, nil) {
+		if deferContextualCloseAngleAction(lang, source, state, &tok, nil, probe, nil) {
 			t.Fatalf("token %+v unexpectedly deferred despite failing the shared shape gate", tok)
 		}
 	}

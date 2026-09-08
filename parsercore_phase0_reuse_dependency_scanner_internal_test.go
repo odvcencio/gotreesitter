@@ -35,7 +35,7 @@ func TestCompactReuseDependencyRejectsUntrackedSourceReads(t *testing.T) {
 		{"close_angle_repair", func(d *dfaTokenSource, _ *Token) { d.language.Name = "java" }},
 		{"zero_width_sentinel", func(d *dfaTokenSource, _ *Token) { d.hasZeroWidthSentinelSymbol = true }},
 		{"zero_width_token", func(_ *dfaTokenSource, token *Token) { token.EndByte = token.StartByte }},
-		{"unproven_token", func(_ *dfaTokenSource, token *Token) { token.lexerInternalDFALexed = false }},
+		{"unproven_token", func(_ *dfaTokenSource, token *Token) { token.setLexFlag(tokenFlagInternalDFALexed, false) }},
 		{"external_token", func(_ *dfaTokenSource, token *Token) { token.ExternalScannerToken = true }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestCompactReuseDependencyRejectsUntrackedSourceReads(t *testing.T) {
 				t.Fatal(err)
 			}
 			source := &dfaTokenSource{language: &Language{}, lexer: NewLexer(nil, []byte("a"))}
-			token := Token{Symbol: 1, EndByte: 1, lexerLookaheadEndByte: 2, lexerInternalDFALexed: true}
+			token := Token{Symbol: 1, EndByte: 1, lexerLookaheadEndByte: 2, lexFlags: tokenFlagInternalDFALexed}
 			s := &diagnosticParserCoreGenericScheduler{compact: compact, tokenSource: source, headers: []diagnosticParserCoreHeader{{head: head}}}
 			s.reuseDependencies.ends = make([]uint32, stats.Subtrees+1)
 			if _, ok := s.beginCompactReuseDependency(token); !ok {

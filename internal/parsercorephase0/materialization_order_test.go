@@ -35,6 +35,36 @@ func TestMaterializationOrderRejectsRepeatedOwnership(t *testing.T) {
 	}
 }
 
+func TestPrebuiltMaterializationRejectsSharedDescendants(t *testing.T) {
+	compact, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := compact.appendSubtree(subtreeRecord{symbol: 1, endByte: 1, terminal: true}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := compact.appendSubtree(subtreeRecord{symbol: 2, endByte: 1}, []SubtreeID{leaf}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, roots := range [][]SubtreeID{{parent, leaf}, {leaf, parent}} {
+		var scratch MaterializationPostorderScratch
+		err := compact.VisitMaterializationPostorderPrebuilt(roots, nil, &scratch, 0, nil,
+			func(SubtreeID) bool { return true },
+			func(SubtreeID, *MaterializationSubtreeView) error { t.Fatal("visited a prebuilt subtree"); return nil })
+		if err == nil || !strings.Contains(err.Error(), "repeated public-tree ownership") {
+			t.Fatalf("roots=%v: repeated descendant error=%v", roots, err)
+		}
+	}
+	var scratch MaterializationPostorderScratch
+	if err := compact.VisitMaterializationPostorderPrebuilt([]SubtreeID{parent}, nil, &scratch, 0, nil,
+		func(SubtreeID) bool { return true },
+		func(SubtreeID, *MaterializationSubtreeView) error { t.Fatal("visited a prebuilt subtree"); return nil }); err != nil {
+		t.Fatalf("valid prebuilt tree: %v", err)
+	}
+}
+
 func TestMaterializationOrderRejectsCycle(t *testing.T) {
 	compact, err := New(&fakeTable{}, Limits{})
 	if err != nil {

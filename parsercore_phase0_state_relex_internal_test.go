@@ -290,12 +290,12 @@ func TestDispatchTokenClearsIsKeywordOnRelexedSymbolOverride(t *testing.T) {
 		EndPoint:                 Point{Column: 2},
 		ExternalScannerToken:     true,
 		ExternalScannerStartByte: 1,
-		isKeyword:                true,
+		lexFlags:                 tokenFlagKeyword,
 	}
 	cell := diagnosticParserCoreGenericCell{relexedSymbol: 9}
 
 	got := cell.dispatchToken(shared)
-	if got.isKeyword {
+	if got.isKeyword() {
 		t.Fatal("dispatchToken with a relexedSymbol override: isKeyword = true, want false")
 	}
 	if got.Symbol != 9 {
@@ -312,11 +312,11 @@ func TestDispatchTokenClearsIsKeywordOnRelexedSymbolOverride(t *testing.T) {
 // when there is no relexedSymbol override at all (cell.relexedSymbol == 0),
 // so the clear above is scoped to the override branch only.
 func TestDispatchTokenPreservesIsKeywordWithoutRelexedSymbolOverride(t *testing.T) {
-	shared := Token{Symbol: 2, isKeyword: true}
+	shared := Token{Symbol: 2, lexFlags: tokenFlagKeyword}
 	cell := diagnosticParserCoreGenericCell{}
 
 	got := cell.dispatchToken(shared)
-	if !got.isKeyword {
+	if !got.isKeyword() {
 		t.Fatal("dispatchToken without a relexedSymbol override: isKeyword = false, want true (unmodified)")
 	}
 	if got != shared {

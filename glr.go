@@ -5554,6 +5554,28 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 	if workCountInstrumentationEnabled {
 		topologyBeforeAlive = append(topologyBeforeAlive, stacks...)
 	}
+	// An accepted version has left the version pool in C (ts_parser__accept
+	// stashes its tree and removes the version), so it never merges with a
+	// live version that reaches the same state and position, and two
+	// accepted versions compete as separate trees. Merge only the live
+	// stacks and carry the accepted ones through untouched.
+	if acceptedCount := countAcceptedStacks(stacks); acceptedCount > 0 && acceptedCount < len(stacks) {
+		live := make([]glrStack, 0, len(stacks)-acceptedCount)
+		accepted := make([]glrStack, 0, acceptedCount)
+		for i := range stacks {
+			if stacks[i].accepted {
+				accepted = append(accepted, stacks[i])
+			} else {
+				live = append(live, stacks[i])
+			}
+		}
+		merged := mergeStacksWithScratch(live, scratch)
+		out := make([]glrStack, 0, len(merged)+len(accepted))
+		out = append(out, merged...)
+		return append(out, accepted...)
+	} else if acceptedCount == len(stacks) {
+		return stacks
+	}
 	// Remove dead stacks first. Most merge calls have no dead stacks; avoid
 	// copying the full live slice in that case.
 	alive := stacks
@@ -6636,4 +6658,15 @@ func (s *glrEntryScratch) recomputeAllocatedBytes() {
 		total += stackEntryBytesForCap(len(s.slabs[i].data))
 	}
 	s.allocatedBytes = total
+}
+
+// countAcceptedStacks counts the stacks that have accepted their tree.
+func countAcceptedStacks(stacks []glrStack) int {
+	n := 0
+	for i := range stacks {
+		if stacks[i].accepted {
+			n++
+		}
+	}
+	return n
 }

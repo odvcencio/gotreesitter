@@ -37,6 +37,7 @@ func compactBorrowedMaterializationFixture(t *testing.T) (*Parser, *compactIncre
 	view := core.MaterializationSubtreeView{
 		Symbol: 3, StartByte: 0, EndByte: 1, DynamicPrecedence: 40000,
 		ReusedKey: 1, ReusedPreGotoState: 4, ReusedState: 7,
+		ReplayPreGotoState: 4, ReplayParseState: 7, ReplayPreGotoKnown: true, ReplayParseStateKnown: true,
 	}
 	states := &compactReplayStates{
 		parseState: []StateID{0, 7}, preGotoState: []StateID{0, 4},
@@ -47,9 +48,9 @@ func compactBorrowedMaterializationFixture(t *testing.T) (*Parser, *compactIncre
 }
 
 func TestCompactBorrowedMaterializationAuthenticatesNode(t *testing.T) {
-	parser, session, node, view, states, points := compactBorrowedMaterializationFixture(t)
+	parser, session, node, view, _, points := compactBorrowedMaterializationFixture(t)
 	parent := node.parent
-	got, err := session.materializeBorrowed(parser, 1, view, states, &points)
+	got, err := session.materializeBorrowed(parser, 1, view, &points)
 	if err != nil || got != node {
 		t.Fatalf("borrowed node = %p, error = %v; want %p", got, err, node)
 	}
@@ -74,18 +75,18 @@ func TestCompactBorrowedMaterializationAuthenticatesNode(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			changed := view
 			test.change(&changed)
-			if _, err := session.materializeBorrowed(parser, 1, changed, states, &points); err == nil {
+			if _, err := session.materializeBorrowed(parser, 1, changed, &points); err == nil {
 				t.Fatal("invalid borrowed descriptor was accepted")
 			}
 		})
 	}
-	states.preKnown[1] = false
-	if _, err := session.materializeBorrowed(parser, 1, view, states, &points); err == nil {
+	noProof := view
+	noProof.ReplayPreGotoKnown = false
+	if _, err := session.materializeBorrowed(parser, 1, noProof, &points); err == nil {
 		t.Fatal("borrowed node without replay proof was accepted")
 	}
-	states.preKnown[1] = true
 	var missing *compactIncrementalReuseSession
-	if _, err := missing.materializeBorrowed(parser, 1, view, states, &points); err == nil {
+	if _, err := missing.materializeBorrowed(parser, 1, view, &points); err == nil {
 		t.Fatal("borrowed node without ownership session was accepted")
 	}
 }

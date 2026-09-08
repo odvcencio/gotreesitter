@@ -122,7 +122,7 @@ func requirePackage2ScalaOwnedEOFRequest(
 	if request.state != state || request.token.Symbol != 0 ||
 		request.token.StartByte != eofByte || request.token.EndByte != eofByte ||
 		request.token.Missing || request.token.NoLookahead || request.token.ExternalScannerToken ||
-		request.token.lexerInternalDFALexed {
+		request.token.lexerInternalDFALexed() {
 		t.Fatalf("Scala package-two owned lexer request=%+v, want state %d authenticated EOF at %d", request, state, eofByte)
 	}
 	if request.before == nil || request.after == nil ||

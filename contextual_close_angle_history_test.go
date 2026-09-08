@@ -28,7 +28,7 @@ func TestContextualCloseAngleProbeReadHistory(t *testing.T) {
 			token := Token{Symbol: 1, StartByte: 1, EndByte: 2, StartPoint: Point{Column: 1}, EndPoint: Point{Column: 2}}
 			var span uint32
 			probe := &Lexer{}
-			deferred := deferContextualCloseAngleAction(language, source, 1, token, nil, probe, &span)
+			deferred := deferContextualCloseAngleAction(language, source, 1, &token, nil, probe, &span)
 			if deferred != (mode == "accepted") {
 				t.Fatalf("deferred=%v for %s probe", deferred, mode)
 			}
@@ -41,7 +41,7 @@ func TestContextualCloseAngleProbeReadHistory(t *testing.T) {
 			parser := NewParser(language)
 			var outerSpan uint32
 			parser.mergeScratch = &glrMergeScratch{lexicalReadSpan: &outerSpan}
-			parser.shouldDeferContextualCloseAngleAction(source, 1, token)
+			parser.shouldDeferContextualCloseAngleAction(source, 1, &token)
 			if outerSpan != span || parser.relexProbeLexer.tokenInvariantReadSpanMax != nil {
 				t.Fatal("legacy wrapper did not capture and detach its attempt observer")
 			}
@@ -50,7 +50,7 @@ func TestContextualCloseAngleProbeReadHistory(t *testing.T) {
 				t.Fatal("scratch reset retained the observer")
 			}
 			parser.mergeScratch = nil
-			parser.shouldDeferContextualCloseAngleAction(source, 1, token)
+			parser.shouldDeferContextualCloseAngleAction(source, 1, &token)
 			if outerSpan != span || parser.relexProbeLexer.tokenInvariantReadSpanMax != nil {
 				t.Fatal("direct call touched an expired observer")
 			}

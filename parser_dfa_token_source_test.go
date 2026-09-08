@@ -919,7 +919,8 @@ func TestNormalizeBashNewlineTokenSplitsBySymbolName(t *testing.T) {
 		EndPoint:   Point{Row: 2, Column: 0},
 		Text:       "\n\n",
 	}
-	got, endPos, endRow, endCol := ts.normalizeDFAToken(tok, 2, 2, 0)
+	got := tok
+	endPos, endRow, endCol := ts.normalizeDFAToken(&got, 2, 2, 0)
 	if got.EndByte != 1 || endPos != 1 || endRow != 1 || endCol != 0 || got.Text != "\n" {
 		t.Fatalf("split newline token = %+v end=(%d,%d,%d), want single newline", got, endPos, endRow, endCol)
 	}
@@ -956,7 +957,8 @@ func TestNormalizeBashGeneratedDFAOnlyNewlineToken(t *testing.T) {
 		EndPoint:   Point{Row: 2, Column: 0},
 		Text:       "\n\n",
 	}
-	got, endPos, endRow, endCol := ts.normalizeDFAToken(tok, 2, 2, 0)
+	got := tok
+	endPos, endRow, endCol := ts.normalizeDFAToken(&got, 2, 2, 0)
 	if got.Symbol != 1 || got.EndByte != 1 || endPos != 1 || endRow != 1 || endCol != 0 || got.Text != "\n" {
 		t.Fatalf("normalized DFA newline = %+v end=(%d,%d,%d), want active newline", got, endPos, endRow, endCol)
 	}
@@ -1628,7 +1630,7 @@ func TestNextDFATokenPrefersParserValidZeroWidthStartAccept(t *testing.T) {
 	if got, want := tok.EndByte, uint32(0); got != want {
 		t.Fatalf("token end = %d, want %d", got, want)
 	}
-	if tok.lexerInternalDFALexed {
+	if tok.lexerInternalDFALexed() {
 		t.Fatal("synthetic zero-width start token has internal-DFA provenance")
 	}
 }
@@ -1678,7 +1680,7 @@ func TestNextDFATokenSynthesizesGeneratedNULSentinelLookahead(t *testing.T) {
 	if tok.StartByte != 0 || tok.EndByte != 0 {
 		t.Fatalf("token span = %d..%d, want zero-width at 0", tok.StartByte, tok.EndByte)
 	}
-	if tok.lexerInternalDFALexed {
+	if tok.lexerInternalDFALexed() {
 		t.Fatal("generated NUL token has internal-DFA provenance")
 	}
 }

@@ -706,10 +706,16 @@ func (p *Parser) tryReuseSubtree(s *glrStack, lookahead Token, ts TokenSource, i
 			// owned by the live normal-dispatch frontier. Explicitly strict lanes
 			// and newly admitted leading blocks require the recorded pre-goto
 			// state; established trailing-only lanes retain their measured
-			// compatible-goto contract.
+			// compatible-goto contract. Compact-materialized candidates share
+			// that contract: replay records the same pre-goto and parse states
+			// production records for the same span, compactNodeMayBeReused has
+			// already excluded recovery-bearing and unproven nodes above, and
+			// error-bearing compact trees are strict through
+			// strictTopLevelOwnership. Rejecting every compact candidate here
+			// left compact old trees with leaf-only reuse (issue #454).
 			if !fullRootUndo && !topLevelCandidateOwnsCurrentFrontier(n, state) {
 				idx.observedPreGotoStateMismatch++
-				if idx.strictTopLevelOwnership || idx.topLevelSpliceLeading || n.isCompactMaterialized() {
+				if idx.strictTopLevelOwnership || idx.topLevelSpliceLeading {
 					continue
 				}
 			}

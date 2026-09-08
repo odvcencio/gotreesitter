@@ -83,8 +83,10 @@ func TestCompactMaterializedTreeBarsIncrementalReuse(t *testing.T) {
 		if !profile.ReuseUnsupported {
 			t.Fatal("compact tree fallback did not report unsupported reuse")
 		}
-		if profile.ReuseUnsupportedReason != compactIncrementalReuseUnsupportedReason {
-			t.Fatalf("compact tree fallback reason = %q, want %q", profile.ReuseUnsupportedReason, compactIncrementalReuseUnsupportedReason)
+		// A diagnostic runner that did not request replay carries no table-replay
+		// proof, and the fallback reason now names that clause.
+		if profile.ReuseUnsupportedReason != compactIncrementalReuseReplayUnsupportedReason {
+			t.Fatalf("compact tree fallback reason = %q, want %q", profile.ReuseUnsupportedReason, compactIncrementalReuseReplayUnsupportedReason)
 		}
 		requireFreshFallback(t, got, treeA)
 	})
@@ -220,7 +222,11 @@ func requireCompactIncrementalStateProof(t *testing.T, tree *Tree) {
 		last := len(stack) - 1
 		node := stack[last]
 		stack = stack[:last]
-		if !node.isCompactMaterialized() || !compactNodeStateProofAvailable(node) {
+		// The root may be synthesized by result building when trailing extras
+		// follow the accepted root payload (buildSyntheticRootTree). It carries
+		// no compact flags, is never spliced as a subtree, and
+		// compactTreeIncrementalReuseProven exempts it the same way.
+		if node != tree.root && (!node.isCompactMaterialized() || !compactNodeStateProofAvailable(node)) {
 			t.Fatalf("proof-carrying node %s %d..%d lacks authenticated compact state", node.Type(tree.language), node.startByte, node.endByte)
 		}
 		children := node.ChildCount()

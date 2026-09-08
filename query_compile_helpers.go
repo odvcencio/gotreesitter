@@ -122,6 +122,43 @@ func (p *queryParser) skipWhitespaceAndComments() {
 	}
 }
 
+// resolveNodePattern resolves a node pattern name the way the C query
+// parser does. A supertype name yields a wildcard step (symbol 0, not
+// named) with supertype set; `super/sub` yields symbol sub with supertype
+// super and rejects a sub that is not among super's subtypes; every other
+// name resolves through resolveSymbol.
+func (p *queryParser) resolveNodePattern(name string) (sym Symbol, isNamed bool, supertype Symbol, err error) {
+	if idx := strings.Index(name, "/"); idx > 0 && idx+1 < len(name) {
+		super, ok := p.lang.querySymbolByName(name[:idx])
+		if !ok {
+			return 0, false, 0, queryUnknownNodeTypeError{name: name[:idx]}
+		}
+		if !p.lang.symbolIsSupertype(super) {
+			return 0, false, 0, fmt.Errorf("query: impossible pattern: %q is not a supertype", name[:idx])
+		}
+		sub, subNamed, subErr := p.resolveSymbol(name[idx+1:])
+		if subErr != nil {
+			return 0, false, 0, subErr
+		}
+		// The C query parser validates the subtype against the supertype map
+		// only for grammars generated at ABI 15 or later. Older grammars
+		// carry the supertype flag but no map, so the map's presence is the
+		// ABI witness.
+		if p.lang.IsSupertype(super) && !p.lang.supertypeHasSubtype(super, sub) {
+			return 0, false, 0, fmt.Errorf("query: impossible pattern: %q is not a subtype of %q", name[idx+1:], name[:idx])
+		}
+		return sub, subNamed, super, nil
+	}
+	sym, isNamed, err = p.resolveSymbol(name)
+	if err != nil {
+		return 0, false, 0, err
+	}
+	if p.lang.symbolIsSupertype(sym) {
+		return 0, false, sym, nil
+	}
+	return sym, isNamed, 0, nil
+}
+
 // resolveSymbol looks up a node type name in the language, returning the
 // symbol ID and whether it's a named symbol. Uses Language.SymbolByName
 // for O(1) lookup.
@@ -136,17 +173,7 @@ func (p *queryParser) resolveSymbol(name string) (Symbol, bool, error) {
 	// stepFromMissingKeyword before resolveSymbol is ever reached for that
 	// name; it is a query-language keyword, not a grammar node type.
 
-	sym, ok := p.lang.symbolByNamePreferNamed(name)
-	if !ok {
-		// Some highlight queries use supertype-like names such as
-		// "pattern/wildcard". Fall back to the rightmost segment when needed.
-		if idx := strings.LastIndex(name, "/"); idx >= 0 && idx+1 < len(name) {
-			if fallback, fallbackOK := p.lang.symbolByNamePreferNamed(name[idx+1:]); fallbackOK {
-				sym = fallback
-				ok = true
-			}
-		}
-	}
+	sym, ok := p.lang.querySymbolByName(name)
 	if !ok {
 		return 0, false, queryUnknownNodeTypeError{name: name}
 	}

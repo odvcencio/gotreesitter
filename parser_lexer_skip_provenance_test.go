@@ -12,7 +12,7 @@ func TestRealTokenAttachmentGapHonorsLexerSkipProvenanceWithIncludedRange(t *tes
 		EndByte:                 6,
 		StartPoint:              Point{Row: 1, Column: 3},
 		EndPoint:                Point{Row: 1, Column: 4},
-		lexerSkippedPrefix:      true,
+		lexFlags:                tokenFlagSkippedPrefix,
 		lexerSkippedPrefixStart: 1,
 	}
 	parser := &Parser{included: []Range{{StartByte: 1, EndByte: uint32(len(source))}}}

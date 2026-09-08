@@ -410,7 +410,7 @@ func (q *Query) matchChildStepsAll(
 
 	q.matchChildStepsRecursiveAll(
 		parent, children, namedPosByIndex, namedPos-1,
-		steps, childSteps, 0, 0, false, -1,
+		steps, childSteps, 0, 0, childStepPrevMatch{lastIdx: -1},
 		lang, source, predicates, captures, budget, emit,
 	)
 }
@@ -424,8 +424,7 @@ func (q *Query) matchChildStepsRecursiveAll(
 	childSteps []queryChildStepInfo,
 	childPos int,
 	nextChildIdx int,
-	prevHasNamed bool,
-	prevLastNamedPos int,
+	prev childStepPrevMatch,
 	lang *Language,
 	source []byte,
 	predicates []QueryPredicate,
@@ -474,9 +473,7 @@ func (q *Query) matchChildStepsRecursiveAll(
 			candidatePos int,
 			chosen int,
 			nextIdx int,
-			hasNamed bool,
-			firstNamedPos int,
-			lastNamedPos int,
+			span childStepNamedSpan,
 			current []QueryCapture,
 		)
 
@@ -484,29 +481,19 @@ func (q *Query) matchChildStepsRecursiveAll(
 			candidatePos int,
 			chosen int,
 			nextIdx int,
-			hasNamed bool,
-			firstNamedPos int,
-			lastNamedPos int,
+			span childStepNamedSpan,
 			current []QueryCapture,
 		) {
 			if !budget.charge() {
 				return
 			}
 			if chosen == count {
-				if count > 0 && !q.stepAnchorsSatisfied(
-					step, childPos, hasNamed, firstNamedPos, lastNamedPos,
-					prevHasNamed, prevLastNamedPos, parentLastNamedPos,
-				) {
+				if count > 0 && !q.stepAnchorsSatisfied(step, namedPosByIndex, span, prev, parentLastNamedPos) {
 					return
-				}
-				nextPrevHasNamed := prevHasNamed || hasNamed
-				nextPrevLastNamedPos := prevLastNamedPos
-				if hasNamed {
-					nextPrevLastNamedPos = lastNamedPos
 				}
 				q.matchChildStepsRecursiveAll(
 					parent, children, namedPosByIndex, parentLastNamedPos,
-					steps, childSteps, childPos+1, nextIdx, nextPrevHasNamed, nextPrevLastNamedPos,
+					steps, childSteps, childPos+1, nextIdx, advancePrevMatch(prev, step, namedPosByIndex, span),
 					lang, source, predicates, current, budget, emitForCount,
 				)
 				return
@@ -526,31 +513,18 @@ func (q *Query) matchChildStepsRecursiveAll(
 					nextIdxForChoice = childIdx + 1
 				}
 
-				hasNamedForChoice := hasNamed
-				firstNamedForChoice := firstNamedPos
-				lastNamedForChoice := lastNamedPos
-				if namedPos := namedPosByIndex[childIdx]; namedPos >= 0 {
-					if !hasNamedForChoice {
-						hasNamedForChoice = true
-						firstNamedForChoice = namedPos
-					}
-					lastNamedForChoice = namedPos
-				}
+				spanForChoice := span.withChild(childIdx, namedPosByIndex[childIdx])
 
 				q.matchStepsAllWithParentPredicates(
 					steps, cs.stepIdx, child, parent, childIdx, lang, source, predicates, current, budget,
 					func(next []QueryCapture) {
-						tryCombinations(
-							i+1, chosen+1, nextIdxForChoice,
-							hasNamedForChoice, firstNamedForChoice, lastNamedForChoice,
-							next,
-						)
+						tryCombinations(i+1, chosen+1, nextIdxForChoice, spanForChoice, next)
 					},
 				)
 			}
 		}
 
-		tryCombinations(0, 0, nextChildIdx, false, -1, -1, captures)
+		tryCombinations(0, 0, nextChildIdx, emptyChildStepNamedSpan(), captures)
 		if budget.tripped() {
 			return
 		}
@@ -678,45 +652,80 @@ func quantifierBounds(quantifier queryQuantifier) (int, int, bool) {
 	}
 }
 
+// stepAnchorsSatisfied applies the C query cursor's anchor rules to the
+// children a step matched. A leading anchor requires that no named sibling
+// sits between the previous matched child and the first child of this
+// span; anonymous siblings never break an anchor, except after an unnamed
+// wildcard step, which C treats as seeking an immediate match of any node.
+// A trailing anchor requires that no named sibling follows the span's last
+// child. Both rules apply whether the matched children are named or not,
+// which is how C matches `(identifier) . "="`.
 func (q *Query) stepAnchorsSatisfied(
 	step *QueryStep,
-	childPos int,
-	hasNamed bool,
-	firstNamedPos int,
-	lastNamedPos int,
-	priorHasNamed bool,
-	priorLastNamedPos int,
+	namedPosByIndex []int,
+	span childStepNamedSpan,
+	prev childStepPrevMatch,
 	parentLastNamedPos int,
 ) bool {
 	if step.anchorBefore {
-		if !hasNamed {
+		if span.firstIdx < 0 {
 			return false
 		}
-		if childPos == 0 {
-			if firstNamedPos != 0 {
+		if prev.unnamedWildcard && prev.lastIdx >= 0 {
+			if span.firstIdx != prev.lastIdx+1 {
 				return false
 			}
-		} else {
-			if !priorHasNamed {
-				if firstNamedPos != 0 {
-					return false
-				}
-			} else if firstNamedPos != priorLastNamedPos+1 {
-				return false
-			}
+		} else if namedCountBefore(namedPosByIndex, span.firstIdx) != prev.namedBoundary {
+			return false
 		}
 	}
-
 	if step.anchorAfter {
-		if !hasNamed {
+		if span.lastIdx < 0 {
 			return false
 		}
-		if lastNamedPos != parentLastNamedPos {
+		if namedCountBefore(namedPosByIndex, span.lastIdx+1) != parentLastNamedPos+1 {
 			return false
 		}
 	}
-
 	return true
+}
+
+// childStepPrevMatch records where the previous child steps ended:
+// namedBoundary is the number of named children consumed before the next
+// step may start, lastIdx is the index of the last matched child (-1 when
+// no child matched yet), and unnamedWildcard reports whether the step that
+// matched lastIdx was an unnamed wildcard.
+type childStepPrevMatch struct {
+	namedBoundary   int
+	lastIdx         int
+	unnamedWildcard bool
+}
+
+// namedCountBefore returns the number of named children with an index
+// below idx.
+func namedCountBefore(namedPosByIndex []int, idx int) int {
+	if idx > len(namedPosByIndex) {
+		idx = len(namedPosByIndex)
+	}
+	for i := idx - 1; i >= 0; i-- {
+		if pos := namedPosByIndex[i]; pos >= 0 {
+			return pos + 1
+		}
+	}
+	return 0
+}
+
+// advancePrevMatch returns the previous-match record after a step matched
+// span (or nothing, when span is empty).
+func advancePrevMatch(prev childStepPrevMatch, step *QueryStep, namedPosByIndex []int, span childStepNamedSpan) childStepPrevMatch {
+	if span.lastIdx < 0 {
+		return prev
+	}
+	return childStepPrevMatch{
+		namedBoundary:   namedCountBefore(namedPosByIndex, span.lastIdx+1),
+		lastIdx:         span.lastIdx,
+		unnamedWildcard: step.symbol == 0 && !step.isNamed && step.textMatch == "" && len(step.alternatives) == 0,
+	}
 }
 
 func (q *Query) matchChildSteps(
@@ -758,7 +767,7 @@ func (q *Query) matchChildSteps(
 	budget := newQueryMatchBudget(defaultQueryMatchWorkBudget)
 	return q.matchChildStepsRecursive(
 		parent, children, namedPosByIndex, parentLastNamedPos,
-		steps, childSteps, 0, 0, false, -1,
+		steps, childSteps, 0, 0, childStepPrevMatch{lastIdx: -1},
 		lang, source, predicates, captures, budget,
 	)
 }
@@ -772,8 +781,7 @@ func (q *Query) matchChildStepsRecursive(
 	childSteps []queryChildStepInfo,
 	childPos int,
 	nextChildIdx int,
-	prevHasNamed bool,
-	prevLastNamedPos int,
+	prev childStepPrevMatch,
 	lang *Language,
 	source []byte,
 	predicates []QueryPredicate,
@@ -795,8 +803,7 @@ func (q *Query) matchChildStepsRecursive(
 		childSteps:         childSteps,
 		childPos:           childPos,
 		nextChildIdx:       nextChildIdx,
-		prevHasNamed:       prevHasNamed,
-		prevLastNamedPos:   prevLastNamedPos,
+		prev:               prev,
 		lang:               lang,
 		source:             source,
 		predicates:         predicates,
@@ -820,8 +827,7 @@ type childStepMatcher struct {
 	childSteps         []queryChildStepInfo
 	childPos           int
 	nextChildIdx       int
-	prevHasNamed       bool
-	prevLastNamedPos   int
+	prev               childStepPrevMatch
 	lang               *Language
 	source             []byte
 	predicates         []QueryPredicate
@@ -839,6 +845,10 @@ type childStepNamedSpan struct {
 	hasNamed bool
 	first    int
 	last     int
+	// firstIdx and lastIdx are the child indices of the span's first and
+	// last matched children, or -1 when the span is empty.
+	firstIdx int
+	lastIdx  int
 }
 
 func (m *childStepMatcher) prepare() bool {
@@ -946,14 +956,9 @@ func (m *childStepMatcher) matchChoiceCombinations(count int, candidatePos int, 
 		if !m.anchorsSatisfied(span) {
 			return false
 		}
-		nextPrevHasNamed := m.prevHasNamed || span.hasNamed
-		nextPrevLastNamedPos := m.prevLastNamedPos
-		if span.hasNamed {
-			nextPrevLastNamedPos = span.last
-		}
 		return m.q.matchChildStepsRecursive(
 			m.parent, m.children, m.namedPosByIndex, m.parentLastNamedPos,
-			m.steps, m.childSteps, m.childPos+1, nextIdx, nextPrevHasNamed, nextPrevLastNamedPos,
+			m.steps, m.childSteps, m.childPos+1, nextIdx, advancePrevMatch(m.prev, m.step, m.namedPosByIndex, span),
 			m.lang, m.source, m.predicates, m.captures, m.budget,
 		)
 	}
@@ -975,7 +980,7 @@ func (m *childStepMatcher) matchChoiceCombinations(count int, candidatePos int, 
 		}
 
 		nextIdxForChoice := maxInt(nextIdx, childIdx+1)
-		spanForChoice := span.withNamedPosition(m.namedPosByIndex[childIdx])
+		spanForChoice := span.withChild(childIdx, m.namedPosByIndex[childIdx])
 		if m.matchChoiceCombinations(count, i+1, chosen+1, nextIdxForChoice, spanForChoice) {
 			return true
 		}
@@ -987,21 +992,22 @@ func (m *childStepMatcher) matchChoiceCombinations(count int, candidatePos int, 
 }
 
 func (m *childStepMatcher) anchorsSatisfied(span childStepNamedSpan) bool {
-	return m.q.stepAnchorsSatisfied(
-		m.step, m.childPos, span.hasNamed, span.first, span.last,
-		m.prevHasNamed, m.prevLastNamedPos, m.parentLastNamedPos,
-	)
+	return m.q.stepAnchorsSatisfied(m.step, m.namedPosByIndex, span, m.prev, m.parentLastNamedPos)
 }
 
 func childStepNamedSpanForIndex(namedPosByIndex []int, childIdx int) childStepNamedSpan {
-	return emptyChildStepNamedSpan().withNamedPosition(namedPosByIndex[childIdx])
+	return emptyChildStepNamedSpan().withChild(childIdx, namedPosByIndex[childIdx])
 }
 
 func emptyChildStepNamedSpan() childStepNamedSpan {
-	return childStepNamedSpan{first: -1, last: -1}
+	return childStepNamedSpan{first: -1, last: -1, firstIdx: -1, lastIdx: -1}
 }
 
-func (s childStepNamedSpan) withNamedPosition(namedPos int) childStepNamedSpan {
+func (s childStepNamedSpan) withChild(childIdx int, namedPos int) childStepNamedSpan {
+	if s.firstIdx < 0 {
+		s.firstIdx = childIdx
+	}
+	s.lastIdx = childIdx
 	if namedPos < 0 {
 		return s
 	}
@@ -1035,6 +1041,7 @@ func materializedQueryChild(parent *Node, children []*Node, childIdx int) *Node 
 func (m *childStepMatcher) canMatchAggregatedFinalStepWithoutMaterializing() bool {
 	return len(m.step.captureIDs) == 0 &&
 		len(m.step.alternatives) == 0 &&
+		m.step.supertype == 0 &&
 		!queryStepHasNestedChildren(m.steps, m.cs.stepIdx)
 }
 
@@ -1320,7 +1327,7 @@ func alternativeMatchesStackEntry(alt alternativeSymbol, entry stackEntry, lang 
 		if alt.isMissing {
 			return stackEntryNodeIsMissing(entry)
 		}
-		return !alt.isNamed || nodeNamed
+		return (!alt.isNamed || nodeNamed) && stackEntryNodeSymbol(entry) != errorSymbol && stackEntryMaySatisfySupertype(entry, lang, alt.supertype)
 	}
 	if alt.textMatch != "" {
 		return !nodeNamed && queryStackEntryTypeName(entry, lang) == alt.textMatch &&
@@ -1328,7 +1335,8 @@ func alternativeMatchesStackEntry(alt alternativeSymbol, entry stackEntry, lang 
 	}
 	return nodeNamed == alt.isNamed &&
 		nodeSymbol == lang.PublicSymbolForNamedness(alt.symbol, alt.isNamed) &&
-		(!alt.isMissing || stackEntryNodeIsMissing(entry))
+		(!alt.isMissing || stackEntryNodeIsMissing(entry)) &&
+		stackEntryMaySatisfySupertype(entry, lang, alt.supertype)
 }
 
 // nodeMatchesStep checks if a single node matches a single step's type/symbol constraint.
@@ -1375,12 +1383,12 @@ func stackEntryMatchesScalarStep(step *QueryStep, entry stackEntry, lang *Langua
 		if step.isMissing {
 			return stackEntryNodeIsMissing(entry)
 		}
-		return !step.isNamed || nodeNamed
+		return (!step.isNamed || nodeNamed) && stackEntryNodeSymbol(entry) != errorSymbol && stackEntryMaySatisfySupertype(entry, lang, step.supertype)
 	}
 	if nodeNamed != step.isNamed || nodeSymbol != lang.PublicSymbolForNamedness(step.symbol, step.isNamed) {
 		return false
 	}
-	return !step.isMissing || stackEntryNodeIsMissing(entry)
+	return (!step.isMissing || stackEntryNodeIsMissing(entry)) && stackEntryMaySatisfySupertype(entry, lang, step.supertype)
 }
 
 func nodeMatchesAlternatives(step *QueryStep, node *Node, lang *Language) bool {
@@ -1425,6 +1433,13 @@ func nodeMatchesScalarStep(step *QueryStep, node *Node, lang *Language) bool {
 		if step.isMissing {
 			return node.IsMissing()
 		}
+		// A wildcard never matches an ERROR node (ts_query_cursor__advance).
+		if node.IsError() {
+			return false
+		}
+		if step.supertype != 0 && !node.hasSupertype(lang, step.supertype) {
+			return false
+		}
 		return !step.isNamed || node.IsNamed()
 	}
 
@@ -1439,8 +1454,24 @@ func nodeMatchesScalarStep(step *QueryStep, node *Node, lang *Language) bool {
 	if step.isMissing && !node.IsMissing() {
 		return false
 	}
+	if step.supertype != 0 && !node.hasSupertype(lang, step.supertype) {
+		return false
+	}
 
 	return nodeAbsentFieldsSatisfied(step, node, lang)
+}
+
+// stackEntryMaySatisfySupertype is the entry-level prefilter for a supertype
+// step. An entry that owns a Node answers from the node's record; any other
+// entry defers to the node check after materialization.
+func stackEntryMaySatisfySupertype(entry stackEntry, lang *Language, supertype Symbol) bool {
+	if supertype == 0 {
+		return true
+	}
+	if n := stackEntryNode(entry); n != nil {
+		return n.hasSupertype(lang, supertype)
+	}
+	return true
 }
 
 func nodeAbsentFieldsSatisfied(step *QueryStep, node *Node, lang *Language) bool {
@@ -1474,6 +1505,12 @@ func alternativeMatchesNodeCached(
 		if alt.isMissing {
 			return node.IsMissing()
 		}
+		if node.IsError() {
+			return false
+		}
+		if alt.supertype != 0 && !node.hasSupertype(lang, alt.supertype) {
+			return false
+		}
 		return !alt.isNamed || nodeNamed
 	}
 
@@ -1491,5 +1528,6 @@ func alternativeMatchesNodeCached(
 
 	return nodeNamed == alt.isNamed &&
 		nodeSymbol == lang.PublicSymbolForNamedness(alt.symbol, alt.isNamed) &&
-		(!alt.isMissing || node.IsMissing())
+		(!alt.isMissing || node.IsMissing()) &&
+		(alt.supertype == 0 || node.hasSupertype(lang, alt.supertype))
 }

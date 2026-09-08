@@ -283,10 +283,10 @@ func matchChildStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](
 			namedPositions[i] = -1
 		}
 	}
-	matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, namedPosition-1, steps, childSteps, 0, 0, false, -1, lang, source, predicates, captures, budget, reader, emit)
+	matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, namedPosition-1, steps, childSteps, 0, 0, childStepPrevMatch{lastIdx: -1}, lang, source, predicates, captures, budget, reader, emit)
 }
 
-func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, namedPositions []int, parentLastNamedPos int, steps []QueryStep, childSteps []queryChildStepInfo, childPos, nextChildIdx int, prevHasNamed bool, prevLastNamedPos int, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C)) {
+func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, namedPositions []int, parentLastNamedPos int, steps []QueryStep, childSteps []queryChildStepInfo, childPos, nextChildIdx int, prev childStepPrevMatch, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C)) {
 	if childPos >= len(childSteps) {
 		emit(captures)
 		return
@@ -314,21 +314,16 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 		if step.quantifier != queryQuantifierOne {
 			emitForCount = func(next []C) { emittedForCount = true; emit(next) }
 		}
-		var combinations func(int, int, int, bool, int, int, []C)
-		combinations = func(candidatePos, chosen, nextIdx int, hasNamed bool, firstNamed, lastNamed int, current []C) {
+		var combinations func(int, int, int, childStepNamedSpan, []C)
+		combinations = func(candidatePos, chosen, nextIdx int, span childStepNamedSpan, current []C) {
 			if !budget.charge() {
 				return
 			}
 			if chosen == count {
-				if count > 0 && !q.stepAnchorsSatisfied(step, childPos, hasNamed, firstNamed, lastNamed, prevHasNamed, prevLastNamedPos, parentLastNamedPos) {
+				if count > 0 && !q.stepAnchorsSatisfied(step, namedPositions, span, prev, parentLastNamedPos) {
 					return
 				}
-				nextHasNamed := prevHasNamed || hasNamed
-				nextLastNamed := prevLastNamedPos
-				if hasNamed {
-					nextLastNamed = lastNamed
-				}
-				matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos+1, nextIdx, nextHasNamed, nextLastNamed, lang, source, predicates, current, budget, reader, emitForCount)
+				matchChildStepsRecursiveAllWithReader(q, parent, namedPositions, parentLastNamedPos, steps, childSteps, childPos+1, nextIdx, advancePrevMatch(prev, step, namedPositions, span), lang, source, predicates, current, budget, reader, emitForCount)
 				return
 			}
 			remaining := count - chosen
@@ -340,19 +335,13 @@ func matchChildStepsRecursiveAllWithReader[N comparable, C any, R queryNodeReade
 					continue
 				}
 				nextIdxForChoice := maxInt(nextIdx, childIdx+1)
-				hasNamedForChoice, firstNamedForChoice, lastNamedForChoice := hasNamed, firstNamed, lastNamed
-				if named := namedPositions[childIdx]; named >= 0 {
-					if !hasNamedForChoice {
-						hasNamedForChoice, firstNamedForChoice = true, named
-					}
-					lastNamedForChoice = named
-				}
+				spanForChoice := span.withChild(childIdx, namedPositions[childIdx])
 				matchStepsAllWithReader(q, steps, cs.stepIdx, child, parent, childIdx, lang, source, predicates, current, budget, reader, func(next []C) {
-					combinations(i+1, chosen+1, nextIdxForChoice, hasNamedForChoice, firstNamedForChoice, lastNamedForChoice, next)
+					combinations(i+1, chosen+1, nextIdxForChoice, spanForChoice, next)
 				})
 			}
 		}
-		combinations(0, 0, nextChildIdx, false, -1, -1, captures)
+		combinations(0, 0, nextChildIdx, emptyChildStepNamedSpan(), captures)
 		if budget.tripped() || (step.quantifier != queryQuantifierOne && emittedForCount) {
 			return
 		}
@@ -424,13 +413,29 @@ func nodeCanMatchStepShallowWithReader[N comparable, C any, R queryNodeReader[N,
 		if step.isMissing {
 			return reader.IsMissing(node)
 		}
+		// A wildcard never matches an ERROR node (ts_query_cursor__advance).
+		if reader.Symbol(node) == errorSymbol {
+			return false
+		}
+		if !readerSupertypeSatisfied(reader, node, lang, step.supertype) {
+			return false
+		}
 		return !step.isNamed || reader.IsNamed(node)
 	}
 	named := reader.IsNamed(node)
 	if named != step.isNamed || lang.PublicSymbolForNamedness(reader.Symbol(node), named) != lang.PublicSymbolForNamedness(step.symbol, step.isNamed) || (step.isMissing && !reader.IsMissing(node)) {
 		return false
 	}
-	return true
+	return readerSupertypeSatisfied(reader, node, lang, step.supertype)
+}
+
+// readerSupertypeSatisfied checks a supertype constraint through the reader.
+func readerSupertypeSatisfied[N comparable, C any, R queryNodeReader[N, C]](reader R, node N, lang *Language, supertype Symbol) bool {
+	if supertype == 0 {
+		return true
+	}
+	bit := lang.supertypeBit(supertype)
+	return bit != 0 && reader.SupertypeMask(node)&bit != 0
 }
 
 func alternativeMatchesNodeWithReader[N comparable, C any, R queryNodeReader[N, C]](alt alternativeSymbol, node N, lang *Language, nodeSymbol Symbol, nodeNamed bool, nodeType *string, loaded *bool, reader R) bool {
@@ -438,7 +443,7 @@ func alternativeMatchesNodeWithReader[N comparable, C any, R queryNodeReader[N, 
 		if alt.isMissing {
 			return reader.IsMissing(node)
 		}
-		return !alt.isNamed || nodeNamed
+		return (!alt.isNamed || nodeNamed) && reader.Symbol(node) != errorSymbol && readerSupertypeSatisfied(reader, node, lang, alt.supertype)
 	}
 	if alt.textMatch != "" {
 		if nodeNamed {
@@ -449,7 +454,7 @@ func alternativeMatchesNodeWithReader[N comparable, C any, R queryNodeReader[N, 
 		}
 		return *nodeType == alt.textMatch && (!alt.isMissing || reader.IsMissing(node))
 	}
-	return nodeNamed == alt.isNamed && nodeSymbol == lang.PublicSymbolForNamedness(alt.symbol, alt.isNamed) && (!alt.isMissing || reader.IsMissing(node))
+	return nodeNamed == alt.isNamed && nodeSymbol == lang.PublicSymbolForNamedness(alt.symbol, alt.isNamed) && (!alt.isMissing || reader.IsMissing(node)) && readerSupertypeSatisfied(reader, node, lang, alt.supertype)
 }
 
 func alternativeFieldMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](alt *alternativeSymbol, node, parent N, childIdx int, lang *Language, reader R) bool {

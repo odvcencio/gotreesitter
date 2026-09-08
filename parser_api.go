@@ -201,8 +201,26 @@ func compactRecoverEOFTreeMarked(tree *Tree) bool {
 		tree.root.hasFlag(nodeFlagCompactRecoverEOF)
 }
 
+const (
+	compactIncrementalReuseReplayUnsupportedReason = "old tree was compact-materialized without a table-replay proof"
+	compactIncrementalReuseTreeUnsupportedReason   = "old tree was compact-materialized with an unproven visible node"
+)
+
+// Clause codes for Tree.incrementalReuseUnsupportedClause.
+const (
+	compactIncrementalReuseClauseScanner uint8 = iota
+	compactIncrementalReuseClauseReplay
+	compactIncrementalReuseClauseTree
+)
+
 func incrementalReuseUnsupportedReasonForTree(oldTree *Tree) string {
 	if oldTree != nil && oldTree.compactMaterialized {
+		switch oldTree.incrementalReuseUnsupportedClause {
+		case compactIncrementalReuseClauseReplay:
+			return compactIncrementalReuseReplayUnsupportedReason
+		case compactIncrementalReuseClauseTree:
+			return compactIncrementalReuseTreeUnsupportedReason
+		}
 		return compactIncrementalReuseUnsupportedReason
 	}
 	return forestIncrementalReuseUnsupportedReason
@@ -1704,7 +1722,7 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if tree != nil {
 		return tree, nil
 	}
-	if tree = p.attemptCompactIncrementalRecoveryFullParse(source, reason, recoveryDeclined, nil); tree != nil {
+	if tree = p.attemptCompactIncrementalRecoveryFullParse(source, oldTree, reason, recoveryDeclined, nil); tree != nil {
 		return tree, nil
 	}
 	tree, err := p.parseIncrementalChanged(source, oldTree)
@@ -1905,7 +1923,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 		return tree, compactTiming.toProfile(), nil
 	}
 	fallbackStarted := time.Now()
-	if tree = p.attemptCompactIncrementalRecoveryFullParse(source, reason, recoveryDeclined, &compactTiming); tree != nil {
+	if tree = p.attemptCompactIncrementalRecoveryFullParse(source, oldTree, reason, recoveryDeclined, &compactTiming); tree != nil {
 		profile := profileFreshParseFallback(fallbackStarted, tree, "compact_incremental_full_recovery")
 		profile.ReuseCursorNanos += compactTiming.reuseNanos
 		profile.ReparseNanos += max(int64(0), compactTiming.totalNanos-compactTiming.reuseNanos)

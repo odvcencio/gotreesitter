@@ -41,6 +41,31 @@ type Node struct {
 	subtreeHeight     uint8 // forest dedup tie-break cache (0 = uncomputed); see nodeCachedHeight
 }
 
+// supertypeMask returns the bit set of hidden supertype ancestors recorded
+// for the node, one bit per supertype symbol (Language.supertypeBit).
+func (n *Node) supertypeMask() uint32 {
+	if n == nil || n.ownerArena == nil {
+		return 0
+	}
+	return n.ownerArena.nodeSupertypeMask(n)
+}
+
+// addSupertypeMask records further hidden supertype ancestors on the node.
+// A node owned by another arena (a borrowed subtree) keeps its own record.
+func (n *Node) addSupertypeMask(arena *nodeArena, mask uint32) {
+	if n == nil || mask == 0 || arena == nil || n.ownerArena != arena {
+		return
+	}
+	arena.setNodeSupertypeMask(n, n.supertypeMask()|mask)
+}
+
+// hasSupertype reports whether supertype is among the node's recorded
+// hidden supertype ancestors.
+func (n *Node) hasSupertype(lang *Language, supertype Symbol) bool {
+	bit := lang.supertypeBit(supertype)
+	return bit != 0 && n.supertypeMask()&bit != 0
+}
+
 // nodeFlags is uint16, not uint8: Node has exactly one byte of trailing
 // padding under the 104-byte layout budget (TestNodeLayoutSizeBudget), and
 // the original 8 flag bits below were already fully packed. Widening by one
@@ -206,6 +231,13 @@ func compactNodeMayBeReused(n *Node) bool {
 // compactTreeIncrementalReuseProven checks the visible nodes that can reach
 // the reuse cursor. Error, missing, and fragile nodes are intentionally
 // excluded because C rejects them before descending to clean descendants.
+//
+// The root itself is exempt. The reuse cursor reuses the root only on a
+// byte-identical undo, which needs no state proof, and result building can
+// synthesize a fresh root when trailing extras follow the accepted root
+// payload (buildSyntheticRootTree). That synthesized root carries no compact
+// flags; treating it as unproven disabled reuse for every INI tree that ends
+// in a blank line (issue #454).
 func compactTreeIncrementalReuseProven(root *Node) bool {
 	if root == nil {
 		return false
@@ -218,7 +250,7 @@ func compactTreeIncrementalReuseProven(root *Node) bool {
 		if n == nil {
 			continue
 		}
-		if !compactNodeRecoveryBearing(n) {
+		if n != root && !compactNodeRecoveryBearing(n) {
 			if !n.isCompactMaterialized() || !compactNodeStateProofAvailable(n) {
 				return false
 			}
@@ -817,16 +849,20 @@ func nodeFieldIDAt(n *Node, i int) FieldID {
 type ParseStopReason string
 
 const (
-	ParseStopNone               ParseStopReason = "none"
-	ParseStopAccepted           ParseStopReason = "accepted"
-	ParseStopNoStacksAlive      ParseStopReason = "no_stacks_alive"
-	ParseStopTokenSourceEOF     ParseStopReason = "token_source_eof"
-	ParseStopTimeout            ParseStopReason = "timeout"
-	ParseStopCancelled          ParseStopReason = "cancelled"
-	ParseStopIterationLimit     ParseStopReason = "iteration_limit"
-	ParseStopStackDepthLimit    ParseStopReason = "stack_depth_limit"
-	ParseStopNodeLimit          ParseStopReason = "node_limit"
-	ParseStopMemoryBudget       ParseStopReason = "memory_budget"
+	ParseStopNone            ParseStopReason = "none"
+	ParseStopAccepted        ParseStopReason = "accepted"
+	ParseStopNoStacksAlive   ParseStopReason = "no_stacks_alive"
+	ParseStopTokenSourceEOF  ParseStopReason = "token_source_eof"
+	ParseStopTimeout         ParseStopReason = "timeout"
+	ParseStopCancelled       ParseStopReason = "cancelled"
+	ParseStopIterationLimit  ParseStopReason = "iteration_limit"
+	ParseStopStackDepthLimit ParseStopReason = "stack_depth_limit"
+	ParseStopNodeLimit       ParseStopReason = "node_limit"
+	ParseStopMemoryBudget    ParseStopReason = "memory_budget"
+	// ParseStopReuseBudget stops an old-tree reuse parse that built many
+	// times the old tree's nodes while reusing almost nothing. The caller
+	// runs one plain full parse instead.
+	ParseStopReuseBudget        ParseStopReason = "reuse_budget"
 	ParseStopInvariantViolation ParseStopReason = "invariant_violation"
 )
 
@@ -1479,6 +1515,10 @@ type ParseRuntime struct {
 	// The parser sets NativeRecoveredStructureAuthoritative when an exact
 	// grammar profile certifies the recovered tree before compatibility.
 	NativeRecoveredStructureAuthoritative bool
+	// TransientScratchBytesAllocated is the capacity of the transient parent
+	// and child slabs this parse held, including slabs inherited from the
+	// pool. The scratch lifetime isolation bound applies to this value.
+	TransientScratchBytesAllocated int64
 }
 
 type NormalizationPassRuntime struct {
@@ -3333,6 +3373,10 @@ type Tree struct {
 	externalScannerCheckpointsDeferred bool
 	forestFastPath                     bool
 	incrementalReuseDisabled           bool
+	// incrementalReuseUnsupportedClause names the clause that disabled reuse
+	// for a compact-materialized tree. Zero selects the default
+	// scanner-quiescence reason; see incrementalReuseUnsupportedReasonForTree.
+	incrementalReuseUnsupportedClause uint8
 	// compactMaterialized marks a tree built by the phase-zero compact route
 	// (parsercore_phase0_driver.go). Such a tree carries table-REPLAYED per-node
 	// parser states (not the production parser's live-recorded ones): most are
@@ -3742,9 +3786,10 @@ func (t *Tree) Copy() *Tree {
 		// become reuse-eligible on the standard DFA path and splice replayed or
 		// abstained states into a live parse (Phase-3 Lane 3 review). Carry all
 		// three: forestFastPath, incrementalReuseDisabled, and compactMaterialized.
-		forestFastPath:           t.forestFastPath,
-		incrementalReuseDisabled: t.incrementalReuseDisabled,
-		compactMaterialized:      t.compactMaterialized,
+		forestFastPath:                    t.forestFastPath,
+		incrementalReuseDisabled:          t.incrementalReuseDisabled,
+		incrementalReuseUnsupportedClause: t.incrementalReuseUnsupportedClause,
+		compactMaterialized:               t.compactMaterialized,
 	}
 	if len(t.edits) > 0 {
 		out.edits = make([]InputEdit, len(t.edits))
@@ -3909,6 +3954,9 @@ func cloneNodeHeaderInto(dst, src *Node, arena *nodeArena, offset *cloneOffset) 
 	dst.parent = nil
 	dst.childIndex = -1
 	dst.ownerArena = arena
+	if mask := src.supertypeMask(); mask != 0 && arena != nil {
+		arena.setNodeSupertypeMask(dst, mask)
+	}
 	copyCompactReuseDependency(dst, src)
 	if !copyMissingNodeDependency(dst, src, offset) {
 		if _, present := missingNodeDependencyEntryForNode(src); present {
@@ -4272,7 +4320,7 @@ func (t *Tree) rawParseStopReason() ParseStopReason {
 // It intentionally does not initiate deferred result compatibility.
 func (t *Tree) rawParseStoppedEarly() bool {
 	switch t.rawParseStopReason() {
-	case ParseStopIterationLimit, ParseStopStackDepthLimit, ParseStopNodeLimit, ParseStopMemoryBudget, ParseStopTokenSourceEOF, ParseStopTimeout, ParseStopCancelled, ParseStopInvariantViolation:
+	case ParseStopIterationLimit, ParseStopStackDepthLimit, ParseStopNodeLimit, ParseStopMemoryBudget, ParseStopReuseBudget, ParseStopTokenSourceEOF, ParseStopTimeout, ParseStopCancelled, ParseStopInvariantViolation:
 		return true
 	default:
 		return false

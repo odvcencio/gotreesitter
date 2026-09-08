@@ -27,8 +27,17 @@ type LinkChainRef struct {
 // Empty reports whether both chain reference fields use their zero value.
 func (r LinkChainRef) Empty() bool { return r.First == 0 && r.Count == 0 }
 
-// appendGraphLink keeps the optional sidecar aligned with the link arena. A
-// newly published link starts unbound; authentication binds it later.
+// appendGraphLinkChecked rejects malformed newly constructed links before
+// appending them. Node publication also validates copied adjacency links.
+func (c *Core) appendGraphLinkChecked(link linkRecord) (LinkID, error) {
+	if err := link.validateShape(); err != nil {
+		return 0, err
+	}
+	return c.appendGraphLink(link), nil
+}
+
+// appendGraphLink keeps the optional sidecar aligned with the link arena.
+// Callers must validate the link before publishing its containing node.
 func (c *Core) appendGraphLink(link linkRecord) LinkID {
 	id := LinkID(len(c.links) + 1)
 	c.links = append(c.links, link)

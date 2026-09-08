@@ -279,6 +279,42 @@ func TestReusedSubtreeCleanExternalAncestorRequiresQuiescence(t *testing.T) {
 	}
 }
 
+func TestReusedSubtreeAfterFragileReductionPreservesMetadata(t *testing.T) {
+	c, head, reused := reusedFixture(t)
+	table := c.tables.(*fakeTable)
+	table.actions = map[tableCell][]Action{
+		{state: 1, symbol: 1}: {{Type: ActionShift, State: 1}},
+		{state: 1, symbol: 2}: {{Type: ActionReduce, Symbol: 99, ChildCount: 1}},
+	}
+	table.gotos[tableCell{state: 1, symbol: 99}] = 1
+	head, err := c.Shift(head, 1, 0, Token{Symbol: 1, EndByte: 1}, ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.SetReduceConflictContext(true)
+	outputs, err := c.Reduce(head, 2, 0, ForkOrder{})
+	c.SetReduceConflictContext(false)
+	if err != nil || len(outputs) != 1 {
+		t.Fatalf("reduce=%v err=%v", outputs, err)
+	}
+	paths, err := c.Derivations(outputs[0])
+	if err != nil || len(paths) != 1 || len(paths[0].Payloads) != 1 {
+		t.Fatalf("paths=%v err=%v", paths, err)
+	}
+	prefix := paths[0].Payloads[0]
+	err = c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		_, _, err := c.PushReusedSubtreeOwned(owner, outputs[0], reused)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := c.MaterializationView(prefix)
+	if err != nil || !view.Fragile {
+		t.Fatalf("prefix lost fragility: %+v err=%v", view, err)
+	}
+}
+
 func TestReusedSubtreeDoesNotCertifyHiddenScannerProvenance(t *testing.T) {
 	c, head, reused := reusedFixture(t)
 	var payload SubtreeID
