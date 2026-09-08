@@ -1586,6 +1586,7 @@ type ArenaBreakdown struct {
 	CompactReuseDependencyBytesAllocated int64
 
 	NodeStructBytesAllocated            int64
+	NodeSupertypeBytesAllocated         int64
 	NodeFieldMetadataBytesAllocated     int64
 	NoTreeNodeBytesAllocated            int64
 	CompactFullLeafBytesAllocated       int64

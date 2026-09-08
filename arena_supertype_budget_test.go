@@ -16,6 +16,14 @@ func TestArenaSupertypeBudgetChargesAllocationAndGrowth(t *testing.T) {
 			t.Fatal("supertype allocation did not exhaust the growth budget")
 		}
 		charged := arena.allocatedBytes
+		breakdown := arena.collectArenaBreakdown()
+		wantSupertypeBytes := int64(4 * (cap(arena.nodeSupertypes) + cap(arena.nodeSlabs[0].supertypes)))
+		if got := breakdown.NodeSupertypeBytesAllocated; got != wantSupertypeBytes {
+			t.Fatalf("supertype breakdown bytes=%d, want %d", got, wantSupertypeBytes)
+		}
+		if got := breakdown.NodeStructBytesAllocated + breakdown.NodeSupertypeBytesAllocated; got != charged {
+			t.Fatalf("breakdown bytes=%d, charged bytes=%d", got, charged)
+		}
 		arena.recomputeAllocatedBytes()
 		if arena.allocatedBytes != charged {
 			t.Fatalf("allocation accounting changed on recompute: got=%d want=%d", arena.allocatedBytes, charged)

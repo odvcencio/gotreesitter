@@ -2273,6 +2273,7 @@ func (a *nodeArena) collectArenaBreakdown() *ArenaBreakdown {
 		CompactReuseDependencyBytesAllocated: a.compactReuseDependencyBytesAllocated(),
 
 		NodeStructBytesAllocated:            a.nodeStructBytesAllocated(),
+		NodeSupertypeBytesAllocated:         a.nodeSupertypeBytesAllocated(),
 		NodeFieldMetadataBytesAllocated:     a.nodeFieldMetadataBytesAllocated(),
 		NoTreeNodeBytesAllocated:            a.noTreeNodeBytesAllocated(),
 		CompactFullLeafBytesAllocated:       a.compactFullLeafBytesAllocated(),

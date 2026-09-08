@@ -141,6 +141,7 @@ func TestPointerLightBytesPerNode(t *testing.T) {
 		rt := tree.ParseRuntime()
 		arenaNodes := bd.LeafNodesConstructed + bd.ParentNodesConstructed
 		curBytes := bd.NodeStructBytesAllocated +
+			bd.NodeSupertypeBytesAllocated +
 			bd.ChildSliceBytesAllocated +
 			bd.NodeFieldMetadataBytesAllocated +
 			bd.FieldIDBytesAllocated +
