@@ -29,3 +29,13 @@ func incrementalReuseHostile(timing *incrementalParseTiming, sourceLen int) bool
 	}
 	return timing.reusedBytes*8 < uint64(sourceLen)
 }
+
+// incrementalReuseBudgetArmed reports whether an old-tree reuse parse may
+// stop on the reuse budget. The stop is safe only when the plain full-parse
+// rescue can run afterwards (shouldRetryIncrementalMemoryBudgetAsPlainFull),
+// which declines sources above fullParseRetryMaxSourceBytes. A larger source
+// keeps the unbudgeted reuse parse, which completes as it did before the
+// budget existed, instead of publishing a truncated tree.
+func incrementalReuseBudgetArmed(sourceLen int) bool {
+	return sourceLen > 0 && sourceLen <= fullParseRetryMaxSourceBytes
+}
