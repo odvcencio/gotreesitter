@@ -64,7 +64,7 @@ func TestRecoveryAcceptancePreservesEventOrder(t *testing.T) {
 func TestRecoveryAcceptanceSequenceSurvivesLexerStateSharing(t *testing.T) {
 	for _, equal := range []bool{false, true} {
 		t.Run(fmt.Sprint(equal), func(t *testing.T) {
-			compact, err := core.New(&genericConflictTable{}, core.Limits{})
+			compact, err := core.New(recoveryLineageForkTable{}, core.Limits{})
 			if err != nil {
 				t.Fatal(err)
 			}
