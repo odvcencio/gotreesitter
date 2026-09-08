@@ -1498,7 +1498,7 @@ func cNodeErrorCostLang(lang *Language, n *Node) uint32 {
 	}
 	if n.symbol == errorSymbol {
 		for _, c := range n.children {
-			if c == nil || c.isExtra() {
+			if c == nil || c.isExtra() || (c.symbol == errorSymbol && len(c.children) == 0) {
 				continue
 			}
 			if cSymbolVisibleLang(lang, c.symbol) {
@@ -1551,7 +1551,7 @@ func cNodeErrorCostLangWithScratch(scratch *glrMergeScratch, lang *Language, n *
 	}
 	if n.symbol == errorSymbol {
 		for _, c := range n.children {
-			if c == nil || c.isExtra() {
+			if c == nil || c.isExtra() || (c.symbol == errorSymbol && len(c.children) == 0) {
 				continue
 			}
 			if cSymbolVisibleLang(lang, c.symbol) {

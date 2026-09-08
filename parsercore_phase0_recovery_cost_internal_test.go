@@ -329,3 +329,28 @@ func TestRecoveryCompareVersionsMatchesProduction(t *testing.T) {
 		}
 	}
 }
+
+// The pinned C runtime excludes childless ERROR nodes from skipped-tree charges.
+// See subtree.c:398 at f5afe475deb7c0bae6407fb776c76824f717bb61.
+func TestRecoveryCostChildlessErrorSkipsTreeCharge(t *testing.T) {
+	leaf := NewLeafNode(errorSymbol, true, 0, 1, Point{}, Point{Column: 1})
+	parent := NewParentNode(errorSymbol, true, []*Node{leaf}, nil, 0)
+	const want = 501
+	if got := cNodeErrorCostLang(nil, parent); got != want {
+		t.Fatalf("production cost = %d, want pinned C cost %d", got, want)
+	}
+	var scratch glrMergeScratch
+	if got := cNodeErrorCostLangWithScratch(&scratch, nil, parent); got != want {
+		t.Fatalf("cached production cost = %d, want pinned C cost %d", got, want)
+	}
+	fixture, id, _ := compactifyRecoveryCostTree(parent)
+	got, err := core.RecoveryNodeErrorCost(nil, fixture, id)
+	if err != nil || got != want {
+		t.Fatalf("compact cost = %d, error = %v, want pinned C cost %d", got, err, want)
+	}
+	var memo core.RecoveryCostMemo
+	got, err = core.RecoveryNodeErrorCostMemo(nil, fixture, &memo, id)
+	if err != nil || got != want {
+		t.Fatalf("cached compact cost = %d, error = %v, want pinned C cost %d", got, err, want)
+	}
+}
