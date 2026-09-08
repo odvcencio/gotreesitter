@@ -4842,26 +4842,6 @@ func (d *dfaTokenSource) promoteKeyword(tok Token) (Token, bool) {
 	if tok.EndByte <= tok.StartByte {
 		return tok, false
 	}
-	if len(d.hasKeywordState) > 0 && len(d.language.ReservedWords) == 0 {
-		anyHasKeyword := false
-		state := int(d.state)
-		if state >= 0 && state < len(d.hasKeywordState) && d.hasKeywordState[state] {
-			anyHasKeyword = true
-		}
-		if !anyHasKeyword {
-			for _, st := range d.glrStates {
-				si := int(st)
-				if si >= 0 && si < len(d.hasKeywordState) && d.hasKeywordState[si] {
-					anyHasKeyword = true
-					break
-				}
-			}
-		}
-		if !anyHasKeyword {
-			return tok, false
-		}
-	}
-
 	start := int(tok.StartByte)
 	end := int(tok.EndByte)
 	if start < 0 || end < start || end > len(d.lexer.source) {
@@ -4885,6 +4865,8 @@ func (d *dfaTokenSource) promoteKeyword(tok Token) (Token, bool) {
 	if !ok {
 		return tok, false
 	}
+	// Recognition metadata survives even when state admission keeps the capture symbol.
+	tok.isKeyword = true
 	if d.language.Name == "rust" && int(kwTok.Symbol) < len(d.language.SymbolNames) && d.language.SymbolNames[kwTok.Symbol] == "default" {
 		if end < len(d.lexer.source) && d.lexer.source[end] == ':' {
 			return tok, true

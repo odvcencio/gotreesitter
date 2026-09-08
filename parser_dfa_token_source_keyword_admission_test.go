@@ -10,6 +10,7 @@ func TestPromoteKeywordMatchesCStateAdmission(t *testing.T) {
 	}{
 		{"keyword_action", true, false, false, false, 2},
 		{"identifier_action", false, true, false, false, 1},
+		{"capture_without_cached_action", false, true, false, false, 1},
 		{"neither_action", false, false, false, false, 1},
 		{"reserved_grant", false, false, true, true, 2},
 		{"reserved_no_grant", false, true, true, false, 1},
@@ -25,7 +26,7 @@ func TestPromoteKeywordMatchesCStateAdmission(t *testing.T) {
 					lang.ReservedWords[2] = 2
 				}
 			}
-			d := &dfaTokenSource{language: lang, lexer: NewLexer(lang.LexStates, []byte("if")), hasKeywordState: []bool{!tc.grant}, lookupActionIndex: func(_ StateID, sym Symbol) uint16 {
+			d := &dfaTokenSource{language: lang, lexer: NewLexer(lang.LexStates, []byte("if")), hasKeywordState: []bool{!tc.grant && tc.name != "capture_without_cached_action"}, lookupActionIndex: func(_ StateID, sym Symbol) uint16 {
 				if sym == 2 && tc.keywordAction || sym == 1 && tc.identifierAction {
 					return 1
 				}
@@ -34,6 +35,9 @@ func TestPromoteKeywordMatchesCStateAdmission(t *testing.T) {
 			got, _ := d.promoteKeyword(Token{Symbol: 1, EndByte: 2})
 			if got.Symbol != tc.want {
 				t.Fatalf("symbol=%d want=%d", got.Symbol, tc.want)
+			}
+			if !got.isKeyword {
+				t.Fatal("successful keyword recognition lost its metadata")
 			}
 		})
 	}
