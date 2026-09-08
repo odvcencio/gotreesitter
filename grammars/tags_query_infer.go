@@ -727,7 +727,7 @@ func inferredTagsQuery(entry LangEntry) string {
 	}
 
 	hasSymbol := func(symbol string) bool {
-		_, ok := lang.SymbolByName(symbol)
+		_, ok := lang.QuerySymbolByName(symbol)
 		return ok
 	}
 

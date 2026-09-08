@@ -619,7 +619,7 @@ func TestFlattenedHiddenWrapperDoesNotWidenVisibleDescendantStart(t *testing.T) 
 	}
 
 	scratch := &reduceBuildScratch{}
-	appendFlattenedHiddenChildrenToScratch(scratch, hidden, symbolMeta, nil)
+	appendFlattenedHiddenChildrenToScratch(scratch, hidden, symbolMeta, nil, nil, nil, 0)
 	if got, want := len(scratch.nodes), 1; got != want {
 		t.Fatalf("flattened child count = %d, want %d", got, want)
 	}
@@ -708,7 +708,7 @@ func TestFlattenedHiddenWrapperDoesNotWidenExternalAnonymousLeaf(t *testing.T) {
 	}
 
 	scratch := &reduceBuildScratch{}
-	appendFlattenedHiddenChildrenToScratch(scratch, hidden, symbolMeta, nil)
+	appendFlattenedHiddenChildrenToScratch(scratch, hidden, symbolMeta, nil, nil, nil, 0)
 	if got, want := len(scratch.nodes), 1; got != want {
 		t.Fatalf("flattened child count = %d, want %d", got, want)
 	}
@@ -734,7 +734,7 @@ func TestFlattenedHiddenWrapperDoesNotWidenOrdinaryAnonymousLeaf(t *testing.T) {
 	}
 
 	scratch := &reduceBuildScratch{}
-	appendFlattenedHiddenChildrenToScratch(scratch, hidden, symbolMeta, nil)
+	appendFlattenedHiddenChildrenToScratch(scratch, hidden, symbolMeta, nil, nil, nil, 0)
 	if got, want := len(scratch.nodes), 1; got != want {
 		t.Fatalf("flattened child count = %d, want %d", got, want)
 	}
@@ -760,7 +760,7 @@ func TestFlattenedGeneratedRepeatPaddingDoesNotWidenAnonymousLeaf(t *testing.T) 
 	}
 
 	scratch := &reduceBuildScratch{}
-	appendFlattenedHiddenChildrenToScratch(scratch, hiddenRepeat, symbolMeta, nil)
+	appendFlattenedHiddenChildrenToScratch(scratch, hiddenRepeat, symbolMeta, nil, nil, nil, 0)
 	if got, want := len(scratch.nodes), 1; got != want {
 		t.Fatalf("flattened child count = %d, want %d", got, want)
 	}
@@ -792,7 +792,7 @@ func TestFlattenedGeneratedRepeatPaddingWidensAnonymousWrapper(t *testing.T) {
 	}
 
 	scratch := &reduceBuildScratch{}
-	appendFlattenedHiddenChildrenToScratch(scratch, hiddenRepeat, symbolMeta, nil)
+	appendFlattenedHiddenChildrenToScratch(scratch, hiddenRepeat, symbolMeta, nil, nil, nil, 0)
 	if got, want := len(scratch.nodes), 1; got != want {
 		t.Fatalf("flattened child count = %d, want %d", got, want)
 	}
@@ -855,7 +855,7 @@ func TestFlattenedSiblingGapDoesNotWidenAliasedWrapper(t *testing.T) {
 	}
 
 	scratch := &reduceBuildScratch{}
-	appendFlattenedHiddenChildrenToScratch(scratch, repeatList, symbolMeta, nil)
+	appendFlattenedHiddenChildrenToScratch(scratch, repeatList, symbolMeta, nil, nil, nil, 0)
 	if got, want := len(scratch.nodes), 2; got != want {
 		t.Fatalf("flattened child count = %d, want %d", got, want)
 	}

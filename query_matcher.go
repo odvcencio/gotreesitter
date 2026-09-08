@@ -1041,6 +1041,7 @@ func materializedQueryChild(parent *Node, children []*Node, childIdx int) *Node 
 func (m *childStepMatcher) canMatchAggregatedFinalStepWithoutMaterializing() bool {
 	return len(m.step.captureIDs) == 0 &&
 		len(m.step.alternatives) == 0 &&
+		m.step.supertype == 0 &&
 		!queryStepHasNestedChildren(m.steps, m.cs.stepIdx)
 }
 
@@ -1326,7 +1327,7 @@ func alternativeMatchesStackEntry(alt alternativeSymbol, entry stackEntry, lang 
 		if alt.isMissing {
 			return stackEntryNodeIsMissing(entry)
 		}
-		return !alt.isNamed || nodeNamed
+		return (!alt.isNamed || nodeNamed) && stackEntryNodeSymbol(entry) != errorSymbol && stackEntryMaySatisfySupertype(entry, lang, alt.supertype)
 	}
 	if alt.textMatch != "" {
 		return !nodeNamed && queryStackEntryTypeName(entry, lang) == alt.textMatch &&
@@ -1334,7 +1335,8 @@ func alternativeMatchesStackEntry(alt alternativeSymbol, entry stackEntry, lang 
 	}
 	return nodeNamed == alt.isNamed &&
 		nodeSymbol == lang.PublicSymbolForNamedness(alt.symbol, alt.isNamed) &&
-		(!alt.isMissing || stackEntryNodeIsMissing(entry))
+		(!alt.isMissing || stackEntryNodeIsMissing(entry)) &&
+		stackEntryMaySatisfySupertype(entry, lang, alt.supertype)
 }
 
 // nodeMatchesStep checks if a single node matches a single step's type/symbol constraint.
@@ -1381,12 +1383,12 @@ func stackEntryMatchesScalarStep(step *QueryStep, entry stackEntry, lang *Langua
 		if step.isMissing {
 			return stackEntryNodeIsMissing(entry)
 		}
-		return !step.isNamed || nodeNamed
+		return (!step.isNamed || nodeNamed) && stackEntryNodeSymbol(entry) != errorSymbol && stackEntryMaySatisfySupertype(entry, lang, step.supertype)
 	}
 	if nodeNamed != step.isNamed || nodeSymbol != lang.PublicSymbolForNamedness(step.symbol, step.isNamed) {
 		return false
 	}
-	return !step.isMissing || stackEntryNodeIsMissing(entry)
+	return (!step.isMissing || stackEntryNodeIsMissing(entry)) && stackEntryMaySatisfySupertype(entry, lang, step.supertype)
 }
 
 func nodeMatchesAlternatives(step *QueryStep, node *Node, lang *Language) bool {
@@ -1431,6 +1433,13 @@ func nodeMatchesScalarStep(step *QueryStep, node *Node, lang *Language) bool {
 		if step.isMissing {
 			return node.IsMissing()
 		}
+		// A wildcard never matches an ERROR node (ts_query_cursor__advance).
+		if node.IsError() {
+			return false
+		}
+		if step.supertype != 0 && !node.hasSupertype(lang, step.supertype) {
+			return false
+		}
 		return !step.isNamed || node.IsNamed()
 	}
 
@@ -1445,8 +1454,24 @@ func nodeMatchesScalarStep(step *QueryStep, node *Node, lang *Language) bool {
 	if step.isMissing && !node.IsMissing() {
 		return false
 	}
+	if step.supertype != 0 && !node.hasSupertype(lang, step.supertype) {
+		return false
+	}
 
 	return nodeAbsentFieldsSatisfied(step, node, lang)
+}
+
+// stackEntryMaySatisfySupertype is the entry-level prefilter for a supertype
+// step. An entry that owns a Node answers from the node's record; any other
+// entry defers to the node check after materialization.
+func stackEntryMaySatisfySupertype(entry stackEntry, lang *Language, supertype Symbol) bool {
+	if supertype == 0 {
+		return true
+	}
+	if n := stackEntryNode(entry); n != nil {
+		return n.hasSupertype(lang, supertype)
+	}
+	return true
 }
 
 func nodeAbsentFieldsSatisfied(step *QueryStep, node *Node, lang *Language) bool {
@@ -1480,6 +1505,12 @@ func alternativeMatchesNodeCached(
 		if alt.isMissing {
 			return node.IsMissing()
 		}
+		if node.IsError() {
+			return false
+		}
+		if alt.supertype != 0 && !node.hasSupertype(lang, alt.supertype) {
+			return false
+		}
 		return !alt.isNamed || nodeNamed
 	}
 
@@ -1497,5 +1528,6 @@ func alternativeMatchesNodeCached(
 
 	return nodeNamed == alt.isNamed &&
 		nodeSymbol == lang.PublicSymbolForNamedness(alt.symbol, alt.isNamed) &&
-		(!alt.isMissing || node.IsMissing())
+		(!alt.isMissing || node.IsMissing()) &&
+		(alt.supertype == 0 || node.hasSupertype(lang, alt.supertype))
 }

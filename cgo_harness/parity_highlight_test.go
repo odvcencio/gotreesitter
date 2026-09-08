@@ -63,12 +63,7 @@ type highlightTolerance struct {
 // knownDegradedHighlight is the "no new degradations" list for non-curated
 // languages. Each entry records the maximum tolerated (cMissing, goOnly).
 // This list can shrink (as fixes land) but must not grow (regressions block).
-var knownDegradedHighlight = map[string]highlightTolerance{
-	// hare `(type) @type` and luau `(type (identifier) @type)` need C's
-	// supertype query semantics; see the query engine supertype tranche.
-	"hare": {cMissing: 1},
-	"luau": {cMissing: 1},
-}
+var knownDegradedHighlight = map[string]highlightTolerance{}
 
 // collectGoHighlightCaptures runs a highlight query against a Go parse tree
 // and returns sorted, deduplicated captures.

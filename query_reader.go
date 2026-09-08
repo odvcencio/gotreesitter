@@ -12,6 +12,9 @@ type queryNodeReader[N comparable, C any] interface {
 	Symbol(N) Symbol
 	IsNamed(N) bool
 	IsMissing(N) bool
+	// SupertypeMask returns the node\'s recorded hidden-supertype bits (see
+	// Node.supertypeMask); a store without that record returns 0.
+	SupertypeMask(N) uint32
 	Type(N, *Language) string
 	StartByte(N) uint32
 	EndByte(N) uint32
@@ -124,6 +127,7 @@ type publicQueryReader struct{}
 func (publicQueryReader) IsNil(node *Node) bool                  { return node == nil }
 func (publicQueryReader) Symbol(node *Node) Symbol               { return node.Symbol() }
 func (publicQueryReader) IsNamed(node *Node) bool                { return node.IsNamed() }
+func (publicQueryReader) SupertypeMask(node *Node) uint32        { return node.supertypeMask() }
 func (publicQueryReader) IsMissing(node *Node) bool              { return node.IsMissing() }
 func (publicQueryReader) Type(node *Node, lang *Language) string { return node.Type(lang) }
 func (publicQueryReader) StartByte(node *Node) uint32            { return node.StartByte() }

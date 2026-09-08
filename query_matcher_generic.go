@@ -413,13 +413,29 @@ func nodeCanMatchStepShallowWithReader[N comparable, C any, R queryNodeReader[N,
 		if step.isMissing {
 			return reader.IsMissing(node)
 		}
+		// A wildcard never matches an ERROR node (ts_query_cursor__advance).
+		if reader.Symbol(node) == errorSymbol {
+			return false
+		}
+		if !readerSupertypeSatisfied(reader, node, lang, step.supertype) {
+			return false
+		}
 		return !step.isNamed || reader.IsNamed(node)
 	}
 	named := reader.IsNamed(node)
 	if named != step.isNamed || lang.PublicSymbolForNamedness(reader.Symbol(node), named) != lang.PublicSymbolForNamedness(step.symbol, step.isNamed) || (step.isMissing && !reader.IsMissing(node)) {
 		return false
 	}
-	return true
+	return readerSupertypeSatisfied(reader, node, lang, step.supertype)
+}
+
+// readerSupertypeSatisfied checks a supertype constraint through the reader.
+func readerSupertypeSatisfied[N comparable, C any, R queryNodeReader[N, C]](reader R, node N, lang *Language, supertype Symbol) bool {
+	if supertype == 0 {
+		return true
+	}
+	bit := lang.supertypeBit(supertype)
+	return bit != 0 && reader.SupertypeMask(node)&bit != 0
 }
 
 func alternativeMatchesNodeWithReader[N comparable, C any, R queryNodeReader[N, C]](alt alternativeSymbol, node N, lang *Language, nodeSymbol Symbol, nodeNamed bool, nodeType *string, loaded *bool, reader R) bool {
@@ -427,7 +443,7 @@ func alternativeMatchesNodeWithReader[N comparable, C any, R queryNodeReader[N, 
 		if alt.isMissing {
 			return reader.IsMissing(node)
 		}
-		return !alt.isNamed || nodeNamed
+		return (!alt.isNamed || nodeNamed) && reader.Symbol(node) != errorSymbol && readerSupertypeSatisfied(reader, node, lang, alt.supertype)
 	}
 	if alt.textMatch != "" {
 		if nodeNamed {
@@ -438,7 +454,7 @@ func alternativeMatchesNodeWithReader[N comparable, C any, R queryNodeReader[N, 
 		}
 		return *nodeType == alt.textMatch && (!alt.isMissing || reader.IsMissing(node))
 	}
-	return nodeNamed == alt.isNamed && nodeSymbol == lang.PublicSymbolForNamedness(alt.symbol, alt.isNamed) && (!alt.isMissing || reader.IsMissing(node))
+	return nodeNamed == alt.isNamed && nodeSymbol == lang.PublicSymbolForNamedness(alt.symbol, alt.isNamed) && (!alt.isMissing || reader.IsMissing(node)) && readerSupertypeSatisfied(reader, node, lang, alt.supertype)
 }
 
 func alternativeFieldMatchesWithReader[N comparable, C any, R queryNodeReader[N, C]](alt *alternativeSymbol, node, parent N, childIdx int, lang *Language, reader R) bool {

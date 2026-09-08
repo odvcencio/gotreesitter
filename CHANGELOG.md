@@ -7,6 +7,34 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### C parity program, round one: query semantics
+
+- Resolve node types in query patterns the way the C query compiler does:
+  only a visible or supertype named symbol is a node type. A hidden rule
+  name or an anonymous token in a node pattern is now a compile error, as in
+  C. The inferred tags queries use the same lookup, so a grammar whose
+  `call` is a keyword no longer receives a call pattern.
+- Compile a supertype node pattern such as `(expression)` into a wildcard
+  step that requires the supertype among the node's hidden ancestors, and
+  support the `super/sub` form with the C subtype check. Nodes record the
+  hidden supertype wrappers that reduction elided in a parallel arena table
+  (`Node` stays 104 bytes); the record survives final tree compaction and
+  incremental clones.
+- Port the C wildcard-root rule: a pattern whose root is a wildcard (a
+  supertype counts) and whose first child is a concrete node type never
+  tests the root. `(expression (identifier) @i)` matches every identifier
+  whose parent is not an ERROR node, as it does in C.
+- Wildcard steps never match ERROR nodes, and a top-level bare `_` pattern
+  compiles.
+- `TestParityQuerySemantics` runs 103 query cases on both engines: 101
+  agree, 2 carry a named divergence (an aliased subtype in the grammargen
+  supertype map, and a hidden wrapper lost inside a compact error region).
+  Highlight parity holds on 204 of 206 languages with no tolerance entry;
+  hare and luau, the last two tolerated languages, now match C.
+- `TestParitySupertypeMap` compares every grammar's ABI 15 supertype map
+  with the C runtime: 40 languages agree, 29 diverge. The board is
+  informational until the grammargen map is rebuilt.
+
 ### Compact core cost, round two (issue #454)
 
 - Fuse the top-down parse-state replay into the postorder materialization
