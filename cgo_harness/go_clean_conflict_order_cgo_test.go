@@ -5,6 +5,7 @@ package cgoharness
 import (
 	"bytes"
 	"os"
+	"strings"
 	"testing"
 
 	gts "github.com/odvcencio/gotreesitter"
@@ -28,6 +29,7 @@ func runGoCleanConflictOrderLockedC(t *testing.T, requireNativeGeneric bool) {
 	}{
 		{"minimal", []byte("package p\nfunc f(){ g(reflect.ValueOf(v)) }\n")},
 		{"generic_minimal", []byte("package p;var _=F[int](a)\n")},
+		{"generic_two_arguments_minimal", []byte("package p;var _=F[int](1,2)\n")},
 		{"generic_nested", []byte("package p;var _=F[F[int]](a)\n")},
 		{"generic_instantiation", []byte("package p\n\ntype Foo[T any] struct {\n\tV T\n}\n\nfunc f() {\n\ta := Foo[int]{}\n\tb := Foo[int](a)\n\t_ = a\n\t_ = b\n}\n")},
 		{"full", full},
@@ -53,7 +55,7 @@ func runGoCleanConflictOrderLockedC(t *testing.T, requireNativeGeneric bool) {
 			if cTree.RootNode().HasError() {
 				t.Fatal("C fixture has errors")
 			}
-			if fixture.name == "minimal" {
+			if fixture.name == "minimal" || fixture.name == "generic_two_arguments_minimal" {
 				t.Logf("C tree: %s", cTree.RootNode().ToSexp())
 			}
 			for _, route := range []string{"production", "compact", "forest"} {
@@ -91,7 +93,8 @@ func runGoCleanConflictOrderLockedC(t *testing.T, requireNativeGeneric bool) {
 						if routedAfter-routedBefore+fallbackAfter-fallbackBefore != 1 {
 							t.Fatal("compact parse must report one route decision")
 						}
-						if requireNativeGeneric && (fixture.name == "generic_minimal" || fixture.name == "generic_nested") && (routedAfter-routedBefore != 1 || fallbackAfter != fallbackBefore) {
+						genericFixture := strings.HasPrefix(fixture.name, "generic_") || strings.HasPrefix(fixture.name, "family_")
+						if requireNativeGeneric && genericFixture && (routedAfter-routedBefore != 1 || fallbackAfter != fallbackBefore) {
 							t.Fatal("generic parse must use native compact execution")
 						}
 					}
