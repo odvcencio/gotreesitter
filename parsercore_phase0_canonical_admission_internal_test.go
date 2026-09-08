@@ -209,8 +209,26 @@ func diagnosticParserCorePointCacheCensus(t testing.TB, compact *core.Core, head
 	if err != nil {
 		t.Fatal(err)
 	}
+	points := make([]Point, len(source)+1)
+	for offset, b := range source {
+		point := points[offset]
+		if b == '\n' {
+			point.Row++
+			point.Column = 0
+		} else {
+			point.Column++
+		}
+		points[offset+1] = point
+	}
 	record := func(offset uint32) {
-		if _, hit := index.pointCached(offset); hit {
+		if uint64(offset) > uint64(len(source)) {
+			t.Fatalf("point-cache offset %d exceeds source length %d", offset, len(source))
+		}
+		point, hit := index.pointCached(offset)
+		if point != points[offset] {
+			t.Fatalf("point-cache offset %d: got=%+v want=%+v", offset, point, points[offset])
+		}
+		if hit {
 			hits++
 		} else {
 			misses++
@@ -280,11 +298,40 @@ func TestDiagnosticParserCoreBoundaryIndexCensus(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if scheduler == nil || scheduler.acceptedHead.Node == 0 || compact.Work() != row.work {
+			if scheduler == nil || scheduler.acceptedHead.Node == 0 || compact.Work().Overflow || elections == 0 {
 				t.Fatalf("canonical boundary census did not preserve acceptance: scheduler=%v work=%+v", scheduler != nil, compact.Work())
 			}
+			baseline, err := core.New(tables, diagnosticParserCoreCanonicalLimits())
+			if err != nil {
+				t.Fatal(err)
+			}
+			baselineSource := NewParser(lang).acquireParserDFATokenSource(fixture.Source)
+			if baselineSource == nil {
+				t.Fatal("boundary baseline could not acquire DFA token source")
+			}
+			defer baselineSource.Close()
+			var baselineScratch []byte
+			baselineScheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeed(
+				baseline, baselineSource, &baselineScratch, lang.InitialState,
+				diagnosticParserCoreCanonicalSeedOptions(lang), diagnosticParserCoreSeedObserver{},
+			)
+			if err != nil || baselineScheduler == nil || baselineScheduler.acceptedHead.Node == 0 || baseline.Work() != compact.Work() {
+				t.Fatalf("boundary observation changed parse work: got=%+v want=%+v err=%v", compact.Work(), baseline.Work(), err)
+			}
+			store, err := compact.BuildAuthenticatedSelectedStore(scheduler.acceptedPayloads, fixture.Source, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer store.Release()
+			if digest := diagnosticParserCoreSelectedStoreDeepDigest(t, store, lang, fixture.Source); digest != row.deepTreeSHA256 {
+				t.Fatalf("boundary observation changed tree: got=%s want=%s", digest, row.deepTreeSHA256)
+			}
+			census, err := compact.RawSelectedSubtreeCensus(scheduler.acceptedPayloads)
+			if err != nil || census.Overflow {
+				t.Fatalf("raw selected census=%+v err=%v", census, err)
+			}
 			views, pointHits, pointMisses := diagnosticParserCorePointCacheCensus(t, compact, scheduler.acceptedHead, fixture.Source)
-			if views != int(row.rawSelected.Nodes) || pointHits <= pointMisses {
+			if uint64(views) != census.Nodes || pointHits <= pointMisses {
 				t.Fatalf("canonical point-cache census views=%d hits=%d misses=%d", views, pointHits, pointMisses)
 			}
 			final := compact.BoundaryIndexStats()
