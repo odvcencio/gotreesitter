@@ -1364,29 +1364,9 @@ func repairPythonKeywordErrorNode(node *Node, source []byte, arena *nodeArena, l
 		}
 	}
 	if children == nil {
-		if node.Type(lang) == "ERROR" && childCount == 1 {
-			child := resultChildAt(node, 0)
-			if child != nil &&
-				!child.IsError() &&
-				!child.HasError() &&
-				child.startByte == node.startByte &&
-				child.endByte == node.endByte {
-				return child
-			}
-		}
 		return node
 	}
 	finalChildren := children
-	if node.Type(lang) == "ERROR" && len(finalChildren) == 1 {
-		child := finalChildren[0]
-		if child != nil &&
-			!child.IsError() &&
-			!child.HasError() &&
-			child.startByte == node.startByte &&
-			child.endByte == node.endByte {
-			return child
-		}
-	}
 	cloned := cloneNodeInArena(arena, node)
 	if arena != nil {
 		buf := arena.allocNodeSlice(len(finalChildren))
