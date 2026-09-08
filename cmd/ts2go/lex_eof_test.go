@@ -77,6 +77,7 @@ func TestImportedEOFChainValidation(t *testing.T) {
 		reject      bool
 	}{
 		{"end", "case 0: if (lookahead == 0) ADVANCE(1); END_STATE(); case 1: ACCEPT_TOKEN(ts_builtin_sym_end); END_STATE();", false},
+		{"sparse", "case 0: if (eof) ADVANCE(2); END_STATE(); case 2: ACCEPT_TOKEN(1); END_STATE();", false},
 		{"token", "case 0: if (lookahead == 0) ADVANCE(1); END_STATE(); case 1: ACCEPT_TOKEN(1); END_STATE();", false},
 		{"consumed_prefix", "case 0: if (lookahead == 'a') ADVANCE(1); END_STATE(); case 1: if (lookahead == 0) ADVANCE(2); END_STATE(); case 2: END_STATE();", true},
 		{"self_cycle", "case 0: if (lookahead == 0) ADVANCE(0); END_STATE();", true},

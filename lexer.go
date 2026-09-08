@@ -155,7 +155,8 @@ func NewLexer(states []LexState, source []byte) *Lexer {
 
 // Next lexes the next token starting from the given lex state index.
 // It automatically skips tokens from states where Skip=true (whitespace).
-// Returns a zero-Symbol token with StartByte==EndByte at EOF.
+// At EOF, grammar-defined zero-width tokens can precede the final zero-Symbol token.
+// The final token has StartByte equal to EndByte.
 func (l *Lexer) Next(startState uint32) Token {
 	return l.next(startState, false)
 }
@@ -189,6 +190,18 @@ func (l *Lexer) nextWithFrontier(startState uint32, emitErrorRuns bool, lookahea
 	for {
 		// EOF check.
 		if l.atLogicalEOF() {
+			// Honor an explicit EOF edge before returning the end token.
+			if int(startState) < len(l.states) && l.states[startState].EOF >= 0 {
+				var eofToken Token
+				if l.scanInto(startState, l.pos, l.row, l.col, &eofToken) && eofToken.Symbol != 0 {
+					if skippedPrefix {
+						eofToken.setLexFlag(tokenFlagSkippedPrefix, true)
+						eofToken.lexerSkippedPrefixStart = uint32(callStartPos)
+					}
+					eofToken.lexerLookaheadEndByte = maxUint32(lookaheadEndByte, eofToken.lexerLookaheadEndByte)
+					return eofToken
+				}
+			}
 			lookaheadEndByte = maxUint32(lookaheadEndByte, l.lookaheadEndByteAt(l.pos, false))
 			recordTokenInvariantReadSpan(l.tokenInvariantReadSpanMax, l.pos, l.lookaheadEndByteAt(l.pos, false))
 			return Token{

@@ -646,7 +646,7 @@ func (d *dfaTokenSource) Next() Token {
 				}
 				continue
 			}
-			if d.lexer.pos < len(d.lexer.source) {
+			if !d.lexer.atLogicalEOF() {
 				if DebugDFA.Load() {
 					fmt.Printf("  ZERO-WIDTH skip sym=%d at pos=%d state=%d\n", tok.Symbol, d.lexer.pos, d.state)
 				}
@@ -674,7 +674,7 @@ func (d *dfaTokenSource) Next() Token {
 				}
 			}
 			if d.zeroWidthCount > limit {
-				if d.lexer.pos < len(d.lexer.source) {
+				if !d.lexer.atLogicalEOF() {
 					if DebugDFA.Load() {
 						fmt.Printf("  ZERO-WIDTH cap skip at pos=%d state=%d sym=%d\n", d.lexer.pos, d.state, tok.Symbol)
 					}
