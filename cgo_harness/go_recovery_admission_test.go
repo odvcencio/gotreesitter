@@ -41,3 +41,50 @@ func TestGoMissingOperandCompactAdmissionLockedC(t *testing.T) {
 		t.Fatalf("compact recovery declined: %q", gts.AdmissionCandidateLastFallbackReason())
 	}
 }
+
+func TestGoIncompleteFunctionAdmissionLockedC(t *testing.T) {
+	source := []byte("package p\nfunc")
+	lang := grammars.GoLanguage()
+	cl, err := ParityCLanguage("go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp := sitter.NewParser()
+	defer cp.Close()
+	if err := cp.SetLanguage(cl); err != nil {
+		t.Fatal(err)
+	}
+	oracle := cp.Parse(source, nil)
+	if oracle == nil {
+		t.Fatal("C returned no tree")
+	}
+	defer oracle.Close()
+	for _, compact := range []bool{false, true} {
+		name := "production"
+		if compact {
+			name = "compact"
+		}
+		t.Run(name, func(t *testing.T) {
+			p := gts.NewParser(lang)
+			p.SetAdmissionCandidateRoute(compact)
+			routedBefore, fallbackBefore := gts.AdmissionCandidateCounters()
+			tree, err := p.Parse(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Release()
+			assertG18LockedCExact(t, name, tree, lang, oracle)
+			if !tree.RootNode().HasError() {
+				t.Fatal("incomplete function lost its error flag")
+			}
+			routed, fallback := gts.AdmissionCandidateCounters()
+			wantRouted := routedBefore
+			if compact {
+				wantRouted++
+			}
+			if routed != wantRouted || fallback != fallbackBefore {
+				t.Fatalf("unexpected route: routed=%d fallback=%d, want %d/%d", routed, fallback, wantRouted, fallbackBefore)
+			}
+		})
+	}
+}
