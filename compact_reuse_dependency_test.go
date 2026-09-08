@@ -498,3 +498,60 @@ func TestCompactReuseDependencyShortcutDoesNotReviveReceipt(t *testing.T) {
 		t.Fatal("the token-invariant shortcut revived an invalid receipt")
 	}
 }
+
+func TestCompactReuseDependencyReservedCapacityBudget(t *testing.T) {
+	a := newNodeArena(arenaClassIncremental)
+	nodes := make([]*Node, 4)
+	for i := range nodes {
+		nodes[i] = newLeafNodeInArena(a, 1, true, uint32(i), uint32(i+1), Point{Column: uint32(i)}, Point{Column: uint32(i + 1)})
+	}
+	baseline := a.allocatedBytes
+	const charge = 256 + 3*96
+	a.setBudget(charge - 1)
+	a.reserveCompactReuseDependencies(3)
+	if a.compactReuseDependencies != nil || a.allocatedBytes != baseline {
+		t.Fatal("unfunded reservation allocated storage")
+	}
+	a.setBudget(charge)
+	a.reserveCompactReuseDependencies(3)
+	if a.allocatedBytes != baseline+charge || a.compactReuseDependencyReserved != 3 {
+		t.Fatal("reservation did not charge storage before publication")
+	}
+	for _, node := range nodes[:3] {
+		if _, ok := compactReuseDependencyForNode(node); ok {
+			t.Fatal("reservation authenticated a node")
+		}
+		if !setCompactReuseDependency(node, 0) {
+			t.Fatal("funded insertion failed at the exact budget")
+		}
+	}
+	if setCompactReuseDependency(nodes[3], 0) {
+		t.Fatal("insertion beyond reserved capacity escaped the budget")
+	}
+	clearCompactReuseDependency(nodes[0])
+	if setCompactReuseDependency(nodes[3], 0) {
+		t.Fatal("deletion reclaimed a retained storage charge")
+	}
+	a.recomputeAllocatedBytes()
+	if a.allocatedBytes != baseline+charge {
+		t.Fatal("recomputation changed the reservation charge")
+	}
+	a.reset()
+	if a.compactReuseDependencyReserved != 0 || a.compactReuseDependencies != nil {
+		t.Fatal("reset retained the reservation")
+	}
+}
+
+func TestCompactReuseDependencyReservationDoesNotReplacePublishedMap(t *testing.T) {
+	tree, node := newCompactReuseDependencyTestTree(t)
+	defer tree.Release()
+	if !setCompactReuseDependency(node, 7) {
+		t.Fatal("setup failed")
+	}
+	a := node.ownerArena
+	before := a.allocatedBytes
+	a.reserveCompactReuseDependencies(100)
+	if extent, ok := compactReuseDependencyForNode(node); !ok || extent != 7 || a.allocatedBytes != before {
+		t.Fatal("reservation changed published storage or proof")
+	}
+}

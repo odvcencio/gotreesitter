@@ -128,6 +128,7 @@ type nodeArena struct {
 	compactReuseDependencyMu        sync.RWMutex
 	compactReuseDependencies        map[*Node]compactReuseDependency
 	compactReuseDependencyEntries   uint64
+	compactReuseDependencyReserved  uint64
 	compactReuseDependencyIndex     []compactReuseDependencyIndexEntry
 	compactReuseDependencyIndexed   bool
 	nodeFieldMetadataSlabs          []nodeFieldMetadataSlab
@@ -571,6 +572,7 @@ func (a *nodeArena) reset() {
 	a.resetMissingNodeDependencies()
 	a.compactReuseDependencies = nil
 	a.compactReuseDependencyEntries = 0
+	a.compactReuseDependencyReserved = 0
 	a.compactReuseDependencyIndex = nil
 	a.compactReuseDependencyIndexed = false
 	a.resetCompactCheckpointLeafSlabs()

@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"math"
 	"slices"
 	"unsafe"
 )
@@ -18,6 +19,30 @@ type compactReuseDependencyIndexEntry struct {
 	maxEnd uint64
 	start  uint32
 	live   bool
+}
+
+// Reserve the first publication once its authenticated count is known.
+// Charge all storage before allocation. If the budget cannot fund the batch,
+// keep the existing per-entry path. Reset releases the map and its reservation.
+func (arena *nodeArena) reserveCompactReuseDependencies(count int) {
+	if arena == nil || count <= 1 || uint64(count) > uint64((math.MaxInt64-256)/96) {
+		return
+	}
+	arena.compactReuseDependencyMu.Lock()
+	defer arena.compactReuseDependencyMu.Unlock()
+	if arena.compactReuseDependencies != nil {
+		return
+	}
+	cost := int64(count)*96 + 256
+	used := max(int64(0), arena.allocatedBytes-arena.budgetBaselineBytes)
+	if arena.budgetBytes > 0 && (used >= arena.budgetBytes || cost > arena.budgetBytes-used) {
+		return
+	}
+	arena.compactReuseDependencies = make(map[*Node]compactReuseDependency, count)
+	arena.compactReuseDependencyEntries = uint64(count)
+	arena.compactReuseDependencyReserved = uint64(count)
+	arena.compactReuseDependencyIndexed = false
+	arena.allocatedBytes += cost
 }
 
 // A receipt stores the examined extent beyond the node's end. Map membership
@@ -40,11 +65,14 @@ func setCompactReuseDependency(node *Node, lookaheadBytes uint32) bool {
 	// Include map growth and deleted slots. Do not reclaim the charge on deletion.
 	const entryBytes = int64(96)
 	cost := entryBytes
+	if arena.compactReuseDependencyReserved > 0 {
+		cost = 0
+	}
 	if arena.compactReuseDependencies == nil {
 		cost += 256
 	}
 	used := max(int64(0), arena.allocatedBytes-arena.budgetBaselineBytes)
-	if arena.budgetBytes > 0 && (used >= arena.budgetBytes || cost > arena.budgetBytes-used) {
+	if cost > 0 && arena.budgetBytes > 0 && (used >= arena.budgetBytes || cost > arena.budgetBytes-used) {
 		return false
 	}
 	if arena.compactReuseDependencies == nil {
@@ -52,7 +80,11 @@ func setCompactReuseDependency(node *Node, lookaheadBytes uint32) bool {
 	}
 	arena.compactReuseDependencies[node] = compactReuseDependency{node.startByte, node.endByte, lookaheadBytes, node.startPoint.Column}
 	arena.compactReuseDependencyIndexed = false
-	arena.compactReuseDependencyEntries++
+	if arena.compactReuseDependencyReserved > 0 {
+		arena.compactReuseDependencyReserved--
+	} else {
+		arena.compactReuseDependencyEntries++
+	}
 	arena.allocatedBytes += cost
 	return true
 }

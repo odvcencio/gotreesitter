@@ -195,11 +195,16 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 	} else {
 		mapBytes += otherScratchBytes
 	}
-	check := func() error {
+	checkAdditional := func(reservation uint64) error {
 		if err := poll(); err != nil {
 			return err
 		}
 		additional := arenaAllocatedVolume(arena)
+		if math.MaxUint64-additional < reservation {
+			additional = math.MaxUint64
+		} else {
+			additional += reservation
+		}
 		if math.MaxUint64-additional < mapBytes {
 			additional = math.MaxUint64
 		} else {
@@ -210,6 +215,7 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 		}
 		return nil
 	}
+	check := func() error { return checkAdditional(0) }
 	if err := check(); err != nil {
 		return err
 	}
@@ -259,6 +265,37 @@ func (s *diagnosticParserCoreGenericScheduler) publishCompactReuseDependencies(
 				return err
 			}
 		}
+	}
+	// Reserve only authenticated entries. Unknown projections cannot consume
+	// publication capacity or acquire a receipt through the reservation.
+	authenticated := 0
+	for _, candidate := range candidates {
+		if candidate.seen && !candidate.unknown {
+			authenticated++
+		}
+		visited++
+		if visited&255 == 0 {
+			if err := check(); err != nil {
+				return err
+			}
+		}
+	}
+	if authenticated > 1 {
+		arena.compactReuseDependencyMu.RLock()
+		needsReservation := arena.compactReuseDependencies == nil
+		arena.compactReuseDependencyMu.RUnlock()
+		if needsReservation {
+			if uint64(authenticated) > (math.MaxUint64-256)/96 {
+				return errors.New("compact reuse reservation storage overflow")
+			}
+			if err := checkAdditional(uint64(authenticated)*96 + 256); err != nil {
+				return err
+			}
+			arena.reserveCompactReuseDependencies(authenticated)
+		}
+	}
+	if err := check(); err != nil {
+		return err
 	}
 	for node, candidate := range candidates {
 		// A collapsed outer projection must not inherit an inner proof when
