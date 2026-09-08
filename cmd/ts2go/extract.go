@@ -7,12 +7,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"text/scanner"
 	"unicode/utf8"
 )
 
 // ExtractedGrammar holds all data extracted from a tree-sitter parser.c file.
 type ExtractedGrammar struct {
 	Name               string
+	LanguageVersion    int
 	StateCount         int
 	LargeStateCount    int
 	SymbolCount        int
@@ -269,6 +271,7 @@ func extractFieldMaps(source string, g *ExtractedGrammar) error {
 // extractConstants finds #define constants in the parser.c source.
 func extractConstants(source string, g *ExtractedGrammar) error {
 	defs := map[string]*int{
+		"LANGUAGE_VERSION":          &g.LanguageVersion,
 		"STATE_COUNT":               &g.StateCount,
 		"LARGE_STATE_COUNT":         &g.LargeStateCount,
 		"SYMBOL_COUNT":              &g.SymbolCount,
@@ -1836,74 +1839,140 @@ func extractLexStates(source string, g *ExtractedGrammar) error {
 // Returns nil (not error) if the array is not found (ABI < 15).
 func extractReservedWords(source string, g *ExtractedGrammar) error {
 	// Find the array declaration to extract dimensions.
-	dimRe := regexp.MustCompile(`ts_reserved_words\[(\d+)\]\[(\d+)\]`)
+	dimRe := regexp.MustCompile(`ts_reserved_words\s*\[\s*(\w+)\s*\]\s*\[\s*(\w+)\s*\]`)
 	dm := dimRe.FindStringSubmatch(source)
 	if dm == nil {
+		for _, mode := range g.LexModes {
+			if mode.ReservedWordSetID != 0 {
+				return errors.New("reserved-word set reference has no table dimensions")
+			}
+		}
 		// Not an ABI 15 grammar — gracefully skip.
 		return nil
 	}
-	setCount, _ := strconv.Atoi(dm[1])
-	setSize, _ := strconv.Atoi(dm[2])
-	if setCount == 0 || setSize == 0 {
-		return nil
+	constants := extractEnum(source)
+	for _, match := range regexp.MustCompile(`(?m)^\s*#define\s+(\w+)\s+(\d+)\s*$`).FindAllStringSubmatch(source, -1) {
+		value, err := strconv.Atoi(match[2])
+		if err == nil {
+			constants[match[1]] = value
+		}
+	}
+	setCount, countOK := resolveIndexedName(dm[1], constants)
+	setSize, sizeOK := resolveIndexedName(dm[2], constants)
+	if !countOK || !sizeOK || setCount <= 0 || setSize <= 0 ||
+		setCount > 65536 || setSize > 65535 || setCount > (1<<24)/setSize {
+		return fmt.Errorf("invalid reserved-word dimensions %s by %s", dm[1], dm[2])
 	}
 	g.MaxReservedWordSetSize = setSize
+	for _, mode := range g.LexModes {
+		if mode.ReservedWordSetID < 0 || mode.ReservedWordSetID >= setCount {
+			return fmt.Errorf("reserved-word mode index %d exceeds %d sets", mode.ReservedWordSetID, setCount)
+		}
+	}
 
 	body, err := findArrayBody(source, "ts_reserved_words")
 	if err != nil {
-		// Array declared but body not found — skip gracefully.
-		return nil
+		return fmt.Errorf("reserved-word table: %w", err)
 	}
 
 	// Allocate flat array: setCount * setSize, zero-filled.
 	flat := make([]uint16, setCount*setSize)
 
-	// Parse indexed entries: [N] = { sym1, sym2, ..., 0, 0 }
-	idxRe := regexp.MustCompile(`\[(\w+)\]\s*=\s*\{`)
-	locs := idxRe.FindAllStringSubmatchIndex(body, -1)
-
-	for _, loc := range locs {
-		name := body[loc[2]:loc[3]]
-		setIdx, ok := resolveIndexedName(name, g.enumValues)
-		if !ok || setIdx < 0 || setIdx >= setCount {
-			continue
-		}
-
-		// Find matching closing brace.
-		braceStart := loc[1] - 1
-		depth := 0
-		end := braceStart
-		for i := braceStart; i < len(body); i++ {
-			if body[i] == '{' {
-				depth++
-			} else if body[i] == '}' {
-				depth--
-				if depth == 0 {
-					end = i
-					break
-				}
-			}
-		}
-
-		inner := body[braceStart+1 : end]
-		// Parse comma-separated symbols/numbers.
-		tokenRe := regexp.MustCompile(`\b([A-Za-z_]\w*|\d+)\b`)
-		toks := tokenRe.FindAllStringSubmatch(inner, -1)
-		offset := setIdx * setSize
-		for i, t := range toks {
-			if i >= setSize {
-				break
-			}
-			sym, ok := resolveIndexedName(t[1], g.enumValues)
-			if !ok {
-				continue
-			}
-			flat[offset+i] = uint16(sym)
-		}
+	if err := extractReservedWordRows(body, g.enumValues, constants, flat, setCount, setSize); err != nil {
+		return err
 	}
 
 	g.ReservedWords = flat
 	return nil
+}
+
+// extractReservedWordRows consumes designated rows completely. Comments are
+// whitespace; unsupported C expressions and positional rows are rejected.
+func extractReservedWordRows(body string, symbols, constants map[string]int, flat []uint16, setCount, setSize int) error {
+	var input scanner.Scanner
+	input.Init(strings.NewReader(body))
+	input.Mode = scanner.ScanIdents | scanner.ScanInts | scanner.ScanComments | scanner.SkipComments
+	var scanErr error
+	input.Error = func(_ *scanner.Scanner, message string) {
+		if scanErr == nil {
+			scanErr = fmt.Errorf("reserved-word table: %s", message)
+		}
+	}
+	token := input.Scan()
+	expect := func(want rune) error {
+		if scanErr != nil {
+			return scanErr
+		}
+		if token != want {
+			return fmt.Errorf("reserved-word table: expected %q, got %q", want, input.TokenText())
+		}
+		token = input.Scan()
+		return scanErr
+	}
+	atom := func(names map[string]int) (int, error) {
+		if scanErr != nil {
+			return 0, scanErr
+		}
+		if token != scanner.Int && token != scanner.Ident {
+			return 0, fmt.Errorf("unsupported reserved-word value %q", input.TokenText())
+		}
+		value, ok := resolveIndexedName(input.TokenText(), names)
+		if !ok {
+			return 0, fmt.Errorf("invalid reserved-word value %q", input.TokenText())
+		}
+		token = input.Scan()
+		return value, scanErr
+	}
+	seen := make(map[int]bool)
+	for token != scanner.EOF {
+		if err := expect('['); err != nil {
+			return err
+		}
+		row, err := atom(constants)
+		if err != nil {
+			return err
+		}
+		if row < 0 || row >= setCount || seen[row] {
+			return fmt.Errorf("invalid or duplicate reserved-word set index %d", row)
+		}
+		seen[row] = true
+		for _, delimiter := range []rune{']', '=', '{'} {
+			if err := expect(delimiter); err != nil {
+				return err
+			}
+		}
+		column := 0
+		for token != '}' {
+			value, err := atom(symbols)
+			if err != nil {
+				return err
+			}
+			if value < 0 || value > 65535 {
+				return fmt.Errorf("invalid reserved-word symbol %d", value)
+			}
+			if column >= setSize {
+				return fmt.Errorf("reserved-word set %d exceeds stride %d", row, setSize)
+			}
+			flat[row*setSize+column] = uint16(value)
+			column++
+			if token == '}' {
+				break
+			}
+			if err := expect(','); err != nil {
+				return err
+			}
+		}
+		if err := expect('}'); err != nil {
+			return err
+		}
+		if token == scanner.EOF {
+			break
+		}
+		if err := expect(','); err != nil {
+			return err
+		}
+	}
+	return scanErr
 }
 
 // extractSupertypes parses the ABI 15 supertype arrays:

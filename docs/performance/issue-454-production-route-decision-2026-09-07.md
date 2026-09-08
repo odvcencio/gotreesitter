@@ -119,6 +119,128 @@ requires the fresh-parse tree with under 800 thousand nodes built. Ordinary
 keystrokes never reach the budget: they reuse most of the source long
 before the node count grows.
 
+## Compact cost, round two
+
+Measured on the Go fixture in one process: the compact scheduler run takes
+84.8 ms and materialization 15.6 ms against a 59.3 ms production parse. Passes
+are 82 percent single-header, and the existing C4 corridor lane covers 97
+percent of those without changing time, because its reduce still runs the
+generic apply. On the real route the largest flat cost was large-record
+copies at 12 percent, then link validation at 5 percent.
+
+The cuts in this round: the fused replay (one full-derivation pass fewer),
+the dead election record, narrow reuse-dependency accessors, in-place
+election and header updates, pointer reads for headers, reduction outputs,
+pop paths, boundary outputs, and canonical groups, and the direct-append
+condense reading the predecessor it already holds. (An in-place
+single-header canonicalization was tried and reverted for the double-buffer
+copy; it is not part of the result.) Result: about 6 percent on every
+measured grammar. The gap is structural from here.
+
+## Eager materialization lane
+
+The materializer is now a struct the scheduler can drive during the run.
+With `GTS_COMPACT_EAGER=1` every single-header shift and every in-place
+reduction builds its public node at once, and the postorder pass skips the
+subtrees that already own a node. On every Go witness the lane builds the
+whole tree before acceptance and publishes the same tree, the same replay
+stamps, and the same work as the postorder pass.
+
+Measured on the Go 137 KiB witness in four interleaved rounds (minimum of
+nine parses each, milliseconds): previous build 88.5 to 93.5, extraction
+with the lane off 88.3 to 93.4, lane on 97.8 to 104.8. The extraction is
+neutral. The lane alone costs about ten percent: construction interleaved
+with dispatch loses the locality of the batch pass, and the compact core
+still writes every subtree, link, and lineage record. The lane therefore
+stays off. It is the construction half of program item 3, and the gain
+arrives with item 1: once a single-header stretch builds public nodes
+directly, the core must stop writing the records those nodes replace.
+
+## Corridor default and the canonical probe
+
+The compact scheduler ran a canonical-boundary probe after every dispatch.
+A single header that holds a node the dispatch just published gains
+nothing from the probe: a fresh node is the latest node of its phase
+identity, so the probe returns the head the header already holds. The
+generic shift, the in-place reduction, and the corridor direct shift now
+skip the probe on that shape and keep the barrier count.
+
+With the skip in place the C4 bytecode corridor (default off since stage
+2) runs faster than the generic pass on 14 of 15 bench grammars at 137 KiB
+(minimum of nine parses, three rounds, corridor on over corridor off):
+
+| Grammar | Off, ms | On, ms | Ratio |
+| --- | --- | --- | --- |
+| Go | 89.8 | 86.6 | 0.96 |
+| C | 68.9 | 65.6 | 0.95 |
+| hcl | 110.4 | 103.7 | 0.94 |
+| TypeScript | 66.7 | 62.9 | 0.94 |
+| JSON | 63.8 | 52.7 | 0.83 |
+| TOML | 57.6 | 51.1 | 0.89 |
+| Python | 123.5 | 115.4 | 0.94 |
+| Rust | 75.0 | 69.7 | 0.93 |
+| INI | 42.2 | 38.2 | 0.91 |
+| Scala | 105.7 | 99.7 | 0.94 |
+| CSS | 50.2 | 41.3 | 0.82 |
+| Make | 54.7 | 44.6 | 0.82 |
+| CMake | 127.4 | 120.1 | 0.94 |
+| Haskell | 86.2 | 86.5 | 1.00 |
+| diff | 29.7 | 24.3 | 0.82 |
+
+These exploratory results do not satisfy the required randomized benchmark
+comparison. They predate the review fixes and the benchmark lifetime fix.
+A JavaScript recovery mutation also exposed a corridor tree mismatch.
+The corridor remains opt-in through `GTS_C4_CORRIDOR=1` pending broader
+correctness validation and new performance measurements.
+
+## Recorded parse states: an open finding
+
+Program item 2 proposes that the core record the parse state it pushes
+each subtree into, so materialization stops replaying the tables. A trial
+recorded the shift target and the reduction goto per subtree, gave every
+trailing extra a reduction migrates that reduction's goto state again, and
+compared the result with the fused replay on every canonical Go fixture.
+Terminals and extras then agree. Reductions inside condensed diamonds do
+not: on `startByte, endByte uint32` the accepted derivation's
+`parameter_declaration` carries the goto state of the branch that reduced
+it, while the tree-position replay computes the goto from the state after
+the previous sibling, and the two branches reached that sibling in
+different states. The grammargen fixture shows 71 such visible
+non-terminal differences. The reuse gate reads those stamps, so the
+recorded state is not a drop-in replacement. Item 2 needs a decision on
+which state a node inside a merge should carry before it can land; the
+trial is not in the tree.
+
+## Historical exploratory result
+
+The 137 KiB full parse, minimum of nine parses over two rounds, on the
+same host and load: the compact route at commit 88d3f926, the compact route
+at the earlier measurement head f4cf343b, and production in that binary.
+The table does not describe the current reviewed implementation.
+
+| Grammar | Start, ms | Now, ms | Production, ms | Now / start | Now / production |
+| --- | --- | --- | --- | --- | --- |
+| Go | 88.4 | 79.5 | 63.6 | 0.90 | 1.25 |
+| C | 69.3 | 64.2 | 99.7 | 0.93 | 0.64 |
+| hcl | 113.6 | 103.0 | 60.4 | 0.91 | 1.71 |
+| TypeScript | 71.8 | 62.9 | 44.3 | 0.88 | 1.42 |
+| JSON | 65.9 | 57.6 | 41.7 | 0.87 | 1.38 |
+| TOML | 60.8 | 53.6 | 33.6 | 0.88 | 1.59 |
+| Python | 130.1 | 113.5 | 157.2 | 0.87 | 0.72 |
+| Rust | 75.6 | 67.7 | 49.4 | 0.90 | 1.37 |
+| INI | 45.1 | 37.0 | 28.5 | 0.82 | 1.30 |
+| Scala | 111.4 | 101.3 | 62.4 | 0.91 | 1.63 |
+| CSS | 52.3 | 46.4 | 30.0 | 0.89 | 1.54 |
+| Make | 56.5 | 48.7 | 33.7 | 0.86 | 1.45 |
+| CMake | 141.4 | 120.0 | 83.6 | 0.85 | 1.44 |
+| Haskell | 86.2 | 80.8 | 77.8 | 0.94 | 1.04 |
+| diff | 31.6 | 25.6 | 17.6 | 0.81 | 1.45 |
+
+The earlier sample suggested improvements of 6 to 19 percent.
+It does not establish gains after the correctness and benchmark fixes.
+Run `scripts/run_randomized_benchmarks.sh` on the corrected baseline and
+candidate before making retention or release decisions from performance.
+
 ## Compact program
 
 The compact scheduler profile on Go at 137 KiB splits as: scheduler run 76

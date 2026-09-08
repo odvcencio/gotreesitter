@@ -59,8 +59,11 @@ A CPU profile of twenty compact full parses of the 137 KiB Go fixture at
 - The memory-budget poll now caches the last exact footprint. It reuses that
   value for up to 64 polls while the value, plus the caller's additional bytes,
   stays below half of the smallest armed threshold. From half the threshold
-  upward every poll runs the exact walk, so the trip point near a budget does
-  not move. The gauge resets at scheduler run start.
+  upward every poll runs the exact walk. Below that line the footprint can
+  grow by what up to 64 dispatches allocate before the next exact walk, so a
+  budget can be exceeded by that much before the stop; the gauge bounds the
+  stale value, not the growth between polls. The gauge resets at scheduler
+  run start.
 - The checkpoint interner compares a new serialization against the most
   recently interned record before hashing. Scanner state rarely changes
   between tokens, so most interns return without a digest.

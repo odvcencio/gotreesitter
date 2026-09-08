@@ -158,32 +158,40 @@ func (c *Core) recordNodeLineage(head Head, rank CleanPathRankSelection, lineage
 }
 
 // RecordHeadOwnerOwned binds one compact head to its scheduler lineage.
-func (c *Core) RecordHeadOwnerOwned(owner SchedulerTransactionToken, head Head, lineage uint32) error {
-	return c.RunSchedulerOwned(owner, func() error {
-		if lineage == 0 {
-			return errors.New("parser-core phase zero: zero scheduler lineage")
-		}
-		node, err := c.nodeLineage(head.Node)
-		if err != nil {
-			return err
-		}
-		if node.owner == lineage {
-			return nil
-		}
-		if node.owner != 0 {
-			return errors.New("parser-core phase zero: compact head has multiple scheduler owners")
-		}
-		if len(c.transactions) != 0 {
-			c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
-				node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
-				setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
-				lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
-				storedErrorCost: node.storedErrorCost,
-			})
-		}
-		node.owner = lineage
+func (c *Core) RecordHeadOwnerOwned(owner SchedulerTransactionToken, head Head, lineage uint32) (err error) {
+	// This runs once per dispatch, so it takes the begin/finish halves of
+	// RunSchedulerOwned directly instead of allocating a closure per call.
+	if err = c.beginSchedulerOwned(owner); err != nil {
+		return err
+	}
+	defer c.recoverSchedulerOwnedPanic(owner)
+	return c.finishSchedulerOwned(owner, c.recordHeadOwner(head, lineage))
+}
+
+func (c *Core) recordHeadOwner(head Head, lineage uint32) error {
+	if lineage == 0 {
+		return errors.New("parser-core phase zero: zero scheduler lineage")
+	}
+	node, err := c.nodeLineage(head.Node)
+	if err != nil {
+		return err
+	}
+	if node.owner == lineage {
 		return nil
-	})
+	}
+	if node.owner != 0 {
+		return errors.New("parser-core phase zero: compact head has multiple scheduler owners")
+	}
+	if len(c.transactions) != 0 {
+		c.nodeLineageJournal = append(c.nodeLineageJournal, nodeLineageMutation{
+			node: head.Node, owner: node.owner, dropCohortRefs: node.dropCohortRefs,
+			setCount: node.set.count, setFlags: node.set.flags, setSpillRef: node.set.spillRef,
+			lineage: node.lineage, rank: node.rank, converged: node.converged, blended: node.blended,
+			storedErrorCost: node.storedErrorCost,
+		})
+	}
+	node.owner = lineage
+	return nil
 }
 
 // RecordHeadStoredErrorCostOwned publishes the exact C stack-node error cost
@@ -1092,6 +1100,7 @@ func (c *Core) shiftClassifiedUncheckpointed(boundary ClassifiedBoundary, action
 	if err != nil {
 		return Head{}, err
 	}
+	c.lastShiftFresh = outcome.change == condenseNew
 	c.addWork(&c.work.Shifts, 1)
 	return outcome.head, nil
 }
@@ -1131,8 +1140,17 @@ func (c *Core) shiftDirectUncheckpointed(
 	if err != nil {
 		return Head{}, err
 	}
+	c.lastShiftFresh = outcome.change == condenseNew
 	c.addWork(&c.work.Shifts, 1)
 	return outcome.head, nil
+}
+
+// LastShiftFresh reports whether the most recent single-boundary shift
+// published a new node instead of condensing into an existing one. A fresh
+// node is the latest node of its phase identity, so a single header that
+// holds it needs no canonical-boundary replacement.
+func (c *Core) LastShiftFresh() bool {
+	return c != nil && c.lastShiftFresh
 }
 
 // ShiftOrdinaryClassifiedCohortOwned authenticates the scheduler owner, then
@@ -1676,13 +1694,17 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 	if act.Type != ActionReduce {
 		return nil, fmt.Errorf("parser-core phase zero: action %d is %v, not reduce", actionOrdinal, act.Type)
 	}
-	expectedHistoricalAction := DropCohortActionIdentity{
-		BoundaryState: boundary.state,
-		Lookahead:     boundary.lookahead,
-		ActionOrdinal: int32(actionOrdinal),
-		Action:        *act,
-		NoLookahead:   c.reduceNoLookaheadContext,
-		Selection:     c.dropCohortSelectionContext,
+	// expectedHistoricalAction is read only under historical certificate
+	// authentication; build it on that branch instead of on every reduce.
+	expectedHistoricalAction := func() DropCohortActionIdentity {
+		return DropCohortActionIdentity{
+			BoundaryState: boundary.state,
+			Lookahead:     boundary.lookahead,
+			ActionOrdinal: int32(actionOrdinal),
+			Action:        *act,
+			NoLookahead:   c.reduceNoLookaheadContext,
+			Selection:     c.dropCohortSelectionContext,
+		}
 	}
 	source, err := c.nodeLineage(boundary.head.Node)
 	if err != nil {
@@ -1711,9 +1733,11 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 	c.addWork(&c.work.Reductions, 1)
 	c.addWork(&c.work.ReductionPopRequests, 1)
 	c.addWork(&c.work.EmittedPopPaths, uint64(len(paths)))
-	for _, path := range paths {
-		c.addWork(&c.work.EmittedPopPayloads, uint64(len(path.children)+len(path.trailing)))
+	emittedPayloads := uint64(0)
+	for index := range paths {
+		emittedPayloads += uint64(len(paths[index].children) + len(paths[index].trailing))
 	}
+	c.addWork(&c.work.EmittedPopPayloads, emittedPayloads)
 	scratch := &c.reductionScratch
 	// len(paths) > 1 is this reduce's pop.size > 1 (a GSS multi-pop / diamond
 	// merge): more than one distinct way to pop act.ChildCount entries was
@@ -1739,7 +1763,8 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 			markCleanPathRankUnknown(paths)
 		}
 	}
-	for _, path := range paths {
+	for pathIndex := range paths {
+		path := &paths[pathIndex]
 		prev, err := c.node(path.prev)
 		if err != nil {
 			return nil, err
@@ -1752,7 +1777,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 			return nil, fmt.Errorf("parser-core phase zero: no goto from state %d for reduced symbol %d", prev.state, act.Symbol)
 		}
 		key := c.boundaryKey(gotoState, path.structuralEnd)
-		payload, scoreDelta, order, err := c.reductionParentForPath(*act, &plan, path, key, fork, multiPop, scratch)
+		payload, scoreDelta, order, err := c.reductionParentForPath(*act, &plan, *path, key, fork, multiPop, scratch)
 		if err != nil {
 			return nil, err
 		}
@@ -1806,9 +1831,10 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 			}
 		}
 		boundaryIndex, seen := scratch.boundary(key)
-		var previous reductionBoundaryOutput
+		var previousStore reductionBoundaryOutput
+		previous := &previousStore
 		if seen {
-			previous = scratch.boundaries[boundaryIndex]
+			previous = &scratch.boundaries[boundaryIndex]
 		}
 		freshness := previous.freshness
 		cleanPathRank := mergeCleanPathRank(previous.cleanPathRank, path.cleanPathRank)
@@ -1893,7 +1919,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 						}
 					}
 					if !c.authenticateHistoricalDropCohortImport(
-						owner, outcome.historicalDropCohortRefs, outcome.historicalNode, expectedHistoricalAction,
+						owner, outcome.historicalDropCohortRefs, outcome.historicalNode, expectedHistoricalAction(),
 					) {
 						markUnproved()
 					} else if dead, err := c.nodeLineage(outcome.historicalNode); err != nil {
@@ -1929,7 +1955,7 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 		if err != nil {
 			return nil, err
 		}
-		scratch.store(boundaryIndex, seen, reductionBoundaryOutput{
+		scratch.store(boundaryIndex, seen, &reductionBoundaryOutput{
 			key: key, head: out, links: linkChain, freshness: freshness, cleanPathRank: cleanPathRank,
 			dropCohortRefs:                dropCohortRefs,
 			historicalBoundarySplit:       historicalBoundarySplit,
@@ -1941,7 +1967,8 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 			historicalBlended:             historicalBlended,
 		})
 	}
-	for _, output := range scratch.boundaries {
+	for index := range scratch.boundaries {
+		output := &scratch.boundaries[index]
 		historicalProvenance := HistoricalBoundaryNone
 		switch {
 		case output.historicalConvergedSplit:

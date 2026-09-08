@@ -1641,7 +1641,7 @@ func (d *dfaTokenSource) scanDFATokenForStateInto(state StateID, lexState uint32
 	if !keywordDemoted {
 		d.promoteActiveLiteralForCurrentState(tok, savedPos, savedRow, savedCol)
 	}
-	if d.language.Name == "swift" {
+	if d.language != nil && d.language.Name == "swift" {
 		*tok = d.demoteSwiftMemberKeyword(*tok)
 	}
 	endPos, endRow, endCol := d.normalizeDFAToken(tok, d.lexer.pos, d.lexer.row, d.lexer.col)
@@ -3082,6 +3082,7 @@ type dfaRelexSnapshot struct {
 	failTokenStartRow      uint32
 	failTokenStartCol      uint32
 	failTokenStartRangeIdx int
+	failTokenEnd           includedLexerCursor
 
 	externalPayload []byte
 
@@ -3112,6 +3113,7 @@ func (s dfaRelexSnapshot) equal(other dfaRelexSnapshot) bool {
 		s.failTokenStartRow == other.failTokenStartRow &&
 		s.failTokenStartCol == other.failTokenStartCol &&
 		s.failTokenStartRangeIdx == other.failTokenStartRangeIdx &&
+		s.failTokenEnd == other.failTokenEnd &&
 		bytes.Equal(s.externalPayload, other.externalPayload) &&
 		s.lastExternalTokenStartByte == other.lastExternalTokenStartByte &&
 		s.lastExternalTokenEndByte == other.lastExternalTokenEndByte &&
@@ -3203,6 +3205,7 @@ func (d *dfaTokenSource) snapshotRelexStateIntoScratch(scratch *dfaRelexSnapshot
 		failTokenStartRow:           d.lexer.failTokenStartRow,
 		failTokenStartCol:           d.lexer.failTokenStartCol,
 		failTokenStartRangeIdx:      d.lexer.failTokenStartRangeIdx,
+		failTokenEnd:                d.lexer.failTokenEnd,
 		lastExternalTokenStartByte:  d.lastExternalTokenStartByte,
 		lastExternalTokenEndByte:    d.lastExternalTokenEndByte,
 		lastExternalTokenValid:      d.lastExternalTokenValid,
@@ -3238,8 +3241,10 @@ func prepareDFARelexExternalPayloadScratch(scratch *dfaRelexSnapshotScratch) []b
 		}
 		scratch.externalPayload = make([]byte, externalScannerSerializationBufferSize)
 	} else {
+		// Every reader uses the serialized prefix [:n] the caller sets, so the
+		// buffer beyond it never needs clearing on reuse (issue #454: this
+		// clear ran once per election).
 		scratch.externalPayload = scratch.externalPayload[:externalScannerSerializationBufferSize]
-		clear(scratch.externalPayload)
 	}
 	return scratch.externalPayload
 }
@@ -3263,6 +3268,7 @@ func (d *dfaTokenSource) snapshotRelexStateWithExternalBuffer(buf []byte) (dfaRe
 		failTokenStartRow:           d.lexer.failTokenStartRow,
 		failTokenStartCol:           d.lexer.failTokenStartCol,
 		failTokenStartRangeIdx:      d.lexer.failTokenStartRangeIdx,
+		failTokenEnd:                d.lexer.failTokenEnd,
 		lastExternalTokenStartByte:  d.lastExternalTokenStartByte,
 		lastExternalTokenEndByte:    d.lastExternalTokenEndByte,
 		lastExternalTokenValid:      d.lastExternalTokenValid,
@@ -3305,6 +3311,7 @@ func (s dfaRelexSnapshot) restore(d *dfaTokenSource) {
 	d.lexer.failTokenStartRow = s.failTokenStartRow
 	d.lexer.failTokenStartCol = s.failTokenStartCol
 	d.lexer.failTokenStartRangeIdx = s.failTokenStartRangeIdx
+	d.lexer.failTokenEnd = s.failTokenEnd
 	d.externalLookaheadEndByte = s.externalLookaheadEndByte
 	if d.hasExternalScanner && d.language != nil && d.language.ExternalScanner != nil {
 		d.language.ExternalScanner.Deserialize(d.externalPayload, s.externalPayload)
