@@ -153,38 +153,40 @@ func TestRealGoTableAdapterPreservesPinnedProperties(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantConflict := []core.Action{{Type: core.ActionReduce, Symbol: 171, ChildCount: 1}, {Type: core.ActionShift, State: 194}}
-	if lang.LargeStateCount != 2 || lang.SmallParseTableMap[18] != 814 {
-		t.Fatalf("Go sparse identity drifted: large=%d offset=%d", lang.LargeStateCount, lang.SmallParseTableMap[18])
+	// Verify witnesses from src/parser.c at the Go revision in languages.lock.
+	// Sparse state 237 uses actions 608 and 611 for dot and left parenthesis.
+	wantConflict := []core.Action{{Type: core.ActionReduce, Symbol: 169, ChildCount: 1}, {Type: core.ActionShift, State: 1351}}
+	if lang.LargeStateCount != 29 || lang.SmallParseTableMap[208] != 24145 {
+		t.Fatalf("Go sparse identity drifted: large=%d offset=%d", lang.LargeStateCount, lang.SmallParseTableMap[208])
 	}
-	if index, _ := adapter.lookup(20, 4); index != 106 {
-		t.Fatalf("Go cell (20,4) index=%d want=106", index)
+	if index, _ := adapter.lookup(237, 7); index != 608 {
+		t.Fatalf("Go cell (237,7) index=%d want=608", index)
 	}
-	if got, err := compact.Actions(20, 4); err != nil || !reflect.DeepEqual(actionRowValues(got), wantConflict) {
+	if got, err := compact.Actions(237, 7); err != nil || !reflect.DeepEqual(actionRowValues(got), wantConflict) {
 		t.Fatalf("Go conflict actions=%+v err=%v", got, err)
 	}
-	wantReduce := []core.Action{{Type: core.ActionReduce, Symbol: 121, ChildCount: 1, DynamicPrecedence: -1, ProductionID: 44}, {Type: core.ActionReduce, Symbol: 171, ChildCount: 1}}
-	if index, _ := adapter.lookup(20, 6); index != 107 {
-		t.Fatalf("Go cell (20,6) index=%d want=107", index)
+	wantReduce := []core.Action{{Type: core.ActionReduce, Symbol: 119, ChildCount: 1, DynamicPrecedence: -1, ProductionID: 1}, {Type: core.ActionReduce, Symbol: 169, ChildCount: 1}}
+	if index, _ := adapter.lookup(237, 9); index != 611 {
+		t.Fatalf("Go cell (237,9) index=%d want=611", index)
 	}
-	if got, err := compact.Actions(20, 6); err != nil || !reflect.DeepEqual(actionRowValues(got), wantReduce) {
+	if got, err := compact.Actions(237, 9); err != nil || !reflect.DeepEqual(actionRowValues(got), wantReduce) {
 		t.Fatalf("Go reduction actions=%+v err=%v", got, err)
 	}
-	if state, err := adapter.Goto(1, 121); err != nil || state != 101 {
-		t.Fatalf("Go goto (1,121)=%d err=%v want=101", state, err)
+	if state, err := adapter.Goto(1, 119); err != nil || state != 1340 {
+		t.Fatalf("Go goto (1,119)=%d err=%v want=1340", state, err)
 	}
-	fields, err := adapter.ProductionFields(44, 1)
+	fields, err := adapter.ProductionFields(1, 1)
 	if err != nil || len(fields) != 0 {
-		t.Fatalf("Go production 44 fields=%v err=%v want empty", fields, err)
+		t.Fatalf("Go production 1 fields=%v err=%v want empty", fields, err)
 	}
-	aliases, err := adapter.ProductionAliases(44, 1)
-	if err != nil || !slices.Equal(aliases, []core.Symbol{229}) {
-		t.Fatalf("Go production 44 aliases=%v err=%v want [229]", aliases, err)
+	aliases, err := adapter.ProductionAliases(1, 1)
+	if err != nil || !slices.Equal(aliases, []core.Symbol{218}) {
+		t.Fatalf("Go production 1 aliases=%v err=%v want [218]", aliases, err)
 	}
 	if aliases, err := adapter.ProductionAliases(0, 1); err != nil || aliases != nil {
 		t.Fatalf("Go nil alias row=%v err=%v", aliases, err)
 	}
-	if aliases, err := adapter.ProductionAliases(44, 2); err != nil || !slices.Equal(aliases, []core.Symbol{229, 0}) {
-		t.Fatalf("Go short alias row=%v err=%v want [229 0]", aliases, err)
+	if aliases, err := adapter.ProductionAliases(1, 2); err != nil || !slices.Equal(aliases, []core.Symbol{218, 0}) {
+		t.Fatalf("Go short alias row=%v err=%v want [218 0]", aliases, err)
 	}
 }
