@@ -123,15 +123,9 @@ func (c *Core) buildSelectedStoreOnePass(roots []SubtreeID, policy SelectedStore
 					}
 					alias = c.aliases[record.firstAlias+ordinal]
 				}
-				var field FieldID
-				for _, entry := range c.fields[record.firstField : record.firstField+record.fieldCount] {
-					if uint32(entry.ChildIndex) != ordinal {
-						continue
-					}
-					if entry.Inherited || field != 0 {
-						return nil, errors.New("parser-core phase zero: selected field profile is outside admitted direct single-field scope")
-					}
-					field = entry.FieldID
+				field, err := c.selectedDirectChildField(*record, ordinal)
+				if err != nil {
+					return nil, err
 				}
 				if err := push(payload, alias, field); err != nil {
 					return nil, err

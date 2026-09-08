@@ -375,6 +375,21 @@ func TestSelectedStoreDeclinesUnsupportedFieldProfile(t *testing.T) {
 	if err == nil || store != nil || !strings.Contains(err.Error(), "outside admitted") {
 		t.Fatalf("unsupported field store=%v err=%v", store, err)
 	}
+	if !strings.Contains(err.Error(), "symbol=2 production=0 child=0 field=1 inherited=true prior_field=0") {
+		t.Fatalf("field rejection lacks production context: %v", err)
+	}
+}
+
+func TestSelectedDirectChildFieldRejectsConflictingFields(t *testing.T) {
+	c := &Core{fields: []FieldMapEntry{{FieldID: 1, ChildIndex: 0}, {FieldID: 2, ChildIndex: 0}}}
+	record := subtreeRecord{symbol: 3, productionID: 7, fieldCount: 2}
+	if field, err := c.selectedDirectChildField(record, 1); err != nil || field != 0 {
+		t.Fatalf("unassigned child field=%d err=%v", field, err)
+	}
+	field, err := c.selectedDirectChildField(record, 0)
+	if field != 0 || err == nil || !strings.Contains(err.Error(), "symbol=3 production=7 child=0 field=2 inherited=false prior_field=1") {
+		t.Fatalf("conflicting field=%d err=%v", field, err)
+	}
 }
 
 type selectedStorePolicyTable struct {
