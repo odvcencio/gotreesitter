@@ -1222,10 +1222,10 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryRecoveryTransaction(index in
 	if !lexicalError && s.token.Symbol == errorSymbol {
 		return false, nil
 	}
-	// Shared resumes and sibling drops lack owned advance ordering.
+	// Shared regions, resumes, and sibling drops lack owned advance ordering.
 	// An earlier owned region can finish before this recovery episode starts.
 	if s.options.allowCompactRecoveryVersionTurns &&
-		(s.s3ResumeCount != 0 || s.work.NoActionDrops != 0) {
+		((s.s3RegionOpened && !s.recoveryTurns.active) || s.s3ResumeCount != 0 || s.work.NoActionDrops != 0) {
 		return false, &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreRecovery,
 			detail:   "owned recovery requires no prior shared recovery or no-action drops",

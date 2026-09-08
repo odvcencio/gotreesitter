@@ -74,7 +74,7 @@ func TestCompactRecoveryVersionTurnRejectsSharedPublication(t *testing.T) {
 			tree.Release()
 		}
 		if routed || reason == "" {
-			t.Fatalf("shared recovery route=%t reason=%q", routed, reason)
+			t.Fatalf("shared recovery source=%q route=%t reason=%q", source, routed, reason)
 		}
 	}
 	// Check publication independently of the grammar's earlier decline boundary.

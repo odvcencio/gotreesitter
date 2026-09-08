@@ -215,16 +215,20 @@ func TestRecoveryZeroWidthTokenResumesBeforeAbsorption(t *testing.T) {
 }
 
 func TestRecoveryOwnedEpisodeAdmissionPreservesSharedGuards(t *testing.T) {
-	for _, guard := range []string{"completed_owned_episode", "shared_resume", "no_action_drop"} {
+	for _, guard := range []string{"completed_owned_episode", "shared_region", "shared_resume", "no_action_drop"} {
 		t.Run(guard, func(t *testing.T) {
 			s := newRecoveryLineageForkScheduler(t, true)
 			s.options.MaxDispatches = 100
 			s.options.allowCompactRecoveryVersionTurns = true
 			s.s3RegionOpened = true
 			switch guard {
+			case "completed_owned_episode":
+				s.recoveryTurns.active = true
 			case "shared_resume":
+				s.s3RegionOpened = false
 				s.s3ResumeCount = 1
 			case "no_action_drop":
+				s.s3RegionOpened = false
 				s.work.NoActionDrops = 1
 			}
 			handled, err := s.s5TryRecoveryTransaction(0, false)
