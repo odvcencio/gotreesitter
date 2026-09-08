@@ -9,6 +9,7 @@ import (
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -21,7 +22,7 @@ func runGoCleanConflictOrderLockedC(t *testing.T, requireNativeGeneric bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, fixture := range []struct {
+	fixtures := []struct {
 		name   string
 		source []byte
 	}{
@@ -30,7 +31,14 @@ func runGoCleanConflictOrderLockedC(t *testing.T, requireNativeGeneric bool) {
 		{"generic_nested", []byte("package p;var _=F[F[int]](a)\n")},
 		{"generic_instantiation", []byte("package p\n\ntype Foo[T any] struct {\n\tV T\n}\n\nfunc f() {\n\ta := Foo[int]{}\n\tb := Foo[int](a)\n\t_ = a\n\t_ = b\n}\n")},
 		{"full", full},
-	} {
+	}
+	for _, member := range benchfixtures.GoGenericConflictFamily() {
+		fixtures = append(fixtures, struct {
+			name   string
+			source []byte
+		}{"family_" + member.Name, member.Source()})
+	}
+	for _, fixture := range fixtures {
 		t.Run(fixture.name, func(t *testing.T) {
 			cParser := sitter.NewParser()
 			defer cParser.Close()

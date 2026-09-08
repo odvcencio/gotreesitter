@@ -101,7 +101,9 @@ func TestArithmeticRecoveryGarbageLanguageActuallyEntersCRecovery(t *testing.T) 
 		t.Fatalf("language is not C-recovery eligible: capable=%v enabledByDefault=%v (DiagnoseCRecoveryGate=%+v)",
 			lang.CRecoveryCostCompetitionCapable, lang.CRecoveryCostCompetitionEnabledByDefault, DiagnoseCRecoveryGate(lang))
 	}
-	tree := mustParse(t, NewParser(lang), []byte("1 #"))
+	parser := NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	tree := mustParse(t, parser, []byte("1 #"))
 	defer tree.Release()
 
 	rt := tree.ParseRuntime()
@@ -118,21 +120,27 @@ func TestArithmeticRecoveryGarbageLanguageActuallyEntersCRecovery(t *testing.T) 
 // latch (parser_recover_c.go): a single-stack prefix ("1" shifts and reduces
 // to "expression" deterministically, a candidate for elision) followed by a
 // malformed "#" that drives the parse into the faithful C-recovery port,
-// including its version-spawning (MaxStacksSeen > 1, confirmed below). The
+// including transient recovery versions, counted before dispatch completes. The
 // selected tree must be identical whether the elision gate is on or forced
 // off.
 func TestRawShapeElisionDifferentialRecoveryFromSingleStackPrefix(t *testing.T) {
 	lang := buildArithmeticRecoveryGarbageLanguage()
 	source := []byte("1 #")
+	telemetryBefore := recoveryRuntimeTelemetryEnabled
+	EnableRecoveryRuntimeTelemetry(true)
+	t.Cleanup(func() { EnableRecoveryRuntimeTelemetry(telemetryBefore) })
+	parserOn, parserOff := NewParser(lang), NewParser(lang)
+	parserOn.SetAdmissionCandidateRoute(false)
+	parserOff.SetAdmissionCandidateRoute(false)
 
 	SetRawShapeElisionDisabledForDiagnostics(false)
-	gateOn := mustParse(t, NewParser(lang), source)
+	gateOn := mustParse(t, parserOn, source)
 	defer gateOn.Release()
 	gateOnRuntime := gateOn.ParseRuntime()
 
 	SetRawShapeElisionDisabledForDiagnostics(true)
 	defer SetRawShapeElisionDisabledForDiagnostics(false)
-	gateOff := mustParse(t, NewParser(lang), source)
+	gateOff := mustParse(t, parserOff, source)
 	defer gateOff.Release()
 	gateOffRuntime := gateOff.ParseRuntime()
 
@@ -140,9 +148,13 @@ func TestRawShapeElisionDifferentialRecoveryFromSingleStackPrefix(t *testing.T) 
 		t.Fatalf("CRecoveryEnteredErrorState gate-on=%v gate-off=%v, want both true (recovery precondition)",
 			gateOnRuntime.CRecoveryEnteredErrorState, gateOffRuntime.CRecoveryEnteredErrorState)
 	}
-	if gateOnRuntime.MaxStacksSeen <= 1 || gateOffRuntime.MaxStacksSeen <= 1 {
-		t.Fatalf("MaxStacksSeen gate-on=%d gate-off=%d, want both > 1 (recovery version-spawn precondition)",
-			gateOnRuntime.MaxStacksSeen, gateOffRuntime.MaxStacksSeen)
+	// Outer-loop stack counts can miss forks resolved within one dispatch.
+	for name, parser := range map[string]*Parser{"gate-on": parserOn, "gate-off": parserOff} {
+		stats := parser.DebugRecoveryRuntimeStats()
+		if stats.RecoveryEntryCount == 0 || stats.PeakLiveVersionCount <= 1 {
+			t.Fatalf("%s recovery entries=%d peak live versions=%d, want recovery with competing versions",
+				name, stats.RecoveryEntryCount, stats.PeakLiveVersionCount)
+		}
 	}
 	if got, want := gateOn.RootNode().SExpr(lang), gateOff.RootNode().SExpr(lang); got != want {
 		t.Fatalf("gate-on tree = %s, gate-off (elision disabled) tree = %s, want identical", got, want)

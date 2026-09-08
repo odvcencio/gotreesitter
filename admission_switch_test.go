@@ -679,7 +679,7 @@ func TestAdmissionCandidateStorageReleasedOnMaterializationDecline(t *testing.T)
 // decline (route counter stays 0, fallback counter moves) and the returned tree
 // must equal production byte for byte. If a future change routes this input, the
 // route/fallback assertion fails and directs the maintainer to re-verify the
-// whole conflict family in TestAdmissionGenericConflictFamilyNoDivergence.
+// whole conflict family in TestAdmissionGenericConflictFamilyRouteIntegrity.
 func TestAdmissionCandidateGoTypeConversionFailsClosed(t *testing.T) {
 	src := "package p\n\n" +
 		"type Foo[T any] struct {\n\tV T\n}\n\n" +
@@ -717,7 +717,7 @@ func TestAdmissionCandidateGoTypeConversionFailsClosed(t *testing.T) {
 	// Fail-closed proof 1: the candidate declined this conflict input.
 	if routed != 0 {
 		t.Fatalf("conflict input routed (routed=%d fallback=%d); the compact route must fail closed on the "+
-			"generic-instantiation / type-conversion conflict. Re-verify TestAdmissionGenericConflictFamilyNoDivergence.\n"+
+			"generic-instantiation / type-conversion conflict. Re-verify TestAdmissionGenericConflictFamilyRouteIntegrity and the shared C family tests.\n"+
 			"  candidate: %s", routed, fallback, candSExpr)
 	}
 	// Fail-closed proof 2: the decline moved the fallback counter (the parse ran

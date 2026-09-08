@@ -11,7 +11,18 @@ import (
 )
 
 func TestGoMissingOperandCompactAdmissionLockedC(t *testing.T) {
-	source := []byte("package main\n\nfunc () {\n\tvar x = \n}\n")
+	for _, tc := range []struct{ name, source string }{
+		{"missing_operand", "package main\n\nfunc () {\n\tvar x = \n}\n"},
+		{"missing_brace_census", "package p\nfunc f() {\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testGoRecoveryAdmissionLockedC(t, []byte(tc.source))
+		})
+	}
+}
+
+func testGoRecoveryAdmissionLockedC(t *testing.T, source []byte) {
+	t.Helper()
 	lang := grammars.GoLanguage()
 	p := gts.NewParser(lang)
 	p.SetAdmissionCandidateRoute(true)
@@ -35,7 +46,7 @@ func TestGoMissingOperandCompactAdmissionLockedC(t *testing.T) {
 		t.Fatal("C returned no tree")
 	}
 	defer oracle.Close()
-	assertG18LockedCExact(t, "missing operand", tree, lang, oracle)
+	assertG18LockedCExact(t, "compact recovery", tree, lang, oracle)
 	routed, fallback := gts.AdmissionCandidateCounters()
 	if routed != routedBefore+1 || fallback != fallbackBefore {
 		t.Fatalf("compact recovery declined: %q", gts.AdmissionCandidateLastFallbackReason())
