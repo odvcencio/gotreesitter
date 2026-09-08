@@ -155,6 +155,56 @@ stays off. It is the construction half of program item 3, and the gain
 arrives with item 1: once a single-header stretch builds public nodes
 directly, the core must stop writing the records those nodes replace.
 
+## Corridor default and the canonical probe
+
+The compact scheduler ran a canonical-boundary probe after every dispatch.
+A single header that holds a node the dispatch just published gains
+nothing from the probe: a fresh node is the latest node of its phase
+identity, so the probe returns the head the header already holds. The
+generic shift, the in-place reduction, and the corridor direct shift now
+skip the probe on that shape and keep the barrier count.
+
+With the skip in place the C4 bytecode corridor (default off since stage
+2) runs faster than the generic pass on 14 of 15 bench grammars at 137 KiB
+(minimum of nine parses, three rounds, corridor on over corridor off):
+
+| Grammar | Off, ms | On, ms | Ratio |
+| --- | --- | --- | --- |
+| Go | 89.8 | 86.6 | 0.96 |
+| C | 68.9 | 65.6 | 0.95 |
+| hcl | 110.4 | 103.7 | 0.94 |
+| TypeScript | 66.7 | 62.9 | 0.94 |
+| JSON | 63.8 | 52.7 | 0.83 |
+| TOML | 57.6 | 51.1 | 0.89 |
+| Python | 123.5 | 115.4 | 0.94 |
+| Rust | 75.0 | 69.7 | 0.93 |
+| INI | 42.2 | 38.2 | 0.91 |
+| Scala | 105.7 | 99.7 | 0.94 |
+| CSS | 50.2 | 41.3 | 0.82 |
+| Make | 54.7 | 44.6 | 0.82 |
+| CMake | 127.4 | 120.1 | 0.94 |
+| Haskell | 86.2 | 86.5 | 1.00 |
+| diff | 29.7 | 24.3 | 0.82 |
+
+This clears the stage-3 retain gates of spec.c4-bytecode-isa.v1 (at least
+2 percent geomean, no fixture more than 1 percent slower, work-count
+identity, digests). The corridor is now on by default; `GTS_C4_CORRIDOR=0`
+is the A/B baseline.
+
+## Recorded parse states: an open finding
+
+Program item 2 proposes that the core record the parse state it pushes
+each subtree into, so materialization stops replaying the tables. A trial
+recorded the shift target and the reduction goto per subtree and compared
+them with the fused replay on every canonical Go fixture. They differ on
+trailing extras that a reduction migrates: the push-time state is the
+state below the unreduced children, while the tree-position replay gives
+the goto state the extra now follows, and every sibling after such an
+extra inherits the difference. The replay's answer is the state an
+incremental reparse sees at that tree position, so the recorded state is
+not a drop-in replacement. Item 2 needs the migration rule before it can
+land; the trial is not in the tree.
+
 ## Compact program
 
 The compact scheduler profile on Go at 137 KiB splits as: scheduler run 76

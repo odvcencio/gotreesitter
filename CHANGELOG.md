@@ -54,6 +54,27 @@ for tags and release notes while still in `0.x`.
   every record. The lane is the construction half of the single-head kernel,
   which will stop writing compact records for subtrees that already own a
   public node.
+- Skip the canonical-boundary probe when a single header holds a node the
+  dispatch just published: a fresh node is the latest node of its phase
+  identity, so the probe would return the head the header already holds.
+  The generic shift, the in-place reduction, and the corridor direct shift
+  all take the skip; the `Canonicalizations` work count still records the
+  barrier, so every work vector stays identical. Parents take their span
+  from the point index only when their visible children do not tile the
+  record, and a reduction sums its pop payload work once.
+- Turn the C4 bytecode corridor on by default (stage 3 of
+  spec.c4-bytecode-isa.v1). With the probe skip the corridor lane runs the
+  137 KiB full parse faster than the generic pass on 14 of 15 bench grammars
+  (Go 0.96, C 0.95, hcl 0.94, TypeScript 0.94, JSON 0.83, TOML 0.89, Python
+  0.94, Rust 0.93, INI 0.91, Scala 0.94, CSS 0.82, Make 0.82, CMake 0.94,
+  diff 0.82, Haskell 1.00; minimum of nine parses, three rounds). The
+  runtime equivalence test keeps every scheduler and core work count, every
+  digest, and every fork-boundary identity equal between the two lanes.
+  `GTS_C4_CORRIDOR=0` turns the lane off. Two corridor gaps closed on the
+  way to the default: the direct shift now carries the lexer skipped-prefix
+  provenance that jsdoc's tiling proof reads, and it records the reuse
+  dependency of every token it shifts, which nested incremental reuse
+  authenticates subtrees through.
 
 ### Production engine fixes kept until retirement (issue #454)
 
