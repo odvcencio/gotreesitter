@@ -1008,3 +1008,44 @@ func TestDiagnosticTopologyReceiptMarksIdentityCollisionAndOverflow(t *testing.T
 		t.Fatalf("collision and overflow flags = %+v", receipt)
 	}
 }
+
+func TestDiagnosticTopologyHashOverflowPreservesPhysicalOrder(t *testing.T) {
+	specs := []struct {
+		state StateID
+		score int
+	}{{62, -2}, {62, 2}, {70, 0}, {80, 0}, {62, 2}}
+	stacks := make([]glrStack, len(specs))
+	for i, spec := range specs {
+		stacks[i] = makeRetentionTestStack(spec.state, i+2, true, 35)
+		stacks[i].score = spec.score
+		stacks[i].branchOrder = uint64(i + 1)
+	}
+	BeginDiagnosticTopologyReceipt()
+	for i := range stacks {
+		if i == 0 {
+			workCountTopologyRecordInitialVersion(&stacks[i])
+		} else {
+			workCountTopologyRecordVersionCopy(&stacks[0], &stacks[i])
+			workCountTopologyCommitVersion(&stacks[i])
+		}
+	}
+	want := make([]uint64, len(stacks)-1)
+	for i := range want {
+		want[i] = stacks[i+1].diagnosticTopology.versionID
+	}
+	scratch := &glrMergeScratch{perKeyCap: 2}
+	result := mergeStacksWithScratch(stacks, scratch)
+	slots := append([]uint64(nil), activeDiagnosticTopology.versionSlots...)
+	receipt := EndDiagnosticTopologyReceipt()
+	if !receipt.Complete() {
+		t.Fatalf("overflow receipt: incomplete=%t collision=%t truncated=%t", receipt.IdentityIncomplete, receipt.IdentityCollision, receipt.Truncated)
+	}
+	if len(result) != len(want) || len(slots) != len(want) {
+		t.Fatalf("survivors=%d slots=%v, want %v", len(result), slots, want)
+	}
+	for i, id := range want {
+		if result[i].diagnosticTopology.versionID != id || slots[i] != id {
+			t.Fatalf("slot %d: result=%d receipt=%d, want %d", i, result[i].diagnosticTopology.versionID, slots[i], id)
+		}
+	}
+}

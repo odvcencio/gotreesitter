@@ -57,3 +57,39 @@ func TestAdmissionGenericConflictFamilyRouteIntegrity(t *testing.T) {
 	}
 	t.Logf("generic family: %d routed, %d declined, %d fixtures", routed, declined, len(family))
 }
+
+// Measure the repeated generic call that exercises merge overflow ordering.
+func BenchmarkGoParseGenericExpressionDFA(b *testing.B) {
+	var source []byte
+	for _, fixture := range benchfixtures.GoGenericConflictFamily() {
+		if fixture.Name == "in_expression" {
+			source = fixture.Source()
+			break
+		}
+	}
+	if source == nil {
+		b.Fatal("generic expression fixture is missing")
+	}
+	lang := grammars.GoLanguage()
+	parser := gts.NewParser(lang)
+	parser.SetAdmissionCandidateRoute(false)
+	tree, err := parser.Parse(source)
+	if err != nil {
+		releaseBenchmarkTree(tree)
+		b.Fatal(err)
+	}
+	requireCompleteParse(b, tree, source, lang, "generic expression warmup")
+	tree.Release()
+	b.ReportAllocs()
+	b.SetBytes(int64(len(source)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tree, err := parser.Parse(source)
+		if err != nil {
+			releaseBenchmarkTree(tree)
+			b.Fatal(err)
+		}
+		requireCompleteParse(b, tree, source, lang, "generic expression")
+		tree.Release()
+	}
+}
