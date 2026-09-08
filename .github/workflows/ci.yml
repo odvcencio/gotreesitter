@@ -173,7 +173,7 @@ jobs:
           TestCompactReuseDependency.*
           TestAdmissionSwitchParseProductionWhenOff
           TestAdmissionSwitchParseRoutesCandidateWhenOn
-          TestAdmissionSwitchRecoveryDoesNotLeakCompactTree
+          TestAdmissionSwitchRecoveryPublishesCompleteCompactTree
           TestB4bV2OptInDeciderDifferentialCanonicalFixtures
           TestB4bV2OptInDeciderDifferentialCertifiedLanguages
           TestB4bV2OptInDeciderDifferentialErlangProbes
