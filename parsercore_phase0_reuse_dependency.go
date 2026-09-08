@@ -69,8 +69,9 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactReuseDependency(token
 		d.invalidate()
 		return 0, false
 	}
-	stats, err := s.compact.Stats(s.headers[0].head)
-	if err != nil || stats.CurrentExactPaths != 1 || uint64(stats.Subtrees)+1 != uint64(max(1, len(d.ends))) {
+	exactPaths, err := s.compact.HeadExactPathCount(s.headers[0].head)
+	subtrees := s.compact.SubtreeCount()
+	if err != nil || exactPaths != 1 || uint64(subtrees)+1 != uint64(max(1, len(d.ends))) {
 		d.invalidate()
 		return 0, false
 	}
@@ -78,7 +79,7 @@ func (s *diagnosticParserCoreGenericScheduler) beginCompactReuseDependency(token
 	// receipt must also include the continuation bytes used to decode it.
 	examinedEnd := tokenInvariantExaminedEnd(s.tokenSource.lexer.source, tokenLookaheadEndByte(token))
 	d.frontier = maxUint32(d.frontier, examinedEnd)
-	return stats.Subtrees, true
+	return uint32(subtrees), true
 }
 
 func (s *diagnosticParserCoreGenericScheduler) finishCompactReuseDependency(before uint32, active bool, success bool) error {
@@ -90,19 +91,16 @@ func (s *diagnosticParserCoreGenericScheduler) finishCompactReuseDependency(befo
 		d.invalidate()
 		return nil
 	}
-	stats, err := s.compact.Stats(s.headers[0].head)
-	if err != nil {
-		return err
-	}
+	subtrees := uint32(s.compact.SubtreeCount())
 	id, err := s.compact.SoleHeadPayload(s.headers[0].head)
-	if err != nil || stats.Subtrees < before || id == 0 {
+	if err != nil || subtrees < before || id == 0 {
 		d.invalidate()
 		return nil
 	}
-	if err := s.growCompactReuseDependencies(stats.Subtrees); err != nil {
+	if err := s.growCompactReuseDependencies(subtrees); err != nil {
 		return err
 	}
-	for fresh := uint64(before) + 1; fresh <= uint64(stats.Subtrees); fresh++ {
+	for fresh := uint64(before) + 1; fresh <= uint64(subtrees); fresh++ {
 		d.ends[fresh] = d.frontier
 		if fresh&255 == 0 {
 			if err := s.pollStopControl(); err != nil {

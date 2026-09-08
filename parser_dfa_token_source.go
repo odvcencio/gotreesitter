@@ -3238,8 +3238,10 @@ func prepareDFARelexExternalPayloadScratch(scratch *dfaRelexSnapshotScratch) []b
 		}
 		scratch.externalPayload = make([]byte, externalScannerSerializationBufferSize)
 	} else {
+		// Every reader uses the serialized prefix [:n] the caller sets, so the
+		// buffer beyond it never needs clearing on reuse (issue #454: this
+		// clear ran once per election).
 		scratch.externalPayload = scratch.externalPayload[:externalScannerSerializationBufferSize]
-		clear(scratch.externalPayload)
 	}
 	return scratch.externalPayload
 }

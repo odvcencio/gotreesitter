@@ -2329,23 +2329,6 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeWithMutation(
 	}
 	clear(s.keys)
 	s.keys = s.keys[:0]
-	if len(headers) == 1 {
-		// One header needs only the canonical remap and the freshness reset,
-		// and the caller's slice can hold the result in place. The double
-		// buffer below exists for the multi-header aliasing contract, whose
-		// check on a later call still works against any slice this returns.
-		header := &headers[0]
-		state, byteOffset, err := compact.Boundary(header.head)
-		if err != nil {
-			return nil, 0, err
-		}
-		if canonical, ok := compact.CanonicalBoundary(state, byteOffset, header.shifted, header.checkpoint); ok &&
-			!header.isRecoveryLineage() && header.recoveryRegion() == nil && !header.isRecoveryCosted() {
-			header.head = canonical
-		}
-		header.freshness = 0
-		return headers, 0, nil
-	}
 	target := int(s.nextBuffer & 1)
 	if len(headers) != 0 && cap(s.headerBuffers[target]) != 0 && &headers[0] == &s.headerBuffers[target][:1][0] {
 		target ^= 1
@@ -2572,7 +2555,7 @@ func (s *diagnosticParserCoreCanonicalScratch) canonicalizeLinearCheckedWithMuta
 	for index := range normalized {
 		header := &normalized[index]
 		for groupIndex := 0; groupIndex < groupCount; groupIndex++ {
-			group := &groups[groupIndex].diagnosticParserCoreCanonicalGroup
+			group := groups[groupIndex].diagnosticParserCoreCanonicalGroup
 			if group.winner != index {
 				continue
 			}
@@ -2768,6 +2751,19 @@ func diagnosticParserCoreHeaderPathReceipts(compact *core.Core, headers []diagno
 	return out, nil
 }
 
+// diagnosticParserCoreTokenCell caches the epoch's elected token identity for
+// the forced-reuse tranche: the token, the lexer-mode identity it was lexed
+// under, and its scanner checkpoints. One cell per election; nothing reads it
+// yet.
+type diagnosticParserCoreTokenCell struct {
+	token            Token
+	state            StateID
+	byteOffset       uint32
+	beforeCheckpoint core.CheckpointID
+	afterCheckpoint  core.CheckpointID
+	valid            bool
+}
+
 // diagnosticParserCoreVersionLexerRequest owns one header's current
 // lookahead. The scheduler keeps this sidecar outside the pinned header so a
 // different token width never changes the compact cell layout.
@@ -2799,6 +2795,7 @@ type diagnosticParserCoreGenericScheduler struct {
 	checkpointBeforeID              core.CheckpointID
 	checkpointID                    core.CheckpointID
 	currentElection                 DiagnosticParserCoreElection
+	tokenCell                       diagnosticParserCoreTokenCell
 	versionLexerBefore              dfaRelexSnapshot
 	versionLexerBeforeScratch       dfaRelexSnapshotScratch
 	versionLexerBeforeValid         bool
@@ -5713,6 +5710,10 @@ func (s *diagnosticParserCoreGenericScheduler) bindVersionLexerRequest(
 		CurrentCheckpointEnd:   request.afterCheckpoint,
 		CurrentCheckpointBytes: [2]uint32{request.token.StartByte, request.token.EndByte},
 	}
+	s.tokenCell = diagnosticParserCoreTokenCell{
+		token: request.token, state: request.state, byteOffset: request.token.StartByte,
+		beforeCheckpoint: request.beforeID, afterCheckpoint: request.afterID, valid: true,
+	}
 	return nil
 }
 
@@ -5731,12 +5732,14 @@ func (s *diagnosticParserCoreGenericScheduler) withVersionLexerRequest(
 	checkpointBefore := s.checkpoint
 	checkpointStartBefore, checkpointEndBefore := s.checkpointBeforeID, s.checkpointID
 	electionBefore := s.currentElection
+	tokenCellBefore := s.tokenCell
 	phaseCheckpointBefore, phaseStartBefore, phaseEndBefore, phaseExactBefore := s.compact.PhaseScannerCheckpoints()
 	restore := func() error {
 		s.token = tokenBefore
 		s.checkpoint = checkpointBefore
 		s.checkpointBeforeID, s.checkpointID = checkpointStartBefore, checkpointEndBefore
 		s.currentElection = electionBefore
+		s.tokenCell = tokenCellBefore
 		if phaseExactBefore {
 			return s.compact.SetPhaseExternalTokenScannerCheckpoints(phaseStartBefore, phaseEndBefore)
 		}
@@ -8376,6 +8379,7 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	))
 	add(len(s.seedHeaders), unsafe.Sizeof(diagnosticParserCoreHeader{}))
 	add(len(s.corridorCells), unsafe.Sizeof(diagnosticParserCoreGenericCell{}))
+	add(1, unsafe.Sizeof(s.tokenCell))
 	add(1, unsafe.Sizeof(s.recoveryTurns))
 	if s.compact != nil {
 		coreBytes := s.compact.FootprintBytes()
@@ -8581,8 +8585,7 @@ func (s *diagnosticParserCoreGenericScheduler) run() error {
 		allClosed := true
 		accepted := 0
 		shifted := 0
-		for index := range s.headers {
-			header := &s.headers[index]
+		for _, header := range s.headers {
 			if header.accepted {
 				accepted++
 			}
@@ -9320,6 +9323,10 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 					// from where this absorb actually left off, not from
 					// the shared token's own (now-stale) end.
 					s.tokenSource.SeekTokenFrontier(resumeToken.EndByte, resumeToken.EndPoint)
+					// The lexer moved without an election: the cell's elected
+					// token/checkpoints no longer describe the token source's
+					// position, so invalidate it rather than leave it stale.
+					s.tokenCell.valid = false
 				}
 				// Return this pass after one recovery absorb. A paired missing
 				// version remains unshifted and dispatches on the next pass. A
@@ -10829,6 +10836,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericAccept(before []Diagn
 		return err
 	}
 	dispatchesBefore, workBefore, epochProgressBefore := s.dispatches, s.work, s.epochProgress
+	tokenCellBefore := s.tokenCell
 	roundsBefore := len(s.receipt.Rounds)
 	defer func() {
 		s.headerRollbackScratch.finish(&s.headers, err != nil)
@@ -10836,6 +10844,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericAccept(before []Diagn
 			return
 		}
 		s.dispatches, s.work, s.epochProgress = dispatchesBefore, workBefore, epochProgressBefore
+		s.tokenCell = tokenCellBefore
 		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
 	}()
 	return s.compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
@@ -12065,6 +12074,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []Di
 	dispatchesBefore, nextSeqBefore := s.dispatches, s.nextSeq
 	nextCleanPathLineageBefore := s.nextCleanPathLineage
 	workBefore, epochProgressBefore := s.work, s.epochProgress
+	tokenCellBefore := s.tokenCell
 	roundsBefore := len(s.receipt.Rounds)
 	defer func() {
 		s.headerRollbackScratch.finish(&s.headers, err != nil)
@@ -12074,6 +12084,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReduction(before []Di
 		s.dispatches, s.nextSeq = dispatchesBefore, nextSeqBefore
 		s.nextCleanPathLineage = nextCleanPathLineageBefore
 		s.work, s.epochProgress = workBefore, epochProgressBefore
+		s.tokenCell = tokenCellBefore
 		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
 	}()
 	return s.compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
@@ -12194,8 +12205,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		return err
 	}
 	hasMultiplePopPaths := false
-	for index := range outputs {
-		if outputs[index].MultiplePopPaths {
+	for _, output := range outputs {
+		if output.MultiplePopPaths {
 			hasMultiplePopPaths = true
 			break
 		}
@@ -12293,32 +12304,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 	}()
 	replacements := s.reductionReplacements
 	madeFreshProgress := false
-	// The deterministic shape: one fresh output with no converged history, no
-	// alternative set, no drop-cohort refs, and no recovery cost. The loop
-	// below would copy the header out, edit the copy, and copy it back; the
-	// in-place edit has the same effect and the same counters.
-	appliedInPlace := false
-	if len(outputs) == 1 && !recoveryCostRequired && !hasMultiplePopPaths && reductionFrontierSequence == 0 {
-		output := &outputs[0]
-		if output.Freshness == core.ReductionNew &&
-			output.HistoricalBoundaryProvenance == core.HistoricalBoundaryNone &&
-			output.HistoricalAlternativeSet.Len() == 0 &&
-			output.DropCohortRefs.Empty() && !output.DropCohortRefs.Overflowed() && !output.DropCohortRefs.Blended() {
-			header := &s.headers[cell.headerIndex]
-			header.head = output.Head
-			header.frontierSequence = mergeDiagnosticParserCoreFrontier(header.frontierSequence, reductionFrontierSequence)
-			header.paused = false
-			header.shifted = token.NoLookahead
-			applyDiagnosticParserCoreCleanPathOutput(header, output.CleanPathRank, reductionLineage)
-			madeFreshProgress = true
-			appliedInPlace = true
-		}
-	}
-	for outputIndex := range outputs {
-		if appliedInPlace {
-			break
-		}
-		output := &outputs[outputIndex]
+	for outputIndex, output := range outputs {
 		convergedHistory := output.MultiplePopPaths ||
 			output.HistoricalBoundaryProvenance == core.HistoricalBoundaryConverged
 		// resurrectionUnproved (spec.b4b-alternative-set.v2 section 5, F4
@@ -12459,9 +12445,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		replacements = append(replacements, replacement)
 	}
 	s.reductionReplacements = replacements
-	if appliedInPlace {
-		// The header already holds the single fresh output.
-	} else if len(replacements) == 0 {
+	if len(replacements) == 0 {
 		// The canonical outputs already exist and have been processed in this
 		// election. Keep this version paused until a sibling makes real progress;
 		// the ordinary no-action drop then removes it under the same safety rule.
@@ -12829,6 +12813,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []Dia
 	dispatchesBefore, branchOrderBefore, nextSeqBefore := s.dispatches, s.branchOrder, s.nextSeq
 	nextCleanPathLineageBefore := s.nextCleanPathLineage
 	workBefore, epochProgressBefore := s.work, s.epochProgress
+	tokenCellBefore := s.tokenCell
 	roundsBefore, conflictsBefore := len(s.receipt.Rounds), len(s.receipt.Conflicts)
 	externalShiftsBefore := len(s.receipt.ExternalShifts)
 	defer func() {
@@ -12839,6 +12824,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflict(before []Dia
 		s.dispatches, s.branchOrder, s.nextSeq = dispatchesBefore, branchOrderBefore, nextSeqBefore
 		s.nextCleanPathLineage = nextCleanPathLineageBefore
 		s.work, s.epochProgress = workBefore, epochProgressBefore
+		s.tokenCell = tokenCellBefore
 		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
 		s.receipt.Conflicts = s.receipt.Conflicts[:conflictsBefore]
 		s.receipt.ExternalShifts = s.receipt.ExternalShifts[:externalShiftsBefore]
@@ -13108,6 +13094,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []Diagn
 		return err
 	}
 	dispatchesBefore, workBefore, epochProgressBefore := s.dispatches, s.work, s.epochProgress
+	tokenCellBefore := s.tokenCell
 	roundsBefore, externalBefore := len(s.receipt.Rounds), len(s.receipt.ExternalShifts)
 	defer func() {
 		s.headerRollbackScratch.finish(&s.headers, err != nil)
@@ -13115,6 +13102,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericShifts(before []Diagn
 			return
 		}
 		s.dispatches, s.work, s.epochProgress = dispatchesBefore, workBefore, epochProgressBefore
+		s.tokenCell = tokenCellBefore
 		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
 		s.receipt.ExternalShifts = s.receipt.ExternalShifts[:externalBefore]
 	}()
@@ -13267,6 +13255,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 		return err
 	}
 	dispatchesBefore, workBefore, epochProgressBefore := s.dispatches, s.work, s.epochProgress
+	tokenCellBefore := s.tokenCell
 	roundsBefore, externalShiftsBefore := len(s.receipt.Rounds), len(s.receipt.ExternalShifts)
 	defer func() {
 		s.headerRollbackScratch.finish(&s.headers, err != nil)
@@ -13274,6 +13263,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericExtraShifts(before []
 			return
 		}
 		s.dispatches, s.work, s.epochProgress = dispatchesBefore, workBefore, epochProgressBefore
+		s.tokenCell = tokenCellBefore
 		s.receipt.Rounds = s.receipt.Rounds[:roundsBefore]
 		s.receipt.ExternalShifts = s.receipt.ExternalShifts[:externalShiftsBefore]
 	}()
@@ -13797,6 +13787,15 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 	s.token = token
 	s.checkpoint = after
 	s.checkpointID = afterID
+	// tokenCell mirrors this election's freshly elected token identity for the
+	// forced-reuse tranche (substrate only; nothing reads it yet). state is
+	// the primary election state passed to SetParserState above;
+	// beforeCheckpoint/afterCheckpoint are the same interned checkpoint IDs
+	// just assigned to checkpointBeforeID/checkpointID.
+	s.tokenCell = diagnosticParserCoreTokenCell{
+		token: token, state: states[0], byteOffset: token.StartByte,
+		beforeCheckpoint: beforeID, afterCheckpoint: afterID, valid: true,
+	}
 	s.epochProgress = false
 	// Summary receipts read currentElection.States only within this round, so
 	// the reused scratch is safe. Full receipts retain the election, so clone
@@ -13805,9 +13804,7 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 	if s.fullReceipts() {
 		electionStates = append([]StateID(nil), states...)
 	}
-	// Build the election in place: the record is 280 bytes and this runs once
-	// per token.
-	s.currentElection = DiagnosticParserCoreElection{
+	election := DiagnosticParserCoreElection{
 		States: electionStates, Token: token, ScannerBefore: before, ScannerAfter: after,
 		CurrentCheckpointValid: currentValid,
 		CurrentCheckpointBytes: [2]uint32{currentStart, currentEnd},
@@ -13816,9 +13813,12 @@ func (s *diagnosticParserCoreGenericScheduler) elect(first bool) error {
 	// receipts. Each costs a SHA-256 of the scanner payload, so compute them
 	// only when this election is retained (issue #454).
 	if s.fullReceipts() {
-		s.currentElection.CurrentCheckpointStart = parserCoreCheckpoint(current.start)
-		s.currentElection.CurrentCheckpointEnd = parserCoreCheckpoint(current.end)
-		s.receipt.Elections = append(s.receipt.Elections, s.currentElection)
+		election.CurrentCheckpointStart = parserCoreCheckpoint(current.start)
+		election.CurrentCheckpointEnd = parserCoreCheckpoint(current.end)
+	}
+	s.currentElection = election
+	if s.fullReceipts() {
+		s.receipt.Elections = append(s.receipt.Elections, election)
 	}
 	if s.observer.afterElection != nil {
 		stop, err := s.observer.afterElection(s)

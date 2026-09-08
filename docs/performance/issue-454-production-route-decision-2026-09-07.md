@@ -119,6 +119,23 @@ requires the fresh-parse tree with under 800 thousand nodes built. Ordinary
 keystrokes never reach the budget: they reuse most of the source long
 before the node count grows.
 
+## Compact cost, round two
+
+Measured on the Go fixture in one process: the compact scheduler run takes
+84.8 ms and materialization 15.6 ms against a 59.3 ms production parse. Passes
+are 82 percent single-header, and the existing C4 corridor lane covers 97
+percent of those without changing time, because its reduce still runs the
+generic apply. On the real route the largest flat cost was large-record
+copies at 12 percent, then link validation at 5 percent.
+
+The cuts in this round: the fused replay (one full-derivation pass fewer),
+the dead election record, narrow reuse-dependency accessors, in-place
+election and header updates, pointer reads for headers, reduction outputs,
+pop paths, boundary outputs, and canonical groups, in-place single-header
+canonicalization, and the direct-append condense reading the predecessor it
+already holds. Result: about 6 percent on every measured grammar. The gap is
+structural from here.
+
 ## Compact program
 
 The compact scheduler profile on Go at 137 KiB splits as: scheduler run 76

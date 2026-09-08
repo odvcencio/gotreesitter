@@ -29,6 +29,16 @@ func (r LinkChainRef) Empty() bool { return r.First == 0 && r.Count == 0 }
 
 // appendGraphLink keeps the optional sidecar aligned with the link arena. A
 // newly published link starts unbound; authentication binds it later.
+// appendGraphLinkChecked validates a newly constructed link once, at the
+// append. Link records never change after this point, so readers on the hot
+// path (pop enumeration and node publication) trust the stored shape.
+func (c *Core) appendGraphLinkChecked(link linkRecord) (LinkID, error) {
+	if err := link.validateShape(); err != nil {
+		return 0, err
+	}
+	return c.appendGraphLink(link), nil
+}
+
 func (c *Core) appendGraphLink(link linkRecord) LinkID {
 	id := LinkID(len(c.links) + 1)
 	c.links = append(c.links, link)

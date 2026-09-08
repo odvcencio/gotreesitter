@@ -1202,6 +1202,13 @@ type MaterializationSubtreeView struct {
 	// terminal (C ts_subtree_missing). Threaded to the public materializer so
 	// it can set the public node's own missing and has-error bits.
 	Missing bool
+	// ReplayPreGotoState and ReplayParseState are the parser states that the
+	// top-down replay assigns this subtree when the visit runs with a replay
+	// transition (VisitMaterializationPostorderWithReplay). Each value is
+	// authoritative only when its Known flag is set; see the replay rules in
+	// the root package's replayCompactDerivation, which this visit mirrors.
+	ReplayPreGotoState, ReplayParseState      StateID
+	ReplayPreGotoKnown, ReplayParseStateKnown bool
 	// MissingDependency carries C's sparse missing-leaf padding and lookahead
 	// metadata. It is valid only when MissingDependencyExact is true.
 	MissingDependency      MissingLeafDependency
@@ -3115,12 +3122,12 @@ func (s *reductionOutputScratch) boundary(key boundaryKey) (int, bool) {
 	return index, ok
 }
 
-func (s *reductionOutputScratch) store(index int, seen bool, output reductionBoundaryOutput) {
+func (s *reductionOutputScratch) store(index int, seen bool, output *reductionBoundaryOutput) {
 	if seen {
-		s.boundaries[index] = output
+		s.boundaries[index] = *output
 		return
 	}
-	s.boundaries = append(s.boundaries, output)
+	s.boundaries = append(s.boundaries, *output)
 	if s.spilled {
 		s.boundaryByKey[output.key] = index
 	}
@@ -3534,10 +3541,13 @@ func (c *Core) appendPrivate(state StateID, byteOffset uint32, in linkInput) (He
 	if in.order.Present {
 		flags |= linkFlagHasOrder
 	}
-	linkID := c.appendGraphLink(linkRecord{
+	linkID, err := c.appendGraphLinkChecked(linkRecord{
 		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
 		order: in.order.Value, flags: flags,
 	})
+	if err != nil {
+		return Head{}, err
+	}
 	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	id, err := c.appendNodeAtWithMaximum(nodeRecord{
 		state: state, byteOffset: byteOffset,
@@ -3599,7 +3609,10 @@ func (c *Core) storedErrorCostForLink(in linkInput) (uint32, error) {
 		}
 		return in.storedErrorCost, nil
 	}
-	return c.inheritedStoredErrorCost([]linkRecord{{prev: in.prev}})
+	// The inherited cost is the predecessor's own stored cost, which this
+	// lookup already holds; inheritedStoredErrorCost would resolve the same
+	// record a second time.
+	return lineage.storedErrorCost, nil
 }
 
 type condenseChange uint8
@@ -3682,7 +3695,7 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 		// function depends on is untouched -- this function still cannot
 		// prove a caller can never roll back past this append, so it does
 		// not weaken that contract.
-		return c.condenseDirectAppend(key, probe, prev.pathCount, in, storedErrorCost)
+		return c.condenseDirectAppend(key, probe, prev, in, storedErrorCost)
 	}
 	if c.condenseNodeIsLive(oldID) {
 		oldLineage, lineageErr := c.nodeLineage(oldID)
@@ -3956,10 +3969,13 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 	if in.order.Present {
 		flags |= linkFlagHasOrder
 	}
-	linkID := c.appendGraphLink(linkRecord{
+	linkID, err := c.appendGraphLinkChecked(linkRecord{
 		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
 		order: in.order.Value, flags: flags, next: LinkID(old.firstLink),
 	})
+	if err != nil {
+		return condenseOutcome{}, err
+	}
 	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	id, err := c.appendNodeAtWithMaximum(nodeRecord{
 		state: key.state, byteOffset: key.byteOffset,
@@ -3998,27 +4014,38 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 // condenseOutcome shape (change: condenseNew, every historical* field at its
 // zero value). publishBoundary keeps deciding journal writes from
 // len(c.transactions) unchanged; this helper does not touch that contract.
-func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPathCount uint64, in linkInput, storedErrorCost uint32) (condenseOutcome, error) {
+func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prev *nodeRecord, in linkInput, storedErrorCost uint32) (condenseOutcome, error) {
 	if uint64(len(c.links))+1 > uint64(c.limits.MaxLinks) || uint64(len(c.links)) >= math.MaxUint32 {
 		return condenseOutcome{}, errors.New("parser-core phase zero: link arena cap")
 	}
 	if uint64(len(c.nodes))+1 > uint64(c.limits.MaxNodes) || uint64(len(c.nodes)) >= math.MaxUint32 {
 		return condenseOutcome{}, errors.New("parser-core phase zero: node arena cap")
 	}
-	maximum, err := c.linkPrecedenceMaximum(linkRecord{
-		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
-	})
+	// The caller resolved prev and the payload already, so compute the new
+	// link's precedence maximum from those records instead of validating a
+	// synthetic link and resolving both a second time. The payload is nonzero
+	// here: the caller's subtree lookup rejects a zero id.
+	contribution, err := c.effectivePayloadPrecedence(in.payload, in.scoreDelta)
 	if err != nil {
 		return condenseOutcome{}, err
 	}
+	maximumValue, err := checkedAddScore(prev.precedenceMax, contribution)
+	if err != nil {
+		return condenseOutcome{}, errors.New("parser-core phase zero: precedence maximum overflow")
+	}
+	maximum := precedenceCandidate{value: maximumValue}
+	prevPathCount := prev.pathCount
 	flags := uint32(0)
 	if in.order.Present {
 		flags |= linkFlagHasOrder
 	}
-	linkID := c.appendGraphLink(linkRecord{
+	linkID, err := c.appendGraphLinkChecked(linkRecord{
 		prev: in.prev, payload: in.payload, scoreDelta: in.scoreDelta,
 		order: in.order.Value, flags: flags,
 	})
+	if err != nil {
+		return condenseOutcome{}, err
+	}
 	c.addWork(&c.work.GraphLinkAdditionsProxy, 1)
 	id, err := c.appendNodeAtWithMaximum(nodeRecord{
 		state: key.state, byteOffset: key.byteOffset,
@@ -4027,8 +4054,12 @@ func (c *Core) condenseDirectAppend(key boundaryKey, probe boundaryProbe, prevPa
 	if err != nil {
 		return condenseOutcome{}, err
 	}
-	if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
-		return condenseOutcome{}, err
+	// A fresh node's lineage record starts at zero cost and clean, so a zero
+	// publish neither changes the record nor can it invalidate a reuse proof.
+	if storedErrorCost != 0 {
+		if err := c.publishInheritedStoredErrorCost(Head{Node: id}, storedErrorCost); err != nil {
+			return condenseOutcome{}, err
+		}
 	}
 	if err := c.publishBoundary(probe, id); err != nil {
 		return condenseOutcome{}, err
@@ -5938,9 +5969,8 @@ func (c *Core) popSingleLinkPath(head NodeID, childCount int, scratch *popEnumer
 		if link.prev == 0 || link.prev >= id {
 			return false, errors.New("parser-core phase zero: graph predecessor does not decrease")
 		}
-		if err := link.validateShape(); err != nil {
-			return false, err
-		}
+		// Link shape is validated once at the append (appendGraphLinkChecked);
+		// records never change afterwards.
 		if link.isRecoveryDiscontinuity() {
 			scratch.rev = append(scratch.rev, 0)
 			scratch.revScores = append(scratch.revScores, 0)
@@ -6500,6 +6530,26 @@ func (c *Core) Stats(head Head) (Stats, error) {
 	}, nil
 }
 
+// SubtreeCount returns the number of subtrees the compact core currently
+// holds. It performs no head validation and never errors: the value equals
+// uint32(len(c.subtrees)), the same quantity Stats reports as Subtrees. Use
+// this instead of Stats when a caller needs only the subtree count.
+func (c *Core) SubtreeCount() int {
+	return len(c.subtrees)
+}
+
+// HeadExactPathCount returns the given head node's exact-path count (the
+// same value Stats reports as CurrentExactPaths) via a single node lookup,
+// without building a full Stats struct. It returns the same error Stats
+// would return for an invalid head.
+func (c *Core) HeadExactPathCount(head Head) (uint64, error) {
+	n, err := c.node(head.Node)
+	if err != nil {
+		return 0, err
+	}
+	return n.pathCount, nil
+}
+
 // Work returns a value copy of the committed compact-core work counters.
 func (c *Core) Work() Work {
 	if c == nil {
@@ -6647,9 +6697,6 @@ func (c *Core) validatePublishedNodeDAGAt(r nodeRecord, next NodeID, checkpoint 
 			return errors.New("parser-core phase zero: link adjacency out of range")
 		}
 		link := c.links[id-1]
-		if err := link.validateShape(); err != nil {
-			return err
-		}
 		if link.prev == 0 || link.prev >= next {
 			return fmt.Errorf("parser-core phase zero: graph predecessor %d must be lower than new node %d", link.prev, next)
 		}

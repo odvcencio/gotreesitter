@@ -2215,7 +2215,7 @@ func TestReductionOutputScratchSpilledAbsentKeyUsesAppendIndex(t *testing.T) {
 		if seen || got != index {
 			t.Fatalf("absent key %d index=%d seen=%t, want index=%d unseen", index, got, seen, index)
 		}
-		scratch.store(got, seen, reductionBoundaryOutput{key: key, head: Head{Node: NodeID(index + 1)}})
+		scratch.store(got, seen, &reductionBoundaryOutput{key: key, head: Head{Node: NodeID(index + 1)}})
 	}
 	if !scratch.spilled || len(scratch.boundaries) != len(keys) {
 		t.Fatalf("spill state=%+v, want four ordered boundaries", scratch)

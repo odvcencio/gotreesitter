@@ -7,6 +7,35 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Compact core cost, round two (issue #454)
+
+- Fuse the top-down parse-state replay into the postorder materialization
+  visit. The visit computes each subtree's pre-goto and parse state at push
+  time with the same transition rules, so the tree needs no second
+  full-derivation pass and no arena-length replay tables.
+  `TestCompactFusedReplayMatchesTopDownReplay` proves the states equal the
+  separate replay on every subtree.
+- Remove the dead `tokenCell` election record and its five save-and-restore
+  sites, read the reuse-dependency subtree count and head path count through
+  narrow accessors instead of `Core.Stats`, and build the election record in
+  place.
+- Stop copying large records on the hot path: headers, reduction outputs,
+  pop paths, boundary outputs, and canonical groups are read through
+  pointers; one header canonicalizes in place without the double buffer; the
+  direct-append condense reads the predecessor it already resolved instead of
+  validating a synthetic link and resolving it again; a zero stored cost no
+  longer republishes a fresh node's lineage.
+- Validate link records once at the append. Links never change afterwards,
+  so pop enumeration and node publication no longer re-validate every link
+  they read. The relex payload scratch no longer clears its whole buffer on
+  every election, the head owner record runs without a closure per dispatch,
+  and a single fresh reduction output updates its header in place.
+- Together with the earlier round these cuts move the 137 KiB compact full
+  parse by about 6 percent on Go, hcl, TypeScript, JSON, and TOML. The
+  compact route still runs 1.45 to 2.0 times the production route; the
+  remaining gap is structural, and the route decision record lists the
+  program.
+
 ### Production engine fixes kept until retirement (issue #454)
 
 The compact route stays the default fresh full-parse route. The owner's

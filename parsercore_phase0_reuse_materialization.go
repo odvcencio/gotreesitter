@@ -18,7 +18,6 @@ func (session *compactIncrementalReuseSession) materializeBorrowed(
 	parser *Parser,
 	id core.SubtreeID,
 	view core.MaterializationSubtreeView,
-	states *compactReplayStates,
 	points *diagnosticParserCorePointIndex,
 ) (*Node, error) {
 	if parser == nil || parser.language == nil || points == nil ||
@@ -47,7 +46,7 @@ func (session *compactIncrementalReuseSession) materializeBorrowed(
 		StateID(view.ReusedPreGotoState) != node.preGotoState || StateID(view.ReusedState) != node.parseState {
 		return nil, compactIncrementalMaterializationDecline("borrowed subtree descriptor does not match the public node")
 	}
-	pre, state, preKnown, stateKnown := states.get(id)
+	pre, state, preKnown, stateKnown := StateID(view.ReplayPreGotoState), StateID(view.ReplayParseState), view.ReplayPreGotoKnown, view.ReplayParseStateKnown
 	if !preKnown || !stateKnown || pre != node.preGotoState || state != node.parseState {
 		return nil, compactIncrementalMaterializationDecline("borrowed subtree states do not match the accepted derivation")
 	}

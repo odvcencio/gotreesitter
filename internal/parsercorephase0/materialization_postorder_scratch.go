@@ -6,7 +6,22 @@ type materializationPostorderFrame struct {
 	id     SubtreeID
 	next   uint32
 	record *subtreeRecord
+	// The replay fields carry the top-down parse-state replay through the
+	// same traversal. cursor is the state after the children visited so far,
+	// which is the next child's pre-goto state. pre and state are this
+	// subtree's own replay results; the Known flags follow the replay rules.
+	cursor     StateID
+	pre        StateID
+	state      StateID
+	preKnown   bool
+	stateKnown bool
 }
+
+// MaterializationReplayTransition computes the parse state reached after one
+// subtree is pushed from pre, and reports whether the tables held that
+// transition. It mirrors the root package's replay transition, so the fused
+// visit assigns the same states as the separate top-down replay.
+type MaterializationReplayTransition func(pre StateID, view MaterializationReplayView) (StateID, bool, error)
 
 // MaterializationPostorderScratch retains the transient ownership colors and
 // iterative traversal stack for VisitMaterializationPostorderWithScratch.
@@ -61,6 +76,22 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 	scratch *MaterializationPostorderScratch,
 	visit func(SubtreeID, MaterializationSubtreeView) error,
 ) error {
+	return c.VisitMaterializationPostorderWithReplay(roots, poll, scratch, 0, nil, visit)
+}
+
+// VisitMaterializationPostorderWithReplay is VisitMaterializationPostorderWithScratch
+// with the top-down parse-state replay fused into the same traversal. When
+// transition is non-nil, every root starts from rootPre, each child's pre-goto
+// state is the state after its previous sibling, and the visit receives each
+// subtree's replay states in the view. A nil transition visits without replay.
+func (c *Core) VisitMaterializationPostorderWithReplay(
+	roots []SubtreeID,
+	poll func() error,
+	scratch *MaterializationPostorderScratch,
+	rootPre StateID,
+	transition MaterializationReplayTransition,
+	visit func(SubtreeID, MaterializationSubtreeView) error,
+) error {
 	if c == nil || len(roots) == 0 {
 		return errors.New("parser-core phase zero: materialization requires at least one compact root")
 	}
@@ -99,7 +130,17 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 			return errors.New("parser-core phase zero: compact subtree has repeated public-tree ownership")
 		}
 		colors[root] = 1
-		scratch.frames = append(scratch.frames, materializationPostorderFrame{id: root, record: record})
+		rootFrame := materializationPostorderFrame{id: root, record: record}
+		if transition != nil {
+			state, known, err := transition(rootPre, c.materializationReplayViewForRecord(root, record))
+			if err != nil {
+				return err
+			}
+			rootFrame.pre, rootFrame.cursor = rootPre, rootPre
+			rootFrame.state, rootFrame.stateKnown = state, known
+			rootFrame.preKnown = known && !record.extra
+		}
+		scratch.frames = append(scratch.frames, rootFrame)
 		for len(scratch.frames) != 0 {
 			work++
 			if work&255 == 0 {
@@ -119,7 +160,21 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 				switch colors[child] {
 				case 0:
 					colors[child] = 1
-					scratch.frames = append(scratch.frames, materializationPostorderFrame{id: child, record: childRecord})
+					childFrame := materializationPostorderFrame{id: child, record: childRecord}
+					if transition != nil {
+						childPre := top.cursor
+						state, known, err := transition(childPre, c.materializationReplayViewForRecord(child, childRecord))
+						if err != nil {
+							return err
+						}
+						// The replay advances the parent's cursor by the child's
+						// result even when the tables held no transition.
+						top.cursor = state
+						childFrame.pre, childFrame.cursor = childPre, childPre
+						childFrame.state, childFrame.stateKnown = state, known
+						childFrame.preKnown = known && !childRecord.extra
+					}
+					scratch.frames = append(scratch.frames, childFrame)
 					continue
 				case 1:
 					return errors.New("parser-core phase zero: compact subtree cycle during materialization")
@@ -152,6 +207,10 @@ func (c *Core) VisitMaterializationPostorderWithScratch(
 				view.MissingDependency, view.MissingDependencyExact = c.missingLeafDependency(top.id)
 			}
 			view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(top.id)
+			if transition != nil {
+				view.ReplayPreGotoState, view.ReplayParseState = top.pre, top.state
+				view.ReplayPreGotoKnown, view.ReplayParseStateKnown = top.preKnown, top.stateKnown
+			}
 			c.applyReusedMaterializationView(top.id, &view)
 			if err := visit(top.id, view); err != nil {
 				return err
