@@ -62,19 +62,10 @@ for tags and release notes while still in `0.x`.
   barrier, so every work vector stays identical. Parents take their span
   from the point index only when their visible children do not tile the
   record, and a reduction sums its pop payload work once.
-- Turn the C4 bytecode corridor on by default (stage 3 of
-  spec.c4-bytecode-isa.v1). With the probe skip the corridor lane runs the
-  137 KiB full parse faster than the generic pass on 14 of 15 bench grammars
-  (Go 0.96, C 0.95, hcl 0.94, TypeScript 0.94, JSON 0.83, TOML 0.89, Python
-  0.94, Rust 0.93, INI 0.91, Scala 0.94, CSS 0.82, Make 0.82, CMake 0.94,
-  diff 0.82, Haskell 1.00; minimum of nine parses, three rounds). The
-  runtime equivalence test keeps every scheduler and core work count, every
-  digest, and every fork-boundary identity equal between the two lanes.
-  `GTS_C4_CORRIDOR=0` turns the lane off. Two corridor gaps closed on the
-  way to the default: the direct shift now carries the lexer skipped-prefix
-  provenance that jsdoc's tiling proof reads, and it records the reuse
-  dependency of every token it shifts, which nested incremental reuse
-  authenticates subtrees through.
+- Keep the C4 bytecode corridor opt-in. The 137 KiB full-parse comparison
+  was faster on 14 of 15 grammars, but a JavaScript recovery mutation changed
+  the C tree. Use `GTS_C4_CORRIDOR=1` only for controlled comparisons until
+  the recovery handoff matches C.
 - Answer point lookups from the line of the previous answer or the next
   line before the hashed cache and the binary search: materialization asks
   for points in source order. Skip the scanner-provenance search for a

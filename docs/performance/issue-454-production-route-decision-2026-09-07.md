@@ -186,10 +186,10 @@ With the skip in place the C4 bytecode corridor (default off since stage
 | Haskell | 86.2 | 86.5 | 1.00 |
 | diff | 29.7 | 24.3 | 0.82 |
 
-This clears the stage-3 retain gates of spec.c4-bytecode-isa.v1 (at least
-2 percent geomean, no fixture more than 1 percent slower, work-count
-identity, digests). The corridor is now on by default; `GTS_C4_CORRIDOR=0`
-is the A/B baseline.
+The full-parse results clear the speed retain gates. A later JavaScript
+recovery mutation changed the C tree while the corridor was on. The corridor
+therefore remains opt-in. Use `GTS_C4_CORRIDOR=1` for the A/B lane until its
+recovery handoff matches C.
 
 ## Recorded parse states: an open finding
 
