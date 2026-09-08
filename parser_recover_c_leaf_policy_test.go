@@ -282,6 +282,9 @@ func TestCRecoverStateLeafPolicyKeepsSizeBudget(t *testing.T) {
 
 func TestCRecoveryRegionAuthenticatesSkippedWhitespace(t *testing.T) {
 	parser, direct := recoveryLeafPolicyFixture(t)
+	parser.language.SymbolNames = []string{"", "named_visible", "x", "hidden", "y"}
+	parser.language.SymbolMetadata = append(parser.language.SymbolMetadata, SymbolMetadata{Visible: true})
+
 	skipped := direct
 	skipped.StartByte, skipped.EndByte = 1, 2
 	skipped.lexerSkippedPrefixStart = 0
@@ -294,6 +297,18 @@ func TestCRecoveryRegionAuthenticatesSkippedWhitespace(t *testing.T) {
 		want   bool
 	}{
 		{"space", " x", skipped, true, true},
+		{"anonymous wrong symbol spelling", " x", func() Token { v := skipped; v.Symbol = 4; return v }(), true, false},
+		{"anonymous invalid symbol", " x", func() Token { v := skipped; v.Symbol = 99; return v }(), true, false},
+		{"anonymous missing", " x", func() Token { v := skipped; v.Symbol = 2; v.Missing = true; return v }(), true, false},
+		{"anonymous EOF", " x", func() Token { v := skipped; v.Symbol = 0; return v }(), true, false},
+		{"anonymous zero width", " x", func() Token { v := skipped; v.Symbol = 2; v.EndByte = v.StartByte; return v }(), true, false},
+		{"anonymous invalid skipped prefix", "?x", func() Token { v := skipped; v.Symbol = 2; return v }(), true, false},
+		{"anonymous source token", " x", func() Token { v := skipped; v.Symbol = 2; return v }(), true, true},
+		{"anonymous text mismatch", " y", func() Token { v := skipped; v.Symbol = 2; return v }(), true, false},
+		{"anonymous external token", " x", func() Token { v := skipped; v.Symbol = 2; v.ExternalScannerToken = true; return v }(), true, false},
+		{"anonymous error-mode token", " x", func() Token { v := skipped; v.Symbol = 2; v.setLexFlag(tokenFlagErrorModeLexed, true); return v }(), true, false},
+		{"anonymous absent prefix", " x", func() Token { v := skipped; v.Symbol = 2; return v }(), false, false},
+		{"anonymous absent source", "", func() Token { v := skipped; v.Symbol = 2; return v }(), true, false},
 		{"tab", "\tx", skipped, true, true},
 		{"newline", "\nx", skipped, true, true},
 		{"non-whitespace", "?x", skipped, true, false},

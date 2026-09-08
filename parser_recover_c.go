@@ -2606,6 +2606,12 @@ func (p *Parser) cStackCumulativeNodeCount(s *glrStack) int {
 	return count
 }
 
+// cPauseRecovery resets the progress baseline, as C's ts_stack_pause does.
+func (p *Parser) cPauseRecovery(s *glrStack) {
+	s.cPaused = true
+	s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
+}
+
 func (p *Parser) cApplyMergedErrorGroupBaseline(versions []glrStack) int {
 	groupBaseline := 0
 	for vi := range versions {
@@ -3925,7 +3931,16 @@ func cRecoveryRegionClearsOrdinaryLeafErrorsWithSource(p *Parser, tok Token, has
 		}
 		tok.setLexFlag(tokenFlagSkippedPrefix, false)
 	}
-	return cRecoveryRegionClearsOrdinaryLeafErrors(p, tok, hasParsedPrefix)
+	if cRecoveryRegionClearsOrdinaryLeafErrors(p, tok, hasParsedPrefix) {
+		return true
+	}
+	// Ordinary punctuation remains clean in C when the lexer accepted it.
+	return p != nil && p.language != nil && hasParsedPrefix &&
+		int(tok.Symbol) < len(p.language.SymbolMetadata) && int(tok.Symbol) < len(p.language.SymbolNames) &&
+		p.language.SymbolMetadata[tok.Symbol].Visible && !p.language.SymbolMetadata[tok.Symbol].Named &&
+		p.language.SymbolNames[tok.Symbol] == tok.Text && cRecoveryTokenCanClearOrdinaryLeafError(tok) &&
+		uint64(tok.EndByte) <= uint64(len(source)) &&
+		tok.Text == string(source[tok.StartByte:tok.EndByte])
 }
 
 // cRecoveryEntriesHaveParsedPrefix proves that recovery follows a clean,

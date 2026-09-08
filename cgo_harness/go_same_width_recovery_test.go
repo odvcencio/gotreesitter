@@ -15,6 +15,10 @@ func TestGoSameWidthCompactRecoveryLockedC(t *testing.T) {
 	testGoSameWidthCompactRecoveryLockedC(t, true)
 }
 
+func TestGoSameWidthProductionRecoveryLockedC(t *testing.T) {
+	testGoSameWidthCompactRecoveryLockedC(t, false)
+}
+
 func testGoSameWidthCompactRecoveryLockedC(t *testing.T, compactOld bool) {
 	source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")
 	start := bytes.IndexByte(source, '1')

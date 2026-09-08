@@ -4261,3 +4261,31 @@ func TestCReductionCandidateDoesNotDoubleCloneRecoveryState(t *testing.T) {
 		t.Fatal("reduction candidate did not preserve shared immutable recovery summary")
 	}
 }
+
+func TestCRecoveryPauseResetsInheritedProgress(t *testing.T) {
+	p := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	s := cRecoveryBaselineStack(arena, 1, 12)
+	before := p.cStackCumulativeNodeCount(&s)
+	if before == 0 {
+		t.Fatal("fixture has no progress")
+	}
+	p.cPauseRecovery(&s)
+	if !s.cPaused || s.cNodeBaseline != uint32(before) || p.cNodeCountSinceError(&s) != 0 {
+		t.Fatalf("pause retained earlier progress: baseline=%d count=%d", s.cNodeBaseline, p.cNodeCountSinceError(&s))
+	}
+	clone := s.clone()
+	if p.cNodeCountSinceError(&clone) != 0 {
+		t.Fatal("recovery fork inherited pre-error progress")
+	}
+	leaf := newLeafNodeInArena(arena, 1, true, 12, 13, Point{Column: 12}, Point{Column: 13})
+	clone.pushEntry(newStackEntryNode(20, leaf), nil, nil)
+	if p.cNodeCountSinceError(&clone) != 1 {
+		t.Fatal("post-pause progress was not counted")
+	}
+	p.cPauseRecovery(&clone)
+	if p.cNodeCountSinceError(&clone) != 0 || p.cNodeCountSinceError(&s) != 0 {
+		t.Fatal("repeated pause retained progress or changed the source")
+	}
+}
