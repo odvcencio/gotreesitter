@@ -3086,6 +3086,7 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 		if v >= len(versions) {
 			break
 		}
+		versionCount := len(versions)
 		// Merge check against earlier versions created in this call.
 		merged := false
 		for j := 0; j < v; j++ {
@@ -3176,7 +3177,8 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 			continue
 		}
 		if v == 0 {
-			v = 1
+			// C skips versions that existed before this promoted version's pass.
+			v = versionCount
 		} else {
 			v++
 		}
