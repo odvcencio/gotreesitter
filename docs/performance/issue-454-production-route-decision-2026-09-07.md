@@ -195,15 +195,19 @@ is the A/B baseline.
 
 Program item 2 proposes that the core record the parse state it pushes
 each subtree into, so materialization stops replaying the tables. A trial
-recorded the shift target and the reduction goto per subtree and compared
-them with the fused replay on every canonical Go fixture. They differ on
-trailing extras that a reduction migrates: the push-time state is the
-state below the unreduced children, while the tree-position replay gives
-the goto state the extra now follows, and every sibling after such an
-extra inherits the difference. The replay's answer is the state an
-incremental reparse sees at that tree position, so the recorded state is
-not a drop-in replacement. Item 2 needs the migration rule before it can
-land; the trial is not in the tree.
+recorded the shift target and the reduction goto per subtree, gave every
+trailing extra a reduction migrates that reduction's goto state again, and
+compared the result with the fused replay on every canonical Go fixture.
+Terminals and extras then agree. Reductions inside condensed diamonds do
+not: on `startByte, endByte uint32` the accepted derivation's
+`parameter_declaration` carries the goto state of the branch that reduced
+it, while the tree-position replay computes the goto from the state after
+the previous sibling, and the two branches reached that sibling in
+different states. The grammargen fixture shows 71 such visible
+non-terminal differences. The reuse gate reads those stamps, so the
+recorded state is not a drop-in replacement. Item 2 needs a decision on
+which state a node inside a merge should carry before it can land; the
+trial is not in the tree.
 
 ## Compact program
 

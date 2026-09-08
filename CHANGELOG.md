@@ -75,6 +75,12 @@ for tags and release notes while still in `0.x`.
   provenance that jsdoc's tiling proof reads, and it records the reuse
   dependency of every token it shifts, which nested incremental reuse
   authenticates subtrees through.
+- Answer point lookups from the line of the previous answer or the next
+  line before the hashed cache and the binary search: materialization asks
+  for points in source order. Skip the scanner-provenance search for a
+  terminal that cannot carry an entry, and the skipped-prefix search when
+  no prefix was recorded. Together about 3 percent on the Go 137 KiB
+  witness.
 
 ### Production engine fixes kept until retirement (issue #454)
 

@@ -65,7 +65,10 @@ func (c *Core) fillMaterializationSubtreeView(id SubtreeID, record *subtreeRecor
 		Fragile:           record.fragile,
 		Missing:           record.missing,
 	}
-	if record.terminal {
+	// appendAuthenticatedTerminal records scanner provenance only for an
+	// external terminal, or for every terminal once the language capability
+	// is on. Any other terminal has no entry, so skip the search.
+	if record.terminal && (record.external || c.terminalScannerCheckpointProvenance) {
 		if provenance, ok := c.externalPayloadScannerProvenance(id); ok {
 			view.ExternalScannerCheckpointStart = provenance.start
 			view.ExternalScannerCheckpointEnd = provenance.end
@@ -75,6 +78,8 @@ func (c *Core) fillMaterializationSubtreeView(id SubtreeID, record *subtreeRecor
 	if record.missing {
 		view.MissingDependency, view.MissingDependencyExact = c.missingLeafDependency(id)
 	}
-	view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(id)
+	if len(c.lexerSkippedPrefixes) != 0 {
+		view.LexerSkippedPrefixStart, view.LexerSkippedPrefix = c.lexerSkippedPrefix(id)
+	}
 	c.applyReusedMaterializationView(id, view)
 }

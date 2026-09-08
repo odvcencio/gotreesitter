@@ -6186,7 +6186,9 @@ type diagnosticParserCorePointCacheEntry struct {
 type diagnosticParserCorePointIndex struct {
 	lineStarts []uint32
 	cache      [diagnosticParserCorePointCacheSize]diagnosticParserCorePointCacheEntry
-	valid      uint16
+	// lastLine is the row of the previous point answer; see point.
+	lastLine uint32
+	valid    uint16
 }
 
 // diagnosticParserCoreMaterializationScratch retains parent-build storage for
@@ -6620,7 +6622,22 @@ func newDiagnosticParserCorePointIndexInto(source []byte, poll func() error, buf
 }
 
 func (index *diagnosticParserCorePointIndex) point(offset uint32) Point {
+	// Materialization asks for points in source order, so the answer is
+	// usually on the line of the previous answer or the next line. Check
+	// those two before the hashed cache and the binary search.
+	starts := index.lineStarts
+	line := int(index.lastLine)
+	if line < len(starts) && starts[line] <= offset {
+		if line+1 >= len(starts) || offset < starts[line+1] {
+			return Point{Row: uint32(line), Column: offset - starts[line]}
+		}
+		if line+2 >= len(starts) || offset < starts[line+2] {
+			index.lastLine = uint32(line + 1)
+			return Point{Row: uint32(line + 1), Column: offset - starts[line+1]}
+		}
+	}
 	point, _ := index.pointCached(offset)
+	index.lastLine = point.Row
 	return point
 }
 
