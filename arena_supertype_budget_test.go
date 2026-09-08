@@ -23,16 +23,16 @@ func TestArenaSupertypeBudgetChargesAllocationAndGrowth(t *testing.T) {
 		arena.setBudget(1)
 	}
 	for mask := uint32(2); mask <= 255; mask++ {
-		arena.internSupertypeSet(mask)
-		want := base + int64(cap(arena.nodeSupertypes)+cap(arena.nodeSlabs[0].supertypes)) + 4*int64(cap(arena.supertypeSets))
+		arena.setNodeSupertypeMask(&arena.nodes[0], mask)
+		want := base + 4*int64(cap(arena.nodeSupertypes)+cap(arena.nodeSlabs[0].supertypes))
 		if arena.allocatedBytes != want {
 			t.Fatalf("mask %d allocation=%d, want %d", mask, arena.allocatedBytes, want)
 		}
 	}
 	arena.setBudget(1)
-	arena.internSupertypeSet(1)
-	if arena.internSupertypeSet(256) != 0 || arena.budgetExhausted() {
-		t.Fatal("duplicate or rejected mask changed allocation accounting")
+	arena.setNodeSupertypeMask(&arena.nodes[0], 256)
+	if arena.nodeSupertypeMask(&arena.nodes[0]) != 256 || arena.budgetExhausted() {
+		t.Fatal("mask replacement lost its value or charged existing storage")
 	}
 }
 
@@ -74,7 +74,7 @@ func TestArenaSupertypeBudgetDropsTrimmedPrimaryStorage(t *testing.T) {
 		t.Fatal("primary trimming retained parallel supertype storage")
 	}
 	arena.recomputeAllocatedBytes()
-	if want := 4 * int64(cap(arena.supertypeSets)); arena.allocatedBytes != want {
+	if want := int64(0); arena.allocatedBytes != want {
 		t.Fatalf("trimmed allocation=%d, want %d", arena.allocatedBytes, want)
 	}
 }
