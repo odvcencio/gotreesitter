@@ -186,10 +186,11 @@ With the skip in place the C4 bytecode corridor (default off since stage
 | Haskell | 86.2 | 86.5 | 1.00 |
 | diff | 29.7 | 24.3 | 0.82 |
 
-The full-parse results clear the speed retain gates. A later JavaScript
-recovery mutation changed the C tree while the corridor was on. The corridor
-therefore remains opt-in. Use `GTS_C4_CORRIDOR=1` for the A/B lane until its
-recovery handoff matches C.
+These exploratory results do not satisfy the required randomized benchmark
+comparison. They predate the review fixes and the benchmark lifetime fix.
+A JavaScript recovery mutation also exposed a corridor tree mismatch.
+The corridor remains opt-in through `GTS_C4_CORRIDOR=1` pending broader
+correctness validation and new performance measurements.
 
 ## Recorded parse states: an open finding
 
@@ -209,12 +210,12 @@ recorded state is not a drop-in replacement. Item 2 needs a decision on
 which state a node inside a merge should carry before it can land; the
 trial is not in the tree.
 
-## Result after this round
+## Historical exploratory result
 
 The 137 KiB full parse, minimum of nine parses over two rounds, on the
-same host and load: the compact route at the start of this round (commit
-88d3f926), the compact route at the landed head (f4cf343b), and the
-production route in the landed binary.
+same host and load: the compact route at commit 88d3f926, the compact route
+at the earlier measurement head f4cf343b, and production in that binary.
+The table does not describe the current reviewed implementation.
 
 | Grammar | Start, ms | Now, ms | Production, ms | Now / start | Now / production |
 | --- | --- | --- | --- | --- | --- |
@@ -234,11 +235,10 @@ production route in the landed binary.
 | Haskell | 86.2 | 80.8 | 77.8 | 0.94 | 1.04 |
 | diff | 31.6 | 25.6 | 17.6 | 0.81 | 1.45 |
 
-The compact route is 6 to 19 percent faster than at the start of the
-round on every grammar. It beats production on C and Python, matches it
-on Haskell, and runs 1.25 to 1.71 times production elsewhere. The
-remaining gap is the record graph the core writes and then reads again
-at materialization; program item 1 is the next step.
+The earlier sample suggested improvements of 6 to 19 percent.
+It does not establish gains after the correctness and benchmark fixes.
+Run `scripts/run_randomized_benchmarks.sh` on the corrected baseline and
+candidate before making retention or release decisions from performance.
 
 ## Compact program
 

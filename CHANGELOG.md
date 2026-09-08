@@ -30,11 +30,9 @@ for tags and release notes while still in `0.x`.
   The relex payload scratch no longer clears its whole buffer on
   every election, the head owner record runs without a closure per dispatch,
   and a single fresh reduction output updates its header in place.
-- Together with the earlier round these cuts move the 137 KiB compact full
-  parse by about 6 percent on Go, hcl, TypeScript, JSON, and TOML. The
-  compact route still runs 1.45 to 2.0 times the production route; the
-  remaining gap is structural, and the route decision record lists the
-  program.
+- Earlier exploratory measurements predate the correctness review and
+  benchmark lifetime fixes. They do not establish current performance gains.
+  The route decision record retains them as historical measurements.
 - Extract the accepted-tree visit into `compactMaterializer`, a struct the
   scheduler can drive as well as the postorder pass. The postorder pass
   now fills one scratch view in place and visits it through a pointer, and
