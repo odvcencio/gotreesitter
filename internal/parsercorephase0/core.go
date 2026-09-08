@@ -1407,6 +1407,9 @@ type Core struct {
 	// subtree was published through the authenticated shift/reduction seams.
 	// Diagnostic generic publication clears it monotonically until Reset.
 	metadataConstructionAuthenticated bool
+	// lastShiftFresh records whether the most recent single-boundary shift
+	// published a new node. See LastShiftFresh.
+	lastShiftFresh bool
 	// reduceConflictContext is a transient, non-sticky fragility signal: the
 	// conflict executor (executeDiagnosticParserCoreGenericConflictDetailed,
 	// parsercore_phase0_driver.go) sets it for the duration of applying every

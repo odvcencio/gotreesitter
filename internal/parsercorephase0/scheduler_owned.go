@@ -1100,6 +1100,7 @@ func (c *Core) shiftClassifiedUncheckpointed(boundary ClassifiedBoundary, action
 	if err != nil {
 		return Head{}, err
 	}
+	c.lastShiftFresh = outcome.change == condenseNew
 	c.addWork(&c.work.Shifts, 1)
 	return outcome.head, nil
 }
@@ -1139,8 +1140,17 @@ func (c *Core) shiftDirectUncheckpointed(
 	if err != nil {
 		return Head{}, err
 	}
+	c.lastShiftFresh = outcome.change == condenseNew
 	c.addWork(&c.work.Shifts, 1)
 	return outcome.head, nil
+}
+
+// LastShiftFresh reports whether the most recent single-boundary shift
+// published a new node instead of condensing into an existing one. A fresh
+// node is the latest node of its phase identity, so a single header that
+// holds it needs no canonical-boundary replacement.
+func (c *Core) LastShiftFresh() bool {
+	return c != nil && c.lastShiftFresh
 }
 
 // ShiftOrdinaryClassifiedCohortOwned authenticates the scheduler owner, then
@@ -1723,9 +1733,11 @@ func (c *Core) reduceOutputsClassifiedIntoActive(owner SchedulerTransactionToken
 	c.addWork(&c.work.Reductions, 1)
 	c.addWork(&c.work.ReductionPopRequests, 1)
 	c.addWork(&c.work.EmittedPopPaths, uint64(len(paths)))
+	emittedPayloads := uint64(0)
 	for index := range paths {
-		c.addWork(&c.work.EmittedPopPayloads, uint64(len(paths[index].children)+len(paths[index].trailing)))
+		emittedPayloads += uint64(len(paths[index].children) + len(paths[index].trailing))
 	}
+	c.addWork(&c.work.EmittedPopPayloads, emittedPayloads)
 	scratch := &c.reductionScratch
 	// len(paths) > 1 is this reduce's pop.size > 1 (a GSS multi-pop / diamond
 	// merge): more than one distinct way to pop act.ChildCount entries was
