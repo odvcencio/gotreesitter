@@ -8501,7 +8501,18 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 	drop := 0
 	sharedStart := uint32(0)
 	startSet := false
+	sameStart := true
+	maxDroppedEnd := uint32(0)
+	minShiftedStart := uint32(math.MaxUint32)
+	maxDroppedPosition := uint32(0)
+	minShiftedPosition := uint32(math.MaxUint32)
+	ordinaryClean := true
 	for index := range s.headers {
+		header := &s.headers[index]
+		state, position, boundaryErr := s.compact.Boundary(header.head)
+		cost, costErr := s.compact.RecoveryStoredErrorCost(header.head)
+		ordinaryClean = ordinaryClean && boundaryErr == nil && costErr == nil &&
+			state != 0 && cost == 0 && !header.isRecoveryLineage() && header.recoveryRegion() == nil
 		isDrop := drop < len(indices) && indices[drop] == index
 		if isDrop {
 			drop++
@@ -8512,13 +8523,19 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 			if !startSet {
 				sharedStart, startSet = request.token.StartByte, true
 			} else if request.token.StartByte != sharedStart {
-				return false
+				sameStart = false
 			}
+			maxDroppedEnd = max(maxDroppedEnd, request.token.EndByte)
+			maxDroppedPosition = max(maxDroppedPosition, position)
 			continue
 		}
-		header := &s.headers[index]
 		if !header.shifted || header.accepted || header.paused ||
 			header.versionLexerRequestReference() != 0 {
+			return false
+		}
+		snapshot := header.versionLexerSnapshot()
+		if boundaryErr != nil || snapshot == nil || snapshot.dfa.lexerPos < 0 ||
+			uint64(snapshot.dfa.lexerPos) != uint64(position) {
 			return false
 		}
 		matchedShift := false
@@ -8531,8 +8548,10 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 			if !startSet {
 				sharedStart, startSet = request.token.StartByte, true
 			} else if request.token.StartByte != sharedStart {
-				return false
+				sameStart = false
 			}
+			minShiftedStart = min(minShiftedStart, request.token.StartByte)
+			minShiftedPosition = min(minShiftedPosition, position)
 			matchedShift = true
 			break
 		}
@@ -8540,7 +8559,11 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 			return false
 		}
 	}
-	return startSet && drop == len(indices)
+	// Ragged versions can reach different token starts in the next election.
+	// C retires a paused ordinary version when a better active version is ahead.
+	// Zero stored cost excludes recovery competition from this position proof.
+	raggedBehind := ordinaryClean && maxDroppedEnd <= minShiftedStart && maxDroppedPosition <= minShiftedPosition
+	return startSet && drop == len(indices) && (sameStart || raggedBehind)
 }
 
 func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() (*diagnosticParserCoreGenericUnsupported, error) {
