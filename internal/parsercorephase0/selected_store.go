@@ -1270,10 +1270,12 @@ func (c *Core) selectedRawOccurrences(roots []SubtreeID, poll func() error) ([]s
 func (c *Core) selectedDirectChildField(record subtreeRecord, ordinal uint32) (FieldID, error) {
 	var field FieldID
 	for _, entry := range c.fields[record.firstField : record.firstField+record.fieldCount] {
-		if uint32(entry.ChildIndex) != ordinal {
+		// Hidden descendants already carry their direct fields. C's cursor
+		// ignores inherited entries instead of assigning them a second time.
+		if uint32(entry.ChildIndex) != ordinal || entry.Inherited {
 			continue
 		}
-		if entry.Inherited || field != 0 {
+		if field != 0 {
 			return 0, fmt.Errorf("parser-core phase zero: selected field profile is outside admitted direct single-field scope: symbol=%d production=%d child=%d field=%d inherited=%t prior_field=%d", record.symbol, record.productionID, ordinal, entry.FieldID, entry.Inherited, field)
 		}
 		field = entry.FieldID

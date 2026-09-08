@@ -406,7 +406,7 @@ func TestSelectedStoreDeepTraversalIsIterativeAndCancellable(t *testing.T) {
 	}
 }
 
-func TestSelectedStoreDeclinesUnsupportedFieldProfile(t *testing.T) {
+func TestSelectedStoreInheritedEntryDoesNotAssignVisibleChild(t *testing.T) {
 	compact, err := New(&fakeTable{}, Limits{})
 	if err != nil {
 		t.Fatal(err)
@@ -414,11 +414,15 @@ func TestSelectedStoreDeclinesUnsupportedFieldProfile(t *testing.T) {
 	leaf, _ := compact.appendSubtree(subtreeRecord{symbol: 1, endByte: 1, terminal: true}, nil, nil, nil)
 	parent, _ := compact.appendSubtree(subtreeRecord{symbol: 2, endByte: 1}, []SubtreeID{leaf}, []FieldMapEntry{{FieldID: 1, ChildIndex: 0, Inherited: true}}, nil)
 	store, err := compact.BuildSelectedStore([]SubtreeID{parent}, selectedStoreTestPolicy(t, 2, 1), []byte("x"), nil)
-	if err == nil || store != nil || !strings.Contains(err.Error(), "outside admitted") {
-		t.Fatalf("unsupported field store=%v err=%v", store, err)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(err.Error(), "symbol=2 production=0 child=0 field=1 inherited=true prior_field=0") {
-		t.Fatalf("field rejection lacks production context: %v", err)
+	defer store.Release()
+	root, _ := store.Record(store.Root())
+	childID, ok := store.Child(root, 0)
+	child, valid := store.Record(childID)
+	if !ok || !valid || child.Field != 0 {
+		t.Fatalf("inherited entry assigned visible child: %+v", child)
 	}
 }
 
@@ -431,6 +435,78 @@ func TestSelectedDirectChildFieldRejectsConflictingFields(t *testing.T) {
 	field, err := c.selectedDirectChildField(record, 0)
 	if field != 0 || err == nil || !strings.Contains(err.Error(), "symbol=3 production=7 child=0 field=2 inherited=false prior_field=1") {
 		t.Fatalf("conflicting field=%d err=%v", field, err)
+	}
+}
+
+func TestSelectedDirectChildFieldIgnoresInheritedEntryOrder(t *testing.T) {
+	for _, inheritedFirst := range []bool{false, true} {
+		entries := []FieldMapEntry{{FieldID: 1}, {FieldID: 2, Inherited: true}}
+		if inheritedFirst {
+			entries[0], entries[1] = entries[1], entries[0]
+		}
+		c := &Core{fields: entries}
+		field, err := c.selectedDirectChildField(subtreeRecord{fieldCount: 2}, 0)
+		if err != nil || field != 1 {
+			t.Fatalf("inherited first=%t: field=%d err=%v", inheritedFirst, field, err)
+		}
+	}
+}
+
+func TestSelectedStoreInheritedFieldPreservesDirectDescendants(t *testing.T) {
+	c, err := New(&fakeTable{}, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	appendNode := func(record subtreeRecord, children []SubtreeID, fields []FieldMapEntry) SubtreeID {
+		t.Helper()
+		id, err := c.appendSubtree(record, children, fields, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	left := appendNode(subtreeRecord{symbol: 1, endByte: 1, terminal: true}, nil, nil)
+	right := appendNode(subtreeRecord{symbol: 1, startByte: 1, endByte: 2, terminal: true}, nil, nil)
+	hidden := appendNode(subtreeRecord{symbol: 3, endByte: 2}, []SubtreeID{left, right}, []FieldMapEntry{{FieldID: 1, ChildIndex: 0}})
+	root := appendNode(subtreeRecord{symbol: 2, endByte: 2}, []SubtreeID{hidden}, []FieldMapEntry{{FieldID: 1, ChildIndex: 0, Inherited: true}})
+	store, err := c.BuildSelectedStore([]SubtreeID{root}, selectedStoreTestPolicy(t, 2, 1), []byte("ab"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Release()
+	parent, _ := store.Record(store.Root())
+	if parent.ChildCount != 2 {
+		t.Fatalf("children=%d, want 2", parent.ChildCount)
+	}
+	for index, want := range []FieldID{1, 0} {
+		id, _ := store.Child(parent, uint32(index))
+		child, _ := store.Record(id)
+		if child.Field != want {
+			t.Fatalf("child %d field=%d, want %d", index, child.Field, want)
+		}
+	}
+	aliased, err := c.appendSubtree(subtreeRecord{symbol: 2, endByte: 2}, []SubtreeID{hidden},
+		[]FieldMapEntry{{FieldID: 1, Inherited: true}}, []Symbol{5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliasStore, err := c.BuildSelectedStore([]SubtreeID{aliased}, selectedStoreTestPolicy(t, 2, 1, 5), []byte("ab"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer aliasStore.Release()
+	aliasRoot, _ := aliasStore.Record(aliasStore.Root())
+	aliasID, _ := aliasStore.Child(aliasRoot, 0)
+	alias, _ := aliasStore.Record(aliasID)
+	if aliasRoot.ChildCount != 1 || alias.Symbol != 5 || alias.Field != 0 || alias.ChildCount != 2 {
+		t.Fatalf("visible alias boundary changed: root=%+v alias=%+v", aliasRoot, alias)
+	}
+	for index, want := range []FieldID{1, 0} {
+		id, _ := aliasStore.Child(alias, uint32(index))
+		child, _ := aliasStore.Record(id)
+		if child.Field != want {
+			t.Fatalf("aliased child %d field=%d, want %d", index, child.Field, want)
+		}
 	}
 }
 
