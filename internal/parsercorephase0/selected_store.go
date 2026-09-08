@@ -1008,13 +1008,14 @@ func (s *SelectedStore) applyDirectField(ids []SelectedNodeID, field FieldID) {
 	}
 	named := 0
 	for _, id := range ids {
-		if s.records[id-1].Named() {
+		r := &s.records[id-1]
+		if !r.Extra() && r.Named() {
 			named++
 		}
 	}
 	for _, id := range ids {
 		r := &s.records[id-1]
-		if r.Field != 0 {
+		if r.Extra() || r.Field != 0 {
 			continue
 		}
 		if named > 0 && !r.Named() {

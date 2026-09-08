@@ -2,6 +2,7 @@ package parsercorephase0
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"sync"
@@ -66,6 +67,47 @@ func TestSelectedStoreElidesHiddenParentsBeforeSeal(t *testing.T) {
 	childRecord, _ := store.Record(child)
 	if store.NodeCount() != 2 || childRecord.Symbol != 1 {
 		t.Fatalf("hidden-elided nodes=%d child=%+v", store.NodeCount(), childRecord)
+	}
+}
+
+func TestSelectedStoreHiddenFieldExcludesExtras(t *testing.T) {
+	for _, named := range []bool{false, true} {
+		t.Run(fmt.Sprintf("named=%t", named), func(t *testing.T) {
+			compact, err := New(&fakeTable{}, Limits{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			appendNode := func(record subtreeRecord, children []SubtreeID, fields []FieldMapEntry) SubtreeID {
+				t.Helper()
+				id, err := compact.appendSubtree(record, children, fields, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return id
+			}
+			extra := appendNode(subtreeRecord{symbol: 3, endByte: 1, terminal: true, extra: true}, nil, nil)
+			leaf := appendNode(subtreeRecord{symbol: 1, startByte: 1, endByte: 2, terminal: true}, nil, nil)
+			hidden := appendNode(subtreeRecord{symbol: 4, endByte: 2}, []SubtreeID{extra, leaf}, nil)
+			root := appendNode(subtreeRecord{symbol: 2, endByte: 2}, []SubtreeID{hidden}, []FieldMapEntry{{FieldID: 1, ChildIndex: 0}})
+			policy := selectedStoreTestPolicy(t, 2, 1, 3)
+			policy.Symbols[1].Named = named
+			store, err := compact.BuildSelectedStore([]SubtreeID{root}, policy, []byte(" x"), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer store.Release()
+			parent, _ := store.Record(store.Root())
+			if parent.ChildCount != 2 {
+				t.Fatalf("children=%d, want 2", parent.ChildCount)
+			}
+			for index, want := range []FieldID{0, 1} {
+				id, _ := store.Child(parent, uint32(index))
+				child, _ := store.Record(id)
+				if child.Field != want || child.Extra() != (index == 0) {
+					t.Fatalf("child %d=%+v, want field %d", index, child, want)
+				}
+			}
+		})
 	}
 }
 
