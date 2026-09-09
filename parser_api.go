@@ -555,15 +555,19 @@ func profileForestRecoveryFallback(profile IncrementalParseProfile, tree *Tree, 
 	if tree == nil {
 		return profile
 	}
+	// Keep the failed incremental attempt and the replacement parse in the cost.
+	runtime := tree.ParseRuntime()
 	profile.ReparseNanos += elapsed.Nanoseconds()
+	profile.TokensConsumed += runtime.TokensConsumed
+	profile.NewNodesAllocated += uint64(runtime.NodesAllocated)
 	profile.ReusedSubtrees = 0
 	profile.ReusedBytes = 0
 	profile.ReuseUnsupported = true
 	profile.ReuseUnsupportedReason = forestRecoveryFallbackReuseReason
 	profile.OldTreeReuseRoute = false
-	profile.StopReason = tree.ParseStopReason()
-	profile.ExpectedEOFByte = tree.ParseRuntime().ExpectedEOFByte
-	profile.LastTokenEndByte = tree.ParseRuntime().LastTokenEndByte
+	profile.StopReason = runtime.StopReason
+	profile.ExpectedEOFByte = runtime.ExpectedEOFByte
+	profile.LastTokenEndByte = runtime.LastTokenEndByte
 	return profile
 }
 
