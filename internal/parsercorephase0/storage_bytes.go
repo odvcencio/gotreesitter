@@ -67,6 +67,7 @@ func (c *Core) StorageBytes() uint64 {
 		uint64(len(c.recoveryVisibleCounts))*coreRecoveryVisibleCountBytes +
 		uint64(len(c.recoveryVisibleSymbols))*coreBoolBytes +
 		uint64(len(c.reusedSubtrees))*coreReusedSubtreeBytes +
+		uint64(len(c.reuseCertifiedNodes))*coreBoolBytes +
 		uint64(len(c.eofRecoveryRoots))*coreSubtreeIDBytes +
 		uint64(len(c.recoveryDiscontinuityReductions))*coreRecoveryDiscontinuityReductionBytes +
 		uint64(len(c.children))*coreChildRecordBytes +
@@ -174,6 +175,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += uint64(cap(c.missingLeafProvenance)) * coreMissingLeafProvenanceBytes
 	total += uint64(cap(c.lexerSkippedPrefixes)) * coreLexerSkippedPrefixBytes
 	total += uint64(cap(c.reusedSubtrees)) * coreReusedSubtreeBytes
+	total += uint64(cap(c.reuseCertifiedNodes)) * coreBoolBytes
 	total += uint64(cap(c.boundaryJournal)) * coreBoundaryMutationBytes
 	total += uint64(cap(c.nodeLineageJournal)) * coreNodeLineageMutationBytes
 	total += uint64(cap(c.dropCohortLinkRefIndexes)) * coreUint32Bytes
@@ -333,6 +335,7 @@ func (c *Core) releaseRecordArenaReserve() {
 	c.recoveryVisibleCounts = nil
 	c.recoveryVisibleSymbols = nil
 	c.reusedSubtrees = nil
+	c.reuseCertifiedNodes = nil
 	c.eofRecoveryRoots = nil
 	c.recoveryDiscontinuityReductions = nil
 	c.missingLeafProvenance = nil
@@ -370,6 +373,7 @@ func (c *Core) releaseOversizedRetention() {
 	c.recoveryVisibleCounts = nil
 	c.recoveryVisibleSymbols = nil
 	c.reusedSubtrees = nil
+	c.reuseCertifiedNodes = nil
 	c.eofRecoveryRoots = nil
 	c.recoveryDiscontinuityReductions = nil
 	c.externalProvenance = nil

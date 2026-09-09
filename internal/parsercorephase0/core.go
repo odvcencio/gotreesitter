@@ -1319,6 +1319,7 @@ type Core struct {
 	lexerSkippedPrefixes   []lexerSkippedPrefixProvenance
 	reusedSubtrees         []reusedSubtreeProvenance
 	reuseProof             reuseValidationProof
+	reuseCertifiedNodes    []bool
 	// recoveryDiscontinuityReductions records parents whose stack pop crossed
 	// a null recovery edge. C counts that edge for the pop depth, but it does
 	// not add a child to the materialized subtree.
@@ -1766,6 +1767,7 @@ func (c *Core) restoreCheckpoint(mark *checkpoint) {
 	c.reusedSubtrees = c.reusedSubtrees[:mark.reusedSubtrees]
 	c.reuseProof.subtrees = mark.reuseProof.subtrees
 	c.reuseProof.nodes = mark.reuseProof.nodes
+	c.reuseCertifiedNodes = c.reuseCertifiedNodes[:mark.reuseProof.nodes]
 	// Invalidation remains sticky because published fragility changes can survive rollback.
 	c.reuseProof.invalid = c.reuseProof.invalid || mark.reuseProof.invalid
 	c.recoveryDiscontinuityReductions = c.recoveryDiscontinuityReductions[:mark.recoveryDiscontinuityReductions]
@@ -2389,6 +2391,7 @@ func (c *Core) Reset() error {
 	c.lexerSkippedPrefixes = c.lexerSkippedPrefixes[:0]
 	c.reusedSubtrees = c.reusedSubtrees[:0]
 	c.reuseProof = reuseValidationProof{}
+	c.reuseCertifiedNodes = c.reuseCertifiedNodes[:0]
 	c.recoveryDiscontinuityReductions = c.recoveryDiscontinuityReductions[:0]
 	c.children = c.children[:0]
 	c.fields = c.fields[:0]

@@ -137,7 +137,8 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		}
 		c.reuseProof.subtrees++
 	}
-	// Graph topology is immutable. Mutation seams invalidate proofs of unsafe lineage changes.
+	// Parents precede children in the graph. Certify each new node once,
+	// including its ancestry. Invalid inactive nodes do not poison a valid head.
 	for uint64(c.reuseProof.nodes) < uint64(len(c.nodes)) {
 		if err := step(); err != nil {
 			return err
@@ -148,27 +149,28 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		if err != nil {
 			return err
 		}
-		if node.pathCount != 1 || node.linkCount > 1 || !reuseLineageClean(lineage) {
-			return errors.New("parser-core phase zero: reuse requires one clean exact corridor")
-		}
-		if node.linkCount == 0 {
-			if node.firstLink != 0 {
-				return errors.New("parser-core phase zero: reused corridor has invalid seed adjacency")
-			}
-		} else {
+		valid := node.pathCount == 1 && node.linkCount <= 1 &&
+			lineage.storedErrorCost == 0 && lineage.set.count == 0 && lineage.lineage == 0
+		if valid && node.linkCount == 0 {
+			valid = node.firstLink == 0
+		} else if valid {
 			if node.firstLink == 0 || uint64(node.firstLink) > uint64(len(c.links)) {
-				return errors.New("parser-core phase zero: reused corridor has invalid link identifier")
-			}
-			link := c.links[node.firstLink-1]
-			if err := link.validateShape(); err != nil {
-				return err
-			}
-			if link.next != 0 || link.isRecoveryDiscontinuity() || link.hasOrder() || link.prev == 0 || link.prev >= id ||
-				link.payload == 0 || uint64(link.payload) > uint64(c.reuseProof.subtrees) {
-				return errors.New("parser-core phase zero: reused corridor has invalid or ambiguous ancestry")
+				valid = false
+			} else {
+				link := c.links[node.firstLink-1]
+				valid = link.validateShape() == nil && link.next == 0 &&
+					!link.isRecoveryDiscontinuity() && link.prev != 0 && link.prev < id &&
+					link.payload != 0 && uint64(link.payload) <= uint64(c.reuseProof.subtrees)
+				if valid {
+					valid = c.reuseCertifiedNodes[link.prev-1]
+				}
 			}
 		}
+		c.reuseCertifiedNodes = append(c.reuseCertifiedNodes, valid)
 		c.reuseProof.nodes++
+	}
+	if !c.reuseCertifiedNodes[head.Node-1] {
+		return errors.New("parser-core phase zero: reuse requires one clean exact corridor")
 	}
 	return poll()
 }
