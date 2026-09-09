@@ -1,0 +1,16 @@
+# Retirement boundary ledger — milestone candidate
+
+Starting revision: 90bdc698. Deadline: 2026-09-09 12:43 UTC.
+Prior evidence is scoped below; entries are not blanket graduation claims.
+
+| Area | Existing test/evidence | Native compact evidence | Legacy entry/reason | Remaining task type |
+| --- | --- | --- | --- | --- |
+| Fresh parsing / ambiguity | TestGoCleanConflictOrderLockedC; go-incremental-merge-fix/harness-comparison.json | Go compact fixture cases pass in prior scoped harness; full campaign unverified | Production/forest fallback remains; five forest generic conflicts and new(a.b.C) failures are shared baseline failures | Election/recovery implementation work; broader language coverage unverified |
+| Repeated edits | TestGoRepeatedCanonicalIncrementalLockedC; compact-ancestry-certificate/native.jsonl | 20 alternating edits each: token/newline/prefix native, fresh-C parity, zero legacy entries (native-certified.jsonl) | ParseIncrementalProfiled -> parseIncrementalChangedProfiled for length-change lineage set and deletion recovery | Required three histories passed; length-change active ancestry has an alternative set of 28; deletion reaches a no-action recovery boundary |
+| Error transitions | TestGoCompactRecoveryVersionTurnsLockedC; TestGoMissingBraceIncrementalLockedC | Selected owned-EOF cases have native checks; canonical deletion still declines | attemptCompactIncrementalRecoveryFullParse or legacy parse; no-action/recovery boundary | Recovery implementation/proof work; full transition coverage unverified |
+| External scanners | StatelessExternalScanner guard in attemptCompactIncrementalParse | Go stateless scanner only for current repeated-edit evidence | Stateful scanners decline compact incremental attempt | Checkpoint transfer/provenance design and acceptance tests still required |
+| Included ranges | TestGoCompactIncludedRangesLockedC; TestIncludedRangesGoIncrementalLockedC; shared harness failures | Selected compact ranges pass; complete surface unverified | Uncertified included-range recovery; production range fixtures have shared baseline divergence | Range recovery implementation plus coverage |
+| Ownership / public API | Core ownership/rollback tests; borrowed materialization tests; repeated edits release old trees before inspecting new | Required 60 native edits pass public parent navigation; legacy length/deletion reproduce 30 shared parent-link failures; whole public API unverified | Some recovery/opaque materialization cases decline | Specific ownership/projection tests; general API matrix unverified |
+| Work / cancellation / memory | Full core suite at 90bdc698; TestCompactIncrementalExecutionCancellation; TestCompactIncrementalExecutionMemoryBudgetReleasesRetention | Full core suite, explicit node-ID rollback, mutation/reset, polling bounds, cancellation and budget release pass; final retention/overlap passed for required histories; token/deletion plateau through 20 cycles | Budget/cancellation/decline paths release core and use fallback where allowed | Required-history retention is below legacy; optional decline certificate totals remain unavailable; overall memory graduation remains unverified |
+
+This ledger will be updated from milestone receipts. No retirement is authorized.
