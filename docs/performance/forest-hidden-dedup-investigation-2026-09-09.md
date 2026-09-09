@@ -76,3 +76,34 @@ CGO_ENABLED=1 go test \
 No caps, memory limits, route contracts, or runtime statements changed
 in the retained source edit. The edit removes the false equivalence
 claim and links this evidence.
+
+## Reduction-order trace
+
+A follow-up trace compares C logger output with forest actions for the
+same two-argument fixture. At offset 27, forest emits argument-list
+parents in state order 509, 513, then processes state 513 first. This
+builds the three-child generic call before the two-child indexed call.
+C builds the indexed call first.
+
+In C, `ts_parser__reduce` returns the first new stack version from one
+reduction. The action loop continues the last successful reduction's
+returned version. These are separate order rules.
+
+A prototype reversed only the worklist segment appended by one reduction,
+after all its callbacks completed. It fixed all five original forest
+failures, including the parenthesized fixture, but introduced 11
+one-argument call/type-conversion failures: forest passed 14/25.
+Production and compact each still passed 25/25. The patch was reverted.
+This result does not establish that a queue reversal implements C's
+complete stack-version and merge semantics.
+
+An initial prototype mistakenly reversed the segment inside the callback.
+Its 20/25 result is invalid evidence for the intended scheduling change.
+The emission trace exposed this placement error; the corrected trial
+above is the relevant comparison.
+
+Follow-up evidence is in `harness_out/forest-reduction-order/`:
+`trace.log`, `trace.patch`, `first-reduction-trace.log`,
+`first-reduction-result-corrected.patch`, and
+`first-reduction-corrected-parity.jsonl`.
+No timing campaign was run for this rejected runtime change.
