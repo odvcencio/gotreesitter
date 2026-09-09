@@ -62,3 +62,48 @@ func TestDerivationsPackedPathsOwnTheirPayloads(t *testing.T) {
 		t.Fatalf("editing returned paths changed later enumeration: paths=%+v err=%v", again, err)
 	}
 }
+
+func TestDerivationsDeepPrefixBelowFork(t *testing.T) {
+	const depth = 2048
+	c := newTinyCoreWithLimits(t, Limits{MaxNodes: depth + 2, MaxLinks: depth + 2, MaxSubtrees: depth + 2, MaxDerivations: 2})
+	if _, err := c.Seed(1, 0); err != nil {
+		t.Fatal(err)
+	}
+	c.nodes = append(c.nodes, make([]nodeRecord, depth+1)...)
+	c.links = make([]linkRecord, depth+2)
+	c.subtrees = make([]subtreeRecord, depth+2)
+	for i := 0; i < depth; i++ {
+		c.links[i] = linkRecord{prev: NodeID(i + 1), payload: SubtreeID(i + 1)}
+		c.nodes[i+1] = nodeRecord{firstLink: uint32(i + 1), linkCount: 1, pathCount: 1}
+	}
+	c.links[0].scoreDelta = 2
+	c.links[depth] = linkRecord{prev: NodeID(depth + 1), payload: SubtreeID(depth + 1), scoreDelta: 3, flags: linkFlagHasOrder, order: 7}
+	c.links[depth+1] = linkRecord{prev: NodeID(depth + 1), payload: SubtreeID(depth + 2), scoreDelta: -3, flags: linkFlagHasOrder, order: 8, next: LinkID(depth + 1)}
+	c.nodes[depth+1] = nodeRecord{firstLink: depth + 2, linkCount: 2, pathCount: 2}
+	head := Head{Node: depth + 2}
+	paths, err := c.Derivations(head)
+	if err != nil || len(paths) != 2 {
+		t.Fatalf("paths=%d err=%v", len(paths), err)
+	}
+	for i, p := range paths {
+		if len(p.Payloads) != depth+1 || p.Payloads[depth] != SubtreeID(depth+1+i) || p.BranchOrder != uint64(7+i) {
+			t.Fatalf("path %d lost order or payloads", i)
+		}
+	}
+	if paths[0].Score != 5 || paths[1].Score != -1 {
+		t.Fatal("prefix scores changed")
+	}
+	paths[0].Payloads[0] = 0
+	if paths[1].Payloads[0] != 1 {
+		t.Fatal("forked paths alias")
+	}
+	allocs := testing.AllocsPerRun(3, func() {
+		if _, err := c.Derivations(head); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Logf("deep prefix allocations per enumeration: %.0f", allocs)
+	if allocs > 64 {
+		t.Fatalf("single-path prefixes allocate per graph record: %.0f", allocs)
+	}
+}

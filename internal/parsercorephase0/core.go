@@ -6115,6 +6115,18 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 		if err != nil {
 			return nil, err
 		}
+		// A fork can have a long exact prefix. Use the same iterative reader
+		// as a sole head, preserving owned payloads and malformed-graph checks.
+		if n.pathCount == 1 && n.linkCount != 0 {
+			path, exact, err := c.singleDerivation(id)
+			if err != nil {
+				return nil, err
+			}
+			if exact {
+				return []Derivation{path}, nil
+			}
+		}
+
 		if n.linkCount == 0 {
 			if n.pathCount != 1 {
 				return nil, errors.New("parser-core phase zero: malformed seed path count")
