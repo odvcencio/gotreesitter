@@ -410,7 +410,7 @@ func TestDiagnosticParserCoreConflictSecondaryUpdateAdoptsActiveSibling(t *testi
 	}
 }
 
-func TestDiagnosticParserCoreConflictAllUnchangedPauses(t *testing.T) {
+func TestDiagnosticParserCoreConflictRetainsUnadoptedCachedReductions(t *testing.T) {
 	actions := []core.Action{
 		{Type: core.ActionReduce, Symbol: 2, ChildCount: 1},
 		{Type: core.ActionReduce, Symbol: 2, ChildCount: 1},
@@ -423,12 +423,15 @@ func TestDiagnosticParserCoreConflictAllUnchangedPauses(t *testing.T) {
 		gotos: map[genericConflictCell]core.StateID{{state: 1, symbol: 2}: 4},
 	}
 	compact, source := newGenericFreshnessSource(t, table)
+	// Match the ambiguity context of the conflict that repeats this reduction.
+	compact.SetReduceConflictContext(true)
 	if _, err := compact.ReduceOutputs(source, 9, 0, core.ForkOrder{}); err != nil {
 		t.Fatal(err)
 	}
+	compact.SetReduceConflictContext(false)
 	scheduler := &diagnosticParserCoreGenericScheduler{
 		compact: compact, headers: []diagnosticParserCoreHeader{{head: source, creationSeq: 4}},
-		token: Token{Symbol: 9, StartByte: 1, EndByte: 2}, branchOrder: 7, nextSeq: math.MaxUint64,
+		token: Token{Symbol: 9, StartByte: 1, EndByte: 2}, branchOrder: 7, nextSeq: 10,
 		options: DiagnosticParserCorePrefixOptions{MaxDispatches: 20}, receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	before, _ := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
@@ -436,17 +439,25 @@ func TestDiagnosticParserCoreConflictAllUnchangedPauses(t *testing.T) {
 	if err := scheduler.applyGenericConflict(before, cell); err != nil {
 		t.Fatal(err)
 	}
-	if len(scheduler.headers) != 1 || !scheduler.headers[0].paused || scheduler.headers[0].freshness != 0 || scheduler.branchOrder != 8 || scheduler.nextSeq != math.MaxUint64 || scheduler.epochProgress {
-		t.Fatalf("all-unchanged conflict scheduler=%+v", scheduler)
+	receipts, err := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// C assigns reduction identities in action order. The last reduction
+	// takes the source slot before equal boundaries become canonical.
+	if len(receipts) != 1 || receipts[0].State != 4 || receipts[0].CreationSeq != 11 ||
+		receipts[0].Paused || scheduler.headers[0].freshness != 0 ||
+		scheduler.branchOrder != 8 || scheduler.nextSeq != 12 || !scheduler.epochProgress {
+		t.Fatalf("cached reductions lost their runnable result: headers=%+v work=%+v", receipts, scheduler.work)
 	}
 	conflict := scheduler.receipt.Conflicts[0]
-	if !conflict.PrimaryPaused || conflict.PrimaryAdopted || len(conflict.SecondaryArms) != 1 || !conflict.SecondaryArms[0].Paused || conflict.SecondaryArms[0].Adopted {
-		t.Fatalf("all-unchanged conflict receipt=%+v", conflict)
-	}
-	stop, err := scheduler.dispatchPass()
-	if err != nil || stop == nil || stop.boundary != DiagnosticParserCoreNoAction ||
-		stop.detail != "generic scheduler has only paused heads for the elected token" {
-		t.Fatalf("all-unchanged conflict stop=%+v err=%v", stop, err)
+	if conflict.PrimaryPaused || conflict.PrimaryAdopted || conflict.PrimaryOutput.CreationSeq != 11 ||
+		conflict.PrimaryOutput.State != 4 || conflict.NextCreationSeqBefore != 10 || conflict.NextCreationSeqAfter != 12 ||
+		len(conflict.SecondaryArms) != 1 || conflict.SecondaryArms[0].Ordinal != 0 || conflict.SecondaryArms[0].BranchOrder != 0 ||
+		conflict.SecondaryArms[0].Paused || conflict.SecondaryArms[0].Adopted ||
+		len(conflict.SecondaryArms[0].Outputs) != 1 || conflict.SecondaryArms[0].Outputs[0].CreationSeq != 10 ||
+		conflict.SecondaryArms[0].Outputs[0].State != 4 {
+		t.Fatalf("cached reduction was dropped before canonicalization: %+v", conflict)
 	}
 }
 
@@ -529,7 +540,7 @@ func TestDiagnosticParserCoreSummaryConflictFailureRollsBack(t *testing.T) {
 	}
 }
 
-func TestDiagnosticParserCoreConflictFiltersUnchangedArm(t *testing.T) {
+func TestDiagnosticParserCoreConflictRetainsUnadoptedCachedArm(t *testing.T) {
 	actions := []core.Action{
 		{Type: core.ActionShift, State: 6},
 		{Type: core.ActionReduce, Symbol: 2, ChildCount: 1},
@@ -542,12 +553,15 @@ func TestDiagnosticParserCoreConflictFiltersUnchangedArm(t *testing.T) {
 		gotos: map[genericConflictCell]core.StateID{{state: 1, symbol: 2}: 4},
 	}
 	compact, source := newGenericFreshnessSource(t, table)
+	// Match the ambiguity context of the conflict that repeats this reduction.
+	compact.SetReduceConflictContext(true)
 	if outputs, err := compact.ReduceOutputs(source, 9, 1, core.ForkOrder{Present: true, Value: 7}); err != nil || len(outputs) != 1 {
 		t.Fatalf("prepopulate conflict reduction outputs=%+v err=%v", outputs, err)
 	}
+	compact.SetReduceConflictContext(false)
 	scheduler := &diagnosticParserCoreGenericScheduler{
 		compact: compact, headers: []diagnosticParserCoreHeader{{head: source, creationSeq: 4}},
-		token: Token{Symbol: 9, StartByte: 1, EndByte: 2}, branchOrder: 7, nextSeq: math.MaxUint64,
+		token: Token{Symbol: 9, StartByte: 1, EndByte: 2}, branchOrder: 7, nextSeq: 10,
 		options: DiagnosticParserCorePrefixOptions{MaxDispatches: 20}, receipt: &DiagnosticParserCoreGenericScheduler{},
 	}
 	before, _ := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
@@ -556,14 +570,16 @@ func TestDiagnosticParserCoreConflictFiltersUnchangedArm(t *testing.T) {
 		t.Fatal(err)
 	}
 	receipts, _ := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
-	if len(receipts) != 1 || receipts[0].State != 6 || receipts[0].CreationSeq != 4 || !receipts[0].Shifted ||
-		scheduler.branchOrder != 8 || scheduler.nextSeq != math.MaxUint64 {
-		t.Fatalf("filtered conflict headers=%+v order=%d seq=%d", receipts, scheduler.branchOrder, scheduler.nextSeq)
+	if len(receipts) != 2 || receipts[0].State != 6 || receipts[0].CreationSeq != 4 || !receipts[0].Shifted ||
+		receipts[1].State != 4 || receipts[1].CreationSeq != 10 || receipts[1].Shifted || receipts[1].Paused ||
+		scheduler.branchOrder != 8 || scheduler.nextSeq != 11 {
+		t.Fatalf("retained conflict headers=%+v order=%d seq=%d", receipts, scheduler.branchOrder, scheduler.nextSeq)
 	}
 	conflict := scheduler.receipt.Conflicts[0]
-	if conflict.PrimaryPaused || len(conflict.SecondaryArms) != 1 || !conflict.SecondaryArms[0].Paused || conflict.SecondaryArms[0].BranchOrder != 8 || len(conflict.SecondaryArms[0].Outputs) != 0 ||
-		len(conflict.Round.Actions) != 2 || conflict.Round.Actions[0].Ordinal != 1 || conflict.Round.Actions[0].BranchOrder != 8 || conflict.Round.Actions[1].Ordinal != 0 {
-		t.Fatalf("filtered conflict receipt=%+v", conflict)
+	if conflict.PrimaryPaused || len(conflict.SecondaryArms) != 1 || conflict.SecondaryArms[0].Paused || conflict.SecondaryArms[0].Adopted || conflict.SecondaryArms[0].BranchOrder != 8 || len(conflict.SecondaryArms[0].Outputs) != 1 ||
+		len(conflict.Round.Actions) != 2 || conflict.Round.Actions[0].Ordinal != 0 || conflict.Round.Actions[0].BranchOrder != 0 ||
+		conflict.Round.Actions[1].Ordinal != 1 || conflict.Round.Actions[1].BranchOrder != 8 {
+		t.Fatalf("retained conflict receipt=%+v", conflict)
 	}
 
 	beforeGraph, _ := compact.Stats(scheduler.headers[0].head)
@@ -577,10 +593,70 @@ func TestDiagnosticParserCoreConflictFiltersUnchangedArm(t *testing.T) {
 		cell := mustDiagnosticParserCoreGenericCell(t, compact, 0, rollback.headers[0], 9)
 		return rollback.applyGenericConflict(rollbackBefore, cell)
 	}); err == nil {
-		t.Fatal("capped filtered conflict unexpectedly succeeded")
+		t.Fatal("capped retained conflict unexpectedly succeeded")
 	}
 	afterGraph, _ := compact.Stats(scheduler.headers[0].head)
 	if beforeGraph != afterGraph || rollback.branchOrder != 7 || rollback.nextSeq != 10 || !reflect.DeepEqual(rollback.receipt, &DiagnosticParserCoreGenericScheduler{}) {
-		t.Fatalf("filtered conflict rollback leaked: before=%+v after=%+v scheduler=%+v", beforeGraph, afterGraph, rollback)
+		t.Fatalf("retained conflict rollback leaked: before=%+v after=%+v scheduler=%+v", beforeGraph, afterGraph, rollback)
+	}
+}
+
+// A cached reduction still needs an identity when no live sibling adopts it.
+func TestDiagnosticParserCoreConflictCachedArmSequenceOverflowRollsBack(t *testing.T) {
+	for _, mode := range []DiagnosticParserCoreReceiptMode{DiagnosticParserCoreReceiptFull, DiagnosticParserCoreReceiptSummary} {
+		t.Run(map[DiagnosticParserCoreReceiptMode]string{DiagnosticParserCoreReceiptFull: "full", DiagnosticParserCoreReceiptSummary: "summary"}[mode], func(t *testing.T) {
+			actions := []core.Action{
+				{Type: core.ActionShift, State: 6},
+				{Type: core.ActionReduce, Symbol: 2, ChildCount: 1},
+			}
+			table := &genericConflictTable{
+				cells: map[genericConflictCell][]core.Action{
+					{state: 1, symbol: 8}: {{Type: core.ActionShift, State: 3}},
+					{state: 3, symbol: 9}: actions,
+				},
+				gotos: map[genericConflictCell]core.StateID{{state: 1, symbol: 2}: 4},
+			}
+			compact, source := newGenericFreshnessSource(t, table)
+			compact.SetReduceConflictContext(true)
+			for attempt := 0; attempt < 2; attempt++ {
+				outputs, err := compact.ReduceOutputs(source, 9, 1, core.ForkOrder{Present: true, Value: 8})
+				if err != nil || len(outputs) != 1 {
+					t.Fatalf("cache reduction: outputs=%+v err=%v", outputs, err)
+				}
+				if attempt == 1 && outputs[0].Freshness != core.ReductionUnchanged {
+					t.Fatalf("cached reduction freshness=%v", outputs[0].Freshness)
+				}
+			}
+			compact.SetReduceConflictContext(false)
+			scheduler := &diagnosticParserCoreGenericScheduler{
+				compact: compact, headers: []diagnosticParserCoreHeader{{head: source, creationSeq: 4}},
+				token: Token{Symbol: 9, StartByte: 1, EndByte: 2}, branchOrder: 7, nextSeq: math.MaxUint64,
+				options: DiagnosticParserCorePrefixOptions{MaxDispatches: 20, ReceiptMode: mode},
+				receipt: &DiagnosticParserCoreGenericScheduler{ReceiptMode: mode},
+			}
+			beforeStats, _ := compact.Stats(source)
+			beforeWork := compact.Work()
+			beforeHeaders := append([]diagnosticParserCoreHeader(nil), scheduler.headers...)
+			before, err := scheduler.headerReceipts(scheduler.headers)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cell := mustDiagnosticParserCoreGenericCell(t, compact, 0, scheduler.headers[0], 9)
+			err = scheduler.applyGenericConflict(before, cell)
+			if err == nil || err.Error() != "parser-core phase zero: conflict creation sequence overflow" {
+				t.Fatalf("cached arm overflow: %v", err)
+			}
+			afterStats, _ := compact.Stats(source)
+			if beforeStats != afterStats || beforeWork != compact.Work() ||
+				!reflect.DeepEqual(beforeHeaders, scheduler.headers) || scheduler.branchOrder != 7 ||
+				scheduler.nextSeq != math.MaxUint64 || scheduler.nextCleanPathLineage != 0 ||
+				scheduler.dispatches != 0 || scheduler.epochProgress || scheduler.work != (DiagnosticParserCoreGenericWork{}) ||
+				!reflect.DeepEqual(scheduler.receipt, &DiagnosticParserCoreGenericScheduler{ReceiptMode: mode}) {
+				t.Fatalf("cached arm overflow leaked state: before=%+v after=%+v scheduler=%+v", beforeStats, afterStats, scheduler)
+			}
+			if _, ok := compact.CanonicalBoundary(6, 2, true, 0); ok {
+				t.Fatal("overflow retained the primary shift")
+			}
+		})
 	}
 }
