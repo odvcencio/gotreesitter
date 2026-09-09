@@ -93,3 +93,40 @@ measured-bench.txt contains 240 validated rows. source-manifest.json,
 summary.json, process accounting, Docker receipts, and both repeated-edit
 probe sources preserve provenance. No source comparison or statistically
 significant optimization claim is made.
+
+## Context reduction controls
+
+A later investigation extracts the function containing the false else:
+buildLRTablesInternal, original bytes 9,199–23,472. Each control performs
+the newline insertion at byte 19, its reversal, and one more forward/
+reverse pair. Every returned tree is compared with a fresh C digest.
+Each input runs in a fresh Go test process.
+
+| Input | Bytes | Four-edit result |
+| --- | ---: | --- |
+| Isolated function with package clause | 14,293 | Parity passes; no unsupported-reuse fallback |
+| Isolated function padded by a comment | 235,626 | Parity passes; no unsupported-reuse fallback |
+| Original prefix through that function | 23,472 | Parity passes; no unsupported-reuse fallback |
+| Original prefix at a later function boundary | 65,953 | Reverse tree mismatch; next forward edit falls back |
+| Original prefix at a later function boundary | 131,361 | Parity passes; no unsupported-reuse fallback |
+| Original prefix at a later function boundary | 197,070 | First reverse edit falls back; returned-tree parity passes |
+
+The controls do not support a simple source-size threshold explanation.
+The 65,953-byte witness has a separate observable failure: on the first
+reverse edit, Go returns a type_conversion_expression where C returns
+a call_expression inside method_declaration[34]. This is not a minimized
+form of the original false-else witness.
+
+The first mismatching deep digests are:
+
+- Go: c09e29d0f65a3ff78dfb434ffa12a3b7e06d2466c46345a1313051c6e4a85cb3
+- C: 1958059a39b5d4ab72f5614fcf52de4018bb853c9f73d2d78ab72496a3d6592c
+
+The repeated-edit admission gap therefore covers correctness as well
+as fallback cost. Retain both witnesses when changing reuse or conflict
+ordering. No runtime repair was attempted in these controls, and no
+timing conclusion is drawn from them.
+
+Reproduction sources and outputs are under
+harness_out/else-recovery-minimize. The temporary probe is saved there
+and removed from the compiled package.
