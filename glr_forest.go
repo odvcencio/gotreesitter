@@ -1359,78 +1359,16 @@ func coalesceForestWithRawAndAlternatives(p *Parser, arena *nodeArena, index *gs
 	} else if errorCost < node.errorCost {
 		node.errorCost = errorCost
 	}
-	// Dedup competing alternatives: a link from the same predecessor whose
-	// subtree has the same symbol and span is the same reduction reached another
-	// way — keep the higher dynamic precedence (tree-sitter's resolution) instead
-	// of accumulating a duplicate. This bounds the forest (no exponential link
-	// blowup on ambiguous grammars) AND performs Stage-3 disambiguation, cheaply,
-	// with no deep-equivalence walk. Only materialized subtrees carry a comparable
-	// symbol+span, so the dedup applies to node entries only.
+	// Coalesce node entries with the same predecessor, symbol, and span.
+	// Visible symbols also require the raw-shape checks below.
 	if entry.kind == stackEntryKindNode && entry.node != nil {
 		esym, estart, eend := entrySymSpan(entry)
-		// A HIDDEN symbol (SymbolMetadata.Visible == false: generated repeat/seq
-		// auxiliaries like `array_repeat1`/`_string_content`, and hidden
-		// supertypes like `_value`) never itself appears in the final tree —
-		// tree-sitter always splices its children into the enclosing visible
-		// parent in place of the hidden node. Two candidates that share the
-		// same predecessor AND the same (symbol, span) therefore cover the
-		// exact same already-shifted token run and MUST flatten to the exact
-		// same sequence of visible descendants, no matter how that run's
-		// internal reduces happened to bracket it (e.g. the binary
-		// `X_repeat1 -> X_repeat1 X_repeat1 | ...` grouping ambiguity, or a
-		// supertype rebuilt over a not-yet-stable child). Their raw shapes can
-		// still legitimately differ (different internal nesting), but that
-		// difference can never surface, so skip the exact raw-shape gate for
-		// them below. Without this, every internal regrouping mints a "new"
-		// link at the SAME (prev, symbol, span) slot (since
-		// forestRawStackEntriesExactEqual correctly reports them as
-		// raw-different), burning the small per-node link cap on redundant
-		// duplicates instead of the genuinely distinct (different start, i.e.
-		// different coverage) alternatives a later reduce needs to complete
-		// the parse — silently forcing an otherwise-valid parse into a dead
-		// end once a repeat/string long enough to re-trigger the ambiguity a
-		// few times fills the cap with copies of itself (json arrays of 3+
-		// items whose last element is a multi-escape string, forest_test
-		// dead_end at the closing `]`).
-		// Only relax the gate when visibility is actually KNOWN (a real
-		// Language with SymbolMetadata) and says hidden — symbolIsVisible
-		// returns false for an unknown/nil language too, which must NOT be
-		// read as "hidden": that would apply this relaxation to every symbol
-		// whenever language metadata is unavailable (e.g. unit tests that
-		// coalesce raw *Node fixtures directly against a bare *Parser{}),
-		// collapsing genuinely raw-distinct alternatives the caller expected
-		// to keep as separate links.
-		//
-		// Proven premise / what this does NOT cover: "shape never surfaces"
-		// is exact for the case actually handled here — two links already tied
-		// on (prev, symbol, span), where prev identity means both cover the
-		// SAME already-shifted token run, so tree-sitter's hidden-node splice
-		// recovers the identical flattened visible-descendant sequence
-		// regardless of internal bracketing. It is NOT a general claim that
-		// every hidden symbol is safe to collapse across different prev/score/
-		// errorCost — only the exact-tie case here relies on it, and the
-		// scoring paths above/below this branch (forestResultLinkCompare,
-		// forestDedupTieReplace) are left untouched for every other case.
-		// Verified empirically (2026-07, local corpus + cgo tree-sitter-C
-		// oracle, TestForestCorpusParity/TestForestVsCOracleParity): the
-		// languages/files this widens dispatch for (cmake, css, scss, c_sharp,
-		// javascript, bash) that showed forest-vs-production divergence all
-		// matched the C oracle byte-for-byte (0 errs) — the divergence was
-		// production silently truncating, not this gate picking a wrong
-		// alternative. The one genuine forest-vs-C divergence found in the
-		// sweep (python `not in`/`is not` compound-token leaf span, off by the
-		// leading space) reproduced identically with this whole hunk reverted
-		// to HEAD, confirming it was pre-existing and unrelated to
-		// hidden-symbol dedup here — see forest_gap_rejection_test.go / the
-		// cap-eviction tiebreak in forestCapReplacementIndex below for the
-		// mechanism that made this specific python file reachable enough to
-		// expose it. Fixed at its actual source: flattenedHiddenPaddingTarget
-		// (parser_reduce.go) let a preceding sibling's trailing gap widen an
-		// aliased multi-token wrapper's already-correct start backward over
-		// the separating space whenever the wrapper was the second-or-later
-		// element of an operator repeat. That helper is shared by every route
-		// through buildReduceChildrenWithPath, so the forest route's copy of
-		// the divergence closed along with production's.
+		// Hidden symbols bypass raw-shape equality to bound repeat regroupings.
+		// This is a pruning policy, not proof of equivalent visible trees:
+		// Go generic calls can have distinct descendants at this same key.
+		// See docs/performance/forest-hidden-dedup-investigation-2026-09-09.md.
+		// Preserve the current policy until its replacement passes the conflict
+		// fixtures and the repeat workloads within the existing link/work caps.
 		hiddenSym := p != nil && p.language != nil && !symbolIsVisible(p.language, esym)
 		for i := range node.links {
 			l := &node.links[i]
@@ -1488,26 +1426,8 @@ func coalesceForestWithRawAndAlternatives(p *Parser, arena *nodeArena, index *gs
 			candidate := gssLink{prev: prev, prevDirty: forestNodeDirty(prev), subtree: entry, score: score, errorCost: errorCost}
 			switch {
 			case hiddenSym:
-				// forestResultLinkCompare and forestDedupTieReplace both fall
-				// back to raw-shape/subtree-height comparisons to break exact
-				// score+errorCost ties — a meaningful tiebreak for a VISIBLE
-				// node's competing shapes, but for a hidden node any shape is
-				// equally correct (it never surfaces), so that fallback just
-				// picks arbitrarily between this arrival and the resident.
-				// Every re-derivation of the same (prev, symbol, span) is a
-				// FRESH Node (never raw-equal to the last one per the gate
-				// above), so an arbitrary tiebreak swaps in place on every
-				// single re-derivation, marking the node dirty and forcing
-				// every consumer that already built from the resident to
-				// rebuild — which can itself re-derive this same slot again,
-				// live-locking the reduce worklist (C#'s wider/more ambiguous
-				// GLR dispatch blew forestReduceVisitCap on a 16-class
-				// benchmark once this path started firing for its hidden
-				// declaration-list aux symbols). Comparing on score/errorCost
-				// ALONE and treating an exact tie as a no-op keeps a settled
-				// hidden link stable across repeated re-derivations instead of
-				// thrashing; a real improvement (lower error cost, or higher
-				// score at equal cost) still replaces it.
+				// Keep score/error ties stable. Replacing an equal-ranked hidden
+				// link can repeatedly dirty consumers and exhaust the reduce cap.
 				if errorCost < l.errorCost || (errorCost == l.errorCost && score > l.score) {
 					oldScore := l.score
 					*l = candidate
