@@ -23,6 +23,7 @@ Options:
   --require-benchmarks CSV
                       Require each exact benchmark name once per process, with all three standard metrics.
   --package PATH      Go package path. Default: .
+  --build-once        Compile one package per checkout, then run a fresh binary process per seed.
   --help              Show this help.
 EOF
 }
@@ -39,6 +40,8 @@ benchtime=750ms
 build_tags=gts_parsercorephase0
 package_path=.
 required_benchmarks=""
+build_once=0
+build_dir=""
 benchmark_re='^(BenchmarkGoParse(FullDFA|CoreDFA|IncrementalSingleByteEditDFA|IncrementalNoEditDFA|IncrementalRandomSingleByteEdit)|Benchmark(KDLRecoveryGarbageSuffix|RecoveryCorpusFile)|BenchmarkExpectedRootCanFrameLongRepeat|BenchmarkDiagnosticParserCore(CorridorSchedulerOnly|WarmSchedulerOnlyQueryCompile|WarmMaterializationOnlyQueryCompile)|BenchmarkParserCoreFreshFull(Canonical|SelectedStoreCanonical)|Benchmark(TaggerTag(Tree)?Go|ExtractCodeUnderstanding(Tree)?Go|ExtractAllFactsTreeGo|FactProgram(All)?(Tree)?Go))$'
 
 while (($# > 0)); do
@@ -132,6 +135,10 @@ while (($# > 0)); do
 		fi
 		package_path=$2
 		shift 2
+		;;
+	--build-once)
+		build_once=1
+		shift
 		;;
 	--help)
 		usage
@@ -227,6 +234,11 @@ if [[ "$output_path" == "$canonical_lock" || "$baseline_output" == "$canonical_l
 	exit 2
 fi
 
+if ((build_once)) && ! command -v sha256sum >/dev/null 2>&1; then
+	printf '%s\n' 'sha256sum is required with --build-once' >&2
+	exit 2
+fi
+
 if ! command -v flock >/dev/null 2>&1; then
 	printf '%s\n' 'flock is required to serialize benchmark campaigns' >&2
 	exit 2
@@ -245,6 +257,14 @@ mark_incomplete() {
 	done
 }
 
+cleanup_builds() {
+	if [[ -n "$build_dir" ]]; then
+		rm -f -- "$build_dir/head.test" "$build_dir/baseline.test" || return
+		rmdir -- "$build_dir" || return
+		build_dir=""
+	fi
+}
+
 release_lock() {
 	if ((lock_held == 0)); then
 		return 0
@@ -256,6 +276,9 @@ release_lock() {
 
 exit_with_lock_status() {
 	local status=$?
+	if ! cleanup_builds; then
+		status=1
+	fi
 	if ((status != 0)); then
 		mark_incomplete
 	fi
@@ -266,6 +289,7 @@ exit_with_lock_status() {
 exit_after_signal() {
 	local signal=$1
 	mark_incomplete
+	cleanup_builds || true
 	release_lock
 	trap - "$signal"
 	kill -s "$signal" "$$"
@@ -344,7 +368,41 @@ initialize_output() {
 		printf '# benchtime: %s\n' "$benchtime"
 		printf '# GOMAXPROCS: 1\n'
 		printf '# count per process: 1\n'
+		printf '# build once: %s\n' "$build_once"
 	} >>"$path"
+}
+
+prepare_test_binary() {
+	local root=$1 role=$2 path=$3 directory digest
+	directory=$(cd -- "$root" && GOMAXPROCS=1 go list -tags "$build_tags" -f '{{.Dir}}' "$package_path")
+	if [[ -z "$directory" || "$directory" == *$'\n'* || ! -d "$directory" ]]; then
+		printf '%s\n' '--build-once requires exactly one package per checkout' >&2
+		return 2
+	fi
+	test_directories[$role]=$directory
+	test_binaries[$role]="$build_dir/$role.test"
+	printf 'building %s benchmark binary\n' "$role" >&2
+	(
+		cd -- "$root"
+		GOMAXPROCS=1 go test -c -tags "$build_tags" -o "${test_binaries[$role]}" "$package_path"
+	) >>"$path"
+	if [[ ! -x "${test_binaries[$role]}" ]]; then
+		printf '%s package produced no executable test binary\n' "$role" >&2
+		return 1
+	fi
+	digest=$(sha256sum <"${test_binaries[$role]}")
+	test_hashes[$role]=${digest%% *}
+	printf '# test package directory: %s\n# test binary sha256: %s\n# test timeout: 10m\n' \
+		"$directory" "${test_hashes[$role]}" >>"$path"
+}
+
+verify_test_binary() {
+	local role=$1 digest
+	digest=$(sha256sum <"${test_binaries[$role]}")
+	if [[ "${digest%% *}" != "${test_hashes[$role]}" ]]; then
+		printf '%s benchmark binary changed during the campaign\n' "$role" >&2
+		return 1
+	fi
 }
 
 run_seed() {
@@ -352,16 +410,26 @@ run_seed() {
 	printf 'running %s shuffle seed %d\n' "$role" "$seed" >&2
 	printf '# seed: %d; position: %d\n' "$seed" "$position" >>"$path"
 	sample_start=$(wc -c <"$path")
-	(
-		cd -- "$root"
-		GOMAXPROCS=1 go test -tags "$build_tags" "$package_path" \
-			-run '^$' \
-			-bench "$benchmark_re" \
-			-benchmem \
-			-count=1 \
-			-benchtime="$benchtime" \
-			-shuffle="$seed"
-	) >>"$path"
+	if ((build_once)); then
+		(
+			cd -- "${test_directories[$role]}"
+			GOMAXPROCS=1 "${test_binaries[$role]}" \
+				-test.run '^$' -test.bench "$benchmark_re" -test.benchmem \
+				-test.count=1 -test.benchtime="$benchtime" -test.shuffle="$seed" \
+				-test.timeout=10m -test.paniconexit0
+		) >>"$path"
+	else
+		(
+			cd -- "$root"
+			GOMAXPROCS=1 go test -tags "$build_tags" "$package_path" \
+				-run '^$' \
+				-bench "$benchmark_re" \
+				-benchmem \
+				-count=1 \
+				-benchtime="$benchtime" \
+				-shuffle="$seed"
+		) >>"$path"
+	fi
 	if ! tail -c "+$((sample_start + 1))" "$path" | GTS_BENCH_REQUIRED_NAMES="$required_benchmarks" awk '
 		BEGIN {
 			required = ENVIRON["GTS_BENCH_REQUIRED_NAMES"]
@@ -412,6 +480,23 @@ if ((baseline_root_set)); then
 	initialize_output "$baseline_root" baseline "$baseline_output"
 fi
 
+if ((build_once)); then
+	# The script supplies the binary's test flags. Reject implicit execution
+	# flags instead of silently dropping them from the compiled invocation.
+	goflags=$(go env GOFLAGS)
+	test_flag_pattern='(^|[^[:alnum:]_])-(test[.])?(args|bench|benchmem|benchtime|blockprofile|blockprofilerate|count|coverprofile|cpu|cpuprofile|exec|failfast|fullpath|fuzz|fuzzminimizetime|fuzztime|json|list|memprofile|memprofilerate|mutexprofile|mutexprofilefraction|outputdir|parallel|run|short|shuffle|skip|timeout|trace|v)(=|[^[:alnum:]_]|$)'
+	if [[ "$goflags" =~ $test_flag_pattern ]]; then
+		printf '%s\n' '--build-once does not accept test execution flags in GOFLAGS. Use the per-seed Go command for that configuration.' >&2
+		exit 2
+	fi
+	declare -A test_binaries=() test_directories=() test_hashes=()
+	build_dir=$(mktemp -d "${TMPDIR:-/tmp}/gotreesitter-benchmark-build.XXXXXX")
+	if ((baseline_root_set)); then
+		prepare_test_binary "$baseline_root" baseline "$baseline_output"
+	fi
+	prepare_test_binary "$head_root" head "$output_path"
+fi
+
 for ((offset = 0; offset < runs; offset++)); do
 	seed=$((seed_start + offset))
 	if ((baseline_root_set == 0)); then
@@ -428,6 +513,13 @@ for ((offset = 0; offset < runs; offset++)); do
 		printf '# completed seed: %d; at: %s\n' "$seed" "$seed_completed" >>"$path"
 	done
 done
+
+if ((build_once)); then
+	verify_test_binary head
+	if ((baseline_root_set)); then
+		verify_test_binary baseline
+	fi
+fi
 
 source_metadata "$head_root" ' at end' >>"$output_path"
 if ((baseline_root_set)); then

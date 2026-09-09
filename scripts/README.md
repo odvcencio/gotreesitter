@@ -59,6 +59,21 @@ each successive seed and holds one lock across the complete campaign.
 Each process uses `GOMAXPROCS=1`, `-count=1`, and `-benchmem`.
 The defaults remain 20 seeds and a 750 millisecond benchmark duration.
 
+Use `--build-once` to compile each checkout once.
+The driver starts a fresh test process for every seed.
+It runs each binary from its package directory so relative fixtures keep working.
+It records each binary's SHA-256 digest and verifies it after the campaign.
+It removes the temporary binaries on completion, failure, or interruption.
+
+This mode requires one package per checkout and uses a ten-minute timeout per process.
+Build flags in `GOFLAGS` still apply.
+The driver rejects test execution flags in `GOFLAGS` instead of ignoring them.
+The default mode invokes `go test` for every seed and supports those flags.
+Use the same execution mode for both versions in a comparison.
+Do not compare build-once timing rows with historical rows from the default mode.
+Record complete campaign time separately from parser timing.
+The build-once option reduces repeated build work; it does not prove a parser speed improvement.
+
 The current driver runs both checkouts. The baseline does not need to contain
 this script. Each output records the checkout identity, settings, and seed
 boundaries. Dirty checkout metadata identifies development runs; it does not
