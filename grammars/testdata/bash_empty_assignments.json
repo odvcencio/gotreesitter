@@ -1,0 +1,20 @@
+[
+  {"name":"negated", "source":"! A=x B= command\n", "assignments":{"A":"x","B":""}, "command":"command"},
+  {"name":"plain", "source":"A=x B= command\n", "assignments":{"A":"x","B":""}, "command":"command"},
+  {"name":"single", "source":"! B= command\n", "assignments":{"B":""}, "command":"command"},
+  {"name":"multiple", "source":"! A=x B= C= command\n", "assignments":{"A":"x","B":"","C":""}, "command":"command"},
+  {"name":"tab", "source":"! A=x B=\tcommand\n", "assignments":{"A":"x","B":""}, "command":"command"},
+  {"name":"crlf_unicode", "source":"# café\r\n! A=x B= command\r\n", "assignments":{"A":"x","B":""}, "command":"command"},
+  {"name":"if_condition", "source":"if ! GOBIN=\"$bindir\" GOFLAGS= $command; then :; fi\n", "assignments":{"GOBIN":"\"$bindir\"","GOFLAGS":""}, "command":"$command"},
+  {"name":"case_body", "source":"case \"$x\" in a) A= command;; esac\n", "assignments":{"A":""}, "command":"command"},
+  {"name":"redirect", "source":"! A=x B= command >output\n", "assignments":{"A":"x","B":""}, "command":"command"},
+  {"name":"pipeline", "source":"! A=x B= command | next\n", "assignments":{"A":"x","B":""}, "command":"command"},
+  {"name":"continuation", "source":"! A=x B= \\\ncommand\n", "assignments":{"A":"x","B":""}, "command":"command"},
+  {"name":"substitution", "source":"! A=x B= command \"${name} $(printf text)\"\n", "assignments":{"A":"x","B":""}, "command":"command"},
+  {"name":"nonempty", "source":"! A=x B=value command\n", "assignments":{"A":"x","B":"value"}, "command":"command"},
+  {"name":"concatenated", "source":"! A=x B=foo\"bar\" command\n", "assignments":{"A":"x","B":"foo\"bar\""}, "command":"command"},
+  {"name":"quoted_empty", "source":"! A=x B=\"\" command\n", "assignments":{"A":"x","B":"\"\""}, "command":"command"},
+  {"name":"array", "source":"A=(one two)\n", "assignments":{"A":"(one two)"}},
+  {"name":"unterminated_if", "source":"if ! A=x B= command; then\n", "invalid":true},
+  {"name":"unterminated_quote", "source":"! A=x B=\"unfinished\n", "invalid":true}
+]
