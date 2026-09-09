@@ -23,6 +23,9 @@ func TestCompactIncrementalExecutionLifetime(t *testing.T) {
 					old.Release()
 				}
 			}()
+			if old.arena.class != arenaClassFull {
+				t.Fatal("fresh parse used an incremental arena")
+			}
 			if !old.compactMaterialized {
 				t.Fatal("initial tree is not compact")
 			}
@@ -47,6 +50,9 @@ func TestCompactIncrementalExecutionLifetime(t *testing.T) {
 				}
 				old.Release()
 				old = next
+				if next.arena.class != arenaClassIncremental {
+					t.Fatal("incremental parse used a full arena")
+				}
 				if r, f := AdmissionCandidateCounters(); r != routed || f != fallback {
 					t.Fatal("incremental parse changed full admission counters")
 				}

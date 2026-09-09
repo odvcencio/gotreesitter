@@ -132,7 +132,11 @@ func (m *compactMaterializer) begin(
 			return core.StateID(state), known, err
 		}
 	}
-	m.arena = acquireNodeArena(arenaClassFull)
+	arenaKind := arenaClassFull
+	if incrementalReuse != nil {
+		arenaKind = arenaClassIncremental
+	}
+	m.arena = acquireNodeArena(arenaKind)
 	m.owned = true
 	m.allocationRecorded = false
 	// Compact external-token provenance is transferred into this arena by
