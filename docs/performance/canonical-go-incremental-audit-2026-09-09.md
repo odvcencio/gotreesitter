@@ -130,3 +130,46 @@ timing conclusion is drawn from them.
 Reproduction sources and outputs are under
 harness_out/else-recovery-minimize. The temporary probe is saved there
 and removed from the compiled package.
+
+## Merge-width diagnostic
+
+The smaller witness rebuilds a.addRepeatLHS(lhs), bytes 6,752–6,771,
+as a type conversion on the reverse edit. Node identity tracing confirms
+that it does not reuse the incorrect expression unchanged. No reused
+node was observed inside that expression; reuse resumed at the following
+if statement.
+
+A diagnostic that excluded legacy subtree reuse immediately after the
+call did not fix the mismatch. Excluding all legacy subtree reuse made
+every edit fall back through forest recovery. Neither exclusion is a
+retained repair.
+
+The existing explicit GOT_GLR_MAX_MERGE_PER_KEY=1 control passed all four
+edits for both the 65,953-byte prefix and the original 235,626-byte file.
+Each returned tree matched a fresh C digest, and no edit reported
+unsupported reuse.
+
+| Witness | Edit | Reused bytes | New nodes |
+| --- | --- | ---: | ---: |
+| Prefix | Initial forward | 54,029 | 4,070 |
+| Prefix | Reverse and later edits, each | 57,538 | 446 |
+| Full file | Initial forward | 213,094 | 9,798 |
+| Full file | Reverse and later edits, each | 222,341 | 1,162 |
+
+This is a diagnostic policy comparison, not a measured speedup or
+authorization to narrow the default for every incremental parse.
+The setting applies throughout the process, including initial parsing.
+Fresh and incremental defaults differ in resolveParseMergePerKeyCap:
+certified fresh convergence uses one survivor, while incremental
+parsing retains a wider default.
+
+The next candidate must establish where the one-survivor policy is
+valid for incremental convergence, preserve explicit user overrides,
+and pass broader edit, recovery, scanner, and work-budget gates.
+Native compact execution still declined the first edit under this
+control; the successful result is legacy incremental reuse. Do not
+label it compact incremental graduation.
+
+Evidence: harness_out/call-conversion-reuse-trace, including trace
+patches, exclusion controls, both merge-one JSONL runs, and probe source.
+All temporary runtime and test changes were removed.
