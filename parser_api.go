@@ -1939,8 +1939,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	tree, profile, err := p.parseIncrementalChangedProfiled(source, oldTree)
 	profile.ReuseCursorNanos += compactTiming.reuseNanos
 	profile.ReparseNanos += max(int64(0), compactTiming.totalNanos-compactTiming.reuseNanos)
-	profile.ReusedSubtrees += compactTiming.reusedSubtrees
-	profile.ReusedBytes += compactTiming.reusedBytes
+	// Count discarded compact work, but keep reuse attributed to the returned tree.
 	profile.TokensConsumed += compactTiming.tokensConsumed
 	profile.TokenInvariantDependencyChecks += compactTiming.tokenInvariantDependencyChecks
 	profile.NewNodesAllocated += compactTiming.newNodes
