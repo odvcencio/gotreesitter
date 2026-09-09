@@ -408,7 +408,7 @@ func TestMalformedTokenInvariantGoLeafDoesNotRunBaseMergeRetry(t *testing.T) {
 	// A real reparse may use the existing accepted-error retry route.
 }
 
-func TestMalformedGoIncrementalRunsOneBaseMergeRetryAndKeepsFirstResult(t *testing.T) {
+func TestMalformedGoIncrementalKeepsMatchingTreeWithoutMergeRetry(t *testing.T) {
 	lang := grammars.GoLanguage()
 	original := []byte("package p\nfunc f() {}\n")
 	offset := bytes.LastIndexByte(original, '}')
@@ -456,14 +456,14 @@ func TestMalformedGoIncrementalRunsOneBaseMergeRetryAndKeepsFirstResult(t *testi
 		t.Fatalf("malformed Go deep digest incremental=%s fresh=%s", incrementalInspection.SHA256, freshInspection.SHA256)
 	}
 	rt := incremental.ParseRuntime()
-	if profile.AcceptedErrorRetryAttempts != 1 || rt.IncrementalAcceptedErrorRetryAttempts != 1 ||
+	if profile.AcceptedErrorRetryAttempts != 0 || rt.IncrementalAcceptedErrorRetryAttempts != 0 ||
 		profile.AcceptedErrorRetryAdopted || rt.IncrementalAcceptedErrorRetryAdopted ||
-		profile.AcceptedErrorRetryMergePerKey != 3 || !profile.OldTreeReuseRoute || !rt.IncrementalOldTreeReuseRoute {
+		profile.AcceptedErrorRetryMergePerKey != 0 || !profile.OldTreeReuseRoute || !rt.IncrementalOldTreeReuseRoute {
 		t.Fatalf("malformed Go retry profile=%+v runtime=%+v", profile, rt)
 	}
 	incremental.Release()
 	if oldTree.RootNode() == nil || oldTree.RootNode().HasError() {
-		t.Fatal("releasing retained first incremental result invalidated caller-owned old tree")
+		t.Fatal("releasing incremental result invalidated caller-owned old tree")
 	}
 }
 

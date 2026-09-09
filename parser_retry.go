@@ -894,6 +894,11 @@ func effectiveParseMergePerKeyCap(lang *Language, mergePerKeyCap int, incrementa
 		return mergePerKeyCap
 	}
 	if incremental {
+		// Go's tied expression/type readings must converge in the graph.
+		// Wider survivor sets can select a wrong tree after repeated edits.
+		if lang.Name == "go" && !parseMaxMergePerKeyEnvConfigured() && mergePerKeyCap > 1 {
+			return 1
+		}
 		if lang.Name == "dart" && dartIncrementalFallbackCanUseTightMergeCap(sourceLen...) &&
 			!parseMaxMergePerKeyEnvConfigured() && mergePerKeyCap > 4 {
 			return 4
@@ -915,8 +920,8 @@ func effectiveParseMergePerKeyCap(lang *Language, mergePerKeyCap int, incrementa
 		// highlight, and query gates, while cap=2 prunes a required branch.
 		// With faithful cap-one condense, tied same-key readings are
 		// preserved through multi-link GSS nodes, so the steady-state
-		// full-parse cap can tighten. Explicit diagnostic overrides and
-		// incremental reparses stay wide.
+		// full-parse cap can tighten. Explicit diagnostic overrides remain
+		// available. Incremental parses use the policy above.
 		//
 		// This steady-state cap does NOT widen for the
 		// `_automatic_semicolon` external-scanner ASI fix's fallout

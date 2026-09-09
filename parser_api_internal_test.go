@@ -906,7 +906,9 @@ func incrementalAcceptedErrorRetryTestTree(sourceLen int, hasError bool, maxStac
 	if hasError {
 		flags |= nodeFlagHasError
 	}
-	lang := &Language{Name: "go"}
+	// Dart retains a narrower fresh cap, so these generic retry tests
+	// continue to exercise selection, attribution and ownership.
+	lang := &Language{Name: "dart"}
 	return &Tree{
 		language: lang,
 		root: &Node{
@@ -966,6 +968,7 @@ func TestIncrementalAcceptedErrorBaseMergeRetryUsesFinalFreshPolicy(t *testing.T
 		source   []byte
 		want     int
 	}{
+		{name: "go incremental already narrower", language: "go", source: []byte("package p"), want: 0},
 		{name: "typescript typed arrow", language: "typescript", source: []byte("const f = (str: string) => str;"), want: 2},
 		// The destructured-arrow-return-type shape used to widen the base
 		// (fresh, reuse=nil) full-parse floor to maxStacksPerMergeKey (6) via
@@ -2980,8 +2983,8 @@ func TestEffectiveParseMergePerKeyCapGoFaithfulCondense(t *testing.T) {
 	if got := effectiveParseMergePerKeyCap(&Language{Name: "go"}, maxStacksPerMergeKey, false); got != 1 {
 		t.Fatalf("effectiveParseMergePerKeyCap(go, faithful default, full) = %d, want 1", got)
 	}
-	if got := effectiveParseMergePerKeyCap(&Language{Name: "go"}, maxStacksPerMergeKey, true); got != maxStacksPerMergeKey {
-		t.Fatalf("effectiveParseMergePerKeyCap(go, faithful default, incremental) = %d, want %d", got, maxStacksPerMergeKey)
+	if got := effectiveParseMergePerKeyCap(&Language{Name: "go"}, maxStacksPerMergeKey, true); got != 1 {
+		t.Fatalf("effectiveParseMergePerKeyCap(go, faithful default, incremental) = %d, want 1", got)
 	}
 }
 
