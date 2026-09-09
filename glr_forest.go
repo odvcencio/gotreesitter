@@ -387,7 +387,8 @@ func (p *Parser) parseForestExperimental(source []byte) (*Tree, bool) {
 	// a diagnostic success or decline that is guaranteed to disable reuse.
 	captureExternalCheckpoints := incrementalReuseProven && languageUsesExternalScannerCheckpoints(p.language)
 	var lexicalReadSpan uint32
-	root, ok := p.parseForest(arena, source, captureExternalCheckpoints, parseMemoryBudgetForParser(p, len(source)), &lexicalReadSpan)
+	var consumedTokens uint64
+	root, ok := p.parseForest(arena, source, captureExternalCheckpoints, parseMemoryBudgetForParser(p, len(source)), &lexicalReadSpan, &consumedTokens)
 	if !ok || root == nil {
 		arena.Release()
 		return nil, false
@@ -399,7 +400,7 @@ func (p *Parser) parseForestExperimental(source []byte) (*Tree, bool) {
 	}
 	p.finalizeForestRoot(root, source)
 	tree := newTreeWithArenas(root, source, p.language, arena, nil)
-	tree.setParseRuntime(forestAcceptedRuntime(root, source))
+	tree.setParseRuntime(forestAcceptedRuntimeWithWork(root, source, arena, consumedTokens))
 	// Diagnostic-only: mirrors the copyNormalizationStats call every other
 	// route makes (parser.go's parseInternal tail; tree.go's
 	// ensureResultCompatibility). forestAcceptedRuntime above deliberately
@@ -704,7 +705,8 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	operationBudget := parseMemoryBudgetForParser(p, len(source))
 	forestBudget := automaticForestMemoryBudget(p, operationBudget)
 	var lexicalReadSpan uint32
-	root, ok := p.parseForest(arena, source, captureExternalCheckpoints, forestBudget, &lexicalReadSpan)
+	var consumedTokens uint64
+	root, ok := p.parseForest(arena, source, captureExternalCheckpoints, forestBudget, &lexicalReadSpan, &consumedTokens)
 	if progress.enabled {
 		progress.endDetail(time.Now(), "forest_parse_call_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, fmt.Sprintf("ok=%t root_present=%t decline_reason=%s", ok, root != nil, p.forestDeclineReason))
 	}
@@ -763,7 +765,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 		progress.endDetail(time.Now(), "forest_finalize_end", 0, 0, Token{}, false, nil, 0, 0, 0, true, 0, 0, fmt.Sprintf("root_end=%d", root.EndByte()))
 	}
 	tree := newTreeWithArenas(root, source, p.language, arena, nil)
-	tree.setParseRuntime(forestAcceptedRuntime(root, source))
+	tree.setParseRuntime(forestAcceptedRuntimeWithWork(root, source, arena, consumedTokens))
 	tree.forestFastPath = true
 	if !incrementalReuseProven {
 		tree.incrementalReuseDisabled = true
@@ -799,6 +801,17 @@ func (p *Parser) finalizeForestRoot(root *Node, source []byte) {
 	// range-limited normalization does not apply; pass nil to keep the full walk.
 	p.finalizeResultRoot(root, source, nil, false, false, nil)
 	extendRootToAcceptedCleanTail(root, source, uint32(len(source)), nil, p.lineContinuationEscapeByte())
+}
+
+// Count arena allocation slots, including discarded alternatives, rather than
+// only the nodes reachable from the returned root.
+func forestAcceptedRuntimeWithWork(root *Node, source []byte, arena *nodeArena, tokens uint64) ParseRuntime {
+	runtime := forestAcceptedRuntime(root, source)
+	runtime.TokensConsumed = tokens
+	if arena != nil {
+		runtime.NodesAllocated = arena.used
+	}
+	return runtime
 }
 
 func forestAcceptedRuntime(root *Node, source []byte) ParseRuntime {
@@ -3192,7 +3205,7 @@ func (s *gssForestNodeSlab) retainedBytes() int {
 // returned, or (nil,false) if the parse dies. This is the forest path the
 // GOT_GLR_FOREST flag dispatches into; parity-iteration (extras, recovery,
 // external scanners, full GLR-lexing) is layered on this core.
-func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32) (*Node, bool) {
+func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalCheckpoints bool, memoryBudget int64, lexicalReadSpan *uint32, consumedTokens *uint64) (*Node, bool) {
 	if lexicalReadSpan != nil {
 		*lexicalReadSpan = 0
 	}
@@ -3918,6 +3931,9 @@ func (p *Parser) parseForest(arena *nodeArena, source []byte, captureExternalChe
 			// Normalization cannot turn an error attempt into lexical evidence.
 			if lexicalReadSpan != nil && !root.hasError() && recoverCount == 0 {
 				*lexicalReadSpan = ts.tokenInvariantReadSpan()
+			}
+			if consumedTokens != nil {
+				*consumedTokens = uint64(tokens)
 			}
 			return root, true
 		}

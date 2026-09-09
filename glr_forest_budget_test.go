@@ -132,7 +132,7 @@ func TestParseForestMemoryBudgetDeclines(t *testing.T) {
 	runtime.GC()
 	previousGCPercent := debug.SetGCPercent(-1)
 	defer debug.SetGCPercent(previousGCPercent)
-	root, ok := parser.parseForest(arena, source, false, parseMemoryBudgetForParser(parser, len(source)), nil)
+	root, ok := parser.parseForest(arena, source, false, parseMemoryBudgetForParser(parser, len(source)), nil, nil)
 	arenaBudgetExhausted := arena.budgetExhausted()
 	arena.Release()
 	if ok || root != nil {

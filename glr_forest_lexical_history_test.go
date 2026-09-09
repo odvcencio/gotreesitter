@@ -56,7 +56,7 @@ func TestForestTokenInvariantHistoryDeclineClearsReceipt(t *testing.T) {
 	for _, source := range []string{"12345", "[", "1"} {
 		arena := acquireNodeArena(arenaClassFull)
 		receipt := uint32(999)
-		root, ok := parser.parseForest(arena, []byte(source), false, parseMemoryBudgetForParser(parser, len(source)), &receipt)
+		root, ok := parser.parseForest(arena, []byte(source), false, parseMemoryBudgetForParser(parser, len(source)), &receipt, nil)
 		if source == "[" {
 			if ok || root != nil || receipt != 0 {
 				t.Errorf("decline published history: ok=%v root=%v receipt=%d", ok, root != nil, receipt)
