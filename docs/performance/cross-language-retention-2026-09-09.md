@@ -87,3 +87,34 @@ capacity-probe.go and drop-owner-probe.go controls have separate outputs.
 All source, JSONL receipts, process reports, profiles, and a hash
 manifest are in the evidence archive. Profile binaries remain remote
 for symbolization and are excluded from the archive.
+
+## Explicit pool-drain control
+
+The node-arena pool stores strong references in its free list.
+Its existing DrainArenaPools API clears these references. Garbage
+collection alone does not drain this cache.
+
+A third five-process control drops the Go parser and calls
+DrainArenaPools after releasing its tree. Before the next JSON parse,
+the probe runs two collections as in the other sequences.
+
+| Metric | First JSON | JSON after owner drop and drain |
+| --- | ---: | ---: |
+| Retained heap after two GCs | 5,610,144 | 6,379,224 |
+| GC-scannable heap bytes | 3,805,368 | 3,999,112 |
+| Allocated bytes, parse plus release | 6,088 | 3,032,272 |
+| Allocated objects, parse plus release | 18 | 31 |
+| Diagnostic parse time, ns | 58,499 | 537,487 |
+
+All 15 parses routed to compact without fallback. The control confirms
+that most remaining storage is reclaimable through the existing pool
+lifecycle. It also shows why automatic unconditional draining is not
+a hot-path repair: the next tiny parse must allocate a fresh arena.
+The final heap remains about 13.7 percent above the first measurement;
+this control does not pass the five-percent return criterion.
+
+No parser runtime change was retained. The drain control source,
+receipts, and summary remain in the evidence directory. Two completed
+non-profile probe binaries were removed after checking active process
+executables and container mounts. This reclaimed 66,271,161 bytes.
+The two binaries used by saved heap profiles remain for symbolization.
