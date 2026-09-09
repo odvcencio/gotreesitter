@@ -23,9 +23,11 @@ func TestGoCompactIncrementalExecutionParity(t *testing.T) {
 		{"growth", "", "1", "1+3", true},
 		{"comment", "// between declarations\n", "1", "1+3", true},
 		{"same_width_kind_change", "", "1", "x", true},
+		{"shrink", "", "1+3", "1", true},
+		{"multiline_expression", "", "1", "(1 +\n 3)", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			source := []byte("package p\nfunc a() { _ = 1 }\n" + tc.separator + "func b() { _ = 2 }\n")
+			source := []byte("package p\nfunc a() { _ = " + tc.before + " }\n" + tc.separator + "func b() { _ = 2 }\n")
 			offset := bytes.Index(source, []byte(tc.before))
 			edited := bytes.Replace(source, []byte(tc.before), []byte(tc.after), 1)
 			edit := gts.InputEdit{StartByte: uint32(offset), OldEndByte: uint32(offset + len(tc.before)), NewEndByte: uint32(offset + len(tc.after)), StartPoint: pointAtOffset(source, offset), OldEndPoint: pointAtOffset(source, offset+len(tc.before)), NewEndPoint: pointAtOffset(edited, offset+len(tc.after))}
@@ -60,6 +62,10 @@ func TestGoCompactIncrementalExecutionParity(t *testing.T) {
 				if profile.ReuseUnsupported || !profile.OldTreeReuseRoute || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 {
 					t.Fatalf("missing reuse: %+v", profile)
 				}
+				if profile.NewNodesAllocated == 0 || profile.ReusedBytes >= uint64(len(edited)) {
+					t.Fatalf("edit must rebuild changed nodes and reuse only part of the input: %+v", profile)
+				}
+				t.Logf("incremental work: source_bytes=%d reused_subtrees=%d reused_bytes=%d new_nodes=%d", len(edited), profile.ReusedSubtrees, profile.ReusedBytes, profile.NewNodesAllocated)
 			}
 			cLanguage, err := ParityCLanguage("go")
 			if err != nil {
