@@ -104,7 +104,7 @@ func TestReusedSubtreeProofInvalidatesPriorMutations(t *testing.T) {
 			if err := c.Reset(); err != nil {
 				t.Fatal(err)
 			}
-			if c.reuseProof != (reuseValidationProof{}) {
+			if c.reuseProof != (reuseValidationProof{}) || len(c.reuseCertifiedNodes) != 0 {
 				t.Fatal("reset retained a proof")
 			}
 			seed, err = c.Seed(1, 0)
@@ -188,7 +188,7 @@ func TestReusedSubtreeProofPollRollsBackPartialValidation(t *testing.T) {
 		})
 		return err
 	})
-	if !errors.Is(err, stop) || polls != 2 || c.reuseProof != (reuseValidationProof{}) || len(c.reusedSubtrees) != 0 {
+	if !errors.Is(err, stop) || polls != 2 || c.reuseProof != (reuseValidationProof{}) || len(c.reusedSubtrees) != 0 || len(c.reuseCertifiedNodes) != 0 {
 		t.Fatalf("partial validation was published: %+v %v", c.reuseProof, err)
 	}
 }

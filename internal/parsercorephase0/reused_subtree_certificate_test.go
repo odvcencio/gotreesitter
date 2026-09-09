@@ -117,3 +117,73 @@ func TestReusedSubtreeCertificateVisitsNewRecordsWithInactiveBranches(t *testing
 		}
 	}
 }
+
+func TestReusedSubtreeCertificateRollbackReusesNodeID(t *testing.T) {
+	c, head, reused := reusedFixture(t)
+	c.tables.(*fakeTable).gotos[tableCell{state: 2, symbol: 100}] = 2
+	stop := errors.New("rollback certified node")
+	var published Head
+	err := c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		var err error
+		published, _, err = c.PushReusedSubtreeOwned(owner, head, reused)
+		if err != nil {
+			return err
+		}
+		second := reused
+		second.Key, second.PreGotoState = 2, 2
+		second.StartByte, second.EndByte = 10, 20
+		if _, _, err = c.PushReusedSubtreeOwned(owner, published, second); err != nil {
+			return err
+		}
+		if !c.reuseCertifiedNodes[published.Node-1] {
+			t.Fatal("fixture did not certify rolled-back ID")
+		}
+		return stop
+	})
+	if !errors.Is(err, stop) {
+		t.Fatal(err)
+	}
+	replacement, err := c.Seed(1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacement.Node != published.Node {
+		t.Fatal("fixture did not reuse rolled-back ID")
+	}
+	c.nodes[replacement.Node-1].pathCount = 2
+	err = c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		_, _, err := c.PushReusedSubtreeOwned(owner, replacement, reused)
+		return err
+	})
+	if err == nil {
+		t.Fatal("rolled-back certificate admitted reused ambiguous ID")
+	}
+	if len(c.reuseCertifiedNodes) != 0 {
+		t.Fatal("failed borrow published a certificate")
+	}
+}
+
+func TestReusedSubtreeCertificateRejectsConvergedProvenance(t *testing.T) {
+	for _, kind := range []string{"alternative set", "recovery cost", "lineage"} {
+		t.Run(kind, func(t *testing.T) {
+			c, head, reused := reusedFixture(t)
+			c.nodeLineages[head.Node-1].converged = true
+			c.nodeLineages[head.Node-1].blended = true
+			switch kind {
+			case "alternative set":
+				c.nodeLineages[head.Node-1].set.count = 1
+			case "recovery cost":
+				c.nodeLineages[head.Node-1].storedErrorCost = 1
+			case "lineage":
+				c.nodeLineages[head.Node-1].lineage = 1
+			}
+			err := c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+				_, _, err := c.PushReusedSubtreeOwned(owner, head, reused)
+				return err
+			})
+			if err == nil {
+				t.Fatal("clean convergence flags masked active provenance")
+			}
+		})
+	}
+}

@@ -178,6 +178,19 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		s.token.StartByte-session.editEndByte > compactIncrementalReuseDeclineWindowBytes {
 		return false, errCompactIncrementalReuseWindowExhausted
 	}
+	if len(s.headers) > 1 && !s.versionLexerOwnershipActive && !s.recoveryIsolation && !s.options.Recovery {
+		// Deferral does not borrow or consume. With recovery disabled, ordinary
+		// dispatch can remove a duplicate-reduction pause after sibling progress.
+		// A paused alternative cannot supply reuse: borrowing still requires one
+		// unpaused head and an active-ancestry certificate below.
+		for i := range s.headers {
+			header := &s.headers[i]
+			if header.isRecoveryLineage() || header.recoveryRegion() != nil {
+				return false, errors.New("compact incremental reuse cannot enter recovery")
+			}
+		}
+		return false, nil
+	}
 	if len(s.headers) != 1 || s.versionLexerOwnershipActive || s.recoveryIsolation {
 		return false, errors.New("compact incremental reuse requires one clean shared-lexer version")
 	}
