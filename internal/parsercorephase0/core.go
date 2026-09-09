@@ -6102,7 +6102,6 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 		}
 	}
 
-	var out []Derivation
 	visiting := make(map[NodeID]bool)
 	var walk func(NodeID) ([]Derivation, error)
 	walk = func(id NodeID) ([]Derivation, error) {
@@ -6134,26 +6133,30 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 			if err != nil {
 				return nil, err
 			}
-			for _, prefix := range prefixes {
-				if uint64(len(paths)) >= c.limits.MaxDerivations {
+			// Each call returns paths that no other call retains. Extend these
+			// owned paths and keep the first slice for the combined result.
+			for i := range prefixes {
+				if uint64(len(paths))+uint64(i) >= c.limits.MaxDerivations {
 					return nil, ErrDerivationEnumerationCap
 				}
-				score, err := checkedAddScore(prefix.Score, link.scoreDelta)
+				path := &prefixes[i]
+				score, err := checkedAddScore(path.Score, link.scoreDelta)
 				if err != nil {
 					return nil, err
 				}
-				path := Derivation{Score: score}
-				path.Payloads = append(path.Payloads, prefix.Payloads...)
+				path.Score = score
 				if link.payload != 0 {
 					path.Payloads = append(path.Payloads, link.payload)
 				}
-				path.BranchOrder = prefix.BranchOrder
-				path.HasBranchOrder = prefix.HasBranchOrder
 				if link.hasOrder() {
 					path.BranchOrder = link.order
 					path.HasBranchOrder = true
 				}
-				paths = append(paths, path)
+			}
+			if paths == nil {
+				paths = prefixes
+			} else {
+				paths = append(paths, prefixes...)
 			}
 		}
 		if n.pathCount != math.MaxUint64 && uint64(len(paths)) != n.pathCount {
@@ -6161,12 +6164,7 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 		}
 		return paths, nil
 	}
-	paths, err := walk(head.Node)
-	if err != nil {
-		return nil, err
-	}
-	out = append(out, paths...)
-	return out, nil
+	return walk(head.Node)
 }
 
 // singleDerivation walks a certified single-path graph without recursion.
