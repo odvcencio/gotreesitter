@@ -1,15 +1,15 @@
 # Compact parser replacement decision
 
-**1. Decision: NO-GO for this path to graduation.**
+**1. Corrected assessment: HOLD. Do not graduate this candidate.**
 
 The bounded certificate passes its focused checks and enables three native histories.
 The final candidate still fails every required wall-time gate against repaired legacy.
 Certificate validation consumed less than 0.5% of sampled CPU time in the attribution profiles.
 The remaining gap comes from additional parsing, rebuilding, materialization, and scheduler accounting.
 
-My assessment: closing this gap requires broader reuse-selection and scheduler/materializer work.
-Further certificate tuning does not provide a credible retirement path by itself.
-This decision rejects the current replacement path, not every compact-parser design.
+The profiles show that certificate validation is no longer the main cost.
+They do not prove that closing the remaining gap requires a substantial redesign.
+The earlier NO-GO classification overstated that inference. Graduation remains blocked by measured costs and incomplete route proofs.
 
 Start: 2026-09-09 08:43 UTC. Deadline: 12:43 UTC.
 Starting revision: 90bdc698d898f7ebb5e41e6bb54844224e480f16.
@@ -77,9 +77,11 @@ The efficiency fixes are useful independently of retirement.
 
 **7. Next action**
 
-Stop this implementation path and retain the bounded certificate, arena sizing, and derivation allocation fixes.
-Keep the previously proven legacy performance and accounting repairs.
-A broader reuse or scheduler redesign requires a new decision.
+The original milestone ended with its evidence preserved.
+The user subsequently authorized another optimization pass on 2026-09-09.
+Investigate excess token consumption and node construction before choosing broader changes.
+Retain the certificate, arena sizing, derivation allocation, and repaired legacy improvements.
+Keep retirement blocked until the required correctness and cost gates pass.
 
 See compact-replacement-evidence-2026-09-09.md and compact-retirement-boundary-2026-09-09.md.
 The evidence archive contains remaining-gates.md and reproduction.md.
