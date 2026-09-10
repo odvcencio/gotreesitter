@@ -17,7 +17,7 @@ func compactNativeCanonicalCases(t testing.TB) []canonicalGoIncrementalCase {
 		if tc.spec.Language != "go" || tc.spec.Role != "representative" {
 			continue
 		}
-		if tc.spec.Name != "token_class_change" && tc.spec.Name != "early_newline" {
+		if tc.spec.Name != "token_class_change" && tc.spec.Name != "early_newline" && tc.spec.Name != "same_line_length_change" {
 			continue
 		}
 		selected = append(selected, tc)

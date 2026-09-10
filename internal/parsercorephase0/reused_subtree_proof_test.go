@@ -192,3 +192,32 @@ func TestReusedSubtreeProofPollRollsBackPartialValidation(t *testing.T) {
 		t.Fatalf("partial validation was published: %+v %v", c.reuseProof, err)
 	}
 }
+
+func TestReusedSubtreeUncertifiedHeadDefersWithoutPublication(t *testing.T) {
+	c, clean, reused := reusedFixture(t)
+	bad, err := c.Seed(1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = c.recordNodeLineage(bad, CleanPathRankSelected, 1); err != nil {
+		t.Fatal(err)
+	}
+	err = c.ApplySchedulerAtomic(func(owner SchedulerTransactionToken) error {
+		nodes, subtrees, borrowed := len(c.nodes), len(c.subtrees), len(c.reusedSubtrees)
+		_, _, err := c.PushReusedSubtreeOwned(owner, bad, reused)
+		if !errors.Is(err, ErrReusedHeadUncertified) {
+			t.Fatalf("uncertified head: %v", err)
+		}
+		if len(c.nodes) != nodes || len(c.subtrees) != subtrees || len(c.reusedSubtrees) != borrowed {
+			t.Fatal("decline published a borrowed subtree")
+		}
+		_, _, err = c.PushReusedSubtreeOwned(owner, clean, reused)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.reusedSubtrees) != 1 {
+		t.Fatal("clean head failed after deferral")
+	}
+}

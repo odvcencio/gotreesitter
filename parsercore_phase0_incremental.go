@@ -19,15 +19,17 @@ func (p *Parser) recordLegacyParserEntry() {
 // compactIncrementalReuseSession owns references for one incremental attempt.
 // Keys start at one. The Core stores keys, never public node pointers.
 type compactIncrementalReuseSession struct {
-	oldTree        *Tree
-	nodes          []*Node
-	reuseState     parseReuseState
-	projection     compactBorrowedProjectionScratch
-	scheduler      *diagnosticParserCoreGenericScheduler
-	timing         *incrementalParseTiming
-	cursor         reuseCursor
-	reusedSubtrees uint64
-	reusedBytes    uint64
+	suffixReady, suffixValid       bool
+	suffixNewStart, suffixOldStart uint32
+	oldTree                        *Tree
+	nodes                          []*Node
+	reuseState                     parseReuseState
+	projection                     compactBorrowedProjectionScratch
+	scheduler                      *diagnosticParserCoreGenericScheduler
+	timing                         *incrementalParseTiming
+	cursor                         reuseCursor
+	reusedSubtrees                 uint64
+	reusedBytes                    uint64
 	// unauthenticatedTopLevelCandidates counts reuse boundaries where a clean,
 	// byte-unchanged in-scope candidate (a top-level sibling or a nested
 	// child of the edited item) was available and the compact route could
@@ -120,6 +122,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	}
 	session.cursor.disableLeadingSplice = p.disableLeadingRunSplice
 	session.cursor.reset(oldTree, source, &p.reuseScratch)
+	session.cursor.allowFragileAncestors = true
 	runner.options.compactIncrementalReuse = session
 	runner.scratch.incrementalReuse = session
 	defer func() {
@@ -210,6 +213,9 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 		return false, nil
 	}
 	p := s.options.materializationParser
+	if err := session.prepareSuffixProof(s.pollStopControl); err != nil {
+		return false, err
+	}
 	unauthenticatedTopLevel := false
 	for _, node := range session.cursor.candidates(s.token.StartByte) {
 		next, ok := session.candidateState(p, node, StateID(state), offset, s.token)
@@ -231,6 +237,10 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 			StartByte: node.StartByte(), EndByte: node.EndByte(), DynamicPrecedence: node.dynamicPrecedence,
 		}, s.pollStopControl)
 		if err != nil {
+			if errors.Is(err, core.ErrReusedHeadUncertified) &&
+				!session.cursor.topLevelSiblingBlockSpliceEligible(node) && session.suffixNodeEligible(p, node) {
+				return false, nil
+			}
 			return false, err
 		}
 		session.nodes = append(session.nodes, node)
@@ -268,13 +278,14 @@ func (s *diagnosticParserCoreGenericScheduler) tryCompactIncrementalReuse() (boo
 func (s *compactIncrementalReuseSession) candidateInScope(p *Parser, node *Node, lookahead Token) bool {
 	return node != nil && node.ChildCount() > 0 && !node.IsExtra() && !node.HasError() &&
 		!node.dirty() && !node.isFragile() &&
-		(s.cursor.topLevelSiblingBlockSpliceEligible(node) || s.nestedCandidateScopeEligible(p, node, lookahead)) &&
+		(s.cursor.topLevelSiblingBlockSpliceEligible(node) ||
+			(node.parent != nil && s.oldTree != nil && node.parent.parent == s.oldTree.root && node.parent.dirty() && s.nestedCandidateScopeEligible(p, node, lookahead))) &&
 		s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte())
 }
 
 func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, state StateID, offset uint32, lookahead Token) (StateID, bool) {
 	if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
-		node.dirty() || node.isFragile() || !compactNodeMayBeReused(node) ||
+		node.dirty() || node.isFragile() || !s.nodeMayBeReused(p, node) ||
 		!compactNodeStateProofAvailable(node) || node.PreGotoState() != state ||
 		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) ||
 		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
@@ -285,15 +296,18 @@ func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, s
 	return next, ok && next == node.parseState
 }
 
-// Admit only a direct child of the edited top-level item. The fresh token
-// proves the left boundary. The retained dependency also covers lexer probes
-// and the reduction lookahead beyond the subtree's physical right boundary.
-// Materialization still authenticates ownership and rejects changed projections.
+// The fresh token proves the left boundary. A retained dependency permits
+// direct children of the edited top-level item. An authenticated suffix permits
+// deeper children and covers all forward lookahead through EOF.
+// Materialization authenticates ownership and rejects changed projections.
 func (s *compactIncrementalReuseSession) nestedCandidateScopeEligible(p *Parser, node *Node, lookahead Token) bool {
-	if s.oldTree == nil || node.parent == nil || node.parent.parent != s.oldTree.root ||
-		!node.parent.dirty() || !node.isCompactMaterialized() ||
+	if s.oldTree == nil || node == nil || node.parent == nil || !node.isCompactMaterialized() ||
 		uint32(node.symbol) < p.language.TokenCount || !p.isVisibleSymbol(node.symbol) ||
-		s.cursor.rightBoundaryTouchedByEdit(node.EndByte()) || !s.nestedDependencyUnchanged(node) {
+		s.cursor.rightBoundaryTouchedByEdit(node.EndByte()) {
+		return false
+	}
+	if !s.suffixNodeEligible(p, node) &&
+		(node.parent.parent != s.oldTree.root || !node.parent.dirty() || !s.nestedDependencyUnchanged(node)) {
 		return false
 	}
 	leaf := leftmostLeaf(node)

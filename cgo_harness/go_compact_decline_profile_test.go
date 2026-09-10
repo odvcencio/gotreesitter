@@ -14,7 +14,7 @@ func TestGoCompactDeclineProfileReportsSelectedTreeReuse(t *testing.T) {
 	gts.ResetParseEnvConfigCacheForTests()
 	t.Cleanup(gts.ResetParseEnvConfigCacheForTests)
 	for _, tc := range loadCanonicalGoIncrementalCases(t) {
-		if tc.spec.Name != "same_line_length_change" {
+		if tc.spec.Name != "recovery_deletion" {
 			continue
 		}
 		lang := canonicalIncrementalGoLanguage(t, "go")
@@ -64,5 +64,5 @@ func TestGoCompactDeclineProfileReportsSelectedTreeReuse(t *testing.T) {
 		t.Logf("selected reuse attempted=%d/%d direct=%d/%d; total tokens attempted=%d direct=%d", attempted.ReusedSubtrees, attempted.ReusedBytes, direct.ReusedSubtrees, direct.ReusedBytes, attempted.TokensConsumed, direct.TokensConsumed)
 		return
 	}
-	t.Fatal("missing same-line length fixture")
+	t.Fatal("missing recovery deletion fixture")
 }

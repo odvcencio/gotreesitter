@@ -27,7 +27,7 @@ func (session *compactIncrementalReuseSession) materializeBorrowed(
 	}
 	node := session.nodes[view.ReusedKey-1]
 	if node == nil || node.ownerArena == nil || node.dirty() || node.hasError() || node.isMissing() || node.isFragile() ||
-		node.isExtra() || !compactNodeMayBeReused(node) || nodeChildCountNoMaterialize(node) == 0 ||
+		node.isExtra() || !session.nodeMayBeReused(parser, node) || nodeChildCountNoMaterialize(node) == 0 ||
 		!parser.isVisibleSymbol(node.symbol) || uint32(node.symbol) < parser.language.TokenCount {
 		return nil, compactIncrementalMaterializationDecline("borrowed subtree is not a clean visible nonterminal")
 	}

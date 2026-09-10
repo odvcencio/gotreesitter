@@ -88,7 +88,8 @@ A dispatch-only change has not demonstrated enough value in these two experiment
 
 ## Maintained benchmark
 
-BenchmarkGoCompactFourEditLifecycle covers the three required histories.
+BenchmarkGoCompactFourEditLifecycle originally covered the three required histories.
+The [suffix-reuse pass](compact-suffix-reuse-2026-09-09.md) adds the now-native length-change history.
 Each history has explicit compact and legacy lanes.
 The compact lane requires actual native reuse and zero legacy entries.
 The legacy lane requires exactly one legacy entry per edit.

@@ -1,6 +1,11 @@
-# Compact parser replacement decision
+# Compact parser replacement decision — historical milestone
 
-**1. Corrected assessment: HOLD. Do not graduate this candidate.**
+The later [suffix-reuse pass](compact-suffix-reuse-2026-09-09.md) closes the required lifecycle cost gap.
+It also adds native length changes. General replacement remains on HOLD for the remaining route and API gates.
+
+The measurements below describe the earlier milestone candidate.
+
+**1. Milestone assessment: HOLD.**
 
 The bounded certificate passes its focused checks and enables three native histories.
 The final candidate still fails every required wall-time gate against repaired legacy.

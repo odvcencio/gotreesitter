@@ -16,8 +16,10 @@ type reuseCursor struct {
 	// wholeSourceIdentical is computed once at reset. Dirty-candidate checks can
 	// be numerous, so they must not rescan the complete buffer per candidate.
 	wholeSourceIdentical bool
-	minEditAt            uint32
-	hasEdits             bool
+	// Candidate discovery only. The compact suffix proof owns admission.
+	allowFragileAncestors bool
+	minEditAt             uint32
+	hasEdits              bool
 	// edits is the old tree's recorded edit list (post-parse Tree.Edit calls),
 	// in application order. It is needed to reverse-map a node's post-edit
 	// (shifted) byte coordinates back to its pre-edit coordinates in oldSource
@@ -532,7 +534,7 @@ func (c *reuseCursor) advance() *Node {
 			continue
 		}
 		if cur.isCompactMaterialized() {
-			if compactNodeRecoveryBearing(cur) {
+			if compactNodeRecoveryBearingWithAncestors(cur, !c.allowFragileAncestors) {
 				continue
 			}
 			if !compactNodeStateProofAvailable(cur) {

@@ -184,6 +184,10 @@ func (n *Node) setCompactPreGotoStateProof(v bool) {
 }
 
 func compactNodeRecoveryBearing(n *Node) bool {
+	return compactNodeRecoveryBearingWithAncestors(n, true)
+}
+
+func compactNodeRecoveryBearingWithAncestors(n *Node, fragileAncestors bool) bool {
 	if n == nil {
 		return false
 	}
@@ -194,7 +198,7 @@ func compactNodeRecoveryBearing(n *Node) bool {
 	// parser-frontier proof. Keep it with the recovery region so the cursor
 	// descends to a clean sibling instead of splicing part of that region.
 	for parent := n.parent; parent != nil; parent = parent.parent {
-		if parent.isMissing() || parent.symbol == errorSymbol || parent.isFragile() {
+		if parent.isMissing() || parent.symbol == errorSymbol || (fragileAncestors && parent.isFragile()) {
 			return true
 		}
 	}

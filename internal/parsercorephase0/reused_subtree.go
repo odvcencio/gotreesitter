@@ -2,6 +2,9 @@ package parsercorephase0
 
 import "errors"
 
+// ErrReusedHeadUncertified permits deferral without borrowing from this frontier.
+var ErrReusedHeadUncertified = errors.New("parser-core phase zero: reuse requires one clean exact corridor")
+
 // ReusedSubtree describes one clean public nonterminal authenticated by the scheduler.
 // Key identifies the same immutable public node throughout this core generation.
 // The scheduler authenticates source bytes, node identity, and a stateless scanner.
@@ -35,6 +38,7 @@ func (c *Core) PushReusedSubtreeOwned(owner SchedulerTransactionToken, head Head
 // Keys must increase strictly. The allocated corridor must remain error-free
 // and unambiguous. Fresh nonterminal fragility does not certify an old candidate.
 func (c *Core) PushReusedSubtreeOwnedWithPoll(owner SchedulerTransactionToken, head Head, reused ReusedSubtree, poll func() error) (out Head, payload SubtreeID, err error) {
+	var declined bool
 	err = c.RunSchedulerOwned(owner, func() error {
 		node, err := c.node(head.Node)
 		if err != nil {
@@ -57,6 +61,11 @@ func (c *Core) PushReusedSubtreeOwnedWithPoll(owner SchedulerTransactionToken, h
 			return errors.New("parser-core phase zero: reused keys must increase strictly")
 		}
 		if err := c.validateReusedHead(head, poll); err != nil {
+			if err == ErrReusedHeadUncertified {
+				// No payload was published. Keep the owned transaction usable.
+				declined = true
+				return nil
+			}
 			return err
 		}
 		payload, err = c.appendSubtreeRecord(subtreeRecord{
@@ -74,6 +83,9 @@ func (c *Core) PushReusedSubtreeOwnedWithPoll(owner SchedulerTransactionToken, h
 	})
 	if err != nil {
 		return Head{}, 0, err
+	}
+	if declined {
+		return Head{}, 0, ErrReusedHeadUncertified
 	}
 	return out, payload, nil
 }
@@ -170,7 +182,7 @@ func (c *Core) validateReusedHead(head Head, poll func() error) error {
 		c.reuseProof.nodes++
 	}
 	if !c.reuseCertifiedNodes[head.Node-1] {
-		return errors.New("parser-core phase zero: reuse requires one clean exact corridor")
+		return ErrReusedHeadUncertified
 	}
 	return poll()
 }
