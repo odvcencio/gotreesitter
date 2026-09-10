@@ -287,9 +287,18 @@ func (s *compactIncrementalReuseSession) candidateState(p *Parser, node *Node, s
 	if node == nil || node.ChildCount() == 0 || node.IsExtra() || node.HasError() ||
 		node.dirty() || node.isFragile() || !s.nodeMayBeReused(p, node) ||
 		!compactNodeStateProofAvailable(node) || node.PreGotoState() != state ||
-		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) ||
-		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) ||
-		!reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
+		(!s.cursor.topLevelSiblingBlockSpliceEligible(node) && !s.nestedCandidateScopeEligible(p, node, lookahead)) {
+		return 0, false
+	}
+	// prepareSuffixProof has already compared the complete common suffix.
+	// Rechecking each suffix node would turn one O(source) proof into O(nodes)
+	// duplicate scans. Keep the per-node comparison for nodes outside that
+	// authenticated suffix.
+	if !s.suffixNodeEligible(p, node) &&
+		!s.cursor.nodeBytesUnchanged(node.StartByte(), node.EndByte()) {
+		return 0, false
+	}
+	if !reuseSubtreeGapIsParserPadding(s.cursor.newSource, offset, node.StartByte(), p.lineContinuationEscapeByte()) {
 		return 0, false
 	}
 	next, ok := p.reuseTargetState(state, node, lookahead)
