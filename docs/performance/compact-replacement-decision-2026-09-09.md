@@ -2,6 +2,7 @@
 
 The later [suffix-reuse pass](compact-suffix-reuse-2026-09-09.md) closes the required lifecycle cost gap.
 It also adds native length changes. General replacement remains on HOLD for the remaining route and API gates.
+The later [parent-publication follow-up](compact-parent-publication-2026-09-10.md) fixes the deletion-history parent-link defect. The historical measurements below remain unchanged.
 
 The measurements below describe the earlier milestone candidate.
 

@@ -34,7 +34,9 @@ func newResultRootBuild(p *Parser, source []byte, arena *nodeArena, oldTree *Tre
 			}
 			return nil
 		}(),
-		shouldWireParentLinks: oldTree == nil,
+		// Speculative branches can overwrite shared child links during an edit.
+		// Publish links from the selected tree, including incremental results.
+		shouldWireParentLinks: true,
 	}
 	if p != nil {
 		if build.budgetScratch != nil {

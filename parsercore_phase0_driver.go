@@ -7505,12 +7505,9 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithIncludedRecovery(compac
 		tree = parser.buildResultFromNodes(nodes, source, arena, oldTree, reuseState, linkScratch)
 	}
 	if tree != nil {
-		m.owned = false // The result tree owns the materialization arena.
-		if incrementalReuse != nil && tree.root != nil {
-			// Incremental builders normally inherit links from parent construction.
-			// This path constructs parents without links to preserve borrowed nodes.
-			arena.deferParentLinks(tree.root)
-		}
+		// The result tree owns the materialization arena. Parent links are
+		// published by resultRootBuild, including links into borrowed arenas.
+		m.owned = false
 	}
 	rejectTree := func(err error) (*Tree, error) {
 		if tree != nil {

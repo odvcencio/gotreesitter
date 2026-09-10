@@ -116,3 +116,7 @@ The prior milestone archive remains unchanged.
 The decision report now records HOLD and withdraws the unsupported redesign inference.
 No runtime optimization from this pass remains enabled.
 No legacy entry point was removed.
+
+## Parent publication follow-up
+
+The deletion-history investigation found that a discarded recovery branch could leave a borrowed child pointing at the wrong parent. The [parent-publication follow-up](compact-parent-publication-2026-09-10.md) wires links from the selected result, removes the redundant incremental deferral, and keeps the deletion fallback structurally correct. Its control comparison found no measurable scheduler, wall-time, or allocation-count regression. Native deletion recovery remains the next implementation gate.

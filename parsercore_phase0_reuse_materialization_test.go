@@ -99,7 +99,6 @@ func TestCompactBorrowedMaterializationRetainsArena(t *testing.T) {
 	session.oldTree.borrowedArena = append(session.oldTree.borrowedArena, childArena)
 	arena := acquireNodeArena(arenaClassFull)
 	root := newParentNodeInArenaNoLinksWithFieldSources(arena, 4, true, []*Node{node}, nil, nil, 0, true)
-	oldParent := node.parent
 	session.reuseState.markReused(node, arena)
 	var links []*Node
 	tree := parser.buildResultFromNodes([]*Node{root}, []byte("a"), arena, session.oldTree, &session.reuseState, &links)
@@ -111,8 +110,8 @@ func TestCompactBorrowedMaterializationRetainsArena(t *testing.T) {
 	if len(tree.borrowedArena) != 2 || tree.borrowedArena[0] != oldArena || oldArena.refs.Load() != 2 || childArena.refs.Load() != 2 {
 		t.Fatalf("result did not retain the borrowed arenas: borrowed=%d refs=%d child_refs=%d", len(tree.borrowedArena), oldArena.refs.Load(), childArena.refs.Load())
 	}
-	if node.parent != oldParent {
-		t.Fatal("result construction changed the borrowed parent link")
+	if node.parent != tree.root {
+		t.Fatal("result construction did not publish the selected borrowed parent link")
 	}
 	session.oldTree.Release()
 	if oldArena.refs.Load() != 1 || childArena.refs.Load() != 1 || node.symbol != 3 || node.children[0].symbol != 1 || tree.root.children[0] != node {

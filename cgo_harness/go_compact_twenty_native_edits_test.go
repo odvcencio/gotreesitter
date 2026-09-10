@@ -53,65 +53,70 @@ func TestGoCompactTwentyNativeEditsLockedC(t *testing.T) {
 	gts.ResetParseEnvConfigCacheForTests()
 	t.Cleanup(gts.ResetParseEnvConfigCacheForTests)
 	for _, tc := range compactNativeCanonicalCases(t) {
-		t.Run(tc.spec.Name, func(t *testing.T) {
-			lang := canonicalIncrementalGoLanguage(t, "go")
-			p := gts.NewParser(lang)
-			p.SetAdmissionCandidateRoute(true)
-			tree, err := p.Parse(tc.source)
-			requireCanonicalGoIncrementalTree(t, tree, tc.source, "initial", err)
-			defer func() { releaseCanonicalGoTree(tree) }()
-			materialized := reflect.ValueOf(tree).Elem().FieldByName("compactMaterialized")
-			if !materialized.IsValid() || !materialized.Bool() {
-				t.Fatal("initial tree was not compact-produced")
-			}
-			initialLegacy := compactNativeLegacyEntries(t, p)
-			if initialLegacy != 0 {
-				t.Fatalf("initial parse entered legacy %d times", initialLegacy)
-			}
-			cp := sitter.NewParser()
-			defer cp.Close()
-			if err := cp.SetLanguage(canonicalIncrementalCLanguage(t, "go")); err != nil {
-				t.Fatal(err)
-			}
-			dirs := tc.directions()
-			native := 0
-			for i := 0; i < 20; i++ {
-				d := dirs[i%2]
-				beforeLegacy := compactNativeLegacyEntries(t, p)
-				_, beforeFallback := gts.AdmissionCandidateCounters()
-				tree.Edit(d.goEdit)
-				next, profile, err := p.ParseIncrementalProfiled(d.to, tree)
-				if next == tree {
-					t.Fatal("changed edit returned unchanged tree")
-				}
-				tree.Release()
-				tree = next
-				requireCanonicalGoIncrementalTree(t, tree, d.to, "incremental", err)
-				verifyCompactNativeParentLinks(t, tree.RootNode())
-				// The new tree must remain usable after the old owner is released.
-				oracle := cp.Parse(d.to, nil)
-				requireCanonicalCIncrementalTree(t, oracle, d.to, "fresh C")
-				got := canonicalGoTreeDigest(t, tree, lang, "incremental")
-				want := canonicalCTreeDigest(t, oracle, "fresh C")
-				oracle.Close()
-				if got != want {
-					t.Fatalf("edit=%d C mismatch: got=%s want=%s", i, got, want)
-				}
-				receipt := tree.ParseRuntime()
-				legacy := compactNativeLegacyEntries(t, p) - beforeLegacy
-				_, afterFallback := gts.AdmissionCandidateCounters()
-				isNative := receipt.CompactIncrementalReuseRoute && !profile.ReuseUnsupported && legacy == 0 && afterFallback == beforeFallback
-				if isNative {
-					native++
-				}
-				t.Logf("edit=%d native=%t legacy_entries=%d fallback=%q reused_subtrees=%d reused_bytes=%d new_nodes=%d tokens=%d", i, isNative, legacy, receipt.CompactIncrementalFallbackReason, profile.ReusedSubtrees, profile.ReusedBytes, profile.NewNodesAllocated, profile.TokensConsumed)
-				if !isNative || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 || !profile.OldTreeReuseRoute {
-					t.Fatalf("required history did not execute natively at edit=%d", i)
-				}
-			}
-			t.Logf("history=%s native_edits=%d total_edits=20", tc.spec.Name, native)
-		})
+		runGoCompactEditHistory(t, tc, true)
 	}
+}
+
+func runGoCompactEditHistory(t *testing.T, tc canonicalGoIncrementalCase, requireNative bool) {
+	t.Helper()
+	t.Run(tc.spec.Name, func(t *testing.T) {
+		lang := canonicalIncrementalGoLanguage(t, "go")
+		p := gts.NewParser(lang)
+		p.SetAdmissionCandidateRoute(true)
+		tree, err := p.Parse(tc.source)
+		requireCanonicalGoIncrementalTree(t, tree, tc.source, "initial", err)
+		defer func() { releaseCanonicalGoTree(tree) }()
+		materialized := reflect.ValueOf(tree).Elem().FieldByName("compactMaterialized")
+		if !materialized.IsValid() || !materialized.Bool() {
+			t.Fatal("initial tree was not compact-produced")
+		}
+		initialLegacy := compactNativeLegacyEntries(t, p)
+		if initialLegacy != 0 {
+			t.Fatalf("initial parse entered legacy %d times", initialLegacy)
+		}
+		cp := sitter.NewParser()
+		defer cp.Close()
+		if err := cp.SetLanguage(canonicalIncrementalCLanguage(t, "go")); err != nil {
+			t.Fatal(err)
+		}
+		dirs := tc.directions()
+		native := 0
+		for i := 0; i < 20; i++ {
+			d := dirs[i%2]
+			beforeLegacy := compactNativeLegacyEntries(t, p)
+			_, beforeFallback := gts.AdmissionCandidateCounters()
+			tree.Edit(d.goEdit)
+			next, profile, err := p.ParseIncrementalProfiled(d.to, tree)
+			if next == tree {
+				t.Fatal("changed edit returned unchanged tree")
+			}
+			tree.Release()
+			tree = next
+			requireCanonicalGoIncrementalTree(t, tree, d.to, "incremental", err)
+			verifyCompactNativeParentLinks(t, tree.RootNode())
+			// The new tree must remain usable after the old owner is released.
+			oracle := cp.Parse(d.to, nil)
+			requireCanonicalCIncrementalTree(t, oracle, d.to, "fresh C")
+			got := canonicalGoTreeDigest(t, tree, lang, "incremental")
+			want := canonicalCTreeDigest(t, oracle, "fresh C")
+			oracle.Close()
+			if got != want {
+				t.Fatalf("edit=%d C mismatch: got=%s want=%s", i, got, want)
+			}
+			receipt := tree.ParseRuntime()
+			legacy := compactNativeLegacyEntries(t, p) - beforeLegacy
+			_, afterFallback := gts.AdmissionCandidateCounters()
+			isNative := receipt.CompactIncrementalReuseRoute && !profile.ReuseUnsupported && legacy == 0 && afterFallback == beforeFallback
+			if isNative {
+				native++
+			}
+			t.Logf("edit=%d native=%t legacy_entries=%d fallback=%q reused_subtrees=%d reused_bytes=%d new_nodes=%d tokens=%d", i, isNative, legacy, receipt.CompactIncrementalFallbackReason, profile.ReusedSubtrees, profile.ReusedBytes, profile.NewNodesAllocated, profile.TokensConsumed)
+			if (requireNative && !isNative) || profile.ReusedSubtrees == 0 || profile.ReusedBytes == 0 || !profile.OldTreeReuseRoute {
+				t.Fatalf("history violated reuse requirements at edit=%d", i)
+			}
+		}
+		t.Logf("history=%s native_edits=%d total_edits=20", tc.spec.Name, native)
+	})
 }
 
 // Verify public navigation after the prior tree owner has been released.

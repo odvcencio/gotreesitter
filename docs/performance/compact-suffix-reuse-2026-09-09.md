@@ -5,6 +5,8 @@ Repaired legacy revision: 90bdc698d898f7ebb5e41e6bb54844224e480f16.
 
 **Status: HOLD for general replacement. The required lifecycle cost gates now pass.**
 
+The [parent-publication follow-up](compact-parent-publication-2026-09-10.md) fixes the selected-tree navigation defect found in the deletion history. It does not make deletion recovery native.
+
 
 ## What changed
 
@@ -48,7 +50,7 @@ It adds two passing outcomes and changes no existing outcome after the accountin
 JavaScript changed-lookahead reuse also matched the starting result.
 The strengthened descendant-identity fixture fails at 45dcc1fa and passes with this change.
 
-Deletion still falls back. Its existing parent-link failure remains.
+Deletion still falls back to legacy recovery because borrowed recovery subtrees are not yet materializable. The parent-publication follow-up now verifies selected-tree parent links before and after releasing the prior tree.
 Shared forest, production, probe, and range failures remain outside this change.
 
 ## Cost against the starting compact candidate
@@ -108,7 +110,7 @@ All three required time intervals remain below the 1.10 ceiling.
 Their upper bounds also remain below 1.00 in this run.
 Length change meets the same timing ceiling and has lower allocation bytes and counts than legacy.
 Deletion timing meets the ceiling, but allocated bytes remain about 45% above legacy.
-Deletion still fails native execution and public parent navigation.
+Deletion still fails native execution; public parent navigation now passes through the legacy fallback.
 
 The two rounds have different lane medians. Pairing controls each comparison within its own round.
 Do not compare absolute medians across rounds as another performance result.
@@ -171,7 +173,7 @@ The maintained native-edit test now requires 80 fresh-C and parent-navigation ch
 
 ## Next graduation work
 
-1. Fix deletion recovery through borrowed compact subtrees. Verify 20 native edits and parent navigation.
+1. Make deletion recovery native through borrowed compact subtrees. Verify 20 native edits and parent navigation; the navigation half is now green.
 2. Prove scanner checkpoint transfer before admitting stateful incremental scanners.
 3. Complete included-range recovery and resolve the shared range fixtures.
 4. Resolve the shared forest, production, and probe failures.
