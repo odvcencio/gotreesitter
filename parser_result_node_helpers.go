@@ -436,7 +436,7 @@ func dropZeroWidthUnnamedTail(nodes []*Node, lang *Language) []*Node {
 		if last.IsNamed() || last.startByte != last.endByte || len(last.children) > 0 {
 			break
 		}
-		if lang != nil && last.Type(lang) != "" {
+		if lang != nil && (last.symbol == errorSymbol || (int(last.symbol) < len(lang.SymbolNames) && lang.SymbolNames[last.symbol] != "")) {
 			break
 		}
 		nodes = nodes[:len(nodes)-1]

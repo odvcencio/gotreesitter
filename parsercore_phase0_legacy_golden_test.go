@@ -3,9 +3,13 @@
 package gotreesitter_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"os"
 	"reflect"
 	"testing"
@@ -195,7 +199,7 @@ func legacyGoldenWorkFrom(work gotreesitter.DiagnosticParserCoreGenericWork) [18
 func legacyGoldenFromSeedProbe(source []byte, probe gotreesitter.DiagnosticParserCoreSeedGoldenProbeForTest) legacyGolden {
 	golden := legacyGolden{
 		Version: 1, SourceSHA256: legacyGoldenHash(sha256Sum(source)),
-		GrammarSHA256: "9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08",
+		GrammarSHA256: legacyGoldenHash(probe.GrammarSHA256),
 		Grammar:       "go", DefaultCheckpoint: legacyGoldenCheckpointFrom(gotreesitter.DiagnosticParserCoreScannerCheckpoint{SHA256: sha256.Sum256(nil)}),
 		EditsElection: legacyGoldenElectionFrom(probe.Election),
 		EditsFrontier: legacyGoldenPathsFrom(probe.Headers), EditsStats: legacyGoldenStatsFrom(probe.Stats),
@@ -223,6 +227,21 @@ func sha256Sum(data []byte) [32]byte {
 	return sha256.Sum256(data)
 }
 
+func TestDiagnosticParserCoreSeedGoldenGrammarProvenance(t *testing.T) {
+	source := parserCoreGenericRewriteSource(t)
+	probe, err := gotreesitter.RunDiagnosticParserCoreSeedGoldenProbeForTest(grammars.GoExternalScanner{}, source)
+	if err != nil || probe.Receipt == nil {
+		t.Fatalf("seed golden probe: %v", err)
+	}
+	want := sha256.Sum256(grammars.BlobByName("go"))
+	if probe.GrammarSHA256 != want {
+		t.Fatalf("probe grammar=%x, want loaded blob=%x", probe.GrammarSHA256, want)
+	}
+	if got := legacyGoldenFromSeedProbe(source, probe).GrammarSHA256; got != legacyGoldenHash(want) {
+		t.Fatalf("serialized grammar=%s, want loaded blob=%x", got, want)
+	}
+}
+
 func TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden(t *testing.T) {
 	encoded, err := os.ReadFile("testdata/parsercore_phase0_legacy_first103.json")
 	if err != nil {
@@ -232,12 +251,34 @@ func TestDiagnosticParserCoreSeedMatchesImmutableLegacyGolden(t *testing.T) {
 	if err := json.Unmarshal(encoded, &want); err != nil {
 		t.Fatal(err)
 	}
+	// Preserve the original grammar for this immutable scheduler oracle.
+	// The production grammar does not use this historical fixture.
+	// Source: 1c3627f1^:grammars/grammar_blobs/go.bin, encoded with gzip and Base64.
+	compressed, err := os.ReadFile("testdata/parsercore_legacy_go.bin.gz.base64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := gzip.NewReader(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(compressed)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	blob, err := io.ReadAll(io.LimitReader(reader, 780067))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(blob) != 780066 || legacyGoldenHash(sha256.Sum256(blob)) != want.GrammarSHA256 {
+		t.Fatal("historical grammar does not match the immutable oracle")
+	}
 	source := parserCoreGenericRewriteSource(t)
-	probe, err := gotreesitter.RunDiagnosticParserCoreSeedGoldenProbeForTest(grammars.GoExternalScanner{}, source)
+	probe, err := gotreesitter.RunDiagnosticParserCoreSeedGoldenBlobProbeForTest(grammars.GoExternalScanner{}, blob, source)
 	if err != nil || probe.Receipt == nil {
 		t.Fatalf("seed golden probe: probe=%+v err=%v", probe, err)
 	}
 	got := legacyGoldenFromSeedProbe(source, probe)
+	if got.GrammarSHA256 != want.GrammarSHA256 {
+		t.Fatalf("legacy golden grammar=%s differs from probe grammar=%s; do not compare cross-grammar scheduler identities", want.GrammarSHA256, got.GrammarSHA256)
+	}
 	if len(want.NoActions) != len(got.NoActions) {
 		t.Fatalf("golden no-action decisions=%d live=%d", len(want.NoActions), len(got.NoActions))
 	}

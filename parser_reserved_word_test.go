@@ -15,8 +15,8 @@ import "testing"
 // LexModes:
 //
 //	state 0: no lex mode entry (unused)
-//	state 1: ReservedWordSetID=1 → set {KW_IF} → "if" is reserved, not promoted
-//	state 2: ReservedWordSetID=0 → no reserved words → "if" IS promoted
+//	state 1: ReservedWordSetID=1, which reserves KW_IF
+//	state 2: ReservedWordSetID=0, with no reserved words
 //
 // ReservedWords layout (stride 2):
 //
@@ -136,7 +136,7 @@ func TestNonSQLKeywordPromotionRemainsCaseSensitive(t *testing.T) {
 	}
 }
 
-func TestReservedWordBlocksPromotion(t *testing.T) {
+func TestReservedWordPromotionMatchesCPolicy(t *testing.T) {
 	lang := buildReservedWordLanguage()
 	source := []byte("if")
 
@@ -151,6 +151,9 @@ func TestReservedWordBlocksPromotion(t *testing.T) {
 			lexer:    lx,
 			language: lang,
 			state:    state,
+			lookupActionIndex: func(state StateID, symbol Symbol) uint16 {
+				return lang.ParseTable[state][symbol]
+			},
 		}
 		tok := Token{
 			Symbol:    lang.KeywordCaptureToken, // IDENT
@@ -162,18 +165,29 @@ func TestReservedWordBlocksPromotion(t *testing.T) {
 		return got
 	}
 
-	// State 1 has ReservedWordSetID=1 which contains KW_IF (symbol 2).
-	// "if" should NOT be promoted — token stays as IDENT (symbol 1).
-	got := testPromote(1)
-	if got.Symbol != 1 {
-		t.Fatalf("state 1 (reserved): got symbol %d, want 1 (IDENT — not promoted)", got.Symbol)
-	}
-
-	// State 2 has ReservedWordSetID=0 — no reserved words.
-	// "if" SHOULD be promoted to KW_IF (symbol 2).
-	got = testPromote(2)
-	if got.Symbol != 2 {
-		t.Fatalf("state 2 (not reserved): got symbol %d, want 2 (KW_IF — promoted)", got.Symbol)
+	// C parser.c promotes a matched keyword when an action exists or the
+	// current state reserves it. Reservation does not block promotion.
+	for _, tc := range []struct {
+		name   string
+		state  StateID
+		action uint16
+		want   Symbol
+	}{
+		{"reserved_with_action", 1, 1, 2},
+		{"reserved_without_action", 1, 0, 2},
+		{"unreserved_with_action", 2, 1, 2},
+		{"unreserved_without_action", 2, 0, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lang.ParseTable[tc.state][2] = tc.action
+			got := testPromote(tc.state)
+			if got.Symbol != tc.want {
+				t.Fatalf("keyword symbol=%d, want %d", got.Symbol, tc.want)
+			}
+			if !got.isKeyword() {
+				t.Fatal("keyword recognition metadata was lost")
+			}
+		})
 	}
 }
 

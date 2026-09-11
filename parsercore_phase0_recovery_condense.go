@@ -54,7 +54,7 @@ func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryCondenseEn
 	source core.RecoveryCostSource,
 	memo *core.RecoveryCostMemo,
 ) (bool, error) {
-	return s.mergeEquivalentRecoveryEntriesOwned(owner, target, candidate, symbols, source, memo, false)
+	return s.mergeEquivalentRecoveryEntriesOwned(owner, target, candidate, symbols, source, memo, s.recoveryTurns.active)
 }
 
 func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryEntriesOwned(
@@ -70,7 +70,7 @@ func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryEntriesOwn
 		candidate.header.accepted || target.header.paused || candidate.header.paused ||
 		target.header.recoveryRegion() != nil || candidate.header.recoveryRegion() != nil ||
 		target.key != candidate.key ||
-		!s.versionLexerStateEqual(target.header.versionState, candidate.header.versionState) {
+		!s.recoveryCondenseLexerStateEqual(target.header, candidate.header) {
 		return false, nil
 	}
 	incumbent := target.header.head
@@ -111,6 +111,10 @@ func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryEntriesOwn
 		return false, err
 	}
 	target.header.head = merged
+	if s.recoveryTurns.active && target.header.recoveryGroupIdentity() == 0 {
+		baseline, set := target.header.recoveryNodeBaseline()
+		target.header.publishRecoveryCondenseState(0, 0, baseline, set)
+	}
 	target.header.recoveryFlags |= candidate.header.recoveryFlags
 	target.header.frontierSequence = mergeDiagnosticParserCoreFrontier(
 		target.header.frontierSequence,
@@ -140,6 +144,40 @@ func (s *diagnosticParserCoreGenericScheduler) mergeEquivalentRecoveryEntriesOwn
 	diagnosticParserCoreMergeEquivalentRecoveryStatus(target, candidate)
 	s.invalidateVerifierHeaderBinding()
 	return true, nil
+}
+
+func (s *diagnosticParserCoreGenericScheduler) recoveryCondenseLexerStateEqual(left, right diagnosticParserCoreHeader) bool {
+	if !s.recoveryTurns.active || left.recoveryRegion() != nil || right.recoveryRegion() != nil ||
+		left.recoveryGroupIdentity() != 0 || right.recoveryGroupIdentity() != 0 {
+		return s.versionLexerStateEqual(left.versionState, right.versionState)
+	}
+	if left.versionState == nil || right.versionState == nil {
+		return left.versionState == right.versionState
+	}
+	l, r := *left.versionState, *right.versionState
+	// C preserves the incumbent baseline when non-error heads merge.
+	// Insertion groups no longer separate versions after the recovery turn.
+	l.recoveryNodeBaseline, l.recoveryNodeBaselineSet, l.missingGroup = r.recoveryNodeBaseline, r.recoveryNodeBaselineSet, r.missingGroup
+	if s.versionLexerStateEqual(&l, &r) {
+		return true
+	}
+	if l.lexerRequest == 0 || r.lexerRequest == 0 || int(l.lexerRequest) > len(s.versionLexerRequests) || int(r.lexerRequest) > len(s.versionLexerRequests) {
+		return false
+	}
+	ls, lb, le := s.compact.Boundary(left.head)
+	rs, rb, re := s.compact.Boundary(right.head)
+	if le != nil || re != nil || ls != rs || lb != rb {
+		return false
+	}
+	lq, rq := s.versionLexerRequests[l.lexerRequest-1], s.versionLexerRequests[r.lexerRequest-1]
+	l.lexerRequest, r.lexerRequest = 0, 0
+	if !s.versionLexerStateEqual(&l, &r) {
+		return false
+	}
+	// The current equal boundary replaces the historical lexer state.
+	// Ragged-span telemetry describes the old shared election, not the token.
+	lq.state, lq.raggedSpan = rq.state, rq.raggedSpan
+	return diagnosticParserCoreVersionLexerRequestEqual(&lq, &rq)
 }
 
 func diagnosticParserCoreRecoveryCondenseSameGroup(
@@ -172,6 +210,8 @@ func diagnosticParserCoreRecoveryCondensePairwiseMode(
 ) []int {
 	for i := 1; i < len(order); i++ {
 		removedCurrent := false
+		// C retains this status after swaps within the inner loop.
+		status := entries[order[i]].status
 		for j := 0; j < i; j++ {
 			left := entries[order[j]]
 			right := entries[order[i]]
@@ -183,7 +223,7 @@ func diagnosticParserCoreRecoveryCondensePairwiseMode(
 				order[i], order[j] = order[j], order[i]
 				continue
 			}
-			switch core.RecoveryCompareVersions(left.status, right.status) {
+			switch core.RecoveryCompareVersions(left.status, status) {
 			case core.RecoveryComparisonTakeLeft:
 				order = append(order[:i], order[i+1:]...)
 				i--
@@ -350,7 +390,11 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryCondenseEntry(
 		state = 0
 		byteOffset = region.endByte
 		if len(region.children) != 0 {
-			regionCost, regionErr := core.RecoveryErrorRegionCost(
+			priceRegion := core.RecoveryErrorRegionCost
+			if s.recoveryTurns.active {
+				priceRegion = core.RecoveryErrorRepeatRegionCost
+			}
+			regionCost, regionErr := priceRegion(
 				symbols, src, memo,
 				region.startByte, src.rowAt(region.startByte),
 				region.endByte, src.rowAt(region.endByte),
@@ -400,6 +444,10 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryCondenseEntry(
 	if aggregate.StoredPrecedenceMaximum > int64(math.MaxInt) || aggregate.StoredPrecedenceMaximum < -int64(math.MaxInt)-1 {
 		return diagnosticParserCoreRecoveryCondenseEntry{}, false, nil
 	}
+	missingGroup := header.recoveryMissingGroupIdentity()
+	if s.recoveryTurns.active && region == nil && header.recoveryGroupIdentity() == 0 {
+		missingGroup = 0
+	}
 	return diagnosticParserCoreRecoveryCondenseEntry{
 		header: header,
 		status: core.RecoveryVersionStatus(
@@ -409,7 +457,7 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryCondenseEntry(
 			state: state, byteOffset: byteOffset, cost: stackCost,
 			checkpoint:    header.checkpoint,
 			recoveryGroup: header.recoveryGroupIdentity(),
-			missingGroup:  header.recoveryMissingGroupIdentity(),
+			missingGroup:  missingGroup,
 			shifted:       header.shifted, paused: header.paused,
 		},
 	}, true, nil

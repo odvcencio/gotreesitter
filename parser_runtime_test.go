@@ -1203,6 +1203,7 @@ func assertParseRuntimeArenaBreakdown(t *testing.T, tree *Tree, rt ParseRuntime)
 		t.Fatal("ArenaBreakdown = nil, want populated")
 	}
 	breakdown := arenaBreakdown.NodeStructBytesAllocated +
+		arenaBreakdown.NodeSupertypeBytesAllocated +
 		arenaBreakdown.NodeFieldMetadataBytesAllocated +
 		arenaBreakdown.NoTreeNodeBytesAllocated +
 		arenaBreakdown.CompactFullLeafBytesAllocated +

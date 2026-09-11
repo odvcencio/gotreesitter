@@ -340,11 +340,16 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 	if err != nil {
 		return Head{}, err
 	}
+	return c.publishAncestorRecoveryPath(candidate, cost, region, links, target, false)
+}
+
+func (c *Core) publishAncestorRecoveryPath(candidate StackSummaryCandidate, cost ReductionOutputCostFunc, region *ancestorRecoveryOpenRegion, links []linkRecord, target NodeID, distinct bool) (Head, error) {
+	var err error
 	var priorChildren []SubtreeID
 	var priorStart uint32
 	var priorScore int64
 	var priorOrder ForkOrder
-	if region != nil {
+	if region != nil || distinct {
 		targetNode, err := c.node(target)
 		if err != nil {
 			return Head{}, err
@@ -368,9 +373,9 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 			if prior.symbol != ErrorRegionSymbol {
 				continue
 			}
-			// C pops one immediately preceding ERROR before it constructs the
-			// replacement. Ambiguous paths need a separate ownership proof.
-			if len(targetLinks) != 1 || prior.missing || prior.childCount == 0 ||
+			// C pops the first immediately preceding ERROR history.
+			// Singular callers retain their unique-history requirement.
+			if (!distinct && (len(targetLinks) != 1 || prior.childCount == 0)) || prior.missing ||
 				link.prev == 0 || link.prev >= target || prior.endByte > candidate.byteOffset ||
 				prior.startByte > prior.endByte || uint64(prior.firstChild)+uint64(prior.childCount) > uint64(len(c.children)) {
 				return Head{}, errors.New("parser-core phase zero: prior ERROR lacks a unique bounded pop proof")
@@ -458,8 +463,54 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 			children = append(combined, children...)
 		}
 		children = append(children, region.children...)
+	} else if len(priorChildren) != 0 {
+		combined := make([]SubtreeID, 0, len(priorChildren)+len(children))
+		combined = append(combined, priorChildren...)
+		children = append(combined, children...)
 	}
 	if len(children) == 0 {
+		if distinct {
+			out := Head{Node: target}
+			if trailing == 0 {
+				node, err := c.node(target)
+				if err != nil {
+					return Head{}, err
+				}
+				checkpoint, ok := c.nodeScannerCheckpoint(candidate.source)
+				if !ok {
+					return Head{}, errors.New("parser-core phase zero: recovery source checkpoint is unavailable")
+				}
+				id, err := c.appendNodeAtWithMaximum(*node, checkpoint, node.precedenceMax)
+				if err != nil {
+					return Head{}, err
+				}
+				if err := c.copyRecoveryDiscontinuityLineage(target, id); err != nil {
+					return Head{}, err
+				}
+				return Head{Node: id}, nil
+			}
+			for index := trailing - 1; index >= 0; index-- {
+				link := links[index]
+				payload, err := c.subtree(link.payload)
+				if err != nil {
+					return Head{}, err
+				}
+				in := linkInput{prev: out.Node, payload: link.payload, scoreDelta: link.scoreDelta}
+				if link.hasOrder() {
+					in.order = ForkOrder{Present: true, Value: link.order}
+				}
+				in.storedErrorCost, err = cost(in.prev, in.payload)
+				if err != nil {
+					return Head{}, err
+				}
+				in.hasStoredErrorCost = true
+				out, err = c.appendPrivate(candidate.state, payload.endByte, in)
+				if err != nil {
+					return Head{}, err
+				}
+			}
+			return out, nil
+		}
 		return Head{}, errors.New("parser-core phase zero: ancestor recovery path has no ERROR payload")
 	}
 	first, err := c.subtree(children[0])
@@ -498,6 +549,9 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 		errorLink.hasStoredErrorCost = true
 	}
 	if trailing == 0 {
+		if distinct {
+			return c.appendPrivate(candidate.state, endByte, errorLink)
+		}
 		outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(candidate.state, endByte), errorLink)
 		return outcome.head, err
 	}
@@ -526,7 +580,7 @@ func (c *Core) recoverToAncestorStateWithRegionUncheckpointed(candidate StackSum
 			input.storedErrorCost = storedErrorCost
 			input.hasStoredErrorCost = true
 		}
-		if index == 0 {
+		if index == 0 && !distinct {
 			outcome, err := c.condenseWithOutcomeAtomic(c.shiftedBoundaryKey(candidate.state, payload.endByte), input)
 			if err != nil {
 				return Head{}, err

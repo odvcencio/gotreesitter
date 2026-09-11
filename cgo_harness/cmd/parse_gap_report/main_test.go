@@ -312,6 +312,7 @@ func TestArenaLiveBytesIncludesEveryRuntimeArenaComponent(t *testing.T) {
 		CompactReuseDependencyBytesAllocated: 16,
 
 		NodeStructBytesAllocated:            1,
+		NodeSupertypeBytesAllocated:         17,
 		NodeFieldMetadataBytesAllocated:     14,
 		NoTreeNodeBytesAllocated:            2,
 		CompactFullLeafBytesAllocated:       3,
@@ -329,7 +330,7 @@ func TestArenaLiveBytesIncludesEveryRuntimeArenaComponent(t *testing.T) {
 	}
 	runtime := gotreesitter.ParseRuntime{
 		ExternalScannerCheckpointBytesAllocated: 13,
-		ArenaBytesAllocated:                     149,
+		ArenaBytesAllocated:                     166,
 	}
 	if got, want := arenaLiveBytes(breakdown, runtime.ExternalScannerCheckpointBytesAllocated), runtime.ArenaBytesAllocated; got != want {
 		t.Fatalf("arenaLiveBytes = %d, runtime arena total = %d", got, want)

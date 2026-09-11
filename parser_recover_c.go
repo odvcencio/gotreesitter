@@ -1305,7 +1305,7 @@ type cRecoverState struct {
 	// state — the C "ERROR_STATE head with NULL subtree" shape, which costs an
 	// extra ERROR_COST_PER_RECOVERY in ts_stack_error_cost.
 	openErr *Node
-	// groupOrder preserves the path order. Read it through groupOrderValue.
+	// groupOrder preserves the path order within the recovery group.
 	groupOrder uint32
 	// extraRecoveries counts the additional error segments C opens while this
 	// version keeps absorbing: an unlexable-run (ERROR-token) lookahead has no
@@ -1322,22 +1322,11 @@ type cRecoverState struct {
 	extraRecoveries uint32
 }
 
-const cRecoverGroupOrderValueMask uint32 = 1<<31 - 1
-
-// cPackRecoverGroupOrder narrows the path order. Current recovery ceilings
-// keep vi far below the mask; a larger value saturates.
-func cPackRecoverGroupOrder(order uint64) uint32 {
-	if order > uint64(cRecoverGroupOrderValueMask) {
-		return cRecoverGroupOrderValueMask
-	}
-	return uint32(order)
-}
-
 func (r *cRecoverState) groupOrderValue() uint32 {
 	if r == nil {
 		return 0
 	}
-	return r.groupOrder & cRecoverGroupOrderValueMask
+	return r.groupOrder
 }
 
 var cRecoverStateCloneObserver func()
@@ -1497,7 +1486,7 @@ func cNodeErrorCostLang(lang *Language, n *Node) uint32 {
 	}
 	if n.symbol == errorSymbol {
 		for _, c := range n.children {
-			if c == nil || c.isExtra() {
+			if c == nil || c.isExtra() || (c.symbol == errorSymbol && len(c.children) == 0) {
 				continue
 			}
 			if cSymbolVisibleLang(lang, c.symbol) {
@@ -1550,7 +1539,7 @@ func cNodeErrorCostLangWithScratch(scratch *glrMergeScratch, lang *Language, n *
 	}
 	if n.symbol == errorSymbol {
 		for _, c := range n.children {
-			if c == nil || c.isExtra() {
+			if c == nil || c.isExtra() || (c.symbol == errorSymbol && len(c.children) == 0) {
 				continue
 			}
 			if cSymbolVisibleLang(lang, c.symbol) {
@@ -2280,22 +2269,16 @@ func (p *Parser) cNodeErrorCostAndVisibleSubtreeCount(n *Node) (uint32, int) {
 // dominates error-region parses even with warm per-node memos.
 //
 // The on-node aggregates below (gssNode.aggGen/aggCost/aggVis/aggValid)
-// restore C's shape: per gssNode, the cumulative aggregates of the prev-chain
-// prefix root..node inclusive. gssNode prev/entry links are write-once at
-// allocation except setGSSMainLink (link-0 rewrite), and node payload
-// contents mutate only through nodeBumpEquivVersion call sites; both choke
-// points invalidate gssPrefixAggGen whenever recovery contributions can
-// change, so an aggregate with a matching generation is exactly the full-walk
-// answer. Metadata-only node changes and identity-preserving link rewrites do
-// not affect these aggregates. allocNode zeroes the gens on every (possibly
+// retain the primary path's error cost and the maximum visible count across paths.
+// Link additions, link rewrites, and published payload changes invalidate the generation.
+// Metadata-only changes and identity-preserving rewrites keep the cache valid. allocNode zeroes the gens on every (possibly
 // slab-recycled) node and the generation counter starts at 1, so stale or
 // fresh nodes can never validate.
 // ---------------------------------------------------------------------------
 
 // gssPrefixAggGen is the global invalidation generation for the GSS prefix
 // aggregates stored on gssNode (aggGen/aggCost/aggVis/aggValid). Bumped by
-// recovery-relevant nodeBumpEquivVersion mutations (tree.go) and link-0
-// rewrites that change the predecessor or full-Node payload (glr.go). Global
+// recovery-relevant payload mutations, link additions, and link rewrites. Global
 // rather than per-parser because nodeBumpEquivVersion has no parser in scope;
 // cross-parser over-invalidation only costs a rebuild, never staleness.
 // Initialized to 1 so the zero value of gssNode.aggGen (fresh or slab-cleared
@@ -2320,40 +2303,61 @@ func resetGSSPrefixPath(path *[]*gssNode) {
 	*path = (*path)[:0]
 }
 
-// cStackPrefixAgg returns the cumulative (error cost, visible subtree count)
-// of head's prev chain, filling the on-node aggregates bottom-up from the
-// deepest still-valid node — O(new or invalidated suffix), O(1) steady-state.
+// cStackPrefixAgg retains the primary error cost and the maximum visible count.
+// It fills every predecessor before its parent and reuses the existing path scratch.
 func (p *Parser) cStackPrefixAgg(head *gssNode) (uint32, int) {
-	gen := gssPrefixAggGen.Load()
-	var cost uint32
-	var vis int32
-	path := p.cPrefixPath[:0]
-	gn := head
-	for gn != nil {
-		if gn.aggGen == gen && gn.aggValid&(gssAggCostValid|gssAggVisValid) == (gssAggCostValid|gssAggVisValid) {
-			cost, vis = gn.aggCost, gn.aggVis
-			break
-		}
-		path = append(path, gn)
-		gn = gn.prev
+	if head == nil {
+		return 0, 0
 	}
-	for i := len(path) - 1; i >= 0; i-- {
-		gn := path[i]
-		if n := stackEntryNode(gn.entry); n != nil {
-			nodeCost, nodeVisible := p.cNodeErrorCostAndVisibleSubtreeCount(n)
-			cost += nodeCost
-			vis += int32(nodeVisible)
+	gen := gssPrefixAggGen.Load()
+	const valid = gssAggCostValid | gssAggVisValid
+	path := append(p.cPrefixPath[:0], head)
+	for len(path) > 0 {
+		node := path[len(path)-1]
+		if node.aggGen == gen && node.aggValid&valid == valid {
+			path[len(path)-1] = nil
+			path = path[:len(path)-1]
+			continue
 		}
-		if gn.aggGen != gen {
-			gn.cleanZeroState = gssCleanZeroUnknown
+		pending := false
+		for i := 0; i < node.linkCount(); i++ {
+			prev, _ := node.link(i)
+			if prev != nil && (prev.aggGen != gen || prev.aggValid&valid != valid) {
+				path = append(path, prev)
+				pending = true
+				break
+			}
 		}
-		gn.aggGen = gen
-		gn.aggValid = gssAggCostValid | gssAggVisValid
-		gn.aggCost = cost
-		gn.aggVis = vis
+		if pending {
+			continue
+		}
+		var cost uint32
+		var visible int32
+		for i := 0; i < node.linkCount(); i++ {
+			prev, entry := node.link(i)
+			var prefixCost uint32
+			var prefixVisible int32
+			if prev != nil {
+				prefixCost, prefixVisible = prev.aggCost, prev.aggVis
+			}
+			ownCost, ownVisible := p.cNodeErrorCostAndVisibleSubtreeCount(stackEntryNode(entry))
+			if i == 0 {
+				cost = prefixCost + ownCost
+			}
+			if count := prefixVisible + int32(ownVisible); count > visible {
+				visible = count
+			}
+		}
+		if node.aggGen != gen {
+			node.cleanZeroState = gssCleanZeroUnknown
+		}
+		node.aggGen, node.aggValid = gen, valid
+		node.aggCost, node.aggVis = cost, visible
+		path[len(path)-1] = nil
+		path = path[:len(path)-1]
 	}
 	p.cPrefixPath = path
-	return cost, int(vis)
+	return head.aggCost, int(head.aggVis)
 }
 
 // cStackPrefixCostForMerge is the merge-scratch twin of cStackPrefixAgg. It
@@ -2415,30 +2419,37 @@ func (p *Parser) debugCheckStackPrefixAgg(head *gssNode, gotCost uint32, gotVis 
 	debugCheckStackPrefixVisLang(p.language, head, gotVis, "parser")
 }
 
-// debugCheckStackPrefixVisLang is the visible-subtree-count twin of
-// debugCheckStackPrefixCostLang: it re-derives the cumulative visible node
-// count of head's prev chain without any cache (via the uncached per-node walk
-// so a poisoned cNodeMemoCache cannot mask itself) and compares it against the
-// memoized aggVis the same way the cost check guards aggCost. A divergence here
-// means cStackCumulativeNodeCount / cNodeCountSinceError — and thus the php
-// baseline gate — would read a corrupt count.
-// (GOT_DEBUG_RECOVERY_INCREMENTAL_COST=1 only.)
+// debugCheckStackPrefixVisLang checks the graph maximum without the production cache.
 func debugCheckStackPrefixVisLang(lang *Language, head *gssNode, got int, label string) {
 	debugRecoveryIncrementalCostChecks++
-	var want int
-	for gn := head; gn != nil; gn = gn.prev {
-		if n := stackEntryNode(gn.entry); n != nil {
-			want += cNodeVisibleSubtreeCountUncachedLang(lang, n)
+	memo := make(map[*gssNode]int)
+	var count func(*gssNode) int
+	count = func(node *gssNode) int {
+		if node == nil {
+			return 0
 		}
+		if value, ok := memo[node]; ok {
+			return value
+		}
+		maximum := 0
+		for i := 0; i < node.linkCount(); i++ {
+			prev, entry := node.link(i)
+			value := count(prev) + cNodeVisibleSubtreeCountUncachedLang(lang, stackEntryNode(entry))
+			if value > maximum {
+				maximum = value
+			}
+		}
+		memo[node] = maximum
+		return maximum
 	}
+	want := count(head)
 	if want == got {
 		return
 	}
 	debugRecoveryIncrementalCostDivergences++
 	if debugRecoveryIncrementalCostReportsLeft > 0 {
 		debugRecoveryIncrementalCostReportsLeft--
-		fmt.Fprintf(os.Stderr,
-			"RECOVERY-PREFIX-AGG-VIS divergence (%s): head=%p cached=%d full=%d\n", label, head, got, want)
+		fmt.Fprintf(os.Stderr, "RECOVERY-PREFIX-AGG-VIS divergence (%s): head=%p cached=%d full=%d\n", label, head, got, want)
 	}
 }
 
@@ -2567,12 +2578,19 @@ func cStackErrorCostForMergeWithScratch(scratch *glrMergeScratch, lang *Language
 }
 
 // cStackCumulativeNodeCount mirrors C StackNode.node_count at the stack head:
-// the sum of stack__subtree_node_count over every subtree on the stack. The
-// engine's open ERROR region node plays the role of the C error_repeat chain
-// (its own visible +1 matches the chain's single error_repeat bonus).
+// Use the maximum visible subtree count across all graph paths.
+// The open ERROR region contributes the single error_repeat bonus.
 func (p *Parser) cStackCumulativeNodeCount(s *glrStack) int {
 	if s == nil {
 		return 0
+	}
+	// A materialized entries slice describes only the primary graph path.
+	if p != nil && s.gss.head != nil {
+		cost, count := p.cStackPrefixAgg(s.gss.head)
+		if debugRecoveryIncrementalCost {
+			p.debugCheckStackPrefixAgg(s.gss.head, cost, count)
+		}
+		return count
 	}
 	count := 0
 	if len(s.entries) > 0 {
@@ -2587,22 +2605,18 @@ func (p *Parser) cStackCumulativeNodeCount(s *glrStack) int {
 		}
 		return count
 	}
-	if p != nil && len(p.cNodeMemoCache) != 0 && s.gss.head != nil {
-		var cost uint32
-		cost, count = p.cStackPrefixAgg(s.gss.head)
-		if debugRecoveryIncrementalCost {
-			// Verify the memoized aggVis (this cumulative-count path is where the
-			// php baseline gate ultimately reads it) against a full uncached walk.
-			p.debugCheckStackPrefixAgg(s.gss.head, cost, count)
-		}
-		return count
-	}
 	for gn := s.gss.head; gn != nil; gn = gn.prev {
 		if n := stackEntryNode(gn.entry); n != nil {
 			count += p.cNodeVisibleSubtreeCount(n)
 		}
 	}
 	return count
+}
+
+// cPauseRecovery resets the progress baseline, as C's ts_stack_pause does.
+func (p *Parser) cPauseRecovery(s *glrStack) {
+	s.cPaused = true
+	s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
 }
 
 func (p *Parser) cApplyMergedErrorGroupBaseline(versions []glrStack) int {
@@ -3091,6 +3105,7 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 		if v >= len(versions) {
 			break
 		}
+		versionCount := len(versions)
 		// Merge check against earlier versions created in this call.
 		merged := false
 		for j := 0; j < v; j++ {
@@ -3181,7 +3196,8 @@ func (p *Parser) cDoAllPotentialReductions(source []byte, start glrStack, lookah
 			continue
 		}
 		if v == 0 {
-			v = 1
+			// C skips versions that existed before this promoted version's pass.
+			v = versionCount
 		} else {
 			v++
 		}
@@ -3822,11 +3838,10 @@ func (p *Parser) cHandleError(stacks *[]glrStack, si int, source []byte, tok Tok
 		if reason != ParseStopNone {
 			return cRecHalted, false, reason
 		}
-		// Ordinary recovery caps versions near cRecoverMaxVersionCount. Pass vi
-		// before narrowing so the packer fails closed if a future path exceeds it.
+		// Recovery bounds the version count before it assigns the path order.
 		v.cRec = &cRecoverState{
 			summary: summary, group: group,
-			groupOrder: cPackRecoverGroupOrder(uint64(vi)),
+			groupOrder: uint32(vi),
 		}
 		v.cRecoverMissingGroup = nil
 	}
@@ -4627,10 +4642,18 @@ func (p *Parser) cAbsorbTokenIntoError(v *glrStack, tok Token, nodeCount *int, a
 		leaf = newLeafNodeInArena(arena, tok.Symbol, tok.Symbol == errorSymbol || p.isNamedSymbol(tok.Symbol),
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
-		// C marks the enclosing ERROR node as erroneous, never the absorbed
-		// leaf: a leaf's error cost is zero unless the leaf is missing
-		// (ts_subtree_error_cost), and that holds for an unlexable-byte
-		// ERROR leaf too (ts_subtree_new_error).
+		// C wraps the lookahead without marking ordinary token leaves erroneous.
+		// Preserve missing-token errors and the legacy synthetic-sentinel guard.
+		if tok.Missing {
+			leaf.setMissing(true)
+			leaf.setHasError(true)
+		}
+		if tok.NoLookahead {
+			leaf.setHasError(true)
+		}
+		if tok.Symbol == errorSymbol && !tok.lexerErrorModeLexed() {
+			leaf.setHasError(true)
+		}
 		// C: if the token shifts as extra in state 1, mark it extra so it is
 		// not counted in error cost calculations.
 		if idx := p.lookupActionIndex(1, tok.Symbol); idx != 0 && int(idx) < len(p.language.ParseActions) {
@@ -4824,13 +4847,7 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 	if reason := checkStop(); reason != ParseStopNone {
 		return stacks, false, tok, reason
 	}
-	relevant := p.compactPackedGSSVersionOrderEnabled() && len(stacks) > 1
-	for i := range stacks {
-		if stacks[i].cPaused || stacks[i].cRec != nil || stacks[i].cRecoverMissingGroup != nil {
-			relevant = true
-			break
-		}
-	}
+	relevant := p.cRecoveryCondenseRelevant(stacks)
 	if debugRecoveryCycleChecks && relevant {
 		for i := range stacks {
 			if reason := checkStop(); reason != ParseStopNone {
@@ -5563,6 +5580,17 @@ func (p *Parser) relexTokenForStackLexState(source []byte, state StateID, tok To
 	}
 	relexed, ok := probe.scan(uint32(ls), probe.pos, probe.row, probe.col)
 	recordTokenInvariantReadSpan(lexicalReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
+	if ok && relexed.Symbol == lang.KeywordCaptureToken && len(lang.KeywordLexStates) != 0 {
+		// C recognizes keywords within the token span before checking state admission.
+		// Do not run contextual probes that read beyond this token's recorded span.
+		keywordProbe := dfaTokenSource{language: lang}
+		if keyword, matched := keywordProbe.lexKeywordSource(source[relexed.StartByte:relexed.EndByte]); matched {
+			relexed.setLexFlag(tokenFlagKeyword, true)
+			if p.stateHasActionForSymbol(state, keyword.Symbol) || keywordProbe.keywordReservedInState(state, keyword.Symbol) {
+				relexed.Symbol = keyword.Symbol
+			}
+		}
+	}
 	if !ok || relexed.Symbol == 0 || relexed.Symbol == tok.Symbol {
 		return tok, false
 	}

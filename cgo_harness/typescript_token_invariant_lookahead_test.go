@@ -91,7 +91,15 @@ func testTypeScriptTokenInvariantLockedC(t *testing.T, initials []string, replac
 					}
 					func() {
 						defer cFresh.Close()
-						fresh, err := gts.NewParser(language).Parse(edited)
+						freshParser := gts.NewParser(language)
+						freshParser.SetAdmissionCandidateRoute(compact)
+						routedBefore, fallbackBefore := gts.AdmissionCandidateCounters()
+						fresh, err := freshParser.Parse(edited)
+						routedAfter, fallbackAfter := gts.AdmissionCandidateCounters()
+						t.Logf("fresh compact=%t routed=%d fallback=%d", compact, routedAfter-routedBefore, fallbackAfter-fallbackBefore)
+						if fallbackAfter != fallbackBefore {
+							t.Logf("fresh fallback: %s", gts.AdmissionCandidateLastFallbackReason())
+						}
 						if err != nil || fresh == nil {
 							t.Fatalf("fresh parse: %v", err)
 						}

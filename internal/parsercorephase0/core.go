@@ -3812,6 +3812,13 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 				if !incumbentExact || !incomingExact {
 					return condenseOutcome{}, errors.New("parser-core phase zero: shallow fold declined inexact external payload provenance")
 				}
+				pairsEqual, pairErr := c.subtreeScannerStatePairsEqual(link.payload, in.payload)
+				if pairErr != nil {
+					return condenseOutcome{}, pairErr
+				}
+				if !pairsEqual {
+					return condenseOutcome{}, errors.New("parser-core phase zero: shallow fold declined scanner-state pair mismatch")
+				}
 				shallowCount++
 				if firstShallow < 0 {
 					firstShallow = index
@@ -3854,9 +3861,9 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 					return condenseOutcome{}, err
 				}
 				switch {
-				case incomingPrecedence < incumbentPrecedence:
-					// The incumbent strictly dominates; drop the dominated incoming
-					// payload, as production keeps the higher-precedence subtree.
+				case incomingPrecedence <= incumbentPrecedence:
+					// C stack_node_add_link retains the incumbent on equal precedence
+					// when equivalent payloads share the same predecessor.
 					c.recordLinkUnionDuplicateNoop()
 					if phase0AEnabled {
 						phase0AObserveCandidateDrop(c, key, in, oldID, incumbent, phase0ATransitionPrecedenceDrop)
@@ -3874,24 +3881,10 @@ func (c *Core) condenseWithOutcomeAtomic(key boundaryKey, in linkInput) (condens
 						c.recordLinkUnionPrecedenceReplaced()
 					}
 					return buildOutcome(head, condenseUpdated), err
-				default:
-					// A precedence tie between two structurally different same-span
-					// payloads. Dynamic precedence cannot rank them, and the compact
-					// route does not own production's error-cost and structural
-					// tie-breaks. Choosing one here by insertion order is the silent
-					// wrong-tree divergence the admission flip surfaced (Go's
-					// call_expression(index_expression) versus
-					// type_conversion_expression(generic_type) for `Foo[int](a)`).
-					// Decline the fold: keep both links as coexisting alternates and
-					// let them race to EOF. A local ambiguity collapses when one arm
-					// dies; a genuine whole-parse ambiguity keeps more than one
-					// accepted derivation, and the sole-exact acceptance gate then
-					// fails closed to production.
-					foldDeclined = true
 				}
 			case shallowCount >= 2:
-				// The boundary already carries coexisting structural alternates from
-				// an earlier declined tie. Do not precedence-collapse across an
+				// The boundary already carries several structural alternatives.
+				// Do not precedence-collapse across an
 				// already ambiguous boundary; append the incoming payload as a
 				// further distinct alternate for the sole-exact gate to resolve.
 				foldDeclined = true
@@ -6454,6 +6447,20 @@ func (c *Core) validateMaterializationMetadata(id SubtreeID, record *subtreeReco
 }
 
 func (c *Core) validateGenericMaterializationMetadata(id SubtreeID, record subtreeRecord) error {
+	if record.symbol == RecoveryErrorRepeatSymbol {
+		if record.terminal || record.extra || record.missing || record.childCount == 0 || record.productionID != 0 || record.dynamicPrecedence != 0 || record.fieldCount != 0 || record.aliasCount != 0 {
+			return errors.New("parser-core phase zero: recovery ERROR_REPEAT has invalid structure or metadata")
+		}
+		return nil
+	}
+	// A resumed ERROR is a built-in container, not a grammar reduction.
+	// Its child count cannot authenticate a production-table entry.
+	if record.symbol == ErrorRegionSymbol && !record.terminal && record.extra {
+		if record.missing || record.productionID != 0 || record.dynamicPrecedence != 0 || record.fieldCount != 0 || record.aliasCount != 0 {
+			return errors.New("parser-core phase zero: recovery ERROR carries grammar metadata")
+		}
+		return nil
+	}
 	children := c.children[record.firstChild : record.firstChild+record.childCount]
 	storedFields := c.fields[record.firstField : record.firstField+record.fieldCount]
 	storedAliases := c.aliases[record.firstAlias : record.firstAlias+record.aliasCount]

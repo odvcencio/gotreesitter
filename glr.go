@@ -3369,6 +3369,18 @@ func stackCompareMerge(a, b *glrStack) int {
 	return 0
 }
 
+// Keep C's physical incumbent when duplicate histories have equal parser ranks.
+// Grammar branch order ranks distinct histories, not equivalent link replacements.
+func stackMergeDuplicateShouldReplace(scratch *glrMergeScratch, candidate, incumbent *glrStack) bool {
+	if scratch != nil && scratch.parser != nil && scratch.parser.errorCostCompetitionEnabled() &&
+		candidate.accepted == incumbent.accepted && candidate.score == incumbent.score &&
+		candidate.shifted == incumbent.shifted && candidate.depth() == incumbent.depth() &&
+		candidate.byteOffset == incumbent.byteOffset {
+		return false
+	}
+	return stackCompareMerge(candidate, incumbent) >= 0
+}
+
 func stackCompareMergeSmallCapOne(scratch *glrMergeScratch, a, b *glrStack) int {
 	if perfCountersEnabled {
 		perfRecordStackCompare()
@@ -3562,8 +3574,9 @@ func gssMainCanMergeWithScratch(scratch *glrMergeScratch, a, b *glrStack) bool {
 	if a.top().state != b.top().state || a.byteOffset != b.byteOffset {
 		return false
 	}
-	return gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
-		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
+	return (gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
+		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)) ||
+		gssRecoveryStacksCanMerge(scratch, a, b)
 }
 
 // gssStackCleanZeroErrorAllLinksWithScratch applies the GSS clean-zero gate
@@ -3607,6 +3620,7 @@ func gssMainCanMergeWithScratchPhase(scratch *glrMergeScratch, a, b *glrStack, p
 	}
 	clean := gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a.gss.head) &&
 		gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b.gss.head)
+	clean = clean || gssRecoveryStacksCanMerge(scratch, a, b)
 	workCountRecordGSSCleanReject(workCountParserFromMergeScratch(scratch), phase, a, b, clean)
 	return clean
 }
@@ -3637,8 +3651,8 @@ func gssNodesCanMergeWithScratch(scratch *glrMergeScratch, a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if !gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
-		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b) {
+	if (!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
+		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b)) && !gssRecoveryCostsEqual(scratch, nil, a, b) {
 		return false
 	}
 	aOffset, aOK := gssNodeUniformByteOffset(a, make(map[*gssNode]bool))
@@ -3881,8 +3895,14 @@ func compactPackedGSSVersionOrderEnabledForMerge(scratch *glrMergeScratch) bool 
 		scratch.packedGSSVersionOrderActive
 }
 
+// C link equivalence does not grant physical version order or a larger link limit.
+func cStackLinkEquivalenceEnabled(scratch *glrMergeScratch) bool {
+	return compactPackedGSSVersionOrderEnabledForMerge(scratch) ||
+		(scratch != nil && scratch.parser != nil && scratch.parser.errorCostCompetitionEnabled())
+}
+
 func cStackLinkPayloadsEquivalentAtOffsets(scratch *glrMergeScratch, a, b stackEntry, aPrevOffset uint32, aOffsetOK bool, bPrevOffset uint32, bOffsetOK bool) bool {
-	if !compactPackedGSSVersionOrderEnabledForMerge(scratch) {
+	if !cStackLinkEquivalenceEnabled(scratch) {
 		return stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch, a, b)
 	}
 	if a.node == b.node && a.kind == b.kind {
@@ -4145,7 +4165,7 @@ func stackEntryNodesEquivalentIgnoringDynamic(a, b *Node) bool {
 
 func setGSSMainLink(n *gssNode, i int, prev *gssNode, entry stackEntry) {
 	if i == 0 {
-		// Recovery-prefix aggregates depend only on the link-0 predecessor and
+		// Recovery-prefix aggregates depend on each predecessor and
 		// the full-Node payload's error-cost / visible-count contribution. A
 		// same-predecessor rewrite of the exact same Node (or of two compact
 		// entries, which both contribute zero here) changes parser metadata but
@@ -4189,6 +4209,7 @@ type gssMainPreflight struct {
 	reachGeneration      uint32
 	reachCacheGeneration uint32
 	reachCache           []gssReachCacheEntry
+	reachCacheWrites     int
 	reachSeen            map[*gssNode]bool
 	reachStack           []*gssNode
 	reachVisit           []*gssNode
@@ -4245,8 +4266,9 @@ func (p *gssMainPreflight) clearGSSPointersForReuse() {
 }
 
 const (
-	maxGSSPreflightReachCacheEntries = 32768
-	gssPreflightReachCacheSetCount   = maxGSSPreflightReachCacheEntries / 2
+	initialGSSPreflightReachCacheEntries = 64
+	maxGSSPreflightReachCacheEntries     = 32768
+	gssPreflightReachCacheSetCount       = maxGSSPreflightReachCacheEntries / 2
 )
 
 type gssReachCacheEntry struct {
@@ -4301,6 +4323,7 @@ func (p *gssMainPreflight) resetReachCacheGeneration() {
 		p.reachCacheGeneration++
 	}
 	p.reachCache = p.reachCache[:0]
+	p.reachCacheWrites = 0
 }
 
 // acquirePreflightForScratch returns the scratch's pooled preflight, reset to
@@ -4417,7 +4440,7 @@ func (p *gssMainPreflight) cachedReach(from, target *gssNode) (bool, bool) {
 	}
 	fromPtr := uintptr(unsafe.Pointer(from))
 	targetPtr := uintptr(unsafe.Pointer(target))
-	idx := gssPreflightReachCacheIndex(fromPtr, targetPtr)
+	idx := gssPreflightReachCacheIndex(fromPtr, targetPtr) & (len(p.reachCache) - 1)
 	for i := 0; i < 2; i++ {
 		entry := p.reachCache[idx+i]
 		if entry.generation != p.reachCacheGeneration || entry.from != fromPtr || entry.target != targetPtr {
@@ -4438,10 +4461,10 @@ func (p *gssMainPreflight) cacheReach(from, target *gssNode, reachable bool) {
 		return
 	}
 	if len(p.reachCache) == 0 {
-		if cap(p.reachCache) < maxGSSPreflightReachCacheEntries {
-			p.reachCache = make([]gssReachCacheEntry, maxGSSPreflightReachCacheEntries)
+		if cap(p.reachCache) < initialGSSPreflightReachCacheEntries {
+			p.reachCache = make([]gssReachCacheEntry, initialGSSPreflightReachCacheEntries)
 		} else {
-			p.reachCache = p.reachCache[:maxGSSPreflightReachCacheEntries]
+			p.reachCache = p.reachCache[:cap(p.reachCache)]
 		}
 		if p.scratch != nil {
 			p.scratch.preflightReachCacheBytes = int64(cap(p.reachCache)) * int64(unsafe.Sizeof(gssReachCacheEntry{}))
@@ -4449,15 +4472,39 @@ func (p *gssMainPreflight) cacheReach(from, target *gssNode, reachable bool) {
 	}
 	fromPtr := uintptr(unsafe.Pointer(from))
 	targetPtr := uintptr(unsafe.Pointer(target))
-	idx := gssPreflightReachCacheIndex(fromPtr, targetPtr)
-	p.reachCache[idx+1] = p.reachCache[idx]
-	p.reachCache[idx] = gssReachCacheEntry{
+	idx := gssPreflightReachCacheIndex(fromPtr, targetPtr) & (len(p.reachCache) - 1)
+	entry := gssReachCacheEntry{
 		from:       fromPtr,
 		target:     targetPtr,
 		generation: p.reachCacheGeneration,
 		epoch:      p.reachEpoch,
 		reachable:  reachable,
 	}
+	for i := 0; i < 2; i++ {
+		cached := &p.reachCache[idx+i]
+		if cached.generation == p.reachCacheGeneration && cached.from == fromPtr && cached.target == targetPtr {
+			*cached = entry
+			return
+		}
+	}
+	// Grow only after sustained inserts collide with a full set.
+	if len(p.reachCache) < maxGSSPreflightReachCacheEntries &&
+		p.reachCacheWrites >= len(p.reachCache)/2 &&
+		p.reachCache[idx].generation == p.reachCacheGeneration &&
+		p.reachCache[idx+1].generation == p.reachCacheGeneration {
+		// Discard cached answers. Cache misses still run the complete graph proof.
+		p.reachCache = make([]gssReachCacheEntry, len(p.reachCache)*2)
+		p.reachCacheWrites = 0
+		if p.scratch != nil {
+			p.scratch.preflightReachCacheBytes = int64(cap(p.reachCache)) * int64(unsafe.Sizeof(gssReachCacheEntry{}))
+		}
+		idx = gssPreflightReachCacheIndex(fromPtr, targetPtr) & (len(p.reachCache) - 1)
+	}
+	if p.reachCacheWrites < len(p.reachCache) {
+		p.reachCacheWrites++
+	}
+	p.reachCache[idx+1] = p.reachCache[idx]
+	p.reachCache[idx] = entry
 }
 
 func (p *gssMainPreflight) denseReachMark(n *gssNode) (*uint32, bool) {
@@ -4673,7 +4720,7 @@ func (p *gssMainPreflight) nodesCanMerge(a, b *gssNode) bool {
 	if a.entry.state != b.entry.state {
 		return false
 	}
-	if !p.cleanZeroErrorAllLinks(a) || !p.cleanZeroErrorAllLinks(b) {
+	if (!p.cleanZeroErrorAllLinks(a) || !p.cleanZeroErrorAllLinks(b)) && !gssRecoveryCostsEqual(p.scratch, p, a, b) {
 		return false
 	}
 	aOffset, aOK := p.uniformByteOffset(a, p.acquireOffsetSeen())
@@ -4694,7 +4741,7 @@ func (p *gssMainPreflight) acquireOffsetSeen() map[*gssNode]bool {
 }
 
 func (p *gssMainPreflight) linkPayloadsEquivalent(aPrev *gssNode, a stackEntry, bPrev *gssNode, b stackEntry) bool {
-	if p == nil || !compactPackedGSSVersionOrderEnabledForMerge(p.scratch) {
+	if p == nil || !cStackLinkEquivalenceEnabled(p.scratch) {
 		var scratch *glrMergeScratch
 		if p != nil {
 			scratch = p.scratch
@@ -4707,7 +4754,7 @@ func (p *gssMainPreflight) linkPayloadsEquivalent(aPrev *gssNode, a stackEntry, 
 }
 
 func stackLinkPayloadsEquivalentWithScratch(scratch *glrMergeScratch, aPrev *gssNode, a stackEntry, bPrev *gssNode, b stackEntry) bool {
-	if !compactPackedGSSVersionOrderEnabledForMerge(scratch) {
+	if !cStackLinkEquivalenceEnabled(scratch) {
 		return stackEntryPayloadsEquivalentIgnoringDynamicWithScratch(scratch, a, b)
 	}
 	var seen map[*gssNode]bool
@@ -4722,6 +4769,91 @@ func stackLinkPayloadsEquivalentWithScratch(scratch *glrMergeScratch, aPrev *gss
 	}
 	bOffset, bOK := gssNodeUniformByteOffset(bPrev, seen)
 	return cStackLinkPayloadsEquivalentAtOffsets(scratch, a, b, aOffset, aOK, bOffset, bOK)
+}
+
+const maxCLinkCollapseNodes = 128
+
+// Prove that every incoming link collapses into an existing equivalent link.
+// Unlike general preflight, this proof never accepts a capacity-policy drop.
+// Distinct alternatives remain separate versions when this bounded proof declines.
+func cGSSCompleteLinkCollapse(scratch *glrMergeScratch, a, b *gssNode) bool {
+	if !cStackLinkEquivalenceEnabled(scratch) || a == nil || b == nil {
+		return false
+	}
+	// Bound the complete graph before invoking existing reachability and offset
+	// helpers. Every later walk stays inside this shared, fixed-size envelope.
+	var seen [maxCLinkCollapseNodes]*gssNode
+	count := 0
+	if !cGSSCollapseGraphFits(a, &seen, &count) || !cGSSCollapseGraphFits(b, &seen, &count) ||
+		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, a) ||
+		!gssNodeCleanZeroErrorAllLinksWithScratch(scratch, b) {
+		return false
+	}
+	remaining := 4096
+	return cGSSCompleteLinkCollapseWalk(scratch, a, b, 0, &remaining)
+}
+
+func cGSSCollapseGraphFits(node *gssNode, seen *[maxCLinkCollapseNodes]*gssNode, count *int) bool {
+	if node == nil {
+		return true
+	}
+	for _, existing := range seen[:*count] {
+		if existing == node {
+			return true
+		}
+	}
+	if *count == len(seen) {
+		return false
+	}
+	seen[*count] = node
+	*count++
+	for i := 0; i < node.linkCount(); i++ {
+		prev, _ := node.link(i)
+		if !cGSSCollapseGraphFits(prev, seen, count) {
+			return false
+		}
+	}
+	return true
+}
+
+func cGSSCompleteLinkCollapseWalk(scratch *glrMergeScratch, a, b *gssNode, depth int, remaining *int) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil || depth >= maxCLinkCollapseNodes || *remaining <= 0 {
+		return false
+	}
+	*remaining--
+	for i := 0; i < b.linkCount(); i++ {
+		prev, entry := b.link(i)
+		matched := false
+		for j := 0; j < a.linkCount(); j++ {
+			if *remaining <= 0 {
+				return false
+			}
+			*remaining--
+			existingPrev, existingEntry := a.link(j)
+			if !stackLinkPayloadsEquivalentWithScratch(scratch, existingPrev, existingEntry, prev, entry) {
+				continue
+			}
+			if existingPrev == prev {
+				matched = true
+				break
+			}
+			if gssNodesCanMergeWithScratch(scratch, existingPrev, prev) {
+				// Match the first recursive merge selected by the mutation phase.
+				if !cGSSCompleteLinkCollapseWalk(scratch, existingPrev, prev, depth+1, remaining) {
+					return false
+				}
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
 }
 
 func gssMainCanAddLinkSeen(n *gssNode, prev *gssNode, entry stackEntry, seen map[gssMergePair]bool) bool {
@@ -4813,7 +4945,9 @@ func gssMainAddLinkSeenMutate(scratch *glrMergeScratch, n *gssNode, prev *gssNod
 		}
 		if gssNodesCanMergeWithScratch(scratch, existingPrev, prev) {
 			merged := gssMainMergeNodesSeenMutate(scratch, existingPrev, prev, seen)
-			if merged && stackEntryDynamicPrecedence(entry) > stackEntryDynamicPrecedence(existingEntry) {
+			// C replaces a payload only when predecessor pointers already match.
+			// Recursive merging preserves this payload and updates graph aggregates.
+			if merged && !cStackLinkEquivalenceEnabled(scratch) && stackEntryDynamicPrecedence(entry) > stackEntryDynamicPrecedence(existingEntry) {
 				setGSSMainLink(n, i, existingPrev, entry)
 			}
 			n.hash = 0
@@ -5068,8 +5202,60 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	var promoted glrStack
 	mixedRepresentation := false
 	candidateGSSReceiver := false
+	incumbentGSSPromoted := false
 	mixedMergeCertified := scratch != nil && scratch.gssOwner != nil &&
 		(scratch.language == nil || scratch.language.CompactMixedGSSMergeCertified)
+	if !mixedMergeCertified && scratch != nil && scratch.gssOwner != nil &&
+		cStackLinkEquivalenceEnabled(scratch) && !left.cEverErrored && !right.cEverErrored &&
+		left.cRec == nil && right.cRec == nil && !left.cPaused && !right.cPaused &&
+		!left.accepted && !right.accepted && ((left.gss.head == nil) != (right.gss.head == nil)) {
+		// Prove collapse with temporary headers before allocating graph nodes.
+		// The logical incumbent must also receive the physical C link merge.
+		flat := left
+		if flat.gss.head != nil {
+			flat = right
+		}
+		if len(flat.entries) == 0 || len(flat.entries) > maxCLinkCollapseNodes {
+			return false, true
+		}
+		staged := make([]gssNode, len(flat.entries))
+		for i, entry := range flat.entries {
+			staged[i].entry, staged[i].depth = entry, uint32(i+1)
+			if i > 0 {
+				staged[i].prev = &staged[i-1]
+			}
+		}
+		probe := *flat
+		probe.gss.head = &staged[len(flat.entries)-1]
+		probe.entries = nil
+		probeLeft, probeRight := left, right
+		if flat == left {
+			probeLeft = &probe
+		} else {
+			probeRight = &probe
+		}
+		// Do not retain temporary node addresses in the parser's scratch caches.
+		probeScratch := glrMergeScratch{language: scratch.language, arena: scratch.arena, parser: scratch.parser}
+		if !cGSSCompleteLinkCollapse(&probeScratch, probeLeft.gss.head, probeRight.gss.head) ||
+			!gssMainCanMergeWithScratch(&probeScratch, probeLeft, probeRight) {
+			return false, true
+		}
+		promoted = *flat
+		if workCountInstrumentationEnabled {
+			promoted.ensureGSS(scratch.gssOwner)
+		} else {
+			promoted.ensureGSSForMergeStaging(scratch.gssOwner)
+		}
+		promoted.entries = nil
+		promoted.cacheEntries = false
+		if flat == left {
+			left = &promoted
+			incumbentGSSPromoted = true
+		} else {
+			right = &promoted
+		}
+		mixedRepresentation = true
+	}
 	if mixedMergeCertified &&
 		((left.gss.head == nil) != (right.gss.head == nil)) {
 		mixedRepresentation = true
@@ -5169,7 +5355,8 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 	if !mixedRepresentation &&
 		!compactPackedGSSVersionOrderEnabledForMerge(scratch) &&
 		(scratch == nil || scratch.perKeyCap != 1) &&
-		gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, left, right) {
+		gssStacksHaveDistinctMaterializingShapesWithScratch(scratch, left, right) &&
+		!cGSSCompleteLinkCollapse(scratch, left.gss.head, right.gss.head) {
 		if workCountInstrumentationEnabled {
 			workCountRecordGSSReject(workCountParserFromMergeScratch(scratch), workCountConvergencePhaseBoundaryEquivalence, workCountConvergenceReasonDistinctShape, "boundary merge retained distinct materializing shapes", left, right)
 		}
@@ -5199,9 +5386,9 @@ func tryGSSMainMergeResult(scratch *glrMergeScratch, result []glrStack, idx int,
 		merged = gssMainMergeWithScratch(scratch, left, right)
 	}
 	if merged {
-		if candidateGSSReceiver {
-			// The physical candidate supplied the graph receiver, but C keeps the
-			// incumbent stack metadata and version slot as the logical survivor.
+		if candidateGSSReceiver || incumbentGSSPromoted {
+			// Transfer the selected graph receiver into the incumbent version slot.
+			// Preserve the incumbent metadata when either side supplied the graph.
 			result[idx] = incumbentHeader
 			result[idx].gss = left.gss
 			// Keep one authoritative physical representation. The incoming GSS
@@ -5434,7 +5621,7 @@ func mergeStacksSmallForLanguage(alive []glrStack, scratch *glrMergeScratch, lan
 		if mergedByGSS {
 			continue
 		}
-		if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+		if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 			traceCRecoverMergeDecision(scratch, "small", "replace-duplicate", &result[duplicateIndex], &stack)
 			if workCountInstrumentationEnabled {
 				workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
@@ -5521,7 +5708,7 @@ func mergeStacksSmallDeferExact(alive []glrStack, scratch *glrMergeScratch, lang
 		if mergedByGSS {
 			continue
 		}
-		if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+		if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 			traceCRecoverMergeDecision(scratch, "small-defer", "replace-duplicate", &result[duplicateIndex], &stack)
 			if workCountInstrumentationEnabled {
 				workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
@@ -5753,16 +5940,14 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 			perfRecordStackEquivalentHashMissSkip()
 		}
 		if duplicateIndex >= 0 {
-			// Equal-ranked duplicates should not preserve the first-inserted
-			// branch by accident. Let later survivors replace ties so
-			// post-reduce reprocessing can keep the branch that stayed viable.
+			// Preserve the route's duplicate election after the GSS merge check.
 			if merged, attempted := tryGSSMainMergeResult(scratch, result, duplicateIndex, &stack); attempted {
 				if !merged {
 					_ = preserveCapOneStackInSlot(&result, slot, stack, hash)
 				}
 				continue
 			}
-			if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+			if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 				if workCountInstrumentationEnabled {
 					workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
 				}
@@ -5957,7 +6142,7 @@ func mergeStacksWithScratchDeferExact(alive []glrStack, scratch *glrMergeScratch
 				}
 				continue
 			}
-			if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+			if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 				if workCountInstrumentationEnabled {
 					workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
 				}
@@ -6127,10 +6312,8 @@ func mergeStacksWithScratchLargeCap(alive []glrStack, scratch *glrMergeScratch, 
 			perfRecordStackEquivalentHashMissSkip()
 		}
 		if duplicateIndex >= 0 {
-			// Equal-ranked duplicates should not preserve the first-inserted
-			// branch by accident. Let later survivors replace ties so
-			// post-reduce reprocessing can keep the branch that stayed viable.
-			if stackCompareMerge(&stack, &result[duplicateIndex]) >= 0 {
+			// Preserve the route's duplicate election for large-cap buckets.
+			if stackMergeDuplicateShouldReplace(scratch, &stack, &result[duplicateIndex]) {
 				if workCountInstrumentationEnabled {
 					workCountTopologyRenumberVersion(&stack, &result[duplicateIndex])
 				}

@@ -203,7 +203,7 @@ func TestForestIncrementalOwnershipRegressionGo(t *testing.T) {
 		oldTree.Edit(candidate.inEdit)
 		incrementalParser := gts.NewParser(lang)
 		incrementalParser.SetAdmissionCandidateRoute(false)
-		incremental, _, err := incrementalParser.ParseIncrementalProfiled(candidate.edited, oldTree)
+		incremental, profile, err := incrementalParser.ParseIncrementalProfiled(candidate.edited, oldTree)
 		oldTree.Release()
 		if err != nil {
 			t.Fatalf("edit %d: incremental: %v", i, err)
@@ -221,6 +221,9 @@ func TestForestIncrementalOwnershipRegressionGo(t *testing.T) {
 			continue
 		}
 		valid++
+		if difference := incrGateFirstDivergence(lang, fresh.RootNode(), incremental.RootNode(), nil); difference != nil {
+			t.Logf("edit %d: input=%+v reused=%d/%d recovery=%t/%t difference=%+v", i, candidate.inEdit, profile.ReusedSubtrees, profile.ReusedBytes, incremental.ParseRuntime().CRecoveryEnteredErrorState, fresh.ParseRuntime().CRecoveryEnteredErrorState, difference)
+		}
 		requireIncrementalDeepTreeMatchesFresh(t, incremental, fresh, lang)
 		incremental.Release()
 		fresh.Release()

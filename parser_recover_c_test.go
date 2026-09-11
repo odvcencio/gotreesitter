@@ -355,17 +355,19 @@ func TestParseOperationBoundaryResetsRetainedRecoveryMemoSize(t *testing.T) {
 	}
 }
 
-// TestCAbsorbErrorRunLeafCarriesNoErrorBit: an absorbed unlexable-run leaf
-// has no error cost in C (ts_subtree_new_error builds a plain leaf), so the
-// ERROR container is the only erroneous node.
-func TestCAbsorbErrorRunLeafCarriesNoErrorBit(t *testing.T) {
+// Lexer-produced error runs follow C's leaf policy. Synthetic tokens retain errors.
+func TestCAbsorbErrorRunLeafPreservesProvenance(t *testing.T) {
 	for _, test := range []struct {
 		name           string
 		lexerProduced  bool
+		missing        bool
+		noLookahead    bool
 		wantChildError bool
 	}{
 		{name: "lexer-produced", lexerProduced: true},
-		{name: "unproven"},
+		{name: "unproven", wantChildError: true},
+		{name: "missing", lexerProduced: true, missing: true, wantChildError: true},
+		{name: "no-lookahead", lexerProduced: true, noLookahead: true, wantChildError: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			parser := cRecoveryElectionTestParser()
@@ -384,12 +386,14 @@ func TestCAbsorbErrorRunLeafCarriesNoErrorBit(t *testing.T) {
 			parser.cAbsorbTokenIntoError(
 				&stack,
 				Token{
-					Symbol:     errorSymbol,
-					StartByte:  10,
-					EndByte:    18,
-					StartPoint: Point{Column: 10},
-					EndPoint:   Point{Column: 18},
-					lexFlags:   lexFlagIf(test.lexerProduced, tokenFlagErrorModeLexed),
+					Symbol:      errorSymbol,
+					StartByte:   10,
+					EndByte:     18,
+					StartPoint:  Point{Column: 10},
+					EndPoint:    Point{Column: 18},
+					lexFlags:    lexFlagIf(test.lexerProduced, tokenFlagErrorModeLexed),
+					Missing:     test.missing,
+					NoLookahead: test.noLookahead,
 				},
 				&nodeCount,
 				arena,
@@ -410,6 +414,12 @@ func TestCAbsorbErrorRunLeafCarriesNoErrorBit(t *testing.T) {
 			}
 			if got := child.HasError(); got != test.wantChildError {
 				t.Fatalf("absorbed ERROR leaf HasError = %t, want %t", got, test.wantChildError)
+			}
+			if child.IsMissing() != test.missing {
+				t.Fatalf("absorbed leaf missing = %t, want %t", child.IsMissing(), test.missing)
+			}
+			if !openErr.HasError() {
+				t.Fatal("absorption cleared the container error")
 			}
 		})
 	}
@@ -4262,5 +4272,73 @@ func TestCReductionCandidateDoesNotDoubleCloneRecoveryState(t *testing.T) {
 	}
 	if &candidates[0].cRec.summary[0] != &start.cRec.summary[0] {
 		t.Fatal("reduction candidate did not preserve shared immutable recovery summary")
+	}
+}
+
+func TestCRecoveryPauseResetsInheritedProgress(t *testing.T) {
+	p := cRecoveryElectionTestParser()
+	arena := acquireNodeArena(arenaClassFull)
+	defer arena.Release()
+	s := cRecoveryBaselineStack(arena, 1, 12)
+	before := p.cStackCumulativeNodeCount(&s)
+	if before == 0 {
+		t.Fatal("fixture has no progress")
+	}
+	p.cPauseRecovery(&s)
+	if !s.cPaused || s.cNodeBaseline != uint32(before) || p.cNodeCountSinceError(&s) != 0 {
+		t.Fatalf("pause retained earlier progress: baseline=%d count=%d", s.cNodeBaseline, p.cNodeCountSinceError(&s))
+	}
+	clone := s.clone()
+	if p.cNodeCountSinceError(&clone) != 0 {
+		t.Fatal("recovery fork inherited pre-error progress")
+	}
+	leaf := newLeafNodeInArena(arena, 1, true, 12, 13, Point{Column: 12}, Point{Column: 13})
+	clone.pushEntry(newStackEntryNode(20, leaf), nil, nil)
+	if p.cNodeCountSinceError(&clone) != 1 {
+		t.Fatal("post-pause progress was not counted")
+	}
+	p.cPauseRecovery(&clone)
+	if p.cNodeCountSinceError(&clone) != 0 || p.cNodeCountSinceError(&s) != 0 {
+		t.Fatal("repeated pause retained progress or changed the source")
+	}
+}
+
+func TestCCondenseRecoveredVersionsAfterPauseProgress(t *testing.T) {
+	p := cRecoveryElectionTestParser()
+	clean := makeCCondenseMissingGroupTestStack(7, 40, false)
+	missing := makeCCondenseMissingGroupTestStack(7, 40, true)
+	for _, stack := range []*glrStack{&clean, &missing} {
+		p.cPauseRecovery(stack)
+		stack.cPaused = false
+	}
+	stacks := []glrStack{missing, clean}
+	if cRecoveryRelevantStack(stacks) || p.cRecoveryCondenseRelevant(stacks) {
+		t.Fatal("marker-free stacks enabled recovery without a history")
+	}
+	p.markCRecoveryCostCompetitionRelevant()
+	if !p.cRecoveryCondenseRelevant(stacks) {
+		t.Fatal("recovered versions lost cost competition")
+	}
+	for i := range stacks {
+		for j := 0; j < 20; j++ {
+			start := uint32(40 + j)
+			n := NewLeafNode(1, true, start, start+1, Point{Column: start}, Point{Column: start + 1})
+			stacks[i].push(7, n, nil, nil)
+		}
+		if got := p.cNodeCountSinceError(&stacks[i]); got != 20 {
+			t.Fatalf("post-pause progress=%d, want 20", got)
+		}
+	}
+	if p.cStackErrorCost(&stacks[0]) <= p.cStackErrorCost(&stacks[1]) {
+		t.Fatal("fixture lost its unequal recovery costs")
+	}
+	var nodes int
+	trackErrors := true
+	condensed, resumed, _, reason := p.cCondenseAndResume(stacks, nil, nil, Token{Symbol: 1}, &nodes, nil, nil, nil, nil, nil, &trackErrors)
+	if reason != ParseStopNone || resumed || len(condensed) != 1 {
+		t.Fatalf("recovered competition: versions=%d resumed=%v reason=%v", len(condensed), resumed, reason)
+	}
+	if p.cStackErrorCost(&condensed[0]) != 0 {
+		t.Fatal("recovered competition retained the costly version")
 	}
 }

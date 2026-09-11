@@ -120,6 +120,10 @@ func (c *Core) publishRecoverEOFAcceptUncheckpointed(
 	score int64,
 	cost ReductionOutputCostFunc,
 ) (Head, SubtreeID, error) {
+	return c.publishRecoverEOFAcceptAt(payloads, startByte, endByte, score, ForkOrder{}, cost, c.checkpoint)
+}
+
+func (c *Core) publishRecoverEOFAcceptAt(payloads []SubtreeID, startByte, endByte uint32, score int64, order ForkOrder, cost ReductionOutputCostFunc, checkpoint CheckpointID) (Head, SubtreeID, error) {
 	root, err := c.appendSubtree(subtreeRecord{
 		symbol:    ErrorRegionSymbol,
 		startByte: startByte,
@@ -136,7 +140,7 @@ func (c *Core) publishRecoverEOFAcceptUncheckpointed(
 	// predecessor so the new head has exactly one payload and no old siblings.
 	base, err := c.appendNodeAt(nodeRecord{
 		state: 1, byteOffset: endByte, pathCount: 1,
-	}, c.checkpoint)
+	}, checkpoint)
 	if err != nil {
 		return Head{}, 0, err
 	}
@@ -153,7 +157,12 @@ func (c *Core) publishRecoverEOFAcceptUncheckpointed(
 			return Head{}, 0, costErr
 		}
 	}
-	linkID, err := c.appendGraphLinkChecked(linkRecord{prev: base, payload: root, scoreDelta: score})
+	link := linkRecord{prev: base, payload: root, scoreDelta: score}
+	if order.Present {
+		link.flags |= linkFlagHasOrder
+		link.order = order.Value
+	}
+	linkID, err := c.appendGraphLinkChecked(link)
 	if err != nil {
 		return Head{}, 0, err
 	}
@@ -161,7 +170,7 @@ func (c *Core) publishRecoverEOFAcceptUncheckpointed(
 	newNode, err := c.appendNodeAt(nodeRecord{
 		state: 1, byteOffset: endByte,
 		firstLink: uint32(linkID), linkCount: 1, pathCount: 1,
-	}, c.checkpoint)
+	}, checkpoint)
 	if err != nil {
 		return Head{}, 0, err
 	}

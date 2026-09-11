@@ -1586,6 +1586,7 @@ type ArenaBreakdown struct {
 	CompactReuseDependencyBytesAllocated int64
 
 	NodeStructBytesAllocated            int64
+	NodeSupertypeBytesAllocated         int64
 	NodeFieldMetadataBytesAllocated     int64
 	NoTreeNodeBytesAllocated            int64
 	CompactFullLeafBytesAllocated       int64
@@ -2108,7 +2109,12 @@ func (n *Node) Type(lang *Language) string {
 		return "ERROR"
 	}
 	if int(n.symbol) < len(lang.SymbolNames) {
-		return unescapePunctuationSymbolName(lang.SymbolNames[n.symbol])
+		name := lang.SymbolNames[n.symbol]
+		// C exposes symbol names as NUL-terminated strings.
+		if end := strings.IndexByte(name, 0); end >= 0 {
+			name = name[:end]
+		}
+		return unescapePunctuationSymbolName(name)
 	}
 	return ""
 }
@@ -3791,6 +3797,7 @@ func (t *Tree) Copy() *Tree {
 		incrementalReuseUnsupportedClause: t.incrementalReuseUnsupportedClause,
 		compactMaterialized:               t.compactMaterialized,
 	}
+	out.setIncludedRanges(t.includedRanges)
 	if len(t.edits) > 0 {
 		out.edits = make([]InputEdit, len(t.edits))
 		copy(out.edits, t.edits)

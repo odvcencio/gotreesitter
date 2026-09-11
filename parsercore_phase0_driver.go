@@ -57,6 +57,7 @@ type DiagnosticParserCorePrefixOptions struct {
 	Retry                   bool
 	Incremental             bool
 	IncludedRanges          bool
+	includedRanges          []Range
 	// GenericStopAtClosedByte publishes a successful closed-frontier receipt
 	// when every authenticated scheduler head closes at this byte. Nil is
 	// unbounded. The boundary is checked before another scanner election.
@@ -126,6 +127,8 @@ type DiagnosticParserCorePrefixOptions struct {
 	// allowCompactRecoveryVersionTurns enables owned C advance rounds after S5.
 	// Artifact admission remains separate from this private runtime capability.
 	allowCompactRecoveryVersionTurns bool
+	// Included ranges require a separate artifact grant and an executed owned EOF turn.
+	allowCompactIncludedRangeEOFRecovery bool
 	// allowCompactRecoveryLineageSelection permits completeAcceptance to
 	// resolve MORE THAN ONE accepted head by pricing the competing recovery
 	// lineages and publishing the cheaper tree, instead of declining.
@@ -1371,6 +1374,8 @@ type diagnosticParserCoreVersionState struct {
 	// error entry. Current counts come from the live graph during condensation.
 	recoveryNodeBaseline    uint32
 	recoveryNodeBaselineSet bool
+	// acceptanceSeq records finished-tree publication order, not birth order.
+	acceptanceSeq uint64
 }
 
 type diagnosticParserCoreRecoveryFlags uint8
@@ -1436,8 +1441,12 @@ func (h *diagnosticParserCoreHeader) publishVersionState(
 	if h == nil {
 		return
 	}
+	var acceptanceSeq uint64
+	if h.versionState != nil {
+		acceptanceSeq = h.versionState.acceptanceSeq
+	}
 	if region == nil && snapshot == nil && request == 0 && recoveryGroup == 0 &&
-		missingGroup == 0 && !nodeBaselineSet {
+		missingGroup == 0 && !nodeBaselineSet && acceptanceSeq == 0 {
 		h.versionState = nil
 		return
 	}
@@ -1445,6 +1454,7 @@ func (h *diagnosticParserCoreHeader) publishVersionState(
 		s3Region: region, relexSnapshot: snapshot, lexerRequest: request,
 		recoveryGroup: recoveryGroup, missingGroup: missingGroup,
 		recoveryNodeBaseline: nodeBaseline, recoveryNodeBaselineSet: nodeBaselineSet,
+		acceptanceSeq: acceptanceSeq,
 	}
 }
 
@@ -2073,13 +2083,18 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 	trialOrder := branchOrder
 	var receipts []DiagnosticParserCoreRoundAction
 	err := compact.RunSchedulerOwned(owner, func() error {
-		for ordinal := 1; ordinal < actions.Len(); ordinal++ {
+		// Publish action outputs in table order. Fork order remains arm metadata.
+		for ordinal := 0; ordinal < actions.Len(); ordinal++ {
 			action := actions.At(ordinal)
-			trialOrder++
+			fork := core.ForkOrder{}
+			if ordinal != 0 {
+				trialOrder++
+				fork = core.ForkOrder{Present: true, Value: trialOrder}
+			}
 			var applyErr error
 			scratch.actionOutputs, scratch.reductionOutputs, applyErr = applyParserCoreConflictActionInto(
 				scratch.actionOutputs[:0], scratch.reductionOutputs[:0], compact, owner, classified, token,
-				action, ordinal, core.ForkOrder{Present: true, Value: trialOrder}, nextCleanPathLineage,
+				action, ordinal, fork, nextCleanPathLineage,
 				captureLexerSkippedPrefixProvenance,
 				reductionCost,
 			)
@@ -2088,83 +2103,41 @@ func executeDiagnosticParserCoreGenericConflictDetailed(
 			}
 			start := len(scratch.outputs)
 			for _, output := range scratch.actionOutputs {
-				secondary := incoming
-				secondary.head = output.head
-				secondary.shifted = action.Type == core.ActionShift
-				secondary.freshness = output.freshness
-				secondary.convergedReductionSplit = secondary.convergedReductionSplit || output.cleanPathLineage != 0
-				applyDiagnosticParserCoreCleanPathOutput(&secondary, output.cleanPathRank, output.cleanPathLineage)
+				outputHeader := incoming
+				outputHeader.head = output.head
+				outputHeader.shifted = action.Type == core.ActionShift
+				outputHeader.freshness = output.freshness
+				outputHeader.convergedReductionSplit = outputHeader.convergedReductionSplit || output.cleanPathLineage != 0
+				applyDiagnosticParserCoreCleanPathOutput(&outputHeader, output.cleanPathRank, output.cleanPathLineage)
 				if output.cleanPathSet.Len() != 0 {
 					// Conflict-arm application is fold-class (spec.b4b-
-					// alternative-set.v2 section 3.4): secondary starts as a
+					// alternative-set.v2 section 3.4): each output starts as a
 					// copy of incoming's own already-accumulated history,
 					// and output.cleanPathSet is this mutually exclusive
 					// arm's own independently established set -- two
 					// separately tracked histories, not one popped cone's
 					// uniform extension.
-					incomparable := compact.AlternativeSetIncomparable(secondary.altSet, output.cleanPathSet)
-					compact.UnionAlternativeSet(&secondary.altSet, output.cleanPathSet)
-					secondary.blended = secondary.blended || output.cleanPathBlended || incomparable
+					incomparable := compact.AlternativeSetIncomparable(outputHeader.altSet, output.cleanPathSet)
+					compact.UnionAlternativeSet(&outputHeader.altSet, output.cleanPathSet)
+					outputHeader.blended = outputHeader.blended || output.cleanPathBlended || incomparable
 				}
 				if !output.dropCohortRefs.Empty() || output.dropCohortRefs.Overflowed() || output.dropCohortRefs.Blended() {
-					if _, err := compact.UnionDropCohortRefsChecked(&secondary.dropCohortRefs, output.dropCohortRefs); err != nil {
+					if _, err := compact.UnionDropCohortRefsChecked(&outputHeader.dropCohortRefs, output.dropCohortRefs); err != nil {
 						return err
 					}
 				}
 				if action.Type == core.ActionShift {
-					markDiagnosticParserCoreExternalLineage(&secondary, token)
+					markDiagnosticParserCoreExternalLineage(&outputHeader, token)
 				}
-				scratch.outputs = append(scratch.outputs, secondary)
+				scratch.outputs = append(scratch.outputs, outputHeader)
 			}
 			scratch.armRanges[ordinal] = diagnosticParserCoreConflictArmRange{start: start, end: len(scratch.outputs)}
 			if collectReceipts {
 				receipts = append(receipts, DiagnosticParserCoreRoundAction{
 					HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
-					Ordinal: ordinal, Action: rootParserCoreAction(action), BranchOrder: trialOrder,
+					Ordinal: ordinal, Action: rootParserCoreAction(action), BranchOrder: fork.Value,
 				})
 			}
-		}
-		primaryAction := actions.At(0)
-		var applyErr error
-		scratch.actionOutputs, scratch.reductionOutputs, applyErr = applyParserCoreConflictActionInto(
-			scratch.actionOutputs[:0], scratch.reductionOutputs[:0], compact, owner, classified, token,
-			primaryAction, 0, core.ForkOrder{}, nextCleanPathLineage,
-			captureLexerSkippedPrefixProvenance,
-			reductionCost,
-		)
-		if applyErr != nil {
-			return applyErr
-		}
-		start := len(scratch.outputs)
-		for _, output := range scratch.actionOutputs {
-			primary := incoming
-			primary.head = output.head
-			primary.shifted = primaryAction.Type == core.ActionShift
-			primary.freshness = output.freshness
-			primary.convergedReductionSplit = primary.convergedReductionSplit || output.cleanPathLineage != 0
-			applyDiagnosticParserCoreCleanPathOutput(&primary, output.cleanPathRank, output.cleanPathLineage)
-			if output.cleanPathSet.Len() != 0 {
-				// See the secondary loop's identical fold-class comment above.
-				incomparable := compact.AlternativeSetIncomparable(primary.altSet, output.cleanPathSet)
-				compact.UnionAlternativeSet(&primary.altSet, output.cleanPathSet)
-				primary.blended = primary.blended || output.cleanPathBlended || incomparable
-			}
-			if !output.dropCohortRefs.Empty() || output.dropCohortRefs.Overflowed() || output.dropCohortRefs.Blended() {
-				if _, err := compact.UnionDropCohortRefsChecked(&primary.dropCohortRefs, output.dropCohortRefs); err != nil {
-					return err
-				}
-			}
-			if primaryAction.Type == core.ActionShift {
-				markDiagnosticParserCoreExternalLineage(&primary, token)
-			}
-			scratch.outputs = append(scratch.outputs, primary)
-		}
-		scratch.armRanges[0] = diagnosticParserCoreConflictArmRange{start: start, end: len(scratch.outputs)}
-		if collectReceipts {
-			receipts = append(receipts, DiagnosticParserCoreRoundAction{
-				HeaderIndex: headerIndex, State: before.State, ByteOffset: before.ByteOffset,
-				Ordinal: 0, Action: rootParserCoreAction(primaryAction),
-			})
 		}
 		return nil
 	})
@@ -4894,6 +4867,7 @@ func (s *diagnosticParserCoreGenericScheduler) relexTokenForState(state StateID,
 		immediateTokens: lang.ImmediateTokens,
 		zeroWidthTokens: lang.ZeroWidthTokens,
 	}
+	probe.setIncludedRanges(s.options.includedRanges)
 	relexed, ok := probe.scan(uint32(lexState), probe.pos, probe.row, probe.col)
 	recordTokenInvariantReadSpan(&s.tokenSource.tokenInvariantMaxReadSpan, int(tok.StartByte), tokenInvariantExaminedEnd(source, relexed.lexerLookaheadEndByte))
 	if !ok || relexed.Symbol == 0 {
@@ -5227,12 +5201,16 @@ func (s *diagnosticParserCoreGenericScheduler) installEquivalentVersionLexerStat
 	recoveryGroup := header.recoveryGroupIdentity()
 	missingGroup := header.recoveryMissingGroupIdentity()
 	baseline, baselineSet := header.recoveryNodeBaseline()
+	var acceptanceSeq uint64
+	if header.versionState != nil {
+		acceptanceSeq = header.versionState.acceptanceSeq
+	}
 	matches := func(state *diagnosticParserCoreVersionState) bool {
 		return state != nil && state.s3Region == region &&
 			diagnosticParserCoreVersionLexerSnapshotEqual(state.relexSnapshot, snapshot) &&
 			state.lexerRequest == requestReference && state.recoveryGroup == recoveryGroup &&
 			state.missingGroup == missingGroup && state.recoveryNodeBaseline == baseline &&
-			state.recoveryNodeBaselineSet == baselineSet
+			state.recoveryNodeBaselineSet == baselineSet && state.acceptanceSeq == acceptanceSeq
 	}
 	for index := range s.headers {
 		state := s.headers[index].versionState
@@ -6303,6 +6281,7 @@ type diagnosticParserCoreAcceptedLeafSpan struct {
 }
 
 type diagnosticParserCoreAcceptedLeafCoverageScratch struct {
+	includedRanges                  []Range
 	spans                           []diagnosticParserCoreAcceptedLeafSpan
 	authenticatedAliases            map[*Node]struct{}
 	leadingLexerSkippedPrefixStarts []uint32
@@ -6318,6 +6297,7 @@ func (scratch *diagnosticParserCoreAcceptedLeafCoverageScratch) reset() {
 		clear(scratch.spans)
 		scratch.spans = scratch.spans[:0]
 	}
+	scratch.includedRanges = nil
 	// Recovery-only maps do not retain nodes or buckets between parses.
 	scratch.authenticatedAliases = nil
 	if cap(scratch.leadingLexerSkippedPrefixStarts) > parserCoreMaxRetainedAcceptedLeafSpans {
@@ -6692,11 +6672,21 @@ func finalizeDiagnosticParserCoreAcceptedRootSpan(root *Node, source []byte, sou
 	return finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root, source, sourceLen, allowErrorRoot, continuationEscape, poll, tokenCount, coverage, nodesByID, false)
 }
 
-func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node, nativeAcceptSplice bool) error {
-	expectedStart := firstNonTriviaByteStart(source)
+func finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root *Node, source []byte, sourceLen uint32, allowErrorRoot bool, continuationEscape byte, poll func() error, tokenCount uint32, coverage *diagnosticParserCoreAcceptedLeafCoverageScratch, nodesByID []*Node, nativeAcceptSplice bool, included ...[]Range) error {
+	var ranges []Range
+	if len(included) > 0 {
+		ranges = included[0]
+	}
+	expectedStart, _, boundsErr := compactRangeBounds(source, ranges)
+	if boundsErr != nil {
+		return boundsErr
+	}
+	if coverage != nil {
+		coverage.includedRanges = ranges
+	}
 	clean := allowErrorRoot || (!root.IsError() && !root.HasError())
 	if root.startByte == expectedStart && root.endByte < sourceLen && clean {
-		extendRootToAcceptedCleanTail(root, source, sourceLen, nil, continuationEscape)
+		extendRootToAcceptedCleanTail(root, source, sourceLen, ranges, continuationEscape)
 	}
 	if root.startByte == expectedStart && root.endByte == sourceLen && clean {
 		if allowErrorRoot {
@@ -6797,7 +6787,7 @@ func diagnosticParserCoreAcceptedDerivationLeafCoverageGap(coverage *diagnosticP
 			return 0, 0, false, fmt.Errorf("terminal subtree span=%d..%d is outside source length %d", span.startByte, span.endByte, sourceLen)
 		}
 		if span.startByte > cur {
-			tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:span.startByte], poll)
+			tolerated, gapErr := compactRangeGap(source, cur, span.startByte, coverage.includedRanges, poll)
 			if gapErr != nil {
 				return 0, 0, false, gapErr
 			}
@@ -6810,7 +6800,7 @@ func diagnosticParserCoreAcceptedDerivationLeafCoverageGap(coverage *diagnosticP
 		}
 	}
 	if cur < sourceLen {
-		tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:sourceLen], poll)
+		tolerated, gapErr := compactRangeGap(source, cur, sourceLen, coverage.includedRanges, poll)
 		if gapErr != nil {
 			return 0, 0, false, gapErr
 		}
@@ -6850,7 +6840,7 @@ func diagnosticParserCoreAcceptedHiddenLeafCovers(coverage *diagnosticParserCore
 			continue
 		}
 		if span.startByte > cur {
-			tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:min(span.startByte, endByte)], poll)
+			tolerated, gapErr := compactRangeGap(source, cur, min(span.startByte, endByte), coverage.includedRanges, poll)
 			if gapErr != nil {
 				return false, gapErr
 			}
@@ -6868,7 +6858,7 @@ func diagnosticParserCoreAcceptedHiddenLeafCovers(coverage *diagnosticParserCore
 		}
 	}
 	if cur < endByte {
-		tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[cur:endByte], poll)
+		tolerated, gapErr := compactRangeGap(source, cur, endByte, coverage.includedRanges, poll)
 		if gapErr != nil {
 			return false, gapErr
 		}
@@ -6897,7 +6887,7 @@ func diagnosticParserCoreAcceptedTreeLeafCoverageGap(root *Node, source []byte, 
 		if startByte > endByte || endByte > sourceLen {
 			return false, fmt.Errorf("public leaf gap=%d..%d is outside source length %d", startByte, endByte, sourceLen)
 		}
-		tolerated, gapErr := diagnosticParserCoreGapIsToleratedWithPoll(source[startByte:endByte], poll)
+		tolerated, gapErr := compactRangeGap(source, startByte, endByte, coverage.includedRanges, poll)
 		if gapErr != nil {
 			return false, gapErr
 		}
@@ -7135,14 +7125,20 @@ func diagnosticParserCoreReduceChildrenTilingGapWithLexerProvenance(
 	coverage *diagnosticParserCoreAcceptedLeafCoverageScratch,
 	nodesByID []*Node,
 	allowLexerSkippedPrefix bool,
+	included ...[]Range,
 ) (gapStart, gapEnd uint32, gapped bool) {
+	var ranges []Range
+	if len(included) > 0 {
+		ranges = included[0]
+	}
+	gapOK := func(a, b uint32) bool { ok, err := compactRangeGap(source, a, b, ranges, nil); return err == nil && ok }
 	lastEnd := startByte
 	for index, entry := range entries {
 		child := stackEntryNode(entry)
 		if child == nil {
 			continue
 		}
-		if child.startByte > lastEnd && !diagnosticParserCoreGapIsTolerated(source[lastEnd:child.startByte]) {
+		if child.startByte > lastEnd && !gapOK(lastEnd, child.startByte) {
 			var childID core.SubtreeID
 			if index < len(childIDs) {
 				childID = childIDs[index]
@@ -7155,7 +7151,7 @@ func diagnosticParserCoreReduceChildrenTilingGapWithLexerProvenance(
 			lastEnd = child.endByte
 		}
 	}
-	if lastEnd < endByte && !diagnosticParserCoreGapIsTolerated(source[lastEnd:endByte]) {
+	if lastEnd < endByte && !gapOK(lastEnd, endByte) {
 		return lastEnd, endByte, true
 	}
 	return 0, 0, false
@@ -7300,6 +7296,10 @@ const (
 // the default path unchanged. A tagged diagnostic caller can request the
 // locked-C recover_eof root rule.
 func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compact *core.Core, head core.Head, payloads []core.SubtreeID, parser *Parser, source []byte, scratch *parserCoreRunnerScratch, forceReplayParseStates bool, allowErrorRoot bool, rootFinalization diagnosticParserCoreRootFinalization) (*Tree, error) {
+	return materializeDiagnosticParserCoreAcceptedSelectionWithIncludedRecovery(compact, head, payloads, parser, source, scratch, forceReplayParseStates, allowErrorRoot, rootFinalization, false)
+}
+
+func materializeDiagnosticParserCoreAcceptedSelectionWithIncludedRecovery(compact *core.Core, head core.Head, payloads []core.SubtreeID, parser *Parser, source []byte, scratch *parserCoreRunnerScratch, forceReplayParseStates bool, allowErrorRoot bool, rootFinalization diagnosticParserCoreRootFinalization, allowIncludedRecovery bool) (*Tree, error) {
 	var incrementalReuse *compactIncrementalReuseSession
 	if scratch != nil {
 		incrementalReuse = scratch.incrementalReuse
@@ -7540,12 +7540,18 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	if err := poll(); err != nil {
 		return rejectTree(err)
 	}
-	sourceLen := uint32(len(source))
+	expectedRangeStart, sourceLen, rangeErr := compactRangeBounds(source, parser.included)
+	if rangeErr != nil {
+		return rejectTree(rangeErr)
+	}
 	root := tree.root
+	if len(parser.included) > 0 && (root.IsError() || root.HasError()) && !allowIncludedRecovery {
+		return rejectTree(errors.New("compact included-range recovery is not certified"))
+	}
 	if rootFinalization == diagnosticParserCoreFinalizeRecoverEOF {
-		expectedStart := firstNonTriviaByteStart(source)
+		expectedStart := expectedRangeStart
 		tailClean := root.endByte <= sourceLen && parserTailAllowsCleanAcceptance(
-			source, root.endByte, sourceLen, nil, parser.lineContinuationEscapeByte(),
+			source, root.endByte, sourceLen, parser.included, parser.lineContinuationEscapeByte(),
 		)
 		if !allowErrorRoot || !root.IsError() || !root.HasError() ||
 			root.startByte != expectedStart || root.startByte != acceptedRootSpanStart ||
@@ -7556,7 +7562,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			))
 		}
 	} else {
-		if err := finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root, source, sourceLen, allowErrorRoot, parser.lineContinuationEscapeByte(), poll, parser.language.TokenCount, acceptedLeaves, nodesByID, rootFinalization == diagnosticParserCoreFinalizeOwnedRecovery); err != nil {
+		if err := finalizeDiagnosticParserCoreAcceptedRootSpanWithSplice(root, source, sourceLen, allowErrorRoot, parser.lineContinuationEscapeByte(), poll, parser.language.TokenCount, acceptedLeaves, nodesByID, rootFinalization == diagnosticParserCoreFinalizeOwnedRecovery, parser.included); err != nil {
 			return rejectTree(err)
 		}
 	}
@@ -7576,7 +7582,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	// elision assumption launder it into a clean tree. Conservative by
 	// design: a genuine legitimately-elided leading extra also declines here
 	// and falls back to production, which still serves it correctly.
-	if expectedStart := firstNonTriviaByteStart(source); acceptedRootSpanStart > expectedStart {
+	if expectedStart := expectedRangeStart; acceptedRootSpanStart > expectedStart {
 		return rejectTree(&diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreAccept,
 			detail: fmt.Sprintf(
@@ -7585,6 +7591,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 			),
 		})
 	}
+	tree.setIncludedRanges(parser.included)
 	tree.compactMaterialized = true
 	// Compact trees remain eligible only when replay authenticated every
 	// potentially reusable visible node and the scanner transfer is proven.
@@ -8522,7 +8529,18 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 	drop := 0
 	sharedStart := uint32(0)
 	startSet := false
+	sameStart := true
+	maxDroppedEnd := uint32(0)
+	minShiftedStart := uint32(math.MaxUint32)
+	maxDroppedPosition := uint32(0)
+	minShiftedPosition := uint32(math.MaxUint32)
+	ordinaryClean := true
 	for index := range s.headers {
+		header := &s.headers[index]
+		state, position, boundaryErr := s.compact.Boundary(header.head)
+		cost, costErr := s.compact.RecoveryStoredErrorCost(header.head)
+		ordinaryClean = ordinaryClean && boundaryErr == nil && costErr == nil &&
+			state != 0 && cost == 0 && !header.isRecoveryLineage() && header.recoveryRegion() == nil
 		isDrop := drop < len(indices) && indices[drop] == index
 		if isDrop {
 			drop++
@@ -8533,13 +8551,19 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 			if !startSet {
 				sharedStart, startSet = request.token.StartByte, true
 			} else if request.token.StartByte != sharedStart {
-				return false
+				sameStart = false
 			}
+			maxDroppedEnd = max(maxDroppedEnd, request.token.EndByte)
+			maxDroppedPosition = max(maxDroppedPosition, position)
 			continue
 		}
-		header := &s.headers[index]
 		if !header.shifted || header.accepted || header.paused ||
 			header.versionLexerRequestReference() != 0 {
+			return false
+		}
+		snapshot := header.versionLexerSnapshot()
+		if boundaryErr != nil || snapshot == nil || snapshot.dfa.lexerPos < 0 ||
+			uint64(snapshot.dfa.lexerPos) != uint64(position) {
 			return false
 		}
 		matchedShift := false
@@ -8552,8 +8576,10 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 			if !startSet {
 				sharedStart, startSet = request.token.StartByte, true
 			} else if request.token.StartByte != sharedStart {
-				return false
+				sameStart = false
 			}
+			minShiftedStart = min(minShiftedStart, request.token.StartByte)
+			minShiftedPosition = min(minShiftedPosition, position)
 			matchedShift = true
 			break
 		}
@@ -8561,7 +8587,11 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerNoActionDropEligible(
 			return false
 		}
 	}
-	return startSet && drop == len(indices)
+	// Ragged versions can reach different token starts in the next election.
+	// C retires a paused ordinary version when a better active version is ahead.
+	// Zero stored cost excludes recovery competition from this position proof.
+	raggedBehind := ordinaryClean && maxDroppedEnd <= minShiftedStart && maxDroppedPosition <= minShiftedPosition
+	return startSet && drop == len(indices) && (sameStart || raggedBehind)
 }
 
 func (s *diagnosticParserCoreGenericScheduler) dispatchVersionLexerPassActive() (*diagnosticParserCoreGenericUnsupported, error) {
@@ -9019,7 +9049,7 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 				s.tokenSource.relexProbeLexer = probe
 			}
 			if deferContextualCloseAngleAction(
-				s.tokenSource.language, s.tokenSource.lexer.source, StateID(boundary.State()), &cellToken, nil, probe,
+				s.tokenSource.language, s.tokenSource.lexer.source, StateID(boundary.State()), &cellToken, s.options.includedRanges, probe,
 				&s.tokenSource.tokenInvariantMaxReadSpan,
 			) {
 				workCountRecordResolvedActionCell(0)
@@ -9862,6 +9892,7 @@ func (s *diagnosticParserCoreGenericScheduler) s3ErrorModeRelex(startByte uint32
 		errorRunLexState:    ls,
 		hasErrorRunLexState: true,
 	}
+	lx.setIncludedRanges(s.options.includedRanges)
 	relexed := lx.NextWithErrorRuns(ls)
 	if relexed.Symbol == 0 && relexed.StartByte == relexed.EndByte {
 		return Token{}, false
@@ -10513,6 +10544,9 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericAcceptOwned(owner cor
 	}
 	s.headers[cell.headerIndex].accepted = true
 	s.headers[cell.headerIndex].paused = false
+	if err := s.recordRecoveryAcceptance(int(cell.headerIndex)); err != nil {
+		return err
+	}
 	s.epochProgress = true
 	s.work.Accepts++
 	s.work.Dispatches++
@@ -10550,8 +10584,16 @@ func (s *diagnosticParserCoreGenericScheduler) collapseToRecoveryWinner(winner i
 	s.selectedRecoveryAbsorbLineage = len(s.headers) == 2 &&
 		s.s5MissingInsertions == 1 && other >= 0 && other < len(s.headers) &&
 		s.headers[winner].creationSeq < s.headers[other].creationSeq
+	s.collapseToAcceptedWinner(winner)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) collapseToAcceptedWinner(winner int) {
+	if winner < 0 || winner >= len(s.headers) {
+		return
+	}
 	winnerHeader := s.headers[winner]
 	winnerHeader.clearRecoveryLineage()
+	winnerHeader.publishRecoveryCondenseState(0, 0, 0, false)
 	s.invalidateVerifierHeaderBinding()
 	clear(s.headers)
 	for target := range s.canonicalScratch.headerBuffers {
@@ -10615,6 +10657,17 @@ func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineageInd
 			return 0, false, nil
 		}
 		prior = index
+	}
+	if s.recoveryTurns.active {
+		indices = slices.Clone(indices)
+		for _, index := range indices {
+			if s.headers[index].versionState == nil || s.headers[index].versionState.acceptanceSeq == 0 {
+				return 0, false, nil
+			}
+		}
+		sort.SliceStable(indices, func(i, j int) bool {
+			return s.headers[indices[i]].versionState.acceptanceSeq < s.headers[indices[j]].versionState.acceptanceSeq
+		})
 	}
 	if s.tokenSource == nil || s.tokenSource.language == nil {
 		return 0, false, nil
@@ -12100,7 +12153,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 				return err
 			}
 		}
-		if recoveryCostRequired && !s.recoveryIsolation {
+		if recoveryCostRequired {
 			merged, err := s.mergeRecoveredReductionSiblingOwned(owner, int(cell.headerIndex), replacement)
 			if err != nil {
 				return err
@@ -12139,11 +12192,10 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericReductionOwned(owner 
 		s.work.ReductionPauses++
 	} else if len(replacements) == 1 {
 		s.headers[cell.headerIndex] = replacements[0]
-	} else if s.recoveryTurns.active {
+	} else {
+		// Keep the source slot and append new versions after existing siblings.
 		s.headers[cell.headerIndex] = replacements[0]
 		s.headers = append(s.headers, replacements[1:]...)
-	} else {
-		s.headers = replaceDiagnosticParserCoreHeader(s.headers, int(cell.headerIndex), replacements)
 	}
 	if madeFreshProgress {
 		s.epochProgress = true
@@ -12593,8 +12645,24 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		execution.armRanges[ordinal].end = execution.armRanges[ordinal].start + len(kept)
 		s.conflictScratch.adopted[ordinal] = adopted
 	}
+	primaryOrdinal := 0
+	// C appends reduction versions, then shifts the original version.
+	// Without a shift, the last surviving reduction takes the source slot.
+	for ordinal := 0; ordinal < actions.Len(); ordinal++ {
+		if actions.At(ordinal).Type == core.ActionReduce && len(execution.arm(ordinal)) != 0 {
+			primaryOrdinal = ordinal
+		}
+		if action := actions.At(ordinal); action.Type == core.ActionShift && !action.Repetition {
+			primaryOrdinal = ordinal
+			break
+		}
+	}
+	preserveCreation := actions.At(primaryOrdinal).Type == core.ActionShift
 	trialSeq := nextSeqBefore
-	for ordinal := 1; ordinal < len(execution.armRanges); ordinal++ {
+	for ordinal := 0; ordinal < len(execution.armRanges); ordinal++ {
+		if ordinal == primaryOrdinal && preserveCreation {
+			continue
+		}
 		arm := execution.arm(ordinal)
 		for output := range arm {
 			if trialSeq == math.MaxUint64 {
@@ -12604,8 +12672,8 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 			trialSeq++
 		}
 	}
-	primaries := execution.arm(0)
-	if len(primaries) != 0 {
+	primaries := execution.arm(primaryOrdinal)
+	if len(primaries) != 0 && preserveCreation {
 		primaries[0].creationSeq = s.headers[cell.headerIndex].creationSeq
 		for index := 1; index < len(primaries); index++ {
 			if trialSeq == math.MaxUint64 {
@@ -12637,7 +12705,10 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		headers = append(headers, primaries[0])
 	}
 	headers = append(headers, suffix...)
-	for ordinal := 1; ordinal < len(execution.armRanges); ordinal++ {
+	for ordinal := 0; ordinal < len(execution.armRanges); ordinal++ {
+		if ordinal == primaryOrdinal {
+			continue
+		}
 		headers = append(headers, execution.arm(ordinal)...)
 	}
 	if len(primaries) > 1 {
@@ -12713,18 +12784,21 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 		if err != nil {
 			return err
 		}
-		secondaryArms := make([]DiagnosticParserCoreGenericConflictArm, actions.Len()-1)
-		for ordinal := 1; ordinal < actions.Len(); ordinal++ {
+		secondaryArms := make([]DiagnosticParserCoreGenericConflictArm, 0, actions.Len()-1)
+		for ordinal := 0; ordinal < actions.Len(); ordinal++ {
+			if ordinal == primaryOrdinal {
+				continue
+			}
 			arm := execution.arm(ordinal)
 			outputs, receiptErr := diagnosticParserCoreHeaderReceipts(s.compact, arm)
 			if receiptErr != nil {
 				return receiptErr
 			}
-			secondaryArms[ordinal-1] = DiagnosticParserCoreGenericConflictArm{
-				Ordinal: ordinal, BranchOrder: execution.round.Actions[ordinal-1].BranchOrder,
+			secondaryArms = append(secondaryArms, DiagnosticParserCoreGenericConflictArm{
+				Ordinal: ordinal, BranchOrder: execution.round.Actions[ordinal].BranchOrder,
 				Outputs: outputs, Paused: len(outputs) == 0 && s.conflictScratch.adopted[ordinal] == 0,
 				Adopted: s.conflictScratch.adopted[ordinal] != 0,
-			}
+			})
 		}
 		after, err := diagnosticParserCoreHeaderReceipts(s.compact, s.headers)
 		if err != nil {
@@ -12741,7 +12815,7 @@ func (s *diagnosticParserCoreGenericScheduler) applyGenericConflictOwned(owner c
 			BranchOrderBefore: branchOrderBefore, BranchOrderAfter: s.branchOrder,
 			NextCreationSeqBefore: nextSeqBefore, NextCreationSeqAfter: s.nextSeq,
 			Round: round, Prefix: prefixReceipts,
-			PrimaryPaused: len(primaryReceipts) == 0 && s.conflictScratch.adopted[0] == 0, PrimaryAdopted: s.conflictScratch.adopted[0] != 0,
+			PrimaryPaused: len(primaryReceipts) == 0 && s.conflictScratch.adopted[primaryOrdinal] == 0, PrimaryAdopted: s.conflictScratch.adopted[primaryOrdinal] != 0,
 			OriginalSuffix: suffixReceipts,
 			SecondaryArms:  secondaryArms, After: after,
 		}
@@ -13322,8 +13396,13 @@ func (s *diagnosticParserCoreGenericScheduler) canonicalizeOwnedWithMutation(own
 			// C ends recovery competition when pairwise condensation leaves
 			// one active version. Clear the compact marker before the next
 			// dispatch, or the sole winner rejects itself as mixed ambiguity.
-			if len(headers) == 1 && !headers[0].accepted {
+			if len(headers) == 1 && !headers[0].accepted &&
+				(!s.recoveryTurns.active || headers[0].recoveryRegion() == nil) {
+				baseline, baselineSet := headers[0].recoveryNodeBaseline()
 				headers[0].clearRecoveryLineage()
+				if s.recoveryTurns.active {
+					headers[0].publishRecoveryCondenseState(0, 0, baseline, baselineSet)
+				}
 				s.recoveryIsolation = false
 			}
 		}
@@ -13605,7 +13684,7 @@ func (s *diagnosticParserCoreGenericScheduler) publishTotals() {
 }
 
 func authenticatedParserCoreGoLanguage(scanner ExternalScanner) (*Language, error) {
-	const goBlobSHA256 = "9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"
+	const goBlobSHA256 = "a0287eb2011072c1fac90a7c1cdf21f8d7e923a7df8bfc9a287588fd2e9b1d58"
 	if fmt.Sprintf("%x", sha256.Sum256(parserCoreCertifiedGoBlob)) != goBlobSHA256 {
 		return nil, errors.New("parser-core phase zero: certified Go grammar identity mismatch")
 	}
@@ -13618,7 +13697,9 @@ func authenticatedParserCoreGoLanguage(scanner ExternalScanner) (*Language, erro
 		return nil, fmt.Errorf("parser-core phase zero: decode embedded Go blob: %w", err)
 	}
 	decoded.Name = "go"
-	decoded.ExternalScanner = scanner
+	if len(decoded.ExternalSymbols) != 0 {
+		decoded.ExternalScanner = scanner
+	}
 	decoded.CompactConvergedReductionSplitDropsCertified = true
 	decoded.CompactOwnedEOFRecoveryCertified = true
 	CertifyCRecoveryCostCompetition(decoded)

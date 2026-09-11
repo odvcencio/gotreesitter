@@ -144,6 +144,39 @@ func TestIncludedRangesGoRecoveryKeepsSelectedStart(t *testing.T) {
 	}
 }
 
+func TestIncludedRangesGoIncrementalTracksRangeChanges(t *testing.T) {
+	for _, compact := range []bool{false, true} {
+		for _, profiled := range []bool{false, true} {
+			source := []byte("package first\nvar a = 1\npackage second\nvar b = 2\n")
+			second := bytes.Index(source, []byte("package second"))
+			parser := gotreesitter.NewParser(grammars.GoLanguage())
+			parser.SetAdmissionCandidateRoute(compact)
+			parser.SetIncludedRanges([]gotreesitter.Range{{EndByte: uint32(second), EndPoint: includedRangesGoPointAt(source, second)}})
+			old, err := parser.Parse(source)
+			if err != nil || old == nil {
+				t.Fatalf("initial parse: %v", err)
+			}
+			parser.SetIncludedRanges([]gotreesitter.Range{{StartByte: uint32(second), EndByte: uint32(len(source)), StartPoint: includedRangesGoPointAt(source, second), EndPoint: includedRangesGoPointAt(source, len(source))}})
+			var next *gotreesitter.Tree
+			if profiled {
+				next, _, err = parser.ParseIncrementalProfiled(source, old)
+			} else {
+				next, err = parser.ParseIncremental(source, old)
+			}
+			if next != nil && next != old {
+				defer next.Release()
+			}
+			defer old.Release()
+			if err != nil || next == nil {
+				t.Fatalf("range change compact=%t profiled=%t: %v", compact, profiled, err)
+			}
+			if next == old || next.RootNode().StartByte() != uint32(second) || next.RootNode().HasError() {
+				t.Fatalf("range change reused stale tree: compact=%t profiled=%t same=%t start=%d", compact, profiled, next == old, next.RootNode().StartByte())
+			}
+		}
+	}
+}
+
 func TestIncludedRangesGoIncrementalKeepsSelectedStart(t *testing.T) {
 	lang := grammars.GoLanguage()
 	if lang == nil {
@@ -202,6 +235,9 @@ func TestIncludedRangesGoIncrementalKeepsSelectedStart(t *testing.T) {
 	defer tree.Release()
 	if profile.ReuseUnsupported {
 		t.Fatalf("included-ranges incremental reuse unsupported: %s", profile.ReuseUnsupportedReason)
+	}
+	if profile.ReusedSubtrees == 0 {
+		t.Fatal("included-ranges edit did not reuse an unchanged subtree")
 	}
 
 	root := tree.RootNode()

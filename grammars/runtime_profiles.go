@@ -38,6 +38,7 @@ type builtinLanguageRuntimeProfile struct {
 	compactS5EOFMissingInsertion        bool
 	compactFaithfulS5Recovery           bool
 	compactOwnedEOFRecovery             bool
+	compactIncludedRangeEOFRecovery     bool
 	compactRecoveryTrailingRetirement   bool
 	compactRecoveryErrorModeKeyword     bool
 	compactRecoveryTerminalAliases      []compactRecoveryTerminalAliasProfile
@@ -73,9 +74,10 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// against the production parser and the tree-sitter C oracle.
 	// The owned EOF bundle requires its executed recovery route before publication.
 	"go": {
-		blobSHA256:                 mustRuntimeProfileSHA256("9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"),
-		compactConvergedSplitDrops: true,
-		compactOwnedEOFRecovery:    true,
+		blobSHA256:                      mustRuntimeProfileSHA256("a0287eb2011072c1fac90a7c1cdf21f8d7e923a7df8bfc9a287588fd2e9b1d58"),
+		compactConvergedSplitDrops:      true,
+		compactOwnedEOFRecovery:         true,
+		compactIncludedRangeEOFRecovery: true,
 	},
 	// YAML's irreducible flow opener has one direct no-action EOF lineage whose
 	// C result is the recover_eof ERROR root. Keep this gate independent from
@@ -160,6 +162,7 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 		blobSHA256:                   mustRuntimeProfileSHA256("76d3d788ec44b5eaeaa0b3b0069bf52ffc4b125791059ff743301b9938dffd3d"),
 		compactStrategy2ErrorRegion:  true,
 		compactMissingTokenInsertion: true,
+		compactFaithfulS5Recovery:    true,
 	},
 	// Objective-C keeps parity-relevant alternatives below the bounded stack
 	// comparison frontier. Exact comparison preserves them until generic result
@@ -842,6 +845,10 @@ func attachBuiltinLanguageRuntimeProfile(name string, blobSHA256 [32]byte, lang 
 	}
 	if profile.compactOwnedEOFRecovery && !lang.CompactOwnedEOFRecoveryCertified {
 		lang.CompactOwnedEOFRecoveryCertified = true
+		changed = true
+	}
+	if profile.compactIncludedRangeEOFRecovery && !lang.CompactIncludedRangeEOFRecoveryCertified {
+		lang.CompactIncludedRangeEOFRecoveryCertified = true
 		changed = true
 	}
 	if profile.compactRecoveryTrailingRetirement && !lang.CompactRecoveryTrailingLineageRetirementCertified {

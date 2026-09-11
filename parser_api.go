@@ -967,7 +967,7 @@ func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if p.canReuseUnchangedTree(source, oldTree) {
 		return oldTree, nil
 	}
 	return p.parseIncrementalWithTokenSourceChanged(source, oldTree, ts, reparseFactory)
@@ -1713,7 +1713,7 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if p.canReuseUnchangedTree(source, oldTree) {
 		return oldTree, nil
 	}
 	operationBudget := p.beginParseOperationBudget()
@@ -1738,7 +1738,7 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	// The compact attempt has declined. Keep this fallback on the legacy engine.
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
-	if oldTree != nil && oldTree.language != p.language {
+	if p.oldTreeReuseContextMismatch(oldTree) != "" {
 		return p.Parse(source)
 	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
@@ -1912,7 +1912,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if p.canReuseUnchangedTree(source, oldTree) {
 		return oldTree, IncrementalParseProfile{}, nil
 	}
 	operationBudget := p.beginParseOperationBudget()
@@ -1952,10 +1952,10 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	// The compact attempt has declined. Keep this fallback on the legacy engine.
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
-	if oldTree != nil && oldTree.language != p.language {
+	if reason := p.oldTreeReuseContextMismatch(oldTree); reason != "" {
 		start := time.Now()
 		tree, err := p.Parse(source)
-		return tree, profileFreshParseFallback(start, tree, "old_tree_language_mismatch"), err
+		return tree, profileFreshParseFallback(start, tree, reason), err
 	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		timing := &incrementalParseTiming{}
@@ -2021,7 +2021,7 @@ func (p *Parser) ParseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if p.canReuseUnchangedTree(source, oldTree) {
 		return oldTree, IncrementalParseProfile{}, nil
 	}
 	return p.parseIncrementalWithTokenSourceChangedProfiled(source, oldTree, ts)

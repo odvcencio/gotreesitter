@@ -150,6 +150,7 @@ type DiagnosticParserCoreSeedClosedGateForTest struct {
 // DiagnosticParserCoreSeedGoldenProbeForTest captures the immutable golden's
 // pre-dispatch election barrier and named closed-frontier gates.
 type DiagnosticParserCoreSeedGoldenProbeForTest struct {
+	GrammarSHA256    [32]byte
 	Receipt          *DiagnosticParserCoreGenericScheduler
 	Election         DiagnosticParserCoreElection
 	Headers          []DiagnosticParserCoreHeaderPathReceipt
@@ -219,6 +220,24 @@ func RunDiagnosticParserCoreSeedGoldenProbeForTest(scanner ExternalScanner, sour
 	if err != nil {
 		return DiagnosticParserCoreSeedGoldenProbeForTest{}, err
 	}
+	return runDiagnosticParserCoreSeedGoldenProbe(lang, sha256.Sum256(parserCoreCertifiedGoBlob), source)
+}
+
+// RunDiagnosticParserCoreSeedGoldenBlobProbeForTest uses a historical test grammar.
+// The caller must authenticate the fixture before supplying its bytes.
+func RunDiagnosticParserCoreSeedGoldenBlobProbeForTest(scanner ExternalScanner, blob, source []byte) (DiagnosticParserCoreSeedGoldenProbeForTest, error) {
+	lang, err := LoadLanguage(blob)
+	if err != nil {
+		return DiagnosticParserCoreSeedGoldenProbeForTest{}, err
+	}
+	lang.Name = "go"
+	if len(lang.ExternalSymbols) != 0 {
+		lang.ExternalScanner = scanner
+	}
+	return runDiagnosticParserCoreSeedGoldenProbe(lang, sha256.Sum256(blob), source)
+}
+
+func runDiagnosticParserCoreSeedGoldenProbe(lang *Language, grammarSHA256 [32]byte, source []byte) (DiagnosticParserCoreSeedGoldenProbeForTest, error) {
 	parser := NewParser(lang)
 	tables, err := newParserCoreRootTables(parser)
 	if err != nil {
@@ -235,7 +254,7 @@ func RunDiagnosticParserCoreSeedGoldenProbeForTest(scanner ExternalScanner, sour
 	defer tokenSource.Close()
 
 	wantedGates := map[uint32]bool{116: true, 580: true, 725: true, 732: true, 742: true}
-	probe := DiagnosticParserCoreSeedGoldenProbeForTest{}
+	probe := DiagnosticParserCoreSeedGoldenProbeForTest{GrammarSHA256: grammarSHA256}
 	var scannerScratch []byte
 	observer := diagnosticParserCoreSeedObserver{
 		beforeElection: func(s *diagnosticParserCoreGenericScheduler) error {

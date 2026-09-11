@@ -343,6 +343,9 @@ func runIncrGateSweep(
 	}
 
 	baseline := parseFresh(freshP, src)
+	if baseline != nil {
+		defer baseline.Release()
+	}
 	if baseline == nil || baseline.RootNode() == nil {
 		t.Fatalf("baseline fresh parse of %s failed", entry.path)
 	}
@@ -362,12 +365,16 @@ func runIncrGateSweep(
 			fresh := parseFresh(freshP, edited)
 			stats.totalSites++
 			if fresh == nil || fresh.RootNode() == nil || int(fresh.RootNode().EndByte()) != len(edited) {
+				if fresh != nil {
+					fresh.Release()
+				}
 				continue // fresh parse itself did not cover the whole edited buffer; out of scope
 			}
 			stats.fullSpanSites++
 
 			fe, fm := incrGateTreeStats(fresh.RootNode())
 			if fe != 0 || fm != 0 {
+				fresh.Release()
 				continue // fresh is not genuinely clean; error-recovery-path divergence is out of this gate's scope
 			}
 			stats.cleanSites++
@@ -381,6 +388,11 @@ func runIncrGateSweep(
 				incr, _ = incrP.ParseIncremental(edited, oldCopy)
 			}
 			if incr == nil || incr.RootNode() == nil {
+				if incr != nil {
+					incr.Release()
+				}
+				oldCopy.Release()
+				fresh.Release()
 				stats.divergentSites++
 				stats.unlisted = append(stats.unlisted, fmt.Sprintf(
 					"SILENT-CORRUPTION(fresh-clean) unlisted: %s pos=%d class=%s: ParseIncremental returned nil/no-root while fresh parse of the identical edited text was clean and full-span",
@@ -389,6 +401,9 @@ func runIncrGateSweep(
 			}
 
 			d := incrGateFirstDivergence(lang, fresh.RootNode(), incr.RootNode(), nil)
+			incr.Release()
+			oldCopy.Release()
+			fresh.Release()
 			if d == nil {
 				continue // genuinely identical -- the invariant holds here
 			}

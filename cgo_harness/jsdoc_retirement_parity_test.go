@@ -259,6 +259,69 @@ func TestErlangLeadingSkippedPrefixLockedCParity(t *testing.T) {
 	}
 }
 
+func TestErlangAdmissionFuzzSeedsLockedCParity(t *testing.T) {
+	runErlangAdmissionFuzzSeedsLockedCParity(t, false)
+}
+
+func runErlangAdmissionFuzzSeedsLockedCParity(t *testing.T, requireNative bool) {
+	t.Helper()
+	entry, ok := parityEntriesByName["erlang"]
+	if !ok {
+		t.Fatal("missing Erlang grammar entry")
+	}
+	language := entry.Language()
+	cLanguage, err := COracleLanguage("erlang")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, newline := range []bool{false, true} {
+		t.Run(fmt.Sprintf("newline_%t", newline), func(t *testing.T) {
+			source := []byte("000\"0A!A \"A\"=0:A0!)A\"0%0000")
+			if newline {
+				source = append(source, '\n')
+			}
+			cParser := sitter.NewParser()
+			t.Cleanup(cParser.Close)
+			if err := cParser.SetLanguage(cLanguage); err != nil {
+				t.Fatal(err)
+			}
+			cTree := cParser.Parse(source, nil)
+			if cTree == nil || cTree.RootNode() == nil {
+				t.Fatal("C oracle returned a nil tree")
+			}
+			t.Cleanup(cTree.Close)
+			cDigest, err := COracleDeepDigest(cTree)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("C tree: %s", cTree.RootNode().ToSexp())
+			for _, route := range []struct {
+				name    string
+				compact bool
+			}{{"production", false}, {"compact", true}} {
+				t.Run(route.name, func(t *testing.T) {
+					parser := gotreesitter.NewParser(language)
+					parser.SetAdmissionCandidateRoute(route.compact)
+					routedBefore, fallbackBefore := gotreesitter.AdmissionCandidateCounters()
+					tree, err := parser.Parse(source)
+					if tree != nil {
+						t.Cleanup(tree.Release)
+					}
+					if err != nil || tree == nil || tree.RootNode() == nil {
+						t.Fatalf("parse returned no usable tree: %v", err)
+					}
+					routed, fallback := gotreesitter.AdmissionCandidateCounters()
+					t.Logf("routed=%d fallback=%d tree=%s", routed-routedBefore, fallback-fallbackBefore, tree.RootNode().SExpr(language))
+					assertJsdocLockedCTreeExact(t, "erlang_fuzz_"+route.name, tree, language, cTree, cDigest)
+					if requireNative && route.compact && (routed-routedBefore != 1 || fallback != fallbackBefore) {
+						t.Fatalf("compact parse must run natively: routed=%d fallback=%d", routed-routedBefore, fallback-fallbackBefore)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestBashSkippedEscapeLockedCParity(t *testing.T) {
 	entry, ok := parityEntriesByName["bash"]
 	if !ok {

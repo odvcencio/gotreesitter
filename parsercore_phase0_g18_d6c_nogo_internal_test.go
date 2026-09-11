@@ -192,27 +192,34 @@ func TestG18D6cGrammargenLRFrontierDeclinesOnStateAndPublicProjectionMismatch(t 
 		t.Fatalf("candidate decline=%+v, want typed no_action alternative-set decline", decline)
 	}
 
-	if survivor.Digest != "9b1c3a249bec15d4b74a7462f701c491e022be80f7a51a5590f1520a76fd2c06" || survivor.Length != 5254 {
+	if survivor.Digest != "4725c17a4eb81818e0935b924a5d24e50fa69182215dac67491af9093f8a5776" || survivor.Length != 4705 {
 		t.Fatalf("survivor derivation=%s/%d, want locked D6b receipt digest/length", survivor.Digest, survivor.Length)
 	}
-	if dropped.Digest != "d72a6fe90ca3aec9883bd00494eb8ca7110ede90d5f09fb5000fdc6441a79e8f" || dropped.Length != 5324 {
+	if dropped.Digest != "67b910ef56c7fd84197996d9a4ddcf75978036215289de05c2d39e1a5eea6470" || dropped.Length != 4610 {
 		t.Fatalf("dropped derivation=%s/%d, want locked D6b receipt digest/length", dropped.Digest, dropped.Length)
 	}
 	if survivor.Digest == dropped.Digest {
 		t.Fatal("survivor and dropped derivation digests unexpectedly match")
 	}
-	if survivor.State != 1141 || dropped.State != 680 {
-		t.Fatalf("continuation states=%d/%d, want survivor 1141 and dropped 680", survivor.State, dropped.State)
+	if survivor.State != 1275 || dropped.State != 1279 {
+		t.Fatalf("continuation states=%d/%d, want survivor 1275 and dropped 1279", survivor.State, dropped.State)
 	}
 	if survivor.Projection.StartByte != 1030 || survivor.Projection.EndByte != 1037 ||
 		dropped.Projection.StartByte != 1030 || dropped.Projection.EndByte != 1037 {
 		t.Fatalf("path [0,4] spans=%d..%d/%d..%d, want 1030..1037", survivor.Projection.StartByte, survivor.Projection.EndByte, dropped.Projection.StartByte, dropped.Projection.EndByte)
 	}
-	if survivor.Projection.Symbol != 86 || survivor.Projection.ProductionID != 0 || survivor.Projection.Terminal != true || len(survivor.Projection.Children) != 0 || len(survivor.Projection.Fields) != 0 {
-		t.Fatalf("survivor path [0,4] projection=%+v, want terminal identifier production 0", survivor.Projection)
+	if dropped.Projection.Symbol != 1 || dropped.Projection.ProductionID != 0 || !dropped.Projection.Terminal || len(dropped.Projection.Children) != 0 || len(dropped.Projection.Fields) != 0 {
+		t.Fatalf("dropped path [0,4] projection=%+v, want terminal identifier production 0", dropped.Projection)
 	}
-	if dropped.Projection.Symbol != 113 || dropped.Projection.ProductionID != 36 || dropped.Projection.Terminal || len(dropped.Projection.Children) != 1 || len(dropped.Projection.Fields) != 1 || dropped.Projection.Fields[0].FieldID != 3 || dropped.Projection.Fields[0].ChildIndex != 0 {
-		t.Fatalf("dropped path [0,4] projection=%+v, want parameter_declaration production 36 with type child", dropped.Projection)
+	if survivor.Projection.Symbol != 112 || survivor.Projection.ProductionID != 19 || survivor.Projection.Terminal || len(survivor.Projection.Children) != 1 || len(survivor.Projection.Fields) != 1 || survivor.Projection.Fields[0].FieldID != 31 || survivor.Projection.Fields[0].ChildIndex != 0 {
+		t.Fatalf("survivor path [0,4] projection=%+v, want parameter_declaration production 19 with type child", survivor.Projection)
+	}
+	language, err := authenticatedParserCoreGoLanguage(parserCoreWarmGoScanner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if language.SymbolNames[dropped.Projection.Symbol] != "identifier" || language.SymbolNames[survivor.Projection.Symbol] != "parameter_declaration" || language.FieldNames[survivor.Projection.Fields[0].FieldID] != "type" {
+		t.Fatal("frontier projections do not represent an identifier and a typed parameter")
 	}
 	if survivor.Projection.Symbol == dropped.Projection.Symbol || survivor.Projection.ProductionID == dropped.Projection.ProductionID {
 		t.Fatal("survivor and dropped public projections unexpectedly match")

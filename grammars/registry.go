@@ -119,7 +119,6 @@ func Register(entry LangEntry) {
 	if entry.GrammarSource == "" {
 		entry.GrammarSource = GrammarSourceUnknown
 	}
-	applyGrammarOwnership(&entry)
 	if entry.TokenSourceFactory == nil {
 		entry.TokenSourceFactory = defaultTokenSourceFactory(entry.Name)
 	}

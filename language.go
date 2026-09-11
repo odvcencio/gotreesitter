@@ -949,6 +949,11 @@ type Language struct {
 	// Custom, adapted, and stale artifacts retain the false default.
 	CompactOwnedEOFRecoveryCertified bool
 
+	// CompactIncludedRangeEOFRecoveryCertified permits included ranges on the owned EOF route.
+	// Publication still requires an executed owned EOF recovery turn.
+	// Custom, adapted, and stale artifacts retain the false default.
+	CompactIncludedRangeEOFRecoveryCertified bool
+
 	// CompactRecoveryTrailingLineageRetirementCertified permits the compact
 	// scheduler to retire one trailing no-action missing lineage after the
 	// earlier error-absorb lineage consumed the same elected token. This is the

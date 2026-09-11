@@ -220,6 +220,39 @@ func TestRecoveryNodeErrorCostChildlessErrorLeafRule(t *testing.T) {
 	}
 }
 
+func TestRecoveryLexicalErrorFinalAndRepeatCosts(t *testing.T) {
+	source := fakeRecoveryCostSource{
+		1: {Symbol: RecoveryErrorSymbol, StartByte: 0, EndByte: 1},
+		2: {Symbol: ordinarySymbol, StartByte: 1, EndByte: 2},
+		3: {Symbol: ordinarySymbol, StartByte: 2, EndByte: 3},
+		4: {Symbol: ordinarySymbol, Extra: true, StartByte: 0, EndByte: 1},
+	}
+	for _, test := range []struct {
+		name          string
+		children      []SubtreeID
+		final, repeat uint32
+	}{
+		{"single_lexical_error", []SubtreeID{1}, 501, 501},
+		{"lexical_error_first", []SubtreeID{1, 2}, 602, 702},
+		{"lexical_error_last", []SubtreeID{2, 1}, 602, 702},
+		{"nested_repeat", []SubtreeID{1, 2, 3}, 703, 803},
+		{"single_extra", []SubtreeID{4}, 501, 501},
+		{"nested_extra", []SubtreeID{4, 2}, 602, 702},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			end := uint32(len(test.children))
+			final, err := RecoveryErrorRegionCost(visibleSymbols(), source, nil, 0, 0, end, 0, test.children)
+			if err != nil || final != test.final {
+				t.Fatalf("final ERROR cost=%d err=%v, want %d", final, err, test.final)
+			}
+			repeat, err := RecoveryErrorRepeatRegionCost(visibleSymbols(), source, nil, 0, 0, end, 0, test.children)
+			if err != nil || repeat != test.repeat {
+				t.Fatalf("open ERROR_REPEAT cost=%d err=%v, want %d", repeat, err, test.repeat)
+			}
+		})
+	}
+}
+
 func TestRecoveryNodeErrorCostMissingLeaf(t *testing.T) {
 	spec := &recoveryCostSpec{symbol: ordinarySymbol, missing: true, start: 5, end: 5, startRow: 1, endRow: 1}
 	src, root := newRecoveryCostFixture(spec)

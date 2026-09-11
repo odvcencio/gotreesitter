@@ -168,7 +168,8 @@ func (s *diagnosticParserCoreGenericScheduler) versionLexerStateEqual(
 	if left == nil || right == nil {
 		return left == right
 	}
-	if left.s3Region != right.s3Region ||
+	if left.acceptanceSeq != right.acceptanceSeq ||
+		left.s3Region != right.s3Region ||
 		left.relexSnapshot != right.relexSnapshot ||
 		left.recoveryGroup != right.recoveryGroup ||
 		left.missingGroup != right.missingGroup ||

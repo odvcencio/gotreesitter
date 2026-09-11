@@ -311,8 +311,7 @@ func TestParserCoreCorridorPassMixReceipt(t *testing.T) {
 	}
 }
 
-// TestParserCoreCorridorDefaultOff keeps the experimental lane outside the
-// normal parser path until recovery mutations match the C tree.
+// TestParserCoreCorridorDefaultOn verifies the default route executes corridor passes.
 func TestParserCoreCorridorDefaultOn(t *testing.T) {
 	if os.Getenv("GTS_C4_CORRIDOR") != "" {
 		t.Skip("GTS_C4_CORRIDOR is set in this environment")

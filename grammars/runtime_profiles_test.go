@@ -66,13 +66,13 @@ func TestHTMLProfileCertifiesCompleteCompactRecovery(t *testing.T) {
 	if lang.CompactRecoveryPlainFirstCertified {
 		t.Fatal("the HTML profile unexpectedly enabled plain-first recovery")
 	}
-	if lang.CompactFaithfulS5RecoveryCertified {
-		t.Fatal("the HTML profile unexpectedly enabled the Scala S5 route")
+	if !lang.CompactFaithfulS5RecoveryCertified {
+		t.Fatal("the HTML profile did not enable owned recovery competition")
 	}
 	uncertified := &gotreesitter.Language{}
 	if attachBuiltinLanguageRuntimeProfile("html", sha256.Sum256([]byte("wrong html blob")), uncertified) ||
 		uncertified.CompactStrategy2ErrorRegionCertified || uncertified.CompactMissingTokenInsertionCertified ||
-		uncertified.CompactRecoveryPlainFirstCertified {
+		uncertified.CompactRecoveryPlainFirstCertified || uncertified.CompactFaithfulS5RecoveryCertified {
 		t.Fatal("a mismatched HTML blob received compact recovery certification")
 	}
 }
@@ -1520,5 +1520,22 @@ func TestNativeUnaryWrapperFlatteningProfileCensus(t *testing.T) {
 	}
 	if len(stale.NativeUnaryWrapperFlattening) != 0 {
 		t.Fatalf("stale F# unary-wrapper rules = %v, want none", stale.NativeUnaryWrapperFlattening)
+	}
+}
+
+func TestBuiltinGoIncludedEOFRecoveryRequiresExactBlob(t *testing.T) {
+	profile := builtinLanguageRuntimeProfiles["go"]
+	exact := &gotreesitter.Language{Name: "go"}
+	if !attachBuiltinLanguageRuntimeProfile("go", profile.blobSHA256, exact) || !exact.CompactIncludedRangeEOFRecoveryCertified {
+		t.Fatal("exact Go blob lacks included EOF recovery certification")
+	}
+	stale := &gotreesitter.Language{Name: "go"}
+	if attachBuiltinLanguageRuntimeProfile("go", sha256.Sum256([]byte("stale Go blob")), stale) || stale.CompactIncludedRangeEOFRecoveryCertified {
+		t.Fatal("stale Go blob received included EOF recovery certification")
+	}
+	custom := &gotreesitter.Language{Name: "go"}
+	AttachLanguageSupport("go", custom)
+	if custom.CompactIncludedRangeEOFRecoveryCertified {
+		t.Fatal("custom Go grammar received included EOF recovery certification")
 	}
 }

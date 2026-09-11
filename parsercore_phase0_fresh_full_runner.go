@@ -148,10 +148,27 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserverAndErrorRuns
 	// plain lexer silently skipping it -- the silent-skip shape a true no-
 	// table-action dispatch point can never observe, verified against every
 	// committed html_erroneous_end_tag witness.
+	if _, _, err := compactRangeBounds(source, r.parser.included); err != nil {
+		return nil, nil, err
+	}
+	if err := compactRangePointsMatch(source, r.parser.included, func() error {
+		reason := r.parser.activeParseStopReason()
+		if parseStopReasonIsActive(reason) {
+			return &ParseStoppedEarlyError{Reason: reason}
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
 	tokenSource := r.parser.acquireParserDFATokenSourceWithErrorRuns(source, forceErrorRuns)
 	if tokenSource == nil {
 		return nil, nil, errors.New("parser-core fresh-full runner: production DFA unavailable")
 	}
+	if len(r.parser.included) > 0 && !tokenSource.setIncludedRanges(r.parser.included) {
+		tokenSource.Close()
+		return nil, nil, errors.New("compact token source declined included ranges")
+	}
+	r.options.includedRanges = r.parser.included
 	// Recomputed fresh for every call: the production soft budget is a
 	// function of source length (parseMemoryBudgetForParser), and this
 	// runner is reused across parses of different sizes. Only armed when the
@@ -227,6 +244,9 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserverAndErrorRuns
 }
 
 func requireParserCoreFreshFullAcceptance(scheduler *diagnosticParserCoreGenericScheduler, source []byte, allowConvergedReductionSplitDrops bool, continuationEscape byte) error {
+	if scheduler != nil && len(scheduler.options.includedRanges) > 0 && (scheduler.s3RegionOpened || scheduler.recoveryTurns.active || scheduler.work.RecoverEOFAccepts != 0 || scheduler.s5MissingInsertions != 0) && !scheduler.includedRangeEOFRecoveryAdmitted(source) {
+		return errors.New("compact included-range recovery is not certified")
+	}
 	if scheduler == nil || scheduler.receipt == nil || scheduler.receipt.Acceptance == nil || scheduler.acceptedHead.Node == 0 {
 		// GTS_ADMISSION_CENSUS=1 (admission_census.go) re-surfaces the boundary
 		// and detail the scheduler already recorded in scheduler.receipt.Stop
@@ -241,7 +261,10 @@ func requireParserCoreFreshFullAcceptance(scheduler *diagnosticParserCoreGeneric
 		return errors.New("parser-core fresh-full runner source exceeds uint32 offsets")
 	}
 	acceptance := scheduler.receipt.Acceptance
-	wantEOF := uint32(len(source))
+	_, wantEOF, rangeErr := compactRangeBounds(source, scheduler.options.includedRanges)
+	if rangeErr != nil {
+		return rangeErr
+	}
 	header := acceptance.Header.Header
 	selectedCertifiedPrimary := scheduler.options.allowPrimaryAcceptDerivation &&
 		header.ExactPaths > 1 && !acceptance.HasBranchOrder
@@ -254,7 +277,7 @@ func requireParserCoreFreshFullAcceptance(scheduler *diagnosticParserCoreGeneric
 		acceptance.Token.Missing || acceptance.Token.NoLookahead || acceptance.Token.ExternalScannerToken ||
 		!header.Accepted || header.Paused || header.ExactPaths != 1 &&
 		!selectedCertifiedPrimary && !selectedMaterialityCertified && !selectedStructuralElectionCertified ||
-		!parserCoreFreshFullAcceptedTailIsClean(source, header.ByteOffset, continuationEscape) || !acceptCountValid {
+		!parserTailAllowsCleanAcceptance(source, header.ByteOffset, wantEOF, scheduler.options.includedRanges, continuationEscape) || !acceptCountValid {
 		// See the comment above: census classification is opt-in and additive.
 		if admissionCensusEnabled() {
 			return admissionCensusAcceptanceDecline(acceptance, wantEOF)
@@ -352,7 +375,7 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		return nil, errors.New("parser-core fresh-full selected materialization is incomplete")
 	}
 	if r.recoveryVersionTurnPublicationRequired(scheduler) &&
-		(!scheduler.recoveryTurns.active || scheduler.work.RecoverEOFAccepts == 0) {
+		(!scheduler.recoveryTurns.active || (scheduler.work.RecoverEOFAccepts == 0 && !scheduler.hasOwnedOrdinaryEOFAcceptance(source))) {
 		return nil, &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreAccept,
 			detail:   "owned recovery publication requires an executed EOF turn",
@@ -372,14 +395,14 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 	if r.recoverEOFFinalizationAdmitted(scheduler) {
 		rootFinalization = diagnosticParserCoreFinalizeRecoverEOF
 		allowErrorRoot = true
-	} else if r.options.allowCompactRecoveryVersionTurns && scheduler.recoveryTurns.active && allowErrorRoot {
+	} else if scheduler.options.allowCompactRecoveryVersionTurns && scheduler.recoveryTurns.active && allowErrorRoot {
 		rootFinalization = diagnosticParserCoreFinalizeOwnedRecovery
 		if scheduler.acceptedRootFinalization == diagnosticParserCoreFinalizeRecoverEOF {
 			rootFinalization = diagnosticParserCoreFinalizeRecoverEOF
 		}
 	}
 	r.scratch.materializationBudgetScheduler = scheduler
-	tree, err := materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(
+	tree, err := materializeDiagnosticParserCoreAcceptedSelectionWithIncludedRecovery(
 		compact,
 		scheduler.acceptedHead,
 		scheduler.acceptedPayloads,
@@ -389,11 +412,49 @@ func (r *parserCoreFreshFullRunner) materializeSelection(source []byte, compact 
 		r.replayParseStates,
 		allowErrorRoot,
 		rootFinalization,
+		scheduler.includedRangeEOFRecoveryAdmitted(source),
 	)
 	if err != nil && gated {
 		scheduler.failCompactEOFRecoveryConstruction(err)
 	}
 	return tree, err
+}
+
+// Included ranges require the exact artifact grant and the current owned EOF turn.
+func (s *diagnosticParserCoreGenericScheduler) includedRangeEOFRecoveryAdmitted(source []byte) bool {
+	return s != nil && s.options.allowCompactIncludedRangeEOFRecovery &&
+		s.options.allowCompactRecoveryVersionTurns && len(s.options.includedRanges) > 0 &&
+		s.recoveryTurns.active && (s.work.RecoverEOFAccepts != 0 || s.hasOwnedOrdinaryEOFAcceptance(source))
+}
+
+// hasOwnedOrdinaryEOFAcceptance authenticates a resumed recovery version that
+// finishes through the grammar's ordinary accept action.
+func (s *diagnosticParserCoreGenericScheduler) hasOwnedOrdinaryEOFAcceptance(source []byte) bool {
+	if s == nil || !s.versionLexerOwnershipActive || s.work.Accepts == 0 || s.receipt == nil || s.receipt.Acceptance == nil {
+		return false
+	}
+	for index := range s.headers {
+		header := &s.headers[index]
+		if !header.accepted || header.head != s.acceptedHead {
+			continue
+		}
+		state, position, err := s.compact.Boundary(header.head)
+		acceptance := s.receipt.Acceptance
+		acceptedHeader := acceptance.Header.Header
+		if err != nil || !acceptedHeader.Accepted || acceptedHeader.Paused ||
+			acceptedHeader.CreationSeq != header.creationSeq || acceptedHeader.State != StateID(state) || acceptedHeader.ByteOffset != position ||
+			acceptance.Accepts != s.work.Accepts || acceptance.Work.Accepts != s.work.Accepts {
+			return false
+		}
+		request := s.versionLexerRequestForHeader(index)
+		if request != nil && request.valid && request.token.Symbol == 0 &&
+			acceptance.ElectionIndex == request.electionIndex && acceptance.Token == request.token &&
+			!request.token.Missing && !request.token.NoLookahead &&
+			request.token.StartByte == compactLogicalEOF(source, s.options.includedRanges) && request.token.EndByte == request.token.StartByte {
+			return true
+		}
+	}
+	return false
 }
 
 // The new route does not certify shared S3 recovery. Require its own execution
@@ -585,20 +646,36 @@ func (r *parserCoreFreshFullRunner) parseSelectedStore(source []byte) (*core.Sel
 	if err != nil {
 		return nil, err
 	}
+	start, end, boundsErr := compactRangeBounds(source, r.parser.included)
+	if boundsErr != nil {
+		store.Release()
+		return nil, boundsErr
+	}
+	if len(r.parser.included) > 0 {
+		return requireParserCoreSelectedStoreCompleteness(store, len(source), [2]uint32{start, end})
+	}
 	return requireParserCoreSelectedStoreCompleteness(store, len(source))
 }
 
 // requireParserCoreSelectedStoreCompleteness adopts store on success and
 // releases it on every failure. Callers must not retain another owner.
-func requireParserCoreSelectedStoreCompleteness(store *core.SelectedStore, sourceBytes int) (*core.SelectedStore, error) {
+func requireParserCoreSelectedStoreCompleteness(store *core.SelectedStore, sourceBytes int, included ...[2]uint32) (*core.SelectedStore, error) {
 	if store == nil || sourceBytes < 0 || uint64(sourceBytes) > uint64(^uint32(0)) {
 		if store != nil {
 			store.Release()
 		}
 		return nil, errors.New("parser-core fresh-full selected-store completeness input is invalid")
 	}
+	expectedStart, expectedEnd := uint32(0), uint32(sourceBytes)
+	if len(included) > 0 {
+		expectedStart, expectedEnd = included[0][0], included[0][1]
+	}
+	if expectedStart > expectedEnd || uint64(expectedEnd) > uint64(sourceBytes) {
+		store.Release()
+		return nil, errors.New("compact selected range exceeds source bounds")
+	}
 	root, ok := store.Record(store.Root())
-	if !ok || root.StartByte != 0 || root.EndByte != uint32(sourceBytes) {
+	if !ok || root.StartByte != expectedStart || root.EndByte != expectedEnd {
 		store.Release()
 		return nil, fmt.Errorf("parser-core fresh-full selected-store root is incomplete: %d..%d source=%d", root.StartByte, root.EndByte, sourceBytes)
 	}

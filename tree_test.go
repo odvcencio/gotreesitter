@@ -536,6 +536,19 @@ func TestReusableTreeEditScratch(t *testing.T) {
 	}
 }
 
+func TestTreeCopyPreservesIndependentIncludedRanges(t *testing.T) {
+	original := &Tree{includedRanges: []Range{{StartByte: 3, EndByte: 10, StartPoint: Point{Column: 3}, EndPoint: Point{Column: 10}}}}
+	copy := original.Copy()
+	defer copy.Release()
+	if !reflect.DeepEqual(copy.includedRanges, original.includedRanges) {
+		t.Fatal("tree copy lost included ranges")
+	}
+	copy.includedRanges[0].StartByte++
+	if original.includedRanges[0].StartByte != 3 {
+		t.Fatal("tree copy shares mutable included ranges")
+	}
+}
+
 func TestTreeCopyIndependentNodes(t *testing.T) {
 	lang := testLanguage()
 	left := NewLeafNode(Symbol(1), true, 0, 3, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 3})
