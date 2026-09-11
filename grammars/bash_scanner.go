@@ -345,7 +345,8 @@ func bshIsReservedWordBoundary(r rune) bool {
 }
 
 func bshScanOpeningParen(lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
-	if !bshIsValid(validSymbols, bshTokConcat) {
+	// Preserve the separator until EMPTY_VALUE can emit its zero-width token.
+	if !bshIsValid(validSymbols, bshTokConcat) && !bshIsValid(validSymbols, bshTokEmptyValue) {
 		bshSkipHorizontalSpace(lexer)
 	}
 	if lexer.Lookahead() != '(' {
