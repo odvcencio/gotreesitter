@@ -190,14 +190,14 @@ func TestDeferredTypeScriptCompatibilityInvalidatesCompactReuseProof(t *testing.
 		tree := newTreeWithArenas(root, []byte("import"), lang, root.ownerArena, nil)
 		tree.deferResultCompatibility()
 
-		if !compactTreeIncrementalReuseProven(root) {
+		if !compactTreeIncrementalReuseProven(root, new([]*Node)) {
 			t.Fatal("fixture lacks compact reuse proof before compatibility")
 		}
 		_ = tree.RootNode()
 		if !tree.incrementalReuseDisabled {
 			t.Fatal("deferred compatibility kept stale compact reuse proof")
 		}
-		if compactTreeIncrementalReuseProven(root) {
+		if compactTreeIncrementalReuseProven(root, new([]*Node)) {
 			t.Fatal("compatibility rewrite unexpectedly retained compact reuse proof")
 		}
 	})
@@ -237,7 +237,7 @@ func TestDeferredTypeScriptCompatibilityInvalidatesCompactReuseProof(t *testing.
 		tree := newTreeWithArenas(root, []byte("import"), lang, arena, nil)
 		tree.deferResultCompatibility()
 
-		if !compactTreeIncrementalReuseProven(root) {
+		if !compactTreeIncrementalReuseProven(root, new([]*Node)) {
 			t.Fatal("fixture lacks compact reuse proof before compatibility")
 		}
 		if got := resultChildCount(identifier); got != 1 {
@@ -247,7 +247,7 @@ func TestDeferredTypeScriptCompatibilityInvalidatesCompactReuseProof(t *testing.
 		if got := resultChildCount(identifier); got != 0 {
 			t.Fatalf("identifier child count after compatibility=%d, want 0", got)
 		}
-		if !compactTreeIncrementalReuseProven(root) {
+		if !compactTreeIncrementalReuseProven(root, new([]*Node)) {
 			t.Fatal("in-place rewrite unexpectedly cleared the stale proof bits")
 		}
 		if !tree.incrementalReuseDisabled {
