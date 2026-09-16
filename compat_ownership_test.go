@@ -30,7 +30,7 @@ const (
 	resultCompatKotlinCallPositive            = "a321147042b7374a52570865d6ec44e1771669a4"
 	resultCompatKotlinCallProducerFix         = "b06804219dc0b27a0804d769a5cc24626568387d"
 	resultCompatKotlinCallFunction            = "normalizeKotlinInterpolatedCallExpressions"
-	resultCompatPythonInterpolationRetired    = "ff15819014c4b7886082842699d4167fd8315889"
+	resultCompatPythonInterpolationRetired    = "d676cd263ab54bbf2258eb75d55647da50a258ee"
 	resultCompatPythonInterpolationPositive   = "49a104796c007ea1bf442e37a78edbc67c46c63e"
 	resultCompatPythonInterpolationProducer   = "106508e81fbe727b9a74fa749f273ca1ed114e0c"
 	resultCompatPythonInterpolationFunction   = "normalizePythonInterpolationPatterns"

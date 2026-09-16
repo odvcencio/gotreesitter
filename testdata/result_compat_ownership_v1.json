@@ -2251,7 +2251,7 @@
         "c_oracle": "retired_exact_receipt"
       },
       "status": "retired",
-      "retired_commit": "ff15819014c4b7886082842699d4167fd8315889",
+      "retired_commit": "d676cd263ab54bbf2258eb75d55647da50a258ee",
       "positive_control_commit": "49a104796c007ea1bf442e37a78edbc67c46c63e",
       "producer_fix_commit": "106508e81fbe727b9a74fa749f273ca1ed114e0c",
       "receipt_refs": [
