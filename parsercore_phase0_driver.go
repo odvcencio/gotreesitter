@@ -7592,7 +7592,7 @@ func materializeDiagnosticParserCoreAcceptedSelectionWithRootFinalization(compac
 	// to clean siblings while preserving the ordinary scanner gate.
 	compactIncrementalReuseProven := replayEnabled &&
 		compactIncrementalReuseProvenForLanguage(parser.language) &&
-		m.scannerProvenanceTransferProven && compactTreeIncrementalReuseProven(root)
+		m.scannerProvenanceTransferProven && compactTreeIncrementalReuseProven(root, linkScratch)
 	tree.incrementalReuseDisabled = !compactIncrementalReuseProven
 	tree.incrementalReuseUnsupportedClause = compactIncrementalReuseClauseScanner
 	if !compactIncrementalReuseProven {
