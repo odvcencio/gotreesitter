@@ -42,6 +42,12 @@ jobs:
       - name: Build
         run: go build ./...
 
+      - name: Build emergency parser
+        run: go build -tags gts_no_parsercorephase0 ./...
+
+      - name: Test emergency parser routing
+        run: go test . -tags gts_no_parsercorephase0 -run '^TestAdmissionSwitchDefaultBuildFallsBackLoudly$' -count=1
+
       - name: Build grammar subsets
         run: bash scripts/subset_build_sweep.sh
 
