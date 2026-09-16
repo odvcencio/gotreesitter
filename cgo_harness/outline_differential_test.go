@@ -256,6 +256,10 @@ func outlineDifferentialFleetIncluded(name string) bool {
 // never touches *testing.T: callers decide whether a non-equal status fails
 // the build (CoreNine) or is only logged (FleetCensus).
 func runOutlineDifferentialLanguage(entry grammars.LangEntry) outlineDiffResult {
+	return runOutlineDifferentialLanguageWithQuery(entry, grammars.ResolveTagsQuery(entry))
+}
+
+func runOutlineDifferentialLanguageWithQuery(entry grammars.LangEntry, tagsQuery string) outlineDiffResult {
 	result := outlineDiffResult{language: entry.Name}
 
 	if parityLanguageExcluded(entry.Name) {
@@ -265,7 +269,6 @@ func runOutlineDifferentialLanguage(entry grammars.LangEntry) outlineDiffResult 
 		return result
 	}
 
-	tagsQuery := grammars.ResolveTagsQuery(entry)
 	if strings.TrimSpace(tagsQuery) == "" {
 		result.status = outlineDiffVacuous
 		result.detail = "no resolvable tags query"
