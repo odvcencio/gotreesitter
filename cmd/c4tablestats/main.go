@@ -1,3 +1,5 @@
+//go:build !gts_no_parsercorephase0
+
 // Command c4tablestats is the C4 stage-2 table-shape analyzer.
 //
 // spec.c4-bytecode-isa.v1 section 2 marks every static table-shape number in

@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -25,6 +24,7 @@ import (
 	gotreesitter "github.com/odvcencio/gotreesitter"
 	cgoharness "github.com/odvcencio/gotreesitter/cgo_harness"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/luapattern"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -2098,7 +2098,7 @@ func cQueryMatchSatisfiesGeneralPredicates(m *sitter.QueryMatch, query *sitter.Q
 			if !ok {
 				return false
 			}
-			rx, err := compileHighlightLuaPattern(*pred.Args[1].String)
+			rx, err := luapattern.Compile(*pred.Args[1].String)
 			if err != nil || !rx.MatchString(text) {
 				return false
 			}
@@ -2120,127 +2120,6 @@ func cFirstCaptureTextForID(m *sitter.QueryMatch, captureID uint, source []byte)
 		return string(source[start:end]), true
 	}
 	return "", false
-}
-
-func compileHighlightLuaPattern(pattern string) (*regexp.Regexp, error) {
-	var out strings.Builder
-	inClass := false
-	classContentStart := false
-
-	writeLuaClass := func(ch byte, inClass bool) bool {
-		inClassText := ""
-		outsideText := ""
-		switch ch {
-		case 'a':
-			inClassText = "A-Za-z"
-			outsideText = "[A-Za-z]"
-		case 'A':
-			inClassText = "^A-Za-z"
-			outsideText = "[^A-Za-z]"
-		case 'd':
-			inClassText = "0-9"
-			outsideText = "[0-9]"
-		case 'D':
-			inClassText = "^0-9"
-			outsideText = "[^0-9]"
-		case 'l':
-			inClassText = "a-z"
-			outsideText = "[a-z]"
-		case 'L':
-			inClassText = "^a-z"
-			outsideText = "[^a-z]"
-		case 's':
-			inClassText = "\\s"
-			outsideText = "\\s"
-		case 'S':
-			inClassText = "^\\s"
-			outsideText = "\\S"
-		case 'u':
-			inClassText = "A-Z"
-			outsideText = "[A-Z]"
-		case 'U':
-			inClassText = "^A-Z"
-			outsideText = "[^A-Z]"
-		case 'w':
-			inClassText = "A-Za-z0-9"
-			outsideText = "[A-Za-z0-9]"
-		case 'W':
-			inClassText = "^A-Za-z0-9"
-			outsideText = "[^A-Za-z0-9]"
-		case 'x':
-			inClassText = "A-Fa-f0-9"
-			outsideText = "[A-Fa-f0-9]"
-		case 'X':
-			inClassText = "^A-Fa-f0-9"
-			outsideText = "[^A-Fa-f0-9]"
-		default:
-			return false
-		}
-		if inClass {
-			out.WriteString(inClassText)
-		} else {
-			out.WriteString(outsideText)
-		}
-		return true
-	}
-
-	for i := 0; i < len(pattern); i++ {
-		ch := pattern[i]
-		switch ch {
-		case '%':
-			if i+1 >= len(pattern) {
-				out.WriteString("%")
-				continue
-			}
-			i++
-			next := pattern[i]
-			if writeLuaClass(next, inClass) {
-				classContentStart = false
-				continue
-			}
-			out.WriteString(regexp.QuoteMeta(string(next)))
-			classContentStart = false
-		case '[':
-			inClass = true
-			classContentStart = true
-			out.WriteByte('[')
-		case ']':
-			inClass = false
-			classContentStart = false
-			out.WriteByte(']')
-		case '-':
-			if inClass {
-				out.WriteByte('-')
-			} else {
-				out.WriteString("*?")
-			}
-			classContentStart = false
-		case '+', '*', '?':
-			out.WriteByte(ch)
-			classContentStart = false
-		case '^':
-			if inClass && !classContentStart {
-				out.WriteString("\\^")
-			} else {
-				out.WriteByte('^')
-			}
-			classContentStart = false
-		case '$':
-			if inClass {
-				out.WriteString("\\$")
-			} else {
-				out.WriteByte('$')
-			}
-			classContentStart = false
-		default:
-			if strings.ContainsRune(`\.+(){}|`, rune(ch)) {
-				out.WriteByte('\\')
-			}
-			out.WriteByte(ch)
-			classContentStart = false
-		}
-	}
-	return regexp.Compile(out.String())
 }
 
 func collectGoQueryMatches(r *runner, tree *gotreesitter.Tree, source []byte, queryText string) ([]queryMatch, error) {

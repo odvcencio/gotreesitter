@@ -296,6 +296,9 @@ func tsxScanAutoSemicolon(lexer *gotreesitter.ExternalLexer, validSymbols []bool
 		lexer.Advance(true)
 		return lexer.Lookahead() != '='
 	case 'i':
+		if !tsxValid(validSymbols, tsxTokLogicalOr) {
+			return true
+		}
 		lexer.Advance(true)
 		if lexer.Lookahead() != 'n' {
 			return true

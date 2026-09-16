@@ -81,6 +81,33 @@ if errors.Is(err, gotreesitter.ErrParseStoppedEarly) {
 }
 ```
 
+Use work limits to select parser thresholds without a wall-clock deadline:
+
+```go
+limits := gotreesitter.ParseWorkLimits{
+    IterationLimit:  200_000,
+    StackDepthLimit: 8_192,
+    NodeLimit:       1_000_000,
+}
+parser.SetParseWorkLimits(limits)
+
+pool := gotreesitter.NewParserPool(lang,
+    gotreesitter.WithParserPoolParseWorkLimits(limits))
+```
+
+Positive fields replace the corresponding source-derived threshold. Zero or negative fields keep the default.
+The thresholds apply to each production parser loop, including recovery parses. They do not count total operation work or allocated bytes.
+The parser checks node and depth thresholds between steps. A step can exceed either threshold before the next check.
+Stable parse methods bypass compact and forest speculation while a work limit is configured.
+This route change can affect performance and tree selection. Clear all fields to restore normal routing.
+Timeouts, cancellation, and memory budgets can still stop a parse first.
+
+A threshold stop returns a partial tree with one of these reasons:
+
+- `ParseStopIterationLimit`
+- `ParseStopStackDepthLimit`
+- `ParseStopNodeLimit`
+
 Strict variants are available for full parse, incremental parse, token-source
 parse, factory parse, `ParseWith`, and `ParserPool`.
 
@@ -267,10 +294,9 @@ requires complete lexical dependency proofs under
 [issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
 The unreleased implementation restores bounded reuse after authenticating earlier
 lexical reads and the edited token. Unknown coverage or an exhausted proof
-budget requires reparsing. The generated Go edit benchmark improves 16.65 times
-against v0.52.0, with a 1.68 percent full-parse regression. See the
-[paired performance report](docs/performance/token-invariant-restoration-2026-09-05.md)
-for the workload and limitations.
+budget requires reparsing. See
+[pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093)
+for the restoration and its validation.
 External scanners need certification for general old-tree reuse. Unsupported
 cases use the legacy full-parse fallback. See the
 [per-language incremental scanner matrix](docs/external-scanners.md#incremental-reuse-certification-matrix).
@@ -665,7 +691,6 @@ token-invariant shortcut while preserving ordinary subtree reuse and no-edit reu
 The unreleased implementation restores this shortcut with authenticated lexical dependencies.
 [Pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093) closed
 [issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
-Read the [restoration report](docs/performance/token-invariant-restoration-2026-09-05.md) for correctness and performance evidence.
 General reuse with external scanners requires explicit certification, with
 boundary checkpoints where configured. Uncertified cases use the legacy
 full-parse fallback documented in the
@@ -857,19 +882,13 @@ These changes do not complete compact parser graduation.
 The v0.52.0 release disables the unsafe shortcut as a temporary mitigation for
 [issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
 Ordinary subtree reuse and no-edit reuse remain available.
-The owner approved the temporary slowdown. The measured single-byte edit rises
-from 1.706 us to 3,350.460 us. Full-parse and no-edit timing changes are not
-significant. See the [release performance report](docs/performance/release-v0.52.0-2026-09-05.md).
+The owner approved the temporary slowdown for that release.
 The unreleased implementation restores the shortcut with authenticated lexical dependency proofs.
 [Pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093) closed that issue.
-Read the [restoration report](docs/performance/token-invariant-restoration-2026-09-05.md) for the separate measurements.
 Lexical error-leaf flags and TypeScript recovery divergences remain graduation work.
 
-Recovery count caching improves the measured Go workloads. Canonicalization
-changes reduce allocations without a significant timing change. Read the
-[recovery count report](docs/performance/recovery-visible-count-2026-09-05.md) and
-[canonicalization report](docs/performance/canonical-owner-binding-2026-09-05.md).
-Those measurements precede the temporary shortcut mitigation.
+Keep benchmark results, profiles, and source snapshots outside the repository.
+Publish reproducible evidence in pull requests or external artifacts.
 
 Publication still requires the mandatory gates in
 [the release checklist](docs/releasing.md#release-checklist).

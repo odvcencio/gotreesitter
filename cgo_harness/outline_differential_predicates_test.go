@@ -56,22 +56,19 @@ package cgoharness
 // directive) because they are cheap, direct ports of query_predicates.go's
 // own algorithms and this differential's fleet census runs across the
 // entire language registry under GTS_PARITY_MODE=exhaustive -- silently
-// no-op'ing a predicate kind gotreesitter actually filters on would trade
-// today's false "diverged" for a future false "equal". #lua-match? is the
-// one exception: gotreesitter compiles Lua pattern syntax through a
-// dedicated translator (compileLuaPattern, query_compile_predicates.go)
-// before evaluating it as a Go regexp, and no query anywhere uses it today,
-// so a phantom #lua-match? predicate fails the comparison loudly (skipped,
-// with a detail string) rather than risk a silently wrong translation.
+// no-op'ing a predicate kind gotreesitter filters on would create a false
+// equality. The #lua-match? evaluator uses production's Lua-pattern compiler.
 
 import (
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+	"testing"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/odvcencio/gotreesitter/internal/luapattern"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -85,6 +82,21 @@ type outlineCPredicateGroup struct {
 	structuralIdx int
 	ordinal       int
 	predicateIdx  []int
+}
+
+func TestOutlineLuaMatchPredicateUsesSharedCompiler(t *testing.T) {
+	entry, ok := parityEntriesByName["thrift"]
+	if !ok {
+		t.Fatal("thrift is not registered")
+	}
+	query := `((identifier) @type) (#lua-match? @type "^%u")`
+	result := runOutlineDifferentialLanguageWithQuery(entry, query)
+	if result.status != outlineDiffEqual {
+		t.Fatalf("thrift Lua predicate differential status=%s detail=%s first_diff=%s", result.status, result.detail, result.firstDiff)
+	}
+	if result.goMatches == 0 || result.cMatches == 0 {
+		t.Fatalf("thrift Lua predicate differential was vacuous: %+v", result)
+	}
 }
 
 // outlineCPredicateGroups scans a compiled C query's own pattern source
@@ -258,10 +270,33 @@ func outlineCGeneralPredicateSatisfied(gp sitter.QueryPredicate, m *sitter.Query
 		// so it is intentionally not reproduced beyond "never reject."
 		return true, nil
 	case "lua-match?":
-		return false, fmt.Errorf("#lua-match? predicate has no C-side evaluator in this differential (gotreesitter translates Lua pattern syntax before matching; verified unused by every resolved tags query today)")
+		return outlineCLuaMatchPredicateSatisfied(gp, m, source)
 	default:
 		return false, fmt.Errorf("unsupported predicate operator %q on a phantom C-compiled pattern", gp.Operator)
 	}
+}
+
+func outlineCLuaMatchPredicateSatisfied(gp sitter.QueryPredicate, m *sitter.QueryMatch, source []byte) (bool, error) {
+	if len(gp.Args) != 2 || gp.Args[0].CaptureId == nil || gp.Args[1].String == nil {
+		return true, nil
+	}
+	rx, err := luapattern.Compile(*gp.Args[1].String)
+	if err != nil {
+		return false, fmt.Errorf("compile #lua-match? pattern: %w", err)
+	}
+	leftCapture := *gp.Args[0].CaptureId
+	for _, capture := range m.Captures {
+		if uint(capture.Index) != leftCapture {
+			continue
+		}
+		start := capture.Node.StartByte()
+		end := capture.Node.EndByte()
+		if start > end || end > uint(len(source)) {
+			return false, fmt.Errorf("#lua-match? capture span [%d,%d) exceeds %d source bytes", start, end, len(source))
+		}
+		return rx.Match(source[start:end]), nil
+	}
+	return false, nil
 }
 
 // outlineCAncestorOrParentPredicateSatisfied ports

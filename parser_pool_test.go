@@ -165,6 +165,45 @@ func TestParserPoolParseConcurrent(t *testing.T) {
 	}
 }
 
+func TestParserPoolAppliesParseWorkLimits(t *testing.T) {
+	limits := ParseWorkLimits{
+		IterationLimit:  1,
+		StackDepthLimit: 100,
+		NodeLimit:       1_000,
+	}
+	pool := NewParserPool(buildArithmeticLanguage(), WithParserPoolParseWorkLimits(limits))
+
+	for run := 0; run < 2; run++ {
+		tree, err := pool.Parse([]byte("1+2+3+4"))
+		if err != nil {
+			t.Fatalf("run %d: Parse error: %v", run, err)
+		}
+		if tree == nil {
+			t.Fatalf("run %d: Parse returned nil tree", run)
+		}
+		runtime := tree.ParseRuntime()
+		tree.Release()
+		if runtime.StopReason != ParseStopIterationLimit {
+			t.Fatalf("run %d: StopReason = %q, want %q (%s)", run, runtime.StopReason, ParseStopIterationLimit, runtime.Summary())
+		}
+		if runtime.IterationLimit != limits.IterationLimit || runtime.StackDepthLimit != limits.StackDepthLimit || runtime.NodeLimit != limits.NodeLimit {
+			t.Fatalf("run %d: resolved limits = iterations:%d depth:%d nodes:%d, want %+v", run, runtime.IterationLimit, runtime.StackDepthLimit, runtime.NodeLimit, limits)
+		}
+	}
+
+	parser := pool.checkout()
+	if got := parser.ParseWorkLimits(); got != limits {
+		t.Fatalf("checked-out ParseWorkLimits = %+v, want %+v", got, limits)
+	}
+	parser.SetParseWorkLimits(ParseWorkLimits{NodeLimit: 7})
+	pool.release(parser)
+	parser = pool.checkout()
+	if got := parser.ParseWorkLimits(); got != limits {
+		t.Fatalf("reused ParseWorkLimits = %+v, want %+v", got, limits)
+	}
+	pool.release(parser)
+}
+
 func TestParserPoolParseWithTokenSource(t *testing.T) {
 	lang := buildArithmeticLanguage()
 	pool := NewParserPool(lang)
