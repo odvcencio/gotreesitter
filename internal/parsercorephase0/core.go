@@ -1391,18 +1391,19 @@ type Core struct {
 	nextTransaction                uint64
 	// resetGeneration identifies the retained arena lifetime. It changes only
 	// when Reset clears the core, so phase checkpoints can advance independently.
-	resetGeneration       uint64
-	classificationPhase   uint64
-	work                  Work
-	popScratch            popEnumerationScratch
-	reductionScratch      reductionOutputScratch
-	historicalNodeScratch []NodeID
-	cohortHeadScratch     []Head
-	factorLinkScratch     []linkRecord
-	selectedBuild         selectedStoreBuildScratch
-	selectedPoolMu        sync.Mutex
-	selectedPool          selectedStoreBacking
-	schedulerFrame        schedulerTransactionFrame
+	resetGeneration          uint64
+	classificationPhase      uint64
+	work                     Work
+	popScratch               popEnumerationScratch
+	reductionScratch         reductionOutputScratch
+	historicalNodeScratch    []NodeID
+	cohortHeadScratch        []Head
+	factorLinkScratch        []linkRecord
+	derivationSummaryScratch derivationSummaryScratch
+	selectedBuild            selectedStoreBuildScratch
+	selectedPoolMu           sync.Mutex
+	selectedPool             selectedStoreBacking
+	schedulerFrame           schedulerTransactionFrame
 	// metadataConstructionAuthenticated remains true only while every compact
 	// subtree was published through the authenticated shift/reduction seams.
 	// Diagnostic generic publication clears it monotonically until Reset.
@@ -2451,6 +2452,7 @@ func (c *Core) Reset() error {
 	c.popScratch.resetLogical()
 	c.reductionScratch.finish()
 	c.historicalNodeScratch = c.historicalNodeScratch[:0]
+	c.derivationSummaryScratch.finish()
 	c.metadataConstructionAuthenticated = true
 	c.reduceConflictContext = false
 	c.reduceNoLookaheadContext = false
@@ -6095,6 +6097,57 @@ func (c *Core) popSingleLinkPath(head NodeID, childCount int, scratch *popEnumer
 
 // Derivations enumerates the exact alternatives represented by head.
 func (c *Core) Derivations(head Head) ([]Derivation, error) {
+	return c.derivations(head, true)
+}
+
+// SoleDerivation returns a derivation only when complete enumeration finds one path.
+// It preserves enumeration errors and validates ambiguous paths without copying payloads.
+func (c *Core) SoleDerivation(head Head) (Derivation, bool, error) {
+	n, err := c.node(head.Node)
+	if err != nil {
+		return Derivation{}, false, err
+	}
+	if n.pathCount == 1 {
+		path, exact, err := c.singleDerivation(head.Node)
+		if err != nil {
+			return Derivation{}, false, err
+		}
+		if exact {
+			return path, true, nil
+		}
+	}
+	collectPayloads := n.pathCount == 1
+	if !collectPayloads {
+		summary, complete, err := c.summarizeDerivationPaths(head.Node)
+		if err != nil {
+			return Derivation{}, false, err
+		}
+		if complete {
+			if summary.pathCount != 1 {
+				return Derivation{}, false, nil
+			}
+			// Retain the existing payload enumeration for an actual sole path.
+			collectPayloads = true
+		}
+	}
+	paths, err := c.derivations(head, collectPayloads)
+	if err != nil {
+		return Derivation{}, false, err
+	}
+	if len(paths) != 1 {
+		return Derivation{}, false, nil
+	}
+	if !collectPayloads {
+		// Saturated telemetry can describe one path. Return its complete payloads.
+		paths, err = c.Derivations(head)
+		if err != nil {
+			return Derivation{}, false, err
+		}
+	}
+	return paths[0], true, nil
+}
+
+func (c *Core) derivations(head Head, collectPayloads bool) ([]Derivation, error) {
 	n, err := c.node(head.Node)
 	if err != nil {
 		return nil, err
@@ -6150,9 +6203,11 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 					return nil, err
 				}
 				path := Derivation{Score: score}
-				path.Payloads = append(path.Payloads, prefix.Payloads...)
-				if link.payload != 0 {
-					path.Payloads = append(path.Payloads, link.payload)
+				if collectPayloads {
+					path.Payloads = append(path.Payloads, prefix.Payloads...)
+					if link.payload != 0 {
+						path.Payloads = append(path.Payloads, link.payload)
+					}
 				}
 				path.BranchOrder = prefix.BranchOrder
 				path.HasBranchOrder = prefix.HasBranchOrder
@@ -6180,47 +6235,9 @@ func (c *Core) Derivations(head Head) ([]Derivation, error) {
 // The returned Boolean is false when malformed path telemetry requires the
 // general enumerator to reproduce its fail-closed result.
 func (c *Core) singleDerivation(id NodeID) (Derivation, bool, error) {
-	reverseLinks := make([]LinkID, 0, 64)
-	for {
-		n, err := c.node(id)
-		if err != nil {
-			return Derivation{}, true, err
-		}
-		if n.linkCount == 0 {
-			if n.pathCount != 1 {
-				return Derivation{}, true, errors.New("parser-core phase zero: malformed seed path count")
-			}
-			break
-		}
-		if n.pathCount != 1 || n.linkCount != 1 {
-			return Derivation{}, false, nil
-		}
-
-		linkID := LinkID(n.firstLink)
-		if linkID == 0 {
-			return Derivation{}, true, errors.New("parser-core phase zero: adjacency shorter than recorded link count")
-		}
-		if uint64(linkID) > uint64(len(c.links)) {
-			return Derivation{}, true, errors.New("parser-core phase zero: link adjacency out of range")
-		}
-		link := c.links[linkID-1]
-		if err := link.validateShape(); err != nil {
-			return Derivation{}, true, err
-		}
-		if link.next != 0 {
-			if link.next == linkID {
-				return Derivation{}, true, errors.New("parser-core phase zero: adjacency cycle")
-			}
-			if uint64(link.next) > uint64(len(c.links)) {
-				return Derivation{}, true, errors.New("parser-core phase zero: link adjacency out of range")
-			}
-			return Derivation{}, true, errors.New("parser-core phase zero: adjacency exceeds recorded link count")
-		}
-		reverseLinks = append(reverseLinks, linkID)
-		if len(reverseLinks) >= len(c.nodes) {
-			return Derivation{}, true, errors.New("parser-core phase zero: graph cycle")
-		}
-		id = link.prev
+	reverseLinks, exact, err := c.appendSingleDerivationLinks(id, make([]LinkID, 0, 64))
+	if err != nil || !exact {
+		return Derivation{}, exact, err
 	}
 
 	path := Derivation{Payloads: make([]SubtreeID, 0, len(reverseLinks))}
@@ -6240,6 +6257,53 @@ func (c *Core) singleDerivation(id NodeID) (Derivation, bool, error) {
 		}
 	}
 	return path, true, nil
+}
+
+// appendSingleDerivationLinks validates one certified path and stores its
+// links from the head toward the seed in caller-owned scratch.
+func (c *Core) appendSingleDerivationLinks(id NodeID, reverseLinks []LinkID) ([]LinkID, bool, error) {
+	for {
+		n, err := c.node(id)
+		if err != nil {
+			return reverseLinks, true, err
+		}
+		if n.linkCount == 0 {
+			if n.pathCount != 1 {
+				return reverseLinks, true, errors.New("parser-core phase zero: malformed seed path count")
+			}
+			break
+		}
+		if n.pathCount != 1 || n.linkCount != 1 {
+			return reverseLinks, false, nil
+		}
+
+		linkID := LinkID(n.firstLink)
+		if linkID == 0 {
+			return reverseLinks, true, errors.New("parser-core phase zero: adjacency shorter than recorded link count")
+		}
+		if uint64(linkID) > uint64(len(c.links)) {
+			return reverseLinks, true, errors.New("parser-core phase zero: link adjacency out of range")
+		}
+		link := c.links[linkID-1]
+		if err := link.validateShape(); err != nil {
+			return reverseLinks, true, err
+		}
+		if link.next != 0 {
+			if link.next == linkID {
+				return reverseLinks, true, errors.New("parser-core phase zero: adjacency cycle")
+			}
+			if uint64(link.next) > uint64(len(c.links)) {
+				return reverseLinks, true, errors.New("parser-core phase zero: link adjacency out of range")
+			}
+			return reverseLinks, true, errors.New("parser-core phase zero: adjacency exceeds recorded link count")
+		}
+		reverseLinks = append(reverseLinks, linkID)
+		if len(reverseLinks) >= len(c.nodes) {
+			return reverseLinks, true, errors.New("parser-core phase zero: graph cycle")
+		}
+		id = link.prev
+	}
+	return reverseLinks, true, nil
 }
 
 func saturatingAddPaths(left, right uint64) uint64 {

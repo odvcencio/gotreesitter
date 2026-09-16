@@ -114,6 +114,9 @@ var (
 	coreNodeIDBytes                         = uint64(unsafe.Sizeof(NodeID(0)))
 	coreHeadBytes                           = uint64(unsafe.Sizeof(Head{}))
 	coreLinkRecordSliceBytes                = uint64(unsafe.Sizeof([]linkRecord(nil)))
+	coreDerivationSummaryNodeBytes          = uint64(unsafe.Sizeof(derivationSummaryNode{}))
+	coreDerivationSummaryLinkBytes          = uint64(unsafe.Sizeof(derivationSummaryLink{}))
+	coreDerivationSummaryIndexEntryBytes    = uint64(unsafe.Sizeof(NodeID(0))) + uint64(unsafe.Sizeof(int(0)))
 	coreSubtreeIDBytes                      = uint64(unsafe.Sizeof(SubtreeID(0)))
 	coreDropCohortPathStepBytes             = uint64(unsafe.Sizeof(dropCohortPathStep{}))
 	coreInt64Bytes                          = uint64(unsafe.Sizeof(int64(0)))
@@ -132,7 +135,7 @@ var (
 // scratch family's CAPACITY (not length) times that family's real struct
 // size, covering the record families StorageBytes counts plus the lineage,
 // checkpoint, and provenance side tables, the checkpoint interner, the
-// boundary index, and the pop-path/reduction-output scratch buffers. Like
+// boundary index, and all parser-core scratch buffers. Like
 // StorageBytes it costs only already-tracked slice/map length and capacity
 // reads -- no allocation, no traversal, no I/O -- so it is safe to call from
 // a tight scheduler poll.
@@ -147,12 +150,10 @@ var (
 // true footprint clears the configured budget, not merely before its live
 // record count would have.
 //
-// The two map-backed fields (the checkpoint interner's digest-to-ID bucket
-// map and the reduction scratch's boundary-key-to-index map) have no cap();
-// FootprintBytes estimates their footprint as len() times one bucket's
-// key+value size, an underestimate of Go's real hash-table bucket overhead
-// but a monotonic, deterministic one that never claims less than the map
-// logically holds.
+// Three map-backed fields have no cap(): the checkpoint buckets, reduction
+// boundary indexes, and derivation summary indexes. FootprintBytes estimates
+// their retained entries times each key-and-value size. This estimate omits
+// Go hash-table bucket overhead but stays deterministic and monotonic.
 func (c *Core) FootprintBytes() uint64 {
 	if c == nil {
 		return 0
@@ -206,6 +207,7 @@ func (c *Core) FootprintBytes() uint64 {
 	total += uint64(cap(c.historicalNodeScratch)) * coreNodeIDBytes
 	total += uint64(cap(c.cohortHeadScratch)) * coreHeadBytes
 	total += uint64(cap(c.factorLinkScratch)) * coreLinkRecordBytes
+	total += c.derivationSummaryScratch.footprintBytes()
 
 	total += c.checkpoints.footprintBytes()
 	total += c.boundaries.footprintBytes()
@@ -402,6 +404,7 @@ func (c *Core) releaseOversizedRetention() {
 	c.historicalNodeScratch = nil
 	c.cohortHeadScratch = nil
 	c.factorLinkScratch = nil
+	c.derivationSummaryScratch.dropOversized()
 	c.dropCohortReservations = nil
 	clear(c.dropCohortReserved[:])
 	c.dropCohortReservedBytes = 0
@@ -411,6 +414,30 @@ func (c *Core) releaseOversizedRetention() {
 	c.reductionScratch.dropOversized()
 	c.selectedBuild.resultHasError = nil
 	c.selectedPool = selectedStoreBacking{}
+}
+
+func (s *derivationSummaryScratch) footprintBytes() uint64 {
+	if s == nil {
+		return 0
+	}
+	indexEntries := s.nodeIndexRetainedEntries
+	if len(s.nodeIndexes) > indexEntries {
+		indexEntries = len(s.nodeIndexes)
+	}
+	return uint64(cap(s.nodes))*coreDerivationSummaryNodeBytes +
+		uint64(cap(s.links))*coreDerivationSummaryLinkBytes +
+		uint64(indexEntries)*coreDerivationSummaryIndexEntryBytes
+}
+
+func (s *derivationSummaryScratch) dropOversized() {
+	if s == nil {
+		return
+	}
+	s.core = nil
+	s.nodes = nil
+	s.nodeIndexes = nil
+	s.nodeIndexRetainedEntries = 0
+	s.links = nil
 }
 
 func (i *checkpointInterner) dropOversized() {

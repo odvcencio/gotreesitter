@@ -33,12 +33,77 @@ func (c *Core) CachedVisibleSubtreeCount(symbols []SelectedSymbolPolicy, id Subt
 	if uint64(id) > uint64(len(c.subtrees)) {
 		return 0, fmt.Errorf("parser-core phase zero: invalid subtree id %d", id)
 	}
+	c.prepareRecoveryVisibleCounts(symbols)
+	return c.recoveryVisibleSubtreeCount(id, false, true)
+}
+
+// SoleDerivationVisibleNodeCount returns the visible payload count only when
+// head has one exact derivation. The certified path does not allocate payload storage.
+func (c *Core) SoleDerivationVisibleNodeCount(symbols []SelectedSymbolPolicy, head Head) (uint32, bool, error) {
+	n, err := c.node(head.Node)
+	if err != nil {
+		return 0, false, err
+	}
+	if n.pathCount == 1 {
+		reverseLinks, exact, err := c.appendSingleDerivationLinks(head.Node, make([]LinkID, 0, 64))
+		if err != nil {
+			return 0, false, err
+		}
+		if exact {
+			var score int64
+			for reverseIndex := len(reverseLinks) - 1; reverseIndex >= 0; reverseIndex-- {
+				link := c.links[reverseLinks[reverseIndex]-1]
+				score, err = checkedAddScore(score, link.scoreDelta)
+				if err != nil {
+					return 0, false, err
+				}
+			}
+
+			c.prepareRecoveryVisibleCounts(symbols)
+			var total uint32
+			for reverseIndex := len(reverseLinks) - 1; reverseIndex >= 0; reverseIndex-- {
+				payload := c.links[reverseLinks[reverseIndex]-1].payload
+				if payload == 0 {
+					continue
+				}
+				count, err := c.recoveryVisibleSubtreeCount(payload, false, true)
+				if err != nil {
+					return 0, true, err
+				}
+				if math.MaxUint32-total < count {
+					return 0, true, errors.New("parser-core phase zero: recovery visible-node count overflow")
+				}
+				total += count
+			}
+			return total, true, nil
+		}
+	}
+
+	derivation, sole, err := c.SoleDerivation(head)
+	if err != nil || !sole {
+		return 0, sole, err
+	}
+	c.prepareRecoveryVisibleCounts(symbols)
+	var total uint32
+	for _, payload := range derivation.Payloads {
+		count, err := c.recoveryVisibleSubtreeCount(payload, false, true)
+		if err != nil {
+			return 0, true, err
+		}
+		if math.MaxUint32-total < count {
+			return 0, true, errors.New("parser-core phase zero: recovery visible-node count overflow")
+		}
+		total += count
+	}
+	return total, true, nil
+}
+
+func (c *Core) prepareRecoveryVisibleCounts(symbols []SelectedSymbolPolicy) {
 	c.bindRecoveryVisibleSymbols(symbols)
 	if len(c.recoveryVisibleCounts) < len(c.subtrees) {
 		c.recoveryVisibleCounts = append(c.recoveryVisibleCounts,
 			make([]recoveryVisibleCount, len(c.subtrees)-len(c.recoveryVisibleCounts))...)
 	}
-	return c.recoveryVisibleSubtreeCount(id, false, true)
 }
 
 func (c *Core) bindRecoveryVisibleSymbols(symbols []SelectedSymbolPolicy) {
