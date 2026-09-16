@@ -673,7 +673,7 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)'
+            package_filter: '/grep$|/taproot($|/)|/internal/luapattern$'
             test_filter: ''
     steps:
       - uses: actions/checkout@v4
@@ -1437,6 +1437,16 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Verify report Lua predicates
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-report-lua-predicates \
+            --memory 4g \
+            --gomemlimit 3GiB \
+            --cpus 2 \
+            --wall-timeout 5m \
+            -- "cd /workspace/cgo_harness && go test ./cmd/parse_gap_report -tags treesitter_c_parity -race -run '^TestLuaHighlightPredicatesMatchProduction$' -count=1"
+
       - name: CGo Parity Smoke Gate
         # TestOutlineOracleDifferential (cgo_harness/outline_differential_test.go)
         # joined this regex next to its query/capture-parity sibling
@@ -1458,7 +1468,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$'
+            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$'
 
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope

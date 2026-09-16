@@ -34,6 +34,8 @@ for tags and release notes while still in `0.x`.
   whose parent is not an ERROR node, as it does in C.
 - Wildcard steps never match ERROR nodes, and a top-level bare `_` pattern
   compiles.
+- Share one Lua-pattern compiler between production queries and both C query comparisons.
+  The outline comparison now evaluates `#lua-match?` predicates instead of rejecting them.
 - `TestParityQuerySemantics` runs 103 query cases on both engines: 101
   agree, 2 carry a named divergence (an aliased subtype in the grammargen
   supertype map, and a hidden wrapper lost inside a compact error region).
