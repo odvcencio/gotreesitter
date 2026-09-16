@@ -512,11 +512,13 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	},
 	// Meson's tied smoke election compares variableunit with var_unit. The
 	// locked C runtime selects variableunit through its raw subtree comparator.
+	// Merge flat and graph-backed alternatives before the shared parent reduction.
 	// The retry ladder still changes selected trees on small error-bearing files.
 	"meson": {
 		blobSHA256:                          mustRuntimeProfileSHA256("b3b7e74bcd35614419f5359c31eb8a05bd58c0b97529f133f2aea2f40796789d"),
 		compactPrimaryAcceptDerivation:      true,
 		compactAcceptanceStructuralElection: true,
+		compactMixedGSSMerge:                true,
 		fullParseAcceptedErrorRetryProfile: gotreesitter.FullParseAcceptedErrorRetryProfile{
 			SkipCompleteAcceptedErrorRetry: true,
 			SkipCompleteMinSourceBytes:     mesonAcceptedErrorRetryMinSourceBytes,
