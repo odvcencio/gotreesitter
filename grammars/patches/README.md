@@ -4,11 +4,12 @@ These patches are narrow, pinned overlays applied by `cmd/ts2go` before it
 extracts a grammar table. They exist only when an upstream grammar has a
 confirmed correctness gap that must be shipped before its next release.
 
-`tree-sitter-typescript-import-type.patch` closes three confirmed gaps. It:
+`tree-sitter-typescript-import-type.patch` closes four confirmed gaps. It:
 
 - adds the `import_type` production;
 - adds TypeScript variance annotations from upstream pull request 361;
-- separates adjacent generic call signatures at a newline.
+- separates adjacent generic call signatures at a newline; and
+- permits a contextual `in` property after a newline in an object type.
 
 The call-signature rule uses its dedicated automatic-semicolon token. It does
 not change the generic automatic-semicolon rule.

@@ -71,6 +71,18 @@ func TestTypeScriptGrammarGapCOracleParity(t *testing.T) {
 			name:   "mixed_members",
 			source: "type Mixed = {\n  value: string;\n  <T>(): T\n  create<U>(): U;\n  [key: number]: string\n}",
 		},
+		{
+			name:   "contextual_in_property_after_default",
+			source: "interface A {\n  easing: {\n    default: string\n    in: string\n  }\n}\n",
+		},
+		{
+			name:   "repeated_contextual_in_property",
+			source: "interface A {\n  easing: {\n    in: string\n    in: string\n  }\n}\n",
+		},
+		{
+			name:   "binary_in_across_newline",
+			source: "const found = key\n  in object\n",
+		},
 	}
 
 	for _, language := range languages {
