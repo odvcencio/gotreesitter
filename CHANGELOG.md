@@ -144,8 +144,7 @@ for tags and release notes while still in `0.x`.
 The compact route stays the default fresh full-parse route. The owner's
 direction is to retire the production engine once the compact core
 outperforms it; until then production still serves incremental, injection,
-included-range, and fallback parses, so these fixes stay. See the
-[route decision record](docs/performance/issue-454-production-route-decision-2026-09-07.md).
+included-range, and fallback parses, so these fixes stay.
 
 - Isolate parser scratch lifetimes across parses. A pooled scratch kept the
   transient parent and child slabs of the largest earlier parse, up to 512K
@@ -172,8 +171,7 @@ included-range, and fallback parses, so these fixes stay. See the
 
 - Repair the three regressions on the compact candidate route that issue
   [#454](https://github.com/odvcencio/gotreesitter/issues/454) measured on
-  137 KiB editor fixtures. See the
-  [repair report](docs/performance/issue-454-compact-route-repair-2026-09-07.md).
+  137 KiB editor fixtures.
 - Compact error recovery scales linearly. The recovery cost memo grew to the
   exact size on every store and was reallocated on every call, so a fresh
   parse of a 16 KiB Go file with one syntax error took 4.9 seconds. The memo
@@ -267,8 +265,7 @@ included-range, and fallback parses, so these fixes stay. See the
 Twenty paired benchmark samples compare this change with v0.52.0.
 Generated Go single-byte edits improve from 3,033.2 to 182.1 microseconds.
 Allocations decrease from 95 to 3 per edit. Full parsing regresses 1.68 percent.
-See the [performance report](docs/performance/token-invariant-restoration-2026-09-05.md)
-for raw results, workload limits, and memory observations.
+See [pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093) for the restoration and its validation.
 These changes do not complete compact parser graduation or retire the legacy parser.
 
 ## [0.52.0] - 2026-09-05
@@ -296,7 +293,6 @@ The owner approved the temporary slowdown. The measured single-byte edit rises
 from 1.706 us to 3,350.460 us, with 184.4 KiB and 95 allocations per operation.
 Full-parse and no-edit timing changes are not significant. Full parsing reduces
 allocated bytes by 42.90 percent and allocations by 99.72 percent.
-See the [release performance report](docs/performance/release-v0.52.0-2026-09-05.md).
 
 Lexical error-leaf flags and TypeScript recovery divergences remain graduation work.
 The attempted flag correction changed AWK recovery selection and remains deferred.
@@ -310,9 +306,6 @@ The attempted flag correction changed AWK recovery selection and remains deferre
   caches recovery visible-subtree counts and removes canonicalization callback
   allocations. The cache reduces time across four frozen Go fixtures.
   The callback change reduces allocations without a significant timing change.
-  Read the [recovery count report](docs/performance/recovery-visible-count-2026-09-05.md)
-  and [canonicalization report](docs/performance/canonical-owner-binding-2026-09-05.md)
-  for measured commits, paired results, and limits.
   These measurements precede the temporary shortcut mitigation.
 
 The owner authorized a v0.52.0-only exception for an unsupported tag-creation
