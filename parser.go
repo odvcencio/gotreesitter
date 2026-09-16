@@ -6179,8 +6179,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					// condense step decides (ts_parser__handle_error skips the
 					// strategy-1 scan for error lookaheads and absorbs it).
 					workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology error-run pending-pop seam
-					s.cPaused = true
-					p.markCRecoveryCostCompetitionRelevant()
+					p.cPauseStack(s)
 					if actionTiming != nil {
 						ns := recordNoActionTiming()
 						actionTiming.actionNoActionErrorNanos += ns
@@ -6234,8 +6233,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						// the condense step resumes via ts_parser__handle_error
 						// whose recover_eof wraps the stack in an ERROR root.
 						workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology EOF pending-pop seam
-						s.cPaused = true
-						p.markCRecoveryCostCompetitionRelevant()
+						p.cPauseStack(s)
 						if actionTiming != nil {
 							ns := recordNoActionTiming()
 							actionTiming.actionNoActionErrorNanos += ns
@@ -6376,8 +6374,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 						fmt.Printf("  stack[%d] C-PAUSED: no action for sym=%d in state=%d\n", si, tok.Symbol, currentState)
 					}
 					workCountTopologyRecordNoActionPendingPop() // work-count-assembly: topology no-action pending-pop seam
-					s.cPaused = true
-					p.markCRecoveryCostCompetitionRelevant()
+					p.cPauseStack(s)
 					if actionTiming != nil {
 						ns := recordNoActionTiming()
 						actionTiming.actionNoActionErrorNanos += ns
