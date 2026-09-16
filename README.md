@@ -81,6 +81,33 @@ if errors.Is(err, gotreesitter.ErrParseStoppedEarly) {
 }
 ```
 
+Use work limits to select parser thresholds without a wall-clock deadline:
+
+```go
+limits := gotreesitter.ParseWorkLimits{
+    IterationLimit:  200_000,
+    StackDepthLimit: 8_192,
+    NodeLimit:       1_000_000,
+}
+parser.SetParseWorkLimits(limits)
+
+pool := gotreesitter.NewParserPool(lang,
+    gotreesitter.WithParserPoolParseWorkLimits(limits))
+```
+
+Positive fields replace the corresponding source-derived threshold. Zero or negative fields keep the default.
+The thresholds apply to each production parser loop, including recovery parses. They do not count total operation work or allocated bytes.
+The parser checks node and depth thresholds between steps. A step can exceed either threshold before the next check.
+Stable parse methods bypass compact and forest speculation while a work limit is configured.
+This route change can affect performance and tree selection. Clear all fields to restore normal routing.
+Timeouts, cancellation, and memory budgets can still stop a parse first.
+
+A threshold stop returns a partial tree with one of these reasons:
+
+- `ParseStopIterationLimit`
+- `ParseStopStackDepthLimit`
+- `ParseStopNodeLimit`
+
 Strict variants are available for full parse, incremental parse, token-source
 parse, factory parse, `ParseWith`, and `ParserPool`.
 

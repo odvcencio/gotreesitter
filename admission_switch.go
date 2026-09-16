@@ -181,9 +181,14 @@ func (p *Parser) admissionCandidateRouteEnabled() bool {
 //     tree's replay/scanner proof; and
 //   - any lexer other than the production DFA, because the compact route
 //     reproduces the production DFA token stream and cannot honor a caller-
-//     supplied token source.
+//     supplied token source; and
+//   - explicit ParseWorkLimits, because the compact engine has separate work
+//     counters and must not spend speculative work before a production limit.
 func (p *Parser) admissionCandidateFullParseEligible(oldTree *Tree, usingProductionDFA bool) bool {
 	if p == nil || oldTree != nil || p.admissionRouteSuppressed > 0 {
+		return false
+	}
+	if p.parseWorkLimits.configured() {
 		return false
 	}
 	if !usingProductionDFA {
