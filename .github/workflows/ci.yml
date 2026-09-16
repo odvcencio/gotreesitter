@@ -1460,16 +1460,6 @@ jobs:
             --timeout 20m \
             --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$'
 
-      - name: Verify C recovery pause selection
-        run: |
-          bash cgo_harness/docker/run_parity_in_docker.sh \
-            --label ci-c-recovery-pause \
-            --memory 4g \
-            --gomemlimit 3GiB \
-            --cpus 2 \
-            --wall-timeout 5m \
-            --run '^TestParityCRecoveryPauseBaseline$'
-
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true' && needs.exhaustive_parity_scope.outputs.run_exhaustive == 'true'

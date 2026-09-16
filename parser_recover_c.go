@@ -1739,8 +1739,7 @@ func (p *Parser) growCNodeMemoCacheTo(target int) {
 		}
 	}
 	if target == cNodeMemoCacheSize && cap(p.cNodeMemoCache) == target {
-		// Keep the deterministic small view until growth, then discard every
-		// old entry just as a fresh allocation would, including the hidden tail.
+		// Clear the active entries and hidden tail before reusing the array.
 		p.cNodeMemoCache = p.cNodeMemoCache[:target]
 		clear(p.cNodeMemoCache)
 	} else {
@@ -2612,15 +2611,6 @@ func (p *Parser) cStackCumulativeNodeCount(s *glrStack) int {
 	return count
 }
 
-// cPauseStack records the progress baseline at C's ts_stack_pause boundary.
-// Recovery reductions and missing-token forks must inherit this count before
-// the absorbing versions receive their later merged-group baseline.
-func (p *Parser) cPauseStack(s *glrStack) {
-	s.cPaused = true
-	s.cNodeBaseline = uint32(p.cStackCumulativeNodeCount(s))
-	p.markCRecoveryCostCompetitionRelevant()
-}
-
 func (p *Parser) cApplyMergedErrorGroupBaseline(versions []glrStack) int {
 	groupBaseline := 0
 	for vi := range versions {
@@ -2641,8 +2631,8 @@ func (p *Parser) cApplyMergedErrorGroupBaseline(versions []glrStack) int {
 }
 
 // cNodeCountSinceError ports ts_stack_node_count_since_error: the cumulative
-// node count minus the count recorded at pause or error-group merge
-// (glrStack.cNodeBaseline; zero for stacks that never paused, which matches
+// node count minus the count recorded when the error discontinuity was pushed
+// (glrStack.cNodeBaseline; zero for stacks that never errored, which matches
 // C's node_count_at_last_error starting at zero).
 func (p *Parser) cNodeCountSinceError(s *glrStack) int {
 	if s == nil {
@@ -4910,12 +4900,9 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 			if cRecoverVersionsSameGroup(stacks[j], stacks[i]) {
 				continue
 			}
-			statusJ := p.cCondenseVersionStatus(&stacks[j], subtreeCostRelevant)
-			comparison := p.cCompareCondenseVersions(statusJ, statusI, &stacks[j], &stacks[i])
-			// Keep linear ownership order only when both versions survive.
-			// A decisive C cost comparison must also remove related versions.
-			if comparison != cErrorComparisonTakeLeft && comparison != cErrorComparisonTakeRight &&
-				!p.compactPackedGSSVersionOrderEnabled() {
+			// The linear recovery representation needs this ownership order.
+			// Packed version order uses C's physical comparison sequence.
+			if !p.compactPackedGSSVersionOrderEnabled() {
 				if cRecoverVersionShouldStayBefore(stacks[j], stacks[i]) {
 					continue
 				}
@@ -4928,7 +4915,8 @@ func (p *Parser) cCondenseAndResume(stacks []glrStack, source []byte, ts TokenSo
 					continue
 				}
 			}
-			switch comparison {
+			statusJ := p.cCondenseVersionStatus(&stacks[j], subtreeCostRelevant)
+			switch p.cCompareCondenseVersions(statusJ, statusI, &stacks[j], &stacks[i]) {
 			case cErrorComparisonTakeLeft:
 				if p.glrTrace {
 					p.traceCCondenseDrop("take-left", i, j, stacks[i], stacks[j],

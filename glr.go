@@ -105,8 +105,8 @@ type glrStack struct {
 	cEntryAggCost uint32
 	cEntryAggVis  int32
 	// cNodeBaseline mirrors C StackHead.node_count_at_last_error: the stack's
-	// cumulative visible-node count at pause or error-group merge.
-	// C stores this as uint32_t; keeping that width also leaves the
+	// cumulative visible-node count when the error discontinuity was last
+	// pushed. C stores this as uint32_t; keeping that width also leaves the
 	// recovery aggregates inside glrStack's existing 104-byte layout.
 	cNodeBaseline uint32
 	// cPaused mirrors C StackStatusPaused: the stack hit a no-action point
