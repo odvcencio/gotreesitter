@@ -20,6 +20,12 @@ pass() {
 	printf 'ok - %s\n' "$1"
 }
 
+# Inspect the index so this check also rejects forced additions.
+if [[ -n "$(git -C "$repo_root" ls-files -- docs/performance/)" ]]; then
+	fail 'performance evidence archives must remain outside the repository'
+fi
+pass 'the index excludes performance evidence archives'
+
 assert_contains() {
 	local needle=$1
 	local file=$2
@@ -136,6 +142,7 @@ ignored_paths=(
 	docs/blog-outlines
 	docs/plans
 	docs/superpowers
+	docs/performance
 	cgo_harness/bench/runs
 	cgo_harness/grammar_seed
 	cgo_harness/real_corpus_bench_report
