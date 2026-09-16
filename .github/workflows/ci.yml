@@ -667,7 +667,7 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)'
+            package_filter: '/grep$|/taproot($|/)|/internal/luapattern$'
             test_filter: ''
     steps:
       - uses: actions/checkout@v4
@@ -1452,7 +1452,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$'
+            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$'
 
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope
