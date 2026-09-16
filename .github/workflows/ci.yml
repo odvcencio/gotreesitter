@@ -1431,6 +1431,16 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Verify report Lua predicates
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-report-lua-predicates \
+            --memory 4g \
+            --gomemlimit 3GiB \
+            --cpus 2 \
+            --wall-timeout 5m \
+            -- "cd /workspace/cgo_harness && go test ./cmd/parse_gap_report -tags treesitter_c_parity -race -run '^TestLuaHighlightPredicatesMatchProduction$' -count=1"
+
       - name: CGo Parity Smoke Gate
         # TestOutlineOracleDifferential (cgo_harness/outline_differential_test.go)
         # joined this regex next to its query/capture-parity sibling
