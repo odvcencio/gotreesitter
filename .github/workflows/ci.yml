@@ -1099,6 +1099,9 @@ jobs:
       - name: Check selective blob embed freshness
         run: go run ./cmd/gen_subset_blob_embeds -check
 
+      - name: Check generated source ownership
+        run: bash scripts/check_generated_ownership.sh
+
       - name: Check grammar blob coverage matches lock
         run: |
           set -euo pipefail

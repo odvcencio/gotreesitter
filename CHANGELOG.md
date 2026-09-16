@@ -7,6 +7,14 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Generated source ownership
+
+- Standardize generated Go markers and name each generator command as the
+  owner. Continuous integration now rejects unknown owners, malformed markers,
+  and generated file names without markers.
+- Move the grammargen marker before the package clause. Go tools can now
+  identify emitted grammar source as generated code.
+
 ### C parity program, round one: query semantics
 
 - Resolve node types in query patterns the way the C query compiler does:

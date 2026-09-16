@@ -21,6 +21,9 @@ uses a fresh scoped query when indexed files or the source set changed.
 `refresh_canopy_index.sh` builds a temporary index and validates it. It records
 the Git commit only after it promotes the validated index.
 
+`check_generated_ownership.sh` checks each tracked generated Go file. It
+requires one standard marker and a known generator command.
+
 `run_randomized_benchmarks.sh` runs the production, incremental, recovery,
 replay, compact-core, and corridor benchmarks once per explicit shuffle seed.
 Pass each output file to `benchstat` for a before-and-after comparison.

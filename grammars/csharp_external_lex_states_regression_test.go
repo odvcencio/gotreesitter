@@ -16,7 +16,7 @@ import (
 // over-approximates valid external tokens and corrupts the stateful interpolated-
 // string external scanner (the interpolation stack never pops, so pass-1 diverges
 // at an interpolated string and ends no_stacks_alive, driving a ~1000x retry
-// cascade). The sidecar (c_sharp_external_lex_states_gen.go) restores the precise
+// cascade). The sidecar (c_sharp_external_lex_states.go) restores the precise
 // table extracted verbatim from tree-sitter-c-sharp src/parser.c
 // (ts_external_scanner_states[10][12]).
 func TestCSharpExternalLexStatesRegression(t *testing.T) {
