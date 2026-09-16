@@ -3159,7 +3159,8 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	}
 	// The scratch lexer saves the failed-attempt cursor for exact error recovery.
 	// Its position, point, and range index add 24 bytes to the previous 2256.
-	if got, want := unsafe.Sizeof(Parser{}), uintptr(2280); got != want {
+	// The three explicit work thresholds add 24 bytes without another allocation.
+	if got, want := unsafe.Sizeof(Parser{}), uintptr(2304); got != want {
 		t.Fatalf("Parser size = %d, want %d", got, want)
 	}
 	// Compact incremental results add 48 bytes of route, reuse, and work telemetry.
