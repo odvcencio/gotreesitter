@@ -113,37 +113,8 @@ func TestDartAndRustScannerWitnessesParseClean(t *testing.T) {
 // table for every name-binding language. python/swift/dart/rust are unchanged from
 // the by-name binder; kotlin gains its previously-dropped safe_nav slot (index 2).
 //
-// Each language block also asserts the scanner's post-bind symbols table equals
-// that scanner's package-level Default*SymTable. For every canonical (checked-in)
-// grammar blob, Language.ExternalSymbols is in the same order as the hand-written
-// scanner's Default*SymTable, so this equality is non-tautological: positional
-// binding sets symbols[i] = lang.ExternalSymbols[i], while Default*SymTable[i] is
-// the scanner author's independently recorded expectation for that same slot. A
-// future external REORDER (two upstream externals swapping positions in a grammar
-// regeneration) would still produce the trivial identity externalToToken
-// ([0,1,2,...]) checked above -- that check never looks at symbol values, so it
-// cannot see a reorder -- but the bound symbols would then disagree with
-// Default*SymTable and this assertion would fail. All five scanners expose their
-// default table as a package-level var (kotlinDefaultSymTable, pyDefaultSymTable,
-// swtDefaultSymTable, dartDefaultSymTable, rustDefaultSymTable), so every language
-// below compares its post-bind symbols directly against that var; none needed the
-// lang.ExternalSymbols[i]-by-index fallback.
-//
-// KNOWN FAILING for python and swift as of this writing, and NOT a positional-
-// binding bug: both python_scanner.go's pyDefaultSymTable and swift_scanner.go's
-// swtDefaultSymTable are stale relative to the currently checked-in python.bin /
-// swift.bin (confirmed pre-existing: both scanner files are untouched in this
-// tree's uncommitted diff, and the drift reproduces in isolation with no other
-// test bodies executed, ruling out cross-test mutation of the cached Language
-// singleton). python: all 12 slots are shifted (e.g. index 0 "_newline" is live
-// symbol 101 vs. pyDefaultSymTable's 102). swift: 32 of 33 slots are shifted by a
-// uniform +10, and index 30 ("_directive_else") carries an unrelated, independent
-// bug: swtSymDirectiveElse = 530, wildly outside the ~180-222 range of every
-// neighboring swift external symbol. kotlin, dart, and rust match their default
-// tables exactly. This assertion is deliberately left strict rather than softened
-// for python/swift: weakening it would defeat its purpose for precisely the two
-// languages where it has already caught real drift. Fixing pySym*/swtSym* lives in
-// python_scanner.go/swift_scanner.go, outside this test file's scope.
+// Compare bound symbols with independent scanner defaults to detect reordered externals.
+// Python's equivalent check lives with its shared scanner implementation.
 func TestRealLanguageExternalBindingTablesArePositional(t *testing.T) {
 	kotlin := KotlinExternalScanner{}.ExternalScannerForLanguage(KotlinLanguage()).(KotlinExternalScanner)
 	if got, want := kotlin.externalToToken, []int{0, 1, 2, 3, 4, 5, 6, 7, 8}; !slices.Equal(got, want) {
@@ -151,14 +122,6 @@ func TestRealLanguageExternalBindingTablesArePositional(t *testing.T) {
 	}
 	if got, want := kotlin.symbols, kotlinDefaultSymTable; got != want {
 		t.Fatalf("kotlin post-bind symbols = %v, want default table %v (an ExternalSymbols reorder would still pass the externalToToken check above)", got, want)
-	}
-
-	python := PythonExternalScanner{}.ExternalScannerForLanguage(PythonLanguage()).(PythonExternalScanner)
-	if got, want := python.externalToToken, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}; !slices.Equal(got, want) {
-		t.Fatalf("python externalToToken = %v, want %v", got, want)
-	}
-	if got, want := python.symbols, pyDefaultSymTable; got != want {
-		t.Fatalf("python post-bind symbols = %v, want default table %v", got, want)
 	}
 
 	swift := SwiftExternalScanner{}.ExternalScannerForLanguage(SwiftLanguage()).(SwiftExternalScanner)

@@ -531,10 +531,10 @@ func (p *Parser) buildNoTreeBenchmarkResult(source []byte, arena *nodeArena, roo
 }
 
 func stackCompareForResultSelection(p *Parser, arena *nodeArena, a, b *glrStack, skipErrorRank bool) int {
-	return stackCompareForResultSelectionWithRawShape(p, arena, a, b, skipErrorRank, true)
+	return stackCompareForResultSelectionWithRawShape(p, arena, a, b, skipErrorRank, true, true)
 }
 
-func stackCompareForResultSelectionWithRawShape(p *Parser, arena *nodeArena, a, b *glrStack, skipErrorRank bool, useRawShape bool) int {
+func stackCompareForResultSelectionWithRawShape(p *Parser, arena *nodeArena, a, b *glrStack, skipErrorRank, useRawShape, primaryDerivationOrderAvailable bool) int {
 	if a.dead != b.dead {
 		if a.dead {
 			return -1
@@ -598,6 +598,10 @@ func stackCompareForResultSelectionWithRawShape(p *Parser, arena *nodeArena, a, 
 	if cmp := compareAcceptedStackTreeOrderPreference(p, arena, a, b); cmp != 0 {
 		return cmp
 	}
+	// The forest uses link insertion order, not primary derivation order.
+	// Its caller passes primaryDerivationOrderAvailable=false so raw evidence
+	// remains authoritative for local alternatives.
+	//
 	// The raw-shape/symbol-id fallback below is a last-resort ordering with no
 	// grammar-authored basis: compareRawStackEntriesRec breaks ties on raw
 	// numeric Symbol id, an artifact of grammar-compiler assignment order that
@@ -611,7 +615,7 @@ func stackCompareForResultSelectionWithRawShape(p *Parser, arena *nodeArena, a, 
 	// (never-forked) wins -- decide instead, rather than losing to an
 	// unrelated ordering first. This changes nothing for every uncertified
 	// language.
-	if useRawShape && (p == nil || p.language == nil || !p.language.CompactPrimaryAcceptanceDerivationCertified) {
+	if useRawShape && (!primaryDerivationOrderAvailable || p == nil || p.language == nil || !p.language.CompactPrimaryAcceptanceDerivationCertified) {
 		if cmp := compareAcceptedStackRawShapePreference(p, arena, a, b); cmp != 0 {
 			return cmp
 		}

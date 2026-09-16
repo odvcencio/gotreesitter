@@ -47,6 +47,24 @@ func makePythonBenchmarkSource(funcCount int) []byte {
 	return buf
 }
 
+func makePythonFStringCompatibilityBenchmarkSource(lineCount int) []byte {
+	const line = "f\"{alpha, beta}\"\n"
+	buf := make([]byte, 0, lineCount*len(line))
+	for i := 0; i < lineCount; i++ {
+		buf = append(buf, line...)
+	}
+	return buf
+}
+
+func makePythonFStringSplatBenchmarkSource(lineCount int) []byte {
+	const line = "f\"{*values,}\"\n"
+	buf := make([]byte, 0, lineCount*len(line))
+	for i := 0; i < lineCount; i++ {
+		buf = append(buf, line...)
+	}
+	return buf
+}
+
 func benchmarkParseFullDFA(b *testing.B, spec dfaBenchmarkSpec) {
 	lang := spec.lang()
 	parser := gotreesitter.NewParser(lang)
@@ -379,4 +397,75 @@ func BenchmarkPythonParseIncrementalNoEditDFA(b *testing.B) {
 		source: makePythonBenchmarkSource,
 		marker: "v = ",
 	})
+}
+
+func BenchmarkPythonParseFStringCompatibilityDFA(b *testing.B) {
+	lang := grammars.PythonLanguage()
+	parser := gotreesitter.NewParser(lang)
+	source := makePythonFStringCompatibilityBenchmarkSource(2048)
+	warm, err := parser.Parse(source)
+	if err != nil {
+		b.Fatal(err)
+	}
+	root := requireCompleteParse(b, warm, source, lang, "Python f-string compatibility warmup")
+	if root.HasError() {
+		warm.Release()
+		b.Fatal("Python f-string compatibility warmup produced errors")
+	}
+	warm.Release()
+	b.ReportAllocs()
+	b.SetBytes(int64(len(source)))
+	b.ResetTimer()
+
+	var last gotreesitter.ParseRuntime
+	for i := 0; i < b.N; i++ {
+		tree, err := parser.Parse(source)
+		if err != nil {
+			b.Fatal(err)
+		}
+		root := requireCompleteParse(b, tree, source, lang, "Python f-string compatibility")
+		if root.HasError() {
+			tree.Release()
+			b.Fatal("Python f-string compatibility parse produced errors")
+		}
+		last = tree.ParseRuntime()
+		tree.Release()
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(last.NormalizationPassesChecked), "norm_checked/op")
+	b.ReportMetric(float64(last.NormalizationPassesRun), "norm_runs/op")
+	b.ReportMetric(float64(last.NormalizationNodesVisited), "norm_visited/op")
+	b.ReportMetric(float64(last.NormalizationNanos), "norm_ns/op")
+}
+
+func BenchmarkPythonParseFStringForestDFA(b *testing.B) {
+	lang := grammars.PythonLanguage()
+	parser := gotreesitter.NewParser(lang)
+	source := makePythonFStringSplatBenchmarkSource(2048)
+	warm, ok := parser.ParseForestExperimental(source)
+	if !ok || warm == nil {
+		b.Fatal("Python f-string forest warmup declined")
+	}
+	root := requireCompleteParse(b, warm, source, lang, "Python f-string forest warmup")
+	if root.HasError() {
+		warm.Release()
+		b.Fatal("Python f-string forest warmup produced errors")
+	}
+	warm.Release()
+	b.ReportAllocs()
+	b.SetBytes(int64(len(source)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		tree, ok := parser.ParseForestExperimental(source)
+		if !ok || tree == nil {
+			b.Fatal("Python f-string forest parse declined")
+		}
+		root := requireCompleteParse(b, tree, source, lang, "Python f-string forest")
+		if root.HasError() {
+			tree.Release()
+			b.Fatal("Python f-string forest parse produced errors")
+		}
+		tree.Release()
+	}
 }

@@ -7,6 +7,11 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Standalone grammar packages
+
+- Add `grammars/python` for Python-only commands without build tags.
+  The package embeds one grammar and shares the scanner with the aggregate package.
+
 ### C parity program, round one: query semantics
 
 - Resolve node types in query patterns the way the C query compiler does:
@@ -62,6 +67,11 @@ for tags and release notes while still in `0.x`.
   both routes while C reports an ERROR, and the fresh and incremental
   parses keep a different number of GLR stacks after the site. The C
   keyword rule exposed the site; the divergence itself is older.
+- Retire the Python interpolation compatibility pass after native clean-tie
+  election reaches parity with the pinned C parser.
+- Keep raw-shape ordering for forest-local alternatives when compact primary
+  derivation selection is certified. Python f-string splats now match locked C
+  on the forest route.
 
 ### Compact core cost, round two (issue #454)
 

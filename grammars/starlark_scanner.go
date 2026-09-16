@@ -38,7 +38,7 @@ const (
 type StarlarkExternalScanner struct{}
 
 func (StarlarkExternalScanner) Create() any {
-	return &pythonScannerState{indents: []uint16{0}}
+	return &pythonScannerState{Indents: []uint16{0}}
 }
 
 func (StarlarkExternalScanner) Destroy(payload any) {}
@@ -69,8 +69,8 @@ func (StarlarkExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint
 
 func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*pythonScannerState)
-	if len(s.indents) == 0 {
-		s.indents = append(s.indents, 0)
+	if len(s.Indents) == 0 {
+		s.Indents = append(s.Indents, 0)
 	}
 
 	isValid := func(idx int) bool {
@@ -81,10 +81,10 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 	withinBrackets := isValid(slTokCloseBrace) || isValid(slTokCloseParen) || isValid(slTokCloseBracket)
 
 	advancedOnce := false
-	if isValid(slTokEscapeInterpolation) && len(s.delimiters) > 0 &&
+	if isValid(slTokEscapeInterpolation) && len(s.Delimiters) > 0 &&
 		(lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && !errorRecoveryMode {
-		delimiter := s.delimiters[len(s.delimiters)-1]
-		if delimiter.isFormat() {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		if delimiter.IsFormat() {
 			lexer.MarkEnd()
 			isLeftBrace := lexer.Lookahead() == '{'
 			lexer.Advance(false)
@@ -99,22 +99,22 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 		}
 	}
 
-	if isValid(slTokStringContent) && len(s.delimiters) > 0 && !errorRecoveryMode {
-		delimiter := s.delimiters[len(s.delimiters)-1]
-		endChar := delimiter.endChar()
+	if isValid(slTokStringContent) && len(s.Delimiters) > 0 && !errorRecoveryMode {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		EndChar := delimiter.EndChar()
 		hasContent := advancedOnce
 
 		for lexer.Lookahead() != 0 {
-			if (advancedOnce || lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && delimiter.isFormat() {
+			if (advancedOnce || lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && delimiter.IsFormat() {
 				lexer.MarkEnd()
 				lexer.SetResultSymbol(slSymStringContent)
 				return hasContent
 			}
 
 			if lexer.Lookahead() == '\\' {
-				if delimiter.isRaw() {
+				if delimiter.IsRaw() {
 					lexer.Advance(false)
-					if lexer.Lookahead() == endChar || lexer.Lookahead() == '\\' {
+					if lexer.Lookahead() == EndChar || lexer.Lookahead() == '\\' {
 						lexer.Advance(false)
 					}
 					if lexer.Lookahead() == '\r' {
@@ -128,7 +128,7 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 					continue
 				}
 
-				if delimiter.isBytes() {
+				if delimiter.IsBytes() {
 					lexer.MarkEnd()
 					lexer.Advance(false)
 					if lexer.Lookahead() == 'N' || lexer.Lookahead() == 'u' || lexer.Lookahead() == 'U' {
@@ -142,21 +142,21 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 					lexer.SetResultSymbol(slSymStringContent)
 					return hasContent
 				}
-			} else if lexer.Lookahead() == endChar {
-				if delimiter.isTriple() {
+			} else if lexer.Lookahead() == EndChar {
+				if delimiter.IsTriple() {
 					lexer.MarkEnd()
 					lexer.Advance(false)
-					if lexer.Lookahead() == endChar {
+					if lexer.Lookahead() == EndChar {
 						lexer.Advance(false)
-						if lexer.Lookahead() == endChar {
+						if lexer.Lookahead() == EndChar {
 							if hasContent {
 								lexer.SetResultSymbol(slSymStringContent)
 							} else {
 								lexer.Advance(false)
 								lexer.MarkEnd()
-								s.delimiters = s.delimiters[:len(s.delimiters)-1]
+								s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
 								lexer.SetResultSymbol(slSymStringEnd)
-								s.insideInterpolatedString = false
+								s.InsideInterpolatedString = false
 							}
 							return true
 						}
@@ -173,13 +173,13 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 					lexer.SetResultSymbol(slSymStringContent)
 				} else {
 					lexer.Advance(false)
-					s.delimiters = s.delimiters[:len(s.delimiters)-1]
+					s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
 					lexer.SetResultSymbol(slSymStringEnd)
-					s.insideInterpolatedString = false
+					s.InsideInterpolatedString = false
 				}
 				lexer.MarkEnd()
 				return true
-			} else if lexer.Lookahead() == '\n' && hasContent && !delimiter.isTriple() {
+			} else if lexer.Lookahead() == '\n' && hasContent && !delimiter.IsTriple() {
 				return false
 			}
 
@@ -246,10 +246,10 @@ func (StarlarkExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLex
 
 slAfterIndentLoop:
 	if foundEndOfLine {
-		currentIndent := s.indents[len(s.indents)-1]
+		currentIndent := s.Indents[len(s.Indents)-1]
 
 		if isValid(slTokIndent) && indentLength > currentIndent {
-			s.indents = append(s.indents, indentLength)
+			s.Indents = append(s.Indents, indentLength)
 			lexer.SetResultSymbol(slSymIndent)
 			return true
 		}
@@ -258,9 +258,9 @@ slAfterIndentLoop:
 		if (isValid(slTokDedent) ||
 			(!isValid(slTokNewline) && !(isValid(slTokStringStart) && nextTokIsStringStart) && !withinBrackets)) &&
 			indentLength < currentIndent &&
-			!s.insideInterpolatedString &&
+			!s.InsideInterpolatedString &&
 			firstCommentIndentLength < int32(currentIndent) {
-			s.indents = s.indents[:len(s.indents)-1]
+			s.Indents = s.Indents[:len(s.Indents)-1]
 			lexer.SetResultSymbol(slSymDedent)
 			return true
 		}
@@ -324,10 +324,10 @@ slAfterIndentLoop:
 			}
 		}
 
-		if delimiter.endChar() != 0 {
-			s.delimiters = append(s.delimiters, delimiter)
+		if delimiter.EndChar() != 0 {
+			s.Delimiters = append(s.Delimiters, delimiter)
 			lexer.SetResultSymbol(slSymStringStart)
-			s.insideInterpolatedString = delimiter.isFormat()
+			s.InsideInterpolatedString = delimiter.IsFormat()
 			return true
 		}
 		if hasFlags {

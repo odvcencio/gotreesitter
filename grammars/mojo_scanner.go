@@ -46,7 +46,7 @@ const (
 type MojoExternalScanner struct{}
 
 func (MojoExternalScanner) Create() any {
-	return &pythonScannerState{indents: []uint16{0}}
+	return &pythonScannerState{Indents: []uint16{0}}
 }
 
 func (MojoExternalScanner) Destroy(payload any) {}
@@ -76,10 +76,10 @@ func (MojoExternalScanner) ExternalScannerASCIIEquivalenceClass(b byte) uint8 {
 
 func (MojoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*pythonScannerState)
-	if len(s.indents) == 0 {
-		s.indents = append(s.indents, 0)
+	if len(s.Indents) == 0 {
+		s.Indents = append(s.Indents, 0)
 	}
-	s.syncInsideInterpolatedString()
+	s.SyncInsideInterpolatedString()
 
 	isValid := func(idx int) bool {
 		return idx >= 0 && idx < len(validSymbols) && validSymbols[idx]
@@ -89,10 +89,10 @@ func (MojoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 	withinBrackets := isValid(mojoTokCloseBrace) || isValid(mojoTokCloseParen) || isValid(mojoTokCloseBracket)
 
 	advancedOnce := false
-	if isValid(mojoTokEscapeInterpolation) && len(s.delimiters) > 0 &&
+	if isValid(mojoTokEscapeInterpolation) && len(s.Delimiters) > 0 &&
 		(lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && !errorRecoveryMode {
-		delimiter := s.delimiters[len(s.delimiters)-1]
-		if delimiter.isFormat() {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		if delimiter.IsFormat() {
 			lexer.MarkEnd()
 			isLeftBrace := lexer.Lookahead() == '{'
 			lexer.Advance(false)
@@ -107,22 +107,22 @@ func (MojoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 		}
 	}
 
-	if isValid(mojoTokStringContent) && len(s.delimiters) > 0 && !errorRecoveryMode {
-		delimiter := s.delimiters[len(s.delimiters)-1]
-		endChar := delimiter.endChar()
+	if isValid(mojoTokStringContent) && len(s.Delimiters) > 0 && !errorRecoveryMode {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		EndChar := delimiter.EndChar()
 		hasContent := advancedOnce
 
 		for lexer.Lookahead() != 0 {
-			if (advancedOnce || lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && delimiter.isFormat() {
+			if (advancedOnce || lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && delimiter.IsFormat() {
 				lexer.MarkEnd()
 				lexer.SetResultSymbol(mojoSymStringContent)
 				return hasContent
 			}
 
 			if lexer.Lookahead() == '\\' {
-				if delimiter.isRaw() {
+				if delimiter.IsRaw() {
 					lexer.Advance(false)
-					if lexer.Lookahead() == endChar || lexer.Lookahead() == '\\' {
+					if lexer.Lookahead() == EndChar || lexer.Lookahead() == '\\' {
 						lexer.Advance(false)
 					}
 					if lexer.Lookahead() == '\r' {
@@ -136,7 +136,7 @@ func (MojoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 					continue
 				}
 
-				if delimiter.isBytes() {
+				if delimiter.IsBytes() {
 					lexer.MarkEnd()
 					lexer.Advance(false)
 					if lexer.Lookahead() == 'N' || lexer.Lookahead() == 'u' || lexer.Lookahead() == 'U' {
@@ -150,21 +150,21 @@ func (MojoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 					lexer.SetResultSymbol(mojoSymStringContent)
 					return hasContent
 				}
-			} else if lexer.Lookahead() == endChar {
-				if delimiter.isTriple() {
+			} else if lexer.Lookahead() == EndChar {
+				if delimiter.IsTriple() {
 					lexer.MarkEnd()
 					lexer.Advance(false)
-					if lexer.Lookahead() == endChar {
+					if lexer.Lookahead() == EndChar {
 						lexer.Advance(false)
-						if lexer.Lookahead() == endChar {
+						if lexer.Lookahead() == EndChar {
 							if hasContent {
 								lexer.SetResultSymbol(mojoSymStringContent)
 							} else {
 								lexer.Advance(false)
 								lexer.MarkEnd()
-								s.delimiters = s.delimiters[:len(s.delimiters)-1]
+								s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
 								lexer.SetResultSymbol(mojoSymStringEnd)
-								s.insideInterpolatedString = false
+								s.InsideInterpolatedString = false
 							}
 							return true
 						}
@@ -181,13 +181,13 @@ func (MojoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 					lexer.SetResultSymbol(mojoSymStringContent)
 				} else {
 					lexer.Advance(false)
-					s.delimiters = s.delimiters[:len(s.delimiters)-1]
+					s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
 					lexer.SetResultSymbol(mojoSymStringEnd)
-					s.insideInterpolatedString = false
+					s.InsideInterpolatedString = false
 				}
 				lexer.MarkEnd()
 				return true
-			} else if lexer.Lookahead() == '\n' && hasContent && !delimiter.isTriple() {
+			} else if lexer.Lookahead() == '\n' && hasContent && !delimiter.IsTriple() {
 				return false
 			}
 
@@ -254,10 +254,10 @@ func (MojoExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, 
 
 afterIndentLoop:
 	if foundEndOfLine {
-		currentIndent := s.indents[len(s.indents)-1]
+		currentIndent := s.Indents[len(s.Indents)-1]
 
 		if isValid(mojoTokIndent) && indentLength > currentIndent {
-			s.indents = append(s.indents, indentLength)
+			s.Indents = append(s.Indents, indentLength)
 			lexer.SetResultSymbol(mojoSymIndent)
 			return true
 		}
@@ -266,9 +266,9 @@ afterIndentLoop:
 		if (isValid(mojoTokDedent) ||
 			(!isValid(mojoTokNewline) && !(isValid(mojoTokStringStart) && nextTokIsStringStart) && !withinBrackets)) &&
 			indentLength < currentIndent &&
-			!s.insideInterpolatedString &&
+			!s.InsideInterpolatedString &&
 			firstCommentIndentLength < int32(currentIndent) {
-			s.indents = s.indents[:len(s.indents)-1]
+			s.Indents = s.Indents[:len(s.Indents)-1]
 			lexer.SetResultSymbol(mojoSymDedent)
 			return true
 		}
@@ -332,10 +332,10 @@ afterIndentLoop:
 			}
 		}
 
-		if delimiter.endChar() != 0 {
-			s.delimiters = append(s.delimiters, delimiter)
+		if delimiter.EndChar() != 0 {
+			s.Delimiters = append(s.Delimiters, delimiter)
 			lexer.SetResultSymbol(mojoSymStringStart)
-			s.insideInterpolatedString = delimiter.isFormat()
+			s.InsideInterpolatedString = delimiter.IsFormat()
 			return true
 		}
 		if hasFlags {

@@ -1,6 +1,4 @@
-//go:build !grammar_subset || grammar_subset_python
-
-package grammars
+package pythonruntime
 
 import (
 	"bytes"
@@ -25,15 +23,15 @@ func TestPythonScannerASCIIDigitInvariant(t *testing.T) {
 		}
 	}
 	lang := &gotreesitter.Language{ExternalScanner: scanner}
-	states := []pythonScannerState{
+	states := []State{
 		{},
-		{indents: []uint16{0, 4, 8}},
-		{indents: []uint16{0, 8}, delimiters: []pyDelimiter{pyDelimSingleQuote}},
-		{indents: []uint16{0}, delimiters: []pyDelimiter{pyDelimDoubleQuote | pyDelimRaw}},
-		{indents: []uint16{0}, delimiters: []pyDelimiter{pyDelimSingleQuote | pyDelimBytes}},
-		{indents: []uint16{0}, delimiters: []pyDelimiter{pyDelimDoubleQuote | pyDelimTriple}},
-		{indents: []uint16{0, 4}, delimiters: []pyDelimiter{pyDelimDoubleQuote | pyDelimFormat}, insideInterpolatedString: true},
-		{indents: []uint16{0}, delimiters: []pyDelimiter{pyDelimBackQuote, pyDelimSingleQuote | pyDelimRaw | pyDelimTriple}},
+		{Indents: []uint16{0, 4, 8}},
+		{Indents: []uint16{0, 8}, Delimiters: []Delimiter{DelimiterSingleQuote}},
+		{Indents: []uint16{0}, Delimiters: []Delimiter{DelimiterDoubleQuote | DelimiterRaw}},
+		{Indents: []uint16{0}, Delimiters: []Delimiter{DelimiterSingleQuote | DelimiterBytes}},
+		{Indents: []uint16{0}, Delimiters: []Delimiter{DelimiterDoubleQuote | DelimiterTriple}},
+		{Indents: []uint16{0, 4}, Delimiters: []Delimiter{DelimiterDoubleQuote | DelimiterFormat}, InsideInterpolatedString: true},
+		{Indents: []uint16{0}, Delimiters: []Delimiter{DelimiterBackQuote, DelimiterSingleQuote | DelimiterRaw | DelimiterTriple}},
 	}
 	sources := []string{
 		"0", "\n    0", "\n  # 0\n0", "0'", "0\"\"\"", "\\0'", "{{0}", "f0\"", "0\n", "\r\n\t0",
@@ -52,10 +50,10 @@ func TestPythonScannerASCIIDigitInvariant(t *testing.T) {
 						oldSource := []byte(strings.ReplaceAll(template, "0", string(oldDigit)))
 						newSource := []byte(strings.ReplaceAll(template, "0", string(newDigit)))
 						oldState, newState := initial, initial
-						oldState.indents = append([]uint16(nil), initial.indents...)
-						newState.indents = append([]uint16(nil), initial.indents...)
-						oldState.delimiters = append([]pyDelimiter(nil), initial.delimiters...)
-						newState.delimiters = append([]pyDelimiter(nil), initial.delimiters...)
+						oldState.Indents = append([]uint16(nil), initial.Indents...)
+						newState.Indents = append([]uint16(nil), initial.Indents...)
+						oldState.Delimiters = append([]Delimiter(nil), initial.Delimiters...)
+						newState.Delimiters = append([]Delimiter(nil), initial.Delimiters...)
 						var valid [pyTokenCount]bool
 						for i := range valid {
 							valid[i] = mask&(1<<i) != 0

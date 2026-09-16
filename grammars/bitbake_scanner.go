@@ -43,26 +43,26 @@ type BitbakeExternalScanner struct{}
 // Reuse pythonScannerState — same internal structure.
 
 func (BitbakeExternalScanner) Create() any {
-	return &pythonScannerState{indents: []uint16{0}}
+	return &pythonScannerState{Indents: []uint16{0}}
 }
 func (BitbakeExternalScanner) Destroy(payload any) {}
 
 func (BitbakeExternalScanner) Serialize(payload any, buf []byte) int {
 	// Bitbake serialize format: 1 byte f-string flag, 1 byte delim count,
-	// N bytes delimiters, remaining bytes = indents[1:] (1 byte each).
+	// N bytes Delimiters, remaining bytes = Indents[1:] (1 byte each).
 	s := payload.(*pythonScannerState)
 	if len(buf) == 0 {
 		return 0
 	}
 	size := 0
-	if s.insideInterpolatedString {
+	if s.InsideInterpolatedString {
 		buf[size] = 1
 	} else {
 		buf[size] = 0
 	}
 	size++
 
-	delimCount := len(s.delimiters)
+	delimCount := len(s.Delimiters)
 	if delimCount > 255 {
 		delimCount = 255
 	}
@@ -72,11 +72,11 @@ func (BitbakeExternalScanner) Serialize(payload any, buf []byte) int {
 	buf[size] = byte(delimCount)
 	size++
 	for i := 0; i < delimCount && size < len(buf); i++ {
-		buf[size] = byte(s.delimiters[i])
+		buf[size] = byte(s.Delimiters[i])
 		size++
 	}
-	for i := 1; i < len(s.indents) && size < len(buf); i++ {
-		buf[size] = byte(s.indents[i])
+	for i := 1; i < len(s.Indents) && size < len(buf); i++ {
+		buf[size] = byte(s.Indents[i])
 		size++
 	}
 	return size
@@ -84,16 +84,16 @@ func (BitbakeExternalScanner) Serialize(payload any, buf []byte) int {
 
 func (BitbakeExternalScanner) Deserialize(payload any, buf []byte) {
 	s := payload.(*pythonScannerState)
-	s.delimiters = s.delimiters[:0]
-	s.indents = s.indents[:0]
-	s.indents = append(s.indents, 0)
-	s.insideInterpolatedString = false
+	s.Delimiters = s.Delimiters[:0]
+	s.Indents = s.Indents[:0]
+	s.Indents = append(s.Indents, 0)
+	s.InsideInterpolatedString = false
 
 	if len(buf) == 0 {
 		return
 	}
 	size := 0
-	s.insideInterpolatedString = buf[size] != 0
+	s.InsideInterpolatedString = buf[size] != 0
 	size++
 	if size >= len(buf) {
 		return
@@ -101,18 +101,18 @@ func (BitbakeExternalScanner) Deserialize(payload any, buf []byte) {
 	delimCount := int(buf[size])
 	size++
 	for i := 0; i < delimCount && size < len(buf); i++ {
-		s.delimiters = append(s.delimiters, pyDelimiter(buf[size]))
+		s.Delimiters = append(s.Delimiters, pyDelimiter(buf[size]))
 		size++
 	}
 	for ; size < len(buf); size++ {
-		s.indents = append(s.indents, uint16(buf[size]))
+		s.Indents = append(s.Indents, uint16(buf[size]))
 	}
 }
 
 func (BitbakeExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*pythonScannerState)
-	if len(s.indents) == 0 {
-		s.indents = append(s.indents, 0)
+	if len(s.Indents) == 0 {
+		s.Indents = append(s.Indents, 0)
 	}
 
 	isValid := func(idx int) bool {
@@ -133,10 +133,10 @@ func (BitbakeExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 
 	// ---- Escape interpolation ----
 	advancedOnce := false
-	if isValid(bbTokEscapeInterp) && len(s.delimiters) > 0 &&
+	if isValid(bbTokEscapeInterp) && len(s.Delimiters) > 0 &&
 		(lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && !errorRecoveryMode {
-		delimiter := s.delimiters[len(s.delimiters)-1]
-		if delimiter.isFormat() {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		if delimiter.IsFormat() {
 			lexer.MarkEnd()
 			isLeftBrace := lexer.Lookahead() == '{'
 			lexer.Advance(false)
@@ -152,22 +152,22 @@ func (BitbakeExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 	}
 
 	// ---- String content ----
-	if isValid(bbTokStringContent) && len(s.delimiters) > 0 && !errorRecoveryMode {
-		delimiter := s.delimiters[len(s.delimiters)-1]
-		endChar := delimiter.endChar()
+	if isValid(bbTokStringContent) && len(s.Delimiters) > 0 && !errorRecoveryMode {
+		delimiter := s.Delimiters[len(s.Delimiters)-1]
+		EndChar := delimiter.EndChar()
 		hasContent := advancedOnce
 
 		for lexer.Lookahead() != 0 {
-			if (advancedOnce || lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && delimiter.isFormat() {
+			if (advancedOnce || lexer.Lookahead() == '{' || lexer.Lookahead() == '}') && delimiter.IsFormat() {
 				lexer.MarkEnd()
 				lexer.SetResultSymbol(bbSymStringContent)
 				return hasContent
 			}
 
 			if lexer.Lookahead() == '\\' {
-				if delimiter.isRaw() {
+				if delimiter.IsRaw() {
 					lexer.Advance(false)
-					if lexer.Lookahead() == endChar || lexer.Lookahead() == '\\' {
+					if lexer.Lookahead() == EndChar || lexer.Lookahead() == '\\' {
 						lexer.Advance(false)
 					}
 					if lexer.Lookahead() == '\r' {
@@ -180,7 +180,7 @@ func (BitbakeExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 					}
 					continue
 				}
-				if delimiter.isBytes() {
+				if delimiter.IsBytes() {
 					lexer.MarkEnd()
 					lexer.Advance(false)
 					if lexer.Lookahead() == 'N' || lexer.Lookahead() == 'u' || lexer.Lookahead() == 'U' {
@@ -194,21 +194,21 @@ func (BitbakeExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 					lexer.SetResultSymbol(bbSymStringContent)
 					return hasContent
 				}
-			} else if lexer.Lookahead() == endChar {
-				if delimiter.isTriple() {
+			} else if lexer.Lookahead() == EndChar {
+				if delimiter.IsTriple() {
 					lexer.MarkEnd()
 					lexer.Advance(false)
-					if lexer.Lookahead() == endChar {
+					if lexer.Lookahead() == EndChar {
 						lexer.Advance(false)
-						if lexer.Lookahead() == endChar {
+						if lexer.Lookahead() == EndChar {
 							if hasContent {
 								lexer.SetResultSymbol(bbSymStringContent)
 							} else {
 								lexer.Advance(false)
 								lexer.MarkEnd()
-								s.delimiters = s.delimiters[:len(s.delimiters)-1]
+								s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
 								lexer.SetResultSymbol(bbSymStringEnd)
-								s.insideInterpolatedString = false
+								s.InsideInterpolatedString = false
 							}
 							return true
 						}
@@ -224,13 +224,13 @@ func (BitbakeExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 					lexer.SetResultSymbol(bbSymStringContent)
 				} else {
 					lexer.Advance(false)
-					s.delimiters = s.delimiters[:len(s.delimiters)-1]
+					s.Delimiters = s.Delimiters[:len(s.Delimiters)-1]
 					lexer.SetResultSymbol(bbSymStringEnd)
-					s.insideInterpolatedString = false
+					s.InsideInterpolatedString = false
 				}
 				lexer.MarkEnd()
 				return true
-			} else if lexer.Lookahead() == '\n' && hasContent && !delimiter.isTriple() {
+			} else if lexer.Lookahead() == '\n' && hasContent && !delimiter.IsTriple() {
 				return false
 			}
 
@@ -299,10 +299,10 @@ func (BitbakeExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexe
 
 bbAfterIndentLoop:
 	if foundEndOfLine {
-		currentIndent := s.indents[len(s.indents)-1]
+		currentIndent := s.Indents[len(s.Indents)-1]
 
 		if isValid(bbTokIndent) && indentLength > currentIndent {
-			s.indents = append(s.indents, indentLength)
+			s.Indents = append(s.Indents, indentLength)
 			lexer.SetResultSymbol(bbSymIndent)
 			return true
 		}
@@ -312,9 +312,9 @@ bbAfterIndentLoop:
 		if (isValid(bbTokDedent) ||
 			(!isValid(bbTokNewline) && !(isValid(bbTokStringStart) && nextTokIsStringStart) && !withinBrackets)) &&
 			indentLength < currentIndent &&
-			!s.insideInterpolatedString &&
+			!s.InsideInterpolatedString &&
 			firstCommentIndentLength < int32(currentIndent) {
-			s.indents = s.indents[:len(s.indents)-1]
+			s.Indents = s.Indents[:len(s.Indents)-1]
 			lexer.SetResultSymbol(bbSymDedent)
 			return true
 		}
@@ -379,10 +379,10 @@ bbAfterIndentLoop:
 			}
 		}
 
-		if delimiter.endChar() != 0 {
-			s.delimiters = append(s.delimiters, delimiter)
+		if delimiter.EndChar() != 0 {
+			s.Delimiters = append(s.Delimiters, delimiter)
 			lexer.SetResultSymbol(bbSymStringStart)
-			s.insideInterpolatedString = delimiter.isFormat()
+			s.InsideInterpolatedString = delimiter.IsFormat()
 			return true
 		}
 		if hasFlags {

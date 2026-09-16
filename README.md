@@ -690,6 +690,20 @@ See the [per-language matrix](docs/external-scanners.md#incremental-reuse-certif
 
 **Grammar loading** — `ts2go` extracts parse tables, lex tables, field maps, symbol metadata, and external token lists from upstream `parser.c` files. These are serialized to compressed binary blobs under `grammars/grammar_blobs/` and lazy-loaded through `loadEmbeddedLanguage()` with an LRU cache. String and transition interning reduce memory footprint across loaded grammars. Grammargen-backed blobs use the same CLI surface; for example, you can regenerate the Go blob with `go run ./cmd/grammargen -lr-split -bin grammars/grammar_blobs/go.bin go`. When loading a raw blob yourself, prefer `grammars.LoadLanguage(name, blob)` over `gotreesitter.LoadLanguage(blob)`, so the runtime attaches the registered external scanner and external lex-state support for that language automatically.
 
+**Standalone Python grammar** — Import `grammars/python` when a command needs
+Python without the aggregate grammar registry. This path works with ordinary
+`go install` and needs no build tags.
+
+```go
+import python "github.com/odvcencio/gotreesitter/grammars/python"
+
+parser := gotreesitter.NewParser(python.Language())
+```
+
+The package embeds only `python.bin`. It attaches Python's scanner,
+external lex states, and exact runtime profile. It shares the scanner and
+checkpoint code with the aggregate package.
+
 ### Build tags and environment
 
 **External grammar blobs** (avoid embedding in the binary):

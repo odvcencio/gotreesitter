@@ -9,7 +9,7 @@
     "post_finalization_arms": 0,
     "post_finalization_languages": 0,
     "live_entries": 32,
-    "retired_entries": 56
+    "retired_entries": 57
   },
   "live_evidence_baseline": {
     "scope": "baseline_corpus_wide_only",
@@ -2221,6 +2221,45 @@
       },
       "status": "live",
       "evidence_scope": "baseline_corpus_wide_only"
+    },
+    {
+      "id": "dispatch.python.interpolation-patterns",
+      "kind": "dispatcher_subpass",
+      "functions": [
+        "normalizePythonInterpolationPatterns"
+      ],
+      "files": [
+        "parser_result_python.go"
+      ],
+      "languages": [
+        "python"
+      ],
+      "purpose": "Historical: select expression_list instead of pattern_list for comma-separated expressions inside Python f-string interpolations.",
+      "authoritative_owner": "derivation_election_selection",
+      "witnesses": [
+        "benchmark_big3_test.go",
+        "cgo_harness/python_scheduler_action_local_parity_test.go",
+        "cgo_harness/python_dispatch_blocker_receipt_test.go",
+        "cgo_harness/python_a3_certification_sweep_test.go"
+      ],
+      "retirement_condition": "Satisfied: native clean-tie election selects expression_list. Forest-local raw ordering closes the final route gap, and all registered receipts pass.",
+      "route_coverage": {
+        "production": "retired_exact_receipt",
+        "compact": "retired_exact_receipt",
+        "forest": "retired_exact_receipt",
+        "incremental": "retired_exact_receipt",
+        "c_oracle": "retired_exact_receipt"
+      },
+      "status": "retired",
+      "retired_commit": "ff15819014c4b7886082842699d4167fd8315889",
+      "positive_control_commit": "49a104796c007ea1bf442e37a78edbc67c46c63e",
+      "producer_fix_commit": "106508e81fbe727b9a74fa749f273ca1ed114e0c",
+      "receipt_refs": [
+        "benchmark_big3_test.go",
+        "cgo_harness/python_scheduler_action_local_parity_test.go",
+        "cgo_harness/python_dispatch_blocker_receipt_test.go",
+        "cgo_harness/python_a3_certification_sweep_test.go"
+      ]
     },
     {
       "id": "dispatch.rescript",
