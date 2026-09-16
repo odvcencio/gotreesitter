@@ -652,19 +652,19 @@ jobs:
             package_filter: '/cmd/'
             test_filter: ''
           - name: grammars-a-c
-            package_filter: '/grammars$'
+            package_filter: '/grammars($|/runtime$)'
             test_filter: '^(Test[A-C].*)$'
           - name: grammars-d-j
-            package_filter: '/grammars$'
+            package_filter: '/grammars($|/runtime$)'
             test_filter: '^(Test[D-J].*)$'
           - name: grammars-k-p
-            package_filter: '/grammars$'
+            package_filter: '/grammars($|/runtime$)'
             test_filter: '^(Test[K-P].*)$'
           - name: grammars-q-z
-            package_filter: '/grammars$'
+            package_filter: '/grammars($|/runtime$)'
             test_filter: '^(Test[Q-Z].*)$'
           - name: grammars-other
-            package_filter: '/grammars$'
+            package_filter: '/grammars($|/runtime$)'
             test_filter: '^(Test($|[^A-Z].*))$'
           - name: grammargen-support
             package_filter: '/grammargen/'
@@ -1073,7 +1073,7 @@ jobs:
           # timeout and failing. The non-draft race suite does not
           # special-case them either, so mirror that behavior here and give
           # the whole draft visibility run a generous budget.
-          go test . ./grammars -count=1 -timeout 25m
+          go test . ./grammars ./grammars/runtime -count=1 -timeout 25m
 
   freshness:
     needs: exhaustive_parity_scope
@@ -1104,6 +1104,9 @@ jobs:
 
       - name: Check selective blob embed freshness
         run: go run ./cmd/gen_subset_blob_embeds -check
+
+      - name: Check standalone grammar packages
+        run: go run ./cmd/gen_grammar_packages -check
 
       - name: Check generated source ownership
         run: bash scripts/check_generated_ownership.sh

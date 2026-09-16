@@ -1,0 +1,638 @@
+//go:build !grammar_subset || grammar_subset_toml
+
+package grammarruntime
+
+import (
+	"fmt"
+
+	"github.com/odvcencio/gotreesitter"
+)
+
+// TomlTokenSource is a lightweight lexer bridge for tree-sitter-toml.
+// It focuses on practical coverage for common editor workflows and
+// incremental parsing.
+type TomlTokenSource struct {
+	src     []byte
+	lang    *gotreesitter.Language
+	cur     sourceCursor
+	pending []gotreesitter.Token
+
+	done bool
+
+	eofSymbol gotreesitter.Symbol
+
+	docStartSym       gotreesitter.Symbol
+	commentSym        gotreesitter.Symbol
+	bareKeySym        gotreesitter.Symbol
+	booleanSym        gotreesitter.Symbol
+	intSym            gotreesitter.Symbol
+	floatSym          gotreesitter.Symbol
+	offsetDateTimeSym gotreesitter.Symbol
+	localDateTimeSym  gotreesitter.Symbol
+	localDateSym      gotreesitter.Symbol
+	localTimeSym      gotreesitter.Symbol
+	lineEndSym        gotreesitter.Symbol
+
+	eqSym      gotreesitter.Symbol
+	dotSym     gotreesitter.Symbol
+	commaSym   gotreesitter.Symbol
+	lbrackSym  gotreesitter.Symbol
+	rbrackSym  gotreesitter.Symbol
+	lbrack2Sym gotreesitter.Symbol
+	rbrack2Sym gotreesitter.Symbol
+	lbraceSym  gotreesitter.Symbol
+	rbraceSym  gotreesitter.Symbol
+
+	basicStringSym    gotreesitter.Symbol
+	basicQuoteOpen    gotreesitter.Symbol
+	basicQuoteClose   gotreesitter.Symbol
+	basicEscapeSym    gotreesitter.Symbol
+	literalStringSym  gotreesitter.Symbol
+	literalQuoteOpen  gotreesitter.Symbol
+	literalQuoteClose gotreesitter.Symbol
+
+	emittedEOFLineEnd bool
+	emittedDocStart   bool
+}
+
+// NewTomlTokenSource creates a token source for TOML source text.
+func NewTomlTokenSource(src []byte, lang *gotreesitter.Language) (*TomlTokenSource, error) {
+	if lang == nil {
+		return nil, fmt.Errorf("toml lexer: language is nil")
+	}
+
+	lookup := newTokenLookup(lang, "toml")
+
+	ts := &TomlTokenSource{
+		src:  src,
+		lang: lang,
+		cur:  newSourceCursor(src),
+		// The DFA path does not surface a standalone document-start token in
+		// successful TOML parses. Emitting it unconditionally from the custom
+		// token source steers valid files onto an error-heavy fallback branch.
+		emittedDocStart: true,
+	}
+
+	ts.eofSymbol, _ = lang.SymbolByName("end")
+	ts.docStartSym = lookup.optional("document_token1")
+	ts.commentSym = lookup.optional("comment")
+	ts.bareKeySym = lookup.require("bare_key")
+	ts.booleanSym = lookup.optional("boolean")
+	ts.intSym = lookup.optional("integer_token1", "integer_token2", "integer_token3", "integer_token4")
+	ts.floatSym = lookup.optional("float_token1", "float_token2")
+	ts.offsetDateTimeSym = lookup.optional("offset_date_time")
+	ts.localDateTimeSym = lookup.optional("local_date_time")
+	ts.localDateSym = lookup.optional("local_date")
+	ts.localTimeSym = lookup.optional("local_time")
+	ts.lineEndSym = lookup.optional("_line_ending_or_eof")
+
+	ts.eqSym = lookup.optional("=")
+	ts.dotSym = lookup.optional(".")
+	ts.commaSym = lookup.optional(",")
+	ts.lbrackSym = lookup.optional("[")
+	ts.rbrackSym = lookup.optional("]")
+	ts.lbrack2Sym = lookup.optional("[[")
+	ts.rbrack2Sym = lookup.optional("]]")
+	ts.lbraceSym = lookup.optional("{")
+	ts.rbraceSym = lookup.optional("}")
+
+	ts.basicStringSym = lookup.optional("_basic_string_token1")
+	if quoteSyms := lang.TokenSymbolsByName("\""); len(quoteSyms) > 0 {
+		ts.basicQuoteOpen = quoteSyms[0]
+		ts.basicQuoteClose = quoteSyms[0]
+		if len(quoteSyms) > 1 {
+			ts.basicQuoteClose = quoteSyms[1]
+		}
+	}
+	if escapeSyms := lang.TokenSymbolsByName("escape_sequence"); len(escapeSyms) > 0 {
+		ts.basicEscapeSym = escapeSyms[0]
+	}
+	ts.literalStringSym = lookup.optional("_literal_string_token1")
+	if quoteSyms := lang.TokenSymbolsByName("'"); len(quoteSyms) > 0 {
+		ts.literalQuoteOpen = quoteSyms[0]
+		ts.literalQuoteClose = quoteSyms[0]
+		if len(quoteSyms) > 1 {
+			ts.literalQuoteClose = quoteSyms[1]
+		}
+	}
+
+	if err := lookup.err(); err != nil {
+		return nil, err
+	}
+	if ts.intSym == 0 && ts.floatSym == 0 {
+		return nil, fmt.Errorf("toml lexer: missing number token symbols")
+	}
+
+	return ts, nil
+}
+
+// NewTomlTokenSourceOrEOF returns a TOML token source, or EOF-only fallback if
+// setup fails.
+func NewTomlTokenSourceOrEOF(src []byte, lang *gotreesitter.Language) gotreesitter.TokenSource {
+	ts, err := NewTomlTokenSource(src, lang)
+	if err != nil {
+		return tokenSourceInitError{sourceLen: uint32(len(src))}
+	}
+	return ts
+}
+
+// Reset reinitializes this token source for a new source buffer.
+func (ts *TomlTokenSource) Reset(src []byte) {
+	ts.src = src
+	ts.cur = newSourceCursor(src)
+	ts.pending = ts.pending[:0]
+	ts.done = false
+	ts.emittedEOFLineEnd = false
+	ts.emittedDocStart = true
+}
+
+// SupportsIncrementalReuse reports that TomlTokenSource preserves stable token
+// boundaries across edits and supports deterministic SkipToByte behavior.
+func (ts *TomlTokenSource) SupportsIncrementalReuse() bool {
+	return true
+}
+
+func (ts *TomlTokenSource) Next() gotreesitter.Token {
+	if ts.done {
+		return ts.eofToken()
+	}
+	if len(ts.pending) > 0 {
+		tok := ts.pending[0]
+		ts.pending = ts.pending[1:]
+		return tok
+	}
+
+	for {
+		if !ts.emittedDocStart && ts.docStartSym != 0 {
+			ts.emittedDocStart = true
+			pt := ts.cur.point()
+			return gotreesitter.Token{
+				Symbol:     ts.docStartSym,
+				StartByte:  uint32(ts.cur.offset),
+				EndByte:    uint32(ts.cur.offset),
+				StartPoint: pt,
+				EndPoint:   pt,
+			}
+		}
+
+		if ts.cur.eof() {
+			if ts.lineEndSym != 0 && !ts.emittedEOFLineEnd {
+				ts.emittedEOFLineEnd = true
+				pt := ts.cur.point()
+				n := uint32(len(ts.src))
+				return gotreesitter.Token{
+					Symbol:     ts.lineEndSym,
+					StartByte:  n,
+					EndByte:    n,
+					StartPoint: pt,
+					EndPoint:   pt,
+				}
+			}
+			ts.done = true
+			return ts.eofToken()
+		}
+
+		ch := ts.cur.peekByte()
+		if ch == ' ' || ch == '\t' || ch == '\r' || ch == '\f' {
+			ts.cur.advanceByte()
+			continue
+		}
+
+		if ch == '\n' {
+			start := ts.cur.offset
+			startPt := ts.cur.point()
+			ts.cur.advanceByte()
+			if ts.lineEndSym != 0 {
+				if ts.cur.eof() {
+					ts.emittedEOFLineEnd = true
+				}
+				return makeToken(ts.lineEndSym, ts.src, start, ts.cur.offset, startPt, ts.cur.point())
+			}
+			continue
+		}
+
+		if ch == '#' {
+			start := ts.cur.offset
+			startPt := ts.cur.point()
+			for !ts.cur.eof() && ts.cur.peekByte() != '\n' {
+				ts.cur.advanceRune()
+			}
+			if ts.commentSym != 0 {
+				return makeToken(ts.commentSym, ts.src, start, ts.cur.offset, startPt, ts.cur.point())
+			}
+			continue
+		}
+
+		if tok, ok := ts.punctToken(); ok {
+			return tok
+		}
+
+		if ch == '"' && ts.scanQuotedString('"', ts.basicQuoteOpen, ts.basicStringSym, ts.basicQuoteClose, ts.basicEscapeSym, true) {
+			tok := ts.pending[0]
+			ts.pending = ts.pending[1:]
+			return tok
+		}
+		if ch == '\'' && ts.scanQuotedString('\'', ts.literalQuoteOpen, ts.literalStringSym, ts.literalQuoteClose, 0, false) {
+			tok := ts.pending[0]
+			ts.pending = ts.pending[1:]
+			return tok
+		}
+
+		if tok, ok := ts.dateOrTimeToken(); ok {
+			return tok
+		}
+
+		if isASCIIDigit(ch) || ch == '+' || ch == '-' {
+			return ts.numberToken()
+		}
+
+		if isTomlBareKeyStart(ch) {
+			return ts.bareKeyOrBooleanToken()
+		}
+
+		// Unknown byte: consume and continue.
+		ts.cur.advanceRune()
+	}
+}
+
+func (ts *TomlTokenSource) SkipToByte(offset uint32) gotreesitter.Token {
+	target := int(offset)
+	if target < 0 {
+		target = 0
+	}
+	if target > len(ts.src) {
+		target = len(ts.src)
+	}
+
+	ts.done = false
+	ts.emittedEOFLineEnd = false
+	ts.emittedDocStart = true
+
+	if target < ts.cur.offset {
+		ts.cur = newSourceCursor(ts.src)
+	}
+	for ts.cur.offset < target {
+		ts.cur.advanceRune()
+	}
+	if ts.cur.eof() {
+		ts.done = true
+		return ts.eofToken()
+	}
+	return ts.Next()
+}
+
+func (ts *TomlTokenSource) punctToken() (gotreesitter.Token, bool) {
+	if ts.cur.matchLiteralAtCurrent("[[") && ts.lbrack2Sym != 0 {
+		return ts.makeLiteralToken(ts.lbrack2Sym, 2), true
+	}
+	if ts.cur.matchLiteralAtCurrent("]]") && ts.rbrack2Sym != 0 {
+		return ts.makeLiteralToken(ts.rbrack2Sym, 2), true
+	}
+
+	ch := ts.cur.peekByte()
+	switch ch {
+	case '=':
+		if ts.eqSym != 0 {
+			return ts.makeLiteralToken(ts.eqSym, 1), true
+		}
+	case '.':
+		if ts.dotSym != 0 {
+			return ts.makeLiteralToken(ts.dotSym, 1), true
+		}
+	case ',':
+		if ts.commaSym != 0 {
+			return ts.makeLiteralToken(ts.commaSym, 1), true
+		}
+	case '[':
+		if ts.lbrackSym != 0 {
+			return ts.makeLiteralToken(ts.lbrackSym, 1), true
+		}
+	case ']':
+		if ts.rbrackSym != 0 {
+			return ts.makeLiteralToken(ts.rbrackSym, 1), true
+		}
+	case '{':
+		if ts.lbraceSym != 0 {
+			return ts.makeLiteralToken(ts.lbraceSym, 1), true
+		}
+	case '}':
+		if ts.rbraceSym != 0 {
+			return ts.makeLiteralToken(ts.rbraceSym, 1), true
+		}
+	}
+	return gotreesitter.Token{}, false
+}
+
+func (ts *TomlTokenSource) makeLiteralToken(sym gotreesitter.Symbol, n int) gotreesitter.Token {
+	start := ts.cur.offset
+	startPt := ts.cur.point()
+	for i := 0; i < n && !ts.cur.eof(); i++ {
+		ts.cur.advanceByte()
+	}
+	return makeToken(sym, ts.src, start, ts.cur.offset, startPt, ts.cur.point())
+}
+
+func (ts *TomlTokenSource) scanQuotedString(quote byte, openSym, contentSym, closeSym, escapeSym gotreesitter.Symbol, allowEscape bool) bool {
+	if openSym == 0 || ts.cur.peekByte() != quote {
+		return false
+	}
+	start := ts.cur.offset
+	startPt := ts.cur.point()
+	ts.cur.advanceByte()
+	ts.pending = append(ts.pending, makeToken(openSym, ts.src, start, ts.cur.offset, startPt, ts.cur.point()))
+
+	contentStart := ts.cur.offset
+	contentPt := ts.cur.point()
+	for !ts.cur.eof() {
+		ch := ts.cur.peekByte()
+		if allowEscape && ch == '\\' {
+			if contentSym != 0 && ts.cur.offset > contentStart {
+				ts.pending = append(ts.pending, makeToken(contentSym, ts.src, contentStart, ts.cur.offset, contentPt, ts.cur.point()))
+			}
+
+			escStart := ts.cur.offset
+			escPt := ts.cur.point()
+			ts.cur.advanceByte()
+			if !ts.cur.eof() {
+				ts.cur.advanceRune()
+			}
+			if escapeSym != 0 {
+				ts.pending = append(ts.pending, makeToken(escapeSym, ts.src, escStart, ts.cur.offset, escPt, ts.cur.point()))
+			}
+			contentStart = ts.cur.offset
+			contentPt = ts.cur.point()
+			continue
+		}
+		if ch == quote {
+			if contentSym != 0 && ts.cur.offset > contentStart {
+				ts.pending = append(ts.pending, makeToken(contentSym, ts.src, contentStart, ts.cur.offset, contentPt, ts.cur.point()))
+			}
+			closeStart := ts.cur.offset
+			closePt := ts.cur.point()
+			ts.cur.advanceByte()
+			if closeSym != 0 {
+				ts.pending = append(ts.pending, makeToken(closeSym, ts.src, closeStart, ts.cur.offset, closePt, ts.cur.point()))
+			}
+			return len(ts.pending) > 0
+		}
+		ts.cur.advanceRune()
+	}
+
+	if contentSym != 0 && ts.cur.offset > contentStart {
+		ts.pending = append(ts.pending, makeToken(contentSym, ts.src, contentStart, ts.cur.offset, contentPt, ts.cur.point()))
+	}
+	return len(ts.pending) > 0
+}
+
+func (ts *TomlTokenSource) bareKeyOrBooleanToken() gotreesitter.Token {
+	start := ts.cur.offset
+	startPt := ts.cur.point()
+	ts.cur.advanceByte()
+	for !ts.cur.eof() && isTomlBareKeyPart(ts.cur.peekByte()) {
+		ts.cur.advanceByte()
+	}
+
+	text := string(ts.src[start:ts.cur.offset])
+	if ts.booleanSym != 0 && (text == "true" || text == "false") {
+		return makeToken(ts.booleanSym, ts.src, start, ts.cur.offset, startPt, ts.cur.point())
+	}
+	return makeToken(ts.bareKeySym, ts.src, start, ts.cur.offset, startPt, ts.cur.point())
+}
+
+func (ts *TomlTokenSource) numberToken() gotreesitter.Token {
+	start := ts.cur.offset
+	startPt := ts.cur.point()
+
+	if !ts.cur.eof() && (ts.cur.peekByte() == '+' || ts.cur.peekByte() == '-') {
+		ts.cur.advanceByte()
+	}
+
+	isFloat := false
+
+	if ts.cur.matchLiteralAtCurrent("0x") || ts.cur.matchLiteralAtCurrent("0X") ||
+		ts.cur.matchLiteralAtCurrent("0o") || ts.cur.matchLiteralAtCurrent("0O") ||
+		ts.cur.matchLiteralAtCurrent("0b") || ts.cur.matchLiteralAtCurrent("0B") {
+		ts.cur.advanceByte()
+		ts.cur.advanceByte()
+		for !ts.cur.eof() && (isASCIIHex(ts.cur.peekByte()) || ts.cur.peekByte() == '_') {
+			ts.cur.advanceByte()
+		}
+	} else {
+		for !ts.cur.eof() && (isASCIIDigit(ts.cur.peekByte()) || ts.cur.peekByte() == '_') {
+			ts.cur.advanceByte()
+		}
+
+		if !ts.cur.eof() && ts.cur.peekByte() == '.' {
+			isFloat = true
+			ts.cur.advanceByte()
+			for !ts.cur.eof() && (isASCIIDigit(ts.cur.peekByte()) || ts.cur.peekByte() == '_') {
+				ts.cur.advanceByte()
+			}
+		}
+
+		if !ts.cur.eof() && (ts.cur.peekByte() == 'e' || ts.cur.peekByte() == 'E') {
+			isFloat = true
+			ts.cur.advanceByte()
+			if !ts.cur.eof() && (ts.cur.peekByte() == '+' || ts.cur.peekByte() == '-') {
+				ts.cur.advanceByte()
+			}
+			for !ts.cur.eof() && (isASCIIDigit(ts.cur.peekByte()) || ts.cur.peekByte() == '_') {
+				ts.cur.advanceByte()
+			}
+		}
+	}
+
+	sym := ts.intSym
+	if isFloat {
+		sym = firstNonZeroSymbol(ts.floatSym, ts.intSym)
+	}
+	return makeToken(sym, ts.src, start, ts.cur.offset, startPt, ts.cur.point())
+}
+
+func (ts *TomlTokenSource) dateOrTimeToken() (gotreesitter.Token, bool) {
+	start := ts.cur.offset
+	startPt := ts.cur.point()
+
+	if end, sym, ok := ts.scanTomlDateOrTime(start); ok && sym != 0 {
+		for ts.cur.offset < end {
+			ts.cur.advanceByte()
+		}
+		return makeToken(sym, ts.src, start, end, startPt, ts.cur.point()), true
+	}
+	return gotreesitter.Token{}, false
+}
+
+func (ts *TomlTokenSource) scanTomlDateOrTime(start int) (int, gotreesitter.Symbol, bool) {
+	if start >= len(ts.src) {
+		return 0, 0, false
+	}
+
+	if end, ok := scanTomlLocalTime(ts.src, start); ok && ts.localTimeSym != 0 && tomlValueBoundary(ts.src, end) {
+		return end, ts.localTimeSym, true
+	}
+
+	if end, ok := scanTomlLocalDate(ts.src, start); ok {
+		if tomlValueBoundary(ts.src, end) && ts.localDateSym != 0 {
+			return end, ts.localDateSym, true
+		}
+		if endDT, sym, ok := ts.scanTomlDateTimeFromDateEnd(start, end); ok {
+			return endDT, sym, true
+		}
+	}
+
+	return 0, 0, false
+}
+
+func (ts *TomlTokenSource) scanTomlDateTimeFromDateEnd(start, dateEnd int) (int, gotreesitter.Symbol, bool) {
+	if dateEnd >= len(ts.src) {
+		return 0, 0, false
+	}
+	sep := ts.src[dateEnd]
+	if sep != 'T' && sep != 't' && sep != ' ' {
+		return 0, 0, false
+	}
+
+	timeStart := dateEnd + 1
+	end, ok := scanTomlLocalTime(ts.src, timeStart)
+	if !ok {
+		return 0, 0, false
+	}
+
+	if tomlValueBoundary(ts.src, end) {
+		if ts.localDateTimeSym == 0 {
+			return 0, 0, false
+		}
+		return end, ts.localDateTimeSym, true
+	}
+
+	if endOffset, ok := scanTomlOffset(ts.src, end); ok && tomlValueBoundary(ts.src, endOffset) {
+		if ts.offsetDateTimeSym == 0 {
+			return 0, 0, false
+		}
+		return endOffset, ts.offsetDateTimeSym, true
+	}
+
+	return 0, 0, false
+}
+
+func (ts *TomlTokenSource) eofToken() gotreesitter.Token {
+	n := uint32(len(ts.src))
+	pt := ts.cur.point()
+	return gotreesitter.Token{
+		Symbol:     ts.eofSymbol,
+		StartByte:  n,
+		EndByte:    n,
+		StartPoint: pt,
+		EndPoint:   pt,
+	}
+}
+
+func isTomlBareKeyStart(b byte) bool {
+	return isASCIIAlpha(b) || isASCIIDigit(b) || b == '_' || b == '-'
+}
+
+func isTomlBareKeyPart(b byte) bool {
+	return isTomlBareKeyStart(b)
+}
+
+func tomlValueBoundary(src []byte, offset int) bool {
+	if offset >= len(src) {
+		return true
+	}
+	switch src[offset] {
+	case ' ', '\t', '\r', '\n', '#', ',', ']', '}':
+		return true
+	default:
+		return false
+	}
+}
+
+func scanTomlLocalDate(src []byte, start int) (int, bool) {
+	end, ok := scanFixedDigits(src, start, 4)
+	if !ok || !matchByte(src, end, '-') {
+		return 0, false
+	}
+	end++
+	end, ok = scanFixedDigits(src, end, 2)
+	if !ok || !matchByte(src, end, '-') {
+		return 0, false
+	}
+	end++
+	end, ok = scanFixedDigits(src, end, 2)
+	if !ok {
+		return 0, false
+	}
+	return end, true
+}
+
+func scanTomlLocalTime(src []byte, start int) (int, bool) {
+	end, ok := scanFixedDigits(src, start, 2)
+	if !ok || !matchByte(src, end, ':') {
+		return 0, false
+	}
+	end++
+	end, ok = scanFixedDigits(src, end, 2)
+	if !ok || !matchByte(src, end, ':') {
+		return 0, false
+	}
+	end++
+	end, ok = scanFixedDigits(src, end, 2)
+	if !ok {
+		return 0, false
+	}
+	if matchByte(src, end, '.') {
+		end++
+		fracEnd, ok := scanAtLeastOneDigit(src, end)
+		if !ok {
+			return 0, false
+		}
+		end = fracEnd
+	}
+	return end, true
+}
+
+func scanTomlOffset(src []byte, start int) (int, bool) {
+	if start >= len(src) {
+		return 0, false
+	}
+	switch src[start] {
+	case 'Z', 'z':
+		return start + 1, true
+	case '+', '-':
+		end, ok := scanFixedDigits(src, start+1, 2)
+		if !ok || !matchByte(src, end, ':') {
+			return 0, false
+		}
+		end++
+		end, ok = scanFixedDigits(src, end, 2)
+		if !ok {
+			return 0, false
+		}
+		return end, true
+	default:
+		return 0, false
+	}
+}
+
+func scanFixedDigits(src []byte, start, n int) (int, bool) {
+	end := start
+	for i := 0; i < n; i++ {
+		if end >= len(src) || !isASCIIDigit(src[end]) {
+			return 0, false
+		}
+		end++
+	}
+	return end, true
+}
+
+func scanAtLeastOneDigit(src []byte, start int) (int, bool) {
+	end := start
+	for end < len(src) && isASCIIDigit(src[end]) {
+		end++
+	}
+	return end, end > start
+}
+
+func matchByte(src []byte, offset int, want byte) bool {
+	return offset < len(src) && src[offset] == want
+}

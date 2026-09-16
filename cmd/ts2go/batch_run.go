@@ -419,6 +419,13 @@ func writeExternalLexStatesSidecar(outDir, pkg, name, sourceComment string, stat
 	if len(states) == 0 {
 		return nil
 	}
+	// Keep sidecars beside the shared runtime when generating this catalog.
+	if pkg == "grammars" {
+		if info, err := os.Stat(filepath.Join(outDir, "runtime")); err == nil && info.IsDir() {
+			outDir = filepath.Join(outDir, "runtime")
+			pkg = "grammarruntime"
+		}
+	}
 
 	fileBase := safeFileBase(name)
 	varName := languageRegisterIdentifier(name) + "ExternalLexStates"

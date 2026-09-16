@@ -8,7 +8,8 @@ import (
 	"sync"
 
 	"github.com/odvcencio/gotreesitter"
-	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/grammars/internal/standaloneregistry"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
 )
 
 // ReferenceVersion is the Lean release used to define this grammar.
@@ -24,13 +25,13 @@ var (
 )
 
 func init() {
-	grammars.RegisterExternalScanner("lean", ExternalScanner{})
-	grammars.RegisterExtension(grammars.ExtensionEntry{
+	grammarruntime.RegisterExternalScanner("lean", ExternalScanner{})
+	standaloneregistry.Register(standaloneregistry.Entry{
 		Name:             "lean",
 		Extensions:       []string{".lean"},
 		Aliases:          []string{"lean4"},
 		GenerateLanguage: loadLanguage,
-		GrammarSource:    grammars.GrammarSourceGrammargenBlob,
+		GrammarSource:    "grammargen_blob",
 		HighlightQuery:   HighlightQuery,
 		TagsQuery:        TagsQuery,
 	})
@@ -47,7 +48,7 @@ func Language() *gotreesitter.Language {
 
 func loadLanguage() (*gotreesitter.Language, error) {
 	languageOnce.Do(func() {
-		language, languageErr = grammars.LoadLanguage("lean", languageBlob)
+		language, languageErr = grammarruntime.LoadLanguage("lean", languageBlob)
 	})
 	return language, languageErr
 }

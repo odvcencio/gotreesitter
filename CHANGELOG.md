@@ -9,8 +9,9 @@ for tags and release notes while still in `0.x`.
 
 ### Standalone grammar packages
 
-- Add `grammars/python` for Python-only commands without build tags.
-  The package embeds one grammar and shares the scanner with the aggregate package.
+- Add generated standalone packages for all 206 blob-backed grammars without build tags.
+- Share scanners, decoder repairs, caches, and certified profiles through `grammars/runtime`.
+- Remove the aggregate catalog dependency from the native Lean package.
 
 ### Generated source ownership
 

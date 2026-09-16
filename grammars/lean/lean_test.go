@@ -2,6 +2,9 @@ package lean
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -9,6 +12,18 @@ import (
 	"github.com/odvcencio/gotreesitter/grammargen"
 	"github.com/odvcencio/gotreesitter/grammars"
 )
+
+func TestPackageDoesNotDependOnAggregateGrammars(t *testing.T) {
+	out, err := exec.Command("go", "list", "-deps", ".").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dependency := range strings.Fields(string(out)) {
+		if dependency == "github.com/odvcencio/gotreesitter/grammars" {
+			t.Fatal("standalone Lean package imports the aggregate grammar registry")
+		}
+	}
+}
 
 func TestRegistration(t *testing.T) {
 	entry := grammars.DetectLanguage("Main.lean")
@@ -27,6 +42,37 @@ func TestRegistration(t *testing.T) {
 	}
 }
 
+func TestAggregateBlobLoaderPreservesScanner(t *testing.T) {
+	if grammars.LookupExternalScanner("lean") == nil {
+		t.Fatal("aggregate scanner lookup lost the Lean registration")
+	}
+	lang, err := grammars.LoadLanguage("lean", languageBlob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lang.ExternalScanner == nil {
+		t.Fatal("aggregate blob loader omitted the Lean scanner")
+	}
+	source := []byte("/- outer /- inner -/ comment -/\ndef answer := 42\n")
+	tree, err := gotreesitter.NewParser(lang).Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Release()
+	if tree.RootNode() == nil || tree.RootNode().HasError() {
+		t.Fatal("aggregate Lean parser rejected nested comments")
+	}
+}
+
+func TestRegistrationLookupDoesNotAllocate(t *testing.T) {
+	grammars.DetectLanguage("Main.lean")
+	if allocations := testing.AllocsPerRun(100, func() {
+		grammars.DetectLanguage("Main.lean")
+	}); allocations != 0 {
+		t.Fatalf("registered Lean lookup allocated %g times", allocations)
+	}
+}
+
 func TestPackagedBlobMatchesNativeGrammar(t *testing.T) {
 	if ReferenceVersion != grammargen.LeanGrammarReferenceVersion {
 		t.Fatalf("package reference version = %q, grammar reference version = %q",
@@ -36,8 +82,36 @@ func TestPackagedBlobMatchesNativeGrammar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate native Lean blob: %v", err)
 	}
-	if !bytes.Equal(languageBlob, generated) {
-		t.Fatal("packaged Lean blob does not match the native Go grammar")
+	packagedLanguage, err := gotreesitter.LoadLanguage(languageBlob)
+	if err != nil {
+		t.Fatalf("load packaged Lean blob: %v", err)
+	}
+	// Re-encode the packaged payload with the current Language schema. Gob
+	// includes exported struct field descriptors. A blob that predates a new
+	// zero-value field can use different bytes but still describe the same
+	// language.
+	canonicalPackaged, err := gotreesitter.EncodeLanguageBlob(packagedLanguage)
+	if err != nil {
+		t.Fatalf("canonicalize packaged Lean blob: %v", err)
+	}
+	if !bytes.Equal(canonicalPackaged, generated) {
+		generatedLanguage, err := gotreesitter.LoadLanguage(generated)
+		if err != nil {
+			t.Fatalf("load generated Lean blob: %v", err)
+		}
+		packagedValue := reflect.ValueOf(packagedLanguage).Elem()
+		generatedValue := reflect.ValueOf(generatedLanguage).Elem()
+		languageType := packagedValue.Type()
+		var changed []string
+		for i := 0; i < languageType.NumField(); i++ {
+			field := languageType.Field(i)
+			if !field.IsExported() || reflect.DeepEqual(packagedValue.Field(i).Interface(), generatedValue.Field(i).Interface()) {
+				continue
+			}
+			changed = append(changed, field.Name)
+		}
+		t.Fatalf("packaged Lean blob SHA-256 = %x, canonical SHA-256 = %x, generated SHA-256 = %x; changed language fields: %s",
+			sha256.Sum256(languageBlob), sha256.Sum256(canonicalPackaged), sha256.Sum256(generated), strings.Join(changed, ", "))
 	}
 }
 

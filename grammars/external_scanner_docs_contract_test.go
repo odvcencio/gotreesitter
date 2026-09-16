@@ -13,6 +13,12 @@ var scannerMatrixRowRE = regexp.MustCompile("(?m)^\\| `([^`]+)` \\| ([^|]+) \\|$
 
 func TestExternalScannerDocumentationCertificationsMatchAttachedRuntimeRegistry(t *testing.T) {
 	certifications := documentedExternalScannerCertifications(t)
+	externalScannerRegistry := map[string]gts.ExternalScanner{}
+	for _, entry := range AllLanguages() {
+		if scanner := LookupExternalScanner(entry.Name); scanner != nil {
+			externalScannerRegistry[entry.Name] = scanner
+		}
+	}
 	if len(certifications) != len(externalScannerRegistry) {
 		t.Fatalf("scanner matrix has %d rows, runtime registry has %d languages", len(certifications), len(externalScannerRegistry))
 	}
@@ -22,31 +28,29 @@ func TestExternalScannerDocumentationCertificationsMatchAttachedRuntimeRegistry(
 		ordinaryRegistry[entry.Name] = entry
 	}
 	for name := range externalScannerRegistry {
-		entry, ok := ordinaryRegistry[name]
-		if !ok || entry.Language == nil {
-			t.Errorf("runtime external scanner %q has no ordinary language-registry loader", name)
-			continue
-		}
+		t.Run(name, func(t *testing.T) {
+			t.Cleanup(func() { PurgeEmbeddedLanguageCache() })
+			entry, ok := ordinaryRegistry[name]
+			if !ok || entry.Language == nil {
+				t.Errorf("runtime external scanner %q has no ordinary language-registry loader", name)
+				return
+			}
 
-		probe := &gts.Language{Name: name}
-		if !attachExternalScannerForLanguage(name, probe) || probe.ExternalScanner == nil {
-			t.Errorf("runtime external scanner %q did not attach through the embedded-loader path", name)
-			continue
-		}
-		lang := entry.Language()
-		if lang == nil || lang.ExternalScanner == nil {
-			t.Errorf("runtime external scanner %q did not attach to its ordinary language", name)
-			continue
-		}
-		want := externalScannerCertification(lang.ExternalScanner)
-		got, ok := certifications[name]
-		if !ok {
-			t.Errorf("scanner matrix is missing runtime language %q", name)
-			continue
-		}
-		if got != want {
-			t.Errorf("scanner matrix certification for %q = %q, want %q", name, got, want)
-		}
+			lang := entry.Language()
+			if lang == nil || lang.ExternalScanner == nil {
+				t.Errorf("runtime external scanner %q did not attach to its ordinary language", name)
+				return
+			}
+			want := externalScannerCertification(lang.ExternalScanner)
+			got, ok := certifications[name]
+			if !ok {
+				t.Errorf("scanner matrix is missing runtime language %q", name)
+				return
+			}
+			if got != want {
+				t.Errorf("scanner matrix certification for %q = %q, want %q", name, got, want)
+			}
+		})
 	}
 	for name := range certifications {
 		if _, ok := externalScannerRegistry[name]; !ok {
