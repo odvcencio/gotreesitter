@@ -788,6 +788,7 @@ func (p *Parser) parseForRecoveryWithMode(source []byte, mode recoveryParseMode)
 	}()
 	parser.timeoutMicros = p.remainingTimeoutMicros()
 	parser.cancellationFlag = p.cancellationFlag
+	parser.parseWorkLimits = p.parseWorkLimits
 	if p.reparseFactory != nil {
 		ts, err := p.reparseFactory(source)
 		if err != nil {
@@ -881,6 +882,7 @@ func parseWithSnippetParserInheriting(lang *Language, source []byte, parent *Par
 	if parent != nil {
 		parser.timeoutMicros = parent.remainingTimeoutMicros()
 		parser.cancellationFlag = parent.cancellationFlag
+		parser.parseWorkLimits = parent.parseWorkLimits
 		if reason := parent.activeParseStopReason(); parseStopReasonIsActive(reason) {
 			parser.parseStoppedReason = reason
 			parser.parseBudgetDepth = 1
@@ -1001,6 +1003,44 @@ func (p *Parser) parseIncrementalWithTokenSourceChanged(source []byte, oldTree *
 // ParseOption configures ParseWith behavior.
 type ParseOption func(*parseConfig)
 
+// ParseWorkLimits overrides deterministic production parser-loop limits for
+// one Parser. Stable parse methods use the production parser when any field is
+// positive, so speculative compact and forest work cannot precede these caps.
+// A zero or negative field keeps the source-derived default for that field.
+// Positive values replace the thresholds reported in ParseRuntime.
+// Each production parser loop uses these thresholds, including recovery parses.
+// They do not count total operation work or allocated bytes.
+// Node and depth checks occur between steps, so a step can exceed a threshold.
+//
+// These limits count parser work and do not depend on wall-clock time. A
+// timeout, cancellation request, memory budget, or invariant failure can still
+// stop a parse before a configured work limit.
+type ParseWorkLimits struct {
+	// IterationLimit bounds the number of production parser iterations.
+	IterationLimit int
+	// StackDepthLimit bounds the primary stack depth at parser checkpoints.
+	StackDepthLimit int
+	// NodeLimit bounds nodes counted by the production parser at checkpoints.
+	NodeLimit int
+}
+
+func normalizeParseWorkLimits(limits ParseWorkLimits) ParseWorkLimits {
+	if limits.IterationLimit < 0 {
+		limits.IterationLimit = 0
+	}
+	if limits.StackDepthLimit < 0 {
+		limits.StackDepthLimit = 0
+	}
+	if limits.NodeLimit < 0 {
+		limits.NodeLimit = 0
+	}
+	return limits
+}
+
+func (limits ParseWorkLimits) configured() bool {
+	return limits.IterationLimit > 0 || limits.StackDepthLimit > 0 || limits.NodeLimit > 0
+}
+
 // WithOldTree enables incremental parsing against an edited prior tree.
 func WithOldTree(oldTree *Tree) ParseOption {
 	return func(c *parseConfig) {
@@ -1092,6 +1132,37 @@ func (p *Parser) TimeoutMicros() uint64 {
 		return 0
 	}
 	return p.timeoutMicros
+}
+
+// SetParseWorkLimits sets deterministic limits for later parse calls. Use a
+// zero-value ParseWorkLimits to restore all source-derived defaults.
+//
+// A parse stopped by a configured limit returns a partial tree and nil error.
+// Inspect Tree.ParseStopReason, or use a strict parse method to receive a
+// ParseStoppedEarlyError.
+func (p *Parser) SetParseWorkLimits(limits ParseWorkLimits) {
+	if p == nil {
+		return
+	}
+	limits = normalizeParseWorkLimits(limits)
+	if p.parseWorkLimits == limits {
+		return
+	}
+	p.parseWorkLimits = limits
+	// The compact candidate has separate arena and dispatch limits. Drop a
+	// cached runner when the public production limits change. Eligibility keeps
+	// explicit-limit parses on production so no speculative work precedes the
+	// configured bound.
+	p.admissionCandidateRunner = nil
+}
+
+// ParseWorkLimits returns the parser's configured deterministic work limits.
+// Zero fields use source-derived defaults.
+func (p *Parser) ParseWorkLimits() ParseWorkLimits {
+	if p == nil {
+		return ParseWorkLimits{}
+	}
+	return p.parseWorkLimits
 }
 
 // SetCancellationFlag configures a caller-owned cancellation flag.

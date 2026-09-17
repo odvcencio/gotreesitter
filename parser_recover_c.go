@@ -1727,7 +1727,13 @@ func (p *Parser) growCNodeMemoCacheTo(target int) {
 			cold.cNodeMemoRetainedCache = retained
 		}
 	}
-	p.cNodeMemoCache = make([]cNodeMemoCacheEntry, target)
+	if target == cNodeMemoCacheSize && cap(p.cNodeMemoCache) == target {
+		// Clear the active entries and hidden tail before reusing the array.
+		p.cNodeMemoCache = p.cNodeMemoCache[:target]
+		clear(p.cNodeMemoCache)
+	} else {
+		p.cNodeMemoCache = make([]cNodeMemoCacheEntry, target)
+	}
 	if target > cNodeMemoCacheSize {
 		p.activateCNodeMemoMergeSharing()
 	}

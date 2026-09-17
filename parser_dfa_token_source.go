@@ -4557,6 +4557,12 @@ func (d *dfaTokenSource) allowRepeatedZeroWidthExternalSymbol(sym Symbol) bool {
 		return false
 	}
 	switch d.language.SymbolNames[nameIdx] {
+	case "_block_close":
+		// Markdown unwinds one open block per zero-width token at a dedent
+		// or EOF. These closes can repeat in the same parser state; the
+		// ordinary four-token guard truncates valid nested lists. Keep
+		// the bounded repeatable-token guard used by other block scanners.
+		return d.language.Name == "markdown"
 	case "_implicit_end_tag":
 		return true
 	case "_virtual_end_section":

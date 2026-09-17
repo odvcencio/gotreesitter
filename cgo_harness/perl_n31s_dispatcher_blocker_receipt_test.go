@@ -42,7 +42,7 @@ func TestPerlN31sDispatcherBlockerReceipt(t *testing.T) {
 	if goLang == nil || goLang.Name != "perl" {
 		t.Fatalf("language=%v, want perl", goLang)
 	}
-	if goLang.ExternalScanner == nil || fmt.Sprintf("%T", goLang.ExternalScanner) != "grammars.PerlExternalScanner" {
+	if _, ok := goLang.ExternalScanner.(grammars.PerlExternalScanner); !ok {
 		t.Fatalf("scanner=%T, want grammars.PerlExternalScanner", goLang.ExternalScanner)
 	}
 	if _, ok := goLang.ExternalScanner.(gots.IncrementalReuseExternalScanner); ok {

@@ -238,20 +238,23 @@ func compactNodeMayBeReused(n *Node) bool {
 // payload (buildSyntheticRootTree). That synthesized root carries no compact
 // flags; treating it as unproven disabled reuse for every INI tree that ends
 // in a blank line (issue #454).
-func compactTreeIncrementalReuseProven(root *Node) bool {
-	if root == nil {
+func compactTreeIncrementalReuseProven(root *Node, scratch *[]*Node) bool {
+	if root == nil || scratch == nil {
 		return false
 	}
-	stack := []*Node{root}
+	stack := append((*scratch)[:0], root)
 	for len(stack) > 0 {
 		last := len(stack) - 1
 		n := stack[last]
+		stack[last] = nil
 		stack = stack[:last]
 		if n == nil {
 			continue
 		}
 		if n != root && !compactNodeRecoveryBearing(n) {
 			if !n.isCompactMaterialized() || !compactNodeStateProofAvailable(n) {
+				clear(stack)
+				*scratch = stack[:0]
 				return false
 			}
 		}
@@ -262,6 +265,7 @@ func compactTreeIncrementalReuseProven(root *Node) bool {
 			}
 		}
 	}
+	*scratch = stack[:0]
 	return true
 }
 

@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars/internal/standaloneregistry"
 )
 
 // GrammarSource describes where a LangEntry's language loader comes from.
@@ -87,6 +88,7 @@ func ensureBuiltinLanguagesRegistered() {
 // Register, which acquires the write lock.
 func ensureReady() {
 	ensureBuiltinLanguagesRegistered()
+	syncStandaloneExtensions()
 
 	registryMu.RLock()
 	ready := highlightInheritanceResolved && extIndex != nil
@@ -105,6 +107,31 @@ func ensureReady() {
 	if extIndex == nil {
 		buildExtIndex()
 	}
+}
+
+var (
+	standaloneExtensionSyncMu     sync.Mutex
+	standaloneExtensionGeneration atomic.Uint64
+)
+
+func syncStandaloneExtensions() {
+	if standaloneregistry.Generation() == standaloneExtensionGeneration.Load() {
+		return
+	}
+	standaloneExtensionSyncMu.Lock()
+	defer standaloneExtensionSyncMu.Unlock()
+	entries, generation := standaloneregistry.Snapshot()
+	if generation == standaloneExtensionGeneration.Load() {
+		return
+	}
+	for _, entry := range entries {
+		RegisterExtension(ExtensionEntry{
+			Name: entry.Name, Extensions: entry.Extensions, Aliases: entry.Aliases,
+			GenerateLanguage: entry.GenerateLanguage, GrammarSource: GrammarSource(entry.GrammarSource),
+			HighlightQuery: entry.HighlightQuery, InheritHighlights: entry.InheritHighlights, TagsQuery: entry.TagsQuery,
+		})
+	}
+	standaloneExtensionGeneration.Store(generation)
 }
 
 // Register adds a language to the registry. If an entry with the same name

@@ -1049,6 +1049,26 @@ func TestWriteExternalLexStatesSidecarRegistersTable(t *testing.T) {
 	}
 }
 
+func TestWriteExternalLexStatesSidecarUsesSharedRuntime(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "runtime"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeExternalLexStatesSidecar(dir, "grammars", "test_lang", "fixture", [][]bool{{false}, {true}}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "runtime", "test_lang_external_lex_states_gen.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "package grammarruntime") {
+		t.Fatal("sidecar uses the aggregate package")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "test_lang_external_lex_states_gen.go")); !os.IsNotExist(err) {
+		t.Fatalf("aggregate sidecar exists: %v", err)
+	}
+}
+
 func TestExtractGrammarFull(t *testing.T) {
 	g, err := ExtractGrammar(miniParserC)
 	if err != nil {

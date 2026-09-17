@@ -53,6 +53,18 @@ func BenchmarkQueryCompile(b *testing.B) {
 	}
 }
 
+func BenchmarkQueryCompileLuaPattern(b *testing.B) {
+	lang := grammars.GoLanguage()
+	const pattern = `((identifier) @name (#lua-match? @name "^%a[%w_]*$"))`
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if q, err := gotreesitter.NewQuery(pattern, lang); err != nil || q == nil {
+			b.Fatalf("NewQuery: %v", err)
+		}
+	}
+}
+
 // BenchmarkNodeSExpr measures S-expression generation from a parsed tree.
 // This path is hit heavily by editor integrations that display parse trees
 // and by tests that compare output against reference strings.

@@ -196,6 +196,11 @@ func TestAdmissionSwitchEligibilityFailsClosedForReuse(t *testing.T) {
 	if p.admissionCandidateFullParseEligible(nil, false) {
 		t.Fatal("a caller-supplied token source must never be eligible")
 	}
+	p.SetParseWorkLimits(ParseWorkLimits{IterationLimit: 1})
+	if p.admissionCandidateFullParseEligible(nil, true) {
+		t.Fatal("explicit work limits must keep compact full and incremental routes closed")
+	}
+	p.SetParseWorkLimits(ParseWorkLimits{})
 	p.SetAdmissionCandidateRoute(false)
 	if p.admissionCandidateFullParseEligible(nil, true) {
 		t.Fatal("a forced-off Parser must not be eligible")

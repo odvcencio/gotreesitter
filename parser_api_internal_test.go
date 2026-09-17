@@ -2176,6 +2176,28 @@ func TestParseForRecoveryReusesRecoveryParser(t *testing.T) {
 	}
 }
 
+func TestParseForRecoveryInheritsParseWorkLimits(t *testing.T) {
+	parser := NewParser(buildArithmeticLanguage())
+	limits := ParseWorkLimits{IterationLimit: 1, StackDepthLimit: 100, NodeLimit: 1_000}
+	parser.SetParseWorkLimits(limits)
+
+	tree, err := parser.parseForRecovery([]byte("1+2+3+4"))
+	if err != nil {
+		t.Fatalf("parseForRecovery error: %v", err)
+	}
+	if tree == nil {
+		t.Fatal("parseForRecovery returned nil tree")
+	}
+	defer tree.Release()
+	runtime := tree.ParseRuntime()
+	if runtime.StopReason != ParseStopIterationLimit {
+		t.Fatalf("StopReason = %q, want %q (%s)", runtime.StopReason, ParseStopIterationLimit, runtime.Summary())
+	}
+	if runtime.IterationLimit != limits.IterationLimit || runtime.StackDepthLimit != limits.StackDepthLimit || runtime.NodeLimit != limits.NodeLimit {
+		t.Fatalf("resolved limits = iterations:%d depth:%d nodes:%d, want %+v", runtime.IterationLimit, runtime.StackDepthLimit, runtime.NodeLimit, limits)
+	}
+}
+
 func TestResetSnippetParserClearsTransientState(t *testing.T) {
 	parser := NewParser(buildArithmeticLanguage())
 	parser.reparseFactory = func(source []byte) (TokenSource, error) { return nil, nil }
@@ -2190,6 +2212,7 @@ func TestResetSnippetParserClearsTransientState(t *testing.T) {
 	parser.timeoutMicros = 99
 	flag := uint32(1)
 	parser.cancellationFlag = &flag
+	parser.parseWorkLimits = ParseWorkLimits{IterationLimit: 1, StackDepthLimit: 2, NodeLimit: 3}
 	parser.parseBudgetDepth = 1
 	parser.cNodeMemoOperationDepth = 1
 	parser.forestDeclineMemo = &parserColdState{
@@ -2248,6 +2271,9 @@ func TestResetSnippetParserClearsTransientState(t *testing.T) {
 	}
 	if parser.parseStoppedReason != ParseStopNone {
 		t.Fatal("resetSnippetParser did not clear parseStoppedReason")
+	}
+	if parser.parseWorkLimits != (ParseWorkLimits{}) {
+		t.Fatalf("resetSnippetParser ParseWorkLimits = %+v, want zero value", parser.parseWorkLimits)
 	}
 }
 

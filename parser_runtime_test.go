@@ -93,6 +93,148 @@ func TestParseRuntimeReportsAcceptedOnCompleteParse(t *testing.T) {
 	}
 }
 
+func TestParseWorkLimitsStopDeterministically(t *testing.T) {
+	parser := NewParser(buildArithmeticLanguage())
+	parser.SetAdmissionCandidateRoute(true)
+	limits := ParseWorkLimits{
+		IterationLimit:  1,
+		StackDepthLimit: 100,
+		NodeLimit:       1_000,
+	}
+	parser.SetParseWorkLimits(limits)
+	if got := parser.ParseWorkLimits(); got != limits {
+		t.Fatalf("ParseWorkLimits = %+v, want %+v", got, limits)
+	}
+
+	routedBefore, fallbacksBefore := AdmissionCandidateCounters()
+	var firstIterations int
+	for run := 0; run < 2; run++ {
+		tree, err := parser.Parse([]byte("1+2+3+4"))
+		if err != nil {
+			t.Fatalf("run %d: Parse error: %v", run, err)
+		}
+		if tree == nil {
+			t.Fatalf("run %d: Parse returned nil tree", run)
+		}
+		runtime := tree.ParseRuntime()
+		tree.Release()
+		if runtime.StopReason != ParseStopIterationLimit {
+			t.Fatalf("run %d: StopReason = %q, want %q (%s)", run, runtime.StopReason, ParseStopIterationLimit, runtime.Summary())
+		}
+		if runtime.IterationLimit != limits.IterationLimit || runtime.StackDepthLimit != limits.StackDepthLimit || runtime.NodeLimit != limits.NodeLimit {
+			t.Fatalf("run %d: resolved limits = iterations:%d depth:%d nodes:%d, want %+v", run, runtime.IterationLimit, runtime.StackDepthLimit, runtime.NodeLimit, limits)
+		}
+		if run == 0 {
+			firstIterations = runtime.Iterations
+		} else if runtime.Iterations != firstIterations {
+			t.Fatalf("run %d: Iterations = %d, want stable %d", run, runtime.Iterations, firstIterations)
+		}
+	}
+	routedAfter, fallbacksAfter := AdmissionCandidateCounters()
+	if routedAfter != routedBefore || fallbacksAfter != fallbacksBefore {
+		t.Fatalf("explicit work limits changed compact counters: routed %d->%d fallbacks %d->%d", routedBefore, routedAfter, fallbacksBefore, fallbacksAfter)
+	}
+
+	parser.SetParseWorkLimits(ParseWorkLimits{IterationLimit: -1, StackDepthLimit: -2, NodeLimit: -3})
+	if got := parser.ParseWorkLimits(); got != (ParseWorkLimits{}) {
+		t.Fatalf("negative limits normalize to %+v, want zero value", got)
+	}
+}
+
+func TestParseWorkLimitsUseProductionInsteadOfSpeculativeRoutes(t *testing.T) {
+	previousForest := glrForestEnabled
+	glrForestEnabled = true
+	t.Cleanup(func() { glrForestEnabled = previousForest })
+
+	lang := loadBlobForDecode(t, "json")
+	lang.WantsForest = true
+	parser := NewParser(lang)
+	control := parser.tryForestFastPath([]byte(`[1, 2, 3]`))
+	if control == nil {
+		t.Fatalf("fixture forest parse declined: %s", parser.forestDeclineReason)
+	}
+	control.Release()
+
+	limits := ParseWorkLimits{
+		IterationLimit:  10_000,
+		StackDepthLimit: 1_000,
+		NodeLimit:       10_000,
+	}
+	parser.SetAdmissionCandidateRoute(true)
+	parser.SetParseWorkLimits(limits)
+	routedBefore, fallbacksBefore := AdmissionCandidateCounters()
+	tree, err := parser.Parse([]byte(`[1, 2, 3]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tree == nil {
+		t.Fatal("Parse returned nil tree")
+	}
+	defer tree.Release()
+	runtime := tree.ParseRuntime()
+	if runtime.StopReason != ParseStopAccepted {
+		t.Fatalf("StopReason = %q, want %q (%s)", runtime.StopReason, ParseStopAccepted, runtime.Summary())
+	}
+	if tree.UsedForestFastPath() || runtime.ForestFastPath {
+		t.Fatal("explicit work limits used the forest fast path")
+	}
+	if runtime.IterationLimit != limits.IterationLimit || runtime.StackDepthLimit != limits.StackDepthLimit || runtime.NodeLimit != limits.NodeLimit {
+		t.Fatalf("resolved limits = iterations:%d depth:%d nodes:%d, want %+v", runtime.IterationLimit, runtime.StackDepthLimit, runtime.NodeLimit, limits)
+	}
+	routedAfter, fallbacksAfter := AdmissionCandidateCounters()
+	if routedAfter != routedBefore || fallbacksAfter != fallbacksBefore {
+		t.Fatalf("explicit work limits changed compact counters: routed %d->%d fallbacks %d->%d", routedBefore, routedAfter, fallbacksBefore, fallbacksAfter)
+	}
+	parser.SetParseWorkLimits(ParseWorkLimits{})
+	restored := parser.tryForestFastPath([]byte(`[1, 2, 3]`))
+	if restored == nil {
+		t.Fatalf("cleared limits did not restore forest eligibility: %s", parser.forestDeclineReason)
+	}
+	restored.Release()
+}
+
+func TestParseWorkLimitsReportEachConfiguredStop(t *testing.T) {
+	tests := []struct {
+		name   string
+		limits ParseWorkLimits
+		want   ParseStopReason
+	}{
+		{name: "iterations", limits: ParseWorkLimits{IterationLimit: 1}, want: ParseStopIterationLimit},
+		{name: "stack depth", limits: ParseWorkLimits{StackDepthLimit: 1}, want: ParseStopStackDepthLimit},
+		{name: "nodes", limits: ParseWorkLimits{NodeLimit: 1}, want: ParseStopNodeLimit},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parser := NewParser(buildArithmeticLanguage())
+			parser.SetParseWorkLimits(test.limits)
+			tree, err := parser.Parse([]byte("1+2+3+4"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tree == nil {
+				t.Fatal("Parse returned nil tree")
+			}
+			defer tree.Release()
+			if got := tree.ParseStopReason(); got != test.want {
+				t.Fatalf("ParseStopReason = %q, want %q (%s)", got, test.want, tree.ParseRuntime().Summary())
+			}
+		})
+	}
+}
+
+func TestConfigureParseCapsHonorsExactPublicWorkLimits(t *testing.T) {
+	parser := NewParser(buildArithmeticLanguage())
+	limits := ParseWorkLimits{IterationLimit: 23, StackDepthLimit: 19, NodeLimit: 17}
+	parser.SetParseWorkLimits(limits)
+	scratch := acquireParserScratch()
+	defer releaseParserScratch(scratch, false)
+
+	caps := parser.configureParseCaps([]byte("1+2"), nil, arenaClassFull, scratch, 0, 10_000, 0)
+	if caps.maxIter != limits.IterationLimit || caps.maxDepth != limits.StackDepthLimit || caps.maxNodes != limits.NodeLimit {
+		t.Fatalf("caps = iterations:%d depth:%d nodes:%d, want %+v", caps.maxIter, caps.maxDepth, caps.maxNodes, limits)
+	}
+}
+
 func TestAcceptedPrefixWithRealTailDoesNotReturnCleanParse(t *testing.T) {
 	lang := buildPrefixAcceptLanguage()
 	parser := NewParser(lang)

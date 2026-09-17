@@ -424,7 +424,7 @@ func (p *Parser) parseForestExperimental(source []byte) (*Tree, bool) {
 // maybeReplaceRecoveredTreeWithForest replaces a recovered DFA result only
 // when the forest produces a complete tree without ERROR or MISSING nodes.
 func (p *Parser) maybeReplaceRecoveredTreeWithForest(source []byte, tree *Tree) (*Tree, bool) {
-	if p == nil || tree == nil || tree.rawParseStoppedEarly() || tree.UsedForestFastPath() || p.recoveryInitialOnly {
+	if p == nil || tree == nil || tree.rawParseStoppedEarly() || tree.UsedForestFastPath() || p.recoveryInitialOnly || p.parseWorkLimits.configured() {
 		return tree, false
 	}
 	if p.language == nil || p.language.ExternalScanner != nil || len(p.language.ExternalSymbols) != 0 || len(p.included) != 0 {
@@ -664,6 +664,9 @@ func automaticForestMemoryBudget(p *Parser, operationBudget int64) int64 {
 // off by default so the production path is unchanged until per-language corpus
 // parity is verified and the gate is lifted.
 func (p *Parser) tryForestFastPath(source []byte) *Tree {
+	if p == nil {
+		return nil
+	}
 	// Reset first, before any early-return decline path below (included
 	// ranges, the decline memo, the unary-wrapper-profile decline, ...):
 	// several of those return nil without ever reaching parseForest, whose
@@ -671,7 +674,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	// ForestCapTieStats reporting an earlier, unrelated parse's counts (see
 	// resetForestCapTieStats's doc comment).
 	p.resetForestCapTieStats()
-	if !glrForestEnabled || !parserWantsForest(p) {
+	if p.parseWorkLimits.configured() || !glrForestEnabled || !parserWantsForest(p) {
 		return nil
 	}
 	if p.language != nil && len(p.language.NativeUnaryWrapperFlattening) != 0 {
@@ -2524,7 +2527,7 @@ func forestAcceptedNodeCompare(p *Parser, arena *nodeArena, a *gssForestNode, aO
 		// accepted node's root link. Preserve that same finalization semantic when
 		// choosing between accepted forest nodes; local child alternatives still
 		// use raw-shape selection below the root.
-		if cmp := stackCompareForResultSelectionWithRawShape(p, arena, &aStack, &bStack, false, false); cmp != 0 {
+		if cmp := stackCompareForResultSelectionWithRawShape(p, arena, &aStack, &bStack, false, false, false); cmp != 0 {
 			return cmp
 		}
 	}
@@ -2987,7 +2990,7 @@ func forestResultLinkCompareWithRawShape(p *Parser, arena *nodeArena, node *gssF
 			byteOffset:  node.byteOffset,
 			branchOrder: uint64(bOrder),
 		}
-		if cmp := stackCompareForResultSelectionWithRawShape(p, arena, &aStack, &bStack, false, useRawShape); cmp != 0 {
+		if cmp := stackCompareForResultSelectionWithRawShape(p, arena, &aStack, &bStack, false, useRawShape, false); cmp != 0 {
 			return cmp
 		}
 	}

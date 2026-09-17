@@ -346,6 +346,7 @@ type Parser struct {
 	maxConflictWidth                   int // widest N-way conflict in the parse table
 	timeoutMicros                      uint64
 	cancellationFlag                   *uint32
+	parseWorkLimits                    ParseWorkLimits
 	parseBudgetDepth                   int
 	parseDeadline                      time.Time
 	parseStoppedReason                 ParseStopReason
@@ -1782,6 +1783,7 @@ func resetSnippetParser(parser *Parser) {
 	parser.noResultCompatibilityBenchmarkOnly = false
 	parser.timeoutMicros = 0
 	parser.cancellationFlag = nil
+	parser.parseWorkLimits = ParseWorkLimits{}
 	parser.parseBudgetDepth = 0
 	parser.cNodeMemoOperationDepth = 0
 	parser.cNodeMemoPeakTier = RecoveryNodeMemoTierNone
@@ -7584,16 +7586,26 @@ func (p *Parser) configureParseCaps(source []byte, reuse *reuseCursor, arenaClas
 		p.errorCostCompetitionEnabled()
 
 	maxNodes := parseNodeLimitForLanguage(len(source), p.language)
-	if maxNodesOverride > maxNodes {
+	if p.parseWorkLimits.NodeLimit > 0 {
+		maxNodes = p.parseWorkLimits.NodeLimit
+	} else if maxNodesOverride > maxNodes {
 		maxNodes = maxNodesOverride
+	}
+	maxIter := parseIterationsForLanguage(len(source), p.language)
+	if p.parseWorkLimits.IterationLimit > 0 {
+		maxIter = p.parseWorkLimits.IterationLimit
+	}
+	maxDepth := parseStackDepth(len(source))
+	if p.parseWorkLimits.StackDepthLimit > 0 {
+		maxDepth = p.parseWorkLimits.StackDepthLimit
 	}
 	return parseCaps{
 		maxStacks:           maxStacks,
 		retryPass:           retryPass,
 		mergePerKeyCap:      mergePerKeyCap,
 		maxStackCullTrigger: glrStackCullTrigger(maxStacks, languageName(p.language)),
-		maxIter:             parseIterationsForLanguage(len(source), p.language),
-		maxDepth:            parseStackDepth(len(source)),
+		maxIter:             maxIter,
+		maxDepth:            maxDepth,
 		maxNodes:            maxNodes,
 	}
 }

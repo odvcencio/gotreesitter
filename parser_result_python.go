@@ -22,11 +22,6 @@ func normalizePythonCompatibilityWithParser(root *Node, source []byte, parser *P
 	}, func() normalizationPassCounters {
 		return normalizePythonPrintStatements(root, source, lang)
 	})
-	parser.runNormalizationPass(func() bool {
-		return sourceFlags.fStringPattern
-	}, func() normalizationPassCounters {
-		return normalizePythonInterpolationPatterns(root, lang)
-	})
 	// Fused preorder block: collapsed-keyword (pass/continue/break),
 	// inline-return/raise/yield blocks, inline-tuple-expression blocks,
 	// assignment-right expression lists, wildcard imports, and pattern targets
@@ -471,7 +466,6 @@ func applyCollapsedKeywordRewrite(n *Node, lang *Language, ck pythonCollapsedKey
 
 type pythonCompatibilitySourceFlags struct {
 	printChevron       bool
-	fStringPattern     bool
 	passWord           bool
 	continueWord       bool
 	breakWord          bool
@@ -505,33 +499,15 @@ func pythonCompatibilitySourceFlagsFor(source []byte) pythonCompatibilitySourceF
 			i = next
 			continue
 		case '\'', '"':
-			start := pythonStringPrefixStart(source, i)
-			validPrefix := start < i && (start == 0 || !pythonIdentifierByte(source[start-1]))
-			hasFPrefix := false
-			if validPrefix {
-				for _, p := range source[start:i] {
-					if p == 'f' || p == 'F' {
-						hasFPrefix = true
-						break
-					}
-				}
-			}
 			end, ok := pythonSkipQuotedLiteral(source, i)
 			if !flags.continuationEscape && pythonSourceRangeContainsContinuationEscape(source, i, end) {
 				flags.continuationEscape = true
 			}
 			if !ok {
 				flags.printChevron = true
-				flags.fStringPattern = true
 				flags.passWord = true
 				i = end
 				continue
-			}
-			if hasFPrefix {
-				contentStart, contentEnd := pythonQuotedLiteralContentRange(source, i, end)
-				if contentStart < contentEnd && pythonFStringContentMayNeedPatternNormalization(source[contentStart:contentEnd]) {
-					flags.fStringPattern = true
-				}
 			}
 			i = end
 			continue
@@ -654,60 +630,6 @@ func appendPythonContinuationEscapeOffsets(source []byte, offsets []uint32) []ui
 	return offsets
 }
 
-func pythonStringPrefixStart(source []byte, quoteIndex int) int {
-	start := quoteIndex
-	for start > 0 && quoteIndex-start < 3 && pythonStringPrefixByte(source[start-1]) {
-		start--
-	}
-	return start
-}
-
-func pythonQuotedLiteralContentRange(source []byte, quoteIndex, end int) (int, int) {
-	if quoteIndex < 0 || quoteIndex >= len(source) || end <= quoteIndex {
-		return quoteIndex, quoteIndex
-	}
-	if quoteIndex+2 < end && source[quoteIndex+1] == source[quoteIndex] && source[quoteIndex+2] == source[quoteIndex] {
-		return quoteIndex + 3, end - 3
-	}
-	return quoteIndex + 1, end - 1
-}
-
-func pythonFStringContentMayNeedPatternNormalization(content []byte) bool {
-	for i := 0; i < len(content); i++ {
-		if content[i] != '{' {
-			continue
-		}
-		if i+1 < len(content) && content[i+1] == '{' {
-			i++
-			continue
-		}
-		depth := 1
-		for j := i + 1; j < len(content); j++ {
-			switch content[j] {
-			case '\'', '"':
-				next, ok := pythonSkipQuotedLiteral(content, j)
-				if !ok {
-					return true
-				}
-				j = next - 1
-			case '{':
-				depth++
-			case '}':
-				depth--
-				if depth == 0 {
-					i = j
-					goto nextInterpolation
-				}
-			case ',', '*':
-				return true
-			}
-		}
-		return true
-	nextInterpolation:
-	}
-	return false
-}
-
 func pythonSourceWordAt(source []byte, i int, word string) bool {
 	if i < 0 || i+len(word) > len(source) {
 		return false
@@ -765,32 +687,8 @@ func pythonSkipQuotedLiteral(source []byte, i int) (int, bool) {
 	return len(source), false
 }
 
-func pythonStringPrefixByte(c byte) bool {
-	switch c {
-	case 'b', 'B', 'f', 'F', 'r', 'R', 'u', 'U':
-		return true
-	default:
-		return false
-	}
-}
-
 func pythonIdentifierByte(c byte) bool {
 	return c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9')
-}
-
-func normalizePythonInterpolationPatterns(root *Node, lang *Language) normalizationPassCounters {
-	var counters normalizationPassCounters
-	if root == nil || lang == nil || lang.Name != "python" {
-		return counters
-	}
-	// The parser now elects the C-owned interpolation production while the
-	// reduction still has both physical heads. A post-build rewrite would undo
-	// that producer decision, so keep this source-gated receipt as an observed
-	// no-op until the dispatch.python arm is retired.
-	walkResultTree(root, func(*Node) {
-		counters.nodesVisited++
-	})
-	return counters
 }
 
 func normalizePythonPrintStatements(root *Node, source []byte, lang *Language) normalizationPassCounters {

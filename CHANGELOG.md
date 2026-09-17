@@ -7,6 +7,20 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Standalone grammar packages
+
+- Add generated standalone packages for all 206 blob-backed grammars without build tags.
+- Share scanners, decoder repairs, caches, and certified profiles through `grammars/runtime`.
+- Remove the aggregate catalog dependency from the native Lean package.
+
+### Generated source ownership
+
+- Standardize generated Go markers and name each generator command as the
+  owner. Continuous integration now rejects unknown owners, malformed markers,
+  and generated file names without markers.
+- Move the grammargen marker before the package clause. Go tools can now
+  identify emitted grammar source as generated code.
+
 ### C parity program, round one: query semantics
 
 - Resolve node types in query patterns the way the C query compiler does:
@@ -26,6 +40,8 @@ for tags and release notes while still in `0.x`.
   whose parent is not an ERROR node, as it does in C.
 - Wildcard steps never match ERROR nodes, and a top-level bare `_` pattern
   compiles.
+- Share one Lua-pattern compiler between production queries and both C query comparisons.
+  The outline comparison now evaluates `#lua-match?` predicates instead of rejecting them.
 - `TestParityQuerySemantics` runs 103 query cases on both engines: 101
   agree, 2 carry a named divergence (an aliased subtype in the grammargen
   supertype map, and a hidden wrapper lost inside a compact error region).
@@ -62,6 +78,11 @@ for tags and release notes while still in `0.x`.
   both routes while C reports an ERROR, and the fresh and incremental
   parses keep a different number of GLR stacks after the site. The C
   keyword rule exposed the site; the divergence itself is older.
+- Retire the Python interpolation compatibility pass after native clean-tie
+  election reaches parity with the pinned C parser.
+- Keep raw-shape ordering for forest-local alternatives when compact primary
+  derivation selection is certified. Python f-string splats now match locked C
+  on the forest route.
 
 ### Compact core cost, round two (issue #454)
 
@@ -144,8 +165,7 @@ for tags and release notes while still in `0.x`.
 The compact route stays the default fresh full-parse route. The owner's
 direction is to retire the production engine once the compact core
 outperforms it; until then production still serves incremental, injection,
-included-range, and fallback parses, so these fixes stay. See the
-[route decision record](docs/performance/issue-454-production-route-decision-2026-09-07.md).
+included-range, and fallback parses, so these fixes stay.
 
 - Isolate parser scratch lifetimes across parses. A pooled scratch kept the
   transient parent and child slabs of the largest earlier parse, up to 512K
@@ -172,8 +192,7 @@ included-range, and fallback parses, so these fixes stay. See the
 
 - Repair the three regressions on the compact candidate route that issue
   [#454](https://github.com/odvcencio/gotreesitter/issues/454) measured on
-  137 KiB editor fixtures. See the
-  [repair report](docs/performance/issue-454-compact-route-repair-2026-09-07.md).
+  137 KiB editor fixtures.
 - Compact error recovery scales linearly. The recovery cost memo grew to the
   exact size on every store and was reallocated on every call, so a fresh
   parse of a 16 KiB Go file with one syntax error took 4.9 seconds. The memo
@@ -267,8 +286,7 @@ included-range, and fallback parses, so these fixes stay. See the
 Twenty paired benchmark samples compare this change with v0.52.0.
 Generated Go single-byte edits improve from 3,033.2 to 182.1 microseconds.
 Allocations decrease from 95 to 3 per edit. Full parsing regresses 1.68 percent.
-See the [performance report](docs/performance/token-invariant-restoration-2026-09-05.md)
-for raw results, workload limits, and memory observations.
+See [pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093) for the restoration and its validation.
 These changes do not complete compact parser graduation or retire the legacy parser.
 
 ## [0.52.0] - 2026-09-05
@@ -296,7 +314,6 @@ The owner approved the temporary slowdown. The measured single-byte edit rises
 from 1.706 us to 3,350.460 us, with 184.4 KiB and 95 allocations per operation.
 Full-parse and no-edit timing changes are not significant. Full parsing reduces
 allocated bytes by 42.90 percent and allocations by 99.72 percent.
-See the [release performance report](docs/performance/release-v0.52.0-2026-09-05.md).
 
 Lexical error-leaf flags and TypeScript recovery divergences remain graduation work.
 The attempted flag correction changed AWK recovery selection and remains deferred.
@@ -310,9 +327,6 @@ The attempted flag correction changed AWK recovery selection and remains deferre
   caches recovery visible-subtree counts and removes canonicalization callback
   allocations. The cache reduces time across four frozen Go fixtures.
   The callback change reduces allocations without a significant timing change.
-  Read the [recovery count report](docs/performance/recovery-visible-count-2026-09-05.md)
-  and [canonicalization report](docs/performance/canonical-owner-binding-2026-09-05.md)
-  for measured commits, paired results, and limits.
   These measurements precede the temporary shortcut mitigation.
 
 The owner authorized a v0.52.0-only exception for an unsupported tag-creation

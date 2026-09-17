@@ -244,25 +244,6 @@ func diagnosticParserCoreRecoveryCondensePairwiseMode(
 	return order
 }
 
-func diagnosticParserCoreDerivationVisibleNodeCount(
-	symbols []core.SelectedSymbolPolicy,
-	src *diagnosticParserCoreRecoveryCostSource,
-	derivation core.Derivation,
-) (uint32, error) {
-	var total uint32
-	for _, payload := range derivation.Payloads {
-		count, err := src.compact.CachedVisibleSubtreeCount(symbols, payload)
-		if err != nil {
-			return 0, err
-		}
-		if math.MaxUint32-total < count {
-			return 0, errors.New("parser-core phase zero: recovery visible-node count overflow")
-		}
-		total += count
-	}
-	return total, nil
-}
-
 func diagnosticParserCoreOpenRegionVisibleNodeCount(
 	symbols []core.SelectedSymbolPolicy,
 	src *diagnosticParserCoreRecoveryCostSource,
@@ -285,46 +266,30 @@ func diagnosticParserCoreOpenRegionVisibleNodeCount(
 	return total, nil
 }
 
-func diagnosticParserCoreRecoveryCumulativeVisibleNodeCount(
-	derivation core.Derivation,
-	region *diagnosticParserCoreS3Region,
-	symbols []core.SelectedSymbolPolicy,
-	src *diagnosticParserCoreRecoveryCostSource,
-) (uint32, error) {
-	count, err := diagnosticParserCoreDerivationVisibleNodeCount(symbols, src, derivation)
-	if err != nil {
-		return 0, err
-	}
-	regionCount, err := diagnosticParserCoreOpenRegionVisibleNodeCount(symbols, src, region)
-	if err != nil {
-		return 0, err
-	}
-	if math.MaxUint32-count < regionCount {
-		return 0, errors.New("parser-core phase zero: recovery cumulative visible-node count overflow")
-	}
-	return count + regionCount, nil
-}
-
 func (s *diagnosticParserCoreGenericScheduler) recoveryCumulativeVisibleNodeCount(
 	head core.Head,
 	region *diagnosticParserCoreS3Region,
 	symbols []core.SelectedSymbolPolicy,
 	src *diagnosticParserCoreRecoveryCostSource,
 ) (uint32, bool, error) {
-	derivations, err := s.compact.Derivations(head)
+	count, sole, err := s.compact.SoleDerivationVisibleNodeCount(symbols, head)
 	if err != nil {
 		if errors.Is(err, core.ErrDerivationEnumerationCap) {
 			return 0, false, nil
 		}
 		return 0, false, err
 	}
-	if len(derivations) != 1 {
+	if !sole {
 		return 0, false, nil
 	}
-	count, err := diagnosticParserCoreRecoveryCumulativeVisibleNodeCount(
-		derivations[0], region, symbols, src,
-	)
-	return count, true, err
+	regionCount, err := diagnosticParserCoreOpenRegionVisibleNodeCount(symbols, src, region)
+	if err != nil {
+		return 0, true, err
+	}
+	if math.MaxUint32-count < regionCount {
+		return 0, true, errors.New("parser-core phase zero: recovery cumulative visible-node count overflow")
+	}
+	return count + regionCount, true, nil
 }
 
 func (s *diagnosticParserCoreGenericScheduler) recoveryNodeBaselineForHead(
