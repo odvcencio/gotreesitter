@@ -7,6 +7,22 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Recovery memo pressure
+
+- Compute leaf error costs and visible counts without occupying recovery memo entries.
+- Preserve error-region costs, missing-token costs, cache limits, and cleanup.
+
+### Compact incremental allocation
+
+- Grow borrowed incremental arenas as needed instead of reserving capacity for the complete source.
+- Preserve full-parse reservation, memory limits, and cleanup after a compact decline.
+
+### Incremental profile accounting
+
+- Count discarded retry work without adding its reuse coverage to the selected result.
+- Preserve fallback work, phase times, and maximum resource counts in incremental profiles.
+- Keep reuse status and parse boundaries tied to the returned tree.
+
 ### Standalone grammar packages
 
 - Add generated standalone packages for all 206 blob-backed grammars without build tags.

@@ -66,7 +66,7 @@ func (p *Parser) attemptCompactIncrementalRecoveryFullParse(source []byte, oldTr
 			timing.newNodes += work.allocatedNodes
 			timing.tokensConsumed += work.tokens
 		}
-		// Successful work comes from profileFreshParseFallback. A declined
+		// Successful work comes from freshParseFallbackTiming. A declined
 		// fresh attempt must still be charged before the legacy fallback.
 		if result == nil && timing != nil {
 			timing.totalNanos += time.Since(started).Nanoseconds()

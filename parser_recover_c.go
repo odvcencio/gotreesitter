@@ -1412,6 +1412,12 @@ func (p *Parser) cNodeVisibleSubtreeCount(n *Node) int {
 	if n == nil {
 		return 0
 	}
+	if len(n.children) == 0 {
+		if p.cSymbolVisible(n.symbol) {
+			return 1
+		}
+		return 0
+	}
 	if p != nil && len(p.cNodeMemoCache) != 0 {
 		slot := p.cNodeMemoPrimaryHit(n)
 		if slot == nil {
@@ -2108,6 +2114,13 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 	if n == nil {
 		return 0
 	}
+	// Ordinary leaves need no subtree walk. Keep them out of the bounded memo.
+	if len(n.children) == 0 && n.symbol != errorSymbol {
+		if n.isMissing() {
+			return cErrCostPerMissingTree + cErrCostPerRecovery
+		}
+		return 0
+	}
 	if len(p.cNodeMemoCache) == 0 {
 		return cNodeErrorCostLang(p.language, n)
 	}
@@ -2175,6 +2188,17 @@ func (p *Parser) cNodeErrorCost(n *Node) uint32 {
 func (p *Parser) cNodeErrorCostAndVisibleSubtreeCount(n *Node) (uint32, int) {
 	if p == nil || n == nil {
 		return 0, 0
+	}
+	if len(n.children) == 0 && n.symbol != errorSymbol {
+		var cost uint32
+		if n.isMissing() {
+			cost = cErrCostPerMissingTree + cErrCostPerRecovery
+		}
+		visible := 0
+		if p.cSymbolVisible(n.symbol) {
+			visible = 1
+		}
+		return cost, visible
 	}
 	if len(p.cNodeMemoCache) == 0 {
 		return cNodeErrorCostLang(p.language, n), cNodeVisibleSubtreeCountUncachedLang(p.language, n)
