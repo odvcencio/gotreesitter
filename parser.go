@@ -1366,7 +1366,7 @@ const (
 // ReusedSubtrees, ReusedBytes, and the result fields describe the selected attempt.
 // The result fields include reuse support, the reuse route, and the parse boundary.
 // Retry fields describe the complete operation.
-// Work counters and timing fields include all attempts.
+// Work counters and timing fields aggregate recorded parse attempts.
 // MaxStacksSeen and EntryScratchPeak are the maximum values across all attempts.
 type IncrementalParseProfile struct {
 	ReuseCursorNanos int64

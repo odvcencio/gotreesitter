@@ -530,8 +530,8 @@ func csharpTokenInvariantIdentifierKeyword(text string) bool {
 	}
 }
 
-func freshParseFallbackTiming(start time.Time, tree *Tree, reason string) *incrementalParseTiming {
-	timing := &incrementalParseTiming{}
+func freshParseFallbackTiming(start time.Time, tree *Tree, reason string) incrementalParseTiming {
+	var timing incrementalParseTiming
 	timing.recordFreshFallback(tree, time.Since(start).Nanoseconds(), reason)
 	return timing
 }
@@ -1980,9 +1980,6 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 		return tree, fallbackTiming.toProfile(), nil
 	}
 	tree, timing, err := p.parseIncrementalChangedProfiled(source, oldTree)
-	if timing == nil {
-		timing = &incrementalParseTiming{}
-	}
 	timing.addAttempt(&compactTiming)
 	if tree != nil && tree != oldTree {
 		tree.parseRuntime.CompactIncrementalFallbackReason = reason
@@ -1990,7 +1987,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	return tree, timing.toProfile(), err
 }
 
-func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (*Tree, *incrementalParseTiming, error) {
+func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (*Tree, incrementalParseTiming, error) {
 	endParseBudget := p.enterParseBudget()
 	defer endParseBudget()
 	// The compact attempt has declined. Keep this fallback on the legacy engine.
@@ -2004,7 +2001,7 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		timing := &incrementalParseTiming{}
 		if tree, ok := p.tryTokenInvariantReuseForDisabledOldTree(source, oldTree, timing); ok {
-			return tree, timing, nil
+			return tree, *timing, nil
 		}
 		if oldTree == nil || !oldTree.compactMaterialized {
 			start := time.Now()
@@ -2017,14 +2014,14 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	if checkpointedScannerPrefixFrontierUnproven(source, oldTree) {
 		timing := &incrementalParseTiming{}
 		if tree, ok := p.tryTokenInvariantReuseWithDFA(source, oldTree, timing); ok {
-			return tree, timing, nil
+			return tree, *timing, nil
 		}
 		start := time.Now()
 		tree, err := p.Parse(source)
 		return tree, freshParseFallbackTiming(start, tree, checkpointedScannerPrefixFrontierUnsupportedReason), err
 	}
 	if err := p.checkDFALexer(); err != nil {
-		return nil, nil, err
+		return nil, incrementalParseTiming{}, err
 	}
 	prevFactory := p.reparseFactory
 	p.reparseFactory = nil
@@ -2051,7 +2048,7 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 	if forestRepaired {
 		timing.recordFreshFallback(tree, time.Since(forestStart).Nanoseconds(), forestRecoveryFallbackReuseReason)
 	}
-	return tree, timing, nil
+	return tree, *timing, nil
 }
 
 // ParseIncrementalWithTokenSourceProfiled is like ParseIncrementalWithTokenSource
