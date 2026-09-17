@@ -7,6 +7,12 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Incremental profile accounting
+
+- Count discarded retry work without adding its reuse coverage to the selected result.
+- Preserve fallback work, phase times, and maximum resource counts in incremental profiles.
+- Keep reuse status and parse boundaries tied to the returned tree.
+
 ### Standalone grammar packages
 
 - Add generated standalone packages for all 206 blob-backed grammars without build tags.

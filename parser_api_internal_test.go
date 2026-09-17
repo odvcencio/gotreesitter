@@ -1209,12 +1209,18 @@ func TestIncrementalAcceptedErrorBaseMergeRetryReleasesFirstPassWhenAdopted(t *t
 	first := incrementalAcceptedErrorRetryTestTree(128, true, 24)
 	candidate := incrementalAcceptedErrorRetryTestTree(128, false, 18)
 	parser := &Parser{language: first.language}
-	got := parser.retryIncrementalAcceptedErrorWithBaseMergeCap(make([]byte, 128), first, nil, func(override int, _ *incrementalParseTiming) *Tree {
+	timing := &incrementalParseTiming{reusedBytes: 100, tokensConsumed: 5}
+	got := parser.retryIncrementalAcceptedErrorWithBaseMergeCap(make([]byte, 128), first, timing, func(override int, retryTiming *incrementalParseTiming) *Tree {
 		if override != -3 {
 			t.Fatalf("merge override = %d, want exact cap -3", override)
 		}
+		retryTiming.reusedBytes = 80
+		retryTiming.tokensConsumed = 7
 		return candidate
 	})
+	if timing.reusedBytes != 80 || timing.tokensConsumed != 12 {
+		t.Fatalf("adopted retry reuse=%d work=%d, want 80 and 12", timing.reusedBytes, timing.tokensConsumed)
+	}
 	if got != candidate || !first.released || candidate.released {
 		t.Fatalf("selection gotCandidate=%v firstReleased=%v candidateReleased=%v", got == candidate, first.released, candidate.released)
 	}
@@ -1234,9 +1240,15 @@ func TestIncrementalAcceptedErrorBaseMergeRetryReleasesLosingCandidate(t *testin
 	candidate := incrementalAcceptedErrorRetryTestTree(128, true, 24)
 	candidate.parseRuntime.NodesAllocated = first.parseRuntime.NodesAllocated + 1
 	parser := &Parser{language: first.language}
-	got := parser.retryIncrementalAcceptedErrorWithBaseMergeCap(make([]byte, 128), first, nil, func(int, *incrementalParseTiming) *Tree {
+	timing := &incrementalParseTiming{reusedBytes: 100, tokensConsumed: 5}
+	got := parser.retryIncrementalAcceptedErrorWithBaseMergeCap(make([]byte, 128), first, timing, func(_ int, retryTiming *incrementalParseTiming) *Tree {
+		retryTiming.reusedBytes = 80
+		retryTiming.tokensConsumed = 7
 		return candidate
 	})
+	if timing.reusedBytes != 100 || timing.tokensConsumed != 12 {
+		t.Fatalf("discarded retry reuse=%d work=%d, want 100 and 12", timing.reusedBytes, timing.tokensConsumed)
+	}
 	if got != first || first.released || !candidate.released {
 		t.Fatalf("selection keptFirst=%v firstReleased=%v candidateReleased=%v", got == first, first.released, candidate.released)
 	}

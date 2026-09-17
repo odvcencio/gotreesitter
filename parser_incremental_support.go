@@ -156,23 +156,16 @@ func (t *incrementalParseTiming) toProfile() IncrementalParseProfile {
 	}
 }
 
-// addAttempt aggregates operation work from another incremental attempt. The
-// selected Tree's ParseRuntime remains per-attempt; IncrementalParseProfile is
-// intentionally the total cost paid by the public operation.
+// addAttempt aggregates operation work from another parse attempt.
+// It preserves fields that describe the selected result.
 func (t *incrementalParseTiming) addAttempt(other *incrementalParseTiming) {
 	if t == nil || other == nil {
 		return
 	}
 	t.totalNanos += other.totalNanos
 	t.reuseNanos += other.reuseNanos
-	t.reusedSubtrees += other.reusedSubtrees
-	t.reusedBytes += other.reusedBytes
+	t.tokenInvariantDependencyChecks += other.tokenInvariantDependencyChecks
 	t.newNodes += other.newNodes
-	t.reuseUnsupported = t.reuseUnsupported || other.reuseUnsupported
-	if t.reuseUnsupportedReason == "" {
-		t.reuseUnsupportedReason = other.reuseUnsupportedReason
-	}
-	t.oldTreeReuseRoute = t.oldTreeReuseRoute || other.oldTreeReuseRoute
 	t.reuseRejectDirty += other.reuseRejectDirty
 	t.reuseRejectAncestorDirtyBeforeEdit += other.reuseRejectAncestorDirtyBeforeEdit
 	t.reuseRejectHasError += other.reuseRejectHasError
@@ -265,6 +258,21 @@ func (t *incrementalParseTiming) addAttempt(other *incrementalParseTiming) {
 	t.normalizationNanos += other.normalizationNanos
 }
 
+// selectAttempt copies fields that describe the selected parse attempt.
+func (t *incrementalParseTiming) selectAttempt(other *incrementalParseTiming) {
+	if t == nil || other == nil {
+		return
+	}
+	t.reusedSubtrees = other.reusedSubtrees
+	t.reusedBytes = other.reusedBytes
+	t.reuseUnsupported = other.reuseUnsupported
+	t.reuseUnsupportedReason = other.reuseUnsupportedReason
+	t.oldTreeReuseRoute = other.oldTreeReuseRoute
+	t.stopReason = other.stopReason
+	t.lastTokenEndByte = other.lastTokenEndByte
+	t.expectedEOFByte = other.expectedEOFByte
+}
+
 func (t *incrementalParseTiming) selectResult(tree *Tree) {
 	if t == nil || tree == nil {
 		return
@@ -273,6 +281,36 @@ func (t *incrementalParseTiming) selectResult(tree *Tree) {
 	t.stopReason = rt.StopReason
 	t.lastTokenEndByte = rt.LastTokenEndByte
 	t.expectedEOFByte = rt.ExpectedEOFByte
+	t.oldTreeReuseRoute = rt.IncrementalOldTreeReuseRoute
+}
+
+func incrementalParseTimingFromRuntime(parseRuntime ParseRuntime) incrementalParseTiming {
+	var timing incrementalParseTiming
+	copyParseRuntimeToTiming(&timing, parseRuntime)
+	timing.newNodes = uint64(parseRuntime.NodesAllocated)
+	timing.maxStacksSeen = parseRuntime.MaxStacksSeen
+	timing.entryScratchPeak = parseRuntime.EntryScratchPeak
+	timing.oldTreeReuseRoute = parseRuntime.IncrementalOldTreeReuseRoute
+	return timing
+}
+
+// recordFreshFallback adds a fresh fallback attempt and selects its result.
+func (t *incrementalParseTiming) recordFreshFallback(tree *Tree, elapsedNanos int64, reason string) {
+	if t == nil {
+		return
+	}
+	t.totalNanos += elapsedNanos
+	t.reusedSubtrees = 0
+	t.reusedBytes = 0
+	t.reuseUnsupported = true
+	t.reuseUnsupportedReason = reason
+	t.oldTreeReuseRoute = false
+	if tree == nil {
+		return
+	}
+	attempt := incrementalParseTimingFromRuntime(*tree.rawParseRuntime())
+	t.addAttempt(&attempt)
+	t.selectResult(tree)
 }
 
 func appendUniqueArenaRef(refs []*nodeArena, arenaRef, exclude *nodeArena) []*nodeArena {
