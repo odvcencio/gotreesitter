@@ -345,6 +345,9 @@ func (p *Parser) retryIncrementalAcceptedErrorWithBaseMergeCap(source []byte, fi
 
 	if retryTiming != nil {
 		timing.addAttempt(retryTiming)
+		if adopted {
+			timing.selectAttempt(retryTiming)
+		}
 		timing.selectResult(result)
 		timing.acceptedErrorRetryAttempts = 1
 		timing.acceptedErrorRetryAdopted = adopted
@@ -2106,10 +2109,7 @@ func (p *Parser) retryIncrementalParseAsFullWithDFA(source []byte, initialMaxSta
 		return tree
 	}
 	if timing != nil {
-		timing.totalNanos += time.Since(retryStart).Nanoseconds()
-		timing.reuseUnsupported = true
-		timing.reuseUnsupportedReason = "incremental_parse_full_retry"
-		copyParseRuntimeToTiming(timing, *result.rawParseRuntime())
+		timing.recordFreshFallback(result, time.Since(retryStart).Nanoseconds(), "incremental_parse_full_retry")
 	}
 	return result
 }
@@ -2165,10 +2165,7 @@ func (p *Parser) retryIncrementalParseAsFullWithTokenSource(source []byte, ts To
 		return tree
 	}
 	if timing != nil {
-		timing.totalNanos += time.Since(retryStart).Nanoseconds()
-		timing.reuseUnsupported = true
-		timing.reuseUnsupportedReason = "incremental_parse_full_retry"
-		copyParseRuntimeToTiming(timing, *result.rawParseRuntime())
+		timing.recordFreshFallback(result, time.Since(retryStart).Nanoseconds(), "incremental_parse_full_retry")
 	}
 	return result
 }
@@ -2207,10 +2204,7 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithDFA(source []byte, t
 	p.recordRecoveryRuntimeSelectedTree(full)
 	p.recordRecoveryRuntimeSelectedTreeDetailed(full)
 	if timing != nil {
-		timing.totalNanos += time.Since(retryStart).Nanoseconds()
-		timing.reuseUnsupported = true
-		timing.reuseUnsupportedReason = incrementalPlainFullRetryReason(stop)
-		copyParseRuntimeToTiming(timing, *full.rawParseRuntime())
+		timing.recordFreshFallback(full, time.Since(retryStart).Nanoseconds(), incrementalPlainFullRetryReason(stop))
 	}
 	return full
 }
@@ -2247,10 +2241,7 @@ func (p *Parser) retryIncrementalMemoryBudgetAsPlainFullWithTokenSource(source [
 	p.recordRecoveryRuntimeSelectedTree(full)
 	p.recordRecoveryRuntimeSelectedTreeDetailed(full)
 	if timing != nil {
-		timing.totalNanos += time.Since(retryStart).Nanoseconds()
-		timing.reuseUnsupported = true
-		timing.reuseUnsupportedReason = incrementalPlainFullRetryReason(stop)
-		copyParseRuntimeToTiming(timing, *full.rawParseRuntime())
+		timing.recordFreshFallback(full, time.Since(retryStart).Nanoseconds(), incrementalPlainFullRetryReason(stop))
 	}
 	return full
 }
