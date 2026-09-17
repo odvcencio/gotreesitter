@@ -7,6 +7,11 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Compact incremental allocation
+
+- Grow borrowed incremental arenas as needed instead of reserving capacity for the complete source.
+- Preserve full-parse reservation, memory limits, and cleanup after a compact decline.
+
 ### Incremental profile accounting
 
 - Count discarded retry work without adding its reuse coverage to the selected result.
