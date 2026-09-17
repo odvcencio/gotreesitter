@@ -30,6 +30,10 @@ const (
 	resultCompatKotlinCallPositive            = "a321147042b7374a52570865d6ec44e1771669a4"
 	resultCompatKotlinCallProducerFix         = "b06804219dc0b27a0804d769a5cc24626568387d"
 	resultCompatKotlinCallFunction            = "normalizeKotlinInterpolatedCallExpressions"
+	resultCompatPythonInterpolationRetired    = "d676cd263ab54bbf2258eb75d55647da50a258ee"
+	resultCompatPythonInterpolationPositive   = "49a104796c007ea1bf442e37a78edbc67c46c63e"
+	resultCompatPythonInterpolationProducer   = "106508e81fbe727b9a74fa749f273ca1ed114e0c"
+	resultCompatPythonInterpolationFunction   = "normalizePythonInterpolationPatterns"
 )
 
 var resultCompatRetiredCommitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
@@ -261,6 +265,23 @@ func assertRetiredSubpassProvenance(t *testing.T, entry resultCompatOwnershipEnt
 		}
 		if strings.Contains(string(data), resultCompatKotlinCallFunction) {
 			t.Errorf("%s remains in production source", resultCompatKotlinCallFunction)
+		}
+	case "dispatch.python.interpolation-patterns":
+		if got, want := entry.RetiredCommit, resultCompatPythonInterpolationRetired; got != want {
+			t.Errorf("%s retired_commit = %q, want deletion commit %q", entry.ID, got, want)
+		}
+		if got, want := entry.PositiveControlCommit, resultCompatPythonInterpolationPositive; got != want {
+			t.Errorf("%s positive_control_commit = %q, want %q", entry.ID, got, want)
+		}
+		if got, want := entry.ProducerFixCommit, resultCompatPythonInterpolationProducer; got != want {
+			t.Errorf("%s producer_fix_commit = %q, want %q", entry.ID, got, want)
+		}
+		data, err := os.ReadFile("parser_result_python.go")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(data), resultCompatPythonInterpolationFunction) {
+			t.Errorf("%s remains in production source", resultCompatPythonInterpolationFunction)
 		}
 	}
 }

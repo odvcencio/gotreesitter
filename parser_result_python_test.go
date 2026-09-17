@@ -418,7 +418,7 @@ func TestNormalizePythonCompatibilityRecordsRuntimeStats(t *testing.T) {
 	normalizePythonCompatibilityWithParser(root, []byte("\\\n"), parser, lang)
 
 	stats := parser.normalizationStats
-	if got, want := stats.passesChecked, uint64(13); got != want {
+	if got, want := stats.passesChecked, uint64(12); got != want {
 		t.Fatalf("passesChecked = %d, want %d", got, want)
 	}
 	if got, want := stats.passesRun, uint64(1); got != want {
@@ -832,11 +832,8 @@ func TestPythonCompatibilitySourceGatesPreferCodeTokens(t *testing.T) {
 	if flags := pythonCompatibilitySourceFlagsFor([]byte("1, 2\n")); !flags.comma {
 		t.Fatal("expected combined flags to detect comma")
 	}
-	if flags := pythonCompatibilitySourceFlagsFor([]byte(`f"{a, b}"`)); !flags.fStringPattern {
-		t.Fatal("expected combined flags to detect f-string pattern normalization")
-	}
-	if flags := pythonCompatibilitySourceFlagsFor([]byte(`"regular {a, b}"`)); flags.fStringPattern {
-		t.Fatal("did not expect combined flags to detect non-f-string pattern normalization")
+	if flags := pythonCompatibilitySourceFlagsFor([]byte(`f"{pass, break}"`)); flags.passWord || flags.breakWord || flags.comma {
+		t.Fatal("did not expect combined flags to inspect f-string contents")
 	}
 	if flags := pythonCompatibilitySourceFlagsFor([]byte("x = \"a\\\nb\"")); !flags.continuationEscape {
 		t.Fatal("expected combined flags to detect continuation escape")

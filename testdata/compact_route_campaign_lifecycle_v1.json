@@ -783,7 +783,7 @@
       "scope": "production",
       "default": "unset",
       "read_sites": [
-        {"path": "grammars/grammargen_blob_override.go", "symbol": "preferredLanguageOverridePath", "line": 75}
+        {"path": "grammars/runtime/grammargen_blob_override.go", "symbol": "preferredLanguageOverridePath", "line": 75}
       ]
     }
   ],
@@ -981,7 +981,7 @@
         {"path": "external_scanner_checkpoints_test.go", "role": "proof", "build_expression": "default", "symbol": "TestExternalScannerCheckpointCapabilitiesAreBehaviorBased"},
         {"path": "external_scanner_checkpoints_test.go", "role": "proof", "build_expression": "default", "symbol": "TestRebuildExternalScannerCheckpointsCopiesBorrowedArenaSnapshots"},
         {"path": "external_scanner_adapter_test.go", "role": "proof", "build_expression": "default", "symbol": "TestExternalScannerOrderAdapterPreservesOptionalCapabilities"},
-        {"path": "grammars/python_parse_regression_test.go", "role": "proof", "build_expression": "default", "symbol": "TestPythonScannerSerializationFailsClosed"},
+        {"path": "grammars/internal/pythonruntime/state_test.go", "role": "proof", "build_expression": "default", "symbol": "TestPythonScannerSerializationFailsClosed"},
         {"path": "incremental_invariant_gate_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestIncrementalInvariantGatePython"},
         {"path": "w1_block_splice_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestW1BlockSpliceOracleEquality"},
         {"path": "w1_leading_splice_test.go", "role": "incremental_test", "build_expression": "default", "symbol": "TestLeadingSpliceOracleEqualityMiddleBottom"},

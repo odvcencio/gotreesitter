@@ -10,7 +10,8 @@ import (
 	"testing"
 )
 
-const resultCompatAuthoritativeMainCommit = "cca7215444b29aea8a7046406a928a263fddde0f"
+// This integration commit contains main and the shared Python scanner retirement.
+const resultCompatAuthoritativeCommit = "ae7afc9f2cafc6c493c310163fcd6fcdfe09ff61"
 
 // These are zero-based registry indexes. Keep this map explicit so a later
 // ledger regeneration cannot silently restore a parallel retirement commit.
@@ -42,24 +43,26 @@ var resultCompatCorrectedRetiredCommits = map[int]string{
 	53: "84aee737500e7b9e0365725fb7af18e059e9d9e5",
 	54: "c3e734a527ed95327cf4fc010167a222cea1900c",
 	56: "84aee737500e7b9e0365725fb7af18e059e9d9e5",
-	64: "0d84d2eb5e597420de90d7d275b945e9b15ba7df",
-	68: "0d84d2eb5e597420de90d7d275b945e9b15ba7df",
-	78: "af6dce4cf9dc323fba10155fdcab6a84a25e3927",
-	80: "db34ebb495d1cd0c6540428c7045ac032ac41a22",
-	82: "27b0f624032680f6246bb4ee307883a2b874afb9",
-	84: "d212e7c52fffc56182b138b08bb29ee7c490aa11",
-	85: "8ced58fd8591aa18490d2720cf579e107f472711",
-	87: "93ab17820fd007b5808f2ab6b62e22f79df179d1",
+	63: "d676cd263ab54bbf2258eb75d55647da50a258ee",
+	65: "0d84d2eb5e597420de90d7d275b945e9b15ba7df",
+	69: "0d84d2eb5e597420de90d7d275b945e9b15ba7df",
+	79: "af6dce4cf9dc323fba10155fdcab6a84a25e3927",
+	81: "db34ebb495d1cd0c6540428c7045ac032ac41a22",
+	83: "27b0f624032680f6246bb4ee307883a2b874afb9",
+	85: "d212e7c52fffc56182b138b08bb29ee7c490aa11",
+	86: "8ced58fd8591aa18490d2720cf579e107f472711",
+	88: "93ab17820fd007b5808f2ab6b62e22f79df179d1",
 }
 
 type resultCompatRetirementFixture struct {
-	AncestorOfMain bool
-	EntryIDs       []string
+	AncestorOfBaseline bool
+	EntryIDs           []string
 }
 
 // Docker worktrees can lack the host repository metadata. This fixture keeps
 // the provenance gate deterministic when local Git history is unavailable.
 var resultCompatRetirementFixtures = map[string]resultCompatRetirementFixture{
+	"d676cd263ab54bbf2258eb75d55647da50a258ee": {true, []string{"dispatch.python.interpolation-patterns"}},
 	"05cd86a0bb925078f833b69bac21effa3fcca657": {true, []string{"dispatch.d"}},
 	"062fb1a130c15c030192bc23cdd0dd7eed6af18f": {true, []string{"dispatch.enforce"}},
 	"0d84d2eb5e597420de90d7d275b945e9b15ba7df": {true, []string{"dispatch.robot", "dispatch.scheme"}},
@@ -105,10 +108,10 @@ var resultCompatRetirementFixtures = map[string]resultCompatRetirementFixture{
 
 func TestResultCompatibilityRetiredCommitProvenance(t *testing.T) {
 	registry := loadResultCompatOwnershipRegistry(t)
-	if got, want := len(registry.Entries), 88; got != want {
+	if got, want := len(registry.Entries), 89; got != want {
 		t.Fatalf("registry entries = %d, want %d", got, want)
 	}
-	if got, want := len(resultCompatCorrectedRetiredCommits), 35; got != want {
+	if got, want := len(resultCompatCorrectedRetiredCommits), 36; got != want {
 		t.Fatalf("corrected retired commit rows = %d, want %d", got, want)
 	}
 	for index, wantCommit := range resultCompatCorrectedRetiredCommits {
@@ -138,7 +141,7 @@ func TestResultCompatibilityRetiredCommitProvenance(t *testing.T) {
 			continue
 		}
 		fixture, ok := resultCompatRetirementFixtures[entry.RetiredCommit]
-		if !ok || !fixture.AncestorOfMain || !containsString(fixture.EntryIDs, entry.ID) {
+		if !ok || !fixture.AncestorOfBaseline || !containsString(fixture.EntryIDs, entry.ID) {
 			t.Errorf("retirement fixture lacks ancestor and deletion evidence for registry index %d (%s), commit %s", index, entry.ID, entry.RetiredCommit)
 		}
 	}
@@ -153,7 +156,7 @@ func TestResultCompatibilityRetiredCommitProvenance(t *testing.T) {
 			continue
 		}
 		if err := resultCompatRequireAncestor(repo, entry.RetiredCommit); err != nil {
-			t.Errorf("registry index %d (%s) retired_commit %s is not an ancestor of authoritative main %s: %v", index, entry.ID, entry.RetiredCommit, resultCompatAuthoritativeMainCommit, err)
+			t.Errorf("registry index %d (%s) retired_commit %s is not an ancestor of integration baseline %s: %v", index, entry.ID, entry.RetiredCommit, resultCompatAuthoritativeCommit, err)
 			continue
 		}
 		if evidence, err := resultCompatRetirementDiffEvidence(repo, entry); err != nil {
@@ -176,7 +179,7 @@ func resultCompatGitRepository() (string, bool) {
 		return "", false
 	}
 	repo = filepath.Clean(repo)
-	probe := exec.Command("git", "-C", repo, "rev-parse", "--verify", resultCompatAuthoritativeMainCommit+"^{commit}")
+	probe := exec.Command("git", "-C", repo, "rev-parse", "--verify", resultCompatAuthoritativeCommit+"^{commit}")
 	probe.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	if _, err := probe.Output(); err != nil {
 		return "", false
@@ -185,7 +188,7 @@ func resultCompatGitRepository() (string, bool) {
 }
 
 func resultCompatRequireAncestor(repo, commit string) error {
-	command := exec.Command("git", "-C", repo, "merge-base", "--is-ancestor", commit, resultCompatAuthoritativeMainCommit)
+	command := exec.Command("git", "-C", repo, "merge-base", "--is-ancestor", commit, resultCompatAuthoritativeCommit)
 	command.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	if output, err := command.CombinedOutput(); err != nil {
 		return fmt.Errorf("git merge-base: %w (%s)", err, strings.TrimSpace(string(output)))

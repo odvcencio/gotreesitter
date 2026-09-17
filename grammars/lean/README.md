@@ -10,6 +10,8 @@ import _ "github.com/odvcencio/gotreesitter/grammars/lean"
 ```
 
 Call `lean.Language()` when you only need the language tables.
+This path embeds only Lean and does not import the aggregate grammar catalog.
+Import `grammars` separately when you need file detection.
 
 ## Scope
 

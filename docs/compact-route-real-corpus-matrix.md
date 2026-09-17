@@ -1612,7 +1612,7 @@ The patch contains these files:
 - `external_scanner_checkpoint_identity_test.go`
 - `external_scanner_checkpoints.go`
 - `grammars/embedded_loader.go`
-- `grammars/grammargen_blob_override.go`
+- `grammars/runtime/grammargen_blob_override.go`
 - `grammars/grammargen_blob_override_test.go`
 - `grammars/sql_scanner.go`
 - `grammars/sql_scanner_test.go`

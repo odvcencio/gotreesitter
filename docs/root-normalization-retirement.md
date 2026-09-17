@@ -1102,6 +1102,34 @@ Reopen retirement only after all of these conditions pass:
 
 Keep the registry entry unchanged until every condition passes.
 
+## Python interpolation subpass retirement
+
+Status: `GO` for `dispatch.python.interpolation-patterns`. Keep
+`dispatch.python` live.
+
+Producer fix commit: `106508e81fbe727b9a74fa749f273ca1ed114e0c`.
+The producer now elects the C-owned `expression_list` while both physical
+heads exist. The old subpass became an observed no-op after that fix.
+
+This change deletes `normalizePythonInterpolationPatterns`. It also deletes
+the f-string source gate and its interpolation scanner. Python now checks 12
+compatibility passes instead of 13.
+
+The isolated Python gate passes these receipts:
+
+- The raw, production, compact, and incremental routes match locked C.
+- The forest route matches both f-string witnesses.
+- The A3 sweep passes all 33 generated and constructed sources.
+
+Forest local links now retain raw-shape ordering when compact primary
+derivation selection is certified. Forest insertion order cannot represent
+the primary derivation. This change makes the splat witness match locked C.
+
+Keep the dispatcher arm live. Its other recovery helpers still change trees,
+and the authenticated external corpus remains unavailable.
+
+Keep benchmark results in the pull request and external artifacts.
+
 ## 2026-09-02 Python dispatcher certification update
 
 Status: `PARTIAL-GO`. The compact route matches locked C on all three current blocker witnesses. Keep `dispatch.python` live.
@@ -4103,6 +4131,7 @@ Require the scanner to publish a sound incremental reuse contract before claimin
 | Swift ternary source reparse | retirement change | 1 Swift subpass | 0 | exact 16-case manifest, native producer, production, compact fallback, forest fail-closed behavior, incremental fresh fallback, and isolated C-oracle parity |
 | JavaScript dynamic-import token child | retirement change | 1 JavaScript subpass | 0 | exact historical controls, generic collapsed-child producer, production, direct compact, strict forest, edited incremental reuse, and isolated C-oracle parity |
 | JSDoc recovery and returned-tree shape | retirement change | 1 dispatcher arm | 0 | two producer witnesses, raw and production zero-rewrite receipt, compact or fallback routes, incremental fallback, and isolated locked-C parity |
+| Python interpolation patterns | retirement change | 1 Python subpass | 0 | native clean-tie election, compatibility-free producer, production, direct compact, incremental reuse, forest bare-tuple parity, and isolated C-oracle parity |
 
 Mark a row merged only after CI and merge evidence exist. Detailed per-entry
 receipts stay in the JSON registry and durable run findings stay in Hyphae.

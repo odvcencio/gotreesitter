@@ -107,18 +107,16 @@ func TestPythonDispatchBlockerReceiptRoutes(t *testing.T) {
 			wantIncremental:    pythonDispatchPassExpectation{recorded: true, checked: 1, run: 1, visited: 22},
 		},
 		{
-			name:             "fstring_interpolation_splat_recovery_gap",
-			source:           []byte("xs = [1, 2]\nz = f\"{*xs,}\"\n"),
-			wantSourceSHA:    "660a9ed55b63e6b98cfc70db1776895ec9046a16c906c33b3d273bee496a121d",
-			wantRawDigest:    "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
-			wantGoDigest:     "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
-			wantCDigest:      "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
-			wantRawDiff:      nil,
-			wantRouteDiff:    nil,
-			wantForestDigest: "102ebedd10a3864a2640cb293f541e42f63b4f1ce3d60c9f219d7088b4f484c6",
-			wantForestDiff: pythonDispatchExpectedDivergence(
-				"/module/assignment[1]/string[2]/interpolation[1]/pattern_list[1]", "type", "pattern_list", "expression_list",
-			),
+			name:               "fstring_interpolation_splat_recovery_gap",
+			source:             []byte("xs = [1, 2]\nz = f\"{*xs,}\"\n"),
+			wantSourceSHA:      "660a9ed55b63e6b98cfc70db1776895ec9046a16c906c33b3d273bee496a121d",
+			wantRawDigest:      "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
+			wantGoDigest:       "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
+			wantCDigest:        "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
+			wantRawDiff:        nil,
+			wantRouteDiff:      nil,
+			wantForestDigest:   "e646688923780dab15e472c1754d89e87ebfdb669fafeda109d4a2d630b4a4c9",
+			wantForestDiff:     nil,
 			wantCompactMode:    "accepted",
 			wantRoutedBefore:   2,
 			wantFallbackBefore: 0,
@@ -264,6 +262,13 @@ func TestPythonDispatchBlockerReceiptDocument(t *testing.T) {
 	}
 	document := strings.Join(strings.Fields(string(doc)), " ")
 	for _, marker := range []string{
+		"## 2026-09-13 Python interpolation subpass retirement",
+		"Status: `GO` for `dispatch.python.interpolation-patterns`. Keep `dispatch.python` live.",
+		"The forest route matches both f-string witnesses.",
+		"Forest local links now retain raw-shape ordering when compact primary derivation selection is certified.",
+		"The forest benchmark parses 2,048 splat interpolations.",
+		"neutral at 57.98 ms/op versus 57.18 ms/op",
+		"Both revisions use 835.2 KiB/op and 34.85 thousand allocations per operation.",
 		"## 2026-09-02 Python dispatcher certification update",
 		"Status: `PARTIAL-GO`. The compact route matches locked C on all three current blocker witnesses. Keep `dispatch.python` live.",
 		"Candidate base commit: `06afb3c881d4064bf367f970614e5120ec0abbfd`.",
@@ -310,10 +315,6 @@ func TestPythonDispatchBlockerReceiptDocument(t *testing.T) {
 			t.Fatalf("changelog lacks marker %q", marker)
 		}
 	}
-}
-
-func pythonDispatchExpectedDivergence(path, category, goValue, cValue string) *DumpV1Divergence {
-	return &DumpV1Divergence{Path: path, Category: category, GoValue: goValue, CValue: cValue}
 }
 
 func pythonDispatchCTree(t *testing.T, language *sitter.Language, source []byte) *sitter.Tree {

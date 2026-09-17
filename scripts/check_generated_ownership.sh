@@ -38,8 +38,8 @@ owner_exists() {
     cmd/gen_linguist)
       [[ -d cmd/gen_linguist ]]
       ;;
-    cmd/gen_subset_blob_embeds)
-      [[ -d cmd/gen_subset_blob_embeds ]]
+    cmd/gen_subset_blob_embeds|cmd/gen_grammar_packages)
+      [[ -d "$1" ]]
       ;;
     'cmd/grammargen emit')
       [[ -d cmd/grammargen ]]

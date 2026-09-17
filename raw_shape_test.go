@@ -269,6 +269,14 @@ func TestAcceptedStackRawShapeDoesNotOverrideDistinctMaterializedRoot(t *testing
 	if best := acceptedNode.bestAcceptedRootResultLink(parser, arena); best == nil || stackEntryNode(best.subtree) != macro {
 		t.Fatalf("accepted root best link = %v, want earlier macro root", best)
 	}
+
+	lang.CompactPrimaryAcceptanceDerivationCertified = true
+	if cmp := stackCompareForResultSelection(parser, arena, &laterCall, &earlierMacro, false); cmp >= 0 {
+		t.Fatalf("primary result compare(call, macro) = %d, want earlier primary derivation", cmp)
+	}
+	if cmp := forestResultLinkCompare(parser, arena, acceptedNode, callLink, 7, macroLink, 4); cmp <= 0 {
+		t.Fatalf("forest local primary compare(call, macro) = %d, want raw-shape evidence", cmp)
+	}
 }
 
 func TestForestChildAlternativeResolutionUsesLocalSameSpanBest(t *testing.T) {

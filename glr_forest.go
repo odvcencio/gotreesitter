@@ -2527,7 +2527,7 @@ func forestAcceptedNodeCompare(p *Parser, arena *nodeArena, a *gssForestNode, aO
 		// accepted node's root link. Preserve that same finalization semantic when
 		// choosing between accepted forest nodes; local child alternatives still
 		// use raw-shape selection below the root.
-		if cmp := stackCompareForResultSelectionWithRawShape(p, arena, &aStack, &bStack, false, false); cmp != 0 {
+		if cmp := stackCompareForResultSelectionWithRawShape(p, arena, &aStack, &bStack, false, false, false); cmp != 0 {
 			return cmp
 		}
 	}
@@ -2990,7 +2990,7 @@ func forestResultLinkCompareWithRawShape(p *Parser, arena *nodeArena, node *gssF
 			byteOffset:  node.byteOffset,
 			branchOrder: uint64(bOrder),
 		}
-		if cmp := stackCompareForResultSelectionWithRawShape(p, arena, &aStack, &bStack, false, useRawShape); cmp != 0 {
+		if cmp := stackCompareForResultSelectionWithRawShape(p, arena, &aStack, &bStack, false, useRawShape, false); cmp != 0 {
 			return cmp
 		}
 	}

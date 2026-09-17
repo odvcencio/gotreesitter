@@ -7,6 +7,12 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Standalone grammar packages
+
+- Add generated standalone packages for all 206 blob-backed grammars without build tags.
+- Share scanners, decoder repairs, caches, and certified profiles through `grammars/runtime`.
+- Remove the aggregate catalog dependency from the native Lean package.
+
 ### Generated source ownership
 
 - Standardize generated Go markers and name each generator command as the
@@ -72,6 +78,11 @@ for tags and release notes while still in `0.x`.
   both routes while C reports an ERROR, and the fresh and incremental
   parses keep a different number of GLR stacks after the site. The C
   keyword rule exposed the site; the divergence itself is older.
+- Retire the Python interpolation compatibility pass after native clean-tie
+  election reaches parity with the pinned C parser.
+- Keep raw-shape ordering for forest-local alternatives when compact primary
+  derivation selection is certified. Python f-string splats now match locked C
+  on the forest route.
 
 ### Compact core cost, round two (issue #454)
 
