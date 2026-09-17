@@ -3037,6 +3037,65 @@ func collidingCNodeMemoNodes(t *testing.T, setCount int) (*Node, *Node, *Node) {
 	return nil, nil, nil
 }
 
+func TestCNodeErrorCostLeavesDoNotConsumeMemo(t *testing.T) {
+	p := &Parser{cNodeMemoCache: make([]cNodeMemoCacheEntry, cNodeMemoCacheInitialSize)}
+	p.language = &Language{SymbolMetadata: []SymbolMetadata{{}, {Visible: true}, {}}}
+	p.beginCNodeMemoEpoch()
+	nodes := make([]Node, 2048)
+	for i := range nodes {
+		node := &nodes[i]
+		node.symbol = Symbol(1 + i%2)
+		node.startByte, node.endByte = uint32(i), uint32(i+1)
+		node.setHasError(true) // A stale aggregate flag must not add a leaf cost.
+		if i%4 < 2 {
+			node.setMissing(true)
+		}
+		if got, want := p.cNodeErrorCost(node), cNodeErrorCostLang(p.language, node); got != want {
+			t.Fatalf("leaf %d cost=%d, want %d", i, got, want)
+		}
+		wantVisible := cNodeVisibleSubtreeCountUncachedLang(p.language, node)
+		if got := p.cNodeVisibleSubtreeCount(node); got != wantVisible {
+			t.Fatalf("leaf %d visibility=%d, want %d", i, got, wantVisible)
+		}
+		cost, visible := p.cNodeErrorCostAndVisibleSubtreeCount(node)
+		if cost != cNodeErrorCostLang(p.language, node) || visible != wantVisible {
+			t.Fatalf("leaf %d combined aggregates=%d/%d", i, cost, visible)
+		}
+	}
+	if size, collisions := p.DebugCNodeMemoCacheStats(); size != cNodeMemoCacheInitialSize || collisions != 0 {
+		t.Fatalf("leaf memo size=%d collisions=%d", size, collisions)
+	}
+	for i, entry := range p.cNodeMemoCache {
+		if entry != (cNodeMemoCacheEntry{}) {
+			t.Fatalf("leaf cost populated memo entry %d: %+v", i, entry)
+		}
+	}
+}
+
+func TestCNodeErrorCostLeafFastPathPreservesErrorRegions(t *testing.T) {
+	p := &Parser{cNodeMemoCache: make([]cNodeMemoCacheEntry, cNodeMemoCacheInitialSize)}
+	p.beginCNodeMemoEpoch()
+	missing := NewLeafNode(1, true, 3, 3, Point{}, Point{})
+	missing.setMissing(true)
+	errorLeaf := NewLeafNode(errorSymbol, true, 0, 5, Point{}, Point{Row: 1})
+	parent := &Node{symbol: 1, children: []*Node{missing, errorLeaf}}
+	for _, node := range []*Node{nil, missing, errorLeaf, parent} {
+		if got, want := p.cNodeErrorCost(node), cNodeErrorCostLang(nil, node); got != want {
+			t.Fatalf("node %p cost=%d, want %d", node, got, want)
+		}
+	}
+	// A leaf can gain children. Its new version must compute the subtree cost.
+	leaf := &Node{symbol: 1}
+	if got := p.cNodeErrorCost(leaf); got != 0 {
+		t.Fatalf("ordinary leaf cost=%d", got)
+	}
+	leaf.children = []*Node{missing}
+	leaf.equivVersion++
+	if got, want := p.cNodeErrorCost(leaf), cNodeErrorCostLang(nil, leaf); got != want {
+		t.Fatalf("promoted leaf cost=%d, want %d", got, want)
+	}
+}
+
 func TestCNodeMemoEpochAdvancesAcrossParserParses(t *testing.T) {
 	p := NewParser(buildArithmeticLanguage())
 	// Pin to production: this test asserts a production-engine internal (the C
