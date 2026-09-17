@@ -89,6 +89,7 @@ func TestCNodeMemoStandardRegrowthDuringChildRecursion(t *testing.T) {
 			parent, missing, other := collidingCNodeMemoNodes(t, len(p.cNodeMemoCache)>>1)
 			parent.symbol, missing.symbol, other.symbol = 1, 1, 1
 			missing.setMissing(true)
+			other.children = []*Node{{symbol: 1}}
 			parent.children = []*Node{missing, other}
 			wantCost := cNodeErrorCostLang(lang, parent)
 			wantVisible := cNodeVisibleSubtreeCountUncachedLang(lang, parent)

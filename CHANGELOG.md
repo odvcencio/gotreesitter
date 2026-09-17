@@ -7,6 +7,11 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Recovery memo pressure
+
+- Compute leaf error costs and visible counts without occupying recovery memo entries.
+- Preserve error-region costs, missing-token costs, cache limits, and cleanup.
+
 ### Compact incremental allocation
 
 - Grow borrowed incremental arenas as needed instead of reserving capacity for the complete source.
