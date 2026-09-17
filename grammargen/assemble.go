@@ -3,6 +3,7 @@ package grammargen
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 
@@ -230,7 +231,7 @@ func assemble(
 	buildNonTerminalAliasMap(lang, ng, aliasSymMap)
 
 	// Supertype map.
-	if err := buildSupertypeMap(lang, ng); err != nil {
+	if err := buildSupertypeMap(lang, ng, aliasSymMap); err != nil {
 		return nil, err
 	}
 
@@ -1589,8 +1590,8 @@ type aliasSymbolKey struct {
 // buildAliasSequences constructs the AliasSequences table from production alias info.
 // AliasSequences[productionID][childIndex] = alias symbol (0 if no alias).
 // It returns the (alias name, named) → symbol ID map it built (nil if the
-// grammar has no aliases at all) so buildNonTerminalAliasMap can resolve
-// alias targets to the exact same symbol IDs without recomputing them.
+// grammar has no aliases at all). Derived alias and supertype maps reuse
+// these exact symbol IDs.
 func buildAliasSequences(lang *gotreesitter.Language, ng *NormalizedGrammar) map[aliasSymbolKey]gotreesitter.Symbol {
 	// Check if any production has aliases.
 	hasAliases := false
@@ -1788,19 +1789,30 @@ func buildNonTerminalAliasMap(lang *gotreesitter.Language, ng *NormalizedGrammar
 // buildSupertypeMap builds SupertypeMapSlices and SupertypeMapEntries from
 // the grammar's supertype declarations. A supertype's children are the symbols
 // that appear in its rule's Choice alternatives.
-func buildSupertypeMap(lang *gotreesitter.Language, ng *NormalizedGrammar) error {
+func buildSupertypeMap(lang *gotreesitter.Language, ng *NormalizedGrammar, aliasSymMap map[aliasSymbolKey]gotreesitter.Symbol) error {
 	if len(ng.Supertypes) == 0 {
 		return nil
 	}
 
-	// Collect children for each supertype: the direct LHS symbols of productions
-	// where the supertype is the LHS and the RHS is a single nonterminal.
+	// Collect public child symbols from unary supertype productions.
 	supertypeChildren := make(map[int][]gotreesitter.Symbol)
 	for _, prod := range ng.Productions {
 		for _, stID := range ng.Supertypes {
 			if prod.LHS == stID && len(prod.RHS) == 1 {
 				childSym := gotreesitter.Symbol(prod.RHS[0])
-				supertypeChildren[stID] = append(supertypeChildren[stID], childSym)
+				for _, alias := range prod.Aliases {
+					if alias.ChildIndex != 0 || alias.Name == "" {
+						continue
+					}
+					aliasSym, ok := aliasSymMap[aliasSymbolKey{alias.Name, alias.Named}]
+					if !ok {
+						return fmt.Errorf("grammar %q: unresolved supertype alias %q (named=%t)", ng.GrammarName, alias.Name, alias.Named)
+					}
+					childSym = aliasSym
+				}
+				if !slices.Contains(supertypeChildren[stID], childSym) {
+					supertypeChildren[stID] = append(supertypeChildren[stID], childSym)
+				}
 			}
 		}
 	}
