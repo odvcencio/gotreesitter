@@ -3,10 +3,49 @@
 package gotreesitter
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
 )
+
+func TestCompactIncrementalDoesNotReserveFullSource(t *testing.T) {
+	language, err := LoadLanguage(parserCoreCertifiedGoBlob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parser := NewParser(language)
+	runner, err := parser.acquireAdmissionCandidateRunner()
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := []byte("package p\n" + strings.Repeat("func f() {}\n", 16000))
+	stop := errors.New("reservation probe complete")
+	var footprints [2]uint64
+	for index, incremental := range []bool{false, true} {
+		if err := runner.compact.ResetReleasingRetention(); err != nil {
+			t.Fatal(err)
+		}
+		if incremental {
+			runner.options.compactIncrementalReuse = &compactIncrementalReuseSession{}
+		}
+		observer := diagnosticParserCoreSeedObserver{beforeElection: func(s *diagnosticParserCoreGenericScheduler) error {
+			footprints[index] = s.compact.FootprintBytes()
+			return stop
+		}}
+		_, tokens, err := runner.executeSchedulerOpenWithObserverAndErrorRuns(source, runner.compact, true, observer, false)
+		if tokens != nil {
+			tokens.Close()
+		}
+		if !errors.Is(err, stop) || footprints[index] == 0 {
+			t.Fatalf("incremental=%t footprint=%d err=%v", incremental, footprints[index], err)
+		}
+	}
+	if footprints[0] < 1<<20 || footprints[1] >= footprints[0]/4 {
+		t.Fatalf("initial arena footprints: fresh=%d incremental=%d", footprints[0], footprints[1])
+	}
+}
 
 // TestCompactArenaReserveBytesStaysUnderBudget proves the record-arena reserve
 // can never take a share of the caller's soft memory budget large enough to
