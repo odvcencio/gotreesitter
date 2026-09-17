@@ -16,4 +16,4 @@ const BlobSHA256 = "52e12712ce9da627c198613023e56d3d508d2b73366bbe8f82cb54a40792
 func init() { ; grammarruntime.RegisterBlob("brightscript", grammarblobs.Brightscript) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("brightscript") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("brightscript.bin") }

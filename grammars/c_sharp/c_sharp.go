@@ -19,4 +19,4 @@ func init() {
 }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("c_sharp") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("c_sharp.bin") }

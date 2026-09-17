@@ -67,7 +67,6 @@ func RubyLanguage() *gotreesitter.Language           { return Language("ruby") }
 func RustLanguage() *gotreesitter.Language           { return Language("rust") }
 func ScalaLanguage() *gotreesitter.Language          { return Language("scala") }
 func ScssLanguage() *gotreesitter.Language           { return Language("scss") }
-func SqlLanguage() *gotreesitter.Language            { return Language("sql") }
 func SwiftLanguage() *gotreesitter.Language          { return Language("swift") }
 func TclLanguage() *gotreesitter.Language            { return Language("tcl") }
 func TomlLanguage() *gotreesitter.Language           { return Language("toml") }

@@ -16,4 +16,4 @@ const BlobSHA256 = "b42dbaed4782ba5ea8f2fd7715062f89f33738faaafebb3cebf003a0f039
 func init() { ; grammarruntime.RegisterBlob("prisma", grammarblobs.Prisma) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("prisma") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("prisma.bin") }

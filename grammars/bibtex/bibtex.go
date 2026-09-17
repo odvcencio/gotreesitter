@@ -16,4 +16,4 @@ const BlobSHA256 = "8a663bef74f5fc113d6fc278c056c4a4ba064e5690f50b7819c18a59f703
 func init() { ; grammarruntime.RegisterBlob("bibtex", grammarblobs.Bibtex) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("bibtex") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("bibtex.bin") }

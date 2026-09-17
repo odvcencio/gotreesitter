@@ -42,6 +42,13 @@ func TestLanguageLoadsWithoutAggregateRegistry(t *testing.T) {
 	}
 }
 
+func TestWarmLanguageLookupDoesNotAllocate(t *testing.T) {
+	Language()
+	if allocations := testing.AllocsPerRun(100, func() { Language() }); allocations != 0 {
+		t.Fatalf("warm language lookup allocated %g times", allocations)
+	}
+}
+
 func TestLanguageParsesScannerBackedSource(t *testing.T) {
 	source := []byte("def f():\n    values = [1, 2]\n    return f\"{*values,}\"\n")
 	parser := gotreesitter.NewParser(Language())

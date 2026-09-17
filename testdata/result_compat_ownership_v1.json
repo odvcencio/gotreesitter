@@ -88,7 +88,7 @@
       "languages": [
         "ada"
       ],
-      "purpose": "Reconcile Ada returned-tree fields, aliases, and spans. dispatch.ada.association-choice-materialization retired: the component_choice_list/discrete_choice tie it repaired (record vs array reading of a bare \"others\" choice) is now resolved natively by a declared-conflict election policy before the parser forks (grammars/runtime_profiles.go \"ada\"), so the arm's raw output already matches the C oracle for every registered witness and the post-parse wrapper conversion is unreachable.",
+      "purpose": "Reconcile Ada returned-tree fields, aliases, and spans. dispatch.ada.association-choice-materialization retired: the component_choice_list/discrete_choice tie it repaired (record vs array reading of a bare \"others\" choice) is now resolved natively by a declared-conflict election policy before the parser forks (grammars/runtime/runtime_profiles.go \"ada\"), so the arm's raw output already matches the C oracle for every registered witness and the post-parse wrapper conversion is unreachable.",
       "authoritative_owner": "derivation_election_selection",
       "witnesses": [
         "cgo_harness/parity_cgo_test.go",
@@ -1249,7 +1249,7 @@
       "retired_commit": "aadc2fed64f072499f8cc9485f7cd86db2a274c3",
       "receipt_refs": [
         "grammars/haskell_span_native_regression_test.go",
-        "grammars/zero_width_native_regression_test.go",
+        "grammars/runtime/zero_width_native_regression_test.go",
         "cgo_harness/retired_dispatch_arm_parity_test.go"
       ]
     },

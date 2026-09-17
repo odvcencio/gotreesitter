@@ -16,4 +16,4 @@ const BlobSHA256 = "42d95440628b949ebd66093092c3b35da34654a83c33b100fb059f379ba6
 func init() { ; grammarruntime.RegisterBlob("llvm", grammarblobs.Llvm) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("llvm") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("llvm.bin") }

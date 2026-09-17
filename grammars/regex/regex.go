@@ -16,4 +16,4 @@ const BlobSHA256 = "fb4c90af621a6a5303260f34722ffb26c72e1d1433b9a11387b6ecbb247c
 func init() { ; grammarruntime.RegisterBlob("regex", grammarblobs.Regex) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("regex") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("regex.bin") }

@@ -16,4 +16,4 @@ const BlobSHA256 = "19ed9da13248c1fe671560f18f2b6447b635756b19a94cc8ac465763c633
 func init() { ; grammarruntime.RegisterBlob("diff", grammarblobs.Diff) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("diff") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("diff.bin") }

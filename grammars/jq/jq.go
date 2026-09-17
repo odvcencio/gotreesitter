@@ -16,4 +16,4 @@ const BlobSHA256 = "da99dda1ffe813f439168944c6b8eae3658a06533b8e10e36115131313a7
 func init() { ; grammarruntime.RegisterBlob("jq", grammarblobs.Jq) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("jq") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("jq.bin") }

@@ -16,4 +16,4 @@ const BlobSHA256 = "11e45b784b2056d8a3d60e4f184b1f519146f6a97fd4909cf024f702c38f
 func init() { ; grammarruntime.RegisterBlob("zig", grammarblobs.Zig) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("zig") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("zig.bin") }

@@ -16,4 +16,4 @@ const BlobSHA256 = "d1d26ff50e01ab890f587ef1bd4110bab247642127838a0fb6447a16c06d
 func init() { ; grammarruntime.RegisterBlob("cylc", grammarblobs.Cylc) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("cylc") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("cylc.bin") }

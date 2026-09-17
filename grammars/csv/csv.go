@@ -16,4 +16,4 @@ const BlobSHA256 = "1807b930c4e4116baa77dd1631d1879befc87b8421020dd4d11ba18ac000
 func init() { ; grammarruntime.RegisterBlob("csv", grammarblobs.Csv) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("csv") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("csv.bin") }

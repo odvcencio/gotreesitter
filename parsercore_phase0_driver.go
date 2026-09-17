@@ -13610,7 +13610,7 @@ func authenticatedParserCoreGoLanguage(scanner ExternalScanner) (*Language, erro
 		return nil, errors.New("parser-core phase zero: certified Go grammar identity mismatch")
 	}
 	scannerType := reflect.TypeOf(scanner)
-	if scannerType == nil || scannerType.Kind() != reflect.Struct || scannerType.PkgPath() != "github.com/odvcencio/gotreesitter/grammars" || scannerType.Name() != "GoExternalScanner" {
+	if scannerType == nil || scannerType.Kind() != reflect.Struct || scannerType.PkgPath() != "github.com/odvcencio/gotreesitter/grammars/runtime" || scannerType.Name() != "GoExternalScanner" {
 		return nil, errors.New("parser-core phase zero: certified Go external scanner identity mismatch")
 	}
 	decoded, err := LoadLanguage(parserCoreCertifiedGoBlob)

@@ -10,7 +10,7 @@ import (
 )
 
 func TestGeneratedPackagesAndCompatibility(t *testing.T) {
-	t.Chdir(t.TempDir())
+	changeTestDirectory(t, t.TempDir())
 	for _, dir := range []string{"grammars/runtime", "grammars/grammar_blobs"} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
@@ -35,7 +35,7 @@ func TestGeneratedPackagesAndCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"package golang", "grammarblobs.Go", `grammarruntime.Language("go")`} {
+	for _, want := range []string{"package golang", "grammarblobs.Go", `grammarruntime.Language("go.bin")`} {
 		if !strings.Contains(string(data), want) {
 			t.Fatalf("Go wrapper lacks %q", want)
 		}
@@ -86,15 +86,31 @@ func TestCompatibilityPreservesBuildConstraint(t *testing.T) {
 }
 
 func TestGeneratorRejectsMissingBlobs(t *testing.T) {
-	t.Chdir(t.TempDir())
+	changeTestDirectory(t, t.TempDir())
 	if err := generate(true); err == nil {
 		t.Fatal("check accepted a missing blob directory")
 	}
 }
 
 func TestRepositoryGeneratedFilesAreCurrent(t *testing.T) {
-	t.Chdir(filepath.Join("..", ".."))
+	changeTestDirectory(t, filepath.Join("..", ".."))
 	if err := generate(true); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func changeTestDirectory(t *testing.T, dir string) {
+	t.Helper()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Error(err)
+		}
+	})
 }

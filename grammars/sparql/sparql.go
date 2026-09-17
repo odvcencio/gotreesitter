@@ -16,4 +16,4 @@ const BlobSHA256 = "84d26d2003614ee278cda3c9d0f133935bd2eb83f9c17b341bb89052e750
 func init() { ; grammarruntime.RegisterBlob("sparql", grammarblobs.Sparql) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("sparql") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("sparql.bin") }

@@ -16,4 +16,4 @@ const BlobSHA256 = "69fc1b577f1f783a204c98719d55d2f15f329d296b9e227d651056ce878c
 func init() { ; grammarruntime.RegisterBlob("apex", grammarblobs.Apex) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("apex") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("apex.bin") }

@@ -16,4 +16,4 @@ const BlobSHA256 = "abb45d60f9ee68d3b249c79eedb0ac022f7e02eeaa9a74c37c3db2ec1aa5
 func init() { ; grammarruntime.RegisterBlob("wat", grammarblobs.Wat) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("wat") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("wat.bin") }

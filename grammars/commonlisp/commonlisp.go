@@ -16,4 +16,4 @@ const BlobSHA256 = "28d5672312619242d060996f5387a2301da39577a746ea584cc19a05e363
 func init() { ; grammarruntime.RegisterBlob("commonlisp", grammarblobs.Commonlisp) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("commonlisp") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("commonlisp.bin") }

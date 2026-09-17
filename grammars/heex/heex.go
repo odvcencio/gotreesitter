@@ -16,4 +16,4 @@ const BlobSHA256 = "2d47af7b1409c24e7ffbb4523896b88acf5b067671123ff69439977e1d5d
 func init() { ; grammarruntime.RegisterBlob("heex", grammarblobs.Heex) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("heex") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("heex.bin") }

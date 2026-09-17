@@ -17,7 +17,7 @@ func TestStandaloneGrammarPackages(t *testing.T) {
 	if names[0] == "" {
 		names = []string{"go", "json", "javascript", "python", "yaml"}
 	}
-	t.Chdir(filepath.Join("..", ".."))
+	changeTestDirectory(t, filepath.Join("..", ".."))
 	if names[0] == "all" {
 		paths, err := filepath.Glob("grammars/grammar_blobs/*.bin")
 		if err != nil {

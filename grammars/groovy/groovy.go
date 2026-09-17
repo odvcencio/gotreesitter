@@ -16,4 +16,4 @@ const BlobSHA256 = "a1d1bb30d9971f1c3d645aab456521943a5f0da419b57a0986fc9b2a502a
 func init() { ; grammarruntime.RegisterBlob("groovy", grammarblobs.Groovy) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("groovy") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("groovy.bin") }

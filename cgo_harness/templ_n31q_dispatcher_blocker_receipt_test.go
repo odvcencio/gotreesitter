@@ -62,8 +62,8 @@ func TestTemplN31qLiveArmLockedCRoutes(t *testing.T) {
 	if language.ExternalScanner == nil {
 		t.Fatal("Templ external scanner is absent")
 	}
-	if got := fmt.Sprintf("%T", language.ExternalScanner); got != "grammars.TemplExternalScanner" {
-		t.Fatalf("Templ scanner type=%s, want grammars.TemplExternalScanner", got)
+	if _, ok := language.ExternalScanner.(grammars.TemplExternalScanner); !ok {
+		t.Fatalf("Templ scanner type=%T, want grammars.TemplExternalScanner", language.ExternalScanner)
 	}
 	if _, ok := language.ExternalScanner.(gotreesitter.IncrementalReuseExternalScanner); ok {
 		t.Fatal("Templ external scanner unexpectedly advertises incremental reuse")

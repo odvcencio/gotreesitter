@@ -154,7 +154,7 @@ func (SqlExternalScanner) PreservesStateOnScanFailure() bool { return true }
 
 func (SqlExternalScanner) Scan(payload any, lexer *gotreesitter.ExternalLexer, validSymbols []bool) bool {
 	s := payload.(*sqlScannerState)
-	lang := loadEmbeddedLanguage("sql.bin")
+	lang := SqlLanguage()
 	tagStartSym := lang.ExternalSymbols[sqlTokDollarTagStart]
 	contentSym := lang.ExternalSymbols[sqlTokContent]
 	tagEndSym := lang.ExternalSymbols[sqlTokDollarTagEnd]

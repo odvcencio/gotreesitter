@@ -16,4 +16,4 @@ const BlobSHA256 = "4ab840c83d800f1ae0638e37aa22d70997fed9b2a47b633ff676e9900d30
 func init() { ; grammarruntime.RegisterBlob("circom", grammarblobs.Circom) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("circom") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("circom.bin") }

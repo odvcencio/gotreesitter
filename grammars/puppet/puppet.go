@@ -16,4 +16,4 @@ const BlobSHA256 = "d6da4f24af1b087906a61b3caa3ed7c62a2b8256b20628c8c465dd082b7c
 func init() { ; grammarruntime.RegisterBlob("puppet", grammarblobs.Puppet) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("puppet") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("puppet.bin") }

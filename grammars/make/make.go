@@ -16,4 +16,4 @@ const BlobSHA256 = "7c97455dd197475218b426a133dfcc3deac7b6cdd918434e64a72349ce4f
 func init() { ; grammarruntime.RegisterBlob("make", grammarblobs.Make) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("make") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("make.bin") }

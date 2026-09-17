@@ -16,4 +16,4 @@ const BlobSHA256 = "630f53b7b6515a66f7e4141d71c90be010c99a8a32757675b26a6967f335
 func init() { ; grammarruntime.RegisterBlob("prolog", grammarblobs.Prolog) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("prolog") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("prolog.bin") }

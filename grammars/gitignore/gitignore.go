@@ -16,4 +16,4 @@ const BlobSHA256 = "2c71a50b47cca9250cdea219872599a47f18a258fb53469b4923c31d21a3
 func init() { ; grammarruntime.RegisterBlob("gitignore", grammarblobs.Gitignore) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("gitignore") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("gitignore.bin") }

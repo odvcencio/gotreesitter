@@ -16,4 +16,4 @@ const BlobSHA256 = "679be5b56b5ccd665e4233cfbf1256b56bc7b8984be1c40e13872c7dbd3d
 func init() { ; grammarruntime.RegisterBlob("twig", grammarblobs.Twig) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("twig") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("twig.bin") }

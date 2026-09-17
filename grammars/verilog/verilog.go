@@ -16,4 +16,4 @@ const BlobSHA256 = "a5471f53d6ca265fbbaac657cbe4f7763e2ff5667786ed8d26355f1ea9b9
 func init() { ; grammarruntime.RegisterBlob("verilog", grammarblobs.Verilog) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("verilog") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("verilog.bin") }

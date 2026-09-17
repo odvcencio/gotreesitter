@@ -16,4 +16,4 @@ const BlobSHA256 = "3b8ac4ea321cc9af826950605b786f79681a4dc2e1c941c9add9ccf4cec7
 func init() { ; grammarruntime.RegisterBlob("tmux", grammarblobs.Tmux) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("tmux") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("tmux.bin") }

@@ -189,7 +189,7 @@ const BlobSHA256 = "%x"
 func init() { %s; grammarruntime.RegisterBlob(%q, grammarblobs.%s) }
 // Language returns the cached grammar with its scanner and certified runtime profile.
 func Language() *gotreesitter.Language { return grammarruntime.Language(%q) }
-`, name, marker, pkg, name, pkg, sha256.Sum256(data), setup, name, accessor, name)
+`, name, marker, pkg, name, pkg, sha256.Sum256(data), setup, name, accessor, name+".bin")
 		for path, source := range map[string]string{
 			"grammars/grammar_blobs/" + name + ".go": blob,
 			"grammars/" + name + "/" + name + ".go":  wrapper,

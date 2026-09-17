@@ -16,4 +16,4 @@ const BlobSHA256 = "b7d382e88c5f412ed4fae3732ebdd39c1cd5f37af7ce12182cbbd86c7567
 func init() { ; grammarruntime.RegisterBlob("fidl", grammarblobs.Fidl) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("fidl") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("fidl.bin") }

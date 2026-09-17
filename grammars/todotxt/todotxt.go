@@ -16,4 +16,4 @@ const BlobSHA256 = "236b11229df82e3f5adf3f0247be67edd094f1395f79412de44e323acdfd
 func init() { ; grammarruntime.RegisterBlob("todotxt", grammarblobs.Todotxt) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("todotxt") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("todotxt.bin") }

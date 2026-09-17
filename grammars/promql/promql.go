@@ -16,4 +16,4 @@ const BlobSHA256 = "c323a95c7c97080a4f58bbec7432feb12a58b21b3a4193d6c30a5f4a651c
 func init() { ; grammarruntime.RegisterBlob("promql", grammarblobs.Promql) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("promql") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("promql.bin") }

@@ -62,5 +62,14 @@ func readGrammarBlob(name string) (grammarBlob, error) {
 
 // Language returns a cached grammar with its scanner, repairs, and runtime profile.
 func Language(name string) *gotreesitter.Language {
-	return loadEmbeddedLanguage(strings.TrimSuffix(name, ".bin") + ".bin")
+	if !strings.HasSuffix(name, ".bin") {
+		name += ".bin"
+	}
+	return loadEmbeddedLanguage(name)
+}
+
+// SqlLanguage preserves the loader symbol in the certified SQL scanner source.
+// It uses the same provider and cache as Language.
+func SqlLanguage() *gotreesitter.Language {
+	return loadEmbeddedLanguage("sql.bin")
 }

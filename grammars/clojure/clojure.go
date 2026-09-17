@@ -16,4 +16,4 @@ const BlobSHA256 = "9e97c4185fc120df97c8155070693c05440eb76d202128ba3d07fbdcc11f
 func init() { ; grammarruntime.RegisterBlob("clojure", grammarblobs.Clojure) }
 
 // Language returns the cached grammar with its scanner and certified runtime profile.
-func Language() *gotreesitter.Language { return grammarruntime.Language("clojure") }
+func Language() *gotreesitter.Language { return grammarruntime.Language("clojure.bin") }
