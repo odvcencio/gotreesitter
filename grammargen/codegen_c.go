@@ -629,6 +629,8 @@ func emitLexFunction(b *strings.Builder, funcName string, states []gotreesitter.
 		// stops matching).
 		if st.AcceptToken > 0 {
 			fmt.Fprintf(b, "      ACCEPT_TOKEN(%s);\n", cNames[st.AcceptToken])
+		} else if st.AcceptEOF {
+			fmt.Fprintln(b, "      ACCEPT_TOKEN(ts_builtin_sym_end);")
 		}
 
 		// End-of-input handling.

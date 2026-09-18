@@ -7,6 +7,12 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Lexer end-token acceptance
+
+- Preserve end-token acceptance when importing and serializing lexer states.
+- Let later end-of-file accepts replace equal-width tokens at the same priority.
+- Stop adding an empty CSV row after a trailing newline.
+
 ### Parser conflict order
 
 - Preserve surviving stack order when a merge bucket discards a weaker alternative.

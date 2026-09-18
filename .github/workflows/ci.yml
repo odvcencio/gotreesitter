@@ -1285,6 +1285,13 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: CSV end-token acceptance against locked C
+        run: |
+          GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-csv-eof-accept \
+            --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+            -- "cd /workspace && go test ./cmd/ts2go -run '^TestImported' -count=1 -timeout=2m && go test ./grammargen -run '^(TestLexMinimizePreservesEOFAccept|TestCCodegenPreservesEOFAccept)$' -count=1 -timeout=2m && go test . -run '^Test(Lexer|KeywordEOFAccept|LoadLanguageLegacyLexState|DFATokenSourceExplicitIncludedEOFProgress)' -count=1 -timeout=2m && cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestCsvEOFAcceptLockedC$' -count=1 -timeout=2m -v"
+
       - name: Compact T3 C-oracle witness contract
         run: |
           GTS_PARITY_MODE=smoke \

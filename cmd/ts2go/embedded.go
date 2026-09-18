@@ -286,6 +286,7 @@ func convertLexStates(src []LexStateEntry) []gotreesitter.LexState {
 	for i, s := range src {
 		state := gotreesitter.LexState{
 			AcceptToken: gotreesitter.Symbol(s.Accept),
+			AcceptEOF:   s.HasAccept && s.Accept == 0,
 			Skip:        false,
 			Default:     -1,
 			EOF:         s.EOF,

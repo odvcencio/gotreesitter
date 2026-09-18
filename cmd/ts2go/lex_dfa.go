@@ -703,7 +703,7 @@ func extractLexFunctionStates(source, funcName string, enums map[string]int, cha
 	return states, nil
 }
 
-// Validate EOF paths before conversion removes acceptance for symbol zero.
+// Validate EOF paths before conversion to runtime states.
 func validateLexEOFChains(states []LexState, present map[int]LexState) error {
 	for start, state := range states {
 		if state.EOF < 0 {

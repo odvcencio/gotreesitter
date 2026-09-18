@@ -2,6 +2,57 @@ package gotreesitter
 
 import "testing"
 
+func TestKeywordEOFAcceptReplacesEqualWidthToken(t *testing.T) {
+	for _, end := range []LexState{
+		{AcceptEOF: true, Default: -1, EOF: -1},
+		{AcceptToken: 2, Default: -1, EOF: -1},
+	} {
+		lang := &Language{KeywordLexStates: []LexState{
+			{Default: -1, EOF: -1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 1}}},
+			{AcceptToken: 1, Default: -1, EOF: 2},
+			end,
+		}}
+		source := &dfaTokenSource{language: lang}
+		token, ok := source.lexKeywordSource([]byte("a"))
+		if ok != !end.AcceptEOF || token.Symbol != end.AcceptToken {
+			t.Fatalf("end=%+v: token=%+v ok=%v", end, token, ok)
+		}
+	}
+}
+
+func TestLexerEOFAcceptReplacesEqualWidthToken(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		end  LexState
+		want Symbol
+	}{
+		{"end", LexState{AcceptEOF: true, Default: -1, EOF: -1}, 0},
+		{"token", LexState{AcceptToken: 2, Default: -1, EOF: -1}, 2},
+		{"nonaccepting", LexState{Default: -1, EOF: -1}, 1},
+		{"lower_priority", LexState{AcceptEOF: true, AcceptPriority: 1, Default: -1, EOF: -1}, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, included := range []bool{false, true} {
+				states := []LexState{
+					{AcceptToken: 1, Default: -1, EOF: 1},
+					tc.end,
+				}
+				lex := NewLexer(states, []byte("a!"))
+				end := 2
+				if included {
+					lex.setIncludedRanges([]Range{{StartByte: 0, EndByte: 1, EndPoint: Point{Column: 1}}})
+					end = 1
+				}
+				lex.pos, lex.col = end, uint32(end)
+				token := lex.Next(0)
+				if token.Symbol != tc.want || token.StartByte != uint32(end) || token.EndByte != uint32(end) {
+					t.Fatalf("included=%v: token=%+v, want symbol %d at %d", included, token, tc.want, end)
+				}
+			}
+		})
+	}
+}
+
 func TestLexerExplicitEOFTransitions(t *testing.T) {
 	states := []LexState{
 		{Default: -1, EOF: 1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 2}, {Lo: 0, Hi: 0, NextState: 3}}},
