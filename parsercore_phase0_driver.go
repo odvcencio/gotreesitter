@@ -2888,6 +2888,8 @@ type diagnosticParserCoreGenericScheduler struct {
 	reductionReplacements        []diagnosticParserCoreHeader
 	recoveryCondenseScratch      []diagnosticParserCoreRecoveryCondenseEntry
 	recoveryCondenseOrderScratch []int
+	// recoverySymbols stores one projection for this parse. Reset discards it.
+	recoverySymbols []core.SelectedSymbolPolicy
 	// recoveryCostMemo backs every call to recoveryOutputCostFunc and
 	// s5RecoveryOutputCostFunc for the life of one parse. A published
 	// compact SubtreeID's recovery cost never changes once computed
@@ -7994,6 +7996,7 @@ func diagnosticParserCoreSchedulerFootprintBytes(s *diagnosticParserCoreGenericS
 	add(cap(s.conflictScratch.headerAssembly), unsafe.Sizeof(diagnosticParserCoreHeader{}))
 	add(cap(s.reductionOutputs), unsafe.Sizeof(core.ReductionOutput{}))
 	add(cap(s.reductionReplacements), unsafe.Sizeof(diagnosticParserCoreHeader{}))
+	add(cap(s.recoverySymbols), unsafe.Sizeof(core.SelectedSymbolPolicy{}))
 	add(cap(s.recoveryCondenseScratch), unsafe.Sizeof(diagnosticParserCoreRecoveryCondenseEntry{}))
 	add(cap(s.recoveryCondenseOrderScratch), unsafe.Sizeof(int(0)))
 	add(cap(s.classifiedBoundaries), unsafe.Sizeof(core.ClassifiedBoundary{}))
@@ -10631,7 +10634,7 @@ func (s *diagnosticParserCoreGenericScheduler) selectCompetingRecoveryLineageInd
 	}
 	var memo core.RecoveryCostMemo
 	defer memo.Reset()
-	symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
+	symbols := s.recoverySymbolPolicy()
 	priced := make([]diagnosticParserCoreLineage, 0, len(indices))
 	for _, index := range indices {
 		entry, supported, priceErr := s.recoveryCondenseEntry(
@@ -11754,7 +11757,7 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryOutputCostFunc() (core.Re
 	if err != nil {
 		return nil, nil, err
 	}
-	symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
+	symbols := s.recoverySymbolPolicy()
 	memo := &s.recoveryCostMemo
 	cost := func(prev core.NodeID, payload core.SubtreeID) (uint32, error) {
 		prefix, prefixErr := s.compact.RecoveryStoredErrorCost(core.Head{Node: prev})

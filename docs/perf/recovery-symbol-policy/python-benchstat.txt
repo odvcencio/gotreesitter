@@ -1,0 +1,19 @@
+goos: linux
+goarch: amd64
+pkg: github.com/odvcencio/gotreesitter
+cpu: Intel(R) Core(TM) Ultra 9 285
+                   │ /tmp/gts-shared-perf/python-baseline.txt │ /tmp/gts-shared-perf/python-candidate.txt │
+                   │                  sec/op                  │         sec/op           vs base          │
+PythonParseFullDFA                                11.48m ± 1%               11.49m ± 3%  ~ (p=0.883 n=20)
+
+                   │ /tmp/gts-shared-perf/python-baseline.txt │ /tmp/gts-shared-perf/python-candidate.txt │
+                   │                   B/s                    │           B/s            vs base          │
+PythonParseFullDFA                               1.559Mi ± 1%              1.559Mi ± 3%  ~ (p=0.877 n=20)
+
+                   │ /tmp/gts-shared-perf/python-baseline.txt │ /tmp/gts-shared-perf/python-candidate.txt │
+                   │                   B/op                   │          B/op            vs base          │
+PythonParseFullDFA                               188.3Ki ± 2%              189.6Ki ± 1%  ~ (p=0.866 n=20)
+
+                   │ /tmp/gts-shared-perf/python-baseline.txt │ /tmp/gts-shared-perf/python-candidate.txt │
+                   │                allocs/op                 │        allocs/op         vs base          │
+PythonParseFullDFA                                14.01k ± 0%               14.01k ± 0%  ~ (p=0.716 n=20)
