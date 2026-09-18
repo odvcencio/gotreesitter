@@ -13,6 +13,12 @@ for tags and release notes while still in `0.x`.
 - Check package assignments against the workflow and use the same plan for race execution.
 - Reject new test packages without an execution lane.
 
+### Recovery symbol allocation
+
+- Reuse one symbol table for recovery per compact parse across all language grammars.
+- Count the table in the memory budget and discard it when the scheduler resets.
+- Reduce allocated bytes by 81.58 percent on the real Go query compiler fixture. Parse timing shows no significant change.
+
 ### Recovery memo pressure
 
 - Compute leaf error costs and visible counts without occupying recovery memo entries.
