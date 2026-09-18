@@ -7,6 +7,12 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Generated CSS token precedence
+
+- Preserve the authored precedence of named immediate tokens.
+- Keep longer preferred tokens reachable after an immediate token accepts a prefix.
+- Parse escaped CSS unit suffixes without introducing error nodes.
+
 ### Generated HCL splat expressions
 
 - Preserve right associativity when a proven repeat continuation has equal precedence.

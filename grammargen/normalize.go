@@ -2629,6 +2629,9 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 
 	// Named tokens: split into three groups for extraction ordering.
 	//
+	// Named tokens retain their explicit lexical precedence. Immediate status
+	// controls whitespace acceptance and does not add precedence.
+	//
 	// stringNamedTokens: bare-STRING-bodied tokens (e.g. `null_lit = "null"`).
 	// stringChoiceNamedTokens: tokens whose expanded body is a CHOICE/SEQ of
 	//   pure STRINGs (e.g. HCL's `bool_lit = "true" | "false"`,
@@ -2665,9 +2668,6 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 			return nil, fmt.Errorf("expand token %q: %w", name, err)
 		}
 		adjustedPriority := -prec * 1000
-		if imm {
-			adjustedPriority -= 10000
-		}
 		patterns = append(patterns, TerminalPattern{
 			SymbolID:  id,
 			Rule:      expanded,
@@ -2693,9 +2693,6 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 			return nil, fmt.Errorf("expand token %q: %w", name, err)
 		}
 		adjustedPriority := -prec * 1000
-		if imm {
-			adjustedPriority -= 10000
-		}
 		patterns = append(patterns, TerminalPattern{
 			SymbolID:  id,
 			Rule:      expanded,
@@ -2766,9 +2763,6 @@ func extractTerminals(g *Grammar, st *symbolTable, stringLits []string, namedTok
 			return nil, fmt.Errorf("expand token %q: %w", name, err)
 		}
 		adjustedPriority := -prec * 1000
-		if imm {
-			adjustedPriority -= 10000
-		}
 		patterns = append(patterns, TerminalPattern{
 			SymbolID:  id,
 			Rule:      expanded,
