@@ -39,6 +39,11 @@ jobs:
       - name: Randomized benchmark driver contracts
         run: bash scripts/run_randomized_benchmarks_test.sh
 
+      - name: Verify test package execution coverage
+        run: |
+          go test ./cmd/citestplan -count=1
+          go run ./cmd/citestplan
+
       - name: Build
         run: go build ./...
 
@@ -673,7 +678,22 @@ jobs:
             package_filter: '/parser_result_test$'
             test_filter: ''
           - name: support
-            package_filter: '/grep$|/taproot($|/)|/internal/luapattern$'
+            package_filter: '/grep$|/taproot($|/)|/internal/(luapattern|benchfixtures|grammarpatch)$|/corpuscheck$|/roottest/bench$'
+            test_filter: ''
+          - name: grammar-support
+            package_filter: '/grammars/(grammar_blobs|internal/[^/]+|lean|python)$'
+            test_filter: ''
+          - name: query
+            package_filter: '/roottest/query$'
+            test_filter: ''
+          - name: highlight
+            package_filter: '/roottest/highlight$'
+            test_filter: ''
+          - name: parse
+            package_filter: '/roottest/parse$'
+            test_filter: ''
+          - name: wasm
+            package_filter: '/wasm/runtime$'
             test_filter: ''
     steps:
       - uses: actions/checkout@v4
@@ -696,15 +716,7 @@ jobs:
         # burned down and folded back into the blocking suite.
         run: |
           set -euo pipefail
-          root="$(go list -m)"
-          pkgs="$(
-            go list ./... |
-              awk -v root="$root" -v pattern="${{ matrix.package_filter }}" '
-                $0 == root { next }
-                $0 ~ /\/grammargen$/ { next }
-                $0 ~ pattern { print }
-              '
-          )"
+          pkgs="$(go run ./cmd/citestplan -lane "${{ matrix.name }}")"
           if [ -z "$pkgs" ]; then
             echo "No non-root packages to test for lane ${{ matrix.name }}"
             exit 0
