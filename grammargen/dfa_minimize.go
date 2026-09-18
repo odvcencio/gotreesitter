@@ -89,9 +89,8 @@ func lexMinimizeDisabledInCtx(ctx context.Context) bool {
 // indistinguishable by ANY sequence of future input, by construction, so
 // this can never change observable lexer behavior. It only shrinks the
 // physical state count and therefore the serialized LexState/LexTransition
-// tables (and the retained heap of a decoded Language). The LexState /
-// LexTransition schema is completely unchanged -- this is not a runtime
-// format change, only a content-level compaction of the same tables.
+// tables (and the retained heap of a decoded Language). The transition schema
+// stays unchanged; AcceptEOF remains part of each state's observable shape.
 //
 // modeOffsets (each mode's start-state index into states) is remapped in
 // lockstep so every consumer that already treats mode start indices as
