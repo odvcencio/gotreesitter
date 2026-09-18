@@ -399,3 +399,12 @@ func diagnosticParserCoreRecoverySymbolPolicy(lang *Language) []core.SelectedSym
 	}
 	return out
 }
+
+// recoverySymbolPolicy shares the symbol projection within one parse.
+// The scheduler reset discards it before the next parse reads language metadata.
+func (s *diagnosticParserCoreGenericScheduler) recoverySymbolPolicy() []core.SelectedSymbolPolicy {
+	if s.recoverySymbols == nil {
+		s.recoverySymbols = diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
+	}
+	return s.recoverySymbols
+}

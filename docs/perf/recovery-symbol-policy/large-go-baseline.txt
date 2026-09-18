@@ -1,0 +1,31 @@
+=== RUN   TestGoParseGiantTableLiteralStopsWithinMemoryBudget
+    parser_memory_budget_test.go:176: heap growth = 326990568 bytes (3.25x budget 100663296 bytes), stop=truncated=false stopReason=memory_budget forestFastPath=false tokenEOFEarly=false tokens=891299 lastTokenEnd=3385678 expectedEOF=19877871 lastTokenSymbol=21 lastTokenEOF=false iterations=891299/596336130 nodes=1939871/1033649292 arena=173581952/100663296 scratch=109181656(entry=1048576 gss=0)/100663296 peakDepth=21/39755742 maxStacks=1 memoryBudgetStop={source=scratch arenaBaseline=156720896 heapGrowth=0 sysGrowth=0}
+--- PASS: TestGoParseGiantTableLiteralStopsWithinMemoryBudget (0.83s)
+=== RUN   TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound
+    parser_memory_budget_test.go:268: shipped-route heap growth = 530237728 bytes (5.27x budget 100663296 bytes)
+    parser_memory_budget_test.go:269: heap growth = 530237728 bytes (5.27x budget 100663296 bytes), stop=truncated=false stopReason=memory_budget forestFastPath=false tokenEOFEarly=false tokens=891299 lastTokenEnd=3385678 expectedEOF=19877871 lastTokenSymbol=21 lastTokenEOF=false iterations=891299/596336130 nodes=1939871/1033649292 arena=173581952/100663296 scratch=109181656(entry=1048576 gss=0)/100663296 peakDepth=21/39755742 maxStacks=1 memoryBudgetStop={source=scratch arenaBaseline=156720896 heapGrowth=0 sysGrowth=0}
+--- PASS: TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound (1.00s)
+PASS
+	Command being timed: "/evidence/baseline-memory.test -test.run=^TestGoParseGiantTableLiteral(StopsWithinMemoryBudget|ShippedRouteStaysWithinAchievedBound)$ -test.count=1 -test.v -test.timeout=8m"
+	User time (seconds): 1.55
+	System time (seconds): 0.29
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.85
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 579504
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 160121
+	Voluntary context switches: 22263
+	Involuntary context switches: 53
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
