@@ -7,6 +7,12 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Generated HCL splat expressions
+
+- Preserve right associativity when a proven repeat continuation has equal precedence.
+- Keep attribute and index chains inside HCL splats in nested blocks.
+- Compare generated splat trees with the locked C grammar.
+
 ### Recovery memo pressure
 
 - Compute leaf error costs and visible counts without occupying recovery memo entries.
