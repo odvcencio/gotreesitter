@@ -7,6 +7,12 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Test package execution coverage
+
+- Execute 13 previously omitted test packages in continuous integration.
+- Check package assignments against the workflow and use the same plan for race execution.
+- Reject new test packages without an execution lane.
+
 ### Recovery memo pressure
 
 - Compute leaf error costs and visible counts without occupying recovery memo entries.
