@@ -7,15 +7,12 @@ import (
 
 	gts "github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
+	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
-// TestIncrementalReuseBudgetDeclinesReuseHostileEdit is the issue #454 C
-// single-byte delete: the edit turns `x0` into `0` and old-tree reuse
-// resynchronizes nowhere, so the incremental attempt used to build 3.2
-// million nodes before the memory budget stopped it. The reuse budget stops
-// the attempt after a bounded number of nodes, and the parser runs one plain
-// full parse, which the returned tree must match exactly.
-func TestIncrementalReuseBudgetDeclinesReuseHostileEdit(t *testing.T) {
+// The issue #454 deletion now resynchronizes and reuses the unchanged suffix.
+// Require complete fresh-tree equality, real reuse, and the existing allocation bound.
+func TestIncrementalReuseBudgetAllowsResynchronizedEdit(t *testing.T) {
 	var b bytes.Buffer
 	b.WriteString("#include <stdio.h>\n\n")
 	for i := 0; b.Len() < 137<<10; i++ {
@@ -47,24 +44,44 @@ func TestIncrementalReuseBudgetDeclinesReuseHostileEdit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
+	defer old.Release()
 	old.Edit(edit)
 	incremental, profile, err := parser.ParseIncrementalProfiled(edited, old)
 	if err != nil {
 		t.Fatalf("incremental parse: %v", err)
 	}
+	if incremental != old {
+		defer incremental.Release()
+	}
 	fresh, err := parser.Parse(edited)
 	if err != nil {
 		t.Fatalf("fresh parse: %v", err)
 	}
-	if got, want := incremental.RootNode().SExpr(lang), fresh.RootNode().SExpr(lang); got != want {
+	defer fresh.Release()
+	for _, tree := range []*gts.Tree{incremental, fresh} {
+		if tree == nil || tree.RootNode() == nil || tree.ParseStoppedEarly() || tree.RootNode().EndByte() != uint32(len(edited)) {
+			t.Fatal("parse did not cover the complete edited source")
+		}
+	}
+	got, err := benchfixtures.InspectGoTree(incremental.RootNode(), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := benchfixtures.InspectGoTree(fresh.RootNode(), lang)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SHA256 != want.SHA256 {
 		t.Fatal("incremental tree does not match the fresh parse")
 	}
-	if profile.ReuseUnsupportedReason != "incremental_parse_reuse_budget_full_retry" {
-		t.Fatalf("reuse unsupported reason = %q, want the reuse budget full retry; profile=%+v", profile.ReuseUnsupportedReason, profile)
+	if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute || profile.ReusedSubtrees == 0 {
+		t.Fatalf("expected suffix reuse without a full retry: profile=%+v", profile)
 	}
-	// The bound is four times the fresh-parse arena estimate for this source
-	// plus the plain full parse itself; the old behavior built 3.2 million.
+	if profile.ReusedBytes == 0 || profile.ReusedBytes > uint64(len(edited)) {
+		t.Fatalf("reused bytes = %d, source bytes = %d", profile.ReusedBytes, len(edited))
+	}
+	// Preserve the historical allocation ceiling even when the retry is unnecessary.
 	if profile.NewNodesAllocated > 800_000 {
-		t.Fatalf("reuse-hostile edit built %d nodes before the full retry", profile.NewNodesAllocated)
+		t.Fatalf("incremental edit built %d nodes", profile.NewNodesAllocated)
 	}
 }
