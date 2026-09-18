@@ -731,20 +731,9 @@ func gssNodeShallowMergeHash(h uint64, n *Node) uint64 {
 }
 
 func gssEntryFlagHash(flags nodeFlags) uint64 {
-	var h uint64
-	if flags&nodeFlagExtra != 0 {
-		h |= 1
-	}
-	if flags&nodeFlagNamed != 0 {
-		h |= 1 << 1
-	}
-	if flags&nodeFlagHasError != 0 {
-		h |= 1 << 2
-	}
-	if flags&nodeFlagMissing != 0 {
-		h |= 1 << 3
-	}
-	return h
+	// Swap adjacent bits in the low nibble to preserve the flag hash.
+	return uint64((flags&(nodeFlagExtra|nodeFlagHasError))>>1 |
+		(flags&(nodeFlagNamed|nodeFlagMissing))<<1)
 }
 
 func gssNodeHash(n *gssNode) uint64 {
