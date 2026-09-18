@@ -5294,6 +5294,12 @@ func visibleLoweredRepeatBodyContinuationActions(lookaheadSym int, actions, shif
 		repeatSym := candidate.RHS[len(prefix)]
 		if isStructurallyGeneratedRepeatHelper(repeatSym, ng, cache) &&
 			repeatHelperCanBeginSequence(repeatSym, unit, ng, cache) {
+			// Apply the visible production's right associativity after proving that
+			// the shift continues its lowered repeat.
+			shiftMeta := shiftMetadataForReduce(shift, prod.LHS, ng, cache)
+			if prod.Assoc == AssocRight && shiftMeta.prec == prod.Prec {
+				return []lrAction{shift}, true
+			}
 			return actions, true
 		}
 	}

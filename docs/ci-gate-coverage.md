@@ -1,5 +1,30 @@
 # CI gate coverage map
 
+## Package execution coverage, September 18, 2026
+
+The non-root race matrix now includes 13 previously omitted test packages.
+These packages cover:
+
+- queries, highlighting, parsing, and benchmark support under `roottest`;
+- the WebAssembly runtime bridge;
+- corpus comparison and benchmark fixtures;
+- grammar patches, blobs, and standalone grammar support.
+
+Run `go run ./cmd/citestplan` to check the package inventory.
+The command reads the workflow filters and the host race-build package metadata.
+It rejects test packages without an execution lane.
+The race jobs use the same command with `-lane` to select their packages.
+
+The root tests, compact internal tests, and generator tests retain their dedicated jobs.
+The generator job remains informational. Its presence does not establish a blocking correctness gate.
+
+This check verifies package assignment. It does not certify individual tests or conditional assertions.
+Build tags, missing fixtures, environment gates, and explicit skips still require separate checks.
+The nested `cgo_harness` module and browser execution remain outside this package inventory.
+
+The following sections preserve the August audit and its historical findings.
+
+
 Date: 2026-08-02. Base commit: `158d0eeb` (origin/main). Branch:
 `yew/wire-dark-gates`.
 
