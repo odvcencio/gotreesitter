@@ -228,6 +228,14 @@ type RecoveryCostMemo struct {
 	has  []bool
 }
 
+// FootprintBytes reports the memo's retained allocation, including after Reset.
+func (m *RecoveryCostMemo) FootprintBytes() uint64 {
+	if m == nil {
+		return 0
+	}
+	return uint64(cap(m.cost))*coreUint32Bytes + uint64(cap(m.has))*coreBoolBytes
+}
+
 func (m *RecoveryCostMemo) lookup(id SubtreeID) (uint32, bool) {
 	if m == nil {
 		return 0, false

@@ -281,7 +281,7 @@ func TestStage3OpenRegionVisibleNodeCountRequiresOneAbsorbedChild(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	symbols := diagnosticParserCoreRecoverySymbolPolicy(scheduler.tokenSource.language)
+	symbols := parserCoreSymbolPolicy(scheduler.tokenSource.language)
 	if got, err := diagnosticParserCoreOpenRegionVisibleNodeCount(
 		symbols, src, &diagnosticParserCoreS3Region{},
 	); err != nil || got != 0 {
