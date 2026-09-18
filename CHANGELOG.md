@@ -13,6 +13,10 @@ for tags and release notes while still in `0.x`.
 - Apply the same order to normal, deferred, and large-cap merges.
 - Match the locked C parser for repeated generic calls in a Go binary expression.
 
+### Stack hashing
+
+- Pack node flags with masks and shifts without changing hash values.
+
 ### Generated CSS token precedence
 
 - Preserve the authored precedence of named immediate tokens.
