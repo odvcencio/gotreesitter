@@ -13,6 +13,13 @@ for tags and release notes while still in `0.x`.
 - Check package assignments against the workflow and use the same plan for race execution.
 - Reject new test packages without an execution lane.
 
+### Compact parser maintenance
+
+- Move scheduler memory accounting and stop checks into a dedicated source file.
+- Share symbol metadata projection between recovery and selected-store materialization.
+- Include retained recovery-memo capacity in scheduler memory limits, including after reset.
+- Document source ownership and the checks required for new retained state.
+
 ### Recovery symbol allocation
 
 - Reuse one symbol table for recovery per compact parse across all language grammars.

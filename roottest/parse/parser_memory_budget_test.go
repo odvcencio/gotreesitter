@@ -207,7 +207,7 @@ func TestGoParseGiantTableLiteralStopsWithinMemoryBudget(t *testing.T) {
 // test still catches a regression back to length-only accounting while
 // tolerating ordinary run-to-run variance. Closing the remaining gap to 6x
 // is an open trade-off against routing coverage (see
-// stopControlFootprintChurnRatio's doc comment, parsercore_phase0_driver.go)
+// stopControlFootprintChurnRatio's doc comment, parsercore_phase0_stop_control.go)
 // that this test intentionally does not force by tightening this number
 // further.
 func TestGoParseGiantTableLiteralShippedRouteStaysWithinAchievedBound(t *testing.T) {
