@@ -234,28 +234,23 @@ func (s *diagnosticParserCoreGenericScheduler) s5CollectReductionActions(
 	if s == nil || s.tokenSource == nil || s.tokenSource.language == nil {
 		return nil, false, errors.New("parser-core phase zero: S5 action table is unavailable")
 	}
-	var symbols []core.Symbol
-	if mode == diagnosticParserCoreS5ExactToken {
-		symbols = []core.Symbol{lookahead}
-	} else {
-		tokenCount := core.Symbol(s.tokenSource.language.TokenCount)
-		if tokenCount <= 1 {
+	first, end := int(lookahead), int(lookahead)+1
+	if mode != diagnosticParserCoreS5ExactToken {
+		first, end = 1, int(core.Symbol(s.tokenSource.language.TokenCount))
+		if end <= first {
 			return nil, false, nil
-		}
-		symbols = make([]core.Symbol, 0, int(tokenCount)-1)
-		for symbol := core.Symbol(1); symbol < tokenCount; symbol++ {
-			symbols = append(symbols, symbol)
 		}
 	}
 	seen := make(map[diagnosticParserCoreS5ReductionKey]struct{})
 	actions := make([]diagnosticParserCoreS5ReductionAction, 0, 4)
 	hasShift := false
-	for symbolIndex, symbol := range symbols {
-		if symbolIndex&63 == 0 {
+	for symbolIndex := first; symbolIndex < end; symbolIndex++ {
+		if (symbolIndex-first)&63 == 0 {
 			if err := s.pollStopControl(); err != nil {
 				return nil, false, err
 			}
 		}
+		symbol := core.Symbol(symbolIndex)
 		row, err := s.compact.Actions(state, symbol)
 		if err != nil {
 			return nil, false, err
