@@ -207,7 +207,7 @@ func (s *diagnosticParserCoreGenericScheduler) s5RecoveryOutputCostFunc() (core.
 	if s.tokenSource == nil || s.tokenSource.language == nil {
 		return nil, nil, errors.New("parser-core phase zero: S5 recovery language is unavailable")
 	}
-	symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
+	symbols := s.recoverySymbolPolicy()
 	memo := &s.recoveryCostMemo
 	cost := func(prev core.NodeID, payload core.SubtreeID) (uint32, error) {
 		prefix, err := s.compact.RecoveryStoredErrorCost(core.Head{Node: prev})
@@ -705,7 +705,7 @@ func (s *diagnosticParserCoreGenericScheduler) s5RecoveryBaseline(headers []diag
 	if s.tokenSource == nil || s.tokenSource.language == nil {
 		return 0, false, nil
 	}
-	symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
+	symbols := s.recoverySymbolPolicy()
 	var maximum uint32
 	for _, header := range headers {
 		aggregate, supported, err := s.compact.RecoveryGraphAggregateForHead(header.head, symbols, source)

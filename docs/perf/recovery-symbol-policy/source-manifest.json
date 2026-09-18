@@ -1,0 +1,13 @@
+{
+  "baseline_commit": "19c3fdbb88c4f56bd47bda37df5f97f6d4a10fa3",
+  "candidate_files": {
+    "parsercore_phase0_driver.go": "25f738033827b0472600174907feff2644495375222430ac9dd7979e3bc6c16e",
+    "parsercore_phase0_owned_recovery.go": "41c9a68e9029ea46f1ebe31370f545c39be6de4cbb446f0ba8b11417779cf48f",
+    "parsercore_phase0_recovery_condense.go": "6328d038d5822140b77eea952783e0c6d4909ee25169ee188fd3d86c14121a89",
+    "parsercore_phase0_recovery_cost_source.go": "7ccdff794342316695778bac0f8679d75b84ce11dfaa631288a86c38da27dbfd",
+    "parsercore_phase0_recovery_sibling.go": "361136532436dd89b696251d739f74f20e7eabe4e70a9b4f854ce02b0b84c9b5",
+    "parsercore_phase0_recovery_turns.go": "7411e88359ba8f4ac87b11ba65de0d53acbf7d902d0a2beed4ea102365ab1385",
+    "parsercore_phase0_s5.go": "530a8350ea8548b8866a10d0174435f3a27d99be792426b71089b92fe1d3843b",
+    "parsercore_phase0_recovery_symbols_internal_test.go": "92de5a5fc8ccfebee15f0ffb4fcee3faa6d00c7a2fd54b8c03b813e7a0900c15"
+  }
+}
