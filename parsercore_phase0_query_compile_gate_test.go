@@ -17,7 +17,7 @@ import (
 const (
 	parserCoreQueryCompileSourceBytes   = 20168
 	parserCoreQueryCompileSourceSHA256  = "b788ee19b0075f0b9b567a9f93ea657e715bc8a6a40a99d3ca5c761404e71894"
-	parserCoreQueryCompileGrammarSHA256 = "9cf914d26d962d1a62e7954f8b20b302337a44cb7d4a07218eec482c45a57a08"
+	parserCoreQueryCompileGrammarSHA256 = benchfixtures.GoGrammarBlobSHA256
 	parserCoreQueryCompileTreeSHA256    = "ecc090a83a4343a1c7c2afbad63277f5b4d60c42d8d94a2af2a9b16e46f2ccb5"
 )
 
@@ -26,6 +26,7 @@ type parserCoreQueryCompileComparison struct {
 }
 
 var (
+	// Keep the historical C work limits fixed across grammar migrations.
 	parserCoreQueryCompileDirectC = parserCoreQueryCompileComparison{
 		shifts: 6823, reductions: 7745, paths: 8290, payloads: 14893,
 		links: 15734, leaves: 5654, parents: 8291,
@@ -71,12 +72,12 @@ func TestDiagnosticParserCoreSummaryAcceptsExactQueryCompile(t *testing.T) {
 
 	first := runDiagnosticParserCoreQueryCompile(t, fixture)
 	wantWork := core.Work{
-		Shifts: 6685, Reductions: 7509, ReductionPopRequests: 7509,
-		EmittedPopPaths: 8108, EmittedPopPayloads: 14730,
-		PredecessorLinkUnionAttempts: 722, PredecessorLinkUnionDuplicateNoop: 36,
-		PredecessorLinkUnionPrecedenceReplaced: 75, PredecessorLinkUnionAlternateAppended: 611,
-		GraphLinkAdditionsProxy: 14789, LeafConstructionsProxy: 5546,
-		ParentConstructionsProxy: 7542,
+		Shifts: 6690, Reductions: 7719, ReductionPopRequests: 7719,
+		EmittedPopPaths: 8251, EmittedPopPayloads: 14828,
+		PredecessorLinkUnionAttempts: 655, PredecessorLinkUnionDuplicateNoop: 36,
+		PredecessorLinkUnionPrecedenceReplaced: 76, PredecessorLinkUnionAlternateAppended: 543,
+		GraphLinkAdditionsProxy: 14953, LeafConstructionsProxy: 5539,
+		ParentConstructionsProxy: 7725,
 	}
 	if first.Acceptance.CoreWork != wantWork {
 		t.Fatalf("query_compile parser-core work drifted: got=%+v want=%+v", first.Acceptance.CoreWork, wantWork)
@@ -88,7 +89,7 @@ func TestDiagnosticParserCoreSummaryAcceptsExactQueryCompile(t *testing.T) {
 	} else if parserCoreQueryCompileComparisonAtOrAbove(observed, parserCoreQueryCompileKill) {
 		classification = "kill"
 	}
-	t.Logf("query_compile parser-core work=%+v direct_c=%+v continue_1.2x=%+v kill_1.5x=%+v classification=%s selected=%d/%d/%d", observed, parserCoreQueryCompileDirectC, parserCoreQueryCompileContinue, parserCoreQueryCompileKill, classification, first.Acceptance.SelectedNodes, first.Acceptance.SelectedParents, first.Acceptance.SelectedLeaves)
+	t.Logf("query_compile parser-core work=%+v historical_direct_c=%+v continue_1.2x=%+v kill_1.5x=%+v classification=%s selected=%d/%d/%d", observed, parserCoreQueryCompileDirectC, parserCoreQueryCompileContinue, parserCoreQueryCompileKill, classification, first.Acceptance.SelectedNodes, first.Acceptance.SelectedParents, first.Acceptance.SelectedLeaves)
 	if classification != "continue" {
 		t.Fatalf("query_compile parser-core work exceeded the 1.2x continue vector: observed=%+v classification=%s", observed, classification)
 	}
@@ -131,8 +132,8 @@ func runDiagnosticParserCoreQueryCompile(t *testing.T, fixture benchfixtures.Loa
 		t.Fatalf("query_compile summary retained detailed collections: %+v", generic)
 	}
 	if result.SourceSHA256 != sha256.Sum256(fixture.Source) || result.Grammar != "go" || !result.ExactRootDFA || fmt.Sprintf("%x", result.GrammarBlobSHA256) != parserCoreQueryCompileGrammarSHA256 ||
-		result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.Text != "" || result.Lookahead.StartByte != uint32(len(fixture.Source)) || result.Lookahead.EndByte != uint32(len(fixture.Source)) || result.Lookahead.Missing || result.Lookahead.NoLookahead || result.Lookahead.ExternalScannerToken ||
-		acceptance.Token != result.Lookahead || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(fixture.Source)) || acceptance.Header.Header.Shifted || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 || acceptance.Accepts != 1 || acceptance.Work.Accepts != 1 || acceptance.CoreWork.Overflow {
+		result.Boundary != gotreesitter.DiagnosticParserCoreGenericClosed || result.State != 1419 || result.Lookahead.Symbol != 0 || result.Lookahead.Text != "" || result.Lookahead.StartByte != uint32(len(fixture.Source)) || result.Lookahead.EndByte != uint32(len(fixture.Source)) || result.Lookahead.Missing || result.Lookahead.NoLookahead || result.Lookahead.ExternalScannerToken ||
+		acceptance.Token != result.Lookahead || acceptance.Header.Header.State != 1419 || acceptance.Header.Header.ByteOffset != uint32(len(fixture.Source)) || acceptance.Header.Header.Shifted || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 || acceptance.Accepts != 1 || acceptance.Work.Accepts != 1 || acceptance.CoreWork.Overflow {
 		t.Fatalf("query_compile identity/work acceptance drifted: source=%x grammar=%s/%x exact_dfa=%v accepts=%d/%d work=%+v", result.SourceSHA256, result.Grammar, result.GrammarBlobSHA256, result.ExactRootDFA, acceptance.Accepts, acceptance.Work.Accepts, acceptance.CoreWork)
 	}
 	if acceptance.SelectedNodes != 7524 || acceptance.SelectedParents != 2853 || acceptance.SelectedLeaves != 4671 || acceptance.SelectedParents+acceptance.SelectedLeaves != acceptance.SelectedNodes {

@@ -137,14 +137,9 @@ type nodeArena struct {
 	fieldSlabs                     []fieldSliceSlab
 	fieldSourceSlabs               []fieldSourceSliceSlab
 	externalScannerNodeCheckpoints externalScannerCheckpointSet
-	// supertypeSets interns the distinct hidden-supertype bit sets nodes of
-	// this arena record. nodeSupertypes holds the one-based table index per
-	// primary node, and each node slab holds its own parallel array; both
-	// are allocated on first write, so a parse without supertype patterns
-	// pays nothing. The index lives beside the node rather than in it
-	// because Node's 104-byte layout is pinned.
-	supertypeSets                      []uint32
-	nodeSupertypes                     []uint8
+	// Store exact supertype masks beside nodes to preserve the Node layout.
+	// Allocate each parallel array on its first write.
+	nodeSupertypes                     []uint32
 	externalScannerNodeCheckpointSlabs []externalScannerCheckpointSlab
 	externalScannerCheckpointIdentity  externalScannerCheckpointIdentityState
 	hiddenFieldRepeatScratch           hiddenFieldRepeatScratch
@@ -306,8 +301,8 @@ type nodeArena struct {
 type nodeSlab struct {
 	data []Node
 	used int
-	// supertypes parallels data; see nodeArena.supertypeSets.
-	supertypes []uint8
+	// supertypes parallels data; see nodeArena.nodeSupertypes.
+	supertypes []uint32
 }
 
 type childSliceSlab struct {
@@ -1123,6 +1118,7 @@ func (a *nodeArena) trimPrimaryNodeCapacity() {
 		// collect it and the next parse will allocate a fresh slab of default
 		// size via allocNodeSlow -> ensureNodeCapacity.
 		a.nodes = nil
+		a.nodeSupertypes = nil
 		a.externalScannerNodeCheckpoints = externalScannerCheckpointSet{}
 	}
 }
@@ -1912,6 +1908,7 @@ func (a *nodeArena) recomputeAllocatedBytes() {
 		return
 	}
 	total := a.nodeStructBytesAllocated() +
+		a.nodeSupertypeBytesAllocated() +
 		a.nodeFieldMetadataBytesAllocated() +
 		a.noTreeNodeBytesAllocated() +
 		a.compactFullLeafBytesAllocated() +
@@ -2276,6 +2273,7 @@ func (a *nodeArena) collectArenaBreakdown() *ArenaBreakdown {
 		CompactReuseDependencyBytesAllocated: a.compactReuseDependencyBytesAllocated(),
 
 		NodeStructBytesAllocated:            a.nodeStructBytesAllocated(),
+		NodeSupertypeBytesAllocated:         a.nodeSupertypeBytesAllocated(),
 		NodeFieldMetadataBytesAllocated:     a.nodeFieldMetadataBytesAllocated(),
 		NoTreeNodeBytesAllocated:            a.noTreeNodeBytesAllocated(),
 		CompactFullLeafBytesAllocated:       a.compactFullLeafBytesAllocated(),
@@ -2778,7 +2776,6 @@ func (a *nodeArena) resetNodeSupertypes() {
 	if a == nil {
 		return
 	}
-	a.supertypeSets = a.supertypeSets[:0]
 	if len(a.nodeSupertypes) != 0 {
 		clear(a.nodeSupertypes[:min(a.used, len(a.nodeSupertypes))])
 	}
@@ -2793,7 +2790,7 @@ func (a *nodeArena) resetNodeSupertypes() {
 // nodeSupertypeSlot returns the supertype record slot for a node the arena
 // owns, allocating the parallel array when write is set. It locates the
 // node by address inside the primary node array or one of the node slabs.
-func (a *nodeArena) nodeSupertypeSlot(n *Node, write bool) *uint8 {
+func (a *nodeArena) nodeSupertypeSlot(n *Node, write bool) *uint32 {
 	if a == nil || n == nil {
 		return nil
 	}
@@ -2807,8 +2804,9 @@ func (a *nodeArena) nodeSupertypeSlot(n *Node, write bool) *uint8 {
 				if !write {
 					return nil
 				}
-				grown := make([]uint8, len(a.nodes))
+				grown := make([]uint32, len(a.nodes))
 				copy(grown, a.nodeSupertypes)
+				a.allocatedBytes += int64(cap(grown)-cap(a.nodeSupertypes)) * 4
 				a.nodeSupertypes = grown
 			}
 			return &a.nodeSupertypes[idx]
@@ -2828,8 +2826,9 @@ func (a *nodeArena) nodeSupertypeSlot(n *Node, write bool) *uint8 {
 			if !write {
 				return nil
 			}
-			grown := make([]uint8, len(slab.data))
+			grown := make([]uint32, len(slab.data))
 			copy(grown, slab.supertypes)
+			a.allocatedBytes += int64(cap(grown)-cap(slab.supertypes)) * 4
 			slab.supertypes = grown
 		}
 		return &slab.supertypes[idx]
@@ -2844,7 +2843,7 @@ func (a *nodeArena) nodeSupertypeMask(n *Node) uint32 {
 	if slot == nil {
 		return 0
 	}
-	return a.supertypeSetMask(*slot)
+	return *slot
 }
 
 // setNodeSupertypeMask records the hidden-supertype mask of a node the
@@ -2854,33 +2853,14 @@ func (a *nodeArena) setNodeSupertypeMask(n *Node, mask uint32) {
 	if slot == nil {
 		return
 	}
-	*slot = a.internSupertypeSet(mask)
+	*slot = mask
 }
 
-// internSupertypeSet returns the one-based index of mask in the arena's
-// supertype-set table, adding it when new. The index is a byte; a parse that
-// records more than 255 distinct sets drops the record for the excess
-// (returns 0), which only loses supertype query matches on those nodes.
-func (a *nodeArena) internSupertypeSet(mask uint32) uint8 {
-	if a == nil || mask == 0 {
-		return 0
+// nodeSupertypeBytesAllocated counts retained supertype storage capacity.
+func (a *nodeArena) nodeSupertypeBytesAllocated() int64 {
+	total := int64(cap(a.nodeSupertypes)) * 4
+	for i := range a.nodeSlabs {
+		total += int64(cap(a.nodeSlabs[i].supertypes)) * 4
 	}
-	for i, existing := range a.supertypeSets {
-		if existing == mask {
-			return uint8(i + 1)
-		}
-	}
-	if len(a.supertypeSets) >= 255 {
-		return 0
-	}
-	a.supertypeSets = append(a.supertypeSets, mask)
-	return uint8(len(a.supertypeSets))
-}
-
-// supertypeSetMask returns the mask for a one-based table index.
-func (a *nodeArena) supertypeSetMask(index uint8) uint32 {
-	if a == nil || index == 0 || int(index) > len(a.supertypeSets) {
-		return 0
-	}
-	return a.supertypeSets[index-1]
+	return total
 }

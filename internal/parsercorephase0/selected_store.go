@@ -89,6 +89,9 @@ func (p *SelectedStorePolicy) SetGoCompatibility(semicolon, semicolonNUL Symbol,
 }
 
 func (p SelectedStorePolicy) symbol(symbol Symbol) (SelectedSymbolPolicy, bool) {
+	if symbol == RecoveryErrorRepeatSymbol {
+		return SelectedSymbolPolicy{}, true
+	}
 	if int(symbol) >= len(p.Symbols) {
 		return SelectedSymbolPolicy{}, false
 	}
@@ -1005,13 +1008,14 @@ func (s *SelectedStore) applyDirectField(ids []SelectedNodeID, field FieldID) {
 	}
 	named := 0
 	for _, id := range ids {
-		if s.records[id-1].Named() {
+		r := &s.records[id-1]
+		if !r.Extra() && r.Named() {
 			named++
 		}
 	}
 	for _, id := range ids {
 		r := &s.records[id-1]
-		if r.Field != 0 {
+		if r.Extra() || r.Field != 0 {
 			continue
 		}
 		if named > 0 && !r.Named() {
@@ -1245,15 +1249,9 @@ func (c *Core) selectedRawOccurrences(roots []SubtreeID, poll func() error) ([]s
 				}
 				alias = c.aliases[parentRecord.firstAlias+ordinal]
 			}
-			var field FieldID
-			for _, entry := range c.fields[parentRecord.firstField : parentRecord.firstField+parentRecord.fieldCount] {
-				if uint32(entry.ChildIndex) != ordinal {
-					continue
-				}
-				if entry.Inherited || field != 0 {
-					return nil, nil, nil, errors.New("parser-core phase zero: selected field profile is outside admitted direct single-field scope")
-				}
-				field = entry.FieldID
+			field, err := c.selectedDirectChildField(*parentRecord, ordinal)
+			if err != nil {
+				return nil, nil, nil, err
 			}
 			childID, err := appendOccurrence(payload, alias, field)
 			if err != nil {
@@ -1266,4 +1264,21 @@ func (c *Core) selectedRawOccurrences(roots []SubtreeID, poll func() error) ([]s
 	c.selectedBuild.raw, c.selectedBuild.rawChildren = raw, children
 	c.selectedBuild.rawRoots, c.selectedBuild.stack = rootOccurrences, stack
 	return raw, children, rootOccurrences, nil
+}
+
+// selectedDirectChildField keeps field admission identical in both builders.
+func (c *Core) selectedDirectChildField(record subtreeRecord, ordinal uint32) (FieldID, error) {
+	var field FieldID
+	for _, entry := range c.fields[record.firstField : record.firstField+record.fieldCount] {
+		// Hidden descendants already carry their direct fields. C's cursor
+		// ignores inherited entries instead of assigning them a second time.
+		if uint32(entry.ChildIndex) != ordinal || entry.Inherited {
+			continue
+		}
+		if field != 0 {
+			return 0, fmt.Errorf("parser-core phase zero: selected field profile is outside admitted direct single-field scope: symbol=%d production=%d child=%d field=%d inherited=%t prior_field=%d", record.symbol, record.productionID, ordinal, entry.FieldID, entry.Inherited, field)
+		}
+		field = entry.FieldID
+	}
+	return field, nil
 }

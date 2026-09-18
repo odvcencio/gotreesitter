@@ -234,28 +234,23 @@ func (s *diagnosticParserCoreGenericScheduler) s5CollectReductionActions(
 	if s == nil || s.tokenSource == nil || s.tokenSource.language == nil {
 		return nil, false, errors.New("parser-core phase zero: S5 action table is unavailable")
 	}
-	var symbols []core.Symbol
-	if mode == diagnosticParserCoreS5ExactToken {
-		symbols = []core.Symbol{lookahead}
-	} else {
-		tokenCount := core.Symbol(s.tokenSource.language.TokenCount)
-		if tokenCount <= 1 {
+	first, end := int(lookahead), int(lookahead)+1
+	if mode != diagnosticParserCoreS5ExactToken {
+		first, end = 1, int(core.Symbol(s.tokenSource.language.TokenCount))
+		if end <= first {
 			return nil, false, nil
-		}
-		symbols = make([]core.Symbol, 0, int(tokenCount)-1)
-		for symbol := core.Symbol(1); symbol < tokenCount; symbol++ {
-			symbols = append(symbols, symbol)
 		}
 	}
 	seen := make(map[diagnosticParserCoreS5ReductionKey]struct{})
 	actions := make([]diagnosticParserCoreS5ReductionAction, 0, 4)
 	hasShift := false
-	for symbolIndex, symbol := range symbols {
-		if symbolIndex&63 == 0 {
+	for symbolIndex := first; symbolIndex < end; symbolIndex++ {
+		if (symbolIndex-first)&63 == 0 {
 			if err := s.pollStopControl(); err != nil {
 				return nil, false, err
 			}
 		}
+		symbol := core.Symbol(symbolIndex)
 		row, err := s.compact.Actions(state, symbol)
 		if err != nil {
 			return nil, false, err
@@ -301,7 +296,7 @@ func (s *diagnosticParserCoreGenericScheduler) s5CondenseCandidates(
 		}
 		header := s.headers[index]
 		if header.accepted || header.paused || header.recoveryRegion() != nil ||
-			header.isRecoveryLineage() || header.isRecoveryCosted() {
+			header.isRecoveryLineage() {
 			continue
 		}
 		storedCost, err := s.compact.RecoveryStoredErrorCost(header.head)
@@ -333,8 +328,7 @@ func (s *diagnosticParserCoreGenericScheduler) s5MergeReductionVersionOwned(
 	incoming := &s.headers[incomingIndex]
 	if incumbent.accepted || incoming.accepted || incumbent.paused || incoming.paused ||
 		incumbent.recoveryRegion() != nil || incoming.recoveryRegion() != nil ||
-		incumbent.isRecoveryLineage() || incoming.isRecoveryLineage() ||
-		incumbent.isRecoveryCosted() || incoming.isRecoveryCosted() {
+		incumbent.isRecoveryLineage() || incoming.isRecoveryLineage() {
 		return false, nil
 	}
 	if !s.versionLexerStateEqual(incumbent.versionState, incoming.versionState) ||
@@ -363,10 +357,29 @@ func (s *diagnosticParserCoreGenericScheduler) s5MergeReductionVersionOwned(
 	if incumbentCost != incomingCost {
 		return false, nil
 	}
-	merged, err := s.compact.MergeEquivalentHeadsWithStoredErrorCostOwned(
-		owner, incumbentState, incumbentByte, incumbent.checkpoint,
-		incumbent.shifted, incumbent.head, incoming.head,
-	)
+	var merged core.Head
+	if incumbentCost != 0 {
+		source, sourceErr := s.s5RecoverySource()
+		if sourceErr != nil {
+			return false, sourceErr
+		}
+		symbols := s.recoverySymbolPolicy()
+		var memo core.RecoveryCostMemo
+		defer memo.Reset()
+		merged, err = s.compact.MergeEquivalentRecoverySiblingHeadsOwned(
+			owner, incumbentState, incumbentByte, incumbent.checkpoint,
+			incumbent.shifted, incumbent.head, incoming.head,
+			func(payload core.SubtreeID) (bool, error) {
+				cost, err := core.RecoveryNodeErrorCostMemo(symbols, source, &memo, payload)
+				return cost > 0, err
+			},
+		)
+	} else {
+		merged, err = s.compact.MergeEquivalentHeadsWithStoredErrorCostOwned(
+			owner, incumbentState, incumbentByte, incumbent.checkpoint,
+			incumbent.shifted, incumbent.head, incoming.head,
+		)
+	}
 	if err != nil {
 		return false, err
 	}
@@ -574,8 +587,10 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunReductionFrontierOwned(
 						owner, candidates, s.reductionOutputs, boundary, reduction.ordinal, core.ForkOrder{},
 					)
 				} else {
+					// Publish costed outputs privately. The explicit sibling
+					// merge below applies C's positive-error equivalence rule.
 					outputs, err = s.compact.ReduceOutputsClassifiedIntoWithLiveCondenseCandidatesAndCostOwned(
-						owner, candidates, s.reductionOutputs, boundary, reduction.ordinal, core.ForkOrder{}, cost,
+						owner, nil, s.reductionOutputs, boundary, reduction.ordinal, core.ForkOrder{}, cost,
 					)
 				}
 			}()
@@ -638,9 +653,28 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunReductionFrontierOwned(
 				replacement.creationSeq = s.nextSeq
 				s.nextSeq++
 				s.headers = append(s.headers, replacement)
+				if cost != nil {
+					incoming := len(s.headers) - 1
+					for prior := 0; prior < incoming; prior++ {
+						if prior == version {
+							continue
+						}
+						merged, err := s.s5MergeReductionVersionOwned(owner, prior, incoming)
+						if err != nil {
+							return false, err
+						}
+						if merged {
+							break
+						}
+					}
+					continue
+				}
 				if actionReductionVersion < 0 {
 					actionReductionVersion = len(s.headers) - 1
 				}
+			}
+			if cost != nil && len(s.headers) > preActionVersionCount {
+				actionReductionVersion = preActionVersionCount
 			}
 			// C overwrites reduction_version after each action, including an
 			// action that produced no new physical version.
@@ -863,17 +897,17 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryMissingCandidateOwned(
 	return trialHeaders, true, trialSeq, nil
 }
 
-func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
+// s5MergeRecoveryMarkerOwned preserves the complete reduction frontier.
+// The caller owns token absorption and recovery competition publication.
+func (s *diagnosticParserCoreGenericScheduler) s5MergeRecoveryMarkerOwned(
 	owner core.SchedulerTransactionToken,
 	anyHeaders []diagnosticParserCoreHeader,
-	baseline uint32,
-	recoveryGroup uint64,
 	staged *diagnosticParserCoreS5Work,
 ) (diagnosticParserCoreHeader, error) {
 	if len(anyHeaders) == 0 {
 		return diagnosticParserCoreHeader{}, errors.New("parser-core phase zero: S5 absorber has no reduction heads")
 	}
-	state, byteOffset, err := s.compact.Boundary(anyHeaders[0].head)
+	_, byteOffset, err := s.compact.Boundary(anyHeaders[0].head)
 	if err != nil {
 		return diagnosticParserCoreHeader{}, err
 	}
@@ -922,25 +956,8 @@ func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
 		incumbent = merged
 		staged.recoveryDiscontinuityMerges++
 	}
-	tokenExtra, err := s3TokenIsExtraShift(s.compact, s.token.Symbol)
-	if err != nil {
-		return diagnosticParserCoreHeader{}, err
-	}
-	leaf, err := s.compact.ErrorRegionLeaf(core.Symbol(s.token.Symbol), s.token.StartByte, s.token.EndByte, tokenExtra)
-	if err != nil {
-		return diagnosticParserCoreHeader{}, err
-	}
 	absorb := anyHeaders[0]
 	absorb.head = incumbent
-	absorb.paused = false
-	absorb.shifted = true
-	absorb.accepted = false
-	absorb.openRecoveryRegion(&diagnosticParserCoreS3Region{
-		state: state, startByte: s.token.StartByte, endByte: s.token.EndByte,
-		children: []core.SubtreeID{leaf},
-	})
-	absorb.publishRecoveryCondenseState(recoveryGroup, 0, baseline, true)
-	absorb.markRecoveryCosted()
 	for _, header := range anyHeaders[1:] {
 		absorb.frontierSequence = mergeDiagnosticParserCoreFrontier(
 			absorb.frontierSequence, header.frontierSequence,
@@ -958,6 +975,41 @@ func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
 		s.compact.UnionAlternativeSet(&absorb.altSet, header.altSet)
 		absorb.blended = absorb.blended || header.blended || incomparable
 	}
+	return absorb, nil
+}
+
+func (s *diagnosticParserCoreGenericScheduler) s5AppendAndMergeAbsorberOwned(
+	owner core.SchedulerTransactionToken,
+	anyHeaders []diagnosticParserCoreHeader,
+	baseline uint32,
+	recoveryGroup uint64,
+	staged *diagnosticParserCoreS5Work,
+) (diagnosticParserCoreHeader, error) {
+	absorb, err := s.s5MergeRecoveryMarkerOwned(owner, anyHeaders, staged)
+	if err != nil || absorb.head.Node == 0 {
+		return absorb, err
+	}
+	state, _, err := s.compact.Boundary(anyHeaders[0].head)
+	if err != nil {
+		return diagnosticParserCoreHeader{}, err
+	}
+	tokenExtra, err := s3TokenIsExtraShift(s.compact, s.token.Symbol)
+	if err != nil {
+		return diagnosticParserCoreHeader{}, err
+	}
+	leaf, err := s.compact.ErrorRegionLeaf(core.Symbol(s.token.Symbol), s.token.StartByte, s.token.EndByte, tokenExtra)
+	if err != nil {
+		return diagnosticParserCoreHeader{}, err
+	}
+	absorb.paused = false
+	absorb.shifted = true
+	absorb.accepted = false
+	absorb.openRecoveryRegion(&diagnosticParserCoreS3Region{
+		state: state, startByte: s.token.StartByte, endByte: s.token.EndByte,
+		children: []core.SubtreeID{leaf},
+	})
+	absorb.publishRecoveryCondenseState(recoveryGroup, 0, baseline, true)
+	absorb.markRecoveryCosted()
 	s.s3RegionOpened = true
 	return absorb, nil
 }
@@ -967,6 +1019,15 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 	index int,
 	staged *diagnosticParserCoreS5Work,
 ) (bool, error) {
+	return s.s5RunOwnedWithRemainder(owner, index, staged, nil)
+}
+
+func (s *diagnosticParserCoreGenericScheduler) s5RunOwnedWithRemainder(
+	owner core.SchedulerTransactionToken,
+	index int,
+	staged *diagnosticParserCoreS5Work,
+	remainder []diagnosticParserCoreHeader,
+) (bool, error) {
 	if !s.s5MissingTokenAdmitted() || len(s.headers) != 1 || index != 0 ||
 		s.s5MissingInsertions >= maxDiagnosticParserCoreMissingInsertions {
 		return false, nil
@@ -975,14 +1036,20 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 		s.tokenSource == nil || s.tokenSource.language == nil || s.headers[index].recoveryRegion() != nil {
 		return false, nil
 	}
-	if s.token.Symbol == 0 && !s.options.allowCompactS5EOFMissingInsertion {
-		return false, nil
-	}
 	tokenCount := core.Symbol(s.tokenSource.language.TokenCount)
 	if tokenCount <= 1 || tokenCount > math.MaxUint16 {
 		return false, nil
 	}
 	original := s.headers[index]
+	// The direct recovery path skips C's pause call. Record its baseline before
+	// potential reductions so missing versions count only progress after this error.
+	pauseBaseline, pauseBaselineOK, err := s.s5RecoveryBaseline(s.headers[index : index+1])
+	if err != nil || !pauseBaselineOK {
+		return false, err
+	}
+	original.publishRecoveryCondenseState(original.recoveryGroupIdentity(), original.recoveryMissingGroupIdentity(), pauseBaseline, true)
+	s.headers[index] = original
+	originalRequest := s.versionLexerRequestForHeader(index)
 	_, originalByte, err := s.compact.Boundary(original.head)
 	if err != nil {
 		return false, err
@@ -1060,37 +1127,7 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 		}
 	}
 	if len(missingHeaders) == 0 {
-		return false, nil
-	}
-	if s.token.Symbol == 0 {
-		missingBaseline, missingBaselineSet := original.recoveryNodeBaseline()
-		if !missingBaselineSet {
-			missingBaselineSet = true
-		}
-		for index := range missingHeaders {
-			missingHeaders[index].publishRecoveryCondenseState(0, missingGroup, missingBaseline, missingBaselineSet)
-			missingHeaders[index].paused = false
-			missingHeaders[index].shifted = false
-			missingHeaders[index].markRecoveryCosted()
-			missingHeaders[index].markRecoveryLineage()
-		}
-		s.invalidateVerifierHeaderBinding()
-		clear(s.headers)
-		s.headers = append(s.headers[:0], missingHeaders...)
-		s.recoveryIsolation = true
-		s.epochProgress = true
-		s.s5MissingInsertions++
-		staged.missingTokenCommits++
-		if err := s.canonicalizeOwned(owner); err != nil {
-			return false, err
-		}
-		if err := s.persistHeaderLineageOwned(owner); err != nil {
-			return false, err
-		}
-		if uint64(len(s.headers)) > s.work.PeakLiveVersions {
-			s.work.PeakLiveVersions = uint64(len(s.headers))
-		}
-		return true, nil
+		return s.beginRecoveryFrontierOwnedWithRemainder(owner, anyHeaders, staged, remainder)
 	}
 	baseline, baselineOK, err := s.s5RecoveryBaseline(anyHeaders)
 	if err != nil {
@@ -1100,13 +1137,14 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 		return false, nil
 	}
 	s.headers = anyHeaders
-	absorb, err := s.s5AppendAndMergeAbsorberOwned(owner, anyHeaders, baseline, missingGroup, staged)
+	absorb, err := s.s5MergeRecoveryMarkerOwned(owner, anyHeaders, staged)
 	if err != nil {
 		return false, err
 	}
 	if absorb.head.Node == 0 {
 		return false, nil
 	}
+	absorb.openRecoveryRegion(&diagnosticParserCoreS3Region{startByte: s.token.StartByte, endByte: originalByte})
 	missingBaseline, missingBaselineSet := original.recoveryNodeBaseline()
 	if !missingBaselineSet {
 		missingBaseline = 0
@@ -1119,6 +1157,13 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 		missingHeaders[index].paused = false
 		missingHeaders[index].shifted = false
 		missingHeaders[index].markRecoveryCosted()
+		if s.token.Symbol == 0 && missingHeaders[index].versionLexerSnapshot() != nil {
+			if originalRequest != nil {
+				if err := s.installEquivalentVersionLexerState(&missingHeaders[index], originalRequest.before, 0, nil); err != nil {
+					return false, err
+				}
+			}
+		}
 	}
 	absorb.publishRecoveryCondenseState(missingGroup, 0, baseline, true)
 	absorb.markRecoveryLineage()
@@ -1127,6 +1172,7 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 	}
 	replacements := make([]diagnosticParserCoreHeader, 1, 1+len(missingHeaders))
 	replacements[0] = absorb
+	replacements = appendRecoveryEpisodeRemainder(replacements, remainder)
 	replacements = append(replacements, missingHeaders...)
 	s.invalidateVerifierHeaderBinding()
 	// The AnyTerminal frontier can contain several generated reductions.
@@ -1139,8 +1185,17 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 	s.epochProgress = true
 	s.s5MissingInsertions++
 	staged.missingTokenCommits++
-	if s.options.allowCompactRecoveryVersionTurns {
-		s.recoveryTurns = diagnosticParserCoreRecoveryTurns{active: true, lastByte: originalByte}
+	s.options.allowCompactRecoveryVersionTurns = true
+	s.recoveryTurns = diagnosticParserCoreRecoveryTurns{active: true, lastByte: originalByte}
+	if s.token.Symbol == 0 {
+		s.headers[0].openRecoveryRegion(&diagnosticParserCoreS3Region{startByte: originalByte, endByte: originalByte})
+		if err := s.beginRecoveryEOFOwned(owner); err != nil {
+			return false, err
+		}
+	} else {
+		if err := s.advanceRecoveryTokenOwned(owner, 0); err != nil {
+			return false, err
+		}
 	}
 	// Match ordinary scheduler publication. Canonicalization clears stale
 	// freshness and reconciles equivalent physical heads before ownership is
@@ -1175,13 +1230,10 @@ func (s *diagnosticParserCoreGenericScheduler) s5TryRecoveryTransaction(index in
 	if !lexicalError && s.token.Symbol == errorSymbol {
 		return false, nil
 	}
-	if s.token.Symbol == 0 && !s.options.allowCompactS5EOFMissingInsertion {
-		return false, nil
-	}
-	// This route owns the first recovery episode. Earlier shared recovery or
-	// sibling drops require advance ordering that this route has not executed.
+	// Shared regions, resumes, and sibling drops lack owned advance ordering.
+	// An earlier owned region can finish before this recovery episode starts.
 	if s.options.allowCompactRecoveryVersionTurns &&
-		(s.s3RegionOpened || s.s3ResumeCount != 0 || s.work.NoActionDrops != 0) {
+		((s.s3RegionOpened && !s.recoveryTurns.active) || s.s3ResumeCount != 0 || s.work.NoActionDrops != 0) {
 		return false, &diagnosticParserCoreDecline{
 			boundary: DiagnosticParserCoreRecovery,
 			detail:   "owned recovery requires no prior shared recovery or no-action drops",

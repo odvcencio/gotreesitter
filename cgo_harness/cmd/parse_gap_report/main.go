@@ -1176,6 +1176,7 @@ func statsFromGoTree(r *runner, tree *gotreesitter.Tree, queryCaptures, cursorNo
 	stats.CursorNodes = cursorNodes
 	if breakdown, ok := tree.ArenaBreakdown(); ok {
 		stats.ArenaNodeB = breakdown.NodeStructBytesAllocated +
+			breakdown.NodeSupertypeBytesAllocated +
 			breakdown.NoTreeNodeBytesAllocated +
 			breakdown.CompactFullLeafBytesAllocated +
 			breakdown.PendingParentBytesAllocated +
@@ -1286,6 +1287,7 @@ func statsFromGoTree(r *runner, tree *gotreesitter.Tree, queryCaptures, cursorNo
 // bytes. The total must stay equal to ParseRuntime.ArenaBytesAllocated.
 func arenaLiveBytes(b gotreesitter.ArenaBreakdown, externalScannerCheckpointBytes int64) int64 {
 	return b.NodeStructBytesAllocated +
+		b.NodeSupertypeBytesAllocated +
 		b.NodeFieldMetadataBytesAllocated +
 		b.NoTreeNodeBytesAllocated +
 		b.CompactFullLeafBytesAllocated +

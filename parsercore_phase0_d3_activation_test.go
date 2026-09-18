@@ -66,10 +66,6 @@ func TestG18CertificateActivationEligibilityIsolation(t *testing.T) {
 		name  string
 		setup func(*Parser) func()
 	}{
-		{name: "included-ranges", setup: func(p *Parser) func() {
-			p.SetIncludedRanges([]Range{{StartByte: 0, EndByte: 1}})
-			return p.DiagnosticEnableDropCohortCertificateAdmissionForTest()
-		}},
 		{name: "logger", setup: func(p *Parser) func() {
 			p.SetLogger(func(ParserLogType, string) {})
 			return p.DiagnosticEnableDropCohortCertificateAdmissionForTest()
@@ -91,6 +87,21 @@ func TestG18CertificateActivationEligibilityIsolation(t *testing.T) {
 				t.Fatal("ineligible activation acquired a runner")
 			}
 		})
+	}
+}
+
+func TestG18CertificateActivationSupportsIncludedRanges(t *testing.T) {
+	p := newAdmissionCandidateGoParser(t)
+	p.SetAdmissionCandidateRoute(true)
+	p.SetIncludedRanges([]Range{{StartByte: 0, EndByte: 1, EndPoint: Point{Column: 1}}})
+	restore := p.DiagnosticEnableDropCohortCertificateAdmissionForTest()
+	runner, ok := p.admissionCandidateRunner.(*parserCoreFreshFullRunner)
+	if !ok || runner == nil || !runner.certificateAdmissionEnabled {
+		t.Fatal("included ranges did not acquire an active certificate runner")
+	}
+	restore()
+	if runner.certificateAdmissionEnabled || runner.certificateAdmissionToken != nil || runner.options.recordDropCohortCertificates {
+		t.Fatal("restore retained certificate activation for included ranges")
 	}
 }
 

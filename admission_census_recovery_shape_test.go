@@ -52,8 +52,7 @@ type admissionCensusRecoveryShapeWitness struct {
 	source   string
 	// mechanism is the c-mechanism value the census must report.
 	mechanism string
-	// admitted marks the first live recover_eof witness. It now serves through
-	// the certified compact route, so it has no decline classification.
+	// Admitted witnesses use the compact route and have no decline classification.
 	admitted bool
 	// candidates, when non-zero, additionally pins the reported
 	// missing-token candidate population. It is asserted only where the
@@ -69,7 +68,7 @@ func admissionCensusRecoveryShapeWitnesses() []admissionCensusRecoveryShapeWitne
 		// shifts from the declining state into a state whose leading action
 		// for the elected token is a reduce, so C inserts a zero-width
 		// MISSING leaf and keeps parsing. B3 stage S5 owns this.
-		{language: "go", source: "package p\nfunc f() {\n", mechanism: "missing-token-insertion", candidates: 1},
+		{language: "go", source: "package p\nfunc f() {\n", mechanism: "missing-token-insertion", admitted: true},
 		{language: "python", source: "def f(:\n    pass\n", mechanism: "missing-token-insertion", candidates: 1},
 		{language: "ini", source: "[a\nb=c\n", mechanism: "missing-token-insertion", candidates: 1},
 		{language: "c", source: "int x = ;", mechanism: "missing-token-insertion"},
@@ -169,9 +168,8 @@ func TestAdmissionCensusRecoveryShapeClassification(t *testing.T) {
 }
 
 // TestAdmissionCensusRecoveryShapeIsDiagnosticOnly proves the classification
-// changes decline TEXT only: with the census disabled every witness still
-// declines, still declines for the same recorded reason, and carries no
-// c-mechanism tag at all.
+// changes decline text only. Enabling the census must not change admission.
+// Declined witnesses carry classification tags only when the census is enabled.
 func TestAdmissionCensusRecoveryShapeIsDiagnosticOnly(t *testing.T) {
 	for _, witness := range admissionCensusRecoveryShapeWitnesses() {
 		t.Run(witness.language, func(t *testing.T) {

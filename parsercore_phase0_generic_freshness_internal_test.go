@@ -315,9 +315,23 @@ func TestDiagnosticParserCoreConflictUpdatedOutputPreservesSuffixIdentity(t *tes
 		t.Fatal(err)
 	}
 	receipts, _ := diagnosticParserCoreHeaderReceipts(compact, scheduler.headers)
-	if len(receipts) != 2 || receipts[0].State != 4 || receipts[0].CreationSeq != 11 || receipts[0].Paused ||
-		receipts[1].State != 6 || receipts[1].CreationSeq != 20 || !receipts[1].Shifted || scheduler.nextSeq != 21 {
+	// The shift keeps the source slot. The reduction updates the existing sibling.
+	if len(receipts) != 2 || receipts[0].State != 6 || receipts[0].CreationSeq != 3 || !receipts[0].Shifted || receipts[0].Paused ||
+		receipts[1].State != 4 || receipts[1].CreationSeq != 11 || receipts[1].Shifted || receipts[1].Paused || scheduler.nextSeq != 20 || scheduler.branchOrder != 8 {
 		t.Fatalf("conflict suffix identity/order receipts=%+v nextSeq=%d", receipts, scheduler.nextSeq)
+	}
+	canonical, ok := compact.CanonicalBoundary(4, 1, false, 0)
+	if !ok || scheduler.headers[1].head != canonical || canonical == lowOutputs[0].Head {
+		t.Fatalf("suffix did not adopt the updated canonical head: headers=%+v canonical=%+v", scheduler.headers, canonical)
+	}
+	for _, check := range []struct {
+		head  core.Head
+		score int
+	}{{canonical, 2}, {lowOutputs[0].Head, 1}} {
+		paths, err := compact.Derivations(check.head)
+		if err != nil || len(paths) != 1 || int(paths[0].Score) != check.score {
+			t.Fatalf("head=%+v paths=%+v err=%v, want score %d", check.head, paths, err, check.score)
+		}
 	}
 }
 

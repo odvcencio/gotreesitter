@@ -2,7 +2,9 @@
 
 package gotreesitter
 
-import core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+import (
+	core "github.com/odvcencio/gotreesitter/internal/parsercorephase0"
+)
 
 // mergeRecoveredReductionSiblingOwned preserves C's existing sibling order.
 // Equal stored costs permit a merge; they do not select an ambiguity winner.
@@ -11,7 +13,7 @@ func (s *diagnosticParserCoreGenericScheduler) mergeRecoveredReductionSiblingOwn
 	sourceIndex int,
 	incoming diagnosticParserCoreHeader,
 ) (bool, error) {
-	if incoming.recoveryRegion() != nil || incoming.paused || incoming.accepted {
+	if incoming.recoveryRegion() != nil || incoming.recoveryGroupIdentity() != 0 || incoming.paused || incoming.accepted {
 		return false, nil
 	}
 	state, position, err := s.compact.Boundary(incoming.head)
@@ -31,9 +33,9 @@ func (s *diagnosticParserCoreGenericScheduler) mergeRecoveredReductionSiblingOwn
 			continue
 		}
 		sibling := s.headers[index]
-		if sibling.accepted || sibling.paused || sibling.recoveryRegion() != nil ||
+		if sibling.accepted || sibling.paused || sibling.recoveryRegion() != nil || sibling.recoveryGroupIdentity() != 0 ||
 			sibling.shifted != incoming.shifted || sibling.checkpoint != incoming.checkpoint ||
-			!s.versionLexerStateEqual(sibling.versionState, incoming.versionState) {
+			!s.recoveryCondenseLexerStateEqual(sibling, incoming) {
 			continue
 		}
 		siblingState, siblingPosition, err := s.compact.Boundary(sibling.head)

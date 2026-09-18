@@ -18,6 +18,9 @@ func TestMesonAcceptanceElectionLockedCParity(t *testing.T) {
 	if !language.CompactAcceptanceStructuralElectionCertified {
 		t.Fatal("Meson structural acceptance election is not certified")
 	}
+	if !language.CompactMixedGSSMergeCertified {
+		t.Fatal("Meson mixed stack merging is not certified")
+	}
 
 	cLanguage, err := COracleLanguage("meson")
 	if err != nil {

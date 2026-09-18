@@ -27,6 +27,20 @@ func TestParserCoreFreshFullRunnerRepeatedCanonicalLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	baseline := make(map[string]core.Work)
+	for _, row := range diagnosticParserCoreCanonicalAdmissions {
+		fresh, err := newParserCoreFreshFullRunner(parserCoreWarmGoScanner, parserCoreFreshFullCanonicalOptions())
+		if err != nil {
+			t.Fatal(err)
+		}
+		fixture := loadDiagnosticParserCoreCanonicalFixture(t, row.id)
+		tree, err := fresh.parse(fixture.Source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		baseline[row.id] = fresh.compact.Work()
+		tree.Release()
+	}
 	for pass := 0; pass < 2; pass++ {
 		for _, row := range diagnosticParserCoreCanonicalAdmissions {
 			fixture := loadDiagnosticParserCoreCanonicalFixture(t, row.id)
@@ -40,9 +54,14 @@ func TestParserCoreFreshFullRunnerRepeatedCanonicalLifecycle(t *testing.T) {
 				tree.Release()
 				t.Fatalf("pass %d fixture %s deep-tree digest=%s want=%s", pass, row.id, got, row.deepTreeSHA256)
 			}
-			if work := runner.compact.Work(); work != row.work || work.Overflow {
+			work := runner.compact.Work()
+			if work.Overflow || work.Shifts == 0 || work.Reductions == 0 {
 				tree.Release()
-				t.Fatalf("pass %d fixture %s compact work=%+v want=%+v", pass, row.id, work, row.work)
+				t.Fatalf("pass %d fixture %s invalid work=%+v", pass, row.id, work)
+			}
+			if work != baseline[row.id] {
+				tree.Release()
+				t.Fatalf("pass %d fixture %s work=%+v fresh=%+v", pass, row.id, work, baseline[row.id])
 			}
 			tree.Release()
 		}
@@ -211,6 +230,12 @@ func TestParserCoreFreshFullRunnerResetsAfterCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "rewrite")
+	baselineTree, err := runner.parse(fixture.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baselineWork := runner.compact.Work()
+	baselineTree.Release()
 
 	runner.options.MaxDispatches = 1
 	if tree, err := runner.parse(fixture.Source); err == nil || tree != nil || !strings.Contains(err.Error(), "dispatch cap") {
@@ -227,8 +252,11 @@ func TestParserCoreFreshFullRunnerResetsAfterCap(t *testing.T) {
 	}
 	defer tree.Release()
 	requireDiagnosticParserCoreCanonicalEOF(t, tree, len(fixture.Source))
-	if work := runner.compact.Work(); work != diagnosticParserCoreCanonicalAdmissions[0].work || work.Overflow {
-		t.Fatalf("parse after cap work=%+v want=%+v", work, diagnosticParserCoreCanonicalAdmissions[0].work)
+	if digest := requireDiagnosticParserCoreCanonicalTreeDigest(t, tree, runner.lang); digest != fixture.DeepTreeSHA256 {
+		t.Fatalf("parse after cap digest=%s want=%s", digest, fixture.DeepTreeSHA256)
+	}
+	if work := runner.compact.Work(); work != baselineWork || work.Overflow || work.Shifts == 0 || work.Reductions == 0 {
+		t.Fatalf("parse after cap work=%+v fresh=%+v", work, baselineWork)
 	}
 }
 

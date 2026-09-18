@@ -6,27 +6,22 @@ import (
 	"bytes"
 	"testing"
 
+	gts "github.com/odvcencio/gotreesitter"
+	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-// TestIssue454COneKiBLockedCDivergence keeps the smallest issue #454 witness
-// visible while recovery materialization remains under investigation. The
-// test passes only when the known-divergence ratchet remains exact. Remove
-// this ratchet after a generic recovery fix restores locked-C parity.
-func TestIssue454COneKiBLockedCDivergence(t *testing.T) {
+// TestIssue454COneKiBLockedCParity compares the malformed deletion with locked C.
+// Check both route settings, including the error flags that previously differed.
+// A compact decline must report its fallback instead of claiming native admission.
+func TestIssue454COneKiBLockedCParity(t *testing.T) {
 	source := append([]byte(nil), benchfixtures.Issue454CSource()[:1024]...)
 	site := bytes.Index(source, []byte("x0"))
 	if site < 0 {
 		t.Fatal("C edit marker is absent")
 	}
 	edited := append(append([]byte(nil), source[:site]...), source[site+1:]...)
-
-	goTree, goLang, err := parseWithGo(parityCase{name: "c"}, edited, nil)
-	if err != nil {
-		t.Fatalf("parse edited C witness with Go: %v", err)
-	}
-	defer releaseGoTree(goTree)
 
 	cLang, err := ParityCLanguage("c")
 	if err != nil {
@@ -43,25 +38,40 @@ func TestIssue454COneKiBLockedCDivergence(t *testing.T) {
 	}
 	defer cTree.Close()
 
-	if got, want := goTree.RootNode().HasError(), true; got != want {
-		t.Fatalf("Go root HasError() = %v, want %v", got, want)
-	}
 	if got, want := cTree.RootNode().HasError(), true; got != want {
 		t.Fatalf("locked C root HasError() = %v, want %v", got, want)
 	}
 
-	diff := FirstDivergenceDumpV1(goTree.RootNode(), goLang, cTree.RootNode())
-	if diff == nil {
-		t.Fatal("known issue #454 divergence now matches locked C; remove this ratchet after route verification")
+	for _, compact := range []bool{false, true} {
+		name := "production"
+		if compact {
+			name = "compact_requested"
+		}
+		t.Run(name, func(t *testing.T) {
+			goLang := grammars.CLanguage()
+			parser := gts.NewParser(goLang)
+			parser.SetAdmissionCandidateRoute(compact)
+			beforeRoute, beforeFallback := gts.AdmissionCandidateCounters()
+			goTree, err := parser.Parse(edited)
+			if err != nil {
+				t.Fatalf("parse edited C witness with Go: %v", err)
+			}
+			defer releaseGoTree(goTree)
+			afterRoute, afterFallback := gts.AdmissionCandidateCounters()
+			routed, fallback := afterRoute-beforeRoute, afterFallback-beforeFallback
+			reason := gts.AdmissionCandidateLastFallbackReason()
+			if compact {
+				if !((routed == 1 && fallback == 0) || (routed == 0 && fallback == 1 && reason != "")) {
+					t.Fatalf("compact route=%d/%d: %q", routed, fallback, reason)
+				}
+				t.Logf("compact route=%d/%d fallback=%q", routed, fallback, reason)
+			} else if routed != 0 || fallback != 0 {
+				t.Fatalf("production parse entered compact admission: %d/%d", routed, fallback)
+			}
+			if goTree.ParseStoppedEarly() || !goTree.RootNode().HasError() {
+				t.Fatalf("malformed source lost its complete error tree: %s", goTree.ParseRuntime().Summary())
+			}
+			assertG18LockedCExact(t, name, goTree, goLang, cTree)
+		})
 	}
-	want := DumpV1Divergence{
-		Path:     "/translation_unit/function_definition[0]/compound_statement[2]/ERROR[2]/number_literal[0]",
-		Category: "error",
-		GoValue:  "true",
-		CValue:   "false",
-	}
-	if *diff != want {
-		t.Fatalf("issue #454 divergence changed: got %+v, want %+v", *diff, want)
-	}
-	t.Logf("known locked-C divergence: path=%s category=%s Go=%s C=%s", diff.Path, diff.Category, diff.GoValue, diff.CValue)
 }

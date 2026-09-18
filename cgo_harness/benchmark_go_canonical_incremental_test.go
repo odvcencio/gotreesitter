@@ -216,6 +216,36 @@ func TestCanonicalGoIncrementalParity(t *testing.T) {
 	}
 }
 
+func TestCanonicalIncrementalLeafClassificationRequiresProof(t *testing.T) {
+	profile := gotreesitter.IncrementalParseProfile{
+		TokenInvariantDependencyChecks: 1, ReusedSubtrees: 1, ReusedBytes: 30, TokensConsumed: 1,
+	}
+	runtime := gotreesitter.ParseRuntime{StopReason: gotreesitter.ParseStopAccepted, TokensConsumed: 1}
+	if got := classifyCanonicalIncrementalDirection(true, false, profile, runtime, false); got != "token_invariant_leaf_reuse" {
+		t.Fatalf("leaf classification=%s", got)
+	}
+	for _, mutate := range []func(*gotreesitter.IncrementalParseProfile, *gotreesitter.ParseRuntime){
+		func(p *gotreesitter.IncrementalParseProfile, r *gotreesitter.ParseRuntime) {
+			p.TokenInvariantDependencyChecks = 0
+		},
+		func(p *gotreesitter.IncrementalParseProfile, r *gotreesitter.ParseRuntime) { p.ReuseUnsupported = true },
+		func(p *gotreesitter.IncrementalParseProfile, r *gotreesitter.ParseRuntime) { p.ReparseNanos = 1 },
+		func(p *gotreesitter.IncrementalParseProfile, r *gotreesitter.ParseRuntime) { p.NewNodesAllocated = 1 },
+		func(p *gotreesitter.IncrementalParseProfile, r *gotreesitter.ParseRuntime) { p.ReusedBytes = 0 },
+		func(p *gotreesitter.IncrementalParseProfile, r *gotreesitter.ParseRuntime) { r.Truncated = true },
+		func(p *gotreesitter.IncrementalParseProfile, r *gotreesitter.ParseRuntime) {
+			r.CRecoveryEnteredErrorState = true
+		},
+		func(p *gotreesitter.IncrementalParseProfile, r *gotreesitter.ParseRuntime) { r.NodesAllocated = 1 },
+	} {
+		changedProfile, changedRuntime := profile, runtime
+		mutate(&changedProfile, &changedRuntime)
+		if canonicalTokenInvariantLeafProof(changedProfile, changedRuntime) {
+			t.Fatalf("incomplete leaf proof accepted: %+v runtime=%+v", changedProfile, changedRuntime)
+		}
+	}
+}
+
 func TestCanonicalIncrementalClassificationRejectsFallback(t *testing.T) {
 	profile := gotreesitter.IncrementalParseProfile{
 		ReuseUnsupported:       true,
@@ -737,6 +767,9 @@ func classifyCanonicalIncrementalDirection(appliedEdit, returnedOldTree bool, pr
 	if !appliedEdit && returnedOldTree && canonicalIncrementalProfileIsZero(profile) {
 		return "unchanged_snapshot_identity"
 	}
+	if appliedEdit && !returnedOldTree && !rootHasError && canonicalTokenInvariantLeafProof(profile, runtime) {
+		return "token_invariant_leaf_reuse"
+	}
 	if appliedEdit && !returnedOldTree && !rootHasError && canonicalCompactReparseProof(profile, runtime) {
 		return "compact_incremental_reparse"
 	}
@@ -765,6 +798,17 @@ func classifyCanonicalIncrementalDirection(appliedEdit, returnedOldTree bool, pr
 		return "single_stack_incremental_reparse"
 	}
 	return "unclassified"
+}
+
+func canonicalTokenInvariantLeafProof(profile gotreesitter.IncrementalParseProfile, runtime gotreesitter.ParseRuntime) bool {
+	return !profile.ReuseUnsupported && profile.TokenInvariantDependencyChecks == 1 &&
+		profile.ReparseNanos == 0 && profile.NewNodesAllocated == 0 &&
+		profile.ReusedSubtrees == 1 && profile.ReusedBytes > 0 &&
+		profile.TokensConsumed == 1 && runtime.TokensConsumed == 1 && runtime.NodesAllocated == 0 &&
+		runtime.StopReason == gotreesitter.ParseStopAccepted && !runtime.Truncated && !runtime.TokenSourceEOFEarly &&
+		!runtime.CRecoveryEnteredErrorState && !runtime.CompactIncrementalFullRecoveryRoute &&
+		profile.AcceptedErrorRetryAttempts == 0 && runtime.IncrementalAcceptedErrorRetryAttempts == 0 &&
+		profile.RecoverSearches == 0 && profile.RecoverStateChecks == 0 && profile.RecoverHits == 0
 }
 
 func canonicalCompactReparseProof(profile gotreesitter.IncrementalParseProfile, runtime gotreesitter.ParseRuntime) bool {
@@ -826,6 +870,11 @@ func requireCanonicalIncrementalClassification(tb testing.TB, label string, dire
 			runtime.ExternalScannerSnapshotBytesAllocated, rootHasError)
 	}
 	switch observed {
+	case "token_invariant_leaf_reuse":
+		if !direction.applyEdit || returnedOldTree || rootHasError || !canonicalTokenInvariantLeafProof(profile, runtime) ||
+			len(direction.from) != len(direction.to) || profile.ReusedBytes != uint64(len(direction.to)) {
+			tb.Fatalf("%s leaf reuse lacks lexical proof and whole-tree reuse: %+v runtime=%s", label, profile, runtime.Summary())
+		}
 	case "unchanged_snapshot_identity":
 		if direction.applyEdit || !returnedOldTree || !canonicalIncrementalProfileIsZero(profile) {
 			tb.Fatalf("%s identity classification lacks pointer/profile proof", label)

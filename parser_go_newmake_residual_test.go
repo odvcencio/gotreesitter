@@ -8,84 +8,67 @@ import (
 	"github.com/odvcencio/gotreesitter/grammars"
 )
 
-// newMakeCorpusEntry is one fixture in the durable Go new()/make() type-argument
-// DIFF corpus. wantLeadSExpr is the S-expression (named nodes only) of the
-// leading argument that normalizeGoNewMakeTypeArgument must produce. matchesC
-// records whether that shape byte-matches the pinned tree-sitter-go C oracle;
-// every entry with matchesC=true was verified node-for-node against the C
-// reference in cgo_harness/zz_go_newmake_residual_parity_test.go
-// (TestGoNewMakeResidualParity).
+// newMakeCorpusEntry pins the leading argument shape and root error status.
+// TestGoNewMakeLockedC in cgo_harness/go_newmake_locked_c_test.go compares complete trees with C.
 type newMakeCorpusEntry struct {
-	form          string // the expression spliced into `_ = <form>`
+	form          string
 	wantLeadSExpr string
-	matchesC      bool
+	wantError     bool
 	note          string
 }
 
-// goNewMakeDiffCorpus is the committed successor to the ephemeral 30-fixture
-// DIFF corpus used during PR #384 review (that corpus was never checked in).
-// It fixes the shape of every new()/make() leading argument this normalization
-// governs, so any future regression in the retag (or in a broader engine
-// change) trips here. Categories:
-//
-//   - fixed-residual: qualified_type / pointer_type / parenthesized_type forms
-//     this change adds (`new(pkg.Type)`, `new(*T)`, ...). Divergent before.
-//   - base: bare-identifier forms fixed by PR #384 (`new(T)`).
-//   - composite: unambiguous composite types already correct pre-#384; kept as
-//     regression controls (the retag must never disturb them).
-//   - invalid-divergent: invalid Go (`new(a.b.C)`, `new(&T)`) where the C
-//     oracle drives strict type-context ERROR recovery. gotreesitter keeps a
-//     clean expression parse; this change does NOT touch these, so they stay a
-//     documented, pre-existing divergence (matchesC=false).
+// Preserve all 30 forms, including the remaining malformed recovery divergence.
 var goNewMakeDiffCorpus = []newMakeCorpusEntry{
-	// fixed-residual (this change)
-	{"new(pkg.Type)", "(qualified_type (package_identifier) (type_identifier))", true, "fixed-residual"},
-	{"new(*T)", "(pointer_type (type_identifier))", true, "fixed-residual"},
-	{"new(*pkg.Type)", "(pointer_type (qualified_type (package_identifier) (type_identifier)))", true, "fixed-residual"},
-	{"new(**T)", "(pointer_type (pointer_type (type_identifier)))", true, "fixed-residual"},
-	{"new(a.b)", "(qualified_type (package_identifier) (type_identifier))", true, "fixed-residual"},
-	{"new((T))", "(parenthesized_type (type_identifier))", true, "fixed-residual"},
-	{"new((pkg.Type))", "(parenthesized_type (qualified_type (package_identifier) (type_identifier)))", true, "fixed-residual"},
-	{"new((*T))", "(parenthesized_type (pointer_type (type_identifier)))", true, "fixed-residual"},
-	{"make(pkg.Type, 0)", "(qualified_type (package_identifier) (type_identifier))", true, "fixed-residual"},
-	{"make(*T, 0)", "(pointer_type (type_identifier))", true, "fixed-residual"},
-	// base (PR #384)
-	{"new(T)", "(type_identifier)", true, "base"},
-	{"new(dirInfo)", "(type_identifier)", true, "base"},
-	{"make(T)", "(type_identifier)", true, "base"},
-	{"new(a, b)", "(type_identifier)", true, "base"}, // invalid-Go arity, still a type in slot 0
-	{"make(a, b, c)", "(type_identifier)", true, "base"},
-	// composite (regression controls)
-	{"new([]T)", "(slice_type (type_identifier))", true, "composite"},
-	{"new(*[]T)", "(pointer_type (slice_type (type_identifier)))", true, "composite"},
-	{"new([]*T)", "(slice_type (pointer_type (type_identifier)))", true, "composite"},
-	{"new(map[K]V)", "(map_type (type_identifier) (type_identifier))", true, "composite"},
-	{"new(*map[K]V)", "(pointer_type (map_type (type_identifier) (type_identifier)))", true, "composite"},
-	{"new(chan T)", "(channel_type (type_identifier))", true, "composite"},
-	{"new(*chan T)", "(pointer_type (channel_type (type_identifier)))", true, "composite"},
-	{"new(struct{})", "(struct_type (field_declaration_list))", true, "composite"},
-	{"new(interface{})", "(interface_type)", true, "composite"},
-	{"new(func())", "(function_type (parameter_list))", true, "composite"},
-	{"new([3]T)", "(array_type (int_literal) (type_identifier))", true, "composite"},
-	{"new(pkg.Type[int])", "(generic_type (qualified_type (package_identifier) (type_identifier)) (type_arguments (type_elem (type_identifier))))", true, "composite"},
-	{"make([]pkg.Type, 0)", "(slice_type (qualified_type (package_identifier) (type_identifier)))", true, "composite"},
-	// invalid-divergent (documented pre-existing divergence; untouched here)
-	{"new(a.b.C)", "(selector_expression (selector_expression (identifier) (field_identifier)) (field_identifier))", false, "invalid-divergent"},
-	{"new(&T)", "(unary_expression (identifier))", false, "invalid-divergent"},
+	// Qualified, pointer, and parenthesized types.
+	{"new(pkg.Type)", "(qualified_type (package_identifier) (type_identifier))", false, "fixed-residual"},
+	{"new(*T)", "(pointer_type (type_identifier))", false, "fixed-residual"},
+	{"new(*pkg.Type)", "(pointer_type (qualified_type (package_identifier) (type_identifier)))", false, "fixed-residual"},
+	{"new(**T)", "(pointer_type (pointer_type (type_identifier)))", false, "fixed-residual"},
+	{"new(a.b)", "(qualified_type (package_identifier) (type_identifier))", false, "fixed-residual"},
+	{"new((T))", "(parenthesized_type (type_identifier))", false, "fixed-residual"},
+	{"new((pkg.Type))", "(parenthesized_type (qualified_type (package_identifier) (type_identifier)))", false, "fixed-residual"},
+	{"new((*T))", "(parenthesized_type (pointer_type (type_identifier)))", false, "fixed-residual"},
+	{"make(pkg.Type, 0)", "(qualified_type (package_identifier) (type_identifier))", false, "fixed-residual"},
+	{"make(*T, 0)", "(pointer_type (type_identifier))", false, "fixed-residual"},
+	// Bare type arguments.
+	{"new(T)", "(type_identifier)", false, "base"},
+	{"new(dirInfo)", "(type_identifier)", false, "base"},
+	{"make(T)", "(type_identifier)", false, "base"},
+	{"new(a, b)", "(type_identifier)", false, "base"}, // invalid-Go arity, still a type in slot 0
+	{"make(a, b, c)", "(type_identifier)", false, "base"},
+	// Composite type controls.
+	{"new([]T)", "(slice_type (type_identifier))", false, "composite"},
+	{"new(*[]T)", "(pointer_type (slice_type (type_identifier)))", false, "composite"},
+	{"new([]*T)", "(slice_type (pointer_type (type_identifier)))", false, "composite"},
+	{"new(map[K]V)", "(map_type (type_identifier) (type_identifier))", false, "composite"},
+	{"new(*map[K]V)", "(pointer_type (map_type (type_identifier) (type_identifier)))", false, "composite"},
+	{"new(chan T)", "(channel_type (type_identifier))", false, "composite"},
+	{"new(*chan T)", "(pointer_type (channel_type (type_identifier)))", false, "composite"},
+	{"new(struct{})", "(struct_type (field_declaration_list))", false, "composite"},
+	{"new(interface{})", "(interface_type)", false, "composite"},
+	{"new(func())", "(function_type (parameter_list))", false, "composite"},
+	{"new([3]T)", "(array_type (int_literal) (type_identifier))", false, "composite"},
+	{"new(pkg.Type[int])", "(generic_type (qualified_type (package_identifier) (type_identifier)) (type_arguments (type_elem (type_identifier))))", false, "composite"},
+	{"make([]pkg.Type, 0)", "(slice_type (qualified_type (package_identifier) (type_identifier)))", false, "composite"},
+	// Malformed forms retain the locked C recovery expectations.
+	{"new(a.b.C)", "(ERROR (qualified_type (package_identifier) (type_identifier)))", true, "malformed"},
+	{"new(&T)", "(ERROR)", true, "malformed"},
 }
 
-// TestParseGoNewMakeTypeArgumentDiffCorpus is the durable scorecard for the Go
-// new()/make() leading-argument retag. It pins the exact node shape of every
-// corpus form and reports the count of forms that byte-match the C oracle.
+// TestParseGoNewMakeTypeArgumentDiffCorpus checks the locked C argument expectations.
 func TestParseGoNewMakeTypeArgumentDiffCorpus(t *testing.T) {
-	matchC := 0
 	for _, e := range goNewMakeDiffCorpus {
 		e := e
 		t.Run(e.form, func(t *testing.T) {
 			src := "package p\n\nfunc f() {\n\t_ = " + e.form + "\n}\n"
 			tree, lang := parseGo(t, src)
 			root := tree.RootNode()
-			assertNoErrorOrMissing(t, lang, root, e.form)
+			if root.HasError() != e.wantError {
+				t.Fatalf("%s: error=%v, want %v", e.form, root.HasError(), e.wantError)
+			}
+			if !e.wantError {
+				assertNoErrorOrMissing(t, lang, root, e.form)
+			}
 
 			call := findNamedChild(lang, root, "call_expression")
 			if call == nil {
@@ -103,12 +86,7 @@ func TestParseGoNewMakeTypeArgumentDiffCorpus(t *testing.T) {
 				t.Fatalf("%s (%s): leading argument shape mismatch\n got: %s\nwant: %s", e.form, e.note, got, e.wantLeadSExpr)
 			}
 		})
-		if e.matchesC {
-			matchC++
-		}
 	}
-	t.Logf("Go new/make DIFF corpus: %d/%d forms byte-match the C oracle (%d documented invalid-Go divergences)",
-		matchC, len(goNewMakeDiffCorpus), len(goNewMakeDiffCorpus)-matchC)
 }
 
 // TestParseGoNewMakeResidualCompositeLiteralGuards is the composite-literal

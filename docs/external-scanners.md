@@ -526,7 +526,7 @@ silently widening HTML admission.
 | `gitcommit` | fallback (uncertified) |
 | `gleam` | certified reuse |
 | `gn` | certified reuse |
-| `go` | certified reuse |
+| `go` | legacy grammar only |
 | `godot_resource` | certified reuse |
 | `hack` | fallback (uncertified) |
 | `haskell` | fallback (uncertified) |

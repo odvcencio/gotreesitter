@@ -9,31 +9,10 @@ import (
 	"github.com/odvcencio/gotreesitter/internal/benchfixtures"
 )
 
-// TestIssue454CIncrementalDeleteMatchesFresh is the named regression case for
-// issue #454's C incremental-delete defect: ParseIncremental on a ~137 KiB
-// repeated-function C fixture, after a single-byte delete at the first "x0"
-// identifier (a transient-error edit: "x0" loses its leading letter and
-// becomes the bare integer literal "0") that defeats incremental reuse,
-// returned a 1-node ERROR tree against a fresh parse of tens of thousands of
-// nodes.
-//
-// Root cause: the incremental GLR loop explored pathological ambiguity near
-// the malformed declaration (observed ~3.08M allocated nodes for a ~64K-node
-// file -- about 48x a clean parse) and tripped ParseStopMemoryBudget. The
-// plain (DFA) ParseIncremental / ParseIncrementalProfiled entry points had no
-// fail-closed fallback for that stop reason at all; the TokenSource entry
-// points had a retry-as-full ladder (shouldRetryIncrementalParseAsFull) but
-// it never triggers for ParseStopMemoryBudget either, since neither
-// fullParseRetryMaxStacksOverrideForOrigin nor fullParseRetryNodeLimitOverride
-// key off that stop reason (and widening the GLR stack/node cap is the wrong
-// direction for a runaway-allocation failure regardless). The fix
-// (shouldRetryIncrementalMemoryBudgetAsPlainFull and its DFA/TokenSource
-// fallbacks, parser_retry.go) discards a memory-budget-aborted incremental
-// attempt and substitutes exactly one plain, default-budget full parse. This
-// test proves the result converges to a byte-identical tree (full deep-digest
-// comparison, the same digest stream the cgo oracle uses) and that the other
-// two single-byte edit classes at the same site keep genuine old-tree reuse
-// (this fix is scoped narrower than c_sharp/php's blanket reuse decline).
+// TestIssue454CIncrementalDeleteMatchesFresh checks the original C deletion and its clean controls.
+// The deletion previously exhausted the reuse budget and required a full retry.
+// It now reuses the unchanged suffix. Require complete fresh-tree equality and genuine reuse for all three edits.
+// Direct budget tests separately preserve the allocation limit and full-retry rules.
 func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 	lang := grammars.CLanguage()
 	source := benchfixtures.Issue454CSource()
@@ -64,10 +43,6 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 		newEnd  int
 		oldCols uint32
 		newCols uint32
-		// wantFallbackReason is non-empty only for the edit class expected to
-		// trip a fail-closed plain full retry (the reuse budget, or the memory
-		// budget behind it).
-		wantFallbackReason string
 	}{
 		{
 			name:    "replace",
@@ -92,9 +67,6 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 			newEnd:  site,
 			oldCols: 1,
 			newCols: 0,
-			// The incremental reuse budget now stops this attempt before the
-			// memory budget does; both take the same plain full retry.
-			wantFallbackReason: "incremental_parse_reuse_budget_full_retry",
 		},
 	}
 	tests[0].edited[site] = 'y'
@@ -126,14 +98,6 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 				t.Fatalf("incremental parse stopped early: %s", incremental.ParseRuntime().Summary())
 			}
 
-			if test.wantFallbackReason != "" {
-				if !profile.ReuseUnsupported || profile.ReuseUnsupportedReason != test.wantFallbackReason {
-					t.Fatalf("%s: expected the fail-closed plain full retry %q, profile = %+v", test.name, test.wantFallbackReason, profile)
-				}
-			} else if profile.ReusedSubtrees == 0 {
-				t.Fatalf("%s: expected genuine old-tree reuse, got none: profile = %+v", test.name, profile)
-			}
-
 			fresh, err := gotreesitter.NewParser(lang).Parse(test.edited)
 			if err != nil {
 				t.Fatalf("fresh edited Parse: %v", err)
@@ -144,6 +108,13 @@ func TestIssue454CIncrementalDeleteMatchesFresh(t *testing.T) {
 			want := issue454CTreeShape(t, lang, fresh)
 			if got != want {
 				t.Fatalf("incremental shape = %+v, fresh shape = %+v", got, want)
+			}
+			t.Logf("exact fresh digest=%s nodes=%d reused=%d/%d unsupported=%v", got.digest, got.nodes, profile.ReusedBytes, len(test.edited), profile.ReuseUnsupported)
+			if profile.ReuseUnsupported || profile.ReuseUnsupportedReason != "" || !profile.OldTreeReuseRoute || profile.ReusedSubtrees == 0 {
+				t.Fatalf("%s: expected genuine old-tree reuse, profile = %+v", test.name, profile)
+			}
+			if profile.ReusedBytes == 0 || profile.ReusedBytes > uint64(len(test.edited)) {
+				t.Fatalf("reused bytes = %d, source bytes = %d", profile.ReusedBytes, len(test.edited))
 			}
 		})
 	}

@@ -574,7 +574,7 @@ func registerBuiltinLanguages() {
 		Name:           "go",
 		Extensions:     []string{".go"},
 		Language:       GoLanguage,
-		GrammarSource:  GrammarSourceGrammargenBlob,
+		GrammarSource:  GrammarSourceTS2GoBlob,
 		HighlightQuery: "; Function calls\n\n(call_expression\n  function: (identifier) @function)\n\n(call_expression\n  function: (identifier) @function.builtin\n  (#match? @function.builtin \"^(append|cap|close|complex|copy|delete|imag|len|make|new|panic|print|println|real|recover)$\"))\n\n(call_expression\n  function: (selector_expression\n    field: (field_identifier) @function.method))\n\n; Function definitions\n\n(function_declaration\n  name: (identifier) @function)\n\n(method_declaration\n  name: (field_identifier) @function.method)\n\n; Identifiers\n\n(type_identifier) @type\n(field_identifier) @property\n(identifier) @variable\n\n; Operators\n\n[\n  \"--\"\n  \"-\"\n  \"-=\"\n  \":=\"\n  \"!\"\n  \"!=\"\n  \"...\"\n  \"*\"\n  \"*\"\n  \"*=\"\n  \"/\"\n  \"/=\"\n  \"&\"\n  \"&&\"\n  \"&=\"\n  \"%\"\n  \"%=\"\n  \"^\"\n  \"^=\"\n  \"+\"\n  \"++\"\n  \"+=\"\n  \"<-\"\n  \"<\"\n  \"<<\"\n  \"<<=\"\n  \"<=\"\n  \"=\"\n  \"==\"\n  \">\"\n  \">=\"\n  \">>\"\n  \">>=\"\n  \"|\"\n  \"|=\"\n  \"||\"\n  \"~\"\n] @operator\n\n; Keywords\n\n[\n  \"break\"\n  \"case\"\n  \"chan\"\n  \"const\"\n  \"continue\"\n  \"default\"\n  \"defer\"\n  \"else\"\n  \"fallthrough\"\n  \"for\"\n  \"func\"\n  \"go\"\n  \"goto\"\n  \"if\"\n  \"import\"\n  \"interface\"\n  \"map\"\n  \"package\"\n  \"range\"\n  \"return\"\n  \"select\"\n  \"struct\"\n  \"switch\"\n  \"type\"\n  \"var\"\n] @keyword\n\n; Literals\n\n[\n  (interpreted_string_literal)\n  (raw_string_literal)\n  (rune_literal)\n] @string\n\n(escape_sequence) @escape\n\n[\n  (int_literal)\n  (float_literal)\n  (imaginary_literal)\n] @number\n\n[\n  (true)\n  (false)\n  (nil)\n  (iota)\n] @constant.builtin\n\n(comment) @comment\n",
 	})
 	Register(LangEntry{
@@ -1540,7 +1540,7 @@ func registerBuiltinLanguages() {
 		Name:           "yaml",
 		Extensions:     []string{".yaml", ".yml"},
 		Language:       YamlLanguage,
-		GrammarSource:  GrammarSourceTS2GoBlob,
+		GrammarSource:  GrammarSourceGrammargenBlob,
 		HighlightQuery: "(boolean_scalar) @boolean\n\n(null_scalar) @constant.builtin\n\n[\n  (double_quote_scalar)\n  (single_quote_scalar)\n  (block_scalar)\n  (string_scalar)\n] @string\n\n[\n  (integer_scalar)\n  (float_scalar)\n] @number\n\n(comment) @comment\n\n[\n  (anchor_name)\n  (alias_name)\n] @label\n\n(tag) @type\n\n[\n  (yaml_directive)\n  (tag_directive)\n  (reserved_directive)\n] @attribute\n\n(block_mapping_pair\n  key: (flow_node\n    [\n      (double_quote_scalar)\n      (single_quote_scalar)\n    ] @property))\n\n(block_mapping_pair\n  key: (flow_node\n    (plain_scalar\n      (string_scalar) @property)))\n\n(flow_mapping\n  (_\n    key: (flow_node\n      [\n        (double_quote_scalar)\n        (single_quote_scalar)\n      ] @property)))\n\n(flow_mapping\n  (_\n    key: (flow_node\n      (plain_scalar\n        (string_scalar) @property))))\n\n; Recovery fallback for malformed plain scalars like:\n; key: value: trailing\n(stream\n  (flow_node\n    (plain_scalar\n      (string_scalar) @property))\n  \":\"\n  (string_scalar))\n\n[\n  \",\"\n  \"-\"\n  \":\"\n  \">\"\n  \"?\"\n  \"|\"\n] @punctuation.delimiter\n\n[\n  \"[\"\n  \"]\"\n  \"{\"\n  \"}\"\n] @punctuation.bracket\n\n[\n  \"*\"\n  \"&\"\n  \"---\"\n  \"...\"\n] @punctuation.special\n",
 	})
 	Register(LangEntry{

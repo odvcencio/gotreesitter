@@ -65,6 +65,7 @@ func TestCompactRecoveryVersionTurnUsesCOrder(t *testing.T) {
 
 func TestCompactRecoveryVersionTurnCancellationPreservesFork(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 16
 	handled, err := scheduler.s5TryMissingTokenInsertion(0)
 	if err != nil || !handled || len(scheduler.headers) != 2 {
 		t.Fatalf("create recovery fork: handled=%t err=%v headers=%d", handled, err, len(scheduler.headers))
@@ -142,23 +143,81 @@ func (table compactRecoveryVersionTurnCapTable) Actions(state core.StateID, symb
 	return table.recoveryLineageForkTable.Actions(state, symbol)
 }
 
-func TestCompactRecoveryVersionTurnCapDeclinesBeforeMutation(t *testing.T) {
-	scheduler := newCompactRecoveryVersionTurnEOFScheduler(t, compactRecoveryVersionTurnCapTable{})
-	for len(scheduler.headers) < 6 {
-		header := scheduler.headers[1]
-		header.creationSeq = uint64(len(scheduler.headers) + 10)
-		scheduler.headers = append(scheduler.headers, header)
+func TestCompactRecoveryVersionTurnEOFSixVersionTransition(t *testing.T) {
+	for _, count := range []int{5, 6} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			scheduler := newCompactRecoveryVersionTurnEOFScheduler(t, compactRecoveryVersionTurnCapTable{})
+			for len(scheduler.headers) < count {
+				index := len(scheduler.headers)
+				head, err := scheduler.compact.Seed(core.StateID(30+index), 1)
+				if err != nil {
+					t.Fatal(err)
+				}
+				scheduler.headers = append(scheduler.headers, diagnosticParserCoreHeader{
+					head: head, creationSeq: uint64(30 + index), paused: true,
+				})
+			}
+			beforeHeaders := append([]diagnosticParserCoreHeader(nil), scheduler.headers...)
+			request := scheduler.versionLexerRequests[0]
+			region := scheduler.headers[0].recoveryRegion()
+			regionChildren := append([]core.SubtreeID(nil), region.children...)
+			beforeSeq := scheduler.nextSeq
+			beforeForks := scheduler.work.StackSummaryRecoveryForks
+			beforeAccepts := scheduler.work.RecoverEOFAccepts
+			stop, err := scheduler.dispatchRecoveryVersionTurn()
+			if err != nil || stop != nil {
+				t.Fatalf("EOF recovery: stop=%+v err=%v", stop, err)
+			}
+			if len(scheduler.headers) != count+1 || scheduler.work.StackSummaryRecoveryForks != beforeForks+1 || scheduler.nextSeq != beforeSeq+1 {
+				t.Fatal("EOF recovery did not append exactly one ancestor fork")
+			}
+			fork := scheduler.headers[count]
+			if fork.creationSeq != beforeSeq || !fork.isRecoveryLineage() || !fork.isRecoveryCosted() ||
+				fork.recoveryRegion() != nil || fork.shifted || fork.paused || fork.accepted ||
+				fork.versionLexerSnapshot() != request.before || fork.versionLexerRequestReference() != 0 {
+				t.Fatal("ancestor fork lost its lineage or consumed the EOF lookahead")
+			}
+			if !reflect.DeepEqual(scheduler.headers[1:count], beforeHeaders[1:]) || !reflect.DeepEqual(region.children, regionChildren) {
+				t.Fatal("EOF recovery changed a sibling or the original error region")
+			}
+			if count == 6 {
+				if !scheduler.headers[0].paused || scheduler.headers[0].accepted || scheduler.recoveryTurns.halted[0] != 1 ||
+					scheduler.headers[0].recoveryRegion() != region || scheduler.work.RecoverEOFAccepts != beforeAccepts {
+					t.Fatal("seventh version did not halt the original absorber without accepting")
+				}
+			} else if !scheduler.headers[0].accepted || scheduler.headers[0].paused || scheduler.recoveryTurns.halted[0] != 0 ||
+				scheduler.headers[0].recoveryRegion() != nil || scheduler.work.RecoverEOFAccepts != beforeAccepts+1 {
+				t.Fatal("six-version frontier did not retain the separate EOF acceptance")
+			}
+		})
 	}
+}
+
+func TestCompactRecoveryVersionTurnDispatchCapDeclinesBeforeMutation(t *testing.T) {
+	scheduler := newCompactRecoveryVersionTurnEOFScheduler(t, compactRecoveryVersionTurnCapTable{})
+	scheduler.options.MaxDispatches = scheduler.dispatches
 	beforeHeaders := append([]diagnosticParserCoreHeader(nil), scheduler.headers...)
 	beforeRequests := append([]diagnosticParserCoreVersionLexerRequest(nil), scheduler.versionLexerRequests...)
 	beforeTurns, beforeWork, beforeSeq := scheduler.recoveryTurns, scheduler.compact.Work(), scheduler.nextSeq
+	beforeStats, err := scheduler.compact.Stats(scheduler.headers[0].head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeSchedulerWork := scheduler.work
+	beforeDispatches, beforeOwnership := scheduler.dispatches, scheduler.versionLexerOwnershipActive
 	stop, err := scheduler.dispatchRecoveryVersionTurn()
-	if err != nil || stop == nil || !strings.Contains(stop.detail, "version-cap") {
-		t.Fatalf("six-version EOF recovery: stop=%+v err=%v", stop, err)
+	if err == nil || stop != nil || !strings.Contains(err.Error(), "dispatch cap") {
+		t.Fatalf("exhausted EOF dispatch budget: stop=%+v err=%v", stop, err)
+	}
+	afterStats, err := scheduler.compact.Stats(scheduler.headers[0].head)
+	if err != nil {
+		t.Fatal(err)
 	}
 	if scheduler.recoveryTurns != beforeTurns || scheduler.compact.Work() != beforeWork || scheduler.nextSeq != beforeSeq ||
+		afterStats != beforeStats || scheduler.work != beforeSchedulerWork ||
+		scheduler.dispatches != beforeDispatches || scheduler.versionLexerOwnershipActive != beforeOwnership ||
 		!reflect.DeepEqual(scheduler.headers, beforeHeaders) || !reflect.DeepEqual(scheduler.versionLexerRequests, beforeRequests) {
-		t.Fatal("version-cap decline changed the fork before rejecting it")
+		t.Fatal("dispatch-cap decline changed the fork before rejecting it")
 	}
 }
 

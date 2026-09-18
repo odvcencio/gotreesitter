@@ -152,6 +152,7 @@ func requireS5ForkRollback(
 
 func TestS5MissingInsertionForkPublishesBothRecoveryLineages(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
 	handled, err := scheduler.s5TryMissingTokenInsertion(0)
 	if err != nil {
 		t.Fatalf("s5TryMissingTokenInsertion: %v", err)
@@ -305,8 +306,37 @@ func TestS5AbsorberPreservesLexerGapBeforeErrorRegion(t *testing.T) {
 	}
 }
 
+func TestS5MissingInsertionResetsBaselineAfterVisiblePrefix(t *testing.T) {
+	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
+	head, err := scheduler.compact.Shift(scheduler.headers[0].head, 3, 0,
+		core.Token{Symbol: 3, StartByte: 1, EndByte: 2, Extra: true}, core.ForkOrder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduler.headers[0].head = head
+	scheduler.headers[0].publishRecoveryCondenseState(0, 0, 0, true)
+	scheduler.token.StartByte, scheduler.token.EndByte = 2, 3
+	scheduler.tokenSource.lexer.source = []byte("a ?")
+	scheduler.tokenSource.lexer.pos, scheduler.tokenSource.lexer.col = 3, 3
+	scheduler.versionLexerBefore.lexerPos, scheduler.versionLexerBefore.lexerCol = 2, 2
+	want, supported, err := scheduler.s5RecoveryBaseline(scheduler.headers)
+	if err != nil || !supported || want == 0 {
+		t.Fatalf("visible prefix baseline=%d supported=%t err=%v", want, supported, err)
+	}
+	handled, err := scheduler.s5TryMissingTokenInsertion(0)
+	if err != nil || !handled || len(scheduler.headers) != 2 {
+		t.Fatalf("missing fork handled=%t headers=%d err=%v", handled, len(scheduler.headers), err)
+	}
+	missing := scheduler.headers[1]
+	if baseline, set := missing.recoveryNodeBaseline(); !set || baseline != want {
+		t.Fatalf("missing baseline=%d/%t, want pre-reduction count %d", baseline, set, want)
+	}
+}
+
 func TestS5MissingInsertionClampsInheritedBaselineBeforeFork(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
 	scheduler.headers[0].publishRecoveryCondenseState(0, 0, 9, true)
 	handled, err := scheduler.s5TryMissingTokenInsertion(0)
 	if err != nil {
@@ -324,6 +354,7 @@ func TestS5MissingInsertionClampsInheritedBaselineBeforeFork(t *testing.T) {
 
 func TestS5MissingInsertionUsesFixedRecoveryPosition(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
 	extraHead, err := scheduler.compact.Shift(
 		scheduler.headers[0].head, core.Symbol(3), 0,
 		core.Token{Symbol: 3, StartByte: 1, EndByte: 3, Extra: true}, core.ForkOrder{},
@@ -549,19 +580,45 @@ func TestS5MissingInsertionForkDeclinesUnrepresentableTokenCount(t *testing.T) {
 }
 
 func TestS5MissingInsertionForkRequiresLeadingReduceAction(t *testing.T) {
-	scheduler := newRecoveryLineageForkSchedulerWithTable(t, recoveryLineageForkLaterReduceTable{}, true)
-	original := scheduler.headers[0]
+	for _, leading := range []bool{false, true} {
+		name := "later_reduce"
+		var table core.TableView = recoveryLineageForkLaterReduceTable{}
+		if leading {
+			name = "leading_reduce"
+			table = recoveryLineageForkTable{}
+		}
+		t.Run(name, func(t *testing.T) {
+			scheduler := newRecoveryLineageForkSchedulerWithTable(t, table, true)
+			scheduler.options.MaxDispatches = 100
+			handled, err := scheduler.s5TryMissingTokenInsertion(0)
+			if err != nil || !handled {
+				t.Fatalf("recovery handled=%v err=%v", handled, err)
+			}
+			want := uint64(0)
+			if leading {
+				want = 1
+			}
+			if scheduler.work.MissingTokenTrials != want || uint64(scheduler.s5MissingInsertions) != want || len(scheduler.headers) != int(want)+1 {
+				t.Fatalf("missing trials=%d insertions=%d headers=%d, want %d", scheduler.work.MissingTokenTrials, scheduler.s5MissingInsertions, len(scheduler.headers), want)
+			}
+			requireS5SingleTokenAbsorber(t, scheduler, 4, false)
+		})
+	}
+}
 
-	handled, err := scheduler.s5TryMissingTokenInsertion(0)
-	if err != nil {
-		t.Fatalf("s5TryMissingTokenInsertion: %v", err)
+func requireS5SingleTokenAbsorber(t *testing.T, s *diagnosticParserCoreGenericScheduler, symbol core.Symbol, extra bool) {
+	t.Helper()
+	h := s.headers[0]
+	region := h.recoveryRegion()
+	if !s.recoveryIsolation || !h.isRecoveryLineage() || !h.isRecoveryCosted() || !h.shifted || region == nil {
+		t.Fatalf("recovery did not publish a costed absorber: %+v", h)
 	}
-	if handled || len(scheduler.headers) != 1 || scheduler.headers[0] != original {
-		t.Fatalf("later reduce action admitted a missing candidate: handled=%t headers=%+v", handled, scheduler.headers)
+	if region.startByte != 1 || region.endByte != 2 || len(region.children) != 1 {
+		t.Fatalf("absorber region=%+v", region)
 	}
-	if scheduler.s5MissingInsertions != 0 || scheduler.nextSeq != 10 || scheduler.recoveryIsolation {
-		t.Fatalf("later reduce action changed state: insertions=%d next=%d isolated=%t",
-			scheduler.s5MissingInsertions, scheduler.nextSeq, scheduler.recoveryIsolation)
+	leaf, err := s.compact.MaterializationView(region.children[0])
+	if err != nil || leaf.Symbol != symbol || leaf.Missing || leaf.Extra != extra || leaf.StartByte != 1 || leaf.EndByte != 2 || len(leaf.Children) != 0 {
+		t.Fatalf("absorbed leaf=%+v err=%v", leaf, err)
 	}
 }
 
@@ -603,6 +660,7 @@ func TestS5UpdatedReductionFreshnessTargetsAdoptedSibling(t *testing.T) {
 
 func TestS5MissingInsertionForkAcceptsHiddenFirstCandidate(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
 	scheduler.tokenSource.language.SymbolMetadata = make([]SymbolMetadata, 5)
 	for index := range scheduler.tokenSource.language.SymbolMetadata {
 		scheduler.tokenSource.language.SymbolMetadata[index].Visible = true
@@ -635,6 +693,7 @@ func TestS5MissingInsertionForkAcceptsHiddenFirstCandidate(t *testing.T) {
 
 func TestS5MissingInsertionForkAcceptsZeroOffsetAbsorb(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
 	seed, err := scheduler.compact.Seed(core.StateID(1), 0)
 	if err != nil {
 		t.Fatalf("Seed: %v", err)
@@ -659,23 +718,77 @@ func TestS5MissingInsertionForkAcceptsZeroOffsetAbsorb(t *testing.T) {
 	}
 }
 
-func TestS5MissingInsertionForkRestoresFullTransactionOnDecline(t *testing.T) {
+func TestS5NoMissingCandidateAbsorbsExtraToken(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
+	scheduler.token = Token{Symbol: 3, StartByte: 1, EndByte: 2}
+	handled, err := scheduler.s5TryMissingTokenInsertion(0)
+	if err != nil || !handled || len(scheduler.headers) != 1 || scheduler.s5MissingInsertions != 0 || scheduler.work.MissingTokenTrials != 0 {
+		t.Fatalf("extra recovery handled=%v err=%v headers=%d work=%+v", handled, err, len(scheduler.headers), scheduler.work)
+	}
+	requireS5SingleTokenAbsorber(t, scheduler, 3, true)
+}
+
+type recoveryLateCandidateDeclineTable struct {
+	recoveryLineageForkTable
+	observe func()
+}
+
+func (table *recoveryLateCandidateDeclineTable) Actions(state core.StateID, symbol core.Symbol) (core.ActionRow, error) {
+	if state == 2 && symbol == 3 {
+		table.observe()
+		return core.NewActionRow(nil, false), nil
+	}
+	return table.recoveryLineageForkTable.Actions(state, symbol)
+}
+
+func TestS5MissingCandidateRestoresFullTransactionOnLateDecline(t *testing.T) {
+	table := &recoveryLateCandidateDeclineTable{}
+	scheduler := newRecoveryLineageForkSchedulerWithTable(t, table, true)
+	scheduler.options.MaxDispatches = 100
 	scheduler.token = Token{Symbol: 3, StartByte: 1, EndByte: 2}
 	receipt := &DiagnosticParserCoreGenericScheduler{Tokens: 7}
 	scheduler.receipt = receipt
 	scheduler.verifierHeaderPtr = &scheduler.headers[0]
-	scheduler.verifierBound = len(scheduler.headers)
+	scheduler.verifierBound = 1
 	original := scheduler.headers[0]
 	beforeStats, err := scheduler.compact.Stats(original.head)
 	if err != nil {
-		t.Fatalf("read pre-decline stats: %v", err)
+		t.Fatal(err)
 	}
 	beforeWork := scheduler.compact.Work()
-
-	handled, err := scheduler.s5TryMissingTokenInsertion(0)
-	if err != nil || handled {
-		t.Fatalf("S5 decline handled=%t err=%v", handled, err)
+	observed := false
+	table.observe = func() {
+		observed = true
+		if scheduler.nextSeq != 11 || scheduler.headers[0].head == original.head {
+			t.Fatal("decline did not follow a missing shift and sequence mutation")
+		}
+		derivations, e := scheduler.compact.Derivations(scheduler.headers[0].head)
+		if e != nil || len(derivations) != 1 || len(derivations[0].Payloads) != 1 {
+			t.Fatalf("trial derivations=%+v err=%v", derivations, e)
+		}
+		leaf, e := scheduler.compact.MaterializationView(derivations[0].Payloads[0])
+		if e != nil || !leaf.Missing || leaf.Symbol != 2 {
+			t.Fatalf("trial missing leaf=%+v err=%v", leaf, e)
+		}
+	}
+	staged := diagnosticParserCoreS5Work{missingTokenTrials: 7}
+	beforeStaged := staged
+	err = scheduler.compact.ApplySchedulerAtomic(func(owner core.SchedulerTransactionToken) error {
+		trial, viable, seq, e := scheduler.s5TryMissingCandidateOwned(owner, []diagnosticParserCoreHeader{original}, 0, 2, 2, 1, &staged)
+		if e != nil {
+			return e
+		}
+		if viable || len(trial) != 0 || seq != 0 {
+			t.Fatalf("declined trial=%+v viable=%v seq=%d", trial, viable, seq)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !observed || staged != beforeStaged {
+		t.Fatalf("decline observed=%v staged=%+v", observed, staged)
 	}
 	requireS5ForkRollback(t, scheduler, original, beforeStats, beforeWork, receipt)
 }
@@ -684,6 +797,7 @@ func TestS5MissingInsertionForkRestoresFullTransactionOnError(t *testing.T) {
 	sentinel := errors.New("S5 action fault")
 	table := &recoveryLineageForkFaultTable{returnError: sentinel}
 	scheduler := newRecoveryLineageForkSchedulerWithTable(t, table, true)
+	scheduler.options.MaxDispatches = 100
 	receipt := &DiagnosticParserCoreGenericScheduler{Tokens: 7}
 	scheduler.receipt = receipt
 	scheduler.verifierHeaderPtr = &scheduler.headers[0]
@@ -706,6 +820,7 @@ func TestS5MissingInsertionForkRestoresFullTransactionOnPanic(t *testing.T) {
 	const sentinel = "S5 action panic"
 	table := &recoveryLineageForkFaultTable{panicValue: sentinel}
 	scheduler := newRecoveryLineageForkSchedulerWithTable(t, table, true)
+	scheduler.options.MaxDispatches = 100
 	receipt := &DiagnosticParserCoreGenericScheduler{Tokens: 7}
 	scheduler.receipt = receipt
 	scheduler.verifierHeaderPtr = &scheduler.headers[0]
@@ -730,6 +845,8 @@ func TestS5MissingInsertionForkRestoresFullTransactionOnPanic(t *testing.T) {
 
 func TestRecoveryCompetitionDoesNotUseOrdinaryNoActionDrop(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
+	scheduler.options.MaxTokens = 100
 	scheduler.receipt = &DiagnosticParserCoreGenericScheduler{}
 	handled, err := scheduler.s5TryMissingTokenInsertion(0)
 	if err != nil || !handled {
@@ -756,6 +873,8 @@ func TestRecoveryCompetitionDoesNotUseOrdinaryNoActionDrop(t *testing.T) {
 
 func TestRecoveryCompetitionDeclinesAfterOrdinaryAmbiguity(t *testing.T) {
 	scheduler := newRecoveryLineageForkScheduler(t, true)
+	scheduler.options.MaxDispatches = 100
+	scheduler.options.MaxTokens = 100
 	handled, err := scheduler.s5TryMissingTokenInsertion(0)
 	if err != nil || !handled {
 		t.Fatalf("fork: handled=%t err=%v", handled, err)

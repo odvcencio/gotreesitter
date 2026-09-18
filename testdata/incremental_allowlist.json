@@ -1,20 +1,5 @@
 {
   "version": 2,
-  "description": "Known-tail registry for TestIncrementalInvariantGate (incremental_invariant_gate_test.go). Each entry documents a currently-reproducing case where ParseIncremental diverges structurally from Parse on the same edited text even though the fresh parse is genuinely clean (full-span, zero IsError()/IsMissing() nodes) -- the 'silent incremental corruption' class (HasError() reports false, no consumer signal). Keyed by (language, editClass, signature); signature = <divergingNodeType>:<kind>[detail]. childCount deltas are kept EXACT and signed (never bucketed) so a worse-magnitude divergence is a NEW unlisted signature the gate hard-fails on. RATCHET: the gate fails if any entry here stops reproducing. Before deleting a ratchet-failed entry, confirm WHY it stopped: either the incremental bug was fixed, OR the fresh-clean observation window closed (a grammar/parser change made the fresh parse at those sites contain ERROR/MISSING, excluding them from scope while the bug may persist). Only remove entries confirmed fixed. This is a self-consistency gate (incremental == fresh), NOT an oracle (fresh == C) -- it complements the cgo parity gate, it does not replace it. Regenerated against origin/main @ ca871e7d (post-#379 Python fail-closed).",
-  "entries": [
-    {
-      "language": "python",
-      "editClass": "delete",
-      "signature": "comparison_operator:childCount-1",
-      "freshGenuinelyClean": false,
-      "note": "python_setup.py byte 1241 deletes or replaces the space in `] if system()`, which turns `if` into part of an identifier. Both parses are erroneous but carry no error bit (C reports an ERROR here). The fresh parse keeps 1 GLR stack at the following string, the incremental parse keeps 2, and the result selection differs. Recorded with the C keyword rule (ts_parser__lex: a keyword with no action becomes the word token); see docs/c-parity-boards.md, Recovery."
-    },
-    {
-      "language": "python",
-      "editClass": "replace",
-      "signature": "comparison_operator:childCount-1",
-      "freshGenuinelyClean": false,
-      "note": "python_setup.py byte 1241 deletes or replaces the space in `] if system()`, which turns `if` into part of an identifier. Both parses are erroneous but carry no error bit (C reports an ERROR here). The fresh parse keeps 1 GLR stack at the following string, the incremental parse keeps 2, and the result selection differs. Recorded with the C keyword rule (ts_parser__lex: a keyword with no action becomes the word token); see docs/c-parity-boards.md, Recovery."
-    }
-  ]
+  "description": "Known fresh-clean incremental divergences. Remove an entry only after exact C checks confirm the fix. The gate rejects new or stale entries.",
+  "entries": []
 }

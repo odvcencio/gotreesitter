@@ -61,9 +61,10 @@ type ParseActionEntry struct {
 
 // LexState is one state in the table-driven lexer DFA.
 type LexState struct {
-	AcceptToken    Symbol // 0 if this state doesn't accept
+	AcceptToken    Symbol // 0 unless this state accepts a non-end token
 	AcceptPriority int16  // lower = higher priority (0 for ts2go blobs = longest-match)
 	Skip           bool   // true if accepted chars are whitespace
+	AcceptEOF      bool   // true if this state accepts the end token (symbol 0)
 	Default        int    // default next state (-1 if none)
 	EOF            int    // state on EOF (-1 if none)
 	Transitions    []LexTransition
@@ -948,6 +949,11 @@ type Language struct {
 	// shared recovery or sibling drops. Other recovery grants remain separate.
 	// Custom, adapted, and stale artifacts retain the false default.
 	CompactOwnedEOFRecoveryCertified bool
+
+	// CompactIncludedRangeEOFRecoveryCertified permits included ranges on the owned EOF route.
+	// Publication still requires an executed owned EOF recovery turn.
+	// Custom, adapted, and stale artifacts retain the false default.
+	CompactIncludedRangeEOFRecoveryCertified bool
 
 	// CompactRecoveryTrailingLineageRetirementCertified permits the compact
 	// scheduler to retire one trailing no-action missing lineage after the

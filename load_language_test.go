@@ -7,6 +7,46 @@ import (
 	"testing"
 )
 
+func TestLoadLanguageLegacyLexState(t *testing.T) {
+	// This shape predates AcceptEOF. Gob must leave the new field false.
+	type legacyLexState struct {
+		AcceptToken  Symbol
+		Default, EOF int
+		Transitions  []LexTransition
+	}
+	legacy := struct{ LexStates []legacyLexState }{
+		LexStates: []legacyLexState{
+			{Default: -1, EOF: 1, Transitions: []LexTransition{{Lo: 'a', Hi: 'a', NextState: 2}}},
+			{Default: -1, EOF: -1},
+			{AcceptToken: 1, Default: -1, EOF: -1},
+		},
+	}
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	if err := gob.NewEncoder(gzw).Encode(legacy); err != nil {
+		t.Fatal(err)
+	}
+	if err := gzw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadLanguage(buf.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, state := range loaded.LexStates {
+		if state.AcceptEOF {
+			t.Fatalf("legacy state %d acquired end acceptance", i)
+		}
+	}
+	lex := NewLexer(loaded.LexStates, []byte("a"))
+	if token := lex.Next(0); token.Symbol != 1 || token.EndByte != 1 {
+		t.Fatalf("legacy text token=%+v", token)
+	}
+	if token := lex.Next(0); token.Symbol != 0 || token.StartByte != 1 || token.EndByte != 1 {
+		t.Fatalf("legacy end token=%+v", token)
+	}
+}
+
 func TestFullParseAcceptedErrorRetryProfileLanguageBlobRoundTrip(t *testing.T) {
 	want := FullParseAcceptedErrorRetryProfile{
 		SkipCompleteAcceptedErrorRetry:         true,

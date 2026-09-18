@@ -323,6 +323,18 @@ func TestCompactIncrementalExecutionSameWidthUnsupported(t *testing.T) {
 			if !test.mismatch && !next.RootNode().HasError() {
 				t.Fatal("malformed edit produced no recovery error")
 			}
+			if !test.mismatch {
+				runtime := next.ParseRuntime()
+				if !runtime.CompactIncrementalFullRecoveryRoute || runtime.Truncated || profile.ReusedSubtrees != 0 {
+					t.Fatalf("recovery lacks a complete fresh compact result: %s", runtime.Summary())
+				}
+				// Both fresh and incremental pinned C parses produce this digest.
+				const want = "a4cb75999d00f162477af56b6058ff9dfe3cc22da1c5699351ab7893837935e3"
+				if got := requireDiagnosticParserCoreCanonicalTreeDigest(t, next, parser.language); got != want {
+					t.Fatalf("recovery digest=%s want pinned C %s", got, want)
+				}
+				return
+			}
 			freshParser := NewParser(parser.language)
 			freshParser.SetAdmissionCandidateRoute(false)
 			fresh, err := freshParser.Parse(edited)
@@ -335,7 +347,7 @@ func TestCompactIncrementalExecutionSameWidthUnsupported(t *testing.T) {
 	}
 }
 
-// This test checks recovery fallback against production. It does not certify C parity.
+// This test rejects an unsafe splice and compares the complete recovery with production.
 func TestCompactIncrementalExecutionMissingBraceRejectsWrongSplice(t *testing.T) {
 	parser := newAdmissionCandidateGoParser(t)
 	parser.SetAdmissionCandidateRoute(true)

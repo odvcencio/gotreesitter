@@ -12,7 +12,7 @@ func isRegisteredLanguage(name string) bool {
 }
 
 func TestGrammargenBlobProvenance(t *testing.T) {
-	for _, name := range []string{"go", "regex", "swift"} {
+	for _, name := range []string{"regex", "swift"} {
 		t.Run(name, func(t *testing.T) {
 			entry := DetectLanguageByName(name)
 			if entry == nil {
@@ -46,11 +46,8 @@ func TestDetectLanguageGo(t *testing.T) {
 	if entry.Name != "go" {
 		t.Fatalf("expected language name %q, got %q", "go", entry.Name)
 	}
-	// Go no longer registers a default TokenSourceFactory as of 0.14.0 — the
-	// grammargen-compiled blob ships DFA tables that parse Go on their own,
-	// and the hand-tuned GoTokenSource was calibrated to ts2go's symbol
-	// layout. GoTokenSource remains available via the public API for
-	// callers that carry a ts2go-compiled Go blob.
+	// Go uses the locked C grammar's DFA tables without a custom token source.
+	// GoTokenSource remains available for callers that select it explicitly.
 	if entry.TokenSourceFactory != nil {
 		t.Fatal("Go now uses the DFA backend by default; no TokenSourceFactory should be registered")
 	}

@@ -37,14 +37,14 @@ func TestKDLRecoveryGarbageSuffixExact(t *testing.T) {
 		t.Fatalf("root.EndByte = %d, want %d", got, want)
 	}
 
-	wantDigest := [sha256.Size]byte{
-		0xcb, 0xe5, 0x33, 0x87, 0x5b, 0xb7, 0x90, 0xc7,
-		0x7d, 0x7c, 0x7a, 0xe4, 0x7d, 0x36, 0xb2, 0xd4,
-		0x32, 0x05, 0xc3, 0x97, 0x88, 0x46, 0xa9, 0x8b,
-		0xd5, 0xd0, 0x04, 0x63, 0xb4, 0x5b, 0x12, 0x12,
+	// TestKDLAbsorbedLeafErrorsLockedC verifies this digest against C.
+	const wantDigest = "5a67db49ab94a243ac22371aa30243f017ee982c7c8cf34f0d9c6e31bdc68c85"
+	inspection, err := benchfixtures.InspectGoTree(root, lang)
+	if err != nil {
+		t.Fatalf("inspect recovery tree: %v", err)
 	}
-	if got := sha256.Sum256([]byte(root.SExpr(lang))); got != wantDigest {
-		t.Fatalf("selected tree digest = %x, want %x", got, wantDigest)
+	if got := inspection.SHA256; got != wantDigest {
+		t.Fatalf("selected tree digest = %s, want %s", got, wantDigest)
 	}
 
 	runtime := tree.ParseRuntime()

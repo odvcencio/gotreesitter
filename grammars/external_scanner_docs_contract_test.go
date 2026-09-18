@@ -37,8 +37,20 @@ func TestExternalScannerDocumentationCertificationsMatchAttachedRuntimeRegistry(
 			}
 
 			lang := entry.Language()
-			if lang == nil || lang.ExternalScanner == nil {
+			if lang == nil {
 				t.Errorf("runtime external scanner %q did not attach to its ordinary language", name)
+				return
+			}
+			if lang.ExternalScanner == nil {
+				bound, ok := externalScannerRegistry[name].(interface {
+					ExternalScannerForLanguage(*gts.Language) gts.ExternalScanner
+				})
+				if !ok || len(lang.ExternalSymbols) != 0 || bound.ExternalScannerForLanguage(lang) != nil {
+					t.Errorf("runtime external scanner %q did not attach to its ordinary language", name)
+				}
+				if certifications[name] != "legacy grammar only" {
+					t.Errorf("scanner matrix must identify %q as legacy grammar only", name)
+				}
 				return
 			}
 			want := externalScannerCertification(lang.ExternalScanner)

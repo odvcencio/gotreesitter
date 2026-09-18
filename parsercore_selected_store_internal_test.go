@@ -31,6 +31,10 @@ func TestDiagnosticParserCoreSelectedStoreCanonicalAdmissions(t *testing.T) {
 			if len(scheduler.acceptedPayloads) == 0 {
 				t.Fatal("accepted payloads were not carried from acceptance")
 			}
+			parseWork := runner.compact.Work()
+			if parseWork.Overflow || parseWork.Shifts == 0 || parseWork.Reductions == 0 {
+				t.Fatalf("selected store received invalid parse work: %+v", parseWork)
+			}
 			store, err := runner.compact.BuildAuthenticatedSelectedStore(scheduler.acceptedPayloads, fixture.Source, func() error { return nil })
 			if err != nil {
 				t.Fatal(err)
@@ -51,8 +55,9 @@ func TestDiagnosticParserCoreSelectedStoreCanonicalAdmissions(t *testing.T) {
 			if got := diagnosticParserCoreSelectedStoreDeepDigest(t, store, runner.lang, fixture.Source); got != row.deepTreeSHA256 {
 				t.Fatalf("selected store digest=%s want=%s", got, row.deepTreeSHA256)
 			}
-			if work := runner.compact.Work(); work != row.work || work.Overflow {
-				t.Fatalf("selected store work=%+v want=%+v", work, row.work)
+			// Sealing and materialization must not execute more parser actions.
+			if work := runner.compact.Work(); work != parseWork || work.Overflow {
+				t.Fatalf("selected store changed parse work: got=%+v want=%+v", work, parseWork)
 			}
 			t.Logf("SELECTED_STORE fixture=%s nodes=%d retained_bytes=%d", row.id, store.NodeCount(), store.RetainedBytes())
 		})

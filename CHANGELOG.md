@@ -7,6 +7,18 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Lexer end-token acceptance
+
+- Preserve end-token acceptance when importing and serializing lexer states.
+- Let later end-of-file accepts replace equal-width tokens at the same priority.
+- Stop adding an empty CSV row after a trailing newline.
+
+### Parser conflict order
+
+- Preserve surviving stack order when a merge bucket discards a weaker alternative.
+- Apply the same order to normal, deferred, and large-cap merges.
+- Match the locked C parser for repeated generic calls in a Go binary expression.
+
 ### Stack hashing
 
 - Pack node flags with masks and shifts without changing hash values.
@@ -37,6 +49,7 @@ for tags and release notes while still in `0.x`.
 
 ### Compact parser maintenance
 
+- Scan recovery terminals directly without allocating a temporary symbol list.
 - Move scheduler memory accounting and stop checks into a dedicated source file.
 - Share symbol metadata projection between recovery and selected-store materialization.
 - Include retained recovery-memo capacity in scheduler memory limits, including after reset.

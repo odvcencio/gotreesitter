@@ -58,20 +58,7 @@ func (s *diagnosticParserCoreGenericScheduler) tryLexicalErrorRecovery(index int
 		(relexed.Symbol != s.token.Symbol || relexed.EndByte != s.token.EndByte) {
 		return false, nil
 	}
-	handled, err := s.s5TryRecoveryTransaction(index, true)
-	if err != nil || !handled {
-		return handled, err
-	}
-	// The region is open and committed. A lexical error region never starts
-	// recovery version turns, and a language whose recovered trees publish
-	// only through an executed EOF turn therefore cannot publish this parse.
-	// Decline now instead of parsing to end of file and declining at
-	// materialization (issue #454: a mid-file Go error paid a full compact
-	// pass before falling back to production).
-	if err := s.declineUnpublishableSharedRecovery(); err != nil {
-		return false, err
-	}
-	return true, nil
+	return s.s5TryRecoveryTransaction(index, true)
 }
 
 func (s *diagnosticParserCoreGenericScheduler) runLexicalErrorRecoveryOwned(
@@ -89,6 +76,9 @@ func (s *diagnosticParserCoreGenericScheduler) runLexicalErrorRecoveryOwned(
 	frontier := diagnosticParserCoreS5CloneSlice(s.headers)
 	if len(frontier) == 0 {
 		return false, nil
+	}
+	if s.options.allowCompactFaithfulS5Recovery {
+		return s.beginRecoveryFrontierOwned(owner, frontier, staged)
 	}
 	baseline, supported, err := s.s5RecoveryBaseline(frontier)
 	if err != nil || !supported {

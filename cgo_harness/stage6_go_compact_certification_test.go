@@ -4,7 +4,6 @@ package cgoharness
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	gotreesitter "github.com/odvcencio/gotreesitter"
@@ -16,15 +15,13 @@ import (
 // through compact admission against the locked C oracle.
 func TestStage6GoCompactCertification(t *testing.T) {
 	cases := []struct {
-		name           string
-		source         []byte
-		wantRoute      bool
-		wantReasonPart string
+		name   string
+		source []byte
 	}{
-		{name: "smoke", source: []byte(grammars.ParseSmokeSample("go")), wantRoute: true},
-		{name: "method_and_composite", source: []byte("package p\ntype T struct { X int }\nfunc (t T) M(x int) int { return T{X: t.X + x}.X }\n"), wantRoute: true},
-		{name: "type_switch", source: []byte("package p\nfunc f(x any) { switch v := x.(type) { case int: _ = v; default: } }\n"), wantRoute: true},
-		{name: "recovery", source: []byte("package main\nfunc f( {\n\treturn 1\n}\n"), wantReasonPart: "recovery"},
+		{name: "smoke", source: []byte(grammars.ParseSmokeSample("go"))},
+		{name: "method_and_composite", source: []byte("package p\ntype T struct { X int }\nfunc (t T) M(x int) int { return T{X: t.X + x}.X }\n")},
+		{name: "type_switch", source: []byte("package p\nfunc f(x any) { switch v := x.(type) { case int: _ = v; default: } }\n")},
+		{name: "recovery", source: []byte("package main\nfunc f( {\n\treturn 1\n}\n")},
 	}
 	language := grammars.GoLanguage()
 	cLanguage, err := ParityCLanguage("go")
@@ -59,24 +56,13 @@ func TestStage6GoCompactCertification(t *testing.T) {
 			reason := gotreesitter.AdmissionCandidateLastFallbackReason()
 			t.Logf("route=%d/%d reason=%q", routedDelta, fallbackDelta, reason)
 
-			if tc.wantRoute {
-				if routedDelta != 1 || fallbackDelta != 0 {
-					t.Fatalf("clean case did not route through compact admission: %d/%d", routedDelta, fallbackDelta)
-				}
-				assertLockedCTreeExact(t, "Go compact "+tc.name, goTree, language, cTree)
+			if routedDelta != 1 || fallbackDelta != 0 {
+				t.Fatalf("case did not route through compact admission: %d/%d", routedDelta, fallbackDelta)
+			}
+			if tc.name == "recovery" {
+				assertG18LockedCExact(t, "Go compact recovery", goTree, language, cTree)
 			} else {
-				if routedDelta != 0 || fallbackDelta != 1 {
-					t.Fatalf("recovery case did not fall back once: %d/%d", routedDelta, fallbackDelta)
-				}
-				if tc.wantReasonPart != "" && !strings.Contains(reason, tc.wantReasonPart) {
-					t.Fatalf("fallback reason=%q, want substring %q", reason, tc.wantReasonPart)
-				}
-				if goTree.RootNode().HasError() != cTree.RootNode().HasError() {
-					t.Fatalf("Go %s root error differs: Go=%v C=%v", tc.name, goTree.RootNode().HasError(), cTree.RootNode().HasError())
-				}
-				if diff := FirstDivergenceDumpV1(goTree.RootNode(), language, cTree.RootNode()); diff != nil {
-					t.Fatalf("Go %s error tree diverges from locked C: %+v", tc.name, diff)
-				}
+				assertLockedCTreeExact(t, "Go compact "+tc.name, goTree, language, cTree)
 			}
 
 			if tc.name != "smoke" {

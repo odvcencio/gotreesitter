@@ -258,9 +258,22 @@ func TestAdmissionScorecardLabelsProductionErrorTree(t *testing.T) {
 	if goEntry.Name == "" {
 		t.Fatal("go is missing from the grammar registry")
 	}
-	row := runAdmissionScorecardSource(goEntry, []byte("package p\nfunc"))
-	if row.status != scorecardFallback || !row.productionHasError {
-		t.Fatalf("invalid Go route=%s production_error_tree=%t: %s", row.status, row.productionHasError, row.detail)
+	for _, tc := range []struct {
+		name      string
+		source    string
+		wantError bool
+	}{
+		{"clean", "package p\nfunc f() {}\n", false},
+		{"recovered", "package p\nfunc", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// The C oracle confirms the recovered tree in
+			// TestGoIncompleteFunctionAdmissionLockedC. Recovery need not fall back.
+			row := runAdmissionScorecardSource(goEntry, []byte(tc.source))
+			if row.status != scorecardPass || row.productionHasError != tc.wantError {
+				t.Fatalf("Go route=%s production_error_tree=%t, want PASS/%t: %s", row.status, row.productionHasError, tc.wantError, row.detail)
+			}
+		})
 	}
 }
 

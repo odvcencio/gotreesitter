@@ -376,80 +376,40 @@ func routeEqualityTreeContainsMissing(node *gts.Node) bool {
 	return false
 }
 
-// TestCompactRouteAcceptedRootLeafCoverageGapDeclines pins the adversarial
-// review finding against B3 stage S3's first shipped revision: html
-// "<!--c-->>" (9 bytes) reduced the compact route's accepted root over zero
-// real children (a hollow "document[0:9]"), and the tiling audit of the era
-// could not catch it because isDerivationRootReduce exempts the root's own
-// reduce from the per-reduce raw-children check, and the root was the only
-// accepted payload. finalizeDiagnosticParserCoreAcceptedRootSpan's
-// allowErrorRoot branch now runs a second, root-only audit
-// (diagnosticParserCoreAcceptedTreeLeafCoverageGap) after materialization:
-// it walks the finalized public tree and requires every genuine terminal
-// leaf (or built-in ERROR leaf) to tile [firstNonTriviaByte, sourceLen)
-// modulo trivia, independent of which reduce claimed which span. A hollow
-// non-terminal reduce (a childless node whose symbol is not a terminal and
-// not ERROR) contributes no coverage, so it can no longer paper over lost
-// bytes.
-//
-// Each case here absorbed a comment and a stray '>' (or more) into an S3
-// error region and then reduced "document" over nothing; every one must now
-// decline and fall back to production, which reports the correct
-// ERROR-wrapped, HasError=true tree for all five.
-func TestCompactRouteAcceptedRootLeafCoverageGapDeclines(t *testing.T) {
+// Keep the comment and error tail that the former hollow-root path lost.
+// TestHTMLRecoveryCommentTailLockedC verifies these complete tree digests.
+func TestCompactRouteAcceptedRootLeafCoverageMatchesC(t *testing.T) {
 	t.Cleanup(func() { grammars.PurgeEmbeddedLanguageCache() })
-	entry := grammars.DetectLanguageByName("html")
-	if entry == nil {
-		t.Fatal("html is not registered")
-	}
-	lang := entry.Language()
-
-	sources := []string{
-		"<!--c-->>",
-		"<!-- c -->>",
-		"<!--c--> >",
-		"<!--c-->>>",
-		"<!--c--><!--d-->>",
-	}
-	for _, src := range sources {
-		src := src
-		t.Run(src, func(t *testing.T) {
-			source := []byte(src)
-
-			production := gts.NewParser(lang)
-			production.SetAdmissionCandidateRoute(false)
-			productionTree, err := production.Parse(source)
-			if err != nil {
-				t.Fatalf("production parse: %v", err)
-			}
-			defer productionTree.Release()
-			if !productionTree.RootNode().HasError() {
-				t.Fatalf("production HasError=false, want true for %q", src)
-			}
-
-			gts.ResetAdmissionCandidateCountersForTest()
+	lang := grammars.HtmlLanguage()
+	for _, tc := range []struct{ source, digest string }{
+		{"<!--c-->>", "3f5cf3cf722b6ff1c0b6f97e2bdd250b2a668708f6736c5451bb56893a257b45"},
+		{"<!-- c -->>", "6b0d4227334a5c8220aab64b5be04719ef0c04338710ebc150f5ac542f2f89a2"},
+		{"<!--c--> >", "10d550deef7f2362fee6e9c11dc229c992c6a7b99e9ba809cd936722129c011e"},
+		{"<!--c-->>>", "3d242b1e9258ee93e63930b10b61920e25a8236f3a8e4c36ebe5762e226fdaff"},
+		{"<!--c--><!--d-->>", "0d282f92dcd315f8edba82bc36ee4df617a9867b95df2d48d3c7fdc2b7d53b0a"},
+	} {
+		t.Run(tc.source, func(t *testing.T) {
 			candidate := gts.NewParser(lang)
 			candidate.SetAdmissionCandidateRoute(true)
-			candidateTree, err := candidate.Parse(source)
+			before, failed := gts.AdmissionCandidateCounters()
+			tree, err := candidate.Parse([]byte(tc.source))
 			if err != nil {
-				t.Fatalf("candidate parse: %v", err)
+				t.Fatal(err)
 			}
-			defer candidateTree.Release()
-
+			defer tree.Release()
 			routed, fallback := gts.AdmissionCandidateCounters()
-			if routed != 0 || fallback != 1 {
-				t.Fatalf("%q: route counters routed=%d fallback=%d, want routed=0 fallback=1 (root leaf-coverage gap must decline)", src, routed, fallback)
+			if routed != before+1 || fallback != failed {
+				t.Fatalf("route counters=%d/%d, want %d/%d", routed, fallback, before+1, failed)
 			}
-			reason := gts.AdmissionCandidateLastFallbackReason()
-			if !strings.Contains(reason, "do not tile the accepted span") {
-				t.Fatalf("%q: fallback reason=%q, want it to cite the root leaf-coverage gap", src, reason)
+			if !tree.RootNode().HasError() {
+				t.Fatal("recovered tree lost the error tail")
 			}
-
-			if !candidateTree.RootNode().HasError() {
-				t.Fatalf("%q: production-served HasError=false, want true", src)
+			inspection, err := benchfixtures.InspectGoTree(tree.RootNode(), lang)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if got, want := candidateTree.RootNode().SExpr(lang), productionTree.RootNode().SExpr(lang); got != want {
-				t.Fatalf("%q: served tree diverges from production\n got:  %s\n want: %s", src, got, want)
+			if inspection.SHA256 != tc.digest {
+				t.Fatalf("tree digest=%s, want %s", inspection.SHA256, tc.digest)
 			}
 		})
 	}

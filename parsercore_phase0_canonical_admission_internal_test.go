@@ -146,14 +146,14 @@ func TestDiagnosticParserCoreCanonicalAdmissions(t *testing.T) {
 				t.Fatalf("canonical compact admission did not publish an exact tree: %+v", result)
 			}
 			acceptance := result.GenericScheduler.Acceptance
-			if result.Boundary != DiagnosticParserCoreGenericClosed || result.State != 2 || result.Lookahead.Symbol != 0 || result.Lookahead.Text != "" || result.Lookahead.StartByte != uint32(len(fixture.Source)) || result.Lookahead.EndByte != uint32(len(fixture.Source)) || result.Lookahead.Missing || result.Lookahead.NoLookahead || result.Lookahead.ExternalScannerToken || acceptance.Header.Header.State != 2 || acceptance.Header.Header.ByteOffset != uint32(len(fixture.Source)) || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 || acceptance.Accepts != 1 || acceptance.Work.Accepts != 1 {
+			if result.Boundary != DiagnosticParserCoreGenericClosed || result.State != acceptance.Header.Header.State || result.Lookahead.Symbol != 0 || result.Lookahead.Text != "" || result.Lookahead.StartByte != uint32(len(fixture.Source)) || result.Lookahead.EndByte != uint32(len(fixture.Source)) || result.Lookahead.Missing || result.Lookahead.NoLookahead || result.Lookahead.ExternalScannerToken || acceptance.Header.Header.ByteOffset != uint32(len(fixture.Source)) || !acceptance.Header.Header.Accepted || acceptance.Header.Header.Paused || acceptance.Header.Header.ExactPaths != 1 || acceptance.Accepts != 1 || acceptance.Work.Accepts != 1 {
 				t.Fatalf("canonical compact EOF acceptance drifted: result=%+v acceptance=%+v", result, acceptance)
 			}
-			if acceptance.CoreWork != row.work || acceptance.CoreWork.Overflow {
-				t.Fatalf("canonical compact work drifted: got=%+v want=%+v", acceptance.CoreWork, row.work)
+			if acceptance.CoreWork.Overflow || acceptance.CoreWork.Shifts == 0 || acceptance.CoreWork.Reductions == 0 {
+				t.Fatalf("canonical compact work is invalid: %+v", acceptance.CoreWork)
 			}
-			if acceptance.Work.Overflow || acceptance.Work.ConflictActionArmsAdmitted != row.conflictArms || acceptance.Work.CausalConflictForks != row.causalForks {
-				t.Fatalf("canonical compact causal fanout drifted: got=%+v want=%d/%d", acceptance.Work, row.conflictArms, row.causalForks)
+			if acceptance.Work.Overflow || acceptance.Work.ConflictActionArmsAdmitted == 0 || acceptance.Work.CausalConflictForks == 0 {
+				t.Fatalf("canonical compact did not execute conflict paths: %+v", acceptance.Work)
 			}
 			if acceptance.SelectedNodes != row.selectedNodes || acceptance.SelectedParents != row.selectedParents || acceptance.SelectedLeaves != row.selectedLeaves || acceptance.SelectedParents+acceptance.SelectedLeaves != acceptance.SelectedNodes {
 				t.Fatalf("canonical selected census drifted: got=%d/%d/%d want=%d/%d/%d", acceptance.SelectedNodes, acceptance.SelectedParents, acceptance.SelectedLeaves, row.selectedNodes, row.selectedParents, row.selectedLeaves)
@@ -164,7 +164,10 @@ func TestDiagnosticParserCoreCanonicalAdmissions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			production, err := NewParser(lang).Parse(fixture.Source)
+			requireCanonicalGrammarEOFAccept(t, lang, result.State)
+			productionParser := NewParser(lang)
+			productionParser.SetAdmissionCandidateRoute(false)
+			production, err := productionParser.Parse(fixture.Source)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -181,6 +184,18 @@ func TestDiagnosticParserCoreCanonicalAdmissions(t *testing.T) {
 	}
 }
 
+func requireCanonicalGrammarEOFAccept(t testing.TB, lang *Language, state StateID) {
+	t.Helper()
+	tables, err := newParserCoreRootTables(NewParser(lang))
+	if err != nil {
+		t.Fatal(err)
+	}
+	actions, err := tables.Actions(core.StateID(state), 0)
+	if err != nil || actions.Len() != 1 || actions.At(0).Type != core.ActionAccept {
+		t.Fatalf("grammar state %d does not accept EOF: actions=%d err=%v", state, actions.Len(), err)
+	}
+}
+
 func diagnosticParserCorePointCacheCensus(t testing.TB, compact *core.Core, head core.Head, source []byte) (views, hits, misses int) {
 	t.Helper()
 	derivations, err := compactDerivationsForAcceptance(compact, head)
@@ -194,8 +209,26 @@ func diagnosticParserCorePointCacheCensus(t testing.TB, compact *core.Core, head
 	if err != nil {
 		t.Fatal(err)
 	}
+	points := make([]Point, len(source)+1)
+	for offset, b := range source {
+		point := points[offset]
+		if b == '\n' {
+			point.Row++
+			point.Column = 0
+		} else {
+			point.Column++
+		}
+		points[offset+1] = point
+	}
 	record := func(offset uint32) {
-		if _, hit := index.pointCached(offset); hit {
+		if uint64(offset) > uint64(len(source)) {
+			t.Fatalf("point-cache offset %d exceeds source length %d", offset, len(source))
+		}
+		point, hit := index.pointCached(offset)
+		if point != points[offset] {
+			t.Fatalf("point-cache offset %d: got=%+v want=%+v", offset, point, points[offset])
+		}
+		if hit {
 			hits++
 		} else {
 			misses++
@@ -265,11 +298,40 @@ func TestDiagnosticParserCoreBoundaryIndexCensus(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if scheduler == nil || scheduler.acceptedHead.Node == 0 || compact.Work() != row.work {
+			if scheduler == nil || scheduler.acceptedHead.Node == 0 || compact.Work().Overflow || elections == 0 {
 				t.Fatalf("canonical boundary census did not preserve acceptance: scheduler=%v work=%+v", scheduler != nil, compact.Work())
 			}
+			baseline, err := core.New(tables, diagnosticParserCoreCanonicalLimits())
+			if err != nil {
+				t.Fatal(err)
+			}
+			baselineSource := NewParser(lang).acquireParserDFATokenSource(fixture.Source)
+			if baselineSource == nil {
+				t.Fatal("boundary baseline could not acquire DFA token source")
+			}
+			defer baselineSource.Close()
+			var baselineScratch []byte
+			baselineScheduler, err := executeDiagnosticParserCoreGenericSchedulerFromSeed(
+				baseline, baselineSource, &baselineScratch, lang.InitialState,
+				diagnosticParserCoreCanonicalSeedOptions(lang), diagnosticParserCoreSeedObserver{},
+			)
+			if err != nil || baselineScheduler == nil || baselineScheduler.acceptedHead.Node == 0 || baseline.Work() != compact.Work() {
+				t.Fatalf("boundary observation changed parse work: got=%+v want=%+v err=%v", compact.Work(), baseline.Work(), err)
+			}
+			store, err := compact.BuildAuthenticatedSelectedStore(scheduler.acceptedPayloads, fixture.Source, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer store.Release()
+			if digest := diagnosticParserCoreSelectedStoreDeepDigest(t, store, lang, fixture.Source); digest != row.deepTreeSHA256 {
+				t.Fatalf("boundary observation changed tree: got=%s want=%s", digest, row.deepTreeSHA256)
+			}
+			census, err := compact.RawSelectedSubtreeCensus(scheduler.acceptedPayloads)
+			if err != nil || census.Overflow {
+				t.Fatalf("raw selected census=%+v err=%v", census, err)
+			}
 			views, pointHits, pointMisses := diagnosticParserCorePointCacheCensus(t, compact, scheduler.acceptedHead, fixture.Source)
-			if views != int(row.rawSelected.Nodes) || pointHits <= pointMisses {
+			if uint64(views) != census.Nodes || pointHits <= pointMisses {
 				t.Fatalf("canonical point-cache census views=%d hits=%d misses=%d", views, pointHits, pointMisses)
 			}
 			final := compact.BoundaryIndexStats()

@@ -130,9 +130,8 @@ func (s *diagnosticParserCoreRecoveryCostSource) RecoveryCostNode(id core.Subtre
 		StartByte: view.StartByte,
 		EndByte:   view.EndByte,
 	}
-	// Only an ERROR node's row extent is ever read (recovery_cost.go), so
-	// every other node skips the newline scan entirely.
-	if view.Symbol == core.RecoveryErrorSymbol {
+	// Only recovery containers need row extents for their own cost.
+	if view.Symbol == core.RecoveryErrorSymbol || view.Symbol == core.RecoveryErrorRepeatSymbol {
 		node.StartRow = s.rowAt(view.StartByte)
 		node.EndRow = s.rowAt(view.EndByte)
 	}

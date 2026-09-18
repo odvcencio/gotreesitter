@@ -64,8 +64,7 @@ type gssNode struct {
 	hash  uint64
 
 	// Prefix aggregates for the C-recovery cost competition: the cumulative
-	// error cost / visible subtree count of the link-0 prev chain root..this
-	// node inclusive — the port of C StackNode.error_cost / node_count
+	// primary error cost and maximum visible count across graph paths — the port of C StackNode.error_cost / node_count
 	// maintained at push (stack.c stack_node_new), read O(1) by
 	// ts_stack_error_cost (stack.c:493). Valid only while the matching gen
 	// field equals gssPrefixAggGen (parser_recover_c.go); allocNode resets the
@@ -141,6 +140,10 @@ func (n *gssNode) setExtraLink(i int, link gssMainLink) {
 	if n == nil || i < 0 || i >= int(n.extraLinkCount) || n.extraLinks == nil {
 		panic("gssNode.setExtraLink: index out of range")
 	}
+	old := n.extraLink(i)
+	if old.prev != link.prev || stackEntryNode(old.entry) != stackEntryNode(link.entry) {
+		gssPrefixAggGen.Add(1)
+	}
 	unsafe.Slice(n.extraLinks, int(n.extraLinkCount))[i] = link
 	// An extra-link rewrite can change the all-links cleanliness result.
 	// Clear the local result before another merge check reads it.
@@ -172,6 +175,7 @@ func (n *gssNode) appendExtraLinkWithLimitAndOwner(link gssMainLink, linkLimit i
 	if count < capacity && n.extraLinks != nil {
 		unsafe.Slice(n.extraLinks, capacity)[count] = link
 		n.extraLinkCount++
+		gssPrefixAggGen.Add(1)
 		workCountRecordGraphLinkAddition()
 		if workCountInstrumentationEnabled {
 			workCountTopologyRecordLinkInsert(n, link.prev, count+1, false) // work-count-assembly: topology alternate-link-reuse seam
@@ -194,6 +198,7 @@ func (n *gssNode) appendExtraLinkWithLimitAndOwner(link gssMainLink, linkLimit i
 	links[count] = link
 	n.extraLinks = &links[0]
 	n.extraLinkCount++
+	gssPrefixAggGen.Add(1)
 	n.extraLinkCap = uint8(newCapacity)
 	if owner != nil {
 		delta := gssMainLinkBytesForCap(newCapacity) - gssMainLinkBytesForCap(capacity)

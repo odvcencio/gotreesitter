@@ -193,7 +193,7 @@ jobs:
           TestCompactReuseDependency.*
           TestAdmissionSwitchParseProductionWhenOff
           TestAdmissionSwitchParseRoutesCandidateWhenOn
-          TestAdmissionSwitchRecoveryDoesNotLeakCompactTree
+          TestAdmissionSwitchRecoveryPublishesCompleteCompactTree
           TestB4bV2OptInDeciderDifferentialCanonicalFixtures
           TestB4bV2OptInDeciderDifferentialCertifiedLanguages
           TestB4bV2OptInDeciderDifferentialErlangProbes
@@ -368,6 +368,7 @@ jobs:
           TestDiagnosticParserCoreVersionLexerSnapshotRollbackRestoresImmutablePointer
           TestDiagnosticParserCoreVersionLexerSnapshotSurvivesPhaseChangesAndRejectsReset
           TestDiagnosticParserCoreWarmBenchmarkPreflight
+          TestDiagnosticParserCoreWarmBenchmarkRejectsWorkDrift
           TestDispatchTokenClearsIsKeywordOnRelexedSymbolOverride
           TestDispatchTokenPreservesIsKeywordWithoutRelexedSymbolOverride
           TestG18AuthenticGenericReductionEstablishesProducerCohort
@@ -1284,6 +1285,13 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: CSV end-token acceptance against locked C
+        run: |
+          GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+            --label ci-csv-eof-accept \
+            --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+            -- "cd /workspace && go test ./cmd/ts2go -run '^TestImported' -count=1 -timeout=2m && go test ./grammargen -run '^(TestLexMinimizePreservesEOFAccept|TestCCodegenPreservesEOFAccept)$' -count=1 -timeout=2m && go test . -run '^Test(Lexer|KeywordEOFAccept|LoadLanguageLegacyLexState|DFATokenSourceExplicitIncludedEOFProgress)' -count=1 -timeout=2m && cd /workspace/cgo_harness && go test . -tags 'treesitter_c_parity gts_parsercorephase0' -run '^TestCsvEOFAcceptLockedC$' -count=1 -timeout=2m -v"
+
       - name: Compact T3 C-oracle witness contract
         run: |
           GTS_PARITY_MODE=smoke \
@@ -1492,7 +1500,7 @@ jobs:
             --goflags -p=1 \
             --test-parallel 1 \
             --timeout 20m \
-            --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$'
+            --run '^TestCIncrementalReductionChainLockedCParity$|^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$'
 
       - name: Generated CSS immediate tokens against locked C
         run: |

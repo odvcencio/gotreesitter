@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 
@@ -38,15 +39,6 @@ func SetDiagnosticParserCoreWarmGoScannerForTest(scanner ExternalScanner) {
 	parserCoreWarmGoScanner = scanner
 }
 
-var parserCoreWarmQueryCompileWork = core.Work{
-	Shifts: 6685, Reductions: 7509, ReductionPopRequests: 7509,
-	EmittedPopPaths: 8108, EmittedPopPayloads: 14730,
-	PredecessorLinkUnionAttempts: 722, PredecessorLinkUnionDuplicateNoop: 36,
-	PredecessorLinkUnionPrecedenceReplaced: 75, PredecessorLinkUnionAlternateAppended: 611,
-	GraphLinkAdditionsProxy: 14789, LeafConstructionsProxy: 5546,
-	ParentConstructionsProxy: 7542,
-}
-
 var parserCoreWarmLimits = core.Limits{
 	MaxNodes: 65536, MaxLinks: 65536, MaxSubtrees: 65536,
 	MaxChildren: 262144, MaxMetadata: 131072,
@@ -64,6 +56,7 @@ type parserCoreWarmPrepared struct {
 	source       []byte
 	acceptedCore *core.Core
 	acceptedHead core.Head
+	baselineWork core.Work
 }
 
 func parserCoreWarmPrepare() (*parserCoreWarmPrepared, error) {
@@ -107,12 +100,21 @@ func parserCoreWarmPrepare() (*parserCoreWarmPrepared, error) {
 			source:                    source,
 			acceptedCore:              acceptedCore,
 		}
-		scheduler, err := prepared.executeScheduler(acceptedCore, false)
+		scheduler, tokenSource, err := runner.executeSchedulerOpen(source, acceptedCore, false)
+		if tokenSource != nil {
+			tokenSource.Close()
+		}
 		if err != nil {
 			parserCoreWarmPrepareErr = err
 			return
 		}
+		prepared.baselineWork = acceptedCore.Work()
+		if prepared.baselineWork.Overflow || prepared.baselineWork.Shifts == 0 || prepared.baselineWork.Reductions == 0 {
+			parserCoreWarmPrepareErr = fmt.Errorf("parser-core warm benchmark: invalid baseline work: %+v", prepared.baselineWork)
+			return
+		}
 		prepared.acceptedHead = scheduler.acceptedHead
+		prepared.parser.SetAdmissionCandidateRoute(false)
 		parserCoreWarmPreparedRun = prepared
 	})
 	return parserCoreWarmPreparedRun, parserCoreWarmPrepareErr
@@ -126,9 +128,9 @@ func (p *parserCoreWarmPrepared) executeSchedulerOpen(compact *core.Core, reset 
 	if err != nil {
 		return scheduler, tokenSource, err
 	}
-	if work := compact.Work(); work != parserCoreWarmQueryCompileWork || work.Overflow {
+	if work := compact.Work(); work != p.baselineWork || work.Overflow {
 		tokenSource.Close()
-		return scheduler, nil, fmt.Errorf("parser-core warm benchmark: work drifted: got=%+v want=%+v", work, parserCoreWarmQueryCompileWork)
+		return scheduler, nil, fmt.Errorf("parser-core warm benchmark: work drifted: got=%+v want=%+v", work, p.baselineWork)
 	}
 	return scheduler, tokenSource, nil
 }
@@ -257,6 +259,10 @@ func TestDiagnosticParserCoreWarmBenchmarkPreflight(t *testing.T) {
 	t.Cleanup(tree.Release)
 	parserCoreWarmRequireExactTree(t, tree, len(prepared.source))
 	parserCoreWarmRequireParentLinks(t, tree)
+	fixture := loadDiagnosticParserCoreCanonicalFixture(t, "query_compile")
+	if digest := requireDiagnosticParserCoreCanonicalTreeDigest(t, tree, prepared.lang); digest != fixture.DeepTreeSHA256 {
+		t.Fatalf("warm tree digest=%s want=%s", digest, fixture.DeepTreeSHA256)
+	}
 
 	first, err := prepared.materialize(prepared.acceptedCore, prepared.acceptedHead)
 	if err != nil {
@@ -279,6 +285,26 @@ func TestDiagnosticParserCoreWarmBenchmarkPreflight(t *testing.T) {
 	t.Cleanup(production.Release)
 	parserCoreWarmRequireExactTree(t, production, len(prepared.source))
 	parserCoreWarmRequireDeepEqual(t, tree, production, prepared.lang)
+}
+
+func TestDiagnosticParserCoreWarmBenchmarkRejectsWorkDrift(t *testing.T) {
+	prepared, err := parserCoreWarmPrepare()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrong := *prepared
+	wrong.baselineWork.Shifts++
+	_, tokenSource, err := wrong.executeSchedulerOpen(prepared.compact, true)
+	if tokenSource != nil {
+		tokenSource.Close()
+		t.Fatal("rejected warm run retained its token source")
+	}
+	if err == nil || !strings.Contains(err.Error(), "work drifted") {
+		t.Fatalf("altered baseline did not reject work drift: %v", err)
+	}
+	if _, err := prepared.executeScheduler(prepared.compact, true); err != nil {
+		t.Fatalf("baseline rejection poisoned the next run: %v", err)
+	}
 }
 
 // These diagnostic lanes compare lifecycle-matched Go paths. They are not a
