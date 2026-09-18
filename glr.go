@@ -6010,15 +6010,7 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 			if perfCountersEnabled {
 				perfRecordMergeReplacement()
 			}
-			if workCountInstrumentationEnabled {
-				workCountTopologyRenumberVersion(&stack, &result[slot.worstIndex])
-			}
-			result[slot.worstIndex] = stack
-			if replacedSlot >= 0 {
-				mergeSlotSetHashAt(slot, replacedSlot, hash)
-				slot.hashMask = recomputeMergeSlotHashMask(slot)
-			}
-			slot.worstIndex = recomputeMergeSlotWorst(slot, result)
+			appendMergeOverflowSurvivor(result, slots[:slotCount], slotIndex, stack, hash)
 		}
 	}
 	if perfCountersEnabled {
@@ -6030,6 +6022,46 @@ func mergeStacksWithScratch(stacks []glrStack, scratch *glrMergeScratch) []glrSt
 	scratch.result = result
 	scratch.slots = slots[:slotCount]
 	return result
+}
+
+// Remove the weakest version without moving a later candidate ahead of survivors.
+func appendMergeOverflowSurvivor(result []glrStack, slots []glrMergeSlot, target int, candidate glrStack, hash uint64) {
+	removed := slots[target].worstIndex
+	if workCountInstrumentationEnabled {
+		workCountTopologyRetireVersionIfActive(&result[removed])
+	}
+	copy(result[removed:], result[removed+1:])
+	result[len(result)-1] = candidate
+	for si := range slots {
+		slot := &slots[si]
+		count := mergeSlotTrackedCount(slot)
+		write := 0
+		set := func(pos, idx int, h uint64) {
+			if pos < slot.count {
+				slot.indices[pos], slot.hashes[pos] = idx, h
+			} else {
+				slot.extraIndices[pos-slot.count], slot.extraHashes[pos-slot.count] = idx, h
+			}
+		}
+		for pos := 0; pos < count; pos++ {
+			idx, h := mergeSlotIndexAt(slot, pos), mergeSlotHashAt(slot, pos)
+			if idx == removed {
+				continue
+			}
+			if idx > removed {
+				idx--
+			}
+			set(write, idx, h)
+			write++
+		}
+		if si == target {
+			set(write, len(result)-1, hash)
+			slot.hashMask = recomputeMergeSlotHashMask(slot)
+			slot.worstIndex = recomputeMergeSlotWorst(slot, result)
+		} else if slot.worstIndex > removed {
+			slot.worstIndex--
+		}
+	}
 }
 
 func mergeStacksWithScratchDeferExact(alive []glrStack, scratch *glrMergeScratch, perKeyCap int) []glrStack {
@@ -6203,15 +6235,7 @@ func mergeStacksWithScratchDeferExact(alive []glrStack, scratch *glrMergeScratch
 			if perfCountersEnabled {
 				perfRecordMergeReplacement()
 			}
-			if workCountInstrumentationEnabled {
-				workCountTopologyRenumberVersion(&stack, &result[slot.worstIndex])
-			}
-			result[slot.worstIndex] = stack
-			if replacedSlot >= 0 {
-				mergeSlotSetHashAt(slot, replacedSlot, hash)
-				slot.hashMask = recomputeMergeSlotHashMask(slot)
-			}
-			slot.worstIndex = recomputeMergeSlotWorst(slot, result)
+			appendMergeOverflowSurvivor(result, slots[:slotCount], slotIndex, stack, hash)
 		}
 	}
 	if perfCountersEnabled {
@@ -6368,15 +6392,7 @@ func mergeStacksWithScratchLargeCap(alive []glrStack, scratch *glrMergeScratch, 
 			if perfCountersEnabled {
 				perfRecordMergeReplacement()
 			}
-			if workCountInstrumentationEnabled {
-				workCountTopologyRenumberVersion(&stack, &result[slot.worstIndex])
-			}
-			result[slot.worstIndex] = stack
-			if replacedSlot >= 0 {
-				slot.hashes[replacedSlot] = hash
-				slot.hashMask = recomputeMergeLargeSlotHashMask(slot)
-			}
-			slot.worstIndex = recomputeMergeLargeSlotWorst(slot, result)
+			appendMergeLargeOverflowSurvivor(result, slots[:slotCount], slotIndex, stack, hash)
 		}
 	}
 	if perfCountersEnabled {
@@ -6388,6 +6404,38 @@ func mergeStacksWithScratchLargeCap(alive []glrStack, scratch *glrMergeScratch, 
 	scratch.result = result
 	scratch.largeSlots = slots[:slotCount]
 	return result
+}
+
+// Preserve survivor order when a large bucket discards its weakest version.
+func appendMergeLargeOverflowSurvivor(result []glrStack, slots []glrMergeLargeSlot, target int, candidate glrStack, hash uint64) {
+	removed := slots[target].worstIndex
+	if workCountInstrumentationEnabled {
+		workCountTopologyRetireVersionIfActive(&result[removed])
+	}
+	copy(result[removed:], result[removed+1:])
+	result[len(result)-1] = candidate
+	for si := range slots {
+		slot := &slots[si]
+		write := 0
+		for pos := 0; pos < slot.count; pos++ {
+			idx := slot.indices[pos]
+			if idx == removed {
+				continue
+			}
+			if idx > removed {
+				idx--
+			}
+			slot.indices[write], slot.hashes[write] = idx, slot.hashes[pos]
+			write++
+		}
+		if si == target {
+			slot.indices[write], slot.hashes[write] = len(result)-1, hash
+			slot.hashMask = recomputeMergeLargeSlotHashMask(slot)
+			slot.worstIndex = recomputeMergeLargeSlotWorst(slot, result)
+		} else if slot.worstIndex > removed {
+			slot.worstIndex--
+		}
+	}
 }
 
 func recomputeMergeSlotWorst(slot *glrMergeSlot, result []glrStack) int {

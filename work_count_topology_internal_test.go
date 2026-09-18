@@ -501,6 +501,46 @@ func TestDiagnosticTopologyReceiptRetiresOnlyUnpublishedVersions(t *testing.T) {
 	}
 }
 
+func TestDiagnosticTopologyOverflowPreservesSurvivorOrder(t *testing.T) {
+	for _, large := range []bool{false, true} {
+		BeginDiagnosticTopologyReceipt()
+		weak := glrStack{entries: []stackEntry{{state: 1}}, score: -1}
+		workCountTopologyRecordInitialVersion(&weak)
+		middle := weak.clone()
+		workCountTopologyRecordVersionCopy(&weak, &middle)
+		candidate := weak.clone()
+		candidate.score = 1
+		workCountTopologyRecordVersionCopy(&weak, &candidate)
+		weakID := weak.diagnosticTopology.versionID
+		middleID := middle.diagnosticTopology.versionID
+		candidateID := candidate.diagnosticTopology.versionID
+		result := []glrStack{weak, middle}
+		if large {
+			slots := []glrMergeLargeSlot{{count: 1, worstIndex: 0}, {count: 1, worstIndex: 1}}
+			slots[1].indices[0] = 1
+			appendMergeLargeOverflowSurvivor(result, slots, 0, candidate, 0)
+		} else {
+			slots := []glrMergeSlot{{count: 1, worstIndex: 0}, {count: 1, worstIndex: 1}}
+			slots[1].indices[0] = 1
+			appendMergeOverflowSurvivor(result, slots, 0, candidate, 0)
+		}
+		slots := append([]uint64(nil), activeDiagnosticTopology.versionSlots...)
+		_, weakRetained := activeDiagnosticTopology.versions[weakID]
+		receipt := EndDiagnosticTopologyReceipt()
+		if !receipt.Complete() || weakRetained {
+			t.Fatalf("large=%v: removed version retained=%v, receipt=%+v", large, weakRetained, receipt)
+		}
+		if len(slots) != 2 || slots[0] != middleID || slots[1] != candidateID {
+			t.Fatalf("large=%v: version slots=%v, want [%d %d]", large, slots, middleID, candidateID)
+		}
+		for i := range result {
+			if result[i].diagnosticTopology.versionID != slots[i] {
+				t.Fatalf("large=%v: result %d differs from its recorded version", large, i)
+			}
+		}
+	}
+}
+
 func TestDiagnosticTopologyReceiptReplacementAndCullDoNotDoubleRenumber(t *testing.T) {
 	BeginDiagnosticTopologyReceipt()
 	incumbent := glrStack{entries: []stackEntry{{state: 1}}, score: 1}

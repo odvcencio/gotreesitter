@@ -7,6 +7,12 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Parser conflict order
+
+- Preserve surviving stack order when a merge bucket discards a weaker alternative.
+- Apply the same order to normal, deferred, and large-cap merges.
+- Match the locked C parser for repeated generic calls in a Go binary expression.
+
 ### Generated CSS token precedence
 
 - Preserve the authored precedence of named immediate tokens.
