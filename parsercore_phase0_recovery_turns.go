@@ -232,7 +232,7 @@ func (s *diagnosticParserCoreGenericScheduler) finishedRecoveryTreeBeatsPausedFr
 	if err != nil {
 		return false, err
 	}
-	symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
+	symbols := s.recoverySymbolPolicy()
 	var memo core.RecoveryCostMemo
 	defer memo.Reset()
 	var pausedCost uint32
