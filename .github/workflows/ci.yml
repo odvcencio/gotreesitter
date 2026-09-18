@@ -57,6 +57,9 @@ jobs:
       - name: Test Compile
         run: go test ./... -run '^$' -count=1
 
+      - name: Test generated supertype aliases
+        run: GOMAXPROCS=1 go test ./grammargen -run '^TestSupertypeMap(UsesPublicAlias|DeduplicatesPublicAliases)$' -count=1 -timeout=2m
+
   selected_store_admission:
     needs: exhaustive_parity_scope
     if: needs.exhaustive_parity_scope.outputs.run_code_ci == 'true'
@@ -1472,6 +1475,15 @@ jobs:
             --test-parallel 1 \
             --timeout 20m \
             --run '^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityGateCoverageRatchet$|^TestParityHighlight$|^TestOutlineOracleDifferential$|^TestOutlineLuaMatchPredicateUsesSharedCompiler$|^TestHighlightLuaMatchPredicateUsesSharedCompiler$|^TestParityJavaScriptAutomaticSemicolonBeforeTrailingComment$|^TestParityJavaScriptAdjacentBlockCommentsDoNotConsumeFollowingToken$|^TestIncludedRangesGoRootParity$|^TestIncludedRangesGoArmGuardsRootSymbol$|^TestIncludedRangesKotlinRootParity$|^TestDartNextLiveArmProbe$|^TestDartNextLiveArmReceiptDocument$'
+
+      - name: Generated Go supertype aliases against locked C
+        run: |
+          bash cgo_harness/seed_parity_repos.sh --dest "${RUNNER_TEMP}/go-supertype-reference" --langs go
+          GOMAXPROCS=1 bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build --label ci-go-supertype-parity \
+            --mount "${RUNNER_TEMP}/go-supertype-reference:/tmp/grammar_parity:ro" \
+            --memory 4g --gomemlimit 3GiB --cpus 1 --wall-timeout 10m \
+            -- "cd /workspace/cgo_harness && GTS_PARITY_REPO_ROOT=/tmp/grammar_parity go test . -tags treesitter_c_parity -run '^TestGeneratedGoAliasedSupertypeLockedCParity$' -count=1 -timeout=8m"
 
   parity-cgo-exhaustive:
     needs: exhaustive_parity_scope
