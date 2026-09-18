@@ -15,7 +15,7 @@ import (
 // Tranche B8 gate: for each stop-control class (memory budget, timeout,
 // cancellation), an admission-eligible input that trips the class produces a
 // stop receipt from the candidate route (routed through the scheduler's
-// pollStopControl, parsercore_phase0_driver.go) that matches what production
+// pollStopControl, parsercore_phase0_stop_control.go) that matches what production
 // itself reports for the identical input and configuration: the same
 // ParseStopReason, ParseStoppedEarly() true, and a tree with no out-of-range
 // partial state. Every witness here stays modest in size deliberately, not

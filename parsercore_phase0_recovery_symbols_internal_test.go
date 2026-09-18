@@ -29,6 +29,15 @@ func TestRecoverySymbolPolicyDefaultsAndReuse(t *testing.T) {
 			if !slices.Equal(got, want) {
 				t.Fatalf("policy = %+v, want %+v", got, want)
 			}
+			selected, err := buildParserCoreSelectedStorePolicy(&Parser{
+				language: lang, hasRootSymbol: true, rootSymbol: 0,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(selected.Symbols, want) {
+				t.Fatalf("selected-store policy = %+v, want %+v", selected.Symbols, want)
+			}
 			after := diagnosticParserCoreSchedulerFootprintBytes(&scheduler)
 			if wantBytes := uint64(cap(got)) * uint64(unsafe.Sizeof(core.SelectedSymbolPolicy{})); after-before != wantBytes {
 				t.Fatalf("footprint growth = %d, want %d", after-before, wantBytes)
