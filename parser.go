@@ -6041,7 +6041,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 			}
 			currentState := s.top().state
 			noteStopDiagnosticStack(s)
-			packedVersionReductionSteps := 0
+			packedVersionReductionProgress := reductionProgressGuard{minimumDepth: s.depth()}
 		retryAction:
 			// Recovered versions re-lex captured keywords in their own state.
 			if s.cEverErrored && tok.isKeyword() && tok.Symbol == p.language.KeywordCaptureToken {
@@ -6134,8 +6134,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 					if !renumbered {
 						return finalize(stacks, ParseStopInvariantViolation)
 					}
-					packedVersionReductionSteps++
-					if packedVersionReductionSteps > maxConsecutivePrimaryReduces {
+					if !packedVersionReductionProgress.advance(stacks[si].depth()) {
 						return finalize(stacks, ParseStopIterationLimit)
 					}
 					s = &stacks[si]
