@@ -303,7 +303,7 @@ func (s *diagnosticParserCoreGenericScheduler) recoveryNodeBaselineForHead(
 		return 0, false, err
 	}
 	return s.recoveryCumulativeVisibleNodeCount(
-		head, nil, diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language), src,
+		head, nil, s.recoverySymbolPolicy(), src,
 	)
 }
 
@@ -473,7 +473,7 @@ func (s *diagnosticParserCoreGenericScheduler) condenseRecoveryVersions(
 		s.recoveryCondenseOrderScratch = order[:0]
 	}
 	var memo core.RecoveryCostMemo
-	symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
+	symbols := s.recoverySymbolPolicy()
 	for index := range headers {
 		if headers[index].accepted {
 			continue

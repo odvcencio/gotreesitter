@@ -60,7 +60,7 @@ func (s *diagnosticParserCoreGenericScheduler) mergeRecoveredReductionSiblingOwn
 		target := diagnosticParserCoreRecoveryCondenseEntry{header: sibling, key: key}
 		candidate := diagnosticParserCoreRecoveryCondenseEntry{header: incoming, key: key}
 		merged, err := s.mergeEquivalentRecoveryEntriesOwned(owner, &target, candidate,
-			diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language), source, &memo, true)
+			s.recoverySymbolPolicy(), source, &memo, true)
 		memo.Reset()
 		if err != nil {
 			return false, err

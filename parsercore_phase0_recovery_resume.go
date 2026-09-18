@@ -24,7 +24,7 @@ func (s *diagnosticParserCoreGenericScheduler) pauseRecoveryVersion(index int) e
 		if err != nil {
 			return err
 		}
-		count, err := diagnosticParserCoreOpenRegionVisibleNodeCount(diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language), source, region)
+		count, err := diagnosticParserCoreOpenRegionVisibleNodeCount(s.recoverySymbolPolicy(), source, region)
 		if err != nil {
 			return err
 		}

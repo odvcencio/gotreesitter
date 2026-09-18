@@ -397,6 +397,33 @@ func TestRecoveryNodeErrorCostMemoSkipsChildlessErrorLeaf(t *testing.T) {
 	}
 }
 
+func TestRecoveryCostMemoFootprint(t *testing.T) {
+	var absent *RecoveryCostMemo
+	if got := absent.FootprintBytes(); got != 0 {
+		t.Fatalf("nil memo footprint = %d", got)
+	}
+	var memo RecoveryCostMemo
+	if got := memo.FootprintBytes(); got != 0 {
+		t.Fatalf("empty memo footprint = %d", got)
+	}
+	// Count both allocations independently, including capacity beyond length.
+	memo.cost = make([]uint32, 0, 13)
+	memo.has = make([]bool, 0, 7)
+	if got := memo.FootprintBytes(); got != 59 {
+		t.Fatalf("retained footprint = %d, want 59", got)
+	}
+	memo = RecoveryCostMemo{}
+	memo.store(100, 42)
+	before := memo.FootprintBytes()
+	if before < 500 {
+		t.Fatalf("grown footprint = %d, want at least 500", before)
+	}
+	memo.Reset()
+	if got := memo.FootprintBytes(); got != before {
+		t.Fatalf("reset footprint = %d, want %d", got, before)
+	}
+}
+
 func TestRecoveryCostMemoGrowGetResetLen(t *testing.T) {
 	var memo RecoveryCostMemo
 	if memo.Len() != 0 {

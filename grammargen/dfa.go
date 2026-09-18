@@ -82,7 +82,7 @@ func buildLexDFA(ctx context.Context, patterns []TerminalPattern, extraSymbols [
 		}
 
 		if len(immediateSyms) > 0 {
-			pruneImmediateTransitions(dfa, immediateSyms)
+			pruneImmediateTransitions(dfa, immediateSyms, mode.preferredSymbols)
 		}
 
 		// Mark skip states only for invisible extra symbols (like whitespace).
@@ -1179,22 +1179,16 @@ func addWhitespaceSkip(state *gotreesitter.LexState) {
 	})
 }
 
-// pruneImmediateTransitions removes transitions from DFA states that accept
-// an immediate token when those transitions can only lead to non-immediate
-// (catch-all) accepts. This prevents greedy patterns like [^\r\n]+ from
-// defeating shorter immediate tokens like "-" or "---".
+// pruneImmediateTransitions removes continuations that reach only unpreferred,
+// non-immediate tokens at equal or worse priority after an immediate accept.
+// This prevents catch-all patterns from displacing valid immediate tokens.
 //
-// In tree-sitter's C lexer, immediate token paths are "dead-end" — once the
-// lexer matches an immediate token like "-", it can only continue to other
-// immediate tokens like "--" or "---", but never fall through to a catch-all
-// like "context". This function replicates that behavior in our combined DFA.
+// Keep paths to preferred non-immediate tokens. They are valid parser
+// lookaheads, so longest-match selection must remain possible.
 //
-// Exception: transitions leading to non-immediate tokens with BETTER priority
-// than the current immediate accept are kept. This handles cases like C's
-// char_literal where the character IMMTOKEN [^\n'] (prio -500) accepts at '\'
-// but escape_sequence TOKEN(PREC(1,...)) (prio -1000) accepts at '\0'. The
-// escape_sequence has better priority and should be reachable.
-func pruneImmediateTransitions(dfa []dfaState, immediateSyms map[int]bool) {
+// Also keep paths to non-immediate tokens with better priority. This preserves
+// an explicit token precedence across an earlier immediate accept.
+func pruneImmediateTransitions(dfa []dfaState, immediateSyms, preferredSyms map[int]bool) {
 	n := len(dfa)
 	if n == 0 {
 		return
@@ -1203,25 +1197,28 @@ func pruneImmediateTransitions(dfa []dfaState, immediateSyms map[int]bool) {
 	// Step 1: Compute canReachImmediate[i] = true if state i (or any
 	// reachable descendant) accepts an immediate token.
 	canReachImmediate := make([]bool, n)
+	canReachPreferredNonImmediate := make([]bool, n)
 	for i, s := range dfa {
 		if s.accept > 0 && immediateSyms[s.accept] {
 			canReachImmediate[i] = true
 		}
+		if s.accept > 0 && preferredSyms[s.accept] && !immediateSyms[s.accept] {
+			canReachPreferredNonImmediate[i] = true
+		}
 	}
 
-	// Propagate backwards: if any successor can reach an immediate accept,
-	// so can the current state. Iterate until stable.
+	// Propagate both reachability sets backwards until they are stable.
 	for changed := true; changed; {
 		changed = false
 		for i, s := range dfa {
-			if canReachImmediate[i] {
-				continue
-			}
 			for _, t := range s.transitions {
-				if canReachImmediate[t.nextState] {
+				if !canReachImmediate[i] && canReachImmediate[t.nextState] {
 					canReachImmediate[i] = true
 					changed = true
-					break
+				}
+				if !canReachPreferredNonImmediate[i] && canReachPreferredNonImmediate[t.nextState] {
+					canReachPreferredNonImmediate[i] = true
+					changed = true
 				}
 			}
 		}
@@ -1254,8 +1251,7 @@ func pruneImmediateTransitions(dfa []dfaState, immediateSyms map[int]bool) {
 	}
 
 	// Step 2: For each state that accepts an immediate token, keep only
-	// transitions whose targets can reach another immediate token accept
-	// OR can reach a non-immediate token with better priority.
+	// transitions whose targets can reach an eligible accept.
 	for i := range dfa {
 		if dfa[i].accept == 0 || !immediateSyms[dfa[i].accept] {
 			continue
@@ -1263,7 +1259,7 @@ func pruneImmediateTransitions(dfa []dfaState, immediateSyms map[int]bool) {
 		curPrio := dfa[i].acceptPriority
 		var kept []dfaTransition
 		for _, t := range dfa[i].transitions {
-			if canReachImmediate[t.nextState] {
+			if canReachImmediate[t.nextState] || canReachPreferredNonImmediate[t.nextState] {
 				kept = append(kept, t)
 			} else if bestReachablePriority[t.nextState] < curPrio {
 				// Keep transition to non-immediate token with better priority.

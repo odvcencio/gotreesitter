@@ -86,7 +86,7 @@ func (s *diagnosticParserCoreGenericScheduler) beginRecoveryEOFOwned(owner core.
 	if err != nil {
 		return err
 	}
-	symbols := diagnosticParserCoreRecoverySymbolPolicy(s.tokenSource.language)
+	symbols := s.recoverySymbolPolicy()
 	var memo core.RecoveryCostMemo
 	defer memo.Reset()
 	current, supported, err := s.recoveryCondenseEntry(s.headers[0], symbols, source, &memo)

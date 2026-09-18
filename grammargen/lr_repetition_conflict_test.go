@@ -346,6 +346,57 @@ func TestResolveActionConflictLoweredRepeatHelperUsesVisibleParentLeftAssoc(t *t
 	}
 }
 
+func TestResolveActionConflictVisibleLoweredRepeatBodyAssociativity(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		assoc       Assoc
+		reducePrec  int
+		shiftPrec   int
+		wantActions int
+	}{
+		{"right at zero precedence", AssocRight, 0, 0, 1},
+		{"right at positive precedence", AssocRight, 2, 2, 1},
+		{"no associativity preserves conflict", AssocNone, 0, 0, 2},
+		{"left associativity preserves conflict", AssocLeft, 0, 0, 2},
+		{"higher shift precedence preserves conflict", AssocRight, 0, 1, 2},
+		{"lower shift precedence preserves conflict", AssocRight, 0, -1, 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ng := &NormalizedGrammar{
+				Symbols: []SymbolInfo{
+					{Name: "end", Kind: SymbolTerminal},
+					{Name: ".", Kind: SymbolTerminal},
+					{Name: ".*", Kind: SymbolTerminal},
+					{Name: "identifier", Kind: SymbolNamedToken},
+					{Name: "get_attr", Kind: SymbolNonterminal, Visible: true, Named: true},
+					{Name: "attr_splat_repeat1", Kind: SymbolNonterminal, GeneratedRepeatAux: true},
+					{Name: "attr_splat", Kind: SymbolNonterminal, Visible: true, Named: true},
+				},
+				Productions: []Production{
+					{LHS: 4, RHS: []int{1, 3}},
+					{LHS: 6, RHS: []int{2, 4}, Prec: tc.reducePrec, HasExplicitPrec: true, Assoc: tc.assoc},
+					{LHS: 6, RHS: []int{2, 5}, Prec: tc.reducePrec, HasExplicitPrec: true, Assoc: tc.assoc},
+					{LHS: 5, RHS: []int{5, 4}},
+					{LHS: 5, RHS: []int{4, 4}},
+				},
+			}
+			got, err := resolveActionConflict(1, []lrAction{
+				{kind: lrReduce, prodIdx: 1, lhsSym: 6},
+				{kind: lrShift, state: 17, lhsSym: 4, prec: tc.shiftPrec, hasPrec: true},
+			}, ng)
+			if err != nil {
+				t.Fatalf("resolveActionConflict: %v", err)
+			}
+			if len(got) != tc.wantActions {
+				t.Fatalf("resolved=%+v, want %d actions", got, tc.wantActions)
+			}
+			if tc.wantActions == 1 && (got[0].kind != lrShift || got[0].state != 17) {
+				t.Fatalf("resolved=%+v, want continuation shift", got)
+			}
+		})
+	}
+}
+
 func TestResolveActionConflictLoweredRepeatHelperUsesSameFamilyShiftWithoutRepeatFlag(t *testing.T) {
 	ng := &NormalizedGrammar{
 		Symbols: []SymbolInfo{
