@@ -37,6 +37,83 @@ func TestBuildLexDFAPrefersLongerStringOverSingleCharPattern(t *testing.T) {
 	}
 }
 
+func TestBuildLexDFAPreservesLongerPreferredTokenAfterImmediateAccept(t *testing.T) {
+	unit, err := expandPatternRule(`[a-z]+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, err := expandPatternRule(`[a-z][^;\s]*`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name       string
+		preferred  bool
+		priority   int
+		wantSymbol gotreesitter.Symbol
+		wantEnd    uint32
+	}{
+		{"preferred longer token", true, 0, 2, 4},
+		{"unpreferred equal priority", false, 0, 1, 2},
+		{"unpreferred higher priority", false, -1000, 2, 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			preferred := map[int]bool{1: true}
+			if tc.preferred {
+				preferred[2] = true
+			}
+			states, offsets, err := buildLexDFA(context.Background(), []TerminalPattern{
+				{SymbolID: 1, Rule: unit, Priority: 0, Immediate: true},
+				{SymbolID: 2, Rule: plain, Priority: tc.priority},
+			}, nil, nil, []lexModeSpec{{
+				validSymbols:     map[int]bool{1: true, 2: true},
+				preferredSymbols: preferred,
+			}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			token := gotreesitter.NewLexer(states, []byte(`px\9`)).Next(uint32(offsets[0]))
+			if token.Symbol != tc.wantSymbol || token.EndByte != tc.wantEnd {
+				t.Fatalf("token=%+v, want symbol %d ending at %d", token, tc.wantSymbol, tc.wantEnd)
+			}
+		})
+	}
+}
+
+func TestNormalizeNamedImmediateTokenKeepsAuthoredPrecedence(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		rule     *Rule
+		priority int
+	}{
+		{"pattern", ImmToken(Pat(`[a-z]+`)), 0},
+		{"string", ImmToken(Str("px")), 0},
+		{"string choice", ImmToken(Choice(Str("px"), Str("em"))), 0},
+		{"positive precedence", ImmToken(Prec(2, Pat(`[a-z]+`))), -2000},
+		{"negative precedence", ImmToken(Prec(-1, Pat(`[a-z]+`))), 1000},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewGrammar("named_immediate_precedence")
+			g.Define("source_file", Sym("unit"))
+			g.Define("unit", tc.rule)
+			ng, err := Normalize(g)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, terminal := range ng.Terminals {
+				if ng.Symbols[terminal.SymbolID].Name != "unit" {
+					continue
+				}
+				if !terminal.Immediate || terminal.Priority != tc.priority {
+					t.Fatalf("immediate=%t priority=%d, want immediate=true priority=%d", terminal.Immediate, terminal.Priority, tc.priority)
+				}
+				return
+			}
+			t.Fatal("unit terminal not found")
+		})
+	}
+}
+
 func TestBuildLexDFAPrefersExtractionOrderForSameLengthTie(t *testing.T) {
 	integer, err := expandPatternRule(`\d+`)
 	if err != nil {
