@@ -7,6 +7,10 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Stack hashing
+
+- Pack node flags with masks and shifts without changing hash values.
+
 ### Generated CSS token precedence
 
 - Preserve the authored precedence of named immediate tokens.

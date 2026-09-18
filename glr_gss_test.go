@@ -773,6 +773,28 @@ func TestGSSEntryHashMatchesAccessorSemantics(t *testing.T) {
 	}
 }
 
+func TestGSSEntryFlagHashAllBitPatterns(t *testing.T) {
+	for bits := 0; bits <= int(^nodeFlags(0)); bits++ {
+		flags := nodeFlags(bits)
+		var want uint64
+		if flags&nodeFlagExtra != 0 {
+			want |= 1
+		}
+		if flags&nodeFlagNamed != 0 {
+			want |= 1 << 1
+		}
+		if flags&nodeFlagHasError != 0 {
+			want |= 1 << 2
+		}
+		if flags&nodeFlagMissing != 0 {
+			want |= 1 << 3
+		}
+		if got := gssEntryFlagHash(flags); got != want {
+			t.Fatalf("flags %#x: hash = %#x, want %#x", flags, got, want)
+		}
+	}
+}
+
 func TestGSSEntryHashIncludesDynamicPrecedence(t *testing.T) {
 	low := &Node{symbol: 10, startByte: 1, endByte: 3, parseState: 4, flags: nodeFlagNamed}
 	high := &Node{symbol: 10, startByte: 1, endByte: 3, parseState: 4, flags: nodeFlagNamed, dynamicPrecedence: 7}
