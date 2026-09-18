@@ -630,7 +630,7 @@ func emitLexFunction(b *strings.Builder, funcName string, states []gotreesitter.
 		if st.AcceptToken > 0 {
 			fmt.Fprintf(b, "      ACCEPT_TOKEN(%s);\n", cNames[st.AcceptToken])
 		} else if st.AcceptEOF {
-			fmt.Fprintln(b, "      ACCEPT_TOKEN(ts_builtin_sym_end);")
+			fmt.Fprintln(b, "      if (eof) ACCEPT_TOKEN(ts_builtin_sym_end);")
 		}
 
 		// End-of-input handling.
@@ -653,7 +653,7 @@ func emitLexFunction(b *strings.Builder, funcName string, states []gotreesitter.
 		// correctly becomes a lex error rather than a spurious end token.
 		if st.EOF >= 0 {
 			fmt.Fprintf(b, "      if (eof) ADVANCE(%d);\n", st.EOF)
-		} else if startStates[i] && st.AcceptToken == 0 && !st.Skip {
+		} else if startStates[i] && st.AcceptToken == 0 && !st.Skip && !st.AcceptEOF {
 			fmt.Fprintf(b, "      if (eof) ACCEPT_TOKEN(ts_builtin_sym_end);\n")
 			fmt.Fprintf(b, "      if (eof) END_STATE();\n")
 		} else {

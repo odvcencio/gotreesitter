@@ -29,7 +29,7 @@ func TestCCodegenPreservesEOFAccept(t *testing.T) {
 	}
 	var output strings.Builder
 	emitLexFunction(&output, "ts_lex", states, &gts.Language{}, []string{"ts_builtin_sym_end"}, map[int]bool{0: true})
-	if !strings.Contains(output.String(), "case 1:\n      ACCEPT_TOKEN(ts_builtin_sym_end);") {
+	if !strings.Contains(output.String(), "case 1:\n      if (eof) ACCEPT_TOKEN(ts_builtin_sym_end);") {
 		t.Fatalf("C lexer lost end acceptance:\n%s", output.String())
 	}
 }
