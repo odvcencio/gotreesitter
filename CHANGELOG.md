@@ -7,6 +7,12 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+### Generated supertype aliases
+
+- Use public alias symbols in generated supertype maps.
+- Remove duplicate subtype entries after alias resolution.
+- Test named aliases, anonymous name collisions, query captures, and the locked C map for Go's `_simple_type`.
+
 ### Test package execution coverage
 
 - Execute 13 previously omitted test packages in continuous integration.
