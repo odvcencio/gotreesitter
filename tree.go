@@ -4356,6 +4356,20 @@ func (t *Tree) rawParseStoppedEarly() bool {
 	}
 }
 
+// rawParseEligibleForFreshRetryLadder reports whether a fresh top-level
+// parse's first tree may still enter the full-parse retry ladder even
+// though it stopped early. Only a node-limit stop is eligible here: the
+// ladder holds a bounded, documented node-budget widening
+// (fullParseRetryNodeLimitOverride) for that one reason. Every other early
+// stop stays a hard stop and returns the tree unchanged, matching
+// rawParseStoppedEarly.
+func (t *Tree) rawParseEligibleForFreshRetryLadder() bool {
+	if !t.rawParseStoppedEarly() {
+		return true
+	}
+	return t.rawParseStopReason() == ParseStopNodeLimit
+}
+
 // ParseRuntime returns parser-loop diagnostics captured when this tree was built.
 func (t *Tree) ParseRuntime() ParseRuntime {
 	if t == nil {

@@ -30,6 +30,16 @@ func parseNodeLimit(sourceLen int) int {
 	return parseNodeLimitForLanguage(sourceLen, nil)
 }
 
+// parseNodeLimitTestOverride, when positive, replaces the source-derived
+// default node limit that parseNodeLimitForLanguage would otherwise compute.
+// It exists only so an in-package test can provoke a deterministic
+// ParseStopNodeLimit on a small, fast input without an explicit
+// ParseWorkLimits.NodeLimit (which has its own, separate no-widen retry
+// contract; see fullParseRetryNodeLimitOverride's caller in
+// retryFullParseForOrigin). Production code never sets this; it stays zero
+// outside a test that assigns and restores it directly.
+var parseNodeLimitTestOverride int
+
 // parseNodeLimitForLanguage is parseNodeLimit with a per-language budget tuned
 // for grammars that allocate unusually many nodes per input byte. The default
 // sourceLen*52 budget is calibrated against the synthetic Go full-parse
@@ -40,6 +50,9 @@ func parseNodeLimit(sourceLen int) int {
 // those grammars avoids forcing two full-parse retries on every small doc
 // while preserving the OOM ceiling for other languages.
 func parseNodeLimitForLanguage(sourceLen int, lang *Language) int {
+	if parseNodeLimitTestOverride > 0 {
+		return parseNodeLimitTestOverride
+	}
 	perByte := 52
 	if lang != nil {
 		switch lang.Name {

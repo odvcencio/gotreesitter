@@ -99,6 +99,7 @@ func shouldNormalizeIncrementalReturnedTree(tree, oldTree *Tree) bool {
 
 func (p *Parser) normalizeReturnedIncrementalTree(tree, oldTree *Tree, source []byte) {
 	if !shouldNormalizeIncrementalReturnedTree(tree, oldTree) {
+		markStoppedEarlyTreeHasError(tree)
 		return
 	}
 	if compactRecoverEOFRootSpanPreserved(tree) {
@@ -137,6 +138,7 @@ func shouldNormalizeReturnedTree(tree *Tree) bool {
 
 func (p *Parser) normalizeReturnedTreeForParse(tree *Tree, source []byte) {
 	if !shouldNormalizeReturnedTree(tree) {
+		markStoppedEarlyTreeHasError(tree)
 		return
 	}
 	if compactRecoverEOFRootSpanPreserved(tree) {
@@ -622,16 +624,38 @@ func compactRecoverEOFRootSpanPreserved(tree *Tree) bool {
 // span cover the input is the GLR/dispatch layer's job (siblings), not the
 // result-reporting layer's.
 //
-// Only ever SETS the flag (never clears): a truncated tree that already reports
-// HasError (11 of the 14 members) is untouched. Trivia-only tails already
-// cleared rt.Truncated above, and early-stop trees (node_limit / memory_budget /
-// timeout) never reach this finalizer, so hard budget aborts keep their honest
-// Truncated flag without a synthetic error mark.
+// Only ever SETS the flag (never clears): a truncated tree that already
+// reports HasError (11 of the 14 members) is untouched. Trivia-only tails
+// already cleared rt.Truncated above. A hard budget abort (node_limit /
+// iteration_limit / stack_depth_limit / reuse_budget / token_source_eof)
+// reaches this same finalizer through markStoppedEarlyTreeHasError, so it
+// gets the identical mark instead of a silently clean truncated root. A
+// timeout, cancellation, memory-budget, or invariant-violation stop never
+// needs it: finalizeTree (parser.go) already replaces that tree with a
+// whole-source ERROR leaf before rt.Truncated is computed, so its root
+// always spans the input and rt.Truncated is already false.
 func markTruncatedTreeHasError(rt ParseRuntime, root *Node) {
 	if !rt.Truncated || root == nil || root.hasError() {
 		return
 	}
 	root.setHasError(true)
+}
+
+// markStoppedEarlyTreeHasError applies the markTruncatedTreeHasError contract
+// to a tree whose ParseStoppedEarly() is true. These trees skip
+// normalizeReturnedTree and finalizeReturnedTreeRootSpan (running the
+// compat-normalization tail on a deliberately incomplete parse is unsafe),
+// but the parser loop already recorded an accurate rt.Truncated and root span
+// before returning (recordParseRuntimeRootStats, parser.go), so the mark can
+// apply directly without recomputing either. Call this from every returned-
+// tree finalize path that skips normalization because ParseStoppedEarly() is
+// true, so a stopped-early tree never silently reports HasError()==false over
+// a dropped source tail.
+func markStoppedEarlyTreeHasError(tree *Tree) {
+	if tree == nil {
+		return
+	}
+	markTruncatedTreeHasError(tree.parseRuntime, rawRootOrNil(tree))
 }
 
 func extendRootToAcceptedCleanTail(root *Node, source []byte, expectedEOFByte uint32, included []Range, continuationEscape byte) bool {
@@ -928,7 +952,7 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 	initialMaxStacks := fullParseInitialMaxStacks(p.language, p.maxConflictWidth)
 	workCountSetNextParseAttempt("initial_full", "fresh_token_source_full_parse")
 	tree := p.parseInternal(source, p.wrapIncludedRanges(ts), nil, nil, arenaClassFull, nil, initialMaxStacks, 0, 0, deterministicExternalConflicts)
-	if !p.recoveryInitialOnly && tree != nil && !tree.rawParseStoppedEarly() && !parseStopReasonIsActive(p.activeParseStopReason()) {
+	if !p.recoveryInitialOnly && tree != nil && tree.rawParseEligibleForFreshRetryLadder() && !parseStopReasonIsActive(p.activeParseStopReason()) {
 		tree = p.retryFullParseWithTokenSource(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
 		if tree != nil && !tree.rawParseStoppedEarly() && !parseStopReasonIsActive(p.activeParseStopReason()) && shouldRepeatExternalScannerFullParse(p.language, tree) {
 			tree = p.retryFullParseWithTokenSource(source, ts, initialMaxStacks, deterministicExternalConflicts, tree)
@@ -1448,7 +1472,7 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 		if progress.enabled {
 			progress.emit(time.Now(), "retry_begin", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, "")
 		}
-		if !p.recoveryInitialOnly && tree != nil && !tree.rawParseStoppedEarly() && !parseStopReasonIsActive(p.activeParseStopReason()) {
+		if !p.recoveryInitialOnly && tree != nil && tree.rawParseEligibleForFreshRetryLadder() && !parseStopReasonIsActive(p.activeParseStopReason()) {
 			tree = p.retryFullParseWithDFA(source, initialMaxStacks, deterministicExternalConflicts, tree)
 			if tree != nil && !tree.rawParseStoppedEarly() && !parseStopReasonIsActive(p.activeParseStopReason()) && shouldRepeatExternalScannerFullParse(p.language, tree) {
 				tree = p.retryFullParseWithDFA(source, initialMaxStacks, deterministicExternalConflicts, tree)
