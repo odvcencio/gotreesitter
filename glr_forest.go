@@ -411,7 +411,7 @@ func (p *Parser) parseForestExperimental(source []byte) (*Tree, bool) {
 	// is only ever non-empty when that census flag is set (see
 	// dispatcherArmCensus), so this is a no-op field copy in every ordinary
 	// parse.
-	p.copyNormalizationStats(tree.rawParseRuntime())
+	p.copyNormalizationStats(tree.ensureParseRuntime())
 	tree.captureTokenInvariantReadSpanValue(lexicalReadSpan)
 	tree.forestFastPath = true
 	if !incrementalReuseProven {
@@ -784,7 +784,7 @@ func (p *Parser) tryForestFastPath(source []byte) *Tree {
 	// stats, so this copy has to happen after both calls, not just once
 	// up front. No-op unless GTS_DISPATCHER_CENSUS populated
 	// p.normalizationStats.
-	p.copyNormalizationStats(tree.rawParseRuntime())
+	p.copyNormalizationStats(tree.ensureParseRuntime())
 	if progress.enabled {
 		progress.endDetail(time.Now(), "forest_normalize_end", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, fmt.Sprintf("root_end=%d", root.EndByte()))
 		progress.emit(time.Now(), "forest_try_success", 0, 0, Token{}, false, nil, 0, 0, 0, false, 0, 0, fmt.Sprintf("root_end=%d", root.EndByte()))

@@ -3227,8 +3227,9 @@ func TestRecoveryMemoTelemetryPreservesAMD64HotLayouts(t *testing.T) {
 	if got, want := unsafe.Sizeof(ParseRuntime{}), uintptr(3096); got != want {
 		t.Fatalf("ParseRuntime size = %d, want %d", got, want)
 	}
-	// 3296: 3288 plus the ParseRuntime growth above.
-	if got, want := unsafe.Sizeof(Tree{}), uintptr(3296); got != want {
+	// 208: Tree now points at its ParseRuntime record instead of embedding it
+	// (parseRuntimePool, tree.go), so growing ParseRuntime no longer grows Tree.
+	if got, want := unsafe.Sizeof(Tree{}), uintptr(208); got != want {
 		t.Fatalf("Tree size = %d, want %d", got, want)
 	}
 	if got, want := unsafe.Offsetof(Parser{}.cNodeMemoPeakTier), unsafe.Offsetof(Parser{}.crecoveryCostCompetitionRelevant)+2; got != want {

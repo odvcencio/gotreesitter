@@ -59,7 +59,7 @@ func requireRecoveryRuntimeDetailedStorageCleared(t *testing.T, parser *Parser) 
 func seedRecoveryRuntimeDetailedAttemptForTest(parser *Parser, tree *Tree) {
 	parser.beginRecoveryRuntimeTelemetry()
 	parser.beginRecoveryRuntimeTelemetryDetailed()
-	runtime := tree.parseRuntime
+	runtime := *tree.rawParseRuntime()
 	parser.finishRecoveryRuntimeTelemetry(tree, nil)
 	parser.finishRecoveryRuntimeTelemetryDetailed(tree, &runtime)
 	parser.recordRecoveryRuntimeRetryTree(tree, "initial")
@@ -82,7 +82,7 @@ func detailedAcceptedErrorTreeForTest(language *Language, sourceLen int) *Tree {
 	return &Tree{
 		language: language,
 		root:     &Node{endByte: uint32(sourceLen), flags: nodeFlagHasError},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:       ParseStopAccepted,
 			SourceLen:        uint32(sourceLen),
 			ExpectedEOFByte:  uint32(sourceLen),
@@ -113,7 +113,7 @@ func detailedCSharpNamespaceRecoveryTreeForTest() (*Tree, []byte) {
 		language: language,
 		root:     root,
 		arena:    arena,
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:       ParseStopAccepted,
 			SourceLen:        uint32(len(source)),
 			ExpectedEOFByte:  uint32(len(source)),
@@ -359,7 +359,7 @@ func TestRecoveryRuntimeDetailedIncrementalNoRetrySelectsReturnedTree(t *testing
 
 	const sourceLen = 128
 	tree := detailedAcceptedErrorTreeForTest(&Language{Name: "go"}, sourceLen)
-	tree.parseRuntime.IncrementalOldTreeReuseRoute = true
+	tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
 	parser := &Parser{language: tree.language}
 	seedRecoveryRuntimeDetailedAttemptForTest(parser, tree)
 	got := parser.retryIncrementalAcceptedErrorWithBaseMergeCap(make([]byte, sourceLen), tree, nil, nil)
@@ -378,7 +378,7 @@ func TestRecoveryRuntimeDetailedIncrementalTieKeepsFirstPassSelected(t *testing.
 	initial := &Tree{
 		language: language,
 		root:     &Node{endByte: sourceLen},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:       ParseStopNoStacksAlive,
 			SourceLen:        sourceLen,
 			ExpectedEOFByte:  sourceLen,
@@ -396,7 +396,7 @@ func TestRecoveryRuntimeDetailedIncrementalTieKeepsFirstPassSelected(t *testing.
 			candidate := &Tree{
 				language: language,
 				root:     &Node{endByte: sourceLen},
-				parseRuntime: ParseRuntime{
+				parseRuntime: &ParseRuntime{
 					StopReason:       ParseStopNoStacksAlive,
 					SourceLen:        sourceLen,
 					ExpectedEOFByte:  sourceLen,
@@ -407,7 +407,7 @@ func TestRecoveryRuntimeDetailedIncrementalTieKeepsFirstPassSelected(t *testing.
 				},
 			}
 			parser.finishRecoveryRuntimeTelemetry(candidate, nil)
-			parser.finishRecoveryRuntimeTelemetryDetailed(candidate, &candidate.parseRuntime)
+			parser.finishRecoveryRuntimeTelemetryDetailed(candidate, candidate.rawParseRuntime())
 			return candidate
 		})
 	if got != initial {
@@ -436,7 +436,7 @@ func TestRecoveryRuntimeDetailedReplacementFactsRemainSeparate(t *testing.T) {
 	parser.beginRecoveryRuntimeTelemetryDetailed()
 	parser.recordRecoveryEntry()
 	parser.finishRecoveryRuntimeTelemetry(initial, nil)
-	parser.finishRecoveryRuntimeTelemetryDetailed(initial, &initial.parseRuntime)
+	parser.finishRecoveryRuntimeTelemetryDetailed(initial, initial.rawParseRuntime())
 	parser.recordRecoveryRuntimeRetryTree(initial, "initial")
 	parser.recordRecoveryRuntimeRetryTreeDetailed(initial, "initial", "initial_parse")
 
@@ -447,7 +447,7 @@ func TestRecoveryRuntimeDetailedReplacementFactsRemainSeparate(t *testing.T) {
 	parser.recordRecoveryEntry()
 	parser.recordRecoveryEntry()
 	parser.finishRecoveryRuntimeTelemetry(candidate, nil)
-	parser.finishRecoveryRuntimeTelemetryDetailed(candidate, &candidate.parseRuntime)
+	parser.finishRecoveryRuntimeTelemetryDetailed(candidate, candidate.rawParseRuntime())
 	parser.recordRecoveryRuntimeRetryTree(candidate, "retry")
 	parser.recordRecoveryRuntimeRetryTreeDetailed(candidate, "retry", "replacement_retry")
 	parser.recordRecoveryRuntimeSelectedTree(candidate)

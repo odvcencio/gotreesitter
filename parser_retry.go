@@ -355,10 +355,11 @@ func (p *Parser) retryIncrementalAcceptedErrorWithBaseMergeCap(source []byte, fi
 		timing.acceptedErrorRetryCause = IncrementalRetryCauseAcceptedErrorBaseMerge
 	}
 	if result != nil {
-		result.parseRuntime.IncrementalAcceptedErrorRetryAttempts = 1
-		result.parseRuntime.IncrementalAcceptedErrorRetryAdopted = adopted
-		result.parseRuntime.IncrementalAcceptedErrorRetryMergePerKey = baseCap
-		result.parseRuntime.IncrementalAcceptedErrorRetryCause = IncrementalRetryCauseAcceptedErrorBaseMerge
+		resultRT := result.ensureParseRuntime()
+		resultRT.IncrementalAcceptedErrorRetryAttempts = 1
+		resultRT.IncrementalAcceptedErrorRetryAdopted = adopted
+		resultRT.IncrementalAcceptedErrorRetryMergePerKey = baseCap
+		resultRT.IncrementalAcceptedErrorRetryCause = IncrementalRetryCauseAcceptedErrorBaseMerge
 	}
 	p.finishRecoveryRuntimeRetryTelemetry(result, len(source))
 	p.clearRecoveryRuntimeRetryTreesDetailed()
@@ -601,10 +602,11 @@ func preferRetryTreeOverFirstPass(p *Parser, candidate, firstPass *Tree) bool {
 	// preferRetryTree said yes; reject the replacement if its only winning
 	// axis was the NodesAllocated bookkeeping tie-break, i.e. the reverse
 	// comparison with NodesAllocated ignored would also say yes.
-	saved := candidate.parseRuntime.NodesAllocated
-	candidate.parseRuntime.NodesAllocated = firstPass.rawParseRuntime().NodesAllocated
+	candidateRT := candidate.ensureParseRuntime()
+	saved := candidateRT.NodesAllocated
+	candidateRT.NodesAllocated = firstPass.rawParseRuntime().NodesAllocated
 	strict := preferRetryTree(p, candidate, firstPass)
-	candidate.parseRuntime.NodesAllocated = saved
+	candidateRT.NodesAllocated = saved
 	return strict
 }
 

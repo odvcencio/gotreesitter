@@ -55,8 +55,11 @@ func (t *Tree) captureTokenInvariantReadSpanValue(span uint32) {
 }
 
 func (t *Tree) tokenInvariantReadSpanResultEligible() bool {
-	return t != nil && t.root != nil && !t.root.hasError() &&
-		t.parseRuntime.StopReason == ParseStopAccepted && !t.parseRuntime.Truncated && !t.parseRuntime.CRecoveryEnteredErrorState
+	if t == nil || t.root == nil || t.root.hasError() {
+		return false
+	}
+	rt := t.rawParseRuntime()
+	return rt.StopReason == ParseStopAccepted && !rt.Truncated && !rt.CRecoveryEnteredErrorState
 }
 
 func (p *Parser) tokenInvariantEditDependencies(source []byte, oldTree *Tree, node *Node, edit InputEdit, ts TokenSource, timing *incrementalParseTiming) (uint32, bool) {

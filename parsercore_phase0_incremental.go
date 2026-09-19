@@ -157,7 +157,7 @@ func (p *Parser) attemptCompactIncrementalParse(source []byte, oldTree *Tree, ti
 	tree.ensureParentLinks()
 	if timing != nil {
 		timing.oldTreeReuseRoute = true
-		timing.newNodes = uint64(tree.parseRuntime.NodesAllocated)
+		timing.newNodes = uint64(tree.rawParseRuntime().NodesAllocated)
 		timing.selectResult(tree)
 	}
 	return tree, "", false

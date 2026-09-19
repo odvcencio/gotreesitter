@@ -172,7 +172,7 @@ func (p *Parser) normalizeReturnedTreeForParse(tree *Tree, source []byte) {
 // Clean deferred trees (rt.Truncated==false, the common typescript path) are
 // untouched and keep their lazy compat.
 func finalizeDeferredReturnedTreeTruncation(tree *Tree, _ []byte) {
-	if tree == nil || !tree.parseRuntime.Truncated {
+	if tree == nil || !tree.rawParseRuntime().Truncated {
 		return
 	}
 	// Flush the deferred compat normalization first (only for the rare truncated
@@ -180,7 +180,7 @@ func finalizeDeferredReturnedTreeTruncation(tree *Tree, _ []byte) {
 	// dropped if a normalizer rebuilds the root. ensureResultCompatibility joins
 	// the tree's one-shot deferred-finalization boundary.
 	tree.ensureResultCompatibility()
-	markTruncatedTreeHasError(tree.parseRuntime, rawRootOrNil(tree))
+	markTruncatedTreeHasError(*tree.rawParseRuntime(), rawRootOrNil(tree))
 }
 
 const (
@@ -572,7 +572,7 @@ func finalizeReturnedTreeRootSpan(tree *Tree, source []byte) {
 		return
 	}
 	continuationEscape := languageLineContinuationEscapeByte(tree.language)
-	rt := tree.parseRuntime
+	rt := *tree.rawParseRuntime()
 	if rt.StopReason == ParseStopAccepted {
 		extendRootToAcceptedCleanTail(root, source, rt.ExpectedEOFByte, tree.includedRanges, continuationEscape)
 	}
@@ -600,7 +600,7 @@ func compactRecoverEOFRootSpanPreserved(tree *Tree) bool {
 		!tree.root.hasFlag(nodeFlagCompactRecoverEOF) {
 		return false
 	}
-	rt := tree.parseRuntime
+	rt := tree.rawParseRuntime()
 	return rt.StopReason == ParseStopAccepted && rt.LastTokenWasEOF &&
 		rt.ExpectedEOFByte > rt.RootEndByte &&
 		rt.LastTokenEndByte == rt.ExpectedEOFByte
@@ -655,7 +655,7 @@ func markStoppedEarlyTreeHasError(tree *Tree) {
 	if tree == nil {
 		return
 	}
-	markTruncatedTreeHasError(tree.parseRuntime, rawRootOrNil(tree))
+	markTruncatedTreeHasError(*tree.rawParseRuntime(), rawRootOrNil(tree))
 }
 
 func extendRootToAcceptedCleanTail(root *Node, source []byte, expectedEOFByte uint32, included []Range, continuationEscape byte) bool {
@@ -1861,7 +1861,7 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	}
 	tree, err := p.parseIncrementalChanged(source, oldTree)
 	if tree != nil && tree != oldTree {
-		tree.parseRuntime.CompactIncrementalFallbackReason = reason
+		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason
 	}
 	return tree, err
 }
@@ -2068,7 +2068,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	tree, timing, err := p.parseIncrementalChangedProfiled(source, oldTree)
 	timing.addAttempt(&compactTiming)
 	if tree != nil && tree != oldTree {
-		tree.parseRuntime.CompactIncrementalFallbackReason = reason
+		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason
 	}
 	return tree, timing.toProfile(), err
 }
