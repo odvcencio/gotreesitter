@@ -2379,7 +2379,7 @@ func TestParserRecycleDemotedGSSInvalidatesPointerHolders(t *testing.T) {
 	if scratch.merge.preflight == nil || len(scratch.merge.preflight.virtualLink) != 0 || len(scratch.merge.preflight.reachCache) != 0 {
 		t.Fatal("preflight pointer holders not reset")
 	}
-	if parser.cPrefixPath != nil && len(parser.cPrefixPath) != 0 {
+	if len(parser.cPrefixPath) != 0 {
 		t.Fatalf("parser prefix path len=%d, want 0", len(parser.cPrefixPath))
 	}
 	if got := parser.pendingForkStacks[:cap(parser.pendingForkStacks)][0].gss.head; got != nil {

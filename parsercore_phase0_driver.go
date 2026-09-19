@@ -4744,7 +4744,7 @@ func diagnosticParserCoreConflictPolicyOrdinal(
 		return 0, false
 	}
 	var inline [8]ParseAction
-	decoded := inline[:0]
+	var decoded []ParseAction
 	if actions.Len() <= len(inline) {
 		decoded = inline[:actions.Len()]
 	} else {
@@ -8509,7 +8509,9 @@ func (s *diagnosticParserCoreGenericScheduler) dispatchPassActive() (*diagnostic
 					}
 					if relexed.EndByte != s.token.EndByte {
 						if raggedRelexNoActionHeads == 0 {
+							//lint:ignore SA4006 the return below makes this dormant today; kept correct for the decline site's future caller (see that site's comment).
 							raggedRelexWitness = relexed
+							//lint:ignore SA4006 same reason as raggedRelexWitness above.
 							raggedRelexHeaderIndex = index
 							raggedRelexNoActionHeads++
 							// A different span proves that this election cannot

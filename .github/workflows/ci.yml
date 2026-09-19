@@ -77,6 +77,20 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
+
+      - name: Staticcheck (real-bug checks only)
+        # Scoped to SA4000 (identical binary operands), SA4003 (impossible
+        # comparison after a truncating conversion), SA5011 (nil dereference
+        # before a nil check), SA4006 (dead store), SA4009 (parameter
+        # overwritten before use), and SA1019 (deprecated use). Excludes test
+        # files (-tests=false): the last pass left known SA4006 findings in
+        # internal/parsercorephase0 test fixtures out of scope; this gate
+        # covers production code only. ./grammars/ and ./cmd/... are clean
+        # under the same checks and stay in the gate.
+        run: staticcheck -tests=false -checks 'SA4000,SA4003,SA5011,SA4006,SA4009,SA1019' . ./internal/... ./grammargen/ ./grammars/ ./cmd/...
+
       - name: Test Compile
         run: go test ./... -run '^$' -count=1
 

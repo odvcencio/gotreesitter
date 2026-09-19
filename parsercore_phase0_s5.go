@@ -978,8 +978,15 @@ func (s *diagnosticParserCoreGenericScheduler) s5RunOwned(
 	if s.token.Symbol == 0 && !s.options.allowCompactS5EOFMissingInsertion {
 		return false, nil
 	}
-	tokenCount := core.Symbol(s.tokenSource.language.TokenCount)
-	if tokenCount <= 1 || tokenCount > math.MaxUint16 {
+	// Check the raw uint32 count before the narrowing conversion. A
+	// conversion first would truncate an out-of-range count and hide the
+	// overflow from this guard.
+	rawTokenCount := s.tokenSource.language.TokenCount
+	if rawTokenCount > math.MaxUint16 {
+		return false, nil
+	}
+	tokenCount := core.Symbol(rawTokenCount)
+	if tokenCount <= 1 {
 		return false, nil
 	}
 	original := s.headers[index]

@@ -7501,7 +7501,8 @@ func (p *Parser) newInitialParseStacks(scratch *parserScratch, reuse *reuseCurso
 	// Included-range parsing starts at the first selected byte. Keep the
 	// initial stack offset aligned with the token source so a skipped prefix
 	// cannot become a parser-owned ERROR span before the first token.
-	if p != nil && len(p.included) > 0 {
+	// p is never nil here: p.language is already dereferenced above.
+	if len(p.included) > 0 {
 		start := p.included[0].StartByte
 		if uint64(start) > uint64(sourceLen) {
 			start = uint32(sourceLen)

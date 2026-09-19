@@ -1636,8 +1636,7 @@ func (d *dfaTokenSource) scanDFATokenForStateInto(state StateID, lexState uint32
 			d.lexer.includedRangeIdx = savedRangeIdx
 		}
 	}
-	var keywordDemoted bool
-	keywordDemoted = d.promoteKeyword(tok)
+	keywordDemoted := d.promoteKeyword(tok)
 	if !keywordDemoted {
 		d.promoteActiveLiteralForCurrentState(tok, savedPos, savedRow, savedCol)
 	}
@@ -5056,7 +5055,6 @@ func (d *dfaTokenSource) promoteActiveLiteralForCurrentState(tok *Token, scanSta
 		tok.Symbol = sym
 		return
 	}
-	return
 }
 
 func (d *dfaTokenSource) activeStateCanPromoteLiteral(tok Token, sym Symbol, scanStartPos int, scanStartRow, scanStartCol uint32) bool {

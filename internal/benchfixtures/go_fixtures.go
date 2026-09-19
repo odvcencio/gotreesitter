@@ -258,10 +258,10 @@ func VerifyGoFullParseSuiteNodeKindCoverage(coverage NodeKindCoverage) error {
 // either timer.
 func VerifyGoGrammarIdentity(commit, blobSHA256 string) error {
 	if commit != GoGrammarCommit {
-		return fmt.Errorf("Go grammar commit=%q want=%q", commit, GoGrammarCommit)
+		return fmt.Errorf("go grammar commit=%q want=%q", commit, GoGrammarCommit)
 	}
 	if blobSHA256 != GoGrammarBlobSHA256 {
-		return fmt.Errorf("Go grammar blob sha256=%q want=%q", blobSHA256, GoGrammarBlobSHA256)
+		return fmt.Errorf("go grammar blob sha256=%q want=%q", blobSHA256, GoGrammarBlobSHA256)
 	}
 	return nil
 }
