@@ -996,7 +996,10 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 				leaf := newLeafNodeInArena(arena, tok.Symbol, p.isNamedSymbol(tok.Symbol),
 					tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 				p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
-				leaf.setHasError(true)
+				// No leaf.setHasError(true) here: C gives an absorbed token no
+				// error cost (ts_subtree_error_cost only charges the ERROR
+				// container). Only the wrapper the leaf lands in (top, below)
+				// carries the error bit.
 				leaf.setExternalScannerToken(tok.ExternalScannerToken)
 				top.children = append(top.children, leaf)
 				invalidateRawShapeAfterChildMutation(top)
@@ -1022,7 +1025,9 @@ func (p *Parser) pushOrExtendErrorNode(s *glrStack, state StateID, tok Token, no
 		leaf := newLeafNodeInArena(arena, tok.Symbol, p.isNamedSymbol(tok.Symbol),
 			tok.StartByte, tok.EndByte, tok.StartPoint, tok.EndPoint)
 		p.stampCompactPackedGSSZeroChildReceipt(&leaf.rawShape)
-		leaf.setHasError(true)
+		// No leaf.setHasError(true) here: C gives an absorbed token no error
+		// cost (ts_subtree_error_cost only charges the ERROR container).
+		// wrapper.setHasError(true) below carries the error bit instead.
 		leaf.setExternalScannerToken(tok.ExternalScannerToken)
 		// newRecoveryParentNodeInArena, not newParentNodeInArena: this wrapper
 		// gets pushed straight onto the GSS stack and can be popped as a plain

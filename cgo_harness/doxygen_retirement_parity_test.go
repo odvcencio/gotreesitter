@@ -68,10 +68,14 @@ func TestDoxygenDispatchRetirementLockedCParity(t *testing.T) {
 			},
 		},
 		{
+			// goDigest moved: the absorbed tag_name token no longer carries
+			// its own error bit, so expectedRootCanFrameRecoveredFragments
+			// no longer elides it, and "document" keeps the ERROR wrapper
+			// around it. The Go/C root type divergence below is unrelated.
 			name:         "a0_example_cfg",
 			path:         filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "small__example.cfg"),
 			sourceSHA256: "86998161914382f8152e4984db091e7bf486799c1091fc6c57db4e704eee4a3b",
-			goDigest:     "4e961b6abe28b703bc0e1e2033afc70fbb1d913b522687d4d270fd780b2ed6c4",
+			goDigest:     "b9bb1f5701ae912a89cde155e0b18ba39bbd6db5619b7d1b5d52a4b079e6219b",
 			cDigest:      "f1938d5c7bc544856a5df6c204af75af10a5395bd1f89f560c74caef5acf191f",
 			wantDivergence: &normalizationKnownDivergence{
 				Path:     "/document",
