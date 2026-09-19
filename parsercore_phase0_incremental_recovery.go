@@ -78,7 +78,7 @@ func (p *Parser) attemptCompactIncrementalRecoveryFullParse(source []byte, oldTr
 	if !accepted || tree == nil {
 		return nil
 	}
-	treeRT := tree.rawParseRuntime()
+	treeRT := tree.ensureParseRuntime()
 	treeRT.CompactIncrementalFullRecoveryRoute = true
 	treeRT.CompactIncrementalFallbackReason = reason
 	return tree

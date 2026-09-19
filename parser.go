@@ -3236,7 +3236,7 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 	arenaClass := incrementalArenaClassForSource(source)
 	tree := p.parseInternal(source, ts, reuse, oldTree, arenaClass, timing, 0, 0, maxMergePerKeyOverride, false)
 	if tree != nil && reuse != nil {
-		tree.rawParseRuntime().IncrementalOldTreeReuseRoute = true
+		tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
 		if timing != nil {
 			timing.oldTreeReuseRoute = true
 		}

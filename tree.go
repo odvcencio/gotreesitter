@@ -1536,9 +1536,10 @@ var parseRuntimePool = sync.Pool{
 }
 
 // acquireParseRuntime returns a zeroed ParseRuntime block, reused from a
-// prior Tree.Release when the pool holds one. Only the parser's tree
-// construction seam (resetTreeForReuse) calls this on the hot path; other
-// Trees pick up a block lazily through rawParseRuntime.
+// prior Tree.Release when the pool holds one. Every Tree construction site
+// (NewTree, resetTreeForReuse, Copy) calls this eagerly, so a live Tree's
+// parseRuntime field is never observed as nil by a concurrent reader; see
+// parseRuntimeNone for the one exception.
 func acquireParseRuntime() *ParseRuntime {
 	return parseRuntimePool.Get().(*ParseRuntime)
 }
@@ -1555,6 +1556,15 @@ func releaseParseRuntime(rt *ParseRuntime) {
 	*rt = ParseRuntime{}
 	parseRuntimePool.Put(rt)
 }
+
+// parseRuntimeNone is a shared, permanently zero ParseRuntime. rawParseRuntime
+// returns a pointer to it for a Tree whose parseRuntime field is nil (a bare
+// &Tree{} built outside every constructor above), so a read never allocates
+// and never writes to the tree. Never write through the pointer rawParseRuntime
+// can return: every live Tree with a nil block shares this exact value, so a
+// write here would corrupt what every other such Tree reads. Write sites must
+// call ensureParseRuntime instead, which allocates a private block first.
+var parseRuntimeNone = ParseRuntime{StopReason: ParseStopNone}
 
 type NormalizationPassRuntime struct {
 	Name           string
@@ -2891,7 +2901,7 @@ func (t *Tree) ensureResultCompatibility() {
 			// normalizer just ran on the line above. parser.normalizationStats is
 			// only ever non-empty when that census flag is set, so this is a
 			// no-op field copy in every ordinary parse.
-			parser.copyNormalizationStats(t.rawParseRuntime())
+			parser.copyNormalizationStats(t.ensureParseRuntime())
 			return
 		}
 		timing := &parseMaterializationTiming{}
@@ -2905,8 +2915,8 @@ func (t *Tree) ensureResultCompatibility() {
 		t.resultCompatibilityApplied = !resultMaterializationShouldStop(result.stopReason)
 		t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 		timing.addResultCompatibility(start)
-		t.rawParseRuntime().ResultCompatibilityNanos += timing.resultCompatibilityNanos
-		parser.copyNormalizationStats(t.rawParseRuntime())
+		t.ensureParseRuntime().ResultCompatibilityNanos += timing.resultCompatibilityNanos
+		parser.copyNormalizationStats(t.ensureParseRuntime())
 	})
 }
 
@@ -3457,6 +3467,11 @@ func NewTree(root *Node, source []byte, lang *Language) *Tree {
 		source:         source,
 		sourceEncoding: InputEncodingUTF8,
 		language:       lang,
+		// Tree is documented safe for concurrent reads after construction, so
+		// this must not be left nil for rawParseRuntime to backfill lazily on
+		// first read: two goroutines reading concurrently would race on that
+		// write. Acquire eagerly here, matching every other construction site.
+		parseRuntime: acquireParseRuntime(),
 	}
 }
 
@@ -4455,15 +4470,33 @@ func (t *Tree) RecoveryNodeMemoRuntime() RecoveryNodeMemoRuntime {
 
 // rawParseRuntime returns the parser-captured runtime record without running
 // deferred result compatibility and without the public accessor's live arena
-// counter overlay. Parser-owned decision helpers may use it only while the tree
-// is alive and must not mutate the result.
+// counter overlay. Parser-owned decision helpers may use it only while the
+// tree is alive and must not mutate the result.
 //
-// A Tree built by the parser's normal construction path already carries a
-// pooled block (see resetTreeForReuse). A Tree built directly, for example
-// by NewTree, starts with none; this backfills one on first use so every
-// live Tree answers runtime queries the same way regardless of how it was
-// built. The backfilled block still joins parseRuntimePool on Release.
+// This is READ-ONLY: it never allocates and never writes to t. A Tree with no
+// block of its own (t.parseRuntime == nil — not expected on any current
+// construction path, since every one of them acquires eagerly, but Tree is
+// documented safe for concurrent reads, so this must not backfill lazily)
+// gets a pointer to the shared parseRuntimeNone zero value instead. Callers
+// that need to write must call ensureParseRuntime, never assign through the
+// pointer this returns.
 func (t *Tree) rawParseRuntime() *ParseRuntime {
+	if t == nil {
+		return nil
+	}
+	if t.parseRuntime == nil {
+		return &parseRuntimeNone
+	}
+	return t.parseRuntime
+}
+
+// ensureParseRuntime returns t's own runtime block, allocating one from the
+// pool and storing it on t first if this Tree has none yet. Only call this
+// from a write site. Every construction path acquires eagerly already
+// (NewTree, resetTreeForReuse, Copy), so in practice this never allocates;
+// it exists as a fail-safe for a Tree assembled some other way, for example a
+// bare &Tree{} literal in a test.
+func (t *Tree) ensureParseRuntime() *ParseRuntime {
 	if t == nil {
 		return nil
 	}
@@ -4489,7 +4522,7 @@ func (t *Tree) setParseRuntime(rt ParseRuntime) {
 	if rt.StopReason == "" {
 		rt.StopReason = ParseStopNone
 	}
-	*t.rawParseRuntime() = rt
+	*t.ensureParseRuntime() = rt
 }
 
 func (t *Tree) setRecoveryNodeMemoRuntime(rt RecoveryNodeMemoRuntime) {

@@ -359,7 +359,7 @@ func TestRecoveryRuntimeDetailedIncrementalNoRetrySelectsReturnedTree(t *testing
 
 	const sourceLen = 128
 	tree := detailedAcceptedErrorTreeForTest(&Language{Name: "go"}, sourceLen)
-	tree.rawParseRuntime().IncrementalOldTreeReuseRoute = true
+	tree.ensureParseRuntime().IncrementalOldTreeReuseRoute = true
 	parser := &Parser{language: tree.language}
 	seedRecoveryRuntimeDetailedAttemptForTest(parser, tree)
 	got := parser.retryIncrementalAcceptedErrorWithBaseMergeCap(make([]byte, sourceLen), tree, nil, nil)

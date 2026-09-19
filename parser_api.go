@@ -1861,7 +1861,7 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	}
 	tree, err := p.parseIncrementalChanged(source, oldTree)
 	if tree != nil && tree != oldTree {
-		tree.rawParseRuntime().CompactIncrementalFallbackReason = reason
+		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason
 	}
 	return tree, err
 }
@@ -2068,7 +2068,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	tree, timing, err := p.parseIncrementalChangedProfiled(source, oldTree)
 	timing.addAttempt(&compactTiming)
 	if tree != nil && tree != oldTree {
-		tree.rawParseRuntime().CompactIncrementalFallbackReason = reason
+		tree.ensureParseRuntime().CompactIncrementalFallbackReason = reason
 	}
 	return tree, timing.toProfile(), err
 }

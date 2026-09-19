@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"unsafe"
 )
@@ -76,6 +77,63 @@ func TestRawParseRuntimeUsesStoredRecordWithoutArenaOverlay(t *testing.T) {
 	if stored.FinalChildRefs != 7 {
 		t.Fatalf("public runtime overlay mutated stored FinalChildRefs to %d", stored.FinalChildRefs)
 	}
+}
+
+// TestNewTreeParseRuntimeDefaultsToStopNone confirms a Tree built directly
+// with NewTree (not through the parser) reports the same default StopReason
+// as a fresh parse result would before any parse loop wrote to it.
+func TestNewTreeParseRuntimeDefaultsToStopNone(t *testing.T) {
+	tree := NewTree(nil, []byte("x"), testLanguage())
+	defer tree.Release()
+	if got := tree.ParseRuntime().StopReason; got != ParseStopNone {
+		t.Fatalf("NewTree StopReason = %q, want %q", got, ParseStopNone)
+	}
+}
+
+// TestTreeReleaseAcceptsEagerAndNilParseRuntime confirms Release succeeds
+// both for a Tree whose block was acquired eagerly (NewTree, the only
+// exported constructor) and for a bare &Tree{} whose parseRuntime field was
+// never populated at all (a construction path no current code takes, but one
+// Release must still handle without panicking).
+func TestTreeReleaseAcceptsEagerAndNilParseRuntime(t *testing.T) {
+	eager := NewTree(nil, []byte("x"), testLanguage())
+	if eager.parseRuntime == nil {
+		t.Fatal("NewTree left parseRuntime nil, want an eagerly acquired block")
+	}
+	eager.Release()
+
+	var bare Tree
+	if bare.parseRuntime != nil {
+		t.Fatal("zero-value Tree unexpectedly has a parseRuntime block")
+	}
+	bare.Release()
+}
+
+// TestTreeParseRuntimeConcurrentReads is a race regression test for the
+// parseRuntime sidecar. Tree is documented safe for concurrent reads after
+// construction; a NewTree result starts with an eagerly acquired block, but
+// this exercises the read accessors themselves under -race so a future
+// change that reintroduces a lazy write in a read path gets caught here
+// rather than in a real corpus walk.
+func TestTreeParseRuntimeConcurrentReads(t *testing.T) {
+	tree := NewTree(nil, []byte("x"), testLanguage())
+	defer tree.Release()
+
+	const goroutines = 8
+	const iterations = 1000
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				_ = tree.ParseRuntime()
+				_ = tree.ParseStopReason()
+				_ = tree.ParseStoppedEarly()
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestLeafNode(t *testing.T) {
