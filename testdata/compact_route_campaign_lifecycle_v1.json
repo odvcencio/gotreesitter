@@ -381,6 +381,7 @@
       "default": "disabled",
       "read_sites": [
         {"path": "admission_switch.go", "symbol": "hasActiveParseObservability", "line": 247},
+        {"path": "parser_config.go", "symbol": "parseProgress", "line": 220},
         {"path": "parse_progress_telemetry.go", "symbol": "newParseProgressTelemetry", "line": 25}
       ]
     },
@@ -441,7 +442,7 @@
       "scope": "production",
       "default": "compiled stack cap",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parseMaxGLRStacksValue", "line": 108}
+        {"path": "parser_config.go", "symbol": "parseMaxGLRStacksValue", "line": 114}
       ]
     },
     {
@@ -451,7 +452,7 @@
       "scope": "production",
       "default": "compiled merge cap",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parseMaxMergePerKeyValue", "line": 124}
+        {"path": "parser_config.go", "symbol": "parseMaxMergePerKeyValue", "line": 130}
       ]
     },
     {
@@ -461,7 +462,7 @@
       "scope": "production",
       "default": "1",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parseNodeLimitScaleFactor", "line": 87}
+        {"path": "parser_config.go", "symbol": "parseNodeLimitScaleFactor", "line": 93}
       ]
     },
     {
@@ -471,7 +472,7 @@
       "scope": "production",
       "default": "512",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parseMemoryBudgetMB", "line": 333}
+        {"path": "parser_config.go", "symbol": "parseMemoryBudgetMB", "line": 387}
       ]
     },
     {
@@ -481,7 +482,7 @@
       "scope": "production",
       "default": "2048",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parseMemoryHardCeilingMB", "line": 357}
+        {"path": "parser_config.go", "symbol": "parseMemoryHardCeilingMB", "line": 419}
       ]
     },
     {
@@ -492,6 +493,7 @@
       "default": "language profile policy",
       "read_sites": [
         {"path": "parser_recover_c.go", "symbol": "errorCostCompetitionLanguage", "line": 234},
+        {"path": "parser_config.go", "symbol": "cRecovery", "line": 221},
         {"path": "parser_recover_c.go", "symbol": "cRecoveryGateReason", "line": 282},
         {"path": "parser_recover_c.go", "symbol": "cRecoveryGateReason", "line": 289}
       ]
@@ -503,7 +505,7 @@
       "scope": "production",
       "default": "disabled",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parsePhaseTimingEnabled", "line": 215}
+        {"path": "parser_config.go", "symbol": "parsePhaseTimingEnabled", "line": 275}
       ]
     },
     {
@@ -513,7 +515,7 @@
       "scope": "production",
       "default": "disabled",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parseReduceTimingEnabled", "line": 223}
+        {"path": "parser_config.go", "symbol": "parseReduceTimingEnabled", "line": 283}
       ]
     },
     {
@@ -523,7 +525,7 @@
       "scope": "production",
       "default": "disabled",
       "read_sites": [
-        {"path": "parser_config.go", "symbol": "parseActionTimingEnabled", "line": 231}
+        {"path": "parser_config.go", "symbol": "parseActionTimingEnabled", "line": 291}
       ]
     },
     {
