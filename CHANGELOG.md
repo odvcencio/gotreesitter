@@ -7,6 +7,106 @@ for tags and release notes while still in `0.x`.
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-09-19
+
+### Release overview
+
+- This release fixes public API contract faults and C-parity gaps that a
+  repository audit found. It also includes the maintenance work merged after
+  v0.52.0.
+- Each parse applies its timeout once. Tree handles are safe to release in
+  the C order. Incremental reuse is correct for edit sequences and changed
+  included ranges.
+- The default memory budget grows with the input size, so valid large inputs
+  no longer stop early.
+- Reserved words, query predicates, and generated grammar tables match C in
+  more cases.
+- Eligible fresh parses use the compact parser by default. Unsupported cases
+  retain the legacy fallback. This release does not complete compact parser
+  graduation.
+
+### Performance evidence
+
+Paired randomized benchmarks compare v0.52.0 with the v0.53.0 candidate code at
+`48503fef`. The run used 20 shuffle seeds, alternating order, `-benchtime=750ms`,
+`GOMAXPROCS=1`, and the `gts_parsercorephase0` tag. It ran in the harness
+container with 4 GiB of memory and one pinned CPU (Intel Core Ultra 9 285).
+
+| Benchmark | v0.52.0 | v0.53.0 | Change |
+| --- | ---: | ---: | ---: |
+| `BenchmarkGoParseFullDFA` | 13.099 ms, 258.6 KiB, 42 allocs | 9.637 ms, 226.5 KiB, 37 allocs | -26.43% time |
+| `BenchmarkGoParseIncrementalSingleByteEditDFA` | 2,294.1 us, 184.2 KiB, 95 allocs | 127.5 us, 3.5 KiB, 5 allocs | -94.44% time |
+| `BenchmarkGoParseIncrementalNoEditDFA` | 2.612 ns, 0 allocs | 4.043 ns, 0 allocs | +54.80% time |
+
+All three time changes have p=0.000 with n=20.
+
+- The single-byte edit gain comes from the authenticated token-invariant
+  reuse that v0.52.0 disabled and that returned after it.
+- The no-edit regression is 1.4 ns. The unchanged-tree fast path now adds a
+  tree handle and compares included ranges. It stays in single-digit
+  nanoseconds with no allocations. Recover it in a later release.
+- Each returned tree now allocates one new `Tree` value, because released
+  trees no longer return to a pool.
+
+A one-shot large-file run parses the canonical `grammargen/lr.go` fixture with
+`BenchmarkParityGoCanonicalFull` under `/usr/bin/time -v` in the same container.
+
+| Measure | v0.52.0 | v0.53.0 |
+| --- | ---: | ---: |
+| Maximum resident set size | 151,444 KiB | 137,540 KiB |
+| Bytes allocated for each parse | 4,304,096 B | 134,560 B |
+| Allocations for each parse | 64,132 | 3,080 |
+
+The run used `GOMAXPROCS=1` and `-benchtime=1x`. The raw outputs stay outside the repository.
+
+### Parse timeout
+
+- Apply `SetTimeoutMicros` once for each parse. The compact route and the production fallback now share one deadline.
+- A parse that the compact route stopped on a timeout ran for about twice the configured timeout before this change.
+
+### Tree handles
+
+- Make a second `Release` on a released tree do nothing. A stale call no longer frees the tree of a later parse.
+- Stop pooling `Tree` values. Each returned tree now costs one new 3,296-byte value.
+- Add a handle when an unchanged incremental parse returns its old tree. Releasing the old tree no longer invalidates the result.
+- Document that `ParseIncremental` updates parent links in the old tree, and that `Node.Edit` after `Tree.Edit` moves spans twice.
+
+### Incremental edit sequences
+
+- Clear dirty nodes on byte-identical source only when the recorded edits restore every node span. A delete-then-reinsert sequence no longer reuses a collapsed leaf.
+- Parse again from the start when the parser included ranges differ from the old tree ranges.
+- Compare random multi-edit sequences with fresh parses for JSON and Go.
+
+### Memory budget
+
+- Scale the default per-parse memory budget with the input. It is the larger of 512 MiB and 512 bytes for each input byte. Valid 7 MB JSON no longer stops with `ParseStopMemoryBudget`.
+- Keep the process-heap ceiling at the larger of 2 GiB and twice the budget.
+- Add `Parser.SetMemoryBudgetBytes`, `Parser.MemoryBudgetBytes`, and `WithParserPoolMemoryBudgetBytes` for a fixed budget.
+
+### Reserved words
+
+- Promote a reserved word to its keyword token, as C `ts_parser__lex` does. JavaScript `var if = 1;` now reports an error.
+- Attach reserved-word tables for JavaScript, OCaml, PHP, Pkl, Python, and templ from generated sidecars. Blob hashes do not change.
+- Add the `ts2go -reservedwords-only` sidecar mode.
+
+### Query predicates
+
+- Apply text predicates to every node of a quantified capture. The `any-` predicates need one matching node.
+- Reject a predicate that names a capture the query has not bound, as C does.
+- Keep matching unchanged after `DisableCapture`. The returned match only omits the disabled capture.
+
+### Generated grammar tables
+
+- Encode shift targets with 32 bits in action-group keys. Grammars with more than 65,535 states no longer merge unrelated shift actions.
+- Expand case-insensitive character-class ranges without extra characters.
+- Reject a production with more than 255 right-hand-side symbols.
+
+### Continuous integration gates
+
+- Fail continuous integration when a workflow `-run` pattern names a test that does not exist. Correct seven stale names.
+- Run the exhaustive 206-language parity sweep every night.
+- Require the `build` check for merges to `main`. Administrators can still bypass it.
+
 ### Stack hashing
 
 - Pack node flags with masks and shifts without changing hash values.
@@ -6388,7 +6488,8 @@ Warm-reuse throughput ~10 % higher. 206-grammar parity green under `GTS_PARITY_M
 - Initial standalone pure-Go runtime module.
 - External scanner VM foundation and base parser/lexer/tree infrastructure.
 
-[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.52.0...HEAD
+[Unreleased]: https://github.com/odvcencio/gotreesitter/compare/v0.53.0...HEAD
+[0.53.0]: https://github.com/odvcencio/gotreesitter/compare/v0.52.0...v0.53.0
 [0.52.0]: https://github.com/odvcencio/gotreesitter/compare/v0.51.0...v0.52.0
 [0.51.0]: https://github.com/odvcencio/gotreesitter/compare/v0.50.1...v0.51.0
 [0.50.1]: https://github.com/odvcencio/gotreesitter/compare/v0.50.0...v0.50.1

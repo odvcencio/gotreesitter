@@ -909,20 +909,23 @@ Test suite covers: smoke tests (206 grammars), golden S-expression snapshots, hi
 
 ## Roadmap
 
-The current release is **v0.52.0**.
+The current release is **v0.53.0**.
 
 Eligible fresh parses use the compact parser by default, with legacy fallback
-for unsupported cases. This release adds bounded compact incremental reuse,
-including authenticated nested nonterminals, and bounded Go end-of-file recovery.
-These changes do not complete compact parser graduation.
+for unsupported cases. This release fixes public API contract faults and
+C-parity gaps found by a repository audit:
 
-The v0.52.0 release disables the unsafe shortcut as a temporary mitigation for
-[issue #1087](https://github.com/odvcencio/gotreesitter/issues/1087).
-Ordinary subtree reuse and no-edit reuse remain available.
-The owner approved the temporary slowdown for that release.
-The unreleased implementation restores the shortcut with authenticated lexical dependency proofs.
-[Pull request #1093](https://github.com/odvcencio/gotreesitter/pull/1093) closed that issue.
-Lexical error-leaf flags and TypeScript recovery divergences remain graduation work.
+- One timeout deadline for each parse, across the compact and production routes.
+- Safe tree handles: a stale `Release` does nothing, and an unchanged
+  incremental parse no longer invalidates its result when the caller releases
+  the old tree.
+- Incremental reuse that is correct for multi-edit sequences and changed
+  included ranges.
+- A default memory budget that grows with the input size.
+- Reserved-word keyword promotion as in C, for six grammars.
+- Query predicates that check every node of a quantified capture.
+
+These changes do not complete compact parser graduation.
 
 Keep benchmark results, profiles, and source snapshots outside the repository.
 Publish reproducible evidence in pull requests or external artifacts.
@@ -930,7 +933,9 @@ Publish reproducible evidence in pull requests or external artifacts.
 Publication still requires the mandatory gates in
 [the release checklist](docs/releasing.md#release-checklist).
 The owner approved only the dated
-[v0.52.0 tag-creation exception](docs/releasing.md#v0520-only-tag-creation-exception).
+[v0.52.0](docs/releasing.md#v0520-only-tag-creation-exception) and
+[v0.53.0](docs/releasing.md#v0530-only-tag-creation-exception)
+tag-creation exceptions.
 
 Detailed shipped evidence lives in [CHANGELOG.md](CHANGELOG.md). Standard minor
 releases may ship on any day after the exact commit on `main` passes the full

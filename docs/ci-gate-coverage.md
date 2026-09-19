@@ -56,11 +56,10 @@ here.
   that it therefore "blocks a merge when it fails". `build` does aggregate
   the other jobs' results inside `ci.yml` through `needs` and
   `require_success`, and fails when one of them fails. That aggregation
-  is enforced only inside the workflow file. This repository's GitHub
-  branch protection does not currently require any status check, `build`
-  included, so nothing here blocks a merge at the platform level today.
-  Making `build` an actual required check is a branch-protection setting
-  change for the repository owner, tracked separately from this file.
+  is enforced inside the workflow file. Since 2026-09-19, branch
+  protection on `main` requires the `build` check from GitHub Actions.
+  Branch protection does not apply to administrators, so an administrator
+  merge can still bypass a red `build`.
 
 The following sections preserve the August audit and its historical findings.
 
