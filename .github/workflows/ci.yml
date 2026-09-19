@@ -1307,12 +1307,9 @@ jobs:
           go-version-file: go.mod
 
       - name: Compact T3 C-oracle witness contract
-        # TestCompactRouteLockedCExceptions was removed for issue 984 (the
-        # byte-exact exception manifest is gone because production now
-        # matches tree-sitter C output); TestCompactPackedGSSVersionOrderIssue984MatchesC
-        # (cgo_harness/compact_packed_gss_version_order_test.go) replaced it
-        # but is not yet wired into any CI lane — see
-        # docs/ci-gate-coverage.md backlog.
+        # TestCompactPackedGSSVersionOrderIssue984MatchesC
+        # (cgo_harness/compact_packed_gss_version_order_test.go) replaced the
+        # retired byte-exact exception manifest for issue 984. It runs here.
         run: |
           GTS_PARITY_MODE=smoke \
           GTS_PARITY_C_REF_BUILD_CACHE=0 \
@@ -1326,7 +1323,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestIssue1106BashEmptyAssignmentsCParity)$'
+            --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestIssue1106BashEmptyAssignmentsCParity|TestCompactPackedGSSVersionOrderIssue984MatchesC)$'
 
       - name: Elm admission contract against locked C
         run: |
