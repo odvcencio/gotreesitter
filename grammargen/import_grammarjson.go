@@ -637,10 +637,19 @@ func makeCaseInsensitivePattern(pattern string) string {
 			continue
 		}
 		if inClass && isASCIILetter(ch) && i+2 < n && runes[i+1] == '-' && isASCIILetter(runes[i+2]) {
+			lo, hi := ch, runes[i+2]
+			if (lo <= 'Z') != (hi <= 'Z') {
+				// A mixed-case range such as A-z already spans both cases.
+				// Its swapped form would run backward, so keep it as is.
+				b.WriteRune(lo)
+				b.WriteRune('-')
+				b.WriteRune(hi)
+				i += 3
+				continue
+			}
 			// A letter range x-y: keep the original range and add its
 			// swapped-case counterpart, so "a-f" becomes "a-fA-F" rather
 			// than the single wide, wrong range "A-f".
-			lo, hi := ch, runes[i+2]
 			b.WriteRune(lo)
 			b.WriteRune('-')
 			b.WriteRune(hi)

@@ -149,3 +149,16 @@ func TestMakeCaseInsensitivePatternMultipleRanges(t *testing.T) {
 		}
 	}
 }
+
+// TestMakeCaseInsensitivePatternKeepsMixedCaseRange checks that a range that
+// already spans both cases stays unchanged. Its swapped form would run
+// backward and fail to parse.
+func TestMakeCaseInsensitivePatternKeepsMixedCaseRange(t *testing.T) {
+	got := makeCaseInsensitivePattern("[A-z]")
+	if want := "[A-z]"; got != want {
+		t.Fatalf("makeCaseInsensitivePattern(%q) = %q, want %q", "[A-z]", got, want)
+	}
+	if _, err := parseRegex(got); err != nil {
+		t.Fatalf("parseRegex(%q) failed: %v", got, err)
+	}
+}
