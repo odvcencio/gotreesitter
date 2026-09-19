@@ -17,19 +17,20 @@ func TestKotlinSwiftExternalScannerSpecs(t *testing.T) {
 	if got, want := kotlinSpec.UpstreamRepo, "https://github.com/fwcd/tree-sitter-kotlin"; got != want {
 		t.Fatalf("kotlin repo = %q, want %q", got, want)
 	}
-	if got, want := kotlinSpec.UpstreamCommit, "cbed96ab13dbc082eeeb2e8333c342a62829c29d"; got != want {
+	if got, want := kotlinSpec.UpstreamCommit, "1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1"; got != want {
 		t.Fatalf("kotlin commit = %q, want %q", got, want)
 	}
 	if got, want := kotlinSpec.Externals, []string{
 		"_automatic_semicolon",
-		"_import_list_delimiter",
-		"safe_nav",
 		"multiline_comment",
 		"_string_start",
 		"_string_end",
 		"string_content",
 		"_primary_constructor_keyword",
 		"_import_dot",
+		"_interpolation_expression_start",
+		"_interpolation_identifier_start",
+		"_by_delegation_hint",
 	}; !slices.Equal(got, want) {
 		t.Fatalf("kotlin externals = %v, want %v", got, want)
 	}
@@ -62,10 +63,15 @@ func TestLanguageBoundExternalScannersBindPositionally(t *testing.T) {
 	// Positional binding: external index i binds to scanner token i for every
 	// provenance. These synthetic languages present a shuffled subset of the real
 	// externals; positional binding maps them by position, not by symbol name.
+	//
+	// Kotlin's own literal-valued external (safe_nav, displayed as "\?.") was
+	// retired in the 2.1 grammar refresh (fwcd/tree-sitter-kotlin@1852ea17b7f6);
+	// `?.` is lexed in-grammar now. The display-name-mismatch demonstration
+	// this case used to carry lives on in the swift case below.
 	kotlinLang := externalBindingTestLanguage(
 		"_extension_only",
 		"_import_dot",
-		"safe_nav",
+		"multiline_comment",
 		"_automatic_semicolon",
 	)
 	kotlinScanner, ok := KotlinExternalScanner{}.ExternalScannerForLanguage(kotlinLang).(KotlinExternalScanner)
@@ -75,15 +81,11 @@ func TestLanguageBoundExternalScannersBindPositionally(t *testing.T) {
 	if got, want := kotlinScanner.externalToToken, []int{0, 1, 2, 3}; !slices.Equal(got, want) {
 		t.Fatalf("kotlin externalToToken = %v, want %v", got, want)
 	}
-	// safe_nav sits at external index 2 == scanner token index 2, so positional
-	// binding lands it on kotlinTokSafeNav with its real symbol (3 here). By-name
-	// binding dropped this slot for the real grammar because the Language display
-	// name is "\?." rather than the spec rule name "safe_nav".
-	if got, want := kotlinScanner.externalToToken[2], kotlinTokSafeNav; got != want {
-		t.Fatalf("kotlin safe-nav external mapped to token %d, want %d", got, want)
+	if got, want := kotlinScanner.externalToToken[2], kotlinTokMultilineComment; got != want {
+		t.Fatalf("kotlin multiline-comment external mapped to token %d, want %d", got, want)
 	}
-	if got, want := kotlinScanner.symbols[kotlinTokSafeNav], gotreesitter.Symbol(3); got != want {
-		t.Fatalf("kotlin safe-nav result symbol = %d, want %d", got, want)
+	if got, want := kotlinScanner.symbols[kotlinTokMultilineComment], gotreesitter.Symbol(3); got != want {
+		t.Fatalf("kotlin multiline-comment result symbol = %d, want %d", got, want)
 	}
 
 	swiftLang := externalBindingTestLanguage(

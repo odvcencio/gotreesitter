@@ -196,26 +196,28 @@ func TestAdmissionCandidateSelectedLineageSplitsMatchProduction(t *testing.T) {
 	}
 }
 
+// TestAdmissionCandidatePlatformModifierWitnessNowClean documents the
+// retirement of the former
 // TestAdmissionCandidateKotlinPlatformModifierSplitDeclinesWithSplitDropsWithheld
-// covers a compact-route divergence found by the refreshed Kotlin corpus.
-// The visibility-modifier and identifier conflict paths merge, then split
-// during a later reduction. Production and tree-sitter C recover the
-// identifier path. The compact route otherwise drops that path and returns
-// a different clean tree.
+// regression witness. That test pinned a compact-route divergence: the
+// visibility-modifier and identifier conflict paths used to merge, then
+// split during a later reduction, and production carried a stale
+// issue #93-adjacent bug (an ERROR tree containing infix_expression) for
+// "internal actual fun f(): String = \"x\"\n".
 //
-// CompactConvergedReductionSplitDropsCertified would resolve this witness
-// correctly (TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe,
-// admission_switch_kotlin_certification_test.go, pins that it is safe in
-// isolation), but that grant stays withheld: review found a distinct,
-// compact-only divergence class on an annotated extension property (see the
-// runtime_profiles.go "kotlin" entry comment). Kotlin's shipped profile
-// carries CompactPrimaryAcceptanceDerivationCertified only, which this
-// witness's converged-path split does not reach -- it declines at the
-// converged-path-split checkpoint itself and falls back to production's
-// still-buggy (issue #93-adjacent) tree. This is the accepted, measured
-// cost of withholding split-drops: status quo ante, not a regression this
-// PR introduces.
-func TestAdmissionCandidateKotlinPlatformModifierSplitDeclinesWithSplitDropsWithheld(t *testing.T) {
+// fwcd/tree-sitter-kotlin@1852ea17b7f6 ("Prefer class and object
+// declarations over infix expressions", #280) fixed the underlying grammar
+// ambiguity upstream. Verified against the locked C oracle
+// (cgo_harness/b4b_alternative_set_v2_kotlin_adjudication_test.go,
+// TestB4bAlternativeSetV2KotlinWitnessCOracleAdjudication): production is
+// now C-exact on this witness, and the compact route -- even with
+// CompactConvergedReductionSplitDropsCertified forced on -- agrees with
+// production and the C oracle. There is no more divergence to decline or
+// fall back from, so this witness no longer exercises the converged-path
+// split fallback. TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe
+// (admission_switch_kotlin_certification_test.go) still pins the exact
+// tree shape for the forced-split-drops route.
+func TestAdmissionCandidatePlatformModifierWitnessNowClean(t *testing.T) {
 	source := []byte("internal actual fun f(): String = \"x\"\n")
 	lang := grammars.KotlinLanguage()
 	if lang.CompactConvergedReductionSplitDropsCertified {
@@ -230,8 +232,14 @@ func TestAdmissionCandidateKotlinPlatformModifierSplitDeclinesWithSplitDropsWith
 	}
 	defer productionTree.Release()
 	productionSExpr := productionTree.RootNode().SExpr(lang)
-	if !productionTree.RootNode().HasError() || !strings.Contains(productionSExpr, "infix_expression") {
-		t.Fatalf("production/C witness changed: %s", productionSExpr)
+	if productionTree.RootNode().HasError() || strings.Contains(productionSExpr, "infix_expression") {
+		t.Fatalf("production regressed to the pre-1852ea17b7f6 issue #93-adjacent bug: %s", productionSExpr)
+	}
+	want := "(source_file (function_declaration (modifiers (visibility_modifier) (platform_modifier)) " +
+		"(simple_identifier) (function_value_parameters) (user_type (type_identifier)) " +
+		"(function_body (string_literal (string_content)))))"
+	if productionSExpr != want {
+		t.Fatalf("production tree = %s, want %s", productionSExpr, want)
 	}
 
 	gts.ResetAdmissionCandidateCountersForTest()
@@ -243,15 +251,11 @@ func TestAdmissionCandidateKotlinPlatformModifierSplitDeclinesWithSplitDropsWith
 	}
 	defer candidateTree.Release()
 
-	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 0 || fallback != 1 {
-		t.Fatalf("converged-path split did not fail closed: routed=%d fallback=%d", routed, fallback)
-	}
-	if reason := gts.AdmissionCandidateLastFallbackReason(); !strings.Contains(reason, "converged-path reduction split") {
-		t.Fatalf("fallback reason=%q", reason)
-	}
+	// No certification is required to reach the right tree on this witness
+	// any more: the compact route either routes cleanly or falls back, and
+	// either way it must agree with production.
 	if candidateSExpr := candidateTree.RootNode().SExpr(lang); candidateSExpr != productionSExpr {
-		t.Fatalf("fallback tree diverged:\nproduction=%s\ncandidate=%s", productionSExpr, candidateSExpr)
+		t.Fatalf("candidate tree diverged:\nproduction=%s\ncandidate=%s", productionSExpr, candidateSExpr)
 	}
 }
 
