@@ -120,6 +120,8 @@ func applyDirectivesWithReader[N comparable, C any, R queryNodeReader[N, C]](q *
 			captures = applySelectAdjacentWithReader(pred, captures, reader)
 		case predicateStrip:
 			captures = applyStripWithReader(pred, captures, source, reader)
+		case predicateOffset:
+			captures = applyOffsetWithReader(pred, captures, source, reader)
 		}
 	}
 	return captures

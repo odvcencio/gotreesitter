@@ -1,6 +1,9 @@
 package gotreesitter
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // buildContainerLanguage constructs a hand-built grammar for a simple container
 // language that wraps content between '[' and ']' markers, used for injection tests.
@@ -531,6 +534,97 @@ func TestSetValues(t *testing.T) {
 	vals = matches[0].SetValues(q, "nonexistent")
 	if vals != nil {
 		t.Errorf("SetValues for nonexistent key = %v, want nil", vals)
+	}
+}
+
+// TestInjectionParserTimeoutBoundsInjectedParse verifies that
+// InjectionParser.SetTimeoutMicros bounds every injected parse, not just the
+// root parse. Before InjectionParser had a timeout API, a large injected
+// region ignored the caller's time budget entirely and could run unbounded.
+func TestInjectionParserTimeoutBoundsInjectedParse(t *testing.T) {
+	parentLang := buildContainerLanguage()
+	childLang := buildArithmeticLanguage()
+
+	ip := NewInjectionParser()
+	ip.RegisterLanguage("container", parentLang)
+	ip.RegisterLanguage("arithmetic", childLang)
+	if err := ip.RegisterInjectionQuery("container",
+		`(content) @injection.content (#set! injection.language "arithmetic")`); err != nil {
+		t.Fatal(err)
+	}
+	// 30ms comfortably bounds the trivial container (root) parse of this
+	// document (a few ms regardless of input size, since the grammar lexes
+	// the whole bracketed body as one token) while cutting off the
+	// arithmetic child parse partway through its left-recursive reduction
+	// chain (an unbounded parse of the same content takes well over 30ms),
+	// so the root succeeds and the injected parse times out.
+	ip.SetTimeoutMicros(30_000)
+
+	content := bigArithmeticSource(50_000)
+	source := append(append([]byte{'['}, content...), ']')
+
+	start := time.Now()
+	result, err := ip.Parse(source, "container")
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if elapsed > 2*time.Second {
+		t.Fatalf("Parse took %v, want < 2s", elapsed)
+	}
+
+	if len(result.Injections) != 1 {
+		t.Fatalf("expected 1 injection, got %d", len(result.Injections))
+	}
+	inj := result.Injections[0]
+	if inj.Tree == nil {
+		t.Fatal("injection tree is nil")
+	}
+	if got := inj.Tree.ParseStopReason(); got != ParseStopTimeout {
+		t.Fatalf("injection ParseStopReason = %v, want %v", got, ParseStopTimeout)
+	}
+}
+
+// TestInjectionParserSetTimeoutMicrosAppliesToCachedParser verifies that
+// SetTimeoutMicros applies retroactively to a parser InjectionParser has
+// already cached, not just to parsers created afterward.
+func TestInjectionParserSetTimeoutMicrosAppliesToCachedParser(t *testing.T) {
+	parentLang := buildContainerLanguage()
+	childLang := buildArithmeticLanguage()
+
+	ip := NewInjectionParser()
+	ip.RegisterLanguage("container", parentLang)
+	ip.RegisterLanguage("arithmetic", childLang)
+	if err := ip.RegisterInjectionQuery("container",
+		`(content) @injection.content (#set! injection.language "arithmetic")`); err != nil {
+		t.Fatal(err)
+	}
+
+	// Warm the arithmetic parser cache with a small, fast parse before the
+	// timeout is configured.
+	if _, err := ip.Parse([]byte("[1+2]"), "container"); err != nil {
+		t.Fatalf("warm-up Parse: %v", err)
+	}
+
+	ip.SetTimeoutMicros(30_000)
+
+	content := bigArithmeticSource(50_000)
+	source := append(append([]byte{'['}, content...), ']')
+
+	start := time.Now()
+	result, err := ip.Parse(source, "container")
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if elapsed > 2*time.Second {
+		t.Fatalf("Parse took %v, want < 2s", elapsed)
+	}
+	if len(result.Injections) != 1 || result.Injections[0].Tree == nil {
+		t.Fatalf("expected 1 injection with a tree, got %+v", result.Injections)
+	}
+	if got := result.Injections[0].Tree.ParseStopReason(); got != ParseStopTimeout {
+		t.Fatalf("injection ParseStopReason = %v, want %v", got, ParseStopTimeout)
 	}
 }
 

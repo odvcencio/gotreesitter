@@ -66,6 +66,13 @@ type InjectionParser struct {
 	maxDepth int
 	// prevResult holds the previous parse result for reuse.
 	prevResult *InjectionResult
+	// timeoutMicros bounds every parse this InjectionParser performs, root
+	// and nested. Zero disables timeout checks. See SetTimeoutMicros.
+	timeoutMicros uint64
+	// cancellationFlag stops every parse this InjectionParser performs, root
+	// and nested, when the pointed value becomes non-zero. See
+	// SetCancellationFlag.
+	cancellationFlag *uint32
 }
 
 // NewInjectionParser creates an InjectionParser.
@@ -80,6 +87,36 @@ func NewInjectionParser() *InjectionParser {
 // RegisterLanguage adds a language that can be used as parent or child.
 func (ip *InjectionParser) RegisterLanguage(name string, lang *Language) {
 	ip.languages[name] = lang
+}
+
+// SetTimeoutMicros configures a per-parse timeout in microseconds that
+// bounds every parse this InjectionParser performs: the root parse and
+// every nested injected parse, at every recursion depth. A value of zero
+// disables timeout checks. It applies immediately to already-cached child
+// parsers and to any parser created afterward.
+func (ip *InjectionParser) SetTimeoutMicros(timeoutMicros uint64) {
+	if ip == nil {
+		return
+	}
+	ip.timeoutMicros = timeoutMicros
+	for _, p := range ip.parsers {
+		p.SetTimeoutMicros(timeoutMicros)
+	}
+}
+
+// SetCancellationFlag configures a caller-owned cancellation flag that stops
+// every parse this InjectionParser performs — the root parse and every
+// nested injected parse, at every recursion depth — when the pointed value
+// becomes non-zero. It applies immediately to already-cached child parsers
+// and to any parser created afterward.
+func (ip *InjectionParser) SetCancellationFlag(flag *uint32) {
+	if ip == nil {
+		return
+	}
+	ip.cancellationFlag = flag
+	for _, p := range ip.parsers {
+		p.SetCancellationFlag(flag)
+	}
 }
 
 // RegisterInjectionQuery sets the injection query for a parent language.
@@ -195,6 +232,14 @@ func (ip *InjectionParser) ParseUTF16Bytes(source []byte, parentLang string, ord
 }
 
 // ParseIncremental re-parses after edits, reusing unchanged child trees.
+//
+// It detects and parses injections the same way Parse does — recursing into
+// each injected language's own injection query, and routing single-range
+// injections through the slice-and-rebase path — so a ParseIncremental call
+// produces the same nested injection tree as a fresh Parse of the same
+// (edited) source. The only difference is that a detected injection whose
+// byte range does not overlap any changed range reuses its old child tree
+// instead of reparsing it.
 func (ip *InjectionParser) ParseIncremental(source []byte, parentLang string,
 	oldResult *InjectionResult) (*InjectionResult, error) {
 
@@ -224,61 +269,9 @@ func (ip *InjectionParser) ParseIncremental(source []byte, parentLang string,
 	// Determine which ranges changed between old and new parent trees.
 	changedRanges := DiffChangedRanges(oldResult.Tree, newTree)
 
-	// Re-detect injections from the new parent tree.
-	newDetected, err := ip.detectInjections(source, parentLang, newTree)
+	injections, err := ip.findAndReuseInjections(source, parentLang, newTree, 0, oldResult, changedRanges)
 	if err != nil {
 		return nil, err
-	}
-
-	// For each detected injection, check if it overlaps a changed range.
-	// If not, try to reuse the old child tree.
-	var injections []Injection
-	for _, det := range newDetected {
-		if det.Language == "" {
-			injections = append(injections, det)
-			continue
-		}
-
-		childLang, hasLang := ip.languages[det.Language]
-		if !hasLang {
-			injections = append(injections, det)
-			continue
-		}
-
-		// Check if this injection's ranges overlap any changed range.
-		changed := false
-		for _, cr := range changedRanges {
-			for _, r := range det.Ranges {
-				if r.StartByte < cr.EndByte && r.EndByte > cr.StartByte {
-					changed = true
-					break
-				}
-			}
-			if changed {
-				break
-			}
-		}
-
-		if !changed {
-			// Try to reuse old child tree.
-			if oldChild := ip.findOldInjection(oldResult, det.Language, det.Ranges); oldChild != nil {
-				det.Tree = oldChild
-				injections = append(injections, det)
-				continue
-			}
-		}
-
-		// Parse (or reparse) this injection region.
-		childParser := ip.getParser(det.Language, childLang)
-		childParser.SetIncludedRanges(det.Ranges)
-		childTree, err := childParser.Parse(source)
-		if err != nil {
-			// If child parse fails, record injection without tree.
-			injections = append(injections, det)
-			continue
-		}
-		det.Tree = childTree
-		injections = append(injections, det)
 	}
 
 	ip.prevResult = &InjectionResult{
@@ -374,35 +367,7 @@ func (ip *InjectionParser) findAndParseInjections(source []byte, parentLang stri
 
 		childParser := ip.getParser(det.Language, childLang)
 
-		// For single-range injections (the common case), parse only the range
-		// bytes via ParseIncremental(rangeBytes, nil). This lets the parser use
-		// an incremental-class arena (16 KB slab vs 2 MB for full parse), which
-		// is orders of magnitude cheaper when there are many small injections.
-		// Rebase the resulting tree back into document coordinates before
-		// exposing it so callers still see the same byte/point space as the
-		// included-range path. Multi-range injections fall back to the
-		// full-source path with SetIncludedRanges because the lexer needs
-		// non-contiguous byte ranges.
-		var childTree *Tree
-		if len(det.Ranges) == 1 {
-			r := det.Ranges[0]
-			if r.StartByte <= r.EndByte && int(r.EndByte) <= len(source) {
-				rangeSource := source[r.StartByte:r.EndByte]
-				childTree, err = childParser.ParseIncremental(rangeSource, nil)
-				if err == nil && childTree != nil && !childTree.ParseStoppedEarly() {
-					rebaseInjectionTree(childTree, source, r)
-				} else {
-					childParser.SetIncludedRanges(det.Ranges)
-					childTree, err = childParser.Parse(source)
-				}
-			} else {
-				childParser.SetIncludedRanges(det.Ranges)
-				childTree, err = childParser.Parse(source)
-			}
-		} else {
-			childParser.SetIncludedRanges(det.Ranges)
-			childTree, err = childParser.Parse(source)
-		}
+		childTree, err := ip.parseInjectionRegion(source, childParser, det.Ranges)
 		if err != nil {
 			result = append(result, det)
 			continue
@@ -412,6 +377,114 @@ func (ip *InjectionParser) findAndParseInjections(source []byte, parentLang stri
 		// Recurse: check if this child language has injection queries too.
 		if _, hasQuery := ip.injectionQueries[det.Language]; hasQuery {
 			nested, err := ip.findAndParseInjections(source, det.Language, childTree, depth+1)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, det)
+			result = append(result, nested...)
+		} else {
+			result = append(result, det)
+		}
+	}
+
+	return result, nil
+}
+
+// parseInjectionRegion parses one detected injection's byte ranges with
+// childParser. For a single-range injection (the common case), it parses
+// only the range bytes via ParseIncremental(rangeBytes, nil). This lets the
+// parser use an incremental-class arena (16 KB slab vs 2 MB for full parse),
+// which is orders of magnitude cheaper when there are many small
+// injections. It rebases the resulting tree back into document coordinates
+// so callers still see the same byte/point space as the included-range
+// path. A multi-range injection, or a single-range parse that fails or
+// stops early, falls back to the full-source path with SetIncludedRanges,
+// since the lexer needs non-contiguous byte ranges.
+//
+// findAndParseInjections and findAndReuseInjections both call this so a
+// freshly-parsed injection takes the same route regardless of which one
+// found it.
+func (ip *InjectionParser) parseInjectionRegion(source []byte, childParser *Parser, ranges []Range) (*Tree, error) {
+	if len(ranges) == 1 {
+		r := ranges[0]
+		if r.StartByte <= r.EndByte && int(r.EndByte) <= len(source) {
+			rangeSource := source[r.StartByte:r.EndByte]
+			childTree, err := childParser.ParseIncremental(rangeSource, nil)
+			if err == nil && childTree != nil && !childTree.ParseStoppedEarly() {
+				rebaseInjectionTree(childTree, source, r)
+				return childTree, nil
+			}
+		}
+	}
+	childParser.SetIncludedRanges(ranges)
+	return childParser.Parse(source)
+}
+
+// injectionRangesOverlapChanged reports whether any of ranges overlaps any
+// of changedRanges.
+func injectionRangesOverlapChanged(ranges, changedRanges []Range) bool {
+	for _, cr := range changedRanges {
+		for _, r := range ranges {
+			if r.StartByte < cr.EndByte && r.EndByte > cr.StartByte {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// findAndReuseInjections mirrors findAndParseInjections's detection,
+// per-region parse route, and recursion into nested injection queries, but
+// reuses an old child tree instead of reparsing wherever a region's byte
+// range does not overlap changedRanges and oldResult has a matching old
+// injection (same language and ranges). This keeps ParseIncremental's
+// injection tree the same shape as a fresh Parse of the same edited source,
+// while still avoiding redundant reparses of untouched regions.
+func (ip *InjectionParser) findAndReuseInjections(source []byte, parentLang string,
+	tree *Tree, depth int, oldResult *InjectionResult, changedRanges []Range) ([]Injection, error) {
+
+	if depth >= ip.effectiveMaxDepth() {
+		return nil, nil
+	}
+
+	detected, err := ip.detectInjections(source, parentLang, tree)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Injection, 0, len(detected))
+	for _, det := range detected {
+		if det.Language == "" {
+			result = append(result, det)
+			continue
+		}
+
+		childLang, ok := ip.languages[det.Language]
+		if !ok {
+			// Language not registered — record injection without tree.
+			result = append(result, det)
+			continue
+		}
+
+		var childTree *Tree
+		if oldResult != nil && !injectionRangesOverlapChanged(det.Ranges, changedRanges) {
+			childTree = ip.findOldInjection(oldResult, det.Language, det.Ranges)
+		}
+
+		if childTree == nil {
+			childParser := ip.getParser(det.Language, childLang)
+			childTree, err = ip.parseInjectionRegion(source, childParser, det.Ranges)
+			if err != nil {
+				// If child parse fails, record injection without tree.
+				result = append(result, det)
+				continue
+			}
+		}
+		det.Tree = childTree
+
+		// Recurse: check if this child language has injection queries too.
+		if _, hasQuery := ip.injectionQueries[det.Language]; hasQuery {
+			nested, err := ip.findAndReuseInjections(source, det.Language, childTree, depth+1, oldResult, changedRanges)
 			if err != nil {
 				return nil, err
 			}
@@ -679,6 +752,8 @@ func (ip *InjectionParser) getParser(name string, lang *Language) *Parser {
 	// Injection child parsers build injection subtrees the admission scorecard
 	// never validated: keep them on production regardless of the global default.
 	p.pinToProductionRoute()
+	p.SetTimeoutMicros(ip.timeoutMicros)
+	p.SetCancellationFlag(ip.cancellationFlag)
 	ip.parsers[name] = p
 	return p
 }
