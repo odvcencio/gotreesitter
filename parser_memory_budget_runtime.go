@@ -88,6 +88,24 @@ func runtimeMemoryHardCeilingEnabled(p *Parser, sourceLen int) bool {
 	return p != nil && sourceLen >= parseRuntimeMemoryMinSourceBytes && parseMemoryHardCeilingBytes() > 0
 }
 
+// parseMemoryHardCeilingBytesForParser keeps the out-of-memory backstop above
+// a caller budget. A caller that raises the per-parse budget must not hit the
+// default process-heap ceiling first.
+func parseMemoryHardCeilingBytesForParser(p *Parser) int64 {
+	ceiling := parseMemoryHardCeilingBytes()
+	if ceiling <= 0 {
+		return ceiling
+	}
+	if configured := p.MemoryBudgetBytes(); configured > 0 {
+		const maxScaledBudget = int64(1) << 60
+		if configured > maxScaledBudget {
+			configured = maxScaledBudget
+		}
+		ceiling = max(ceiling, 4*configured)
+	}
+	return ceiling
+}
+
 // enterRuntimeMemoryBudget arms the runtime-wide poll for the current parse.
 func (p *Parser) enterRuntimeMemoryBudget(bytes int64, sourceLen int) runtimeMemoryBudgetRestore {
 	softEnabled := runtimeMemoryBudgetEnabled(p, bytes, sourceLen)
@@ -97,7 +115,7 @@ func (p *Parser) enterRuntimeMemoryBudget(bytes int64, sourceLen int) runtimeMem
 	}
 	hardCeiling := int64(0)
 	if hardEnabled {
-		hardCeiling = parseMemoryHardCeilingBytes()
+		hardCeiling = parseMemoryHardCeilingBytesForParser(p)
 	}
 	restore := runtimeMemoryBudgetRestore{
 		parser:       p,

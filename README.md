@@ -102,6 +102,21 @@ Stable parse methods bypass compact and forest speculation while a work limit is
 This route change can affect performance and tree selection. Clear all fields to restore normal routing.
 Timeouts, cancellation, and memory budgets can still stop a parse first.
 
+The per-parse memory budget defaults to 512 MiB. Peak memory can reach a few
+hundred bytes for each input byte, so raise the budget before you parse inputs
+of more than a few megabytes:
+
+```go
+parser.SetMemoryBudgetBytes(2 << 30) // 2 GiB for this parser
+
+pool := gotreesitter.NewParserPool(lang,
+    gotreesitter.WithParserPoolMemoryBudgetBytes(2<<30))
+```
+
+A budget stop returns a partial tree with `ParseStopMemoryBudget`. A negative
+budget turns the per-parse budget off. The process-heap ceiling still stops a
+runaway parse.
+
 A threshold stop returns a partial tree with one of these reasons:
 
 - `ParseStopIterationLimit`

@@ -1117,6 +1117,45 @@ func (p *Parser) TimeoutMicros() uint64 {
 	return p.timeoutMicros
 }
 
+// SetMemoryBudgetBytes sets the per-parse memory budget for later parse
+// calls. The budget bounds the node arena and parser scratch memory of one
+// parse. The default is 512 MiB, or the GOT_PARSE_MEMORY_BUDGET_MB value.
+//
+//   - A positive value replaces the default budget.
+//   - Zero restores the default budget.
+//   - A negative value turns the per-parse budget off.
+//
+// Peak memory can reach a few hundred bytes for each input byte, so set a
+// larger budget for inputs of more than a few megabytes. The process-heap
+// ceiling (GOT_PARSE_MEMORY_HARD_CEILING_MB, default 2 GiB) still stops a
+// runaway parse. A positive budget raises that ceiling to at least four times
+// the budget.
+//
+// A parse stopped by the budget returns a partial tree and nil error. Its
+// ParseStopReason is ParseStopMemoryBudget. Use a strict parse method to
+// receive a ParseStoppedEarlyError instead.
+func (p *Parser) SetMemoryBudgetBytes(bytes int64) {
+	if p == nil {
+		return
+	}
+	if bytes < 0 {
+		bytes = -1
+	}
+	if bytes == 0 && p.forestDeclineMemo == nil {
+		return
+	}
+	p.ensureParserColdState().memoryBudgetBytes = bytes
+}
+
+// MemoryBudgetBytes returns the value set by SetMemoryBudgetBytes. Zero means
+// the default budget. A negative value means the per-parse budget is off.
+func (p *Parser) MemoryBudgetBytes() int64 {
+	if p == nil || p.forestDeclineMemo == nil {
+		return 0
+	}
+	return p.forestDeclineMemo.memoryBudgetBytes
+}
+
 // SetParseWorkLimits sets deterministic limits for later parse calls. Use a
 // zero-value ParseWorkLimits to restore all source-derived defaults.
 //
