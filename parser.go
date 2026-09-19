@@ -4267,8 +4267,11 @@ func (p *Parser) tryMaterializeSkippedRealGap(source []byte, s *glrStack, state 
 	top := stackEntryNode(s.top())
 	startPoint := p.parserStackEndPoint(s)
 	if top != nil && top.symbol == errorSymbol {
-		if top.isMissing() ||
-			len(top.children) != 0 ||
+		// errorNodeOpenForAbsorption also accepts pushOrExtendErrorNode's
+		// plain-token ERROR wrapper (see its doc), not just the legacy
+		// childless leaf, so a region already carrying absorbed real tokens
+		// still absorbs this skipped gap instead of stopping here.
+		if !errorNodeOpenForAbsorption(top) ||
 			top.parseState != state ||
 			top.endByte != s.byteOffset {
 			return false
@@ -4282,7 +4285,7 @@ func (p *Parser) tryMaterializeSkippedRealGap(source []byte, s *glrStack, state 
 		StartPoint: startPoint,
 		EndPoint:   tok.StartPoint,
 	}
-	p.pushOrExtendErrorNode(s, state, gapTok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors)
+	p.pushOrExtendErrorNode(s, state, gapTok, nodeCount, arena, entryScratch, gssScratch, trackChildErrors, true)
 	return s.byteOffset == tok.StartByte
 }
 
@@ -6586,7 +6589,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				if !p.guardRealTokenAttachmentGap(source, s, tok, "error") {
 					continue
 				}
-				p.pushOrExtendErrorNode(s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+				p.pushOrExtendErrorNode(s, currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors, true)
 				consumeCurrentToken(s)
 				if actionTiming != nil {
 					ns := recordNoActionTiming()
@@ -6971,7 +6974,7 @@ func (p *Parser) parseInternal(source []byte, ts TokenSource, reuse *reuseCursor
 				if !p.guardRealTokenAttachmentGap(source, &stacks[0], tok, "error") {
 					continue
 				}
-				p.pushOrExtendErrorNode(&stacks[0], currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors)
+				p.pushOrExtendErrorNode(&stacks[0], currentState, tok, &nodeCount, arena, &scratch.entries, &scratch.gss, trackChildErrors, true)
 				consumeCurrentToken(&stacks[0])
 			}
 		}

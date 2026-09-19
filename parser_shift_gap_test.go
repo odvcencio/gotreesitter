@@ -582,8 +582,13 @@ func TestRecoverActionMaterializesCommentGap(t *testing.T) {
 	if got := countGapTestNodesWithSymbolSpan(tree.RootNode(), 1, 7, 8); got != 1 {
 		t.Fatalf("NUMBER span 7..8 count = %d, want 1 after recovered lookahead is consumed; tree=%s", got, tree.RootNode().SExpr(parser.language))
 	}
-	if got := countGapTestNodesWithSymbolSpan(tree.RootNode(), 3, 6, 7); got != 0 {
-		t.Fatalf("STAR span 6..7 count = %d, want 0 because recovered lookahead must not be redispatched; tree=%s", got, tree.RootNode().SExpr(parser.language))
+	// pushOrExtendErrorNode wraps the recovered STAR token as a direct child of
+	// its ERROR node instead of discarding it (matching C's error_repeat
+	// hoist), so STAR now shows up exactly once, nested in the span 6..7
+	// ERROR rather than absent from the tree. A count above 1 would mean the
+	// recovered lookahead got redispatched as well as absorbed.
+	if got := countGapTestNodesWithSymbolSpan(tree.RootNode(), 3, 6, 7); got != 1 {
+		t.Fatalf("STAR span 6..7 count = %d, want 1 (absorbed once into the ERROR, not redispatched); tree=%s", got, tree.RootNode().SExpr(parser.language))
 	}
 }
 

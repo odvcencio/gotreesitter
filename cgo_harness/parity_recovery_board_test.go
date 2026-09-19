@@ -37,6 +37,7 @@ var parityRecoveryCases = []parityRecoveryCase{
 	{"javascript", "for (let i = 0; i < 3 i++) {}\n"},
 	{"javascript", "return 1;\n"},
 	{"javascript", "x.\n"},
+	{"javascript", "var if = 1;\n"},
 	{"python", "def f(:\n    return 1\n"},
 	{"python", "x = \n"},
 	{"python", "x = (1 +\n"},
