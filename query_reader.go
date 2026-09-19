@@ -32,6 +32,13 @@ type queryNodeReader[N comparable, C any] interface {
 	CaptureNode(C) N
 	CaptureTextOverride(C) string
 	SetCaptureTextOverride(*C, string)
+	// CaptureRangeOverride returns the capture's #offset!-adjusted byte and
+	// point range, and whether one has been set. See SetCaptureRangeOverride.
+	CaptureRangeOverride(C) (startByte, endByte uint32, startPoint, endPoint Point, ok bool)
+	// SetCaptureRangeOverride records an #offset!-adjusted range on the
+	// capture, so downstream consumers report the adjusted range instead of
+	// the underlying node's own (immutable) range.
+	SetCaptureRangeOverride(*C, uint32, uint32, Point, Point)
 }
 
 // queryValueCapture is the compact-consumer capture representation. It keeps
@@ -41,6 +48,13 @@ type queryValueCapture[N comparable] struct {
 	Name         string
 	Node         N
 	TextOverride string
+	// HasRangeOverride, when true, means the four fields below replace the
+	// node's own byte and point range. See QueryCapture's equivalent fields.
+	HasRangeOverride   bool
+	StartByteOverride  uint32
+	EndByteOverride    uint32
+	StartPointOverride Point
+	EndPointOverride   Point
 }
 
 type queryReaderMatch[C any] struct {
@@ -193,4 +207,17 @@ func (publicQueryReader) CaptureTextOverride(capture QueryCapture) string {
 }
 func (publicQueryReader) SetCaptureTextOverride(capture *QueryCapture, text string) {
 	capture.TextOverride = text
+}
+func (publicQueryReader) CaptureRangeOverride(capture QueryCapture) (uint32, uint32, Point, Point, bool) {
+	if !capture.hasRangeOverride {
+		return 0, 0, Point{}, Point{}, false
+	}
+	return capture.startByteOverride, capture.endByteOverride, capture.startPointOverride, capture.endPointOverride, true
+}
+func (publicQueryReader) SetCaptureRangeOverride(capture *QueryCapture, startByte, endByte uint32, startPoint, endPoint Point) {
+	capture.hasRangeOverride = true
+	capture.startByteOverride = startByte
+	capture.endByteOverride = endByte
+	capture.startPointOverride = startPoint
+	capture.endPointOverride = endPoint
 }

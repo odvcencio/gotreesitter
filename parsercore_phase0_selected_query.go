@@ -165,6 +165,21 @@ func (selectedStoreQueryReader) SetCaptureTextOverride(capture *queryValueCaptur
 	capture.TextOverride = text
 }
 
+func (selectedStoreQueryReader) CaptureRangeOverride(capture queryValueCapture[core.SelectedNodeID]) (uint32, uint32, Point, Point, bool) {
+	if !capture.HasRangeOverride {
+		return 0, 0, Point{}, Point{}, false
+	}
+	return capture.StartByteOverride, capture.EndByteOverride, capture.StartPointOverride, capture.EndPointOverride, true
+}
+
+func (selectedStoreQueryReader) SetCaptureRangeOverride(capture *queryValueCapture[core.SelectedNodeID], startByte, endByte uint32, startPoint, endPoint Point) {
+	capture.HasRangeOverride = true
+	capture.StartByteOverride = startByte
+	capture.EndByteOverride = endByte
+	capture.StartPointOverride = startPoint
+	capture.EndPointOverride = endPoint
+}
+
 func selectedStoreQuerySupports(q *Query) bool {
 	if q == nil {
 		return false

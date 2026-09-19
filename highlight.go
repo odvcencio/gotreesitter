@@ -266,13 +266,13 @@ func (h *Highlighter) highlightTree(tree *Tree, source []byte) []HighlightRange 
 	}
 	for _, m := range matches {
 		for _, c := range m.Captures {
-			node := c.Node
-			if node.StartByte() == node.EndByte() {
+			startByte, endByte := c.ByteRange()
+			if startByte == endByte {
 				continue
 			}
 			ranges = append(ranges, HighlightRange{
-				StartByte:    node.StartByte(),
-				EndByte:      node.EndByte(),
+				StartByte:    startByte,
+				EndByte:      endByte,
 				Capture:      c.Name,
 				PatternIndex: m.PatternIndex,
 			})
