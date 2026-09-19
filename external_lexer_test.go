@@ -159,7 +159,11 @@ func TestExternalLexerSkipOnlyWithoutMarkEndUsesCurrentCursor(t *testing.T) {
 	}
 }
 
-func TestExternalLexerUsesByteColumnsForUTF8(t *testing.T) {
+// TestExternalLexerColumnCountsCodePointsButTokenPointStaysBytes pins the
+// split contract: Column() counts code points since the start of the line,
+// exactly like C's ts_lexer__get_column, while token StartPoint/EndPoint
+// columns remain byte offsets (see commit c3701e452).
+func TestExternalLexerColumnCountsCodePointsButTokenPointStaysBytes(t *testing.T) {
 	l := newExternalLexer([]byte("x✗z"), 0, 0, 0)
 
 	l.Advance(false) // x
@@ -167,8 +171,8 @@ func TestExternalLexerUsesByteColumnsForUTF8(t *testing.T) {
 		t.Fatalf("column after x = %d want %d", got, want)
 	}
 
-	l.Advance(false) // ✗
-	if got, want := l.Column(), uint32(4); got != want {
+	l.Advance(false) // ✗ (3 bytes, 1 code point)
+	if got, want := l.Column(), uint32(2); got != want {
 		t.Fatalf("column after utf8 rune = %d want %d", got, want)
 	}
 
@@ -181,8 +185,116 @@ func TestExternalLexerUsesByteColumnsForUTF8(t *testing.T) {
 	if got, want := tok.EndByte, uint32(4); got != want {
 		t.Fatalf("EndByte=%d want=%d", got, want)
 	}
+	// Token points stay byte-based: 'x' (1 byte) + '✗' (3 bytes) = 4.
 	if got, want := tok.EndPoint.Column, uint32(4); got != want {
 		t.Fatalf("EndPoint.Column=%d want=%d", got, want)
+	}
+}
+
+// TestExternalLexerColumnMultibyteRuneBeforeCursor confirms a multibyte rune
+// earlier on the same line counts as one code point, not its byte width.
+func TestExternalLexerColumnMultibyteRuneBeforeCursor(t *testing.T) {
+	l := newExternalLexer([]byte("é1234z"), 0, 0, 0)
+	l.Advance(false) // é (2 bytes)
+	l.Advance(false) // 1
+	l.Advance(false) // 2
+	l.Advance(false) // 3
+	l.Advance(false) // 4
+	if got, want := l.Column(), uint32(5); got != want {
+		t.Fatalf("Column() = %d, want %d (5 code points before z)", got, want)
+	}
+}
+
+// TestExternalLexerColumnSkipsLeadingBOM confirms a byte order mark at byte
+// 0 does not count toward Column(), matching C's is_bom check.
+func TestExternalLexerColumnSkipsLeadingBOM(t *testing.T) {
+	src := append([]byte{0xEF, 0xBB, 0xBF}, []byte("ab")...)
+	l := newExternalLexer(src, 0, 0, 0)
+	l.Advance(false) // BOM, does not count
+	if got, want := l.Column(), uint32(0); got != want {
+		t.Fatalf("Column() after BOM = %d, want %d", got, want)
+	}
+	l.Advance(false) // a
+	if got, want := l.Column(), uint32(1); got != want {
+		t.Fatalf("Column() after BOM+a = %d, want %d", got, want)
+	}
+	l.Advance(false) // b
+	if got, want := l.Column(), uint32(2); got != want {
+		t.Fatalf("Column() after BOM+ab = %d, want %d", got, want)
+	}
+}
+
+// TestExternalLexerColumnResetsOnNewline confirms Column() drops back to 0
+// on the character immediately after a newline.
+func TestExternalLexerColumnResetsOnNewline(t *testing.T) {
+	l := newExternalLexer([]byte("é1\nz"), 0, 0, 0)
+	l.Advance(false) // é
+	l.Advance(false) // 1
+	if got, want := l.Column(), uint32(2); got != want {
+		t.Fatalf("Column() before newline = %d, want %d", got, want)
+	}
+	l.Advance(false) // \n
+	if got, want := l.Column(), uint32(0); got != want {
+		t.Fatalf("Column() right after newline = %d, want %d", got, want)
+	}
+	l.Advance(false) // z
+	if got, want := l.Column(), uint32(1); got != want {
+		t.Fatalf("Column() after z on new line = %d, want %d", got, want)
+	}
+}
+
+// TestExternalLexerColumnAdvanceUntilNewlineOverMultibyte confirms the bulk
+// AdvanceUntilNewline helper keeps Column() consistent with per-rune Advance
+// when the skipped run contains multibyte code points.
+func TestExternalLexerColumnAdvanceUntilNewlineOverMultibyte(t *testing.T) {
+	l := newExternalLexer([]byte("héllo wörld\nnext"), 0, 0, 0)
+	if got := l.Column(); got != 0 {
+		t.Fatalf("Column() at start = %d, want 0", got)
+	}
+	n := l.AdvanceUntilNewline(false)
+	wantBytes := len("héllo wörld")
+	if n != wantBytes {
+		t.Fatalf("AdvanceUntilNewline consumed %d bytes, want %d", n, wantBytes)
+	}
+	wantCols := uint32(utf8.RuneCountInString("héllo wörld"))
+	if got := l.Column(); got != wantCols {
+		t.Fatalf("Column() after AdvanceUntilNewline = %d, want %d code points", got, wantCols)
+	}
+}
+
+// TestExternalLexerColumnLazyRecomputeAfterResetWithMultibytePrefix pins the
+// lazy-recompute path: a reset lands mid-line (col > 0, byte-based) with
+// multibyte runes before pos, and Column() must count code points of that
+// prefix, not raw bytes.
+func TestExternalLexerColumnLazyRecomputeAfterResetWithMultibytePrefix(t *testing.T) {
+	src := []byte("日本語abc")
+	prefix := "日本語ab" // 3 multibyte runes (3 bytes each) + 2 ASCII bytes
+	pos := len(prefix)
+	l := &ExternalLexer{}
+	l.reset(src, pos, 0, uint32(pos)) // col is the byte offset of pos on line 0
+	if got, want := l.Column(), uint32(utf8.RuneCountInString(prefix)); got != want {
+		t.Fatalf("Column() after reset mid-line = %d, want %d code points", got, want)
+	}
+}
+
+// TestExternalLexerColumnRepeatedCallsStayCorrect exercises a cobol-style
+// loop that polls Column() many times per line without advancing, then
+// advances a rune, and checks the cached value tracks correctly throughout.
+func TestExternalLexerColumnRepeatedCallsStayCorrect(t *testing.T) {
+	l := newExternalLexer([]byte("      é123456789012345678901234567890123456789012345678901234567890123456"), 0, 0, 0)
+	for i := 0; i < 6; i++ {
+		l.Advance(false)
+		for j := 0; j < 5; j++ {
+			if got, want := l.Column(), uint32(i+1); got != want {
+				t.Fatalf("iteration %d.%d: Column() = %d, want %d", i, j, got, want)
+			}
+		}
+	}
+	l.Advance(false) // é (multibyte, one code point)
+	for j := 0; j < 5; j++ {
+		if got, want := l.Column(), uint32(7); got != want {
+			t.Fatalf("after é iteration %d: Column() = %d, want %d", j, got, want)
+		}
 	}
 }
 
