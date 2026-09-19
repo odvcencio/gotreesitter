@@ -79,12 +79,23 @@ Counts on 2026-09-08: 78 cases, 36 agree on the default route (29 before
 this round). With `GOT_C_RECOVERY=all`, 46 agree; the difference is
 JavaScript, which stays on the legacy path (see below).
 
+Counts on 2026-09-19: 79 cases (added `javascript "var if = 1;\n"`, a
+reserved-word-as-binding-identifier regression case), 36 agree on the
+default route — unchanged, because the added case still diverges on the
+same pre-existing `extra`-flag gap the table below already tracks for
+several other top-level ERROR cases. `pushOrExtendErrorNode` now keeps each
+absorbed real token as the ERROR's own child instead of nesting a second
+ERROR that drops it, verified directly by
+`TestJavaScriptReservedWordBindingAbsorbsTokensAsDirectChildren`; the board
+comparison stops at the `extra`-flag mismatch before it reaches that shape,
+so the aggregate count does not move.
+
 | Language | Cases | Agree |
 | --- | --- | --- |
 | c | 8 | 5 |
 | go | 10 | 6 |
 | java | 8 | 5 |
-| javascript | 16 | 1 (11 with the C recovery port) |
+| javascript | 17 | 1 (11 with the C recovery port) |
 | json | 6 | 6 |
 | python | 14 | 5 |
 | rust | 10 | 5 |
