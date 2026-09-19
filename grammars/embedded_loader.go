@@ -14,6 +14,15 @@ func RegisterExternalScanner(name string, s gotreesitter.ExternalScanner) {
 func RegisterExternalLexStates(name string, states [][]bool) {
 	grammarruntime.RegisterExternalLexStates(name, states)
 }
+
+type ReservedWordTable = grammarruntime.ReservedWordTable
+
+func RegisterReservedWords(name string, table ReservedWordTable) {
+	grammarruntime.RegisterReservedWords(name, table)
+}
+func LookupReservedWords(name string) (ReservedWordTable, bool) {
+	return grammarruntime.LookupReservedWords(name)
+}
 func LoadLanguage(name string, data []byte) (*gotreesitter.Language, error) {
 	return grammarruntime.LoadLanguage(name, data)
 }
