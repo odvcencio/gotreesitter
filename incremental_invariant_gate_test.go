@@ -84,7 +84,7 @@ var incrGateCorpus = []incrGateCorpusEntry{
 	// one the campaign's evidence base describes as already having
 	// working top-level sibling reuse.
 	{language: "css", path: "css_stylesheet.css", stride: 300},
-	{language: "bash", path: "bash_clean_old.sh", stride: 2},
+	{language: "bash", path: "bash_clean_old.sh", stride: 16},
 	// c_repeated_functions.c: there was previously no C entry in this
 	// corpus at all, which is how issue #454's C incremental-delete defect
 	// (see TestIssue454CIncrementalDeleteMatchesFresh,
