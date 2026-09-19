@@ -3484,7 +3484,9 @@ func canReuseUnchangedTree(source []byte, oldTree *Tree, lang *Language, include
 	if oldTree == nil || oldTree.language != lang || len(oldTree.edits) != 0 {
 		return false
 	}
-	if !includedRangesMatchTree(oldTree, included) {
+	// Most parses have no included ranges. Skip the call in that case, because
+	// this check runs on the no-edit fast path.
+	if (len(oldTree.includedRanges) != 0 || len(included) != 0) && !includedRangesMatchTree(oldTree, included) {
 		return false
 	}
 	oldSource := oldTree.source
