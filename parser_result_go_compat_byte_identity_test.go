@@ -66,6 +66,8 @@ func goNodeSpansHash(lang *gotreesitter.Language, root *gotreesitter.Node) strin
 // recovery off and fails if the normalizer output drifts from the pinned golden.
 func TestGoZerrorsNormalizerByteIdentity(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "0")
+	gotreesitter.ResetParseEnvConfigCacheForTests()
+	t.Cleanup(gotreesitter.ResetParseEnvConfigCacheForTests)
 
 	var src []byte
 	var err error

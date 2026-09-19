@@ -29,6 +29,8 @@ import (
 func reqRecoverParse(t *testing.T, src string) (*gts.Tree, *gts.Language) {
 	t.Helper()
 	t.Setenv("GOT_C_RECOVERY", "requirements")
+	gts.ResetParseEnvConfigCacheForTests()
+	t.Cleanup(gts.ResetParseEnvConfigCacheForTests)
 	lang := grammars.RequirementsLanguage()
 	p := gts.NewParser(lang)
 	tree, err := p.Parse([]byte(src))

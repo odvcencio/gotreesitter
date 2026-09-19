@@ -38,6 +38,8 @@ func TestCRecoveryAllEnablesExternalScannerGrammarsWithLexStates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("GOT_C_RECOVERY", "all")
+			gotreesitter.ResetParseEnvConfigCacheForTests()
+			t.Cleanup(gotreesitter.ResetParseEnvConfigCacheForTests)
 			lang := tt.load()
 			if len(lang.ExternalSymbols) == 0 {
 				t.Fatal("ExternalSymbols is empty")
@@ -51,6 +53,8 @@ func TestCRecoveryAllEnablesExternalScannerGrammarsWithLexStates(t *testing.T) {
 			}
 
 			t.Setenv("GOT_C_RECOVERY", "other,"+tt.name)
+			gotreesitter.ResetParseEnvConfigCacheForTests()
+			t.Cleanup(gotreesitter.ResetParseEnvConfigCacheForTests)
 			parser = gotreesitter.NewParser(tt.load())
 			if !parserCRecoveryEnabledForExternalTest(parser) {
 				t.Fatal("NewParser did not enable C recovery cost competition under named GOT_C_RECOVERY override")

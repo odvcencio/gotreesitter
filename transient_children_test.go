@@ -228,6 +228,8 @@ func TestTransientChildScratchMaterializeNodeUntilStopsWhenCancelled(t *testing.
 
 func TestTransientChildFinalizationAbortReturnsErrorTree(t *testing.T) {
 	t.Setenv("GOT_TRANSIENT_REDUCE_LANGS", "all")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := buildArithmeticLanguage()
 	parser := NewParser(lang)
 	var cancelled uint32

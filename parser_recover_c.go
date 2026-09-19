@@ -231,7 +231,7 @@ func errorCostCompetitionLanguage(lang *Language) bool {
 	if lang == nil {
 		return false
 	}
-	switch v := os.Getenv("GOT_C_RECOVERY"); v {
+	switch v := envKnobs().cRecovery; v {
 	case "":
 	case "0":
 		return false
@@ -279,14 +279,14 @@ func cRecoveryGateReasonSlug(reason string) string {
 }
 
 func cRecoveryGateReason(lang *Language) string {
-	if os.Getenv("GOT_C_RECOVERY") == "0" {
+	if envKnobs().cRecovery == "0" {
 		return "disabled_by_got_c_recovery_0"
 	}
 	diag := DiagnoseCRecoveryGate(lang)
 	if !diag.Supported {
 		return cRecoveryGateReasonSlug(diag.Reason)
 	}
-	switch v := os.Getenv("GOT_C_RECOVERY"); v {
+	switch v := envKnobs().cRecovery; v {
 	case "all", "1":
 		return ""
 	case "":
