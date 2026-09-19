@@ -125,6 +125,43 @@ func TestAdmissionSwitchCompactTimeoutStopReceiptMatchesProduction(t *testing.T)
 	}
 }
 
+// TestAdmissionSwitchCompactTimeoutSharesDeadlineWithProduction proves that
+// Parse applies SetTimeoutMicros once per call. The compact route must use the
+// deadline that Parse opens. When the compact route trips the timeout, the
+// production fallback must find the deadline already expired. Production must
+// then stop before its first iteration. It must not start a second timeout
+// window.
+func TestAdmissionSwitchCompactTimeoutSharesDeadlineWithProduction(t *testing.T) {
+	restore := gts.AdmissionCandidateRouteDefault()
+	defer gts.SetAdmissionCandidateRouteDefault(restore)
+	gts.SetAdmissionCandidateRouteDefault(true)
+
+	// The witness is large so that the compact route cannot finish inside
+	// the timeout, also on a fast host. The timeout is long enough that a
+	// second production window would run many iterations after its setup.
+	source := stopControlWitnessGoSource(20000)
+
+	gts.ResetAdmissionCandidateCountersForTest()
+	parser := gts.NewParser(grammars.GoLanguage())
+	parser.SetTimeoutMicros(20_000)
+	tree, err := parser.Parse(source)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	defer tree.Release()
+
+	if got, want := tree.ParseStopReason(), gts.ParseStopTimeout; got != want {
+		t.Fatalf("ParseStopReason() = %q, want %q", got, want)
+	}
+	requireSaneStoppedTree(t, tree, source, "shared timeout")
+	if reason := gts.AdmissionCandidateLastFallbackReason(); !strings.Contains(reason, "stop-control tripped: timeout") {
+		t.Fatalf("fallback reason = %q, want the compact route to trip the timeout first", reason)
+	}
+	if got := tree.ParseRuntime().Iterations; got != 0 {
+		t.Fatalf("production fallback ran %d iterations after the compact route used the whole timeout; want 0", got)
+	}
+}
+
 // TestAdmissionSwitchCompactCancellationStopReceiptMatchesProduction is the
 // cancellation counterpart: the flag is already tripped before Parse is
 // called, so the scheduler's very first poll (before its first election)

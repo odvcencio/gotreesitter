@@ -902,7 +902,10 @@ func (p *Parser) parseWithTokenSource(source []byte, ts TokenSource, reparseFact
 	// eligible: the compact candidate route reproduces the production DFA token
 	// stream and cannot honor arbitrary tokens, so this always declines and
 	// runs production. The seam stays here so the policy is enforced in one
-	// place for every fresh full-parse entry point.
+	// place for every fresh full-parse entry point. The timeout scope opens
+	// first so that both routes share one deadline.
+	endSharedParseBudget := p.enterParseBudget()
+	defer endSharedParseBudget()
 	if !p.recoveryInitialOnly {
 		if tree, ok := p.attemptAdmissionCandidateFullParse(source, nil, false); ok {
 			return tree, nil
@@ -1322,6 +1325,12 @@ func (p *Parser) Parse(source []byte) (*Tree, error) {
 	if err := p.checkDFALexer(); err != nil {
 		return nil, err
 	}
+	// Open the timeout scope before the compact attempt. The compact route and
+	// the production fallback then share one deadline. The scope does not
+	// start a recovery operation, so a compact-route return keeps its memo
+	// accounting.
+	endSharedParseBudget := p.enterParseBudget()
+	defer endSharedParseBudget()
 	// Phase-3 dual-route admission switch (admission_switch.go). A fresh full
 	// parse on the production DFA lexer is the one shape the compact candidate
 	// route can reproduce. When the switch is on and the candidate route
