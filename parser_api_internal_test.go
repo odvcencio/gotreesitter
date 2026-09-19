@@ -357,7 +357,7 @@ func TestSwiftBraceTypeExpressionConflictChoiceRejectsOtherDotReduce(t *testing.
 
 func TestShouldRetryNodeLimitParse(t *testing.T) {
 	tree := &Tree{
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:     ParseStopNodeLimit,
 			NodeLimit:      300_000,
 			NodesAllocated: 300_001,
@@ -371,7 +371,7 @@ func TestShouldRetryNodeLimitParse(t *testing.T) {
 
 func TestShouldNotRetryNodeLimitParseForLargeSource(t *testing.T) {
 	tree := &Tree{
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:     ParseStopNodeLimit,
 			NodeLimit:      300_000,
 			NodesAllocated: 300_001,
@@ -385,7 +385,7 @@ func TestShouldNotRetryNodeLimitParseForLargeSource(t *testing.T) {
 
 func TestShouldNotRetryMemoryBudgetParse(t *testing.T) {
 	tree := &Tree{
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason: ParseStopMemoryBudget,
 		},
 	}
@@ -397,7 +397,7 @@ func TestShouldNotRetryMemoryBudgetParse(t *testing.T) {
 
 func TestFullParseRetryNodeLimitOverride(t *testing.T) {
 	tree := &Tree{
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:     ParseStopNodeLimit,
 			NodeLimit:      300_000,
 			NodesAllocated: 300_001,
@@ -422,7 +422,7 @@ func TestFullParseRetryMergeOverrideHonorsExplicitCap(t *testing.T) {
 			endByte: 128,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 128,
 			RootEndByte:     128,
@@ -436,7 +436,7 @@ func TestFullParseRetryMergeOverrideHonorsExplicitCap(t *testing.T) {
 
 func TestFullParseRetrySecondaryNodeLimitOverride(t *testing.T) {
 	tree := &Tree{
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:     ParseStopNodeLimit,
 			NodeLimit:      600_000,
 			NodesAllocated: 600_001,
@@ -460,14 +460,14 @@ func TestShouldRunInitialFullParseMergeRetry(t *testing.T) {
 		t.Fatal("shouldRunInitialFullParseMergeRetry(nil) = true, want false")
 	}
 	tree := &Tree{
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason: ParseStopNodeLimit,
 		},
 	}
 	if shouldRunInitialFullParseMergeRetry(tree, 128, fullParseRetryOriginFresh) {
 		t.Fatal("shouldRunInitialFullParseMergeRetry(node_limit) = true, want false")
 	}
-	tree.parseRuntime.StopReason = ParseStopNoStacksAlive
+	tree.rawParseRuntime().StopReason = ParseStopNoStacksAlive
 	if !shouldRunInitialFullParseMergeRetry(tree, 128, fullParseRetryOriginFresh) {
 		t.Fatal("shouldRunInitialFullParseMergeRetry(no_stacks_alive) = false, want true")
 	}
@@ -477,7 +477,7 @@ func TestShouldRunInitialFullParseMergeRetry(t *testing.T) {
 			endByte: 128,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 128,
 			RootEndByte:     128,
@@ -494,7 +494,7 @@ func TestShouldRunInitialFullParseMergeRetry(t *testing.T) {
 	if !shouldRunInitialFullParseMergeRetry(tree, 128, fullParseRetryOriginIncremental) {
 		t.Fatal("certified incremental fallback skipped the conservative initial merge retry")
 	}
-	tree.parseRuntime.Truncated = true
+	tree.rawParseRuntime().Truncated = true
 	if !shouldRunInitialFullParseMergeRetry(tree, 128, fullParseRetryOriginFresh) {
 		t.Fatal("certified truncated accepted-error tree skipped the initial merge retry")
 	}
@@ -581,12 +581,12 @@ func TestCertifiedInitialMergeRetrySkipKeepsWideningAndTreeSelection(t *testing.
 	initial := certifiedAcceptedErrorRetryTestTree(false, sourceLen)
 	initial.language.Name = "c_sharp"
 	initial.language.FullParseAcceptedErrorRetryProfile.SkipInitialCompleteAcceptedErrorMergeRetry = true
-	initial.parseRuntime.MaxStacksSeen = 8
+	initial.rawParseRuntime().MaxStacksSeen = 8
 
 	candidate := certifiedAcceptedErrorRetryTestTree(false, sourceLen)
 	candidate.language.Name = "c_sharp"
 	candidate.root.flags = 0
-	candidate.parseRuntime.NodesAllocated = 1
+	candidate.rawParseRuntime().NodesAllocated = 1
 
 	type retryCall struct {
 		stacks int
@@ -611,8 +611,8 @@ func TestCertifiedInitialMergeRetrySkipKeepsWideningAndTreeSelection(t *testing.
 func duplicateWideRetryTestTree(sourceLen, nodes, maxStacks int, certified bool) *Tree {
 	tree := certifiedAcceptedErrorRetryTestTree(false, sourceLen)
 	tree.language.Name = "synthetic"
-	tree.parseRuntime.NodesAllocated = nodes
-	tree.parseRuntime.MaxStacksSeen = maxStacks
+	tree.rawParseRuntime().NodesAllocated = nodes
+	tree.rawParseRuntime().MaxStacksSeen = maxStacks
 	if certified {
 		tree.language.FullParseAcceptedErrorRetryProfile = FullParseAcceptedErrorRetryProfile{
 			ReuseCleanWideForWideRetry:   true,
@@ -665,7 +665,7 @@ func TestCertifiedDuplicateWideRetryPreservesPassAccounting(t *testing.T) {
 	if genericPasses != 4 || certifiedPasses != genericPasses {
 		t.Fatalf("retry passes generic=%d certified=%d, want both 4", genericPasses, certifiedPasses)
 	}
-	if genericTree == nil || certifiedTree == nil || genericTree.parseRuntime.NodesAllocated != certifiedTree.parseRuntime.NodesAllocated {
+	if genericTree == nil || certifiedTree == nil || genericTree.rawParseRuntime().NodesAllocated != certifiedTree.rawParseRuntime().NodesAllocated {
 		t.Fatalf("selected nodes generic=%v certified=%v, want equivalent selected candidate", genericTree, certifiedTree)
 	}
 }
@@ -813,7 +813,7 @@ func TestCSharpAcceptedErrorTreeCanUseNamespaceRecovery(t *testing.T) {
 	tree := &Tree{
 		language: lang,
 		root:     root,
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: uint32(len(source)),
 			RootEndByte:     uint32(len(source)),
@@ -824,11 +824,11 @@ func TestCSharpAcceptedErrorTreeCanUseNamespaceRecovery(t *testing.T) {
 	if !csharpAcceptedErrorTreeCanUseNamespaceRecovery(tree, source) {
 		t.Fatal("csharpAcceptedErrorTreeCanUseNamespaceRecovery = false, want true")
 	}
-	tree.parseRuntime.Truncated = true
+	tree.rawParseRuntime().Truncated = true
 	if csharpAcceptedErrorTreeCanUseNamespaceRecovery(tree, source) {
 		t.Fatal("csharpAcceptedErrorTreeCanUseNamespaceRecovery(truncated) = true, want false")
 	}
-	tree.parseRuntime.Truncated = false
+	tree.rawParseRuntime().Truncated = false
 	root.ownerArena = nil
 	if csharpAcceptedErrorTreeCanUseNamespaceRecovery(tree, source) {
 		t.Fatal("csharpAcceptedErrorTreeCanUseNamespaceRecovery(no arena) = true, want false")
@@ -888,7 +888,7 @@ func certifiedAcceptedErrorRetryTestTree(profile bool, sourceLen int) *Tree {
 			endByte: uint32(sourceLen),
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:       ParseStopAccepted,
 			SourceLen:        uint32(sourceLen),
 			ExpectedEOFByte:  uint32(sourceLen),
@@ -913,7 +913,7 @@ func incrementalAcceptedErrorRetryTestTree(sourceLen int, hasError bool, maxStac
 			endByte: uint32(sourceLen),
 			flags:   flags,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:                   ParseStopAccepted,
 			SourceLen:                    uint32(sourceLen),
 			ExpectedEOFByte:              uint32(sourceLen),
@@ -1194,7 +1194,7 @@ func TestIncrementalAcceptedErrorBaseMergeRetryRequiresOldTreeRoute(t *testing.T
 	defer ResetParseEnvConfigCacheForTests()
 
 	tree := incrementalAcceptedErrorRetryTestTree(128, true, 24)
-	tree.parseRuntime.IncrementalOldTreeReuseRoute = false
+	tree.rawParseRuntime().IncrementalOldTreeReuseRoute = false
 	parser := &Parser{language: tree.language}
 	if got := incrementalAcceptedErrorBaseMergeCap(parser, tree, make([]byte, 128)); got != 0 {
 		t.Fatalf("internal-fresh result base retry cap = %d, want no retry", got)
@@ -1238,7 +1238,7 @@ func TestIncrementalAcceptedErrorBaseMergeRetryReleasesLosingCandidate(t *testin
 
 	first := incrementalAcceptedErrorRetryTestTree(128, true, 24)
 	candidate := incrementalAcceptedErrorRetryTestTree(128, true, 24)
-	candidate.parseRuntime.NodesAllocated = first.parseRuntime.NodesAllocated + 1
+	candidate.rawParseRuntime().NodesAllocated = first.rawParseRuntime().NodesAllocated + 1
 	parser := &Parser{language: first.language}
 	timing := &incrementalParseTiming{reusedBytes: 100, tokensConsumed: 5}
 	got := parser.retryIncrementalAcceptedErrorWithBaseMergeCap(make([]byte, 128), first, timing, func(_ int, retryTiming *incrementalParseTiming) *Tree {
@@ -1316,22 +1316,22 @@ func TestCertifiedAcceptedErrorRetryStackCeilingScope(t *testing.T) {
 	assertNotCertified("clean tree", clean, sourceLen, 14, fullParseRetryOriginFresh)
 
 	otherStop := certifiedAcceptedErrorRetryTestTree(true, sourceLen)
-	otherStop.parseRuntime.StopReason = ParseStopNoStacksAlive
+	otherStop.rawParseRuntime().StopReason = ParseStopNoStacksAlive
 	assertNotCertified("other stop reason", otherStop, sourceLen, 14, fullParseRetryOriginFresh)
 
 	truncated := certifiedAcceptedErrorRetryTestTree(true, sourceLen)
-	truncated.parseRuntime.Truncated = true
+	truncated.rawParseRuntime().Truncated = true
 	assertNotCertified("truncated result", truncated, sourceLen, 14, fullParseRetryOriginFresh)
 
 	earlyEOF := certifiedAcceptedErrorRetryTestTree(true, sourceLen)
-	earlyEOF.parseRuntime.TokenSourceEOFEarly = true
+	earlyEOF.rawParseRuntime().TokenSourceEOFEarly = true
 	assertNotCertified("early token-source EOF", earlyEOF, sourceLen, 14, fullParseRetryOriginFresh)
 
 	shortTree := certifiedAcceptedErrorRetryTestTree(true, sourceLen)
 	shortTree.root.endByte--
-	shortTree.parseRuntime.RootEndByte--
-	shortTree.parseRuntime.LastTokenWasEOF = false
-	shortTree.parseRuntime.LastTokenEndByte--
+	shortTree.rawParseRuntime().RootEndByte--
+	shortTree.rawParseRuntime().LastTokenWasEOF = false
+	shortTree.rawParseRuntime().LastTokenEndByte--
 	assertNotCertified("tree not covering EOF", shortTree, sourceLen, 14, fullParseRetryOriginFresh)
 }
 
@@ -1372,7 +1372,7 @@ func TestCertifiedAcceptedErrorRetrySchedulingKeepsMergeAndSkipsWidening(t *test
 		parser.retryFullParse(source, 14, initial, func(maxStacks, maxMergePerKeyOverride, maxNodes int) *Tree {
 			calls = append(calls, retryCall{maxStacks, maxMergePerKeyOverride, maxNodes})
 			candidate := certifiedAcceptedErrorRetryTestTree(true, sourceLen)
-			candidate.parseRuntime.NodesAllocated = 99
+			candidate.rawParseRuntime().NodesAllocated = 99
 			return candidate
 		})
 		want := []retryCall{{stacks: 14, merge: javaFullParseRetryMaxMergePerKey}}
@@ -1398,11 +1398,11 @@ func TestCertifiedAcceptedErrorRetrySchedulingKeepsMergeAndSkipsWidening(t *test
 				if maxStacks == javaFullParseRetryMaxGLRStacks {
 					clean := certifiedAcceptedErrorRetryTestTree(tt.profile, sourceLen)
 					clean.root.flags = 0
-					clean.parseRuntime.NodesAllocated = 1
+					clean.rawParseRuntime().NodesAllocated = 1
 					return clean
 				}
 				candidate := certifiedAcceptedErrorRetryTestTree(tt.profile, sourceLen)
-				candidate.parseRuntime.NodesAllocated = 99
+				candidate.rawParseRuntime().NodesAllocated = 99
 				return candidate
 			})
 			if len(calls) < 2 || calls[0] != (retryCall{stacks: 14, merge: javaFullParseRetryMaxMergePerKey}) || calls[1].stacks != javaFullParseRetryMaxGLRStacks {
@@ -1424,7 +1424,7 @@ func TestCppAcceptedErrorRetrySkipsCompleteTree(t *testing.T) {
 			endByte: 128,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 128,
 			RootEndByte:     128,
@@ -1447,7 +1447,7 @@ func TestCppAcceptedErrorRetryPreservesTruncatedMergeRetry(t *testing.T) {
 			endByte: 96,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 128,
 			RootEndByte:     96,
@@ -1473,7 +1473,7 @@ func TestBashAcceptedErrorRetrySkipsCompleteTree(t *testing.T) {
 			endByte: 128,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 128,
 			RootEndByte:     128,
@@ -1496,7 +1496,7 @@ func TestBashAcceptedErrorRetryPreservesTruncatedMergeRetry(t *testing.T) {
 			endByte: 96,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 128,
 			RootEndByte:     96,
@@ -1517,7 +1517,7 @@ func TestCompleteAcceptedErrorRetrySkipRequiresCertification(t *testing.T) {
 			endByte: 128,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:       ParseStopAccepted,
 			SourceLen:        128,
 			ExpectedEOFByte:  128,
@@ -1540,11 +1540,11 @@ func TestCompleteAcceptedErrorRetrySkipRequiresCertification(t *testing.T) {
 	}
 
 	tree.language.FullParseAcceptedErrorRetryProfile.SkipCompleteMaxEntryScratchPeak = 1024
-	tree.parseRuntime.EntryScratchPeak = 1025
+	tree.rawParseRuntime().EntryScratchPeak = 1025
 	if !shouldRetryAcceptedErrorParse(tree, 128, 8) {
 		t.Fatal("accepted-error tree above the certified entry-scratch peak skipped retry")
 	}
-	tree.parseRuntime.EntryScratchPeak = 1024
+	tree.rawParseRuntime().EntryScratchPeak = 1024
 	if shouldRetryAcceptedErrorParse(tree, 128, 8) {
 		t.Fatal("accepted-error tree at the certified entry-scratch peak scheduled retry")
 	}
@@ -1565,7 +1565,7 @@ func TestCompleteAcceptedErrorRetrySkipHonorsMinimumSourceBytes(t *testing.T) {
 				endByte: uint32(sourceLen),
 				flags:   nodeFlagHasError,
 			},
-			parseRuntime: ParseRuntime{
+			parseRuntime: &ParseRuntime{
 				StopReason:       ParseStopAccepted,
 				SourceLen:        uint32(sourceLen),
 				ExpectedEOFByte:  uint32(sourceLen),
@@ -1612,7 +1612,7 @@ func TestFreshCompleteAcceptedErrorRetrySkipPreservesLaterMerge(t *testing.T) {
 			},
 		},
 		root: &Node{endByte: sourceLen, flags: nodeFlagHasError},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:       ParseStopAccepted,
 			SourceLen:        sourceLen,
 			ExpectedEOFByte:  sourceLen,
@@ -1657,7 +1657,7 @@ func certifiedFreshErrorNoStacksTestTree(profile bool, sourceLen int) *Tree {
 			endByte: uint32(sourceLen / 2),
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:       ParseStopNoStacksAlive,
 			Truncated:        true,
 			SourceLen:        uint32(sourceLen),
@@ -1688,7 +1688,7 @@ func TestCertifiedFreshErrorNoStacksRetryPassLimitScope(t *testing.T) {
 		t.Fatalf("clean no-stacks retry limit = %d, want 0", got)
 	}
 	accepted := certifiedFreshErrorNoStacksTestTree(true, sourceLen)
-	accepted.parseRuntime.StopReason = ParseStopAccepted
+	accepted.rawParseRuntime().StopReason = ParseStopAccepted
 	if got := certifiedFreshErrorNoStacksRetryPassLimit(accepted, sourceLen, fullParseRetryOriginFresh); got != 0 {
 		t.Fatalf("accepted retry limit = %d, want 0", got)
 	}
@@ -1758,7 +1758,7 @@ func TestCertifiedFreshErrorNoStacksRetryMaxStacksScope(t *testing.T) {
 		t.Fatalf("clean no-stacks retry target = %d, want 0", got)
 	}
 	accepted := certifiedFreshErrorNoStacksRetryTargetTestTree(16, sourceLen)
-	accepted.parseRuntime.StopReason = ParseStopAccepted
+	accepted.rawParseRuntime().StopReason = ParseStopAccepted
 	if got := certifiedFreshErrorNoStacksRetryMaxStacks(accepted, sourceLen, fullParseRetryOriginFresh); got != 0 {
 		t.Fatalf("accepted retry target = %d, want 0", got)
 	}
@@ -1817,11 +1817,11 @@ func TestCertifiedFreshErrorNoStacksRetryMaxStacksFlowsThroughLadder(t *testing.
 		candidate := certifiedFreshErrorNoStacksRetryTargetTestTree(16, sourceLen)
 		if maxStacks == 16 {
 			candidate.root.endByte = sourceLen
-			candidate.parseRuntime.StopReason = ParseStopAccepted
-			candidate.parseRuntime.Truncated = false
-			candidate.parseRuntime.RootEndByte = sourceLen
-			candidate.parseRuntime.LastTokenEndByte = sourceLen
-			candidate.parseRuntime.LastTokenWasEOF = true
+			candidate.rawParseRuntime().StopReason = ParseStopAccepted
+			candidate.rawParseRuntime().Truncated = false
+			candidate.rawParseRuntime().RootEndByte = sourceLen
+			candidate.rawParseRuntime().LastTokenEndByte = sourceLen
+			candidate.rawParseRuntime().LastTokenWasEOF = true
 		}
 		return candidate
 	})
@@ -1845,8 +1845,8 @@ func TestCertifiedNoStacksPressureRetryUsesOneHardCappedRung(t *testing.T) {
 	initial := certifiedFreshErrorNoStacksTestTree(false, sourceLen)
 	initial.root.flags = 0
 	initial.root.endByte = 0
-	initial.parseRuntime.RootEndByte = 0
-	initial.parseRuntime.LastTokenEndByte = 0
+	initial.rawParseRuntime().RootEndByte = 0
+	initial.rawParseRuntime().LastTokenEndByte = 0
 	type retryCall struct {
 		stacks int
 		merge  int
@@ -1859,18 +1859,18 @@ func TestCertifiedNoStacksPressureRetryUsesOneHardCappedRung(t *testing.T) {
 		candidate.root.flags = nodeFlagHasError
 		candidate.resultErrorSummary = resultErrorSummaryPresent
 		candidate.root.endByte = sourceLen
-		candidate.parseRuntime.RootEndByte = sourceLen
-		candidate.parseRuntime.LastTokenEndByte = sourceLen
-		candidate.parseRuntime.MaxStacksSeen = maxStacks
+		candidate.rawParseRuntime().RootEndByte = sourceLen
+		candidate.rawParseRuntime().LastTokenEndByte = sourceLen
+		candidate.rawParseRuntime().MaxStacksSeen = maxStacks
 		if maxStacks == fullParseCertifiedNoStacksPressureRetryMaxGLRStacks && maxMergePerKeyOverride == fullParseCertifiedNoStacksPressureRetryMaxMergePerKey {
 			candidate.root.flags = 0
 			candidate.resultErrorSummary = resultErrorSummaryClean
 			candidate.root.endByte = sourceLen
-			candidate.parseRuntime.StopReason = ParseStopAccepted
-			candidate.parseRuntime.Truncated = false
-			candidate.parseRuntime.RootEndByte = sourceLen
-			candidate.parseRuntime.LastTokenEndByte = sourceLen
-			candidate.parseRuntime.LastTokenWasEOF = true
+			candidate.rawParseRuntime().StopReason = ParseStopAccepted
+			candidate.rawParseRuntime().Truncated = false
+			candidate.rawParseRuntime().RootEndByte = sourceLen
+			candidate.rawParseRuntime().LastTokenEndByte = sourceLen
+			candidate.rawParseRuntime().LastTokenWasEOF = true
 		}
 		return candidate
 	})
@@ -1896,7 +1896,7 @@ func TestCertifiedNoStacksPressureRetryHonorsExplicitCaps(t *testing.T) {
 	retry := certifiedFreshErrorNoStacksTestTree(false, sourceLen)
 	retry.root.flags = nodeFlagHasError
 	retry.resultErrorSummary = resultErrorSummaryPresent
-	retry.parseRuntime.MaxStacksSeen = fullParseRetryMaxGLRStacks
+	retry.rawParseRuntime().MaxStacksSeen = fullParseRetryMaxGLRStacks
 
 	if !shouldRetryCertifiedNoStacksPressure(initial, retry, sourceLen, 8, fullParseRetryMaxGLRStacks, fullParseRetryOriginFresh) {
 		t.Fatal("certified no-stacks pressure retry was not eligible")
@@ -1920,7 +1920,7 @@ func TestCertifiedNoStacksPressureRetryHonorsExplicitCaps(t *testing.T) {
 	oversizedInitial.root.flags = 0
 	oversizedRetry := certifiedFreshErrorNoStacksTestTree(false, oversizedSourceLen)
 	oversizedRetry.resultErrorSummary = resultErrorSummaryPresent
-	oversizedRetry.parseRuntime.MaxStacksSeen = fullParseRetryMaxGLRStacks
+	oversizedRetry.rawParseRuntime().MaxStacksSeen = fullParseRetryMaxGLRStacks
 	if shouldRetryCertifiedNoStacksPressure(oversizedInitial, oversizedRetry, oversizedSourceLen, 8, fullParseRetryMaxGLRStacks, fullParseRetryOriginFresh) {
 		t.Fatal("oversized source permitted a certified pressure retry")
 	}
@@ -1939,7 +1939,7 @@ func TestJavaAcceptedErrorRetryUsesWideMergeRetry(t *testing.T) {
 				errChild,
 			},
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 128,
 			RootEndByte:     128,
@@ -1958,7 +1958,7 @@ func TestNoStacksCleanRootRetryWidenMergeBeforeStackCap(t *testing.T) {
 		root: &Node{
 			endByte: 96,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopNoStacksAlive,
 			ExpectedEOFByte: 128,
 			RootEndByte:     96,
@@ -1977,7 +1977,7 @@ func TestShouldTakeCleanWideRetryRejectsNodeLimitNonTruncatedNoError(t *testing.
 		root: &Node{
 			endByte: 64,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopNoStacksAlive,
 			ExpectedEOFByte: 128,
 			RootEndByte:     64,
@@ -1987,7 +1987,7 @@ func TestShouldTakeCleanWideRetryRejectsNodeLimitNonTruncatedNoError(t *testing.
 		root: &Node{
 			endByte: 128,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopNodeLimit,
 			ExpectedEOFByte: 128,
 			RootEndByte:     128,
@@ -2004,7 +2004,7 @@ func TestShouldTakeCleanWideRetryAcceptsAcceptedNoError(t *testing.T) {
 		root: &Node{
 			endByte: 64,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopNoStacksAlive,
 			ExpectedEOFByte: 128,
 			RootEndByte:     64,
@@ -2014,7 +2014,7 @@ func TestShouldTakeCleanWideRetryAcceptsAcceptedNoError(t *testing.T) {
 		root: &Node{
 			endByte: 128,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 128,
 			RootEndByte:     128,
@@ -2031,7 +2031,7 @@ func TestShouldTakeCleanWideRetryNoStacksAliveRequiresExpectedEOFCoverage(t *tes
 		root: &Node{
 			endByte: 64,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopNoStacksAlive,
 			ExpectedEOFByte: 128,
 			RootEndByte:     64,
@@ -2041,7 +2041,7 @@ func TestShouldTakeCleanWideRetryNoStacksAliveRequiresExpectedEOFCoverage(t *tes
 		root: &Node{
 			endByte: 127,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopNoStacksAlive,
 			ExpectedEOFByte: 128,
 			RootEndByte:     127,
@@ -2052,7 +2052,7 @@ func TestShouldTakeCleanWideRetryNoStacksAliveRequiresExpectedEOFCoverage(t *tes
 		t.Fatal("shouldTakeCleanWideRetry(no_stacks_alive short clean candidate) = true, want false")
 	}
 	candidate.root.endByte = 128
-	candidate.parseRuntime.RootEndByte = 128
+	candidate.rawParseRuntime().RootEndByte = 128
 	if !shouldTakeCleanWideRetry(incumbent, candidate, 128, 8) {
 		t.Fatal("shouldTakeCleanWideRetry(no_stacks_alive EOF-covering clean candidate) = false, want true")
 	}
@@ -2063,7 +2063,7 @@ func TestShouldRepeatExternalScannerFullParseHonorsLanguagePolicy(t *testing.T) 
 		root: &Node{
 			flags: nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason: ParseStopAccepted,
 		},
 	}
@@ -2092,7 +2092,7 @@ func TestRetryFullParseStopsSchedulingRetriesAfterTimeout(t *testing.T) {
 			endByte: 1,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: uint32(len(source)),
 			MaxStacksSeen:   2,
@@ -2104,7 +2104,7 @@ func TestRetryFullParseStopsSchedulingRetriesAfterTimeout(t *testing.T) {
 			endByte: 2,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: uint32(len(source)),
 			MaxStacksSeen:   2,
@@ -2362,7 +2362,7 @@ func TestPreferRetryTreePrefersFurtherAcceptedProgress(t *testing.T) {
 			flags:    nodeFlagHasError,
 			children: []*Node{{}, {}, {}},
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopNoStacksAlive,
 			ExpectedEOFByte: 200,
 			Truncated:       true,
@@ -2374,7 +2374,7 @@ func TestPreferRetryTreePrefersFurtherAcceptedProgress(t *testing.T) {
 			flags:    nodeFlagHasError,
 			children: []*Node{{}, {}},
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 200,
 		},
@@ -2391,7 +2391,7 @@ func TestPreferRetryTreeKeepsFurtherErrorOverShortCleanCandidate(t *testing.T) {
 			endByte: 200,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 200,
 		},
@@ -2400,7 +2400,7 @@ func TestPreferRetryTreeKeepsFurtherErrorOverShortCleanCandidate(t *testing.T) {
 		root: &Node{
 			endByte: 120,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 200,
 		},
@@ -2417,7 +2417,7 @@ func TestPreferRetryTreePrefersFullCleanCandidateOverError(t *testing.T) {
 			endByte: 200,
 			flags:   nodeFlagHasError,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 200,
 		},
@@ -2426,7 +2426,7 @@ func TestPreferRetryTreePrefersFullCleanCandidateOverError(t *testing.T) {
 		root: &Node{
 			endByte: 200,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 200,
 		},
@@ -2444,7 +2444,7 @@ func TestPreferRetryTreePrefersFewerChildrenOnEqualErrorTrees(t *testing.T) {
 			flags:    nodeFlagHasError,
 			children: make([]*Node, 12),
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 200,
 			NodesAllocated:  1200,
@@ -2456,7 +2456,7 @@ func TestPreferRetryTreePrefersFewerChildrenOnEqualErrorTrees(t *testing.T) {
 			flags:    nodeFlagHasError,
 			children: make([]*Node, 4),
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 200,
 			NodesAllocated:  800,
@@ -2484,7 +2484,7 @@ func TestPreferRetryTreeKeepsAcceptedIncumbentOverStoppedCandidate(t *testing.T)
 					flags:    nodeFlagHasError,
 					children: make([]*Node, 12),
 				},
-				parseRuntime: ParseRuntime{
+				parseRuntime: &ParseRuntime{
 					StopReason:      ParseStopAccepted,
 					ExpectedEOFByte: 200,
 				},
@@ -2495,7 +2495,7 @@ func TestPreferRetryTreeKeepsAcceptedIncumbentOverStoppedCandidate(t *testing.T)
 					flags:    nodeFlagHasError,
 					children: make([]*Node, 2),
 				},
-				parseRuntime: ParseRuntime{
+				parseRuntime: &ParseRuntime{
 					StopReason:      ParseStopTimeout,
 					ExpectedEOFByte: 200,
 				},
@@ -2511,14 +2511,14 @@ func TestPreferRetryTreeKeepsAcceptedIncumbentOverStoppedCandidate(t *testing.T)
 func TestPreferRetryTreeStoppedCandidateCanBeatStoppedIncumbent(t *testing.T) {
 	incumbent := &Tree{
 		root: &Node{endByte: 180, flags: nodeFlagHasError},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopMemoryBudget,
 			ExpectedEOFByte: 200,
 		},
 	}
 	candidate := &Tree{
 		root: &Node{endByte: 200, flags: nodeFlagHasError},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopTimeout,
 			ExpectedEOFByte: 200,
 		},
@@ -2532,14 +2532,14 @@ func TestPreferRetryTreeStoppedCandidateCanBeatStoppedIncumbent(t *testing.T) {
 func TestPreferRetryTreeAcceptedCandidateCanBeatStoppedIncumbent(t *testing.T) {
 	incumbent := &Tree{
 		root: &Node{endByte: 200, flags: nodeFlagHasError},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopTimeout,
 			ExpectedEOFByte: 200,
 		},
 	}
 	candidate := &Tree{
 		root: &Node{endByte: 200, flags: nodeFlagHasError},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:      ParseStopAccepted,
 			ExpectedEOFByte: 200,
 		},

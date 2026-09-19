@@ -78,7 +78,7 @@ func eligibleForFinalTreeCompaction(p *Parser, tree *Tree, source []byte) bool {
 	if tree.sourceEncoding != InputEncodingUTF8 || tree.sourceUTF16 != nil || len(source) != len(tree.source) {
 		return false
 	}
-	if tree.rawParseStopReason() != ParseStopAccepted || tree.parseRuntime.Truncated || tree.forestFastPath || tree.incrementalReuseDisabled {
+	if tree.rawParseStopReason() != ParseStopAccepted || tree.rawParseRuntime().Truncated || tree.forestFastPath || tree.incrementalReuseDisabled {
 		return false
 	}
 	if tree.hasDeferredResultCompatibility() || tree.externalScannerCheckpointsDeferred || len(tree.includedRanges) != 0 || len(tree.edits) != 0 {

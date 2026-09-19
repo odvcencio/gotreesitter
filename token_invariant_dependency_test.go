@@ -78,7 +78,7 @@ func TestTokenInvariantDeferredHistoryPublication(t *testing.T) {
 	d.lexer.Next(0)
 	tree := NewTree(&Node{symbol: 1, endByte: 1}, source, lang)
 	defer tree.Release()
-	tree.parseRuntime.StopReason = ParseStopAccepted
+	tree.rawParseRuntime().StopReason = ParseStopAccepted
 	tree.deferResultCompatibility()
 	tree.captureTokenInvariantReadSpan(d)
 	d.Close()
@@ -115,7 +115,7 @@ func TestTokenInvariantDeferredHistoryRejectsChangedResult(t *testing.T) {
 		d := newDFATokenSourceDirectWithCRecovery(NewLexer(lang.LexStates, source), lang, nil, nil, nil, nil, false)
 		d.lexer.Next(0)
 		tree := NewTree(&Node{symbol: 1, endByte: 1}, source, lang)
-		tree.parseRuntime.StopReason = ParseStopAccepted
+		tree.rawParseRuntime().StopReason = ParseStopAccepted
 		tree.deferResultCompatibility()
 		tree.captureTokenInvariantReadSpan(d)
 		d.Close()
@@ -123,7 +123,7 @@ func TestTokenInvariantDeferredHistoryRejectsChangedResult(t *testing.T) {
 			// A replacement attempt cannot retain the previous source's receipt.
 			tree.captureTokenInvariantReadSpan(nil)
 		} else {
-			tree.parseRuntime.Truncated = true
+			tree.rawParseRuntime().Truncated = true
 		}
 		_ = tree.RootNode()
 		if tree.tokenInvariantReadSpan != 0 {
@@ -140,7 +140,7 @@ func TestTokenInvariantDependencyCaptureAndLifecycle(t *testing.T) {
 	defer d.Close()
 	d.lexer.Next(0)
 	tree := NewTree(&Node{symbol: 1, endByte: 1, endPoint: Point{Column: 1}}, source, lang)
-	tree.parseRuntime = ParseRuntime{StopReason: ParseStopAccepted, MaxStacksSeen: 1}
+	tree.parseRuntime = &ParseRuntime{StopReason: ParseStopAccepted, MaxStacksSeen: 1}
 	tree.captureTokenInvariantReadSpan(d)
 	if tree.tokenInvariantReadSpan != 2 {
 		t.Fatalf("captured span=%d, want token plus EOF probe", tree.tokenInvariantReadSpan)
@@ -175,15 +175,15 @@ func TestTokenInvariantDependencyCaptureDeclinesIncompleteHistory(t *testing.T) 
 		alter func(*Tree)
 	}{
 		{"error", func(tree *Tree) { tree.root.flags |= nodeFlagHasError }},
-		{"stopped", func(tree *Tree) { tree.parseRuntime.StopReason = ParseStopNoStacksAlive }},
-		{"truncated", func(tree *Tree) { tree.parseRuntime.Truncated = true }},
-		{"recovery", func(tree *Tree) { tree.parseRuntime.CRecoveryEnteredErrorState = true }},
+		{"stopped", func(tree *Tree) { tree.rawParseRuntime().StopReason = ParseStopNoStacksAlive }},
+		{"truncated", func(tree *Tree) { tree.rawParseRuntime().Truncated = true }},
+		{"recovery", func(tree *Tree) { tree.rawParseRuntime().CRecoveryEnteredErrorState = true }},
 		{"ranges", func(tree *Tree) { tree.includedRanges = []Range{{EndByte: 1}} }},
 		{"deferred", func(tree *Tree) { tree.resultCompatibilityFinalizer = &treeResultCompatibilityFinalizer{} }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tree := NewTree(&Node{symbol: 1, endByte: 1}, []byte("="), lang)
-			tree.parseRuntime = ParseRuntime{StopReason: ParseStopAccepted, MaxStacksSeen: 1}
+			tree.parseRuntime = &ParseRuntime{StopReason: ParseStopAccepted, MaxStacksSeen: 1}
 			tree.tokenInvariantReadSpan = 123
 			tc.alter(tree)
 			tree.captureTokenInvariantReadSpan(d)
@@ -203,7 +203,7 @@ func TestTokenInvariantDependencyRangeWrapperCapture(t *testing.T) {
 	wrapped := newIncludedRangeTokenSource(d, ranges)
 	wrapped.Next()
 	tree := NewTree(&Node{symbol: 1, endByte: 1}, source, lang)
-	tree.parseRuntime.StopReason = ParseStopAccepted
+	tree.rawParseRuntime().StopReason = ParseStopAccepted
 	tree.includedRanges = ranges
 	tree.captureTokenInvariantReadSpan(wrapped)
 	if tree.tokenInvariantReadSpan != 2 || tokenInvariantDFASource(wrapped, ranges) != d {

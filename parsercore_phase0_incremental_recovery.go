@@ -61,7 +61,7 @@ func (p *Parser) attemptCompactIncrementalRecoveryFullParse(source []byte, oldTr
 			// The successful tree reports its own allocations. Charge only
 			// discarded attempts here, including materialization declines.
 			if result != nil {
-				work.allocatedNodes -= uint64(result.parseRuntime.NodesAllocated)
+				work.allocatedNodes -= uint64(result.rawParseRuntime().NodesAllocated)
 			}
 			timing.newNodes += work.allocatedNodes
 			timing.tokensConsumed += work.tokens
@@ -78,7 +78,8 @@ func (p *Parser) attemptCompactIncrementalRecoveryFullParse(source []byte, oldTr
 	if !accepted || tree == nil {
 		return nil
 	}
-	tree.parseRuntime.CompactIncrementalFullRecoveryRoute = true
-	tree.parseRuntime.CompactIncrementalFallbackReason = reason
+	treeRT := tree.rawParseRuntime()
+	treeRT.CompactIncrementalFullRecoveryRoute = true
+	treeRT.CompactIncrementalFallbackReason = reason
 	return tree
 }

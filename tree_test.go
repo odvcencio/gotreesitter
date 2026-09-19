@@ -56,14 +56,14 @@ func TestRawParseRuntimeUsesStoredRecordWithoutArenaOverlay(t *testing.T) {
 		arena: &nodeArena{
 			finalChildRefsCreated: 23,
 		},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:     ParseStopAccepted,
 			FinalChildRefs: 7,
 			NodeLimit:      41,
 		},
 	}
 	stored := tree.rawParseRuntime()
-	if stored != &tree.parseRuntime {
+	if stored != tree.parseRuntime {
 		t.Fatal("internal runtime accessor returned a copy")
 	}
 	if stored.StopReason != ParseStopAccepted || stored.NodeLimit != 41 || stored.FinalChildRefs != 7 {

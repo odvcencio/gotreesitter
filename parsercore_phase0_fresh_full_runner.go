@@ -543,8 +543,9 @@ func (r *parserCoreFreshFullRunner) parseWithObserverAndErrorRuns(
 		return nil, materializeErr
 	}
 	if tree != nil {
-		tree.parseRuntime.TokensConsumed = scheduler.tokens
-		tree.parseRuntime.CompactReductions = scheduler.work.Reductions
+		treeRT := tree.rawParseRuntime()
+		treeRT.TokensConsumed = scheduler.tokens
+		treeRT.CompactReductions = scheduler.work.Reductions
 	}
 	return tree, nil
 }

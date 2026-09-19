@@ -137,7 +137,7 @@ func TestRetryFullParseStructuralTopLevelResyncFlagScope(t *testing.T) {
 	source := []byte("abcd")
 	cleanRetry := &Tree{
 		root: &Node{endByte: uint32(len(source))},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:       ParseStopAccepted,
 			ExpectedEOFByte:  uint32(len(source)),
 			LastTokenEndByte: uint32(len(source)),
@@ -150,7 +150,7 @@ func TestRetryFullParseStructuralTopLevelResyncFlagScope(t *testing.T) {
 		parser := &Parser{}
 		initial := &Tree{
 			root: &Node{endByte: 1, flags: nodeFlagHasError},
-			parseRuntime: ParseRuntime{
+			parseRuntime: &ParseRuntime{
 				StopReason:      ParseStopNoStacksAlive,
 				ExpectedEOFByte: uint32(len(source)),
 				MaxStacksSeen:   8,
@@ -180,7 +180,7 @@ func TestRetryFullParseStructuralTopLevelResyncFlagScope(t *testing.T) {
 		parser := &Parser{}
 		initial := &Tree{
 			root: &Node{endByte: 1, flags: nodeFlagHasError},
-			parseRuntime: ParseRuntime{
+			parseRuntime: &ParseRuntime{
 				StopReason:      ParseStopAccepted,
 				ExpectedEOFByte: uint32(len(source)),
 				MaxStacksSeen:   8,

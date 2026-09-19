@@ -33,7 +33,7 @@ func TestIncrementalFallbackProfileIncludesBothAttempts(t *testing.T) {
 		maxStacksSeen:                  5,
 		entryScratchPeak:               8,
 	}
-	fallback := &Tree{parseRuntime: ParseRuntime{
+	fallback := &Tree{parseRuntime: &ParseRuntime{
 		StopReason:            ParseStopAccepted,
 		ExpectedEOFByte:       128,
 		LastTokenEndByte:      128,
@@ -82,7 +82,7 @@ func TestIncrementalMemoryBudgetRetryProfileIncludesBothAttempts(t *testing.T) {
 	first := &Tree{
 		language: lang,
 		root:     &Node{endByte: 1, flags: nodeFlagHasError},
-		parseRuntime: ParseRuntime{
+		parseRuntime: &ParseRuntime{
 			StopReason:                   ParseStopMemoryBudget,
 			ExpectedEOFByte:              1,
 			LastTokenEndByte:             1,
