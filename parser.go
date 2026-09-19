@@ -8903,12 +8903,13 @@ func compactAcceptedStacks(stacks []glrStack) []glrStack {
 	return stacks
 }
 
-func stackCullLanguageForArena(lang *Language, class arenaClass) *Language {
-	if class != arenaClassFull && lang != nil && lang.Name == "bash" {
-		// Incremental culling historically used the generic stack comparator
-		// for Bash. Keep that tie-break order while still reusing scratch.
-		return nil
-	}
+// stackCullLanguageForArena returns the language whose cull comparator a
+// parse uses. The arena class never changes the answer: an incremental parse
+// must cull the same way as a fresh parse of the same source, or the two
+// select different trees. Bash used the generic comparator on incremental
+// arenas until 2026-09-19; TestIncrementalInvariantGateBash guards the
+// shared order now.
+func stackCullLanguageForArena(lang *Language, _ arenaClass) *Language {
 	return lang
 }
 
