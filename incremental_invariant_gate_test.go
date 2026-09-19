@@ -84,6 +84,7 @@ var incrGateCorpus = []incrGateCorpusEntry{
 	// one the campaign's evidence base describes as already having
 	// working top-level sibling reuse.
 	{language: "css", path: "css_stylesheet.css", stride: 300},
+	{language: "bash", path: "bash_clean_old.sh", stride: 16},
 	// c_repeated_functions.c: there was previously no C entry in this
 	// corpus at all, which is how issue #454's C incremental-delete defect
 	// (see TestIssue454CIncrementalDeleteMatchesFresh,
@@ -211,6 +212,13 @@ func TestIncrementalInvariantGateRust(t *testing.T) {
 
 func TestIncrementalInvariantGateCSS(t *testing.T) {
 	testIncrementalInvariantGateLanguage(t, "css")
+}
+
+// TestIncrementalInvariantGateBash guards the cull-order invariant: the
+// arena class of a parse must not change which GLR branches survive, so an
+// incremental bash parse selects the same tree as a fresh parse.
+func TestIncrementalInvariantGateBash(t *testing.T) {
+	testIncrementalInvariantGateLanguage(t, "bash")
 }
 
 // TestIncrementalInvariantGateC adds C to this file's general sweep, using
