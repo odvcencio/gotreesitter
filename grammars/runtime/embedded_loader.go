@@ -39,6 +39,105 @@ func RegisterExternalLexStates(name string, states [][]bool) {
 	externalLexStatesRegistry[name] = states
 }
 
+// ReservedWordTable holds one language's ABI 15 reserved-word data
+// (ts_reserved_words) plus the provenance AttachLanguageSupport needs to
+// confirm the table still matches the embedded language's decoded symbol
+// table before it writes anything onto that language.
+type ReservedWordTable struct {
+	// MaxSetSize is the reserved-word set stride: C's ts_reserved_words row
+	// width, matching gotreesitter.Language.MaxReservedWordSetSize.
+	MaxSetSize int
+	// Words is the flat reserved-word array, stride MaxSetSize, matching
+	// gotreesitter.Language.ReservedWords layout.
+	Words []gotreesitter.Symbol
+	// SymbolCount is the total ts_symbol_names entry count of the source
+	// parser.c this table was generated against.
+	SymbolCount int
+	// SymbolNames records, for every symbol ID this table references, that
+	// symbol's C ts_symbol_names display name at generation time.
+	SymbolNames map[gotreesitter.Symbol]string
+}
+
+// reservedWordsRegistry maps language names to their ABI 15 reserved-word
+// table. Populated by generated runtime/*_reserved_words_gen.go sidecars
+// (cmd/ts2go -reservedwords-only).
+var reservedWordsRegistry = map[string]ReservedWordTable{}
+
+// RegisterReservedWords registers the ABI 15 reserved-word table for a
+// language name. This is called during init() by generated
+// runtime/*_reserved_words_gen.go sidecars.
+func RegisterReservedWords(name string, table ReservedWordTable) {
+	reservedWordsRegistry[name] = table
+}
+
+// LookupReservedWords returns the registered ABI 15 reserved-word table for
+// the given language name, and whether one is registered.
+func LookupReservedWords(name string) (ReservedWordTable, bool) {
+	table, ok := reservedWordsRegistry[name]
+	return table, ok
+}
+
+// attachRegisteredReservedWords attaches the registered ABI 15 reserved-word
+// table for name onto lang, when doing so is provably safe.
+//
+// The blobs for these six languages predate cmd/ts2go's reserved-word
+// extraction, so their decoded Language carries no ReservedWords data even
+// though their lex modes reference reserved-word set IDs. This sidecar
+// mechanism supplies that missing data after the fact, generated separately
+// from the pinned blob.
+//
+// Because the sidecar and the blob can drift independently, the attach fails
+// closed: it requires every one of the following before it writes anything
+// onto lang.
+//
+//   - lang carries no reserved-word data yet. A blob that already encodes
+//     ts_reserved_words itself always wins over this sidecar.
+//   - lang's decoded symbol count matches the table's recorded symbol count
+//     exactly, so no symbol ID has shifted since generation.
+//   - lang.SymbolNames[id] equals the table's recorded name for every symbol
+//     ID the table references.
+//   - every lex mode's ReservedWordSetID indexes a row inside the table.
+//
+// Any mismatch skips the attach silently. lang then keeps parsing with no
+// reserved-word promotion, exactly as it did before this sidecar existed.
+func attachRegisteredReservedWords(name string, lang *gotreesitter.Language) bool {
+	if lang == nil {
+		return false
+	}
+	table, ok := reservedWordsRegistry[name]
+	if !ok {
+		return false
+	}
+	if len(lang.ReservedWords) != 0 || lang.MaxReservedWordSetSize != 0 {
+		return false
+	}
+	if table.MaxSetSize <= 0 || table.MaxSetSize > 65535 || len(table.Words) == 0 || len(table.Words)%table.MaxSetSize != 0 {
+		return false
+	}
+	if table.SymbolCount <= 0 || len(lang.SymbolNames) != table.SymbolCount {
+		return false
+	}
+	for id, wantName := range table.SymbolNames {
+		idx := int(id)
+		if idx < 0 || idx >= len(lang.SymbolNames) {
+			return false
+		}
+		if lang.SymbolNames[idx] != wantName {
+			return false
+		}
+	}
+	numSets := len(table.Words) / table.MaxSetSize
+	for i := range lang.LexModes {
+		setID := int(lang.LexModes[i].ReservedWordSetID)
+		if setID < 0 || setID >= numSets {
+			return false
+		}
+	}
+	lang.ReservedWords = table.Words
+	lang.MaxReservedWordSetSize = uint16(table.MaxSetSize)
+	return true
+}
+
 type embeddedLanguageCacheEntry struct {
 	blobName   string
 	blobSHA256 [32]byte
@@ -534,12 +633,40 @@ func decodeLanguageBlobData(blobName string, data []byte) (*gotreesitter.Languag
 	}
 	compactDecodedLanguage(lang)
 	repairNoLookaheadLexModes(lang)
+	// Attach reserved words before any repair below that appends a
+	// synthetic symbol name (e.g. the JS/TS optional-chain repair): the
+	// sidecar's recorded symbol count is the original ts_symbol_names
+	// count from parser.c, and appended synthetic symbols never appear in
+	// any reserved-word set, so validating first keeps the exact symbol
+	// count match meaningful.
+	attachReservedWordsForBlob(blobName, lang)
 	repairJavaScriptTypeScriptOptionalChainTokenSymbol(blobName, lang)
 	repairDartCollapsedLeafTokenSymbols(blobName, lang)
 	repairDhallUnicodeAnonymousSymbolNames(blobName, lang)
 	attachReduceChainHints(blobName, lang)
 
 	return lang, nil
+}
+
+// attachReservedWordsForBlob normalizes blobName to a bare language name
+// (stripping any directory and .bin suffix, matching the sibling repair*
+// helpers above) and, when a sidecar reserved-word table is registered for
+// that name, attaches it via attachRegisteredReservedWords. This runs for
+// every decoded language, not only ones with a hand-written external
+// scanner, because reserved words are a plain grammar-table gap: several
+// checked-in blobs predate cmd/ts2go's reserved-word extraction.
+func attachReservedWordsForBlob(blobName string, lang *gotreesitter.Language) {
+	if lang == nil {
+		return
+	}
+	name := strings.TrimSuffix(blobName, ".bin")
+	if slash := strings.LastIndexAny(name, "/\\"); slash >= 0 {
+		name = name[slash+1:]
+	}
+	if name == "" {
+		return
+	}
+	attachRegisteredReservedWords(name, lang)
 }
 
 func repairDhallUnicodeAnonymousSymbolNames(blobName string, lang *gotreesitter.Language) {

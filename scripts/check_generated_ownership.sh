@@ -27,6 +27,9 @@ expected_owner() {
     grammars/*_external_lex_states_gen.go)
       printf '%s\n' 'cmd/ts2go'
       ;;
+    grammars/runtime/*_reserved_words_gen.go)
+      printf '%s\n' 'cmd/ts2go'
+      ;;
     grammargen/fortran_grammar.go|grammargen/go_grammar.go|grammargen/javascript_grammar.go|grammargen/kotlin_grammar.go|grammargen/swift_grammar.go|grammargen/tsx_grammar.go|grammargen/typescript_grammar.go)
       printf '%s\n' 'cmd/grammargen emit'
       ;;

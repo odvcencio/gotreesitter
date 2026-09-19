@@ -20,7 +20,8 @@ func main() {
 	outdir := flag.String("outdir", "", "batch mode: output directory for generated files")
 	compact := flag.Bool("compact", true, "compact and intern repeated tables before encoding")
 	lexStatesOnly := flag.Bool("lexstates-only", false, "batch mode: only (re)generate *_external_lex_states_gen.go sidecars; never touch blobs, register stubs, or the embedded loader aggregate")
-	only := flag.String("only", "", "-lexstates-only mode: comma-separated list of manifest language names to restrict to (ignored by plain batch mode, which always processes every manifest entry)")
+	reservedWordsOnly := flag.Bool("reservedwords-only", false, "batch mode: only (re)generate *_reserved_words_gen.go sidecars; never touch blobs, register stubs, or the embedded loader aggregate")
+	only := flag.String("only", "", "-lexstates-only/-reservedwords-only mode: comma-separated list of manifest language names to restrict to (ignored by plain batch mode, which always processes every manifest entry)")
 	flag.Parse()
 
 	if *manifest != "" {
@@ -35,6 +36,17 @@ func main() {
 			}
 			if err := RunLexStatesOnlyManifest(*manifest, *outdir, *pkg, names); err != nil {
 				fmt.Fprintf(os.Stderr, "lexstates-only: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
+		if *reservedWordsOnly {
+			var names []string
+			if *only != "" {
+				names = strings.Split(*only, ",")
+			}
+			if err := RunReservedWordsOnlyManifest(*manifest, *outdir, *pkg, names); err != nil {
+				fmt.Fprintf(os.Stderr, "reservedwords-only: %v\n", err)
 				os.Exit(1)
 			}
 			return

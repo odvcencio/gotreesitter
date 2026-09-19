@@ -15,7 +15,9 @@ import "testing"
 // LexModes:
 //
 //	state 0: no lex mode entry (unused)
-//	state 1: ReservedWordSetID=1 → set {KW_IF} → "if" is reserved, not promoted
+//	state 1: ReservedWordSetID=1 → set {KW_IF} → "if" is reserved, promoted to
+//	         KW_IF even though the parse state may have no action for it
+//	         (ts_language_is_reserved_word)
 //	state 2: ReservedWordSetID=0 → no reserved words → "if" IS promoted
 //
 // ReservedWords layout (stride 2):
@@ -136,7 +138,12 @@ func TestNonSQLKeywordPromotionRemainsCaseSensitive(t *testing.T) {
 	}
 }
 
-func TestReservedWordBlocksPromotion(t *testing.T) {
+// TestReservedWordForcesPromotion matches C's ts_parser__lex: a reserved
+// word is promoted to its keyword symbol even when the parse state has no
+// action for that keyword. The parser then reports the error on the
+// keyword token, as C does, instead of silently reading the word as an
+// identifier.
+func TestReservedWordForcesPromotion(t *testing.T) {
 	lang := buildReservedWordLanguage()
 	source := []byte("if")
 
@@ -163,10 +170,15 @@ func TestReservedWordBlocksPromotion(t *testing.T) {
 	}
 
 	// State 1 has ReservedWordSetID=1 which contains KW_IF (symbol 2).
-	// "if" should NOT be promoted — token stays as IDENT (symbol 1).
+	// "if" IS promoted to KW_IF (symbol 2), matching
+	// ts_language_is_reserved_word: the parse then fails on the keyword
+	// instead of silently reading it as an identifier.
 	got := testPromote(1)
-	if got.Symbol != 1 {
-		t.Fatalf("state 1 (reserved): got symbol %d, want 1 (IDENT — not promoted)", got.Symbol)
+	if got.Symbol != 2 {
+		t.Fatalf("state 1 (reserved): got symbol %d, want 2 (KW_IF — promoted)", got.Symbol)
+	}
+	if !got.isKeyword() {
+		t.Fatalf("state 1 (reserved): token missing keyword flag")
 	}
 
 	// State 2 has ReservedWordSetID=0 — no reserved words.
