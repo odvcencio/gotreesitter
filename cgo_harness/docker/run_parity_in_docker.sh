@@ -27,6 +27,7 @@ WALL_TIMEOUT=""
 PARITY_PARALLEL="0"
 C_REF_BUILD_JOBS="1"
 C_REF_BUILD_JOBS_SET="0"
+BUILD_ONLY=0
 PARITY_RUN='^TestParityFreshParse$|^TestParityIncrementalParse$|^TestParityHasNoErrors$|^TestParityIssue3Repros$|^TestParityGLRCanaryGo$|^TestParityGLRCanarySet$|^TestParityGLRCapPressureTopLanguages$|^TestParityHighlight$'
 STRICT_SCALA=0
 BUILD_IMAGE=1
@@ -70,6 +71,10 @@ Options:
   --run <regex>          go test -run regex for default parity command
   --strict-scala         Also run strict Scala real-world parity probe
   --no-build             Skip docker build step
+  --build-only           Build (or retry-build) the image, then exit. Runs
+                         no container. Use this once per CI job that calls
+                         this script more than once, then pass --no-build
+                         on the later invocations in that job.
   --mount <src:dst[:ro]> Add an extra bind mount. Use this for external
                          corpus workspaces needed by custom commands.
   -h, --help             Show this help
@@ -190,6 +195,10 @@ while [[ $# -gt 0 ]]; do
       BUILD_IMAGE=0
       shift
       ;;
+    --build-only)
+      BUILD_ONLY=1
+      shift
+      ;;
     --mount)
       EXTRA_MOUNTS+=("$2")
       shift 2
@@ -238,6 +247,11 @@ require_positive_int "--test-parallel" "$TEST_PARALLEL"
 require_positive_int "--c-ref-build-jobs" "$C_REF_BUILD_JOBS"
 require_positive_int "--pids" "$PIDS_LIMIT"
 
+if [[ "$BUILD_ONLY" == "1" && "$BUILD_IMAGE" == "0" ]]; then
+  echo "--build-only and --no-build are mutually exclusive" >&2
+  exit 2
+fi
+
 sanitize_label() {
   local in="$1"
   in="${in,,}"
@@ -253,8 +267,53 @@ if [[ -n "$LABEL" ]]; then
   LABEL_SLUG="$(sanitize_label "$LABEL")"
 fi
 
+# build_image_with_retry retries a docker build only when the failure output
+# matches a known transient-network class (registry auth/token fetch resets,
+# TLS handshake drops, DNS/metadata resolution timeouts, and rate-limit or
+# service-unavailable responses). Any other failure (bad Dockerfile, failed
+# RUN step, disk space) exits at once so it is not masked by a retry loop.
+BUILD_RETRY_MAX_ATTEMPTS=3
+BUILD_RETRY_BACKOFFS=(10 30)
+BUILD_NETWORK_FLAKE_PATTERN='connection reset|TLS handshake|failed to resolve source metadata|i/o timeout|\b503\b|\b429\b'
+
+build_image_with_retry() {
+  local attempt=1
+  local log
+  log="$(mktemp "${TMPDIR:-/tmp}/gotreesitter-docker-build.XXXXXX")"
+  while true; do
+    set +e
+    docker build -t "$IMAGE_TAG" "$SCRIPT_DIR" >"$log" 2>&1
+    local status=$?
+    set -e
+    cat "$log"
+    if [[ "$status" -eq 0 ]]; then
+      rm -f "$log"
+      return 0
+    fi
+    if [[ "$attempt" -ge "$BUILD_RETRY_MAX_ATTEMPTS" ]]; then
+      echo "docker build failed after $attempt attempt(s); giving up" >&2
+      rm -f "$log"
+      return "$status"
+    fi
+    if ! grep -Eiq "$BUILD_NETWORK_FLAKE_PATTERN" "$log"; then
+      echo "docker build failed with a non-network error; not retrying" >&2
+      rm -f "$log"
+      return "$status"
+    fi
+    local backoff="${BUILD_RETRY_BACKOFFS[$((attempt - 1))]}"
+    echo "docker build hit a transient network failure (attempt $attempt/$BUILD_RETRY_MAX_ATTEMPTS); retrying in ${backoff}s" >&2
+    sleep "$backoff"
+    attempt=$((attempt + 1))
+  done
+}
+
 if [[ "$BUILD_IMAGE" == "1" ]]; then
-  docker build -t "$IMAGE_TAG" "$SCRIPT_DIR"
+  build_image_with_retry
+fi
+
+if [[ "$BUILD_ONLY" == "1" ]]; then
+  echo "image built: $IMAGE_TAG"
+  exit 0
 fi
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"

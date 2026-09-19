@@ -434,3 +434,77 @@ This does not close the `cgo_harness` module's own version of the same
 finding (Part 2d, "unquantified"), and it does not touch the `gts_workcount`
 or `gts_derivation_set_census` tags, or the `gts_no_parsercorephase0`
 emergency stub build — all still in the backlog above.
+
+## Part 5: harness image pinning and build-once (2026-09-19)
+
+Run 35469222709 on `main` failed in `compact-t3-oracle-cgo`. Its last
+step, `docker build`, pulled `node:22-bookworm` from Docker Hub and hit an
+auth-token read reset. All tests in that job had already passed. The flake
+sat in the image pull, not the test suite. This section records the fix.
+
+### Base images pinned by digest
+
+`cgo_harness/docker/Dockerfile` now pins `node:22-bookworm` and
+`golang:1.25-bookworm` by digest instead of by floating tag. A digest pin
+makes the pull content-addressed, so a registry retry fetches the same
+bytes instead of racing a tag that can move. Digests were resolved
+2026-09-19 with `docker buildx imagetools inspect <image>:<tag>`.
+
+Refresh procedure (one command per base image, then update the `FROM`
+line and its resolution-date comment):
+
+```sh
+docker buildx imagetools inspect node:22-bookworm --format '{{json .Manifest}}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])'
+```
+
+`tree-sitter-cli` stays pinned at `0.24.7`. Neither `cgo_harness/README.md`
+nor `BENCH.md` binds this CLI version to the 0.25 runtime oracle. Those
+docs name the parity runtime only: `go-tree-sitter v0.25.0` and upstream
+runtime `v0.25.1`. The ABI negotiation in `parity_c_loader_cgo.go` targets
+ABI 15 first. It falls back through lower ABI values when the installed
+CLI cannot emit ABI 15. `tree-sitter-cli` 0.24.7 works inside that
+fallback range today. A CLI version bump needs its own parity validation
+pass. That work is out of scope for this network-flake fix.
+
+### Build once per job
+
+Jobs that call `cgo_harness/docker/run_parity_in_docker.sh` more than once
+used to rebuild the image on every call. `run_parity_in_docker.sh` now
+takes a `--build-only` flag that builds the image and exits without
+starting a container. Each multi-call job (`compact-t3-oracle-cgo`,
+`parity-cgo`, `parity-cgo-exhaustive`) runs one "Build cgo harness image"
+step with `--build-only`, then passes `--no-build` on every later call in
+that job. Single-call jobs (`merge-event-census-cgo`,
+`perf-scan-gate.yml`'s `fleet` job) are unchanged.
+
+### Retry policy for transient pulls
+
+`run_parity_in_docker.sh` wraps `docker build` in a bounded retry: three
+attempts, with a 10-second wait before the second attempt and a
+30-second wait before the third. It retries only on a known network-flake
+failure class. That class covers `connection reset`, `TLS handshake`,
+`failed to resolve source metadata`, `i/o timeout`, `503`, and `429`. Any
+other failure — a bad Dockerfile line, a failed
+`RUN` step, disk space — exits at once instead of retrying blindly.
+`cgo_harness/docker/run_parity_in_docker_test.sh` covers the retry-and-
+succeed, fail-fast, and retries-exhausted paths with a mock `docker`
+binary.
+
+### Action pins
+
+Every third-party action referenced from `.github/workflows/*.yml` is
+pinned to a commit SHA, with a `# vN` comment for the human-readable
+version:
+
+| Action | SHA | Tag |
+|---|---|---|
+| `actions/checkout` | `11d5960a326750d5838078e36cf38b85af677262` | v4 |
+| `actions/setup-go` | `40f1582b2485089dde7abd97c1529aa768e1baff` | v5 |
+| `actions/cache` | `0057852bfaa89a56745cba8c7296529d2fc39830` | v4 |
+| `actions/upload-artifact` | `ea165f8d65b6e75b540449e92b4886f43607fa02` | v4 |
+| `peter-evans/create-pull-request` | `c5a7806660adbe173f04e3e038b0ccdcd758773c` | v6 |
+
+Resolve a new SHA for a tag with `gh api
+repos/<owner>/<repo>/git/ref/tags/<tag>`. Each tag above already points
+straight at a commit. No dereference step was needed.
