@@ -45,6 +45,7 @@ const (
 // that performs a physical stack-version merge. It pins both the merge count
 // and the complete topology receipt before the compact implementation changes.
 func TestCTopologyReceiptErlangOneBytePhysicalMerge(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	oracle := mergeCensusOracleForTest(t)
 	source := []byte("(")
 	if got := fmt.Sprintf("%x", sha256.Sum256(source)); got != "32ebb1abcc1c601ceb9c4e3c4faba0caa5b85bb98c4f1e6612c40faa528a91c9" {

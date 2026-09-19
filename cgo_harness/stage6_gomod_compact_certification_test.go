@@ -17,6 +17,7 @@ const stage6GomodRecoverySource = "module example.com/foo\n\ngo\n"
 // TestStage6GomodCompactCertification proves clean, recovery, and incremental
 // Gomod shapes through compact admission against the locked C oracle.
 func TestStage6GomodCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

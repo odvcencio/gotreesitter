@@ -16,6 +16,7 @@ import (
 const csharpVariableDeclarationsSourceSHA256 = "d532120abe52b3af477aa079e33a6998ef6b1a4370cff257277d319cd1912dd1"
 
 func TestCSharpVariableDeclarationsAdmissionLockedCParity(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source, err := os.ReadFile("../testdata/admission_direct/recursive_insert/c_sharp.cs")
 	if err != nil {
 		t.Fatalf("read C# variableDeclarations source: %v", err)

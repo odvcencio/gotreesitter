@@ -14,6 +14,7 @@ import (
 // TestYAMLEOFRecoverWrapCompactRoute keeps the compact route aligned with the
 // locked C recover_eof root for this certified YAML boundary.
 func TestYAMLEOFRecoverWrapCompactRoute(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte("[\n")
 	cLanguage, err := ParityCLanguage("yaml")
 	if err != nil {
@@ -87,6 +88,7 @@ func TestYAMLEOFRecoverWrapCompactRoute(t *testing.T) {
 }
 
 func TestYAMLEOFRecoverWrapUnfinishedMappingDeclinesCompact(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte("a: [1\n")
 	cLanguage, err := ParityCLanguage("yaml")
 	if err != nil {
@@ -136,6 +138,7 @@ func TestYAMLEOFRecoverWrapUnfinishedMappingDeclinesCompact(t *testing.T) {
 }
 
 func TestYAMLOneBytePrintableEOFAdmissionMatchesLockedC(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cLanguage, err := ParityCLanguage("yaml")
 	if err != nil {
 		t.Fatalf("load YAML C oracle: %v", err)

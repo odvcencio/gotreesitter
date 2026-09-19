@@ -17,6 +17,7 @@ const stage6PromQLRecoverySource = "up{job=\"prometheus\"\n"
 // TestStage6PromQLCompactCertification proves clean, recovery, and incremental
 // PromQL shapes through compact admission against the locked C oracle.
 func TestStage6PromQLCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

@@ -15,6 +15,7 @@ import (
 // TestStage6PythonCompactCertification proves Python clean and recovery
 // shapes through the compact route against the locked C oracle.
 func TestStage6PythonCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name           string
 		source         []byte

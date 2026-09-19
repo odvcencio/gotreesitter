@@ -128,6 +128,7 @@ func TestRobotSchemeSkippedErrorsNeedNoResultCompatibility(t *testing.T) {
 }
 
 func TestRobotSchemeSkippedErrorRoutesStayExactOrFailClosed(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	for _, test := range robotSchemeSkippedErrorCases {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

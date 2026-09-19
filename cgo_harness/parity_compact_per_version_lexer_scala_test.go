@@ -29,6 +29,7 @@ const (
 // Exhaustive enumeration found no shorter accepted witness over the tested
 // punctuation alphabet. The owned requests consume widths two and one.
 func TestCompactPerVersionLexerScalaCOracle(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte(compactPerVersionLexerScalaSource)
 	if got := fmt.Sprintf("%x", sha256.Sum256(source)); got != compactPerVersionLexerScalaSourceSHA256 {
 		t.Fatalf("stage-one source SHA-256=%s, want %s", got, compactPerVersionLexerScalaSourceSHA256)

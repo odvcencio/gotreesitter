@@ -51,6 +51,7 @@ type authzedNextWitness struct {
 // TestAuthzedNextLiveArmProbe records all parser routes for A0, clean, and
 // recovery witnesses before any retirement decision.
 func TestAuthzedNextLiveArmProbe(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.AuthzedLanguage()
 	if language == nil {

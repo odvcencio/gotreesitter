@@ -11,6 +11,7 @@ import (
 // The outer harness compiles it from the same private source snapshot as the
 // tagged diagnostic child, then starts one fresh process for one public parse.
 func TestWorkCountAdmissionChild(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCountersForTest()
 	if os.Getenv(workCountSourcePathEnv) == "" || os.Getenv(workCountResultPathEnv) == "" {
 		t.Skip("diagnostic work-count admission child is not configured")
 	}

@@ -20,6 +20,7 @@ const (
 // TestStage6JSONCompactCertification proves clean and recovery JSON shapes
 // through compact admission against the locked C oracle.
 func TestStage6JSONCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

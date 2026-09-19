@@ -34,6 +34,7 @@ func TestTypeProjectionNeedsNoResultCompatibility(t *testing.T) {
 }
 
 func TestTypeProjectionRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	gotreesitter.SetGLRForestEnabled(false)
 	t.Cleanup(func() { gotreesitter.SetGLRForestEnabled(true) })
 

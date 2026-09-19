@@ -17,6 +17,7 @@ const stage6GraphQLRecoverySource = "type Query { hello: }\n"
 // TestStage6GraphQLCompactCertification proves clean, recovery, and incremental
 // GraphQL shapes through compact admission against the locked C oracle.
 func TestStage6GraphQLCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

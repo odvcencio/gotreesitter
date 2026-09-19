@@ -58,6 +58,7 @@ const (
 
 // TestSolidityNextLiveArmLockedCRoutes records all required Solidity routes.
 func TestSolidityNextLiveArmLockedCRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	t.Setenv("GOT_PARSE_PHASE_TIMING", "1")
 	if got := solidityNextHashFile(t, "../testdata/dispatcher_census_a0_manifest_v1.json"); got != solidityNextA0ManifestSHA256 {

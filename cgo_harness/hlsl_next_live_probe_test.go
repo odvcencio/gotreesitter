@@ -31,6 +31,7 @@ type hlslNextWitness struct {
 // TestHLSLNextLiveArmLockedCRoutes records the HLSL arm on all five routes.
 // It keeps the producer gap and malformed recovery gap visible.
 func TestHLSLNextLiveArmLockedCRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	t.Setenv("GOT_PARSE_PHASE_TIMING", "1")
 	goLanguage := grammars.HlslLanguage()

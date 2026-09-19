@@ -44,6 +44,7 @@ func TestTypstNestedListNeedsNoResultCompatibility(t *testing.T) {
 }
 
 func TestTypstNestedListNativeRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte(typstNestedListSource)
 	language := TypstLanguage()
 

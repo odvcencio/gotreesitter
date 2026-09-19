@@ -17,6 +17,7 @@ const stage6GitConfigRecoverySource = "[core]\n\tbare =\n"
 // TestStage6GitConfigCompactCertification proves clean, recovery, and incremental
 // Git Config shapes through compact admission against the locked C oracle.
 func TestStage6GitConfigCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

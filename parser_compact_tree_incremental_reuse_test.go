@@ -16,6 +16,7 @@ import (
 // root (trailing extras after the accepted root payload, as in INI files that
 // end with a blank line) does not disable reuse for the whole tree.
 func TestCompactOldTreeKeepsTopLevelIncrementalReuse(t *testing.T) {
+	gts.ResetAdmissionCandidateCountersForTest()
 	type fixture struct {
 		lang   string
 		gen    func(n int) []byte

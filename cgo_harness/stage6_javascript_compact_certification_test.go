@@ -17,6 +17,7 @@ const stage6JavaScriptRecoverySource = "const f = (a) => a + 1;&\nclass A { m() 
 // TestStage6JavaScriptCompactCertification proves clean and recovery
 // JavaScript shapes through the compact route against locked C output.
 func TestStage6JavaScriptCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name           string
 		source         []byte

@@ -10,6 +10,7 @@ import (
 )
 
 func TestCSharpIssue454RecoveredStructureNeedsNoSourceReconstruction(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	lang := grammars.CSharpLanguage()
 	source := issue454CSharpSource(137 * 1024)
 	site := bytes.Index(source, []byte("x0"))

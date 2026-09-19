@@ -12,6 +12,7 @@ import (
 )
 
 func TestJuliaTokenInvariantLineCommentsLockedC(t *testing.T) {
+	gts.ResetAdmissionCandidateCounters()
 	cLanguage, err := ParityCLanguage("julia")
 	if err != nil {
 		t.Fatal(err)

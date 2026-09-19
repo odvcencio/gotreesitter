@@ -18,6 +18,7 @@ import (
 // It does not assert parity. The receipt exposes each real rewrite and
 // divergence, including malformed recovery and forest behavior.
 func TestAdaNextLiveArmProbe(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.AdaLanguage()
 	cLanguage, err := COracleLanguage("ada")

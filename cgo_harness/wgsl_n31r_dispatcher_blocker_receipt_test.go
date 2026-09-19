@@ -45,6 +45,7 @@ type wgslN31rWitness struct {
 // TestWGSLN31rDispatcherBlockerReceipt records every required route for the
 // WGSL compatibility arm. It does not read the retirement documentation.
 func TestWGSLN31rDispatcherBlockerReceipt(t *testing.T) {
+	gots.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	for path, want := range map[string]string{
 		"../grammars/languages.lock":                        wgslN31rGrammarLockSHA256,

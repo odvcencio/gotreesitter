@@ -30,6 +30,7 @@ main = LBS.putStrLn $ encodePretty metadataOpenAPI
 `
 
 func TestHaskellSmallAdmissionLockedCParity(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte(haskellSmallSource)
 	if len(source) != 260 {
 		t.Fatalf("source bytes=%d, want 260", len(source))

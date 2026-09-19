@@ -17,6 +17,7 @@ const stage6CponRecoverySource = "{\"a\":1"
 // TestStage6CponCompactCertification proves clean, recovery, and incremental
 // CPON shapes through compact admission against the locked C oracle.
 func TestStage6CponCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

@@ -48,6 +48,7 @@ func kotlinA3ObjectDeclarationCOracleRoot(t *testing.T, source []byte) (*sitter.
 // property). See cgo_harness/kotlin_a3_certification_sweep_test.go for the
 // same witness (object_declaration_multiline) inside the full-corpus sweep.
 func TestKotlinA3CertificationObjectDeclarationDeclinesUnderShippedProfileCOracle(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte("package demo\n\nobject Singleton {\n    fun work() = Unit\n}\n")
 	goLang := grammars.KotlinLanguage()
 	if !goLang.CompactPrimaryAcceptanceDerivationCertified {
@@ -128,6 +129,7 @@ func TestKotlinA3CertificationObjectDeclarationDeclinesUnderShippedProfileCOracl
 // even with split-drops forced back on -- load-bearing insurance for any
 // future split-drops re-grant attempt.
 func TestKotlinA3CertificationObjectDeclarationMaterialityGateCOracleWhenSplitDropsForced(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte("package demo\n\nobject Singleton {\n    fun work() = Unit\n}\n")
 	goLang := grammars.KotlinLanguage()
 	if !goLang.CompactPrimaryAcceptanceDerivationCertified {

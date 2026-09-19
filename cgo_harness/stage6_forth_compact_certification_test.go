@@ -17,6 +17,7 @@ const stage6ForthRecoverySource = ": square dup *"
 // TestStage6ForthCompactCertification proves clean, recovery, and incremental
 // Forth shapes through compact admission against the locked C oracle.
 func TestStage6ForthCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

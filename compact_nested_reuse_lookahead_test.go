@@ -11,6 +11,7 @@ import (
 
 // A changed token after unchanged padding can invalidate an earlier reduction.
 func TestCompactNestedReuseChangedReductionLookahead(t *testing.T) {
+	gts.ResetAdmissionCandidateCountersForTest()
 	g := grammargen.NewGrammar("nested_lookahead")
 	g.Define("program", grammargen.Repeat1(grammargen.Sym("statement")))
 	g.Define("statement", grammargen.Seq(grammargen.Sym("_expression"), grammargen.Str(";")))

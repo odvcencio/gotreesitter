@@ -36,6 +36,7 @@ func TestHaskellSectionSpansNeedNoResultCompatibility(t *testing.T) {
 }
 
 func TestHaskellSectionSpanRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	language := HaskellLanguage()
 	source := []byte(haskellSpanRetirementSource + "\n")
 

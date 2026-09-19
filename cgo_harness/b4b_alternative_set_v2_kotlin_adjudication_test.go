@@ -39,6 +39,7 @@ import (
 // and checks it against C -- exactly the "compact-if-forced" differential
 // the brief asks for, now graded against the correct oracle.
 func TestB4bAlternativeSetV2KotlinWitnessCOracleAdjudication(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	source := []byte("internal actual fun f(): String = \"x\"\n")
 	goLang := grammars.KotlinLanguage()
 

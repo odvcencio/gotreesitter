@@ -40,6 +40,7 @@ func TestFSharpUnaryWrapperProducerNeedsNoResultCompatibility(t *testing.T) {
 }
 
 func TestFSharpUnaryWrapperRoutesStayExactOrFailClosed(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	language := FsharpLanguage()
 	source := append([]byte(nil), fsharpUnaryWrapperFixture...)
 

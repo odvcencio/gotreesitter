@@ -20,6 +20,7 @@ const (
 // TestStage6CCompactCertification proves clean and recovery C shapes
 // through compact admission against the locked C oracle.
 func TestStage6CCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

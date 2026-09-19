@@ -22,6 +22,7 @@ const (
 )
 
 func TestKotlinInterpolatedCallRetirementRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	blob, err := os.ReadFile("grammar_blobs/kotlin.bin")
 	if err != nil {

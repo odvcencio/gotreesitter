@@ -17,6 +17,7 @@ const stage6PEMRecoverySource = "-----BEGIN CERTIFICATE-----\nMIIC\n"
 // TestStage6PEMCompactCertification proves clean, recovery, and incremental
 // PEM shapes through compact admission against the locked C oracle.
 func TestStage6PEMCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

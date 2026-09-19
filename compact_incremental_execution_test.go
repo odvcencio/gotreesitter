@@ -9,6 +9,7 @@ import (
 )
 
 func TestCompactIncrementalExecutionLifetime(t *testing.T) {
+	resetAdmissionCandidateCounters()
 	for _, separator := range []string{"", "// between declarations\n"} {
 		t.Run(separator, func(t *testing.T) {
 			source := []byte("package p\nfunc a() { _ = 1 }\n" + separator + "func b() { _ = 2 }\n")
@@ -148,6 +149,7 @@ func TestCompactIncrementalExecutionLanguageMismatch(t *testing.T) {
 }
 
 func TestCompactIncrementalExecutionSameWidth(t *testing.T) {
+	resetAdmissionCandidateCounters()
 	for _, replacement := range []string{"x", "2"} {
 		t.Run(replacement, func(t *testing.T) {
 			parser := newAdmissionCandidateGoParser(t)
@@ -217,6 +219,7 @@ func TestCompactIncrementalExecutionSameWidth(t *testing.T) {
 }
 
 func TestCompactIncrementalExecutionSameWidthCopyLifetime(t *testing.T) {
+	resetAdmissionCandidateCounters()
 	parser := newAdmissionCandidateGoParser(t)
 	parser.SetAdmissionCandidateRoute(true)
 	source := []byte("package p\nfunc a() { _ = 1 }\nfunc b() { _ = 2 }\n")

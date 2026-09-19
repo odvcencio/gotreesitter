@@ -26,6 +26,7 @@ type apexExpectedDivergence struct {
 // TestApexDispatchBlockerLockedCRoutes records all five routes for Apex
 // witnesses. It requires zero rewrites only on raw, production, compact, and incremental routes.
 func TestApexDispatchBlockerLockedCRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.ApexLanguage()
 	cLanguage, err := COracleLanguage("apex")

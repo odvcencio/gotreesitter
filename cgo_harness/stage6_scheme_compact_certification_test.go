@@ -17,6 +17,7 @@ const stage6SchemeRecoverySource = "(define x #)\n"
 // TestStage6SchemeCompactCertification proves clean, recovery, and incremental
 // Scheme shapes through compact admission against the locked C oracle.
 func TestStage6SchemeCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

@@ -20,6 +20,7 @@ const (
 )
 
 func TestKotlinInterpolatedCallRetirementLockedCRoutes(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	t.Setenv("GTS_DISPATCHER_CENSUS", "1")
 	language := grammars.KotlinLanguage()
 	source := []byte("package demo\n\nfun f() {\n  val time = if (true) \"${Instant.now()} \" else \"\"\n}\n")

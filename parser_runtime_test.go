@@ -94,6 +94,7 @@ func TestParseRuntimeReportsAcceptedOnCompleteParse(t *testing.T) {
 }
 
 func TestParseWorkLimitsStopDeterministically(t *testing.T) {
+	resetAdmissionCandidateCounters()
 	parser := NewParser(buildArithmeticLanguage())
 	parser.SetAdmissionCandidateRoute(true)
 	limits := ParseWorkLimits{
@@ -142,6 +143,7 @@ func TestParseWorkLimitsStopDeterministically(t *testing.T) {
 }
 
 func TestParseWorkLimitsUseProductionInsteadOfSpeculativeRoutes(t *testing.T) {
+	resetAdmissionCandidateCounters()
 	previousForest := glrForestEnabled
 	glrForestEnabled = true
 	t.Cleanup(func() { glrForestEnabled = previousForest })

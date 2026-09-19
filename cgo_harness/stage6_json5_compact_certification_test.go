@@ -17,6 +17,7 @@ const stage6JSON5RecoverySource = "{foo:}\n"
 // TestStage6JSON5CompactCertification proves clean, recovery, and incremental
 // JSON5 shapes through compact admission against the locked C oracle.
 func TestStage6JSON5CompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name      string
 		source    []byte

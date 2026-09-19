@@ -15,6 +15,7 @@ import (
 // TestStage6GoCompactCertification proves clean and recovery Go shapes
 // through compact admission against the locked C oracle.
 func TestStage6GoCompactCertification(t *testing.T) {
+	gotreesitter.ResetAdmissionCandidateCounters()
 	cases := []struct {
 		name           string
 		source         []byte
