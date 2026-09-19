@@ -147,3 +147,8 @@ jobs:
           title: "chore(grammars): refresh pinned lock refs"
           commit-message: "chore(grammars): refresh pinned lock refs"
           body-path: pr_body.md
+          # Commit only the lock and the applied-deltas report. The plan,
+          # the held-back list, and the scanner report stay run artifacts.
+          add-paths: |
+            grammars/languages.lock
+            grammars/grammar_updates.json
