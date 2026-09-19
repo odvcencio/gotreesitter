@@ -3356,7 +3356,8 @@ const (
 
 // Tree holds a complete syntax tree along with its source text and language.
 // Tree is safe for concurrent reads after construction. Edit and Release are
-// not safe for concurrent use.
+// not safe for concurrent use. Parser.ParseIncremental writes to its old tree,
+// so do not read the old tree from another goroutine during that call.
 type Tree struct {
 	root           *Node
 	source         []byte
@@ -3399,17 +3400,19 @@ type Tree struct {
 	resultCompatibilityFinalizer *treeResultCompatibilityFinalizer
 	released                     bool
 	// Recovery-memo telemetry occupies the Tree's existing tail padding.
-	recoveryNodeMemoPeakTier   RecoveryNodeMemoTier
+	recoveryNodeMemoPeakTier RecoveryNodeMemoTier
+	// extraHandles counts caller handles beyond the first. An unchanged
+	// incremental parse returns its old tree and adds one handle. Release
+	// drops one handle before it frees the tree. The count saturates.
+	extraHandles               uint16
 	recoveryNodeMemoCollisions uint32
 }
 
 const maxRetainedTreeEditCap = 8
 
-var treePool = sync.Pool{
-	New: func() any {
-		return &Tree{}
-	},
-}
+// maxTreeExtraHandles is the saturated handle count. Release never frees a
+// saturated tree. The garbage collector reclaims it when it is unreachable.
+const maxTreeExtraHandles = ^uint16(0)
 
 // NewTree creates a new Tree.
 func NewTree(root *Node, source []byte, lang *Language) *Tree {
@@ -3426,7 +3429,9 @@ func newTreeWithArenas(root *Node, source []byte, lang *Language, arena *nodeAre
 }
 
 func newTreeWithUniqueArenas(root *Node, source []byte, lang *Language, arena *nodeArena, borrowed []*nodeArena) *Tree {
-	tree := treePool.Get().(*Tree)
+	// Do not pool Tree values. A caller can keep a pointer after Release, and
+	// a pooled Tree would let that stale pointer release a later parse result.
+	tree := &Tree{}
 	resetTreeForReuse(tree, root, source, lang, arena, borrowed)
 	if !tree.externalScannerCheckpointsDeferred {
 		rebuildExternalScannerCheckpoints(root, lang)
@@ -3494,8 +3499,19 @@ func reusableTreeEditScratch(edits []InputEdit) []InputEdit {
 
 // Release decrements arena references held by this tree.
 // After Release, the tree should be treated as invalid and not reused.
+//
+// Release once for each tree that a parse returns. An unchanged incremental
+// parse can return its old tree, and that return adds a handle. The tree
+// stays valid until its last handle is released. A call on an already
+// released tree does nothing.
 func (t *Tree) Release() {
 	if t == nil || t.released {
+		return
+	}
+	if t.extraHandles != 0 {
+		if t.extraHandles != maxTreeExtraHandles {
+			t.extraHandles--
+		}
 		return
 	}
 	t.released = true
@@ -3528,7 +3544,16 @@ func (t *Tree) Release() {
 	t.recoveryNodeMemoPeakTier = RecoveryNodeMemoTierNone
 	t.recoveryNodeMemoCollisions = 0
 	t.tokenInvariantReadSpan = 0
-	treePool.Put(t)
+}
+
+// retainUnchangedIncrementalResult adds a caller handle to an old tree that an
+// unchanged incremental parse returns. The caller can then release the old
+// tree and the result independently, as with a new tree.
+func (t *Tree) retainUnchangedIncrementalResult() *Tree {
+	if t != nil && !t.released && t.extraHandles != maxTreeExtraHandles {
+		t.extraHandles++
+	}
+	return t
 }
 
 // RootNode returns the tree's root node.
@@ -4505,6 +4530,11 @@ func (t *Tree) EditUTF16(edit UTF16Edit, newSource []uint16) bool {
 // If the node belongs to a larger tree, the edit is applied from the
 // containing root so sibling and ancestor spans remain consistent.
 // Unlike Tree.Edit, this method does not record edit history on a Tree.
+//
+// Do not call Node.Edit for an edit that Tree.Edit already applied. Tree.Edit
+// updates every node of the tree in place, so a second call moves the spans
+// twice. C code that calls ts_node_edit after ts_tree_edit needs no Node.Edit
+// call here.
 func (n *Node) Edit(edit InputEdit) {
 	if n == nil {
 		return

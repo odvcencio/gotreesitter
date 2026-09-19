@@ -950,7 +950,7 @@ func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
 	if canReuseUnchangedTree(source, oldTree, p.language) {
-		return oldTree, nil
+		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	return p.parseIncrementalWithTokenSourceChanged(source, oldTree, ts, reparseFactory)
 }
@@ -1760,12 +1760,20 @@ func (p *Parser) ParseWithTokenSourceFactoryStrict(source []byte, factory TokenS
 // ParseIncremental re-parses source after edits were applied to oldTree.
 // It reuses unchanged subtrees from the old tree for better performance.
 // Call oldTree.Edit() for each edit before calling this method.
+//
+// Release the returned tree and oldTree once each. When source and oldTree
+// are unchanged, the method returns oldTree itself and adds a handle to it,
+// so releasing oldTree does not invalidate the result.
+//
+// The new tree can share nodes with oldTree. The call updates the parent
+// links of shared nodes, so do not read oldTree from another goroutine during
+// the call. After the call, read the returned tree instead of oldTree.
 func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
 	if canReuseUnchangedTree(source, oldTree, p.language) {
-		return oldTree, nil
+		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
@@ -1964,7 +1972,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 		return nil, IncrementalParseProfile{}, err
 	}
 	if canReuseUnchangedTree(source, oldTree, p.language) {
-		return oldTree, IncrementalParseProfile{}, nil
+		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	operationBudget := p.beginParseOperationBudget()
 	defer p.endParseOperationBudget(operationBudget)
@@ -2062,7 +2070,7 @@ func (p *Parser) ParseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
 	if canReuseUnchangedTree(source, oldTree, p.language) {
-		return oldTree, IncrementalParseProfile{}, nil
+		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	return p.parseIncrementalWithTokenSourceChangedProfiled(source, oldTree, ts)
 }
