@@ -3285,7 +3285,10 @@ func TestRecoverReduceChainCycle(t *testing.T) {
 		if !ok {
 			t.Fatal("recoverReduceChainCycle returned false, want true")
 		}
-		if got, want := nodeCount, 1; got != want {
+		// pushOrExtendErrorNode wraps a real absorbed token in an ERROR
+		// parent (matching C's error_repeat hoist), so a fresh push now
+		// materializes the wrapper AND the token leaf: 2 nodes, not 1.
+		if got, want := nodeCount, 2; got != want {
 			t.Fatalf("nodeCount after push = %d, want %d", got, want)
 		}
 		if got, want := s.byteOffset, uint32(8); got != want {
@@ -3310,7 +3313,9 @@ func TestRecoverReduceChainCycle(t *testing.T) {
 		if !ok {
 			t.Fatal("recoverReduceChainCycle extend returned false, want true")
 		}
-		if got, want := nodeCount, 1; got != want {
+		// The extend absorbs one more real token as a direct child leaf of
+		// the same wrapper: +1 node on top of the 2 from the fresh push.
+		if got, want := nodeCount, 3; got != want {
 			t.Fatalf("nodeCount after extend = %d, want %d", got, want)
 		}
 		if got, want := s.depth(), depthAfterPush; got != want {

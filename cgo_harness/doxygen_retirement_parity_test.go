@@ -43,7 +43,7 @@ func TestDoxygenDispatchRetirementLockedCParity(t *testing.T) {
 			name:         "a0_CMakeLists",
 			path:         filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "medium__CMakeLists.txt"),
 			sourceSHA256: "66408d6539b27d7c49b1e51777605c38c91b6d924267db5109ee00e2a1cfcf41",
-			goDigest:     "01d09d1ffd9d09af0333bcd887c35e68bcb4a96d15ff0d96c29a1780971b7e04",
+			goDigest:     "a206903ee351591886014cb963d527769fc710d513af7b84c6dba9d9cc77cd2b",
 			cDigest:      "d6f623d2b87344001e98de5528b44e38b102e564491871a9ffb64c1b73d193c5",
 			wantDivergence: &normalizationKnownDivergence{
 				Path:     "/document",
@@ -71,7 +71,7 @@ func TestDoxygenDispatchRetirementLockedCParity(t *testing.T) {
 			name:         "a0_example_cfg",
 			path:         filepath.Join("..", "testdata", "dispatcher_census_a0", "doxygen", "small__example.cfg"),
 			sourceSHA256: "86998161914382f8152e4984db091e7bf486799c1091fc6c57db4e704eee4a3b",
-			goDigest:     "3b803e3d4b9ffcf99c771c352118f3f7026420ea5f26c8d934349ac848789b23",
+			goDigest:     "4e961b6abe28b703bc0e1e2033afc70fbb1d913b522687d4d270fd780b2ed6c4",
 			cDigest:      "f1938d5c7bc544856a5df6c204af75af10a5395bd1f89f560c74caef5acf191f",
 			wantDivergence: &normalizationKnownDivergence{
 				Path:     "/document",

@@ -5471,7 +5471,14 @@ func (d *dfaTokenSource) externalScannerQuiescent() bool {
 // keywordReservedInState reports whether the ABI 15 reserved-word set of the
 // parse state names the keyword (ts_language_is_reserved_word).
 func (d *dfaTokenSource) keywordReservedInState(state StateID, keyword Symbol) bool {
-	lang := d.language
+	return languageKeywordReservedInState(d.language, state, keyword)
+}
+
+// languageKeywordReservedInState reports whether the ABI 15 reserved-word set
+// of state names keyword (ts_language_is_reserved_word). It is the language-only
+// form of dfaTokenSource.keywordReservedInState, for callers such as
+// relexTokenForStackLexState that hold a *Parser, not a *dfaTokenSource.
+func languageKeywordReservedInState(lang *Language, state StateID, keyword Symbol) bool {
 	if lang == nil || len(lang.ReservedWords) == 0 || lang.MaxReservedWordSetSize == 0 || int(state) >= len(lang.LexModes) {
 		return false
 	}

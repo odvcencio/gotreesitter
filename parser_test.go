@@ -354,7 +354,7 @@ func TestPushOrExtendErrorNodeCoalescesConsecutiveTokens(t *testing.T) {
 		EndByte:    1,
 		StartPoint: Point{},
 		EndPoint:   Point{Row: 0, Column: 1},
-	}, &nodeCount, arena, nil, nil, &trackChildErrors)
+	}, &nodeCount, arena, nil, nil, &trackChildErrors, true)
 	if got, want := s.depth(), 2; got != want {
 		t.Fatalf("stack depth after first error = %d, want %d", got, want)
 	}
@@ -364,7 +364,7 @@ func TestPushOrExtendErrorNodeCoalescesConsecutiveTokens(t *testing.T) {
 		EndByte:    2,
 		StartPoint: Point{Row: 0, Column: 1},
 		EndPoint:   Point{Row: 0, Column: 2},
-	}, &nodeCount, arena, nil, nil, &trackChildErrors)
+	}, &nodeCount, arena, nil, nil, &trackChildErrors, true)
 
 	if got, want := s.depth(), 2; got != want {
 		t.Fatalf("stack depth after extending error = %d, want %d", got, want)

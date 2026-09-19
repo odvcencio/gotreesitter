@@ -594,7 +594,7 @@
       "files": 3,
       "checked": 6,
       "run": 6,
-      "nodes_visited": 77,
+      "nodes_visited": 116,
       "nodes_rewritten": 0,
       "error_roots": 3,
       "parse_errors": 0

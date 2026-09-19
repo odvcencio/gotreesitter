@@ -5567,6 +5567,15 @@ func (p *Parser) relexTokenForStackLexState(source []byte, state StateID, tok To
 	if tok.StartByte >= tok.EndByte || int(tok.StartByte) >= len(source) {
 		return tok, false
 	}
+	// ABI 15: a keyword the parse state reserves stays a keyword even when the
+	// state has no action for it (ts_language_is_reserved_word, parser.c). C
+	// blocks the re-lex here so a reserved word never re-lexes into the
+	// generic word token; without this guard, "var if = 1" in JavaScript
+	// would silently accept "if" as a binding identifier under the C-recovery
+	// port and the ungated multi-stack fork.
+	if languageKeywordReservedInState(lang, state, tok.Symbol) {
+		return tok, false
+	}
 	ls := lang.LexModes[state].LexStateIndex()
 	if ls == noLookaheadLexState || int(ls) >= len(lang.LexStates) {
 		return tok, false
