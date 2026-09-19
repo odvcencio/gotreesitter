@@ -23,7 +23,7 @@ registry freezes the current source and registry:
 - zero post-finalization second-pass fixpoint arms;
 - zero post-finalization languages.
 
-The registry contains 32 live entries and 56 retired entries. The live entries
+The registry contains 32 live entries and 57 retired entries. The live entries
 name 35 language labels. Shared switch arms account for the label difference.
 The retired count includes the Swift ternary, JavaScript dynamic-import, Kotlin
 interpolated-call, Bash generated-command assignment, Ninja recovery, and
