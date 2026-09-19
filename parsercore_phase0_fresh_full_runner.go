@@ -163,7 +163,7 @@ func (r *parserCoreFreshFullRunner) executeSchedulerOpenWithObserverAndErrorRuns
 	// production's own soft/hard independence.
 	if r.options.stopControlParser != nil {
 		r.options.stopControlMemoryBudgetBytes = parseMemoryBudgetForParser(r.options.stopControlParser, len(source))
-		r.options.stopControlHardCeilingBytes = parseMemoryHardCeilingBytes()
+		r.options.stopControlHardCeilingBytes = parseMemoryHardCeilingBytesForParse(r.options.stopControlParser, len(source))
 	}
 	// See DiagnosticParserCorePrefixOptions.materializationParser: this runner
 	// is reused across parses, so these fields are refreshed on every call

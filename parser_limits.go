@@ -63,17 +63,37 @@ func parseNodeLimitForLanguage(sourceLen int, lang *Language) int {
 	return limit * scale
 }
 
+// parseMemoryBudgetBytesPerSourceByte scales the default per-parse memory
+// budget with the input size. Valid inputs used 7 to 203 budget bytes for
+// each source byte in the September 2026 measurement (Bash, C, C++, CSS, Go,
+// HTML, Java, JavaScript, JSON, PHP, Python, Ruby, Rust, TypeScript, YAML).
+// The factor keeps about 2.5 times the largest value as headroom. Heavy error
+// recovery can need more, and the budget bounds that case. Pathological
+// growth is superlinear in the input size, so a linear budget still stops it.
+const parseMemoryBudgetBytesPerSourceByte = 512
+
+// maxScaledParseMemoryBudget prevents overflow in the scaled budget and in
+// the hard ceiling derived from it.
+const maxScaledParseMemoryBudget = int64(1) << 60
+
+// parseMemoryBudget returns the default per-parse memory budget. It is the
+// larger of 512 MiB and parseMemoryBudgetBytesPerSourceByte for each source
+// byte. GOT_PARSE_MEMORY_BUDGET_MB sets a fixed budget instead, and 0 turns
+// the budget off.
 func parseMemoryBudget(sourceLen int) int64 {
 	mb := parseMemoryBudgetMB()
 	if mb <= 0 {
 		return 0
 	}
-	// Keep the budget source-length aware so callers can lower it to zero for
-	// tests without introducing an unused-parameter path here.
-	if sourceLen < 0 {
-		sourceLen = 0
+	budget := int64(mb) * 1024 * 1024
+	if parseMemoryBudgetFixedByEnv() || sourceLen <= 0 {
+		return budget
 	}
-	return int64(mb) * 1024 * 1024
+	scaled := maxScaledParseMemoryBudget
+	if int64(sourceLen) < maxScaledParseMemoryBudget/parseMemoryBudgetBytesPerSourceByte {
+		scaled = int64(sourceLen) * parseMemoryBudgetBytesPerSourceByte
+	}
+	return max(budget, scaled)
 }
 
 func parseMemoryBudgetForParser(p *Parser, sourceLen int) int64 {

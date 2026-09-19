@@ -1117,19 +1117,22 @@ func (p *Parser) TimeoutMicros() uint64 {
 	return p.timeoutMicros
 }
 
-// SetMemoryBudgetBytes sets the per-parse memory budget for later parse
+// SetMemoryBudgetBytes sets a fixed per-parse memory budget for later parse
 // calls. The budget bounds the node arena and parser scratch memory of one
-// parse. The default is 512 MiB, or the GOT_PARSE_MEMORY_BUDGET_MB value.
+// parse.
 //
-//   - A positive value replaces the default budget.
+// The default budget grows with the input. It is the larger of 512 MiB and
+// 512 bytes for each input byte, so a valid input does not need a larger
+// budget. Use this method to cap parser memory, for example in a service with
+// a memory limit.
+//
+//   - A positive value sets a fixed budget.
 //   - Zero restores the default budget.
 //   - A negative value turns the per-parse budget off.
 //
-// Peak memory can reach a few hundred bytes for each input byte, so set a
-// larger budget for inputs of more than a few megabytes. The process-heap
-// ceiling (GOT_PARSE_MEMORY_HARD_CEILING_MB, default 2 GiB) still stops a
-// runaway parse. A positive budget raises that ceiling to at least four times
-// the budget.
+// The process-heap ceiling still stops a runaway parse. It is the larger of
+// 2 GiB and twice the budget. GOT_PARSE_MEMORY_HARD_CEILING_MB sets a fixed
+// ceiling instead.
 //
 // A parse stopped by the budget returns a partial tree and nil error. Its
 // ParseStopReason is ParseStopMemoryBudget. Use a strict parse method to

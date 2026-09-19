@@ -86,3 +86,27 @@ func TestParserPoolMemoryBudgetBytesOption(t *testing.T) {
 		}
 	}
 }
+
+// TestDefaultMemoryBudgetScalesWithInput checks the default budget end to
+// end. With a 1 MiB floor, a fixed 1 MiB budget stops this input, but the
+// size-scaled default must let it finish.
+func TestDefaultMemoryBudgetScalesWithInput(t *testing.T) {
+	t.Setenv("GOT_PARSE_MEMORY_BUDGET_MB", "")
+	gts.ResetParseEnvConfigCacheForTests()
+	defer gts.ResetParseEnvConfigCacheForTests()
+	restore := gts.SetParseMemoryBudgetFloorMBForTest(1)
+	defer restore()
+
+	source := memoryBudgetWitnessSource()
+	parser := gts.NewParser(grammars.GoLanguage())
+	if got := parseStopWithMemoryBudget(t, parser.Parse, source); got != gts.ParseStopAccepted {
+		t.Fatalf("size-scaled default budget: stop = %q, want %q", got, gts.ParseStopAccepted)
+	}
+	// A parser keeps its arena slabs, and the budget counts growth beyond
+	// them. Use a new parser so the fixed budget applies to all memory.
+	fixed := gts.NewParser(grammars.GoLanguage())
+	fixed.SetMemoryBudgetBytes(1 << 20)
+	if got := parseStopWithMemoryBudget(t, fixed.Parse, source); got != gts.ParseStopMemoryBudget {
+		t.Fatalf("fixed 1 MiB budget: stop = %q, want %q", got, gts.ParseStopMemoryBudget)
+	}
+}
