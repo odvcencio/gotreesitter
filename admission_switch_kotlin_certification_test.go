@@ -23,23 +23,22 @@ import (
 // annotated_extension_property_getter_* witnesses for the full ledger.
 //
 // selectCompactAcceptanceDerivation's materiality gate
-// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) is what
-// makes the shipped primary-acceptance-derivation grant safe on its own: the
-// object_declaration witness ("object Singleton { fun work() = Unit }",
-// issue #93) used to regress to an infix_expression misparse when both
-// certificates were forced on together, before the gate existed. The gate
-// closes that: the witness's two tied derivations do not materialize to the
-// same public tree, so the election is material and the compact route
-// declines instead of publishing the wrong one.
+// (parsercore_phase0_driver.go, compactAcceptanceElectionIsVacuous) made
+// the shipped primary-acceptance-derivation grant safe on the previous
+// blob: the object_declaration witness ("object Singleton { fun work() =
+// Unit }", issue #93) had two tied derivations, and forcing both
+// certificates together accepted an infix_expression misparse until the
+// gate declined that material election. tree-sitter-kotlin 1852ea17
+// (#280, "Prefer class and object declarations over infix expressions")
+// removed the infix derivation, so the witness has one derivation now.
 // TestKotlinCompactCertificationObjectDeclarationDeclinesUnderShippedProfile
-// pins that the shipped language declines this witness today (currently via
-// the converged-path-split checkpoint, since split-drops is withheld, so
-// the witness never reaches the tied-election point at all).
-// TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGateWhenSplitDropsForced
-// additionally forces split-drops back on locally to reach that tied-
-// election point directly and pin the gate's own protection -- load-bearing
-// insurance for any future split-drops re-grant attempt, not just today's
-// shipped behavior.
+// pins that the shipped language still declines this witness today, at
+// the converged-path-split checkpoint, since split-drops is withheld.
+// TestKotlinCompactCertificationObjectDeclarationAcceptsProductionTreeWhenSplitDropsForced
+// forces split-drops back on locally and pins that the compact route now
+// accepts the witness with production's object_declaration tree. No
+// Kotlin witness reaches the materiality gate any more; the gate keeps
+// its own receipt in admission_switch_acceptance_frontier_test.go.
 //
 // TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe restores the
 // isolation coverage the primary-accept-only decision needs: split-drops
@@ -103,19 +102,16 @@ func TestKotlinCompactCertificationObjectDeclarationDeclinesUnderShippedProfile(
 	)
 }
 
-// TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGateWhenSplitDropsForced
+// TestKotlinCompactCertificationObjectDeclarationAcceptsProductionTreeWhenSplitDropsForced
 // forces CompactConvergedReductionSplitDropsCertified on locally (it is not
-// shipped) to reach the tied-election point this witness needs the
-// materiality gate to guard. The route counters alone only prove "some soft
-// decline happened" -- the generic "did not accept EOF" fallback reason is
-// shared by every soft decline, not specific to this gate.
-// GTS_ADMISSION_CENSUS=1 (ResetAdmissionCensusEnabledForTest clears the
-// cached env read so setting it here reliably takes effect) surfaces the
-// classified mechanism tag, so this asserts
-// mechanism=material-acceptance-election specifically: proof this decline
-// came from the materiality gate, not the converged-path-split checkpoint
-// that intercepts this same witness under the actual shipped profile.
-func TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGateWhenSplitDropsForced(t *testing.T) {
+// shipped) on the #93 witness. Before tree-sitter-kotlin 1852ea17 (#280),
+// this witness had two tied derivations, object_declaration and
+// infix_expression, and the materiality gate had to decline it. The
+// upstream grammar removed the infix derivation, so no election is left:
+// the compact route accepts, and its tree must equal production's
+// object_declaration tree. The C-oracle receipt for the same witness is
+// cgo_harness/kotlin_a3_certification_object_declaration_regression_test.go.
+func TestKotlinCompactCertificationObjectDeclarationAcceptsProductionTreeWhenSplitDropsForced(t *testing.T) {
 	source := []byte("package demo\n\nobject Singleton {\n    fun work() = Unit\n}\n")
 	lang := grammars.KotlinLanguage()
 	if !lang.CompactPrimaryAcceptanceDerivationCertified {
@@ -140,10 +136,6 @@ func TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGate
 	lang.CompactConvergedReductionSplitDropsCertified = true
 	defer func() { lang.CompactConvergedReductionSplitDropsCertified = false }()
 
-	t.Setenv("GTS_ADMISSION_CENSUS", "1")
-	gts.ResetAdmissionCensusEnabledForTest()
-	t.Cleanup(gts.ResetAdmissionCensusEnabledForTest)
-
 	gts.ResetAdmissionCandidateCountersForTest()
 	candidate := gts.NewParser(lang)
 	candidate.SetAdmissionCandidateRoute(true)
@@ -154,37 +146,23 @@ func TestKotlinCompactCertificationObjectDeclarationDeclinesUnderMaterialityGate
 	defer candidateTree.Release()
 
 	routed, fallback := gts.AdmissionCandidateCounters()
-	if routed != 0 || fallback != 1 {
+	if routed != 1 || fallback != 0 {
 		t.Fatalf(
-			"forced-split-drops candidate route counters = %d/%d, want 0/1 "+
-				"(the materiality gate must decline this material election even with split-drops "+
-				"forced back on -- an accept here would be a soundness hole, not a fixed witness); "+
+			"forced-split-drops candidate route counters = %d/%d, want 1/0 (tree-sitter-kotlin #280 "+
+				"removed the infix derivation, so this witness has no tied election left to decline); "+
 				"reason=%s",
 			routed, fallback, gts.AdmissionCandidateLastFallbackReason(),
 		)
 	}
-	reason := gts.AdmissionCandidateLastFallbackReason()
-	if !strings.Contains(reason, "mechanism=material-acceptance-election") {
-		t.Fatalf(
-			"forced-split-drops candidate route fallback reason does not classify as the materiality "+
-				"gate (want mechanism=material-acceptance-election): %s", reason,
-		)
-	}
-	// Sanity check only, not a correctness proof: a decline falls back to
-	// production, so the served tree is production's own parse of the same
-	// source, computed identically above. This can only fail if production
-	// parsing itself is non-deterministic across two fresh parsers, a much
-	// larger and separately-tested property (TestW5DeterminismAcrossFreshParsers).
 	candidateSExpr := candidateTree.RootNode().SExpr(lang)
-	t.Logf(
-		"confirmed: the materiality gate declines this material election (two derivations, two "+
-			"different trees, reason=%s) instead of publishing the positional primary, even with "+
-			"split-drops forced back on; production's object_declaration tree is served: %s",
-		reason, candidateSExpr,
-	)
 	if candidateSExpr != productionSExpr {
-		t.Fatalf("fallback tree = %s, want production's object_declaration tree %s (production parse non-determinism?)", candidateSExpr, productionSExpr)
+		t.Fatalf("forced-split-drops compact tree = %s, want production's object_declaration tree %s", candidateSExpr, productionSExpr)
 	}
+	t.Logf(
+		"confirmed: with split-drops forced on, the compact route accepts the #93 witness and "+
+			"serves production's object_declaration tree: %s",
+		candidateSExpr,
+	)
 }
 
 // TestKotlinCompactCertificationPlatformModifierSplitOnlyIsSafe confirms

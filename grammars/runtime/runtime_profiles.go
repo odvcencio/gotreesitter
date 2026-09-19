@@ -324,8 +324,19 @@ var builtinLanguageRuntimeProfiles = map[string]builtinLanguageRuntimeProfile{
 	// withholding this grant. The derivation-selection defect in the
 	// converged-path split mechanism itself needs its own repair lane
 	// before this grant is reconsidered.
+	//
+	// Recertified on blob 8c618126 (tree-sitter-kotlin 1852ea17, Kotlin 2.1
+	// multi-dollar interpolation, 2026-09-19). The full-corpus sweep on the
+	// shipped primary-accept-only profile saw 16 files: 11 accepted, 5
+	// declined at the converged-path split, 0 divergences. Upstream #280
+	// ("Prefer class and object declarations over infix expressions")
+	// removed the infix derivation behind issue #93: the object_declaration
+	// witness has no tied election left, and the platform-modifier witness
+	// (internal actual fun f(): String = "x") is now C-exact in production.
+	// Split-drops stays withheld; this recertification did not re-run the
+	// split-drops ledger on the new blob.
 	"kotlin": {
-		blobSHA256:                     mustRuntimeProfileSHA256("643a3e6b60d07846dd972849b612159ff9bf09734b09fb00013229c8593a8c78"),
+		blobSHA256:                     mustRuntimeProfileSHA256("8c618126dbd4ed6cdda93b922e574cef500a8d5c9a250d3fc1a345c15b4c7f89"),
 		externalScannerFullParseRetry:  gotreesitter.ExternalScannerFullParseRetrySkipRepeat,
 		nativeResultCompatibility:      gotreesitter.ResultCompatibilityNativeCollapsedChildren,
 		compactPrimaryAcceptDerivation: true,
