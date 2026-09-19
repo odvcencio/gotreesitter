@@ -47,7 +47,19 @@ type workflow struct {
 func main() {
 	workflowPath := flag.String("workflow", ".github/workflows/ci.yml", "workflow to inspect")
 	selectedLane := flag.String("lane", "", "print test packages for one race lane")
+	staleRunNames := flag.Bool("stale-run-names", false, "check -run/--run test name references in workflow files against defined Test/Benchmark/Fuzz/Example functions")
+	workflowGlob := flag.String("workflow-glob", ".github/workflows/*.yml", "glob of workflow files to scan with -stale-run-names")
+	repoRoot := flag.String("repo-root", ".", "repository root to scan for *_test.go definitions with -stale-run-names")
 	flag.Parse()
+
+	if *staleRunNames {
+		if err := runStaleRunNamesCheck(*workflowGlob, *repoRoot, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(*workflowPath, *selectedLane, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

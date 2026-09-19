@@ -22,6 +22,46 @@ This check verifies package assignment. It does not certify individual tests or 
 Build tags, missing fixtures, environment gates, and explicit skips still require separate checks.
 The nested `cgo_harness` module and browser execution remain outside this package inventory.
 
+## Corrections to the August audit, 2026-09-19
+
+The sections below preserve the August audit as a historical record. Four
+of its findings are now stale. Read each one together with its correction
+here.
+
+- **Race shard count.** The audit says tests land in "one of the four
+  `race_root_shards`". `ci.yml`'s `race_root_shards` job now runs five
+  shards (`shard: [0, 1, 2, 3, 4]`).
+- **Emergency stub build.** The audit says the `gts_no_parsercorephase0`
+  emergency stub build is "never built by any CI job" and that "the
+  fail-closed emergency path itself is untested" (Part 2b and the
+  backlog). `ci.yml`'s `compile` job now builds it
+  (`go build -tags gts_no_parsercorephase0 ./...`) and runs one named
+  regression test against it
+  (`TestAdmissionSwitchDefaultBuildFallsBackLoudly`). The route is no
+  longer completely untested, though one test does not give it full
+  coverage.
+- **`corpuscheck`, `wasm/runtime`, `internal/benchfixtures`, and
+  `cmd/grammargen`.** Part 2d and the backlog say no CI lane reaches these
+  packages, and that `cmd/grammargen` is excluded by an accident in an
+  awk-based exclusion rule. `race_packages` now reaches all four:
+  `corpuscheck` and `internal/benchfixtures` through the `support` lane's
+  package filter, `wasm/runtime` through its own dedicated `wasm` lane,
+  and `cmd/grammargen` through the `cmd` lane. `race_packages` no longer
+  uses awk; `cmd/citestplan -lane <name>` assigns packages to lanes by
+  regular-expression match, with no grammargen-specific exclusion. Run
+  `go run ./cmd/citestplan -lane cmd` to confirm `cmd/grammargen` is in
+  the list.
+- **The `build` job is not a required GitHub check.** Part 3a says a
+  cgo census job is listed "in the required `build` gate's `needs`" and
+  that it therefore "blocks a merge when it fails". `build` does aggregate
+  the other jobs' results inside `ci.yml` through `needs` and
+  `require_success`, and fails when one of them fails. That aggregation
+  is enforced only inside the workflow file. This repository's GitHub
+  branch protection does not currently require any status check, `build`
+  included, so nothing here blocks a merge at the platform level today.
+  Making `build` an actual required check is a branch-protection setting
+  change for the repository owner, tracked separately from this file.
+
 The following sections preserve the August audit and its historical findings.
 
 
