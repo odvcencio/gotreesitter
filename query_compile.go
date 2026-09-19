@@ -845,47 +845,28 @@ func (p *queryParser) parseFieldShorthandPattern(depth int) (*Pattern, error) {
 	return pat, nil
 }
 
-// validatePatternPredicates rejects a predicate that names a capture pat
-// never binds. This is gotreesitter's counterpart to upstream's
-// TSQueryErrorCapture: a typo in a predicate argument must fail to compile,
-// not silently compile into a predicate that can never be satisfied.
+// validatePatternPredicates rejects a predicate that names a capture the query
+// has not bound. This is the counterpart to the C TSQueryErrorCapture error. A
+// typo in a predicate argument must fail to compile. It must not compile into
+// a predicate that no match can satisfy.
 //
-// pat must already be a fully assembled top-level pattern (all nested child
-// patterns merged into pat.steps and pat.predicates); see p.parse(), which
-// calls this once per top-level pattern after that merge completes.
+// C interns capture names in query order, so a predicate can name a capture
+// that this pattern or an earlier pattern binds. The check uses the query
+// capture table at the end of each top-level pattern, see p.parse().
 func (p *queryParser) validatePatternPredicates(pat *Pattern) error {
 	if pat == nil || len(pat.predicates) == 0 {
 		return nil
 	}
-	names := make(map[string]struct{})
-	collectPatternStepCaptureNames(p.q, pat.steps, names)
+	names := make(map[string]struct{}, len(p.q.captures))
+	for _, name := range p.q.captures {
+		names[name] = struct{}{}
+	}
 	for _, pred := range pat.predicates {
 		if name, ok := undefinedPredicateCapture(pred, names); ok {
 			return fmt.Errorf("query: predicate references undefined capture @%s", name)
 		}
 	}
 	return nil
-}
-
-// collectPatternStepCaptureNames gathers every capture name bound anywhere
-// in steps, including inside alternation branches, so validatePatternPredicates
-// can check a predicate's capture arguments against the pattern's full scope.
-func collectPatternStepCaptureNames(q *Query, steps []QueryStep, names map[string]struct{}) {
-	for i := range steps {
-		collectCaptureIDNames(q, steps[i].captureIDs, names)
-		for j := range steps[i].alternatives {
-			collectCaptureIDNames(q, steps[i].alternatives[j].captureIDs, names)
-			collectPatternStepCaptureNames(q, steps[i].alternatives[j].steps, names)
-		}
-	}
-}
-
-func collectCaptureIDNames(q *Query, ids []int, names map[string]struct{}) {
-	for _, id := range ids {
-		if id >= 0 && id < len(q.captures) {
-			names[q.captures[id]] = struct{}{}
-		}
-	}
 }
 
 // undefinedPredicateCapture reports the first capture argument on pred that

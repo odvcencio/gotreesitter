@@ -248,3 +248,18 @@ func TestDisableCaptureDoesNotChangeMatchingForRepeatedRootPattern(t *testing.T)
 		t.Fatalf("cursor path (Exec/NextMatch) after DisableCapture: got %d matches, want %d (matching must be unchanged)", afterCursorCount, wantMatchCount)
 	}
 }
+
+// TestPredicateCaptureFromEarlierPatternCompiles matches the C capture table
+// rule. C interns capture names in query order, so a predicate can name a
+// capture that an earlier pattern binds. The shipped jsonnet highlight query
+// depends on this rule.
+func TestPredicateCaptureFromEarlierPatternCompiles(t *testing.T) {
+	lang := grammars.JavascriptLanguage()
+	src := "((comment) @first)\n((identifier) @second (#eq? @first \"x\"))\n"
+	if _, err := gotreesitter.NewQuery(src, lang); err != nil {
+		t.Fatalf("a predicate over a capture bound by an earlier pattern must compile: %v", err)
+	}
+	if _, err := gotreesitter.NewQuery("((identifier) @second (#eq? @later \"x\"))\n((comment) @later)\n", lang); err == nil {
+		t.Fatal("a predicate over a capture that only a later pattern binds must fail, as in C")
+	}
+}
