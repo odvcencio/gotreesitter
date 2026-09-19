@@ -1131,6 +1131,8 @@ func TestParseRuntimeStopDiagnosticCRecoveryGateReasonSummary(t *testing.T) {
 
 func TestParseRuntimeStopDiagnosticRecordsCRecoveryGateReason(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := buildPrefixAcceptLanguage()
 	parser := NewParser(lang)
 
@@ -1157,6 +1159,8 @@ func TestParseRuntimeStopDiagnosticRecordsCRecoveryGateReason(t *testing.T) {
 
 func TestCRecoveryGateReasonSlugs(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "all")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := cRecoveryGateLanguage()
 	lang.ExternalScanner = cRecoveryGateScanner{}
 	lang.ExternalSymbols = []Symbol{1}
@@ -1166,6 +1170,8 @@ func TestCRecoveryGateReasonSlugs(t *testing.T) {
 	}
 
 	t.Setenv("GOT_C_RECOVERY", "0")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if got, want := cRecoveryGateReason(lang), "disabled_by_got_c_recovery_0"; got != want {
 		t.Fatalf("cRecoveryGateReason(env disabled unsupported) = %q, want %q", got, want)
 	}
@@ -1176,6 +1182,8 @@ func TestCRecoveryGateReasonSlugs(t *testing.T) {
 	}
 
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang = cRecoveryGateLanguage()
 	lang.CRecoveryCostCompetitionEnabledByDefault = false
 	if got, want := cRecoveryGateReason(lang), "not_enabled_by_default"; got != want {

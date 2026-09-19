@@ -93,10 +93,20 @@ func TestParseLimitEnvPresenceSharesValueSnapshot(t *testing.T) {
 
 func TestTransientReduceLanguageDefaultsToDisabled(t *testing.T) {
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 
 	if parseTransientReduceChildrenLanguageEnabled(&Language{Name: "python"}) {
 		t.Fatal("python transient reduce children enabled by default")
@@ -114,10 +124,20 @@ func TestTransientReduceLanguageDefaultsToDisabled(t *testing.T) {
 
 func TestTransientReduceGoDefaultLargeSourceOnly(t *testing.T) {
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 
 	p := &Parser{language: &Language{Name: "go"}}
 	small := make([]byte, defaultTransientReduceGoMinSourceLen-1)
@@ -146,10 +166,20 @@ func TestTransientReduceGoDefaultLargeSourceOnly(t *testing.T) {
 
 func TestTransientReduceLanguageAllowlist(t *testing.T) {
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_LANGS", "java, typescript")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 
 	if !parseTransientReduceChildrenLanguageEnabled(&Language{Name: "java"}) {
 		t.Fatal("java transient reduce children disabled by allowlist")
@@ -164,10 +194,20 @@ func TestTransientReduceLanguageAllowlist(t *testing.T) {
 
 func TestTransientReduceGoAllowlistBypassesLargeSourceDefault(t *testing.T) {
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_LANGS", "go")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS_LANGS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 
 	p := &Parser{language: &Language{Name: "go"}}
 	src := []byte("package p\n")
@@ -181,10 +221,20 @@ func TestTransientReduceGoAllowlistBypassesLargeSourceDefault(t *testing.T) {
 
 func TestTransientReduceLanguageSpecificOverride(t *testing.T) {
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_LANGS", "all")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN_LANGS", "kotlin")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS_LANGS", "none")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 
 	if !parseTransientReduceChildrenLanguageEnabled(&Language{Name: "kotlin"}) {
 		t.Fatal("kotlin transient reduce children disabled by specific allowlist")
@@ -199,8 +249,14 @@ func TestTransientReduceLanguageSpecificOverride(t *testing.T) {
 
 func TestTransientReduceLegacyDisable(t *testing.T) {
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_PYTHON_TRANSIENT_REDUCE_CHILDREN", "false")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 
 	if parseTransientReduceChildrenEnabled() {
 		t.Fatal("legacy transient reduce disable ignored")
@@ -212,8 +268,14 @@ func TestTransientReduceLegacyDisable(t *testing.T) {
 
 func TestTransientReducePathDisable(t *testing.T) {
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHILDREN", "0")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_TRANSIENT_REDUCE_PARENTS", "false")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	t.Setenv("GOT_PYTHON_TRANSIENT_REDUCE_CHILDREN", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 
 	if parseTransientReduceChildrenEnabled() {
 		t.Fatal("transient reduce children disable ignored")
@@ -234,10 +296,14 @@ func TestTransientReduceScratchNoAliasLargeOnly(t *testing.T) {
 
 func TestTransientReduceCheckpointBytes(t *testing.T) {
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHECKPOINT_MB", "128")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if got, want := parseTransientReduceCheckpointBytes(), int64(128<<20); got != want {
 		t.Fatalf("parseTransientReduceCheckpointBytes() = %d, want %d", got, want)
 	}
 	t.Setenv("GOT_TRANSIENT_REDUCE_CHECKPOINT_MB", "off")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if got := parseTransientReduceCheckpointBytes(); got != 0 {
 		t.Fatalf("parseTransientReduceCheckpointBytes() for invalid value = %d, want 0", got)
 	}

@@ -52,6 +52,8 @@ var (
 // cache reset made cleanup order observable when t.Setenv restored the
 // environment after ResetParseEnvConfigCacheForTests ran.
 func ResetParseEnvConfigCacheForTests() {
+	parseEnvKnobsOnce = sync.Once{}
+	parseEnvKnobsVal = parseEnvKnobs{}
 	parseNodeLimitScaleOnce = sync.Once{}
 	parseNodeLimitScale = 0
 	parseNodeLimitScaleEnvSet = false
@@ -157,6 +159,77 @@ func parseMaxGLRStacksEnvConfigured() bool {
 // while the faithful GLR path is validated.
 var glrFaithfulCapOneMerge = os.Getenv("GOT_FAITHFUL_CONDENSE") == "1"
 
+// parseEnvKnobs holds the environment values that the parser reads on each
+// parse or token source. The process reads them once. os.Getenv takes a
+// process-wide lock, so a per-parse read costs latency on every keystroke.
+// ResetParseEnvConfigCacheForTests clears the snapshot.
+type parseEnvKnobs struct {
+	transientReduceCheckpointBytes int64
+	compactFullLeaves              envBoolKnob
+	pendingParents                 envBoolKnob
+	finalChildRefs                 envBoolKnob
+	// transientReduceRaw maps an env name to its trimmed value, with the
+	// documented fallback names already applied.
+	transientReduceRaw map[string]string
+	parseProgress      bool
+	cRecovery          string
+}
+
+// envBoolKnob records whether an env value is set and how it parses.
+type envBoolKnob struct {
+	configured bool
+	enabled    bool
+}
+
+var (
+	parseEnvKnobsOnce sync.Once
+	parseEnvKnobsVal  parseEnvKnobs
+)
+
+func envKnobs() *parseEnvKnobs {
+	parseEnvKnobsOnce.Do(loadParseEnvKnobs)
+	return &parseEnvKnobsVal
+}
+
+func loadParseEnvKnobs() {
+	k := parseEnvKnobs{transientReduceRaw: make(map[string]string, 5)}
+	if raw := strings.TrimSpace(os.Getenv("GOT_TRANSIENT_REDUCE_CHECKPOINT_MB")); raw != "" {
+		if mb, err := strconv.Atoi(raw); err == nil && mb > 0 {
+			k.transientReduceCheckpointBytes = int64(mb) << 20
+		}
+	}
+	k.compactFullLeaves = readEnvBoolKnob("GOT_GLR_V2_COMPACT_FULL_LEAVES")
+	k.pendingParents = readEnvBoolKnob("GOT_GLR_V2_PENDING_PARENTS")
+	k.finalChildRefs = readEnvBoolKnob("GOT_GLR_V2_FINAL_CHILD_REFS")
+	pythonFallback := strings.TrimSpace(os.Getenv("GOT_PYTHON_TRANSIENT_REDUCE_CHILDREN"))
+	for _, name := range []string{"GOT_TRANSIENT_REDUCE_CHILDREN", "GOT_TRANSIENT_REDUCE_PARENTS"} {
+		raw := strings.TrimSpace(os.Getenv(name))
+		if raw == "" {
+			raw = pythonFallback
+		}
+		k.transientReduceRaw[name] = raw
+	}
+	langsFallback := strings.TrimSpace(os.Getenv("GOT_TRANSIENT_REDUCE_LANGS"))
+	for _, name := range []string{"GOT_TRANSIENT_REDUCE_CHILDREN_LANGS", "GOT_TRANSIENT_REDUCE_PARENTS_LANGS"} {
+		raw := strings.TrimSpace(os.Getenv(name))
+		if raw == "" {
+			raw = langsFallback
+		}
+		k.transientReduceRaw[name] = raw
+	}
+	k.parseProgress = strings.TrimSpace(os.Getenv("GOT_PARSE_PROGRESS")) == "1"
+	k.cRecovery = os.Getenv("GOT_C_RECOVERY")
+	parseEnvKnobsVal = k
+}
+
+func readEnvBoolKnob(name string) envBoolKnob {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return envBoolKnob{}
+	}
+	return envBoolKnob{configured: true, enabled: raw != "0" && !strings.EqualFold(raw, "false")}
+}
+
 func parseTransientReduceChildrenEnabled() bool {
 	return parseTransientReduceEnabled("GOT_TRANSIENT_REDUCE_CHILDREN")
 }
@@ -166,15 +239,7 @@ func parseTransientReduceParentsEnabled() bool {
 }
 
 func parseTransientReduceCheckpointBytes() int64 {
-	raw := strings.TrimSpace(os.Getenv("GOT_TRANSIENT_REDUCE_CHECKPOINT_MB"))
-	if raw == "" {
-		return 0
-	}
-	mb, err := strconv.Atoi(raw)
-	if err != nil || mb <= 0 {
-		return 0
-	}
-	return int64(mb) << 20
+	return envKnobs().transientReduceCheckpointBytes
 }
 
 func parseCompactFullLeavesEnabled() bool {
@@ -183,27 +248,18 @@ func parseCompactFullLeavesEnabled() bool {
 }
 
 func parseCompactFullLeavesEnv() (configured bool, enabled bool) {
-	raw := strings.TrimSpace(os.Getenv("GOT_GLR_V2_COMPACT_FULL_LEAVES"))
-	if raw == "" {
-		return false, false
-	}
-	return true, raw != "0" && !strings.EqualFold(raw, "false")
+	k := envKnobs().compactFullLeaves
+	return k.configured, k.enabled
 }
 
 func parsePendingParentsEnv() (configured bool, enabled bool) {
-	raw := strings.TrimSpace(os.Getenv("GOT_GLR_V2_PENDING_PARENTS"))
-	if raw == "" {
-		return false, false
-	}
-	return true, raw != "0" && !strings.EqualFold(raw, "false")
+	k := envKnobs().pendingParents
+	return k.configured, k.enabled
 }
 
 func parseFinalChildRefsEnv() (configured bool, enabled bool) {
-	raw := strings.TrimSpace(os.Getenv("GOT_GLR_V2_FINAL_CHILD_REFS"))
-	if raw == "" {
-		return false, false
-	}
-	return true, raw != "0" && !strings.EqualFold(raw, "false")
+	k := envKnobs().finalChildRefs
+	return k.configured, k.enabled
 }
 
 func parsePreMaterializationDiagEnabled() bool {
@@ -255,10 +311,7 @@ func parseTypeScriptLazyResultCompatibilityEnabled() bool {
 }
 
 func parseTransientReduceEnabled(envName string) bool {
-	raw := strings.TrimSpace(os.Getenv(envName))
-	if raw == "" {
-		raw = strings.TrimSpace(os.Getenv("GOT_PYTHON_TRANSIENT_REDUCE_CHILDREN"))
-	}
+	raw := envKnobs().transientReduceRaw[envName]
 	if raw == "" {
 		return true
 	}
@@ -289,10 +342,7 @@ func parseTransientReduceLanguageEnabledForSource(lang *Language, sourceLen int,
 	if lang == nil {
 		return false
 	}
-	raw := strings.TrimSpace(os.Getenv(envName))
-	if raw == "" {
-		raw = strings.TrimSpace(os.Getenv("GOT_TRANSIENT_REDUCE_LANGS"))
-	}
+	raw := envKnobs().transientReduceRaw[envName]
 	if raw == "" {
 		return defaultTransientReduceLanguageEnabledForSource(lang.Name, sourceLen)
 	}

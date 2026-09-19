@@ -3163,6 +3163,8 @@ func TestEffectiveParseMergePerKeyCapDartExplicitOverride(t *testing.T) {
 
 func TestErrorCostCompetitionLanguageRequiresCapabilityByDefault(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if errorCostCompetitionLanguage(&Language{
 		CRecoveryCostCompetitionCapable:          true,
 		Name:                                     "scheme",
@@ -3172,6 +3174,8 @@ func TestErrorCostCompetitionLanguageRequiresCapabilityByDefault(t *testing.T) {
 	}
 
 	t.Setenv("GOT_C_RECOVERY", "scheme")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if errorCostCompetitionLanguage(&Language{Name: "scheme"}) {
 		t.Fatal("GOT_C_RECOVERY=scheme enabled without table capability")
 	}
@@ -3183,6 +3187,8 @@ func TestErrorCostCompetitionLanguageRequiresCapabilityByDefault(t *testing.T) {
 	}
 
 	t.Setenv("GOT_C_RECOVERY", "0")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if errorCostCompetitionLanguage(&Language{
 		CRecoveryCostCompetitionCapable:          true,
 		Name:                                     "scheme",
@@ -3709,6 +3715,8 @@ func TestParseShouldUsePendingFullParentsDefaultsForLargePythonNoCompat(t *testi
 	}
 
 	t.Setenv("GOT_GLR_V2_PENDING_PARENTS", "0")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if parseShouldUsePendingFullParents(parser, source, nil, nil, arenaClassFull) {
 		t.Fatal("parseShouldUsePendingFullParents = true, want explicit env disable")
 	}
@@ -3725,6 +3733,8 @@ func TestParseShouldUsePendingFullParentsKeepsEnvOptInForOtherLargeSources(t *te
 	}
 
 	t.Setenv("GOT_GLR_V2_PENDING_PARENTS", "1")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if !parseShouldUsePendingFullParents(parser, source, nil, nil, arenaClassFull) {
 		t.Fatal("parseShouldUsePendingFullParents = false, want env opt-in")
 	}
@@ -3742,6 +3752,8 @@ func TestParseShouldUseCompactFullShiftLeavesDefaultsForLargePythonNoCompat(t *t
 	}
 
 	t.Setenv("GOT_GLR_V2_COMPACT_FULL_LEAVES", "0")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if parseShouldUseCompactFullShiftLeaves(parser, source, nil, nil, arenaClassFull) {
 		t.Fatal("parseShouldUseCompactFullShiftLeaves = true, want explicit env disable")
 	}
@@ -3759,6 +3771,8 @@ func TestParseShouldUseCompactFullShiftLeavesKeepsEnvOptInForOtherLargeSources(t
 	}
 
 	t.Setenv("GOT_GLR_V2_COMPACT_FULL_LEAVES", "1")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if !parseShouldUseCompactFullShiftLeaves(parser, source, nil, nil, arenaClassFull) {
 		t.Fatal("parseShouldUseCompactFullShiftLeaves = false, want env opt-in")
 	}
@@ -3793,6 +3807,8 @@ func TestParseShouldUseFinalChildRefsDefaultsForLargePythonNoCompat(t *testing.T
 
 	parser.noResultCompatibilityBenchmarkOnly = true
 	t.Setenv("GOT_GLR_V2_FINAL_CHILD_REFS", "0")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if parseShouldUseFinalChildRefs(parser, source, nil, nil, arenaClassFull) {
 		t.Fatal("parseShouldUseFinalChildRefs = true, want explicit env disable")
 	}

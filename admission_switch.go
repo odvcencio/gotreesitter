@@ -249,7 +249,7 @@ func (p *Parser) hasActiveParseObservability() bool {
 	if p.logger != nil || p.glrTrace || p.ambiguityProfile != nil {
 		return true
 	}
-	return strings.TrimSpace(os.Getenv("GOT_PARSE_PROGRESS")) == "1"
+	return envKnobs().parseProgress
 }
 
 // suppressAdmissionCandidateRoute forces the production route for the returned

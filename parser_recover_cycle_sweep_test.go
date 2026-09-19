@@ -119,6 +119,8 @@ func TestCRecoveryZerrorsTruncationAcyclic(t *testing.T) {
 		t.Skipf("zerrors_windows.go corpus not found: %v", err)
 	}
 	t.Setenv("GOT_C_RECOVERY", "all")
+	gotreesitter.ResetParseEnvConfigCacheForTests()
+	t.Cleanup(gotreesitter.ResetParseEnvConfigCacheForTests)
 	lang := grammars.GoLanguage()
 
 	for _, lines := range []int{600, 800} {
@@ -153,6 +155,8 @@ func TestCRecoveryZerrorsFullFileAcyclic(t *testing.T) {
 	lang := grammars.GoLanguage()
 	for _, env := range []string{"", "all"} {
 		t.Setenv("GOT_C_RECOVERY", env)
+		gotreesitter.ResetParseEnvConfigCacheForTests()
+		t.Cleanup(gotreesitter.ResetParseEnvConfigCacheForTests)
 		label := fmt.Sprintf("zerrors-full env=%q", env)
 		start := time.Now()
 		tree := parseRecoveryWithGuard(t, lang, src, 180*time.Second, label)
@@ -209,6 +213,8 @@ func TestCRecoveryCorpusTruncationSweepAcyclic(t *testing.T) {
 		t.Skipf("corpora not found: %v", err)
 	}
 	os.Setenv("GOT_C_RECOVERY", "all")
+	gotreesitter.ResetParseEnvConfigCacheForTests()
+	defer gotreesitter.ResetParseEnvConfigCacheForTests()
 	defer os.Unsetenv("GOT_C_RECOVERY")
 
 	const truncateBytes = 48 * 1024

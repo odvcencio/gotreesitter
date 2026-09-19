@@ -43,6 +43,8 @@ func cRecoveryGateLanguage() *Language {
 
 func TestCRecoveryGateExplicitDefaultAndCapabilityEnableDefault(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if !errorCostCompetitionLanguage(cRecoveryGateLanguage()) {
 		t.Fatal("certified capable language did not enable C recovery by default")
 	}
@@ -50,6 +52,8 @@ func TestCRecoveryGateExplicitDefaultAndCapabilityEnableDefault(t *testing.T) {
 
 func TestCRecoveryGateCapabilityDoesNotEnableDefault(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := cRecoveryGateLanguage()
 	lang.CRecoveryCostCompetitionEnabledByDefault = false
 	if errorCostCompetitionLanguage(lang) {
@@ -61,23 +65,31 @@ func TestCRecoveryGateEnvOverrides(t *testing.T) {
 	lang := cRecoveryGateLanguage()
 
 	t.Setenv("GOT_C_RECOVERY", "0")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if errorCostCompetitionLanguage(lang) {
 		t.Fatal("GOT_C_RECOVERY=0 did not disable C recovery")
 	}
 
 	lang.CRecoveryCostCompetitionEnabledByDefault = false
 	t.Setenv("GOT_C_RECOVERY", "all")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if !errorCostCompetitionLanguage(lang) {
 		t.Fatal("GOT_C_RECOVERY=all did not force-enable C recovery")
 	}
 
 	t.Setenv("GOT_C_RECOVERY", "other, gate_test ")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if !errorCostCompetitionLanguage(lang) {
 		t.Fatal("GOT_C_RECOVERY comma-list did not force-enable named language")
 	}
 
 	lang.CRecoveryCostCompetitionCapable = false
 	t.Setenv("GOT_C_RECOVERY", "all")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if !errorCostCompetitionLanguage(lang) {
 		t.Fatal("GOT_C_RECOVERY=all should rely on runtime validation, not capability metadata")
 	}
@@ -85,6 +97,8 @@ func TestCRecoveryGateEnvOverrides(t *testing.T) {
 
 func TestCRecoveryGateRequiresExternalLexStatesForExternalScanners(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := cRecoveryGateLanguage()
 	lang.ExternalScanner = cRecoveryGateScanner{}
 	lang.ExternalSymbols = []Symbol{1}
@@ -121,6 +135,8 @@ func TestCRecoveryGateRequiresExternalLexStatesForExternalScanners(t *testing.T)
 
 func TestCRecoveryGateDefaultOptOutKeepsCapability(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := cRecoveryGateLanguage()
 	lang.Name = "cpp"
 	lang.ExternalScanner = cRecoveryGateScanner{}
@@ -143,6 +159,8 @@ func TestCRecoveryGateDefaultOptOutKeepsCapability(t *testing.T) {
 	}
 
 	t.Setenv("GOT_C_RECOVERY", "cpp")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if !errorCostCompetitionLanguage(lang) {
 		t.Fatal("opt-out language did not force-enable via GOT_C_RECOVERY")
 	}
@@ -181,6 +199,8 @@ func TestCRecoveryGateDiagnosticsExternalLexStateFailures(t *testing.T) {
 
 func TestCRecoveryGateValidatesParseTableActionAndGotoBounds(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := cRecoveryGateLanguage()
 	lang.StateCount = 3
 	lang.LexModes = []LexMode{{LexState: 0}, {LexState: 0}, {LexState: 0}}
@@ -205,6 +225,8 @@ func TestCRecoveryGateValidatesParseTableActionAndGotoBounds(t *testing.T) {
 
 func TestCRecoveryGateAcceptsLargeStateGotos(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := cRecoveryGateLanguage()
 	lang.StateCount = 70002
 	lang.LexModes = make([]LexMode, lang.StateCount)
@@ -236,6 +258,8 @@ func TestCRecoveryGateAcceptsLargeStateGotos(t *testing.T) {
 
 func TestCRecoveryGateGrammargenRequiresExplicitCertification(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := cRecoveryGateLanguage()
 	lang.GeneratedByGrammargen = true
 	lang.CRecoveryCostCompetitionCapable = true
@@ -253,6 +277,8 @@ func TestCRecoveryGateGrammargenRequiresExplicitCertification(t *testing.T) {
 
 func TestCRecoveryCertificationDefaultRequiresAttachedExternalScanner(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 
 	noExternal := cRecoveryGateLanguage()
 	noExternal.CRecoveryCostCompetitionCapable = false
@@ -306,6 +332,8 @@ func TestCRecoveryCertificationDefaultRequiresAttachedExternalScanner(t *testing
 
 func TestCRecoveryCertificationUsesDiagnoseGate(t *testing.T) {
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lang := cRecoveryGateLanguage()
 	lang.CRecoveryCostCompetitionCapable = false
 	lang.CRecoveryCostCompetitionEnabledByDefault = true
@@ -326,6 +354,8 @@ func TestCRecoveryCertificationUsesDiagnoseGate(t *testing.T) {
 	}
 
 	t.Setenv("GOT_C_RECOVERY", "all")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	if errorCostCompetitionLanguage(lang) {
 		t.Fatal("GOT_C_RECOVERY=all bypassed DiagnoseCRecoveryGate")
 	}
@@ -337,6 +367,8 @@ func TestSetLexerErrorRunLexStateUsesCRecoveryGate(t *testing.T) {
 	lang.LexStates = make([]LexState, 8)
 
 	t.Setenv("GOT_C_RECOVERY", "")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lexer := &Lexer{}
 	setLexerErrorRunLexState(lexer, lang)
 	if !lexer.hasErrorRunLexState || lexer.errorRunLexState != 7 || !lexer.errorModeRetry {
@@ -344,6 +376,8 @@ func TestSetLexerErrorRunLexStateUsesCRecoveryGate(t *testing.T) {
 	}
 
 	t.Setenv("GOT_C_RECOVERY", "0")
+	ResetParseEnvConfigCacheForTests()
+	t.Cleanup(ResetParseEnvConfigCacheForTests)
 	lexer = &Lexer{}
 	setLexerErrorRunLexState(lexer, lang)
 	if lexer.hasErrorRunLexState || lexer.errorModeRetry {
