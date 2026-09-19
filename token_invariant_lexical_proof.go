@@ -176,7 +176,14 @@ func (d *dfaTokenSource) tokenInvariantPrimitiveEditsEquivalentWithScannerProof(
 				if slices.Contains(keywordSpans[:keywordSpanCount], key) {
 					continue
 				}
-				if !budget.chargeBytes(1) || !budget.chargeBytes(1) {
+				// Charge one budgeted byte for the old-source prefilter call
+				// and one for the new-source prefilter call below. Each call
+				// is bounded, constant-time work, so both charges are 1, not
+				// a copy-paste of a single charge.
+				if !budget.chargeBytes(1) {
+					return 0, false
+				}
+				if !budget.chargeBytes(1) {
 					return 0, false
 				}
 				oldPrefilter := d.language.keywordLexCouldMatch(oldSource, int(oldToken.StartByte), int(oldToken.EndByte))
@@ -260,7 +267,14 @@ func tokenInvariantWhitespaceGatesEquivalent(oldSource, newSource []byte, edit I
 	for position := uint64(start); position <= end; position++ {
 		// Each helper decodes at most one UTF-8 rune. Include boundaries
 		// after the edit because the prefix decoder can inspect changed bytes.
-		if !budget.chargeBytes(2*utf8.UTFMax) || !budget.chargeBytes(2*utf8.UTFMax) {
+		// The first charge covers the old and new isAtWhitespacePosition
+		// calls below; the second covers the old and new
+		// isAfterWhitespacePosition calls. Each pair charges 2*UTFMax, one
+		// UTFMax per source, so both charges are the same size on purpose.
+		if !budget.chargeBytes(2 * utf8.UTFMax) {
+			return false
+		}
+		if !budget.chargeBytes(2 * utf8.UTFMax) {
 			return false
 		}
 		oldLexer.pos, newLexer.pos = int(position), int(position)

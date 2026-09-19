@@ -291,8 +291,6 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 	}
 	l.normalizeIncludedCursor(&scanCursor)
 	startPos = scanCursor.pos
-	startRow = scanCursor.row
-	startCol = scanCursor.col
 	tokenStart := scanCursor
 	skippedPrefix := false
 
@@ -394,7 +392,6 @@ func (l *Lexer) scanIncluded(startState uint32, startPos int, startRow, startCol
 	}
 
 	if acceptPos < 0 && eofHops > 0 {
-		acceptProgressPos = scanCursor.pos
 		var endPoint Point
 		acceptPos, endPoint = l.includedMarkEnd(scanCursor)
 		acceptRow = endPoint.Row

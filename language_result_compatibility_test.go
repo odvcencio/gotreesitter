@@ -127,7 +127,7 @@ func TestCSharpLegacyNotNullRepairHonorsNativeCapability(t *testing.T) {
 }
 
 func TestCSharpLegacyUnicodeRepairHonorsNativeCapability(t *testing.T) {
-	source := []byte("ග්‍රහලෝකය")
+	source := []byte("ග්\u200dරහලෝකය")
 	_, firstRuneBytes := utf8.DecodeRune(source)
 	tests := []struct {
 		name       string

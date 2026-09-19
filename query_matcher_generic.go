@@ -280,7 +280,7 @@ func matchAlternationBranchWithReader[N comparable, C any, R queryNodeReader[N, 
 func matchChildStepsAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, parent N, steps []QueryStep, childSteps []queryChildStepInfo, lang *Language, source []byte, predicates []QueryPredicate, captures []C, budget *queryMatchBudget, reader R, emit func([]C)) {
 	childCount := reader.ChildCount(parent)
 	var inline [64]int
-	namedPositions := inline[:0]
+	var namedPositions []int
 	if childCount <= len(inline) {
 		namedPositions = inline[:childCount]
 	} else {

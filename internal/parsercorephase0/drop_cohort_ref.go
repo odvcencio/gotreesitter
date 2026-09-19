@@ -220,22 +220,16 @@ func (c *Core) dropCohortRefUnion(dst *DropCohortRefSet, src DropCohortRefSet) (
 		if !valid {
 			return false, errors.New("parser-core phase zero: invalid destination drop-cohort reference spill")
 		}
-		changed, overflow := dropCohortRefAppendUnique(&merged, &count, ref)
+		_, overflow := dropCohortRefAppendUnique(&merged, &count, ref)
 		overflowed = overflowed || overflow
-		if !changed {
-			continue
-		}
 	}
 	for index := 0; index < srcCount; index++ {
 		ref, valid := c.DropCohortRefAt(src, index)
 		if !valid {
 			return false, errors.New("parser-core phase zero: invalid source drop-cohort reference spill")
 		}
-		changed, overflow := dropCohortRefAppendUnique(&merged, &count, ref)
+		_, overflow := dropCohortRefAppendUnique(&merged, &count, ref)
 		overflowed = overflowed || overflow
-		if !changed {
-			continue
-		}
 	}
 	if overflowed {
 		before := dst.Flags

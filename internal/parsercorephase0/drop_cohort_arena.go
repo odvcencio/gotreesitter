@@ -737,7 +737,7 @@ func (c *Core) dropCohortAppendJournalSlots(count int) error {
 		c.dropCohortJournalStore = c.dropCohortJournalStore[:needed]
 		return nil
 	}
-	grown := make([]dropCohortJournalStoreEntry, needed, needed)
+	grown := make([]dropCohortJournalStoreEntry, needed)
 	copy(grown, c.dropCohortJournalStore)
 	c.dropCohortJournalStore = grown
 	return nil
@@ -947,17 +947,21 @@ func (c *Core) AbandonDropCohortOwned(owner SchedulerTransactionToken, cohort Dr
 	return nil
 }
 
+const dropCohortDerivationFormatVersion uint32 = 2
+
+// The tag constants below stay untyped on purpose: each is only ever passed
+// to dropCohortEncoder.u8, and an untyped constant converts to that byte
+// parameter without a cast at every call site.
 const (
-	dropCohortDerivationFormatVersion  uint32 = 2
-	dropCohortTagRecordBegin                  = 0xD2
-	dropCohortTagRecordEnd                    = 0xD3
-	dropCohortTagPathBegin                    = 0xB0
-	dropCohortTagPathEnd                      = 0xB1
-	dropCohortTagBoundary                     = 0xA0
-	dropCohortTagEdge                         = 0xA1
-	dropCohortTagRecoveryDiscontinuity        = 0xA2
-	dropCohortTagSubtreeBegin                 = 0xC0
-	dropCohortTagSubtreeEnd                   = 0xC1
+	dropCohortTagRecordBegin           = 0xD2
+	dropCohortTagRecordEnd             = 0xD3
+	dropCohortTagPathBegin             = 0xB0
+	dropCohortTagPathEnd               = 0xB1
+	dropCohortTagBoundary              = 0xA0
+	dropCohortTagEdge                  = 0xA1
+	dropCohortTagRecoveryDiscontinuity = 0xA2
+	dropCohortTagSubtreeBegin          = 0xC0
+	dropCohortTagSubtreeEnd            = 0xC1
 )
 
 // dropCohortPathStep keeps arena identities only while traversing one graph.

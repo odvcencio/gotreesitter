@@ -595,7 +595,7 @@ func (q *Query) executeNodeIntoBuffer(root *Node, lang *Language, source []byte,
 	)
 	buf.matches = slices.Grow(buf.matches, len(buf.readerMatches))
 	for _, match := range buf.readerMatches {
-		buf.matches = append(buf.matches, QueryMatch{PatternIndex: match.PatternIndex, Captures: match.Captures})
+		buf.matches = append(buf.matches, QueryMatch(match))
 	}
 	return buf.matches
 }

@@ -204,7 +204,7 @@ func TestLinkProvenanceRejectsMalformedRangesAndReferences(t *testing.T) {
 
 func TestLinkProvenanceRollbackRestoresContentAllocationAndLength(t *testing.T) {
 	fixture := newLinkProvenanceFixture(t, 8)
-	fixture.core.dropCohortLinkRefIndexes = make([]uint32, len(fixture.core.links), len(fixture.core.links))
+	fixture.core.dropCohortLinkRefIndexes = make([]uint32, len(fixture.core.links))
 	before := append([]uint32(nil), fixture.core.dropCohortLinkRefIndexes...)
 	beforeLen, beforeCap := len(fixture.core.dropCohortLinkRefIndexes), cap(fixture.core.dropCohortLinkRefIndexes)
 	beforePtr := &fixture.core.dropCohortLinkRefIndexes[0]

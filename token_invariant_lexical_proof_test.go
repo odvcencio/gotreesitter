@@ -3,6 +3,7 @@ package gotreesitter
 import (
 	"bytes"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestTokenInvariantPrimitiveProofSharesEqualKeywordSlicesAcrossModes(t *testing.T) {
@@ -86,6 +87,28 @@ func TestTokenInvariantPrimitiveProofWhitespacePrefixBoundary(t *testing.T) {
 	budget := tokenInvariantPrimitiveBudget{bytes: 32768, scans: 2048}
 	if tokenInvariantWhitespaceGatesEquivalent(oldSource, newSource, edit, &budget) {
 		t.Fatal("wrapper proof missed UTF-8 prefix lookbehind")
+	}
+}
+
+// TestTokenInvariantWhitespaceGateChargesFourUTFMaxBytesPerPosition pins the
+// byte cost tokenInvariantWhitespaceGatesEquivalent charges per position: one
+// 2*UTFMax charge for the old/new isAtWhitespacePosition pair, and a second
+// 2*UTFMax charge for the old/new isAfterWhitespacePosition pair. The two
+// charges share the same expression by design, not by copy-paste, so this
+// pins the total rather than the shape of the source.
+func TestTokenInvariantWhitespaceGateChargesFourUTFMaxBytesPerPosition(t *testing.T) {
+	source := []byte("ab")
+	edit := InputEdit{StartByte: 0, OldEndByte: 2, NewEndByte: 2, OldEndPoint: Point{Column: 2}, NewEndPoint: Point{Column: 2}}
+	// Positions 0, 1, and 2 (inclusive end) each cost 4*UTFMax bytes.
+	const positions = 3
+	perPosition := uint32(4 * utf8.UTFMax)
+	exact := tokenInvariantPrimitiveBudget{bytes: positions * perPosition, scans: 2048}
+	if !tokenInvariantWhitespaceGatesEquivalent(source, source, edit, &exact) {
+		t.Fatalf("exact budget of %d bytes should cover %d positions", exact.bytes, positions)
+	}
+	short := tokenInvariantPrimitiveBudget{bytes: positions*perPosition - 1, scans: 2048}
+	if tokenInvariantWhitespaceGatesEquivalent(source, source, edit, &short) {
+		t.Fatal("one byte under the exact charge should decline, not pass")
 	}
 }
 
@@ -174,6 +197,32 @@ func TestTokenInvariantPrimitiveProofKeywordPrefilterBoundary(t *testing.T) {
 	edit := InputEdit{StartByte: 0, OldEndByte: 1, NewEndByte: 1, OldEndPoint: Point{Column: 1}, NewEndPoint: Point{Column: 1}}
 	if _, ok := d.tokenInvariantPrimitiveEditsEquivalent([]byte("1b"), []byte("2b"), edit, 3); ok {
 		t.Fatal("equal failed keyword scans hid a changed prefilter")
+	}
+}
+
+// TestTokenInvariantKeywordPrefilterChargeIsTwoOneByteCharges pins the
+// keyword-prefilter charge contract used just before the two
+// keywordLexCouldMatch calls in tokenInvariantPrimitiveEditsEquivalentWithScannerProof:
+// one budgeted byte for the old-source call, and a second, independent
+// budgeted byte for the new-source call. A two-byte budget must cover both
+// charges; a one-byte budget must not.
+func TestTokenInvariantKeywordPrefilterChargeIsTwoOneByteCharges(t *testing.T) {
+	full := tokenInvariantPrimitiveBudget{bytes: 2, scans: 2048}
+	if !full.chargeBytes(1) {
+		t.Fatal("old-source prefilter charge failed with a two-byte budget")
+	}
+	if !full.chargeBytes(1) {
+		t.Fatal("new-source prefilter charge failed with a two-byte budget")
+	}
+	if full.bytes != 0 {
+		t.Fatalf("two one-byte charges left %d bytes, want 0", full.bytes)
+	}
+	tight := tokenInvariantPrimitiveBudget{bytes: 1, scans: 2048}
+	if !tight.chargeBytes(1) {
+		t.Fatal("old-source prefilter charge failed with a one-byte budget")
+	}
+	if tight.chargeBytes(1) {
+		t.Fatal("new-source prefilter charge should decline once the one-byte budget is spent")
 	}
 }
 
