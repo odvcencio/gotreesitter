@@ -542,9 +542,9 @@ type RecoveryGraphAggregate struct {
 	PathCount               uint64
 }
 
-// RecoveryGraphAggregateLimitError reports a graph aggregate that exceeds a
+// ErrRecoveryGraphAggregateLimit reports a graph aggregate that exceeds a
 // Core traversal limit. The aggregate never calls Derivations before it stops.
-var RecoveryGraphAggregateLimitError = errors.New("parser-core phase zero: recovery graph aggregate limit")
+var ErrRecoveryGraphAggregateLimit = errors.New("parser-core phase zero: recovery graph aggregate limit")
 
 type recoveryGraphAggregateNode struct {
 	maximumVisible uint32
@@ -637,7 +637,7 @@ func (c *Core) RecoveryGraphAggregateForHead(
 		reachableIDs = append(reachableIDs, id)
 		reachableNodes++
 		if reachableNodes > uint64(c.limits.MaxNodes) {
-			return result, false, fmt.Errorf("%w: reachable node graph", RecoveryGraphAggregateLimitError)
+			return result, false, fmt.Errorf("%w: reachable node graph", ErrRecoveryGraphAggregateLimit)
 		}
 		node := c.nodes[id-1]
 		if node.linkCount == 0 {
@@ -647,7 +647,7 @@ func (c *Core) RecoveryGraphAggregateForHead(
 			continue
 		}
 		if uint64(node.linkCount) > uint64(c.limits.MaxLinksPerBoundary) || uint64(node.linkCount) > uint64(c.limits.MaxLinks) {
-			return result, false, fmt.Errorf("%w: boundary links", RecoveryGraphAggregateLimitError)
+			return result, false, fmt.Errorf("%w: boundary links", ErrRecoveryGraphAggregateLimit)
 		}
 		var inline [inlineAdjacencyCapacity]linkRecord
 		links, linkErr := c.publishedNodeLinksInto(inline[:0], node)
@@ -656,7 +656,7 @@ func (c *Core) RecoveryGraphAggregateForHead(
 		}
 		reachableLinks += uint64(len(links))
 		if reachableLinks > uint64(c.limits.MaxLinks) {
-			return result, false, fmt.Errorf("%w: reachable link graph", RecoveryGraphAggregateLimitError)
+			return result, false, fmt.Errorf("%w: reachable link graph", ErrRecoveryGraphAggregateLimit)
 		}
 		for _, link := range links {
 			if err := link.validateShape(); err != nil {
@@ -697,7 +697,7 @@ func (c *Core) RecoveryGraphAggregateForHead(
 			return result, false, linkErr
 		}
 		if uint64(len(links)) > uint64(c.limits.MaxLinksPerBoundary) || uint64(len(links)) > uint64(c.limits.MaxLinks) {
-			return result, false, fmt.Errorf("%w: boundary links", RecoveryGraphAggregateLimitError)
+			return result, false, fmt.Errorf("%w: boundary links", ErrRecoveryGraphAggregateLimit)
 		}
 		for _, link := range links {
 			if err := link.validateShape(); err != nil {
@@ -749,7 +749,7 @@ func (c *Core) RecoveryGraphAggregateForHead(
 			}
 			current.pathCount = saturatingAddPaths(current.pathCount, prefix.pathCount)
 			if current.pathCount > uint64(c.limits.MaxDerivations) {
-				return result, false, fmt.Errorf("%w: derivation paths", RecoveryGraphAggregateLimitError)
+				return result, false, fmt.Errorf("%w: derivation paths", ErrRecoveryGraphAggregateLimit)
 			}
 			current.supported = current.supported && candidateSupported
 			current.valid = true

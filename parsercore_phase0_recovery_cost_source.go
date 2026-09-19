@@ -145,11 +145,11 @@ func (s *diagnosticParserCoreRecoveryCostSource) RecoveryCostNode(id core.Subtre
 	return node, nil
 }
 
-// diagnosticParserCoreLineageCostUnavailable reports that a head could not be
+// errDiagnosticParserCoreLineageCostUnavailable reports that a head could not be
 // priced because it does not carry exactly one derivation. Every recovery
 // arbitration this supports is defined on a single lineage; an ambiguous head
 // is a shape the caller must decline rather than price arbitrarily.
-var diagnosticParserCoreLineageCostUnavailable = errors.New("parser-core phase zero: recovery lineage cost requires exactly one derivation")
+var errDiagnosticParserCoreLineageCostUnavailable = errors.New("parser-core phase zero: recovery lineage cost requires exactly one derivation")
 
 // diagnosticParserCoreLineageErrorCost prices one head the way C prices a
 // stack version: ts_stack_error_cost sums ts_subtree_error_cost over the
@@ -178,7 +178,7 @@ func diagnosticParserCoreLineageErrorCost(
 		return 0, err
 	}
 	if len(derivations) != 1 {
-		return 0, diagnosticParserCoreLineageCostUnavailable
+		return 0, errDiagnosticParserCoreLineageCostUnavailable
 	}
 	return diagnosticParserCoreDerivationErrorCost(symbols, src, memo, derivations[0])
 }
@@ -263,13 +263,13 @@ func diagnosticParserCorePriceLineages(
 	for _, in := range inputs {
 		aggregate, supported, err := src.compact.RecoveryGraphAggregateForHead(in.Head, symbols, src)
 		if err != nil {
-			if errors.Is(err, core.RecoveryGraphAggregateLimitError) {
-				return nil, diagnosticParserCoreLineageCostUnavailable
+			if errors.Is(err, core.ErrRecoveryGraphAggregateLimit) {
+				return nil, errDiagnosticParserCoreLineageCostUnavailable
 			}
 			return nil, err
 		}
 		if !supported {
-			return nil, diagnosticParserCoreLineageCostUnavailable
+			return nil, errDiagnosticParserCoreLineageCostUnavailable
 		}
 		if in.OpenRecoverySegments < 0 {
 			return nil, errors.New("parser-core phase zero: negative open-recovery segment count")

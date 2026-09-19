@@ -316,7 +316,7 @@ func TestRecoveryLineageErrorCostDeclinesAmbiguousHead(t *testing.T) {
 	if len(derivations) < 2 {
 		t.Fatalf("fixture did not build an ambiguous head: %d derivations", len(derivations))
 	}
-	if _, err := diagnosticParserCoreLineageErrorCost(compact, ambiguous, visibleSymbols(8), src, nil); !errors.Is(err, diagnosticParserCoreLineageCostUnavailable) {
+	if _, err := diagnosticParserCoreLineageErrorCost(compact, ambiguous, visibleSymbols(8), src, nil); !errors.Is(err, errDiagnosticParserCoreLineageCostUnavailable) {
 		t.Fatalf("ambiguous head priced without refusing: %v", err)
 	}
 }
