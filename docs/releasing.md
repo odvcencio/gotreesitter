@@ -104,3 +104,24 @@ Keep these requirements mandatory:
 Keep publication pending until every remaining gate passes.
 This exception grants no authority for another version or future exception.
 It changes neither the validation code nor the release policy.
+
+### v0.53.0-only tag-creation exception
+
+On 2026-09-19, the owner authorized one exception for v0.53.0 publication.
+The `Protect version tags` ruleset still has no rule that restricts tag
+creation to the release workflow. Its rules block deletion, update, and
+non-fast-forward changes only.
+
+This exception permits v0.53.0 publication without the workflow-only
+tag-creation actor restriction. It does not permit manual publication or bypass
+another gate. Keep these requirements mandatory:
+
+- Publish from the exact candidate commit on protected `main`.
+- Require successful full hosted CI for that exact commit.
+- Require the protected release environment and owner approval.
+- Require the signed release receipt and governed workflow decision.
+- Preserve immutable tags, including rules that block updates and deletions.
+- Complete and record the required correctness and performance evidence.
+
+This exception grants no authority for another version or future exception.
+It changes neither the validation code nor the release policy.
