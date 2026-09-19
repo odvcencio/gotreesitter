@@ -15,9 +15,20 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  # One nightly, off-peak UTC run of the full 206-language exhaustive CGo
+  # parity sweep (parity-cgo-exhaustive), which otherwise only runs on
+  # workflow_dispatch or a PR that touches a narrow parser-result/C-recovery
+  # path filter. exhaustive_parity_scope below turns run_exhaustive on for
+  # this event.
+  schedule:
+    - cron: '17 3 * * *'
 
+# A scheduled run's github.ref is the default branch, the same ref pushes to
+# main use. Give schedule its own concurrency group so a push to main never
+# cancels an in-flight nightly exhaustive run (and vice versa); two
+# overlapping scheduled runs still cancel each other, which is desired.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly-exhaustive' || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,6 +54,13 @@ jobs:
         run: |
           go test ./cmd/citestplan -count=1
           go run ./cmd/citestplan
+
+      - name: Verify workflow -run/--run test name references
+        # Fails when a `-run`/`--run` pattern under .github/workflows/*.yml
+        # names a Test/Benchmark/Fuzz/Example that no longer exists, so a
+        # rename or deletion cannot leave a CI step silently testing
+        # nothing. See cmd/citestplan/staleruns.go.
+        run: go run ./cmd/citestplan -stale-run-names
 
       - name: Build
         run: go build ./...
@@ -149,9 +167,12 @@ jobs:
           go-version-file: go.mod
 
       - name: Tagged root-package tests outside the narrow allow-lists
-        # The 322 names below passed, or skipped on a missing fixture or
-        # env var, in a full-set local measurement (1 process, 86.6s wall,
-        # 1.5 GiB max RSS). One name per line keeps the diff reviewable; the
+        # The 333 names below (recounted 2026-09-18 after removing 3 stale
+        # references to a deleted test file and fixing 2 renamed references;
+        # see cmd/citestplan -stale-run-names) passed, or skipped on a
+        # missing fixture or env var, in a full-set local measurement (1
+        # process, 86.6s wall, 1.5 GiB max RSS). One name per line keeps the
+        # diff reviewable; the
         # script below joins them into one anchored -run regex at run time,
         # the same allow-list convention the two lanes above use. -timeout
         # is set to roughly twice the measured wall time.
@@ -203,7 +224,7 @@ jobs:
           TestCompactJavaScriptErrorModeKeywordCaptureRequiresArtifact
           TestCompactJavaScriptErrorModeKeywordCaptureSelectsAbsorbLineage
           TestCompactJavaScriptRetiresTrailingRecoveryLineage
-          TestCompactJavaScriptSelectedAbsorbAliasRequiresRule
+          TestCompactJavaScriptSelectedAbsorbAliasUsesProductionProof
           TestCompactJavaScriptTrailingRecoveryRetirementRequiresArtifact
           TestCompactMaterializedFragileBitReachesPublicNode
           TestCompactMaterializedTreeBarsIncrementalReuse
@@ -338,9 +359,6 @@ jobs:
           TestDiagnosticParserCoreSummaryAcceptsExactQueryCompile
           TestDiagnosticParserCoreSummaryConflictFailureRollsBack
           TestDiagnosticParserCoreSummaryFailurePublishesNothing
-          TestDiagnosticParserCoreTokenCellDirectInvalidationLeavesStaleFieldsUntouched
-          TestDiagnosticParserCoreTokenCellMatchesElectedTokenAndCheckpoints
-          TestDiagnosticParserCoreTokenCellStartsInvalidAfterConstruction
           TestDiagnosticParserCoreUpdatedReductionAdoptsActiveSibling
           TestDiagnosticParserCoreVersionLexerElectionCaptureReusesScratch
           TestDiagnosticParserCoreVersionLexerElectionReusesCheckpointSerialization
@@ -441,7 +459,7 @@ jobs:
           TestParserCoreCorridorCellExhaustiveness
           TestParserCoreCorridorCompilerIsDeterministic
           TestParserCoreCorridorDecodeBackPerState
-          TestParserCoreCorridorDefaultOff
+          TestParserCoreCorridorDefaultOn
           TestParserCoreCorridorFleetTableShapeReceipt
           TestParserCoreCorridorPassMixReceipt
           TestParserCoreCorridorReduceChainIncrementalReceipt
@@ -525,9 +543,13 @@ jobs:
           go-version-file: go.mod
 
       - name: Route-equality seed corpus regression (required)
+        # TestAdmissionRouteEqualityLockedCExceptions was removed for issue
+        # 984 (production now matches tree-sitter C output for those
+        # inputs); FuzzAdmissionRouteEquality's seed corpus carries the same
+        # fixed inputs directly, so it alone covers this regression.
         run: |
           set -euo pipefail
-          GOMAXPROCS=1 go test . -run '^(FuzzAdmissionRouteEquality|TestAdmissionRouteEqualityLockedCExceptions)$' -count=1 -v
+          GOMAXPROCS=1 go test . -run '^FuzzAdmissionRouteEquality$' -count=1 -v
 
       - name: Route-equality bounded live fuzzing, 45s (advisory)
         # Keep this non-blocking until clean-cache, per-language soaks bound
@@ -885,7 +907,7 @@ jobs:
 
           run_code_ci=true
           run_exhaustive=false
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$EVENT_NAME" = "schedule" ]; then
             run_exhaustive=true
           elif [ "$EVENT_NAME" = "pull_request" ]; then
             # --no-renames makes a code-to-docs rename expose both paths, so it
@@ -1285,6 +1307,12 @@ jobs:
           go-version-file: go.mod
 
       - name: Compact T3 C-oracle witness contract
+        # TestCompactRouteLockedCExceptions was removed for issue 984 (the
+        # byte-exact exception manifest is gone because production now
+        # matches tree-sitter C output); TestCompactPackedGSSVersionOrderIssue984MatchesC
+        # (cgo_harness/compact_packed_gss_version_order_test.go) replaced it
+        # but is not yet wired into any CI lane — see
+        # docs/ci-gate-coverage.md backlog.
         run: |
           GTS_PARITY_MODE=smoke \
           GTS_PARITY_C_REF_BUILD_CACHE=0 \
@@ -1298,7 +1326,7 @@ jobs:
             --test-parallel 1 \
             --c-ref-build-jobs 1 \
             --timeout 20m \
-            --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestCompactRouteLockedCExceptions|TestIssue1106BashEmptyAssignmentsCParity)$'
+            --run '^(TestCompactT3OracleAdjudication|TestCompactT3JavaScriptRecoveryProfileCharacterization|TestCompactT3JavaScriptRecoveryRouteSeedOracleParity|TestCompactT3JavaScriptRecoveryMutationDifferential|TestCompactJavaScriptS5RecoveryMutationDifferential|TestIssue1106BashEmptyAssignmentsCParity)$'
 
       - name: Elm admission contract against locked C
         run: |
