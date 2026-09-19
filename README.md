@@ -484,19 +484,16 @@ rather than the withdrawn 1.895x straight-LR comparison, established the
 full-parse baseline; [BENCH.md](BENCH.md) records every per-fixture median,
 RSS value, and receipt hash.
 
-A strict v0.40.0 production receipt at `1935a42c` measures public
-`Parser.Parse` at **4.851050x C** by equal-fixture geomean and **5.472406x
-C** by fixed-suite sum of medians, with a **5.608320x C** worst fixture. The
-latest clean publication of the separately build-tagged, fail-closed
-selected-store candidate, at `ba1ed1bf`, measures **2.685181x C** and
-**2.676794x C**, respectively, with a **2.791974x C** worst fixture and zero
-timed fallbacks. The measured lifecycle seals the accepted compact payloads
-into the indexed selected store, walks them through `SelectedCursor`, and
-releases the store. That candidate result is diagnostic: it authenticates
-visible `gts-deep-tree-v1` structure for the four clean fresh-full fixtures,
-not parser-state metadata, recovery, incremental reuse, included ranges, or
-public `Parser.Parse`. See [BENCH.md](BENCH.md) for the paired tables, exact
-identities, hashes, and support boundary.
+The current Go-versus-C authority is the sealed v9 epoch in
+[BENCH.md](BENCH.md#sealed-epoch--v9-hardware-attested-authoritative). It
+measures public `Parser.Parse` at **4.815x C** by equal-fixture geomean over
+the four locked real-Go fixtures, and the compact route at **3.986x C**. The
+epoch ran inside a hardware-attested enclave with one pinned CPU, and an
+independent verification confirmed every cryptographic layer. Its ratios
+are not comparable to the earlier bare-metal receipts, so the v0.37.0 and
+v0.40.0 rows stay historical claims only. See [BENCH.md](BENCH.md) for the
+per-fixture table, the A/A null test, the exact identities, and the
+support boundary.
 
 The historical incremental measurements on the same generated 500-function
 Go workload were `649 ns` for a one-byte edit and `2.43 ns` for a no-edit
@@ -621,14 +618,13 @@ The ordered, receipt-driven cleanup program is documented in
 
 ## Known limitations
 
-- **Full-parse throughput**: the strict materialized real-Go production
-  receipt at the v0.40.0 tag target `1935a42c` measures public
-  `Parser.Parse` at **4.851050x C** by equal-fixture geomean and
-  **5.472406x C** by fixed-suite sum of medians against the exact static
-  `-O2` oracle (see [BENCH.md](BENCH.md)); its worst fixture is
-  **5.608320x C**. The compact candidate's lower diagnostic ratio is not
-  a public-parser claim. The former ~2.1x row used a straight-LR
-  synthetic and a different Go grammar, so it stays historical only. The
+- **Full-parse throughput**: the sealed v9 epoch measures public
+  `Parser.Parse` at **4.815x C** by equal-fixture geomean over the four
+  locked real-Go fixtures, with `grammargen/lr.go` as the worst fixture at
+  **6.065x C** (see [BENCH.md](BENCH.md)). The compact route measures
+  **3.986x C** on the same fixtures. The former ~2.1x row used a
+  straight-LR synthetic and a different Go grammar, so it stays historical
+  only. The
   locked incremental matrix validates correctness and classifies work,
   but general incremental Go/C performance has no current
   publication-grade headline. Full-parse throughput varies by grammar
@@ -673,7 +669,7 @@ declarations stable nodes and preserves extension-specific lines as
 2. Refresh pinned refs in `grammars/languages.lock`:
    `go run ./cmd/grammar_updater -lock grammars/languages.lock -write -report grammars/grammar_updates.json`
 3. Generate tables: `go run ./cmd/ts2go -manifest grammars/languages.manifest -outdir ./grammars -package grammars -compact=true`
-4. Add smoke samples to `cmd/parity_report/main.go` and `grammars/parse_support_test.go`
+4. Add smoke samples to `grammars/smoke_samples.go` and `grammars/parse_support_test.go`
 5. Verify: `go run ./cmd/parity_report && go test ./grammars/...`
 
 ## Grammar lock updates
