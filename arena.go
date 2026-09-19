@@ -358,7 +358,10 @@ type nodeArenaPool struct {
 }
 
 // ArenaProfile captures node arena allocation statistics.
-// Enable with SetArenaProfileEnabled(true) and retrieve with GetArenaProfile().
+// Enable with EnableArenaProfile(true) and retrieve with
+// ArenaProfileSnapshot(). The counters are plain package-level state, not
+// atomic: read and write them from a single goroutine only, with no parse
+// running concurrently.
 type ArenaProfile struct {
 	IncrementalAcquire uint64
 	IncrementalNew     uint64

@@ -1,6 +1,7 @@
 package gotreesitter
 
 import (
+	"io"
 	"reflect"
 	"strings"
 	"sync"
@@ -41,6 +42,113 @@ func TestNodeLayoutSizeBudget(t *testing.T) {
 	const want = 104
 	if got != want {
 		t.Fatalf("Node size = %d, want %d", got, want)
+	}
+}
+
+// callNilReceiverMethod invokes the method named name on val (a reflect.Value
+// holding a nil pointer receiver) with args, and reports any panic through
+// t.Errorf instead of letting it crash the test binary.
+func callNilReceiverMethod(t *testing.T, typeName string, val reflect.Value, name string, args []reflect.Value) {
+	t.Helper()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("%s.%s panicked on a nil receiver: %v", typeName, name, r)
+		}
+	}()
+	val.MethodByName(name).Call(args)
+}
+
+// TestNilNodeTreeAndCursorAccessorsDoNotPanic calls every exported method on
+// a nil *Node, a nil *Tree, and a nil *TreeCursor, and asserts none of them
+// panics. It walks the method set through reflection, so a new exported
+// method fails this test loudly until its argument list is added to the
+// matching args map, instead of silently going untested. Every exported
+// method on these three types accepts only fabricatable argument types
+// (numbers, strings, Points, Ranges, *Node, *Language, and similar plain
+// values), so none needs to be skipped.
+func TestNilNodeTreeAndCursorAccessorsDoNotPanic(t *testing.T) {
+	lang := testLanguage()
+
+	nodeArgs := map[string][]reflect.Value{
+		"Child":                        {reflect.ValueOf(0)},
+		"NamedChild":                   {reflect.ValueOf(0)},
+		"ChildByFieldName":             {reflect.ValueOf(""), reflect.ValueOf(lang)},
+		"FieldNameForChild":            {reflect.ValueOf(0), reflect.ValueOf(lang)},
+		"SExpr":                        {reflect.ValueOf(lang)},
+		"Text":                         {reflect.ValueOf([]byte("source"))},
+		"Type":                         {reflect.ValueOf(lang)},
+		"DescendantForByteRange":       {reflect.ValueOf(uint32(0)), reflect.ValueOf(uint32(0))},
+		"NodeAtByte":                   {reflect.ValueOf(uint32(0))},
+		"NamedDescendantForByteRange":  {reflect.ValueOf(uint32(0)), reflect.ValueOf(uint32(0))},
+		"NamedNodeAtByte":              {reflect.ValueOf(uint32(0))},
+		"DescendantForPointRange":      {reflect.ValueOf(Point{}), reflect.ValueOf(Point{})},
+		"NamedDescendantForPointRange": {reflect.ValueOf(Point{}), reflect.ValueOf(Point{})},
+		"Edit":                         {reflect.ValueOf(InputEdit{})},
+	}
+	var nilNode *Node
+	checkAllExportedMethods(t, "Node", reflect.ValueOf(nilNode), nodeArgs)
+
+	treeArgs := map[string][]reflect.Value{
+		"RootNodeWithOffset":           {reflect.ValueOf(uint32(0)), reflect.ValueOf(Point{})},
+		"UTF16OffsetForByte":           {reflect.ValueOf(uint32(0))},
+		"UTF8ByteForUTF16Offset":       {reflect.ValueOf(uint32(0))},
+		"UTF16PointForByte":            {reflect.ValueOf(uint32(0))},
+		"UTF16RangeForNode":            {reflect.ValueOf((*Node)(nil))},
+		"UTF16RangeForByteRange":       {reflect.ValueOf(uint32(0)), reflect.ValueOf(uint32(0))},
+		"UTF16RangeForRange":           {reflect.ValueOf(Range{})},
+		"DescendantForUTF16Range":      {reflect.ValueOf(uint32(0)), reflect.ValueOf(uint32(0))},
+		"NamedDescendantForUTF16Range": {reflect.ValueOf(uint32(0)), reflect.ValueOf(uint32(0))},
+		"UTF16SourceForNode":           {reflect.ValueOf((*Node)(nil))},
+		"WriteDOT":                     {reflect.ValueOf(io.Writer(io.Discard)), reflect.ValueOf(lang)},
+		"DOT":                          {reflect.ValueOf(lang)},
+		"NodeAtByte":                   {reflect.ValueOf(uint32(0))},
+		"NamedNodeAtByte":              {reflect.ValueOf(uint32(0))},
+		"InputEditForUTF16":            {reflect.ValueOf(UTF16Edit{}), reflect.ValueOf([]uint16(nil))},
+		"EditUTF16":                    {reflect.ValueOf(UTF16Edit{}), reflect.ValueOf([]uint16(nil))},
+		"Edit":                         {reflect.ValueOf(InputEdit{})},
+		"EnclosingDefinition":          {reflect.ValueOf(uint32(0))},
+	}
+	var nilTree *Tree
+	checkAllExportedMethods(t, "Tree", reflect.ValueOf(nilTree), treeArgs)
+
+	cursorArgs := map[string][]reflect.Value{
+		"Reset":                  {reflect.ValueOf((*Node)(nil))},
+		"ResetTree":              {reflect.ValueOf((*Tree)(nil))},
+		"GotoChildByFieldID":     {reflect.ValueOf(FieldID(0))},
+		"GotoChildByFieldName":   {reflect.ValueOf("")},
+		"GotoFirstChildForByte":  {reflect.ValueOf(uint32(0))},
+		"GotoFirstChildForPoint": {reflect.ValueOf(Point{})},
+	}
+	var nilCursor *TreeCursor
+	checkAllExportedMethods(t, "TreeCursor", reflect.ValueOf(nilCursor), cursorArgs)
+}
+
+// checkAllExportedMethods walks every exported method on val's type, calls
+// it with the matching entry from argsByMethod (a zero-arg call when the
+// method takes no arguments and has no map entry), and fails loudly if
+// argsByMethod supplies the wrong argument count for a method (a signature
+// changed) or holds a stale entry for a method that no longer exists.
+func checkAllExportedMethods(t *testing.T, typeName string, val reflect.Value, argsByMethod map[string][]reflect.Value) {
+	t.Helper()
+	typ := val.Type()
+	seen := make(map[string]bool, len(argsByMethod))
+	for i := 0; i < typ.NumMethod(); i++ {
+		m := typ.Method(i)
+		if !m.IsExported() {
+			continue
+		}
+		args := argsByMethod[m.Name]
+		seen[m.Name] = true
+		wantArgs := m.Type.NumIn() - 1 // m.Type includes the receiver.
+		if len(args) != wantArgs {
+			t.Fatalf("%s.%s takes %d args, test supplies %d — update the args map", typeName, m.Name, wantArgs, len(args))
+		}
+		callNilReceiverMethod(t, typeName, val, m.Name, args)
+	}
+	for name := range argsByMethod {
+		if !seen[name] {
+			t.Fatalf("%s.%s in the args map no longer exists — remove the stale entry", typeName, name)
+		}
 	}
 }
 
@@ -561,6 +669,48 @@ func TestNodeSExpr(t *testing.T) {
 	}
 }
 
+// TestSExprInvertedSpanDoesNotOverAllocate pins the fix for a uint32 wrap:
+// NewLeafNode permits endByte < startByte, and SExpr must treat that
+// inverted span as zero rather than as a huge unsigned span, which would
+// ask strings.Builder.Grow for a multi-gigabyte pre-allocation.
+func TestSExprInvertedSpanDoesNotOverAllocate(t *testing.T) {
+	lang := testLanguage()
+	n := NewLeafNode(Symbol(1), true, 10, 5, Point{}, Point{})
+
+	if got, want := n.SExpr(lang), "(identifier)"; got != want {
+		t.Fatalf("SExpr: got %q, want %q", got, want)
+	}
+	if got, want := sexprGrowHint(10, 5), 32; got != want {
+		t.Fatalf("sexprGrowHint(inverted span) = %d, want %d", got, want)
+	}
+	if got, want := sexprGrowHint(0, ^uint32(0)), sexprGrowCap; got != want {
+		t.Fatalf("sexprGrowHint(huge span) = %d, want cap %d", got, want)
+	}
+}
+
+func TestNewParentNodeDropsNilChildren(t *testing.T) {
+	left := NewLeafNode(Symbol(1), true, 0, 1, Point{}, Point{Row: 0, Column: 1})
+	right := NewLeafNode(Symbol(1), true, 1, 2, Point{Row: 0, Column: 1}, Point{Row: 0, Column: 2})
+	fieldIDs := []FieldID{1, 0, 2}
+
+	root := NewParentNode(Symbol(3), true, []*Node{left, nil, right}, fieldIDs, 0)
+
+	if got, want := root.ChildCount(), 2; got != want {
+		t.Fatalf("ChildCount: got %d, want %d", got, want)
+	}
+	if root.Child(0) != left || root.Child(1) != right {
+		t.Fatalf("children: got %v, %v; want left, right", root.Child(0), root.Child(1))
+	}
+	// fieldIDs must stay aligned with the surviving children after the nil
+	// entry (and its matching fieldIDs slot) are dropped.
+	if got, want := nodeFieldIDAt(root, 0), FieldID(1); got != want {
+		t.Fatalf("fieldID(0): got %d, want %d", got, want)
+	}
+	if got, want := nodeFieldIDAt(root, 1), FieldID(2); got != want {
+		t.Fatalf("fieldID(1): got %d, want %d", got, want)
+	}
+}
+
 func TestTree(t *testing.T) {
 	lang := testLanguage()
 	source := []byte("x + y")
@@ -1074,6 +1224,53 @@ func TestTreeChangedRanges(t *testing.T) {
 	}
 }
 
+// TestTreeChangedRangesLaterEditPrecedesEarlierOne pins the fix for a
+// coordinate-space bug: when a second recorded edit lands earlier in the
+// source than a first recorded edit, the first edit's reported range must
+// shift to stay correct in the final (post-all-edits) source, not stay
+// frozen in the coordinates that existed when it was recorded.
+func TestTreeChangedRangesLaterEditPrecedesEarlierOne(t *testing.T) {
+	lang := testLanguage()
+	root := NewLeafNode(Symbol(1), true, 0, 10, Point{}, Point{Row: 0, Column: 10})
+	tree := NewTree(root, []byte("abcdefghij"), lang)
+
+	// First recorded edit: a same-length replacement late in the source.
+	tree.Edit(InputEdit{
+		StartByte:   7,
+		OldEndByte:  8,
+		NewEndByte:  8,
+		StartPoint:  Point{Row: 0, Column: 7},
+		OldEndPoint: Point{Row: 0, Column: 8},
+		NewEndPoint: Point{Row: 0, Column: 8},
+	})
+	// Second recorded edit: a 3-byte insertion earlier in the source. It
+	// lands before the first edit, so it must shift where that first
+	// edit's changed region now sits in the final source.
+	tree.Edit(InputEdit{
+		StartByte:   2,
+		OldEndByte:  2,
+		NewEndByte:  5,
+		StartPoint:  Point{Row: 0, Column: 2},
+		OldEndPoint: Point{Row: 0, Column: 2},
+		NewEndPoint: Point{Row: 0, Column: 5},
+	})
+
+	ranges := tree.ChangedRanges()
+	if len(ranges) != 2 {
+		t.Fatalf("ChangedRanges len: got %d, want 2 (ranges: %+v)", len(ranges), ranges)
+	}
+	wantFirst := Range{StartByte: 2, EndByte: 5, StartPoint: Point{Row: 0, Column: 2}, EndPoint: Point{Row: 0, Column: 5}}
+	if ranges[0] != wantFirst {
+		t.Fatalf("ranges[0] = %+v, want %+v", ranges[0], wantFirst)
+	}
+	// The first edit's range must shift forward by the second edit's
+	// +3-byte insertion, since that insertion landed before it.
+	wantSecond := Range{StartByte: 10, EndByte: 11, StartPoint: Point{Row: 0, Column: 10}, EndPoint: Point{Row: 0, Column: 11}}
+	if ranges[1] != wantSecond {
+		t.Fatalf("ranges[1] = %+v, want %+v", ranges[1], wantSecond)
+	}
+}
+
 func TestTreeEditShiftsPointsAfterMultilineInsertion(t *testing.T) {
 	left := NewLeafNode(Symbol(1), true, 0, 1, Point{Row: 0, Column: 0}, Point{Row: 0, Column: 1})
 	right := NewLeafNode(Symbol(2), true, 2, 3, Point{Row: 1, Column: 0}, Point{Row: 1, Column: 1})
@@ -1435,5 +1632,46 @@ func TestNodeEditDetachedNode(t *testing.T) {
 	}
 	if got, want := n.EndByte(), uint32(9); got != want {
 		t.Fatalf("EndByte: got %d, want %d", got, want)
+	}
+}
+
+// TestNodeEditAfterTreeEditMovesSpanTwice pins the documented (not
+// idempotent) behavior of calling Node.Edit for an edit that Tree.Edit
+// already applied: Tree.Edit already shifted every node in the tree, so a
+// second Node.Edit call with the same edit shifts the node's span again.
+// A future change that makes Node.Edit idempotent after Tree.Edit must
+// update this test deliberately, not by accident.
+func TestNodeEditAfterTreeEditMovesSpanTwice(t *testing.T) {
+	lang := testLanguage()
+	leaf := NewLeafNode(Symbol(1), true, 5, 10, Point{Row: 0, Column: 5}, Point{Row: 0, Column: 10})
+	root := NewParentNode(Symbol(4), true, []*Node{leaf}, nil, 0)
+	tree := NewTree(root, []byte("aaaaaXXXXXbbbbb"), lang)
+
+	edit := InputEdit{
+		StartByte:   0,
+		OldEndByte:  0,
+		NewEndByte:  3,
+		StartPoint:  Point{Row: 0, Column: 0},
+		OldEndPoint: Point{Row: 0, Column: 0},
+		NewEndPoint: Point{Row: 0, Column: 3},
+	}
+
+	// Tree.Edit already shifts every node, including leaf, by +3.
+	tree.Edit(edit)
+	if got, want := leaf.StartByte(), uint32(8); got != want {
+		t.Fatalf("after Tree.Edit: leaf.StartByte() = %d, want %d", got, want)
+	}
+	if got, want := leaf.EndByte(), uint32(13); got != want {
+		t.Fatalf("after Tree.Edit: leaf.EndByte() = %d, want %d", got, want)
+	}
+
+	// Calling Node.Edit again with the same edit re-applies the +3 shift,
+	// moving the span a second time. This is documented, current behavior.
+	leaf.Edit(edit)
+	if got, want := leaf.StartByte(), uint32(11); got != want {
+		t.Fatalf("after re-applied Node.Edit: leaf.StartByte() = %d, want %d", got, want)
+	}
+	if got, want := leaf.EndByte(), uint32(16); got != want {
+		t.Fatalf("after re-applied Node.Edit: leaf.EndByte() = %d, want %d", got, want)
 	}
 }
