@@ -49,6 +49,9 @@ func (p *queryParser) parse() error {
 			applyWildcardRootSkip(pat)
 			pat.startByte = startByte
 			pat.endByte = uint32(p.pos)
+			if err := p.validatePatternPredicates(pat); err != nil {
+				return err
+			}
 			p.q.patterns = append(p.q.patterns, *pat)
 
 		case ch == '[':
@@ -60,6 +63,9 @@ func (p *queryParser) parse() error {
 			}
 			pat.startByte = startByte
 			pat.endByte = uint32(p.pos)
+			if err := p.validatePatternPredicates(pat); err != nil {
+				return err
+			}
 			p.q.patterns = append(p.q.patterns, *pat)
 
 		case ch == '"':
@@ -71,6 +77,9 @@ func (p *queryParser) parse() error {
 			}
 			pat.startByte = startByte
 			pat.endByte = uint32(p.pos)
+			if err := p.validatePatternPredicates(pat); err != nil {
+				return err
+			}
 			p.q.patterns = append(p.q.patterns, *pat)
 
 		case ch == '_' && !p.identifierContinuesAt(p.pos+1):
@@ -84,6 +93,9 @@ func (p *queryParser) parse() error {
 			}
 			pat.startByte = startByte
 			pat.endByte = uint32(p.pos)
+			if err := p.validatePatternPredicates(pat); err != nil {
+				return err
+			}
 			p.q.patterns = append(p.q.patterns, *pat)
 
 		case isIdentStart(ch):
@@ -95,6 +107,9 @@ func (p *queryParser) parse() error {
 			}
 			pat.startByte = startByte
 			pat.endByte = uint32(p.pos)
+			if err := p.validatePatternPredicates(pat); err != nil {
+				return err
+			}
 			p.q.patterns = append(p.q.patterns, *pat)
 
 		case ch == '.':
@@ -127,10 +142,11 @@ func (p *queryParser) parsePattern(depth int, parentSymbolHint Symbol) (*Pattern
 	if err := p.parseStepSuffix(pat, rootIdx); err != nil {
 		return nil, err
 	}
-	if err := p.validatePatternPredicates(pat); err != nil {
-		return nil, err
-	}
-
+	// Capture-reference validation runs once the full top-level pattern is
+	// assembled (see p.parse()), not here: a nested call only sees this
+	// sub-pattern's own captures, and a predicate can legally reference a
+	// capture bound by an ancestor or sibling within the same top-level
+	// pattern.
 	return pat, nil
 }
 
@@ -829,13 +845,44 @@ func (p *queryParser) parseFieldShorthandPattern(depth int) (*Pattern, error) {
 	return pat, nil
 }
 
+// validatePatternPredicates rejects a predicate that names a capture the query
+// has not bound. This is the counterpart to the C TSQueryErrorCapture error. A
+// typo in a predicate argument must fail to compile. It must not compile into
+// a predicate that no match can satisfy.
+//
+// C interns capture names in query order, so a predicate can name a capture
+// that this pattern or an earlier pattern binds. The check uses the query
+// capture table at the end of each top-level pattern, see p.parse().
 func (p *queryParser) validatePatternPredicates(pat *Pattern) error {
-	if len(pat.predicates) == 0 {
+	if pat == nil || len(pat.predicates) == 0 {
 		return nil
 	}
-	// Keep validation permissive. Runtime predicate evaluation rejects matches
-	// when required captures are missing.
+	names := make(map[string]struct{}, len(p.q.captures))
+	for _, name := range p.q.captures {
+		names[name] = struct{}{}
+	}
+	for _, pred := range pat.predicates {
+		if name, ok := undefinedPredicateCapture(pred, names); ok {
+			return fmt.Errorf("query: predicate references undefined capture @%s", name)
+		}
+	}
 	return nil
+}
+
+// undefinedPredicateCapture reports the first capture argument on pred that
+// names does not contain, if any.
+func undefinedPredicateCapture(pred QueryPredicate, names map[string]struct{}) (string, bool) {
+	if pred.leftCapture != "" {
+		if _, ok := names[pred.leftCapture]; !ok {
+			return pred.leftCapture, true
+		}
+	}
+	if pred.rightCapture != "" {
+		if _, ok := names[pred.rightCapture]; !ok {
+			return pred.rightCapture, true
+		}
+	}
+	return "", false
 }
 
 // applyWildcardRootSkip ports the wildcard-root rule of the C query compiler

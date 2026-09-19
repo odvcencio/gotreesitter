@@ -968,6 +968,7 @@ func (q *Query) singleStepQueryMatch(pat *Pattern, patternIndex int, node *Node,
 	}
 	var captures []QueryCapture
 	q.appendCaptureIDs(step.captureIDs, node, &captures)
+	captures = q.filterDisabledCaptures(captures)
 	return QueryMatch{
 		PatternIndex: patternIndex,
 		Captures:     captures,

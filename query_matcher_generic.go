@@ -9,26 +9,37 @@ func cloneQueryCapturesWithReader[C any](captures []C) []C {
 	return slices.Clone(captures)
 }
 
+// appendCaptureIDsWithReader appends every capture in ids, including ones a
+// caller has disabled with DisableCapture. Predicates must see the full
+// capture set, so disabled names are dropped only from a finished match's
+// output; see filterDisabledCapturesWithReader.
 func appendCaptureIDsWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, ids []int, node N, captures *[]C, reader R) {
 	if len(ids) == 0 {
 		return
 	}
-	if len(q.disabledCaptureName) == 0 {
-		start := len(*captures)
-		*captures = slices.Grow(*captures, len(ids))
-		expanded := (*captures)[:start+len(ids)]
-		for i, captureID := range ids {
-			expanded[start+i] = reader.NewCapture(q.captures[captureID], node)
-		}
-		*captures = expanded
-		return
+	start := len(*captures)
+	*captures = slices.Grow(*captures, len(ids))
+	expanded := (*captures)[:start+len(ids)]
+	for i, captureID := range ids {
+		expanded[start+i] = reader.NewCapture(q.captures[captureID], node)
 	}
-	for _, captureID := range ids {
-		name := q.captures[captureID]
-		if !q.isCaptureDisabled(name) {
-			*captures = append(*captures, reader.NewCapture(name, node))
+	*captures = expanded
+}
+
+// filterDisabledCapturesWithReader drops captures whose name DisableCapture
+// removed from a finished match's captures, after predicates and directives
+// have already evaluated the full set. See (*Query).filterDisabledCaptures.
+func filterDisabledCapturesWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, captures []C, reader R) []C {
+	if len(q.disabledCaptureName) == 0 || len(captures) == 0 {
+		return captures
+	}
+	out := captures[:0]
+	for _, capture := range captures {
+		if !q.isCaptureDisabled(reader.CaptureName(capture)) {
+			out = append(out, capture)
 		}
 	}
+	return out
 }
 
 func matchPatternAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *Query, pat *Pattern, node N, lang *Language, source []byte, budget *queryMatchBudget, reader R) [][]C {
@@ -52,6 +63,7 @@ func matchPatternAllWithReader[N comparable, C any, R queryNodeReader[N, C]](q *
 			return
 		}
 		captures = applyDirectivesWithReader(q, pat.predicates, captures, source, reader)
+		captures = filterDisabledCapturesWithReader(q, captures, reader)
 		matches = append(matches, cloneQueryCapturesWithReader(captures))
 	})
 	return matches
@@ -110,6 +122,7 @@ func matchPatternPostorderAllWithReader[N comparable, C any, R queryNodeReader[N
 	for _, captures := range partials {
 		if matchesPredicatesWithReader(q, pat.predicates, captures, lang, source, reader) {
 			captures = applyDirectivesWithReader(q, pat.predicates, captures, source, reader)
+			captures = filterDisabledCapturesWithReader(q, captures, reader)
 			matches = append(matches, cloneQueryCapturesWithReader(captures))
 		}
 	}
