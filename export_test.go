@@ -437,3 +437,15 @@ func ParserPoolCheckoutForTest(pp *ParserPool) *Parser { return pp.checkout() }
 
 // ParserPoolReleaseForTest returns a parser to the pool (applying defaults).
 func ParserPoolReleaseForTest(pp *ParserPool, p *Parser) { pp.release(p) }
+
+// SetParseMemoryBudgetFloorMBForTest replaces the default budget floor and
+// keeps the size scaling on. It returns a function that restores the
+// environment-derived value.
+func SetParseMemoryBudgetFloorMBForTest(mb int) func() {
+	parseMemoryBudgetOnce.Do(func() {})
+	prevVal, prevEnv := parseMemoryBudgetMBVal, parseMemoryBudgetMBFromEnv
+	parseMemoryBudgetMBVal, parseMemoryBudgetMBFromEnv = mb, false
+	return func() {
+		parseMemoryBudgetMBVal, parseMemoryBudgetMBFromEnv = prevVal, prevEnv
+	}
+}

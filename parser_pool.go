@@ -12,6 +12,7 @@ type parserPoolConfig struct {
 	glrTrace         bool
 	ambiguityProfile *AmbiguityProfile
 	parseWorkLimits  ParseWorkLimits
+	memoryBudget     int64
 }
 
 // WithParserPoolLogger sets the logger applied to pooled parser instances.
@@ -58,6 +59,14 @@ func WithParserPoolParseWorkLimits(limits ParseWorkLimits) ParserPoolOption {
 	}
 }
 
+// WithParserPoolMemoryBudgetBytes sets the per-parse memory budget applied to
+// pooled parser instances. See Parser.SetMemoryBudgetBytes.
+func WithParserPoolMemoryBudgetBytes(bytes int64) ParserPoolOption {
+	return func(cfg *parserPoolConfig) {
+		cfg.memoryBudget = bytes
+	}
+}
+
 // ParserPool provides concurrency-safe parsing by reusing Parser instances.
 //
 // ParserPool is safe for concurrent use. Each call checks out one parser from
@@ -75,6 +84,7 @@ type ParserPool struct {
 	glrTrace         bool
 	ambiguityProfile *AmbiguityProfile
 	parseWorkLimits  ParseWorkLimits
+	memoryBudget     int64
 	pool             sync.Pool
 }
 
@@ -95,6 +105,7 @@ func NewParserPool(lang *Language, opts ...ParserPoolOption) *ParserPool {
 		glrTrace:         cfg.glrTrace,
 		ambiguityProfile: cfg.ambiguityProfile,
 		parseWorkLimits:  cfg.parseWorkLimits,
+		memoryBudget:     cfg.memoryBudget,
 	}
 	pp.pool.New = func() any {
 		p := NewParser(pp.language)
@@ -123,6 +134,7 @@ func (pp *ParserPool) applyDefaults(p *Parser) {
 	p.SetGLRTrace(pp.glrTrace)
 	p.SetAmbiguityProfile(pp.ambiguityProfile)
 	p.SetParseWorkLimits(pp.parseWorkLimits)
+	p.SetMemoryBudgetBytes(pp.memoryBudget)
 	p.clearRecoveryRuntimeTelemetryDetailed()
 	p.resetCRecoveryCostCompetitionState()
 	p.noTreeBenchmarkOnly = false

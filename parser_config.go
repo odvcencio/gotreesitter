@@ -13,8 +13,10 @@ var (
 	parseNodeLimitScaleEnvSet   bool
 	parseMemoryBudgetOnce       sync.Once
 	parseMemoryBudgetMBVal      int
+	parseMemoryBudgetMBFromEnv  bool
 	parseMemoryHardCeilingOnce  sync.Once
 	parseMemoryHardCeilingMBVal int
+	parseMemoryHardCeilingEnv   bool
 	parseMaxGLRStacksOnce       sync.Once
 	parseMaxGLRStacks           int
 	parseMaxGLRStacksEnvSet     bool
@@ -55,8 +57,10 @@ func ResetParseEnvConfigCacheForTests() {
 	parseNodeLimitScaleEnvSet = false
 	parseMemoryBudgetOnce = sync.Once{}
 	parseMemoryBudgetMBVal = 0
+	parseMemoryBudgetMBFromEnv = false
 	parseMemoryHardCeilingOnce = sync.Once{}
 	parseMemoryHardCeilingMBVal = 0
+	parseMemoryHardCeilingEnv = false
 	parseMaxGLRStacksOnce = sync.Once{}
 	parseMaxGLRStacks = 0
 	parseMaxGLRStacksEnvSet = false
@@ -337,9 +341,17 @@ func parseMemoryBudgetMB() int {
 		n, err := strconv.Atoi(raw)
 		if err == nil && n >= 0 {
 			parseMemoryBudgetMBVal = n
+			parseMemoryBudgetMBFromEnv = true
 		}
 	})
 	return parseMemoryBudgetMBVal
+}
+
+// parseMemoryBudgetFixedByEnv reports whether GOT_PARSE_MEMORY_BUDGET_MB sets
+// a fixed budget. A fixed budget does not scale with the input size.
+func parseMemoryBudgetFixedByEnv() bool {
+	parseMemoryBudgetMB()
+	return parseMemoryBudgetMBFromEnv
 }
 
 // parseMemoryHardCeilingMB returns the absolute, decoupled heap-growth stop
@@ -361,9 +373,18 @@ func parseMemoryHardCeilingMB() int {
 		n, err := strconv.Atoi(raw)
 		if err == nil && n >= 0 {
 			parseMemoryHardCeilingMBVal = n
+			parseMemoryHardCeilingEnv = true
 		}
 	})
 	return parseMemoryHardCeilingMBVal
+}
+
+// parseMemoryHardCeilingFixedByEnv reports whether
+// GOT_PARSE_MEMORY_HARD_CEILING_MB sets a fixed ceiling. A fixed ceiling does
+// not scale with the parse budget.
+func parseMemoryHardCeilingFixedByEnv() bool {
+	parseMemoryHardCeilingMB()
+	return parseMemoryHardCeilingEnv
 }
 
 func parseMemoryHardCeilingBytes() int64 {
