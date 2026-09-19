@@ -38,9 +38,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -109,9 +109,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -134,9 +134,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -174,9 +174,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -550,9 +550,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -595,9 +595,9 @@ jobs:
       matrix:
         shard: [0, 1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -611,7 +611,7 @@ jobs:
 
       - name: Preserve completed root-race results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: root-race-shard-${{ matrix.shard }}
           path: harness_out/root-race/*.json
@@ -624,7 +624,7 @@ jobs:
     outputs:
       isolated: ${{ steps.plan.outputs.isolated }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - id: plan
         name: Plan isolated root race gates
@@ -642,9 +642,9 @@ jobs:
       matrix:
         target: ${{ fromJSON(needs.root_race_plan.outputs.isolated) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -657,7 +657,7 @@ jobs:
 
       - name: Preserve completed isolated root-race result
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: root-race-isolated-${{ matrix.target }}
           path: harness_out/root-race/*.json
@@ -741,9 +741,9 @@ jobs:
             package_filter: '/wasm/runtime$'
             test_filter: ''
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -779,9 +779,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -813,9 +813,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -829,9 +829,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -847,7 +847,7 @@ jobs:
           go run -pgo=pgo/default.pgo -tags grammar_blobs_external ./cmd/parity_report > parity.log
 
       - name: Upload Parity Log
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: parity-log
           path: parity.log
@@ -858,9 +858,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: cgo_harness/go.mod
 
@@ -887,9 +887,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -907,7 +907,7 @@ jobs:
       run_code_ci: ${{ steps.scope.outputs.run_code_ci }}
       run_exhaustive: ${{ steps.scope.outputs.run_exhaustive }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -1111,9 +1111,9 @@ jobs:
     timeout-minutes: 30
     continue-on-error: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -1138,9 +1138,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -1223,11 +1223,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -1261,9 +1261,9 @@ jobs:
       APIDIFF_BASELINE_TAG: v0.49.0
       APIDIFF_TOOL_VERSION: v0.0.0-20260811152304-ee035b5b010f
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -1314,11 +1314,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
+
+      - name: Build cgo harness image
+        # This job calls run_parity_in_docker.sh many times below. Building
+        # once here and passing --no-build on every later call avoids
+        # rebuilding (and re-pulling base images) per step. See
+        # docs/ci-gate-coverage.md for the build-once policy and the
+        # in-script retry that absorbs transient registry failures.
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh --build-only
 
       - name: Compact T3 C-oracle witness contract
         # TestCompactPackedGSSVersionOrderIssue984MatchesC
@@ -1328,6 +1337,7 @@ jobs:
           GTS_PARITY_MODE=smoke \
           GTS_PARITY_C_REF_BUILD_CACHE=0 \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-compact-t3-oracle \
             --memory 8g \
             --cpus 2 \
@@ -1342,6 +1352,7 @@ jobs:
       - name: Elm admission contract against locked C
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-admission-elm-contract \
             --memory 4g \
             --cpus 2 \
@@ -1354,6 +1365,7 @@ jobs:
           set -euo pipefail
           for grammar in kotlin ocaml perl rust; do
             bash cgo_harness/docker/run_parity_in_docker.sh \
+              --no-build \
               --label "ci-admission-external-payload-${grammar}" \
               --memory 4g \
               --cpus 2 \
@@ -1365,6 +1377,7 @@ jobs:
       - name: Compact incremental Go execution
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-compact-incremental-go-execution \
             --memory 4g \
             --cpus 2 \
@@ -1375,6 +1388,7 @@ jobs:
       - name: Compact TypeScript adoption and incremental parity
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-compact-typescript-adoption-incremental \
             --memory 4g \
             --cpus 2 \
@@ -1387,6 +1401,7 @@ jobs:
           GTS_PARITY_MODE=smoke \
           GTS_PARITY_C_REF_BUILD_CACHE=0 \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-compact-recovery-incremental-javascript \
             --memory 8g \
             --cpus 2 \
@@ -1403,6 +1418,7 @@ jobs:
           GTS_PARITY_MODE=smoke \
           GTS_PARITY_C_REF_BUILD_CACHE=0 \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-compact-recovery-incremental-yaml \
             --memory 8g \
             --cpus 2 \
@@ -1419,6 +1435,7 @@ jobs:
           GTS_PARITY_MODE=smoke \
           GTS_PARITY_C_REF_BUILD_CACHE=0 \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-compact-per-version-lexer-scala \
             --memory 8g \
             --cpus 2 \
@@ -1435,6 +1452,7 @@ jobs:
           GTS_PARITY_MODE=smoke \
           GTS_PARITY_C_REF_BUILD_CACHE=0 \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-compact-physical-head-scala \
             --memory 8g \
             --cpus 2 \
@@ -1465,9 +1483,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -1494,15 +1512,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
+
+      - name: Build cgo harness image
+        # This job calls run_parity_in_docker.sh many times below. Building
+        # once here and passing --no-build on every later call avoids
+        # rebuilding (and re-pulling base images) per step. See
+        # docs/ci-gate-coverage.md for the build-once policy and the
+        # in-script retry that absorbs transient registry failures.
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh --build-only
 
       - name: Verify report Lua predicates
         run: |
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-report-lua-predicates \
             --memory 4g \
             --gomemlimit 3GiB \
@@ -1523,6 +1551,7 @@ jobs:
         run: |
           GTS_PARITY_MODE=smoke \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-parity-cgo-smoke \
             --memory 8g \
             --cpus 2 \
@@ -1566,16 +1595,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
+
+      - name: Build cgo harness image
+        # This job calls run_parity_in_docker.sh many times below. Building
+        # once here and passing --no-build on every later call avoids
+        # rebuilding (and re-pulling base images) per step. See
+        # docs/ci-gate-coverage.md for the build-once policy and the
+        # in-script retry that absorbs transient registry failures.
+        run: |
+          bash cgo_harness/docker/run_parity_in_docker.sh --build-only
 
       - name: CGo Structural Parity Exhaustive (Fresh + No Errors + Issue3)
         run: |
           GTS_PARITY_MODE=exhaustive \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-parity-cgo-exhaustive-fresh \
             --memory 8g \
             --cpus 2 \
@@ -1590,6 +1629,7 @@ jobs:
         run: |
           GTS_PARITY_MODE=exhaustive \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-parity-cgo-exhaustive-incremental \
             --memory 8g \
             --cpus 2 \
@@ -1604,6 +1644,7 @@ jobs:
         run: |
           GTS_PARITY_MODE=exhaustive \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-parity-cgo-exhaustive-corpus \
             --memory 8g \
             --cpus 2 \
@@ -1618,6 +1659,7 @@ jobs:
         run: |
           GTS_PARITY_MODE=exhaustive \
           bash cgo_harness/docker/run_parity_in_docker.sh \
+            --no-build \
             --label ci-parity-cgo-exhaustive-highlight-yaml \
             --memory 8g \
             --cpus 2 \
@@ -1634,11 +1676,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
@@ -1822,7 +1864,7 @@ jobs:
 
       - name: Upload Perf Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: bench-gate-artifacts
           path: ${{ runner.temp }}/bench-gate
