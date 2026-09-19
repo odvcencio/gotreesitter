@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 func applyImportGrammarShapeHints(g *Grammar) {
@@ -593,58 +594,171 @@ func (c *jsonConverter) convertRuleList(members []json.RawMessage) ([]*Rule, err
 	return rules, nil
 }
 
-// makeCaseInsensitivePattern converts a regex pattern to case-insensitive form
-// by expanding ASCII letters to character classes. For example, "DUP" becomes
-// "[Dd][Uu][Pp]". Characters inside character classes are expanded in-place.
+// makeCaseInsensitivePattern converts a regex pattern to case-insensitive
+// form by expanding ASCII letters to character classes. For example, "DUP"
+// becomes "[dD][uU][pP]".
+//
+// Inside a character class the function expands each letter range x-y to
+// x-yX-Y, so both cases of the range match without also pulling in the
+// unrelated code points between the two cases (for example the punctuation
+// between 'Z' and 'a'). A lone letter inside a class expands in place to
+// both cases, with no extra brackets. Outside a class the function keeps
+// the original single-letter [xX] wrapping.
+//
+// An escape sequence — \d, \n, \p{Lu}, \P{Lu}, \pL, \u{1F600}, \uABCD,
+// \U0001F600, \xFF, and so on — passes through unchanged everywhere it
+// appears. Case does not apply to an escape sequence, and folding the
+// letters inside one would corrupt it (for example turning \p{Lu} into a
+// broken property escape).
 func makeCaseInsensitivePattern(pattern string) string {
+	runes := []rune(pattern)
+	n := len(runes)
 	var b strings.Builder
 	b.Grow(len(pattern) * 4)
 	inClass := false
-	escaped := false
-	for _, ch := range pattern {
-		if escaped {
-			b.WriteRune(ch)
-			escaped = false
-			continue
-		}
+	for i := 0; i < n; {
+		ch := runes[i]
 		if ch == '\\' {
-			b.WriteRune(ch)
-			escaped = true
+			escLen := caseInsensitiveEscapeLength(runes[i:])
+			b.WriteString(string(runes[i : i+escLen]))
+			i += escLen
 			continue
 		}
 		if ch == '[' {
 			inClass = true
 			b.WriteRune(ch)
+			i++
 			continue
 		}
 		if ch == ']' {
 			inClass = false
 			b.WriteRune(ch)
+			i++
+			continue
+		}
+		if inClass && isASCIILetter(ch) && i+2 < n && runes[i+1] == '-' && isASCIILetter(runes[i+2]) {
+			// A letter range x-y: keep the original range and add its
+			// swapped-case counterpart, so "a-f" becomes "a-fA-F" rather
+			// than the single wide, wrong range "A-f".
+			lo, hi := ch, runes[i+2]
+			b.WriteRune(lo)
+			b.WriteRune('-')
+			b.WriteRune(hi)
+			b.WriteRune(swapASCIILetterCase(lo))
+			b.WriteRune('-')
+			b.WriteRune(swapASCIILetterCase(hi))
+			i += 3
 			continue
 		}
 		if isASCIILetter(ch) {
+			lo := rune(ch | 0x20)
+			up := rune(ch &^ 0x20)
 			if inClass {
-				// Inside a character class, add both cases
-				lo := rune(ch | 0x20)
-				up := rune(ch &^ 0x20)
+				// Inside a character class, add both cases in place.
 				b.WriteRune(lo)
 				b.WriteRune(up)
 			} else {
-				// Outside a class, wrap in a class
-				lo := rune(ch | 0x20)
-				up := rune(ch &^ 0x20)
+				// Outside a class, wrap the letter in its own class.
 				b.WriteRune('[')
 				b.WriteRune(lo)
 				b.WriteRune(up)
 				b.WriteRune(']')
 			}
-		} else {
-			b.WriteRune(ch)
+			i++
+			continue
 		}
+		b.WriteRune(ch)
+		i++
 	}
 	return b.String()
 }
 
 func isASCIILetter(ch rune) bool {
 	return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')
+}
+
+// swapASCIILetterCase returns ch with its case flipped. It returns non-ASCII
+// letters unchanged.
+func swapASCIILetterCase(ch rune) rune {
+	if !isASCIILetter(ch) {
+		return ch
+	}
+	return ch ^ 0x20
+}
+
+func isHexDigit(ch rune) bool {
+	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
+}
+
+// caseInsensitiveEscapeLength returns the length, in runes, of the escape
+// sequence starting at runes[0]. The caller must pass a slice whose first
+// rune is a backslash. The function mirrors the escape grammar this
+// package's own regex parser (regex.go) accepts, so it treats each
+// multi-character escape as one atomic token. makeCaseInsensitivePattern
+// then copies the token through without folding the case of any letter
+// inside it:
+//
+//   - \p{...} and \P{...}: a Unicode property escape, up to the closing '}'.
+//   - \pL and \PL: the single-letter property shorthand.
+//   - \u{...}: a braced Unicode code point escape, up to the closing '}'.
+//   - \uXXXX: a fixed-width Unicode escape of up to 4 hex digits.
+//   - \U{...}: a braced long Unicode code point escape, up to the closing '}'.
+//   - \UXXXXXXXX: a fixed-width long Unicode escape of up to 8 hex digits.
+//   - \x{...}: a braced hex escape, up to the closing '}'.
+//   - \xHH: a fixed-width hex escape of up to 2 hex digits.
+//   - any other \c: an ordinary single-character escape.
+//
+// An unterminated brace escape consumes the rest of the input rather than
+// guessing where it ends; a dangling trailing backslash consumes itself.
+func caseInsensitiveEscapeLength(runes []rune) int {
+	n := len(runes)
+	if n == 0 || runes[0] != '\\' {
+		return 0
+	}
+	if n == 1 {
+		return 1
+	}
+	switch runes[1] {
+	case 'p', 'P':
+		if n > 2 && runes[2] == '{' {
+			return braceEscapeLength(runes)
+		}
+		if n > 2 && unicode.IsLetter(runes[2]) {
+			return 3 // single-letter property shorthand, e.g. \pL
+		}
+		return 2 // malformed input the regex parser will reject on its own
+	case 'u', 'U', 'x':
+		if n > 2 && runes[2] == '{' {
+			return braceEscapeLength(runes)
+		}
+		maxHexDigits := 4 // \uXXXX
+		switch runes[1] {
+		case 'U':
+			maxHexDigits = 8 // \UXXXXXXXX
+		case 'x':
+			maxHexDigits = 2 // \xHH
+		}
+		end := 2
+		limit := 2 + maxHexDigits
+		for end < n && end < limit && isHexDigit(runes[end]) {
+			end++
+		}
+		return end
+	default:
+		return 2 // ordinary single-character escape, e.g. \d, \s, \n, \\
+	}
+}
+
+// braceEscapeLength returns the length, in runes, of a brace-delimited
+// escape whose opening '{' sits at runes[2] (immediately after the
+// backslash and its one-letter kind, as in \p{...}, \u{...}, or \x{...}).
+// An unterminated brace consumes the rest of the input.
+func braceEscapeLength(runes []rune) int {
+	n := len(runes)
+	for i := 3; i < n; i++ {
+		if runes[i] == '}' {
+			return i + 1
+		}
+	}
+	return n
 }
