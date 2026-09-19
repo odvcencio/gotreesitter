@@ -108,7 +108,7 @@ func (c *reuseCursor) reset(oldTree *Tree, source []byte, scratch *reuseScratch)
 	c.sourceLen = uint32(len(source))
 	c.oldSource = oldTree.source
 	c.newSource = source
-	c.wholeSourceIdentical = bytes.Equal(c.oldSource, c.newSource)
+	c.wholeSourceIdentical = incrementalEditsRestoreNodeSpans(oldTree.edits) && bytes.Equal(c.oldSource, c.newSource)
 	c.minEditAt = 0
 	c.hasEdits = len(oldTree.edits) > 0
 	c.edits = oldTree.edits
@@ -638,12 +638,52 @@ func (c *reuseCursor) nodeBytesUnchanged(start, end uint32) bool {
 	return bytes.Equal(c.oldSource[oldStart:oldEnd], c.newSource[start:end])
 }
 
+// incrementalEditsRestoreNodeSpans reports whether edits that cancel out also
+// restore every node span. Tree.Edit collapses the nodes that start or end
+// inside a removed or replaced range, and a later insertion does not restore
+// them. Two kinds of removal are safe:
+//   - A same-width replacement of one byte. No node boundary can fall inside
+//     a one-byte range, so the edit moves no span.
+//   - A removal that exactly cancels the latest insertion that is still open,
+//     as when a user types a character and deletes it again.
+func incrementalEditsRestoreNodeSpans(edits []InputEdit) bool {
+	var openBuf [8]InputEdit
+	open := openBuf[:0]
+	for _, edit := range edits {
+		if edit.OldEndByte == edit.StartByte {
+			if edit.NewEndByte != edit.StartByte {
+				open = append(open, edit)
+			}
+			continue
+		}
+		if edit.OldEndByte == edit.StartByte+1 && edit.NewEndByte == edit.OldEndByte &&
+			edit.NewEndPoint == edit.OldEndPoint {
+			continue
+		}
+		last := len(open) - 1
+		if last < 0 {
+			return false
+		}
+		insertion := open[last]
+		if edit.StartByte != insertion.StartByte || edit.OldEndByte != insertion.NewEndByte ||
+			edit.NewEndByte != edit.StartByte || edit.StartPoint != insertion.StartPoint ||
+			edit.OldEndPoint != insertion.NewEndPoint || edit.NewEndPoint != edit.StartPoint {
+			return false
+		}
+		open = open[:last]
+	}
+	return true
+}
+
 // sourceBytesIdentical is the only sound basis for clearing a dirty bit after
 // Tree.Edit. A dirty node's post-edit span may have been clamped to the edit
 // boundary, so comparing that span alone can compare only a surviving prefix or
 // suffix and falsely declare a truncated token unchanged. Whole-buffer equality
 // retains the edit+inverse undo optimization without transferring ownership of
 // a genuine edit back to incremental reuse.
+//
+// Whole-buffer equality is not enough after an edit that removes bytes. See
+// incrementalEditsRestoreNodeSpans.
 func (c *reuseCursor) sourceBytesIdentical() bool {
 	return c != nil && c.wholeSourceIdentical
 }
