@@ -295,11 +295,10 @@ func TestDiagnosticShallowFoldKeepsDistinctClasses(t *testing.T) {
 			test.edit(&rightSpec)
 			right := appendShallowPayload(t, core, rightSpec)
 			key := core.boundaryKey(2, 17)
-			head, err := core.condense(key, linkInput{prev: seed.Node, payload: left, scoreDelta: 1})
-			if err != nil {
+			if _, err := core.condense(key, linkInput{prev: seed.Node, payload: left, scoreDelta: 1}); err != nil {
 				t.Fatal(err)
 			}
-			head, err = core.condense(key, linkInput{prev: seed.Node, payload: right, scoreDelta: 2})
+			head, err := core.condense(key, linkInput{prev: seed.Node, payload: right, scoreDelta: 2})
 			if err != nil {
 				t.Fatal(err)
 			}
