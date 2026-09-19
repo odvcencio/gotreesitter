@@ -35,6 +35,30 @@ func checkUint16Index(grammarName, field string, value int) error {
 	return nil
 }
 
+// maxProductionChildCount is the largest right-hand-side symbol count a
+// production can hold. ParseAction.ChildCount, the runtime field that
+// records how many children a reduce action consumes, is a uint8. A rule
+// with more than 255 right-hand-side symbols would silently wrap when
+// converted with uint8(len(prod.RHS)), so generation would "succeed" but
+// reduce the wrong number of children at parse time. checkProductionChildCount
+// turns that silent wrap into a hard generation error instead.
+const maxProductionChildCount = math.MaxUint8 // 255
+
+// checkProductionChildCount reports an actionable error when a production's
+// right-hand-side symbol count cannot be stored in the uint8 ChildCount
+// field. grammarName and prodName identify the offending rule so a
+// downstream author is not left chasing a corrupted table.
+func checkProductionChildCount(grammarName, prodName string, rhsLen int) error {
+	if rhsLen > maxProductionChildCount {
+		return fmt.Errorf(
+			"grammar %q: production %q has %d right-hand-side symbols, "+
+				"which exceeds the uint8 child-count limit of %d; "+
+				"split the rule into smaller productions",
+			grammarName, prodName, rhsLen, maxProductionChildCount)
+	}
+	return nil
+}
+
 // pipeReduceLHSIsRowBoundary reports whether the _pipe_table_line_ending reduce
 // action reduces to a pipe-table delimiter-row or body-data-row nonterminal — a
 // position where the body-loop separator (_pipe_table_newline →
@@ -139,6 +163,20 @@ func assemble(
 	for _, entry := range afterWSModes {
 		if entry.stateIdx < len(lang.LexModes) && entry.modeIdx < len(lexModeOffsets) {
 			lang.LexModes[entry.stateIdx].SetAfterWhitespaceLexStateIndex(uint32(lexModeOffsets[entry.modeIdx]))
+		}
+	}
+
+	// Reject any production whose right-hand side cannot fit in the uint8
+	// ChildCount field before it reaches table assembly. Catching this here
+	// gives a clear, actionable error instead of a silently truncated
+	// reduce action further down the pipeline.
+	for _, prod := range ng.Productions {
+		prodName := ""
+		if prod.LHS >= 0 && prod.LHS < len(ng.Symbols) {
+			prodName = ng.Symbols[prod.LHS].Name
+		}
+		if err := checkProductionChildCount(ng.GrammarName, prodName, len(prod.RHS)); err != nil {
+			return nil, err
 		}
 	}
 
@@ -497,6 +535,90 @@ func serializeReservedWordSet(set []gotreesitter.Symbol) string {
 	return string(buf)
 }
 
+// serializeActionGroupKey produces a canonical, byte-exact key for a list of
+// lrActions based on the *semantic content* of the resulting ParseAction
+// entries, not the raw lrAction fields. Two different prodIdx values that
+// reduce to the same (LHS, childCount, dynPrec, productionID, isExtra)
+// produce the same key and therefore share a single ParseActionEntry.
+// Without this deduplication the action group count exceeds uint16 capacity
+// for large grammars like Markdown (50k+ productions → 78k+ raw groups vs
+// the limit of 65535).
+//
+// Each encoded field must use at least as many bytes as the runtime
+// ParseAction field it stands in for. A narrower key field lets two
+// genuinely different actions collide, so generation silently reuses one
+// action group for both and the parser jumps to the wrong state or reduces
+// the wrong production. ng supplies production lookups for reduce actions.
+func serializeActionGroupKey(acts []lrAction, ng *NormalizedGrammar) string {
+	buf := make([]byte, 0, len(acts)*11)
+	for _, a := range acts {
+		switch a.kind {
+		case lrShift:
+			// SHIFT: key = kind(1) + isExtra(1) + repeat(1) + state(4) = 7 bytes
+			//
+			// state is encoded at the full width of gotreesitter.StateID
+			// (uint32), not the narrower uint16 used for table/index slots
+			// elsewhere in this file. A grammar can have more states than
+			// fit in 16 bits, and a shift's target state is stored at its
+			// full 32-bit width in ParseAction.State. A 2-byte key
+			// truncated two different targets that only differed in their
+			// high 16 bits down to the same key, so large grammars
+			// silently merged unrelated shift actions and jumped to the
+			// wrong state after generation "succeeded".
+			buf = append(buf, byte(a.kind))
+			if a.isExtra {
+				buf = append(buf, 1)
+			} else {
+				buf = append(buf, 0)
+			}
+			if a.repeat {
+				buf = append(buf, 1)
+			} else {
+				buf = append(buf, 0)
+			}
+			buf = append(buf, byte(a.state>>24), byte(a.state>>16), byte(a.state>>8), byte(a.state))
+		case lrReduce:
+			// REDUCE: key = kind(1) + isExtra(1) + repeat(1) + lhs(2) + childCount(1) + dynPrec(2) + prodID(2) + extra(1) = 11 bytes
+			// Use semantic content (prod fields) rather than raw prodIdx.
+			//
+			// lhs, dynPrec, and prodID each use 2 bytes because the
+			// runtime fields they stand in for (Symbol, DynamicPrecedence,
+			// ProductionID) are themselves 16 bits wide, so the key already
+			// matches the encoded width. childCount uses 1 byte because
+			// ParseAction.ChildCount is a uint8; assemble validates the
+			// production's RHS length against that limit before this key
+			// is ever built, so the 1-byte field cannot silently drop bits
+			// here.
+			prod := &ng.Productions[a.prodIdx]
+			childCount := len(prod.RHS)
+			buf = append(buf, byte(a.kind))
+			if a.isExtra {
+				buf = append(buf, 1)
+			} else {
+				buf = append(buf, 0)
+			}
+			if a.repeat {
+				buf = append(buf, 1)
+			} else {
+				buf = append(buf, 0)
+			}
+			buf = append(buf, byte(prod.LHS>>8), byte(prod.LHS))
+			buf = append(buf, byte(childCount))
+			buf = append(buf, byte(prod.DynPrec>>8), byte(prod.DynPrec))
+			buf = append(buf, byte(prod.ProductionID>>8), byte(prod.ProductionID))
+			if prod.IsExtra {
+				buf = append(buf, 1)
+			} else {
+				buf = append(buf, 0)
+			}
+		default:
+			// ACCEPT and others: kind only
+			buf = append(buf, byte(a.kind))
+		}
+	}
+	return string(buf)
+}
+
 // buildParseTables constructs ParseActions, ParseTable (dense),
 // SmallParseTable, and SmallParseTableMap from the LR tables.
 func buildParseTables(
@@ -522,54 +644,7 @@ func buildParseTables(
 	// the action group count exceeds uint16 capacity for large grammars like
 	// Markdown (50k+ productions → 78k+ raw groups vs the limit of 65535).
 	serializeActions := func(acts []lrAction) string {
-		buf := make([]byte, 0, len(acts)*9)
-		for _, a := range acts {
-			switch a.kind {
-			case lrShift:
-				// SHIFT: key = kind(1) + isExtra(1) + repeat(1) + state(2) = 5 bytes
-				buf = append(buf, byte(a.kind))
-				if a.isExtra {
-					buf = append(buf, 1)
-				} else {
-					buf = append(buf, 0)
-				}
-				if a.repeat {
-					buf = append(buf, 1)
-				} else {
-					buf = append(buf, 0)
-				}
-				buf = append(buf, byte(a.state>>8), byte(a.state))
-			case lrReduce:
-				// REDUCE: key = kind(1) + isExtra(1) + repeat(1) + lhs(2) + childCount(1) + dynPrec(2) + prodID(2) + extra(1) = 11 bytes
-				// Use semantic content (prod fields) rather than raw prodIdx.
-				prod := &ng.Productions[a.prodIdx]
-				childCount := len(prod.RHS)
-				buf = append(buf, byte(a.kind))
-				if a.isExtra {
-					buf = append(buf, 1)
-				} else {
-					buf = append(buf, 0)
-				}
-				if a.repeat {
-					buf = append(buf, 1)
-				} else {
-					buf = append(buf, 0)
-				}
-				buf = append(buf, byte(prod.LHS>>8), byte(prod.LHS))
-				buf = append(buf, byte(childCount))
-				buf = append(buf, byte(prod.DynPrec>>8), byte(prod.DynPrec))
-				buf = append(buf, byte(prod.ProductionID>>8), byte(prod.ProductionID))
-				if prod.IsExtra {
-					buf = append(buf, 1)
-				} else {
-					buf = append(buf, 0)
-				}
-			default:
-				// ACCEPT and others: kind only
-				buf = append(buf, byte(a.kind))
-			}
-		}
-		return string(buf)
+		return serializeActionGroupKey(acts, ng)
 	}
 
 	// indexErr captures the first uint16 overflow encountered while assigning
