@@ -1525,6 +1525,47 @@ type ParseRuntime struct {
 	TransientScratchBytesAllocated int64
 }
 
+// parseRuntimePool recycles the ParseRuntime block that a Tree points to.
+// Tree.Release is the only place that returns a block, and it nils the
+// tree's pointer before the block reaches the pool, so no live *Tree can
+// ever observe a block after some other tree recycles it. Tree.ParseRuntime
+// always returns a value copy, so a caller can never hold a reference into a
+// pooled block either. Do not add another path that calls Put.
+var parseRuntimePool = sync.Pool{
+	New: func() any { return new(ParseRuntime) },
+}
+
+// acquireParseRuntime returns a zeroed ParseRuntime block, reused from a
+// prior Tree.Release when the pool holds one. Every Tree construction site
+// (NewTree, resetTreeForReuse, Copy) calls this eagerly, so a live Tree's
+// parseRuntime field is never observed as nil by a concurrent reader; see
+// parseRuntimeNone for the one exception.
+func acquireParseRuntime() *ParseRuntime {
+	return parseRuntimePool.Get().(*ParseRuntime)
+}
+
+// releaseParseRuntime scrubs rt and returns it to the pool. Scrubbing here,
+// at release time, drops any large fields the block holds (EquivStateStats,
+// ReduceTiming, ActionTiming, NormalizationPasses) as soon as the owning
+// tree goes away, instead of leaving them retained in the pool until some
+// unrelated later parse happens to reuse this exact block.
+func releaseParseRuntime(rt *ParseRuntime) {
+	if rt == nil {
+		return
+	}
+	*rt = ParseRuntime{}
+	parseRuntimePool.Put(rt)
+}
+
+// parseRuntimeNone is a shared, permanently zero ParseRuntime. rawParseRuntime
+// returns a pointer to it for a Tree whose parseRuntime field is nil (a bare
+// &Tree{} built outside every constructor above), so a read never allocates
+// and never writes to the tree. Never write through the pointer rawParseRuntime
+// can return: every live Tree with a nil block shares this exact value, so a
+// write here would corrupt what every other such Tree reads. Write sites must
+// call ensureParseRuntime instead, which allocates a private block first.
+var parseRuntimeNone = ParseRuntime{StopReason: ParseStopNone}
+
 type NormalizationPassRuntime struct {
 	Name           string
 	Checked        uint64
@@ -2860,7 +2901,7 @@ func (t *Tree) ensureResultCompatibility() {
 			// normalizer just ran on the line above. parser.normalizationStats is
 			// only ever non-empty when that census flag is set, so this is a
 			// no-op field copy in every ordinary parse.
-			parser.copyNormalizationStats(&t.parseRuntime)
+			parser.copyNormalizationStats(t.ensureParseRuntime())
 			return
 		}
 		timing := &parseMaterializationTiming{}
@@ -2874,8 +2915,8 @@ func (t *Tree) ensureResultCompatibility() {
 		t.resultCompatibilityApplied = !resultMaterializationShouldStop(result.stopReason)
 		t.disableIncrementalReuseAfterCompactCompatibility(compatibilitySnapshot)
 		timing.addResultCompatibility(start)
-		t.parseRuntime.ResultCompatibilityNanos += timing.resultCompatibilityNanos
-		parser.copyNormalizationStats(&t.parseRuntime)
+		t.ensureParseRuntime().ResultCompatibilityNanos += timing.resultCompatibilityNanos
+		parser.copyNormalizationStats(t.ensureParseRuntime())
 	})
 }
 
@@ -3364,15 +3405,20 @@ type Tree struct {
 	sourceEncoding InputEncoding
 	// Zero means unknown. A full DFA parse records the longest primitive read,
 	// including failed probes. Incremental reconstruction cannot infer this bound.
-	tokenInvariantReadSpan             uint32
-	sourceUTF16                        []uint16
-	utf16Map                           *utf16SourceMap
-	language                           *Language
-	edits                              []InputEdit  // pending edits applied to this tree
-	lastEditedLeaf                     *Node        // deepest leaf overlapped by the most recent edit, when tracked
-	arena                              *nodeArena   // primary arena that owns newly-built nodes
-	borrowedArena                      []*nodeArena // arenas borrowed via subtree reuse
-	parseRuntime                       ParseRuntime
+	tokenInvariantReadSpan uint32
+	sourceUTF16            []uint16
+	utf16Map               *utf16SourceMap
+	language               *Language
+	edits                  []InputEdit  // pending edits applied to this tree
+	lastEditedLeaf         *Node        // deepest leaf overlapped by the most recent edit, when tracked
+	arena                  *nodeArena   // primary arena that owns newly-built nodes
+	borrowedArena          []*nodeArena // arenas borrowed via subtree reuse
+	// parseRuntime is a pooled block (see parseRuntimePool). Only Release
+	// returns it to the pool, and only after nilling this field, so a stale
+	// *Tree can never reach a block another tree is now using. Read it
+	// through rawParseRuntime/ParseRuntime, never by taking this pointer's
+	// address.
+	parseRuntime                       *ParseRuntime
 	arenaBreakdown                     *ArenaBreakdown
 	includedRanges                     []Range
 	externalScannerCheckpointsDeferred bool
@@ -3421,6 +3467,11 @@ func NewTree(root *Node, source []byte, lang *Language) *Tree {
 		source:         source,
 		sourceEncoding: InputEncodingUTF8,
 		language:       lang,
+		// Tree is documented safe for concurrent reads after construction, so
+		// this must not be left nil for rawParseRuntime to backfill lazily on
+		// first read: two goroutines reading concurrently would race on that
+		// write. Acquire eagerly here, matching every other construction site.
+		parseRuntime: acquireParseRuntime(),
 	}
 }
 
@@ -3449,13 +3500,17 @@ func resetTreeForReuse(tree *Tree, root *Node, source []byte, lang *Language, ar
 	edits := reusableTreeEditScratch(tree.edits)
 	deferExternalCheckpoints := root != nil && languageUsesExternalScannerCheckpoints(lang)
 	*tree = Tree{
-		root:                               root,
-		source:                             source,
-		sourceEncoding:                     InputEncodingUTF8,
-		language:                           lang,
-		edits:                              edits,
-		arena:                              arena,
-		borrowedArena:                      borrowed,
+		root:           root,
+		source:         source,
+		sourceEncoding: InputEncodingUTF8,
+		language:       lang,
+		edits:          edits,
+		arena:          arena,
+		borrowedArena:  borrowed,
+		// The parser's tree construction seam is the one place that acquires
+		// eagerly, so the runtime writes the parse loop makes as it runs
+		// never hit rawParseRuntime's lazy fallback.
+		parseRuntime:                       acquireParseRuntime(),
 		externalScannerCheckpointsDeferred: deferExternalCheckpoints,
 	}
 }
@@ -3535,7 +3590,13 @@ func (t *Tree) Release() {
 	t.utf16Map = nil
 	t.language = nil
 	t.edits = edits
-	t.parseRuntime = ParseRuntime{}
+	// Nil the field before the block reaches the pool, so a use-after-release
+	// caller that still holds this *Tree can never read another tree's data
+	// through it.
+	if rt := t.parseRuntime; rt != nil {
+		t.parseRuntime = nil
+		releaseParseRuntime(rt)
+	}
 	t.arenaBreakdown = nil
 	t.includedRanges = nil
 	t.resultErrorSummary = resultErrorSummaryUnknown
@@ -3801,12 +3862,14 @@ func (t *Tree) Copy() *Tree {
 	t.ensureResultCompatibility()
 
 	out := &Tree{
-		source:                     t.source,
-		sourceEncoding:             t.sourceEncoding,
-		sourceUTF16:                t.sourceUTF16,
-		utf16Map:                   t.utf16Map,
-		language:                   t.language,
-		parseRuntime:               t.parseRuntime,
+		source:         t.source,
+		sourceEncoding: t.sourceEncoding,
+		sourceUTF16:    t.sourceUTF16,
+		utf16Map:       t.utf16Map,
+		language:       t.language,
+		// A fresh block, not a shared pointer: out must never alias t's
+		// pooled parseRuntime, since the two trees release independently.
+		parseRuntime:               acquireParseRuntime(),
 		resultErrorSummary:         t.resultErrorSummary,
 		resultCompatibilityApplied: t.resultCompatibilityApplied,
 		tokenInvariantReadSpan:     t.tokenInvariantReadSpan,
@@ -3820,6 +3883,7 @@ func (t *Tree) Copy() *Tree {
 		incrementalReuseUnsupportedClause: t.incrementalReuseUnsupportedClause,
 		compactMaterialized:               t.compactMaterialized,
 	}
+	*out.parseRuntime = *t.rawParseRuntime()
 	if len(t.edits) > 0 {
 		out.edits = make([]InputEdit, len(t.edits))
 		copy(out.edits, t.edits)
@@ -4339,7 +4403,7 @@ func (t *Tree) ParseStoppedEarly() bool {
 // normalization code must use this accessor until the tree is returned; public
 // observers use ParseStopReason and join the synchronized finalization boundary.
 func (t *Tree) rawParseStopReason() ParseStopReason {
-	if t == nil || t.parseRuntime.StopReason == "" {
+	if t == nil || t.parseRuntime == nil || t.parseRuntime.StopReason == "" {
 		return ParseStopNone
 	}
 	return t.parseRuntime.StopReason
@@ -4406,13 +4470,40 @@ func (t *Tree) RecoveryNodeMemoRuntime() RecoveryNodeMemoRuntime {
 
 // rawParseRuntime returns the parser-captured runtime record without running
 // deferred result compatibility and without the public accessor's live arena
-// counter overlay. Parser-owned decision helpers may use it only while the tree
-// is alive and must not mutate the result.
+// counter overlay. Parser-owned decision helpers may use it only while the
+// tree is alive and must not mutate the result.
+//
+// This is READ-ONLY: it never allocates and never writes to t. A Tree with no
+// block of its own (t.parseRuntime == nil — not expected on any current
+// construction path, since every one of them acquires eagerly, but Tree is
+// documented safe for concurrent reads, so this must not backfill lazily)
+// gets a pointer to the shared parseRuntimeNone zero value instead. Callers
+// that need to write must call ensureParseRuntime, never assign through the
+// pointer this returns.
 func (t *Tree) rawParseRuntime() *ParseRuntime {
 	if t == nil {
 		return nil
 	}
-	return &t.parseRuntime
+	if t.parseRuntime == nil {
+		return &parseRuntimeNone
+	}
+	return t.parseRuntime
+}
+
+// ensureParseRuntime returns t's own runtime block, allocating one from the
+// pool and storing it on t first if this Tree has none yet. Only call this
+// from a write site. Every construction path acquires eagerly already
+// (NewTree, resetTreeForReuse, Copy), so in practice this never allocates;
+// it exists as a fail-safe for a Tree assembled some other way, for example a
+// bare &Tree{} literal in a test.
+func (t *Tree) ensureParseRuntime() *ParseRuntime {
+	if t == nil {
+		return nil
+	}
+	if t.parseRuntime == nil {
+		t.parseRuntime = acquireParseRuntime()
+	}
+	return t.parseRuntime
 }
 
 // ArenaBreakdown returns optional arena/materialization attribution captured
@@ -4431,7 +4522,7 @@ func (t *Tree) setParseRuntime(rt ParseRuntime) {
 	if rt.StopReason == "" {
 		rt.StopReason = ParseStopNone
 	}
-	t.parseRuntime = rt
+	*t.ensureParseRuntime() = rt
 }
 
 func (t *Tree) setRecoveryNodeMemoRuntime(rt RecoveryNodeMemoRuntime) {

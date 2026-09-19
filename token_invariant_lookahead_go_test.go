@@ -32,7 +32,7 @@ func testTokenInvariantGoControl(t *testing.T, value, nodeType string) {
 			defer func() { old.Release() }()
 			root := old.RootNode()
 			if old.tokenInvariantReadSpan == 0 {
-				t.Fatalf("full parse did not capture lexical coverage: stop=%s stacks=%d recovery=%t deferred=%t", old.parseRuntime.StopReason, old.parseRuntime.MaxStacksSeen, old.parseRuntime.CRecoveryEnteredErrorState, old.hasDeferredResultCompatibility())
+				t.Fatalf("full parse did not capture lexical coverage: stop=%s stacks=%d recovery=%t deferred=%t", old.rawParseRuntime().StopReason, old.rawParseRuntime().MaxStacksSeen, old.rawParseRuntime().CRecoveryEnteredErrorState, old.hasDeferredResultCompatibility())
 			}
 			for _, replacement := range []string{"2", "1", "2"} {
 				valueStart := bytes.Index(source, []byte("_ = ")) + 4

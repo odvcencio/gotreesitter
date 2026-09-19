@@ -33,8 +33,8 @@ func TestCompactRecoveryMaterializationCountsDiscardedNodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tree.Release()
-	if work.allocatedNodes != discarded+uint64(tree.parseRuntime.NodesAllocated) {
-		t.Fatalf("retry allocations=%d, want discarded %d plus successful %d", work.allocatedNodes, discarded, tree.parseRuntime.NodesAllocated)
+	if work.allocatedNodes != discarded+uint64(tree.rawParseRuntime().NodesAllocated) {
+		t.Fatalf("retry allocations=%d, want discarded %d plus successful %d", work.allocatedNodes, discarded, tree.rawParseRuntime().NodesAllocated)
 	}
 	scratch.freshAttemptWork = nil
 	if len(scratch.materializer.nodesByID) != 0 || len(scratch.nodes) != 0 {
@@ -73,15 +73,15 @@ func TestCompactRecoveryProfiledAllocationScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recoveryTokens := recovery.parseRuntime.TokensConsumed
+	recoveryTokens := recovery.rawParseRuntime().TokensConsumed
 	recovery.Release()
 	next, profile, err := p.ParseIncrementalProfiled(edited, old)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer next.Release()
-	if !next.parseRuntime.CompactIncrementalFullRecoveryRoute ||
-		profile.NewNodesAllocated < uint64(next.parseRuntime.NodesAllocated) {
+	if !next.rawParseRuntime().CompactIncrementalFullRecoveryRoute ||
+		profile.NewNodesAllocated < uint64(next.rawParseRuntime().NodesAllocated) {
 		t.Fatal("profile omitted compact recovery allocations")
 	}
 	if want := borrowedWork.tokensConsumed + plainTokens + recoveryTokens; profile.TokensConsumed != want {
