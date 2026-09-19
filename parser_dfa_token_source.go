@@ -4958,6 +4958,8 @@ func (d *dfaTokenSource) promoteKeyword(tok *Token) bool {
 	// ts_language_is_reserved_word), so the parse fails on it instead of
 	// reading it as the word token.
 	if d.keywordReservedInState(d.state, kwTok.Symbol) {
+		tok.Symbol = kwTok.Symbol
+		tok.setLexFlag(tokenFlagKeyword, true)
 		return false
 	}
 
