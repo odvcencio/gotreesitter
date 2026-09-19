@@ -3144,7 +3144,7 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int) *Tree {
 	// Fast path: unchanged source and no recorded edits.
 	if canReuseUnchangedTree(source, oldTree, p.language) {
-		return oldTree
+		return oldTree.retainUnchangedIncrementalResult()
 	}
 	// Parser states, symbols, and scanner checkpoints belong to one Language
 	// instance. Never interpret an edited tree through another instance, even

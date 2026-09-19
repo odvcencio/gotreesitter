@@ -278,7 +278,14 @@ tree.Edit(gotreesitter.InputEdit{
 })
 
 tree2, _ := parser.ParseIncremental(src, tree)
+tree.Release()
+defer tree2.Release()
 ```
+
+Release the old tree and the new tree once each. The new tree can share
+nodes with the old tree. `ParseIncremental` updates the parent links of those
+shared nodes, so do not read the old tree from another goroutine during the
+call. After the call, read the new tree.
 
 `ParseIncremental` walks the old tree's spine, identifies the edit region, and reuses unchanged content by reference. For an admitted clean edit, re-lex/reparse work can stay close to the invalidated region: reuse covers leaf nodes, the unchanged suffix, the untouched root, and unchanged top-level siblings after the edit. Admission for top-level sibling reuse is per node: a fragility bit plus byte-range equality, not a language allowlist.
 
@@ -301,7 +308,7 @@ External scanners need certification for general old-tree reuse. Unsupported
 cases use the legacy full-parse fallback. See the
 [per-language incremental scanner matrix](docs/external-scanners.md#incremental-reuse-certification-matrix).
 
-When no edit has occurred, `ParseIncremental` detects the nil-edit on a pointer check and returns in single-digit nanoseconds with zero allocations.
+When no edit has occurred, `ParseIncremental` detects the nil-edit on a pointer check and returns in single-digit nanoseconds with zero allocations. It returns the old tree itself and adds a handle to it, so releasing the old tree does not invalidate the result.
 
 ### UTF-16 input and editor coordinates
 
