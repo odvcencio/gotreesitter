@@ -145,11 +145,14 @@ func (pp *ParserPool) applyDefaults(p *Parser) {
 	p.skipInvisibleFullLeafCheckpoints = false
 	p.noResultCompatibilityBenchmarkOnly = false
 	// Scrub the Phase-3 admission switch state so a pooled parser follows the
-	// process-wide default again and never carries a stale override, suppression
-	// depth, or cached compact runner across checkouts.
+	// process-wide default again and never carries a stale override or
+	// suppression depth across checkouts. Keep the compact runner: it holds
+	// no request state between parses, and a cold runner allocates its
+	// arenas again on the next parse. SetParseWorkLimits drops the runner
+	// when the limits change, and a pooled parser keeps its runner the same
+	// way a long-lived Parser does.
 	p.admissionCandidateRoute = admissionRouteFollowDefault
 	p.admissionRouteSuppressed = 0
-	p.admissionCandidateRunner = nil
 }
 
 func (pp *ParserPool) checkout() *Parser {
