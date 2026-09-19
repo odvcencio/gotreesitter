@@ -44,16 +44,18 @@ func (c *TreeCursor) ensureStack() {
 }
 
 // CurrentNode returns the node the cursor is currently pointing to.
+// Returns nil for a nil cursor.
 func (c *TreeCursor) CurrentNode() *Node {
-	if len(c.stack) == 0 {
+	if c == nil || len(c.stack) == 0 {
 		return nil
 	}
 	return c.stack[len(c.stack)-1].node
 }
 
-// Depth returns the cursor's current depth (0 at the root).
+// Depth returns the cursor's current depth (0 at the root). Returns 0 for
+// a nil cursor.
 func (c *TreeCursor) Depth() int {
-	if len(c.stack) == 0 {
+	if c == nil || len(c.stack) == 0 {
 		return 0
 	}
 	return len(c.stack) - 1
@@ -86,9 +88,10 @@ func (c *TreeCursor) GotoLastChild() bool {
 }
 
 // GotoNextSibling moves the cursor to the next sibling.
-// Returns false if the cursor is at the root or the last sibling.
+// Returns false if the cursor is at the root or the last sibling, or the
+// cursor is nil.
 func (c *TreeCursor) GotoNextSibling() bool {
-	if len(c.stack) < 2 {
+	if c == nil || len(c.stack) < 2 {
 		return false
 	}
 	frame := &c.stack[len(c.stack)-1]
@@ -106,9 +109,10 @@ func (c *TreeCursor) GotoNextSibling() bool {
 }
 
 // GotoPrevSibling moves the cursor to the previous sibling.
-// Returns false if the cursor is at the root or the first sibling.
+// Returns false if the cursor is at the root or the first sibling, or the
+// cursor is nil.
 func (c *TreeCursor) GotoPrevSibling() bool {
-	if len(c.stack) < 2 {
+	if c == nil || len(c.stack) < 2 {
 		return false
 	}
 	frame := &c.stack[len(c.stack)-1]
@@ -126,9 +130,9 @@ func (c *TreeCursor) GotoPrevSibling() bool {
 }
 
 // GotoParent moves the cursor to the parent of the current node.
-// Returns false if the cursor is at the root.
+// Returns false if the cursor is at the root, or the cursor is nil.
 func (c *TreeCursor) GotoParent() bool {
-	if len(c.stack) < 2 {
+	if c == nil || len(c.stack) < 2 {
 		return false
 	}
 	c.stack = c.stack[:len(c.stack)-1]
@@ -136,9 +140,10 @@ func (c *TreeCursor) GotoParent() bool {
 }
 
 // CurrentFieldID returns the field ID of the current node within its parent.
-// Returns 0 if the cursor is at the root or the node has no field assignment.
+// Returns 0 if the cursor is nil, is at the root, or the node has no field
+// assignment.
 func (c *TreeCursor) CurrentFieldID() FieldID {
-	if len(c.stack) < 2 {
+	if c == nil || len(c.stack) < 2 {
 		return 0
 	}
 	frame := c.stack[len(c.stack)-1]
@@ -150,8 +155,8 @@ func (c *TreeCursor) CurrentFieldID() FieldID {
 }
 
 // CurrentFieldName returns the field name of the current node within its parent.
-// Returns "" if no tree is associated, the cursor is at the root, or
-// the node has no field assignment.
+// Returns "" if the cursor is nil, no tree is associated, the cursor is at
+// the root, or the node has no field assignment.
 func (c *TreeCursor) CurrentFieldName() string {
 	fid := c.CurrentFieldID()
 	if fid == 0 || c.tree == nil {
@@ -186,10 +191,10 @@ func (c *TreeCursor) GotoChildByFieldID(fid FieldID) bool {
 }
 
 // GotoChildByFieldName moves the cursor to the first child with the given field name.
-// Returns false if the tree has no language, the field name is unknown, or
-// no child has that field.
+// Returns false if the cursor is nil, the tree has no language, the field
+// name is unknown, or no child has that field.
 func (c *TreeCursor) GotoChildByFieldName(name string) bool {
-	if c.tree == nil {
+	if c == nil || c.tree == nil {
 		return false
 	}
 	lang := c.tree.Language()
@@ -247,9 +252,10 @@ func (c *TreeCursor) GotoLastNamedChild() bool {
 }
 
 // GotoNextNamedSibling moves the cursor to the next named sibling,
-// skipping anonymous nodes. Returns false if no named sibling follows.
+// skipping anonymous nodes. Returns false if no named sibling follows, or
+// the cursor is nil.
 func (c *TreeCursor) GotoNextNamedSibling() bool {
-	if len(c.stack) < 2 {
+	if c == nil || len(c.stack) < 2 {
 		return false
 	}
 	frame := &c.stack[len(c.stack)-1]
@@ -274,9 +280,10 @@ func (c *TreeCursor) GotoNextNamedSibling() bool {
 }
 
 // GotoPrevNamedSibling moves the cursor to the previous named sibling,
-// skipping anonymous nodes. Returns false if no named sibling precedes.
+// skipping anonymous nodes. Returns false if no named sibling precedes, or
+// the cursor is nil.
 func (c *TreeCursor) GotoPrevNamedSibling() bool {
-	if len(c.stack) < 2 {
+	if c == nil || len(c.stack) < 2 {
 		return false
 	}
 	frame := &c.stack[len(c.stack)-1]
@@ -346,15 +353,23 @@ func (c *TreeCursor) GotoFirstChildForPoint(targetPoint Point) int64 {
 	return int64(i)
 }
 
-// Reset resets the cursor to a new root node, clearing the navigation stack.
+// Reset resets the cursor to a new root node, clearing the navigation
+// stack. Does nothing for a nil cursor.
 func (c *TreeCursor) Reset(node *Node) {
+	if c == nil {
+		return
+	}
 	c.ensureStack()
 	c.stack = c.stack[:1]
 	c.stack[0] = cursorFrame{node: node, childIndex: -1}
 }
 
-// ResetTree resets the cursor to the root of a new tree.
+// ResetTree resets the cursor to the root of a new tree. Does nothing for
+// a nil cursor.
 func (c *TreeCursor) ResetTree(tree *Tree) {
+	if c == nil {
+		return
+	}
 	c.tree = tree
 	if tree == nil {
 		c.Reset(nil)
@@ -364,8 +379,12 @@ func (c *TreeCursor) ResetTree(tree *Tree) {
 }
 
 // Copy returns an independent copy of the cursor. The copy shares the same
-// tree reference but has its own navigation stack.
+// tree reference but has its own navigation stack. Returns nil for a nil
+// cursor.
 func (c *TreeCursor) Copy() *TreeCursor {
+	if c == nil {
+		return nil
+	}
 	newStack := make([]cursorFrame, len(c.stack))
 	copy(newStack, c.stack)
 	return &TreeCursor{
@@ -375,9 +394,10 @@ func (c *TreeCursor) Copy() *TreeCursor {
 }
 
 // CurrentNodeType returns the type name of the current node.
-// Requires a tree with a language to be associated.
+// Requires a tree with a language to be associated. Returns "" for a nil
+// cursor.
 func (c *TreeCursor) CurrentNodeType() string {
-	if c.tree == nil {
+	if c == nil || c.tree == nil {
 		return ""
 	}
 	node := c.CurrentNode()
@@ -392,9 +412,10 @@ func (c *TreeCursor) CurrentNodeType() string {
 }
 
 // CurrentNodeText returns the source text of the current node.
-// Requires a tree with source to be associated.
+// Requires a tree with source to be associated. Returns "" for a nil
+// cursor.
 func (c *TreeCursor) CurrentNodeText() string {
-	if c.tree == nil {
+	if c == nil || c.tree == nil {
 		return ""
 	}
 	node := c.CurrentNode()

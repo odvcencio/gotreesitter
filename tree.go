@@ -1858,32 +1858,55 @@ func (rt ParseRuntime) Summary() string {
 	return s
 }
 
-// Symbol returns the node's grammar symbol.
-func (n *Node) Symbol() Symbol { return n.symbol }
+// Symbol returns the node's grammar symbol. Returns 0 for a nil node,
+// matching a null TSNode handle in the C API.
+func (n *Node) Symbol() Symbol {
+	if n == nil {
+		return 0
+	}
+	return n.symbol
+}
 
-// ParseState returns the parser state associated with this node.
-func (n *Node) ParseState() StateID { return n.parseState }
+// ParseState returns the parser state associated with this node. Returns 0
+// for a nil node.
+func (n *Node) ParseState() StateID {
+	if n == nil {
+		return 0
+	}
+	return n.parseState
+}
 
 // PreGotoState returns the parser state that was on top of the stack before
 // this node was pushed (i.e., the state exposed after popping children during
 // reduce). For non-leaf nodes: lookupGoto(PreGotoState, Symbol) == ParseState.
-func (n *Node) PreGotoState() StateID { return n.preGotoState }
+// Returns 0 for a nil node.
+func (n *Node) PreGotoState() StateID {
+	if n == nil {
+		return 0
+	}
+	return n.preGotoState
+}
 
-// IsNamed reports whether this is a named node (as opposed to anonymous syntax like punctuation).
-func (n *Node) IsNamed() bool { return n.isNamed() }
+// IsNamed reports whether this is a named node (as opposed to anonymous
+// syntax like punctuation). Returns false for a nil node.
+func (n *Node) IsNamed() bool { return n != nil && n.isNamed() }
 
 // IsExtra reports whether this node was marked as extra syntax
-// (e.g. whitespace/comments outside the core parse structure).
-func (n *Node) IsExtra() bool { return n.isExtra() }
+// (e.g. whitespace/comments outside the core parse structure). Returns
+// false for a nil node.
+func (n *Node) IsExtra() bool { return n != nil && n.isExtra() }
 
 // IsMissing reports whether this node was inserted by error recovery.
-func (n *Node) IsMissing() bool { return n.isMissing() }
+// Returns false for a nil node.
+func (n *Node) IsMissing() bool { return n != nil && n.isMissing() }
 
-// IsError reports whether this node is an explicit error node.
-func (n *Node) IsError() bool { return n.symbol == errorSymbol }
+// IsError reports whether this node is an explicit error node. Returns
+// false for a nil node.
+func (n *Node) IsError() bool { return n != nil && n.symbol == errorSymbol }
 
-// HasError reports whether this node or any descendant contains a parse error.
-func (n *Node) HasError() bool { return n.hasError() }
+// HasError reports whether this node or any descendant contains a parse
+// error. Returns false for a nil node.
+func (n *Node) HasError() bool { return n != nil && n.hasError() }
 
 // HasErrorOrMissing reports whether this node or a descendant contains an
 // ERROR or MISSING node. Use it for strict parse-health checks.
@@ -1918,20 +1941,48 @@ func (n *Node) HasErrorOrMissing() bool {
 // HasChanges reports whether this node was marked dirty by Tree.Edit.
 func (n *Node) HasChanges() bool { return n.dirty() }
 
-// StartByte returns the byte offset where this node begins.
-func (n *Node) StartByte() uint32 { return n.startByte }
+// StartByte returns the byte offset where this node begins. Returns 0 for
+// a nil node.
+func (n *Node) StartByte() uint32 {
+	if n == nil {
+		return 0
+	}
+	return n.startByte
+}
 
 // EndByte returns the byte offset where this node ends (exclusive).
-func (n *Node) EndByte() uint32 { return n.endByte }
+// Returns 0 for a nil node.
+func (n *Node) EndByte() uint32 {
+	if n == nil {
+		return 0
+	}
+	return n.endByte
+}
 
 // StartPoint returns the row/column position where this node begins.
-func (n *Node) StartPoint() Point { return n.startPoint }
+// Returns the zero Point for a nil node.
+func (n *Node) StartPoint() Point {
+	if n == nil {
+		return Point{}
+	}
+	return n.startPoint
+}
 
-// EndPoint returns the row/column position where this node ends.
-func (n *Node) EndPoint() Point { return n.endPoint }
+// EndPoint returns the row/column position where this node ends. Returns
+// the zero Point for a nil node.
+func (n *Node) EndPoint() Point {
+	if n == nil {
+		return Point{}
+	}
+	return n.endPoint
+}
 
-// Range returns the full span of this node as a Range.
+// Range returns the full span of this node as a Range. Returns the zero
+// Range for a nil node.
 func (n *Node) Range() Range {
+	if n == nil {
+		return Range{}
+	}
 	return Range{
 		StartByte:  n.startByte,
 		EndByte:    n.endByte,
@@ -2097,10 +2148,32 @@ func (n *Node) SExpr(lang *Language) string {
 	}
 	var b strings.Builder
 	// S-expressions are typically ~5x the source byte count for named nodes.
-	// Pre-growing the builder avoids intermediate reallocations.
-	b.Grow((int(n.endByte-n.startByte) * 5) + 32)
+	// Pre-growing the builder avoids intermediate reallocations. The hint is
+	// capped and treats an inverted span as zero, so a bad span (endByte <
+	// startByte, which NewLeafNode permits) or a very large node cannot
+	// force a multi-gigabyte pre-allocation.
+	b.Grow(sexprGrowHint(n.startByte, n.endByte))
 	sexprWrite(n, lang, &b)
 	return b.String()
+}
+
+// sexprGrowCap bounds the strings.Builder growth hint that SExpr requests
+// up front, regardless of node span.
+const sexprGrowCap = 1 << 20 // 1 MiB
+
+// sexprGrowHint estimates the strings.Builder capacity SExpr should
+// pre-allocate for a node spanning [startByte, endByte). It treats an
+// inverted span as zero and clamps the result to sexprGrowCap.
+func sexprGrowHint(startByte, endByte uint32) int {
+	if endByte < startByte {
+		return 32
+	}
+	span := uint64(endByte - startByte)
+	hint := span*5 + 32
+	if hint > sexprGrowCap {
+		return sexprGrowCap
+	}
+	return int(hint)
 }
 
 // sexprWrite writes the S-expression for n into b, returning true if anything
@@ -2147,9 +2220,13 @@ func (n *Node) Text(source []byte) string {
 	return string(source[start:end])
 }
 
-// Type returns the node's type name from the language.
+// Type returns the node's type name from the language. Returns "" for a
+// nil node or a nil lang.
 func (n *Node) Type(lang *Language) string {
-	if n != nil && n.symbol == errorSymbol {
+	if n == nil || lang == nil {
+		return ""
+	}
+	if n.symbol == errorSymbol {
 		return "ERROR"
 	}
 	if int(n.symbol) < len(lang.SymbolNames) {
@@ -3093,9 +3170,48 @@ func newParentNode(arena *nodeArena, sym Symbol, named bool, children []*Node, f
 // NewParentNode creates a non-terminal node with children.
 // It sets parent pointers on all children and computes byte/point spans
 // from the first and last children. If any child has an error, the parent
-// is marked as having an error too.
+// is marked as having an error too. A nil entry in children is dropped,
+// along with the matching entry in fieldIDs at the same index, before the
+// parent node is built.
 func NewParentNode(sym Symbol, named bool, children []*Node, fieldIDs []FieldID, productionID uint16) *Node {
+	children, fieldIDs = dropNilChildren(children, fieldIDs)
 	return newParentNode(nil, sym, named, children, fieldIDs, productionID)
+}
+
+// dropNilChildren removes nil entries from children, dropping the fieldIDs
+// entry at the same index so field assignments stay matched to their
+// children. It returns children and fieldIDs unchanged when children has
+// no nil entry.
+func dropNilChildren(children []*Node, fieldIDs []FieldID) ([]*Node, []FieldID) {
+	hasNil := false
+	for _, c := range children {
+		if c == nil {
+			hasNil = true
+			break
+		}
+	}
+	if !hasNil {
+		return children, fieldIDs
+	}
+	outChildren := make([]*Node, 0, len(children))
+	var outFieldIDs []FieldID
+	if fieldIDs != nil {
+		outFieldIDs = make([]FieldID, 0, len(children))
+	}
+	for i, c := range children {
+		if c == nil {
+			continue
+		}
+		outChildren = append(outChildren, c)
+		if fieldIDs != nil {
+			if i < len(fieldIDs) {
+				outFieldIDs = append(outFieldIDs, fieldIDs[i])
+			} else {
+				outFieldIDs = append(outFieldIDs, 0)
+			}
+		}
+	}
+	return outChildren, outFieldIDs
 }
 
 func newLeafNodeInArena(arena *nodeArena, sym Symbol, named bool, startByte, endByte uint32, startPoint, endPoint Point) *Node {
@@ -3617,8 +3733,11 @@ func (t *Tree) retainUnchangedIncrementalResult() *Tree {
 	return t
 }
 
-// RootNode returns the tree's root node.
+// RootNode returns the tree's root node. Returns nil for a nil tree.
 func (t *Tree) RootNode() *Node {
+	if t == nil {
+		return nil
+	}
 	t.ensureResultCompatibility()
 	return t.root
 }
@@ -3642,8 +3761,13 @@ func (t *Tree) RootNodeWithOffset(offsetBytes uint32, offsetExtent Point) *Node 
 	return cloneTreeNodesWithOffset(t.root, offsetBytes, offsetExtent)
 }
 
-// Source returns the original source text.
-func (t *Tree) Source() []byte { return t.source }
+// Source returns the original source text. Returns nil for a nil tree.
+func (t *Tree) Source() []byte {
+	if t == nil {
+		return nil
+	}
+	return t.source
+}
 
 // UsedForestFastPath reports whether the node data behind this tree was
 // produced by the GSS-forest GLR fast path (Parser.Parse trying
@@ -3781,8 +3905,14 @@ func (t *Tree) UTF16SourceForNode(n *Node) ([]uint16, bool) {
 	return source[start:end], true
 }
 
-// Language returns the language used to parse this tree.
-func (t *Tree) Language() *Language { return t.language }
+// Language returns the language used to parse this tree. Returns nil for
+// a nil tree.
+func (t *Tree) Language() *Language {
+	if t == nil {
+		return nil
+	}
+	return t.language
+}
 
 // WriteDOT writes a DOT graph representation of this tree to w.
 func (t *Tree) WriteDOT(w io.Writer, lang *Language) error {
@@ -4721,8 +4851,11 @@ func inputEditIsSingleByteReplacement(edit InputEdit) bool {
 // Edit records an edit on this tree. Call this before ParseIncremental to
 // inform the parser which regions changed. The edit adjusts byte offsets
 // and marks overlapping nodes as dirty so the incremental parser knows
-// what to re-parse.
+// what to re-parse. Does nothing for a nil tree.
 func (t *Tree) Edit(edit InputEdit) {
+	if t == nil {
+		return
+	}
 	t.ensureResultCompatibility()
 	t.editCompactReuseDependencies(edit)
 	if perfCountersEnabled {
@@ -4747,17 +4880,32 @@ func (t *Tree) Edit(edit InputEdit) {
 	}
 }
 
-// Edits returns the pending edits recorded on this tree.
-func (t *Tree) Edits() []InputEdit { return t.edits }
+// Edits returns the pending edits recorded on this tree. Returns nil for
+// a nil tree.
+func (t *Tree) Edits() []InputEdit {
+	if t == nil {
+		return nil
+	}
+	return t.edits
+}
 
-// ChangedRanges converts this tree's recorded edits into changed source ranges.
-// Overlapping ranges are coalesced.
+// ChangedRanges converts this tree's recorded edits into changed source
+// ranges, in the coordinates of the final source (the state after every
+// recorded edit has been applied). Overlapping ranges are coalesced.
 func (t *Tree) ChangedRanges() []Range {
 	if t == nil || len(t.edits) == 0 {
 		return nil
 	}
 	ranges := make([]Range, 0, len(t.edits))
 	for _, e := range t.edits {
+		// Every range recorded so far was captured in the source coordinates
+		// that existed right before e. An edit that lands earlier in the
+		// source than an already-recorded range shifts that range's byte
+		// offsets and points, so re-express each one in e's post-edit
+		// coordinates before adding e's own range.
+		for i := range ranges {
+			shiftChangedRangeForEdit(&ranges[i], e)
+		}
 		ranges = append(ranges, Range{
 			StartByte:  e.StartByte,
 			EndByte:    e.NewEndByte,
@@ -4766,6 +4914,37 @@ func (t *Tree) ChangedRanges() []Range {
 		})
 	}
 	return coalesceRanges(ranges)
+}
+
+// shiftChangedRangeForEdit re-expresses r, a changed range recorded in the
+// source coordinates before edit, in the coordinates after edit is applied.
+// edit may fall entirely after r (r is unaffected), entirely before r
+// (translate r by edit's delta), or overlap r (widen r to cover the part of
+// edit's replaced region that r did not already cover).
+func shiftChangedRangeForEdit(r *Range, edit InputEdit) {
+	if edit.StartByte >= r.EndByte {
+		return
+	}
+	byteDelta := int64(edit.NewEndByte) - int64(edit.OldEndByte)
+	rowDelta := int64(edit.NewEndPoint.Row) - int64(edit.OldEndPoint.Row)
+	if edit.OldEndByte <= r.StartByte {
+		r.StartByte = addUint32Delta(r.StartByte, byteDelta)
+		r.StartPoint = shiftPointAfterEdit(r.StartPoint, edit, rowDelta)
+		r.EndByte = addUint32Delta(r.EndByte, byteDelta)
+		r.EndPoint = shiftPointAfterEdit(r.EndPoint, edit, rowDelta)
+		return
+	}
+	if edit.StartByte < r.StartByte {
+		r.StartByte = edit.StartByte
+		r.StartPoint = edit.StartPoint
+	}
+	if edit.OldEndByte >= r.EndByte {
+		r.EndByte = edit.NewEndByte
+		r.EndPoint = edit.NewEndPoint
+	} else {
+		r.EndByte = addUint32Delta(r.EndByte, byteDelta)
+		r.EndPoint = shiftPointAfterEdit(r.EndPoint, edit, rowDelta)
+	}
 }
 
 func rangesOverlapOrTouch(a, b Range) bool {

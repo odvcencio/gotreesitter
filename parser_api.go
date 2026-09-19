@@ -1383,7 +1383,10 @@ const errorSymbol = Symbol(65535)
 // Parse tokenizes and parses source using the built-in DFA lexer, returning
 // a syntax tree. This works for hand-built grammars that provide LexStates.
 // For real grammars that need a custom lexer, use ParseWithTokenSource.
-// If the input is empty, it returns a tree with a nil root and no error.
+// If the input is empty, the returned tree's root depends on the grammar:
+// some grammars return a nil root, others return a non-nil, zero-width root
+// (for example, JSON returns a zero-width document node for empty input).
+// Check Tree.RootNode() for nil before use; do not assume either shape.
 func (p *Parser) Parse(source []byte) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err

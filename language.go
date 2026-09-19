@@ -1730,9 +1730,13 @@ func (l *Language) SupertypeChildren(sym Symbol) []Symbol {
 	return l.SupertypeMapEntries[start : start+length]
 }
 
-// FieldByName returns the field ID for a given name, or (0, false) if not found.
-// Builds an internal map on first call for O(1) subsequent lookups.
+// FieldByName returns the field ID for a given name, or (0, false) if not
+// found. Returns (0, false) for a nil Language. Builds an internal map on
+// first call for O(1) subsequent lookups.
 func (l *Language) FieldByName(name string) (FieldID, bool) {
+	if l == nil {
+		return 0, false
+	}
 	l.fieldMapOnce.Do(func() {
 		l.fieldNameMap = make(map[string]FieldID, len(l.FieldNames))
 		for i, fn := range l.FieldNames {
