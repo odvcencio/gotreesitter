@@ -949,7 +949,7 @@ func (p *Parser) parseIncrementalWithTokenSource(source []byte, oldTree *Tree, t
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	return p.parseIncrementalWithTokenSourceChanged(source, oldTree, ts, reparseFactory)
@@ -1772,7 +1772,7 @@ func (p *Parser) ParseIncremental(source []byte, oldTree *Tree) (*Tree, error) {
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, err
 	}
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult(), nil
 	}
 	operationBudget := p.beginParseOperationBudget()
@@ -1798,6 +1798,9 @@ func (p *Parser) parseIncrementalChanged(source []byte, oldTree *Tree) (*Tree, e
 	defer p.suppressAdmissionCandidateRoute()()
 	p.fullParseRetryPassesTaken = 0
 	if oldTree != nil && oldTree.language != p.language {
+		return p.Parse(source)
+	}
+	if oldTree != nil && !includedRangesMatchTree(oldTree, p.included) {
 		return p.Parse(source)
 	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
@@ -1971,7 +1974,7 @@ func (p *Parser) ParseIncrementalProfiled(source []byte, oldTree *Tree) (*Tree, 
 	if err := p.checkLanguageCompatible(); err != nil {
 		return nil, IncrementalParseProfile{}, err
 	}
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	operationBudget := p.beginParseOperationBudget()
@@ -2005,6 +2008,11 @@ func (p *Parser) parseIncrementalChangedProfiled(source []byte, oldTree *Tree) (
 		start := time.Now()
 		tree, err := p.Parse(source)
 		return tree, freshParseFallbackTiming(start, tree, "old_tree_language_mismatch"), err
+	}
+	if oldTree != nil && !includedRangesMatchTree(oldTree, p.included) {
+		start := time.Now()
+		tree, err := p.Parse(source)
+		return tree, freshParseFallbackTiming(start, tree, incrementalIncludedRangesChangedReason), err
 	}
 	if oldTreeDisablesIncrementalReuse(oldTree) {
 		timing := &incrementalParseTiming{}
@@ -2069,7 +2077,7 @@ func (p *Parser) ParseIncrementalWithTokenSourceProfiled(source []byte, oldTree 
 	defer p.endParseOperationBudget(operationBudget)
 	releaseTS := manageTokenSourceLifetime(ts)
 	defer releaseTS()
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult(), IncrementalParseProfile{}, nil
 	}
 	return p.parseIncrementalWithTokenSourceChangedProfiled(source, oldTree, ts)

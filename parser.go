@@ -3143,7 +3143,7 @@ func (p *Parser) incrementalTokenSourceFreshFullParse(source []byte, ts TokenSou
 
 func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, oldTree *Tree, ts TokenSource, timing *incrementalParseTiming, maxMergePerKeyOverride int) *Tree {
 	// Fast path: unchanged source and no recorded edits.
-	if canReuseUnchangedTree(source, oldTree, p.language) {
+	if canReuseUnchangedTree(source, oldTree, p.language, p.included) {
 		return oldTree.retainUnchangedIncrementalResult()
 	}
 	// Parser states, symbols, and scanner checkpoints belong to one Language
@@ -3153,6 +3153,15 @@ func (p *Parser) parseIncrementalInternalWithMergePerKeyOverride(source []byte, 
 		if timing != nil {
 			timing.reuseUnsupported = true
 			timing.reuseUnsupportedReason = "old_tree_language_mismatch"
+		}
+		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
+	}
+	// Old nodes cover the old included ranges. When the ranges change, old
+	// nodes can span excluded bytes or miss included bytes.
+	if oldTree != nil && !includedRangesMatchTree(oldTree, p.included) {
+		if timing != nil {
+			timing.reuseUnsupported = true
+			timing.reuseUnsupportedReason = incrementalIncludedRangesChangedReason
 		}
 		return p.incrementalTokenSourceFreshFullParse(source, ts, timing)
 	}
@@ -3471,8 +3480,11 @@ func (p *Parser) currentExternalCompactFullLeafCheckpointRef(arena *nodeArena, t
 	return cp, true
 }
 
-func canReuseUnchangedTree(source []byte, oldTree *Tree, lang *Language) bool {
+func canReuseUnchangedTree(source []byte, oldTree *Tree, lang *Language, included []Range) bool {
 	if oldTree == nil || oldTree.language != lang || len(oldTree.edits) != 0 {
+		return false
+	}
+	if !includedRangesMatchTree(oldTree, included) {
 		return false
 	}
 	oldSource := oldTree.source
@@ -3488,6 +3500,38 @@ func canReuseUnchangedTree(source []byte, oldTree *Tree, lang *Language) bool {
 		return true
 	}
 	return bytes.Equal(oldSource, source)
+}
+
+// incrementalIncludedRangesChangedReason names the fresh-parse fallback for an
+// old tree whose included ranges differ from the parser ranges.
+const incrementalIncludedRangesChangedReason = "included_ranges_changed"
+
+// includedRangesMatchTree reports whether oldTree covers the same included
+// ranges as the parser. Empty ranges select no bytes, so both sides skip them.
+// Tree.Edit moves the old tree ranges, so a caller that sets the edited ranges
+// again keeps incremental reuse.
+func includedRangesMatchTree(oldTree *Tree, included []Range) bool {
+	var old []Range
+	if oldTree != nil {
+		old = oldTree.includedRanges
+	}
+	i, j := 0, 0
+	for {
+		for i < len(old) && old[i].EndByte <= old[i].StartByte {
+			i++
+		}
+		for j < len(included) && included[j].EndByte <= included[j].StartByte {
+			j++
+		}
+		if i == len(old) || j == len(included) {
+			return i == len(old) && j == len(included)
+		}
+		if old[i] != included[j] {
+			return false
+		}
+		i++
+		j++
+	}
 }
 
 func (p *Parser) logf(kind ParserLogType, format string, args ...any) {
