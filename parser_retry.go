@@ -887,7 +887,15 @@ func effectiveFullParseInitialMaxStacks(lang *Language, initialMaxStacks int) in
 }
 
 func fullParseInitialMaxStacks(lang *Language, conflictWidth int) int {
-	initialMaxStacks := effectiveFullParseInitialMaxStacks(lang, parseMaxGLRStacksValue())
+	initialMaxStacks := parseMaxGLRStacksValue()
+	// GOT_GLR_MAX_STACKS is an explicit override. Keep it, also when it
+	// equals the built-in default, so the per-language defaults below do
+	// not replace a value the caller chose.
+	if !parseMaxGLRStacksEnvConfigured() {
+		initialMaxStacks = effectiveFullParseInitialMaxStacks(lang, initialMaxStacks)
+	} else if initialMaxStacks <= 0 {
+		initialMaxStacks = maxGLRStacks
+	}
 	if conflictWidth > initialMaxStacks {
 		initialMaxStacks = conflictWidth
 	}
