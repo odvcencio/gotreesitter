@@ -113,6 +113,16 @@ Use this sequence for every Lead or Own grammar change:
 Do not edit a generated blob by hand. Do not adopt an upstream update without
 the same evidence. Preserve the local fixture when upstream absorbs a fix.
 
+## Automated lock updates
+
+The weekly `grammar-lock-update` workflow plans every candidate commit, then
+runs `cmd/grammar_update_guard` before it writes the lock. The guard blocks
+only grammars whose scanner-facing files or external tokens changed
+upstream. `cmd/grammar_updater` applies every other cleared update and holds
+back just the blocked grammars, keeping their old lock commit. The pull
+request body lists each held-back grammar's old and new refs and changed
+files under "Held back" until a hand-written Go scanner port clears it.
+
 ## Automation rule
 
 Use a manifest entry for each pinned overlay. Do not add grammar-name branches

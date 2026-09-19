@@ -2,7 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -48,6 +51,54 @@ func TestShouldCheck(t *testing.T) {
 				t.Fatalf("shouldCheck = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestWriteBlockedList verifies the guard emits exactly the blocked names,
+// one per line, in report order — this file becomes grammar_updater's
+// -exclude-list, so it must never include a name the guard cleared.
+func TestWriteBlockedList(t *testing.T) {
+	report := &guardReport{
+		Results: []guardResult{
+			{Name: "go", Blocked: false},
+			{Name: "kotlin", Blocked: true, Reasons: []string{"src/scanner.c changed"}},
+			{Name: "rust", Blocked: false},
+			{Name: "swift", Blocked: true, Reasons: []string{"external token list changed"}},
+		},
+	}
+
+	path := filepath.Join(t.TempDir(), "held_back.txt")
+	if err := writeBlockedList(path, report); err != nil {
+		t.Fatalf("writeBlockedList: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read blocked list: %v", err)
+	}
+	got := strings.Fields(string(data))
+	want := []string{"kotlin", "swift"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("blocked list = %v, want %v", got, want)
+	}
+}
+
+// TestWriteBlockedListEmpty verifies an all-clear guard run writes an empty
+// file rather than omitting it, so the workflow's exclude-list step is
+// unconditional.
+func TestWriteBlockedListEmpty(t *testing.T) {
+	report := &guardReport{Results: []guardResult{{Name: "go", Blocked: false}}}
+
+	path := filepath.Join(t.TempDir(), "held_back.txt")
+	if err := writeBlockedList(path, report); err != nil {
+		t.Fatalf("writeBlockedList: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read blocked list: %v", err)
+	}
+	if strings.TrimSpace(string(data)) != "" {
+		t.Fatalf("expected empty blocked list, got %q", string(data))
 	}
 }
 

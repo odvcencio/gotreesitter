@@ -42,6 +42,11 @@ const (
 	updateStatusAvailable updateStatus = "available"
 	updateStatusError     updateStatus = "error"
 	updateStatusSkipped   updateStatus = "skipped"
+	// updateStatusHeldBack marks a grammar whose newer commit is available
+	// and would otherwise apply, but a caller-supplied exclude-list holds it
+	// back (for example, grammar_update_guard flagged a scanner-facing
+	// change). A held-back entry keeps its old lock commit.
+	updateStatusHeldBack updateStatus = "held_back"
 )
 
 type updateResult struct {
@@ -65,6 +70,8 @@ type updateReport struct {
 	SyncManifestOnly  bool           `json:"sync_manifest_only"`
 	VerifyPins        bool           `json:"verify_pins"`
 	FilterAllowList   string         `json:"filter_allow_list,omitempty"`
+	FromPlan          string         `json:"from_plan,omitempty"`
+	ExcludeList       string         `json:"exclude_list,omitempty"`
 	MaxUpdates        int            `json:"max_updates"`
 	TotalEntries      int            `json:"total_entries"`
 	CheckedEntries    int            `json:"checked_entries"`
@@ -75,24 +82,27 @@ type updateReport struct {
 	UnchangedCount    int            `json:"unchanged_count"`
 	SkippedCount      int            `json:"skipped_count"`
 	ErrorCount        int            `json:"error_count"`
+	HeldBackCount     int            `json:"held_back_count"`
 	AddedFromManifest int            `json:"added_from_manifest"`
 	Results           []updateResult `json:"results"`
 }
 
 func main() {
 	var (
-		lockPath      = flag.String("lock", "grammars/languages.lock", "path to lock file")
-		reportPath    = flag.String("report", "", "optional output path for JSON report")
-		writeChanges  = flag.Bool("write", false, "write updated lock file commits in place")
-		maxUpdates    = flag.Int("max-updates", 0, "max number of updates to apply (0 = unlimited)")
-		workers       = flag.Int("workers", 8, "number of concurrent remote HEAD lookups")
-		failOnError   = flag.Bool("fail-on-error", true, "exit non-zero if any repo lookup fails")
-		failOnChange  = flag.Bool("fail-on-change", false, "exit non-zero when updates are available")
-		verifyPins    = flag.Bool("verify-pins", false, "validate that existing locked commits are fetchable before updating")
-		syncManifest  = flag.Bool("sync-manifest", false, "add manifest languages missing from lock")
-		syncOnly      = flag.Bool("sync-manifest-only", false, "with -sync-manifest, only check/update entries newly added from the manifest")
-		manifestPath  = flag.String("manifest", "grammars/languages.manifest", "path to manifest (used when -sync-manifest)")
-		allowListPath = flag.String("allow-list", "", "optional newline-delimited language allow-list")
+		lockPath        = flag.String("lock", "grammars/languages.lock", "path to lock file")
+		reportPath      = flag.String("report", "", "optional output path for JSON report")
+		writeChanges    = flag.Bool("write", false, "write updated lock file commits in place")
+		maxUpdates      = flag.Int("max-updates", 0, "max number of updates to apply (0 = unlimited)")
+		workers         = flag.Int("workers", 8, "number of concurrent remote HEAD lookups")
+		failOnError     = flag.Bool("fail-on-error", true, "exit non-zero if any repo lookup fails")
+		failOnChange    = flag.Bool("fail-on-change", false, "exit non-zero when updates are available")
+		verifyPins      = flag.Bool("verify-pins", false, "validate that existing locked commits are fetchable before updating")
+		syncManifest    = flag.Bool("sync-manifest", false, "add manifest languages missing from lock")
+		syncOnly        = flag.Bool("sync-manifest-only", false, "with -sync-manifest, only check/update entries newly added from the manifest")
+		manifestPath    = flag.String("manifest", "grammars/languages.manifest", "path to manifest (used when -sync-manifest)")
+		allowListPath   = flag.String("allow-list", "", "optional newline-delimited language allow-list")
+		excludeListPath = flag.String("exclude-list", "", "optional newline-delimited grammar names to hold back (keeps the old lock commit, for example names grammar_update_guard blocked)")
+		fromPlanPath    = flag.String("from-plan", "", "apply commits from a previously generated report instead of resolving remote heads again; pairs with -exclude-list to split a planned update set")
 	)
 	flag.Parse()
 
@@ -101,6 +111,9 @@ func main() {
 	}
 	if *syncOnly && strings.TrimSpace(*allowListPath) != "" {
 		exitf("-sync-manifest-only cannot be combined with -allow-list")
+	}
+	if strings.TrimSpace(*fromPlanPath) != "" && (*syncManifest || *verifyPins) {
+		exitf("-from-plan cannot be combined with -sync-manifest or -verify-pins")
 	}
 
 	lf, err := parseLockFile(*lockPath)
@@ -131,6 +144,15 @@ func main() {
 		restrictToAllowSet = true
 	}
 
+	excludeSet := map[string]struct{}{}
+	if strings.TrimSpace(*excludeListPath) != "" {
+		excludeSet, err = parseAllowList(*excludeListPath)
+		if err != nil {
+			exitf("parse exclude-list: %v", err)
+		}
+		report.ExcludeList = *excludeListPath
+	}
+
 	if *syncManifest {
 		report.ManifestPath = *manifestPath
 		addedNames, syncErr := syncMissingEntriesFromManifest(lf, *manifestPath)
@@ -147,120 +169,145 @@ func main() {
 	entries := lf.entryPointers()
 	report.TotalEntries = len(entries)
 
-	filtered := entries
-	if restrictToAllowSet {
-		filtered = make([]*lockEntry, 0, len(entries))
-		for _, entry := range entries {
-			if _, ok := allowSet[entry.Name]; ok {
-				filtered = append(filtered, entry)
+	var changedInMemory bool
+	if strings.TrimSpace(*fromPlanPath) != "" {
+		report.FromPlan = *fromPlanPath
+		planIndex, planErr := readPlanIndex(*fromPlanPath)
+		if planErr != nil {
+			exitf("%v", planErr)
+		}
+		results, counts := applyPlan(entries, planIndex, excludeSet, *maxUpdates, *writeChanges)
+		report.Results = results
+		report.CheckedEntries = counts.checked
+		report.AppliedCount = counts.applied
+		report.AvailableCount = counts.available
+		report.UnchangedCount = counts.unchanged
+		report.SkippedCount = counts.skipped
+		report.ErrorCount = counts.errored
+		report.HeldBackCount = counts.heldBack
+		changedInMemory = counts.applied > 0
+	} else {
+		filtered := entries
+		if restrictToAllowSet {
+			filtered = make([]*lockEntry, 0, len(entries))
+			for _, entry := range entries {
+				if _, ok := allowSet[entry.Name]; ok {
+					filtered = append(filtered, entry)
+				}
 			}
 		}
-	}
-	report.CheckedEntries = len(filtered)
+		report.CheckedEntries = len(filtered)
 
-	pinErrs := map[string]error{}
-	if *verifyPins {
-		pinCount := countRemotePins(filtered)
-		pinErrs = verifyRemotePins(filtered, *workers)
-		report.VerifiedPinCount = pinCount - len(pinErrs)
-		report.MissingPinCount = len(pinErrs)
-	}
+		pinErrs := map[string]error{}
+		if *verifyPins {
+			pinCount := countRemotePins(filtered)
+			pinErrs = verifyRemotePins(filtered, *workers)
+			report.VerifiedPinCount = pinCount - len(pinErrs)
+			report.MissingPinCount = len(pinErrs)
+		}
 
-	heads, headErrs := resolveRepoHeads(filtered, *workers)
-	appliedBudget := 0
-	if *maxUpdates <= 0 {
-		appliedBudget = int(^uint(0) >> 1)
-	} else {
-		appliedBudget = *maxUpdates
-	}
+		heads, headErrs := resolveRepoHeads(filtered, *workers)
+		appliedBudget := 0
+		if *maxUpdates <= 0 {
+			appliedBudget = int(^uint(0) >> 1)
+		} else {
+			appliedBudget = *maxUpdates
+		}
 
-	changedInMemory := false
-	for _, entry := range entries {
-		if restrictToAllowSet {
-			if _, ok := allowSet[entry.Name]; !ok {
+		for _, entry := range entries {
+			if restrictToAllowSet {
+				if _, ok := allowSet[entry.Name]; !ok {
+					report.Results = append(report.Results, updateResult{
+						Name:       entry.Name,
+						RepoURL:    entry.RepoURL,
+						OldRef:     entry.Commit,
+						NewRef:     "",
+						Subdir:     entry.Subdir,
+						Extensions: append([]string(nil), entry.Extensions...),
+						Status:     updateStatusSkipped,
+					})
+					report.SkippedCount++
+					continue
+				}
+			}
+
+			if pinErr, hasPinErr := pinErrs[pinKey(entry.RepoURL, entry.Commit)]; hasPinErr {
 				report.Results = append(report.Results, updateResult{
 					Name:       entry.Name,
 					RepoURL:    entry.RepoURL,
 					OldRef:     entry.Commit,
-					NewRef:     "",
 					Subdir:     entry.Subdir,
 					Extensions: append([]string(nil), entry.Extensions...),
-					Status:     updateStatusSkipped,
+					Status:     updateStatusError,
+					Error:      fmt.Sprintf("pinned commit unavailable: %v", pinErr),
 				})
-				report.SkippedCount++
+				report.ErrorCount++
 				continue
 			}
-		}
 
-		if pinErr, hasPinErr := pinErrs[pinKey(entry.RepoURL, entry.Commit)]; hasPinErr {
-			report.Results = append(report.Results, updateResult{
+			headErr, hasErr := headErrs[entry.RepoURL]
+			if hasErr {
+				report.Results = append(report.Results, updateResult{
+					Name:       entry.Name,
+					RepoURL:    entry.RepoURL,
+					OldRef:     entry.Commit,
+					Subdir:     entry.Subdir,
+					Extensions: append([]string(nil), entry.Extensions...),
+					Status:     updateStatusError,
+					Error:      headErr.Error(),
+				})
+				report.ErrorCount++
+				continue
+			}
+
+			newRef := heads[entry.RepoURL]
+			oldRef := entry.Commit
+			result := updateResult{
 				Name:       entry.Name,
 				RepoURL:    entry.RepoURL,
-				OldRef:     entry.Commit,
+				OldRef:     oldRef,
+				NewRef:     newRef,
 				Subdir:     entry.Subdir,
 				Extensions: append([]string(nil), entry.Extensions...),
-				Status:     updateStatusError,
-				Error:      fmt.Sprintf("pinned commit unavailable: %v", pinErr),
-			})
-			report.ErrorCount++
-			continue
-		}
+				Status:     updateStatusUnchanged,
+			}
 
-		headErr, hasErr := headErrs[entry.RepoURL]
-		if hasErr {
-			report.Results = append(report.Results, updateResult{
-				Name:       entry.Name,
-				RepoURL:    entry.RepoURL,
-				OldRef:     entry.Commit,
-				Subdir:     entry.Subdir,
-				Extensions: append([]string(nil), entry.Extensions...),
-				Status:     updateStatusError,
-				Error:      headErr.Error(),
-			})
-			report.ErrorCount++
-			continue
-		}
+			if newRef == "" {
+				result.Status = updateStatusError
+				result.Error = "resolved empty remote ref"
+				report.ErrorCount++
+				report.Results = append(report.Results, result)
+				continue
+			}
 
-		newRef := heads[entry.RepoURL]
-		oldRef := entry.Commit
-		result := updateResult{
-			Name:       entry.Name,
-			RepoURL:    entry.RepoURL,
-			OldRef:     oldRef,
-			NewRef:     newRef,
-			Subdir:     entry.Subdir,
-			Extensions: append([]string(nil), entry.Extensions...),
-			Status:     updateStatusUnchanged,
-		}
+			if oldRef == newRef {
+				report.UnchangedCount++
+				report.Results = append(report.Results, result)
+				continue
+			}
 
-		if newRef == "" {
-			result.Status = updateStatusError
-			result.Error = "resolved empty remote ref"
-			report.ErrorCount++
+			if _, excluded := excludeSet[entry.Name]; excluded {
+				result.Status = updateStatusHeldBack
+				report.HeldBackCount++
+				report.Results = append(report.Results, result)
+				continue
+			}
+
+			if appliedBudget <= 0 || !*writeChanges {
+				result.Status = updateStatusAvailable
+				report.AvailableCount++
+				report.Results = append(report.Results, result)
+				continue
+			}
+
+			entry.Commit = newRef
+			result.Status = updateStatusApplied
+			result.Applied = true
+			report.AppliedCount++
+			appliedBudget--
+			changedInMemory = true
 			report.Results = append(report.Results, result)
-			continue
 		}
-
-		if oldRef == newRef {
-			report.UnchangedCount++
-			report.Results = append(report.Results, result)
-			continue
-		}
-
-		if appliedBudget <= 0 || !*writeChanges {
-			result.Status = updateStatusAvailable
-			report.AvailableCount++
-			report.Results = append(report.Results, result)
-			continue
-		}
-
-		entry.Commit = newRef
-		result.Status = updateStatusApplied
-		result.Applied = true
-		report.AppliedCount++
-		appliedBudget--
-		changedInMemory = true
-		report.Results = append(report.Results, result)
 	}
 
 	if *writeChanges && changedInMemory {
@@ -274,13 +321,14 @@ func main() {
 	})
 
 	fmt.Printf(
-		"grammar_updater: checked=%d total=%d applied=%d available=%d unchanged=%d skipped=%d errors=%d added=%d\n",
+		"grammar_updater: checked=%d total=%d applied=%d available=%d unchanged=%d skipped=%d held_back=%d errors=%d added=%d\n",
 		report.CheckedEntries,
 		report.TotalEntries,
 		report.AppliedCount,
 		report.AvailableCount,
 		report.UnchangedCount,
 		report.SkippedCount,
+		report.HeldBackCount,
 		report.ErrorCount,
 		report.AddedFromManifest,
 	)
@@ -298,6 +346,124 @@ func main() {
 	if *failOnChange && (report.AvailableCount > 0 || report.AppliedCount > 0) {
 		os.Exit(1)
 	}
+}
+
+// readPlanIndex loads a previously generated update report and indexes its
+// results by grammar name. It performs no network access: applyPlan uses the
+// index to reproduce the plan's resolved refs deterministically.
+func readPlanIndex(path string) (map[string]updateResult, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read plan report: %w", err)
+	}
+	var plan updateReport
+	if err := json.Unmarshal(data, &plan); err != nil {
+		return nil, fmt.Errorf("parse plan report: %w", err)
+	}
+	idx := make(map[string]updateResult, len(plan.Results))
+	for _, result := range plan.Results {
+		idx[result.Name] = result
+	}
+	return idx, nil
+}
+
+// planCounts tallies the per-status outcomes applyPlan produces.
+type planCounts struct {
+	checked   int
+	applied   int
+	available int
+	unchanged int
+	skipped   int
+	errored   int
+	heldBack  int
+}
+
+// applyPlan reconciles the lock file against a previously resolved plan
+// report. It never contacts the network: every NewRef comes from the plan,
+// so a grammar_update_guard decision made against that same plan stays valid
+// when the caller applies it here. Names in excludeSet keep their current
+// lock commit and are reported as held_back instead of applied, even when
+// the plan found a newer ref for them.
+func applyPlan(entries []*lockEntry, planIndex map[string]updateResult, excludeSet map[string]struct{}, maxUpdates int, writeChanges bool) ([]updateResult, planCounts) {
+	appliedBudget := 0
+	if maxUpdates <= 0 {
+		appliedBudget = int(^uint(0) >> 1)
+	} else {
+		appliedBudget = maxUpdates
+	}
+
+	var counts planCounts
+	results := make([]updateResult, 0, len(entries))
+
+	for _, entry := range entries {
+		counts.checked++
+		planned, ok := planIndex[entry.Name]
+		if !ok {
+			results = append(results, updateResult{
+				Name:       entry.Name,
+				RepoURL:    entry.RepoURL,
+				OldRef:     entry.Commit,
+				Subdir:     entry.Subdir,
+				Extensions: append([]string(nil), entry.Extensions...),
+				Status:     updateStatusUnchanged,
+			})
+			counts.unchanged++
+			continue
+		}
+
+		switch planned.Status {
+		case updateStatusApplied, updateStatusAvailable:
+			result := updateResult{
+				Name:       entry.Name,
+				RepoURL:    entry.RepoURL,
+				OldRef:     entry.Commit,
+				NewRef:     planned.NewRef,
+				Subdir:     entry.Subdir,
+				Extensions: append([]string(nil), entry.Extensions...),
+			}
+
+			if _, excluded := excludeSet[entry.Name]; excluded {
+				result.Status = updateStatusHeldBack
+				counts.heldBack++
+				results = append(results, result)
+				continue
+			}
+
+			if appliedBudget <= 0 || !writeChanges {
+				result.Status = updateStatusAvailable
+				counts.available++
+				results = append(results, result)
+				continue
+			}
+
+			entry.Commit = planned.NewRef
+			result.Status = updateStatusApplied
+			result.Applied = true
+			appliedBudget--
+			counts.applied++
+			results = append(results, result)
+
+		default:
+			// Skipped, unchanged, or error entries carry over verbatim: the
+			// plan already decided nothing changes in the lock for them.
+			carried := planned
+			carried.OldRef = entry.Commit
+			carried.RepoURL = entry.RepoURL
+			carried.Subdir = entry.Subdir
+			carried.Extensions = append([]string(nil), entry.Extensions...)
+			results = append(results, carried)
+			switch planned.Status {
+			case updateStatusSkipped:
+				counts.skipped++
+			case updateStatusError:
+				counts.errored++
+			default:
+				counts.unchanged++
+			}
+		}
+	}
+
+	return results, counts
 }
 
 func parseAllowList(path string) (map[string]struct{}, error) {
