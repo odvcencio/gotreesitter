@@ -38,7 +38,7 @@ func TestRawParseEligibleForFreshRetryLadder(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tree := &Tree{parseRuntime: ParseRuntime{StopReason: test.reason}}
+			tree := &Tree{parseRuntime: &ParseRuntime{StopReason: test.reason}}
 			if got := tree.rawParseEligibleForFreshRetryLadder(); got != test.want {
 				t.Fatalf("rawParseEligibleForFreshRetryLadder(%s) = %t, want %t", test.reason, got, test.want)
 			}

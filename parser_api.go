@@ -655,7 +655,7 @@ func markStoppedEarlyTreeHasError(tree *Tree) {
 	if tree == nil {
 		return
 	}
-	markTruncatedTreeHasError(tree.parseRuntime, rawRootOrNil(tree))
+	markTruncatedTreeHasError(*tree.rawParseRuntime(), rawRootOrNil(tree))
 }
 
 func extendRootToAcceptedCleanTail(root *Node, source []byte, expectedEOFByte uint32, included []Range, continuationEscape byte) bool {
