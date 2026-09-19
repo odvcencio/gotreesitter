@@ -73,10 +73,11 @@ type sourceFileResult struct {
 
 func main() {
 	var (
-		updatesPath   = flag.String("updates", "grammars/grammar_updates.json", "grammar_updater JSON report path")
-		reportPath    = flag.String("report", "", "optional output path for scanner guard JSON report")
-		failOnBlocked = flag.Bool("fail-on-blocked", true, "exit non-zero when scanner-facing changes are detected")
-		keepWork      = flag.Bool("keep-work", false, "keep temporary fetched repos for debugging")
+		updatesPath     = flag.String("updates", "grammars/grammar_updates.json", "grammar_updater JSON report path")
+		reportPath      = flag.String("report", "", "optional output path for scanner guard JSON report")
+		blockedListPath = flag.String("blocked-list", "", "optional output path for a newline-delimited list of blocked grammar names, for use as grammar_updater's -exclude-list")
+		failOnBlocked   = flag.Bool("fail-on-blocked", true, "exit non-zero when scanner-facing changes are detected")
+		keepWork        = flag.Bool("keep-work", false, "keep temporary fetched repos for debugging")
 	)
 	flag.Parse()
 
@@ -93,6 +94,11 @@ func main() {
 			exitf("write report: %v", err)
 		}
 	}
+	if *blockedListPath != "" {
+		if err := writeBlockedList(*blockedListPath, report); err != nil {
+			exitf("write blocked list: %v", err)
+		}
+	}
 
 	fmt.Printf("grammar_update_guard: checked=%d blocked=%d\n", report.CheckedCount, report.BlockedCount)
 	for _, result := range report.Results {
@@ -103,6 +109,22 @@ func main() {
 	if *failOnBlocked && report.BlockedCount > 0 {
 		os.Exit(1)
 	}
+}
+
+// writeBlockedList emits a newline-delimited list of blocked grammar names.
+// The workflow feeds this file straight to grammar_updater's -exclude-list so
+// the apply step holds back exactly the grammars the guard flagged, while
+// every other cleared update still lands.
+func writeBlockedList(path string, report *guardReport) error {
+	var b strings.Builder
+	for _, result := range report.Results {
+		if !result.Blocked {
+			continue
+		}
+		b.WriteString(result.Name)
+		b.WriteByte('\n')
+	}
+	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
 func run(updatesPath string, keepWork bool) (*guardReport, error) {
