@@ -23,18 +23,18 @@ func applyOffsetWithReader[N comparable, C any, R queryNodeReader[N, C]](pred Qu
 			continue
 		}
 
-		var startByte, endByte uint32
+		// The new range comes from the adjusted points, so only the points
+		// of the current range are needed here.
 		var startPoint, endPoint Point
-		if sb, eb, sp, ep, ok := reader.CaptureRangeOverride(captures[i]); ok {
-			startByte, endByte, startPoint, endPoint = sb, eb, sp, ep
+		if _, _, sp, ep, ok := reader.CaptureRangeOverride(captures[i]); ok {
+			startPoint, endPoint = sp, ep
 		} else {
 			node := reader.CaptureNode(captures[i])
 			if reader.IsNil(node) {
 				continue
 			}
-			startByte, endByte = reader.StartByte(node), reader.EndByte(node)
-			startPoint = pointForByte(source, startByte)
-			endPoint = pointForByte(source, endByte)
+			startPoint = pointForByte(source, reader.StartByte(node))
+			endPoint = pointForByte(source, reader.EndByte(node))
 		}
 
 		newStartPoint := Point{
