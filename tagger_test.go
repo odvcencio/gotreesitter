@@ -203,6 +203,38 @@ func TestTaggerTagTree(t *testing.T) {
 	}
 }
 
+// TestExtractTagUsesOffsetAdjustedNameRange proves extractTag reads the
+// capture range accessors, so a query with a #offset! directive reports the
+// adjusted range in Tag.NameRange and Tag.Name, not the @name node's own
+// unmodified range.
+func TestExtractTagUsesOffsetAdjustedNameRange(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	tagger, err := NewTagger(lang, `
+((function_declaration name: (identifier) @name) @definition.function
+  (#offset! @name 0 1 0 -1))
+`)
+	if err != nil {
+		t.Fatalf("NewTagger error: %v", err)
+	}
+
+	tags := tagger.TagTree(tree)
+	if len(tags) != 1 {
+		t.Fatalf("tags: got %d, want 1: %+v", len(tags), tags)
+	}
+	tag := tags[0]
+
+	// The identifier node itself still spans bytes [5,9) ("main"); #offset!
+	// shrinks the reported name range to bytes [6,8) ("ai").
+	if tag.NameRange.StartByte != 6 || tag.NameRange.EndByte != 8 {
+		t.Fatalf("NameRange: got [%d,%d), want [6,8)", tag.NameRange.StartByte, tag.NameRange.EndByte)
+	}
+	if tag.Name != "ai" {
+		t.Fatalf("Name: got %q, want %q", tag.Name, "ai")
+	}
+}
+
 func TestTaggerIncremental(t *testing.T) {
 	lang := queryTestLanguage()
 	tagger, err := NewTagger(lang, `(function_declaration) @definition.function`)

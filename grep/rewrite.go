@@ -96,8 +96,7 @@ func Replace(lang *gotreesitter.Language, pattern string, replacement string, so
 			if c.Node == nil {
 				continue
 			}
-			sb := c.Node.StartByte()
-			eb := c.Node.EndByte()
+			sb, eb := c.ByteRange()
 
 			if first {
 				spanStart = sb

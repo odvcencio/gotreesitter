@@ -452,6 +452,38 @@ func TestOutlineKindTableFreezeCatchesALanguageNameRow(t *testing.T) {
 	}
 }
 
+// TestOutlineCollectCandidatesUsesOffsetAdjustedRanges proves
+// collectOutlineCandidates reads the capture range accessors, so a query with
+// a #offset! directive reports the adjusted range in the candidate's
+// nameRange, not the "@name" node's own unmodified range.
+func TestOutlineCollectCandidatesUsesOffsetAdjustedRanges(t *testing.T) {
+	lang := queryTestLanguage()
+	tree := buildSimpleTree(lang)
+
+	outliner, err := NewOutliner(lang, `
+((function_declaration name: (identifier) @name) @definition.function
+  (#offset! @name 0 1 0 -1))
+`)
+	if err != nil {
+		t.Fatalf("NewOutliner error: %v", err)
+	}
+
+	symbols, report := outliner.OutlineTree(tree)
+	if len(symbols) != 1 {
+		t.Fatalf("symbols: got %d, want 1: %+v (report=%+v)", len(symbols), symbols, report)
+	}
+	symbol := symbols[0]
+
+	// The identifier node itself still spans bytes [5,9) ("main"); #offset!
+	// shrinks the reported name range to bytes [6,8) ("ai").
+	if symbol.NameRange.StartByte != 6 || symbol.NameRange.EndByte != 8 {
+		t.Fatalf("NameRange: got [%d,%d), want [6,8)", symbol.NameRange.StartByte, symbol.NameRange.EndByte)
+	}
+	if symbol.Name != "ai" {
+		t.Fatalf("Name: got %q, want %q", symbol.Name, "ai")
+	}
+}
+
 func TestOutlineOwnerRuleValidationFailsClosed(t *testing.T) {
 	cases := []struct {
 		name  string

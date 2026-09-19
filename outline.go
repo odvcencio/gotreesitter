@@ -367,6 +367,7 @@ func (o *Outliner) collectOutlineCandidates(root *Node, source []byte, report *O
 		var (
 			defCapture string
 			defNode    *Node
+			defRange   Range
 			defCount   int
 			hasName    bool
 			nameText   string
@@ -380,10 +381,11 @@ func (o *Outliner) collectOutlineCandidates(root *Node, source []byte, report *O
 			case capture.Name == outlineNameCapture:
 				hasName = true
 				nameText = capture.Text(source)
-				nameSpan = capture.Node.Range()
+				nameSpan = capture.Range()
 			case isOutlineDefinitionCapture(capture.Name):
 				defCapture = capture.Name
 				defNode = capture.Node
+				defRange = capture.Range()
 				defCount++
 			}
 		}
@@ -400,7 +402,7 @@ func (o *Outliner) collectOutlineCandidates(root *Node, source []byte, report *O
 			order:    order,
 			kind:     normalizeOutlineKind(defCapture, nodeType),
 			nodeType: nodeType,
-			rng:      defNode.Range(),
+			rng:      defRange,
 			node:     defNode,
 		}
 		if hasName {

@@ -118,6 +118,43 @@ func TestExecuteQueryJSONHandlesEmptyRoot(t *testing.T) {
 	}
 }
 
+// TestExecuteQueryJSONReportsOffsetAdjustedRange proves executeQueryJSON
+// reads the capture range accessors, so a query with a #offset! directive
+// reports the adjusted range in Start/End, not the captured node's own
+// unmodified range.
+func TestExecuteQueryJSONReportsOffsetAdjustedRange(t *testing.T) {
+	source := "package p\n\nfunc main() {}\n"
+	tree, lang := parseTestTree(t, source)
+
+	query, err := gotreesitter.NewQuery(`
+((function_declaration name: (identifier) @id)
+  (#offset! @id 0 1 0 -1))
+`, lang)
+	if err != nil {
+		t.Fatalf("compile query: %v", err)
+	}
+
+	matches, truncated := executeQueryJSON(query, tree, lang, maxQueryMatches)
+	if truncated {
+		t.Fatal("query unexpectedly reported truncation")
+	}
+	if len(matches) != 1 || len(matches[0].Captures) != 1 {
+		t.Fatalf("matches: got %+v, want exactly one match with one capture", matches)
+	}
+	capture := matches[0].Captures[0]
+
+	// The identifier node itself still spans "main" (4 bytes); #offset!
+	// shrinks the reported range by one byte at each end, to "ai".
+	nameStart := uint32(strings.Index(source, "main"))
+	wantStart, wantEnd := nameStart+1, nameStart+uint32(len("main"))-1
+	if capture.Start != wantStart || capture.End != wantEnd {
+		t.Fatalf("Start/End: got [%d,%d), want [%d,%d)", capture.Start, capture.End, wantStart, wantEnd)
+	}
+	if got, want := capture.Text, "ai"; got != want {
+		t.Fatalf("Text: got %q, want %q", got, want)
+	}
+}
+
 func goIdentifiersSource(variableCount int) string {
 	var source strings.Builder
 	source.WriteString("package p\n\nvar (\n")
